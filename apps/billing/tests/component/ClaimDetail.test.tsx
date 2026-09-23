@@ -153,6 +153,9 @@ const makeClaim = (arStage: string): ClaimDetailResponse => ({
   admissionSource: '',
   admissionDate: '',
   dischargeDate: '',
+  accidentType: [],
+  accidentState: '',
+  accidentDate: '',
   attachments: [],
 });
 

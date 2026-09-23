@@ -172,6 +172,98 @@ describe('update-billing-claim validateRequestParameters', () => {
       })
     ).toThrow(/admission date is required/i);
   });
+
+  it('rejects an unknown accident type', () => {
+    expect(() =>
+      validateRequestParameters({
+        headers: null,
+        body: body({
+          accidentType: ['trapeze'],
+        }),
+        secrets: {},
+      })
+    ).toThrow(/accidentType/i);
+  });
+
+  it('rejects an accident without date', () => {
+    expect(() =>
+      validateRequestParameters({
+        headers: null,
+        body: body({
+          accidentType: ['other'],
+        }),
+        secrets: {},
+      })
+    ).toThrow(/accident date/i);
+  });
+
+  it('rejects an auto accident without state', () => {
+    expect(() =>
+      validateRequestParameters({
+        headers: null,
+        body: body({
+          accidentType: ['auto'],
+          accidentDate: '2026-01-01',
+        }),
+        secrets: {},
+      })
+    ).toThrow(/accident state/i);
+  });
+
+  it('accepts accident info with multiple types', () => {
+    const result = validateRequestParameters({
+      headers: null,
+      body: body({
+        accidentType: ['employment', 'other'],
+        accidentDate: '2026-01-01',
+      }),
+      secrets: {},
+    });
+    expect(result).toMatchObject({
+      fields: {
+        accidentType: ['employment', 'other'],
+        accidentDate: '2026-01-01',
+      },
+    });
+  });
+
+  it('accepts auto accident info', () => {
+    const result = validateRequestParameters({
+      headers: null,
+      body: body({
+        accidentType: ['auto'],
+        accidentState: 'KS',
+        accidentDate: '2026-01-01',
+      }),
+      secrets: {},
+    });
+    expect(result).toMatchObject({
+      fields: {
+        accidentType: ['auto'],
+        accidentState: 'KS',
+        accidentDate: '2026-01-01',
+      },
+    });
+  });
+
+  it('accepts unsetting accident info', () => {
+    const result = validateRequestParameters({
+      headers: null,
+      body: body({
+        accidentType: [],
+        accidentState: '',
+        accidentDate: '',
+      }),
+      secrets: {},
+    });
+    expect(result).toMatchObject({
+      fields: {
+        accidentType: [],
+        accidentState: '',
+        accidentDate: '',
+      },
+    });
+  });
 });
 
 describe('update-billing-claim performEffect', () => {

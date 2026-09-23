@@ -2,7 +2,11 @@ import { z } from 'zod';
 import { SUBSCRIBER_RELATIONSHIPS } from '../../../fhir/constants';
 import { INSURANCE_CANDID_PLAN_TYPE_CODES } from '../../../fhir/insurance';
 import { isCLIAValid, isNPIValidWithChecksum } from '../../../helpers/helpers';
-import { CMS_PLACE_OF_SERVICE_CODE_SET, CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES } from '../../../helpers/rcm/constants';
+import {
+  CLAIM_ACCIDENT_TYPES,
+  CMS_PLACE_OF_SERVICE_CODE_SET,
+  CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES,
+} from '../../../helpers/rcm/constants';
 import { fullZipRegex, stripeAccountIdRegex, taxIdRegex, zipRegex } from '../../../validation/regex';
 import { STATE_CODES } from '../../common';
 import { BILLING_MANUAL_PAYMENT_METHODS, BILLING_TASK_STATUSES, REFRESH_REPORT_KINDS } from './billing.constants';
@@ -584,32 +588,50 @@ const updateBillingResourceUnion = z.discriminatedUnion('resourceType', [
     resourceType: z.literal('Claim'),
     resourceId: nonEmptyString,
     claimId: nonEmptyString.uuid(),
-    fields: z.object({
-      type: z.enum(CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES).optional(),
-      service: nonEmptyString.optional(),
-      // Claim-level date of service; written to every service line by update-billing-claim.
-      serviceDate: nonEmptyString.optional(),
-      billingProvider: claimProviderRefSchema.optional(),
-      renderingProvider: claimProviderRefSchema.optional(),
-      facilityId: nonEmptyString.optional(),
-      coverageId: nonEmptyString.optional(),
-      coverageType: z.enum(['primary', 'secondary', 'tertiary', 'quaternary']).optional(),
-      removeCoverage: nonEmptyString.optional(),
-      payerId: nonEmptyString.optional(),
-      planType: z
-        .string()
-        .refine((code) => INSURANCE_CANDID_PLAN_TYPE_CODES.includes(code), 'Invalid plan type')
-        .optional(),
-      nonInsurancePayer: z.object({ id: nonEmptyString.uuid() }).nullable().optional(),
-      diagnoses: z.array(claimDiagnosisSchema).optional(),
-      serviceLines: z.array(claimServiceLineSchema).optional(),
-      billType: nonEmptyString.min(4).max(4).optional().or(z.literal('')),
-      patientDischargeStatusCode: nonEmptyString.max(2).optional().or(z.literal('')),
-      admissionType: nonEmptyString.max(1).optional().or(z.literal('')),
-      admissionSource: nonEmptyString.max(1).optional().or(z.literal('')),
-      admissionDate: nonEmptyString.optional().or(z.literal('')),
-      dischargeDate: nonEmptyString.optional().or(z.literal('')),
-    }),
+    fields: z
+      .object({
+        type: z.enum(CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES).optional(),
+        service: nonEmptyString.optional(),
+        // Claim-level date of service; written to every service line by update-billing-claim.
+        serviceDate: nonEmptyString.optional(),
+        billingProvider: claimProviderRefSchema.optional(),
+        renderingProvider: claimProviderRefSchema.optional(),
+        facilityId: nonEmptyString.optional(),
+        coverageId: nonEmptyString.optional(),
+        coverageType: z.enum(['primary', 'secondary', 'tertiary', 'quaternary']).optional(),
+        removeCoverage: nonEmptyString.optional(),
+        payerId: nonEmptyString.optional(),
+        planType: z
+          .string()
+          .refine((code) => INSURANCE_CANDID_PLAN_TYPE_CODES.includes(code), 'Invalid plan type')
+          .optional(),
+        nonInsurancePayer: z.object({ id: nonEmptyString.uuid() }).nullable().optional(),
+        diagnoses: z.array(claimDiagnosisSchema).optional(),
+        serviceLines: z.array(claimServiceLineSchema).optional(),
+        billType: nonEmptyString.min(4).max(4).optional().or(z.literal('')),
+        patientDischargeStatusCode: nonEmptyString.max(2).optional().or(z.literal('')),
+        admissionType: nonEmptyString.max(1).optional().or(z.literal('')),
+        admissionSource: nonEmptyString.max(1).optional().or(z.literal('')),
+        admissionDate: nonEmptyString.optional().or(z.literal('')),
+        dischargeDate: nonEmptyString.optional().or(z.literal('')),
+        accidentType: z.array(z.enum([...CLAIM_ACCIDENT_TYPES] as [string, ...string[]])).optional(),
+        accidentState: nonEmptyString.optional().or(z.literal('')),
+        accidentDate: nonEmptyString.optional().or(z.literal('')),
+      })
+      .superRefine((data, ctx) => {
+        if (data.accidentType?.includes('auto') && !data.accidentState) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'Accident state is required for auto accidents',
+          });
+        }
+        if (data.accidentType?.length && !data.accidentDate) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'Accident date is required',
+          });
+        }
+      }),
   }),
 ]);
 
