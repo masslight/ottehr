@@ -62,6 +62,12 @@ const coverage: Coverage = {
       reference: 'Organization/o',
     },
   ],
+  extension: [
+    {
+      url: 'https://extensions.fhir.oystehr.com/rcm-claim-insurance-type',
+      valueString: 'WC',
+    },
+  ],
 };
 
 const body = (fields: Record<string, unknown>): string =>
@@ -79,6 +85,9 @@ const writtenResources = (transaction: ReturnType<typeof vi.fn>): FhirResource[]
     .flatMap((call): BatchInputRequest<FhirResource>[] => call[0].requests)
     .filter((r) => r.method === 'PUT')
     .map((r) => (r as { resource: FhirResource }).resource);
+
+const createdResources = (create: ReturnType<typeof vi.fn>): FhirResource[] =>
+  create.mock.calls.flatMap((call): FhirResource => call[0]);
 
 describe('update-billing-claim validateRequestParameters', () => {
   it('accepts a valid candid plan type', () => {
@@ -170,6 +179,7 @@ describe('update-billing-claim performEffect', () => {
     claimOverride: Claim = claim
   ): {
     oystehr: Oystehr;
+    create: ReturnType<typeof vi.fn>;
     search: ReturnType<typeof vi.fn>;
     transaction: ReturnType<typeof vi.fn>;
   } => {
@@ -178,6 +188,7 @@ describe('update-billing-claim performEffect', () => {
       if (resourceType === 'Coverage') return Promise.resolve({ unbundle: () => [structuredClone(coverage)] });
       return Promise.resolve({ unbundle: () => [] });
     });
+    const create = vi.fn().mockImplementation((res) => res);
     const transaction = vi.fn().mockResolvedValue({ entry: [] });
     const getPayer = vi.fn().mockResolvedValue({
       resourceType: 'Organization',
@@ -186,7 +197,8 @@ describe('update-billing-claim performEffect', () => {
       identifier: [{ system: 'https://identifiers.fhir.oystehr.com/rcm-payer-id', value: 'PAYER1' }],
     });
     return {
-      oystehr: { fhir: { search, transaction }, rcm: { getPayer } } as unknown as Oystehr,
+      oystehr: { fhir: { create, search, transaction }, rcm: { getPayer } } as unknown as Oystehr,
+      create,
       search,
       transaction,
     };
@@ -235,6 +247,35 @@ describe('update-billing-claim performEffect', () => {
     const written = writtenResources(transaction);
     expect(written.some((r) => r.resourceType === 'Claim')).toBe(true);
     expect(written.some((r) => r.resourceType === 'Coverage')).toBe(false);
+  });
+
+  it('does not remove coverage insurance type extension', async () => {
+    const { oystehr, create, transaction } = makeOystehr();
+
+    await performEffect(
+      oystehr,
+      {
+        resourceType: 'Claim',
+        resourceId: CLAIM_ID,
+        claimId: CLAIM_ID,
+        fields: {
+          coverageId: '123456',
+        },
+        secrets: {},
+      },
+      agent
+    );
+
+    const written = writtenResources(transaction);
+    expect(written.some((r) => r.resourceType === 'Claim')).toBe(true);
+    expect(written.some((r) => r.resourceType === 'Coverage')).toBe(false);
+    const created = createdResources(create);
+    expect(created.some((r) => r.resourceType === 'Coverage')).toBe(true);
+    const createdCoverage = created.find((r): r is Coverage => r.resourceType === 'Coverage');
+    expect(
+      createdCoverage?.extension?.find((e) => e.url === 'https://extensions.fhir.oystehr.com/rcm-claim-insurance-type')
+        ?.valueString
+    ).toBe('WC');
   });
 
   it('writes the admission/discharge period to Claim.billablePeriod', async () => {

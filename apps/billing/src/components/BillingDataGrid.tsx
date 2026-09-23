@@ -1,8 +1,20 @@
-import { FileDownloadOutlined as FileDownloadOutlinedIcon } from '@mui/icons-material';
+import { FileDownloadOutlined as FileDownloadOutlinedIcon, NorthEast as DrilldownIcon } from '@mui/icons-material';
 import { Box, Button, CircularProgress, Typography } from '@mui/material';
-import { DataGridProProps, GridPagination, GridToolbarExport } from '@mui/x-data-grid-pro';
+import { DataGridProProps, GridColDef, GridPagination, GridToolbarExport } from '@mui/x-data-grid-pro';
 import { ReactElement } from 'react';
 import { otherColors } from '../themes/ottehr/colors';
+
+// trailing column marking rows that open a drilldown — same arrow language as CardActionHint
+export const drilldownIndicatorColumn: GridColDef = {
+  field: 'drilldownIndicator',
+  headerName: '',
+  width: 44,
+  sortable: false,
+  filterable: false,
+  disableColumnMenu: true,
+  align: 'center',
+  renderCell: () => <DrilldownIcon className="row-drilldown-hint" sx={{ fontSize: 15, color: 'text.disabled' }} />,
+};
 
 export const dataGridSx = {
   bgcolor: 'background.paper',
@@ -20,7 +32,11 @@ export const dataGridSx = {
     color: 'text.primary',
   },
   '& .MuiDataGrid-row': { cursor: 'pointer' },
-  '& .MuiDataGrid-row:hover': { bgcolor: otherColors.apptHover },
+  // .Mui-hovered covers pinned-column row segments, which don't share the :hover of the main section
+  '& .MuiDataGrid-row:hover, & .MuiDataGrid-row.Mui-hovered': { bgcolor: otherColors.apptHover },
+  '& .MuiDataGrid-row:hover .row-drilldown-hint, & .MuiDataGrid-row.Mui-hovered .row-drilldown-hint': {
+    color: 'primary.main',
+  },
 } as const;
 
 function NoRowsOverlay(): ReactElement {
