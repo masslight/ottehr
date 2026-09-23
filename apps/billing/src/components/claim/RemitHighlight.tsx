@@ -11,9 +11,11 @@ import {
   useState,
 } from 'react';
 
-// The remit line whose hover card is open, and so the Remits and Insurance Payments rows to light up.
+// The CARC label whose hover card is open, and so the Remits and Insurance Payments rows to light up.
 export interface RemitHighlight {
   key: string;
+  // the remit line the card describes
+  lineKey: string;
   claimResponseId: string;
   paymentReconciliationId: string;
 }
@@ -40,18 +42,18 @@ export function useRemitHighlight(): RemitHighlight | null {
   return useContext(RemitHighlightContext).highlight;
 }
 
-// Drives one remit line's hover card. It only ever clears its own highlight, so a late close from the
-// line the pointer just left can't wipe out the one it entered; unmounting (collapse, edit mode, tab
+// Drives one CARC label's hover card. It only ever clears its own highlight, so a late close from the
+// label the pointer just left can't wipe out the one it entered; unmounting (collapse, edit mode, tab
 // switch) clears it too.
-export function useRemitHighlightTarget({ key, claimResponseId, paymentReconciliationId }: RemitHighlight): {
+export function useRemitHighlightTarget({ key, lineKey, claimResponseId, paymentReconciliationId }: RemitHighlight): {
   open: boolean;
   onOpen: () => void;
   onClose: () => void;
 } {
   const { highlight, setHighlight } = useContext(RemitHighlightContext);
   const onOpen = useCallback(
-    () => setHighlight({ key, claimResponseId, paymentReconciliationId }),
-    [setHighlight, key, claimResponseId, paymentReconciliationId]
+    () => setHighlight({ key, lineKey, claimResponseId, paymentReconciliationId }),
+    [setHighlight, key, lineKey, claimResponseId, paymentReconciliationId]
   );
   const onClose = useCallback(
     () => setHighlight((current) => (current?.key === key ? null : current)),

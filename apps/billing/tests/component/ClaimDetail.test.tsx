@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ReactNode } from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
@@ -574,15 +574,29 @@ describe('ClaimDetail — service line remit details', () => {
     expect(cellTexts(within(otherLines).getByText('OA-23').closest('tr'))[4]).toBe('$2.00');
   });
 
-  it('shows a remit line card on hover and highlights its remit and check', async () => {
+  it('shows a remit line card on hovering a CARC label and highlights its remit and check', async () => {
     const user = userEvent.setup();
     getBillingClaimDetailMock.mockResolvedValue(claimWithRemits());
     renderDetail();
     await openRemitsTab();
 
     const line1 = await screen.findByRole('table', { name: 'Remit details for line 1' });
-    const payerRow = within(line1).getByText('Employers Mutual');
-    await user.hover(payerRow);
+    const remitRow = within(screen.getByRole('table', { name: 'Remits' }))
+      .getByRole('link', { name: 'CHK00012347' })
+      .closest('tr');
+    const payments = screen.getByRole('table', { name: 'Insurance payments' });
+    const checkRow = within(payments).getByRole('link', { name: 'CHK00012347' }).closest('tr');
+    const otherCheckRow = within(payments).getByRole('link', { name: 'CHK00012345' }).closest('tr');
+
+    // the rest of the remit's rows don't open the card, even past its enter delay
+    await user.hover(within(line1).getByText('Employers Mutual'));
+    await act(() => new Promise((resolve) => setTimeout(resolve, 300)));
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
+    expect(remitRow).not.toHaveClass('Mui-selected');
+    expect(checkRow).not.toHaveClass('Mui-selected');
+
+    const co45 = within(line1).getByText('CO-45');
+    await user.hover(co45);
 
     const card = await screen.findByRole('tooltip');
     expect(within(card).getByText('Employers Mutual')).toBeInTheDocument();
@@ -595,18 +609,22 @@ describe('ClaimDetail — service line remit details', () => {
     expect(within(card).getByText('CHK00012347')).toBeInTheDocument();
     expect(within(card).getByText('08/22/2026')).toBeInTheDocument();
     expect(within(card).getByText('Adjudicated as A7020')).toBeInTheDocument();
-
-    const remitRow = within(screen.getByRole('table', { name: 'Remits' }))
-      .getByRole('link', { name: 'CHK00012347' })
-      .closest('tr');
-    const payments = screen.getByRole('table', { name: 'Insurance payments' });
-    const checkRow = within(payments).getByRole('link', { name: 'CHK00012347' }).closest('tr');
-    const otherCheckRow = within(payments).getByRole('link', { name: 'CHK00012345' }).closest('tr');
     expect(remitRow).toHaveClass('Mui-selected');
     expect(checkRow).toHaveClass('Mui-selected');
     expect(otherCheckRow).not.toHaveClass('Mui-selected');
 
-    await user.unhover(payerRow);
+    // moving to the line's other CARC label keeps its card and highlight up
+    const pr3 = within(line1).getByText('PR-3');
+    await user.hover(pr3);
+    // the previous label's card finishes closing while this one opens
+    await waitFor(() => {
+      expect(screen.getAllByRole('tooltip')).toHaveLength(1);
+      expect(remitRow).toHaveClass('Mui-selected');
+    });
+    expect(within(screen.getByRole('tooltip')).getByText('Co-payment amount.')).toBeInTheDocument();
+    expect(checkRow).toHaveClass('Mui-selected');
+
+    await user.unhover(pr3);
 
     await waitFor(() => expect(screen.queryByRole('tooltip')).not.toBeInTheDocument());
     expect(remitRow).not.toHaveClass('Mui-selected');
