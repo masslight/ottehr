@@ -51,10 +51,11 @@ export interface PerformMergeInput {
 }
 
 /**
- * Every chart resource of an encounter that a merge has to re-point at the surviving patient: the encounter
- * itself, the patient-level history (conditions, allergies, procedures, medication statements,
- * hospitalizations, birth history, provider notes) and everything documented on the visit (observations,
- * communications, documents, service requests, prescriptions, the medical decision).
+ * Every chart resource of an encounter that a merge has to re-point at the surviving patient: the
+ * patient-level history (conditions, allergies, procedures, medication statements, hospitalizations, birth
+ * history, provider notes) and everything documented on the visit (observations, communications, documents,
+ * service requests, prescriptions, the medical decision). The Encounter itself is not in this list: the
+ * merge re-points it in its own request, and a FHIR transaction refuses two updates of one resource.
  */
 const chartResourceSearches = (encounterId: string): BatchInputGetRequest[] => [
   patientScopedSearch('AllergyIntolerance', encounterId),
@@ -75,13 +76,13 @@ const chartResourceSearches = (encounterId: string): BatchInputGetRequest[] => [
 ];
 
 async function collectEncounterChartResources(oystehr: Oystehr, encounterId: string): Promise<FhirResource[]> {
-  const { encounter, byOwner } = await fetchChartResources(
+  const { byOwner } = await fetchChartResources(
     oystehr,
     encounterId,
     chartResourceSearches(encounterId).map((request) => ({ owner: 'chart' as const, request })),
     ['chart']
   );
-  return [encounter, ...byOwner.chart];
+  return byOwner.chart;
 }
 
 function patchPatientRef(resource: Resource, oldPatientId: string, newPatientRef: string): string[] {
