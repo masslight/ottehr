@@ -72,8 +72,6 @@ export const readExtensionJson = <T>(docRef: DocumentReference, url: string): T 
     captureException(error, { extra: { extensionUrl: url, documentReferenceId: docRef.id } })
   );
 
-export { withExtensionJson } from 'utils/lib/fhir/extensions';
-
 export const isFillable = (docRef: DocumentReference): boolean =>
   (docRef.category ?? []).some((c) =>
     (c.coding ?? []).some(

@@ -26,8 +26,6 @@ import {
 } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { FormFillContext } from './form-fill-context';
 
-export type { FormFillContext };
-
 /**
  * Resolves one token against a real encounter.
  *

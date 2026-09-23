@@ -136,8 +136,14 @@ Both apps are Vite + React + TypeScript + MUI. State management uses Zustand sto
 
 ### Shared Packages
 
-- `utils` is imported by both frontend apps and zambdas. It exports FHIR helpers, types, secrets utilities, and constants from `packages/utils/lib/main.ts`.
+- `utils` is imported by both frontend apps and zambdas: FHIR helpers, types, secrets utilities, and constants under `packages/utils/lib/`.
 - `ui-components` is imported by EHR and intake for shared MUI-based components.
+
+### Imports: no barrel files
+
+Import every symbol from the module that declares it, never through a file that re-exports (`export * from`, `export { x } from`). The workspace packages have no entry module, so `utils`, `ui-components`, `test-utils` and `config-types` are always imported by subpath, e.g. `import { APIErrorCode } from 'utils/lib/types/errors'`. Barrels make vitest load whole packages into every test file and are how most import cycles formed.
+
+ESLint rejects re-exports; `npm run lint:barrels` is the full check (it also catches `import { x } from './x'; export { x }`), and `npx tsx scripts/debarrel.ts --apply` rewrites importers mechanically. When mocking in tests, `vi.mock` the declaring module too — a mock of any other path intercepts nothing. The one exception is `apps/*/src/themes/`: a theme's index modules are its contract, swapped via `THEME_PATH`.
 
 ### IaC & Config
 

@@ -668,6 +668,4 @@ export const useDeleteChartData = (): UseMutationResult<
   });
 };
 
-export { useChartData } from '../../hooks/useChartData';
-
 export const TELEMED_APPOINTMENT_QUERY_KEY = 'telemed-appointment';

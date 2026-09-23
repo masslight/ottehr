@@ -49,7 +49,7 @@ Key config exports:
 Simple utility for injecting test configs before page navigation:
 
 ```typescript
-import { CONFIG_INJECTION_KEYS } from 'utils';
+import { CONFIG_INJECTION_KEYS } from 'utils/lib/config-helpers/helpers';
 
 // Inject booking config (questionnaire selection is handled via Slot extension)
 injectTestConfig(page, CONFIG_INJECTION_KEYS.BOOKING, config)
@@ -301,7 +301,7 @@ if (shouldExtendWithModification(scenario, scenarios)) {
 
 ### 1. Config Injection via Window Globals
 ```typescript
-import { CONFIG_INJECTION_KEYS } from 'utils';
+import { CONFIG_INJECTION_KEYS } from 'utils/lib/config-helpers/helpers';
 import { injectTestConfig } from '../config/injectTestConfig';
 
 // Inject booking config before navigation - app reads on load

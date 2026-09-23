@@ -20,18 +20,6 @@ import { Questionnaire, QuestionnaireItem } from 'fhir/r4b';
 import z from 'zod';
 import { OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS } from '../fhir/constants';
 
-// Re-export value set constants for backwards compatibility — canonical source is ottehr-config/value-sets
-export {
-  ALLERGIES_YES_OPTION,
-  DOES_NOT_HAVE_ATTORNEY_OPTION,
-  HAS_ATTORNEY_OPTION,
-  INSURANCE_PAY_OPTION,
-  OCC_MED_EMPLOYER_PAY_OPTION,
-  OCC_MED_SELF_PAY_OPTION,
-  SELF_PAY_OPTION,
-  SURGICAL_HISTORY_YES_OPTION,
-} from '../ottehr-config/value-sets';
-
 const createDataTypeExtension = (dataType: string): NonNullable<QuestionnaireItem['extension']>[number] => ({
   url: 'https://fhir.zapehr.com/r4/StructureDefinitions/data-type',
   valueString: dataType,

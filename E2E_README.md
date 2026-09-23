@@ -448,7 +448,7 @@ The intake app's e2e tests use this pattern extensively. For detailed documentat
 
 **1. Test injects config overrides before navigation:**
 ```typescript
-import { CONFIG_INJECTION_KEYS } from 'utils';
+import { CONFIG_INJECTION_KEYS } from 'utils/lib/config-helpers/helpers';
 import { injectTestConfig } from '../config/injectTestConfig';
 
 // Inject booking config overrides

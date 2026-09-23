@@ -4,8 +4,6 @@
   "type": "module",
   "version": "1.43.18",
   "description": "Core type definitions for Ottehr configuration contracts",
-  "main": "index.ts",
-  "types": "index.ts",
   "engines": {
     "node": ">=22.0.0",
     "npm": ">=10.0.0"

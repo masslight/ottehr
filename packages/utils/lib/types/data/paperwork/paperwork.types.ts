@@ -73,14 +73,6 @@ export enum QuestionnaireItemGroupType {
   PharmacyCollection = 'pharmacy-collection',
 }
 
-// Re-export FHIR types from config-types for backwards compatibility
-export { FhirResourceTypeSchema, AnswerOptionSourceSchema } from 'config-types';
-export type { FhirResourceType, AnswerOptionSource, AnswerLoadingOptions } from 'config-types';
-
-// Re-export harvest config from config-types
-export { pageHarvestStrategy } from 'config-types';
-export type { HarvestStrategy } from 'config-types';
-
 export type InputWidthOption = 's' | 'm' | 'l' | 'max';
 export interface QuestionnaireItemExtension {
   acceptsMultipleAnswers: boolean;

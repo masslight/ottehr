@@ -1,4 +1,3 @@
-import { resolve } from 'path';
 import { defineConfig } from 'vitest/config';
 
 // https://vitejs.dev/config/
@@ -9,14 +8,5 @@ export default defineConfig({
   plugins: [],
   resolve: {
     preserveSymlinks: true,
-  },
-  build: {
-    lib: {
-      entry: resolve(__dirname, 'lib/main.ts'),
-      formats: ['es'],
-    },
-    rollupOptions: {
-      external: [/^node:/, /^@playwright/, 'playwright', 'fs', 'path', 'crypto', 'util', 'child_process'],
-    },
   },
 });

@@ -3,15 +3,13 @@
   "type": "module",
   "private": true,
   "version": "1.43.18",
-  "main": "lib/main.ts",
-  "types": "lib/main.ts",
   "engines": {
     "node": ">=22.13.0",
     "npm": ">=10.0.0"
   },
   "scripts": {
     "start": "vite",
-    "build": "tsc && vite build",
+    "build": "tsc",
     "lint": "NODE_OPTIONS='--max-old-space-size=8192' eslint --ext .ts,.tsx,.js,.jsx --report-unused-disable-directives --max-warnings 0 .",
     "lint:fix": "NODE_OPTIONS='--max-old-space-size=8192' eslint --ext .ts,.tsx,.js,.jsx --report-unused-disable-directives --max-warnings 0 --fix .",
     "preview": "vite preview",

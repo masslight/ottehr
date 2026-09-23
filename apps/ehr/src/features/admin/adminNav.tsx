@@ -312,7 +312,6 @@ export const allAdminNavItems: AdminNavItem[] = adminNavGroups.flatMap((group) =
 export const DEFAULT_ADMIN_PATH = allAdminNavItems[0].path;
 
 /** Roles with access to every admin page unless an item supplies a narrower explicit policy. */
-export { ADMIN_TIER_ROLES };
 
 /** Nav groups the given user may see, dropping groups left with no accessible items. */
 export function resolveAccessibleAdminNavGroups(hasRole: (roles: RoleType[]) => boolean): AdminNavGroup[] {

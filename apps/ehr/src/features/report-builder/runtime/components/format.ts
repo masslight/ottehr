@@ -4,8 +4,6 @@
 // type-only deep import ⇒ nothing is added to the iframe bundle.
 import type { ValueFormat } from 'utils/lib/types/adhoc/generation/runtime-scope.catalog';
 
-export type { ValueFormat };
-
 export function cellText(value: unknown): string {
   if (value == null) return '';
   if (Array.isArray(value)) {

@@ -44,8 +44,6 @@ export const ArrowIcon = ({
   );
 };
 
-export { sidebarMenuIcons };
-
 const drawerWidth = 244;
 
 const DrawerHeader = styled('div')(({ theme }) => ({

@@ -122,7 +122,6 @@ import {
   GetPatientNotesCountOutput,
   GetPatientNotesInput,
   GetPatientNotesOutput,
-  PatientNoteDTO,
   SavePatientNoteOutput,
   UpdatePatientNoteInput,
 } from 'utils/lib/types/api/patient-notes/patient-notes.types';
@@ -3901,4 +3900,3 @@ export const deletePatientNote = async (oystehr: Oystehr, parameters: DeletePati
 };
 
 // Re-export for convenience in callers that import from this module
-export type { PatientNoteDTO };
