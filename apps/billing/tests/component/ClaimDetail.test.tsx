@@ -587,7 +587,7 @@ describe('ClaimDetail — service line remit details', () => {
     expect(screen.getByRole('table', { name: 'Remit details for line 2' })).toBeInTheDocument();
   });
 
-  it('keeps claim-level adjustments in their own group', async () => {
+  it('shows remit lines that are not on the claim as service lines built from the ERA', async () => {
     getBillingClaimDetailMock.mockResolvedValue(
       claimWithRemits({
         remits: [
@@ -599,7 +599,19 @@ describe('ClaimDetail — service line remit details', () => {
                 itemSequence: null,
                 claimItemSequence: null,
                 isClaimLevel: true,
+                serviceDate: '',
+                units: null,
                 adjustments: [{ groupCode: 'OA', reasonCode: '23', amount: 2 }],
+              }),
+              // the payer adjudicated a code we didn't bill
+              makeRemitLine({
+                itemSequence: 3,
+                claimItemSequence: null,
+                cptCode: '99214',
+                billed: 150,
+                allowed: 90,
+                paid: 90,
+                adjustments: [{ groupCode: 'CO', reasonCode: '45', amount: 60 }],
               }),
             ],
           },
@@ -609,9 +621,25 @@ describe('ClaimDetail — service line remit details', () => {
     renderDetail();
     await openRemitsTab();
 
-    const otherLines = await screen.findByRole('table', { name: 'Claim-level and unmatched remit lines' });
-    expect(within(otherLines).queryByText('Charge')).not.toBeInTheDocument();
-    expect(cellTexts(within(otherLines).getByText('OA-23').closest('tr'))[4]).toBe('$2.00');
+    expect(await screen.findByText('Claim-level & unmatched remit lines')).toBeInTheDocument();
+
+    const codedRow = screen
+      .getByRole('button', { name: 'Toggle remit details for 99214 (not on claim)' })
+      .closest('tr');
+    expect(cellTexts(codedRow)).toEqual(['', 'ERA', '2026-08-14', '99214', '-', '-', '-', '1 UN', '$150.00']);
+    const codedLedger = screen.getByRole('table', { name: 'Remit details for 99214 (not on claim)' });
+    expect(within(codedLedger).queryByText('Charge')).not.toBeInTheDocument();
+    expect(cellTexts(within(codedLedger).getByText('CO-45').closest('tr'))[4]).toBe('$60.00');
+
+    const claimLevelRow = screen
+      .getByRole('button', { name: 'Toggle remit details for claim-level adjustments' })
+      .closest('tr') as HTMLElement;
+    expect(cellTexts(claimLevelRow)).toEqual(['', 'ERA', '-', 'Claim-level', '-', '-', '-', '-', '-']);
+    const claimLevelLedger = screen.getByRole('table', { name: 'Remit details for claim-level adjustments' });
+    expect(cellTexts(within(claimLevelLedger).getByText('OA-23').closest('tr'))[4]).toBe('$2.00');
+
+    // the claim-level adjustments come after the lines the payer adjudicated
+    expect(codedRow?.compareDocumentPosition(claimLevelRow) ?? 0).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
   });
 
   it('highlights a remit line with its remit and check on hover, and opens its card only from a CARC label', async () => {

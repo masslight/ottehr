@@ -26,10 +26,12 @@ import { otherColors } from '../../themes/ottehr/colors';
 import {
   adjustmentColumn,
   groupRemitLines,
+  groupUnmatchedRemitLines,
   insurancePaidByDesignation,
   ledgerAmounts,
   LedgerColumn,
   RemitLineEntry,
+  UnmatchedRemitLine,
 } from '../../utils/claimRemits';
 import { formatDate } from '../../utils/format';
 import { AdjustmentChip, AmountChip, EraStatusChip } from '../EraChips';
@@ -75,6 +77,7 @@ export function ServiceLinesTable({ claim }: { claim: ClaimDetailResponse }): Re
       ),
     [claim.remits, claim.serviceLines]
   );
+  const unmatched = useMemo(() => groupUnmatchedRemitLines(other), [other]);
   const institutional = claim.type === 'institutional';
   const columnCount = (institutional ? 9 : 8) + (hasRemits ? 1 : 0);
   // the charge is dated by when it was first sent to the payer
@@ -94,6 +97,38 @@ export function ServiceLinesTable({ claim }: { claim: ClaimDetailResponse }): Re
       {institutional && <TableCell>{line.revenueCode || '-'}</TableCell>}
       <TableCell>{line.units} UN</TableCell>
       <TableCell align="right">{formatCurrency(line.charges)}</TableCell>
+    </>
+  );
+
+  // A service line as the ERA reports it: the payer's procedure code, units, and charge; what only the
+  // claim knows (modifiers, diagnoses, place of service) stays blank.
+  const unmatchedLineCells = (eraLine: UnmatchedRemitLine): ReactElement => (
+    <>
+      <TableCell>
+        <Tooltip title="Adjudicated on the ERA, but not a line on this claim">
+          <Box component="span" sx={{ display: 'inline-flex' }}>
+            <AmountChip label="ERA" color="default" />
+          </Box>
+        </Tooltip>
+      </TableCell>
+      <TableCell>{eraLine.serviceDate || '-'}</TableCell>
+      <TableCell>
+        {eraLine.isClaimLevel ? (
+          <Box component="span" sx={{ fontStyle: 'italic' }}>
+            Claim-level
+          </Box>
+        ) : (
+          <Box component="span" sx={{ fontWeight: 600, color: 'text.primary' }}>
+            {eraLine.cptCode || '-'}
+          </Box>
+        )}
+      </TableCell>
+      <TableCell>-</TableCell>
+      <TableCell>-</TableCell>
+      <TableCell>-</TableCell>
+      {institutional && <TableCell>-</TableCell>}
+      <TableCell>{eraLine.units === null ? '-' : `${eraLine.units} UN`}</TableCell>
+      <TableCell align="right">{eraLine.billed === null ? '-' : formatCurrency(eraLine.billed)}</TableCell>
     </>
   );
 
@@ -137,19 +172,36 @@ export function ServiceLinesTable({ claim }: { claim: ClaimDetailResponse }): Re
               <TableRow key={line.sequence}>{lineCells(line)}</TableRow>
             )
           )}
-          {hasRemits && other.length > 0 && (
-            <ExpandableLedgerRows
-              toggleLabel="Toggle claim-level and unmatched remit lines"
-              columnCount={columnCount}
-              summary={
-                <TableCell colSpan={columnCount - 1}>
-                  <Typography variant="body2" sx={{ fontStyle: 'italic', color: 'text.secondary' }}>
-                    Claim-level &amp; unmatched remit lines
-                  </Typography>
+          {hasRemits && unmatched.length > 0 && (
+            <>
+              <TableRow>
+                <TableCell colSpan={columnCount} sx={{ pt: 2, pb: 0.5 }}>
+                  <Stack direction="row" spacing={1.5} alignItems="baseline">
+                    <Typography variant="body2" sx={{ fontStyle: 'italic', color: 'text.secondary' }}>
+                      Claim-level &amp; unmatched remit lines
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      On the ERA, but not matched to a line on this claim
+                    </Typography>
+                  </Stack>
                 </TableCell>
-              }
-              ledger={<RemitLedger label="Claim-level and unmatched remit lines" entries={other} />}
-            />
+              </TableRow>
+              {unmatched.map((eraLine) => {
+                const name = eraLine.isClaimLevel
+                  ? 'claim-level adjustments'
+                  : `${eraLine.cptCode || 'an unknown code'} (not on claim)`;
+                return (
+                  <ExpandableLedgerRows
+                    key={eraLine.key}
+                    toggleLabel={`Toggle remit details for ${name}`}
+                    columnCount={columnCount}
+                    muted
+                    summary={unmatchedLineCells(eraLine)}
+                    ledger={<RemitLedger label={`Remit details for ${name}`} entries={eraLine.entries} />}
+                  />
+                );
+              })}
+            </>
           )}
         </TableBody>
       </Table>
@@ -160,18 +212,21 @@ export function ServiceLinesTable({ claim }: { claim: ClaimDetailResponse }): Re
 function ExpandableLedgerRows({
   toggleLabel,
   columnCount,
+  muted = false,
   summary,
   ledger,
 }: {
   toggleLabel: string;
   columnCount: number;
+  // a line that isn't really on the claim, set back from the claim's own lines
+  muted?: boolean;
   summary: ReactNode;
   ledger: ReactNode;
 }): ReactElement {
   const [expanded, setExpanded] = useState(true);
   return (
     <>
-      <TableRow sx={{ '& > td': { borderBottom: 'none' } }}>
+      <TableRow sx={{ '& > td': { borderBottom: 'none', ...(muted ? { color: 'text.secondary' } : {}) } }}>
         <TableCell sx={{ width: 40, py: 0.5 }}>
           <IconButton
             size="small"

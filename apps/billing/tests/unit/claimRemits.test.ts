@@ -6,9 +6,11 @@ import {
   aggregateAdjustments,
   eraHref,
   groupRemitLines,
+  groupUnmatchedRemitLines,
   insurancePaidByDesignation,
   ledgerAmounts,
   remitDesignation,
+  RemitLineEntry,
 } from '../../src/utils/claimRemits';
 
 const adjustment = (
@@ -150,6 +152,58 @@ describe('groupRemitLines', () => {
 
     const keys = byClaimLine.get(1)?.map((entry) => entry.key) ?? [];
     expect(new Set(keys).size).toBe(2);
+  });
+});
+
+describe('groupUnmatchedRemitLines', () => {
+  const entry = (claimResponseId: string, line: EraRemitServiceLine, lineIndex = 0): RemitLineEntry => ({
+    key: `${claimResponseId}:${lineIndex}`,
+    remit: remit({ claimResponseId }),
+    line,
+  });
+
+  it('makes one line per adjudicated code across remits, with the claim-level adjustments last', () => {
+    const claimLevel = entry(
+      'cr-1',
+      serviceLine({
+        isClaimLevel: true,
+        claimItemSequence: null,
+        cptCode: '',
+        units: null,
+        billed: null,
+        serviceDate: '',
+      }),
+      2
+    );
+    const original = entry('cr-1', serviceLine({ claimItemSequence: null, cptCode: '99214', units: 1, billed: 150 }));
+    const otherCode = entry('cr-1', serviceLine({ claimItemSequence: null, cptCode: '81002', billed: 20 }), 1);
+    const reversal = entry(
+      'cr-2',
+      serviceLine({ claimItemSequence: null, cptCode: '99214', units: null, billed: -150 })
+    );
+
+    const lines = groupUnmatchedRemitLines([claimLevel, original, otherCode, reversal]);
+
+    expect(lines.map((line) => line.key)).toEqual(['code:99214', 'code:81002', 'claim-level']);
+    expect(lines[0]).toMatchObject({
+      isClaimLevel: false,
+      cptCode: '99214',
+      serviceDate: '2026-07-01',
+      units: 1,
+      billed: 150,
+    });
+    expect(lines[0].entries).toEqual([original, reversal]);
+    expect(lines[2]).toMatchObject({ isClaimLevel: true, cptCode: '', serviceDate: '', units: null, billed: null });
+    expect(lines[2].entries).toEqual([claimLevel]);
+  });
+
+  it('shows the charge as billed even when a reversal of it comes first', () => {
+    const [line] = groupUnmatchedRemitLines([
+      entry('cr-1', serviceLine({ claimItemSequence: null, cptCode: '99214', billed: -150 })),
+      entry('cr-2', serviceLine({ claimItemSequence: null, cptCode: '99214', billed: 150 })),
+    ]);
+
+    expect(line.billed).toBe(150);
   });
 });
 

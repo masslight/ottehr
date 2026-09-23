@@ -85,6 +85,48 @@ export function groupRemitLines(remits: ClaimRemit[], claimLineSequences: number
   return { byClaimLine, other };
 }
 
+// Remit lines that aren't on the claim, shown as a service line built from what the ERA reports.
+export interface UnmatchedRemitLine {
+  key: string;
+  // the claim-level CAS adjustments, which belong to no service line
+  isClaimLevel: boolean;
+  // the procedure code the payer adjudicated ('' when it reported none)
+  cptCode: string;
+  serviceDate: string;
+  units: number | null;
+  // the charge the payer reported for the line
+  billed: number | null;
+  entries: RemitLineEntry[];
+}
+
+// The `other` remit lines as the service lines the ledger shows them under: one per procedure code
+// the payer adjudicated, merged across remits (so a reversal sits with the line it reverses) in the
+// order they first appear, then one for the claim-level adjustments.
+export function groupUnmatchedRemitLines(entries: RemitLineEntry[]): UnmatchedRemitLine[] {
+  const byKey = new Map<string, RemitLineEntry[]>();
+  for (const entry of entries) {
+    const key = entry.line.isClaimLevel ? 'claim-level' : `code:${entry.line.cptCode}`;
+    byKey.set(key, [...(byKey.get(key) ?? []), entry]);
+  }
+  const lines = [...byKey.entries()].map(([key, grouped]): UnmatchedRemitLine => {
+    const reported = grouped.map((entry) => entry.line);
+    return {
+      key,
+      isClaimLevel: key === 'claim-level',
+      cptCode: reported[0].cptCode,
+      serviceDate: reported.find((line) => line.serviceDate)?.serviceDate ?? '',
+      units: reported.find((line) => line.units !== null)?.units ?? null,
+      // a reversal reports the charge negated, so prefer the charge as billed
+      billed:
+        reported.find((line) => line.billed !== null && line.billed > 0)?.billed ??
+        reported.find((line) => line.billed !== null)?.billed ??
+        null,
+      entries: grouped,
+    };
+  });
+  return [...lines.filter((line) => !line.isClaimLevel), ...lines.filter((line) => line.isClaimLevel)];
+}
+
 // A remit's adjustments summed per group and reason code, in first-seen order.
 export function aggregateAdjustments(adjustments: ClaimRemitAdjustment[]): ClaimRemitAdjustment[] {
   const byCode = new Map<string, ClaimRemitAdjustment>();
