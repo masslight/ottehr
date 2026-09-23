@@ -53,7 +53,7 @@ export async function assembleProgressNoteInput(
   ]);
 
   const immunizationOrders = (await getImmunizationOrders(oystehr, { encounterIds: [encounterId] })).orders;
-  // The composers read the two get-chart-data shapes; the adapter presents the note as both.
+  // The composers read the two whole-chart shapes; the adapter presents the note as both.
   const { chartData, additionalChartData } = visitNoteToLegacyChartData(visitNote, {
     module: isInPersonAppointment ? 'in-person' : 'telemed',
   });
