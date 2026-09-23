@@ -11,6 +11,7 @@ import {
   extractRemitAdjustments,
   extractReportedCharge,
   fetchClaimFirstSubmittedDate,
+  fetchClaimResponsesByClaimIds,
   fetchPatientPaidByClaimId,
   fetchPatientPaymentsByEncounterIds,
   firstSubmittedDate,
@@ -1108,5 +1109,53 @@ describe('fetchClaimFirstSubmittedDate', () => {
         { name: 'outcome', value: 'queued' },
       ])
     );
+  });
+});
+
+describe('fetchClaimResponsesByClaimIds', () => {
+  it('keeps queued ERA remits but drops submission and 277 claim-status responses', async () => {
+    const onClaim = (claimId: string, id: string, cr: ClaimResponse): ClaimResponse => ({
+      ...cr,
+      id,
+      request: { reference: `Claim/${claimId}` },
+    });
+    const responses: ClaimResponse[] = [
+      onClaim('claim-1', 'remit', claimResponse('2026-07-10', { totalPaid: 50 })),
+      // a manually matched ERA keeps the outcome Oystehr gave it while unmatched
+      onClaim('claim-1', 'queued-era', {
+        ...claimResponse('2026-07-11', {}),
+        outcome: 'queued',
+        extension: [{ url: ERA_STATUS_CODE_EXTENSION, valueString: '4' }],
+      }),
+      onClaim('claim-1', 'submission', { ...claimResponse('2026-07-01', {}), outcome: 'queued' }),
+      onClaim('claim-1', 'status-response', {
+        ...claimResponse('2026-07-02', {}),
+        outcome: 'queued',
+        identifier: [{ system: CLAIM_STATUS_RESPONSE_EVENT_SYSTEM, value: 'acct:event-1' }],
+      }),
+      onClaim('claim-2', 'other-submission', { ...claimResponse('2026-07-01', {}), outcome: 'queued' }),
+    ];
+    const search = vi.fn().mockResolvedValue({
+      unbundle: () => responses,
+      link: [],
+    });
+    const oystehr = {
+      fhir: {
+        search,
+      },
+    } as unknown as Oystehr;
+
+    const result = await fetchClaimResponsesByClaimIds(oystehr, ['claim-1', 'claim-2']);
+
+    expect(result.get('claim-1')?.map((cr) => cr.id)).toEqual(['remit', 'queued-era']);
+    expect(result.has('claim-2')).toBe(false);
+    const params = search.mock.calls[0][0].params;
+    expect(params).toEqual(
+      expect.arrayContaining([
+        { name: 'request', value: 'Claim/claim-1,Claim/claim-2' },
+        { name: 'outcome:not', value: 'error' },
+      ])
+    );
+    expect(params).not.toContainEqual({ name: 'outcome:not', value: 'queued' });
   });
 });

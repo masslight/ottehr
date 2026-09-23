@@ -263,6 +263,7 @@ async function fetchResourcesGrouped<T extends FhirResource>({
   ids,
   buildParam,
   groupKeyOf,
+  keep,
   batchSize = BATCH,
 }: {
   oystehr: Oystehr;
@@ -270,6 +271,7 @@ async function fetchResourcesGrouped<T extends FhirResource>({
   ids: string[];
   buildParam: (batch: string[]) => SearchParam[];
   groupKeyOf: (resource: T) => string | undefined;
+  keep?: (resource: T) => boolean;
   batchSize?: number;
 }): Promise<Map<string, T[]>> {
   const grouped = new Map<string, T[]>();
@@ -292,6 +294,7 @@ async function fetchResourcesGrouped<T extends FhirResource>({
         ],
       });
       for (const resource of bundle.unbundle()) {
+        if (keep && !keep(resource)) continue;
         const key = groupKeyOf(resource);
         if (!key) continue;
         const list = grouped.get(key) ?? [];
@@ -302,6 +305,11 @@ async function fetchResourcesGrouped<T extends FhirResource>({
     }, PAGE_SIZE);
   }
   return grouped;
+}
+
+// The CLP02 claim status Oystehr stamps on each ERA remit, which matching leaves in place
+function hasEraStatusCode(claimResponse: ClaimResponse): boolean {
+  return !!claimResponse.extension?.some((extension) => extension.url === ERA_STATUS_CODE_EXTENSION);
 }
 
 // Fetch every matched ClaimResponse for the given claims, grouped by claim id. Unmatched ERA
@@ -320,17 +328,15 @@ export async function fetchClaimResponsesByClaimIds(
         name: 'request',
         value: batch.map((id) => `Claim/${id}`).join(','),
       },
-      // Filter out queued and error CRs, which come from claim submission
-      {
-        name: 'outcome:not',
-        value: 'queued',
-      },
+      // Filter out error CRs, which come from claim submission
       {
         name: 'outcome:not',
         value: 'error',
       },
     ],
     groupKeyOf: (claimResponse) => claimResponse.request?.reference?.replace('Claim/', ''),
+    // Queued CRs come from claim submission too, but an ERA can also be queued
+    keep: (claimResponse) => claimResponse.outcome !== 'queued' || hasEraStatusCode(claimResponse),
   });
 }
 
@@ -538,7 +544,7 @@ function isClaimSubmissionResponse(claimResponse: ClaimResponse): boolean {
   if (claimResponse.identifier?.some((identifier) => identifier.system === CLAIM_STATUS_RESPONSE_EVENT_SYSTEM)) {
     return false;
   }
-  if (claimResponse.extension?.some((extension) => extension.url === ERA_STATUS_CODE_EXTENSION)) return false;
+  if (hasEraStatusCode(claimResponse)) return false;
   return allAdjudications(claimResponse).length === 0;
 }
 
