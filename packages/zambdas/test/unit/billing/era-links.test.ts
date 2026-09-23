@@ -165,10 +165,10 @@ describe('fetchClaimEraLinks', () => {
       PaymentReconciliation: [pr],
     });
 
-    const { paymentReconciliations, claimResponseByPrId } = await fetchClaimEraLinks(oystehr, [cr1]);
+    const { paymentReconciliations, prIdByClaimResponseId } = await fetchClaimEraLinks(oystehr, [cr1]);
 
     expect(paymentReconciliations).toEqual([pr]);
-    expect(claimResponseByPrId.get('pr1')).toBe(cr1);
+    expect(prIdByClaimResponseId.get('cr1')).toBe('pr1');
     expect(searchParamFor(search, 'Provenance', 'target')).toBe('ClaimResponse/cr1');
     expect(searchParamFor(search, 'PaymentReconciliation', '_id')).toBe('pr1');
     // one Provenance search (by CR ref) + one PaymentReconciliation search, no ClaimResponse re-fetch
@@ -178,7 +178,8 @@ describe('fetchClaimEraLinks', () => {
     );
   });
 
-  it('dedupes the PR when several ClaimResponses share one ERA Provenance', async () => {
+  it('dedupes the PR and maps every ClaimResponse when several share one ERA Provenance', async () => {
+    // e.g. a reversal and its correction arriving on the same ERA
     const prov = provenance('prov1', ['PaymentReconciliation/pr1', 'ClaimResponse/cr1', 'ClaimResponse/cr2']);
     const pr = paymentReconciliation('pr1');
     const { oystehr } = makeOystehr({
@@ -186,18 +187,47 @@ describe('fetchClaimEraLinks', () => {
       PaymentReconciliation: [pr],
     });
 
-    const { paymentReconciliations } = await fetchClaimEraLinks(oystehr, [claimResponse('cr1'), claimResponse('cr2')]);
+    const { paymentReconciliations, prIdByClaimResponseId } = await fetchClaimEraLinks(oystehr, [
+      claimResponse('cr1'),
+      claimResponse('cr2'),
+    ]);
 
     expect(paymentReconciliations).toEqual([pr]);
+    expect(prIdByClaimResponseId).toEqual(
+      new Map([
+        ['cr1', 'pr1'],
+        ['cr2', 'pr1'],
+      ])
+    );
+  });
+
+  it('maps ClaimResponses on different ERAs to their own PR, skipping ones it was not asked about', async () => {
+    const provenances = [
+      provenance('prov1', ['PaymentReconciliation/pr1', 'ClaimResponse/cr1', 'ClaimResponse/other-claim-cr']),
+      provenance('prov2', ['PaymentReconciliation/pr2', 'ClaimResponse/cr2']),
+    ];
+    const { oystehr } = makeOystehr({
+      Provenance: provenances,
+      PaymentReconciliation: [paymentReconciliation('pr1'), paymentReconciliation('pr2')],
+    });
+
+    const { prIdByClaimResponseId } = await fetchClaimEraLinks(oystehr, [claimResponse('cr1'), claimResponse('cr2')]);
+
+    expect(prIdByClaimResponseId).toEqual(
+      new Map([
+        ['cr1', 'pr1'],
+        ['cr2', 'pr2'],
+      ])
+    );
   });
 
   it('returns nothing when no era-processing Provenance is found', async () => {
     const { oystehr, search } = makeOystehr({ Provenance: [] });
 
-    const { paymentReconciliations, claimResponseByPrId } = await fetchClaimEraLinks(oystehr, [claimResponse('cr1')]);
+    const { paymentReconciliations, prIdByClaimResponseId } = await fetchClaimEraLinks(oystehr, [claimResponse('cr1')]);
 
     expect(paymentReconciliations).toEqual([]);
-    expect(claimResponseByPrId.size).toBe(0);
+    expect(prIdByClaimResponseId.size).toBe(0);
     // no PR ids to resolve, so only the Provenance search runs
     expect(search).toHaveBeenCalledTimes(1);
   });

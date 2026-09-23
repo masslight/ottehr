@@ -21,6 +21,7 @@ import {
   extractClaimResponseAmounts,
   extractRemitAdjustments,
   fetchClaimEraLinks,
+  fetchClaimFirstSubmittedDate,
   fetchClaimResponsesByClaimIds,
   fetchPatientPaymentsByEncounterIds,
   sortClaimResponsesByRecency,
@@ -28,6 +29,7 @@ import {
   sumPatientPayments,
   toClaimPatientPayment,
 } from '../claim-amounts';
+import { buildEraRemitServiceLines } from '../era-remits';
 import { getCLIA } from '../service-facility.helpers';
 import {
   CLAIM_ATTACHMENT_REPORT_TYPE_CODE_SYSTEM,
@@ -97,16 +99,19 @@ export async function performEffect(
   const encounterId =
     claim.identifier?.find((i) => i.system === ottehrIdentifierSystem('claim-encounter-id'))?.value ?? '';
 
-  // Other claims via Person lookup, this claim's ERA adjudications, and its patient payments
-  const [otherClaims, claimResponsesByClaimId, paymentsByEncounter] = await Promise.all([
+  // Other claims via Person lookup, this claim's ERA adjudications and first submission, and its
+  // patient payments
+  const [otherClaims, claimResponsesByClaimId, firstSubmittedDate, paymentsByEncounter] = await Promise.all([
     fetchOtherClaims(oystehr, patient?.id, claimId),
     fetchClaimResponsesByClaimIds(eraReadClient, [claimId]),
+    fetchClaimFirstSubmittedDate(eraReadClient, claimId),
     encounterId
       ? fetchPatientPaymentsByEncounterIds(oystehr, [encounterId])
       : Promise.resolve(new Map<string, PaymentNotice[]>()),
   ]);
   const claimResponses = sortClaimResponsesByRecency(claimResponsesByClaimId.get(claimId) ?? []);
-  const { paymentReconciliations, claimResponseByPrId } = await fetchClaimEraLinks(eraReadClient, claimResponses);
+  const { paymentReconciliations, prIdByClaimResponseId } = await fetchClaimEraLinks(eraReadClient, claimResponses);
+  const paymentReconciliationById = new Map(paymentReconciliations.map((pr) => [pr.id ?? '', pr]));
 
   const patientPaymentNotices = paymentsByEncounter.get(encounterId) ?? [];
   const patientPaid = sumPatientPayments(patientPaymentNotices);
@@ -139,6 +144,7 @@ export async function performEffect(
   const remits = [...claimResponses].reverse().map((cr) => {
     const amounts = extractClaimResponseAmounts(cr);
     const payer = cr.insurer?.reference ? payersByRef.get(cr.insurer.reference) : undefined;
+    const era = paymentReconciliationById.get(prIdByClaimResponseId.get(cr.id ?? '') ?? '');
     return {
       claimResponseId: cr.id ?? '',
       date: cr.created ?? '',
@@ -151,6 +157,10 @@ export async function performEffect(
       paid: amounts.paid,
       patientResp: amounts.patientResp ?? null,
       adjustments: extractRemitAdjustments(cr),
+      paymentReconciliationId: era?.id ?? '',
+      checkNumber: era ? getEraCheckNumber(era) ?? '' : '',
+      checkDate: era?.paymentDate ?? '',
+      serviceLines: buildEraRemitServiceLines(cr, claim),
     };
   });
   const paymentMillis = (pr: PaymentReconciliation): number =>
@@ -160,13 +170,14 @@ export async function performEffect(
     .map((pr) => {
       // process-era PaymentReconciliations carry no paymentIssuer; fall back to the payer on one
       // of this ERA's ClaimResponses
-      const linkedCr = claimResponseByPrId.get(pr.id ?? '');
+      const linkedCr = claimResponses.find((cr) => prIdByClaimResponseId.get(cr.id ?? '') === pr.id);
       const payerRef = pr.paymentIssuer?.reference ?? linkedCr?.insurer?.reference;
       const payer = payerRef ? payersByRef.get(payerRef) : undefined;
       return {
         paymentReconciliationId: pr.id ?? '',
         checkNumber: getEraCheckNumber(pr) ?? '',
-        paymentDate: pr.paymentDate ?? pr.created ?? '',
+        remitDate: pr.created ?? '',
+        checkDate: pr.paymentDate ?? '',
         paymentAmount: pr.paymentAmount?.value ?? 0,
         payerName: payer?.name ?? pr.paymentIssuer?.display ?? '',
         status: pr.outcome ?? pr.status ?? '',
@@ -285,6 +296,7 @@ export async function performEffect(
     patientPaid: payments.patientPaid,
     balance: payments.balance,
     adjudicated: payments.adjudicated,
+    firstSubmittedDate,
     remits,
     insurancePayments,
     patientPayments,

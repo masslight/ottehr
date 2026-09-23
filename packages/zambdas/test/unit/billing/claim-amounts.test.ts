@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { Claim, ClaimResponse, ClaimResponseItemAdjudication, PaymentNotice } from 'fhir/r4b';
-import { PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import { CLAIM_STATUS_RESPONSE_EVENT_SYSTEM, PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { describe, expect, it, Mock, vi } from 'vitest';
 import {
@@ -10,8 +10,10 @@ import {
   extractClaimResponseAmounts,
   extractRemitAdjustments,
   extractReportedCharge,
+  fetchClaimFirstSubmittedDate,
   fetchPatientPaidByClaimId,
   fetchPatientPaymentsByEncounterIds,
+  firstSubmittedDate,
   isMatchedToClaim,
   OYSTEHR_ADJUDICATION_SYSTEM,
   sortClaimResponsesByRecency,
@@ -21,6 +23,7 @@ import {
   toClaimPatientPayment,
   X12_ADJUSTMENT_GROUP_SYSTEM,
 } from '../../../src/billing/claim-amounts';
+import { ERA_STATUS_CODE_EXTENSION } from '../../../src/billing/shared';
 
 const adjudication = (
   code: string,
@@ -1035,5 +1038,75 @@ describe('sortClaimResponsesByRecency', () => {
     const input = [a, b];
     sortClaimResponsesByRecency(input);
     expect(input).toEqual([a, b]);
+  });
+});
+
+describe('firstSubmittedDate', () => {
+  // the ClaimResponse Oystehr records when it sends the claim to the payer
+  const submission = (created: string, overrides: Partial<ClaimResponse> = {}): ClaimResponse => ({
+    ...claimResponse(created, {}),
+    outcome: 'queued',
+    ...overrides,
+  });
+
+  it('is the earliest submission, comparing instants rather than strings', () => {
+    const resubmitted = submission('2026-07-04T09:00:00Z');
+    // 2026-07-03T00:00:00Z: sorts first as a string, but is the later instant
+    const offsetLater = submission('2026-07-02T20:00:00-04:00');
+    const first = submission('2026-07-02T23:00:00Z');
+
+    expect(firstSubmittedDate([resubmitted, offsetLater, first])).toBe('2026-07-02T23:00:00Z');
+  });
+
+  it('ignores 277 claim-status responses, ERA remits, and other outcomes', () => {
+    const statusResponse = submission('2026-07-01T00:00:00Z', {
+      identifier: [{ system: CLAIM_STATUS_RESPONSE_EVENT_SYSTEM, value: 'acct:event-1' }],
+    });
+    const eraStamped = submission('2026-07-01T01:00:00Z', {
+      extension: [{ url: ERA_STATUS_CODE_EXTENSION, valueString: '1' }],
+    });
+    const adjudicated = {
+      ...claimResponse('2026-07-01T02:00:00Z', { itemAdjudications: [[adjudication(ADJUDICATION_CODES.PAID, 10)]] }),
+      outcome: 'queued' as const,
+    };
+    const rejected = submission('2026-07-01T03:00:00Z', { outcome: 'error' });
+    const sent = submission('2026-07-05T12:00:00Z');
+
+    expect(firstSubmittedDate([statusResponse, eraStamped, adjudicated, rejected, sent])).toBe('2026-07-05T12:00:00Z');
+  });
+
+  it("is '' when the claim was never submitted", () => {
+    expect(firstSubmittedDate([])).toBe('');
+    expect(firstSubmittedDate([claimResponse('2026-07-01', {})])).toBe('');
+  });
+});
+
+describe('fetchClaimFirstSubmittedDate', () => {
+  it("searches the claim's queued ClaimResponses and returns the first submission", async () => {
+    const responses: ClaimResponse[] = [
+      { ...claimResponse('2026-07-04T00:00:00Z', {}), outcome: 'queued', request: { reference: 'Claim/claim-1' } },
+      { ...claimResponse('2026-07-02T00:00:00Z', {}), outcome: 'queued', request: { reference: 'Claim/claim-1' } },
+    ];
+    const search = vi.fn().mockResolvedValue({
+      unbundle: () => responses,
+      link: [],
+    });
+    const oystehr = {
+      fhir: {
+        search,
+      },
+    } as unknown as Oystehr;
+
+    const result = await fetchClaimFirstSubmittedDate(oystehr, 'claim-1');
+
+    expect(result).toBe('2026-07-02T00:00:00Z');
+    expect(search).toHaveBeenCalledTimes(1);
+    expect(search.mock.calls[0][0].resourceType).toBe('ClaimResponse');
+    expect(search.mock.calls[0][0].params).toEqual(
+      expect.arrayContaining([
+        { name: 'request', value: 'Claim/claim-1' },
+        { name: 'outcome', value: 'queued' },
+      ])
+    );
   });
 });

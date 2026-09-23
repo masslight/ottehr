@@ -2,7 +2,12 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import userEvent from '@testing-library/user-event';
 import { ReactNode } from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { ClaimDetailResponse } from 'utils/lib/types/data/billing/billing.types';
+import {
+  ClaimDetailResponse,
+  ClaimInsurancePayment,
+  ClaimRemit,
+  EraRemitServiceLine,
+} from 'utils/lib/types/data/billing/billing.types';
 import { AR_STAGE, emptyClaimStatusValues } from 'utils/lib/types/data/billing/claim-status';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { PROVISIONAL_BALANCE_HINT } from '../../src/constants/claimStatus';
@@ -125,6 +130,7 @@ const makeClaim = (arStage: string): ClaimDetailResponse => ({
   patientPaid: 0,
   balance: 0,
   adjudicated: false,
+  firstSubmittedDate: '',
   remits: [],
   insurancePayments: [],
   patientPayments: [],
@@ -139,6 +145,59 @@ const makeClaim = (arStage: string): ClaimDetailResponse => ({
   dischargeDate: '',
   attachments: [],
 });
+
+const makeRemit = (overrides: Partial<ClaimRemit>): ClaimRemit => ({
+  claimResponseId: 'cr-1',
+  date: '2026-07-08T18:20:39.029Z',
+  payerName: 'Test Payer',
+  status: 'complete',
+  eraStatusCode: '1',
+  allowed: 80,
+  paid: 60,
+  patientResp: 20,
+  adjustments: [],
+  paymentReconciliationId: '',
+  checkNumber: '',
+  checkDate: '',
+  serviceLines: [],
+  ...overrides,
+});
+
+const makeRemitLine = (overrides: Partial<EraRemitServiceLine>): EraRemitServiceLine => ({
+  itemSequence: 1,
+  claimItemSequence: 1,
+  isClaimLevel: false,
+  cptCode: '',
+  modifiers: [],
+  units: 1,
+  serviceDate: '2026-08-14',
+  billed: null,
+  allowed: null,
+  paid: 0,
+  deductible: 0,
+  coinsurance: 0,
+  copay: 0,
+  adjustments: [],
+  ...overrides,
+});
+
+const makePayment = (overrides: Partial<ClaimInsurancePayment>): ClaimInsurancePayment => ({
+  paymentReconciliationId: 'pr-1',
+  checkNumber: 'ERA0000000001',
+  remitDate: '2026-07-07T10:00:00Z',
+  checkDate: '2026-07-08',
+  paymentAmount: 350,
+  payerName: 'CIGNA',
+  status: 'active',
+  ...overrides,
+});
+
+const cellTexts = (row: HTMLElement | null): (string | null)[] => {
+  expect(row).not.toBeNull();
+  return within(row as HTMLElement)
+    .getAllByRole('cell')
+    .map((cell) => cell.textContent);
+};
 
 function renderDetail(): void {
   render(
@@ -160,15 +219,7 @@ describe('ClaimDetail — remits', () => {
     getBillingClaimDetailMock.mockResolvedValue({
       ...makeClaim(AR_STAGE.insurancePayer),
       remits: [
-        {
-          claimResponseId: 'cr-1',
-          date: '2026-07-08T18:20:39.029Z',
-          payerName: 'Test Payer',
-          status: 'complete',
-          eraStatusCode: '1',
-          allowed: 80,
-          paid: 60,
-          patientResp: 20,
+        makeRemit({
           adjustments: [
             {
               groupCode: 'PR',
@@ -181,48 +232,79 @@ describe('ClaimDetail — remits', () => {
               amount: 20,
             },
           ],
-        },
+          paymentReconciliationId: 'pr-1',
+          checkNumber: 'CHK-1',
+          checkDate: '2026-07-10',
+        }),
       ],
     });
     renderDetail();
 
     fireEvent.click(await screen.findByRole('tab', { name: 'Dx, Service Lines & Remits' }));
 
-    expect(await screen.findByText('07/08/2026')).toBeInTheDocument();
-    expect(screen.getByText('Test Payer')).toBeInTheDocument();
-    expect(screen.getByText('complete')).toBeInTheDocument();
-    expect(screen.getByText('Primary')).toBeInTheDocument();
-    expect(screen.getByText('$60.00')).toBeInTheDocument();
-    expect(screen.getByText('PR-1 $15.00, CO-45 $20.00')).toBeInTheDocument();
+    const remits = await screen.findByRole('table', { name: 'Remits' });
+    expect(cellTexts(within(remits).getByText('Test Payer').closest('tr'))).toEqual([
+      '07/08/2026',
+      '07/10/2026',
+      'Test PayerPrimary',
+      'CHK-1',
+      'PR-1 $15.00CO-45 $20.00',
+      '$80.00',
+      '$60.00',
+      '$20.00',
+    ]);
   });
 
   it('renders each amount by state: missing as a dash, zero as $0.00, positive as currency', async () => {
     getBillingClaimDetailMock.mockResolvedValue({
       ...makeClaim(AR_STAGE.insurancePayer),
       remits: [
-        {
+        makeRemit({
           claimResponseId: 'cr-2',
           date: '2026-07-09T10:00:00.000Z',
           payerName: 'Aetna',
-          status: 'complete',
           eraStatusCode: '',
           allowed: null,
           paid: 0,
           patientResp: 20,
-          adjustments: [],
-        },
+        }),
       ],
     });
     renderDetail();
 
     fireEvent.click(await screen.findByRole('tab', { name: 'Dx, Service Lines & Remits' }));
 
-    const row = (await screen.findByText('Aetna')).closest('tr');
-    expect(row).not.toBeNull();
-    const cells = within(row as HTMLElement)
-      .getAllByRole('cell')
-      .map((cell) => cell.textContent);
-    expect(cells).toEqual(['07/09/2026', 'Aetna', 'complete', '-', '-', '-', '$0.00', '$20.00']);
+    expect(cellTexts((await screen.findByText('Aetna')).closest('tr'))).toEqual([
+      '07/09/2026',
+      '-',
+      'Aetna',
+      '-',
+      '-',
+      '-',
+      '$0.00',
+      '$20.00',
+    ]);
+  });
+
+  it('opens the ERA behind a remit in a new tab, and leaves a remit with no known ERA inert', async () => {
+    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+    getBillingClaimDetailMock.mockResolvedValue({
+      ...makeClaim(AR_STAGE.insurancePayer),
+      remits: [
+        makeRemit({ claimResponseId: 'cr-linked', payerName: 'Linked Payer', paymentReconciliationId: 'pr-1' }),
+        makeRemit({ claimResponseId: 'cr-unlinked', payerName: 'Unlinked Payer' }),
+      ],
+    });
+    renderDetail();
+
+    fireEvent.click(await screen.findByRole('tab', { name: 'Dx, Service Lines & Remits' }));
+
+    fireEvent.click((await screen.findByText('Unlinked Payer')).closest('tr') as HTMLElement);
+    expect(openSpy).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByText('Linked Payer').closest('tr') as HTMLElement);
+    expect(openSpy).toHaveBeenCalledWith('/eras/pr-1', '_blank', 'noopener');
+    openSpy.mockRestore();
   });
 
   it('shows the empty state when the claim has no remits', async () => {
@@ -240,34 +322,335 @@ describe('ClaimDetail — insurance payments', () => {
     getBillingClaimDetailMock.mockReset();
   });
 
-  it('lists insurance payments and navigates to the ERA on row click', async () => {
+  it('lists insurance payments and opens the ERA in a new tab on row click', async () => {
+    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
     getBillingClaimDetailMock.mockResolvedValue({
       ...makeClaim(AR_STAGE.insurancePayer),
-      insurancePayments: [
-        {
-          paymentReconciliationId: 'pr-1',
-          checkNumber: 'ERA0000000001',
-          paymentDate: '2026-07-08',
-          paymentAmount: 350,
-          payerName: 'CIGNA',
-          status: 'active',
-        },
-      ],
+      insurancePayments: [makePayment({})],
     });
     renderDetail();
 
     const remitsTab = await screen.findByRole('tab', { name: 'Dx, Service Lines & Remits' });
     fireEvent.click(remitsTab);
 
-    const row = (await screen.findByText('ERA0000000001')).closest('tr');
-    expect(row).not.toBeNull();
-    const cells = within(row as HTMLElement)
-      .getAllByRole('cell')
-      .map((cell) => cell.textContent);
-    expect(cells).toEqual(['07/08/2026', 'CIGNA', 'ERA0000000001', 'active', '$350.00']);
+    const checkLink = await screen.findByRole('link', { name: 'ERA0000000001' });
+    expect(checkLink).toHaveAttribute('href', '/eras/pr-1');
+    expect(checkLink).toHaveAttribute('target', '_blank');
+
+    const row = checkLink.closest('tr');
+    expect(cellTexts(row)).toEqual(['07/07/2026', '07/08/2026', 'CIGNA', 'ERA0000000001', '$350.00']);
 
     fireEvent.click(row as HTMLElement);
-    expect(await screen.findByText('ERA page')).toBeInTheDocument();
+    expect(openSpy).toHaveBeenCalledWith('/eras/pr-1', '_blank', 'noopener');
+    expect(screen.queryByText('ERA page')).not.toBeInTheDocument();
+    openSpy.mockRestore();
+  });
+});
+
+describe('ClaimDetail — service line remit details', () => {
+  const serviceLines: ClaimDetailResponse['serviceLines'] = [
+    {
+      sequence: 1,
+      cptCode: 'A7020',
+      description: '',
+      modifiers: [],
+      units: 1,
+      charges: 201.04,
+      serviceDate: '2026-08-14',
+      placeOfService: '',
+      diagnosisPointers: [],
+      revenueCode: '',
+    },
+    {
+      sequence: 2,
+      cptCode: '99203',
+      description: '',
+      modifiers: [],
+      units: 1,
+      charges: 20,
+      serviceDate: '2026-08-14',
+      placeOfService: '',
+      diagnosisPointers: [],
+      revenueCode: '',
+    },
+  ];
+
+  const remit = makeRemit({
+    claimResponseId: 'cr-1',
+    date: '2026-08-18T10:00:00Z',
+    payerName: 'Employers Mutual',
+    eraStatusCode: '1',
+    allowed: 176.83,
+    paid: 136.83,
+    patientResp: 40,
+    adjustments: [
+      { groupCode: 'CO', reasonCode: '45', amount: 40.21 },
+      { groupCode: 'PR', reasonCode: '3', amount: 25 },
+      { groupCode: 'CO', reasonCode: '45', amount: 4 },
+      { groupCode: 'PR', reasonCode: '1', amount: 15 },
+    ],
+    paymentReconciliationId: 'pr-1',
+    checkNumber: 'CHK00012347',
+    checkDate: '2026-08-22',
+    serviceLines: [
+      makeRemitLine({
+        claimItemSequence: 1,
+        cptCode: 'A7020',
+        billed: 201.04,
+        allowed: 160.83,
+        paid: 135.83,
+        copay: 25,
+        adjustments: [
+          { groupCode: 'CO', reasonCode: '45', amount: 40.21 },
+          { groupCode: 'PR', reasonCode: '3', amount: 25 },
+        ],
+      }),
+      makeRemitLine({
+        itemSequence: 2,
+        claimItemSequence: 2,
+        cptCode: '99203',
+        billed: 20,
+        allowed: 16,
+        paid: 1,
+        deductible: 15,
+        adjustments: [
+          { groupCode: 'CO', reasonCode: '45', amount: 4 },
+          { groupCode: 'PR', reasonCode: '1', amount: 15 },
+        ],
+      }),
+    ],
+  });
+
+  const claimWithRemits = (overrides: Partial<ClaimDetailResponse> = {}): ClaimDetailResponse => ({
+    ...makeClaim(AR_STAGE.patient),
+    created: '2026-08-14',
+    firstSubmittedDate: '2026-08-15T12:00:00Z',
+    serviceLines,
+    billed: 221.04,
+    allowed: 176.83,
+    insurancePaid: 136.83,
+    patientResp: 40,
+    patientPaid: 60,
+    balance: -20,
+    adjudicated: true,
+    remits: [remit],
+    insurancePayments: [
+      makePayment({
+        paymentReconciliationId: 'pr-1',
+        checkNumber: 'CHK00012347',
+        remitDate: '2026-08-18T09:00:00Z',
+        checkDate: '2026-08-22',
+        paymentAmount: 500,
+        payerName: 'Employers Mutual',
+      }),
+      makePayment({
+        paymentReconciliationId: 'pr-2',
+        checkNumber: 'CHK00012345',
+        payerName: 'Employers Mutual',
+      }),
+    ],
+    ...overrides,
+  });
+
+  const openRemitsTab = async (): Promise<void> => {
+    fireEvent.click(await screen.findByRole('tab', { name: 'Dx, Service Lines & Remits' }));
+  };
+
+  beforeEach(() => {
+    getBillingClaimDetailMock.mockReset();
+  });
+
+  it("lists each line's charge, then the payer's response and its adjustments in their columns", async () => {
+    getBillingClaimDetailMock.mockResolvedValue(claimWithRemits());
+    renderDetail();
+    await openRemitsTab();
+
+    const line1 = await screen.findByRole('table', { name: 'Remit details for line 1' });
+    expect(within(line1).queryByRole('columnheader', { name: 'Patient' })).not.toBeInTheDocument();
+    expect(cellTexts(within(line1).getByText('Charge').closest('tr'))).toEqual(['08/15/2026', 'Charge', '$201.04', '']);
+    expect(cellTexts(within(line1).getByText('Employers Mutual').closest('tr'))).toEqual([
+      '08/18/2026',
+      'Employers Mutual',
+      '$201.04',
+      '$160.83',
+      '$40.21',
+      '$135.83',
+      '$0.00',
+      '$0.00',
+      '$25.00',
+      '$0.00',
+    ]);
+    expect(cellTexts(within(line1).getByText('CO-45').closest('tr'))).toEqual([
+      '08/18/2026',
+      'CO-45',
+      '',
+      '',
+      '$40.21',
+      '',
+      '',
+      '',
+      '',
+      '',
+    ]);
+    expect(cellTexts(within(line1).getByText('PR-3').closest('tr'))).toEqual([
+      '08/18/2026',
+      'PR-3',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '$25.00',
+      '',
+    ]);
+
+    const line2 = screen.getByRole('table', { name: 'Remit details for line 2' });
+    expect(cellTexts(within(line2).getByText('PR-1').closest('tr'))).toEqual([
+      '08/18/2026',
+      'PR-1',
+      '',
+      '',
+      '',
+      '',
+      '$15.00',
+      '',
+      '',
+      '',
+    ]);
+  });
+
+  it('dates the charge by when the claim was created when it was never submitted', async () => {
+    getBillingClaimDetailMock.mockResolvedValue(claimWithRemits({ firstSubmittedDate: '' }));
+    renderDetail();
+    await openRemitsTab();
+
+    const line1 = await screen.findByRole('table', { name: 'Remit details for line 1' });
+    expect(cellTexts(within(line1).getByText('Charge').closest('tr'))[0]).toBe('08/14/2026');
+  });
+
+  it("opens each line's details by default and collapses them from the toggle", async () => {
+    getBillingClaimDetailMock.mockResolvedValue(claimWithRemits());
+    renderDetail();
+    await openRemitsTab();
+
+    const toggle = await screen.findByRole('button', { name: 'Toggle remit details for line 1' });
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('table', { name: 'Remit details for line 1' })).toBeInTheDocument();
+
+    fireEvent.click(toggle);
+
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    await waitFor(() =>
+      expect(screen.queryByRole('table', { name: 'Remit details for line 1' })).not.toBeInTheDocument()
+    );
+    expect(screen.getByRole('table', { name: 'Remit details for line 2' })).toBeInTheDocument();
+  });
+
+  it('keeps claim-level adjustments in their own group', async () => {
+    getBillingClaimDetailMock.mockResolvedValue(
+      claimWithRemits({
+        remits: [
+          {
+            ...remit,
+            serviceLines: [
+              ...remit.serviceLines,
+              makeRemitLine({
+                itemSequence: null,
+                claimItemSequence: null,
+                isClaimLevel: true,
+                adjustments: [{ groupCode: 'OA', reasonCode: '23', amount: 2 }],
+              }),
+            ],
+          },
+        ],
+      })
+    );
+    renderDetail();
+    await openRemitsTab();
+
+    const otherLines = await screen.findByRole('table', { name: 'Claim-level and unmatched remit lines' });
+    expect(within(otherLines).queryByText('Charge')).not.toBeInTheDocument();
+    expect(cellTexts(within(otherLines).getByText('OA-23').closest('tr'))[4]).toBe('$2.00');
+  });
+
+  it('shows a remit line card on hover and highlights its remit and check', async () => {
+    const user = userEvent.setup();
+    getBillingClaimDetailMock.mockResolvedValue(claimWithRemits());
+    renderDetail();
+    await openRemitsTab();
+
+    const line1 = await screen.findByRole('table', { name: 'Remit details for line 1' });
+    const payerRow = within(line1).getByText('Employers Mutual');
+    await user.hover(payerRow);
+
+    const card = await screen.findByRole('tooltip');
+    expect(within(card).getByText('Employers Mutual')).toBeInTheDocument();
+    expect(within(card).getByText('Primary')).toBeInTheDocument();
+    expect(
+      within(card).getByText('Charge exceeds fee schedule/maximum allowable or contracted/legislated fee arrangement.')
+    ).toBeInTheDocument();
+    expect(within(card).getByText('Co-payment amount.')).toBeInTheDocument();
+    expect(within(card).getByText('$40.21')).toBeInTheDocument();
+    expect(within(card).getByText('CHK00012347')).toBeInTheDocument();
+    expect(within(card).getByText('08/22/2026')).toBeInTheDocument();
+    expect(within(card).getByText('Adjudicated as A7020')).toBeInTheDocument();
+
+    const remitRow = within(screen.getByRole('table', { name: 'Remits' }))
+      .getByRole('link', { name: 'CHK00012347' })
+      .closest('tr');
+    const payments = screen.getByRole('table', { name: 'Insurance payments' });
+    const checkRow = within(payments).getByRole('link', { name: 'CHK00012347' }).closest('tr');
+    const otherCheckRow = within(payments).getByRole('link', { name: 'CHK00012345' }).closest('tr');
+    expect(remitRow).toHaveClass('Mui-selected');
+    expect(checkRow).toHaveClass('Mui-selected');
+    expect(otherCheckRow).not.toHaveClass('Mui-selected');
+
+    await user.unhover(payerRow);
+
+    await waitFor(() => expect(screen.queryByRole('tooltip')).not.toBeInTheDocument());
+    expect(remitRow).not.toHaveClass('Mui-selected');
+    expect(checkRow).not.toHaveClass('Mui-selected');
+  });
+
+  it('totals the allowed amount, insurance paid by payer rank, and what the patient owes', async () => {
+    getBillingClaimDetailMock.mockResolvedValue(
+      claimWithRemits({
+        remits: [
+          makeRemit({ claimResponseId: 'cr-secondary', eraStatusCode: '2', paid: 10, paymentReconciliationId: 'pr-2' }),
+          remit,
+        ],
+      })
+    );
+    renderDetail();
+    await openRemitsTab();
+
+    const totals = await screen.findByRole('group', { name: 'Remit totals' });
+    expect(within(totals).getByText('$176.83')).toBeInTheDocument();
+    expect(within(totals).getByText('Primary')).toBeInTheDocument();
+    expect(within(totals).getByText('$136.83')).toBeInTheDocument();
+    expect(within(totals).getByText('Secondary')).toBeInTheDocument();
+    expect(within(totals).getByText('$10.00')).toBeInTheDocument();
+    expect(within(totals).getByText('$40.00')).toBeInTheDocument();
+    expect(within(totals).getByText('$60.00')).toBeInTheDocument();
+    expect(within(totals).getByText('-$20.00')).toBeInTheDocument();
+  });
+
+  it('shows the service lines as before when no ERA is matched', async () => {
+    getBillingClaimDetailMock.mockResolvedValue(claimWithRemits({ remits: [], insurancePayments: [] }));
+    renderDetail();
+    await openRemitsTab();
+
+    const cptCell = await screen.findByText('A7020');
+    const table = cptCell.closest('table') as HTMLElement;
+    expect(
+      within(table)
+        .getAllByRole('columnheader')
+        .map((header) => header.textContent)
+    ).toEqual(['#', 'Date of Service', 'CPT Code', 'Modifiers', 'Dx', 'POS', 'Qty', 'Billed']);
+    expect(screen.queryByRole('button', { name: /Toggle remit details/ })).not.toBeInTheDocument();
+    expect(screen.queryByText('Charge')).not.toBeInTheDocument();
+    expect(screen.queryByRole('group', { name: 'Remit totals' })).not.toBeInTheDocument();
   });
 });
 
