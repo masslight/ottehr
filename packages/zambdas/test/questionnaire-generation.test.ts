@@ -4,7 +4,24 @@ import { BRANDING_CONFIG } from 'utils/lib/ottehr-config/branding';
 import { IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE } from 'utils/lib/ottehr-config/intake-paperwork';
 import { VIRTUAL_INTAKE_PAPERWORK_QUESTIONNAIRE } from 'utils/lib/ottehr-config/intake-paperwork-virtual';
 import { PATIENT_RECORD_CONFIG } from 'utils/lib/ottehr-config/patient-record';
-import { expect, test } from 'vitest';
+import { expect, test, vi } from 'vitest';
+
+// Ensure 'Employee' is present in relationshipToInsuredOptions regardless of per-instance overlay,
+// so the tests always run against the canonical questionnaire snapshot.
+vi.mock('utils/lib/ottehr-config/value-sets', async (importActual) => {
+  const actual = await importActual<typeof import('utils/lib/ottehr-config/value-sets')>();
+  const opts = actual.formValueSetsData.relationshipToInsuredOptions as Array<{ label: string; value: string }>;
+  const withEmployee = opts.some((o) => o.label === 'Employee')
+    ? opts
+    : [
+        ...opts.filter((o) => o.label !== 'Other'),
+        { label: 'Employee', value: 'Employee' },
+        { label: 'Other', value: 'Other' },
+      ];
+  const patchedData = { ...actual.formValueSetsData, relationshipToInsuredOptions: withEmployee };
+  const patchedValueSets = { ...actual.VALUE_SETS, relationshipToInsuredOptions: withEmployee };
+  return { ...actual, formValueSetsData: patchedData, VALUE_SETS: patchedValueSets };
+});
 import BookingQuestionnaire from './data/booking-questionnaire.json';
 import IntakePaperworkQuestionnaire from './data/intake-paperwork-questionnaire.json';
 import PatientRecordQuestionnaire from './data/patient-record-questionnaire.json';
