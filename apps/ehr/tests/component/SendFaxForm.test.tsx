@@ -5,7 +5,7 @@ import { FaxDocumentAvailability } from 'utils/lib/types/api/fax.types';
 import { describe, expect, it, vi } from 'vitest';
 import { SendFaxForm } from '../../src/features/fax/ui/SendFaxForm';
 
-// The recipient-name picker reads the address book; keep it small and offline here.
+// The organization picker reads the address book; keep it small and offline here.
 vi.mock('src/features/address-book/addressBook.api', () => ({
   searchAddressBook: vi.fn().mockResolvedValue({
     contacts: [
@@ -18,6 +18,7 @@ vi.mock('src/features/address-book/addressBook.api', () => ({
         tags: [],
       },
       { id: 'c2', organizationName: 'Acme Imaging', fax: '+12125550000', tags: [] },
+      { id: 'c3', firstName: 'John', lastName: 'Roe', fax: '+12125557777', tags: [] },
     ],
   }),
 }));
@@ -83,28 +84,40 @@ describe('SendFaxForm sender', () => {
 });
 
 describe('SendFaxForm recipient picker', () => {
-  it('fills the organization from a person contact', async () => {
+  it('puts each part of a contact into its own field', async () => {
     const user = userEvent.setup();
     renderForm();
 
-    await user.click(screen.getByLabelText("Recipient's name"));
+    await user.click(screen.getByLabelText('Organization'));
     await user.click(await screen.findByRole('option', { name: /Jane Doe/ }));
 
     // The credential goes to its own field, so the name stays a plain name.
+    expect(screen.getByLabelText('Organization')).toHaveValue('Springfield Cardiology');
     expect(screen.getByLabelText("Recipient's name")).toHaveValue('Jane Doe');
     expect(screen.getByLabelText('Credential')).toHaveValue('MD');
-    expect(screen.getByLabelText('Organization')).toHaveValue('Springfield Cardiology');
   });
 
-  it('does not repeat an org-only contact as the organization', async () => {
+  it('keeps an organization-only contact in the organization field, leaving the name empty', async () => {
     const user = userEvent.setup();
     renderForm();
 
-    await user.click(screen.getByLabelText("Recipient's name"));
+    await user.click(screen.getByLabelText('Organization'));
     await user.click(await screen.findByRole('option', { name: /Acme Imaging/ }));
 
-    expect(screen.getByLabelText("Recipient's name")).toHaveValue('Acme Imaging');
-    expect(screen.getByLabelText('Organization')).toHaveValue('');
+    expect(screen.getByLabelText('Organization')).toHaveValue('Acme Imaging');
+    expect(screen.getByLabelText("Recipient's name")).toHaveValue('');
     expect(screen.getByLabelText(/Recipient Fax/)).toHaveValue('(212) 555-0000');
+  });
+
+  it('finds a person-only contact by name, and still offers to edit it with the organization empty', async () => {
+    const user = userEvent.setup();
+    renderForm();
+
+    await user.type(screen.getByLabelText('Organization'), 'roe');
+    await user.click(await screen.findByRole('option', { name: /John Roe/ }));
+
+    expect(screen.getByLabelText('Organization')).toHaveValue('');
+    expect(screen.getByLabelText("Recipient's name")).toHaveValue('John Roe');
+    expect(screen.getByRole('button', { name: 'Edit contact' })).toBeInTheDocument();
   });
 });

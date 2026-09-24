@@ -90,7 +90,8 @@ describe('AddressBookPicker', () => {
     await user.click(await screen.findByRole('option', { name: /Jane Doe, MD/ }));
 
     expect(onSelect).toHaveBeenCalledWith(contacts[0]);
-    expect(screen.getByTestId('field-value')).toHaveTextContent('Jane Doe, MD');
+    // The picker's field holds the organization; the person goes to the screen's own name fields.
+    expect(screen.getByTestId('field-value')).toHaveTextContent(/^Springfield Cardiology$/);
     expect(screen.getByRole('button', { name: 'Edit contact' })).toBeInTheDocument();
   });
 
@@ -110,6 +111,16 @@ describe('AddressBookPicker', () => {
 
     expect(await screen.findByText('Edit contact')).toBeInTheDocument();
     expect(screen.getByLabelText('Fax')).toHaveValue('(212) 555-2222');
+  });
+
+  it('finds contacts by organization or person, not by credential', async () => {
+    const user = userEvent.setup();
+    render(<Harness onSelect={vi.fn()} />);
+
+    await user.type(screen.getByLabelText("Recipient's name"), 'MD');
+
+    // Only the add-new row is left: "Jane Doe, MD" does not match on its credential.
+    expect(await screen.findAllByRole('option')).toHaveLength(1);
   });
 
   it('keeps working as a free-text field', async () => {

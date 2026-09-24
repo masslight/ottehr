@@ -22,7 +22,9 @@ const directoryContact: AddressBookContact = vi.hoisted(() => ({
   tags: ['pcp'],
 }));
 vi.mock('src/features/address-book/addressBook.api', () => ({
-  searchAddressBook: vi.fn().mockResolvedValue({ contacts: [directoryContact] }),
+  searchAddressBook: vi.fn().mockResolvedValue({
+    contacts: [directoryContact, { id: 'c2', firstName: 'Sam', lastName: 'Lee', tags: ['pcp'] }],
+  }),
   createAddressBookContact: vi.fn(),
   updateAddressBookContact: vi.fn(),
   deleteAddressBookContact: vi.fn(),
@@ -259,6 +261,22 @@ describe('PrimaryCareContainer', () => {
     expect(getFieldInput(pcp.fax.key)).toHaveValue('(212) 555-4321');
     expect(getFieldInput(pcp.active.key)).not.toBeChecked();
     expect(formMethods!.formState.dirtyFields).toMatchObject({ [pcp.firstName.key]: true, [pcp.fax.key]: true });
+  });
+
+  it('leaves the practice name empty for a contact with no organization', async () => {
+    render(
+      <TestWrapper>
+        <PrimaryCareContainer isLoading={false} />
+      </TestWrapper>
+    );
+
+    await user.type(within(getFieldById(pcp.practiceName.key)).getByRole('combobox'), 'lee');
+    await user.click(await screen.findByRole('option', { name: /Sam Lee/ }));
+
+    // The person goes to the doctor's name fields only, not also into the practice name.
+    expect(getFieldInput(pcp.practiceName.key)).toHaveValue('');
+    expect(getFieldInput(pcp.firstName.key)).toHaveValue('Sam');
+    expect(getFieldInput(pcp.lastName.key)).toHaveValue('Lee');
   });
 
   it('still takes a free-text practice name', async () => {

@@ -24,8 +24,11 @@ const optionLabel = (option: PickerOption): string =>
   isAddNew(option) ? option.label : addressBookContactLabel(option);
 
 const filterContacts = createFilterOptions<AddressBookContact>({
-  stringify: (contact) => [contact.organizationName, addressBookContactLabel(contact)].join(' '),
+  // Organization and person only: the credential would make "MD" match every doctor.
+  stringify: (contact) => [contact.organizationName, contact.firstName, contact.lastName].filter(Boolean).join(' '),
 });
+
+const fieldValue = (contact: AddressBookContact): string => contact.organizationName ?? '';
 
 /** Whatever was typed into the picker seeds the new-contact form as the organization. */
 const prefillFromText = (text: string): Partial<AddressBookContactInput> => ({ organizationName: text.trim() });
@@ -50,23 +53,13 @@ interface AddressBookPickerProps {
   variant?: TextFieldProps['variant'];
   /** Narrows the search to contacts with this tag, and tags contacts created from this picker with it. */
   tag?: string;
-  /** What a pick writes into the field; defaults to the contact's label (the person, else the organization). */
-  fieldValue?: (contact: AddressBookContact) => string;
   onSelect: (contact: AddressBookContact) => void;
   dataTestId?: string;
 }
 
 type DialogState = Pick<React.ComponentProps<typeof AddressBookDialog>, 'contact' | 'initialValues'>;
 
-export const AddressBookPicker: FC<AddressBookPickerProps> = ({
-  name,
-  label,
-  variant,
-  tag,
-  fieldValue = addressBookContactLabel,
-  onSelect,
-  dataTestId,
-}) => {
+export const AddressBookPicker: FC<AddressBookPickerProps> = ({ name, label, variant, tag, onSelect, dataTestId }) => {
   const { control } = useFormContext();
   const { data } = useSearchAddressBookQuery(tag);
   const contacts = data?.contacts ?? [];

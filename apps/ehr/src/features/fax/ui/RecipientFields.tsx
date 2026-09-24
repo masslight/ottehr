@@ -7,7 +7,7 @@ import { TextInput } from 'src/components/input/TextInput';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { AddressBookPicker } from 'src/features/address-book/AddressBookPicker';
 import { formatPhoneNumberDisplay } from 'utils/lib/helpers/helpers';
-import { AddressBookContact, formatAddressBookPersonName } from 'utils/lib/types/data/address-book';
+import { formatAddressBookPersonName } from 'utils/lib/types/data/address-book';
 import { FaxFormValues } from '../model/types';
 
 interface RecipientFieldsProps {
@@ -18,12 +18,6 @@ interface RecipientFieldsProps {
   onSaveAsPcpChange?: (value: boolean) => void;
   onRemove?: () => void;
 }
-
-/** The person without the credential (it has its own field), else the organization. */
-const recipientName = (contact: AddressBookContact): string =>
-  formatAddressBookPersonName({ firstName: contact.firstName, lastName: contact.lastName }) ||
-  contact.organizationName ||
-  '';
 
 /** One recipient row. Text/phone fields bind to the parent react-hook-form context by name. */
 export const RecipientFields: FC<RecipientFieldsProps> = ({ index, isPcp, onSaveAsPcpChange, onRemove }) => {
@@ -47,23 +41,27 @@ export const RecipientFields: FC<RecipientFieldsProps> = ({ index, isPcp, onSave
           </IconButton>
         </Box>
       )}
-
-      {/* The credential sits beside the name so the name stays a plain name; the cover sheet joins them. */}
+      <AddressBookPicker
+        name={field('organization')}
+        label="Organization"
+        dataTestId={`${dataTestIds.faxDialog.organization}-${index}`}
+        onSelect={(contact) => {
+          // The credential has its own field, so the name stays a plain name; the cover sheet joins them.
+          setValue(
+            field('name'),
+            formatAddressBookPersonName({ firstName: contact.firstName, lastName: contact.lastName })
+          );
+          setValue(field('credential'), contact.credential ?? '');
+          setValue(field('faxNumber'), formatPhoneNumberDisplay(contact.fax), { shouldValidate: true });
+          setValue(field('phoneNumber'), formatPhoneNumberDisplay(contact.phone));
+        }}
+      />
       <Box sx={{ display: 'flex', gap: 2 }}>
         <Box sx={{ flex: '2 1 0', minWidth: 0 }}>
-          <AddressBookPicker
+          <TextInput
             name={field('name')}
             label="Recipient's name"
             dataTestId={`${dataTestIds.faxDialog.recipientName}-${index}`}
-            fieldValue={recipientName}
-            onSelect={(contact) => {
-              // A contact with no person is named by its organization, so the organization field stays empty.
-              const hasPerson = !!(contact.firstName || contact.lastName);
-              setValue(field('credential'), (hasPerson && contact.credential) || '');
-              setValue(field('organization'), (hasPerson && contact.organizationName) || '');
-              setValue(field('faxNumber'), formatPhoneNumberDisplay(contact.fax), { shouldValidate: true });
-              setValue(field('phoneNumber'), formatPhoneNumberDisplay(contact.phone));
-            }}
           />
         </Box>
         <Box sx={{ flex: '1 1 0', minWidth: 0 }}>
@@ -75,11 +73,6 @@ export const RecipientFields: FC<RecipientFieldsProps> = ({ index, isPcp, onSave
           />
         </Box>
       </Box>
-      <TextInput
-        name={`recipients.${index}.organization`}
-        label="Organization"
-        dataTestId={`${dataTestIds.faxDialog.organization}-${index}`}
-      />
       <PhoneInput
         name={`recipients.${index}.faxNumber`}
         label="Recipient Fax"
