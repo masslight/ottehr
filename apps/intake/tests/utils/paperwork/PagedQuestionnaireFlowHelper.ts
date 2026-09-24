@@ -13,6 +13,7 @@ import { IntakeQuestionnaireItem } from 'utils/lib/types/data/paperwork/paperwor
 import { dataTestIds } from '../../../src/helpers/data-test-ids';
 import { Locators } from '../locators';
 import { logVerbose } from '../logging';
+import { isVisibleWithin } from '../playwright-helpers/interactions';
 import {
   collectValidationErrorsDetailed,
   fillChoiceDropdown,
@@ -21,6 +22,7 @@ import {
   fillRadioChoice,
   fillStringField,
   ValidationErrorResult,
+  waitForFieldErrors,
 } from '../shared/field-filling-utils';
 import { UploadDocs } from '../UploadDocs';
 
@@ -171,7 +173,7 @@ export class PagedQuestionnaireFlowHelper {
     if (fieldType === 'attachment') {
       const fieldContainer = this.page.locator(`[for="${linkId}"]`).locator('..');
       const clearButton = fieldContainer.getByTestId(dataTestIds.fileCardClearButton);
-      const hasClearButton = await clearButton.isVisible({ timeout: 1000 }).catch(() => false);
+      const hasClearButton = await isVisibleWithin(clearButton, 1000);
       if (!hasClearButton) {
         return false;
       }
@@ -187,16 +189,17 @@ export class PagedQuestionnaireFlowHelper {
 
     const locator = this.getFieldLocator(linkId);
     try {
-      const isVisible = await locator.isVisible({ timeout: 1000 }).catch(() => false);
+      const isVisible = await isVisibleWithin(locator, 1000);
       if (!isVisible) {
         return false;
       }
 
       // For MUI Autocomplete/Select fields, we need special handling
       if (fieldType === 'choice') {
-        // Try to find and click the MUI clear button first
+        // Try to find and click the MUI clear button first. MUI only shows it on hover/focus, so
+        // this is an instant probe; the keyboard fallback below is the usual path.
         const clearButton = this.page.locator(`#${linkId}`).locator('..').locator('button[aria-label="Clear"]');
-        const hasClearButton = await clearButton.isVisible({ timeout: 500 }).catch(() => false);
+        const hasClearButton = await clearButton.isVisible().catch(() => false);
 
         if (hasClearButton) {
           await clearButton.click();
@@ -252,7 +255,9 @@ export class PagedQuestionnaireFlowHelper {
 
     for (const linkId of fieldLinkIds) {
       const locator = this.getFieldLocator(linkId);
-      const isVisible = await locator.isVisible({ timeout: 500 }).catch(() => false);
+      // Instant sample on a page that has already rendered: waiting here would add a delay for
+      // every correctly hidden field.
+      const isVisible = await locator.isVisible().catch(() => false);
       if (isVisible) {
         visibleFields.push(linkId);
       }
@@ -641,25 +646,21 @@ export class PagedQuestionnaireFlowHelper {
     await searchInput.click();
     await searchInput.fill(pharmacyName);
 
-    // Wait for debounced search (300ms) + API call
-    await this.page.waitForTimeout(1500);
+    // The debounced search settles into either result options or a "No results" message
+    const firstOption = this.page.getByRole('option').first();
+    const noResults = this.page.getByText('No results');
+    await expect(firstOption.or(noResults).first()).toBeVisible({ timeout: 10_000 });
 
-    // Check if we have results or "No results"
-    const hasNoResults = await this.page
-      .getByText('No results')
-      .isVisible({ timeout: 2000 })
-      .catch(() => false);
-
-    if (hasNoResults) {
+    if (await noResults.isVisible()) {
       await searchInput.clear();
       return;
     }
 
-    // Select first matching option from dropdown (Playwright will wait for it)
-    await this.page.getByRole('option').first().click();
+    await firstOption.click();
 
-    // Wait for selection to process (Places API call for details + form population)
-    await this.page.waitForTimeout(1000);
+    // Selecting fetches place details and fills the hidden fields; once they land, the search
+    // input is swapped out for the selected-pharmacy display
+    await expect(searchInput).toBeHidden({ timeout: 15_000 });
   }
 
   /**
@@ -1014,7 +1015,10 @@ export class PagedQuestionnaireFlowHelper {
       const effectiveTestableFields = clearedFields;
       if (effectiveTestableFields.length > 0) {
         await this.clickContinue();
-        await this.page.waitForTimeout(500);
+        await this.waitForValidationErrors(
+          pageLinkId,
+          effectiveTestableFields.map((field) => field.linkId)
+        );
 
         // Verify we stayed on the page (validation blocked navigation)
         if (this.getCurrentPageSlug() === pageLinkId.replace('-page', '')) {
@@ -1129,7 +1133,7 @@ export class PagedQuestionnaireFlowHelper {
         }
 
         await this.clickContinue();
-        await this.page.waitForTimeout(500);
+        await this.waitForValidationErrors(pageLinkId, fieldsNowRequired);
 
         // Verify we stayed on the page (validation blocked navigation)
         if (this.getCurrentPageSlug() === pageLinkId.replace('-page', '')) {
@@ -1206,7 +1210,7 @@ export class PagedQuestionnaireFlowHelper {
         console.log(`[Phase 3] No clearable invalid fields to test`);
       } else {
         await this.clickContinue();
-        await this.page.waitForTimeout(500);
+        await this.waitForValidationErrors(pageLinkId, effectiveInvalidFields);
 
         // Verify we stayed on the page (validation blocked navigation)
         if (this.getCurrentPageSlug() === pageLinkId.replace('-page', '')) {
@@ -1349,6 +1353,15 @@ export class PagedQuestionnaireFlowHelper {
     const url = this.page.url();
     const match = url.match(/\/paperwork\/[^/]+\/([^/?]+)/);
     return match ? match[1] : null;
+  }
+
+  /**
+   * Wait for the errors a validation phase is about to assert, or for navigation away from the
+   * page (which the phase reports as unexpected).
+   */
+  private async waitForValidationErrors(pageLinkId: string, linkIds: string[]): Promise<void> {
+    const pageSlug = pageLinkId.replace('-page', '');
+    await waitForFieldErrors(this.page, linkIds, () => this.getCurrentPageSlug() !== pageSlug);
   }
 
   /**
