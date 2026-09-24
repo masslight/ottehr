@@ -71,10 +71,8 @@ test.describe('Walk-in deeplink flows', () => {
     console.log('✓ Continue button visible on check-in landing page');
 
     // Verify the location name is displayed somewhere on the page
-    const locationDisplayed = await page.getByText(new RegExp(openLocationName.replace(/_/g, ' '), 'i')).isVisible();
-    if (locationDisplayed) {
-      console.log(`✓ Location name "${openLocationName}" displayed on page`);
-    }
+    await expect(page.getByText(new RegExp(openLocationName.replace(/_/g, ' '), 'i')).first()).toBeVisible();
+    console.log(`✓ Location name "${openLocationName}" displayed on page`);
 
     // Verify we're on the expected URL pattern
     expect(page.url()).toContain('/walkin/location/');
@@ -97,16 +95,8 @@ test.describe('Walk-in deeplink flows', () => {
 
     // The Continue button should NOT be visible when location is closed
     const continueButton = page.getByRole('button', { name: /continue/i });
-    const continueVisible = await continueButton.isVisible().catch(() => false);
-
-    // Some implementations may show a disabled continue or redirect
-    // The key assertion is that the closed message is shown
-    if (!continueVisible) {
-      console.log('✓ Continue button not visible (expected for closed location)');
-    } else {
-      // If continue is visible, it might be disabled or lead to an error
-      console.log('Note: Continue button visible - may be disabled or show error on click');
-    }
+    await expect(continueButton).toBeHidden();
+    console.log('✓ Continue button not visible (expected for closed location)');
 
     console.log('✓ Closed location deeplink test passed');
   });
