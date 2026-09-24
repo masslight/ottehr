@@ -22,6 +22,7 @@ import {
 import {
   ERA_CHECK_SYSTEM,
   ERA_ITEM_REMARK_CODE_EXTENSION,
+  ERA_KEYED_CLAIM_EXTENSION,
   ERA_SOURCE_EXTENSION,
   fhirName,
   getEraCheckNumber,
@@ -139,6 +140,8 @@ describe('buildManualClaimResponse', () => {
       'Coverage#coverage',
     ]);
     expect(containedOf<Claim>(cr, 'Claim').insurer).toEqual(context.payer);
+    // the keyed claim stays referenced from the response whatever it is matched to
+    expect(cr.extension).toContainEqual({ url: ERA_KEYED_CLAIM_EXTENSION, valueReference: { reference: '#request' } });
     expect(cr).toMatchObject({ outcome: 'complete', created: '2026-09-13', insurer: context.payer });
   });
 
@@ -191,6 +194,10 @@ describe('buildManualClaimResponse', () => {
     expect(matched.patient).toEqual({ reference: 'Patient/p9' });
     expect(matched.type).toEqual({ coding: [{ code: 'professional' }] });
     expect(matched.insurer).toEqual(context.payer);
+    expect(matched.extension).toContainEqual({
+      url: ERA_KEYED_CLAIM_EXTENSION,
+      valueReference: { reference: '#request' },
+    });
     expect(countEraClaims([matched])).toMatchObject({ matched: 1, unmatched: 0 });
   });
 

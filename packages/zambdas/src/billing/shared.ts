@@ -279,6 +279,11 @@ export const ERA_SOURCE_EXTENSION = 'https://extensions.fhir.ottehr.com/billing/
 export const ERA_REMIT_DATE_EXTENSION = 'https://extensions.fhir.ottehr.com/billing/era-remit-date';
 export const ERA_DEPOSIT_DATE_EXTENSION = 'https://extensions.fhir.ottehr.com/billing/era-deposit-date';
 export const ERA_LAST_EDITED_EXTENSION = 'https://extensions.fhir.ottehr.com/billing/era-last-edited';
+// On a manually keyed ClaimResponse: points at the contained claim holding what the biller keyed
+// (patient, lines, payee, member id). It keeps those contained resources referenced from the
+// response even once `request` and `patient` point at a matched Claim, as FHIR requires of contained
+// resources, so unmatching and editing can still read them back.
+export const ERA_KEYED_CLAIM_EXTENSION = 'https://extensions.fhir.ottehr.com/billing/era-keyed-claim';
 // Client-generated key a manual ERA is created under, so a retried create returns the first one.
 export const MANUAL_ERA_IDEMPOTENCY_SYSTEM = 'https://fhir.ottehr.com/billing/manual-era-idempotency-key';
 // X12 835 BPR04 payment method, on PaymentReconciliation.paymentIdentifier.type

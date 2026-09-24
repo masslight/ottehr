@@ -47,6 +47,7 @@ import {
   ERA_ICN_EXTENSION,
   ERA_ITEM_PROCEDURE_CODE_EXTENSION,
   ERA_ITEM_REMARK_CODE_EXTENSION,
+  ERA_KEYED_CLAIM_EXTENSION,
   ERA_LAST_EDITED_EXTENSION,
   ERA_PCN_EXTENSION,
   ERA_PROCESSING_ACTIVITY_CODE,
@@ -305,6 +306,7 @@ export function buildManualClaimResponse(args: {
     ...(existing?.id ? { id: existing.id } : {}),
     contained: [containedClaim, patient, billingProvider, coverage],
     extension: [
+      { url: ERA_KEYED_CLAIM_EXTENSION, valueReference: { reference: `#${CONTAINED.claim}` } },
       { url: ERA_STATUS_CODE_EXTENSION, valueString: claim.statusCode },
       ...(claim.patientAccountNumber ? [{ url: ERA_PCN_EXTENSION, valueString: claim.patientAccountNumber }] : []),
       ...(claim.payerClaimControlNumber
