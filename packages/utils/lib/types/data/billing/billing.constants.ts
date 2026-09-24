@@ -4,6 +4,10 @@ import { Patient, Task } from 'fhir/r4b';
 // (description, system flag) is a separate Basic resource (see save-billing-tag).
 export const CLAIM_TAG_SYSTEM = 'https://fhir.ottehr.com/billing/claim-tag';
 
+export const TAG_NAME_FORBIDDEN_CHARACTERS = /[&=:,|\\$#%]|\p{C}|[^\S ]/u;
+export const TAG_NAME_FORBIDDEN_CHARACTERS_ERROR =
+  'Tag name cannot contain any of & = : , | \\ $ # %, or invisible and non-standard whitespace characters';
+
 export const BILLING_CLAIM_TASK_CODING = {
   system: 'https://fhir.ottehr.com/billing/task',
   code: 'billing-claim',
