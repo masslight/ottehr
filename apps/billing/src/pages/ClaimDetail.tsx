@@ -5,7 +5,7 @@ import {
   Delete as DeleteIcon,
   DeleteForever as DeleteForeverIcon,
   DeleteOutline as DeleteOutlineIcon,
-  Description as DescriptionIcon,
+  DescriptionOutlined as DescriptionIcon,
   Download as DownloadIcon,
   Edit as EditIcon,
   EditOutlined as EditOutlinedIcon,
@@ -13,7 +13,9 @@ import {
   MoreVert as MoreVertIcon,
   OpenInNew as OpenInNewIcon,
   PrintOutlined as PrintIcon,
+  ReceiptLongOutlined as ReceiptLongIcon,
   Save as SaveIcon,
+  SendOutlined as SendIcon,
   StickyNote2Outlined as StickyNote2Icon,
 } from '@mui/icons-material';
 import { TabContext, TabList, TabPanel } from '@mui/lab';
@@ -115,6 +117,7 @@ import {
   updateBillingResource,
 } from '../api/api';
 import { AccidentInfoFields } from '../components/AccidentInfoFields';
+import { ActionTile, ActionTileGroup } from '../components/ActionTile';
 import { ClaimHistory } from '../components/claim/ClaimHistory';
 import { ClaimNotesDrawer } from '../components/claim/ClaimNotesDrawer';
 import { ClaimStatusFields } from '../components/claim/ClaimStatusFields';
@@ -502,63 +505,30 @@ export default function ClaimDetail(): ReactElement {
           )}
         </Box>
 
-        {EHR_URL && claim.appointmentId && (
-          <Button
-            variant="outlined"
-            size="small"
-            startIcon={<OpenInNewIcon />}
-            href={`${EHR_URL}/visit/${claim.appointmentId}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            sx={{ mt: 0.5, flexShrink: 0 }}
-          >
-            View in EHR
-          </Button>
-        )}
-        <Button
-          size="small"
-          variant="outlined"
-          startIcon={<FileDownloadIcon />}
-          onClick={() => setExportOpen(true)}
-          sx={{ mt: 0.5 }}
-        >
-          Export X12
-        </Button>
-        {claim.type === 'professional' && (
-          <Button
-            size="small"
-            variant="outlined"
-            startIcon={<PrintIcon />}
-            onClick={() => setCms1500Open(true)}
-            sx={{ mt: 0.5 }}
-          >
-            CMS-1500
-          </Button>
-        )}
-        <Button
-          size="small"
-          variant="outlined"
-          startIcon={<DescriptionIcon />}
-          onClick={() => void onCreateTimelyFilingReport()}
-          disabled={buildingReport}
-          sx={{ mt: 0.5 }}
-        >
-          {buildingReport ? 'Building…' : 'Timely Filing Report'}
-        </Button>
-        <Button
-          size="small"
-          variant="outlined"
-          startIcon={<StickyNote2Icon />}
-          onClick={() => setNotesOpen(true)}
-          sx={{ mt: 0.5 }}
-        >
-          Notes
-        </Button>
-        {runEngine && (
-          <Button variant="contained" size="small" onClick={() => setConfirmingSubmit(true)} sx={{ mt: 0.5 }}>
-            {runEngine.runButtonLabel}
-          </Button>
-        )}
+        <ActionTileGroup>
+          {EHR_URL && claim.appointmentId && (
+            <ActionTile label="View in EHR" icon={<OpenInNewIcon />} href={`${EHR_URL}/visit/${claim.appointmentId}`} />
+          )}
+          <ActionTile label="Export X12" icon={<FileDownloadIcon />} onClick={() => setExportOpen(true)} />
+          {claim.type === 'professional' && (
+            <ActionTile label="CMS-1500" icon={<PrintIcon />} onClick={() => setCms1500Open(true)} />
+          )}
+          <ActionTile
+            label={buildingReport ? 'Building…' : 'Timely Filing Report'}
+            icon={<DescriptionIcon />}
+            loading={buildingReport}
+            onClick={() => void onCreateTimelyFilingReport()}
+          />
+          <ActionTile label="Notes" icon={<StickyNote2Icon />} onClick={() => setNotesOpen(true)} />
+          {runEngine && (
+            <ActionTile
+              primary
+              label={runEngine.runButtonLabel}
+              icon={runEngine.type === 'claim-submission' ? <SendIcon /> : <ReceiptLongIcon />}
+              onClick={() => setConfirmingSubmit(true)}
+            />
+          )}
+        </ActionTileGroup>
       </Box>
 
       {oystehrZambda && (
