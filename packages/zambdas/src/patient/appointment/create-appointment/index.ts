@@ -33,7 +33,7 @@ import {
   PRIVATE_EXTENSION_BASE_URL,
   SERVICE_CATEGORY_SYSTEM,
 } from 'utils/lib/fhir/constants';
-import { FOLLOWUP_SUBTYPE_SYSTEM, FOLLOWUP_SYSTEMS } from 'utils/lib/fhir/encounter';
+import { buildFollowupEncounterType } from 'utils/lib/fhir/encounter';
 import { getGroupAssignmentMode } from 'utils/lib/fhir/healthcareService';
 import { getCoding, getTaskResource } from 'utils/lib/fhir/helpers';
 import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
@@ -59,6 +59,7 @@ import { generatePatientRelatedRequests } from '../../../shared/appointment/help
 import { getM2MClientId, getUser, isM2MClient, isTestUser } from '../../../shared/auth';
 import { getAuth0Token } from '../../../shared/getAuth0Token';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { truncateForLog } from '../../../shared/logging';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
 import { AuditableZambdaEndpoints, createAuditEvent } from '../../../shared/userAuditLog';
@@ -111,7 +112,6 @@ export const index = wrapHandler('create-appointment', async (input: ZambdaInput
   const { secrets, language } = validatedParameters;
 
   console.groupEnd();
-  console.debug('validateRequestParameters success', JSON.stringify(validatedParameters));
 
   if (!oystehrToken) {
     console.log('getting token');
@@ -137,7 +137,6 @@ export const index = wrapHandler('create-appointment', async (input: ZambdaInput
     attendingPractitioner,
   } = effectInput;
 
-  console.log('effectInput', effectInput);
   console.timeEnd('performing-complex-validation');
 
   let appointmentMetadata = injectMetadataIfNeeded(maybeMetadata);
@@ -212,7 +211,7 @@ export const index = wrapHandler('create-appointment', async (input: ZambdaInput
     relatedPersonId,
   };
 
-  console.log(`fhirAppointment = ${JSON.stringify(response)}`, visitType);
+  console.log(`fhirAppointment = ${truncateForLog(response)}`, visitType);
 
   return {
     statusCode: 200,
@@ -798,23 +797,7 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     ...(followUpDiagnosisEntries.length > 0 && { diagnosis: followUpDiagnosisEntries }),
     ...(parentEncounterId && {
       partOf: { reference: `Encounter/${parentEncounterId}` },
-      type: [
-        {
-          coding: [
-            {
-              system: FOLLOWUP_SYSTEMS.type.url,
-              code: FOLLOWUP_SYSTEMS.type.code,
-              display: 'Follow-up Encounter',
-            },
-            {
-              system: FOLLOWUP_SUBTYPE_SYSTEM,
-              code: 'scheduled',
-              display: 'scheduled',
-            },
-          ],
-          text: 'Follow-up Encounter',
-        },
-      ],
+      type: buildFollowupEncounterType('scheduled'),
     }),
   };
 

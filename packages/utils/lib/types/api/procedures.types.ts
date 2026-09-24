@@ -1,14 +1,5 @@
-import { CPTCodeDTO, DiagnosisDTO, ProcedureDTO } from './chart-data/chart-data.types';
-
-export interface ProcedureDetail extends ProcedureDTO {
-  info?: string;
-}
-
-export interface ProcedureSuggestion {
-  code: string;
-  description: string;
-  useWhen: string;
-}
+import type { StructuredFacts } from '../../procedure-coding/structured-fields';
+import { CPTCodeDTO, DiagnosisDTO } from './chart-data/chart-data.types';
 
 // UI-layer state shape for the create/edit procedure form.
 export interface ProcedurePageState {
@@ -27,6 +18,11 @@ export interface ProcedurePageState {
   suppliesUsed?: string[];
   otherSuppliesUsed?: string;
   procedureDetails?: string;
+  structuredFacts?: StructuredFacts;
+  lengthCm?: number;
+  repairDepth?: string;
+  infusionStartTime?: string;
+  infusionStopTime?: string;
   specimenSent?: boolean;
   complications?: string;
   otherComplications?: string;

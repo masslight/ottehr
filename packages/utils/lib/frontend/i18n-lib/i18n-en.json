@@ -45,7 +45,7 @@
       "placeholderMiddleName": "Middle name"
     },
     "reasonForVisit": {
-      "label": "Reason for visit",
+      "label": "Reason for today's visit",
       "options": {
         "option1": "Cough and/or congestion",
         "option10": "Injury to arms or legs",

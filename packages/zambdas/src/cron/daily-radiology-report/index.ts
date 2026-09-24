@@ -27,7 +27,6 @@ const ZAMBDA_NAME = 'daily-radiology-report';
  * It provides observability into radiology studies that need attention
  */
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  console.log(`Input: ${JSON.stringify(input)}`);
   const { secrets } = input;
 
   // Get M2M token for FHIR access

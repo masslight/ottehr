@@ -12,6 +12,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { BRANDING_CONFIG, FEATURE_FLAGS_CONFIG, SENDGRID_CONFIG } from 'utils';
+import { StripeWebhookSigningSecretsSchema } from 'utils/lib/types/data/billing/stripe-webhook.schemas';
 import { SpecFile } from '../packages/spec/src/schema';
 import { Schema20250319 } from '../packages/spec/src/schema-20250319';
 import { Schema20250925 } from '../packages/spec/src/schema-20250925';
@@ -178,12 +179,43 @@ async function generateOystehrResources(input: GenerateFhirResourcesArgs): Promi
   if (!isObject(vars)) {
     throw new Error(`Variable file ${varFile} is not a valid JSON map.`);
   }
+  if (Array.isArray(vars.STRIPE_WEBHOOK_SECRET)) {
+    StripeWebhookSigningSecretsSchema.parse(vars.STRIPE_WEBHOOK_SECRET);
+    vars.STRIPE_WEBHOOK_SECRET = JSON.stringify(vars.STRIPE_WEBHOOK_SECRET);
+  }
   const coreVars = { ...BILLING_VAR_DEFAULTS, ...vars };
   const billingVars = { ...BILLING_VAR_DEFAULTS, ...vars };
+
+  assertBillingIntegrationSupportsNios(coreVars, env);
 
   await validateAndGenerateSpecFiles(coreSpecs, coreVars, outputPath);
   if (billingSpecs.length > 0) {
     await validateAndGenerateSpecFiles(billingSpecs, billingVars, billingOutputPath);
+  }
+}
+
+/**
+ * With nonInsuranceOrganizationsEnabled on, employer billing lives in the billing app and Candid
+ * can't see it, so Ottehr billing must be in the claims path: 'ottehr' alone, or 'all' to also
+ * send comparison claims to Candid (those go out without the NIO employer). Candid-only routing —
+ * 'candid', or unset, whose runtime default is Candid while secrets migrate — would silently drop
+ * employer billing, so generation fails loudly; shouldUseCandid in packages/zambdas backstops
+ * secrets edited outside IaC.
+ */
+function assertBillingIntegrationSupportsNios(vars: { [key: string]: unknown }, env: string): void {
+  if (!FEATURE_FLAGS_CONFIG.nonInsuranceOrganizationsEnabled) {
+    return;
+  }
+  const billingIntegration = vars.BILLING_INTEGRATION;
+  if (billingIntegration !== 'ottehr' && billingIntegration !== 'all') {
+    throw new Error(
+      `BILLING_INTEGRATION is '${
+        billingIntegration || '(unset)'
+      }' for env '${env}', which routes claims through Candid only, but the nonInsuranceOrganizationsEnabled ` +
+        `feature flag is on. Non-insurance organizations need Ottehr billing as the system of record: set ` +
+        `BILLING_INTEGRATION to 'ottehr' (or 'all' to also send comparison claims to Candid) in ` +
+        `config/.env/${env}.json, or turn off nonInsuranceOrganizationsEnabled.`
+    );
   }
 }
 

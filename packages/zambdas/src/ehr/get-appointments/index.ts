@@ -56,6 +56,7 @@ import { createClinicalOystehrClient } from '../../shared/helpers';
 import { getTrackingBoardVisitStatus, sortAppointments } from '../../shared/queueingUtils';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { getVitalsEngineConfig } from '../../shared/vitals-alert-config';
 import { getPersonPhone } from '../patient-account/get-login-phone-numbers';
 import {
   getAppointmentQueryInput,
@@ -71,6 +72,7 @@ import {
   emptyTrackingBoardExtras,
   fetchTrackingBoardResources,
   selectTrackingBoardEncounterIds,
+  selectVitalsPatientsByEncounterId,
   TrackingBoardResources,
 } from './tracking-board';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -409,6 +411,12 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
   const trackingBoardEncounterIds = appointmentQueues
     ? selectTrackingBoardEncounterIds(appointmentQueues, apptRefToEncounterMap)
     : [];
+  const patientsByEncounterId = selectVitalsPatientsByEncounterId({
+    appointments,
+    apptRefToEncounterMap,
+    patientIdMap,
+  });
+  const vitalsAlertConfigPromise = trackingBoardEncounterIds.length > 0 ? getVitalsEngineConfig(oystehr) : undefined;
   const trackingBoardResourcesPromise: Promise<TrackingBoardResources> = fetchTrackingBoardResources({
     oystehr,
     encounterIds: trackingBoardEncounterIds,
@@ -682,6 +690,8 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
       encounters: Object.values(apptRefToEncounterMap),
       appointments,
       practitioners: Object.values(practitionerIdToResourceMap),
+      patientsByEncounterId,
+      vitalsAlertConfig: await vitalsAlertConfigPromise,
       environment: getSecret(SecretsKeys.ENVIRONMENT, secrets),
     });
   } catch (error) {
@@ -893,7 +903,7 @@ const makeAppointmentInformation = (
     },
     participants,
     next,
-    visitStatusHistory: getVisitStatusHistory(encounter),
+    visitStatusHistory: getVisitStatusHistory(encounter, appointment),
     waitingMinutes,
     // Prefer the human-readable display, but fall back to the code: FHIR-backed
     // (non-system) categories are stamped on the slot with only system+code and

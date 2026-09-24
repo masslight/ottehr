@@ -277,6 +277,9 @@
           "effect": "Allow",
           "resource": [
             "Zambda:Function:create-billing-claim-from-encounter",
+            "Zambda:Function:create-billing-claim-task",
+            "Zambda:Function:retry-billing-claim-task",
+            "Zambda:Function:search-billing-claim-tasks",
             "Zambda:Function:search-billing-providers",
             "Zambda:Function:get-billing-provider",
             "Zambda:Function:get-charge-item-definition",
@@ -325,7 +328,16 @@
             "Zambda:Function:record-billing-manual-payment",
             "Zambda:Function:search-billing-patient-ar-claims",
             "Zambda:Function:get-billing-patient-balance",
-            "Zambda:Function:export-billing-claims"
+            "Zambda:Function:export-billing-claims",
+            "Zambda:Function:create-timely-filing-report",
+            "Zambda:Function:create-billing-non-insurance-org",
+            "Zambda:Function:update-billing-non-insurance-org",
+            "Zambda:Function:search-billing-non-insurance-orgs",
+            "Zambda:Function:delete-billing-non-insurance-org",
+            "Zambda:Function:create-billing-custom-insurance-org",
+            "Zambda:Function:update-billing-custom-insurance-org",
+            "Zambda:Function:search-billing-custom-insurance-orgs",
+            "Zambda:Function:delete-billing-custom-insurance-org"
           ]
         }
       ]

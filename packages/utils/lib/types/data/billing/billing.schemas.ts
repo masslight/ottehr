@@ -2,10 +2,21 @@ import { z } from 'zod';
 import { SUBSCRIBER_RELATIONSHIPS } from '../../../fhir/constants';
 import { INSURANCE_CANDID_PLAN_TYPE_CODES } from '../../../fhir/insurance';
 import { isCLIAValid, isNPIValidWithChecksum } from '../../../helpers/helpers';
-import { CMS_PLACE_OF_SERVICE_CODE_SET, CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES } from '../../../helpers/rcm/constants';
+import {
+  CLAIM_ACCIDENT_TYPES,
+  CMS_PLACE_OF_SERVICE_CODE_SET,
+  CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES,
+} from '../../../helpers/rcm/constants';
 import { fullZipRegex, stripeAccountIdRegex, taxIdRegex, zipRegex } from '../../../validation/regex';
+import { PractitionerQualificationCodesLabels } from '../../api/practitioner.types';
 import { STATE_CODES } from '../../common';
-import { BILLING_MANUAL_PAYMENT_METHODS, REFRESH_REPORT_KINDS } from './billing.constants';
+import {
+  BILLING_MANUAL_PAYMENT_METHODS,
+  BILLING_TASK_STATUSES,
+  REFRESH_REPORT_KINDS,
+  TAG_NAME_FORBIDDEN_CHARACTERS,
+  TAG_NAME_FORBIDDEN_CHARACTERS_ERROR,
+} from './billing.constants';
 import { CLAIM_NOTE_MAX_LENGTH } from './claim-history';
 import {
   CLAIM_STATUS_FIELD_KEYS,
@@ -64,6 +75,8 @@ export const SearchErasInputSchema = z.object({
   eraDateFrom: nonEmptyString.optional(),
   eraDateTo: nonEmptyString.optional(),
   eraStatus: nonEmptyString.optional(),
+  // A value shaped like a custom insurance organization's business id ("OTR-...") is resolved to
+  // that org rather than looked up as an RCM payer id (see resolvePayerIssuerFilter).
   payerId: nonEmptyString.optional(),
   payerName: nonEmptyString.optional(),
   matchingStatus: nonEmptyString.optional(),
@@ -79,7 +92,11 @@ export const SearchErasInputSchema = z.object({
 
 export const SaveBillingTagInputSchema = z.object({
   tagId: nonEmptyString.optional(),
-  name: nonEmptyString,
+  name: z
+    .string()
+    .refine((name) => !TAG_NAME_FORBIDDEN_CHARACTERS.test(name), TAG_NAME_FORBIDDEN_CHARACTERS_ERROR)
+    .transform((name) => name.trim().replace(/ {2,}/g, ' '))
+    .pipe(z.string().min(1)),
   description: z.string().optional(),
 });
 
@@ -155,7 +172,10 @@ export const SearchBillingClaimsInputSchema = z.object({
   serviceDateFrom: nonEmptyString.optional(),
   serviceDateTo: nonEmptyString.optional(),
   payerName: nonEmptyString.optional(),
+  // A value shaped like a custom insurance organization's business id ("OTR-...") is resolved to
+  // that org rather than looked up as an RCM payer id (see resolvePayerIssuerFilter).
   payerId: nonEmptyString.optional(),
+  nonInsurancePayerId: nonEmptyString.uuid().optional(),
   service: nonEmptyString.optional(),
   patientId: nonEmptyString.optional(),
   offset: nonNegativeInt.optional(),
@@ -212,6 +232,8 @@ export const SearchBillingServicesInputSchema = z.object({
 export const SearchBillingPayersInputSchema = z.object({
   name: nonEmptyString.optional(),
   payerId: nonEmptyString.optional(),
+  cursor: nonEmptyString.optional(),
+  limit: z.number().int().positive().max(200).optional(),
 });
 
 const claimDiagnosisSchema = z.object({
@@ -224,7 +246,7 @@ const claimServiceLineSchema = z.object({
   units: z.number().positive(),
   charges: z.number(),
   serviceDate: nonEmptyString,
-  placeOfService: z.string().optional(),
+  placeOfService: nonEmptyString,
   modifiers: z.array(z.string()).optional(),
   // 1-based references into the claim's diagnosis list (FHIR item.diagnosisSequence)
   diagnosisPointers: z.array(z.number().int().positive()).optional(),
@@ -331,6 +353,12 @@ const billingProviderAddressSchema = billingAddressSchema.extend({
     .optional(),
 });
 
+const billingProviderLicenseSchema = z.object({
+  type: nonEmptyString.refine((code) => code in PractitionerQualificationCodesLabels, 'Unknown license type'),
+  number: nonEmptyString,
+  state: nonEmptyString.refine((code) => STATE_CODES.has(code), 'Unknown state code'),
+});
+
 export const CreateBillingProviderInputSchema = z.discriminatedUnion('kind', [
   z.object({
     kind: z.literal('individual'),
@@ -339,7 +367,7 @@ export const CreateBillingProviderInputSchema = z.discriminatedUnion('kind', [
     roles: z.array(billingProviderRole).min(1),
     npi: billingNpiSchema.optional(),
     taxonomyCode: billingTaxonomyCodeSchema.optional(),
-    licenseType: nonEmptyString.optional(),
+    license: billingProviderLicenseSchema.optional(),
     taxId: billingTaxIdSchema.optional(),
     address: billingProviderAddressSchema.optional(),
   }),
@@ -374,7 +402,7 @@ export const UpdateBillingProviderInputSchema = z.discriminatedUnion('kind', [
     roles: z.array(billingProviderRole).min(1),
     npi: billingNpiSchema.optional(),
     taxonomyCode: billingTaxonomyCodeSchema.optional(),
-    licenseType: nonEmptyString.optional(),
+    license: billingProviderLicenseSchema.optional(),
     taxId: billingTaxIdSchema.optional(),
     address: billingProviderAddressSchema.optional(),
   }),
@@ -483,6 +511,26 @@ export const CreateBillingClaimFromEncounterInputSchema = z.object({
   encounterId: z.string().uuid(),
 });
 
+export const CreateBillingClaimTaskInputSchema = z.object({
+  encounterId: z.string().uuid(),
+});
+
+export const RetryBillingClaimTaskInputSchema = z.object({
+  taskId: z.string().uuid(),
+});
+
+export const SearchBillingClaimTasksInputSchema = z.object({
+  status: z.enum(BILLING_TASK_STATUSES).optional(),
+  createdFrom: z.string().date().optional(),
+  createdTo: z.string().date().optional(),
+  patientId: z.string().uuid().optional(),
+  patientName: nonEmptyString.regex(/[^\s,]/, 'Patient name cannot be blank').optional(),
+  patientIdentifier: nonEmptyString.regex(/^\d+$/, 'Expected a numeric patient ID').optional(),
+  payerName: nonEmptyString.optional(),
+  offset: nonNegativeInt.default(0),
+  pageSize: z.number().int().min(1).max(100).default(25),
+});
+
 const updatableAddressSchema = z
   .object({
     line1: z.string().optional(),
@@ -561,31 +609,50 @@ const updateBillingResourceUnion = z.discriminatedUnion('resourceType', [
     resourceType: z.literal('Claim'),
     resourceId: nonEmptyString,
     claimId: nonEmptyString.uuid(),
-    fields: z.object({
-      type: z.enum(CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES).optional(),
-      service: nonEmptyString.optional(),
-      // Claim-level date of service; written to every service line by update-billing-claim.
-      serviceDate: nonEmptyString.optional(),
-      billingProvider: claimProviderRefSchema.optional(),
-      renderingProvider: claimProviderRefSchema.optional(),
-      facilityId: nonEmptyString.optional(),
-      coverageId: nonEmptyString.optional(),
-      coverageType: z.enum(['primary', 'secondary', 'tertiary', 'quaternary']).optional(),
-      removeCoverage: nonEmptyString.optional(),
-      payerId: nonEmptyString.optional(),
-      planType: z
-        .string()
-        .refine((code) => INSURANCE_CANDID_PLAN_TYPE_CODES.includes(code), 'Invalid plan type')
-        .optional(),
-      diagnoses: z.array(claimDiagnosisSchema).optional(),
-      serviceLines: z.array(claimServiceLineSchema).optional(),
-      billType: nonEmptyString.min(4).max(4).optional().or(z.literal('')),
-      patientDischargeStatusCode: nonEmptyString.max(2).optional().or(z.literal('')),
-      admissionType: nonEmptyString.max(1).optional().or(z.literal('')),
-      admissionSource: nonEmptyString.max(1).optional().or(z.literal('')),
-      admissionDate: nonEmptyString.optional().or(z.literal('')),
-      dischargeDate: nonEmptyString.optional().or(z.literal('')),
-    }),
+    fields: z
+      .object({
+        type: z.enum(CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES).optional(),
+        service: nonEmptyString.optional(),
+        // Claim-level date of service; written to every service line by update-billing-claim.
+        serviceDate: nonEmptyString.optional(),
+        billingProvider: claimProviderRefSchema.optional(),
+        renderingProvider: claimProviderRefSchema.optional(),
+        facilityId: nonEmptyString.optional(),
+        coverageId: nonEmptyString.optional(),
+        coverageType: z.enum(['primary', 'secondary', 'tertiary', 'quaternary']).optional(),
+        removeCoverage: nonEmptyString.optional(),
+        payerId: nonEmptyString.optional(),
+        planType: z
+          .string()
+          .refine((code) => INSURANCE_CANDID_PLAN_TYPE_CODES.includes(code), 'Invalid plan type')
+          .optional(),
+        nonInsurancePayer: z.object({ id: nonEmptyString.uuid() }).nullable().optional(),
+        diagnoses: z.array(claimDiagnosisSchema).optional(),
+        serviceLines: z.array(claimServiceLineSchema).optional(),
+        billType: nonEmptyString.min(4).max(4).optional().or(z.literal('')),
+        patientDischargeStatusCode: nonEmptyString.max(2).optional().or(z.literal('')),
+        admissionType: nonEmptyString.max(1).optional().or(z.literal('')),
+        admissionSource: nonEmptyString.max(1).optional().or(z.literal('')),
+        admissionDate: nonEmptyString.optional().or(z.literal('')),
+        dischargeDate: nonEmptyString.optional().or(z.literal('')),
+        accidentType: z.array(z.enum([...CLAIM_ACCIDENT_TYPES] as [string, ...string[]])).optional(),
+        accidentState: nonEmptyString.optional().or(z.literal('')),
+        accidentDate: nonEmptyString.optional().or(z.literal('')),
+      })
+      .superRefine((data, ctx) => {
+        if (data.accidentType?.includes('auto') && !data.accidentState) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'Accident state is required for auto accidents',
+          });
+        }
+        if (data.accidentType?.length && !data.accidentDate) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'Accident date is required',
+          });
+        }
+      }),
   }),
 ]);
 
@@ -714,6 +781,8 @@ export const GetBillingReportInputSchema = z.object({
   refresh: z.boolean().optional(),
   // filtered slice of the report's cached detail dataset
   drilldown: z.record(z.unknown()).optional(),
+  // list this kind's cached runs instead of serving a report
+  history: z.boolean().optional(),
 });
 
 // date window shared by the parameterized report kinds
@@ -763,6 +832,7 @@ export const RecordBillingManualPaymentInputSchema = z.object({
 export const AddClaimAttachmentInputSchema = z.object({
   claimId: nonEmptyString,
   name: nonEmptyString,
+  fileName: nonEmptyString,
   reportTypeCode: nonEmptyString.optional(),
 });
 
@@ -779,6 +849,10 @@ export const DeleteClaimAttachmentInputSchema = z.object({
 export const DownloadClaimAttachmentInputSchema = z.object({
   claimId: nonEmptyString,
   documentReferenceId: nonEmptyString,
+});
+
+export const CreateTimelyFilingReportInputSchema = z.object({
+  claimId: nonEmptyString.uuid(),
 });
 
 export type GetClaimDetailInput = z.output<typeof GetClaimDetailInputSchema>;
@@ -825,6 +899,9 @@ export type BillingPolicyHolderInput = z.output<typeof BillingPolicyHolderSchema
 export type UpdateBillingProviderInput = z.output<typeof UpdateBillingProviderInputSchema>;
 export type CreateBillingWorkingCopyInput = z.output<typeof CreateBillingWorkingCopyInputSchema>;
 export type CreateBillingClaimFromEncounterInput = z.output<typeof CreateBillingClaimFromEncounterInputSchema>;
+export type CreateBillingClaimTaskInput = z.output<typeof CreateBillingClaimTaskInputSchema>;
+export type RetryBillingClaimTaskInput = z.output<typeof RetryBillingClaimTaskInputSchema>;
+export type SearchBillingClaimTasksInput = z.output<typeof SearchBillingClaimTasksInputSchema>;
 export type UpdateBillingResourceInput = z.output<typeof UpdateBillingResourceInputSchema>;
 export type BillingResourceType = (typeof ALLOWED_BILLING_RESOURCE_TYPES)[number];
 export type SearchChargeItemDefinitionsInput = z.output<typeof SearchChargeItemDefinitionsInputSchema>;
@@ -848,3 +925,4 @@ export type AddClaimAttachmentInput = z.output<typeof AddClaimAttachmentInputSch
 export type RenameClaimAttachmentInput = z.output<typeof RenameClaimAttachmentInputSchema>;
 export type DeleteClaimAttachmentInput = z.output<typeof DeleteClaimAttachmentInputSchema>;
 export type DownloadClaimAttachmentInput = z.output<typeof DownloadClaimAttachmentInputSchema>;
+export type CreateTimelyFilingReportInput = z.output<typeof CreateTimelyFilingReportInputSchema>;

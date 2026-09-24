@@ -1,12 +1,19 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Claim, PaymentNotice, PaymentReconciliation, Person, RelatedPerson } from 'fhir/r4b';
+import { Claim, Organization, PaymentNotice, PaymentReconciliation, Person, RelatedPerson } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { getCoveragePlanType } from 'utils/lib/fhir/billing';
+import { getClaimNonInsurancePayer, getCoveragePlanType } from 'utils/lib/fhir/billing';
 import { SubscriberRelationship } from 'utils/lib/fhir/constants';
 import { getCoding, getExtension, getNPI, getResourcesFromBatchInlineRequests, getTaxID } from 'utils/lib/fhir/helpers';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
-import { getPayerId } from 'utils/lib/helpers/helpers';
+import {
+  CLAIM_ACCIDENT_STATE_EXTENSION_URL,
+  CLAIM_ACCIDENT_TYPE,
+  CLAIM_ACCIDENT_TYPE_EXTENSION_URLS,
+  CODE_SYSTEM_CLAIM_ACCIDENT_DATE,
+  CODE_SYSTEM_CLAIM_ACCIDENT_DATE_CODE,
+  CODE_SYSTEM_CLAIM_INFORMATION_CATEGORY,
+} from 'utils/lib/helpers/rcm/constants';
 import { asEraClaimStatusCode, CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
 import {
   BillingPolicyHolderSummary,
@@ -47,9 +54,11 @@ import {
   getClaimPcn,
   getClaimService,
   getClaimStatus,
+  getClaimSupportingInfo,
   getClaimType,
   getEraCheckNumber,
   getTaxonomy,
+  resolvedPayerId,
   resolvePayersByRef,
   toAddressParts,
 } from '../shared';
@@ -97,13 +106,15 @@ export async function performEffect(
   const encounterId =
     claim.identifier?.find((i) => i.system === ottehrIdentifierSystem('claim-encounter-id'))?.value ?? '';
 
-  // Other claims via Person lookup, this claim's ERA adjudications, and its patient payments
-  const [otherClaims, claimResponsesByClaimId, paymentsByEncounter] = await Promise.all([
+  // Other claims via Person lookup, this claim's ERA adjudications, its patient payments, and its
+  // non-insurance payer (when stamped)
+  const [otherClaims, claimResponsesByClaimId, paymentsByEncounter, nonInsurancePayer] = await Promise.all([
     fetchOtherClaims(oystehr, patient?.id, claimId),
     fetchClaimResponsesByClaimIds(eraReadClient, [claimId]),
     encounterId
       ? fetchPatientPaymentsByEncounterIds(oystehr, [encounterId])
       : Promise.resolve(new Map<string, PaymentNotice[]>()),
+    resolveNonInsurancePayerDetail(oystehr, claim),
   ]);
   const claimResponses = sortClaimResponsesByRecency(claimResponsesByClaimId.get(claimId) ?? []);
   const { paymentReconciliations, claimResponseByPrId } = await fetchClaimEraLinks(eraReadClient, claimResponses);
@@ -213,7 +224,7 @@ export async function performEffect(
     coverageFhirId: coverage?.id ?? '',
     payorFhirId: insurer?.id ?? '',
     payerName: insurer?.name ?? '',
-    payerId: getPayerId(insurer) ?? '',
+    payerId: resolvedPayerId(insurer) ?? '',
     memberId: coverage?.subscriberId ?? '',
     subscriberId: coverage?.subscriberId ?? '',
     planType: getCoveragePlanType(coverage) ?? '',
@@ -222,18 +233,18 @@ export async function performEffect(
     responsibleParty: 'Primary',
     secondaryCoverageFhirId: secondaryCoverage?.id ?? '',
     secondaryPayerName: secondaryInsurer?.name ?? '',
-    secondaryPayerId: getPayerId(secondaryInsurer) ?? '',
+    secondaryPayerId: resolvedPayerId(secondaryInsurer) ?? '',
     secondaryMemberId: secondaryCoverage?.subscriberId ?? '',
     tertiaryCoverageFhirId: tertiaryCoverage?.id ?? '',
     tertiaryPayerName: tertiaryInsurer?.name ?? '',
-    tertiaryPayerId: getPayerId(tertiaryInsurer) ?? '',
+    tertiaryPayerId: resolvedPayerId(tertiaryInsurer) ?? '',
     tertiaryMemberId: tertiaryCoverage?.subscriberId ?? '',
     quaternaryCoverageFhirId: quaternaryCoverage?.id ?? '',
     quaternaryPayerName: quaternaryInsurer?.name ?? '',
-    quaternaryPayerId: getPayerId(quaternaryInsurer) ?? '',
+    quaternaryPayerId: resolvedPayerId(quaternaryInsurer) ?? '',
     quaternaryMemberId: quaternaryCoverage?.subscriberId ?? '',
-    nonInsurancePayerFhirId: '',
-    nonInsurancePayerName: '',
+    nonInsurancePayerFhirId: nonInsurancePayer.fhirId,
+    nonInsurancePayerName: nonInsurancePayer.name,
     renderingProviderId: renderingProvider?.id ?? '',
     renderingProviderType: renderingProvider?.resourceType ?? '',
     renderingProvider: renderingProvider
@@ -300,8 +311,41 @@ export async function performEffect(
     admissionSource: getExtension(claim, EXTENSION_CLAIM_POINT_OF_ORIGIN_CODE)?.valueString ?? '',
     admissionDate: claim.billablePeriod?.start ?? '',
     dischargeDate: claim.billablePeriod?.end ?? '',
+    accidentType: Object.entries(CLAIM_ACCIDENT_TYPE_EXTENSION_URLS).flatMap(([type, url]) =>
+      getExtension(claim, url)?.valueBoolean ? [type as CLAIM_ACCIDENT_TYPE] : []
+    ),
+    accidentState: getExtension(claim, CLAIM_ACCIDENT_STATE_EXTENSION_URL)?.valueString ?? '',
+    accidentDate:
+      getClaimSupportingInfo(
+        claim,
+        CODE_SYSTEM_CLAIM_INFORMATION_CATEGORY,
+        'info',
+        CODE_SYSTEM_CLAIM_ACCIDENT_DATE,
+        CODE_SYSTEM_CLAIM_ACCIDENT_DATE_CODE
+      )?.timingDate ?? '',
     attachments,
   };
+}
+
+// The claim's non-insurance payer (e.g. the visit's occ-med employer): resolve the NIO's current
+// name so renames show through, falling back to the display snapshotted on the claim when the
+// Organization is gone.
+async function resolveNonInsurancePayerDetail(
+  oystehr: Oystehr,
+  claim: Claim
+): Promise<{ fhirId: string; name: string }> {
+  const payerRef = getClaimNonInsurancePayer(claim);
+  const fhirId = payerRef?.reference?.replace('Organization/', '') ?? '';
+  let name = payerRef?.display ?? '';
+  if (fhirId) {
+    try {
+      const org = await oystehr.fhir.get<Organization>({ resourceType: 'Organization', id: fhirId });
+      name = org.name ?? name;
+    } catch {
+      console.warn(`Non-insurance payer Organization/${fhirId} could not be resolved; using the stored display.`);
+    }
+  }
+  return { fhirId, name };
 }
 
 // Flatten the working-copy subscriber RelatedPerson into the policy-holder summary the UI prefills from.

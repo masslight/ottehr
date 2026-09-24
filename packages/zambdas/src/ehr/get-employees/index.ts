@@ -99,11 +99,6 @@ export const index = wrapHandler('get-employees', async (input: ZambdaInput): Pr
     getResourcesRequest as Promise<Resource[]>,
   ]);
 
-  console.log(
-    `Fetched ${inactiveRoleMembers.length} Inactive role members and ` +
-      assignableRoleMembers.map(({ role, members }) => `${members.length} ${role}`).join(', ')
-  );
-
   const inactiveMemberIds = new Set(inactiveRoleMembers.map((member) => member.id));
 
   // userId -> roles held. Built once so the per-employee mapping below stays a lookup rather than a
@@ -180,7 +175,6 @@ export const index = wrapHandler('get-employees', async (input: ZambdaInput): Pr
 });
 
 async function getEmployees(oystehr: Oystehr): Promise<UserListItem[]> {
-  console.log('Getting all employees..');
   // Include email-based users even when they have no Practitioner profile
   // (e.g. self-signup users stuck on the Patient role), so admins can reclassify them.
   const allEmployees = (await oystehr.user.list()).filter((user) => !user.name.startsWith('+'));
@@ -188,7 +182,6 @@ async function getEmployees(oystehr: Oystehr): Promise<UserListItem[]> {
 }
 
 async function getRoles(oystehr: Oystehr): Promise<RoleListItem[]> {
-  console.log('Getting roles...');
   return oystehr.role.list();
 }
 

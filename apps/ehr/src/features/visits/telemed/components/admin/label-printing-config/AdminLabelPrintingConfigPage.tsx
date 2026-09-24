@@ -1,10 +1,12 @@
 import { Box, CircularProgress, Paper, Typography } from '@mui/material';
-import { OystehrSdkError } from '@oystehr/sdk/dist/cjs/errors';
+import type Oystehr from '@oystehr/sdk';
 import { ReactElement, useCallback, useState } from 'react';
 import { LabelPrintingConfig } from 'utils/lib/types/data/printing';
 import { APIError } from 'utils/lib/types/errors';
 import { useAdminGetLabelPrintingConfig, useAdminUpdateLabelPrintingConfig } from '../admin.queries';
 import AdminLabelPrintingConfigForm from './AdminLabelPrintingConfigForm';
+
+type OystehrSdkError = Oystehr.OystehrSdkError;
 
 export default function AdminPrintingConfigPage(): ReactElement {
   // for the moment we're just going to return the single form since we aren't supporting multiple printing configs currently

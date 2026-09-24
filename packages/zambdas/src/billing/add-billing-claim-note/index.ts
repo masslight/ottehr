@@ -3,6 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, ProvenanceAgent } from 'fhir/r4b';
 import { OkResponse } from 'utils/lib/types/data/billing/billing.types';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { truncateForLog } from '../../shared/logging';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { commitClaimNote, resolveClaimActor } from '../provenance';
@@ -16,8 +17,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.group('validateRequestParameters');
   const params = validateRequestParameters(input);
   console.groupEnd();
-  const { secrets, userToken, message, ...restOfParams } = params;
-  console.debug('validateRequestParameters success', restOfParams, `length: ${message.length}`);
+  const { secrets, userToken } = params;
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createBillingClient(m2mToken, secrets);
@@ -30,7 +30,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.group('performEffect');
   const response = await performEffect(oystehr, params, agent);
   console.groupEnd();
-  console.debug('performEffect success', response);
+  console.debug('performEffect success', truncateForLog(response));
 
   return {
     statusCode: 200,

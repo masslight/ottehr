@@ -14,6 +14,7 @@ import {
   PROVIDER_ROLE_BILLING,
   PROVIDER_ROLE_RENDERING,
   PROVIDER_ROLE_TAG,
+  setStateLicense,
   setStripeAccountId,
   setTaxId,
   setTaxonomy,
@@ -56,7 +57,8 @@ export async function performEffect(
     const before = structuredClone(provider);
     provider.name = [{ family: params.lastName, given: [params.firstName] }];
     applyIdentifiersAndAddress(provider, params);
-    applyTags(provider, params.roles, params.licenseType);
+    applyTags(provider, params.roles, params.license?.type);
+    setStateLicense(provider, params.license);
     return save(oystehr, params, provider, before, agent);
   }
 

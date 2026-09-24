@@ -8,21 +8,29 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ConditionalEditor } from '../../src/components/rules/RuleBuilder';
 import Rules from '../../src/pages/Rules';
 
-const { getBillingRulesMock, saveBillingRulesMock, searchBillingProvidersMock, searchBillingTagsMock, stableClients } =
-  vi.hoisted(() => ({
-    getBillingRulesMock: vi.fn(),
-    saveBillingRulesMock: vi.fn(),
-    searchBillingProvidersMock: vi.fn(),
-    searchBillingTagsMock: vi.fn(),
-    stableClients: { oystehrZambda: {} },
-  }));
+const {
+  getBillingRulesMock,
+  saveBillingRulesMock,
+  searchBillingNonInsuranceOrgsMock,
+  searchBillingProvidersMock,
+  searchBillingTagsMock,
+  stableClients,
+} = vi.hoisted(() => ({
+  getBillingRulesMock: vi.fn(),
+  saveBillingRulesMock: vi.fn(),
+  searchBillingNonInsuranceOrgsMock: vi.fn(),
+  searchBillingProvidersMock: vi.fn(),
+  searchBillingTagsMock: vi.fn(),
+  stableClients: { oystehrZambda: {} },
+}));
 
 vi.mock('../../src/api/api', () => ({
   getBillingRules: getBillingRulesMock,
   saveBillingRules: saveBillingRulesMock,
   // PayerSelect (rendered for the payerId condition) searches payers on open/input, not on mount;
   // same for TagSelect (apply-tag action), ProcedureCodeAutocomplete (CPT inputs), and the
-  // provider/facility reference pickers.
+  // provider/facility/NIO reference pickers.
+  searchBillingNonInsuranceOrgs: searchBillingNonInsuranceOrgsMock,
   searchBillingPayers: () => Promise.resolve({ payers: [] }),
   searchBillingProcedureCodes: () => Promise.resolve({ codes: [] }),
   searchBillingProviders: searchBillingProvidersMock,
@@ -126,6 +134,86 @@ describe('ConditionalEditor', () => {
     render(<ConditionalForm conditional={ruleA.conditional} />);
     // ruleA has a payerId condition and a setField-payerId action — both should be payer pickers.
     expect(screen.getAllByPlaceholderText(/Search payers/)).toHaveLength(2);
+  });
+
+  it('uses the searchable NIO picker for the non-insurance organization field in both the condition and the action', () => {
+    searchBillingNonInsuranceOrgsMock.mockReset();
+    searchBillingNonInsuranceOrgsMock.mockResolvedValue({ organizations: [], total: 0 });
+    const conditional: RuleConditional = {
+      branches: [
+        {
+          condition: { type: 'field', field: 'nonInsurancePayerId', operator: 'eq', value: 'nio-1' },
+          outcome: { type: 'actions', actions: [{ type: 'setField', field: 'nonInsurancePayerId', value: '' }] },
+        },
+      ],
+    };
+    render(<ConditionalForm conditional={conditional} />);
+    expect(screen.getAllByPlaceholderText(/Search non-insurance organizations/)).toHaveLength(2);
+  });
+
+  it('shows the name (not the id) of a stored NIO before any search has run', async () => {
+    const nioId = '8f1f6f3e-1111-4222-8333-444455556666';
+    searchBillingNonInsuranceOrgsMock.mockReset();
+    searchBillingNonInsuranceOrgsMock.mockResolvedValue({
+      organizations: [{ id: nioId, name: 'Acme Trucking', employer: true, active: false, contacts: [], covers: [] }],
+      total: 1,
+    });
+    const conditional: RuleConditional = {
+      branches: [
+        {
+          condition: { type: 'field', field: 'nonInsurancePayerId', operator: 'eq', value: nioId },
+          outcome: { type: 'actions', actions: [] },
+        },
+      ],
+    };
+    render(<ConditionalForm conditional={conditional} />);
+
+    await waitFor(() =>
+      expect(screen.getByPlaceholderText(/Search non-insurance organizations/)).toHaveValue('Acme Trucking')
+    );
+    expect(searchBillingNonInsuranceOrgsMock).toHaveBeenCalledWith(expect.anything(), { nioId });
+  });
+
+  it('offers directory organizations in the set-NIO picker and stores the organization id', async () => {
+    searchBillingNonInsuranceOrgsMock.mockReset();
+    searchBillingNonInsuranceOrgsMock.mockResolvedValue({
+      organizations: [
+        {
+          id: '8f1f6f3e-1111-4222-8333-444455556666',
+          name: 'Acme Trucking',
+          employer: true,
+          active: true,
+          contacts: [],
+          covers: [],
+        },
+      ],
+      total: 1,
+    });
+    const conditional: RuleConditional = {
+      branches: [
+        {
+          condition: { type: 'all' },
+          outcome: { type: 'actions', actions: [{ type: 'setField', field: 'nonInsurancePayerId', value: '' }] },
+        },
+      ],
+    };
+    const onValid = vi.fn();
+    render(<ConditionalForm conditional={conditional} onValid={onValid} />);
+
+    const input = screen.getByPlaceholderText(/Search non-insurance organizations/);
+    fireEvent.mouseDown(input);
+    // Generous timeout: the option waits on a 300ms-debounced fetch, slow enough to flake at 1s.
+    fireEvent.click(await screen.findByRole('option', { name: 'Acme Trucking' }, { timeout: 5000 }));
+    expect(searchBillingNonInsuranceOrgsMock).toHaveBeenCalledWith(expect.anything(), {});
+
+    fireEvent.click(screen.getByText('Save'));
+    await waitFor(() => expect(onValid).toHaveBeenCalled());
+    const action = onValid.mock.calls[0][0].conditional.branches[0].outcome.actions[0];
+    expect(action).toEqual({
+      type: 'setField',
+      field: 'nonInsurancePayerId',
+      value: '8f1f6f3e-1111-4222-8333-444455556666',
+    });
   });
 
   it('renders line match and set controls for an update-service-lines action', () => {
@@ -479,9 +567,28 @@ describe('ConditionalEditor', () => {
     await waitFor(() => expect(screen.getByLabelText('Value *')).toHaveAttribute('aria-invalid', 'true'));
 
     // Switch the condition to a different property; the NPI error no longer applies to its value.
-    fireEvent.mouseDown(screen.getByText('NPI'));
+    fireEvent.mouseDown(screen.getByText('Rendering provider - NPI'));
     fireEvent.click((await screen.findAllByRole('option', { name: 'Member ID' }))[0]);
 
     await waitFor(() => expect(screen.getByLabelText('Value *')).not.toHaveAttribute('aria-invalid', 'true'));
+  });
+
+  it('prefixes the selected property with its group only when the label is ambiguous', () => {
+    const conditional: RuleConditional = {
+      branches: [
+        {
+          condition: { type: 'field', field: 'secondaryInsurance.memberId', operator: 'eq', value: 'abc' },
+          outcome: { type: 'noop' },
+        },
+        {
+          condition: { type: 'field', field: 'billingProvider.taxId', operator: 'eq', value: '12-3456789' },
+          outcome: { type: 'noop' },
+        },
+      ],
+    };
+    render(<ConditionalForm conditional={conditional} />);
+
+    expect(screen.getByText('Secondary insurance - Member ID')).toBeInTheDocument();
+    expect(screen.getByText('Tax ID (TIN)')).toBeInTheDocument();
   });
 });

@@ -7,7 +7,7 @@ import {
   lightTheme,
   MeetingProvider,
 } from 'amazon-chime-sdk-component-library-react';
-import React from 'react';
+import React, { useCallback } from 'react';
 import { Outlet } from 'react-router-dom';
 import { CommandPaletteInPersonRegistrations } from 'src/components/CommandPaletteRegistrations';
 import { dataTestIds } from 'src/constants/data-test-ids';
@@ -20,6 +20,7 @@ import { Sidebar } from '../../shared/components/Sidebar';
 import { useAiResourcesPolling } from '../../shared/components/useAiResourcesPolling';
 import { useAiSuggestionsPolling } from '../../shared/hooks/useAiSuggestionsPolling';
 import { useAssignedProvider } from '../../shared/hooks/useAssignedProvider';
+import { useChartSection } from '../../shared/hooks/useChartSection';
 import { useGetAppointmentAccessibility } from '../../shared/hooks/useGetAppointmentAccessibility';
 import { useResetAppointmentStore } from '../../shared/hooks/useResetAppointmentStore';
 import { useStopAmbientScribeOnLeave } from '../../shared/hooks/useStopAmbientScribeOnLeave';
@@ -65,8 +66,16 @@ export const InPersonLayout: React.FC = () => {
   useAiSuggestionsPolling();
   // Keep the Ambient Scribe recording alive across rotation; stop & save it on leaving the visit.
   useStopAmbientScribeOnLeave({ hostKey: encounter.id ?? '' });
-  const { chartData, refetch: refetchChartData } = useChartData({ shouldUpdateExams: true });
+  const { chartData } = useChartData({ shouldUpdateExams: true });
   const { oystehr } = useApiClients();
+  const aiDocumentCount = chartData?.aiChat?.documents?.length ?? 0;
+  const hasPendingRecording = Boolean(chartData?.aiChat?.hasPendingRecording);
+  // Each poll tick re-reads only the aiChat section; the Ambient Scribe panel and the sidebar read aiChat
+  // from that same cache entry, so nothing else needs refetching when it changes.
+  const { refetch: refetchAiChat } = useChartSection('aiChat', { enabled: false });
+  const refetchAiResources = useCallback(async (): Promise<void> => {
+    await refetchAiChat();
+  }, [refetchAiChat]);
   // Mounted here (not in the OttehrAi route) so a pending recording or AI interview keeps getting
   // refetched no matter which tab the provider is on — the Ambient Scribe panel above reads
   // chartData.aiChat straight from the same query cache this refetch loop keeps warm.
@@ -74,9 +83,9 @@ export const InPersonLayout: React.FC = () => {
     appointment,
     encounter,
     oystehr,
-    chartDataHasResources: (chartData?.aiChat?.documents?.length ?? 0) > 0,
-    hasPendingRecording: Boolean(chartData?.aiChat?.hasPendingRecording),
-    onRefetch: refetchChartData,
+    chartDataHasResources: aiDocumentCount > 0,
+    hasPendingRecording,
+    onRefetch: refetchAiResources,
   });
   const { isAssignedProviderEligible, isAssignedProviderStale, assignedProviderName } = useAssignedProvider();
   // A finished visit is a record, not work in progress. The provider gate exists to stop new

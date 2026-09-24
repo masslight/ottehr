@@ -10,31 +10,49 @@ import { dataTestIds } from 'src/constants/data-test-ids';
 import { handleChangeInPersonVisitStatus } from 'src/helpers/inPersonVisitStatusUtils';
 import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser from 'src/hooks/useEvolveUser';
+import { DownloadDocumentOptions } from 'src/hooks/useGetPatientDocs';
 import { getInPersonVisitStatus } from 'utils/lib/utils/visitUtils';
 import { useAppointmentData } from '../../stores/appointment/appointment.store';
-import { DischargeAndPrintDialog } from './DischargeAndPrintDialog';
+import { DischargeDialog } from './DischargeDialog';
 
 export const createAndOpenDischargeSummary = async (
   oystehr: Oystehr,
   appointmentId: string,
-  downloadDocument: (id: string, options?: { skipRelated?: boolean }) => Promise<void>,
-  options?: { skipRelated?: boolean }
-): Promise<void> => {
+  downloadDocument: (id: string, options?: DownloadDocumentOptions) => Promise<void>,
+  options?: DownloadDocumentOptions
+): Promise<boolean> => {
+  let documentId: string | undefined;
+
   try {
-    const response = await createDischargeSummary(oystehr, { appointmentId });
-    const documentId = response?.documentId;
-    if (documentId) {
-      await downloadDocument(documentId, options);
-    } else {
-      enqueueSnackbar(
-        'Discharge summary created, but document is not accessible right now. You can find it later in the Patient Record > Review Docs.',
-        { variant: 'info' }
-      );
-    }
+    documentId = (await createDischargeSummary(oystehr, { appointmentId }))?.documentId;
   } catch (error) {
     console.error('Error creating Discharge Summary:', error);
     enqueueSnackbar('Error creating Discharge Summary.', { variant: 'error' });
+    options?.targetTab?.close();
+    return false;
   }
+
+  // The document is filed past this point, so a failure to open it is not a failure to create it.
+  if (!documentId) {
+    enqueueSnackbar(
+      'Discharge summary created, but document is not accessible right now. You can find it later in the Patient Record > Review Docs.',
+      { variant: 'info' }
+    );
+    options?.targetTab?.close();
+    return true;
+  }
+
+  try {
+    await downloadDocument(documentId, options);
+  } catch (error) {
+    console.error('Error opening Discharge Summary:', error);
+    enqueueSnackbar(
+      'Discharge summary created, but it could not be opened. You can find it in the Patient Record > Review Docs.',
+      { variant: 'warning' }
+    );
+  }
+
+  return true;
 };
 
 export const handleDischarge = async (encounterId: string, oystehr?: Oystehr): Promise<void> => {
@@ -111,21 +129,28 @@ export const DischargeButton: FC = () => {
           >
             Discharge
           </LoadingButton>
-          <Tooltip title="Discharge & Print">
-            <Button variant="contained" size="small" onClick={() => setDialogOpen(true)} sx={{ borderRadius: '100px' }}>
+          <Tooltip title="Discharge & More">
+            <Button
+              variant="contained"
+              size="small"
+              onClick={() => setDialogOpen(true)}
+              data-testid={dataTestIds.dischargeDialog.openButton}
+              sx={{ borderRadius: '100px' }}
+            >
               <ArrowDropDownIcon fontSize="small" />
             </Button>
           </Tooltip>
         </ButtonGroup>
       </Box>
 
-      <DischargeAndPrintDialog
-        open={dialogOpen}
-        onClose={() => setDialogOpen(false)}
-        encounterId={encounterId}
-        appointmentId={appointmentId}
-        patientId={patientId}
-      />
+      {dialogOpen && (
+        <DischargeDialog
+          onClose={() => setDialogOpen(false)}
+          encounterId={encounterId}
+          appointmentId={appointmentId}
+          patientId={patientId}
+        />
+      )}
     </>
   );
 };

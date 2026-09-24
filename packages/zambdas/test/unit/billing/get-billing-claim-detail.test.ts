@@ -1,7 +1,15 @@
 import Oystehr from '@oystehr/sdk';
-import { Claim, Patient, PaymentNotice } from 'fhir/r4b';
+import { Claim, Organization, Patient, PaymentNotice } from 'fhir/r4b';
 import { PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
+import {
+  CUSTOM_INSURANCE_ORG_ID_SYSTEM,
+  CUSTOM_INSURANCE_ORG_KIND_CODE,
+} from 'utils/lib/types/data/billing/custom-insurance-org.types';
+import {
+  CLAIM_NON_INSURANCE_PAYER_EXTENSION_URL,
+  NIO_ORGANIZATION_KIND_SYSTEM,
+} from 'utils/lib/types/data/billing/non-insurance-org.types';
 import { beforeEach, describe, expect, it, Mock, vi } from 'vitest';
 import { fetchClaimEraLinks, fetchClaimResponsesByClaimIds } from '../../../src/billing/claim-amounts';
 import { performEffect } from '../../../src/billing/get-billing-claim-detail';
@@ -233,5 +241,150 @@ describe('get-billing-claim-detail performEffect: patient payments', () => {
     expect(response.balance).toBe(100);
     expect(response.patientPayments.map((p) => p.paymentNoticeId)).toEqual(['pn-refund-failed', 'pn-charge']);
     expect(response.patientPayments[0].status).toBe('cancelled');
+  });
+});
+
+describe('get-billing-claim-detail performEffect: non-insurance payer', () => {
+  const NIO_ID = '5b0261af-71c6-4f7e-9a51-e0d16a468980';
+  const claimWithNioPayer = {
+    ...claim,
+    extension: [
+      {
+        url: CLAIM_NON_INSURANCE_PAYER_EXTENSION_URL,
+        valueReference: { reference: `Organization/${NIO_ID}`, display: 'FedEx' },
+      },
+    ],
+  } as Claim;
+
+  const graphFor = (graphClaim: Claim): void => {
+    (fetchClaimGraph as Mock).mockResolvedValue({
+      claim: graphClaim,
+      patient,
+      billingProvider: undefined,
+      serviceFacility: undefined,
+      renderingProvider: undefined,
+      coverages: [],
+      subscribers: [],
+      documentReferences: [],
+    });
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    graphFor(claimWithNioPayer);
+    (resolvePayersByRef as Mock).mockResolvedValue(new Map());
+    (fetchClaimResponsesByClaimIds as Mock).mockResolvedValue(new Map());
+    (fetchClaimEraLinks as Mock).mockResolvedValue({
+      paymentReconciliations: [],
+      claimResponseByPrId: new Map(),
+    });
+  });
+
+  const withGet = (get: Mock): Oystehr => {
+    const base = makeBillingClient([]);
+    (base.fhir as unknown as { get: Mock }).get = get;
+    return base;
+  };
+
+  it('resolves the payer name from the live NIO Organization', async () => {
+    const get = vi.fn().mockResolvedValue({ resourceType: 'Organization', id: NIO_ID, name: 'FedEx Corporation' });
+
+    const response = await performEffect(
+      withGet(get),
+      {} as unknown as Oystehr,
+      {
+        claimId: 'claim-1',
+        secrets: {},
+      } as never
+    );
+
+    expect(get).toHaveBeenCalledWith({ resourceType: 'Organization', id: NIO_ID });
+    expect(response.nonInsurancePayerFhirId).toBe(NIO_ID);
+    expect(response.nonInsurancePayerName).toBe('FedEx Corporation');
+  });
+
+  it('falls back to the display stamped on the claim when the NIO cannot be resolved', async () => {
+    const get = vi.fn().mockRejectedValue(new Error('gone'));
+
+    const response = await performEffect(
+      withGet(get),
+      {} as unknown as Oystehr,
+      {
+        claimId: 'claim-1',
+        secrets: {},
+      } as never
+    );
+
+    expect(response.nonInsurancePayerFhirId).toBe(NIO_ID);
+    expect(response.nonInsurancePayerName).toBe('FedEx');
+  });
+
+  it('leaves the payer fields empty for claims without one', async () => {
+    graphFor(claim);
+    const get = vi.fn();
+
+    const response = await performEffect(
+      withGet(get),
+      {} as unknown as Oystehr,
+      {
+        claimId: 'claim-1',
+        secrets: {},
+      } as never
+    );
+
+    expect(get).not.toHaveBeenCalled();
+    expect(response.nonInsurancePayerFhirId).toBe('');
+    expect(response.nonInsurancePayerName).toBe('');
+  });
+});
+
+describe('get-billing-claim-detail performEffect: custom insurance organization payer', () => {
+  const PAYER_ORG_ID = '9c1b2a3d-1111-4111-8111-abcdefabcdef';
+  const customPayerOrg = {
+    resourceType: 'Organization',
+    id: PAYER_ORG_ID,
+    name: 'Acme Custom Insurance',
+    type: [{ coding: [{ system: NIO_ORGANIZATION_KIND_SYSTEM, code: CUSTOM_INSURANCE_ORG_KIND_CODE }] }],
+    identifier: [{ system: CUSTOM_INSURANCE_ORG_ID_SYSTEM, value: 'OTR-ACME' }],
+  } as unknown as Organization;
+
+  const claimWithCustomInsurer = {
+    ...claim,
+    insurer: { reference: `Organization/${PAYER_ORG_ID}` },
+  } as Claim;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (fetchClaimGraph as Mock).mockResolvedValue({
+      claim: claimWithCustomInsurer,
+      patient,
+      billingProvider: undefined,
+      serviceFacility: undefined,
+      renderingProvider: undefined,
+      coverages: [],
+      subscribers: [],
+      documentReferences: [],
+    });
+    (resolvePayersByRef as Mock).mockResolvedValue(new Map([[`Organization/${PAYER_ORG_ID}`, customPayerOrg]]));
+    (fetchClaimResponsesByClaimIds as Mock).mockResolvedValue(new Map());
+    (fetchClaimEraLinks as Mock).mockResolvedValue({
+      paymentReconciliations: [],
+      claimResponseByPrId: new Map(),
+    });
+  });
+
+  it('shows the custom insurance organization name and business id as the payer', async () => {
+    const response = await performEffect(
+      makeBillingClient([]),
+      {} as unknown as Oystehr,
+      {
+        claimId: 'claim-1',
+        secrets: {},
+      } as never
+    );
+
+    expect(response.payorFhirId).toBe(PAYER_ORG_ID);
+    expect(response.payerName).toBe('Acme Custom Insurance');
+    expect(response.payerId).toBe('OTR-ACME');
   });
 });

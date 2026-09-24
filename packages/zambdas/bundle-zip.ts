@@ -6,8 +6,8 @@
  * packs the same inputs differently on two runs re-uploads code that never
  * changed — see bundle-zip.test.ts.
  */
-import archiver from 'archiver';
 import fs from 'fs';
+import * as yazl from 'yazl';
 
 export interface ZipAsset {
   /** Path inside the assets tree, e.g. `fonts/rubik/Rubik-Variable.ttf`. */
@@ -18,34 +18,34 @@ export interface ZipAsset {
 /** Fixed so entry timestamps never make an otherwise identical zip differ. */
 export const ZIP_ENTRY_DATE = new Date('2025-01-01');
 
-/**
- * Assets are appended as buffers rather than by path. `archive.file()` defers
- * reading, and with several of them queued the entries can finish out of order,
- * so two builds of the same commit produce zips that differ only in entry order
- * — enough to change the checksum and force a pointless re-upload. (Measured:
- * 20 concurrent zips from identical inputs gave 6 distinct hashes via `file()`,
- * 1 via `append()`.) Appending buffers keeps the order the caller asked for.
- * index.js stays a `file()` so the bundle is streamed rather than held in
- * memory, which is why it lands after the assets rather than first.
- */
+const ZIP_ENTRY_MODE = 0o100644;
+
+interface EntryOptions extends Partial<yazl.Options> {
+  compressionLevel: number;
+}
+
+const ENTRY_OPTIONS: EntryOptions = { mtime: ZIP_ENTRY_DATE, mode: ZIP_ENTRY_MODE, compressionLevel: 1 };
+
 export const zipZambda = async (
   sourceFilePath: string,
   assetsPath: string,
   assets: ZipAsset[],
   outPath: string
 ): Promise<void> => {
-  const archive = archiver('zip', { zlib: { level: 1 } });
+  const zip = new yazl.ZipFile();
   const stream = fs.createWriteStream(outPath);
 
   return new Promise((resolve, reject) => {
-    let result = archive;
-    result = result.file(sourceFilePath, { name: 'index.js', date: ZIP_ENTRY_DATE });
-    for (const asset of assets) {
-      result = result.append(asset.contents, { name: `${assetsPath}/${asset.name}`, date: ZIP_ENTRY_DATE });
-    }
-    result.on('error', (err) => reject(err)).pipe(stream);
-
+    zip.on('error', reject);
+    stream.on('error', reject);
     stream.on('close', () => resolve());
-    void archive.finalize();
+
+    zip.outputStream.pipe(stream);
+
+    zip.addFile(sourceFilePath, 'index.js', ENTRY_OPTIONS);
+    for (const asset of assets) {
+      zip.addBuffer(asset.contents, `${assetsPath}/${asset.name}`, ENTRY_OPTIONS);
+    }
+    zip.end();
   });
 };

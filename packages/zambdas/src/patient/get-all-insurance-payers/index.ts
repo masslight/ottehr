@@ -1,7 +1,7 @@
 import Oystehr, { RcmListPayersResponse } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Organization, QuestionnaireItemAnswerOption } from 'fhir/r4b';
-import { createOystehrClient, getPayerId } from 'utils/lib/helpers/helpers';
+import { createOystehrClient, getPayerId, getPayerName } from 'utils/lib/helpers/helpers';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import {
   ANSWER_OPTION_FROM_RESOURCE_UNDEFINED,
@@ -114,7 +114,7 @@ const formatPayerAsAnswerOption = (
   payer: Organization,
   prependIdentifier?: boolean
 ): QuestionnaireItemAnswerOption => {
-  let name = payer.alias?.[0] ?? payer.name;
+  let name = getPayerName(payer);
   const payerId = getPayerId(payer);
   if (prependIdentifier) {
     if (payerId) {

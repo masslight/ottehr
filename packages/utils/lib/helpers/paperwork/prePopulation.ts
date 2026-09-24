@@ -1,4 +1,5 @@
 import {
+  Account,
   Address,
   Coverage,
   DocumentReference,
@@ -30,6 +31,7 @@ import {
 import { genderMap } from '../../fhir/helpers';
 import { getFirstName, getLastName, getMiddleName, getNameSuffix, getPronounsFromExtension } from '../../fhir/patient';
 import { LANGUAGE_OPTIONS, LanguageOption } from '../../fhir/patientMasterRecord';
+import { FEATURE_FLAGS_CONFIG } from '../../ottehr-config/feature-flags';
 import { PatientAccountResponse } from '../../types/api/patient-account';
 import {
   COVERAGE_ADDITIONAL_INFORMATION_URL,
@@ -45,7 +47,14 @@ import {
 } from '../../types/constants';
 import { PHARMACY_COLLECTION_LINK_IDS } from '../../types/data/search-places';
 import { isValidUUID } from '../../validation/helper';
-import { formatPhoneNumberDisplay, getCandidPlanTypeCodeFromCoverage, getPayerId, getPayerUrl } from '../helpers';
+import {
+  formatPhoneNumberDisplay,
+  getCandidPlanTypeCodeFromCoverage,
+  getPayerId,
+  getPayerUrl,
+  isNioReferenceUrl,
+  normalizeZipcode,
+} from '../helpers';
 
 // used when patient books an appointment and some of the inputs come from the create-appointment params
 interface PrePopulationInput {
@@ -221,7 +230,7 @@ export const makePrepopulatedItemsForPatient = (input: PrePopulationInput): Ques
             answer = makeAnswer(patientState);
           }
           if (linkId === 'patient-zip' && patientPostalCode) {
-            answer = makeAnswer(patientPostalCode);
+            answer = makeAnswer(normalizeZipcode(patientPostalCode));
           }
           if (linkId === 'patient-email' && patientEmail) {
             answer = makeAnswer(patientEmail);
@@ -344,6 +353,7 @@ export const makePrepopulatedItemsForPatient = (input: PrePopulationInput): Ques
         return mapOccupationalMedicineEmployerToQuestionnaireResponseItems({
           items: itemItems,
           occupationalMedicineEmployerOrganization: accountInfo?.occupationalMedicineEmployerOrganization,
+          occupationalMedicineAccount: accountInfo?.occupationalMedicineAccount,
         });
       } else if (ATTORNEY_ITEMS.includes(item.linkId)) {
         return mapAttorneyToQuestionnaireResponseItems({
@@ -514,6 +524,7 @@ export const makePrepopulatedItemsFromPatientRecord = (
           occupationalMedicineEmployerOrganization: useAccountEmployer
             ? occupationalMedicineEmployerOrganization
             : undefined,
+          occupationalMedicineAccount: useAccountEmployer ? input.occupationalMedicineAccount : undefined,
           occupationalMedicineEmployerReference: input.visitOccupationalMedicineEmployerReference,
         });
       }
@@ -656,7 +667,7 @@ const mapPatientItemsToQuestionnaireResponseItems = (input: MapPatientItemsInput
       answer = makeAnswer(patientState ?? initialStringValue);
     }
     if (linkId === 'patient-zip' && patientPostalCode) {
-      answer = makeAnswer(patientPostalCode);
+      answer = makeAnswer(normalizeZipcode(patientPostalCode));
     }
     if (linkId === 'patient-email' && patientEmail) {
       answer = makeAnswer(patientEmail);
@@ -1214,21 +1225,34 @@ const mapEmployerToQuestionnaireResponseItems = (input: MapEmployerItemsInput): 
 interface MapOccupationalMedicineEmployerItemsInput {
   items: QuestionnaireItem[];
   occupationalMedicineEmployerOrganization?: Organization;
+  occupationalMedicineAccount?: Account;
   occupationalMedicineEmployerReference?: Reference;
 }
 
-const mapOccupationalMedicineEmployerToQuestionnaireResponseItems = (
+export const mapOccupationalMedicineEmployerToQuestionnaireResponseItems = (
   input: MapOccupationalMedicineEmployerItemsInput
 ): QuestionnaireResponseItem[] => {
   const {
     occupationalMedicineEmployerOrganization,
+    occupationalMedicineAccount,
     occupationalMedicineEmployerReference: referenceOverride,
     items,
   } = input;
 
   let occupationalMedicineEmployerReference: Reference | undefined = referenceOverride;
 
-  if (!occupationalMedicineEmployerReference && occupationalMedicineEmployerOrganization) {
+  if (!occupationalMedicineEmployerReference && FEATURE_FLAGS_CONFIG.nonInsuranceOrganizationsEnabled) {
+    // NIO mode prefills only from an NIO token owner — the name comes from the stored display, no
+    // FHIR read. A legacy employer org stays visible on historical visits but never prefills
+    // forward.
+    const owner = occupationalMedicineAccount?.owner;
+    if (isNioReferenceUrl(owner?.reference)) {
+      occupationalMedicineEmployerReference = {
+        reference: owner!.reference,
+        ...(owner?.display ? { display: owner.display } : {}),
+      };
+    }
+  } else if (!occupationalMedicineEmployerReference && occupationalMedicineEmployerOrganization) {
     occupationalMedicineEmployerReference = {
       reference: `Organization/${occupationalMedicineEmployerOrganization.id}`,
       display: occupationalMedicineEmployerOrganization.name,

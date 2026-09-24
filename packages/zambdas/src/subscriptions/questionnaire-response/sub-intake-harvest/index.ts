@@ -18,6 +18,7 @@ import { makeObservationResource } from '../../../shared/chart-data';
 import { getAuth0Token } from '../../../shared/getAuth0Token';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { triggerSlackAlarm } from '../../../shared/lambda';
+import { truncateForLog } from '../../../shared/logging';
 import { saveResourceRequest } from '../../../shared/resources.helpers';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
@@ -28,7 +29,6 @@ let oystehrToken: string;
 
 export const index = wrapHandler('sub-intake-harvest', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log('Intake Harvest Hath Been Invoked');
-  console.log(`Input: ${JSON.stringify(input)}`);
   console.group('validateRequestParameters');
   const validatedParameters = validateRequestParameters(input);
   const { qr, secrets } = validatedParameters;
@@ -227,7 +227,10 @@ export const performEffect = async (input: QRSubscriptionInput | undefined, oyst
             '',
             undefined,
             observation,
-            ADDITIONAL_QUESTIONS_META_SYSTEM
+            ADDITIONAL_QUESTIONS_META_SYSTEM,
+            undefined,
+            undefined,
+            undefined
           )
         )
       );
@@ -255,7 +258,7 @@ export const performEffect = async (input: QRSubscriptionInput | undefined, oyst
   const response = tasksFailed.length
     ? `${tasksFailed.length} failed: ${tasksFailed}`
     : 'all tasks executed successfully';
-  console.log(response);
+  console.log(truncateForLog(response));
 
   // this alert will fire if tasks fail in testing env so having the env in the message is helpful
   // since it will come into the staging env slack channel
