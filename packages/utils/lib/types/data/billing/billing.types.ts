@@ -120,6 +120,13 @@ export interface SearchServiceFacilitiesResponse {
   pageSize: number;
 }
 
+// A rendering provider's professional license; type is a PractitionerQualificationCode, state a state code.
+export interface BillingProviderLicense {
+  type: string;
+  number: string;
+  state: string;
+}
+
 // Unified provider option (Practitioner or Organization)
 export interface BillingProviderOption {
   id: string;
@@ -129,7 +136,7 @@ export interface BillingProviderOption {
   lastName?: string;
   npi: string;
   taxonomyCode?: string;
-  licenseType?: string;
+  license?: BillingProviderLicense;
   taxId?: string;
   stripeAccountId?: string;
   address?: string;
