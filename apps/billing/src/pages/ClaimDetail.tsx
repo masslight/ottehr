@@ -5,14 +5,11 @@ import {
   Delete as DeleteIcon,
   DeleteForever as DeleteForeverIcon,
   DeleteOutline as DeleteOutlineIcon,
-  DescriptionOutlined as DescriptionIcon,
   Download as DownloadIcon,
   Edit as EditIcon,
   EditOutlined as EditOutlinedIcon,
-  FileDownloadOutlined as FileDownloadIcon,
   MoreVert as MoreVertIcon,
   OpenInNew as OpenInNewIcon,
-  PrintOutlined as PrintIcon,
   ReceiptLongOutlined as ReceiptLongIcon,
   Save as SaveIcon,
   SendOutlined as SendIcon,
@@ -117,7 +114,7 @@ import {
   updateBillingResource,
 } from '../api/api';
 import { AccidentInfoFields } from '../components/AccidentInfoFields';
-import { ActionTile, ActionTileGroup } from '../components/ActionTile';
+import { ClaimDownloadsMenu } from '../components/claim/ClaimDownloadsMenu';
 import { ClaimHistory } from '../components/claim/ClaimHistory';
 import { ClaimNotesDrawer } from '../components/claim/ClaimNotesDrawer';
 import { ClaimStatusFields } from '../components/claim/ClaimStatusFields';
@@ -177,6 +174,9 @@ function applicableRulesEngine(claim: ClaimDetailResponse): RulesEngineDef | und
   if (arStage === AR_STAGE.patient) return RULES_ENGINES['patient-ar-pre-invoice'];
   return undefined;
 }
+
+// The header's buttons keep their labels on one line, so they're all the same height.
+const NO_WRAP = { whiteSpace: 'nowrap' } as const;
 
 // EHR app base URL for the "View in EHR" backlink
 const EHR_URL = import.meta.env.VITE_APP_EHR_URL;
@@ -505,30 +505,48 @@ export default function ClaimDetail(): ReactElement {
           )}
         </Box>
 
-        <ActionTileGroup>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0, mt: 0.25 }}>
           {EHR_URL && claim.appointmentId && (
-            <ActionTile label="View in EHR" icon={<OpenInNewIcon />} href={`${EHR_URL}/visit/${claim.appointmentId}`} />
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<OpenInNewIcon />}
+              href={`${EHR_URL}/visit/${claim.appointmentId}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              sx={NO_WRAP}
+            >
+              View in EHR
+            </Button>
           )}
-          <ActionTile label="Export X12" icon={<FileDownloadIcon />} onClick={() => setExportOpen(true)} />
-          {claim.type === 'professional' && (
-            <ActionTile label="CMS-1500" icon={<PrintIcon />} onClick={() => setCms1500Open(true)} />
-          )}
-          <ActionTile
-            label={buildingReport ? 'Building…' : 'Timely Filing Report'}
-            icon={<DescriptionIcon />}
-            loading={buildingReport}
-            onClick={() => void onCreateTimelyFilingReport()}
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={<StickyNote2Icon />}
+            onClick={() => setNotesOpen(true)}
+            sx={NO_WRAP}
+          >
+            Notes
+          </Button>
+          <ClaimDownloadsMenu
+            claimType={claim.type}
+            onExportX12={() => setExportOpen(true)}
+            onCms1500={() => setCms1500Open(true)}
+            onProofOfTimelyFiling={() => void onCreateTimelyFilingReport()}
+            buildingProof={buildingReport}
           />
-          <ActionTile label="Notes" icon={<StickyNote2Icon />} onClick={() => setNotesOpen(true)} />
           {runEngine && (
-            <ActionTile
-              primary
-              label={runEngine.runButtonLabel}
-              icon={runEngine.type === 'claim-submission' ? <SendIcon /> : <ReceiptLongIcon />}
+            <Button
+              variant="contained"
+              size="small"
+              startIcon={runEngine.type === 'claim-submission' ? <SendIcon /> : <ReceiptLongIcon />}
               onClick={() => setConfirmingSubmit(true)}
-            />
+              sx={NO_WRAP}
+            >
+              {runEngine.runButtonLabel}
+            </Button>
           )}
-        </ActionTileGroup>
+        </Box>
       </Box>
 
       {oystehrZambda && (
