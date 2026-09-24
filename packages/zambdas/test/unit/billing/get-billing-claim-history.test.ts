@@ -388,7 +388,9 @@ describe('get-billing-claim-history performEffect', () => {
 
     const { entries } = await performEffect(oystehr, {
       claimId: 'c1',
-      secrets: null,
+      // Use a non-local environment so sendErrors forwards anomalies to Sentry rather
+      // than returning early (sendErrors skips reporting when env === 'local').
+      secrets: { ENVIRONMENT: '' },
     });
 
     expect(entries[0].acknowledgment).toBeUndefined();
