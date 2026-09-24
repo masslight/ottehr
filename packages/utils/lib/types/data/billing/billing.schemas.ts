@@ -255,6 +255,9 @@ export const GetServiceFacilityInputSchema = z.object({
 export const SearchServiceFacilitiesInputSchema = z.object({
   facilityId: nonEmptyString.optional(),
   name: nonEmptyString.optional(),
+  // Exact-match identifier filters, used to find facilities sharing an NPI / CLIA number.
+  npi: nonEmptyString.optional(),
+  clia: nonEmptyString.optional(),
   offset: nonNegativeInt.optional(),
   pageSize: nonNegativeInt.optional(),
 });
