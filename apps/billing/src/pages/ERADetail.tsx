@@ -28,7 +28,7 @@ import { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { EraClaimListItem, EraDetailResponse, EraPayee } from 'utils/lib/types/data/billing/billing.types';
-import { formatCurrency } from 'utils/lib/utils/convert';
+import { formatCurrency, formatTaxId } from 'utils/lib/utils/convert';
 import { getBillingEraDetail, unmatchClaimResponse } from '../api/api';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
 import { ConfirmDialog } from '../components/ConfirmDialog';
@@ -38,7 +38,7 @@ import { ReadOnlySection } from '../components/ReadOnlySection';
 import { Row } from '../components/Row';
 import { useApiClients } from '../hooks/useAppClients';
 import { otherColors } from '../themes/ottehr/colors';
-import { formatDate, formatTaxId } from '../utils/format';
+import { formatDate } from '../utils/format';
 
 const payeeRows = (payee: EraPayee): { label: string; value: string }[] =>
   [

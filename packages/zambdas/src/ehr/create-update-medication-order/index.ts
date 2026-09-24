@@ -37,6 +37,7 @@ import {
   MEDICATION_DISPENSABLE_DRUG_ID,
 } from 'utils/lib/types/api/medication-administration.constants';
 import {
+  inHouseMedicationsMedicationApplianceRoutes,
   MedicationData,
   MedicationInteractions,
   MedicationOrderStatusesType,
@@ -73,7 +74,6 @@ const statusesToCreateAdditionalCptCodes: MedicationOrderStatusesType[] = ['admi
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const validatedParameters = validateRequestParameters(input);
-  console.log('Validated parameters: ', JSON.stringify(validatedParameters));
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
   const userToken = input.headers.Authorization.replace('Bearer ', '') as string;
@@ -317,7 +317,7 @@ async function createOrder(
   const medicationCopy = createMedicationCopy(inventoryMedication, orderData);
   console.log(`Created medication copy: ${getMedicationName(medicationCopy)}`);
 
-  const routeCoding = searchRouteByCode(orderData.route);
+  const routeCoding = searchRouteByCode(orderData.route, inHouseMedicationsMedicationApplianceRoutes);
   if (!routeCoding) throw INVALID_INPUT_ERROR(`No medication appliance route was found for code: ${orderData.route}`);
   const locationCoding = orderData.location
     ? searchMedicationLocation(orderData.location.code, orderData.location.name)

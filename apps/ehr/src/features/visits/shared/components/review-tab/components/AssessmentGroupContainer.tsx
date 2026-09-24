@@ -8,28 +8,19 @@ import {
   useNoteSectionTitleInCardHeader,
 } from 'src/features/visits/shared/components/NoteSectionHeading';
 import { makeCptCodeDisplay } from 'utils/lib/fhir/helpers';
-import { useChartFields } from '../../../hooks/useChartFields';
-import { useChartData } from '../../../stores/appointment/appointment.store';
+import { useVisitNote } from '../../../hooks/useVisitNote';
 
 export const AssessmentGroupContainer: FC = () => {
   const titleInCardHeader = useNoteSectionTitleInCardHeader();
-  const { chartData } = useChartData();
+  const { data: note } = useVisitNote();
   const theme = useTheme();
 
-  const { data: chartFields } = useChartFields({
-    requestedFields: {
-      medicalDecision: {
-        _tag: 'medical-decision',
-      },
-    },
-  });
-
-  const diagnoses = chartData?.diagnosis;
+  const diagnoses = note?.assessment.diagnosis;
   const primaryDiagnosis = diagnoses?.find((item) => item.isPrimary);
   const otherDiagnoses = diagnoses?.filter((item) => !item.isPrimary);
-  const medicalDecision = chartFields?.medicalDecision?.text;
-  const emCode = chartData?.emCode;
-  const cptCodes = chartData?.cptCodes;
+  const medicalDecision = note?.encounterNotes.medicalDecision?.text;
+  const emCode = note?.assessment.emCode;
+  const cptCodes = note?.assessment.cptCodes;
 
   // Same split as the Assessment editor: diagnoses and decision making on the left,
   // billing codes on the right.

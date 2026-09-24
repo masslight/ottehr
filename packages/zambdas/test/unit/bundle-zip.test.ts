@@ -65,12 +65,8 @@ afterAll(() => fs.rmSync(root, { recursive: true, force: true }));
 
 describe('zipZambda', () => {
   it('produces the same bytes for every zip built concurrently from the same inputs', async () => {
-    // The zips of a chunk are built with Promise.all, which is what made the
-    // old implementation flaky: it handed archiver paths to read later, and
-    // under concurrency those reads finished in whatever order they landed.
     const builds = await Promise.all(Array.from({ length: 12 }, (_, i) => buildZip(`concurrent-${i}.zip`)));
 
-    // Byte equality is the property Terraform's checksum diff cares about.
     const distinct = new Set(builds.map(bytes)).size;
     expect(distinct, 'zips built concurrently from identical inputs differ').toBe(1);
   });

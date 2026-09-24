@@ -18,8 +18,7 @@ import {
   VISIT_NOTE_SUMMARY_CODE,
 } from 'utils/lib/types/data/paperwork/paperwork.constants';
 import { searchRadiologyResultDocRefs } from '../../ehr/radiology/shared/result-doc-refs';
-import { assembleProgressNoteInput } from '../pdf/assemble-progress-note-input';
-import { createProgressNotePdfBytes } from '../pdf/progress-note-pdf';
+import { buildProgressNoteBytes } from '../pdf/build-progress-note';
 import { FullAppointmentResourcePackage } from '../pdf/visit-details-pdf/types';
 
 /**
@@ -175,24 +174,6 @@ export async function resolveFaxDocumentAvailability(args: {
       ? { kind, available: true, count }
       : { kind, available: false, count, unavailableReason: FAX_DOCUMENT_UNAVAILABLE_REASONS[kind] };
   });
-}
-
-/**
- * Regenerates the visit/progress note PDF for this visit and returns its bytes, without uploading anything or
- * creating/superseding the canonical `75498-6` DocumentReference — the generated note lives only inside the
- * packet. The chart-data assembly is shared with the visit-note subscription (`assembleProgressNoteInput`),
- * so a note faxed before signing matches the one persisted afterwards.
- */
-export async function buildProgressNoteBytes(args: {
-  oystehr: Oystehr;
-  token: string;
-  secrets: Secrets | null;
-  visitResources: FullAppointmentResourcePackage;
-  signed: boolean;
-}): Promise<Uint8Array> {
-  const { oystehr, token, secrets, visitResources, signed } = args;
-  const input = await assembleProgressNoteInput(oystehr, token, visitResources, { signed });
-  return createProgressNotePdfBytes(input, secrets, token);
 }
 
 const partsFromDocRefs = (kind: FaxDocumentKind, docRefs: DocumentReference[]): FaxPacketPart[] =>

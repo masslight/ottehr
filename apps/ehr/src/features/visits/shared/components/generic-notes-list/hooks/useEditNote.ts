@@ -1,8 +1,7 @@
 import { useCallback } from 'react';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { NoteDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
-import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
-import { useChartFields } from '../../../hooks/useChartFields';
+import { useChartSection } from '../../../hooks/useChartSection';
 import { useOystehrAPIClient } from '../../../hooks/useOystehrAPIClient';
 import { EditableNote, UseEditNote } from '../types';
 
@@ -10,10 +9,7 @@ export const useEditNote: UseEditNote = ({ appointmentId, apiConfig }) => {
   const apiClient = useOystehrAPIClient();
   const user = useEvolveUser();
 
-  const { setQueryCache } = useChartFields({
-    appointmentId,
-    requestedFields: { [apiConfig.fieldName]: apiConfig.searchParams },
-  });
+  const { setSectionData } = useChartSection('notes', { appointmentId, params: { types: [apiConfig.type] } });
 
   const handleEdit = useCallback(
     async (entity: EditableNote, newText: string): Promise<void> => {
@@ -29,31 +25,22 @@ export const useEditNote: UseEditNote = ({ appointmentId, apiConfig }) => {
 
       await apiClient?.saveChartData?.({
         encounterId: entity.encounterId,
-        [apiConfig.fieldName]: [updatedNote],
+        notes: [updatedNote],
       });
 
       // Flip `edited` in the optimistic cache and bump lastUpdated so the "(edited)" marker
       // and timestamp appear immediately instead of waiting for a refetch.
       const editedAt = new Date().toISOString();
 
-      setQueryCache((oldData: any) => {
-        if (oldData?.[apiConfig.fieldName]) {
-          return {
-            ...oldData,
-            [apiConfig.fieldName]: (
-              oldData[apiConfig.fieldName] as GetChartDataResponse[typeof apiConfig.fieldName]
-            )?.map((note) => {
-              if (note.resourceId === updatedNote.resourceId) {
-                return { ...note, ...updatedNote, lastUpdated: editedAt, edited: true };
-              }
-              return note;
-            }),
-          };
-        }
-        return oldData;
-      }) as GetChartDataResponse | undefined;
+      setSectionData((previous) => ({
+        notes: previous.notes.map((note) =>
+          note.resourceId === updatedNote.resourceId
+            ? { ...note, ...updatedNote, lastUpdated: editedAt, edited: true }
+            : note
+        ),
+      }));
     },
-    [user?.profile, user?.userName, apiClient, apiConfig, setQueryCache]
+    [user?.profile, user?.userName, apiClient, setSectionData]
   );
 
   return handleEdit;

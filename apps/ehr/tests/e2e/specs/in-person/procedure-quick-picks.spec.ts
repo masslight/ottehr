@@ -3,16 +3,17 @@ import { DateTime } from 'luxon';
 import { DocumentProcedurePage, openDocumentProcedurePage } from 'tests/e2e/page/DocumentProcedurePage';
 import { InPersonHeader } from 'tests/e2e/page/InPersonHeader';
 import { ResourceHandler } from 'tests/e2e-utils/resource-handler';
-import procedureBodySides from '../../../../../../config/oystehr/procedure-body-sides.json' assert { type: 'json' };
-import procedureBodySites from '../../../../../../config/oystehr/procedure-body-sites.json' assert { type: 'json' };
-import procedureComplications from '../../../../../../config/oystehr/procedure-complications.json' assert { type: 'json' };
-import procedureMedicationsUsed from '../../../../../../config/oystehr/procedure-medications-used.json' assert { type: 'json' };
-import procedurePatientResponses from '../../../../../../config/oystehr/procedure-patient-responses.json' assert { type: 'json' };
-import procedurePostInstructions from '../../../../../../config/oystehr/procedure-post-instructions.json' assert { type: 'json' };
-import procedureSupplies from '../../../../../../config/oystehr/procedure-supplies.json' assert { type: 'json' };
-import procedureTechniques from '../../../../../../config/oystehr/procedure-techniques.json' assert { type: 'json' };
-import procedureTimeSpent from '../../../../../../config/oystehr/procedure-time-spent.json' assert { type: 'json' };
-import procedureType from '../../../../../../config/oystehr/procedure-type.json' assert { type: 'json' };
+import { detectProcedureFamily } from 'utils/lib/procedure-coding/evaluate';
+import procedureBodySides from '../../../../../../config/oystehr/procedure-body-sides.json';
+import procedureBodySites from '../../../../../../config/oystehr/procedure-body-sites.json';
+import procedureComplications from '../../../../../../config/oystehr/procedure-complications.json';
+import procedureMedicationsUsed from '../../../../../../config/oystehr/procedure-medications-used.json';
+import procedurePatientResponses from '../../../../../../config/oystehr/procedure-patient-responses.json';
+import procedurePostInstructions from '../../../../../../config/oystehr/procedure-post-instructions.json';
+import procedureSupplies from '../../../../../../config/oystehr/procedure-supplies.json';
+import procedureTechniques from '../../../../../../config/oystehr/procedure-techniques.json';
+import procedureTimeSpent from '../../../../../../config/oystehr/procedure-time-spent.json';
+import procedureType from '../../../../../../config/oystehr/procedure-type.json';
 
 const DEFAULT_TIMEOUT = { timeout: 15000 };
 const PROCESS_ID = `procedure-quick-picks-${DateTime.now().toMillis()}`;
@@ -21,20 +22,44 @@ const QUICK_PICK_NAME = `E2E Test Quick Pick ${PROCESS_ID}`;
 const PROCEDURE_TYPE_CODINGS = Object.entries(procedureType.fhirResources).find(([key]) =>
   key.startsWith('value-set-procedure-type')
 )?.[1].resource.expansion.contains;
-const FIRST_PROCEDURE_TYPE = PROCEDURE_TYPE_CODINGS![0].display;
 
-const BODY_SITES = procedureBodySites.fhirResources['value-set-procedure-body-sites'].resource.expansion.contains;
+// This spec fills the generic procedure form, Site/location and Side of body included. A procedure
+// type whose coding family asks for the site inside its own questions hides those two dropdowns,
+// and a type with no coding family at all reaches out to AI for suggestions — so pick the first
+// type that keeps the generic form and stays on the local rules engine.
+const FIRST_PROCEDURE_TYPE = PROCEDURE_TYPE_CODINGS!
+  .map((coding) => ({
+    display: coding.display,
+    codingFamily: detectProcedureFamily({ procedureType: coding.display }),
+  }))
+  .filter(({ codingFamily }) => codingFamily && !codingFamily.capturesSite && !codingFamily.capturesSide)[0].display;
+
+const BODY_SITES = Object.entries(procedureBodySites.fhirResources).find(([key]) =>
+  key.startsWith('value-set-procedure-body-sites')
+)![1].resource.expansion.contains;
+
 const BODY_SIDES = procedureBodySides.fhirResources['value-set-procedure-body-sides'].resource.expansion.contains;
-const TECHNIQUES = procedureTechniques.fhirResources['value-set-procedure-techniques'].resource.expansion.contains;
-const SUPPLIES = procedureSupplies.fhirResources['value-set-procedure-supplies'].resource.expansion.contains;
+
+const TECHNIQUES = Object.entries(procedureTechniques.fhirResources).find(([key]) =>
+  key.startsWith('value-set-procedure-techniques')
+)![1].resource.expansion.contains;
+
+const SUPPLIES = Object.entries(procedureSupplies.fhirResources).find(([key]) =>
+  key.startsWith('value-set-procedure-supplies')
+)![1].resource.expansion.contains;
+
 const MEDICATIONS_USED =
   procedureMedicationsUsed.fhirResources['value-set-procedure-medications-used'].resource.expansion.contains;
+
 const COMPLICATIONS =
   procedureComplications.fhirResources['value-set-procedure-complications'].resource.expansion.contains;
+
 const PATIENT_RESPONSES =
   procedurePatientResponses.fhirResources['value-set-procedure-patient-responses'].resource.expansion.contains;
+
 const POST_INSTRUCTIONS =
   procedurePostInstructions.fhirResources['value-set-procedure-post-instructions'].resource.expansion.contains;
+
 const TIME_SPENT = procedureTimeSpent.fhirResources['value-set-procedure-time-spent'].resource.expansion.contains;
 
 async function fillProcedureForm(documentProcedurePage: DocumentProcedurePage): Promise<void> {
@@ -111,7 +136,7 @@ test.describe('Procedure Quick Picks E2E', () => {
     });
 
     await test.step('Open Quick Picks menu and click Add or Update Quick Pick', async () => {
-      const quickPicksButton = page.getByRole('button', { name: /Quick Picks/i });
+      const quickPicksButton = page.getByRole('textbox', { name: /Quick Picks/i });
       await expect(quickPicksButton).toBeVisible(DEFAULT_TIMEOUT);
       await quickPicksButton.click();
 

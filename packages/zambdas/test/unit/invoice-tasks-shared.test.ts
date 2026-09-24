@@ -7,12 +7,18 @@ import {
   INVOICE_TASK_SOURCE_SYSTEM,
   ZERO_BALANCE_BUSINESS_STATUS,
 } from 'utils/lib/types/api/invoicing.types';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   buildInvoiceTask,
   isCandidInvoicingEnabled,
   isOttehrBillingInvoicingEnabled,
 } from '../../src/shared/invoice-tasks';
+
+// These tests describe legacy Candid claims routing, which only exists with non-insurance
+// organizations off — flag-on, shouldUseCandid throws on candid-routing configs by design.
+vi.mock('utils/lib/ottehr-config/feature-flags', () => ({
+  FEATURE_FLAGS_CONFIG: { nonInsuranceOrganizationsEnabled: false },
+}));
 
 const secretsWith = (billingIntegration?: string): Secrets =>
   (billingIntegration === undefined ? {} : { BILLING_INTEGRATION: billingIntegration }) as Secrets;

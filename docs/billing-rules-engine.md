@@ -31,7 +31,7 @@ is performed.
 
 This reference lists every supported condition property, operator, and action. It is generated from
 the same catalog that drives the rule builder and the rule runs, so it always matches what the rules
-actually support (116 properties, 103 of them settable).
+actually support (117 properties, 104 of them settable).
 
 ## Conditions
 
@@ -72,6 +72,7 @@ Which operators a property supports depends on its type (see the property tables
 | Property | ID | Type | Operators | Settable | Description |
 | --- | --- | --- | --- | --- | --- |
 | Payer ID | `payerId` | payer ID | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, matches pattern, does not match pattern, is present, is empty | yes | The primary payer's ID. Setting it re-points the primary coverage's payer and the claim's insurer. Cannot be cleared — setting it requires a value. |
+| Non-insurance organization | `nonInsurancePayerId` | non-insurance organization ID | equals, does not equal, is one of, is not one of, is present, is empty | yes | The claim's non-insurance payer: a non-insurance organization from the Non-Insurance Organizations page (e.g. the visit's occupational-medicine employer). Setting it stamps the payer on the claim (shown on the claim screens, filterable on the claims list); setting an empty value clears it. |
 | Claim type | `type` | one of the listed values | equals, does not equal, is one of, is not one of, matches pattern, does not match pattern, is present, is empty | yes | The claim type (professional or institutional). Allowed values: `professional` (Professional), `institutional` (Institutional). Cannot be cleared — setting it requires a value. |
 | Service category | `service` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, matches pattern, does not match pattern, is present, is empty | yes | The service category code on the claim (e.g. urgent-care, workers-comp). Categories are configurable, so the value is free text. |
 | Service date | `serviceDate` | date | equals, does not equal, is one of, is not one of, is after, is on or after, is before, is on or before, is present, is empty | yes | The date of service (read from the first service line). Setting it applies the one date to every service line, matching the claim editor. Cannot be cleared — setting it requires a value. |

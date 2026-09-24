@@ -67,6 +67,33 @@ export const FOLLOWUP_SYSTEMS = {
   },
 };
 
+/**
+ * Builds the `Encounter.type` that marks an encounter as a follow-up of the given subtype.
+ * Shared by every writer so the SNOMED + subtype coding pair stays in one place: annotation
+ * creation (save-followup-encounter), scheduled creation (create-appointment) and in-place
+ * conversion (convert-visit-to-follow-up).
+ */
+export const buildFollowupEncounterType = (
+  subtype: FollowupSubtype,
+  type: FollowupType = FOLLOWUP_TYPES[0]
+): Encounter['type'] => [
+  {
+    coding: [
+      {
+        system: FOLLOWUP_SYSTEMS.type.url,
+        code: FOLLOWUP_SYSTEMS.type.code,
+        display: type,
+      },
+      {
+        system: FOLLOWUP_SUBTYPE_SYSTEM,
+        code: subtype,
+        display: subtype,
+      },
+    ],
+    text: type,
+  },
+];
+
 export const isFollowupEncounter = (encounter: Encounter): boolean => {
   return (
     encounter.type?.some(

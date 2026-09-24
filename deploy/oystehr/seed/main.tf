@@ -1,8 +1,9 @@
 # One-shot bootstrap of self-service resources for fresh environments.
 #
 # These resources (global note templates, in-house medications, in-house lab tests,
-# quick texts, E&M codes) were moved out of Terraform to be self-managed via the EHR
-# admin UI (see ../removed-resources.tf). That left fresh environments with nothing to
+# quick texts, E&M codes, Locations + their Schedules) were moved out of Terraform to
+# be self-managed via the EHR admin UI (see ../removed-resources.tf and the generated
+# ../removed-locations.tf.json). That left fresh environments with nothing to
 # manage, so each terraform_data node below runs an idempotent seed script once to
 # create a starter set.
 #
@@ -59,5 +60,14 @@ resource "terraform_data" "seed_em_codes" {
   provisioner "local-exec" {
     working_dir = "${path.root}/../packages/zambdas"
     command     = "npm run recreate-em-codes -- ${var.environment}"
+  }
+}
+
+resource "terraform_data" "seed_runtime_resources" {
+  triggers_replace = "runtime-resources-v1"
+
+  provisioner "local-exec" {
+    working_dir = "${path.root}/../packages/zambdas"
+    command     = "npm run seed-runtime-resources -- ${var.environment}"
   }
 }

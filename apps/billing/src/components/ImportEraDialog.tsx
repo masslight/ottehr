@@ -13,31 +13,80 @@ import {
   Typography,
 } from '@mui/material';
 import { Bundle } from 'fhir/r4b';
-import { ReactElement, useState } from 'react';
+import { ReactElement, useEffect, useState } from 'react';
 import { Controller, FormProvider, useForm } from 'react-hook-form';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
+import { MIME_TYPES } from 'utils/lib/utils/file';
 import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils/lib/validation/constants';
 import { importEra } from '../api/api';
 import { useApiClients } from '../hooks/useAppClients';
+import { readEraFile } from '../utils/eraFile';
 import AlertDialog from './AlertDialog';
+import { DropzoneField } from './DropzoneField';
+
+const ERA_FILE_ACCEPT = {
+  [MIME_TYPES.TXT]: ['.835', '.txt', '.edi', '.rem', '.dat'],
+};
 
 interface Props {
   onClose: () => void;
 }
 
+interface EraFormValues {
+  era: string | null;
+  eraFile: File | null;
+}
+
 export function ImportEraDialog({ onClose }: Props): ReactElement {
   const { oystehrZambda } = useApiClients();
-  const methods = useForm<{ era: string | null }>({ defaultValues: { era: null } });
+  const methods = useForm<EraFormValues>({
+    defaultValues: {
+      era: null,
+      eraFile: null,
+    },
+  });
   const {
     control,
     handleSubmit,
+    watch,
+    setValue,
     formState: { isSubmitting },
   } = methods;
 
   const [error, setError] = useState<string | null>(null);
+  const [fileError, setFileError] = useState<string | null>(null);
+  const [isReadingFile, setIsReadingFile] = useState(false);
   const [resultMessage, setResultMessage] = useState<string | null>(null);
 
-  const handleImport = async (data: { era: string | null }): Promise<void> => {
+  const eraFile = watch('eraFile');
+  useEffect(() => {
+    if (!eraFile) {
+      setIsReadingFile(false);
+      return;
+    }
+    let cancelled = false;
+    setIsReadingFile(true);
+    void (async () => {
+      const result = await readEraFile(eraFile);
+      if (cancelled) return;
+      setIsReadingFile(false);
+      if (!result.ok) {
+        setFileError(result.error);
+        setValue('eraFile', null);
+        return;
+      }
+      setFileError(null);
+      setValue('era', result.text, {
+        shouldValidate: true,
+        shouldDirty: true,
+      });
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [eraFile, setValue]);
+
+  const handleImport = async (data: EraFormValues): Promise<void> => {
     if (!oystehrZambda) return;
     setError(null);
     try {
@@ -87,6 +136,16 @@ export function ImportEraDialog({ onClose }: Props): ReactElement {
           <FormProvider {...methods}>
             <Box sx={{ display: 'flex', gap: 5, mt: 1 }}>
               <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+                <DropzoneField
+                  name="eraFile"
+                  multiple={false}
+                  accept={ERA_FILE_ACCEPT}
+                  error={fileError}
+                  ariaLabel="Upload ERA file"
+                />
+                <Typography variant="body2" color="text.secondary">
+                  Or paste the ERA text below.
+                </Typography>
                 <Controller
                   name="era"
                   control={control}
@@ -99,9 +158,13 @@ export function ImportEraDialog({ onClose }: Props): ReactElement {
                       label="ERA in X12 Format *"
                       value={field.value}
                       minRows={20}
-                      onChange={(e) => field.onChange(e.target.value)}
+                      onChange={(e) => {
+                        setFileError(null);
+                        field.onChange(e.target.value);
+                      }}
+                      disabled={isReadingFile}
                       error={!!fieldError}
-                      helperText={fieldError?.message}
+                      helperText={isReadingFile ? 'Reading file...' : fieldError?.message}
                     />
                   )}
                 />
@@ -122,7 +185,7 @@ export function ImportEraDialog({ onClose }: Props): ReactElement {
             variant="contained"
             startIcon={isSubmitting ? <CircularProgress size={14} /> : <SaveIcon fontSize="small" />}
             onClick={handleSubmit(handleImport)}
-            disabled={isSubmitting}
+            disabled={isSubmitting || isReadingFile}
           >
             {isSubmitting ? 'Importing...' : 'Import'}
           </Button>

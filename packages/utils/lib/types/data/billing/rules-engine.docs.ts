@@ -40,6 +40,7 @@ const VALUE_TYPE_LABELS: Record<RuleFieldValueType, string> = {
   payer: 'payer ID',
   provider: 'provider reference',
   facility: 'facility reference',
+  nio: 'non-insurance organization ID',
 };
 
 // Escape/normalize a string for use inside a markdown table cell.

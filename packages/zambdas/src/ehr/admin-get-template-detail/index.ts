@@ -11,16 +11,12 @@ import {
   ServiceRequest,
 } from 'fhir/r4b';
 import { collectKnownExamFields } from 'utils/lib/config-helpers/exam-observations';
-import { extractCptCodeModifiersFromCoding } from 'utils/lib/fhir/billing';
+import { extractCptCodeModifiersFromCoding, getCptBillableUnitsFromCoding } from 'utils/lib/fhir/billing';
 import {
   ACCIDENT_STATE_EXTENSION,
   ACCIDENT_TYPE_SYSTEM,
-  BODY_SITE_SYSTEM,
   chartDataTagSystem,
   CPT_CODE_SYSTEM,
-  FHIR_EXTENSION,
-  PERFORMER_TYPE_SYSTEM,
-  PROCEDURE_TYPE_SYSTEM,
 } from 'utils/lib/fhir/constants';
 import { getTag, resourceHasTagSystem } from 'utils/lib/fhir/helpers';
 import {
@@ -32,6 +28,7 @@ import { CODE_SYSTEM_ICD_10 } from 'utils/lib/helpers/rcm/constants';
 import { examConfig } from 'utils/lib/ottehr-config/examination';
 import { collectKnownRosFields, getRosFindingStateFromKey } from 'utils/lib/ottehr-config/review-of-systems';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
+import { inHouseMedicationsMedicationApplianceRoutes } from 'utils/lib/types/api/medication-administration.types';
 import {
   AdminGetTemplateDetailInput,
   AdminGetTemplateDetailOutput,
@@ -47,6 +44,7 @@ import {
 } from 'utils/lib/types/data/admin-template.types';
 import { IN_HOUSE_TEST_CODE_SYSTEM } from 'utils/lib/types/data/in-house/in-house.constants';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { readProcedureFormFieldsFromServiceRequest } from '../../shared/chart-data';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { topLevelCatch } from '../../shared/lambda';
 import { wrapHandler } from '../../shared/sentry';
@@ -289,6 +287,7 @@ const performEffect = async (
       code: coding?.code ?? '',
       display: coding?.display ?? '',
       modifiers: coding ? extractCptCodeModifiersFromCoding(coding) : [],
+      billableUnits: getCptBillableUnitsFromCoding(coding),
     };
   });
 
@@ -491,17 +490,6 @@ const performEffect = async (
     }
   }
 
-  const getExtensionString = (sr: ServiceRequest, url: string): string | undefined =>
-    sr.extension?.find((e) => e.url === url)?.valueString;
-  const getExtensionBoolean = (sr: ServiceRequest, url: string): boolean | undefined =>
-    sr.extension?.find((e) => e.url === url)?.valueBoolean;
-  const getExtensionStrings = (sr: ServiceRequest, url: string): string[] =>
-    (sr.extension ?? []).filter((e) => e.url === url).flatMap((e) => (e.valueString ? [e.valueString] : []));
-  const getCodingCode = (
-    concept: { coding?: { system?: string; code?: string }[] } | undefined,
-    system: string
-  ): string | undefined => concept?.coding?.find((c) => c.system === system)?.code;
-
   const procedures: TemplateProcedurePlan[] = procedurePlans.map((plan) => {
     const procedureDiagnoses: TemplateCodeInfo[] = (plan.reasonReference ?? []).flatMap((ref) => {
       const id = ref.reference?.split('/')[1];
@@ -525,36 +513,46 @@ const performEffect = async (
       if (!proc) return [];
       const coding = proc.code?.coding?.find((c) => c.system === CPT_CODE_SYSTEM) ?? proc.code?.coding?.[0];
       if (!coding?.code && !coding?.display) return [];
-      // Preserve any CPT modifiers stored as Coding.extension on the CPT
-      // Procedure. The standalone CPT Codes section does the same, so a CPT
-      // that the provider modified (e.g. -LT) reads consistently between the
-      // two places it surfaces in the preview.
+      // Preserve the CPT modifiers and the billable quantity stored as
+      // Coding.extension on the CPT Procedure. The standalone CPT Codes section
+      // does the same, so a CPT the provider modified (e.g. -LT) or a suggested
+      // add-on line billed more than once (e.g. 13133 × 2) reads consistently
+      // between the two places it surfaces in the preview — and matches what
+      // applying the template actually copies onto the visit.
       return [
         {
           code: coding?.code ?? '',
           display: coding?.display ?? '',
           modifiers: extractCptCodeModifiersFromCoding(coding),
+          billableUnits: getCptBillableUnitsFromCoding(coding),
         },
       ];
     });
 
+    const fields = readProcedureFormFieldsFromServiceRequest(plan);
+
     return {
       planId: plan.id ?? '',
-      procedureType: getCodingCode(plan.category?.[0], PROCEDURE_TYPE_SYSTEM),
-      performerType: getCodingCode(plan.performerType, PERFORMER_TYPE_SYSTEM),
-      bodySite: getCodingCode(plan.bodySite?.[0], BODY_SITE_SYSTEM),
-      bodySide: getExtensionString(plan, FHIR_EXTENSION.ServiceRequest.bodySide.url),
-      technique: getExtensionStrings(plan, FHIR_EXTENSION.ServiceRequest.technique.url),
-      medicationUsed: getExtensionString(plan, FHIR_EXTENSION.ServiceRequest.medicationUsed.url),
-      suppliesUsed: getExtensionString(plan, FHIR_EXTENSION.ServiceRequest.suppliesUsed.url),
-      procedureDetails: getExtensionString(plan, FHIR_EXTENSION.ServiceRequest.procedureDetails.url),
-      specimenSent: getExtensionBoolean(plan, FHIR_EXTENSION.ServiceRequest.specimenSent.url),
-      complications: getExtensionString(plan, FHIR_EXTENSION.ServiceRequest.complications.url),
-      patientResponse: getExtensionString(plan, FHIR_EXTENSION.ServiceRequest.patientResponse.url),
-      postInstructions: getExtensionString(plan, FHIR_EXTENSION.ServiceRequest.postInstructions.url),
-      timeSpent: getExtensionString(plan, FHIR_EXTENSION.ServiceRequest.timeSpent.url),
-      documentedBy: getExtensionString(plan, FHIR_EXTENSION.ServiceRequest.documentedBy.url),
-      consentObtained: getExtensionBoolean(plan, FHIR_EXTENSION.ServiceRequest.consentObtained.url),
+      procedureType: fields.procedureType,
+      performerType: fields.performerType,
+      bodySite: fields.bodySite,
+      bodySide: fields.bodySide,
+      technique: fields.technique ?? [],
+      medicationUsed: fields.medicationUsed,
+      suppliesUsed: fields.suppliesUsed,
+      procedureDetails: fields.procedureDetails,
+      structuredFacts: fields.structuredFacts,
+      lengthCm: fields.lengthCm,
+      repairDepth: fields.repairDepth,
+      infusionStartTime: fields.infusionStartTime,
+      infusionStopTime: fields.infusionStopTime,
+      specimenSent: fields.specimenSent,
+      complications: fields.complications,
+      patientResponse: fields.patientResponse,
+      postInstructions: fields.postInstructions,
+      timeSpent: fields.timeSpent,
+      documentedBy: fields.documentedBy,
+      consentObtained: fields.consentObtained,
       diagnoses: procedureDiagnoses,
       cptCodes: procedureCptCodes,
     };
@@ -599,7 +597,7 @@ const performEffect = async (
       medicationName,
       dose,
       units,
-      route: searchRouteByCode(route)?.display,
+      route: searchRouteByCode(route, inHouseMedicationsMedicationApplianceRoutes)?.display,
       instructions: templateMA.dosage?.text,
       cptCodes: maCptCodes,
       diagnoses: maDiagnoses,

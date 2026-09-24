@@ -405,7 +405,7 @@ describe('saving and getting vitals', () => {
         expect(newHistoricVitals).toEqual(originalVitals);
       });
     },
-    { timeout: DEFAULT_SUITE_TIMEOUT }
+    DEFAULT_SUITE_TIMEOUT
   );
 
   suite(
@@ -567,7 +567,7 @@ describe('saving and getting vitals', () => {
         });
       });
     },
-    { timeout: DEFAULT_SUITE_TIMEOUT }
+    DEFAULT_SUITE_TIMEOUT
   );
   suite(
     'writing vitals observations for 2-12 month old patients that do rise to alert threshold level produce vitals DTOs with alerts',
@@ -661,7 +661,7 @@ describe('saving and getting vitals', () => {
         });
       });
     },
-    { timeout: DEFAULT_SUITE_TIMEOUT }
+    DEFAULT_SUITE_TIMEOUT
   );
 
   suite(
@@ -742,7 +742,7 @@ describe('saving and getting vitals', () => {
         });
       });
     },
-    { timeout: DEFAULT_SUITE_TIMEOUT }
+    DEFAULT_SUITE_TIMEOUT
   );
 
   suite(
@@ -819,7 +819,7 @@ describe('saving and getting vitals', () => {
         });
       });
     },
-    { timeout: DEFAULT_SUITE_TIMEOUT }
+    DEFAULT_SUITE_TIMEOUT
   );
 
   suite(
@@ -903,7 +903,7 @@ describe('saving and getting vitals', () => {
         });
       });
     },
-    { timeout: DEFAULT_SUITE_TIMEOUT }
+    DEFAULT_SUITE_TIMEOUT
   );
 
   suite(
@@ -989,7 +989,7 @@ describe('saving and getting vitals', () => {
         });
       });
     },
-    { timeout: DEFAULT_SUITE_TIMEOUT }
+    DEFAULT_SUITE_TIMEOUT
   );
 
   suite(
@@ -1056,7 +1056,7 @@ describe('saving and getting vitals', () => {
         });
       });
     },
-    { timeout: DEFAULT_SUITE_TIMEOUT }
+    DEFAULT_SUITE_TIMEOUT
   );
   suite(
     'writing weight/height vitals observations alert when appropriate but not otherwise',
@@ -1522,7 +1522,7 @@ describe('saving and getting vitals', () => {
         });
       });
     },
-    { timeout: DEFAULT_SUITE_TIMEOUT }
+    DEFAULT_SUITE_TIMEOUT
   );
 
   suite(

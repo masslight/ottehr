@@ -91,7 +91,9 @@ export function getMimeType(fileName: string): MimeType | undefined {
 }
 
 // Replaces characters not allowed in a Z3 object name (notably spaces) with an underscore.
-export const sanitizeFileNameForZ3 = (fileName: string): string => fileName.replace(/[^a-zA-Z0-9+!\-_'()\\.@$]/g, '_');
+// Backslash is deliberately not in this set: WHATWG URL parsing normalises it to `/`, so a name carrying
+// one can move the object it names to a different folder.
+export const sanitizeFileNameForZ3 = (fileName: string): string => fileName.replace(/[^a-zA-Z0-9+!\-_'().@$]/g, '_');
 
 // Returns the final path segment (file name) of a URL, or undefined if absent or unparseable.
 export const getFileNameFromUrl = (url: string | undefined): string | undefined => {

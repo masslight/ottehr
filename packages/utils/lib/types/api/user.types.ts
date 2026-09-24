@@ -52,6 +52,32 @@ export enum RoleType {
   Staff = 'Staff',
 }
 
+/** Roles allowed to print a patient's clinical documents from the EHR. */
+export const CHART_DOCUMENT_ROLES: RoleType[] = [
+  RoleType.Administrator,
+  RoleType.Manager,
+  RoleType.Provider,
+  RoleType.Clinician,
+  RoleType.Staff,
+];
+
+/**
+ * Roles allowed into the administration area.
+ *
+ * Shared so the navigation and the endpoints behind it cannot disagree: a page the UI offers but the
+ * server refuses is indistinguishable from a broken feature, and the reverse is a gap.
+ */
+export const ADMIN_TIER_ROLES: RoleType[] = [RoleType.Administrator, RoleType.Manager, RoleType.CustomerSupport];
+
+export const ALL_EHR_STAFF_ROLES: RoleType[] = [
+  RoleType.Administrator,
+  RoleType.Manager,
+  RoleType.CustomerSupport,
+  RoleType.Staff,
+  RoleType.Provider,
+  RoleType.Clinician,
+];
+
 export interface AccessPolicy {
   rule: {
     action: string | string[];

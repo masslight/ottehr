@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { PROVIDERS_FILTER } from 'src/shared/utils/employeeFilters';
-import { UNIT_OPTIONS } from 'utils/lib/fhir/medication-administration';
+import { IN_HOUSE_MEDICATION_UNIT_OPTIONS } from 'utils/lib/fhir/medication-administration';
 import { DiagnosisDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import {
+  inHouseMedicationsMedicationApplianceRoutes,
   MedicationApplianceRoutes,
-  medicationApplianceRoutes,
 } from 'utils/lib/types/api/medication-administration.types';
 import { RoleType } from 'utils/lib/types/api/user.types';
 import { getEmployees } from '../../../../api/api';
@@ -28,6 +28,7 @@ const getRoutesArray = (routes: MedicationApplianceRoutes): Option[] => {
     '6064005', // Topical route
     '10547007', // Otic route
     '54485002', // Ophthalmic route
+    '999000051000001100', // Inhalation route
   ];
 
   const allRoutes = Object.entries(routes).map(([_, value]) => ({
@@ -195,11 +196,11 @@ export const useFieldsSelectsOptions = (): OrderFieldsSelectsOptions => {
       ndcToMedicationId,
     },
     route: {
-      options: getRoutesArray(medicationApplianceRoutes),
+      options: getRoutesArray(inHouseMedicationsMedicationApplianceRoutes),
       status: 'loaded',
     },
     units: {
-      options: UNIT_OPTIONS,
+      options: IN_HOUSE_MEDICATION_UNIT_OPTIONS,
       status: 'loaded',
     },
     associatedDx: {

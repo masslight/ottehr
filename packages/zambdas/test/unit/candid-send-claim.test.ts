@@ -21,6 +21,7 @@ const mockOystehrClient = {
     get: vi.fn(),
     create: vi.fn(),
   },
+  zambda: { execute: vi.fn() },
 };
 
 const mockGetAppointmentAndRelatedResources = vi.fn();
@@ -33,6 +34,12 @@ vi.mock('../../src/shared/candid', async (importOriginal) => {
     CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM: 'https://api.joincandidhealth.com/api/encounters/v4/response/encounter_id',
   };
 });
+
+// These tests describe legacy Candid claims routing, which only exists with non-insurance
+// organizations off — flag-on, shouldUseCandid throws on candid-routing configs by design.
+vi.mock('utils/lib/ottehr-config/feature-flags', () => ({
+  FEATURE_FLAGS_CONFIG: { nonInsuranceOrganizationsEnabled: false },
+}));
 
 vi.mock('../../src/shared/getAuth0Token', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
@@ -99,7 +106,7 @@ const { ACCIDENT_TYPE_SYSTEM, ACCIDENT_STATE_EXTENSION } = await import('utils/l
 
 const CANDID_ENCOUNTER_ID_SYSTEM = 'https://api.joincandidhealth.com/api/encounters/v4/response/encounter_id';
 
-function setupValidatedParams(taskId: string, appointmentId: string): void {
+function setupValidatedParams(taskId: string, appointmentId: string, billingIntegration?: string): void {
   vi.mocked(validateRequestParameters).mockReturnValue({
     task: {
       id: taskId,
@@ -111,7 +118,7 @@ function setupValidatedParams(taskId: string, appointmentId: string): void {
         reference: `Appointment/${appointmentId}`,
       },
     },
-    secrets: {} as any,
+    secrets: billingIntegration ? { BILLING_INTEGRATION: billingIntegration } : {},
   } as any);
 }
 
@@ -161,6 +168,16 @@ describe('sub-send-claim', () => {
     mockFhirPatch.mockResolvedValue({ resourceType: 'Task', id: 'task-1', status: 'completed' });
     // candid is configured by default, tests override to skip when needed
     mockGetOrCreateCandidApiClient.mockResolvedValue({} as any);
+  });
+
+  it('only processes Candid when both billing integrations are enabled', async () => {
+    setupValidatedParams('task-1', 'appt-1', 'all');
+    mockGetAppointmentAndRelatedResources.mockResolvedValue(makeVisitResources({ encounterId: 'enc-1' }));
+    mockCreateEncounterFromAppointment.mockResolvedValue('candid-claim-1');
+
+    expect((await index({ headers: {}, body: '{}', secrets: {} })).statusCode).toBe(200);
+    expect(mockCreateEncounterFromAppointment).toHaveBeenCalledTimes(1);
+    expect(mockOystehrClient.zambda.execute).not.toHaveBeenCalled();
   });
 
   it('creates a Candid encounter and patches FHIR Encounter with the Candid ID', async () => {

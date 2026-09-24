@@ -14,6 +14,10 @@ import { getPayerUrl } from 'utils/lib/helpers/helpers';
 import { CODE_SYSTEM_CMS_PLACE_OF_SERVICE, EXTENSION_URL_CPT_MODIFIER } from 'utils/lib/helpers/rcm/constants';
 import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
 import { BillingInsuranceType } from 'utils/lib/types/data/billing/billing.schemas';
+import {
+  CLAIM_NON_INSURANCE_PAYER_EXTENSION_URL,
+  CLAIM_NON_INSURANCE_PAYER_TAG_SYSTEM,
+} from 'utils/lib/types/data/billing/non-insurance-org.types';
 import { RULES_ENGINE_TYPES } from 'utils/lib/types/data/billing/rules-engine.constants';
 import {
   RULE_FIELD_CATALOG,
@@ -1306,6 +1310,88 @@ describe('provider/facility reference swap', () => {
     expect(writeField(m, 'renderingProvider.ref', '')).toBe(false); // no "clear the provider"
     expect(m.createdCopyIds).toBeUndefined();
     expect(m.claim.provider).toEqual({});
+  });
+});
+
+describe('non-insurance payer field', () => {
+  const nioOrg: Organization = { resourceType: 'Organization', id: 'nio-1', name: 'Acme Trucking' };
+  const nioTags = (m: RulesEngineClaimModel): string[] =>
+    (m.claim.meta?.tag ?? [])
+      .filter((t) => t.system === CLAIM_NON_INSURANCE_PAYER_TAG_SYSTEM)
+      .map((t) => t.code as string);
+
+  it('reads the stamped extension as the organization id, absent when unstamped', () => {
+    const m = makeModel();
+    expect(readField(m, 'nonInsurancePayerId')).toBeUndefined();
+    m.claim.extension = [
+      ...(m.claim.extension ?? []),
+      {
+        url: CLAIM_NON_INSURANCE_PAYER_EXTENSION_URL,
+        valueReference: { reference: 'Organization/nio-1', display: 'Acme Trucking' },
+      },
+    ];
+    expect(readField(m, 'nonInsurancePayerId')).toBe('nio-1');
+  });
+
+  it('stamps the extension + searchable tag from the prefetched organization, replacing a previous payer', () => {
+    const m = makeModel();
+    m.nioOrganizations = new Map([
+      ['nio-1', nioOrg],
+      ['nio-2', { resourceType: 'Organization', id: 'nio-2', name: 'Beta Fleet' }],
+    ]);
+
+    expect(writeField(m, 'nonInsurancePayerId', 'nio-1')).toBe(true);
+    expect(m.claim.extension).toContainEqual({
+      url: CLAIM_NON_INSURANCE_PAYER_EXTENSION_URL,
+      valueReference: { reference: 'Organization/nio-1', display: 'Acme Trucking' },
+    });
+    expect(nioTags(m)).toEqual(['nio-1']);
+    expect(readField(m, 'nonInsurancePayerId')).toBe('nio-1');
+
+    expect(writeField(m, 'nonInsurancePayerId', 'nio-2')).toBe(true);
+    const stamps = (m.claim.extension ?? []).filter((ext) => ext.url === CLAIM_NON_INSURANCE_PAYER_EXTENSION_URL);
+    expect(stamps).toEqual([
+      {
+        url: CLAIM_NON_INSURANCE_PAYER_EXTENSION_URL,
+        valueReference: { reference: 'Organization/nio-2', display: 'Beta Fleet' },
+      },
+    ]);
+    expect(nioTags(m)).toEqual(['nio-2']);
+  });
+
+  it('clears the extension and tag on an empty value, keeping other extensions and tags', () => {
+    const m = makeModel();
+    m.claim.meta = { tag: [{ system: CLAIM_TAG_SYSTEM, code: 'VIP' }] };
+    m.nioOrganizations = new Map([['nio-1', nioOrg]]);
+    expect(writeField(m, 'nonInsurancePayerId', 'nio-1')).toBe(true);
+    const otherExtensions = (m.claim.extension ?? []).filter(
+      (ext) => ext.url !== CLAIM_NON_INSURANCE_PAYER_EXTENSION_URL
+    );
+
+    // Clearing needs no prefetched organization — an empty value always succeeds.
+    m.nioOrganizations = undefined;
+    expect(writeField(m, 'nonInsurancePayerId', '')).toBe(true);
+    expect(m.claim.extension).toEqual(otherExtensions);
+    expect(readField(m, 'nonInsurancePayerId')).toBeUndefined();
+    expect(nioTags(m)).toEqual([]);
+    expect(claimTags(m)).toEqual(['VIP']);
+
+    // A claim whose only extension was the stamp ends with none at all.
+    const bare = makeModel();
+    bare.claim.extension = undefined;
+    bare.nioOrganizations = new Map([['nio-1', nioOrg]]);
+    expect(writeField(bare, 'nonInsurancePayerId', 'nio-1')).toBe(true);
+    expect(writeField(bare, 'nonInsurancePayerId', '')).toBe(true);
+    expect(bare.claim.extension).toBeUndefined();
+  });
+
+  it('fails the write when the organization was not prefetched (missing or not an NIO)', () => {
+    const m = makeModel();
+    const before = structuredClone(m.claim);
+    expect(writeField(m, 'nonInsurancePayerId', 'nio-1')).toBe(false); // nothing prefetched
+    m.nioOrganizations = new Map([['nio-1', nioOrg]]);
+    expect(writeField(m, 'nonInsurancePayerId', 'nio-other')).toBe(false);
+    expect(m.claim).toEqual(before);
   });
 });
 
