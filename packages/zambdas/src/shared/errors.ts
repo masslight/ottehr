@@ -2,7 +2,7 @@ import { captureException, captureMessage } from '@sentry/aws-serverless';
 import { handleUnknownError } from 'utils/lib/fhir/helpers';
 
 export const sendErrors = async (error: any, env: string, tags?: Record<string, string>): Promise<void> => {
-  if (process.env.PLAYWRIGHT_SUITE_ID != null || ['local'].includes(env)) {
+  if (process.env.PLAYWRIGHT_SUITE_ID || ['local'].includes(env)) {
     return;
   }
   console.log('sendErrors running');
@@ -24,7 +24,7 @@ export const sendWarning = (
   extra?: Record<string, unknown>,
   tags?: Record<string, string>
 ): void => {
-  if (process.env.PLAYWRIGHT_SUITE_ID != null || ['local'].includes(env)) {
+  if (process.env.PLAYWRIGHT_SUITE_ID || ['local'].includes(env)) {
     return;
   }
   captureMessage(message, { level: 'warning', extra, tags });
