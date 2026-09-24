@@ -1,10 +1,10 @@
 import Oystehr from '@oystehr/sdk';
 import { Practitioner, Provenance, ProvenanceAgent } from 'fhir/r4b';
-import { getBillingProviderLicenses } from 'utils/lib/fhir/billing';
-import { PRACTITIONER_QUALIFICATION_EXTENSION_URL } from 'utils/lib/fhir/constants';
-import { makeQualificationForPractitioner } from 'utils/lib/fhir/practitioners';
+import { FHIR_IDENTIFIER_CODE_STATE_LICENSE } from 'utils/lib/fhir/constants';
+import { CODE_SYSTEM_CLAIM_SECONDARY_IDENTIFIER_TYPE } from 'utils/lib/helpers/rcm/constants';
 import { CLAIM_PROVENANCE_DIFF_EXTENSION_URL, ClaimFieldChange } from 'utils/lib/types/data/billing/claim-history';
 import { describe, expect, it, vi } from 'vitest';
+import { getProviderLicense, LICENSE_TAG } from '../../../src/billing/shared';
 import { performEffect } from '../../../src/billing/update-billing-provider';
 
 const CLAIM_ID = '22222222-2222-4222-8222-222222222222';
@@ -91,15 +91,14 @@ describe('update-billing-provider', () => {
     expect(transaction).not.toHaveBeenCalled();
   });
 
-  it('replaces licenses and drops the legacy license-type tag, keeping expiry of retained licenses', async () => {
+  it('stores the license type as a tag and number + state as a 0B identifier', async () => {
+    const stateLicenseType = {
+      coding: [{ system: CODE_SYSTEM_CLAIM_SECONDARY_IDENTIFIER_TYPE, code: FHIR_IDENTIFIER_CODE_STATE_LICENSE }],
+    };
     const existing: Practitioner = {
       ...provider,
-      meta: { tag: [{ system: 'https://fhir.ottehr.com/billing/license-type', code: 'MD' }] },
-      qualification: [
-        { code: { text: 'Board certification' } },
-        makeQualificationForPractitioner({ code: 'MD', state: 'CA', number: 'OLD', date: '2030-01-01', active: true }),
-        makeQualificationForPractitioner({ code: 'MD', state: 'NY', number: 'NY1', active: true }),
-      ],
+      meta: { tag: [{ system: LICENSE_TAG, code: 'NP' }] },
+      identifier: [{ type: stateLicenseType, value: 'OLD1NY' }],
     };
     const { oystehr, update } = makeOystehr(existing);
 
@@ -109,23 +108,13 @@ describe('update-billing-provider', () => {
       firstName: 'John',
       lastName: 'Smith',
       roles: ['rendering'],
-      licenses: [
-        { type: 'MD', number: 'NEW', state: 'CA' },
-        { type: 'NP', number: 'TX1', state: 'TX' },
-      ],
+      license: { type: 'MD', number: 'A12345', state: 'CA' },
       secrets: null,
     });
 
     const saved = update.mock.calls[0][0] as Practitioner;
-    expect(getBillingProviderLicenses(saved)).toEqual([
-      { type: 'MD', number: 'NEW', state: 'CA' },
-      { type: 'NP', number: 'TX1', state: 'TX' },
-    ]);
-    expect(saved.qualification?.[0]).toEqual({ code: { text: 'Board certification' } });
-    const caExtensions = saved.qualification?.[1].extension?.find(
-      (e) => e.url === PRACTITIONER_QUALIFICATION_EXTENSION_URL
-    )?.extension;
-    expect(caExtensions?.find((e) => e.url === 'expDate')?.valueDate).toBe('2030-01-01');
-    expect(saved.meta?.tag?.some((t) => t.system === 'https://fhir.ottehr.com/billing/license-type')).toBe(false);
+    expect(saved.identifier).toEqual([{ type: stateLicenseType, value: 'A12345CA' }]);
+    expect(saved.meta?.tag?.filter((t) => t.system === LICENSE_TAG)).toEqual([{ system: LICENSE_TAG, code: 'MD' }]);
+    expect(getProviderLicense(saved)).toEqual({ type: 'MD', number: 'A12345', state: 'CA' });
   });
 });

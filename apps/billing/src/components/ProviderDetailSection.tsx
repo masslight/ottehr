@@ -140,7 +140,7 @@ export function ProviderDetailForm({
       <Row label="NPI" value={provider?.npi ?? ''} />
       <Row label="Taxonomy Code" value={provider?.taxonomyCode ?? ''} />
       {provider?.kind === 'individual' && (
-        <Row label="Licenses" value={(provider.licenses ?? []).map(formatBillingProviderLicense).join(', ')} />
+        <Row label="License" value={formatBillingProviderLicense(provider.license)} />
       )}
       <Row label="Tax ID / EIN" value={formatTaxId(provider?.taxId ?? '')} />
       {provider?.kind === 'organization' && <Row label="Stripe Account ID" value={provider.stripeAccountId ?? ''} />}

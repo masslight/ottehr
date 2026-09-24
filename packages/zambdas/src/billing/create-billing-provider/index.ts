@@ -1,7 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Identifier, Organization, Practitioner } from 'fhir/r4b';
-import { setBillingProviderLicenses } from 'utils/lib/fhir/billing';
 import {
   FHIR_IDENTIFIER_CODE_NPI,
   FHIR_IDENTIFIER_CODE_TAX_EMPLOYER,
@@ -16,9 +15,11 @@ import { ZambdaInput } from '../../shared/types/common';
 import {
   buildAddress,
   createBillingClient,
+  LICENSE_TAG,
   PROVIDER_ROLE_BILLING,
   PROVIDER_ROLE_RENDERING,
   PROVIDER_ROLE_TAG,
+  setStateLicense,
   STRIPE_ACCOUNT_IDENTIFIER_SYSTEM,
 } from '../shared';
 import { CreateBillingProviderParams, validateRequestParameters } from './validateRequestParameters';
@@ -70,6 +71,7 @@ function buildProvider(params: CreateBillingProviderParams): Practitioner | Orga
   const address = params.address ? [buildAddress(params.address)] : undefined;
 
   if (params.kind === 'individual') {
+    if (params.license) tag.push({ system: LICENSE_TAG, code: params.license.type });
     const practitioner: Practitioner = {
       resourceType: 'Practitioner',
       active: true,
@@ -78,7 +80,7 @@ function buildProvider(params: CreateBillingProviderParams): Practitioner | Orga
     };
     if (identifier.length) practitioner.identifier = identifier;
     if (address) practitioner.address = address;
-    setBillingProviderLicenses(practitioner, params.licenses ?? []);
+    setStateLicense(practitioner, params.license);
     return practitioner;
   }
 

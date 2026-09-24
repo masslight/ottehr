@@ -58,6 +58,8 @@ export const FHIR_IDENTIFIER_CODE_NPI = 'NPI';
 export const FHIR_IDENTIFIER_CODE_TAX_EMPLOYER = 'NE';
 export const FHIR_IDENTIFIER_CODE_TAX_SS = 'SS';
 export const FHIR_IDENTIFIER_CODE_TAXONOMY = 'ZZ';
+// X12 REF qualifier for a provider's state license number
+export const FHIR_IDENTIFIER_CODE_STATE_LICENSE = '0B';
 export const FRIENDLY_PATIENT_ID_SYSTEM_BASE = 'https://identifiers.fhir.oystehr.com/friendly-patient-id';
 export const FHIR_AI_CHAT_CONSENT_CATEGORY_CODE = 'ai-chat';
 export const FHIR_HL7_ORG_VALUE_SET_BASE_URL = 'http://hl7.org/fhir/ValueSet';

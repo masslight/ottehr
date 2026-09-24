@@ -40,12 +40,13 @@ import {
   Task,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { getBillingProviderLicenses, setCoveragePlanType } from 'utils/lib/fhir/billing';
+import { setCoveragePlanType } from 'utils/lib/fhir/billing';
 import {
   ACCOUNT_TYPE_CODE_SYSTEM,
   BILLING_RESOURCE_TAG,
   CPT_CODE_SYSTEM,
   FHIR_IDENTIFIER_CLIA,
+  FHIR_IDENTIFIER_CODE_STATE_LICENSE,
   FHIR_IDENTIFIER_CODE_TAX_EMPLOYER,
   FHIR_IDENTIFIER_CODE_TAX_SS,
   FHIR_IDENTIFIER_CODE_TAXONOMY,
@@ -82,6 +83,7 @@ import {
   EXTENSION_URL_CPT_MODIFIER,
 } from 'utils/lib/helpers/rcm/constants';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { STATE_CODES } from 'utils/lib/types/common';
 import {
   BillingInsuranceType,
   BillingPolicyHolderInput,
@@ -266,7 +268,6 @@ export function payerDisplay(org: Organization | undefined): string | undefined 
 export const PROVIDER_ROLE_TAG = 'https://fhir.ottehr.com/billing/provider-role';
 export const PROVIDER_ROLE_BILLING = 'billing';
 export const PROVIDER_ROLE_RENDERING = 'rendering';
-// Legacy: license type was a tag before licenses moved to Practitioner.qualification; read as a fallback.
 export const LICENSE_TAG = 'https://fhir.ottehr.com/billing/license-type';
 // Stripe connected account whose payments belong to this billing provider, one account per TIN
 export const STRIPE_ACCOUNT_IDENTIFIER_SYSTEM = 'https://fhir.ottehr.com/billing/stripe-account-id';
@@ -982,6 +983,35 @@ export function setTaxonomy(resource: Practitioner | Organization, taxonomyCode:
   } else if (existing) {
     resource.identifier = identifier.filter((id) => !isTaxonomy(id));
   }
+}
+
+// The license type is a meta tag; the number and state are a 0B-typed identifier whose value is the
+// number followed by the two-letter state code (e.g. "A12345CA").
+const isStateLicense = (id: Identifier): boolean =>
+  !!id.type?.coding?.some(
+    (tc) => tc.system === CODE_SYSTEM_CLAIM_SECONDARY_IDENTIFIER_TYPE && tc.code === FHIR_IDENTIFIER_CODE_STATE_LICENSE
+  );
+
+export function getProviderLicense(practitioner: Practitioner): BillingProviderLicense | undefined {
+  const type = getTag(practitioner, LICENSE_TAG) ?? '';
+  const value = practitioner.identifier?.find(isStateLicense)?.value ?? '';
+  if (!type && !value) return undefined;
+  const state = value.slice(-2);
+  return STATE_CODES.has(state) ? { type, number: value.slice(0, -2), state } : { type, number: value, state: '' };
+}
+
+export function setStateLicense(practitioner: Practitioner, license: BillingProviderLicense | undefined): void {
+  const identifier = (practitioner.identifier ?? []).filter((id) => !isStateLicense(id));
+  if (license) {
+    identifier.push({
+      type: {
+        coding: [{ system: CODE_SYSTEM_CLAIM_SECONDARY_IDENTIFIER_TYPE, code: FHIR_IDENTIFIER_CODE_STATE_LICENSE }],
+      },
+      value: `${license.number}${license.state}`,
+    });
+  }
+  if (identifier.length) practitioner.identifier = identifier;
+  else delete practitioner.identifier;
 }
 
 export function setClia(resource: Location, clia: string | null): void {
@@ -1725,15 +1755,6 @@ export const patientSearchParam = (patientIds: string[]): ClaimSearchParam => ({
   value: patientIds.map((id) => `Patient/${id}`).join(','),
 });
 
-// Providers saved before licenses moved to qualifications only carry the legacy type tag; surface it
-// as a partial license so the edit form prompts for the missing number and state.
-function practitionerLicenses(practitioner: Practitioner): BillingProviderLicense[] {
-  const licenses = getBillingProviderLicenses(practitioner);
-  if (licenses.length) return licenses;
-  const legacyType = getTag(practitioner, LICENSE_TAG);
-  return legacyType ? [{ type: legacyType, number: '', state: '' }] : [];
-}
-
 export function mapProvider(resource: Practitioner | Organization): BillingProviderOption {
   const workingCopyReferenceResourceId = isWorkingCopy(resource) ? copySourceId(resource) : undefined;
   const addr = resource.address?.[0];
@@ -1762,7 +1783,7 @@ export function mapProvider(resource: Practitioner | Organization): BillingProvi
       name: fhirName(resource),
       firstName: resource.name?.[0]?.given?.join(' ') ?? '',
       lastName: resource.name?.[0]?.family ?? '',
-      licenses: practitionerLicenses(resource),
+      license: getProviderLicense(resource),
     };
   }
   return {

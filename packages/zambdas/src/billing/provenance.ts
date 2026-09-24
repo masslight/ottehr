@@ -20,11 +20,7 @@ import {
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { userMe } from 'utils/lib/auth/user-me.helper';
-import {
-  formatBillingProviderLicense,
-  getBillingProviderLicenses,
-  getClaimNonInsurancePayer,
-} from 'utils/lib/fhir/billing';
+import { formatBillingProviderLicense, getClaimNonInsurancePayer } from 'utils/lib/fhir/billing';
 import { convertFhirNameToDisplayName } from 'utils/lib/fhir/convertFhirNameToDisplayName';
 import { getNPI, getTaxID, makeOptimisticLockIfMatchHeader } from 'utils/lib/fhir/helpers';
 import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
@@ -64,6 +60,7 @@ import {
   fhirName,
   formatAddress,
   getClaimType,
+  getProviderLicense,
   getTaxonomy,
   sortClaimInsurance,
 } from './shared';
@@ -200,11 +197,7 @@ function projectPractitioner(p: Practitioner): FieldProjection[] {
     { field: 'npi', label: 'NPI', value: getNPI(p) ?? '' },
     { field: 'taxId', label: 'Tax ID', value: getTaxID(p) ?? '' },
     { field: 'taxonomy', label: 'Taxonomy', value: getTaxonomy(p) },
-    {
-      field: 'licenses',
-      label: 'Licenses',
-      value: getBillingProviderLicenses(p).map(formatBillingProviderLicense).join(', '),
-    },
+    { field: 'license', label: 'License', value: formatBillingProviderLicense(getProviderLicense(p)) },
     { field: 'address', label: 'Address', value: formatAddress(p.address?.[0]) },
   ];
 }

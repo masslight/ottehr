@@ -136,7 +136,7 @@ export interface BillingProviderOption {
   lastName?: string;
   npi: string;
   taxonomyCode?: string;
-  licenses?: BillingProviderLicense[];
+  license?: BillingProviderLicense;
   taxId?: string;
   stripeAccountId?: string;
   address?: string;
