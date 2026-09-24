@@ -114,7 +114,7 @@ const formatPayerAsAnswerOption = (
   payer: Organization,
   prependIdentifier?: boolean
 ): QuestionnaireItemAnswerOption => {
-  let name = payer.alias?.[0] ?? payer.name;
+  let name = payer.name ?? payer.alias?.[0];
   const payerId = getPayerId(payer);
   if (prependIdentifier) {
     if (payerId) {

@@ -1,5 +1,6 @@
+import { Task } from 'fhir/r4b';
 import { SubscriberRelationship } from '../../../fhir/constants';
-import { CODE_SYSTEM_CLAIM_TYPE_CODES } from '../../../helpers/rcm/constants';
+import { CLAIM_ACCIDENT_TYPE, CODE_SYSTEM_CLAIM_TYPE_CODES } from '../../../helpers/rcm/constants';
 import type { EraClaimStatusCode, X12AdjustmentGroupCode } from './billing.constants';
 import type { BillingInsuranceType } from './billing.schemas';
 import { ClaimStatusValues } from './claim-status';
@@ -506,6 +507,9 @@ export interface ClaimDetailResponse {
   admissionSource: string;
   admissionDate: string;
   dischargeDate: string;
+  accidentType: CLAIM_ACCIDENT_TYPE[];
+  accidentState: string;
+  accidentDate: string;
   attachments: ClaimAttachment[];
 }
 
@@ -521,6 +525,25 @@ export interface SearchBillingPatientsResponse extends Paginated {
 
 export interface SearchBillingClaimsResponse extends Paginated {
   claims: BillingClaimItem[];
+  incomplete?: boolean;
+}
+
+export interface BillingClaimTaskItem {
+  id: string;
+  status: Task['status'];
+  encounterId?: string;
+  encounterDate?: string;
+  appointmentId?: string;
+  patientId?: string;
+  patientName?: string;
+  payerNames: string[];
+  createdAt?: string;
+  updatedAt?: string;
+  error?: string;
+}
+
+export interface SearchBillingClaimTasksResponse extends Paginated {
+  tasks: BillingClaimTaskItem[];
   incomplete?: boolean;
 }
 
@@ -618,6 +641,17 @@ export interface PaymentsReportWaterfallCell {
   // 'YYYY-MM' of the ERA check date
   checkMonth: string;
   paid: number;
+}
+
+// One cached run of a report kind; params re-request that run (dateFrom/dateTo for windowed kinds)
+export interface BillingReportHistoryEntry {
+  params: Record<string, unknown>;
+  generatedAt: string;
+  sizeBytes: number;
+}
+
+export interface GetBillingReportHistoryResponse {
+  entries: BillingReportHistoryEntry[];
 }
 
 // Refresh state of a cached billing report.

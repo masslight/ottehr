@@ -70,7 +70,7 @@ export function defendFamilyCodes(family: ProcedureFamilyModel, input: Procedure
   // Billing warnings must not change whether the clinical answers support a code.
   const documentation = evaluateDocumentation(family, input);
 
-  const evaluation = defendAgainst(input, documentation, family.codes);
+  const evaluation = defendAgainst(input, documentation, family.codes, family.componentCodeNotices ?? []);
   checkDailyLimits(input, evaluation, family.dailyLimits ?? {}, input.cptCodes ?? []);
 
   return evaluation;

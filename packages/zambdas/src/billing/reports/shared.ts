@@ -14,23 +14,56 @@ export const UNKNOWN_PAYER_NAME = 'Unknown Payer';
 export const WATERFALL_UNKNOWN_MONTH = 'unknown';
 
 // Full-table report scans go through the async bulk API: one server-side job instead of
-// hundreds of paged searches. The SDK throws on job failure/expiry/timeout, but not on
-// error files, so an errored manifest is rejected here — a report must not cache partial data.
+// hundreds of paged searches. An errored manifest is rejected — a report must not cache
+// partial data.
 export async function searchAllViaBulk<T extends FhirResource>(
   oystehr: Oystehr,
   params: FhirSearchParams<T>
 ): Promise<T[]> {
   const job = await oystehr.fhir.search<T>(params, { mode: 'async-bulk' });
-  const result = await oystehr.fhir.waitForAsyncBulkOutput<T>(job.jobId, {
+  const status = await oystehr.fhir.waitForAsyncJob<T>(job.jobId, {
     pollIntervalMs: 2000,
     timeoutMs: 600_000,
   });
-  if (result.manifest.error.length > 0) {
+  if (status.status !== 200 || !('mode' in status) || status.mode !== 'bulk') {
     throw new Error(
-      `Bulk ${params.resourceType} search job ${job.jobId} produced ${result.manifest.error.length} error file(s)`
+      `Bulk ${params.resourceType} search job ${job.jobId} answered status ${status.status}, mode ${
+        'mode' in status ? status.mode : 'none'
+      }`
     );
   }
-  return result.output.flatMap((file) => file.resources);
+  if (status.manifest.error.length > 0) {
+    throw new Error(
+      `Bulk ${params.resourceType} search job ${job.jobId} produced ${status.manifest.error.length} error file(s)`
+    );
+  }
+  const files = await Promise.all((status.manifest.output ?? []).map((file) => downloadNdjson<T>(file.url)));
+  return files.flat();
+}
+
+// Output files are downloaded bare, not via the SDK's waitForAsyncBulkOutput: the manifest
+// reports requiresAccessToken=true, so the SDK adds an Authorization header, and the storage
+// rejects a pre-signed url that also carries one with 400 (same finding as shared/adhoc-report.ts).
+const BULK_DOWNLOAD_TIMEOUT_MS = 300_000;
+
+async function downloadNdjson<T extends FhirResource>(url: string): Promise<T[]> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), BULK_DOWNLOAD_TIMEOUT_MS);
+  try {
+    const response = await fetch(url, { method: 'GET', signal: controller.signal });
+    if (!response.ok) {
+      throw new Error(`Failed to download bulk output ${url.split('?')[0]}: HTTP ${response.status}`);
+    }
+    const ndjson = await response.text();
+    const resources: T[] = [];
+    for (const line of ndjson.split('\n')) {
+      const trimmed = line.trim();
+      if (trimmed) resources.push(JSON.parse(trimmed) as T);
+    }
+    return resources;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 // Platform account + connected accounts from Organization identifiers and Location

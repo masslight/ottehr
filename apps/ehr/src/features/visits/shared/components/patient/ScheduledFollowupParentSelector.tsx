@@ -137,6 +137,7 @@ export default function ScheduledFollowupParentSelector({
             sourceEncounterId: parentEncounterId,
             targetEncounterId: convertFrom.encounterId,
             fields,
+            overwriteExisting: true,
           });
         } catch (e) {
           console.error('Failed to copy chart data to the converted visit:', e);
@@ -151,7 +152,7 @@ export default function ScheduledFollowupParentSelector({
     onSuccess: ({ copyFailed }) => {
       enqueueSnackbar(
         copyFailed
-          ? 'Visit converted to a follow-up, but some information could not be copied from the initial visit'
+          ? 'Visit converted to a follow-up, but copying information from the initial visit did not fully complete'
           : 'Visit converted to a scheduled follow-up',
         { variant: copyFailed ? 'warning' : 'success' }
       );
@@ -275,7 +276,8 @@ export default function ScheduledFollowupParentSelector({
                         <>
                           {field.label}{' '}
                           <Typography component="span" variant="body2" color="text.secondary">
-                            (this visit already has {field.label})
+                            (this visit already has {field.label}
+                            {field.extract ? '; copying replaces it' : '; only new codes are added'})
                           </Typography>
                         </>
                       ) : (
