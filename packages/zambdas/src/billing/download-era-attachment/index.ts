@@ -1,0 +1,45 @@
+import Oystehr from '@oystehr/sdk';
+import { APIGatewayProxyResult } from 'aws-lambda';
+import { DocumentReference } from 'fhir/r4b';
+import { Secrets } from 'utils/lib/secrets';
+import { DownloadEraAttachmentResponse } from 'utils/lib/types/data/billing/billing.types';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
+import { ERA_ATTACHMENT_PATH_PREFIX, ownedAttachmentLocation, presignAttachment } from '../attachments';
+import { createBillingClient, fetchById } from '../shared';
+import { DownloadEraAttachmentParams, validateRequestParameters } from './validateRequestParameters';
+
+let m2mToken: string;
+const ZAMBDA_NAME = 'download-era-attachment';
+
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+  const params = validateRequestParameters(input);
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
+  const oystehr = createBillingClient(m2mToken, params.secrets);
+  const result = await performEffect(oystehr, params);
+  return { statusCode: 200, body: JSON.stringify(result) };
+});
+
+export async function performEffect(
+  oystehr: Oystehr,
+  params: DownloadEraAttachmentParams
+): Promise<DownloadEraAttachmentResponse> {
+  const documentReference = await fetchById<DocumentReference>(
+    oystehr,
+    'DocumentReference',
+    params.documentReferenceId
+  );
+  const location = ownedAttachmentLocation(documentReference, eraOwner(params));
+  return { downloadUrl: await presignAttachment(oystehr, location, 'download') };
+}
+
+function eraOwner(params: { eraId: string; secrets: Secrets }): Parameters<typeof ownedAttachmentLocation>[1] {
+  return {
+    reference: `PaymentReconciliation/${params.eraId}`,
+    projectApi: params.secrets['PROJECT_API'],
+    projectId: params.secrets['PROJECT_ID'],
+    prefix: ERA_ATTACHMENT_PATH_PREFIX,
+    ownerId: params.eraId,
+  };
+}

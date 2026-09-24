@@ -479,6 +479,41 @@
       "runtime": "nodejs22.x",
       "src": "src/billing/download-claim-attachment/index",
       "zip": ".dist/zips/download-claim-attachment.zip"
+    },
+    "SAVE-BILLING-MANUAL-ERA": {
+      "name": "save-billing-manual-era",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/save-billing-manual-era/index",
+      "zip": ".dist/zips/save-billing-manual-era.zip"
+    },
+    "ADD-ERA-ATTACHMENT": {
+      "name": "add-era-attachment",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/add-era-attachment/index",
+      "zip": ".dist/zips/add-era-attachment.zip"
+    },
+    "RENAME-ERA-ATTACHMENT": {
+      "name": "rename-era-attachment",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/rename-era-attachment/index",
+      "zip": ".dist/zips/rename-era-attachment.zip"
+    },
+    "DELETE-ERA-ATTACHMENT": {
+      "name": "delete-era-attachment",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/delete-era-attachment/index",
+      "zip": ".dist/zips/delete-era-attachment.zip"
+    },
+    "DOWNLOAD-ERA-ATTACHMENT": {
+      "name": "download-era-attachment",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/download-era-attachment/index",
+      "zip": ".dist/zips/download-era-attachment.zip"
     }
   },
   "fhirResources": {

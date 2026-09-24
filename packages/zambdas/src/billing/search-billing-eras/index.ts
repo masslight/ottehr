@@ -8,6 +8,7 @@ import { fetchAllPages } from '../../shared/fhir';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { countEraClaims, fetchClaimEraLinks, fetchClaimResponsesByPaymentReconciliations } from '../claim-amounts';
+import { resolveEraPayee } from '../era-remits';
 import {
   CLAIM_PCN_IDENTIFIER_SYSTEM,
   createBillingClient,
@@ -15,6 +16,7 @@ import {
   CURRENT_STATUS_TAG_SYSTEM,
   eraCheckNumberMatches,
   getEraCheckNumber,
+  getEraSource,
   resolvePayersByRef,
 } from '../shared';
 import { SearchErasParams, validateRequestParameters } from './validateRequestParameters';
@@ -73,9 +75,11 @@ export async function performEffect(
   }
 
   if (params.matchingStatus === 'anyUnmatched') {
+    // unmatched remits point at their contained claim; '#request' is what the converters and
+    // manual entry write, '#claim' what this filter always matched on
     filterParams.push({
       name: '_has:Provenance:target:target:ClaimResponse.request',
-      value: '#claim',
+      value: '#request,#claim',
     });
   }
 
@@ -276,6 +280,8 @@ function mapEra(
     id: pr.id ?? '',
     checkNumber,
     payerName: payerOrg?.name ?? pr.paymentIssuer?.display ?? '',
+    billingProviderName: pr.requestor?.display ?? resolveEraPayee(claimResponses)?.name ?? '',
+    source: getEraSource(pr),
     paymentDate: pr.paymentDate ?? pr.created ?? '',
     paymentAmount: pr.paymentAmount?.value ?? 0,
     status: pr.outcome ?? pr.status ?? '',

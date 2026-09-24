@@ -1,20 +1,18 @@
 import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, ClaimSupportingInfo, DocumentReference } from 'fhir/r4b';
-import { DateTime } from 'luxon';
 import { AddClaimAttachmentResponse } from 'utils/lib/types/data/billing/billing.types';
-import { sanitizeFileNameForZ3 } from 'utils/lib/utils/file';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import {
-  BILLING_APP_BUCKET,
-  CLAIM_ATTACHMENT_OBJECT_PATH,
-  CLAIM_ATTACHMENT_REPORT_TYPE_CODE_SYSTEM,
-  createBillingClient,
-  fetchById,
-  getClaimAttachmentUrl,
-} from '../shared';
+  buildAttachmentDocumentReference,
+  CLAIM_ATTACHMENT_PATH_PREFIX,
+  newAttachmentLocation,
+  presignAttachment,
+  resolveAttachmentContentType,
+} from '../attachments';
+import { CLAIM_ATTACHMENT_REPORT_TYPE_CODE_SYSTEM, createBillingClient, fetchById } from '../shared';
 import { AddClaimAttachmentParams, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -32,9 +30,13 @@ export async function performEffect(
   oystehr: Oystehr,
   params: AddClaimAttachmentParams
 ): Promise<AddClaimAttachmentResponse> {
-  const nameParts = params.name.split('.');
-  const extension = nameParts[nameParts.length - 1];
   const claim = await fetchById<Claim>(oystehr, 'Claim', params.claimId);
+  const location = newAttachmentLocation(
+    params.secrets['PROJECT_ID'],
+    CLAIM_ATTACHMENT_PATH_PREFIX,
+    claim.id,
+    params.name
+  );
   const supportingInfo = claim.supportingInfo ?? [];
   const supportingInfoEntry: ClaimSupportingInfo = {
     sequence: supportingInfo.length + 1,
@@ -53,32 +55,13 @@ export async function performEffect(
       reference: 'urn:uuid:doc-ref',
     },
   };
-  const docRef: DocumentReference = {
-    resourceType: 'DocumentReference',
-    status: 'current',
-    date: DateTime.now().toISO(),
-    content: [
-      {
-        attachment: {
-          url: getClaimAttachmentUrl(
-            params.secrets['PROJECT_API'],
-            params.secrets['PROJECT_ID'],
-            claim.id,
-            sanitizeFileNameForZ3(params.name)
-          ),
-          contentType: `application/${extension}`,
-          title: params.name,
-        },
-      },
-    ],
-    context: {
-      related: [
-        {
-          reference: `Claim/${claim.id}`,
-        },
-      ],
-    },
-  };
+  const docRef = buildAttachmentDocumentReference({
+    location,
+    projectApi: params.secrets['PROJECT_API'],
+    title: params.name,
+    contentType: resolveAttachmentContentType(params.name, params.contentType),
+    relatedReference: `Claim/${claim.id}`,
+  });
 
   const requests: BatchInputRequest<Claim | DocumentReference>[] = [
     { method: 'POST', url: `/DocumentReference`, resource: docRef, fullUrl: 'urn:uuid:doc-ref' },
@@ -95,14 +78,12 @@ export async function performEffect(
     },
   ];
 
-  await oystehr.fhir.transaction<Claim | DocumentReference>({ requests });
+  const result = await oystehr.fhir.transaction<Claim | DocumentReference>({ requests });
+  const documentReferenceId =
+    result.unbundle().find((resource) => resource.resourceType === 'DocumentReference')?.id ?? '';
 
-  const presignedUrlResult = await oystehr.z3.getPresignedUrl({
-    bucketName: BILLING_APP_BUCKET(params.secrets['PROJECT_ID']),
-    'objectPath+': CLAIM_ATTACHMENT_OBJECT_PATH(claim.id, params.name),
-    action: 'upload',
-  });
   return {
-    uploadUrl: presignedUrlResult.signedUrl,
+    documentReferenceId,
+    uploadUrl: await presignAttachment(oystehr, location, 'upload'),
   };
 }

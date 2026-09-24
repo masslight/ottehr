@@ -17,6 +17,7 @@ import {
   X12_ADJUSTMENT_GROUP_SYSTEM,
 } from '../../../src/billing/claim-amounts';
 import { performEffect } from '../../../src/billing/get-billing-era-detail';
+import { buildManualClaimResponse, buildManualPaymentReconciliation } from '../../../src/billing/manual-era';
 import {
   ERA_CHECK_SYSTEM,
   ERA_ICN_EXTENSION,
@@ -337,6 +338,132 @@ describe('get-billing-era-detail performEffect', () => {
       serviceDate: '2026-06-30',
       copay: 25,
     });
+  });
+
+  it('returns a manual remit with its keyed details, attachments and editable form', async () => {
+    const header = {
+      payerId: 'payer-uhc',
+      billingProviderRef: 'Organization/org-1',
+      checkNumber: '557801',
+      checkAmountCents: 5000,
+      remitDate: '2026-09-13',
+      checkDate: '2026-09-12',
+      depositDate: '2026-09-14',
+      notes: 'Mailed remit',
+    };
+    const context = {
+      payer: { reference: 'https://rcm-api.zapehr.com/v1/payer/payer-uhc', display: 'United Health Care' },
+      billingProvider: { reference: 'Organization/org-1', name: 'some org' },
+    };
+    const manualPr: PaymentReconciliation = {
+      ...buildManualPaymentReconciliation({
+        header,
+        context,
+        created: '2026-09-23T15:00:00Z',
+        editedAt: '2026-09-23T15:00:00Z',
+      }),
+      id: 'era-m',
+      meta: { versionId: '7' },
+    };
+    const keyed: ClaimResponse = {
+      ...buildManualClaimResponse({
+        claim: {
+          statusCode: '1',
+          patientName: 'Joe Schmoe',
+          serviceLines: [
+            {
+              serviceDate: '2026-08-15',
+              procedureCode: '99212',
+              billedCents: 15000,
+              allowedCents: 10000,
+              paidCents: 5000,
+              adjustments: [{ groupCode: 'CO', reasonCode: '45', amountCents: 5000 }],
+              remarkCodes: ['N130'],
+            },
+          ],
+        },
+        header,
+        context,
+      }),
+      id: 'cr-m',
+    };
+    (fetchClaimResponsesByPaymentReconciliations as Mock).mockResolvedValue(new Map([['era-m', [keyed]]]));
+
+    const eraReadClient = {
+      fhir: {
+        search: vi.fn().mockImplementation(({ resourceType }: { resourceType: string }) =>
+          Promise.resolve({
+            unbundle: () =>
+              resourceType === 'Provenance'
+                ? [
+                    {
+                      resourceType: 'Provenance',
+                      id: 'prov-1',
+                      recorded: '2026-09-23T15:00:00Z',
+                      target: [{ reference: 'PaymentReconciliation/era-m' }],
+                      activity: { coding: [{ code: 'era-processing' }] },
+                      agent: [{ who: { reference: 'Practitioner/b1', display: 'biller@example.com' } }],
+                    },
+                  ]
+                : [manualPr],
+            link: [],
+          })
+        ),
+      },
+    } as unknown as Oystehr;
+    const billingClient = {
+      fhir: {
+        search: vi.fn().mockImplementation(({ resourceType }: { resourceType: string }) =>
+          Promise.resolve({
+            unbundle: () =>
+              resourceType === 'Organization'
+                ? [
+                    {
+                      resourceType: 'Organization',
+                      id: 'org-1',
+                      name: 'some org',
+                      identifier: [{ system: FHIR_IDENTIFIER_NPI, value: '8675309123' }],
+                    },
+                  ]
+                : resourceType === 'DocumentReference'
+                ? [
+                    {
+                      resourceType: 'DocumentReference',
+                      id: 'doc-1',
+                      status: 'current',
+                      date: '2026-09-23T16:00:00Z',
+                      content: [{ attachment: { title: 'Remit.pdf', contentType: 'application/pdf' } }],
+                    },
+                  ]
+                : [],
+            link: [],
+          })
+        ),
+      },
+    } as unknown as Oystehr;
+
+    const result = await performEffect(billingClient, eraReadClient, { eraId: 'era-m', secrets: null });
+
+    expect(result).toMatchObject({
+      source: 'manual',
+      versionId: '7',
+      checkNumber: '557801',
+      remitDate: '2026-09-13',
+      depositDate: '2026-09-14',
+      notes: 'Mailed remit',
+      enteredBy: 'biller@example.com',
+      enteredAt: '2026-09-23T15:00:00Z',
+      payee: { name: 'some org', npi: '8675309123', taxId: '' },
+      attachments: [
+        { id: 'doc-1', fileName: 'Remit.pdf', contentType: 'application/pdf', dateAdded: '2026-09-23T16:00:00Z' },
+      ],
+    });
+    expect(result.claims[0]).toMatchObject({ matched: false, patientName: 'Schmoe, Joe', dos: '2026-08-15', paid: 50 });
+    expect(result.claims[0].remits[0].serviceLines[0].remarkCodes).toEqual(['N130']);
+    expect(result.manualEntry?.header).toEqual(header);
+    expect(result.manualEntry?.claims).toEqual([
+      expect.objectContaining({ claimResponseId: 'cr-m', matchedClaimId: null, patientName: 'Joe Schmoe' }),
+    ]);
   });
 
   it('throws when the PaymentReconciliation does not exist', async () => {

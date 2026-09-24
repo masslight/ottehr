@@ -3,14 +3,21 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, ClaimResponse } from 'fhir/r4b';
 import { patchWithOptimisticLock } from 'utils/lib/fhir/helpers';
 import { getPatchOperationForNewMetaTag } from 'utils/lib/fhir/resourcePatch';
-import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
+import { CLAIM_TAG_SYSTEM, ERA_CLAIM_STATUS_CODE } from 'utils/lib/types/data/billing/billing.constants';
 import { AR_STAGE, CLAIM_STATUS_TAG_SYSTEMS } from 'utils/lib/types/data/billing/claim-status';
 import {
   HOLD_TAG_NAME,
   SECONDARY_SUBMISSION_CROSSOVER_TAG_NAME,
   SECONDARY_SUBMISSION_TAG_NAME,
 } from 'utils/lib/types/data/billing/system-tags';
-import { createBillingClient, ensureSystemManagedTags, getTag } from '../../../billing/shared';
+import {
+  createBillingClient,
+  ensureSystemManagedTags,
+  ERA_ITEM_REMARK_CODE_EXTENSION,
+  ERA_STATUS_CODE_EXTENSION,
+  getEraExtensionString,
+  getTag,
+} from '../../../billing/shared';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
@@ -109,7 +116,16 @@ export async function performEffect(oystehr: Oystehr, validated: ComplexValidati
   ]);
 }
 
-function claimWasForwarded(claimResponse: ClaimResponse): boolean {
+// CLP02 codes meaning the payer forwarded the claim to the next payer itself (crossover).
+const FORWARDED_STATUS_CODES: string[] = [
+  ERA_CLAIM_STATUS_CODE.primaryForwarded,
+  ERA_CLAIM_STATUS_CODE.secondaryForwarded,
+  ERA_CLAIM_STATUS_CODE.tertiaryForwarded,
+];
+
+export function claimWasForwarded(claimResponse: ClaimResponse): boolean {
+  const statusCode = getEraExtensionString(claimResponse, ERA_STATUS_CODE_EXTENSION);
+  if (statusCode && FORWARDED_STATUS_CODES.includes(statusCode)) return true;
   const medicareRemarkCodes = (claimResponse.extension ?? [])
     .filter(
       (ext) =>
@@ -120,11 +136,15 @@ function claimWasForwarded(claimResponse: ClaimResponse): boolean {
     .filter((val): val is string => !!val);
   const serviceLineRemarkCodes = (claimResponse.item ?? []).flatMap((item) =>
     (item.extension ?? [])
-      .filter((ext) => ext.url === 'https://extensions.fhir.oystehr.com/era-item-remark-code')
+      .filter((ext) => ext.url === ERA_ITEM_REMARK_CODE_EXTENSION)
       .map((ext) => ext.valueString)
       .filter((val): val is string => !!val)
   );
-  if (medicareRemarkCodes.some((val) => val === 'MA18') || serviceLineRemarkCodes.some((val) => val === 'N89')) {
+  // MA18 normally rides on the claim (MOA), but a remit keyed in by hand carries remark codes per line
+  if (
+    medicareRemarkCodes.some((val) => val === 'MA18') ||
+    serviceLineRemarkCodes.some((val) => val === 'N89' || val === 'MA18')
+  ) {
     return true;
   }
   return false;

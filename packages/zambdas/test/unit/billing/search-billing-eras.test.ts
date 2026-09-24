@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, Mock, vi } from 'vitest';
 import { fetchClaimResponsesByPaymentReconciliations } from '../../../src/billing/claim-amounts';
 import { performEffect } from '../../../src/billing/search-billing-eras';
 import { SearchErasParams } from '../../../src/billing/search-billing-eras/validateRequestParameters';
-import { ERA_CHECK_SYSTEM, resolvePayersByRef } from '../../../src/billing/shared';
+import { ERA_CHECK_SYSTEM, ERA_SOURCE_EXTENSION, resolvePayersByRef } from '../../../src/billing/shared';
 
 vi.mock('../../../src/billing/claim-amounts', async (importOriginal) => ({
   ...(await importOriginal<object>()),
@@ -125,6 +125,49 @@ describe('search-billing-eras performEffect', () => {
   beforeEach(() => {
     (fetchClaimResponsesByPaymentReconciliations as Mock).mockResolvedValue(new Map());
     (resolvePayersByRef as Mock).mockResolvedValue(new Map());
+  });
+
+  it('labels each ERA with its source and the billing provider it pays', async () => {
+    const manual: PaymentReconciliation = {
+      ...importedEra('era-manual', '557801'),
+      extension: [{ url: ERA_SOURCE_EXTENSION, valueCode: 'manual' }],
+      requestor: { reference: 'Organization/org-1', display: 'Brightside Pediatrics LLC' },
+    };
+    const clearingHouse = claimMdEra('era-ch', 'CHK-1');
+    (fetchClaimResponsesByPaymentReconciliations as Mock).mockResolvedValue(
+      new Map([
+        [
+          'era-ch',
+          [
+            {
+              resourceType: 'ClaimResponse',
+              request: { reference: '#request' },
+              contained: [
+                { resourceType: 'Claim', id: 'request', provider: { reference: '#billing-provider' } },
+                { resourceType: 'Organization', id: 'billing-provider', name: 'Lakeview Urgent Care PA' },
+              ],
+            },
+          ],
+        ],
+      ])
+    );
+    const { oystehr } = makeOystehr([manual, clearingHouse, importedEra('era-x12', 'CHK-2')]);
+
+    const result = await performEffect(oystehr, oystehr, searchParams());
+
+    expect(result.eras.map(({ id, source, billingProviderName }) => ({ id, source, billingProviderName }))).toEqual([
+      { id: 'era-manual', source: 'manual', billingProviderName: 'Brightside Pediatrics LLC' },
+      { id: 'era-ch', source: 'clearing-house', billingProviderName: 'Lakeview Urgent Care PA' },
+      { id: 'era-x12', source: 'x12-import', billingProviderName: '' },
+    ]);
+  });
+
+  it('finds unmatched claims under the contained reference the converters and manual entry write', async () => {
+    const { oystehr, search } = makeOystehr([]);
+    await performEffect(oystehr, oystehr, searchParams({ matchingStatus: 'anyUnmatched' }));
+    expect(paramValue(search.mock.calls[0][0], '_has:Provenance:target:target:ClaimResponse.request')).toBe(
+      '#request,#claim'
+    );
   });
 
   it('finds an ERA whose check number the importing converter left only on paymentIdentifier', async () => {

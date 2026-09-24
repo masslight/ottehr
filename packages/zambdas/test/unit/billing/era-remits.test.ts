@@ -17,6 +17,7 @@ import {
   CLAIM_PCN_IDENTIFIER_SYSTEM,
   ERA_ICN_EXTENSION,
   ERA_ITEM_PROCEDURE_CODE_EXTENSION,
+  ERA_ITEM_REMARK_CODE_EXTENSION,
   ERA_PCN_EXTENSION,
   ERA_STATUS_CODE_EXTENSION,
 } from '../../../src/billing/shared';
@@ -115,7 +116,23 @@ describe('buildEraRemitServiceLines', () => {
       coinsurance: 0,
       copay: 0,
       adjustments: [{ groupCode: 'CO', reasonCode: '45', amount: 48.68 }],
+      remarkCodes: [],
     });
+  });
+
+  it('reads the LQ remark codes stamped on each line', () => {
+    const item = eraItem({
+      sequence: 1,
+      procedureCode: '99213',
+      adjudication: [adjudication(ADJUDICATION_CODES.PAID, 0)],
+    });
+    item.extension = [
+      ...(item.extension ?? []),
+      { url: ERA_ITEM_REMARK_CODE_EXTENSION, valueString: 'N130' },
+      { url: ERA_ITEM_REMARK_CODE_EXTENSION, valueString: 'M15' },
+    ];
+    const [line] = buildEraRemitServiceLines(claimResponse({ item: [item], contained: [containedClaim()] }), undefined);
+    expect(line.remarkCodes).toEqual(['N130', 'M15']);
   });
 
   it('treats converter-stamped zero units as not reported', () => {

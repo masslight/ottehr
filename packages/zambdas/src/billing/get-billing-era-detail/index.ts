@@ -1,10 +1,20 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Claim, ClaimResponse, Coverage, Patient, PaymentReconciliation } from 'fhir/r4b';
+import {
+  Claim,
+  ClaimResponse,
+  Coverage,
+  DocumentReference,
+  Organization,
+  Patient,
+  PaymentReconciliation,
+  Practitioner,
+} from 'fhir/r4b';
 import { RAW_X12_EXTENSION_URL } from 'utils/lib/fhir/constants';
-import { codeableConcept, getExtension } from 'utils/lib/fhir/helpers';
+import { codeableConcept, getExtension, getNPI, getTaxID } from 'utils/lib/fhir/helpers';
 import { CODE_SYSTEM_CLAIM_TYPE, CODE_SYSTEM_PROCESS_PRIORITY } from 'utils/lib/helpers/rcm/constants';
-import { EraDetailResponse } from 'utils/lib/types/data/billing/billing.types';
+import { ERA_SOURCE } from 'utils/lib/types/data/billing/billing.constants';
+import { EraAttachment, EraDetailResponse, EraPayee } from 'utils/lib/types/data/billing/billing.types';
 import { FHIR_RESOURCE_NOT_FOUND } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
@@ -13,17 +23,23 @@ import {
   countEraClaims,
   extractReportedCharge,
   fetchClaimResponsesByPaymentReconciliations,
+  fetchEraProcessingProvenances,
   isMatchedToClaim,
   sortClaimResponsesByRecency,
   summarizeClaimPayments,
 } from '../claim-amounts';
 import { buildEraClaimRemit, eraContainedMemberId, eraPatientAccountNumber, resolveEraPayee } from '../era-remits';
+import { manualEraEntryFromFhir } from '../manual-era';
 import {
   createBillingClient,
   createEraReadClient,
+  ERA_DEPOSIT_DATE_EXTENSION,
+  ERA_REMIT_DATE_EXTENSION,
   fhirName,
+  findById,
   findRef,
   getEraCheckNumber,
+  getEraSource,
   resolvePayersByRef,
   sortClaimInsurance,
 } from '../shared';
@@ -186,13 +202,31 @@ export async function performEffect(
 
   const checkNumber = getEraCheckNumber(pr) ?? '';
   const counts = countEraClaims(claimResponses);
-  const payee = resolveEraPayee(claimResponses);
+  const source = getEraSource(pr);
+  const manual = source === ERA_SOURCE.manual;
+  const [payee, attachments, entered] = await Promise.all([
+    // a manual remit names its billing provider; converters only replicate the payee onto unmatched remits
+    requestorPayee(oystehr, pr).then((fromRequestor) => fromRequestor ?? resolveEraPayee(claimResponses)),
+    fetchEraAttachments(oystehr, pr.id ?? ''),
+    manual ? enteredBy(eraReadClient, pr.id ?? '') : Promise.resolve({ by: '', at: '' }),
+  ]);
 
   return {
     id: pr.id ?? '',
+    source,
+    versionId: pr.meta?.versionId ?? '',
     checkNumber,
     checkDate: pr.paymentDate ?? '',
     createdDate: pr.created ?? '',
+    remitDate: getExtension(pr, ERA_REMIT_DATE_EXTENSION)?.valueDate ?? '',
+    depositDate: getExtension(pr, ERA_DEPOSIT_DATE_EXTENSION)?.valueDate ?? '',
+    notes:
+      pr.processNote
+        ?.map((note) => note.text ?? '')
+        .filter(Boolean)
+        .join('\n') ?? '',
+    enteredBy: entered.by,
+    enteredAt: entered.at,
     checkAmount: pr.paymentAmount?.value ?? 0,
     payee,
     payerName: payerOrg?.name ?? pr.paymentIssuer?.display ?? '',
@@ -207,5 +241,45 @@ export async function performEffect(
     unmatchedClaims: counts.unmatched,
     x12: getExtension(pr, RAW_X12_EXTENSION_URL)?.valueString ?? '',
     claims: claimItems,
+    attachments,
+    ...(manual ? { manualEntry: manualEraEntryFromFhir(pr, claimResponses) } : {}),
   };
+}
+
+async function requestorPayee(oystehr: Oystehr, pr: PaymentReconciliation): Promise<EraPayee | null> {
+  const [resourceType, id] = pr.requestor?.reference?.split('/') ?? [];
+  if ((resourceType !== 'Organization' && resourceType !== 'Practitioner') || !id) return null;
+  const provider = await findById<Organization | Practitioner>(oystehr, resourceType, id);
+  const name = pr.requestor?.display ?? '';
+  if (!provider) return name ? { name, npi: '', taxId: '' } : null;
+  return {
+    name: (provider.resourceType === 'Organization' ? provider.name : fhirName(provider)) || name,
+    npi: getNPI(provider) ?? '',
+    taxId: getTaxID(provider) ?? '',
+  };
+}
+
+async function fetchEraAttachments(oystehr: Oystehr, eraId: string): Promise<EraAttachment[]> {
+  const bundle = await oystehr.fhir.search<DocumentReference>({
+    resourceType: 'DocumentReference',
+    params: [{ name: 'related', value: `PaymentReconciliation/${eraId}` }],
+  });
+  return bundle
+    .unbundle()
+    .filter((resource): resource is DocumentReference => resource.resourceType === 'DocumentReference')
+    .map((documentReference) => ({
+      id: documentReference.id ?? '',
+      fileName: documentReference.content[0]?.attachment.title ?? '',
+      contentType: documentReference.content[0]?.attachment.contentType ?? '',
+      dateAdded: documentReference.date ?? '',
+    }))
+    .sort((a, b) => a.dateAdded.localeCompare(b.dateAdded));
+}
+
+// Who keyed a manual remit in and when: the author of its era-processing Provenance.
+async function enteredBy(eraReadClient: Oystehr, eraId: string): Promise<{ by: string; at: string }> {
+  const [first] = (await fetchEraProcessingProvenances(eraReadClient, [`PaymentReconciliation/${eraId}`])).sort(
+    (a, b) => (a.recorded ?? '').localeCompare(b.recorded ?? '')
+  );
+  return { by: first?.agent?.[0]?.who?.display ?? '', at: first?.recorded ?? '' };
 }
