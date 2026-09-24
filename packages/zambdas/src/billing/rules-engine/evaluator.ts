@@ -395,8 +395,17 @@ const applyChargeMasterPricing = (
     if (!cptCode) continue;
     const modifiers = readServiceLineProperty(line, 'modifiers');
     const modifierList = Array.isArray(modifiers) ? modifiers : [];
-    const price = getChargeMasterPrice(chargeMaster, cptCode, modifierList);
-    if (price == null || !Number.isFinite(price) || price < 0) continue;
+    let price = getChargeMasterPrice(chargeMaster, cptCode, modifierList);
+    if (price == null || !Number.isFinite(price) || price < 0) {
+      if (modifierList.length) {
+        // Retry without modifiers; see OTR-3547 for details
+        price = getChargeMasterPrice(chargeMaster, cptCode, []);
+      }
+      if (price == null || !Number.isFinite(price) || price < 0) {
+        // Still no price or we didn't retry without modifiers
+        continue;
+      }
+    }
     // The charges writer cannot fail for a validated non-negative finite price.
     writeServiceLineProperty(line, 'charges', String(price), 'set');
     changed = true;
