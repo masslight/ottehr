@@ -32,11 +32,12 @@ import {
   STRIPE_PAYMENT_ID_SYSTEM,
   stripeRefundToDTO,
 } from '../../shared/stripeIntegration';
+import { StripeWebhookParams } from '../../shared/stripeWebhook';
 import { ZambdaInput } from '../../shared/types/common';
 import { updateTaskStatusAndOutput } from '../../subscriptions/helpers';
 import { claimRequestFor, findBillingClaimForEncounter } from '../payments';
 import { createBillingClient, reconcilePaymentNoticesForClaim, STRIPE_ACCOUNT_IDENTIFIER_SYSTEM } from '../shared';
-import { BillingStripeWebhookParams, validateRequestParameters } from './validateRequestParameters';
+import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'billing-stripe-webhook';
 
@@ -70,7 +71,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   };
 });
 
-export const performEffect = async (oystehr: Oystehr, params: BillingStripeWebhookParams): Promise<void> => {
+export const performEffect = async (oystehr: Oystehr, params: StripeWebhookParams): Promise<void> => {
   const { event, secrets, stripeAccount = event.account } = params;
   switch (event.type) {
     case 'charge.succeeded':

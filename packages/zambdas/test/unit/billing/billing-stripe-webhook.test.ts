@@ -4,7 +4,7 @@ import { Claim, Organization, PaymentNotice } from 'fhir/r4b';
 import Stripe from 'stripe';
 import { BILLING_RESOURCE_TAG } from 'utils/lib/fhir/constants';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
-import { Secrets } from 'utils/lib/secrets';
+import { Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { INVALID_INPUT_ERROR, MISCONFIGURED_ENVIRONMENT_ERROR } from 'utils/lib/types/errors';
 import { afterEach, describe, expect, it, Mock, vi } from 'vitest';
 
@@ -39,6 +39,7 @@ import { createBillingClient, STRIPE_ACCOUNT_IDENTIFIER_SYSTEM } from '../../../
 import { checkOrCreateM2MClientToken } from '../../../src/shared/auth';
 import { createClinicalOystehrClient } from '../../../src/shared/helpers';
 import { getStripeClient, STRIPE_PAYMENT_ID_SYSTEM } from '../../../src/shared/stripeIntegration';
+import { validateStripeWebhook } from '../../../src/shared/stripeWebhook';
 import { ZambdaInput } from '../../../src/shared/types/common';
 
 const WEBHOOK_SECRET = 'whsec_test_secret';
@@ -145,6 +146,23 @@ describe('billing-stripe-webhook signing secrets', () => {
     signingSecret: `whsec_${i + 1}`,
   }));
   const webhookSecrets = { STRIPE_WEBHOOK_SECRET: JSON.stringify(accountSecrets) };
+
+  it('verifies only the signing-secret settings selected by the caller', () => {
+    (getStripeClient as Mock).mockReturnValue(stripe);
+    const event = makeEvent('charge.succeeded', makeCharge());
+    const secretKeys = [SecretsKeys.STRIPE_PLATFORM_WEBHOOK_SECRET];
+    const missingSecretsMessage = 'Missing platform webhook secret';
+
+    const params = validateStripeWebhook(
+      signedInput(event, PLATFORM_WEBHOOK_SECRET),
+      secretKeys,
+      missingSecretsMessage
+    );
+    expect(params.event).toEqual(event);
+    expect(() => validateStripeWebhook(signedInput(event), secretKeys, missingSecretsMessage)).toThrow(
+      expect.objectContaining(INVALID_INPUT_ERROR('Invalid Stripe webhook signature'))
+    );
+  });
 
   it('verifies the last of 12 accounts and uses it for billing and Stripe API calls', async () => {
     (getStripeClient as Mock).mockReturnValue(stripe);
