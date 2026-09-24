@@ -1,5 +1,5 @@
 import { CreateBillingProviderInput, UpdateBillingProviderInput } from 'utils/lib/types/data/billing/billing.schemas';
-import { BillingProviderOption } from 'utils/lib/types/data/billing/billing.types';
+import { BillingProviderLicense, BillingProviderOption } from 'utils/lib/types/data/billing/billing.types';
 import { buildAddressInput } from '../utils/format';
 
 export type ProviderRole = 'billing' | 'rendering';
@@ -11,7 +11,7 @@ export interface ProviderForm {
   lastName: string;
   orgName: string;
   npi: string;
-  licenseType: string;
+  licenses: BillingProviderLicense[];
   taxonomyCode: string;
   taxId: string;
   stripeAccountId: string;
@@ -24,6 +24,10 @@ export interface ProviderForm {
   bills: boolean;
 }
 
+export function emptyProviderLicense(): BillingProviderLicense {
+  return { type: '', number: '', state: '' };
+}
+
 export function emptyProviderForm(defaultRole: ProviderRole): ProviderForm {
   return {
     kind: defaultRole === 'rendering' ? 'individual' : 'organization',
@@ -31,7 +35,7 @@ export function emptyProviderForm(defaultRole: ProviderRole): ProviderForm {
     lastName: '',
     orgName: '',
     npi: '',
-    licenseType: '',
+    licenses: [emptyProviderLicense()],
     taxonomyCode: '',
     taxId: '',
     stripeAccountId: '',
@@ -56,7 +60,7 @@ export function defaultProviderFormValues(
     lastName: provider.lastName ?? '',
     orgName: provider.name ?? '',
     npi: provider.npi ?? '',
-    licenseType: provider.licenseType ?? '',
+    licenses: provider.licenses?.length ? provider.licenses : [emptyProviderLicense()],
     taxonomyCode: provider.taxonomyCode ?? '',
     taxId: provider.taxId ?? '',
     stripeAccountId: provider.stripeAccountId ?? '',
@@ -89,7 +93,7 @@ export function providerToCreateInput(data: ProviderForm): CreateBillingProvider
       kind: data.kind,
       firstName: data.firstName!.trim(),
       lastName: data.lastName!.trim(),
-      ...(data.licenseType ? { licenseType: data.licenseType } : {}),
+      licenses: licensesToInput(data.licenses),
       ...common,
     };
   } else {
@@ -123,7 +127,7 @@ export function providerToUpdateInput(data: ProviderForm, providerId: string): U
       kind: data.kind,
       firstName: data.firstName!.trim(),
       lastName: data.lastName!.trim(),
-      ...(data.licenseType ? { licenseType: data.licenseType } : {}),
+      licenses: licensesToInput(data.licenses),
       ...common,
     };
   } else {
@@ -135,4 +139,12 @@ export function providerToUpdateInput(data: ProviderForm, providerId: string): U
     };
   }
   return payload;
+}
+
+function licensesToInput(licenses: BillingProviderLicense[]): BillingProviderLicense[] {
+  return licenses.map((license) => ({
+    type: license.type,
+    number: license.number.trim(),
+    state: license.state,
+  }));
 }

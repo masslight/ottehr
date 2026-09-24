@@ -21,6 +21,9 @@ import {
 } from '../helpers/rcm/constants';
 import { ELIGIBILITY_BENEFIT_CODES, INSURANCE_PLAN_ID_CODING } from '../telemed/constants';
 import { CoverageCheckCoverageDetails } from '../types/api/patient-account';
+import { PractitionerQualificationCode } from '../types/api/practitioner.types';
+import { StateType } from '../types/common';
+import { BillingProviderLicense } from '../types/data/billing/billing.types';
 import {
   CLAIM_NON_INSURANCE_PAYER_EXTENSION_URL,
   CLAIM_NON_INSURANCE_PAYER_TAG_SYSTEM,
@@ -36,9 +39,10 @@ import {
   PatientPaymentBenefit,
 } from '../types/data/telemed/eligibility.types';
 import { APIErrorCode } from '../types/errors';
-import { CPT_BILLABLE_UNITS_EXTENSION_URL } from './constants';
-import { getNPI, getTaxID } from './helpers';
+import { CPT_BILLABLE_UNITS_EXTENSION_URL, PRACTITIONER_QUALIFICATION_EXTENSION_URL } from './constants';
+import { allLicensesForPractitioner, getNPI, getTaxID } from './helpers';
 import { CANDID_PLAN_TYPE_SYSTEM, INSURANCE_CANDID_PLAN_TYPE_CODES } from './insurance';
+import { makeQualificationForPractitioner } from './practitioners';
 
 export interface GetBillingProviderInput {
   appointmentId: string;
@@ -628,3 +632,40 @@ export const CLAIM_ATTACHMENT_REPORT_TYPE_CODES = [
   { code: 'V5', label: 'Death Notification' },
   { code: 'XP', label: 'Photographs' },
 ];
+
+// Provider licenses live in Practitioner.qualification, in the same shape the EHR writes them.
+export function getBillingProviderLicenses(practitioner: Practitioner): BillingProviderLicense[] {
+  return allLicensesForPractitioner(practitioner).map(({ code, number, state }) => ({
+    type: code,
+    number: number ?? '',
+    state,
+  }));
+}
+
+// Replaces the license qualifications, keeping non-license qualifications and the expiry date and
+// status of licenses that are kept (the billing app does not edit those).
+export function setBillingProviderLicenses(practitioner: Practitioner, licenses: BillingProviderLicense[]): void {
+  const existing = allLicensesForPractitioner(practitioner);
+  const nonLicenses = (practitioner.qualification ?? []).filter(
+    (q) => !q.extension?.some((ext) => ext.url === PRACTITIONER_QUALIFICATION_EXTENSION_URL)
+  );
+  const qualification = [
+    ...nonLicenses,
+    ...licenses.map((license) => {
+      const previous = existing.find((e) => e.code === license.type && e.state === license.state);
+      return makeQualificationForPractitioner({
+        code: license.type as PractitionerQualificationCode,
+        state: license.state as StateType,
+        number: license.number,
+        date: previous?.date,
+        active: previous?.active ?? true,
+      });
+    }),
+  ];
+  if (qualification.length) practitioner.qualification = qualification;
+  else delete practitioner.qualification;
+}
+
+export function formatBillingProviderLicense({ type, number, state }: BillingProviderLicense): string {
+  return [type, number && `#${number}`, state && `(${state})`].filter(Boolean).join(' ');
+}

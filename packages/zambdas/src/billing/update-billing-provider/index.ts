@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Organization, Practitioner, ProvenanceAgent } from 'fhir/r4b';
+import { setBillingProviderLicenses } from 'utils/lib/fhir/billing';
 import { setNpi } from 'utils/lib/fhir/helpers';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
@@ -56,7 +57,8 @@ export async function performEffect(
     const before = structuredClone(provider);
     provider.name = [{ family: params.lastName, given: [params.firstName] }];
     applyIdentifiersAndAddress(provider, params);
-    applyTags(provider, params.roles, params.licenseType);
+    applyTags(provider, params.roles);
+    setBillingProviderLicenses(provider, params.licenses ?? []);
     return save(oystehr, params, provider, before, agent);
   }
 
@@ -64,7 +66,7 @@ export async function performEffect(
   const before = structuredClone(provider);
   provider.name = params.name;
   applyIdentifiersAndAddress(provider, params);
-  applyTags(provider, params.roles, undefined);
+  applyTags(provider, params.roles);
   return save(oystehr, params, provider, before, agent);
 }
 
@@ -90,12 +92,9 @@ async function save(
   return { id: updated.id! };
 }
 
-// Roles and license type are meta tags; replace those two systems, preserve everything else.
-function applyTags(
-  resource: Practitioner | Organization,
-  roles: ('billing' | 'rendering')[],
-  licenseType: string | undefined
-): void {
+// Roles are meta tags; replace that system, preserve everything else. The legacy license-type tag
+// is dropped too, since licenses now live in Practitioner.qualification.
+function applyTags(resource: Practitioner | Organization, roles: ('billing' | 'rendering')[]): void {
   const tag = (resource.meta?.tag ?? []).filter((t) => t.system !== PROVIDER_ROLE_TAG && t.system !== LICENSE_TAG);
   tag.push(
     ...roles.map((role) => ({
@@ -103,7 +102,6 @@ function applyTags(
       code: role === 'rendering' ? PROVIDER_ROLE_RENDERING : PROVIDER_ROLE_BILLING,
     }))
   );
-  if (licenseType) tag.push({ system: LICENSE_TAG, code: licenseType });
   resource.meta = { ...resource.meta, tag };
 }
 

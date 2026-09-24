@@ -40,7 +40,7 @@ import {
   Task,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { setCoveragePlanType } from 'utils/lib/fhir/billing';
+import { getBillingProviderLicenses, setCoveragePlanType } from 'utils/lib/fhir/billing';
 import {
   ACCOUNT_TYPE_CODE_SYSTEM,
   BILLING_RESOURCE_TAG,
@@ -90,6 +90,7 @@ import {
 import {
   BILLING_INSURANCE_TYPE_LABELS,
   BillingChargeItemDefinitionProcedureCode,
+  BillingProviderLicense,
   BillingProviderOption,
   ChargeItemDefinitionDefault,
   ChargeItemDefinitionType,
@@ -265,6 +266,7 @@ export function payerDisplay(org: Organization | undefined): string | undefined 
 export const PROVIDER_ROLE_TAG = 'https://fhir.ottehr.com/billing/provider-role';
 export const PROVIDER_ROLE_BILLING = 'billing';
 export const PROVIDER_ROLE_RENDERING = 'rendering';
+// Legacy: license type was a tag before licenses moved to Practitioner.qualification; read as a fallback.
 export const LICENSE_TAG = 'https://fhir.ottehr.com/billing/license-type';
 // Stripe connected account whose payments belong to this billing provider, one account per TIN
 export const STRIPE_ACCOUNT_IDENTIFIER_SYSTEM = 'https://fhir.ottehr.com/billing/stripe-account-id';
@@ -1723,6 +1725,15 @@ export const patientSearchParam = (patientIds: string[]): ClaimSearchParam => ({
   value: patientIds.map((id) => `Patient/${id}`).join(','),
 });
 
+// Providers saved before licenses moved to qualifications only carry the legacy type tag; surface it
+// as a partial license so the edit form prompts for the missing number and state.
+function practitionerLicenses(practitioner: Practitioner): BillingProviderLicense[] {
+  const licenses = getBillingProviderLicenses(practitioner);
+  if (licenses.length) return licenses;
+  const legacyType = getTag(practitioner, LICENSE_TAG);
+  return legacyType ? [{ type: legacyType, number: '', state: '' }] : [];
+}
+
 export function mapProvider(resource: Practitioner | Organization): BillingProviderOption {
   const workingCopyReferenceResourceId = isWorkingCopy(resource) ? copySourceId(resource) : undefined;
   const addr = resource.address?.[0];
@@ -1736,7 +1747,6 @@ export function mapProvider(resource: Practitioner | Organization): BillingProvi
             (c) => c.system === CODE_SYSTEM_CLAIM_SECONDARY_IDENTIFIER_TYPE && c.code === FHIR_IDENTIFIER_CODE_TAXONOMY
           )
       )?.value ?? '',
-    licenseType: getTag(resource, LICENSE_TAG),
     taxId: getTaxID(resource) ?? '',
     address: formatAddress(addr),
     addressParts: toAddressParts(addr),
@@ -1752,6 +1762,7 @@ export function mapProvider(resource: Practitioner | Organization): BillingProvi
       name: fhirName(resource),
       firstName: resource.name?.[0]?.given?.join(' ') ?? '',
       lastName: resource.name?.[0]?.family ?? '',
+      licenses: practitionerLicenses(resource),
     };
   }
   return {

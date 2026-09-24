@@ -1,5 +1,6 @@
 import { Autocomplete, Box, TextField, Typography } from '@mui/material';
 import { ReactElement } from 'react';
+import { formatBillingProviderLicense } from 'utils/lib/fhir/billing';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { CreateBillingProviderInput, UpdateBillingProviderInput } from 'utils/lib/types/data/billing/billing.schemas';
 import { BillingProviderOption } from 'utils/lib/types/data/billing/billing.types';
@@ -138,7 +139,9 @@ export function ProviderDetailForm({
       <Row label="Name" value={provider?.name ?? ''} />
       <Row label="NPI" value={provider?.npi ?? ''} />
       <Row label="Taxonomy Code" value={provider?.taxonomyCode ?? ''} />
-      {provider?.kind === 'individual' && <Row label="License Type" value={provider?.licenseType ?? ''} />}
+      {provider?.kind === 'individual' && (
+        <Row label="Licenses" value={(provider.licenses ?? []).map(formatBillingProviderLicense).join(', ')} />
+      )}
       <Row label="Tax ID / EIN" value={formatTaxId(provider?.taxId ?? '')} />
       {provider?.kind === 'organization' && <Row label="Stripe Account ID" value={provider.stripeAccountId ?? ''} />}
       <Row label="Address" value={provider?.address ?? ''} />

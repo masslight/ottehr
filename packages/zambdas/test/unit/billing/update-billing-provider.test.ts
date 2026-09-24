@@ -1,5 +1,8 @@
 import Oystehr from '@oystehr/sdk';
 import { Practitioner, Provenance, ProvenanceAgent } from 'fhir/r4b';
+import { getBillingProviderLicenses } from 'utils/lib/fhir/billing';
+import { PRACTITIONER_QUALIFICATION_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import { makeQualificationForPractitioner } from 'utils/lib/fhir/practitioners';
 import { CLAIM_PROVENANCE_DIFF_EXTENSION_URL, ClaimFieldChange } from 'utils/lib/types/data/billing/claim-history';
 import { describe, expect, it, vi } from 'vitest';
 import { performEffect } from '../../../src/billing/update-billing-provider';
@@ -14,8 +17,12 @@ const provider: Practitioner = {
   name: [{ given: ['John'], family: 'Smith' }],
 };
 
-function makeOystehr(): { oystehr: Oystehr; update: ReturnType<typeof vi.fn>; transaction: ReturnType<typeof vi.fn> } {
-  const search = vi.fn().mockResolvedValue({ unbundle: () => [structuredClone(provider)] });
+function makeOystehr(existing: Practitioner = provider): {
+  oystehr: Oystehr;
+  update: ReturnType<typeof vi.fn>;
+  transaction: ReturnType<typeof vi.fn>;
+} {
+  const search = vi.fn().mockResolvedValue({ unbundle: () => [structuredClone(existing)] });
   const update = vi.fn().mockImplementation((resource: Practitioner) => Promise.resolve(resource));
   const transaction = vi.fn().mockResolvedValue({ entry: [] });
   const oystehr = { fhir: { search, update, transaction } } as unknown as Oystehr;
@@ -82,5 +89,43 @@ describe('update-billing-provider', () => {
     expect(result).toEqual({ id: 'prov-1' });
     expect(update).toHaveBeenCalledTimes(1);
     expect(transaction).not.toHaveBeenCalled();
+  });
+
+  it('replaces licenses and drops the legacy license-type tag, keeping expiry of retained licenses', async () => {
+    const existing: Practitioner = {
+      ...provider,
+      meta: { tag: [{ system: 'https://fhir.ottehr.com/billing/license-type', code: 'MD' }] },
+      qualification: [
+        { code: { text: 'Board certification' } },
+        makeQualificationForPractitioner({ code: 'MD', state: 'CA', number: 'OLD', date: '2030-01-01', active: true }),
+        makeQualificationForPractitioner({ code: 'MD', state: 'NY', number: 'NY1', active: true }),
+      ],
+    };
+    const { oystehr, update } = makeOystehr(existing);
+
+    await performEffect(oystehr, {
+      kind: 'individual',
+      providerId: 'prov-1',
+      firstName: 'John',
+      lastName: 'Smith',
+      roles: ['rendering'],
+      licenses: [
+        { type: 'MD', number: 'NEW', state: 'CA' },
+        { type: 'NP', number: 'TX1', state: 'TX' },
+      ],
+      secrets: null,
+    });
+
+    const saved = update.mock.calls[0][0] as Practitioner;
+    expect(getBillingProviderLicenses(saved)).toEqual([
+      { type: 'MD', number: 'NEW', state: 'CA' },
+      { type: 'NP', number: 'TX1', state: 'TX' },
+    ]);
+    expect(saved.qualification?.[0]).toEqual({ code: { text: 'Board certification' } });
+    const caExtensions = saved.qualification?.[1].extension?.find(
+      (e) => e.url === PRACTITIONER_QUALIFICATION_EXTENSION_URL
+    )?.extension;
+    expect(caExtensions?.find((e) => e.url === 'expDate')?.valueDate).toBe('2030-01-01');
+    expect(saved.meta?.tag?.some((t) => t.system === 'https://fhir.ottehr.com/billing/license-type')).toBe(false);
   });
 });

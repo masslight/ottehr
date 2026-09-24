@@ -8,6 +8,7 @@ import {
   CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES,
 } from '../../../helpers/rcm/constants';
 import { fullZipRegex, stripeAccountIdRegex, taxIdRegex, zipRegex } from '../../../validation/regex';
+import { PractitionerQualificationCodesLabels } from '../../api/practitioner.types';
 import { STATE_CODES } from '../../common';
 import { BILLING_MANUAL_PAYMENT_METHODS, BILLING_TASK_STATUSES, REFRESH_REPORT_KINDS } from './billing.constants';
 import { CLAIM_NOTE_MAX_LENGTH } from './claim-history';
@@ -338,6 +339,12 @@ const billingProviderAddressSchema = billingAddressSchema.extend({
     .optional(),
 });
 
+const billingProviderLicenseSchema = z.object({
+  type: nonEmptyString.refine((code) => code in PractitionerQualificationCodesLabels, 'Unknown license type'),
+  number: nonEmptyString,
+  state: nonEmptyString.refine((code) => STATE_CODES.has(code), 'Unknown state code'),
+});
+
 export const CreateBillingProviderInputSchema = z.discriminatedUnion('kind', [
   z.object({
     kind: z.literal('individual'),
@@ -346,7 +353,7 @@ export const CreateBillingProviderInputSchema = z.discriminatedUnion('kind', [
     roles: z.array(billingProviderRole).min(1),
     npi: billingNpiSchema.optional(),
     taxonomyCode: billingTaxonomyCodeSchema.optional(),
-    licenseType: nonEmptyString.optional(),
+    licenses: z.array(billingProviderLicenseSchema).optional(),
     taxId: billingTaxIdSchema.optional(),
     address: billingProviderAddressSchema.optional(),
   }),
@@ -381,7 +388,7 @@ export const UpdateBillingProviderInputSchema = z.discriminatedUnion('kind', [
     roles: z.array(billingProviderRole).min(1),
     npi: billingNpiSchema.optional(),
     taxonomyCode: billingTaxonomyCodeSchema.optional(),
-    licenseType: nonEmptyString.optional(),
+    licenses: z.array(billingProviderLicenseSchema).optional(),
     taxId: billingTaxIdSchema.optional(),
     address: billingProviderAddressSchema.optional(),
   }),
