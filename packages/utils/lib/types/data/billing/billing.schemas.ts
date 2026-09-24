@@ -10,7 +10,13 @@ import {
 import { fullZipRegex, stripeAccountIdRegex, taxIdRegex, zipRegex } from '../../../validation/regex';
 import { PractitionerQualificationCodesLabels } from '../../api/practitioner.types';
 import { STATE_CODES } from '../../common';
-import { BILLING_MANUAL_PAYMENT_METHODS, BILLING_TASK_STATUSES, REFRESH_REPORT_KINDS } from './billing.constants';
+import {
+  BILLING_MANUAL_PAYMENT_METHODS,
+  BILLING_TASK_STATUSES,
+  REFRESH_REPORT_KINDS,
+  TAG_NAME_FORBIDDEN_CHARACTERS,
+  TAG_NAME_FORBIDDEN_CHARACTERS_ERROR,
+} from './billing.constants';
 import { CLAIM_NOTE_MAX_LENGTH } from './claim-history';
 import {
   CLAIM_STATUS_FIELD_KEYS,
@@ -82,7 +88,11 @@ export const SearchErasInputSchema = z.object({
 
 export const SaveBillingTagInputSchema = z.object({
   tagId: nonEmptyString.optional(),
-  name: nonEmptyString,
+  name: z
+    .string()
+    .refine((name) => !TAG_NAME_FORBIDDEN_CHARACTERS.test(name), TAG_NAME_FORBIDDEN_CHARACTERS_ERROR)
+    .transform((name) => name.trim().replace(/ {2,}/g, ' '))
+    .pipe(z.string().min(1)),
   description: z.string().optional(),
 });
 
