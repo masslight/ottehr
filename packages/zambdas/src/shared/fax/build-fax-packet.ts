@@ -9,6 +9,7 @@ import {
   FAX_PACKET_MAX_PAGES,
   FaxPacketSource,
   FaxRecipient,
+  formatFaxRecipientName,
 } from 'utils/lib/types/api/fax.types';
 import { getMimeType } from 'utils/lib/utils/file';
 import { mapWithConcurrency } from '../concurrency';
@@ -216,7 +217,7 @@ export async function buildAndUploadPacketForRecipient(args: {
   } = args;
 
   const recipientDetails = {
-    name: recipient.name,
+    name: formatFaxRecipientName(recipient),
     organization: recipient.organization,
     faxNumber: recipient.faxNumber,
     phoneNumber: recipient.phoneNumber,

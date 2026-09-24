@@ -1,3 +1,4 @@
+import { zodResolver } from '@hookform/resolvers/zod';
 import { LoadingButton } from '@mui/lab';
 import {
   Autocomplete,
@@ -12,20 +13,19 @@ import {
 import { captureException } from '@sentry/react';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useState } from 'react';
-import { Controller, FormProvider, useForm } from 'react-hook-form';
+import { Controller, FormProvider, Resolver, useForm } from 'react-hook-form';
 import { ConfirmationDialog } from 'src/components/ConfirmationDialog';
 import { PhoneInput } from 'src/components/input/PhoneInput';
 import { SelectInput } from 'src/components/input/SelectInput';
 import { TextInput } from 'src/components/input/TextInput';
-import { formatPhoneNumberDisplay, isEmailValid } from 'utils/lib/helpers/helpers';
+import { dataTestIds } from 'src/constants/data-test-ids';
+import { formatPhoneNumberDisplay } from 'utils/lib/helpers/helpers';
 import { AllStates } from 'utils/lib/types/common';
 import {
-  ADDRESS_BOOK_CREDENTIAL_NEEDS_LAST_NAME_MESSAGE,
   ADDRESS_BOOK_KNOWN_TAGS,
-  ADDRESS_BOOK_LINE2_NEEDS_LINE1_MESSAGE,
-  ADDRESS_BOOK_ORG_OR_LAST_NAME_MESSAGE,
   AddressBookContact,
   AddressBookContactInput,
+  AddressBookContactInputSchema,
   formatAddressBookPersonName,
 } from 'utils/lib/types/data/address-book';
 import {
@@ -46,11 +46,7 @@ interface FormValues {
   lastName: string;
   credential: string;
   organizationName: string;
-  line1: string;
-  line2: string;
-  city: string;
-  state: string | null;
-  zip: string;
+  address: { line1: string; line2: string; city: string; state: string | null; zip: string };
   phone: string;
   fax: string;
   email: string;
@@ -62,11 +58,13 @@ const toFormValues = (contact?: Partial<AddressBookContactInput>): FormValues =>
   lastName: contact?.lastName ?? '',
   credential: contact?.credential ?? '',
   organizationName: contact?.organizationName ?? '',
-  line1: contact?.address?.line1 ?? '',
-  line2: contact?.address?.line2 ?? '',
-  city: contact?.address?.city ?? '',
-  state: contact?.address?.state ?? null,
-  zip: contact?.address?.zip ?? '',
+  address: {
+    line1: contact?.address?.line1 ?? '',
+    line2: contact?.address?.line2 ?? '',
+    city: contact?.address?.city ?? '',
+    state: contact?.address?.state ?? null,
+    zip: contact?.address?.zip ?? '',
+  },
   phone: formatPhoneNumberDisplay(contact?.phone),
   fax: formatPhoneNumberDisplay(contact?.fax),
   email: contact?.email ?? '',
@@ -77,15 +75,14 @@ const toFormValues = (contact?: Partial<AddressBookContactInput>): FormValues =>
 const normalizeTags = (tags: string[]): string[] =>
   Array.from(new Set(tags.map((tag) => tag.trim().toLowerCase()).filter(Boolean)));
 
-/** `pendingTag` is what sits typed in the tags box without Enter; Save must not lose it. */
-const toInput = (
-  { line1, line2, city, state, zip, tags, ...rest }: FormValues,
-  pendingTag: string
-): AddressBookContactInput => ({
-  ...rest,
-  address: { line1, line2, city, state: state ?? '', zip },
-  tags: normalizeTags([...tags, pendingTag]),
-});
+// The zambdas validate with the same schema, so the form reports exactly what the server would reject.
+const contactResolver = zodResolver(AddressBookContactInputSchema);
+const resolver: Resolver<FormValues, unknown, AddressBookContactInput> = (values, context, options) =>
+  contactResolver(
+    { ...values, address: { ...values.address, state: values.address.state ?? '' } },
+    context,
+    options as any
+  ) as ReturnType<Resolver<FormValues, unknown, AddressBookContactInput>>;
 
 interface AddressBookDialogProps {
   /** Editing an existing contact; omit to create one. */
@@ -104,19 +101,24 @@ export const AddressBookDialog: FC<AddressBookDialogProps> = ({
   onSaved,
   onDeleted,
 }) => {
-  const methods = useForm<FormValues>({ defaultValues: toFormValues(contact ?? initialValues) });
-  const { control, getValues, handleSubmit } = methods;
+  const methods = useForm<FormValues, unknown, AddressBookContactInput>({
+    defaultValues: toFormValues(contact ?? initialValues),
+    resolver,
+  });
+
+  const { control, getValues, setValue, handleSubmit } = methods;
   const { data } = useSearchAddressBookQuery();
+
   const tagSuggestions = Array.from(
     new Set([...ADDRESS_BOOK_KNOWN_TAGS, ...(data?.contacts ?? []).flatMap((entry) => entry.tags ?? [])])
   );
+
   const createMutation = useCreateAddressBookContactMutation();
   const updateMutation = useUpdateAddressBookContactMutation();
   const deleteMutation = useDeleteAddressBookContactMutation();
   const [pendingTag, setPendingTag] = useState('');
 
-  const submit = async (values: FormValues): Promise<void> => {
-    const input = toInput(values, pendingTag);
+  const submit = async (input: AddressBookContactInput): Promise<void> => {
     try {
       const { contact: saved } = contact
         ? await updateMutation.mutateAsync({ contactId: contact.id, ...input })
@@ -135,50 +137,34 @@ export const AddressBookDialog: FC<AddressBookDialogProps> = ({
         <form
           onSubmit={(event) => {
             event.stopPropagation();
+            // A tag typed without Enter is still meant to be saved; make it a chip so it is validated too.
+            if (pendingTag.trim()) {
+              setValue('tags', normalizeTags([...getValues('tags'), pendingTag]));
+              setPendingTag('');
+            }
             void handleSubmit(submit)(event);
           }}
+          data-testid={dataTestIds.addressBook.contactDialog}
         >
           <DialogTitle>{contact ? 'Edit contact' : 'New contact'}</DialogTitle>
           <DialogContent>
             <Stack spacing={2} sx={{ pt: 1 }}>
               <TextInput name="organizationName" label="Organization" />
               <TextInput name="firstName" label="First name" />
-              <TextInput
-                name="lastName"
-                label="Last name"
-                validate={(value) =>
-                  !!value.trim() || !!getValues('organizationName').trim() || ADDRESS_BOOK_ORG_OR_LAST_NAME_MESSAGE
-                }
-              />
-              <TextInput
-                name="credential"
-                label="Credential"
-                validate={(value) =>
-                  !value.trim() || !!getValues('lastName').trim() || ADDRESS_BOOK_CREDENTIAL_NEEDS_LAST_NAME_MESSAGE
-                }
-              />
-              <TextInput name="line1" label="Address line 1" />
-              <TextInput
-                name="line2"
-                label="Address line 2"
-                validate={(value) =>
-                  !value.trim() || !!getValues('line1').trim() || ADDRESS_BOOK_LINE2_NEEDS_LINE1_MESSAGE
-                }
-              />
-              <TextInput name="city" label="City" />
-              <SelectInput name="state" label="State" options={STATE_OPTIONS} />
-              <TextInput name="zip" label="ZIP" />
+              <TextInput name="lastName" label="Last name" />
+              <TextInput name="credential" label="Credential" />
+              <TextInput name="address.line1" label="Address line 1" />
+              <TextInput name="address.line2" label="Address line 2" />
+              <TextInput name="address.city" label="City" />
+              <SelectInput name="address.state" label="State" options={STATE_OPTIONS} />
+              <TextInput name="address.zip" label="ZIP" />
               <PhoneInput name="phone" label="Phone" />
               <PhoneInput name="fax" label="Fax" />
-              <TextInput
-                name="email"
-                label="Email"
-                validate={(value) => !value || isEmailValid(value) || 'Invalid email'}
-              />
+              <TextInput name="email" label="Email" />
               <Controller
                 name="tags"
                 control={control}
-                render={({ field }) => (
+                render={({ field, fieldState: { error } }) => (
                   <Autocomplete
                     multiple
                     freeSolo
@@ -188,7 +174,15 @@ export const AddressBookDialog: FC<AddressBookDialogProps> = ({
                     inputValue={pendingTag}
                     onInputChange={(_event, value) => setPendingTag(value)}
                     renderInput={(params) => (
-                      <TextField {...params} label="Tags" size="small" placeholder="Type a tag and press Enter" />
+                      <TextField
+                        {...params}
+                        label="Tags"
+                        size="small"
+                        placeholder="Type a tag and press Enter"
+                        error={!!error}
+                        // A bad tag is reported per array item; show the first one under the box.
+                        helperText={error?.message ?? (Array.isArray(error) ? error.find(Boolean)?.message : undefined)}
+                      />
                     )}
                   />
                 )}
@@ -204,10 +198,15 @@ export const AddressBookDialog: FC<AddressBookDialogProps> = ({
                   await deleteMutation.mutateAsync({ contactId: contact.id });
                   onDeleted();
                 }}
-                actionButtons={{ proceed: { text: 'Delete', color: 'error' } }}
+                actionButtons={{ proceed: { text: 'Delete', color: 'error', loading: deleteMutation.isPending } }}
               >
                 {(showDialog) => (
-                  <Button color="error" onClick={showDialog} sx={{ mr: 'auto' }}>
+                  <Button
+                    color="error"
+                    onClick={showDialog}
+                    sx={{ mr: 'auto' }}
+                    data-testid={dataTestIds.addressBook.deleteContactButton}
+                  >
                     Delete
                   </Button>
                 )}
@@ -218,6 +217,7 @@ export const AddressBookDialog: FC<AddressBookDialogProps> = ({
               type="submit"
               variant="contained"
               loading={createMutation.isPending || updateMutation.isPending}
+              data-testid={dataTestIds.addressBook.saveContactButton}
             >
               Save
             </LoadingButton>

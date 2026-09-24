@@ -10,6 +10,7 @@ import {
 } from '@mui/material';
 import { FC, useState } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { formatPhoneNumberDisplay } from 'utils/lib/helpers/helpers';
 import { AddressBookContact, AddressBookContactInput } from 'utils/lib/types/data/address-book';
 import { useSearchAddressBookQuery } from './addressBook.queries';
@@ -109,7 +110,11 @@ export const AddressBookPicker: FC<AddressBookPickerProps> = ({
                 } else pick(option);
               }}
               renderOption={(props, option) => (
-                <li {...props} key={option.id}>
+                <li
+                  {...props}
+                  key={option.id}
+                  data-testid={isAddNew(option) ? dataTestIds.addressBook.addNewContactOption : undefined}
+                >
                   <Box>
                     <Typography variant="body2">{isAddNew(option) ? option.label : primaryText(option)}</Typography>
                     {!isAddNew(option) && (
@@ -140,6 +145,7 @@ export const AddressBookPicker: FC<AddressBookPickerProps> = ({
                             size="small"
                             aria-label="Edit contact"
                             onClick={() => setDialog({ contact: match })}
+                            data-testid={dataTestIds.addressBook.editContactButton}
                           >
                             <EditOutlinedIcon fontSize="small" />
                           </IconButton>

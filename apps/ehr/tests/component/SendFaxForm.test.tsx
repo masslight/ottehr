@@ -9,7 +9,14 @@ import { SendFaxForm } from '../../src/features/fax/ui/SendFaxForm';
 vi.mock('src/features/address-book/addressBook.api', () => ({
   searchAddressBook: vi.fn().mockResolvedValue({
     contacts: [
-      { id: 'c1', firstName: 'Jane', lastName: 'Doe', organizationName: 'Springfield Cardiology', tags: [] },
+      {
+        id: 'c1',
+        firstName: 'Jane',
+        lastName: 'Doe',
+        credential: 'MD',
+        organizationName: 'Springfield Cardiology',
+        tags: [],
+      },
       { id: 'c2', organizationName: 'Acme Imaging', fax: '+12125550000', tags: [] },
     ],
   }),
@@ -83,7 +90,9 @@ describe('SendFaxForm recipient picker', () => {
     await user.click(screen.getByLabelText("Recipient's name"));
     await user.click(await screen.findByRole('option', { name: /Jane Doe/ }));
 
+    // The credential goes to its own field, so the name stays a plain name.
     expect(screen.getByLabelText("Recipient's name")).toHaveValue('Jane Doe');
+    expect(screen.getByLabelText('Credential')).toHaveValue('MD');
     expect(screen.getByLabelText('Organization')).toHaveValue('Springfield Cardiology');
   });
 

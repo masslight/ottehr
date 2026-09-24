@@ -13,7 +13,6 @@ const directoryContact: AddressBookContact = vi.hoisted(() => ({
   id: 'c1',
   firstName: 'Jane',
   lastName: 'Doe',
-  credential: 'HR Manager',
   organizationName: 'Acme Corp',
   address: { line1: '1 Main St', line2: 'Suite 2', city: 'Springfield', state: 'IL', zip: '62701' },
   phone: '+12125551234',
@@ -21,12 +20,14 @@ const directoryContact: AddressBookContact = vi.hoisted(() => ({
   email: 'jane@acme.example',
   tags: ['employer'],
 }));
+
 vi.mock('src/features/address-book/addressBook.api', () => ({
   searchAddressBook: vi.fn().mockResolvedValue({ contacts: [directoryContact] }),
   createAddressBookContact: vi.fn(),
   updateAddressBookContact: vi.fn(),
   deleteAddressBookContact: vi.fn(),
 }));
+
 vi.mock('src/hooks/useAppClients', () => ({ useApiClients: () => ({ oystehrZambda: {} }) }));
 
 const employer = PATIENT_RECORD_CONFIG.FormFields.employerInformation.items;
@@ -39,14 +40,17 @@ const TestWrapper = ({
   onFormReady?: (methods: ReturnType<typeof useForm>) => void;
 }): JSX.Element => {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+
   const TestForm = (): JSX.Element => {
     const defaultValues = Object.fromEntries(Object.values(employer).map((item) => [item.key, '']));
     const methods = useForm({ defaultValues });
     React.useEffect(() => {
       onFormReady?.(methods);
     }, [methods]);
+
     return <FormProvider {...methods}>{children}</FormProvider>;
   };
+
   return (
     <QueryClientProvider client={queryClient}>
       <TestForm />
@@ -71,8 +75,10 @@ describe('EmployerInformationContainer', () => {
       </TestWrapper>
     );
 
+    // A title left from the previous employer's contact must not survive the pick.
+    await user.type(getFieldInput(employer.contactTitle.key), 'Old title');
     await user.click(within(document.getElementById(employer.employerName.key)!).getByRole('combobox'));
-    await user.click(await screen.findByRole('option', { name: /Jane Doe, HR Manager/ }));
+    await user.click(await screen.findByRole('option', { name: /Jane Doe/ }));
 
     expect(getFieldInput(employer.employerName.key)).toHaveValue('Acme Corp');
     expect(getFieldInput(employer.addressLine1.key)).toHaveValue('1 Main St');
@@ -82,7 +88,7 @@ describe('EmployerInformationContainer', () => {
     expect(getFieldInput(employer.zip.key)).toHaveValue('62701');
     expect(getFieldInput(employer.contactFirstName.key)).toHaveValue('Jane');
     expect(getFieldInput(employer.contactLastName.key)).toHaveValue('Doe');
-    expect(getFieldInput(employer.contactTitle.key)).toHaveValue('HR Manager');
+    expect(getFieldInput(employer.contactTitle.key)).toHaveValue('');
     expect(getFieldInput(employer.contactEmail.key)).toHaveValue('jane@acme.example');
     expect(getFieldInput(employer.contactPhone.key)).toHaveValue('(212) 555-1234');
     expect(getFieldInput(employer.contactFax.key)).toHaveValue('(212) 555-4321');
@@ -97,8 +103,8 @@ describe('EmployerInformationContainer', () => {
     );
 
     await user.type(within(document.getElementById(employer.employerName.key)!).getByRole('combobox'), 'Globex');
-
     await waitFor(() => expect(getFieldInput(employer.employerName.key)).toHaveValue('Globex'));
+
     expect(getFieldInput(employer.addressLine1.key)).toHaveValue('');
   });
 });

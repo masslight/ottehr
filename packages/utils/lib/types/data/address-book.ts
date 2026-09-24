@@ -10,6 +10,7 @@ export const ADDRESS_BOOK_USER_TAG_SYSTEM = 'https://fhir.ottehr.com/CodeSystem/
 export const ADDRESS_BOOK_ORG_OR_LAST_NAME_MESSAGE = 'Either an organization name or a last name is required';
 export const ADDRESS_BOOK_CREDENTIAL_NEEDS_LAST_NAME_MESSAGE = 'A credential needs a last name';
 export const ADDRESS_BOOK_LINE2_NEEDS_LINE1_MESSAGE = 'Address line 2 requires address line 1';
+export const ADDRESS_BOOK_PHONE_MESSAGE = 'Phone number must be 10 digits in the format (xxx) xxx-xxxx';
 export const ADDRESS_BOOK_TAG_MESSAGE =
   'Tags may only contain letters, numbers, spaces, hyphens, underscores, periods and apostrophes';
 
@@ -39,7 +40,17 @@ const tagString = z
 const optionalPhone = z
   .string()
   .trim()
-  .refine((value) => !value || isPhoneNumberValid(value), 'Invalid phone number')
+  .refine((value) => !value || isPhoneNumberValid(value), ADDRESS_BOOK_PHONE_MESSAGE)
+  .optional();
+
+const emailFormat = z.string().email();
+
+// A refine rather than `.email().or(z.literal(''))`: a failed union aborts the object, which would hide the
+// contact-level rules (organization or last name, ...) until the email is fixed.
+const optionalEmail = z
+  .string()
+  .trim()
+  .refine((value) => !value || emailFormat.safeParse(value).success, 'Invalid email')
   .optional();
 
 const AddressBookContactFieldsSchema = z.object({
@@ -62,10 +73,17 @@ const AddressBookContactFieldsSchema = z.object({
     .optional(),
   phone: optionalPhone,
   fax: optionalPhone,
-  email: z.string().trim().email().or(z.literal('')).optional(),
+  email: optionalEmail,
+  // Deduped before validation, not by a transform after it: a failed transform aborts the whole object and
+  // would hide the contact-level rules (organization or last name, ...) behind one bad tag.
   tags: z
-    .array(tagString)
-    .transform((tags) => [...new Set(tags)])
+    .preprocess(
+      (tags) =>
+        Array.isArray(tags)
+          ? [...new Set(tags.map((tag) => (typeof tag === 'string' ? tag.trim().toLowerCase() : tag)))]
+          : tags,
+      z.array(tagString)
+    )
     .optional(),
 });
 
@@ -77,7 +95,8 @@ const hasOrganizationOrLastName = (contact: ContactNameFields): boolean =>
 // The credential is stored as the person's name suffix, so it is lost without a person.
 const withContactRules = <T extends z.ZodType<ContactNameFields>>(schema: T): z.ZodEffects<z.ZodEffects<T>> =>
   schema
-    .refine(hasOrganizationOrLastName, ADDRESS_BOOK_ORG_OR_LAST_NAME_MESSAGE)
+    // Reported on the last name so a form bound to this schema shows it next to a field.
+    .refine(hasOrganizationOrLastName, { message: ADDRESS_BOOK_ORG_OR_LAST_NAME_MESSAGE, path: ['lastName'] })
     .refine((contact) => !contact.credential || !!contact.lastName, {
       message: ADDRESS_BOOK_CREDENTIAL_NEEDS_LAST_NAME_MESSAGE,
       path: ['credential'],

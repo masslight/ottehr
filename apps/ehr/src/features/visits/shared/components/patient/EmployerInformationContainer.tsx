@@ -38,8 +38,9 @@ export const EmployerInformationContainer: FC<EmployerInformationContainerProps>
     set(items.zip, contact.address?.zip ?? '');
     set(items.contactFirstName, contact.firstName ?? '');
     set(items.contactLastName, contact.lastName ?? '');
-    // The directory has no job title; the credential is the closest thing to one.
-    set(items.contactTitle, contact.credential ?? '');
+    // The directory has no job title, so the pick has none to give. The title belongs to the contact person the
+    // pick just replaced, so it is cleared rather than left behind.
+    set(items.contactTitle, '');
     set(items.contactEmail, contact.email ?? '');
     set(items.contactPhone, formatPhoneNumberDisplay(contact.phone));
     set(items.contactFax, formatPhoneNumberDisplay(contact.fax));

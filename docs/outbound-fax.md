@@ -100,6 +100,15 @@ The patient record holds exactly one PCP (a contained `Practitioner` with the fi
 on the first recipient only when the patient has no PCP on file — an existing PCP is never overwritten
 silently. Persistence goes through the same `getPCPPatchOps` path that `update-patient-account` uses.
 
+Each recipient has a name and, beside it, an optional credential ("MD", "DO", "NP"). The cover sheet, the delivery
+attempt and the status report address the recipient as "Jane Doe, MD" when a credential is given, the name alone
+otherwise. "Save as patient's PCP" uses the name only, so the credential never ends up in the PCP's last name.
+
+The recipient's name field is the third party directory picker (`features/address-book/AddressBookPicker`, no
+tag filter). Picking a contact writes the person's name into the name field and fills the credential,
+organization, fax and phone fields. A contact with no person writes the organization into the name field and
+leaves the organization field empty. Free text works as before.
+
 ## Code map
 
 | Layer | Location |

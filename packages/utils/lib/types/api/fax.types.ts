@@ -56,6 +56,8 @@ export const HIPAA_FAX_CONFIDENTIALITY_STATEMENT =
 
 export const FaxRecipientSchema = z.object({
   name: z.string().trim().min(1).optional(),
+  // Professional credential shown after the name ("MD", "DO").
+  credential: z.string().trim().min(1).optional(),
   // Practice or facility the recipient belongs to. Maps to the PCP's `practice-name` extension.
   organization: z.string().trim().min(1).optional(),
   faxNumber: z.string().min(1),
@@ -65,6 +67,10 @@ export const FaxRecipientSchema = z.object({
 });
 
 export type FaxRecipient = z.infer<typeof FaxRecipientSchema>;
+
+/** How a recipient is addressed on the cover sheet and in the logs: "Jane Doe, MD", or the name alone. */
+export const formatFaxRecipientName = (recipient: Pick<FaxRecipient, 'name' | 'credential'>): string | undefined =>
+  recipient.name && recipient.credential ? `${recipient.name}, ${recipient.credential}` : recipient.name;
 
 /**
  * What the packet is built from. Each variant is one entry point in the EHR:

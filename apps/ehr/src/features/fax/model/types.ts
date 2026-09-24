@@ -1,5 +1,6 @@
 export interface FaxRecipientFormValue {
   name: string;
+  credential: string;
   organization: string;
   faxNumber: string;
   phoneNumber: string;
