@@ -62,9 +62,13 @@ describe('create-address-book-contact - validateRequestParameters', () => {
 
   test('should trim, lowercase and dedupe tags, and reject FHIR token separators in them', () => {
     const accepted = validateRequestParameters(
-      createMockZambdaInput({ lastName: 'Doe', tags: [" O'Neil-Peds_1. ", 'PCP ', 'pcp'] }, { secrets })
+      createMockZambdaInput(
+        { lastName: 'Doe', tags: [" O'Neil-Peds_1. ", 'PCP ', 'pcp', 'Pediatric   Care', 'pediatric care'] },
+        { secrets }
+      )
     );
-    expect(accepted.contact.tags).toEqual(["o'neil-peds_1.", 'pcp']);
+    // Repeated spaces collapse to one: the tag becomes a FHIR code, which allows only single spaces.
+    expect(accepted.contact.tags).toEqual(["o'neil-peds_1.", 'pcp', 'pediatric care']);
 
     for (const tag of ['Peds,Ortho', 'a|b']) {
       expect(() =>

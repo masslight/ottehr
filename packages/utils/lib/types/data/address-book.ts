@@ -53,6 +53,12 @@ const optionalEmail = z
   .refine((value) => !value || emailFormat.safeParse(value).success, 'Invalid email')
   .optional();
 
+/**
+ * A tag as it is stored: trimmed, lowercase, with runs of spaces collapsed. The tag becomes a FHIR `code`,
+ * which allows only single spaces between words.
+ */
+export const normalizeAddressBookTag = (tag: string): string => tag.trim().toLowerCase().replace(/\s+/g, ' ');
+
 const AddressBookContactFieldsSchema = z.object({
   firstName: optionalString,
   lastName: optionalString,
@@ -80,7 +86,7 @@ const AddressBookContactFieldsSchema = z.object({
     .preprocess(
       (tags) =>
         Array.isArray(tags)
-          ? [...new Set(tags.map((tag) => (typeof tag === 'string' ? tag.trim().toLowerCase() : tag)))]
+          ? [...new Set(tags.map((tag) => (typeof tag === 'string' ? normalizeAddressBookTag(tag) : tag)))]
           : tags,
       z.array(tagString)
     )

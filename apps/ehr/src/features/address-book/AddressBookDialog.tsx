@@ -27,6 +27,7 @@ import {
   AddressBookContactInput,
   AddressBookContactInputSchema,
   formatAddressBookPersonName,
+  normalizeAddressBookTag,
 } from 'utils/lib/types/data/address-book';
 import {
   useCreateAddressBookContactMutation,
@@ -73,7 +74,7 @@ const toFormValues = (contact?: Partial<AddressBookContactInput>): FormValues =>
 
 /** Mirrors the schema's tag normalization so the chips show what will be stored. */
 const normalizeTags = (tags: string[]): string[] =>
-  Array.from(new Set(tags.map((tag) => tag.trim().toLowerCase()).filter(Boolean)));
+  Array.from(new Set(tags.map(normalizeAddressBookTag).filter(Boolean)));
 
 // The zambdas validate with the same schema, so the form reports exactly what the server would reject.
 const contactResolver = zodResolver(AddressBookContactInputSchema);
