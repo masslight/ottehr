@@ -256,7 +256,7 @@ const BATCH = 100;
 const PAGE_SIZE = 200;
 const PATIENT_PAYMENT_ENCOUNTER_BATCH = 50;
 
-async function fetchResourcesGrouped<T extends FhirResource>({
+export async function fetchResourcesGrouped<T extends FhirResource>({
   oystehr,
   resourceType,
   ids,

@@ -1,18 +1,11 @@
 import { defaultNoteLocales } from 'src/features/visits/shared/components/generic-notes-list/default-note-locales.helper';
 import { GenericNoteList } from 'src/features/visits/shared/components/generic-notes-list/GenericNoteList';
 import { GenericNotesConfig } from 'src/features/visits/shared/components/generic-notes-list/types';
-import { PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
-import { IN_PERSON_NOTE_ID, NOTE_TYPE } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { NOTE_TYPE } from 'utils/lib/types/api/chart-data/chart-data.types';
 
 const allergiesNotesConfig: GenericNotesConfig = {
   apiConfig: {
-    fieldName: 'notes',
     type: NOTE_TYPE.ALLERGY,
-    searchParams: {
-      _sort: '-_lastUpdated',
-      _count: 1000,
-      _tag: `${PRIVATE_EXTENSION_BASE_URL}/${NOTE_TYPE.ALLERGY}|${IN_PERSON_NOTE_ID}`,
-    },
   },
   locales: {
     ...defaultNoteLocales,

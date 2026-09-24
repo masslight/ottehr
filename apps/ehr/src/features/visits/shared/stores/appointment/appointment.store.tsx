@@ -1,5 +1,4 @@
 import {
-  QueryKey,
   RefetchOptions,
   useMutation,
   UseMutationResult,
@@ -20,34 +19,30 @@ import {
 } from 'fhir/r4b';
 import { useCallback, useEffect, useMemo } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
-import { CHART_DATA_QUERY_KEY, CHART_FIELDS_QUERY_KEY, QUERY_STALE_TIME } from 'src/constants';
-import { useRosObservations } from 'src/features/visits/shared/hooks/useRosObservations';
-import { useExamObservations } from 'src/features/visits/telemed/hooks/useExamObservations';
 import {
   extractPatientConditionPhotoRefsFromAppointmentData,
   PatientConditionPhotoRef,
 } from 'src/features/visits/telemed/utils/appointments';
 import { useApiClients } from 'src/hooks/useAppClients';
-import useEvolveUser from 'src/hooks/useEvolveUser';
 import { isLocationInPerson, isLocationVirtual } from 'utils/lib/fhir/location';
-import { useErrorQuery, useSuccessQuery } from 'utils/lib/frontend';
+import { useSuccessQuery } from 'utils/lib/frontend';
 import {
   AllChartValues,
   NOTE_TYPE,
   RequestedFields,
   SchoolWorkNoteExcuseDocFileDTO,
 } from 'utils/lib/types/api/chart-data/chart-data.types';
-import { ChartDataRequestedFields, GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
+import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
 import { SaveChartDataRequest } from 'utils/lib/types/api/chart-data/save-chart-data.types';
 import { PromiseReturnType } from 'utils/lib/types/common';
 import {
   SCHOOL_WORK_NOTE_CODE,
   SCHOOL_WORK_NOTE_TEMPLATE_CODE,
 } from 'utils/lib/types/data/paperwork/paperwork.constants';
-import { ObservationDTO } from 'utils/lib/types/data/screening-questions/types';
 import { APIErrorCode } from 'utils/lib/types/errors';
 import { create } from 'zustand';
 import { OystehrTelemedAPIClient } from '../../api/oystehrApi';
+import { invalidateChart } from '../../hooks/chartSectionCache';
 import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAccessibility';
 import { useOystehrAPIClient } from '../../hooks/useOystehrAPIClient';
 import { getAppointmentValues, getEncounterValues } from './parser/extractors';
@@ -127,17 +122,6 @@ export type ChartDataState = {
   // todo: remove duplication
   isChartDataLoading: boolean;
 };
-
-interface ChartDataStateUpdater {
-  setPartialChartData: (value: Partial<GetChartDataResponse>, opts?: { invalidateQueries?: boolean }) => void;
-  updateObservation: (observation: ObservationDTO) => void;
-  chartDataSetState: (
-    updater: Partial<ChartDataState> | ((state: ChartDataState) => Partial<ChartDataState>),
-    opts?: { invalidateQueries?: boolean }
-  ) => void;
-  chartDataRefetch: () => any;
-  chartDataError: any;
-}
 
 const APPOINTMENT_INITIAL: AppointmentTelemedState & AppointmentRawResourcesState & InPersonAppointmentState = {
   appointment: undefined,
@@ -677,233 +661,13 @@ export const useDeleteChartData = (): UseMutationResult<
       if ((error as any).code === APIErrorCode.FHIR_RESOURCE_IS_GONE) {
         // Usually this happens due to an attempt to delete an already deleted resource. Thus full state refresh is required.
         resetExamObservationsStore();
-        await Promise.all([
-          queryClient.invalidateQueries({ queryKey: [CHART_DATA_QUERY_KEY, encounter.id] }),
-          queryClient.invalidateQueries({ queryKey: [CHART_FIELDS_QUERY_KEY, encounter.id] }),
-        ]);
+        await invalidateChart(queryClient, encounter.id);
       }
     },
     retry: 2,
   });
 };
 
-export const useChartData = ({
-  appointmentId,
-  shouldUpdateExams,
-  onSuccess,
-  onError,
-  enabled = true,
-  refetchInterval,
-  refetchOnMount,
-  encounterId: paramEncounterId,
-}: {
-  appointmentId?: string;
-  onSuccess?: (data: ChartDataResponse | null) => void;
-  onError?: (error: any) => void;
-  enabled?: boolean;
-  shouldUpdateExams?: boolean; // todo: migrate this to the separate hook
-  refetchInterval?: number;
-  refetchOnMount?: boolean;
-  encounterId?: string;
-} = {}): {
-  refetch: () => Promise<void>;
-  isLoading: boolean;
-  isFetching: boolean;
-  error: any;
-  queryKey: QueryKey;
-  isFetched: boolean;
-} & ChartDataState &
-  ChartDataStateUpdater &
-  ReactQueryState => {
-  const apiClient = useOystehrAPIClient();
-  const { update: updateExamObservations } = useExamObservations();
-  const { update: updateRosObservations } = useRosObservations();
-  const { id: appointmentIdFromUrl } = useParams();
-  const { encounter } = useAppointmentData(appointmentId || appointmentIdFromUrl);
-  const encounterId = encounter?.id ?? paramEncounterId;
-  const queryClient = useQueryClient();
-
-  const {
-    error: chartDataError,
-    isLoading,
-    isFetching,
-    data: chartDataResponse,
-    queryKey,
-    isFetched,
-    isPending,
-  } = useGetChartData(
-    { apiClient, encounterId, enabled, refetchInterval, refetchOnMount, requestKey: CHART_DATA_QUERY_KEY },
-    (data) => {
-      if (!data) {
-        return;
-      }
-
-      onSuccess?.(data);
-      if (shouldUpdateExams) {
-        updateExamObservations(data.examObservations, true);
-        updateRosObservations(data.rosObservations || [], true);
-      }
-    },
-    (error) => {
-      onError?.(error);
-    }
-  );
-
-  const setQueryCache = useCallback(
-    (
-      updater: Partial<ChartDataState> | ((state: ChartDataState) => Partial<ChartDataState>),
-      opts: { invalidateQueries?: boolean } = { invalidateQueries: true }
-    ) => {
-      queryClient.setQueryData(queryKey, (prevData: ChartDataResponse | null) => {
-        const currentState = {
-          chartData: prevData || chartDataResponse || undefined,
-          isChartDataLoading: isLoading,
-        };
-
-        const newData = typeof updater === 'function' ? updater(currentState) : updater;
-        return newData.chartData || prevData;
-      });
-
-      // Force invalidate all related queries to update the UI
-      void queryClient.invalidateQueries({
-        queryKey: [CHART_DATA_QUERY_KEY, encounterId],
-        exact: false,
-        refetchType: opts.invalidateQueries ? 'active' : 'none',
-      });
-    },
-    [queryClient, queryKey, chartDataResponse, isLoading, encounterId]
-  );
-
-  const setPartialChartData = useCallback(
-    (data: Partial<ChartDataResponse>, opts: { invalidateQueries?: boolean } = { invalidateQueries: true }) => {
-      setQueryCache(
-        (state) => ({
-          chartData: { ...state.chartData, patientId: state.chartData?.patientId || '', ...data },
-        }),
-        opts
-      );
-    },
-    [setQueryCache]
-  );
-
-  const updateObservation = useCallback(
-    (newObservation: ObservationDTO) => {
-      setQueryCache((state) => {
-        const currentObservations = state.chartData?.observations || [];
-        const updatedObservations: ObservationDTO[] = [...currentObservations];
-
-        const existingObservationIndex = updatedObservations.findIndex(
-          (observation) => observation.field === newObservation.field
-        );
-
-        if (existingObservationIndex !== -1 && 'value' in newObservation) {
-          const updatedObservation = { ...updatedObservations[existingObservationIndex] };
-
-          if (!('note' in newObservation) && 'note' in updatedObservation) {
-            delete updatedObservation.note;
-          }
-
-          updatedObservations[existingObservationIndex] = {
-            ...updatedObservation,
-            value: newObservation.value,
-            ...('note' in newObservation && { note: newObservation.note }),
-          } as ObservationDTO;
-        } else {
-          updatedObservations.push(newObservation);
-        }
-
-        return {
-          chartData: {
-            ...state.chartData!,
-            observations: updatedObservations,
-          },
-        };
-      });
-    },
-    [setQueryCache]
-  );
-
-  const chartDataRefetch = useCallback(async (): Promise<void> => {
-    await queryClient.invalidateQueries({
-      queryKey: [CHART_DATA_QUERY_KEY, encounter?.id],
-      exact: false,
-    });
-  }, [queryClient, encounter?.id]);
-
-  return {
-    refetch: chartDataRefetch,
-    chartDataRefetch: chartDataRefetch,
-    chartData: chartDataResponse,
-    isLoading,
-    isChartDataLoading: isLoading,
-    error: chartDataError,
-    queryKey,
-    isFetching,
-    isFetched,
-    setPartialChartData,
-    updateObservation,
-    chartDataSetState: setQueryCache,
-    chartDataError,
-    isPending,
-  };
-};
-
-export const useGetChartData = (
-  {
-    apiClient,
-    encounterId,
-    requestedFields,
-    enabled,
-    refetchInterval,
-    refetchOnMount,
-    requestKey,
-  }: {
-    apiClient: OystehrTelemedAPIClient | null;
-    encounterId?: string;
-    requestedFields?: ChartDataRequestedFields;
-    enabled?: boolean;
-    refetchInterval?: number;
-    refetchOnMount?: boolean;
-    requestKey: typeof CHART_DATA_QUERY_KEY | typeof CHART_FIELDS_QUERY_KEY;
-  },
-  onSuccess?: (data: PromiseReturnType<ReturnType<OystehrTelemedAPIClient['getChartData']>> | null) => void,
-  onError?: (error: any) => void
-  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-) => {
-  const user = useEvolveUser();
-
-  // excluding isReadOnly:
-  // including it causes re-fetches when the appointment is signed (isReadOnly flips true), which triggers the onSuccess callback and merges stale server exam observations over the user's local changes
-  // example of instance of stale data being pulled in https://linear.app/zapehr/issue/OTR-2651/ros-and-exam-after-visit-is-unlocked-updated-and-signed-again-removed
-  const key = [requestKey, encounterId, requestedFields];
-
-  const query = useQuery({
-    queryKey: key,
-
-    queryFn: () => {
-      if (apiClient && encounterId) {
-        return apiClient.getChartData({
-          encounterId,
-          requestedFields,
-        });
-      }
-      throw new Error('api client not defined or encounterId not provided');
-    },
-
-    enabled: !!apiClient && !!encounterId && !!user && enabled,
-    staleTime: QUERY_STALE_TIME,
-    refetchInterval: refetchInterval || false,
-    refetchOnMount: refetchOnMount ?? true,
-  });
-
-  useSuccessQuery(query.data, onSuccess);
-
-  useErrorQuery(query.error, onError);
-
-  return {
-    ...query,
-    queryKey: key,
-  };
-};
+export { useChartData } from '../../hooks/useChartData';
 
 export const TELEMED_APPOINTMENT_QUERY_KEY = 'telemed-appointment';

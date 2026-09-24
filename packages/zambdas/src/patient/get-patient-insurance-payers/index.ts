@@ -113,7 +113,7 @@ const performEffect = async (oystehr: Oystehr): Promise<QuestionnaireItemAnswerO
 };
 
 const formatPayerAsAnswerOption = (oystehr: Oystehr, payer: Organization): QuestionnaireItemAnswerOption => {
-  const name = payer.alias?.[0] ?? payer.name;
+  const name = payer.name ?? payer.alias?.[0];
   const payerId = getPayerId(payer);
   if (name && payerId && typeof name === 'string' && typeof payerId === 'string') {
     return {

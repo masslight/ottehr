@@ -4,7 +4,7 @@ import { HOLD_TAG_NAME } from 'utils/lib/types/data/billing/system-tags';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { performEffect } from '../../../src/billing/delete-billing-tag';
 import { DeleteBillingTagParams } from '../../../src/billing/delete-billing-tag/validateRequestParameters';
-import { TAG_CODE_SYSTEM, TAG_IS_SYSTEM_TAG_URL } from '../../../src/billing/shared';
+import { TAG_CODE_SYSTEM } from '../../../src/billing/shared';
 
 const search = vi.fn();
 const deleteFn = vi.fn();
@@ -12,11 +12,22 @@ const oystehr = { fhir: { search, delete: deleteFn } } as unknown as Oystehr;
 
 const params: DeleteBillingTagParams = { tagId: 'tag-1', secrets: null } as DeleteBillingTagParams;
 
+// Written onto seeded definitions by the releases that seeded system tags. Nothing writes or reads
+// it any more; it is still constructed here to pin that it never drives delete protection.
+const LEGACY_IS_SYSTEM_TAG_URL = 'https://fhir.ottehr.com/billing/is-system-tag';
+
 const tagBasic = (name: string, systemExtension?: boolean): Basic => ({
   resourceType: 'Basic',
   id: 'tag-1',
   code: { text: name, coding: [{ system: TAG_CODE_SYSTEM, code: 'tag' }] },
-  extension: systemExtension ? [{ url: TAG_IS_SYSTEM_TAG_URL, valueBoolean: true }] : undefined,
+  extension: systemExtension
+    ? [
+        {
+          url: LEGACY_IS_SYSTEM_TAG_URL,
+          valueBoolean: true,
+        },
+      ]
+    : undefined,
 });
 
 // First search returns the tag definition; second is the count-only claim-usage search.

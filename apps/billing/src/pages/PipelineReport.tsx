@@ -4,26 +4,13 @@ import {
   ArrowUpward as ArrowUpwardIcon,
   Close as CloseIcon,
 } from '@mui/icons-material';
-import {
-  Alert,
-  Box,
-  Button,
-  ButtonBase,
-  CircularProgress,
-  Drawer,
-  FormControl,
-  IconButton,
-  InputLabel,
-  MenuItem,
-  Select,
-  Stack,
-  Typography,
-} from '@mui/material';
+import { Alert, Box, Button, ButtonBase, CircularProgress, Drawer, IconButton, Stack, Typography } from '@mui/material';
 import Oystehr from '@oystehr/sdk';
 import { DateTime } from 'luxon';
 import { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
+import { ReportDateWindowParams } from 'utils/lib/types/data/billing/billing.schemas';
 import { BillingClaimItem, GetBillingPipelineReportResponse } from 'utils/lib/types/data/billing/billing.types';
 import {
   AR_STAGE,
@@ -35,67 +22,15 @@ import {
 } from 'utils/lib/types/data/billing/claim-status';
 import { formatCurrency } from 'utils/lib/utils/convert';
 import { getBillingPipelineReport, searchBillingClaims } from '../api/api';
-import { DateRangeInput } from '../components/DateInput';
-import { ReportStatusBar } from '../components/ReportStatusBar';
+import { CardActionHint } from '../components/CardActionHint';
+import { ReportStatusBar, sameWindow, windowParamsOf } from '../components/ReportStatusBar';
 import { useApiClients } from '../hooks/useAppClients';
 import { useBillingReport } from '../hooks/useBillingReport';
+import { useBillingReportHistory } from '../hooks/useBillingReportHistory';
 import { otherColors } from '../themes/ottehr/colors';
 import { reportPalette } from '../themes/ottehr/reportPalette';
 
 const DRILLDOWN_PAGE_SIZE = 100;
-
-type DateRangePreset =
-  | 'all-time'
-  | 'previous-month'
-  | 'current-month'
-  | 'previous-quarter'
-  | 'this-quarter'
-  | 'year-to-date'
-  | 'trailing-30-days'
-  | 'trailing-12-months'
-  | 'custom';
-
-const DATE_RANGE_PRESETS: { value: DateRangePreset; label: string }[] = [
-  { value: 'all-time', label: 'All Time' },
-  { value: 'previous-month', label: 'Previous Month' },
-  { value: 'current-month', label: 'Current Month' },
-  { value: 'previous-quarter', label: 'Previous Quarter' },
-  { value: 'this-quarter', label: 'This Quarter' },
-  { value: 'year-to-date', label: 'Year-to-Date' },
-  { value: 'trailing-30-days', label: 'Trailing 30 Days' },
-  { value: 'trailing-12-months', label: 'Trailing 12 Months' },
-  { value: 'custom', label: 'Custom Range' },
-];
-
-const presetRange = (preset: DateRangePreset): { from: string; to: string } => {
-  const now = DateTime.now();
-  switch (preset) {
-    case 'all-time':
-      return { from: '', to: '' };
-    case 'previous-month': {
-      const month = now.minus({ months: 1 });
-      return { from: month.startOf('month').toISODate() ?? '', to: month.endOf('month').toISODate() ?? '' };
-    }
-    case 'current-month':
-      return { from: now.startOf('month').toISODate() ?? '', to: now.toISODate() ?? '' };
-    case 'previous-quarter': {
-      const quarter = now.minus({ quarters: 1 });
-      return { from: quarter.startOf('quarter').toISODate() ?? '', to: quarter.endOf('quarter').toISODate() ?? '' };
-    }
-    case 'this-quarter':
-      return { from: now.startOf('quarter').toISODate() ?? '', to: now.toISODate() ?? '' };
-    case 'year-to-date':
-      return { from: now.startOf('year').toISODate() ?? '', to: now.toISODate() ?? '' };
-    case 'trailing-30-days':
-      return { from: now.minus({ days: 29 }).toISODate() ?? '', to: now.toISODate() ?? '' };
-    case 'trailing-12-months':
-      return { from: now.minus({ months: 12 }).plus({ days: 1 }).toISODate() ?? '', to: now.toISODate() ?? '' };
-    case 'custom':
-      return { from: '', to: '' };
-  }
-};
-
-const DEFAULT_PRESET: DateRangePreset = 'trailing-30-days';
 
 const dayLabel = (day: string): string => (day ? DateTime.fromISO(day).toLocaleString(DateTime.DATE_MED) : '—');
 
@@ -396,18 +331,32 @@ export default function PipelineReport(): ReactElement {
   const navigate = useNavigate();
 
   const [drilldown, setDrilldown] = useState<StageDrilldown | null>(null);
-  const [rangePreset, setRangePreset] = useState<DateRangePreset>(DEFAULT_PRESET);
-  const [dateFrom, setDateFrom] = useState(() => presetRange(DEFAULT_PRESET).from);
-  const [dateTo, setDateTo] = useState(() => presetRange(DEFAULT_PRESET).to);
+  const { entries: history, reload: reloadHistory } = useBillingReportHistory('pipeline');
+  // null until the latest cached run (or the empty state) is adopted from history
+  const [range, setRange] = useState<ReportDateWindowParams | null>(null);
+  useEffect(() => {
+    if (history) setRange((current) => current ?? windowParamsOf(history[0]?.params));
+  }, [history]);
+  const { dateFrom, dateTo } = range ?? {};
 
-  const { report, status, loading, error, clearError, refresh } = useBillingReport<GetBillingPipelineReportResponse>({
-    fetch: useCallback(
-      (client: Oystehr, refresh?: boolean) =>
-        getBillingPipelineReport(client, { ...(dateFrom ? { dateFrom } : {}), ...(dateTo ? { dateTo } : {}) }, refresh),
-      [dateFrom, dateTo]
-    ),
-    errorMessage: 'Failed to load pipeline report',
-  });
+  const { report, status, loading, error, clearError, refresh, refreshNext } =
+    useBillingReport<GetBillingPipelineReportResponse>({
+      fetch: useCallback(
+        (client: Oystehr, refresh?: boolean) => getBillingPipelineReport(client, range ?? {}, refresh),
+        [range]
+      ),
+      errorMessage: 'Failed to load pipeline report',
+      enabled: range !== null,
+    });
+
+  const runReport = (params: ReportDateWindowParams): void => {
+    if (sameWindow(params, range)) {
+      refresh();
+      return;
+    }
+    refreshNext();
+    setRange(params);
+  };
 
   // count/billed lookup keyed by `${arStage}|${status}`
   const cellByKey = useMemo(() => {
@@ -465,12 +414,20 @@ export default function PipelineReport(): ReactElement {
           <Typography variant="h4" color="primary.dark" fontWeight={600}>
             Pipeline Report
           </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-            Overview of claims by AR stage and status. Bars show claim counts; amounts in parentheses.
-            {hasPrevious && ` Deltas and light bars compare with ${previousDateLabel}.`}
-          </Typography>
         </Box>
-        <ReportStatusBar status={status} loading={loading} onRefresh={refresh} />
+        <ReportStatusBar
+          status={status}
+          loading={loading}
+          dateFrom={dateFrom}
+          dateTo={dateTo}
+          history={{
+            entries: history,
+            onOpen: reloadHistory,
+            onView: setRange,
+            onRun: runReport,
+            rangeLabel: 'Claim Created Range',
+          }}
+        />
       </Stack>
 
       {error && (
@@ -478,45 +435,6 @@ export default function PipelineReport(): ReactElement {
           {error}
         </Alert>
       )}
-
-      <Stack direction={{ xs: 'column', sm: 'row' }} gap={1.5} alignItems={{ sm: 'center' }} mb={2.5}>
-        <FormControl size="small" sx={{ width: { xs: '100%', sm: 220 } }}>
-          <InputLabel>Claim Created Range</InputLabel>
-          <Select
-            label="Claim Created Range"
-            value={rangePreset}
-            onChange={(e) => {
-              const preset = e.target.value as DateRangePreset;
-              setRangePreset(preset);
-              if (preset === 'custom') return; // wait for the user to pick dates
-              const { from, to } = presetRange(preset);
-              setDateFrom(from);
-              setDateTo(to);
-            }}
-          >
-            {DATE_RANGE_PRESETS.map((option) => (
-              <MenuItem key={option.value} value={option.value}>
-                {option.label}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-        {rangePreset === 'custom' && (
-          <Box sx={{ width: { xs: '100%', sm: 320 } }}>
-            <DateRangeInput
-              label="Claim Created"
-              size="small"
-              fullWidth
-              valueFrom={dateFrom}
-              valueTo={dateTo}
-              onChange={(from, to) => {
-                setDateFrom(from);
-                setDateTo(to);
-              }}
-            />
-          </Box>
-        )}
-      </Stack>
 
       <Stack direction={{ xs: 'column', md: 'row' }} gap={2} mb={2.5}>
         <StatCard label="Total Claims" value={(report?.totals.claims ?? 0).toLocaleString('en-US')} />
@@ -536,6 +454,7 @@ export default function PipelineReport(): ReactElement {
             flex: 1,
             display: 'block',
             textAlign: 'left',
+            position: 'relative',
             bgcolor: 'background.paper',
             border: `1px solid ${otherColors.lightDivider}`,
             borderRadius: 2,
@@ -543,8 +462,10 @@ export default function PipelineReport(): ReactElement {
             py: 2,
             cursor: 'pointer',
             '&:hover': { bgcolor: otherColors.apptHover },
+            '&:hover .card-action-hint': { color: 'primary.main' },
           }}
         >
+          <CardActionHint kind="drilldown" />
           <Typography variant="body2" color="text.secondary">
             No AR Stage
           </Typography>
@@ -599,6 +520,7 @@ export default function PipelineReport(): ReactElement {
                 minWidth: 0,
                 display: 'block',
                 textAlign: 'left',
+                position: 'relative',
                 bgcolor: 'background.paper',
                 border: `1px solid ${otherColors.lightDivider}`,
                 borderRadius: 2,
@@ -606,8 +528,10 @@ export default function PipelineReport(): ReactElement {
                 py: 2.5,
                 cursor: 'pointer',
                 '&:hover': { bgcolor: otherColors.apptHover },
+                '&:hover .card-action-hint': { color: 'primary.main' },
               }}
             >
+              <CardActionHint kind="drilldown" />
               <Box mb={2}>
                 <Typography variant="h6" color="primary.dark" fontWeight={600}>
                   {arStageLabel(group.arStageCode)}
@@ -722,14 +646,17 @@ export default function PipelineReport(): ReactElement {
                 flex: 1,
                 display: 'block',
                 textAlign: 'left',
+                position: 'relative',
                 border: `1px solid ${otherColors.lightDivider}`,
                 borderRadius: 2,
                 px: 2.5,
                 py: 2,
                 cursor: 'pointer',
                 '&:hover': { bgcolor: otherColors.apptHover },
+                '&:hover .card-action-hint': { color: 'primary.main' },
               }}
             >
+              <CardActionHint kind="drilldown" />
               <Typography variant="body2" color="text.secondary">
                 {bucket.label}
               </Typography>

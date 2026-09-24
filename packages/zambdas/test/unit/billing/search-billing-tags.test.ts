@@ -10,7 +10,7 @@ import {
 } from 'utils/lib/types/data/billing/system-tags';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { performEffect } from '../../../src/billing/search-billing-tags';
-import { systemTagBasic, TAG_CODE_SYSTEM, TAG_DESCRIPTION_URL } from '../../../src/billing/shared';
+import { fetchDefinedTagNames, TAG_CODE_SYSTEM, TAG_DESCRIPTION_URL } from '../../../src/billing/shared';
 
 const search = vi.fn();
 const batch = vi.fn();
@@ -41,28 +41,20 @@ describe('search-billing-tags', () => {
     mockUsage({});
   });
 
-  it('appends system-managed tags that have no stored definition yet, after the stored tags', async () => {
+  it('reports every system-managed tag first, ahead of the stored user tags', async () => {
     search.mockResolvedValue({ unbundle: () => [userTag('tag-1', 'VIP', 'White-glove payers')] });
     mockUsage({ VIP: 2 });
 
     const { tags } = await performEffect(oystehr);
 
     expect(tags.map((tag) => tag.name)).toEqual([
-      'VIP',
       HOLD_TAG_NAME,
       AUTO_ACCIDENT_TAG_NAME,
       SECONDARY_SUBMISSION_TAG_NAME,
       SECONDARY_SUBMISSION_CROSSOVER_TAG_NAME,
+      'VIP',
     ]);
     expect(tags[0]).toEqual({
-      id: 'tag-1',
-      name: 'VIP',
-      description: 'White-glove payers',
-      usage: 2,
-      updatedAt: '2026-07-01T00:00:00Z',
-      isSystemTag: false,
-    });
-    expect(tags[1]).toEqual({
       id: '',
       name: HOLD_TAG_NAME,
       description: HOLD_SYSTEM_TAG.description,
@@ -70,7 +62,7 @@ describe('search-billing-tags', () => {
       updatedAt: '',
       isSystemTag: true,
     });
-    expect(tags[2]).toEqual({
+    expect(tags[1]).toEqual({
       id: '',
       name: AUTO_ACCIDENT_TAG_NAME,
       description: AUTO_ACCIDENT_SYSTEM_TAG.description,
@@ -78,9 +70,17 @@ describe('search-billing-tags', () => {
       updatedAt: '',
       isSystemTag: true,
     });
+    expect(tags[4]).toEqual({
+      id: 'tag-1',
+      name: 'VIP',
+      description: 'White-glove payers',
+      usage: 2,
+      updatedAt: '2026-07-01T00:00:00Z',
+      isSystemTag: false,
+    });
   });
 
-  it('counts claims tagged with a system-managed tag even before its definition exists', async () => {
+  it('counts claims tagged with a system-managed tag although no definition is stored', async () => {
     search.mockResolvedValue({ unbundle: () => [] });
     mockUsage({ [HOLD_TAG_NAME]: 3 });
 
@@ -90,45 +90,99 @@ describe('search-billing-tags', () => {
     expect(tags.find((tag) => tag.name === AUTO_ACCIDENT_TAG_NAME)?.usage).toBe(0);
   });
 
-  it('does not duplicate a system-managed tag whose definition has been seeded', async () => {
-    const seededHold: Basic = { ...systemTagBasic(HOLD_SYSTEM_TAG), id: 'hold-1' };
-    search.mockResolvedValue({ unbundle: () => [seededHold] });
+  it('reports one entry per system-managed tag however many leftover definitions are stored', async () => {
+    const leftovers = [
+      userTag('aa-1', AUTO_ACCIDENT_TAG_NAME),
+      userTag('aa-2', AUTO_ACCIDENT_TAG_NAME),
+      userTag('aa-3', AUTO_ACCIDENT_TAG_NAME),
+      userTag('hold-1', HOLD_TAG_NAME),
+    ];
+    search.mockResolvedValue({ unbundle: () => [...leftovers, userTag('tag-1', 'VIP')] });
+    mockUsage({ [AUTO_ACCIDENT_TAG_NAME]: 5 });
 
     const { tags } = await performEffect(oystehr);
 
-    const holdTags = tags.filter((tag) => tag.name === HOLD_TAG_NAME);
-    expect(holdTags).toHaveLength(1);
-    expect(holdTags[0].id).toBe('hold-1');
-    expect(holdTags[0].isSystemTag).toBe(true);
-    expect(holdTags[0].description).toBe(HOLD_SYSTEM_TAG.description);
-  });
-
-  it('flags a stored definition as a system tag by name even without the is-system-tag extension', async () => {
-    search.mockResolvedValue({ unbundle: () => [userTag('tag-2', HOLD_TAG_NAME)] });
-
-    const { tags } = await performEffect(oystehr);
-
-    const hold = tags.find((tag) => tag.name === HOLD_TAG_NAME);
-    expect(hold?.isSystemTag).toBe(true);
-    // The canonical description fills in when the stored definition has none.
-    expect(hold?.description).toBe(HOLD_SYSTEM_TAG.description);
-  });
-
-  it('does not flag a stale definition whose name has left the system-managed list, despite its extension', async () => {
-    // e.g. a pre-rename "auto-accident" definition seeded with the is-system-tag extension.
-    const stale: Basic = { ...systemTagBasic({ name: 'auto-accident', description: 'old seeded copy' }), id: 'aa-1' };
-    search.mockResolvedValue({ unbundle: () => [stale] });
-
-    const { tags } = await performEffect(oystehr);
-
-    expect(tags.find((tag) => tag.name === 'auto-accident')?.isSystemTag).toBe(false);
-    // The current system-managed tags still get their synthetic entries alongside it.
     expect(tags.map((tag) => tag.name)).toEqual([
-      'auto-accident',
       HOLD_TAG_NAME,
       AUTO_ACCIDENT_TAG_NAME,
       SECONDARY_SUBMISSION_TAG_NAME,
       SECONDARY_SUBMISSION_CROSSOVER_TAG_NAME,
+      'VIP',
     ]);
+    const autoAccident = tags.find((tag) => tag.name === AUTO_ACCIDENT_TAG_NAME);
+    // Reported from the code list, so it carries no stored id and keeps its real usage count.
+    expect(autoAccident).toMatchObject({
+      id: '',
+      description: AUTO_ACCIDENT_SYSTEM_TAG.description,
+      usage: 5,
+      isSystemTag: true,
+    });
+  });
+
+  it('keeps a stale definition whose name has left the system-managed list as an ordinary tag', async () => {
+    // e.g. a pre-rename "auto-accident" definition, which is editable and deletable again.
+    search.mockResolvedValue({ unbundle: () => [userTag('aa-1', 'auto-accident', 'old seeded copy')] });
+
+    const { tags } = await performEffect(oystehr);
+
+    expect(tags.find((tag) => tag.name === 'auto-accident')).toMatchObject({
+      id: 'aa-1',
+      description: 'old seeded copy',
+      isSystemTag: false,
+    });
+    expect(tags.map((tag) => tag.name)).toEqual([
+      HOLD_TAG_NAME,
+      AUTO_ACCIDENT_TAG_NAME,
+      SECONDARY_SUBMISSION_TAG_NAME,
+      SECONDARY_SUBMISSION_CROSSOVER_TAG_NAME,
+      'auto-accident',
+    ]);
+  });
+});
+
+describe('fetchDefinedTagNames', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  // A searchset page as the server returns it: match-mode entries plus the full result total,
+  // which is what getAllFhirSearchPages pages against.
+  const page = (basics: Basic[], total: number): unknown => ({
+    entry: basics.map((resource) => ({
+      resource,
+      search: { mode: 'match' },
+    })),
+    total,
+    unbundle: () => basics,
+  });
+
+  // Regression: this search was a single capped page, so once a project had more tag definitions
+  // than the cap, the oldest ones silently vanished from validation and became unusable in rules.
+  it('collects tag names from every page, not just the first', async () => {
+    const firstPage = [userTag('tag-1', 'VIP'), userTag('tag-2', 'Audit')];
+    const secondPage = [userTag('tag-3', 'Legacy'), userTag('tag-4', 'Oldest')];
+    search.mockImplementation(
+      async ({
+        params,
+      }: {
+        params: {
+          name: string;
+          value: string;
+        }[];
+      }) => {
+        const offset = Number(params.find((p) => p.name === '_offset')?.value ?? 0);
+        return page(offset === 0 ? firstPage : secondPage, 4);
+      }
+    );
+
+    const names = await fetchDefinedTagNames(oystehr);
+
+    expect([...names].sort()).toEqual(['Audit', 'Legacy', 'Oldest', 'VIP']);
+    expect(search).toHaveBeenCalledTimes(2);
+  });
+
+  it('stops after a page the server returns empty', async () => {
+    search.mockResolvedValue(page([], 0));
+
+    await expect(fetchDefinedTagNames(oystehr)).resolves.toEqual(new Set());
+    expect(search).toHaveBeenCalledTimes(1);
   });
 });

@@ -553,11 +553,11 @@ test.describe('In-Person Visit Chart Data', async () => {
       await mdmDeleted;
 
       // MDM is stored as a ClinicalImpression and read back through an eventually-consistent FHIR
-      // search. The delete request has returned, but get-chart-data can still surface the old value
+      // search. The delete request has returned, but the chart read can still surface the old value
       // for a short window. The Review & Sign page does a single chart-fields fetch with no retry,
       // so navigating too early reads the stale MDM and the "Medical decision making" missing-field
       // link never renders. Wait until the deletion is actually reflected by reloading the
-      // assessment page until the MDM field reads back empty (i.e. get-chart-data is consistent).
+      // assessment page until the MDM field reads back empty (i.e. the chart read is consistent).
       await expect(async () => {
         await page.reload();
         const mdmTextarea = page

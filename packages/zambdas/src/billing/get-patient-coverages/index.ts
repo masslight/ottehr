@@ -3,12 +3,17 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { RelatedPerson } from 'fhir/r4b';
 import { getCoveragePlanType } from 'utils/lib/fhir/billing';
 import { getMemberIdFromCoverage } from 'utils/lib/fhir/helpers';
-import { getPayerId } from 'utils/lib/helpers/helpers';
 import { BillingCoverageOption } from 'utils/lib/types/data/billing/billing.types';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
-import { createBillingClient, fetchPatientCoverages, resolvePayersByRef, toAddressParts } from '../shared';
+import {
+  createBillingClient,
+  fetchPatientCoverages,
+  resolvedPayerId,
+  resolvePayersByRef,
+  toAddressParts,
+} from '../shared';
 import { GetPatientCoveragesParams, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -58,7 +63,7 @@ async function performEffect(
       status: coverage.status,
       subscriberId: coverage.subscriberId ?? '',
       payorName: payorOrg?.name ?? '',
-      payorId: getPayerId(payorOrg) ?? '',
+      payorId: resolvedPayerId(payorOrg) ?? '',
       payorFhirId: payorOrg?.id ?? '',
       insuranceType,
       planType: getCoveragePlanType(coverage),

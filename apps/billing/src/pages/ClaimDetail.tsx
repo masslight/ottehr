@@ -10,7 +10,6 @@ import {
   Edit as EditIcon,
   EditOutlined as EditOutlinedIcon,
   FileDownloadOutlined as FileDownloadIcon,
-  FileUpload as FileUploadIcon,
   MoreVert as MoreVertIcon,
   OpenInNew as OpenInNewIcon,
   Save as SaveIcon,
@@ -33,11 +32,9 @@ import {
   FormControl,
   FormControlLabel,
   FormHelperText,
-  Grid,
   IconButton,
   InputLabel,
   Link as MuiLink,
-  ListItem,
   ListItemIcon,
   ListItemText,
   Menu,
@@ -56,14 +53,15 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
+import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
-import Dropzone, { DropzoneProps } from 'react-dropzone';
-import { Controller, FormProvider, useForm, useFormContext } from 'react-hook-form';
+import { Controller, FormProvider, useForm } from 'react-hook-form';
 import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom';
-import { CLAIM_ATTACHMENT_REPORT_TYPE_CODES } from 'utils';
+import { CLAIM_ATTACHMENT_REPORT_TYPE_CODES, DEFAULT_CLAIM_ATTACHMENT_REPORT_TYPE_CODE } from 'utils/lib/fhir/billing';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import {
+  CLAIM_ACCIDENT_TYPE_DISPLAY_VALUES,
   CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES,
   CODE_SYSTEM_SERVICE_CATEGORY_CODE_NAMES,
 } from 'utils/lib/helpers/rcm/constants';
@@ -99,6 +97,7 @@ import {
   addClaimAttachment,
   createBillingCoverage,
   createBillingProvider,
+  createTimelyFilingReport,
   deleteClaimAttachment,
   downloadClaimAttachment,
   exportClaimX12,
@@ -114,6 +113,7 @@ import {
   updateBillingProvider,
   updateBillingResource,
 } from '../api/api';
+import { AccidentInfoFields } from '../components/AccidentInfoFields';
 import { ClaimHistory } from '../components/claim/ClaimHistory';
 import { ClaimNotesDrawer } from '../components/claim/ClaimNotesDrawer';
 import { ClaimStatusFields } from '../components/claim/ClaimStatusFields';
@@ -124,6 +124,7 @@ import { ConfirmDialog } from '../components/ConfirmDialog';
 import { CopyButton } from '../components/CopyButton';
 import { CoverageFields } from '../components/CoverageFields';
 import { DateInput } from '../components/DateInput';
+import { DropzoneField } from '../components/DropzoneField';
 import { ExportX12Dialog } from '../components/ExportX12Dialog';
 import {
   InstitutionalClaimAdditionalFields,
@@ -135,6 +136,7 @@ import { ReadOnlySection, thSx } from '../components/ReadOnlySection';
 import { Row } from '../components/Row';
 import { ServiceFacilityDetailForm } from '../components/ServiceFacilityDetailSection';
 import { WarningIconWithTooltip } from '../components/WarningIconWithTooltip';
+import { AccidentInfoData } from '../constants/accidentInfo';
 import { claimStatusValueColor, PROVISIONAL_BALANCE_HINT } from '../constants/claimStatus';
 import {
   CoverageForm,
@@ -150,6 +152,7 @@ import { usePatient } from '../hooks/usePatient';
 import { useProvider } from '../hooks/useProvider';
 import { useServiceFacility } from '../hooks/useServiceFacility';
 import { otherColors } from '../themes/ottehr/colors';
+import { downloadBase64File } from '../utils/downloadFile';
 import { formatDate, formatDateTime } from '../utils/format';
 import { PatientDemographicsSection } from './PatientDetail';
 
@@ -182,6 +185,7 @@ export default function ClaimDetail(): ReactElement {
   const [tab, setTab] = useState('1');
   const [exportOpen, setExportOpen] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
+  const [buildingReport, setBuildingReport] = useState(false);
   const [historyVersion, setHistoryVersion] = useState(0);
   const [editingHeader, setEditingHeader] = useState(false);
   const [savingHeader, setSavingHeader] = useState(false);
@@ -214,6 +218,27 @@ export default function ClaimDetail(): ReactElement {
   useEffect(() => {
     void fetchDetail();
   }, [fetchDetail]);
+
+  const onCreateTimelyFilingReport = useCallback(async () => {
+    if (!oystehrZambda || !id) return;
+    setBuildingReport(true);
+    try {
+      const { fileName, pdfBase64 } = await createTimelyFilingReport(oystehrZambda, {
+        claimId: id,
+      });
+      downloadBase64File(fileName, pdfBase64, 'application/pdf');
+    } catch (err) {
+      enqueueSnackbar(
+        getApiError({
+          error: err,
+          defaultError: 'Failed to create the timely filing report',
+        }),
+        { variant: 'error' }
+      );
+    } finally {
+      setBuildingReport(false);
+    }
+  }, [oystehrZambda, id]);
 
   useEffect(() => {
     setShowCoverageMap({
@@ -497,6 +522,16 @@ export default function ClaimDetail(): ReactElement {
         <Button
           size="small"
           variant="outlined"
+          startIcon={<DescriptionIcon />}
+          onClick={() => void onCreateTimelyFilingReport()}
+          disabled={buildingReport}
+          sx={{ mt: 0.5 }}
+        >
+          {buildingReport ? 'Building…' : 'Timely Filing Report'}
+        </Button>
+        <Button
+          size="small"
+          variant="outlined"
           startIcon={<StickyNote2Icon />}
           onClick={() => setNotesOpen(true)}
           sx={{ mt: 0.5 }}
@@ -665,6 +700,7 @@ export default function ClaimDetail(): ReactElement {
             <RenderingProviderSection claim={claim} updateResource={updateResource} refetchClaim={fetchDetail} />
             <FacilitySection claim={claim} updateResource={updateResource} refetchClaim={fetchDetail} />
             <BillingProviderSection claim={claim} updateResource={updateResource} refetchClaim={fetchDetail} />
+            <AccidentInfoSection claim={claim} updateResource={updateResource} />
             {claim.type === 'institutional' && (
               <InstitutionalClaimAdditionalFieldsSection claim={claim} updateResource={updateResource} />
             )}
@@ -1378,6 +1414,52 @@ function BillingProviderSection({
   );
 }
 
+function AccidentInfoSection({
+  claim,
+  updateResource,
+}: {
+  claim: ClaimDetailResponse;
+  updateResource: UpdateFn;
+}): ReactElement {
+  const handleSave = async (data: AccidentInfoData): Promise<string | null> => {
+    try {
+      const error = await updateResource('Claim', claim.id, {
+        accidentType: data.accidentType,
+        accidentState: data.accidentState,
+        accidentDate: data.accidentDate,
+      });
+      if (error) return error;
+      return null;
+    } catch (err) {
+      return getApiError({ error: err, defaultError: 'Failed to save changes' });
+    }
+  };
+
+  const defaultValues = useMemo<AccidentInfoData>(() => {
+    return {
+      accidentType: claim.accidentType,
+      accidentState: claim.accidentState,
+      accidentDate: claim.accidentDate,
+    };
+  }, [claim]);
+
+  return (
+    <EditableSection
+      title="Accident Info"
+      defaultValues={defaultValues}
+      onSave={handleSave}
+      editForm={<AccidentInfoFields />}
+    >
+      <Row
+        label="Accident Type"
+        value={claim.accidentType.map((type) => CLAIM_ACCIDENT_TYPE_DISPLAY_VALUES[type]).join(', ')}
+      />
+      {claim.accidentType.includes('auto') ? <Row label="Accident State" value={claim.accidentState} /> : <></>}
+      <Row label="Accident Date" value={claim.accidentDate ? formatDate(claim.accidentDate) : ''} />
+    </EditableSection>
+  );
+}
+
 function InstitutionalClaimAdditionalFieldsSection({
   claim,
   updateResource,
@@ -1392,8 +1474,8 @@ function InstitutionalClaimAdditionalFieldsSection({
         patientDischargeStatusCode: data.patientDischargeStatusCode,
         admissionType: data.admissionType,
         admissionSource: data.admissionSource,
-        admissionDate: data.admissionDate,
-        dischargeDate: data.dischargeDate,
+        admissionDate: DateTime.fromISO(data.admissionDate).toLocal().toISO() ?? data.admissionDate,
+        dischargeDate: DateTime.fromISO(data.dischargeDate).toLocal().toISO() ?? data.dischargeDate,
       });
       if (error) return error;
       return null;
@@ -1604,95 +1686,6 @@ function ServiceLinesSection({
   );
 }
 
-const DropzoneField = ({
-  name,
-  multiple,
-  required,
-  ...rest
-}: {
-  name: string;
-  multiple: boolean;
-  required?: boolean;
-} & Omit<DropzoneProps, 'multiple' | 'onDrop'>): ReactElement => {
-  const { control } = useFormContext();
-  return (
-    <Controller
-      name={name}
-      control={control}
-      rules={required ? { required: REQUIRED_FIELD_ERROR_MESSAGE } : undefined}
-      render={({ field: { value, onChange, onBlur }, fieldState: { error: fieldError } }) => (
-        <>
-          {!value ? (
-            <></>
-          ) : (
-            <ListItem disablePadding disableGutters>
-              <ListItemIcon sx={{ minWidth: 0, mr: 1.5 }}>
-                <DescriptionIcon />
-              </ListItemIcon>
-              <ListItemText primary={value.name} />
-            </ListItem>
-          )}
-          <Dropzone
-            onDrop={(acceptedFiles) => {
-              onChange(multiple ? acceptedFiles : acceptedFiles[0]);
-            }}
-            {...rest}
-          >
-            {({ getRootProps, getInputProps, isDragActive }) => {
-              return (
-                <Card
-                  variant="outlined"
-                  component="div"
-                  elevation={0}
-                  sx={{
-                    px: 4,
-                    backgroundColor: 'lightgrey',
-                  }}
-                  {...getRootProps()}
-                >
-                  <CardContent>
-                    <Box
-                      component="input"
-                      {...getInputProps({
-                        onBlur,
-                      })}
-                    />
-                    <Grid
-                      item
-                      container
-                      direction="column"
-                      justifyContent="center"
-                      alignItems="strech"
-                      rowGap={2}
-                      wrap="nowrap"
-                    >
-                      <Grid item xs={12}>
-                        <Stack direction="column" width="100%" justifyContent="center" alignItems="center" gap={1}>
-                          <FileUploadIcon />
-                          <Typography variant="body1" component="p" textAlign="center">
-                            {isDragActive ? 'Drop file here to upload' : 'Click here or drag file to upload'}
-                          </Typography>
-                          {fieldError ? (
-                            <FormHelperText id={`dropzone-helper-text`} error={true}>
-                              {fieldError?.message}
-                            </FormHelperText>
-                          ) : (
-                            <></>
-                          )}
-                        </Stack>
-                      </Grid>
-                    </Grid>
-                  </CardContent>
-                </Card>
-              );
-            }}
-          </Dropzone>
-        </>
-      )}
-    />
-  );
-};
-
 function AttachmentsSection({
   claim,
   refetchClaim,
@@ -1716,6 +1709,8 @@ function AttachmentsSection({
     reset: addReset,
     handleSubmit: addFormHandleSubmit,
     formState: { isSubmitting: addFormIsSubmitting },
+    watch: addFormWatch,
+    setValue: addFormSetValue,
   } = addFormMethods;
   const renameFormMethods = useForm({ defaultValues: { name: '' } });
   const {
@@ -1735,8 +1730,18 @@ function AttachmentsSection({
     setAnchorEl(null);
   };
 
+  const addFormSelectedFile = addFormWatch('file');
+  const addFormName = addFormWatch('name');
+  useEffect(() => {
+    if (addFormName || !addFormSelectedFile) return;
+    addFormSetValue('name', addFormSelectedFile.name);
+  });
+
   const openAddDialog = (): void => {
-    addReset({ name: '', reportTypeCode: 'OZ' });
+    addReset({
+      name: '',
+      reportTypeCode: DEFAULT_CLAIM_ATTACHMENT_REPORT_TYPE_CODE,
+    });
     setShowAddDialog(true);
   };
   const closeAddDialog = (): void => {
@@ -1758,6 +1763,7 @@ function AttachmentsSection({
       const { uploadUrl } = await addClaimAttachment(oystehrZambda, {
         claimId: claim.id,
         name,
+        fileName: file.name,
         reportTypeCode: reportTypeCode ? reportTypeCode : undefined,
       });
       await fetch(uploadUrl, {
@@ -1848,10 +1854,11 @@ function AttachmentsSection({
                     <TableCell>{line.sequence}</TableCell>
                     <TableCell>{line.fileName}</TableCell>
                     <TableCell>
-                      {line.reportTypeCode ?? 'OZ'} &mdash;{' '}
+                      {line.reportTypeCode ?? DEFAULT_CLAIM_ATTACHMENT_REPORT_TYPE_CODE} &mdash;{' '}
                       {
-                        CLAIM_ATTACHMENT_REPORT_TYPE_CODES.find(({ code }) => code === (line.reportTypeCode ?? 'OZ'))
-                          ?.label
+                        CLAIM_ATTACHMENT_REPORT_TYPE_CODES.find(
+                          ({ code }) => code === (line.reportTypeCode ?? DEFAULT_CLAIM_ATTACHMENT_REPORT_TYPE_CODE)
+                        )?.label
                       }
                     </TableCell>
                     <TableCell>{formatDateTime(line.dateAdded)}</TableCell>
@@ -1988,7 +1995,12 @@ function AttachmentsSection({
                     </FormControl>
                   )}
                 />
-                <DropzoneField name="file" multiple={false} required={true} />
+                <DropzoneField
+                  name="file"
+                  multiple={false}
+                  required={true}
+                  accept={{ 'image/*': ['.jpeg', '.jpg', '.png'], 'application/pdf': ['.pdf'] }}
+                />
               </Box>
             </Box>
           </FormProvider>

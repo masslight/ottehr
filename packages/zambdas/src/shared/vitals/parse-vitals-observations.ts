@@ -26,6 +26,7 @@ import {
   VitalsVisionObservationDTO,
 } from 'utils/lib/types/api/chart-data/chart-data.types';
 import * as z from 'zod';
+import { resolveVitalAlertCriticality, VitalAlertContext } from '../vitals-alert-config';
 
 /**
  * Search parameters for the vitals Observations of a set of encounters, shared by
@@ -51,7 +52,8 @@ const fieldNameSchema = z.nativeEnum(VitalFieldNames);
  */
 export const parseVitalsObservationsToDTOs = (
   observations: Observation[],
-  practitioners: Practitioner[]
+  practitioners: Practitioner[],
+  alertContext: VitalAlertContext | undefined
 ): VitalsObservationDTO[] => {
   const observationPerformerMap = new Map<string, Practitioner>();
   observations.forEach((obs) => {
@@ -93,7 +95,9 @@ export const parseVitalsObservationsToDTOs = (
       }
 
       if (vitalObservation) {
-        vitalObservation.alertCriticality = getVitalDTOCriticalityFromObservation(observation);
+        vitalObservation.alertCriticality = alertContext
+          ? resolveVitalAlertCriticality(observation, vitalObservation, alertContext)
+          : getVitalDTOCriticalityFromObservation(observation);
         return vitalObservation;
       }
       return [];

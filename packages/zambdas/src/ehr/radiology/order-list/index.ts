@@ -64,8 +64,6 @@ let m2mToken: string;
 const ZAMBDA_NAME = 'radiology-order-list';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  console.log('input body, ', JSON.stringify(unsafeInput.body));
-
   const secrets = validateSecrets(unsafeInput.secrets);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);

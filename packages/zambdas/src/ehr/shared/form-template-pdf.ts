@@ -1,4 +1,5 @@
 import {
+  PDFArray,
   PDFButton,
   PDFCheckBox,
   PDFDict,
@@ -9,6 +10,7 @@ import {
   PDFName,
   PDFOptionList,
   PDFRadioGroup,
+  PDFRef,
   PDFSignature,
   PDFString,
   PDFTextField,
@@ -35,6 +37,80 @@ export interface NormalizedPdf {
 const XFA = PDFName.of('XFA');
 const NEEDS_RENDERING = PDFName.of('NeedsRendering');
 const TU = PDFName.of('TU');
+const SUBTYPE = PDFName.of('Subtype');
+const WIDGET = PDFName.of('Widget');
+const FT = PDFName.of('FT');
+const PARENT = PDFName.of('Parent');
+const FIELDS = PDFName.of('Fields');
+const T = PDFName.of('T');
+
+/**
+ * Registers form widgets that the document draws but never declared as fields.
+ *
+ * Some generators — pdfTeX/hyperref is the usual one — place fully-formed widget annotations on the page
+ * (`/Subtype /Widget`, a field type, a name, a rectangle) without ever writing the catalog's `/AcroForm`
+ * or listing them in its `/Fields`. Viewers render widgets straight from the page's `/Annots`, so such a
+ * form looks fillable in Chrome and Acrobat; pdf-lib, like every library, enumerates fields from
+ * `/AcroForm /Fields` only, and reports none. The admin then sees a form they can type into classified as
+ * printable, with no way to tell why.
+ *
+ * The fix is structural. Each orphan is a complete field dictionary already; it is only missing from the
+ * list, so it is appended to it. Only top-level widgets qualify — one with a `/Parent` belongs to a field
+ * that has its own registration problem, and one without `/FT` has no type and cannot be a terminal field.
+ *
+ * The one thing changed on a widget is a colliding name. A generator that never built a field tree never
+ * had to keep names unique either, and the same file that prompted this carries two "namesurnameentityname"
+ * boxes — one for the name, one for the registration number. A field's name is its identity everywhere
+ * downstream: the mapping is keyed by it, the editor selects by it, and filling looks the field up by it,
+ * so two fields sharing one would be selected together and only the first would ever be filled. Later
+ * duplicates get a numeric suffix, in page order, so each box is its own field.
+ *
+ * Returns how many were adopted, so the caller knows whether the document changed.
+ */
+const adoptOrphanWidgets = (doc: PDFDocument): number => {
+  // `catalog.AcroForm()` is the raw dictionary, so `/Fields` is read by name rather than through PDFAcroForm.
+  const fields = doc.catalog.AcroForm()?.lookupMaybe(FIELDS, PDFArray);
+  const registered = new Set((fields?.asArray() ?? []).map((ref) => ref.toString()));
+
+  const nameOf = (dict: PDFDict): string | undefined => dict.lookupMaybe(T, PDFString, PDFHexString)?.decodeText();
+
+  const orphans = doc.getPages().flatMap((page) =>
+    (page.node.Annots()?.asArray() ?? []).filter((ref): ref is PDFRef => {
+      // `/Fields` holds references, so a widget written inline into `/Annots` cannot be listed there.
+      if (!(ref instanceof PDFRef) || registered.has(ref.toString())) return false;
+      const dict = doc.context.lookupMaybe(ref, PDFDict);
+      return !!dict && dict.get(SUBTYPE) === WIDGET && dict.has(FT) && !dict.has(PARENT);
+    })
+  );
+  if (orphans.length === 0) return 0;
+
+  // Names already taken, by fields that were registered properly.
+  const taken = new Set(
+    (fields?.asArray() ?? []).flatMap((ref) => {
+      const dict = doc.context.lookupMaybe(ref, PDFDict);
+      const name = dict && nameOf(dict);
+      return name ? [name] : [];
+    })
+  );
+
+  const acroForm = doc.catalog.getOrCreateAcroForm();
+
+  orphans.forEach((ref) => {
+    const dict = doc.context.lookup(ref, PDFDict);
+    const name = nameOf(dict);
+
+    if (name) {
+      let unique = name;
+      for (let n = 2; taken.has(unique); n++) unique = `${name}_${n}`;
+      if (unique !== name) dict.set(T, PDFString.of(unique));
+      taken.add(unique);
+    }
+
+    acroForm.addField(ref);
+  });
+
+  return orphans.length;
+};
 
 /** True when the document is a shell that only Adobe can render — see {@link isDynamicXfa}. */
 const isDynamicXfa = (doc: PDFDocument): boolean => doc.catalog.get(NEEDS_RENDERING)?.toString() === 'true';
@@ -63,25 +139,40 @@ const isCertified = (doc: PDFDocument): boolean => {
 /**
  * Prepares an uploaded PDF for analysis and storage.
  *
- * Today this only removes a redundant XFA representation. Acrobat prefers XFA when both are present, so a
- * form we fill through its AcroForm layer would look correct in Chrome and blank in Acrobat; deleting the
- * entry forces every viewer down the path we actually write to.
+ * Two repairs, both to the form's bookkeeping rather than its content.
+ *
+ * Widgets the document draws but never registered as fields are added to `/AcroForm /Fields` — see
+ * {@link adoptOrphanWidgets}. Without it the form is classified printable and nothing can be mapped.
+ *
+ * A redundant XFA representation is removed. Acrobat prefers XFA when both are present, so a form we fill
+ * through its AcroForm layer would look correct in Chrome and blank in Acrobat; deleting the entry forces
+ * every viewer down the path we actually write to.
  *
  * Decryption is not done here: it has to happen on the raw bytes before this document was parsed at all,
  * so it lives in `decryptTemplatePdf` and runs earlier.
  */
 export const normalizeTemplatePdf = async (doc: PDFDocument): Promise<NormalizedPdf | undefined> => {
-  const acroForm = doc.catalog.AcroForm();
+  let changed = false;
 
-  if (!acroForm?.get(XFA)) {
-    return undefined;
+  const adopted = adoptOrphanWidgets(doc);
+
+  if (adopted > 0) {
+    console.log(`Registered ${adopted} form widget(s) that the uploaded template drew but never declared as fields`);
+    changed = true;
   }
 
-  // Silent on purpose: the admin uploaded a working PDF and gets a working PDF. Which internal form
-  // representation we kept is our concern, not theirs.
-  console.log('Stripped a redundant XFA layer from an uploaded form template');
-  acroForm.delete(XFA);
-  return { bytes: await doc.save(), changed: true };
+  // Read after adoption, which may have created it.
+  const acroForm = doc.catalog.AcroForm();
+
+  if (acroForm?.get(XFA)) {
+    // Silent on purpose: the admin uploaded a working PDF and gets a working PDF. Which internal form
+    // representation we kept is our concern, not theirs.
+    console.log('Stripped a redundant XFA layer from an uploaded form template');
+    acroForm.delete(XFA);
+    changed = true;
+  }
+
+  return changed ? { bytes: await doc.save(), changed: true } : undefined;
 };
 
 const typeOf = (field: PDFField): FormFieldType | undefined => {
@@ -92,6 +183,7 @@ const typeOf = (field: PDFField): FormFieldType | undefined => {
   if (field instanceof PDFOptionList) return 'optionList';
   if (field instanceof PDFSignature) return 'signature';
   if (field instanceof PDFButton) return 'button';
+
   return undefined;
 };
 

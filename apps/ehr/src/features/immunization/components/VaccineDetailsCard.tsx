@@ -42,8 +42,8 @@ import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { cleanupProperties } from 'src/helpers/misc.helper';
 import useEvolveUser from 'src/hooks/useEvolveUser';
-import { ROUTE_OPTIONS } from 'src/shared/utils/options';
-import { UNIT_OPTIONS } from 'utils/lib/fhir/medication-administration';
+import { BASE_ROUTE_OPTIONS } from 'src/shared/utils/options';
+import { BASE_UNIT_OPTIONS } from 'utils/lib/fhir/medication-administration';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { EMERGENCY_CONTACT_RELATIONSHIPS } from 'utils/lib/types/api/medication-administration.types';
 import { RoleType } from 'utils/lib/types/api/user.types';
@@ -410,8 +410,8 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order, onFinished }) => {
             patientName={mappedData.patientName}
             medicationName={methods.getValues('details.medication.name')}
             dose={methods.getValues('details.dose')}
-            unit={UNIT_OPTIONS.find((unit) => unit.value === methods.getValues('details.units'))?.label}
-            route={ROUTE_OPTIONS.find((route) => route.code === methods.getValues('details.route'))?.name}
+            unit={BASE_UNIT_OPTIONS.find((unit) => unit.value === methods.getValues('details.units'))?.label}
+            route={BASE_ROUTE_OPTIONS.find((route) => route.code === methods.getValues('details.route'))?.name}
             open={showAdministrationConfirmationDialog}
             handleClose={() => {
               setShowAdministrationConfirmationDialog(false);

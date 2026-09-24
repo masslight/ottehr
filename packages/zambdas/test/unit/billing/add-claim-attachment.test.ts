@@ -50,7 +50,8 @@ describe('add-claim-attachment', () => {
     await expect(
       performEffect(oystehr, {
         claimId: 'claim-id',
-        name: 'File.new.pdf',
+        name: 'My Title',
+        fileName: 'File.new.pdf',
         secrets: { PROJECT_API: 'https://project-api.zapehr.com/v1', PROJECT_ID: 'project-id' },
       })
     ).resolves.toEqual({ uploadUrl: 'some-presigned-url' });
@@ -69,7 +70,7 @@ describe('add-claim-attachment', () => {
                 attachment: {
                   url: 'https://project-api.zapehr.com/v1/z3/project-id-billing-app/claim-attachments/claim-id/File.new.pdf',
                   contentType: 'application/pdf',
-                  title: 'File.new.pdf',
+                  title: 'My Title',
                 },
               },
             ],
@@ -147,7 +148,8 @@ describe('add-claim-attachment', () => {
     await expect(
       performEffect(oystehr, {
         claimId: 'claim-id',
-        name: 'File.new.pdf',
+        name: 'File Name',
+        fileName: 'File.new.pdf',
         reportTypeCode: 'RR',
         secrets: { PROJECT_API: 'https://project-api.zapehr.com/v1', PROJECT_ID: 'project-id' },
       })
@@ -167,7 +169,7 @@ describe('add-claim-attachment', () => {
                 attachment: {
                   url: 'https://project-api.zapehr.com/v1/z3/project-id-billing-app/claim-attachments/claim-id/File.new.pdf',
                   contentType: 'application/pdf',
-                  title: 'File.new.pdf',
+                  title: 'File Name',
                 },
               },
             ],
@@ -218,5 +220,54 @@ describe('add-claim-attachment', () => {
       'objectPath+': 'claim-attachments/claim-id/File.new.pdf',
       action: 'upload',
     });
+  });
+
+  // The upload target and the URL recorded on the DocumentReference have to name the same object,
+  // so a file name needing sanitizing must be sanitized for both.
+  it('uploads to the same sanitized path it records on the document', async () => {
+    (fetchById as Mock<typeof fetchById>).mockResolvedValueOnce({
+      resourceType: 'Claim',
+      id: 'claim-id',
+      status: 'active',
+      type: {
+        coding: [],
+      },
+      created: DateTime.now().toISO(),
+      insurance: [],
+      patient: {
+        reference: 'patient-id',
+      },
+      priority: {
+        coding: [],
+      },
+      provider: {
+        reference: 'organization-id',
+      },
+      use: 'claim',
+    });
+    const oystehr = makeClient();
+
+    await performEffect(oystehr, {
+      claimId: 'claim-id',
+      name: 'Timely Filing Report #7',
+      fileName: 'Timely Filing Report #7.pdf',
+      secrets: {
+        PROJECT_API: 'https://project-api.zapehr.com/v1',
+        PROJECT_ID: 'project-id',
+      },
+    });
+
+    const sanitizedPath = 'claim-attachments/claim-id/Timely_Filing_Report__7.pdf';
+    expect(oystehr.z3.getPresignedUrl).toBeCalledWith({
+      bucketName: 'project-id-billing-app',
+      'objectPath+': sanitizedPath,
+      action: 'upload',
+    });
+    const [{ requests }] = (oystehr.fhir.transaction as Mock).mock.calls[0];
+    expect(requests[0].resource.content[0].attachment.url).toBe(
+      `https://project-api.zapehr.com/v1/z3/project-id-billing-app/${sanitizedPath}`
+    );
+    // The human-readable title keeps the name the biller typed.
+    expect(requests[0].resource.content[0].attachment.title).toBe('Timely Filing Report #7');
   });
 });

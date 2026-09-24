@@ -7,7 +7,9 @@ const { downloadTextFileMock } = vi.hoisted(() => ({
   downloadTextFileMock: vi.fn(),
 }));
 
-vi.mock('../../src/utils/downloadTextFile', () => ({ downloadTextFile: downloadTextFileMock }));
+vi.mock('../../src/utils/downloadFile', () => ({
+  downloadTextFile: downloadTextFileMock,
+}));
 vi.mock('../../src/hooks/useAppClients', () => ({
   useApiClients: () => ({
     oystehrZambda: {},

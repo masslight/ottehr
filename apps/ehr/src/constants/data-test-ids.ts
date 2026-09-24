@@ -365,6 +365,18 @@ export const dataTestIds = {
     cptCodes: 'cpt-codes-container',
     rosReviewContainer: 'in-person-progress-note-ros-review-container',
   },
+  dischargeDialog: {
+    openButton: 'discharge-dialog-open-button',
+    printDischargeSummaryCheckbox: 'discharge-dialog-print-discharge-summary-checkbox',
+    printWorkNoteCheckbox: 'discharge-dialog-print-work-note-checkbox',
+    printSchoolNoteCheckbox: 'discharge-dialog-print-school-note-checkbox',
+    printPatientInstructionsCheckbox: 'discharge-dialog-print-patient-instructions-checkbox',
+    printProgressNoteCheckbox: 'discharge-dialog-print-progress-note-checkbox',
+    signProgressNoteCheckbox: 'discharge-dialog-sign-progress-note-checkbox',
+    supervisorApprovalCheckbox: 'discharge-dialog-supervisor-approval-checkbox',
+    signDisabledReason: 'discharge-dialog-sign-disabled-reason',
+    confirmButton: 'discharge-dialog-confirm-button',
+  },
   hpiAndTemplatesPage: {
     hpiTitle: 'hpi-title',
     hpiNotes: 'hpi-notes',
@@ -489,6 +501,18 @@ export const dataTestIds = {
     pencilIconButton: 'EditOutlinedIcon',
     abnormalVitalIcon: 'WarningAmberOutlinedIcon',
   },
+  vitalsAlertConfig: {
+    section: 'vitals-alert-config-section',
+    errorSummary: 'vitals-alert-config-error-summary',
+    addAgeRangeButton: 'vitals-alert-config-add-age-range-button',
+    ageRangeRow: (index: number) => `vitals-alert-config-age-range-row-${index}`,
+    removeAgeRangeButton: (index: number) => `vitals-alert-config-remove-age-range-button-${index}`,
+    removeAgeRangeDescription: 'vitals-alert-config-remove-age-range-description',
+    vitalAccordion: (vital: string) => `vitals-alert-config-accordion-${vital}`,
+    thresholdInput: (vital: string, rangeId: string, level: string) =>
+      `vitals-alert-config-threshold-${vital}-${rangeId}-${level}`,
+    normalRangeCell: (vital: string, rangeId: string) => `vitals-alert-config-normal-range-${vital}-${rangeId}`,
+  },
   visitDetailsPage: {
     cancelVisitButton: 'cancel-visit-button',
     cancelationReasonDropdown: 'cancelation-reason-dropdown',
@@ -513,6 +537,7 @@ export const dataTestIds = {
     faxPatientDocsButton: 'fax-patient-docs-button',
     medicalRecordButton: 'medical-record-button',
     downloadMedicalRecordArchiveMenuItem: 'download-medical-record-archive-menu-item',
+    medicalRecordExportProgress: 'medical-record-export-progress',
     faxMedicalRecordMenuItem: 'fax-medical-record-menu-item',
   },
   patientDocsPage: {

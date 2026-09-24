@@ -49,17 +49,17 @@ import {
   searchBillingClaims,
   searchBillingNonInsuranceOrgs,
   searchBillingPatients,
-  searchBillingPayers,
   searchBillingServices,
   searchBillingTags,
 } from '../api/api';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { DateRangeInput } from '../components/DateInput';
+import { usePayerSearch } from '../components/PayerSelect';
 import { WarningIconWithTooltip } from '../components/WarningIconWithTooltip';
 import { claimStatusValueColor, PROVISIONAL_BALANCE_HINT } from '../constants/claimStatus';
 import { useApiClients } from '../hooks/useAppClients';
-import { downloadTextFile } from '../utils/downloadTextFile';
+import { downloadTextFile } from '../utils/downloadFile';
 import { pollExportTask } from '../utils/pollExportTask';
 
 interface Filters {
@@ -234,7 +234,7 @@ export default function ClaimsList(): ReactElement {
   const [submitting, setSubmitting] = useState(false);
   const [exporting, setExporting] = useState(false);
 
-  const [payerOptions, setPayerOptions] = useState<BillingPayerOption[]>([]);
+  const { options: payerOptions, search: searchPayers } = usePayerSearch();
   const [nioOptions, setNioOptions] = useState<NonInsuranceOrganizationItem[]>([]);
   const [patientOptions, setPatientOptions] = useState<BillingPatientOption[]>([]);
 
@@ -259,7 +259,6 @@ export default function ClaimsList(): ReactElement {
 
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const serviceDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const payerDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const nioDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const patientDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -278,7 +277,6 @@ export default function ClaimsList(): ReactElement {
     return (): void => {
       if (debounceTimer.current) clearTimeout(debounceTimer.current);
       if (serviceDebounce.current) clearTimeout(serviceDebounce.current);
-      if (payerDebounce.current) clearTimeout(payerDebounce.current);
       if (patientDebounce.current) clearTimeout(patientDebounce.current);
     };
   }, []);
@@ -325,17 +323,6 @@ export default function ClaimsList(): ReactElement {
   );
   useEffect(() => searchServices(''), [searchServices]);
 
-  const searchPayers = useCallback(
-    (query: string): void => {
-      if (!oystehrZambda) return;
-      if (payerDebounce.current) clearTimeout(payerDebounce.current);
-      payerDebounce.current = setTimeout(async () => {
-        const res = await searchBillingPayers(oystehrZambda, query ? { name: query } : {});
-        setPayerOptions(res.payers ?? []);
-      }, 300);
-    },
-    [oystehrZambda]
-  );
   useEffect(() => searchPayers(''), [searchPayers]);
 
   const searchNios = useCallback(
@@ -739,7 +726,7 @@ export default function ClaimsList(): ReactElement {
             applyFilters({ payerId: v?.payerId ?? '' });
           }}
           renderInput={(params) => <TextField {...params} label="Payer" />}
-          isOptionEqualToValue={(o, v) => o.payerId === v.payerId}
+          isOptionEqualToValue={(o, v) => o.id === v.id}
           sx={{ minWidth: 200 }}
         />
 
