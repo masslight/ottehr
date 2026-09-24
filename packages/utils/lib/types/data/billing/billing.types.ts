@@ -1,8 +1,8 @@
 import { Task } from 'fhir/r4b';
 import { SubscriberRelationship } from '../../../fhir/constants';
 import { CLAIM_ACCIDENT_TYPE, CODE_SYSTEM_CLAIM_TYPE_CODES } from '../../../helpers/rcm/constants';
-import type { EraClaimStatusCode, X12AdjustmentGroupCode } from './billing.constants';
-import type { BillingInsuranceType } from './billing.schemas';
+import type { EraClaimStatusCode, EraSource, X12AdjustmentGroupCode } from './billing.constants';
+import type { BillingInsuranceType, ManualEraClaim, ManualEraHeader } from './billing.schemas';
 import { ClaimStatusValues } from './claim-status';
 import type { RulesEngineType } from './rules-engine.constants';
 
@@ -171,6 +171,10 @@ export interface EraListItem {
   id: string;
   checkNumber: string;
   payerName: string;
+  // the payee the check pays: a manual remit's billing provider, else the N1*PE payee the converter
+  // replicated onto the unmatched remits; '' when the ERA carries neither
+  billingProviderName: string;
+  source: EraSource;
   paymentDate: string;
   paymentAmount: number;
   status: string;
@@ -207,6 +211,8 @@ export interface EraRemitServiceLine {
   copay: number;
   // every CAS adjustment on the line, the PR buckets above included
   adjustments: ClaimRemitAdjustment[];
+  // LQ remark codes (RARC) the payer attached to the line
+  remarkCodes: string[];
 }
 
 // One ClaimResponse (835 CLP loop) of an ERA in full detail. An ERA can carry several per claim
@@ -259,12 +265,49 @@ export interface EraClaimListItem {
   remits: EraClaimRemit[];
 }
 
+// A remit scan (or other file) attached to an ERA.
+export interface EraAttachment {
+  id: string;
+  fileName: string;
+  contentType: string;
+  dateAdded: string;
+}
+
+// One claim of a manually keyed ERA, as its editor loads it back.
+export type ManualEraEntryClaim = Omit<ManualEraClaim, 'clientKey' | 'claimResponseId' | 'matchedClaimId'> & {
+  claimResponseId: string;
+  // the Claim the remit claim is matched to (Claim/<id> request), null while unmatched
+  matchedClaimId: string | null;
+};
+
+// A manually keyed ERA in the shape its editor saves (see SaveManualEraInputSchema).
+export interface ManualEraEntry {
+  header: ManualEraHeader;
+  claims: ManualEraEntryClaim[];
+}
+
+export interface SaveManualEraResponse {
+  eraId: string;
+  versionId: string;
+  claims: { clientKey?: string; claimResponseId: string }[];
+}
+
 export interface EraDetailResponse {
   id: string;
+  source: EraSource;
+  // PaymentReconciliation version, sent back when saving a manual ERA so stale edits are refused
+  versionId: string;
   checkNumber: string;
   checkDate: string;
   // when the ERA itself was produced/imported (PaymentReconciliation.created)
   createdDate: string;
+  // manual remits: the dates keyed from the paper remit ('' otherwise)
+  remitDate: string;
+  depositDate: string;
+  notes: string;
+  // manual remits: who keyed the remit in and when ('' otherwise)
+  enteredBy: string;
+  enteredAt: string;
   checkAmount: number;
   payerName: string;
   payerFhirId: string;
@@ -277,6 +320,9 @@ export interface EraDetailResponse {
   // the raw 835 as received, from the PaymentReconciliation's rcm-raw-x12 extension
   x12: string;
   claims: EraClaimListItem[];
+  attachments: EraAttachment[];
+  // manual remits only: the editable form of the remit
+  manualEntry?: ManualEraEntry;
 }
 
 export interface BillingClaimItem {
@@ -1088,6 +1134,7 @@ export interface RecordBillingVoidResponse {
 }
 
 export interface AddClaimAttachmentResponse {
+  documentReferenceId: string;
   uploadUrl: string;
 }
 
@@ -1098,4 +1145,13 @@ export interface DownloadClaimAttachmentResponse {
 export interface CreateTimelyFilingReportResponse {
   fileName: string;
   pdfBase64: string;
+}
+
+export interface AddEraAttachmentResponse {
+  documentReferenceId: string;
+  uploadUrl: string;
+}
+
+export interface DownloadEraAttachmentResponse {
+  downloadUrl: string;
 }

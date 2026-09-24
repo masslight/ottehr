@@ -9,10 +9,18 @@ vi.mock('../../../src/billing/shared', async (importOriginal) => ({
   fetchById: vi.fn(),
 }));
 
+// each upload gets its own random prefix, so files with the same name never overwrite each other
+const OBJECT_PATH = /^claim-attachments\/claim-id\/[0-9a-f-]{36}-File\.new\.pdf$/;
+const STORED_URL = new RegExp(
+  `^https://project-api\\.zapehr\\.com/v1/z3/project-id-billing-app/${OBJECT_PATH.source.slice(1)}`
+);
+
 function makeClient(): Oystehr {
   return {
     fhir: {
-      transaction: vi.fn(),
+      transaction: vi.fn().mockResolvedValue({
+        unbundle: () => [{ resourceType: 'DocumentReference', id: 'new-document-reference-id' }],
+      }),
     },
     z3: {
       getPresignedUrl: vi.fn().mockResolvedValueOnce({ signedUrl: 'some-presigned-url' }),
@@ -54,7 +62,7 @@ describe('add-claim-attachment', () => {
         fileName: 'File.new.pdf',
         secrets: { PROJECT_API: 'https://project-api.zapehr.com/v1', PROJECT_ID: 'project-id' },
       })
-    ).resolves.toEqual({ uploadUrl: 'some-presigned-url' });
+    ).resolves.toEqual({ documentReferenceId: 'new-document-reference-id', uploadUrl: 'some-presigned-url' });
     expect(oystehr.fhir.transaction).toBeCalledTimes(1);
     expect(oystehr.fhir.transaction).toBeCalledWith({
       requests: [
@@ -68,7 +76,7 @@ describe('add-claim-attachment', () => {
             content: [
               {
                 attachment: {
-                  url: 'https://project-api.zapehr.com/v1/z3/project-id-billing-app/claim-attachments/claim-id/File.new.pdf',
+                  url: expect.stringMatching(STORED_URL),
                   contentType: 'application/pdf',
                   title: 'My Title',
                 },
@@ -118,7 +126,7 @@ describe('add-claim-attachment', () => {
     expect(oystehr.z3.getPresignedUrl).toBeCalledTimes(1);
     expect(oystehr.z3.getPresignedUrl).toBeCalledWith({
       bucketName: 'project-id-billing-app',
-      'objectPath+': 'claim-attachments/claim-id/File.new.pdf',
+      'objectPath+': expect.stringMatching(OBJECT_PATH),
       action: 'upload',
     });
   });
@@ -153,7 +161,7 @@ describe('add-claim-attachment', () => {
         reportTypeCode: 'RR',
         secrets: { PROJECT_API: 'https://project-api.zapehr.com/v1', PROJECT_ID: 'project-id' },
       })
-    ).resolves.toEqual({ uploadUrl: 'some-presigned-url' });
+    ).resolves.toEqual({ documentReferenceId: 'new-document-reference-id', uploadUrl: 'some-presigned-url' });
     expect(oystehr.fhir.transaction).toBeCalledTimes(1);
     expect(oystehr.fhir.transaction).toBeCalledWith({
       requests: [
@@ -167,7 +175,7 @@ describe('add-claim-attachment', () => {
             content: [
               {
                 attachment: {
-                  url: 'https://project-api.zapehr.com/v1/z3/project-id-billing-app/claim-attachments/claim-id/File.new.pdf',
+                  url: expect.stringMatching(STORED_URL),
                   contentType: 'application/pdf',
                   title: 'File Name',
                 },
@@ -217,7 +225,7 @@ describe('add-claim-attachment', () => {
     expect(oystehr.z3.getPresignedUrl).toBeCalledTimes(1);
     expect(oystehr.z3.getPresignedUrl).toBeCalledWith({
       bucketName: 'project-id-billing-app',
-      'objectPath+': 'claim-attachments/claim-id/File.new.pdf',
+      'objectPath+': expect.stringMatching(OBJECT_PATH),
       action: 'upload',
     });
   });
@@ -257,17 +265,53 @@ describe('add-claim-attachment', () => {
       },
     });
 
-    const sanitizedPath = 'claim-attachments/claim-id/Timely_Filing_Report__7.pdf';
+    const { 'objectPath+': objectPath } = (oystehr.z3.getPresignedUrl as Mock).mock.calls[0][0];
+    expect(objectPath).toMatch(/^claim-attachments\/claim-id\/[0-9a-f-]{36}-Timely_Filing_Report__7\.pdf$/);
     expect(oystehr.z3.getPresignedUrl).toBeCalledWith({
       bucketName: 'project-id-billing-app',
-      'objectPath+': sanitizedPath,
+      'objectPath+': objectPath,
       action: 'upload',
     });
     const [{ requests }] = (oystehr.fhir.transaction as Mock).mock.calls[0];
     expect(requests[0].resource.content[0].attachment.url).toBe(
-      `https://project-api.zapehr.com/v1/z3/project-id-billing-app/${sanitizedPath}`
+      `https://project-api.zapehr.com/v1/z3/project-id-billing-app/${objectPath}`
     );
     // The human-readable title keeps the name the biller typed.
     expect(requests[0].resource.content[0].attachment.title).toBe('Timely Filing Report #7');
+  });
+
+  it("types the document from the browser, else from the file's own name", async () => {
+    const claim = {
+      resourceType: 'Claim' as const,
+      id: 'claim-id',
+      status: 'active' as const,
+      type: { coding: [] },
+      created: DateTime.now().toISO(),
+      insurance: [],
+      patient: { reference: 'patient-id' },
+      priority: { coding: [] },
+      provider: { reference: 'organization-id' },
+      use: 'claim' as const,
+    };
+    const secrets = { PROJECT_API: 'https://project-api.zapehr.com/v1', PROJECT_ID: 'project-id' };
+    const attachmentOf = (oystehr: Oystehr): { contentType: string } =>
+      (oystehr.fhir.transaction as Mock).mock.calls[0][0].requests[0].resource.content[0].attachment;
+
+    (fetchById as Mock<typeof fetchById>).mockResolvedValueOnce(claim);
+    const reported = makeClient();
+    await performEffect(reported, {
+      claimId: 'claim-id',
+      name: 'Op note',
+      fileName: 'op-note.png',
+      contentType: 'image/png',
+      secrets,
+    });
+    expect(attachmentOf(reported).contentType).toBe('image/png');
+
+    // the title has no extension; the file name still says what the file is
+    (fetchById as Mock<typeof fetchById>).mockResolvedValueOnce(claim);
+    const guessed = makeClient();
+    await performEffect(guessed, { claimId: 'claim-id', name: 'Scan', fileName: 'scan.jpeg', secrets });
+    expect(attachmentOf(guessed).contentType).toBe('image/jpeg');
   });
 });

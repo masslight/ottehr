@@ -1,25 +1,30 @@
 import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
 import { Claim, ClaimSupportingInfo, DocumentReference } from 'fhir/r4b';
-import { DateTime } from 'luxon';
 import { DEFAULT_CLAIM_ATTACHMENT_REPORT_TYPE_CODE } from 'utils/lib/fhir/billing';
 import { Secrets } from 'utils/lib/secrets';
-import { sanitizeFileNameForZ3 } from 'utils/lib/utils/file';
 import {
-  BILLING_APP_BUCKET,
-  CLAIM_ATTACHMENT_OBJECT_PATH,
-  CLAIM_ATTACHMENT_REPORT_TYPE_CODE_SYSTEM,
-  getClaimAttachmentUrl,
-} from './shared';
+  buildAttachmentDocumentReference,
+  CLAIM_ATTACHMENT_PATH_PREFIX,
+  newAttachmentLocation,
+  presignAttachment,
+  resolveAttachmentContentType,
+} from './attachments';
+import { CLAIM_ATTACHMENT_REPORT_TYPE_CODE_SYSTEM } from './shared';
 
 const CLAIM_INFORMATION_CATEGORY_SYSTEM = 'http://terminology.hl7.org/CodeSystem/claiminformationcategory';
 const DOCUMENT_REFERENCE_PLACEHOLDER = 'urn:uuid:doc-ref';
 
+// Records a document on the claim (a DocumentReference plus a supportingInfo entry pointing at it) and
+// returns where to upload the file. `name` is the title billers see and can rename; `fileName` is the
+// uploaded file's own name, which names the stored object and gives its content type when the browser
+// didn't report one.
 export async function attachClaimDocument({
   oystehr,
   claim,
   name,
   fileName,
   reportTypeCode,
+  contentType,
   secrets,
 }: {
   oystehr: Oystehr;
@@ -27,11 +32,10 @@ export async function attachClaimDocument({
   name: string;
   fileName: string;
   reportTypeCode?: string;
+  contentType?: string;
   secrets: Secrets;
-}): Promise<{ uploadUrl: string }> {
-  const sanitizedFileName = sanitizeFileNameForZ3(fileName);
-  const objectPath = CLAIM_ATTACHMENT_OBJECT_PATH(claim.id, sanitizedFileName);
-  const extension = sanitizedFileName.split('.').pop() ?? '';
+}): Promise<{ documentReferenceId: string; uploadUrl: string }> {
+  const location = newAttachmentLocation(secrets['PROJECT_ID'], CLAIM_ATTACHMENT_PATH_PREFIX, claim.id, fileName);
   const supportingInfo = claim.supportingInfo ?? [];
   const supportingInfoEntry: ClaimSupportingInfo = {
     sequence: supportingInfo.length + 1,
@@ -55,27 +59,13 @@ export async function attachClaimDocument({
       reference: DOCUMENT_REFERENCE_PLACEHOLDER,
     },
   };
-  const docRef: DocumentReference = {
-    resourceType: 'DocumentReference',
-    status: 'current',
-    date: DateTime.now().toISO(),
-    content: [
-      {
-        attachment: {
-          url: getClaimAttachmentUrl(secrets['PROJECT_API'], secrets['PROJECT_ID'], claim.id, sanitizedFileName),
-          contentType: `application/${extension}`,
-          title: name,
-        },
-      },
-    ],
-    context: {
-      related: [
-        {
-          reference: `Claim/${claim.id}`,
-        },
-      ],
-    },
-  };
+  const docRef = buildAttachmentDocumentReference({
+    location,
+    projectApi: secrets['PROJECT_API'],
+    title: name,
+    contentType: resolveAttachmentContentType(fileName, contentType),
+    relatedReference: `Claim/${claim.id}`,
+  });
 
   const requests: BatchInputRequest<Claim | DocumentReference>[] = [
     {
@@ -97,12 +87,9 @@ export async function attachClaimDocument({
     },
   ];
 
-  await oystehr.fhir.transaction<Claim | DocumentReference>({ requests });
+  const result = await oystehr.fhir.transaction<Claim | DocumentReference>({ requests });
+  const documentReferenceId =
+    result.unbundle().find((resource) => resource.resourceType === 'DocumentReference')?.id ?? '';
 
-  const presignedUrlResult = await oystehr.z3.getPresignedUrl({
-    bucketName: BILLING_APP_BUCKET(secrets['PROJECT_ID']),
-    'objectPath+': objectPath,
-    action: 'upload',
-  });
-  return { uploadUrl: presignedUrlResult.signedUrl };
+  return { documentReferenceId, uploadUrl: await presignAttachment(oystehr, location, 'upload') };
 }

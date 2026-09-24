@@ -22,6 +22,7 @@ import { extractClaimResponseAmounts, extractLineAmounts, extractRemitAdjustment
 import {
   ERA_ICN_EXTENSION,
   ERA_ITEM_PROCEDURE_CODE_EXTENSION,
+  ERA_ITEM_REMARK_CODE_EXTENSION,
   ERA_ITEM_UNITS_EXTENSION,
   ERA_PCN_EXTENSION,
   ERA_STATUS_CODE_EXTENSION,
@@ -85,6 +86,13 @@ function itemProcedureCode(item: ClaimResponseItem): string {
 function itemUnits(item: ClaimResponseItem): number | null {
   const units = item.extension?.find((ext) => ext.url === ERA_ITEM_UNITS_EXTENSION)?.valueQuantity?.value;
   return units ? units : null;
+}
+
+// LQ remark codes, one extension each.
+function itemRemarkCodes(item: ClaimResponseItem): string[] {
+  return (item.extension ?? [])
+    .filter((ext) => ext.url === ERA_ITEM_REMARK_CODE_EXTENSION && ext.valueString)
+    .map((ext) => ext.valueString as string);
 }
 
 // Assign each adjudicated line the submitted claim line it describes, used only to enrich what
@@ -159,6 +167,7 @@ function buildServiceLine(
     coinsurance: buckets.coinsurance,
     copay: buckets.copay,
     adjustments: amounts.adjustments,
+    remarkCodes: itemRemarkCodes(item),
   };
 }
 

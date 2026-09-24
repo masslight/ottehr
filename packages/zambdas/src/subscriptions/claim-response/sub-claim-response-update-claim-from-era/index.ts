@@ -3,7 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, ClaimResponse, Provenance, ProvenanceAgent } from 'fhir/r4b';
 import { getExtensionValue, withVersionConflictRetries } from 'utils/lib/fhir/helpers';
 import { Secrets } from 'utils/lib/secrets';
-import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
+import { CLAIM_TAG_SYSTEM, ERA_CLAIM_STATUS_CODE } from 'utils/lib/types/data/billing/billing.constants';
 import { AR_STAGE, CLAIM_STATUS_TAG_SYSTEMS } from 'utils/lib/types/data/billing/claim-status';
 import {
   HOLD_TAG_NAME,
@@ -16,6 +16,9 @@ import {
   CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM,
   createBillingClient,
   ERA_ICN_EXTENSION,
+  ERA_ITEM_REMARK_CODE_EXTENSION,
+  ERA_STATUS_CODE_EXTENSION,
+  getEraExtensionString,
   getTag,
 } from '../../../billing/shared';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
@@ -178,7 +181,16 @@ export async function performEffect(oystehr: Oystehr, validated: ComplexValidati
   });
 }
 
-function claimWasForwarded(claimResponse: ClaimResponse): boolean {
+// CLP02 codes meaning the payer forwarded the claim to the next payer itself (crossover).
+const FORWARDED_STATUS_CODES: string[] = [
+  ERA_CLAIM_STATUS_CODE.primaryForwarded,
+  ERA_CLAIM_STATUS_CODE.secondaryForwarded,
+  ERA_CLAIM_STATUS_CODE.tertiaryForwarded,
+];
+
+export function claimWasForwarded(claimResponse: ClaimResponse): boolean {
+  const statusCode = getEraExtensionString(claimResponse, ERA_STATUS_CODE_EXTENSION);
+  if (statusCode && FORWARDED_STATUS_CODES.includes(statusCode)) return true;
   const medicareRemarkCodes = (claimResponse.extension ?? [])
     .filter(
       (ext) =>
@@ -189,11 +201,15 @@ function claimWasForwarded(claimResponse: ClaimResponse): boolean {
     .filter((val): val is string => !!val);
   const serviceLineRemarkCodes = (claimResponse.item ?? []).flatMap((item) =>
     (item.extension ?? [])
-      .filter((ext) => ext.url === 'https://extensions.fhir.oystehr.com/era-item-remark-code')
+      .filter((ext) => ext.url === ERA_ITEM_REMARK_CODE_EXTENSION)
       .map((ext) => ext.valueString)
       .filter((val): val is string => !!val)
   );
-  if (medicareRemarkCodes.some((val) => val === 'MA18') || serviceLineRemarkCodes.some((val) => val === 'N89')) {
+  // MA18 normally rides on the claim (MOA), but a remit keyed in by hand carries remark codes per line
+  if (
+    medicareRemarkCodes.some((val) => val === 'MA18') ||
+    serviceLineRemarkCodes.some((val) => val === 'N89' || val === 'MA18')
+  ) {
     return true;
   }
   return false;
