@@ -67,6 +67,7 @@ export const ACCOUNT_TYPE_CODE_SYSTEM = 'http://terminology.hl7.org/CodeSystem/a
 
 export const RAW_X12_EXTENSION_URL = 'https://extensions.fhir.oystehr.com/rcm-raw-x12';
 export const RAW_RESPONSE_EXTENSION_URL = `${OYSTEHR_EXTENSION_BASE_URL}/raw-response`;
+export const RAW_REQUEST_EXTENSION_URL = `${OYSTEHR_EXTENSION_BASE_URL}/raw-request`;
 export const CLAIM_STATUS_RESPONSE_EVENT_SYSTEM = 'https://identifiers.fhir.oystehr.com/rcm-claim-response-event-id';
 
 export const FHIR_EXTENSION = {
@@ -1236,6 +1237,7 @@ export enum RcmTaskCode {
   sendInvoiceToPatient = 'send-invoice-to-patient',
   sendInvoiceOutputInvoiceId = 'send-invoice-output-invoice-Id',
   sendInvoiceOutputError = 'send-invoice-output-error',
+  stripeInvoiceStatus = 'send-invoice-output-stripe-status',
 }
 export const RcmTaskCodings: { [key: string]: CodeableConcept } = {
   sendInvoiceToPatient: {
@@ -1259,6 +1261,14 @@ export const RcmTaskCodings: { [key: string]: CodeableConcept } = {
       {
         system: RCM_TASK_SYSTEM,
         code: RcmTaskCode.sendInvoiceOutputError,
+      },
+    ],
+  },
+  stripeInvoiceStatus: {
+    coding: [
+      {
+        system: RCM_TASK_SYSTEM,
+        code: RcmTaskCode.stripeInvoiceStatus,
       },
     ],
   },

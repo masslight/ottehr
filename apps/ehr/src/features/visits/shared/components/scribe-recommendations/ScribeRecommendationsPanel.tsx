@@ -21,7 +21,6 @@ import { useQueryClient } from '@tanstack/react-query';
 import { DocumentReference } from 'fhir/r4b';
 import { FC, ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { RoundedButton } from 'src/components/RoundedButton';
-import { CHART_DATA_QUERY_KEY } from 'src/constants';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { describeAction } from 'src/features/easy-chart/executor/labels';
 import { useEasyChartData } from 'src/features/easy-chart/hooks/useEasyChartData';
@@ -34,6 +33,7 @@ import {
 } from 'utils/lib/easy-chart/chart-state';
 import { isTranscriptDocument, transcriptTextOf } from 'utils/lib/easy-chart/narrative';
 import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
+import { invalidateChartSections } from '../../hooks/chartSectionCache';
 import { useOystehrAPIClient } from '../../hooks/useOystehrAPIClient';
 import { useAppointmentData, useChartData } from '../../stores/appointment/appointment.store';
 import { AiDisclaimerTooltip } from '../AiSection';
@@ -150,9 +150,9 @@ const NarrativeStep: FC = () => {
   const generate = useNarrativeGenerator();
   const analyzer = useScribeAnalyzer();
 
-  // The transcripts already on the visit ride along with the UNSCOPED chart-data call — the only one that
-  // returns `aiChat` — which lands on the same react-query entry the analyzer's read does; the providers
-  // come with them, for naming who recorded each one.
+  // The transcripts already on the visit are the aiChat section of the visit note, read from the same section
+  // cache entry the analyzer's read and the layout's recording poll write to; the providers come with them,
+  // for naming who recorded each one.
   const { encounter } = useAppointmentData();
   const { chartData } = useChartData({ encounterId: encounter?.id, enabled: Boolean(encounter?.id) });
   const { oystehr } = useApiClients();
@@ -194,7 +194,8 @@ const NarrativeStep: FC = () => {
       encounterId: encounter.id,
       documentId: sourceDocumentId,
     });
-    await queryClient.invalidateQueries({ queryKey: [CHART_DATA_QUERY_KEY, encounter.id] });
+    // Only the aiChat section changed; re-reading it where it is shown brings the saved document in.
+    await invalidateChartSections(queryClient, encounter.id, ['aiChat']);
     setSavedTranscript({ documentId, text: text.trim(), edited: Boolean(sourceDocumentId) });
   };
   // Each save is handled once. Selecting updates the store, which re-renders this before the cleared state

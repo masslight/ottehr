@@ -1,122 +1,28 @@
-// The assistant's read layer — two SHARED-hook calls, split by what each one is actually for.
+// The assistant's read layer: the visit note, as one whole-chart object.
 //
 // WHAT IT IS FOR, now that the assistant is a widget and renders no note of its own: `buildChartSnapshot`
 // turns this into the executor's view of what is ALREADY on the chart, and that view is what stops the
-// model re-charting an item every turn and what the procedure write diffs against. So the field set is
-// still deliberately broad — a section missing from here is a section the assistant believes is empty.
+// model re-charting an item every turn and what the procedure write diffs against. So the read is
+// deliberately the whole chart — a section missing from here is a section the assistant believes is empty.
 //
-// The first implementation built a separate ~460-line read+write layer on the belief that
-// `useChartData` required a populated appointment store. That belief was wrong: chart data lives in
-// react-query, the cache key is [CHART_DATA_QUERY_KEY, encounterId, requestedFields], and the hook
-// takes an encounterId directly. The three real gaps were fixed in the shared hooks themselves
-// rather than routed around, so what is left here is a merge and nothing else.
-//
-// THE NOTE FIELDS COME FROM useChartFields, NOT useChartData. This used to run useChartData twice
-// — once unscoped, once with requestedFields — and merge the two responses. It looked equivalent and was
-// not: useChartData carries a five-minute staleTime, so after the assistant wrote a note field react-query
-// considered the old value fresh, and the merge (scoped second, unconditionally) let that stale value mask
-// the new one. The symptom was a chart that only updated on a page reload, which is exactly what it looks
-// like from the outside: the write worked, the refetch returned the new text, and the note stayed empty.
-//
-// useChartFields is the hook the rest of the app already uses for a named field set — Review & Sign reads
-// the same fields through it. staleTime is 0 there, and it trims its response to exactly the fields asked
-// for, so a field it owns cannot be shadowed by a second query's older copy.
-//
-// The unscoped useChartData call stays, for ONE reason: only a request with requestedFields omitted
-// returns `aiChat`, i.e. the ambient-scribe transcripts.
+// ONE READ. This used to be two get-chart-data calls merged — the default set, then the fields that endpoint
+// fetched only when named — with a staleness trap in the merge and a field list to keep in step with the
+// zambda. The chart is read through get-visit-note now: every section plus the vitals, lab results,
+// radiology orders and participants in one call, seeded into one cache entry per section that every screen
+// of the visit reads and writes (see chartSectionCache). `useVisitNote` assembles the note live from those
+// entries, so a row the provider adds on a visit screen shows up here without another request, and
+// `wholeChartFromVisitNote` folds it into the `GetChartDataResponse` shape the executor, the chart-state
+// summary and the note-field context are written against — the same fold the plan and review endpoints
+// make server-side, so the assistant and its prompts describe one chart.
 
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useMemo } from 'react';
 import { useGetVitals } from 'src/features/visits/shared/components/vitals/hooks/useGetVitals';
-import { useChartFields } from 'src/features/visits/shared/hooks/useChartFields';
-import { useChartData } from 'src/features/visits/shared/stores/appointment/appointment.store';
+import { readVisitNoteFromCache } from 'src/features/visits/shared/hooks/legacyChartData';
+import { useVisitNote } from 'src/features/visits/shared/hooks/useVisitNote';
+import { wholeChartFromVisitNote } from 'utils/lib/easy-chart/visit-note-chart';
 import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
 import { GetVitalsResponseData } from 'utils/lib/types/api/chart-data/get-vitals.types';
-
-/**
- * Fields the default (unscoped) chart-data response does not carry, which the snapshot needs: the
- * progress-note free-text fields, vitals, the disposition, the practice's note metadata and the
- * legacy addendum.
- */
-const EXTRA_FIELDS = {
-  chiefComplaint: { _tag: 'chief-complaint' },
-  historyOfPresentIllness: { _tag: 'history-of-present-illness' },
-  mechanismOfInjury: { _tag: 'mechanism-of-injury' },
-  medicalDecision: { _tag: 'medical-decision' },
-  accident: { _tag: 'accident' },
-  // NOT vitalsObservations. The Vitals section renders the get-vitals response instead, which is the only
-  // source that carries the criticality flags — see the `vitals` field on EasyChartData.
-  // TAGGED, and it has to be. get-chart-data resolves `disposition` and `radiologyOrders` by searching
-  // ServiceRequest, and it attributes every ServiceRequest the batch returns to `procedures`. Asking for
-  // either one WITHOUT a tag searches every ServiceRequest on the encounter — which includes the procedure
-  // — so the same procedure came back once per untagged search and the note rendered three identical
-  // procedure cards. Review & Sign never had that because it passes these tags. Kept byte-identical to
-  // progressNoteChartDataRequestedFields, and pinned by a test so the two cannot drift.
-  disposition: { _tag: 'disposition-follow-up,sub-follow-up' },
-  ros: { _tag: 'ros' },
-  // Past hospitalizations. get-chart-data fetches this ONLY when it is asked for — unlike conditions,
-  // medications and surgical history, which the unscoped call brings by default. Omitting it does not
-  // produce an error, it produces an empty section, which is why it was invisible.
-  episodeOfCare: {},
-  surgicalHistoryNote: {},
-  notes: {},
-  addendumNote: {},
-  patientInfoConfirmed: {},
-  prescribedMedications: {},
-  // NOT requested. `inhouseMedications` is fetched PATIENT-scoped with a `_tag`, so it returns the
-  // patient's in-house medication history across every visit — it showed a medication from a previous
-  // encounter and omitted the one just given here. Review & Sign takes MAR orders from the
-  // encounter-scoped get-medication-orders query instead, and so must anything that prints them.
-
-  cptCodes: {},
-  externalLabResults: {},
-  inHouseLabResults: {},
-  procedures: {},
-  // _revinclude pulls in the result files for orders that have no DiagnosticReport — same as the note.
-  radiologyOrders: {
-    _tag: 'radiology',
-    // Widened out of the surrounding `as const`: SearchParams wants a mutable array.
-    _revinclude: ['DiagnosticReport:based-on', 'DocumentReference:related'] as string[],
-  },
-  patientHasPreviousVisits: {},
-  // Generated school / work excuses. Encounter-scoped DocumentReferences, fetched only when asked for.
-  schoolWorkNotes: {},
-} as const;
-
-/**
- * Fields get-chart-data fetches ONLY on an explicit request, i.e. never from the unscoped call.
- * EXTRA_FIELDS must cover every one the snapshot describes, or the assistant reads that section as empty
- * rather than erroring — the failure mode that hid hospitalizations. Pinned by a test.
- */
-export const REQUEST_ONLY_CHART_FIELDS = [
-  'accident',
-  'birthHistory',
-  'chiefComplaint',
-  'cptCodes',
-  'disposition',
-  'episodeOfCare',
-  'historyOfPresentIllness',
-  'mechanismOfInjury',
-  'medicalDecision',
-  'notes',
-  'practitioners',
-  'preferredPharmacies',
-  'prescribedMedications',
-  'radiologyOrders',
-  'ros',
-  'surgicalHistoryNote',
-  'vitalsObservations',
-] as const;
-
-/** Request-only fields the assistant deliberately does not ask for, with the reason. */
-export const UNREQUESTED_BY_DESIGN: Record<string, string> = {
-  birthHistory: 'not a visit-note section — it belongs to the patient record, not this encounter',
-  practitioners: 'nothing here names a practitioner; the visit query already resolves the attender',
-  preferredPharmacies: 'a prescribing concern, and prescriptions are transmitted from the regular chart',
-  vitalsObservations:
-    'the Vitals section renders the get-vitals response instead — the only source that stamps alertCriticality ' +
-    'on each reading, which is what colours an out-of-range value and puts a warning icon beside it',
-};
 
 export interface EasyChartData {
   chartData: GetChartDataResponse | undefined;
@@ -125,7 +31,7 @@ export interface EasyChartData {
    *
    * They are not the same readings rendered twice: only get-vitals stamps `alertCriticality` on each
    * observation (see getVitalDTOCriticalityFromObservation), which is what colours an out-of-range reading red
-   * or amber and puts the warning icon beside it. get-chart-data returns the values with no criticality at
+   * or amber and puts the warning icon beside it. The visit note returns the values with no criticality at
    * all, so a note built from those prints a critical temperature in plain black — the one thing about a vital
    * that a provider must not have to work out for themselves.
    */
@@ -133,75 +39,52 @@ export interface EasyChartData {
   isLoading: boolean;
   isFetching: boolean;
   /**
-   * Refresh every query behind `chartData` AND hand back the result.
+   * Re-read the visit note and the vitals, AND hand back the result.
    *
    * Returning it is not a convenience. A caller that has to act on what a write produced — the
    * post-template reconciliation is the one that does — cannot read it off `chartData`, because that
    * binding belongs to the render it was captured in and the refresh has not re-rendered anything yet.
    * Waiting a tick for the re-render is the other way, and it is a race with no upper bound. The value
-   * is read straight out of react-query by the query's OWN key, so it is exactly what the next render
-   * will see.
+   * is read straight out of the cache entries the refetch just seeded, so it is exactly what the next
+   * render will see.
    */
   refetch: () => Promise<GetChartDataResponse | undefined>;
 }
 
 export function useEasyChartData(encounterId: string | undefined, enabled = true): EasyChartData {
-  // Unscoped: the only call that returns aiChat (transcripts), plus the default set — diagnoses, exam and
-  // ROS observations, allergies, conditions, medications, instructions, CPT/E&M.
+  // The explicit id is authoritative for `useVisitNote`: with none, nothing is read. The callers all have
+  // the encounter in hand, and the appointment store may not be populated where the assistant is mounted.
   //
-  // NO `shouldUpdateExams` here, deliberately. That flag populates the exam and ROS observation STORES,
-  // which is a different thing from returning the data: the hosted ExamTab and RosTab render a spinner
-  // until their initialisation stores say they have data. This used to set it while Easy Chart was a route
-  // of its own, outside the chart layout. Mounted inside InPersonLayout it gets that from the layout, which
-  // sets the flag once for the whole route — and since the encounter id is read the same way, both calls
-  // land on ONE react-query entry rather than two.
-  const base = useChartData({
-    encounterId,
-    enabled: enabled && Boolean(encounterId),
-  });
-
-  // Request-only fields, through the app's field-set hook. Its response is trimmed to exactly these keys.
-  const fields = useChartFields({
-    encounterId,
-    requestedFields: EXTRA_FIELDS,
-    enabled: enabled && Boolean(encounterId),
-  });
+  // No refetch on mount, deliberately. A screen change marks the note stale and the screens refresh the
+  // sections they show; a whole-chart reader lives off those refreshes plus the explicit `refetch` after
+  // its own writes — the same arrangement as the layout's whole-chart read, and both land on the same
+  // cache entries, so the two cost one visit-note read between them.
+  const note = useVisitNote({ encounterId, enabled: enabled && Boolean(encounterId), refetchOnMount: false });
 
   // Vitals, for the criticality flags — see the `vitals` field on EasyChartData.
   const vitals = useGetVitals(enabled ? encounterId : undefined);
 
-  const chartData = useMemo<GetChartDataResponse | undefined>(() => {
-    if (!base.chartData && !fields.data) return undefined;
-    // Scoped second: it is the authoritative source for every key it carries, and unlike the previous
-    // arrangement it cannot be serving a stale copy — see the header.
-    return { ...(base.chartData ?? {}), ...(fields.data ?? {}) } as GetChartDataResponse;
-  }, [base.chartData, fields.data]);
+  const chartData = useMemo(
+    (): GetChartDataResponse | undefined => (note.data ? wholeChartFromVisitNote(note.data) : undefined),
+    [note.data]
+  );
 
-  const baseRefetch = base.refetch;
-  const fieldsRefetch = fields.refetch;
+  const noteRefetch = note.refetch;
   const vitalsRefetch = vitals.refetch;
-  // The unscoped query's own key, so the fresh value is read back from the exact entry that was just
-  // refreshed rather than from a prefix match — several chart queries can be mounted at once, and a
-  // loose match would hand back whichever one react-query listed first.
-  const baseQueryKey = base.queryKey;
   const queryClient = useQueryClient();
-  // All three, so every caller of `refetch` refreshes the whole note. Leaving vitals out of here is how the
+  // Both, so every caller of `refetch` refreshes the whole note. Leaving vitals out of here is how the
   // assistant charts a reading and the section stays a step behind until a reload.
   const refetch = useCallback(async (): Promise<GetChartDataResponse | undefined> => {
-    const [, fieldsResult] = await Promise.all([baseRefetch(), fieldsRefetch(), vitalsRefetch()]);
-    const freshBase = queryClient.getQueryData<GetChartDataResponse>(baseQueryKey);
-    // `fields` is typed loosely by the shared hook; its response is the requested subset of chart data.
-    const freshFields = fieldsResult.data as Partial<GetChartDataResponse> | undefined;
-    if (!freshBase && !freshFields) return undefined;
-    // Scoped second, the same precedence the render-time merge uses — see the header.
-    return { ...(freshBase ?? {}), ...(freshFields ?? {}) } as GetChartDataResponse;
-  }, [baseRefetch, fieldsRefetch, vitalsRefetch, queryClient, baseQueryKey]);
+    await Promise.all([noteRefetch(), vitalsRefetch()]);
+    const fresh = encounterId ? readVisitNoteFromCache(queryClient, encounterId) : undefined;
+    return fresh ? wholeChartFromVisitNote(fresh) : undefined;
+  }, [noteRefetch, vitalsRefetch, queryClient, encounterId]);
 
   return {
     chartData,
     vitals: vitals.data,
-    isLoading: base.isLoading || fields.isLoading,
-    isFetching: base.isFetching || fields.isFetching,
+    isLoading: note.isLoading,
+    isFetching: note.isFetching,
     refetch,
   };
 }

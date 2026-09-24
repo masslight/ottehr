@@ -20,8 +20,10 @@ import {
 import { buildPrompt, PromptTailInput } from 'utils/lib/easy-chart/prompt';
 import { capabilitiesForSurface } from 'utils/lib/easy-chart/registry';
 import { buildResponseSchema } from 'utils/lib/easy-chart/schema';
-import { progressNoteChartDataRequestedFields } from 'utils/lib/helpers/visit-note/progress-note-chart-data-requested-fields.helper';
+import { wholeChartFromVisitNote } from 'utils/lib/easy-chart/visit-note-chart';
+import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { buildVisitNote } from '../../shared/chart-sections/visit-note';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
@@ -29,7 +31,6 @@ import { authorizeEasyChartRequest } from '../easy-chart-shared/authorize';
 import { applyGuards } from '../easy-chart-shared/guards';
 import { callModelForJson } from '../easy-chart-shared/model';
 import { buildNoteContext, describeChart, readTemplates, readVisitContext } from '../easy-chart-shared/visit-context';
-import { getChartData } from '../get-chart-data';
 import { buildHistoryDigest, resolveSuggestedTemplate, TEMPLATE_RECONCILE_INSTRUCTION } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -59,8 +60,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   // silently absent, so the model re-charted them — and the two sides drifted every time a field was added
   // on one of them. It also put caller-controlled text inside the model's instructions.
   //
-  // Two calls, the same pair the visit-note PDF uses (assemble-progress-note-input.ts): the unscoped one
-  // for the default set, the scoped one for fields get-chart-data only fetches when named.
+  // One read, the same one the visit-note PDF makes: the builder behind get-visit-note, every section plus
+  // the vitals, lab results, radiology orders and participants, so no field can be left out of the request.
   //
   // THE TEMPLATE LIST GOES ONLY WHERE apply-template EXISTS. The prompt tail's empty-list branch already
   // says "none. Do NOT emit apply-template", so withholding the list is a HARDER constraint than telling
@@ -246,17 +247,14 @@ function splitChartState(chartState?: string): string[] {
 }
 
 /**
- * The chart as get-chart-data returns it: the default set, plus the fields it fetches only when named.
- * Scoped second — it is the authoritative source for every key it carries.
+ * The whole chart, from the one read behind the visit note (get-visit-note's builder, which the visit-note PDF
+ * reads too): every section plus the vitals, lab results, radiology orders and participants, folded into the
+ * one object the prompt builders read.
  */
 async function readChart(
   oystehr: ReturnType<typeof createClinicalOystehrClient>,
   token: string,
   encounterId: string
-): Promise<Awaited<ReturnType<typeof getChartData>>['response']> {
-  const [base, scoped] = await Promise.all([
-    getChartData(oystehr, token, encounterId),
-    getChartData(oystehr, token, encounterId, progressNoteChartDataRequestedFields),
-  ]);
-  return { ...base.response, ...scoped.response };
+): Promise<GetChartDataResponse> {
+  return wholeChartFromVisitNote(await buildVisitNote({ oystehr, m2mToken: token }, encounterId));
 }

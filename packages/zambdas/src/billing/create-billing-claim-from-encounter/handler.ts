@@ -22,6 +22,7 @@ import {
   Location,
   Organization,
   Patient,
+  Period,
   Person,
   Practitioner,
   Procedure,
@@ -39,36 +40,31 @@ import {
   getDefaultClaimSubmissionExtensions,
   setCoveragePlanType,
 } from 'utils/lib/fhir/billing';
-import {
-  ACCOUNT_TYPE_CODE_SYSTEM,
-  FHIR_IDENTIFIER_NPI,
-  OCCUPATIONAL_MEDICINE_ACCOUNT_TYPE,
-  PARTICIPATION_CODE_SYSTEM,
-  SERVICE_CATEGORY_SYSTEM,
-} from 'utils/lib/fhir/constants';
-import {
-  getPaymentVariantFromEncounter,
-  getVisitOccupationalMedicineEmployerFromEncounter,
-  PaymentVariant,
-} from 'utils/lib/fhir/encounter';
-import { getCoding } from 'utils/lib/fhir/helpers';
+import { FHIR_IDENTIFIER_NPI, SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
+import { getPaymentVariantFromEncounter, PaymentVariant } from 'utils/lib/fhir/encounter';
+import { codeableConcept, getCoding } from 'utils/lib/fhir/helpers';
 import { getNPIIdentifier, getPatientFriendlyId } from 'utils/lib/fhir/patient';
+import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
-import { extractNioIdFromReferenceUrl, getCandidPlanTypeCodeFromCoverage, getPayerId } from 'utils/lib/helpers/helpers';
+import { getCandidPlanTypeCodeFromCoverage, getPayerId } from 'utils/lib/helpers/helpers';
 import { InternalError } from 'utils/lib/helpers/oystehrApi';
 import {
+  CODE_SYSTEM_CLAIM_INFORMATION_CATEGORY,
   CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
   CODE_SYSTEM_CPT_MODIFIER,
   CODE_SYSTEM_HL7_HCPCS,
   CODE_SYSTEM_ICD_10,
+  CODE_SYSTEM_OYSTEHR_CLAIM_DATE_TYPE,
   CODE_SYSTEM_OYSTEHR_CLAIM_PROCEDURE_MODIFIER,
   CODE_SYSTEM_OYSTEHR_CLAIM_REFERRING_PROVIDER_TYPE,
   CODE_SYSTEM_PROCESS_PRIORITY,
-  CODE_SYSTEM_SERVICE_CATEGORY_CODES,
   CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
+  EXTENSION_CLAIM_AUTO_ACCIDENT,
+  EXTENSION_CLAIM_AUTO_ACCIDENT_STATE,
   EXTENSION_URL_CPT_MODIFIER,
 } from 'utils/lib/helpers/rcm/constants';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { AccidentDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { TIMEZONES } from 'utils/lib/types/constants';
 import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
 import {
@@ -81,7 +77,7 @@ import { FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR } from 'utils/lib/types/er
 import { getTimezone } from 'utils/lib/utils/scheduleUtils';
 import { isValidUUID } from 'utils/lib/validation/helper';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
-import { chartDataResourceHasMetaTagByCode } from '../../shared/chart-data';
+import { chartDataResourceHasMetaTagByCode, makeAccidentDTOFromFhirResources } from '../../shared/chart-data';
 import { sendErrors } from '../../shared/errors';
 import { assertDefined, createClinicalOystehrClient } from '../../shared/helpers';
 import { ZambdaInput } from '../../shared/types/common';
@@ -96,19 +92,23 @@ import {
   deriveClaimBillablePeriodFromEncounter,
   determineRulesEngineForClaim,
   ensureClaimInsurance,
-  ensureSystemManagedTags,
   EXCLUDE_WORKING_COPIES_PARAMS,
+  findOccupationalMedicineAccount,
   findRef,
   getClaimTypeCoding,
+  getNonInsurancePayerReference,
+  isEmployerBilledVisit,
   kickOffRulesEngine,
   payerDisplay,
   prepareCopy,
   prepareWorkingCopy,
+  PROVIDER_ROLE_BILLING,
   PROVIDER_ROLE_RENDERING,
   PROVIDER_ROLE_TAG,
   reconcilePaymentNoticesForClaim,
   resourceDisplayName,
   searchPatientsByClinicalIds,
+  selectClaimCoverages,
   SOURCE_IDENTIFIER_SYSTEM,
 } from '../shared';
 import { CreateClaimFromEncounterParams, validateRequestParameters } from './validateRequestParameters';
@@ -132,6 +132,7 @@ interface ClinicalResources {
   payors: Organization[];
   diagnoses: Array<Condition>;
   procedures: Array<Procedure>;
+  accident?: AccidentDTO;
   /** The patient's occ-med Account (owner = the visit's employer); resolved only for employer-billed visits. */
   occupationalMedicineAccount?: Account;
 }
@@ -167,6 +168,7 @@ interface ClaimResources {
   diagnoses?: Array<Condition>;
   procedures?: Array<Procedure>;
   billingTags?: Array<string>;
+  accident?: { date: string; state: string };
 }
 
 export type CreateClaimFromEncounterRequests = Array<
@@ -180,7 +182,11 @@ let m2mToken: string;
 
 export async function handler(input: ZambdaInput): Promise<APIGatewayProxyResult> {
   const params = validateRequestParameters(input);
+  const response = await createClaimFromEncounter(params);
+  return { statusCode: 200, body: JSON.stringify(response) };
+}
 
+export async function createClaimFromEncounter(params: CreateClaimFromEncounterParams): Promise<{ claimId: string }> {
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const billingOystehr = createBillingClient(m2mToken, params.secrets);
   const clinicalOystehr = createClinicalOystehrClient(m2mToken, params.secrets);
@@ -191,7 +197,7 @@ export async function handler(input: ZambdaInput): Promise<APIGatewayProxyResult
   const { claimId, claim } = await performEffect(billingOystehr, cvo, agent);
   const engine = determineRulesEngineForClaim(claim);
   if (engine) await kickOffRulesEngine(billingOystehr, engine, claimId, agent.who, params.secrets);
-  return { statusCode: 200, body: JSON.stringify({ claimId }) };
+  return { claimId };
 }
 
 export async function performEffect(
@@ -441,13 +447,11 @@ export async function performEffect(
   }
 
   const billingTags = [];
-  if (clinicalResources.appointment.description?.toLowerCase() === 'auto accident') {
+  const accident = clinicalResources.accident;
+  let claimAccident: ClaimResources['accident'];
+  if (accident?.type.includes('AA') && accident.date && accident.state) {
     billingTags.push(AUTO_ACCIDENT_TAG_NAME);
-    try {
-      await ensureSystemManagedTags(billingOystehr);
-    } catch (error) {
-      console.error('Failed to ensure system-managed tags exist:', error);
-    }
+    claimAccident = { date: accident.date, state: accident.state };
   }
 
   const claim = buildClaim({
@@ -462,6 +466,7 @@ export async function performEffect(
     serviceFacility: claimServiceFacility,
     billingProvider: claimBillingProvider,
     billingTags,
+    accident: claimAccident,
   });
   const claimUrn = 'urn:uuid:claim';
   requests.push({ method: 'POST', url: '/Claim', resource: claim, fullUrl: claimUrn });
@@ -547,82 +552,11 @@ export function getClaimCoveragesForEncounter(
   mainPatientAccounts: Account[],
   claimCoverages: Coverage[]
 ): CoverageRefs {
-  switch (service) {
-    case CODE_SYSTEM_SERVICE_CATEGORY_CODES['urgent-care']: {
-      const ucAccount = mainPatientAccounts.find(
-        (mpacc) => mpacc.type?.coding?.some((c) => c.system === ACCOUNT_TYPE_CODE_SYSTEM && c.code === 'PBILLACCT')
-      );
-      let primaryCoverage: Coverage | undefined;
-      let secondaryCoverage: Coverage | undefined;
-      let tertiaryCoverage: Coverage | undefined;
-      let quaternaryCoverage: Coverage | undefined;
-      ucAccount?.coverage?.forEach((uccov) => {
-        const foundClaimCoverage = claimCoverages.find((ccov) => copySourceRef(ccov) === uccov.coverage.reference);
-        if (uccov.priority === 1) {
-          primaryCoverage = foundClaimCoverage;
-        }
-        if (uccov.priority === 2) {
-          secondaryCoverage = foundClaimCoverage;
-        }
-        if (uccov.priority === 3) {
-          tertiaryCoverage = foundClaimCoverage;
-        }
-        if (uccov.priority === 4) {
-          quaternaryCoverage = foundClaimCoverage;
-        }
-      });
-      return [
-        ...(primaryCoverage
-          ? [{ coverageRef: coverageDisplayReference(primaryCoverage), payorRef: primaryCoverage.payor[0] }]
-          : []),
-        ...(secondaryCoverage
-          ? [{ coverageRef: coverageDisplayReference(secondaryCoverage), payorRef: secondaryCoverage.payor[0] }]
-          : []),
-        ...(tertiaryCoverage
-          ? [{ coverageRef: coverageDisplayReference(tertiaryCoverage), payorRef: tertiaryCoverage.payor[0] }]
-          : []),
-        ...(quaternaryCoverage
-          ? [{ coverageRef: coverageDisplayReference(quaternaryCoverage), payorRef: quaternaryCoverage.payor[0] }]
-          : []),
-      ];
-    }
-    case CODE_SYSTEM_SERVICE_CATEGORY_CODES['workers-comp']: {
-      const wcAccount = mainPatientAccounts.find(
-        (mpacc) => mpacc.type?.coding?.some((c) => c.system === ACCOUNT_TYPE_CODE_SYSTEM && c.code === 'WCOMPACCT')
-      );
-      let wcCoverage: Coverage | undefined;
-      wcAccount?.coverage?.forEach((wccov) => {
-        const foundClaimCoverage = claimCoverages.find((ccov) => copySourceRef(ccov) === wccov.coverage.reference);
-        if (foundClaimCoverage) {
-          wcCoverage = foundClaimCoverage;
-        }
-      });
-      return [
-        ...(wcCoverage ? [{ coverageRef: coverageDisplayReference(wcCoverage), payorRef: wcCoverage.payor[0] }] : []),
-      ];
-    }
-    case CODE_SYSTEM_SERVICE_CATEGORY_CODES['occupational-medicine']: {
-      // No insurance
-      // TODO: Support non-insurance payers
-      return [];
-    }
-    case CODE_SYSTEM_SERVICE_CATEGORY_CODES['pre-op']: {
-      // No insurance
-      // TODO: Support non-insurance payers
-      return [];
-    }
-    default: {
-      // "Non-system" service, take no action here
-      return [];
-    }
-  }
+  return selectClaimCoverages(service, mainPatientAccounts, claimCoverages, copySourceRef).map((coverage) => ({
+    coverageRef: coverageDisplayReference(coverage),
+    payorRef: coverage.payor[0],
+  }));
 }
-
-const isOccupationalMedicineAccount = (account: Account): boolean =>
-  !!account.type?.coding?.some(
-    (coding) =>
-      OCCUPATIONAL_MEDICINE_ACCOUNT_TYPE?.coding?.some((c) => c.system === coding.system && c.code === coding.code)
-  );
 
 // The visit's NIO employer: a visit-level selection on the Encounter (pre-op) wins, else the
 // patient's occ-med Account owner (occupational medicine). Only billing-app NIO reference tokens
@@ -633,12 +567,13 @@ export async function resolveNonInsurancePayer(
   billingOystehr: Oystehr,
   clinicalResources: Pick<ClinicalResources, 'encounter' | 'occupationalMedicineAccount'>
 ): Promise<Reference | undefined> {
-  const employerRef =
-    getVisitOccupationalMedicineEmployerFromEncounter(clinicalResources.encounter) ??
-    clinicalResources.occupationalMedicineAccount?.owner;
-  const nioId = extractNioIdFromReferenceUrl(employerRef?.reference);
-  if (!nioId) return undefined;
-  let display = employerRef?.display;
+  const payer = getNonInsurancePayerReference(
+    clinicalResources.encounter,
+    clinicalResources.occupationalMedicineAccount
+  );
+  if (!payer) return undefined;
+  const nioId = payer.reference!.split('/')[1];
+  let display = payer.display;
   if (!display) {
     // Claim history snapshots displays at write time, so backfill a missing one from the NIO itself.
     try {
@@ -829,6 +764,7 @@ async function getClinicalResources(
           name: '_include',
           value: 'Encounter:diagnosis',
         },
+        { name: '_revinclude', value: 'Condition:encounter' },
         {
           // Reverse include procedures
           name: '_revinclude',
@@ -843,6 +779,12 @@ async function getClinicalResources(
 
   const patient = findRef<Patient>(resources, encounter.subject?.reference);
   if (!patient) throw FHIR_RESOURCE_NOT_FOUND('Patient');
+  const patientAddress = patient.address?.[0];
+  if (!patientAddress?.line?.[0] || !patientAddress.city || !patientAddress.state || !patientAddress.postalCode) {
+    throw INVALID_INPUT_ERROR(
+      'Patient address is required. Add street, city, state, and ZIP code in the clinical app, then retry.'
+    );
+  }
 
   const appointment = findRef<Appointment>(resources, encounter.appointment?.[0].reference);
   if (!appointment) throw FHIR_RESOURCE_NOT_FOUND('Appointment');
@@ -852,12 +794,28 @@ async function getClinicalResources(
   if (!location) throw FHIR_RESOURCE_NOT_FOUND('Location');
 
   const practitioners = resources.filter((r): r is Practitioner => r.resourceType === 'Practitioner');
-  if (!practitioners.length) throw FHIR_RESOURCE_NOT_FOUND('Practitioner');
+  const attendingProviderId = getAttendingPractitionerId(encounter);
+  const attendingProvider = practitioners.find((p) => p.id === attendingProviderId);
+  if (!attendingProviderId || !attendingProvider) {
+    throw INVALID_INPUT_ERROR(
+      'The encounter has no attending provider. Set the attending provider in the clinical app, then retry.'
+    );
+  }
+  if (!getNPIIdentifier(attendingProvider)?.value) {
+    throw INVALID_INPUT_ERROR(
+      'The clinical attending provider has no NPI. Add its NPI in the clinical app, then retry.'
+    );
+  }
 
   const accounts = resources.filter((r): r is Account => r.resourceType === 'Account');
   if (!accounts.length) throw FHIR_RESOURCE_NOT_FOUND('Account');
 
-  let diagnoses = resources.filter((r): r is Condition => r.resourceType === 'Condition');
+  let diagnoses = (encounter.diagnosis ?? []).flatMap((diagnosis) => {
+    const condition = resources.find(
+      (r): r is Condition => r.resourceType === 'Condition' && diagnosis.condition.reference === `Condition/${r.id}`
+    );
+    return condition ? [condition] : [];
+  });
   if (!diagnoses.length) throw FHIR_RESOURCE_NOT_FOUND('Condition');
   const primaryDiagnosisId = encounter.diagnosis
     ?.find((d) => d.rank === 1)
@@ -915,12 +873,8 @@ async function getClinicalResources(
   // The occ-med Account (owner = the visit's employer) is patient-level and not consistently
   // referenced from the Encounter, so for employer-billed visits fall back to a patient search
   // when the encounter-linked accounts don't include it.
-  let occupationalMedicineAccount = accounts.find(isOccupationalMedicineAccount);
-  if (
-    !occupationalMedicineAccount &&
-    (isAppointmentOccupationalMedicine(appointment) ||
-      getPaymentVariantFromEncounter(encounter) === PaymentVariant.employer)
-  ) {
+  let occupationalMedicineAccount = findOccupationalMedicineAccount(accounts);
+  if (!occupationalMedicineAccount && isEmployerBilledVisit(getService(appointment), encounter)) {
     const patientAccounts = (
       await oystehr.fhir.search<Account>({
         resourceType: 'Account',
@@ -930,7 +884,7 @@ async function getClinicalResources(
         ],
       })
     ).unbundle();
-    occupationalMedicineAccount = patientAccounts.find(isOccupationalMedicineAccount);
+    occupationalMedicineAccount = findOccupationalMedicineAccount(patientAccounts);
   }
 
   const defaultBillingProviderRef = params.secrets.DEFAULT_BILLING_RESOURCE;
@@ -948,6 +902,7 @@ async function getClinicalResources(
   ).unbundle();
   if (!billingProviders.length) throw FHIR_RESOURCE_NOT_FOUND('Organization');
 
+  const accident = makeAccidentDTOFromFhirResources(resources);
   return {
     encounter,
     patient,
@@ -960,6 +915,7 @@ async function getClinicalResources(
     payors,
     diagnoses,
     procedures,
+    ...(accident ? { accident } : {}),
     ...(occupationalMedicineAccount ? { occupationalMedicineAccount } : {}),
   };
 }
@@ -1063,40 +1019,52 @@ async function findExistingBillingResources(
     existingSubscribers = coverageSearch.filter((r): r is RelatedPerson => r.resourceType === 'RelatedPerson');
   }
 
-  // Look for a service facility matching the clinical Location's NPI
+  // Match the service facility by exact name.
   const serviceFacilitySearch = (
     await billingOystehr.fhir.search<Location>({
       resourceType: 'Location',
       params: [
         {
-          name: 'identifier',
-          value: `${FHIR_IDENTIFIER_NPI}|${getNPIIdentifier(clinicalResources.location)?.value}`,
+          name: 'name:exact',
+          value: clinicalResources.location.name!,
         },
         {
           name: 'status',
           value: 'active',
         },
+        { name: '_count', value: '2' },
+        ...EXCLUDE_WORKING_COPIES_PARAMS,
       ],
     })
   ).unbundle();
-  const matchingServiceFacility = serviceFacilitySearch.length > 0 ? serviceFacilitySearch[0] : undefined;
+  const matchingServiceFacilities = serviceFacilitySearch.filter(
+    (facility) => facility.name === clinicalResources.location.name
+  );
+  if (matchingServiceFacilities.length > 1) {
+    throw INVALID_INPUT_ERROR(
+      `Multiple active billing service facilities are named "${clinicalResources.location.name}". Keep one active facility with that name in billing, then retry.`
+    );
+  }
 
   // Look for rendering providers that match NPIs for Practitioners involved in the Encounter
   const matchingPractitioners = (
     await Promise.all(
       clinicalResources.practitioners.map<Promise<Practitioner | undefined>>(async (p) => {
+        const npi = getNPIIdentifier(p)?.value;
+        if (!npi) return undefined;
         const practitionerSearch = (
           await billingOystehr.fhir.search<Practitioner>({
             resourceType: 'Practitioner',
             params: [
               {
                 name: 'identifier',
-                value: `${FHIR_IDENTIFIER_NPI}|${getNPIIdentifier(p)?.value}`,
+                value: `${FHIR_IDENTIFIER_NPI}|${npi}`,
               },
               {
                 name: '_tag',
                 value: `${PROVIDER_ROLE_TAG}|${PROVIDER_ROLE_RENDERING}`,
               },
+              ...EXCLUDE_WORKING_COPIES_PARAMS,
             ],
           })
         ).unbundle();
@@ -1104,11 +1072,9 @@ async function findExistingBillingResources(
       })
     )
   ).filter((p): p is Practitioner => !!p);
-  const clinicalAttendingProviderRef = clinicalResources.encounter.participant?.find(
-    (part) => part.type?.some((t) => t.coding?.find((c) => c.system === PARTICIPATION_CODE_SYSTEM)?.code === 'ATND')
-  )?.individual?.reference;
+  const clinicalAttendingProviderId = getAttendingPractitionerId(clinicalResources.encounter);
   const clinicalAttendingProvider = clinicalResources.practitioners.find(
-    (prac) => clinicalAttendingProviderRef && prac.id === clinicalAttendingProviderRef.replace('Practitioner/', '')
+    (prac) => prac.id === clinicalAttendingProviderId
   );
   const renderingProvider = matchingPractitioners.find(
     (prac) =>
@@ -1127,6 +1093,8 @@ async function findExistingBillingResources(
           name: 'identifier',
           value: `${FHIR_IDENTIFIER_NPI}|${getNPIIdentifier(clinicalResources.billingProvider)?.value}`,
         },
+        { name: '_tag', value: `${PROVIDER_ROLE_TAG}|${PROVIDER_ROLE_BILLING}` },
+        ...EXCLUDE_WORKING_COPIES_PARAMS,
       ],
     })
   ).unbundle();
@@ -1155,7 +1123,7 @@ async function findExistingBillingResources(
     subscribers: existingSubscribers,
     practitioners: matchingPractitioners,
     renderingProvider: renderingProvider,
-    serviceFacility: matchingServiceFacility,
+    serviceFacility: matchingServiceFacilities[0],
     billingProvider: matchingBillingProvider,
     billingService,
   };
@@ -1293,15 +1261,7 @@ function buildClaim(resources: ClaimResources): Claim {
                   : undefined
               )
               .filter((cca): cca is CodeableConcept => !!cca),
-            servicedPeriod: {
-              start: getLocalDateOfService(
-                assertDefined(resources.appointment.start, 'Encounter start'),
-                resources.serviceFacility
-              ),
-              end: resources.appointment.end
-                ? getLocalDateOfService(resources.appointment.end, resources.serviceFacility)
-                : undefined,
-            },
+            servicedPeriod: getProcedureServicedPeriod(p, resources),
             locationCodeableConcept:
               resources.serviceFacility &&
               resources.serviceFacility.extension?.some((ext) => ext.url === CODE_SYSTEM_CMS_PLACE_OF_SERVICE)
@@ -1334,6 +1294,21 @@ function buildClaim(resources: ClaimResources): Claim {
   };
 
   claim.billablePeriod = deriveClaimBillablePeriodFromEncounter(resources.encounter);
+  if (resources.accident) {
+    // The 837 exporter reads accident details from extensions and supportingInfo.
+    claim.extension!.push(
+      { url: EXTENSION_CLAIM_AUTO_ACCIDENT, valueBoolean: true },
+      { url: EXTENSION_CLAIM_AUTO_ACCIDENT_STATE, valueString: resources.accident.state }
+    );
+    claim.supportingInfo = [
+      {
+        sequence: 1,
+        category: codeableConcept('info', CODE_SYSTEM_CLAIM_INFORMATION_CATEGORY),
+        code: codeableConcept('439', CODE_SYSTEM_OYSTEHR_CLAIM_DATE_TYPE),
+        timingDate: resources.accident.date,
+      },
+    ];
+  }
 
   return claim;
 }
@@ -1341,6 +1316,23 @@ function buildClaim(resources: ClaimResources): Claim {
 function getLocalDateOfService(appointmentStart: string, location: Location | undefined): string {
   const timezone = location ? getTimezone(location) : TIMEZONES[0];
   return DateTime.fromISO(appointmentStart).setZone(timezone).toISODate()!;
+}
+
+function getProcedureServicedPeriod(procedure: Procedure, resources: ClaimResources): Period {
+  const location = resources.serviceFacility;
+  if (procedure.performedPeriod?.start) {
+    return {
+      start: getLocalDateOfService(procedure.performedPeriod.start, location),
+      end: procedure.performedPeriod.end ? getLocalDateOfService(procedure.performedPeriod.end, location) : undefined,
+    };
+  }
+  if (procedure.performedDateTime) {
+    return { start: getLocalDateOfService(procedure.performedDateTime, location) };
+  }
+  return {
+    start: getLocalDateOfService(assertDefined(resources.appointment.start, 'Encounter start'), location),
+    end: resources.appointment.end ? getLocalDateOfService(resources.appointment.end, location) : undefined,
+  };
 }
 
 function getServiceCoding(appointment: Appointment): Coding | undefined {
@@ -1369,7 +1361,28 @@ export async function complexValidation(
     throw INVALID_INPUT_ERROR('Claim has already been created for this encounter');
   }
   const clinicalResources = await getClinicalResources(clinicalOystehr, params);
+  if (!clinicalResources.location.name) {
+    throw INVALID_INPUT_ERROR('The encounter location has no name. Add its name in the clinical app, then retry.');
+  }
+  if (!getNPIIdentifier(clinicalResources.billingProvider)?.value) {
+    throw INVALID_INPUT_ERROR('The clinical default billing provider has no NPI. Add its NPI, then retry.');
+  }
   const billingResources = await findExistingBillingResources(billingOystehr, clinicalResources, params.secrets);
+  if (!billingResources.serviceFacility) {
+    throw INVALID_INPUT_ERROR(
+      `No active billing service facility named "${clinicalResources.location.name}". Add it in billing or fix the visit location, then retry.`
+    );
+  }
+  if (!billingResources.renderingProvider) {
+    throw INVALID_INPUT_ERROR(
+      'No billing rendering provider matches the attending provider NPI. Add a matching provider in billing or correct the clinical provider NPI, then retry.'
+    );
+  }
+  if (!billingResources.billingProvider) {
+    throw INVALID_INPUT_ERROR(
+      'No billing provider matches the clinical default provider NPI. Add a billing provider with that NPI in the billing app, then retry.'
+    );
+  }
   return { clinicalResources, billingResources };
 }
 

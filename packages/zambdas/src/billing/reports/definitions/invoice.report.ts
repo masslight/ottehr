@@ -39,7 +39,7 @@ const emptyTotals = (): InvoiceReportPayload['totals'] => ({
 
 export const invoiceReport: ReportDefinition<Record<string, never>, InvoiceReportPayload> = {
   kind: 'invoice',
-  cacheVersion: 'v2',
+  cacheVersion: 'v3',
   paramsSchema: EmptyReportParamsSchema,
   cacheKeyOf: () => '',
   emptyPayload: () => ({ rows: [], totals: emptyTotals(), agingTrend: [], generatedAt: '' }),

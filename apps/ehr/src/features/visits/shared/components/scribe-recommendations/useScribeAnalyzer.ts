@@ -19,8 +19,8 @@ import { ScribeAnalyzer } from './scribeRecommendations.store';
  * because the draft is still the generated text then. Without a transcript (the provider typed the narrative
  * by hand), the narrative itself is what the planner reads.
  *
- * The chart is NOT sent. The endpoint reads it by encounterId — the same pair of get-chart-data calls the
- * visit-note PDF makes — so the model sees every section, not just the ones this page happens to fetch.
+ * The chart is NOT sent. The endpoint reads it by encounterId — the same visit-note read the visit-note PDF
+ * makes — so the model sees every section, not just the ones this page happens to fetch.
  * What is read here is only which note fields already have text, so a rewrite of one can start unticked.
  *
  * THE REVIEW PASS IS NOT CALLED HERE, deliberately. It reads the note as written back against the

@@ -1,5 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { Address, ContactPoint, Extension, Organization } from 'fhir/r4b';
+import { getPayerUrl } from 'utils/lib/helpers/helpers';
 import {
   CreateCustomInsuranceOrgInput,
   CUSTOM_INSURANCE_ORG_TYPES,
@@ -10,6 +11,7 @@ import {
 } from 'utils/lib/types/data/billing/custom-insurance-org.schemas';
 import {
   CUSTOM_INSURANCE_ORG_ACCEPTED_CLAIM_FORM_EXTENSION_URL,
+  CUSTOM_INSURANCE_ORG_ID_PREFIX,
   CUSTOM_INSURANCE_ORG_ID_SYSTEM,
   CUSTOM_INSURANCE_ORG_KIND_CODE,
   CUSTOM_INSURANCE_ORG_NOTE_EXTENSION_URL,
@@ -21,6 +23,7 @@ import {
 } from 'utils/lib/types/data/billing/custom-insurance-org.types';
 import { NioContact } from 'utils/lib/types/data/billing/non-insurance-org.schemas';
 import { NIO_ORGANIZATION_KIND_SYSTEM } from 'utils/lib/types/data/billing/non-insurance-org.types';
+import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { toFhirContact, toNioContact } from './non-insurance-org.helpers';
 
 // --- Type guard ---
@@ -32,6 +35,32 @@ export function isCustomInsuranceOrganization(org: Organization): boolean {
         (coding) => coding.system === NIO_ORGANIZATION_KIND_SYSTEM && coding.code === CUSTOM_INSURANCE_ORG_KIND_CODE
       )
   );
+}
+
+// --- Payer resolution ---
+
+// Resolve a chosen payer id to its Organization, whether it's an RCM payer or a billing-app custom
+// insurance organization (a plain FHIR Organization, not in RCM's payer directory). Tries RCM first
+// (the common case, and avoids an extra FHIR read for it), then falls back to a direct FHIR read
+// guarded by the type check so an arbitrary Organization id can't masquerade as a payer.
+export async function resolvePayerOrganization(oystehr: Oystehr, payerId: string): Promise<Organization> {
+  if (isCustomInsuranceOrgBusinessId(payerId)) {
+    const customOrg = await findCustomInsuranceOrgByBusinessId(oystehr, payerId);
+    if (customOrg) {
+      return customOrg;
+    } else {
+      throw INVALID_INPUT_ERROR(`No custom insurance organization matches id "${payerId}"`);
+    }
+  }
+  try {
+    return await oystehr.rcm.getPayer({ id: payerId });
+  } catch (error) {
+    const org = await oystehr.fhir
+      .get<Organization>({ resourceType: 'Organization', id: payerId })
+      .catch(() => undefined);
+    if (org && isCustomInsuranceOrganization(org)) return org;
+    throw error;
+  }
 }
 
 export function getCustomInsuranceOrgBusinessId(org: Organization): string {
@@ -175,4 +204,24 @@ export async function findCustomInsuranceOrgByBusinessId(
     ],
   });
   return bundle.unbundle().find((org) => org.id !== excludeId);
+}
+
+// Every business id starts with this prefix — a "payer id" search/filter value shaped like one names
+// a custom insurance organization rather than an RCM payer.
+export function isCustomInsuranceOrgBusinessId(value: string): boolean {
+  return value.trim().toUpperCase().startsWith(CUSTOM_INSURANCE_ORG_ID_PREFIX);
+}
+
+// The Claim.insurer / PaymentReconciliation payment-issuer filter value for a chosen "payer id" —
+// claims/ERAs never store a custom insurance organization's business id directly (Claim.insurer
+// references it by Organization/{id}, see buildPayorReference), so a business-id-shaped value is
+// resolved to that org first. An ordinary RCM payer id needs no lookup: getPayerUrl builds its
+// filter value directly from the id.
+export async function resolvePayerIssuerFilter(oystehr: Oystehr, payerId: string): Promise<string> {
+  if (isCustomInsuranceOrgBusinessId(payerId)) {
+    const org = await findCustomInsuranceOrgByBusinessId(oystehr, payerId);
+    if (!org?.id) throw INVALID_INPUT_ERROR(`No custom insurance organization matches id "${payerId}"`);
+    return `Organization/${org.id}`;
+  }
+  return getPayerUrl(payerId);
 }

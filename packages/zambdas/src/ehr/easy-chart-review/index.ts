@@ -21,8 +21,10 @@ import {
 import { buildPrompt, PromptTailInput } from 'utils/lib/easy-chart/prompt';
 import { buildReviewResponseSchema } from 'utils/lib/easy-chart/schema';
 import { detectDispositionLanguage } from 'utils/lib/easy-chart/sniffers';
-import { progressNoteChartDataRequestedFields } from 'utils/lib/helpers/visit-note/progress-note-chart-data-requested-fields.helper';
+import { wholeChartFromVisitNote } from 'utils/lib/easy-chart/visit-note-chart';
+import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { buildVisitNote } from '../../shared/chart-sections/visit-note';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
@@ -32,7 +34,6 @@ import { createTerminologyIcdSearch } from '../easy-chart-shared/icd-search';
 import { callModelForJson } from '../easy-chart-shared/model';
 import { carrySwapPrimaryFromChartState } from '../easy-chart-shared/swap-primary';
 import { buildNoteContext, describeChart, readVisitContext } from '../easy-chart-shared/visit-context';
-import { getChartData } from '../get-chart-data';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'easy-chart-review';
@@ -55,7 +56,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   // caller for the same reason it does in the planner.
   const visit = encounterId ? await readVisitContext(oystehr, encounterId, ZAMBDA_NAME) : undefined;
 
-  // Read the chart here, not from the caller — same reason and same two calls as the planner. It matters
+  // Read the chart here, not from the caller — same reason and same read as the planner. It matters
   // more on this surface: review's whole job is to compare the note AS WRITTEN against the narrative, so a
   // summary that omits a section is a section it cannot review.
   // No template list. `apply-template` is not in the review vocabulary, so the titles were a
@@ -297,15 +298,15 @@ function buildDispositionInstruction(narrative: string, chartState: string | und
   );
 }
 
-/** Same pair the planner and the visit-note PDF use: default set, then the fields fetched only when named. */
+/**
+ * The whole chart, from the one read behind the visit note (get-visit-note's builder, which the visit-note PDF
+ * reads too): every section plus the vitals, lab results, radiology orders and participants, folded into the
+ * one object the prompt builders read.
+ */
 async function readChart(
   oystehr: ReturnType<typeof createClinicalOystehrClient>,
   token: string,
   encounterId: string
-): Promise<Awaited<ReturnType<typeof getChartData>>['response']> {
-  const [base, scoped] = await Promise.all([
-    getChartData(oystehr, token, encounterId),
-    getChartData(oystehr, token, encounterId, progressNoteChartDataRequestedFields),
-  ]);
-  return { ...base.response, ...scoped.response };
+): Promise<GetChartDataResponse> {
+  return wholeChartFromVisitNote(await buildVisitNote({ oystehr, m2mToken: token }, encounterId));
 }

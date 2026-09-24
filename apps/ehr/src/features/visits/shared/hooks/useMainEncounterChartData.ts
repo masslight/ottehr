@@ -1,36 +1,23 @@
-import { useQuery } from '@tanstack/react-query';
-import useEvolveUser from 'src/hooks/useEvolveUser';
-import { GetChartDataResponse } from 'utils/lib/types/api/chart-data';
+import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
 import { useAppointmentData } from '../stores/appointment/appointment.store';
-import { useOystehrAPIClient } from './useOystehrAPIClient';
+import { legacyChartDataFromVisitNote } from './legacyChartData';
+import { useVisitNote } from './useVisitNote';
 
+/** The chart of the encounter a follow-up hangs off, in the whole-chart shape its readers use for the diagnoses. */
 export const useMainEncounterChartData = (
   enabled: boolean
 ): {
   data: GetChartDataResponse | null | undefined;
   isLoading: boolean;
 } => {
-  const apiClient = useOystehrAPIClient();
-  const user = useEvolveUser();
   const { followUpOriginEncounter: mainEncounter } = useAppointmentData();
-
-  // Fetch chart data from main encounter
-  const { data, isLoading } = useQuery({
-    queryKey: ['main-encounter-chart-data', mainEncounter?.id],
-    queryFn: async () => {
-      if (!apiClient || !mainEncounter?.id) {
-        return null;
-      }
-      const response = await apiClient.getChartData({
-        encounterId: mainEncounter.id,
-      });
-      return response;
-    },
-    enabled: !!apiClient && !!mainEncounter?.id && !!user && enabled,
+  const { data, isLoading } = useVisitNote({
+    encounterId: mainEncounter?.id,
+    enabled: enabled && !!mainEncounter?.id,
   });
 
   return {
-    data,
+    data: data ? legacyChartDataFromVisitNote(data) : undefined,
     isLoading,
   };
 };

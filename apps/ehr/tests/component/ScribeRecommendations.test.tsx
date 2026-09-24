@@ -156,7 +156,6 @@ const mocks = vi.hoisted(() => ({
   navigate: vi.fn(),
   // What the chart already holds. The charted predicate itself is left real.
   chartData: {} as Record<string, unknown>,
-  chartFields: {} as Record<string, unknown>,
   vitals: undefined as Record<string, unknown> | undefined,
   // The zambda client. Null, as with no Oystehr session, unless a test supplies the endpoints it calls.
   apiClient: null as unknown,
@@ -268,8 +267,20 @@ vi.mock('../../src/features/visits/shared/stores/appointment/appointment.store',
   useChartData: () => ({ chartData: mocks.chartData }),
 }));
 
-vi.mock('../../src/features/visits/shared/hooks/useChartFields', () => ({
-  useChartFields: () => ({ data: mocks.chartFields }),
+// The HPI section the charted predicate reads: nothing written, as before.
+vi.mock('../../src/features/visits/shared/hooks/useChartSection', () => ({
+  useChartSection: () => ({ data: undefined }),
+}));
+
+// The assistant's whole-chart read, in the shape its consumers get from the visit note.
+vi.mock('../../src/features/easy-chart/hooks/useEasyChartData', () => ({
+  useEasyChartData: () => ({
+    chartData: mocks.chartData,
+    vitals: mocks.vitals,
+    isLoading: false,
+    isFetching: false,
+    refetch: async () => mocks.chartData,
+  }),
 }));
 
 vi.mock('../../src/features/visits/shared/components/vitals/hooks/useGetVitals', () => ({
@@ -344,7 +355,6 @@ const Wrapper = ({ children }: { children: ReactNode }): JSX.Element => (
 const resetStore = (): void => {
   mocks.chartData = {};
   mocks.apiClient = null;
-  mocks.chartFields = {};
   mocks.vitals = undefined;
   mocks.written = {};
   mocks.plan.mockReturnValue(PLAN);

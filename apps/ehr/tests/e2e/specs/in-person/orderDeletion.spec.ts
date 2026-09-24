@@ -18,7 +18,7 @@ import {
 import { SideMenu } from 'tests/e2e/page/SideMenu';
 import { dismissSnackbars } from 'tests/e2e-utils/helpers/tests-utils';
 import { ResourceHandler } from 'tests/e2e-utils/resource-handler';
-import { UNIT_OPTIONS } from 'utils/lib/fhir/medication-administration';
+import { IN_HOUSE_MEDICATION_UNIT_OPTIONS } from 'utils/lib/fhir/medication-administration';
 import { FEATURE_FLAGS_CONFIG } from 'utils/lib/ottehr-config/feature-flags';
 import { radiologyStudiesConfig } from 'utils/lib/ottehr-config/radiology';
 import { formatProcedureCptCode } from 'utils/lib/procedure-coding/format';
@@ -57,7 +57,7 @@ const PROCEDURE_CPT_DISPLAY = formatProcedureCptCode({ code: PROCEDURE_CPT_CODE,
 // in-house medication deletion test rather than failing the whole spec at module init.
 let MEDICATION_NAME: string | undefined;
 const MEDICATION_DOSE = '2'; // Test value
-const MEDICATION_UNITS = UNIT_OPTIONS[0].label;
+const MEDICATION_UNITS = IN_HOUSE_MEDICATION_UNIT_OPTIONS[0].label;
 const MEDICATION_ROUTE = medicationApplianceRoutes.ORAL.display || 'Oral route';
 
 // Radiology from component's default studies

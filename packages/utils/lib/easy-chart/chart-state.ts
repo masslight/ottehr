@@ -6,10 +6,10 @@
 // two sides drifted whenever a field was added on one of them, and a caller-supplied summary is
 // caller-controlled text landing inside the model's instructions.
 //
-// The visit-note PDF path already does it the right way — see assemble-progress-note-input.ts, which calls
-// get-chart-data twice by encounterId and never trusts a client payload. This module is the same idea for
-// the prompt: one pure function over a GetChartDataResponse, so the plan and review surfaces describe an
-// identical chart and a unit test can pin what they say about it.
+// The visit-note PDF path already does it the right way — it reads the visit note by encounterId on the
+// server and never trusts a client payload. This module is the same idea for the prompt: one pure function
+// over a GetChartDataResponse (the whole-chart shape wholeChartFromVisitNote folds a visit note into), so
+// the plan and review surfaces describe an identical chart and a unit test can pin what they say about it.
 
 import { buildExamLeafCatalogue } from '../config-helpers/exam-leaves';
 import { formatLabResultForPrompt, formatRadiologyReportForPrompt } from '../helpers/test-results-for-prompt';

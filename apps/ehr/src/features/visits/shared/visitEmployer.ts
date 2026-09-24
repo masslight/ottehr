@@ -1,6 +1,9 @@
 import { QueryClient } from '@tanstack/react-query';
-import { Reference } from 'fhir/r4b';
-import { applyVisitOccupationalMedicineEmployerToEncounterExtensions } from 'utils/lib/fhir/encounter';
+import { Encounter, Reference } from 'fhir/r4b';
+import {
+  applyVisitOccupationalMedicineEmployerToEncounterExtensions,
+  getVisitOccupationalMedicineEmployerFromEncounter,
+} from 'utils/lib/fhir/encounter';
 import { UpdateVisitDetailsInput } from 'utils/lib/types/api/update-visit-details.types';
 import { EHRVisitDetails } from 'utils/lib/types/data/visit-details.types';
 
@@ -18,6 +21,13 @@ export const buildVisitEmployerUpdate = (
   appointmentId,
   bookingDetails: { visitOccupationalMedicineEmployer: employer ?? null },
 });
+
+/**
+ * Employer of a pre-op visit, off the Encounter. No fallback to the Account's occ-med / workers-comp
+ * employer: that one belongs to a different visit.
+ */
+export const getVisitEmployerDisplay = (encounter: Encounter | undefined): string | undefined =>
+  encounter ? getVisitOccupationalMedicineEmployerFromEncounter(encounter)?.display : undefined;
 
 /**
  * Writes a just-saved visit employer into the cached visit details, mirroring what the zambda

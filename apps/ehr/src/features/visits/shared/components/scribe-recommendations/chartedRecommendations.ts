@@ -6,7 +6,7 @@ import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.const
 import { ExamObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
 import { GetVitalsResponseData } from 'utils/lib/types/api/chart-data/get-vitals.types';
-import { useChartFields } from '../../hooks/useChartFields';
+import { useChartSection } from '../../hooks/useChartSection';
 import { useAppointmentData, useChartData } from '../../stores/appointment/appointment.store';
 import { useExamObservationsStore } from '../../stores/appointment/exam-observations.store';
 import { useRosObservationsStore } from '../../stores/appointment/ros-observations.store';
@@ -138,7 +138,9 @@ export const useChartSnapshot = (): ChartSnapshot => {
   // or Examination screen has to show up here immediately.
   const rosObservations = useRosObservationsStore();
   const examObservations = useExamObservationsStore();
-  const { data: hpiFields } = useChartFields({ requestedFields: { chiefComplaint: { _tag: 'chief-complaint' } } });
+  // The HPI paragraph, from the encounter-notes section the HPI screen writes to (legacy tagging: it is
+  // stored under the chief-complaint key).
+  const { data: encounterNotes } = useChartSection('encounterNotes');
   const { data: vitals } = useGetVitals(encounter?.id);
 
   return useMemo(
@@ -147,10 +149,10 @@ export const useChartSnapshot = (): ChartSnapshot => {
         chartData,
         rosObservations,
         examObservations,
-        historyOfPresentIllness: hpiFields?.chiefComplaint?.text,
+        historyOfPresentIllness: encounterNotes?.chiefComplaint?.text,
         vitals,
       }),
-    [chartData, rosObservations, examObservations, hpiFields, vitals]
+    [chartData, rosObservations, examObservations, encounterNotes, vitals]
   );
 };
 

@@ -121,6 +121,15 @@ export interface PdfClient {
   embedPdfFromBase64: (base64String: string) => Promise<void>;
   embedImageFromBase64: (base64String: string, imgType: SupportedObsImgAttachmentTypes) => Promise<void>;
   drawSeparatedLine: (lineStyle: LineStyle) => void;
+  drawFilledRectangle: (rectangle: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    color?: Color;
+    borderColor?: Color;
+    borderWidth?: number;
+  }) => void;
   getLeftBound: () => number;
   getRightBound: () => number;
   setLeftBound: (newBound: number) => void;
@@ -880,6 +889,8 @@ export interface UploadMetadata {
   patientId: string;
   fileName: string;
   bucketName: string;
+  /** Reuse one object per patient instead of writing a new timestamped one. */
+  stableKey?: boolean;
 }
 
 export type PdfResult = {
@@ -911,6 +922,12 @@ export interface ErxMedicationsData extends PdfData {
 
 export interface PatientInstructionsData extends PdfData {
   instructions: string[];
+}
+
+export interface PatientInstructionsPdfData extends PdfData {
+  patient: PatientInfoForDischargeSummary;
+  visit: VisitInfo;
+  patientInstructions?: PatientInstructionsData;
 }
 
 export interface EducationDocumentsData extends PdfData {
@@ -1092,6 +1109,12 @@ export interface ProgressNoteData extends PdfData {
   followupCompleted: FollowupCompleted;
   upcomingVisits: UpcomingVisitsData;
   signature: SignatureData;
+}
+
+export interface PatientInstructionsPdfInput {
+  allChartData: AllChartData;
+  appointmentPackage: FullAppointmentResourcePackage;
+  serviceCategories?: ServiceCategoryCatalogEntry[];
 }
 
 export interface DischargeSummaryInput {

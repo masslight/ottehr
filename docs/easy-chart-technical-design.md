@@ -37,7 +37,7 @@ flowchart TD
     C --> D["validateRequestParameters"]
     D --> E["authorizeEasyChartRequest<br/>role check + Encounter read check"]
     E --> F["readVisitContext<br/>age, sex, new or established"]
-    E --> G["readChart<br/>get-chart-data twice"]
+    E --> G["readChart<br/>buildVisitNote, one read"]
     E --> H["readTemplateTitles<br/>list-templates"]
     F --> I["buildPrompt plan"]
     G --> I
@@ -140,20 +140,19 @@ and the role check is skipped — that is what lets the eval harness run.
 | --------------------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------ |
 | `patientLine` — age, sex                      | Encounter → Patient, `_include=Encounter:subject`            | [`visit-context.ts`](../packages/zambdas/src/ehr/easy-chart-shared/visit-context.ts) |
 | `patientStatus` — new / established           | Appointment count for the patient in the last 3 years        | same file                                                                            |
-| `chartStateSummary` — everything on the chart | `getChartData` **twice**                                     | [`chart-state.ts`](../packages/utils/lib/easy-chart/chart-state.ts)                  |
+| `chartStateSummary` — everything on the chart | `buildVisitNote` (get-visit-note's builder), **one read**    | [`chart-state.ts`](../packages/utils/lib/easy-chart/chart-state.ts)                  |
 | `templateTitles`                              | `list-templates` zambda's `performEffect`, called in-process | `readTemplateTitles`                                                                 |
 
-**Why `getChartData` twice.** `get-chart-data` has two classes of field: the default set, and fields it
-fetches _only_ when named. Omitting one of the second class does not error — it returns an empty
-section, which is how hospitalizations were invisible for weeks. So: one unscoped call, one with
-`progressNoteChartDataRequestedFields` — the same pair, and the same field list, the visit-note PDF uses.
+**One read, the whole chart.** The chart is read through `buildVisitNote` — the builder behind
+`get-visit-note`, which is also what the visit-note PDF reads — so every section plus the vitals, lab
+results, radiology orders and participants arrive in one wave of batches. `wholeChartFromVisitNote`
+([`visit-note-chart.ts`](../packages/utils/lib/easy-chart/visit-note-chart.ts)) then folds the note into
+the one `GetChartDataResponse` object the prompt builders read. It used to be two `get-chart-data` calls
+merged, and a field left out of the second call rendered as an empty section — which is how
+hospitalizations were invisible for weeks. A fixed section set cannot lose a field that way.
 
 ```ts
-const [base, scoped] = await Promise.all([
-  getChartData(oystehr, token, encounterId),
-  getChartData(oystehr, token, encounterId, progressNoteChartDataRequestedFields),
-]);
-return { ...base.response, ...scoped.response }; // scoped is authoritative for its keys
+return wholeChartFromVisitNote(await buildVisitNote({ oystehr, m2mToken: token }, encounterId));
 ```
 
 **Why `patientStatus` matters enough to have its own lookup.** It picks the E&M code _family_:
@@ -889,7 +888,7 @@ what to fix.
 | -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
 | ambient-scribe transcripts | `aiChat` is fetched; nothing reads the transcript documents. No polling, no chips, no insert-into-composer                              |
 | prompt caching             | 0 cache reads measured on an 8 200-token static prefix                                                                                  |
-| plan latency               | two `getChartData` calls per request. The precompute path — plan cached on the transcript DocumentReference — was not carried over      |
+| plan latency               | one visit-note read per request (every section in one wave of batches). The precompute path — plan cached on the transcript DocumentReference — was not carried over |
 | `meta.patientStatus`       | absent on 128 of 191 harvested cases, so the E&M family is unmeasurable on that third. The backfill script needs production credentials |
 | CPT selection              | 2 correct out of 27 across two slices. The weakest section, never yet worked on                                                         |
 | exam catalogue scoring     | "2 cm linear laceration" auto-picked `skin-bite-sting`                                                                                  |

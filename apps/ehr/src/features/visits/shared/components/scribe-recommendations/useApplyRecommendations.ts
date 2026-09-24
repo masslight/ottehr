@@ -2,7 +2,6 @@ import { useQueryClient } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
 import { useCallback, useRef } from 'react';
 import { applyTemplate } from 'src/api/api';
-import { CHART_DATA_QUERY_KEY, CHART_FIELDS_QUERY_KEY } from 'src/constants';
 import { buildChartSnapshot } from 'src/features/easy-chart/executor/chartSnapshot';
 import { runPlan } from 'src/features/easy-chart/executor/runPlan';
 import { ExecutionMode, HandlerContext } from 'src/features/easy-chart/executor/types';
@@ -11,7 +10,7 @@ import { useChartWriter } from 'src/features/easy-chart/hooks/useChartWriter';
 import { useEasyChartData } from 'src/features/easy-chart/hooks/useEasyChartData';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { TemplateSectionActions } from 'utils/lib/types/data/apply-template.types';
-import { invalidateChartFields } from '../../hooks/useChartFields';
+import { invalidateChart } from '../../hooks/chartSectionCache';
 import { GET_MEDICATION_ORDERS_QUERY_KEY } from '../../stores/appointment/appointment.queries';
 import { useAppointmentData } from '../../stores/appointment/appointment.store';
 import { resetExamObservationsStore } from '../../stores/appointment/reset-exam-observations';
@@ -106,8 +105,9 @@ export const useApplyRecommendations = (): {
       // refetch below can repopulate them (same as ApplyTemplate does).
       resetExamObservationsStore();
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: [CHART_DATA_QUERY_KEY, encounterId] }),
-        queryClient.invalidateQueries({ queryKey: [CHART_FIELDS_QUERY_KEY, encounterId] }),
+        // The visit note is re-read, re-seeding every section entry the screens read from it, and the rest
+        // of the chart's entries are marked stale for the next screen that shows them (same as ApplyTemplate).
+        invalidateChart(queryClient, encounterId),
         queryClient.invalidateQueries({ queryKey: [GET_MEDICATION_ORDERS_QUERY_KEY] }),
       ]);
       for (const warning of result?.warnings ?? []) {
@@ -170,28 +170,18 @@ export const useApplyRecommendations = (): {
     [encounterId, applyTemplateRecommendation, refetchChart, catalogue, writer]
   );
 
-  // Reconcile every summary on screen with what the server actually stored: the chart itself, the note
-  // fields and lists that have field-level caches of their own, the vitals, and any orders a template placed.
+  // Reconcile every summary on screen with what the server actually stored: the chart, the vitals, and any
+  // orders a template placed.
   const reconcile = useCallback(async (): Promise<void> => {
-    await refetchChart();
-    invalidateChartFields(queryClient, encounterId, [
-      'chiefComplaint',
-      'historyOfPresentIllness',
-      'mechanismOfInjury',
-      'medicalDecision',
-      // The free-text ROS paragraph has a field cache of its own, apart from the ROS checkboxes.
-      'ros',
-      'medications',
-      'vitalsObservations',
-      'disposition',
-      'episodeOfCare',
-      'procedures',
-    ]);
     await Promise.all([
+      // The visit note is re-read in one call, re-seeding every section entry the screens read from it —
+      // the note fields, the lists, the ROS paragraph and the rest. A section variant it does not seed (a
+      // notes list of other types, say) is marked stale and re-read by the next screen that shows it.
+      invalidateChart(queryClient, encounterId),
       queryClient.invalidateQueries({ queryKey: [`current-encounter-vitals-${encounterId}`] }),
       queryClient.invalidateQueries({ queryKey: [GET_MEDICATION_ORDERS_QUERY_KEY] }),
     ]);
-  }, [refetchChart, queryClient, encounterId]);
+  }, [queryClient, encounterId]);
 
   const runApply = useCallback(
     (ids: string[], mode: ExecutionMode) => applyRecommendations(ids, run, { mode, reconcile }),

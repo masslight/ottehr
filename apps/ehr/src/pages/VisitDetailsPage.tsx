@@ -177,7 +177,7 @@ type EditDialogConfig =
   | {
       type: 'reason-for-visit';
       values: EditReasonForVisitParams;
-      keyTitleMap: { reasonForVisit: 'Reason for Visit'; additionalDetails: 'Additional Details' };
+      keyTitleMap: { reasonForVisit: "Reason for today's visit"; additionalDetails: 'Additional Details' };
       requiredKeys: string[];
     }
   | { type: 'nlg'; values: EditNLGParams; keyTitleMap: { guardians: 'Guardians' }; requiredKeys: string[] }
@@ -193,7 +193,7 @@ const dialogTitleFromType = (type: EditDialogConfig['type']): string => {
     case 'dob':
       return "Please enter patient's confirmed date of birth";
     case 'reason-for-visit':
-      return "Please enter patient's reason for visit";
+      return "Please enter patient's reason for today's visit";
     case 'nlg':
       return "Please enter patient's Authorized Non-Legal Guardians";
     case 'service-category':
@@ -492,6 +492,18 @@ export default function VisitDetailsPage(): ReactElement {
   });
   const hasOwnFollowUps = (ownFollowUpCount ?? 0) > 0;
   const isOwnFollowUpsUnresolved = ownFollowUpsQueryEnabled && isOwnFollowUpCountPending;
+
+  const parentEncounterId = encounter?.partOf?.reference?.replace('Encounter/', '');
+  const parentAppointmentQueryEnabled = Boolean(oystehr) && Boolean(parentEncounterId);
+  const { data: parentAppointmentId, isPending: isParentAppointmentPending } = useQuery({
+    queryKey: ['visit-details-parent-appointment', parentEncounterId],
+    queryFn: async (): Promise<string | undefined> =>
+      (
+        await oystehr!.fhir.get<Encounter>({ resourceType: 'Encounter', id: parentEncounterId! })
+      ).appointment?.[0]?.reference?.replace('Appointment/', ''),
+    enabled: parentAppointmentQueryEnabled,
+  });
+  const isParentAppointmentUnresolved = parentAppointmentQueryEnabled && isParentAppointmentPending;
 
   const {
     data: paymentData,
@@ -832,9 +844,9 @@ export default function VisitDetailsPage(): ReactElement {
   const docsMenuOpen = Boolean(docsMenuAnchor);
 
   const progressNoteUrl =
-    appointment?.id && encounter?.id
+    appointment?.id && encounter?.id && !isParentAppointmentUnresolved
       ? getInPersonUrlByAppointmentType(
-          { id: appointment.id, encounterId: encounter.id, isFollowUp: !!encounter.partOf },
+          { id: appointment.id, parentAppointmentId, encounterId: encounter.id, isFollowUp: !!encounter.partOf },
           isFollowupEncounter(encounter)
             ? getFollowUpProgressNotePathSegment(getFollowupSubtype(encounter))
             : ROUTER_PATH.REVIEW_AND_SIGN
@@ -1414,7 +1426,7 @@ export default function VisitDetailsPage(): ReactElement {
                         loading={loading}
                         patientDetails={{
                           'Service category': serviceCategoryLabel,
-                          'Reason for visit': reasonForVisit
+                          "Reason for today's visit": reasonForVisit
                             ? `${reasonForVisit}${additionalDetails ? ` - ${additionalDetails}` : ''}`
                             : undefined,
                           'Authorized non-legal guardian(s)': patient?.extension?.find(
@@ -1462,7 +1474,7 @@ export default function VisitDetailsPage(): ReactElement {
                               sx={{ mr: '5px', padding: '10px' }}
                             />
                           ),
-                          'Reason for visit': (
+                          "Reason for today's visit": (
                             <PencilIconButton
                               onClick={() =>
                                 setEditDialogConfig({
@@ -1475,7 +1487,7 @@ export default function VisitDetailsPage(): ReactElement {
                                     additionalDetails,
                                   },
                                   keyTitleMap: {
-                                    reasonForVisit: 'Reason for Visit',
+                                    reasonForVisit: "Reason for today's visit",
                                     additionalDetails: 'Additional Details',
                                   },
                                   requiredKeys: [],

@@ -9,25 +9,22 @@ import {
 } from 'src/features/visits/shared/components/NoteSectionHeading';
 import { makeCptCodeDisplay } from 'utils/lib/fhir/helpers';
 import { DiagnosisDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
-import { useProgressNoteChartFields } from '../../../hooks/useProgressNoteChartFields';
-import { useChartData } from '../../../stores/appointment/appointment.store';
+import { useVisitNote } from '../../../hooks/useVisitNote';
 import { AiAddedMark } from '../../scribe-recommendations/AiAddedMark';
 import { findAiAddedFor, useAiAddedRecommendations } from '../../scribe-recommendations/aiAddedMarks';
 
 export const AssessmentGroupContainer: FC = () => {
   const titleInCardHeader = useNoteSectionTitleInCardHeader();
-  const { chartData } = useChartData();
+  const { data: note } = useVisitNote();
   const theme = useTheme();
   const aiAdded = useAiAddedRecommendations();
 
-  const { data: chartFields } = useProgressNoteChartFields();
-
-  const diagnoses = chartData?.diagnosis;
+  const diagnoses = note?.assessment.diagnosis;
   const primaryDiagnosis = diagnoses?.find((item) => item.isPrimary);
   const otherDiagnoses = diagnoses?.filter((item) => !item.isPrimary);
-  const medicalDecision = chartFields?.medicalDecision?.text;
-  const emCode = chartData?.emCode;
-  const cptCodes = chartData?.cptCodes;
+  const medicalDecision = note?.encounterNotes.medicalDecision?.text;
+  const emCode = note?.assessment.emCode;
+  const cptCodes = note?.assessment.cptCodes;
 
   const diagnosisLine = (diagnosis: DiagnosisDTO): ReactNode => {
     const line = (

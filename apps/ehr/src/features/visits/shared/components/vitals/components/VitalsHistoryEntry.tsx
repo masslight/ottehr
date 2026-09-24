@@ -4,6 +4,7 @@ import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined';
 import { Box, IconButton, Typography, useTheme } from '@mui/material';
 import { DateTime } from 'luxon';
 import React, { JSX, useState } from 'react';
+import { vitalsConfig } from 'utils/lib/helpers/vitals/config-schema';
 import { formatBMIWithUnit } from 'utils/lib/helpers/vitals/vitals-bmi.helper';
 import { formatHeightObservationValue } from 'utils/lib/helpers/vitals/vitals-height.helper';
 import { celsiusToFahrenheit, roundTemperatureValue } from 'utils/lib/helpers/vitals/vitals-temperature.helper';
@@ -12,7 +13,6 @@ import {
   getVisionExtraOptionsFormattedString,
 } from 'utils/lib/helpers/vitals/vitals-vision.helper';
 import { formatWeightKg, formatWeightLbs } from 'utils/lib/helpers/vitals/vitals-weight.helper';
-import { vitalsConfig } from 'utils/lib/ottehr-config/vitals';
 import { VitalsObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { formatDateTimeToLocalTimezone } from 'utils/lib/utils/date';
 import { DeleteVitalModal } from '../DeleteVitalModal';

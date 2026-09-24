@@ -23,6 +23,7 @@ export const NIO_PREFERRED_SUBMISSION_EXTENSION_URL = 'https://fhir.ottehr.com/b
 export const NIO_PORTAL_NOTES_EXTENSION_URL = 'https://fhir.ottehr.com/billing/portal-submission-notes';
 export const NIO_WC_BILLING_MODE_EXTENSION_URL = 'https://fhir.ottehr.com/billing/wc-billing-mode';
 export const NIO_WC_PAYER_EXTENSION_URL = 'https://fhir.ottehr.com/billing/wc-insurance-payer';
+export const NIO_WC_SAME_AS_ORG_ADDRESS_EXTENSION_URL = 'https://fhir.ottehr.com/billing/wc-same-as-org-address';
 
 // Claim extension carrying the non-insurance payer responsible for the claim: a valueReference to
 // the NIO Organization in the billing workspace (e.g. the visit's occupational-medicine employer).
@@ -45,6 +46,8 @@ export interface NioWorkersCompCoverage {
   billingMode: NioWcBillingMode;
   payer?: BillingPayerOption;
   submission?: NioSubmission;
+  // Direct mode only: the submission mail address mirrors the NIO's own address.
+  sameAsOrgAddress?: boolean;
 }
 
 export interface NioStandardCoverage {

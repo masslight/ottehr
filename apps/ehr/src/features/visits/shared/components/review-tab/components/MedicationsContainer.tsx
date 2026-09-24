@@ -8,17 +8,23 @@ import {
 import { filterActiveMedications } from 'utils/lib/helpers/medications/current-medications.helper';
 import { NoteDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { AssessmentTitle } from '../../../../../../components/AssessmentTitle';
-import { useChartData } from '../../../stores/appointment/appointment.store';
+import { useVisitNote } from '../../../hooks/useVisitNote';
 import { AiAddedMark } from '../../scribe-recommendations/AiAddedMark';
 import { findAiAddedFor, useAiAddedRecommendations } from '../../scribe-recommendations/aiAddedMarks';
 
 export const MedicationsContainer: FC<{ notes?: NoteDTO[] }> = ({ notes }) => {
   const titleInCardHeader = useNoteSectionTitleInCardHeader();
-  const { chartData } = useChartData();
+  const { data: note } = useVisitNote();
   const theme = useTheme();
   const aiAdded = useAiAddedRecommendations();
 
-  const medications = useMemo(() => filterActiveMedications(chartData?.medications), [chartData?.medications]);
+  const medications = useMemo(
+    () =>
+      filterActiveMedications(
+        note?.history.medications.filter((medication) => medication.type !== 'prescribed-medication')
+      ),
+    [note?.history.medications]
+  );
 
   return (
     <Box

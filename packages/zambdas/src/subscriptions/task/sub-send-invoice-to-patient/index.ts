@@ -142,7 +142,16 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       type: RcmTaskCodings.sendInvoiceOutputInvoiceId,
       valueString: invoiceResponse.id,
     };
-    await updateTaskStatusAndOutput(oystehr, task, mapDisplayToInvoiceTaskStatus('sent'), [invoiceEntry]);
+    const stripeStatusEntry: TaskOutput = {
+      type: RcmTaskCodings.stripeInvoiceStatus,
+      valueString: sendInvoiceResponse.status ?? 'open',
+    };
+    await updateTaskStatusAndOutput({
+      oystehr,
+      task,
+      status: mapDisplayToInvoiceTaskStatus('sent'),
+      outputToAppend: [invoiceEntry, stripeStatusEntry],
+    });
     console.log('Task status and output updated');
 
     // Trigger statement generation explicitly so it only runs on a real send, not on refreshes.
@@ -184,7 +193,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const oystehr = createClinicalOystehrClient(m2mToken, secrets);
     console.log('updating task status to failed and output');
     const errorEntry = addErrorToInvoicingTaskOutput(error instanceof Error ? error.message : 'Unknown error');
-    await updateTaskStatusAndOutput(oystehr, task, mapDisplayToInvoiceTaskStatus('error'), [errorEntry]);
+    await updateTaskStatusAndOutput({
+      oystehr,
+      task,
+      status: mapDisplayToInvoiceTaskStatus('error'),
+      outputToAppend: [errorEntry],
+    });
     if (isInvalidEmailError(error)) {
       console.warn('Invoice not sent due to invalid patient email; task updated but error suppressed from Sentry');
       return { statusCode: 200, body: JSON.stringify({ message: 'Invoice skipped: invalid patient email' }) };

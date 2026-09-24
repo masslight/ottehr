@@ -1153,7 +1153,7 @@ export const CODE_CHECKS: {
     answers: { Wounds: [{ Site: 'trunk', 'Length (cm)': 2, Closure: 'single layer' }] },
     billed: { code: '12004' },
     verdict: 'not supported',
-    because: 'Selected code, quantity or modifiers do not match the structured answers.',
+    because: 'The answers support 12001 instead.',
   },
   {
     visit: 'An office-visit code sits on the same visit — not this procedure’s business',
@@ -1168,7 +1168,7 @@ export const CODE_CHECKS: {
     answers: { 'Collection type': 'abscess', 'Drainage method': 'incision' },
     billed: { code: '10061' },
     verdict: 'not supported',
-    because: 'Selected code, quantity or modifiers do not match the structured answers.',
+    because: 'The answers support 10060 instead.',
   },
   {
     visit: 'One abscess drained, and the simple code was billed',
@@ -1190,7 +1190,7 @@ export const CODE_CHECKS: {
     answers: { 'Collection type': 'abscess', 'Drainage method': 'needle', 'Distinct collections': 5 },
     billed: { code: '10160', units: 1 },
     verdict: 'not supported',
-    because: 'Selected code, quantity or modifiers do not match the structured answers.',
+    because: 'The answers support 5 units of 10160; 1 unit selected.',
   },
   {
     visit: 'Both ears irrigated and billed as one bilateral line',
@@ -1213,7 +1213,7 @@ export const CODE_CHECKS: {
     },
     billed: { code: '69209' },
     verdict: 'not supported',
-    because: 'Selected code, quantity or modifiers do not match the structured answers.',
+    because: 'The answers support 69209 with modifier 50.',
   },
   {
     visit: 'The practice recorded and read the tracing, but only the tracing code was billed',
@@ -1231,6 +1231,26 @@ export const CODE_CHECKS: {
     answers: { 'Deepest burn degree treated': 'partial thickness', 'Treated partial-thickness body surface (%)': 3 },
     billed: { code: '16020' },
     verdict: 'supported',
+  },
+  {
+    visit: 'Two recordings, and the repeat was billed with the wrong modifier',
+    procedure: EKG,
+    answers: { 'Component furnished': 'tracing and report', 'Same-day recordings': 2 },
+    billed: { code: '93000', modifiers: ['59'] },
+    verdict: 'not supported',
+    because: 'The answers support 93000 with no modifier and with modifier 76.',
+  },
+  {
+    visit: 'Half an hour of fluid replacement billed as the hydration hour',
+    procedure: INJECTION,
+    answers: {
+      Administrations: [
+        { Route: 'IV hydration', Drug: 'normal saline', 'IV access site': 'left arm', Start: '10:00', Stop: '10:30' },
+      ],
+    },
+    billed: { code: '96360' },
+    verdict: 'not supported',
+    because: 'The answers support no code for this service.',
   },
   {
     visit: 'A code billed while the form is still unfinished — nothing is judged yet',

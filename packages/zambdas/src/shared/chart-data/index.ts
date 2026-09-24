@@ -58,6 +58,7 @@ import {
 } from 'utils/lib/helpers/operations';
 import { CODE_SYSTEM_ICD_10 } from 'utils/lib/helpers/rcm/constants';
 import { isNoteEdited } from 'utils/lib/helpers/visit-note/note-edit-detection.helper';
+import { VitalsSchema } from 'utils/lib/helpers/vitals/config-schema';
 import { getVitalObservationFhirInterpretations } from 'utils/lib/helpers/vitals/utils';
 import { patientScreeningQuestionsConfig } from 'utils/lib/ottehr-config/screening-questions';
 import { parseStructuredFacts } from 'utils/lib/procedure-coding/structured-fields';
@@ -423,8 +424,9 @@ export function makeObservationResource(
   documentReferenceCreateUrl: string | undefined,
   data: ObservationDTO,
   metaSystem: string,
-  patientDOB?: string,
-  patientSex?: string
+  patientDOB: string | undefined,
+  patientSex: string | undefined,
+  vitalsAlertConfig: VitalsSchema | undefined
 ): Observation {
   const base: Observation = {
     id: data.resourceId,
@@ -453,14 +455,15 @@ export function makeObservationResource(
 
   if (isVitalObservation(data)) {
     let interpretation: Observation['interpretation'];
-    if (patientDOB) {
+    if (patientDOB && vitalsAlertConfig) {
       interpretation = getVitalObservationFhirInterpretations({
         patientDOB,
         vitalsObservation: data,
         patientSex,
+        config: vitalsAlertConfig,
       });
     }
-    return fillVitalObservationAttributes({ ...base, interpretation }, data, patientDOB);
+    return fillVitalObservationAttributes({ ...base, interpretation }, data, patientDOB, vitalsAlertConfig);
   }
 
   if (isObservationBooleanFieldDTO(data)) {
@@ -2036,6 +2039,22 @@ export const readProcedureFormFieldsFromServiceRequest = (sr: ServiceRequest): P
   consentObtained: getExtension(sr, FHIR_EXTENSION.ServiceRequest.consentObtained.url)?.valueBoolean,
 });
 
+/** An extension that states its content as a value[x], with no nested extensions. */
+type ValueOnlyExtension = Extension & { extension?: never };
+
+/**
+ * FHIR invariant ext-1: an extension carries either a value or nested extensions. Our array is flat
+ * today, so only the value half is checked here. The parameter type is what keeps that safe: adding
+ * a nested extension to the array fails to compile, and this function can be updated to handle it.
+ */
+const extensionCarriesValue = (extension: ValueOnlyExtension): boolean =>
+  Object.entries(extension).some(([key, value]) => {
+    if (!key.startsWith('value')) return false;
+    if (typeof value === 'string') return value.trim().length > 0;
+    if (typeof value === 'number') return Number.isFinite(value);
+    return value != null;
+  });
+
 const toFhirCode = (value: string | undefined): string | undefined => {
   if (value == null) {
     return undefined;
@@ -2051,7 +2070,7 @@ export const createProcedureServiceRequest = (
   const procedureTypeCode = toFhirCode(procedure.procedureType);
   const performerTypeCode = toFhirCode(procedure.performerType);
   const bodySiteCode = toFhirCode(procedure.bodySite);
-  const extensions: Extension[] = [
+  const extensions: ValueOnlyExtension[] = [
     {
       url: FHIR_EXTENSION.ServiceRequest.medicationUsed.url,
       valueString: procedure.medicationUsed,
@@ -2122,9 +2141,7 @@ export const createProcedureServiceRequest = (
       url: FHIR_EXTENSION.ServiceRequest.consentObtained.url,
       valueBoolean: procedure.consentObtained,
     },
-  ].filter(
-    (extension) => extension.valueString != null || extension.valueBoolean != null || extension.valueDecimal != null
-  );
+  ].filter(extensionCarriesValue);
   // Linked Condition/Procedure references are usually plain ids that get the
   // FHIR resource-type prefix. Callers building requests for a FHIR transaction
   // can also pass a urn:uuid pre-formatted reference (e.g. the apply-template
@@ -2236,10 +2253,16 @@ export function makeEncounterTaskResource(encounterId: string, coding: TaskCodin
   };
 }
 
+export function findAccidentConditions(resources: Resource[]): Condition[] {
+  return (
+    resources.filter(
+      (resource) => resource?.resourceType === 'Condition' && chartDataResourceHasMetaTagByCode(resource, 'accident')
+    ) as Condition[]
+  ).sort((a, b) => (b.meta?.lastUpdated ?? '').localeCompare(a.meta?.lastUpdated ?? ''));
+}
+
 export function makeAccidentDTOFromFhirResources(resources: FhirResource[]): AccidentDTO | undefined {
-  const accidentCondition = resources.find(
-    (resource) => resource?.resourceType === 'Condition' && chartDataResourceHasMetaTagByCode(resource, 'accident')
-  ) as Condition;
+  const accidentCondition = findAccidentConditions(resources)[0];
   if (accidentCondition == null) {
     return undefined;
   }

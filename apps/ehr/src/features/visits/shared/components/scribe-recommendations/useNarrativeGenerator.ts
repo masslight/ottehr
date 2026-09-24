@@ -1,6 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback } from 'react';
-import { CHART_DATA_QUERY_KEY } from 'src/constants';
+import { invalidateChartSections } from '../../hooks/chartSectionCache';
 import { useOystehrAPIClient } from '../../hooks/useOystehrAPIClient';
 import { useAppointmentData } from '../../stores/appointment/appointment.store';
 import { NarrativeGenerator } from './scribeRecommendations.store';
@@ -25,9 +25,9 @@ export const useNarrativeGenerator = (): NarrativeGenerator => {
     async (transcript: string, documentId?: string) => {
       if (!apiClient || !encounterId) throw new Error('The visit is still loading. Please try again.');
       const response = await apiClient.easyChartNarrative({ transcript, encounterId, documentId });
-      // The document in chart data now carries the stored narrative; refetch so a re-pick reads it rather than
-      // generating again. Not awaited: the lines are ready, and the refetch is bookkeeping.
-      if (documentId) void queryClient.invalidateQueries({ queryKey: [CHART_DATA_QUERY_KEY, encounterId] });
+      // The document in the aiChat section now carries the stored narrative; re-read that section so a re-pick
+      // reads it rather than generating again. Not awaited: the lines are ready, and the refetch is bookkeeping.
+      if (documentId) void invalidateChartSections(queryClient, encounterId, ['aiChat']);
       return response.lines;
     },
     [apiClient, queryClient, encounterId]

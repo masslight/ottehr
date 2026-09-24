@@ -281,4 +281,36 @@ describe('search-billing-custom-insurance-orgs', () => {
     expect(params).toContainEqual({ name: '_id', value: ORG_ID });
     expect(params.some((p: { name: string }) => p.name === 'active')).toBe(false);
   });
+
+  it('searches by name when the query is not shaped like a business id', async () => {
+    const { oystehr, search } = makeOystehr();
+    search.mockResolvedValue({ unbundle: () => [], total: 0 });
+
+    await searchInsuranceOrgs(oystehr, { name: 'Acme', secrets: null });
+
+    const params = search.mock.calls[0][0].params;
+    expect(params).toContainEqual({ name: 'name', value: 'Acme' });
+    expect(params.some((p: { name: string }) => p.name === 'identifier')).toBe(false);
+  });
+
+  it('searches by the business-id identifier instead of name when the query looks like one', async () => {
+    const { oystehr, search } = makeOystehr();
+    search.mockResolvedValue({ unbundle: () => [orgResource], total: 1 });
+
+    await searchInsuranceOrgs(oystehr, { name: 'OTR-ACME', secrets: null });
+
+    const params = search.mock.calls[0][0].params;
+    expect(params).toContainEqual({ name: 'identifier', value: `${CUSTOM_INSURANCE_ORG_ID_SYSTEM}|OTR-ACME` });
+    expect(params.some((p: { name: string }) => p.name === 'name')).toBe(false);
+  });
+
+  it('normalizes a lowercase-typed business-id prefix without touching the suffix case', async () => {
+    const { oystehr, search } = makeOystehr();
+    search.mockResolvedValue({ unbundle: () => [orgResource], total: 1 });
+
+    await searchInsuranceOrgs(oystehr, { name: 'otr-AcMe', secrets: null });
+
+    const params = search.mock.calls[0][0].params;
+    expect(params).toContainEqual({ name: 'identifier', value: `${CUSTOM_INSURANCE_ORG_ID_SYSTEM}|OTR-AcMe` });
+  });
 });

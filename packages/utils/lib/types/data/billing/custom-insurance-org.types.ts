@@ -14,6 +14,10 @@ export const CUSTOM_INSURANCE_ORG_KIND_CODE = 'insurance-organization';
 // Organization.identifier.system for the user-entered "OTR-" business id.
 export const CUSTOM_INSURANCE_ORG_ID_SYSTEM = 'https://fhir.ottehr.com/billing/insurance-organization-id';
 
+// Every business id starts with this — a payer search matching it is an id lookup, not a name search
+// (see search-billing-custom-insurance-orgs).
+export const CUSTOM_INSURANCE_ORG_ID_PREFIX = 'OTR-';
+
 // Organization.type coding system for the zero-or-more insurance-type checkboxes.
 export const CUSTOM_INSURANCE_ORG_TYPE_SYSTEM = 'https://fhir.ottehr.com/billing/insurance-organization-type';
 
