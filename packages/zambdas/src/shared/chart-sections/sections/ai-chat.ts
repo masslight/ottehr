@@ -21,29 +21,38 @@ export const aiChatSection: ChartSectionDefinition<'aiChat'> = {
       _tag: `${PRIVATE_EXTENSION_BASE_URL}/${AI_OBSERVATION_META_SYSTEM}|`,
     }),
   ],
-  build: async ({ encounter, encounterId, oystehr }, resources) => {
+  build: async ({ encounter, encounterId, oystehr, knownPractitioners = [] }, resources) => {
     const mapped = mapChartResources(encounter, resources, encounterId, {
       aiChat: { documents: [], providers: [] },
       observations: [],
     });
     const aiChat = mapped.aiChat ?? { documents: [], providers: [] };
 
-    const practitionerIds = aiChat.documents
-      .map(
-        (document) =>
-          document.extension
-            ?.find((extension) => extension.url === `${PUBLIC_EXTENSION_BASE_URL}/provider`)
-            ?.valueReference?.reference?.split('/')[1]
-      )
-      .filter((practitionerId): practitionerId is string => practitionerId != null);
-    if (practitionerIds.length > 0) {
-      aiChat.providers = (
-        await oystehr.fhir.search<Practitioner>({
-          resourceType: 'Practitioner',
-          params: [{ name: '_id', value: [...new Set(practitionerIds)].join(',') }],
-        })
-      ).unbundle();
-    }
+    const practitionerIds = [
+      ...new Set(
+        aiChat.documents
+          .map(
+            (document) =>
+              document.extension
+                ?.find((extension) => extension.url === `${PUBLIC_EXTENSION_BASE_URL}/provider`)
+                ?.valueReference?.reference?.split('/')[1]
+          )
+          .filter((practitionerId): practitionerId is string => practitionerId != null)
+      ),
+    ];
+    // The provider is almost always one of the visit's participants, which the visit note has already read.
+    const known = knownPractitioners.filter((practitioner) => practitionerIds.includes(practitioner.id ?? ''));
+    const missingIds = practitionerIds.filter((id) => !known.some((practitioner) => practitioner.id === id));
+    const fetched =
+      missingIds.length > 0
+        ? (
+            await oystehr.fhir.search<Practitioner>({
+              resourceType: 'Practitioner',
+              params: [{ name: '_id', value: missingIds.join(',') }],
+            })
+          ).unbundle()
+        : [];
+    aiChat.providers = [...known, ...fetched];
 
     return { aiChat, observations: mapped.observations ?? [] };
   },

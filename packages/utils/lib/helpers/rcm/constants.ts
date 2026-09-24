@@ -289,3 +289,19 @@ export const CODE_SYSTEM_SERVICE_CATEGORY_CODES = {
 
 export const CODE_SYSTEM_CLAIM_SECONDARY_IDENTIFIER_TYPE =
   'https://terminology.fhir.oystehr.com/CodeSystem/rcm-claim-secondary-identifier-type';
+
+export type CLAIM_ACCIDENT_TYPE = 'auto' | 'employment' | 'other';
+export const CLAIM_ACCIDENT_TYPES: Array<CLAIM_ACCIDENT_TYPE> = ['auto', 'employment', 'other'] as const;
+export const CLAIM_ACCIDENT_TYPE_EXTENSION_URLS: Record<CLAIM_ACCIDENT_TYPE, string> = {
+  auto: 'https://extensions.fhir.oystehr.com/rcm-claim-auto-accident',
+  employment: 'https://extensions.fhir.oystehr.com/rcm-claim-employment-accident',
+  other: 'https://extensions.fhir.oystehr.com/rcm-claim-other-accident',
+} as const;
+export const CLAIM_ACCIDENT_TYPE_DISPLAY_VALUES: Record<CLAIM_ACCIDENT_TYPE, string> = {
+  auto: 'Auto Accident',
+  employment: 'Employment Accident',
+  other: 'Other Accident',
+} as const;
+export const CLAIM_ACCIDENT_STATE_EXTENSION_URL = 'https://extensions.fhir.oystehr.com/rcm-claim-auto-accident-state';
+export const CODE_SYSTEM_CLAIM_ACCIDENT_DATE = 'https://terminology.fhir.oystehr.com/CodeSystem/rcm-claim-date-type';
+export const CODE_SYSTEM_CLAIM_ACCIDENT_DATE_CODE = '439';

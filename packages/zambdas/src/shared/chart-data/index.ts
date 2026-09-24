@@ -2252,10 +2252,16 @@ export function makeEncounterTaskResource(encounterId: string, coding: TaskCodin
   };
 }
 
+export function findAccidentConditions(resources: Resource[]): Condition[] {
+  return (
+    resources.filter(
+      (resource) => resource?.resourceType === 'Condition' && chartDataResourceHasMetaTagByCode(resource, 'accident')
+    ) as Condition[]
+  ).sort((a, b) => (b.meta?.lastUpdated ?? '').localeCompare(a.meta?.lastUpdated ?? ''));
+}
+
 export function makeAccidentDTOFromFhirResources(resources: FhirResource[]): AccidentDTO | undefined {
-  const accidentCondition = resources.find(
-    (resource) => resource?.resourceType === 'Condition' && chartDataResourceHasMetaTagByCode(resource, 'accident')
-  ) as Condition;
+  const accidentCondition = findAccidentConditions(resources)[0];
   if (accidentCondition == null) {
     return undefined;
   }

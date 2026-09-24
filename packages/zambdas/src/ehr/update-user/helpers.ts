@@ -1,5 +1,8 @@
+import { Extension, Practitioner } from 'fhir/r4b';
+import { PROVIDER_TYPE_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { RoleType, User } from 'utils/lib/types/api/user.types';
 import { NOT_AUTHORIZED } from 'utils/lib/types/errors';
+import { removeExtension, updateExtension } from '../../shared/helpers';
 
 /** Roles permitted to edit anyone's record and to assign roles. */
 export const USER_EDIT_ADMIN_ROLES = [RoleType.Administrator, RoleType.CustomerSupport];
@@ -33,3 +36,14 @@ export const resolveEffectiveRoles = (
   targetUser: Pick<User, 'roles'>
 ): RoleType[] | undefined =>
   callerIsAdmin ? submittedRoles : (targetUser.roles?.map((role) => role.name) as RoleType[] | undefined);
+
+export const applyProviderTypeExtension = (
+  practitioner: Practitioner,
+  providerTypeExtension: Extension[] | undefined
+): void => {
+  if (providerTypeExtension?.length) {
+    providerTypeExtension.forEach((extension) => updateExtension(practitioner, extension));
+  } else {
+    removeExtension(practitioner, PROVIDER_TYPE_EXTENSION_URL);
+  }
+};

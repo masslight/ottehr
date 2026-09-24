@@ -16,7 +16,7 @@ import { createClinicalOystehrClient } from '../../shared/helpers';
 import { getRoleId } from '../../shared/rolesUtils';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
-import { authorizeUserEdit, resolveEffectiveRoles } from './helpers';
+import { applyProviderTypeExtension, authorizeUserEdit, resolveEffectiveRoles } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'update-user';
@@ -235,6 +235,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         existingPractitionerResource.birthDate = birthDate;
       }
 
+      applyProviderTypeExtension(existingPractitionerResource, providerTypeExtension);
+
       const existingAddress = existingPractitionerResource.address || [];
       let workAddressIndex = existingAddress.findIndex((address) => address.use === 'work');
       let updatedAddress = [...existingAddress];
@@ -271,7 +273,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         photo: existingPractitionerResource.photo,
         name: name ? [name] : undefined,
         qualification: practitionerQualificationExtension,
-        extension: providerTypeExtension,
+        extension: existingPractitionerResource.extension,
         telecom: updatedTelecom.length > 0 ? updatedTelecom : undefined,
         address: updatedAddress.length > 0 ? updatedAddress : undefined,
         birthDate: birthDate ? birthDate : undefined,

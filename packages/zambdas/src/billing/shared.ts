@@ -1177,6 +1177,8 @@ const CopyableProperties: ResourceProperties<CopyableBillingResource> = {
     'relationship',
     'class',
     'type',
+    // extension carries the insurance type for oystehr rcm service
+    'extension',
   ],
   // extension carries the CMS place-of-service and timezone, which claim building derives from.
   Location: ['resourceType', 'extension', 'identifier', 'address', 'description', 'name', 'telecom', 'type'],
@@ -1802,4 +1804,81 @@ export function getClaimAttachmentUrl(
   fileName: string
 ): string {
   return `${projectApi}/z3/${BILLING_APP_BUCKET(projectId)}/${CLAIM_ATTACHMENT_OBJECT_PATH(claimId, fileName)}`;
+}
+
+function getClaimSupportingInfoIndex(
+  claim: Claim,
+  categorySystem: string,
+  categoryCode: string,
+  codingSystem: string,
+  codingCode: string
+): number {
+  return (
+    claim.supportingInfo?.findIndex(
+      (info) =>
+        info.category.coding?.some(
+          (catCoding) => catCoding.system === categorySystem && catCoding.code === categoryCode
+        ) &&
+        info.code?.coding?.some((codeCoding) => codeCoding.system === codingSystem && codeCoding.code === codingCode)
+    ) ?? -1
+  );
+}
+
+export function getClaimSupportingInfo(
+  claim: Claim,
+  categorySystem: string,
+  categoryCode: string,
+  codingSystem: string,
+  codingCode: string
+): ClaimSupportingInfo | undefined {
+  const infoIndex = getClaimSupportingInfoIndex(claim, categorySystem, categoryCode, codingSystem, codingCode);
+  if (infoIndex >= 0) {
+    return claim.supportingInfo?.[infoIndex];
+  }
+  return undefined;
+}
+
+export function updateClaimSupportingInfo(
+  claim: Claim,
+  categorySystem: string,
+  categoryCode: string,
+  codingSystem: string,
+  codingCode: string,
+  newInfo: Partial<ClaimSupportingInfo>
+): void {
+  claim.supportingInfo ??= [];
+  const infoIndex = getClaimSupportingInfoIndex(claim, categorySystem, categoryCode, codingSystem, codingCode);
+  if (infoIndex >= 0) {
+    claim.supportingInfo[infoIndex] = {
+      ...claim.supportingInfo[infoIndex],
+      ...newInfo,
+    };
+  } else {
+    claim.supportingInfo.push({
+      sequence: claim.supportingInfo.length + 1,
+      category: { coding: [{ system: categorySystem, code: categoryCode }] },
+      code: { coding: [{ system: codingSystem, code: codingCode }] },
+      ...newInfo,
+    });
+  }
+}
+
+export function removeClaimSupportingInfo(
+  claim: Claim,
+  categorySystem: string,
+  categoryCode: string,
+  codingSystem: string,
+  codingCode: string
+): void {
+  claim.supportingInfo ??= [];
+  const infoIndex = getClaimSupportingInfoIndex(claim, categorySystem, categoryCode, codingSystem, codingCode);
+  if (infoIndex >= 0) {
+    claim.supportingInfo = [
+      ...claim.supportingInfo.slice(0, infoIndex),
+      ...claim.supportingInfo.slice(infoIndex + 1).map((info) => {
+        info.sequence -= 1;
+        return info;
+      }),
+    ];
+  }
 }

@@ -249,8 +249,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       return visitStatus === 'completed';
     }
 
-    // Default: incomplete - exclude terminal states
-    const terminalStates = ['completed', 'cancelled', 'no-show'];
+    // Default: incomplete - exclude terminal states. Narrower than FINISHED_VISIT_STATUSES on
+    // purpose: a visit awaiting supervisor approval still needs work, so it stays incomplete.
+    const terminalStates = ['completed', 'cancelled', 'no show'];
     return !terminalStates.includes(visitStatus);
   });
 
