@@ -14,6 +14,7 @@ import { BillingProviderOption } from 'utils/lib/types/data/billing/billing.type
 import { searchBillingProviders } from '../api/api';
 import { useApiClients } from '../hooks/useAppClients';
 import { useProviderOptionsSearch } from '../hooks/useOptionSearch';
+import { formatTaxId } from '../utils/format';
 
 // Searchable provider picker over the rendering/billing provider reference resources (the ones the
 // provider management pages list). It stores the encoded FHIR reference "Practitioner/<id>" /
@@ -26,6 +27,7 @@ interface ProviderRefOption {
   ref: string;
   name: string;
   npi?: string;
+  taxId?: string;
 }
 
 interface ProviderSelectProps {
@@ -40,6 +42,9 @@ interface ProviderSelectProps {
   error?: boolean;
   helperText?: ReactNode;
   inputRef?: Ref<HTMLInputElement>;
+  // label providers "Name (Tax ID 12-3456789, NPI 1234567890)" — how a remit names its payee
+  showTaxId?: boolean;
+  fullWidth?: boolean;
 }
 
 const toRef = (provider: BillingProviderOption): string =>
@@ -49,10 +54,17 @@ const toOption = (provider: BillingProviderOption): ProviderRefOption => ({
   ref: toRef(provider),
   name: provider.name,
   npi: provider.npi || undefined,
+  taxId: provider.taxId || undefined,
 });
 
-const optionLabel = (option: ProviderRefOption): string =>
-  option.name ? (option.npi ? `${option.name} (NPI ${option.npi})` : option.name) : option.ref;
+const optionLabel = (option: ProviderRefOption, showTaxId?: boolean): string => {
+  if (!option.name) return option.ref;
+  const ids = [
+    showTaxId && option.taxId ? `Tax ID ${formatTaxId(option.taxId)}` : '',
+    option.npi ? `NPI ${option.npi}` : '',
+  ].filter(Boolean);
+  return ids.length ? `${option.name} (${ids.join(', ')})` : option.name;
+};
 
 // The shared debounced provider search plus a memory of providers we've seen, so a selected
 // provider keeps its label after the option list changes. Stored refs the search hasn't surfaced
@@ -119,18 +131,22 @@ export function ProviderSelect({
   error,
   helperText,
   inputRef,
+  showTaxId,
+  fullWidth,
 }: ProviderSelectProps): ReactElement {
   const { options, known, search } = useProviderSearch(providerRole, value);
+  const labelOf = (option: ProviderRefOption): string => optionLabel(option, showTaxId);
 
   // Props shared by the single- and multi-select variants (the PayerSelect pattern).
   const shared = {
     size: 'small' as const,
+    fullWidth,
     filterOptions: (x: ProviderRefOption[]): ProviderRefOption[] => x,
     isOptionEqualToValue: (option: ProviderRefOption, v: ProviderRefOption): boolean => option.ref === v.ref,
-    getOptionLabel: optionLabel,
+    getOptionLabel: labelOf,
     renderOption: (props: HTMLAttributes<HTMLLIElement>, option: ProviderRefOption): ReactElement => (
       <li {...props} key={option.ref}>
-        {optionLabel(option)}
+        {labelOf(option)}
       </li>
     ),
     onOpen: () => search(),

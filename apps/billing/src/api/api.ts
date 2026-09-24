@@ -4,6 +4,7 @@ import { RefreshReportKind } from 'utils/lib/types/data/billing/billing.constant
 import {
   AddClaimAttachmentInputSchema,
   AddClaimNoteInputSchema,
+  AddEraAttachmentInputSchema,
   BulkAddChargeItemDefinitionProcedureCodesInputSchema,
   CreateBillingClaimInputSchema,
   CreateBillingCoverageInputSchema,
@@ -15,8 +16,10 @@ import {
   DeleteBillingTagInputSchema,
   DeleteChargeItemDefinitionInputSchema,
   DeleteClaimAttachmentInputSchema,
+  DeleteEraAttachmentInputSchema,
   DeleteServiceFacilityInputSchema,
   DownloadClaimAttachmentInputSchema,
+  DownloadEraAttachmentInputSchema,
   ExportBillingClaimsInputSchema,
   ExportClaimX12InputSchema,
   GetBillingClaimsExportStatusInputSchema,
@@ -36,8 +39,10 @@ import {
   PatientPaymentsDrilldownParamsSchema,
   RecordBillingManualPaymentInputSchema,
   RenameClaimAttachmentInputSchema,
+  RenameEraAttachmentInputSchema,
   ReportDateWindowParams,
   SaveBillingTagInputSchema,
+  SaveManualEraInputSchema,
   SaveServiceFacilityInputSchema,
   SearchBillingClaimsInputSchema,
   SearchBillingLocationsInputSchema,
@@ -59,6 +64,7 @@ import {
 } from 'utils/lib/types/data/billing/billing.schemas';
 import {
   AddClaimAttachmentResponse,
+  AddEraAttachmentResponse,
   BillingChargeItemDefinition,
   BillingClaimsExportKickOffResponse,
   BillingClaimsExportStatusResponse,
@@ -69,6 +75,7 @@ import {
   CreatedResourceResponse,
   DeletedResponse,
   DownloadClaimAttachmentResponse,
+  DownloadEraAttachmentResponse,
   EraDetailResponse,
   ExportClaimX12Response,
   GetBillingCardsOnFileReportResponse,
@@ -86,6 +93,7 @@ import {
   PatientDetailResponse,
   RecordBillingManualPaymentResponse,
   SavedResourceResponse,
+  SaveManualEraResponse,
   SearchBillingClaimsResponse,
   SearchBillingErasResponse,
   SearchBillingLocationsResponse,
@@ -485,6 +493,11 @@ export const getBillingEraDetail = (
 export const importEra = (oystehr: Oystehr, parameters: z.input<typeof ImportEraInputSchema>): Promise<any> =>
   executeBillingZambda(oystehr, 'import-era', parameters);
 
+export const saveBillingManualEra = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof SaveManualEraInputSchema>
+): Promise<SaveManualEraResponse> => executeBillingZambda(oystehr, 'save-billing-manual-era', parameters);
+
 export const matchClaimResponseToClaim = (
   oystehr: Oystehr,
   parameters: z.input<typeof MatchClaimResponseToClaimInputSchema>
@@ -558,3 +571,32 @@ export const downloadClaimAttachment = (
   oystehr: Oystehr,
   parameters: z.input<typeof DownloadClaimAttachmentInputSchema>
 ): Promise<DownloadClaimAttachmentResponse> => executeBillingZambda(oystehr, 'download-claim-attachment', parameters);
+
+// --- ERA Attachments ---
+
+export const addEraAttachment = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof AddEraAttachmentInputSchema>
+): Promise<AddEraAttachmentResponse> => executeBillingZambda(oystehr, 'add-era-attachment', parameters);
+
+export const renameEraAttachment = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof RenameEraAttachmentInputSchema>
+): Promise<OkResponse> => executeBillingZambda(oystehr, 'rename-era-attachment', parameters);
+
+export const deleteEraAttachment = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof DeleteEraAttachmentInputSchema>
+): Promise<DeletedResponse> => executeBillingZambda(oystehr, 'delete-era-attachment', parameters);
+
+export const downloadEraAttachment = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof DownloadEraAttachmentInputSchema>
+): Promise<DownloadEraAttachmentResponse> => executeBillingZambda(oystehr, 'download-era-attachment', parameters);
+
+// PUTs a file to a presigned Z3 upload URL; throws when storage refuses it, so the caller can clean up
+// the attachment record it created for the upload.
+export async function uploadFileToPresignedUrl(uploadUrl: string, file: File): Promise<void> {
+  const response = await fetch(uploadUrl, { method: 'PUT', headers: { 'Content-Type': file.type }, body: file });
+  if (!response.ok) throw new Error(`The file could not be uploaded (${response.status})`);
+}

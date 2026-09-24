@@ -61,6 +61,7 @@ const mainRemit: EraClaimRemit = {
           amount: 310.95,
         },
       ],
+      remarkCodes: [],
     },
     {
       itemSequence: 2,
@@ -83,6 +84,7 @@ const mainRemit: EraClaimRemit = {
           amount: 275.62,
         },
       ],
+      remarkCodes: [],
     },
     {
       itemSequence: 3,
@@ -115,6 +117,7 @@ const mainRemit: EraClaimRemit = {
           amount: 230.02,
         },
       ],
+      remarkCodes: [],
     },
   ],
   notes: ['Alert: processed under network agreement'],
@@ -193,6 +196,7 @@ const unmatchedClaim: EraClaimListItem = {
               amount: 25,
             },
           ],
+          remarkCodes: [],
         },
       ],
       notes: [],
@@ -219,6 +223,14 @@ const reversedClaim: EraClaimListItem = {
 
 const makeEra = (): EraDetailResponse => ({
   id: 'era-1',
+  source: 'clearing-house',
+  versionId: '1',
+  remitDate: '',
+  depositDate: '',
+  notes: '',
+  enteredBy: '',
+  enteredAt: '',
+  attachments: [],
   checkNumber: '26TRACE0001234567',
   checkDate: '2026-08-07',
   createdDate: '2026-08-03',
@@ -294,7 +306,7 @@ describe('EraClaimDetail', () => {
     expect(screen.getAllByText('08/03/2026').length).toBeGreaterThan(0);
     expect(screen.getByText('Sunrise Pediatric Urgent Care (NPI 1234567893)')).toBeInTheDocument();
     expect(
-      screen.getByText('PR-27 — Expenses incurred after coverage terminated.; PR-3 — Co-payment amount.')
+      screen.getByText('PR-27 — Expenses incurred after coverage terminated.; PR-3 — Co-payment Amount')
     ).toBeInTheDocument();
   });
 
@@ -350,6 +362,22 @@ describe('EraClaimDetail', () => {
 
     expect(await screen.findByText('10060')).toBeInTheDocument();
     expect(screen.getByText('99203:25')).toBeInTheDocument();
+  });
+
+  it('lists a line’s remark codes with what they mean', async () => {
+    const era = makeEra();
+    const [firstLine, ...otherLines] = era.claims[0].remits[0].serviceLines;
+    era.claims[0].remits[0].serviceLines = [{ ...firstLine, remarkCodes: ['N130', 'ZZ99'] }, ...otherLines];
+    getBillingEraDetailMock.mockResolvedValue(era);
+    renderPage();
+
+    expect(await screen.findByText('Remark codes')).toBeInTheDocument();
+    // the RARC table loads on demand, then the description joins the code
+    expect(
+      await screen.findByText((_, element) => element?.textContent?.startsWith('N130 — Consult plan benefit') ?? false)
+    ).toBeInTheDocument();
+    // unknown codes still show
+    expect(screen.getByText('ZZ99')).toBeInTheDocument();
   });
 
   it('collapses a line’s adjustments with the chevron', async () => {

@@ -1,4 +1,9 @@
-import { Add as AddIcon, Clear as ClearIcon, Search as SearchIcon } from '@mui/icons-material';
+import {
+  Clear as ClearIcon,
+  EditNote as EditNoteIcon,
+  NoteAddOutlined as NoteAddIcon,
+  Search as SearchIcon,
+} from '@mui/icons-material';
 import {
   Alert,
   Autocomplete,
@@ -18,14 +23,17 @@ import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { ClaimsQueueItemStatuses } from 'utils/lib/types/api/rcm-claims/claim.types';
+import { ERA_SOURCE } from 'utils/lib/types/data/billing/billing.constants';
 import { SearchErasInput } from 'utils/lib/types/data/billing/billing.schemas';
 import { BillingPatientOption, BillingPayerOption, EraListItem } from 'utils/lib/types/data/billing/billing.types';
 import { formatAntCaseString } from 'utils/lib/types/data/billing/claim-status';
 import { formatCurrency } from 'utils/lib/utils/convert';
 import { searchBillingEras, searchBillingPayers } from '../api/api';
+import { AddMenuButton } from '../components/AddMenuButton';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
 import { DateRangeInput } from '../components/DateInput';
 import { ImportEraDialog } from '../components/ImportEraDialog';
+import { ERA_SOURCE_LABELS } from '../constants/era';
 import { useApiClients } from '../hooks/useAppClients';
 import { useDebounce } from '../hooks/useDebounce';
 
@@ -45,35 +53,59 @@ interface Filters {
   patientId?: string;
 }
 
-const columns: GridColDef[] = [
-  { field: 'checkNumber', headerName: 'Check No.', width: 150 },
+const claimsMatchedLabel = (row: EraListItem): string =>
+  row.claimCount === 0 ? 'No claims' : `${row.matchedCount}/${row.claimCount} matched`;
+
+const columns: GridColDef<EraListItem>[] = [
+  { field: 'checkNumber', headerName: 'Check No.', width: 170 },
   { field: 'paymentDate', headerName: 'Check Date', width: 120 },
   {
     field: 'paymentAmount',
     headerName: 'Amount',
-    width: 110,
+    width: 120,
     align: 'right',
     headerAlign: 'right',
     valueFormatter: (params: { value: number }) => formatCurrency(params.value),
   },
   { field: 'payerName', headerName: 'Payer', flex: 1, minWidth: 200 },
   {
-    field: 'status',
-    headerName: 'Status',
-    width: 130,
-    renderCell: ({ value }) => (
+    field: 'billingProviderName',
+    headerName: 'Billing Provider',
+    flex: 1,
+    minWidth: 180,
+    valueFormatter: (params: { value: string }) => params.value || '-',
+  },
+  {
+    field: 'source',
+    headerName: 'Source',
+    width: 170,
+    valueGetter: (params: { row: EraListItem }) => ERA_SOURCE_LABELS[params.row.source] ?? params.row.source,
+    renderCell: ({ row }) => (
       <Chip
-        label={String(value ?? '')}
-        color={value === 'complete' ? 'success' : 'warning'}
+        label={ERA_SOURCE_LABELS[row.source] ?? row.source}
+        color={row.source === ERA_SOURCE.clearingHouse ? 'default' : 'primary'}
         variant="outlined"
         size="small"
         sx={{ borderRadius: '4px', fontSize: 12 }}
       />
     ),
   },
-  { field: 'claimCount', headerName: 'Claims', width: 80, align: 'right', headerAlign: 'right' },
-  { field: 'matchedCount', headerName: 'Matched', width: 90, align: 'right', headerAlign: 'right' },
-  { field: 'unmatchedCount', headerName: 'Unmatched', width: 100, align: 'right', headerAlign: 'right' },
+  {
+    field: 'claimCount',
+    headerName: 'Claims',
+    width: 140,
+    align: 'right',
+    headerAlign: 'right',
+    valueGetter: (params: { row: EraListItem }) => claimsMatchedLabel(params.row),
+    renderCell: ({ row }) => (
+      <Typography
+        variant="body2"
+        color={row.matchedCount < row.claimCount ? 'error.main' : row.claimCount === 0 ? 'text.secondary' : undefined}
+      >
+        {claimsMatchedLabel(row)}
+      </Typography>
+    ),
+  },
 ];
 
 export default function ERAList(): ReactElement {
@@ -244,9 +276,22 @@ export default function ERAList(): ReactElement {
         <Typography variant="h4" color="primary.dark" fontWeight={600}>
           ERAs
         </Typography>
-        <Button variant="contained" startIcon={<AddIcon />} onClick={() => setShowImportDialog(true)}>
-          Import ERA
-        </Button>
+        <AddMenuButton
+          options={[
+            {
+              label: 'Import 835',
+              description: 'Paste an ERA in X12 format',
+              icon: <NoteAddIcon fontSize="small" />,
+              onSelect: () => setShowImportDialog(true),
+            },
+            {
+              label: 'Enter Manually',
+              description: 'Key in a paper or PDF remit',
+              icon: <EditNoteIcon fontSize="small" />,
+              onSelect: () => navigate('/eras/new'),
+            },
+          ]}
+        />
       </Box>
 
       <TextField

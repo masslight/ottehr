@@ -23,6 +23,7 @@ import EraClaimDetail from './pages/EraClaimDetail';
 import ERADetail from './pages/ERADetail';
 import ERAList from './pages/ERAList';
 import InvoiceReport from './pages/InvoiceReport';
+import ManualRemit from './pages/ManualRemit';
 import PatientDetail from './pages/PatientDetail';
 import PatientsList from './pages/PatientsList';
 import PaymentsReport from './pages/PaymentsReport';
@@ -96,7 +97,9 @@ export default function App(): ReactElement {
                 element={<ChargeItemDefinitionDetail type="charge-master" />}
               />
               <Route path="/eras" element={<ERAList />} />
+              <Route path="/eras/new" element={<ManualRemit />} />
               <Route path="/eras/:id" element={<ERADetail />} />
+              <Route path="/eras/:id/edit" element={<ManualRemit />} />
               <Route path="/eras/:eraId/claims/:claimId" element={<EraClaimDetail />} />
               <Route path="/tags" element={<Tags />} />
               <Route path="/reports" element={<Reports />} />
