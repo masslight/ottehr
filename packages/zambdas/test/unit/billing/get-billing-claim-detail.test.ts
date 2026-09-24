@@ -158,7 +158,7 @@ describe('get-billing-claim-detail performEffect: patient payments', () => {
     (fetchClaimResponsesByClaimIds as Mock<typeof fetchClaimResponsesByClaimIds>).mockResolvedValue(new Map());
     (fetchClaimEraLinks as Mock<typeof fetchClaimEraLinks>).mockResolvedValue({
       paymentReconciliations: [],
-      prIdByClaimResponseId: new Map(),
+      paymentReconciliationIdByClaimResponseId: new Map(),
     });
     (fetchClaimFirstSubmittedDate as Mock<typeof fetchClaimFirstSubmittedDate>).mockResolvedValue('');
   });
@@ -279,7 +279,7 @@ describe('get-billing-claim-detail performEffect: remits and insurance payments'
   // the ERA the first remit arrived on; process-era PaymentReconciliations carry no paymentIssuer
   const era: PaymentReconciliation = {
     resourceType: 'PaymentReconciliation',
-    id: 'pr-1',
+    id: 'payment-reconciliation-1',
     status: 'active',
     created: '2026-07-14T10:00:00Z',
     paymentDate: '2026-07-16',
@@ -347,7 +347,7 @@ describe('get-billing-claim-detail performEffect: remits and insurance payments'
     );
     (fetchClaimEraLinks as Mock<typeof fetchClaimEraLinks>).mockResolvedValue({
       paymentReconciliations: [era],
-      prIdByClaimResponseId: new Map([['cr-linked', 'pr-1']]),
+      paymentReconciliationIdByClaimResponseId: new Map([['cr-linked', 'payment-reconciliation-1']]),
     });
     (fetchClaimFirstSubmittedDate as Mock<typeof fetchClaimFirstSubmittedDate>).mockResolvedValue(
       '2026-07-02T12:00:00Z'
@@ -369,7 +369,7 @@ describe('get-billing-claim-detail performEffect: remits and insurance payments'
 
     expect(response.remits.map((remit) => remit.claimResponseId)).toEqual(['cr-unlinked', 'cr-linked']);
     expect(response.remits[1]).toMatchObject({
-      paymentReconciliationId: 'pr-1',
+      paymentReconciliationId: 'payment-reconciliation-1',
       checkNumber: 'CHK-1',
       checkDate: '2026-07-16',
       payerName: 'Acme Health',
@@ -412,7 +412,7 @@ describe('get-billing-claim-detail performEffect: remits and insurance payments'
 
     expect(response.insurancePayments).toEqual([
       {
-        paymentReconciliationId: 'pr-1',
+        paymentReconciliationId: 'payment-reconciliation-1',
         checkNumber: 'CHK-1',
         remitDate: '2026-07-14T10:00:00Z',
         checkDate: '2026-07-16',
@@ -463,7 +463,7 @@ describe('get-billing-claim-detail performEffect: non-insurance payer', () => {
     (fetchClaimResponsesByClaimIds as Mock).mockResolvedValue(new Map());
     (fetchClaimEraLinks as Mock).mockResolvedValue({
       paymentReconciliations: [],
-      claimResponseByPrId: new Map(),
+      paymentReconciliationIdByClaimResponseId: new Map(),
     });
   });
 
@@ -556,7 +556,7 @@ describe('get-billing-claim-detail performEffect: custom insurance organization 
     (fetchClaimResponsesByClaimIds as Mock).mockResolvedValue(new Map());
     (fetchClaimEraLinks as Mock).mockResolvedValue({
       paymentReconciliations: [],
-      claimResponseByPrId: new Map(),
+      paymentReconciliationIdByClaimResponseId: new Map(),
     });
   });
 

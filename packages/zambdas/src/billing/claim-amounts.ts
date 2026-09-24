@@ -383,8 +383,8 @@ export async function fetchPatientPaidByClaimId({
   return patientPaidByClaimId;
 }
 
-// Fetch the era-processing Provenances (one per ERA, targeting its PR + ClaimResponses) that point
-// at any of the given resource references, deduped by id.
+// Fetch the era-processing Provenances (one per ERA, targeting its PaymentReconciliation +
+// ClaimResponses) that point at any of the given resource references, deduped by id.
 export async function fetchEraProcessingProvenances(oystehr: Oystehr, targetRefs: string[]): Promise<Provenance[]> {
   const byId = new Map<string, Provenance>();
   const uniqueRefs = [...new Set(targetRefs)];
@@ -459,10 +459,12 @@ export async function fetchClaimResponsesByPaymentReconciliations(
   oystehr: Oystehr,
   paymentReconciliations: PaymentReconciliation[]
 ): Promise<Map<string, ClaimResponse[]>> {
-  const prIds = paymentReconciliations.map((pr) => pr.id).filter((id): id is string => !!id);
+  const paymentReconciliationIds = paymentReconciliations
+    .map((paymentReconciliation) => paymentReconciliation.id)
+    .filter((id): id is string => !!id);
   const provenances = await fetchEraProcessingProvenances(
     oystehr,
-    prIds.map((id) => `PaymentReconciliation/${id}`)
+    paymentReconciliationIds.map((id) => `PaymentReconciliation/${id}`)
   );
   return fetchClaimResponsesFromEraProvenances(oystehr, provenances);
 }
@@ -471,18 +473,21 @@ export async function fetchClaimResponsesFromEraProvenances(
   oystehr: Oystehr,
   provenances: Provenance[]
 ): Promise<Map<string, ClaimResponse[]>> {
-  const claimResponseIdsByPrId = new Map<string, string[]>();
+  const claimResponseIdsByPaymentReconciliationId = new Map<string, string[]>();
   for (const provenance of provenances) {
     const claimResponseIds = eraProvenanceTargetIds(provenance, 'ClaimResponse');
-    for (const prId of eraProvenanceTargetIds(provenance, 'PaymentReconciliation')) {
-      claimResponseIdsByPrId.set(prId, [...(claimResponseIdsByPrId.get(prId) ?? []), ...claimResponseIds]);
+    for (const paymentReconciliationId of eraProvenanceTargetIds(provenance, 'PaymentReconciliation')) {
+      claimResponseIdsByPaymentReconciliationId.set(paymentReconciliationId, [
+        ...(claimResponseIdsByPaymentReconciliationId.get(paymentReconciliationId) ?? []),
+        ...claimResponseIds,
+      ]);
     }
   }
 
   const claimResponsesById = await fetchResourcesGrouped<ClaimResponse>({
     oystehr,
     resourceType: 'ClaimResponse',
-    ids: [...new Set([...claimResponseIdsByPrId.values()].flat())],
+    ids: [...new Set([...claimResponseIdsByPaymentReconciliationId.values()].flat())],
     buildParam: (batch) => [
       {
         name: '_id',
@@ -493,9 +498,9 @@ export async function fetchClaimResponsesFromEraProvenances(
   });
 
   const grouped = new Map<string, ClaimResponse[]>();
-  for (const [prId, claimResponseIds] of claimResponseIdsByPrId) {
+  for (const [paymentReconciliationId, claimResponseIds] of claimResponseIdsByPaymentReconciliationId) {
     grouped.set(
-      prId,
+      paymentReconciliationId,
       claimResponseIds.flatMap((id) => claimResponsesById.get(id) ?? [])
     );
   }
@@ -506,7 +511,7 @@ export interface ClaimEraLinks {
   paymentReconciliations: PaymentReconciliation[];
   // the ERA each of the given ClaimResponses arrived on; one ERA can carry several of them (e.g. a
   // reversal and its correction)
-  prIdByClaimResponseId: Map<string, string>;
+  paymentReconciliationIdByClaimResponseId: Map<string, string>;
 }
 
 export async function fetchClaimEraLinks(oystehr: Oystehr, claimResponses: ClaimResponse[]): Promise<ClaimEraLinks> {
@@ -516,23 +521,26 @@ export async function fetchClaimEraLinks(oystehr: Oystehr, claimResponses: Claim
     [...claimResponseIds].map((id) => `ClaimResponse/${id}`)
   );
 
-  const prIds = new Set<string>();
-  const prIdByClaimResponseId = new Map<string, string>();
+  const paymentReconciliationIds = new Set<string>();
+  const paymentReconciliationIdByClaimResponseId = new Map<string, string>();
   for (const provenance of provenances) {
-    const eraPrIds = eraProvenanceTargetIds(provenance, 'PaymentReconciliation');
-    eraPrIds.forEach((prId) => prIds.add(prId));
-    if (eraPrIds.length === 0) continue;
+    const eraPaymentReconciliationIds = eraProvenanceTargetIds(provenance, 'PaymentReconciliation');
+    eraPaymentReconciliationIds.forEach((id) => paymentReconciliationIds.add(id));
+    if (eraPaymentReconciliationIds.length === 0) continue;
     for (const claimResponseId of eraProvenanceTargetIds(provenance, 'ClaimResponse')) {
-      if (claimResponseIds.has(claimResponseId) && !prIdByClaimResponseId.has(claimResponseId)) {
-        prIdByClaimResponseId.set(claimResponseId, eraPrIds[0]);
+      if (claimResponseIds.has(claimResponseId) && !paymentReconciliationIdByClaimResponseId.has(claimResponseId)) {
+        paymentReconciliationIdByClaimResponseId.set(claimResponseId, eraPaymentReconciliationIds[0]);
       }
     }
   }
 
-  const paymentReconciliations = prIds.size > 0 ? await fetchPaymentReconciliationsByIds(oystehr, [...prIds]) : [];
+  const paymentReconciliations =
+    paymentReconciliationIds.size > 0
+      ? await fetchPaymentReconciliationsByIds(oystehr, [...paymentReconciliationIds])
+      : [];
   return {
     paymentReconciliations,
-    prIdByClaimResponseId,
+    paymentReconciliationIdByClaimResponseId,
   };
 }
 

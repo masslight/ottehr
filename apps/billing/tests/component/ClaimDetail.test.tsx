@@ -201,7 +201,7 @@ const makeRemitLine = (overrides: Partial<EraRemitServiceLine>): EraRemitService
 });
 
 const makePayment = (overrides: Partial<ClaimInsurancePayment>): ClaimInsurancePayment => ({
-  paymentReconciliationId: 'pr-1',
+  paymentReconciliationId: 'payment-reconciliation-1',
   checkNumber: 'ERA0000000001',
   remitDate: '2026-07-07T10:00:00Z',
   checkDate: '2026-07-08',
@@ -251,7 +251,7 @@ describe('ClaimDetail — remits', () => {
               amount: 20,
             },
           ],
-          paymentReconciliationId: 'pr-1',
+          paymentReconciliationId: 'payment-reconciliation-1',
           checkNumber: 'CHK-1',
           checkDate: '2026-07-10',
         }),
@@ -310,7 +310,11 @@ describe('ClaimDetail — remits', () => {
     getBillingClaimDetailMock.mockResolvedValue({
       ...makeClaim(AR_STAGE.insurancePayer),
       remits: [
-        makeRemit({ claimResponseId: 'cr-linked', payerName: 'Linked Payer', paymentReconciliationId: 'pr-1' }),
+        makeRemit({
+          claimResponseId: 'cr-linked',
+          payerName: 'Linked Payer',
+          paymentReconciliationId: 'payment-reconciliation-1',
+        }),
         makeRemit({ claimResponseId: 'cr-unlinked', payerName: 'Unlinked Payer' }),
       ],
     });
@@ -322,7 +326,7 @@ describe('ClaimDetail — remits', () => {
     expect(openSpy).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByText('Linked Payer').closest('tr') as HTMLElement);
-    expect(openSpy).toHaveBeenCalledWith('/eras/pr-1', '_blank', 'noopener');
+    expect(openSpy).toHaveBeenCalledWith('/eras/payment-reconciliation-1', '_blank', 'noopener');
     openSpy.mockRestore();
   });
 
@@ -335,7 +339,7 @@ describe('ClaimDetail — remits', () => {
         makeRemit({
           claimResponseId: 'cr-linked',
           payerName: 'Linked Payer',
-          paymentReconciliationId: 'pr-1',
+          paymentReconciliationId: 'payment-reconciliation-1',
           checkNumber: 'CHK1',
         }),
         makeRemit({ claimResponseId: 'cr-unlinked', payerName: 'Unlinked Payer' }),
@@ -353,7 +357,7 @@ describe('ClaimDetail — remits', () => {
     await user.keyboard('{Enter}');
     await user.keyboard(' ');
     expect(openSpy).toHaveBeenCalledTimes(2);
-    expect(openSpy).toHaveBeenLastCalledWith('/eras/pr-1', '_blank', 'noopener');
+    expect(openSpy).toHaveBeenLastCalledWith('/eras/payment-reconciliation-1', '_blank', 'noopener');
 
     // the check link opens the ERA itself; its keys do not reach the row
     fireEvent.keyDown(within(row).getByRole('link', { name: 'CHK1' }), { key: 'Enter' });
@@ -389,20 +393,20 @@ describe('ClaimDetail — insurance payments', () => {
     fireEvent.click(remitsTab);
 
     const checkLink = await screen.findByRole('link', { name: 'ERA0000000001' });
-    expect(checkLink).toHaveAttribute('href', '/eras/pr-1');
+    expect(checkLink).toHaveAttribute('href', '/eras/payment-reconciliation-1');
     expect(checkLink).toHaveAttribute('target', '_blank');
 
     const row = checkLink.closest('tr');
     expect(cellTexts(row)).toEqual(['07/07/2026', '07/08/2026', 'CIGNA', 'ERA0000000001', '$350.00']);
 
     fireEvent.click(row as HTMLElement);
-    expect(openSpy).toHaveBeenCalledWith('/eras/pr-1', '_blank', 'noopener');
+    expect(openSpy).toHaveBeenCalledWith('/eras/payment-reconciliation-1', '_blank', 'noopener');
     expect(screen.queryByText('ERA page')).not.toBeInTheDocument();
 
     act(() => row?.focus());
     await user.keyboard('{Enter}');
     expect(openSpy).toHaveBeenCalledTimes(2);
-    expect(openSpy).toHaveBeenLastCalledWith('/eras/pr-1', '_blank', 'noopener');
+    expect(openSpy).toHaveBeenLastCalledWith('/eras/payment-reconciliation-1', '_blank', 'noopener');
     openSpy.mockRestore();
   });
 });
@@ -449,7 +453,7 @@ describe('ClaimDetail — service line remit details', () => {
       { groupCode: 'CO', reasonCode: '45', amount: 4 },
       { groupCode: 'PR', reasonCode: '1', amount: 15 },
     ],
-    paymentReconciliationId: 'pr-1',
+    paymentReconciliationId: 'payment-reconciliation-1',
     checkNumber: 'CHK00012347',
     checkDate: '2026-08-22',
     serviceLines: [
@@ -496,7 +500,7 @@ describe('ClaimDetail — service line remit details', () => {
     remits: [remit],
     insurancePayments: [
       makePayment({
-        paymentReconciliationId: 'pr-1',
+        paymentReconciliationId: 'payment-reconciliation-1',
         checkNumber: 'CHK00012347',
         remitDate: '2026-08-18T09:00:00Z',
         checkDate: '2026-08-22',
@@ -504,7 +508,7 @@ describe('ClaimDetail — service line remit details', () => {
         payerName: 'Employers Mutual',
       }),
       makePayment({
-        paymentReconciliationId: 'pr-2',
+        paymentReconciliationId: 'payment-reconciliation-2',
         checkNumber: 'CHK00012345',
         payerName: 'Employers Mutual',
       }),
@@ -591,7 +595,7 @@ describe('ClaimDetail — service line remit details', () => {
     ]);
   });
 
-  it("shows the line's whole patient responsibility under Patient, and PR outside the buckets there too", async () => {
+  it("shows the line's whole patient responsibility under Patient, including patient-responsibility adjustments with no column of their own (PR-96)", async () => {
     getBillingClaimDetailMock.mockResolvedValue(
       claimWithRemits({
         remits: [
@@ -750,8 +754,8 @@ describe('ClaimDetail — service line remit details', () => {
     expect(otherCheckRow).not.toHaveClass('Mui-selected');
 
     // moving to the line's other CARC label keeps its card and highlight up
-    const pr3 = within(line1).getByText('PR-3');
-    await user.hover(pr3);
+    const copayLabel = within(line1).getByText('PR-3');
+    await user.hover(copayLabel);
     // the previous label's card finishes closing while this one opens
     await waitFor(() => {
       expect(screen.getAllByRole('tooltip')).toHaveLength(1);
@@ -761,7 +765,7 @@ describe('ClaimDetail — service line remit details', () => {
     expect(checkRow).toHaveClass('Mui-selected');
 
     // leaving the remit's rows clears both
-    await user.unhover(pr3);
+    await user.unhover(copayLabel);
 
     await waitFor(() => expect(screen.queryByRole('tooltip')).not.toBeInTheDocument());
     expect(remitRow).not.toHaveClass('Mui-selected');
@@ -790,7 +794,12 @@ describe('ClaimDetail — service line remit details', () => {
     getBillingClaimDetailMock.mockResolvedValue(
       claimWithRemits({
         remits: [
-          makeRemit({ claimResponseId: 'cr-secondary', eraStatusCode: '2', paid: 10, paymentReconciliationId: 'pr-2' }),
+          makeRemit({
+            claimResponseId: 'cr-secondary',
+            eraStatusCode: '2',
+            paid: 10,
+            paymentReconciliationId: 'payment-reconciliation-2',
+          }),
           remit,
         ],
       })

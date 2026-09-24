@@ -47,7 +47,7 @@ const remit = (overrides: Partial<ClaimRemit> = {}): ClaimRemit => ({
   paid: 80,
   patientResp: 20,
   adjustments: [],
-  paymentReconciliationId: 'pr-1',
+  paymentReconciliationId: 'payment-reconciliation-1',
   checkNumber: 'CHK-1',
   checkDate: '2026-07-16',
   serviceLines: [],
@@ -248,15 +248,23 @@ describe('remitDesignation', () => {
       claimResponseId: 'cr-primary',
       eraStatusCode: '1',
       payerName: 'Acme',
-      paymentReconciliationId: 'pr-other',
+      paymentReconciliationId: 'payment-reconciliation-other',
     });
 
     expect(remitDesignation(reversal, [correction, reversal, primary])).toBe('Secondary');
   });
 
   it("ranks a denial like the same payer's other remit when no ERA peer has a rank", () => {
-    const denial = remit({ claimResponseId: 'cr-denied', eraStatusCode: '4', paymentReconciliationId: 'pr-2' });
-    const paid = remit({ claimResponseId: 'cr-paid', eraStatusCode: '1', paymentReconciliationId: 'pr-1' });
+    const denial = remit({
+      claimResponseId: 'cr-denied',
+      eraStatusCode: '4',
+      paymentReconciliationId: 'payment-reconciliation-2',
+    });
+    const paid = remit({
+      claimResponseId: 'cr-paid',
+      eraStatusCode: '1',
+      paymentReconciliationId: 'payment-reconciliation-1',
+    });
 
     expect(remitDesignation(denial, [paid, denial])).toBe('Primary');
   });
@@ -273,7 +281,12 @@ describe('remitDesignation', () => {
 describe('insurancePaidByDesignation', () => {
   it('nets a reversal against its rank and orders ranks first', () => {
     const remits = [
-      remit({ claimResponseId: 'cr-secondary', eraStatusCode: '2', paid: 20, paymentReconciliationId: 'pr-2' }),
+      remit({
+        claimResponseId: 'cr-secondary',
+        eraStatusCode: '2',
+        paid: 20,
+        paymentReconciliationId: 'payment-reconciliation-2',
+      }),
       remit({ claimResponseId: 'cr-correction', eraStatusCode: '1', paid: 70 }),
       remit({ claimResponseId: 'cr-reversal', eraStatusCode: '22', paid: -60 }),
       remit({ claimResponseId: 'cr-original', eraStatusCode: '1', paid: 60 }),
@@ -292,8 +305,18 @@ describe('insurancePaidByDesignation', () => {
     expect(
       insurancePaidByDesignation([
         remit({ claimResponseId: 'cr-unknown', eraStatusCode: '', payerName: 'Other Payer', paid: 5 }),
-        remit({ claimResponseId: 'cr-primary', eraStatusCode: '1', paid: 0.1, paymentReconciliationId: 'pr-2' }),
-        remit({ claimResponseId: 'cr-primary-2', eraStatusCode: '1', paid: 0.2, paymentReconciliationId: 'pr-3' }),
+        remit({
+          claimResponseId: 'cr-primary',
+          eraStatusCode: '1',
+          paid: 0.1,
+          paymentReconciliationId: 'payment-reconciliation-2',
+        }),
+        remit({
+          claimResponseId: 'cr-primary-2',
+          eraStatusCode: '1',
+          paid: 0.2,
+          paymentReconciliationId: 'payment-reconciliation-3',
+        }),
       ])
     ).toEqual([
       { designation: 'Primary', amount: 0.3 },
@@ -304,6 +327,6 @@ describe('insurancePaidByDesignation', () => {
 
 describe('eraHref', () => {
   it('links to the ERA details page', () => {
-    expect(eraHref('pr-1')).toBe('/eras/pr-1');
+    expect(eraHref('payment-reconciliation-1')).toBe('/eras/payment-reconciliation-1');
   });
 });

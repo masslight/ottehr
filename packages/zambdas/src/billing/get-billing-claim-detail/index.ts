@@ -121,8 +121,13 @@ export async function performEffect(
       resolveNonInsurancePayerDetail(oystehr, claim),
     ]);
   const claimResponses = sortClaimResponsesByRecency(claimResponsesByClaimId.get(claimId) ?? []);
-  const { paymentReconciliations, prIdByClaimResponseId } = await fetchClaimEraLinks(eraReadClient, claimResponses);
-  const paymentReconciliationById = new Map(paymentReconciliations.map((pr) => [pr.id ?? '', pr]));
+  const { paymentReconciliations, paymentReconciliationIdByClaimResponseId } = await fetchClaimEraLinks(
+    eraReadClient,
+    claimResponses
+  );
+  const paymentReconciliationById = new Map(
+    paymentReconciliations.map((paymentReconciliation) => [paymentReconciliation.id ?? '', paymentReconciliation])
+  );
 
   const patientPaymentNotices = paymentsByEncounter.get(encounterId) ?? [];
   const patientPaid = sumPatientPayments(patientPaymentNotices);
@@ -137,7 +142,7 @@ export async function performEffect(
     tertiaryCoverage?.payor?.[0]?.reference,
     quaternaryCoverage?.payor?.[0]?.reference,
     ...claimResponses.map((cr) => cr.insurer?.reference),
-    ...paymentReconciliations.map((pr) => pr.paymentIssuer?.reference),
+    ...paymentReconciliations.map((paymentReconciliation) => paymentReconciliation.paymentIssuer?.reference),
   ]);
   const insurer = claim.insurer?.reference ? payersByRef.get(claim.insurer.reference) : undefined;
   const secondaryInsurer = secondaryCoverage?.payor?.[0]?.reference
@@ -155,7 +160,7 @@ export async function performEffect(
   const remits = [...claimResponses].reverse().map((cr) => {
     const amounts = extractClaimResponseAmounts(cr);
     const payer = cr.insurer?.reference ? payersByRef.get(cr.insurer.reference) : undefined;
-    const era = paymentReconciliationById.get(prIdByClaimResponseId.get(cr.id ?? '') ?? '');
+    const era = paymentReconciliationById.get(paymentReconciliationIdByClaimResponseId.get(cr.id ?? '') ?? '');
     return {
       claimResponseId: cr.id ?? '',
       date: cr.created ?? '',
@@ -174,24 +179,26 @@ export async function performEffect(
       serviceLines: buildEraRemitServiceLines(cr, claim),
     };
   });
-  const paymentMillis = (pr: PaymentReconciliation): number =>
-    DateTime.fromISO(pr.paymentDate ?? pr.created ?? '').toMillis() || 0;
+  const paymentMillis = (paymentReconciliation: PaymentReconciliation): number =>
+    DateTime.fromISO(paymentReconciliation.paymentDate ?? paymentReconciliation.created ?? '').toMillis() || 0;
   const insurancePayments = [...paymentReconciliations]
     .sort((a, b) => paymentMillis(b) - paymentMillis(a))
-    .map((pr) => {
+    .map((paymentReconciliation) => {
       // process-era PaymentReconciliations carry no paymentIssuer; fall back to the payer on one
       // of this ERA's ClaimResponses
-      const linkedCr = claimResponses.find((cr) => prIdByClaimResponseId.get(cr.id ?? '') === pr.id);
-      const payerRef = pr.paymentIssuer?.reference ?? linkedCr?.insurer?.reference;
+      const linkedCr = claimResponses.find(
+        (cr) => paymentReconciliationIdByClaimResponseId.get(cr.id ?? '') === paymentReconciliation.id
+      );
+      const payerRef = paymentReconciliation.paymentIssuer?.reference ?? linkedCr?.insurer?.reference;
       const payer = payerRef ? payersByRef.get(payerRef) : undefined;
       return {
-        paymentReconciliationId: pr.id ?? '',
-        checkNumber: getEraCheckNumber(pr) ?? '',
-        remitDate: pr.created ?? '',
-        checkDate: pr.paymentDate ?? '',
-        paymentAmount: pr.paymentAmount?.value ?? 0,
-        payerName: payer?.name ?? pr.paymentIssuer?.display ?? '',
-        status: pr.outcome ?? pr.status ?? '',
+        paymentReconciliationId: paymentReconciliation.id ?? '',
+        checkNumber: getEraCheckNumber(paymentReconciliation) ?? '',
+        remitDate: paymentReconciliation.created ?? '',
+        checkDate: paymentReconciliation.paymentDate ?? '',
+        paymentAmount: paymentReconciliation.paymentAmount?.value ?? 0,
+        payerName: payer?.name ?? paymentReconciliation.paymentIssuer?.display ?? '',
+        status: paymentReconciliation.outcome ?? paymentReconciliation.status ?? '',
       };
     });
   const status = getClaimStatus(claim);
