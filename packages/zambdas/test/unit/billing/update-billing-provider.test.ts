@@ -91,14 +91,14 @@ describe('update-billing-provider', () => {
     expect(transaction).not.toHaveBeenCalled();
   });
 
-  it('stores the license type as a tag and number + state as a 0B identifier', async () => {
+  it('stores the license type as a tag and type + number + state as an SL identifier', async () => {
     const stateLicenseType = {
       coding: [{ system: CODE_SYSTEM_CLAIM_SECONDARY_IDENTIFIER_TYPE, code: FHIR_IDENTIFIER_CODE_STATE_LICENSE }],
     };
     const existing: Practitioner = {
       ...provider,
       meta: { tag: [{ system: LICENSE_TAG, code: 'NP' }] },
-      identifier: [{ type: stateLicenseType, value: 'OLD1NY' }],
+      identifier: [{ type: stateLicenseType, value: 'NPOLD1NY' }],
     };
     const { oystehr, update } = makeOystehr(existing);
 
@@ -113,7 +113,7 @@ describe('update-billing-provider', () => {
     });
 
     const saved = update.mock.calls[0][0] as Practitioner;
-    expect(saved.identifier).toEqual([{ type: stateLicenseType, value: 'A12345CA' }]);
+    expect(saved.identifier).toEqual([{ type: stateLicenseType, value: 'MDA12345CA' }]);
     expect(saved.meta?.tag?.filter((t) => t.system === LICENSE_TAG)).toEqual([{ system: LICENSE_TAG, code: 'MD' }]);
     expect(getProviderLicense(saved)).toEqual({ type: 'MD', number: 'A12345', state: 'CA' });
   });

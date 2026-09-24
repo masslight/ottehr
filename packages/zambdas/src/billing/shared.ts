@@ -985,8 +985,9 @@ export function setTaxonomy(resource: Practitioner | Organization, taxonomyCode:
   }
 }
 
-// The license type is a meta tag; the number and state are a 0B-typed identifier whose value is the
-// number followed by the two-letter state code (e.g. "A12345CA").
+// The license is an SL-typed identifier whose value is type + number + two-letter state code
+// (e.g. "MD01234TX"). Type codes vary in length and some prefix others (PA/PAR), so the type is also
+// kept as a meta tag, which is what lets the value be split back into its parts.
 const isStateLicense = (id: Identifier): boolean =>
   !!id.type?.coding?.some(
     (tc) => tc.system === CODE_SYSTEM_CLAIM_SECONDARY_IDENTIFIER_TYPE && tc.code === FHIR_IDENTIFIER_CODE_STATE_LICENSE
@@ -996,8 +997,11 @@ export function getProviderLicense(practitioner: Practitioner): BillingProviderL
   const type = getTag(practitioner, LICENSE_TAG) ?? '';
   const value = practitioner.identifier?.find(isStateLicense)?.value ?? '';
   if (!type && !value) return undefined;
-  const state = value.slice(-2);
-  return STATE_CODES.has(state) ? { type, number: value.slice(0, -2), state } : { type, number: value, state: '' };
+  let number = type && value.startsWith(type) ? value.slice(type.length) : value;
+  const state = number.slice(-2);
+  if (!STATE_CODES.has(state)) return { type, number, state: '' };
+  number = number.slice(0, -2);
+  return { type, number, state };
 }
 
 export function setStateLicense(practitioner: Practitioner, license: BillingProviderLicense | undefined): void {
@@ -1007,7 +1011,7 @@ export function setStateLicense(practitioner: Practitioner, license: BillingProv
       type: {
         coding: [{ system: CODE_SYSTEM_CLAIM_SECONDARY_IDENTIFIER_TYPE, code: FHIR_IDENTIFIER_CODE_STATE_LICENSE }],
       },
-      value: `${license.number}${license.state}`,
+      value: `${license.type}${license.number}${license.state}`,
     });
   }
   if (identifier.length) practitioner.identifier = identifier;
