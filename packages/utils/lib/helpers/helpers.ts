@@ -1722,12 +1722,6 @@ export const getPayerId = (org: Organization | undefined): string | undefined =>
   return payerId;
 };
 
-/**
- * What a payer is called wherever a person picks or reads one: the insurance options in the intake
- * paperwork, the carrier field on the patient record, and the tests that assert on them. `name` is
- * the payer's own name and `alias[0]` the label carried over from the legacy payer Organizations,
- * which for some payers is a different name for the same payer (OTR-3570).
- */
 export const getPayerName = (org: Organization | undefined): string | undefined => org?.name ?? org?.alias?.[0];
 
 export function getPayerUrl(payerId: string): string {
