@@ -30,6 +30,7 @@ import {
   insurancePaidByDesignation,
   ledgerAmounts,
   LedgerColumn,
+  longestLedgerAmount,
   RemitLineEntry,
   UnmatchedRemitLine,
 } from '../../utils/claimRemits';
@@ -47,10 +48,108 @@ const PATIENT_RESP_COLUMNS: { key: Exclude<LedgerColumn, 'insuranceAdjustment'>;
   { key: 'patientResp', label: 'Patient' },
 ];
 
-// Date, Type, Billed, Allowed, Ins adj, Ins paid, then the patient responsibility columns
-const LEDGER_COLUMN_COUNT = 6 + PATIENT_RESP_COLUMNS.length;
+const LEDGER_COLUMNS: { label: string; kind: 'date' | 'type' | 'amount' }[] = [
+  { label: 'Date', kind: 'date' },
+  { label: 'Type', kind: 'type' },
+  { label: 'Billed', kind: 'amount' },
+  { label: 'Allowed', kind: 'amount' },
+  { label: 'Ins adj', kind: 'amount' },
+  { label: 'Ins paid', kind: 'amount' },
+  ...PATIENT_RESP_COLUMNS.map(({ label }) => ({ label, kind: 'amount' as const })),
+];
 
-const ledgerThSx = { ...thSx, fontSize: 12, borderBottom: 'none' };
+const LEDGER_COLUMN_COUNT = LEDGER_COLUMNS.length;
+const LEDGER_AMOUNT_COLUMN_COUNT = LEDGER_COLUMNS.filter((column) => column.kind === 'amount').length;
+
+// Ledger columns are sized in ch of the ledger's 14px text and match on every ledger of a claim, so
+// they line up and fit its longest amount; the type column takes the rest. Past their minimum, the
+// service lines scroll sideways rather than cut amounts off.
+const LEDGER_CELL_PX = 8;
+// MM/DD/YYYY fits in 9ch
+const LEDGER_DATE_WIDTH = `calc(9ch + ${2 * LEDGER_CELL_PX + 4}px)`;
+const LEDGER_TYPE_MIN_WIDTH = 150;
+// an amount takes up to 0.75ch a character, plus 16px as a chip; 5.75ch still fits the 'Deductible' header
+const ledgerAmountWidth = (amountChars: number): string =>
+  `calc(${Math.max(0.75 * amountChars, 5.75)}ch + ${16 + 2 * LEDGER_CELL_PX}px)`;
+
+interface ServiceLineColumn {
+  label: string;
+  align?: 'right';
+  institutionalOnly?: boolean;
+  claimLineCell: (line: ServiceLine, claim: ClaimDetailResponse) => ReactNode;
+  // For era lines that do not match onto any of the claim's service lines
+  eraLineCell: (eraLine: UnmatchedRemitLine) => ReactNode;
+}
+
+const SERVICE_LINE_COLUMNS: ServiceLineColumn[] = [
+  {
+    label: '#',
+    claimLineCell: (line) => line.sequence,
+    eraLineCell: () => (
+      <Tooltip title="Adjudicated on the ERA, but not a line on this claim">
+        <Box component="span" sx={{ display: 'inline-flex' }}>
+          <AmountChip label="ERA" color="default" />
+        </Box>
+      </Tooltip>
+    ),
+  },
+  {
+    label: 'Date of Service',
+    claimLineCell: (line) => line.serviceDate,
+    eraLineCell: (eraLine) => eraLine.serviceDate || '-',
+  },
+  {
+    label: 'CPT Code',
+    claimLineCell: (line) => line.cptCode,
+    eraLineCell: (eraLine) =>
+      eraLine.isClaimLevel ? (
+        <Box component="span" sx={{ fontStyle: 'italic' }}>
+          Claim-level
+        </Box>
+      ) : (
+        <Box component="span" sx={{ fontWeight: 600, color: 'text.primary' }}>
+          {eraLine.cptCode || '-'}
+        </Box>
+      ),
+  },
+  {
+    label: 'Modifiers',
+    claimLineCell: (line) => line.modifiers.join(', ') || '-',
+    eraLineCell: () => '-',
+  },
+  {
+    label: 'Dx',
+    claimLineCell: (line, claim) =>
+      line.diagnosisPointers
+        .map((sequence) => claim.diagnoses.find((dx) => dx.sequence === sequence)?.code ?? String(sequence))
+        .join(', ') || '-',
+    eraLineCell: () => '-',
+  },
+  {
+    label: 'POS',
+    claimLineCell: (line) => line.placeOfService || '-',
+    eraLineCell: () => '-',
+  },
+  {
+    label: 'Rev Code',
+    institutionalOnly: true,
+    claimLineCell: (line) => line.revenueCode || '-',
+    eraLineCell: () => '-',
+  },
+  {
+    label: 'Qty',
+    claimLineCell: (line) => `${line.units} UN`,
+    eraLineCell: (eraLine) => (eraLine.units === null ? '-' : `${eraLine.units} UN`),
+  },
+  {
+    label: 'Billed',
+    align: 'right',
+    claimLineCell: (line) => formatCurrency(line.charges),
+    eraLineCell: (eraLine) => (eraLine.billed === null ? '-' : formatCurrency(eraLine.billed)),
+  },
+];
+
+const ledgerThSx = { ...thSx, fontSize: 12, borderBottom: 'none', whiteSpace: 'nowrap' };
 const ledgerRowSx = { '& > td': { borderBottom: 'none', py: 0.5 } };
 
 const remitCardSx = {
@@ -78,58 +177,23 @@ export function ServiceLinesTable({ claim }: { claim: ClaimDetailResponse }): Re
     [claim.remits, claim.serviceLines]
   );
   const unmatched = useMemo(() => groupUnmatchedRemitLines(other), [other]);
-  const institutional = claim.type === 'institutional';
-  const columnCount = (institutional ? 9 : 8) + (hasRemits ? 1 : 0);
+  const amountWidth = useMemo(
+    () => ledgerAmountWidth(longestLedgerAmount({ remits: claim.remits, serviceLines: claim.serviceLines })),
+    [claim.remits, claim.serviceLines]
+  );
+  const columns = SERVICE_LINE_COLUMNS.filter((column) => !column.institutionalOnly || claim.type === 'institutional');
+  // the expand toggle takes a column of its own once there are remits
+  const columnCount = columns.length + (hasRemits ? 1 : 0);
   // the charge is dated by when it was first sent to the payer
   const chargeDate = claim.firstSubmittedDate || claim.created;
 
-  const dxCode = (sequence: number): string =>
-    claim.diagnoses.find((dx) => dx.sequence === sequence)?.code ?? String(sequence);
-
-  const lineCells = (line: ServiceLine): ReactElement => (
-    <>
-      <TableCell>{line.sequence}</TableCell>
-      <TableCell>{line.serviceDate}</TableCell>
-      <TableCell>{line.cptCode}</TableCell>
-      <TableCell>{line.modifiers.join(', ') || '-'}</TableCell>
-      <TableCell>{line.diagnosisPointers.map(dxCode).join(', ') || '-'}</TableCell>
-      <TableCell>{line.placeOfService || '-'}</TableCell>
-      {institutional && <TableCell>{line.revenueCode || '-'}</TableCell>}
-      <TableCell>{line.units} UN</TableCell>
-      <TableCell align="right">{formatCurrency(line.charges)}</TableCell>
-    </>
-  );
-
-  // For era lines that do not match onto any of the claim's service lines
-  const unmatchedLineCells = (eraLine: UnmatchedRemitLine): ReactElement => (
-    <>
-      <TableCell>
-        <Tooltip title="Adjudicated on the ERA, but not a line on this claim">
-          <Box component="span" sx={{ display: 'inline-flex' }}>
-            <AmountChip label="ERA" color="default" />
-          </Box>
-        </Tooltip>
+  const cells = (content: (column: ServiceLineColumn) => ReactNode): ReactElement[] =>
+    columns.map((column) => (
+      <TableCell key={column.label} align={column.align}>
+        {content(column)}
       </TableCell>
-      <TableCell>{eraLine.serviceDate || '-'}</TableCell>
-      <TableCell>
-        {eraLine.isClaimLevel ? (
-          <Box component="span" sx={{ fontStyle: 'italic' }}>
-            Claim-level
-          </Box>
-        ) : (
-          <Box component="span" sx={{ fontWeight: 600, color: 'text.primary' }}>
-            {eraLine.cptCode || '-'}
-          </Box>
-        )}
-      </TableCell>
-      <TableCell>-</TableCell>
-      <TableCell>-</TableCell>
-      <TableCell>-</TableCell>
-      {institutional && <TableCell>-</TableCell>}
-      <TableCell>{eraLine.units === null ? '-' : `${eraLine.units} UN`}</TableCell>
-      <TableCell align="right">{eraLine.billed === null ? '-' : formatCurrency(eraLine.billed)}</TableCell>
-    </>
-  );
+    ));
+  const lineCells = (line: ServiceLine): ReactElement[] => cells((column) => column.claimLineCell(line, claim));
 
   return (
     <TableContainer>
@@ -137,17 +201,11 @@ export function ServiceLinesTable({ claim }: { claim: ClaimDetailResponse }): Re
         <TableHead>
           <TableRow>
             {hasRemits && <TableCell sx={{ ...thSx, width: 40 }} />}
-            <TableCell sx={thSx}>#</TableCell>
-            <TableCell sx={thSx}>Date of Service</TableCell>
-            <TableCell sx={thSx}>CPT Code</TableCell>
-            <TableCell sx={thSx}>Modifiers</TableCell>
-            <TableCell sx={thSx}>Dx</TableCell>
-            <TableCell sx={thSx}>POS</TableCell>
-            {institutional && <TableCell sx={thSx}>Rev Code</TableCell>}
-            <TableCell sx={thSx}>Qty</TableCell>
-            <TableCell sx={thSx} align="right">
-              Billed
-            </TableCell>
+            {columns.map((column) => (
+              <TableCell key={column.label} sx={thSx} align={column.align}>
+                {column.label}
+              </TableCell>
+            ))}
           </TableRow>
         </TableHead>
         <TableBody>
@@ -164,6 +222,7 @@ export function ServiceLinesTable({ claim }: { claim: ClaimDetailResponse }): Re
                     charge={{ date: chargeDate, amount: line.charges }}
                     entries={byClaimLine.get(line.sequence) ?? []}
                     claimLineUnits={line.units}
+                    amountWidth={amountWidth}
                   />
                 }
               />
@@ -177,7 +236,7 @@ export function ServiceLinesTable({ claim }: { claim: ClaimDetailResponse }): Re
                 <TableCell colSpan={columnCount} sx={{ pt: 2, pb: 0.5 }}>
                   <Stack direction="row" spacing={1.5} alignItems="baseline">
                     <Typography variant="body2" sx={{ fontStyle: 'italic', color: 'text.secondary' }}>
-                      Claim-level &amp; unmatched remit lines
+                      Claim-level & unmatched remit lines
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
                       On the ERA, but not matched to a line on this claim
@@ -195,8 +254,14 @@ export function ServiceLinesTable({ claim }: { claim: ClaimDetailResponse }): Re
                     toggleLabel={`Toggle remit details for ${name}`}
                     columnCount={columnCount}
                     muted
-                    summary={unmatchedLineCells(eraLine)}
-                    ledger={<RemitLedger label={`Remit details for ${name}`} entries={eraLine.entries} />}
+                    summary={cells((column) => column.eraLineCell(eraLine))}
+                    ledger={
+                      <RemitLedger
+                        label={`Remit details for ${name}`}
+                        entries={eraLine.entries}
+                        amountWidth={amountWidth}
+                      />
+                    }
                   />
                 );
               })}
@@ -254,34 +319,38 @@ function RemitLedger({
   charge,
   entries,
   claimLineUnits,
+  amountWidth,
 }: {
   label: string;
   charge?: { date: string; amount: number };
   entries: RemitLineEntry[];
   claimLineUnits?: number;
+  amountWidth: string;
 }): ReactElement {
   return (
     <Box sx={{ my: 1, ml: 5, py: 0.5, bgcolor: otherColors.formCardBg, borderRadius: 1 }}>
-      {/* fixed layout so every line's ledger lines its columns up with the others */}
-      <Table size="small" aria-label={label} sx={{ tableLayout: 'fixed' }}>
+      <Table
+        size="small"
+        aria-label={label}
+        sx={{
+          tableLayout: 'fixed',
+          typography: 'body2',
+          minWidth: `calc(${LEDGER_DATE_WIDTH} + ${LEDGER_TYPE_MIN_WIDTH}px + ${LEDGER_AMOUNT_COLUMN_COUNT} * ${amountWidth})`,
+          '& .MuiTableCell-root': { px: `${LEDGER_CELL_PX}px` },
+        }}
+      >
+        <colgroup>
+          {LEDGER_COLUMNS.map(({ label: columnLabel, kind }) => (
+            <col
+              key={columnLabel}
+              style={{ width: kind === 'date' ? LEDGER_DATE_WIDTH : kind === 'amount' ? amountWidth : undefined }}
+            />
+          ))}
+        </colgroup>
         <TableHead>
           <TableRow>
-            <TableCell sx={{ ...ledgerThSx, width: 110 }}>Date</TableCell>
-            <TableCell sx={{ ...ledgerThSx, width: '26%' }}>Type</TableCell>
-            <TableCell sx={ledgerThSx} align="right">
-              Billed
-            </TableCell>
-            <TableCell sx={ledgerThSx} align="right">
-              Allowed
-            </TableCell>
-            <TableCell sx={ledgerThSx} align="right">
-              Ins adj
-            </TableCell>
-            <TableCell sx={ledgerThSx} align="right">
-              Ins paid
-            </TableCell>
-            {PATIENT_RESP_COLUMNS.map(({ key, label: columnLabel }) => (
-              <TableCell key={key} sx={ledgerThSx} align="right">
+            {LEDGER_COLUMNS.map(({ label: columnLabel, kind }) => (
+              <TableCell key={columnLabel} sx={ledgerThSx} align={kind === 'amount' ? 'right' : undefined}>
                 {columnLabel}
               </TableCell>
             ))}
@@ -346,7 +415,7 @@ function LedgerGroup({ entry, claimLineUnits }: { entry: RemitLineEntry; claimLi
         <TableCell>{date}</TableCell>
         <TableCell>
           <Stack direction="row" spacing={1} alignItems="center">
-            <Typography variant="body2" fontWeight={600} noWrap sx={{ maxWidth: 220 }}>
+            <Typography variant="body2" fontWeight={600} noWrap sx={{ minWidth: 0, maxWidth: 220 }}>
               {remit.payerName || 'Unknown payer'}
             </Typography>
             {remit.eraStatusCode && isAdverseRemitStatus(remit.eraStatusCode) && (

@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ReactNode } from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
@@ -637,6 +637,32 @@ describe('ClaimDetail — service line remit details', () => {
 
     const line1 = await screen.findByRole('table', { name: 'Remit details for line 1' });
     expect(cellTexts(within(line1).getByText('Charge').closest('tr'))[0]).toBe('08/14/2026');
+  });
+
+  it("sizes every line's ledger columns alike, to fit the claim's longest amount", async () => {
+    const columnWidths = (table: HTMLElement): string[] =>
+      Array.from(table.querySelectorAll('col'), (col) => col.style.width);
+    const amountColumnCh = (widths: string[]): number => Number(/calc\(([\d.]+)ch/.exec(widths[2])?.[1]);
+
+    getBillingClaimDetailMock.mockResolvedValue(claimWithRemits());
+    renderDetail();
+    await openRemitsTab();
+    const line1 = columnWidths(await screen.findByRole('table', { name: 'Remit details for line 1' }));
+    expect(columnWidths(screen.getByRole('table', { name: 'Remit details for line 2' }))).toEqual(line1);
+    // the type column takes whatever the others leave
+    expect(line1[1]).toBe('');
+    expect(new Set(line1.slice(2)).size).toBe(1);
+    cleanup();
+
+    getBillingClaimDetailMock.mockResolvedValue(
+      claimWithRemits({
+        serviceLines: serviceLines.map((line, index) => (index ? line : { ...line, charges: 12345.67 })),
+      })
+    );
+    renderDetail();
+    await openRemitsTab();
+    const wider = columnWidths(await screen.findByRole('table', { name: 'Remit details for line 2' }));
+    expect(amountColumnCh(wider)).toBeGreaterThan(amountColumnCh(line1));
   });
 
   it("opens each line's details by default and collapses them from the toggle", async () => {

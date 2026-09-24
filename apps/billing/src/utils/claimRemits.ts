@@ -3,9 +3,14 @@ import {
   EraClaimStatusCode,
   X12_ADJUSTMENT_GROUP_CODE,
 } from 'utils/lib/types/data/billing/billing.constants';
-import { ClaimRemit, ClaimRemitAdjustment, EraRemitServiceLine } from 'utils/lib/types/data/billing/billing.types';
+import {
+  ClaimDetailResponse,
+  ClaimRemit,
+  ClaimRemitAdjustment,
+  EraRemitServiceLine,
+} from 'utils/lib/types/data/billing/billing.types';
 import { PATIENT_RESP_CARC } from 'utils/lib/types/data/billing/carc';
-import { roundNumberToDecimalPlaces } from 'utils/lib/utils/convert';
+import { formatCurrency, roundNumberToDecimalPlaces } from 'utils/lib/utils/convert';
 import { ERA_STATUS_LABELS } from '../constants/era';
 
 // The claim ledger's money columns: what the payer adjusted off (Ins adj), the deductible /
@@ -48,6 +53,27 @@ export function ledgerAmounts(adjustments: ClaimRemitAdjustment[]): LedgerAmount
     sums[column] = roundNumberToDecimalPlaces(sums[column], 2);
   }
   return sums;
+}
+
+// The most characters any amount in the claim's ledgers formats to, so they can all size their money
+// columns to fit it.
+export function longestLedgerAmount({
+  remits,
+  serviceLines,
+}: Pick<ClaimDetailResponse, 'remits' | 'serviceLines'>): number {
+  const amounts = [
+    ...serviceLines.map((line) => line.charges),
+    ...remits.flatMap((remit) =>
+      remit.serviceLines.flatMap((line) => [
+        line.billed ?? 0,
+        line.allowed ?? 0,
+        line.paid,
+        ...Object.values(ledgerAmounts(line.adjustments)),
+        ...line.adjustments.map((adjustment) => adjustment.amount),
+      ])
+    ),
+  ];
+  return amounts.reduce((longest, amount) => Math.max(longest, formatCurrency(amount).length), 0);
 }
 
 export interface RemitLineEntry {

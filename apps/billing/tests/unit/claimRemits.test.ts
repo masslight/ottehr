@@ -9,6 +9,7 @@ import {
   groupUnmatchedRemitLines,
   insurancePaidByDesignation,
   ledgerAmounts,
+  longestLedgerAmount,
   remitDesignation,
   RemitLineEntry,
 } from '../../src/utils/claimRemits';
@@ -107,6 +108,40 @@ describe('ledgerAmounts', () => {
     ]);
     expect(amounts.patientResp).toBe(42.55);
     expect(amounts.patientResp).toBeCloseTo(buckets.deductible + buckets.coinsurance + buckets.copay + buckets.other);
+  });
+});
+
+describe('longestLedgerAmount', () => {
+  const claimLine = (charges: number): Parameters<typeof longestLedgerAmount>[0]['serviceLines'][number] => ({
+    sequence: 1,
+    cptCode: '99213',
+    description: '',
+    modifiers: [],
+    units: 1,
+    charges,
+    serviceDate: '2026-07-01',
+    placeOfService: '11',
+    diagnosisPointers: [],
+    revenueCode: '',
+  });
+
+  it('counts the characters of the longest amount a ledger shows, sums per column included', () => {
+    const remits = [
+      remit({
+        serviceLines: [serviceLine({ adjustments: [adjustment('PR', '1', 600), adjustment('PR', '2', 500)] })],
+      }),
+    ];
+
+    // no single amount reaches $1,000, but the line's patient responsibility is $1,100.00
+    expect(longestLedgerAmount({ remits, serviceLines: [claimLine(150)] })).toBe('$1,100.00'.length);
+  });
+
+  it('counts the sign of a negative amount and falls back to the charges', () => {
+    const reversal = remit({ serviceLines: [serviceLine({ adjustments: [adjustment('CO', '45', -12345.67)] })] });
+
+    expect(longestLedgerAmount({ remits: [reversal], serviceLines: [claimLine(150)] })).toBe('-$12,345.67'.length);
+    expect(longestLedgerAmount({ remits: [], serviceLines: [claimLine(150)] })).toBe('$150.00'.length);
+    expect(longestLedgerAmount({ remits: [], serviceLines: [] })).toBe(0);
   });
 });
 

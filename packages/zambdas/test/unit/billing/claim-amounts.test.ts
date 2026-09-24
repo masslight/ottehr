@@ -1052,7 +1052,7 @@ describe('firstSubmittedDate', () => {
 
   it('is the earliest submission, comparing instants rather than strings', () => {
     const resubmitted = submission('2026-07-04T09:00:00Z');
-    // 2026-07-03T00:00:00Z: sorts first as a string, but is the later instant
+    // sorts before `first` as a string, but is the later instant (2026-07-03T00:00:00Z)
     const offsetLater = submission('2026-07-02T20:00:00-04:00');
     const first = submission('2026-07-02T23:00:00Z');
 
