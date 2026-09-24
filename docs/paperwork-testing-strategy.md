@@ -103,7 +103,7 @@ Plus a **complete dispatch matrix test for `getInputTypeForItem`** over `item.ty
 
 Where: add the missing `test` script to `packages/ui-components` (its `vitest.config.ts` already exists) and put the suite in the package that owns the components. If that stalls on config friction, `apps/intake/tests/component/` already imports ui-components paperwork internals successfully and is an acceptable interim home — but the end state should be tests co-located with the renderer, because the EHR (questionnaire preview, patient record) consumes it too.
 
-Harness: extract the `QuestionnairePreview` stubbing recipe into a shared test util — `renderPaperworkPage(questionnaire, { values, helpers })` wrapping `PaperworkProvider` + `createMemoryRouter` (needed by `useBeforeUnload`) + optional `QueryClientProvider`. This same harness powers Tiers 3 and 5.
+Harness: extract the `QuestionnairePreview` stubbing recipe into a shared test util — `renderPaperworkPage(questionnaire, { values, helpers })` wrapping `PaperworkProvider` + a `MemoryRouter` (needed by `ControlButtons`' `useNavigate`) + optional `QueryClientProvider`. This same harness powers Tiers 3 and 5.
 
 #### 1b. Conditional-logic engine matrix (node)
 
@@ -253,7 +253,7 @@ The tiers decompose into pull requests as a **DAG, not a single stack**: three s
 
 The chains: **1 → 11 → 12a–d → 17** (harness → component contracts → runner), **13 → 14 → 17** (hook cores → extension round-trips → runner), and **15 → 16/17** (shared walker → harvest properties / runner) — converging at the runner, then **17 → 18 → 19 → 20** crossing into `hosted-ottehr-builds`. PRs 2–10 can land in any order, in parallel, from day one. Mapped to the phases: Phase 0 ≈ 1–2 (+10 anytime), Phase 1 ≈ 3, 5–6, 11–14, Phase 2 ≈ 4, 7–9, 15–17, Phase 3 ≈ 18–19, Phase 4 = 20.
 
-Status: PRs 1–6 are **merged** ([#9108](https://github.com/masslight/ottehr/pull/9108), [#9109](https://github.com/masslight/ottehr/pull/9109), [#9110](https://github.com/masslight/ottehr/pull/9110), [#9201](https://github.com/masslight/ottehr/pull/9201), [#9202](https://github.com/masslight/ottehr/pull/9202), [#9203](https://github.com/masslight/ottehr/pull/9203)). PRs 7–9 are **open as independent PRs** against `develop` (reviewable in any order): [#9355](https://github.com/masslight/ottehr/pull/9355) consent + document harvest coverage, [#9356](https://github.com/masslight/ottehr/pull/9356) strategy handlers + patch-paperwork task flow, [#9357](https://github.com/masslight/ottehr/pull/9357) get-standalone-paperwork + form PDF handler.
+Status: PRs 1–9 are **merged** ([#9108](https://github.com/masslight/ottehr/pull/9108), [#9109](https://github.com/masslight/ottehr/pull/9109), [#9110](https://github.com/masslight/ottehr/pull/9110), [#9201](https://github.com/masslight/ottehr/pull/9201), [#9202](https://github.com/masslight/ottehr/pull/9202), [#9203](https://github.com/masslight/ottehr/pull/9203), [#9355](https://github.com/masslight/ottehr/pull/9355), [#9356](https://github.com/masslight/ottehr/pull/9356), [#9357](https://github.com/masslight/ottehr/pull/9357)). PRs 10–11 are **open as independent PRs** against `develop` (reviewable in any order): [#9759](https://github.com/masslight/ottehr/pull/9759) intake e2e hygiene, [#9761](https://github.com/masslight/ottehr/pull/9761) `renderPaperworkPage` harness + preview stubs moved to ui-components.
 
 Sequencing constraints that matter:
 
