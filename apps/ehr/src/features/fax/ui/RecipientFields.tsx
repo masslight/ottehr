@@ -7,6 +7,7 @@ import { TextInput } from 'src/components/input/TextInput';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { AddressBookPicker } from 'src/features/address-book/AddressBookPicker';
 import { formatPhoneNumberDisplay } from 'utils/lib/helpers/helpers';
+import { FAX_RECIPIENT_CREDENTIAL_NEEDS_NAME_MESSAGE } from 'utils/lib/types/api/fax.types';
 import { formatAddressBookPersonName } from 'utils/lib/types/data/address-book';
 import { FaxFormValues } from '../model/types';
 
@@ -21,7 +22,7 @@ interface RecipientFieldsProps {
 
 /** One recipient row. Text/phone fields bind to the parent react-hook-form context by name. */
 export const RecipientFields: FC<RecipientFieldsProps> = ({ index, isPcp, onSaveAsPcpChange, onRemove }) => {
-  const { setValue } = useFormContext<FaxFormValues>();
+  const { getValues, setValue } = useFormContext<FaxFormValues>();
 
   const field = (
     key: 'name' | 'credential' | 'organization' | 'faxNumber' | 'phoneNumber'
@@ -69,6 +70,9 @@ export const RecipientFields: FC<RecipientFieldsProps> = ({ index, isPcp, onSave
             name={field('credential')}
             label="Credential"
             placeholder="MD, DO, NP"
+            validate={(value) =>
+              !value.trim() || !!getValues(field('name'))?.trim() || FAX_RECIPIENT_CREDENTIAL_NEEDS_NAME_MESSAGE
+            }
             dataTestId={`${dataTestIds.faxDialog.credential}-${index}`}
           />
         </Box>

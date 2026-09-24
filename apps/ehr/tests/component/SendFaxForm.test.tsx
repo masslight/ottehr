@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { FaxDocumentAvailability } from 'utils/lib/types/api/fax.types';
+import { FAX_RECIPIENT_CREDENTIAL_NEEDS_NAME_MESSAGE, FaxDocumentAvailability } from 'utils/lib/types/api/fax.types';
 import { describe, expect, it, vi } from 'vitest';
 import { SendFaxForm } from '../../src/features/fax/ui/SendFaxForm';
 
@@ -80,6 +80,25 @@ describe('SendFaxForm sender', () => {
     renderForm(undefined, '+12125550000');
 
     expect(screen.getByLabelText(/Recipient Fax/)).toBeVisible();
+  });
+});
+
+describe('SendFaxForm credential', () => {
+  it('does not send a credential without a recipient name', async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn();
+    render(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <SendFaxForm isSending={false} onSubmit={onSubmit} onCancel={vi.fn()} />
+      </QueryClientProvider>
+    );
+
+    await user.type(screen.getByLabelText(/Recipient Fax/), '2125550000');
+    await user.type(screen.getByLabelText('Credential'), 'MD');
+    await user.click(screen.getByRole('button', { name: /send/i }));
+
+    expect(await screen.findByText(FAX_RECIPIENT_CREDENTIAL_NEEDS_NAME_MESSAGE)).toBeInTheDocument();
+    expect(onSubmit).not.toHaveBeenCalled();
   });
 });
 
