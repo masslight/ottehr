@@ -143,7 +143,9 @@ export function providerToUpdateInput(data: ProviderForm, providerId: string): U
   return payload;
 }
 
+// Only rendering providers carry a license; the fields are hidden (and dropped) otherwise.
 function licenseInput(data: ProviderForm): { license?: BillingProviderLicense } {
+  if (!data.renders) return {};
   const number = data.licenseNumber.trim();
   if (!data.licenseType || !number || !data.licenseState) return {};
   return { license: { type: data.licenseType, number, state: data.licenseState } };

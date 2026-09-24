@@ -60,4 +60,14 @@ describe('ProviderFields', () => {
     expect(await screen.findAllByText('This field is required')).toHaveLength(2);
     expect(onSubmit).not.toHaveBeenCalled();
   });
+
+  it('shows license fields only for providers that render', () => {
+    render(<TestForm onSubmit={vi.fn()} />);
+    expect(screen.getByLabelText('License Number *')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Renders medical services' }));
+
+    expect(screen.queryByLabelText('License Number *')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('License State *')).not.toBeInTheDocument();
+  });
 });

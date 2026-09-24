@@ -33,6 +33,7 @@ export function ProviderFields(): ReactElement {
   const { control, watch } = useFormContext<ProviderForm>();
   const selectedKind = watch('kind');
   const bills = watch('bills');
+  const renders = watch('renders');
   return (
     <>
       <Controller
@@ -191,7 +192,7 @@ export function ProviderFields(): ReactElement {
         />
       )}
 
-      {selectedKind === 'individual' && <ProviderLicenseFields />}
+      {selectedKind === 'individual' && renders && <ProviderLicenseFields />}
       <Controller
         name="taxonomyCode"
         control={control}

@@ -139,7 +139,7 @@ export function ProviderDetailForm({
       <Row label="Name" value={provider?.name ?? ''} />
       <Row label="NPI" value={provider?.npi ?? ''} />
       <Row label="Taxonomy Code" value={provider?.taxonomyCode ?? ''} />
-      {provider?.kind === 'individual' && (
+      {provider?.kind === 'individual' && provider.renders && (
         <Row label="License" value={formatBillingProviderLicense(provider.license)} />
       )}
       <Row label="Tax ID / EIN" value={formatTaxId(provider?.taxId ?? '')} />
