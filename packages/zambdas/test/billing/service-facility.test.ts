@@ -8,13 +8,9 @@ import {
 } from 'utils/lib/fhir/constants';
 import { CODE_SYSTEM_CMS_PLACE_OF_SERVICE } from 'utils/lib/helpers/rcm/constants';
 import { SaveServiceFacilityInput } from 'utils/lib/types/data/billing/billing.schemas';
-import { afterEach, beforeEach, describe, expect, it, MockInstance, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { validateRequestParameters } from '../../src/billing/save-billing-service-facility/validateRequestParameters';
-import {
-  applyServiceFacilityInput,
-  findServiceFacilityForLocation,
-  mapServiceFacility,
-} from '../../src/billing/service-facility.helpers';
+import { applyServiceFacilityInput, mapServiceFacility } from '../../src/billing/service-facility.helpers';
 import type { ZambdaInput } from '../../src/shared/types/common';
 
 function makeInput(body: Record<string, unknown> | null): ZambdaInput {
@@ -523,96 +519,6 @@ describe('mapServiceFacility', () => {
     expect(mapped.zip).toBe('');
     expect(mapped.npi).toBe('');
     expect(mapped.posCode).toBe('');
-  });
-});
-
-describe('findServiceFacilityForLocation', () => {
-  const makeLocation = (id: string, line?: string[], postalCode = '02118'): Location => ({
-    resourceType: 'Location',
-    id,
-    status: 'active',
-    ...(line && {
-      address: {
-        line,
-        city: 'Boston',
-        state: 'MA',
-        postalCode,
-      },
-    }),
-  });
-  const clinicalLocation = makeLocation('clinical-1', ['123 Main St']);
-  const mainStreet = makeLocation('sf-main', ['123 Main St']);
-  const elmStreet = makeLocation('sf-elm', ['9 Elm St']);
-
-  let consoleWarn: MockInstance<typeof console.warn>;
-  beforeEach(() => {
-    consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-  });
-  afterEach(() => {
-    consoleWarn.mockRestore();
-  });
-
-  it('returns undefined when no facility has the NPI', () => {
-    expect(findServiceFacilityForLocation([], clinicalLocation)).toBeUndefined();
-  });
-
-  it('returns the only facility with the NPI even when its address differs', () => {
-    expect(findServiceFacilityForLocation([elmStreet], clinicalLocation)).toBe(elmStreet);
-  });
-
-  it('picks the facility at the clinical address, ignoring case and whitespace', () => {
-    const shoutedMainStreet = makeLocation('sf-main-shouted', ['  123   MAIN st ']);
-    expect(findServiceFacilityForLocation([elmStreet, shoutedMainStreet], clinicalLocation)).toBe(shoutedMainStreet);
-  });
-
-  it('matches a ZIP+4 facility to a clinical Location with a 5-digit ZIP', () => {
-    const zipPlusFourMainStreet = makeLocation('sf-main-zip-plus-four', ['123 Main St'], '02118-1234');
-    expect(findServiceFacilityForLocation([elmStreet, zipPlusFourMainStreet], clinicalLocation)).toBe(
-      zipPlusFourMainStreet
-    );
-  });
-
-  it('does not match a facility whose 5-digit ZIP differs', () => {
-    const otherZipMainStreet = makeLocation('sf-main-other-zip', ['123 Main St'], '02119-1234');
-    expect(findServiceFacilityForLocation([elmStreet, otherZipMainStreet], clinicalLocation)).toBeUndefined();
-  });
-
-  it('ignores punctuation and how the street is split across address lines', () => {
-    const suiteClinicalLocation = makeLocation('clinical-suite', ['123 Main St', 'Ste 100']);
-    const oneLineSuite = makeLocation('sf-main-suite', ['123 Main St., Ste. 100']);
-    expect(findServiceFacilityForLocation([elmStreet, oneLineSuite], suiteClinicalLocation)).toBe(oneLineSuite);
-  });
-
-  it('returns undefined when no facility is at the clinical address', () => {
-    const oakStreet = makeLocation('sf-oak', ['1 Oak St']);
-    expect(findServiceFacilityForLocation([elmStreet, oakStreet], clinicalLocation)).toBeUndefined();
-  });
-
-  it('returns undefined when more than one facility is at the clinical address', () => {
-    const otherMainStreet = makeLocation('sf-main-2', ['123 Main St']);
-    expect(findServiceFacilityForLocation([mainStreet, otherMainStreet], clinicalLocation)).toBeUndefined();
-  });
-
-  it('warns with the candidate facilities when none can be selected', () => {
-    const otherMainStreet = makeLocation('sf-main-2', ['123 Main St']);
-    findServiceFacilityForLocation([mainStreet, otherMainStreet], clinicalLocation);
-
-    expect(consoleWarn).toHaveBeenCalledTimes(1);
-    expect(consoleWarn.mock.calls[0][0]).toContain('Location/clinical-1');
-    expect(consoleWarn.mock.calls[0][0]).toContain('Location/sf-main, Location/sf-main-2');
-  });
-
-  it('does not warn when exactly one facility is at the clinical address', () => {
-    findServiceFacilityForLocation([elmStreet, mainStreet], clinicalLocation);
-
-    expect(consoleWarn).not.toHaveBeenCalled();
-  });
-
-  it('returns undefined when the clinical Location has no address', () => {
-    const noAddressFacility = makeLocation('sf-no-address');
-    expect(
-      findServiceFacilityForLocation([noAddressFacility, elmStreet], makeLocation('clinical-no-address'))
-    ).toBeUndefined();
   });
 });
 

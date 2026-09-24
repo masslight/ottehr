@@ -9,7 +9,7 @@ import { getNPI } from 'utils/lib/fhir/helpers';
 import { CODE_SYSTEM_CMS_PLACE_OF_SERVICE } from 'utils/lib/helpers/rcm/constants';
 import { SaveServiceFacilityInput } from 'utils/lib/types/data/billing/billing.schemas';
 import { ServiceFacilityItem } from 'utils/lib/types/data/billing/billing.types';
-import { copySourceId, formatAddress, isWorkingCopy } from './shared';
+import { copySourceId, isWorkingCopy } from './shared';
 
 export function getCLIA(location: Location): string | undefined {
   return location.identifier?.find((identifier) => identifier.system === FHIR_IDENTIFIER_CLIA)?.value;
@@ -37,36 +37,6 @@ export function mapServiceFacility(location: Location): ServiceFacilityItem {
     status: location.status === 'active' ? 'active' : 'inactive',
     workingCopyReferenceResourceId,
   };
-}
-
-const normalizeAddress = (location: Location): string => {
-  const address = location.address;
-  return formatAddress({
-    ...address,
-    postalCode: address?.postalCode?.slice(0, 5),
-  })
-    .toLowerCase()
-    .replace(/[^\p{L}\p{N}]+/gu, ' ')
-    .trim();
-};
-
-export function findServiceFacilityForLocation(
-  candidates: Location[],
-  clinicalLocation: Location
-): Location | undefined {
-  if (candidates.length <= 1) return candidates[0];
-  const clinicalAddress = normalizeAddress(clinicalLocation);
-  const addressMatches = clinicalAddress
-    ? candidates.filter((candidate) => normalizeAddress(candidate) === clinicalAddress)
-    : [];
-  if (addressMatches.length === 1) return addressMatches[0];
-
-  const candidateRefs = candidates.map((candidate) => `Location/${candidate.id}`).join(', ');
-  console.warn(
-    `${candidates.length} service facilities share the NPI of Location/${clinicalLocation.id} ` +
-      `(${candidateRefs}) and ${addressMatches.length} match its address; no service facility selected`
-  );
-  return undefined;
 }
 
 // Pass `existing` for updates (read-modify-write); omit it to build a new active facility.
