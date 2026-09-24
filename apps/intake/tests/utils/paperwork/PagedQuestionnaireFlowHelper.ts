@@ -1035,12 +1035,11 @@ export class PagedQuestionnaireFlowHelper {
 
           // Fail if expected field errors were not found
           if (missingErrors.length > 0) {
-            const missingErrorsString = missingErrors.join(', ');
-            if (missingErrorsString !== 'employer-state') {
-              throw new Error(
-                `[Phase 1] Expected validation errors for always-required fields but none found: ${missingErrorsString}`
-              );
-            }
+            throw new Error(
+              `[Phase 1] Expected validation errors for always-required fields but none found: ${missingErrors.join(
+                ', '
+              )}`
+            );
           }
 
           this.validateErrorMessages(errorResult, true);
