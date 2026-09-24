@@ -35,6 +35,7 @@ const serviceLine = (overrides: Partial<EraRemitServiceLine> = {}): EraRemitServ
   coinsurance: 0,
   copay: 0,
   adjustments: [],
+  remarkCodes: [],
   ...overrides,
 });
 

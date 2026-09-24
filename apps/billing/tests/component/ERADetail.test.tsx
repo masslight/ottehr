@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ReactNode } from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
@@ -113,6 +113,14 @@ const unmatchedRemit: EraClaimRemit = {
 
 const makeEra = (): EraDetailResponse => ({
   id: 'era-1',
+  source: 'clearing-house',
+  versionId: '1',
+  remitDate: '',
+  depositDate: '',
+  notes: '',
+  enteredBy: '',
+  enteredAt: '',
+  attachments: [],
   checkNumber: 'CHK-100',
   checkDate: '2026-07-18',
   createdDate: '2026-07-20T10:00:00Z',
@@ -171,6 +179,7 @@ function renderDetail(): void {
         <Route path="/eras/:id" element={<ERADetail />} />
         <Route path="/eras" element={<div>ERA list</div>} />
         <Route path="/eras/:eraId/claims/:claimId" element={<div>Reimbursement page</div>} />
+        <Route path="/eras/:id/edit" element={<div>Manual remit editor</div>} />
       </Routes>
     </MemoryRouter>
   );
@@ -194,6 +203,46 @@ describe('ERADetail', () => {
     expect(screen.getByText('Ottehr Medical Group')).toBeInTheDocument();
     expect(screen.getByText('1234567890')).toBeInTheDocument();
     expect(screen.getByText('12-3456789')).toBeInTheDocument();
+  });
+
+  it('labels a clearing-house ERA and offers its X12, but no editing', async () => {
+    renderDetail();
+    expect(await screen.findByText('Clearing House')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Export X12' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument();
+    // BPR04 codes read as words
+    expect(screen.getByText('Check')).toBeInTheDocument();
+  });
+
+  it('shows a keyed-in remit with its paper details, scan and an Edit button', async () => {
+    getBillingEraDetailMock.mockResolvedValue({
+      ...makeEra(),
+      source: 'manual',
+      x12: '',
+      paymentMethod: 'ACH',
+      remitDate: '2026-09-13',
+      depositDate: '2026-09-14',
+      notes: 'Mailed remit',
+      enteredBy: 'biller@example.com',
+      enteredAt: '2026-09-13T15:00:00Z',
+      attachments: [
+        { id: 'doc-1', fileName: 'Remit.pdf', contentType: 'application/pdf', dateAdded: '2026-09-13T16:00:00Z' },
+      ],
+    });
+    renderDetail();
+
+    expect(await screen.findByText('Manual')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Export X12' })).not.toBeInTheDocument();
+    expect(screen.getByText('EFT')).toBeInTheDocument();
+    expect(screen.getByText('09/14/2026')).toBeInTheDocument();
+    expect(screen.getByText('biller@example.com on 09/13/2026')).toBeInTheDocument();
+    expect(screen.getByText('Mailed remit')).toBeInTheDocument();
+    expect(screen.getByText('Remit.pdf')).toBeInTheDocument();
+    // the scan is download-only here; it is managed from the editor
+    expect(screen.queryByRole('button', { name: 'More actions' })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    expect(await screen.findByText('Manual remit editor')).toBeInTheDocument();
   });
 
   it('shows only the payee fields the ERA carries', async () => {
