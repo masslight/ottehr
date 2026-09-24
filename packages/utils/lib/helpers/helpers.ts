@@ -1722,6 +1722,8 @@ export const getPayerId = (org: Organization | undefined): string | undefined =>
   return payerId;
 };
 
+export const getPayerName = (org: Organization | undefined): string | undefined => org?.name ?? org?.alias?.[0];
+
 export function getPayerUrl(payerId: string): string {
   const oystehr = new Oystehr({}); // get access to static helper
   return oystehr.rcm.constructPayerUrl({ id: payerId });
