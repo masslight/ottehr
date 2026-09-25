@@ -25,6 +25,8 @@ const categoryRank = (category: string): number => CATEGORY_RANK[category] ?? Ob
 const compareCategories = (left: string, right: string): number =>
   categoryRank(left) - categoryRank(right) || left.localeCompare(right);
 
+const weightOf = (item: CommandPaletteItem): number => item.sortWeight ?? 0;
+
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const sortItems = (items: CommandPaletteItem[], query = ''): CommandPaletteItem[] => {
@@ -67,11 +69,30 @@ const sortItems = (items: CommandPaletteItem[], query = ''): CommandPaletteItem[
     return 1; // category or keyword match (still visible, just lower priority)
   };
 
+  const bestCategoryPriority = new Map<string, number>();
+  if (normalizedQuery) {
+    for (const item of items) {
+      const priority = matchPriority(item);
+      const best = bestCategoryPriority.get(item.category);
+      if (best === undefined || priority < best) bestCategoryPriority.set(item.category, priority);
+    }
+  }
+
   return [...items].sort((left, right) => {
+    if (normalizedQuery) {
+      const categoryPriorityComparison =
+        (bestCategoryPriority.get(left.category) ?? 0) - (bestCategoryPriority.get(right.category) ?? 0);
+      if (categoryPriorityComparison !== 0) return categoryPriorityComparison;
+    } else {
+      const weightComparison = weightOf(right) - weightOf(left);
+      if (weightComparison !== 0) return weightComparison;
+    }
     const categoryComparison = compareCategories(left.category, right.category);
     if (categoryComparison !== 0) return categoryComparison;
     const priorityComparison = matchPriority(left) - matchPriority(right);
     if (priorityComparison !== 0) return priorityComparison;
+    const weightTiebreak = weightOf(right) - weightOf(left);
+    if (weightTiebreak !== 0) return weightTiebreak;
     const lk = sortKeyFor(left);
     const rk = sortKeyFor(right);
     const primaryComparison = lk.primary.localeCompare(rk.primary);
@@ -178,7 +199,11 @@ export const CommandPalette: FC = () => {
       if (!groups.has(category)) groups.set(category, []);
     });
 
-    return [...groups.entries()].sort(([left], [right]) => compareCategories(left, right));
+    const groupWeight = (items: CommandPaletteItem[]): number => Math.max(0, ...items.map(weightOf));
+    return [...groups.entries()].sort(
+      ([leftCategory, leftItems], [rightCategory, rightItems]) =>
+        groupWeight(rightItems) - groupWeight(leftItems) || compareCategories(leftCategory, rightCategory)
+    );
   }, [displayItems, groupActions, query]);
 
   const orderedIds = useMemo(() => displayItems.map((item) => item.id), [displayItems]);

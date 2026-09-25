@@ -25,6 +25,7 @@ export interface CommandPaletteItem {
   parentId?: string;
   icon?: ReactNode;
   actions?: CommandPaletteItemAction[];
+  sortWeight?: number;
 }
 
 export type CommandPaletteGroupAction = Omit<CommandPaletteItemAction, 'id'>;
