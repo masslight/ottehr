@@ -83,6 +83,8 @@ brew tap hashicorp/tap
 brew install hashicorp/tap/terraform
 ```
 
+This Homebrew formula is not pinned and installs the latest Terraform release, which may be newer than 1.16.x and is not supported by this project. Run `terraform version` afterwards; if it does not report 1.16.x, use the download above instead.
+
 Check the [1.16.4 releases page](https://releases.hashicorp.com/terraform/1.16.4/) if you aren't sure which version to install.
 
 ### Fork & Clone
