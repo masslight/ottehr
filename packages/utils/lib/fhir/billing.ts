@@ -465,7 +465,7 @@ export const INSURANCE_TYPE_CODE_TO_CANDID_CODE: Record<string, string> = {
   CP: 'MA',
   D: 'DS',
   DB: 'DS',
-  EP: '12',
+  EP: '14',
   FF: '11',
   GP: '12',
   HM: 'HM',
@@ -484,6 +484,9 @@ export const INSURANCE_TYPE_CODE_TO_CANDID_CODE: Record<string, string> = {
   MI: '11',
   MP: 'MA',
   OT: 'ZZ',
+  PP: '09',
+  PR: '12',
+  PS: '13',
 };
 
 /**
@@ -493,7 +496,7 @@ export const INSURANCE_TYPE_CODE_TO_CANDID_CODE: Record<string, string> = {
  */
 export const mapInsuranceTypeCodeToCandidCode = (insuranceTypeCode: string | undefined): string | undefined => {
   if (!insuranceTypeCode) return undefined;
-  return INSURANCE_TYPE_CODE_TO_CANDID_CODE[insuranceTypeCode];
+  return INSURANCE_TYPE_CODE_TO_CANDID_CODE[insuranceTypeCode.trim().toUpperCase()];
 };
 
 // The claim's non-insurance payer (e.g. the visit's occupational-medicine employer): a reference to
