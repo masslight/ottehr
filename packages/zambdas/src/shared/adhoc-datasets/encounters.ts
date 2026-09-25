@@ -45,10 +45,16 @@ import {
   getPhoneNumberForIndividual,
   mapGenderToLabel,
 } from 'utils/lib/fhir/patient';
+import {
+  DIAGNOSTIC_REPORT_PRELIMINARY_REVIEW_ON_EXTENSION_URL,
+  SERVICE_REQUEST_PERFORMED_ON_EXTENSION_URL,
+  SERVICE_REQUEST_REQUESTED_TIME_EXTENSION_URL,
+} from 'utils/lib/fhir/radiology';
 import { isInHouseLabServiceRequest } from 'utils/lib/helpers/in-house-labs';
 import { CODE_SYSTEM_CPT, CODE_SYSTEM_NDC } from 'utils/lib/helpers/rcm/constants';
 import { getVitalDTOCriticalityFromObservation } from 'utils/lib/helpers/vitals/utils';
 import { celsiusToFahrenheit, roundTemperatureValue } from 'utils/lib/helpers/vitals/vitals-temperature.helper';
+import { patientScreeningQuestionsConfig } from 'utils/lib/ottehr-config/screening-questions';
 import { AdHocEncounterRow, AdHocEncountersInput } from 'utils/lib/types/adhoc/datasets/encounters';
 import { VitalAlertCriticality, VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import {
@@ -69,6 +75,7 @@ import {
   resolveEncounterAppointment,
 } from '../adhoc-report';
 import { followUpTypeFromPerformerType } from '../chart-data';
+import { takeMostRecentPreliminaryReport, takeTheBestFinalDiagnosticReport } from '../radiology';
 
 let staffNameByEmail: Map<string, string> | undefined;
 
@@ -212,6 +219,20 @@ const VITAL_ALERT_FIELDS: Record<string, string> = {
   [VitalFieldNames.VitalHeight]: 'heightCm',
 };
 
+// "Ask the patient" screening answers are chart-data Observations (makeObservationResource): code.text
+// is the config field's fhirField; radio/select/text answers are valueString (the option's fhirValue
+// or free text), date answers are valueDateTime.
+const SCREENING_FIELD_BY_CODE = new Map(patientScreeningQuestionsConfig.fields.map((f) => [f.fhirField, f]));
+
+const screeningAnswer = (o: Observation): { question: string; answer: string } | undefined => {
+  const field = o.code?.text ? SCREENING_FIELD_BY_CODE.get(o.code.text) : undefined;
+  if (!field) return undefined;
+  const raw = o.valueString ?? o.valueDateTime;
+  if (!raw) return undefined;
+  const answer = field.options?.find((opt) => opt.fhirValue === raw)?.label ?? raw;
+  return { question: field.question, answer };
+};
+
 const isActiveOrder = (sr: ServiceRequest): boolean => sr.status !== 'revoked' && sr.status !== 'entered-in-error';
 
 const isLabOrder = (sr: ServiceRequest): boolean =>
@@ -222,6 +243,36 @@ const isLabOrder = (sr: ServiceRequest): boolean =>
 const isImagingOrder = (sr: ServiceRequest): boolean => Boolean(sr.meta?.tag?.some((t) => t.code === 'radiology'));
 const orderDisplay = (sr: ServiceRequest): string =>
   sr.code?.text || sr.code?.coding?.find((c) => c.display)?.display || sr.code?.coding?.[0]?.code || '';
+
+const extensionDateTime = (
+  resource: { extension?: { url: string; valueDateTime?: string }[] },
+  url: string
+): string | null => resource.extension?.find((e) => e.url === url)?.valueDateTime ?? null;
+
+// Mirrors radiology/order-list buildHistory: order time and performed time live on ServiceRequest
+// extensions, the preliminary read time on the preliminary DiagnosticReport, the final read on issued.
+type RadiologyStudy = NonNullable<AdHocEncounterRow['imagingStudies']>[number];
+const radiologyStudy = (sr: ServiceRequest, reports: DiagnosticReport[]): RadiologyStudy => {
+  const preliminary = takeMostRecentPreliminaryReport(reports);
+  const final = takeTheBestFinalDiagnosticReport(reports);
+  const preliminaryAt =
+    (preliminary ? extensionDateTime(preliminary, DIAGNOSTIC_REPORT_PRELIMINARY_REVIEW_ON_EXTENSION_URL) : null) ??
+    (final ? extensionDateTime(final, DIAGNOSTIC_REPORT_PRELIMINARY_REVIEW_ON_EXTENSION_URL) : null);
+  const finalAt = final ? final.issued ?? final.meta?.lastUpdated ?? null : null;
+  const performedAt = extensionDateTime(sr, SERVICE_REQUEST_PERFORMED_ON_EXTENSION_URL);
+  const orderedAt = extensionDateTime(sr, SERVICE_REQUEST_REQUESTED_TIME_EXTENSION_URL) ?? sr.authoredOn ?? null;
+  const status: RadiologyStudy['status'] =
+    sr.status === 'revoked'
+      ? 'cancelled'
+      : final
+      ? 'final'
+      : preliminary
+      ? 'preliminary'
+      : performedAt || sr.status === 'completed'
+      ? 'performed'
+      : 'pending';
+  return { name: orderDisplay(sr), status, orderedAt, performedAt, preliminaryAt, finalAt };
+};
 
 export async function fetchAdHocEncounterRows(
   oystehr: Oystehr,
@@ -271,6 +322,7 @@ export async function fetchAdHocEncounterRows(
   const statementByMaId = new Map<string, MedicationStatement>();
   const observationsByEncounterId = new Map<string, Observation[]>();
   const serviceRequestsByEncounterId = new Map<string, ServiceRequest[]>();
+  const radiologyReportsBySrId = new Map<string, DiagnosticReport[]>();
   const resultsByEncounterId = new Map<string, DiagnosticReport[]>();
   const encounterConditionsByEncounterId = new Map<string, Condition[]>();
   const encounterById = new Map<string, Encounter>();
@@ -434,6 +486,26 @@ export async function fetchAdHocEncounterRows(
         serviceRequestsByEncounterId
       );
     }
+    if (includeImaging) {
+      // Radiology reads are DiagnosticReports linked to the order by basedOn, not by encounter. Scope the
+      // revinclude to radiology orders only — lab reports can carry PDF attachments and are not needed.
+      const radiologyAndReads = await fetchScoped<ServiceRequest | DiagnosticReport>(
+        'ServiceRequest',
+        'encounter',
+        encRefs,
+        [
+          { name: '_tag', value: 'radiology' },
+          { name: '_revinclude', value: 'DiagnosticReport:based-on' },
+        ]
+      );
+      for (const dr of radiologyAndReads) {
+        if (dr.resourceType !== 'DiagnosticReport' || dr.status === 'entered-in-error') continue;
+        for (const ref of dr.basedOn ?? []) {
+          const srId = ref.reference?.startsWith('ServiceRequest/') ? ref.reference.replace('ServiceRequest/', '') : '';
+          if (srId) radiologyReportsBySrId.set(srId, [...(radiologyReportsBySrId.get(srId) ?? []), dr]);
+        }
+      }
+    }
     if (includeResults) {
       indexByEncounter(
         await fetchScoped<DiagnosticReport>('DiagnosticReport', 'encounter', encRefs, [
@@ -521,6 +593,8 @@ export async function fetchAdHocEncounterRows(
     const registeredByName = (regEmail && staffNames.get(regEmail)) || registeredBy;
 
     const locationId = locationRef ? locationRef.replace('Location/', '') : undefined;
+    const statusHistory = getVisitStatusHistory(encounter);
+    const currentStatusSince = statusHistory.at(-1)?.period.start ?? null;
 
     const row: AdHocEncounterRow = {
       appointmentId: appointment.id || '',
@@ -533,13 +607,16 @@ export async function fetchAdHocEncounterRows(
       appointmentType: appointmentTypeForAppointment(appointment),
       serviceCategory,
       visitStatus,
-      statusHistory: getVisitStatusHistory(encounter).map((entry) => ({
+      statusHistory: statusHistory.map((entry) => ({
         status: entry.status,
         start: entry.period.start ?? null,
         end: entry.period.end ?? null,
       })),
       encounterType,
-      reason: encounter.reasonCode?.[0]?.text || appointment.appointmentType?.text || '',
+      // Reason for visit is the booking's free text (Appointment.description); appointmentType.text
+      // is the booking KIND (walk-in / pre-book) and must never stand in for it.
+      reason: appointment.description?.trim() || encounter.reasonCode?.[0]?.text || '',
+      visitStatusSince: currentStatusSince,
       scheduledSlotMinutes: minutesBetween(appointment.start, appointment.end),
       patientId: patient?.id || '',
       firstName: patient ? getPatientFirstName(patient) || '' : '',
@@ -843,6 +920,10 @@ export async function fetchAdHocEncounterRows(
         const imagingOrders = srs.filter(isImagingOrder).map(orderDisplay).filter(Boolean);
         row.imagingOrders = imagingOrders;
         row.imagingOrderCount = imagingOrders.length;
+        row.imagingStudies = (encounter.id ? serviceRequestsByEncounterId.get(encounter.id) ?? [] : [])
+          .filter((sr) => isImagingOrder(sr) && sr.status !== 'entered-in-error')
+          .map((sr) => radiologyStudy(sr, sr.id ? radiologyReportsBySrId.get(sr.id) ?? [] : []))
+          .filter((study) => Boolean(study.name));
       }
       if (includeNursing) {
         const nursingOrders = srs
@@ -1031,6 +1112,20 @@ export async function fetchAdHocEncounterRows(
         if (label) birthHistory.push(label);
       }
       row.birthHistory = birthHistory;
+      const screeningAnswers: { question: string; answer: string }[] = [];
+      // Newest first, so a re-answered question keeps its latest answer.
+      const byNewest = [...obs].sort((a, b) =>
+        (b.effectiveDateTime ?? b.meta?.lastUpdated ?? '').localeCompare(
+          a.effectiveDateTime ?? a.meta?.lastUpdated ?? ''
+        )
+      );
+      for (const o of byNewest) {
+        if (o.status === 'entered-in-error') continue;
+        const entry = screeningAnswer(o);
+        if (entry && !screeningAnswers.some((e) => e.question === entry.question)) screeningAnswers.push(entry);
+      }
+      row.screeningAnswers = screeningAnswers;
+      row.screeningQuestions = screeningAnswers.map((e) => e.question);
       const accidentCond = (encounter.id ? encounterConditionsByEncounterId.get(encounter.id) ?? [] : []).find(
         (c) => c.meta?.tag?.some((t) => t.code === 'accident')
       );
