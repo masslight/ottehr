@@ -395,11 +395,11 @@ describe('createConsentResources', () => {
     });
   });
 
-  test('resolves state-specific consent form assets (the Illinois variant)', async () => {
+  test('uses the default consent form asset paths for all states (no state-specific override)', async () => {
     await run({ location: makeLocation('IL') });
     const cttPdfInfo = mockCreatePdfBytes.mock.calls[1][3];
     expect(cttPdfInfo.copyFromPath).toBe(IL_FORMS[1].assetPath);
-    expect(cttPdfInfo.copyFromPath).not.toBe(CTT_FORM.assetPath);
+    expect(cttPdfInfo.copyFromPath).toBe(CTT_FORM.assetPath);
   });
 
   test('labels telemed visits with the telemedicine facility name', async () => {
