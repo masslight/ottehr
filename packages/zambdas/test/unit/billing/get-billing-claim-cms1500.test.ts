@@ -291,6 +291,21 @@ describe('buildCms1500FormData', () => {
     expect(buildCms1500FormData(resources({ claim: noLab })).priorAuthorizationNumber).toBeUndefined();
   });
 
+  it('treats only CPT 80047-89398 as lab procedures', () => {
+    const cliaFor = (code: string): string | undefined =>
+      buildCms1500FormData(
+        resources({
+          claim: {
+            ...claim,
+            insurance: claim.insurance.map((entry) => ({ ...entry, preAuthRef: undefined })),
+            item: [{ sequence: 1, productOrService: { coding: [{ code }] } }],
+          },
+        })
+      ).priorAuthorizationNumber;
+    expect(['80047', '87880', '89398'].map(cliaFor)).toEqual(['12D3456789', '12D3456789', '12D3456789']);
+    expect(['80046', '89399', '89999'].map(cliaFor)).toEqual([undefined, undefined, undefined]);
+  });
+
   it('marks Medicare claims without a group number NONE in item 11', () => {
     const medicare: Coverage = {
       ...primary,

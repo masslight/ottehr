@@ -83,7 +83,8 @@ const REFERRING_QUALIFIER_BY_ROLE: Record<string, string> = {
 const ACCIDENT_DATE_QUALIFIER = '439';
 
 // Clinical lab procedures (CPT 80047-89398) carry the facility's CLIA number in item 23.
-const isLabProcedure = (code: string | undefined): boolean => !!code && /^8\d{4}$/.test(code);
+const isLabProcedure = (code: string | undefined): boolean =>
+  !!code && /^\d{5}$/.test(code) && Number(code) >= 80047 && Number(code) <= 89398;
 
 export function buildCms1500FormData(resources: Cms1500Resources): Cms1500FormData {
   const { claim, patient, coverages, billingProvider, serviceFacility, renderingProvider, referringProvider } =
