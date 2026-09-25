@@ -96,6 +96,7 @@ This directory contains per-environment configuration files for Ottehr. The file
 | `STRIPE_PAYMENT_METHOD_TYPES` | Comma-separated list of payment method types accepted by your Stripe account (e.g., `card`). |
 | `STRIPE_WEBHOOK_SECRET` | Webhook signing secret or array of signing-secret/account-ID entries, as shown below. A single signing secret remains supported. **Keep this confidential.** |
 | `STRIPE_PLATFORM_WEBHOOK_SECRET` | Optional additional signing secret for the platform-account webhook destination. Existing configurations remain supported alongside `STRIPE_WEBHOOK_SECRET`. **Keep this confidential.** |
+| `STRIPE_CLINICAL_WEBHOOK_SECRET` | Signing secret or account-entry array for the clinical Stripe webhook. Uses the same format below, with the clinical destinations’ signing secrets. |
 
 In `config/.env/<env>.json`:
 
@@ -114,6 +115,10 @@ project webhook URL. `name` is an optional label; `accountId` is used when the e
 field. Omit `accountId` for platform or Connect destinations.
 If both the entry and event specify an account, they must match. A signing secret must have the same
 account mapping everywhere it appears, including `STRIPE_PLATFORM_WEBHOOK_SECRET`.
+
+For clinical refunds, send `refund.created`, `refund.updated`, and `refund.failed` to the project's
+`clinical-stripe-webhook` Zambda. Store its destination secrets in `STRIPE_CLINICAL_WEBHOOK_SECRET`
+in that project's `config/.env/<env>.json`. The existing `STRIPE_SECRET_KEY` is used for Stripe API calls.
 
 ### Radiology / PACS -- Advapacs
 

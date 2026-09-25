@@ -31,6 +31,7 @@ const BILLING_VAR_DEFAULTS: { [key: string]: string } = {
   PATIENT_BALANCE_SOURCE: 'candid',
   STRIPE_WEBHOOK_SECRET: '',
   STRIPE_PLATFORM_WEBHOOK_SECRET: '',
+  STRIPE_CLINICAL_WEBHOOK_SECRET: '',
 };
 
 const zambdasDirPath = path.resolve(__dirname, '../packages/zambdas');
@@ -179,9 +180,11 @@ async function generateOystehrResources(input: GenerateFhirResourcesArgs): Promi
   if (!isObject(vars)) {
     throw new Error(`Variable file ${varFile} is not a valid JSON map.`);
   }
-  if (Array.isArray(vars.STRIPE_WEBHOOK_SECRET)) {
-    StripeWebhookSigningSecretsSchema.parse(vars.STRIPE_WEBHOOK_SECRET);
-    vars.STRIPE_WEBHOOK_SECRET = JSON.stringify(vars.STRIPE_WEBHOOK_SECRET);
+  for (const key of ['STRIPE_WEBHOOK_SECRET', 'STRIPE_CLINICAL_WEBHOOK_SECRET']) {
+    if (Array.isArray(vars[key])) {
+      StripeWebhookSigningSecretsSchema.parse(vars[key]);
+      vars[key] = JSON.stringify(vars[key]);
+    }
   }
   const coreVars = { ...BILLING_VAR_DEFAULTS, ...vars };
   const billingVars = { ...BILLING_VAR_DEFAULTS, ...vars };

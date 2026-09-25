@@ -1516,6 +1516,13 @@
       "src": "src/ehr/update-nursing-order/index",
       "zip": ".dist/zips/update-nursing-order.zip"
     },
+    "CLINICAL-STRIPE-WEBHOOK": {
+      "name": "clinical-stripe-webhook",
+      "type": "http_open",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/clinical-stripe-webhook/index",
+      "zip": ".dist/zips/clinical-stripe-webhook.zip"
+    },
     "PATIENT-PAYMENTS-LIST": {
       "name": "patient-payments-list",
       "type": "http_auth",
