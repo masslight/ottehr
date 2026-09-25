@@ -11,7 +11,7 @@ const loadNavGroups = async (
   vi.doMock('src/constants/feature-flags', () => ({
     FEATURE_FLAGS: {
       OTTEHR_BILLING_INVOICING_ENABLED: false,
-      NON_INSURANCE_ORGANIZATIONS_ENABLED: flags.nio,
+      CUSTOM_ORGANIZATIONS_ENABLED: flags.nio,
     },
   }));
   const navModule = await import('../../src/features/admin/adminNav');

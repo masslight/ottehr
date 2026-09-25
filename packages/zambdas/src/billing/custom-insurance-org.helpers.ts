@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { Address, ContactPoint, Extension, Organization } from 'fhir/r4b';
-import { getPayerUrl } from 'utils/lib/helpers/helpers';
+import { getCustomInsuranceOrgReferenceUrl, getPayerUrl } from 'utils/lib/helpers/helpers';
 import {
   CreateCustomInsuranceOrgInput,
   CUSTOM_INSURANCE_ORG_TYPES,
@@ -10,6 +10,7 @@ import {
   CustomInsuranceOrgType,
 } from 'utils/lib/types/data/billing/custom-insurance-org.schemas';
 import {
+  ClinicalCustomInsuranceOrgOption,
   CUSTOM_INSURANCE_ORG_ACCEPTED_CLAIM_FORM_EXTENSION_URL,
   CUSTOM_INSURANCE_ORG_ID_PREFIX,
   CUSTOM_INSURANCE_ORG_ID_SYSTEM,
@@ -186,6 +187,21 @@ export function mapCustomInsuranceOrganization(org: Organization): CustomInsuran
     acceptedClaimForm,
     ...(note ? { note } : {}),
     contacts,
+  };
+}
+
+// --- Clinical directory mapping ---
+
+export function mapClinicalCustomInsuranceOrgOption(org: Organization): ClinicalCustomInsuranceOrgOption {
+  return {
+    id: org.id ?? '',
+    // A reference token, not a direct FHIR reference — the clinical app resolves it through the
+    // list-custom-insurance-organizations door instead of reading this Organization directly (the
+    // same pattern non-insurance organizations use, see getNioReferenceUrl).
+    reference: getCustomInsuranceOrgReferenceUrl(org.id ?? ''),
+    orgId: getCustomInsuranceOrgBusinessId(org),
+    name: org.name ?? '',
+    active: org.active !== false,
   };
 }
 

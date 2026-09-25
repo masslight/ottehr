@@ -390,9 +390,9 @@ export default function PatientPaymentList({
 
   const employerOrgId = useMemo(() => {
     if (paymentVariant !== PaymentVariant.employer) return undefined;
-    // Employer fee schedules / charge masters are legacy-only: NIO-mode employers live in the
-    // billing app and carry no clinical fee-schedule associations.
-    if (FEATURE_FLAGS.NON_INSURANCE_ORGANIZATIONS_ENABLED) return undefined;
+    // Employer fee schedules / charge masters are legacy-only: custom-organizations-mode
+    // employers live in the billing app and carry no clinical fee-schedule associations.
+    if (FEATURE_FLAGS.CUSTOM_ORGANIZATIONS_ENABLED) return undefined;
     return insuranceData?.occupationalMedicineEmployerOrganization?.id ?? insuranceData?.employerOrganization?.id;
   }, [
     paymentVariant,

@@ -42,6 +42,7 @@ import {
 import { ScheduleOwnerFhirResource } from '../types/api/schedules';
 import { FhirAppointmentType } from '../types/common';
 import { appointmentTypeLabels, appointmentTypeMap } from '../types/data/appointments/appointments.types';
+import { CUSTOM_INSURANCE_ORG_ID_SYSTEM } from '../types/data/billing/custom-insurance-org.types';
 import { PatchPaperworkParameters } from '../types/data/paperwork/paperwork.types';
 import { emailRegex, fullZipRegex, npiRegex, phoneRegex, zipRegex } from '../validation/regex';
 
@@ -1724,6 +1725,11 @@ export const getPayerId = (org: Organization | undefined): string | undefined =>
 
 export const getPayerName = (org: Organization | undefined): string | undefined => org?.name ?? org?.alias?.[0];
 
+// A custom insurance organization (a billing-app-owned Organization not in RCM's payer directory)
+// carries its user-entered "OTR-" business id under this identifier system instead of an RCM one.
+export const getCustomInsuranceOrgBusinessId = (org: Organization | undefined): string | undefined =>
+  org?.identifier?.find((identifier) => identifier.system === CUSTOM_INSURANCE_ORG_ID_SYSTEM)?.value;
+
 export function getPayerUrl(payerId: string): string {
   const oystehr = new Oystehr({}); // get access to static helper
   return oystehr.rcm.constructPayerUrl({ id: payerId });
@@ -1758,6 +1764,30 @@ export function extractNioIdFromReferenceUrl(maybeUrl?: string): string | undefi
 
 export function isNioReferenceUrl(maybeUrl?: string): boolean {
   return extractNioIdFromReferenceUrl(maybeUrl) !== undefined;
+}
+
+// Custom insurance organizations are billing-app-owned FHIR resources too. The clinical app never
+// stores or reads them as FHIR directly — a stored reference uses this URL token so readers know to
+// resolve it through the billing app's zambda interface (list-custom-insurance-organizations), the
+// same door pattern as the NIO reference above.
+export const BILLING_CUSTOM_INSURANCE_ORG_REFERENCE_BASE =
+  'https://fhir.ottehr.com/billing/custom-insurance-organization';
+
+export function getCustomInsuranceOrgReferenceUrl(insuranceOrgId: string): string {
+  return `${BILLING_CUSTOM_INSURANCE_ORG_REFERENCE_BASE}/${insuranceOrgId}`;
+}
+
+export function extractCustomInsuranceOrgIdFromReferenceUrl(maybeUrl?: string): string | undefined {
+  if (!maybeUrl || !maybeUrl.startsWith(`${BILLING_CUSTOM_INSURANCE_ORG_REFERENCE_BASE}/`)) return undefined;
+  const insuranceOrgId = maybeUrl.slice(BILLING_CUSTOM_INSURANCE_ORG_REFERENCE_BASE.length + 1);
+  // A token carries exactly one non-empty id segment; anything else is not a custom insurance org
+  // reference.
+  if (insuranceOrgId === '' || insuranceOrgId.includes('/')) return undefined;
+  return insuranceOrgId;
+}
+
+export function isCustomInsuranceOrgReferenceUrl(maybeUrl?: string): boolean {
+  return extractCustomInsuranceOrgIdFromReferenceUrl(maybeUrl) !== undefined;
 }
 
 export const getNameFromScheduleResource = (scheduleResource: ScheduleOwnerFhirResource): string | undefined => {
@@ -2001,5 +2031,9 @@ export function findOrgMatchingReference(reference?: string, organizations?: Org
 export function orgIdMatchesReference(reference: string | undefined, orgId: string): boolean {
   if (!reference) return false;
   const oystehr = new Oystehr({}); // get access to static helper
-  return orgId === reference.replace('Organization/', '') || oystehr.rcm.constructPayerUrl({ id: orgId }) === reference;
+  return (
+    orgId === reference.replace('Organization/', '') ||
+    oystehr.rcm.constructPayerUrl({ id: orgId }) === reference ||
+    extractCustomInsuranceOrgIdFromReferenceUrl(reference) === orgId
+  );
 }

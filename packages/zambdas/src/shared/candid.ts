@@ -1683,17 +1683,17 @@ export function shouldUseCandid(secrets: Secrets): boolean {
     ['candid', 'all'].includes(secrets.BILLING_INTEGRATION) ||
     // TODO: remove this once secrets migrated
     !secrets.BILLING_INTEGRATION;
-  // NIO mode needs Ottehr billing as the system of record: Candid can't see billing-app NIOs, so
-  // candid-only routing would silently drop employer billing. 'all' is fine — Candid runs
-  // alongside for claim comparison. Terraform generation rejects the bad combination; this
-  // backstop catches secrets edited outside IaC.
-  if (useCandid && !shouldUseOttehrBilling(secrets) && FEATURE_FLAGS_CONFIG.nonInsuranceOrganizationsEnabled) {
+  // Custom-organizations mode needs Ottehr billing as the system of record: Candid can't see
+  // billing-app NIOs, so candid-only routing would silently drop employer billing. 'all' is
+  // fine — Candid runs alongside for claim comparison. Terraform generation rejects the bad
+  // combination; this backstop catches secrets edited outside IaC.
+  if (useCandid && !shouldUseOttehrBilling(secrets) && FEATURE_FLAGS_CONFIG.customOrganizationsEnabled) {
     throw new Error(
       `BILLING_INTEGRATION is '${
         secrets.BILLING_INTEGRATION || '(unset)'
-      }', which routes claims through Candid only, but the nonInsuranceOrganizationsEnabled feature flag is on. ` +
+      }', which routes claims through Candid only, but the customOrganizationsEnabled feature flag is on. ` +
         `Non-insurance organizations need Ottehr billing as the system of record: set BILLING_INTEGRATION to ` +
-        `'ottehr' (or 'all' to also send comparison claims to Candid), or turn off nonInsuranceOrganizationsEnabled.`
+        `'ottehr' (or 'all' to also send comparison claims to Candid), or turn off customOrganizationsEnabled.`
     );
   }
   return useCandid;

@@ -186,9 +186,10 @@ export const adminNavGroups: AdminNavGroup[] = [
         icon: <PaidOutlinedIcon />,
         render: () => <ChargeItemList mode="charge-master" />,
       },
-      // In NIO mode employers are managed in the billing app; the legacy tab hides so nothing new
-      // can be created or edited here (existing orgs stay for historical visits).
-      ...(FEATURE_FLAGS.NON_INSURANCE_ORGANIZATIONS_ENABLED
+      // In custom-organizations mode employers are managed in the billing app; the legacy tab
+      // hides so nothing new can be created or edited here (existing orgs stay for historical
+      // visits).
+      ...(FEATURE_FLAGS.CUSTOM_ORGANIZATIONS_ENABLED
         ? []
         : [
             {

@@ -475,14 +475,15 @@ const consolidatePatchRequests = (ops: BatchInputJSONPatchRequest[]): BatchInput
   return Object.values(consolidated);
 };
 
-// Pre-op visit employer validation. In NIO mode every selection is a billing-app NIO reference
-// token, validated over the wire through the billing zambda interface — legacy clinical employer
-// orgs remain visible on historical visits but can never be selected again. With the flag off,
-// the legacy FHIR validation stands and tokens are rejected (nothing mints them).
+// Pre-op visit employer validation. In custom-organizations mode every selection is a billing-app
+// NIO reference token, validated over the wire through the billing zambda interface — legacy
+// clinical employer orgs remain visible on historical visits but can never be selected again.
+// With the flag off, the legacy FHIR validation stands and tokens are rejected (nothing mints
+// them).
 export async function validateVisitEmployerSelection(oystehr: Oystehr, visitEmployer: Reference): Promise<void> {
   const nioId = extractNioIdFromReferenceUrl(visitEmployer.reference);
   if (nioId) {
-    if (!FEATURE_FLAGS_CONFIG.nonInsuranceOrganizationsEnabled) {
+    if (!FEATURE_FLAGS_CONFIG.customOrganizationsEnabled) {
       throw INVALID_INPUT_ERROR(
         'visitOccupationalMedicineEmployer may not reference a non-insurance organization on this deployment'
       );
@@ -506,7 +507,7 @@ export async function validateVisitEmployerSelection(oystehr: Oystehr, visitEmpl
     return;
   }
 
-  if (FEATURE_FLAGS_CONFIG.nonInsuranceOrganizationsEnabled) {
+  if (FEATURE_FLAGS_CONFIG.customOrganizationsEnabled) {
     throw INVALID_INPUT_ERROR('visitOccupationalMedicineEmployer must reference a non-insurance organization');
   }
 

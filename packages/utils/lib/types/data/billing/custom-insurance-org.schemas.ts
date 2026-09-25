@@ -68,3 +68,10 @@ export const DeleteCustomInsuranceOrgInputSchema = z.object({
   insuranceOrgId: nonEmptyString,
 });
 export type DeleteCustomInsuranceOrgInput = z.output<typeof DeleteCustomInsuranceOrgInputSchema>;
+
+// Clinical directory (list-custom-insurance-organizations) — the stable clinical-facing contract.
+export const ListCustomInsuranceOrganizationsInputSchema = z.object({
+  insuranceOrgId: nonEmptyString.optional(),
+  search: nonEmptyString.optional(),
+});
+export type ListCustomInsuranceOrganizationsInput = z.output<typeof ListCustomInsuranceOrganizationsInputSchema>;
