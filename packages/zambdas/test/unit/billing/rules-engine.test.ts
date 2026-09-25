@@ -454,6 +454,46 @@ describe('rules-engine evaluator', () => {
     expect(readField(m, 'payerId')).toBe('123456');
   });
 
+  it('writes each coverage slot to its own coverage, leaving the other slots untouched', () => {
+    const prefixes = ['insurance', 'secondaryInsurance', 'tertiaryInsurance', 'quaternaryInsurance'];
+    const makeFourCoverageModel = (): RulesEngineClaimModel => {
+      const m = makeModel();
+      m.coverages.push(
+        {
+          ...m.coverages[1],
+          id: 'cov-tertiary',
+          subscriberId: 'MEM-789',
+          payor: [{ reference: getPayerUrl('444444') }],
+        },
+        {
+          ...m.coverages[1],
+          id: 'cov-quaternary',
+          subscriberId: 'MEM-000',
+          payor: [{ reference: getPayerUrl('555555') }],
+        }
+      );
+      return m;
+    };
+
+    prefixes.forEach((prefix, index) => {
+      const m = makeFourCoverageModel();
+      const before = m.coverages.map((c) => ({ subscriberId: c.subscriberId, payor: c.payor }));
+
+      expect(writeField(m, `${prefix}.memberId`, `NEW-${index}`)).toBe(true);
+      expect(writeField(m, `${prefix}.payerId`, `99999${index}`)).toBe(true);
+
+      m.coverages.forEach((coverage, i) => {
+        if (i === index) {
+          expect(coverage.subscriberId).toBe(`NEW-${index}`);
+          expect(readField(m, `${prefix}.payerId`)).toBe(`99999${index}`);
+        } else {
+          expect(coverage.subscriberId).toBe(before[i].subscriberId);
+          expect(coverage.payor).toEqual(before[i].payor);
+        }
+      });
+    });
+  });
+
   it('writes policy holder fields on the subscriber working copy, failing when there is none', () => {
     const m = makeModel();
     expect(writeField(m, 'policyHolder.lastName', 'Newname')).toBe(true);
