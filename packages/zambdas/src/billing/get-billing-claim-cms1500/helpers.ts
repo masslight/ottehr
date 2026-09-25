@@ -28,7 +28,6 @@ import {
   EXTENSION_PATIENT_ACCOUNT_NUMBER,
   EXTENSION_PATIENT_PAID,
   EXTENSION_PATIENT_SIGNED_DATE,
-  EXTENSION_PRACTITIONER_SIGNED_DATE,
 } from 'utils/lib/helpers/rcm/constants';
 import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
 import {
@@ -267,7 +266,6 @@ export function buildCms1500FormData(resources: Cms1500Resources): Cms1500FormDa
       getExtensionValue(claim, EXTENSION_CLAIM_PROVIDER_SIGNATURE_INDICATOR, 'valueBoolean') === true
         ? SIGNATURE_ON_FILE
         : undefined,
-    physicianSignatureDate: getExtensionValue(claim, EXTENSION_PRACTITIONER_SIGNED_DATE, 'valueDate') ?? claim.created,
     serviceFacility: serviceFacility
       ? {
           name: serviceFacility.name,

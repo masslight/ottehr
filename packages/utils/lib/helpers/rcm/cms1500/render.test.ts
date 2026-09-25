@@ -31,6 +31,14 @@ describe('renderCms1500Pdf', () => {
     expect(drawn).toContainEqual({ text: '50', ...at(46, 59) });
   });
 
+  it('dates the signature on file in item 31 with the given day', async () => {
+    const drawText = vi.spyOn(PDFPage.prototype, 'drawText');
+    await renderCms1500Pdf([{ ...form, physicianSignature: 'SIGNATURE ON FILE' }], { signedOn: '2026-09-25' });
+    const drawn = drawText.mock.calls.map(([text, options]) => ({ text, x: options?.x, y: options?.y }));
+    expect(drawn).toContainEqual({ text: 'SIGNATURE ON FILE', ...at(62, 4) });
+    expect(drawn).toContainEqual({ text: '09 25 26', ...at(63, 10) });
+  });
+
   it('shifts the data by the printer offset', async () => {
     const drawText = vi.spyOn(PDFPage.prototype, 'drawText');
     await renderCms1500Pdf([form], { offset: { x: 3, y: -2 } });

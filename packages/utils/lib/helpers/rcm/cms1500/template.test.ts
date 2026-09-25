@@ -94,7 +94,6 @@ const claim: Cms1500FormData = {
   acceptAssignment: true,
   amountPaid: 40,
   physicianSignature: 'SIGNATURE ON FILE',
-  physicianSignatureDate: '2026-09-05',
   serviceFacility: { name: 'Ottehr Urgent Care', address, npi: '1122334455', otherId: 'X4CLIA12D3456' },
   billingProvider: {
     name: 'Ottehr Medical Group',
@@ -146,6 +145,12 @@ describe('fillCms1500Template', () => {
     expect(checked(form.getCheckBox('ins_sex'))).toBe('MALE');
     expect(checked(form.getCheckBox('ssn'))).toBe('EIN');
     expect(form.getCheckBox('insurance_type').acroField.dict.get(PDFName.of('V'))).toBe(PDFName.of('Group'));
+  });
+
+  it('dates the signature on file with the day the form is produced', async () => {
+    const doc = await PDFDocument.load(await fillCms1500Template(template, [claim], { signedOn: '2026-09-25' }));
+    expect(text(doc, 'physician_signature')).toBe('SIGNATURE ON FILE');
+    expect(text(doc, 'physician_date')).toBe('09 25 26');
   });
 
   it('writes amounts with the dollars and cents on either side of the divider', async () => {

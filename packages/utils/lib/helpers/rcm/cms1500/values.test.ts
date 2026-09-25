@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Cms1500FormData, Cms1500ServiceLine } from '../../../types/data/billing/cms1500.types';
 import { cms1500PageValues } from './values';
 
@@ -102,6 +102,31 @@ describe('cms1500PageValues', () => {
     const pages = cms1500PageValues({ ...form, serviceLines: [] });
     expect(pages).toHaveLength(1);
     expect(pages[0]['totalCharge.dollars']).toBeUndefined();
+  });
+
+  it('dates the signature on file in item 31 with the day the form is produced', () => {
+    const [page] = cms1500PageValues({ ...form, physicianSignature: 'SIGNATURE ON FILE' }, '2026-09-25');
+    expect(page.physicianSignature).toBe('SIGNATURE ON FILE');
+    expect(page.physicianSignatureDate).toBe('09 25 26');
+  });
+
+  describe('without a date given', () => {
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('uses the local date today', () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date(2026, 8, 25, 23, 30));
+      const [page] = cms1500PageValues({ ...form, physicianSignature: 'SIGNATURE ON FILE' });
+      expect(page.physicianSignatureDate).toBe('09 25 26');
+    });
+  });
+
+  it('leaves item 31 undated when the signature is not on file', () => {
+    const [page] = cms1500PageValues(form, '2026-09-25');
+    expect(page.physicianSignature).toBeUndefined();
+    expect(page.physicianSignatureDate).toBeUndefined();
   });
 
   it('keeps values whole even when they are longer than their box', () => {

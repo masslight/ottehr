@@ -1,3 +1,4 @@
+import { DateTime } from 'luxon';
 import { Cms1500FormData, Cms1500ServiceLine } from '../../../types/data/billing/cms1500.types';
 import {
   dateParts,
@@ -79,20 +80,25 @@ class ValueCollector {
 
 // Splits the claim into one form per six service lines. Every form repeats the claim-level items and
 // totals only its own lines in item 28; the amount paid (29) is reported once, on the first form.
-export function cms1500PageValues(form: Cms1500FormData): Cms1500PageValues[] {
+// `signedOn` (YYYY-MM-DD) dates the signature on file in item 31: the day the form is produced.
+export function cms1500PageValues(
+  form: Cms1500FormData,
+  signedOn = DateTime.now().toFormat('yyyy-MM-dd')
+): Cms1500PageValues[] {
   const perPage = CMS1500_LAYOUT.serviceLines.count;
   const pages: Cms1500ServiceLine[][] = [];
   for (let i = 0; i < form.serviceLines.length; i += perPage) {
     pages.push(form.serviceLines.slice(i, i + perPage));
   }
   if (!pages.length) pages.push([]);
-  return pages.map((lines, index) => pageValues(form, lines, index === 0));
+  return pages.map((lines, index) => pageValues(form, lines, index === 0, signedOn));
 }
 
 function pageValues(
   form: Cms1500FormData,
   serviceLines: Cms1500ServiceLine[],
-  isFirstPage: boolean
+  isFirstPage: boolean,
+  signedOn: string
 ): Cms1500PageValues {
   const L = CMS1500_LAYOUT;
   const values: Cms1500PageValues = {};
@@ -222,8 +228,10 @@ function pageValues(
   if (isFirstPage) out.money(L.amountPaid, form.amountPaid);
 
   // 31-33
-  out.put(L.physicianSignature, form.physicianSignature);
-  out.put(L.physicianSignatureDate, formatShortDate(form.physicianSignatureDate));
+  if (form.physicianSignature) {
+    out.put(L.physicianSignature, form.physicianSignature);
+    out.put(L.physicianSignatureDate, formatShortDate(signedOn));
+  }
   const facility = form.serviceFacility;
   out.lines(L.serviceFacility, [
     formatAddressLine(facility?.name),

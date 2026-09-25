@@ -151,9 +151,8 @@ export interface Cms1500FormData {
   acceptAssignment?: boolean;
   // 29 (28 is always the total of the page's 24F charges)
   amountPaid?: number;
-  // 31
+  // 31; dated the day the form is produced (see cms1500PageValues)
   physicianSignature?: string;
-  physicianSignatureDate?: string;
   // 32, 32a, 32b
   serviceFacility?: { name?: string; address?: Cms1500Address; npi?: string; otherId?: string };
   // 33, 33a, 33b

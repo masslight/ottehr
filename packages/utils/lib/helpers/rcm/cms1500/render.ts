@@ -7,6 +7,8 @@ export interface Cms1500RenderOptions {
   // Shifts the data to line up with a particular printer, in points (1/72"). Positive values move it
   // right and down.
   offset?: { x: number; y: number };
+  // The date next to the signature on file in item 31 (YYYY-MM-DD); today if not given.
+  signedOn?: string;
 }
 
 // Pica type is 12 pt Courier: 7.2 pt per character is exactly 10 characters per inch.
@@ -20,7 +22,7 @@ export async function renderCms1500Pdf(
   forms: Cms1500FormData[],
   options: Cms1500RenderOptions = {}
 ): Promise<Uint8Array> {
-  const { offset = { x: 0, y: 0 } } = options;
+  const { offset = { x: 0, y: 0 }, signedOn } = options;
   const doc = await PDFDocument.create();
   doc.setTitle('CMS-1500 Health Insurance Claim Form');
   // Pre-printed forms only line up when the PDF prints at actual size.
@@ -28,7 +30,7 @@ export async function renderCms1500Pdf(
   const font = await doc.embedFont(StandardFonts.Courier);
 
   for (const form of forms) {
-    for (const values of cms1500PageValues(form)) {
+    for (const values of cms1500PageValues(form, signedOn)) {
       drawValues(doc.addPage([CMS1500_PAGE.width, CMS1500_PAGE.height]), values, font, offset);
     }
   }

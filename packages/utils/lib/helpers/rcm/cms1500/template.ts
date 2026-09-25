@@ -190,12 +190,18 @@ interface Fonts {
   courier: PDFFont;
 }
 
+export interface Cms1500FillOptions {
+  // The date next to the signature on file in item 31 (YYYY-MM-DD); today if not given.
+  signedOn?: string;
+}
+
 // Renders each claim as one or more filled-in CMS-1500 forms in a single PDF.
 export async function fillCms1500Template(
   template: ArrayBuffer | Uint8Array,
-  forms: Cms1500FormData[]
+  forms: Cms1500FormData[],
+  options: Cms1500FillOptions = {}
 ): Promise<Uint8Array> {
-  const [first = {}, ...more] = forms.flatMap(cms1500PageValues);
+  const [first = {}, ...more] = forms.flatMap((form) => cms1500PageValues(form, options.signedOn));
   const doc = await PDFDocument.load(template);
   doc.setTitle('CMS-1500 Health Insurance Claim Form');
   doc.catalog.getOrCreateViewerPreferences().setPrintScaling(PrintScaling.None);

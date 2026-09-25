@@ -241,7 +241,6 @@ describe('buildCms1500FormData', () => {
       patientAccountNumber: 'PCN12345',
       acceptAssignment: true,
       physicianSignature: 'SIGNATURE ON FILE',
-      physicianSignatureDate: '2026-09-02',
       serviceFacility: { name: 'Ottehr Urgent Care', npi: '1122334455' },
       billingProvider: {
         name: 'Ottehr Medical Group, P.C.',
