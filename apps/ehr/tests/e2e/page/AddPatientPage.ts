@@ -123,9 +123,14 @@ export class AddPatientPage {
     // Read the slot's local date BEFORE clicking — the data attribute is on the
     // slot button and the component should not unmount it on click, but reading
     // first avoids any race with state updates.
-    const date = (await buttonLocator.getAttribute('data-slot-date')) ?? '';
+    const date = await buttonLocator.getAttribute('data-slot-date');
     await buttonLocator.click();
     const time = (await buttonLocator.textContent()) ?? '';
+    if (!date) {
+      throw new Error(
+        'slot button is missing data-slot-date — cannot align the visits-board date filter with the slot day'
+      );
+    }
     return { time, date };
   }
 

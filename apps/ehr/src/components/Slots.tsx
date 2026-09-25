@@ -49,9 +49,9 @@ export function Slots({ slots, timezone, selectedSlot, setSelectedSlot, loading 
               onClick={() => setSelectedSlot(slot)}
               data-testid={dataTestIds.slots.slot}
               // Exposes the slot's local date so e2e tests can match the tracking-board
-              // date filter to it (the filter defaults to "today in the location TZ",
-              // but the first available slot may land on tomorrow when the day's
-              // schedule is past closing time).
+              // date filter to it. The filter interprets dates in the location's TZ but
+              // defaults to the browser's today, and the first available slot may land
+              // on tomorrow when the day's schedule is past closing time.
               data-slot-date={startDateTimezoneAdjusted.toFormat('MM/dd/yyyy')}
             >
               {startDateTimezoneAdjusted.toFormat('h:mm a')}

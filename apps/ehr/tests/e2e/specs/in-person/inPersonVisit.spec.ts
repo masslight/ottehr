@@ -162,9 +162,9 @@ test.describe('In-person visit', async () => {
       const visitsPage = await openVisitsPage(page);
       await visitsPage.selectLocation(ENV_LOCATION_NAME!);
       // Match the tracking-board date filter to the appointment's local date in the
-      // location's timezone. The filter defaults to today; when the test runs late
-      // enough that the appointment landed on tomorrow (in the location TZ), the
-      // appointment exists but is hidden by the filter.
+      // location's timezone — the filter interprets dates in that TZ, so this selection
+      // is exact. The filter's default is the browser's today, which diverges from the
+      // location's day around midnight in either zone (UTC browsers: 00:00-05:00Z).
       const location = resourceHandler.appointmentLocation;
       const appointmentStart = resourceHandler.appointment.start;
       if (location && appointmentStart) {

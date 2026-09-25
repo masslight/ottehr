@@ -100,10 +100,12 @@ test.describe('For new patient', () => {
 
     const visitsPage = await expectVisitsPage(page);
     await visitsPage.selectLocation(ENV_LOCATION_NAME!);
-    // The first available slot may roll to tomorrow when the day's schedule is past
-    // closing time. The tracking-board date filter defaults to today in the location's
-    // timezone, so without this it'd show zero rows even though the appointment exists.
-    if (slotDate) await visitsPage.selectDate(slotDate);
+    // The slot may land on a different local day than the board's default filter (the browser's
+    // today): past closing time it rolls to tomorrow, and late-evening slots belong to a local day
+    // a UTC browser has already left behind. data-slot-date is the slot's day in the location's
+    // timezone — the same way the board filter interprets dates — so always align the filter to it.
+    // (Guaranteed non-empty for pre-book: selectFirstAvailableSlot throws when the attribute is missing.)
+    await visitsPage.selectDate(slotDate!);
     await visitsPage.clickPrebookedTab();
     await visitsPage.verifyVisitPresent(appointmentId);
   });
@@ -207,7 +209,7 @@ async function createAppointment(
   if (visitType !== VISIT_TYPES.WALK_IN) {
     const slot = await addPatientPage.selectFirstAvailableSlot();
     slotTime = slot.time;
-    slotDate = slot.date || undefined;
+    slotDate = slot.date;
   }
 
   const appointmentCreationResponse = waitForResponseWithData(page, /\/create-appointment\//);
