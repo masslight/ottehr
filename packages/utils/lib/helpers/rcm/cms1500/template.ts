@@ -17,7 +17,8 @@ import { Cms1500FormData } from '../../../types/data/billing/cms1500.types';
 import { CMS1500_LAYOUT } from './layout';
 import { Cms1500PageValues, cms1500PageValues } from './values';
 
-// Fills in cms1500-template.pdf, a fillable CMS-1500 (02/12) built by scripts/prepare-cms1500-template.ts.
+// Fills in cms1500-template.pdf: Cigna's fillable CMS-1500 (02/12), a 1500CMS.COM template, without its
+// instructions page and the vendor's extras (the Clear Form button, an On/Off Total box, a hidden link).
 // Every box stays an editable field, so anything that's cut off or in the wrong place can be fixed by
 // hand before printing.
 
