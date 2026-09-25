@@ -17,6 +17,7 @@ import path from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
 import { CODE_SYSTEM_CPT } from 'utils/lib/helpers/rcm/constants';
 import {
+  IN_HOUSE_LAB_LATEST_TAG_DEFINITION,
   IN_HOUSE_LAB_OD_NULL_OPTION_CONFIG,
   IN_HOUSE_PARTICIPANT_ROLE_SYSTEM,
   IN_HOUSE_RESULTS_VALUESET_SYSTEM,
@@ -418,12 +419,7 @@ export const buildInHouseLabActivityDefinitions = (
       url: activityDefUrl,
       version: activityDefVersion,
       meta: {
-        tag: [
-          {
-            system: IN_HOUSE_TAG_DEFINITION.system,
-            code: IN_HOUSE_TAG_DEFINITION.code,
-          },
-        ],
+        tag: [IN_HOUSE_TAG_DEFINITION, IN_HOUSE_LAB_LATEST_TAG_DEFINITION],
       },
       relatedArtifact: makeRelatedArtifact(testItem),
       extension: makeActivityExtension(testItem),
