@@ -190,6 +190,13 @@
       "src": "src/billing/export-billing-claim-x12/index",
       "zip": ".dist/zips/export-billing-claim-x12.zip"
     },
+    "GET-BILLING-CLAIM-CMS1500": {
+      "name": "get-billing-claim-cms1500",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/get-billing-claim-cms1500/index",
+      "zip": ".dist/zips/get-billing-claim-cms1500.zip"
+    },
     "GET-BILLING-PATIENT-DETAIL": {
       "name": "get-billing-patient-detail",
       "type": "http_auth",
