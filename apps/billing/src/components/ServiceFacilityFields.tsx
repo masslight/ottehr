@@ -4,8 +4,16 @@ import { Controller, useFormContext } from 'react-hook-form';
 import { isCLIAValid, isNPIValidWithChecksum } from 'utils/lib/helpers/helpers';
 import { CMS_PLACE_OF_SERVICE_CODES } from 'utils/lib/helpers/rcm/constants';
 import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils/lib/validation/constants';
+import { DuplicateServiceFacilityWarning } from './DuplicateServiceFacilityWarning';
 
-export function ServiceFacilityFields(): ReactElement {
+// Pass `duplicateCheck` to warn when the entered NPI/CLIA is already used by another master facility
+// (`facilityId` is the facility being edited, excluded from the matches). Claim working copies
+// share their source's identifiers by design, so claim screens omit it.
+export function ServiceFacilityFields({
+  duplicateCheck,
+}: {
+  duplicateCheck?: { facilityId?: string };
+} = {}): ReactElement {
   const { control } = useFormContext();
   return (
     <>
@@ -67,6 +75,7 @@ export function ServiceFacilityFields(): ReactElement {
           )}
         />
       </Box>
+      {duplicateCheck && <DuplicateServiceFacilityWarning facilityId={duplicateCheck.facilityId} />}
       <Controller
         name="placeOfService"
         control={control}

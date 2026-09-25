@@ -579,6 +579,78 @@ describe('save-billing-service-facility handler', () => {
   });
 });
 
+describe('save-billing-service-facility duplicate identifiers', () => {
+  type ZambdaHandler = (input: ZambdaInput) => Promise<APIGatewayProxyResult>;
+  let saveHandler!: ZambdaHandler;
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    vi.resetModules();
+    ({ index: saveHandler } = (await import('../../src/billing/save-billing-service-facility/index')) as unknown as {
+      index: ZambdaHandler;
+    });
+  });
+
+  it('creates a facility even when another active facility has the same NPI and CLIA', async () => {
+    const other: Location = {
+      resourceType: 'Location',
+      id: 'loc-other',
+      status: 'active',
+      identifier: [
+        { system: FHIR_IDENTIFIER_NPI, value: validPayload.npi! },
+        { system: FHIR_IDENTIFIER_CLIA, value: validPayload.clia! },
+      ],
+    };
+    mockOystehrClient.fhir.search.mockResolvedValue({
+      unbundle: () => [other],
+    });
+    mockOystehrClient.fhir.create.mockImplementation(async (resource: Location) => ({
+      ...resource,
+      id: 'loc-new',
+    }));
+
+    const result = await saveHandler(makeInput({ ...validPayload }));
+
+    expect(result.statusCode).toBe(200);
+    expect(JSON.parse(result.body).id).toBe('loc-new');
+    expect(mockOystehrClient.fhir.create).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('search-billing-service-facilities handler', () => {
+  type ZambdaHandler = (input: ZambdaInput) => Promise<APIGatewayProxyResult>;
+  let searchHandler!: ZambdaHandler;
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    vi.resetModules();
+    ({ index: searchHandler } = (await import('../../src/billing/search-billing-service-facilities/index')) as {
+      index: ZambdaHandler;
+    });
+  });
+
+  it('filters by NPI and CLIA identifiers', async () => {
+    mockOystehrClient.fhir.search.mockResolvedValue({
+      unbundle: () => [],
+      total: 0,
+    });
+
+    const result = await searchHandler(makeInput({ npi: '1234567893', clia: '05D1234567' }));
+
+    expect(result.statusCode).toBe(200);
+    const { params } = mockOystehrClient.fhir.search.mock.calls[0][0] as {
+      params: { name: string; value: string }[];
+    };
+    expect(params).toEqual(
+      expect.arrayContaining([
+        { name: 'identifier', value: `${FHIR_IDENTIFIER_NPI}|1234567893` },
+        { name: 'identifier', value: `${FHIR_IDENTIFIER_CLIA}|05D1234567` },
+        { name: 'status', value: 'active' },
+      ])
+    );
+  });
+});
+
 describe('delete-billing-service-facility handler', () => {
   type ZambdaHandler = (input: ZambdaInput) => Promise<APIGatewayProxyResult>;
   let deleteHandler!: ZambdaHandler;

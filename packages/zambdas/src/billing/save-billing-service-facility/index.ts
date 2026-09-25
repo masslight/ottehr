@@ -46,6 +46,8 @@ export async function complexValidation(
 ): Promise<{ existing: Location | undefined; agent: ProvenanceAgent | undefined }> {
   const { facilityId } = params;
 
+  // Duplicate NPI/CLIA numbers are allowed (e.g. several sites billed under one NPI); the UI warns
+  // about them via search-billing-service-facilities instead of blocking the save.
   const existing = facilityId ? await fetchById<Location>(oystehr, 'Location', facilityId) : undefined;
 
   // A claim-scoped edit (the claim screen editing the claim's facility working copy) is recorded in
