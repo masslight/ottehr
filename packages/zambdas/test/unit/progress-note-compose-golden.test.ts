@@ -4,7 +4,16 @@
  * whole-chart shapes the composer reads (`chartData` and `additionalChartData`).
  */
 import { visitNoteToLegacyChartData } from 'utils/lib/helpers/visit-note/visit-note-to-chart-data.helper';
+import { baseScreeningQuestionsConfig } from 'utils/lib/types/data/screening-questions/config';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+
+// Pin to the base screening-questions config so the snapshot is overlay-independent.
+// The golden fixture creates observations for covid-symptoms and travel-usa, which
+// are fields in the base config but may be absent from per-project overlays.
+vi.mock('utils/lib/ottehr-config/screening-questions', async (importOriginal) => {
+  const original = await importOriginal<typeof import('utils/lib/ottehr-config/screening-questions')>();
+  return { ...original, patientScreeningQuestionsConfig: baseScreeningQuestionsConfig };
+});
 import { buildVisitNote } from '../../src/shared/chart-sections/visit-note';
 import { composeProgressNoteData } from '../../src/shared/pdf/progress-note-pdf';
 import { ProgressNoteInput } from '../../src/shared/pdf/types';
