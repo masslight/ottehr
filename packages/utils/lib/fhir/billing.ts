@@ -21,6 +21,7 @@ import {
 } from '../helpers/rcm/constants';
 import { ELIGIBILITY_BENEFIT_CODES, INSURANCE_PLAN_ID_CODING } from '../telemed/constants';
 import { CoverageCheckCoverageDetails } from '../types/api/patient-account';
+import { BillingProviderLicense } from '../types/data/billing/billing.types';
 import {
   CLAIM_NON_INSURANCE_PAYER_EXTENSION_URL,
   CLAIM_NON_INSURANCE_PAYER_TAG_SYSTEM,
@@ -628,3 +629,9 @@ export const CLAIM_ATTACHMENT_REPORT_TYPE_CODES = [
   { code: 'V5', label: 'Death Notification' },
   { code: 'XP', label: 'Photographs' },
 ];
+
+export function formatBillingProviderLicense(license: BillingProviderLicense | undefined): string {
+  if (!license) return '';
+  const { type, number, state } = license;
+  return [type, number && `#${number}`, state && `(${state})`].filter(Boolean).join(' ');
+}

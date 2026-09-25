@@ -17,6 +17,7 @@ import { Controller, useFormContext } from 'react-hook-form';
 import { InputMask } from 'ui-components/lib/components/InputMask';
 import { isNPIValidWithChecksum } from 'utils/lib/helpers/helpers';
 import { PractitionerQualificationCodesDisplay } from 'utils/lib/types/api/practitioner.types';
+import { AllStates, stateCodeToFullName } from 'utils/lib/types/common';
 import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils/lib/validation/constants';
 import { stripeAccountIdRegex, taxIdRegex } from 'utils/lib/validation/regex';
 import { ProviderForm } from '../constants/provider';
@@ -32,6 +33,7 @@ export function ProviderFields(): ReactElement {
   const { control, watch } = useFormContext<ProviderForm>();
   const selectedKind = watch('kind');
   const bills = watch('bills');
+  const renders = watch('renders');
   return (
     <>
       <Controller
@@ -190,26 +192,7 @@ export function ProviderFields(): ReactElement {
         />
       )}
 
-      {selectedKind === 'individual' && (
-        <Controller
-          name="licenseType"
-          control={control}
-          rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
-          render={({ field, fieldState: { error: fieldError } }) => (
-            <Autocomplete
-              size="small"
-              options={PractitionerQualificationCodesDisplay}
-              getOptionLabel={(o) => o.label}
-              value={PractitionerQualificationCodesDisplay.find((o) => o.value === field.value) ?? null}
-              onChange={(_, v) => field.onChange(v?.value ?? '')}
-              isOptionEqualToValue={(o, v) => o.value === v.value}
-              renderInput={(params) => (
-                <TextField {...params} label="License Type *" error={!!fieldError} helperText={fieldError?.message} />
-              )}
-            />
-          )}
-        />
-      )}
+      {selectedKind === 'individual' && renders && <ProviderLicenseFields />}
       <Controller
         name="taxonomyCode"
         control={control}
@@ -262,5 +245,82 @@ export function ProviderFields(): ReactElement {
         />
       </Box>
     </>
+  );
+}
+
+function ProviderLicenseFields(): ReactElement {
+  const { control } = useFormContext<ProviderForm>();
+  return (
+    <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start' }}>
+      <Controller
+        name="licenseType"
+        control={control}
+        rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
+        render={({ field, fieldState: { error: fieldError } }) => (
+          <Autocomplete
+            size="small"
+            sx={{ flex: 2, minWidth: 0 }}
+            options={PractitionerQualificationCodesDisplay}
+            getOptionLabel={(o) => o.label}
+            value={PractitionerQualificationCodesDisplay.find((o) => o.value === field.value) ?? null}
+            onChange={(_, v) => field.onChange(v?.value ?? '')}
+            isOptionEqualToValue={(o, v) => o.value === v.value}
+            renderInput={(params) => (
+              <TextField {...params} label="License Type *" error={!!fieldError} helperText={fieldError?.message} />
+            )}
+          />
+        )}
+      />
+      <Controller
+        name="licenseNumber"
+        control={control}
+        rules={{ validate: (value) => !!value?.trim() || REQUIRED_FIELD_ERROR_MESSAGE }}
+        render={({ field, fieldState: { error: fieldError } }) => (
+          <TextField
+            label="License Number *"
+            size="small"
+            sx={{ flex: 1, minWidth: 0 }}
+            value={field.value}
+            onChange={(e) => field.onChange(e.target.value)}
+            error={!!fieldError}
+            helperText={fieldError?.message}
+          />
+        )}
+      />
+      <Controller
+        name="licenseState"
+        control={control}
+        rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
+        render={({ field, fieldState: { error: fieldError } }) => (
+          <FormControl size="small" sx={{ flex: 1, minWidth: 0 }}>
+            <InputLabel id="license-state-select-label" error={!!fieldError}>
+              License State *
+            </InputLabel>
+            <Select
+              aria-describedby={fieldError ? 'license-state-helper-text' : undefined}
+              label="License State *"
+              labelId="license-state-select-label"
+              size="small"
+              value={field.value}
+              onChange={(e) => field.onChange(e.target.value)}
+              error={!!fieldError}
+            >
+              {AllStates.map((state) => (
+                <MenuItem value={state.value} key={state.value}>
+                  {stateCodeToFullName[state.value]}
+                </MenuItem>
+              ))}
+            </Select>
+            {fieldError ? (
+              <FormHelperText id="license-state-helper-text" error={true}>
+                {fieldError.message}
+              </FormHelperText>
+            ) : (
+              <></>
+            )}
+          </FormControl>
+        )}
+      />
+    </Box>
   );
 }
