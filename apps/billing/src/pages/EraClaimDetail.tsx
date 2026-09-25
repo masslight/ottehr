@@ -26,7 +26,7 @@ import {
 import { ReactElement, ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
-import { ERA_CLAIM_STATUS_CODE, X12_ADJUSTMENT_GROUP_CODE } from 'utils/lib/types/data/billing/billing.constants';
+import { X12_ADJUSTMENT_GROUP_CODE } from 'utils/lib/types/data/billing/billing.constants';
 import {
   ClaimRemitAdjustment,
   EraClaimListItem,
@@ -34,12 +34,13 @@ import {
   EraDetailResponse,
   EraRemitServiceLine,
 } from 'utils/lib/types/data/billing/billing.types';
-import { carcDescription, X12_ADJUSTMENT_GROUP_LABELS } from 'utils/lib/types/data/billing/carc';
+import { carcDescription } from 'utils/lib/types/data/billing/carc';
 import { formatCurrency, roundNumberToDecimalPlaces } from 'utils/lib/utils/convert';
 import { getAgeInYears } from 'utils/lib/validation/helper';
 import { getBillingEraDetail, lookupProcedureDescriptions } from '../api/api';
+import { AdjustmentChip, AmountChip, EraStatusChip } from '../components/EraChips';
 import { ReadOnlySection, thSx } from '../components/ReadOnlySection';
-import { ERA_STATUS_LABELS } from '../constants/era';
+import { adjustmentDescription, isAdverseRemitStatus } from '../constants/era';
 import { useApiClients } from '../hooks/useAppClients';
 import { formatDate } from '../utils/format';
 
@@ -50,16 +51,6 @@ const sumPatientResp = (adjustments: ClaimRemitAdjustment[]): number =>
       .reduce((sum, adjustment) => sum + adjustment.amount, 0),
     2
   );
-
-const adjustmentDescription = (adjustment: ClaimRemitAdjustment): string => {
-  const groupLabel = X12_ADJUSTMENT_GROUP_LABELS[adjustment.groupCode] ?? adjustment.groupCode;
-  if (!adjustment.reasonCode) return groupLabel;
-  return `${groupLabel} — ${carcDescription(adjustment.reasonCode) ?? 'No description available'}`;
-};
-
-// CLP02 statuses a biller must not miss; they color the remit chip and force the remit header
-const isAdverseRemitStatus = (statusCode: EraClaimRemit['eraStatusCode']): boolean =>
-  statusCode === ERA_CLAIM_STATUS_CODE.denied || statusCode === ERA_CLAIM_STATUS_CODE.reversal;
 
 function InlinePair({ label, value }: { label: string; value: ReactNode }): ReactElement {
   return (
@@ -88,10 +79,6 @@ function StatCard({ label, value }: { label: string; value: number }): ReactElem
     </Card>
   );
 }
-
-const amountChip = (label: string, color: 'success' | 'primary' | 'warning' | 'default'): ReactElement => (
-  <Chip label={label} color={color} variant="outlined" size="small" sx={{ borderRadius: '4px', fontSize: 12 }} />
-);
 
 function ServiceLineRow({
   line,
@@ -139,11 +126,13 @@ function ServiceLineRow({
         <TableCell>{procedure}</TableCell>
         <TableCell align="right">{line.billed === null ? '-' : formatCurrency(line.billed)}</TableCell>
         <TableCell align="right">
-          {line.allowed === null ? '-' : amountChip(formatCurrency(line.allowed), 'success')}
+          {line.allowed === null ? '-' : <AmountChip label={formatCurrency(line.allowed)} color="success" />}
         </TableCell>
-        <TableCell align="right">{amountChip(`Paid ${formatCurrency(line.paid)}`, 'primary')}</TableCell>
         <TableCell align="right">
-          {amountChip(formatCurrency(patientResp), patientResp > 0 ? 'warning' : 'default')}
+          <AmountChip label={`Paid ${formatCurrency(line.paid)}`} color="primary" />
+        </TableCell>
+        <TableCell align="right">
+          <AmountChip label={formatCurrency(patientResp)} color={patientResp > 0 ? 'warning' : 'default'} />
         </TableCell>
       </TableRow>
       {line.adjustments.length > 0 && (
@@ -166,17 +155,7 @@ function ServiceLineRow({
                     {line.adjustments.map((adjustment, idx) => (
                       <TableRow key={idx} sx={{ '& > td': { borderBottom: 'none', py: 0.5 } }}>
                         <TableCell>
-                          <Chip
-                            label={adjustment.groupCode}
-                            color={
-                              adjustment.groupCode === X12_ADJUSTMENT_GROUP_CODE.patientResponsibility
-                                ? 'warning'
-                                : 'default'
-                            }
-                            variant="outlined"
-                            size="small"
-                            sx={{ borderRadius: '4px', fontSize: 12 }}
-                          />
+                          <AdjustmentChip groupCode={adjustment.groupCode} label={adjustment.groupCode} />
                         </TableCell>
                         <TableCell>{adjustment.reasonCode || '-'}</TableCell>
                         <TableCell>{adjustmentDescription(adjustment)}</TableCell>
@@ -235,15 +214,7 @@ function RemitSection({
     <Box sx={{ mb: 1 }}>
       {showRemitHeader && (
         <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 1.5 }}>
-          {remit.eraStatusCode && (
-            <Chip
-              label={ERA_STATUS_LABELS[remit.eraStatusCode]}
-              color={isAdverseRemitStatus(remit.eraStatusCode) ? 'error' : 'default'}
-              variant="outlined"
-              size="small"
-              sx={{ borderRadius: '4px', fontSize: 12 }}
-            />
-          )}
+          {remit.eraStatusCode && <EraStatusChip statusCode={remit.eraStatusCode} />}
           <Typography variant="body2" color="text.secondary">
             {[remit.outcome, formatDate(remit.created), remit.disposition].filter(Boolean).join(' · ')}
           </Typography>

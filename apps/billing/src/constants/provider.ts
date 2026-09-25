@@ -1,5 +1,5 @@
 import { CreateBillingProviderInput, UpdateBillingProviderInput } from 'utils/lib/types/data/billing/billing.schemas';
-import { BillingProviderOption } from 'utils/lib/types/data/billing/billing.types';
+import { BillingProviderLicense, BillingProviderOption } from 'utils/lib/types/data/billing/billing.types';
 import { buildAddressInput } from '../utils/format';
 
 export type ProviderRole = 'billing' | 'rendering';
@@ -12,6 +12,8 @@ export interface ProviderForm {
   orgName: string;
   npi: string;
   licenseType: string;
+  licenseNumber: string;
+  licenseState: string;
   taxonomyCode: string;
   taxId: string;
   stripeAccountId: string;
@@ -32,6 +34,8 @@ export function emptyProviderForm(defaultRole: ProviderRole): ProviderForm {
     orgName: '',
     npi: '',
     licenseType: '',
+    licenseNumber: '',
+    licenseState: '',
     taxonomyCode: '',
     taxId: '',
     stripeAccountId: '',
@@ -56,7 +60,9 @@ export function defaultProviderFormValues(
     lastName: provider.lastName ?? '',
     orgName: provider.name ?? '',
     npi: provider.npi ?? '',
-    licenseType: provider.licenseType ?? '',
+    licenseType: provider.license?.type ?? '',
+    licenseNumber: provider.license?.number ?? '',
+    licenseState: provider.license?.state ?? '',
     taxonomyCode: provider.taxonomyCode ?? '',
     taxId: provider.taxId ?? '',
     stripeAccountId: provider.stripeAccountId ?? '',
@@ -89,7 +95,7 @@ export function providerToCreateInput(data: ProviderForm): CreateBillingProvider
       kind: data.kind,
       firstName: data.firstName!.trim(),
       lastName: data.lastName!.trim(),
-      ...(data.licenseType ? { licenseType: data.licenseType } : {}),
+      ...licenseInput(data),
       ...common,
     };
   } else {
@@ -123,7 +129,7 @@ export function providerToUpdateInput(data: ProviderForm, providerId: string): U
       kind: data.kind,
       firstName: data.firstName!.trim(),
       lastName: data.lastName!.trim(),
-      ...(data.licenseType ? { licenseType: data.licenseType } : {}),
+      ...licenseInput(data),
       ...common,
     };
   } else {
@@ -135,4 +141,12 @@ export function providerToUpdateInput(data: ProviderForm, providerId: string): U
     };
   }
   return payload;
+}
+
+// Only rendering providers carry a license; the fields are hidden (and dropped) otherwise.
+function licenseInput(data: ProviderForm): { license?: BillingProviderLicense } {
+  if (!data.renders) return {};
+  const number = data.licenseNumber.trim();
+  if (!data.licenseType || !number || !data.licenseState) return {};
+  return { license: { type: data.licenseType, number, state: data.licenseState } };
 }

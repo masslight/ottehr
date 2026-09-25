@@ -1,8 +1,41 @@
-import { Patient } from 'fhir/r4b';
+import { Patient, Task } from 'fhir/r4b';
 
 // An applied claim tag is `{ system: CLAIM_TAG_SYSTEM, code: <tag name> }`; the tag's definition
 // (description, system flag) is a separate Basic resource (see save-billing-tag).
 export const CLAIM_TAG_SYSTEM = 'https://fhir.ottehr.com/billing/claim-tag';
+
+export const TAG_NAME_FORBIDDEN_CHARACTERS = /[&=:,|\\$#%]|\p{C}|[^\S ]/u;
+export const TAG_NAME_FORBIDDEN_CHARACTERS_ERROR =
+  'Tag name cannot contain any of & = : , | \\ $ # %, or invisible and non-standard whitespace characters';
+
+export const BILLING_CLAIM_TASK_CODING = {
+  system: 'https://fhir.ottehr.com/billing/task',
+  code: 'billing-claim',
+};
+
+export const BILLING_TASK_STATUSES = [
+  'draft',
+  'requested',
+  'received',
+  'accepted',
+  'rejected',
+  'ready',
+  'cancelled',
+  'in-progress',
+  'on-hold',
+  'failed',
+  'completed',
+  'entered-in-error',
+] as const satisfies readonly Task['status'][];
+
+export const BILLING_CLAIM_TASK_FILTER_STATUSES = [
+  'requested',
+  'in-progress',
+  'completed',
+  'failed',
+] as const satisfies readonly (typeof BILLING_TASK_STATUSES)[number][];
+
+export const BILLING_CLAIM_TASK_PAYER_SCAN_LIMIT = 1_000;
 
 export const CLAIM_STATUS_PROCESSED_TAG = {
   system: 'https://fhir.ottehr.com/billing/claim-status-processed',

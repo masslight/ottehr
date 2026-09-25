@@ -10,7 +10,6 @@ import {
   Edit as EditIcon,
   EditOutlined as EditOutlinedIcon,
   FileDownloadOutlined as FileDownloadIcon,
-  FileUpload as FileUploadIcon,
   MoreVert as MoreVertIcon,
   OpenInNew as OpenInNewIcon,
   Save as SaveIcon,
@@ -33,11 +32,9 @@ import {
   FormControl,
   FormControlLabel,
   FormHelperText,
-  Grid,
   IconButton,
   InputLabel,
   Link as MuiLink,
-  ListItem,
   ListItemIcon,
   ListItemText,
   Menu,
@@ -56,14 +53,15 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
+import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
-import Dropzone, { DropzoneProps } from 'react-dropzone';
-import { Controller, FormProvider, useForm, useFormContext } from 'react-hook-form';
+import { Controller, FormProvider, useForm } from 'react-hook-form';
 import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom';
-import { CLAIM_ATTACHMENT_REPORT_TYPE_CODES, DEFAULT_CLAIM_ATTACHMENT_REPORT_TYPE_CODE } from 'utils';
+import { CLAIM_ATTACHMENT_REPORT_TYPE_CODES, DEFAULT_CLAIM_ATTACHMENT_REPORT_TYPE_CODE } from 'utils/lib/fhir/billing';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import {
+  CLAIM_ACCIDENT_TYPE_DISPLAY_VALUES,
   CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES,
   CODE_SYSTEM_SERVICE_CATEGORY_CODE_NAMES,
 } from 'utils/lib/helpers/rcm/constants';
@@ -115,16 +113,21 @@ import {
   updateBillingProvider,
   updateBillingResource,
 } from '../api/api';
+import { AccidentInfoFields } from '../components/AccidentInfoFields';
 import { ClaimHistory } from '../components/claim/ClaimHistory';
 import { ClaimNotesDrawer } from '../components/claim/ClaimNotesDrawer';
 import { ClaimStatusFields } from '../components/claim/ClaimStatusFields';
 import { DiagnosesEditor } from '../components/claim/DiagnosesEditor';
 import { EditableSection, EditableSectionSkeleton } from '../components/claim/EditableSection';
+import { RemitHighlightProvider } from '../components/claim/RemitHighlight';
+import { InsurancePaymentsSection, RemitsSection } from '../components/claim/RemitSections';
 import { ServiceLineRow, ServiceLinesEditor } from '../components/claim/ServiceLinesEditor';
+import { RemitTotals, ServiceLinesTable } from '../components/claim/ServiceLinesLedger';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { CopyButton } from '../components/CopyButton';
 import { CoverageFields } from '../components/CoverageFields';
 import { DateInput } from '../components/DateInput';
+import { DropzoneField } from '../components/DropzoneField';
 import { ExportX12Dialog } from '../components/ExportX12Dialog';
 import {
   InstitutionalClaimAdditionalFields,
@@ -136,6 +139,7 @@ import { ReadOnlySection, thSx } from '../components/ReadOnlySection';
 import { Row } from '../components/Row';
 import { ServiceFacilityDetailForm } from '../components/ServiceFacilityDetailSection';
 import { WarningIconWithTooltip } from '../components/WarningIconWithTooltip';
+import { AccidentInfoData } from '../constants/accidentInfo';
 import { claimStatusValueColor, PROVISIONAL_BALANCE_HINT } from '../constants/claimStatus';
 import {
   CoverageForm,
@@ -143,7 +147,6 @@ import {
   coverageToUpdateInput,
   defaultCoverageFormValues,
 } from '../constants/coverage';
-import { ERA_STATUS_LABELS, formatAdjustment } from '../constants/era';
 import { useApiClients } from '../hooks/useAppClients';
 import { useCoverage } from '../hooks/useCoverage';
 import { useFacilityOptionsSearch, useProviderOptionsSearch } from '../hooks/useOptionSearch';
@@ -592,7 +595,7 @@ export default function ClaimDetail(): ReactElement {
           <Box sx={{ display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'flex-end' }}>
             <Amount label="Billed" value={claim.billed} />
             <Amount label="Allowed" value={claim.allowed} />
-            <Amount label="Payments" sublabel="Primary Ins Paid" value={claim.insurancePaid} />
+            <Amount label="Payments" sublabel="Insurance Paid" value={claim.insurancePaid} />
             <Amount label="Patient Paid" value={claim.patientPaid} />
             <Amount
               label="Balance"
@@ -699,16 +702,19 @@ export default function ClaimDetail(): ReactElement {
             <RenderingProviderSection claim={claim} updateResource={updateResource} refetchClaim={fetchDetail} />
             <FacilitySection claim={claim} updateResource={updateResource} refetchClaim={fetchDetail} />
             <BillingProviderSection claim={claim} updateResource={updateResource} refetchClaim={fetchDetail} />
+            <AccidentInfoSection claim={claim} updateResource={updateResource} />
             {claim.type === 'institutional' && (
               <InstitutionalClaimAdditionalFieldsSection claim={claim} updateResource={updateResource} />
             )}
           </TabPanel>
 
           <TabPanel value="2" sx={{ px: 0, pt: 2 }}>
-            <DiagnosesSection claim={claim} updateResource={updateResource} />
-            <ServiceLinesSection claim={claim} updateResource={updateResource} />
-            <RemitsSection remits={claim.remits} />
-            <InsurancePaymentsSection payments={claim.insurancePayments} navigate={navigate} />
+            <RemitHighlightProvider>
+              <DiagnosesSection claim={claim} updateResource={updateResource} />
+              <ServiceLinesSection claim={claim} updateResource={updateResource} />
+              <RemitsSection remits={claim.remits} />
+              <InsurancePaymentsSection payments={claim.insurancePayments} />
+            </RemitHighlightProvider>
           </TabPanel>
 
           <TabPanel value="3" sx={{ px: 0, pt: 2 }}>
@@ -1412,6 +1418,52 @@ function BillingProviderSection({
   );
 }
 
+function AccidentInfoSection({
+  claim,
+  updateResource,
+}: {
+  claim: ClaimDetailResponse;
+  updateResource: UpdateFn;
+}): ReactElement {
+  const handleSave = async (data: AccidentInfoData): Promise<string | null> => {
+    try {
+      const error = await updateResource('Claim', claim.id, {
+        accidentType: data.accidentType,
+        accidentState: data.accidentState,
+        accidentDate: data.accidentDate,
+      });
+      if (error) return error;
+      return null;
+    } catch (err) {
+      return getApiError({ error: err, defaultError: 'Failed to save changes' });
+    }
+  };
+
+  const defaultValues = useMemo<AccidentInfoData>(() => {
+    return {
+      accidentType: claim.accidentType,
+      accidentState: claim.accidentState,
+      accidentDate: claim.accidentDate,
+    };
+  }, [claim]);
+
+  return (
+    <EditableSection
+      title="Accident Info"
+      defaultValues={defaultValues}
+      onSave={handleSave}
+      editForm={<AccidentInfoFields />}
+    >
+      <Row
+        label="Accident Type"
+        value={claim.accidentType.map((type) => CLAIM_ACCIDENT_TYPE_DISPLAY_VALUES[type]).join(', ')}
+      />
+      {claim.accidentType.includes('auto') ? <Row label="Accident State" value={claim.accidentState} /> : <></>}
+      <Row label="Accident Date" value={claim.accidentDate ? formatDate(claim.accidentDate) : ''} />
+    </EditableSection>
+  );
+}
+
 function InstitutionalClaimAdditionalFieldsSection({
   claim,
   updateResource,
@@ -1426,8 +1478,8 @@ function InstitutionalClaimAdditionalFieldsSection({
         patientDischargeStatusCode: data.patientDischargeStatusCode,
         admissionType: data.admissionType,
         admissionSource: data.admissionSource,
-        admissionDate: data.admissionDate,
-        dischargeDate: data.dischargeDate,
+        admissionDate: DateTime.fromISO(data.admissionDate).toLocal().toISO() ?? data.admissionDate,
+        dischargeDate: DateTime.fromISO(data.dischargeDate).toLocal().toISO() ?? data.dischargeDate,
       });
       if (error) return error;
       return null;
@@ -1548,9 +1600,6 @@ function ServiceLinesSection({
     resetFields();
   }, [resetFields]);
 
-  const dxCode = (sequence: number): string =>
-    claim.diagnoses.find((dx) => dx.sequence === sequence)?.code ?? String(sequence);
-
   const handleSave = async (): Promise<string | null> => {
     for (const row of rows) {
       if (!row.cptCode.trim()) return 'Each service line needs a CPT code';
@@ -1595,159 +1644,16 @@ function ServiceLinesSection({
       }
     >
       {claim.serviceLines.length > 0 ? (
-        <TableContainer>
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell sx={thSx}>#</TableCell>
-                <TableCell sx={thSx}>Date of Service</TableCell>
-                <TableCell sx={thSx}>CPT Code</TableCell>
-                <TableCell sx={thSx}>Modifiers</TableCell>
-                <TableCell sx={thSx}>Dx</TableCell>
-                <TableCell sx={thSx}>POS</TableCell>
-                {claim.type === 'institutional' && <TableCell sx={thSx}>Rev Code</TableCell>}
-                <TableCell sx={thSx}>Qty</TableCell>
-                <TableCell sx={thSx} align="right">
-                  Billed
-                </TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {claim.serviceLines.map((line) => (
-                <TableRow key={line.sequence}>
-                  <TableCell>{line.sequence}</TableCell>
-                  <TableCell>{line.serviceDate}</TableCell>
-                  <TableCell>{line.cptCode}</TableCell>
-                  <TableCell>{line.modifiers.join(', ') || '-'}</TableCell>
-                  <TableCell>{line.diagnosisPointers.map(dxCode).join(', ') || '-'}</TableCell>
-                  <TableCell>{line.placeOfService || '-'}</TableCell>
-                  {claim.type === 'institutional' && <TableCell>{line.revenueCode || '-'}</TableCell>}
-                  <TableCell>{line.units} UN</TableCell>
-                  <TableCell align="right">{formatCurrency(line.charges)}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
+        <ServiceLinesTable claim={claim} />
       ) : (
         <Typography variant="body2" color="text.secondary">
           No service lines
         </Typography>
       )}
+      {claim.remits.length > 0 && <RemitTotals claim={claim} />}
     </EditableSection>
   );
 }
-
-const DropzoneField = ({
-  name,
-  multiple,
-  accept,
-  required,
-  ...rest
-}: {
-  name: string;
-  multiple: boolean;
-  accept?: DropzoneProps['accept'];
-  required?: boolean;
-} & Omit<DropzoneProps, 'multiple' | 'onDrop' | 'accept'>): ReactElement => {
-  const { control } = useFormContext();
-  return (
-    <Controller
-      name={name}
-      control={control}
-      rules={required ? { required: REQUIRED_FIELD_ERROR_MESSAGE } : undefined}
-      render={({ field: { value, onChange, onBlur }, fieldState: { error: fieldError } }) => (
-        <>
-          {!value ? (
-            <></>
-          ) : (
-            <ListItem disablePadding disableGutters>
-              <ListItemIcon sx={{ minWidth: 0, mr: 1.5 }}>
-                <DescriptionIcon />
-              </ListItemIcon>
-              <ListItemText primary={value.name} />
-            </ListItem>
-          )}
-          <Dropzone
-            multiple={multiple}
-            accept={accept}
-            onDrop={(acceptedFiles) => {
-              onChange(multiple ? acceptedFiles : acceptedFiles[0]);
-            }}
-            {...rest}
-          >
-            {({ getRootProps, getInputProps, isDragActive, fileRejections }) => {
-              return (
-                <Card
-                  variant="outlined"
-                  component="div"
-                  elevation={0}
-                  sx={{
-                    px: 4,
-                    backgroundColor: 'lightgrey',
-                  }}
-                  {...getRootProps()}
-                >
-                  <CardContent>
-                    <Box
-                      component="input"
-                      {...getInputProps({
-                        onBlur,
-                      })}
-                    />
-                    <Grid
-                      item
-                      container
-                      direction="column"
-                      justifyContent="center"
-                      alignItems="strech"
-                      rowGap={2}
-                      wrap="nowrap"
-                    >
-                      <Grid item xs={12}>
-                        <Stack direction="column" width="100%" justifyContent="center" alignItems="center" gap={1}>
-                          <FileUploadIcon />
-                          <Typography variant="body1" component="p" textAlign="center">
-                            {isDragActive ? 'Drop file here to upload' : 'Click here or drag file to upload'}
-                          </Typography>
-                          {accept && Object.values(accept).length ? (
-                            <Typography variant="body2" component="p" textAlign="center">
-                              Accepted types:{' '}
-                              {Object.values(accept)
-                                .flatMap((val) => val)
-                                .join(', ')}
-                            </Typography>
-                          ) : (
-                            <></>
-                          )}
-                          {fileRejections.length ? (
-                            <FormHelperText id={`dropzone-helper-text`} error={true}>
-                              File{multiple ? 's' : ''} could not be uploaded. Please select{' '}
-                              {multiple ? 'files' : 'a file'} with an allowed type.
-                            </FormHelperText>
-                          ) : (
-                            <></>
-                          )}
-                          {fieldError ? (
-                            <FormHelperText id={`dropzone-helper-text`} error={true}>
-                              {fieldError?.message}
-                            </FormHelperText>
-                          ) : (
-                            <></>
-                          )}
-                        </Stack>
-                      </Grid>
-                    </Grid>
-                  </CardContent>
-                </Card>
-              );
-            }}
-          </Dropzone>
-        </>
-      )}
-    />
-  );
-};
 
 function AttachmentsSection({
   claim,
@@ -2229,102 +2135,6 @@ function OtherClaimsSection({
         </Table>
       </TableContainer>
     </Card>
-  );
-}
-
-function RemitsSection({ remits }: { remits: ClaimDetailResponse['remits'] }): ReactElement {
-  return (
-    <ReadOnlySection title="Remits">
-      {remits.length === 0 ? (
-        'No remits yet'
-      ) : (
-        <TableContainer>
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell sx={thSx}>Date</TableCell>
-                <TableCell sx={thSx}>Payer</TableCell>
-                <TableCell sx={thSx}>Status</TableCell>
-                <TableCell sx={thSx}>ERA Status</TableCell>
-                <TableCell sx={thSx}>Adjustments</TableCell>
-                <TableCell sx={thSx} align="right">
-                  Allowed
-                </TableCell>
-                <TableCell sx={thSx} align="right">
-                  Paid
-                </TableCell>
-                <TableCell sx={thSx} align="right">
-                  Patient Resp
-                </TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {remits.map((remit) => (
-                <TableRow key={remit.claimResponseId}>
-                  <TableCell>{formatDate(remit.date) || '-'}</TableCell>
-                  <TableCell>{remit.payerName || '-'}</TableCell>
-                  <TableCell>{remit.status || '-'}</TableCell>
-                  <TableCell>{remit.eraStatusCode ? ERA_STATUS_LABELS[remit.eraStatusCode] : '-'}</TableCell>
-                  <TableCell>{remit.adjustments.map(formatAdjustment).join(', ') || '-'}</TableCell>
-                  <TableCell align="right">{remit.allowed === null ? '-' : formatCurrency(remit.allowed)}</TableCell>
-                  <TableCell align="right">{formatCurrency(remit.paid)}</TableCell>
-                  <TableCell align="right">
-                    {remit.patientResp === null ? '-' : formatCurrency(remit.patientResp)}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      )}
-    </ReadOnlySection>
-  );
-}
-
-function InsurancePaymentsSection({
-  payments,
-  navigate,
-}: {
-  payments: ClaimDetailResponse['insurancePayments'];
-  navigate: (path: string) => void;
-}): ReactElement {
-  return (
-    <ReadOnlySection title="Insurance Payments">
-      {payments.length === 0 ? (
-        'No insurance payments yet'
-      ) : (
-        <TableContainer>
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell sx={thSx}>Date</TableCell>
-                <TableCell sx={thSx}>Payer</TableCell>
-                <TableCell sx={thSx}>Check Number</TableCell>
-                <TableCell sx={thSx}>Status</TableCell>
-                <TableCell sx={thSx} align="right">
-                  Check Amount
-                </TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {payments.map((payment) => (
-                <TableRow
-                  key={payment.paymentReconciliationId}
-                  sx={{ cursor: 'pointer', '&:hover': { bgcolor: otherColors.apptHover } }}
-                  onClick={() => navigate(`/eras/${payment.paymentReconciliationId}`)}
-                >
-                  <TableCell>{formatDate(payment.paymentDate) || '-'}</TableCell>
-                  <TableCell>{payment.payerName || '-'}</TableCell>
-                  <TableCell>{payment.checkNumber || '-'}</TableCell>
-                  <TableCell>{payment.status || '-'}</TableCell>
-                  <TableCell align="right">{formatCurrency(payment.paymentAmount)}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      )}
-    </ReadOnlySection>
   );
 }
 

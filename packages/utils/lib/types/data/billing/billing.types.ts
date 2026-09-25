@@ -1,5 +1,6 @@
+import { Task } from 'fhir/r4b';
 import { SubscriberRelationship } from '../../../fhir/constants';
-import { CODE_SYSTEM_CLAIM_TYPE_CODES } from '../../../helpers/rcm/constants';
+import { CLAIM_ACCIDENT_TYPE, CODE_SYSTEM_CLAIM_TYPE_CODES } from '../../../helpers/rcm/constants';
 import type { EraClaimStatusCode, X12AdjustmentGroupCode } from './billing.constants';
 import type { BillingInsuranceType } from './billing.schemas';
 import { ClaimStatusValues } from './claim-status';
@@ -119,6 +120,13 @@ export interface SearchServiceFacilitiesResponse {
   pageSize: number;
 }
 
+// A rendering provider's professional license; type is a PractitionerQualificationCode, state a state code.
+export interface BillingProviderLicense {
+  type: string;
+  number: string;
+  state: string;
+}
+
 // Unified provider option (Practitioner or Organization)
 export interface BillingProviderOption {
   id: string;
@@ -128,7 +136,7 @@ export interface BillingProviderOption {
   lastName?: string;
   npi: string;
   taxonomyCode?: string;
-  licenseType?: string;
+  license?: BillingProviderLicense;
   taxId?: string;
   stripeAccountId?: string;
   address?: string;
@@ -363,7 +371,10 @@ export interface ClaimPatientPayment {
 export interface ClaimInsurancePayment {
   paymentReconciliationId: string;
   checkNumber: string;
-  paymentDate: string;
+  // when the ERA was produced/imported (PaymentReconciliation.created)
+  remitDate: string;
+  // the check/EFT date (PaymentReconciliation.paymentDate); '' when the ERA carries none
+  checkDate: string;
   // the whole check's amount, not this claim's share (that's the remit's paid)
   paymentAmount: number;
   payerName: string;
@@ -373,6 +384,7 @@ export interface ClaimInsurancePayment {
 // One ERA adjudication (ClaimResponse) posted against a claim.
 export interface ClaimRemit {
   claimResponseId: string;
+  // ClaimResponse.created, when the remit was posted
   date: string;
   payerName: string;
   status: string;
@@ -382,6 +394,13 @@ export interface ClaimRemit {
   paid: number;
   patientResp: number | null;
   adjustments: ClaimRemitAdjustment[];
+  // the ERA (PaymentReconciliation) that carried this remit, via its era-processing Provenance; ''
+  // when that link or the ERA itself couldn't be read, and then checkNumber/checkDate are '' too
+  paymentReconciliationId: string;
+  checkNumber: string;
+  checkDate: string;
+  // the adjudicated lines, each joined to the Claim.item it describes when possible
+  serviceLines: EraRemitServiceLine[];
 }
 
 export interface ClaimAttachment {
@@ -486,6 +505,8 @@ export interface ClaimDetailResponse {
   patientPaid: number;
   balance: number;
   adjudicated: boolean;
+  // when Oystehr first sent the claim to the payer; '' when it was never submitted from Ottehr
+  firstSubmittedDate: string;
   remits: ClaimRemit[];
   insurancePayments: ClaimInsurancePayment[];
   patientPayments: ClaimPatientPayment[];
@@ -506,6 +527,9 @@ export interface ClaimDetailResponse {
   admissionSource: string;
   admissionDate: string;
   dischargeDate: string;
+  accidentType: CLAIM_ACCIDENT_TYPE[];
+  accidentState: string;
+  accidentDate: string;
   attachments: ClaimAttachment[];
 }
 
@@ -521,6 +545,25 @@ export interface SearchBillingPatientsResponse extends Paginated {
 
 export interface SearchBillingClaimsResponse extends Paginated {
   claims: BillingClaimItem[];
+  incomplete?: boolean;
+}
+
+export interface BillingClaimTaskItem {
+  id: string;
+  status: Task['status'];
+  encounterId?: string;
+  encounterDate?: string;
+  appointmentId?: string;
+  patientId?: string;
+  patientName?: string;
+  payerNames: string[];
+  createdAt?: string;
+  updatedAt?: string;
+  error?: string;
+}
+
+export interface SearchBillingClaimTasksResponse extends Paginated {
+  tasks: BillingClaimTaskItem[];
   incomplete?: boolean;
 }
 
@@ -618,6 +661,17 @@ export interface PaymentsReportWaterfallCell {
   // 'YYYY-MM' of the ERA check date
   checkMonth: string;
   paid: number;
+}
+
+// One cached run of a report kind; params re-request that run (dateFrom/dateTo for windowed kinds)
+export interface BillingReportHistoryEntry {
+  params: Record<string, unknown>;
+  generatedAt: string;
+  sizeBytes: number;
+}
+
+export interface GetBillingReportHistoryResponse {
+  entries: BillingReportHistoryEntry[];
 }
 
 // Refresh state of a cached billing report.

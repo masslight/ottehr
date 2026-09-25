@@ -26,7 +26,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const { secrets } = input;
 
   const getOptionsInput = validateInput(input);
-  console.log('get options input:', getOptionsInput);
 
   console.group('getAuth0Token');
   if (!oystehrToken) {

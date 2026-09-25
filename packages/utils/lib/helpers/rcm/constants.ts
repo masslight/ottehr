@@ -11,6 +11,8 @@ export const EXTENSION_OUTSIDE_CHARGES = 'http://fhir-api.zapehr.com/extension/o
 export const RAW_RESPONSE = 'http://fhir-api.zapehr.com/extension/raw-response';
 
 export const EXTENSION_CLAIM_INSURANCE_TYPE = `${OYSTEHR_EXTENSION_BASE_URL}/rcm-claim-insurance-type`;
+export const EXTENSION_CLAIM_AUTO_ACCIDENT = `${OYSTEHR_EXTENSION_BASE_URL}/rcm-claim-auto-accident`;
+export const EXTENSION_CLAIM_AUTO_ACCIDENT_STATE = `${OYSTEHR_EXTENSION_BASE_URL}/rcm-claim-auto-accident-state`;
 
 export const EXTENSION_CLAIM_PROVIDER_SIGNATURE_INDICATOR = `${OYSTEHR_EXTENSION_BASE_URL}/rcm-claim-provider-signature-indicator`;
 export const EXTENSION_CLAIM_ASSIGNMENT_OR_PLAN_PARTICIPATION_CODE = `${OYSTEHR_EXTENSION_BASE_URL}/rcm-claim-assignment-or-plan-participation-code`;
@@ -260,6 +262,8 @@ export const CODE_SYSTEM_CPT_MODIFIER = 'https://fhir.ottehr.com/CodeSystem/cpt-
 
 export const CODE_SYSTEM_OYSTEHR_CLAIM_REFERRING_PROVIDER_TYPE =
   'https://terminology.fhir.oystehr.com/CodeSystem/rcm-claim-referring-provider-type';
+export const CODE_SYSTEM_OYSTEHR_CLAIM_DATE_TYPE =
+  'https://terminology.fhir.oystehr.com/CodeSystem/rcm-claim-date-type';
 export const CODE_SYSTEM_OYSTEHR_CLAIM_PROCEDURE_MODIFIER =
   'https://terminology.fhir.oystehr.com/CodeSystem/rcm-claim-procedure-modifier';
 
@@ -285,3 +289,19 @@ export const CODE_SYSTEM_SERVICE_CATEGORY_CODES = {
 
 export const CODE_SYSTEM_CLAIM_SECONDARY_IDENTIFIER_TYPE =
   'https://terminology.fhir.oystehr.com/CodeSystem/rcm-claim-secondary-identifier-type';
+
+export type CLAIM_ACCIDENT_TYPE = 'auto' | 'employment' | 'other';
+export const CLAIM_ACCIDENT_TYPES: Array<CLAIM_ACCIDENT_TYPE> = ['auto', 'employment', 'other'] as const;
+export const CLAIM_ACCIDENT_TYPE_EXTENSION_URLS: Record<CLAIM_ACCIDENT_TYPE, string> = {
+  auto: 'https://extensions.fhir.oystehr.com/rcm-claim-auto-accident',
+  employment: 'https://extensions.fhir.oystehr.com/rcm-claim-employment-accident',
+  other: 'https://extensions.fhir.oystehr.com/rcm-claim-other-accident',
+} as const;
+export const CLAIM_ACCIDENT_TYPE_DISPLAY_VALUES: Record<CLAIM_ACCIDENT_TYPE, string> = {
+  auto: 'Auto Accident',
+  employment: 'Employment Accident',
+  other: 'Other Accident',
+} as const;
+export const CLAIM_ACCIDENT_STATE_EXTENSION_URL = 'https://extensions.fhir.oystehr.com/rcm-claim-auto-accident-state';
+export const CODE_SYSTEM_CLAIM_ACCIDENT_DATE = 'https://terminology.fhir.oystehr.com/CodeSystem/rcm-claim-date-type';
+export const CODE_SYSTEM_CLAIM_ACCIDENT_DATE_CODE = '439';

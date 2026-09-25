@@ -1,7 +1,8 @@
 // import { DateTime } from 'luxon';
 // import { getDurationOfStatus, getVisitTotalTime } from 'utils';
-import { Encounter } from 'fhir/r4b';
-import { PARTICIPATION_CODE_SYSTEM } from 'utils/lib/fhir/constants';
+import { Appointment, Encounter, EncounterStatusHistory, Period } from 'fhir/r4b';
+import { FHIR_EXTENSION, PARTICIPATION_CODE_SYSTEM } from 'utils/lib/fhir/constants';
+import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
 import { getVisitStatusHistory } from 'utils/lib/utils/visitUtils';
 import { describe, expect, test } from 'vitest';
 
@@ -197,5 +198,148 @@ describe('visit duration tests', () => {
   test('test visitStatusHistory for encounter with an unexpected Practitioner', () => {
     const visitStatusHistory = getVisitStatusHistory(unexpectedPractitioner);
     expect(visitStatusHistory.length).toEqual(3);
+  });
+});
+
+const T = {
+  created: '2024-12-10T15:00:00.000Z',
+  waitingRoom: '2024-12-10T15:20:00.000Z',
+  ready: '2024-12-10T16:00:00.000Z',
+  intake: '2024-12-10T16:30:00.000Z',
+};
+
+const ottehrEntry = (
+  fhirStatus: EncounterStatusHistory['status'],
+  ottehrStatus: string,
+  period: Period
+): EncounterStatusHistory => ({
+  status: fhirStatus,
+  period,
+  extension: [{ url: FHIR_EXTENSION.EncounterStatusHistory.ottehrVisitStatus.url, valueCode: ottehrStatus }],
+});
+
+const encounterWith = (statusHistory: EncounterStatusHistory[]): Encounter => ({
+  resourceType: 'Encounter',
+  status: statusHistory[statusHistory.length - 1].status,
+  statusHistory,
+  class: { system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode', code: 'VR' },
+  subject: { reference: 'Patient/test' },
+});
+
+const onDemandVirtualAppointment: Appointment = {
+  resourceType: 'Appointment',
+  status: 'arrived',
+  participant: [],
+  meta: { tag: [{ code: OTTEHR_MODULE.TM }] },
+  appointmentType: { text: 'walkin' },
+};
+
+const inPersonAppointment: Appointment = {
+  resourceType: 'Appointment',
+  status: 'arrived',
+  participant: [],
+  meta: { tag: [{ code: OTTEHR_MODULE.IP }] },
+  appointmentType: { text: 'prebook' },
+};
+
+describe('getVisitStatusHistory — on-demand virtual visits', () => {
+  test('reads the open planned window as arrived', () => {
+    const history = getVisitStatusHistory(
+      encounterWith([{ status: 'planned', period: { start: T.created } }]),
+      onDemandVirtualAppointment
+    );
+
+    expect(history).toEqual([{ status: 'arrived', period: { start: T.created } }]);
+  });
+
+  test('keeps arrived once the visit moves on without the patient ever opening the waiting room', () => {
+    const history = getVisitStatusHistory(
+      encounterWith([
+        { status: 'planned', period: { start: T.created, end: T.ready } },
+        ottehrEntry('arrived', 'ready', { start: T.ready }),
+      ]),
+      onDemandVirtualAppointment
+    );
+
+    expect(history).toEqual([
+      { status: 'arrived', period: { start: T.created, end: T.ready } },
+      { status: 'ready', period: { start: T.ready } },
+    ]);
+  });
+
+  test('a recorded arrival wins over the planned window, which is not reported twice', () => {
+    const history = getVisitStatusHistory(
+      encounterWith([
+        { status: 'planned', period: { start: T.created, end: T.waitingRoom } },
+        ottehrEntry('arrived', 'arrived', { start: T.waitingRoom, end: T.ready }),
+        ottehrEntry('arrived', 'ready', { start: T.ready }),
+      ]),
+      onDemandVirtualAppointment
+    );
+
+    expect(history).toEqual([
+      { status: 'arrived', period: { start: T.waitingRoom, end: T.ready } },
+      { status: 'ready', period: { start: T.ready } },
+    ]);
+  });
+
+  test('a legacy arrival without the extension also wins over the planned window', () => {
+    const history = getVisitStatusHistory(
+      encounterWith([
+        { status: 'planned', period: { start: T.created, end: T.waitingRoom } },
+        { status: 'arrived', period: { start: T.waitingRoom } },
+      ]),
+      onDemandVirtualAppointment
+    );
+
+    expect(history).toEqual([{ status: 'arrived', period: { start: T.waitingRoom } }]);
+  });
+
+  test('reads the planned window as pending when the appointment is not known to be on-demand virtual', () => {
+    const statusHistory: EncounterStatusHistory[] = [
+      { status: 'planned', period: { start: T.created, end: T.ready } },
+      ottehrEntry('arrived', 'ready', { start: T.ready }),
+    ];
+
+    expect(getVisitStatusHistory(encounterWith(statusHistory)).map((h) => h.status)).toEqual(['pending', 'ready']);
+  });
+});
+
+describe('getVisitStatusHistory — statuses the encounter never recorded', () => {
+  test('does not invent arrived for an in-person visit moved straight from pending to ready', () => {
+    const history = getVisitStatusHistory(
+      encounterWith([
+        { status: 'planned', period: { start: T.created, end: T.ready } },
+        ottehrEntry('arrived', 'ready', { start: T.ready }),
+      ]),
+      inPersonAppointment
+    );
+
+    expect(history.map((h) => h.status)).toEqual(['pending', 'ready']);
+  });
+
+  test('does not invent statuses skipped mid-visit', () => {
+    const history = getVisitStatusHistory(
+      encounterWith([
+        ottehrEntry('arrived', 'arrived', { start: T.created, end: T.ready }),
+        ottehrEntry('arrived', 'ready', { start: T.ready, end: T.intake }),
+        ottehrEntry('in-progress', 'provider', { start: T.intake }),
+      ]),
+      inPersonAppointment
+    );
+
+    expect(history.map((h) => h.status)).toEqual(['arrived', 'ready', 'provider']);
+  });
+
+  test('does not mutate the encounter it reads', () => {
+    const encounter = encounterWith([
+      { status: 'planned', period: { start: T.created, end: T.ready } },
+      ottehrEntry('arrived', 'ready', { start: T.ready }),
+    ]);
+    const before = structuredClone(encounter);
+
+    getVisitStatusHistory(encounter, onDemandVirtualAppointment);
+
+    expect(encounter).toEqual(before);
   });
 });

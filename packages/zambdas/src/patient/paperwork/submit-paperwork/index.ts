@@ -28,8 +28,6 @@ export const index = wrapHandler('submit-paperwork', async (input: ZambdaInput):
 
   const effectInput = await validateSubmitInputs(input, oystehr);
 
-  console.log('effect input', JSON.stringify(effectInput));
-
   const qr = await performEffect(effectInput, oystehr, token);
 
   return {

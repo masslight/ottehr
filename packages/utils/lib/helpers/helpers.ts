@@ -1723,6 +1723,8 @@ export const getPayerId = (org: Organization | undefined): string | undefined =>
   return payerId;
 };
 
+export const getPayerName = (org: Organization | undefined): string | undefined => org?.name ?? org?.alias?.[0];
+
 // A custom insurance organization (a billing-app-owned Organization not in RCM's payer directory)
 // carries its user-entered "OTR-" business id under this identifier system instead of an RCM one.
 export const getCustomInsuranceOrgBusinessId = (org: Organization | undefined): string | undefined =>
