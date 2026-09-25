@@ -53,10 +53,9 @@ The generated tests provide comprehensive coverage of booking flows:
 **Location:** `ExtendedScenarioHelpers.ts` → `executeReturningPatientFlow()`
 
 **Coverage:**
-- Patient selection screen detection
-- Selection of existing patient from list
-- Navigation to paperwork with prefilled data
-- Basic verification of prefilled email field
+- Second booking started the same way as the first
+- Selection of the patient created by the first booking
+- Navigation to patient information showing the known patient's name
 
 **Distribution:** First in-person walk-in scenario per config
 
@@ -94,10 +93,11 @@ The generated tests provide comprehensive coverage of booking flows:
 
 **Coverage:**
 - Navigate to homepage → click Past Visits button
-- Patient selection on `/my-patients` page
+- Selection of the scenario's patient on `/my-patients` page
 - Verify arrival at `/my-patients/:patientId/past-visits`
 - Verify "Visits" heading visible
-- Check for appointment in list (by visit ID)
+- Past visits lists fulfilled and cancelled appointments only: the scenario's appointment is
+  listed (by visit ID) when the scenario also ran the cancellation flow, and absent otherwise
 - Back to homepage navigation
 
 **Distribution:** Third prebook scenario OR second in-person walk-in per config

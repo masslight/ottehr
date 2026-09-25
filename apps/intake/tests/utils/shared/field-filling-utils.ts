@@ -1,4 +1,5 @@
-import { Locator, Page } from '@playwright/test';
+import { expect, Locator, Page } from '@playwright/test';
+import { isVisibleWithin } from '../playwright-helpers/interactions';
 
 /**
  * Shared utilities for filling form fields in tests.
@@ -136,6 +137,41 @@ export interface ValidationErrorResult {
 }
 
 /**
+ * After submitting a page that should fail validation, wait until the expected fields show
+ * errors (id="${linkId}-helper-text" with text) or `hasLeftPage` reports a navigation.
+ *
+ * The error collectors below sample the page once, so they must only run after errors render.
+ * `match: 'all'` waits for every field (use when each one is asserted); `'any'` settles on the
+ * first. On timeout this returns without throwing: callers already fail with a message naming
+ * the fields that never showed an error.
+ */
+export async function waitForFieldErrors(
+  page: Page,
+  linkIds: string[],
+  hasLeftPage: () => boolean | Promise<boolean>,
+  options: { match?: 'all' | 'any'; timeoutMs?: number } = {}
+): Promise<void> {
+  const { match = 'all', timeoutMs = 10_000 } = options;
+  const hasError = async (linkId: string): Promise<boolean> => {
+    const texts = await page.locator(`[id="${linkId}-helper-text"]`).allTextContents();
+    return texts.some((text) => text.trim().length > 0);
+  };
+  await expect
+    .poll(
+      async () => {
+        if (await hasLeftPage()) {
+          return true;
+        }
+        const results = await Promise.all(linkIds.map(hasError));
+        return match === 'all' ? results.every(Boolean) : results.some(Boolean);
+      },
+      { timeout: timeoutMs }
+    )
+    .toBe(true)
+    .catch(() => undefined);
+}
+
+/**
  * Get the validation error message for a specific field by its linkId
  * Fields render errors with id="${linkId}-helper-text"
  */
@@ -143,7 +179,7 @@ export async function getFieldValidationError(page: Page, linkId: string): Promi
   const helperTextId = `${linkId}-helper-text`;
   const helperElement = page.locator(`#${helperTextId}`);
 
-  const isVisible = await helperElement.isVisible({ timeout: 1000 }).catch(() => false);
+  const isVisible = await isVisibleWithin(helperElement, 1000);
   if (!isVisible) {
     return null;
   }
@@ -159,7 +195,7 @@ export async function getFieldValidationError(page: Page, linkId: string): Promi
 export async function getAggregateValidationError(page: Page): Promise<string | null> {
   const aggregateElement = page.locator('#form-error-helper-text');
 
-  const isVisible = await aggregateElement.isVisible({ timeout: 1000 }).catch(() => false);
+  const isVisible = await isVisibleWithin(aggregateElement, 1000);
   if (!isVisible) {
     return null;
   }

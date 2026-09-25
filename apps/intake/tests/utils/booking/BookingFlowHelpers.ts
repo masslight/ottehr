@@ -12,11 +12,13 @@ import { BookingConfig, selectBookingQuestionnaire } from 'utils/lib/ottehr-conf
 import { VALUE_SETS } from 'utils/lib/ottehr-config/value-sets';
 import { CreateAppointmentResponse } from 'utils/lib/types/api/prebook-create-appointment/prebook-create-appointment.types';
 import { logVerbose } from '../logging';
+import { isVisibleWithin } from '../playwright-helpers/interactions';
 import {
   collectValidationErrors,
   fillChoiceDropdown,
   fillDateField,
   fillStringField,
+  waitForFieldErrors,
 } from '../shared/field-filling-utils';
 
 /**
@@ -29,7 +31,8 @@ import {
 export class BookingFlowHelpers {
   /**
    * Click a Continue button if present on the page
-   * Uses the standard loading-button test ID that Continue buttons use
+   * Uses the standard loading-button test ID that Continue buttons use.
+   * Does not wait for the resulting navigation: callers wait on an element of the next page.
    * @param page - Playwright page
    * @param context - Optional description for logging (e.g., "after patient selection")
    * @param timeoutMs - Timeout in milliseconds (default 2000)
@@ -42,7 +45,6 @@ export class BookingFlowHelpers {
       await continueButton.click();
       const logContext = context ? ` ${context}` : '';
       console.log(`Continue button clicked${logContext}`);
-      await page.waitForTimeout(500);
       return true;
     } catch {
       const logContext = context ? ` ${context}` : '';
@@ -301,31 +303,24 @@ export class BookingFlowHelpers {
    * @param optionLabel - The visible label of the homepage option button
    */
   static async startBookingFlow(page: Page, optionLabel: string): Promise<void> {
+    const bookingButton = page.getByRole('button', { name: optionLabel });
+
     // Navigate to homepage
     await page.goto('/home', { waitUntil: 'networkidle' });
-
-    // Wait for any redirects to settle
-    await page.waitForTimeout(1000);
     console.log('Current URL after navigation:', page.url());
 
-    // If we got redirected away from /home, something is wrong
-    if (!page.url().includes('/home')) {
-      console.error('Unexpected redirect away from /home to:', page.url());
-      // Try navigating back
+    // If we got redirected away from /home the option never renders, so try navigating back
+    if (!(await isVisibleWithin(bookingButton, 20_000))) {
+      console.error('Homepage option did not render; current URL:', page.url());
       await page.goto('/home', { waitUntil: 'networkidle' });
-      await page.waitForTimeout(500);
       console.log('URL after second navigation attempt:', page.url());
     }
 
-    // Wait for the page to be ready - look for any booking button
-    await page.waitForSelector('button', { timeout: 20000 });
-
     // Click the booking option - Playwright auto-waits for element to be visible and stable
-    const bookingButton = page.getByRole('button', { name: optionLabel });
     await bookingButton.click();
 
-    // Debug: check URL after click
-    await page.waitForTimeout(1000);
+    // Every booking option navigates away from /home
+    await page.waitForURL((url) => !url.pathname.startsWith('/home'), { timeout: 20_000 });
     const url = page.url();
     console.log('URL after click:', url);
 
@@ -420,10 +415,12 @@ export class BookingFlowHelpers {
     await this.clickContinueButtonIfPresent(page, 'to trigger validation');
 
     // Wait for validation errors to appear
-    await page.waitForTimeout(1000);
+    const firstNameField = page.locator('#patient-first-name');
+    await waitForFieldErrors(page, Object.keys(invalid), async () => (await firstNameField.count()) === 0, {
+      match: 'any',
+    });
 
     // Check if we're still on the patient info form (validation failed as expected)
-    const firstNameField = page.locator('#patient-first-name');
     const stillOnForm = await firstNameField.isVisible().catch(() => false);
 
     if (!stillOnForm) {
