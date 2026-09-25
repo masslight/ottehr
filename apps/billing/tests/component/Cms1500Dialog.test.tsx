@@ -99,6 +99,15 @@ describe('Cms1500Dialog', () => {
     await waitFor(() => expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:cms1500-1'));
   });
 
+  it('releases the preview when the dialog closes, though it stays mounted', async () => {
+    const { rerender } = render(<Cms1500Dialog open onClose={() => {}} claimId={CLAIM_ID} />);
+    await screen.findByTitle('CMS-1500 preview');
+    expect(URL.revokeObjectURL).not.toHaveBeenCalled();
+
+    rerender(<Cms1500Dialog open={false} onClose={() => {}} claimId={CLAIM_ID} />);
+    await waitFor(() => expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:cms1500-1'));
+  });
+
   it('limits the shift to an inch and tidies the typed value on leaving the field', async () => {
     renderDialog();
     await screen.findByTitle('CMS-1500 preview');
@@ -126,5 +135,22 @@ describe('Cms1500Dialog', () => {
 
     expect(await screen.findByText(/failed to download the cms-1500 form \(404\)/i)).toBeInTheDocument();
     expect(fillCms1500TemplateMock).not.toHaveBeenCalled();
+  });
+
+  it('only ever previews the chosen print, and clears the error once it renders', async () => {
+    fetchMock.mockResolvedValue(new Response('Not found', { status: 404 }));
+    renderDialog();
+    await screen.findByText(/failed to download the cms-1500 form/i);
+
+    fireEvent.click(screen.getByRole('button', { name: /data only/i }));
+    expect(await screen.findByTitle('CMS-1500 preview')).toHaveAttribute('src', 'blob:cms1500-1');
+    expect(screen.queryByText(/failed to download/i)).not.toBeInTheDocument();
+
+    // The form still can't be downloaded, so the data-only preview goes rather than stand in for it.
+    fireEvent.click(screen.getByRole('button', { name: /form with claim data/i }));
+    await screen.findByText(/failed to download the cms-1500 form/i);
+    expect(screen.queryByTitle('CMS-1500 preview')).not.toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:cms1500-1');
   });
 });

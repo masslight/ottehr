@@ -141,6 +141,7 @@ export function Cms1500Dialog({ open, onClose, claimId }: Cms1500DialogProps): R
     }
 
     let cancelled = false;
+    setError(null);
     const render = async (): Promise<Uint8Array | undefined> => {
       if (mode === 'data-only') {
         const { renderCms1500Pdf } = await loadRenderer();
@@ -161,7 +162,10 @@ export function Cms1500Dialog({ open, onClose, claimId }: Cms1500DialogProps): R
       .catch((err) => {
         // Try the download again next time.
         template.current = undefined;
-        if (!cancelled) setError(getApiError({ error: err, defaultError: 'Failed to create the CMS-1500' }));
+        if (!cancelled) {
+          setPdfUrl(null);
+          setError(getApiError({ error: err, defaultError: 'Failed to create the CMS-1500' }));
+        }
       });
     return () => {
       cancelled = true;
