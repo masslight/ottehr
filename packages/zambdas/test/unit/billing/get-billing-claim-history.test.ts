@@ -16,10 +16,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { performEffect } from '../../../src/billing/get-billing-claim-history';
 import { SOURCE_IDENTIFIER_SYSTEM } from '../../../src/billing/shared';
 
-vi.mock('@sentry/aws-serverless', async (importActual) => ({
-  ...(await importActual<typeof import('@sentry/aws-serverless')>()),
-  captureException: vi.fn(),
-}));
+// @sentry/aws-serverless is globally mocked in vitest.setup.ts; reference the shared vi.fn() directly
+// so there is no async-factory race between the setup-file mock and a local override.
 const captureExceptionMock = vi.mocked(captureException);
 
 beforeEach(() => captureExceptionMock.mockClear());
