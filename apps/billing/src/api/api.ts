@@ -34,6 +34,7 @@ import {
   GetServiceFacilityInputSchema,
   ImportEraInputSchema,
   MatchClaimResponseToClaimInputSchema,
+  NetCollectionsDrilldownParamsSchema,
   PatientPaymentsDrilldownParamsSchema,
   RecordBillingManualPaymentInputSchema,
   RenameClaimAttachmentInputSchema,
@@ -78,6 +79,8 @@ import {
   GetBillingCardsOnFileReportResponse,
   GetBillingCoverageResponse,
   GetBillingInvoiceReportResponse,
+  GetBillingNetCollectionsDrilldownResponse,
+  GetBillingNetCollectionsReportResponse,
   GetBillingPatientBalanceResponse,
   GetBillingPatientPaymentsDrilldownResponse,
   GetBillingPatientPaymentsReportResponse,
@@ -515,6 +518,13 @@ export const getBillingProductivityReport = (
 ): Promise<GetBillingProductivityReportResponse> =>
   getBillingReport(oystehr, 'productivity', params as Record<string, unknown>, refresh);
 
+export const getBillingNetCollectionsReport = (
+  oystehr: Oystehr,
+  params?: ReportDateWindowParams,
+  refresh?: boolean
+): Promise<GetBillingNetCollectionsReportResponse> =>
+  getBillingReport(oystehr, 'net-collections', params as Record<string, unknown>, refresh);
+
 // this kind's cached runs, newest first
 export const getBillingReportHistory = (
   oystehr: Oystehr,
@@ -538,6 +548,20 @@ export const getBillingPatientPaymentsDrilldown = (
   getBillingReport(
     oystehr,
     'patient-payments',
+    params as Record<string, unknown>,
+    undefined,
+    drilldown as Record<string, unknown>
+  );
+
+// per-payer ERA drilldown over the window's cached net-collections detail
+export const getBillingNetCollectionsDrilldown = (
+  oystehr: Oystehr,
+  params: ReportDateWindowParams,
+  drilldown: z.input<typeof NetCollectionsDrilldownParamsSchema>
+): Promise<GetBillingNetCollectionsDrilldownResponse> =>
+  getBillingReport(
+    oystehr,
+    'net-collections',
     params as Record<string, unknown>,
     undefined,
     drilldown as Record<string, unknown>

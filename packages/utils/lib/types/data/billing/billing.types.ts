@@ -674,6 +674,80 @@ export interface GetBillingReportHistoryResponse {
   entries: BillingReportHistoryEntry[];
 }
 
+// collected vs. what was collectible; the rate is derived client-side (collected / expected)
+export interface NetCollectionsBucket {
+  collected: number;
+  expected: number;
+}
+
+export interface NetCollectionsPayerRow {
+  payerId: string;
+  payerName: string;
+  claimCount: number;
+  allowed: number;
+  patientResp: number;
+  // allowed − patient responsibility: the insurance-collectible amount
+  expected: number;
+  paid: number;
+}
+
+// 'YYYY-MM' cash-basis buckets: insurance by ERA check month, patient by payment month
+export interface NetCollectionsMonthlyPoint {
+  month: string;
+  insurance: NetCollectionsBucket;
+  patient: NetCollectionsBucket;
+}
+
+export interface GetBillingNetCollectionsReportResponse {
+  // collected = insurance paid + patient net; expected = allowed
+  overall: NetCollectionsBucket;
+  // collected = insurance paid; expected = allowed − patient responsibility
+  insurance: NetCollectionsBucket;
+  // collected = patient payments net of refunds; expected = patient responsibility
+  patient: NetCollectionsBucket;
+  payerRows: NetCollectionsPayerRow[];
+  monthly: NetCollectionsMonthlyPoint[];
+  generatedAt: string;
+  fromCache: boolean;
+  status?: ReportRefreshStatus;
+}
+
+// net-collections drilldown dataset: the window's ERAs with their matched claims only
+export interface NetCollectionsDetailClaim {
+  patientName: string;
+  pcn: string;
+  dos: string;
+  allowed: number;
+  patientResp: number;
+  paid: number;
+}
+
+export interface NetCollectionsDetailEra {
+  id: string;
+  checkNumber: string;
+  checkDate: string;
+  // payer row id ('' when the ERA has no payer reference; the drilldown 'none' filter selects these)
+  payerId: string;
+  payerName: string;
+  checkAmount: number;
+  // matched-claim rollups — the same amounts the payer row aggregates
+  allowed: number;
+  patientResp: number;
+  paid: number;
+  claims: NetCollectionsDetailClaim[];
+}
+
+export interface NetCollectionsReportDetail {
+  eras: NetCollectionsDetailEra[];
+}
+
+export interface GetBillingNetCollectionsDrilldownResponse {
+  eras: NetCollectionsDetailEra[];
+  // when the drilldown detail snapshot was computed
+  generatedAt?: string;
+  status?: ReportRefreshStatus;
+}
+
 // Refresh state of a cached billing report.
 export interface ReportRefreshStatus {
   state: 'idle' | 'running' | 'error';
