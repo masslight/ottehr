@@ -115,10 +115,25 @@ describe('faxRecipients', () => {
 
     expect(input).toEqual({
       source: visitSource,
-      recipients: [{ name: 'Dr. Lion', organization: undefined, faxNumber: '2027139680', phoneNumber: undefined }],
+      recipients: [
+        {
+          name: 'Dr. Lion',
+          credential: undefined,
+          organization: undefined,
+          faxNumber: '2027139680',
+          phoneNumber: undefined,
+        },
+      ],
     });
     expect('documents' in input).toBe(false);
     expect('saveAsPcp' in input.recipients[0]).toBe(false);
+  });
+
+  it('sends the credential apart from the name', () => {
+    const input = toSendFaxPacketInput(visitSource, {
+      recipients: [recipient({ name: 'Jane Doe', credential: ' MD ' })],
+    });
+    expect(input.recipients[0]).toMatchObject({ name: 'Jane Doe', credential: 'MD' });
   });
 
   it('carries saveAsPcp through for the flagged recipient', () => {

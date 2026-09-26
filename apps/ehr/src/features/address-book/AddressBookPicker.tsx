@@ -1,0 +1,169 @@
+import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
+import {
+  Autocomplete,
+  Box,
+  createFilterOptions,
+  IconButton,
+  TextField,
+  TextFieldProps,
+  Typography,
+} from '@mui/material';
+import { FC, useState } from 'react';
+import { Controller, useFormContext } from 'react-hook-form';
+import { dataTestIds } from 'src/constants/data-test-ids';
+import { formatPhoneNumberDisplay } from 'utils/lib/helpers/helpers';
+import { AddressBookContact, AddressBookContactInput } from 'utils/lib/types/data/address-book';
+import { useSearchAddressBookQuery } from './addressBook.queries';
+import { addressBookContactLabel, AddressBookDialog } from './AddressBookDialog';
+
+/** Sentinel row pinned to the end of the list; never part of `options`, only of what filterOptions returns. */
+const ADD_NEW = { id: 'add-new-contact', label: 'Add new contact…' };
+type PickerOption = AddressBookContact | typeof ADD_NEW;
+const isAddNew = (option: PickerOption): option is typeof ADD_NEW => option === ADD_NEW;
+const optionLabel = (option: PickerOption): string =>
+  isAddNew(option) ? option.label : addressBookContactLabel(option);
+
+const filterContacts = createFilterOptions<AddressBookContact>({
+  // Organization and person only: the credential would make "MD" match every doctor.
+  stringify: (contact) => [contact.organizationName, contact.firstName, contact.lastName].filter(Boolean).join(' '),
+});
+
+const fieldValue = (contact: AddressBookContact): string => contact.organizationName ?? '';
+
+/** Whatever was typed into the picker seeds the new-contact form as the organization. */
+const prefillFromText = (text: string): Partial<AddressBookContactInput> => ({ organizationName: text.trim() });
+
+/** The organization leads the row; the person (when there is one) and the fax sit underneath. */
+const primaryText = (contact: AddressBookContact): string =>
+  contact.organizationName || addressBookContactLabel(contact);
+const secondaryText = (contact: AddressBookContact): string =>
+  [
+    contact.organizationName &&
+      addressBookContactLabel(contact) !== contact.organizationName &&
+      addressBookContactLabel(contact),
+    contact.fax && `Fax ${formatPhoneNumberDisplay(contact.fax)}`,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+
+interface AddressBookPickerProps {
+  /** react-hook-form field holding the recipient name; free text keeps working as before. */
+  name: string;
+  label?: string;
+  variant?: TextFieldProps['variant'];
+  /** Narrows the search to contacts with this tag, and tags contacts created from this picker with it. */
+  tag?: string;
+  onSelect: (contact: AddressBookContact) => void;
+  dataTestId?: string;
+}
+
+type DialogState = Pick<React.ComponentProps<typeof AddressBookDialog>, 'contact' | 'initialValues'>;
+
+export const AddressBookPicker: FC<AddressBookPickerProps> = ({ name, label, variant, tag, onSelect, dataTestId }) => {
+  const { control } = useFormContext();
+  const { data } = useSearchAddressBookQuery(tag);
+  const contacts = data?.contacts ?? [];
+  const [dialog, setDialog] = useState<DialogState>();
+  // Which contact the text came from: two contacts can share a label, so the label alone can't say.
+  const [pickedId, setPickedId] = useState<string>();
+
+  return (
+    <Controller
+      name={name}
+      control={control}
+      defaultValue=""
+      render={({ field, fieldState: { error } }) => {
+        const text: string = field.value ?? '';
+        const picked = contacts.find((contact) => contact.id === pickedId);
+        const match = picked && fieldValue(picked) === text ? picked : undefined;
+        const pick = (contact: AddressBookContact): void => {
+          setPickedId(contact.id);
+          field.onChange(fieldValue(contact));
+          onSelect(contact);
+        };
+        return (
+          <>
+            <Autocomplete<PickerOption, false, false, true>
+              freeSolo
+              fullWidth
+              // No clear X: it would empty only this field and leave the fax/phone the pick filled in.
+              componentsProps={{ clearIndicator: { sx: { display: 'none' } } }}
+              value={null}
+              inputValue={text}
+              options={contacts}
+              filterOptions={(_options, state) => [...filterContacts(contacts, state), ADD_NEW]}
+              getOptionLabel={(option) => (typeof option === 'string' ? option : optionLabel(option))}
+              onInputChange={(_event, value, reason) => {
+                if (reason !== 'reset') field.onChange(value);
+              }}
+              onChange={(_event, option) => {
+                if (!option || typeof option === 'string') return;
+                if (isAddNew(option)) {
+                  setDialog({ initialValues: { ...prefillFromText(text), tags: tag ? [tag] : undefined } });
+                } else pick(option);
+              }}
+              renderOption={(props, option) => (
+                <li
+                  {...props}
+                  key={option.id}
+                  data-testid={isAddNew(option) ? dataTestIds.addressBook.addNewContactOption : undefined}
+                >
+                  <Box>
+                    <Typography variant="body2">{isAddNew(option) ? option.label : primaryText(option)}</Typography>
+                    {!isAddNew(option) && (
+                      <Typography variant="caption" color="text.secondary">
+                        {secondaryText(option)}
+                      </Typography>
+                    )}
+                  </Box>
+                </li>
+              )}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  fullWidth
+                  name={name}
+                  label={label}
+                  variant={variant}
+                  size="small"
+                  error={!!error}
+                  helperText={error?.message}
+                  data-testid={dataTestId}
+                  InputProps={{
+                    ...params.InputProps,
+                    endAdornment: (
+                      <>
+                        {match && (
+                          <IconButton
+                            size="small"
+                            aria-label="Edit contact"
+                            onClick={() => setDialog({ contact: match })}
+                            data-testid={dataTestIds.addressBook.editContactButton}
+                          >
+                            <EditOutlinedIcon fontSize="small" />
+                          </IconButton>
+                        )}
+                        {params.InputProps.endAdornment}
+                      </>
+                    ),
+                  }}
+                />
+              )}
+            />
+            {dialog && (
+              <AddressBookDialog
+                {...dialog}
+                onClose={() => setDialog(undefined)}
+                onSaved={(contact) => {
+                  pick(contact);
+                  setDialog(undefined);
+                }}
+                onDeleted={() => setDialog(undefined)}
+              />
+            )}
+          </>
+        );
+      }}
+    />
+  );
+};

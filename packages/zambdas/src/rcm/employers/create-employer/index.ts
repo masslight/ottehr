@@ -4,15 +4,14 @@ import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { topLevelCatch } from '../../../shared/lambda';
+import { normalizeAddress, normalizeTelecom } from '../../../shared/organization';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
 import { createCandidClientIfConfigured, createCandidEmployerPayer } from '../candid-sync';
 import {
   buildEmployerType,
-  normalizeAddress,
   normalizeEmployerNotesExtension,
   normalizeIdentifier,
-  normalizeTelecom,
   setOrUpdateCandidIdentifier,
 } from '../helpers';
 import { validateRequestParameters } from './validateRequestParameters';

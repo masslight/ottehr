@@ -54,17 +54,31 @@ export const HIPAA_FAX_CONFIDENTIALITY_STATEMENT =
   'received this in error, please notify us immediately at the phone number provided and destroy all copies. ' +
   'Unauthorized use, disclosure, or copying is strictly prohibited.';
 
-export const FaxRecipientSchema = z.object({
-  name: z.string().trim().min(1).optional(),
-  // Practice or facility the recipient belongs to. Maps to the PCP's `practice-name` extension.
-  organization: z.string().trim().min(1).optional(),
-  faxNumber: z.string().min(1),
-  phoneNumber: z.string().optional(),
-  // Persist this recipient as the patient's primary care physician. At most one recipient may set it.
-  saveAsPcp: z.boolean().optional(),
-});
+export const FAX_RECIPIENT_CREDENTIAL_NEEDS_NAME_MESSAGE = 'A credential needs a recipient name';
+
+export const FaxRecipientSchema = z
+  .object({
+    name: z.string().trim().min(1).optional(),
+    // Professional credential shown after the name ("MD", "DO").
+    credential: z.string().trim().min(1).optional(),
+    // Practice or facility the recipient belongs to. Maps to the PCP's `practice-name` extension.
+    organization: z.string().trim().min(1).optional(),
+    faxNumber: z.string().min(1),
+    phoneNumber: z.string().optional(),
+    // Persist this recipient as the patient's primary care physician. At most one recipient may set it.
+    saveAsPcp: z.boolean().optional(),
+  })
+  // The credential is shown after the name ("Jane Doe, MD"); without a name it would be dropped silently.
+  .refine((recipient) => !recipient.credential || !!recipient.name, {
+    message: FAX_RECIPIENT_CREDENTIAL_NEEDS_NAME_MESSAGE,
+    path: ['credential'],
+  });
 
 export type FaxRecipient = z.infer<typeof FaxRecipientSchema>;
+
+/** How a recipient is addressed on the cover sheet and in the logs: "Jane Doe, MD", or the name alone. */
+export const formatFaxRecipientName = (recipient: Pick<FaxRecipient, 'name' | 'credential'>): string | undefined =>
+  recipient.name && recipient.credential ? `${recipient.name}, ${recipient.credential}` : recipient.name;
 
 /**
  * What the packet is built from. Each variant is one entry point in the EHR:

@@ -1,8 +1,9 @@
 import { MISSING_REQUEST_BODY } from 'utils/lib/types/errors';
 import { z } from 'zod';
+import { OrganizationAddressInput } from '../../../shared/organization';
 import { ZambdaInput } from '../../../shared/types/common';
 import { safeJsonParse, safeValidate } from '../../../shared/validation';
-import { EmployerAddressInput, EmployerContactInput, EmployerIdentifierInput } from '../helpers';
+import { EmployerContactInput, EmployerIdentifierInput } from '../helpers';
 
 export interface UpdateEmployerParams {
   employerId: string;
@@ -10,7 +11,7 @@ export interface UpdateEmployerParams {
   active?: boolean;
   category?: string;
   identifier?: EmployerIdentifierInput | null;
-  address?: EmployerAddressInput | null;
+  address?: OrganizationAddressInput | null;
   contact?: EmployerContactInput | null;
   secrets: ZambdaInput['secrets'];
 }
@@ -64,7 +65,7 @@ export function validateRequestParameters(input: ZambdaInput): UpdateEmployerPar
     active,
     category,
     identifier: identifier as EmployerIdentifierInput | null | undefined,
-    address: address as EmployerAddressInput | null | undefined,
+    address: address as OrganizationAddressInput | null | undefined,
     contact: contact as EmployerContactInput | null | undefined,
     secrets: input.secrets,
   };

@@ -2093,6 +2093,34 @@
       "src": "src/rcm/employers/update-employer/index",
       "zip": ".dist/zips/update-employer.zip"
     },
+    "SEARCH-ADDRESS-BOOK": {
+      "name": "search-address-book",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/address-book/search-address-book/index",
+      "zip": ".dist/zips/search-address-book.zip"
+    },
+    "CREATE-ADDRESS-BOOK-CONTACT": {
+      "name": "create-address-book-contact",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/address-book/create-address-book-contact/index",
+      "zip": ".dist/zips/create-address-book-contact.zip"
+    },
+    "UPDATE-ADDRESS-BOOK-CONTACT": {
+      "name": "update-address-book-contact",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/address-book/update-address-book-contact/index",
+      "zip": ".dist/zips/update-address-book-contact.zip"
+    },
+    "DELETE-ADDRESS-BOOK-CONTACT": {
+      "name": "delete-address-book-contact",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/address-book/delete-address-book-contact/index",
+      "zip": ".dist/zips/delete-address-book-contact.zip"
+    },
     "DESIGNATE-CHARGE-MASTER-ENTRY": {
       "name": "designate-charge-master-entry",
       "type": "http_auth",
