@@ -1,26 +1,36 @@
 import Oystehr from '@oystehr/sdk';
-import { ClaimResponse } from 'fhir/r4b';
+import { Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { getPayerId } from 'utils/lib/helpers/helpers';
-import { ReportDateWindowParams, ReportDateWindowParamsSchema } from 'utils/lib/types/data/billing/billing.schemas';
+import {
+  NetCollectionsDrilldownParams,
+  NetCollectionsDrilldownParamsSchema,
+  ReportDateWindowParams,
+  ReportDateWindowParamsSchema,
+} from 'utils/lib/types/data/billing/billing.schemas';
 import {
   GetBillingNetCollectionsReportResponse,
   NetCollectionsBucket,
+  NetCollectionsDetailEra,
   NetCollectionsMonthlyPoint,
   NetCollectionsPayerRow,
+  NetCollectionsReportDetail,
 } from 'utils/lib/types/data/billing/billing.types';
 import { roundNumberToDecimalPlaces } from 'utils/lib/utils/convert';
 import {
   extractClaimResponseAmounts,
   fetchClaimResponsesByPaymentReconciliations,
   isMatchedToClaim,
+  sortClaimResponsesByRecency,
 } from '../../claim-amounts';
-import { resolvePayersByRef } from '../../shared';
+import { eraPatientAccountNumber } from '../../era-remits';
+import { fhirName, getEraCheckNumber, resolvePayersByRef } from '../../shared';
 import { ReportDefinition } from '../framework/types';
 import {
   checkDateInRange,
   claimResponseClaimId,
+  claimResponseServiceDay,
   eraCheckMonth,
   eraPayerRef,
   eraReportedPayerName,
@@ -49,7 +59,12 @@ const roundBucket = (bucket: NetCollectionsBucket): NetCollectionsBucket => ({
 // collections (net of refunds) count only payments against those matched claims' patient
 // responsibility, bucketed by payment month. Expected amounts are contractual: allowed for the
 // practice, allowed − patient responsibility for insurance, patient responsibility for patients.
-export const netCollectionsReport: ReportDefinition<ReportDateWindowParams, NetCollectionsPayload> = {
+export const netCollectionsReport: ReportDefinition<
+  ReportDateWindowParams,
+  NetCollectionsPayload,
+  NetCollectionsReportDetail,
+  NetCollectionsDrilldownParams
+> = {
   kind: 'net-collections',
   cacheVersion: 'v1',
   paramsSchema: ReportDateWindowParamsSchema,
@@ -100,7 +115,16 @@ export const netCollectionsReport: ReportDefinition<ReportDateWindowParams, NetC
       monthly,
       generatedAt: DateTime.now().toUTC().toISO() ?? '',
     };
-    return { payload };
+    return { payload, detail: insurance.detail };
+  },
+  drilldown: {
+    paramsSchema: NetCollectionsDrilldownParamsSchema,
+    empty: () => ({ eras: [] }),
+    select: (detail, params) => ({
+      eras: detail.eras
+        .filter((era) => (params.payerId === 'none' ? era.payerId === '' : era.payerId === params.payerId))
+        .sort((a, b) => b.checkDate.localeCompare(a.checkDate)),
+    }),
   },
   summarize: (payload) => {
     const rate =
@@ -126,10 +150,15 @@ async function computeInsuranceSide(
   oystehr: Oystehr,
   eraReadClient: Oystehr,
   params: ReportDateWindowParams
-): Promise<{ payerRows: NetCollectionsPayerRow[]; byMonth: Map<string, InsuranceMonth>; matched: MatchedClaimKeys }> {
+): Promise<{
+  payerRows: NetCollectionsPayerRow[];
+  byMonth: Map<string, InsuranceMonth>;
+  matched: MatchedClaimKeys;
+  detail: NetCollectionsReportDetail;
+}> {
   const allEras = await fetchAllEras(eraReadClient);
   const eras = allEras.filter((era) => checkDateInRange(era, params.dateFrom, params.dateTo));
-  if (eras.length === 0) return { payerRows: [], byMonth: new Map(), matched: emptyMatched() };
+  if (eras.length === 0) return { payerRows: [], byMonth: new Map(), matched: emptyMatched(), detail: { eras: [] } };
 
   const fetched = await fetchClaimResponsesByPaymentReconciliations(eraReadClient, eras);
   const claimResponsesByPrId = new Map(
@@ -137,13 +166,18 @@ async function computeInsuranceSide(
   );
   const allClaimResponses = [...claimResponsesByPrId.values()].flat();
   const harvestedNamesByRef = payerNamesByRef(allClaimResponses);
-  const payersByRef = await resolvePayersByRef(oystehr, [
-    ...eras.map((pr) => pr.paymentIssuer?.reference),
-    ...allClaimResponses.map((cr) => cr.insurer?.reference),
+  const matchedClaimIds = [...new Set(allClaimResponses.map(claimResponseClaimId).filter((id): id is string => !!id))];
+  const [payersByRef, partialClaimsById] = await Promise.all([
+    resolvePayersByRef(oystehr, [
+      ...eras.map((pr) => pr.paymentIssuer?.reference),
+      ...allClaimResponses.map((cr) => cr.insurer?.reference),
+    ]),
+    fetchPartialClaimsById(oystehr, matchedClaimIds),
   ]);
 
   const rowsByPayerKey = new Map<string, NetCollectionsPayerRow>();
   const byMonth = new Map<string, InsuranceMonth>();
+  const detailEras: NetCollectionsDetailEra[] = [];
   for (const era of eras) {
     const claimResponses = claimResponsesByPrId.get(era.id ?? '') ?? [];
     if (claimResponses.length === 0) continue;
@@ -173,6 +207,20 @@ async function computeInsuranceSide(
     }
     row.claimCount += claimResponses.length;
 
+    const detailEra: NetCollectionsDetailEra = {
+      id: era.id ?? '',
+      checkNumber: getEraCheckNumber(era) ?? '',
+      checkDate: era.paymentDate ?? era.created ?? '',
+      payerId: row.payerId,
+      payerName,
+      checkAmount: era.paymentAmount?.value ?? 0,
+      allowed: 0,
+      patientResp: 0,
+      paid: 0,
+      claims: [],
+    };
+    detailEras.push(detailEra);
+
     const checkMonth = eraCheckMonth(era);
     let month = byMonth.get(checkMonth);
     if (!month && checkMonth !== WATERFALL_UNKNOWN_MONTH) {
@@ -180,7 +228,7 @@ async function computeInsuranceSide(
       byMonth.set(checkMonth, month);
     }
 
-    for (const claimResponse of claimResponses) {
+    for (const claimResponse of sortClaimResponsesByRecency(claimResponses)) {
       const amounts = extractClaimResponseAmounts(claimResponse);
       const allowed = amounts.allowed ?? 0;
       // no CAS data falls back to allowed-but-unpaid, floored — summarizeClaimPayments semantics;
@@ -194,6 +242,23 @@ async function computeInsuranceSide(
         month.insurance.collected += amounts.paid;
         month.patientResp += patientResp;
       }
+
+      const claimId = claimResponseClaimId(claimResponse);
+      const matchedClaim = claimId ? partialClaimsById.get(claimId) : undefined;
+      const containedPatient = claimResponse.contained?.find(
+        (resource): resource is Patient => resource.resourceType === 'Patient'
+      );
+      detailEra.allowed = round(detailEra.allowed + allowed);
+      detailEra.patientResp = round(detailEra.patientResp + patientResp);
+      detailEra.paid = round(detailEra.paid + amounts.paid);
+      detailEra.claims.push({
+        patientName: fhirName(containedPatient),
+        pcn: eraPatientAccountNumber([claimResponse], matchedClaim, !!matchedClaim),
+        dos: claimResponseServiceDay(claimResponse, partialClaimsById) ?? '',
+        allowed: round(allowed),
+        patientResp: round(patientResp),
+        paid: round(amounts.paid),
+      });
     }
   }
 
@@ -206,19 +271,25 @@ async function computeInsuranceSide(
       paid: round(row.paid),
     }))
     .sort((a, b) => b.expected - a.expected);
-  return { payerRows, byMonth, matched: await matchedClaimKeysOf(oystehr, allClaimResponses) };
+  return {
+    payerRows,
+    byMonth,
+    matched: matchedClaimKeysOf(matchedClaimIds, partialClaimsById),
+    detail: { eras: detailEras },
+  };
 }
 
 // Claim ids adjudicated by the windowed ERAs plus their encounter ids (the claim-encounter-id
 // identifier) — the keys patient payments link back through.
-async function matchedClaimKeysOf(oystehr: Oystehr, claimResponses: ClaimResponse[]): Promise<MatchedClaimKeys> {
-  const claimIds = new Set(claimResponses.map(claimResponseClaimId).filter((id): id is string => !!id));
-  const claimsById = await fetchPartialClaimsById(oystehr, [...claimIds]);
+function matchedClaimKeysOf(
+  matchedClaimIds: string[],
+  claimsById: Awaited<ReturnType<typeof fetchPartialClaimsById>>
+): MatchedClaimKeys {
   const encounterSystem = ottehrIdentifierSystem('claim-encounter-id');
   const encounterIds = new Set(
     [...claimsById.values()]
       .map((claim) => claim.identifier?.find((identifier) => identifier.system === encounterSystem)?.value)
       .filter((id): id is string => !!id)
   );
-  return { claimIds, encounterIds };
+  return { claimIds: new Set(matchedClaimIds), encounterIds };
 }

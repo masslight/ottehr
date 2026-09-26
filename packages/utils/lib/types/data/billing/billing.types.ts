@@ -712,6 +712,42 @@ export interface GetBillingNetCollectionsReportResponse {
   status?: ReportRefreshStatus;
 }
 
+// net-collections drilldown dataset: the window's ERAs with their matched claims only
+export interface NetCollectionsDetailClaim {
+  patientName: string;
+  pcn: string;
+  dos: string;
+  allowed: number;
+  patientResp: number;
+  paid: number;
+}
+
+export interface NetCollectionsDetailEra {
+  id: string;
+  checkNumber: string;
+  checkDate: string;
+  // payer row id ('' when the ERA has no payer reference; the drilldown 'none' filter selects these)
+  payerId: string;
+  payerName: string;
+  checkAmount: number;
+  // matched-claim rollups — the same amounts the payer row aggregates
+  allowed: number;
+  patientResp: number;
+  paid: number;
+  claims: NetCollectionsDetailClaim[];
+}
+
+export interface NetCollectionsReportDetail {
+  eras: NetCollectionsDetailEra[];
+}
+
+export interface GetBillingNetCollectionsDrilldownResponse {
+  eras: NetCollectionsDetailEra[];
+  // when the drilldown detail snapshot was computed
+  generatedAt?: string;
+  status?: ReportRefreshStatus;
+}
+
 // Refresh state of a cached billing report.
 export interface ReportRefreshStatus {
   state: 'idle' | 'running' | 'error';

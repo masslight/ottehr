@@ -1,22 +1,30 @@
-import { ArrowBack as ArrowBackIcon } from '@mui/icons-material';
-import { Alert, Box, Button, Stack, Typography } from '@mui/material';
+import {
+  ArrowBack as ArrowBackIcon,
+  Close as CloseIcon,
+  KeyboardArrowDown as ArrowDownIcon,
+  KeyboardArrowUp as ArrowUpIcon,
+} from '@mui/icons-material';
+import { Alert, Box, Button, CircularProgress, Collapse, Drawer, IconButton, Stack, Typography } from '@mui/material';
 import { DataGridPro, GridColDef } from '@mui/x-data-grid-pro';
 import Oystehr from '@oystehr/sdk';
 import { DateTime } from 'luxon';
-import { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
+import { Fragment, ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { Chart } from 'react-google-charts';
 import { useNavigate } from 'react-router-dom';
+import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { ReportDateWindowParams } from 'utils/lib/types/data/billing/billing.schemas';
 import {
+  GetBillingNetCollectionsDrilldownResponse,
   GetBillingNetCollectionsReportResponse,
   NetCollectionsBucket,
   NetCollectionsPayerRow,
 } from 'utils/lib/types/data/billing/billing.types';
 import { formatCurrency } from 'utils/lib/utils/convert';
-import { getBillingNetCollectionsReport } from '../api/api';
-import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
+import { getBillingNetCollectionsDrilldown, getBillingNetCollectionsReport } from '../api/api';
+import { dataGridSlots, dataGridSx, drilldownIndicatorColumn } from '../components/BillingDataGrid';
 import { ReportStatusBar, sameWindow, windowParamsOf } from '../components/ReportStatusBar';
 import { RichTooltip } from '../components/RichTooltip';
+import { useApiClients } from '../hooks/useAppClients';
 import { useBillingReport } from '../hooks/useBillingReport';
 import { useBillingReportHistory } from '../hooks/useBillingReportHistory';
 import { otherColors } from '../themes/ottehr/colors';
@@ -35,6 +43,8 @@ const ncrColor = (rate: number | null): string => {
 };
 
 const monthLabel = (month: string): string => DateTime.fromISO(`${month}-01`).toFormat('MMM yyyy');
+
+const dayLabel = (day: string): string => (day ? DateTime.fromISO(day).toLocaleString(DateTime.DATE_MED) : '—');
 
 const currencyCol = (field: string, headerName: string, width = 130): GridColDef => ({
   field,
@@ -160,6 +170,212 @@ function RateCard({
   );
 }
 
+// e.g. "ERAs with check dates Aug 1, 2026 – Aug 18, 2026" describing which ERAs the drawer pulled
+const checkRangeLabel = (params: ReportDateWindowParams): string => {
+  if (params.dateFrom && params.dateTo)
+    return `ERAs with check dates ${dayLabel(params.dateFrom)} – ${dayLabel(params.dateTo)}`;
+  if (params.dateFrom) return `ERAs with check dates from ${dayLabel(params.dateFrom)}`;
+  if (params.dateTo) return `ERAs with check dates through ${dayLabel(params.dateTo)}`;
+  return 'All ERAs';
+};
+
+interface PayerErasCriteria {
+  title: string;
+  payerId: string;
+  window: ReportDateWindowParams;
+}
+
+const drilldownCellSx = {
+  padding: '8px 14px',
+  borderBottom: `1px solid ${otherColors.lightDivider}`,
+  textAlign: 'right' as const,
+  whiteSpace: 'nowrap' as const,
+};
+const drilldownHeadSx = { ...drilldownCellSx, fontWeight: 600, fontSize: 13, backgroundColor: reportPalette.mutedBg };
+
+function PayerErasDrawer({
+  criteria,
+  onClose,
+}: {
+  criteria: PayerErasCriteria | null;
+  onClose: () => void;
+}): ReactElement {
+  const { oystehrZambda } = useApiClients();
+  const [data, setData] = useState<GetBillingNetCollectionsDrilldownResponse | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [expandedIds, setExpandedIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!criteria || !oystehrZambda) return;
+    setData(null);
+    setError(null);
+    setExpandedIds([]);
+    setLoading(true);
+    getBillingNetCollectionsDrilldown(oystehrZambda, criteria.window, { payerId: criteria.payerId })
+      .then(setData)
+      .catch((err) => setError(getApiError({ error: err, defaultError: 'Failed to load ERA details' })))
+      .finally(() => setLoading(false));
+  }, [criteria, oystehrZambda]);
+
+  const toggle = (id: string): void =>
+    setExpandedIds((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]));
+
+  return (
+    <Drawer
+      anchor="right"
+      open={!!criteria}
+      onClose={onClose}
+      PaperProps={{ sx: { width: { xs: '100%', md: 'calc(100% - 220px)' } } }}
+    >
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          px: 3,
+          py: 2,
+          borderBottom: `1px solid ${otherColors.lightDivider}`,
+        }}
+      >
+        <Box sx={{ flex: 1 }}>
+          <Typography sx={{ fontWeight: 600, fontSize: 18, color: 'primary.dark' }}>{criteria?.title}</Typography>
+          {criteria && (
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25 }}>
+              {checkRangeLabel(criteria.window)}
+              {data?.generatedAt
+                ? ` — as of ${DateTime.fromISO(data.generatedAt).toLocaleString(DateTime.DATETIME_MED)}`
+                : ''}
+            </Typography>
+          )}
+        </Box>
+        <IconButton onClick={onClose} aria-label="Close">
+          <CloseIcon />
+        </IconButton>
+      </Box>
+      <Box sx={{ px: 3, py: 2.5, overflowY: 'auto', flex: 1 }}>
+        {error && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {error}
+          </Alert>
+        )}
+        {loading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
+            <CircularProgress size={28} />
+          </Box>
+        ) : (data?.eras.length ?? 0) === 0 ? (
+          !error && (
+            <Typography variant="body2" color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>
+              No ERAs match these criteria.
+            </Typography>
+          )
+        ) : (
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
+            <thead>
+              <tr>
+                <th style={{ ...drilldownHeadSx, width: 36 }} />
+                <th style={{ ...drilldownHeadSx, textAlign: 'left' }}>Check #</th>
+                <th style={{ ...drilldownHeadSx, textAlign: 'left' }}>Check Date</th>
+                <th style={drilldownHeadSx}>Matched Claims</th>
+                <th style={drilldownHeadSx}>Allowed</th>
+                <th style={drilldownHeadSx}>Patient Resp</th>
+                <th style={drilldownHeadSx}>Expected</th>
+                <th style={drilldownHeadSx}>Paid</th>
+                <th style={drilldownHeadSx}>NCR</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data?.eras.map((era) => {
+                const expected = era.allowed - era.patientResp;
+                const rate = rateOf({ collected: era.paid, expected });
+                return (
+                  <Fragment key={era.id}>
+                    <tr style={{ cursor: 'pointer' }} onClick={() => toggle(era.id)}>
+                      <td style={drilldownCellSx}>
+                        <IconButton
+                          size="small"
+                          aria-label={`${expandedIds.includes(era.id) ? 'Collapse' : 'Expand'} claims for check ${
+                            era.checkNumber || era.id
+                          }`}
+                          aria-expanded={expandedIds.includes(era.id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggle(era.id);
+                          }}
+                        >
+                          {expandedIds.includes(era.id) ? (
+                            <ArrowUpIcon sx={{ fontSize: 18, color: 'action.active' }} />
+                          ) : (
+                            <ArrowDownIcon sx={{ fontSize: 18, color: 'action.active' }} />
+                          )}
+                        </IconButton>
+                      </td>
+                      <td style={{ ...drilldownCellSx, textAlign: 'left', fontWeight: 500 }}>
+                        {era.checkNumber || '—'}
+                      </td>
+                      <td style={{ ...drilldownCellSx, textAlign: 'left' }}>{dayLabel(era.checkDate)}</td>
+                      <td style={drilldownCellSx}>{era.claims.length}</td>
+                      <td style={drilldownCellSx}>{formatCurrency(era.allowed)}</td>
+                      <td style={drilldownCellSx}>{formatCurrency(era.patientResp)}</td>
+                      <td style={drilldownCellSx}>{formatCurrency(expected)}</td>
+                      <td style={{ ...drilldownCellSx, fontWeight: 600 }}>{formatCurrency(era.paid)}</td>
+                      <td style={{ ...drilldownCellSx, fontWeight: 600, color: ncrColor(rate) }}>{rateLabel(rate)}</td>
+                    </tr>
+                    <tr>
+                      <td colSpan={9} style={{ padding: 0, border: 'none' }}>
+                        <Collapse in={expandedIds.includes(era.id)} timeout="auto" unmountOnExit={false}>
+                          <Box
+                            sx={{
+                              maxHeight: 260,
+                              overflowY: 'auto',
+                              backgroundColor: reportPalette.mutedBg,
+                              borderBottom: `1px solid ${otherColors.lightDivider}`,
+                              px: 3,
+                              py: 1.5,
+                            }}
+                          >
+                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                              <thead>
+                                <tr>
+                                  <th style={{ ...drilldownHeadSx, textAlign: 'left' }}>Patient</th>
+                                  <th style={{ ...drilldownHeadSx, textAlign: 'left' }}>PCN</th>
+                                  <th style={{ ...drilldownHeadSx, textAlign: 'left' }}>Date of Service</th>
+                                  <th style={drilldownHeadSx}>Allowed</th>
+                                  <th style={drilldownHeadSx}>Patient Resp</th>
+                                  <th style={drilldownHeadSx}>Paid</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {era.claims.map((claim, claimIndex) => (
+                                  <tr key={claimIndex}>
+                                    <td style={{ ...drilldownCellSx, textAlign: 'left', fontWeight: 500 }}>
+                                      {claim.patientName || 'Unknown Patient'}
+                                    </td>
+                                    <td style={{ ...drilldownCellSx, textAlign: 'left' }}>{claim.pcn || '—'}</td>
+                                    <td style={{ ...drilldownCellSx, textAlign: 'left' }}>{dayLabel(claim.dos)}</td>
+                                    <td style={drilldownCellSx}>{formatCurrency(claim.allowed)}</td>
+                                    <td style={drilldownCellSx}>{formatCurrency(claim.patientResp)}</td>
+                                    <td style={{ ...drilldownCellSx, fontWeight: 600 }}>
+                                      {formatCurrency(claim.paid)}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </Box>
+                        </Collapse>
+                      </td>
+                    </tr>
+                  </Fragment>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+      </Box>
+    </Drawer>
+  );
+}
+
 export default function NetCollectionsReport(): ReactElement {
   const navigate = useNavigate();
 
@@ -189,6 +405,8 @@ export default function NetCollectionsReport(): ReactElement {
     refreshNext();
     setRange(params);
   };
+
+  const [drilldown, setDrilldown] = useState<PayerErasCriteria | null>(null);
 
   const overall = report?.overall ?? { collected: 0, expected: 0 };
   const insurance = report?.insurance ?? { collected: 0, expected: 0 };
@@ -370,15 +588,29 @@ export default function NetCollectionsReport(): ReactElement {
         autoHeight
         rows={report?.payerRows ?? []}
         getRowId={(row) => `${row.payerId}|${row.payerName}`}
-        columns={payerColumns}
+        columns={[...payerColumns, drilldownIndicatorColumn]}
+        // pinned right so the clickability arrow stays visible when the grid scrolls horizontally
+        pinnedColumns={{ right: [drilldownIndicatorColumn.field] }}
         loading={loading}
         disableRowSelectionOnClick
         disableColumnMenu
         hideFooter
-        // rows have no drilldown (yet)
-        sx={{ ...dataGridSx, '& .MuiDataGrid-row': { cursor: 'default' } }}
+        onRowClick={(gridRow) => {
+          const row = gridRow.row as NetCollectionsPayerRow;
+          setDrilldown({
+            title: `${row.payerName} — ERAs`,
+            payerId: row.payerId || 'none',
+            window: {
+              ...(dateFrom ? { dateFrom } : {}),
+              ...(dateTo ? { dateTo } : {}),
+            },
+          });
+        }}
+        sx={dataGridSx}
         slots={dataGridSlots()}
       />
+
+      <PayerErasDrawer criteria={drilldown} onClose={() => setDrilldown(null)} />
     </Box>
   );
 }

@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { Claim, ClaimResponse, PaymentReconciliation } from 'fhir/r4b';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
+import { NetCollectionsDetailEra } from 'utils/lib/types/data/billing/billing.types';
 import { describe, expect, it, vi } from 'vitest';
 import { netCollectionsReport } from '../../../src/billing/reports/definitions/net-collections.report';
 import { reportRegistry } from '../../../src/billing/reports/framework/registry';
@@ -168,7 +169,7 @@ describe('net-collections compute', () => {
       insurance: [],
       identifier: [{ system: ottehrIdentifierSystem('claim-encounter-id'), value: 'encounter-1' }],
     };
-    const { payload } = await computeWith({
+    const { payload, detail } = await computeWith({
       eras: [
         era('era-1', '2026-01-10', 'Organization/aetna'),
         // only unmatched remit rows: must produce no payer row and no month bucket
@@ -187,6 +188,11 @@ describe('net-collections compute', () => {
     expect(payload.patient.expected).toBe(20);
     expect(payload.payerRows).toHaveLength(1);
     expect(payload.payerRows[0]).toMatchObject({ payerName: 'Aetna', claimCount: 1, allowed: 100, paid: 70 });
+
+    // drilldown detail mirrors the matched-only rollup: era-2 is absent entirely
+    expect(detail?.eras).toHaveLength(1);
+    expect(detail?.eras[0]).toMatchObject({ id: 'era-1', payerName: 'Aetna', allowed: 100, patientResp: 20, paid: 70 });
+    expect(detail?.eras[0].claims).toHaveLength(1);
 
     expect(vi.mocked(patientNetCollections)).toHaveBeenLastCalledWith(
       expect.anything(),
@@ -228,6 +234,33 @@ describe('net-collections report definition', () => {
     expect(empty.patient).toEqual({ collected: 0, expected: 0 });
     expect(empty.payerRows).toEqual([]);
     expect(empty.monthly).toEqual([]);
+  });
+
+  it('drilldown selects one payer\u2019s ERAs newest-first, with \u2018none\u2019 matching payerless ERAs', () => {
+    const detailEra = (id: string, payerId: string, checkDate: string): NetCollectionsDetailEra => ({
+      id,
+      checkNumber: '',
+      checkDate,
+      payerId,
+      payerName: 'X',
+      checkAmount: 0,
+      allowed: 0,
+      patientResp: 0,
+      paid: 0,
+      claims: [],
+    });
+    const detail = {
+      eras: [
+        detailEra('a', '87726', '2026-01-05'),
+        detailEra('b', '', '2026-01-10'),
+        detailEra('c', '87726', '2026-02-01'),
+      ],
+    };
+    expect(netCollectionsReport.drilldown?.select(detail, { payerId: '87726' }).eras.map((e) => e.id)).toEqual([
+      'c',
+      'a',
+    ]);
+    expect(netCollectionsReport.drilldown?.select(detail, { payerId: 'none' }).eras.map((e) => e.id)).toEqual(['b']);
   });
 
   it('summarize reports the overall rate', () => {
