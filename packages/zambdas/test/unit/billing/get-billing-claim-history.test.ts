@@ -341,7 +341,7 @@ describe('get-billing-claim-history performEffect', () => {
 
     const { entries } = await performEffect(oystehr, {
       claimId: 'c1',
-      secrets: null,
+      secrets: { ENVIRONMENT: 'staging' } as any,
     });
 
     expect(entries).toHaveLength(1);
@@ -388,7 +388,7 @@ describe('get-billing-claim-history performEffect', () => {
 
     const { entries } = await performEffect(oystehr, {
       claimId: 'c1',
-      secrets: null,
+      secrets: { ENVIRONMENT: 'staging' } as any,
     });
 
     expect(entries[0].acknowledgment).toBeUndefined();

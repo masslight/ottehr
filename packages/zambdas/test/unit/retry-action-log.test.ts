@@ -13,6 +13,18 @@ import {
 import { VISIT_NOTE_SUMMARY_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+// Disable the patient-portal gate so the email retry path stays open regardless of overlay.
+vi.mock('utils/lib/ottehr-config/feature-flags', async (importOriginal) => {
+  const original = await importOriginal<typeof import('utils/lib/ottehr-config/feature-flags')>();
+  return {
+    ...original,
+    FEATURE_FLAGS_CONFIG: Object.freeze({
+      ...original.FEATURE_FLAGS_CONFIG,
+      skipSendingVisitNoteToPatientPortalEnabled: false,
+    }),
+  };
+});
+
 const mockSendEmail = vi.fn();
 vi.mock('../../src/shared/communication', () => ({
   getEmailClient: () => ({
