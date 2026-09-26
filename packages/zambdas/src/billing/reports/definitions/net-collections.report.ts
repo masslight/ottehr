@@ -122,7 +122,7 @@ export const netCollectionsReport: ReportDefinition<
     empty: () => ({ eras: [] }),
     select: (detail, params) => ({
       eras: detail.eras
-        .filter((era) => (params.payerId === 'none' ? era.payerId === '' : era.payerId === params.payerId))
+        .filter((era) => (params.payerKey === 'none' ? era.payerKey === '' : era.payerKey === params.payerKey))
         .sort((a, b) => b.checkDate.localeCompare(a.checkDate)),
     }),
   },
@@ -197,6 +197,8 @@ async function computeInsuranceSide(
       row = {
         payerId: getPayerId(payer) ?? refPayerIdOfEra ?? '',
         payerName,
+        // the display payerId can be '' even for a referenced payer, so drilldowns key on the ref
+        payerKey: payerRefOfEra ?? '',
         claimCount: 0,
         allowed: 0,
         patientResp: 0,
@@ -211,7 +213,7 @@ async function computeInsuranceSide(
       id: era.id ?? '',
       checkNumber: getEraCheckNumber(era) ?? '',
       checkDate: era.paymentDate ?? era.created ?? '',
-      payerId: row.payerId,
+      payerKey: row.payerKey,
       payerName,
       checkAmount: era.paymentAmount?.value ?? 0,
       allowed: 0,

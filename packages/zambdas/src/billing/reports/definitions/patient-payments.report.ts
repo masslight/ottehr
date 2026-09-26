@@ -469,6 +469,9 @@ function syntheticNoticesFor(charges: Stripe.Charge[], knownStripeIds: Set<strin
         const value = (refund.amount ?? 0) / 100;
         if (value <= 0 || refund.status === 'failed' || refund.status === 'canceled') continue;
         remaining = roundNumberToDecimalPlaces(remaining - value, 2);
+        // a cross-window parent charge can slip past the charge-level guard while its refund is
+        // already recorded (refund notices carry only the re_ id) — don't synthesize it twice
+        if (refund.id && knownStripeIds.has(refund.id)) continue;
         const refundISO = DateTime.fromSeconds(refund.created).toUTC().toISO() ?? createdISO;
         syntheticNotices.push({
           ...base,

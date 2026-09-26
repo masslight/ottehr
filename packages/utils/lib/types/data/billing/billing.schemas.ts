@@ -813,8 +813,8 @@ export const PatientPaymentsDrilldownParamsSchema = z.object({
 
 // net-collections drilldown: one payer's ERAs (the date window travels in the report params)
 export const NetCollectionsDrilldownParamsSchema = z.object({
-  // payer ID, or 'none' for ERAs without a payer reference
-  payerId: nonEmptyString,
+  // the payer row's payerKey (its payer reference), or 'none' for ERAs without a payer reference
+  payerKey: nonEmptyString,
 });
 
 export const RecordBillingManualPaymentInputSchema = z.object({

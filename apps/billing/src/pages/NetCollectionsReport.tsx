@@ -181,7 +181,7 @@ const checkRangeLabel = (params: ReportDateWindowParams): string => {
 
 interface PayerErasCriteria {
   title: string;
-  payerId: string;
+  payerKey: string;
   window: ReportDateWindowParams;
 }
 
@@ -212,7 +212,7 @@ function PayerErasDrawer({
     setError(null);
     setExpandedIds([]);
     setLoading(true);
-    getBillingNetCollectionsDrilldown(oystehrZambda, criteria.window, { payerId: criteria.payerId })
+    getBillingNetCollectionsDrilldown(oystehrZambda, criteria.window, { payerKey: criteria.payerKey })
       .then(setData)
       .catch((err) => setError(getApiError({ error: err, defaultError: 'Failed to load ERA details' })))
       .finally(() => setLoading(false));
@@ -587,7 +587,7 @@ export default function NetCollectionsReport(): ReactElement {
       <DataGridPro
         autoHeight
         rows={report?.payerRows ?? []}
-        getRowId={(row) => `${row.payerId}|${row.payerName}`}
+        getRowId={(row) => row.payerKey || 'none'}
         columns={[...payerColumns, drilldownIndicatorColumn]}
         // pinned right so the clickability arrow stays visible when the grid scrolls horizontally
         pinnedColumns={{ right: [drilldownIndicatorColumn.field] }}
@@ -599,7 +599,7 @@ export default function NetCollectionsReport(): ReactElement {
           const row = gridRow.row as NetCollectionsPayerRow;
           setDrilldown({
             title: `${row.payerName} — ERAs`,
-            payerId: row.payerId || 'none',
+            payerKey: row.payerKey || 'none',
             window: {
               ...(dateFrom ? { dateFrom } : {}),
               ...(dateTo ? { dateTo } : {}),

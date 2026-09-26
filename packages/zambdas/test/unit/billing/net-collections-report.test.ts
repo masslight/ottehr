@@ -237,11 +237,11 @@ describe('net-collections report definition', () => {
   });
 
   it('drilldown selects one payer\u2019s ERAs newest-first, with \u2018none\u2019 matching payerless ERAs', () => {
-    const detailEra = (id: string, payerId: string, checkDate: string): NetCollectionsDetailEra => ({
+    const detailEra = (id: string, payerKey: string, checkDate: string): NetCollectionsDetailEra => ({
       id,
       checkNumber: '',
       checkDate,
-      payerId,
+      payerKey,
       payerName: 'X',
       checkAmount: 0,
       allowed: 0,
@@ -251,16 +251,15 @@ describe('net-collections report definition', () => {
     });
     const detail = {
       eras: [
-        detailEra('a', '87726', '2026-01-05'),
+        detailEra('a', 'Organization/aetna', '2026-01-05'),
         detailEra('b', '', '2026-01-10'),
-        detailEra('c', '87726', '2026-02-01'),
+        detailEra('c', 'Organization/aetna', '2026-02-01'),
       ],
     };
-    expect(netCollectionsReport.drilldown?.select(detail, { payerId: '87726' }).eras.map((e) => e.id)).toEqual([
-      'c',
-      'a',
-    ]);
-    expect(netCollectionsReport.drilldown?.select(detail, { payerId: 'none' }).eras.map((e) => e.id)).toEqual(['b']);
+    expect(
+      netCollectionsReport.drilldown?.select(detail, { payerKey: 'Organization/aetna' }).eras.map((e) => e.id)
+    ).toEqual(['c', 'a']);
+    expect(netCollectionsReport.drilldown?.select(detail, { payerKey: 'none' }).eras.map((e) => e.id)).toEqual(['b']);
   });
 
   it('summarize reports the overall rate', () => {
