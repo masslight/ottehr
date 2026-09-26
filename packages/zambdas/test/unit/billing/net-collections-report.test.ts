@@ -1,5 +1,6 @@
 import Oystehr from '@oystehr/sdk';
-import { ClaimResponse, PaymentReconciliation } from 'fhir/r4b';
+import { Claim, ClaimResponse, PaymentReconciliation } from 'fhir/r4b';
+import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { describe, expect, it, vi } from 'vitest';
 import { netCollectionsReport } from '../../../src/billing/reports/definitions/net-collections.report';
 import { reportRegistry } from '../../../src/billing/reports/framework/registry';
@@ -15,6 +16,7 @@ vi.mock('../../../src/billing/shared', async (importOriginal) => ({
 vi.mock('../../../src/billing/reports/shared', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   fetchAllEras: vi.fn(),
+  fetchPartialClaimsById: vi.fn(),
 }));
 vi.mock('../../../src/billing/reports/definitions/patient-payments.report', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
@@ -28,7 +30,7 @@ import {
   X12_ADJUSTMENT_GROUP_SYSTEM,
 } from '../../../src/billing/claim-amounts';
 import { patientNetCollections } from '../../../src/billing/reports/definitions/patient-payments.report';
-import { fetchAllEras } from '../../../src/billing/reports/shared';
+import { fetchAllEras, fetchPartialClaimsById } from '../../../src/billing/reports/shared';
 import { resolvePayersByRef } from '../../../src/billing/shared';
 
 const era = (id: string, paymentDate: string, payerRef: string): PaymentReconciliation => ({
@@ -42,8 +44,14 @@ const era = (id: string, paymentDate: string, payerRef: string): PaymentReconcil
 });
 
 // real extractClaimResponseAmounts shapes: paid/allowed ride the totals; patient responsibility
-// is a CAS item adjudication — omitting it entirely is the "no adjudication data" case
-const claimResponse = (allowed: number, paid: number, patientResp?: number): ClaimResponse => ({
+// is a CAS item adjudication — omitting it entirely is the "no adjudication data" case.
+// Matched to a real Claim by default; pass claimId: null for an unmatched remit row.
+const claimResponse = (
+  allowed: number,
+  paid: number,
+  patientResp?: number,
+  claimId: string | null = 'claim-1'
+): ClaimResponse => ({
   resourceType: 'ClaimResponse',
   status: 'active',
   type: { text: 'professional' },
@@ -52,6 +60,7 @@ const claimResponse = (allowed: number, paid: number, patientResp?: number): Cla
   created: '2026-01-05T00:00:00Z',
   insurer: {},
   outcome: 'complete',
+  request: { reference: claimId === null ? '#request' : `Claim/${claimId}` },
   total: [
     { category: { coding: [{ code: ADJUDICATION_CODES.PAID }] }, amount: { value: paid, currency: 'USD' } },
     { category: { coding: [{ code: ADJUDICATION_CODES.ALLOWED }] }, amount: { value: allowed, currency: 'USD' } },
@@ -80,6 +89,7 @@ const computeWith = async (input: {
   claimResponsesByEra: Record<string, ClaimResponse[]>;
   patient: { net: number; byMonth: Map<string, number> };
   params?: { dateFrom?: string; dateTo?: string };
+  claimsById?: Map<string, Claim>;
 }): Promise<Awaited<ReturnType<typeof netCollectionsReport.compute>>> => {
   vi.mocked(fetchAllEras).mockResolvedValue(input.eras);
   vi.mocked(fetchClaimResponsesByPaymentReconciliations).mockResolvedValue(
@@ -92,6 +102,7 @@ const computeWith = async (input: {
     ]) as never
   );
   vi.mocked(patientNetCollections).mockResolvedValue(input.patient);
+  vi.mocked(fetchPartialClaimsById).mockResolvedValue(input.claimsById ?? new Map());
   const ctx = { oystehr: {} as Oystehr, untaggedClient: {} as Oystehr, secrets: null };
   return netCollectionsReport.compute(ctx, input.params ?? {}, async () => undefined);
 };
@@ -141,6 +152,50 @@ describe('net-collections compute', () => {
     expect(payload.insurance).toEqual({ collected: 60, expected: 60 });
     expect(payload.patient.expected).toBe(20);
     expect(payload.payerRows[0]).toMatchObject({ allowed: 80, patientResp: 20, expected: 60, paid: 60 });
+  });
+
+  it('excludes unmatched ClaimResponses and ERAs with no matched claims, passing matched keys to the patient side', async () => {
+    const encounterClaim: Claim = {
+      resourceType: 'Claim',
+      id: 'claim-1',
+      status: 'active',
+      type: {},
+      use: 'claim',
+      patient: {},
+      created: '2026-01-01',
+      provider: {},
+      priority: {},
+      insurance: [],
+      identifier: [{ system: ottehrIdentifierSystem('claim-encounter-id'), value: 'encounter-1' }],
+    };
+    const { payload } = await computeWith({
+      eras: [
+        era('era-1', '2026-01-10', 'Organization/aetna'),
+        // only unmatched remit rows: must produce no payer row and no month bucket
+        era('era-2', '2026-01-12', 'Organization/bcbs'),
+      ],
+      claimResponsesByEra: {
+        'era-1': [claimResponse(100, 70, 20), claimResponse(500, 400, 0, null)],
+        'era-2': [claimResponse(200, 150, 50, null)],
+      },
+      patient: { net: 10, byMonth: new Map([['2026-01', 10]]) },
+      claimsById: new Map([['claim-1', encounterClaim]]),
+    });
+
+    // only the matched CR counts: allowed 100, PR 20, paid 70
+    expect(payload.insurance).toEqual({ collected: 70, expected: 80 });
+    expect(payload.patient.expected).toBe(20);
+    expect(payload.payerRows).toHaveLength(1);
+    expect(payload.payerRows[0]).toMatchObject({ payerName: 'Aetna', claimCount: 1, allowed: 100, paid: 70 });
+
+    expect(vi.mocked(patientNetCollections)).toHaveBeenLastCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.anything(),
+      null,
+      { claimIds: new Set(['claim-1']), encounterIds: new Set(['encounter-1']) },
+      expect.any(Function)
+    );
   });
 
   it('keeps a patient-collection month with no ERA responsibility as a zero-expected bucket', async () => {

@@ -1,5 +1,7 @@
 import Oystehr from '@oystehr/sdk';
+import { ClaimResponse } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { getPayerId } from 'utils/lib/helpers/helpers';
 import { ReportDateWindowParams, ReportDateWindowParamsSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import {
@@ -9,21 +11,27 @@ import {
   NetCollectionsPayerRow,
 } from 'utils/lib/types/data/billing/billing.types';
 import { roundNumberToDecimalPlaces } from 'utils/lib/utils/convert';
-import { extractClaimResponseAmounts, fetchClaimResponsesByPaymentReconciliations } from '../../claim-amounts';
+import {
+  extractClaimResponseAmounts,
+  fetchClaimResponsesByPaymentReconciliations,
+  isMatchedToClaim,
+} from '../../claim-amounts';
 import { resolvePayersByRef } from '../../shared';
 import { ReportDefinition } from '../framework/types';
 import {
   checkDateInRange,
+  claimResponseClaimId,
   eraCheckMonth,
   eraPayerRef,
   eraReportedPayerName,
   fetchAllEras,
+  fetchPartialClaimsById,
   payerIdFromRef,
   payerNamesByRef,
   UNKNOWN_PAYER_NAME,
   WATERFALL_UNKNOWN_MONTH,
 } from '../shared';
-import { patientNetCollections } from './patient-payments.report';
+import { MatchedClaimKeys, patientNetCollections } from './patient-payments.report';
 
 type NetCollectionsPayload = Omit<GetBillingNetCollectionsReportResponse, 'fromCache' | 'status'>;
 
@@ -36,10 +44,11 @@ const roundBucket = (bucket: NetCollectionsBucket): NetCollectionsBucket => ({
   expected: round(bucket.expected),
 });
 
-// Net collection rate, cash-basis: insurance figures come from posted ERAs bucketed by check
-// month; patient collections (net of refunds) come from PaymentNotices bucketed by payment month.
-// Expected amounts are contractual: allowed for the practice, allowed − patient responsibility
-// for insurance, patient responsibility for patients.
+// Net collection rate, cash-basis, over matched claims only: insurance figures come from posted
+// ERAs' ClaimResponses that are matched to real Claims, bucketed by check month; patient
+// collections (net of refunds) count only payments against those matched claims' patient
+// responsibility, bucketed by payment month. Expected amounts are contractual: allowed for the
+// practice, allowed − patient responsibility for insurance, patient responsibility for patients.
 export const netCollectionsReport: ReportDefinition<ReportDateWindowParams, NetCollectionsPayload> = {
   kind: 'net-collections',
   cacheVersion: 'v1',
@@ -57,7 +66,14 @@ export const netCollectionsReport: ReportDefinition<ReportDateWindowParams, NetC
     await onProgress('aggregating posted ERAs…');
     const insurance = await computeInsuranceSide(ctx.oystehr, ctx.untaggedClient, params);
     await onProgress('rolling up patient payments…');
-    const patient = await patientNetCollections(ctx.oystehr, ctx.untaggedClient, params, ctx.secrets, onProgress);
+    const patient = await patientNetCollections(
+      ctx.oystehr,
+      ctx.untaggedClient,
+      params,
+      ctx.secrets,
+      insurance.matched,
+      onProgress
+    );
 
     const patientRespTotal = insurance.payerRows.reduce((sum, row) => sum + row.patientResp, 0);
     const allowedTotal = insurance.payerRows.reduce((sum, row) => sum + row.allowed, 0);
@@ -99,19 +115,26 @@ interface InsuranceMonth {
   patientResp: number;
 }
 
+const emptyMatched = (): MatchedClaimKeys => ({ claimIds: new Set(), encounterIds: new Set() });
+
 // Per-payer and per-check-month rollup of allowed / patient responsibility / insurance paid
-// over the ERAs whose check date falls in the window. Mirrors the payments report's payer
-// attribution (paymentIssuer, else the ClaimResponses' insurer).
+// over the ERAs whose check date falls in the window, counting only ClaimResponses matched to
+// real Claims — unmatched remit rows (and ERAs with no matched claims at all) contribute
+// nothing. Mirrors the payments report's payer attribution (paymentIssuer, else the
+// ClaimResponses' insurer).
 async function computeInsuranceSide(
   oystehr: Oystehr,
   eraReadClient: Oystehr,
   params: ReportDateWindowParams
-): Promise<{ payerRows: NetCollectionsPayerRow[]; byMonth: Map<string, InsuranceMonth> }> {
+): Promise<{ payerRows: NetCollectionsPayerRow[]; byMonth: Map<string, InsuranceMonth>; matched: MatchedClaimKeys }> {
   const allEras = await fetchAllEras(eraReadClient);
   const eras = allEras.filter((era) => checkDateInRange(era, params.dateFrom, params.dateTo));
-  if (eras.length === 0) return { payerRows: [], byMonth: new Map() };
+  if (eras.length === 0) return { payerRows: [], byMonth: new Map(), matched: emptyMatched() };
 
-  const claimResponsesByPrId = await fetchClaimResponsesByPaymentReconciliations(eraReadClient, eras);
+  const fetched = await fetchClaimResponsesByPaymentReconciliations(eraReadClient, eras);
+  const claimResponsesByPrId = new Map(
+    [...fetched].map(([prId, claimResponses]) => [prId, claimResponses.filter(isMatchedToClaim)])
+  );
   const allClaimResponses = [...claimResponsesByPrId.values()].flat();
   const harvestedNamesByRef = payerNamesByRef(allClaimResponses);
   const payersByRef = await resolvePayersByRef(oystehr, [
@@ -123,6 +146,7 @@ async function computeInsuranceSide(
   const byMonth = new Map<string, InsuranceMonth>();
   for (const era of eras) {
     const claimResponses = claimResponsesByPrId.get(era.id ?? '') ?? [];
+    if (claimResponses.length === 0) continue;
     const payerRefOfEra = eraPayerRef(era, claimResponses);
     const refPayerIdOfEra = payerIdFromRef(payerRefOfEra);
     const payer = payerRefOfEra ? payersByRef.get(payerRefOfEra) : undefined;
@@ -182,5 +206,19 @@ async function computeInsuranceSide(
       paid: round(row.paid),
     }))
     .sort((a, b) => b.expected - a.expected);
-  return { payerRows, byMonth };
+  return { payerRows, byMonth, matched: await matchedClaimKeysOf(oystehr, allClaimResponses) };
+}
+
+// Claim ids adjudicated by the windowed ERAs plus their encounter ids (the claim-encounter-id
+// identifier) — the keys patient payments link back through.
+async function matchedClaimKeysOf(oystehr: Oystehr, claimResponses: ClaimResponse[]): Promise<MatchedClaimKeys> {
+  const claimIds = new Set(claimResponses.map(claimResponseClaimId).filter((id): id is string => !!id));
+  const claimsById = await fetchPartialClaimsById(oystehr, [...claimIds]);
+  const encounterSystem = ottehrIdentifierSystem('claim-encounter-id');
+  const encounterIds = new Set(
+    [...claimsById.values()]
+      .map((claim) => claim.identifier?.find((identifier) => identifier.system === encounterSystem)?.value)
+      .filter((id): id is string => !!id)
+  );
+  return { claimIds, encounterIds };
 }

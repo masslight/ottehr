@@ -207,7 +207,7 @@ export default function Reports(): ReactElement {
           </Stack>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25 }}>
             Net collection rate — overall, per payer, and by month — comparing collections against contractual
-            expectations from posted ERAs.
+            expectations from posted ERAs, over matched claims only.
           </Typography>
         </Box>
         <ChevronRightIcon sx={{ color: 'action.disabled' }} />

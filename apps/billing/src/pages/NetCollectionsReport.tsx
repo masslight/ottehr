@@ -335,7 +335,7 @@ export default function NetCollectionsReport(): ReactElement {
           Net Collection Rate by Month
         </Typography>
         <Typography variant="caption" color="text.secondary" sx={{ display: 'block', pl: 1 }}>
-          Cash-basis: insurance by ERA check month, patient collections by payment month.
+          Cash-basis over ERA-matched claims: insurance by ERA check month, patient collections by payment month.
         </Typography>
         {(report?.monthly.length ?? 0) === 0 ? (
           <Box sx={{ py: 5, textAlign: 'center' }}>

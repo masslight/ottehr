@@ -76,19 +76,45 @@ export const patientPaymentsReport: ReportDefinition<
 
 const noticeDay = (notice: PaymentNotice): string | null => toDay(notice.created);
 
+// the claim/encounter keys of ERA-matched claims; payments not linked to any of them carry no
+// ERA-assigned patient responsibility
+export interface MatchedClaimKeys {
+  claimIds: Set<string>;
+  encounterIds: Set<string>;
+}
+
 // Net patient collections (payments minus refunds) for the window, total and by payment month.
-// Shares loadNoticeContext with the main report so both agree on what counts as collected.
+// Counts only payments against a matched claim's patient responsibility (linked by claim id or
+// claim-encounter-id) plus refunds of those counted payments. Shares loadNoticeContext with the
+// main report so both agree on what a payment is.
 export async function patientNetCollections(
   oystehr: Oystehr,
   untaggedClient: Oystehr,
   params: ReportDateWindowParams,
   secrets: ZambdaInput['secrets'],
+  matched: MatchedClaimKeys,
   onProgress?: (message: string) => Promise<void>
 ): Promise<{ net: number; byMonth: Map<string, number> }> {
   const context = await loadNoticeContext(oystehr, untaggedClient, params, secrets, onProgress);
+  const matchesResponsibility = (notice: PaymentNotice): boolean => {
+    const claimId = noticeClaimId(notice);
+    if (claimId && matched.claimIds.has(claimId)) return true;
+    const encounterId = noticeEncounterId(notice);
+    return !!encounterId && matched.encounterIds.has(encounterId);
+  };
+  const counted = new Set(context.notices.filter(matchesResponsibility));
+  // refunds often link only to their original charge, not the claim — count those whose
+  // refunded charge belongs to a counted payment
+  const countedChargeIds = new Set([...counted].flatMap(stripeIdsOf));
+  for (const notice of context.notices) {
+    if (counted.has(notice) || (notice.amount?.value ?? 0) >= 0) continue;
+    const chargeId = refundedChargeIdOf(notice);
+    if (chargeId && countedChargeIds.has(chargeId)) counted.add(notice);
+  }
+
   const byMonth = new Map<string, number>();
   let net = 0;
-  for (const notice of context.notices) {
+  for (const notice of counted) {
     const amount = notice.amount?.value ?? 0;
     net += amount;
     const month = toMonth(noticeDay(notice) ?? undefined);
