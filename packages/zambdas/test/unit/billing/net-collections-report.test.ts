@@ -1,7 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { Claim, ClaimResponse, PaymentReconciliation } from 'fhir/r4b';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
-import { NetCollectionsDetailEra } from 'utils/lib/types/data/billing/billing.types';
+import { NetCollectionsDetailEra, NetCollectionsReportDetail } from 'utils/lib/types/data/billing/billing.types';
 import { describe, expect, it, vi } from 'vitest';
 import { netCollectionsReport } from '../../../src/billing/reports/definitions/net-collections.report';
 import { reportRegistry } from '../../../src/billing/reports/framework/registry';
@@ -285,10 +285,12 @@ describe('net-collections report definition', () => {
         detailEra('c', 'Organization/aetna', '2026-02-01'),
       ],
     };
-    expect(
-      netCollectionsReport.drilldown?.select(detail, { payerKey: 'Organization/aetna' }).eras.map((e) => e.id)
-    ).toEqual(['c', 'a']);
-    expect(netCollectionsReport.drilldown?.select(detail, { payerKey: 'none' }).eras.map((e) => e.id)).toEqual(['b']);
+    const select = (payerKey: string): string[] =>
+      (netCollectionsReport.drilldown?.select(detail, { payerKey }) as unknown as NetCollectionsReportDetail).eras.map(
+        (era) => era.id
+      );
+    expect(select('Organization/aetna')).toEqual(['c', 'a']);
+    expect(select('none')).toEqual(['b']);
   });
 
   it('summarize reports the overall rate', () => {
