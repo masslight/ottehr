@@ -1,5 +1,5 @@
 import Oystehr from '@oystehr/sdk';
-import { Patient } from 'fhir/r4b';
+import { ClaimResponse, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { getPayerId } from 'utils/lib/helpers/helpers';
@@ -178,6 +178,13 @@ async function computeInsuranceSide(
   const rowsByPayerKey = new Map<string, NetCollectionsPayerRow>();
   const byMonth = new Map<string, InsuranceMonth>();
   const detailEras: NetCollectionsDetailEra[] = [];
+  // per-CR attribution targets so claim-level denominators can land on the final adjudication
+  const rowByEraId = new Map<string, NetCollectionsPayerRow>();
+  const monthByEraId = new Map<string, InsuranceMonth>();
+  const detailEraByEraId = new Map<string, NetCollectionsDetailEra>();
+  const lineByCr = new Map<ClaimResponse, NetCollectionsDetailEra['claims'][number]>();
+  const eraIdByCr = new Map<ClaimResponse, string>();
+  const crsByClaimId = new Map<string, ClaimResponse[]>();
   for (const era of eras) {
     const claimResponses = claimResponsesByPrId.get(era.id ?? '') ?? [];
     if (claimResponses.length === 0) continue;
@@ -207,7 +214,7 @@ async function computeInsuranceSide(
       };
       rowsByPayerKey.set(key, row);
     }
-    row.claimCount += claimResponses.length;
+    rowByEraId.set(era.id ?? '', row);
 
     const detailEra: NetCollectionsDetailEra = {
       id: era.id ?? '',
@@ -222,6 +229,7 @@ async function computeInsuranceSide(
       claims: [],
     };
     detailEras.push(detailEra);
+    detailEraByEraId.set(era.id ?? '', detailEra);
 
     const checkMonth = eraCheckMonth(era);
     let month = byMonth.get(checkMonth);
@@ -229,38 +237,69 @@ async function computeInsuranceSide(
       month = { insurance: emptyBucket(), patientResp: 0 };
       byMonth.set(checkMonth, month);
     }
+    if (month) monthByEraId.set(era.id ?? '', month);
 
+    // collected is cash-basis: each adjudication's paid stays on its own ERA/payer/month
     for (const claimResponse of sortClaimResponsesByRecency(claimResponses)) {
       const amounts = extractClaimResponseAmounts(claimResponse);
-      const allowed = amounts.allowed ?? 0;
-      // no CAS data falls back to allowed-but-unpaid, floored — summarizeClaimPayments semantics;
-      // coalescing to 0 would count the whole allowed amount as insurance-collectible
-      const patientResp = Math.max(amounts.patientResp ?? allowed - amounts.paid, 0);
-      row.allowed += allowed;
-      row.patientResp += patientResp;
       row.paid += amounts.paid;
-      if (month) {
-        month.insurance.expected += allowed - patientResp;
-        month.insurance.collected += amounts.paid;
-        month.patientResp += patientResp;
-      }
+      if (month) month.insurance.collected += amounts.paid;
+      detailEra.paid = round(detailEra.paid + amounts.paid);
 
       const claimId = claimResponseClaimId(claimResponse);
       const matchedClaim = claimId ? partialClaimsById.get(claimId) : undefined;
       const containedPatient = claimResponse.contained?.find(
         (resource): resource is Patient => resource.resourceType === 'Patient'
       );
-      detailEra.allowed = round(detailEra.allowed + allowed);
-      detailEra.patientResp = round(detailEra.patientResp + patientResp);
-      detailEra.paid = round(detailEra.paid + amounts.paid);
-      detailEra.claims.push({
+      const line = {
         patientName: fhirName(containedPatient),
         pcn: eraPatientAccountNumber([claimResponse], matchedClaim, !!matchedClaim),
         dos: claimResponseServiceDay(claimResponse, partialClaimsById) ?? '',
-        allowed: round(allowed),
-        patientResp: round(patientResp),
+        allowed: 0,
+        patientResp: 0,
         paid: round(amounts.paid),
-      });
+      };
+      detailEra.claims.push(line);
+      lineByCr.set(claimResponse, line);
+      eraIdByCr.set(claimResponse, era.id ?? '');
+      const groupKey = claimId ?? claimResponse.id ?? '';
+      crsByClaimId.set(groupKey, [...(crsByClaimId.get(groupKey) ?? []), claimResponse]);
+    }
+  }
+
+  // Denominators are claim-level: a claim's responses are sequential adjudications, so allowed and
+  // patient responsibility follow summarizeClaimPayments (latest allowed / latest PR over summed
+  // paid) and land once, on the final adjudication's ERA/payer/month.
+  for (const claimResponses of crsByClaimId.values()) {
+    const ordered = sortClaimResponsesByRecency(claimResponses);
+    const amounts = ordered.map(extractClaimResponseAmounts);
+    const paidTotal = amounts.reduce((sum, a) => sum + a.paid, 0);
+    const allowed = amounts.findLast((a) => a.allowed !== undefined)?.allowed ?? 0;
+    // no CAS data on the latest adjudication falls back to allowed-but-unpaid, floored —
+    // coalescing to 0 would count the whole allowed amount as insurance-collectible
+    const patientResp = Math.max(amounts[amounts.length - 1].patientResp ?? allowed - paidTotal, 0);
+
+    const finalEraId = eraIdByCr.get(ordered[ordered.length - 1]) ?? '';
+    const row = rowByEraId.get(finalEraId);
+    if (row) {
+      row.claimCount += 1;
+      row.allowed += allowed;
+      row.patientResp += patientResp;
+    }
+    const month = monthByEraId.get(finalEraId);
+    if (month) {
+      month.insurance.expected += allowed - patientResp;
+      month.patientResp += patientResp;
+    }
+    const detailEra = detailEraByEraId.get(finalEraId);
+    if (detailEra) {
+      detailEra.allowed = round(detailEra.allowed + allowed);
+      detailEra.patientResp = round(detailEra.patientResp + patientResp);
+    }
+    const line = lineByCr.get(ordered[ordered.length - 1]);
+    if (line) {
+      line.allowed = round(allowed);
+      line.patientResp = round(patientResp);
     }
   }
 

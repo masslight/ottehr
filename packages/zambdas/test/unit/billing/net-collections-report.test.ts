@@ -48,23 +48,26 @@ const era = (id: string, paymentDate: string, payerRef: string): PaymentReconcil
 // is a CAS item adjudication — omitting it entirely is the "no adjudication data" case.
 // Matched to a real Claim by default; pass claimId: null for an unmatched remit row.
 const claimResponse = (
-  allowed: number,
+  allowed: number | undefined,
   paid: number,
   patientResp?: number,
-  claimId: string | null = 'claim-1'
+  claimId: string | null = 'claim-1',
+  created = '2026-01-05T00:00:00Z'
 ): ClaimResponse => ({
   resourceType: 'ClaimResponse',
   status: 'active',
   type: { text: 'professional' },
   use: 'claim',
   patient: {},
-  created: '2026-01-05T00:00:00Z',
+  created,
   insurer: {},
   outcome: 'complete',
   request: { reference: claimId === null ? '#request' : `Claim/${claimId}` },
   total: [
     { category: { coding: [{ code: ADJUDICATION_CODES.PAID }] }, amount: { value: paid, currency: 'USD' } },
-    { category: { coding: [{ code: ADJUDICATION_CODES.ALLOWED }] }, amount: { value: allowed, currency: 'USD' } },
+    ...(allowed !== undefined
+      ? [{ category: { coding: [{ code: ADJUDICATION_CODES.ALLOWED }] }, amount: { value: allowed, currency: 'USD' } }]
+      : []),
   ],
   ...(patientResp !== undefined
     ? {
@@ -118,9 +121,9 @@ describe('net-collections compute', () => {
         era('era-3', '2026-03-20', 'Organization/aetna'),
       ],
       claimResponsesByEra: {
-        'era-1': [claimResponse(100, 70, 20)],
-        'era-2': [claimResponse(50, 40, 10)],
-        'era-3': [claimResponse(999, 999, 0)],
+        'era-1': [claimResponse(100, 70, 20, 'claim-a')],
+        'era-2': [claimResponse(50, 40, 10, 'claim-b')],
+        'era-3': [claimResponse(999, 999, 0, 'claim-c')],
       },
       patient: { net: 25, byMonth: new Map([['2026-01', 25]]) },
       params: { dateFrom: '2026-01-01', dateTo: '2026-02-28' },
@@ -153,6 +156,32 @@ describe('net-collections compute', () => {
     expect(payload.insurance).toEqual({ collected: 60, expected: 60 });
     expect(payload.patient.expected).toBe(20);
     expect(payload.payerRows[0]).toMatchObject({ allowed: 80, patientResp: 20, expected: 60, paid: 60 });
+  });
+
+  it('collapses sequential adjudications of one claim into latest-allowed/latest-PR denominators', async () => {
+    const { payload } = await computeWith({
+      eras: [era('era-1', '2026-01-10', 'Organization/aetna'), era('era-2', '2026-02-05', 'Organization/bcbs')],
+      claimResponsesByEra: {
+        // primary 80/60/PR 20, secondary pays 15 more and leaves PR 5 — summarizeClaimPayments case
+        'era-1': [claimResponse(80, 60, 20, 'claim-1', '2026-01-05T00:00:00Z')],
+        'era-2': [claimResponse(undefined, 15, 5, 'claim-1', '2026-02-01T00:00:00Z')],
+      },
+      patient: { net: 0, byMonth: new Map() },
+    });
+
+    // allowed 80 (latest defined), PR 5 (latest), paid 60+15
+    expect(payload.insurance).toEqual({ collected: 75, expected: 75 });
+    expect(payload.patient.expected).toBe(5);
+    expect(payload.overall).toEqual({ collected: 75, expected: 80 });
+
+    // paid stays cash-basis per ERA; the claim's denominators land once, on the final adjudication
+    const rows = Object.fromEntries(payload.payerRows.map((row) => [row.payerName, row]));
+    expect(rows['Aetna']).toMatchObject({ claimCount: 0, allowed: 0, patientResp: 0, paid: 60 });
+    expect(rows['BCBS']).toMatchObject({ claimCount: 1, allowed: 80, patientResp: 5, paid: 15 });
+    expect(payload.monthly).toEqual([
+      { month: '2026-01', insurance: { collected: 60, expected: 0 }, patient: { collected: 0, expected: 0 } },
+      { month: '2026-02', insurance: { collected: 15, expected: 75 }, patient: { collected: 0, expected: 5 } },
+    ]);
   });
 
   it('excludes unmatched ClaimResponses and ERAs with no matched claims, passing matched keys to the patient side', async () => {
