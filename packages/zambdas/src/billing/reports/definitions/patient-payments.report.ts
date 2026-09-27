@@ -442,7 +442,9 @@ function syntheticNoticesFor(charges: Stripe.Charge[], knownStripeIds: Set<strin
   const syntheticNotices: PaymentNotice[] = [];
   for (const charge of charges) {
     const chargeIds = chargeStripeIds(charge);
-    if (chargeIds.some((id) => knownStripeIds.has(id))) continue;
+    // a recorded charge suppresses only its own positive row; refunds are deduped per re_ id
+    // below, so a missed refund webhook on a recorded charge still synthesizes
+    const chargeRecorded = chargeIds.some((id) => knownStripeIds.has(id));
 
     const createdISO = DateTime.fromSeconds(charge.created).toUTC().toISO() ?? '';
     // invoice-settling charges usually carry encounter metadata on the invoice, not the charge
@@ -469,11 +471,16 @@ function syntheticNoticesFor(charges: Stripe.Charge[], knownStripeIds: Set<strin
         disposition,
       },
     ];
-    syntheticNotices.push({
-      ...base,
-      amount: { value: (charge.amount ?? 0) / 100, currency: 'USD' },
-      contained: containedFor((charge.amount ?? 0) / 100, `Stripe charge ${charge.id} with no recorded PaymentNotice`),
-    });
+    if (!chargeRecorded) {
+      syntheticNotices.push({
+        ...base,
+        amount: { value: (charge.amount ?? 0) / 100, currency: 'USD' },
+        contained: containedFor(
+          (charge.amount ?? 0) / 100,
+          `Stripe charge ${charge.id} with no recorded PaymentNotice`
+        ),
+      });
+    }
     if ((charge.amount_refunded ?? 0) > 0) {
       // one row per refund, dated when the refund happened — not when the charge was made — so
       // cross-month refunds land in the right monthly bucket; anything the refund list doesn't
@@ -483,8 +490,7 @@ function syntheticNoticesFor(charges: Stripe.Charge[], knownStripeIds: Set<strin
         const value = (refund.amount ?? 0) / 100;
         if (value <= 0 || refund.status === 'failed' || refund.status === 'canceled') continue;
         remaining = roundNumberToDecimalPlaces(remaining - value, 2);
-        // a cross-window parent charge can slip past the charge-level guard while its refund is
-        // already recorded (refund notices carry only the re_ id) — don't synthesize it twice
+        // recorded refund notices carry only the re_ id — don't synthesize those twice
         if (refund.id && knownStripeIds.has(refund.id)) continue;
         const refundISO = DateTime.fromSeconds(refund.created).toUTC().toISO() ?? createdISO;
         syntheticNotices.push({
@@ -498,7 +504,9 @@ function syntheticNoticesFor(charges: Stripe.Charge[], knownStripeIds: Set<strin
           ),
         });
       }
-      if (remaining > 0) {
+      // the remainder can't be told apart from refunds recorded before the re_-id convention, so
+      // it only rides an unrecorded charge
+      if (remaining > 0 && !chargeRecorded) {
         syntheticNotices.push({
           ...base,
           amount: { value: -remaining, currency: 'USD' },
