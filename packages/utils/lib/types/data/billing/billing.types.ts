@@ -683,7 +683,7 @@ export interface NetCollectionsBucket {
 export interface NetCollectionsPayerRow {
   payerId: string;
   payerName: string;
-  // stable drilldown identity: the payer reference the rollup grouped by ('' when the ERAs carry none)
+  // stable drilldown identity: the ERA-carried payer id + name the rollup grouped by
   payerKey: string;
   claimCount: number;
   allowed: number;
@@ -728,7 +728,7 @@ export interface NetCollectionsDetailEra {
   id: string;
   checkNumber: string;
   checkDate: string;
-  // the payer row's payerKey ('' when the ERA has no payer reference; the drilldown 'none' filter selects these)
+  // the payer row's payerKey
   payerKey: string;
   payerName: string;
   checkAmount: number;

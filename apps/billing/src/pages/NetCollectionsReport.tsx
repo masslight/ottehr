@@ -422,7 +422,7 @@ export default function NetCollectionsReport(): ReactElement {
   const openPayerEras = (row: NetCollectionsPayerRow): void =>
     setDrilldown({
       title: `${row.payerName} — ERAs`,
-      payerKey: row.payerKey || 'none',
+      payerKey: row.payerKey,
       window: {
         ...(dateFrom ? { dateFrom } : {}),
         ...(dateTo ? { dateTo } : {}),
@@ -609,7 +609,7 @@ export default function NetCollectionsReport(): ReactElement {
       <DataGridPro
         autoHeight
         rows={report?.payerRows ?? []}
-        getRowId={(row) => row.payerKey || 'none'}
+        getRowId={(row) => row.payerKey}
         columns={[...payerColumns, drilldownIndicatorColumn]}
         // pinned right so the clickability arrow stays visible when the grid scrolls horizontally
         pinnedColumns={{ right: [drilldownIndicatorColumn.field] }}

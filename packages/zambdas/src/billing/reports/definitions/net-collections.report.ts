@@ -33,6 +33,7 @@ import {
   claimResponseServiceDay,
   eraCheckMonth,
   eraPayerRef,
+  eraReportedPayerId,
   eraReportedPayerName,
   fetchAllEras,
   fetchPartialClaimsById,
@@ -122,7 +123,7 @@ export const netCollectionsReport: ReportDefinition<
     empty: () => ({ eras: [] }),
     select: (detail, params) => ({
       eras: detail.eras
-        .filter((era) => (params.payerKey === 'none' ? era.payerKey === '' : era.payerKey === params.payerKey))
+        .filter((era) => era.payerKey === params.payerKey)
         .sort((a, b) => b.checkDate.localeCompare(a.checkDate)),
     }),
   },
@@ -191,22 +192,23 @@ async function computeInsuranceSide(
     const payerRefOfEra = eraPayerRef(era, claimResponses);
     const refPayerIdOfEra = payerIdFromRef(payerRefOfEra);
     const payer = payerRefOfEra ? payersByRef.get(payerRefOfEra) : undefined;
+    // ERA-carried identity wins: duplicate Organizations referencing the same payer must not
+    // split it into multiple rows
+    const payerId = eraReportedPayerId(claimResponses) ?? refPayerIdOfEra ?? resolvedPayerId(payer) ?? '';
     const payerName =
-      payer?.name ??
-      harvestedNamesByRef.get(payerRefOfEra ?? '') ??
       eraReportedPayerName(claimResponses) ??
       era.paymentIssuer?.display ??
-      (refPayerIdOfEra ? `Payer ${refPayerIdOfEra}` : UNKNOWN_PAYER_NAME);
+      payer?.name ??
+      harvestedNamesByRef.get(payerRefOfEra ?? '') ??
+      (payerId ? `Payer ${payerId}` : UNKNOWN_PAYER_NAME);
 
-    const key = payerRefOfEra ?? 'unknown';
+    const key = `${payerId}|${payerName}`;
     let row = rowsByPayerKey.get(key);
     if (!row) {
       row = {
-        // resolvedPayerId keeps the OTR- business-id fallback for custom insurance organizations
-        payerId: resolvedPayerId(payer) ?? refPayerIdOfEra ?? '',
+        payerId,
         payerName,
-        // the display payerId can be '' even for a referenced payer, so drilldowns key on the ref
-        payerKey: payerRefOfEra ?? '',
+        payerKey: key,
         claimCount: 0,
         allowed: 0,
         patientResp: 0,
@@ -317,6 +319,7 @@ async function computeInsuranceSide(
     }
   }
 
+  const rateOf = (row: NetCollectionsPayerRow): number | null => (row.expected > 0 ? row.paid / row.expected : null);
   const payerRows = [...rowsByPayerKey.values()]
     .map((row) => ({
       ...row,
@@ -325,7 +328,14 @@ async function computeInsuranceSide(
       expected: round(row.allowed - row.patientResp),
       paid: round(row.paid),
     }))
-    .sort((a, b) => b.expected - a.expected);
+    // highest NCR first; rate-less rows follow, by paid amount
+    .sort((a, b) => {
+      const rateA = rateOf(a);
+      const rateB = rateOf(b);
+      if (rateA !== null && rateB !== null) return rateB - rateA || b.expected - a.expected;
+      if (rateA !== null || rateB !== null) return rateA !== null ? -1 : 1;
+      return b.paid - a.paid;
+    });
   return {
     payerRows,
     byMonth,

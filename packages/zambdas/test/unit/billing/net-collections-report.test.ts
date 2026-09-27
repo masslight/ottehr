@@ -139,8 +139,9 @@ describe('net-collections compute', () => {
     expect(payload.overall).toEqual({ collected: 135, expected: 150 });
 
     expect(payload.payerRows.map((row) => [row.payerName, row.expected, row.paid])).toEqual([
-      ['Aetna', 80, 70],
+      // sorted by NCR: BCBS 100% ahead of Aetna 87.5%
       ['BCBS', 40, 40],
+      ['Aetna', 80, 70],
     ]);
 
     expect(payload.monthly).toEqual([
@@ -267,6 +268,28 @@ describe('net-collections compute', () => {
     );
   });
 
+  it('consolidates duplicate payer references sharing the ERA-reported id and name', async () => {
+    const withDisplay = (cr: ClaimResponse): ClaimResponse => ({ ...cr, insurer: { display: 'Aetna (60054)' } });
+    const { payload } = await computeWith({
+      eras: [era('era-1', '2026-01-10', 'Organization/aetna'), era('era-2', '2026-01-20', 'Organization/aetna-dupe')],
+      claimResponsesByEra: {
+        'era-1': [withDisplay(claimResponse(100, 70, 20, 'claim-a'))],
+        'era-2': [withDisplay(claimResponse(50, 40, 10, 'claim-b'))],
+      },
+      patient: { net: 0, byMonth: new Map() },
+    });
+
+    expect(payload.payerRows).toHaveLength(1);
+    expect(payload.payerRows[0]).toMatchObject({
+      payerId: '60054',
+      payerName: 'Aetna',
+      payerKey: '60054|Aetna',
+      claimCount: 2,
+      allowed: 150,
+      paid: 110,
+    });
+  });
+
   it('keeps a patient-collection month with no ERA responsibility as a zero-expected bucket', async () => {
     const { payload } = await computeWith({
       eras: [],
@@ -299,7 +322,7 @@ describe('net-collections report definition', () => {
     expect(empty.monthly).toEqual([]);
   });
 
-  it('drilldown selects one payer\u2019s ERAs newest-first, with \u2018none\u2019 matching payerless ERAs', () => {
+  it('drilldown selects one payer\u2019s ERAs newest-first by identity key', () => {
     const detailEra = (id: string, payerKey: string, checkDate: string): NetCollectionsDetailEra => ({
       id,
       checkNumber: '',
@@ -314,17 +337,17 @@ describe('net-collections report definition', () => {
     });
     const detail = {
       eras: [
-        detailEra('a', 'Organization/aetna', '2026-01-05'),
-        detailEra('b', '', '2026-01-10'),
-        detailEra('c', 'Organization/aetna', '2026-02-01'),
+        detailEra('a', '87726|Aetna', '2026-01-05'),
+        detailEra('b', '|Unknown Payer', '2026-01-10'),
+        detailEra('c', '87726|Aetna', '2026-02-01'),
       ],
     };
     const select = (payerKey: string): string[] =>
       (netCollectionsReport.drilldown?.select(detail, { payerKey }) as unknown as NetCollectionsReportDetail).eras.map(
         (era) => era.id
       );
-    expect(select('Organization/aetna')).toEqual(['c', 'a']);
-    expect(select('none')).toEqual(['b']);
+    expect(select('87726|Aetna')).toEqual(['c', 'a']);
+    expect(select('|Unknown Payer')).toEqual(['b']);
   });
 
   it('summarize reports the overall rate', () => {
