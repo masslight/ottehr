@@ -391,6 +391,7 @@ async function listWindowCharges(
   const charges: Stripe.Charge[] = [];
   const seenChargeIds = new Set<string>();
   for (const stripeAccount of accounts) {
+    const accountCharges: Stripe.Charge[] = [];
     const listing = stripe.charges.list(
       {
         limit: 100,
@@ -402,7 +403,7 @@ async function listWindowCharges(
     for await (const charge of listing) {
       if (charge.status !== 'succeeded' || !charge.paid || seenChargeIds.has(charge.id)) continue;
       seenChargeIds.add(charge.id);
-      charges.push(charge);
+      accountCharges.push(charge);
     }
 
     // a refund can land in the window while its charge predates it; pull those parent charges so
@@ -415,9 +416,22 @@ async function listWindowCharges(
         seenChargeIds.add(chargeId);
         const charge = await stripe.charges.retrieve(chargeId, { expand: ['invoice', 'refunds'] }, { stripeAccount });
         if (charge.status !== 'succeeded' || !charge.paid) continue;
-        charges.push(charge);
+        accountCharges.push(charge);
       }
     }
+
+    // the embedded refund list is a single page; fetch the rest so every refund row rides its own
+    // created date instead of collapsing into the charge-dated remainder row
+    for (const charge of accountCharges) {
+      if (!charge.refunds?.has_more) continue;
+      const fullRefunds: Stripe.Refund[] = [];
+      for await (const refund of stripe.refunds.list({ charge: charge.id, limit: 100 }, { stripeAccount })) {
+        fullRefunds.push(refund);
+      }
+      charge.refunds.data = fullRefunds;
+    }
+
+    charges.push(...accountCharges);
   }
   return charges;
 }
