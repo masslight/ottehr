@@ -408,6 +408,16 @@ export default function NetCollectionsReport(): ReactElement {
 
   const [drilldown, setDrilldown] = useState<PayerErasCriteria | null>(null);
 
+  const openPayerEras = (row: NetCollectionsPayerRow): void =>
+    setDrilldown({
+      title: `${row.payerName} — ERAs`,
+      payerKey: row.payerKey || 'none',
+      window: {
+        ...(dateFrom ? { dateFrom } : {}),
+        ...(dateTo ? { dateTo } : {}),
+      },
+    });
+
   const overall = report?.overall ?? { collected: 0, expected: 0 };
   const insurance = report?.insurance ?? { collected: 0, expected: 0 };
   const patient = report?.patient ?? { collected: 0, expected: 0 };
@@ -595,16 +605,12 @@ export default function NetCollectionsReport(): ReactElement {
         disableRowSelectionOnClick
         disableColumnMenu
         hideFooter
-        onRowClick={(gridRow) => {
-          const row = gridRow.row as NetCollectionsPayerRow;
-          setDrilldown({
-            title: `${row.payerName} — ERAs`,
-            payerKey: row.payerKey || 'none',
-            window: {
-              ...(dateFrom ? { dateFrom } : {}),
-              ...(dateTo ? { dateTo } : {}),
-            },
-          });
+        onRowClick={(gridRow) => openPayerEras(gridRow.row as NetCollectionsPayerRow)}
+        // keyboard parity with onRowClick: Enter/Space on a focused cell opens the drawer
+        onCellKeyDown={(params, event) => {
+          if (event.key !== 'Enter' && event.key !== ' ') return;
+          event.preventDefault();
+          openPayerEras(params.row as NetCollectionsPayerRow);
         }}
         sx={dataGridSx}
         slots={dataGridSlots()}

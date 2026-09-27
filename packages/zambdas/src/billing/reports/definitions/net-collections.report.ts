@@ -2,7 +2,6 @@ import Oystehr from '@oystehr/sdk';
 import { ClaimResponse, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
-import { getPayerId } from 'utils/lib/helpers/helpers';
 import {
   NetCollectionsDrilldownParams,
   NetCollectionsDrilldownParamsSchema,
@@ -26,7 +25,7 @@ import {
   sortClaimResponsesByRecency,
 } from '../../claim-amounts';
 import { eraPatientAccountNumber } from '../../era-remits';
-import { fhirName, getEraCheckNumber, resolvePayersByRef } from '../../shared';
+import { fhirName, getEraCheckNumber, resolvedPayerId, resolvePayersByRef } from '../../shared';
 import { ReportDefinition } from '../framework/types';
 import {
   checkDateInRange,
@@ -203,7 +202,8 @@ async function computeInsuranceSide(
     let row = rowsByPayerKey.get(key);
     if (!row) {
       row = {
-        payerId: getPayerId(payer) ?? refPayerIdOfEra ?? '',
+        // resolvedPayerId keeps the OTR- business-id fallback for custom insurance organizations
+        payerId: resolvedPayerId(payer) ?? refPayerIdOfEra ?? '',
         payerName,
         // the display payerId can be '' even for a referenced payer, so drilldowns key on the ref
         payerKey: payerRefOfEra ?? '',

@@ -43,7 +43,8 @@ export const reportPalette = {
   netCollections: {
     series: [chartBlue, chartGreen, '#9AA1AC'],
     good: palette.success.main,
-    fair: '#ED6C02',
+    // darker than palette.warning.main to reach ≥4.5:1 contrast for body-size text on white
+    fair: '#C2410C',
     poor: palette.error.main,
   },
 };
