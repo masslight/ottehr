@@ -9,6 +9,7 @@ import { reportRegistry } from '../../../src/billing/reports/framework/registry'
 vi.mock('../../../src/billing/claim-amounts', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   fetchClaimResponsesByPaymentReconciliations: vi.fn(),
+  fetchClaimResponsesByClaimIds: vi.fn(),
 }));
 vi.mock('../../../src/billing/shared', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
@@ -28,6 +29,7 @@ import { fetchClaimResponsesByPaymentReconciliations } from '../../../src/billin
 import {
   ADJUDICATION_CODES,
   ADJUSTMENT_GROUP_PATIENT_RESPONSIBILITY,
+  fetchClaimResponsesByClaimIds,
   X12_ADJUSTMENT_GROUP_SYSTEM,
 } from '../../../src/billing/claim-amounts';
 import { patientNetCollections } from '../../../src/billing/reports/definitions/patient-payments.report';
@@ -94,6 +96,7 @@ const computeWith = async (input: {
   patient: { net: number; byMonth: Map<string, number> };
   params?: { dateFrom?: string; dateTo?: string };
   claimsById?: Map<string, Claim>;
+  historyByClaimId?: Map<string, ClaimResponse[]>;
 }): Promise<Awaited<ReturnType<typeof netCollectionsReport.compute>>> => {
   vi.mocked(fetchAllEras).mockResolvedValue(input.eras);
   vi.mocked(fetchClaimResponsesByPaymentReconciliations).mockResolvedValue(
@@ -107,6 +110,7 @@ const computeWith = async (input: {
   );
   vi.mocked(patientNetCollections).mockResolvedValue(input.patient);
   vi.mocked(fetchPartialClaimsById).mockResolvedValue(input.claimsById ?? new Map());
+  vi.mocked(fetchClaimResponsesByClaimIds).mockResolvedValue(input.historyByClaimId ?? new Map());
   const ctx = { oystehr: {} as Oystehr, untaggedClient: {} as Oystehr, secrets: null };
   return netCollectionsReport.compute(ctx, input.params ?? {}, async () => undefined);
 };
@@ -182,6 +186,36 @@ describe('net-collections compute', () => {
       { month: '2026-01', insurance: { collected: 60, expected: 0 }, patient: { collected: 0, expected: 0 } },
       { month: '2026-02', insurance: { collected: 15, expected: 75 }, patient: { collected: 0, expected: 5 } },
     ]);
+  });
+
+  it('reads a claim\u2019s out-of-window remit history for denominators when the window splits adjudications', async () => {
+    const primary = claimResponse(80, 60, 20, 'claim-1', '2026-01-05T00:00:00Z');
+    const secondary = claimResponse(undefined, 15, 5, 'claim-1', '2026-02-01T00:00:00Z');
+    const { payload } = await computeWith({
+      eras: [
+        // January ERA is outside the window; only the secondary remit is in scope
+        era('era-1', '2026-01-10', 'Organization/aetna'),
+        era('era-2', '2026-02-05', 'Organization/bcbs'),
+      ],
+      claimResponsesByEra: { 'era-1': [primary], 'era-2': [secondary] },
+      params: { dateFrom: '2026-02-01', dateTo: '2026-02-28' },
+      historyByClaimId: new Map([['claim-1', [primary, secondary]]]),
+      patient: { net: 0, byMonth: new Map() },
+    });
+
+    // allowed 80 rides in from the January remit; collected stays cash-basis (February's 15 only)
+    expect(payload.insurance).toEqual({ collected: 15, expected: 75 });
+    expect(payload.patient.expected).toBe(5);
+    expect(payload.overall).toEqual({ collected: 15, expected: 80 });
+    expect(payload.payerRows).toHaveLength(1);
+    expect(payload.payerRows[0]).toMatchObject({
+      payerName: 'BCBS',
+      claimCount: 1,
+      allowed: 80,
+      patientResp: 5,
+      expected: 75,
+      paid: 15,
+    });
   });
 
   it('excludes unmatched ClaimResponses and ERAs with no matched claims, passing matched keys to the patient side', async () => {

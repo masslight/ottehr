@@ -20,6 +20,7 @@ import {
 import { roundNumberToDecimalPlaces } from 'utils/lib/utils/convert';
 import {
   extractClaimResponseAmounts,
+  fetchClaimResponsesByClaimIds,
   fetchClaimResponsesByPaymentReconciliations,
   isMatchedToClaim,
   sortClaimResponsesByRecency,
@@ -269,17 +270,30 @@ async function computeInsuranceSide(
 
   // Denominators are claim-level: a claim's responses are sequential adjudications, so allowed and
   // patient responsibility follow summarizeClaimPayments (latest allowed / latest PR over summed
-  // paid) and land once, on the final adjudication's ERA/payer/month.
-  for (const claimResponses of crsByClaimId.values()) {
+  // paid) and land once, on the final adjudication's ERA/payer/month. A bounded window can catch
+  // only a later remit (e.g. a secondary that reports no allowed amount), so denominators read the
+  // claim's full remit history up to the final in-window adjudication.
+  const historyByClaimId =
+    params.dateFrom || params.dateTo
+      ? await fetchClaimResponsesByClaimIds(eraReadClient, matchedClaimIds)
+      : new Map<string, ClaimResponse[]>();
+  for (const [claimId, claimResponses] of crsByClaimId) {
     const ordered = sortClaimResponsesByRecency(claimResponses);
-    const amounts = ordered.map(extractClaimResponseAmounts);
+    const finalCr = ordered[ordered.length - 1];
+    const seen = new Set<unknown>(ordered.map((cr) => cr.id ?? cr));
+    const merged = sortClaimResponsesByRecency([
+      ...ordered,
+      ...(historyByClaimId.get(claimId) ?? []).filter((cr) => !seen.has(cr.id ?? cr)),
+    ]);
+    const history = merged.slice(0, merged.indexOf(finalCr) + 1);
+    const amounts = history.map(extractClaimResponseAmounts);
     const paidTotal = amounts.reduce((sum, a) => sum + a.paid, 0);
     const allowed = amounts.findLast((a) => a.allowed !== undefined)?.allowed ?? 0;
     // no CAS data on the latest adjudication falls back to allowed-but-unpaid, floored —
     // coalescing to 0 would count the whole allowed amount as insurance-collectible
     const patientResp = Math.max(amounts[amounts.length - 1].patientResp ?? allowed - paidTotal, 0);
 
-    const finalEraId = eraIdByCr.get(ordered[ordered.length - 1]) ?? '';
+    const finalEraId = eraIdByCr.get(finalCr) ?? '';
     const row = rowByEraId.get(finalEraId);
     if (row) {
       row.claimCount += 1;
@@ -296,7 +310,7 @@ async function computeInsuranceSide(
       detailEra.allowed = round(detailEra.allowed + allowed);
       detailEra.patientResp = round(detailEra.patientResp + patientResp);
     }
-    const line = lineByCr.get(ordered[ordered.length - 1]);
+    const line = lineByCr.get(finalCr);
     if (line) {
       line.allowed = round(allowed);
       line.patientResp = round(patientResp);
