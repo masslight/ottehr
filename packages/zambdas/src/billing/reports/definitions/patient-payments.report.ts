@@ -3,6 +3,7 @@ import { Appointment, Claim, Encounter, Location, Organization, Patient, Payment
 import { DateTime } from 'luxon';
 import Stripe from 'stripe';
 import { BILLING_RESOURCE_TAG, PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import { getContainedReconciliation } from 'utils/lib/fhir/payments';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import {
   PatientPaymentsDrilldownParams,
@@ -75,7 +76,8 @@ export const patientPaymentsReport: ReportDefinition<
   summarize: (payload) => `patient payments report cached (${payload.totals.paymentCount} payments)`,
 };
 
-const noticeDay = (notice: PaymentNotice): string | null => toDay(notice.created);
+const noticeDay = (notice: PaymentNotice): string | null =>
+  toDay(notice.paymentDate ?? getContainedReconciliation(notice)?.paymentDate ?? notice.created);
 
 // the claim/encounter keys of ERA-matched claims; payments not linked to any of them carry no
 // ERA-assigned patient responsibility
@@ -197,12 +199,9 @@ async function loadWindowNotices(
   secrets: ZambdaInput['secrets'],
   onProgress?: (message: string) => Promise<void>
 ): Promise<NoticeLoad> {
-  const windowParams = [
-    ...(params.dateFrom ? [{ name: 'created', value: `ge${params.dateFrom}` }] : []),
-    ...(params.dateTo
-      ? [{ name: 'created', value: `le${DateTime.fromISO(params.dateTo).plus({ days: 1 }).toISODate()}` }]
-      : []),
-  ];
+  // no paymentDate search param exists; backdated payments are created later, so only the lower
+  // bound is safe server-side — noticeInWindow re-filters on the effective payment day
+  const windowParams = params.dateFrom ? [{ name: 'created', value: `ge${params.dateFrom}` }] : [];
   const fetchNotices = async (
     client: Oystehr,
     extraParams: { name: string; value: string }[]

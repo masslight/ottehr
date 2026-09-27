@@ -213,10 +213,20 @@ function PayerErasDrawer({
     setError(null);
     setExpandedIds([]);
     setLoading(true);
+    let cancelled = false;
     getBillingNetCollectionsDrilldown(oystehrZambda, criteria.window, { payerKey: criteria.payerKey })
-      .then(setData)
-      .catch((err) => setError(getApiError({ error: err, defaultError: 'Failed to load ERA details' })))
-      .finally(() => setLoading(false));
+      .then((response) => {
+        if (!cancelled) setData(response);
+      })
+      .catch((err) => {
+        if (!cancelled) setError(getApiError({ error: err, defaultError: 'Failed to load ERA details' }));
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [criteria, oystehrZambda]);
 
   const toggle = (id: string): void =>
