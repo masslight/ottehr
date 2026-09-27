@@ -36,7 +36,7 @@ const rateOf = (bucket: NetCollectionsBucket): number | null =>
 const rateLabel = (rate: number | null): string => (rate === null ? '—' : `${rate.toFixed(1)}%`);
 
 const ncrColor = (rate: number | null): string => {
-  if (rate === null) return 'text.disabled';
+  if (rate === null) return otherColors.disabled;
   if (rate >= 95) return reportPalette.netCollections.good;
   if (rate >= 85) return reportPalette.netCollections.fair;
   return reportPalette.netCollections.poor;
@@ -146,6 +146,7 @@ function RateCard({
   return (
     <RichTooltip title={<FractionFormula numerator={numerator} denominator={denominator} rate={rate} />}>
       <Box
+        tabIndex={0}
         sx={{
           flex: 1,
           minWidth: 180,
@@ -519,6 +520,7 @@ export default function NetCollectionsReport(): ReactElement {
           customWidth={520}
         >
           <Box
+            tabIndex={0}
             sx={{
               flex: 1,
               minWidth: 180,
