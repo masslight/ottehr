@@ -1389,8 +1389,19 @@ export async function complexValidation(
   if (!clinicalResources.location.name) {
     throw INVALID_INPUT_ERROR('The encounter location has no name. Add its name in the clinical app, then retry.');
   }
-  if (!getNPIIdentifier(clinicalResources.billingProvider)?.value) {
+  const billingProviderNpi = getNPIIdentifier(clinicalResources.billingProvider)?.value;
+  if (!billingProviderNpi) {
     throw INVALID_INPUT_ERROR('The clinical default billing provider has no NPI. Add its NPI, then retry.');
+  }
+  const clinicalAttendingProviderId = getAttendingPractitionerId(clinicalResources.encounter);
+  const clinicalAttendingProvider = clinicalResources.practitioners.find(
+    (prac) => prac.id === clinicalAttendingProviderId
+  );
+  const attendingProviderNpi = clinicalAttendingProvider
+    ? getNPIIdentifier(clinicalAttendingProvider)?.value
+    : undefined;
+  if (!attendingProviderNpi) {
+    throw INVALID_INPUT_ERROR('The clinical attending provider has no NPI. Add its NPI, then retry.');
   }
   const billingResources = await findExistingBillingResources(billingOystehr, clinicalResources, params.secrets);
   if (!billingResources.serviceFacility) {
@@ -1400,12 +1411,12 @@ export async function complexValidation(
   }
   if (!billingResources.renderingProvider) {
     throw INVALID_INPUT_ERROR(
-      'No billing rendering provider matches the attending provider NPI. Add a matching provider in billing or correct the clinical provider NPI, then retry.'
+      `No billing rendering provider matches the attending provider NPI "${attendingProviderNpi}". Add a rendering provider with that NPI in the billing app, then retry.`
     );
   }
   if (!billingResources.billingProvider) {
     throw INVALID_INPUT_ERROR(
-      'No billing provider matches the clinical default provider NPI. Add a billing provider with that NPI in the billing app, then retry.'
+      `No billing provider matches the clinical default provider NPI "${billingProviderNpi}". Add a billing provider with that NPI in the billing app, then retry.`
     );
   }
   return { clinicalResources, billingResources };
