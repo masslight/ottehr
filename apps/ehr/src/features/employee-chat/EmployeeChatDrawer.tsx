@@ -8,6 +8,7 @@ import {
   loadMissingPreviews,
   loadOlderMessages,
   markActiveConversationSeen,
+  markMissedMessage,
   openChatWithEmployee,
   openConversation,
   retryEmployeeChat,
@@ -130,6 +131,7 @@ export const EmployeeChatDrawer: FC = () => {
             loadingOlder={loadingOlder}
             onLoadOlder={() => void loadOlderMessages()}
             onSeen={markActiveConversationSeen}
+            onMissedMessage={markMissedMessage}
           />
           <Divider />
           <Box sx={{ p: 2 }}>

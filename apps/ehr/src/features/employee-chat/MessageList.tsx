@@ -2,7 +2,7 @@ import { Box, Button, CircularProgress, Divider, Stack, Typography } from '@mui/
 import { FC, Fragment, useEffect, useLayoutEffect, useRef } from 'react';
 import { ChatMessage } from './employee-chat.store';
 import { MessageBubble } from './MessageBubble';
-import { useSeenMessages } from './useSeenMessages';
+import { isAttending, useSeenMessages } from './useSeenMessages';
 
 const LOAD_OLDER_THRESHOLD_PX = 40;
 const STICK_TO_BOTTOM_PX = 80;
@@ -21,6 +21,7 @@ interface MessageListProps {
   unreadAbove: boolean;
   onLoadOlder: () => void;
   onSeen: (index: number) => void;
+  onMissedMessage: (index: number) => void;
 }
 
 function initialScrollTop(element: HTMLElement): number {
@@ -38,6 +39,7 @@ interface ScrollSnapshot {
   client: number;
   firstIndex?: number;
   lastIndex?: number;
+  dividerIndex?: number;
 }
 
 export const MessageList: FC<MessageListProps> = ({
@@ -51,6 +53,7 @@ export const MessageList: FC<MessageListProps> = ({
   unreadAbove,
   onLoadOlder,
   onSeen,
+  onMissedMessage,
 }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const snapshot = useRef<ScrollSnapshot>({ height: 0, top: 0, client: 0 });
@@ -68,6 +71,7 @@ export const MessageList: FC<MessageListProps> = ({
     const previous = snapshot.current;
     const first = messages[0];
     const last = messages[messages.length - 1];
+    const wasNearBottom = previous.height - previous.top - previous.client < STICK_TO_BOTTOM_PX;
 
     if (entryId === undefined || positionedEntry.current !== entryId) {
       positioned.current = false;
@@ -75,13 +79,20 @@ export const MessageList: FC<MessageListProps> = ({
       element.scrollTop = initialScrollTop(element);
       positionedEntry.current = entryId;
       positioned.current = true;
-    } else if (previous.firstIndex === undefined || first === undefined) {
-      element.scrollTop = element.scrollHeight;
-    } else if (first.index < previous.firstIndex) {
-      element.scrollTop = element.scrollHeight - previous.height + previous.top;
-    } else if (last && previous.lastIndex !== undefined && last.index > previous.lastIndex) {
-      const wasNearBottom = previous.height - previous.top - previous.client < STICK_TO_BOTTOM_PX;
-      if (wasNearBottom || last.mine) element.scrollTop = element.scrollHeight;
+    } else {
+      if (previous.firstIndex === undefined || first === undefined) {
+        element.scrollTop = element.scrollHeight;
+      } else if (first.index < previous.firstIndex) {
+        element.scrollTop = element.scrollHeight - previous.height + previous.top;
+      } else if (last && previous.lastIndex !== undefined && last.index > previous.lastIndex) {
+        if (wasNearBottom || last.mine) element.scrollTop = element.scrollHeight;
+      } else if (dividerIndex !== previous.dividerIndex && wasNearBottom) {
+        element.scrollTop = element.scrollHeight;
+      }
+      if (dividerIndex === undefined && !unreadAbove) {
+        const missed = messages.find((message) => !message.mine && message.index > (previous.lastIndex ?? -1));
+        if (missed && (!wasNearBottom || !isAttending())) onMissedMessage(missed.index);
+      }
     }
 
     snapshot.current = {
@@ -90,8 +101,9 @@ export const MessageList: FC<MessageListProps> = ({
       client: element.clientHeight,
       firstIndex: first?.index,
       lastIndex: last?.index,
+      dividerIndex,
     };
-  }, [messages, entryId]);
+  }, [messages, entryId, dividerIndex, unreadAbove, onMissedMessage]);
 
   const handleScroll = (): void => {
     const element = containerRef.current;

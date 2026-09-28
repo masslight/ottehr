@@ -890,6 +890,116 @@ describe('employee chat flows', () => {
     expect(loadedIndexes()[0]).toBe(50);
   });
 
+  const setFocus = (value: boolean, state: { focused: boolean }): void => {
+    state.focused = value;
+    act(() => {
+      window.dispatchEvent(new Event(value ? 'focus' : 'blur'));
+    });
+  };
+
+  it('places the divider above messages that arrive while the window is unfocused, and keeps them unread until focus returns', async () => {
+    const attention = { focused: true };
+    const layout = mockScrollLayout();
+    mockAttention(() => attention.focused);
+    const bob = await connectBobWithHistory(20, 19);
+    await open('CH-bob');
+    expect(newDivider()).toBeNull();
+
+    setFocus(false, attention);
+    await act(async () => {
+      bob.receive('bob-identity', 'while you were away 1');
+    });
+    expect(messageAfterDivider()).toBe('20');
+    expect(layout.scrollTop()).toBe(21 * MESSAGE_HEIGHT + DIVIDER_HEIGHT - VIEWPORT_HEIGHT);
+
+    await act(async () => {
+      bob.receive('bob-identity', 'while you were away 2');
+    });
+    expect(messageAfterDivider()).toBe('20');
+    expect(layout.scrollTop()).toBe(22 * MESSAGE_HEIGHT + DIVIDER_HEIGHT - VIEWPORT_HEIGHT);
+
+    await advance(SEEN_DWELL_MS * 3);
+    expect(bob.advanceCalls).toEqual([]);
+
+    setFocus(true, attention);
+    await advance(SEEN_DWELL_MS);
+    expect(bob.advanceCalls).toEqual([21]);
+    expect(messageAfterDivider()).toBe('20');
+  });
+
+  it('places the divider above a message that arrives while I am scrolled up reading history', async () => {
+    const layout = mockScrollLayout();
+    mockAttention(() => true);
+    const bob = await connectBobWithHistory(20, 19);
+    await open('CH-bob');
+
+    const container = screen.getByTestId(MESSAGES_TEST_ID);
+    container.scrollTop = 0;
+    fireEvent.scroll(container);
+    await act(async () => {
+      bob.receive('bob-identity', 'posted below');
+    });
+
+    expect(messageAfterDivider()).toBe('20');
+    expect(layout.scrollTop()).toBe(0);
+    await advance(SEEN_DWELL_MS * 3);
+    expect(bob.advanceCalls).toEqual([]);
+  });
+
+  it('shows no divider for a message that arrives while I am following along at the bottom', async () => {
+    mockScrollLayout();
+    mockAttention(() => true);
+    const bob = await connectBobWithHistory(20, 19);
+    await open('CH-bob');
+
+    await act(async () => {
+      bob.receive('bob-identity', 'seen live');
+    });
+    expect(newDivider()).toBeNull();
+    await advance(SEEN_DWELL_MS);
+    expect(bob.advanceCalls).toEqual([20]);
+  });
+
+  it('never places the divider above my own messages', async () => {
+    const attention = { focused: true };
+    mockScrollLayout();
+    mockAttention(() => attention.focused);
+    const bob = await connectBobWithHistory(20, 19);
+    await open('CH-bob');
+
+    setFocus(false, attention);
+    await act(async () => {
+      bob.receive('me-identity', 'sent from my other tab');
+    });
+    expect(newDivider()).toBeNull();
+    expect(bob.lastReadMessageIndex).toBe(20);
+  });
+
+  it('does not move the entry divider or add one under the further-up marker when messages arrive unattended', async () => {
+    const attention = { focused: true };
+    mockScrollLayout();
+    mockAttention(() => attention.focused);
+    const bob = await connectBobWithHistory(20, 9);
+    await open('CH-bob');
+    expect(messageAfterDivider()).toBe('10');
+
+    setFocus(false, attention);
+    await act(async () => {
+      bob.receive('bob-identity', 'another one');
+    });
+    expect(messageAfterDivider()).toBe('10');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Back to chats' }));
+    bob.seed(280, 'bob-identity');
+    await open('CH-bob');
+    expect(unreadAboveMarker()).not.toBeNull();
+    await act(async () => {
+      bob.receive('bob-identity', 'unattended under the marker');
+    });
+    expect(newDivider()).toBeNull();
+    expect(unreadAboveMarker()).not.toBeNull();
+  });
+
   it('keeps a message that arrives below the viewport unread', async () => {
     mockLayout(() => 2);
     mockAttention(() => true);

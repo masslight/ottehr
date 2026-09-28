@@ -157,6 +157,14 @@ export function markActiveConversationSeen(index: number): void {
   void advanceReadHorizon(activeSid, index);
 }
 
+export function markMissedMessage(index: number): void {
+  const { activeSid, unreadEntry } = getState();
+  if (!activeSid || unreadEntry?.sid !== activeSid) return;
+  if (unreadEntry.unreadAbove || unreadEntry.dividerIndex !== undefined) return;
+  if (index <= (readHorizon(activeSid) ?? -1)) return;
+  setState({ unreadEntry: { ...unreadEntry, dividerIndex: index } });
+}
+
 function handleMessageAdded(message: Message): void {
   const sid = message.conversation.sid;
   if (!conversationsBySid.has(sid)) conversationsBySid.set(sid, message.conversation);

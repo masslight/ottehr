@@ -3,7 +3,7 @@ import { lastSeenMessageIndex } from './employee-chat.utils';
 
 export const SEEN_DWELL_MS = 1000;
 
-function isAttending(): boolean {
+export function isAttending(): boolean {
   return document.visibilityState === 'visible' && document.hasFocus();
 }
 
