@@ -1,0 +1,325 @@
+{
+  "id": "lip-lesion-sti-screening",
+  "label": "An ulcerative lip lesion and screening for sexually transmitted infections (new, 22F)",
+  "sourceCase": "case400",
+  "patient": {
+    "ageYears": 22,
+    "sex": "female"
+  },
+  "patientStatus": "new",
+  "notes": [],
+  "said": [],
+  "goldErrors": [],
+  "allowed": [],
+  "narrativeFacts": [],
+  "edits": [],
+  "transcript": "Provider: Hello.\nPatient: Hi.\nProvider: How are you doing today?\nPatient: Good. It's a good evening.\nProvider: So, so you're here. So, I was you said you are here for STD testing. What happened?\nPatient: Yeah, I have this little blister in the corner of my lip right here. I don't know if you can see it.\nProvider: Yeah, I will get a I like give me a second.\nPatient: She said she's different, but she has no symptoms whatsoever. She only had a blister in the corner of her lip.\nProvider: Hello.\nPatient: Hi.\nProvider: How are you doing today?\nPatient: Oh, it's a good evening.\nProvider: So, so you're here. So, I was you said you are here for STD testing. What happened?\nPatient: Yeah, I have this little blister in the corner of my lip right here. I don't know if you can see it.\nProvider: Yeah, I will get a I like give me a second.\nPatient: All righty.\nProvider: Where is that?\nPatient: Right here.\nProvider: Okay. So, when did you notice that?\nPatient: Yesterday. It was like open. And I've never had any like bump or anything. It didn't come out as like a blister at first. It was two tiny little bumps.\nProvider: Okay.\nPatient: Or anything. And then I noticed because I guess my lips are dry and I licked my lip in the corner of my lip and it burned. And I was like, okay. So, I looked and this is how it looked yesterday and now it's kind of better.\nProvider: Okay.\nPatient: That's how it looked yesterday.\nProvider: Okay, okay.\nPatient: It was a little bit open.\nProvider: So, it's a little bit almost like a cold sore-ish.\nPatient: So, but I wasn't sure.\nProvider: Has there been like any But that was the skin right here. That was the skin that opened up. So, that's why I was like that looks like a cold sore, but I'm not sure.\nProvider: So, have you ever had a diagnosis of HSV or anything like that?\nPatient: No. A couple months I was negative.\nProvider: Okay. All right. Has there been any change of partners or anything like that?\nPatient: Oh, well, yeah, change of partners, yeah.\nProvider: Okay. So, let's do this here. So, there are a couple of things we could do. Cuz if that is your only concern, we could do the screening strictly for the HSV or would you just want us to do a full thing? Yeah. Okay.\nPatient: I was like kiss somebody and I was like I have had this before, but I would I tested negative for everything. So, I was like, okay, maybe this is just like dry lips or something.\nProvider: Okay.\nPatient: Because I had don't have any burning, I don't have any tingling, I don't have anything on my genitals, no burning or peeing or anything like no fever. That's why I'm like, okay.\nProvider: Yeah, okay. I'll check.\nPatient: Thank you.\nProvider: All right.\nProvider: So, patient had a picture of an ulcerative lesion to the left side of her the right side of her lower lip, which has since healed. And so, triggering concern for possible STI. Patient just had a change in partners. And so, the concern, she would like to have a comprehensive STI testing done.",
+  "gold": {
+    "historyOfPresentIllness": "The patient is a 22-year-old female presenting for comprehensive STI testing following the appearance of a small, ulcerative lesion on the right side of her lower lip that she first noticed yesterday. The lesion initially appeared as two tiny bumps, became open and painful when licked, and has since begun to heal. The patient denies any burning, tingling, fever, or genital symptoms.",
+    "additionalInformation": "std test",
+    "reviewOfSystems": {
+      "observations": [
+        {
+          "field": "ros-constitutional-fever-denies",
+          "label": "Fever",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "no fever"
+        },
+        {
+          "field": "ros-skin-lumps-reports",
+          "label": "New lumps/bumps",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "it was two tiny little bumps"
+        },
+        {
+          "field": "ros-ent-sore-throat-denies",
+          "label": "Sore throat",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-gu-vaginal-discharge-denies",
+          "label": "Vaginal discharge",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-constitutional-chills-denies",
+          "label": "Chills",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-skin-redness-reports",
+          "label": "Redness/erythema",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-gu-dysuria-denies",
+          "label": "Dysuria",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "no burning or peeing or anything"
+        }
+      ]
+    },
+    "exam": [
+      {
+        "field": "skin-side",
+        "label": "Side",
+        "present": true,
+        "components": [
+          {
+            "code": "skin-side-r",
+            "label": "R",
+            "value": true,
+            "abnormal": true
+          }
+        ],
+        "abnormal": true,
+        "voiced": true,
+        "voicedEvidence": "corner of her lip"
+      },
+      {
+        "field": "in-no-acute-distress",
+        "label": "In no acute distress",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "skin-location",
+        "label": "Location",
+        "present": true,
+        "components": [
+          {
+            "code": "skin-loc-lips-perioral",
+            "label": "Lips/perioral",
+            "value": true,
+            "abnormal": true
+          }
+        ],
+        "abnormal": true,
+        "voiced": true,
+        "voicedEvidence": "little blister in the corner of my lip"
+      },
+      {
+        "field": "oriented-x-3",
+        "label": "Oriented x 3",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "alert",
+        "label": "Alert",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "normal-mental-status",
+        "label": "Normal mental status",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "normal-tone",
+        "label": "Normal tone",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "active",
+        "label": "Active",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "oral-comment",
+        "label": "Oral comment",
+        "present": false,
+        "note": "Vesicular lesion noted on lip, possible herpes labialis. HSV not confirmed"
+      },
+      {
+        "field": "skin-lesion-characteristics",
+        "label": "Lesion characteristics",
+        "present": true,
+        "components": [
+          {
+            "code": "skin-lesion-vesicle",
+            "label": "Vesicle",
+            "value": true,
+            "abnormal": true
+          },
+          {
+            "code": "skin-lesion-erythematous",
+            "label": "Erythematous",
+            "value": true,
+            "abnormal": true
+          }
+        ],
+        "abnormal": true,
+        "voiced": true,
+        "voicedEvidence": "cold sore-ish, skin opened up, little blister"
+      }
+    ],
+    "assessment": {
+      "diagnoses": [
+        {
+          "system": "ICD-10-CM",
+          "code": "K13.0",
+          "codeNormalized": "K130",
+          "display": "Diseases of lips",
+          "primary": true,
+          "fromLabOrder": false,
+          "voiced": true,
+          "voicedEvidence": "ulcerative lesion to the lower lip, cold sore-ish"
+        },
+        {
+          "system": "ICD-10-CM",
+          "code": "Z11.3",
+          "codeNormalized": "Z113",
+          "display": "Encounter for screening for infections with a predominantly sexual mode of transmission",
+          "primary": false,
+          "fromLabOrder": false,
+          "voiced": true,
+          "voicedEvidence": "comprehensive STI testing done, screening for HSV"
+        }
+      ]
+    },
+    "billing": {
+      "emCode": {
+        "system": "CPT",
+        "code": "99203",
+        "codeNormalized": "99203",
+        "display": "99203 New Patient - E/M Level 3"
+      },
+      "cptCodes": [
+        {
+          "system": "CPT",
+          "code": "99001",
+          "codeNormalized": "99001",
+          "display": "Handling and/or conveyance of specimen for transfer to a laboratory",
+          "voiced": false
+        }
+      ]
+    },
+    "medications": {
+      "prescribed": [],
+      "inHouseAdministered": [],
+      "immunizations": [],
+      "currentReconciled": []
+    },
+    "allergies": [],
+    "medicalHistory": [],
+    "surgicalHistory": [],
+    "hospitalizations": [],
+    "procedures": [],
+    "labs": {
+      "external": {
+        "resultsPending": [],
+        "labOrderResults": [
+          {
+            "name": "(HIVL) HIV 1/2 Ab Screen w/p24Ag / PathGroup",
+            "orderNumber": "1JOLWKAIBX0R9Z5OVMFD",
+            "resultValues": ["HIV 1/2 Ab Screen w/p24Ag: Nonreactive"],
+            "reflexResults": []
+          },
+          {
+            "name": "(HSVG) Herpes Simplex Virus (HSV) Antibody Type 1/2, IgG / PathGroup",
+            "orderNumber": "1JOLWKAIBX0R9Z5OVMFD",
+            "resultValues": [
+              "Herpes Simplex Virus (HSV) Antibody Type 1, IgG: Nonreactive",
+              "Herpes Simplex Virus (HSV) Antibody Type 2, IgG: Nonreactive"
+            ],
+            "reflexResults": []
+          },
+          {
+            "name": "(0GCCHL) Chlamydia, Gonorrhoeae, and Trichomonas / PathGroup",
+            "orderNumber": "1JOLWKAIBX0R9Z5OVMFD",
+            "resultValues": [
+              "Neisseria gonorrhoeae, Aptima: NOT DETECTED",
+              "Trichomonas vaginalis, Aptima (panther): NOT DETECTED",
+              "Chlamydia trachomatis, Aptima: NOT DETECTED"
+            ],
+            "reflexResults": []
+          }
+        ]
+      },
+      "inHouse": {
+        "resultsPending": [],
+        "reflexTestsPending": [],
+        "labOrderResults": []
+      }
+    },
+    "radiology": [],
+    "vitals": [
+      {
+        "field": "vital-bmi",
+        "context": true,
+        "value": 36.8
+      },
+      {
+        "field": "vital-last-menstrual-period",
+        "context": true,
+        "value": "2026-08-09"
+      },
+      {
+        "field": "vital-height",
+        "context": true,
+        "value": 165.1
+      },
+      {
+        "field": "vital-weight",
+        "context": true,
+        "value": 100.33
+      },
+      {
+        "field": "vital-blood-pressure",
+        "context": true,
+        "systolic": 131,
+        "diastolic": 81,
+        "method": "Sitting"
+      },
+      {
+        "field": "vital-respiration-rate",
+        "context": true,
+        "value": 14
+      },
+      {
+        "field": "vital-heartbeat",
+        "context": true,
+        "value": 99,
+        "method": "Sitting"
+      },
+      {
+        "field": "vital-temperature",
+        "context": true,
+        "value": 36.667,
+        "method": "Temporal"
+      }
+    ],
+    "medicalDecisionMaking": "Reviewed diagnosis, expected course, treatment plan, and reasons to seek urgent and/or emergent care.  Discharge instructions reviewed.  Patient/Caregiver expressed understanding.  All questions were answered, and is comfortable with discharge plan.  ER Precautions given.",
+    "disposition": {
+      "type": "pcp-no-type",
+      "note": "Please see your Primary Care Physician.",
+      "followUp": [],
+      "dispositionVoiced": false
+    },
+    "instructions": [
+      "You were seen today for a small lesion on your lower lip and for comprehensive screening for sexually transmitted infections (STIs).\n\nThe lip lesion was evaluated today. Because the exact cause of the lesion has not been confirmed, it is currently being documented as a lip lesion (K13.0) rather than a confirmed herpes infection.\n\nTesting\n\nSTI testing was collected/ordered today as discussed. We will contact you when your laboratory results are available and provide additional recommendations or treatment if indicated based on the results.\n\nPlease understand that some infections may not become detectable immediately after a recent exposure. Depending on the timing of your most recent sexual exposure and today's results, repeat testing may occasionally be recommended.\n\nLip Care\nKeep the affected area clean and avoid picking, squeezing, or repeatedly touching the lesion.\nAvoid licking or otherwise irritating the area while it heals.\nWash your hands after touching the lesion.\nUntil the cause is known and the lesion has completely healed, avoid kissing and oral sexual contact to reduce the possibility of transmitting an infection if the lesion is infectious.\nDo not share lip products, drinks, eating utensils, razors, or other personal items that contact the mouth.\nWhile Awaiting STI Results\n\nUse condoms or other appropriate barrier protection during sexual activity while awaiting your results. If any testing returns positive, we will discuss treatment, partner notification/testing when appropriate, and any recommended follow-up testing.\n\nFollow-Up\n\n<clinic> will contact you once your laboratory results are received.\n\nReturn for reevaluation if the lip lesion becomes larger, increasingly painful, develops additional blisters or ulcers, repeatedly returns, or fails to heal.\n\nSeek prompt medical attention if you develop significant facial or lip swelling, difficulty breathing or swallowing, high fever, severe pain, eye involvement, a widespread rash, genital sores, abnormal vaginal discharge, pelvic pain, or other concerning new symptoms.",
+      "Patient Education: Understanding Lip and Mouth Irritation, Understanding Your Sexual Health Screening"
+    ],
+    "instructionItems": [
+      {
+        "title": "Discharge Instructions",
+        "text": "You were seen today for a small lesion on your lower lip and for comprehensive screening for sexually transmitted infections (STIs).\n\nThe lip lesion was evaluated today. Because the exact cause of the lesion has not been confirmed, it is currently being documented as a lip lesion (K13.0) rather than a confirmed herpes infection.\n\nTesting\n\nSTI testing was collected/ordered today as discussed. We will contact you when your laboratory results are available and provide additional recommendations or treatment if indicated based on the results.\n\nPlease understand that some infections may not become detectable immediately after a recent exposure. Depending on the timing of your most recent sexual exposure and today's results, repeat testing may occasionally be recommended.\n\nLip Care\nKeep the affected area clean and avoid picking, squeezing, or repeatedly touching the lesion.\nAvoid licking or otherwise irritating the area while it heals.\nWash your hands after touching the lesion.\nUntil the cause is known and the lesion has completely healed, avoid kissing and oral sexual contact to reduce the possibility of transmitting an infection if the lesion is infectious.\nDo not share lip products, drinks, eating utensils, razors, or other personal items that contact the mouth.\nWhile Awaiting STI Results\n\nUse condoms or other appropriate barrier protection during sexual activity while awaiting your results. If any testing returns positive, we will discuss treatment, partner notification/testing when appropriate, and any recommended follow-up testing.\n\nFollow-Up\n\n<clinic> will contact you once your laboratory results are received.\n\nReturn for reevaluation if the lip lesion becomes larger, increasingly painful, develops additional blisters or ulcers, repeatedly returns, or fails to heal.\n\nSeek prompt medical attention if you develop significant facial or lip swelling, difficulty breathing or swallowing, high fever, severe pain, eye involvement, a widespread rash, genital sores, abnormal vaginal discharge, pelvic pain, or other concerning new symptoms."
+      },
+      {
+        "title": "Patient Education: Understanding Lip and Mouth Irritation, Understanding Your Sexual Health Screening",
+        "hasEducationDoc": true
+      }
+    ]
+  }
+}

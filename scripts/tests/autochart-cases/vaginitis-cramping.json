@@ -1,0 +1,304 @@
+{
+  "id": "vaginitis-cramping",
+  "label": "Vaginal discharge, odor and lower abdominal cramping since Saturday (new, 29F)",
+  "sourceCase": "case398",
+  "patient": {
+    "ageYears": 29,
+    "sex": "female"
+  },
+  "patientStatus": "new",
+  "notes": [],
+  "said": [],
+  "goldErrors": [],
+  "allowed": [],
+  "narrativeFacts": [],
+  "edits": [],
+  "transcript": "Provider: Hello, man. Good evening. This may or may not be my last patient for today. Hi, my name is Dr. [inaudible]. I'm the clinician here. This is a little bit on the heavy side. So, tell me what's going on.\n\nPatient: I've just been having this discharge and it's kind of weird because it's it just keeps coming.\n\nProvider: For this is uh for how long now?\n\nPatient: Uh since like Saturday maybe.\n\nProvider: Since Saturday? Okay. So, the email was saying that uh some odor and kind of lower abdominal Yeah. cramping. Let me just turn a bit. Okay. So, I'll be in a minute. Has this happened before in the past or is this the first time?\n\nPatient: I mean, I've had like BV and stuff like that. Mhm. Um yeast infection. So, I think it's BV, but I haven't had it in a while.\n\nProvider: Okay. You have on scrubs. What do you do?\n\nPatient: I'm a nurse. I work at the hospital.\n\nProvider: Okay. The major trauma folks. Uh-huh. Now, when I push down, how much pain are you feeling? Is it just pressure?\n\nPatient: Um just pressure.\n\nProvider: Just pressure? How about this side?\n\nPatient: It's okay.\n\nProvider: Is it pain or pressure still?\n\nPatient: Where you did, it kind of hurt a little bit, but Yeah. Oh, it's not hurting anymore.\n\nProvider: Okay. So, what I'll help you out. So, what are you going Do you have any kind of urinary frequency at all?\n\nPatient: No.\n\nProvider: None of that?\n\nPatient: No, no urinary or, you know, burning or anything.\n\nProvider: Okay. So, what I'm going to do is that I'll put in an order so that uh we get swabbed and check for because BV, trich, they tend to run in the same gang. And fortunately, their treatment is about the same. It's still the same flagyl, really that treats the both of them. So, we just kind of I will have him get you the stuff for the self-swab. We'll run that. Once the result comes back, we'll give you a call and send you what we need to send you.\n\nPatient: Okay. How long does it take?\n\nProvider: The results? Usually takes about, from what I've been told, between 24 to 72 hours. Not longer than 72 hours based on what I'm told. Okay. Yeah. So, just give me one second. So, let's do the the trich and the BV thing. So, So, of course, this is discharge. So, trich, BV, and chlamydia. Yeah. Give me a second. Are you okay with screening as well for the chlamydia and the gonorrhea? These are all the stuff that the discharge. Okay. Till then. So, BV, chlamydia, gonorrhea, trich. Yeah. And those are external labs, though. So, I'll put in I'll put in the order and then hopefully nobody else shows up.",
+  "gold": {
+    "historyOfPresentIllness": "The patient is a 29-year-old female presenting with persistent vaginal discharge, odor, and lower abdominal cramping since Saturday. She reports mild pressure upon abdominal palpation but denies urinary frequency, dysuria, or burning.",
+    "additionalInformation": "vaginal discharge",
+    "reviewOfSystems": {
+      "observations": [
+        {
+          "field": "ros-gu-vaginal-discharge-reports",
+          "label": "Vaginal discharge",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "I've just been having this discharge"
+        },
+        {
+          "field": "ros-gu-dysuria-denies",
+          "label": "Dysuria",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "no urinary or, you know, burning"
+        },
+        {
+          "field": "ros-gu-urgency-denies",
+          "label": "Urinary urgency",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-eyes-vision-changes-denies",
+          "label": "Vision changes",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-gu-frequency-denies",
+          "label": "Urinary frequency",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "No, no urinary or... any kind of urinary frequency"
+        },
+        {
+          "field": "ros-eyes-blurry-vision-denies",
+          "label": "Blurry vision",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-constitutional-fever-denies",
+          "label": "Fever",
+          "present": true,
+          "voiced": false
+        }
+      ]
+    },
+    "exam": [
+      {
+        "field": "active",
+        "label": "Active",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "alert",
+        "label": "Alert",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "normal-mental-status",
+        "label": "Normal mental status",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "vaginal-discharge",
+        "label": "Vaginal discharge",
+        "present": true,
+        "voiced": true,
+        "voicedEvidence": "I've just been having this discharge"
+      },
+      {
+        "field": "moderate-distress",
+        "label": "Moderate distress",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "normal-tone",
+        "label": "Normal tone",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "mild-distress",
+        "label": "Mild distress",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "oriented-x-3",
+        "label": "Oriented x 3",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "gu-female-comment",
+        "label": "GU (Female) comment",
+        "present": false,
+        "note": "odorous discharge per patient"
+      }
+    ],
+    "assessment": {
+      "diagnoses": [
+        {
+          "system": "ICD-10-CM",
+          "code": "N76.0",
+          "codeNormalized": "N760",
+          "display": "Acute vaginitis",
+          "primary": true,
+          "fromLabOrder": false,
+          "voiced": true,
+          "voicedEvidence": "discharge... BV, trich... treats the both of them"
+        },
+        {
+          "system": "ICD-10-CM",
+          "code": "R10.9",
+          "codeNormalized": "R109",
+          "display": "Unspecified abdominal pain",
+          "primary": false,
+          "fromLabOrder": false,
+          "voiced": true,
+          "voicedEvidence": "lower abdominal cramping"
+        }
+      ]
+    },
+    "billing": {
+      "emCode": {
+        "system": "CPT",
+        "code": "99214",
+        "codeNormalized": "99214",
+        "display": "99214 Established Patient - E/M Level 4"
+      },
+      "cptCodes": [
+        {
+          "system": "CPT",
+          "code": "99001",
+          "codeNormalized": "99001",
+          "display": "Handling and/or conveyance of specimen for transfer to a laboratory",
+          "voiced": true,
+          "voicedEvidence": "those are external labs... I'll put in the order"
+        }
+      ]
+    },
+    "medications": {
+      "prescribed": [
+        {
+          "name": "metroNIDAZOLE Oral Tablet 500 MG",
+          "sig": "Take 1 tablet orally, 2 times daily for 7 days.",
+          "status": "completed",
+          "voiced": true,
+          "voicedEvidence": "the same flagyl, really that treats the both of them",
+          "nameVoiced": true
+        }
+      ],
+      "inHouseAdministered": [],
+      "immunizations": [],
+      "currentReconciled": [
+        {
+          "name": "Zoloft Oral Tablet (25 MG)",
+          "type": "scheduled",
+          "status": "active",
+          "context": true
+        },
+        {
+          "name": "Microgestin 1.5/30 Oral Tablet (1.5-30 MG-MCG)",
+          "type": "scheduled",
+          "status": "active",
+          "context": true
+        }
+      ]
+    },
+    "allergies": [],
+    "medicalHistory": [],
+    "surgicalHistory": [],
+    "hospitalizations": [],
+    "procedures": [],
+    "labs": {
+      "external": {
+        "resultsPending": [],
+        "labOrderResults": [
+          {
+            "name": "(0GCCHL) Chlamydia, Gonorrhoeae, and Trichomonas / PathGroup",
+            "orderNumber": "632R9LKDFZ6T9RW7B584",
+            "resultValues": [
+              "Trichomonas vaginalis, Aptima (panther): NOT DETECTED",
+              "Chlamydia trachomatis, Aptima: NOT DETECTED",
+              "Neisseria gonorrhoeae, Aptima: NOT DETECTED"
+            ],
+            "reflexResults": []
+          },
+          {
+            "name": "(BVP) Bacterial Vaginosis / PathGroup",
+            "nonNormalResultContained": ["abnormal"],
+            "orderNumber": "632R9LKDFZ6T9RW7B584",
+            "resultValues": ["Bacterial Vaginosis: DETECTED"],
+            "reflexResults": []
+          }
+        ]
+      },
+      "inHouse": {
+        "resultsPending": [],
+        "reflexTestsPending": [],
+        "labOrderResults": []
+      }
+    },
+    "radiology": [],
+    "vitals": [
+      {
+        "field": "vital-bmi",
+        "context": true,
+        "value": 26.1
+      },
+      {
+        "field": "vital-last-menstrual-period",
+        "context": true,
+        "value": "2026-07-27"
+      },
+      {
+        "field": "vital-height",
+        "context": true,
+        "value": 152.4
+      },
+      {
+        "field": "vital-weight",
+        "context": true,
+        "value": 60.51
+      },
+      {
+        "field": "vital-oxygen-sat",
+        "context": true,
+        "value": 98,
+        "method": "On room air"
+      },
+      {
+        "field": "vital-blood-pressure",
+        "context": true,
+        "systolic": 121,
+        "diastolic": 82,
+        "method": "Sitting"
+      },
+      {
+        "field": "vital-respiration-rate",
+        "context": true,
+        "value": 16
+      },
+      {
+        "field": "vital-heartbeat",
+        "context": true,
+        "value": 71,
+        "method": "Sitting"
+      },
+      {
+        "field": "vital-temperature",
+        "context": true,
+        "value": 36.889,
+        "method": "Temporal"
+      }
+    ],
+    "medicalDecisionMaking": "Reviewed diagnosis, expected course, treatment plan, and reasons to seek urgent and/or emergent care.  Discharge instructions reviewed.  Patient/Caregiver expressed understanding.  All questions were answered, and is comfortable with discharge plan.  ER Precautions given.",
+    "disposition": {
+      "type": "pcp-no-type",
+      "note": "Please see your Primary Care Physician.",
+      "followUp": [],
+      "dispositionVoiced": false
+    },
+    "instructions": [
+      "You were seen today for symptoms consistent with acute vaginitis. Vaginitis can have several causes, including bacterial vaginosis (BV), yeast infection, trichomoniasis, or sexually transmitted infections such as chlamydia or gonorrhea.\n\nTesting Performed\n\nWe collected samples today to test for:\n\nBacterial vaginosis (BV)\nTrichomonas\nChlamydia\nGonorrhea\n\nYour results are currently pending. We will contact you when the results are available and discuss whether treatment is needed.\n\nWhat Happens If a Test Is Positive?\n\nTreatment will depend on your results:\n\nBacterial vaginosis (BV): Usually treated with an antibiotic such as metronidazole, either by mouth or as a vaginal medication.\nTrichomonas: Usually treated with oral metronidazole. Because trichomonas is sexually transmitted, sexual partner(s) will also need treatment to help prevent reinfection.\nChlamydia: Usually treated with an antibiotic such as doxycycline. Recent sexual partner(s) should also be evaluated and treated.\nGonorrhea: Usually treated with an antibiotic injection (ceftriaxone). Recent sexual partner(s) should also be evaluated and treated.\nIf all testing is negative but your symptoms continue, you may need additional evaluation for other causes of vaginal irritation or discharge, including a possible yeast infection.\nUntil Your Results Return\n\nAvoid sexual activity until your results are known. If an STI is identified, you should avoid sexual activity until you and your partner(s) have completed the recommended treatment and the appropriate waiting period has passed.\n\nAvoid douching, scented vaginal products, and other products that may cause additional irritation.\n\nSeek Prompt Medical Care If\n\nPlease seek immediate or prompt medical evaluation if you develop severe or worsening pelvic/lower abdominal pain, high fever, persistent vomiting, heavy or unusual vaginal bleeding, fainting/dizziness, or rapidly worsening symptoms.\n\nIf your symptoms do not improve after treatment or continue despite negative testing, follow up with your primary care clinician or OB/GYN for further evaluation.",
+      "Patient Education: Understanding Vaginitis"
+    ],
+    "instructionItems": [
+      {
+        "text": "You were seen today for symptoms consistent with acute vaginitis. Vaginitis can have several causes, including bacterial vaginosis (BV), yeast infection, trichomoniasis, or sexually transmitted infections such as chlamydia or gonorrhea.\n\nTesting Performed\n\nWe collected samples today to test for:\n\nBacterial vaginosis (BV)\nTrichomonas\nChlamydia\nGonorrhea\n\nYour results are currently pending. We will contact you when the results are available and discuss whether treatment is needed.\n\nWhat Happens If a Test Is Positive?\n\nTreatment will depend on your results:\n\nBacterial vaginosis (BV): Usually treated with an antibiotic such as metronidazole, either by mouth or as a vaginal medication.\nTrichomonas: Usually treated with oral metronidazole. Because trichomonas is sexually transmitted, sexual partner(s) will also need treatment to help prevent reinfection.\nChlamydia: Usually treated with an antibiotic such as doxycycline. Recent sexual partner(s) should also be evaluated and treated.\nGonorrhea: Usually treated with an antibiotic injection (ceftriaxone). Recent sexual partner(s) should also be evaluated and treated.\nIf all testing is negative but your symptoms continue, you may need additional evaluation for other causes of vaginal irritation or discharge, including a possible yeast infection.\nUntil Your Results Return\n\nAvoid sexual activity until your results are known. If an STI is identified, you should avoid sexual activity until you and your partner(s) have completed the recommended treatment and the appropriate waiting period has passed.\n\nAvoid douching, scented vaginal products, and other products that may cause additional irritation.\n\nSeek Prompt Medical Care If\n\nPlease seek immediate or prompt medical evaluation if you develop severe or worsening pelvic/lower abdominal pain, high fever, persistent vomiting, heavy or unusual vaginal bleeding, fainting/dizziness, or rapidly worsening symptoms.\n\nIf your symptoms do not improve after treatment or continue despite negative testing, follow up with your primary care clinician or OB/GYN for further evaluation."
+      },
+      {
+        "title": "Patient Education: Understanding Vaginitis",
+        "hasEducationDoc": true
+      }
+    ]
+  }
+}

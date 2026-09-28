@@ -1,0 +1,526 @@
+{
+  "id": "viral-pharyngitis-vertigo",
+  "label": "Sore throat with tonsillar ulcers and positional dizziness after a flight (new, 24F)",
+  "sourceCase": "case405",
+  "patient": {
+    "ageYears": 24,
+    "sex": "female"
+  },
+  "patientStatus": "new",
+  "notes": ["Ruled out on the recording: the strep test came back negative on the recording."],
+  "said": [
+    {
+      "kind": "instruction",
+      "text": "gargle|spit|swish"
+    },
+    {
+      "kind": "instruction",
+      "text": "maneuver|epley",
+      "note": "\"There's like a head maneuver that you can try\" (BPPV)."
+    },
+    {
+      "kind": "anyOf",
+      "of": [
+        {
+          "kind": "instruction",
+          "text": "decongest"
+        },
+        {
+          "kind": "medication",
+          "name": "pseudoephedrine|sudafed|phenylephrine"
+        }
+      ],
+      "note": "\"Decongestants … would be helpful\" — as advice, or as the pseudoephedrine the chart has."
+    }
+  ],
+  "goldErrors": [],
+  "allowed": [
+    {
+      "kind": "diagnosis",
+      "codePrefix": ["J02", "H81", "H93", "B34", "R0982", "H69"]
+    },
+    {
+      "kind": "medication",
+      "name": "dayquil|cough drop"
+    }
+  ],
+  "narrativeFacts": [
+    "honeymoon|<place>|flew|plane|flight",
+    "dizz|vertigo",
+    "sore throat|throat",
+    "drainage",
+    "monday|<date>",
+    "yesterday",
+    "fever",
+    "cough",
+    "dayquil",
+    "hearing",
+    "right ear",
+    "tonsil",
+    "ulcer",
+    "strep",
+    "negative",
+    "viral",
+    "lidocaine",
+    "bppv|positional|inner ear",
+    "maneuver|epley",
+    "decongestant"
+  ],
+  "edits": [
+    {
+      "label": "viscous lidocaine changed to benzocaine lozenges",
+      "find": "(viscous )?lidocaine",
+      "replace": "benzocaine lozenges",
+      "expected": [
+        {
+          "kind": "medication",
+          "name": "benzocaine"
+        }
+      ],
+      "forbidden": [
+        {
+          "kind": "medication",
+          "name": "lidocaine"
+        }
+      ]
+    }
+  ],
+  "transcript": "Provider: Hi.\nPatient: Hi. How are you?\nProvider: I'm good. How are you?\nPatient: I'm good.\nProvider: Nice to meet you.\nPatient: Nice to meet you.\nProvider: Um, <patient name>?\nPatient: Yeah.\nProvider: All right, so tell me a little bit about what's been going on.\nPatient: Yeah, so, um, I just got back from my honeymoon in <place> and since I flew there, I had been experiencing dizziness. Um, so like as soon as I got off the plane, it's still kind of happening. So I think that I might have like an inner ear thing going on, possibly. Compounded with that, since I got back, I have had like the worst sore throat. Um, everything's inflamed and it's just like throat drainage. I don't have any sinus drainage. So that's more immediate, but I think like the dizziness and I don't know if it's like an ear infection causing the drainage. I don't know. So, that's the story.\nProvider: Okay. Um, how long has all this been going on for?\nPatient: Um, so the inner ear thing since Monday the <date>. Possibly that's when I started experiencing the dizziness, like vertigo. And then the sore throat, um, since yesterday.\nProvider: Okay. And the dizziness, is it constant or is it like episodic?\nPatient: Yeah, it's just occasional.\nProvider: Okay.\nPatient: It's not, I can't figure out if it's triggered by anything. Um, it's not like, and it's brief, but it feels like, you know when you're in an elevator and everything just like goes down, that's what it feels like. So.\nProvider: Okay. Um, but no fever, cough, congestion, anything like that?\nPatient: Cough, not really. It's just like, like it's painful. It's like too painful to cough.\nProvider: Okay. Um, and the sore throat just started yesterday.\nPatient: Yeah.\nProvider: Okay. Um, and things that you've tried, DayQuil, anything else?\nPatient: I just took DayQuil this morning. Took some cough drops, that's all.\nProvider: Okay. Where'd you go for your honeymoon?\nPatient: <place>.\nProvider: Oh my gosh, wow.\nPatient: Yes, it was, it was good. It was a stressful time getting back, so.\nProvider: Wait, how come?\nPatient: There was a hurricane.\nProvider: Oh, yeah, I forgot about that.\nPatient: Yeah, that's all I know.\nProvider: Are you having any hearing changes?\nPatient: No, not really.\nProvider: No hearing loss?\nPatient: No, I can't say so.\nProvider: And ear pain?\nPatient: It's not like pain. It just kind of feels a little different. Like I can tell that my right ear feels different than my left ear. Um, that's all.\nProvider: Okay.\nPatient: Okay.\nProvider: Okay, say ah.\nPatient: Ah.\nProvider: Okay. Like I get tonsil stones, I don't know. I was like poking at it. I think I cut myself. It's not bad normal by any means. But it's just like I've never felt it so swollen and like this neck feels just like like and it looks like you can see drainage in the back of my throat. So.\nProvider: Okay. Like, what do you mean you cut yourself?\nPatient: So like I have these tonsil stones, so it's like if I poke my tonsil like and get them out so I'm not like coughing on them. Oh. So I feel like that might have like cut it. So I don't know if it's like a bacterial infection or something in my tonsils, but like you can see it's like an ulcer on my tonsil.\nProvider: Yeah, I can definitely see some.\nPatient: Like, open your mouth again.\nProvider: Say ah.\nPatient: Ah.\nProvider: Um, I mean, definitely looks red and I can see some like ulcers back there, so that could be what's causing the pain.\nPatient: Okay.\nProvider: Um, so we did do the strep test, it came back negative.\nPatient: Okay.\nProvider: So, probably not bacterial. It's probably just a viral.\nPatient: Okay.\nProvider: Um, but still painful.\nPatient: Yeah.\nProvider: So, I can prescribe you like a viscous lidocaine that you can gargle and spit out to kind of help with the pain.\nPatient: Okay.\nProvider: Um, and then as far as the dizziness, um, so without hearing loss and like, you know, intermittent or every once in a while, um, it could be an inner ear problem. The most common is um, BPPV.\nPatient: Okay.\nProvider: So, there's like a head maneuver that you can try to help with that. I've never done it. I'm like, I can go like into it and you can try it in the office.\nPatient: Yeah, I'll do it.\nProvider: You want to try it? See if it maybe helps.\nPatient: Yeah.\nProvider: So, yeah, it's like I it doesn't if you think it's not I'm more concerned about the ear thing than anything. And so if it's not like an active ear infection, you think it's an inner ear infection, then whatever you could do, I'm all for trying it.\nPatient: Okay.\nProvider: Okay. And then I think also what would be helpful is like um, decongestants or kind of to help with the drainage because that can kind of cause a pressure feeling in the ears as well.\nPatient: Okay.\nProvider: So, I can send something in for that too.\nPatient: Okay. What if you want to try the B whatever the heck thing?\nProvider: Oh, the maneuver? Okay, let me go look it up really quick and I'll be right back.",
+  "gold": {
+    "historyOfPresentIllness": "The patient is a 24-year-old female presenting with intermittent vertigo since <date> following air travel, and a severe sore throat with throat drainage and tonsillar ulcers that began yesterday. She reports a sensation of fullness in the right ear but denies hearing loss, fever, or significant congestion. Pt has attempted auto-insufflation with little relief.",
+    "additionalInformation": "present w/ ST, R ear pain, and dizziness.Denise fever, headache,congestion, and cough.",
+    "reviewOfSystems": {
+      "observations": [
+        {
+          "field": "ros-respiratory-cough-denies",
+          "label": "Cough",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "Cough, not really"
+        },
+        {
+          "field": "ros-heme-swollen-nodes-denies",
+          "label": "Swollen lymph nodes",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-ent-hoarseness-denies",
+          "label": "Hoarseness",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-msk-muscle-aches-denies",
+          "label": "Muscle aches/myalgia",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-ent-post-nasal-drip-reports",
+          "label": "Post-nasal drip",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "throat drainage... you can see drainage in the back of my throat"
+        },
+        {
+          "field": "ros-neuro-headache-denies",
+          "label": "Headache",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-ent-ear-pain-denies",
+          "label": "Ear pain",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "It's not like pain"
+        },
+        {
+          "field": "ros-ent-ear-drainage-denies",
+          "label": "Ear drainage",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-ent-difficulty-swallowing-denies",
+          "label": "Difficulty swallowing",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-constitutional-fever-denies",
+          "label": "Fever",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "no fever, cough, congestion, anything like that?"
+        },
+        {
+          "field": "ros-ent-ear-fullness-reports",
+          "label": "Ear fullness",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "cause a pressure feeling in the ears as well"
+        },
+        {
+          "field": "ros-gi-nausea-denies",
+          "label": "Nausea",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-gi-vomiting-denies",
+          "label": "Vomiting",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-constitutional-chills-denies",
+          "label": "Chills",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-neuro-syncope-denies",
+          "label": "Syncope/near-syncope",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-respiratory-shortness-of-breath-denies",
+          "label": "Shortness of breath",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-constitutional-night-sweats-denies",
+          "label": "Night sweats",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-neuro-dizziness-reports",
+          "label": "Dizziness/vertigo",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "experiencing dizziness... vertigo"
+        },
+        {
+          "field": "ros-ent-hearing-loss-denies",
+          "label": "Hearing loss",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "No hearing loss?... No, I can't say so"
+        },
+        {
+          "field": "ros-ent-tinnitus-denies",
+          "label": "Tinnitus",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-ent-sore-throat-reports",
+          "label": "Sore throat",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "worst sore throat"
+        }
+      ]
+    },
+    "exam": [
+      {
+        "field": "good-air-movement-throughout-lung-fields",
+        "label": "Good air movement throughout lung fields",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "normal-mental-status",
+        "label": "Normal mental status",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "no-generalized-lymphadenopathy",
+        "label": "No generalized lymphadenopathy",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "no-chest-wall-tenderness",
+        "label": "No chest wall tenderness",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "well-hydrated",
+        "label": "Well-hydrated",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "erythematous-pharynx",
+        "label": "Erythematous pharynx",
+        "present": true,
+        "voiced": true,
+        "voicedEvidence": "definitely looks red"
+      },
+      {
+        "field": "normal-dentition",
+        "label": "Normal dentition",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "chest-is-clear-to-auscultation-bilaterally",
+        "label": "Chest is clear to auscultation bilaterally",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "nasal-mucosa-normal",
+        "label": "Nasal mucosa normal",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "uvula-midline",
+        "label": "Uvula midline",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "in-no-acute-distress",
+        "label": "In no acute distress",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "normal-tone",
+        "label": "Normal tone",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "oriented-x-3",
+        "label": "Oriented x 3",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "tongue-midline",
+        "label": "Tongue midline",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "normal-affect-calm-cooperative",
+        "label": "Normal affect; calm/cooperative",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "active",
+        "label": "Active",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "vesicles-or-shallow-ulcers-on-the-palate-posterior-oropharynx",
+        "label": "Vesicles or shallow ulcers on the palate/ posterior oropharynx",
+        "present": true,
+        "voiced": true,
+        "voicedEvidence": "I can see some like ulcers back there"
+      },
+      {
+        "field": "no-signs-of-respiratory-distress",
+        "label": "No signs of respiratory distress",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "atraumatic",
+        "label": "Atraumatic",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "moist-mucous-membranes",
+        "label": "Moist mucous membranes",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "alert",
+        "label": "Alert",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "normocephalic",
+        "label": "Normocephalic",
+        "present": true,
+        "voiced": false
+      }
+    ],
+    "assessment": {
+      "diagnoses": [
+        {
+          "system": "ICD-10-CM",
+          "code": "J02.9",
+          "codeNormalized": "J029",
+          "display": "Acute pharyngitis, unspecified",
+          "primary": true,
+          "fromLabOrder": false,
+          "voiced": true,
+          "voicedEvidence": "worst sore throat... looks red, ulcers, probably just a viral"
+        },
+        {
+          "system": "ICD-10-CM",
+          "code": "R42",
+          "codeNormalized": "R42",
+          "display": "Dizziness and giddiness",
+          "primary": false,
+          "fromLabOrder": false,
+          "voiced": true,
+          "voicedEvidence": "experiencing dizziness... vertigo"
+        },
+        {
+          "system": "ICD-10-CM",
+          "code": "H69.91",
+          "codeNormalized": "H6991",
+          "display": "Unspecified Eustachian tube disorder, right ear",
+          "primary": false,
+          "fromLabOrder": false,
+          "voiced": true,
+          "voicedEvidence": "my right ear feels different than my left ear"
+        }
+      ]
+    },
+    "billing": {
+      "emCode": {
+        "system": "CPT",
+        "code": "99204",
+        "codeNormalized": "99204",
+        "display": "99204 New Patient - E/M Level 4"
+      },
+      "cptCodes": [
+        {
+          "system": "CPT",
+          "code": "87880",
+          "codeNormalized": "87880",
+          "display": "Detection test by immunoassay with direct visual observation for Streptococcus, group A (strep)",
+          "voiced": true,
+          "voicedEvidence": "we did do the strep test, it came back negative"
+        }
+      ]
+    },
+    "medications": {
+      "prescribed": [
+        {
+          "name": "Pseudoephedrine HCl Oral Tablet 60 MG",
+          "sig": "Take 1 tablet orally, every 4 to 6 hours for 5 days.",
+          "status": "completed",
+          "voiced": true,
+          "voicedEvidence": "decongestants... to help with the drainage",
+          "nameVoiced": false
+        },
+        {
+          "name": "Fluticasone Propionate Nasal Suspension 50 MCG/ACT",
+          "sig": "Administer 2 sprays in each nostril once daily",
+          "status": "completed",
+          "voiced": false,
+          "nameVoiced": false
+        },
+        {
+          "name": "Lidocaine Viscous HCl Mouth/Throat Solution 2 %",
+          "sig": "Swish and gargle 15 mL for up to 1 minute, then spit out or swallow; every 3 hours as needed for throat pain; maximum 8 doses/24 hours",
+          "status": "completed",
+          "voiced": true,
+          "voicedEvidence": "prescribe you like a viscous lidocaine that you can gargle",
+          "nameVoiced": true
+        }
+      ],
+      "inHouseAdministered": [],
+      "immunizations": [],
+      "currentReconciled": []
+    },
+    "allergies": [],
+    "medicalHistory": [],
+    "surgicalHistory": [],
+    "hospitalizations": [],
+    "procedures": [],
+    "labs": {
+      "external": {
+        "resultsPending": [],
+        "labOrderResults": []
+      },
+      "inHouse": {
+        "resultsPending": [],
+        "reflexTestsPending": [],
+        "labOrderResults": [
+          {
+            "name": "Rapid Strep",
+            "resultValues": ["Rapid Strep: Not detected"]
+          }
+        ]
+      }
+    },
+    "radiology": [],
+    "vitals": [
+      {
+        "field": "vital-bmi",
+        "context": true,
+        "value": 19.4
+      },
+      {
+        "field": "vital-height",
+        "context": true,
+        "value": 167.64
+      },
+      {
+        "field": "vital-weight",
+        "context": true,
+        "value": 54.43
+      },
+      {
+        "field": "vital-oxygen-sat",
+        "context": true,
+        "value": 99,
+        "method": "On room air"
+      },
+      {
+        "field": "vital-blood-pressure",
+        "context": true,
+        "systolic": 118,
+        "diastolic": 75,
+        "method": "Sitting"
+      },
+      {
+        "field": "vital-respiration-rate",
+        "context": true,
+        "value": 16
+      },
+      {
+        "field": "vital-heartbeat",
+        "context": true,
+        "value": 88,
+        "method": "Sitting"
+      },
+      {
+        "field": "vital-temperature",
+        "context": true,
+        "value": 36.5,
+        "method": "Temporal"
+      }
+    ],
+    "medicalDecisionMaking": "Rapid strep test negative. Presentation is most consistent with a probable viral pharyngitis. Discussed the likely viral etiology and self-limited course with the patient. Recommended symptomatic management with viscous lidocaine for throat discomfort and an intranasal corticosteroid to address post-nasal drip. Return precautions reviewed for worsening odynophagia, difficulty swallowing/breathing, drooling, high fever, or persistent symptoms.\n\nPatient also reports episodic dizziness without hearing loss, with individual episodes lasting a few minutes. Neurologic exam within normal limits, without focal deficits. Differential discussed with the patient, including benign paroxysmal positional vertigo (BPPV), eustachian tube dysfunction, and orthostatic hypotension; associated ear pressure raises suspicion for a eustachian tube/barotrauma-related component. A short course of pseudoephedrine was recommended to help with ear pressure and associated symptoms.\n\n Reviewed diagnosis, expected course, treatment plan, and reasons to seek urgent and/or emergent care.  Discharge instructions reviewed.",
+    "disposition": {
+      "type": "pcp-no-type",
+      "note": "Please see your Primary Care Physician.",
+      "followUp": [],
+      "dispositionVoiced": false
+    },
+    "instructions": []
+  }
+}

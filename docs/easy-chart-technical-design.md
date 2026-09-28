@@ -856,11 +856,35 @@ provider never made.
 
 ## 13. How this is measured
 
-Three tiers ([`tools/easy-chart-eval/`](../tools/easy-chart-eval/)):
+Four tiers ([`tools/easy-chart-eval/`](../tools/easy-chart-eval/) and [`scripts/tests/`](../scripts/tests/)):
 
 1. **CI fixtures** — no model. Guards, matchers, schema, prompt pins.
 2. **20 synthetic dictations** against the live endpoint, deterministic rules only.
 3. **191 harvested production cases** with clinician-charted gold. PHI: gitignored, never committed.
+4. **Ten acceptance cases** — [`test-autochart-plan.ts`](../scripts/tests/test-autochart-plan.ts) and
+   [`test-autochart-narrative.ts`](../scripts/tests/test-autochart-narrative.ts), the same shape as the
+   nightly AI accuracy suites beside them (`--env local --json-out`, one `{suite, timestamp, passed, total}`
+   card each on the AI accuracy dashboard). The cases are ten of the best-voiced harvested recordings, sent
+   as they are: each is one file, `scripts/tests/autochart-cases/<id>.json` — the transcript, the signed
+   chart and the patient status copied from the corpus case it names, plus what a person adds after
+   reading it (the format: `autochart-case-file.ts`; the fields: the README beside the cases);
+   `autochart-corpus.ts` derives the rest from the signed chart at run time. Every expectation carries a
+   tag — **voiced** (in the
+   chart and on the recording), **said** (on the recording, never charted: an announced drug, a described
+   surgery, the advice given), **unvoiced** (in the chart, never said: mostly template normals) and
+   **context** (entered outside the recording: vitals, intake history). The headline number counts voiced
+   and said items charted (recall), coded actions the chart does not have (`extra`: precision, automatic —
+   there is no hand-written list of forbidden items), the provider-edit rule and the two invariants;
+   unvoiced and context are reported beside it, since a scribe cannot chart what was not said and templates
+   are deliberately not measured. Gold items the recording contradicts are dropped and listed
+   (`goldErrors`); `--dump-expectations` prints what each case expects. `autochart-select-cases.ts` ranks
+   the corpus by how well chart and recording agree and how whole the recording is, and `--corpus all|top:N`
+   runs either suite straight from the corpus. The plan suite scores the endpoint's actions after the guards, with the typed-narrative and
+   `providerEdits` paths reported beside the recording path and `--repeat N` folding runs, since the model
+   is not deterministic; the narrative suite scores fact coverage, forbidden facts, the backed share and a
+   Gemini judge for distortions. The unit of the score is a check, not a case, so the line on the dashboard
+   reads as coverage. The methodology — how each hand-written section was composed, where it is consumed,
+   how it scores — is [`scripts/tests/autochart-tests.md`](../scripts/tests/autochart-tests.md).
 
 The harvested runner sends a transcript to the real endpoint, executes the plan through the **real
 executor**, folds the outcomes into a comparable state, then runs the **review pass** and folds that in
@@ -869,8 +893,9 @@ only the note after review, so a score over the plan alone measures an intermedi
 
 Two properties worth knowing:
 
-- **the planner is deterministic** — 20/20 identical plans across runs on an unchanged prompt, token counts
-  identical to the digit. Any delta is attributable to a change, not to noise;
+- **the planner is not deterministic with thinking on** — no two repeat runs of the harvested set produce
+  identical score files (F1 moves by about ±0.01 between repeats, see the eval README). A small delta needs a
+  repeated pair before it means anything; the acceptance suites are sampled once a night for the same reason;
 - **`voiced: false` gold items leave the recall denominator.** Structured exam normals and ROS negatives the
   provider clicked silently are in neither the transcript nor the pre-visit chart — 430 of 501 ROS items in
   one 20-case slice. Counting them as misses measures the corpus, not the model.
@@ -884,16 +909,16 @@ what to fix.
 
 ## 14. Known gaps
 
-| gap                        | status                                                                                                                                  |
-| -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| ambient-scribe transcripts | `aiChat` is fetched; nothing reads the transcript documents. No polling, no chips, no insert-into-composer                              |
-| prompt caching             | 0 cache reads measured on an 8 200-token static prefix                                                                                  |
+| gap                        | status                                                                                                                                                               |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ambient-scribe transcripts | `aiChat` is fetched; nothing reads the transcript documents. No polling, no chips, no insert-into-composer                                                           |
+| prompt caching             | 0 cache reads measured on an 8 200-token static prefix                                                                                                               |
 | plan latency               | one visit-note read per request (every section in one wave of batches). The precompute path — plan cached on the transcript DocumentReference — was not carried over |
-| `meta.patientStatus`       | absent on 128 of 191 harvested cases, so the E&M family is unmeasurable on that third. The backfill script needs production credentials |
-| CPT selection              | 2 correct out of 27 across two slices. The weakest section, never yet worked on                                                         |
-| exam catalogue scoring     | "2 cm linear laceration" auto-picked `skin-bite-sting`                                                                                  |
-| over-specification         | a code asserting a side the narrative never mentions is not refused. `codeLaterality` exists and is wired to nothing                    |
-| free-text quality          | presence is measured, quality is not. The LLM judge is not ported                                                                       |
+| `meta.patientStatus`       | absent on 128 of 191 harvested cases, so the E&M family is unmeasurable on that third. The backfill script needs production credentials                              |
+| CPT selection              | 2 correct out of 27 across two slices. The weakest section, never yet worked on                                                                                      |
+| exam catalogue scoring     | "2 cm linear laceration" auto-picked `skin-bite-sting`                                                                                                               |
+| over-specification         | a code asserting a side the narrative never mentions is not refused. `codeLaterality` exists and is wired to nothing                                                 |
+| free-text quality          | presence is measured, quality is not. The LLM judge is not ported                                                                                                    |
 
 ---
 

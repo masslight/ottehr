@@ -1,0 +1,716 @@
+{
+  "id": "bilateral-otitis-media",
+  "label": "Ear pain and sore throat three weeks after pneumonia (established, 47M)",
+  "sourceCase": "case356",
+  "patient": {
+    "ageYears": 47,
+    "sex": "male"
+  },
+  "patientStatus": "established",
+  "notes": [
+    "Ruled out on the recording: the pneumonia is three weeks past and the lungs sound clear; COVID, flu and strep were only swabbed on the recording (the chart has them negative)."
+  ],
+  "said": [
+    {
+      "kind": "exam",
+      "field": "oropharynx-clear-with-no-erythema-lesions-or-exudate",
+      "note": "\"Throat doesn't look bad\" — a voiced normal the chart did not take."
+    }
+  ],
+  "goldErrors": [],
+  "allowed": [
+    {
+      "kind": "diagnosis",
+      "codePrefix": ["J02", "R05", "H65", "H69", "H92"]
+    }
+  ],
+  "narrativeFacts": [
+    "throat",
+    "\\bears?\\b",
+    "both",
+    "right",
+    "pneumonia",
+    "weeks ago|two weeks|three weeks",
+    "cough",
+    "breath",
+    "clear|sound(s)? good",
+    "sinus",
+    "covid",
+    "flu",
+    "test",
+    "x-?ray"
+  ],
+  "edits": [],
+  "transcript": "Provider: Hello.\nPatient: Nice shirt.\nProvider: Yeah, sure.\nPatient: Like, what the hell is he looking at?\nProvider: All right. So, uh, what hurts the most?\nPatient: My throat.\nProvider: Okay.\nPatient: And my ears. I was here like two or three weeks ago.\nProvider: Mhm.\nPatient: And the other doctor said I had pneumonia.\nProvider: Mhm.\nPatient: She treated me for that. I really never got really 100% better.\nProvider: Mhm.\nPatient: And then this came on like three days ago and it's not getting better, so.\nProvider: Okay. Well, let's get you checked out.\nProvider: Deep breath in and out.\nProvider: Good.\nProvider: All right, just breathe normal.\nProvider: So when you say your pneumonia didn't really completely resolve, what do you mean by that?\nPatient: I don't know. It never got really better. Like, I still had a cough and I still have a cough now.\nProvider: Mhm.\nPatient: It's like I never coughed anything up. I don't know why, but.\nProvider: Okay.\nProvider: And I had a ear infection last time I was here.\nProvider: And today, do both your ears hurt or just one?\nPatient: They both hurt. That one hurts more than this one.\nProvider: Okay.\nProvider: Open up.\nProvider: Any pain in this area?\nPatient: A little tender.\nProvider: On both sides?\nPatient: On the right, on my right side.\nProvider: Over here?\nPatient: Yeah.\nProvider: Okay.\nProvider: And no tenderness back here?\nPatient: No.\nProvider: Good.\nProvider: Any sinus tenderness?\nPatient: No.\nProvider: Good. How about up here?\nPatient: No.\nProvider: Good.\nPatient: Actually, it feels good.\nProvider: All right. And she took x-rays last time?\nPatient: Yes.\nProvider: Okay.\nProvider: Well, did she say your lungs sounded bad?\nPatient: Yeah, she said there was a crackling.\nProvider: Okay. Well, your lungs sound good today.\nPatient: Well, good. I'm breathing better.\nProvider: Mhm.\nPatient: Like when I came here two weeks ago, I could I could barely breathe.\nProvider: Yeah.\nProvider: Um, so sometimes it can take a little while to get over, um, pneumonia, so you can have residual, um, shortness of breath, things like that. Um, your lungs sound nice and clear, though.\nPatient: Oh, good.\nProvider: Um, but yeah, you definitely have some stuff going on in the ears. Um, and we'll take care of that, so.\nPatient: Okay.\nProvider: Um, throat doesn't look bad. So, but, um, what we're going to do is we're going to give you a test. Um, did she test you last time you were here?\nPatient: No.\nProvider: Okay. So,\nPatient: I don't think she tested me for anything, but.\nProvider: Well, just let you know, COVID's on the rise, uh, unfortunately, so we're going to test you for that real quick. Um, and flu, um, and, uh, so, and we'll go from there. All right?\nPatient: Okay.\nProvider: Thanks, that's that.\nPatient: Oh, thank you.",
+  "gold": {
+    "historyOfPresentIllness": "The patient is a 47-year-old male presenting with a persistent cough, PND, and worsening bilateral ear pain for three days. He reports that he has not felt 100% recovered since being treated for pneumonia two to three weeks ago, noting that he still has a cough and previously experienced significant shortness of breath.",
+    "reviewOfSystems": {
+      "observations": [
+        {
+          "field": "ros-gi-bloating-denies",
+          "label": "Bloating",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-gi-vomiting-denies",
+          "label": "Vomiting",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-ent-hearing-loss-denies",
+          "label": "Hearing loss",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-ent-tinnitus-denies",
+          "label": "Tinnitus",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-respiratory-sputum-denies",
+          "label": "Sputum production",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "I never coughed anything up"
+        },
+        {
+          "field": "ros-gi-constipation-denies",
+          "label": "Constipation",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-gi-abdominal-pain-denies",
+          "label": "Abdominal pain",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-msk-limited-rom-denies",
+          "label": "Limited range of motion",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-ent-nasal-congestion-reports",
+          "label": "Nasal congestion",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-ent-sinus-pain-denies",
+          "label": "Sinus pain/pressure",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "Any sinus tenderness? No"
+        },
+        {
+          "field": "ros-ent-ear-drainage-reports",
+          "label": "Ear drainage",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-neuro-headache-denies",
+          "label": "Headache",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-msk-neck-pain-denies",
+          "label": "Neck pain",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-respiratory-chest-tightness-denies",
+          "label": "Chest tightness",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-skin-itching-denies",
+          "label": "Itching/pruritus",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-ent-post-nasal-drip-reports",
+          "label": "Post-nasal drip",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-gi-nausea-denies",
+          "label": "Nausea",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-msk-joint-pain-denies",
+          "label": "Joint pain",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-respiratory-shortness-of-breath-denies",
+          "label": "Shortness of breath",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "I'm breathing better... could barely breathe"
+        },
+        {
+          "field": "ros-ent-ear-fullness-denies",
+          "label": "Ear fullness",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-gi-diarrhea-denies",
+          "label": "Diarrhea",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-constitutional-fever-denies",
+          "label": "Fever",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-respiratory-wheezing-denies",
+          "label": "Wheezing",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-constitutional-chills-denies",
+          "label": "Chills",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-ent-ear-pain-reports",
+          "label": "Ear pain",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "My throat. And my ears"
+        },
+        {
+          "field": "ros-skin-wounds-denies",
+          "label": "Non-healing wounds",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-ent-rhinorrhea-denies",
+          "label": "Rhinorrhea",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-respiratory-cough-denies",
+          "label": "Cough",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "I still had a cough and I still have a cough now"
+        },
+        {
+          "field": "ros-ent-sore-throat-reports",
+          "label": "Sore throat",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "What hurts the most? My throat."
+        },
+        {
+          "field": "ros-msk-muscle-aches-denies",
+          "label": "Muscle aches/myalgia",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-skin-rash-denies",
+          "label": "Rash",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-ent-sneezing-denies",
+          "label": "Sneezing",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-skin-redness-denies",
+          "label": "Redness/erythema",
+          "present": true,
+          "voiced": false
+        }
+      ]
+    },
+    "exam": [
+      {
+        "field": "no-generalized-lymphadenopathy",
+        "label": "No generalized lymphadenopathy",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "no-tenderness-to-palpation",
+        "label": "No tenderness to palpation",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "no-signs-of-respiratory-distress",
+        "label": "No signs of respiratory distress",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "active",
+        "label": "Active",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "normal-mental-status",
+        "label": "Normal mental status",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "no-edema",
+        "label": "No edema",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "normal-appearance-of-neck",
+        "label": "Normal appearance of neck",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "regular-rate-and-rhythm-with-no-murmur",
+        "label": "Regular rate and rhythm with no murmur",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "tms-with-no-hemotympanum",
+        "label": "TMs with no hemotympanum",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "in-no-acute-distress",
+        "label": "In no acute distress",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "oral-comment",
+        "label": "Oral comment",
+        "present": false,
+        "note": "cobblestoning of the posterior pharynx"
+      },
+      {
+        "field": "normal-external-ear",
+        "label": "Normal external ear",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "normal-canals",
+        "label": "Normal canals",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "left-eye-conjunctiva-non-injected-no-discharge",
+        "label": "Left eye - conjunctiva non-injected, no discharge",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "no-cva-tenderness",
+        "label": "No CVA tenderness",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "pupils-equal-round-reactive-to-light-and-accommodation",
+        "label": "Pupils equal, round, reactive to light and accommodation",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "normal-tone",
+        "label": "Normal tone",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "chest-is-clear-to-auscultation-bilaterally",
+        "label": "Chest is clear to auscultation bilaterally",
+        "present": true,
+        "voiced": true,
+        "voicedEvidence": "your lungs sound nice and clear"
+      },
+      {
+        "field": "well-hydrated",
+        "label": "Well-hydrated",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "lids-and-lashes-normal",
+        "label": "Lids and lashes normal",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "right-ear-tm-with-fluid",
+        "label": "TM with fluid",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "no-obvious-injury-or-swelling",
+        "label": "No obvious injury or swelling",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "uvula-midline",
+        "label": "Uvula midline",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "normal-range-of-motion",
+        "label": "Normal range of motion",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "moves-all-extremities-symmetrically",
+        "label": "Moves all extremities symmetrically",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "left-ear-tm-bulging-erythematous",
+        "label": "TM bulging, erythematous",
+        "present": true,
+        "voiced": true,
+        "voicedEvidence": "That one hurts more than this one (left ear worse)"
+      },
+      {
+        "field": "good-air-movement-throughout-lung-fields",
+        "label": "Good air movement throughout lung fields",
+        "present": true,
+        "voiced": true,
+        "voicedEvidence": "your lungs sound nice and clear"
+      },
+      {
+        "field": "oriented-x-3",
+        "label": "Oriented x 3",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "no-rash",
+        "label": "No rash",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "atraumatic",
+        "label": "Atraumatic",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "no-effusion",
+        "label": "No effusion",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "right-ear-tm-bulging-erythematous",
+        "label": "TM bulging, erythematous",
+        "present": true,
+        "voiced": true,
+        "voicedEvidence": "That one hurts more than this one (left ear worse)"
+      },
+      {
+        "field": "right-tm-pearly-with-good-light-reflex-preserved-landmarks",
+        "label": "Right TM pearly with good light reflex, preserved landmarks",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "right-eye-conjunctiva-non-injected-no-discharge",
+        "label": "Right eye - conjunctiva non-injected, no discharge",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "nondistended",
+        "label": "Nondistended",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "normocephalic",
+        "label": "Normocephalic",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "alert",
+        "label": "Alert",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "normal-dentition",
+        "label": "Normal dentition",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "left-tm-pearly-with-good-light-reflex-preserved-landmarks",
+        "label": "Left TM pearly with good light reflex, preserved landmarks",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "tongue-midline",
+        "label": "Tongue midline",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "full-range-of-motion",
+        "label": "Full range of motion",
+        "present": true,
+        "voiced": false
+      }
+    ],
+    "assessment": {
+      "diagnoses": [
+        {
+          "system": "ICD-10-CM",
+          "code": "H66.002",
+          "codeNormalized": "H66002",
+          "display": "Acute suppurative otitis media without spontaneous rupture of ear drum, left ear",
+          "primary": true,
+          "fromLabOrder": false,
+          "voiced": true,
+          "voicedEvidence": "you definitely have some stuff going on in the ears"
+        },
+        {
+          "system": "ICD-10-CM",
+          "code": "H60.512",
+          "codeNormalized": "H60512",
+          "display": "Acute actinic otitis externa, left ear",
+          "primary": false,
+          "fromLabOrder": false,
+          "voiced": false
+        },
+        {
+          "system": "ICD-10-CM",
+          "code": "H65.92",
+          "codeNormalized": "H6592",
+          "display": "Unspecified nonsuppurative otitis media, left ear",
+          "primary": false,
+          "fromLabOrder": false,
+          "voiced": false
+        },
+        {
+          "system": "ICD-10-CM",
+          "code": "H65.194",
+          "codeNormalized": "H65194",
+          "display": "Other acute nonsuppurative otitis media, recurrent, right ear",
+          "primary": false,
+          "fromLabOrder": false,
+          "voiced": true,
+          "voicedEvidence": "That one hurts more than this one; ear infection last time"
+        }
+      ]
+    },
+    "billing": {
+      "emCode": {
+        "system": "CPT",
+        "code": "99204",
+        "codeNormalized": "99204",
+        "display": "99204 New Patient - E/M Level 4"
+      },
+      "cptCodes": [
+        {
+          "system": "CPT",
+          "code": "87880",
+          "codeNormalized": "87880",
+          "display": "Detection test by immunoassay with direct visual observation for Streptococcus, group A (strep)",
+          "voiced": false
+        },
+        {
+          "system": "CPT",
+          "code": "87811",
+          "codeNormalized": "87811",
+          "display": "Detection test by immunoassay with direct visual observation for severe acute respiratory syndrome coronavirus 2 (COVID-19)",
+          "voiced": true,
+          "voicedEvidence": "we're going to test you for that... COVID's on the rise"
+        },
+        {
+          "system": "CPT",
+          "code": "87804",
+          "codeNormalized": "87804",
+          "display": "Detection test by immunoassay with direct visual observation for influenza virus",
+          "modifiers": [
+            {
+              "code": "59",
+              "display": "59"
+            },
+            {
+              "code": "QW",
+              "display": "QW"
+            }
+          ],
+          "voiced": true,
+          "voicedEvidence": "and flu, um, and, uh, so"
+        }
+      ]
+    },
+    "medications": {
+      "prescribed": [
+        {
+          "name": "Amoxicillin-Pot Clavulanate Oral Tablet 875-125 MG",
+          "sig": "Take one tablet twice daily with fod.",
+          "status": "completed",
+          "voiced": false,
+          "nameVoiced": false
+        }
+      ],
+      "inHouseAdministered": [],
+      "immunizations": [],
+      "currentReconciled": []
+    },
+    "allergies": [],
+    "medicalHistory": [],
+    "surgicalHistory": [
+      {
+        "system": "CPT",
+        "code": "29850",
+        "codeNormalized": "29850",
+        "display": "Knee Surgery"
+      },
+      {
+        "system": "CPT",
+        "code": "43520",
+        "codeNormalized": "43520",
+        "display": "Sinus surgery"
+      }
+    ],
+    "hospitalizations": [],
+    "procedures": [],
+    "labs": {
+      "external": {
+        "resultsPending": [],
+        "labOrderResults": []
+      },
+      "inHouse": {
+        "resultsPending": [],
+        "reflexTestsPending": [],
+        "labOrderResults": [
+          {
+            "name": "Rapid COVID-19 Antigen",
+            "resultValues": ["Rapid COVID-19 Antigen: Not detected"]
+          },
+          {
+            "name": "Rapid Influenza",
+            "resultValues": ["Flu B: Not Detected", "Flu A: Not detected"]
+          },
+          {
+            "name": "Rapid Strep",
+            "resultValues": ["Rapid Strep: Not detected"]
+          }
+        ]
+      }
+    },
+    "radiology": [],
+    "vitals": [
+      {
+        "field": "vital-bmi",
+        "context": true,
+        "value": 28.9
+      },
+      {
+        "field": "vital-height",
+        "context": true,
+        "value": 187.96
+      },
+      {
+        "field": "vital-weight",
+        "context": true,
+        "value": 102.06
+      },
+      {
+        "field": "vital-oxygen-sat",
+        "context": true,
+        "value": 100,
+        "method": "On room air"
+      },
+      {
+        "field": "vital-blood-pressure",
+        "context": true,
+        "systolic": 126,
+        "diastolic": 79,
+        "method": "Sitting"
+      },
+      {
+        "field": "vital-respiration-rate",
+        "context": true,
+        "value": 16
+      },
+      {
+        "field": "vital-heartbeat",
+        "context": true,
+        "value": 89,
+        "method": "Sitting"
+      },
+      {
+        "field": "vital-temperature",
+        "context": true,
+        "value": 36.667,
+        "method": "Temporal"
+      }
+    ],
+    "medicalDecisionMaking": "Differential Diagnoses Considered: Acute Otitis Media (AOM), Otitis Externa (OE), Otitis Media with Effusion (OME), TM Perforation, Mastoiditis, Referred Dental Pain.\n\nReviewed diagnosis, expected course, treatment plan, and reasons to seek urgent and/or emergent care.  Discharge instructions reviewed.  Patient/Caregiver expressed understanding.  All questions were answered, and is comfortable with discharge plan.  ER Precautions given.",
+    "disposition": {
+      "type": "pcp-no-type",
+      "note": "Please see your Primary Care Physician.",
+      "followUp": [],
+      "dispositionVoiced": false
+    },
+    "instructions": [
+      "ER if Worse",
+      "Return immediately if developing post-ear swelling, severe worsening pain, persistent fever, lethargy, or neurological symptoms."
+    ],
+    "instructionItems": [
+      {
+        "text": "ER if Worse"
+      },
+      {
+        "text": "Return immediately if developing post-ear swelling, severe worsening pain, persistent fever, lethargy, or neurological symptoms."
+      }
+    ]
+  }
+}

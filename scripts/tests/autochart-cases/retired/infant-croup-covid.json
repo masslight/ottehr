@@ -1,0 +1,734 @@
+{
+  "id": "infant-croup-covid",
+  "label": "Barking cough, fever and eye discharge in an infant (new, 10-month-old)",
+  "sourceCase": "case166",
+  "patient": {
+    "ageMonths": 10,
+    "sex": "male"
+  },
+  "patientStatus": "new",
+  "notes": [
+    "Ruled out on the recording: no conjunctivitis today; RSV and flu only swabbed on the recording (negative in the chart); the erythromycin ointment was two months ago."
+  ],
+  "said": [
+    {
+      "kind": "condition",
+      "name": "conjunctivitis|pink eye",
+      "note": "Two months ago, treated with erythromycin ointment."
+    },
+    {
+      "kind": "instruction",
+      "text": "humidif"
+    },
+    {
+      "kind": "instruction",
+      "text": "saline|towel|wash"
+    },
+    {
+      "kind": "instruction",
+      "text": "tylenol|motrin|acetaminophen|ibuprofen|rotate"
+    }
+  ],
+  "goldErrors": [],
+  "allowed": [
+    {
+      "kind": "diagnosis",
+      "codePrefix": ["R50", "R05", "J06", "B34"]
+    },
+    {
+      "kind": "medication",
+      "name": "tylenol|acetaminophen|motrin|ibuprofen|zyrtec|cetirizine"
+    }
+  ],
+  "narrativeFacts": [
+    "barking",
+    "fever",
+    "wednesday",
+    "congest",
+    "\\beyes?\\b",
+    "crust|gunk|discharge",
+    "rash",
+    "viral",
+    "steroid",
+    "humidif",
+    "tylenol|acetaminophen",
+    "motrin|ibuprofen",
+    "covid",
+    "flu",
+    "rsv",
+    "bottle|feed|eat",
+    "wet diaper|diaper",
+    "conjunctivitis|pink eye|erythromycin"
+  ],
+  "edits": [],
+  "transcript": "Provider: That's a good age.\nPatient: These are my favorite.\nProvider: Yeah, I came out with those.\nPatient: I bet you did.\nProvider: So he's had the barking cough, fever, congestion, and then now he has the eye discharge.\nPatient: When did the fever start?\nProvider: The more Wednesday morning. I checked his fever around like 9:30 cuz whenever he woke up, he was really hot to the touch, bright red cheeks.\nPatient: You're a big boy, aren't you?\nProvider: All right. Let me see. And then the eye gunk started yesterday. He woke up.\nPatient: You're a big boy.\nProvider: And his eyes were Just in the morning when he wakes up crusty.\nProvider: No, throughout the day whenever he blinks, it like forms in the corners.\nPatient: Let's go.\nProvider: Hi, you. You want to come here again? Oh, my goodness. Runny nose.\nPatient: Yeah, runny nose, fever, congestion, the barking cough.\nProvider: Congestion. But he's been eating fine.\nPatient: You're a big boy.\nProvider: I mean, at night, he struggles to eat his bottles and to breastfeed.\nPatient: Yeah, but I've been um I started doing Baby Vicks on him and then humidifier in the room and then before we go to bed at night, we do sit in the bathroom with a hot steamy shower cuz that's the best I got.\nProvider: Yeah.\nProvider: I love that you're dancing.\nPatient: Let's see.\nProvider: Hi.\nPatient: Ah.\nProvider: It's 20 toys ago.\nProvider: He's not a lazy boy, but I guess.\nProvider: Lazy boy.\nPatient: He's a lazy boy.\nProvider: It doesn't sound that actually.\nProvider: Okay.\nProvider: I know, I know. I'm Okay, okay, come here, come here.\nProvider: He's like, get away from me.\nProvider: Any rash?\nPatient: Nope.\nProvider: What?\nProvider: It's probably a little viral from all the things.\nPatient: Okay.\nProvider: So I'm not concerned cuz he doesn't have any like pink in the eyes. There's nothing else like it's not like um seeing of like viral conjunctivitis or bacterial.\nProvider: Yeah, he had um he had conjunctivitis not that long ago. Like I think two months ago he was prescribed the erythromycin or however you pronounce it, the ointment.\nProvider: Red eyes though at that point.\nProvider: Yeah.\nProvider: Yeah. I mean, yesterday his eyes on the inside were red and then everything around it was red and puffy.\nProvider: But They look good today.\nProvider: This morning he woke up a little bit better. I mean, this one's still a little puffy, but So whatever you're doing is probably working. I would say you could do like a mild eye drop, like a saline drop, just to like wash them out.\nProvider: Okay.\nProvider: But I would do just a warm towel in the morning, put it on the eye and then clean it off so it comes off easier.\nProvider: Okay.\nProvider: Um that's less abrasive than, you know, trying to Okay. Anything we can do to help with the cough cuz he does not sleep.\nProvider: I'm going to give him I'm going to give him steroids.\nProvider: Okay.\nProvider: They taste disgusting. Yay.\nProvider: So we'll do a little steroid, that'll help with the croup, and then humidify the air in the room. That kind of helps things. He doesn't have Yeah, I have a humidifier right by his crib.\nProvider: Perfect. That's probably been helping. Tylenol around the clock, Tylenol and Motrin.\nProvider: Yep.\nProvider: And you can rotate between the two.\nProvider: Yeah, we've been doing both of those.\nProvider: And then what else? This is really just kind of monitoring symptoms, keeping the fever in check. They'll spike the fever at nighttime.\nProvider: Yes, that's yeah.\nProvider: Um so just kind of keeping him medicated to help him.\nProvider: Okay.\nProvider: Um until it blows over. It's most likely viral.\nProvider: Okay.\nProvider: Um we'll test him just to be safe. Yeah. You want to be tested? Nobody wants to be tested.\nProvider: We'll test him for um COVID, flu, and RSV.\nProvider: Okay.\nProvider: Cuz the concern would be RSV.\nProvider: But he's acting really well. He looks good, so I'm not like super concerned that it's something like that, but there's always that chance.\nProvider: Yeah.\nProvider: But we'll just keep an eye on him.\nProvider: Awesome.\nProvider: Well, we're going to wipe your nose with some sticks.\nProvider: I know.\nProvider: You're not going to like it.\nProvider: I know.\nProvider: You're happy right now.\nProvider: Yeah.\nProvider: Yeah.\nProvider: But he's eating the he's eating normal amount of bottles.\nProvider: Yes.\nProvider: And he's eating breakfast, lunch, and dinner like normal, his bottles.\nProvider: Having normal wet diapers.\nProvider: His head feels normal. He's got like it's not.\nProvider: So we're not dehydrated. Yeah. We look good.\nProvider: So that would be my suggestion. We'll just test, make sure it's not RSV, and then if is the other one sick?\nProvider: I mean, as of today, he started having a cough.\nProvider: Okay.\nProvider: But he also has really bad allergies.\nProvider: Oh.\nProvider: So I've seen a few people this morning with like really bad allergies.\nProvider: Yeah, so I don't know if something's blooming. I haven't looked.\nProvider: There it is.\nProvider: Come on out.\nProvider: Thanks, and now I'm not going to cough on you.\nProvider: Um but I'll give him a little steroid that'll help kind of.\nProvider: Okay.\nProvider: Yay. See, when we make our trip in two days, you'll be all better.\nProvider: Cuz driving all the way to <state> with a sick infant wasn't my plan.\nProvider: Yeah, I know. I probably wouldn't want to do that either.\nProvider: On the list of things to do.",
+  "gold": {
+    "historyOfPresentIllness": "The patient is an infant presenting with a barking cough, fever starting Wednesday morning, congestion, and eye discharge that crusts in the corners. The patient has difficulty feeding at night due to congestion but maintains normal intake and hydration status. The provider suspects a viral illness, possibly croup, and notes the absence of current conjunctivitis. MOC reports the patient has had fevers up to 103.2 degrees.",
+    "reviewOfSystems": {
+      "observations": [
+        {
+          "field": "ros-skin-redness-denies",
+          "label": "Redness/erythema",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-gu-dysuria-denies",
+          "label": "Dysuria",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-constitutional-fever-reports",
+          "label": "Fever",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "fever, congestion, the barking cough"
+        },
+        {
+          "field": "ros-ent-sneezing-denies",
+          "label": "Sneezing",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-constitutional-fatigue-denies",
+          "label": "Fatigue",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-ent-rhinorrhea-reports",
+          "label": "Rhinorrhea",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "Runny nose"
+        },
+        {
+          "field": "ros-gi-constipation-denies",
+          "label": "Constipation",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-constitutional-weight-change-denies",
+          "label": "Weight loss/gain",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-ent-post-nasal-drip-denies",
+          "label": "Post-nasal drip",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-ent-difficulty-swallowing-denies",
+          "label": "Difficulty swallowing",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-respiratory-shortness-of-breath-denies",
+          "label": "Shortness of breath",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-allergy-seasonal-reports",
+          "label": "Seasonal allergies",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "he also has really bad allergies"
+        },
+        {
+          "field": "ros-gi-bowel-changes-denies",
+          "label": "Changes in bowel habits",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-ent-sore-throat-denies",
+          "label": "Sore throat",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-ent-ear-pain-denies",
+          "label": "Ear pain",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-gi-nausea-denies",
+          "label": "Nausea",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-skin-itching-denies",
+          "label": "Itching/pruritus",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-ent-ear-drainage-denies",
+          "label": "Ear drainage",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-neuro-headache-denies",
+          "label": "Headache",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-eyes-eye-pain-denies",
+          "label": "Eye pain",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-gi-abdominal-pain-denies",
+          "label": "Abdominal pain",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-gi-vomiting-denies",
+          "label": "Vomiting",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-ent-nasal-congestion-reports",
+          "label": "Nasal congestion",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "fever, congestion, the barking cough"
+        },
+        {
+          "field": "ros-constitutional-night-sweats-denies",
+          "label": "Night sweats",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-eyes-discharge-reports",
+          "label": "Discharge",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "the eye discharge"
+        },
+        {
+          "field": "ros-respiratory-cough-reports",
+          "label": "Cough",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "barking cough"
+        },
+        {
+          "field": "ros-eyes-redness-denies",
+          "label": "Redness",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-constitutional-chills-denies",
+          "label": "Chills",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-skin-rash-denies",
+          "label": "Rash",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "Any rash? Nope"
+        },
+        {
+          "field": "ros-respiratory-wheezing-denies",
+          "label": "Wheezing",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-gi-diarrhea-denies",
+          "label": "Diarrhea",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-eyes-itching-denies",
+          "label": "Itching",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-ent-sinus-pain-denies",
+          "label": "Sinus pain/pressure",
+          "present": true,
+          "voiced": false
+        }
+      ]
+    },
+    "exam": [
+      {
+        "field": "normal-external-ear",
+        "label": "Normal external ear",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "regular-rate-and-rhythm-with-no-murmur",
+        "label": "Regular rate and rhythm with no murmur",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "extremities-are-warm-and-well-perfused",
+        "label": "Extremities are warm and well perfused",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "no-edema",
+        "label": "No edema",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "nontender",
+        "label": "Nontender",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "soft",
+        "label": "Soft",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "normal-tone",
+        "label": "Normal tone",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "normal-appearance-of-neck",
+        "label": "Normal appearance of neck",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "capillary-refill-less-than-2-seconds",
+        "label": "Capillary refill <2 seconds",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "pupils-equal-round-reactive-to-light-and-accommodation",
+        "label": "Pupils equal, round, reactive to light and accommodation",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "alert",
+        "label": "Alert",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "moist-mucous-membranes",
+        "label": "Moist mucous membranes",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "no-effusion",
+        "label": "No effusion",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "good-air-movement-throughout-lung-fields",
+        "label": "Good air movement throughout lung fields",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "left-tm-pearly-with-good-light-reflex-preserved-landmarks",
+        "label": "Left TM pearly with good light reflex, preserved landmarks",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "nondistended",
+        "label": "Nondistended",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "well-hydrated",
+        "label": "Well-hydrated",
+        "present": true,
+        "voiced": true,
+        "voicedEvidence": "so we're not dehydrated. We look good"
+      },
+      {
+        "field": "normocephalic",
+        "label": "Normocephalic",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "no-signs-of-respiratory-distress",
+        "label": "No signs of respiratory distress",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "normal-bowel-sounds",
+        "label": "Normal Bowel Sounds",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "oriented-x-3",
+        "label": "Oriented x 3",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "active",
+        "label": "Active",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "extremities-warm-and-well-perfused",
+        "label": "Extremities warm and well-perfused",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "right-tm-pearly-with-good-light-reflex-preserved-landmarks",
+        "label": "Right TM pearly with good light reflex, preserved landmarks",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "lids-and-lashes-normal",
+        "label": "Lids and lashes normal",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "no-tenderness-to-palpation",
+        "label": "No tenderness to palpation",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "atraumatic",
+        "label": "Atraumatic",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "no-rash",
+        "label": "No rash",
+        "present": true,
+        "voiced": true,
+        "voicedEvidence": "Any rash? Nope"
+      },
+      {
+        "field": "chest-is-clear-to-auscultation-bilaterally",
+        "label": "Chest is clear to auscultation bilaterally",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "normal-canals",
+        "label": "Normal canals",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "normal-affect-calm-cooperative",
+        "label": "Normal affect; calm/cooperative",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "normal-mental-status",
+        "label": "Normal mental status",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "moves-all-extremities-symmetrically",
+        "label": "Moves all extremities symmetrically",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "in-no-acute-distress",
+        "label": "In no acute distress",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "no-chest-wall-tenderness",
+        "label": "No chest wall tenderness",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "congestion-rhinorrhea",
+        "label": "Congestion, rhinorrhea",
+        "present": true,
+        "voiced": true,
+        "voicedEvidence": "Congestion. But he's been eating fine... runny nose"
+      },
+      {
+        "field": "left-eye-conjunctiva-non-injected-no-discharge",
+        "label": "Left eye - conjunctiva non-injected, no discharge",
+        "present": true,
+        "voiced": true,
+        "voicedEvidence": "he doesn't have any pink in the eyes"
+      },
+      {
+        "field": "warm-and-dry",
+        "label": "Warm and dry",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "right-eye-conjunctiva-non-injected-no-discharge",
+        "label": "Right eye - conjunctiva non-injected, no discharge",
+        "present": true,
+        "voiced": true,
+        "voicedEvidence": "he doesn't have any pink in the eyes"
+      },
+      {
+        "field": "no-generalized-lymphadenopathy",
+        "label": "No generalized lymphadenopathy",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "normal-range-of-motion",
+        "label": "Normal range of motion",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "oropharynx-clear-with-no-erythema-lesions-or-exudate",
+        "label": "Oropharynx clear with no erythema, lesions, or exudate",
+        "present": true,
+        "voiced": false
+      }
+    ],
+    "assessment": {
+      "diagnoses": [
+        {
+          "system": "ICD-10-CM",
+          "code": "U07.1",
+          "codeNormalized": "U071",
+          "display": "COVID-19",
+          "primary": true,
+          "fromLabOrder": false,
+          "voiced": true,
+          "voicedEvidence": "we'll test him for COVID, flu, and RSV"
+        },
+        {
+          "system": "ICD-10-CM",
+          "code": "R50.9",
+          "codeNormalized": "R509",
+          "display": "Fever, unspecified",
+          "primary": false,
+          "fromLabOrder": false,
+          "voiced": true,
+          "voicedEvidence": "fever start... he was really hot to the touch"
+        },
+        {
+          "system": "ICD-10-CM",
+          "code": "J05.0",
+          "codeNormalized": "J050",
+          "display": "Acute obstructive laryngitis [croup]",
+          "primary": false,
+          "fromLabOrder": false,
+          "voiced": true,
+          "voicedEvidence": "that'll help with the croup"
+        },
+        {
+          "system": "ICD-10-CM",
+          "code": "R05.9",
+          "codeNormalized": "R059",
+          "display": "Cough, unspecified",
+          "primary": false,
+          "fromLabOrder": false,
+          "voiced": true,
+          "voicedEvidence": "the barking cough"
+        }
+      ]
+    },
+    "billing": {
+      "emCode": {
+        "system": "CPT",
+        "code": "99204",
+        "codeNormalized": "99204",
+        "display": "99204 New Patient - E/M Level 4"
+      },
+      "cptCodes": [
+        {
+          "system": "CPT",
+          "code": "87807",
+          "codeNormalized": "87807",
+          "display": "Detection test by immunoassay with direct visual observation for respiratory syncytial virus",
+          "voiced": true,
+          "voicedEvidence": "we'll test him for COVID, flu, and RSV"
+        },
+        {
+          "system": "CPT",
+          "code": "87811",
+          "codeNormalized": "87811",
+          "display": "Detection test by immunoassay with direct visual observation for severe acute respiratory syndrome coronavirus 2 (COVID-19)",
+          "voiced": true,
+          "voicedEvidence": "we'll test him for COVID, flu, and RSV"
+        },
+        {
+          "system": "CPT",
+          "code": "87804",
+          "codeNormalized": "87804",
+          "display": "Detection test by immunoassay with direct visual observation for influenza virus",
+          "modifiers": [
+            {
+              "code": "QW",
+              "display": "QW"
+            }
+          ],
+          "voiced": true,
+          "voicedEvidence": "we'll test him for COVID, flu, and RSV"
+        }
+      ]
+    },
+    "medications": {
+      "prescribed": [],
+      "inHouseAdministered": [
+        {
+          "name": "Dexamethasone",
+          "ndc": "67457-0420-00",
+          "dose": 5,
+          "units": "mg",
+          "route": "26643006",
+          "status": "administered"
+        }
+      ],
+      "immunizations": [],
+      "currentReconciled": [
+        {
+          "name": "ZyrTEC Childrens Allergy Oral Solution (5 MG/5ML)",
+          "type": "scheduled",
+          "status": "active",
+          "context": true
+        }
+      ]
+    },
+    "allergies": [],
+    "medicalHistory": [
+      {
+        "system": null,
+        "code": "J06.9",
+        "codeNormalized": "J069",
+        "display": "Acute upper respiratory infection, unspecified",
+        "current": true,
+        "context": true
+      },
+      {
+        "system": null,
+        "code": "J40",
+        "codeNormalized": "J40",
+        "display": "Bronchitis, not specified as acute or chronic",
+        "current": true,
+        "context": true
+      }
+    ],
+    "surgicalHistory": [],
+    "hospitalizations": [],
+    "procedures": [],
+    "labs": {
+      "external": {
+        "resultsPending": [],
+        "labOrderResults": []
+      },
+      "inHouse": {
+        "resultsPending": [],
+        "reflexTestsPending": [],
+        "labOrderResults": [
+          {
+            "name": "Rapid RSV",
+            "resultValues": ["Rapid RSV: Not detected"]
+          },
+          {
+            "name": "Rapid Influenza",
+            "resultValues": ["Flu B: Not Detected", "Flu A: Not detected"]
+          },
+          {
+            "name": "Rapid COVID-19 Antigen",
+            "nonNormalResultContained": ["abnormal"],
+            "resultValues": ["Rapid COVID-19 Antigen: Detected"]
+          }
+        ]
+      }
+    },
+    "radiology": [],
+    "vitals": [
+      {
+        "field": "vital-height",
+        "context": true,
+        "value": 70
+      },
+      {
+        "field": "vital-weight",
+        "context": true,
+        "value": 8.53
+      },
+      {
+        "field": "vital-oxygen-sat",
+        "context": true,
+        "value": 99,
+        "method": "On room air"
+      },
+      {
+        "field": "vital-respiration-rate",
+        "context": true,
+        "value": 20
+      },
+      {
+        "field": "vital-heartbeat",
+        "context": true,
+        "value": 136,
+        "method": "Sitting"
+      },
+      {
+        "field": "vital-temperature",
+        "context": true,
+        "value": 36.667,
+        "method": "Temporal"
+      }
+    ],
+    "medicalDecisionMaking": "Reviewed diagnosis, expected course, treatment plan, and reasons to seek urgent and/or emergent care.  Discharge instructions reviewed.  Caregiver expressed understanding.  All questions were answered, and caregiver is comfortable with discharge plan.",
+    "disposition": {
+      "type": "pcp-no-type",
+      "note": "Diagnosis: Croup (barking cough) caused by COVID-19 infection\n\nWhat is Croup?\nYour baby has croup, a condition where a viral infection causes swelling in the airway, leading to a barking cough, hoarse voice, and sometimes noisy breathing (called stridor). Croup symptoms are often worse at night and may last 3–5 days. Because the croup is caused by COVID-19, your baby is contagious and will need to stay home during recovery.\n\nTreatment Given in Clinic Today\nDexamethasone 5 mg by mouth — a single-dose steroid to reduce airway swelling. This is the only dose needed. It begins working within 2 hours and lasts up to 72 hours.\n\nHome Care Instructions\n\nComfort and Breathing:\nKeep your baby calm and comfortable. Crying and agitation can worsen the cough and noisy breathing.\nUse cool mist from a humidifier in the bedroom at night.\nIf the barking cough worsens suddenly at night, take your baby outside into cool night air for 10–15 minutes — this can help reduce airway swelling.\nKeep your baby upright or slightly elevated during sleep if possible.\n\nFever and Pain:\nFor fever or discomfort, give infant acetaminophen (Tylenol) as directed for weight (ask your provider for the correct dose for 8.5 kg).\nDo NOT give ibuprofen (Motrin) to infants under 6 months. At 10 months old, ibuprofen may be used if recommended by your provider.\nDo NOT give aspirin.\n\nFluids and Feeding:\nOffer small, frequent feedings (breast milk, formula, or age-appropriate fluids).\nWatch for signs of dehydration: fewer than 4 wet diapers in 24 hours, no tears when crying, dry mouth, or unusual sleepiness.\n\nCough:\nDo NOT give over-the-counter cough or cold medicines to infants. They are not safe for children under 2 years old.\n\nCOVID-19 Isolation Precautions\nKeep your baby home and away from other children, elderly family members, and anyone with a weakened immune system.\nCaregivers should wash hands frequently, especially before and after touching the baby.\nIsolation should continue for at least 10 days from when symptoms started AND until fever has been gone for at least 24 hours without fever-reducing medicine AND symptoms are improving.\nClean and disinfect frequently touched surfaces daily.\n\nEye Discharge Care\nGently clean any eye discharge with a warm, damp washcloth, wiping from the inner corner outward.\nUse a separate clean cloth for each eye.\nIf the discharge becomes thick, yellow/green, or the eye becomes very red or swollen, call your provider.\n\nWhen to Return to Clinic\nCall your provider if:\nThe barking cough is not improving after 3–5 days\nFever lasts more than 5 days or returns after going away\nYour baby is not drinking fluids or has fewer wet diapers\nSymptoms worsen despite the steroid treatment given today\n\nCall 911 or Go to the Emergency Room Immediately If:\nYour baby has noisy breathing (stridor) while resting or sleeping\nYou see the skin pulling in around the ribs, neck, or breastbone with each breath (retractions)\nYour baby's lips or fingernails turn blue or gray\nYour baby is drooling and unable to swallow\nYour baby becomes very sleepy, limp, or difficult to wake\nYour baby is struggling to breathe or breathing very fast\n\nFollow-Up\nNo routine follow-up is needed if your baby improves as expected.\nCall the clinic if symptoms are not improving within 3–5 days or if you have any concerns.",
+      "followUp": [],
+      "followUpIn": 0,
+      "dispositionVoiced": false
+    },
+    "instructions": []
+  }
+}

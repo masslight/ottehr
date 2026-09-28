@@ -1,0 +1,249 @@
+{
+  "id": "cerumen-impaction-tinnitus",
+  "label": "Bilateral earwax impaction, muffled hearing and imbalance (new, 20F)",
+  "sourceCase": "case339",
+  "patient": {
+    "ageYears": 20,
+    "sex": "female"
+  },
+  "patientStatus": "new",
+  "notes": [],
+  "said": [],
+  "goldErrors": [],
+  "allowed": [],
+  "narrativeFacts": [],
+  "edits": [],
+  "transcript": "Provider: Hello. Hi. Good evening. My name is <clinician name>. I'm the clinician here today. So, tell me what's going on.\nPatient: Um, I have earwax clogging in my left ear.\nProvider: Are you one of those people that uh makes earwax very, very quickly?\nPatient: What?\nProvider: No, there are people who produces earwax very frequently.\nPatient: Yes. And uh I have I used to get a lot of ear infections, so I have like scar tissue in my ear that makes it difficult for it to come out on its own.\nProvider: Any no sinus congestion, anything? Just that clogged feeling?\nProvider: I'll take a quick look.\nProvider: Yeah, I guess I'll keep this on so I don't fuck it up.\nProvider: So, a free amusement park, right?\nProvider: Yeah.\nProvider: So, yeah, I kind of have a decreased hearing in that ear.\nProvider: Let me see this one.\nProvider: Wow. This one is This one is worse than that. Yeah. Yeah, both of them are pretty much This one is I can hear though. Yeah, this is Sometimes they both get clogged. Mhm.\nProvider: Some people it happens more frequently than others, but.\nProvider: Okay.\nProvider: When you say dizziness, what do you mean?\nProvider: Um, like feeling unbalanced.\nProvider: Any ringing in your ear?\nPatient: Yes.\nProvider: Both of them?\nPatient: Just the left one.\nProvider: Just the left one? So, when you feel dizzy, is it like when you make like sudden turns or just Just when I'm like walking or standing up still.\nProvider: So, standing up still, but not like you turn your head or you kind of rise up.\nPatient: Yeah.\nProvider: That?\nPatient: No. Like like not that.\nProvider: Okay.\nProvider: Have you ever Let me see.\nProvider: Does this usually happen whenever your ear is clogged like this?\nPatient: Yeah.\nProvider: We'll get it cleaned out, okay? And then what I'm going to do is uh if say within the next 48, 72 hours you're still feeling that whole dizziness, then let us know. But I'll probably send you uh medication, Meclizine, to kind of help with the dizziness feeling, too.\nPatient: I I've had it once before where it was caused by my sinuses and I just did nasal spray for a couple of days and it went away.\nProvider: And that kind of here. Do you still have the what do you call it, the Flonase at home, Fluticasone?\nPatient: No.\nProvider: Okay. But you said you're not feeling congested.\nPatient: Right.\nProvider: So, how do you Do you have allergy medication that you take?\nPatient: No.\nProvider: Okay. Give me a second.\nProvider: Hi.\nPatient: Hey, got it, right? Could you take the pharmacy? Cuz it's so pharmacy in <state>.\nProvider: Oh.\nProvider: You had like one Oh my goodness. How did I If we look that uh\nProvider: Oh, you got a discharge, I think.",
+  "gold": {
+    "historyOfPresentIllness": "The patient is a 20-year-old female presenting with bilateral earwax impaction, decreased hearing, and a sensation of being unbalanced when standing or walking. She reports associated tinnitus in the left ear and notes a history of recurrent ear infections leading to scar tissue that complicates natural cerumen clearance.",
+    "additionalInformation": "left ear hearing difficulties",
+    "reviewOfSystems": {
+      "observations": [
+        {
+          "field": "ros-ent-ear-pain-denies",
+          "label": "Ear pain",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-ent-ear-fullness-reports",
+          "label": "Ear fullness",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "decreased hearing... clogged feeling"
+        },
+        {
+          "field": "ros-ent-tinnitus-reports",
+          "label": "Tinnitus",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "ringing in your ear... yes"
+        },
+        {
+          "field": "ros-eyes-vision-changes-denies",
+          "label": "Vision changes",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-constitutional-fever-denies",
+          "label": "Fever",
+          "present": true,
+          "voiced": false
+        }
+      ]
+    },
+    "exam": [
+      {
+        "field": "oriented-x-3",
+        "label": "Oriented x 3",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "normal-mental-status",
+        "label": "Normal mental status",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "right-ear-canal-impacted-cerumen",
+        "label": "Canal impacted cerumen",
+        "present": true,
+        "voiced": true,
+        "voicedEvidence": "earwax clogging in my left ear, both clogged"
+      },
+      {
+        "field": "alert",
+        "label": "Alert",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "active",
+        "label": "Active",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "left-ear-canal-impacted-cerumen",
+        "label": "Canal impacted cerumen",
+        "present": true,
+        "voiced": true,
+        "voicedEvidence": "earwax clogging in my left ear, both clogged"
+      },
+      {
+        "field": "normal-tone",
+        "label": "Normal tone",
+        "present": true,
+        "voiced": false
+      }
+    ],
+    "assessment": {
+      "diagnoses": [
+        {
+          "system": "ICD-10-CM",
+          "code": "H61.23",
+          "codeNormalized": "H6123",
+          "display": "Impacted cerumen, bilateral",
+          "primary": true,
+          "fromLabOrder": false,
+          "voiced": true,
+          "voicedEvidence": "earwax clogging... both of them are pretty much clogged"
+        },
+        {
+          "system": "ICD-10-CM",
+          "code": "H93.13",
+          "codeNormalized": "H9313",
+          "display": "Tinnitus, bilateral",
+          "primary": false,
+          "fromLabOrder": false,
+          "voiced": true,
+          "voicedEvidence": "ringing in your ear... just the left one"
+        }
+      ]
+    },
+    "billing": {
+      "emCode": {
+        "system": "CPT",
+        "code": "99204",
+        "codeNormalized": "99204",
+        "display": "99204 New Patient - E/M Level 4"
+      },
+      "cptCodes": [
+        {
+          "system": "CPT",
+          "code": "69210",
+          "codeNormalized": "69210",
+          "display": "Removal of impacted ear wax",
+          "voiced": true,
+          "voicedEvidence": "We'll get it cleaned out, okay?"
+        }
+      ]
+    },
+    "medications": {
+      "prescribed": [
+        {
+          "name": "Fluticasone Propionate Nasal Suspension 50 MCG/ACT",
+          "sig": "Administer 1 spray inb each nostril twice daily",
+          "status": "completed",
+          "voiced": true,
+          "voicedEvidence": "the Flonase at home, Fluticasone?",
+          "nameVoiced": true
+        }
+      ],
+      "inHouseAdministered": [],
+      "immunizations": [],
+      "currentReconciled": []
+    },
+    "allergies": [],
+    "medicalHistory": [],
+    "surgicalHistory": [],
+    "hospitalizations": [],
+    "procedures": [
+      {
+        "procedureType": "ENT Procedures: Ear Lavage / Cerumen Removal",
+        "cptCodes": [],
+        "diagnoses": [],
+        "bodySite": "Ear",
+        "bodySide": "Not Applicable",
+        "technique": []
+      }
+    ],
+    "labs": {
+      "external": {
+        "resultsPending": [],
+        "labOrderResults": []
+      },
+      "inHouse": {
+        "resultsPending": [],
+        "reflexTestsPending": [],
+        "labOrderResults": []
+      }
+    },
+    "radiology": [],
+    "vitals": [
+      {
+        "field": "vital-bmi",
+        "context": true,
+        "value": 26.8
+      },
+      {
+        "field": "vital-height",
+        "context": true,
+        "value": 162.56
+      },
+      {
+        "field": "vital-weight",
+        "context": true,
+        "value": 70.76
+      },
+      {
+        "field": "vital-oxygen-sat",
+        "context": true,
+        "value": 98,
+        "method": "On room air"
+      },
+      {
+        "field": "vital-blood-pressure",
+        "context": true,
+        "systolic": 102,
+        "diastolic": 66,
+        "method": "Sitting"
+      },
+      {
+        "field": "vital-respiration-rate",
+        "context": true,
+        "value": 16
+      },
+      {
+        "field": "vital-heartbeat",
+        "context": true,
+        "value": 99,
+        "method": "Sitting"
+      },
+      {
+        "field": "vital-temperature",
+        "context": true,
+        "value": 36.667,
+        "method": "Temporal"
+      }
+    ],
+    "medicalDecisionMaking": "Reviewed diagnosis, expected course, treatment plan, and reasons to seek urgent and/or emergent care.  Discharge instructions reviewed.  Patient/Caregiver expressed understanding.  All questions were answered, and is comfortable with discharge plan.  ER Precautions given.",
+    "disposition": {
+      "type": "pcp-no-type",
+      "note": "Please see your Primary Care Physician.",
+      "followUp": [],
+      "dispositionVoiced": false
+    },
+    "instructions": [
+      "Patient Education: Understanding and Managing Earwax Buildup, Understanding Tinnitus (Ringing in the Ears)"
+    ],
+    "instructionItems": [
+      {
+        "title": "Patient Education: Understanding and Managing Earwax Buildup, Understanding Tinnitus (Ringing in the Ears)",
+        "hasEducationDoc": true
+      }
+    ]
+  }
+}

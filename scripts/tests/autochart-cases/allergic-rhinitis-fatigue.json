@@ -1,0 +1,298 @@
+{
+  "id": "allergic-rhinitis-fatigue",
+  "label": "Four days of runny nose, sneezing, headache and fatigue (new, 38F)",
+  "sourceCase": "case380",
+  "patient": {
+    "ageYears": 38,
+    "sex": "female"
+  },
+  "patientStatus": "new",
+  "notes": [],
+  "said": [],
+  "goldErrors": [],
+  "allowed": [],
+  "narrativeFacts": [],
+  "edits": [],
+  "transcript": "Provider: Hello.\nPatient: Hello, can you hear me?\nProvider: Yes, I can hear you.\nPatient: No, no, what's going on? I'm sorry. I don't know why you can't see me.\nProvider: I can see you now. Yeah. Yeah, my name is <clinician name>, the clinician here today. So tell me, what's what's happening? You said you're having runny nose, sneezing, congestion.\nPatient: Yes, like super fatigue. I felt sorry for these on Sunday night, but I didn't think anything of it. I thought I was just tired and then it's progressively gotten worse. Um, Monday and Tuesday, like I'm I sound like this still and I was exhausted. Like I slept most of the day. I worked during the day and then I I was literally sleeping on my lunch and then right after because I was so tired. Um, I had a headache yesterday. The headache isn't there today. It's just like the congestion and the fatigue that's still here.\nProvider: Okay, okay. So, no any any kind of like a sinus pressure or pain?\nPatient: No.\nProvider: No. And none of like my um like none of my discharge is like green or discolored. It's all clear.\nProvider: Okay, okay. Okay. All right. And you said this has been ongoing since what, Monday, is it Tuesday?\nPatient: Sunday. Sunday night.\nProvider: Sunday night. Okay. So that's No fever, chills, anything like that, no?\nPatient: No.\nProvider: All right. There are two potential things here we're looking at because I think you mentioned, do you have any body aches?\nPatient: Um, no, just I'm tired, but not like body aches. Like if I've had them before, like when I was like I had like a flu or something, it's not like that.\nProvider: Okay, okay. All right. So what I'm going to do here is a couple of things. One, I'm going to send you an allergy medication, cetirizine. Okay. Cetirizine 10 mg. I would say take it in the evening time. For some people, it causes drowsiness. It really shouldn't like that, but some people it does. So take one tablet every day in the evening. Then I'm also going to send you uh it's a steroidal nasal spray for the zone. You know, so that what I need you to do is uh you do two sprays in each nostril daily. Okay. Yes. So when you're spraying, you kind of point it towards your ears. Spray, spray, and then inhale. So within those two, that should be able to help a bit. There is another antihistamine nasal spray, azelastine. The steroidal spray will help calm down the inflammation in the nose to reduce the drainage, the post-nasal drainage. You know, whereas the azelastine will help to dry that up together with the the cetirizine. Okay? Okay. So, once we're going to do this for the next about uh two weeks, okay? By that time, things should be able to calm down. And if you know you kind of get this allergy stuff frequently, I would advise just continuing with daily cetirizine, you know, once a day. I personally, I have allergy issues myself and I take my medication once every day. So, yeah. So, I'll go ahead and I'll I'll have that sent out to you. You said your HEB is the your pharmacy, that's HEB that's on 678. Okay. 678. Okay. All right. So, I'm going to go ahead and send that out. Then what I'll advise is if you are not noticing any things getting a little bit better within the next 72 hours or so, just let us know. We could follow through again. Yeah?\nPatient: Okay. Thank you so much. I appreciate your time.\nProvider: You're very welcome. Take care, ma'am.\nPatient: You too. Bye-bye.",
+  "gold": {
+    "historyOfPresentIllness": "The patient is a 38-year-old female presenting with a 4-day history of runny nose, sneezing, nasal congestion, headache, and significant fatigue that began Sunday night and has progressively worsened. She reports exhaustion and increased sleepiness and notes having experienced similar symptoms in the past. Benadryl provides temporary relief, but symptoms return once the medication wears off. She denies sinus pressure or pain, discolored nasal discharge, fever, chills, or body aches.",
+    "reviewOfSystems": {
+      "observations": [
+        {
+          "field": "ros-neuro-headache-reports",
+          "label": "Headache",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "I had a headache yesterday"
+        },
+        {
+          "field": "ros-ent-rhinorrhea-reports",
+          "label": "Rhinorrhea",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "runny nose, sneezing, congestion"
+        },
+        {
+          "field": "ros-ent-hearing-loss-denies",
+          "label": "Hearing loss",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-constitutional-fever-denies",
+          "label": "Fever",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "No fever, chills, anything like that, no?"
+        },
+        {
+          "field": "ros-eyes-vision-changes-denies",
+          "label": "Vision changes",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-eyes-blurry-vision-denies",
+          "label": "Blurry vision",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-constitutional-night-sweats-denies",
+          "label": "Night sweats",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-constitutional-chills-denies",
+          "label": "Chills",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "No fever, chills, anything like that, no?"
+        },
+        {
+          "field": "ros-respiratory-cough-denies",
+          "label": "Cough",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-ent-ear-pain-denies",
+          "label": "Ear pain",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-allergy-seasonal-reports",
+          "label": "Seasonal allergies",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "if you kind of get this allergy stuff frequently"
+        },
+        {
+          "field": "ros-gi-nausea-denies",
+          "label": "Nausea",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-ent-post-nasal-drip-reports",
+          "label": "Post-nasal drip",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "to reduce the drainage, the post-nasal drainage"
+        },
+        {
+          "field": "ros-cardiovascular-chest-pain-denies",
+          "label": "Chest pain",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-ent-nasal-congestion-reports",
+          "label": "Nasal congestion",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "runny nose, sneezing, congestion"
+        },
+        {
+          "field": "ros-ent-sneezing-reports",
+          "label": "Sneezing",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "runny nose, sneezing, congestion"
+        },
+        {
+          "field": "ros-constitutional-fatigue-reports",
+          "label": "Fatigue",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "super fatigue... exhausted"
+        }
+      ]
+    },
+    "exam": [
+      {
+        "field": "normal-mental-status",
+        "label": "Normal mental status",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "oriented-x-3",
+        "label": "Oriented x 3",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "left-eye-conjunctiva-non-injected-no-discharge",
+        "label": "Left eye - conjunctiva non-injected, no discharge",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "right-eye-conjunctiva-non-injected-no-discharge",
+        "label": "Right eye - conjunctiva non-injected, no discharge",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "moderate-distress",
+        "label": "Moderate distress",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "active",
+        "label": "Active",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "alert",
+        "label": "Alert",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "normal-tone",
+        "label": "Normal tone",
+        "present": true,
+        "voiced": false
+      }
+    ],
+    "assessment": {
+      "diagnoses": [
+        {
+          "system": "ICD-10-CM",
+          "code": "J30.2",
+          "codeNormalized": "J302",
+          "display": "Other seasonal allergic rhinitis",
+          "primary": true,
+          "fromLabOrder": false,
+          "voiced": true,
+          "voicedEvidence": "allergy medication, cetirizine; steroidal nasal spray for the nose"
+        },
+        {
+          "system": "ICD-10-CM",
+          "code": "R53.83",
+          "codeNormalized": "R5383",
+          "display": "Other fatigue",
+          "primary": false,
+          "fromLabOrder": false,
+          "voiced": true,
+          "voicedEvidence": "super fatigue... exhausted... slept most of the day"
+        },
+        {
+          "system": "ICD-10-CM",
+          "code": "R51.9",
+          "codeNormalized": "R519",
+          "display": "Headache, unspecified",
+          "primary": false,
+          "fromLabOrder": false,
+          "voiced": true,
+          "voicedEvidence": "I had a headache yesterday"
+        }
+      ]
+    },
+    "billing": {
+      "emCode": {
+        "system": "CPT",
+        "code": "99214",
+        "codeNormalized": "99214",
+        "display": "99214 Established Patient - E/M Level 4"
+      },
+      "cptCodes": []
+    },
+    "medications": {
+      "prescribed": [
+        {
+          "name": "Cetirizine HCl Oral Tablet 10 MG",
+          "sig": "Take 1 tablet orally, at bedtime",
+          "status": "completed",
+          "voiced": true,
+          "voicedEvidence": "cetirizine 10 mg, take one tablet every day in the evening",
+          "nameVoiced": true
+        },
+        {
+          "name": "Azelastine HCl Nasal Solution 137 MCG/SPRAY",
+          "sig": "Administer 1 spray into each nostril twice daily",
+          "status": "completed",
+          "voiced": true,
+          "voicedEvidence": "another antihistamine nasal spray, azelastine",
+          "nameVoiced": true
+        },
+        {
+          "name": "Fluticasone Propionate Nasal Suspension 50 MCG/ACT",
+          "sig": "Administer 2 sprays into each nostril once daily",
+          "status": "completed",
+          "voiced": true,
+          "voicedEvidence": "steroidal nasal spray, two sprays in each nostril daily",
+          "nameVoiced": false
+        }
+      ],
+      "inHouseAdministered": [],
+      "immunizations": [],
+      "currentReconciled": []
+    },
+    "allergies": [],
+    "medicalHistory": [],
+    "surgicalHistory": [],
+    "hospitalizations": [],
+    "procedures": [],
+    "labs": {
+      "external": {
+        "resultsPending": [],
+        "labOrderResults": []
+      },
+      "inHouse": {
+        "resultsPending": [],
+        "reflexTestsPending": [],
+        "labOrderResults": []
+      }
+    },
+    "radiology": [],
+    "vitals": [],
+    "medicalDecisionMaking": "Reviewed diagnosis, expected course, treatment plan, and reasons to seek urgent and/or emergent care.  Discharge instructions reviewed.  Patient/Caregiver expressed understanding.  All questions were answered, and is comfortable with discharge plan.  ER Precautions given.",
+    "disposition": {
+      "type": "pcp-no-type",
+      "note": "Please see your Primary Care Physician.",
+      "followUp": [],
+      "dispositionVoiced": false
+    },
+    "instructions": [
+      "Patient Education: Understanding Seasonal Allergies, Understanding and Managing Fatigue, Understanding and Managing Headaches",
+      "You were seen today for seasonal allergic rhinitis (environmental/seasonal allergies) associated with fatigue and headache. Your symptoms are consistent with allergies, and medications have been prescribed to help control nasal congestion, runny nose, sneezing, and other allergy symptoms.\n\nMedications\n\nFluticasone Propionate Nasal Spray 50 mcg/actuation\n\nAdminister 2 sprays into each nostril once daily, as prescribed.\nUse consistently for best results. Aim the spray slightly outward, away from the center of your nose.\n\nAzelastine Nasal Spray\n\nAdminister as prescribed.\nAvoid spraying directly toward the center wall of the nose.\nAzelastine may occasionally cause an unpleasant taste or drowsiness.\n\nCetirizine (Zyrtec) 10 mg\n\nTake 1 tablet by mouth at bedtime (QHS).\nCetirizine may cause drowsiness in some people. Use caution with driving or other activities requiring alertness until you know how it affects you.\nHome Care\nDrink plenty of fluids and get adequate rest.\nMinimize exposure to known triggers such as pollen, dust, mold, and pet dander.\nSaline nasal spray or nasal irrigation may also help clear allergens and congestion.\nAcetaminophen (Tylenol) or ibuprofen (Advil/Motrin) may be used for headache if you normally can take these medications safely.\nFollow-Up\n\nFollow up with your primary care provider or return to urgent care if symptoms persist, significantly worsen, or fail to improve with treatment.\n\nSeek prompt medical attention for difficulty breathing, facial or throat swelling, severe or unusual headache, vision changes, persistent high fever, confusion, or other severe or rapidly worsening symptoms."
+    ],
+    "instructionItems": [
+      {
+        "title": "Patient Education: Understanding Seasonal Allergies, Understanding and Managing Fatigue, Understanding and Managing Headaches",
+        "hasEducationDoc": true
+      },
+      {
+        "title": "Discharge Instructions",
+        "text": "You were seen today for seasonal allergic rhinitis (environmental/seasonal allergies) associated with fatigue and headache. Your symptoms are consistent with allergies, and medications have been prescribed to help control nasal congestion, runny nose, sneezing, and other allergy symptoms.\n\nMedications\n\nFluticasone Propionate Nasal Spray 50 mcg/actuation\n\nAdminister 2 sprays into each nostril once daily, as prescribed.\nUse consistently for best results. Aim the spray slightly outward, away from the center of your nose.\n\nAzelastine Nasal Spray\n\nAdminister as prescribed.\nAvoid spraying directly toward the center wall of the nose.\nAzelastine may occasionally cause an unpleasant taste or drowsiness.\n\nCetirizine (Zyrtec) 10 mg\n\nTake 1 tablet by mouth at bedtime (QHS).\nCetirizine may cause drowsiness in some people. Use caution with driving or other activities requiring alertness until you know how it affects you.\nHome Care\nDrink plenty of fluids and get adequate rest.\nMinimize exposure to known triggers such as pollen, dust, mold, and pet dander.\nSaline nasal spray or nasal irrigation may also help clear allergens and congestion.\nAcetaminophen (Tylenol) or ibuprofen (Advil/Motrin) may be used for headache if you normally can take these medications safely.\nFollow-Up\n\nFollow up with your primary care provider or return to urgent care if symptoms persist, significantly worsen, or fail to improve with treatment.\n\nSeek prompt medical attention for difficulty breathing, facial or throat swelling, severe or unusual headache, vision changes, persistent high fever, confusion, or other severe or rapidly worsening symptoms."
+      }
+    ]
+  }
+}

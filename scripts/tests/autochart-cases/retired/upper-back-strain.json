@@ -1,0 +1,435 @@
+{
+  "id": "upper-back-strain",
+  "label": "Two weeks of muscular pain under the right shoulder blade, worse looking down (new, 22M)",
+  "sourceCase": "case453",
+  "patient": {
+    "ageYears": 22,
+    "sex": "male"
+  },
+  "patientStatus": "new",
+  "notes": [
+    "Ruled out on the recording: spine pressed in the middle: \"No\"; no numbness, tingling or weakness; the ortho/PT referral was left conditional.",
+    "The transcript's Provider/Patient labels are swapped."
+  ],
+  "said": [
+    {
+      "kind": "diagnosis",
+      "codePrefix": ["M546", "M549", "M548", "M791", "M6283", "S2901", "M5450"],
+      "primary": true,
+      "note": "\"Right under my shoulder blade … close to the spine\": the chart's M54.50 (low back pain) is not what was said, so any upper-back or back-muscle code stands in for it, as the primary."
+    },
+    {
+      "kind": "instruction",
+      "text": "lift|rest"
+    },
+    {
+      "kind": "instruction",
+      "text": "sleepy|drowsy|machinery|driv"
+    },
+    {
+      "kind": "instruction",
+      "text": "twice a day|two weeks|consistent"
+    }
+  ],
+  "goldErrors": [
+    {
+      "match": "dx M5450",
+      "reason": "the pain is under the right shoulder blade; \"low back\" is never said"
+    }
+  ],
+  "allowed": [
+    {
+      "kind": "diagnosis",
+      "codePrefix": ["M54", "M62", "S39", "S33", "S23", "S16", "M53", "M79"]
+    },
+    {
+      "kind": "medication",
+      "name": "ibuprofen"
+    }
+  ],
+  "narrativeFacts": [
+    "shoulder blade",
+    "\\bback\\b",
+    "two weeks",
+    "injury",
+    "numb",
+    "tingling|weakness",
+    "fever",
+    "referral|ortho|physical therapy",
+    "spine|middle",
+    "right side|right",
+    "neck|look(ing)? down",
+    "muscle strain|muscular|pulled a muscle",
+    "anti-inflammatory|nsaid",
+    "ibuprofen",
+    "muscle relax",
+    "construction",
+    "sleepy|drowsy|machinery",
+    "rest|lift"
+  ],
+  "edits": [],
+  "transcript": "Provider: Hello.\nPatient: My name is <clinician name>. Okay, I'll be seeing you here today. Um, so tell me a little bit about what's going on.\nProvider: Right under my shoulder blade, I'm having like pain in my muscle and like going down the back and then also like I guess when I roll it down, feel it. There's just bad back pain.\nPatient: How long has this been going on for?\nProvider: Like two weeks.\nPatient: And when it first started, did you have some sort of injury that happened?\nProvider: No, no injury. Just thought I pulled a muscle or like a little bit of pain and then it got worse over time.\nPatient: Okay. Any like numbness?\nProvider: No numbness, no.\nPatient: Tingling, weakness in your arms or your legs?\nProvider: No, but whenever I try to use them, they're like, it hurts. Yeah, I get stuck, but I can't do what I want to do.\nPatient: Okay. Um, any uh like fever, anything like that?\nProvider: No fever, no, no, no side effects, just uh muscle pain.\nPatient: Okay. I don't know. I'm also they tell me to get a reference to go somewhere else.\nProvider: Okay. What are you thinking like physical therapy or?\nPatient: I don't know. I don't know how it works.\nProvider: She said come get a referral.\nPatient: Just check the referral, yeah.\nProvider: Okay. Have you ever had anything like this before?\nPatient: I don't know. No.\nProvider: Okay. Is there like a specific spot you can point to where you have the pain?\nPatient: Yeah. Like I'm literally off of my shoulder blade, like close to the spine. Like this specific area right here.\nProvider: Okay. I'm going to press on your spine, okay? Let me know if anything hurts here in the middle.\nPatient: No. I'm pretty sure it's all muscle.\nProvider: Okay. On the left side, does it hurt?\nPatient: No.\nProvider: And the right side?\nPatient: I mean, pretty much wherever you touch, I can feel it because it's really hurting.\nProvider: But just like right here?\nPatient: Yeah, like from there up. Like on just on the right side?\nProvider: Yeah, right there, just on the right side.\nPatient: Okay. Any pain in your neck, though?\nProvider: Just whenever I look like down, that's it.\nProvider: Okay, I'm going to have you do some movements.\nPatient: Like left and right?\nProvider: Okay, and look up and down.\nPatient: I can't look down. It's like stuck right there.\nProvider: Because it hurts?\nPatient: Yeah, it hurts bad.\nProvider: Okay. And then like this?\nPatient: Good.\nProvider: Okay, and put your arms up.\nPatient: Yeah, that's it.\nProvider: Okay. I'm going to stand up. Um, okay. Can you bend down to touch your toes?\nPatient: Yeah, but that's where it starts hurting right there.\nProvider: It hurts. Okay. And then can you do this?\nPatient: Yeah.\nProvider: Okay, and what is this? Like put spacing forward?\nPatient: That's pretty good.\nProvider: Okay, and go and take a few steps across the room.\nPatient: I mean, like I can walk.\nProvider: Okay, just making sure. All right, go ahead and have a seat. I'm going to do one more like specific test. Have you like tilt your head kind of like to the side and then back. And I'm going to press down, okay?\nPatient: And then does that cause any pain?\nProvider: No.\nPatient: Okay, now go the other way.\nProvider: Is that causing?\nPatient: No.\nProvider: Okay. Okay. So, I think it probably is just like something muscular, like a muscle strain. Um, so I can prescribe you like a short course of anti-inflammatory medication. You can take that. And then also like um general exercises can help kind of. Um, this has already been going on for two weeks, so I know it's like frustrating, but these things just take time to heal. Um, if you want a referral to like ortho, I can do that or What is that, ortho?\nPatient: Orthopedics, they're like the bone and muscle doctors. But I think you should try the anti-inflammatories. You can do that.\nProvider: What is that? That just like calm down the muscle or what? Like is it better than ibuprofen?\nPatient: Um, it's a little bit stronger. It's prescription strength, but very similar to ibuprofen. Have you been trying that?\nProvider: Well, ibuprofen? Yeah, like I'm not using it like all day, but I'm taking two or I have a stronger one. I tried a stronger one just one. That was it.\nPatient: Did it help?\nProvider: It doesn't really feel like it helps.\nPatient: Okay. Uh, yeah, I will I'll give you some medicine. I'll try and take it consistently for like a couple weeks and then see if that helps. I can also give you like a muscle relaxer to take as needed, but try and like not take too much. It can make you sleepy also, so be careful if you're like working. Um, what do you do for work?\nPatient: Construction.\nProvider: Okay. So, if you have to like operate heavy machinery, maybe not do that. Don't do that one.\nPatient: Well, I'm more like in the field. I'm not an operator.\nProvider: Okay. So, that Yeah. labor work.\nPatient: Well, I can send in those two medications. You can take them and kind of see and maybe Also, rest, you know, try not to lift anything super heavy. Give yourself time to heal. Um, and just do what you can tolerate. But also not too much rest, because you don't want to just like stop doing everything. Yeah. So, What is what is ibuprofen? What does it do for your muscles?\nPatient: Ibuprofen is uh NSAID, non-steroidal anti-inflammatory medication. Um, so it's really good for muscular pain. I'm not really sure it has to do with like the mechanism of action and the pharmacokinetics. Um, but that's like first-line treatment for something like this.\nProvider: My mom said get something like that, but not a What what did you say, pain reliever or? The stuff that you can get hooked on like No, it is I'm not going to give you anything like that. Yeah.\nPatient: So, we can just do the anti-inflammatory. Try that for like two weeks. Take it consistently twice a day. All right. And then if you're still not getting getting better, just give us a call back and then we can give you a referral for either ortho or uh physical therapy, I think would be helpful. Okay.\nProvider: Okay? Yeah, sounds good.\nPatient: All right. Let me go put the prescription in and we can just do the anti-inflammatory if you want to avoid like a muscle relaxer, I don't know.\nProvider: I'll take both. It's fine.\nPatient: Both? Okay. We'll do both and then um yeah, go from there. All right. Okay. Thank you.",
+  "gold": {
+    "historyOfPresentIllness": "The patient is a 22-year-old male presenting with a two-week history of right-sided back pain. The pain is muscular in nature, exacerbated by movement, specifically looking down and bending forward. He denies numbness, weakness, or fever. He reports the pain has worsened over time despite the use of over-the-counter ibuprofen. Pt reports he works in construction.  Denies any injury or trauma at onset of pain.",
+    "reviewOfSystems": {
+      "observations": [
+        {
+          "field": "ros-neuro-numbness-denies",
+          "label": "Numbness",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "No numbness, no."
+        },
+        {
+          "field": "ros-msk-limited-rom-denies",
+          "label": "Limited range of motion",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "I can't look down. It's like stuck right there."
+        },
+        {
+          "field": "ros-msk-muscle-aches-denies",
+          "label": "Muscle aches/myalgia",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-msk-back-pain-reports",
+          "label": "Back pain",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "bad back pain"
+        },
+        {
+          "field": "ros-gu-dysuria-denies",
+          "label": "Dysuria",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-msk-joint-pain-denies",
+          "label": "Joint pain",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-constitutional-chills-denies",
+          "label": "Chills",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-msk-joint-swelling-denies",
+          "label": "Joint swelling",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-gi-vomiting-denies",
+          "label": "Vomiting",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-gi-nausea-denies",
+          "label": "Nausea",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-constitutional-fever-denies",
+          "label": "Fever",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "No fever, no, no side effects"
+        },
+        {
+          "field": "ros-neuro-weakness-denies",
+          "label": "Weakness",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-gu-flank-pain-denies",
+          "label": "Flank pain",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-msk-neck-pain-denies",
+          "label": "Neck pain",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-neuro-headache-denies",
+          "label": "Headache",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-neuro-tingling-denies",
+          "label": "Tingling/paresthesia",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "Tingling, weakness in your arms or your legs? No"
+        }
+      ]
+    },
+    "exam": [
+      {
+        "field": "normal-tone",
+        "label": "Normal tone",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "paraspinal-muscle-tenderness",
+        "label": "Paraspinal muscle tenderness",
+        "present": true,
+        "voiced": true,
+        "voicedEvidence": "pretty much wherever you touch, I can feel it, right side"
+      },
+      {
+        "field": "alert",
+        "label": "Alert",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "well-hydrated",
+        "label": "Well-hydrated",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "active",
+        "label": "Active",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "no-cva-tenderness",
+        "label": "No CVA tenderness",
+        "present": true,
+        "voiced": true,
+        "voicedEvidence": "I'm going to press on your spine... No... left side, no... right side"
+      },
+      {
+        "field": "full-range-of-motion",
+        "label": "Full range of motion",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "oriented-x-3",
+        "label": "Oriented x 3",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "normal-range-of-motion",
+        "label": "Normal range of motion",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "no-visible-deformity",
+        "label": "No visible deformity",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "normal-gait-weight-bearing",
+        "label": "Normal gait / weight bearing",
+        "present": true,
+        "voiced": true,
+        "voicedEvidence": "take a few steps across the room... I can walk"
+      },
+      {
+        "field": "in-no-acute-distress",
+        "label": "In no acute distress",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "normal-alignment",
+        "label": "Normal alignment",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "no-paraspinal-muscle-spasm",
+        "label": "No paraspinal muscle spasm",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "normal-mental-status",
+        "label": "Normal mental status",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "normocephalic",
+        "label": "Normocephalic",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "atraumatic",
+        "label": "Atraumatic",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "normal-appearance-of-neck",
+        "label": "Normal appearance of neck",
+        "present": true,
+        "voiced": false
+      }
+    ],
+    "assessment": {
+      "diagnoses": [
+        {
+          "system": "ICD-10-CM",
+          "code": "M54.50",
+          "codeNormalized": "M5450",
+          "display": "Low back pain, unspecified",
+          "primary": true,
+          "fromLabOrder": false,
+          "voiced": true,
+          "voicedEvidence": "muscle strain, bad back pain right under shoulder blade"
+        }
+      ]
+    },
+    "billing": {
+      "emCode": {
+        "system": "CPT",
+        "code": "99204",
+        "codeNormalized": "99204",
+        "display": "99204 New Patient - E/M Level 4"
+      },
+      "cptCodes": []
+    },
+    "medications": {
+      "prescribed": [
+        {
+          "name": "Naproxen Oral Tablet 500 MG",
+          "sig": "Take 1 tablet orally, 2 times daily for 14 days.",
+          "status": "completed",
+          "voiced": true,
+          "voicedEvidence": "anti-inflammatory... prescription strength, similar to ibuprofen, twice a day",
+          "nameVoiced": false
+        },
+        {
+          "name": "Cyclobenzaprine HCl Oral Tablet 5 MG",
+          "sig": "Take 1 tablet orally, 2 times daily for 7 days as needed.",
+          "status": "completed",
+          "voiced": true,
+          "voicedEvidence": "I can also give you like a muscle relaxer",
+          "nameVoiced": false
+        }
+      ],
+      "inHouseAdministered": [],
+      "immunizations": [],
+      "currentReconciled": [
+        {
+          "name": "Ibuprofen Oral Tablet (800 MG)",
+          "type": "as-needed",
+          "status": "active",
+          "context": true
+        }
+      ]
+    },
+    "allergies": [],
+    "medicalHistory": [],
+    "surgicalHistory": [],
+    "hospitalizations": [],
+    "procedures": [],
+    "labs": {
+      "external": {
+        "resultsPending": [],
+        "labOrderResults": []
+      },
+      "inHouse": {
+        "resultsPending": [],
+        "reflexTestsPending": [],
+        "labOrderResults": []
+      }
+    },
+    "radiology": [],
+    "vitals": [
+      {
+        "field": "vital-bmi",
+        "context": true,
+        "value": 36
+      },
+      {
+        "field": "vital-height",
+        "context": true,
+        "value": 187.96
+      },
+      {
+        "field": "vital-weight",
+        "context": true,
+        "value": 127.1
+      },
+      {
+        "field": "vital-oxygen-sat",
+        "context": true,
+        "value": 97
+      },
+      {
+        "field": "vital-blood-pressure",
+        "context": true,
+        "systolic": 126,
+        "diastolic": 85
+      },
+      {
+        "field": "vital-respiration-rate",
+        "context": true,
+        "value": 18
+      },
+      {
+        "field": "vital-heartbeat",
+        "context": true,
+        "value": 72
+      },
+      {
+        "field": "vital-temperature",
+        "context": true,
+        "value": 36.333
+      }
+    ],
+    "medicalDecisionMaking": "Differential Diagnoses Considered: Acute lumbar strain, lumbar radiculopathy, herniated nucleus pulposus, vertebral compression fracture, cauda equina syndrome, spinal epidural abscess.\n\nReviewed diagnosis, expected course, treatment plan, and reasons to seek urgent and/or emergent care.  Discharge instructions reviewed.  Patient/Caregiver expressed understanding.  All questions were answered, and is comfortable with discharge plan.  ER Precautions given.",
+    "disposition": {
+      "type": "pcp-no-type",
+      "note": "Please see your Primary Care Physician.",
+      "followUp": [],
+      "dispositionVoiced": true,
+      "dispositionVoicedEvidence": "give us a call back, referral for ortho or physical therapy"
+    },
+    "instructions": [
+      "Red Flag Precautions: Go to the nearest Emergency Department immediately if experiencing sudden bowel/bladder incontinence, numbness in the groin/saddle area, progressive leg weakness, or high fever.",
+      "ER if Worse",
+      "Patient Education: Understanding and Managing Low Back Pain",
+      "Follow up if no improvement in pain for referral to ortho or PT."
+    ],
+    "instructionItems": [
+      {
+        "text": "Red Flag Precautions: Go to the nearest Emergency Department immediately if experiencing sudden bowel/bladder incontinence, numbness in the groin/saddle area, progressive leg weakness, or high fever."
+      },
+      {
+        "text": "ER if Worse"
+      },
+      {
+        "title": "Patient Education: Understanding and Managing Low Back Pain",
+        "hasEducationDoc": true
+      },
+      {
+        "text": "Follow up if no improvement in pain for referral to ortho or PT."
+      }
+    ]
+  }
+}

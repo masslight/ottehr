@@ -1,0 +1,326 @@
+{
+  "id": "otitis-media-perforation",
+  "label": "Four days of left ear pain, drainage and hearing loss after an urgent care visit (new, 12M)",
+  "sourceCase": "case601",
+  "patient": {
+    "ageYears": 12,
+    "sex": "male"
+  },
+  "patientStatus": "new",
+  "notes": [],
+  "said": [],
+  "goldErrors": [],
+  "allowed": [],
+  "narrativeFacts": [],
+  "edits": [],
+  "transcript": "Provider: Hello.\nPatient: How you doing?\nProvider: All right. So let's start with you, <patient name>.\nPatient: No.\nProvider: Which ear is it? Which ear is hurting you? The right one?\nPatient: The other one, dude.\nProvider: How long has this been?\nPatient: About three days. About three days? Four days.\nProvider: Did you go swimming?\nPatient: Okay. I'll take a look at the the one that's not hurting so I can establish a baseline.\nPatient: We took him to another urgent care.\nProvider: When?\nPatient: About two days ago. And they gave him medicine, but it's literally doing nothing.\nProvider: What did they give him?\nPatient: I don't know. Just some ear drops, but he says the more ear drops he puts in there, I guess it's just clogging up. But I've been here before and they just cleaned out my ears with the gun. And oh my god, it was like the best. So that's honestly why we came out here.\nProvider: So they didn't they didn't clean it when he was there the last time?\nPatient: So he said they cleaned it, but I don't think they finished. Cuz there is uh stuff coming out.\nProvider: Do you feel any pain here? Okay, so external ear infection. Let's go ahead and put the\nProvider: You should be able to see.\nProvider: How many days ago did you go to the urgent care?\nPatient: Two.\nProvider: Two days ago?\nPatient: They took him yesterday, right?\nProvider: And they did try to clean it out and stuff was coming out, but he went to school today and and yeah, it was just\nProvider: Do you have a a distinct from the pharmacy that you had?\nPatient: Uh <pharmacy>.\nProvider: So did did they send you Do you have their app? I'm just curious as to what what it it was.\nPatient: I'll take it away.\nProvider: Yeah, the eardrum is perforated. It's like uh but they heal on themselves, but I'm just I'm I'm wondering if it was perforated the last time. So I'm curious as to what. Of how how long were you told to use that ear drop they sent?\nPatient: Uh they didn't say.\nProvider: They didn't say? How long is it should be written in there.\nPatient: So it was picked him up Wednesday from school and they gave him the ear drops. So he didn't try the ear drops till yesterday.\nProvider: So you just started the ear drops yesterday. Okay, so but you don't see the name of the ear drop?\nPatient: No, I just took it right now.\nProvider: She just said antibiotic.\nProvider: Is she at home?\nPatient: No, she's at work. Like I said, I picked him up right from school cuz he was Okay. Like, \"Dad, I'm in pain.\"\nProvider: All right. So this is what I'm going to do. Because the the ear drops that they gave, there are some of them that if the eardrum is burst, it's not necessarily the ideal one. There are some that it's great even if it's burst. So I'm just trying to verify which one it is, because if it is the other one, I'm going to have to change it. But I think I'm still going to provide you with uh antibiotics for an either what do you call it? Middle ear infection, cuz I think there's the outer ear going on right now. You know, but so if this is what I will say, I'm going to send you the oral antibiotics. Okay. I'm going to send you another drop. Cuz I don't know which one that you sent. I'll send you the one that is safe for even if the eardrum is perforated. I'll send that drop, then I'll send you the antibiotics to treat both of them. Okay?\nPatient: Yeah, cuz he just says he's in a lot of pain. Is that why, cuz the eardrum?\nProvider: Not but the thing there is a there is an infection that is going on both in the middle ear and also in the outer ear. You know, so the reason why he has that drainage is because the eardrum is burst. So whatever drainage is coming straight through from that.\nPatient: Yeah, cuz he can he says he can't hear from that ear.\nProvider: We need we need we need to find out what that antibiotics that they gave is. I'll send one that is good, but I still would like to to know. So maybe if you guys get home, call, they'll put they'll put the information and document it so that we'll be able to have an idea. Okay. So tell me about yourself. So you say that uh\nPatient: Uh same thing. Last night I blew my nose and this one uh had a sharp pain. Mhm. And like I said, I've been I just haven't had time. Mhm. So this ear has been clogged. Mhm. Like I said, the last time I came in here Mhm. They kind of cleaned it out properly. Okay. All right. So were you exposed to COVID?\nPatient: No. I just So cuz you wanted to be Uh I just was like might as well. I thought we were waiting a little bit longer, so Okay. Okay. You can continue. But yeah, we uh Let me see enough space.\nProvider: Okay, open your mouth wide. Let's get your tongue to say, \"Ah.\"\nProvider: Okay.\nProvider: Thank you. Congested as well.\nPatient: But it might be allergies, too. I heard something's something's coming in on the the <region>.\nProvider: But yeah, today I was like, \"Whoa.\"\nProvider: Let me see this one.\nProvider: Okay, can you turn just a little bit side? No, turn the other side so I can get a better view.\nProvider: Yeah, this is completely impacted. You can't see anything there. So that definitely needs to be cleaned out.\nProvider: Yeah, it's just been busy.\nProvider: Now this one too. Both of them are very impacted. I'll put in an order to get those cleaned out.\nPatient: So his and not you don't want to do that to him? Clean out the No, there's nothing to clean. That literally I can see through Oh, wow. into his ear because the eardrum is busted.\nProvider: Little brain.\nProvider: He said it, not me.\nProvider: All right. Did you hear? You just got to do the ear drops, bro.\nProvider: No, the eardrum will heal back. But then the thing is the fact that uh I'm curious as to what the other antibiotic was, since you are you're not hearing anything at all with that ear, you know?\nPatient: There's just a bunch of stuff in there, can't hear.\nProvider: Right now, can you hear? Close this ear. Can you hear anything right now?\nPatient: No, no, keep this closed. Can you hear what I'm saying right now?\nProvider: Can you hear anything?\nProvider: Okay. So I'm going to also say that you follow up with an ENT, but I need when you get home, find it, call. Okay. They'll document it so at least we'll have an idea. Okay?\nPatient: Okay.\nProvider: All right. I'll do that.",
+  "gold": {
+    "historyOfPresentIllness": "A 12-year-old male presents with left ear pain and hearing loss for approximately four days, accompanied by ear drainage. The patient was seen at an urgent care two days prior and prescribed ear drops, which have not provided relief and are causing a sensation of clogging. Physical examination reveals a perforated right eardrum with left OE and AOM",
+    "additionalInformation": "R ear pain, clogged, and difficulty hearing.",
+    "reviewOfSystems": {
+      "observations": [
+        {
+          "field": "ros-ent-ear-pain-reports",
+          "label": "Ear pain",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "Dad, I'm in pain; ear hurting"
+        },
+        {
+          "field": "ros-gi-nausea-denies",
+          "label": "Nausea",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-ent-hearing-loss-reports",
+          "label": "Hearing loss",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "he says he can't hear from that ear"
+        },
+        {
+          "field": "ros-cardiovascular-chest-pain-denies",
+          "label": "Chest pain",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-ent-ear-drainage-reports",
+          "label": "Ear drainage",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "stuff coming out; drainage coming through"
+        },
+        {
+          "field": "ros-constitutional-fever-denies",
+          "label": "Fever",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-constitutional-chills-denies",
+          "label": "Chills",
+          "present": true,
+          "voiced": false
+        }
+      ]
+    },
+    "exam": [
+      {
+        "field": "severe-distress",
+        "label": "Severe distress",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "alert",
+        "label": "Alert",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "right-ear-tm-with-fluid",
+        "label": "TM with fluid",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "oriented-x-3",
+        "label": "Oriented x 3",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "normal-mental-status",
+        "label": "Normal mental status",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "right-ear-canal-with-debris-and-inflamed",
+        "label": "Canal with debris and inflamed",
+        "present": true,
+        "voiced": true,
+        "voicedEvidence": "completely impacted, can't see anything there"
+      },
+      {
+        "field": "right-ear-tm-bulging-erythematous",
+        "label": "TM bulging, erythematous",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "right-ear-tragus-tender",
+        "label": "Tragus tender",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "good-air-movement-throughout-lung-fields",
+        "label": "Good air movement throughout lung fields",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "moderate-distress",
+        "label": "Moderate distress",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "normal-tone",
+        "label": "Normal tone",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "moves-all-extremities-symmetrically",
+        "label": "Moves all extremities symmetrically",
+        "present": true,
+        "voiced": false
+      }
+    ],
+    "assessment": {
+      "diagnoses": [
+        {
+          "system": "ICD-10-CM",
+          "code": "H66.012",
+          "codeNormalized": "H66012",
+          "display": "Acute suppurative otitis media with spontaneous rupture of ear drum, left ear",
+          "primary": true,
+          "fromLabOrder": false,
+          "voiced": true,
+          "voicedEvidence": "eardrum is perforated; infection in middle ear"
+        },
+        {
+          "system": "ICD-10-CM",
+          "code": "H60.312",
+          "codeNormalized": "H60312",
+          "display": "Diffuse otitis externa, left ear",
+          "primary": false,
+          "fromLabOrder": false,
+          "voiced": true,
+          "voicedEvidence": "external ear infection; infection in outer ear"
+        },
+        {
+          "system": "ICD-10-CM",
+          "code": "H90.12",
+          "codeNormalized": "H9012",
+          "display": "Conductive hearing loss, unilateral, left ear, with unrestricted hearing on the contralateral side",
+          "primary": false,
+          "fromLabOrder": false,
+          "voiced": true,
+          "voicedEvidence": "can't hear anything with that ear"
+        }
+      ]
+    },
+    "billing": {
+      "emCode": {
+        "system": "CPT",
+        "code": "99214",
+        "codeNormalized": "99214",
+        "display": "99214 Established Patient - E/M Level 4"
+      },
+      "cptCodes": [
+        {
+          "system": "CPT",
+          "code": "87811",
+          "codeNormalized": "87811",
+          "display": "Detection test by immunoassay with direct visual observation for severe acute respiratory syndrome coronavirus 2 (COVID-19)",
+          "voiced": true,
+          "voicedEvidence": "were you exposed to COVID?"
+        }
+      ]
+    },
+    "medications": {
+      "prescribed": [
+        {
+          "name": "Ciprofloxacin-dexAMETHasone Otic Suspension 0.3-0.1 %",
+          "sig": "Instill 4 drops into the affected ear twice daily for 7 days.",
+          "status": "completed",
+          "voiced": true,
+          "voicedEvidence": "I'll send that drop... safe if eardrum perforated",
+          "nameVoiced": false
+        },
+        {
+          "name": "Amoxicillin-Pot Clavulanate Oral Tablet 875-125 MG",
+          "sig": "Take 1 tablet orally, 2 times daily for 10 days.",
+          "status": "completed",
+          "voiced": true,
+          "voicedEvidence": "send you the oral antibiotics... to treat both",
+          "nameVoiced": false
+        }
+      ],
+      "inHouseAdministered": [],
+      "immunizations": [],
+      "currentReconciled": [
+        {
+          "name": "Neomycin-Polymyxin-HC (1 %)",
+          "type": "scheduled",
+          "status": "active",
+          "context": true
+        }
+      ]
+    },
+    "allergies": [],
+    "medicalHistory": [],
+    "surgicalHistory": [
+      {
+        "system": "CPT",
+        "code": "69436",
+        "codeNormalized": "69436",
+        "display": "Ear tube placement"
+      },
+      {
+        "system": "CPT",
+        "code": "41899",
+        "codeNormalized": "41899",
+        "display": "Other (Arm and foot surgery)"
+      }
+    ],
+    "hospitalizations": [],
+    "procedures": [],
+    "labs": {
+      "external": {
+        "resultsPending": [],
+        "labOrderResults": []
+      },
+      "inHouse": {
+        "resultsPending": [],
+        "reflexTestsPending": [],
+        "labOrderResults": []
+      }
+    },
+    "radiology": [],
+    "vitals": [
+      {
+        "field": "vital-bmi",
+        "context": true,
+        "value": 29.8
+      },
+      {
+        "field": "vital-height",
+        "context": true,
+        "value": 172.72
+      },
+      {
+        "field": "vital-weight",
+        "context": true,
+        "value": 88.9
+      },
+      {
+        "field": "vital-oxygen-sat",
+        "context": true,
+        "value": 98,
+        "method": "On room air"
+      },
+      {
+        "field": "vital-blood-pressure",
+        "context": true,
+        "systolic": 123,
+        "diastolic": 68,
+        "method": "Sitting"
+      },
+      {
+        "field": "vital-respiration-rate",
+        "context": true,
+        "value": 16
+      },
+      {
+        "field": "vital-heartbeat",
+        "context": true,
+        "value": 59,
+        "method": "Sitting"
+      },
+      {
+        "field": "vital-temperature",
+        "context": true,
+        "value": 36.722,
+        "method": "Temporal"
+      }
+    ],
+    "medicalDecisionMaking": "Reviewed diagnosis, expected course, treatment plan, and reasons to seek urgent and/or emergent care.  Discharge instructions reviewed.  Patient/Caregiver expressed understanding.  All questions were answered, and is comfortable with discharge plan.  ER Precautions given.",
+    "disposition": {
+      "type": "specialty",
+      "note": "Please follow up with an ENT specialist for evaluation.",
+      "followUp": [],
+      "specialty": "ENT",
+      "dispositionVoiced": true,
+      "dispositionVoicedEvidence": "follow up with an ENT"
+    },
+    "instructions": [
+      "Patient Education: Understanding a Ruptured Eardrum from an Ear Infection, Understanding Swimmer's Ear (Otitis Externa), Understanding Unilateral Conductive Hearing Loss",
+      "discontinue old ear drops and start with new on."
+    ],
+    "instructionItems": [
+      {
+        "title": "Patient Education: Understanding a Ruptured Eardrum from an Ear Infection, Understanding Swimmer's Ear (Otitis Externa), Understanding Unilateral Conductive Hearing Loss",
+        "hasEducationDoc": true
+      },
+      {
+        "text": "discontinue old ear drops and start with new on."
+      }
+    ]
+  }
+}

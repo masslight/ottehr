@@ -1,0 +1,319 @@
+{
+  "id": "knee-laceration-effusion",
+  "label": "Left knee laceration from broken glass with pain and effusion (new, 72M)",
+  "sourceCase": "case337",
+  "patient": {
+    "ageYears": 72,
+    "sex": "male"
+  },
+  "patientStatus": "new",
+  "notes": [],
+  "said": [],
+  "goldErrors": [],
+  "allowed": [],
+  "narrativeFacts": [],
+  "edits": [],
+  "transcript": "Provider: Hello, <patient name>. Good afternoon.\nPatient: Good afternoon.\nProvider: My name is <clinician name>, I'm the clinician here today. Nice to meet you.\nPatient: Nice to meet you.\nProvider: So, tell me what happened.\nPatient: I was washing a glass and it slipped out of my hand and fell and I tried to knock it away like toward the dishwasher so it wouldn't hit the floor.\nProvider: Okay.\nPatient: And then my knee grabbed it and hit it against the wall, but I had already broken and I didn't know it. So it's stuck into my own leg.\nProvider: This happened yesterday or was it today?\nPatient: Last night.\nProvider: Now, so blood a lot. I mean, two two what do you call those? Paper towels full of blood. But it doesn't hurt much here, but it's really really hurts here. And you're going to and you're going to make it hurt.\nProvider: I'm sorry. So, this is what I'm going to suggest. You know, I will say let's get an X-ray of that knee because it's going to show if there is still glass that is stuck in there, the X-ray is going to show.\nPatient: Cuz something's hurting it. It's not I couldn't sleep hardly at all last through the night. And it hurts when I walk and it really hurts to bend my leg.\nProvider: So, when you touch it, do you feel as if there is something in there still?\nPatient: No, it just hurts. It hurts. It's a pain. So, I don't feel any I don't push it.\nProvider: I don't push. Was there glass there? No, it hurts.\nPatient: No, because if you push it, you might feel like something is poking me there. So, it's like Yeah. It hurts so bad. It just bare It just that kind of a touch hurts.\nProvider: Okay. And you can see it's kind of puffed up again.\nPatient: Yeah, I I see that there.\nProvider: No, generally, you know, we'll see what the X-ray shows. We'll see what the X-ray shows.\nPatient: Well, cuz if it's uh it's not looking like super inflamed as yet to cause cuz that whole area will probably be pretty red. Okay? But we'll see what the X-ray shows. The X-ray shows that there is something there, we'll try to see if we can fish it out. You know, if we cannot, then I will have to put you on order for you to get an ultrasound guided extraction. You know, so that's that's what it's going to be. But at least the the first thing we can do is to make sure the X-ray doesn't show us that there's anything there and we'll know what to work with. I I hope there's nothing there.\nPatient: Well, if there's not, why would there be so much pain?\nProvider: Well, because tissue was cut.\nPatient: Well, I've cut myself before and it didn't hurt. Could I hit a nerve or something?\nProvider: Could be. It's pretty sensitive on that side. Yeah. So, so let's let's see what the X-ray shows. You know, at first I thought maybe your wife made you kneel on glass because you did something.\nPatient: That's true.\nProvider: I said I thought you were kneeling on glass for not listening.\nPatient: No, no.\nProvider: Okay, we'll be back.\nPatient: I told him he should have just let it fall to the floor.\nProvider: I I do the same thing. You know, stuff is falling, I want to gauge it with my foot. Then I get I didn't know it broke. It broke. And I didn't know it until I put my hand on the counter and I cut my hand. My finger got cut and I thought, \"Oh.\" And then and then I saw it was a really sharp edge. Oh my. So,\nProvider: Let's see what the X-ray shows us.\nPatient: Yes, good work.\nProvider: It's it's better. He's concerned. He didn't want to damage your your glassware. Yeah, he sacrificed himself.\nPatient: I can order another one online.\nProvider: I'll be back.\nPatient: Okay.\nProvider: Okay, I shall put in the order for the X-ray of that knee. Let's see what's going on there. Left knee.",
+  "gold": {
+    "historyOfPresentIllness": "The patient is a 72-year-old male who presents with left knee pain following a laceration from a broken glass last night. He reports significant pain with movement and weight-bearing, and notes the area is swollen. He denies feeling a foreign body upon palpation but reports sharp, localized pain. Last Tetanus shot was 2-3 years ago",
+    "additionalInformation": "left knee laceration",
+    "reviewOfSystems": {
+      "observations": [
+        {
+          "field": "ros-constitutional-chills-denies",
+          "label": "Chills",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-constitutional-fever-denies",
+          "label": "Fever",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-eyes-vision-changes-denies",
+          "label": "Vision changes",
+          "present": true,
+          "voiced": false
+        }
+      ]
+    },
+    "exam": [
+      {
+        "field": "skin-location",
+        "label": "Location",
+        "present": true,
+        "components": [
+          {
+            "code": "skin-loc-knee",
+            "label": "Knee",
+            "value": true,
+            "abnormal": true
+          }
+        ],
+        "abnormal": true,
+        "voiced": true,
+        "voicedEvidence": "X-ray of that knee"
+      },
+      {
+        "field": "moderate-distress",
+        "label": "Moderate distress",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "alert",
+        "label": "Alert",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "normal-tone",
+        "label": "Normal tone",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "knee",
+        "label": "Knee",
+        "present": true,
+        "components": [
+          {
+            "code": "knee-left-tenderness-soft-tissue",
+            "label": "Soft tissue",
+            "value": true,
+            "abnormal": true
+          },
+          {
+            "code": "knee-left-skin-erythema",
+            "label": "Erythema",
+            "value": true,
+            "abnormal": true
+          },
+          {
+            "code": "knee-left-active-rom-full",
+            "label": "Full",
+            "value": true,
+            "abnormal": false
+          },
+          {
+            "code": "knee-left-passive-rom-full",
+            "label": "Full",
+            "value": true,
+            "abnormal": false
+          },
+          {
+            "code": "knee-left-temperature-warm",
+            "label": "Warm",
+            "value": true,
+            "abnormal": true
+          }
+        ],
+        "abnormal": true,
+        "voiced": true,
+        "voicedEvidence": "kind of puffed up again; not super inflamed as yet"
+      },
+      {
+        "field": "active",
+        "label": "Active",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "skin-side",
+        "label": "Side",
+        "present": true,
+        "components": [
+          {
+            "code": "skin-side-l",
+            "label": "L",
+            "value": true,
+            "abnormal": true
+          }
+        ],
+        "abnormal": true,
+        "voiced": true,
+        "voicedEvidence": "X-ray of that knee. Left knee."
+      },
+      {
+        "field": "extremities-comment",
+        "label": "Extremities comment",
+        "present": false,
+        "note": "mild effusion"
+      },
+      {
+        "field": "skin-comment",
+        "label": "Skin comment",
+        "note": "No suture needed due to lengnth 1cm."
+      },
+      {
+        "field": "oriented-x-3",
+        "label": "Oriented x 3",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "skin-wound-laceration",
+        "label": "Wound / laceration",
+        "present": true,
+        "components": [
+          {
+            "code": "skin-wound-edges-clean",
+            "label": "Clean",
+            "value": true,
+            "abnormal": true
+          },
+          {
+            "code": "skin-wound-tendon-no",
+            "label": "No",
+            "value": true,
+            "abnormal": false
+          },
+          {
+            "code": "skin-wound-superficial",
+            "label": "Superficial",
+            "value": true,
+            "abnormal": true
+          }
+        ],
+        "abnormal": true,
+        "voiced": true,
+        "voicedEvidence": "it doesn't hurt much here, but it's really really hurts here"
+      },
+      {
+        "field": "normal-mental-status",
+        "label": "Normal mental status",
+        "present": true,
+        "voiced": false
+      }
+    ],
+    "assessment": {
+      "diagnoses": [
+        {
+          "system": "ICD-10-CM",
+          "code": "S81.012A",
+          "codeNormalized": "S81012A",
+          "display": "Laceration without foreign body, left knee, initial encounter",
+          "primary": true,
+          "fromLabOrder": false,
+          "voiced": true,
+          "voicedEvidence": "glass slipped, cut into his leg, no foreign body implied by 'no push, no poking'"
+        },
+        {
+          "system": "ICD-10-CM",
+          "code": "M25.462",
+          "codeNormalized": "M25462",
+          "display": "Effusion, left knee",
+          "primary": false,
+          "fromLabOrder": false,
+          "voiced": true,
+          "voicedEvidence": "you can see it's kind of puffed up again"
+        }
+      ]
+    },
+    "billing": {
+      "emCode": {
+        "system": "CPT",
+        "code": "99204",
+        "codeNormalized": "99204",
+        "display": "99204 New Patient - E/M Level 4"
+      },
+      "cptCodes": [
+        {
+          "system": "CPT",
+          "code": "73560",
+          "codeNormalized": "73560",
+          "display": "X-ray of knee, 1-2 views",
+          "modifiers": [
+            {
+              "code": "LT",
+              "display": "Left side"
+            }
+          ],
+          "voiced": true,
+          "voicedEvidence": "put in the order for the X-ray of that knee"
+        }
+      ]
+    },
+    "medications": {
+      "prescribed": [],
+      "inHouseAdministered": [],
+      "immunizations": [],
+      "currentReconciled": [
+        {
+          "name": "TEGretol Oral Suspension (100 MG/5ML)",
+          "type": "scheduled",
+          "status": "active",
+          "context": true
+        },
+        {
+          "name": "Crestor Oral Tablet (20 MG)",
+          "type": "scheduled",
+          "status": "active",
+          "context": true
+        },
+        {
+          "name": "Keppra Oral Tablet (500 MG)",
+          "type": "scheduled",
+          "status": "active",
+          "context": true
+        }
+      ]
+    },
+    "allergies": [],
+    "medicalHistory": [],
+    "surgicalHistory": [
+      {
+        "system": "CPT",
+        "code": "29850",
+        "codeNormalized": "29850",
+        "display": "Knee Surgery"
+      }
+    ],
+    "hospitalizations": [],
+    "procedures": [],
+    "labs": {
+      "external": {
+        "resultsPending": [],
+        "labOrderResults": []
+      },
+      "inHouse": {
+        "resultsPending": [],
+        "reflexTestsPending": [],
+        "labOrderResults": []
+      }
+    },
+    "radiology": [
+      {
+        "studyType": "73560 — X-ray of knee, 1-2 views - Left side",
+        "studyName": "X-ray of knee, 1-2 views - Left side",
+        "cptCodeDisplay": "X-ray of knee, 1-2 views - Left side",
+        "diagnosis": "S81.012A — Laceration without foreign body, left knee, initial encounter",
+        "clinicalHistory": "Lac by glass to anterior left knee"
+      }
+    ],
+    "vitals": [],
+    "medicalDecisionMaking": "Reviewed diagnosis, expected course, treatment plan, and reasons to seek urgent and/or emergent care.  Discharge instructions reviewed.  Patient/Caregiver expressed understanding.  All questions were answered, and is comfortable with discharge plan.  ER Precautions given.",
+    "disposition": {
+      "type": "pcp-no-type",
+      "note": "Please see your Primary Care Physician.",
+      "followUp": [],
+      "dispositionVoiced": false
+    },
+    "instructions": [
+      "Patient Education: Caring for Your Knee Laceration",
+      "You were seen today for a small laceration (cut) caused by glass. You had mild redness, swelling, and discomfort around the injured area.\n\nAn X-ray was performed today and did not show any radiopaque foreign body, including visible retained glass, in the soft tissues. Please understand that very small or non-radiopaque foreign material may not always be visible on an X-ray.\n\nWound Care\nKeep the area clean and dry.\nGently wash the wound with soap and clean running water. Avoid aggressive scrubbing.\nApply a thin layer of topical antibiotic ointment as directed.\nCover the area with a clean bandage, particularly while the wound remains open or could become dirty.\nChange the bandage at least once daily or whenever it becomes wet or dirty.\nDo not pick at or probe the wound.\nPain and Swelling\n\nYou may use acetaminophen (Tylenol) or ibuprofen (Advil/Motrin) as needed for pain, if you normally can take these medications safely.\n\nElevating the injured area when possible may also help reduce swelling.\n\nWatch for Signs of Infection\n\nReturn to the clinic or seek medical evaluation if you develop:\n\nIncreasing redness, warmth, or swelling\nIncreasing or severe pain\nPus or other abnormal drainage\nRed streaking extending from the wound\nFever or chills\nNumbness, tingling, weakness, or difficulty moving the affected area\nPersistent sensation that something remains inside the wound\nAny worsening or concerning symptoms\nFollow-Up\n\nThe wound should gradually improve over the next several days. Return for reevaluation if the redness, swelling, or pain worsens rather than improves, or if you continue to feel that a foreign body may be present despite the negative X-ray."
+    ],
+    "instructionItems": [
+      {
+        "title": "Patient Education: Caring for Your Knee Laceration",
+        "hasEducationDoc": true
+      },
+      {
+        "title": "Discharge Instructions: Minor Laceration",
+        "text": "You were seen today for a small laceration (cut) caused by glass. You had mild redness, swelling, and discomfort around the injured area.\n\nAn X-ray was performed today and did not show any radiopaque foreign body, including visible retained glass, in the soft tissues. Please understand that very small or non-radiopaque foreign material may not always be visible on an X-ray.\n\nWound Care\nKeep the area clean and dry.\nGently wash the wound with soap and clean running water. Avoid aggressive scrubbing.\nApply a thin layer of topical antibiotic ointment as directed.\nCover the area with a clean bandage, particularly while the wound remains open or could become dirty.\nChange the bandage at least once daily or whenever it becomes wet or dirty.\nDo not pick at or probe the wound.\nPain and Swelling\n\nYou may use acetaminophen (Tylenol) or ibuprofen (Advil/Motrin) as needed for pain, if you normally can take these medications safely.\n\nElevating the injured area when possible may also help reduce swelling.\n\nWatch for Signs of Infection\n\nReturn to the clinic or seek medical evaluation if you develop:\n\nIncreasing redness, warmth, or swelling\nIncreasing or severe pain\nPus or other abnormal drainage\nRed streaking extending from the wound\nFever or chills\nNumbness, tingling, weakness, or difficulty moving the affected area\nPersistent sensation that something remains inside the wound\nAny worsening or concerning symptoms\nFollow-Up\n\nThe wound should gradually improve over the next several days. Return for reevaluation if the redness, swelling, or pain worsens rather than improves, or if you continue to feel that a foreign body may be present despite the negative X-ray."
+      }
+    ]
+  }
+}

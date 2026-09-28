@@ -1,0 +1,456 @@
+{
+  "id": "left-sided-pharyngitis",
+  "label": "Sore throat on the left since yesterday with painful swallowing (new, 39F)",
+  "sourceCase": "case412",
+  "patient": {
+    "ageYears": 39,
+    "sex": "female"
+  },
+  "patientStatus": "new",
+  "notes": [],
+  "said": [],
+  "goldErrors": [],
+  "allowed": [],
+  "narrativeFacts": [],
+  "edits": [],
+  "transcript": "Provider: Hi. My name is <clinician name>, and I'm the PA. Nice to meet you.\nPatient: <patient name>.\nProvider: Yeah. All right. Tell me what's been going on.\nPatient: Just sore throat on the left side.\nProvider: Okay. Just a sore throat?\nPatient: Mhm. It hurts to swallow. I don't know. I can't I think I'm having a little bit of drainage that's going on that side. But um I don't have any congestion. I don't have any stuffy and I no problems on my right side. Just the left side.\nProvider: Okay. No headache, fever, cough, congestion. Um and when did this start?\nPatient: It started hurting yesterday and I was gargling with like hydrogen peroxide. Um and it helped a little bit, but it just gotten worse.\nProvider: Okay. Um have you taken anything else at home?\nPatient: Mhm.\nProvider: Okay. All right. Let me take a look. And she's the mention you don't want to do a strep test today?\nPatient: I mean, if you look and you think I mean, you normally have to do a strep that's for a whole throat, not just isolated one side. But I mean, I remember my son used to have strep. Well, when I used to take my son. So, but Yeah. Okay. I think I need it, I'll do it, but I don't I don't it doesn't feel like strep to me.\nProvider: I'll take a look. Take a listen to your heart and lungs first.\nProvider: Okay. Let me take a look in your ears. Do you get like allergies?\nPatient: Um sometimes. Not regularly.\nProvider: You feel like your nose is runny at all?\nPatient: No, my nose isn't running. I feel like I do have some drainage in the back, though. This air is hurting, but I think it's just because of the throat.\nProvider: Let me see your mouth. Say ah.\nPatient: Ah.\nProvider: Okay. Definitely red. Um your tonsils. They look a a little swollen, but I'm not seeing like any exudates, which is classic for strep. Um which I think tonsil down going with the kids. Did they grow back? Oh, like a lizard.\nPatient: Well, no, that they wouldn't be there.\nProvider: No. Okay. So, just some redness in the back of your throat. Um so, I think since this just started yesterday, um that I don't think we need to do a strep test today. Um I think we should give it some time. It's most likely something viral. Um so, that's just kind of symptomatic treatment, rest, fluids. Um it just started yesterday, so you could start getting Can I do like a steroid shot to help with the swelling?\nProvider: Yeah, we can do a steroid shot. Just because it hurts to swallow. Like it's it's really uncomfortable.\nProvider: So, yeah, a steroid shot will help with the inflammation. I can also give you like a viscous lidocaine to use for the next couple of days if it's really bothering you. It's like a mouthwash. You gargle it and then spit it out. Okay. You want to do that, too?\nPatient: That works.\nProvider: Okay. Um do I need an antibiotic, or do you want to wait on that?\nPatient: I think let's wait just because it just started yesterday and you're not having fever. Um so, I think we can wait on that side. And then if you don't get better in 7 to 10 days, um then you can come back and we can maybe do an antibiotic then.\nPatient: Okay. That sounds good.\nProvider: All right. Well, let me get that prescription in and then we'll do a steroid shot for you, too.\nPatient: Good.\nProvider: You're welcome.",
+  "gold": {
+    "historyOfPresentIllness": "The patient is a 39-year-old female presenting with a sore throat localized to the left side that began yesterday, accompanied by difficulty swallowing. She denies fever, cough, or congestion.",
+    "reviewOfSystems": {
+      "observations": [
+        {
+          "field": "ros-msk-muscle-aches-denies",
+          "label": "Muscle aches/myalgia",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-ent-difficulty-swallowing-denies",
+          "label": "Difficulty swallowing",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "It hurts to swallow"
+        },
+        {
+          "field": "ros-ent-sore-throat-reports",
+          "label": "Sore throat",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "Just sore throat on the left side"
+        },
+        {
+          "field": "ros-ent-hoarseness-denies",
+          "label": "Hoarseness",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-constitutional-night-sweats-denies",
+          "label": "Night sweats",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-constitutional-chills-denies",
+          "label": "Chills",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-respiratory-shortness-of-breath-denies",
+          "label": "Shortness of breath",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-neuro-headache-denies",
+          "label": "Headache",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "No headache, fever, cough, congestion"
+        },
+        {
+          "field": "ros-respiratory-cough-denies",
+          "label": "Cough",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "No headache, fever, cough, congestion"
+        },
+        {
+          "field": "ros-ent-post-nasal-drip-reports",
+          "label": "Post-nasal drip",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "I feel like I do have some drainage in the back"
+        },
+        {
+          "field": "ros-ent-ear-pain-denies",
+          "label": "Ear pain",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-heme-swollen-nodes-denies",
+          "label": "Swollen lymph nodes",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-constitutional-fever-denies",
+          "label": "Fever",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "No headache, fever, cough, congestion"
+        }
+      ]
+    },
+    "exam": [
+      {
+        "field": "nasal-mucosa-normal",
+        "label": "Nasal mucosa normal",
+        "present": true,
+        "voiced": true,
+        "voicedEvidence": "my nose isn't running"
+      },
+      {
+        "field": "moist-mucous-membranes",
+        "label": "Moist mucous membranes",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "normocephalic",
+        "label": "Normocephalic",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "normal-affect-calm-cooperative",
+        "label": "Normal affect; calm/cooperative",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "alert",
+        "label": "Alert",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "good-air-movement-throughout-lung-fields",
+        "label": "Good air movement throughout lung fields",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "no-generalized-lymphadenopathy",
+        "label": "No generalized lymphadenopathy",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "active",
+        "label": "Active",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "erythematous-pharynx",
+        "label": "Erythematous pharynx",
+        "present": true,
+        "voiced": true,
+        "voicedEvidence": "Definitely red...just some redness in the back of your throat"
+      },
+      {
+        "field": "normal-tone",
+        "label": "Normal tone",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "chest-is-clear-to-auscultation-bilaterally",
+        "label": "Chest is clear to auscultation bilaterally",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "no-chest-wall-tenderness",
+        "label": "No chest wall tenderness",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "oriented-x-3",
+        "label": "Oriented x 3",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "well-hydrated",
+        "label": "Well-hydrated",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "normal-dentition",
+        "label": "Normal dentition",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "no-signs-of-respiratory-distress",
+        "label": "No signs of respiratory distress",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "tongue-midline",
+        "label": "Tongue midline",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "oral-comment",
+        "label": "Oral comment",
+        "note": "Tonsils surgically absent"
+      },
+      {
+        "field": "uvula-midline",
+        "label": "Uvula midline",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "atraumatic",
+        "label": "Atraumatic",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "in-no-acute-distress",
+        "label": "In no acute distress",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "normal-mental-status",
+        "label": "Normal mental status",
+        "present": true,
+        "voiced": false
+      }
+    ],
+    "assessment": {
+      "diagnoses": [
+        {
+          "system": "ICD-10-CM",
+          "code": "J02.9",
+          "codeNormalized": "J029",
+          "display": "Acute pharyngitis, unspecified",
+          "primary": true,
+          "fromLabOrder": false,
+          "voiced": true,
+          "voicedEvidence": "red throat, swollen tonsils, most likely something viral"
+        }
+      ]
+    },
+    "billing": {
+      "emCode": {
+        "system": "CPT",
+        "code": "99204",
+        "codeNormalized": "99204",
+        "display": "99204 New Patient - E/M Level 4"
+      },
+      "cptCodes": [
+        {
+          "system": "CPT",
+          "code": "96372",
+          "codeNormalized": "96372",
+          "display": "Injection of drug or substance under skin or into muscle",
+          "voiced": true,
+          "voicedEvidence": "we'll do a steroid shot for you"
+        },
+        {
+          "system": "CPT",
+          "code": "J1100",
+          "codeNormalized": "J1100",
+          "display": "Injection, dexamethasone sodium phosphate, 1 mg",
+          "units": 10,
+          "voiced": false
+        },
+        {
+          "system": "CPT",
+          "code": "87880",
+          "codeNormalized": "87880",
+          "display": "Detection test by immunoassay with direct visual observation for Streptococcus, group A (strep)",
+          "voiced": true,
+          "voicedEvidence": "I don't think we need to do a strep test today"
+        }
+      ]
+    },
+    "medications": {
+      "prescribed": [
+        {
+          "name": "Lidocaine Viscous HCl Mouth/Throat Solution 2 %",
+          "sig": "Swish and gargle 15 mL for up to 1 minute, then spit out; every 3 hours as needed for throat pain; maximum 8 doses/24 hours",
+          "status": "completed",
+          "voiced": true,
+          "voicedEvidence": "give you like a viscous lidocaine to use",
+          "nameVoiced": true
+        }
+      ],
+      "inHouseAdministered": [
+        {
+          "name": "Dexamethasone",
+          "ndc": "67457-0420-00",
+          "cptCodes": [
+            {
+              "code": "96372",
+              "display": "Injection of drug or substance under skin or into muscle"
+            },
+            {
+              "code": "J1100",
+              "display": "Injection, dexamethasone sodium phosphate, 1 mg"
+            }
+          ],
+          "dose": 10,
+          "units": "mg",
+          "route": "78421000",
+          "status": "administered"
+        }
+      ],
+      "immunizations": [],
+      "currentReconciled": [
+        {
+          "name": "buPROPion HCl Oral Tablet (100 MG)",
+          "type": "scheduled",
+          "status": "active",
+          "context": true
+        }
+      ]
+    },
+    "allergies": [],
+    "medicalHistory": [
+      {
+        "system": null,
+        "code": "F32.A",
+        "codeNormalized": "F32A",
+        "display": "Depression, unspecified",
+        "current": true,
+        "context": true
+      }
+    ],
+    "surgicalHistory": [
+      {
+        "system": "CPT",
+        "code": "44950",
+        "codeNormalized": "44950",
+        "display": "Appendectomy"
+      },
+      {
+        "system": "CPT",
+        "code": "59510",
+        "codeNormalized": "59510",
+        "display": "C-section"
+      },
+      {
+        "system": "CPT",
+        "code": "41899",
+        "codeNormalized": "41899",
+        "display": "Other (cholecystectomy)"
+      },
+      {
+        "system": "CPT",
+        "code": "68899",
+        "codeNormalized": "68899",
+        "display": "Tonsillectomy and adenoidectomy"
+      },
+      {
+        "system": "CPT",
+        "code": "47600",
+        "codeNormalized": "47600",
+        "display": "Gallbladder removal"
+      }
+    ],
+    "hospitalizations": [],
+    "procedures": [],
+    "labs": {
+      "external": {
+        "resultsPending": [],
+        "labOrderResults": []
+      },
+      "inHouse": {
+        "resultsPending": [],
+        "reflexTestsPending": [],
+        "labOrderResults": [
+          {
+            "name": "Rapid Strep",
+            "resultValues": ["Rapid Strep: Not detected"]
+          }
+        ]
+      }
+    },
+    "radiology": [],
+    "vitals": [
+      {
+        "field": "vital-bmi",
+        "context": true,
+        "value": 27.4
+      },
+      {
+        "field": "vital-height",
+        "context": true,
+        "value": 154.94
+      },
+      {
+        "field": "vital-weight",
+        "context": true,
+        "value": 65.86
+      },
+      {
+        "field": "vital-oxygen-sat",
+        "context": true,
+        "value": 95,
+        "method": "On room air"
+      },
+      {
+        "field": "vital-blood-pressure",
+        "context": true,
+        "systolic": 120,
+        "diastolic": 82,
+        "method": "Sitting"
+      },
+      {
+        "field": "vital-respiration-rate",
+        "context": true,
+        "value": 16
+      },
+      {
+        "field": "vital-heartbeat",
+        "context": true,
+        "value": 86,
+        "method": "Sitting"
+      },
+      {
+        "field": "vital-temperature",
+        "context": true,
+        "value": 36.722,
+        "method": "Temporal"
+      }
+    ],
+    "medicalDecisionMaking": "Strep test negative.  Steroid injection administered to help reduce inflammation and pain in the throat.  Benefits and risks discussed with patient including risk of lowering of seizure threshold with use of bupropion.  Patient verbalized understanding and agreed.  Reviewed diagnosis, expected course, treatment plan, and reasons to seek urgent and/or emergent care.  Discharge instructions reviewed.",
+    "disposition": {
+      "type": "pcp-no-type",
+      "note": "Please see your Primary Care Physician.",
+      "followUp": [],
+      "dispositionVoiced": true,
+      "dispositionVoicedEvidence": "if you don't get better in 7 to 10 days, come back"
+    },
+    "instructions": ["Patient Education: Understanding Your Sore Throat"],
+    "instructionItems": [
+      {
+        "title": "Patient Education: Understanding Your Sore Throat",
+        "hasEducationDoc": true
+      }
+    ]
+  }
+}

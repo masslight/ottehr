@@ -1,0 +1,309 @@
+{
+  "id": "acute-sinusitis",
+  "label": "Four days of congestion, productive cough and sinus pressure (new, 36M)",
+  "sourceCase": "case668",
+  "patient": {
+    "ageYears": 36,
+    "sex": "male"
+  },
+  "patientStatus": "new",
+  "notes": [],
+  "said": [],
+  "goldErrors": [],
+  "allowed": [],
+  "narrativeFacts": [],
+  "edits": [],
+  "transcript": "Provider: Hello.\nPatient: Hi. Now, this is <patient name>. Sorry, we I had a little bit of a hard time getting a difficult to stay.\nProvider: Yeah. Good morning.\nPatient: Yeah, good morning.\nProvider: So, what's going on? You said you've had like a congestion and productive cough about two days without fever?\nPatient: Yeah, um I had a like a mild fever for a day, but it it broke. And uh and now I just have sinus and uh congestion like all in my my head and I have a headache. Um but I mean, I don't think it's I don't think it's anything serious, but I mean, it's just something to basically stay at home, you know, stay away from people just in case, you know.\nProvider: So, here is uh here is So, right now you still have the congestion, runny nose, and kind of post-nasal drip. Do you have any sore throat?\nPatient: No, no sore throat. Just just my nose and my uh my sinuses, you know. Okay. That's pretty much it.\nProvider: So, with the sinuses, you do you feel pain and pressure? Say if you Yeah. Yeah, like right here.\nProvider: Okay. What about underneath here? Anything pressure?\nPatient: Not really.\nProvider: So, it's mostly Mostly on the forehead, yeah.\nProvider: Okay. So, have you per chance maybe considered uh getting tested for for COVID? I know it's kind of something that is Um, no, I have not. not common place. Yeah. Anybody aches?\nPatient: Uh, no.\nProvider: Nobody aches. And you say, when was the last time you had fever?\nPatient: Uh the first day, two days ago.\nProvider: Two days ago, but you haven't had it since.\nPatient: No.\nProvider: Okay. Okay. So, let me see here. Right. Any cough?\nPatient: Uh a little cough, yeah, here and there. Not not all the time.\nProvider: Okay.\nPatient: I think it's more just me trying to get rid of the phlegm. You know.\nProvider: All right. So, let me see here. Any kind of shortness of breath, wheezing, stuff like that?\nPatient: No.\nProvider: Okay. You said nobody aches either.\nPatient: Yeah.\nProvider: So, generally, it seems like uh there is a little bit of a sinus infection going on there. Okay. So, between about uh one week to 10 days or so, the likelihood is more viral than anything. Okay. Yeah, but the thing though is usually once you feel like it's getting worse, especially this one that you have the fever. You know, it could be a possible bacterial lingering. So, what I'm going to do here is I'm going to I'm going to send you a couple of things. Okay. So, two things I'm going to send. One is the steroidal nasal spray uh because on property it's like flonase. So, two sprays in each nostril once daily. It's going to calm down the inflammation there, reduce the production of that uh what do you call it? The the mucus production and the post-nasal drain. And I'll send you another one. It's called uh ipratropium bromide. Two sprays in each nostril. You could do that two to three times a day, but not more than four days. Okay. Okay. It'll kind of dry that up. Okay. And then I'm going to send you cough syrup. And I will send you antibiotics. Do you have any antibiotics allergy at all?\nPatient: No.\nProvider: Okay. So, so I'm going to send you antibiotics. What I'm going to send you is uh augmentin. It's amoxicillin clavulanate. So, I will say hold it. Don't start taking that as yet. Hold it and see cuz today is uh today is Tuesday. So, today will make it the third day, fourth, fifth, sixth. So, if by say Friday, Saturday, you notice that uh this thing is getting worse, it's not resolving, the pressure, a lot more pain, then start taking that, okay? Okay. So, one tab twice a day, you're going to take it for about five to seven days. Okay. So, let me confirm your pharmacy. That's the <pharmacy>. Yes, in <city>. Pardon? The <city> <pharmacy>. <city>. Okay. Okay. So, I'm going to send this out to that pharmacy right now. So, generally, they might be reaching out to you, give or take within the next uh 20 to 30 minutes, let's see. Okay. Yeah. Then if say about five days from now, four or five days from now, things are not getting better, they'll stop. Okay. All right. So, any other questions for me?\nPatient: Um I think uh could I get a uh note for work as well, a doctor's note?\nProvider: How would you be able to pick that up? Um Could could y'all do an email or I don't know if they are able to do Let me check. Okay. Let me check with the I mean, if I can prepare it and have it out there, if they're able to send it via email, they will. If not, just call you and let you know, \"Hey, how do you want to pick this thing up?\" You know. Okay. And you're you're there in <city>, right? No, I'm not in <city>. I'm in the area. I think this is the only location that we do telehealth for the whole clinic system. I I I think there are some of the locations that do email, but let me check and they're going to let you know, okay? Okay. So, for a work note, I'm going to do to return tomorrow or when? What are you talking What are you thinking about? Um No, that's whatever. Um a day or so, yeah. Okay. All right. So, I'll put it to return tomorrow so you could have the day off to rest. Yeah. All right. Take care. All right. Thank you. Bye-bye.",
+  "gold": {
+    "historyOfPresentIllness": "The patient is a 36-year-old male presenting with a 4-day history of upper respiratory symptoms. Illness began with congestion and a productive cough with phlegm, accompanied by a fever 2 days ago that has since resolved. He now reports persistent nasal congestion, rhinorrhea, postnasal drainage, and a productive cough, along with a significant frontal sinus headache. He denies current fever.",
+    "reviewOfSystems": {
+      "observations": [
+        {
+          "field": "ros-ent-rhinorrhea-reports",
+          "label": "Rhinorrhea",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "runny nose"
+        },
+        {
+          "field": "ros-ent-sore-throat-denies",
+          "label": "Sore throat",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "No, no sore throat"
+        },
+        {
+          "field": "ros-respiratory-shortness-of-breath-denies",
+          "label": "Shortness of breath",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "Any kind of shortness of breath... No"
+        },
+        {
+          "field": "ros-neuro-headache-reports",
+          "label": "Headache",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "I have a headache"
+        },
+        {
+          "field": "ros-ent-post-nasal-drip-reports",
+          "label": "Post-nasal drip",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "post-nasal drip"
+        },
+        {
+          "field": "ros-respiratory-cough-reports",
+          "label": "Cough",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "a little cough, yeah, here and there"
+        },
+        {
+          "field": "ros-respiratory-wheezing-denies",
+          "label": "Wheezing",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "wheezing, stuff like that? No"
+        },
+        {
+          "field": "ros-gi-nausea-denies",
+          "label": "Nausea",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-ent-nasal-congestion-reports",
+          "label": "Nasal congestion",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "congestion like all in my head"
+        },
+        {
+          "field": "ros-cardiovascular-chest-pain-denies",
+          "label": "Chest pain",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-constitutional-fever-denies",
+          "label": "Fever",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "you haven't had it since... No"
+        },
+        {
+          "field": "ros-msk-muscle-aches-denies",
+          "label": "Muscle aches/myalgia",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "Anybody aches?... no"
+        },
+        {
+          "field": "ros-constitutional-chills-denies",
+          "label": "Chills",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-gi-vomiting-denies",
+          "label": "Vomiting",
+          "present": true,
+          "voiced": false
+        }
+      ]
+    },
+    "exam": [
+      {
+        "field": "moderate-distress",
+        "label": "Moderate distress",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "congestion-rhinorrhea",
+        "label": "Congestion, rhinorrhea",
+        "present": true,
+        "voiced": true,
+        "voicedEvidence": "congestion, runny nose, and kind of post-nasal drip"
+      },
+      {
+        "field": "moves-all-extremities-symmetrically",
+        "label": "Moves all extremities symmetrically",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "active",
+        "label": "Active",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "normal-mental-status",
+        "label": "Normal mental status",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "alert",
+        "label": "Alert",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "normal-affect-calm-cooperative",
+        "label": "Normal affect; calm/cooperative",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "normal-tone",
+        "label": "Normal tone",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "oriented-x-3",
+        "label": "Oriented x 3",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "sinus-tenderness",
+        "label": "Sinus tenderness",
+        "present": true,
+        "components": [
+          {
+            "code": "sinus-frontal-r",
+            "label": "Right",
+            "value": true,
+            "abnormal": true
+          },
+          {
+            "code": "sinus-frontal-l",
+            "label": "Left",
+            "value": true,
+            "abnormal": true
+          }
+        ],
+        "abnormal": true,
+        "voiced": true,
+        "voicedEvidence": "you feel pain and pressure? Yeah, like right here"
+      }
+    ],
+    "assessment": {
+      "diagnoses": [
+        {
+          "system": "ICD-10-CM",
+          "code": "J01.90",
+          "codeNormalized": "J0190",
+          "display": "Acute sinusitis, unspecified",
+          "primary": true,
+          "fromLabOrder": false,
+          "voiced": true,
+          "voicedEvidence": "a little bit of a sinus infection going on there"
+        },
+        {
+          "system": "ICD-10-CM",
+          "code": "R09.81",
+          "codeNormalized": "R0981",
+          "display": "Nasal congestion",
+          "primary": false,
+          "fromLabOrder": false,
+          "voiced": true,
+          "voicedEvidence": "congestion, runny nose, and kind of post-nasal drip"
+        },
+        {
+          "system": "ICD-10-CM",
+          "code": "R05.1",
+          "codeNormalized": "R051",
+          "display": "Acute cough",
+          "primary": false,
+          "fromLabOrder": false,
+          "voiced": true,
+          "voicedEvidence": "a little cough, yeah, here and there"
+        }
+      ]
+    },
+    "billing": {
+      "emCode": {
+        "system": "CPT",
+        "code": "99214",
+        "codeNormalized": "99214",
+        "display": "99214 Established Patient - E/M Level 4"
+      },
+      "cptCodes": []
+    },
+    "medications": {
+      "prescribed": [
+        {
+          "name": "Ipratropium Bromide Nasal Solution 0.06 %",
+          "sig": "Use 2 sprays in each nostril 2-3 times daily for up to 4 days.",
+          "status": "completed",
+          "voiced": true,
+          "voicedEvidence": "ipratropium bromide. Two sprays in each nostril",
+          "nameVoiced": true
+        },
+        {
+          "name": "Fluticasone Propionate Nasal Suspension 50 MCG/ACT",
+          "sig": "Use 2 sprays in each nostril once daily for 7-14 days.",
+          "status": "completed",
+          "voiced": true,
+          "voicedEvidence": "steroidal nasal spray... like flonase, two sprays",
+          "nameVoiced": true
+        },
+        {
+          "name": "Amoxicillin-Pot Clavulanate Oral Tablet 875-125 MG",
+          "sig": "Take 1 tablet orally, 2 times daily for 5-7 days.",
+          "status": "completed",
+          "voiced": true,
+          "voicedEvidence": "augmentin. It's amoxicillin clavulanate... one tab twice a day",
+          "nameVoiced": true
+        }
+      ],
+      "inHouseAdministered": [],
+      "immunizations": [],
+      "currentReconciled": []
+    },
+    "allergies": [],
+    "medicalHistory": [],
+    "surgicalHistory": [],
+    "hospitalizations": [],
+    "procedures": [],
+    "labs": {
+      "external": {
+        "resultsPending": [],
+        "labOrderResults": []
+      },
+      "inHouse": {
+        "resultsPending": [],
+        "reflexTestsPending": [],
+        "labOrderResults": []
+      }
+    },
+    "radiology": [],
+    "vitals": [],
+    "medicalDecisionMaking": "Reviewed diagnosis, expected course, treatment plan, and reasons to seek urgent and/or emergent care.  Discharge instructions reviewed.  Patient/Caregiver expressed understanding.  All questions were answered, and is comfortable with discharge plan.  ER Precautions given.",
+    "disposition": {
+      "type": "pcp-no-type",
+      "note": "Please see your Primary Care Physician.",
+      "followUp": [],
+      "dispositionVoiced": false
+    },
+    "instructions": [
+      "You have a sinus and upper respiratory infection. This is most likely caused by a virus, which is the usual cause in the first days of this kind of illness. Most people get better on their own within about 7 to 10 days. Because of this, antibiotics are not started right away — they are only needed if you are not improving or you get worse.\n\nYour medicines\n\nFluticasone propionate nasal spray — Use 2 sprays in each nostril once daily for 7–14 days. This reduces swelling and congestion in your nose and sinuses.\nIpratropium bromide nasal spray — Use 2 sprays in each nostril 2–3 times daily for up to 4 days. This helps dry up a runny nose and drainage.\nAmoxicillin-clavulanate (antibiotic) — Take by mouth twice daily for 5–7 days. Do not start this right away. Only begin the antibiotic if, after 5–7 days, your symptoms are still not improving or are getting worse. If you clearly improve on your own, you do not need it.\nThings that help you feel better\n\nRinse your nose with saline (saltwater) spray or rinses.\nDrink plenty of fluids and rest.\nUse acetaminophen or ibuprofen for pain or headache, as directed on the package.\nFollow-up\n\nIf you start the antibiotic and your symptoms have not resolved after 5 days on it, come back for a follow-up visit.\n\nCome back sooner or seek urgent care if you have any of the following:\n\nSwelling, redness, or pain around the eyes\nChanges in your vision or double vision\nA severe headache, stiff neck, or confusion\nA high fever that returns or will not go away\nTrouble breathing or chest pain\nSymptoms lasting longer than 10 days without any improvement, or symptoms that improved and then suddenly got worse",
+      "Patient Education: Understanding Acute Sinusitis, Understanding and Managing Nasal Congestion, Understanding and Managing Your Cough"
+    ],
+    "instructionItems": [
+      {
+        "text": "You have a sinus and upper respiratory infection. This is most likely caused by a virus, which is the usual cause in the first days of this kind of illness. Most people get better on their own within about 7 to 10 days. Because of this, antibiotics are not started right away — they are only needed if you are not improving or you get worse.\n\nYour medicines\n\nFluticasone propionate nasal spray — Use 2 sprays in each nostril once daily for 7–14 days. This reduces swelling and congestion in your nose and sinuses.\nIpratropium bromide nasal spray — Use 2 sprays in each nostril 2–3 times daily for up to 4 days. This helps dry up a runny nose and drainage.\nAmoxicillin-clavulanate (antibiotic) — Take by mouth twice daily for 5–7 days. Do not start this right away. Only begin the antibiotic if, after 5–7 days, your symptoms are still not improving or are getting worse. If you clearly improve on your own, you do not need it.\nThings that help you feel better\n\nRinse your nose with saline (saltwater) spray or rinses.\nDrink plenty of fluids and rest.\nUse acetaminophen or ibuprofen for pain or headache, as directed on the package.\nFollow-up\n\nIf you start the antibiotic and your symptoms have not resolved after 5 days on it, come back for a follow-up visit.\n\nCome back sooner or seek urgent care if you have any of the following:\n\nSwelling, redness, or pain around the eyes\nChanges in your vision or double vision\nA severe headache, stiff neck, or confusion\nA high fever that returns or will not go away\nTrouble breathing or chest pain\nSymptoms lasting longer than 10 days without any improvement, or symptoms that improved and then suddenly got worse"
+      },
+      {
+        "title": "Patient Education: Understanding Acute Sinusitis, Understanding and Managing Nasal Congestion, Understanding and Managing Your Cough",
+        "hasEducationDoc": true
+      }
+    ]
+  }
+}

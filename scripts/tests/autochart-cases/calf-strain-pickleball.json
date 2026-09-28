@@ -1,0 +1,347 @@
+{
+  "id": "calf-strain-pickleball",
+  "label": "Right calf cramping, tightness and swelling after pickleball (new, 43M)",
+  "sourceCase": "case605",
+  "patient": {
+    "ageYears": 43,
+    "sex": "male"
+  },
+  "patientStatus": "new",
+  "notes": [],
+  "said": [],
+  "goldErrors": [],
+  "allowed": [],
+  "narrativeFacts": [],
+  "edits": [],
+  "transcript": "Provider: Hello, Mr. <patient name>.\nPatient: Hi, how are you?\nProvider: Good morning.\nPatient: Good morning.\nProvider: My name is <clinician name>.\nPatient: Nice to meet you.\nProvider: It's a pleasure.\nPatient: You want to take the chair?\nProvider: No, I'm fine. I'll stand. You can sit. I don't need the up here though.\nPatient: Okay.\nProvider: Oh.\nPatient: No, this will be this easier. So,\nProvider: Okay.\nPatient: Stop?\nProvider: No, I I just don't can get make too much pressure on my leg.\nProvider: Okay. Oh, oh, oh, me too.\nPatient: Yeah, sorry, Doc.\nProvider: No, no, it's okay. You can sit.\nPatient: Yeah.\nProvider: So, you said you had this incident uh on Monday while playing pickleball, yeah?\nPatient: Yes.\nProvider: So, what happened? Tell me exactly.\nPatient: Well, I was just playing uh I was just running, you know, for the ball. And then, suddenly when I step into the floor, it's like my my foot got locked in and all of my muscle It was like this.\nPatient: Yes, that's what happened.\nProvider: So, I feel how all of my muscle went all the way up.\nProvider: And um Okay.\nProvider: So, where does the There's no pain up here. It's mostly just here.\nPatient: It's here and all of this area. Yeah, it's Yes.\nProvider: So, how long has it been this tight?\nPatient: Since Monday.\nProvider: Since Monday.\nProvider: Okay.\nProvider: Okay.\nProvider: Any pain down here by the heel side?\nPatient: No.\nProvider: Okay.\nProvider: So, there are a couple of things. I would want to I want to get a an X-ray here.\nPatient: Yeah.\nProvider: Any pain to the knee?\nPatient: No, not to the knee.\nProvider: Okay. But again, I want to I want to get lab. I just want to make sure that there is no possibilities of any nerve damage. clot as well, too, because with it being so tight, hopefully there's no DVT from any kind of injury.\nProvider: Okay. So, give me a second.\nPatient: Yes.\nProvider: What have you taken at all?\nPatient: Just Motrin.\nProvider: Motrin?\nProvider: Okay.\nProvider: I'll be back.\nPatient: I have pain, though.\nProvider: Okay.\nPatient: Yeah, so that sounds like there's some.\nPatient: Yes.\nProvider: You didn't wrap anything there?\nPatient: Uh, okay.\nProvider: Did you wrap anything?\nPatient: No. Did I No.\nProvider: No. Can you let me take that shoe off? I'm curious about something. One second.\nPatient: Yeah, I don't know.\nProvider: Okay.\nProvider: So, I'm curious.\nProvider: Probably because of the pressure that I've been putting when walking.\nProvider: So, bring your nose, Doc.\nPatient: I can wear this.\nProvider: Okay, try to relax this for a second.\nProvider: Okay, the neurovasculature is intact. Okay.\nPatient: My wife can help me with that. Don't worry. She can help me with that.\nProvider: Okay.\nProvider: All right. I'll be back.\nProvider: Thank you.\nProvider: Okay.\nProvider: So, the patient was running while playing pickleball, had an abrupt stop.\nProvider: It's all to me.\nProvider: You know.\nProvider: So, result for\nProvider: from the swelling\nProvider: of the\nProvider: right lower leg.\nProvider: It's very tight.\nProvider: Neurovasculature intact.\nProvider: So, this is video to be on the\nProvider: right and top.",
+  "gold": {
+    "historyOfPresentIllness": "The patient is a 43-year-old male presenting with right calf/lower leg cramping, tightness, swelling, and mild pain that began on <date>, while playing pickleball. He reports that while running for a ball, his foot locked, causing a sensation of muscle tension extending up the leg. Symptoms have not been improving, and the right calf remains very tight with mild pain. He denies heel or knee pain.",
+    "reviewOfSystems": {
+      "observations": [
+        {
+          "field": "ros-constitutional-fever-denies",
+          "label": "Fever",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-msk-muscle-aches-reports",
+          "label": "Muscle aches/myalgia",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "all of my muscle went all the way up... tight"
+        },
+        {
+          "field": "ros-constitutional-chills-denies",
+          "label": "Chills",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-skin-swelling-reports",
+          "label": "Localized swelling",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "swelling of the right lower leg"
+        }
+      ]
+    },
+    "exam": [
+      {
+        "field": "skin-location",
+        "label": "Location",
+        "present": true,
+        "components": [
+          {
+            "code": "skin-loc-lower-leg",
+            "label": "Lower leg",
+            "value": true,
+            "abnormal": true
+          }
+        ],
+        "abnormal": true,
+        "voiced": true,
+        "voicedEvidence": "swelling of the right lower leg, tight"
+      },
+      {
+        "field": "normal-tone",
+        "label": "Normal tone",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "skin-side",
+        "label": "Side",
+        "present": true,
+        "components": [
+          {
+            "code": "skin-side-r",
+            "label": "R",
+            "value": true,
+            "abnormal": true
+          }
+        ],
+        "abnormal": true,
+        "voiced": true,
+        "voicedEvidence": "swelling of the right lower leg"
+      },
+      {
+        "field": "active",
+        "label": "Active",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "regular-rate-and-rhythm-with-no-murmur",
+        "label": "Regular rate and rhythm with no murmur",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "capillary-refill-less-than-2-seconds",
+        "label": "Capillary refill <2 seconds",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "common-skin-findings",
+        "label": "Common skin findings",
+        "present": false
+      },
+      {
+        "field": "normal-mental-status",
+        "label": "Normal mental status",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "skin-abscess-cellulitis",
+        "label": "Abscess / cellulitis",
+        "present": true,
+        "components": [
+          {
+            "code": "skin-abscess-not-present",
+            "label": "Not present",
+            "value": true,
+            "abnormal": false
+          }
+        ],
+        "voiced": false
+      },
+      {
+        "field": "oriented-x-3",
+        "label": "Oriented x 3",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "skin-associated-findings",
+        "label": "Associated findings",
+        "present": false
+      },
+      {
+        "field": "limping-refusal-to-bear-weight",
+        "label": "Limping, refusal to bear weight",
+        "present": true,
+        "voiced": true,
+        "voicedEvidence": "no can get make too much pressure on my leg"
+      },
+      {
+        "field": "alert",
+        "label": "Alert",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "extremities-comment",
+        "label": "Extremities comment",
+        "present": false,
+        "note": "Calf tight"
+      },
+      {
+        "field": "severe-distress",
+        "label": "Severe distress",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "normal-affect-calm-cooperative",
+        "label": "Normal affect; calm/cooperative",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "extremities-are-warm-and-well-perfused",
+        "label": "Extremities are warm and well perfused",
+        "present": true,
+        "voiced": true,
+        "voicedEvidence": "the neurovasculature is intact"
+      }
+    ],
+    "assessment": {
+      "diagnoses": [
+        {
+          "system": "ICD-10-CM",
+          "code": "M79.661",
+          "codeNormalized": "M79661",
+          "display": "Pain in right lower leg",
+          "primary": false,
+          "fromLabOrder": false,
+          "voiced": true,
+          "voicedEvidence": "pain... mostly just here, right lower leg tight"
+        },
+        {
+          "system": "ICD-10-CM",
+          "code": "S86.111A",
+          "codeNormalized": "S86111A",
+          "display": "Strain of other muscle(s) and tendon(s) of posterior muscle group at lower leg level, right leg, initial encounter",
+          "primary": true,
+          "fromLabOrder": false,
+          "voiced": true,
+          "voicedEvidence": "foot got locked in, muscle went all the way up, tight"
+        },
+        {
+          "system": "ICD-10-CM",
+          "code": "R22.41",
+          "codeNormalized": "R2241",
+          "display": "Localized swelling, mass and lump, right lower limb",
+          "primary": false,
+          "fromLabOrder": false,
+          "voiced": true,
+          "voicedEvidence": "swelling of the right lower leg, very tight"
+        }
+      ]
+    },
+    "billing": {
+      "emCode": {
+        "system": "CPT",
+        "code": "99204",
+        "codeNormalized": "99204",
+        "display": "99204 New Patient - E/M Level 4"
+      },
+      "cptCodes": [
+        {
+          "system": "CPT",
+          "code": "73590",
+          "codeNormalized": "73590",
+          "display": "X-ray of lower leg, 2 views",
+          "modifiers": [
+            {
+              "code": "RT",
+              "display": "Right side"
+            }
+          ],
+          "voiced": true,
+          "voicedEvidence": "I want to get a an X-ray here"
+        }
+      ]
+    },
+    "medications": {
+      "prescribed": [
+        {
+          "name": "Ibuprofen Oral Tablet 400 MG",
+          "sig": "Take 1 tablet orally, every 4-6 hours as needed for pain",
+          "status": "completed",
+          "voiced": true,
+          "voicedEvidence": "What have you taken at all? Just Motrin.",
+          "nameVoiced": false
+        }
+      ],
+      "inHouseAdministered": [],
+      "immunizations": [],
+      "currentReconciled": []
+    },
+    "allergies": [],
+    "medicalHistory": [],
+    "surgicalHistory": [],
+    "hospitalizations": [],
+    "procedures": [],
+    "labs": {
+      "external": {
+        "resultsPending": [],
+        "labOrderResults": []
+      },
+      "inHouse": {
+        "resultsPending": [],
+        "reflexTestsPending": [],
+        "labOrderResults": []
+      }
+    },
+    "radiology": [
+      {
+        "studyType": "73590 — X-ray of lower leg, 2 views - Right side",
+        "studyName": "XR",
+        "cptCodeDisplay": "X-ray of lower leg, 2 views - Right side",
+        "diagnosis": "M79.661 — Pain in right lower leg",
+        "clinicalHistory": "pain swelling of leg from sports injury"
+      }
+    ],
+    "vitals": [
+      {
+        "field": "vital-bmi",
+        "context": true,
+        "value": 43.9
+      },
+      {
+        "field": "vital-height",
+        "context": true,
+        "value": 177.8
+      },
+      {
+        "field": "vital-weight",
+        "context": true,
+        "value": 138.71
+      },
+      {
+        "field": "vital-oxygen-sat",
+        "context": true,
+        "value": 97,
+        "method": "On room air"
+      },
+      {
+        "field": "vital-blood-pressure",
+        "context": true,
+        "systolic": 126,
+        "diastolic": 86,
+        "method": "Sitting"
+      },
+      {
+        "field": "vital-respiration-rate",
+        "context": true,
+        "value": 16
+      },
+      {
+        "field": "vital-heartbeat",
+        "context": true,
+        "value": 69,
+        "method": "Sitting"
+      },
+      {
+        "field": "vital-temperature",
+        "context": true,
+        "value": 36.278,
+        "method": "Temporal"
+      }
+    ],
+    "medicalDecisionMaking": "Reviewed diagnosis, expected course, treatment plan, and reasons to seek urgent and/or emergent care.  Discharge instructions reviewed.  Patient/Caregiver expressed understanding.  All questions were answered, and is comfortable with discharge plan.  ER Precautions given.",
+    "disposition": {
+      "type": "pcp-no-type",
+      "note": "Please see your Primary Care Physician.",
+      "followUp": [],
+      "dispositionVoiced": false
+    },
+    "instructions": [
+      "Patient Education: Understanding Right Lower Leg Pain, Understanding Your Lower Leg Muscle Strain, Localized swelling, mass and lump, right lower limb",
+      "Your diagnosis: A strain (pull/tear) of the muscles in the back of your right lower leg (calf). This happened while you were playing pickleball. Your leg X-ray showed no broken bone. This type of injury is common and usually heals well over several weeks with the right care.\n\nAn ultrasound has been ordered. You will have a Doppler ultrasound of the leg. This checks the muscle injury and also makes sure there is no blood clot (deep vein thrombosis) causing the swelling. Please keep this appointment.\n\nHow to care for your leg at home\n\nRest: Avoid running, jumping, and pickleball until cleared. You may walk as comfort allows.\nIce: Apply an ice pack (wrapped in a thin towel) to the sore area for 15–20 minutes several times a day for the first few days.\nCompression: Wear the elastic wrap or compression stocking as directed to help control swelling. It should be snug but not painful or numbing.\nElevation: When resting, raise your leg above the level of your heart to reduce swelling.\nMovement: Gentle ankle movement is fine. Once the sharp pain settles, begin gentle calf stretching and gradually increase activity.\nMedication for pain\n\nTake ibuprofen 400 mg by mouth for pain as directed, with food.\nDo not take ibuprofen if you have kidney problems, stomach ulcers, or are told to avoid it. Do not exceed the dose on the label without medical advice.\nAcetaminophen (Tylenol) is an alternative if you cannot take ibuprofen.\nImportant: A water pill (diuretic such as furosemide) is not recommended for this type of swelling, because the swelling comes from the muscle injury itself, not from extra body fluid.\n\nReturn to the ER or call your doctor right away if you have:\n\nIncreasing pain that is severe or not controlled by medication\nThe calf becoming very tight, hard, tense, or numb, or tingling in the foot\nNew or worsening swelling, redness, or warmth of the calf\nPain or swelling spreading, or new chest pain or shortness of breath (possible blood clot)\nFever\nColdness, paleness, or inability to move the foot or toes\nFollow-up: Keep your ultrasound appointment and follow up with your doctor or an orthopedic/sports medicine provider for recovery and a return-to-activity plan."
+    ],
+    "instructionItems": [
+      {
+        "title": "Patient Education: Understanding Right Lower Leg Pain, Understanding Your Lower Leg Muscle Strain, Localized swelling, mass and lump, right lower limb",
+        "hasEducationDoc": true
+      },
+      {
+        "text": "Your diagnosis: A strain (pull/tear) of the muscles in the back of your right lower leg (calf). This happened while you were playing pickleball. Your leg X-ray showed no broken bone. This type of injury is common and usually heals well over several weeks with the right care.\n\nAn ultrasound has been ordered. You will have a Doppler ultrasound of the leg. This checks the muscle injury and also makes sure there is no blood clot (deep vein thrombosis) causing the swelling. Please keep this appointment.\n\nHow to care for your leg at home\n\nRest: Avoid running, jumping, and pickleball until cleared. You may walk as comfort allows.\nIce: Apply an ice pack (wrapped in a thin towel) to the sore area for 15–20 minutes several times a day for the first few days.\nCompression: Wear the elastic wrap or compression stocking as directed to help control swelling. It should be snug but not painful or numbing.\nElevation: When resting, raise your leg above the level of your heart to reduce swelling.\nMovement: Gentle ankle movement is fine. Once the sharp pain settles, begin gentle calf stretching and gradually increase activity.\nMedication for pain\n\nTake ibuprofen 400 mg by mouth for pain as directed, with food.\nDo not take ibuprofen if you have kidney problems, stomach ulcers, or are told to avoid it. Do not exceed the dose on the label without medical advice.\nAcetaminophen (Tylenol) is an alternative if you cannot take ibuprofen.\nImportant: A water pill (diuretic such as furosemide) is not recommended for this type of swelling, because the swelling comes from the muscle injury itself, not from extra body fluid.\n\nReturn to the ER or call your doctor right away if you have:\n\nIncreasing pain that is severe or not controlled by medication\nThe calf becoming very tight, hard, tense, or numb, or tingling in the foot\nNew or worsening swelling, redness, or warmth of the calf\nPain or swelling spreading, or new chest pain or shortness of breath (possible blood clot)\nFever\nColdness, paleness, or inability to move the foot or toes\nFollow-up: Keep your ultrasound appointment and follow up with your doctor or an orthopedic/sports medicine provider for recovery and a return-to-activity plan."
+      }
+    ]
+  }
+}

@@ -1,0 +1,519 @@
+{
+  "id": "chest-pain-asthma",
+  "label": "Two weeks of sharp right-sided chest pain worse on deep breath, EKG in clinic (new, 28F)",
+  "sourceCase": "case436",
+  "patient": {
+    "ageYears": 28,
+    "sex": "female"
+  },
+  "patientStatus": "new",
+  "notes": [
+    "Ruled out on the recording: \"Give me drug allergies. No.\" — nothing to chart as an allergy; no cardiac diagnosis was made."
+  ],
+  "said": [
+    {
+      "kind": "condition",
+      "name": "smok|vap|nicotine|tobacco",
+      "codePrefix": "Z87891",
+      "note": "\"I used to vape… quit about a month ago\" — history the chart did not take."
+    }
+  ],
+  "goldErrors": [
+    {
+      "match": "ros denies cardiovascular-chest-pain",
+      "reason": "the visit is for chest pain"
+    }
+  ],
+  "allowed": [
+    {
+      "kind": "diagnosis",
+      "codePrefix": ["R07", "J45", "Z87", "R06", "M94"]
+    }
+  ],
+  "narrativeFacts": [
+    "chest pain",
+    "two weeks",
+    "right side|right",
+    "\\bback\\b",
+    "sharp",
+    "hours",
+    "work|server",
+    "deep breath",
+    "cough|sore throat|fever",
+    "wheez",
+    "medical history|medication",
+    "birth control",
+    "allerg",
+    "family history|heart",
+    "smok|vape",
+    "month ago|quit",
+    "heart sounds|lungs sound|sounds good",
+    "ekg|ecg|electrocardiogram",
+    "yawn|full breath",
+    "asthma"
+  ],
+  "edits": [],
+  "transcript": "Provider: Hello. You're Miss <patient name>, right? My name is <clinician name>, one of the PAs here, and I'll be helping take care of you. What's going on?\nPatient: So, I've had this chest pain for about two weeks now. It comes and goes, but mostly it's all the day.\nProvider: Okay.\nPatient: It's a little bit, yesterday, today, it's been on the right side and radiating to the back.\nProvider: Okay. Um, what does it feel like?\nPatient: It's sharp.\nProvider: Sharp? So, a sharp, constant pain whenever it comes up?\nPatient: Yeah.\nProvider: How long do the episodes last? You said a couple hours?\nPatient: Yeah.\nProvider: Um, and for the past two weeks, this has been happening. Um, multiple times a day?\nPatient: Yeah.\nProvider: Does it hurt right now?\nPatient: A little bit, yes. Kind of right.\nProvider: Okay. Um, and then what makes it happen?\nPatient: Um, I'm not sure exactly.\nProvider: It'll just come on out of nowhere?\nPatient: Yeah.\nProvider: So, if you're just laying down, it'll happen?\nPatient: Mostly when I'm either at work or sitting, standing.\nProvider: What do you do for work?\nPatient: I work as a server.\nProvider: Okay. So, sitting or standing, you'll get this chest pain. And it stays right there, and now it includes the right side. Okay. Um, any other symptoms that come along with it?\nPatient: No.\nProvider: Any cough? Any sore throat? Any fever?\nPatient: No.\nProvider: Okay. And then any difficulty breathing?\nPatient: No.\nProvider: Okay. Does anything like if the like does it hurt right now?\nPatient: A little bit.\nProvider: Okay. Does anything make the pain better?\nPatient: I haven't really taken any medication or taken anything.\nProvider: I mean, like stretching?\nPatient: No.\nProvider: No, does it change the pain? Does it make it worse?\nPatient: No.\nProvider: What about taking deep breaths?\nPatient: Taking deep breaths actually makes it worse.\nProvider: It makes it worse? Like it just flares up that pain right there? Okay. Um, and then do you get any wheezing or anything like that?\nPatient: No.\nProvider: Okay. What about like if you kind of poke it or massage it, does that make it better or worse?\nPatient: No.\nProvider: No? Okay. What about laying down at night? Do you ever get it when you're in bed?\nPatient: No, that's it.\nProvider: No? Okay. So, it's really mostly when you're up. Okay. Um, and then two weeks, was there like a very specific day where you're like, \"I'm starting to feel this today,\" where it like suddenly came on or just like some sort of like a gradually worsening thing?\nPatient: Yeah.\nProvider: Okay. Where are you an MA?\nPatient: Um, <employer>.\nProvider: Okay. Oh, one of the <employer> clinics? Like a primary care?\nPatient: Uh, for vascular.\nProvider: Okay. Cool. Um, all right. Do you have any medical history?\nPatient: Um, no.\nProvider: No? Do you take any medication regularly?\nPatient: No.\nProvider: No. Birth control. Okay. Give me drug allergies.\nPatient: No.\nProvider: Okay. Have you had anything like this pain before?\nPatient: No.\nProvider: Okay. And then any family history of anything? Any heart stuff?\nPatient: Um, heart? No.\nProvider: No. Did you have any medical history when you were younger, like asthma or anything?\nPatient: No.\nProvider: No. Do you smoke?\nPatient: Uh, I used to.\nProvider: Okay. Uh, cigarettes?\nPatient: Uh, vape.\nProvider: Okay. Uh, but no more.\nPatient: Yeah.\nProvider: Okay. Uh, how long ago did you quit?\nPatient: About a month ago.\nProvider: About a month ago? Okay. Um, any side effects after quitting?\nPatient: No.\nProvider: No. Okay. Uh, anything else?\nPatient: No.\nProvider: Cool. Uh, let's let's see what's going on. I'm just going to listen to your heart first, so just kind of breathe.\nProvider: You hear?\nProvider: Sorry.\nProvider: Awesome. Now, take a deep You can take the mask off if it's easier, but I'm going to have you take some deep breaths in and out for me.\nProvider: Awesome. Two more.\nProvider: Mhm.\nProvider: Checking pulses.\nProvider: And you said you haven't had any other symptoms, and it's just that right there. Okay. Your your heart sounds good. Your lungs sound good. Um, how old are you again?\nPatient: 28.\nProvider: 28. So, I mean, aside from the smoking, you really have pretty low risk factors for any heart stuff. Um, do you want to get an EKG just to take a look at your heart?\nPatient: Yes.\nProvider: Okay. Let's do that, and then I'll come back and talk after I see that. Do you have any questions for me?\nPatient: Um, I do have a question. I noticed when I I feel like when I'm breathing, it's easier when I take in like a deep breath or yawn, I feel like, to be be able to breathe correctly. I don't know how to explain it, but Sometimes you need to take a deep breath?\nPatient: Yeah. I feel like in order to like breathe correctly or What do you mean breathe correctly, though? Do you feel like you'll be breathing and then it just doesn't you can't get a full breath?\nPatient: Mhm.\nProvider: Okay. So, some every now and then you can get a full breath, though?\nPatient: Yeah.\nProvider: Like what do you what do you have to do to take a full breath?\nPatient: I kind of I feel like I have to either like take in a deep breath or just yawn in order to like normally breathe. I don't know if that's like more of an anxiety thing or just like Uh, possible. Uh, it makes me think kind of um like asthma type type setup, but I didn't hear any wheezing or anything like that. But asthma, a lot of people describe it just like that where they can't take a full breath unless they like take extra effort to do it. So, that's kind of what it sounds like to me. Um, and also if you're taking a deep breath and it makes the pain worse, then it makes me it tells me more lung stuff or musculoskeletal stuff than heart stuff also. Okay. But why don't we get the EKG just so we can knock that out.\nPatient: Okay.\nProvider: And then we'll go from there.\nPatient: Okay.\nProvider: Uh, questions, concerns?\nPatient: No.\nProvider: Okay. They'll come and do the EKG, and I'll come back after I take a look.\nPatient: Okay.\nProvider: Okay. I'll be back.",
+  "gold": {
+    "historyOfPresentIllness": "The patient is a 28-year-old female presenting with a two-week history of sharp, intermittent chest pain located on the right side, radiating to the back. The pain occurs multiple times daily, primarily while sitting or standing at work, and is exacerbated by deep inspiration. The patient also reports occasional difficulty achieving a full breath, which she relieves by yawning or taking a deep breath.",
+    "additionalInformation": "chest pain for 2 weeks",
+    "reviewOfSystems": {
+      "observations": [
+        {
+          "field": "ros-gi-vomiting-denies",
+          "label": "Vomiting",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-ent-ear-pain-denies",
+          "label": "Ear pain",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-respiratory-sputum-denies",
+          "label": "Sputum production",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-respiratory-cough-denies",
+          "label": "Cough",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "Any cough? ... No."
+        },
+        {
+          "field": "ros-respiratory-wheezing-denies",
+          "label": "Wheezing",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "do you get any wheezing... No"
+        },
+        {
+          "field": "ros-ent-sinus-pain-denies",
+          "label": "Sinus pain/pressure",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-gi-nausea-denies",
+          "label": "Nausea",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-ent-post-nasal-drip-denies",
+          "label": "Post-nasal drip",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-cardiovascular-chest-pain-denies",
+          "label": "Chest pain",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-neuro-headache-denies",
+          "label": "Headache",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-constitutional-fever-denies",
+          "label": "Fever",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "Any fever? No."
+        },
+        {
+          "field": "ros-respiratory-chest-tightness-reports",
+          "label": "Chest tightness",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-gi-diarrhea-denies",
+          "label": "Diarrhea",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-respiratory-shortness-of-breath-reports",
+          "label": "Shortness of breath",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "you can't get a full breath"
+        },
+        {
+          "field": "ros-constitutional-chills-denies",
+          "label": "Chills",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-ent-hoarseness-denies",
+          "label": "Hoarseness",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-heme-swollen-nodes-denies",
+          "label": "Swollen lymph nodes",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-ent-sore-throat-denies",
+          "label": "Sore throat",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "Any sore throat? No."
+        },
+        {
+          "field": "ros-constitutional-night-sweats-denies",
+          "label": "Night sweats",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-neuro-dizziness-denies",
+          "label": "Dizziness/vertigo",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-ent-rhinorrhea-denies",
+          "label": "Rhinorrhea",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-skin-rash-denies",
+          "label": "Rash",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-gi-abdominal-pain-denies",
+          "label": "Abdominal pain",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-ent-difficulty-swallowing-denies",
+          "label": "Difficulty swallowing",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-msk-muscle-aches-denies",
+          "label": "Muscle aches/myalgia",
+          "present": true,
+          "voiced": false
+        }
+      ]
+    },
+    "exam": [
+      {
+        "field": "well-hydrated",
+        "label": "Well-hydrated",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "oriented-x-3",
+        "label": "Oriented x 3",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "normocephalic",
+        "label": "Normocephalic",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "active",
+        "label": "Active",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "no-generalized-lymphadenopathy",
+        "label": "No generalized lymphadenopathy",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "atraumatic",
+        "label": "Atraumatic",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "normal-tone",
+        "label": "Normal tone",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "normal-dentition",
+        "label": "Normal dentition",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "moist-mucous-membranes",
+        "label": "Moist mucous membranes",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "in-no-acute-distress",
+        "label": "In no acute distress",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "normal-mental-status",
+        "label": "Normal mental status",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "regular-rate-and-rhythm-with-no-murmur",
+        "label": "Regular rate and rhythm with no murmur",
+        "present": true,
+        "voiced": true,
+        "voicedEvidence": "Your heart sounds good"
+      },
+      {
+        "field": "no-chest-wall-tenderness",
+        "label": "No chest wall tenderness",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "oropharynx-clear-with-no-erythema-lesions-or-exudate",
+        "label": "Oropharynx clear with no erythema, lesions, or exudate",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "no-signs-of-respiratory-distress",
+        "label": "No signs of respiratory distress",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "nasal-mucosa-normal",
+        "label": "Nasal mucosa normal",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "normal-appearance-of-neck",
+        "label": "Normal appearance of neck",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "chest-is-clear-to-auscultation-bilaterally",
+        "label": "Chest is clear to auscultation bilaterally",
+        "present": true,
+        "voiced": true,
+        "voicedEvidence": "Your lungs sound good"
+      },
+      {
+        "field": "good-air-movement-throughout-lung-fields",
+        "label": "Good air movement throughout lung fields",
+        "present": true,
+        "voiced": true,
+        "voicedEvidence": "Your lungs sound good"
+      },
+      {
+        "field": "alert",
+        "label": "Alert",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "tongue-midline",
+        "label": "Tongue midline",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "normal-range-of-motion",
+        "label": "Normal range of motion",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "uvula-midline",
+        "label": "Uvula midline",
+        "present": true,
+        "voiced": false
+      }
+    ],
+    "assessment": {
+      "diagnoses": [
+        {
+          "system": "ICD-10-CM",
+          "code": "R07.81",
+          "codeNormalized": "R0781",
+          "display": "Pleurodynia",
+          "primary": true,
+          "fromLabOrder": false,
+          "voiced": true,
+          "voicedEvidence": "sharp chest pain worse with deep breath, sounds like musculoskeletal"
+        },
+        {
+          "system": "ICD-10-CM",
+          "code": "J45.909",
+          "codeNormalized": "J45909",
+          "display": "Unspecified asthma, uncomplicated",
+          "primary": false,
+          "fromLabOrder": false,
+          "voiced": true,
+          "voicedEvidence": "kind of makes me think like asthma type setup"
+        }
+      ]
+    },
+    "billing": {
+      "emCode": {
+        "system": "CPT",
+        "code": "99214",
+        "codeNormalized": "99214",
+        "display": "99214 Established Patient - E/M Level 4"
+      },
+      "cptCodes": [
+        {
+          "system": "CPT",
+          "code": "93000",
+          "codeNormalized": "93000",
+          "display": "Electrocardiogram, routine ECG with at least 12 leads; with interpretation and report",
+          "voiced": true,
+          "voicedEvidence": "do you want to get an EKG just to take a look"
+        }
+      ]
+    },
+    "medications": {
+      "prescribed": [
+        {
+          "name": "Albuterol Sulfate HFA Inhalation Aerosol Solution 108 (90 Base) MCG/ACT",
+          "sig": "1-2 inhalations every 4-6 hours as needed for wheezing.",
+          "status": "completed",
+          "voiced": false,
+          "nameVoiced": false
+        }
+      ],
+      "inHouseAdministered": [],
+      "immunizations": [],
+      "currentReconciled": []
+    },
+    "allergies": [],
+    "medicalHistory": [],
+    "surgicalHistory": [],
+    "hospitalizations": [],
+    "procedures": [
+      {
+        "procedureType": "Diagnostic Procedures: EKG",
+        "cptCodes": [
+          {
+            "system": "CPT",
+            "code": "93000",
+            "codeNormalized": "93000",
+            "display": "Electrocardiogram, routine ECG with at least 12 leads; with interpretation and report"
+          }
+        ],
+        "diagnoses": [],
+        "technique": [],
+        "details": "Normal EKG, normal sinus, no acute ST changes."
+      }
+    ],
+    "labs": {
+      "external": {
+        "resultsPending": [],
+        "labOrderResults": []
+      },
+      "inHouse": {
+        "resultsPending": [],
+        "reflexTestsPending": [],
+        "labOrderResults": []
+      }
+    },
+    "radiology": [],
+    "vitals": [
+      {
+        "field": "vital-temperature",
+        "context": true,
+        "value": 36.5,
+        "method": "Temporal"
+      },
+      {
+        "field": "vital-bmi",
+        "context": true,
+        "value": 25.2
+      },
+      {
+        "field": "vital-height",
+        "context": true,
+        "value": 157.48
+      },
+      {
+        "field": "vital-weight",
+        "context": true,
+        "value": 62.6
+      },
+      {
+        "field": "vital-oxygen-sat",
+        "context": true,
+        "value": 99,
+        "method": "On room air"
+      },
+      {
+        "field": "vital-blood-pressure",
+        "context": true,
+        "systolic": 109,
+        "diastolic": 79,
+        "method": "Sitting"
+      },
+      {
+        "field": "vital-respiration-rate",
+        "context": true,
+        "value": 18
+      },
+      {
+        "field": "vital-heartbeat",
+        "context": true,
+        "value": 87,
+        "method": "Sitting"
+      }
+    ],
+    "medicalDecisionMaking": "Differential Diagnoses Considered: Acute viral URI, acute bacterial sinusitis, streptococcal pharyngitis, COVID-19, influenza, acute bronchitis, pneumonia.\nReviewed diagnosis, expected course, treatment plan, and reasons to seek urgent and/or emergent care.  Discharge instructions reviewed.",
+    "disposition": {
+      "type": "pcp-no-type",
+      "note": "Please see your Primary Care Physician.",
+      "followUp": [],
+      "dispositionVoiced": false
+    },
+    "instructions": [
+      "Supportive care: Hydration, rest, saline nasal spray, honey (if >1 yr old) for cough.\n\nOTC Antipyretics/Analgesics: Acetaminophen or Ibuprofen as needed for pain/fever.\n\nReturn precautions given: Return immediately if experiencing severe shortness of breath, inability to swallow liquids/saliva, high fever refractory to medication, chest pain, or symptoms worsening past 7–10 days.\n\nER if worse.",
+      "Patient Education: Understanding Asthma"
+    ],
+    "instructionItems": [
+      {
+        "title": "URI Instructions",
+        "text": "Supportive care: Hydration, rest, saline nasal spray, honey (if >1 yr old) for cough.\n\nOTC Antipyretics/Analgesics: Acetaminophen or Ibuprofen as needed for pain/fever.\n\nReturn precautions given: Return immediately if experiencing severe shortness of breath, inability to swallow liquids/saliva, high fever refractory to medication, chest pain, or symptoms worsening past 7–10 days.\n\nER if worse."
+      },
+      {
+        "title": "Patient Education: Understanding Asthma",
+        "hasEducationDoc": true
+      }
+    ]
+  }
+}

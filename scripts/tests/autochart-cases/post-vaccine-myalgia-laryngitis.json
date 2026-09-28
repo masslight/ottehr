@@ -1,0 +1,474 @@
+{
+  "id": "post-vaccine-myalgia-laryngitis",
+  "label": "Chills, body aches, congestion and a lost voice the day after a vaccine (new, 49F)",
+  "sourceCase": "case538",
+  "patient": {
+    "ageYears": 49,
+    "sex": "female"
+  },
+  "patientStatus": "new",
+  "notes": [],
+  "said": [],
+  "goldErrors": [],
+  "allowed": [],
+  "narrativeFacts": [],
+  "edits": [],
+  "transcript": "Provider: Hello, ma'am.\nPatient: Good afternoon.\nProvider: Yeah, my name is <clinician name>, I'm the clinician here today. So, you said you've been having chills since Friday?\nPatient: Yes.\nProvider: And a fever?\nPatient: No, no fever.\nProvider: Okay. So, body aches, headache, coughing, and congestion.\nPatient: Yes.\nProvider: So, when did you start losing your voice?\nPatient: Today.\nProvider: Today? Okay. Any shortness of breath, sore throat, wheezing? None at all?\nPatient: Okay.\nProvider: All right. So, she's from because I want to check for COVID and flu. Okay, I'm going to listen to your lungs and just kind of and then we'll see.\nProvider: Inhale deeply.\nProvider: Exhale.\nProvider: Deeply.\nProvider: Exhale.\nProvider: Deeply.\nProvider: Exhale.\nProvider: Deeply.\nProvider: Exhale.\nProvider: Deeply.\nProvider: Exhale.\nProvider: Deeply.\nProvider: Exhale.\nProvider: I'm looking inside your mouth.\nProvider: Okay.\nProvider: I have to open up your mouth twice.\nProvider: Okay.\nProvider: We'll see what the results turn out to be. Medication allergies?\nPatient: Yeah, I I they they they they started allergy immunization on Thursday.\nProvider: Mhm.\nPatient: And um Friday I started feeling sick.\nProvider: Oh, you started the immunization shot for allergy on Thursday?\nPatient: On Thursday.\nProvider: Okay. Which shot was it they gave you?\nPatient: Oh, I don't know. It was two two shots because they said I'm allergic to everything.\nProvider: Okay.\nPatient: And so Friday you started feeling this way?\nPatient: Yeah.\nProvider: Okay, okay.\nPatient: But I work for um the only children.\nPatient: Children in <place>. So, I work with kids.\nProvider: Okay.\nPatient: That coming from <region> and all that who are they're calling in their city.\nProvider: Mhm.\nPatient: So, in my classroom right now, everybody's sick.\nProvider: Mhm.\nPatient: So,\nProvider: Yeah, we'll see.\nPatient: I don't know.\nProvider: I'm going to put in I'll put in an order for a steroid shot if that's okay with you. While we're waiting for the results of the other stuff, you know, then uh we'll see how we're going to handle the rest.\nPatient: Thank you.\nProvider: You're welcome.",
+  "gold": {
+    "historyOfPresentIllness": "The patient is a 49-year-old female presenting with chills, body aches, headache, cough, congestion, and voice loss starting today. Symptoms began the day after receiving allergy immunotherapy injections.",
+    "reviewOfSystems": {
+      "observations": [
+        {
+          "field": "ros-respiratory-cough-reports",
+          "label": "Cough",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "coughing"
+        },
+        {
+          "field": "ros-ent-throat-swelling-denies",
+          "label": "Throat swelling",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-gi-nausea-denies",
+          "label": "Nausea",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-ent-post-nasal-drip-reports",
+          "label": "Post-nasal drip",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-respiratory-shortness-of-breath-denies",
+          "label": "Shortness of breath",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "Any shortness of breath...None at all"
+        },
+        {
+          "field": "ros-ent-sore-throat-denies",
+          "label": "Sore throat",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "sore throat...None at all"
+        },
+        {
+          "field": "ros-respiratory-wheezing-denies",
+          "label": "Wheezing",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "wheezing?...None at all"
+        },
+        {
+          "field": "ros-ent-hoarseness-reports",
+          "label": "Hoarseness",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "losing your voice"
+        },
+        {
+          "field": "ros-msk-muscle-aches-reports",
+          "label": "Muscle aches/myalgia",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "body aches"
+        },
+        {
+          "field": "ros-cardiovascular-chest-pain-denies",
+          "label": "Chest pain",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-gi-vomiting-denies",
+          "label": "Vomiting",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-ent-difficulty-swallowing-denies",
+          "label": "Difficulty swallowing",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-constitutional-fever-denies",
+          "label": "Fever",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "No, no fever"
+        },
+        {
+          "field": "ros-constitutional-chills-reports",
+          "label": "Chills",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "having chills since Friday"
+        },
+        {
+          "field": "ros-ent-nasal-congestion-reports",
+          "label": "Nasal congestion",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "congestion"
+        },
+        {
+          "field": "ros-ent-rhinorrhea-reports",
+          "label": "Rhinorrhea",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-neuro-headache-reports",
+          "label": "Headache",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "headache"
+        }
+      ]
+    },
+    "exam": [
+      {
+        "field": "normal-appearance-of-neck",
+        "label": "Normal appearance of neck",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "good-air-movement-throughout-lung-fields",
+        "label": "Good air movement throughout lung fields",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "no-signs-of-respiratory-distress",
+        "label": "No signs of respiratory distress",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "normal-dentition",
+        "label": "Normal dentition",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "normal-mental-status",
+        "label": "Normal mental status",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "alert",
+        "label": "Alert",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "active",
+        "label": "Active",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "normal-tone",
+        "label": "Normal tone",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "chest-is-clear-to-auscultation-bilaterally",
+        "label": "Chest is clear to auscultation bilaterally",
+        "present": true,
+        "voiced": true,
+        "voicedEvidence": "listen to your lungs, inhale/exhale deeply"
+      },
+      {
+        "field": "normal-affect-calm-cooperative",
+        "label": "Normal affect; calm/cooperative",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "oriented-x-3",
+        "label": "Oriented x 3",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "erythematous-pharynx",
+        "label": "Erythematous pharynx",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "no-chest-wall-tenderness",
+        "label": "No chest wall tenderness",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "normal-range-of-motion",
+        "label": "Normal range of motion",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "congestion-rhinorrhea",
+        "label": "Congestion, rhinorrhea",
+        "present": true,
+        "voiced": true,
+        "voicedEvidence": "congestion"
+      },
+      {
+        "field": "uvula-midline",
+        "label": "Uvula midline",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "severe-distress",
+        "label": "Severe distress",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "no-generalized-lymphadenopathy",
+        "label": "No generalized lymphadenopathy",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "tongue-midline",
+        "label": "Tongue midline",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "tachycardia",
+        "label": "Tachycardia",
+        "present": true,
+        "voiced": false
+      }
+    ],
+    "assessment": {
+      "diagnoses": [
+        {
+          "system": "ICD-10-CM",
+          "code": "M79.10",
+          "codeNormalized": "M7910",
+          "display": "Myalgia, unspecified site",
+          "primary": false,
+          "fromLabOrder": false,
+          "voiced": true,
+          "voicedEvidence": "body aches"
+        },
+        {
+          "system": "ICD-10-CM",
+          "code": "J04.0",
+          "codeNormalized": "J040",
+          "display": "Acute laryngitis",
+          "primary": true,
+          "fromLabOrder": false,
+          "voiced": true,
+          "voicedEvidence": "losing your voice"
+        },
+        {
+          "system": "ICD-10-CM",
+          "code": "R51.9",
+          "codeNormalized": "R519",
+          "display": "Headache, unspecified",
+          "primary": false,
+          "fromLabOrder": false,
+          "voiced": true,
+          "voicedEvidence": "headache"
+        },
+        {
+          "system": "ICD-10-CM",
+          "code": "R09.81",
+          "codeNormalized": "R0981",
+          "display": "Nasal congestion",
+          "primary": false,
+          "fromLabOrder": false,
+          "voiced": true,
+          "voicedEvidence": "congestion"
+        },
+        {
+          "system": "ICD-10-CM",
+          "code": "R68.83",
+          "codeNormalized": "R6883",
+          "display": "Chills (without fever)",
+          "primary": false,
+          "fromLabOrder": false,
+          "voiced": true,
+          "voicedEvidence": "chills since Friday, no fever"
+        }
+      ]
+    },
+    "billing": {
+      "emCode": {
+        "system": "CPT",
+        "code": "99213",
+        "codeNormalized": "99213",
+        "display": "99213 Established Patient - E/M Level 3"
+      },
+      "cptCodes": [
+        {
+          "system": "CPT",
+          "code": "87804",
+          "codeNormalized": "87804",
+          "display": "Detection test by immunoassay with direct visual observation for influenza virus",
+          "modifiers": [
+            {
+              "code": "59",
+              "display": "59"
+            },
+            {
+              "code": "QW",
+              "display": "QW"
+            }
+          ],
+          "voiced": true,
+          "voicedEvidence": "I want to check for COVID and flu"
+        },
+        {
+          "system": "CPT",
+          "code": "87880",
+          "codeNormalized": "87880",
+          "display": "Detection test by immunoassay with direct visual observation for Streptococcus, group A (strep)",
+          "voiced": false
+        },
+        {
+          "system": "CPT",
+          "code": "87811",
+          "codeNormalized": "87811",
+          "display": "Detection test by immunoassay with direct visual observation for severe acute respiratory syndrome coronavirus 2 (COVID-19)",
+          "voiced": true,
+          "voicedEvidence": "I want to check for COVID and flu"
+        }
+      ]
+    },
+    "medications": {
+      "prescribed": [],
+      "inHouseAdministered": [
+        {
+          "name": "Dexamethasone",
+          "ndc": "67457-0420-00",
+          "dose": 10,
+          "units": "mg",
+          "route": "78421000",
+          "status": "administered"
+        }
+      ],
+      "immunizations": [],
+      "currentReconciled": []
+    },
+    "allergies": [
+      {
+        "name": "Codeine",
+        "context": true
+      }
+    ],
+    "medicalHistory": [],
+    "surgicalHistory": [],
+    "hospitalizations": [],
+    "procedures": [],
+    "labs": {
+      "external": {
+        "resultsPending": [],
+        "labOrderResults": []
+      },
+      "inHouse": {
+        "resultsPending": [],
+        "reflexTestsPending": [],
+        "labOrderResults": [
+          {
+            "name": "Rapid Strep",
+            "resultValues": ["Rapid Strep: Not detected"]
+          },
+          {
+            "name": "Rapid Influenza",
+            "resultValues": ["Flu A: Not detected", "Flu B: Not Detected"]
+          },
+          {
+            "name": "Rapid COVID-19 Antigen",
+            "resultValues": ["Rapid COVID-19 Antigen: Not detected"]
+          }
+        ]
+      }
+    },
+    "radiology": [],
+    "vitals": [
+      {
+        "field": "vital-bmi",
+        "context": true,
+        "value": 24.5
+      },
+      {
+        "field": "vital-height",
+        "context": true,
+        "value": 157.48
+      },
+      {
+        "field": "vital-weight",
+        "context": true,
+        "value": 60.78
+      },
+      {
+        "field": "vital-oxygen-sat",
+        "context": true,
+        "value": 99,
+        "method": "On room air"
+      },
+      {
+        "field": "vital-blood-pressure",
+        "context": true,
+        "systolic": 111,
+        "diastolic": 79,
+        "method": "Sitting"
+      },
+      {
+        "field": "vital-respiration-rate",
+        "context": true,
+        "value": 16
+      },
+      {
+        "field": "vital-heartbeat",
+        "context": true,
+        "value": 106,
+        "method": "Sitting"
+      },
+      {
+        "field": "vital-temperature",
+        "context": true,
+        "value": 37.056,
+        "method": "Temporal"
+      }
+    ],
+    "medicalDecisionMaking": "Reviewed diagnosis, expected course, treatment plan, and reasons to seek urgent and/or emergent care.  Discharge instructions reviewed.  Patient/Caregiver expressed understanding.  All questions were answered, and is comfortable with discharge plan.  ER Precautions given.",
+    "disposition": {
+      "type": "pcp-no-type",
+      "note": "Please see your Primary Care Physician.",
+      "followUp": [],
+      "dispositionVoiced": false
+    },
+    "instructions": [
+      "Given that you have flonase and ipratropium bromide nasal sprays at home, use as direceted. \nFlonase: 2 sprays in each nostril once daily for 7-14 days\nIpratropium bromide: 2 sprays in each nostril 3-+4 time daily for up to 4 days",
+      "Patient Education: Understanding Muscle Pain (Myalgia), Understanding Acute Laryngitis, Understanding and Managing Headaches, Understanding and Managing Nasal Congestion, Chills (without fever)"
+    ],
+    "instructionItems": [
+      {
+        "text": "Given that you have flonase and ipratropium bromide nasal sprays at home, use as direceted. \nFlonase: 2 sprays in each nostril once daily for 7-14 days\nIpratropium bromide: 2 sprays in each nostril 3-+4 time daily for up to 4 days"
+      },
+      {
+        "title": "Patient Education: Understanding Muscle Pain (Myalgia), Understanding Acute Laryngitis, Understanding and Managing Headaches, Understanding and Managing Nasal Congestion, Chills (without fever)",
+        "hasEducationDoc": true
+      }
+    ]
+  }
+}

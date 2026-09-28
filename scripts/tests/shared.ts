@@ -2,7 +2,16 @@ import { Location, Schedule, Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { CreateAppointmentResponse, createOystehrClient, ServiceMode } from 'utils';
 
-const BASE_URL = 'http://localhost:3000/local/zambda';
+let BASE_URL = 'http://localhost:3000/local/zambda';
+
+/** Points every zambda call at another local server (`--url http://localhost:3010`); the default is :3000. */
+export function setZambdaBaseUrl(serverUrl: string): void {
+  BASE_URL = `${serverUrl.replace(/\/$/, '')}/local/zambda`;
+}
+
+export function zambdaBaseUrl(): string {
+  return BASE_URL;
+}
 const OPEN_ZAMBDAS = new Set(['create-slot']);
 
 export async function getToken(envConfig: Record<string, string>): Promise<string> {
@@ -38,11 +47,24 @@ export async function callZambda<T>(name: string, token: string, body: object): 
 export const TEST_PATIENT_DOB = '1990-01-01';
 export const TEST_PATIENT_SEX = 'male';
 
+export interface TestAppointmentOptions {
+  /** ISO date; defaults to TEST_PATIENT_DOB. */
+  dateOfBirth?: string;
+  sex?: 'male' | 'female';
+  firstName?: string;
+  /** Book for an existing test patient instead of creating one — a second visit makes the patient "established". */
+  patientId?: string;
+  reasonForVisit?: string;
+  /** create-appointment insists on one for a machine caller booking a new patient. */
+  phoneNumber?: string;
+}
+
 export async function createTestAppointment(
   token: string,
   envConfig: Record<string, string>,
-  label: string
-): Promise<{ appointmentId: string; encounterId: string; resourceIds: string[] }> {
+  label: string,
+  options: TestAppointmentOptions = {}
+): Promise<{ appointmentId: string; encounterId: string; patientId: string; resourceIds: string[] }> {
   const oystehr = createOystehrClient(token, envConfig.FHIR_API, envConfig.PROJECT_API);
 
   const fhirResources = (
@@ -71,13 +93,14 @@ export async function createTestAppointment(
   const appt = await callZambda<CreateAppointmentResponse>('create-appointment', token, {
     slotId: slot.id,
     patient: {
-      newPatient: true,
-      firstName: 'Test',
+      ...(options.patientId ? { id: options.patientId, newPatient: false } : { newPatient: true }),
+      firstName: options.firstName ?? 'Test',
       lastName: label,
-      dateOfBirth: TEST_PATIENT_DOB,
-      sex: TEST_PATIENT_SEX,
+      dateOfBirth: options.dateOfBirth ?? TEST_PATIENT_DOB,
+      sex: options.sex ?? TEST_PATIENT_SEX,
       email: `test.${label.toLowerCase()}@example.com`,
-      reasonForVisit: 'Sore throat and fever',
+      phoneNumber: options.phoneNumber ?? '2025550123',
+      reasonForVisit: options.reasonForVisit ?? 'Sore throat and fever',
     },
     language: 'en',
   });
@@ -85,10 +108,12 @@ export async function createTestAppointment(
   return {
     appointmentId: appt.appointmentId,
     encounterId: appt.encounterId,
+    patientId: appt.fhirPatientId,
     resourceIds: [
       `Encounter/${appt.encounterId}`,
       `Appointment/${appt.appointmentId}`,
       `QuestionnaireResponse/${appt.questionnaireResponseId}`,
+      // A second visit for the same patient shares the RelatedPerson and Patient; deleting them twice is harmless.
       `RelatedPerson/${appt.relatedPersonId}`,
       `Patient/${appt.fhirPatientId}`,
       `Slot/${slot.id}`,
@@ -116,9 +141,10 @@ export async function callGemini(
   prompt: string,
   projectId: string,
   apiKey: string,
-  responseSchema?: object
+  responseSchema?: object,
+  model: string = GEMINI_MODEL
 ): Promise<string> {
-  const url = `https://aiplatform.googleapis.com/v1/projects/${projectId}/locations/global/publishers/google/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
+  const url = `https://aiplatform.googleapis.com/v1/projects/${projectId}/locations/global/publishers/google/models/${model}:generateContent?key=${apiKey}`;
 
   const response = await fetch(url, {
     method: 'POST',

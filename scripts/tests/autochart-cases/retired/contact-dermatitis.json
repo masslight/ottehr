@@ -1,0 +1,636 @@
+{
+  "id": "contact-dermatitis",
+  "label": "Spreading itchy rash after a new deodorant (new, 25M)",
+  "sourceCase": "case028",
+  "patient": {
+    "ageYears": 25,
+    "sex": "male"
+  },
+  "patientStatus": "new",
+  "notes": [],
+  "said": [
+    {
+      "kind": "medication",
+      "name": "montelukast|singulair",
+      "note": "Announced — \"I'm going to give you a Singulair for nighttime\" — but never sent."
+    },
+    {
+      "kind": "instruction",
+      "text": "calamine"
+    },
+    {
+      "kind": "instruction",
+      "text": "scratch|itch"
+    }
+  ],
+  "goldErrors": [],
+  "allowed": [
+    {
+      "kind": "diagnosis",
+      "codePrefix": ["L2", "L29", "L30"]
+    },
+    {
+      "kind": "medication",
+      "name": "zyrtec|cetirizine|calamine"
+    }
+  ],
+  "narrativeFacts": [
+    "rash",
+    "spread",
+    "stomach|back",
+    "itch",
+    "month",
+    "armpit",
+    "deodorant",
+    "zyrtec|cetirizine",
+    "calamine",
+    "topical|cream",
+    "steroid",
+    "taper",
+    "singulair|montelukast",
+    "pepcid|famotidine",
+    "shot|injection",
+    "breathing",
+    "scratch|itching it"
+  ],
+  "edits": [
+    {
+      "label": "Singulair changed to Claritin",
+      "find": "singulair|montelukast",
+      "replace": "Claritin",
+      "expected": [
+        {
+          "kind": "medication",
+          "name": "claritin|loratadine"
+        }
+      ],
+      "forbidden": [
+        {
+          "kind": "medication",
+          "name": "singulair|montelukast"
+        }
+      ]
+    }
+  ],
+  "transcript": "Provider: So, what's going on?\nPatient: I just got this rash and it's spreading all over my body. Stomach, back.\nProvider: It's itching?\nPatient: Yeah.\nProvider: Yeah, it looks itchy. How long has it been going on?\nPatient: Like a month now.\nProvider: A month?\nPatient: Yeah.\nProvider: Why'd you wait so long?\nPatient: No time.\nProvider: Any other symptoms?\nPatient: No.\nProvider: You haven't gotten into anything else?\nPatient: No.\nProvider: Started in your armpit?\nPatient: Started in my armpit. It came from deodorant.\nProvider: Okay, you stopped using the deodorant?\nPatient: Yes.\nProvider: And you've only been taking the Zyrtec?\nPatient: Yes.\nProvider: All right, so we're going to get a little aggressive, okay? So you can use like calamine lotion on top, okay? You can pick that up at any pharmacy, just over the counter. Yeah. I'm going to give you um a topical to put on it that's going to kind of help with the itch. Um and then I'm going to give you some steroids. A course of steroids. I'm going to start you on like a tapering dose. So what I want you to do is you'll start kind of heavy. You'll do the steroid, you're going to do your Zyrtec still. I'm going to give you um a Singulair um for nighttime. And then um we're going to do some Pepcid. Okay. Sounds silly, but it's not. So, Pepcid is similar to Benadryl how it reacts in the body. So, it'll kind of help taper this down without giving you the drowsy. Okay? We're going to start pretty heavy, so you're going to take the Pepcid for probably like five days, twice a day, pretty heavy dose along with the steroid. The steroid can cause some jitteriness. It's only noon right now, so you can still pick it up and take it today. I'm going to give you a shot here in the office, so if you want, you can pick it up tomorrow. Totally up to you. You're itchy. Stop itching it. It makes it worse. You help spread it. Cuz you underneath the skin push things around. Um so I'll give you steroids, the Pepcid, which is similar to Benadryl, it's like an antihistamine, and then also the Zyrtec I want you to continue taking, and I'm going to add a nighttime medication called Singulair. It's another allergy medication. Just to kind of get this down. Gotcha. Cool? Yeah. Calamine lotion, and then I'll prescribe you a little over the counter one, or not over the counter one, a prescription one for the itch. Okay. All right. So, no breathing issues, nothing like that, just all skin. Okay. Hang tight. Is that wheels? Oh.",
+  "gold": {
+    "historyOfPresentIllness": "The patient is a 25-year-old male presenting with a pruritic rash that has been spreading across his stomach and back for one month, which he attributes to a reaction to deodorant. He presents with diffuse erythema and with vesicles. He denies any difficulty breathing, chest tightness, shortness of breath, recent illness, fevers, nausea or vomiting.",
+    "reviewOfSystems": {
+      "observations": [
+        {
+          "field": "ros-gi-nausea-denies",
+          "label": "Nausea",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-respiratory-shortness-of-breath-denies",
+          "label": "Shortness of breath",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "no breathing issues, nothing like that"
+        },
+        {
+          "field": "ros-ent-throat-swelling-denies",
+          "label": "Throat swelling",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-respiratory-chest-tightness-denies",
+          "label": "Chest tightness",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-ent-sinus-pain-denies",
+          "label": "Sinus pain/pressure",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-respiratory-cough-denies",
+          "label": "Cough",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-skin-rash-reports",
+          "label": "Rash",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "I just got this rash and it's spreading"
+        },
+        {
+          "field": "ros-respiratory-wheezing-denies",
+          "label": "Wheezing",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-respiratory-sputum-denies",
+          "label": "Sputum production",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-gi-diarrhea-denies",
+          "label": "Diarrhea",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-neuro-headache-denies",
+          "label": "Headache",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-constitutional-fever-denies",
+          "label": "Fever",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-eyes-vision-changes-denies",
+          "label": "Vision changes",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-constitutional-night-sweats-denies",
+          "label": "Night sweats",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-gi-vomiting-denies",
+          "label": "Vomiting",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-ent-ear-pain-denies",
+          "label": "Ear pain",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-constitutional-chills-denies",
+          "label": "Chills",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-skin-itching-reports",
+          "label": "Itching/pruritus",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "It's itching? Yeah."
+        },
+        {
+          "field": "ros-skin-redness-reports",
+          "label": "Redness/erythema",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-ent-nasal-congestion-denies",
+          "label": "Nasal congestion",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-ent-rhinorrhea-denies",
+          "label": "Rhinorrhea",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-ent-post-nasal-drip-denies",
+          "label": "Post-nasal drip",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-neuro-dizziness-denies",
+          "label": "Dizziness/vertigo",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-constitutional-fatigue-denies",
+          "label": "Fatigue",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-ent-sneezing-denies",
+          "label": "Sneezing",
+          "present": true,
+          "voiced": false
+        }
+      ]
+    },
+    "exam": [
+      {
+        "field": "normal-affect-calm-cooperative",
+        "label": "Normal affect; calm/cooperative",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "oriented-x-3",
+        "label": "Oriented x 3",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "skin-side",
+        "label": "Side",
+        "present": true,
+        "components": [
+          {
+            "code": "skin-side-bilateral",
+            "label": "Bilateral",
+            "value": true,
+            "abnormal": true
+          }
+        ],
+        "abnormal": true,
+        "voiced": true,
+        "voicedEvidence": "spreading all over my body. Stomach, back"
+      },
+      {
+        "field": "common-skin-findings",
+        "label": "Common skin findings",
+        "present": true,
+        "components": [
+          {
+            "code": "skin-contact-dermatitis",
+            "label": "well-demarcated erythematous plaque with vesicles and weeping in a geometric distribution corresponding to irritant or allergen exposure",
+            "value": true,
+            "abnormal": true
+          }
+        ],
+        "abnormal": true,
+        "voiced": true,
+        "voicedEvidence": "It looks itchy...rash...armpit...spreading"
+      },
+      {
+        "field": "nondistended",
+        "label": "Nondistended",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "extremities-are-warm-and-well-perfused",
+        "label": "Extremities are warm and well perfused",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "capillary-refill-less-than-2-seconds",
+        "label": "Capillary refill <2 seconds",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "no-signs-of-respiratory-distress",
+        "label": "No signs of respiratory distress",
+        "present": true,
+        "voiced": true,
+        "voicedEvidence": "no breathing issues, nothing like that"
+      },
+      {
+        "field": "normal-tone",
+        "label": "Normal tone",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "regular-rate-and-rhythm-with-no-murmur",
+        "label": "Regular rate and rhythm with no murmur",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "soft",
+        "label": "Soft",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "normal-mental-status",
+        "label": "Normal mental status",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "chest-is-clear-to-auscultation-bilaterally",
+        "label": "Chest is clear to auscultation bilaterally",
+        "present": true,
+        "voiced": true,
+        "voicedEvidence": "no breathing issues, nothing like that, just all skin"
+      },
+      {
+        "field": "no-tenderness-to-palpation",
+        "label": "No tenderness to palpation",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "skin-lesion-characteristics",
+        "label": "Lesion characteristics",
+        "present": true,
+        "components": [
+          {
+            "code": "skin-lesion-erythematous",
+            "label": "Erythematous",
+            "value": true,
+            "abnormal": true
+          },
+          {
+            "code": "skin-lesion-irregular",
+            "label": "Irregular",
+            "value": true,
+            "abnormal": true
+          },
+          {
+            "code": "skin-lesion-crusted",
+            "label": "Crusted",
+            "value": true,
+            "abnormal": true
+          },
+          {
+            "code": "skin-lesion-gt-5cm",
+            "label": ">5cm",
+            "value": true,
+            "abnormal": true
+          },
+          {
+            "code": "skin-lesion-vesicle",
+            "label": "Vesicle",
+            "value": true,
+            "abnormal": true
+          }
+        ],
+        "abnormal": true,
+        "voiced": true,
+        "voicedEvidence": "It looks itchy...rash spreading"
+      },
+      {
+        "field": "skin-location",
+        "label": "Location",
+        "present": true,
+        "components": [
+          {
+            "code": "skin-loc-neck",
+            "label": "Neck",
+            "value": true,
+            "abnormal": true
+          },
+          {
+            "code": "skin-loc-chest",
+            "label": "Chest",
+            "value": true,
+            "abnormal": true
+          },
+          {
+            "code": "skin-loc-abdomen",
+            "label": "Abdomen",
+            "value": true,
+            "abnormal": true
+          },
+          {
+            "code": "skin-loc-back",
+            "label": "Back",
+            "value": true,
+            "abnormal": true
+          },
+          {
+            "code": "skin-loc-flank",
+            "label": "Flank",
+            "value": true,
+            "abnormal": true
+          },
+          {
+            "code": "skin-loc-upper-arm",
+            "label": "Upper arm",
+            "value": true,
+            "abnormal": true
+          },
+          {
+            "code": "skin-loc-forearm",
+            "label": "Forearm",
+            "value": true,
+            "abnormal": true
+          },
+          {
+            "code": "skin-loc-hand-fingers",
+            "label": "Hand/fingers",
+            "value": true,
+            "abnormal": true
+          },
+          {
+            "code": "skin-loc-lower-leg",
+            "label": "Lower leg",
+            "value": true,
+            "abnormal": true
+          },
+          {
+            "code": "skin-loc-thigh",
+            "label": "Thigh",
+            "value": true,
+            "abnormal": true
+          }
+        ],
+        "abnormal": true,
+        "voiced": true,
+        "voicedEvidence": "Stomach, back...started in my armpit"
+      },
+      {
+        "field": "moves-all-extremities-symmetrically",
+        "label": "Moves all extremities symmetrically",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "nontender",
+        "label": "Nontender",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "extremities-warm-and-well-perfused",
+        "label": "Extremities warm and well-perfused",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "good-air-movement-throughout-lung-fields",
+        "label": "Good air movement throughout lung fields",
+        "present": true,
+        "voiced": true,
+        "voicedEvidence": "no breathing issues, nothing like that"
+      }
+    ],
+    "assessment": {
+      "diagnoses": [
+        {
+          "system": "ICD-10-CM",
+          "code": "L29.9",
+          "codeNormalized": "L299",
+          "display": "Pruritus, unspecified",
+          "primary": false,
+          "fromLabOrder": false,
+          "voiced": true,
+          "voicedEvidence": "You're itchy... itching"
+        },
+        {
+          "system": "ICD-10-CM",
+          "code": "L23.9",
+          "codeNormalized": "L239",
+          "display": "Allergic contact dermatitis, unspecified cause",
+          "primary": true,
+          "fromLabOrder": false,
+          "voiced": true,
+          "voicedEvidence": "Started in my armpit. It came from deodorant."
+        }
+      ]
+    },
+    "billing": {
+      "emCode": {
+        "system": "CPT",
+        "code": "99204",
+        "codeNormalized": "99204",
+        "display": "99204 New Patient - E/M Level 4"
+      },
+      "cptCodes": []
+    },
+    "medications": {
+      "prescribed": [
+        {
+          "name": "hydrOXYzine HCl Oral Tablet 25 MG",
+          "sig": "Take 1 tablet orally, at bedtime as needed for itch",
+          "status": "completed",
+          "voiced": true,
+          "voicedEvidence": "Pepcid is similar to Benadryl... antihistamine",
+          "nameVoiced": false
+        },
+        {
+          "name": "Triamcinolone Acetonide Topical Cream 0.1 %",
+          "sig": "Apply a thin layer to the affected area twice daily as needed",
+          "status": "completed",
+          "voiced": true,
+          "voicedEvidence": "a topical to put on it that's going to help with the itch",
+          "nameVoiced": false
+        },
+        {
+          "name": "predniSONE Oral Tablet 10 MG",
+          "sig": "Take 3 tablets daily on days 9-11, then taper accordingly. Take 2 tablets daily on days 12-14, take 1 tablet daily on days 15-17, take half a tablet daily on days 18-21. ",
+          "status": "completed",
+          "voiced": true,
+          "voicedEvidence": "steroids...tapering dose...start you on a tapering dose",
+          "nameVoiced": false
+        },
+        {
+          "name": "predniSONE Oral Tablet 20 MG",
+          "sig": "Take 3 tablets once daily on days 1-5, then take 2 tablets daily on days 6-8. ",
+          "status": "completed",
+          "voiced": true,
+          "voicedEvidence": "a course of steroids...start pretty heavy",
+          "nameVoiced": false
+        },
+        {
+          "name": "Famotidine Oral Tablet 20 MG",
+          "sig": "Take 1 tablet by mouth twice daily for  two week, then decrease to once daily for two weeks.",
+          "status": "completed",
+          "voiced": true,
+          "voicedEvidence": "we're going to do some Pepcid...twice a day",
+          "nameVoiced": true
+        }
+      ],
+      "inHouseAdministered": [
+        {
+          "name": "Dexamethasone",
+          "ndc": "67457-0420-00",
+          "dose": 10,
+          "units": "mg",
+          "route": "78421000",
+          "status": "administered"
+        }
+      ],
+      "immunizations": [],
+      "currentReconciled": []
+    },
+    "allergies": [],
+    "medicalHistory": [],
+    "surgicalHistory": [],
+    "hospitalizations": [],
+    "procedures": [],
+    "labs": {
+      "external": {
+        "resultsPending": [],
+        "labOrderResults": []
+      },
+      "inHouse": {
+        "resultsPending": [],
+        "reflexTestsPending": [],
+        "labOrderResults": []
+      }
+    },
+    "radiology": [],
+    "vitals": [
+      {
+        "field": "vital-height",
+        "context": true,
+        "value": 187.96
+      },
+      {
+        "field": "vital-weight",
+        "context": true,
+        "value": 93.44
+      },
+      {
+        "field": "vital-oxygen-sat",
+        "context": true,
+        "value": 98,
+        "method": "On room air"
+      },
+      {
+        "field": "vital-blood-pressure",
+        "context": true,
+        "systolic": 104,
+        "diastolic": 88,
+        "method": "Sitting"
+      },
+      {
+        "field": "vital-respiration-rate",
+        "context": true,
+        "value": 18
+      },
+      {
+        "field": "vital-heartbeat",
+        "context": true,
+        "value": 74,
+        "method": "Sitting"
+      },
+      {
+        "field": "vital-temperature",
+        "context": true,
+        "value": 36.278
+      }
+    ],
+    "medicalDecisionMaking": "Reviewed diagnosis, expected course, treatment plan, and reasons to seek urgent and/or emergent care.  Discharge instructions reviewed.  Patient/Caregiver expressed understanding.  All questions were answered, and is comfortable with discharge plan.  ER Precautions given.",
+    "disposition": {
+      "type": "pcp-no-type",
+      "note": "What is Contact Dermatitis?\nContact dermatitis is a skin rash that occurs when your skin comes into contact with something that irritates it or causes an allergic reaction. Common causes include:\nPlants (poison ivy, poison oak, poison sumac)\nMetals (nickel in jewelry, belt buckles, snaps)\nFragrances and preservatives in soaps, lotions, or cosmetics\nCleaning products, detergents, and solvents\nLatex or rubber\nCertain medications applied to the skin\nThe rash usually appears as red, itchy skin that may have bumps, blisters, or dry/cracked patches. It typically develops in the area that touched the substance.\n\nYour Treatment Plan\n\nTopical steroid cream or ointment — Apply a thin layer to the affected area as directed (usually 1–2 times daily). Do not use on the face, eyelids, or groin unless specifically instructed by your doctor.\nOral antihistamine (such as cetirizine/Zyrtec or diphenhydramine/Benadryl) — May help relieve itching. Note: diphenhydramine can cause drowsiness.\nOral steroids (such as prednisone) — If the rash covers a large area or is severe, your doctor may prescribe a steroid pill or liquid to be taken by mouth. Take exactly as directed and do not stop early, as the rash can come back.\n\nSkin Care at Home\nIdentify and avoid the cause. The most important step is figuring out what caused the rash and staying away from it. The rash will not fully clear until contact with the substance stops.\nMoisturize frequently. Apply a fragrance-free moisturizer or emollient (such as Vaseline, CeraVe, or Aquaphor) several times a day to help repair and protect the skin barrier.\nCool compresses. Apply a cool, damp cloth to the rash for 15–20 minutes several times a day to soothe itching and inflammation.\nOatmeal baths. A lukewarm bath with colloidal oatmeal can help relieve itching. Avoid hot water, which can worsen the rash.\nWash gently. Use mild, fragrance-free soap. Pat skin dry — do not rub.\nWear soft, loose clothing over the affected area.\n\nImportant Do's and Don'ts\nDo:\nWash your skin with soap and water as soon as possible after contact with a known irritant or allergen\nWear protective gloves when handling chemicals, cleaning products, or plants\nFinish all prescribed medications as directed\n\nDon't:\nDo NOT scratch the rash — scratching can break the skin and lead to infection\nDo NOT apply the steroid cream more often or longer than prescribed\nDo NOT use steroid cream on your face or skin folds unless your doctor specifically told you to\nDo NOT use products that contain the substance that caused your rash — read ingredient labels carefully\n\nPain and Itch Relief\nIbuprofen (Advil/Motrin): 400–600 mg every 6–8 hours as needed with food\nAcetaminophen (Tylenol): 500–1,000 mg every 6–8 hours as needed\nCalamine lotion may be applied to the rash to help with itching\nAntihistamines as described above\n\nWhen to Call Your Doctor or Go to the ER\nRash is spreading rapidly or covers a large area of your body\nSevere swelling, especially of the face, eyes, or lips\nDifficulty breathing or swallowing (call 911)\nSigns of skin infection: increasing redness, warmth, pus or yellow crusting, red streaks, or fever\nRash does not improve after 2–3 weeks of treatment\nRash keeps coming back despite avoiding the suspected cause\nRash involves your eyes, mouth, or genitals\n\nFollow-Up\nIf the rash does not improve within 1–2 weeks, return to the clinic for re-evaluation.\nIf the cause of the rash is unknown or the rash keeps returning, your doctor may refer you for patch testing — a specialized test to identify exactly which substances are causing the allergic reaction.",
+      "followUp": [],
+      "followUpIn": 0,
+      "dispositionVoiced": false
+    },
+    "instructions": [],
+    "additionalInformation": "25 YEAR OLD MALE STATES ABOUT A MONTH AGO HE USED DOVE DEODERANT AND THE RASH STARTED SLOWLY UNDER HIS ARMPIT AND NOW IS SPREADING ALL HIS BODY AND HE HAS BEEN TAKING ZRYTEC"
+  }
+}

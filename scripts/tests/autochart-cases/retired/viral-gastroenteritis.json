@@ -1,0 +1,675 @@
+{
+  "id": "viral-gastroenteritis",
+  "label": "Watery diarrhea and nausea since yesterday after greasy food and dairy (new, 24F)",
+  "sourceCase": "case424",
+  "patient": {
+    "ageYears": 24,
+    "sex": "female"
+  },
+  "patientStatus": "new",
+  "notes": ["Ruled out on the recording: \"But no vomiting? No.\""],
+  "said": [
+    {
+      "kind": "surgicalHistory",
+      "display": "gallbladder|cholecystectomy"
+    },
+    {
+      "kind": "disposition",
+      "type": "specialty"
+    },
+    {
+      "kind": "instruction",
+      "text": "diaper rash|cream|bottom"
+    },
+    {
+      "kind": "instruction",
+      "text": "dairy|milk|yogurt|cheese"
+    },
+    {
+      "kind": "instruction",
+      "text": "hydrat|fluid"
+    },
+    {
+      "kind": "instruction",
+      "text": "greas"
+    },
+    {
+      "kind": "instruction",
+      "text": "fever"
+    }
+  ],
+  "goldErrors": [
+    {
+      "match": "disposition pcp",
+      "reason": "the provider said a gastroenterologist"
+    }
+  ],
+  "allowed": [
+    {
+      "kind": "diagnosis",
+      "codePrefix": ["R19", "R11", "E73", "A08", "K52", "R10", "K91", "K59"]
+    }
+  ],
+  "narrativeFacts": [
+    "gallbladder",
+    "year ago",
+    "greasy|grease|fried|canes",
+    "nausea",
+    "vomit",
+    "fever",
+    "appetite",
+    "yogurt|milk|dairy|lactose",
+    "watery|water",
+    "blood|bleeding",
+    "diaper rash|cream",
+    "hydrat",
+    "poop|stool|constipat",
+    "gastroenterolog|ibs",
+    "diarrhea",
+    "restroom|bathroom"
+  ],
+  "edits": [],
+  "transcript": "Provider: All right, what did I miss?\nPatient: A lot.\nProvider: Hi. My name's <clinician name>. I'm a nurse practitioner. I'll be taking care of you. So, what's going on?\nPatient: So, behind the area since yesterday. Uh, I also heard that I don't have my gallbladder and I ate uh beans.\nProvider: You don't have your gallbladder?\nPatient: So, I don't know if it's something because of that, because I was telling you that maybe when I eat uh like certain foods, I have to go to the restroom, but like right now I just got like\nProvider: When did you get your gallbladder taken out?\nPatient: A year ago.\nProvider: A year ago. And you haven't been eating greasy foods since then?\nPatient: Yes.\nProvider: You have?\nPatient: Yes. So, maybe I don't know what is happening.\nProvider: Okay. Any nausea, vomiting?\nPatient: Just nausea.\nProvider: But no vomiting?\nPatient: No.\nProvider: Okay. Any fevers?\nPatient: No.\nProvider: Okay. What else? What you got there?\nPatient: Um, she has a change in appetite. She says it's normally when she eats like yogurt, milk.\nProvider: So, you're probably lactose intolerant. Most people are, and that'll cause diarrhea. Um, have you been drinking milk since your gallbladder got moved?\nPatient: Yes.\nProvider: So, it I mean, as we age, things change, but that's those are pretty like irritating to the body. Have you changed the brand of yogurt?\nPatient: Yes. It's basically the same thing.\nProvider: Big breath. Big breath.\nProvider: Turn your mouth.\nProvider: Turn. Sit straight ahead. You can put your phone down.\nProvider: All right.\nProvider: Watch me.\nProvider: Okay.\nProvider: I'm going to lay back. You can scoop back just a little bit.\nProvider: Yeah, multiple pants on.\nProvider: There you go.\nProvider: Pretty active in there.\nProvider: Just relax your arms to the side. I'm just going to fold this down.\nProvider: It hurts right there?\nPatient: Yes.\nProvider: How about right here? Try and relax.\nProvider: All down here.\nProvider: Right there?\nPatient: Yes.\nProvider: About here?\nProvider: How about in there?\nPatient: No.\nProvider: Okay.\nProvider: I'm going to try to see if I can feel if you have poop in there. Sometimes you can be constipated and have diarrhea that goes around. Um, just try and relax your stomach. That hurts right there?\nPatient: Yes.\nProvider: That's the last part of your intestine.\nProvider: You might have some poop in there.\nProvider: Yeah. This is the beginning of it.\nProvider: Nothing there.\nProvider: Okay. How about up top over here?\nProvider: Try to relax.\nProvider: Nothing here.\nProvider: You may have some poop in there, honestly. It's just not come out yet. Sometimes the dairy products can cause diarrhea. Um, I'm going to assume you're Hispanic?\nPatient: Yes.\nProvider: Yeah. So, a higher likelihood that you have, you know, slight allergy to the dairy. I would cut the dairy out. What does your poop look like?\nPatient: Well, right now it's just like watery.\nProvider: Water with chunks?\nPatient: No.\nProvider: Just completely water.\nProvider: Okay.\nPatient: Just like a little bit like color, you know.\nProvider: How long has that been going on?\nPatient: Uh, yesterday it was like come and goes, but this morning when I woke up woke up, I wake up, sorry, my first language is Spanish. When I first woke up, uh I've been going to the restroom a lot.\nProvider: Okay. Any bleeding?\nPatient: No.\nProvider: Okay. So, probably want to put some diaper rash cream on your bottom. That'll keep your skin from getting eaten up by the acid. Um, since you're not vomiting, it's not like a big worry yet. If you start having vomiting, that's kind of more concerning. Um, you may or may not have poop in there. Most people have poop in there. Sometimes the diarrhea can kind of wash around. I'll give you a little something that'll kind of keep you from pooping so much. Okay? And then, um, don't do any dairy until you're feeling better. You said you ate canes and that's when it started?\nPatient: Yes. Uh, it's like because of the grease, I don't know, but\nProvider: It could be. So, without your gallbladder, you're not processing things. If you notice that your poops are floating, then they have a little more fat in them. So, that's like the grease, because your body doesn't process the grease the way that it used to. Because the gallbladders what helps break down the um, sorry, my hand is it GL? The uh, gallbladder is what helps break down the fat so that you process it and it doesn't come out and make a big mess. So, you'll have to kind of monitor your poops. If you see that your poops are um, softer, floating, or even see grease in the toilet, then I would say cut cut greasy foods. For now, I want you to cut the greasy foods, stay nice and hydrated. You're not showing signs of dehydration. Your lips don't look too dry. Um, no throat pain. You're just not hungry.\nProvider: So, I would say just kind of keep an eye on that. Um, fevers will be important. Okay? So, we'll give you a little something for the diarrhea. Hopefully that clears up. Don't do any milk, no dairy products. So, stay away from cheeses and stay away from yogurt.\nPatient: It's like two weeks ago two weeks ago when I started that I ate a yogurt, then I went to the restroom, and then the next day I ate eggs eggs with potato like uh by itself, and then I went to the restroom and I was like, what?\nProvider: Yeah. I mean, it it could be a whole lot of other things. I'm going to give you something to help the diarrhea. You'll probably have to follow up with um a gastroenterologist so they can see if you have any other conditions that, you know, IBS, that kind of thing. Okay? Give me a few minutes. I'll put that in. I got to do it from the main computer.",
+  "gold": {
+    "historyOfPresentIllness": "The patient is a 24-year-old female presenting with watery diarrhea and nausea starting yesterday. She reports increased frequency of bowel movements, particularly after consuming dairy products or greasy foods. She denies vomiting, fever, or blood in the stool. Physical examination reveals abdominal tenderness in the lower left quadrant.",
+    "reviewOfSystems": {
+      "observations": [
+        {
+          "field": "ros-gu-dysuria-denies",
+          "label": "Dysuria",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-constitutional-fever-denies",
+          "label": "Fever",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "Any fevers? No."
+        },
+        {
+          "field": "ros-msk-muscle-aches-denies",
+          "label": "Muscle aches/myalgia",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-endo-cold-intolerance-denies",
+          "label": "Cold intolerance",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-skin-rash-denies",
+          "label": "Rash",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-endo-hair-skin-changes-denies",
+          "label": "Hair/skin changes",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-allergy-seasonal-denies",
+          "label": "Seasonal allergies",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-respiratory-cough-denies",
+          "label": "Cough",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-allergy-frequent-infections-denies",
+          "label": "Frequent infections",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-allergy-immunocompromised-denies",
+          "label": "Immunocompromised status",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-constitutional-night-sweats-denies",
+          "label": "Night sweats",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-endo-heat-intolerance-denies",
+          "label": "Heat intolerance",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-gi-vomiting-denies",
+          "label": "Vomiting",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "But no vomiting? No."
+        },
+        {
+          "field": "ros-gi-blood-in-stool-denies",
+          "label": "Blood in stool",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "Any bleeding? No."
+        },
+        {
+          "field": "ros-gi-abdominal-pain-reports",
+          "label": "Abdominal pain",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "It hurts right there? Yes."
+        },
+        {
+          "field": "ros-constitutional-chills-denies",
+          "label": "Chills",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-gi-nausea-reports",
+          "label": "Nausea",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "Just nausea"
+        },
+        {
+          "field": "ros-cardiovascular-palpitations-denies",
+          "label": "Palpitations",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-endo-excessive-thirst-denies",
+          "label": "Excessive thirst",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-neuro-dizziness-denies",
+          "label": "Dizziness/vertigo",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-allergy-medication-denies",
+          "label": "Medication allergies",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-gi-tarry-stools-denies",
+          "label": "Black/tarry stools",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-cardiovascular-chest-pain-denies",
+          "label": "Chest pain",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-respiratory-shortness-of-breath-denies",
+          "label": "Shortness of breath",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-gi-constipation-denies",
+          "label": "Constipation",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-respiratory-wheezing-denies",
+          "label": "Wheezing",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-skin-redness-denies",
+          "label": "Redness/erythema",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-endo-excessive-urination-denies",
+          "label": "Excessive urination",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-gi-diarrhea-reports",
+          "label": "Diarrhea",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "it's just like watery, going to restroom a lot"
+        },
+        {
+          "field": "ros-constitutional-poor-appetite-reports",
+          "label": "Poor appetite",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "She has a change in appetite... you're just not hungry"
+        },
+        {
+          "field": "ros-constitutional-fatigue-denies",
+          "label": "Fatigue",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-allergy-food-denies",
+          "label": "Food allergies",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-neuro-headache-denies",
+          "label": "Headache",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-constitutional-weight-change-denies",
+          "label": "Weight loss/gain",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-skin-itching-denies",
+          "label": "Itching/pruritus",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-gi-bowel-changes-reports",
+          "label": "Changes in bowel habits",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "watery stool, going to restroom a lot, comes and goes"
+        }
+      ]
+    },
+    "exam": [
+      {
+        "field": "good-air-movement-throughout-lung-fields",
+        "label": "Good air movement throughout lung fields",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "active",
+        "label": "Active",
+        "present": true,
+        "voiced": true,
+        "voicedEvidence": "Pretty active in there"
+      },
+      {
+        "field": "normal-tone",
+        "label": "Normal tone",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "in-no-acute-distress",
+        "label": "In no acute distress",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "no-signs-of-respiratory-distress",
+        "label": "No signs of respiratory distress",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "normal-affect-calm-cooperative",
+        "label": "Normal affect; calm/cooperative",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "normal-dentition",
+        "label": "Normal dentition",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "extremities-warm-and-well-perfused",
+        "label": "Extremities warm and well-perfused",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "normal-appearance-of-neck",
+        "label": "Normal appearance of neck",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "warm-and-dry",
+        "label": "Warm and dry",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "alert",
+        "label": "Alert",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "regular-rate-and-rhythm-with-no-murmur",
+        "label": "Regular rate and rhythm with no murmur",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "soft",
+        "label": "Soft",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "normal-bowel-sounds",
+        "label": "Normal Bowel Sounds",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "well-hydrated",
+        "label": "Well-hydrated",
+        "present": true,
+        "voiced": true,
+        "voicedEvidence": "You're not showing signs of dehydration"
+      },
+      {
+        "field": "moist-mucous-membranes",
+        "label": "Moist mucous membranes",
+        "present": true,
+        "voiced": true,
+        "voicedEvidence": "Your lips don't look too dry"
+      },
+      {
+        "field": "no-generalized-lymphadenopathy",
+        "label": "No generalized lymphadenopathy",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "no-rash",
+        "label": "No rash",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "tender",
+        "label": "Tender",
+        "present": true,
+        "components": [
+          {
+            "code": "llq",
+            "label": "LLQ",
+            "value": true,
+            "abnormal": true
+          }
+        ],
+        "abnormal": true,
+        "voiced": true,
+        "voicedEvidence": "That hurts right there? Yes (lower abdomen palpation)"
+      },
+      {
+        "field": "no-cva-tenderness",
+        "label": "No CVA tenderness",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "normal-range-of-motion",
+        "label": "Normal range of motion",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "chest-is-clear-to-auscultation-bilaterally",
+        "label": "Chest is clear to auscultation bilaterally",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "normocephalic",
+        "label": "Normocephalic",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "oriented-x-3",
+        "label": "Oriented x 3",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "nasal-mucosa-normal",
+        "label": "Nasal mucosa normal",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "extremities-are-warm-and-well-perfused",
+        "label": "Extremities are warm and well perfused",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "atraumatic",
+        "label": "Atraumatic",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "normal-mental-status",
+        "label": "Normal mental status",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "capillary-refill-less-than-2-seconds",
+        "label": "Capillary refill <2 seconds",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "oropharynx-clear-with-no-erythema-lesions-or-exudate",
+        "label": "Oropharynx clear with no erythema, lesions, or exudate",
+        "present": true,
+        "voiced": true,
+        "voicedEvidence": "no throat pain"
+      },
+      {
+        "field": "nondistended",
+        "label": "Nondistended",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "no-edema",
+        "label": "No edema",
+        "present": true,
+        "voiced": false
+      }
+    ],
+    "assessment": {
+      "diagnoses": [
+        {
+          "system": "ICD-10-CM",
+          "code": "A08.4",
+          "codeNormalized": "A084",
+          "display": "Viral intestinal infection, unspecified",
+          "primary": true,
+          "fromLabOrder": false,
+          "voiced": false
+        },
+        {
+          "system": "ICD-10-CM",
+          "code": "R19.7",
+          "codeNormalized": "R197",
+          "display": "Diarrhea, unspecified",
+          "primary": false,
+          "fromLabOrder": false,
+          "voiced": true,
+          "voicedEvidence": "diarrhea, watery stool, going to restroom a lot"
+        },
+        {
+          "system": "ICD-10-CM",
+          "code": "R11.0",
+          "codeNormalized": "R110",
+          "display": "Nausea",
+          "primary": false,
+          "fromLabOrder": false,
+          "voiced": true,
+          "voicedEvidence": "Just nausea"
+        }
+      ]
+    },
+    "billing": {
+      "emCode": {
+        "system": "CPT",
+        "code": "99204",
+        "codeNormalized": "99204",
+        "display": "99204 New Patient - E/M Level 4"
+      },
+      "cptCodes": []
+    },
+    "medications": {
+      "prescribed": [
+        {
+          "name": "Loperamide HCl Oral Tablet 2 MG",
+          "sig": "ake 2 tablets (4mg) by mouth after your first loose stool, then take 1 tablet (2 mg) after each loose stool. Maximum dose 4 tablets (8mg)  per day. ",
+          "status": "completed",
+          "voiced": true,
+          "voicedEvidence": "I'll give you a little something that'll keep you from pooping",
+          "nameVoiced": false
+        },
+        {
+          "name": "Ondansetron HCl Oral Tablet 4 MG",
+          "sig": "Take 1 tablet orally, every 8 hours for 5 days.",
+          "status": "completed",
+          "voiced": false,
+          "nameVoiced": false
+        }
+      ],
+      "inHouseAdministered": [],
+      "immunizations": [],
+      "currentReconciled": [
+        {
+          "name": "Zofran Oral Tablet (8 MG)",
+          "type": "scheduled",
+          "status": "active",
+          "context": true
+        }
+      ]
+    },
+    "allergies": [],
+    "medicalHistory": [],
+    "surgicalHistory": [
+      {
+        "system": "CPT",
+        "code": "47600",
+        "codeNormalized": "47600",
+        "display": "Gallbladder removal"
+      },
+      {
+        "system": "CPT",
+        "code": "59510",
+        "codeNormalized": "59510",
+        "display": "C-section"
+      }
+    ],
+    "hospitalizations": [],
+    "procedures": [],
+    "labs": {
+      "external": {
+        "resultsPending": [],
+        "labOrderResults": []
+      },
+      "inHouse": {
+        "resultsPending": [],
+        "reflexTestsPending": [],
+        "labOrderResults": []
+      }
+    },
+    "radiology": [],
+    "vitals": [
+      {
+        "field": "vital-bmi",
+        "context": true,
+        "value": 22.2
+      },
+      {
+        "field": "vital-last-menstrual-period",
+        "context": true,
+        "value": "2026-07-30"
+      },
+      {
+        "field": "vital-height",
+        "context": true,
+        "value": 154.94
+      },
+      {
+        "field": "vital-weight",
+        "context": true,
+        "value": 53.25
+      },
+      {
+        "field": "vital-oxygen-sat",
+        "context": true,
+        "value": 100,
+        "method": "On room air"
+      },
+      {
+        "field": "vital-blood-pressure",
+        "context": true,
+        "systolic": 106,
+        "diastolic": 70,
+        "method": "Sitting"
+      },
+      {
+        "field": "vital-respiration-rate",
+        "context": true,
+        "value": 19
+      },
+      {
+        "field": "vital-heartbeat",
+        "context": true,
+        "value": 91,
+        "method": "Sitting"
+      },
+      {
+        "field": "vital-temperature",
+        "context": true,
+        "value": 36.889,
+        "method": "Temporal"
+      }
+    ],
+    "medicalDecisionMaking": "Reviewed diagnosis, expected course, treatment plan, and reasons to seek urgent and/or emergent care.  Discharge instructions reviewed.  Patient/Caregiver expressed understanding.  All questions were answered, and is comfortable with discharge plan.  ER Precautions given.",
+    "disposition": {
+      "type": "pcp-no-type",
+      "note": "Your diagnosis: Acute viral gastroenteritis (\"stomach flu\")\n\nThis is a common infection of the stomach and intestines, usually caused by a virus. It causes watery diarrhea, nausea, and sometimes stomach cramps. It usually gets better on its own within a few days to about a week. Antibiotics do not help and are not needed for a viral infection.\n\nStay hydrated — this is the most important thing\nDrink small amounts of fluid often, even if you feel nauseated. Sip rather than gulp.\nBest choices: oral rehydration solutions (such as Pedialyte), water, broth, and diluted juice. Sports drinks are okay if diluted with water.\nTry to drink a cup of fluid after each loose stool.\nAvoid alcohol and large amounts of caffeine, which can worsen dehydration.\n\nEating\nYou do not need to stop eating. Once nausea improves, start with small, bland, easy-to-digest foods (such as bananas, rice, toast, crackers, applesauce, potatoes, plain chicken).\nAvoid dairy, greasy or fried foods, and very sugary foods for a few days, as these can make diarrhea worse. Milk sugar (lactose) can be harder to digest for a short time after this type of illness.\nReturn to your normal diet gradually as you feel better.\n\nMedications\nFor diarrhea — Loperamide (Imodium) 2 mg: Take 2 capsules (4 mg) by mouth after your first loose stool, then 1 capsule (2 mg) after each additional loose stool. Do not take more than 8 mg (4 capsules) in one day. Do NOT use it if you develop a fever or see blood in your stool, and stop it if you are not improving after 2 days.\nFor nausea — Ondansetron (Zofran) 4 mg: Take 1 tablet by mouth every 8 hours as needed for nausea or vomiting. Let the office know if nausea keeps you from drinking fluids.\nYou may use acetaminophen (Tylenol) for aches or discomfort. Take as directed on the label.\n\nPrevent spreading it to others\nWash your hands well with soap and water, especially after using the bathroom and before eating or preparing food. Hand sanitizer alone may not kill this type of virus.\nDo not prepare food for others while you are sick and for at least 2 days after symptoms stop. This is especially important because you work at a daycare — stay home until you have had no diarrhea or vomiting for at least 24–48 hours.\nClean and disinfect contaminated surfaces.\n\nCome back or seek care right away if you have:\nSigns of dehydration: very dark urine or not urinating, dizziness, lightheadedness, dry mouth, or a fast heartbeat\nBlood in your stool or black, tarry stools\nA fever of 102°F (38.9°C) or higher\nSevere or worsening stomach pain, especially if it moves to the lower right side\nVomiting that prevents you from keeping any fluids down\nDiarrhea that lasts longer than 7 days or keeps coming back\nConfusion or extreme weakness\n\nFollow-up\nContact the office if your symptoms are not improving after a few days, if they return, or if you have any of the warning signs above.",
+      "followUp": [],
+      "followUpIn": 0,
+      "dispositionVoiced": true,
+      "dispositionVoicedEvidence": "follow up with a gastroenterologist so they can see"
+    },
+    "instructions": []
+  }
+}

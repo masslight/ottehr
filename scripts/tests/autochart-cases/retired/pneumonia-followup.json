@@ -1,0 +1,939 @@
+{
+  "id": "pneumonia-followup",
+  "label": "Pneumonia follow-up with back spasm from coughing (established, 72F)",
+  "sourceCase": "case241",
+  "patient": {
+    "ageYears": 72,
+    "sex": "female"
+  },
+  "patientStatus": "established",
+  "notes": [
+    "The advice at the end is given at length; the chart's instruction list is empty.",
+    "Ruled out on the recording: \"I think I've hit my sciatica\" is answered with a muscle explanation; the ear infection was last visit and the ears look good today; the Z-Pak was an earlier course."
+  ],
+  "said": [
+    {
+      "kind": "instruction",
+      "text": "deep breath|spirometer"
+    },
+    {
+      "kind": "instruction",
+      "text": "swallow|chew"
+    },
+    {
+      "kind": "instruction",
+      "text": "bedtime|night"
+    },
+    {
+      "kind": "instruction",
+      "text": "inhaler"
+    }
+  ],
+  "goldErrors": [],
+  "allowed": [
+    {
+      "kind": "diagnosis",
+      "codePrefix": ["R05", "R09", "J06", "J20", "E78", "I10"]
+    },
+    {
+      "kind": "medication",
+      "name": "albuterol|multivitamin|statin"
+    }
+  ],
+  "narrativeFacts": [
+    "pneumonia|image|x-?ray",
+    "cough",
+    "\\bback\\b",
+    "sciatica|hip|buttock",
+    "augmentin|amoxicillin",
+    "three (more )?days|3 (more )?days",
+    "z-?pak|azithromycin",
+    "statin",
+    "\\bears?\\b",
+    "muscle relax",
+    "tessalon|benzonatate|cough medication",
+    "nose spray|nasal spray|dry up",
+    "inhaler|albuterol",
+    "deep breath|breathing",
+    "<state>",
+    "smok",
+    "night|bedtime"
+  ],
+  "edits": [
+    {
+      "label": "antibiotic changed from Augmentin to doxycycline",
+      "find": "augmentin",
+      "replace": "doxycycline",
+      "expected": [
+        {
+          "kind": "medication",
+          "name": "doxycycline"
+        }
+      ],
+      "forbidden": [
+        {
+          "kind": "medication",
+          "name": "augmentin|amoxicillin|clavulan"
+        }
+      ]
+    }
+  ],
+  "transcript": "Provider: Hi there. How are you doing today? My name's <clinician name>. Your vitals look good. How are you feeling?\nPatient: Much better.\nProvider: Much better. Still having obviously a cough?\nPatient: Yeah. And now I pulled my back from coughing so much, so now I have to stand a little bit more in the day, but then I get so tired from standing.\nProvider: Having pain down here?\nPatient: No, it's here and it goes down my leg.\nProvider: Here?\nPatient: No, well, the lower back and then my hip. So I think I've hit my sciatica. No pain when you do that. Oh, yeah, when you get the low back in that part and then right in there.\nProvider: Is it trailing to here?\nPatient: Not feeling pain when you do that. It's a little tight right there.\nProvider: Yeah, definitely in the buttock. Yeah.\nPatient: Right here?\nProvider: Yeah. Yeah, this one's nice and squishy. Yeah. And this one's got like a Yeah. a nodule. Yeah. Yeah. A little tight muscle. How's the breathing?\nPatient: Much better and it's still Much better. Still feel kind of Yeah. Yeah. congested? Yeah. Still coughing.\nProvider: Do you smoke?\nPatient: I never. Give me Give me big breaths.\nProvider: This one she was on the left side, right?\nPatient: Yeah.\nProvider: Yeah. Still sounds a tiny bit wet. He put you on Do you remember what medication? Let's see. Did you complete all of your antibiotic?\nPatient: Right. We went with a Z-Pak, then we went with um Augmentin. Augmentin. I finished that last night.\nProvider: Last night. Okay. I think I'm just going to extend it another three days. I'll give you three three more days of Augmentin. It's clearing up. So like your I can't pull the images up here. Let me see if it cross through. Um I can actually Let me just walk through the scanner. Walk through the scanner. So, this is your image from last time. Okay. You're wearing the bra so you can see the bra on there. But that's the the whiteness that you have going on. Okay. So, this is today. Oh, much better. Much better, but you still have a little bit here. Yeah. And maybe just a touch right there, but mostly here and I can hear it. Okay. Okay. So, But it's getting better. It's getting better, but I'm going to extend another three days of the Augmentin. Um and that should help it just clear out. Did you get any steroids last time? They gave me uh an inhaler. Okay. Yeah. But nothing no steroids in the bottom, nothing like that. Okay. Looks like he gave you an albuterol inhaler. Are you having post-nasal drainage, runny nose, all that stuff? Okay. So, let's just take care of that. We're going to clear up the drainage. That'll stop mucus coming down the back of your throat. That'll help with the cough. Very good. Are you coughing stuff up still? Yes. Yes. So, that'll probably continue for a little bit. Um are you any medical conditions, honey? I take a statin. Okay. Any ear pain? When I first came in, I had an ear infection in this ear. Let's see it. It can come on this side. You don't have to sit. Thanks. Go ahead and just back up, let me take a peek. Make sure it's Oh, it looks good. Good. Yeah, looks real good. Let's see the other side. I'm going to give you a little muscle relaxer only for bedtime. Okay. I'm going to look in your nose. Boom. Okay. Weird feeling, huh? Big mouth say, \"Ah.\" Ah. Stick your tongue out at me. Uh, good. All right. So, I'll give you a muscle relaxer cuz sometimes when we cough too much, these muscles get real strained cuz they're weird. Well, they're squeezing, so they're exercising. Oh. You cough. And I thought of that. You cough and your muscles here and your muscles here, these muscles, they wrap around like this. Yeah. And these muscles, you've got the set here and then you got the ones that go this way. Every time you cough, your muscles go That would explain it. So then your back gets tight. Yes. And it's usually here. That's it. And then it radiates like right in here and you can feel it when you cough. Yes. You don't want to cough. Exactly. So, um I'm going to give you a little something for the cough. Have you ever had the Tessalon Perles? No. I'm going to give you a little medication for the cough. Make sure you swallow them whole, don't chew them. They can cause a heart attack if you chew them. So, I'm going to give you that. I'm going to give you a nose spray to dry up your nose. Okay. Are you using the inhaler? Yes. So, just make sure you're still using your inhaler. I want you to practice deep breathing. Okay. So, every hour, 10 deep breaths. Okay. Nice and slow. Have you ever seen those little things and have you ever had surgery? No. No, you have you known anybody that had surgery? My husband had one of those little things he blew in and Okay. If you still have it at home, Yeah. use it. Okay. And your lung capacity probably 2,000 to 2,500 somewhere in there. So, you just make the little marker. You want to Just increase it, just Nice and slow. You don't have to get up to that mark real fast, but nice and slow inhales. You don't have to use the machine thing, the little plastic device if you don't have it, but controlled in, you can let it out. That helps open little sacs. Yeah. It's going to make you cough. Okay. Well, that's what I want. That's you want to get things moving and cleared. I'm going to oxygenate. I'm going to dry up the top. I'm going to give you something to help with the cough. I'm going to give you a little muscle relaxer only for nighttime cuz it can make you drowsy. At your age, it's a little more dangerous if you're walking around and you trip and fall and we don't need you breaking anything. So, nighttime only so that you can rest, relax, and go to bed. Okay. The Tessalon Perles, you can use them all day. Okay. Um specifically make sure you use them at night so you can rest. Okay. Um and then that should take care of those little things. I'm going to send over three more days of Augmentin. Okay. So, you'll start it again today. Carry it on for three days. That way you have a little extra time. Sometimes it takes a little extra to Could I also get another little video of that to give to my doctor in <state>? Yeah. Okay. Yeah. Are you Do you live in <state>? Right. I'm visiting my daughter in <city>. Okay. So, when do you leave back? On the <date>. Oh, you're going back soon. Okay.",
+  "gold": {
+    "historyOfPresentIllness": "The patient is a 72-year-old female presenting with a persistent cough and congestion, which has led to secondary lower back and hip pain due to muscle strain from frequent coughing. She reports the pain radiates from the lower back into the buttock and down the leg. She has recently completed a course of antibiotics for a respiratory infection and an ear infection, with imaging showing improvement but residual congestion.",
+    "reviewOfSystems": {
+      "observations": [
+        {
+          "field": "ros-cardiovascular-dyspnea-on-exertion-reports",
+          "label": "Dyspnea on exertion",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "I get so tired from standing"
+        },
+        {
+          "field": "ros-ent-post-nasal-drip-reports",
+          "label": "Post-nasal drip",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "post-nasal drainage... let's clear up the drainage"
+        },
+        {
+          "field": "ros-cardiovascular-palpitations-denies",
+          "label": "Palpitations",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-constitutional-night-sweats-denies",
+          "label": "Night sweats",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-respiratory-chest-tightness-denies",
+          "label": "Chest tightness",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-ent-ear-pain-denies",
+          "label": "Ear pain",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "I had an ear infection in this ear... looks good now"
+        },
+        {
+          "field": "ros-ent-nasal-congestion-reports",
+          "label": "Nasal congestion",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "still feel kind of congested"
+        },
+        {
+          "field": "ros-constitutional-fever-denies",
+          "label": "Fever",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-skin-rash-denies",
+          "label": "Rash",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-neuro-headache-denies",
+          "label": "Headache",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-neuro-dizziness-denies",
+          "label": "Dizziness/vertigo",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-skin-itching-denies",
+          "label": "Itching/pruritus",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-msk-back-pain-reports",
+          "label": "Back pain",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "pulled my back from coughing so much"
+        },
+        {
+          "field": "ros-constitutional-chills-denies",
+          "label": "Chills",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-respiratory-cough-reports",
+          "label": "Cough",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "Still having obviously a cough?"
+        },
+        {
+          "field": "ros-msk-gait-difficulty-denies",
+          "label": "Difficulty with gait",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-msk-muscle-aches-reports",
+          "label": "Muscle aches/myalgia",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "muscles get real strained... tight muscle"
+        },
+        {
+          "field": "ros-ent-sinus-pain-denies",
+          "label": "Sinus pain/pressure",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-msk-limited-rom-reports",
+          "label": "Limited range of motion",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "have to stand a little bit more in the day"
+        },
+        {
+          "field": "ros-gi-vomiting-denies",
+          "label": "Vomiting",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-gi-abdominal-pain-denies",
+          "label": "Abdominal pain",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-msk-joint-swelling-denies",
+          "label": "Joint swelling",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-respiratory-sputum-reports",
+          "label": "Sputum production",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "Are you coughing stuff up still? Yes."
+        },
+        {
+          "field": "ros-gi-diarrhea-denies",
+          "label": "Diarrhea",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-heme-swollen-nodes-denies",
+          "label": "Swollen lymph nodes",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-respiratory-wheezing-denies",
+          "label": "Wheezing",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-skin-redness-denies",
+          "label": "Redness/erythema",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-respiratory-shortness-of-breath-reports",
+          "label": "Shortness of breath",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "How's the breathing? ... congested"
+        },
+        {
+          "field": "ros-msk-joint-pain-denies",
+          "label": "Joint pain",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-gi-nausea-denies",
+          "label": "Nausea",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-eyes-eye-pain-denies",
+          "label": "Eye pain",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-ent-rhinorrhea-reports",
+          "label": "Rhinorrhea",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "runny nose, all that stuff"
+        },
+        {
+          "field": "ros-cardiovascular-chest-pain-denies",
+          "label": "Chest pain",
+          "present": true,
+          "voiced": false
+        }
+      ]
+    },
+    "exam": [
+      {
+        "field": "normal-appearance-of-neck",
+        "label": "Normal appearance of neck",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "nontender",
+        "label": "Nontender",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "normal-dentition",
+        "label": "Normal dentition",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "no-visible-deformity",
+        "label": "No visible deformity",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "no-chest-wall-tenderness",
+        "label": "No chest wall tenderness",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "extremities-warm-and-well-perfused",
+        "label": "Extremities warm and well-perfused",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "crackles",
+        "label": "Crackles",
+        "present": true,
+        "components": [
+          {
+            "code": "crackles-left-lower",
+            "label": "Left lower",
+            "value": true,
+            "abnormal": true
+          }
+        ],
+        "abnormal": true,
+        "voiced": true,
+        "voicedEvidence": "sounds a tiny bit wet... on the left side"
+      },
+      {
+        "field": "normal-alignment",
+        "label": "Normal alignment",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "midline-spinal-tenderness",
+        "label": "Midline spinal tenderness",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "regular-rate-and-rhythm-with-no-murmur",
+        "label": "Regular rate and rhythm with no murmur",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "moist-mucous-membranes",
+        "label": "Moist mucous membranes",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "extremities-are-warm-and-well-perfused",
+        "label": "Extremities are warm and well perfused",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "normocephalic",
+        "label": "Normocephalic",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "alert",
+        "label": "Alert",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "lids-and-lashes-normal",
+        "label": "Lids and lashes normal",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "atraumatic",
+        "label": "Atraumatic",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "no-rash",
+        "label": "No rash",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "paraspinal-muscle-tenderness",
+        "label": "Paraspinal muscle tenderness",
+        "present": true,
+        "voiced": true,
+        "voicedEvidence": "a little tight muscle... right in there"
+      },
+      {
+        "field": "active",
+        "label": "Active",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "no-edema",
+        "label": "No edema",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "warm-and-dry",
+        "label": "Warm and dry",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "left-tm-pearly-with-good-light-reflex-preserved-landmarks",
+        "label": "Left TM pearly with good light reflex, preserved landmarks",
+        "present": true,
+        "voiced": true,
+        "voicedEvidence": "Let's see it... looks good, looks real good"
+      },
+      {
+        "field": "normal-range-of-motion",
+        "label": "Normal range of motion",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "right-tm-pearly-with-good-light-reflex-preserved-landmarks",
+        "label": "Right TM pearly with good light reflex, preserved landmarks",
+        "present": true,
+        "voiced": true,
+        "voicedEvidence": "Let's see the other side... looks good"
+      },
+      {
+        "field": "oriented-x-3",
+        "label": "Oriented x 3",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "good-air-movement-throughout-lung-fields",
+        "label": "Good air movement throughout lung fields",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "no-generalized-lymphadenopathy",
+        "label": "No generalized lymphadenopathy",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "normal-tone",
+        "label": "Normal tone",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "well-hydrated",
+        "label": "Well-hydrated",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "left-eye-conjunctiva-non-injected-no-discharge",
+        "label": "Left eye - conjunctiva non-injected, no discharge",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "no-signs-of-respiratory-distress",
+        "label": "No signs of respiratory distress",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "normal-mental-status",
+        "label": "Normal mental status",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "no-effusion",
+        "label": "No effusion",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "oropharynx-clear-with-no-erythema-lesions-or-exudate",
+        "label": "Oropharynx clear with no erythema, lesions, or exudate",
+        "present": true,
+        "voiced": true,
+        "voicedEvidence": "Big mouth say Ah... good"
+      },
+      {
+        "field": "capillary-refill-less-than-2-seconds",
+        "label": "Capillary refill <2 seconds",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "right-eye-conjunctiva-non-injected-no-discharge",
+        "label": "Right eye - conjunctiva non-injected, no discharge",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "congestion-rhinorrhea",
+        "label": "Congestion, rhinorrhea",
+        "present": true,
+        "voiced": true,
+        "voicedEvidence": "Are you having post-nasal drainage, runny nose"
+      },
+      {
+        "field": "moves-all-extremities-symmetrically",
+        "label": "Moves all extremities symmetrically",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "normal-canals",
+        "label": "Normal canals",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "mild-distress",
+        "label": "Mild distress",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "anterior-rhinoscopy",
+        "label": "Anterior rhinoscopy",
+        "present": true,
+        "components": [
+          {
+            "code": "rhinoscopy-l-mucosa-erythematous",
+            "label": "Erythematous",
+            "value": true,
+            "abnormal": true
+          },
+          {
+            "code": "rhinoscopy-r-mucosa-erythematous",
+            "label": "Erythematous",
+            "value": true,
+            "abnormal": true
+          },
+          {
+            "code": "rhinoscopy-r-partial",
+            "label": "Partial",
+            "value": true,
+            "abnormal": true
+          },
+          {
+            "code": "rhinoscopy-l-partial",
+            "label": "Partial",
+            "value": true,
+            "abnormal": true
+          },
+          {
+            "code": "rhinoscopy-l-turbinate-hypertrophied",
+            "label": "Hypertrophied",
+            "value": true,
+            "abnormal": true
+          },
+          {
+            "code": "rhinoscopy-r-turbinate-hypertrophied",
+            "label": "Hypertrophied",
+            "value": true,
+            "abnormal": true
+          },
+          {
+            "code": "rhinoscopy-r-septum-midline",
+            "label": "Midline",
+            "value": true,
+            "abnormal": false
+          },
+          {
+            "code": "rhinoscopy-l-septum-midline",
+            "label": "Midline",
+            "value": true,
+            "abnormal": false
+          },
+          {
+            "code": "rhinoscopy-l-discharge-clear",
+            "label": "Clear",
+            "value": true,
+            "abnormal": true
+          },
+          {
+            "code": "rhinoscopy-r-discharge-clear",
+            "label": "Clear",
+            "value": true,
+            "abnormal": true
+          },
+          {
+            "code": "rhinoscopy-r-polyps-none",
+            "label": "None",
+            "value": true,
+            "abnormal": false
+          },
+          {
+            "code": "rhinoscopy-l-polyps-none",
+            "label": "None",
+            "value": true,
+            "abnormal": false
+          }
+        ],
+        "abnormal": true,
+        "voiced": false
+      },
+      {
+        "field": "nondistended",
+        "label": "Nondistended",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "soft",
+        "label": "Soft",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "limited-range-of-motion",
+        "label": "Limited range of motion",
+        "present": true,
+        "voiced": true,
+        "voicedEvidence": "have to stand a little bit more in the day"
+      },
+      {
+        "field": "normal-affect-calm-cooperative",
+        "label": "Normal affect; calm/cooperative",
+        "present": true,
+        "voiced": false
+      }
+    ],
+    "assessment": {
+      "diagnoses": [
+        {
+          "system": "ICD-10-CM",
+          "code": "J18.9",
+          "codeNormalized": "J189",
+          "display": "Pneumonia, unspecified organism",
+          "primary": true,
+          "fromLabOrder": false,
+          "voiced": true,
+          "voicedEvidence": "this is your image from last time... today, much better"
+        },
+        {
+          "system": "ICD-10-CM",
+          "code": "R09.82",
+          "codeNormalized": "R0982",
+          "display": "Postnasal drip",
+          "primary": false,
+          "fromLabOrder": false,
+          "voiced": true,
+          "voicedEvidence": "clear up the drainage, mucus coming down back of throat"
+        },
+        {
+          "system": "ICD-10-CM",
+          "code": "J06.9",
+          "codeNormalized": "J069",
+          "display": "Acute upper respiratory infection, unspecified",
+          "primary": false,
+          "fromLabOrder": false,
+          "voiced": false
+        },
+        {
+          "system": "ICD-10-CM",
+          "code": "R05.2",
+          "codeNormalized": "R052",
+          "display": "Subacute cough",
+          "primary": false,
+          "fromLabOrder": false,
+          "voiced": true,
+          "voicedEvidence": "still coughing, cough continuing"
+        },
+        {
+          "system": "ICD-10-CM",
+          "code": "M62.830",
+          "codeNormalized": "M62830",
+          "display": "Muscle spasm of back",
+          "primary": false,
+          "fromLabOrder": false,
+          "voiced": true,
+          "voicedEvidence": "muscles get real strained... back gets tight"
+        },
+        {
+          "system": "ICD-10-CM",
+          "code": "E78.2",
+          "codeNormalized": "E782",
+          "display": "Mixed hyperlipidemia",
+          "primary": false,
+          "fromLabOrder": false,
+          "voiced": true,
+          "voicedEvidence": "I take a statin"
+        }
+      ]
+    },
+    "billing": {
+      "emCode": {
+        "system": "CPT",
+        "code": "99214",
+        "codeNormalized": "99214",
+        "display": "99214 Established Patient - E/M Level 4"
+      },
+      "cptCodes": [
+        {
+          "system": "CPT",
+          "code": "71046",
+          "codeNormalized": "71046",
+          "display": "X-ray of chest, 2 views",
+          "modifiers": [
+            {
+              "code": "50",
+              "display": "Bilateral Procedure"
+            }
+          ],
+          "voiced": true,
+          "voicedEvidence": "this is your image from last time... this is today"
+        }
+      ]
+    },
+    "medications": {
+      "prescribed": [
+        {
+          "name": "Methocarbamol Oral Tablet 750 MG",
+          "sig": "Take 1 tablet as needed twice daily for muscle spasms, may take up to 3 times daily. ",
+          "status": "completed",
+          "voiced": true,
+          "voicedEvidence": "I'm going to give you a little muscle relaxer",
+          "nameVoiced": false
+        },
+        {
+          "name": "Ipratropium Bromide Nasal Solution 0.06 %",
+          "sig": "Administer 2 sprays to each nostril, 3 times daily as needed",
+          "status": "completed",
+          "voiced": false,
+          "nameVoiced": false
+        },
+        {
+          "name": "Fluticasone Propionate Nasal Suspension 50 MCG/ACT",
+          "sig": "Administer 2 sprays per nostril once daily. ",
+          "status": "completed",
+          "voiced": true,
+          "voicedEvidence": "I'm going to give you a nose spray to dry up your nose",
+          "nameVoiced": false
+        },
+        {
+          "name": "Amoxicillin-Pot Clavulanate Oral Tablet 875-125 MG",
+          "sig": "Take 1 tablet orally, 2 times daily for 3 days.",
+          "status": "completed",
+          "voiced": true,
+          "voicedEvidence": "send over three more days of Augmentin",
+          "nameVoiced": true
+        },
+        {
+          "name": "AeroChamber MV  Miscellaneous",
+          "sig": "For use with inhaler. ",
+          "status": "completed",
+          "voiced": false,
+          "nameVoiced": false
+        },
+        {
+          "name": "Benzonatate Oral Capsule 100 MG",
+          "sig": "Take 1 capsule orally, every 8 hours for 10 days.",
+          "status": "completed",
+          "voiced": true,
+          "voicedEvidence": "Tessalon Perles... medication for the cough",
+          "nameVoiced": true
+        }
+      ],
+      "inHouseAdministered": [],
+      "immunizations": [],
+      "currentReconciled": [
+        {
+          "name": "Multivitamins Oral Capsule",
+          "type": "scheduled",
+          "status": "active",
+          "context": true
+        },
+        {
+          "name": "Rosuvastatin Calcium Oral Tablet (10 MG)",
+          "type": "scheduled",
+          "status": "active",
+          "context": true
+        },
+        {
+          "name": "Statins Support Oral Miscellaneous (THERAPY PACK)",
+          "type": "scheduled",
+          "status": "active",
+          "context": true
+        }
+      ]
+    },
+    "allergies": [
+      {
+        "name": "Misc. Sulfonamide Containing Compounds",
+        "context": true
+      }
+    ],
+    "medicalHistory": [
+      {
+        "system": null,
+        "code": "I10",
+        "codeNormalized": "I10",
+        "display": "Essential (primary) hypertension",
+        "current": true,
+        "context": true
+      },
+      {
+        "system": null,
+        "code": "H66.93",
+        "codeNormalized": "H6693",
+        "display": "Otitis media, unspecified, bilateral",
+        "current": true,
+        "context": true
+      },
+      {
+        "system": null,
+        "code": "J20.9",
+        "codeNormalized": "J209",
+        "display": "Acute bronchitis, unspecified",
+        "current": true,
+        "context": true
+      }
+    ],
+    "surgicalHistory": [],
+    "hospitalizations": [],
+    "procedures": [],
+    "labs": {
+      "external": {
+        "resultsPending": [],
+        "labOrderResults": []
+      },
+      "inHouse": {
+        "resultsPending": [],
+        "reflexTestsPending": [],
+        "labOrderResults": []
+      }
+    },
+    "radiology": [
+      {
+        "studyType": "71046 — X-ray of chest, 2 views - Bilateral Procedure",
+        "studyName": "X-ray of chest, 2 views - Bilateral Procedure",
+        "cptCodeDisplay": "X-ray of chest, 2 views - Bilateral Procedure",
+        "diagnosis": "R05.9 — Cough, unspecified",
+        "clinicalHistory": "persistent cough, recent history of pneumonia, she just completed her antibiotic and does not feel better"
+      }
+    ],
+    "vitals": [
+      {
+        "field": "vital-heartbeat",
+        "context": true,
+        "value": 88,
+        "method": "Sitting"
+      },
+      {
+        "field": "vital-weight",
+        "context": true,
+        "value": 75.66
+      },
+      {
+        "field": "vital-bmi",
+        "context": true,
+        "value": 27.8
+      },
+      {
+        "field": "vital-height",
+        "context": true,
+        "value": 165.1
+      },
+      {
+        "field": "vital-blood-pressure",
+        "context": true,
+        "systolic": 162,
+        "diastolic": 95,
+        "method": "Sitting"
+      },
+      {
+        "field": "vital-oxygen-sat",
+        "context": true,
+        "value": 97,
+        "method": "On room air"
+      },
+      {
+        "field": "vital-respiration-rate",
+        "context": true,
+        "value": 18
+      },
+      {
+        "field": "vital-temperature",
+        "context": true,
+        "value": 36.389,
+        "method": "Oral"
+      },
+      {
+        "field": "vital-blood-pressure",
+        "context": true,
+        "systolic": 144,
+        "diastolic": 81,
+        "method": "Sitting"
+      }
+    ],
+    "medicalDecisionMaking": "Reviewed diagnosis, expected course, treatment plan, and reasons to seek urgent and/or emergent care.  Discharge instructions reviewed.  Patient/Caregiver expressed understanding.  All questions were answered, and is comfortable with discharge plan.  ER Precautions given.",
+    "disposition": {
+      "type": "pcp-no-type",
+      "note": "You were seen today for a follow-up visit regarding your recent pneumonia. You are still experiencing a cough, runny nose, and post-nasal drip. You are also having back spasms related to your persistent cough. The good news is that your chest X-ray shows improvement compared to your last visit. Because you are still recovering, we are extending your antibiotic and adding medications to help manage your remaining symptoms.\n\nYour Medications\nAugmentin (amoxicillin/clavulanate) — Continue for 3 more days to complete your pneumonia treatment. Take as previously prescribed with food to reduce stomach upset.\nIpratropium bromide nasal spray (0.06%) — Spray 2 sprays in each nostril 3–4 times daily. This will help dry up your runny nose. Avoid spraying into your eyes. You will need to prime the pump with 7 sprays before first use.\nFlonase (fluticasone) nasal spray — Spray 1–2 sprays in each nostril once daily. This helps reduce nasal inflammation, congestion, and post-nasal drip. Use daily for best results; it may take a few days to feel the full effect.\nTessalon Perles (benzonatate) 100 mg — Take 1 capsule by mouth 3 times daily as needed for cough. Swallow the capsule whole — do not chew, crush, or dissolve it, as this can cause numbness of the mouth and throat.\nMethocarbamol (Robaxin) 750 mg — Take 1 tablet by mouth 3 times daily as needed for back spasms. This medication may cause drowsiness or dizziness. Avoid driving or operating heavy machinery until you know how it affects you.\n\nWhat to Expect\nIt is normal for a cough to linger for several weeks after pneumonia, even as the infection clears. Your X-ray is improving, which is a reassuring sign.\nProlonged coughing can strain the muscles in your back, causing spasms and soreness. The muscle relaxant should help ease this discomfort. As your cough improves, the back spasms should also resolve.\nThe nasal sprays and cough medication should help you feel more comfortable while your body continues to heal.\nContinue to rest, stay well hydrated, and avoid smoking or secondhand smoke exposure.\n\nWhen to Seek Medical Attention\nContact our office or seek medical care if you experience any of the following:\nFever (temperature above 100.4°F / 38°C)\nWorsening shortness of breath or difficulty breathing\nChest pain\nCoughing up blood\nSymptoms that worsen rather than improve after completing the antibiotic\nSevere back pain, weakness, or numbness in your legs\nNausea, vomiting, or diarrhea that prevents you from taking your medications\n\nFollow-Up\nIf your cough and symptoms have not improved within 2–3 weeks, please call our office to schedule a follow-up appointment for further evaluation. \nPlease follow up with your Primary Care Physician and let them know about your recent illness.",
+      "followUp": [],
+      "followUpIn": 5,
+      "dispositionVoiced": true,
+      "dispositionVoicedEvidence": "you'll start it again today, carry it on for three days"
+    },
+    "instructions": []
+  }
+}

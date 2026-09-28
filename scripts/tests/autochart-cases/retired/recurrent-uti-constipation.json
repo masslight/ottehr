@@ -1,0 +1,569 @@
+{
+  "id": "recurrent-uti-constipation",
+  "label": "Recurrent urinary tract infections with constipation after a colon resection (new, 85M)",
+  "sourceCase": "case159",
+  "patient": {
+    "ageYears": 85,
+    "sex": "male"
+  },
+  "patientStatus": "new",
+  "notes": [
+    "Ruled out on the recording: no flank pain, no fever, prostate \"not anymore\", the cancer is past, nitrofurantoin was the urologist's earlier course."
+  ],
+  "said": [
+    {
+      "kind": "surgicalHistory",
+      "display": "colon|resection|colectomy|bowel",
+      "note": "The colon resection and the cancer behind it are told in full; the chart's surgical history is empty."
+    },
+    {
+      "kind": "condition",
+      "name": "cancer|malignan|neoplasm|polyp",
+      "codePrefix": "Z85"
+    },
+    {
+      "kind": "instruction",
+      "text": "every other day|miralax"
+    }
+  ],
+  "goldErrors": [],
+  "allowed": [
+    {
+      "kind": "diagnosis",
+      "codePrefix": ["R31", "Z87", "Z85", "N3", "R32", "K59"]
+    }
+  ],
+  "narrativeFacts": [
+    "uti|urinary|bladder",
+    "urolog",
+    "nitro",
+    "bladder exam|scope|cystoscop",
+    "frequen",
+    "painful|burning|dysuria",
+    "urgen",
+    "bowel|constipat",
+    "colonoscopy|polyp|resection|colon",
+    "cancer",
+    "miralax|polyethylene",
+    "every other day",
+    "prostate",
+    "primary",
+    "abdominal|belly",
+    "kidney",
+    "fever",
+    "diaper|control|leak",
+    "urine"
+  ],
+  "edits": [
+    {
+      "label": "Miralax changed to senna",
+      "find": "miralax|polyethylene glycol",
+      "replace": "senna",
+      "expected": [
+        {
+          "kind": "medication",
+          "name": "senna|senokot"
+        }
+      ],
+      "forbidden": [
+        {
+          "kind": "medication",
+          "name": "miralax|polyethylene"
+        }
+      ]
+    }
+  ],
+  "transcript": "Provider: All right. <patient name>, right?\nPatient: It is.\nProvider: All right. How are you today?\nPatient: Well, I'm doing fine. I'm doing real well except for a problem.\nProvider: One problem. What's that?\nPatient: Just one problem. UTI problem.\nProvider: UTI, UTI. When did that start?\nPatient: A long time ago.\nProvider: Well, what kind of Let me give you the whole history. I had an infection.\nProvider: Okay.\nPatient: I went to a urologist. Well, I went to a primary and then to a urologist. They gave me a medicine. And then they changed it. They said, \"Oh, that's the wrong medicine.\" They gave me the nitro, whatever it is.\nProvider: Nitrofurantoin. Okay.\nPatient: Then they decided they wanted to do a bladder exam. They did a bladder exam and I picked up another one. And I got through with that. They gave me the same thing, nitro, whatever it is. And I I think at that time I went back to them and had them do a test to make sure it was finished. They said, \"Yeah, it's negative.\" But then I came back again.\nProvider: How many days after that was?\nPatient: Oh, a couple maybe two or three weeks.\nProvider: Okay. So you've had multiple UTIs.\nPatient: Yeah. And you've been And then it's coming back again.\nProvider: When was the last UTI?\nPatient: Just now. No, no, no. Prior to this one.\nProvider: Uh, well, let's see here. I've had this for a week, three weeks ago, probably.\nProvider: Okay. Maybe four.\nPatient: And you got treated, it went away, and then it just kind of came back again.\nPatient: I don't I it went away and I but I was convinced it wasn't finished.\nProvider: Okay. And what are your symptoms?\nPatient: My symptoms are frequent urination, painful urination, and and urgent urination.\nProvider: Okay. Are you constipated at all?\nPatient: When was your last bowel movement?\nPatient: Oh, it was just probably last night.\nProvider: You go every day?\nPatient: No.\nProvider: No, okay.\nPatient: And I have a problem with that. Not necessarily constipation, but just going.\nProvider: Okay.\nPatient: I I was given a uh, colonoscopy. They removed several polyps. One was cancerous and they did a resection on me. And ever since then, I have difficulty with bowel movements.\nProvider: Do you take anything for that?\nPatient: No.\nProvider: Okay, we're going to start something today. Because part of the problem is when at your age group, when you get constipated, you can't empty your bladder. Because the pressure of the poop pushes on the bladder and it keeps you from emptying out completely.\nPatient: One of the reasons I haven't done that is because I lose control.\nProvider: What have they given you in the past?\nPatient: Have you had Miralax?\nPatient: Yeah, I think so.\nProvider: Okay. We're going to do Miralax every other day. Not every day, every other day.\nPatient: Okay.\nProvider: If you had a BM yesterday, we'll start it tomorrow. That way, because it's I have to work at it. But it's not hard. Yeah. But whenever there's stuff left behind, if you Do you have prostate issues?\nPatient: Not anymore.\nProvider: Okay.\nPatient: Well, problem solved.\nProvider: For your age group, if you have constipation, prostate issues, any of those things that keeps the bladder full, you're not able to eliminate it completely. That causes problems. That urine sits inside the bladder. Usually, that's what causes you to have an infection. If you're having recurrent infections, that's probably because something's not going all the way out.\nPatient: All right.\nProvider: So, let's try and tackle the problem. You'll still have to follow up with your primary, but I'm going to give you I don't have a primary. I just got here. Give me a primary.\nProvider: I don't have any. Um, what kind of insurance do you have?\nPatient: What kind of what?\nProvider: Insurance do you have?\nPatient: <insurer>. <insurer>.\nProvider: Okay. So, on the back of your card You don't have. On the back of your card, you should be able to look it up and see who's in network in the area. But for now I don't think I have a network on that.\nProvider: I'm not sure how that works.\nPatient: That that is not network.\nProvider: Then follow up with anybody. Um, you can follow up with like the <clinic>. Those are primaries or the <clinic> clinics. I'm not sure if it falls in the <clinic> section. All right. Um, but I would start with like the <clinic> and go from there, see if there's like a I think they're fairly fairly close, aren't they?\nProvider: Um, maybe the one over here. I think there's another one. What about the self-network one in the vicinity?\nProvider: I'm going to go look. Where do you live?\nPatient: Well, right now, I'm with I'm I live with my son.\nProvider: Okay. That's okay. All right. I'm What side of town?\nPatient: Uh, Do you want to stay in the <city> downtown area?\nPatient: I'm on <street> on the other side.\nProvider: Okay. Perfect. I'll look and see what I can find.\nPatient: Okay.\nProvider: Um, but we'll start out there. I'm going to see what your result is on your um, urine. It's probably if you're Are you having the burning sensation?\nPatient: Oh, yeah.\nProvider: And the frequency?\nPatient: Yeah.\nProvider: Okay. So, we'll probably treat you anyway, but I'm also going to treat for constipation because that's usually in your age group, it's either your prostate I'm wearing a diaper, by the way.\nProvider: Okay. Either way, it's either constipation or the prostate in your age group that causes you to have frequent UTIs. All right. We can't have frequent UTIs because then it goes up into the kidneys. Comes in under for me. A lot of times things are not just one problem, it's two problems. One causes the other one. Any abdominal pain?\nPatient: No.\nProvider: No.\nProvider: Lean forward. You mean pain right here?\nPatient: No.\nProvider: No.\nProvider: Good. Okay. Not the kidneys. Let me listen to you real quick.\nProvider: Good.\nProvider: Good. Let me listen to your heart.\nProvider: All right. No fevers?\nProvider: Okay. So, let's treat the constipation. Make sure we're not constipated. I want you to be going every day. All right. Um, just because that kind of rolls out that. And then we'll look and see what kind of primary I can get.",
+  "gold": {
+    "historyOfPresentIllness": "The patient is an 85-year-old male presenting with recurrent urinary tract infections characterized by frequent, painful, and urgent urination. He reports that symptoms have persisted intermittently for several weeks despite previous treatment with nitrofurantoin. He denies abdominal or flank pain but notes difficulty with bowel movements following a prior colon resection.",
+    "additionalInformation": "85 y/o M presents painful/frequent urination",
+    "reviewOfSystems": {
+      "observations": [
+        {
+          "field": "ros-constitutional-fever-denies",
+          "label": "Fever",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "No fevers?"
+        },
+        {
+          "field": "ros-gi-diarrhea-denies",
+          "label": "Diarrhea",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-constitutional-chills-denies",
+          "label": "Chills",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-cardiovascular-palpitations-denies",
+          "label": "Palpitations",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-gu-hematuria-reports",
+          "label": "Hematuria",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-neuro-dizziness-denies",
+          "label": "Dizziness/vertigo",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-gu-urgency-reports",
+          "label": "Urinary urgency",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "urgent urination"
+        },
+        {
+          "field": "ros-gu-dysuria-reports",
+          "label": "Dysuria",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "painful urination"
+        },
+        {
+          "field": "ros-constitutional-weight-change-denies",
+          "label": "Weight loss/gain",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-gu-penile-pain-denies",
+          "label": "Penile pain",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-cardiovascular-chest-pain-denies",
+          "label": "Chest pain",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-gu-scrotal-swelling-denies",
+          "label": "Scrotal swelling",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-gu-frequency-reports",
+          "label": "Urinary frequency",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "frequent urination"
+        },
+        {
+          "field": "ros-gu-testicular-pain-denies",
+          "label": "Testicular pain",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-msk-muscle-aches-denies",
+          "label": "Muscle aches/myalgia",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-gi-abdominal-pain-denies",
+          "label": "Abdominal pain",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "Any abdominal pain? No."
+        },
+        {
+          "field": "ros-gi-constipation-reports",
+          "label": "Constipation",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "difficulty with bowel movements"
+        },
+        {
+          "field": "ros-gu-incontinence-reports",
+          "label": "Incontinence",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "I lose control"
+        },
+        {
+          "field": "ros-constitutional-fatigue-denies",
+          "label": "Fatigue",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-neuro-headache-denies",
+          "label": "Headache",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-gi-nausea-denies",
+          "label": "Nausea",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-gu-penile-discharge-denies",
+          "label": "Penile discharge",
+          "present": true,
+          "voiced": false
+        },
+        {
+          "field": "ros-gu-flank-pain-denies",
+          "label": "Flank pain",
+          "present": true,
+          "voiced": true,
+          "voicedEvidence": "Lean forward. You mean pain right here? No."
+        },
+        {
+          "field": "ros-gi-vomiting-denies",
+          "label": "Vomiting",
+          "present": true,
+          "voiced": false
+        }
+      ]
+    },
+    "exam": [
+      {
+        "field": "extremities-warm-and-well-perfused",
+        "label": "Extremities warm and well-perfused",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "alert",
+        "label": "Alert",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "no-chest-wall-tenderness",
+        "label": "No chest wall tenderness",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "capillary-refill-less-than-2-seconds",
+        "label": "Capillary refill <2 seconds",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "nontender",
+        "label": "Nontender",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "no-cva-tenderness",
+        "label": "No CVA tenderness",
+        "present": true,
+        "voiced": true,
+        "voicedEvidence": "Lean forward...Good. Not the kidneys"
+      },
+      {
+        "field": "extremities-are-warm-and-well-perfused",
+        "label": "Extremities are warm and well perfused",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "normal-mental-status",
+        "label": "Normal mental status",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "atraumatic",
+        "label": "Atraumatic",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "normocephalic",
+        "label": "Normocephalic",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "nondistended",
+        "label": "Nondistended",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "normal-tone",
+        "label": "Normal tone",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "normal-bowel-sounds",
+        "label": "Normal Bowel Sounds",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "no-signs-of-respiratory-distress",
+        "label": "No signs of respiratory distress",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "chest-is-clear-to-auscultation-bilaterally",
+        "label": "Chest is clear to auscultation bilaterally",
+        "present": true,
+        "voiced": true,
+        "voicedEvidence": "Let me listen to you real quick. Good."
+      },
+      {
+        "field": "well-hydrated",
+        "label": "Well-hydrated",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "in-no-acute-distress",
+        "label": "In no acute distress",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "oriented-x-3",
+        "label": "Oriented x 3",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "soft",
+        "label": "Soft",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "good-air-movement-throughout-lung-fields",
+        "label": "Good air movement throughout lung fields",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "no-edema",
+        "label": "No edema",
+        "present": true,
+        "voiced": false
+      },
+      {
+        "field": "regular-rate-and-rhythm-with-no-murmur",
+        "label": "Regular rate and rhythm with no murmur",
+        "present": true,
+        "voiced": true,
+        "voicedEvidence": "Let me listen to your heart. All right."
+      },
+      {
+        "field": "active",
+        "label": "Active",
+        "present": true,
+        "voiced": false
+      }
+    ],
+    "assessment": {
+      "diagnoses": [
+        {
+          "system": "ICD-10-CM",
+          "code": "N39.0",
+          "codeNormalized": "N390",
+          "display": "Urinary tract infection, site not specified",
+          "primary": true,
+          "fromLabOrder": false,
+          "voiced": true,
+          "voicedEvidence": "UTI problem"
+        },
+        {
+          "system": "ICD-10-CM",
+          "code": "R31.9",
+          "codeNormalized": "R319",
+          "display": "Hematuria, unspecified",
+          "primary": false,
+          "fromLabOrder": false,
+          "voiced": false
+        },
+        {
+          "system": "ICD-10-CM",
+          "code": "K59.00",
+          "codeNormalized": "K5900",
+          "display": "Constipation, unspecified",
+          "primary": false,
+          "fromLabOrder": false,
+          "voiced": true,
+          "voicedEvidence": "let's treat the constipation"
+        }
+      ]
+    },
+    "billing": {
+      "emCode": {
+        "system": "CPT",
+        "code": "99204",
+        "codeNormalized": "99204",
+        "display": "99204 New Patient - E/M Level 4"
+      },
+      "cptCodes": [
+        {
+          "system": "CPT",
+          "code": "81003",
+          "codeNormalized": "81003",
+          "display": "Urinalysis (no scope)",
+          "voiced": true,
+          "voicedEvidence": "I'm going to see what your result is on your urine"
+        }
+      ]
+    },
+    "medications": {
+      "prescribed": [
+        {
+          "name": "Polyethylene Glycol 3350 Oral Powder 17 GM/SCOOP",
+          "sig": "Take 17 grams orally, every other day for 30 days.",
+          "status": "completed",
+          "voiced": true,
+          "voicedEvidence": "We're going to do Miralax every other day",
+          "nameVoiced": true
+        },
+        {
+          "name": "Ciprofloxacin HCl Oral Tablet 500 MG",
+          "sig": "Take 1 tablet orally, 2 times daily for 14 days.",
+          "status": "completed",
+          "voiced": true,
+          "voicedEvidence": "we'll probably treat you anyway",
+          "nameVoiced": false
+        }
+      ],
+      "inHouseAdministered": [],
+      "immunizations": [],
+      "currentReconciled": [
+        {
+          "name": "Levothyroxine Sodium Oral Tablet (125 MCG)",
+          "type": "scheduled",
+          "status": "active",
+          "context": true
+        },
+        {
+          "name": "Atorvastatin Calcium Oral Tablet (20 MG)",
+          "type": "scheduled",
+          "status": "active",
+          "context": true
+        },
+        {
+          "name": "Promethazine HCl Oral Tablet (25 MG)",
+          "type": "scheduled",
+          "status": "active",
+          "context": true
+        }
+      ]
+    },
+    "allergies": [],
+    "medicalHistory": [
+      {
+        "system": null,
+        "code": "I10",
+        "codeNormalized": "I10",
+        "display": "Essential (primary) hypertension",
+        "current": true,
+        "context": true
+      },
+      {
+        "system": null,
+        "code": "E03.9",
+        "codeNormalized": "E039",
+        "display": "Hypothyroidism, unspecified",
+        "current": true,
+        "context": true
+      }
+    ],
+    "surgicalHistory": [],
+    "hospitalizations": [],
+    "procedures": [],
+    "labs": {
+      "external": {
+        "resultsPending": [],
+        "labOrderResults": []
+      },
+      "inHouse": {
+        "resultsPending": [],
+        "reflexTestsPending": [],
+        "labOrderResults": [
+          {
+            "name": "Urinalysis (no scope)",
+            "nonNormalResultContained": ["abnormal"],
+            "resultValues": [
+              "Protein: 2+",
+              "Ketone: Negative",
+              "pH: 6",
+              "Blood: Moderate",
+              "Glucose: Not detected",
+              "Bilirubin: Negative",
+              "Nitrite: Detected",
+              "Leukocytes: Moderate",
+              "Specific gravity: 1.025",
+              "Urobilinogen: 1"
+            ]
+          }
+        ]
+      }
+    },
+    "radiology": [],
+    "vitals": [
+      {
+        "field": "vital-height",
+        "context": true,
+        "value": 172.72
+      },
+      {
+        "field": "vital-weight",
+        "context": true,
+        "value": 75.84
+      },
+      {
+        "field": "vital-blood-pressure",
+        "context": true,
+        "systolic": 128,
+        "diastolic": 78,
+        "method": "Sitting"
+      },
+      {
+        "field": "vital-respiration-rate",
+        "context": true,
+        "value": 16
+      },
+      {
+        "field": "vital-heartbeat",
+        "context": true,
+        "value": 64,
+        "method": "Sitting"
+      },
+      {
+        "field": "vital-temperature",
+        "context": true,
+        "value": 36.556,
+        "method": "Oral"
+      }
+    ],
+    "medicalDecisionMaking": "Reviewed diagnosis, expected course, treatment plan, and reasons to seek urgent and/or emergent care.  Discharge instructions reviewed.  Caregiver expressed understanding.  All questions were answered, and caregiver is comfortable with discharge plan.",
+    "disposition": {
+      "type": "pcp-no-type",
+      "note": "Please take your antibiotic 4 hour apart from your levothyroxine as they are not compatible. \nYour medications will be ready at the pharmacy. \nPlease obtain a primary care provider for continued follow-up and maintenance of your medical care. \n\nPrimary care: \n<clinic>\n<address>\n<phone>\n\n<clinician name>\n<address>\n<phone>\n\nUrology: \n<clinic>\n<address>\n<phone>\n\n<clinician name>\n<address>\n<phone>\n\nEye Doctor:\n<clinic> - <clinician name>\n<address>\n<phone>\n",
+      "followUp": [],
+      "dispositionVoiced": true,
+      "dispositionVoicedEvidence": "follow up with anybody...<clinic>...get a primary"
+    },
+    "instructions": []
+  }
+}
