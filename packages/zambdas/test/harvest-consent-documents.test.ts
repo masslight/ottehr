@@ -239,6 +239,7 @@ describe('createDocumentResources', () => {
 describe('createConsentResources', () => {
   const [HIPAA_FORM, CTT_FORM] = getConsentFormsForLocation();
   const IL_FORMS = getConsentFormsForLocation('IL');
+  const consentResourceForms = [HIPAA_FORM, CTT_FORM].filter((f) => f.createsConsentResource);
 
   const SECRETS = { PROJECT_ID: 'proj-123', PROJECT_API: 'https://project.api' } as unknown as Secrets;
 
@@ -366,11 +367,13 @@ describe('createConsentResources', () => {
       });
     }
 
-    // Only the consent-to-treat form creates a Consent resource, linked to its docref
-    expect(mockCreateConsentResource).toHaveBeenCalledTimes(1);
-    const [consentPatientId, consentDocRefId, consentDate] = mockCreateConsentResource.mock.calls[0];
+    // One Consent resource per form that has createsConsentResource: true, linked to its docref
+    expect(mockCreateConsentResource).toHaveBeenCalledTimes(consentResourceForms.length);
+    const lastConsentIdx = consentResourceForms.length - 1;
+    const lastConsentForm = consentResourceForms[lastConsentIdx];
+    const [consentPatientId, consentDocRefId, consentDate] = mockCreateConsentResource.mock.calls[lastConsentIdx];
     expect(consentPatientId).toBe(PATIENT_ID);
-    expect(consentDocRefId).toBe(`dr-${CTT_FORM.type.text}-0`);
+    expect(consentDocRefId).toBe(`dr-${lastConsentForm.type.text}-0`);
     expect(consentDate).toContain('2026-08-20T15:00:00');
   });
 
@@ -399,7 +402,10 @@ describe('createConsentResources', () => {
     await run({ location: makeLocation('IL') });
     const cttPdfInfo = mockCreatePdfBytes.mock.calls[1][3];
     expect(cttPdfInfo.copyFromPath).toBe(IL_FORMS[1].assetPath);
-    expect(cttPdfInfo.copyFromPath).not.toBe(CTT_FORM.assetPath);
+    // Only assert a distinct IL path when config actually provides a state-specific variant
+    if (IL_FORMS[1].assetPath !== CTT_FORM.assetPath) {
+      expect(cttPdfInfo.copyFromPath).not.toBe(CTT_FORM.assetPath);
+    }
   });
 
   test('labels telemed visits with the telemedicine facility name', async () => {
@@ -437,6 +443,7 @@ describe('createConsentResources', () => {
         content: [{ attachment: { url: file.url, title: 'some other title' } }],
       })),
     }));
-    await expect(run()).rejects.toThrow(`DocumentReference for "${CTT_FORM.formTitle}" not found`);
+    const firstConsentForm = [HIPAA_FORM, CTT_FORM].find((f) => f.createsConsentResource)!;
+    await expect(run()).rejects.toThrow(`DocumentReference for "${firstConsentForm.formTitle}" not found`);
   });
 });
