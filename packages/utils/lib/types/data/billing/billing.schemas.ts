@@ -8,6 +8,7 @@ import {
   CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES,
 } from '../../../helpers/rcm/constants';
 import { fullZipRegex, stripeAccountIdRegex, taxIdRegex, zipRegex } from '../../../validation/regex';
+import { PractitionerQualificationCodesLabels } from '../../api/practitioner.types';
 import { STATE_CODES } from '../../common';
 import {
   BILLING_MANUAL_PAYMENT_METHODS,
@@ -255,6 +256,9 @@ export const GetServiceFacilityInputSchema = z.object({
 export const SearchServiceFacilitiesInputSchema = z.object({
   facilityId: nonEmptyString.optional(),
   name: nonEmptyString.optional(),
+  // Exact-match identifier filters, used to find facilities sharing an NPI / CLIA number.
+  npi: nonEmptyString.optional(),
+  clia: nonEmptyString.optional(),
   offset: nonNegativeInt.optional(),
   pageSize: nonNegativeInt.optional(),
 });
@@ -348,6 +352,12 @@ const billingProviderAddressSchema = billingAddressSchema.extend({
     .optional(),
 });
 
+const billingProviderLicenseSchema = z.object({
+  type: nonEmptyString.refine((code) => code in PractitionerQualificationCodesLabels, 'Unknown license type'),
+  number: nonEmptyString,
+  state: nonEmptyString.refine((code) => STATE_CODES.has(code), 'Unknown state code'),
+});
+
 export const CreateBillingProviderInputSchema = z.discriminatedUnion('kind', [
   z.object({
     kind: z.literal('individual'),
@@ -356,7 +366,7 @@ export const CreateBillingProviderInputSchema = z.discriminatedUnion('kind', [
     roles: z.array(billingProviderRole).min(1),
     npi: billingNpiSchema.optional(),
     taxonomyCode: billingTaxonomyCodeSchema.optional(),
-    licenseType: nonEmptyString.optional(),
+    license: billingProviderLicenseSchema.optional(),
     taxId: billingTaxIdSchema.optional(),
     address: billingProviderAddressSchema.optional(),
   }),
@@ -391,7 +401,7 @@ export const UpdateBillingProviderInputSchema = z.discriminatedUnion('kind', [
     roles: z.array(billingProviderRole).min(1),
     npi: billingNpiSchema.optional(),
     taxonomyCode: billingTaxonomyCodeSchema.optional(),
-    licenseType: nonEmptyString.optional(),
+    license: billingProviderLicenseSchema.optional(),
     taxId: billingTaxIdSchema.optional(),
     address: billingProviderAddressSchema.optional(),
   }),

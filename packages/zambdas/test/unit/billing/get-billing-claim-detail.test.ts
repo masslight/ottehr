@@ -1,5 +1,5 @@
 import Oystehr from '@oystehr/sdk';
-import { Claim, Organization, Patient, PaymentNotice } from 'fhir/r4b';
+import { Claim, Organization, Patient, PaymentNotice, PaymentReconciliation } from 'fhir/r4b';
 import { PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import {
@@ -11,9 +11,14 @@ import {
   NIO_ORGANIZATION_KIND_SYSTEM,
 } from 'utils/lib/types/data/billing/non-insurance-org.types';
 import { beforeEach, describe, expect, it, Mock, vi } from 'vitest';
-import { fetchClaimEraLinks, fetchClaimResponsesByClaimIds } from '../../../src/billing/claim-amounts';
+import {
+  fetchClaimEraLinks,
+  fetchClaimFirstSubmittedDate,
+  fetchClaimResponsesByClaimIds,
+} from '../../../src/billing/claim-amounts';
 import { performEffect } from '../../../src/billing/get-billing-claim-detail';
-import { fetchClaimGraph, resolvePayersByRef } from '../../../src/billing/shared';
+import { ERA_CHECK_SYSTEM, fetchClaimGraph, resolvePayersByRef } from '../../../src/billing/shared';
+import { adjudication, casAdjustment, claimResponse, eraItem } from './era-fixtures';
 
 vi.mock('../../../src/billing/shared', async (importOriginal) => ({
   ...(await importOriginal<object>()),
@@ -25,6 +30,7 @@ vi.mock('../../../src/billing/claim-amounts', async (importOriginal) => ({
   ...(await importOriginal<object>()),
   fetchClaimResponsesByClaimIds: vi.fn(),
   fetchClaimEraLinks: vi.fn(),
+  fetchClaimFirstSubmittedDate: vi.fn(),
 }));
 
 const CLAIM_ENC_SYSTEM = ottehrIdentifierSystem('claim-encounter-id');
@@ -152,8 +158,9 @@ describe('get-billing-claim-detail performEffect: patient payments', () => {
     (fetchClaimResponsesByClaimIds as Mock<typeof fetchClaimResponsesByClaimIds>).mockResolvedValue(new Map());
     (fetchClaimEraLinks as Mock<typeof fetchClaimEraLinks>).mockResolvedValue({
       paymentReconciliations: [],
-      claimResponseByPrId: new Map(),
+      paymentReconciliationIdByClaimResponseId: new Map(),
     });
+    (fetchClaimFirstSubmittedDate as Mock<typeof fetchClaimFirstSubmittedDate>).mockResolvedValue('');
   });
 
   it('sums patient payments into patientPaid, nets the balance, and lists them newest-first', async () => {
@@ -244,6 +251,186 @@ describe('get-billing-claim-detail performEffect: patient payments', () => {
   });
 });
 
+describe('get-billing-claim-detail performEffect: remits and insurance payments', () => {
+  const PAYER_REF = 'https://rcm-api.zapehr.com/v1/payer/acme';
+
+  const claimWithItems = {
+    ...claim,
+    item: [
+      {
+        sequence: 1,
+        productOrService: {
+          coding: [{ code: '99213' }],
+        },
+        servicedDate: '2026-07-01',
+        net: { value: 150, currency: 'USD' },
+      },
+      {
+        sequence: 2,
+        productOrService: {
+          coding: [{ code: '81002' }],
+        },
+        servicedDate: '2026-07-01',
+        net: { value: 50, currency: 'USD' },
+      },
+    ],
+  } as unknown as Claim;
+
+  // the ERA the first remit arrived on; process-era PaymentReconciliations carry no paymentIssuer
+  const era: PaymentReconciliation = {
+    resourceType: 'PaymentReconciliation',
+    id: 'payment-reconciliation-1',
+    status: 'active',
+    created: '2026-07-14T10:00:00Z',
+    paymentDate: '2026-07-16',
+    identifier: [{ system: ERA_CHECK_SYSTEM, value: 'CHK-1' }],
+    paymentAmount: { value: 500, currency: 'USD' },
+  };
+
+  const linkedRemit = claimResponse({
+    id: 'cr-linked',
+    created: '2026-07-15',
+    request: { reference: 'Claim/claim-1' },
+    insurer: { reference: PAYER_REF },
+    item: [
+      eraItem({
+        sequence: 1,
+        procedureCode: '99213',
+        adjudication: [
+          adjudication('charge', 150),
+          adjudication('allowed', 100),
+          adjudication('paid', 80),
+          casAdjustment('CO', 50, '45'),
+          casAdjustment('PR', 20, '3'),
+        ],
+      }),
+    ],
+    // the process-era converter's bucket for claim-level CAS adjustments
+    addItem: [
+      {
+        productOrService: { coding: [{ code: 'unknown' }] },
+        adjudication: [casAdjustment('OA', 5, '23')],
+      },
+    ],
+  });
+
+  const unlinkedRemit = claimResponse({
+    id: 'cr-unlinked',
+    created: '2026-07-20',
+    request: { reference: 'Claim/claim-1' },
+    item: [
+      eraItem({
+        sequence: 2,
+        procedureCode: '81002',
+        adjudication: [adjudication('paid', 40)],
+      }),
+    ],
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (fetchClaimGraph as Mock<typeof fetchClaimGraph>).mockResolvedValue({
+      claim: claimWithItems,
+      patient,
+      billingProvider: undefined,
+      serviceFacility: undefined,
+      renderingProvider: undefined,
+      coverages: [],
+      subscribers: [],
+      documentReferences: [],
+    });
+    (resolvePayersByRef as Mock<typeof resolvePayersByRef>).mockResolvedValue(
+      new Map([[PAYER_REF, { resourceType: 'Organization', id: 'org-acme', name: 'Acme Health' } as Organization]])
+    );
+    (fetchClaimResponsesByClaimIds as Mock<typeof fetchClaimResponsesByClaimIds>).mockResolvedValue(
+      new Map([['claim-1', [unlinkedRemit, linkedRemit]]])
+    );
+    (fetchClaimEraLinks as Mock<typeof fetchClaimEraLinks>).mockResolvedValue({
+      paymentReconciliations: [era],
+      paymentReconciliationIdByClaimResponseId: new Map([['cr-linked', 'payment-reconciliation-1']]),
+    });
+    (fetchClaimFirstSubmittedDate as Mock<typeof fetchClaimFirstSubmittedDate>).mockResolvedValue(
+      '2026-07-02T12:00:00Z'
+    );
+  });
+
+  const run = (): ReturnType<typeof performEffect> =>
+    performEffect(
+      makeBillingClient([]),
+      {} as unknown as Oystehr,
+      {
+        claimId: 'claim-1',
+        secrets: {},
+      } as never
+    );
+
+  it('carries the ERA and check behind each remit, newest remit first', async () => {
+    const response = await run();
+
+    expect(response.remits.map((remit) => remit.claimResponseId)).toEqual(['cr-unlinked', 'cr-linked']);
+    expect(response.remits[1]).toMatchObject({
+      paymentReconciliationId: 'payment-reconciliation-1',
+      checkNumber: 'CHK-1',
+      checkDate: '2026-07-16',
+      payerName: 'Acme Health',
+    });
+    // no era-processing Provenance links this one to an ERA
+    expect(response.remits[0]).toMatchObject({
+      paymentReconciliationId: '',
+      checkNumber: '',
+      checkDate: '',
+    });
+  });
+
+  it("joins each remit's adjudicated lines to the claim's service lines", async () => {
+    const response = await run();
+
+    const [line, claimLevel] = response.remits[1].serviceLines;
+    expect(line).toMatchObject({
+      claimItemSequence: 1,
+      isClaimLevel: false,
+      cptCode: '99213',
+      billed: 150,
+      allowed: 100,
+      paid: 80,
+      copay: 20,
+      adjustments: [
+        { groupCode: 'CO', reasonCode: '45', amount: 50 },
+        { groupCode: 'PR', reasonCode: '3', amount: 20 },
+      ],
+    });
+    expect(claimLevel).toMatchObject({
+      claimItemSequence: null,
+      isClaimLevel: true,
+      adjustments: [{ groupCode: 'OA', reasonCode: '23', amount: 5 }],
+    });
+    expect(response.remits[0].serviceLines).toEqual([expect.objectContaining({ claimItemSequence: 2, paid: 40 })]);
+  });
+
+  it('dates each insurance payment by remit and check, naming the payer from its remit', async () => {
+    const response = await run();
+
+    expect(response.insurancePayments).toEqual([
+      {
+        paymentReconciliationId: 'payment-reconciliation-1',
+        checkNumber: 'CHK-1',
+        remitDate: '2026-07-14T10:00:00Z',
+        checkDate: '2026-07-16',
+        paymentAmount: 500,
+        payerName: 'Acme Health',
+        status: 'active',
+      },
+    ]);
+  });
+
+  it('reports when the claim was first submitted', async () => {
+    const response = await run();
+
+    expect(response.firstSubmittedDate).toBe('2026-07-02T12:00:00Z');
+    expect(fetchClaimFirstSubmittedDate).toHaveBeenCalledWith(expect.anything(), 'claim-1');
+  });
+});
+
 describe('get-billing-claim-detail performEffect: non-insurance payer', () => {
   const NIO_ID = '5b0261af-71c6-4f7e-9a51-e0d16a468980';
   const claimWithNioPayer = {
@@ -276,7 +463,7 @@ describe('get-billing-claim-detail performEffect: non-insurance payer', () => {
     (fetchClaimResponsesByClaimIds as Mock).mockResolvedValue(new Map());
     (fetchClaimEraLinks as Mock).mockResolvedValue({
       paymentReconciliations: [],
-      claimResponseByPrId: new Map(),
+      paymentReconciliationIdByClaimResponseId: new Map(),
     });
   });
 
@@ -369,7 +556,7 @@ describe('get-billing-claim-detail performEffect: custom insurance organization 
     (fetchClaimResponsesByClaimIds as Mock).mockResolvedValue(new Map());
     (fetchClaimEraLinks as Mock).mockResolvedValue({
       paymentReconciliations: [],
-      claimResponseByPrId: new Map(),
+      paymentReconciliationIdByClaimResponseId: new Map(),
     });
   });
 

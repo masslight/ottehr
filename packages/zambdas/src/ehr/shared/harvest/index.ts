@@ -107,8 +107,11 @@ import {
 import {
   findOrgMatchingReference,
   formatPhoneNumber,
+  getCustomInsuranceOrgBusinessId,
+  getCustomInsuranceOrgReferenceUrl,
   getPayerId,
   getPayerUrl,
+  isCustomInsuranceOrgReferenceUrl,
   isNioReferenceUrl,
   isPayerUrl,
 } from 'utils/lib/helpers/helpers';
@@ -155,6 +158,7 @@ import { uploadPDF } from 'utils/lib/utils/pdf';
 import { isValidUUID } from 'utils/lib/validation/helper';
 import { createOrUpdateFlags } from '../../../patient/paperwork/sharedHelpers';
 import { getInsuranceOverrideList, ListName } from '../../../rcm/get-insurance-override-list/handler';
+import { resolveCustomInsuranceOrgReference } from '../../../shared/custom-insurance-org-directory';
 import { createPdfBytes } from '../../../shared/pdf';
 
 export const PATIENT_CONTAINED_PHARMACY_ID = 'pharmacy';
@@ -1820,6 +1824,9 @@ export async function searchInsuranceInformation(
         }
         return oystehr.rcm.getPayerByUrl({ url: ref });
       }
+      if (isCustomInsuranceOrgReferenceUrl(ref)) {
+        return resolveCustomInsuranceOrgReference(oystehr, ref);
+      }
       const orgFromFhir = findOrgMatchingReference(ref, resources);
       if (orgFromFhir) {
         return orgFromFhir;
@@ -2541,10 +2548,26 @@ const createCoverageResource = (input: CreateCoverageResourceInput): Coverage =>
   const { org, policyHolder, additionalInformation, typeCode } = insurance;
   const memberId = policyHolder.memberId;
 
-  const payerId = getPayerId(org);
+  // A custom insurance organization carries no RCM payer identifier; its business id ("OTR-...")
+  // takes its place as the coverage class value, matching how billing's own Coverage builder
+  // resolves the same organization (see resolvedPayerId in packages/zambdas/src/billing/shared.ts).
+  const customOrgBusinessId = getCustomInsuranceOrgBusinessId(org);
+  const payerId = getPayerId(org) ?? customOrgBusinessId;
   if (!payerId) {
     throw new Error('payerId unexpectedly missing from insuranceOrg');
   }
+
+  // A custom insurance organization is a billing-app-owned resource: it's referenced by token, never
+  // directly, the same way an NIO reference works (see getNioReferenceUrl).
+  const payorReference = customOrgBusinessId
+    ? getCustomInsuranceOrgReferenceUrl(org.id ?? '')
+    : isValidUUID(org.id ?? '')
+    ? `Organization/${org.id}`
+    : getPayerUrl(payerId);
+  // The member id's assigner mirrors the payor: readers (paperwork prefill, the insurance PDF) find the
+  // member id by matching the two, and a custom org has no clinical Organization to reference directly.
+  const memberIdentifier = createCoverageMemberIdentifier(memberId, org);
+  memberIdentifier.assigner = { ...memberIdentifier.assigner, reference: payorReference };
 
   const policyHolderId = 'coverageSubscriber';
   const relationshipCode = SUBSCRIBER_RELATIONSHIP_CODE_MAP[policyHolder.relationship] || 'other';
@@ -2568,7 +2591,7 @@ const createCoverageResource = (input: CreateCoverageResourceInput): Coverage =>
   const coverage: Coverage = {
     contained,
     id: `urn:uuid:${randomUUID()}`,
-    identifier: [createCoverageMemberIdentifier(memberId, org)],
+    identifier: [memberIdentifier],
     resourceType: 'Coverage',
     status: 'active',
     subscriber: {
@@ -2579,11 +2602,7 @@ const createCoverageResource = (input: CreateCoverageResourceInput): Coverage =>
       reference: `Patient/${patientId}`,
     },
     type: typeCode !== undefined ? { coding: [{ system: CANDID_PLAN_TYPE_SYSTEM, code: typeCode }] } : undefined,
-    payor: [
-      {
-        reference: isValidUUID(org.id ?? '') ? `Organization/${org.id}` : getPayerUrl(payerId),
-      },
-    ],
+    payor: [{ reference: payorReference }],
     subscriberId: policyHolder.memberId,
     relationship: getSubscriberRelationshipCodeableConcept(policyHolder.relationship),
     class: [

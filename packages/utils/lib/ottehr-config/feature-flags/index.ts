@@ -27,8 +27,8 @@ const FEATURE_FLAGS_DATA: FeatureFlagsConfig = {
   // non-insurance payer). Candid-only routing ('candid', or unset, whose runtime default is
   // Candid) is rejected by terraform generation and by shouldUseCandid. Off, everything runs the
   // legacy Employers mode with Candid sync; unit/component tests pin the flag themselves, so
-  // both paths stay covered either way.
-  nonInsuranceOrganizationsEnabled: false,
+  // both paths stay covered either way. See the schema comment in config-types for details.
+  customOrganizationsEnabled: false,
 };
 
 export const FEATURE_FLAGS_CONFIG = Object.freeze(FeatureFlagsConfigSchema.parse(FEATURE_FLAGS_DATA));

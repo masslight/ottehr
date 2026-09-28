@@ -108,6 +108,7 @@ describe('llm-schema serialization (Zod → prompt)', () => {
       appointmentType: 'walk-in',
       serviceCategory: 'Urgent Care',
       visitStatus: 'completed',
+      visitStatusSince: '2026-07-01T14:00:00Z',
       statusHistory: [{ status: 'completed', start: '2026-07-01T14:00:00Z', end: null }],
       encounterType: 'main',
       reason: 'cough',

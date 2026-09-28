@@ -2,6 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import {
   Appointment,
   Condition,
+  DiagnosticReport,
   Encounter,
   FhirResource,
   Location,
@@ -11,10 +12,16 @@ import {
   Patient,
   PaymentNotice,
   Practitioner,
+  ServiceRequest,
 } from 'fhir/r4b';
 import { FHIR_EXTENSION, PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { MEDICATION_CPT_CODES_EXTENSION_URL } from 'utils/lib/fhir/medication-administration';
 import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
+import {
+  DIAGNOSTIC_REPORT_PRELIMINARY_REVIEW_ON_EXTENSION_URL,
+  SERVICE_REQUEST_PERFORMED_ON_EXTENSION_URL,
+  SERVICE_REQUEST_REQUESTED_TIME_EXTENSION_URL,
+} from 'utils/lib/fhir/radiology';
 import { CODE_SYSTEM_CPT, CODE_SYSTEM_NDC } from 'utils/lib/helpers/rcm/constants';
 import { AdHocBillingOutputSchema } from 'utils/lib/types/adhoc/datasets/billing';
 import { AdHocEncountersOutputSchema } from 'utils/lib/types/adhoc/datasets/encounters';
@@ -32,6 +39,10 @@ import {
 } from 'utils/lib/types/api/medication-administration.constants';
 import { CREATED_BY_SYSTEM } from 'utils/lib/types/common';
 import { PRACTITIONER_CODINGS } from 'utils/lib/types/data/appointments/appointments.types';
+import {
+  PATIENT_BREASTFEEDING_STATUS,
+  SEEN_IN_LAST_THREE_YEARS_FIELD,
+} from 'utils/lib/types/data/screening-questions/constants';
 import { afterAll, describe, expect, it, vi } from 'vitest';
 import { fetchAdHocBillingRows } from '../src/shared/adhoc-datasets/billing';
 import { fetchAdHocEncounterRows } from '../src/shared/adhoc-datasets/encounters';
@@ -51,6 +62,8 @@ const appointment: Appointment = {
   status: 'fulfilled',
   start: '2026-07-01T14:00:00.000Z', // a Wednesday
   end: '2026-07-01T14:30:00.000Z',
+  description: 'Ear pain',
+  appointmentType: { text: 'walk-in' },
   meta: {
     tag: [{ code: OTTEHR_MODULE.IP }, { system: CREATED_BY_SYSTEM, display: 'Staff admin@clinic.com' }],
   },
@@ -317,6 +330,64 @@ const administeredStatement: MedicationStatement = {
   effectiveDateTime: '2026-07-01T15:30:00.000Z',
 };
 
+// Radiology: an order with its timeline on extensions, a preliminary read and a final read (linked by
+// basedOn, not by encounter), plus a still-pending order and a cancelled one.
+const radiologyOrder = (
+  id: string,
+  name: string,
+  status: ServiceRequest['status'],
+  performedAt?: string
+): ServiceRequest => ({
+  resourceType: 'ServiceRequest' as const,
+  id,
+  status,
+  intent: 'order',
+  subject: { reference: 'Patient/pat-1' },
+  encounter: { reference: 'Encounter/enc-1' },
+  meta: { tag: [{ code: 'radiology' }] },
+  code: { coding: [{ system: CODE_SYSTEM_CPT, code: '73030', display: name }] },
+  extension: [
+    { url: SERVICE_REQUEST_REQUESTED_TIME_EXTENSION_URL, valueDateTime: '2026-07-01T14:12:00.000Z' },
+    ...(performedAt ? [{ url: SERVICE_REQUEST_PERFORMED_ON_EXTENSION_URL, valueDateTime: performedAt }] : []),
+  ],
+});
+const radiologyRead = (id: string, srId: string, status: DiagnosticReport['status'], at: string): DiagnosticReport => ({
+  resourceType: 'DiagnosticReport' as const,
+  id,
+  status,
+  code: { text: 'XR shoulder' },
+  basedOn: [{ reference: `ServiceRequest/${srId}` }],
+  ...(status === 'preliminary'
+    ? { extension: [{ url: DIAGNOSTIC_REPORT_PRELIMINARY_REVIEW_ON_EXTENSION_URL, valueDateTime: at }] }
+    : { issued: at }),
+});
+const serviceRequests: FhirResource[] = [
+  radiologyOrder('sr-1', 'XR shoulder', 'completed', '2026-07-01T14:30:00.000Z'),
+  radiologyRead('dr-1', 'sr-1', 'preliminary', '2026-07-01T14:45:00.000Z'),
+  radiologyRead('dr-2', 'sr-1', 'final', '2026-07-01T18:00:00.000Z'),
+  radiologyOrder('sr-2', 'XR wrist', 'active'),
+  radiologyOrder('sr-3', 'XR knee', 'revoked'),
+];
+
+// "Ask the patient" screening answers: chart-data Observations keyed by the config field's fhirField,
+// value = the option's fhirValue. Two answers for the same question keep the newest.
+const screeningObs = (id: string, field: string, value: string, at: string): Observation => ({
+  resourceType: 'Observation' as const,
+  id,
+  status: 'final',
+  code: { text: field },
+  meta: { tag: [{ code: field }] },
+  subject: { reference: 'Patient/pat-1' },
+  encounter: { reference: 'Encounter/enc-1' },
+  effectiveDateTime: at,
+  valueString: value,
+});
+const screeningObservations: FhirResource[] = [
+  screeningObs('obs-scr-1', PATIENT_BREASTFEEDING_STATUS, 'not-applicable', '2026-07-01T14:06:00.000Z'),
+  screeningObs('obs-scr-2', SEEN_IN_LAST_THREE_YEARS_FIELD, 'no', '2026-07-01T14:06:00.000Z'),
+  screeningObs('obs-scr-3', SEEN_IN_LAST_THREE_YEARS_FIELD, 'yes', '2026-07-01T14:08:00.000Z'),
+];
+
 const medicationAdministrations: FhirResource[] = [
   vaccineAdmin(
     'ma-1',
@@ -357,7 +428,8 @@ const rootResources: FhirResource[] = [appointment, encounter, patient, location
 const scopedByType: Record<string, FhirResource[]> = {
   Practitioner: [practitioner],
   Condition: [condition],
-  Observation: observations,
+  Observation: [...observations, ...screeningObservations],
+  ServiceRequest: serviceRequests,
   // The administration statement arrives as a revinclude of the MA search, never by its own context.
   MedicationAdministration: [...medicationAdministrations, administeredStatement],
   PaymentNotice: paymentNotices,
@@ -441,6 +513,10 @@ describe('ad-hoc dataset zambdas: mapped rows parse against their Zod schema (fi
     expect(row.statusHistory.map((e) => e.status)).toEqual(['arrived', 'intake', 'provider', 'intake', 'completed']);
     expect(row.statusHistory[0].start).toBe('2026-07-01T14:00:00.000Z');
     expect(row.statusHistory.at(-1)?.end).toBeNull();
+    // The current status began when the last history entry started.
+    expect(row.visitStatusSince).toBe('2026-07-01T14:25:00.000Z');
+    // Reason for visit is the booking's free text, never the booking kind (walk-in / pre-book).
+    expect(row.reason).toBe('Ear pain');
   });
 
   it('encounters vitals layer: readings are chronological, °C converted to °F, BP pairs aligned', async () => {
@@ -473,6 +549,56 @@ describe('ad-hoc dataset zambdas: mapped rows parse against their Zod schema (fi
     expect(row.criticalVitals).toEqual(['heartRate']);
     // A reading dropped from the paired arrays still counts towards the alert.
     expect(row.abnormalVitals).toContain('bloodPressure');
+  });
+
+  it('encounters imaging layer: one study record per radiology order with its status timeline', async () => {
+    const rows = await fetchAdHocEncounterRows(fakeOystehr, { dateRange, includeImaging: true });
+    const row = rows[0];
+
+    expect(issuesOf(AdHocEncountersOutputSchema.safeParse({ encounters: rows }))).toEqual([]);
+    // The flat list keeps excluding cancelled orders; the records carry every order with a status.
+    expect(row.imagingOrders).toEqual(['XR shoulder', 'XR wrist']);
+    expect(row.imagingStudies).toEqual([
+      {
+        name: 'XR shoulder',
+        status: 'final',
+        orderedAt: '2026-07-01T14:12:00.000Z',
+        performedAt: '2026-07-01T14:30:00.000Z',
+        preliminaryAt: '2026-07-01T14:45:00.000Z',
+        finalAt: '2026-07-01T18:00:00.000Z',
+      },
+      {
+        name: 'XR wrist',
+        status: 'pending',
+        orderedAt: '2026-07-01T14:12:00.000Z',
+        performedAt: null,
+        preliminaryAt: null,
+        finalAt: null,
+      },
+      {
+        name: 'XR knee',
+        status: 'cancelled',
+        orderedAt: '2026-07-01T14:12:00.000Z',
+        performedAt: null,
+        preliminaryAt: null,
+        finalAt: null,
+      },
+    ]);
+  });
+
+  it('encounters intake layer: screening answers resolved to question text and option label, newest wins', async () => {
+    const rows = await fetchAdHocEncounterRows(fakeOystehr, { dateRange, includeIntake: true });
+    const row = rows[0];
+
+    expect(issuesOf(AdHocEncountersOutputSchema.safeParse({ encounters: rows }))).toEqual([]);
+    expect(row.screeningAnswers).toEqual([
+      { question: 'Has the patient been seen in one of our offices / telemed in last 3 years?', answer: 'Yes' },
+      { question: 'Are you currently breastfeeding?', answer: 'Not applicable' },
+    ]);
+    expect(row.screeningQuestions).toEqual([
+      'Has the patient been seen in one of our offices / telemed in last 3 years?',
+      'Are you currently breastfeeding?',
+    ]);
   });
 
   it('encounters immunizations layer: one vaccine record each, VIS presence carried by the date', async () => {

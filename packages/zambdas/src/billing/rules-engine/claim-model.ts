@@ -1001,7 +1001,7 @@ const WRITERS: Record<string, FieldWriter> = {
   ...coverageWriters('secondaryInsurance', 'secondary', secondaryCoverage),
   ...personWriters('secondaryPolicyHolder', policyHolder(secondaryCoverage)),
 
-  ...coverageWriters('tertiaryInsurance', 'tertiary', secondaryCoverage),
+  ...coverageWriters('tertiaryInsurance', 'tertiary', tertiaryCoverage),
   ...personWriters('tertiaryPolicyHolder', policyHolder(tertiaryCoverage)),
 
   ...coverageWriters('quaternaryInsurance', 'quaternary', quaternaryCoverage),

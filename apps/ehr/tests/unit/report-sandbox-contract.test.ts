@@ -120,6 +120,6 @@ describe('runtime chart-config normalization', () => {
       string,
       unknown
     >;
-    expect(axis.axisLabel).toEqual({ interval: 0, rotate: 90 });
+    expect(axis.axisLabel).toEqual({ interval: 0, overflow: 'truncate', width: 120, rotate: 90 });
   });
 });

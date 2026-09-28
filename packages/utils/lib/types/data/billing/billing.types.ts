@@ -120,6 +120,13 @@ export interface SearchServiceFacilitiesResponse {
   pageSize: number;
 }
 
+// A rendering provider's professional license; type is a PractitionerQualificationCode, state a state code.
+export interface BillingProviderLicense {
+  type: string;
+  number: string;
+  state: string;
+}
+
 // Unified provider option (Practitioner or Organization)
 export interface BillingProviderOption {
   id: string;
@@ -129,7 +136,7 @@ export interface BillingProviderOption {
   lastName?: string;
   npi: string;
   taxonomyCode?: string;
-  licenseType?: string;
+  license?: BillingProviderLicense;
   taxId?: string;
   stripeAccountId?: string;
   address?: string;
@@ -364,7 +371,10 @@ export interface ClaimPatientPayment {
 export interface ClaimInsurancePayment {
   paymentReconciliationId: string;
   checkNumber: string;
-  paymentDate: string;
+  // when the ERA was produced/imported (PaymentReconciliation.created)
+  remitDate: string;
+  // the check/EFT date (PaymentReconciliation.paymentDate); '' when the ERA carries none
+  checkDate: string;
   // the whole check's amount, not this claim's share (that's the remit's paid)
   paymentAmount: number;
   payerName: string;
@@ -374,6 +384,7 @@ export interface ClaimInsurancePayment {
 // One ERA adjudication (ClaimResponse) posted against a claim.
 export interface ClaimRemit {
   claimResponseId: string;
+  // ClaimResponse.created, when the remit was posted
   date: string;
   payerName: string;
   status: string;
@@ -383,6 +394,13 @@ export interface ClaimRemit {
   paid: number;
   patientResp: number | null;
   adjustments: ClaimRemitAdjustment[];
+  // the ERA (PaymentReconciliation) that carried this remit, via its era-processing Provenance; ''
+  // when that link or the ERA itself couldn't be read, and then checkNumber/checkDate are '' too
+  paymentReconciliationId: string;
+  checkNumber: string;
+  checkDate: string;
+  // the adjudicated lines, each joined to the Claim.item it describes when possible
+  serviceLines: EraRemitServiceLine[];
 }
 
 export interface ClaimAttachment {
@@ -487,6 +505,8 @@ export interface ClaimDetailResponse {
   patientPaid: number;
   balance: number;
   adjudicated: boolean;
+  // when Oystehr first sent the claim to the payer; '' when it was never submitted from Ottehr
+  firstSubmittedDate: string;
   remits: ClaimRemit[];
   insurancePayments: ClaimInsurancePayment[];
   patientPayments: ClaimPatientPayment[];
