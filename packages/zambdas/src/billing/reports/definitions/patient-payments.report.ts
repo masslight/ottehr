@@ -199,9 +199,8 @@ async function loadWindowNotices(
   secrets: ZambdaInput['secrets'],
   onProgress?: (message: string) => Promise<void>
 ): Promise<NoticeLoad> {
-  // no paymentDate search param exists; backdated payments are created later, so only the lower
-  // bound is safe server-side — noticeInWindow re-filters on the effective payment day
-  const windowParams = params.dateFrom ? [{ name: 'created', value: `ge${params.dateFrom}` }] : [];
+  // PaymentNotice has no paymentDate search param and payments can be back- or future-dated, so
+  // no created bound is safe server-side — noticeInWindow filters on the effective payment day
   const fetchNotices = async (
     client: Oystehr,
     extraParams: { name: string; value: string }[]
@@ -212,7 +211,6 @@ async function loadWindowNotices(
         const bundle = await client.fhir.search<PaymentNotice>({
           resourceType: 'PaymentNotice',
           params: [
-            ...windowParams,
             ...extraParams,
             { name: '_count', value: String(count) },
             { name: '_offset', value: String(offset) },

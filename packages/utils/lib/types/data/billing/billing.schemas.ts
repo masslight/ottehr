@@ -824,6 +824,7 @@ export const RecordBillingManualPaymentInputSchema = z.object({
   encounterId: nonEmptyString.uuid(),
   amountInCents: z.number().int().positive(),
   paymentMethod: z.enum(BILLING_MANUAL_PAYMENT_METHODS),
+  // any date allowed — payments can be backdated or future-dated (e.g. scheduled per an ERA)
   paymentDateISO: z.string().datetime({ offset: true }).optional(),
   checkNumber: nonEmptyString.optional(),
   description: nonEmptyString.optional(),
