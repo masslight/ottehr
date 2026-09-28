@@ -109,11 +109,15 @@ function createFakeOystehr(): {
   encounters: () => Encounter[];
   conversationsCreated: () => number;
   participantsAdded: () => string[][];
+  participantsRemoved: () => { conversationId: string; participantReference: string }[];
+  failures: { addParticipant?: Error; removeParticipant?: Error; groupUpdate?: Error };
 } {
   const store = new Map<string, FhirResource>();
   let nextId = 0;
   let conversations = 0;
   const participants: string[][] = [];
+  const removed: { conversationId: string; participantReference: string }[] = [];
+  const failures: { addParticipant?: Error; removeParticipant?: Error; groupUpdate?: Error } = {};
   const tick = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
 
   const save = (resource: FhirResource): FhirResource => {
@@ -144,6 +148,7 @@ function createFakeOystehr(): {
     },
     update: async (resource: FhirResource, options?: { optimisticLockingVersionId?: string }) => {
       await tick();
+      if (resource.resourceType === 'Group' && failures.groupUpdate) throw failures.groupUpdate;
       const current = store.get(`${resource.resourceType}/${resource.id}`);
       if (options?.optimisticLockingVersionId && current?.meta?.versionId !== options.optimisticLockingVersionId) {
         throw new PreconditionFailed('Precondition Failed');
@@ -171,7 +176,19 @@ function createFakeOystehr(): {
       encounter.extension?.find((extension) => extension.url === 'sid')?.valueString,
     addParticipant: async ({ participants: added }: { participants: { participantReference: string }[] }) => {
       await tick();
+      if (failures.addParticipant) throw failures.addParticipant;
       participants.push(added.map((participant) => participant.participantReference));
+    },
+    removeParticipant: async ({
+      conversationId,
+      participantReference,
+    }: {
+      conversationId: string;
+      participantReference: string;
+    }) => {
+      await tick();
+      if (failures.removeParticipant) throw failures.removeParticipant;
+      removed.push({ conversationId, participantReference });
     },
   };
 
@@ -182,6 +199,8 @@ function createFakeOystehr(): {
     encounters: () => all('Encounter') as Encounter[],
     conversationsCreated: () => conversations,
     participantsAdded: () => participants,
+    participantsRemoved: () => removed,
+    failures,
   };
 }
 
@@ -194,6 +213,7 @@ describe('resolveEmployeeChat', () => {
     expect(readConversationSid(fake.groups()[0])).toBe(sid);
     expect(fake.participantsAdded()).toEqual([[ALICE, BOB]]);
     expect(fake.encounters()[0].participant?.map((p) => p.individual?.reference)).toEqual([ALICE, BOB]);
+    expect(fake.participantsRemoved()).toEqual([]);
   });
 
   it('returns the same conversation for the same pair in either order without creating another', async () => {
@@ -227,5 +247,73 @@ describe('resolveEmployeeChat', () => {
     expect(readConversationSid(fake.groups()[0])).toBe(fromAlice);
     const orphans = fake.encounters().filter((encounter) => encounter.status === 'cancelled');
     expect(orphans).toHaveLength(fake.conversationsCreated() - 1);
+  });
+
+  it('removes both employees from the losing conversation of a concurrent first open', async () => {
+    const fake = createFakeOystehr();
+    await Promise.all([resolveEmployeeChat(fake.oystehr, ALICE, BOB), resolveEmployeeChat(fake.oystehr, BOB, ALICE)]);
+
+    expect(fake.conversationsCreated()).toBe(2);
+    const stored = readConversationSid(fake.groups()[0]);
+    const losing = stored === 'CH1' ? 'CH2' : 'CH1';
+    expect(fake.participantsRemoved()).toHaveLength(2);
+    expect(fake.participantsRemoved()).toEqual(
+      expect.arrayContaining([
+        { conversationId: losing, participantReference: ALICE },
+        { conversationId: losing, participantReference: BOB },
+      ])
+    );
+  });
+
+  it('removes both employees, cancels the Encounter and rethrows the original error when adding participants fails', async () => {
+    const fake = createFakeOystehr();
+    const original = new Error('User conversation limit exceeded');
+    fake.failures.addParticipant = original;
+
+    await expect(resolveEmployeeChat(fake.oystehr, ALICE, BOB)).rejects.toBe(original);
+
+    expect(fake.participantsRemoved()).toHaveLength(2);
+    expect(fake.participantsRemoved()).toEqual(
+      expect.arrayContaining([
+        { conversationId: 'CH1', participantReference: ALICE },
+        { conversationId: 'CH1', participantReference: BOB },
+      ])
+    );
+    expect(fake.encounters().map((encounter) => encounter.status)).toEqual(['cancelled']);
+    expect(readConversationSid(fake.groups()[0])).toBeUndefined();
+
+    fake.failures.addParticipant = undefined;
+    const retried = await resolveEmployeeChat(fake.oystehr, ALICE, BOB);
+    expect(retried).toBe('CH2');
+    expect(readConversationSid(fake.groups()[0])).toBe('CH2');
+  });
+
+  it('removes both employees and cancels the Encounter when storing the conversation on the Group fails', async () => {
+    const fake = createFakeOystehr();
+    const original = new Error('FHIR unavailable');
+    fake.failures.groupUpdate = original;
+
+    await expect(resolveEmployeeChat(fake.oystehr, ALICE, BOB)).rejects.toBe(original);
+
+    expect(fake.participantsAdded()).toEqual([[ALICE, BOB]]);
+    expect(fake.participantsRemoved()).toHaveLength(2);
+    expect(fake.participantsRemoved()).toEqual(
+      expect.arrayContaining([
+        { conversationId: 'CH1', participantReference: ALICE },
+        { conversationId: 'CH1', participantReference: BOB },
+      ])
+    );
+    expect(fake.encounters().map((encounter) => encounter.status)).toEqual(['cancelled']);
+  });
+
+  it('keeps the original error when removing participants during cleanup also fails', async () => {
+    const fake = createFakeOystehr();
+    const original = new Error('User conversation limit exceeded');
+    fake.failures.addParticipant = original;
+    fake.failures.removeParticipant = new Error('Participant not found in the conversation.');
+
+    await expect(resolveEmployeeChat(fake.oystehr, ALICE, BOB)).rejects.toBe(original);
+
+    expect(fake.encounters().map((encounter) => encounter.status)).toEqual(['cancelled']);
   });
 });

@@ -18,6 +18,7 @@ describe('employee chat pair resolution', () => {
   const encounterIds: string[] = [];
   let createSpy: ReturnType<typeof vi.spyOn>;
   let addParticipantSpy: ReturnType<typeof vi.spyOn>;
+  let removeParticipantSpy: ReturnType<typeof vi.spyOn>;
 
   const tag = (): { tag: { system: string; code: string }[] } => ({
     tag: [{ system: INTEGRATION_TEST_TAG_SYSTEM, code: `DELETE_ME-${processId}` }],
@@ -69,11 +70,13 @@ describe('employee chat pair resolution', () => {
       return { encounter: created };
     });
     addParticipantSpy = vi.spyOn(oystehr.conversation, 'addParticipant').mockResolvedValue(undefined as never);
+    removeParticipantSpy = vi.spyOn(oystehr.conversation, 'removeParticipant').mockResolvedValue(undefined as never);
   }, 60_000);
 
   afterAll(async () => {
     createSpy?.mockRestore();
     addParticipantSpy?.mockRestore();
+    removeParticipantSpy?.mockRestore();
     const { alice, bob, carol } = practitioners;
     for (const [a, b] of [
       [alice, bob],

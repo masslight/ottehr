@@ -60,14 +60,19 @@ async function createPairConversation(
   if (!encounter.id || !conversationSid) {
     throw new Error('Oystehr created an employee chat conversation without an Encounter id or conversation id');
   }
-  await oystehr.conversation.addParticipant({
-    encounterReference: `Encounter/${encounter.id}`,
-    conversationId: conversationSid,
-    participants: [
-      { participantReference: callerProfile, channel: 'chat' },
-      { participantReference: targetProfile, channel: 'chat' },
-    ],
-  });
+  try {
+    await oystehr.conversation.addParticipant({
+      encounterReference: `Encounter/${encounter.id}`,
+      conversationId: conversationSid,
+      participants: [
+        { participantReference: callerProfile, channel: 'chat' },
+        { participantReference: targetProfile, channel: 'chat' },
+      ],
+    });
+  } catch (error) {
+    await discardOrphanConversation(oystehr, encounter, conversationSid, [callerProfile, targetProfile]);
+    throw error;
+  }
   return { conversationSid, encounter };
 }
 
@@ -77,6 +82,31 @@ async function cancelOrphanEncounter(oystehr: Oystehr, encounter: Encounter): Pr
   } catch (error) {
     console.error(`Failed to cancel orphan employee chat Encounter/${encounter.id}`, error);
   }
+}
+
+async function discardOrphanConversation(
+  oystehr: Oystehr,
+  encounter: Encounter,
+  conversationSid: string,
+  profiles: string[]
+): Promise<void> {
+  await Promise.all(
+    profiles.map(async (participantReference) => {
+      try {
+        await oystehr.conversation.removeParticipant({
+          encounterReference: `Encounter/${encounter.id}`,
+          conversationId: conversationSid,
+          participantReference,
+        });
+      } catch (error) {
+        console.error(
+          `Failed to remove ${participantReference} from orphan employee chat conversation ${conversationSid}`,
+          error
+        );
+      }
+    })
+  );
+  await cancelOrphanEncounter(oystehr, encounter);
 }
 
 export async function resolveEmployeeChat(
@@ -99,10 +129,11 @@ export async function resolveEmployeeChat(
     return conversationSid;
   } catch (error) {
     if (!errorHasStatusCode(error, 412)) {
+      await discardOrphanConversation(oystehr, encounter, conversationSid, [callerProfile, targetProfile]);
       throw error;
     }
     console.log(`Employee chat Group/${group.id} was committed concurrently, using the stored conversation`);
-    await cancelOrphanEncounter(oystehr, encounter);
+    await discardOrphanConversation(oystehr, encounter, conversationSid, [callerProfile, targetProfile]);
     const current = await oystehr.fhir.get<Group>({ resourceType: 'Group', id: group.id! });
     const committedSid = readConversationSid(current);
     if (!committedSid) {
