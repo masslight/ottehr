@@ -20,20 +20,8 @@ interface NarrativeEditorProps {
 }
 
 /**
- * The narrative, one paragraph, as the provider corrects it before the planner reads it.
- *
- * The planner reads the transcript; what it takes from here is the provider's corrections, so it is where a
- * wrong reading of the transcript gets fixed and where anything that shouldn't be charted gets said so. It is
- * one paragraph rather than a list of sentences: a column of fields read as suggestions to pick from, not a
- * narrative to correct.
- *
- * It is shown two ways. At rest it is READ: the same paragraph, with each generated sentence a run that
- * shows the transcript words it was written from on hover — a text area has nothing to hover — and the ones
- * the generator said with nothing in the transcript to show for it underlined, so they can be found without
- * hovering. Clicking into it (or the pencil) swaps in the text area, with the caret where the click landed, and
- * leaving the text area swaps the read view back. The generated sentences are found again in the draft as it
- * is edited; a line beneath says what the underline means, since the hover that explains each one is invisible until
- * found.
+ * The one-paragraph narrative the provider corrects. At rest it is a read view where each generated sentence
+ * shows its transcript sources on hover (unbacked ones underlined); a click swaps in a text area at that spot.
  */
 export const NarrativeEditor: FC<NarrativeEditorProps> = ({ disabled, onHoverSources }) => {
   const draft = useScribeRecommendationsStore((state) => state.narrativeDraft);
@@ -43,18 +31,15 @@ export const NarrativeEditor: FC<NarrativeEditorProps> = ({ disabled, onHoverSou
   const setNarrativeDraft = useScribeRecommendationsStore((state) => state.setNarrativeDraft);
 
   const [isEditing, setIsEditing] = useState(false);
-  // Where the click that opened the editor landed, as an offset into the draft; the text area puts its caret
-  // there once it is up. Unset means the end of the text.
+  // Draft offset of the click that opened the editor; unset means the end of the text.
   const caretRef = useRef<number | undefined>(undefined);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
 
   const located = useMemo(() => locateGeneratedLines(draft, generated), [draft, generated]);
-  // Only the generated sentences still in the draft: one the provider has rewritten or removed no longer
-  // needs pointing out.
+  // `located` holds only generated sentences still in the draft, so rewritten ones aren't flagged.
   const unbacked = useMemo(() => located.filter((line) => line.original.sources.length === 0), [located]);
 
-  // An empty draft has nothing to read (and nothing to click into), and while it is being written the text
-  // area stands in for it, so the read view is the paragraph at rest, and only then.
+  // The read view needs text to click into; while generating, the text area stands in.
   const showReadView = !isEditing && draft !== '' && status !== 'generating';
 
   useEffect(() => {
@@ -156,13 +141,11 @@ interface NarrativeReadViewProps {
 }
 
 /**
- * The draft at rest, character for character (so a click maps back to an offset in it), cut into the
- * generated sentences still in it and the provider's own words between them. The same look as the results
- * screen's narrative; the runs there open a recommendation, these show the transcript behind a sentence.
+ * Renders the draft character for character, so a click maps back to an offset, cut into generated sentences
+ * and the provider's own words between them.
  */
 const NarrativeReadView: FC<NarrativeReadViewProps> = ({ draft, located, disabled, onClick, onHoverSources }) => {
-  // The located lines never overlap (each is searched for after the one before), so every run carries at
-  // most one id: its index into `located`.
+  // Located lines never overlap, so each run carries at most one id: its index into `located`.
   const runs = useMemo(
     () =>
       cutRuns(
@@ -202,10 +185,7 @@ interface NarrativeSentenceProps {
   children: string;
 }
 
-/**
- * One generated sentence: the transcript snippets it was written from on hover, or — for one the generator
- * said on its own — a dotted underline at rest, so it can be found without hovering, and the note on hover.
- */
+/** A generated sentence with its transcript sources on hover; unbacked sentences get a dotted underline. */
 const NarrativeSentence: FC<NarrativeSentenceProps> = ({ index, line, onHoverSources, children }) => {
   const sources = line.original.sources;
   const isUnbacked = sources.length === 0;
@@ -249,10 +229,8 @@ const NarrativeSentence: FC<NarrativeSentenceProps> = ({ index, line, onHoverSou
 };
 
 /**
- * The offset into the read view's text under a point, so the text area can open with its caret where the
- * click landed. The read view holds the draft character for character, so the offset is the sum of the text
- * nodes before the hit one plus the offset within it. `undefined` (no support, or the click was on the
- * paper rather than on a character) means the end of the text.
+ * Offset into the read view's text under a point, summing the text nodes before the hit one. `undefined`
+ * (no browser support, or a click off the text) means the end of the text.
  */
 function caretOffsetAt(container: HTMLElement, x: number, y: number): number | undefined {
   const doc = container.ownerDocument;

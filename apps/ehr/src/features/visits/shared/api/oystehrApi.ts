@@ -392,12 +392,7 @@ export const getOystehrTelemedAPI = (
     return await makeZapRequest('delete chart data', parameters);
   };
 
-  /**
-   * Easy Chart's model calls. All go through the SAME zambda transport as every other endpoint —
-   * the model never writes, it returns typed actions that the client resolves and writes through the
-   * existing chart-data endpoints. The narrative call is the step before the plan: a transcript in,
-   * provider-voice lines out, each with the transcript snippets the server verified it against.
-   */
+  // Easy Chart. The model never writes: plan and review return typed actions the client executes.
   const easyChartPlan = async (parameters: ChartPlanRequest): Promise<ChartPlanResponse> => {
     return await makeZapRequest('easy chart plan', parameters);
   };

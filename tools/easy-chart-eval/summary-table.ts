@@ -1,12 +1,7 @@
-// The whole of `summary.json` for one run, as eight tables — the full-fidelity view.
+// Prints every field of a run's `summary.json` as eight fixed-layout tables, so runs can be compared side by
+// side. `report.ts` is the delta tool and shows only a subset.
 //
-// `report.ts` is the DELTA tool and deliberately shows a subset: the sections, the E&M line and the
-// counters, because a comparison wants a few numbers you can hold in your head. This one is the
-// opposite: every field the scorer records, for a single run, in a fixed layout so two runs can be put
-// side by side by eye and nothing is quietly omitted. Reading only the headline metrics is how a
-// medication-precision regression (0.235 → 0.120) sat unnoticed behind an E&M gain.
-//
-// PHI: reads `summary.json` only — counts and pattern labels, never clinical text.
+// PHI: reads `summary.json` only, which holds counts and pattern labels, never clinical text.
 //
 // Usage:
 //   npx tsx tools/easy-chart-eval/summary-table.ts <runDir> [<runDir>...]

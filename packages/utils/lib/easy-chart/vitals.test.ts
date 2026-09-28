@@ -1,9 +1,6 @@
-// Each case here is a failure that actually happened, or the documented threshold that prevents one.
-
 import { describe, expect, it } from 'vitest';
 import {
   canonicalizeVitalUnit,
-  countVitalReadings,
   isImplausibleHeight,
   MIN_PLAUSIBLE_HEIGHT_CM,
   MIN_PLAUSIBLE_HEIGHT_IN,
@@ -30,13 +27,11 @@ describe('canonicalizeVitalUnit', () => {
     expect(canonicalizeVitalUnit('vital-weight', 8, 'oz')).toEqual({ value: 0.5, unit: 'lb' });
   });
 
-  // 5 st → 70 lb must not surface as 69.99999999999999.
   it('rounds to 2dp so a conversion never surfaces as float noise', () => {
     expect(canonicalizeVitalUnit('vital-weight', 5, 'stones')).toEqual({ value: 70, unit: 'lb' });
   });
 
-  // There is NO word boundary between a digit and a letter, so `\blb\b` fails on `130lb`. The rules
-  // use a `(?<![a-z])` lookbehind instead.
+  // `\blb\b` fails on `130lb` (no word boundary between a digit and a letter).
   it('matches a unit that abuts its number', () => {
     expect(canonicalizeVitalUnit('vital-weight', 130, 'lb')).toBeDefined();
     expect(parseVitalDisplay('vital-weight', '130lb')).toEqual({ status: 'ok', value: 130, unit: 'lb' });
@@ -49,7 +44,6 @@ describe('canonicalizeVitalUnit', () => {
     expect(canonicalizeVitalUnit('vital-weight', 500, 'grams')).toEqual({ value: 0.5, unit: 'kg' });
   });
 
-  // Silently reading `1.73 stones` as kg charts a number nobody stated.
   it('returns undefined for an unrecognised unit rather than defaulting', () => {
     expect(canonicalizeVitalUnit('vital-height', 5, 'furlongs')).toBeUndefined();
     expect(canonicalizeVitalUnit('vital-weight', 5, 'bananas')).toBeUndefined();
@@ -106,7 +100,7 @@ describe('parseVitalDisplay', () => {
     expect(parseVitalDisplay('vital-oxygen-sat', '95 percent on room air')).toEqual({ status: 'ok', value: 95 });
   });
 
-  // Never guess in a medical record: a bare height or weight is genuinely ambiguous, so ask.
+  // A bare height could be cm or inches, and a bare weight kg or pounds.
   it('asks rather than defaulting when a height or weight has no unit', () => {
     expect(parseVitalDisplay('vital-height', '68')).toMatchObject({ status: 'missing-unit', value: 68 });
     expect(parseVitalDisplay('vital-weight', '130')).toMatchObject({ status: 'missing-unit', value: 130 });
@@ -123,8 +117,7 @@ describe('parseVitalDisplay', () => {
     expect(parseVitalDisplay('vital-height', '')).toMatchObject({ status: 'no-value' });
   });
 
-  // `5.8 inches` is decimal feet written as inches — 15 cm. Charting it is wrong; silently reading it
-  // as 5'8" charts a number the provider never wrote. Do NEITHER: drop, flag, and ask.
+  // "5.8 inches" is decimal feet written as inches; reading it as 5'8" would chart a number nobody wrote.
   it('refuses an implausible height instead of charting or reinterpreting it', () => {
     const parsed = parseVitalDisplay('vital-height', '5.8 inches');
     expect(parsed.status).toBe('implausible');
@@ -160,8 +153,6 @@ describe('isImplausibleHeight', () => {
 });
 
 describe('recoverVitalReading', () => {
-  // The first implementation had this fallback only for blood pressure, so `add height 5.8 inches`
-  // answered "I need a value for that vital" while the number sat in the message.
   it('recovers a reading the model dropped, for every vital', () => {
     expect(recoverVitalReading('vital-height', 'add height 5.8 inches')).toBe('5.8 inches');
     expect(recoverVitalReading('vital-height', 'patient is 5\'8" tall')).toBe(`5'8"`);
@@ -181,14 +172,5 @@ describe('recoverVitalReading', () => {
     expect(recoverVitalReading('vital-weight', 'cough for 5 days')).toBeUndefined();
     expect(recoverVitalReading('vital-height', 'sick for 3 days')).toBeUndefined();
     expect(recoverVitalReading('vital-respiration-rate', 'seen 2 times this month')).toBeUndefined();
-  });
-});
-
-describe('countVitalReadings', () => {
-  // The regression that motivates one endpoint returning 1..N actions: this message is 30 characters
-  // and one sentence, so a length heuristic routed it to a single-action endpoint and one of the two
-  // vitals was silently dropped.
-  it('sees both readings in `patient is 5\'8", weighs 130lb`', () => {
-    expect(countVitalReadings(`patient is 5'8", weighs 130lb`)).toBe(2);
   });
 });

@@ -77,6 +77,7 @@ import { NursingOrdersReviewContainer } from './NursingOrdersReviewContainer';
 import { PatientVitalsContainer } from './PatientVitalsContainer';
 import { ProceduresInlineFlow } from './ProceduresInlineFlow';
 import { RadiologyInlineFlow } from './RadiologyInlineFlow';
+
 export const ProgressNoteDetails: FC = () => {
   const { appointment, encounter } = useAppointmentData();
   const apiClient = useOystehrAPIClient();
@@ -176,8 +177,7 @@ export const ProgressNoteDetails: FC = () => {
 
   const { isAppointmentReadOnly } = useGetAppointmentAccessibility();
   const inlineEditEnabled = !isAppointmentReadOnly;
-  // A template fills whole sections at once, so those get a badge in the header rather than a
-  // mark on every line.
+  // A template fills whole sections, so they get a header badge rather than a mark on every line.
   const appliedTemplate = findAiAddedFor(useAiAddedRecommendations(), { kind: 'template' });
   const templateChip =
     appliedTemplate?.kind === 'template' ? <AiAddedSectionChip templateName={appliedTemplate.templateName} /> : null;

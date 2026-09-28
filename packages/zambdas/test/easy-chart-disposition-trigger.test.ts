@@ -1,10 +1,8 @@
 import { detectDispositionLanguage } from 'utils/lib/easy-chart/sniffers';
 import { describe, expect, it } from 'vitest';
 
-// detectDispositionLanguage is the deterministic trigger for the review's disposition check:
-// on a hit (with no disposition charted) the review prompt force-includes a must-address
-// instruction for that check. The scan is tuned for HIGH PRECISION — a miss just leaves the
-// check on its normal model-discretion path. All narrative snippets below are synthetic.
+// A hit with no disposition charted forces a must-address instruction into the review prompt, so the
+// scan favors precision; a miss just leaves the disposition check to the model.
 describe('detectDispositionLanguage', () => {
   describe('positive disposition language', () => {
     it.each([
@@ -61,9 +59,7 @@ describe('detectDispositionLanguage', () => {
       expect(detectDispositionLanguage('Follow up if not improving by Monday.')?.pattern).toBe('follow-up');
     });
 
-    // DECISION: quoted/reported instructions fire the trigger. The model owns extraction and is
-    // explicitly told to decline when the matched text is not a disposition for THIS visit —
-    // a decline emits nothing (only the counter records it).
+    // Intentional: the model declines, emitting nothing, when the text is not a disposition for this visit.
     it('reported speech still fires (model is told to adjudicate it)', () => {
       expect(
         detectDispositionLanguage('Mom says urgent care told them to follow up with their PCP this week.')?.pattern

@@ -1,10 +1,5 @@
-// Editing a generic action row: which of its words the provider may change, and what the change does.
-//
-// The panel has editors of its own for the kinds it understands (a diagnosis picks a code, a weight is a
-// number in pounds, a finding flips R/D). Everything else is shown as the executor's step label, and what
-// the provider can correct there is the WORDING the executor will resolve or write: the exam finding to look
-// up, the instruction text, the reading of a vital. A kind whose meaning is a code — an E&M level, a coded
-// history item — has no text worth editing on its own, so it offers none.
+// Editing a generic action row: the wording the executor will resolve or write (a vital reading, an
+// instruction, a finding to look up). A kind whose meaning is a code offers nothing to edit.
 
 import { describeAction } from 'src/features/easy-chart/executor/labels';
 import { PlannableVitalField } from 'utils/lib/easy-chart/actions';
@@ -13,7 +8,7 @@ import { parseVitalDisplay } from 'utils/lib/easy-chart/vitals';
 import { actionSecondary } from './analysis';
 import { ActionRecommendation } from './types';
 
-export interface EditableActionText {
+interface EditableActionText {
   /** The action property the words live in. */
   field: 'display' | 'text';
   value: string;
@@ -31,36 +26,25 @@ export function editableActionText(action: PlannedAction): EditableActionText | 
     case 'set-disposition':
       return action.text ? { field: 'text', value: action.text, label: 'Disposition note' } : undefined;
     case 'add-exam-finding':
-    case 'remove-exam-finding':
       return action.display ? { field: 'display', value: action.display, label: 'Exam finding' } : undefined;
     case 'add-ros-finding':
-    case 'remove-ros-finding':
       return action.display ? { field: 'display', value: action.display, label: 'Finding' } : undefined;
     case 'add-surgical-history':
-    case 'remove-surgical-history':
       return action.display ? { field: 'display', value: action.display, label: 'Surgery' } : undefined;
     case 'add-hospitalization':
-    case 'remove-hospitalization':
       return action.display ? { field: 'display', value: action.display, label: 'Hospitalization' } : undefined;
     case 'remove-diagnosis':
     case 'remove-medication':
-    case 'remove-allergy':
       return action.display ? { field: 'display', value: action.display, label: 'Item to remove' } : undefined;
-    // Coded: the code is the meaning, and the words are only its label.
-    case 'set-em-code':
-    case 'add-condition':
-    case 'add-cpt':
     default:
+      // Coded kinds (E&M level, conditions): the code is the meaning, the words only its label.
       return undefined;
   }
 }
 
 /**
- * The row's action with its wording replaced, or undefined when the new wording cannot be used — a vital
- * reading that does not parse keeps the old one rather than reaching the chart half-read.
- *
- * A re-worded search term no longer matches the synonyms the model attached to the old one, so they go.
- * The transcript quote stays: the words behind the item have not changed, only the provider's reading of them.
+ * The action with its wording replaced, or undefined when the new wording cannot be used (a vital reading
+ * that does not parse). New wording drops the model's search synonyms; the transcript quote stays.
  */
 export function withEditedText(action: PlannedAction, value: string): PlannedAction | undefined {
   const editable = editableActionText(action);
@@ -71,8 +55,7 @@ export function withEditedText(action: PlannedAction, value: string): PlannedAct
   if (editable.field === 'display') delete edited.searchTerms;
 
   if (action.kind === 'set-vital') {
-    // The same parser the server's guard ran on the model's reading, so an edited reading is held to the
-    // same rules: a unit it knows, a plausible number, a pair for blood pressure.
+    // Held to the same parser the server's guard ran on the model's reading.
     const parsed = parseVitalDisplay(action.field as PlannableVitalField, next);
     if (parsed.status === 'ok') {
       return {

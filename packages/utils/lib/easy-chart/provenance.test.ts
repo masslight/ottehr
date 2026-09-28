@@ -18,11 +18,17 @@ describe('quote verification', () => {
     expect(quoteOccursInNarrative('Tonsils are enlarged, and erythematous', NARRATIVE)).toBe(true);
   });
 
-  // Models paraphrase and stitch list items together with ellipses. A fabricated citation in a
-  // medical record is worse than none.
+  // A fabricated citation in a medical record is worse than none.
   it('rejects a paraphrase and a stitched-together quote', () => {
     expect(quoteOccursInNarrative('the tonsils looked swollen and red', NARRATIVE)).toBe(false);
     expect(quoteOccursInNarrative('sore throat … white exudate', NARRATIVE)).toBe(false);
+  });
+
+  it('tolerates quotation marks, a period or an ellipsis around the quote', () => {
+    expect(quoteOccursInNarrative('"white exudate."', NARRATIVE)).toBe(true);
+    expect(quoteOccursInNarrative('...two days of sore throat', NARRATIVE)).toBe(true);
+    expect(quoteOccursInNarrative('“lungs clear”', NARRATIVE)).toBe(true);
+    expect(quoteOccursInNarrative('"..."', NARRATIVE)).toBe(false);
   });
 
   it('treats an absent quote as an honest "inferred", not a failure', () => {
@@ -38,8 +44,7 @@ describe('quote verification', () => {
 });
 
 describe('findingPolarity', () => {
-  // "No wheezing" must neither create a wheezing finding nor remove the matching normal — it AGREES
-  // with the normal. Match on polarity, not on the keyword.
+  // A negated finding agrees with the normal, so it must neither create a finding nor remove the normal.
   it('reads a negated finding as negated', () => {
     expect(findingPolarity('no wheezing')).toBe('negated');
     expect(findingPolarity('without crackles')).toBe('negated');
@@ -96,6 +101,12 @@ describe('locateQuote', () => {
     expect(locateQuote(narrative, '')).toBeUndefined();
   });
 
+  it('highlights the quote without the quotation marks or period the model added', () => {
+    expect(slice('"a couple of times"')).toBe('a couple of times');
+    expect(slice('I checked.')).toBe('I checked');
+    expect(slice('...about 170 pounds')).toBe('about 170 pounds');
+  });
+
   it('agrees with quoteOccursInNarrative on every quote', () => {
     for (const quote of [
       'No fever.',
@@ -104,6 +115,8 @@ describe('locateQuote', () => {
       'no fevers',
       'about 170 pounds!',
       'Patient: I’m',
+      'I checked.',
+      '"no fevers"',
     ]) {
       expect(locateQuote(narrative, quote) !== undefined, quote).toBe(quoteOccursInNarrative(quote, narrative));
     }
@@ -115,9 +128,7 @@ describe('locateQuote', () => {
 });
 
 describe('quote clamp', () => {
-  // Asked for "a few words to one sentence", the model sometimes quotes a whole paragraph. A paragraph
-  // highlighted in the narrative and repeated in a tooltip points at nothing, so an over-long quote is
-  // cut down — and re-verified, because a cut is a new quote.
+  // An over-long quote is cut down and re-verified, because a cut is a new quote.
   const sentence = (n: number): string => `Sentence number ${n} of the dictation says something more about the visit.`;
   const long = [1, 2, 3, 4, 5].map(sentence).join(' ');
   const narrative = `Preamble. ${long} Closing remark.`;

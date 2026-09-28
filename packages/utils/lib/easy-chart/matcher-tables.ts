@@ -1,22 +1,7 @@
-// PURE DISCOVERED KNOWLEDGE. Every entry in these lists is a word that caused a wrong match in a
-// real evaluation run. The scoring algorithm around them was rebuilt; these tables were not, because
-// re-deriving them means re-making the mistakes that produced them.
-//
-// The problems they serve, as an inventory of what a finding matcher gets wrong:
-//   - a finding filed under the wrong body-system card (anatomy-section guard);
-//   - an abnormal tympanic membrane "contradicting" normal canals (structure-vs-structure);
-//   - a generic token like "normal" or "mild" carrying a match by itself (generic-token discounting);
-//   - "swollen" failing to find "edematous" (descriptor synonym classes);
-//   - "wheezes" failing to find "Wheezing" (stemming);
-//   - a runner-up within ~75% of the top score being silently discarded (ambiguity ratio);
-//   - a query reporting a NORMAL matching the abnormal counterpart (normalcy veto);
-//   - a NEGATED query matching the positive finding (negation guard).
+// Vocabulary tables for the exam, ROS and medication matchers. Each entry fixes an observed wrong match, so an
+// entry that looks arbitrary is usually load-bearing.
 
-/**
- * Words that carry no clinical signal in a search phrase. Each search term is tested independently;
- * a leaf matches if any of its label or section tokens prefix-matches at least one non-stopword
- * token of the term.
- */
+/** Words that carry no clinical signal in a search phrase. */
 export const EXAM_QUERY_STOPWORDS = new Set([
   'add',
   'exam',
@@ -52,10 +37,8 @@ export const EXAM_QUERY_STOPWORDS = new Set([
 ]);
 
 /**
- * ROS matching uses the exam stopwords plus generic symptom MODIFIERS that, on their own, cause
- * false matches — "loss of sensation" matching "Weight loss/gain" on the shared word "loss".
- * Stripping these from BOTH the query and the catalogue labels forces the match onto the key symptom
- * noun, so a symptom with no catalogue item correctly finds nothing.
+ * Exam stopwords plus generic symptom modifiers, stripped from both query and label so the match rests on the
+ * symptom noun ("loss of sensation" must not match "Weight loss/gain").
  */
 export const ROS_QUERY_STOPWORDS = new Set([
   ...EXAM_QUERY_STOPWORDS,
@@ -79,9 +62,8 @@ export const ROS_QUERY_STOPWORDS = new Set([
 ]);
 
 /**
- * Descriptor-only tokens that name a SENSATION or surface quality but no anatomy. A match anchored
- * ONLY on these is how "denies groin pain" charted "Denies Eye pain" and a shin cellulitis matched a
- * rhinoscopy leaf, so a generic token can never carry a match by itself.
+ * Tokens that describe a finding but name no anatomy. A match resting only on these is rejected, so "groin
+ * pain" cannot land on "Eye pain".
  */
 export const GENERIC_FINDING_TOKENS = new Set([
   'pain',
@@ -155,14 +137,9 @@ export const GENERIC_FINDING_TOKENS = new Set([
 export const NORMALCY_PATTERNS =
   /\b[0-9]\s*(?:\+|plus)\b|\b5 out of 5\b|\b5\s*\/\s*5\b|\b20\/20\b|\bwell[- ]appearing\b|\bwell[- ]hydrated\b|\bcalm\b|\bcomfortable\b|\bplayful\b|\binteractive\b|\bconsolable\b/i;
 
-export const EXAM_NEGATION_TOKENS = new Set(['no', 'non', 'without', 'denies', 'absent', 'negative']);
-
 /**
- * Anatomy word → the exam card it belongs to. HIGH PRECISION OVER COVERAGE: an ambiguous term
- * ("vestibule" is nasal or vaginal, "discharge" is any orifice) maps to nothing on purpose, because
- * a wrong section guard is worse than no section guard.
- *
- * Values are card labels from the exam config, and a test locks them against it.
+ * Anatomy word → exam card label (a test checks the labels). Ambiguous terms ("vestibule" is nasal or vaginal,
+ * "discharge" is any orifice) are left out on purpose: a wrong section guard is worse than none.
  */
 export const EXAM_ANATOMY_SECTION_OF: Record<string, string> = {
   vaginal: 'GU (Female)',
@@ -217,12 +194,8 @@ export const EXAM_ANATOMY_SECTION_OF: Record<string, string> = {
   nostrils: 'Nose',
 };
 
-/**
- * Synonym classes. Without them, "throat injected" finds nothing because the catalogue says
- * "Erythematous pharynx". Each row collapses to one canonical key; query tokens are expanded through
- * it before scoring.
- */
-export const EXAM_DESCRIPTOR_SYNONYMS: string[][] = [
+/** Descriptor synonym classes. Each row collapses to one key, so "injected" matches "Erythematous pharynx". */
+const EXAM_DESCRIPTOR_SYNONYMS: string[][] = [
   ['injected', 'erythematous', 'erythema', 'red', 'reddened', 'inflamed'],
   ['tender', 'tenderness', 'painful'],
   ['swollen', 'edematous', 'edema', 'swelling'],

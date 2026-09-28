@@ -8,7 +8,6 @@ import {
   searchIcd10ViaTerminology,
 } from '../src/ehr/easy-chart-shared/icd-search';
 
-// ── Query-register expansion (temporary upstream shim — see REGISTER_QUERY_SYNONYMS) ───────────
 describe('expandQueryRegisters', () => {
   it('returns only the original query when no vocabulary word is present', () => {
     expect(expandQueryRegisters('acute pharyngitis')).toEqual(['acute pharyngitis']);
@@ -36,9 +35,7 @@ const backendOf = (fixtures: Record<string, Icd10Code[]>): IcdSearchFn => {
   return async (query, limit) => (fixtures[query.toLowerCase()] ?? []).slice(0, limit);
 };
 
-// The live-probed gap this layer exists for: the platform's "yeast infection" top hits contain NO
-// candida code. Fixtures mirror that probe; the expansion must append the candida rows the
-// rewritten query surfaces, without disturbing the platform's own ranking for the original query.
+// Mirrors the terminology service: the top hits for "yeast infection" contain no candida code.
 const N76_0 = { code: 'N76.0', display: 'Acute vaginitis' };
 const N76_2 = { code: 'N76.2', display: 'Acute vulvitis' };
 const B37_9 = { code: 'B37.9', display: 'Candidiasis, unspecified' };
@@ -78,7 +75,6 @@ describe('createExpandedIcdSearch', () => {
   });
 });
 
-// ── Terminology wrapper: platform call shape + cursor paging + failure propagation ─────────────
 type SearchIcd10Params = Parameters<Oystehr['terminology']['searchIcd10']>[0];
 
 const fakeOystehr = (
@@ -142,9 +138,7 @@ describe('searchIcd10ViaTerminology', () => {
   });
 });
 
-// ── Warm-invocation memoization ────────────────────────────────────────────────────────────────
-// NOTE: the cache is module-scope (shared across createTerminologyIcdSearch instances within this
-// test file's module registry), so each test uses distinct queries.
+// The cache is module-scoped and shared across instances, so each test uses distinct queries.
 describe('createTerminologyIcdSearch memoization', () => {
   it('serves repeated queries from cache, normalizing case/whitespace', async () => {
     const { oystehr, searchIcd10 } = fakeOystehr(async () => ({
@@ -155,8 +149,7 @@ describe('createTerminologyIcdSearch memoization', () => {
     expect(await search('gout', 50)).toEqual([{ code: 'M10.9', display: 'Gout, unspecified' }]);
     expect(await search('Gout ', 50)).toEqual([{ code: 'M10.9', display: 'Gout, unspecified' }]);
     expect(searchIcd10).toHaveBeenCalledTimes(1);
-    // A different limit is a different cache entry (deeper category enumeration must not be
-    // short-changed by a cached shallow result).
+    // The limit is part of the cache key, so a cached shallow result never truncates a deeper search.
     await search('gout', 1000);
     expect(searchIcd10).toHaveBeenCalledTimes(2);
   });

@@ -470,8 +470,7 @@ export async function createResourcesFromAiInterview(
     fields = 'labs, erx, procedures, ' + fields;
   }
 
-  // The Easy Chart narrative is generated ALONGSIDE the structured extraction, not after it, so it is
-  // ready when the provider opens Easy Chart and costs no wall time beyond the slower of the two calls.
+  // The Easy Chart narrative is generated alongside the extraction, so it costs no extra wall time.
   const [aiResponseString, narrativeLines] = await Promise.all([
     invokeChatbotVertexAI(
       [{ text: getPrompt(patientInfoDetails || 'unknown patient details', fields) + '\n' + chatTranscript }],
@@ -479,8 +478,7 @@ export async function createResourcesFromAiInterview(
     ),
     generateNarrativeBestEffort(chatTranscript, secrets),
   ]);
-  // Same rule as invokeChatbotVertexAI's response log: this string is the extraction of the visit
-  // transcript (complaint, allergies, meds, history) — PHI. Log its shape, not its content.
+  // The extraction is PHI: log its size, not its content.
   console.log(`AI extraction response: ${aiResponseString.length} chars, source=${source}`);
   let aiResponse;
   try {
@@ -516,12 +514,9 @@ export async function createResourcesFromAiInterview(
         )
   );
   requests.push(...createObservations(aiResponse, documentReferenceCreateUrl, encounterId, patientId));
-  // The bundle carries the full transcript and every extracted Observation/Condition — log what is
-  // being written, not its contents.
+  // The bundle carries the transcript and the extracted resources: log the resource types only.
   console.log(
     `Transaction requests: ${requests.length} — ${requests
-      // A batch request is a union: only the write arms carry a `resource`, so a read arm is named by
-      // its method instead of reaching for a field it does not have.
       .map((request) => ('resource' in request ? request.resource.resourceType : request.method))
       .join(', ')}`
   );
@@ -536,12 +531,8 @@ export async function createResourcesFromAiInterview(
 }
 
 /**
- * The Easy Chart narrative for this transcript, or [] when there is none to store.
- *
- * BEST-EFFORT, and gated on the Easy Chart flag: the narrative is a convenience the client can regenerate
- * on demand (easy-chart-narrative), while the transcript and the Observations written in the same
- * transaction are the record of the visit. So a narrative failure is reported to Sentry and logged — never
- * swallowed silently — and the pipeline carries on without it. It must never block the write.
+ * The Easy Chart narrative for this transcript, or [] when the feature is off or generation failed.
+ * Best-effort: the client can regenerate it on demand, so a failure goes to Sentry and never blocks the write.
  */
 async function generateNarrativeBestEffort(transcript: string, secrets: Secrets | null): Promise<NarrativeLine[]> {
   if (!FEATURE_FLAGS_CONFIG.easyChartEnabled) return [];
@@ -549,7 +540,6 @@ async function generateNarrativeBestEffort(transcript: string, secrets: Secrets 
     const { lines } = await generateNarrative(transcript, secrets, 'ai-narrative');
     return lines;
   } catch (error) {
-    // The message names attempt counts and failure reasons only (see callModelForJson) — no transcript text.
     console.error(`[ai-narrative] narrative generation failed; storing the transcript without one: ${error}`);
     captureException(error);
     return [];
@@ -584,9 +574,8 @@ function createDocumentReference(
         ],
       },
     ],
-    // A provider on the document means a provider supplied the transcript — recorded, or pasted with no audio
-    // behind it (easy-chart-paste-transcript) — so it is labelled as a recording either way. Only the patient
-    // chat arrives with neither.
+    // A provider-supplied transcript (recorded, or typed in Autochart) is labelled as a recording; only the
+    // patient chat has neither audio nor a provider.
     description:
       z3URL || providerUserProfile ? DOCUMENT_REFERENCE_SUMMARY_FROM_AUDIO : DOCUMENT_REFERENCE_SUMMARY_FROM_CHAT,
     subject: {
@@ -644,11 +633,8 @@ function updateDocumentReference(
 ): BatchInputPutRequest<DocumentReference> {
   const documentReference: DocumentReference = {
     ...existingDocumentReference,
-    // The narrative on the document always matches the transcript on the document: any earlier narrative
-    // is dropped with the transcript it was drawn from, and the new one is stamped only when there is one.
-    // A run whose generation failed therefore leaves NO narrative rather than a stale one — the client
-    // generates on demand when it finds none. Every other extension (the provider, the pending-coding
-    // marker) is kept as is.
+    // The stored narrative always matches the stored transcript: the old one goes with the old text, and a
+    // failed generation leaves none rather than a stale one. Other extensions are kept.
     extension: [
       ...(existingDocumentReference.extension ?? []).filter(
         (extension) => extension.url !== EASY_CHART_NARRATIVE_EXTENSION_URL
@@ -658,8 +644,8 @@ function updateDocumentReference(
     type: {
       coding: [VISIT_CONSULT_NOTE_DOC_REF_CODING_CODE],
     },
-    // Every attachment but the transcript is kept — the recording's audio, for one — and the transcript is
-    // replaced, so a document processed again (a pending recording, or an edited transcript) never carries two.
+    // The transcript attachment is replaced and every other one (the audio) kept, so a reprocessed
+    // document never carries two transcripts.
     content: [
       ...(existingDocumentReference.content ?? []).filter(
         (content) => content.attachment?.title !== TRANSCRIPT_ATTACHMENT_TITLE
@@ -772,7 +758,7 @@ export async function generateIcdTenCodesFromNotes(
     const prompt = getIcdTenCodesPrompt(hpiText, mdmText);
     const aiResponseString = (await aiClient.invoke([{ role: 'user', content: prompt }])).content.toString();
 
-    // The suggestions are diagnoses derived from this patient's HPI/MDM — PHI. Shape only.
+    // The suggestions are derived from the patient's HPI and MDM (PHI): log the size only.
     console.log(`AI ICD-10 codes response: ${aiResponseString.length} chars`);
     let aiResponse;
     try {

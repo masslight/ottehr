@@ -6,9 +6,8 @@ import { useScribeRecommendationsStore } from './scribeRecommendations.store';
 const testIds = dataTestIds.scribeRecommendations;
 
 /**
- * The executor's question when a catalogue holds several near-equal matches and guessing would be
- * wrong: one recommendation applied on its own is interactive, and a removal always asks. Skipping is a
- * first-class answer — the step settles as skipped, with a reason, rather than hanging.
+ * Asks the provider to choose among near-equal catalogue matches (single-row applies and removals). Skipping
+ * settles the step as skipped rather than leaving it hanging.
  */
 export const PickerDialog: FC = () => {
   const pendingPick = useScribeRecommendationsStore((state) => state.pendingPick);

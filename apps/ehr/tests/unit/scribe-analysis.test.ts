@@ -103,19 +103,19 @@ describe('buildAnalysis', () => {
   it('wraps everything else as a generic row carrying the step label the executor would show', () => {
     const recs = analyse([
       // A removal is matched against the chart, not the catalogue, so it stays generic.
-      { kind: 'remove-exam-finding', display: 'Sinus tenderness', sourceText: 'sinuses are not tender' },
+      { kind: 'remove-medication', display: 'Motrin', sourceText: 'stop the Motrin' },
       { kind: 'set-disposition', dispositionType: 'pcp', text: 'Follow up with PCP in one week.' },
       { kind: 'set-em-code', code: '99213', display: 'Office visit, established, low' },
       // Another vital has no editor of its own.
       { kind: 'set-vital', field: 'vital-temperature', display: '38 C', value: 38, unit: 'C' },
     ]);
     expect(recs.map((rec) => [rec.kind, rec.section])).toEqual([
-      ['action', 'exam'],
+      ['action', 'medications'],
       ['action', 'plan'],
       ['action', 'assessment'],
       ['action', 'vitals'],
     ]);
-    expect(recs[0]).toMatchObject({ label: 'Removing exam finding: Sinus tenderness' });
+    expect(recs[0]).toMatchObject({ label: 'Removing medication: Motrin' });
     expect(recs[1]).toMatchObject({ label: 'Setting disposition: pcp', secondary: 'Follow up with PCP in one week.' });
     expect(recs[2]).toMatchObject({ label: 'Setting E&M level: 99213', secondary: 'Office visit, established, low' });
     // The wrapped action is returned untouched.
@@ -139,14 +139,13 @@ describe('buildAnalysis', () => {
         value: 170,
         unit: 'lb',
         caution: 'Patient-reported, not measured.',
-        needsProvider: true,
       },
     ]);
     expect(quoted).toMatchObject({ evidence: 'Fentanyl. I had a bad reaction.' });
     expect(quoted.note).toBeUndefined();
     expect(inferred.evidence).toBeUndefined();
     expect(inferred.note).toBe(INFERRED_NOTE);
-    expect(flagged.warning).toMatch(/^Patient-reported, not measured\. The assistant could not establish a value/);
+    expect(flagged.warning).toBe('Patient-reported, not measured.');
   });
 
   // A quote the server verified against the chart state — a resulted test behind a diagnosis — is the
@@ -284,78 +283,8 @@ describe('buildAnalysis', () => {
     expect(sectionForAction({ kind: 'edit-note-text', field: 'ros' })).toBe('ros');
     expect(sectionForAction({ kind: 'edit-note-text', field: 'chiefComplaint' })).toBe('hpi');
     expect(sectionForAction({ kind: 'add-surgical-history' })).toBe('history');
-    expect(sectionForAction({ kind: 'add-cpt', code: '99213' })).toBe('assessment');
-    expect(sectionForAction({ kind: 'add-in-house-lab' })).toBe('orders');
-    expect(sectionForAction({ kind: 'add-procedure' })).toBe('procedures');
-  });
-});
-
-describe('the narrative is the transcript, with the evidence highlighted', () => {
-  const transcript = `Provider: Any fever?\nPatient: No fever. I checked a couple of times.\nPatient: I'm about 170 pounds.`;
-
-  it('cuts the transcript into plain runs and cited runs carrying the ids of the recommendations they produced', () => {
-    const analysis = buildAnalysis(
-      plan([
-        {
-          kind: 'add-ros-finding',
-          display: 'denies fever',
-          finding: 'denies',
-          sourceText: 'No fever. I checked a couple of times.',
-        },
-        // The quote is matched the way the server matched it: punctuation is noise, so the trailing period stays plain.
-        {
-          kind: 'set-vital',
-          field: 'vital-weight',
-          display: '170 pounds',
-          value: 170,
-          unit: 'lb',
-          sourceText: "I'm about 170 pounds",
-        },
-        // Inferred, so it has no place in the story.
-        { kind: 'add-allergy', display: 'Latex' },
-      ]),
-      undefined,
-      { written: {}, narrative: transcript }
-    );
-    expect(analysis.narrativeRuns).toEqual([
-      { text: 'Provider: Any fever?\nPatient: ' },
-      { text: 'No fever. I checked a couple of times.', itemIds: ['plan:add-ros-finding:denies-fever'] },
-      { text: '\nPatient: ' },
-      { text: "I'm about 170 pounds", itemIds: ['plan:set-vital:vital-weight'] },
-      { text: '.' },
-    ]);
-  });
-
-  it('lets two recommendations share a phrase, cutting the sentence where their quotes overlap', () => {
-    const sentence = "Patient: I've had this post-nasal drip and pressure for a week.";
-    const analysis = buildAnalysis(
-      plan([
-        {
-          kind: 'edit-note-text',
-          field: 'historyOfPresentIllness',
-          newText: 'PND and sinus pressure x 1 week.',
-          sourceText: "I've had this post-nasal drip and pressure for a week.",
-        },
-        { kind: 'add-diagnosis', code: 'R09.82', display: 'Postnasal drip', sourceText: 'post-nasal drip' },
-      ]),
-      undefined,
-      { written: {}, narrative: sentence }
-    );
-    const hpi = 'plan:edit-note-text:historyOfPresentIllness';
-    expect(analysis.narrativeRuns).toEqual([
-      { text: 'Patient: ' },
-      { text: "I've had this ", itemIds: [hpi] },
-      { text: 'post-nasal drip', itemIds: [hpi, 'plan:add-diagnosis:R09-82'] },
-      { text: ' and pressure for a week.', itemIds: [hpi] },
-    ]);
-  });
-
-  it('has no narrative without a transcript, and a plain one when nothing was quoted', () => {
-    const actions: PlannedAction[] = [{ kind: 'add-allergy', display: 'Latex' }];
-    expect(buildAnalysis(plan(actions), undefined, { written: {} }).narrativeRuns).toEqual([]);
-    expect(
-      buildAnalysis(plan(actions), undefined, { written: {}, narrative: 'Allergic to latex.' }).narrativeRuns
-    ).toEqual([{ text: 'Allergic to latex.' }]);
+    expect(sectionForAction({ kind: 'set-em-code', code: '99213' })).toBe('assessment');
+    expect(sectionForAction({ kind: 'add-patient-instruction', text: 'Rest.' })).toBe('plan');
   });
 });
 
@@ -447,7 +376,7 @@ describe('exam findings', () => {
       sourceText: 'wheezing',
       resolvedLeaf: wheezing,
     });
-    // Unchosen, the executor resolves it as it always did: the picker, or the batch's auto-pick.
+    // Unchosen, the executor resolves it: the picker, or the batch's auto-pick.
     expect(toPlannedAction(tied)).toEqual({ kind: 'add-exam-finding', display: 'TM bulging' });
     const chosen = {
       ...tied,

@@ -1,6 +1,4 @@
-// The scorer must catch every failure class the twenty synthetic cases exist to detect. These
-// fixtures are hand-built action lists — a clean plan and a deliberately broken one — so the checks
-// run in CI without a model or a live environment.
+// Hand-built action lists, so the scorer runs in CI without a model or a live environment.
 
 import { describe, expect, it } from 'vitest';
 import { ChartPlanResponse, PlannedAction } from './api';
@@ -15,7 +13,7 @@ const envelope = (actions: PlannedAction[], rejected: ChartPlanResponse['rejecte
   triggers: [],
 });
 
-// Case 02 from the synthetic corpus: strep pharyngitis, established child, follow-up stated.
+// Strep pharyngitis, established child, follow-up stated.
 const CLEAN_PLAN: PlannedAction[] = [
   { kind: 'set-vital', field: 'vital-temperature', display: '102 F', value: 102, unit: 'F' },
   { kind: 'add-exam-finding', display: 'Tonsils enlarged and erythematous with white exudate' },
@@ -61,7 +59,6 @@ describe('scorePlan', () => {
     );
   });
 
-  // Case 01: "no numbness or tingling", "straight leg raise is negative bilaterally".
   it('catches a negated finding charted as an abnormality', () => {
     expect(rules(envelope([{ kind: 'add-exam-finding', display: 'No numbness' }]))).toContain(
       'negated-finding-charted'
@@ -93,7 +90,7 @@ describe('scorePlan', () => {
     ).toContain('vital-unit-unconverted');
   });
 
-  // `5.8 inches` is decimal feet written as inches. Charting it is the failure.
+  // `5.8 inches` is decimal feet written as inches.
   it('catches an implausible height that was charted instead of questioned', () => {
     expect(
       rules(envelope([{ kind: 'set-vital', field: 'vital-height', display: '5.8 inches', value: 5.8, unit: 'in' }]))
@@ -113,24 +110,12 @@ describe('scorePlan', () => {
     );
   });
 
-  it('accepts a HCPCS J-code alongside an administration CPT', () => {
-    const found = rules(
-      envelope([
-        { kind: 'add-cpt', code: '96372', display: 'Therapeutic injection, SC/IM' },
-        { kind: 'add-cpt', code: 'J1885', display: 'Ketorolac, per 15 mg' },
-      ])
-    );
-    expect(found).not.toContain('cpt-code-malformed');
-    expect(rules(envelope([{ kind: 'add-cpt', code: 'ABC' }]))).toContain('cpt-code-malformed');
-  });
-
   it('catches a stated follow-up that produced no disposition', () => {
     expect(rules(envelope([{ kind: 'set-em-code', code: '99213' }]), { expectsDisposition: true })).toContain(
       'disposition-missing'
     );
   });
 
-  // A rejection with a blank reason is a silent no-op wearing a hat.
   it('catches a skipped step with no reason', () => {
     expect(rules(envelope(CLEAN_PLAN, [{ kind: 'add-medication', reason: '' }]))).toContain('rejection-without-reason');
   });

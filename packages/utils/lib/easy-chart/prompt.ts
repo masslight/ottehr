@@ -1,24 +1,14 @@
-// Prompt assembly for the Easy Chart surfaces.
+// Prompt assembly for the plan and review surfaces.
 //
-// TWO STRUCTURAL RULES, both load-bearing:
-//
-// 1. THE STATIC BLOCK COMES FIRST, the per-call narrative and context LAST. Providers cache a stable
-//    prefix; a variable prefix re-bills the whole instruction block on every call. Everything that
-//    varies per request — templates, patient, chart state, conversation history, the narrative —
-//    lives in buildVariableTail() and nowhere else. Watch the cache-read figure in the token tally:
-//    a cache-read of zero across a session means this ordering broke.
-//
-// 2. THE PER-ACTION PROSE COMES FROM THE REGISTRY. Each capability owns its own promptDoc, and its
-//    shape line + field lines are generated from its Zod shape, so an action (or a field) cannot exist
-//    in the schema while being described in no prompt — which is exactly how
-//    five actions became unreachable in the first implementation. The surrounding instructions are
-//    hand-tuned against eval runs and are deliberately NOT generated; generating the whole prompt
-//    trades measured quality for tidiness.
+// The static instructions come first and everything per-call (patient, chart, narrative) goes in the
+// variable tail, so the provider can cache the prefix. The per-action text comes from the registry;
+// the surrounding instructions are hand-tuned against eval runs.
 
 import { Surface } from './actions';
+import { PatientStatus } from './api';
 import { capabilitiesForSurface, promptBlockFor } from './registry';
 
-export const FIXED_INSTRUCTIONS_END = '═══ END OF FIXED INSTRUCTIONS — act on the narrative + context below ═══';
+const FIXED_INSTRUCTIONS_END = '═══ END OF FIXED INSTRUCTIONS — act on the narrative + context below ═══';
 
 const PLAN_PREAMBLE = `You are an assistant helping a provider chart a clinical encounter. The provider's free-text
 NARRATIVE (everything they want done on the chart) appears at the END of this message, after the
@@ -60,15 +50,7 @@ mention:
   8. Disposition and patient-facing plan — set-disposition, add-patient-instruction.
   9. Billing — ALWAYS exactly one set-em-code.`;
 
-/**
- * The rules that are about READING A TRANSCRIPT rather than about which section to fill.
- *
- * Split out so a per-section stage gets them without a copy. Eight of the eleven plan rules turned out
- * to be of this kind — same-patient, negative confirmations, provenance, never invent negatives — which
- * is why the prompt does NOT decompose cleanly by section and why duplicating it per stage would mean
- * eight hand-tuned rules in N places to keep in sync.
- */
-const SHARED_TRANSCRIPT_RULES = `- Each step is one self-contained action. "add diagnoses X and Y" is TWO add-diagnosis steps.
+const TRANSCRIPT_RULES = `- Each step is one self-contained action. "add diagnoses X and Y" is TWO add-diagnosis steps.
 - Do not emit duplicate or redundant steps. Several edits to the same note field fold into a single
   edit-note-text carrying the combined final text.
 - Omit anything you cannot classify or that the narrative does not justify. If nothing applies,
@@ -104,202 +86,20 @@ const SHARED_TRANSCRIPT_RULES = `- Each step is one self-contained action. "add 
   "sourceText" may instead be ONE line of the ALREADY ON THE CHART block, copied exactly. It is checked
   against that block the same way.`;
 
-/** What the full planner adds on top: ordering, which only exists when a plan has several sections. */
-/**
- * The E&M level tiebreak, for the surfaces that AUTHOR a code.
- *
- * Deliberately not in `set-em-code`'s registry `promptDoc`, which is shared with the review surface —
- * review's check 4 exists to catch a level that came out too low, and a rule to round down turns that
- * check against itself. See the comment on `set-em-code` in registry.ts for the measured trade-off this
- * tiebreak represents; it is a billing-policy choice, and it applies to the first pass, not the audit.
- */
+// Plan-only: the review surface's em-level check exists to catch under-coding, so it must not be told
+// to round down. A billing-policy choice, deliberately kept as is.
 const EM_LEVEL_TIEBREAK = `- When torn between two E&M levels choose the LOWER — the goal is that a defensible level is always
   present and the provider can adjust.`;
 
-/**
- * The diagnosis-specificity rule, for the surfaces that AUTHOR a diagnosis: the full plan and the
- * diagnoses stage. Same policy as the assessment coder's "always prefer the most specific ICD-10
- * code available".
- */
 const PREFER_SPECIFIC_CODE = `- Prefer the most specific ICD-10 code the evidence supports: when a result, a finding or the
   provider's stated diagnosis pins the cause, do not fall back to an unspecified code (a positive
   strep test → streptococcal pharyngitis, not "acute pharyngitis, unspecified").`;
 
 const PLAN_RULES = `RULES:
 - Steps must be in the canonical order above.
-${SHARED_TRANSCRIPT_RULES}
+${TRANSCRIPT_RULES}
 ${PREFER_SPECIFIC_CODE}
 ${EM_LEVEL_TIEBREAK}`;
-
-const FINDINGS_PREAMBLE = `You are recording the OBJECTIVE FINDINGS of a clinical encounter from the provider's free-text
-NARRATIVE, which appears at the END of this message after the instructions, along with the per-visit
-context: the patient and what is ALREADY ON THE CHART.
-
-Your ONLY job on this call is the physical exam, the review of systems, and the vitals. Diagnoses, the
-note's free text, orders, codes and the disposition are charted by other calls and are NOT yours — do
-not emit them, and do not let them distract from the one thing that is.
-
-BE EXHAUSTIVE. Every exam finding the provider describes, every symptom the patient reports OR denies,
-every reading spoken aloud. These sections are long by nature and are the ones a general pass leaves
-half-finished; there is nothing else competing for your output here, so go through the narrative to the
-end and chart all of it.
-
-THE NARRATIVE IS A REAL-TIME RECORD — a LATER statement that revises an earlier one GOVERNS. If the
-provider re-examines and finds something different, chart the FINAL version.
-
-Return a JSON object with an "actions" array.`;
-
-const FINDINGS_RULES = `RULES:
-${SHARED_TRANSCRIPT_RULES}
-- ORDER DOES NOT MATTER on this call — there is only one section group, so chart findings as you meet
-  them in the narrative rather than sorting them.`;
-
-/**
- * The remaining stages, in the order the graph runs them.
- *
- * Each is a PREAMBLE plus its own rules; the vocabulary, the response schema and the per-action prose all
- * come from the registry keyed on the surface, so a stage costs only the prose below. The shared
- * transcript rules are included by reference rather than copied — they were tuned against eval runs, and
- * eight of the eleven plan rules are of that kind.
- *
- * WHAT EACH STAGE MAY SEE is not expressed here but in WHEN it runs: every stage is handed the chart as
- * it stands after the previous ones, through the ALREADY ON THE CHART and CURRENT NOTE TEXT blocks. That
- * is why the later stages can be told to reason about what is already there without being told what it is.
- */
-const STAGE_SCOPE_NOTE = `Other calls chart the rest of this visit. Emit ONLY the actions listed below —
-anything else is not yours, and the vocabulary here does not contain it.`;
-
-const HISTORY_PREAMBLE = `You are recording the patient's BACKGROUND from the provider's free-text NARRATIVE, which appears at
-the END of this message: allergies, past medical history, home medications, past surgeries and past
-hospitalizations.
-
-${STAGE_SCOPE_NOTE}
-
-This is history, NOT today's visit. Today's diagnoses, today's exam and today's orders belong to other
-calls. A condition the patient is being diagnosed with now is not past medical history; a medication
-being prescribed now is not a home medication.
-
-Return a JSON object with an "actions" array.`;
-
-const HISTORY_RULES = `RULES:
-${SHARED_TRANSCRIPT_RULES}
-- THE NEGATIVE-CONFIRMATION RULE MATTERS MOST HERE, because this is where those statements are made.
-  "No known drug allergies"/"NKDA", "no current medications", "PMH unremarkable", "no prior surgeries",
-  "no hospitalizations" are NOT chartable items — emit nothing for them. They belong in the note's free
-  text, which another call writes.`;
-
-const STORY_PREAMBLE = `You are writing the NARRATIVE FIELDS of a visit note from the provider's free-text NARRATIVE, which
-appears at the END of this message.
-
-${STAGE_SCOPE_NOTE}
-
-Exactly three fields are yours: chiefComplaint, historyOfPresentIllness and mechanismOfInjury. The
-medical decision making is written by a LATER call that can see the diagnoses and the orders — do NOT
-write it here, and do not emit edit-note-text for "medicalDecision" or "ros".
-
-This is also the call that SPEAKS to the provider. If the narrative asks a question, or contains
-something they need told rather than charted, that is a reply or a provider-note and it belongs here —
-the other calls chart and say nothing.
-
-Return a JSON object with an "actions" array.`;
-
-const STORY_RULES = `RULES:
-${SHARED_TRANSCRIPT_RULES}
-- Emit AT MOST ONE edit-note-text per field, carrying that field's complete final text.`;
-
-const ORDERS_PREAMBLE = `You are recording what was ORDERED OR PERFORMED at this visit, from the provider's free-text
-NARRATIVE at the END of this message: lab tests, imaging, procedures and nursing orders.
-
-${STAGE_SCOPE_NOTE}
-
-The diagnoses are already on the chart — see ALREADY ON THE CHART below. Orders are filed against them,
-so read them before you decide what was ordered and why.
-
-ONLY WHAT THIS VISIT ORDERED OR DID. A test whose RESULT is being discussed was ordered earlier and is
-not a new order; a procedure the provider says they are NOT doing is not a procedure.
-
-Return a JSON object with an "actions" array.`;
-
-const ORDERS_RULES = `RULES:
-${SHARED_TRANSCRIPT_RULES}`;
-
-const PLAN_TEXT_PREAMBLE = `You are writing the PLAN of a visit note from the provider's free-text NARRATIVE at the END of this
-message: the medical decision making, the patient instructions and the disposition.
-
-${STAGE_SCOPE_NOTE}
-
-Everything charted so far is below — the diagnoses, the exam. The MDM is the reasoning that
-connects them: what was considered, what was ruled out, what was done and why. Write it against what is
-actually on the chart, not against what you would have charted.
-
-Your edit-note-text is for "medicalDecision" ONLY. The chief complaint, the HPI and the mechanism of
-injury were written by an earlier call — do not rewrite them.
-
-Return a JSON object with an "actions" array.`;
-
-const PLAN_TEXT_RULES = `RULES:
-${SHARED_TRANSCRIPT_RULES}
-- Emit AT MOST ONE edit-note-text, for "medicalDecision", carrying its complete final text.`;
-
-const CODING_PREAMBLE = `You are assigning the BILLING CODES for this visit from the chart as it now stands, shown below, and
-the provider's free-text NARRATIVE at the END of this message.
-
-${STAGE_SCOPE_NOTE}
-
-You run LAST, and that is the point: the E&M level follows from the documented complexity — the history,
-the exam, the diagnoses and the medical decision making, all of which are now on the chart below. Read
-them before you choose.
-
-Return a JSON object with an "actions" array.`;
-
-const CODING_RULES = `RULES:
-${SHARED_TRANSCRIPT_RULES}
-- ALWAYS emit exactly one set-em-code. Every visit is coded; there is no visit that gets none, and
-  there is no visit that gets two.
-${EM_LEVEL_TIEBREAK}`;
-
-const TEMPLATE_PREAMBLE = `You are deciding whether one of this practice's saved TEMPLATES fits this visit, from the provider's
-free-text NARRATIVE at the END of this message.
-
-${STAGE_SCOPE_NOTE}
-
-This is the FIRST call of the visit and the only one that may SUGGEST a template. The suggestion is NOT
-applied here — the provider applies a template by hand, later, if they agree — so nothing it would bring
-is on the chart when the later calls run, and they chart the visit completely on their own. THE CHART IS
-EMPTY and the narrative is all you have — there is no diagnosis to match against yet, because nothing has
-charted one. Match on the PRESENTATION the provider describes, in their words.
-
-Emit ONE apply-template, or NOTHING. Never two.
-
-Return a JSON object with an "actions" array.`;
-
-const TEMPLATE_RULES = `RULES:
-${SHARED_TRANSCRIPT_RULES}
-- IMPORTANT: When no template clearly corresponds to this visit's primary presentation, return an EMPTY actions
-  array. No template is a good outcome; the wrong one is not.`;
-
-const DIAGNOSES_PREAMBLE = `You are assigning this visit's DIAGNOSES from the provider's free-text NARRATIVE at the END of this
-message, and from what is already on the chart below.
-
-${STAGE_SCOPE_NOTE}
-
-STATED DIAGNOSIS WINS. When the provider explicitly names the diagnosis ("this is a urinary tract
-infection"), chart THAT as the primary — never substitute a more severe or more specific condition
-INFERRED FROM THE FINDINGS. Flank tenderness does not upgrade a stated UTI to pyelonephritis. An
-escalated condition may appear as a SECONDARY only when the provider actually voiced it as suspected,
-never because the findings could support it. The exam, the ROS and the vitals are below so you can see
-what was examined — not so you can diagnose from them.
-
-A diagnosis ALREADY ON THE CHART stays and is not re-emitted. This call only ADDS: a charted diagnosis the
-narrative does not support is the review pass's business, not yours.
-
-Return a JSON object with an "actions" array.`;
-
-const DIAGNOSES_RULES = `RULES:
-${SHARED_TRANSCRIPT_RULES}
-${PREFER_SPECIFIC_CODE}
-- Exactly ONE diagnosis carries isPrimary=true across the whole visit. When the chart already has a
-  primary, an addition is secondary — do not usurp it.`;
 
 const REVIEW_PREAMBLE = `You are a clinical documentation reviewer. A provider just charted a visit note from the NARRATIVE
 that appears at the END of this message; the structured items now on the chart are in the ALREADY ON
@@ -307,14 +107,14 @@ THE CHART block beside it. Your job is to surface clarifications the provider ca
 CLICK to improve the note.
 
 You are correcting a note, not charting a visit, so your vocabulary is deliberately narrow. Work
-through all ten checks below and emit one suggestion for EACH check that finds a real gap (commonly
+through all nine checks below and emit one suggestion for EACH check that finds a real gap (commonly
 two to five in total). Do not invent low-value suggestions, and do not skip a check that genuinely
 applies. If truly nothing warrants a prompt, return {"suggestions": []}.
 
 Each suggestion carries its own actions[] — accepting a card just runs those actions — plus a short
 "question" the provider reads on the card and, where required below, a "rationale".`;
 
-const REVIEW_CHECKS = `THE TEN CHECKS:
+const REVIEW_CHECKS = `THE NINE CHECKS:
 
 1) "med-name" — a medication in the note looks misheard or garbled by speech-to-text, or is not a
    real drug, and you can identify the intended one ("Ciner" → "Cefdinir"; a 14 mg/kg once-daily dose
@@ -445,133 +245,44 @@ const REVIEW_RULES = `RULES:
   one word with any line actually on the chart.`;
 
 function actionShapesBlock(surface: Surface): string {
-  // `authoringDoc` is for the surfaces that COMPOSE a note. Review corrects one that is already
-  // written, so it gets the action's shape and the rules about what may be charted, and none of the
-  // guidance about writing content from scratch — see the field's doc comment in registry.ts.
-  // The shape line and the per-field lines are generated from the kind's Zod shape, so an action
-  // cannot offer a field the prompt never mentions.
   const authoring = surface !== 'review';
   const docs = capabilitiesForSurface(surface).map((kind) => promptBlockFor(kind, authoring));
   return `ACTION SHAPES — these are the ONLY action kinds that exist. Anything not listed here cannot be
 charted through this interface.\n\n${docs.join('\n\n')}`;
 }
 
-/**
- * The cacheable prefix for a surface. Deterministic: same registry in, same bytes out. Callers must
- * not interpolate anything into it.
- */
-/** Per-stage prose. A surface absent here is not a stage and falls through to the full-plan branch. */
-const STAGE_PROSE: Partial<Record<Surface, { preamble: string; rules: string }>> = {
-  template: { preamble: TEMPLATE_PREAMBLE, rules: TEMPLATE_RULES },
-  diagnoses: { preamble: DIAGNOSES_PREAMBLE, rules: DIAGNOSES_RULES },
-  findings: { preamble: FINDINGS_PREAMBLE, rules: FINDINGS_RULES },
-  history: { preamble: HISTORY_PREAMBLE, rules: HISTORY_RULES },
-  story: { preamble: STORY_PREAMBLE, rules: STORY_RULES },
-  orders: { preamble: ORDERS_PREAMBLE, rules: ORDERS_RULES },
-  'plan-text': { preamble: PLAN_TEXT_PREAMBLE, rules: PLAN_TEXT_RULES },
-  coding: { preamble: CODING_PREAMBLE, rules: CODING_RULES },
-};
-
-/**
- * A file whose contents REPLACE the static instructions, for A/B-testing a prompt end to end.
- *
- * Local experiment hook, in the same spirit as EASY_CHART_LOG_RESPONSE: the only way to answer "is the
- * difference the prompt or something else" is to run one implementation's prose through the other's
- * everything else. Comparing the two texts by eye cannot settle it — it did not, three times.
- *
- * Unset in every deployed environment, and it must stay that way: the prose here is version-controlled
- * beside the registry that generates half of it, and a prompt loaded from a path on someone's disk is a
- * prompt nobody can review. Applies to the PLAN surface only, so a stage or the review pass cannot be
- * silently swapped out from under its own vocabulary.
- */
-function promptOverride(): string | undefined {
-  const path = process.env.EASY_CHART_PROMPT_FILE;
-  if (!path) return undefined;
-  try {
-    // Required lazily: this module is imported by the browser bundle, which has no fs.
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { readFileSync } = require('node:fs') as typeof import('node:fs');
-    return readFileSync(path, 'utf8');
-  } catch (error) {
-    console.error(`[easy-chart] EASY_CHART_PROMPT_FILE could not be read: ${String(error)}`);
-    return undefined;
-  }
-}
-
+/** The cacheable prefix for a surface: same registry in, same bytes out. */
 export function buildStaticInstructions(surface: Surface): string {
-  if (surface === 'plan') {
-    const override = promptOverride();
-    if (override) return override;
-  }
   if (surface === 'review') {
     return [REVIEW_PREAMBLE, REVIEW_CHECKS, actionShapesBlock('review'), REVIEW_RULES].join('\n\n');
   }
-  // No ORDERING block for a stage: it has no canonical order of its own, and leaving the plan's in would
-  // tell the model to sort by sections it cannot emit.
-  const stage = STAGE_PROSE[surface];
-  if (stage) return [stage.preamble, actionShapesBlock(surface), stage.rules].join('\n\n');
   return [PLAN_PREAMBLE, PLAN_ORDERING, actionShapesBlock('plan'), PLAN_RULES].join('\n\n');
 }
 
 export interface PromptTailInput {
-  /** The provider's dictation, paste, or typed request. Always last. */
   narrative: string;
-  /** The provider's corrections to the AI read-back, rendered only when the two differ. See ChartPlanRequest. */
+  /** The provider's corrections to the generated narrative; rendered only when the two texts differ. */
   providerEdits?: { draft: string; edited: string };
-  /** Practice template titles. Empty list is stated explicitly rather than omitted. */
+  /** Practice template titles; only rendered on a surface that offers apply-template. */
   templateTitles?: string[];
-  /** Title of the template the provider applied to this visit by hand, server-validated. See ChartPlanRequest. */
-  appliedTemplate?: string;
-  /**
-   * Authoritative demographics, read from the chart — NEVER inferred from the narrative. Ambient
-   * recordings contain cross-talk about other patients.
-   */
+  /** Age and sex read from the chart, never inferred from the narrative. */
   patientLine?: string;
-  /**
-   * "new" / "established" / undefined. Drives the E&M code family; undefined must read as unknown so
-   * the model defaults to established rather than guessing.
-   */
-  patientStatus?: 'new' | 'established';
-  /** A summary of what is already on the chart, so the model neither duplicates nor invents removals. */
+  /** Decides the E&M code family; unknown falls back to the established family. */
+  patientStatus?: PatientStatus;
   chartStateSummary?: string;
-  /** Current free-text note fields, so the model can edit in place rather than overwrite. */
   noteContext?: string;
-  /** Bounded conversation digest — provider turns verbatim, assistant turns one line per action. */
-  historyDigest?: string;
-  /**
-   * True when the note is already written and this narrative only adds to it.
-   * NOTE the distinction that bit a previous version: a non-empty chartState does NOT mean
-   * incremental. A first dictation for a patient whose history came from intake paperwork has a
-   * non-empty chart state and still needs the full pass. Getting this wrong silently dropped the
-   * template/exam/E&M scaffolding for every patient with intake history.
-   */
-  incremental?: boolean;
-  /**
-   * A deterministic instruction the surface force-includes for THIS call. Used where leaving a check to
-   * the model's discretion measured as unreliable: the disposition check's coverage swung 53% → 36% →
-   * 35% across runs of the same corpus with no code change. Goes LAST so the stable prefix stays cacheable.
-   */
+  /** A deterministic instruction the caller forces for this call; rendered last. */
   mustAddress?: string;
 }
 
-/**
- * Rides directly under a non-empty ALREADY ON THE CHART block. The chart state now carries resulted labs and
- * radiology reports (see chart-state.ts), and without this the model read them two wrong ways: as things to
- * order again, and as nothing at all when the narrative never mentioned the result.
- */
 const CHART_RESULTS_NOTE = `Resulted tests ("… lab resulted: …") and radiology reports ("Radiology reported: …") above are FINDINGS
 of THIS visit. Use them for the ASSESSMENT (diagnoses) and the MEDICAL DECISION MAKING. Do NOT derive
 orders, medications or patient instructions from them — those come only from what the provider said.`;
 
-/** Everything that varies per call, in one block, appended after the static instructions. */
+/** Everything that varies per call, appended after the static instructions. */
 export function buildVariableTail(surface: Surface, input: PromptTailInput): string {
   const parts: string[] = [];
 
-  // ONLY where apply-template exists. The block used to render on every surface, so the review pass
-  // was handed the practice's whole template list and a rule about an action it cannot emit — and when
-  // no titles were passed, the words "Do NOT emit apply-template" for an action that was never on
-  // offer. Keyed off the vocabulary rather than a hardcoded surface list so a new surface gets this
-  // right by construction.
   if (capabilitiesForSurface(surface).includes('apply-template')) {
     const titles = input.templateTitles ?? [];
     parts.push(
@@ -587,18 +298,6 @@ export function buildVariableTail(surface: Surface, input: PromptTailInput): str
     parts.push(`PATIENT (authoritative — take age and sex from here, never from the narrative):\n${input.patientLine}`);
   }
 
-  // Name the E&M FAMILY, not just the status.
-  //
-  // The two branches were asymmetric in the worst direction: the one with NO information spelled out
-  // which family to use, and the one that actually knew the answer stated a bare fact and left the model
-  // to derive the family from it. Measured on the harvested corpus, where 30 of 40 gold codes are 99204:
-  // in the 23 cases the status was supplied at all, E&M came out exact 11 times. `set-em-code` is scored
-  // on the code, and the family is half the code — so the line that carries the status has to say what
-  // the status IMPLIES.
-  //
-  // The unknown branch keeps directing to the established family on purpose: it is the conservative
-  // billing choice when the chart cannot say. Note what that costs in an eval — a case whose status
-  // never reached the prompt is not measuring the model's coding, it is measuring this fallback.
   parts.push(
     input.patientStatus === 'new'
       ? 'PATIENT STATUS (authoritative — from the chart): NEW patient — no professional services in the past 3 years. Use the NEW-patient E&M family (99202-99205) for set-em-code.'
@@ -606,17 +305,6 @@ export function buildVariableTail(surface: Surface, input: PromptTailInput): str
       ? 'PATIENT STATUS (authoritative — from the chart): ESTABLISHED patient. Use the established-patient E&M family (99212-99215) for set-em-code.'
       : 'PATIENT STATUS: unknown — do not guess; use the established-patient E&M family (99212-99215).'
   );
-
-  // THE FACT ONLY, and deliberately nothing more.
-  //
-  // A first version added a paragraph here telling the stage to treat the template's contents as defaults
-  // and confirm them against the narrative. That instruction cannot be followed: the chart state lists
-  // rows and never says which came from a template, so the model was told to find something it has no way
-  // to identify. It went looking anyway, and blind removals rose from 11 to 29. Stating the fact and
-  // leaving the reasoning to the stage's own rules is what the tail is for.
-  if (input.appliedTemplate?.trim()) {
-    parts.push(`TEMPLATE APPLIED THIS VISIT: "${input.appliedTemplate.trim()}"`);
-  }
 
   if (input.noteContext) parts.push(`CURRENT NOTE TEXT:\n${input.noteContext}`);
 
@@ -626,19 +314,6 @@ export function buildVariableTail(surface: Surface, input: PromptTailInput): str
       : 'ALREADY ON THE CHART: nothing. The chart is currently EMPTY — there are no diagnoses, medications, allergies or other items on it, so there is NOTHING to remove. Do NOT emit any remove-* step.'
   );
 
-  if (input.incremental) {
-    parts.push(
-      `THIS IS AN INCREMENTAL TURN. The note is already written and this narrative only adds to it. Chart ONLY what is new. The ALREADY ON THE CHART block above is the truth about what exists; anything listed there is already done and must not be emitted again.`
-    );
-  }
-
-  if (input.historyDigest) {
-    parts.push(
-      `CONVERSATION SO FAR (for reference only — the chart state above is the truth about what exists; chart only what is new):\n${input.historyDigest}`
-    );
-  }
-
-  // Only when the provider actually changed something: an unedited read-back adds nothing to the transcript.
   const draft = input.providerEdits?.draft.trim();
   const edited = input.providerEdits?.edited.trim();
   if (draft && edited && draft !== edited) {
@@ -649,14 +324,12 @@ export function buildVariableTail(surface: Surface, input: PromptTailInput): str
 
   parts.push(`The provider's free-text NARRATIVE:\n"""\n${input.narrative}\n"""`);
 
-  // LAST, and unconditional in position: a forced instruction is the only thing allowed to override the
-  // model's own read of the checks, so it must not be buried above the narrative.
   if (input.mustAddress?.trim()) parts.push(`MUST ADDRESS THIS CALL:\n${input.mustAddress.trim()}`);
 
   return parts.join('\n\n');
 }
 
-/** Static prefix + variable tail, in that order. The only supported way to build a prompt. */
+/** Static prefix + variable tail: the only supported way to build a prompt. */
 export function buildPrompt(surface: Surface, tail: PromptTailInput): string {
   return `${buildStaticInstructions(surface)}\n\n${FIXED_INSTRUCTIONS_END}\n\n${buildVariableTail(surface, tail)}`;
 }

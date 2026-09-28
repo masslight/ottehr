@@ -12,10 +12,6 @@ import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-d
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { StepOutcome } from '../../src/features/easy-chart/executor/types';
 
-// ============================================================================
-// FIXTURES — what the plan endpoint answers for the narrative under test
-// ============================================================================
-
 const envelope = { usage: [], escalation: { attempts: 1, escalated: false, failures: [] }, triggers: [] };
 
 const PLAN: ChartPlanResponse = {
@@ -138,10 +134,6 @@ const ID = {
   examTenderness: 'plan:add-exam-finding:Sinus-tenderness',
   temperature: 'plan:set-vital:vital-temperature',
 };
-
-// ============================================================================
-// MOCKS
-// ============================================================================
 
 const mocks = vi.hoisted(() => ({
   /**
@@ -267,7 +259,7 @@ vi.mock('../../src/features/visits/shared/stores/appointment/appointment.store',
   useChartData: () => ({ chartData: mocks.chartData }),
 }));
 
-// The HPI section the charted predicate reads: nothing written, as before.
+// The HPI section the charted predicate reads: empty.
 vi.mock('../../src/features/visits/shared/hooks/useChartSection', () => ({
   useChartSection: () => ({ data: undefined }),
 }));
@@ -337,14 +329,9 @@ import { ScribeRecommendation } from '../../src/features/visits/shared/component
 import { useExamObservationsStore } from '../../src/features/visits/shared/stores/appointment/exam-observations.store';
 import { useRosObservationsStore } from '../../src/features/visits/shared/stores/appointment/ros-observations.store';
 
-// ============================================================================
-// HELPERS
-// ============================================================================
-
 const testIds = dataTestIds.scribeRecommendations;
 
-// The app always renders under a QueryClientProvider; the narrative generator reaches for the query client
-// to refresh chart data after a document is stamped, so the drawer needs one here too.
+// The narrative generator uses the query client to refresh chart data, so the drawer needs a provider.
 const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 const Wrapper = ({ children }: { children: ReactNode }): JSX.Element => (
   <QueryClientProvider client={queryClient}>
@@ -375,11 +362,8 @@ const resetStore = (): void => {
     speculativePlans: {},
     phase: 'input',
     analysisError: undefined,
-    narrativeRuns: [],
     recommendations: [],
     itemState: {},
-    orderSuggestions: [],
-    ordersDone: {},
     rejected: [],
     notes: [],
     isApplying: false,
@@ -388,11 +372,7 @@ const resetStore = (): void => {
   });
 };
 
-/**
- * The narrative the plan is read from. A transcript reaches the panel only as a document on the visit —
- * recorded, or pasted and stored by the server — so a test that wants a narrative to plan puts one in the
- * store, exactly as picking a transcript chip or typing into the editor would leave it.
- */
+/** The narrative to plan, seeded into the store as picking a transcript or typing would leave it. */
 const NARRATIVE =
   'Patient reports post-nasal drip and sinus pressure for about a week, with afternoon headaches and ' +
   'morning eye crusting. Denies fever, ear pain and sore throat. Taking ibuprofen and an antihistamine.';
@@ -411,27 +391,24 @@ const openPanelWithRecommendations = async (user: ReturnType<typeof userEvent.se
 const rowCheckbox = (id: string): HTMLInputElement =>
   within(screen.getByTestId(testIds.rowCheckbox(id))).getByRole('checkbox') as HTMLInputElement;
 
-/** A row that has landed in the chart says so by turning its own checkbox green, and settling. */
+/** A charted row shows a checked, disabled, green checkbox. */
 const expectCharted = (id: string): void => {
   expect(rowCheckbox(id)).toBeChecked();
   expect(rowCheckbox(id)).toBeDisabled();
   expect(screen.getByTestId(testIds.rowCheckbox(id))).toHaveClass('MuiCheckbox-colorSuccess');
 };
 
-/** Nothing in the editor is confirmed: looking away is what closes it, and what saves it. */
+/** Clicking away closes and saves the editor. */
 const lookAway = async (user: ReturnType<typeof userEvent.setup>): Promise<void> => user.click(document.body);
 
-/**
- * A pending row carries no box to tick — the tick lives in the editor — so unticking one means
- * opening the line, unticking it there, and looking away again.
- */
+/** A pending row's checkbox lives in its editor: open it, untick, click away. */
 const untick = async (user: ReturnType<typeof userEvent.setup>, id: string): Promise<void> => {
   await user.click(screen.getByTestId(testIds.rowEditButton(id)));
   await user.click(rowCheckbox(id));
   await lookAway(user);
 };
 
-/** With no box on the line, a row that is not going in says so by striking itself through. */
+/** An unticked pending row has no checkbox and is struck through. */
 const expectUnticked = (id: string): void => {
   expect(screen.queryByTestId(testIds.rowCheckbox(id))).toBeNull();
   expect(screen.getByTestId(testIds.rowText(id))).toHaveStyle({ textDecoration: 'line-through' });
@@ -448,10 +425,6 @@ const appliedAction = (id: string): unknown =>
 
 /** What the provider had typed into the HPI before the transcript arrived: nine words. */
 const EXISTING_HPI = 'The HPI the provider typed before the transcript arrived.';
-
-// ============================================================================
-// TESTS
-// ============================================================================
 
 describe('ScribeRecommendationsDrawer', () => {
   beforeEach(() => {
@@ -625,8 +598,7 @@ describe('ScribeRecommendationsDrawer', () => {
     const template = screen.getByTestId(testIds.stage('template'));
     const observationsStage = screen.getByTestId(testIds.stage('observations'));
 
-    // the leads carry the sequence, so the stages need no numbering of their own. The narrative is not one
-    // of them: it stays above, in the editor the plan was run from.
+    // the narrative is not a stage; it stays above, in the editor
     expect(
       screen
         .getAllByRole('region')
@@ -643,8 +615,7 @@ describe('ScribeRecommendationsDrawer', () => {
     expect(screen.queryByTestId(testIds.rowCheckbox(ID.template))).toBeNull();
     expect(screen.queryByTestId(testIds.group('template'))).toBeNull();
 
-    // stage two holds every observation, grouped by the section it writes into. No pending row carries a
-    // checkbox — they are all going in unless the provider says otherwise, and the tick lives in the editor.
+    // observations are grouped by section; pending rows carry no checkbox (the tick lives in the editor)
     expect(within(observationsStage).queryAllByRole('checkbox')).toHaveLength(0);
     ['hpi', 'assessment', 'ros', 'exam', 'vitals', 'allergies', 'medications'].forEach((section) => {
       const group = within(observationsStage).getByTestId(testIds.group(section));
@@ -722,8 +693,7 @@ describe('ScribeRecommendationsDrawer', () => {
     const before = rowOrder();
     expect(before[0]).toBe(testIds.rowFinding(ID.eyeDischarge));
 
-    // flipping the first positive to a denial used to re-sort it to the bottom, so the next click
-    // landed on whichever row slid up into its place
+    // re-sorting on a flip would move the row out from under the next click
     act(() => {
       useScribeRecommendationsStore
         .getState()
@@ -851,8 +821,7 @@ describe('ScribeRecommendationsDrawer', () => {
     const user = userEvent.setup();
     await openPanelWithRecommendations(user);
 
-    // the exam finding's words are what gets looked up, and the new words are looked up again on save:
-    // the box changes with them, here from the plain sinus box to its maxillary option
+    // reworded exam findings are looked up again on save, here moving to the maxillary option
     expect(screen.getByTestId(testIds.examLeaf(ID.examTenderness))).toHaveTextContent('→ Nose: Sinus tenderness');
     await user.click(screen.getByTestId(testIds.rowEditButton(ID.examTenderness)));
     const wording = screen.getByTestId(testIds.rowEditInput(ID.examTenderness));
@@ -877,7 +846,7 @@ describe('ScribeRecommendationsDrawer', () => {
     await user.type(again, 'warm{Enter}');
     expect(screen.getByTestId(testIds.rowText(ID.temperature))).toHaveTextContent('Recording temperature: 38.2 C');
 
-    // a coded row has no wording to edit, and says so by offering no pencil
+    // every pending row offers a pencil, coded ones included
     expect(screen.queryByTestId(testIds.rowEditButton(ID.dxSinusitis))).not.toBeNull();
 
     await user.click(screen.getByTestId(testIds.applyObservationsButton));
@@ -885,8 +854,7 @@ describe('ScribeRecommendationsDrawer', () => {
       expect(screen.getByTestId(testIds.rowCheckbox(ID.temperature))).toHaveClass('MuiCheckbox-colorSuccess')
     );
     const applied = mocks.applyOne.mock.calls.map(([rec]) => rec as ScribeRecommendation);
-    // The reworded finding goes to the executor with the box the new words resolved to, so it ticks that
-    // one rather than searching the words a second time.
+    // The reworded finding carries its resolved box, so the executor doesn't search the words again.
     expect(appliedAction(ID.examTenderness)).toMatchObject({
       kind: 'add-exam-finding',
       display: 'Maxillary sinus tenderness',
@@ -1192,8 +1160,7 @@ describe('ScribeRecommendationsDrawer', () => {
     expect(screen.getByTestId(testIds.selectionSummary)).toHaveTextContent(`${before - 1} of ${before - 1} selected`);
   });
 
-  // An exam finding is looked up in the exam's checkboxes when the list is built, so the row says which box it
-  // will tick, lets the provider choose among near-equal ones, or says where a miss goes — all before apply.
+  // Exam findings are resolved to checkboxes when the list is built, so rows show their box before apply.
   describe('exam findings', () => {
     const TM_BULGING = 'plan:add-exam-finding:TM-bulging';
     const HOMAN = 'plan:add-exam-finding:Malodorous';
@@ -1309,12 +1276,12 @@ describe('ScribeRecommendationsDrawer', () => {
 
     const quote = "I'm about 170 pounds.";
     const caution = 'Patient-reported, not measured.';
-    // the row shows neither; the quote is on screen only as a run of the transcript above
+    // the row shows neither the quote nor the caution
     const row = screen.getByTestId(testIds.row(ID.weight));
     expect(within(row).queryByText(quote)).toBeNull();
     expect(within(row).queryByText(caution)).toBeNull();
 
-    // hovering the line reads it: there is no "i" to press, and nothing to pin open
+    // hovering the line shows both
     await user.hover(row);
     const tooltip = await screen.findByRole('tooltip');
     expect(within(tooltip).getByText(quote)).toBeVisible();
@@ -1338,7 +1305,7 @@ describe('ScribeRecommendationsDrawer', () => {
 
     const row = screen.getByTestId(testIds.row(ID.fentanyl));
     await user.click(within(row).getByText('Fentanyl'));
-    // the same editor the narrative popover opens: the tick and the field, and nothing to press
+    // the tick and the field, with no Save or Cancel
     expect(within(row).getByTestId(testIds.rowEditInput(ID.fentanyl))).toHaveValue('Fentanyl');
     expect(rowCheckbox(ID.fentanyl)).toBeChecked();
     expect(within(row).queryByRole('button', { name: /save|cancel/i })).toBeNull();
@@ -1360,8 +1327,7 @@ describe('ScribeRecommendationsDrawer', () => {
     expect(rowCheckbox(ID.examTenderness)).toBeChecked();
     await lookAway(user);
 
-    // and applying the template is not editing which template it is, though its own line is
-    // otherwise clickable the same way
+    // the template's apply button doesn't open its editor
     await user.click(screen.getByTestId(testIds.templateApplyButton));
     expect(screen.getByTestId('template-preview-dialog')).toBeVisible();
     expect(screen.queryByTestId(testIds.rowEditInput(ID.template))).toBeNull();
@@ -1402,8 +1368,7 @@ describe('ScribeRecommendationsDrawer', () => {
     await user.clear(input);
     await user.type(input, 'Fentanyl patch');
 
-    // clicking another line puts the first one away, with what was typed in it kept — and that
-    // is all it does: the line clicked on stays closed until it is clicked on its own
+    // clicking another line only closes (and saves) the open one; the clicked line stays closed
     await user.click(screen.getByTestId(testIds.rowText(ID.claritin)));
     expect(screen.queryByTestId(testIds.rowEditInput(ID.fentanyl))).toBeNull();
     expect(screen.queryByTestId(testIds.rowEditInput(ID.claritin))).toBeNull();
@@ -1470,9 +1435,7 @@ describe('ScribeRecommendationsDrawer', () => {
 });
 
 describe('plans read ahead of the click', () => {
-  // The store's own rules, driven directly: picking a transcript reads its plan in the background, the
-  // first edit to the narrative drops it, and "Plan note" reuses it when the text is still what it was read
-  // for. The endpoint is a counting fake, so every rule is a statement about how many calls were made.
+  // Drives the store directly against a counting fake endpoint, so each rule is asserted as a call count.
   const transcriptDocument = (id: string, transcript: string, narrative?: NarrativeLine[]): DocumentReference => ({
     resourceType: 'DocumentReference',
     id,
@@ -1562,12 +1525,6 @@ describe('plans read ahead of the click', () => {
     expect(analyzer.calls).toHaveBeenCalledTimes(1);
     expect(store().phase).toBe('ready');
     expect(store().recommendations.map((rec) => rec.id)).toContain(ID.dxSinusitis);
-    // the narrative told back is the draft, as on the live path
-    expect(
-      store()
-        .narrativeRuns.map((run) => run.text)
-        .join('')
-    ).toBe(TEXT_A);
   });
 
   it('plans live when the narrative was edited, and after a read-ahead that failed', async () => {
@@ -1652,7 +1609,7 @@ describe('applyRecommendations', () => {
     },
   ];
 
-  /** A runner that settles each row from `applyOne`: nothing back is applied, an outcome is that outcome, a throw fails it. */
+  /** Settles each row from `applyOne`: no result means applied, an outcome is used as is, a throw fails it. */
   const runnerFrom =
     (applyOne: (rec: ScribeRecommendation) => Promise<StepOutcome | void>): RecommendationRunner =>
     async (recs, report) => {

@@ -1,62 +1,31 @@
-// The contracts the Easy Chart executor runs against.
-//
-// Everything the executor touches the outside world through is an INTERFACE — the catalogue, the
-// chart writer, the "ask the provider" callback. That is what makes the step machine testable
-// without a model, a network, or a rendered page: given an action list, its behaviour is
-// deterministic.
+// The contracts the Easy Chart executor runs against. Everything outside it (catalogues, the chart
+// writer, the provider's picks) is an interface, so a plan can be executed against fakes in tests and in
+// the eval harness.
 
-import { Encounter } from 'fhir/r4b';
 import { ExamLeaf } from 'utils/lib/config-helpers/exam-leaves';
-import { Action, ActionKind, ActionOfKind } from 'utils/lib/easy-chart/actions';
+import { ActionKind, ActionOfKind } from 'utils/lib/easy-chart/actions';
 import { PlannedAction } from 'utils/lib/easy-chart/api';
 import { NoteChartKey } from 'utils/lib/easy-chart/note-fields';
-import { FreeTextNoteDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import {
-  CreateLabPaymentMethod,
-  ModifiedOrderingLocation,
-  OrderableItemSearchResult,
-} from 'utils/lib/types/data/labs/labs.types';
-import { ProcedureQuickPickContext } from './procedure-quick-pick';
+  AllChartValues,
+  AllChartValuesKeys,
+  FreeTextNoteDTO,
+  SaveableDTO,
+} from 'utils/lib/types/api/chart-data/chart-data.types';
 
-/**
- * How a step ended. EVERY step must end in one of these — silent no-ops are the single worst failure
- * mode in this product, because a provider reads "nothing happened" as "there was nothing to chart".
- */
-export type StepStatus = 'applied' | 'skipped' | 'failed';
-
+/** Every step ends in one of these; a step that ends silently reads as "there was nothing to chart". */
 export interface StepOutcome {
-  status: StepStatus;
-  /** Required for skipped and failed, and written to be read by a provider, not a developer. */
+  status: 'applied' | 'skipped' | 'failed';
+  /** Required for skipped and failed, and written for a provider to read. */
   reason?: string;
-  /** Ids of the rows this step created, so provenance can be attached to them. */
+  /** Ids of the rows this step created. */
   createdResourceIds?: string[];
-  /**
-   * Set when the step wrote something the model INFERRED rather than heard, or when a bulk run
-   * auto-picked from several near-equal matches. Drives the amber tint and the "inferred" badge.
-   */
+  /** The step wrote something inferred, or auto-picked from several near-equal matches. */
   lowConfidence?: boolean;
-  /** Extra note for the provenance record ("template default, verify", "auto-picked from 3 matches"). */
+  /** Shown next to an applied row ("auto-picked from 3 matches — verify"). */
   note?: string;
-  /**
-   * The catalogue entry this action was resolved TO, when it was resolved against one. The action's
-   * `display` is what the provider said; this is what the chart actually got — an exam finding filed as
-   * `ros-constitutional-fever` is a different fact from the phrase "denies fever" that produced it.
-   * Anything reading a plan after the fact (provenance, the eval harness) needs the resolved id, and
-   * re-deriving it by matching a second time would be a second copy of the dispatch logic.
-   */
+  /** The catalogue entry the action resolved to, which can differ from what was said. */
   matchedId?: string;
-  /**
-   * Rows this step created that THE DICTATION DID NOT NAME — a procedure quick-pick's linked diagnoses
-   * and CPT codes. They are charted because the practice's template says the procedure implies them,
-   * which is a weaker claim than "the provider said it", so they carry the amber inferred mark even
-   * when the step itself came from a verified quote.
-   */
-  inferredResourceIds?: string[];
-  /**
-   * Per-field "default, verify" markers for a composite row. A provider says four words and a procedure
-   * quick-pick asserts ten fields; marking only the row would claim they stated all ten.
-   */
-  templateFilledFields?: { resourceId: string; fields: string[] }[];
 }
 
 export const applied = (createdResourceIds: string[] = [], extra: Partial<StepOutcome> = {}): StepOutcome => ({
@@ -71,148 +40,58 @@ export const skipped = (reason: string, extra: Partial<StepOutcome> = {}): StepO
 });
 export const failed = (reason: string): StepOutcome => ({ status: 'failed', reason });
 
-/** One row from a searchable catalogue: exam leaves, ROS symptoms, medications, templates, … */
 export interface CatalogueMatch {
-  /** Stable identifier in the catalogue this came from. */
   id: string;
   display: string;
-  /** Relative score; only the ordering and the ratio between the top two are meaningful. */
+  /** Relative score: only the ordering and the ratio between the top two are meaningful. */
   score: number;
-  /** Whatever the write path needs to file this row. Opaque to the executor. */
+  /** Whatever the write needs to file this row. */
   payload?: unknown;
 }
 
 export interface CatalogueQuery {
   display: string;
   searchTerms?: string[];
-  /**
-   * What the visit actually said, for catalogues that must judge a candidate against the VISIT rather
-   * than against the query. A medication search needs it: "antifungal cream" ranks an athlete's-foot
-   * product and a vaginal one identically, and only the visit says which is right. Carries the action's
-   * verbatim source quote when it has one — an inferred action has none, and then a product carrying a
-   * site qualifier has nothing to justify it, which is the correct outcome.
-   */
+  /** What the visit said, for catalogues that judge candidates against the visit (medications). */
   evidence?: string;
 }
 
 /**
- * A catalogue that could not be consulted, with the reason a provider reads.
- *
- * Distinct from an empty result on purpose: "no lab-enabled ordering office for this visit" and "no
- * send-out lab matches 'CBC'" are different problems and a provider acts differently on each.
+ * A lookup result. `[]` means the catalogue was searched and nothing matched; an unavailable result means
+ * it could not be consulted, and says why.
  */
-export interface CatalogueUnavailable {
-  /** Written for a provider, and it must NAME the item so a voiced order is visible, not lost. */
-  reason?: string;
-}
+export type CatalogueResult = CatalogueMatch[] | { reason?: string } | undefined;
 
-/**
- * A catalogue lookup's result.
- *
- * An array and an unavailable marker mean DIFFERENT things, and the difference reaches the provider:
- *   - `[]`          — the catalogue was searched and holds nothing matching. "No exam finding matches
- *                     'throat injected'" tells the provider to reword or chart it by hand.
- *   - unavailable   — the catalogue could not be consulted at all: a precondition is unmet, or it is
- *                     not wired up here. Saying "no allergy matches penicillin" in that case is a
- *                     lie — it implies the allergy database was consulted and came back empty, which
- *                     would send a provider looking for the wrong problem. `undefined` is shorthand
- *                     for an unavailable with no specific reason.
- */
-export type CatalogueResult = CatalogueMatch[] | CatalogueUnavailable | undefined;
-
-/** Narrowing helper: did this lookup produce a searchable list? */
 export const isCatalogueList = (result: CatalogueResult): result is CatalogueMatch[] => Array.isArray(result);
 
-/** Mark a catalogue as unconsultable, with the reason the provider reads. */
-export const catalogueUnavailable = (reason?: string): CatalogueUnavailable => ({ reason });
-
-/**
- * The catalogues the assistant resolves against. Injected so the executor can be tested against a
- * fake, and so the real matchers can be developed and unit-tested on their own.
- */
 export interface Catalogue {
   examFindings(query: CatalogueQuery): Promise<CatalogueResult>;
   rosFindings(query: CatalogueQuery): Promise<CatalogueResult>;
   medications(query: CatalogueQuery): Promise<CatalogueResult>;
   allergies(query: CatalogueQuery): Promise<CatalogueResult>;
-  conditions(query: CatalogueQuery): Promise<CatalogueResult>;
   surgicalHistory(query: CatalogueQuery): Promise<CatalogueResult>;
   hospitalizations(query: CatalogueQuery): Promise<CatalogueResult>;
-  templates(query: CatalogueQuery): Promise<CatalogueResult>;
-  procedures(query: CatalogueQuery): Promise<CatalogueResult>;
-  labs(query: CatalogueQuery & { inHouse: boolean }): Promise<CatalogueResult>;
-  radiology(query: CatalogueQuery): Promise<CatalogueResult>;
 }
 
-/**
- * Everything a send-out lab order needs beyond the test itself, resolved by the catalogue from the
- * encounter, its ordering office and the patient's coverage — not from the dictation. Carried in the
- * match's `payload` so the write path does not re-resolve it and cannot resolve it differently.
- */
-export interface ExternalLabOrderContext {
-  item: OrderableItemSearchResult;
-  encounter: Encounter;
-  office: ModifiedOrderingLocation;
-  paymentMethod: CreateLabPaymentMethod;
-}
-
-/** A row already on the chart, in the shape the executor needs to remove or reconcile it. */
+/** A row already on the chart, as the executor needs it to remove or deduplicate. */
 export interface ChartedItem {
   resourceId: string;
   display: string;
 }
 
+/** The save-chart-data fields that hold a list of rows, which is what a removal deletes from. */
+export type ChartListField = {
+  [K in AllChartValuesKeys]: NonNullable<AllChartValues[K]> extends SaveableDTO[] ? K : never;
+}[AllChartValuesKeys];
+
 /**
- * The thin, feature-owned write layer. Everything here goes through the SHARED save mutation, so the
- * read-only rule for a signed visit applies for free — the previous implementation called the API
- * client directly and therefore bypassed that guard entirely, letting the assistant write to a
- * signed visit while the regular chart refused.
+ * The write layer. It goes through the shared save mutation, so a signed visit refuses writes exactly as
+ * the regular chart does.
  */
 export interface ChartWriter {
-  /** Save chart-data fields; returns the ids of the rows the save created. */
-  save(fields: Record<string, unknown>): Promise<string[]>;
-  /** Delete one charted row. */
-  remove(field: string, item: ChartedItem): Promise<void>;
-  /**
-   * Which of the non-chart-data write paths this writer can actually reach. Checked BEFORE the
-   * corresponding action runs, so an unsupported one settles as `skipped` with a reason naming where
-   * to do it instead — rather than throwing, which would settle it as `failed` and read to the
-   * provider as "something broke". "Not supported here" and "it broke" are different facts and the
-   * provider acts differently on each.
-   */
-  supports: {
-    labOrders: boolean;
-    radiologyOrders: boolean;
-    nursingOrders: boolean;
-    templates: boolean;
-    procedures: boolean;
-  };
-  /** Endpoints that are not chart data at all. Only called when the matching `supports` flag is set. */
-  orderLab(match: CatalogueMatch, inHouse: boolean): Promise<string[]>;
-  /**
-   * `dictatedStudyName` is what the PROVIDER said, which is what goes on the order — the catalogue
-   * match supplies the CPT, and its own display is the coding system's wording, not the visit's.
-   */
-  orderRadiology(match: CatalogueMatch, request: { dictatedStudyName: string }): Promise<string[]>;
-  createNursingOrder(text: string): Promise<string[]>;
-  applyTemplate(match: CatalogueMatch): Promise<string[]>;
-  /**
-   * A procedure, which needs TWO saves rather than one: its CPT codes and supporting diagnoses have to
-   * exist as their own rows before the procedure can reference them. Returns more than a list of ids
-   * because the three kinds of row it creates have three different provenances.
-   */
-  addProcedure(context: ProcedureQuickPickContext): Promise<ProcedureWriteResult>;
-}
-
-export interface ProcedureWriteResult {
-  /** Every row created, for the item-level marks. */
-  createdResourceIds: string[];
-  /** The procedure row itself, which the per-field markers hang off. */
-  procedureResourceId?: string;
-  /** The linked dx/CPT rows the TEMPLATE contributed, not the dictation. */
-  inferredResourceIds: string[];
-  /** Fields of the procedure whose value came from the quick-pick. */
-  templateFilledFields: string[];
+  /** Save save-chart-data fields; returns the ids of the rows the save created. */
+  save(fields: AllChartValues): Promise<string[]>;
+  remove(field: ChartListField, item: ChartedItem): Promise<void>;
 }
 
 /** What is already on the chart, as the executor needs to see it. */
@@ -225,20 +104,9 @@ export interface ChartSnapshot {
   conditions: ChartedItem[];
   surgicalHistory: ChartedItem[];
   hospitalizations: ChartedItem[];
-  procedures: ChartedItem[];
-  cptCodes: (ChartedItem & { code?: string })[];
-  hasEmCode: boolean;
-  /**
-   * The exam cards' free-text notes. Separate from `examFindings`, which holds ticked checkboxes: a
-   * note is an exam observation with `note` set and no `value`, and it is where a dictated finding
-   * goes when no checkbox can represent it.
-   */
+  /** The exam cards' free-text notes, where a finding with no matching checkbox goes. */
   examComments: { resourceId?: string; field: string; note: string }[];
-  /**
-   * The free-text note paragraphs, by STORAGE key, each with the id of the row that holds it. A note
-   * write must carry that id: without it save-chart-data creates a second row beside the first, and
-   * the note only ever shows one.
-   */
+  /** The note paragraphs by storage key, with the row id a rewrite must update. */
   noteFields: Partial<Record<NoteChartKey, FreeTextNoteDTO>>;
 }
 
@@ -247,28 +115,20 @@ export interface PickerRequest {
   options: CatalogueMatch[];
   /** The wording the assistant was trying to chart. */
   query: string;
-  /** Rendered on the picker so the provider knows what accepting it does. */
   prompt: string;
-  /** True for a removal: the provider is confirming a destructive action, not picking an addition. */
+  /** A removal: the provider confirms a destructive action rather than picking an addition. */
   destructive?: boolean;
 }
 
 /** Undefined means the provider skipped rather than picked. */
 export type PickerResponse = CatalogueMatch | undefined;
 
-/**
- * `bulk` — a whole plan is running. Several near-equal matches AUTO-PICK the top one and mark it
- * low-confidence, because a provider will not click through dozens of pickers.
- * `interactive` — the provider typed one request and is watching. Ambiguity asks.
- */
+/** `bulk` auto-picks among near-equal matches and marks the row; `interactive` asks the provider. */
 export type ExecutionMode = 'bulk' | 'interactive';
 
 /**
- * An `add-exam-finding` the recommendations panel resolved BEFORE apply: the provider saw the leaf on
- * the row (or chose it among near-equal matches) and confirmed that one, so the handler ticks it
- * without searching again — a second search could land on a different leaf than the one they read.
- * Client-side only: the wire `PlannedAction` never carries it and the server never sees it. Absent, the
- * handler resolves as it always has.
+ * An `add-exam-finding` whose checkbox the panel already resolved and the provider confirmed. The
+ * handler ticks that leaf instead of searching again. Client-side only; never on the wire.
  */
 export interface ResolvedExamFindingAction {
   resolvedLeaf?: ExamLeaf;
@@ -281,7 +141,7 @@ export interface HandlerContext {
   writer: ChartWriter;
   chart: ChartSnapshot;
   ask(request: PickerRequest): Promise<PickerResponse>;
-  /** Emitted for the chat thread: a `reply` or `provider-note` the provider reads. */
+  /** A message for the provider instead of a write: a reply, a note, something unclassified. */
   say(text: string, kind: 'reply' | 'provider-note' | 'unknown'): void;
 }
 
@@ -292,13 +152,9 @@ export type Handler<K extends ActionKind = ActionKind> = (
 
 export type HandlerTable = { [K in ActionKind]: Handler<K> };
 
-/** One entry in the plan the provider watches run. */
 export interface PlanStep {
   index: number;
   action: PlannedAction;
-  /** Short human label for the step card ("Diagnosis: Acute sinusitis"). */
   label: string;
   outcome?: StepOutcome;
 }
-
-export type TypedAction = Action;

@@ -1,18 +1,9 @@
-// The DETERMINISTIC scorer. It earns its keep before the LLM judge does.
-//
-// It cannot answer "did the planner match what a clinician wrote" — that needs gold notes, and none
-// transfer (see docs/easy-chart-eval-cases.md). What it CAN answer, cheaply and on every change, is
-// "is this output internally correct and clinically sane": are the codes real-shaped, is there
-// exactly one primary diagnosis, did the negated findings stay out, did the units convert, did a
-// stated follow-up produce a disposition, did every step report an outcome.
-//
-// Codes, dedup, primary-diagnosis and unit errors are the failures that matter most, they are all
-// checkable without a model, and they cost nothing to re-run. Reserve the LLM judge for free text
-// and semantics — and keep it in tools/, never as a deployed endpoint.
+// Deterministic plan scorer: checks without a model that a plan is internally correct and clinically sane (code
+// shapes, one primary diagnosis, negated findings kept out, units converted, every skipped step explained).
 
 import { PLANNABLE_VITAL_FIELDS } from './actions';
-import { ChartPlanResponse, PlannedAction } from './api';
-import { isCptShaped, isHcpcsShaped, isIcd10Shaped } from './codes';
+import { ChartPlanResponse, PatientStatus, PlannedAction } from './api';
+import { isCptShaped, isIcd10Shaped } from './codes';
 import { findingPolarity, rosPolarity } from './provenance';
 
 export type EvalRuleId =
@@ -28,7 +19,6 @@ export type EvalRuleId =
   | 'em-code-missing'
   | 'em-code-malformed'
   | 'em-code-wrong-family'
-  | 'cpt-code-malformed'
   | 'disposition-missing'
   | 'rejection-without-reason'
   | 'provenance-quote-unverified';
@@ -50,7 +40,7 @@ export interface EvalScore {
 
 export interface EvalExpectations {
   /** 'new' | 'established' when the fixture pins it; the E&M family is only checkable when known. */
-  patientStatus?: 'new' | 'established';
+  patientStatus?: PatientStatus;
   /** Phrases the narrative negates. None of them may appear as a charted abnormal finding. */
   negatedFindings?: string[];
   /** True when the narrative states a follow-up or disposition, so one must be charted. */
@@ -118,9 +108,8 @@ function checkDiagnoses(actions: PlannedAction[], violations: EvalViolation[]): 
 function checkFindings(actions: PlannedAction[], expectations: EvalExpectations, violations: EvalViolation[]): void {
   for (const action of actions) {
     if (action.kind === 'add-exam-finding') {
-      // A normal or negated finding charts only when the provider VOICED it — the guard keeps one with a
-      // verified quote and drops the rest. So the violation is a normal with NO quote: a padded exam, the
-      // failure this rule exists to catch. A voiced normal ("abdomen non-tender") is a finding like any other.
+      // A normal or negated finding is valid only when voiced, i.e. it has a verified quote; one without a
+      // quote is a padded exam.
       if (findingPolarity(action.display ?? '') !== 'positive' && !action.sourceText) {
         violations.push({
           rule: 'negated-finding-charted',
@@ -160,8 +149,7 @@ function checkVitals(actions: PlannedAction[], violations: EvalViolation[]): voi
       continue;
     }
     const allowed = VITAL_UNITS[field];
-    // A unit the client's narrow write path does not recognise is charted as its DEFAULT — that is
-    // how `1.73 m` becomes a 1.73 cm patient.
+    // The write path treats an unknown unit as its default, so `1.73 m` would chart a 1.73 cm patient.
     if (allowed && !allowed.includes(String(action.unit))) {
       violations.push({
         rule: 'vital-unit-unconverted',
@@ -192,12 +180,6 @@ function checkBilling(actions: PlannedAction[], expectations: EvalExpectations, 
       });
     }
   }
-
-  for (const cpt of actions.filter((a) => a.kind === 'add-cpt')) {
-    if (!isCptShaped(cpt.code) && !isHcpcsShaped(cpt.code)) {
-      violations.push({ rule: 'cpt-code-malformed', detail: `"${cpt.code}" is neither a CPT nor a HCPCS shape` });
-    }
-  }
 }
 
 function checkDisposition(actions: PlannedAction[], expectations: EvalExpectations, violations: EvalViolation[]): void {
@@ -210,10 +192,7 @@ function checkDisposition(actions: PlannedAction[], expectations: EvalExpectatio
   }
 }
 
-/**
- * Every step must end in applied / skipped-with-reason / failed. A rejection with a blank reason is
- * a silent no-op wearing a hat: the provider reads it as "there was nothing to chart".
- */
+/** A rejection with a blank reason reads to the provider as "there was nothing to chart". */
 function checkOutcomesAreReported(response: ChartPlanResponse, violations: EvalViolation[]): void {
   for (const rejection of response.rejected ?? []) {
     if (!rejection.reason?.trim()) {
@@ -223,9 +202,8 @@ function checkOutcomesAreReported(response: ChartPlanResponse, violations: EvalV
 }
 
 /**
- * Provenance check, run separately because it needs the narrative. Every non-empty sourceText on a
- * returned action must genuinely occur in the narrative — the server drops unverified quotes, so a
- * violation here means that guard regressed.
+ * Every non-empty sourceText must occur in the narrative. The server drops unverified quotes, so a violation
+ * means that guard regressed.
  */
 export function scoreProvenance(
   actions: PlannedAction[],

@@ -7,10 +7,7 @@ export const FeatureFlagsConfigSchema = z.object({
   nursingOrdersEnabled: z.boolean(),
   supervisorApprovalEnabled: z.boolean(),
   demoVisitsEnabled: z.boolean(),
-  /**
-   * Easy Chart: the Autochart panel beside the in-person visit note, and the plan/review
-   * endpoints behind it. Gated by BOTH this flag and the charting role set (EASY_CHART_ROLES).
-   */
+  /** The Easy Chart (Autochart) panel on the in-person visit; access also requires EASY_CHART_ROLES. */
   easyChartEnabled: z.boolean(),
   globalTemplatesEnabled: z.boolean(),
   formsEnabled: z.boolean(),

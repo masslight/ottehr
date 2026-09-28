@@ -1,4 +1,6 @@
+import { toStoredVitalValue } from 'src/features/easy-chart/executor/handlers';
 import { ExamLeaf } from 'utils/lib/config-helpers/exam-leaves';
+import { NoteTextField } from 'utils/lib/easy-chart/actions';
 import { NOTE_FIELD_LABELS } from 'utils/lib/easy-chart/note-fields';
 import { RosFindingState } from 'utils/lib/ottehr-config/review-of-systems/in-person.config';
 import { ExamRecommendation, ScribeRecommendation, ScribeSectionKey } from './types';
@@ -9,16 +11,11 @@ interface ScribeSectionMeta {
   shortLabel: string;
   /** Colour-codes the rail so a section can be found without reading. */
   accent: string;
-  /**
-   * Visit route the section is charted on. These are the ROUTER_PATH values from
-   * routesInPerson; they're repeated here because importing that module pulls in every visit
-   * page, which the panel (and its tests) don't need.
-   */
+  /** The visit route the section is charted on (ROUTER_PATH in routesInPerson, which imports every page). */
   route: string;
 }
 
-// Distinguishable hues rather than a semantic scale: they say "different section", nothing more.
-// Kept clear of the red/green the R and D findings use on the other side of the row.
+// Hues only tell sections apart, and stay clear of the red and green of the R/D findings.
 export const SCRIBE_SECTIONS: Record<ScribeSectionKey, ScribeSectionMeta> = {
   template: {
     label: 'Template',
@@ -35,8 +32,6 @@ export const SCRIBE_SECTIONS: Record<ScribeSectionKey, ScribeSectionMeta> = {
   medications: { label: 'Medications', shortLabel: 'Meds', accent: '#AD1457', route: 'medications' },
   history: { label: 'Medical History', shortLabel: 'History', accent: '#795548', route: 'medical-conditions' },
   plan: { label: 'Plan', shortLabel: 'Plan', accent: '#F57F17', route: 'plan' },
-  orders: { label: 'Orders', shortLabel: 'Orders', accent: '#00838F', route: 'in-house-lab-orders' },
-  procedures: { label: 'Procedures', shortLabel: 'Procedures', accent: '#5E35B1', route: 'procedures' },
 };
 
 /** Display order of the groups in the panel: broad strokes first, then the granular findings. */
@@ -51,28 +46,18 @@ export const SCRIBE_SECTION_ORDER: ScribeSectionKey[] = [
   'medications',
   'history',
   'plan',
-  'orders',
-  'procedures',
 ];
-
-export const IN_HOUSE_MEDICATION_ORDER_ROUTE = 'in-house-medication/order/new';
 
 /** `/in-person/<appointmentId>` for the visit currently on screen, or undefined off a visit. */
 export const getVisitBasePath = (pathname: string): string | undefined => pathname.match(/.*?in-person\/[^/]+/)?.[0];
 
-export const kgFromLbs = (lbs: number): number => Math.round((lbs / 2.20462) * 100) / 100;
-
 export const wordCount = (text: string): number => text.trim().split(/\s+/).filter(Boolean).length;
 
-export interface RecommendationText {
-  /** The recommendation itself, always on screen. */
+interface RecommendationText {
   primary: string;
-  /** A short clinical qualifier that earns a permanent line of its own. */
+  /** A short qualifier on its own line. */
   secondary?: string;
-  /**
-   * How the AI got here — kept out of the row and revealed on demand, alongside the transcript
-   * quote, so a list of twenty recommendations stays scannable.
-   */
+  /** How the AI got here, shown on hover with the evidence. */
   detail?: string;
 }
 
@@ -83,12 +68,9 @@ const detailOf = (rec: ScribeRecommendation, ...parts: (string | undefined)[]): 
 };
 
 /** The note field an `hpi` recommendation targets when it names none. */
-export const HPI_FIELD = 'historyOfPresentIllness';
+export const HPI_FIELD: NoteTextField = 'historyOfPresentIllness';
 
-/**
- * The one leaf an exam row will tick, when there is one: a confident match, or the provider's pick among
- * several. An ambiguous row nobody has chosen on has none — the executor settles it at apply time.
- */
+/** The leaf an exam row will tick: the confident match, or the provider's pick among near-equal ones. */
 export const resolvedExamLeaf = (rec: ExamRecommendation): ExamLeaf | undefined => {
   const { resolution } = rec;
   if (resolution.kind === 'confident') return resolution.leaf;
@@ -96,10 +78,10 @@ export const resolvedExamLeaf = (rec: ExamRecommendation): ExamLeaf | undefined 
   return undefined;
 };
 
-/** A leaf as the exam tab would have the provider find it: the card, then the path down to the box. */
+/** A leaf as the exam tab shows it: the card, then the path to the box. */
 export const examLeafLabel = (leaf: ExamLeaf): string => `${leaf.sectionLabel}: ${leaf.label}`;
 
-/** The second line of an exam row: which box the words will tick, which to choose among, or where a miss goes. */
+/** The second line of an exam row: the box it will tick, the choice to make, or where a miss goes. */
 export const describeExamResolution = (rec: ExamRecommendation): string => {
   const { resolution } = rec;
   const leaf = resolvedExamLeaf(rec);
@@ -124,7 +106,7 @@ export const describeRecommendation = (rec: ScribeRecommendation): Recommendatio
       };
     case 'hpi': {
       const field = rec.field ?? HPI_FIELD;
-      // The group already says "HPI"; another field's paragraph names itself so it is not read as one.
+      // The group already says "HPI"; any other field names itself.
       return {
         primary: rec.text,
         secondary: field === HPI_FIELD ? undefined : NOTE_FIELD_LABELS[field],
@@ -134,19 +116,16 @@ export const describeRecommendation = (rec: ScribeRecommendation): Recommendatio
     case 'ros':
       return { primary: `${rec.systemLabel}: ${rec.label}`, detail: detailOf(rec) };
     case 'exam':
-      // The words lead, as they are what the provider said; the box they tick is the qualifier.
       return { primary: rec.display, secondary: describeExamResolution(rec), detail: detailOf(rec) };
     case 'vital-weight':
-      return { primary: `Weight ${rec.weightLbs} lbs (${kgFromLbs(rec.weightLbs)} kg)`, detail: detailOf(rec) };
+      return {
+        primary: `Weight ${rec.weightLbs} lbs (${toStoredVitalValue(rec.weightLbs, 'lb')} kg)`,
+        detail: detailOf(rec),
+      };
     case 'allergy':
       return { primary: rec.name, detail: detailOf(rec) };
     case 'medication': {
-      const details = [
-        rec.type === 'as-needed' ? 'As needed' : rec.type === 'scheduled' ? 'Scheduled' : undefined,
-        rec.strength,
-        rec.doseForm,
-        rec.patientCouldNotConfirmDosage ? 'Dose not confirmed' : undefined,
-      ].filter(Boolean);
+      const details = [rec.strength, rec.doseForm].filter(Boolean);
       return {
         primary: rec.name,
         secondary: details.length > 0 ? details.join(' · ') : undefined,
@@ -167,16 +146,10 @@ export const describeRecommendation = (rec: ScribeRecommendation): Recommendatio
   }
 };
 
-/**
- * Reading order within a group: whatever carries the most clinical weight first, rather than
- * whatever order the transcript happened to mention it in. Positive review-of-systems findings
- * lead the denials, and the primary diagnosis leads the rest. Everything else keeps the order the
- * AI returned.
- */
+/** Reading order within a group: reported ROS findings before denials, the primary diagnosis first. */
 export const sortForReview = (recommendations: ScribeRecommendation[]): ScribeRecommendation[] => {
   const weight = (rec: ScribeRecommendation): number => {
     if (rec.kind === 'ros') return rec.finding === RosFindingState.Denies ? 1 : 0;
-    // The primary diagnosis is the one the visit is coded and billed on, so it heads the list.
     if (rec.kind === 'diagnosis') return rec.isPrimary ? 0 : 1;
     return 0;
   };

@@ -18,12 +18,8 @@ interface RecommendationsListProps {
 const testIds = dataTestIds.scribeRecommendations;
 
 /**
- * Stage two: the individual observations, grouped by the chart section each one writes into.
- *
- * The section name runs down a coloured rail on the left rather than sitting in a header row of
- * its own — with six or seven groups on screen, those headers were costing more vertical space
- * than the recommendations they introduced. The rail doubles as the link into that part of the
- * note.
+ * Observations grouped by the chart section each writes into. A coloured rail names each section and links
+ * to that part of the note.
  */
 export const RecommendationsList: FC<RecommendationsListProps> = ({ recommendations, templates, onRetry }) => {
   const itemState = useScribeRecommendationsStore((state) => state.itemState);
@@ -32,9 +28,8 @@ export const RecommendationsList: FC<RecommendationsListProps> = ({ recommendati
   const setSelected = useScribeRecommendationsStore((state) => state.setSelected);
   const updateRecommendation = useScribeRecommendationsStore((state) => state.updateRecommendation);
 
-  // The review order keys on the ROS finding, which the provider toggles; sorting on every render moved
-  // the toggled row and put the next click on a different one. The order is fixed when the set of
-  // recommendations changes and reused while their contents are edited.
+  // The order is fixed per set of ids: it keys on the ROS finding, so re-sorting on edit would move the
+  // toggled row out from under the next click.
   const idKey = recommendations.map((rec) => rec.id).join('|');
   const rank = useMemo(
     () => new Map(sortForReview(recommendations).map((rec, index) => [rec.id, index])),

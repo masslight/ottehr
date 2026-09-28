@@ -1,24 +1,12 @@
-// Matching a dictated finding to a catalogue leaf.
-//
-// The algorithm is rebuilt; the data tables it uses were not (see matcher-tables.ts — each entry is
-// a word that caused a wrong match). Pure and dependency-free on purpose: the eval harness replays
-// captured actions through THESE functions, which is where exam and ROS mismatches show up, and that
-// replay must run offline over committed fixtures.
-//
-// Four guards decide the result before scoring ever does:
-//   1. NEGATION — a negated query ("no wheezing") must never match the positive finding. It is a
-//      NORMAL, and lands only on the normal side of the card ("non-tender" → Nontender, never Tender).
-//   2. NORMALCY VETO — a query reporting a normal must not match the abnormal counterpart.
-//   3. ANATOMY SECTION — a finding must not be filed under a different body-system card. Hits across
-//      more than one card yield NO verdict, which is the conservative direction.
-//   4. GENERIC-TOKEN DISCOUNTING — "pain", "swelling", "mild" can never carry a match alone.
+// Matches a dictated exam or ROS finding to a catalogue leaf. Kept pure so the eval harness can replay captured
+// actions offline. Guards run before scoring: polarity (negated or normal findings match only normal leaves),
+// anatomy section, and generic tokens that can never carry a match alone.
 
 import { ExamLeaf } from '../config-helpers/exam-leaves';
 import { InPersonRosConfig } from '../ottehr-config/review-of-systems/in-person.config';
 import {
   EXAM_ANATOMY_SECTION_OF,
   EXAM_DESCRIPTOR_CLASS_OF,
-  EXAM_NEGATION_TOKENS,
   EXAM_QUERY_STOPWORDS,
   GENERIC_FINDING_TOKENS,
   MED_QUALIFIER_EVIDENCE,
@@ -49,12 +37,7 @@ export function tokenize(text: string, stopwords: Set<string>): string[] {
     .filter((token) => token.length > 1 && !stopwords.has(token));
 }
 
-/**
- * Abbreviations the catalogue spells one way and a dictation the other. The descriptor synonym
- * classes pair whole words ("injected" ↔ "erythematous"); this is applied AFTER stemming so "TM" and
- * "TMs" both reach "tympanic". Without it "normal tympanic membranes" found nothing, because every
- * TM leaf says "TM".
- */
+/** Abbreviations the catalogue uses (every TM leaf says "TM"). Applied after stemming, so "TMs" matches too. */
 const EXAM_ABBREVIATIONS: Record<string, string> = { tm: 'tympanic' };
 
 /** Expand a token through the descriptor synonym classes, so "swollen" reaches "edematous". */
@@ -66,10 +49,8 @@ function synonymKey(token: string): string {
 }
 
 /**
- * The tokens that name the FINDING, with the negators taken out. A negator is structure, not
- * content: "no wheezing" and "Nontender" say which SIDE of the card a finding sits on, and by the
- * time scoring runs the polarity filter has already settled that. Left in, "no wheezing" matched "No
- * signs of respiratory distress" on the word "no".
+ * Tokens that name the finding, without negators: polarity is settled before scoring, and left in, "no
+ * wheezing" would match "No signs of respiratory distress" on "no".
  */
 function findingTokens(text: string): string[] {
   return tokenize(text, EXAM_QUERY_STOPWORDS).filter((token) => !NEGATION_TOKENS.has(token));
@@ -88,47 +69,30 @@ export function anatomySectionOf(query: string): string | undefined {
   return sections.size === 1 ? [...sections][0] : undefined;
 }
 
-/**
- * Does this query assert a normal reading rather than an abnormality? A NEGATED finding is a normal
- * too — "no wheezing" asserts the lungs are clear of it — so the two are one answer here: anything
- * that is not a positive abnormality belongs to the normal side of the card.
- */
+/** True unless the query reports a positive abnormality; a negated finding ("no wheezing") counts as normal. */
 export function assertsNormal(query: string): boolean {
   return findingPolarity(query) !== 'positive' || NORMALCY_PATTERNS.test(query);
 }
 
-export function isNegated(query: string): boolean {
-  const tokens = query
-    .toLowerCase()
-    .split(/[^a-z]+/)
-    .filter(Boolean);
-  return tokens.some((token) => EXAM_NEGATION_TOKENS.has(token));
-}
-
 export interface ExamMatchOptions {
-  /** All the terms to try — the display plus the model's searchTerms. Each is scored independently. */
+  /** The model's extra search terms, each scored independently alongside the display. */
   searchTerms?: string[];
 }
 
 /**
  * Score every exam leaf against a dictated finding. Returns the plausible ones, best first; an empty
- * result means SKIP WITH A REASON, never write a fallback.
+ * result means skip with a reason, never write a fallback.
  */
 export function findExamLeafMatches(
   display: string,
   leaves: ExamLeaf[],
   options: ExamMatchOptions = {}
 ): MatchCandidate[] {
-  // GUARDS 1 and 2. POLARITY. A negated finding ("no wheezing", "non-tender") is not an abnormal
-  // finding — it AGREES with the normal — and neither is an asserted normal ("lungs clear"); both
-  // may match ONLY the normal side of the card, and an abnormality only the abnormal side. A negated
-  // query used to be dropped here outright, which was safe while the server refused every normal;
-  // now that a normal the provider VOICED charts, the negation has to land on the normal it agrees
-  // with — "non-tender" on Nontender, never on Tender — and that is a polarity decision, not a
-  // keyword one: `assertsNormal` reads "no wheezing" and "lungs clear" the same way.
+  // Polarity guard: a negated finding ("non-tender") or an asserted normal ("lungs clear") may match only the
+  // normal side of the card, and an abnormality only the abnormal side.
   const wantsNormal = assertsNormal(display);
 
-  // GUARD 3. Restrict to one body-system card when the query names anatomy unambiguously.
+  // Anatomy guard: restrict to one body-system card when the query names anatomy unambiguously.
   const section = anatomySectionOf(display);
 
   const terms = [display, ...(options.searchTerms ?? [])].filter((t) => t?.trim());
@@ -160,21 +124,16 @@ function scoreLeaf(term: string, leaf: ExamLeaf, wantsNormal: boolean): number {
   const leafWords = findingTokens(leaf.leafLabel);
   const leafTokens = new Set(leafWords.map(synonymKey));
   const leafSize = leafTokens.size;
-  // A normal spelt as one word carries its negation as a prefix — "Nontender", "Nondistended" — while
-  // the dictation splits it off: "non-tender" and "no tenderness" both tokenize to the bare finding.
-  // Let the leaf answer to the bare finding too; the polarity filter has already kept "tender" away
-  // from the abnormal Tender leaf.
+  // A one-word normal ("Nontender") also answers to its bare finding, because "non-tender" and "no tenderness"
+  // tokenize to "tender"; the polarity filter already keeps those off the abnormal Tender leaf.
   if (leaf.polarity === 'normal') {
     for (const word of leafWords) {
       const bare = /^non(.{3,})$/.exec(word)?.[1];
       if (bare) leafTokens.add(synonymKey(bare));
     }
   }
-  // A normal leaf whose whole content is ONE word — "Soft", "Nontender", "No edema" — IS that word.
-  // Generic discounting exists because "tender" alone could land on any of a dozen anatomies; a
-  // normal query is already confined to the normal side, and for such a leaf the word is the finding
-  // itself rather than a qualifier of one, so a hit on it is specific. Only the leaf's own words get
-  // this, never its path.
+  // For a one-word normal leaf ("Soft", "Nontender") a generic token is the finding itself, not a qualifier,
+  // so a hit on it counts as specific. This applies to the leaf's own words only, never its path.
   const wholeLeafIsOneWord = wantsNormal && leaf.polarity === 'normal' && leafWords.length === 1;
   // Path tokens (the modal section, column header and group) locate the leaf; matching one is real
   // evidence, but weaker than matching the leaf's own words.
@@ -196,8 +155,7 @@ function scoreLeaf(term: string, leaf: ExamLeaf, wantsNormal: boolean): number {
     }
   }
 
-  // GUARD 4. A match anchored only on generic tokens is how "denies groin pain" charted "Denies Eye
-  // pain". At least one specific token must have hit.
+  // Generic-token guard: at least one specific token must hit, or "groin pain" could match "Eye pain".
   if (specificHits === 0) return 0;
 
   // Normalise by query length so a long phrase does not out-score a precise short one, and reward a
@@ -215,9 +173,8 @@ export interface RosCatalogueEntry {
 }
 
 /**
- * The ROS catalogue as the config defines it: one entry per symptom, keyed by its base field. Built here so
- * the client catalogue, the eval harness and the recommendations panel resolve against the SAME entries — a
- * harness that once built these with the wrong shape scored every ROS action as a miss.
+ * One entry per ROS symptom, keyed by its base field. Shared so the client catalogue, the eval harness and the
+ * recommendations panel all resolve against the same entries.
  */
 export function buildRosCatalogue(config: typeof InPersonRosConfig = InPersonRosConfig): RosCatalogueEntry[] {
   return Object.values(config).flatMap((system) =>
@@ -230,10 +187,8 @@ export function buildRosCatalogue(config: typeof InPersonRosConfig = InPersonRos
 }
 
 /**
- * ROS matching. The polarity is carried in the display text ("Reports…"/"Denies…") and handled by
- * the caller — this only finds the SYMPTOM. Stopwords strip generic modifiers from both sides so a
- * symptom with no catalogue item ("loss of sensation") correctly finds nothing rather than matching
- * "Weight loss/gain" on the shared word "loss".
+ * Finds the ROS symptom only; the caller handles the "Reports…"/"Denies…" polarity. Generic modifiers are
+ * stopwords on both sides, so "loss of sensation" finds nothing rather than "Weight loss/gain".
  */
 export function findRosMatches(
   display: string,
@@ -271,37 +226,23 @@ export function findRosMatches(
 }
 
 /**
- * Right drug, right form (requirements section 9).
- *
- * A medication catalogue is full of product names that carry a SITE or INDICATION in the name:
- * "Clotrimazole AF Athlete's Foot Cream", "Miconazole Vaginal Cream", "Neomycin Otic Solution". They
- * are the same active ingredient, so a name-similarity search ranks them interchangeably — and the top
- * hit for "antifungal cream" on a vaginal candidiasis visit was an athlete's-foot product. Charting it
- * is a wrong route and a wrong indication, not a cosmetic mismatch.
- *
- * A candidate whose name carries such a qualifier is only eligible when the REQUEST TEXT shows evidence
- * for it. Absence of evidence DISQUALIFIES the candidate rather than merely lowering its score — a
- * demoted candidate still wins when it is the only one, which is exactly the case that hurt.
- *
- * Only qualifiers in the table are judged: an unlisted word is not treated as a qualifier at all, so a
- * plain "Amoxicillin 500 mg" is never filtered. High precision over coverage, deliberately.
+ * False when the product name claims a site or indication (MED_QUALIFIER_EVIDENCE) the request gives no
+ * evidence for. It disqualifies rather than demotes: a demoted candidate still wins when it is the only one.
  */
 export function medicationQualifierSupported(candidateName: string, requestText: string): boolean {
   const evidence = requestText.toLowerCase();
   for (const token of tokenize(candidateName, new Set())) {
     const required = MED_QUALIFIER_EVIDENCE[token];
     if (!required) continue;
-    // Substring, not token, matching on the evidence side: the table's entries are deliberately stems
-    // ("vagin", "ophthalm", "prurit") so they hit the inflections a visit actually uses.
+    // Substring match: the evidence entries are stems ("vagin", "ophthalm") so they catch inflections.
     if (!required.some((word) => evidence.includes(word))) return false;
   }
   return true;
 }
 
 /**
- * Drop catalogue candidates whose product name claims a site or indication the request does not support.
- * An empty result is honest: the caller reports it as "nothing matched", and charting a wrong-route
- * product would be worse than asking the provider to name the one they meant.
+ * Drops candidates whose product name claims an unsupported site or indication. May return empty: the caller
+ * then reports "nothing matched" rather than charting a wrong-route product.
  */
 export function filterUnsupportedQualifiers<T extends { display: string }>(candidates: T[], requestText: string): T[] {
   return candidates.filter((candidate) => medicationQualifierSupported(candidate.display, requestText));

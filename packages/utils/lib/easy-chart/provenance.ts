@@ -1,19 +1,10 @@
-// Provenance verification and negation detection — two guards that run over every action before the
-// client ever sees it.
-//
-// PROVENANCE: each action's `sourceText` claims to be a verbatim phrase from the narrative. Models
-// paraphrase and stitch list items together with ellipses, and a fabricated citation in a medical
-// record is worse than none — a provider auditing the note by hovering each item would be reading
-// quotes nobody said. So the quote is checked against the narrative and DROPPED when it isn't really
-// there; the item is then honestly marked *inferred*.
-//
-// NEGATION: "no wheezing", "lungs clear", "non-tender" is not an abnormal finding. It must neither
-// create one nor remove the matching normal, because it AGREES with the normal. Match on polarity,
-// not on the keyword.
+// Provenance and polarity guards run over every action. A `sourceText` quote that does not really occur in the
+// narrative is dropped (the item shows as inferred), because a fabricated citation is worse than none. Negated
+// and normal findings agree with the normal, so they never chart as abnormalities.
 
 /**
  * Loose comparison for quote checking: case, punctuation and whitespace are noise, wording is not.
- * Deliberately does NOT stem or drop words — the point is to catch paraphrase.
+ * Deliberately does not stem or drop words, so a paraphrase still fails.
  */
 function normalizeForQuoteMatch(text: string): string {
   return text
@@ -25,27 +16,29 @@ function normalizeForQuoteMatch(text: string): string {
     .trim();
 }
 
+/**
+ * What to look for: the quote as the loose comparison sees it, then without the quotation marks, periods
+ * or ellipses a model puts around a quote ("\"sore throat.\"", "...for two days").
+ */
+function quoteTargets(quote: string): string[] {
+  const full = normalizeForQuoteMatch(quote);
+  const bare = full.replace(/^['".\s]+|['".\s]+$/g, '');
+  return [full, bare].filter((target, index, all) => target !== '' && all.indexOf(target) === index);
+}
+
 /** True when `quote` really occurs in `narrative`. Empty quotes are not claims and pass trivially. */
 export function quoteOccursInNarrative(quote: string | undefined, narrative: string): boolean {
   if (!quote || !quote.trim()) return true;
-  return normalizeForQuoteMatch(narrative).includes(normalizeForQuoteMatch(quote));
+  const haystack = normalizeForQuoteMatch(narrative);
+  return quoteTargets(quote).some((target) => haystack.includes(target));
 }
 
-/**
- * A quote longer than this is cut down. Asked for "a few words to one sentence", the model sometimes quotes a
- * whole paragraph, and a paragraph highlighted in the narrative and repeated in a tooltip points at nothing.
- */
+/** Longer quotes are cut down: a whole highlighted paragraph points at nothing. */
 const QUOTE_CLAMP_CHARS = 200;
 
 /**
- * Return the action's `sourceText` when it is genuinely present in the narrative, otherwise
- * undefined — which the UI renders as *inferred*. Never returns a quote the narrative does not
- * contain.
- *
- * An over-long quote is clamped: cut at the first sentence end after the limit, or at the limit on a word
- * boundary when the rest is one long sentence, and re-verified — a cut is a new quote, and the loose
- * comparison is not guaranteed to accept a prefix of what it accepted whole. The full quote stands when the
- * cut one fails.
+ * The quote when it really occurs in the narrative, else undefined (shown as inferred). An over-long quote is
+ * clamped and re-verified, since a cut is a new quote; the full quote stands if the cut one fails.
  */
 export function verifiedSourceText(sourceText: string | undefined, narrative: string): string | undefined {
   const quote = sourceText?.trim();
@@ -70,16 +63,12 @@ function clampQuote(quote: string): string {
 const QUOTE_MATCH_KEPT = /[\p{L}\p{N}'"/%.-]/u;
 
 /**
- * Where `quote` occurs in `narrative`, as offsets into the ORIGINAL text.
- *
- * The same loose comparison as `quoteOccursInNarrative`, applied character by character so every normalized
- * character remembers where it came from — which is what lets a quote the server verified be found again on
- * the client and highlighted in the transcript exactly as the provider pasted it, curly quotes, line breaks
- * and all. Undefined when the quote does not occur; `end` is exclusive.
+ * Offsets of `quote` in the original `narrative` (`end` exclusive), using the same loose comparison as
+ * `quoteOccursInNarrative`, so a server-verified quote can be highlighted exactly as pasted.
  */
 export function locateQuote(narrative: string, quote: string): { start: number; end: number } | undefined {
-  const target = normalizeForQuoteMatch(quote);
-  if (!target) return undefined;
+  const targets = quoteTargets(quote);
+  if (targets.length === 0) return undefined;
 
   let normalized = '';
   const starts: number[] = [];
@@ -103,57 +92,43 @@ export function locateQuote(narrative: string, quote: string): { start: number; 
     }
   }
 
-  const at = normalized.indexOf(target);
-  if (at < 0) return undefined;
-  return { start: starts[at], end: ends[at + target.length - 1] };
+  for (const target of targets) {
+    const at = normalized.indexOf(target);
+    if (at >= 0) return { start: starts[at], end: ends[at + target.length - 1] };
+  }
+  return undefined;
 }
 
 /**
- * Words that structurally negate a clinical finding.
- *
- * "absent" is deliberately NOT one of them: dictated, it almost always negates a NORMAL — "absent
- * bowel sounds", "absent pulses", "absent reflexes" — which makes the finding an abnormality. Read as
- * a negation it became a normal, and the matcher then filed "absent bowel sounds" under Normal Bowel
- * Sounds.
+ * Words that structurally negate a clinical finding. "absent" is deliberately excluded: "absent bowel sounds"
+ * negates a normal, which makes it an abnormality.
  */
 export const NEGATION_TOKENS = new Set(['no', 'non', 'not', 'without', 'denies', 'denied', 'negative']);
 
 /**
- * Phrases that assert normality without a negation word. "Lungs clear" is a normal, not an abnormal
- * finding, and it must not remove the matching normal either. "Soft" only counts next to "abdomen":
- * a soft abdomen is a normal, soft-tissue swelling is not.
+ * Phrases that assert normality without a negation word. "Soft" counts only next to "abdomen": a soft abdomen
+ * is normal, soft-tissue swelling is not.
  */
 const NORMALCY_PHRASES =
   /\b(?:clear\s+to\s+auscultation|ctab|clear\b|normal\b|unremarkable\b|intact\b|within\s+normal\s+limits|wnl\b|nontender\b|non-tender\b|nondistended\b|non-distended\b|reactive\b|supple\b|symmetric(?:al)?\b|abdomen\s+(?:is\s+)?soft\b|soft\s+abdomen\b)/i;
 
 /**
- * The polarity of a finding as written.
- *  - 'negated'  — the narrative says the finding is ABSENT ("no wheezing", "without crackles").
- *  - 'normal'   — the narrative asserts a normal ("lungs clear", "neuro intact").
- *  - 'positive' — an abnormality is actually present.
- *
- * Only 'positive' may create an abnormal exam finding or remove a template's matching normal.
+ * 'negated' ("no wheezing"), 'normal' ("lungs clear") or 'positive' (an abnormality is present). Only
+ * 'positive' may create an abnormal exam finding or remove a template's matching normal.
  */
 export function findingPolarity(display: string): 'positive' | 'negated' | 'normal' {
   const text = display.toLowerCase();
   const tokens = text.split(/[^a-z]+/).filter(Boolean);
-  // A negator anywhere before the last token negates the finding: "no wheezing", "denies fever",
-  // "lungs without crackles". A trailing "negative" ("straight leg raise negative") counts too.
+  // A negator anywhere negates the finding, including a trailing "negative" ("straight leg raise negative").
   if (tokens.some((t) => NEGATION_TOKENS.has(t))) return 'negated';
   if (/\bno\s|\bnon-/.test(text)) return 'negated';
   if (NORMALCY_PHRASES.test(text)) return 'normal';
   return 'positive';
 }
 
-/** Convenience: may this display text produce an abnormal exam finding at all? */
-export function isChartableAbnormalFinding(display: string): boolean {
-  return findingPolarity(display) === 'positive';
-}
-
 /**
- * ROS carries its polarity in the display text ("Reports…" / "Denies…"). Any structured `finding`
- * enum the model emits is a SECONDARY signal only — the text is what the provider reads and what the
- * chart stores.
+ * Polarity from the display text ("Reports…"/"Denies…"), which is what the chart stores; the model's `finding`
+ * enum is only a fallback.
  */
 export function rosPolarity(display: string, finding?: string): 'reports' | 'denies' | undefined {
   const text = display.trim().toLowerCase();
@@ -163,10 +138,7 @@ export function rosPolarity(display: string, finding?: string): 'reports' | 'den
   return undefined;
 }
 
-/**
- * Words that carry no evidence of WHICH passage a quote came from. Excluded from the overlap score, or
- * "the patient said the" would match everywhere.
- */
+/** Words that carry no evidence of which passage a quote came from, excluded from the overlap score. */
 const PASSAGE_STOP_WORDS = new Set([
   'the',
   'a',
@@ -220,10 +192,8 @@ const PASSAGE_STOP_WORDS = new Set([
 ]);
 
 /**
- * Below this share of a quote's content words found together in one stretch, nothing "matches". A
- * paraphrase keeps the nouns and swaps the verbs ("completed a course of antibiotics for allergies" vs
- * "gave me some antibiotics … real bad allergies"), so the bar is deliberately low; the two-word minimum
- * below keeps a single shared noun from counting.
+ * Minimum share of a quote's content words found in one stretch. Low on purpose because a paraphrase keeps the
+ * nouns and swaps the verbs; the two-word minimum keeps a single shared noun from counting.
  */
 const PASSAGE_MIN_SCORE = 0.4;
 const PASSAGE_MIN_WORDS = 2;
@@ -240,15 +210,8 @@ const stem = (word: string): string =>
 const PASSAGE_MAX_CHARS = 320;
 
 /**
- * The stretch of `narrative` that comes CLOSEST to saying `quote`, for a quote that does not occur in it
- * verbatim — the model paraphrased ("recently completed a course of antibiotics" for "they gave me some
- * antibiotics… there's a couple more left"), and the useful thing to show a provider is what was actually
- * said, not "not found".
- *
- * Content words of the quote are scored against every window of the narrative of about the quote's
- * length; the best window is widened to sentence or speaker-turn boundaries so it reads naturally, and
- * capped. Undefined when no window reaches PASSAGE_MIN_SCORE — that is the genuinely unsupported case, and
- * it stays distinguishable from a paraphrase on purpose.
+ * The stretch of `narrative` closest to a paraphrased `quote`, widened to sentence or speaker-turn bounds and
+ * capped. Undefined below PASSAGE_MIN_SCORE, which marks the quote as unsupported rather than paraphrased.
  */
 export function closestPassage(narrative: string, quote: string): { text: string; score: number } | undefined {
   const contentWords = (text: string): string[] =>
@@ -269,7 +232,7 @@ export function closestPassage(narrative: string, quote: string): { text: string
   if (tokens.length === 0) return undefined;
 
   let best: { score: number; from: number; to: number } | undefined;
-  // A paraphrase is rarely tighter than the quote and often looser; try the quote's length and half again.
+  // A paraphrase is rarely tighter than the quote and often looser, so try 1x, 1.5x and 2x its length.
   for (const size of [...new Set([wanted.size, Math.ceil(wanted.size * 1.5), Math.ceil(wanted.size * 2)])]) {
     const width = Math.min(Math.max(size, 3), tokens.length);
     for (let i = 0; i + width <= tokens.length; i += 1) {

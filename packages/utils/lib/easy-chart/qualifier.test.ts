@@ -1,5 +1,4 @@
-// Right drug, right form (requirements section 9). The dangerous case is not a low score — it is a wrong
-// product winning because it was the only candidate.
+// The dangerous case is a wrong-site product winning because it was the only candidate.
 import { describe, expect, it } from 'vitest';
 import { filterUnsupportedQualifiers, medicationQualifierSupported } from './matchers';
 

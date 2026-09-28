@@ -1,17 +1,9 @@
 /**
- * show-voiced.ts — read the voiced tags on a harvested case the way a human needs to see them.
+ * Prints a harvested case's transcript next to its voicing-tagged gold items, for checking the judge's work.
+ * The tags (`voiced`, `voicedEvidence`, `nameVoiced`, `dispositionVoiced`) are stamped onto the gold in place
+ * by tag-voiced.ts and decide the recall denominators in score-harvested.ts.
  *
- * The tags are stamped onto the gold IN PLACE by tag-voiced.ts (LLM judge, claude-sonnet-5):
- * a per-item `voiced: boolean` meaning "stated or clearly implied in the dictation", plus a
- * `voicedEvidence` quote/paraphrase of at most ten words, plus `nameVoiced` on prescribed meds
- * (the DRUG'S NAME was spoken, not just "an antibiotic") and `dispositionVoiced` on the
- * disposition. They live nowhere else — there is no separate benchmark file to open.
- *
- * Why this script exists: those tags decide the recall denominators for exam, ROS, diagnoses,
- * CPT, meds and disposition (see score-harvested.ts), and for exam and ROS they remove the large
- * majority of gold — so anyone reading the report eventually needs to check the judge's work.
- * Reading the raw case JSON to do that means scrolling past the whole chart; this prints the
- * transcript next to the tagged items and nothing else.
+ * PHI: the case files hold real patient data and are gitignored; this prints to stdout only.
  *
  * Usage:
  *   npx tsx tools/easy-chart-eval/show-voiced.ts case001 case042
@@ -21,12 +13,7 @@
  *   npx tsx tools/easy-chart-eval/show-voiced.ts --all --section exam --unvoiced
  *   npx tsx tools/easy-chart-eval/show-voiced.ts case001 --blind         # hide the judge's answer
  *
- * `--blind` is for hand-auditing: it prints the transcript and the items with the tag and the
- * evidence WITHDRAWN, so an auditor decides for themselves before seeing what the judge said.
- * Re-run without the flag to compare. Anchoring on the judge's label is the whole failure mode a
- * hand audit exists to avoid, so this is not a nicety.
- *
- * The case files hold real harvested patient data and are gitignored; this prints to stdout only.
+ * --blind hides tags and evidence so a hand audit is not anchored on the judge's label.
  */
 import { readdirSync, readFileSync } from 'fs';
 import { join } from 'path';
@@ -53,18 +40,13 @@ interface Row {
   /** Prescribed meds only: the class/commitment was spoken but the drug name was not. */
   intentOnly?: boolean;
   /**
-   * Why an item carries no tag. Every untagged item in the corpus is one the scorer drops
-   * BEFORE voicing matters — exam rows with `present !== true` (142: 136 are `*-comment` /
-   * `*-location` free-text fields whose boolean is meaningless, 6 are findings explicitly
-   * recorded false) and lab-order diagnoses (36, scored as context). Naming the reason keeps an
-   * auditor from
-   * spending attention on items that never entered a denominator; a bare "untagged" would
-   * also read as "not voiced", which is the opposite of how the scorer treats an absent tag.
+   * Why an item carries no tag (the scorer drops it before voicing matters), so an absent tag does not
+   * read as "not voiced".
    */
   outOfScope?: string;
 }
 
-/** One section of tagged gold, in the order the report's rows are computed. */
+/** Tagged gold per section, in the order the report computes its rows. */
 function sectionsOf(gold: GoldData): { name: string; rows: Row[] }[] {
   const row = (label: string, item: unknown, detail?: string): Row => {
     const tag = tagOf(item);
@@ -101,10 +83,8 @@ function sectionsOf(gold: GoldData): { name: string; rows: Row[] }[] {
     },
     {
       name: 'ros',
-      // Polarity is encoded in the FIELD NAME (`…-denies` / `…-reports`), which is why the scorer
-      // reads it through rosBaseAndPolarity and reports polarityAgree separately. It is NOT in
-      // `present` — every ROS row in the corpus is present:true — so deriving it from that flag
-      // would label every denial as a positive finding.
+      // Polarity is encoded in the field name (`…-denies` / `…-reports`), not in `present`, which is
+      // true on every ROS row.
       rows: (gold.reviewOfSystems?.observations ?? []).map((o) =>
         row(o.label ?? o.field, o, rosBaseAndPolarity(o.field).polarity)
       ),
@@ -200,8 +180,7 @@ function main(): void {
           `tagged ${tagged.length}, voiced ${voicedCount}) ---`
       );
       for (const r of rows) {
-        // Untagged is its own state and must not read as "not voiced": the scorer keeps untagged
-        // items IN the denominator, the opposite of voiced:false.
+        // Untagged is its own state: the scorer keeps untagged items in the denominator, unlike voiced:false.
         const mark = blind
           ? '[ ? ]'
           : r.voiced === true

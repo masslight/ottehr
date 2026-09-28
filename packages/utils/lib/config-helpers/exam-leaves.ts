@@ -1,10 +1,5 @@
-// Flatten the exam config into a list of SELECTABLE LEAVES: every checkbox a provider can tick,
-// with the label they read and the body-system card it sits under.
-//
-// This is a shared config helper rather than Easy Chart's own, because it is the exam config's own
-// shape being described — a quick-add search, a keyboard palette or a config audit all want the same
-// list. `buildExamFieldToSectionMap` already walks this tree for section grouping; this walks it for
-// the labels, which is what anything matching free text against the exam needs.
+// Flattens the exam config into selectable leaves: every checkbox a provider can tick, with its label and the
+// body-system card it sits under.
 
 import type {
   ExamCardComponent,
@@ -16,9 +11,8 @@ import { isDropdownComponent, isMultiSelectComponent } from '../ottehr-config/ex
 
 export interface ExamLeaf {
   /**
-   * The SAVEABLE chart-data field. For a modal option this is the PARENT checkbox's field, not the
-   * option's own key: `getAllExamFieldsMetadata` only registers the parent, and save-chart-data rejects
-   * anything else with "Exam observation with field … not found".
+   * The saveable chart-data field. For a modal option this is the parent checkbox's field, since
+   * save-chart-data rejects the option's own key.
    */
   field: string;
   /** What the provider reads, fully qualified ("Right: Appearance: Swelling"). */
@@ -28,23 +22,17 @@ export interface ExamLeaf {
   /** Body-system card, e.g. "Ears". An exam finding must not be filed under a different one. */
   sectionKey: string;
   sectionLabel: string;
-  /** Which side of the card it sits on. A normal is not an abnormal finding and vice versa. */
+  /** Which side of the card it sits on. */
   polarity: 'normal' | 'abnormal';
   /** The path from the card down to the leaf, for disambiguating in a picker. */
   path: string[];
-  /**
-   * Set when this leaf is an option inside a checkbox-with-modal. Such an option is NOT its own
-   * observation — it is stored as a component of `field`, so the write has to build the component
-   * rather than a second row.
-   */
+  /** Set for a checkbox-with-modal option, which is written as a component of `field`, not as its own row. */
   component?: { code: string; label: string; groupLabel: string; columnLabel?: string; abnormal?: boolean };
 }
 
 /**
- * Every selectable leaf in an exam config, in config order.
- *
- * NOTE: several leaves can share one `field` — a checkbox-with-modal's options all save into the
- * parent observation, distinguished by their `component`. Do not key a map on `field` alone.
+ * Every selectable leaf in an exam config, in config order. Modal options share their parent's `field`, so do
+ * not key a map on `field` alone.
  */
 export function buildExamLeafCatalogue(examConfig: ExamItemConfig): ExamLeaf[] {
   const leaves: ExamLeaf[] = [];
@@ -87,8 +75,7 @@ export function buildExamLeafCatalogue(examConfig: ExamItemConfig): ExamLeaf[] {
         for (const group of Object.values(column.groups)) {
           for (const [optionKey, option] of Object.entries(group.options)) {
             push(
-              // The PARENT's field, not `optionKey`. An option key is not a saveable observation —
-              // saving one returns "Exam observation with field … not found".
+              // The parent's field: an option key is not a saveable observation.
               parentField,
               option.label,
               [...columnPath, group.label],
@@ -167,7 +154,7 @@ export function buildExamLeafCatalogue(examConfig: ExamItemConfig): ExamLeaf[] {
 }
 
 /**
- * Form elements are keyed rather than labelled, so the key IS the label a provider sees. Mirrors the
+ * Form elements are keyed rather than labelled, so the key is the label a provider sees. Mirrors the
  * formatting `extractObservationsFromExamComponents` already applies to the same keys.
  */
 function humanizeFieldName(fieldName: string): string {
@@ -184,13 +171,8 @@ function humanizeFieldName(fieldName: string): string {
 }
 
 /**
- * Each exam card's free-text COMMENT field, keyed by both section key and section label.
- *
- * The exam tab is mostly checkboxes plus one free-text area per card. That area is where a dictated
- * observation goes when the checkbox catalogue cannot represent it: "positive Homan's sign" is a real
- * finding with no leaf to tick, and the alternative to writing it here is losing the provider's words
- * entirely. Keyed by both because a caller may hold either — the leaf catalogue carries `sectionKey`,
- * while a section label is what a human-readable inference produces.
+ * Each exam card's free-text comment field, keyed by both section key and label (callers may hold either).
+ * Findings with no checkbox, such as "positive Homan's sign", are written there.
  */
 export function buildExamCommentFields(examConfig: ExamItemConfig): Record<string, string> {
   const map: Record<string, string> = {};
@@ -204,18 +186,8 @@ export function buildExamCommentFields(examConfig: ExamItemConfig): Record<strin
 }
 
 /**
- * The exam card a free-text finding belongs to, or undefined when it cannot be told confidently.
- *
- * HIGH PRECISION OVER COVERAGE, deliberately: only a word from the CARD'S OWN NAME counts, and only
- * when exactly one card matches. A finding filed under the wrong body system is worse than one filed
- * under the general card — "Photophobia" appearing under Genitourinary is actively misleading in a
- * signed note, and that is what a scoring heuristic over leaf labels produced (it also sent "left ear
- * canal" to Lungs, on the strength of "tenderness" appearing in several chest-wall leaves).
- *
- * So this answers only the easy cases — "ear canal", "lung field", "abdomen soft" — and returns
- * undefined for everything else, which the caller files under the general card. Widening it means
- * adding an anatomy vocabulary curated to the same standard: a term that names exactly one card, and
- * nothing for a term that does not ("discharge" is any orifice; "vestibule" is nasal or vaginal).
+ * The exam card a free-text finding belongs to, or undefined unless exactly one card matches (the caller then
+ * uses the general card). A finding under the wrong body system is worse than one under the general card.
  */
 export function inferExamSectionKey(text: string, leaves: ExamLeaf[]): string | undefined {
   const words = new Set(
@@ -227,9 +199,7 @@ export function inferExamSectionKey(text: string, leaves: ExamLeaf[]): string | 
   if (words.size === 0) return undefined;
 
   const hits = new Set<string>();
-  // Terms that name exactly ONE card but share no word with its name. Curated to the same standard as
-  // the card-name match: a term that could belong to two cards is deliberately absent, so it falls
-  // through to the general card rather than guessing.
+  // Anatomy terms that name exactly one card without sharing a word with its name.
   for (const word of words) {
     const section = singularForms(word)
       .map((form) => UNAMBIGUOUS_ANATOMY[form])
@@ -242,9 +212,8 @@ export function inferExamSectionKey(text: string, leaves: ExamLeaf[]): string | 
     seen.add(leaf.sectionKey);
     const name = `${leaf.sectionKey} ${leaf.sectionLabel}`.toLowerCase().split(/[^a-z0-9]+/);
     for (const word of words) {
-      // Whole word against whole word, tolerating only a plural 's' — substring matching makes "ear"
-      // hit "smear" and "back" hit "backache" in another card's name, while a strict equality misses
-      // the singular/plural split every card name has ("ear canal" vs the card "Ears").
+      // Whole words, tolerating a plural 's': substrings would let "ear" hit "smear", while strict equality
+      // would miss "ear" against the card "Ears".
       if (name.some((part) => part === word || part === `${word}s` || `${part}s` === word)) {
         hits.add(leaf.sectionKey);
       }
@@ -253,15 +222,7 @@ export function inferExamSectionKey(text: string, leaves: ExamLeaf[]): string | 
   return hits.size === 1 ? [...hits][0] : undefined;
 }
 
-/**
- * Anatomy that names exactly one exam card without sharing a word with its label. Every entry is a
- * term a clinician would only use about that one card; anything ambiguous ("discharge" is any orifice,
- * "vestibule" is nasal or vaginal, "effusion" is a knee or a pleura, "distress" is general or respiratory)
- * is deliberately absent so it falls through to the general card rather than guessing. Singular forms
- * only — the lookup strips a plural 's'/'es' — so "wheezes", "rhonchi", "nodes" all resolve. Before this
- * vocabulary covered every card, "scattered rhonchi" and "no wheezes" were filed under General Appearance.
- */
-/** The forms a plural may take — "wheezes" → "wheeze", "crackles" → "crackle", "nodes" → "node", "varicosities" → "varicosity". */
+/** The word plus its possible singulars ("wheezes" → "wheeze", "varicosities" → "varicosity"). */
 const singularForms = (word: string): string[] => [
   word,
   ...(word.endsWith('s') ? [word.slice(0, -1)] : []),
@@ -269,6 +230,10 @@ const singularForms = (word: string): string[] => [
   ...(word.endsWith('ies') ? [`${word.slice(0, -3)}y`] : []),
 ];
 
+/**
+ * Anatomy terms that name exactly one exam card. Ambiguous terms ("discharge" is any orifice, "effusion" a knee
+ * or a pleura) are deliberately absent. Singular forms only, since the lookup strips plurals.
+ */
 const UNAMBIGUOUS_ANATOMY: Record<string, string> = {
   // Ears
   tympanic: 'ears',

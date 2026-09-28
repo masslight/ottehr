@@ -18,8 +18,7 @@ describe('collectResourceIds', () => {
     expect([...collectResourceIds(chart)].sort()).toEqual(['cc-1', 'dx-1', 'dx-2', 'lab-1']);
   });
 
-  // Generic on purpose: a hand-written list of sections to walk goes stale the first time someone
-  // adds a section, and the symptom is an AI-written row rendering as provider-entered.
+  // A per-section list would go stale, and an AI-written row would then render as provider-entered.
   it('picks up a section it has never heard of', () => {
     expect([...collectResourceIds({ somethingNew: [{ resourceId: 'new-1' }] })]).toEqual(['new-1']);
   });

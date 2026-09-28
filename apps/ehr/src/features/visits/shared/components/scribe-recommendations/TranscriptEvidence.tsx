@@ -21,11 +21,8 @@ interface TranscriptEvidenceProps {
 }
 
 /**
- * The transcript, folded away: the narrative is what the provider works in, and this is what it was written
- * from. Opened, it shows the selected transcript, or nothing when none is selected, and can be edited. An
- * edited transcript is saved over its document ("Save changes"); text typed or pasted with none selected
- * becomes a new transcript on the visit ("Add transcript"). Either way the server processes it as it would a
- * recording's, and its narrative replaces the one below.
+ * Collapsible transcript editor. Edits are saved over the selected document, or added as a new transcript when
+ * none is selected; either way the server reprocesses it and its narrative replaces the draft.
  */
 export const TranscriptEvidence: FC<TranscriptEvidenceProps> = ({ transcript, documentId, disabled, onSave }) => {
   const [isExpanded, setIsExpanded] = useState(false);

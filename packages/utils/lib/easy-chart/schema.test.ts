@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
+import { SURFACES } from './actions';
 import {
   actionBranchesOf,
   buildResponseSchema,
@@ -16,8 +17,6 @@ describe('coerceNumericFields', () => {
     expect(action).toEqual({ followUpInDays: 7, display: 'x' });
   });
 
-  // A half-parsed value must behave exactly as if the model had omitted the field: deleting it makes
-  // the required-fields gate reject the action honestly instead of charting NaN.
   it('deletes an empty or non-numeric value rather than charting NaN', () => {
     const action: Record<string, unknown> = { value: '', systolic: 'about 120', followUpInDays: 'a week' };
     coerceNumericFields(action, ['value', 'systolic', 'followUpInDays']);
@@ -57,19 +56,14 @@ describe('review response schema', () => {
     expect(item.properties.actions).toEqual((buildResponseSchema('review').properties as any).actions);
   });
 
-  // A diagnosis-swap card is a remove+add pair whose add must restate the removed diagnosis's primary
-  // status, or the note ends with no primary at all. Leaving the boolean optional is what made the
-  // model express primacy in prose instead — the `(primary) (primary) …` string loop of trap 3. With
-  // one branch per kind the requirement lands on add-diagnosis alone, not on every review action.
   it('REQUIRES isPrimary on the review add-diagnosis branch only', () => {
     const review = actionBranchesOf(buildResponseSchema('review'));
     expect(review['add-diagnosis'].required).toContain('isPrimary');
     expect(review['remove-diagnosis'].required).toEqual(['kind', 'display']);
-    // And the plan surface is untouched: there the whole-plan invariant handles a missing primary.
     expect(actionBranchesOf(buildResponseSchema('plan'))['add-diagnosis'].required).toEqual(['kind', 'display']);
   });
 
-  it('never offers a kind a field it has no use for — the flat shape did, and trap 3 came from it', () => {
+  it('never offers a kind a field it does not declare', () => {
     const review = actionBranchesOf(buildResponseSchema('review'));
     expect(review['add-diagnosis'].properties.text).toBeUndefined();
     expect(review['set-disposition'].properties.display).toBeUndefined();
@@ -105,9 +99,7 @@ describe('toWire refuses the constructs behind traps 1 and 3 at build time', () 
   });
 });
 
-// TRAP 3. A capped string makes a repetition loop terminate inside a valid value instead of running to
-// the output cap and destroying the response. Every string in the schema must carry a bound, including
-// the ones nested in arrays and in the review card itself — a single uncapped field is enough.
+// Trap 3: every string must carry a bound, including the ones nested in arrays and in the review card.
 describe('every string field is length-capped', () => {
   const uncapped = (schema: unknown, path = '$'): string[] => {
     if (schema == null || typeof schema !== 'object') return [];
@@ -122,7 +114,7 @@ describe('every string field is length-capped', () => {
   };
 
   it('across every surface schema', () => {
-    for (const surface of ['plan', 'review', 'template', 'findings', 'diagnoses', 'orders', 'coding'] as const) {
+    for (const surface of SURFACES) {
       expect(uncapped(buildResponseSchema(surface))).toEqual([]);
     }
   });

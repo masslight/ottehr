@@ -1,20 +1,8 @@
-// Every chart category a run touched, added AND removed, attributed to the planner or to review.
+// Counts, per chart category, what each run added and removed, split by planner and review, including the
+// categories `summary.json` does not score. A diff tool, not a score: no gold is consulted.
 //
-// WHY THIS EXISTS. `summary.json` scores seven sections — diagnoses, cpt, ros, exam, medsPrescribed,
-// medsInHouse, immunizations — because those are the ones the harvested gold can be matched against.
-// The executor writes a dozen more: allergies, past medical history, surgical history, hospitalizations,
-// vitals, labs, radiology, procedures, nursing orders, patient instructions, provider notes, note text.
-// Those are unscored, which is not the same as unimportant: a regression that silently stops charting
-// allergies, or one where review starts removing medications, moves nothing in the summary at all.
-//
-// So this reads the simulated FINAL STATE out of each `<case>.result.json` and counts, per category,
-// what was added and what was removed, split by `source` / `removedBy`. It is a DIFF TOOL, not a score:
-// no gold is consulted, and a bigger number is not automatically better. Read it to answer "what
-// changed between these two runs, anywhere in the chart".
-//
-// PHI: reads `*.result.json`, which DOES contain clinical text — so it prints counts and category names
-// only, never a display string. Keep it that way; `report.ts` avoids these files entirely for the same
-// reason and this tool is the deliberate exception.
+// PHI: reads `*.result.json`, which contains clinical text. Print counts and category names only, never a
+// display string.
 //
 // Usage:
 //   npx tsx tools/easy-chart-eval/ledger.ts <runDir> [<runDir>...]
@@ -22,7 +10,6 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 
-/** A state array whose entries may carry provenance and a removal marker. */
 interface Sourced {
   source?: string;
   removed?: boolean;
@@ -30,11 +17,8 @@ interface Sourced {
 }
 
 /**
- * The state keys that hold LISTS of chart rows, i.e. everything that can be added or removed.
- *
- * Named explicitly rather than discovered, so a key the simulator gains shows up as missing here rather
- * than being silently averaged into nothing — and so the ones that are NOT lists (`noteText`,
- * `disposition`, `templatesApplied`) stay out, since "added or removed" does not describe them.
+ * State keys holding chart rows that can be added or removed. Listed explicitly so keys that are not rows
+ * (`noteText`, `disposition`, `templatesApplied`) stay out.
  */
 const LIST_KEYS = [
   'diagnoses',
@@ -90,9 +74,8 @@ function tallyRun(dir: string): { totals: Record<string, Tally>; cases: number; 
       totals[key] ??= { addedPlanner: 0, addedReview: 0, removedPlanner: 0, removedReview: 0, live: 0 };
       const t = totals[key];
       for (const row of rows as Sourced[]) {
-        // `source` is absent on categories the simulator never attributed (provider notes are plain
-        // strings, for instance). Those count as planner-added rather than being dropped, because the
-        // alternative is a column of zeroes that reads as "nothing was charted".
+        // Rows without a `source` (e.g. provider notes, which are plain strings) count as planner-added, so
+        // the category does not read as empty.
         if (row?.source === 'review') t.addedReview += 1;
         else t.addedPlanner += 1;
         if (row?.removed) {
@@ -143,7 +126,7 @@ for (const run of runs) {
   console.log();
 }
 
-// The comparison view, when there is something to compare against. Baseline is the FIRST directory.
+// Deltas against the first directory, which is the baseline.
 if (runs.length > 1) {
   const [base, ...rest] = runs;
   for (const run of rest) {

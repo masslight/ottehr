@@ -1,20 +1,9 @@
-// easy-chart-save-transcript — a transcript typed or edited in Autochart, saved to the visit and processed.
+// easy-chart-save-transcript: a transcript typed or edited in the panel, saved to the visit and run
+// through createResourcesFromAiInterview exactly as a recording's transcript is.
 //
-// Both paths run the text through createResourcesFromAiInterview, the same function a recording's transcript
-// reaches once transcribed, so the transcript DocumentReference, the extracted history Observations and the
-// stored narrative come out exactly as they would for audio.
-//
-// NEW (no documentId): a new transcript document is written. The caller is recorded as its provider, which is
-// what labels it a recording in the EHR; only the audio attachment is absent.
-//
-// EDIT (documentId): the document is processed again from the new text — its transcript and narrative are
-// replaced, fresh Observations are extracted, and then the Observations extracted from the old text are
-// deleted, so the chart's suggestions describe what the transcript now says. The deletion runs last: a failure
-// there leaves both sets rather than neither, and saving again clears every set but the newest. Any audio
-// attachment and the document's provider stay.
-//
-// Authorisation is the shared Easy Chart check: a charting role and read access to the encounter. An edited
-// document must belong to that encounter and be a transcript document.
+// New (no documentId): a new transcript document, recorded under the caller as its provider.
+// Edit (documentId): the document is processed again from the new text, then the Observations extracted
+// from the old text are deleted. The delete runs last, so a failure leaves both sets rather than neither.
 //
 // PHI: never logs the transcript. Envelope only.
 
@@ -35,7 +24,6 @@ import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'easy-chart-save-transcript';
 
-// Lifted outside the handler so it survives warm invocations.
 let m2mToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
@@ -57,7 +45,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     if (!isTranscriptDocument(existing)) {
       throw INVALID_INPUT_ERROR('The document is not a transcript');
     }
-    // The document keeps the provider it was recorded (or first saved) under; a chat transcript has none.
+    // The document keeps the provider it was recorded under; a chat transcript has none.
     providerUserProfile =
       existing.extension?.find((e) => e.url === `${PUBLIC_EXTENSION_BASE_URL}/provider`)?.valueReference?.reference ??
       null;
@@ -70,7 +58,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       .unbundle()
       .flatMap((obs) => (obs.id ? [obs.id] : []));
   } else {
-    // A service client has no user profile; its transcript is stored as a chat transcript.
+    // A service client has no user profile, so its transcript is stored as a chat transcript.
     providerUserProfile = isServiceClient ? null : (await userMe(userToken, secrets)).profile;
   }
 
@@ -92,7 +80,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     });
   }
 
-  // `created` lists the written resources as "Type/id,Type/id"; the transcript document is the one the client needs.
+  // `created` is "Type/id,Type/id,…"; the client needs the transcript document.
   const savedDocumentId =
     documentId ??
     created

@@ -1,27 +1,9 @@
 /**
- * ground-predictions.ts — of what we charted and the gold does not contain, how much did the
- * provider actually SAY?
+ * Asks an LLM judge whether each charted item the gold lacks is supported by the dictation (grounded) or
+ * not (a real false positive). The gold is the signed chart, so it omits things said but never ticked.
+ * Model and criteria match the voicing judge (tag-voiced.ts) so the two sides are comparable.
  *
- * `overcharted` (predicted, and nowhere in the gold) is read as the model's false positives, and for
- * some sections that reading is wrong. Measured earlier on ROS: of 208 cases where we charted a fever,
- * cough, vomiting, diarrhea or rhinorrhea row absent from the gold, 206 have that symptom in the
- * dictation. The gold is the chart the provider SIGNED, not everything that was said, so an item they
- * simply never ticked is scored as an error.
- *
- * The voicing tags cannot help: they only ever forgive a prediction that lands on gold the provider
- * DID chart. Anything missing from the chart entirely is charged to precision whether or not it was
- * spoken. This pass closes that asymmetry by asking the SAME judge the SAME question about the other
- * side — the items we charted that the gold lacks:
- *
- *   grounded    the dictation supports it. The chart is the incomplete side, not the model.
- *   ungrounded  neither in the gold nor in the dictation. A real false positive.
- *
- * Deliberately the same model and the same criterion wording as tag-voiced.ts, because the whole point
- * is that the two sides be comparable. A hand-rolled keyword heuristic would answer a different
- * question and could not be set against the gold-side numbers.
- *
- * Results are written per case as `<runDir>/<caseId>.grounding.json` and never touch the case files or
- * the score files: scoring stays deterministic and offline, and a run can be re-scored without this.
+ * Writes `<runDir>/<caseId>.grounding.json` and never touches case or score files, so scoring stays offline.
  *
  * Usage (needs ANTHROPIC_API_KEY):
  *   npx env-cmd -f packages/zambdas/.env/zambda-secrets-local.json \
@@ -56,7 +38,7 @@ type Section =
   | 'conditions'
   | 'surgicalHistory'
   | 'hospitalizations';
-/** Every section this pass knows. A grounding file records which of these it has judged (see `sections`). */
+/** A grounding file records which of these sections it has judged in its `sections` field. */
 const ALL_SECTIONS: Section[] = [
   'diagnoses',
   'cpt',
@@ -198,8 +180,8 @@ function overchartedItems(gold: Record<string, any>, state: Record<string, any>)
     if (!goldMeds.some((g) => nameMatch(p.display, g))) out.push({ section: 'medications', text: p.display ?? '' });
   }
 
-  // Context sections — the same match rules the scorer uses, so "overcharted" here is exactly the
-  // scorer's predicted − matched. Vitals carry no `removed`/`source`; the others are plain SimItems.
+  // Context sections use the scorer's match rules, so "overcharted" equals its predicted − matched.
+  // Vitals carry no `removed`/`source`; the others are plain SimItems.
   const plannable = new Set<string>(PLANNABLE_VITAL_FIELDS);
   const goldVitals: Record<string, unknown>[] = (gold.vitals ?? []).filter((v: any) => plannable.has(String(v.field)));
   const vitals = uniqueVitals(
@@ -309,9 +291,8 @@ async function main(): Promise<void> {
         };
         const r = JSON.parse(readFileSync(join(runDir, `${id}.result.json`), 'utf8')) as Record<string, any>;
         const state = r.state ?? r.finalState;
-        // INCREMENTAL, per section. A case already judged keeps its verdicts; only the sections its file
-        // has never covered are judged now and appended — so adding a section to this pass costs one
-        // small call per case, not a re-judgement of everything, and a killed run resumes where it stopped.
+        // Incremental per section: existing verdicts are kept and only sections the file has not covered are
+        // judged, so adding a section is cheap and a killed run resumes where it stopped.
         const groundingPath = join(runDir, `${id}.grounding.json`);
         const existing = existsSync(groundingPath)
           ? (JSON.parse(readFileSync(groundingPath, 'utf8')) as { items: Item[]; sections?: Section[] })

@@ -5,10 +5,8 @@ import { useScribeRecommendationsStore } from './scribeRecommendations.store';
 import { ScribeRecommendation } from './types';
 
 /**
- * Which items on the visit note the scribe panel put there. The chart does not record who wrote
- * an item, so the note asks the panel: a chart item is "AI added" when an applied recommendation
- * matches it by the same rule the panel uses to spot a duplicate (`isAlreadyCharted`). Session
- * state only — a reload forgets, as the panel does.
+ * Which visit-note items the scribe panel wrote. The chart doesn't record authorship, so an item counts as AI
+ * added when an applied recommendation matches it by the `isAlreadyCharted` rule. Session state only.
  */
 
 const normalize = (value: string | undefined): string => (value ?? '').trim().toLowerCase();

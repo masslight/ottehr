@@ -1,55 +1,19 @@
 /**
- * score-harvested.ts — deterministic scorer for harvested-case eval runs (no LLM).
+ * Deterministic scorer for harvested-case runs: compares the simulated chart state with the clinician's
+ * structured gold. Every metric is computed over the planner-only output and over the final post-review
+ * state, so review's contribution is visible per section.
  *
- * Compares a simulated charted state (built by run-harvested-eval.ts from planner steps +
- * applied review suggestions) against the provider-charted structured gold (harvest-shared.ts).
- * Every metric is computed twice: once over the PLANNER-ONLY output and once over the FINAL
- * post-review state, so the review pass's net contribution is visible per section.
+ * Gold that is not derivable from the transcript (`context: true` prior-chart items, lab-order diagnoses,
+ * and items tagged `voiced: false` by tag-voiced.ts) leaves the recall denominator, and a prediction matching
+ * it leaves the precision denominator instead of counting as a false positive. Untagged items stay in scope.
  *
- * Scope rule: gold items flagged `context: true` (prior-chart history) and diagnoses flagged
- * `fromLabOrder` are NOT transcript-derivable — they are excluded from recall denominators, and
- * a predicted item that matches one is not a false positive either (it is counted separately as
- * "context items charted" and excluded from the precision denominator).
- *
- * Voiced scoping: tag-voiced.ts stamps an additive per-item `voiced: boolean` (LLM judge:
- * "stated or clearly implied in the dictation") onto gold diagnoses / ROS / exam / CPT /
- * prescribed-med items. When present, `voiced: false` items leave the recall denominator
- * (reported as unvoicedGold) and a prediction matching one is treated like context (counted as
- * unvoicedMatched, excluded from the precision denominator). Items WITHOUT the flag keep the
- * legacy behavior, so scoring works on untagged case files.
- *
- * Med voicing fidelity: prescribed meds additionally carry `nameVoiced` (tag-voiced.ts) — the
- * drug's NAME was spoken, not just a class/commitment ("an antibiotic"). Recall scopes to
- * nameVoiced meds; voiced meds with nameVoiced ABSENT (legacy-tagged) keep the old behavior and
- * are counted as legacyVoiced. Intent-voiced meds (voiced && nameVoiced === false) get their own
- * commitment-coverage metric: covered when the final state charts a matching med OR any
- * provider-note/instruction shares a substantive token with the med's name/voicedEvidence.
- *
- * Disposition voicing: gold.disposition additionally carries `dispositionVoiced` (tag-voiced.ts)
- * — a listener could learn the disposition plan from the transcript alone. Providers set a
- * disposition on ~every visit but voice it in only a small minority of transcripts, so the raw
- * charted-disposition counter mostly measures guessing. The voiced-scoped metric (denominator =
- * cases whose gold disposition is voiced) is reported ALONGSIDE the raw counter; gold
- * dispositions without the tag land in a no-data bucket and scoring stays byte-identical for
- * untagged corpora.
- *
- * Usable three ways:
- *   - imported by run-harvested-eval.ts (scoreCase / aggregateScores / formatSummary)
- *   - standalone re-score of an existing results dir:
- *       npx tsx scripts/easy-chart-eval/score-harvested.ts [resultsDir] [casesDir]
- *   - synthetic-fixture self-test (no case data touched):
- *       npx tsx scripts/easy-chart-eval/score-harvested.ts --self-test
+ * Imported by run-harvested.ts, whose --rescore re-scores a run. Standalone, on synthetic fixtures only:
+ *   npx tsx tools/easy-chart-eval/score-harvested.ts --self-test
  */
-import { existsSync, readdirSync, readFileSync, writeFileSync } from 'fs';
-import { join } from 'path';
 import { pathToFileURL } from 'url';
 import { rosField } from 'utils/lib/ottehr-config/review-of-systems';
 
-/**
- * The scorer's OWN usage shape. Deliberately not the app's ModelUsage: this tool only needs counters,
- * and binding it to the app type drags in provider naming and the escalation record, which live in a
- * different place on this branch. Adapt at the runner boundary, not here.
- */
+/** The scorer's own usage shape, deliberately not the app's ModelUsage; the runner adapts between them. */
 export interface EvalTokenUsage {
   provider: 'gemini' | 'claude';
   model?: string;
@@ -58,13 +22,7 @@ export interface EvalTokenUsage {
   cacheReadTokens?: number;
   cacheWriteTokens?: number;
   thinkingTokens?: number;
-  /**
-   * How many model calls these totals cover.
-   *
-   * One, until a visit became several staged calls. Without it a staged run and a single-call run report
-   * the same shape and the reader cannot tell which cost what — the token totals move, but nothing says
-   * how many calls they were spread over.
-   */
+  /** Model calls these totals cover (a staged visit makes several); absent means one. */
   calls?: number;
   /** Why a call escalated, kept as free-form so the runner can map whatever the endpoint reports. */
   escalation?: {
@@ -81,11 +39,8 @@ import { parseVitalDisplay } from 'utils/lib/easy-chart/vitals';
 import { RosFindingState } from 'utils/lib/ottehr-config/review-of-systems/in-person.config';
 import { DiagnosisItem, ExamItem, GoldData } from './gold-types';
 
-// ---------------------------------------------------------------------------
-// Simulated charted-state types — produced by run-harvested-eval.ts, persisted in
-// caseNNN.result.json, consumed here. Every item carries provenance (`source`) and
-// soft-delete flags (`removed`/`removedBy`) so both scopes can be reconstructed.
-// ---------------------------------------------------------------------------
+// Simulated chart state. Items carry provenance (`source`) and soft-delete flags (`removed` / `removedBy`)
+// so both scopes can be rebuilt.
 export type SimSource = 'planner' | 'review';
 
 export interface SimItem {
@@ -97,9 +52,8 @@ export interface SimItem {
 }
 export interface SimDiagnosis extends SimItem {
   isPrimary?: boolean;
-  // Set when the review-phase primary-dx safety net (pickPrimaryPromotion) flipped this dx to
-  // primary — a review-provenance mutation even on a planner-sourced dx, so the plannerOnly
-  // scope must ignore the promoted flag.
+  // Set when review promoted this dx to primary. The plannerOnly scope ignores the promotion, even on a
+  // planner-sourced dx.
   promotedPrimaryBy?: SimSource;
 }
 export interface SimMedication extends SimItem {
@@ -159,8 +113,7 @@ export interface SimFinalState {
   noteText: Partial<
     Record<'chiefComplaint' | 'historyOfPresentIllness' | 'mechanismOfInjury' | 'ros' | 'medicalDecision', SimNoteText>
   >;
-  // Review edit-note-text on a non-empty field is queued for confirmation, never auto-applied
-  // (mirrors the client's pendingNoteEdits) — recorded here, NOT folded into noteText.
+  // Review edit-note-text on a non-empty field is queued for confirmation, not folded into noteText.
   pendingNoteEdits: { field: string; newText: string; source: SimSource }[];
   instructions: string[];
   disposition?: { type?: string; text?: string };
@@ -209,27 +162,22 @@ export interface CaseUsage {
   review?: EvalTokenUsage;
 }
 
-// Disposition-check observability passed through verbatim from the review response (mirrors
-// EasyChartReviewOutput.dispositionTrigger in packages/utils). On a CaseScore: `null` = the
-// review response carried no trigger info (older zambda); field absent = the run predates the
-// field entirely — the aggregate's no-data bucket covers both.
+// Passed through verbatim from the review response. On a CaseScore, `null` means the response had no
+// trigger info and an absent field means the run predates it; both land in the aggregate's no-data bucket.
 export interface DispositionTriggerInfo {
   fired: boolean;
   matchedPattern?: string;
   modelProposed: boolean;
 }
 
-// ---------------------------------------------------------------------------
 // Score shapes
-// ---------------------------------------------------------------------------
 export interface SectionScore {
   goldInScope: number;
   predicted: number;
   matched: number;
   contextGold?: number;
   contextCharted?: number;
-  // voiced-tagging (tag-voiced.ts): gold items judged NOT transcript-derivable, and predictions
-  // that matched one (excluded from the precision denominator, like context).
+  // Gold tagged `voiced: false`, and predictions matching one (excluded from precision, like context).
   unvoicedGold?: number;
   unvoicedMatched?: number;
   precision: number | null;
@@ -244,16 +192,13 @@ export interface ScopeScores {
   cpt: SectionScore;
   ros: SectionScore & { polarityAgree: number };
   exam: SectionScore & { abnormalAgree: number };
-  // legacyVoiced: voiced meds tagged before nameVoiced existed (still in the recall denominator).
-  // intentVoiced/intentCovered: commitment coverage over intent-voiced meds (see header).
+  // legacyVoiced: voiced meds without a `nameVoiced` tag (still in the recall denominator).
+  // intentVoiced/intentCovered: commitment coverage over intent-voiced meds (see isIntentVoiced).
   medsPrescribed: SectionScore & { legacyVoiced: number; intentVoiced: number; intentCovered: number };
   medsInHouse: SectionScore;
   immunizations: SectionScore;
-  // CONTEXT sections. Their gold is the chart's intake / prior-history data (nurse-entered vitals,
-  // reconciled allergies and history), marked `context: true` by the harvester and carrying NO voicing
-  // tags. Recall is therefore measured against everything on the chart, most of which the provider
-  // never dictated; PRECISION is the figure to read — of what the model charted, how much the chart
-  // agrees with. Absent from score files written before 2026-09-14.
+  // Context sections: gold is intake and prior-history data with no voicing tags, so recall includes items
+  // the provider never dictated. Precision is the figure to read.
   vitals: SectionScore;
   allergies: SectionScore;
   conditions: SectionScore;
@@ -299,8 +244,7 @@ export interface CaseScore {
     predictedInstructions: number;
     goldDisposition: boolean;
     predictedDisposition: boolean;
-    // tag-voiced.ts `dispositionVoiced` on gold.disposition, additive like `voiced`: ABSENT when
-    // the corpus is untagged (keeps untagged score files byte-identical).
+    // gold.disposition.dispositionVoiced; omitted when untagged so untagged score files are unchanged.
     goldDispositionVoiced?: boolean;
     // remove-* steps whose target wasn't on the simulated chart (planner hallucinated a removal).
     removeTargetMissing: number;
@@ -309,11 +253,9 @@ export interface CaseScore {
   dispositionTrigger?: DispositionTriggerInfo | null;
 }
 
-// ---------------------------------------------------------------------------
-// Normalization / matching helpers
-// ---------------------------------------------------------------------------
-// Mirrors normalizeCode in harvest-prod-cases.ts (that file self-executes, so it can't be
-// imported) and the CodeItem.codeNormalized contract in harvest-shared.ts.
+// Normalization and matching helpers
+
+// Must match CodeItem.codeNormalized as written by the harvester.
 export function normCode(code: string | undefined): string {
   return (code ?? '').toUpperCase().replace(/\s+/g, '').replace(/\./g, '');
 }
@@ -349,7 +291,7 @@ function inScope<T extends { source: SimSource; removed?: boolean; removedBy?: S
     ? items.filter((i) => i.source === 'planner' && !(i.removed && i.removedBy === 'planner'))
     : items.filter((i) => !i.removed);
 }
-// Exam obs are in scope when the observation OR any of its components belongs to the scope
+// Exam obs are in scope when the observation or any of its components belongs to the scope
 // (a review modal-option can land on a planner-created parent observation).
 function examInScope(obs: SimExamObs[], scope: Scope): SimExamObs[] {
   if (scope === 'final') return obs.filter((o) => !o.removed);
@@ -368,18 +310,15 @@ function emForScope(events: SimEmEvent[], scope: Scope): { code?: string; displa
   return cur;
 }
 
-// `voiced` / `voicedEvidence` are additive fields stamped by tag-voiced.ts; the harvest-shared
-// types (owned elsewhere) don't declare them, so read the flag loosely. Only an explicit
-// `voiced: false` changes behavior — absent/true keeps the item in scope.
+// `voiced` is stamped onto gold items by tag-voiced.ts and not declared on the gold types. Only an explicit
+// `voiced: false` takes an item out of scope.
 export function isUnvoiced(item: unknown): boolean {
   return (item as { voiced?: boolean }).voiced === false;
 }
 
-// Prescribed-med voicing fidelity (tag-voiced.ts `nameVoiced`, additive like `voiced`):
-// intent-voiced = the commitment/class was spoken but not the drug's name — structurally
-// impossible for a scribe to chart as a med, so it leaves the recall denominator and is scored
-// via commitment coverage instead. voiced:true with nameVoiced ABSENT = legacy-tagged (keeps the
-// old in-denominator behavior, surfaced as legacyVoiced).
+// Intent-voiced: the commitment or drug class was spoken but not the name ("an antibiotic"). A scribe cannot
+// chart that as a med, so it leaves recall and is scored by commitment coverage instead.
+// Legacy-voiced: `voiced: true` without a `nameVoiced` tag; stays in the recall denominator.
 type VoicedMed = { voiced?: boolean; nameVoiced?: boolean; voicedEvidence?: string; name?: string };
 export function isIntentVoiced(item: unknown): boolean {
   const m = item as VoicedMed;
@@ -390,9 +329,8 @@ export function isLegacyVoiced(item: unknown): boolean {
   return m.voiced === true && typeof m.nameVoiced !== 'boolean';
 }
 
-// Commitment-coverage token matching — deliberately generous but deterministic: drop function
-// words, prescribing verbs, and dose-form/schedule qualifiers; KEEP class words (antibiotic,
-// nasal, spray, cough...) since those are the pointer the provider actually voiced.
+// Commitment-coverage tokens drop function words, prescribing verbs and dose-form/schedule words, but keep
+// class words (antibiotic, nasal, spray, cough), since those are what the provider actually voiced.
 const COMMIT_STOPWORDS = new Set([
   // function/filler words (transcript evidence is conversational)
   ...(
@@ -451,11 +389,9 @@ function mkSection(
   };
 }
 
-// ---------------------------------------------------------------------------
 // Per-scope section scoring
-// ---------------------------------------------------------------------------
 function scoreScope(gold: GoldData, state: SimFinalState, scope: Scope): ScopeScores {
-  // --- diagnoses (match key: codeNormalized) ---
+  // Diagnoses match on codeNormalized.
   const goldDx = gold.assessment.diagnoses;
   const goldDxScorable = goldDx.filter((d) => !d.fromLabOrder);
   const goldDxInScope = goldDxScorable.filter((d) => !isUnvoiced(d));
@@ -492,15 +428,11 @@ function scoreScope(gold: GoldData, state: SimFinalState, scope: Scope): ScopeSc
     predictedNoCode,
   };
 
-  // --- primary dx (reported separately from set membership; the raw comparison stays
-  // voicing-blind — the charted primary is the comparison target regardless of derivability —
-  // and the gold primary's voiced tag is recorded for voiced-scoped aggregation) ---
+  // Primary dx: the raw comparison ignores voicing. The gold primary's `voiced` tag, when present, is recorded
+  // for the voiced-scoped aggregate.
   const goldPrimary = goldDxScorable.find((d) => d.primary);
-  // `voiced` is an additive tag-voiced.ts field, cast like isUnvoiced does; ABSENT when the
-  // corpus is untagged (keeps untagged score files byte-identical).
   const goldPrimaryVoiced = (goldPrimary as { voiced?: boolean } | undefined)?.voiced;
-  // A review-promoted primary (promotedPrimaryBy) can sit on a planner-sourced dx — exclude it
-  // from the plannerOnly scope so the review safety net never inflates planner-only metrics.
+  // A review promotion never counts toward the planner-only scope.
   const predPrimary = predDx.find((d) => d.isPrimary && !(scope === 'plannerOnly' && d.promotedPrimaryBy === 'review'));
   const primaryDx = {
     ...(goldPrimary ? { goldCode: goldPrimary.codeNormalized } : {}),
@@ -509,8 +441,7 @@ function scoreScope(gold: GoldData, state: SimFinalState, scope: Scope): ScopeSc
     match: goldPrimary && predPrimary?.code ? normCode(predPrimary.code) === goldPrimary.codeNormalized : null,
   };
 
-  // --- E&M (exact code, plus level = last digit so 9920x/9921x family errors don't hide
-  // correct visit-complexity selection) ---
+  // E&M: exact code, plus level (last digit; see ScopeScores.em).
   const goldEm = gold.billing.emCode?.code;
   const predEm = emForScope(state.emEvents, scope)?.code;
   const em = {
@@ -520,7 +451,7 @@ function scoreScope(gold: GoldData, state: SimFinalState, scope: Scope): ScopeSc
     levelMatch: goldEm && predEm ? goldEm.slice(-1) === predEm.slice(-1) : null,
   };
 
-  // --- CPT (codeNormalized set) ---
+  // CPT: set of normalized codes.
   const goldCpt = new Set(gold.billing.cptCodes.filter((c) => !isUnvoiced(c)).map((c) => c.codeNormalized));
   const goldCptUnvoiced = new Set(gold.billing.cptCodes.filter(isUnvoiced).map((c) => c.codeNormalized));
   const predCpt = new Set(
@@ -544,7 +475,7 @@ function scoreScope(gold: GoldData, state: SimFinalState, scope: Scope): ScopeSc
     cptUnvoicedMatched
   );
 
-  // --- ROS (presence by base field key; polarity agreement reported separately) ---
+  // ROS: presence by base field key; polarity agreement is reported separately.
   const goldRos = new Map<string, 'denies' | 'reports' | undefined>();
   const goldRosUnvoiced = new Set<string>();
   for (const o of gold.reviewOfSystems.observations) {
@@ -577,8 +508,8 @@ function scoreScope(gold: GoldData, state: SimFinalState, scope: Scope): ScopeSc
     polarityAgree,
   };
 
-  // --- exam (presence by field; abnormal agreement — derived from checked components on BOTH
-  // sides, since the gold's abnormal flag only comes from component-level data) ---
+  // Exam: presence by field. Abnormal agreement is derived from checked components on both sides, since the
+  // gold's abnormal flag only comes from component-level data.
   const goldExam = new Map<string, ExamItem>();
   const goldExamUnvoiced = new Set<string>();
   for (const o of gold.exam) {
@@ -614,8 +545,8 @@ function scoreScope(gold: GoldData, state: SimFinalState, scope: Scope): ScopeSc
     abnormalAgree,
   };
 
-  // --- medications (name-only, shared predicted pool; greedy: prescribed → in-house →
-  // immunizations → context reconciled, each predicted item consumed at most once) ---
+  // Medications: name-only against one shared predicted pool, consumed greedily (prescribed → in-house →
+  // immunizations → context reconciled), each predicted item at most once.
   const pool = inScope(state.medications, scope).map((m) => ({ display: m.display, used: false }));
   const consume = (goldNames: (string | undefined)[]): number => {
     let matched = 0;
@@ -628,20 +559,16 @@ function scoreScope(gold: GoldData, state: SimFinalState, scope: Scope): ScopeSc
     }
     return matched;
   };
-  // Scorable = voiced-with-name-spoken (nameVoiced true), legacy-voiced (tagged before
-  // nameVoiced existed — old behavior, counted as legacyVoiced), and untagged.
+  // Scorable: name voiced, legacy-voiced, or untagged.
   const prescribedScorable = gold.medications.prescribed.filter((m) => !isUnvoiced(m) && !isIntentVoiced(m));
   const prescribedIntent = gold.medications.prescribed.filter(isIntentVoiced);
   const prescribedUnvoiced = gold.medications.prescribed.filter(isUnvoiced);
   const prescribedMatched = consume(prescribedScorable.map((m) => m.name));
   const inHouseMatched = consume(gold.medications.inHouseAdministered.map((m) => m.name));
   const immunizationsMatched = consume(gold.medications.immunizations.map((m) => m.name));
-  // Intent-voiced and unvoiced prescribed consume AFTER the scorable sections (so they never
-  // steal a match) but BEFORE context, and leave the precision denominator like context does.
-  // Commitment coverage: an intent-voiced med is covered when a charted med matches it OR any
-  // provider-note/instruction shares a substantive token with its name/voicedEvidence. The
-  // note/instruction lists carry no source attribution, so both scopes read the same lists —
-  // only the med pool differs per scope.
+  // Intent-voiced and unvoiced meds consume after the scorable sections (never stealing a match) and before
+  // context. An intent-voiced med is also covered when a provider note or instruction shares a substantive
+  // token with it; notes and instructions have no source, so both scopes read the same lists.
   const noteTokens = [...state.providerNotes, ...state.instructions].map(substantiveTokens);
   let prescribedIntentMatched = 0;
   let prescribedIntentCovered = 0;
@@ -692,7 +619,7 @@ function scoreScope(gold: GoldData, state: SimFinalState, scope: Scope): ScopeSc
     precision: medsPrecDenom > 0 ? totalMedMatched / medsPrecDenom : null,
   };
 
-  // --- context sections: vitals by field + value (gold units: °C, kg, cm), history by code or name ---
+  // Context sections: vitals by field and value (gold units: °C, kg, cm), history by code or name.
   const vitals = scoreVitals(gold, state);
   const allergies = scoreNamed(
     gold.allergies.map((a) => ({ display: a.name })),
@@ -725,21 +652,15 @@ function scoreScope(gold: GoldData, state: SimFinalState, scope: Scope): ScopeSc
 }
 
 /**
- * The ICD-10 CATEGORY of a normalized code — "E849" → "E84" — or undefined when the code is not ICD-shaped.
- * History is coarse: intake records "Cystic fibrosis, unspecified" (E84.9) and the provider dictates
- * "cystic fibrosis with pulmonary manifestations" (E84.0). Same disease, different 4th character, and a
- * strict code match would call it a miss.
+ * ICD-10 category of a normalized code ("E849" → "E84"), or undefined if not ICD-shaped. History matches on
+ * category because intake often records the unspecified code (E84.9) where the provider dictates E84.0.
  */
 export function icdCategory(codeNormalized: string | undefined): string | undefined {
   const m = /^([A-Z]\d{2})/.exec(codeNormalized ?? '');
   return m ? m[1] : undefined;
 }
 
-/**
- * History-style sections: a predicted item matches a gold item by normalized CODE when both carry one,
- * else by ICD-10 CATEGORY when both codes are ICD-shaped, else by name containment (the rule the med
- * sections use). Greedy, each gold item consumed once.
- */
+/** History-style sections: greedy match by historyMatches, each gold item consumed once. */
 function scoreNamed(goldItems: { display?: string; codeNormalized?: string }[], predicted: SimItem[]): SectionScore {
   const used = new Set<number>();
   let matched = 0;
@@ -799,16 +720,14 @@ export function vitalMatchesGold(field: PlannableVitalField, display: string, g:
 }
 
 /**
- * Vitals: a set-vital matches a gold reading of the same field whose value is within tolerance after
- * conversion to the chart's units. Scored the same in both scopes — only the planner sets vitals.
- * Gold is limited to the fields the model may set; BMI is derived, LMP and vision are never dictated.
+ * Scored the same in both scopes, since only the planner sets vitals. Gold is limited to the fields the model
+ * may set (BMI is derived; LMP and vision are never dictated).
  */
 function scoreVitals(gold: GoldData, state: SimFinalState): SectionScore {
   const plannable = new Set<string>(PLANNABLE_VITAL_FIELDS);
   const goldVitals = gold.vitals.filter((v) => plannable.has(String(v.field)));
-  // EXACT duplicates collapse first: the model repeats a reading ("98.9 F" twice) often enough to
-  // matter — 19 of 44 in one run — and a repeat of a correct reading is a duplicate-write defect, not a
-  // wrong vital. Counting it as a false positive here would charge precision for the wrong failure.
+  // Exact repeats collapse first: a repeated correct reading is a duplicate-write defect, not a wrong vital,
+  // and should not cost precision.
   const unique = uniqueVitals(state.vitals).filter((v) => plannable.has(v.field));
   const used = new Set<number>();
   let matched = 0;
@@ -834,14 +753,10 @@ export function uniqueVitals<T extends { field: string; display: string }>(vital
   });
 }
 
-// ---------------------------------------------------------------------------
-// scoreCase
-// ---------------------------------------------------------------------------
-// Free-text field pairing honoring the CC/HPI storage cross-wiring (see the GoldData comment in
-// harvest-shared.ts): the model writes the REAL HPI via the 'historyOfPresentIllness' note field,
-// the note's "Additional information" via 'chiefComplaint', and MDM via 'medicalDecision'.
-// Exported so judge-freetext.ts (LLM content judge) and this presence scorer can never disagree
-// about which gold field pairs with which sim noteText field.
+// Case scoring
+
+// Gold free-text field ↔ sim noteText field, honoring the CC/HPI cross-wiring (see GoldData). Exported so a
+// free-text content judge pairs fields the same way as this presence scorer.
 export const FREETEXT_PAIRING = {
   historyOfPresentIllness: { goldField: 'historyOfPresentIllness', noteField: 'historyOfPresentIllness' },
   additionalInformation: { goldField: 'additionalInformation', noteField: 'chiefComplaint' },
@@ -861,7 +776,6 @@ export function scoreCase(
     predictedPresent: !!pred?.text?.trim(),
     predictedLength: pred?.text?.trim().length ?? 0,
   });
-  // Field pairing comes from FREETEXT_PAIRING above (CC/HPI cross-wiring — do not "fix" it).
   const P = FREETEXT_PAIRING;
   const freeText: Record<string, FreeTextScore> = {
     historyOfPresentIllness: ft(
@@ -882,7 +796,7 @@ export function scoreCase(
 
   const scopes = { plannerOnly: scoreScope(gold, state, 'plannerOnly'), final: scoreScope(gold, state, 'final') };
 
-  // Context items charted (prior-chart material the system charted anyway — reported, never FP).
+  // Prior-chart items the system charted anyway: reported, never counted as false positives.
   const finalDx = inScope(state.diagnoses, 'final');
   const labOrderCodes = new Set(gold.assessment.diagnoses.filter((d) => d.fromLabOrder).map((d) => d.codeNormalized));
   const contextCharted = {
@@ -912,21 +826,19 @@ export function scoreCase(
       predictedInstructions: state.instructions.length,
       goldDisposition: !!(gold.disposition?.type || gold.disposition?.note),
       predictedDisposition: !!state.disposition,
-      // `dispositionVoiced` is an additive tag-voiced.ts field, cast like isUnvoiced does.
+      // tag-voiced.ts field, not declared on the gold types; omitted when untagged.
       ...(typeof (gold.disposition as { dispositionVoiced?: boolean } | undefined)?.dispositionVoiced === 'boolean'
         ? { goldDispositionVoiced: (gold.disposition as { dispositionVoiced?: boolean }).dispositionVoiced }
         : {}),
       removeTargetMissing: state.skipped.filter((sk) => sk.kind.startsWith('remove-')).length,
     },
     ...(usage ? { usage } : {}),
-    // undefined = omit entirely (pre-field runs keep byte-identical score files).
+    // undefined omits the key; null is kept (see DispositionTriggerInfo).
     ...(dispositionTrigger !== undefined ? { dispositionTrigger } : {}),
   };
 }
 
-// ---------------------------------------------------------------------------
 // Aggregation (micro-averaged across cases)
-// ---------------------------------------------------------------------------
 interface AggSection {
   gold: number;
   predicted: number;
@@ -941,9 +853,8 @@ interface AggSection {
 interface AggScope {
   sections: Record<string, AggSection>;
   em: { goldCases: number; predictedCases: number; matched: number; levelMatched: number };
-  // Voiced-scoped primary dx over cases with a gold primary (per-scope primaryDx.goldVoiced):
-  // voicedBoth = both charted AND gold primary voiced:true (the denominator), voicedMatched =
-  // those that matched, unvoicedGold = tagged false regardless of predicted, noData = untagged.
+  // Over cases with a gold primary: voicedBoth = both charted and gold voiced (the denominator),
+  // voicedMatched = those that matched, unvoicedGold = tagged false, noData = untagged.
   primaryDx: {
     goldCases: number;
     bothPresent: number;
@@ -974,11 +885,8 @@ interface UsageAgg {
   cacheWriteTokens: number;
   thinkingTokens: number;
 }
-// Primary→backup escalation buckets per phase, from usage.escalation (EasyChartEscalationInfo).
-// noData = the phase's usage block carries no escalation field (result predates it) — never a
-// denominator, mirroring the dispositionVoiced precedent. okProviders tallies usage.provider of
-// primary-ok calls (normally all 'gemini') so the summary line can name the primary; on a
-// primary-failed call usage.provider is the BACKUP's provider, so it is not tallied here.
+// Primary→backup escalation per phase. noData = no escalation field (never a denominator). okProviders
+// tallies primary-ok calls only, because on a failed call usage.provider is the backup's.
 interface EscalationAgg {
   primaryOk: number;
   primaryFailed: number;
@@ -1002,17 +910,17 @@ export interface AggregateSummary {
     predictedDisposition: number;
     removeTargetMissing: number;
   };
-  // Voiced-scoped disposition metric over cases WITH a gold disposition: voicedGold = gold
-  // disposition tagged dispositionVoiced:true (the denominator), voicedPredicted = those that
-  // also charted one (the numerator), unvoicedGold = tagged false, noData = untagged corpus.
+  // Providers chart a disposition on nearly every visit but rarely voice it, so the raw counter mostly
+  // measures guessing. Over cases with a gold disposition: voicedGold = tagged voiced (the denominator),
+  // voicedPredicted = those also charted, unvoicedGold = tagged false, noData = untagged.
   dispositionVoiced: {
     voicedGold: number;
     voicedPredicted: number;
     unvoicedGold: number;
     noData: number;
   };
-  // Review disposition-trigger buckets: noData = score has no trigger info (pre-field run OR a
-  // review response without the field); firedByPattern counts fired cases per matchedPattern.
+  // noData = no trigger info on the score (pre-field run, or a response without the field);
+  // firedByPattern counts fired cases per matchedPattern.
   dispositionTrigger: {
     firedProposed: number;
     firedDeclined: number;
@@ -1061,8 +969,7 @@ function aggregateScope(scores: CaseScore[], scope: Scope): AggScope {
       unvoicedGold += sec.unvoicedGold ?? 0;
       unvoicedMatched += sec.unvoicedMatched ?? 0;
     }
-    // The med sections share one predicted pool — their per-section precision is meaningless
-    // (medsCombined carries it), so emit null there.
+    // The med sections share one predicted pool, so their precision is null here; medsCombined carries it.
     const sharedPool = name === 'medsPrescribed' || name === 'medsInHouse' || name === 'immunizations';
     const precDenom = predicted - contextCharted - unvoicedMatched;
     sections[name] = {
@@ -1126,7 +1033,7 @@ function aggregateScope(scores: CaseScore[], scope: Scope): AggScope {
     medsCombined.matched += sc.medsCombined.matched;
     medsCombined.contextCharted += sc.medsCombined.contextCharted;
     medsCombined.unvoicedMatched += sc.medsCombined.unvoicedMatched ?? 0;
-    // ?? 0: score files written before med voicing fidelity existed still aggregate.
+    // ?? 0: older score files lack the med voicing fields.
     medsCombined.intentMatched += sc.medsCombined.intentMatched ?? 0;
     medsVoicing.legacyVoiced += sc.medsPrescribed.legacyVoiced ?? 0;
     medsVoicing.intentVoiced += sc.medsPrescribed.intentVoiced ?? 0;
@@ -1195,7 +1102,7 @@ export function aggregateScores(scores: CaseScore[]): AggregateSummary {
     counters.providerNotes += s.counters.providerNotes;
     counters.goldInstructions += s.counters.goldInstructions;
     counters.predictedInstructions += s.counters.predictedInstructions;
-    // ?? 0: score files written before this counter existed can still be aggregated.
+    // ?? 0: older score files lack this counter.
     counters.removeTargetMissing += s.counters.removeTargetMissing ?? 0;
     if (s.counters.goldDisposition) counters.goldDisposition++;
     if (s.counters.predictedDisposition) counters.predictedDisposition++;
@@ -1220,9 +1127,7 @@ export function aggregateScores(scores: CaseScore[]): AggregateSummary {
     for (const phase of ['planner', 'review'] as const) {
       const u = s.usage?.[phase];
       if (!u) continue;
-      // The case's OWN call count when it reports one — a staged visit is several calls, and counting
-      // one per case would report a six-call visit as a one-call visit. Falls back to 1 for a score file
-      // written before `calls` existed, which is exactly what it meant then.
+      // A staged visit makes several calls; score files without `calls` were single-call.
       usage[phase].calls += u.calls ?? 1;
       usage[phase].inputTokens += u.inputTokens ?? 0;
       usage[phase].outputTokens += u.outputTokens ?? 0;
@@ -1256,9 +1161,7 @@ export function aggregateScores(scores: CaseScore[]): AggregateSummary {
   };
 }
 
-// ---------------------------------------------------------------------------
 // Table rendering (numbers only)
-// ---------------------------------------------------------------------------
 const fmt = (n: number | null): string => (n === null ? '   —' : n.toFixed(3).replace(/^0\./, ' .'));
 
 export function formatSummary(agg: AggregateSummary): string {
@@ -1344,8 +1247,7 @@ export function formatSummary(agg: AggregateSummary): string {
     lines.push(
       `usage[${phase}]: ${u.calls} calls, in ${u.inputTokens}, out ${u.outputTokens}, cacheR ${u.cacheReadTokens}, cacheW ${u.cacheWriteTokens}, think ${u.thinkingTokens}`
     );
-    // Primary-failure rate over calls WITH escalation data; pre-field result files land in
-    // "no data" and are never a denominator (dispositionVoiced precedent).
+    // Failure rate over calls with escalation data only; "no data" is never a denominator.
     const e = agg.escalation[phase];
     const withData = e.primaryOk + e.primaryFailed;
     if (withData === 0) {
@@ -1368,8 +1270,8 @@ export function formatSummary(agg: AggregateSummary): string {
   return lines.join('\n');
 }
 
-// One-line per-case digest for stdout (final scope). primaryFixFired appends the ⇄ marker when
-// the review dx-swap primary carry/promotion actually engaged on this case.
+// One-line per-case digest (final scope). primaryFixFired appends ⇄ when review carried or promoted the
+// primary dx on this case.
 export function formatCaseLine(
   score: CaseScore,
   planSteps: number,
@@ -1393,7 +1295,7 @@ export function formatCaseLine(
     } | meds ${f.medsCombined.matched}/${
       f.medsPrescribed.goldInScope + f.medsInHouse.goldInScope + f.immunizations.goldInScope
     }` +
-    // Commitment coverage over intent-voiced meds (?? guards score shapes predating the field).
+    // Commitment coverage over intent-voiced meds (?? 0 for older score files).
     ((f.medsPrescribed.intentVoiced ?? 0) > 0
       ? ` | commitCov ${f.medsPrescribed.intentCovered}/${f.medsPrescribed.intentVoiced}`
       : '') +
@@ -1402,9 +1304,7 @@ export function formatCaseLine(
   );
 }
 
-// ---------------------------------------------------------------------------
-// Synthetic-fixture self-test (invented data only — no harvested content).
-// ---------------------------------------------------------------------------
+// Self-test on synthetic fixtures (invented data only, no harvested content)
 function emptyGold(): GoldData {
   return {
     reviewOfSystems: { observations: [] },
@@ -1593,7 +1493,7 @@ function runSelfTest(): void {
     gold.assessment.diagnoses = [
       tag(goldDx('J06.9', 'Acute URI', true), true), // voiced, predicted → matched
       tag(goldDx('K21.9', 'GERD'), false), // unvoiced, predicted → unvoicedMatched, not FP
-      goldDx('R05.9', 'Cough'), // untagged, NOT predicted → recall miss
+      goldDx('R05.9', 'Cough'), // untagged, not predicted → recall miss
     ];
     gold.billing = {
       emCode: { system: 'CPT', code: '99204', codeNormalized: '99204', display: 'New pt E/M 4' },
@@ -1673,8 +1573,6 @@ function runSelfTest(): void {
   }
 
   // Fixture E — prescribed-med voicing fidelity (nameVoiced) + commitment coverage.
-  // Mixes: nameVoiced matched/missed, legacy voiced (no nameVoiced), intent-voiced covered by
-  // med / covered by note token / covered by note prefix-plural / uncovered, unvoiced.
   {
     const gold = emptyGold();
     type GoldMed = (typeof gold.medications.prescribed)[number];
@@ -1682,7 +1580,7 @@ function runSelfTest(): void {
       m as GoldMed;
     gold.medications.prescribed = [
       med({ name: 'Amoxicillin', voiced: true, nameVoiced: true }), // name spoken, charted → matched
-      med({ name: 'Cetirizine', voiced: true, nameVoiced: true }), // name spoken, NOT charted → recall miss
+      med({ name: 'Cetirizine', voiced: true, nameVoiced: true }), // name spoken, not charted → recall miss
       med({ name: 'Prednisone', voiced: true }), // legacy-tagged, charted → matched + legacyVoiced
       // intent — covered by instruction token "cough"
       med({
@@ -1740,7 +1638,7 @@ function runSelfTest(): void {
       formatSummary(agg).includes('commitment coverage 3/4 (75%)'),
       true
     );
-    // Score files written before med voicing fidelity existed still aggregate (fields absent).
+    // Older score files without the med voicing fields still aggregate.
     const legacy = JSON.parse(JSON.stringify(s)) as CaseScore;
     for (const scope of ['plannerOnly', 'final'] as const) {
       const mp = legacy.scopes[scope].medsPrescribed as Partial<ScopeScores['medsPrescribed']>;
@@ -1897,9 +1795,8 @@ function runSelfTest(): void {
     );
   }
 
-  // Fixture I — primary→backup escalation observability (usage.escalation, additive on the zambda
-  // usage blocks): verbatim pass-through on the score (byte-identical when absent), phase
-  // bucketing including the no-data bucket, and the summary line in both modes.
+  // Fixture I — primary→backup escalation: pass-through on the score, per-phase buckets including no-data,
+  // and the summary line in both modes.
   {
     const gold = emptyGold();
     const st = emptySimState();
@@ -1970,68 +1867,12 @@ function runSelfTest(): void {
   if (failures > 0) process.exit(1);
 }
 
-// ---------------------------------------------------------------------------
-// Standalone re-score of an existing results dir
-// ---------------------------------------------------------------------------
-interface ResultFile {
-  caseId: string;
-  error?: string;
-  planSteps?: unknown[];
-  reviewSuggestions?: unknown[];
-  primaryFix?: { carried: number; promoted: number };
-  finalState?: SimFinalState;
-  usage?: CaseUsage;
-  dispositionTrigger?: DispositionTriggerInfo | null;
-}
-
-function rescore(resultsDir: string, casesDir: string): void {
-  const files = readdirSync(resultsDir)
-    .filter((f) => /^case\d+\.result\.json$/.test(f))
-    .sort();
-  console.log(`${files.length} result files in ${resultsDir}`);
-  const scores: CaseScore[] = [];
-  let failed = 0;
-  for (const f of files) {
-    const result = JSON.parse(readFileSync(join(resultsDir, f), 'utf8')) as ResultFile;
-    if (result.error || !result.finalState) {
-      failed++;
-      console.log(`${result.caseId}: skipped (recorded error)`);
-      continue;
-    }
-    const casePath = join(casesDir, `${result.caseId}.json`);
-    if (!existsSync(casePath)) {
-      failed++;
-      console.log(`${result.caseId}: skipped (no case file in ${casesDir})`);
-      continue;
-    }
-    const gold = (JSON.parse(readFileSync(casePath, 'utf8')) as { gold: GoldData }).gold;
-    const score = scoreCase(result.caseId, gold, result.finalState, result.usage, result.dispositionTrigger);
-    writeFileSync(join(resultsDir, `${result.caseId}.score.json`), JSON.stringify(score, null, 2));
-    scores.push(score);
-    console.log(
-      formatCaseLine(
-        score,
-        result.planSteps?.length ?? 0,
-        result.reviewSuggestions?.length ?? 0,
-        (result.primaryFix?.carried ?? 0) + (result.primaryFix?.promoted ?? 0) > 0
-      )
-    );
-  }
-  const summary = aggregateScores(scores);
-  writeFileSync(join(resultsDir, 'summary.json'), JSON.stringify(summary, null, 2));
-  console.log('');
-  console.log(formatSummary(summary));
-  console.log(`\nre-scored ${scores.length} cases, ${failed} skipped`);
-}
-
 const isMain = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
 if (isMain) {
   if (process.argv[2] === '--self-test') {
     runSelfTest();
   } else {
-    rescore(
-      process.argv[2] ?? 'scripts/easy-chart-eval/harvested-results',
-      process.argv[3] ?? 'scripts/easy-chart-eval/harvested-cases'
-    );
+    console.error('Usage: npx tsx tools/easy-chart-eval/score-harvested.ts --self-test');
+    process.exit(1);
   }
 }

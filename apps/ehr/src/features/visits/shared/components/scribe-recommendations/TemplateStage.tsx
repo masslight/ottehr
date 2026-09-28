@@ -33,11 +33,7 @@ interface TemplateStageProps {
 
 const testIds = dataTestIds.scribeRecommendations;
 
-/**
- * Stage one. A template fills whole sections at once, so it goes in before the individual
- * observations land on top of it — which is why it gets its own step and its own button rather
- * than a checkbox in the list below.
- */
+/** A template fills whole sections, so it gets its own button and is applied before the observations. */
 export const TemplateStage: FC<TemplateStageProps> = ({
   recommendation,
   itemState,
@@ -48,8 +44,7 @@ export const TemplateStage: FC<TemplateStageProps> = ({
 }) => {
   const stageRef = useRef<HTMLDivElement>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-  // One editor is open at a time across the whole panel, and this stage is one of the places it
-  // can be open in; opening it here closes — and saves — whichever row had it.
+  // Shares the panel-wide single editor, so opening it here closes (and saves) any open row.
   const isEditing = useScribeRecommendationsStore((state) => state.editingId === recommendation.id);
   const setEditingId = useScribeRecommendationsStore((state) => state.setEditingId);
   const isHighlighted = useScribeRecommendationsStore((state) => state.hoveredItemId === recommendation.id);
@@ -87,8 +82,7 @@ export const TemplateStage: FC<TemplateStageProps> = ({
     >
       <SectionRail section="template" />
 
-      {/* The click lands here rather than on the Paper so the rail keeps its own job, and so the
-          preview dialog — a sibling, but a React child — can't start an edit behind itself. */}
+      {/* Not on the Paper: clicks in the portalled preview dialog would bubble up to it and start an edit. */}
       <Box
         onClick={canStartEditing ? () => startEditingUnlessAnotherIsOpen(recommendation.id) : undefined}
         sx={{ flex: 1, minWidth: 0, p: 1, cursor: canStartEditing ? 'pointer' : undefined }}
@@ -98,7 +92,7 @@ export const TemplateStage: FC<TemplateStageProps> = ({
             recommendation={recommendation}
             templates={templates}
             rowRef={stageRef}
-            // Closing is saving here too: whichever way the provider leaves the picker.
+            // Closing saves, however the provider leaves the picker.
             onCommit={(patch) => {
               if (patch) onEdit(patch);
               if (useScribeRecommendationsStore.getState().editingId === recommendation.id) setEditingId(undefined);
@@ -108,7 +102,7 @@ export const TemplateStage: FC<TemplateStageProps> = ({
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
               {isApplied ? (
-                // A settled green tick, the same one the rows below turn into once they land.
+                // The same faded green tick the rows show once applied.
                 <Box
                   sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0, color: 'success.main' }}
                   data-testid={testIds.rowStatus(recommendation.id)}
@@ -138,9 +132,7 @@ export const TemplateStage: FC<TemplateStageProps> = ({
                   loading={isApplying}
                   disabled={locked || templateMissing}
                   data-testid={testIds.templateApplyButton}
-                  // The name belongs in the button: there is one thing to do here, and this says
-                  // exactly what it will do. It hugs its label, and a long template name wraps
-                  // inside it rather than overflowing the panel.
+                  // A long template name wraps inside the button rather than overflowing the panel.
                   sx={{ ...roundedButtonSx, whiteSpace: 'normal' }}
                 >
                   {`${itemState.status === 'error' ? 'Try again' : 'Apply'}: ${recommendation.templateName}`}
@@ -148,7 +140,7 @@ export const TemplateStage: FC<TemplateStageProps> = ({
               )}
 
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25, flexShrink: 0, ml: 'auto' }}>
-                {/* The caution has to be readable without hovering; its sentence is in the hover. */}
+                {/* The warning flag stays visible without hovering; its text is in the tooltip. */}
                 {warning && (
                   <WarningAmberOutlinedIcon
                     role="img"
@@ -183,8 +175,7 @@ export const TemplateStage: FC<TemplateStageProps> = ({
         )}
       </Box>
 
-      {/* The same dialog the HPI screen uses, so the provider picks which parts of the template
-          to take here rather than getting all of it or none of it. */}
+      {/* The HPI screen's dialog, so the provider picks which template sections to apply. */}
       <TemplatePreviewDialog
         open={isPreviewOpen}
         templateId={templateOption?.id ?? null}
@@ -198,9 +189,8 @@ export const TemplateStage: FC<TemplateStageProps> = ({
     </Paper>
   );
 
-  // Same as the rows below: the "why" is the hover, so the stage carries no control for it — and
-  // the empty title both closes the hover on the way into the editor and keeps the wrapper put,
-  // so the edit doesn't remount the stage's DOM under whatever is holding it.
+  // As in RecommendationRow: an empty title closes the tooltip while editing, and keeping the wrapper avoids
+  // remounting the stage.
   const title = !hasProvenance(provenance) || isEditing ? '' : <ProvenanceContent {...provenance} />;
   return (
     <Tooltip title={title} placement="left" enterDelay={300}>

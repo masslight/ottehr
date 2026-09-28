@@ -110,12 +110,7 @@ export const InPersonLayout: React.FC = () => {
     : 'Select a provider in order to begin charting.';
   const virtual = isTelemedAppointment(appointment);
   const { meetingData } = getSelectors(useVideoCallStore, ['meetingData']);
-  // Autochart sits beside the note (not over it) so the provider can review a
-  // suggestion and the section it lands in at the same time. Follow-up notes and finished visits
-  // have nothing to apply them to.
-  //
-  // GATED TWICE, and both gates are the shared ones: the Easy Chart feature flag, and the SAME role set
-  // the plan and review endpoints check. A role that can open this can always use its API and vice versa.
+  // Gated by the feature flag and by the same role set the Easy Chart endpoints check.
   const user = useEvolveUser();
   const showScribeRecommendations =
     FEATURE_FLAGS.EASY_CHART_ENABLED &&
@@ -124,7 +119,7 @@ export const InPersonLayout: React.FC = () => {
     !isAppointmentReadOnly &&
     canChart;
   const scribePanelOffset = useScribePanelOffset();
-  // The fixed-position recorder controls would otherwise sit on top of the panel.
+  // Keeps the fixed-position recorder controls clear of the panel.
   const fixedControlsOffset = showScribeRecommendations ? scribePanelOffset : 0;
 
   return (

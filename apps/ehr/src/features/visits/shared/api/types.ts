@@ -5,11 +5,6 @@ export type GetOystehrTelemedAPIParams = {
   getVisitNoteZambdaID?: string;
   saveChartDataZambdaID?: string;
   deleteChartDataZambdaID?: string;
-  /**
-   * Easy Chart: the planner (narrative → typed actions), the review pass (a second look), the
-   * narrative writer (transcript → provider-voice lines the planner then reads), and the transcript
-   * saver (typed or edited dialogue → a transcript document on the visit, processed as a recording's would be).
-   */
   easyChartPlanZambdaID?: string;
   easyChartReviewZambdaID?: string;
   easyChartNarrativeZambdaID?: string;

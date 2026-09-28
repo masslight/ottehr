@@ -1,22 +1,7 @@
-// Step 3 of the localisation procedure, automated: label every diagnosis miss with its CAUSE.
+// Labels every diagnosis miss in a run with its cause and the layer that would fix it (guard, ranking,
+// prompt, terminology search). Retrieval causes are told apart by rerunning the ICD-10 search.
 //
-// WHY THIS EXISTS. A recall of .121 on diagnoses says nothing about what to fix. Behind that one number
-// the harvested corpus hides at least four unrelated defects, and they need opposite fixes:
-//
-//   the model asserted a side the narrative never mentions   → a guard, and a patient-safety issue
-//   the model charted an "Other specified…" wastebasket       → a guard
-//   the model picked the wrong sibling from a list that       → ranking in resolveIcd10Row
-//     already contained the right row
-//   the model named the wrong condition entirely              → the prompt, or the model
-//
-// The discriminator is the SAME terminology search the guard already runs. If the gold code comes back
-// when we search the model's own wording, then retrieval could reach it and the model's choice is what
-// went wrong. If it does not come back, we search gold's own wording: found means the model named the
-// wrong concept, not found means retrieval cannot produce that code at all. That is a mechanical test,
-// so it belongs in the harness rather than in somebody's terminal history.
-//
-// PHI. Reads harvested cases and writes into a results directory; both are gitignored. It prints code
-// displays (clinical, not identifying) and never narrative text — only which side words were detected.
+// PHI: reads gitignored harvested cases and results; prints code displays, never narrative text.
 //
 // Usage:
 //   npx env-cmd -f packages/zambdas/.env/zambda-secrets-local.json \
@@ -26,9 +11,16 @@ import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import Oystehr from '@oystehr/sdk';
-import { codeLaterality } from 'utils/lib/easy-chart/codes';
 import { DiagnosisItem, GoldData } from './gold-types';
 import { apiUrls, mintToken } from './token';
+
+function codeLaterality(codeDisplay: string): 'left' | 'right' | 'bilateral' | undefined {
+  const display = codeDisplay.toLowerCase();
+  if (/\bbilateral\b/.test(display)) return 'bilateral';
+  if (/\bleft\b/.test(display)) return 'left';
+  if (/\bright\b/.test(display)) return 'right';
+  return undefined;
+}
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const CASES_DIR = join(HERE, 'harvested-cases');
@@ -75,11 +67,7 @@ interface Finding {
 
 const norm = (code: string | undefined): string => (code ?? '').toUpperCase().replace(/[.\s]/g, '');
 
-/**
- * Sides the narrative actually states. "All right", "right?" and "right now" are speech fillers, not
- * anatomy — and they are the reason a naive /\bright\b/ over the transcript would have APPROVED the one
- * laterality error in the corpus instead of catching it.
- */
+/** Sides the narrative states, after stripping fillers like "all right", "right?" and "right now". */
 function narrativeLaterality(narrative: string): Set<'left' | 'right' | 'bilateral'> {
   const cleaned = narrative
     .toLowerCase()
@@ -95,12 +83,7 @@ function narrativeLaterality(narrative: string): Set<'left' | 'right' | 'bilater
   return found;
 }
 
-/**
- * Clinical words shared between two code descriptions, ignoring the scaffolding that appears in almost
- * every ICD display. Two codes that share a word like "otitis" or "pyelonephritis" are about the same
- * organ and problem even when they sit in different categories — which is precisely the case the review
- * prompt's "NEVER ESCALATE A STATED DIAGNOSIS" rule is written for.
- */
+/** Scaffolding words common to ICD displays, ignored when checking two codes for a shared condition. */
 const STOP_WORDS = new Set([
   'other',
   'specified',
@@ -130,10 +113,8 @@ const STOP_WORDS = new Set([
 ]);
 
 function clinicalWords(display: string): Set<string> {
-  // KNOWN LIMIT: string overlap only. It catches "mastitis" vs "mastitis" and "lower back" vs "back",
-  // but not UTI → pyelonephritis, which is the very pair the review prompt uses as its example — those
-  // two displays share no word. Catching that class needs a curated relation table, the way
-  // ETIOLOGY_QUALIFIER_EVIDENCE is curated; until then such a case lands in off-target and is undercounted.
+  // String overlap only: related conditions that share no word (e.g. UTI vs pyelonephritis) land in
+  // off-target, so escalations are undercounted.
   return new Set(
     display
       .toLowerCase()
@@ -208,10 +189,8 @@ async function main(): Promise<void> {
 
       const sibling = goldByCategory.get(code.slice(0, 3));
       if (!sibling) {
-        // Split what a single "off-target" bucket would hide. A case whose gold has no scorable diagnosis
-        // gives the model nothing to be wrong about, and counting it as a model error is how a harness
-        // manufactures a defect. A charted code that names the SAME condition as a gold item but from a
-        // different category is the escalation the prompt forbids, and belongs in its own bucket.
+        // Not every out-of-category code is off-target: with no scorable gold there is nothing to be wrong
+        // about, and a code naming the same condition as a gold item is an escalation.
         if (gold.length === 0) {
           findings.push({ ...base, cause: 'no-gold-in-scope' });
           continue;
@@ -236,8 +215,7 @@ async function main(): Promise<void> {
       claimedGold.add(sibling.codeNormalized);
       const withGold: Finding = { ...base, goldCode: sibling.code, goldDisplay: sibling.display };
 
-      // Laterality first: it is the only cause here that puts the wrong side of a body in a record, and
-      // it hides inside "same category" where a specificity metric would forgive it.
+      // Laterality first: a wrong side is a safety issue, and it hides inside same-category matches.
       const chartedSide = codeLaterality(dx.display);
       const goldSide = codeLaterality(sibling.display);
       if (chartedSide && ((goldSide && goldSide !== chartedSide) || !sides.has(chartedSide))) {
@@ -294,7 +272,7 @@ function report(findings: Finding[]): void {
     const rows = findings.filter((f) => f.cause === cause);
     if (rows.length === 0) continue;
     console.log(`\n── ${cause} (${rows.length}) — ${EXPLANATION[cause]}`);
-    // "exact" and "missed" are counters; the rest are the work list, so they are worth reading line by line.
+    // Count-only causes; the rest are the work list and are listed line by line.
     if (cause === 'exact' || cause === 'missed' || cause === 'no-gold-in-scope') continue;
     for (const row of rows) {
       console.log(`   ${row.caseId}  ${row.chartedCode} "${row.chartedDisplay}"`);
@@ -313,7 +291,6 @@ function report(findings: Finding[]): void {
     `charted diagnoses: ${chartedTotal} | gold never reached: ${findings.filter((f) => f.cause === 'missed').length}`
   );
   for (const [cause, n] of counts) if (n) console.log(`  ${cause.padEnd(18)} ${String(n).padStart(3)}`);
-  // The point of the whole tool: which LAYER each miss belongs to.
   const byLayer: [string, Cause[]][] = [
     ['guard (deterministic, no model change)', ['laterality', 'wastebasket']],
     ['ranking in resolveIcd10Row', ['wrong-sibling']],

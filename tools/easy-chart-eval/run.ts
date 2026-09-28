@@ -1,17 +1,13 @@
-// Batch runner: every synthetic case through the real chart-plan endpoint, scored deterministically.
-//
-// A LOCAL TOOL, never a deployed endpoint. The LLM judge that will eventually score free text and
-// semantics belongs here too — in the first implementation it shipped as a normal authenticated
-// zambda, which means anyone holding a project token could spend model budget scoring arbitrary
-// text.
+// Runs every synthetic case in ./cases through the chart-plan endpoint and scores the plans deterministically.
+// Local tool only: an LLM judge belongs here too, not in a zambda where any project token could spend model budget.
 //
 // Usage:
 //   npx tsx tools/easy-chart-eval/run.ts --url http://localhost:3000 --token "$TOKEN"
 //   npx tsx tools/easy-chart-eval/run.ts --case case-07          # one case
 //   npx tsx tools/easy-chart-eval/run.ts --out tools/easy-chart-eval/harvested-results
 //
-// The output directory is gitignored: results contain the generated note, which for a harvested case
-// is PHI. The synthetic cases in ./cases are not, which is why they are committed.
+// PHI: output directories are gitignored because results contain the generated note, which is PHI for a
+// harvested case. The synthetic cases in ./cases contain no PHI and are committed.
 
 import { readFileSync } from 'node:fs';
 import { mkdir, writeFile } from 'node:fs/promises';

@@ -37,7 +37,6 @@ describe('editableActionText', () => {
   it('offers nothing for a kind whose meaning is a code, or one with no words to edit', () => {
     expect(editableActionText({ kind: 'set-em-code', code: '99213', display: 'Established, low' })).toBeUndefined();
     expect(editableActionText({ kind: 'add-condition', code: 'J45.909', display: 'Asthma' })).toBeUndefined();
-    expect(editableActionText({ kind: 'add-cpt', code: '87880' })).toBeUndefined();
     expect(editableActionText({ kind: 'add-exam-finding' })).toBeUndefined();
   });
 });

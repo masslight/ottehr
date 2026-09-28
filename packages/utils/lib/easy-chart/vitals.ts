@@ -1,17 +1,6 @@
-// Vitals: unit recognition, conversion, plausibility, and recovery of a reading the model dropped.
-//
-// THIS IS THE SINGLE HIGHEST-RISK PIECE OF ARITHMETIC IN THE FEATURE. The chart's write path
-// converts NARROWLY: a height is inches only when the unit starts with `i` or `"` and is otherwise
-// assumed CENTIMETRES; a weight is pounds only when the unit starts with `l` or `p` and is otherwise
-// assumed KILOGRAMS. So passing `1.73 m` straight through charts a 1.73 cm patient.
-//
-// Therefore everything here does two things at once: recognise the unit as written, OPEN-ENDEDLY
-// (providers write cm, m, mm, inches, feet, feet+inches, kg, g, lb, lb+oz, stones), and convert into
-// a unit the client provably handles. Recognition and conversion are the same table row so they
-// cannot drift.
-//
-// AND: an unrecognised unit must NOT fall back to the default. Silently reading `1.73 stones` as kg
-// charts a number nobody stated. Report it and ask.
+// Vitals: unit recognition and conversion, plausibility checks, and recovery of readings the model dropped. The
+// chart write path assumes cm unless a height unit starts with `i`/`"`, and kg unless a weight unit starts with
+// `l`/`p`, so every unit is converted to cm/in or kg/lb here and an unrecognised one is reported, never defaulted.
 
 import { PlannableVitalField } from './actions';
 
@@ -23,9 +12,8 @@ interface UnitRule {
   factor: number;
 }
 
-// Note `(?<![a-z])` rather than a leading `\b`. A unit legitimately abuts its number (`130lb`,
-// `1.73m` — there is NO word boundary between a digit and a letter, so `\blb\b` fails on `130lb`),
-// but it must not match inside a longer word (`grams` must not yield the `ms` of metres).
+// `(?<![a-z])` instead of a leading `\b`: `\b` fails on `130lb` (no boundary between a digit and a letter),
+// while the lookbehind still stops `grams` from yielding the `ms` of metres.
 const HEIGHT_UNITS: UnitRule[] = [
   { pattern: /(?<![a-z])(?:millimet(?:er|re)s?|mm)\b/i, canonical: 'cm', factor: 0.1 },
   { pattern: /(?<![a-z])(?:centimet(?:er|re)s?|cms?)\b/i, canonical: 'cm', factor: 1 },
@@ -50,7 +38,7 @@ const UNIT_TABLES: Partial<Record<PlannableVitalField, UnitRule[]>> = {
 
 /**
  * Convert one written unit into a unit the client handles. Returns undefined when the unit is not
- * recognised — the caller MUST treat that as "ask the provider", never as "use the default".
+ * recognised, which the caller must treat as "ask the provider", never as "use the default".
  */
 export function canonicalizeVitalUnit(
   field: string,
@@ -69,24 +57,20 @@ export const MIN_PLAUSIBLE_HEIGHT_IN = 20;
 export const MIN_PLAUSIBLE_HEIGHT_CM = 51;
 
 /**
- * 20 in / 51 cm is below any live-birth length, so anything under it is a mis-stated unit rather
- * than a measurement. `5.8 inches` is decimal feet written as inches — 15 cm. Do NOT chart it, and do
- * NOT silently reinterpret it as 5'8": that charts a number the provider never wrote. Ask.
- * Paediatric heights (34 in / 86 cm) must still pass.
+ * Below 20 in / 51 cm (any live-birth length) a height is a mis-stated unit, such as decimal feet written as
+ * inches ("5.8 inches"). It is flagged, never reinterpreted.
  */
 export function isImplausibleHeight(value: number, unit: string | undefined): boolean {
   if (!Number.isFinite(value) || value <= 0) return true;
   return /^c/i.test(unit ?? '') ? value < MIN_PLAUSIBLE_HEIGHT_CM : value < MIN_PLAUSIBLE_HEIGHT_IN;
 }
 
-// ---------------------------------------------------------------------------------------------
-// Reading a dictated vital
-// ---------------------------------------------------------------------------------------------
+// Parsing a dictated vital
 
 export type VitalParse =
   | { status: 'ok'; value: number; unit?: string; caution?: string }
   | { status: 'ok-bp'; systolic: number; diastolic: number }
-  /** A unit was written that we do not recognise. Report it — never default. */
+  /** The written unit is not recognised. Report it, never default. */
   | { status: 'unrecognized-unit'; writtenUnit: string; reason: string }
   /** A bare number for a vital whose unit is genuinely ambiguous (height, weight). Ask. */
   | { status: 'missing-unit'; value: number; reason: string }
@@ -96,7 +80,7 @@ export type VitalParse =
 
 const NUMBER = String.raw`\d+(?:\.\d+)?`;
 
-/** 5'8" · 5 ft 8 in · 5 feet 8 inches. MUST be tried before the single-unit pattern, or a bare `5 ft` wins. */
+/** 5'8" · 5 ft 8 in · 5 feet 8 inches. Must be tried before the single-unit pattern, or a bare `5 ft` wins. */
 const FEET_INCHES = new RegExp(
   String.raw`(${NUMBER})\s*(?:'|ft\b|feet\b|foot\b)\s*(${NUMBER})\s*(?:"|''|in\b|ins\b|inch\b|inches\b)?`,
   'i'
@@ -126,10 +110,8 @@ const PLAUSIBLE_RANGES: Partial<Record<PlannableVitalField, { min: number; max: 
 };
 
 /**
- * Parse the reading out of a `set-vital` display string, converting into a unit the client handles.
- *
- * Everything ambiguous returns a non-`ok` status. The caller's job is then to skip the step with an
- * honest reason and ask the provider — never to pick the more likely interpretation.
+ * Parses a `set-vital` display into a unit the client handles. Anything ambiguous returns a non-`ok` status for
+ * the caller to skip with a reason, never a guessed interpretation.
  */
 export function parseVitalDisplay(field: PlannableVitalField, display: string): VitalParse {
   const text = (display ?? '').trim();
@@ -215,9 +197,8 @@ export function parseVitalDisplay(field: PlannableVitalField, display: string): 
           reason: `"${writtenUnit}" is not a temperature unit, so "${text}" was not charted`,
         };
       } else {
-        // No scale written. Fahrenheit and Celsius do not overlap anywhere near a living patient, so
-        // this is forced by physiology rather than guessed — but it is still flagged so the provider
-        // sees which way it was read.
+        // No scale written: °F and °C ranges do not overlap for a living patient, but the reading is still
+        // flagged so the provider sees how it was read.
         unit = value >= 45 ? 'F' : 'C';
         caution = `no unit was stated; read as °${unit} from the value`;
       }
@@ -275,23 +256,12 @@ function parseSingleUnit(
   return finish(value, (match[2] ?? '').trim());
 }
 
-// ---------------------------------------------------------------------------------------------
-// Recovering a reading the model dropped
-// ---------------------------------------------------------------------------------------------
-
-// The model is inconsistent about populating optional fields: it will emit
-// `{kind:'set-vital', field:'vital-height'}` with no display at all. Recover the reading from the
-// provider's OWN words — for EVERY vital, not just blood pressure. (The first implementation had
-// this fallback only for blood pressure, so `add height 5.8 inches` answered "I need a value for
-// that vital" while the number sat in the message.)
-//
-// Every pattern is ANCHORED on the unit keyword or the vital's own keyword, so `cough for 5 days` is
-// never read as a measurement.
+// Recovering a reading the model dropped: it sometimes emits a set-vital with no display. Each pattern is
+// anchored on a unit or vital keyword, so "cough for 5 days" is never read as a measurement.
 const RECOVERY_PATTERNS: Record<PlannableVitalField, RegExp[]> = {
   'vital-blood-pressure': [new RegExp(String.raw`\b\d{2,3}\s*(?:\/|over)\s*\d{2,3}\b`, 'i')],
   'vital-height': [
-    // Group 1 wraps the WHOLE compound reading: `recoverVitalReading` returns match[1], so capturing
-    // only the feet number would hand `5'8"` back as a bare `5`.
+    // Group 1 wraps the whole compound reading, because `recoverVitalReading` returns match[1].
     new RegExp(String.raw`(${NUMBER}\s*(?:'|ft\b|feet\b|foot\b)\s*${NUMBER}\s*(?:"|''|in\b|inch(?:es)?\b)?)`, 'i'),
     new RegExp(
       String.raw`(?:height|tall|measures)\D{0,12}(${NUMBER}\s*(?:cm\b|centimet\w*|mm\b|millimet\w*|m\b|met(?:er|re)s?\b|in\b|ins\b|inch(?:es)?\b|"|''|ft\b|feet\b|foot\b|'))`,
@@ -340,34 +310,8 @@ export function recoverVitalReading(field: PlannableVitalField, narrative: strin
   return undefined;
 }
 
-// ---------------------------------------------------------------------------------------------
-// Message routing
-// ---------------------------------------------------------------------------------------------
-
-// Kept as a diagnostic, not a router. The first implementation used a length/sentence heuristic to
-// choose between a "single command" endpoint that returned exactly ONE action and a planner: the
-// message `patient is 5'8", weighs 130lb` is 30 characters and one sentence, so it routed to the
-// single-action endpoint and one of the two vitals was SILENTLY DROPPED. There is now one endpoint
-// that always returns 1..N actions, which removes the heuristic and the whole failure class. These
-// patterns survive only to let the client detect a multi-reading message for telemetry and tests.
-export const VITAL_READING_PATTERNS: RegExp[] = [
-  /\b\d{2,3}\s*(?:\/|over)\s*\d{2,3}\b/i, // blood pressure
-  /\d+(?:\.\d+)?\s*(?:lbs?\b|pounds?\b|kgs?\b|kilos?\b|kilograms?\b)/i, // weight
-  /\d+(?:\.\d+)?\s*(?:"|''|in\b|inch(?:es)?\b|ft\b|feet\b|foot\b|cm\b|centimet)/i, // height
-  /\d+(?:\.\d+)?\s*(?:°|degrees?\b|\bf\b|\bc\b|fahrenheit|celsius)/i, // temperature
-  /\d{2,3}\s*(?:%|percent)/i, // oxygen saturation
-];
-
-export function countVitalReadings(message: string): number {
-  return VITAL_READING_PATTERNS.filter((re) => re.test(message)).length;
-}
-
-// ── Deterministic narrative sweep ───────────────────────────────────────────────────────────────
-// Find vital readings stated in the narrative so the caller can append any the model failed to emit. It
-// reliably reports the FIRST reading and drops rechecks — "a repeat manual blood pressure dropped
-// slightly to 176 over 92" — and sometimes whole vitals. Keyword-anchored patterns with physiologic
-// range checks keep false positives out: "20/20 vision" has no BP keyword, "pulses 2+" fails the
-// two-digit requirement.
+// Narrative sweep: finds vital readings stated in the narrative so the caller can add any the model missed (it
+// tends to drop rechecks). Keyword anchors and range checks keep out "20/20 vision" and "pulses 2+".
 
 export interface SniffedVital {
   field: string;
@@ -388,8 +332,7 @@ export function sniffVitalsFromNarrative(narrative: string): SniffedVital[] {
   };
   for (const sentence of sentences) {
     const src = sentence.trim();
-    // Instruction/threshold sentences ("return precautions for saturation readings below 90 at
-    // home") state LIMITS, not measurements — never sweep numbers out of them.
+    // Instruction and threshold sentences ("return if saturation drops below 90") state limits, not readings.
     if (
       /\b(?:return precautions?|advis|instruct|counsel|call 911|seek emergency|go straight|below|above|less than|greater than|drops? under|exceed)\b/i.test(
         sentence

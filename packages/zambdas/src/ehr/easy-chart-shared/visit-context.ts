@@ -1,30 +1,28 @@
-// Prompt-tail inputs that BOTH surfaces need, in one place.
-//
-// Why shared rather than one copy per zambda: the plan and review surfaces read the same chart and must
-// describe it to the model identically. When these lived only in easy-chart-plan, the review handler grew
-// its own copies of the note/chart-state builders and simply omitted the patient block — so review always
-// rendered "PATIENT STATUS: unknown", dutifully followed the documented fallback, and overwrote a correct
-// new-patient E&M code with an established-family one on every new patient. Measured on the harvested
-// corpus: the planner had the family right 11/11 when told the status, review then broke it in 7 of 11.
-// That is the exact drift this module exists to prevent.
+// Chart reads and prompt-tail inputs shared by the plan and review surfaces, so both describe the visit
+// to the model identically.
 
 import { Appointment, Encounter, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { PatientStatus } from 'utils/lib/easy-chart/api';
+import { wholeChartFromVisitNote } from 'utils/lib/easy-chart/visit-note-chart';
+import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
+import { buildVisitNote } from '../../shared/chart-sections/visit-note';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { performEffect as listTemplates } from '../list-templates';
 
+type ClinicalOystehrClient = ReturnType<typeof createClinicalOystehrClient>;
+
 export interface VisitContext {
   patientLine: string;
-  patientStatus?: 'new' | 'established';
+  patientStatus?: PatientStatus;
 }
 
 /**
- * The authoritative patient block, plus the new/established status that decides the E&M code family.
- * Both are read from the chart; the model is told to take them from here and never from the narrative,
- * because an ambient recording contains cross-talk about other patients.
+ * Age and sex, plus the new/established status that decides the E&M code family. Read from the chart:
+ * an ambient recording can contain cross-talk about other patients.
  */
 export async function readVisitContext(
-  oystehr: ReturnType<typeof createClinicalOystehrClient>,
+  oystehr: ClinicalOystehrClient,
   encounterId: string,
   zambdaName: string
 ): Promise<VisitContext | undefined> {
@@ -44,9 +42,8 @@ export async function readVisitContext(
     return undefined;
   }
 
-  // "New" means no professional services in the past 3 years. Counting appointments is the same
-  // signal the chart uses for patientHasPreviousVisits; the window makes it match the E&M rule.
-  let patientStatus: 'new' | 'established' | undefined;
+  // "New" means no professional services in the past 3 years; the current visit is one of the count.
+  let patientStatus: PatientStatus | undefined;
   try {
     const cutoff = DateTime.now().minus({ years: 3 }).toISODate();
     const priorVisits = await oystehr.fhir.search<Appointment>({
@@ -57,18 +54,16 @@ export async function readVisitContext(
         { name: '_summary', value: 'count' },
       ],
     });
-    // The current visit is one of them.
     patientStatus = (priorVisits.total ?? 0) > 1 ? 'established' : 'new';
-  } catch (error) {
-    // Unknown is a legitimate answer, and the prompt tells the model to default to the established
-    // family rather than guess — so a failed lookup must not become a wrong guess.
+  } catch {
+    // Unknown is a legitimate answer: the prompt then falls back to the established family.
     console.log(`[${zambdaName}] could not determine patient status`);
-    void error;
   }
 
   return { patientLine: describePatient(patient), patientStatus };
 }
 
+/** Age and sex only; nothing else about the patient is needed to chart or code. */
 export function describePatient(patient: Patient): string {
   const parts: string[] = [];
   if (patient.birthDate) {
@@ -82,6 +77,15 @@ export function describePatient(patient: Patient): string {
   return parts.join(', ');
 }
 
+/** The whole chart, from the same read get-visit-note and the visit-note PDF make. */
+export async function readChart(
+  oystehr: ClinicalOystehrClient,
+  m2mToken: string,
+  encounterId: string
+): Promise<GetChartDataResponse> {
+  return wholeChartFromVisitNote(await buildVisitNote({ oystehr, m2mToken }, encounterId));
+}
+
 export function buildNoteContext(noteContext?: Record<string, string | undefined>): string | undefined {
   if (!noteContext) return undefined;
   const lines = Object.entries(noteContext)
@@ -90,13 +94,7 @@ export function buildNoteContext(noteContext?: Record<string, string | undefined
   return lines.length > 0 ? lines.join('\n\n') : undefined;
 }
 
-/**
- * Compose the ALREADY ON THE CHART block from a prose summary plus the checked exam findings.
- *
- * Named for what it does rather than where the data came from: the summary is now built by
- * buildChartStateSummary in utils from a chart READ SERVER-SIDE, and only falls back to a caller-supplied
- * string when there is no encounter to read.
- */
+/** The ALREADY ON THE CHART block: the chart-state summary plus the checked exam findings. */
 export function describeChart(chartState?: string, examFindings?: string[]): string | undefined {
   const parts: string[] = [];
   if (chartState?.trim()) parts.push(chartState.trim());
@@ -106,24 +104,23 @@ export function describeChart(chartState?: string, examFindings?: string[]): str
   return parts.length > 0 ? parts.join('\n\n') : undefined;
 }
 
-/**
- * The practice's template titles, read server-side.
- *
- * The prompt tells the model to match these EXACTLY and never invent one, and with no list the tail renders
- * "AVAILABLE TEMPLATES in this practice: none. Do NOT emit apply-template." Nothing was passing them, so
- * apply-template was switched off for every call — which is why the eval reported zero templates applied on
- * every run and I read that as the model declining to use them.
- *
- * A failure here must not fail the plan: no titles is a degraded prompt, not a broken one.
- */
+/** A chart-state summary as individual item lines, for the removal guard to match against. */
+export function splitChartState(chartState?: string): string[] {
+  if (!chartState) return [];
+  return chartState
+    .split('\n')
+    .map((line) => line.replace(/^[-•*]\s*/, '').trim())
+    .filter(Boolean);
+}
+
 export interface PracticeTemplate {
   id: string;
   title: string;
 }
 
-/** The practice's templates, id + title. Undefined when the list could not be read or is empty. */
+/** The practice's templates. Undefined when the list is empty or could not be read: a degraded prompt, not a failure. */
 export async function readTemplates(
-  oystehr: ReturnType<typeof createClinicalOystehrClient>,
+  oystehr: ClinicalOystehrClient,
   zambdaName: string
 ): Promise<PracticeTemplate[] | undefined> {
   try {
@@ -135,16 +132,8 @@ export async function readTemplates(
       )
       .map((template) => ({ id: template.id, title: template.title }));
     return usable.length > 0 ? usable : undefined;
-  } catch (error) {
+  } catch {
     console.log(`[${zambdaName}] could not list templates; apply-template will be unavailable this call`);
-    void error;
     return undefined;
   }
-}
-
-export async function readTemplateTitles(
-  oystehr: ReturnType<typeof createClinicalOystehrClient>,
-  zambdaName: string
-): Promise<string[] | undefined> {
-  return (await readTemplates(oystehr, zambdaName))?.map((template) => template.title);
 }

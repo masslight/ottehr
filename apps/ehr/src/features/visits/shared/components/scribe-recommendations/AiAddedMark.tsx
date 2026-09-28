@@ -21,12 +21,7 @@ interface AiAddedMarkProps {
   children: ReactNode;
 }
 
-/**
- * Wraps a note item the scribe panel wrote, so the provider can tell at a glance what came from
- * the transcript. The tint stays for the sitting; the glyph carries the AI's evidence on hover;
- * and an item that has just landed flashes once so the eye finds it. Nothing to click: the
- * reviewing happened in the panel.
- */
+/** Tints a note item the scribe panel wrote, shows its evidence on hover, and flashes it once on arrival. */
 export const AiAddedMark: FC<AiAddedMarkProps> = ({ recommendation, inline, children }) => {
   const appliedAt = useScribeRecommendationsStore((state) => state.itemState[recommendation.id]?.appliedAt);
   // Decided once at mount: a later re-render of the same row must not restart the flash.

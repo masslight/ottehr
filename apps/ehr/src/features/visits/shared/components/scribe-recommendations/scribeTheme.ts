@@ -1,10 +1,10 @@
 import { Theme } from '@mui/material/styles';
 import { Variant } from '@mui/material/styles/createTypography';
 
-/** Every size of text in the panel, over the note's: the narrow column reads better one step larger. */
-export const SCRIBE_TEXT_SCALE = 1.15;
+/** Panel text size relative to the note's; the narrow column reads better one step larger. */
+const SCRIBE_TEXT_SCALE = 1.15;
 
-/** A pixel size the panel's own components state outright, at the panel's scale. */
+/** Scales a hard-coded pixel size to the panel's text scale. */
 export const scaled = (px: number): number => px * SCRIBE_TEXT_SCALE;
 
 /** RoundedButton fixes its label at 14px in its own styles, which the theme can't reach. */
@@ -33,9 +33,8 @@ const scaleFontSize = (fontSize: string | number | undefined): string | number |
 };
 
 /**
- * The outer theme with its type scaled up. The EHR theme fixes every variant in px, so `typography.fontSize`
- * (which only feeds `pxToRem`) can't do it: each variant is rescaled here, and `pxToRem` with it, so the
- * sizes MUI derives from that — chip and small-button labels, tooltips, the checkbox glyph — follow.
+ * The outer theme with its type scaled up. The EHR theme fixes every variant in px, so each variant is rescaled
+ * here, along with `pxToRem` so MUI's derived sizes (chips, tooltips, checkbox glyphs) follow.
  */
 export const scaleScribeTheme = (outer: Theme): Theme => {
   const { typography } = outer;

@@ -44,8 +44,7 @@ export function buildBillingSuggestionInput(params: {
 }): BillingSuggestionInput | null {
   const { chartData, chartDataFields, radiologyOrders, appointment, patient, rosFindings } = params;
 
-  // Lab results and radiology reports, formatted by the helper the Easy Chart planner's chart state also
-  // uses, so the two prompts describe a result identically.
+  // Same formatting as the Easy Chart chart state, so both prompts describe a result identically.
   const externalLabOrderParts: string[] = [
     ...(chartDataFields?.externalLabResults?.labOrderResults ?? []).map((result: ExternalLabOrderResult) =>
       formatLabResultForPrompt(result, 'external')

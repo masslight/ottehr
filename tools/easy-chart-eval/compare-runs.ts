@@ -1,15 +1,5 @@
 /**
- * compare-runs.ts — every scorer field for N runs, side by side.
- *
- * summary-table.ts prints one run in full; this prints several in the same shape so a prompt or
- * model change can be read off without picking rows by hand. Nothing is summarised away: both
- * scopes, every section with its context and unvoiced columns (the ones that decide the
- * denominators), every scalar, the free-text pairing, the counters, the disposition block and the
- * token/escalation totals.
- *
- * Reads runs from either project — ours stores the simulated chart under `state`, dabrams' under
- * `finalState` — and compares only the cases present in ALL of them, so a partial re-run cannot
- * silently shift a total.
+ * Prints every scorer field for several runs side by side, over the cases common to all of them.
  *
  * Usage:
  *   npx tsx tools/easy-chart-eval/compare-runs.ts <runDir> <runDir> [<runDir>...]
@@ -92,16 +82,14 @@ function tally(runDir: string, ids: string[], scope: Scope): Tally {
       bump(`medsVoicing: ${k}`, num(sc.medsPrescribed?.[k]));
 
     for (const f of FREETEXT) {
-      // The scorer records presence as `goldPresent` / `predictedPresent` (plus lengths); this is a
-      // presence-only metric, so lengths are deliberately not aggregated.
+      // Presence only; the lengths the scorer also records are not aggregated.
       const ft = j.freeText?.[f];
       if (!ft) continue;
       if (ft.goldPresent) t.freeText[f].gold++;
       if (ft.predictedPresent) t.freeText[f].pred++;
       if (ft.goldPresent && ft.predictedPresent) t.freeText[f].both++;
     }
-    // Some counters are per-case BOOLEANS (goldDisposition, goldDispositionVoiced, …). Count those as
-    // cases; a number-only filter dropped them from the table without saying so.
+    // Some counters are per-case booleans (goldDisposition, goldDispositionVoiced, …); count those as cases.
     for (const [k, v] of Object.entries(j.counters ?? {})) {
       const n = typeof v === 'number' ? v : v === true ? 1 : v === false ? 0 : undefined;
       if (n !== undefined) t.counters[k] = (t.counters[k] ?? 0) + n;
@@ -114,7 +102,7 @@ function tally(runDir: string, ids: string[], scope: Scope): Tally {
         (t.counters[`trigger: ${dt.fired ? (dt.modelProposed ? 'firedProposed' : 'firedDeclined') : 'notFired'}`] ??
           0) + 1;
     }
-    // `usage` is keyed BY STAGE ({ planner: {...}, review: {...} }), not a list.
+    // `usage` is keyed by stage ({ planner: {...}, review: {...} }), not a list.
     for (const [stage, u] of Object.entries((j.usage ?? {}) as Record<string, Record<string, unknown>>)) {
       for (const k of ['inputTokens', 'outputTokens', 'thinkingTokens', 'cacheReadTokens', 'calls'] as const) {
         t.usage[`${stage} ${k}`] = (t.usage[`${stage} ${k}`] ?? 0) + num(u?.[k]);

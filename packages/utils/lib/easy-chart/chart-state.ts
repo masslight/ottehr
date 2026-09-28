@@ -1,15 +1,5 @@
-// What is already on the chart, as prose for the prompt — built from the chart-data response itself.
-//
-// SERVER-SIDE BY DESIGN. This used to be assembled in the browser and posted to the zambda, and that was
-// wrong in three ways that all showed up as missing data: the client could only send the sections its own
-// read layer happened to fetch (ROS and vitals were silently absent, so the model re-charted them), the
-// two sides drifted whenever a field was added on one of them, and a caller-supplied summary is
-// caller-controlled text landing inside the model's instructions.
-//
-// The visit-note PDF path already does it the right way — it reads the visit note by encounterId on the
-// server and never trusts a client payload. This module is the same idea for the prompt: one pure function
-// over a GetChartDataResponse (the whole-chart shape wholeChartFromVisitNote folds a visit note into), so
-// the plan and review surfaces describe an identical chart and a unit test can pin what they say about it.
+// What is already on the chart, as prompt lines built server-side from a GetChartDataResponse. Never taken from
+// the client: a caller-supplied summary would be caller-controlled text inside the model's instructions.
 
 import { buildExamLeafCatalogue } from '../config-helpers/exam-leaves';
 import { formatLabResultForPrompt, formatRadiologyReportForPrompt } from '../helpers/test-results-for-prompt';
@@ -19,9 +9,8 @@ import { InPersonRosConfig } from '../ottehr-config/review-of-systems/in-person.
 import { GetChartDataResponse } from '../types/api/chart-data/get-chart-data.types';
 
 /**
- * The chart as a list of displays. Deliberately displays and not ids: the model needs to know an item
- * EXISTS so it neither duplicates it nor invents a removal, and it must be able to name it back exactly
- * for a remove-*, which the server's removal guard matches against these very lines.
+ * The chart as display lines, not ids: the model must name an item back exactly for a remove-*, and the
+ * server's removal guard matches against these lines.
  */
 export function buildChartStateSummary(chart: GetChartDataResponse | undefined): string | undefined {
   if (!chart) return undefined;
@@ -44,15 +33,12 @@ export function buildChartStateSummary(chart: GetChartDataResponse | undefined):
     push('Procedure already charted', procedure.procedureType ?? procedure.cptCodes?.[0]?.display);
   }
 
-  // Vitals. Absent before, which meant the model could not see a reading the nurse had already entered —
-  // so it charted it a second time, and had nothing to reason from when picking an E&M level.
   for (const vital of chart.vitalsObservations ?? []) {
     push('Vital already recorded', `${vital.field} = ${String(vital.value ?? '')}`);
   }
 
-  // ROS, with its polarity. "Denies fever" and "Reports fever" are opposite chart entries, and without the
-  // word the model cannot tell which one exists. Read from `rosObservations` — NOT from `observations`,
-  // which is a different key and is empty on every response we have looked at.
+  // ROS with its polarity, since "Denies fever" and "Reports fever" are opposite entries. Read from
+  // `rosObservations`, not the similarly named `observations` key.
   const rosLabels = new Map(
     Object.values(InPersonRosConfig).flatMap((system) =>
       Object.entries(system.items).map(([baseField, item]) => [baseField, `${system.label}: ${item.label}`])
@@ -66,13 +52,8 @@ export function buildChartStateSummary(chart: GetChartDataResponse | undefined):
     push('ROS already charted', state ? `${state === 'denies' ? 'Denies' : 'Reports'} ${label}` : label);
   }
 
-  // Orders already placed, and what came back. Without the pending ones the model re-orders a test that is
-  // already out; the narrative backstop only catches the ones the provider said aloud WITH a result. The
-  // RESULTED ones are findings of this visit, and used to be listed as "already ordered" — a name with no
-  // value — so a positive rapid strep the provider never read aloud was invisible to the diagnoses and the
-  // MDM. The result lines are formatted by the same helper the billing suggester's prompt uses, so the two
-  // prompts describe a result identically; a report is folded onto one line because everything here is
-  // matched line by line (removals, and the chart-origin quote a diagnosis may cite).
+  // Pending orders stop the model re-ordering; results are findings of this visit. A report is folded onto one
+  // line because these lines are matched line by line (removals, chart-origin quotes).
   for (const order of chart.radiologyOrders ?? []) {
     const report = formatRadiologyReportForPrompt(order);
     if (report) push('Radiology reported', report.replace(/\s+/g, ' '));
@@ -94,9 +75,8 @@ export function buildChartStateSummary(chart: GetChartDataResponse | undefined):
 }
 
 /**
- * Exam findings that are CHECKED. Travels separately from the summary because the prompt tells the model a
- * different thing about it: exam boxes are positive/abnormal assertions, so "already checked" means
- * something the note is claiming, not merely something present.
+ * Labels of checked exam boxes. Kept apart from the summary because the prompt treats a checked box as a claim
+ * the note makes, not merely something present.
  */
 export function chartedExamFindingLabels(
   chart: GetChartDataResponse | undefined,
@@ -106,9 +86,8 @@ export function chartedExamFindingLabels(
   return (
     (chart?.examObservations ?? [])
       .filter((observation) => observation.value === true)
-      // An encounter charted under an OLDER exam layout carries fields the current config does not define.
-      // Those keep their raw field name rather than being dropped: an item the model cannot see is an item
-      // it will happily chart a second time.
+      // Fields from an older exam layout keep their raw name rather than being dropped, or the model would
+      // chart them again.
       .map((observation) => observation.label ?? labels.get(observation.field) ?? observation.field)
       .filter((label) => label.trim().length > 0)
   );
@@ -117,8 +96,7 @@ export function chartedExamFindingLabels(
 /** The free-text note fields, keyed as the prompt names them. */
 export function buildNoteContextFromChart(chart: GetChartDataResponse | undefined): Record<string, string> | undefined {
   if (!chart) return undefined;
-  // The CC↔HPI storage swap is real and deliberate — see note-fields.ts. The CLINICAL name goes on the
-  // wire, so what a provider calls Chief Complaint is read from the historyOfPresentIllness key.
+  // CC and HPI are stored swapped (see note-fields.ts), so each clinical name reads the other storage key.
   const pairs: [string, string | undefined][] = [
     ['chiefComplaint', chart.historyOfPresentIllness?.text],
     ['historyOfPresentIllness', chart.chiefComplaint?.text],

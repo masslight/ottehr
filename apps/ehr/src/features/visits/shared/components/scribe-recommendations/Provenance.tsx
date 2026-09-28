@@ -14,16 +14,8 @@ import {
 import { EvidenceOrigin } from './types';
 
 /**
- * Why the AI proposed something, and the words it read. A panel of twenty suggestions is only
- * scannable if this stays off the row: it is the hover on the line itself, so nothing on the row
- * has to be pressed — or looked past — to read it.
- *
- * The provenance is two hops long. The quote is a phrase of the narrative — what the planner read —
- * and under it come the transcript snippets the narrative line was written from: what was actually
- * said. A line the generator said on its own, or one the provider wrote, has no snippets, and says so.
- * A quote the planner took from the transcript rather than the narrative has no narrative excerpt: it is
- * shown as a transcript snippet, with a caption saying so. One it took from the chart — a resulted test
- * behind a diagnosis — is shown the same way under a chart glyph, with its own caption.
+ * Hover content explaining a recommendation: the narrative quote, then the transcript snippets its narrative
+ * line came from (or a caption when there are none), or a transcript or chart quote with its caption.
  */
 
 interface ProvenanceContentProps {
@@ -77,7 +69,7 @@ export const ProvenanceContent: FC<ProvenanceContentProps> = ({
         </Typography>
       </Box>
     )}
-    {/* The inexact caption introduces the passage below it, so it comes first; the other origins are read after. */}
+    {/* The inexact caption heads the passage below it; other origin captions follow the sources. */}
     {evidenceOrigin === 'inexact' && <Typography variant="caption">{INEXACT_MATCH_NOTE}</Typography>}
     {transcriptSources?.map((source, index) => (
       <Box key={index} sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.25, pl: 1 }}>

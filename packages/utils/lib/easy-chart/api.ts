@@ -1,31 +1,92 @@
-// Wire types for the Easy Chart endpoints.
+// Wire contract of the Easy Chart endpoints. Request types are inferred from the Zod schemas the
+// zambdas validate against, so the client type and the server validation cannot drift apart.
 
-import { RawAction, Surface } from './actions';
+import { z } from 'zod';
+import { NOTE_TEXT_FIELDS, NoteTextField, RawAction } from './actions';
+
+/** A whole ambient transcript is a legitimate narrative; anything longer is not one visit. */
+export const MAX_NARRATIVE_CHARS = 120_000;
+/** Per note field, so a caller cannot push the prompt past the model's context on its own. */
+export const MAX_NOTE_FIELD_CHARS = 20_000;
+
+const narrativeText = z
+  .string()
+  .max(MAX_NARRATIVE_CHARS)
+  .refine((text) => text.trim() !== '', 'must not be blank');
+
+const PatientStatusSchema = z.enum(['new', 'established']);
+export type PatientStatus = z.infer<typeof PatientStatusSchema>;
+
+const noteContextShape = Object.fromEntries(
+  NOTE_TEXT_FIELDS.map((field) => [field, z.string().max(MAX_NOTE_FIELD_CHARS).optional()])
+) as Record<NoteTextField, z.ZodOptional<z.ZodString>>;
+
+/** Free-text note fields by clinical name. Blank fields are dropped; unknown keys never reach a prompt. */
+const NoteContextSchema = z
+  .object(noteContextShape)
+  .transform((context): Partial<Record<NoteTextField, string>> | undefined => {
+    const filled = Object.entries(context).filter(([, text]) => text?.trim());
+    return filled.length > 0 ? Object.fromEntries(filled) : undefined;
+  });
+
+export const ChartPlanRequestSchema = z.object({
+  /** The transcript, or the narrative the provider typed when there is no transcript. */
+  narrative: narrativeText,
+  /** The chart, patient and access check are all read by this id. Only the eval harness omits it. */
+  encounterId: z.string().min(1).optional(),
+  /**
+   * The generated narrative and the provider's edited version of it. The planner follows the provider's
+   * changes over the transcript. Sent only when they differ.
+   */
+  providerEdits: z
+    .object({ draft: z.string().max(MAX_NARRATIVE_CHARS), edited: z.string().max(MAX_NARRATIVE_CHARS) })
+    .optional()
+    .transform((edits) => (edits?.draft.trim() && edits.edited.trim() ? edits : undefined)),
+  /** Used only when there is no encounter to read the status from (the eval harness). */
+  patientStatus: PatientStatusSchema.optional(),
+});
+export type ChartPlanRequest = z.input<typeof ChartPlanRequestSchema>;
+
+export const ChartReviewRequestSchema = z.object({
+  /** The narrative the note was written from. */
+  narrative: narrativeText,
+  encounterId: z.string().min(1).optional(),
+  patientStatus: PatientStatusSchema.optional(),
+  // Fallbacks for a request with no encounter to read the chart from (the eval harness).
+  chartState: z.string().max(MAX_NARRATIVE_CHARS).optional(),
+  chartedExamFindings: z
+    .array(z.string())
+    .optional()
+    .transform((findings) => findings?.filter((finding) => finding.trim() !== '')),
+  noteContext: NoteContextSchema.optional(),
+});
+export type ChartReviewRequest = z.input<typeof ChartReviewRequestSchema>;
+
+export const ChartNarrativeRequestSchema = z.object({
+  transcript: narrativeText,
+  encounterId: z.string().min(1).optional(),
+  /** The transcript document the text came from; the narrative is stored on it for the next session. */
+  documentId: z.string().min(1).optional(),
+});
+export type ChartNarrativeRequest = z.input<typeof ChartNarrativeRequestSchema>;
+
+export const SaveTranscriptRequestSchema = z.object({
+  transcript: narrativeText.transform((text) => text.trim()),
+  encounterId: z.string().min(1),
+  /** The transcript document being edited; omitted for a new transcript. */
+  documentId: z.string().min(1).optional(),
+});
+export type SaveTranscriptRequest = z.input<typeof SaveTranscriptRequestSchema>;
+
+export interface SaveTranscriptResponse {
+  /** The transcript document written, so the client can select it once chart data refetches. */
+  documentId: string;
+}
 
 /**
- * Per-call model accounting. Returned by EVERY model call, because an LLM feature without per-call
- * accounting produces a surprise invoice.
- *
- * THE TWO PROVIDERS DO NOT MEAN THE SAME THING BY THESE FIELDS, and adding them up the same way is
- * wrong for one of them:
- *
- *   - Gemini's `promptTokenCount`, which lands in `inputTokens`, ALREADY INCLUDES the cached part;
- *     `cachedContentTokenCount` is a subset of it, not an addition to it. So the billed input is
- *     `inputTokens`, and `inputTokens + cacheReadTokens` double-counts the hits.
- *   - Anthropic reports `input_tokens` EXCLUDING both cache figures, so there the billed input really
- *     is the sum of the three.
- *
- * `cacheWriteTokens` is ALWAYS 0 for Gemini, and that is not a gap in our reporting: the API has no
- * such field. Implicit caching charges nothing to populate, and explicit caching is billed as storage
- * per hour rather than as write tokens. Only Anthropic reports `cache_creation`.
- *
- * `outputTokens` is Gemini's `candidatesTokenCount`, which EXCLUDES `thoughtsTokenCount` — a thinking
- * model can spend far more on thoughts than on the answer, so `thinkingTokens` has to be added before
- * output cost means anything.
- *
- * A cache read of zero is worth looking at but is not by itself proof of a broken prefix: Gemini's
- * implicit caching has a minimum prompt size and only fires on a repeated prefix, so a short or
- * first-of-its-kind request legitimately reports zero.
+ * Per-model accounting, summed over the attempts of one call. Gemini's `inputTokens` already include
+ * `cacheReadTokens` and it has no cache-write metric; Anthropic's exclude both. `outputTokens` exclude
+ * `thinkingTokens`.
  */
 export interface ModelUsage {
   provider: 'vertex' | 'anthropic';
@@ -38,7 +99,6 @@ export interface ModelUsage {
   calls: number;
 }
 
-/** Why an attempt failed, as a coarse category. Counts only — never narrative text. */
 export type ModelFailureReason =
   | 'timeout'
   | 'empty-response'
@@ -47,194 +107,36 @@ export type ModelFailureReason =
   | 'rejected-by-validation'
   | 'error';
 
-/**
- * Did the primary model fail, how many attempts were made, and why. This is how you learn that the
- * cheap model is failing 30% of the time instead of discovering it in a bill.
- */
 export interface EscalationInfo {
   attempts: number;
+  /** True when the primary model failed and the backup provider answered. */
   escalated: boolean;
   failures: ModelFailureReason[];
 }
 
 /**
- * A deterministic trigger that forced the model to address something (e.g. "the narrative mentions
- * follow-up but no disposition is charted"). Report BOTH whether the trigger fired and whether the
- * model then complied — without the pair you cannot distinguish "the guard never fired" from "the
- * guard fired and the model ignored it", which are opposite bugs with the same symptom.
+ * A deterministic trigger (e.g. disposition language in the narrative) and whether the model complied.
+ * Both halves are reported: "never fired" and "fired and ignored" have the same symptom otherwise.
  */
 export interface TriggerReport {
   trigger: string;
   fired: boolean;
   complied: boolean;
-  /**
-   * WHICH pattern fired, when the trigger is a family of them (disposition language is eleven).
-   *
-   * A label, never narrative text — it reaches logs and eval summaries. Without it a run can only say
-   * that some disposition language went unaddressed, not whether it was a referral, an ER instruction or
-   * a follow-up interval, and those need different fixes.
-   */
+  /** Which pattern of a trigger family fired. A label, never narrative text. */
   matchedPattern?: string;
-}
-
-/** One turn of the conversation, summarised for the model. See Phase 5.7b. */
-export interface ConversationTurn {
-  role: 'provider' | 'assistant';
-  /** Provider turns are quoted VERBATIM — what the provider said is evidence. */
-  text?: string;
-  /** Assistant turns are summarised: one line per action. What it DID is already in the chart state. */
-  charted?: string[];
-  skipped?: string[];
-}
-
-/**
- * The stages of a split plan, in the order the graph runs them.
- *
- * `findings`, `history` and `story` are independent transcription and can run in parallel; `orders` needs
- * the diagnoses; `plan-text` needs the orders; `coding` needs everything, because an E&M level is a
- * function of the documented complexity and a CPT follows from what was actually performed.
- */
-export const PLAN_STAGES = [
-  'template',
-  'findings',
-  'history',
-  'story',
-  'diagnoses',
-  'orders',
-  'plan-text',
-  'coding',
-] as const;
-export type PlanStage = (typeof PLAN_STAGES)[number];
-
-export interface ChartPlanRequest {
-  /** The provider's dictation, paste, transcript or typed request. */
-  narrative: string;
-  /**
-   * Current free-text note fields, so the model can edit in place rather than overwrite.
-   *
-   * CLINICAL names, not storage keys — what a provider calls the field. The CC↔HPI storage swap is
-   * applied by `chartKeyForNoteField` on the way in and out of chart data; nothing on the wire and
-   * nothing in a prompt ever sees the swapped form.
-   */
-  noteContext?: {
-    chiefComplaint?: string;
-    historyOfPresentIllness?: string;
-    mechanismOfInjury?: string;
-    medicalDecision?: string;
-  };
-  /** A summary of what is already on the chart, so the model neither duplicates nor invents removals. */
-  chartState?: string;
-  /** Exam findings already checked, so remove-exam-finding can name them exactly. */
-  chartedExamFindings?: string[];
-  /**
-   * Practice template titles the model may SUGGEST via apply-template. A suggestion only: nothing in the
-   * plan applies a template — the provider does, by hand, from the template picker.
-   */
-  templateTitles?: string[];
-  /**
-   * This call runs AFTER a template was applied, to reconcile what it charted against the narrative.
-   *
-   * A template writes across many sections at once — default normal exam findings, a default diagnosis,
-   * MDM, patient instructions — and the plan that asked for it could not have known any of that: the
-   * model is shown template TITLES only, never contents. So the steps that should answer the template
-   * ("remove the normal the provider contradicted", "remove the default diagnosis the visit does not
-   * support") were never emitted, because at plan time nothing knew there would be anything to answer.
-   *
-   * Setting this does TWO things server-side, and both matter:
-   *   - the practice's template list is NOT sent, so there is no title for the model to apply a second
-   *     time. Instructing it not to is weaker than giving it nothing to reach for;
-   *   - a reconciliation instruction is force-included, because "chart only what is new" — which is what
-   *     `incremental` says — is an instruction to ADD, and reconciliation is the opposite of adding.
-   *
-   * A BOOLEAN, deliberately, not the template's name: nothing caller-supplied belongs inside the model's
-   * instructions, and the chart state the server reads for itself already lists what the template wrote.
-   */
-  reconcileTemplate?: boolean;
-  /**
-   * Which STAGE of the plan this call is, i.e. which slice of the vocabulary it may use.
-   *
-   * Omitted means the whole plan in one call, which is what shipped first and remains the default. A
-   * stage narrows both the schema and the prompt together — narrowing only the schema was measured and
-   * is catastrophic: told to decompose the whole narrative but permitted to emit only exam findings, the
-   * model returned 469 of them for a visit whose note holds two. The prose is what tells it when to
-   * stop, so a stage without its own prose is not a stage.
-   */
-  stage?: PlanStage;
-  /**
-   * The template applied to this visit already, by TITLE.
-   *
-   * Later stages are told to reconcile a template's defaults against the narrative — a template picks its
-   * diagnosis and its ~28 normal exam findings from its own title, having never seen this visit. Without
-   * this they were asked to do that blind: the chart state lists what is on the chart and says nothing
-   * about where any of it came from, so "check the template's default diagnosis" had no referent and the
-   * stage removed things by guesswork.
-   *
-   * Caller-supplied, and therefore VALIDATED against the practice's own template list before it reaches
-   * the prompt — a title that is not in that list is dropped rather than echoed. The rule that no
-   * caller-controlled text lands inside the model's instructions still holds; what lands is a string the
-   * server matched against its own data.
-   */
-  appliedTemplate?: string;
-  /**
-   * Used to read the REAL patient age and sex from the chart and to verify the caller may touch this
-   * encounter. Ambient recordings contain cross-talk about other patients; demographics are never
-   * inferred from the narrative.
-   */
-  encounterId?: string;
-  /**
-   * True when the note is already written and this narrative only adds to it.
-   * A non-empty `chartState` does NOT imply this: a first dictation for a patient whose history came
-   * from intake paperwork has a non-empty chart state and still needs the full pass.
-   */
-  incremental?: boolean;
-  /** Bounded rolling window of prior turns. Never contains a transcript. */
-  history?: ConversationTurn[];
-  /** See CallerPatientStatus. Used only when the chart lookup yields nothing. */
-  patientStatus?: CallerPatientStatus;
-  /**
-   * The provider's corrections to an AI-written read-back of the narrative, sent ONLY when they made some.
-   *
-   * The scribe panel shows the provider a generated narrative of the transcript to review; `narrative` above
-   * stays the transcript, so an unedited read-back changes nothing about this call. When the provider edited
-   * it, both versions come along so the differences are visible without anything computing them, and the
-   * prompt says those differences are the provider's corrections and win over the transcript.
-   */
-  providerEdits?: {
-    /** The read-back as the assistant wrote it. */
-    draft: string;
-    /** The read-back as the provider left it. */
-    edited: string;
-  };
 }
 
 /** An action after every server guard has run. */
 export interface PlannedAction extends RawAction {
-  /**
-   * The verbatim phrase justifying the action, present only when it was VERIFIED against the
-   * narrative. Absent means the model inferred it, and the UI marks it so.
-   */
+  /** Present only when the quote was verified; absent means the model inferred the action. */
   sourceText?: string;
-  /**
-   * Which text `sourceText` was verified against: `narrative` (checked first), the provider's edited
-   * read-back (`providerEdits.edited`, checked only when one was sent), or `chart` — a line of the ALREADY
-   * ON THE CHART block, for an action the chart rather than the narrative justifies (a resulted test behind
-   * a diagnosis). Absent whenever `sourceText` is.
-   */
+  /** Which text `sourceText` was verified against. */
   sourceOrigin?: 'narrative' | 'edited-narrative' | 'chart';
-  /** Set when a guard accepted the action but the provider should look at it. */
-  caution?: string;
-  /** Set when a guard could not establish a value and the provider must supply it. */
-  needsProvider?: boolean;
-  /**
-   * apply-template only. The id of the practice template the server resolved the model's title to, with
-   * `display` rewritten to that template's exact title. A suggestion for the UI: nothing applies it — the
-   * provider does, from the template picker. An apply-template whose title matched no template is
-   * REJECTED rather than returned without an id.
-   */
+  /** apply-template only: the practice template the server resolved the title to. */
   templateId?: string;
 }
 
-/** An action a guard rejected outright, reported so the step is never a silent no-op. */
+/** An action a guard refused, with a reason the provider reads. */
 export interface RejectedAction {
   kind: string;
   display?: string;
@@ -243,41 +145,34 @@ export interface RejectedAction {
 
 export interface ChartPlanResponse {
   actions: PlannedAction[];
-  /** Actions the server refused, each with an honest reason the UI shows as "skipped because…". */
   rejected: RejectedAction[];
   usage: ModelUsage[];
   escalation: EscalationInfo;
   triggers: TriggerReport[];
 }
 
+/** The review categories, one per check in the review prompt. */
+export const REVIEW_CATEGORIES = [
+  'med-name',
+  'diagnosis',
+  'pertinent-negative',
+  'em-level',
+  'secondary-dx',
+  'med-reconcile',
+  'disposition',
+  'coherence',
+  'dropped-commitment',
+] as const;
+export type ReviewCategory = (typeof REVIEW_CATEGORIES)[number];
+
 export interface ReviewSuggestion {
-  category: string;
+  category: ReviewCategory;
   question: string;
   rationale?: string;
   highlight?: string;
   partial?: boolean;
   partialNote?: string;
   actions: PlannedAction[];
-}
-
-/**
- * New-vs-established, when the CALLER already knows it and the endpoint cannot look it up.
- *
- * The endpoint normally derives this from the chart, and that stays authoritative: demographics are read
- * from the record, never inferred from a narrative. This field is the narrow case where there is no
- * encounter to read — an eval corpus whose cases carry the status but only a hashed encounter id, for
- * PHI reasons. It is used ONLY when the chart lookup produced nothing, so a caller can never override
- * what the record says.
- *
- * It matters because the status decides the E&M code FAMILY: 9920x for a new patient, 9921x for an
- * established one. Without it the prompt falls back to the established family, which is wrong for every
- * new patient and shows up as a 100% E&M mismatch that looks like a model failure.
- */
-export type CallerPatientStatus = 'new' | 'established';
-
-export interface ChartReviewRequest extends Omit<ChartPlanRequest, 'incremental' | 'history'> {
-  /** The note as written, which the review pass reads back against the narrative. */
-  noteContext?: ChartPlanRequest['noteContext'];
 }
 
 export interface ChartReviewResponse {
@@ -288,56 +183,17 @@ export interface ChartReviewResponse {
   triggers: TriggerReport[];
 }
 
-export const EASY_CHART_SURFACES: readonly Surface[] = ['plan', 'review'];
-
-/**
- * One line of a generated narrative: a provider-voice sentence and the verbatim transcript snippets it
- * was drawn from. `sources` holds ONLY snippets the server verified against the transcript; an empty
- * array means the generator inferred the line, and the UI marks it so — the same contract as
- * `PlannedAction.sourceText`, one level up.
- */
+/** One provider-voice sentence of a generated narrative and the transcript snippets behind it. */
 export interface NarrativeLine {
   text: string;
+  /** Only snippets the server verified against the transcript; empty means the line is unbacked. */
   sources: string[];
-  /**
-   * For a line with NO verified snippet: the stretch of the transcript that comes closest to saying it —
-   * the model paraphrased, and the provider should see what was actually said rather than "not found".
-   * Absent when nothing in the transcript comes close; the line is unbacked either way.
-   */
+  /** For an unbacked line: the closest stretch of the transcript, when one comes close. */
   approximateSource?: string;
-}
-
-export interface ChartNarrativeRequest {
-  /** The raw transcript — an ambient recording, the intake chat, or a paste. */
-  transcript: string;
-  /** Used to verify the caller may touch this encounter. Optional for the eval harness. */
-  encounterId?: string;
-  /**
-   * The transcript DocumentReference this transcript came from, so the server can store the narrative on it
-   * and the next session reads it instead of generating again. Omitted for pasted text.
-   */
-  documentId?: string;
 }
 
 export interface ChartNarrativeResponse {
   lines: NarrativeLine[];
   usage: ModelUsage[];
   escalation: EscalationInfo;
-}
-
-export interface SaveTranscriptRequest {
-  /** The transcript text as the provider left it: pasted in, or edited from an existing transcript. */
-  transcript: string;
-  encounterId: string;
-  /**
-   * The transcript document being edited, which is processed again from the new text. Omitted for a new
-   * transcript, which is added to the visit as a new document. Either way the text goes through the same
-   * pipeline as a recording's.
-   */
-  documentId?: string;
-}
-
-export interface SaveTranscriptResponse {
-  /** The transcript document written, so the client can select it once chart data refetches. */
-  documentId: string;
 }

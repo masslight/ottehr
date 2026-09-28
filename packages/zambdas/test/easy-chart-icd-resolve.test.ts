@@ -8,17 +8,12 @@ import { repairUnsupportedEtiology, resolveIcd, upgradeCodeSpecificity } from 'u
 import { describe, expect, it } from 'vitest';
 import { fakeIcdSearch, PLATFORM_DISPLAY_FIXTURES } from './helpers/fake-icd-search';
 
-// All resolution paths run against the deterministic terminology stand-in (fixture corpus +
-// probe-mirroring display responses) — see fake-icd-search.ts. The guards themselves are pure.
 const search = fakeIcdSearch(PLATFORM_DISPLAY_FIXTURES);
 
-// resolveIcd is the "no hallucinated code reaches the note" invariant. These cases lock in the
-// laterality sanity check: a hinted code that is REAL but contradicts the intent's own left/right
-// or upper/lower wording must be replaced by the display-consistent code, not trusted.
+// A hinted code is kept only when it is real and consistent with the intent's own wording.
 describe('resolveIcd', () => {
   it('rejects a wrong-laterality hint and resolves from the display instead', async () => {
-    // The model once hinted H00.012 (hordeolum externum RIGHT LOWER eyelid) for a dictated
-    // LEFT UPPER stye — a real code, wrong anatomy.
+    // H00.012 is a real code, but for the right lower eyelid.
     const resolved = await resolveIcd(search, 'H00.012', 'Hordeolum, left upper eyelid', ['hordeolum']);
     expect(resolved).toBeDefined();
     expect(resolved!.display.toLowerCase()).toContain('left upper');
@@ -36,17 +31,14 @@ describe('resolveIcd', () => {
   });
 
   it('rejects a real-but-wrong hint whose display shares no words with the intent', async () => {
-    // S09.90XA is "Unspecified injury of head" — a real code the model once hinted for a
-    // dictated concussion; the display-based search must take over.
+    // S09.90XA is "Unspecified injury of head".
     const resolved = await resolveIcd(search, 'S09.90XA', 'Concussion without loss of consciousness', ['concussion']);
     expect(resolved).toBeDefined();
     expect(resolved!.display.toLowerCase()).toContain('concussion');
   });
 
   it('rejects a head-block injury code hinted for a trunk-site display and resolves the trunk code', async () => {
-    // The model once hinted the EAR contusion code (S00.4x, head block) for a dictated tailbone
-    // contusion. The hint must be rejected AND the fallback search must not re-attach it (it
-    // ranked first among "contusion" ties); the lower-back/pelvis block code is the answer.
+    // S00.439A (ear contusion) also ranks first in the display search, so the fallback must skip it too.
     const resolved = await resolveIcd(search, 'S00.439A', 'Contusion of coccyx', [
       'contusion coccyx',
       'tailbone bruise',
@@ -62,9 +54,7 @@ describe('resolveIcd', () => {
   });
 
   it('rejects a wrong-block hint even when its display overlaps the intent wording', async () => {
-    // S20.219A "Contusion of back wall of thorax" shares "contusion"+"back" with the intent, so
-    // the word-overlap check alone passes — only the S-block region guard catches that thorax
-    // (S2x) is the wrong block for a lower back/pelvis (S3x) site.
+    // S20.219A (back wall of thorax) passes the word-overlap check; only the S-block region guard rejects it.
     const resolved = await resolveIcd(search, 'S20.219A', 'Contusion of lower back and pelvis', []);
     expect(resolved!.code).toBe('S30.0XXA');
   });
@@ -75,11 +65,8 @@ describe('resolveIcd', () => {
   });
 });
 
-// Pair consistency: a charted {code, display} must be internally consistent. A live case charted
-// a "right index finger" laceration DISPLAY over the right-THUMB code (S61.011A vs the correct
-// S61.210A) — same anatomy class, same S6 block, and enough shared words to pass the overlap
-// check, so only digit-level (thumb / index / middle / ring / little) and wound-type (laceration /
-// puncture / bite) qualifier groups catch the mismatch. Official ICD-10 display text throughout.
+// These codes share the S6 block and enough words to pass the overlap check, so only the digit and
+// wound-type qualifier groups catch a mismatched pair.
 describe('resolveIcd pair consistency (digit / wound-type qualifiers)', () => {
   it('rejects a thumb code hinted for an index-finger display and resolves the index-finger code', async () => {
     const resolved = await resolveIcd(search, 'S61.011A', 'Laceration without foreign body of right index finger', [
@@ -115,8 +102,8 @@ describe('resolveIcd pair consistency (digit / wound-type qualifiers)', () => {
   });
 
   it('resolves nothing when every candidate contradicts the display qualifiers', async () => {
-    // "Pointer finger" display, thumb code hinted, and the display search surfaces only the thumb
-    // row — better no code (client picker resolves by display) than a contradictory pair.
+    // The display search returns only the thumb row. No code is better than a contradictory pair,
+    // since the client picker can still resolve by display.
     const resolved = await resolveIcd(search, 'S61.011A', 'Laceration of right pointer finger', []);
     expect(resolved).toBeUndefined();
   });
@@ -162,8 +149,7 @@ describe('contradictsQualifiers digit / wound-type groups', () => {
   });
 });
 
-// Direct guard coverage: the S-block partition (head S0x … ankle/foot S9x) versus the intent's
-// own site words. Non-injury codes and site-less intents impose no constraint.
+// The S-block partition (head S0x through ankle/foot S9x) versus the intent's own site words.
 describe('contradictsInjuryRegion', () => {
   it('flags a head-block code for a trunk-site intent', () => {
     expect(contradictsInjuryRegion('Contusion of coccyx', 'S00.439A')).toBe(true);
@@ -185,8 +171,7 @@ describe('contradictsInjuryRegion', () => {
   });
 });
 
-// History/status-code gate: asymptomatic Z-codes (personal/family history, postprocedural status)
-// may only attach when the intent explicitly uses history/status phrasing — a narrative
+// History and status Z-codes attach only on explicit history/status phrasing; a narrative
 // "history of X" for the presenting problem does not qualify.
 describe('contradictsHistoryContext', () => {
   it('gates a personal-history code when the intent lacks explicit history phrasing', () => {
@@ -215,9 +200,7 @@ describe('contradictsHistoryContext', () => {
   });
 });
 
-// The live failure: an ingrown-hair narrative whose only overlap with Z87.01 was
-// "history"+"(recurrent)". Both the hint path and the fallback search must refuse it, while an
-// explicitly-phrased personal-history intent keeps the code.
+// Z87.01 shares only "history" and "recurrent" with the ingrown-hair intent.
 describe('resolveIcd history/status gate', () => {
   it('regression: a narrative "history of recurrent X" intent never charts a Z8x history code', async () => {
     const resolved = await resolveIcd(search, undefined, 'History of recurrent ingrown hairs', [
@@ -239,9 +222,8 @@ describe('resolveIcd history/status gate', () => {
   });
 });
 
-// Specificity upgrade: when the intent's own text names laterality or recurrence that the
-// validated code doesn't encode, and exactly ONE same-category sibling does, upgrade to it.
-// Ambiguity or a missing exact sibling always keeps the validated code.
+// Upgrade only when the intent names laterality or recurrence the code lacks and exactly one
+// same-category sibling encodes it; otherwise keep the validated code.
 describe('specificity upgrade (laterality / recurrence)', () => {
   it('upgrades an unspecified-side hint when a search term names the side', async () => {
     const resolved = await resolveIcd(search, 'H66.90', 'Otitis media', ['left ear infection']);
@@ -284,8 +266,7 @@ describe('specificity upgrade (laterality / recurrence)', () => {
   });
 
   it('keeps the code when several same-category siblings encode the attribute', async () => {
-    // H61.1x has two "left ear" pinna-disorder siblings that differ from this display only by
-    // neutralized words — ambiguous, so no upgrade.
+    // H61.1x has two "left ear" pinna siblings that differ from this display only by neutralized words.
     const upgraded = await upgradeCodeSpecificity(
       search,
       { code: 'H61.199', display: 'Noninfective disorders of pinna, unspecified ear' },
@@ -321,11 +302,8 @@ describe('specificity upgrade (laterality / recurrence)', () => {
   });
 });
 
-// ── Etiology-support guard ──────────────────────────────────────────────────────────────────────
-// Live failures (both from review dx suggestions, synthetic narratives here): A54.02 "Gonococcal
-// vulvovaginitis" proposed for a budding-yeast narrative (correct: B37.3), and H65.06 "Acute
-// SEROUS otitis media" for a bulging purulent AOM (correct family: H66.0x). The guard flags
-// display qualifiers the evidence never supports and either repairs deterministically or refuses.
+// The etiology guard flags display qualifiers the evidence never supports, then repairs or refuses the code.
+// The evidence below documents yeast and purulent AOM, contradicting gonococcal and serous displays.
 const YEAST_EVIDENCE =
   'Vaginal itching with thick white discharge; wet mount shows budding yeast, consistent with candidal vulvovaginitis.';
 const PURULENT_AOM_EVIDENCE =

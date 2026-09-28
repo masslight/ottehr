@@ -42,7 +42,6 @@ import { useListTemplates } from '../templates/useListTemplates';
 import { useSyncChartedRecommendations } from './chartedRecommendations';
 import { NarrativeEditor } from './NarrativeEditor';
 import { narrativeText } from './narrativeLines';
-import { OrderSuggestions } from './OrderSuggestions';
 import { PickerDialog } from './PickerDialog';
 import { RecommendationsList } from './RecommendationsList';
 import { useScribeRecommendationsStore } from './scribeRecommendations.store';
@@ -100,17 +99,10 @@ export const ScribeRecommendationsPanel: FC<ScribeRecommendationsPanelProps> = (
         </Tooltip>
       </Box>
 
-      {/*
-        One screen, whether or not a plan has been read. The transcript and the narrative stay exactly
-        where they were put — same chips, same editor, same button — and the suggestions arrive
-        UNDERNEATH them rather than replacing them. Planning again is then the same button in the same
-        place, so there is no way back to find; and the narrative a suggestion is questioned against is
-        still on screen to read it against.
-      */}
+      {/* The input stays on screen and results appear below it, so planning again uses the same button. */}
       <Box sx={{ flex: 1, minHeight: 0, overflowY: 'auto', p: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
         <NarrativeStep />
-        {/* A plan read from the previous narrative, still on screen while the next one is being read,
-            would be answering a narrative nobody is looking at. */}
+        {/* Hidden while planning again, since the old results answer the previous narrative. */}
         {phase === 'ready' && <ResultsStep />}
       </Box>
     </Box>
@@ -118,19 +110,8 @@ export const ScribeRecommendationsPanel: FC<ScribeRecommendationsPanelProps> = (
 };
 
 /**
- * The input, in two parts, and the one button that reads it. First the TRANSCRIPT — picked from the
- * recordings and chats already on the visit — or typed or pasted into the transcript box, which adds it to the
- * visit and processes it as a recording would. The box also edits the selected transcript, which is then
- * processed again. Then the NARRATIVE written from it: one provider-voice paragraph the provider corrects, and the only
- * thing the planner is sent. The split is what makes the recommendations checkable: every one quotes the
- * narrative, and every generated sentence of the narrative is traceable to the transcript words it came
- * from — or is called out as coming from none.
- *
- * A visit with no transcript is not a dead end: the narrative editor is the provider's own box to type or
- * dictate into, and the planner reads that just the same.
- *
- * This stays on screen after the plan comes back, with the suggestions below it, so it is also how the
- * provider plans again: fix the narrative, press the button, confirm that the suggestions go.
+ * Transcript picker and editor, narrative editor and the "Plan note" button. Without a transcript the provider
+ * types or dictates the narrative directly.
  */
 const NarrativeStep: FC = () => {
   const transcript = useScribeRecommendationsStore((state) => state.transcript);
@@ -139,20 +120,16 @@ const NarrativeStep: FC = () => {
   const narrativeStatus = useScribeRecommendationsStore((state) => state.narrativeStatus);
   const phase = useScribeRecommendationsStore((state) => state.phase);
   const analysisError = useScribeRecommendationsStore((state) => state.analysisError);
-  // Suggestions being written into the chart are mid-flight; replacing them under the run would leave
-  // the rows the executor is still reporting on belonging to a plan nobody asked for.
+  // Planning again mid-apply would replace rows the executor is still reporting on.
   const isApplying = useScribeRecommendationsStore((state) => state.isApplying);
   const selectTranscriptDocument = useScribeRecommendationsStore((state) => state.selectTranscriptDocument);
   const reloadTranscriptDocument = useScribeRecommendationsStore((state) => state.reloadTranscriptDocument);
   const clearTranscriptSelection = useScribeRecommendationsStore((state) => state.clearTranscriptSelection);
   const analyze = useScribeRecommendationsStore((state) => state.analyze);
-  // The narrative and plan endpoints, each behind one function; the store only knows what it gets back.
   const generate = useNarrativeGenerator();
   const analyzer = useScribeAnalyzer();
 
-  // The transcripts already on the visit are the aiChat section of the visit note, read from the same section
-  // cache entry the analyzer's read and the layout's recording poll write to; the providers come with them,
-  // for naming who recorded each one.
+  // Transcripts come from the aiChat chart section, the same cache entry the layout's recording poll updates.
   const { encounter } = useAppointmentData();
   const { chartData } = useChartData({ encounterId: encounter?.id, enabled: Boolean(encounter?.id) });
   const { oystehr } = useApiClients();
@@ -170,9 +147,7 @@ const NarrativeStep: FC = () => {
   const isBusy = isAnalyzing || isGenerating;
   const narrative = narrativeText(narrativeDraft);
 
-  // The analyzer goes along with the pick: once the narrative is ready the store reads the plan ahead of the
-  // button, so the click has less to wait for. Nothing shows until the click.
-  // Clicking the selected chip again unselects it.
+  // Clicking the selected chip again unselects it. The analyzer lets the store read the plan ahead.
   const pick = (doc: DocumentReference): void => {
     if (doc.id === sourceDocumentId) {
       clearTranscriptSelection();
@@ -181,9 +156,8 @@ const NarrativeStep: FC = () => {
     void selectTranscriptDocument(doc, generate, analyzer);
   };
 
-  // Saving a transcript writes it over the selected document, or adds a new one when none is selected; the
-  // server processes it either way. The saved document is then (re)selected as soon as the refetched chart
-  // data carries the saved text, as if its chip were clicked, so its new narrative replaces the draft.
+  // Saving overwrites the selected document or adds a new one. Once the refetched chart data carries the saved
+  // text, the document is (re)selected so its new narrative replaces the draft.
   const apiClient = useOystehrAPIClient();
   const queryClient = useQueryClient();
   const [savedTranscript, setSavedTranscript] = useState<{ documentId: string; text: string; edited: boolean }>();
@@ -194,12 +168,11 @@ const NarrativeStep: FC = () => {
       encounterId: encounter.id,
       documentId: sourceDocumentId,
     });
-    // Only the aiChat section changed; re-reading it where it is shown brings the saved document in.
+    // Only the aiChat section changed; refetching it brings in the saved document.
     await invalidateChartSections(queryClient, encounter.id, ['aiChat']);
     setSavedTranscript({ documentId, text: text.trim(), edited: Boolean(sourceDocumentId) });
   };
-  // Each save is handled once. Selecting updates the store, which re-renders this before the cleared state
-  // lands, and the effect would otherwise select (and plan) the same save again.
+  // Handle each save once: selecting re-renders this before the cleared state lands.
   const handledSave = useRef<typeof savedTranscript>();
   useEffect(() => {
     if (!savedTranscript || handledSave.current === savedTranscript) return;
@@ -210,9 +183,7 @@ const NarrativeStep: FC = () => {
     void (savedTranscript.edited ? reloadTranscriptDocument : selectTranscriptDocument)(doc, generate, analyzer);
   }, [savedTranscript, documents, selectTranscriptDocument, reloadTranscriptDocument, generate, analyzer]);
 
-  // Planning again throws the standing suggestions away, and with them every tick and correction the
-  // provider has made to them that hasn't been charted yet, so it is asked about first. A MUI dialog
-  // rather than `window.confirm`: a browser dialog blocks the page, and nothing can drive it.
+  // Planning again discards unapplied ticks and edits, so it asks first.
   const [replanOpen, setReplanOpen] = useState(false);
   const runAnalysis = (): void => {
     setReplanOpen(false);
@@ -257,8 +228,7 @@ const NarrativeStep: FC = () => {
         )}
       </Box>
 
-      {/* The picked document's dialogue, folded away: the narrative is what the provider works in. Opened, it
-          edits the selected transcript, or takes a new one when none is selected. */}
+      {/* Collapsed transcript; opened, it edits the selected one or takes a new one. */}
       <TranscriptEvidence
         transcript={transcript}
         documentId={sourceDocumentId}
@@ -317,27 +287,18 @@ const NarrativeStep: FC = () => {
 };
 
 /**
- * Whether the chart holds anything at all, built out of the three prompt-side readers rather than a fourth
- * list of sections: `buildChartStateSummary` covers the coded items (diagnoses, conditions, medications,
- * allergies, procedures, ROS, orders), `chartedExamFindingLabels` the checked exam findings, and
- * `buildNoteContextFromChart` the free-text note fields. Each returns nothing for a section it finds empty,
- * so "any of them said something" is exactly "the chart is not blank" — and it stays that way as sections are
- * added to those helpers, which is why it is not a hand-written field list here.
+ * Reuses the prompt-side chart readers (coded items, exam findings, note fields) rather than a separate
+ * section list, so it stays correct as sections are added to them.
  */
 const chartHasContent = (chart: GetChartDataResponse | undefined): boolean =>
   Boolean(buildChartStateSummary(chart)) ||
   chartedExamFindingLabels(chart).length > 0 ||
   Boolean(buildNoteContextFromChart(chart));
 
-/**
- * What the planner made of the narrative, under the narrative it read: the template it would apply, the
- * observations it would add, the orders it would suggest, and what it refused. The narrative itself is not
- * repeated here — it is a few lines up, in the editor, and one copy of it is the one being corrected.
- */
+/** The plan's template, observations and refused actions, shown below the narrative editor. */
 const ResultsStep: FC = () => {
   const recommendations = useScribeRecommendationsStore((state) => state.recommendations);
   const itemState = useScribeRecommendationsStore((state) => state.itemState);
-  const orderSuggestions = useScribeRecommendationsStore((state) => state.orderSuggestions);
   const rejected = useScribeRecommendationsStore((state) => state.rejected);
   const notes = useScribeRecommendationsStore((state) => state.notes);
   const isApplying = useScribeRecommendationsStore((state) => state.isApplying);
@@ -345,14 +306,12 @@ const ResultsStep: FC = () => {
   const updateRecommendation = useScribeRecommendationsStore((state) => state.updateRecommendation);
   const chartedIds = useScribeRecommendationsStore((state) => state.chartedIds);
   const { templates } = useListTemplates();
-  // The same chart read the analyzer makes — one react-query entry, already mounted above — only to tell
-  // an empty plan's two meanings apart.
+  // Shares the analyzer's query; used only to tell an empty plan's two meanings apart.
   const { encounter } = useAppointmentData();
   const { chartData } = useEasyChartData(encounter?.id, Boolean(encounter?.id));
   const { applyObservations, applyRecommendation } = useApplyRecommendations();
 
-  // Watches the chart and marks off anything it already holds — whether it was there all along,
-  // arrived with the template, or the provider just entered it on one of the visit screens.
+  // Marks off recommendations the chart already holds, however they got there.
   useSyncChartedRecommendations(recommendations);
 
   // The template writes whole sections, so it leads; the observations land on top of it.
@@ -364,7 +323,6 @@ const ResultsStep: FC = () => {
   const chartedCount = observations.filter(
     (rec) => charted.has(rec.id) && itemState[rec.id]?.status !== 'applied'
   ).length;
-  // Only what is left to write: anything already in the chart is nothing to do.
   const pending = observations.filter((rec) => itemState[rec.id]?.status !== 'applied' && !charted.has(rec.id));
   const selectedPending = pending.filter((rec) => itemState[rec.id]?.selected);
   const failedCount = observations.filter((rec) => itemState[rec.id]?.status === 'error').length;
@@ -383,13 +341,8 @@ const ResultsStep: FC = () => {
 
   const stages: ReactNode[] = [];
 
-  // A plan that found nothing is still an answer, and has to be given as one rather than as an empty panel.
-  // TWO ANSWERS, because an empty plan has two meanings and only one of them is a failure: the planner
-  // de-duplicates against the chart, so a narrative whose every item is already charted comes back just as
-  // empty as one it could read nothing out of. Said the wrong way round — a provider who charted the
-  // recording and then planned the intake chat of the same visit — "nothing chartable" reads as the
-  // assistant having missed the whole visit. A chart with anything on it picks the reassuring sentence;
-  // a blank chart can only mean the narrative itself yielded nothing.
+  // The planner de-duplicates against the chart, so an empty plan means either everything is already charted
+  // or nothing was chartable; a non-empty chart implies the former.
   if (recommendations.length === 0) {
     const lead = chartHasContent(chartData)
       ? 'Nothing new to chart — everything in this narrative is already on the chart.'
@@ -464,7 +417,6 @@ const ResultsStep: FC = () => {
               </Button>
             )}
           </Box>
-          {/* Once every observation is in the chart there is nothing left for this button to do. */}
           {pending.length > 0 && (
             <RoundedButton
               variant="contained"
@@ -482,26 +434,18 @@ const ResultsStep: FC = () => {
     );
   }
 
-  if (orderSuggestions.length > 0) {
-    stages.push(
-      <ScribeStage key="orders" name="orders" lead="Finally, here are some orders you might want to make:">
-        <OrderSuggestions />
-      </ScribeStage>
-    );
-  }
-
   if (rejected.length > 0) stages.push(<RejectedList key="rejected" rejected={rejected} />);
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
       {stages}
-      {/* The executor's question, when a batch of one meets several near-equal matches or a removal needs confirming. */}
+      {/* Executor questions: near-equal matches, or a removal to confirm. */}
       <PickerDialog />
     </Box>
   );
 };
 
-/** What the assistant said rather than charted: a template it can only suggest, a request it could not classify. */
+/** What the assistant said rather than charted, e.g. a request it could not classify. */
 const AssistantNotes: FC<{ notes: string[] }> = ({ notes }) => {
   if (notes.length === 0) return null;
   return (
@@ -520,10 +464,7 @@ const AssistantNotes: FC<{ notes: string[] }> = ({ notes }) => {
   );
 };
 
-/**
- * Actions the server refused, each with its reason. Listed rather than dropped, so something the transcript
- * said is never simply gone: a reading with no unit, a template the practice does not have.
- */
+/** Actions the server refused, listed with their reasons so nothing the transcript said silently disappears. */
 const RejectedList: FC<{ rejected: RejectedAction[] }> = ({ rejected }) => (
   <ScribeStage name="rejected" lead="Consider adding manually">
     <Paper variant="outlined" data-testid={testIds.rejected}>

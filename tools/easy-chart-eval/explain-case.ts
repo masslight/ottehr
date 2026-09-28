@@ -1,24 +1,8 @@
 /**
- * explain-case.ts — one case, fully unpacked, for reading by a human.
+ * Writes `<runDir>/<caseId>.explain.md`: the dialogue with numbered turns, each charted item with its gold
+ * match (using the scorer's own keys), grounding verdict and evidence turn, and the gold never charted.
  *
- * The score files say a section scored .334; they cannot say WHY, and the three files that could —
- * the case, the run result and the grounding judgments — have to be read side by side with three
- * different match keys in mind. This writes the join: the dialogue with numbered turns, then every
- * item the run charted, each carrying
- *
- *   - which gold item it matched, and under which key, or that the gold has no such item;
- *   - when the gold lacks it, what the grounding judge said and the quote it relied on;
- *   - the turn that quote came from, so a claim can be checked against the dialogue above it.
- *
- * The matching is the SCORER'S, not a re-implementation: normCode for codes, rosBaseAndPolarity for
- * ROS, nameMatch for the fuzzy drug pool. A private key here would produce a readable file that
- * disagreed with the numbers it is meant to explain.
- *
- * It also lists the gold items the run never charted, because "what did we miss" is the other half of
- * the same question and it is free once the maps are built.
- *
- * OUTPUT IS PHI — transcript and clinical content — and lands beside the result files, which are
- * already gitignored for the same reason.
+ * PHI: the output holds the transcript and clinical content; it is written beside the gitignored results.
  *
  * Usage:
  *   npx tsx tools/easy-chart-eval/explain-case.ts <runDir> case001 [case002 ...]
@@ -54,11 +38,8 @@ const norm = (s: string): string =>
     .trim();
 
 /**
- * Which turn an evidence quote came from.
- *
- * Substring first; the judge is allowed to paraphrase, so fall back to the turn sharing the most
- * substantial words. Reported as "~turn N" when it is the fallback, because a paraphrase match is a
- * guess and labelling it as certain would be the same overclaiming the quote itself invites.
+ * The turn an evidence quote came from: a substring match first, then (since the judge may paraphrase)
+ * the turn sharing the most words, reported as "~turn N" because it is a guess.
  */
 function locate(quote: string, turns: Turn[]): string {
   if (!quote?.trim()) return '';
@@ -271,8 +252,7 @@ function explain(runDir: string, caseId: string): void {
       );
     missedBlocks.push('');
   }
-  // Only SCORED gold can be missed: unvoiced and context items are excluded from recall by design, so
-  // listing them here would contradict the denominators this file exists to explain.
+  // Only scored gold can be missed; unvoiced and context items are excluded from recall.
   md.push('## Gold the run never charted', '');
   md.push(...(missedBlocks.length ? missedBlocks : ['Nothing: every scored gold item was charted.', '']));
 

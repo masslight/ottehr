@@ -9,7 +9,6 @@ describe('buildChartSnapshot', () => {
   it('survives an empty chart', () => {
     const snapshot = buildChartSnapshot(undefined);
     expect(snapshot.diagnoses).toEqual([]);
-    expect(snapshot.hasEmCode).toBe(false);
     expect(snapshot.noteFields).toEqual({});
   });
 
@@ -61,8 +60,7 @@ describe('buildChartSnapshot', () => {
     expect(snapshot.examFindings).toEqual([{ resourceId: 'e-1', display: 'Well appearing' }]);
   });
 
-  // An encounter charted under an older exam layout carries fields the current config does not
-  // define. An item the assistant cannot see is one it will happily chart a second time.
+  // A row the executor cannot see is one it would chart a second time.
   it('keeps a finding whose field the current exam config no longer defines', () => {
     const snapshot = buildChartSnapshot(
       chart({ examObservations: [{ resourceId: 'e-9', field: 'legacy-field-from-2023', value: true }] })
@@ -72,8 +70,7 @@ describe('buildChartSnapshot', () => {
 
   it('resolves an exam label from the real config when the observation carries none', () => {
     const snapshot = buildChartSnapshot(
-      // A REAL field from the default config, so the assertion proves the label was resolved rather
-      // than proving a made-up field falls back to itself.
+      // A real field from the default config.
       chart({ examObservations: [{ resourceId: 'e-3', field: 'well-hydrated', value: true }] })
     );
     expect(snapshot.examFindings[0].display).not.toBe('well-hydrated');
@@ -94,51 +91,21 @@ describe('buildChartSnapshot', () => {
     expect(snapshot.rosFindings[1].display).toMatch(/^Reports .*Fatigue/);
   });
 
-  it('names medications, allergies, conditions and procedures by what a provider would recognise', () => {
+  it('names medications, allergies and conditions by what a provider would recognise', () => {
     const snapshot = buildChartSnapshot(
       chart({
         medications: [{ resourceId: 'm-1', name: 'Amoxicillin' }] as never,
         allergies: [{ resourceId: 'a-1', name: 'Penicillin' }],
         conditions: [{ resourceId: 'c-1', display: 'Asthma', code: 'J45.909' }],
-        procedures: [{ resourceId: 'p-1', procedureType: 'Laceration repair' }],
-        cptCodes: [{ resourceId: 'cpt-1', code: '96372', display: 'Therapeutic injection' }],
-        emCode: { resourceId: 'em-1', code: '99214', display: 'Established, moderate' },
       })
     );
     expect(snapshot.medications).toEqual([{ resourceId: 'm-1', display: 'Amoxicillin' }]);
     expect(snapshot.allergies).toEqual([{ resourceId: 'a-1', display: 'Penicillin' }]);
     expect(snapshot.conditions).toEqual([{ resourceId: 'c-1', display: 'Asthma' }]);
-    expect(snapshot.procedures).toEqual([{ resourceId: 'p-1', display: 'Laceration repair' }]);
-    expect(snapshot.cptCodes).toEqual([{ resourceId: 'cpt-1', display: 'Therapeutic injection', code: '96372' }]);
-    expect(snapshot.hasEmCode).toBe(true);
   });
 
   it('drops an unnamed row rather than offering a blank one for removal', () => {
     const snapshot = buildChartSnapshot(chart({ allergies: [{ resourceId: 'a-1' }] }));
     expect(snapshot.allergies).toEqual([]);
-  });
-});
-
-describe('procedures are always identifiable', () => {
-  // A procedure written without a procedureType used to vanish from the snapshot, because `named` drops
-  // blank labels. Invisible means the duplicate check cannot see it, so every run adds another row — and
-  // nothing can update or remove it. Three identical unnamed procedures on one encounter is the symptom.
-  it('keeps a procedure that has no procedureType', () => {
-    const snapshot = buildChartSnapshot({
-      procedures: [{ resourceId: 'p1', bodySite: 'forehead', bodySide: 'left' }],
-    } as unknown as GetChartDataResponse);
-    expect(snapshot.procedures).toHaveLength(1);
-    expect(snapshot.procedures[0].display).toBe('forehead left');
-  });
-
-  it('prefers the procedure type, then a linked CPT display', () => {
-    const snapshot = buildChartSnapshot({
-      procedures: [
-        { resourceId: 'p1', procedureType: 'Laceration repair' },
-        { resourceId: 'p2', cptCodes: [{ code: '12001', display: 'Simple repair' }] },
-        { resourceId: 'p3' },
-      ],
-    } as unknown as GetChartDataResponse);
-    expect(snapshot.procedures.map((p) => p.display)).toEqual(['Laceration repair', 'Simple repair', 'Procedure']);
   });
 });
