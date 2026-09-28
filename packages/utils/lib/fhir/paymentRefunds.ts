@@ -1,5 +1,5 @@
 import { Extension, PaymentNotice } from 'fhir/r4b';
-import { PaymentRefundDTO } from '../types/api/patient-payment-types';
+import { PaymentRefundDTO, PaymentRefundMedium } from '../types/api/patient-payment-types';
 import { PAYMENT_REFUNDS_EXTENSION_URL, PAYMENT_VOID_EXTENSION_URL } from './constants';
 
 export const buildPaymentRefundsExtension = (refunds: PaymentRefundDTO[]): Extension => ({
@@ -14,6 +14,7 @@ export const buildPaymentRefundsExtension = (refunds: PaymentRefundDTO[]): Exten
       ...(refund.reason ? [{ url: 'reason', valueString: refund.reason }] : []),
       ...(refund.notes ? [{ url: 'notes', valueString: refund.notes }] : []),
       ...(refund.refundedBy ? [{ url: 'refundedBy', valueString: refund.refundedBy }] : []),
+      ...(refund.medium ? [{ url: 'medium', valueString: refund.medium }] : []),
     ],
   })),
 });
@@ -38,9 +39,26 @@ export const parsePaymentRefundsFromNotice = (notice: PaymentNotice): PaymentRef
       reason: field('reason')?.valueString,
       notes: field('notes')?.valueString,
       refundedBy: field('refundedBy')?.valueString,
+      medium: field('medium')?.valueString as PaymentRefundMedium | undefined,
     });
   }
   return refunds;
+};
+
+// refunds recorded only in the EHR (no Stripe object behind them) carry a locally generated id
+export const isLocallyRecordedRefund = (refund: PaymentRefundDTO): boolean =>
+  refund.stripeRefundId.startsWith('manual_');
+
+// keeps locally recorded refunds when re-stamping a notice from Stripe's refund list
+export const mergeStripeRefundsWithStored = (
+  storedRefunds: PaymentRefundDTO[] | undefined,
+  stripeRefunds: PaymentRefundDTO[]
+): PaymentRefundDTO[] => {
+  const incomingIds = new Set(stripeRefunds.map((refund) => refund.stripeRefundId));
+  const preservedLocal = (storedRefunds ?? []).filter(
+    (refund) => isLocallyRecordedRefund(refund) && !incomingIds.has(refund.stripeRefundId)
+  );
+  return [...stripeRefunds, ...preservedLocal];
 };
 
 // failed/canceled refunds never settle, so they don't reduce what the patient paid

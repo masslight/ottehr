@@ -5,10 +5,15 @@ import { PaymentNotice } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import Stripe from 'stripe';
 import { PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
-import { parsePaymentRefundsFromNotice, settledRefundTotalInCents } from 'utils/lib/fhir/paymentRefunds';
+import {
+  mergeStripeRefundsWithStored,
+  parsePaymentRefundsFromNotice,
+  settledRefundTotalInCents,
+} from 'utils/lib/fhir/paymentRefunds';
 import { getStripeAccountForAppointmentOrEncounter } from 'utils/lib/fhir/payments';
 import { Secrets } from 'utils/lib/secrets';
 import {
+  PAYMENT_REFUND_MEDIUMS,
   PAYMENT_REFUND_VOID_REASONS,
   PaymentRefundDTO,
   RefundPatientPaymentInput,
@@ -87,6 +92,9 @@ interface RefundEffectInput {
   reason: RefundPatientPaymentInput['reason'];
   notes?: string;
   refundedBy?: string;
+  // record-only refund issued outside Stripe for a Stripe-linked payment
+  external?: boolean;
+  medium?: RefundPatientPaymentInput['medium'];
 }
 
 const complexValidation = async (
@@ -94,7 +102,15 @@ const complexValidation = async (
   oystehrClient: Oystehr,
   stripeClient: Stripe
 ): Promise<RefundEffectInput> => {
-  const { encounterId, paymentNoticeId, reason, notes, amountInCents: requestedAmountInCents } = params;
+  const {
+    encounterId,
+    paymentNoticeId,
+    reason,
+    notes,
+    amountInCents: requestedAmountInCents,
+    external,
+    medium,
+  } = params;
 
   const notice = await oystehrClient.fhir.get<PaymentNotice>({ resourceType: 'PaymentNotice', id: paymentNoticeId });
 
@@ -108,6 +124,11 @@ const complexValidation = async (
   }
 
   if (!stripePaymentId) {
+    if (external) {
+      throw INVALID_INPUT_ERROR(
+        'External refunds only apply to Stripe-linked payments; this payment is already recorded manually.'
+      );
+    }
     const paymentMethod = notice.extension?.find((ext) => ext.url === PAYMENT_METHOD_EXTENSION_URL)?.valueString;
     if (!paymentMethod || !MANUAL_REFUNDABLE_PAYMENT_METHODS.includes(paymentMethod)) {
       throw INVALID_INPUT_ERROR('This payment is not linked to a Stripe payment and cannot be refunded.');
@@ -143,9 +164,11 @@ const complexValidation = async (
 
   let existingRefunds: PaymentRefundDTO[];
   try {
-    existingRefunds = (
+    const stripeRefunds = (
       await stripeClient.refunds.list({ payment_intent: stripePaymentId, limit: 100 }, { stripeAccount })
     ).data.map(stripeRefundToDTO);
+    // externally recorded refunds live only in FHIR but still reduce what remains refundable
+    existingRefunds = mergeStripeRefundsWithStored(parsePaymentRefundsFromNotice(notice), stripeRefunds);
   } catch (error: unknown) {
     console.error('Stripe refund lookup failed', error);
     throw parseStripeError(error);
@@ -164,7 +187,18 @@ const complexValidation = async (
     );
   }
 
-  return { notice, encounterId, stripePaymentId, stripeAccount, existingRefunds, refundAmountInCents, reason, notes };
+  return {
+    notice,
+    encounterId,
+    stripePaymentId,
+    stripeAccount,
+    existingRefunds,
+    refundAmountInCents,
+    reason,
+    notes,
+    external,
+    medium,
+  };
 };
 
 // Records the refund on the clinical notice, stamps any billing copies, and writes the negative
@@ -221,6 +255,100 @@ const performManualRefund = async (
   return { refundId, amountInCents: refundAmountInCents };
 };
 
+// Records a refund issued outside Stripe (external reader, cash, check, ...) for a Stripe-linked payment:
+// FHIR-only refund entry, billing stamps + negative AR notice, and a documentation-only note on the
+// Stripe payment intent. No money moves through Stripe.
+const performExternalRefund = async (
+  input: RefundEffectInput,
+  oystehrClient: Oystehr,
+  billingClient: Oystehr,
+  stripeClient: Stripe,
+  secrets: Secrets | null
+): Promise<RefundPatientPaymentResponse> => {
+  const {
+    notice,
+    encounterId,
+    stripePaymentId,
+    stripeAccount,
+    existingRefunds,
+    refundAmountInCents,
+    reason,
+    notes,
+    refundedBy,
+    medium,
+  } = input;
+
+  const nowISO = DateTime.now().toUTC().toISO() ?? new Date().toISOString();
+  const refundId = `manual_${randomUUID()}`;
+  const refunds: PaymentRefundDTO[] = [
+    ...existingRefunds,
+    {
+      stripeRefundId: refundId,
+      amountInCents: refundAmountInCents,
+      dateISO: nowISO,
+      status: 'succeeded',
+      reason,
+      notes,
+      refundedBy,
+      medium,
+    },
+  ];
+
+  await applyRefundsToPaymentNotice(oystehrClient, notice, refunds);
+
+  // billing copies of a Stripe payment carry the charge/payment-intent id; bridged ones carry the clinical notice id
+  const identifierValues = [
+    `${CLINICAL_PAYMENT_NOTICE_ID_SYSTEM}|${notice.id}`,
+    `${STRIPE_PAYMENT_ID_SYSTEM}|${stripePaymentId}`,
+  ].join(',');
+  const billingNotices = (
+    await billingClient.fhir.search<PaymentNotice>({
+      resourceType: 'PaymentNotice',
+      params: [{ name: 'identifier', value: identifierValues }],
+    })
+  ).unbundle();
+
+  for (const billingNotice of billingNotices) {
+    await applyRefundsToPaymentNotice(billingClient, billingNotice, refunds);
+  }
+
+  // only offset AR when the payment reached billing in the first place
+  if (billingNotices.length > 0 && medium) {
+    await recordBillingManualRefund(billingClient, {
+      encounterId,
+      refundId,
+      amountInCents: refundAmountInCents,
+      paymentMethod: medium,
+      createdISO: nowISO,
+      reason,
+      secrets,
+    });
+  }
+
+  // documentation only — makes the external refund visible next to the payment in Stripe
+  if (stripePaymentId) {
+    try {
+      const paymentIntent = await stripeClient.paymentIntents.retrieve(stripePaymentId, { stripeAccount });
+      const summary = `$${(refundAmountInCents / 100).toFixed(2)} refunded via ${medium} on ${nowISO.slice(0, 10)}${
+        refundedBy ? ` by ${refundedBy}` : ''
+      } (${reason})${notes ? `: ${notes}` : ''}`;
+      const previous = paymentIntent.metadata?.external_refunds;
+      // stripe metadata values cap at 500 chars
+      const externalRefundsNote = (previous ? `${previous} | ${summary}` : summary).slice(0, 500);
+      await stripeClient.paymentIntents.update(
+        stripePaymentId,
+        { metadata: { external_refunds: externalRefundsNote } },
+        { stripeAccount }
+      );
+    } catch (error: unknown) {
+      // the refund is already recorded in FHIR; a missing Stripe note is not worth failing the request
+      console.error('Failed to note external refund on Stripe payment intent', stripePaymentId, error);
+    }
+  }
+
+  return { refundId, amountInCents: refundAmountInCents };
+};
+
 const performEffect = async (
   input: RefundEffectInput,
   oystehrClient: Oystehr,
@@ -232,6 +360,16 @@ const performEffect = async (
 
   if (!stripePaymentId) {
     return performManualRefund(input, oystehrClient, createBillingClient(oystehrM2MClientToken, secrets), secrets);
+  }
+
+  if (input.external) {
+    return performExternalRefund(
+      input,
+      oystehrClient,
+      createBillingClient(oystehrM2MClientToken, secrets),
+      stripeClient,
+      secrets
+    );
   }
 
   let refund: Stripe.Refund;
@@ -261,7 +399,7 @@ const validateRequestParameters = (input: ZambdaInput): RefundPatientPaymentInpu
   if (!input.body) {
     throw MISSING_REQUEST_BODY;
   }
-  const { encounterId, paymentNoticeId, reason, notes, amountInCents } = safeJsonParse(input.body);
+  const { encounterId, paymentNoticeId, reason, notes, amountInCents, external, medium } = safeJsonParse(input.body);
 
   const missing = [!encounterId && 'encounterId', !paymentNoticeId && 'paymentNoticeId', !reason && 'reason'].filter(
     Boolean
@@ -284,6 +422,23 @@ const validateRequestParameters = (input: ZambdaInput): RefundPatientPaymentInpu
   if (amountInCents !== undefined && (!Number.isInteger(amountInCents) || amountInCents <= 0)) {
     throw INVALID_INPUT_ERROR('"amountInCents" must be a positive integer.');
   }
+  if (external !== undefined && typeof external !== 'boolean') {
+    throw INVALID_INPUT_ERROR('"external" must be a boolean.');
+  }
+  if (external && !PAYMENT_REFUND_MEDIUMS.includes(medium)) {
+    throw INVALID_INPUT_ERROR(`"medium" must be one of: ${PAYMENT_REFUND_MEDIUMS.join(', ')}`);
+  }
+  if (!external && medium !== undefined) {
+    throw INVALID_INPUT_ERROR('"medium" only applies to external refunds.');
+  }
 
-  return { encounterId, paymentNoticeId, reason, notes: notes || undefined, amountInCents };
+  return {
+    encounterId,
+    paymentNoticeId,
+    reason,
+    notes: notes || undefined,
+    amountInCents,
+    external: external || undefined,
+    medium: external ? medium : undefined,
+  };
 };

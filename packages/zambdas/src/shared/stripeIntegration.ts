@@ -3,7 +3,11 @@ import { Account, Identifier, Patient, PaymentNotice, RelatedPerson } from 'fhir
 import Stripe from 'stripe';
 import { getStripeCustomerIdFromAccount } from 'utils/lib/fhir/helpers';
 import { getEmailForIndividual, getFullName } from 'utils/lib/fhir/patient';
-import { parsePaymentRefundsFromNotice, upsertPaymentRefundsExtension } from 'utils/lib/fhir/paymentRefunds';
+import {
+  mergeStripeRefundsWithStored,
+  parsePaymentRefundsFromNotice,
+  upsertPaymentRefundsExtension,
+} from 'utils/lib/fhir/paymentRefunds';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { PaymentRefundDTO } from 'utils/lib/types/api/patient-payment-types';
 import { makeStripeCustomerId } from '../patient/payment-methods/helpers';
@@ -109,7 +113,9 @@ export const stripeRefundToDTO = (refund: Stripe.Refund): PaymentRefundDTO => ({
   refundedBy: refund.metadata?.refundedBy ?? undefined,
 });
 
-// stamps refund state onto the original PaymentNotice so consumers can read it from FHIR without Stripe
+// Stamps refund state onto the original PaymentNotice so consumers can read it from FHIR without Stripe.
+// Locally recorded (manual/external) refunds already stamped on the notice always survive the re-stamp,
+// since Stripe's refund list never contains them.
 export const applyRefundsToPaymentNotice = async (
   oystehr: Oystehr,
   notice: PaymentNotice,
@@ -117,10 +123,11 @@ export const applyRefundsToPaymentNotice = async (
 ): Promise<void> => {
   if (!notice.id) return;
   const existing = parsePaymentRefundsFromNotice(notice);
-  if (refunds.length === 0 && !existing) return;
+  const merged = mergeStripeRefundsWithStored(existing, refunds);
+  if (merged.length === 0 && !existing) return;
   const canonical = (list: PaymentRefundDTO[]): string =>
     JSON.stringify([...list].sort((a, b) => a.stripeRefundId.localeCompare(b.stripeRefundId)));
-  if (existing && canonical(existing) === canonical(refunds)) return;
+  if (existing && canonical(existing) === canonical(merged)) return;
 
   await oystehr.fhir.patch<PaymentNotice>({
     resourceType: 'PaymentNotice',
@@ -129,7 +136,7 @@ export const applyRefundsToPaymentNotice = async (
       {
         op: notice.extension !== undefined ? 'replace' : 'add',
         path: '/extension',
-        value: upsertPaymentRefundsExtension(notice.extension, refunds),
+        value: upsertPaymentRefundsExtension(notice.extension, merged),
       },
     ],
   });

@@ -6,7 +6,12 @@ export interface PaymentRefundDTO {
   reason?: string;
   notes?: string;
   refundedBy?: string; // display name of the logged-in user who issued the refund
+  medium?: PaymentRefundMedium; // how the money was returned when the refund happened outside Stripe
 }
+
+// how an externally issued refund was returned to the patient
+export const PAYMENT_REFUND_MEDIUMS = ['external-card-reader', 'cash', 'check', 'other'] as const;
+export type PaymentRefundMedium = (typeof PAYMENT_REFUND_MEDIUMS)[number];
 
 export const PAYMENT_REFUND_VOID_REASONS = [
   'Entered in error',
@@ -23,6 +28,8 @@ export interface RefundPatientPaymentInput {
   reason: PaymentRefundVoidReason;
   notes?: string;
   amountInCents?: number; // defaults to the full remaining (un-refunded) amount
+  external?: boolean; // record a refund issued outside Stripe instead of creating a Stripe refund
+  medium?: PaymentRefundMedium; // required when external
 }
 
 export interface RefundPatientPaymentResponse {
