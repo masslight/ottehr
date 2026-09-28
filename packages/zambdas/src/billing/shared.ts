@@ -48,6 +48,7 @@ import {
   BILLING_RESOURCE_TAG,
   CPT_CODE_SYSTEM,
   FHIR_IDENTIFIER_CLIA,
+  FHIR_IDENTIFIER_CODE_STATE_LICENSE,
   FHIR_IDENTIFIER_CODE_TAX_EMPLOYER,
   FHIR_IDENTIFIER_CODE_TAX_SS,
   FHIR_IDENTIFIER_CODE_TAXONOMY,
@@ -84,6 +85,7 @@ import {
   EXTENSION_URL_CPT_MODIFIER,
 } from 'utils/lib/helpers/rcm/constants';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { STATE_CODES } from 'utils/lib/types/common';
 import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
 import {
   BillingInsuranceType,
@@ -93,6 +95,7 @@ import {
 import {
   BILLING_INSURANCE_TYPE_LABELS,
   BillingChargeItemDefinitionProcedureCode,
+  BillingProviderLicense,
   BillingProviderOption,
   ChargeItemDefinitionDefault,
   ChargeItemDefinitionType,
@@ -1004,6 +1007,39 @@ export function setTaxonomy(resource: Practitioner | Organization, taxonomyCode:
   }
 }
 
+// The license is an SL-typed identifier whose value is type + number + two-letter state code
+// (e.g. "MD01234TX"). Type codes vary in length and some prefix others (PA/PAR), so the type is also
+// kept as a meta tag, which is what lets the value be split back into its parts.
+const isStateLicense = (id: Identifier): boolean =>
+  !!id.type?.coding?.some(
+    (tc) => tc.system === CODE_SYSTEM_CLAIM_SECONDARY_IDENTIFIER_TYPE && tc.code === FHIR_IDENTIFIER_CODE_STATE_LICENSE
+  );
+
+export function getProviderLicense(practitioner: Practitioner): BillingProviderLicense | undefined {
+  const type = getTag(practitioner, LICENSE_TAG) ?? '';
+  const value = practitioner.identifier?.find(isStateLicense)?.value ?? '';
+  if (!type && !value) return undefined;
+  let number = type && value.startsWith(type) ? value.slice(type.length) : value;
+  const state = number.slice(-2);
+  if (!STATE_CODES.has(state)) return { type, number, state: '' };
+  number = number.slice(0, -2);
+  return { type, number, state };
+}
+
+export function setStateLicense(practitioner: Practitioner, license: BillingProviderLicense | undefined): void {
+  const identifier = (practitioner.identifier ?? []).filter((id) => !isStateLicense(id));
+  if (license) {
+    identifier.push({
+      type: {
+        coding: [{ system: CODE_SYSTEM_CLAIM_SECONDARY_IDENTIFIER_TYPE, code: FHIR_IDENTIFIER_CODE_STATE_LICENSE }],
+      },
+      value: `${license.type}${license.number}${license.state}`,
+    });
+  }
+  if (identifier.length) practitioner.identifier = identifier;
+  else delete practitioner.identifier;
+}
+
 export function setClia(resource: Location, clia: string | null): void {
   const identifier = resource.identifier ?? [];
   const existing = identifier.find((id) => id.system === FHIR_IDENTIFIER_CLIA);
@@ -1758,7 +1794,6 @@ export function mapProvider(resource: Practitioner | Organization): BillingProvi
             (c) => c.system === CODE_SYSTEM_CLAIM_SECONDARY_IDENTIFIER_TYPE && c.code === FHIR_IDENTIFIER_CODE_TAXONOMY
           )
       )?.value ?? '',
-    licenseType: getTag(resource, LICENSE_TAG),
     taxId: getTaxID(resource) ?? '',
     address: formatAddress(addr),
     addressParts: toAddressParts(addr),
@@ -1774,6 +1809,7 @@ export function mapProvider(resource: Practitioner | Organization): BillingProvi
       name: fhirName(resource),
       firstName: resource.name?.[0]?.given?.join(' ') ?? '',
       lastName: resource.name?.[0]?.family ?? '',
+      license: getProviderLicense(resource),
     };
   }
   return {

@@ -293,6 +293,7 @@
             "Zambda:Function:run-billing-rules-engine",
             "Zambda:Function:get-billing-claim-detail",
             "Zambda:Function:get-billing-claim-history",
+            "Zambda:Function:get-billing-claim-cms1500",
             "Zambda:Function:add-billing-claim-note",
             "Zambda:Function:search-billing-service-facilities",
             "Zambda:Function:get-billing-service-facility",

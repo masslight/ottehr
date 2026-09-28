@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // FEATURE_FLAGS_CONFIG is a frozen compile-time constant, so tests toggle it through a
 // hoisted mutable object standing in for the module.
-const flags = vi.hoisted(() => ({ nonInsuranceOrganizationsEnabled: false }));
+const flags = vi.hoisted(() => ({ customOrganizationsEnabled: false }));
 vi.mock('utils/lib/ottehr-config/feature-flags', () => ({ FEATURE_FLAGS_CONFIG: flags }));
 
 import { shouldUseCandid, shouldUseOttehrBilling } from '../../src/shared/candid';
@@ -13,7 +13,7 @@ const secretsWith = (billingIntegration?: string): Secrets =>
 
 describe('shouldUseCandid NIO guard', () => {
   beforeEach(() => {
-    flags.nonInsuranceOrganizationsEnabled = false;
+    flags.customOrganizationsEnabled = false;
   });
 
   describe('with non-insurance organizations off (legacy truth table)', () => {
@@ -33,7 +33,7 @@ describe('shouldUseCandid NIO guard', () => {
 
   describe('with non-insurance organizations on', () => {
     beforeEach(() => {
-      flags.nonInsuranceOrganizationsEnabled = true;
+      flags.customOrganizationsEnabled = true;
     });
 
     it('returns false for BILLING_INTEGRATION=ottehr', () => {
@@ -59,7 +59,7 @@ describe('shouldUseCandid NIO guard', () => {
 describe('shouldUseOttehrBilling', () => {
   it('is untouched by the NIO flag', () => {
     for (const nio of [false, true]) {
-      flags.nonInsuranceOrganizationsEnabled = nio;
+      flags.customOrganizationsEnabled = nio;
       expect(shouldUseOttehrBilling(secretsWith('ottehr'))).toBe(true);
       expect(shouldUseOttehrBilling(secretsWith('all'))).toBe(true);
       expect(shouldUseOttehrBilling(secretsWith('candid'))).toBe(false);

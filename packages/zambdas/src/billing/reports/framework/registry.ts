@@ -1,6 +1,7 @@
 import { RefreshReportKind } from 'utils/lib/types/data/billing/billing.constants';
 import { cardsOnFileReport } from '../definitions/cards-on-file.report';
 import { invoiceReport } from '../definitions/invoice.report';
+import { netCollectionsReport } from '../definitions/net-collections.report';
 import { patientPaymentsReport } from '../definitions/patient-payments.report';
 import { paymentsReport } from '../definitions/payments.report';
 import { pipelineReport } from '../definitions/pipeline.report';
@@ -15,4 +16,5 @@ export const reportRegistry: Record<RefreshReportKind, AnyReportDefinition> = {
   'cards-on-file': cardsOnFileReport,
   pipeline: pipelineReport,
   productivity: productivityReport,
+  'net-collections': netCollectionsReport,
 };

@@ -38,4 +38,13 @@ export const reportPalette = {
     noStatus: '#9AA1AC',
     statusSeries: [palette.warning.main, palette.primary.main, accentPurple, palette.success.main],
   },
+
+  // net-collections trend series (insurance / patient / overall) and NCR health thresholds
+  netCollections: {
+    series: [chartBlue, chartGreen, '#9AA1AC'],
+    good: palette.success.main,
+    // darker than palette.warning.main to reach ≥4.5:1 contrast for body-size text on white
+    fair: '#C2410C',
+    poor: palette.error.main,
+  },
 };

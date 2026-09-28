@@ -8,6 +8,7 @@ import {
   CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES,
 } from '../../../helpers/rcm/constants';
 import { fullZipRegex, stripeAccountIdRegex, taxIdRegex, zipRegex } from '../../../validation/regex';
+import { PractitionerQualificationCodesLabels } from '../../api/practitioner.types';
 import { STATE_CODES } from '../../common';
 import {
   BILLING_MANUAL_PAYMENT_METHODS,
@@ -57,6 +58,10 @@ export const AddClaimNoteInputSchema = z.object({
 });
 
 export const ExportClaimX12InputSchema = z.object({
+  claimId: z.string().uuid(),
+});
+
+export const GetClaimCms1500InputSchema = z.object({
   claimId: z.string().uuid(),
 });
 
@@ -255,6 +260,9 @@ export const GetServiceFacilityInputSchema = z.object({
 export const SearchServiceFacilitiesInputSchema = z.object({
   facilityId: nonEmptyString.optional(),
   name: nonEmptyString.optional(),
+  // Exact-match identifier filters, used to find facilities sharing an NPI / CLIA number.
+  npi: nonEmptyString.optional(),
+  clia: nonEmptyString.optional(),
   offset: nonNegativeInt.optional(),
   pageSize: nonNegativeInt.optional(),
 });
@@ -348,6 +356,12 @@ const billingProviderAddressSchema = billingAddressSchema.extend({
     .optional(),
 });
 
+const billingProviderLicenseSchema = z.object({
+  type: nonEmptyString.refine((code) => code in PractitionerQualificationCodesLabels, 'Unknown license type'),
+  number: nonEmptyString,
+  state: nonEmptyString.refine((code) => STATE_CODES.has(code), 'Unknown state code'),
+});
+
 export const CreateBillingProviderInputSchema = z.discriminatedUnion('kind', [
   z.object({
     kind: z.literal('individual'),
@@ -356,7 +370,7 @@ export const CreateBillingProviderInputSchema = z.discriminatedUnion('kind', [
     roles: z.array(billingProviderRole).min(1),
     npi: billingNpiSchema.optional(),
     taxonomyCode: billingTaxonomyCodeSchema.optional(),
-    licenseType: nonEmptyString.optional(),
+    license: billingProviderLicenseSchema.optional(),
     taxId: billingTaxIdSchema.optional(),
     address: billingProviderAddressSchema.optional(),
   }),
@@ -391,7 +405,7 @@ export const UpdateBillingProviderInputSchema = z.discriminatedUnion('kind', [
     roles: z.array(billingProviderRole).min(1),
     npi: billingNpiSchema.optional(),
     taxonomyCode: billingTaxonomyCodeSchema.optional(),
-    licenseType: nonEmptyString.optional(),
+    license: billingProviderLicenseSchema.optional(),
     taxId: billingTaxIdSchema.optional(),
     address: billingProviderAddressSchema.optional(),
   }),
@@ -804,10 +818,17 @@ export const PatientPaymentsDrilldownParamsSchema = z.object({
   paymentMethod: nonEmptyString.optional(),
 });
 
+// net-collections drilldown: one payer's ERAs (the date window travels in the report params)
+export const NetCollectionsDrilldownParamsSchema = z.object({
+  // the payer row's payerKey (ERA-carried payer id + name identity)
+  payerKey: nonEmptyString,
+});
+
 export const RecordBillingManualPaymentInputSchema = z.object({
   encounterId: nonEmptyString.uuid(),
   amountInCents: z.number().int().positive(),
   paymentMethod: z.enum(BILLING_MANUAL_PAYMENT_METHODS),
+  // any date allowed — payments can be backdated or future-dated (e.g. scheduled per an ERA)
   paymentDateISO: z.string().datetime({ offset: true }).optional(),
   checkNumber: nonEmptyString.optional(),
   description: nonEmptyString.optional(),
@@ -848,6 +869,7 @@ export type GetClaimDetailInput = z.output<typeof GetClaimDetailInputSchema>;
 export type GetClaimHistoryInput = z.output<typeof GetClaimHistoryInputSchema>;
 export type AddClaimNoteInput = z.output<typeof AddClaimNoteInputSchema>;
 export type ExportClaimX12Input = z.output<typeof ExportClaimX12InputSchema>;
+export type GetClaimCms1500Input = z.output<typeof GetClaimCms1500InputSchema>;
 export type GetEraDetailInput = z.output<typeof GetEraDetailInputSchema>;
 export type SearchErasInput = z.output<typeof SearchErasInputSchema>;
 export type SaveBillingTagInput = z.output<typeof SaveBillingTagInputSchema>;
@@ -862,6 +884,7 @@ export type GetBillingReportInput = z.output<typeof GetBillingReportInputSchema>
 export type ReportDateWindowParams = z.output<typeof ReportDateWindowParamsSchema>;
 export type GetBillingPaymentsReportDrilldownInput = z.output<typeof GetBillingPaymentsReportDrilldownInputSchema>;
 export type PatientPaymentsDrilldownParams = z.output<typeof PatientPaymentsDrilldownParamsSchema>;
+export type NetCollectionsDrilldownParams = z.output<typeof NetCollectionsDrilldownParamsSchema>;
 export type ExportBillingClaimsInput = z.output<typeof ExportBillingClaimsInputSchema>;
 export type GetBillingClaimsExportStatusInput = z.output<typeof GetBillingClaimsExportStatusInputSchema>;
 export type SearchBillingPatientARClaimsInput = z.output<typeof SearchBillingPatientARClaimsInputSchema>;

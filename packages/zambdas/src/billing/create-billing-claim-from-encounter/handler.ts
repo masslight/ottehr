@@ -46,7 +46,11 @@ import { codeableConcept, getCoding } from 'utils/lib/fhir/helpers';
 import { getNPIIdentifier, getPatientFriendlyId } from 'utils/lib/fhir/patient';
 import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
-import { getCandidPlanTypeCodeFromCoverage, getPayerId } from 'utils/lib/helpers/helpers';
+import {
+  extractCustomInsuranceOrgIdFromReferenceUrl,
+  getCandidPlanTypeCodeFromCoverage,
+  getPayerId,
+} from 'utils/lib/helpers/helpers';
 import { InternalError } from 'utils/lib/helpers/oystehrApi';
 import {
   CODE_SYSTEM_CLAIM_INFORMATION_CATEGORY,
@@ -693,7 +697,14 @@ export function copyCoverageAndSubscriber(
   // (claim.insurer, history records) stay human-readable.
   const payorRef = copy.payor[0].reference;
   const internalRefId = payorRef?.replace('Organization/', '');
-  if (internalRefId && isValidUUID(internalRefId)) {
+  const customInsuranceOrgId = extractCustomInsuranceOrgIdFromReferenceUrl(payorRef);
+  if (customInsuranceOrgId) {
+    // A custom insurance organization is billing-owned: the clinical token's id IS the billing
+    // Organization id, so the copy references it natively, the same way billing's own Coverage
+    // builder does (see buildPayorReference in ../shared).
+    const org = payors.find((p) => p.id === customInsuranceOrgId);
+    copy.payor = [{ reference: `Organization/${customInsuranceOrgId}`, display: payerDisplay(org) }];
+  } else if (internalRefId && isValidUUID(internalRefId)) {
     // TODO: this does not support billing copies of non-insurance payers
     const org = payors.find((p) => p.id === internalRefId);
     const payerId = getPayerId(org);
@@ -721,8 +732,35 @@ export function copyCoverageAndSubscriber(
   return [requests, order];
 }
 
+// Manually look up payors because they may be internal Organization resources, Oystehr RCM payer URLs,
+// or custom insurance organization tokens (billing-owned, so read from the billing project).
+export async function resolveCoveragePayors(
+  clinicalOystehr: Oystehr,
+  billingOystehr: Oystehr,
+  coverages: Coverage[]
+): Promise<Organization[]> {
+  return Promise.all(
+    coverages.map<Promise<Organization>>(async (c) => {
+      // Assume single payor per coverage
+      const payorRef = c.payor?.[0]?.reference;
+      if (!payorRef) throw FHIR_RESOURCE_NOT_FOUND('Organization');
+      const customInsuranceOrgId = extractCustomInsuranceOrgIdFromReferenceUrl(payorRef);
+      if (customInsuranceOrgId) {
+        return billingOystehr.fhir.get<Organization>({ resourceType: 'Organization', id: customInsuranceOrgId });
+      }
+      return isValidUUID(payorRef.replace('Organization/', ''))
+        ? clinicalOystehr.fhir.get<Organization>({
+            resourceType: 'Organization',
+            id: payorRef.replace('Organization/', ''),
+          })
+        : clinicalOystehr.rcm.getPayerByUrl({ url: payorRef });
+    })
+  );
+}
+
 async function getClinicalResources(
   oystehr: Oystehr,
+  billingOystehr: Oystehr,
   params: CreateClaimFromEncounterParams
 ): Promise<ClinicalResources> {
   const resources = (
@@ -855,20 +893,7 @@ async function getClinicalResources(
     (c) => c.payor?.[0]?.reference && c.payor[0].reference !== oystehr.rcm.constructPayerUrl({ id: '00000' })
   );
 
-  // Manually look up payors because they may be internal Organization resources or Oystehr RCM payer URLs
-  const payors = await Promise.all(
-    coverages.map<Promise<Organization>>(async (c) => {
-      // Assume single payor per coverage
-      const payorRef = c.payor?.[0]?.reference;
-      if (!payorRef) throw FHIR_RESOURCE_NOT_FOUND('Organization');
-      return isValidUUID(payorRef.replace('Organization/', ''))
-        ? oystehr.fhir.get<Organization>({
-            resourceType: 'Organization',
-            id: payorRef.replace('Organization/', ''),
-          })
-        : oystehr.rcm.getPayerByUrl({ url: payorRef });
-    })
-  );
+  const payors = await resolveCoveragePayors(oystehr, billingOystehr, coverages);
 
   // The occ-med Account (owner = the visit's employer) is patient-level and not consistently
   // referenced from the Encounter, so for employer-billed visits fall back to a patient search
@@ -1360,12 +1385,23 @@ export async function complexValidation(
   if (existingClaims.length > 0) {
     throw INVALID_INPUT_ERROR('Claim has already been created for this encounter');
   }
-  const clinicalResources = await getClinicalResources(clinicalOystehr, params);
+  const clinicalResources = await getClinicalResources(clinicalOystehr, billingOystehr, params);
   if (!clinicalResources.location.name) {
     throw INVALID_INPUT_ERROR('The encounter location has no name. Add its name in the clinical app, then retry.');
   }
-  if (!getNPIIdentifier(clinicalResources.billingProvider)?.value) {
+  const billingProviderNpi = getNPIIdentifier(clinicalResources.billingProvider)?.value;
+  if (!billingProviderNpi) {
     throw INVALID_INPUT_ERROR('The clinical default billing provider has no NPI. Add its NPI, then retry.');
+  }
+  const clinicalAttendingProviderId = getAttendingPractitionerId(clinicalResources.encounter);
+  const clinicalAttendingProvider = clinicalResources.practitioners.find(
+    (prac) => prac.id === clinicalAttendingProviderId
+  );
+  const attendingProviderNpi = clinicalAttendingProvider
+    ? getNPIIdentifier(clinicalAttendingProvider)?.value
+    : undefined;
+  if (!attendingProviderNpi) {
+    throw INVALID_INPUT_ERROR('The clinical attending provider has no NPI. Add its NPI, then retry.');
   }
   const billingResources = await findExistingBillingResources(billingOystehr, clinicalResources, params.secrets);
   if (!billingResources.serviceFacility) {
@@ -1375,12 +1411,12 @@ export async function complexValidation(
   }
   if (!billingResources.renderingProvider) {
     throw INVALID_INPUT_ERROR(
-      'No billing rendering provider matches the attending provider NPI. Add a matching provider in billing or correct the clinical provider NPI, then retry.'
+      `No billing rendering provider matches the attending provider NPI "${attendingProviderNpi}". Add a rendering provider with that NPI in the billing app, then retry.`
     );
   }
   if (!billingResources.billingProvider) {
     throw INVALID_INPUT_ERROR(
-      'No billing provider matches the clinical default provider NPI. Add a billing provider with that NPI in the billing app, then retry.'
+      `No billing provider matches the clinical default provider NPI "${billingProviderNpi}". Add a billing provider with that NPI in the billing app, then retry.`
     );
   }
   return { clinicalResources, billingResources };

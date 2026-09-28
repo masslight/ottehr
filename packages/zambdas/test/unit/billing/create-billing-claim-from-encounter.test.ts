@@ -1002,10 +1002,59 @@ describe('create-billing-claim-from-encounter', () => {
         secrets: { DEFAULT_BILLING_RESOURCE: 'Organization/organization-123' },
         expectedError: INVALID_INPUT_ERROR(
           missingProvider === 'rendering'
-            ? 'No billing rendering provider matches the attending provider NPI. Add a matching provider in billing or correct the clinical provider NPI, then retry.'
-            : 'No billing provider matches the clinical default provider NPI. Add a billing provider with that NPI in the billing app, then retry.'
+            ? 'No billing rendering provider matches the attending provider NPI "11111111111". Add a rendering provider with that NPI in the billing app, then retry.'
+            : 'No billing provider matches the clinical default provider NPI "2222222222". Add a billing provider with that NPI in the billing app, then retry.'
         ),
       })),
+      {
+        name: 'fails when the clinical default billing provider has no NPI',
+        clinicalOystehrSearch: vi
+          .fn()
+          .mockResolvedValueOnce({
+            unbundle: () => [
+              clinicalResources.encounter,
+              clinicalResources.patient,
+              clinicalResources.appointment,
+              clinicalResources.location,
+              clinicalResources.practitioner,
+              emptyAccount,
+              ...clinicalResources.conditions,
+              clinicalResources.procedure,
+            ],
+          })
+          .mockResolvedValueOnce({
+            unbundle: () => [{ ...clinicalResources.billingProvider, identifier: undefined }],
+          }),
+        billingOystehrSearch: vi.fn().mockResolvedValueOnce({
+          unbundle: () => [],
+        }),
+        secrets: { DEFAULT_BILLING_RESOURCE: 'Organization/organization-123' },
+        expectedError: INVALID_INPUT_ERROR(
+          'The clinical default billing provider has no NPI. Add its NPI, then retry.'
+        ),
+      },
+      {
+        name: 'fails when the clinical attending provider has no NPI',
+        clinicalOystehrSearch: vi.fn().mockResolvedValueOnce({
+          unbundle: () => [
+            clinicalResources.encounter,
+            clinicalResources.patient,
+            clinicalResources.appointment,
+            clinicalResources.location,
+            { ...clinicalResources.practitioner, identifier: undefined },
+            emptyAccount,
+            ...clinicalResources.conditions,
+            clinicalResources.procedure,
+          ],
+        }),
+        billingOystehrSearch: vi.fn().mockResolvedValueOnce({
+          unbundle: () => [],
+        }),
+        secrets: { DEFAULT_BILLING_RESOURCE: 'Organization/organization-123' },
+        expectedError: INVALID_INPUT_ERROR(
+          'The clinical attending provider has no NPI. Add its NPI in the clinical app, then retry.'
+        ),
+      },
       {
         name: 'succeeds with required data and all found billing resources',
         clinicalOystehrSearch: vi

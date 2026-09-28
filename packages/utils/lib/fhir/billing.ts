@@ -21,6 +21,7 @@ import {
 } from '../helpers/rcm/constants';
 import { ELIGIBILITY_BENEFIT_CODES, INSURANCE_PLAN_ID_CODING } from '../telemed/constants';
 import { CoverageCheckCoverageDetails } from '../types/api/patient-account';
+import { BillingProviderLicense } from '../types/data/billing/billing.types';
 import {
   CLAIM_NON_INSURANCE_PAYER_EXTENSION_URL,
   CLAIM_NON_INSURANCE_PAYER_TAG_SYSTEM,
@@ -464,7 +465,7 @@ export const INSURANCE_TYPE_CODE_TO_CANDID_CODE: Record<string, string> = {
   CP: 'MA',
   D: 'DS',
   DB: 'DS',
-  EP: '12',
+  EP: '14',
   FF: '11',
   GP: '12',
   HM: 'HM',
@@ -483,6 +484,9 @@ export const INSURANCE_TYPE_CODE_TO_CANDID_CODE: Record<string, string> = {
   MI: '11',
   MP: 'MA',
   OT: 'ZZ',
+  PP: '09',
+  PR: '12',
+  PS: '13',
 };
 
 /**
@@ -492,7 +496,7 @@ export const INSURANCE_TYPE_CODE_TO_CANDID_CODE: Record<string, string> = {
  */
 export const mapInsuranceTypeCodeToCandidCode = (insuranceTypeCode: string | undefined): string | undefined => {
   if (!insuranceTypeCode) return undefined;
-  return INSURANCE_TYPE_CODE_TO_CANDID_CODE[insuranceTypeCode];
+  return INSURANCE_TYPE_CODE_TO_CANDID_CODE[insuranceTypeCode.trim().toUpperCase()];
 };
 
 // The claim's non-insurance payer (e.g. the visit's occupational-medicine employer): a reference to
@@ -628,3 +632,9 @@ export const CLAIM_ATTACHMENT_REPORT_TYPE_CODES = [
   { code: 'V5', label: 'Death Notification' },
   { code: 'XP', label: 'Photographs' },
 ];
+
+export function formatBillingProviderLicense(license: BillingProviderLicense | undefined): string {
+  if (!license) return '';
+  const { type, number, state } = license;
+  return [type, number && `#${number}`, state && `(${state})`].filter(Boolean).join(' ');
+}

@@ -1,6 +1,7 @@
+import { DateTime } from 'luxon';
 import { describe, expect, it } from 'vitest';
 import { TAG_NAME_FORBIDDEN_CHARACTERS_ERROR } from './billing.constants';
-import { SaveBillingTagInputSchema } from './billing.schemas';
+import { RecordBillingManualPaymentInputSchema, SaveBillingTagInputSchema } from './billing.schemas';
 import { SYSTEM_MANAGED_TAGS } from './system-tags';
 
 describe('SaveBillingTagInputSchema', () => {
@@ -52,5 +53,23 @@ describe('SaveBillingTagInputSchema', () => {
     ['right-to-left override', 'a‮b'],
   ])('rejects a name containing a %s', (_label, name) => {
     expect(SaveBillingTagInputSchema.safeParse({ name }).success).toBe(false);
+  });
+});
+
+describe('RecordBillingManualPaymentInputSchema', () => {
+  const base = {
+    encounterId: '4f4c1f5e-7f2f-4b7a-9a89-2f4f3a2f1b0c',
+    amountInCents: 1500,
+    paymentMethod: 'cash',
+    idempotencyKey: 'key-1',
+  };
+
+  it.each([
+    ['past', '2020-01-15T12:00:00Z'],
+    ['same-day', DateTime.now().toISO() ?? ''],
+    // e.g. a payment scheduled per an ERA
+    ['future', DateTime.now().plus({ days: 2 }).toISO() ?? ''],
+  ])('accepts a %s payment date', (_label, paymentDateISO) => {
+    expect(RecordBillingManualPaymentInputSchema.safeParse({ ...base, paymentDateISO }).success).toBe(true);
   });
 });
