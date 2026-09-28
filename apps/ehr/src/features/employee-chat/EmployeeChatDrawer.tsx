@@ -34,7 +34,7 @@ export const EmployeeChatDrawer: FC = () => {
   const loadingMessages = useEmployeeChatStore((state) => state.loadingMessages);
   const hasOlderMessages = useEmployeeChatStore((state) => state.hasOlderMessages);
   const loadingOlder = useEmployeeChatStore((state) => state.loadingOlder);
-  const openingProfile = useEmployeeChatStore((state) => state.openingProfile);
+  const pendingEmployee = useEmployeeChatStore((state) => state.pendingEmployee);
   const openError = useEmployeeChatStore((state) => state.openError);
   const myProfile = useEmployeeChatStore((state) => state.myProfile);
   const unreadEntry = useEmployeeChatStore((state) => state.unreadEntry);
@@ -42,6 +42,7 @@ export const EmployeeChatDrawer: FC = () => {
   const { data: employees, isLoading: employeesLoading } = useChatEmployees({ enabled: drawerOpen, myProfile });
   const listItems = useMemo(() => visibleChats(chats, activeSid), [chats, activeSid]);
   const activeChat = activeSid ? chats[activeSid] : undefined;
+  const headerEmployee = activeChat?.otherEmployee ?? pendingEmployee;
   const connected = status === 'connected';
   const chatSidsKey = Object.keys(chats).sort().join(',');
 
@@ -64,9 +65,9 @@ export const EmployeeChatDrawer: FC = () => {
             <ArrowBackIcon />
           </IconButton>
         )}
-        {view === 'conversation' && activeChat && <EmployeeAvatar employee={activeChat.otherEmployee} size={32} />}
+        {view === 'conversation' && headerEmployee && <EmployeeAvatar employee={headerEmployee} size={32} />}
         <Typography variant="h5" color="primary.dark" sx={{ fontWeight: 'bold', flex: 1 }} noWrap>
-          {view === 'conversation' ? activeChat?.otherEmployee.name ?? 'Chat' : 'Chats'}
+          {view === 'conversation' ? headerEmployee?.name ?? 'Chat' : 'Chats'}
         </Typography>
         <IconButton onClick={closeEmployeeChatDrawer} aria-label="Close chats">
           <CloseIcon />
@@ -108,9 +109,9 @@ export const EmployeeChatDrawer: FC = () => {
           <Box sx={{ p: 2 }}>
             <EmployeeSearch
               employees={employees ?? []}
-              loading={employeesLoading || openingProfile !== undefined}
-              disabled={!connected || openingProfile !== undefined}
-              onSelect={(employee) => void openChatWithEmployee(employee.profile)}
+              loading={employeesLoading}
+              disabled={!connected}
+              onSelect={(employee) => void openChatWithEmployee(employee)}
             />
           </Box>
           <ChatList chats={listItems} onOpen={(sid) => void openConversation(sid)} />

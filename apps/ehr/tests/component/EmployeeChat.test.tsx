@@ -1253,6 +1253,118 @@ describe('employee chat flows', () => {
     expect(screen.getByRole('heading', { name: 'Dan Evans' })).toBeInTheDocument();
   });
 
+  const selectFromSearch = async (query: string, name: RegExp): Promise<void> => {
+    const search = await screen.findByTestId('employee-chat-search');
+    fireEvent.change(search, { target: { value: query } });
+    const option = await screen.findByRole('option', { name });
+    await act(async () => {
+      fireEvent.click(option);
+    });
+  };
+
+  const deferOpenEmployeeChat = (): { resolve: (value: unknown) => void; reject: (error: unknown) => void } => {
+    const handles = { resolve: (_value: unknown): void => {}, reject: (_error: unknown): void => {} };
+    mockOpenEmployeeChat.mockImplementation(
+      () =>
+        new Promise((resolve, reject) => {
+          handles.resolve = resolve;
+          handles.reject = reject;
+        })
+    );
+    return handles;
+  };
+
+  it('moves straight into the DM view with a loading state while the conversation is being created', async () => {
+    let fakeClient: any;
+    await connectWith((client) => {
+      fakeClient = client;
+      client.addConversation('CH-bob');
+      client.addConversation('CH-carol');
+    });
+    const pending = deferOpenEmployeeChat();
+    renderChat();
+    act(() => openEmployeeChatDrawer());
+
+    await selectFromSearch('Dan', /Dan Evans/);
+
+    expect(screen.getByRole('heading', { name: 'Dan Evans' })).toBeInTheDocument();
+    expect(screen.queryByTestId('employee-chat-search')).not.toBeInTheDocument();
+    expect(within(screen.getByTestId('employee-chat-messages')).getByRole('progressbar')).toBeInTheDocument();
+    expect(screen.getByTestId('employee-chat-input')).toBeDisabled();
+    expect(useEmployeeChatStore.getState().activeSid).toBeUndefined();
+
+    await act(async () => {
+      fakeClient.emit('conversationJoined', fakeClient.addConversation('CH-dan'));
+      pending.resolve({ conversation: { conversationSid: 'CH-dan', otherEmployee: DAN } });
+    });
+
+    await waitFor(() => expect(useEmployeeChatStore.getState().activeSid).toBe('CH-dan'));
+    expect(screen.getByText('No messages yet')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Dan Evans' })).toBeInTheDocument();
+    expect(screen.getByTestId('employee-chat-input')).not.toBeDisabled();
+    expect(useEmployeeChatStore.getState().pendingEmployee).toBeUndefined();
+  });
+
+  it('returns to the chat list with the existing error when creating the conversation fails', async () => {
+    await connectWith((client) => {
+      client.addConversation('CH-bob');
+      client.addConversation('CH-carol');
+    });
+    const pending = deferOpenEmployeeChat();
+    renderChat();
+    act(() => openEmployeeChatDrawer());
+    await selectFromSearch('Dan', /Dan Evans/);
+    expect(screen.getByRole('heading', { name: 'Dan Evans' })).toBeInTheDocument();
+
+    await act(async () => {
+      pending.reject(new Error('zambda failed'));
+    });
+
+    expect(screen.getByRole('heading', { name: 'Chats' })).toBeInTheDocument();
+    expect(screen.getByText('Could not open the chat. Please try again.')).toBeInTheDocument();
+    expect(screen.getByTestId('employee-chat-search')).toBeInTheDocument();
+    expect(useEmployeeChatStore.getState().pendingEmployee).toBeUndefined();
+  });
+
+  it('does not pull me back into a DM I left while it was being created', async () => {
+    let fakeClient: any;
+    await connectWith((client) => {
+      fakeClient = client;
+      client.addConversation('CH-bob');
+      client.addConversation('CH-carol');
+    });
+    const pending = deferOpenEmployeeChat();
+    renderChat();
+    act(() => openEmployeeChatDrawer());
+    await selectFromSearch('Dan', /Dan Evans/);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Back to chats' }));
+    await act(async () => {
+      fakeClient.emit('conversationJoined', fakeClient.addConversation('CH-dan'));
+      pending.resolve({ conversation: { conversationSid: 'CH-dan', otherEmployee: DAN } });
+    });
+
+    expect(useEmployeeChatStore.getState().view).toBe('list');
+    expect(useEmployeeChatStore.getState().activeSid).toBeUndefined();
+    expect(screen.getByRole('heading', { name: 'Chats' })).toBeInTheDocument();
+    expect(useEmployeeChatStore.getState().chats['CH-dan']?.otherEmployee.profile).toBe(DAN.profile);
+  });
+
+  it('opens an existing DM from search without creating a conversation', async () => {
+    await connectWith((client) => {
+      client.addConversation('CH-bob').seed(1, 'bob-identity');
+      client.addConversation('CH-carol');
+    });
+    renderChat();
+    act(() => openEmployeeChatDrawer());
+
+    await selectFromSearch('Bob', /Bob Chen/);
+
+    await waitFor(() => expect(useEmployeeChatStore.getState().activeSid).toBe('CH-bob'));
+    expect(mockOpenEmployeeChat).not.toHaveBeenCalled();
+    expect(screen.getByRole('heading', { name: 'Bob Chen' })).toBeInTheDocument();
+  });
+
   it('excludes myself and deactivated employees from search', async () => {
     await connectWith((client) => {
       client.addConversation('CH-bob');
@@ -1275,7 +1387,7 @@ describe('employee chat flows', () => {
       client.addConversation('CH-carol');
     });
     await act(async () => {
-      await openChatWithEmployee(BOB.profile);
+      await openChatWithEmployee(BOB);
     });
     expect(mockOpenEmployeeChat).not.toHaveBeenCalled();
     expect(useEmployeeChatStore.getState().activeSid).toBe('CH-bob');

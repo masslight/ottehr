@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import type { Client, Conversation, Message, Paginator } from '@twilio/conversations';
-import { EmployeeChatSummary } from 'utils/lib/types/api/employee-chat.types';
+import { EmployeeChatParticipant, EmployeeChatSummary } from 'utils/lib/types/api/employee-chat.types';
 import { getEmployeeChats, openEmployeeChat } from '../../api/api';
 import {
   ChatListItem,
@@ -391,6 +391,7 @@ export function showChatList(): void {
     hasOlderMessages: false,
     loadingOlder: false,
     unreadEntry: undefined,
+    pendingEmployee: undefined,
   });
 }
 
@@ -404,6 +405,7 @@ export async function openConversation(sid: string): Promise<void> {
   setState({
     view: 'conversation',
     activeSid: sid,
+    pendingEmployee: undefined,
     messages: [],
     hasOlderMessages: false,
     loadingOlder: false,
@@ -508,28 +510,45 @@ function waitForConversation(sid: string): Promise<Conversation> {
   });
 }
 
-export async function openChatWithEmployee(profile: string): Promise<void> {
-  const existing = Object.values(getState().chats).find((chat) => chat.otherEmployee.profile === profile);
+export async function openChatWithEmployee(employee: EmployeeChatParticipant): Promise<void> {
+  const existing = Object.values(getState().chats).find((chat) => chat.otherEmployee.profile === employee.profile);
   if (existing) {
     await openConversation(existing.sid);
     return;
   }
   if (!oystehrZambda) return;
   const myEpoch = epoch;
-  setState({ openingProfile: profile, openError: undefined });
+  const myOpen = ++openSeq;
+  activePaginator = undefined;
+  setState({
+    view: 'conversation',
+    activeSid: undefined,
+    pendingEmployee: employee,
+    messages: [],
+    hasOlderMessages: false,
+    loadingOlder: false,
+    loadingMessages: true,
+    openError: undefined,
+    unreadEntry: undefined,
+  });
   try {
-    const { conversation: summary } = await openEmployeeChat(oystehrZambda, { targetProfile: profile });
+    const { conversation: summary } = await openEmployeeChat(oystehrZambda, { targetProfile: employee.profile });
     if (myEpoch !== epoch) return;
     summariesBySid.set(summary.conversationSid, summary);
     await waitForConversation(summary.conversationSid);
     if (myEpoch !== epoch) return;
     syncChat(summary.conversationSid);
-    setState({ openingProfile: undefined });
+    if (myOpen !== openSeq) return;
     await openConversation(summary.conversationSid);
   } catch (error) {
     console.error('employee chat open failed', error);
-    if (myEpoch !== epoch) return;
-    setState({ openingProfile: undefined, openError: 'Could not open the chat. Please try again.' });
+    if (myEpoch !== epoch || myOpen !== openSeq) return;
+    setState({
+      view: 'list',
+      pendingEmployee: undefined,
+      loadingMessages: false,
+      openError: 'Could not open the chat. Please try again.',
+    });
   }
 }
 

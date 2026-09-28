@@ -40,7 +40,7 @@ export interface EmployeeChatState {
   loadingMessages: boolean;
   hasOlderMessages: boolean;
   loadingOlder: boolean;
-  openingProfile?: string;
+  pendingEmployee?: EmployeeChatParticipant;
   openError?: string;
   unreadEntry?: UnreadEntry;
 }
@@ -57,7 +57,7 @@ export const initialEmployeeChatState: EmployeeChatState = {
   loadingMessages: false,
   hasOlderMessages: false,
   loadingOlder: false,
-  openingProfile: undefined,
+  pendingEmployee: undefined,
   openError: undefined,
   unreadEntry: undefined,
 };
