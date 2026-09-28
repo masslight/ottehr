@@ -1,11 +1,13 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Claim, Organization, Practitioner } from 'fhir/r4b';
+import { Claim, Organization, PaymentNotice, Practitioner } from 'fhir/r4b';
+import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { Cms1500FormData } from 'utils/lib/types/data/billing/cms1500.types';
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { fetchPatientPaymentsByEncounterIds, sumPatientPayments } from '../claim-amounts';
 import { createBillingClient, fetchClaimGraph, getClaimType, resolvePayersByRef } from '../shared';
 import { buildCms1500FormData, referringCareTeamMember } from './helpers';
 import { GetClaimCms1500Params, validateRequestParameters } from './validateRequestParameters';
@@ -29,14 +31,20 @@ export async function performEffect(oystehr: Oystehr, params: GetClaimCms1500Par
   if (getClaimType(graph.claim) !== 'professional') {
     throw INVALID_INPUT_ERROR('The CMS-1500 form is only for professional claims. Institutional claims use the UB-04.');
   }
-  const [payers, referringProvider] = await Promise.all([
+  const encounterId =
+    graph.claim.identifier?.find((i) => i.system === ottehrIdentifierSystem('claim-encounter-id'))?.value ?? '';
+  const [payers, referringProvider, paymentsByEncounter] = await Promise.all([
     resolvePayersByRef(oystehr, [
       graph.claim.insurer?.reference,
       ...graph.coverages.map((coverage) => coverage.payor?.[0]?.reference),
     ]),
     fetchReferringProvider(oystehr, graph.claim),
+    encounterId
+      ? fetchPatientPaymentsByEncounterIds(oystehr, [encounterId])
+      : Promise.resolve(new Map<string, PaymentNotice[]>()),
   ]);
-  return buildCms1500FormData({ ...graph, payers, referringProvider });
+  const patientPaid = sumPatientPayments(paymentsByEncounter.get(encounterId) ?? []);
+  return buildCms1500FormData({ ...graph, payers, referringProvider, patientPaid });
 }
 
 // Item 17's provider isn't part of the claim graph, which only follows the rendering provider.

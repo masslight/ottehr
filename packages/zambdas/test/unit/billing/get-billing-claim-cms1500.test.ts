@@ -1,5 +1,15 @@
-import Oystehr from '@oystehr/sdk';
-import { Claim, Coverage, Location, Organization, Patient, Practitioner, RelatedPerson } from 'fhir/r4b';
+import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
+import {
+  Claim,
+  Coverage,
+  FhirResource,
+  Location,
+  Organization,
+  Patient,
+  PaymentNotice,
+  Practitioner,
+  RelatedPerson,
+} from 'fhir/r4b';
 import { getDefaultClaimSubmissionExtensions } from 'utils/lib/fhir/billing';
 import {
   FHIR_IDENTIFIER_CLIA,
@@ -8,12 +18,16 @@ import {
   FHIR_IDENTIFIER_NPI,
   FHIR_IDENTIFIER_SYSTEM,
 } from 'utils/lib/fhir/constants';
+import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import {
   CODE_SYSTEM_CLAIM_INFORMATION_CATEGORY,
   CODE_SYSTEM_CLAIM_SECONDARY_IDENTIFIER_TYPE,
   CODE_SYSTEM_CLAIM_TYPE,
   CODE_SYSTEM_ICD_10,
+  CODE_SYSTEM_OYSTEHR_CLAIM_DATE_TYPE,
   CODE_SYSTEM_OYSTEHR_CLAIM_REFERRING_PROVIDER_TYPE,
+  EXTENSION_CLAIM_AUTO_ACCIDENT,
+  EXTENSION_CLAIM_AUTO_ACCIDENT_STATE,
   EXTENSION_CLAIM_INSURANCE_TYPE,
 } from 'utils/lib/helpers/rcm/constants';
 import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
@@ -27,6 +41,7 @@ import {
   fetchClaimGraph,
   resolvePayersByRef,
 } from '../../../src/billing/shared';
+import { performEffect as updateBillingClaim } from '../../../src/billing/update-billing-claim';
 
 vi.mock('../../../src/billing/shared', async (importOriginal) => ({
   ...(await importOriginal<object>()),
@@ -50,9 +65,17 @@ const claim: Claim = {
   created: '2026-09-02',
   type: { coding: [{ system: CODE_SYSTEM_CLAIM_TYPE, code: 'professional' }] },
   priority: { coding: [{ code: 'normal' }] },
+  // An auto accident, recorded the way claim creation records one from the visit
   meta: { tag: [{ system: CLAIM_TAG_SYSTEM, code: AUTO_ACCIDENT_TAG_NAME }] },
-  identifier: [{ system: CLAIM_PCN_IDENTIFIER_SYSTEM, value: 'PCN12345' }],
-  extension: getDefaultClaimSubmissionExtensions(),
+  identifier: [
+    { system: CLAIM_PCN_IDENTIFIER_SYSTEM, value: 'PCN12345' },
+    { system: ottehrIdentifierSystem('claim-encounter-id'), value: 'encounter-1' },
+  ],
+  extension: [
+    ...getDefaultClaimSubmissionExtensions(),
+    { url: EXTENSION_CLAIM_AUTO_ACCIDENT, valueBoolean: true },
+    { url: EXTENSION_CLAIM_AUTO_ACCIDENT_STATE, valueString: 'NH' },
+  ],
   patient: { reference: 'Patient/patient-1' },
   provider: { reference: 'Organization/billing-1' },
   facility: { reference: 'Location/facility-1' },
@@ -78,6 +101,12 @@ const claim: Claim = {
       category: { coding: [{ system: CODE_SYSTEM_CLAIM_INFORMATION_CATEGORY, code: 'onset' }] },
       code: { coding: [{ code: '431' }] },
       timingDate: '2026-08-30',
+    },
+    {
+      sequence: 2,
+      category: { coding: [{ system: CODE_SYSTEM_CLAIM_INFORMATION_CATEGORY, code: 'info' }] },
+      code: { coding: [{ system: CODE_SYSTEM_OYSTEHR_CLAIM_DATE_TYPE, code: '439' }] },
+      timingDate: '2026-08-29',
     },
   ],
   item: [
@@ -207,7 +236,49 @@ const payers = new Map<string, Organization>([
   [SECONDARY_PAYER, { resourceType: 'Organization', name: 'Blue Cross Blue Shield' }],
 ]);
 
-const resources = (overrides: Partial<Cms1500Resources> = {}): Cms1500Resources => ({ ...graph, payers, ...overrides });
+const resources = (overrides: Partial<Cms1500Resources> = {}): Cms1500Resources => ({
+  ...graph,
+  payers,
+  patientPaid: 0,
+  ...overrides,
+});
+
+// Saves the claim page's Accident Info section and returns the claim it writes
+async function saveAccidentInfo(
+  current: Claim,
+  fields: { accidentType: string[]; accidentState: string; accidentDate: string }
+): Promise<Claim> {
+  const search = vi.fn().mockResolvedValue({ unbundle: () => [structuredClone(current)] });
+  const transaction = vi.fn().mockResolvedValue({ entry: [] });
+  await updateBillingClaim(
+    { fhir: { search, transaction } } as unknown as Oystehr,
+    {
+      resourceType: 'Claim',
+      resourceId: 'claim-1',
+      claimId: 'claim-1',
+      fields,
+      secrets: {},
+    } as Parameters<typeof updateBillingClaim>[1],
+    { who: { reference: 'Practitioner/biller-1' } }
+  );
+  const saved = transaction.mock.calls
+    .flatMap((call): BatchInputRequest<FhirResource>[] => call[0].requests)
+    .filter((request) => request.method === 'PUT')
+    .map((request) => (request as { resource: FhirResource }).resource)
+    .find((resource): resource is Claim => resource.resourceType === 'Claim');
+  if (!saved) throw new Error('The claim was not saved');
+  return saved;
+}
+
+const payment = (value: number, status: PaymentNotice['status'] = 'active'): PaymentNotice => ({
+  resourceType: 'PaymentNotice',
+  status,
+  created: '2026-09-01',
+  request: { identifier: { system: ottehrIdentifierSystem('claim-encounter-id'), value: 'encounter-1' } },
+  payment: { reference: 'PaymentReconciliation/patient-payment-1' },
+  recipient: { reference: 'Organization/billing-1' },
+  amount: { value, currency: 'USD' },
+});
 
 describe('buildCms1500FormData', () => {
   it('maps the claim, patient, coverages and providers onto the form', () => {
@@ -230,10 +301,12 @@ describe('buildCms1500FormData', () => {
       otherInsuredName: { last: 'Doe', first: 'John' },
       otherInsuredPolicyOrGroupNumber: 'XYZ987',
       otherInsuredPlanName: 'Blue Cross Blue Shield',
-      conditionRelatedTo: { employment: false, autoAccident: true, otherAccident: false },
+      conditionRelatedTo: { employment: false, autoAccident: true, autoAccidentState: 'NH', otherAccident: false },
       patientSignatureOnFile: true,
       insuredSignatureOnFile: true,
       currentIllnessDate: { date: '2026-08-30', qualifier: '431' },
+      // 15: the accident date
+      otherDate: { date: '2026-08-29', qualifier: '439' },
       icdIndicator: '0',
       diagnosisCodes: ['J06.9', 'R05.9'],
       priorAuthorizationNumber: 'PA-42',
@@ -319,30 +392,75 @@ describe('buildCms1500FormData', () => {
     expect(form.otherInsuredName).toBeUndefined();
   });
 
-  it('reports an accident date in item 15 and workers comp coverage as employment related', () => {
-    const accident: Claim = {
-      ...claim,
-      meta: {},
-      accident: { date: '2026-08-29', type: { coding: [{ code: 'WPA' }] } },
-    };
+  it('follows the accident info as it is edited on the claim page', async () => {
+    const otherAccidents = await saveAccidentInfo(claim, {
+      accidentType: ['employment', 'other'],
+      accidentState: '',
+      accidentDate: '2026-09-10',
+    });
+    const form = buildCms1500FormData(resources({ claim: otherAccidents }));
+    expect(form.conditionRelatedTo).toEqual({
+      employment: true,
+      autoAccident: false,
+      autoAccidentState: undefined,
+      otherAccident: true,
+    });
+    expect(form.otherDate).toEqual({ date: '2026-09-10', qualifier: '439' });
+
+    const noAccident = await saveAccidentInfo(otherAccidents, {
+      accidentType: [],
+      accidentState: '',
+      accidentDate: '',
+    });
+    const cleared = buildCms1500FormData(resources({ claim: noAccident }));
+    expect(cleared.conditionRelatedTo).toEqual({
+      employment: false,
+      autoAccident: false,
+      autoAccidentState: undefined,
+      otherAccident: false,
+    });
+    expect(cleared.otherDate).toBeUndefined();
+  });
+
+  it('reports workers comp coverage as employment related', () => {
     const workersComp: Coverage = {
       ...primary,
       extension: [{ url: EXTENSION_CLAIM_INSURANCE_TYPE, valueString: 'WC' }],
     };
-    const form = buildCms1500FormData(resources({ claim: accident, coverages: [workersComp] }));
+    const form = buildCms1500FormData(resources({ coverages: [workersComp] }));
     expect(form.insuranceType).toBe('other');
-    expect(form.otherDate).toEqual({ date: '2026-08-29', qualifier: '439' });
-    expect(form.conditionRelatedTo).toMatchObject({ employment: true, autoAccident: false, otherAccident: false });
+    expect(form.conditionRelatedTo?.employment).toBe(true);
+  });
+
+  it('reports what the patient has paid in item 29, and nothing when they have paid nothing', () => {
+    expect(buildCms1500FormData(resources({ patientPaid: 25.5 })).amountPaid).toBe(25.5);
+    expect(buildCms1500FormData(resources({ patientPaid: 0 })).amountPaid).toBeUndefined();
   });
 });
 
 describe('get-billing-claim-cms1500 performEffect', () => {
-  const oystehr = { fhir: { get: vi.fn() } } as unknown as Oystehr;
+  const oystehr = { fhir: { get: vi.fn(), search: vi.fn() } } as unknown as Oystehr;
 
   beforeEach(() => {
     vi.clearAllMocks();
     (fetchClaimGraph as Mock<typeof fetchClaimGraph>).mockResolvedValue(graph);
     (resolvePayersByRef as Mock<typeof resolvePayersByRef>).mockResolvedValue(payers);
+    (oystehr.fhir.search as Mock).mockResolvedValue({ unbundle: () => [], link: [] });
+  });
+
+  it("totals the patient's payments toward the claim's encounter", async () => {
+    (oystehr.fhir.search as Mock).mockResolvedValue({
+      unbundle: () => [payment(20), payment(5.5), payment(100, 'cancelled')],
+      link: [],
+    });
+    const form = await performEffect(oystehr, { claimId: 'claim-1', secrets: null });
+    expect(oystehr.fhir.search).toHaveBeenCalledWith({
+      resourceType: 'PaymentNotice',
+      params: expect.arrayContaining([
+        { name: 'request:identifier', value: `${ottehrIdentifierSystem('claim-encounter-id')}|encounter-1` },
+      ]),
+    });
+    expect(form.amountPaid).toBe(25.5);
   });
 
   it('resolves the payers of every coverage', async () => {

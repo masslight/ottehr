@@ -2,7 +2,6 @@ import { OYSTEHR_EXTENSION_BASE_URL } from '../../fhir/constants';
 
 export const EMERGENCY_REVENUE_CODE = '1001';
 
-export const EXTENSION_PATIENT_PAID = 'http://fhir-api.zapehr.com/extension/patient-paid';
 export const EXTENSION_PATIENT_ACCOUNT_NUMBER = 'http://fhir-api.zapehr.com/extension/patient-account-number';
 export const EXTENSION_PATIENT_SIGNED_DATE = 'http://fhir-api.zapehr.com/extension/patient-signed-date';
 export const EXTENSION_PRACTITIONER_SIGNED_DATE = 'http://fhir-api.zapehr.com/extension/practitioner-signed-date';

@@ -15,6 +15,11 @@ import { getCoveragePlanType } from 'utils/lib/fhir/billing';
 import { FHIR_IDENTIFIER_CODE_TAX_SS, FHIR_IDENTIFIER_SYSTEM } from 'utils/lib/fhir/constants';
 import { getExtensionValue, getNPI, getTaxID } from 'utils/lib/fhir/helpers';
 import {
+  CLAIM_ACCIDENT_STATE_EXTENSION_URL,
+  CLAIM_ACCIDENT_TYPE_EXTENSION_URLS,
+  CLAIM_ACCIDENT_TYPES,
+  CODE_SYSTEM_CLAIM_ACCIDENT_DATE,
+  CODE_SYSTEM_CLAIM_ACCIDENT_DATE_CODE,
   CODE_SYSTEM_CLAIM_INFORMATION_CATEGORY,
   CODE_SYSTEM_ICD_9,
   CODE_SYSTEM_OYSTEHR_RCM_CMS1500_REVENUE_CODE,
@@ -26,10 +31,8 @@ import {
   EXTENSION_CLAIM_RELEASE_OF_INFORMATION_CODE,
   EXTENSION_OUTSIDE_CHARGES,
   EXTENSION_PATIENT_ACCOUNT_NUMBER,
-  EXTENSION_PATIENT_PAID,
   EXTENSION_PATIENT_SIGNED_DATE,
 } from 'utils/lib/helpers/rcm/constants';
-import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
 import {
   Cms1500Address,
   Cms1500FormData,
@@ -39,14 +42,21 @@ import {
   Cms1500ServiceLine,
   Cms1500Sex,
 } from 'utils/lib/types/data/billing/cms1500.types';
-import { AUTO_ACCIDENT_TAG_NAME } from 'utils/lib/types/data/billing/system-tags';
 import { getCLIA } from '../service-facility.helpers';
-import { ClaimGraph, EXTENSION_CLAIM_FREQUENCY_CODE, getClaimPcn, getTaxonomy } from '../shared';
+import {
+  ClaimGraph,
+  EXTENSION_CLAIM_FREQUENCY_CODE,
+  getClaimPcn,
+  getClaimSupportingInfo,
+  getTaxonomy,
+} from '../shared';
 
 export interface Cms1500Resources extends ClaimGraph {
   // Payer Organizations keyed by their payer list reference (Claim.insurer, Coverage.payor)
   payers: Map<string, Organization>;
   referringProvider?: Practitioner | Organization;
+  // What the patient has paid toward the claim's encounter
+  patientPaid: number;
 }
 
 export const SIGNATURE_ON_FILE = 'SIGNATURE ON FILE';
@@ -112,10 +122,17 @@ export function buildCms1500FormData(resources: Cms1500Resources): Cms1500FormDa
   const infoOf = (category: string): ClaimSupportingInfo | undefined =>
     supportingInfo.find((info) => hasCode(info.category, CODE_SYSTEM_CLAIM_INFORMATION_CATEGORY, category));
 
-  const accidentType = claim.accident?.type?.coding?.[0]?.code;
-  const hasAutoAccidentTag = (claim.meta?.tag ?? []).some(
-    (tag) => tag.system === CLAIM_TAG_SYSTEM && tag.code === AUTO_ACCIDENT_TAG_NAME
+  // The accident info shown on the claim page
+  const accidentTypes = CLAIM_ACCIDENT_TYPES.filter(
+    (type) => getExtensionValue(claim, CLAIM_ACCIDENT_TYPE_EXTENSION_URLS[type], 'valueBoolean') === true
   );
+  const accidentDate = getClaimSupportingInfo(
+    claim,
+    CODE_SYSTEM_CLAIM_INFORMATION_CATEGORY,
+    'info',
+    CODE_SYSTEM_CLAIM_ACCIDENT_DATE,
+    CODE_SYSTEM_CLAIM_ACCIDENT_DATE_CODE
+  )?.timingDate;
   const onset = infoOf('onset');
   const otherDate = infoOf('other');
   const unableToWork = infoOf('employmentimpacted');
@@ -173,10 +190,10 @@ export function buildCms1500FormData(resources: Cms1500Resources): Cms1500FormDa
     otherInsuredPolicyOrGroupNumber: other ? coverageClass(other, 'group')?.value ?? other.subscriberId : undefined,
     otherInsuredPlanName: other ? planName(other, otherPayer) : undefined,
     conditionRelatedTo: {
-      employment: accidentType === 'WPA' || getCoveragePlanType(primary) === 'WC',
-      autoAccident: accidentType === 'MVA' || hasAutoAccidentTag,
-      autoAccidentState: claim.accident?.locationAddress?.state,
-      otherAccident: !!claim.accident && accidentType !== 'WPA' && accidentType !== 'MVA',
+      employment: accidentTypes.includes('employment') || getCoveragePlanType(primary) === 'WC',
+      autoAccident: accidentTypes.includes('auto'),
+      autoAccidentState: getExtensionValue(claim, CLAIM_ACCIDENT_STATE_EXTENSION_URL, 'valueString'),
+      otherAccident: accidentTypes.includes('other'),
     },
     claimCodes: (claim.extension ?? [])
       .filter((extension) => extension.url === EXTENSION_CLAIM_CONDITION_CODE && extension.valueString)
@@ -190,8 +207,8 @@ export function buildCms1500FormData(resources: Cms1500Resources): Cms1500FormDa
       : undefined,
     otherDate: otherDate?.timingDate
       ? { date: otherDate.timingDate, qualifier: otherDate.code?.coding?.[0]?.code }
-      : claim.accident?.date
-      ? { date: claim.accident.date, qualifier: ACCIDENT_DATE_QUALIFIER }
+      : accidentDate
+      ? { date: accidentDate, qualifier: ACCIDENT_DATE_QUALIFIER }
       : undefined,
     unableToWork: unableToWork?.timingPeriod
       ? { from: unableToWork.timingPeriod.start, to: unableToWork.timingPeriod.end }
@@ -262,7 +279,8 @@ export function buildCms1500FormData(resources: Cms1500Resources): Cms1500FormDa
     patientAccountNumber:
       getExtensionValue(claim, EXTENSION_PATIENT_ACCOUNT_NUMBER, 'valueString') ?? getClaimPcn(claim),
     acceptAssignment: assignment ? assignment === 'A' || assignment === 'B' : undefined,
-    amountPaid: getExtensionValue(claim, EXTENSION_PATIENT_PAID, 'valueMoney')?.value,
+    // Left blank when nothing has been paid
+    amountPaid: resources.patientPaid > 0 ? resources.patientPaid : undefined,
     physicianSignature:
       getExtensionValue(claim, EXTENSION_CLAIM_PROVIDER_SIGNATURE_INDICATOR, 'valueBoolean') === true
         ? SIGNATURE_ON_FILE
