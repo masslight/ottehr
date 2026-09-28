@@ -173,7 +173,8 @@ test.describe('Complete paperwork rendered via Questionnaire.derivedFrom', () =>
     await page.waitForURL(/\/review/, { timeout: 30000 });
     const finishButton = page.getByRole('button', { name: /^finish$/i });
     const continueButton = page.getByRole('button', { name: /^continue$/i });
-    if (await finishButton.isVisible().catch(() => false)) {
+    await expect(finishButton.or(continueButton).first()).toBeVisible();
+    if (await finishButton.isVisible()) {
       await finishButton.click();
     } else {
       await continueButton.click();

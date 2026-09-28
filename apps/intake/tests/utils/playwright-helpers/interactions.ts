@@ -1,6 +1,19 @@
 import { expect, Locator, Page } from '@playwright/test';
 
 /**
+ * Returns whether the locator becomes visible within `timeoutMs`.
+ *
+ * Use this instead of `locator.isVisible({ timeout })`: Playwright ignores that option and
+ * samples visibility immediately, so a check written that way never actually waits.
+ */
+export async function isVisibleWithin(locator: Locator, timeoutMs: number): Promise<boolean> {
+  return locator.waitFor({ state: 'visible', timeout: timeoutMs }).then(
+    () => true,
+    () => false
+  );
+}
+
+/**
  * Autocomplete / Dropdown helpers
  */
 export class AutocompleteHelpers {

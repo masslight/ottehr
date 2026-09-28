@@ -217,7 +217,9 @@ test.describe('Complete booking flows', () => {
         await executeWaitingRoomParticipantsFlow(page);
       }
       if (shouldExtendWithPastVisits(scenario, scenarios)) {
-        await executePastVisitsFlow(page, appointmentResponse);
+        await executePastVisitsFlow(page, appointmentResponse, {
+          cancelled: shouldExtendWithCancellation(scenario, scenarios),
+        });
       }
       if (shouldExtendWithReviewPageVerification(scenario, scenarios)) {
         await executeReviewPageVerification(

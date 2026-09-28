@@ -38,7 +38,8 @@ import { TEST_FIXTURE_TIMEZONES } from './TestLocationManager';
  * Execute a returning patient flow after an initial booking
  *
  * This starts a NEW booking flow for the same patient that was just created,
- * verifying that the patient selection screen appears and paperwork is prefilled.
+ * selects them on the patient selection screen, and verifies the patient
+ * information page shows them as a known patient.
  */
 export async function executeReturningPatientFlow(
   page: Page,
@@ -46,68 +47,40 @@ export async function executeReturningPatientFlow(
   initialAppointment: CreateAppointmentResponse
 ): Promise<void> {
   console.log('\n=== EXTENDED: Returning Patient Flow ===');
-  console.log(`Using patient from initial appointment: ${initialAppointment.fhirPatientId}`);
+  const patientId = initialAppointment.fhirPatientId;
+  console.log(`Using patient from initial appointment: ${patientId}`);
 
-  // Navigate back to homepage to start a new booking
-  await page.goto('/home', { waitUntil: 'networkidle' });
-  console.log('Navigated to homepage for second booking');
-
-  // Click the same booking option to start a new flow
-  const bookingButton = page.getByRole('button', { name: scenario.homepageOptionLabel });
-  await bookingButton.click();
-  console.log(`Clicked "${scenario.homepageOptionLabel}" for second booking`);
-
-  // Handle service category selection if needed
-  const categories = scenario.resolvedConfig.serviceCategories;
-  if (categories.length > 1) {
-    const category = categories.find((sc) => sc.category.code === scenario.serviceCategory);
-    if (category) {
-      await page.getByRole('button', { name: category.category.display }).click();
-      console.log(`Selected service category: ${category.category.display}`);
-    }
+  const patientName = initialAppointment.resources.patient.name?.[0];
+  const firstName = patientName?.given?.[0];
+  const lastName = patientName?.family;
+  if (!firstName || !lastName) {
+    throw new Error(`Patient ${patientId} from the initial appointment has no first and last name`);
   }
 
-  // For in-person walk-in, handle the Continue button on landing page
-  if (scenario.visitType === 'walk-in' && scenario.serviceMode === 'in-person') {
-    await BookingFlowHelpers.clickContinueButtonIfPresent(page, 'on walk-in landing page');
+  // Start the second booking the same way as the first
+  await BookingFlowHelpers.startBookingFlow(page, scenario.homepageOptionLabel);
+  if (scenario.serviceCategory) {
+    await BookingFlowHelpers.selectServiceCategoryIfNeeded(
+      page,
+      scenario.resolvedConfig,
+      scenario.serviceCategory,
+      scenario.visitType,
+      scenario.serviceMode
+    );
   }
 
-  // Now we should see the patient selection screen
-  // Look for the patient we just created - their name should be visible
-  const patientName = page.getByText(/Test\d+.*Patient\d+/); // Matches our generated names
-  const hasPatientSelection = await patientName.isVisible({ timeout: 5000 }).catch(() => false);
+  // The patient selection screen lists the patient the initial booking created
+  await page.locator(`input[type="radio"][value="${patientId}"]`).check();
+  console.log('Selected the existing patient');
+  await BookingFlowHelpers.clickContinueButtonIfPresent(page, 'after patient selection');
 
-  if (hasPatientSelection) {
-    console.log('Patient selection screen detected - selecting existing patient');
+  // The initial walk-in is already checked in, so there is nothing to check in to and the new
+  // walk-in continues to patient information, which shows the known patient instead of name inputs
+  await page.waitForURL(/\/patient-information/, { timeout: 20000 });
+  await expect(page.getByRole('heading', { name: new RegExp(`^${firstName}\\b.*\\b${lastName}$`) })).toBeVisible();
+  console.log(`✓ Patient information shows known patient ${firstName} ${lastName}`);
 
-    // Click on the existing patient (not "Different family member")
-    await patientName.click();
-
-    // Click Continue to proceed
-    await BookingFlowHelpers.clickContinueButtonIfPresent(page, 'after patient selection');
-
-    // Now verify we're on paperwork with prefilled data
-    // Wait for paperwork page to load
-    await page.waitForURL(/\/paperwork\//, { timeout: 20000 });
-    console.log('Navigated to paperwork for returning patient');
-
-    // Verify some data is prefilled (contact information should have patient data)
-    // Check for prefilled email field as a basic verification
-    const emailField = page.locator('#patient-email');
-    const emailValue = await emailField.inputValue().catch(() => '');
-
-    if (emailValue && emailValue.includes('@')) {
-      console.log(`✓ Email field is prefilled: ${emailValue}`);
-    } else {
-      console.log('Note: Email field not prefilled (may be expected for some configs)');
-    }
-
-    // Verify the patient name is shown somewhere on the page (header or form)
-    console.log('✓ Returning patient flow completed successfully');
-  } else {
-    console.log('No patient selection screen - user may not have existing patients yet');
-    console.log('This is expected for first-time users or certain auth states');
-  }
+  console.log('✓ Returning patient flow completed successfully');
 }
 
 /**
@@ -160,16 +133,11 @@ export async function executeModificationFlow(
   // Wait for confirmation and verify the new time is shown
   await expect(page.getByRole('heading', { name: /thank you/i })).toBeVisible({ timeout: 20000 });
 
-  // Verify the new time appears on the confirmation page
-  if (newTimeText) {
-    const timeDisplayed = await page
-      .getByText(newTimeText)
-      .isVisible()
-      .catch(() => false);
-    if (timeDisplayed) {
-      console.log(`✓ New time "${newTimeText}" is displayed on confirmation page`);
-    }
-  }
+  // Verify the new time appears on the confirmation page. The word boundaries keep "2:00 PM" from
+  // matching "12:00 PM".
+  const timeBlock = page.getByTestId(dataTestIds.thankYouPageSelectedTimeBlock);
+  await expect(timeBlock).toContainText(new RegExp(`\\b${newTimeText.trim()}\\b`), { timeout: 20000 });
+  console.log(`✓ New time "${newTimeText.trim()}" is displayed on confirmation page`);
 
   console.log('✓ Reservation modification completed successfully');
 }
@@ -387,11 +355,17 @@ export function shouldExtendWithWaitingRoomParticipants(
 /**
  * Execute past visits page verification after an appointment
  *
- * Navigates to past visits and verifies the appointment appears in the list.
+ * Navigates to the patient's past visits. Past visits lists fulfilled and cancelled appointments
+ * only, so the scenario's appointment is expected there only once it has been cancelled.
  */
-export async function executePastVisitsFlow(page: Page, appointmentResponse: CreateAppointmentResponse): Promise<void> {
+export async function executePastVisitsFlow(
+  page: Page,
+  appointmentResponse: CreateAppointmentResponse,
+  { cancelled }: { cancelled: boolean }
+): Promise<void> {
+  const { appointmentId, fhirPatientId } = appointmentResponse;
   console.log('\n=== EXTENDED: Past Visits Page Verification ===');
-  console.log(`Verifying appointment ${appointmentResponse.appointmentId} appears in past visits`);
+  console.log(`Verifying appointment ${appointmentId} is ${cancelled ? '' : 'not '}listed in past visits`);
 
   // Navigate to homepage
   await page.goto('/home', { waitUntil: 'networkidle' });
@@ -406,39 +380,31 @@ export async function executePastVisitsFlow(page: Page, appointmentResponse: Cre
   await page.waitForURL(/\/my-patients/, { timeout: 20000 });
   console.log('On patient selection page');
 
-  // Find and click our test patient - use first() in case multiple matches
-  const patientName = page.getByText(/Test\d+.*Patient\d+/).first();
-  await patientName.scrollIntoViewIfNeeded();
-  await patientName.click();
+  // Select the patient this scenario booked for
+  await page.locator(`input[type="radio"][value="${fhirPatientId}"]`).check();
   console.log('Selected test patient');
 
   // Click Continue to go to past visits
   await BookingFlowHelpers.clickContinueButtonIfPresent(page, 'after patient selection');
 
   // Wait for past visits page to load - route is /my-patients/:patientId/past-visits
-  await page.waitForURL(/\/my-patients\/[^/]+\/past-visits/, { timeout: 20000 });
+  await page.waitForURL(new RegExp(`/my-patients/${fhirPatientId}/past-visits`), { timeout: 20000 });
   console.log('On past visits page');
 
   // Verify the page heading (page title is "Visits")
   await expect(page.getByRole('heading', { name: /visits/i })).toBeVisible({ timeout: 10000 });
 
-  // Verify our appointment appears (by visit ID)
-  const visitIdText = page.getByText(new RegExp(`Visit ID:.*${appointmentResponse.appointmentId}`, 'i'));
-  const appointmentVisible = await visitIdText.isVisible({ timeout: 5000 }).catch(() => false);
+  // The list or its empty state renders once the visits have loaded
+  const visitsLoaded = page.getByTestId('empty-state-message').or(page.getByTestId('past-visits-list'));
+  await expect(visitsLoaded.first()).toBeVisible({ timeout: 20000 });
 
-  if (appointmentVisible) {
-    console.log(`✓ Appointment ${appointmentResponse.appointmentId} found in past visits`);
+  const visitIdText = page.getByText(`Visit ID: ${appointmentId}`);
+  if (cancelled) {
+    await expect(visitIdText).toBeVisible();
+    console.log(`✓ Cancelled appointment ${appointmentId} found in past visits`);
   } else {
-    // The appointment might be shown differently - check for any appointment entry
-    const hasAnyAppointment = await page
-      .getByText(/visit id:/i)
-      .isVisible()
-      .catch(() => false);
-    if (hasAnyAppointment) {
-      console.log('✓ Past visits page shows appointment history');
-    } else {
-      console.log('Note: No appointments visible (may be expected for some flows)');
-    }
+    await expect(visitIdText).toHaveCount(0);
+    console.log(`✓ Upcoming appointment ${appointmentId} not listed in past visits`);
   }
 
   // Verify back to homepage navigation - use the specific test ID from legacy tests
@@ -522,11 +488,9 @@ export async function executeReviewPageVerification(
   for (const sectionId of visibleSections.slice(0, 3)) {
     // Check up to 3 sections
     const chipLocator = page.locator(`[data-testid="${sectionId}-status"] div`);
-    const isVisible = await chipLocator.isVisible({ timeout: 2000 }).catch(() => false);
-    if (isVisible) {
-      const status = await chipLocator.getAttribute('data-testid');
-      console.log(`${sectionId} status: ${status}`);
-    }
+    await expect(chipLocator).toBeVisible();
+    const status = await chipLocator.getAttribute('data-testid');
+    console.log(`${sectionId} status: ${status}`);
   }
 
   // Verify legal texts (privacy policy and terms & conditions links)
@@ -535,26 +499,20 @@ export async function executeReviewPageVerification(
   // Test edit button navigation - use first visible section that has an edit button
   const firstEditableSection = visibleSections[0] || 'contact-information-page';
   const editButton = page.getByTestId(`${firstEditableSection}-edit`);
-  const editButtonVisible = await editButton.isVisible({ timeout: 5000 }).catch(() => false);
+  await editButton.click();
+  console.log(`Clicked ${firstEditableSection} edit button`);
 
-  if (editButtonVisible) {
-    await editButton.click();
-    console.log(`Clicked ${firstEditableSection} edit button`);
+  // Wait for navigation away from review page
+  await page.waitForURL((url) => !url.pathname.includes('/review'), { timeout: 10000 });
+  console.log(`✓ Edit button navigated away from review page`);
 
-    // Wait for navigation away from review page
-    await page.waitForURL((url) => !url.pathname.includes('/review'), { timeout: 10000 });
-    console.log(`✓ Edit button navigated away from review page`);
+  // Navigate back to review
+  await page.goBack({ waitUntil: 'load' });
+  console.log('Navigated back');
 
-    // Navigate back to review
-    await page.goBack({ waitUntil: 'load' });
-    console.log('Navigated back');
-
-    // Verify we're back on review page
-    await expect(page.getByRole('heading', { name: /review and submit/i })).toBeVisible({ timeout: 10000 });
-    console.log('✓ Back button returned to Review page');
-  } else {
-    console.log(`Note: No edit button found for ${firstEditableSection}, skipping edit navigation test`);
-  }
+  // Verify we're back on review page
+  await expect(page.getByRole('heading', { name: /review and submit/i })).toBeVisible({ timeout: 10000 });
+  console.log('✓ Back button returned to Review page');
 
   // Verify Continue button is present
   const continueButton = page.getByTestId(dataTestIds.continueButton);
