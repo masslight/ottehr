@@ -91,6 +91,7 @@ import {
   getCandidPlanTypeCodeFromCoverage,
   getPayerId,
   getPayerUrl,
+  isCustomInsuranceOrgReferenceUrl,
   isNioReferenceUrl,
 } from 'utils/lib/helpers/helpers';
 import {
@@ -878,6 +879,26 @@ const updateCandidPatientWithCoverages = async (
   return patientResponse.body;
 };
 
+// The payer Organization a Coverage is sent to Candid under. A custom insurance organization
+// (billing-app-owned, referenced by token) has no RCM payer id, which Candid requires, so its coverage
+// is deliberately left out of the Candid sync rather than failing it; Ottehr billing, the system of
+// record in custom-organizations mode, still bills it.
+export function findCandidCoveragePayer(
+  coverage: Coverage | undefined,
+  insuranceOrgs: Organization[]
+): Organization | undefined {
+  const payorRef = coverage?.payor?.[0]?.reference;
+  if (!payorRef) return undefined;
+  if (isCustomInsuranceOrgReferenceUrl(payorRef)) {
+    console.log(`Skipping Candid coverage for Coverage/${coverage?.id}: custom insurance organization ${payorRef}`);
+    return undefined;
+  }
+  return insuranceOrgs.find((org) => {
+    const payerId = getPayerId(org);
+    return createReference(org).reference === payorRef || (payerId !== undefined && getPayerUrl(payerId) === payorRef);
+  });
+}
+
 const createCandidCoverages = async (
   patient: Patient,
   appointment: Appointment,
@@ -910,27 +931,9 @@ const createCandidCoverages = async (
   if (coverages === undefined) {
     return candidCoverages;
   }
-  const primaryInsuranceOrg = insuranceOrgs.find((org) => {
-    const payerId = getPayerId(org);
-    return (
-      createReference(org).reference === coverages.primary?.payor?.[0].reference ||
-      (payerId !== undefined && getPayerUrl(payerId) === coverages.primary?.payor?.[0].reference)
-    );
-  });
-  const secondaryInsuranceOrg = insuranceOrgs.find((org) => {
-    const payerId = getPayerId(org);
-    return (
-      createReference(org).reference === coverages.secondary?.payor?.[0].reference ||
-      (payerId !== undefined && getPayerUrl(payerId) === coverages.secondary?.payor?.[0].reference)
-    );
-  });
-  const workersCompInsuranceOrg = insuranceOrgs.find((org) => {
-    const payerId = getPayerId(org);
-    return (
-      createReference(org).reference === coverages.workersComp?.payor?.[0].reference ||
-      (payerId !== undefined && getPayerUrl(payerId) === coverages.workersComp?.payor?.[0].reference)
-    );
-  });
+  const primaryInsuranceOrg = findCandidCoveragePayer(coverages.primary, insuranceOrgs);
+  const secondaryInsuranceOrg = findCandidCoveragePayer(coverages.secondary, insuranceOrgs);
+  const workersCompInsuranceOrg = findCandidCoveragePayer(coverages.workersComp, insuranceOrgs);
 
   if (coverages.primary && coverages.primarySubscriber && primaryInsuranceOrg) {
     const candidCoverage = buildCandidCoverageCreateInput(
@@ -1683,17 +1686,17 @@ export function shouldUseCandid(secrets: Secrets): boolean {
     ['candid', 'all'].includes(secrets.BILLING_INTEGRATION) ||
     // TODO: remove this once secrets migrated
     !secrets.BILLING_INTEGRATION;
-  // NIO mode needs Ottehr billing as the system of record: Candid can't see billing-app NIOs, so
-  // candid-only routing would silently drop employer billing. 'all' is fine — Candid runs
-  // alongside for claim comparison. Terraform generation rejects the bad combination; this
-  // backstop catches secrets edited outside IaC.
-  if (useCandid && !shouldUseOttehrBilling(secrets) && FEATURE_FLAGS_CONFIG.nonInsuranceOrganizationsEnabled) {
+  // Custom-organizations mode needs Ottehr billing as the system of record: Candid can't see
+  // billing-app NIOs, so candid-only routing would silently drop employer billing. 'all' is
+  // fine — Candid runs alongside for claim comparison. Terraform generation rejects the bad
+  // combination; this backstop catches secrets edited outside IaC.
+  if (useCandid && !shouldUseOttehrBilling(secrets) && FEATURE_FLAGS_CONFIG.customOrganizationsEnabled) {
     throw new Error(
       `BILLING_INTEGRATION is '${
         secrets.BILLING_INTEGRATION || '(unset)'
-      }', which routes claims through Candid only, but the nonInsuranceOrganizationsEnabled feature flag is on. ` +
+      }', which routes claims through Candid only, but the customOrganizationsEnabled feature flag is on. ` +
         `Non-insurance organizations need Ottehr billing as the system of record: set BILLING_INTEGRATION to ` +
-        `'ottehr' (or 'all' to also send comparison claims to Candid), or turn off nonInsuranceOrganizationsEnabled.`
+        `'ottehr' (or 'all' to also send comparison claims to Candid), or turn off customOrganizationsEnabled.`
     );
   }
   return useCandid;
