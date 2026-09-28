@@ -54,7 +54,7 @@ import { isInHouseLabServiceRequest } from 'utils/lib/helpers/in-house-labs';
 import { CODE_SYSTEM_CPT, CODE_SYSTEM_NDC } from 'utils/lib/helpers/rcm/constants';
 import { getVitalDTOCriticalityFromObservation } from 'utils/lib/helpers/vitals/utils';
 import { celsiusToFahrenheit, roundTemperatureValue } from 'utils/lib/helpers/vitals/vitals-temperature.helper';
-import { patientScreeningQuestionsConfig } from 'utils/lib/ottehr-config/screening-questions';
+import { baseScreeningQuestionsConfig } from 'utils/lib/ottehr-config/screening-questions';
 import { AdHocEncounterRow, AdHocEncountersInput } from 'utils/lib/types/adhoc/datasets/encounters';
 import { VitalAlertCriticality, VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import {
@@ -222,7 +222,7 @@ const VITAL_ALERT_FIELDS: Record<string, string> = {
 // "Ask the patient" screening answers are chart-data Observations (makeObservationResource): code.text
 // is the config field's fhirField; radio/select/text answers are valueString (the option's fhirValue
 // or free text), date answers are valueDateTime.
-const SCREENING_FIELD_BY_CODE = new Map(patientScreeningQuestionsConfig.fields.map((f) => [f.fhirField, f]));
+const SCREENING_FIELD_BY_CODE = new Map(baseScreeningQuestionsConfig.fields.map((f) => [f.fhirField, f]));
 
 const screeningAnswer = (o: Observation): { question: string; answer: string } | undefined => {
   const field = o.code?.text ? SCREENING_FIELD_BY_CODE.get(o.code.text) : undefined;
