@@ -722,7 +722,7 @@
         "resourceType": "Subscription",
         "status": "active",
         "reason": "Process claim-status responses for billing",
-        "criteria": "ClaimResponse?_tag=_tag=https://fhir.ottehr.com/billing/resource-type|billing-resource&_tag=https://tags.fhir.oystehr.com/rcm-claim-response-type|status-update",
+        "criteria": "ClaimResponse?_tag=https://tags.fhir.oystehr.com/rcm-claim-response-type|status-update",
         "channel": {
           "type": "rest-hook",
           "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-CLAIM-STATUS-RESPONSE/id}"
