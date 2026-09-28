@@ -116,8 +116,14 @@ field. Omit `accountId` for platform or Connect destinations.
 If both the entry and event specify an account, they must match. A signing secret must have the same
 account mapping everywhere it appears, including `STRIPE_PLATFORM_WEBHOOK_SECRET`.
 
-For clinical refunds, send `refund.created`, `refund.updated`, and `refund.failed` to the project's
-`clinical-stripe-webhook` Zambda. Store its destination secrets in `STRIPE_CLINICAL_WEBHOOK_SECRET`
+Configure each Stripe destination with these events:
+
+| Webhook | Events |
+|---|---|
+| `billing-stripe-webhook` | `charge.succeeded`, `charge.updated`, `refund.created`, `refund.updated`, `refund.failed`, `invoice.paid` |
+| `clinical-stripe-webhook` | `refund.created`, `refund.updated`, `refund.failed`, `invoice.paid`, `invoice.voided`, `invoice.marked_uncollectible` |
+
+Store clinical destination secrets in `STRIPE_CLINICAL_WEBHOOK_SECRET`
 in that project's `config/.env/<env>.json`. The existing `STRIPE_SECRET_KEY` is used for Stripe API calls.
 
 ### Radiology / PACS -- Advapacs

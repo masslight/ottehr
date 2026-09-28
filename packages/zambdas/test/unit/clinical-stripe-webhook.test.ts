@@ -1,7 +1,8 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { PaymentNotice } from 'fhir/r4b';
+import { PaymentNotice, Task } from 'fhir/r4b';
 import Stripe from 'stripe';
+import { RcmTaskCodings } from 'utils/lib/fhir/constants';
 import { parsePaymentRefundsFromNotice } from 'utils/lib/fhir/paymentRefunds';
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -37,9 +38,10 @@ let refund: Stripe.Refund;
 const invoke = (
   type = 'refund.created',
   signingSecret = 'whsec_10',
-  account?: string
+  account?: string,
+  object: unknown = refund
 ): Promise<APIGatewayProxyResult> => {
-  const body = JSON.stringify({ id: 'evt_1', type, account, data: { object: refund } });
+  const body = JSON.stringify({ id: 'evt_1', type, account, data: { object } });
   return (index as (input: ZambdaInput) => Promise<APIGatewayProxyResult>)({
     body,
     headers: { 'Stripe-Signature': stripe.webhooks.generateTestHeaderString({ payload: body, secret: signingSecret }) },
@@ -70,6 +72,30 @@ beforeEach(() => {
 });
 
 describe('clinical-stripe-webhook', () => {
+  it.each([
+    ['invoice.paid', 'paid'],
+    ['invoice.voided', 'void'],
+    ['invoice.marked_uncollectible', 'uncollectible'],
+  ])('updates %s once', async (type, status) => {
+    const task: Task = {
+      resourceType: 'Task',
+      id: 'task-1',
+      status: 'completed',
+      intent: 'order',
+      output: [{ type: RcmTaskCodings.sendInvoiceOutputInvoiceId, valueString: 'in_1' }],
+    };
+    const invoice = { id: 'in_1', metadata: { oystehr_encounter_id: 'enc-1' } };
+    search.mockResolvedValue({ unbundle: () => [task] });
+    patch.mockImplementation(async ({ operations }) => {
+      task.output = operations[0].value;
+    });
+
+    await invoke(type, 'whsec_10', undefined, invoice);
+    expect(task.output).toContainEqual({ type: RcmTaskCodings.stripeInvoiceStatus, valueString: status });
+    await invoke(type, 'whsec_10', undefined, invoice);
+    expect(patch).toHaveBeenCalledTimes(1);
+  });
+
   it.each(['refund.created', 'refund.updated', 'refund.failed'])(
     'syncs %s for the last configured account without Ottehr Billing',
     async (type) => {

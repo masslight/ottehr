@@ -290,16 +290,15 @@ describe('billing-stripe-webhook', () => {
     const { oystehr, create } = makeOystehr([]);
     (createBillingClient as Mock).mockReturnValue(oystehr);
     const input = {
-      ...signedInput(makeEvent('charge.succeeded', makeCharge())),
+      ...signedInput(makeEvent('invoice.paid', makeInvoice())),
       secrets: { ...secrets, BILLING_INTEGRATION: 'candid' },
     };
 
     const result = await (index as unknown as (i: ZambdaInput) => Promise<APIGatewayProxyResult>)(input);
 
     expect(result.statusCode).toBe(200);
-    // M2M token creation runs before the billing gate so invoice task status updates work in
-    // all billing modes; charge events skip the task-update path immediately (not in the map).
-    expect(checkOrCreateM2MClientToken).toHaveBeenCalledOnce();
+    expect(checkOrCreateM2MClientToken).not.toHaveBeenCalled();
+    expect(createClinicalOystehrClient).not.toHaveBeenCalled();
     expect(create).not.toHaveBeenCalled();
   });
 
