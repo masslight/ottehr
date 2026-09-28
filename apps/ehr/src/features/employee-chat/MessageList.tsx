@@ -8,6 +8,7 @@ const LOAD_OLDER_THRESHOLD_PX = 40;
 const STICK_TO_BOTTOM_PX = 80;
 const DIVIDER_TOP_GAP_PX = 8;
 const NEW_DIVIDER_TEST_ID = 'employee-chat-new-divider';
+const UNREAD_ABOVE_TEST_ID = 'employee-chat-unread-above';
 
 interface MessageListProps {
   messages: ChatMessage[];
@@ -17,14 +18,17 @@ interface MessageListProps {
   loadingOlder: boolean;
   entryId: number | undefined;
   dividerIndex: number | undefined;
+  unreadAbove: boolean;
   onLoadOlder: () => void;
   onSeen: (index: number) => void;
 }
 
 function initialScrollTop(element: HTMLElement): number {
-  const divider = element.querySelector<HTMLElement>(`[data-testid="${NEW_DIVIDER_TEST_ID}"]`);
-  if (!divider) return element.scrollHeight;
-  const offset = divider.getBoundingClientRect().top - element.getBoundingClientRect().top;
+  const anchor = element.querySelector<HTMLElement>(
+    `[data-testid="${NEW_DIVIDER_TEST_ID}"], [data-testid="${UNREAD_ABOVE_TEST_ID}"]`
+  );
+  if (!anchor) return element.scrollHeight;
+  const offset = anchor.getBoundingClientRect().top - element.getBoundingClientRect().top;
   return element.scrollTop + offset - DIVIDER_TOP_GAP_PX;
 }
 
@@ -44,6 +48,7 @@ export const MessageList: FC<MessageListProps> = ({
   loadingOlder,
   entryId,
   dividerIndex,
+  unreadAbove,
   onLoadOlder,
   onSeen,
 }) => {
@@ -119,6 +124,16 @@ export const MessageList: FC<MessageListProps> = ({
         <Button size="small" disabled={loadingOlder} onClick={onLoadOlder}>
           {loadingOlder ? 'Loading…' : 'Load earlier messages'}
         </Button>
+      )}
+      {!loading && unreadAbove && (
+        <Typography
+          data-testid={UNREAD_ABOVE_TEST_ID}
+          variant="caption"
+          color="error.main"
+          sx={{ textAlign: 'center', fontWeight: 600 }}
+        >
+          New messages start further up
+        </Typography>
       )}
       {!loading && messages.length === 0 && (
         <Typography color="text.secondary" sx={{ textAlign: 'center', mt: 4 }}>

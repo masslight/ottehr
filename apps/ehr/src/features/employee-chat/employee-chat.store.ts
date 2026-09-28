@@ -20,6 +20,14 @@ export interface ChatListItem {
   preview?: { body: string; mine: boolean };
 }
 
+export interface UnreadEntry {
+  id: number;
+  sid: string;
+  horizon: number | undefined;
+  unreadAbove: boolean;
+  dividerIndex?: number;
+}
+
 export interface EmployeeChatState {
   status: EmployeeChatStatus;
   error?: string;
@@ -34,7 +42,7 @@ export interface EmployeeChatState {
   loadingOlder: boolean;
   openingProfile?: string;
   openError?: string;
-  unreadEntry?: { id: number; sid: string; dividerIndex?: number };
+  unreadEntry?: UnreadEntry;
 }
 
 export const initialEmployeeChatState: EmployeeChatState = {

@@ -10,6 +10,7 @@ import {
   openChatWithEmployee,
   openConversation,
   openEmployeeChatDrawer,
+  UNREAD_PRELOAD_CAP,
 } from '../../src/features/employee-chat/employee-chat.connection';
 import { ChatListItem, ChatMessage, useEmployeeChatStore } from '../../src/features/employee-chat/employee-chat.store';
 import {
@@ -18,6 +19,7 @@ import {
   isUnread,
   lastSeenMessageIndex,
   splitLinks,
+  unreadStartsAboveLoaded,
   upsertByIndex,
   visibleChats,
 } from '../../src/features/employee-chat/employee-chat.utils';
@@ -82,15 +84,28 @@ const twilio = vi.hoisted(() => {
       return {
         items: this.messages.slice(start, end),
         hasPrevPage: start > 0,
-        prevPage: async () => this.page(start, size),
+        prevPage: async () => {
+          const gate = this.nextPrevPageGate;
+          this.nextPrevPageGate = undefined;
+          const result = this.page(start, size);
+          if (gate) await gate;
+          return result;
+        },
       };
     }
 
     nextGetMessagesGate: Promise<void> | undefined;
+    nextPrevPageGate: Promise<void> | undefined;
 
     holdNextGetMessages(): () => void {
       let release!: () => void;
       this.nextGetMessagesGate = new Promise<void>((resolve) => (release = resolve));
+      return release;
+    }
+
+    holdNextPrevPage(): () => void {
+      let release!: () => void;
+      this.nextPrevPageGate = new Promise<void>((resolve) => (release = resolve));
       return release;
     }
 
@@ -362,6 +377,15 @@ describe('employee chat utils', () => {
     expect(computeDividerIndex(messages, 9)).toBeUndefined();
     expect(computeDividerIndex([message(5, true)], 1)).toBeUndefined();
     expect(computeDividerIndex([], undefined)).toBeUndefined();
+  });
+
+  it('detects when unread messages may start above the loaded window', () => {
+    const loaded = [{ index: 50 }, { index: 51 }];
+    expect(unreadStartsAboveLoaded(loaded, true, 49)).toBe(true);
+    expect(unreadStartsAboveLoaded(loaded, true, undefined)).toBe(true);
+    expect(unreadStartsAboveLoaded(loaded, true, 50)).toBe(false);
+    expect(unreadStartsAboveLoaded(loaded, false, 10)).toBe(false);
+    expect(unreadStartsAboveLoaded([], true, undefined)).toBe(false);
   });
 
   it('finds the last message whose bottom edge is inside the viewport', () => {
@@ -736,6 +760,136 @@ describe('employee chat flows', () => {
     expect(messageAfterDivider()).toBe('15');
   });
 
+  const connectBobWithHistory = async (count: number, lastRead: number | null): Promise<any> => {
+    let bob: any;
+    await connectWith((client) => {
+      bob = client.addConversation('CH-bob');
+      bob.seed(count, 'bob-identity');
+      bob.lastReadMessageIndex = lastRead;
+      client.addConversation('CH-carol');
+    });
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    renderChat();
+    act(() => openEmployeeChatDrawer());
+    return bob;
+  };
+
+  const unreadAboveMarker = (): HTMLElement | null => screen.queryByTestId('employee-chat-unread-above');
+  const loadedIndexes = (): number[] => useEmployeeChatStore.getState().messages.map((m) => m.index);
+
+  it('preloads older pages until the first unread message is loaded', async () => {
+    mockScrollLayout();
+    mockAttention(() => true);
+    await connectBobWithHistory(120, 30);
+    await open('CH-bob');
+
+    expect(loadedIndexes()[0]).toBe(20);
+    expect(loadedIndexes()).toHaveLength(100);
+    expect(useEmployeeChatStore.getState().hasOlderMessages).toBe(true);
+    expect(messageAfterDivider()).toBe('31');
+    expect(unreadAboveMarker()).toBeNull();
+  });
+
+  it(`stops preloading at ${UNREAD_PRELOAD_CAP} messages and marks that new messages start further up`, async () => {
+    const layout = mockScrollLayout();
+    mockAttention(() => true);
+    const bob = await connectBobWithHistory(300, 10);
+    await open('CH-bob');
+
+    expect(loadedIndexes()).toHaveLength(UNREAD_PRELOAD_CAP);
+    expect(loadedIndexes()[0]).toBe(100);
+    expect(newDivider()).toBeNull();
+    expect(unreadAboveMarker()).toHaveTextContent('New messages start further up');
+    expect(layout.scrollTop()).toBe(0);
+
+    await advance(SEEN_DWELL_MS * 3);
+    expect(bob.advanceCalls).toEqual([]);
+  });
+
+  it('places the divider once older history reaches the boundary, without repositioning, and resumes seen tracking', async () => {
+    const layout = mockScrollLayout();
+    mockAttention(() => true);
+    const bob = await connectBobWithHistory(300, 10);
+    await open('CH-bob');
+    const entryId = useEmployeeChatStore.getState().unreadEntry?.id;
+
+    await act(async () => {
+      await loadOlderMessages();
+    });
+    expect(loadedIndexes()[0]).toBe(50);
+    expect(unreadAboveMarker()).not.toBeNull();
+    expect(newDivider()).toBeNull();
+
+    const scrollTopBefore = layout.scrollTop();
+    await act(async () => {
+      await loadOlderMessages();
+    });
+    expect(loadedIndexes()[0]).toBe(0);
+    expect(unreadAboveMarker()).toBeNull();
+    expect(messageAfterDivider()).toBe('11');
+    expect(useEmployeeChatStore.getState().unreadEntry?.id).toBe(entryId);
+    expect(layout.scrollTop()).toBeGreaterThan(scrollTopBefore);
+
+    fireEvent.scroll(screen.getByTestId(MESSAGES_TEST_ID));
+    await advance(SEEN_DWELL_MS);
+    expect(bob.advanceCalls).toHaveLength(1);
+    expect(bob.advanceCalls[0]).toBeGreaterThan(10);
+  });
+
+  it('preloads the capped window for a conversation that has never been read', async () => {
+    mockScrollLayout();
+    mockAttention(() => true);
+    await connectBobWithHistory(250, null);
+    await open('CH-bob');
+
+    expect(loadedIndexes()).toHaveLength(UNREAD_PRELOAD_CAP);
+    expect(unreadAboveMarker()).not.toBeNull();
+    expect(newDivider()).toBeNull();
+  });
+
+  it('still marks the conversation read through my reply while new messages start further up', async () => {
+    mockScrollLayout();
+    mockAttention(() => true);
+    const bob = await connectBobWithHistory(300, 10);
+    await open('CH-bob');
+
+    const input = screen.getByTestId('employee-chat-input') as HTMLTextAreaElement;
+    fireEvent.change(input, { target: { value: 'replying without scrolling up' } });
+    await act(async () => {
+      fireEvent.keyDown(input, { key: 'Enter' });
+    });
+    expect(bob.lastReadMessageIndex).toBe(300);
+    expect(unreadDot()).toHaveClass('MuiBadge-invisible');
+  });
+
+  it('ignores an older-history page from a previous visit that resolves after the conversation was reopened', async () => {
+    mockScrollLayout();
+    mockAttention(() => true);
+    const bob = await connectBobWithHistory(300, 10);
+    await open('CH-bob');
+    expect(loadedIndexes()[0]).toBe(100);
+
+    const release = bob.holdNextPrevPage();
+    const staleOlder = loadOlderMessages();
+    fireEvent.click(screen.getByRole('button', { name: 'Back to chats' }));
+    await open('CH-bob');
+    const freshEntry = useEmployeeChatStore.getState().unreadEntry;
+
+    release();
+    await act(async () => {
+      await staleOlder;
+    });
+    expect(loadedIndexes()[0]).toBe(100);
+    expect(loadedIndexes()).toHaveLength(UNREAD_PRELOAD_CAP);
+    expect(useEmployeeChatStore.getState().unreadEntry).toEqual(freshEntry);
+    expect(unreadAboveMarker()).not.toBeNull();
+
+    await act(async () => {
+      await loadOlderMessages();
+    });
+    expect(loadedIndexes()[0]).toBe(50);
+  });
+
   it('keeps a message that arrives below the viewport unread', async () => {
     mockLayout(() => 2);
     mockAttention(() => true);
@@ -775,6 +929,7 @@ describe('employee chat flows', () => {
     await connectWith((client) => {
       bob = client.addConversation('CH-bob');
       bob.seed(60, 'bob-identity');
+      bob.lastReadMessageIndex = 20;
       client.addConversation('CH-carol');
     });
     renderChat();
@@ -785,7 +940,7 @@ describe('employee chat flows', () => {
     });
     expect(screen.getAllByTestId('employee-chat-message')).toHaveLength(50);
     expect(unreadDot()).not.toHaveClass('MuiBadge-invisible');
-    expect(bob.lastReadMessageIndex).toBeNull();
+    expect(bob.lastReadMessageIndex).toBe(20);
     expect(bob.advanceCalls).toEqual([]);
 
     await act(async () => {

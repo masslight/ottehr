@@ -123,6 +123,7 @@ export const EmployeeChatDrawer: FC = () => {
             messages={messages}
             entryId={unreadEntry?.sid === activeSid ? unreadEntry?.id : undefined}
             dividerIndex={unreadEntry?.sid === activeSid ? unreadEntry?.dividerIndex : undefined}
+            unreadAbove={unreadEntry?.sid === activeSid && unreadEntry?.unreadAbove === true}
             otherName={activeChat?.otherEmployee.name ?? ''}
             loading={loadingMessages}
             hasOlderMessages={hasOlderMessages}

@@ -50,6 +50,14 @@ export function computeDividerIndex(messages: ChatMessage[], horizon: number | u
   return messages.find((message) => !message.mine && message.index > (horizon ?? -1))?.index;
 }
 
+export function unreadStartsAboveLoaded(
+  messages: { index: number }[],
+  hasOlderMessages: boolean,
+  horizon: number | undefined
+): boolean {
+  return hasOlderMessages && messages.length > 0 && messages[0].index > (horizon ?? -1);
+}
+
 export function lastSeenMessageIndex(
   viewportBottom: number,
   messages: { index: number; bottom: number }[]

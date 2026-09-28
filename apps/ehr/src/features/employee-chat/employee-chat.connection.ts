@@ -2,10 +2,17 @@ import Oystehr from '@oystehr/sdk';
 import type { Client, Conversation, Message, Paginator } from '@twilio/conversations';
 import { EmployeeChatSummary } from 'utils/lib/types/api/employee-chat.types';
 import { getEmployeeChats, openEmployeeChat } from '../../api/api';
-import { ChatListItem, ChatMessage, initialEmployeeChatState, useEmployeeChatStore } from './employee-chat.store';
-import { computeDividerIndex, upsertByIndex } from './employee-chat.utils';
+import {
+  ChatListItem,
+  ChatMessage,
+  initialEmployeeChatState,
+  UnreadEntry,
+  useEmployeeChatStore,
+} from './employee-chat.store';
+import { computeDividerIndex, unreadStartsAboveLoaded, upsertByIndex } from './employee-chat.utils';
 
 export const INITIAL_PAGE_SIZE = 50;
+export const UNREAD_PRELOAD_CAP = 200;
 const PREVIEW_CONCURRENCY = 5;
 const JOIN_TIMEOUT_MS = 5000;
 
@@ -144,8 +151,9 @@ async function advanceReadHorizon(sid: string, index: number): Promise<void> {
 }
 
 export function markActiveConversationSeen(index: number): void {
-  const { drawerOpen, view, activeSid, loadingMessages } = getState();
+  const { drawerOpen, view, activeSid, loadingMessages, unreadEntry } = getState();
   if (!drawerOpen || view !== 'conversation' || !activeSid || loadingMessages) return;
+  if (unreadEntry?.sid === activeSid && unreadEntry.unreadAbove) return;
   void advanceReadHorizon(activeSid, index);
 }
 
@@ -334,14 +342,30 @@ function readHorizon(sid: string): number | undefined {
   return maxIndex(conversationsBySid.get(sid)?.lastReadMessageIndex, getState().chats[sid]?.lastReadIndex);
 }
 
+function entryPosition(
+  messages: ChatMessage[],
+  hasOlderMessages: boolean,
+  horizon: number | undefined
+): Pick<UnreadEntry, 'unreadAbove' | 'dividerIndex'> {
+  const unreadAbove = unreadStartsAboveLoaded(messages, hasOlderMessages, horizon);
+  return { unreadAbove, dividerIndex: unreadAbove ? undefined : computeDividerIndex(messages, horizon) };
+}
+
+function newEntry(
+  sid: string,
+  messages: ChatMessage[],
+  hasOlderMessages: boolean,
+  horizon: number | undefined
+): UnreadEntry {
+  return { id: ++entrySeq, sid, horizon, ...entryPosition(messages, hasOlderMessages, horizon) };
+}
+
 export function openEmployeeChatDrawer(): void {
-  const { view, activeSid, messages, loadingMessages } = getState();
+  const { view, activeSid, messages, hasOlderMessages, loadingMessages } = getState();
   const reentering = view === 'conversation' && activeSid !== undefined && !loadingMessages;
   setState({
     drawerOpen: true,
-    unreadEntry: reentering
-      ? { id: ++entrySeq, sid: activeSid, dividerIndex: computeDividerIndex(messages, readHorizon(activeSid)) }
-      : undefined,
+    unreadEntry: reentering ? newEntry(activeSid, messages, hasOlderMessages, readHorizon(activeSid)) : undefined,
   });
 }
 
@@ -379,29 +403,40 @@ export async function openConversation(sid: string): Promise<void> {
     openError: undefined,
     unreadEntry: undefined,
   });
+  const isCurrent = (): boolean => myEpoch === epoch && myOpen === openSeq && getState().activeSid === sid;
   try {
-    const page = await conversation.getMessages(INITIAL_PAGE_SIZE);
-    if (myEpoch !== epoch || myOpen !== openSeq || getState().activeSid !== sid) return;
+    let page = await conversation.getMessages(INITIAL_PAGE_SIZE);
+    let items = [...page.items];
+    while (
+      isCurrent() &&
+      items.length < UNREAD_PRELOAD_CAP &&
+      unreadStartsAboveLoaded(items, page.hasPrevPage, horizon)
+    ) {
+      page = await page.prevPage();
+      items = [...page.items, ...items];
+    }
+    if (!isCurrent()) return;
     activePaginator = page;
+    const hasOlderMessages = page.hasPrevPage;
     setState((state) => {
       const messages = upsertByIndex(
         state.messages,
-        page.items.map((m) => toChatMessage(m, myIdentity))
+        items.map((m) => toChatMessage(m, myIdentity))
       );
       return {
         messages,
-        hasOlderMessages: page.hasPrevPage,
+        hasOlderMessages,
         loadingMessages: false,
-        unreadEntry: { id: ++entrySeq, sid, dividerIndex: computeDividerIndex(messages, horizon) },
+        unreadEntry: newEntry(sid, messages, hasOlderMessages, horizon),
       };
     });
   } catch (error) {
     console.error('employee chat load messages failed', error);
-    if (myEpoch !== epoch || myOpen !== openSeq || getState().activeSid !== sid) return;
+    if (!isCurrent()) return;
     setState({
       loadingMessages: false,
       openError: 'Could not load messages',
-      unreadEntry: { id: ++entrySeq, sid, dividerIndex: undefined },
+      unreadEntry: newEntry(sid, [], false, horizon),
     });
   }
 }
@@ -411,19 +446,28 @@ export async function loadOlderMessages(): Promise<void> {
   const paginator = activePaginator;
   if (!paginator?.hasPrevPage || loadingOlder || !activeSid) return;
   const myEpoch = epoch;
+  const myOpen = openSeq;
   setState({ loadingOlder: true });
   try {
     const previous = await paginator.prevPage();
-    if (myEpoch !== epoch || getState().activeSid !== activeSid) return;
+    if (myEpoch !== epoch || myOpen !== openSeq || getState().activeSid !== activeSid) return;
     activePaginator = previous;
-    setState((state) => ({
-      messages: upsertByIndex(
+    setState((state) => {
+      const messages = upsertByIndex(
         state.messages,
         previous.items.map((m) => toChatMessage(m, myIdentity))
-      ),
-      hasOlderMessages: previous.hasPrevPage,
-      loadingOlder: false,
-    }));
+      );
+      const entry = state.unreadEntry;
+      return {
+        messages,
+        hasOlderMessages: previous.hasPrevPage,
+        loadingOlder: false,
+        unreadEntry:
+          entry?.sid === activeSid && entry.unreadAbove
+            ? { ...entry, ...entryPosition(messages, previous.hasPrevPage, entry.horizon) }
+            : entry,
+      };
+    });
   } catch (error) {
     console.error('employee chat load older failed', error);
     if (myEpoch !== epoch) return;
