@@ -2,6 +2,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CloseIcon from '@mui/icons-material/Close';
 import { Alert, Box, Button, CircularProgress, Divider, Drawer, IconButton, Stack, Typography } from '@mui/material';
 import { FC, useEffect, useMemo } from 'react';
+import { adjustTopForBannerHeight } from 'src/helpers/misc.helper';
 import { ChatList } from './ChatList';
 import {
   closeEmployeeChatDrawer,
@@ -57,7 +58,15 @@ export const EmployeeChatDrawer: FC = () => {
       anchor="right"
       open={drawerOpen}
       onClose={closeEmployeeChatDrawer}
-      PaperProps={{ sx: { width: { xs: '100%', sm: 420 }, display: 'flex', flexDirection: 'column' } }}
+      PaperProps={{
+        sx: {
+          width: { xs: '100%', sm: 420 },
+          display: 'flex',
+          flexDirection: 'column',
+          top: adjustTopForBannerHeight(0),
+          height: `calc(100% - ${adjustTopForBannerHeight(0)}px)`,
+        },
+      }}
     >
       <Stack direction="row" alignItems="center" spacing={1} sx={{ px: 2, py: 1.5 }}>
         {view === 'conversation' && (
