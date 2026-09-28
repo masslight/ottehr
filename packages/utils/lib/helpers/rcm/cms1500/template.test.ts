@@ -118,7 +118,9 @@ const checked = (field: PDFCheckBox): string | undefined =>
     ?.getOnValue()
     ?.decodeText();
 
-describe('fillCms1500Template', () => {
+// Each test fills the 1.5 MB form, which takes about a second with coverage on and several times that
+// on a busy CI runner.
+describe('fillCms1500Template', { timeout: 30_000 }, () => {
   it('puts every box of the claim into a field of the template', async () => {
     const [values] = cms1500PageValues(claim);
     expect(Object.keys(values).sort()).toEqual(CMS1500_BOXES.map(({ name }) => name).sort());
