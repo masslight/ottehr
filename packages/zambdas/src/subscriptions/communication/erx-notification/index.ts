@@ -20,7 +20,6 @@ interface Input {
 let oystehrToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  console.log(`Input: ${JSON.stringify(input)}`);
   const { communication, secrets } = validateRequestParameters(input);
 
   if (!oystehrToken) {

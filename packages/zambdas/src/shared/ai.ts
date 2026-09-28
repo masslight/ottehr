@@ -220,6 +220,11 @@ export async function invokeChatbotVertexAI(
         throw new Error(`Vertex AI returned a non-JSON body: ${body.slice(0, 1000)}`);
       }
 
+      const finishReason = parsed?.candidates?.[0]?.finishReason;
+      if (finishReason !== 'STOP') {
+        console.warn(`Vertex AI output finishReason: ${finishReason}`);
+      }
+
       const candidate = parsed?.candidates?.[0];
       const text = candidate?.content?.parts?.[0]?.text;
       if (typeof text !== 'string' || text.trim().length === 0) {

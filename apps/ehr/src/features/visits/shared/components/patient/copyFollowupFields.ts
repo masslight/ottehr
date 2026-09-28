@@ -1,5 +1,5 @@
 import { visitNoteToLegacyChartData } from 'utils/lib/helpers/visit-note/visit-note-to-chart-data.helper';
-import { AllChartValues } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { AllChartValues, ExamObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
 import { GetVisitNoteRequest, VisitNoteResponse } from 'utils/lib/types/api/chart-data/get-visit-note.types';
 import { CopyableFollowupField } from 'utils/lib/types/api/prebook-create-appointment/prebook-create-appointment.types';
@@ -8,12 +8,24 @@ export interface CopyableFieldConfig {
   key: CopyableFollowupField;
   label: string;
   isEmpty: (data: GetChartDataResponse) => boolean;
-  /** Absent for fields copied server-side by create-appointment (currently: `diagnosis`). */
-  extract?: (data: GetChartDataResponse) => Partial<AllChartValues>;
+  extract?: (source: GetChartDataResponse, target?: GetChartDataResponse) => Partial<AllChartValues>;
+  stale?: (source: GetChartDataResponse, target: GetChartDataResponse) => Partial<AllChartValues>;
 }
 
-// Drop resourceId so save-chart-data creates fresh resources on the follow-up encounter.
-const stripId = <T extends { resourceId?: string }>(dto: T): T => ({ ...dto, resourceId: undefined });
+const takeOver = <T extends { resourceId?: string }>(dto: T, existing?: { resourceId?: string }): T => ({
+  ...dto,
+  resourceId: existing?.resourceId,
+});
+
+const takeOverByField = (source: ExamObservationDTO[], existing?: ExamObservationDTO[]): ExamObservationDTO[] => {
+  const byField = new Map((existing ?? []).filter((o) => o.resourceId).map((o) => [o.field, o] as const));
+  return source.map((dto) => takeOver(dto, byField.get(dto.field)));
+};
+
+const unclaimedOnTarget = (source?: ExamObservationDTO[], existing?: ExamObservationDTO[]): ExamObservationDTO[] => {
+  const claimed = new Set(takeOverByField(source ?? [], existing).map((o) => o.resourceId));
+  return (existing ?? []).filter((o) => o.resourceId && !claimed.has(o.resourceId));
+};
 
 // CC/HPI storage keys are swapped relative to labels; see ChiefComplaintField.tsx / HpiField.tsx.
 export const COPYABLE_FOLLOWUP_FIELDS: CopyableFieldConfig[] = [
@@ -22,28 +34,44 @@ export const COPYABLE_FOLLOWUP_FIELDS: CopyableFieldConfig[] = [
     key: 'chiefComplaint',
     label: 'Chief Complaint',
     isEmpty: (data) => !data.reasonForVisit?.text?.trim() && !data.historyOfPresentIllness?.text?.trim(),
-    extract: (data) => ({
-      ...(data.reasonForVisit?.text?.trim() ? { reasonForVisit: stripId(data.reasonForVisit) } : {}),
-      ...(data.historyOfPresentIllness ? { historyOfPresentIllness: stripId(data.historyOfPresentIllness) } : {}),
+    extract: (source, target) => ({
+      ...(source.reasonForVisit?.text?.trim()
+        ? { reasonForVisit: takeOver(source.reasonForVisit, target?.reasonForVisit) }
+        : {}),
+      ...(source.historyOfPresentIllness
+        ? { historyOfPresentIllness: takeOver(source.historyOfPresentIllness, target?.historyOfPresentIllness) }
+        : {}),
     }),
+    stale: (source, target) =>
+      !source.historyOfPresentIllness && target.historyOfPresentIllness?.resourceId
+        ? { historyOfPresentIllness: target.historyOfPresentIllness }
+        : {},
   },
   {
     key: 'historyOfPresentIllness',
     label: 'HPI',
     isEmpty: (data) => !data.chiefComplaint?.text?.trim(),
-    extract: (data) => (data.chiefComplaint ? { chiefComplaint: stripId(data.chiefComplaint) } : {}),
+    extract: (source, target) =>
+      source.chiefComplaint ? { chiefComplaint: takeOver(source.chiefComplaint, target?.chiefComplaint) } : {},
   },
   {
     key: 'mechanismOfInjury',
     label: 'Mechanism of Injury (includes date of injury)',
     isEmpty: (data) => !data.mechanismOfInjury?.text?.trim() && !data.accident?.date && !data.accident?.type?.length,
-    extract: (data) => ({
-      ...(data.mechanismOfInjury ? { mechanismOfInjury: stripId(data.mechanismOfInjury) } : {}),
-      ...(data.accident ? { accident: stripId(data.accident) } : {}),
+    extract: (source, target) => ({
+      ...(source.mechanismOfInjury
+        ? { mechanismOfInjury: takeOver(source.mechanismOfInjury, target?.mechanismOfInjury) }
+        : {}),
+      ...(source.accident ? { accident: takeOver(source.accident, target?.accident) } : {}),
+    }),
+    stale: (source, target) => ({
+      ...(!source.mechanismOfInjury && target.mechanismOfInjury?.resourceId
+        ? { mechanismOfInjury: target.mechanismOfInjury }
+        : {}),
+      ...(!source.accident && target.accident?.resourceId ? { accident: target.accident } : {}),
     }),
   },
   {
-    // No `extract`: copied server-side via followUpOptions.skipPatientDiagnosis.
     key: 'diagnosis',
     label: 'Diagnosis',
     isEmpty: (data) => !data.diagnosis?.length,
@@ -52,13 +80,27 @@ export const COPYABLE_FOLLOWUP_FIELDS: CopyableFieldConfig[] = [
     key: 'examObservations',
     label: 'Exam observations',
     isEmpty: (data) => !data.examObservations?.length,
-    extract: (data) => (data.examObservations?.length ? { examObservations: data.examObservations.map(stripId) } : {}),
+    extract: (source, target) =>
+      source.examObservations?.length
+        ? { examObservations: takeOverByField(source.examObservations, target?.examObservations) }
+        : {},
+    stale: (source, target) => {
+      const unclaimed = unclaimedOnTarget(source.examObservations, target.examObservations);
+      return unclaimed.length > 0 ? { examObservations: unclaimed } : {};
+    },
   },
   {
     key: 'rosObservations',
     label: 'ROS observations',
     isEmpty: (data) => !data.rosObservations?.length,
-    extract: (data) => (data.rosObservations?.length ? { rosObservations: data.rosObservations.map(stripId) } : {}),
+    extract: (source, target) =>
+      source.rosObservations?.length
+        ? { rosObservations: takeOverByField(source.rosObservations, target?.rosObservations) }
+        : {},
+    stale: (source, target) => {
+      const unclaimed = unclaimedOnTarget(source.rosObservations, target.rosObservations);
+      return unclaimed.length > 0 ? { rosObservations: unclaimed } : {};
+    },
   },
 ];
 

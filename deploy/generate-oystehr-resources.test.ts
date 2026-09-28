@@ -6,7 +6,7 @@ vi.mock('node:fs/promises');
 
 // FEATURE_FLAGS_CONFIG is a frozen compile-time constant, so tests toggle it through this
 // hoisted mutable object. Default off: existing tests describe the flag-off deploy path.
-const featureFlags = vi.hoisted(() => ({ nonInsuranceOrganizationsEnabled: false }));
+const featureFlags = vi.hoisted(() => ({ customOrganizationsEnabled: false }));
 
 vi.mock('utils/lib/ottehr-config/branding', () => ({ BRANDING_CONFIG: { projectName: 'test-project' } }));
 vi.mock('utils/lib/ottehr-config/sendgrid', () => ({ SENDGRID_CONFIG: { templates: {} } }));
@@ -504,11 +504,11 @@ describe('generate-oystehr-resources', () => {
       };
 
       beforeEach(() => {
-        featureFlags.nonInsuranceOrganizationsEnabled = true;
+        featureFlags.customOrganizationsEnabled = true;
       });
 
       afterEach(() => {
-        featureFlags.nonInsuranceOrganizationsEnabled = false;
+        featureFlags.customOrganizationsEnabled = false;
       });
 
       it.each(['ottehr', 'all'])('accepts BILLING_INTEGRATION=%s when the NIO flag is on', async (value) => {
@@ -534,7 +534,7 @@ describe('generate-oystehr-resources', () => {
       });
 
       it('leaves the flag-off world alone — unset BILLING_INTEGRATION still generates', async () => {
-        featureFlags.nonInsuranceOrganizationsEnabled = false;
+        featureFlags.customOrganizationsEnabled = false;
         setupMocks({});
 
         await expect(generateOystehrResources(createTestArgs())).resolves.toBeUndefined();

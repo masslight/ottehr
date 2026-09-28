@@ -197,7 +197,7 @@ async function generateOystehrResources(input: GenerateFhirResourcesArgs): Promi
 }
 
 /**
- * With nonInsuranceOrganizationsEnabled on, employer billing lives in the billing app and Candid
+ * With customOrganizationsEnabled on, employer billing lives in the billing app and Candid
  * can't see it, so Ottehr billing must be in the claims path: 'ottehr' alone, or 'all' to also
  * send comparison claims to Candid (those go out without the NIO employer). Candid-only routing —
  * 'candid', or unset, whose runtime default is Candid while secrets migrate — would silently drop
@@ -205,7 +205,7 @@ async function generateOystehrResources(input: GenerateFhirResourcesArgs): Promi
  * secrets edited outside IaC.
  */
 function assertBillingIntegrationSupportsNios(vars: { [key: string]: unknown }, env: string): void {
-  if (!FEATURE_FLAGS_CONFIG.nonInsuranceOrganizationsEnabled) {
+  if (!FEATURE_FLAGS_CONFIG.customOrganizationsEnabled) {
     return;
   }
   const billingIntegration = vars.BILLING_INTEGRATION;
@@ -213,10 +213,10 @@ function assertBillingIntegrationSupportsNios(vars: { [key: string]: unknown }, 
     throw new Error(
       `BILLING_INTEGRATION is '${
         billingIntegration || '(unset)'
-      }' for env '${env}', which routes claims through Candid only, but the nonInsuranceOrganizationsEnabled ` +
+      }' for env '${env}', which routes claims through Candid only, but the customOrganizationsEnabled ` +
         `feature flag is on. Non-insurance organizations need Ottehr billing as the system of record: set ` +
         `BILLING_INTEGRATION to 'ottehr' (or 'all' to also send comparison claims to Candid) in ` +
-        `config/.env/${env}.json, or turn off nonInsuranceOrganizationsEnabled.`
+        `config/.env/${env}.json, or turn off customOrganizationsEnabled.`
     );
   }
 }

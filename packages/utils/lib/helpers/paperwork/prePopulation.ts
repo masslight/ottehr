@@ -50,6 +50,8 @@ import { isValidUUID } from '../../validation/helper';
 import {
   formatPhoneNumberDisplay,
   getCandidPlanTypeCodeFromCoverage,
+  getCustomInsuranceOrgBusinessId,
+  getCustomInsuranceOrgReferenceUrl,
   getPayerId,
   getPayerUrl,
   isNioReferenceUrl,
@@ -872,10 +874,17 @@ const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput):
 
   if (primary) {
     const payerId = primary.class?.[0].value;
-    const org = insuranceOrgs.find((tempOrg) => getPayerId(tempOrg) === payerId);
+    const org = insuranceOrgs.find(
+      (tempOrg) => getPayerId(tempOrg) === payerId || getCustomInsuranceOrgBusinessId(tempOrg) === payerId
+    );
     if (payerId && org) {
+      const customOrgBusinessId = getCustomInsuranceOrgBusinessId(org);
       primaryInsurancePlanReference = {
-        reference: isValidUUID(org.id ?? '') ? `Organization/${org.id!}` : getPayerUrl(org.id!),
+        reference: customOrgBusinessId
+          ? getCustomInsuranceOrgReferenceUrl(org.id ?? '')
+          : isValidUUID(org.id ?? '')
+          ? `Organization/${org.id!}`
+          : getPayerUrl(org.id!),
         display: org.name,
       };
     }
@@ -883,10 +892,17 @@ const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput):
 
   if (secondary) {
     const payerId = secondary.class?.[0].value;
-    const org = insuranceOrgs.find((tempOrg) => getPayerId(tempOrg) === payerId);
+    const org = insuranceOrgs.find(
+      (tempOrg) => getPayerId(tempOrg) === payerId || getCustomInsuranceOrgBusinessId(tempOrg) === payerId
+    );
     if (payerId && org) {
+      const customOrgBusinessId = getCustomInsuranceOrgBusinessId(org);
       secondaryInsurancePlanReference = {
-        reference: isValidUUID(org.id ?? '') ? `Organization/${org.id!}` : getPayerUrl(org.id!),
+        reference: customOrgBusinessId
+          ? getCustomInsuranceOrgReferenceUrl(org.id ?? '')
+          : isValidUUID(org.id ?? '')
+          ? `Organization/${org.id!}`
+          : getPayerUrl(org.id!),
         display: org.name,
       };
     }
@@ -1148,10 +1164,17 @@ const mapEmployerToQuestionnaireResponseItems = (input: MapEmployerItemsInput): 
       case 'workers-comp-insurance-name':
         if (coverage) {
           const payerId = coverage.class?.[0].value;
-          const org = insuranceOrgs?.find((tempOrg) => getPayerId(tempOrg) === payerId);
+          const org = insuranceOrgs?.find(
+            (tempOrg) => getPayerId(tempOrg) === payerId || getCustomInsuranceOrgBusinessId(tempOrg) === payerId
+          );
           if (payerId && org) {
+            const customOrgBusinessId = getCustomInsuranceOrgBusinessId(org);
             const coverageReference: Reference = {
-              reference: isValidUUID(org.id ?? '') ? `Organization/${org.id!}` : getPayerUrl(org.id!),
+              reference: customOrgBusinessId
+                ? getCustomInsuranceOrgReferenceUrl(org.id ?? '')
+                : isValidUUID(org.id ?? '')
+                ? `Organization/${org.id!}`
+                : getPayerUrl(org.id!),
               display: org?.name,
             };
             answer = makeAnswer(coverageReference, 'Reference');
@@ -1241,10 +1264,10 @@ export const mapOccupationalMedicineEmployerToQuestionnaireResponseItems = (
 
   let occupationalMedicineEmployerReference: Reference | undefined = referenceOverride;
 
-  if (!occupationalMedicineEmployerReference && FEATURE_FLAGS_CONFIG.nonInsuranceOrganizationsEnabled) {
-    // NIO mode prefills only from an NIO token owner — the name comes from the stored display, no
-    // FHIR read. A legacy employer org stays visible on historical visits but never prefills
-    // forward.
+  if (!occupationalMedicineEmployerReference && FEATURE_FLAGS_CONFIG.customOrganizationsEnabled) {
+    // Custom-organizations mode prefills only from an NIO token owner — the name comes from the
+    // stored display, no FHIR read. A legacy employer org stays visible on historical visits but
+    // never prefills forward.
     const owner = occupationalMedicineAccount?.owner;
     if (isNioReferenceUrl(owner?.reference)) {
       occupationalMedicineEmployerReference = {

@@ -24,7 +24,6 @@ let m2mToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const { secrets } = validateRequestParameters(input);
-  console.log('Parameters: ' + JSON.stringify(input));
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);

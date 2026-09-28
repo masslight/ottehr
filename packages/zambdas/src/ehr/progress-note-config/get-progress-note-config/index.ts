@@ -5,6 +5,7 @@ import { GetProgressNoteConfigOutput } from 'utils/lib/types/api/progress-note-c
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { topLevelCatch } from '../../../shared/lambda';
+import { truncateForLog } from '../../../shared/logging';
 import { getProgressNoteConfigPayload } from '../../../shared/progress-note-config';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
@@ -27,7 +28,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     console.group('performEffect');
     const response = await performEffect(oystehr);
     console.groupEnd();
-    console.debug('performEffect success', response);
+    console.debug('performEffect success', truncateForLog(response));
 
     return { statusCode: 200, body: JSON.stringify(response) };
   } catch (error: unknown) {

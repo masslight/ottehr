@@ -23,7 +23,6 @@ let m2mToken: string;
 const ZAMBDA_NAME = 'get-or-create-visit-label-pdf';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  console.log(`Input: ${JSON.stringify(input)}`);
   console.log('Validating input');
   const { encounterId, secrets } = validateRequestParameters(input);
 

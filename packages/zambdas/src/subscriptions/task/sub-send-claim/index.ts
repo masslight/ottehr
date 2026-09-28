@@ -2,17 +2,15 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import { getOrCreateCandidApiClient } from 'utils/lib/helpers/candidApi';
-import { chooseJson } from 'utils/lib/helpers/oystehrApi';
-import { getOptionalSecret, getSecret, SecretsKeys } from 'utils/lib/secrets';
+import { getOptionalSecret, SecretsKeys } from 'utils/lib/secrets';
 import { APIError, isApiError, MISSING_REQUEST_SECRETS } from 'utils/lib/types/errors';
 import {
   CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM,
   createEncounterFromAppointment,
   shouldSendClaim,
   shouldUseCandid,
-  shouldUseOttehrBilling,
 } from '../../../shared/candid';
-import { sendErrors, sendWarning } from '../../../shared/errors';
+import { sendWarning } from '../../../shared/errors';
 import { getAuth0Token } from '../../../shared/getAuth0Token';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { lambdaResponse } from '../../../shared/lambda';
@@ -107,21 +105,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
               id: encounter.id,
               operations: encounterPatchOps,
             });
-          }
-        }
-        // no else, these are not mutually exclusive
-        if (shouldUseOttehrBilling(secrets)) {
-          try {
-            const response = await oystehr.zambda.execute({
-              id: 'create-billing-claim-from-encounter',
-              encounterId: encounter.id,
-            });
-            const { claimId } = chooseJson<{ claimId: string }>(response);
-            console.log(`Claim ${claimId} created in Ottehr Billing`);
-          } catch (err) {
-            // for now, do not prevent task completion
-            console.error(err);
-            void sendErrors(err, getSecret(SecretsKeys.ENVIRONMENT, secrets));
           }
         }
       }

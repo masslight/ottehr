@@ -20,7 +20,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.group('validateRequestParameters');
   const validatedParameters = await validateRequestParameters(input);
   console.groupEnd();
-  console.debug('validateRequestParameters success', JSON.stringify(validatedParameters));
 
   console.group('createOystehrClient');
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
@@ -31,7 +30,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.group('complexValidation');
   const validatedInput = await complexValidation(validatedParameters, secrets, oystehr);
   console.groupEnd();
-  console.debug('complexValidation success', JSON.stringify(validatedInput));
 
   console.group('performEffect');
   const success = await performEffect(validatedInput, oystehr);

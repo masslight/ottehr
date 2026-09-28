@@ -20,7 +20,6 @@ export function validateUpdatePaperworkParams(input: ZambdaInput): UpdatePaperwo
   }
 
   const inputJSON = safeJsonParse(input.body);
-  console.log('inputJSON', JSON.stringify(inputJSON));
   const { appointmentID, inProgress } = safeValidate(UpdatePaperworkInProgressBodySchema, inputJSON);
 
   if (!DateTime.fromISO(inProgress).isValid) {

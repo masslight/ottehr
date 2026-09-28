@@ -42,6 +42,9 @@ export interface UseBillingReportResult<T extends ReportEnvelope> {
   error: string | null;
   clearError: () => void;
   refresh: () => void;
+  // arms the next auto-run (fired by a fetch/params change) to queue a server-side recompute;
+  // lets "run report for a new range" ride the normal params-change reload
+  refreshNext: () => void;
 }
 
 // Shared fetch-and-poll loop: serves the cached report and polls while a server-side refresh runs.
@@ -58,6 +61,8 @@ export function useBillingReport<T extends ReportEnvelope>(options: {
   const [error, setError] = useState<string | null>(null);
   // invalidates in-flight loops when params change or the component unmounts
   const generation = useRef(0);
+  // consumed by the next auto-run; set via refreshNext() just before a params change
+  const refreshNextRun = useRef(false);
 
   const run = useCallback(
     async (refresh?: boolean): Promise<void> => {
@@ -91,7 +96,9 @@ export function useBillingReport<T extends ReportEnvelope>(options: {
 
   useEffect(() => {
     if (!enabled) return;
-    void run();
+    const refresh = refreshNextRun.current;
+    refreshNextRun.current = false;
+    void run(refresh);
   }, [run, enabled]);
 
   useEffect(() => {
@@ -107,5 +114,8 @@ export function useBillingReport<T extends ReportEnvelope>(options: {
     error,
     clearError: () => setError(null),
     refresh: () => void run(true),
+    refreshNext: () => {
+      refreshNextRun.current = true;
+    },
   };
 }

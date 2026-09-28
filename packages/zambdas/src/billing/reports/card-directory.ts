@@ -30,7 +30,7 @@ interface CardDirectoryPayload extends ReportPayload {
   entries: Record<string, CardDirectoryEntry>;
 }
 
-const DIRECTORY_CACHE_KEY = 'card-directory:v1:all';
+const DIRECTORY_CACHE_KEY = 'card-directory:v2:all';
 // reports may show a card change up to this much later; forced refreshes still go through the TTL
 export const CARD_ENTRY_TTL_HOURS = 24;
 const MAX_ENTRIES = 30000;

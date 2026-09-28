@@ -29,7 +29,7 @@ export const ClaimStatusResponseSchema = z
     response_time: z.string().optional(),
     sender_name: z.string().optional(),
     senderid: claimMdId,
-    sender_icn: claimMdId,
+    sender_icn: claimMdId.nullish().transform((icn) => icn ?? undefined),
     batchid: claimMdId,
     claimmd_id: claimMdId,
     messages: z.array(ClaimStatusMessageSchema).optional(),

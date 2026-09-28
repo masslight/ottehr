@@ -1,4 +1,4 @@
-import { Stack, TextField } from '@mui/material';
+import { Box, TextField } from '@mui/material';
 import { ReactElement } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
 import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils/lib/validation/constants';
@@ -16,7 +16,7 @@ export interface InstitutionalClaimAdditionalFieldsData {
 export function InstitutionalClaimAdditionalFields(): ReactElement {
   const { control } = useFormContext();
   return (
-    <Stack spacing={2}>
+    <Box sx={{ display: 'grid', gridTemplateColumns: '1fr', gap: 2.25, maxWidth: 680 }}>
       <Controller
         name="billType"
         control={control}
@@ -119,6 +119,6 @@ export function InstitutionalClaimAdditionalFields(): ReactElement {
           />
         )}
       />
-    </Stack>
+    </Box>
   );
 }

@@ -15,6 +15,7 @@ import {
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
 import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
 import { removePrefix } from 'utils/lib/helpers/helpers';
+import { getOptionalSecret, SecretsKeys } from 'utils/lib/secrets';
 import {
   visitStatusToFhirAppointmentStatusMap,
   visitStatusToFhirEncounterStatusMap,
@@ -26,8 +27,10 @@ import {
 import { TaskIndicator } from 'utils/lib/types/common';
 import { getInPersonVisitStatus } from 'utils/lib/utils/visitUtils';
 import { checkOrCreateM2MClientToken, getUser } from '../../shared/auth';
+import { shouldUseCandid, shouldUseOttehrBilling } from '../../shared/candid';
 import { createProvenanceForEncounter } from '../../shared/createProvenanceForEncounter';
 import { createPublishExcuseNotesOps } from '../../shared/createPublishExcuseNotesOps';
+import { sendErrors } from '../../shared/errors';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { getAppointmentAndRelatedResources } from '../../shared/pdf/visit-details-pdf/get-video-resources';
 import { FullAppointmentResourcePackage } from '../../shared/pdf/visit-details-pdf/types';
@@ -127,6 +130,9 @@ export const performEffect = async (
     const taskCreationResults = await Promise.all([visitNoteTaskPromise]);
     console.log('Follow-up task creation results ', taskCreationResults);
   } else {
+    const useCandid = shouldUseCandid(secrets);
+    const useOttehrBilling = shouldUseOttehrBilling(secrets);
+
     // For regular encounters: keep existing behavior
     if (currentStatus) {
       await changeStatusToCompleted(oystehr, user, visitResources, supervisorApprovalEnabled);
@@ -140,14 +146,27 @@ export const performEffect = async (
 
     const patientName = getFullestAvailableName(patient);
 
-    const tasks: Promise<Task>[] = [];
-    // Create Task that will kick off subscription to send the claim
-    const sendClaimTaskResource = getTaskResource(
-      TaskIndicator.sendClaim,
-      `Send claim to ${patientName}`,
-      appointmentId
-    );
-    tasks.push(oystehr.fhir.create(sendClaimTaskResource));
+    const tasks: Promise<unknown>[] = [];
+    if (useCandid) {
+      const sendClaimTaskResource = getTaskResource(
+        TaskIndicator.sendClaim,
+        `Send claim to ${patientName}`,
+        appointmentId
+      );
+      tasks.push(oystehr.fhir.create(sendClaimTaskResource));
+    }
+    if (useOttehrBilling) {
+      tasks.push(
+        oystehr.zambda.execute({ id: 'create-billing-claim-task', encounterId }).catch(async (error) => {
+          // The visit is already signed. Report billing failures without failing the sign request.
+          console.error('Failed to enqueue billing claim task', { encounterId, error });
+          await sendErrors(error, getOptionalSecret(SecretsKeys.ENVIRONMENT, secrets) ?? '', {
+            zambda: ZAMBDA_NAME,
+            encounterId,
+          }).catch((reportError) => console.error('Failed to report billing enqueue error', reportError));
+        })
+      );
+    }
 
     // Determine whether this sign call is a supervisor approving a visit that was pending approval.
     // The encounter was read before the status patch above, so the `awaiting-supervisor-approval`

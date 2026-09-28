@@ -114,6 +114,12 @@ describe('parseClaimStatusResponse', () => {
     ).toThrow(/invalid raw claim status response/);
   });
 
+  it('accepts a null sender_icn as an absent one', () => {
+    const parsed = parseClaimStatusResponse(response({ status: 'A', claimmd_id: '48213765', sender_icn: null }));
+    expect(parsed?.raw.sender_icn).toBeUndefined();
+    expect(parsed?.raw.claimmd_id).toBe('48213765');
+  });
+
   it('preserves unrecognized fields rather than dropping them', () => {
     const parsed = parseClaimStatusResponse(
       response({

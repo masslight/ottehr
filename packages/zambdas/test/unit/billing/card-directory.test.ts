@@ -5,6 +5,7 @@ import { Secrets } from 'utils/lib/secrets';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { gunzipSync, gzipSync } from 'zlib';
 import { lookupCardsWithDirectory } from '../../../src/billing/reports/card-directory';
+import { REPORT_CACHE_IDENTIFIER_SYSTEM } from '../../../src/billing/reports/framework/report-cache';
 
 const freshISO = DateTime.now().minus({ hours: 1 }).toUTC().toISO() ?? '';
 const staleISO = DateTime.now().minus({ hours: 48 }).toUTC().toISO() ?? '';
@@ -12,9 +13,8 @@ const staleISO = DateTime.now().minus({ hours: 48 }).toUTC().toISO() ?? '';
 const visaCard = { id: 'pm_visa', brand: 'visa', last4: '4242' };
 
 const secrets = { PROJECT_ID: 'test-project' } as unknown as Secrets;
-// 'card-directory:v1:all' after Z3 object-name sanitization
-const DIRECTORY_KEY_PATH = 'billing-reports/card-directory_v1_all';
-const DIRECTORY_META_PATH = `${DIRECTORY_KEY_PATH}.meta.json`;
+// 'card-directory:v2:all' after Z3 object-name sanitization
+const DIRECTORY_KEY_PATH = 'billing-reports/card-directory_v2_all';
 const DIRECTORY_PAYLOAD_PATH = `${DIRECTORY_KEY_PATH}/rev-1.json.gz`;
 
 interface Upload {
@@ -22,7 +22,8 @@ interface Upload {
   file: Blob;
 }
 
-// Z3-backed cache: presigned download served via fetch, saves via z3.uploadFile
+// Z3-backed cache committed via a DocumentReference meta: the meta is a FHIR search, the
+// payload a presigned download served via fetch; saves upload to Z3 then write the meta doc
 const clientWith = (
   entries: Record<string, unknown> | undefined
 ): {
@@ -43,18 +44,31 @@ const clientWith = (
     entries !== undefined
       ? gzipSync(new Uint8Array(Buffer.from(JSON.stringify({ generatedAt: freshISO, entries }), 'utf8')))
       : undefined;
-  const meta =
+  const metaDoc =
     entries !== undefined
-      ? JSON.stringify({ generatedAt: freshISO, sizeBytes: gz?.length ?? 0, objectPath: DIRECTORY_PAYLOAD_PATH })
+      ? {
+          resourceType: 'DocumentReference',
+          id: 'doc-1',
+          meta: { versionId: 'w1' },
+          status: 'current',
+          identifier: [{ system: REPORT_CACHE_IDENTIFIER_SYSTEM, value: 'card-directory:v2:all' }],
+          date: freshISO,
+          content: [
+            {
+              attachment: {
+                url: DIRECTORY_PAYLOAD_PATH,
+                size: gz?.length ?? 0,
+                contentType: 'application/gzip',
+                title: 'raw',
+              },
+            },
+          ],
+        }
       : undefined;
+  const search = vi.fn(async () => ({ unbundle: () => (metaDoc ? [metaDoc] : []) }));
+  const update = vi.fn(async (resource: unknown) => resource);
+  const create = vi.fn(async (resource: unknown) => resource);
   const fetchMock = vi.fn(async (url: string) => {
-    if (meta && String(url).endsWith(DIRECTORY_META_PATH)) {
-      return {
-        ok: true,
-        status: 200,
-        arrayBuffer: async () => Uint8Array.from(Buffer.from(meta)).buffer,
-      } as unknown as Response;
-    }
     if (gz && String(url).endsWith(DIRECTORY_PAYLOAD_PATH)) {
       return { ok: true, status: 200, arrayBuffer: async () => Uint8Array.from(gz).buffer } as unknown as Response;
     }
@@ -62,7 +76,10 @@ const clientWith = (
   });
   vi.stubGlobal('fetch', fetchMock);
   const deleteObject = vi.fn(async () => ({}));
-  const oystehr = { z3: { getPresignedUrl, uploadFile, deleteObject } } as unknown as Oystehr;
+  const oystehr = {
+    z3: { getPresignedUrl, uploadFile, deleteObject },
+    fhir: { search, update, create },
+  } as unknown as Oystehr;
   return { oystehr, uploads, uploadFile, fetchMock };
 };
 

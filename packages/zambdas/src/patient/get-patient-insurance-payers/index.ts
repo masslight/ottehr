@@ -2,7 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Organization, QuestionnaireItemAnswerOption } from 'fhir/r4b';
 import { ottehrExtensionUrl } from 'utils/lib/fhir/systemUrls';
-import { createOystehrClient, getPayerId } from 'utils/lib/helpers/helpers';
+import { createOystehrClient, getPayerId, getPayerName } from 'utils/lib/helpers/helpers';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import {
   ANSWER_OPTION_FROM_RESOURCE_UNDEFINED,
@@ -113,7 +113,7 @@ const performEffect = async (oystehr: Oystehr): Promise<QuestionnaireItemAnswerO
 };
 
 const formatPayerAsAnswerOption = (oystehr: Oystehr, payer: Organization): QuestionnaireItemAnswerOption => {
-  const name = payer.alias?.[0] ?? payer.name;
+  const name = getPayerName(payer);
   const payerId = getPayerId(payer);
   if (name && payerId && typeof name === 'string' && typeof payerId === 'string') {
     return {

@@ -27,7 +27,7 @@ type PipelineReportPayload = Omit<GetBillingPipelineReportResponse, 'fromCache' 
 
 export const pipelineReport: ReportDefinition<ReportDateWindowParams, PipelineReportPayload> = {
   kind: 'pipeline',
-  cacheVersion: 'v1',
+  cacheVersion: 'v2',
   paramsSchema: ReportDateWindowParamsSchema,
   cacheKeyOf: (params) => `${params.dateFrom ?? 'all'}:${params.dateTo ?? 'all'}`,
   emptyPayload: () => ({

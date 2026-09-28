@@ -11,12 +11,10 @@ import { complexValidation, validateRequestParameters } from './validateRequestP
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2MClientToken: string;
 export const index = wrapHandler('del-payment-method', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  console.log(`Input: ${JSON.stringify(input)}`);
   console.group('validateRequestParameters');
   let validatedParameters: ReturnType<typeof validateRequestParameters>;
   try {
     validatedParameters = validateRequestParameters(input);
-    console.log(JSON.stringify(validatedParameters, null, 4));
   } catch (error: any) {
     console.log(error);
     return lambdaResponse(400, { message: error.message });

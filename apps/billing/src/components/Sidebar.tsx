@@ -26,6 +26,7 @@ const DRAWER_WIDTH = 220;
 const navItems = [
   // { label: 'Home', path: '/', icon: <HomeIcon sx={{ fontSize: 18 }} /> },
   { label: 'Claims', path: '/claims', icon: <DescriptionIcon sx={{ fontSize: 18 }} /> },
+  { label: 'Claim Creation Queue', path: '/claim-creation-queue', icon: <ListIcon sx={{ fontSize: 18 }} /> },
   { label: 'Patients', path: '/patients', icon: <PeopleIcon sx={{ fontSize: 18 }} /> },
   {
     label: 'Insurance Organizations',

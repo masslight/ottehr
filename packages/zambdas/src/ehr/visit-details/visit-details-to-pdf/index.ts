@@ -28,8 +28,6 @@ const ZAMBDA_NAME = 'visit-details-to-pdf';
 let m2mToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  console.log(`${ZAMBDA_NAME} started, input: ${JSON.stringify(input)}`);
-
   const validatedParameters = validateRequestParameters(input);
   const { appointmentId, timezone, secrets } = validatedParameters;
 

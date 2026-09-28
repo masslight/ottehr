@@ -29,8 +29,6 @@ export const index = wrapHandler('patch-paperwork', async (input: ZambdaInput): 
 
   const effectInput = await validatePatchInputs(input, oystehr);
 
-  console.log('effect input', JSON.stringify(effectInput));
-
   const qr = await performEffect(effectInput, oystehr);
 
   return {

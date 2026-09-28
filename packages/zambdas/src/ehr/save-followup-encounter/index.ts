@@ -47,7 +47,6 @@ export function validateRequestParameters(input: ZambdaInput): SaveFollowupEncou
 let m2mToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  console.log(`Input: ${JSON.stringify(input)}`);
   const { secrets, encounterDetails } = validateRequestParameters(input);
   console.log('updated encounter details', encounterDetails);
 

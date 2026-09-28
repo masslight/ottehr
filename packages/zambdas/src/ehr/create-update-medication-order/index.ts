@@ -74,7 +74,6 @@ const statusesToCreateAdditionalCptCodes: MedicationOrderStatusesType[] = ['admi
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const validatedParameters = validateRequestParameters(input);
-  console.log('Validated parameters: ', JSON.stringify(validatedParameters));
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
   const userToken = input.headers.Authorization.replace('Bearer ', '') as string;

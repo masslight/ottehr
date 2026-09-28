@@ -10,6 +10,7 @@ import { fetchAllActivePatientArClaims } from '../../billing/search-billing-pati
 import { createBillingClient } from '../../billing/shared';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { isOttehrBillingInvoicingEnabled } from '../../shared/invoice-tasks';
+import { truncateForLog } from '../../shared/logging';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -39,7 +40,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.group('performEffect');
   const response = await performEffect(oystehr);
   console.groupEnd();
-  console.debug('performEffect success', response);
+  console.debug('performEffect success', truncateForLog(response));
 
   return {
     statusCode: 200,
