@@ -1,7 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Questionnaire } from 'fhir/r4b';
-import { fhirQuestionnaireToPracticeManaged } from 'utils/lib/helpers/practice-managed-questionnaires';
+import { fhirQuestionnaireToPracticeManaged, isJsonImportedQ } from 'utils/lib/helpers/practice-managed-questionnaires';
 import {
   PracticeManagedQuestionnaire,
   PracticeManagedQuestionnaireGetOutput,
@@ -46,6 +46,11 @@ async function getQuestionnaire(
 
   validateQisPracticeManaged(questionnaire, questionnaireId);
 
+  // json imported questionnaires are read only and may contain attributes the builder cannot process
+  if (isJsonImportedQ(questionnaire)) {
+    return { isJsonImport: true, questionnaire };
+  }
+
   let practiceManagedQuestionnaire: PracticeManagedQuestionnaire | undefined;
   try {
     practiceManagedQuestionnaire = fhirQuestionnaireToPracticeManaged(questionnaire);
@@ -54,6 +59,7 @@ async function getQuestionnaire(
   }
 
   const res: PracticeManagedQuestionnaireGetOutput = {
+    isJsonImport: false,
     practiceManagedQuestionnaire,
   };
 

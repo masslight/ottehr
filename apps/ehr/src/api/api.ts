@@ -385,6 +385,8 @@ import {
   PracticeManagedQuestionnaireCreateOutput,
   PracticeManagedQuestionnaireGetInput,
   PracticeManagedQuestionnaireGetOutput,
+  PracticeManagedQuestionnaireImportJsonInput,
+  PracticeManagedQuestionnaireImportJsonOutput,
   PracticeManagedQuestionnaireListOutput,
   PracticeManagedQuestionnaireUpdateInput,
   PracticeManagedQuestionnaireUpdateOutput,
@@ -546,6 +548,7 @@ const MANAGED_QUESTIONNAIRE_GET_ZAMBDA_ID = 'practice-managed-questionnaire-get'
 const MANAGED_QUESTIONNAIRE_LIST_ZAMBDA_ID = 'practice-managed-questionnaire-list';
 const MANAGED_QUESTIONNAIRE_UPDATE_ZAMBDA_ID = 'practice-managed-questionnaire-update';
 const MANAGED_QUESTIONNAIRE_CREATE_ZAMBDA_ID = 'practice-managed-questionnaire-create';
+const MANAGED_QUESTIONNAIRE_IMPORT_JSON_ZAMBDA_ID = 'practice-managed-questionnaire-import-json';
 const PAPERWORK_FLOW_LIST_ZAMBDA_ID = 'paperwork-flow-list';
 const PAPERWORK_FLOW_CREATE_ZAMBDA_ID = 'paperwork-flow-create';
 const PAPERWORK_FLOW_UPDATE_ZAMBDA_ID = 'paperwork-flow-update';
@@ -3680,6 +3683,22 @@ export const practiceManagedQuestionnaireCreate = async (
   try {
     const response = await oystehr.zambda.execute({
       id: MANAGED_QUESTIONNAIRE_CREATE_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const practiceManagedQuestionnaireImportJson = async (
+  oystehr: Oystehr,
+  parameters: PracticeManagedQuestionnaireImportJsonInput
+): Promise<PracticeManagedQuestionnaireImportJsonOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: MANAGED_QUESTIONNAIRE_IMPORT_JSON_ZAMBDA_ID,
       ...parameters,
     });
     return chooseJson(response);
