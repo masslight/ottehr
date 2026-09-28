@@ -163,7 +163,7 @@ describe('net-collections compute', () => {
     expect(payload.payerRows[0]).toMatchObject({ allowed: 80, patientResp: 20, expected: 60, paid: 60 });
   });
 
-  it('collapses sequential adjudications of one claim into latest-allowed/latest-PR denominators', async () => {
+  it('splits a COB claim\u2019s expectation across payers by the balance each adjudication retired', async () => {
     const { payload } = await computeWith({
       eras: [era('era-1', '2026-01-10', 'Organization/aetna'), era('era-2', '2026-02-05', 'Organization/bcbs')],
       claimResponsesByEra: {
@@ -174,18 +174,17 @@ describe('net-collections compute', () => {
       patient: { net: 0, byMonth: new Map() },
     });
 
-    // allowed 80 (latest defined), PR 5 (latest), paid 60+15
+    // primary retired 80−20=60, secondary 20−5=15; paid stays cash-basis per ERA
     expect(payload.insurance).toEqual({ collected: 75, expected: 75 });
     expect(payload.patient.expected).toBe(5);
     expect(payload.overall).toEqual({ collected: 75, expected: 80 });
 
-    // paid stays cash-basis per ERA; the claim's denominators land once, on the final adjudication
     const rows = Object.fromEntries(payload.payerRows.map((row) => [row.payerName, row]));
-    expect(rows['Aetna']).toMatchObject({ claimCount: 0, allowed: 0, patientResp: 0, paid: 60 });
-    expect(rows['BCBS']).toMatchObject({ claimCount: 1, allowed: 80, patientResp: 5, paid: 15 });
+    expect(rows['Aetna']).toMatchObject({ claimCount: 1, allowed: 80, patientResp: 20, expected: 60, paid: 60 });
+    expect(rows['BCBS']).toMatchObject({ claimCount: 1, allowed: 20, patientResp: 5, expected: 15, paid: 15 });
     expect(payload.monthly).toEqual([
-      { month: '2026-01', insurance: { collected: 60, expected: 0 }, patient: { collected: 0, expected: 0 } },
-      { month: '2026-02', insurance: { collected: 15, expected: 75 }, patient: { collected: 0, expected: 5 } },
+      { month: '2026-01', insurance: { collected: 60, expected: 60 }, patient: { collected: 0, expected: 0 } },
+      { month: '2026-02', insurance: { collected: 15, expected: 15 }, patient: { collected: 0, expected: 5 } },
     ]);
   });
 
@@ -204,17 +203,18 @@ describe('net-collections compute', () => {
       patient: { net: 0, byMonth: new Map() },
     });
 
-    // allowed 80 rides in from the January remit; collected stays cash-basis (February's 15 only)
-    expect(payload.insurance).toEqual({ collected: 15, expected: 75 });
+    // the January remit's history supplies the basis (PR 20); only the secondary's share is
+    // in-window: expected 20−5=15, collected 15
+    expect(payload.insurance).toEqual({ collected: 15, expected: 15 });
     expect(payload.patient.expected).toBe(5);
-    expect(payload.overall).toEqual({ collected: 15, expected: 80 });
+    expect(payload.overall).toEqual({ collected: 15, expected: 20 });
     expect(payload.payerRows).toHaveLength(1);
     expect(payload.payerRows[0]).toMatchObject({
       payerName: 'BCBS',
       claimCount: 1,
-      allowed: 80,
+      allowed: 20,
       patientResp: 5,
-      expected: 75,
+      expected: 15,
       paid: 15,
     });
   });

@@ -91,8 +91,8 @@ export const netCollectionsReport: ReportDefinition<
       onProgress
     );
 
-    const patientRespTotal = insurance.payerRows.reduce((sum, row) => sum + row.patientResp, 0);
-    const allowedTotal = insurance.payerRows.reduce((sum, row) => sum + row.allowed, 0);
+    const patientRespTotal = insurance.totals.patientResp;
+    const insuranceExpectedTotal = insurance.totals.insuranceExpected;
     const paidTotal = insurance.payerRows.reduce((sum, row) => sum + row.paid, 0);
 
     const months = [...new Set([...insurance.byMonth.keys(), ...patient.byMonth.keys()])].sort();
@@ -109,8 +109,8 @@ export const netCollectionsReport: ReportDefinition<
     });
 
     const payload: NetCollectionsPayload = {
-      overall: roundBucket({ collected: paidTotal + patient.net, expected: allowedTotal }),
-      insurance: roundBucket({ collected: paidTotal, expected: allowedTotal - patientRespTotal }),
+      overall: roundBucket({ collected: paidTotal + patient.net, expected: insuranceExpectedTotal + patientRespTotal }),
+      insurance: roundBucket({ collected: paidTotal, expected: insuranceExpectedTotal }),
       patient: roundBucket({ collected: patient.net, expected: patientRespTotal }),
       payerRows: insurance.payerRows,
       monthly,
@@ -156,10 +156,19 @@ async function computeInsuranceSide(
   byMonth: Map<string, InsuranceMonth>;
   matched: MatchedClaimKeys;
   detail: NetCollectionsReportDetail;
+  // claim-chain telescoped: expected shares retired in the window + final patient responsibility
+  totals: { insuranceExpected: number; patientResp: number };
 }> {
   const allEras = await fetchAllEras(eraReadClient);
   const eras = allEras.filter((era) => checkDateInRange(era, params.dateFrom, params.dateTo));
-  if (eras.length === 0) return { payerRows: [], byMonth: new Map(), matched: emptyMatched(), detail: { eras: [] } };
+  if (eras.length === 0)
+    return {
+      payerRows: [],
+      byMonth: new Map(),
+      matched: emptyMatched(),
+      detail: { eras: [] },
+      totals: { insuranceExpected: 0, patientResp: 0 },
+    };
 
   const fetched = await fetchClaimResponsesByPaymentReconciliations(eraReadClient, eras);
   const claimResponsesByPrId = new Map(
@@ -270,15 +279,17 @@ async function computeInsuranceSide(
     }
   }
 
-  // Denominators are claim-level: a claim's responses are sequential adjudications, so allowed and
-  // patient responsibility follow summarizeClaimPayments (latest allowed / latest PR over summed
-  // paid) and land once, on the final adjudication's ERA/payer/month. A bounded window can catch
-  // only a later remit (e.g. a secondary that reports no allowed amount), so denominators read the
-  // claim's full remit history up to the final in-window adjudication.
+  // Denominators telescope through each claim's adjudication chain: every remit's expected share
+  // is the outstanding balance it retired (basis − the patient responsibility it left), so a
+  // COB claim's expectation splits across the payers that actually adjudicated it. Out-of-window
+  // remits only advance the running balance — the history is fetched so a window that catches
+  // only a later remit still knows its basis.
   const historyByClaimId =
     params.dateFrom || params.dateTo
       ? await fetchClaimResponsesByClaimIds(eraReadClient, matchedClaimIds)
       : new Map<string, ClaimResponse[]>();
+  let insuranceExpectedTotal = 0;
+  let patientRespTotal = 0;
   for (const [claimId, claimResponses] of crsByClaimId) {
     const ordered = sortClaimResponsesByRecency(claimResponses);
     const finalCr = ordered[ordered.length - 1];
@@ -288,35 +299,52 @@ async function computeInsuranceSide(
       ...(historyByClaimId.get(claimId) ?? []).filter((cr) => !seen.has(cr.id ?? cr)),
     ]);
     const history = merged.slice(0, merged.indexOf(finalCr) + 1);
-    const amounts = history.map(extractClaimResponseAmounts);
-    const paidTotal = amounts.reduce((sum, a) => sum + a.paid, 0);
-    const allowed = amounts.findLast((a) => a.allowed !== undefined)?.allowed ?? 0;
-    // no CAS data on the latest adjudication falls back to allowed-but-unpaid, floored —
-    // coalescing to 0 would count the whole allowed amount as insurance-collectible
-    const patientResp = Math.max(amounts[amounts.length - 1].patientResp ?? allowed - paidTotal, 0);
 
-    const finalEraId = eraIdByCr.get(finalCr) ?? '';
-    const row = rowByEraId.get(finalEraId);
-    if (row) {
-      row.claimCount += 1;
-      row.allowed += allowed;
-      row.patientResp += patientResp;
+    let outstanding = 0;
+    let knownAllowed = 0;
+    const countedRows = new Set<NetCollectionsPayerRow>();
+    for (const claimResponse of history) {
+      const amounts = extractClaimResponseAmounts(claimResponse);
+      if (amounts.allowed !== undefined && amounts.allowed !== knownAllowed) {
+        outstanding += amounts.allowed - knownAllowed;
+        knownAllowed = amounts.allowed;
+      }
+      const basis = outstanding;
+      // no CAS data falls back to basis-but-unpaid, floored — coalescing to 0 would count the
+      // whole basis as insurance-collectible
+      const stepPatientResp = Math.max(amounts.patientResp ?? basis - amounts.paid, 0);
+      outstanding = stepPatientResp;
+
+      const eraId = eraIdByCr.get(claimResponse);
+      if (eraId === undefined) continue;
+      insuranceExpectedTotal += basis - stepPatientResp;
+      const row = rowByEraId.get(eraId);
+      if (row) {
+        if (!countedRows.has(row)) {
+          countedRows.add(row);
+          row.claimCount += 1;
+        }
+        row.allowed += basis;
+        row.patientResp += stepPatientResp;
+      }
+      const month = monthByEraId.get(eraId);
+      if (month) month.insurance.expected += basis - stepPatientResp;
+      const detailEra = detailEraByEraId.get(eraId);
+      if (detailEra) {
+        detailEra.allowed = round(detailEra.allowed + basis);
+        detailEra.patientResp = round(detailEra.patientResp + stepPatientResp);
+      }
+      const line = lineByCr.get(claimResponse);
+      if (line) {
+        line.allowed = round(basis);
+        line.patientResp = round(stepPatientResp);
+      }
     }
-    const month = monthByEraId.get(finalEraId);
-    if (month) {
-      month.insurance.expected += allowed - patientResp;
-      month.patientResp += patientResp;
-    }
-    const detailEra = detailEraByEraId.get(finalEraId);
-    if (detailEra) {
-      detailEra.allowed = round(detailEra.allowed + allowed);
-      detailEra.patientResp = round(detailEra.patientResp + patientResp);
-    }
-    const line = lineByCr.get(finalCr);
-    if (line) {
-      line.allowed = round(allowed);
-      line.patientResp = round(patientResp);
-    }
+
+    // the patient owes what the final adjudication left outstanding
+    patientRespTotal += outstanding;
+    const finalMonth = monthByEraId.get(eraIdByCr.get(finalCr) ?? '');
+    if (finalMonth) finalMonth.patientResp += outstanding;
   }
 
   const rateOf = (row: NetCollectionsPayerRow): number | null => (row.expected > 0 ? row.paid / row.expected : null);
@@ -341,6 +369,7 @@ async function computeInsuranceSide(
     byMonth,
     matched: matchedClaimKeysOf(matchedClaimIds, partialClaimsById),
     detail: { eras: detailEras },
+    totals: { insuranceExpected: insuranceExpectedTotal, patientResp: patientRespTotal },
   };
 }
 
