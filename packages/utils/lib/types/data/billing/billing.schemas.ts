@@ -28,6 +28,9 @@ import {
 const nonEmptyString = z.string().trim().min(1);
 const nonNegativeInt = z.number().int().nonnegative();
 const gender = z.enum(['male', 'female', 'unknown']);
+// Accepts one value or a list of them and always yields a list (the values are ORed together).
+const oneOrMany = <T extends z.ZodTypeAny>(schema: T): z.ZodEffects<z.ZodUnion<[T, z.ZodArray<T>]>, z.output<T>[]> =>
+  z.union([schema, z.array(schema)]).transform((value) => (Array.isArray(value) ? value : [value]));
 
 // When a resource is edited in the context of a claim (the claim detail screen editing the claim's
 // working copies), the edit endpoints record the change in that claim's history. Edits from the
@@ -157,10 +160,11 @@ export const SearchBillingClaimsInputSchema = z.object({
   searchText: nonEmptyString.optional(),
   // Limit search to patient names and claim IDs.
   patientNameOnly: z.boolean().optional(),
-  type: z.enum(CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES).optional(),
-  arStage: nonEmptyString.optional(),
-  status: nonEmptyString.optional(),
-  tag: nonEmptyString.optional(),
+  // Each list filter below matches a claim with any one of its values.
+  type: oneOrMany(z.enum(CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES)).optional(),
+  arStage: oneOrMany(nonEmptyString).optional(),
+  status: oneOrMany(nonEmptyString).optional(),
+  tag: oneOrMany(nonEmptyString).optional(),
   createdFrom: nonEmptyString.optional(),
   createdTo: nonEmptyString.optional(),
   // only claims last updated on/before this ISO timestamp (stale-claim drilldowns)
@@ -170,10 +174,10 @@ export const SearchBillingClaimsInputSchema = z.object({
   payerName: nonEmptyString.optional(),
   // A value shaped like a custom insurance organization's business id ("OTR-...") is resolved to
   // that org rather than looked up as an RCM payer id (see resolvePayerIssuerFilter).
-  payerId: nonEmptyString.optional(),
-  nonInsurancePayerId: nonEmptyString.uuid().optional(),
-  service: nonEmptyString.optional(),
-  patientId: nonEmptyString.optional(),
+  payerId: oneOrMany(nonEmptyString).optional(),
+  nonInsurancePayerId: oneOrMany(nonEmptyString.uuid()).optional(),
+  service: oneOrMany(nonEmptyString).optional(),
+  patientId: oneOrMany(nonEmptyString).optional(),
   offset: nonNegativeInt.optional(),
   pageSize: nonNegativeInt.optional(),
 });
