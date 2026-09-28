@@ -20,6 +20,7 @@ export const MessageBubble: FC<MessageBubbleProps> = ({ message, otherName }) =>
   return (
     <Box
       data-testid="employee-chat-message"
+      data-message-index={message.index}
       sx={{
         alignSelf: message.mine ? 'flex-end' : 'flex-start',
         maxWidth: '85%',

@@ -15,6 +15,7 @@ import { ChatListItem, ChatMessage, useEmployeeChatStore } from '../../src/featu
 import {
   employeeInitials,
   isUnread,
+  lastSeenMessageIndex,
   splitLinks,
   upsertByIndex,
   visibleChats,
@@ -22,6 +23,7 @@ import {
 import { EmployeeChatButton } from '../../src/features/employee-chat/EmployeeChatButton';
 import { EmployeeChatDrawer } from '../../src/features/employee-chat/EmployeeChatDrawer';
 import { MessageBubble } from '../../src/features/employee-chat/MessageBubble';
+import { SEEN_DWELL_MS } from '../../src/features/employee-chat/useSeenMessages';
 
 const twilio = vi.hoisted(() => {
   type Handler = (...args: any[]) => void;
@@ -207,6 +209,34 @@ const connectWith = async (setup: (client: InstanceType<typeof twilio.FakeClient
 const unreadDot = (): HTMLElement =>
   screen.getByTestId('employee-chat-unread-dot').querySelector('.MuiBadge-badge') as HTMLElement;
 
+const rect = (top: number, bottom: number): DOMRect =>
+  ({ top, bottom, height: bottom - top, left: 0, right: 0, width: 0, x: 0, y: top, toJSON: () => ({}) }) as DOMRect;
+
+const VIEWPORT_HEIGHT = 300;
+const MESSAGE_HEIGHT = 50;
+
+const mockLayout = (visibleThrough: () => number): void => {
+  vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+    if (this.dataset.testid === 'employee-chat-messages') return rect(0, VIEWPORT_HEIGHT);
+    if (this.dataset.messageIndex !== undefined) {
+      const bottom = VIEWPORT_HEIGHT + (Number(this.dataset.messageIndex) - visibleThrough()) * MESSAGE_HEIGHT;
+      return rect(bottom - MESSAGE_HEIGHT, bottom);
+    }
+    return rect(0, 0);
+  });
+};
+
+const mockAttention = (focused: () => boolean): void => {
+  vi.spyOn(document, 'hasFocus').mockImplementation(focused);
+  vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible');
+};
+
+const advance = async (ms: number): Promise<void> => {
+  await act(async () => {
+    vi.advanceTimersByTime(ms);
+  });
+};
+
 describe('employee chat utils', () => {
   it('builds initials from first and last name', () => {
     expect(employeeInitials('ana', 'lopez')).toBe('AL');
@@ -256,6 +286,14 @@ describe('employee chat utils', () => {
     expect(isUnread(chat(0, null))).toBe(true);
     expect(isUnread(chat(4, 4))).toBe(false);
     expect(isUnread(chat(5, 4))).toBe(true);
+  });
+
+  it('finds the last message whose bottom edge is inside the viewport', () => {
+    const at = (index: number, bottom: number): { index: number; bottom: number } => ({ index, bottom });
+    expect(lastSeenMessageIndex(300, [])).toBeUndefined();
+    expect(lastSeenMessageIndex(300, [at(0, 320)])).toBeUndefined();
+    expect(lastSeenMessageIndex(300, [at(0, -50), at(1, 150), at(2, 300), at(3, 350)])).toBe(2);
+    expect(lastSeenMessageIndex(300, [at(7, 290.5), at(4, 100)])).toBe(7);
   });
 
   it('shows chats with messages plus the active one, newest first', () => {
@@ -331,7 +369,129 @@ describe('employee chat flows', () => {
 
   afterEach(() => {
     act(() => disconnectEmployeeChat());
+    vi.useRealTimers();
+    vi.restoreAllMocks();
     vi.clearAllMocks();
+  });
+
+  const openBobWithUnread = async (count: number): Promise<any> => {
+    let bob: any;
+    await connectWith((client) => {
+      bob = client.addConversation('CH-bob');
+      bob.seed(count, 'bob-identity');
+      client.addConversation('CH-carol');
+    });
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    renderChat();
+    act(() => openEmployeeChatDrawer());
+    await act(async () => {
+      await openConversation('CH-bob');
+    });
+    return bob;
+  };
+
+  it('marks messages seen only after their bottom edge stays in view for the dwell time', async () => {
+    let visibleThrough = 5;
+    mockLayout(() => visibleThrough);
+    mockAttention(() => true);
+    const bob = await openBobWithUnread(10);
+
+    await advance(SEEN_DWELL_MS - 1);
+    expect(bob.advanceCalls).toEqual([]);
+    await advance(1);
+    expect(bob.advanceCalls).toEqual([5]);
+    expect(unreadDot()).not.toHaveClass('MuiBadge-invisible');
+
+    visibleThrough = 9;
+    fireEvent.scroll(screen.getByTestId('employee-chat-messages'));
+    await advance(SEEN_DWELL_MS / 2);
+    fireEvent.scroll(screen.getByTestId('employee-chat-messages'));
+    await advance(SEEN_DWELL_MS - 1);
+    expect(bob.advanceCalls).toEqual([5]);
+    await advance(1);
+    expect(bob.advanceCalls).toEqual([5, 9]);
+    expect(unreadDot()).toHaveClass('MuiBadge-invisible');
+  });
+
+  it('does not mark messages seen when the drawer closes before the dwell elapses', async () => {
+    mockLayout(() => 9);
+    mockAttention(() => true);
+    const bob = await openBobWithUnread(10);
+
+    await advance(SEEN_DWELL_MS / 2);
+    act(() => closeEmployeeChatDrawer());
+    await advance(SEEN_DWELL_MS * 3);
+    expect(bob.advanceCalls).toEqual([]);
+  });
+
+  it('does not mark messages seen when going back to the list before the dwell elapses', async () => {
+    mockLayout(() => 9);
+    mockAttention(() => true);
+    const bob = await openBobWithUnread(10);
+
+    await advance(SEEN_DWELL_MS / 2);
+    fireEvent.click(screen.getByRole('button', { name: 'Back to chats' }));
+    await advance(SEEN_DWELL_MS * 3);
+    expect(bob.advanceCalls).toEqual([]);
+  });
+
+  it('waits for the window to be focused before marking messages seen', async () => {
+    let focused = false;
+    mockLayout(() => 9);
+    mockAttention(() => focused);
+    const bob = await openBobWithUnread(10);
+
+    await advance(SEEN_DWELL_MS * 3);
+    expect(bob.advanceCalls).toEqual([]);
+
+    focused = true;
+    act(() => {
+      window.dispatchEvent(new Event('focus'));
+    });
+    await advance(SEEN_DWELL_MS / 2);
+    focused = false;
+    act(() => {
+      window.dispatchEvent(new Event('blur'));
+    });
+    await advance(SEEN_DWELL_MS * 3);
+    expect(bob.advanceCalls).toEqual([]);
+
+    focused = true;
+    act(() => {
+      window.dispatchEvent(new Event('focus'));
+    });
+    await advance(SEEN_DWELL_MS);
+    expect(bob.advanceCalls).toEqual([9]);
+  });
+
+  it('marks a message that arrives while I am reading at the bottom as seen', async () => {
+    let visibleThrough = 2;
+    mockLayout(() => visibleThrough);
+    mockAttention(() => true);
+    const bob = await openBobWithUnread(3);
+    await advance(SEEN_DWELL_MS);
+    expect(bob.advanceCalls).toEqual([2]);
+
+    visibleThrough = 3;
+    await act(async () => {
+      bob.receive('bob-identity', 'one more thing');
+    });
+    await advance(SEEN_DWELL_MS);
+    expect(bob.advanceCalls).toEqual([2, 3]);
+  });
+
+  it('keeps a message that arrives below the viewport unread', async () => {
+    mockLayout(() => 2);
+    mockAttention(() => true);
+    const bob = await openBobWithUnread(3);
+    await advance(SEEN_DWELL_MS);
+
+    await act(async () => {
+      bob.receive('bob-identity', 'below the fold');
+    });
+    await advance(SEEN_DWELL_MS * 3);
+    expect(bob.advanceCalls).toEqual([2]);
+    expect(unreadDot()).not.toHaveClass('MuiBadge-invisible');
   });
 
   it('lists my chats with initials and previews and flags unread', async () => {

@@ -46,6 +46,17 @@ export function upsertByIndex(existing: ChatMessage[], incoming: ChatMessage[]):
   return [...byIndex.values()].sort((a, b) => a.index - b.index);
 }
 
+export function lastSeenMessageIndex(
+  viewportBottom: number,
+  messages: { index: number; bottom: number }[]
+): number | undefined {
+  let seen: number | undefined;
+  messages.forEach((message) => {
+    if (message.bottom <= viewportBottom + 1 && (seen === undefined || message.index > seen)) seen = message.index;
+  });
+  return seen;
+}
+
 export function isUnread(chat: ChatListItem): boolean {
   if (chat.lastMessageIndex == null) return false;
   return chat.lastMessageIndex > (chat.lastReadIndex ?? -1);

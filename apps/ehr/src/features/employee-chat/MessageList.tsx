@@ -1,7 +1,8 @@
 import { Box, Button, CircularProgress, Stack, Typography } from '@mui/material';
-import { FC, useLayoutEffect, useRef } from 'react';
+import { FC, useEffect, useLayoutEffect, useRef } from 'react';
 import { ChatMessage } from './employee-chat.store';
 import { MessageBubble } from './MessageBubble';
+import { useSeenMessages } from './useSeenMessages';
 
 const LOAD_OLDER_THRESHOLD_PX = 40;
 const STICK_TO_BOTTOM_PX = 80;
@@ -13,6 +14,7 @@ interface MessageListProps {
   hasOlderMessages: boolean;
   loadingOlder: boolean;
   onLoadOlder: () => void;
+  onSeen: (index: number) => void;
 }
 
 interface ScrollSnapshot {
@@ -30,9 +32,15 @@ export const MessageList: FC<MessageListProps> = ({
   hasOlderMessages,
   loadingOlder,
   onLoadOlder,
+  onSeen,
 }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const snapshot = useRef<ScrollSnapshot>({ height: 0, top: 0, client: 0 });
+  const scheduleSeenCheck = useSeenMessages(containerRef, onSeen);
+
+  useEffect(() => {
+    scheduleSeenCheck();
+  }, [messages, scheduleSeenCheck]);
 
   useLayoutEffect(() => {
     const element = containerRef.current;
@@ -68,6 +76,7 @@ export const MessageList: FC<MessageListProps> = ({
       top: element.scrollTop,
       client: element.clientHeight,
     };
+    scheduleSeenCheck();
     if (element.scrollTop < LOAD_OLDER_THRESHOLD_PX && hasOlderMessages && !loadingOlder) {
       onLoadOlder();
     }

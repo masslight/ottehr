@@ -141,6 +141,12 @@ async function advanceReadHorizon(sid: string, index: number): Promise<void> {
   }
 }
 
+export function markActiveConversationSeen(index: number): void {
+  const { drawerOpen, view, activeSid, loadingMessages } = getState();
+  if (!drawerOpen || view !== 'conversation' || !activeSid || loadingMessages) return;
+  void advanceReadHorizon(activeSid, index);
+}
+
 function handleMessageAdded(message: Message): void {
   const sid = message.conversation.sid;
   if (!conversationsBySid.has(sid)) conversationsBySid.set(sid, message.conversation);
