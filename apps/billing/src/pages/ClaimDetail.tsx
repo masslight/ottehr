@@ -5,14 +5,14 @@ import {
   Delete as DeleteIcon,
   DeleteForever as DeleteForeverIcon,
   DeleteOutline as DeleteOutlineIcon,
-  Description as DescriptionIcon,
   Download as DownloadIcon,
   Edit as EditIcon,
   EditOutlined as EditOutlinedIcon,
-  FileDownloadOutlined as FileDownloadIcon,
   MoreVert as MoreVertIcon,
   OpenInNew as OpenInNewIcon,
+  ReceiptLongOutlined as ReceiptLongIcon,
   Save as SaveIcon,
+  SendOutlined as SendIcon,
   StickyNote2Outlined as StickyNote2Icon,
 } from '@mui/icons-material';
 import { TabContext, TabList, TabPanel } from '@mui/lab';
@@ -114,9 +114,11 @@ import {
   updateBillingResource,
 } from '../api/api';
 import { AccidentInfoFields } from '../components/AccidentInfoFields';
+import { ClaimDownloadsMenu } from '../components/claim/ClaimDownloadsMenu';
 import { ClaimHistory } from '../components/claim/ClaimHistory';
 import { ClaimNotesDrawer } from '../components/claim/ClaimNotesDrawer';
 import { ClaimStatusFields } from '../components/claim/ClaimStatusFields';
+import { Cms1500Dialog } from '../components/claim/Cms1500Dialog';
 import { DiagnosesEditor } from '../components/claim/DiagnosesEditor';
 import { EditableSection, EditableSectionSkeleton } from '../components/claim/EditableSection';
 import { RemitHighlightProvider } from '../components/claim/RemitHighlight';
@@ -173,6 +175,9 @@ function applicableRulesEngine(claim: ClaimDetailResponse): RulesEngineDef | und
   return undefined;
 }
 
+// The header's buttons keep their labels on one line, so they're all the same height.
+const NO_WRAP = { whiteSpace: 'nowrap' } as const;
+
 // EHR app base URL for the "View in EHR" backlink
 const EHR_URL = import.meta.env.VITE_APP_EHR_URL;
 
@@ -186,6 +191,7 @@ export default function ClaimDetail(): ReactElement {
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState('1');
   const [exportOpen, setExportOpen] = useState(false);
+  const [cms1500Open, setCms1500Open] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
   const [buildingReport, setBuildingReport] = useState(false);
   const [historyVersion, setHistoryVersion] = useState(0);
@@ -499,52 +505,48 @@ export default function ClaimDetail(): ReactElement {
           )}
         </Box>
 
-        {EHR_URL && claim.appointmentId && (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0, mt: 0.25 }}>
+          {EHR_URL && claim.appointmentId && (
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<OpenInNewIcon />}
+              href={`${EHR_URL}/visit/${claim.appointmentId}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              sx={NO_WRAP}
+            >
+              View in EHR
+            </Button>
+          )}
           <Button
-            variant="outlined"
             size="small"
-            startIcon={<OpenInNewIcon />}
-            href={`${EHR_URL}/visit/${claim.appointmentId}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            sx={{ mt: 0.5, flexShrink: 0 }}
+            variant="outlined"
+            startIcon={<StickyNote2Icon />}
+            onClick={() => setNotesOpen(true)}
+            sx={NO_WRAP}
           >
-            View in EHR
+            Notes
           </Button>
-        )}
-        <Button
-          size="small"
-          variant="outlined"
-          startIcon={<FileDownloadIcon />}
-          onClick={() => setExportOpen(true)}
-          sx={{ mt: 0.5 }}
-        >
-          Export X12
-        </Button>
-        <Button
-          size="small"
-          variant="outlined"
-          startIcon={<DescriptionIcon />}
-          onClick={() => void onCreateTimelyFilingReport()}
-          disabled={buildingReport}
-          sx={{ mt: 0.5 }}
-        >
-          {buildingReport ? 'Building…' : 'Timely Filing Report'}
-        </Button>
-        <Button
-          size="small"
-          variant="outlined"
-          startIcon={<StickyNote2Icon />}
-          onClick={() => setNotesOpen(true)}
-          sx={{ mt: 0.5 }}
-        >
-          Notes
-        </Button>
-        {runEngine && (
-          <Button variant="contained" size="small" onClick={() => setConfirmingSubmit(true)} sx={{ mt: 0.5 }}>
-            {runEngine.runButtonLabel}
-          </Button>
-        )}
+          <ClaimDownloadsMenu
+            claimType={claim.type}
+            onExportX12={() => setExportOpen(true)}
+            onCms1500={() => setCms1500Open(true)}
+            onProofOfTimelyFiling={() => void onCreateTimelyFilingReport()}
+            buildingProof={buildingReport}
+          />
+          {runEngine && (
+            <Button
+              variant="contained"
+              size="small"
+              startIcon={runEngine.type === 'claim-submission' ? <SendIcon /> : <ReceiptLongIcon />}
+              onClick={() => setConfirmingSubmit(true)}
+              sx={NO_WRAP}
+            >
+              {runEngine.runButtonLabel}
+            </Button>
+          )}
+        </Box>
       </Box>
 
       {oystehrZambda && (
@@ -555,6 +557,7 @@ export default function ClaimDetail(): ReactElement {
           x12Provider={() => exportClaimX12(oystehrZambda, { claimId: claim.id }).then((data) => data.x12)}
         />
       )}
+      <Cms1500Dialog open={cms1500Open} onClose={() => setCms1500Open(false)} claimId={claim.id} />
 
       <ClaimNotesDrawer
         key={claim.id}
