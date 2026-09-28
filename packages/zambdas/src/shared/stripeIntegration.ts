@@ -133,6 +133,11 @@ export const applyRefundsToPaymentNotice = async (
     resourceType: 'PaymentNotice',
     id: notice.id,
     operations: [
+      // optimistic lock: fail if the notice changed since it was read, so a stale
+      // concurrent write can't silently drop another request's refund entry
+      ...(notice.meta?.versionId
+        ? [{ op: 'test' as const, path: '/meta/versionId', value: notice.meta.versionId }]
+        : []),
       {
         op: notice.extension !== undefined ? 'replace' : 'add',
         path: '/extension',

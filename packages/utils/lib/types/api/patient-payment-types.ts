@@ -30,6 +30,7 @@ export interface RefundPatientPaymentInput {
   amountInCents?: number; // defaults to the full remaining (un-refunded) amount
   external?: boolean; // record a refund issued outside Stripe instead of creating a Stripe refund
   medium?: PaymentRefundMedium; // required when external
+  idempotencyKey?: string; // UUID stable across retries of the same refund attempt
 }
 
 export interface RefundPatientPaymentResponse {

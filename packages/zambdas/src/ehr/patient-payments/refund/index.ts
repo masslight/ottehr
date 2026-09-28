@@ -95,6 +95,11 @@ interface RefundEffectInput {
   // record-only refund issued outside Stripe for a Stripe-linked payment
   external?: boolean;
   medium?: RefundPatientPaymentInput['medium'];
+  // stable across retries so a re-run resumes this refund instead of recording a second one
+  manualRefundId: string;
+  idempotencyKey?: string;
+  // set when the refund was already stamped by a previous attempt; effects re-run idempotently
+  resumeRefund?: PaymentRefundDTO;
 }
 
 const complexValidation = async (
@@ -110,7 +115,10 @@ const complexValidation = async (
     amountInCents: requestedAmountInCents,
     external,
     medium,
+    idempotencyKey,
   } = params;
+
+  const manualRefundId = `manual_${idempotencyKey ?? randomUUID()}`;
 
   const notice = await oystehrClient.fhir.get<PaymentNotice>({ resourceType: 'PaymentNotice', id: paymentNoticeId });
 
@@ -135,6 +143,23 @@ const complexValidation = async (
     }
 
     const existingRefunds = parsePaymentRefundsFromNotice(notice) ?? [];
+    const resumeRefund = existingRefunds.find((refund) => refund.stripeRefundId === manualRefundId);
+    if (resumeRefund) {
+      return {
+        notice,
+        encounterId,
+        paymentMethod,
+        stripeAccount: undefined,
+        existingRefunds,
+        refundAmountInCents: resumeRefund.amountInCents,
+        reason,
+        notes,
+        manualRefundId,
+        idempotencyKey,
+        resumeRefund,
+      };
+    }
+
     const amountInCents = Math.round((notice.amount?.value ?? 0) * 100);
     const remainingInCents = amountInCents - settledRefundTotalInCents(existingRefunds);
     if (remainingInCents <= 0) {
@@ -157,6 +182,8 @@ const complexValidation = async (
       refundAmountInCents,
       reason,
       notes,
+      manualRefundId,
+      idempotencyKey,
     };
   }
 
@@ -175,6 +202,27 @@ const complexValidation = async (
   }
 
   const amountInCents = Math.round((notice.amount?.value ?? 0) * 100);
+  const resumeRefund = external
+    ? existingRefunds.find((refund) => refund.stripeRefundId === manualRefundId)
+    : undefined;
+  if (resumeRefund) {
+    return {
+      notice,
+      encounterId,
+      stripePaymentId,
+      stripeAccount,
+      existingRefunds,
+      refundAmountInCents: resumeRefund.amountInCents,
+      reason,
+      notes,
+      external,
+      medium,
+      manualRefundId,
+      idempotencyKey,
+      resumeRefund,
+    };
+  }
+
   const remainingInCents = amountInCents - settledRefundTotalInCents(existingRefunds);
   if (remainingInCents <= 0) {
     throw INVALID_INPUT_ERROR('This payment has already been fully refunded.');
@@ -198,6 +246,8 @@ const complexValidation = async (
     notes,
     external,
     medium,
+    manualRefundId,
+    idempotencyKey,
   };
 };
 
@@ -209,21 +259,29 @@ const performManualRefund = async (
   billingClient: Oystehr,
   secrets: Secrets | null
 ): Promise<RefundPatientPaymentResponse> => {
-  const { notice, encounterId, paymentMethod, existingRefunds, refundAmountInCents, reason, notes, refundedBy } = input;
+  const {
+    notice,
+    encounterId,
+    paymentMethod,
+    existingRefunds,
+    refundAmountInCents,
+    reason,
+    notes,
+    refundedBy,
+    manualRefundId: refundId,
+    resumeRefund,
+  } = input;
 
-  const refundId = `manual_${randomUUID()}`;
-  const refunds: PaymentRefundDTO[] = [
-    ...existingRefunds,
-    {
-      stripeRefundId: refundId,
-      amountInCents: refundAmountInCents,
-      dateISO: DateTime.now().toUTC().toISO() ?? new Date().toISOString(),
-      status: 'succeeded',
-      reason,
-      notes,
-      refundedBy,
-    },
-  ];
+  const refundEntry: PaymentRefundDTO = resumeRefund ?? {
+    stripeRefundId: refundId,
+    amountInCents: refundAmountInCents,
+    dateISO: DateTime.now().toUTC().toISO() ?? new Date().toISOString(),
+    status: 'succeeded',
+    reason,
+    notes,
+    refundedBy,
+  };
+  const refunds: PaymentRefundDTO[] = resumeRefund ? existingRefunds : [...existingRefunds, refundEntry];
 
   await applyRefundsToPaymentNotice(oystehrClient, notice, refunds);
 
@@ -244,15 +302,15 @@ const performManualRefund = async (
     await recordBillingManualRefund(billingClient, {
       encounterId,
       refundId,
-      amountInCents: refundAmountInCents,
+      amountInCents: refundEntry.amountInCents,
       paymentMethod,
-      createdISO: DateTime.now().toUTC().toISO() ?? new Date().toISOString(),
+      createdISO: refundEntry.dateISO,
       reason,
       secrets,
     });
   }
 
-  return { refundId, amountInCents: refundAmountInCents };
+  return { refundId, amountInCents: refundEntry.amountInCents };
 };
 
 // Records a refund issued outside Stripe (external reader, cash, check, ...) for a Stripe-linked payment:
@@ -276,23 +334,21 @@ const performExternalRefund = async (
     notes,
     refundedBy,
     medium,
+    manualRefundId: refundId,
+    resumeRefund,
   } = input;
 
-  const nowISO = DateTime.now().toUTC().toISO() ?? new Date().toISOString();
-  const refundId = `manual_${randomUUID()}`;
-  const refunds: PaymentRefundDTO[] = [
-    ...existingRefunds,
-    {
-      stripeRefundId: refundId,
-      amountInCents: refundAmountInCents,
-      dateISO: nowISO,
-      status: 'succeeded',
-      reason,
-      notes,
-      refundedBy,
-      medium,
-    },
-  ];
+  const refundEntry: PaymentRefundDTO = resumeRefund ?? {
+    stripeRefundId: refundId,
+    amountInCents: refundAmountInCents,
+    dateISO: DateTime.now().toUTC().toISO() ?? new Date().toISOString(),
+    status: 'succeeded',
+    reason,
+    notes,
+    refundedBy,
+    medium,
+  };
+  const refunds: PaymentRefundDTO[] = resumeRefund ? existingRefunds : [...existingRefunds, refundEntry];
 
   await applyRefundsToPaymentNotice(oystehrClient, notice, refunds);
 
@@ -317,9 +373,9 @@ const performExternalRefund = async (
     await recordBillingManualRefund(billingClient, {
       encounterId,
       refundId,
-      amountInCents: refundAmountInCents,
+      amountInCents: refundEntry.amountInCents,
       paymentMethod: medium,
-      createdISO: nowISO,
+      createdISO: refundEntry.dateISO,
       reason,
       secrets,
     });
@@ -329,24 +385,29 @@ const performExternalRefund = async (
   if (stripePaymentId) {
     try {
       const paymentIntent = await stripeClient.paymentIntents.retrieve(stripePaymentId, { stripeAccount });
-      const summary = `$${(refundAmountInCents / 100).toFixed(2)} refunded via ${medium} on ${nowISO.slice(0, 10)}${
-        refundedBy ? ` by ${refundedBy}` : ''
-      } (${reason})${notes ? `: ${notes}` : ''}`;
+      // deterministic (built from the stored entry) so retries can detect it's already noted
+      const summary = `$${(refundEntry.amountInCents / 100).toFixed(2)} refunded via ${
+        refundEntry.medium
+      } on ${refundEntry.dateISO.slice(0, 10)}${refundEntry.refundedBy ? ` by ${refundEntry.refundedBy}` : ''} (${
+        refundEntry.reason
+      })${refundEntry.notes ? `: ${refundEntry.notes}` : ''}`;
       const previous = paymentIntent.metadata?.external_refunds;
-      // stripe metadata values cap at 500 chars
-      const externalRefundsNote = (previous ? `${previous} | ${summary}` : summary).slice(0, 500);
-      await stripeClient.paymentIntents.update(
-        stripePaymentId,
-        { metadata: { external_refunds: externalRefundsNote } },
-        { stripeAccount }
-      );
+      if (!previous?.includes(summary)) {
+        // newest first so the 500-char stripe metadata cap truncates old history, never the new entry
+        const externalRefundsNote = [summary, previous].filter(Boolean).join(' | ').slice(0, 500);
+        await stripeClient.paymentIntents.update(
+          stripePaymentId,
+          { metadata: { external_refunds: externalRefundsNote } },
+          { stripeAccount }
+        );
+      }
     } catch (error: unknown) {
       // the refund is already recorded in FHIR; a missing Stripe note is not worth failing the request
       console.error('Failed to note external refund on Stripe payment intent', stripePaymentId, error);
     }
   }
 
-  return { refundId, amountInCents: refundAmountInCents };
+  return { refundId, amountInCents: refundEntry.amountInCents };
 };
 
 const performEffect = async (
@@ -382,7 +443,11 @@ const performEffect = async (
         // carried in metadata so webhook re-stamps of refund state preserve who issued it
         metadata: { reason, ...(notes ? { notes } : {}), ...(refundedBy ? { refundedBy } : {}) },
       },
-      { stripeAccount }
+      {
+        stripeAccount,
+        // retries of the same attempt reuse Stripe's stored response instead of double-refunding
+        ...(input.idempotencyKey ? { idempotencyKey: `refund_${input.idempotencyKey}` } : {}),
+      }
     );
   } catch (error: unknown) {
     console.error('Stripe refund failed', error);
@@ -399,7 +464,8 @@ const validateRequestParameters = (input: ZambdaInput): RefundPatientPaymentInpu
   if (!input.body) {
     throw MISSING_REQUEST_BODY;
   }
-  const { encounterId, paymentNoticeId, reason, notes, amountInCents, external, medium } = safeJsonParse(input.body);
+  const { encounterId, paymentNoticeId, reason, notes, amountInCents, external, medium, idempotencyKey } =
+    safeJsonParse(input.body);
 
   const missing = [!encounterId && 'encounterId', !paymentNoticeId && 'paymentNoticeId', !reason && 'reason'].filter(
     Boolean
@@ -431,6 +497,9 @@ const validateRequestParameters = (input: ZambdaInput): RefundPatientPaymentInpu
   if (!external && medium !== undefined) {
     throw INVALID_INPUT_ERROR('"medium" only applies to external refunds.');
   }
+  if (idempotencyKey !== undefined && (typeof idempotencyKey !== 'string' || !isValidUUID(idempotencyKey))) {
+    throw INVALID_INPUT_ERROR('"idempotencyKey" must be a valid UUID.');
+  }
 
   return {
     encounterId,
@@ -440,5 +509,6 @@ const validateRequestParameters = (input: ZambdaInput): RefundPatientPaymentInpu
     amountInCents,
     external: external || undefined,
     medium: external ? medium : undefined,
+    idempotencyKey,
   };
 };

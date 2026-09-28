@@ -146,6 +146,8 @@ function PaymentActionDialog({
   // frozen at open so a mid-processing list refetch can't shift validation under the user
   const [remainingCents] = useState(() => payment.amountInCents - (payment.refundedAmountInCents ?? 0));
   const [amountText, setAmountText] = useState((remainingCents / 100).toFixed(2));
+  // stable per dialog open so a retry resumes the same refund instead of recording a second one
+  const [idempotencyKey] = useState(() => crypto.randomUUID());
 
   const parsedAmountCents = Math.round(Number(amountText) * 100);
   const amountValid =
@@ -163,7 +165,7 @@ function PaymentActionDialog({
         encounterId,
         paymentNoticeId: payment.fhirPaymentNotificationId,
         reason,
-        ...(isRefund ? { amountInCents: parsedAmountCents } : {}),
+        ...(isRefund ? { amountInCents: parsedAmountCents, idempotencyKey } : {}),
         ...(action === 'external-refund' ? { external: true, medium } : {}),
         ...(notes.trim() ? { notes: notes.trim() } : {}),
       });
