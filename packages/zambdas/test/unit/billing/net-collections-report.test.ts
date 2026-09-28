@@ -9,7 +9,6 @@ import { reportRegistry } from '../../../src/billing/reports/framework/registry'
 vi.mock('../../../src/billing/claim-amounts', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   fetchClaimResponsesByPaymentReconciliations: vi.fn(),
-  fetchClaimResponsesByClaimIds: vi.fn(),
 }));
 vi.mock('../../../src/billing/shared', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
@@ -29,7 +28,6 @@ import { fetchClaimResponsesByPaymentReconciliations } from '../../../src/billin
 import {
   ADJUDICATION_CODES,
   ADJUSTMENT_GROUP_PATIENT_RESPONSIBILITY,
-  fetchClaimResponsesByClaimIds,
   X12_ADJUSTMENT_GROUP_SYSTEM,
 } from '../../../src/billing/claim-amounts';
 import { patientNetCollections } from '../../../src/billing/reports/definitions/patient-payments.report';
@@ -96,7 +94,6 @@ const computeWith = async (input: {
   patient: { net: number; byMonth: Map<string, number> };
   params?: { dateFrom?: string; dateTo?: string };
   claimsById?: Map<string, Claim>;
-  historyByClaimId?: Map<string, ClaimResponse[]>;
 }): Promise<Awaited<ReturnType<typeof netCollectionsReport.compute>>> => {
   vi.mocked(fetchAllEras).mockResolvedValue(input.eras);
   vi.mocked(fetchClaimResponsesByPaymentReconciliations).mockResolvedValue(
@@ -110,7 +107,6 @@ const computeWith = async (input: {
   );
   vi.mocked(patientNetCollections).mockResolvedValue(input.patient);
   vi.mocked(fetchPartialClaimsById).mockResolvedValue(input.claimsById ?? new Map());
-  vi.mocked(fetchClaimResponsesByClaimIds).mockResolvedValue(input.historyByClaimId ?? new Map());
   const ctx = { oystehr: {} as Oystehr, untaggedClient: {} as Oystehr, secrets: null };
   return netCollectionsReport.compute(ctx, input.params ?? {}, async () => undefined);
 };
@@ -199,7 +195,6 @@ describe('net-collections compute', () => {
       ],
       claimResponsesByEra: { 'era-1': [primary], 'era-2': [secondary] },
       params: { dateFrom: '2026-02-01', dateTo: '2026-02-28' },
-      historyByClaimId: new Map([['claim-1', [primary, secondary]]]),
       patient: { net: 0, byMonth: new Map() },
     });
 

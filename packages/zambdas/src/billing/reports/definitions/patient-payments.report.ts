@@ -98,7 +98,7 @@ export async function patientNetCollections(
   matched: MatchedClaimKeys,
   onProgress?: (message: string) => Promise<void>
 ): Promise<{ net: number; byMonth: Map<string, number> }> {
-  const { notices } = await loadWindowNotices(oystehr, untaggedClient, params, secrets, onProgress);
+  const { notices, linkageNotices } = await loadWindowNotices(oystehr, untaggedClient, params, secrets, onProgress);
   const matchesResponsibility = (notice: PaymentNotice): boolean => {
     const claimId = noticeClaimId(notice);
     if (claimId && matched.claimIds.has(claimId)) return true;
@@ -107,8 +107,8 @@ export async function patientNetCollections(
   };
   const counted = new Set(notices.filter(matchesResponsibility));
   // refunds often link only to their original charge, not the claim — count those whose
-  // refunded charge belongs to a counted payment
-  const countedChargeIds = new Set([...counted].flatMap(stripeIdsOf));
+  // refunded charge belongs to a counted payment, even one outside the window
+  const countedChargeIds = new Set(linkageNotices.filter(matchesResponsibility).flatMap(stripeIdsOf));
   for (const notice of notices) {
     if (counted.has(notice) || (notice.amount?.value ?? 0) >= 0) continue;
     const chargeId = refundedChargeIdOf(notice);
@@ -183,6 +183,9 @@ interface NoticeContext extends NoticeLoad {
 // windowed notices with Stripe synthesis, before any location enrichment
 interface NoticeLoad {
   notices: PaymentNotice[];
+  // window-unfiltered notices (recorded + synthetic) for refund → charge linkage; amounts must
+  // only come from `notices`
+  linkageNotices: PaymentNotice[];
   generatedAt: string;
   // in-memory rows synthesized from Stripe charges that have no PaymentNotice
   synthetic: WeakSet<PaymentNotice>;
@@ -254,9 +257,9 @@ async function loadWindowNotices(
     ),
   ];
 
-  const notices = allNotices.filter(
-    (notice) => notice.status === 'active' && noticeInWindow(notice, params.dateFrom, params.dateTo)
-  );
+  const activeNotices = allNotices.filter((notice) => notice.status === 'active');
+  const notices = activeNotices.filter((notice) => noticeInWindow(notice, params.dateFrom, params.dateTo));
+  const linkageNotices = [...activeNotices];
 
   // where Stripe has data it enriches: unrecorded charges join as synthetic rows;
   // recorded notices are preserved so gross collected/refunded stay accurate;
@@ -281,8 +284,9 @@ async function loadWindowNotices(
           .forEach((id) => invoiceChargeIds.add(id));
       }
     }
-    const knownStripeIds = new Set(notices.flatMap(stripeIdsOf));
+    const knownStripeIds = new Set(activeNotices.flatMap(stripeIdsOf));
     for (const syntheticNotice of syntheticNoticesFor(charges, knownStripeIds)) {
+      linkageNotices.push(syntheticNotice);
       // refund rows carry the refund's own date, which can fall outside the charge's window
       if (!noticeInWindow(syntheticNotice, params.dateFrom, params.dateTo)) continue;
       synthetic.add(syntheticNotice);
@@ -302,7 +306,7 @@ async function loadWindowNotices(
 
   const generatedAt = DateTime.now().toUTC().toISO();
 
-  return { notices, generatedAt: generatedAt ?? '', synthetic, categoryOf };
+  return { notices, linkageNotices, generatedAt: generatedAt ?? '', synthetic, categoryOf };
 }
 
 async function loadNoticeContext(

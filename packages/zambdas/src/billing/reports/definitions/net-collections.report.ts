@@ -19,7 +19,6 @@ import {
 import { roundNumberToDecimalPlaces } from 'utils/lib/utils/convert';
 import {
   extractClaimResponseAmounts,
-  fetchClaimResponsesByClaimIds,
   fetchClaimResponsesByPaymentReconciliations,
   isMatchedToClaim,
   sortClaimResponsesByRecency,
@@ -161,7 +160,7 @@ async function computeInsuranceSide(
 }> {
   const allEras = await fetchAllEras(eraReadClient);
   const eras = allEras.filter((era) => checkDateInRange(era, params.dateFrom, params.dateTo));
-  if (eras.length === 0)
+  if (allEras.length === 0)
     return {
       payerRows: [],
       byMonth: new Map(),
@@ -170,13 +169,20 @@ async function computeInsuranceSide(
       totals: { insuranceExpected: 0, patientResp: 0 },
     };
 
-  const fetched = await fetchClaimResponsesByPaymentReconciliations(eraReadClient, eras);
+  // ClaimResponses come from ALL posted ERAs: the patient-side eligibility set and each claim's
+  // adjudication history are window-independent; only the rollup below is window-scoped
+  const fetched = await fetchClaimResponsesByPaymentReconciliations(eraReadClient, allEras);
   const claimResponsesByPrId = new Map(
     [...fetched].map(([prId, claimResponses]) => [prId, claimResponses.filter(isMatchedToClaim)])
   );
   const allClaimResponses = [...claimResponsesByPrId.values()].flat();
   const harvestedNamesByRef = payerNamesByRef(allClaimResponses);
   const matchedClaimIds = [...new Set(allClaimResponses.map(claimResponseClaimId).filter((id): id is string => !!id))];
+  const historyByClaimId = new Map<string, ClaimResponse[]>();
+  for (const claimResponse of allClaimResponses) {
+    const claimId = claimResponseClaimId(claimResponse);
+    if (claimId) historyByClaimId.set(claimId, [...(historyByClaimId.get(claimId) ?? []), claimResponse]);
+  }
   const [payersByRef, partialClaimsById] = await Promise.all([
     resolvePayersByRef(oystehr, [
       ...eras.map((pr) => pr.paymentIssuer?.reference),
@@ -282,12 +288,8 @@ async function computeInsuranceSide(
   // Denominators telescope through each claim's adjudication chain: every remit's expected share
   // is the outstanding balance it retired (basis − the patient responsibility it left), so a
   // COB claim's expectation splits across the payers that actually adjudicated it. Out-of-window
-  // remits only advance the running balance — the history is fetched so a window that catches
-  // only a later remit still knows its basis.
-  const historyByClaimId =
-    params.dateFrom || params.dateTo
-      ? await fetchClaimResponsesByClaimIds(eraReadClient, matchedClaimIds)
-      : new Map<string, ClaimResponse[]>();
+  // remits only advance the running balance, so a window that catches only a later remit still
+  // knows its basis.
   let insuranceExpectedTotal = 0;
   let patientRespTotal = 0;
   for (const [claimId, claimResponses] of crsByClaimId) {
