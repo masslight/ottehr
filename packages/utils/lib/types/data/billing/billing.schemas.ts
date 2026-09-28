@@ -814,10 +814,17 @@ export const PatientPaymentsDrilldownParamsSchema = z.object({
   paymentMethod: nonEmptyString.optional(),
 });
 
+// net-collections drilldown: one payer's ERAs (the date window travels in the report params)
+export const NetCollectionsDrilldownParamsSchema = z.object({
+  // the payer row's payerKey (ERA-carried payer id + name identity)
+  payerKey: nonEmptyString,
+});
+
 export const RecordBillingManualPaymentInputSchema = z.object({
   encounterId: nonEmptyString.uuid(),
   amountInCents: z.number().int().positive(),
   paymentMethod: z.enum(BILLING_MANUAL_PAYMENT_METHODS),
+  // any date allowed — payments can be backdated or future-dated (e.g. scheduled per an ERA)
   paymentDateISO: z.string().datetime({ offset: true }).optional(),
   checkNumber: nonEmptyString.optional(),
   description: nonEmptyString.optional(),
@@ -872,6 +879,7 @@ export type GetBillingReportInput = z.output<typeof GetBillingReportInputSchema>
 export type ReportDateWindowParams = z.output<typeof ReportDateWindowParamsSchema>;
 export type GetBillingPaymentsReportDrilldownInput = z.output<typeof GetBillingPaymentsReportDrilldownInputSchema>;
 export type PatientPaymentsDrilldownParams = z.output<typeof PatientPaymentsDrilldownParamsSchema>;
+export type NetCollectionsDrilldownParams = z.output<typeof NetCollectionsDrilldownParamsSchema>;
 export type ExportBillingClaimsInput = z.output<typeof ExportBillingClaimsInputSchema>;
 export type GetBillingClaimsExportStatusInput = z.output<typeof GetBillingClaimsExportStatusInputSchema>;
 export type SearchBillingPatientARClaimsInput = z.output<typeof SearchBillingPatientARClaimsInputSchema>;
