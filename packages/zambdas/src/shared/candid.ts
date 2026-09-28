@@ -91,6 +91,7 @@ import {
   getCandidPlanTypeCodeFromCoverage,
   getPayerId,
   getPayerUrl,
+  isCustomInsuranceOrgReferenceUrl,
   isNioReferenceUrl,
 } from 'utils/lib/helpers/helpers';
 import {
@@ -878,6 +879,26 @@ const updateCandidPatientWithCoverages = async (
   return patientResponse.body;
 };
 
+// The payer Organization a Coverage is sent to Candid under. A custom insurance organization
+// (billing-app-owned, referenced by token) has no RCM payer id, which Candid requires, so its coverage
+// is deliberately left out of the Candid sync rather than failing it; Ottehr billing, the system of
+// record in custom-organizations mode, still bills it.
+export function findCandidCoveragePayer(
+  coverage: Coverage | undefined,
+  insuranceOrgs: Organization[]
+): Organization | undefined {
+  const payorRef = coverage?.payor?.[0]?.reference;
+  if (!payorRef) return undefined;
+  if (isCustomInsuranceOrgReferenceUrl(payorRef)) {
+    console.log(`Skipping Candid coverage for Coverage/${coverage?.id}: custom insurance organization ${payorRef}`);
+    return undefined;
+  }
+  return insuranceOrgs.find((org) => {
+    const payerId = getPayerId(org);
+    return createReference(org).reference === payorRef || (payerId !== undefined && getPayerUrl(payerId) === payorRef);
+  });
+}
+
 const createCandidCoverages = async (
   patient: Patient,
   appointment: Appointment,
@@ -910,27 +931,9 @@ const createCandidCoverages = async (
   if (coverages === undefined) {
     return candidCoverages;
   }
-  const primaryInsuranceOrg = insuranceOrgs.find((org) => {
-    const payerId = getPayerId(org);
-    return (
-      createReference(org).reference === coverages.primary?.payor?.[0].reference ||
-      (payerId !== undefined && getPayerUrl(payerId) === coverages.primary?.payor?.[0].reference)
-    );
-  });
-  const secondaryInsuranceOrg = insuranceOrgs.find((org) => {
-    const payerId = getPayerId(org);
-    return (
-      createReference(org).reference === coverages.secondary?.payor?.[0].reference ||
-      (payerId !== undefined && getPayerUrl(payerId) === coverages.secondary?.payor?.[0].reference)
-    );
-  });
-  const workersCompInsuranceOrg = insuranceOrgs.find((org) => {
-    const payerId = getPayerId(org);
-    return (
-      createReference(org).reference === coverages.workersComp?.payor?.[0].reference ||
-      (payerId !== undefined && getPayerUrl(payerId) === coverages.workersComp?.payor?.[0].reference)
-    );
-  });
+  const primaryInsuranceOrg = findCandidCoveragePayer(coverages.primary, insuranceOrgs);
+  const secondaryInsuranceOrg = findCandidCoveragePayer(coverages.secondary, insuranceOrgs);
+  const workersCompInsuranceOrg = findCandidCoveragePayer(coverages.workersComp, insuranceOrgs);
 
   if (coverages.primary && coverages.primarySubscriber && primaryInsuranceOrg) {
     const candidCoverage = buildCandidCoverageCreateInput(
