@@ -103,6 +103,14 @@ class PreconditionFailed extends Error {
   code = 412;
 }
 
+interface FakeFailures {
+  addParticipant?: Error;
+  removeParticipant?: Error;
+  groupUpdate?: Error;
+  groupUpdateAfterCommit?: Error;
+  groupGet?: Error;
+}
+
 function createFakeOystehr(): {
   oystehr: Oystehr;
   groups: () => Group[];
@@ -110,14 +118,14 @@ function createFakeOystehr(): {
   conversationsCreated: () => number;
   participantsAdded: () => string[][];
   participantsRemoved: () => { conversationId: string; participantReference: string }[];
-  failures: { addParticipant?: Error; removeParticipant?: Error; groupUpdate?: Error };
+  failures: FakeFailures;
 } {
   const store = new Map<string, FhirResource>();
   let nextId = 0;
   let conversations = 0;
   const participants: string[][] = [];
   const removed: { conversationId: string; participantReference: string }[] = [];
-  const failures: { addParticipant?: Error; removeParticipant?: Error; groupUpdate?: Error } = {};
+  const failures: FakeFailures = {};
   const tick = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
 
   const save = (resource: FhirResource): FhirResource => {
@@ -153,10 +161,13 @@ function createFakeOystehr(): {
       if (options?.optimisticLockingVersionId && current?.meta?.versionId !== options.optimisticLockingVersionId) {
         throw new PreconditionFailed('Precondition Failed');
       }
-      return save(resource);
+      const saved = save(resource);
+      if (resource.resourceType === 'Group' && failures.groupUpdateAfterCommit) throw failures.groupUpdateAfterCommit;
+      return saved;
     },
     get: async ({ resourceType, id }: { resourceType: string; id: string }) => {
       await tick();
+      if (resourceType === 'Group' && failures.groupGet) throw failures.groupGet;
       return structuredClone(store.get(`${resourceType}/${id}`));
     },
   };
@@ -235,7 +246,7 @@ describe('resolveEmployeeChat', () => {
     expect(fake.groups()).toHaveLength(2);
   });
 
-  it('converges concurrent first opens on a single stored conversation', async () => {
+  it('converges concurrent first opens on one stored conversation and cleans up only the losing one', async () => {
     const fake = createFakeOystehr();
     const [fromAlice, fromBob] = await Promise.all([
       resolveEmployeeChat(fake.oystehr, ALICE, BOB),
@@ -245,17 +256,8 @@ describe('resolveEmployeeChat', () => {
     expect(fromAlice).toBe(fromBob);
     expect(fake.groups()).toHaveLength(1);
     expect(readConversationSid(fake.groups()[0])).toBe(fromAlice);
-    const orphans = fake.encounters().filter((encounter) => encounter.status === 'cancelled');
-    expect(orphans).toHaveLength(fake.conversationsCreated() - 1);
-  });
-
-  it('removes both employees from the losing conversation of a concurrent first open', async () => {
-    const fake = createFakeOystehr();
-    await Promise.all([resolveEmployeeChat(fake.oystehr, ALICE, BOB), resolveEmployeeChat(fake.oystehr, BOB, ALICE)]);
-
     expect(fake.conversationsCreated()).toBe(2);
-    const stored = readConversationSid(fake.groups()[0]);
-    const losing = stored === 'CH1' ? 'CH2' : 'CH1';
+    const losing = fromAlice === 'CH1' ? 'CH2' : 'CH1';
     expect(fake.participantsRemoved()).toHaveLength(2);
     expect(fake.participantsRemoved()).toEqual(
       expect.arrayContaining([
@@ -263,6 +265,12 @@ describe('resolveEmployeeChat', () => {
         { conversationId: losing, participantReference: BOB },
       ])
     );
+    expect(
+      fake
+        .encounters()
+        .map((encounter) => encounter.status)
+        .sort()
+    ).toEqual(['cancelled', 'in-progress']);
   });
 
   it('removes both employees, cancels the Encounter and rethrows the original error when adding participants fails', async () => {
@@ -304,6 +312,36 @@ describe('resolveEmployeeChat', () => {
       ])
     );
     expect(fake.encounters().map((encounter) => encounter.status)).toEqual(['cancelled']);
+  });
+
+  it.each([
+    ['a retry reports 412', new PreconditionFailed('Precondition Failed')],
+    ['the final attempt reports a non-412 error', new Error('Gateway Timeout')],
+  ])('keeps the conversation it stored when the Group write commits but %s', async (_case, observed) => {
+    const fake = createFakeOystehr();
+    fake.failures.groupUpdateAfterCommit = observed;
+
+    const sid = await resolveEmployeeChat(fake.oystehr, ALICE, BOB);
+
+    expect(readConversationSid(fake.groups()[0])).toBe(sid);
+    expect(fake.participantsRemoved()).toEqual([]);
+    expect(fake.encounters().map((encounter) => encounter.status)).toEqual(['in-progress']);
+
+    fake.failures.groupUpdateAfterCommit = undefined;
+    expect(await resolveEmployeeChat(fake.oystehr, BOB, ALICE)).toBe(sid);
+    expect(fake.conversationsCreated()).toBe(1);
+  });
+
+  it('leaves the conversation in place and rethrows when the Group cannot be re-read after a failed write', async () => {
+    const fake = createFakeOystehr();
+    const original = new Error('Gateway Timeout');
+    fake.failures.groupUpdateAfterCommit = original;
+    fake.failures.groupGet = new Error('FHIR unavailable');
+
+    await expect(resolveEmployeeChat(fake.oystehr, ALICE, BOB)).rejects.toBe(original);
+
+    expect(fake.participantsRemoved()).toEqual([]);
+    expect(fake.encounters().map((encounter) => encounter.status)).toEqual(['in-progress']);
   });
 
   it('keeps the original error when removing participants during cleanup also fails', async () => {

@@ -128,17 +128,28 @@ export async function resolveEmployeeChat(
     });
     return conversationSid;
   } catch (error) {
-    if (!errorHasStatusCode(error, 412)) {
-      await discardOrphanConversation(oystehr, encounter, conversationSid, [callerProfile, targetProfile]);
+    let storedSid: string | undefined;
+    try {
+      storedSid = readConversationSid(await oystehr.fhir.get<Group>({ resourceType: 'Group', id: group.id! }));
+    } catch (readError) {
+      console.error(
+        `Failed to re-read employee chat Group/${group.id} after a failed write, leaving conversation ${conversationSid} in place`,
+        readError
+      );
       throw error;
     }
-    console.log(`Employee chat Group/${group.id} was committed concurrently, using the stored conversation`);
+    if (storedSid === conversationSid) {
+      console.log(`Employee chat Group/${group.id} write reported an error but stored ${conversationSid}`);
+      return conversationSid;
+    }
     await discardOrphanConversation(oystehr, encounter, conversationSid, [callerProfile, targetProfile]);
-    const current = await oystehr.fhir.get<Group>({ resourceType: 'Group', id: group.id! });
-    const committedSid = readConversationSid(current);
-    if (!committedSid) {
+    if (!errorHasStatusCode(error, 412)) {
+      throw error;
+    }
+    if (!storedSid) {
       throw new Error(`Employee chat Group/${group.id} changed concurrently but holds no conversation`);
     }
-    return committedSid;
+    console.log(`Employee chat Group/${group.id} was committed concurrently, using the stored conversation`);
+    return storedSid;
   }
 }
