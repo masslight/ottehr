@@ -36,6 +36,7 @@ export const EmployeeChatDrawer: FC = () => {
   const openingProfile = useEmployeeChatStore((state) => state.openingProfile);
   const openError = useEmployeeChatStore((state) => state.openError);
   const myProfile = useEmployeeChatStore((state) => state.myProfile);
+  const unreadEntry = useEmployeeChatStore((state) => state.unreadEntry);
 
   const { data: employees, isLoading: employeesLoading } = useChatEmployees({ enabled: drawerOpen, myProfile });
   const listItems = useMemo(() => visibleChats(chats, activeSid), [chats, activeSid]);
@@ -118,7 +119,10 @@ export const EmployeeChatDrawer: FC = () => {
       {view === 'conversation' && (
         <>
           <MessageList
+            key={activeSid}
             messages={messages}
+            entryId={unreadEntry?.sid === activeSid ? unreadEntry?.id : undefined}
+            dividerIndex={unreadEntry?.sid === activeSid ? unreadEntry?.dividerIndex : undefined}
             otherName={activeChat?.otherEmployee.name ?? ''}
             loading={loadingMessages}
             hasOlderMessages={hasOlderMessages}

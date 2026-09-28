@@ -3,7 +3,7 @@ import type { Client, Conversation, Message, Paginator } from '@twilio/conversat
 import { EmployeeChatSummary } from 'utils/lib/types/api/employee-chat.types';
 import { getEmployeeChats, openEmployeeChat } from '../../api/api';
 import { ChatListItem, ChatMessage, initialEmployeeChatState, useEmployeeChatStore } from './employee-chat.store';
-import { upsertByIndex } from './employee-chat.utils';
+import { computeDividerIndex, upsertByIndex } from './employee-chat.utils';
 
 export const INITIAL_PAGE_SIZE = 50;
 const PREVIEW_CONCURRENCY = 5;
@@ -14,6 +14,8 @@ let oystehrZambda: Oystehr | undefined;
 let myIdentity: string | undefined;
 let activePaginator: Paginator<Message> | undefined;
 let epoch = 0;
+let openSeq = 0;
+let entrySeq = 0;
 let chatListRefresh: Promise<void> | undefined;
 const conversationsBySid = new Map<string, Conversation>();
 const summariesBySid = new Map<string, EmployeeChatSummary>();
@@ -328,23 +330,44 @@ export async function retryEmployeeChat(): Promise<void> {
   if (zambda && myProfile) await connectEmployeeChat({ oystehrZambda: zambda, myProfile });
 }
 
+function readHorizon(sid: string): number | undefined {
+  return maxIndex(conversationsBySid.get(sid)?.lastReadMessageIndex, getState().chats[sid]?.lastReadIndex);
+}
+
 export function openEmployeeChatDrawer(): void {
-  setState({ drawerOpen: true });
+  const { view, activeSid, messages, loadingMessages } = getState();
+  const reentering = view === 'conversation' && activeSid !== undefined && !loadingMessages;
+  setState({
+    drawerOpen: true,
+    unreadEntry: reentering
+      ? { id: ++entrySeq, sid: activeSid, dividerIndex: computeDividerIndex(messages, readHorizon(activeSid)) }
+      : undefined,
+  });
 }
 
 export function closeEmployeeChatDrawer(): void {
-  setState({ drawerOpen: false });
+  setState({ drawerOpen: false, unreadEntry: undefined });
 }
 
 export function showChatList(): void {
   activePaginator = undefined;
-  setState({ view: 'list', activeSid: undefined, messages: [], hasOlderMessages: false, loadingOlder: false });
+  openSeq++;
+  setState({
+    view: 'list',
+    activeSid: undefined,
+    messages: [],
+    hasOlderMessages: false,
+    loadingOlder: false,
+    unreadEntry: undefined,
+  });
 }
 
 export async function openConversation(sid: string): Promise<void> {
   const conversation = conversationsBySid.get(sid);
   if (!conversation) return;
   const myEpoch = epoch;
+  const myOpen = ++openSeq;
+  const horizon = readHorizon(sid);
   activePaginator = undefined;
   setState({
     view: 'conversation',
@@ -354,23 +377,32 @@ export async function openConversation(sid: string): Promise<void> {
     loadingOlder: false,
     loadingMessages: true,
     openError: undefined,
+    unreadEntry: undefined,
   });
   try {
     const page = await conversation.getMessages(INITIAL_PAGE_SIZE);
-    if (myEpoch !== epoch || getState().activeSid !== sid) return;
+    if (myEpoch !== epoch || myOpen !== openSeq || getState().activeSid !== sid) return;
     activePaginator = page;
-    setState((state) => ({
-      messages: upsertByIndex(
+    setState((state) => {
+      const messages = upsertByIndex(
         state.messages,
         page.items.map((m) => toChatMessage(m, myIdentity))
-      ),
-      hasOlderMessages: page.hasPrevPage,
-      loadingMessages: false,
-    }));
+      );
+      return {
+        messages,
+        hasOlderMessages: page.hasPrevPage,
+        loadingMessages: false,
+        unreadEntry: { id: ++entrySeq, sid, dividerIndex: computeDividerIndex(messages, horizon) },
+      };
+    });
   } catch (error) {
     console.error('employee chat load messages failed', error);
-    if (myEpoch !== epoch || getState().activeSid !== sid) return;
-    setState({ loadingMessages: false, openError: 'Could not load messages' });
+    if (myEpoch !== epoch || myOpen !== openSeq || getState().activeSid !== sid) return;
+    setState({
+      loadingMessages: false,
+      openError: 'Could not load messages',
+      unreadEntry: { id: ++entrySeq, sid, dividerIndex: undefined },
+    });
   }
 }
 

@@ -34,6 +34,7 @@ export interface EmployeeChatState {
   loadingOlder: boolean;
   openingProfile?: string;
   openError?: string;
+  unreadEntry?: { id: number; sid: string; dividerIndex?: number };
 }
 
 export const initialEmployeeChatState: EmployeeChatState = {
@@ -50,6 +51,7 @@ export const initialEmployeeChatState: EmployeeChatState = {
   loadingOlder: false,
   openingProfile: undefined,
   openError: undefined,
+  unreadEntry: undefined,
 };
 
 export const useEmployeeChatStore = create<EmployeeChatState>()(() => ({ ...initialEmployeeChatState }));

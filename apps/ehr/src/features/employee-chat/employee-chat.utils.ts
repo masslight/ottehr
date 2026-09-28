@@ -46,6 +46,10 @@ export function upsertByIndex(existing: ChatMessage[], incoming: ChatMessage[]):
   return [...byIndex.values()].sort((a, b) => a.index - b.index);
 }
 
+export function computeDividerIndex(messages: ChatMessage[], horizon: number | undefined): number | undefined {
+  return messages.find((message) => !message.mine && message.index > (horizon ?? -1))?.index;
+}
+
 export function lastSeenMessageIndex(
   viewportBottom: number,
   messages: { index: number; bottom: number }[]

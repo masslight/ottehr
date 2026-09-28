@@ -13,6 +13,7 @@ import {
 } from '../../src/features/employee-chat/employee-chat.connection';
 import { ChatListItem, ChatMessage, useEmployeeChatStore } from '../../src/features/employee-chat/employee-chat.store';
 import {
+  computeDividerIndex,
   employeeInitials,
   isUnread,
   lastSeenMessageIndex,
@@ -85,8 +86,20 @@ const twilio = vi.hoisted(() => {
       };
     }
 
+    nextGetMessagesGate: Promise<void> | undefined;
+
+    holdNextGetMessages(): () => void {
+      let release!: () => void;
+      this.nextGetMessagesGate = new Promise<void>((resolve) => (release = resolve));
+      return release;
+    }
+
     async getMessages(pageSize = 30): Promise<any> {
-      return this.page(this.messages.length, pageSize);
+      const gate = this.nextGetMessagesGate;
+      this.nextGetMessagesGate = undefined;
+      const result = this.page(this.messages.length, pageSize);
+      if (gate) await gate;
+      return result;
     }
 
     async sendMessage(body: string): Promise<number> {
@@ -226,6 +239,52 @@ const mockLayout = (visibleThrough: () => number): void => {
   });
 };
 
+const DIVIDER_HEIGHT = 20;
+const MESSAGES_TEST_ID = 'employee-chat-messages';
+const DIVIDER_TEST_ID = 'employee-chat-new-divider';
+
+const mockScrollLayout = (): { scrollTop: () => number } => {
+  let scrollTop = 0;
+  const isContainer = (element: Element): boolean => (element as HTMLElement).dataset?.testid === MESSAGES_TEST_ID;
+  const heightOf = (element: HTMLElement): number => {
+    if (element.dataset.messageIndex !== undefined) return MESSAGE_HEIGHT;
+    if (element.dataset.testid === DIVIDER_TEST_ID) return DIVIDER_HEIGHT;
+    return 0;
+  };
+  const children = (): HTMLElement[] =>
+    Array.from(screen.queryByTestId(MESSAGES_TEST_ID)?.children ?? []) as HTMLElement[];
+  const contentHeight = (): number => children().reduce((sum, child) => sum + heightOf(child), 0);
+  const maxScrollTop = (): number => Math.max(0, contentHeight() - VIEWPORT_HEIGHT);
+
+  vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+    if (isContainer(this)) return rect(0, VIEWPORT_HEIGHT);
+    let top = 0;
+    for (const child of children()) {
+      if (child === this) return rect(top - scrollTop, top - scrollTop + heightOf(child));
+      top += heightOf(child);
+    }
+    return rect(0, 0);
+  });
+  vi.spyOn(Element.prototype, 'scrollTop', 'get').mockImplementation(function (this: Element) {
+    return isContainer(this) ? scrollTop : 0;
+  });
+  vi.spyOn(Element.prototype, 'scrollTop', 'set').mockImplementation(function (this: Element, value: number) {
+    if (isContainer(this)) scrollTop = Math.min(Math.max(0, value), maxScrollTop());
+  });
+  vi.spyOn(Element.prototype, 'scrollHeight', 'get').mockImplementation(function (this: Element) {
+    return isContainer(this) ? contentHeight() : 0;
+  });
+  vi.spyOn(Element.prototype, 'clientHeight', 'get').mockImplementation(function (this: Element) {
+    return isContainer(this) ? VIEWPORT_HEIGHT : 0;
+  });
+  return { scrollTop: () => scrollTop };
+};
+
+const newDivider = (): HTMLElement | null => screen.queryByTestId(DIVIDER_TEST_ID);
+
+const messageAfterDivider = (): string | undefined =>
+  (newDivider()?.nextElementSibling as HTMLElement | null)?.dataset.messageIndex;
+
 const mockAttention = (focused: () => boolean): void => {
   vi.spyOn(document, 'hasFocus').mockImplementation(focused);
   vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible');
@@ -286,6 +345,23 @@ describe('employee chat utils', () => {
     expect(isUnread(chat(0, null))).toBe(true);
     expect(isUnread(chat(4, 4))).toBe(false);
     expect(isUnread(chat(5, 4))).toBe(true);
+  });
+
+  it('places the divider at the first message from the other person after the read horizon', () => {
+    const message = (index: number, mine = false): ChatMessage => ({
+      sid: `IM${index}`,
+      index,
+      mine,
+      body: `m${index}`,
+      dateCreated: undefined,
+    });
+    const messages = [message(3), message(4), message(6, true), message(9)];
+    expect(computeDividerIndex(messages, undefined)).toBe(3);
+    expect(computeDividerIndex(messages, 3)).toBe(4);
+    expect(computeDividerIndex(messages, 4)).toBe(9);
+    expect(computeDividerIndex(messages, 9)).toBeUndefined();
+    expect(computeDividerIndex([message(5, true)], 1)).toBeUndefined();
+    expect(computeDividerIndex([], undefined)).toBeUndefined();
   });
 
   it('finds the last message whose bottom edge is inside the viewport', () => {
@@ -478,6 +554,186 @@ describe('employee chat flows', () => {
     });
     await advance(SEEN_DWELL_MS);
     expect(bob.advanceCalls).toEqual([2, 3]);
+  });
+
+  const connectBobAndCarol = async (): Promise<{ bob: any; carol: any }> => {
+    let bob: any;
+    let carol: any;
+    await connectWith((client) => {
+      bob = client.addConversation('CH-bob');
+      bob.seed(20, 'bob-identity');
+      bob.lastReadMessageIndex = 9;
+      carol = client.addConversation('CH-carol');
+      carol.seed(5, 'carol-identity');
+      carol.lastReadMessageIndex = 4;
+    });
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    renderChat();
+    act(() => openEmployeeChatDrawer());
+    return { bob, carol };
+  };
+
+  const open = async (sid: string): Promise<void> => {
+    await act(async () => {
+      await openConversation(sid);
+    });
+  };
+
+  const scrollToBottom = (): void => {
+    const container = screen.getByTestId(MESSAGES_TEST_ID);
+    container.scrollTop = container.scrollHeight;
+    fireEvent.scroll(container);
+  };
+
+  it('shows the New divider above the first unread message, opens scrolled to it, and only marks what is visible', async () => {
+    const layout = mockScrollLayout();
+    mockAttention(() => true);
+    const { bob } = await connectBobAndCarol();
+    await open('CH-bob');
+
+    expect(messageAfterDivider()).toBe('10');
+    expect(within(newDivider()!).getByText('New')).toBeInTheDocument();
+    expect(layout.scrollTop()).toBe(10 * MESSAGE_HEIGHT - 8);
+
+    await advance(SEEN_DWELL_MS);
+    expect(bob.advanceCalls).toEqual([14]);
+  });
+
+  it('opens at the bottom with no divider when everything has been read', async () => {
+    const layout = mockScrollLayout();
+    mockAttention(() => true);
+    const { carol } = await connectBobAndCarol();
+    carol.seed(10, 'carol-identity');
+    carol.lastReadMessageIndex = 14;
+    await open('CH-carol');
+
+    expect(newDivider()).toBeNull();
+    expect(layout.scrollTop()).toBe(15 * MESSAGE_HEIGHT - VIEWPORT_HEIGHT);
+  });
+
+  it('keeps the divider in place for the whole visit after reading and replying', async () => {
+    mockScrollLayout();
+    mockAttention(() => true);
+    const { bob } = await connectBobAndCarol();
+    await open('CH-bob');
+
+    scrollToBottom();
+    await advance(SEEN_DWELL_MS);
+    expect(bob.lastReadMessageIndex).toBe(19);
+    expect(messageAfterDivider()).toBe('10');
+
+    const input = screen.getByTestId('employee-chat-input') as HTMLTextAreaElement;
+    fireEvent.change(input, { target: { value: 'caught up' } });
+    await act(async () => {
+      fireEvent.keyDown(input, { key: 'Enter' });
+    });
+    expect(bob.lastReadMessageIndex).toBe(20);
+    expect(messageAfterDivider()).toBe('10');
+  });
+
+  it('clears the divider on leaving and calculates a fresh one on the next entry', async () => {
+    mockScrollLayout();
+    mockAttention(() => true);
+    const { bob } = await connectBobAndCarol();
+    await open('CH-bob');
+    scrollToBottom();
+    await advance(SEEN_DWELL_MS);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Back to chats' }));
+    expect(useEmployeeChatStore.getState().unreadEntry).toBeUndefined();
+
+    await open('CH-bob');
+    expect(newDivider()).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Back to chats' }));
+    await act(async () => {
+      bob.receive('bob-identity', 'while you were away 1');
+      bob.receive('bob-identity', 'while you were away 2');
+    });
+    await open('CH-bob');
+    expect(messageAfterDivider()).toBe('20');
+  });
+
+  it('recalculates the divider when the drawer is reopened on the same conversation', async () => {
+    mockScrollLayout();
+    mockAttention(() => true);
+    const { bob } = await connectBobAndCarol();
+    await open('CH-bob');
+    scrollToBottom();
+    await advance(SEEN_DWELL_MS);
+    expect(bob.lastReadMessageIndex).toBe(19);
+
+    act(() => closeEmployeeChatDrawer());
+    expect(useEmployeeChatStore.getState().unreadEntry).toBeUndefined();
+    await act(async () => {
+      bob.receive('bob-identity', 'sent while the drawer was closed');
+    });
+    await advance(SEEN_DWELL_MS * 3);
+    expect(bob.lastReadMessageIndex).toBe(19);
+
+    act(() => openEmployeeChatDrawer());
+    expect(useEmployeeChatStore.getState().unreadEntry).toMatchObject({ sid: 'CH-bob', dividerIndex: 20 });
+    expect(messageAfterDivider()).toBe('20');
+  });
+
+  it('re-establishes the entry position when the drawer reopens before the list unmounts', async () => {
+    const layout = mockScrollLayout();
+    mockAttention(() => true);
+    const { bob } = await connectBobAndCarol();
+    await open('CH-bob');
+    scrollToBottom();
+    await advance(SEEN_DWELL_MS);
+    expect(bob.advanceCalls).toEqual([19]);
+    const container = screen.getByTestId(MESSAGES_TEST_ID);
+
+    act(() => closeEmployeeChatDrawer());
+    await act(async () => {
+      for (let i = 0; i < 8; i++) bob.receive('bob-identity', `while closed ${i}`);
+    });
+    act(() => openEmployeeChatDrawer());
+
+    expect(screen.getByTestId(MESSAGES_TEST_ID)).toBe(container);
+    expect(messageAfterDivider()).toBe('20');
+    expect(layout.scrollTop()).toBe(20 * MESSAGE_HEIGHT - 8);
+
+    await advance(SEEN_DWELL_MS);
+    expect(bob.advanceCalls).toEqual([19, 24]);
+  });
+
+  it('does not carry a divider over when switching conversations quickly', async () => {
+    mockScrollLayout();
+    mockAttention(() => true);
+    await connectBobAndCarol();
+
+    const bobOpen = openConversation('CH-bob');
+    await open('CH-carol');
+    await act(async () => {
+      await bobOpen;
+    });
+
+    expect(useEmployeeChatStore.getState().activeSid).toBe('CH-carol');
+    expect(useEmployeeChatStore.getState().unreadEntry).toMatchObject({ sid: 'CH-carol', dividerIndex: undefined });
+    expect(newDivider()).toBeNull();
+  });
+
+  it('ignores a stale load of the same conversation that resolves after a newer open', async () => {
+    mockScrollLayout();
+    mockAttention(() => true);
+    const { bob } = await connectBobAndCarol();
+
+    const release = bob.holdNextGetMessages();
+    const staleOpen = openConversation('CH-bob');
+    await open('CH-carol');
+    bob.lastReadMessageIndex = 14;
+    await open('CH-bob');
+    expect(useEmployeeChatStore.getState().unreadEntry).toMatchObject({ sid: 'CH-bob', dividerIndex: 15 });
+
+    release();
+    await act(async () => {
+      await staleOpen;
+    });
+    expect(useEmployeeChatStore.getState().unreadEntry).toMatchObject({ sid: 'CH-bob', dividerIndex: 15 });
+    expect(messageAfterDivider()).toBe('15');
   });
 
   it('keeps a message that arrives below the viewport unread', async () => {

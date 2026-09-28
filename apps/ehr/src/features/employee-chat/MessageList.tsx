@@ -1,11 +1,13 @@
-import { Box, Button, CircularProgress, Stack, Typography } from '@mui/material';
-import { FC, useEffect, useLayoutEffect, useRef } from 'react';
+import { Box, Button, CircularProgress, Divider, Stack, Typography } from '@mui/material';
+import { FC, Fragment, useEffect, useLayoutEffect, useRef } from 'react';
 import { ChatMessage } from './employee-chat.store';
 import { MessageBubble } from './MessageBubble';
 import { useSeenMessages } from './useSeenMessages';
 
 const LOAD_OLDER_THRESHOLD_PX = 40;
 const STICK_TO_BOTTOM_PX = 80;
+const DIVIDER_TOP_GAP_PX = 8;
+const NEW_DIVIDER_TEST_ID = 'employee-chat-new-divider';
 
 interface MessageListProps {
   messages: ChatMessage[];
@@ -13,8 +15,17 @@ interface MessageListProps {
   loading: boolean;
   hasOlderMessages: boolean;
   loadingOlder: boolean;
+  entryId: number | undefined;
+  dividerIndex: number | undefined;
   onLoadOlder: () => void;
   onSeen: (index: number) => void;
+}
+
+function initialScrollTop(element: HTMLElement): number {
+  const divider = element.querySelector<HTMLElement>(`[data-testid="${NEW_DIVIDER_TEST_ID}"]`);
+  if (!divider) return element.scrollHeight;
+  const offset = divider.getBoundingClientRect().top - element.getBoundingClientRect().top;
+  return element.scrollTop + offset - DIVIDER_TOP_GAP_PX;
 }
 
 interface ScrollSnapshot {
@@ -31,16 +42,20 @@ export const MessageList: FC<MessageListProps> = ({
   loading,
   hasOlderMessages,
   loadingOlder,
+  entryId,
+  dividerIndex,
   onLoadOlder,
   onSeen,
 }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const snapshot = useRef<ScrollSnapshot>({ height: 0, top: 0, client: 0 });
-  const scheduleSeenCheck = useSeenMessages(containerRef, onSeen);
+  const positionedEntry = useRef<number | undefined>(undefined);
+  const positioned = useRef(false);
+  const scheduleSeenCheck = useSeenMessages(containerRef, onSeen, positioned);
 
   useEffect(() => {
     scheduleSeenCheck();
-  }, [messages, scheduleSeenCheck]);
+  }, [messages, entryId, scheduleSeenCheck]);
 
   useLayoutEffect(() => {
     const element = containerRef.current;
@@ -49,7 +64,13 @@ export const MessageList: FC<MessageListProps> = ({
     const first = messages[0];
     const last = messages[messages.length - 1];
 
-    if (previous.firstIndex === undefined || first === undefined) {
+    if (entryId === undefined || positionedEntry.current !== entryId) {
+      positioned.current = false;
+      if (entryId === undefined) return;
+      element.scrollTop = initialScrollTop(element);
+      positionedEntry.current = entryId;
+      positioned.current = true;
+    } else if (previous.firstIndex === undefined || first === undefined) {
       element.scrollTop = element.scrollHeight;
     } else if (first.index < previous.firstIndex) {
       element.scrollTop = element.scrollHeight - previous.height + previous.top;
@@ -65,7 +86,7 @@ export const MessageList: FC<MessageListProps> = ({
       firstIndex: first?.index,
       lastIndex: last?.index,
     };
-  }, [messages]);
+  }, [messages, entryId]);
 
   const handleScroll = (): void => {
     const element = containerRef.current;
@@ -105,7 +126,20 @@ export const MessageList: FC<MessageListProps> = ({
         </Typography>
       )}
       {messages.map((message) => (
-        <MessageBubble key={message.sid} message={message} otherName={otherName} />
+        <Fragment key={message.sid}>
+          {message.index === dividerIndex && (
+            <Divider
+              data-testid={NEW_DIVIDER_TEST_ID}
+              textAlign="right"
+              sx={{ color: 'error.main', '&::before, &::after': { borderColor: 'error.main' } }}
+            >
+              <Typography variant="caption" sx={{ fontWeight: 600 }}>
+                New
+              </Typography>
+            </Divider>
+          )}
+          <MessageBubble message={message} otherName={otherName} />
+        </Fragment>
       ))}
     </Box>
   );
