@@ -25,6 +25,7 @@ export const FeatureFlagsConfigSchema = z.object({
   // The admin UI is unaffected (it queries `admin-list-service-categories`,
   // not the patient-facing `get-service-categories`).
   dynamicServiceCategoriesEnabled: z.boolean().optional(),
+  employeeChatEnabled: z.boolean().optional(),
   // When true, this deployment runs in NIO mode: the billing app manages
   // non-insurance organizations (and clinical employer pickers will source from
   // them). When false/omitted, the legacy clinical Employers feature — with its
