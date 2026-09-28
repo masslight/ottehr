@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { ReactElement } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { ChatList } from '../../src/features/employee-chat/ChatList';
 import {
   closeEmployeeChatDrawer,
   connectEmployeeChat,
@@ -404,6 +405,44 @@ describe('employee chat utils', () => {
     };
     expect(visibleChats(chats, undefined).map((chat) => chat.sid)).toEqual(['b', 'a']);
     expect(visibleChats(chats, 'c').map((chat) => chat.sid)).toEqual(['b', 'a', 'c']);
+  });
+});
+
+const chatRow = (name: string): HTMLElement =>
+  screen.getByText(name).closest('[data-testid="employee-chat-list-item"]') as HTMLElement;
+
+const rowUnreadDot = (name: string): HTMLElement | null => within(chatRow(name)).queryByRole('img', { name: 'Unread' });
+
+describe('ChatList', () => {
+  it('marks unread rows with a labelled dot and bold text, and leaves read rows plain', () => {
+    render(
+      <ChatList
+        onOpen={vi.fn()}
+        chats={[
+          {
+            sid: 'a',
+            otherEmployee: BOB,
+            lastMessageIndex: 5,
+            lastReadIndex: 4,
+            preview: { body: 'new', mine: false },
+          },
+          {
+            sid: 'b',
+            otherEmployee: CAROL,
+            lastMessageIndex: 3,
+            lastReadIndex: 3,
+            preview: { body: 'old', mine: false },
+          },
+          { sid: 'c', otherEmployee: DAN, lastMessageIndex: 0, lastReadIndex: null },
+        ]}
+      />
+    );
+
+    expect(rowUnreadDot('Bob Chen')).toBeInTheDocument();
+    expect(rowUnreadDot('Dan Evans')).toBeInTheDocument();
+    expect(rowUnreadDot('Carol Diaz')).toBeNull();
+    expect(screen.getByText('Bob Chen')).toHaveStyle({ fontWeight: 700 });
+    expect(screen.getByText('Carol Diaz')).toHaveStyle({ fontWeight: 500 });
   });
 });
 
@@ -1240,5 +1279,50 @@ describe('employee chat flows', () => {
     });
     expect(mockOpenEmployeeChat).not.toHaveBeenCalled();
     expect(useEmployeeChatStore.getState().activeSid).toBe('CH-bob');
+  });
+
+  it('clears the row dot when the read horizon advances from another session and restores it on a new message', async () => {
+    let fakeClient: any;
+    let bob: any;
+    await connectWith((client) => {
+      fakeClient = client;
+      bob = client.addConversation('CH-bob');
+      bob.seed(2, 'bob-identity');
+      const carol = client.addConversation('CH-carol');
+      carol.seed(1, 'carol-identity');
+      carol.lastReadMessageIndex = 0;
+    });
+    renderChat();
+    act(() => openEmployeeChatDrawer());
+    await screen.findByText('Bob Chen');
+    expect(rowUnreadDot('Bob Chen')).toBeInTheDocument();
+    expect(rowUnreadDot('Carol Diaz')).toBeNull();
+
+    bob.lastReadMessageIndex = 1;
+    act(() => {
+      fakeClient.emit('conversationUpdated', { conversation: bob, updateReasons: ['lastReadMessageIndex'] });
+    });
+    expect(rowUnreadDot('Bob Chen')).toBeNull();
+    expect(unreadDot()).toHaveClass('MuiBadge-invisible');
+
+    await act(async () => {
+      bob.receive('bob-identity', 'one more thing');
+    });
+    expect(rowUnreadDot('Bob Chen')).toBeInTheDocument();
+    expect(unreadDot()).not.toHaveClass('MuiBadge-invisible');
+  });
+
+  it('clears the row dot after I read the conversation in the drawer', async () => {
+    mockScrollLayout();
+    mockAttention(() => true);
+    await connectBobWithHistory(3, null);
+    expect(rowUnreadDot('Bob Chen')).toBeInTheDocument();
+
+    await open('CH-bob');
+    await advance(SEEN_DWELL_MS);
+    fireEvent.click(screen.getByRole('button', { name: 'Back to chats' }));
+
+    expect(rowUnreadDot('Bob Chen')).toBeNull();
+    expect(screen.getByText('Bob Chen')).toHaveStyle({ fontWeight: 500 });
   });
 });

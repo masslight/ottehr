@@ -1,4 +1,4 @@
-import { List, ListItemAvatar, ListItemButton, ListItemText, Typography } from '@mui/material';
+import { Box, List, ListItemAvatar, ListItemButton, ListItemText, Stack, Typography } from '@mui/material';
 import { DateTime } from 'luxon';
 import { FC } from 'react';
 import { ChatListItem } from './employee-chat.store';
@@ -45,9 +45,19 @@ export const ChatList: FC<ChatListProps> = ({ chats, onOpen }) => {
                 color: unread ? 'text.primary' : 'text.secondary',
               }}
             />
-            <Typography variant="caption" color="text.secondary" sx={{ ml: 1, whiteSpace: 'nowrap' }}>
-              {formatListTime(chat.lastMessageAt)}
-            </Typography>
+            <Stack alignItems="flex-end" spacing={0.5} sx={{ ml: 1 }}>
+              <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
+                {formatListTime(chat.lastMessageAt)}
+              </Typography>
+              {unread && (
+                <Box
+                  role="img"
+                  aria-label="Unread"
+                  data-testid="employee-chat-list-item-unread"
+                  sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: 'primary.main' }}
+                />
+              )}
+            </Stack>
           </ListItemButton>
         );
       })}
