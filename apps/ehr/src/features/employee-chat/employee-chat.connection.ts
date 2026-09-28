@@ -20,6 +20,7 @@ const summariesBySid = new Map<string, EmployeeChatSummary>();
 const joinWaiters = new Map<string, (conversation: Conversation) => void>();
 const previewsRequested = new Set<string>();
 const unknownSidsRefreshed = new Set<string>();
+const pendingReadIndex = new Map<string, number>();
 
 const setState = useEmployeeChatStore.setState;
 const getState = useEmployeeChatStore.getState;
@@ -118,28 +119,26 @@ export function refreshChatList(): Promise<void> {
   return chatListRefresh;
 }
 
-async function markRead(sid: string): Promise<void> {
+async function advanceReadHorizon(sid: string, index: number): Promise<void> {
   const conversation = conversationsBySid.get(sid);
   if (!conversation) return;
+  const known = maxIndex(getState().chats[sid]?.lastReadIndex, pendingReadIndex.get(sid));
+  if (known !== undefined && index <= known) return;
   const myEpoch = epoch;
+  pendingReadIndex.set(sid, index);
   try {
-    await conversation.setAllMessagesRead();
+    await conversation.advanceLastReadMessageIndex(index);
     if (myEpoch !== epoch) return;
     setState((state) => {
       const chat = state.chats[sid];
       if (!chat) return {};
-      return {
-        chats: { ...state.chats, [sid]: { ...chat, lastReadIndex: chat.lastMessageIndex ?? chat.lastReadIndex } },
-      };
+      return { chats: { ...state.chats, [sid]: { ...chat, lastReadIndex: maxIndex(chat.lastReadIndex, index) } } };
     });
   } catch (error) {
-    console.error('employee chat mark read failed', error);
+    console.error('employee chat advance read horizon failed', error);
+  } finally {
+    if (myEpoch === epoch && pendingReadIndex.get(sid) === index) pendingReadIndex.delete(sid);
   }
-}
-
-function isViewing(sid: string): boolean {
-  const { drawerOpen, view, activeSid } = getState();
-  return drawerOpen && view === 'conversation' && activeSid === sid;
 }
 
 function handleMessageAdded(message: Message): void {
@@ -171,8 +170,8 @@ function handleMessageAdded(message: Message): void {
   });
 
   refreshForUnknownConversation(sid);
-  if (isViewing(sid)) {
-    void markRead(sid);
+  if (dto.mine) {
+    void advanceReadHorizon(sid, dto.index);
   }
 }
 
@@ -203,7 +202,6 @@ async function resync(): Promise<void> {
         latest.items.map((m) => toChatMessage(m, myIdentity))
       ),
     }));
-    if (isViewing(activeSid)) void markRead(activeSid);
   } catch (error) {
     console.error('employee chat resync failed', error);
   }
@@ -313,6 +311,7 @@ export function disconnectEmployeeChat(): void {
   joinWaiters.clear();
   previewsRequested.clear();
   unknownSidsRefreshed.clear();
+  pendingReadIndex.clear();
   setState({ ...initialEmployeeChatState });
 }
 
@@ -325,8 +324,6 @@ export async function retryEmployeeChat(): Promise<void> {
 
 export function openEmployeeChatDrawer(): void {
   setState({ drawerOpen: true });
-  const { activeSid, view } = getState();
-  if (view === 'conversation' && activeSid) void markRead(activeSid);
 }
 
 export function closeEmployeeChatDrawer(): void {
@@ -364,7 +361,6 @@ export async function openConversation(sid: string): Promise<void> {
       hasOlderMessages: page.hasPrevPage,
       loadingMessages: false,
     }));
-    if (isViewing(sid)) await markRead(sid);
   } catch (error) {
     console.error('employee chat load messages failed', error);
     if (myEpoch !== epoch || getState().activeSid !== sid) return;
@@ -451,8 +447,8 @@ export async function sendChatMessage(body: string): Promise<void> {
   const { activeSid } = getState();
   const conversation = activeSid ? conversationsBySid.get(activeSid) : undefined;
   if (!activeSid || !conversation) throw new Error('No conversation is open');
-  await conversation.sendMessage(body);
-  void markRead(activeSid);
+  const index = await conversation.sendMessage(body);
+  void advanceReadHorizon(activeSid, index);
 }
 
 export async function loadMissingPreviews(): Promise<void> {

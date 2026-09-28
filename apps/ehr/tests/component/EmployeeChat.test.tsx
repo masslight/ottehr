@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import { ReactElement } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  closeEmployeeChatDrawer,
   connectEmployeeChat,
   disconnectEmployeeChat,
   loadOlderMessages,
@@ -96,9 +97,12 @@ const twilio = vi.hoisted(() => {
       return message.index;
     }
 
-    async setAllMessagesRead(): Promise<number> {
-      this.lastReadMessageIndex = this.lastMessage?.index ?? null;
-      return 0;
+    advanceCalls: number[] = [];
+
+    async advanceLastReadMessageIndex(index: number): Promise<number> {
+      this.advanceCalls.push(index);
+      this.lastReadMessageIndex = Math.max(this.lastReadMessageIndex ?? -1, index);
+      return this.messages.filter((message) => message.index > this.lastReadMessageIndex!).length;
     }
   }
 
@@ -350,7 +354,7 @@ describe('employee chat flows', () => {
     expect(within(items[1]).getByText('You: see you')).toBeInTheDocument();
   });
 
-  it('opens a conversation with the latest 50 messages, clears unread, and pages older without duplicates', async () => {
+  it('opens a conversation with the latest 50 messages without marking it read, and pages older without duplicates', async () => {
     let bob: any;
     await connectWith((client) => {
       bob = client.addConversation('CH-bob');
@@ -364,8 +368,9 @@ describe('employee chat flows', () => {
       await openConversation('CH-bob');
     });
     expect(screen.getAllByTestId('employee-chat-message')).toHaveLength(50);
-    expect(unreadDot()).toHaveClass('MuiBadge-invisible');
-    expect(bob.lastReadMessageIndex).toBe(59);
+    expect(unreadDot()).not.toHaveClass('MuiBadge-invisible');
+    expect(bob.lastReadMessageIndex).toBeNull();
+    expect(bob.advanceCalls).toEqual([]);
 
     await act(async () => {
       await loadOlderMessages();
@@ -376,12 +381,13 @@ describe('employee chat flows', () => {
     expect(useEmployeeChatStore.getState().hasOlderMessages).toBe(false);
   });
 
-  it('appends realtime messages to the open conversation and flags other conversations as unread', async () => {
+  it('appends realtime messages to the open conversation without marking them read', async () => {
     let bob: any;
     let carol: any;
     await connectWith((client) => {
       bob = client.addConversation('CH-bob');
       bob.seed(1, 'bob-identity');
+      bob.lastReadMessageIndex = 0;
       carol = client.addConversation('CH-carol');
     });
     renderChat();
@@ -395,13 +401,78 @@ describe('employee chat flows', () => {
       bob.receive('bob-identity', 'are you there?');
     });
     expect(screen.getByText('are you there?')).toBeInTheDocument();
-    await waitFor(() => expect(unreadDot()).toHaveClass('MuiBadge-invisible'));
+    expect(bob.lastReadMessageIndex).toBe(0);
+    expect(unreadDot()).not.toHaveClass('MuiBadge-invisible');
 
     await act(async () => {
       carol.receive('carol-identity', 'ping from carol');
     });
     expect(screen.queryByText('ping from carol')).not.toBeInTheDocument();
+    expect(useEmployeeChatStore.getState().chats['CH-carol'].lastMessageIndex).toBe(0);
+    expect(carol.lastReadMessageIndex).toBeNull();
+  });
+
+  it('does not mark the active conversation read when the drawer is reopened', async () => {
+    let bob: any;
+    await connectWith((client) => {
+      bob = client.addConversation('CH-bob');
+      bob.seed(3, 'bob-identity');
+      client.addConversation('CH-carol');
+    });
+    renderChat();
+    act(() => openEmployeeChatDrawer());
+    await act(async () => {
+      await openConversation('CH-bob');
+    });
+    act(() => closeEmployeeChatDrawer());
+    act(() => openEmployeeChatDrawer());
+
+    expect(bob.advanceCalls).toEqual([]);
     expect(unreadDot()).not.toHaveClass('MuiBadge-invisible');
+  });
+
+  it('marks the conversation read through my sent message, including earlier unread messages', async () => {
+    let bob: any;
+    await connectWith((client) => {
+      bob = client.addConversation('CH-bob');
+      bob.seed(3, 'bob-identity');
+      client.addConversation('CH-carol');
+    });
+    renderChat();
+    act(() => openEmployeeChatDrawer());
+    await act(async () => {
+      await openConversation('CH-bob');
+    });
+    expect(unreadDot()).not.toHaveClass('MuiBadge-invisible');
+
+    const input = screen.getByTestId('employee-chat-input') as HTMLTextAreaElement;
+    fireEvent.change(input, { target: { value: 'on it' } });
+    await act(async () => {
+      fireEvent.keyDown(input, { key: 'Enter' });
+    });
+
+    await waitFor(() => expect(unreadDot()).toHaveClass('MuiBadge-invisible'));
+    expect(bob.lastReadMessageIndex).toBe(3);
+    expect(bob.advanceCalls).toEqual([3]);
+    expect(useEmployeeChatStore.getState().chats['CH-bob'].lastReadIndex).toBe(3);
+  });
+
+  it('marks a conversation read when my own message arrives from another session', async () => {
+    let bob: any;
+    await connectWith((client) => {
+      bob = client.addConversation('CH-bob');
+      bob.seed(2, 'bob-identity');
+      client.addConversation('CH-carol');
+    });
+    renderChat();
+    expect(unreadDot()).not.toHaveClass('MuiBadge-invisible');
+
+    await act(async () => {
+      bob.receive('me-identity', 'sent from my other tab');
+    });
+
+    await waitFor(() => expect(unreadDot()).toHaveClass('MuiBadge-invisible'));
+    expect(bob.lastReadMessageIndex).toBe(2);
   });
 
   it('sends a message, clears the composer on success and keeps the text on failure', async () => {
