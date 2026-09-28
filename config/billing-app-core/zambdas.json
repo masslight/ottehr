@@ -190,6 +190,13 @@
       "src": "src/billing/export-billing-claim-x12/index",
       "zip": ".dist/zips/export-billing-claim-x12.zip"
     },
+    "GET-BILLING-CLAIM-CMS1500": {
+      "name": "get-billing-claim-cms1500",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/get-billing-claim-cms1500/index",
+      "zip": ".dist/zips/get-billing-claim-cms1500.zip"
+    },
     "GET-BILLING-PATIENT-DETAIL": {
       "name": "get-billing-patient-detail",
       "type": "http_auth",
@@ -543,12 +550,12 @@
       "src": "src/subscriptions/claim-response/sub-claim-status-response/index",
       "zip": ".dist/zips/sub-claim-status-response.zip"
     },
-    "SUB-CLAIM-RESPONSE-ADJUST-STATUS": {
-      "name": "sub-claim-response-adjust-status",
+    "SUB-CLAIM-RESPONSE-UPDATE-CLAIM-FROM-ERA": {
+      "name": "sub-claim-response-update-claim-from-era",
       "type": "subscription",
       "runtime": "nodejs22.x",
-      "src": "src/subscriptions/claim-response/sub-claim-response-adjust-status/index",
-      "zip": ".dist/zips/sub-claim-response-adjust-status.zip"
+      "src": "src/subscriptions/claim-response/sub-claim-response-update-claim-from-era/index",
+      "zip": ".dist/zips/sub-claim-response-update-claim-from-era.zip"
     },
     "ADD-CLAIM-ATTACHMENT": {
       "name": "add-claim-attachment",
@@ -722,7 +729,7 @@
         "resourceType": "Subscription",
         "status": "active",
         "reason": "Process claim-status responses for billing",
-        "criteria": "ClaimResponse?identifier=https://identifiers.fhir.oystehr.com/rcm-claim-response-event-id|",
+        "criteria": "ClaimResponse?_tag=https://tags.fhir.oystehr.com/rcm-claim-response-type|status-update",
         "channel": {
           "type": "rest-hook",
           "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-CLAIM-STATUS-RESPONSE/id}"
@@ -735,15 +742,15 @@
         ]
       }
     },
-    "SUB_CLAIM_RESPONSE_ADJUST_STATUS": {
+    "SUB_CLAIM_RESPONSE_UPDATE_CLAIM_FROM_ERA": {
       "resource": {
         "resourceType": "Subscription",
         "status": "active",
-        "reason": "Adjust Claim status on ERA match",
-        "criteria": "ClaimResponse?_tag=https://fhir.ottehr.com/billing/resource-type|billing-resource&outcome=complete&request.status=active",
+        "reason": "Adjust Claim properties on ERA match",
+        "criteria": "ClaimResponse?_tag=https://fhir.ottehr.com/billing/resource-type|billing-resource&_tag=https://tags.fhir.oystehr.com/rcm-claim-response-type|era&request.status=active",
         "channel": {
           "type": "rest-hook",
-          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-CLAIM-RESPONSE-ADJUST-STATUS/id}"
+          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-CLAIM-RESPONSE-UPDATE-CLAIM-FROM-ERA/id}"
         },
         "extension": [
           {
