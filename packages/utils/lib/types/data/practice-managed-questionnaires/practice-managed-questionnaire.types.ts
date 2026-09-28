@@ -60,6 +60,8 @@ export type PracticeManagedQuestionnaireDTO = {
   title: string;
   status: Questionnaire['status'];
   url: string;
+  // questionnaires imported via raw json are read only in the admin portal
+  isJsonImport: boolean;
 };
 
 export type StandaloneFormDTO = Omit<QAndQRResponse, 'questionnaireTitle'> & {
@@ -73,9 +75,17 @@ export type StandaloneFormDTO = Omit<QAndQRResponse, 'questionnaireTitle'> & {
 export type PracticeManagedQuestionnaireGetInput = {
   questionnaireId: string;
 };
-export type PracticeManagedQuestionnaireGetOutput = {
-  practiceManagedQuestionnaire: PracticeManagedQuestionnaire;
-};
+// json imported questionnaires are not edited with the questionnaire builder, so they are returned as raw fhir
+// (they may contain attributes the builder cannot process)
+export type PracticeManagedQuestionnaireGetOutput =
+  | {
+      isJsonImport: false;
+      practiceManagedQuestionnaire: PracticeManagedQuestionnaire;
+    }
+  | {
+      isJsonImport: true;
+      questionnaire: Questionnaire;
+    };
 
 // get practice managed questionnaire list
 export type PracticeManagedQuestionnaireListOutput = {
@@ -107,6 +117,17 @@ export type PracticeManagedQuestionnaireCreateInput = {
 };
 export type PracticeManagedQuestionnaireCreateOutput = {
   questionnaireId: string;
+};
+
+// import a raw fhir questionnaire json
+// when questionnaireId is passed, the json is uploaded as a new version of that (json imported) questionnaire
+export type PracticeManagedQuestionnaireImportJsonInput = {
+  questionnaire: Questionnaire;
+  questionnaireId?: string;
+};
+export type PracticeManagedQuestionnaireImportJsonOutput = {
+  questionnaireId: string;
+  version: string;
 };
 
 // used for patient app rendering custom, standalone forms

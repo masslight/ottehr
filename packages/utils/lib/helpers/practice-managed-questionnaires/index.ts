@@ -7,6 +7,7 @@ import {
 } from 'fhir/r4b';
 import { cloneDeep, isEqual } from 'lodash-es';
 import {
+  JSON_IMPORT_QUESTIONNAIRE_TAG,
   OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS,
   PRACTICE_MANAGED_QUESTIONNAIRE_TAG,
   QR_DISTRIBUTION_TAG,
@@ -202,6 +203,13 @@ export function isPracticeManagedQ(q: Questionnaire | undefined): boolean {
   if (!q) return false;
 
   const { system, code } = PRACTICE_MANAGED_QUESTIONNAIRE_TAG;
+  return Boolean(q.meta?.tag?.some((t) => t.code === code && t.system === system));
+}
+
+export function isJsonImportedQ(q: Pick<Questionnaire, 'meta'> | undefined): boolean {
+  if (!q) return false;
+
+  const { system, code } = JSON_IMPORT_QUESTIONNAIRE_TAG;
   return Boolean(q.meta?.tag?.some((t) => t.code === code && t.system === system));
 }
 

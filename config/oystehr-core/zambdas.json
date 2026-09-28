@@ -2584,6 +2584,13 @@
       "src": "src/ehr/practice-managed-questionnaire/create/index",
       "zip": ".dist/zips/practice-managed-questionnaire-create.zip"
     },
+    "MANAGED_QUESTIONNAIRE_IMPORT_JSON": {
+      "name": "practice-managed-questionnaire-import-json",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/practice-managed-questionnaire/import-json/index",
+      "zip": ".dist/zips/practice-managed-questionnaire-import-json.zip"
+    },
     "PAPERWORK_FLOW_LIST": {
       "name": "paperwork-flow-list",
       "type": "http_auth",

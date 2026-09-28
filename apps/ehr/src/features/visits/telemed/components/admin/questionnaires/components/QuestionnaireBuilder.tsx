@@ -1,10 +1,8 @@
 import AddIcon from '@mui/icons-material/Add';
-import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
-import { Box, Button, Grid, Paper, TextField, Typography } from '@mui/material';
+import { Box, Grid, Paper, TextField, Typography } from '@mui/material';
 import { Questionnaire } from 'fhir/r4b';
-import { enqueueSnackbar } from 'notistack';
-import { FC, useCallback, useMemo, useReducer, useState } from 'react';
+import { FC, useMemo, useReducer, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { RoundedButton } from 'src/components/RoundedButton';
 import {
@@ -19,6 +17,7 @@ import {
 } from 'utils/lib/types/data/practice-managed-questionnaires/practice-managed-questionnaire.types';
 import { itemsReducer } from '../questionnaire.reducer';
 import { QuestionnaireItemEditor } from './QuestionnaireItemEditor';
+import { QuestionnaireJsonPreview } from './QuestionnaireJsonPreview';
 import { QuestionnairePreview } from './QuestionnairePreview';
 import { QuestionnaireTestDialog } from './QuestionnaireTestDialog';
 
@@ -121,12 +120,6 @@ export const QuestionnaireBuilder: FC<QuestionnaireBuilderProps> = ({ initial, o
 
     return { questionnaire, fhirQuestionnaire, jsonPreview };
   }, [initial, title, description, items]);
-
-  const handleCopyJson = useCallback(() => {
-    void navigator.clipboard.writeText(jsonPreview).then(() => {
-      enqueueSnackbar('JSON copied to clipboard', { variant: 'success' });
-    });
-  }, [jsonPreview]);
 
   const handleSave = async (): Promise<void> => {
     let error = false;
@@ -262,40 +255,7 @@ export const QuestionnaireBuilder: FC<QuestionnaireBuilderProps> = ({ initial, o
             totalPages={items.length}
           />
 
-          <Paper
-            variant="outlined"
-            sx={{
-              p: 3,
-              mt: 2,
-              maxHeight: 400,
-              overflow: 'auto',
-            }}
-          >
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-              <Typography variant="h4" sx={{ color: '#0F347C' }}>
-                JSON Preview
-              </Typography>
-              <Button size="small" startIcon={<ContentCopyIcon />} onClick={handleCopyJson}>
-                Copy
-              </Button>
-            </Box>
-            <Box
-              component="pre"
-              sx={{
-                fontSize: 12,
-                fontFamily: 'monospace',
-                bgcolor: '#f5f5f5',
-                p: 1.5,
-                borderRadius: 1,
-                overflow: 'auto',
-                whiteSpace: 'pre-wrap',
-                wordBreak: 'break-word',
-                m: 0,
-              }}
-            >
-              {jsonPreview}
-            </Box>
-          </Paper>
+          <QuestionnaireJsonPreview json={jsonPreview} />
         </Box>
       </Box>
 
