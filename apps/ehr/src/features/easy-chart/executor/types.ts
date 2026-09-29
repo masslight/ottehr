@@ -9,6 +9,8 @@ import { NoteChartKey } from 'utils/lib/easy-chart/note-fields';
 import {
   AllChartValues,
   AllChartValuesKeys,
+  CPTCodeDTO,
+  ExamObservationDTO,
   FreeTextNoteDTO,
   SaveableDTO,
 } from 'utils/lib/types/api/chart-data/chart-data.types';
@@ -104,8 +106,13 @@ export interface ChartSnapshot {
   conditions: ChartedItem[];
   surgicalHistory: ChartedItem[];
   hospitalizations: ChartedItem[];
-  /** The exam cards' free-text notes, where a finding with no matching checkbox goes. */
-  examComments: { resourceId?: string; field: string; note: string }[];
+  /**
+   * Exam rows by field, which a write updates in place as the Exam tab does: ticks, modal options and the
+   * cards' free-text comments, where a finding with no matching checkbox goes.
+   */
+  examRows: Partial<Record<string, ExamObservationDTO>>;
+  /** The visit's E&M row; a second one would be billed alongside it. */
+  emCode?: CPTCodeDTO;
   /** The note paragraphs by storage key, with the row id a rewrite must update. */
   noteFields: Partial<Record<NoteChartKey, FreeTextNoteDTO>>;
 }

@@ -104,7 +104,7 @@ describe('buildAnalysis', () => {
     const recs = analyse([
       // A removal is matched against the chart, not the catalogue, so it stays generic.
       { kind: 'remove-medication', display: 'Motrin', sourceText: 'stop the Motrin' },
-      { kind: 'set-disposition', dispositionType: 'pcp', text: 'Follow up with PCP in one week.' },
+      { kind: 'set-disposition', dispositionType: 'pcp-no-type', text: 'Follow up with PCP in one week.' },
       { kind: 'set-em-code', code: '99213', display: 'Office visit, established, low' },
       // Another vital has no editor of its own.
       { kind: 'set-vital', field: 'vital-temperature', display: '38 C', value: 38, unit: 'C' },
@@ -116,7 +116,10 @@ describe('buildAnalysis', () => {
       ['action', 'vitals'],
     ]);
     expect(recs[0]).toMatchObject({ label: 'Removing medication: Motrin' });
-    expect(recs[1]).toMatchObject({ label: 'Setting disposition: pcp', secondary: 'Follow up with PCP in one week.' });
+    expect(recs[1]).toMatchObject({
+      label: 'Setting disposition: Primary Care Physician',
+      secondary: 'Follow up with PCP in one week.',
+    });
     expect(recs[2]).toMatchObject({ label: 'Setting E&M level: 99213', secondary: 'Office visit, established, low' });
     // The wrapped action is returned untouched.
     expect(toPlannedAction(recs[3])).toEqual({
@@ -227,6 +230,22 @@ describe('buildAnalysis', () => {
       'allergy:penicillin',
       'ros:ros-constitutional-fever',
       'exam:sinus-tenderness',
+    ]);
+  });
+
+  it('keeps a recheck of a vital as its own row and merges only the same reading', () => {
+    const recs = analyse([
+      { kind: 'set-vital', field: 'vital-temperature', display: '101.2 F', value: 101.2, unit: 'F' },
+      { kind: 'set-vital', field: 'vital-temperature', display: '99.1 F', value: 99.1, unit: 'F' },
+      { kind: 'set-vital', field: 'vital-temperature', display: '99.1 F', value: 99.1, unit: 'F' },
+      { kind: 'set-vital', field: 'vital-weight', display: '172 lb', value: 172, unit: 'lb' },
+      { kind: 'set-vital', field: 'vital-weight', display: '171 lb', value: 171, unit: 'lb' },
+    ]);
+    expect(recs.map(recommendationKey)).toEqual([
+      'set-vital:vital-temperature:101.2|F',
+      'set-vital:vital-temperature:99.1|F',
+      'vital:vital-weight:172',
+      'vital:vital-weight:171',
     ]);
   });
 

@@ -3,7 +3,7 @@
 // provider-readable reason when it skips.
 
 import { buildExamLeafCatalogue, ExamLeaf } from 'utils/lib/config-helpers/exam-leaves';
-import { ActionKind, PlannableVitalField } from 'utils/lib/easy-chart/actions';
+import { ActionKind, chartableFollowUpDays, PlannableVitalField } from 'utils/lib/easy-chart/actions';
 import { chartKeyForNoteField, NOTE_FIELD_LABELS } from 'utils/lib/easy-chart/note-fields';
 import { HeightMeasurement } from 'utils/lib/helpers/vitals/vitals-height.helper';
 import { fahrenheitToCelsius } from 'utils/lib/helpers/vitals/vitals-temperature.helper';
@@ -11,7 +11,7 @@ import { LBS_IN_KG } from 'utils/lib/helpers/vitals/vitals-weight.helper';
 import { DefaultExamComponentsConfig } from 'utils/lib/ottehr-config/examination/default-components.config';
 import { getRosFindingFieldKeys } from 'utils/lib/ottehr-config/review-of-systems';
 import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
-import { VitalsObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { ExamObservationDTO, VitalsObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { roundNumberToDecimalPlaces } from 'utils/lib/utils/convert';
 import { examCommentTarget, normalizeExamComment } from './examComment';
 import { describeQuery, resolvePick } from './resolve';
@@ -108,6 +108,21 @@ function erxId(payload: unknown): string | undefined {
 }
 
 /**
+ * The row the Exam tab would save for this box: the field's existing row updated in place, and a modal
+ * option added to that row's components rather than written as a row of its own.
+ */
+function examRowFor(
+  existing: ExamObservationDTO | undefined,
+  field: string,
+  leaf: ExamLeaf | undefined
+): ExamObservationDTO {
+  const row: ExamObservationDTO = { ...existing, field, value: true };
+  const option = leaf?.component;
+  if (!option) return row;
+  const others = (existing?.components ?? []).filter((component) => component.code !== option.code);
+  return { ...row, components: [...others, { ...option, abnormal: option.abnormal ?? true, value: true }] };
+}
+/**
  * A dictated finding no checkbox matched: appended to the free-text comment of the card it most likely
  * belongs to, once. Always low confidence, because the card is a guess.
  */
@@ -122,11 +137,12 @@ async function writeExamComment(
   if (!target) return skipped(`"${text}" matched no exam finding, and this exam has no comment field to note it in`);
   const { field } = target;
 
-  const existing = context.chart.examComments.find((comment) => comment.field === field);
-  if (existing && normalizeExamComment(existing.note).includes(normalizeExamComment(text))) {
+  const existing = context.chart.examRows[field];
+  const existingNote = existing?.note?.trim();
+  if (existingNote && normalizeExamComment(existingNote).includes(normalizeExamComment(text))) {
     return skipped(`"${text}" is already in that exam section's note`);
   }
-  const note = existing?.note ? `${existing.note}; ${text}` : text;
+  const note = existingNote ? `${existingNote}; ${text}` : text;
   const created = await context.writer.save({
     examObservations: [{ ...(existing?.resourceId ? { resourceId: existing.resourceId } : {}), field, note }],
   });
@@ -304,7 +320,7 @@ export const HANDLERS: HandlerTable = {
 
   'add-exam-finding': async (action, context) => {
     const tick = (field: string, leaf: ExamLeaf | undefined): Promise<string[]> =>
-      context.writer.save({ examObservations: [{ ...leaf, field, value: true }] });
+      context.writer.save({ examObservations: [examRowFor(context.chart.examRows[field], field, leaf)] });
     // The provider already confirmed this leaf in the panel; searching again could land elsewhere.
     const { resolvedLeaf } = action as ResolvedExamFindingAction;
     if (resolvedLeaf) {
@@ -338,19 +354,24 @@ export const HANDLERS: HandlerTable = {
   'remove-diagnosis': async (action, context) =>
     removeCharted(action, context, { items: context.chart.diagnoses, field: 'diagnosis', noun: 'diagnosis' }),
 
-  'set-em-code': async (action, context) =>
-    applied(await context.writer.save({ emCode: { code: action.code, display: action.display ?? action.code } })),
+  'set-em-code': async (action, context) => {
+    const existing = context.chart.emCode;
+    if (existing?.code === action.code) return skipped(`E&M code ${action.code} is already on the chart`);
+    // Updated in place, as the Assessment tab does: a second E&M row would be billed alongside the first.
+    return applied(
+      await context.writer.save({ emCode: { ...existing, code: action.code, display: action.display ?? action.code } })
+    );
+  },
 
-  'set-disposition': async (action, context) =>
-    applied(
+  'set-disposition': async (action, context) => {
+    // Only an interval the card offers for this type; any other stays in the note.
+    const followUpIn = chartableFollowUpDays(action.dispositionType, action.followUpInDays);
+    return applied(
       await context.writer.save({
-        disposition: {
-          type: action.dispositionType,
-          note: action.text,
-          ...(action.followUpInDays != null ? { followUpIn: action.followUpInDays } : {}),
-        },
+        disposition: { type: action.dispositionType, note: action.text, ...(followUpIn != null ? { followUpIn } : {}) },
       })
-    ),
+    );
+  },
 
   'add-patient-instruction': async (action, context) =>
     applied(await context.writer.save({ instructions: [{ text: action.text }] })),

@@ -106,6 +106,8 @@ export const NarrativeEditor: FC<NarrativeEditorProps> = ({ disabled, onHoverSou
         <TextField
           value={draft}
           onChange={(event) => setNarrativeDraft(event.target.value)}
+          // Focusing the empty box starts an edit, so the first keystroke does not swap it for the read view.
+          onFocus={() => setIsEditing(true)}
           onBlur={stopEditing}
           onKeyDown={(event) => {
             if (event.key === 'Escape') stopEditing();

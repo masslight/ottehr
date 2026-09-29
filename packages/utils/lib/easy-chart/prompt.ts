@@ -177,15 +177,17 @@ const REVIEW_CHECKS = `THE NINE CHECKS:
    differences ("5 mg" vs "5 MG"), and never flag a medication that is not actually on the chart.
 
 7) "disposition" — the narrative clearly STATES where the patient goes next or a follow-up plan
-   ("follow up with your PCP in a week", "go to the ER if it worsens", "referral to ortho", "come back
-   here in 3 days if no better"), but no disposition is charted. A stated follow-up is a patient-safety
-   item and must never silently vanish.
+   ("follow up with your PCP in a week", "go to the ER if it worsens", "referral to ortho"), but no
+   disposition is charted. A stated follow-up is a patient-safety item and must never silently vanish.
    ACTION: one set-disposition with { dispositionType, text, followUpInDays }. Pick dispositionType:
-   "pcp" (follow up with their own PCP / "see your doctor"), "specialty" (referral or follow-up with a
-   named specialist — use this even when offered as "<specialist> or PCP"), "ed" (go to the ER / call
-   911), "another" (return to THIS clinic, or any other follow-up), "ip" (admitted to hospital).
-   "text" is the disposition as one clinical sentence. Set followUpInDays ONLY when an interval is
-   stated, converted to DAYS: "in 1 week" → 7, "in 3 days" → 3, "in 2 weeks" → 14.
+   "pcp-no-type" (follow up with their own PCP / "see your doctor"), "specialty" (referral or follow-up
+   with a named specialist — use this even when offered as "<specialist> or PCP"), "ed" (go to the ER /
+   call 911), "another" (transfer to another location or facility, including hospital admission). A plan
+   to come back to THIS clinic is not a disposition: stay silent about it.
+   "text" is the disposition as one clinical sentence. Set followUpInDays ONLY for pcp-no-type and
+   specialty when an interval is stated, converted to DAYS: "in 1 week" → 7, "in 3 days" → 3, "in 2
+   weeks" → 14. The chart offers only 0 (as needed), 1, 2, 3, 4, 5, 7 and 14; any other interval stays
+   in "text".
    A CONDITIONAL follow-up ("if not improving") still counts — keep the condition in "text". STRICT:
    only a disposition the narrative actually voices, never one inferred from the visit type.
 

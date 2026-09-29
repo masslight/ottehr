@@ -175,7 +175,9 @@ describe('the review checks carry their operative detail', () => {
   });
 
   it('check 7 enumerates the disposition types and the interval conversion', () => {
-    for (const type of ['"pcp"', '"specialty"', '"ed"', '"another"', '"ip"']) expect(review).toContain(type);
+    for (const type of ['"pcp-no-type"', '"specialty"', '"ed"', '"another"']) expect(review).toContain(type);
+    // types the Disposition card has no tab for
+    for (const type of ['"pcp"', '"ip"']) expect(review).not.toContain(type);
     expect(review).toMatch(/"in 1 week" → 7/);
   });
 

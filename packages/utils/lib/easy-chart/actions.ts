@@ -5,7 +5,7 @@
 // `hasRequiredFields()` in registry.ts is the runtime gate between the two.
 
 import { VitalFieldNames } from '../types/api/chart-data/chart-data.constants';
-import { DispositionType } from '../types/api/chart-data/chart-data.types';
+import { DispositionType, followUpInOptions } from '../types/api/chart-data/chart-data.types';
 
 /** `plan` authors a note from a narrative; `review` corrects a written note with a narrower vocabulary. */
 export const SURFACES = ['plan', 'review'] as const;
@@ -76,15 +76,30 @@ export const PLANNABLE_VITAL_FIELDS = [
 ] as const satisfies readonly `${VitalFieldNames}`[];
 export type PlannableVitalField = (typeof PLANNABLE_VITAL_FIELDS)[number];
 
-/** The dispositions the assistant may set, a subset of the save-chart-data `DispositionType`. */
+/**
+ * The dispositions the assistant may set: the tabs of the in-person Disposition card, a subset of the
+ * save-chart-data `DispositionType`.
+ */
 export const PLANNABLE_DISPOSITION_TYPES = [
-  'pcp',
+  'pcp-no-type',
   'specialty',
   'ed',
   'another',
-  'ip',
 ] as const satisfies readonly DispositionType[];
 export type PlannableDispositionType = (typeof PLANNABLE_DISPOSITION_TYPES)[number];
+
+export const isPlannableDispositionType = (value: unknown): value is PlannableDispositionType =>
+  typeof value === 'string' && (PLANNABLE_DISPOSITION_TYPES as readonly string[]).includes(value);
+
+/** The types whose card has a follow-up interval, and the intervals its select offers (0 is "as needed"). */
+const FOLLOW_UP_DISPOSITION_TYPES: readonly PlannableDispositionType[] = ['pcp-no-type', 'specialty'];
+export const FOLLOW_UP_DAYS: readonly number[] = followUpInOptions.map((option) => option.value);
+
+/** The follow-up interval the Disposition card can show for this type, or undefined when it has none. */
+export function chartableFollowUpDays(type: unknown, days: unknown): number | undefined {
+  const typed = isPlannableDispositionType(type) && FOLLOW_UP_DISPOSITION_TYPES.includes(type);
+  return typed && typeof days === 'number' && FOLLOW_UP_DAYS.includes(days) ? days : undefined;
+}
 
 interface ActionProvenance {
   /** The verbatim narrative phrase behind the action. The server drops it unless it really occurs there. */

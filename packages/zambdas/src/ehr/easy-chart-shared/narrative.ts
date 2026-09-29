@@ -28,11 +28,12 @@ const NARRATIVE_WIRE_SCHEMA = toWire(
   })
 );
 
-/** Throws when every model attempt failed; the caller decides whether that is fatal. */
+/** Throws when every model attempt failed or `signal` aborted it; the caller decides whether that is fatal. */
 export async function generateNarrative(
   transcript: string,
   secrets: Secrets | null,
-  logPrefix: string
+  logPrefix: string,
+  signal?: AbortSignal
 ): Promise<ChartNarrativeResponse> {
   const prompt = buildNarrativePrompt(transcript);
   console.log(`[${logPrefix}] narrative prompt ${prompt.length} chars, transcript ${transcript.length} chars`);
@@ -43,6 +44,7 @@ export async function generateNarrative(
     responseSchema: NarrativeModelResponseSchema,
     secrets,
     logPrefix,
+    signal,
   });
 
   let snippets = 0;

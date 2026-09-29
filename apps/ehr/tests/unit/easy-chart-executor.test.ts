@@ -18,7 +18,7 @@ import {
 const emptyChart = (): ChartSnapshot => ({
   diagnoses: [],
   examFindings: [],
-  examComments: [],
+  examRows: {},
   rosFindings: [],
   medications: [],
   allergies: [],
@@ -456,7 +456,49 @@ describe('ambiguity', () => {
     expect(steps[0].outcome).toMatchObject({ status: 'applied', matchedId: 'wheezing' });
     expect(steps[0].outcome?.lowConfidence).toBeFalsy();
     expect(h.asks).toEqual([]);
-    expect(h.saved).toEqual([{ examObservations: [{ ...resolvedLeaf, value: true }] }]);
+    expect(h.saved).toEqual([{ examObservations: [{ field: 'wheezing', value: true }] }]);
+  });
+
+  it('adds a modal option to its box’s row, as the Exam tab does, instead of ticking the bare box', async () => {
+    const charted = { code: 'frontal-left', label: 'Left', groupLabel: 'Frontal', value: true, abnormal: true };
+    const h = harness({
+      chart: {
+        examRows: {
+          'sinus-tenderness': { resourceId: 'obs-7', field: 'sinus-tenderness', value: true, components: [charted] },
+        },
+      },
+    });
+    const resolvedLeaf: ExamLeaf = {
+      field: 'sinus-tenderness',
+      leafLabel: 'Right',
+      label: 'Nose: Sinus tenderness: Maxillary: Right',
+      sectionKey: 'nose',
+      sectionLabel: 'Nose',
+      polarity: 'abnormal',
+      path: ['Maxillary'],
+      component: { code: 'maxillary-right', label: 'Right', groupLabel: 'Maxillary' },
+    };
+    const action: PlannedAction & ResolvedExamFindingAction = {
+      kind: 'add-exam-finding',
+      display: 'Right maxillary sinus tenderness',
+      resolvedLeaf,
+    };
+    await runPlan([action], h.context);
+    expect(h.saved).toEqual([
+      {
+        examObservations: [
+          {
+            resourceId: 'obs-7',
+            field: 'sinus-tenderness',
+            value: true,
+            components: [
+              charted,
+              { code: 'maxillary-right', label: 'Right', groupLabel: 'Maxillary', abnormal: true, value: true },
+            ],
+          },
+        ],
+      },
+    ]);
   });
 });
 
@@ -651,7 +693,9 @@ describe('exam finding with no checkbox', () => {
   it('APPENDS to an existing note rather than overwriting what the provider typed', async () => {
     const h = harness({
       matches: { examFindings: [] },
-      chart: { examComments: [{ resourceId: 'obs-1', field: 'general-comment', note: 'Appears comfortable' }] },
+      chart: {
+        examRows: { 'general-comment': { resourceId: 'obs-1', field: 'general-comment', note: 'Appears comfortable' } },
+      },
     });
     await runPlan([{ kind: 'add-exam-finding', display: 'Diaphoretic and pale' }], h.context);
 
@@ -665,12 +709,28 @@ describe('exam finding with no checkbox', () => {
   it('does not duplicate a finding the note already carries', async () => {
     const h = harness({
       matches: { examFindings: [] },
-      chart: { examComments: [{ field: 'general-comment', note: 'Diaphoretic and pale' }] },
+      chart: { examRows: { 'general-comment': { field: 'general-comment', note: 'Diaphoretic and pale' } } },
     });
     const { steps } = await runPlan([{ kind: 'add-exam-finding', display: 'Diaphoretic and pale' }], h.context);
 
     expect(steps[0].outcome?.status).toBe('skipped');
     expect(h.saved.some((s) => 'examObservations' in s)).toBe(false);
+  });
+
+  it('keeps both findings when two of them land in the same card note in one plan', async () => {
+    const h = harness({ matches: { examFindings: [] } });
+    await runPlan(
+      [
+        { kind: 'add-exam-finding', display: 'Diaphoretic and pale' },
+        { kind: 'add-exam-finding', display: 'Appears anxious' },
+      ],
+      h.context
+    );
+    expect(h.saved.flatMap((fields) => fields.examObservations ?? [])).toEqual([
+      { field: 'general-comment', note: 'Diaphoretic and pale' },
+      // the second write updates the row the first one created, keeping both findings
+      { resourceId: 'res-1', field: 'general-comment', note: 'Diaphoretic and pale; Appears anxious' },
+    ]);
   });
 
   it('respects a declined picker instead of writing a comment', async () => {
@@ -683,5 +743,58 @@ describe('exam finding with no checkbox', () => {
 
     expect(steps[0].outcome?.status).toBe('skipped');
     expect(h.saved.some((s) => 'examObservations' in s)).toBe(false);
+  });
+});
+
+describe('E&M code', () => {
+  it('updates the charted E&M row in place, as the Assessment tab does', async () => {
+    const h = harness({ chart: { emCode: { resourceId: 'proc-1', code: '99213', display: 'Office visit, low' } } });
+    const { steps } = await runPlan(
+      [{ kind: 'set-em-code', code: '99214', display: 'Office visit, moderate' }],
+      h.context
+    );
+    expect(steps[0].outcome?.status).toBe('applied');
+    expect(h.saved).toEqual([{ emCode: { resourceId: 'proc-1', code: '99214', display: 'Office visit, moderate' } }]);
+  });
+
+  it('leaves a code the chart already has alone', async () => {
+    const h = harness({
+      chart: { emCode: { resourceId: 'proc-1', code: '99214', display: 'Office visit, moderate' } },
+    });
+    const { steps } = await runPlan([{ kind: 'set-em-code', code: '99214' }], h.context);
+    expect(steps[0].outcome).toMatchObject({ status: 'skipped', reason: 'E&M code 99214 is already on the chart' });
+    expect(h.saved).toEqual([]);
+  });
+
+  it('creates one row and updates it when a later step in the same plan sets the code again', async () => {
+    const h = harness();
+    await runPlan(
+      [
+        { kind: 'set-em-code', code: '99213' },
+        { kind: 'set-em-code', code: '99214' },
+      ],
+      h.context
+    );
+    expect(h.saved).toEqual([
+      { emCode: { code: '99213', display: '99213' } },
+      { emCode: { resourceId: 'res-1', code: '99214', display: '99214' } },
+    ]);
+  });
+});
+
+describe('disposition', () => {
+  it('writes the follow-up interval only for a type whose card offers it', async () => {
+    const h = harness();
+    await runPlan(
+      [
+        { kind: 'set-disposition', dispositionType: 'pcp-no-type', text: 'See your PCP in a week.', followUpInDays: 7 },
+        { kind: 'set-disposition', dispositionType: 'another', text: 'Transfer to urgent care.', followUpInDays: 3 },
+      ],
+      h.context
+    );
+    expect(h.saved).toEqual([
+      { disposition: { type: 'pcp-no-type', note: 'See your PCP in a week.', followUpIn: 7 } },
+      { disposition: { type: 'another', note: 'Transfer to urgent care.' } },
+    ]);
   });
 });

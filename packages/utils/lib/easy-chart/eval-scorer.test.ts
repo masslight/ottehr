@@ -21,7 +21,7 @@ const CLEAN_PLAN: PlannedAction[] = [
   { kind: 'add-diagnosis', display: 'Streptococcal pharyngitis', code: 'J02.0', isPrimary: true },
   { kind: 'add-medication', display: 'Amoxicillin', strength: '50 mg/kg' },
   { kind: 'set-em-code', code: '99214', display: 'Established patient, moderate' },
-  { kind: 'set-disposition', dispositionType: 'pcp', text: 'Follow up with pediatrician.', followUpInDays: 3 },
+  { kind: 'set-disposition', dispositionType: 'pcp-no-type', text: 'Follow up with pediatrician.', followUpInDays: 3 },
 ];
 
 const rules = (response: ChartPlanResponse, expectations = {}): EvalRuleId[] =>

@@ -169,6 +169,24 @@ describe('contradictsInjuryRegion', () => {
   it('passes when the intent names multiple regions and one matches the block', () => {
     expect(contradictsInjuryRegion('Fracture of neck of femur', 'S72.001A')).toBe(false);
   });
+
+  // ICD-10-CM codes these joint fractures in the block next to the joint's own.
+  it('passes a joint fracture coded in the neighbouring block', () => {
+    expect(contradictsInjuryRegion('Right ankle fracture', 'S82.61XA')).toBe(false);
+    expect(contradictsInjuryRegion('Buckle fracture of right wrist', 'S52.521A')).toBe(false);
+    expect(contradictsInjuryRegion('Supracondylar fracture of right elbow', 'S42.411A')).toBe(false);
+    expect(contradictsInjuryRegion('Distal femur fracture above the knee', 'S72.401A')).toBe(false);
+  });
+
+  it('reads "radial head" as part of the radius, not as the head', () => {
+    expect(contradictsInjuryRegion('Radial head fracture, right', 'S52.121A')).toBe(false);
+    expect(contradictsInjuryRegion('Radial head fracture, right', 'S02.0XXA')).toBe(true);
+  });
+
+  it('still refuses a block that does not border the joint', () => {
+    expect(contradictsInjuryRegion('Right ankle fracture', 'S62.101A')).toBe(true);
+    expect(contradictsInjuryRegion('Buckle fracture of right wrist', 'S92.001A')).toBe(true);
+  });
 });
 
 // History and status Z-codes attach only on explicit history/status phrasing; a narrative

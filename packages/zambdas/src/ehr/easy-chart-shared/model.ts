@@ -29,6 +29,8 @@ export interface ModelCallOptions<T> {
   responseSchema: z.ZodType<T, z.ZodTypeDef, unknown>;
   secrets: Secrets | null;
   logPrefix: string;
+  /** Cancels the running request and starts no further attempt. */
+  signal?: AbortSignal;
 }
 
 class ModelAttemptError extends Error {
@@ -63,7 +65,7 @@ function record(acc: UsageAccumulator, usage: Omit<ModelUsage, 'calls'>): void {
  * Throws when every attempt failed; the error message carries attempt counts and reasons only.
  */
 export async function callModelForJson<T>(options: ModelCallOptions<T>): Promise<ModelCallResult<T>> {
-  const { prompt, wireSchema, responseSchema, secrets, logPrefix } = options;
+  const { prompt, wireSchema, responseSchema, secrets, logPrefix, signal } = options;
   const acc: UsageAccumulator = new Map();
   const failures: ModelFailureReason[] = [];
   let attempts = 0;
@@ -89,15 +91,15 @@ export async function callModelForJson<T>(options: ModelCallOptions<T>): Promise
     }
   };
 
-  const primary = (): Promise<unknown> => callVertex(prompt, wireSchema, secrets, acc, logPrefix);
+  const primary = (): Promise<unknown> => callVertex(prompt, wireSchema, secrets, acc, logPrefix, signal);
 
   let parsed = await attempt(primary);
-  if (parsed === undefined) parsed = await attempt(primary);
+  if (parsed === undefined && !signal?.aborted) parsed = await attempt(primary);
 
   let escalated = false;
-  if (parsed === undefined) {
+  if (parsed === undefined && !signal?.aborted) {
     escalated = true;
-    parsed = await attempt(() => callAnthropic(prompt, secrets, acc, logPrefix));
+    parsed = await attempt(() => callAnthropic(prompt, secrets, acc, logPrefix, signal));
   }
 
   const usage = [...acc.values()];
@@ -167,7 +169,8 @@ async function callVertex(
   wireSchema: object,
   secrets: Secrets | null,
   acc: UsageAccumulator,
-  logPrefix: string
+  logPrefix: string,
+  signal: AbortSignal | undefined
 ): Promise<unknown> {
   const projectId = getSecret(SecretsKeys.GOOGLE_CLOUD_PROJECT_ID, secrets);
   const apiKey = getSecret(SecretsKeys.GOOGLE_CLOUD_API_KEY, secrets);
@@ -196,7 +199,9 @@ async function callVertex(
           responseSchema: wireSchema,
         },
       }),
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      signal: signal
+        ? AbortSignal.any([signal, AbortSignal.timeout(REQUEST_TIMEOUT_MS)])
+        : AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
   } catch (error) {
     const timedOut = error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError');
@@ -250,24 +255,30 @@ async function callAnthropic(
   prompt: string,
   secrets: Secrets | null,
   acc: UsageAccumulator,
-  logPrefix: string
+  logPrefix: string,
+  signal: AbortSignal | undefined
 ): Promise<unknown> {
   anthropicClient ??= new ChatAnthropic({
     model: EASY_CHART_BACKUP_MODEL,
     anthropicApiKey: getSecret(SecretsKeys.ANTHROPIC_API_KEY, secrets),
     temperature: 0,
     maxTokens: 8192,
+    // This is already the last of three attempts; LangChain's own retries would multiply the timeout.
+    maxRetries: 0,
     clientOptions: { timeout: REQUEST_TIMEOUT_MS },
   });
 
   let message;
   try {
-    message = await anthropicClient.invoke([
-      {
-        role: 'user',
-        content: `${prompt}\n\nReturn ONLY the JSON object described above. No markdown fences, no commentary.`,
-      },
-    ]);
+    message = await anthropicClient.invoke(
+      [
+        {
+          role: 'user',
+          content: `${prompt}\n\nReturn ONLY the JSON object described above. No markdown fences, no commentary.`,
+        },
+      ],
+      { signal }
+    );
   } catch (error) {
     const timedOut = error instanceof Error && /timeout|aborted/i.test(error.message);
     throw new ModelAttemptError(timedOut ? 'timeout' : 'error', 'anthropic call failed');

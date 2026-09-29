@@ -1720,7 +1720,7 @@ function runSelfTest(): void {
       return g;
     };
     const charted = emptySimState();
-    charted.disposition = { type: 'pcp', text: 'Follow up in 3 days' };
+    charted.disposition = { type: 'pcp-no-type', text: 'Follow up in 3 days' };
     const voicedHit = scoreCase('fixtureG1', goldWithDispo(true), charted); // voiced + predicted
     const voicedMiss = scoreCase('fixtureG2', goldWithDispo(true), emptySimState()); // voiced, not predicted
     const unvoiced = scoreCase('fixtureG3', goldWithDispo(false), charted); // unvoiced + predicted

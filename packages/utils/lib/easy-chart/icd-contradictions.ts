@@ -199,21 +199,33 @@ const S_BLOCK_SITE_WORDS: string[][] = [
     'groin',
     'flank',
   ], // S30–S39
-  ['shoulder', 'clavicle', 'collarbone', 'scapula', 'axilla', 'armpit', 'upper arm', 'humerus'], // S40–S49
-  ['elbow', 'forearm', 'radius', 'ulna'], // S50–S59
-  ['wrist', 'hand', 'finger', 'fingers', 'thumb', 'palm'], // S60–S69
+  ['shoulder', 'clavicle', 'collarbone', 'scapula', 'axilla', 'armpit', 'upper arm', 'humerus', 'humeral'], // S40–S49
+  ['elbow', 'forearm', 'radius', 'radial', 'ulna', 'ulnar'], // S50–S59
+  ['wrist', 'hand', 'finger', 'fingers', 'thumb', 'palm', 'metacarpal'], // S60–S69
   ['hip', 'thigh', 'femur', 'femoral'], // S70–S79
-  ['knee', 'kneecap', 'patella', 'lower leg', 'calf', 'shin', 'tibia', 'fibula'], // S80–S89
+  ['knee', 'kneecap', 'patella', 'lower leg', 'calf', 'shin', 'tibia', 'tibial', 'fibula', 'fibular'], // S80–S89
   ['ankle', 'foot', 'heel', 'toe', 'toes', 'metatarsal'], // S90–S99
 ];
 
+/**
+ * A joint sits on a block boundary, and ICD-10-CM files its fractures in the neighbouring block too: the
+ * supracondylar (elbow) fracture in S42, the distal radius (wrist) fracture in S52, the distal femur (knee)
+ * fracture in S72 and the malleolar (ankle) fracture in S82.
+ */
+const JOINT_NEIGHBOUR_BLOCK: Record<string, number> = { elbow: 4, wrist: 5, knee: 7, ankle: 8 };
+
+/** "Radial head" or "femoral head" is part of a bone, not the head. */
+const BONE_HEAD =
+  /\b(radial|radius|ulnar|humeral|humerus|femoral|femur|fibular|fibula|metacarpal|metatarsal)\s+head\b/g;
+
 function injuryRegionsIn(text: string): Set<number> {
-  const lower = text.toLowerCase();
+  const lower = text.toLowerCase().replace(BONE_HEAD, '$1');
   const words = new Set(lower.split(/[^a-z]+/));
   const out = new Set<number>();
   S_BLOCK_SITE_WORDS.forEach((siteWords, block) => {
     if (siteWords.some((word) => (word.includes(' ') ? lower.includes(word) : words.has(word)))) out.add(block);
   });
+  for (const [joint, block] of Object.entries(JOINT_NEIGHBOUR_BLOCK)) if (words.has(joint)) out.add(block);
   return out;
 }
 

@@ -470,14 +470,21 @@ export async function createResourcesFromAiInterview(
     fields = 'labs, erx, procedures, ' + fields;
   }
 
-  // The Easy Chart narrative is generated alongside the extraction, so it costs no extra wall time.
-  const [aiResponseString, narrativeLines] = await Promise.all([
-    invokeChatbotVertexAI(
+  // The Easy Chart narrative runs alongside the extraction. Once the extraction is done the write waits for it
+  // only briefly and then goes without one, so a slow model never holds up saving the transcript.
+  const narrativeAbort = new AbortController();
+  const narrative = generateNarrativeBestEffort(chatTranscript, secrets, narrativeAbort.signal);
+  let aiResponseString: string;
+  let narrativeLines: NarrativeLine[];
+  try {
+    aiResponseString = await invokeChatbotVertexAI(
       [{ text: getPrompt(patientInfoDetails || 'unknown patient details', fields) + '\n' + chatTranscript }],
       secrets
-    ),
-    generateNarrativeBestEffort(chatTranscript, secrets),
-  ]);
+    );
+    narrativeLines = await settledWithin(narrative, NARRATIVE_GRACE_MS);
+  } finally {
+    narrativeAbort.abort();
+  }
   // The extraction is PHI: log its size, not its content.
   console.log(`AI extraction response: ${aiResponseString.length} chars, source=${source}`);
   let aiResponse;
@@ -530,19 +537,43 @@ export async function createResourcesFromAiInterview(
   return createdResources;
 }
 
+/** How long the write waits for the narrative after the extraction is done. */
+const NARRATIVE_GRACE_MS = 5_000;
+
 /**
- * The Easy Chart narrative for this transcript, or [] when the feature is off or generation failed.
- * Best-effort: the client can regenerate it on demand, so a failure goes to Sentry and never blocks the write.
+ * The Easy Chart narrative for this transcript, or [] when the feature is off, generation failed or it was
+ * cut off. Best-effort: the client generates it on demand when it is missing, so it never blocks the write.
  */
-async function generateNarrativeBestEffort(transcript: string, secrets: Secrets | null): Promise<NarrativeLine[]> {
+async function generateNarrativeBestEffort(
+  transcript: string,
+  secrets: Secrets | null,
+  signal: AbortSignal
+): Promise<NarrativeLine[]> {
   if (!FEATURE_FLAGS_CONFIG.easyChartEnabled) return [];
   try {
-    const { lines } = await generateNarrative(transcript, secrets, 'ai-narrative');
+    const { lines } = await generateNarrative(transcript, secrets, 'ai-narrative', signal);
     return lines;
   } catch (error) {
+    if (signal.aborted) {
+      console.log('[ai-narrative] the narrative was not ready in time; storing the transcript without one');
+      return [];
+    }
     console.error(`[ai-narrative] narrative generation failed; storing the transcript without one: ${error}`);
     captureException(error);
     return [];
+  }
+}
+
+/** The narrative when it settles within `ms`, otherwise none. */
+async function settledWithin(narrative: Promise<NarrativeLine[]>, ms: number): Promise<NarrativeLine[]> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const cutoff = new Promise<NarrativeLine[]>((resolve) => {
+    timer = setTimeout(() => resolve([]), ms);
+  });
+  try {
+    return await Promise.race([narrative, cutoff]);
+  } finally {
+    clearTimeout(timer);
   }
 }
 

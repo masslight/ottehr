@@ -156,6 +156,38 @@ describe('normalcy veto', () => {
   });
 });
 
+describe('findings a negation or a normal-sounding word used to flip', () => {
+  it('lands an abnormality on the abnormal side even when its words sound normal', () => {
+    for (const query of [
+      '2 plus pitting edema',
+      'Clear effusion behind right TM',
+      'RLQ tenderness without rebound',
+      'Reactive cervical lymphadenopathy',
+      'clear rhinorrhea',
+    ]) {
+      for (const polarity of polarities(query)) {
+        expect(polarity, `"${query}" reached a normal leaf`).toBe('abnormal');
+      }
+    }
+  });
+
+  it('never lands a negated or impaired normal on the normal itself', () => {
+    for (const query of ['pupils not reactive', 'Pupils sluggishly reactive']) {
+      expect(
+        findExamLeafMatches(query, LEAVES).some((m) => /reactive to light/i.test(m.display)),
+        query
+      ).toBe(false);
+    }
+  });
+
+  it('reads a 2+ grade as normal only for pulses and reflexes', () => {
+    expect(top(findExamLeafMatches('2+ radial pulses', LEAVES))).toBe(
+      'Radial, posterior tibial, and dorsalis pulses 2+ bilaterally'
+    );
+    expect(assertsNormal('2 plus pitting edema')).toBe(false);
+  });
+});
+
 describe('anatomy-section guard', () => {
   it('maps an unambiguous anatomy word to its card', () => {
     expect(anatomySectionOf('tympanic membrane bulging')).toBe('Ears');

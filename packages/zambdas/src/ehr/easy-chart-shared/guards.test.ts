@@ -136,10 +136,34 @@ describe('model output normalization', () => {
 describe('numeric coercion (digit-loop guard undo)', () => {
   it('restores a numeric field the schema declared as a string', async () => {
     const { actions } = await run(
-      [{ kind: 'set-disposition', dispositionType: 'pcp', text: 'Follow up.', followUpInDays: '7' }],
+      [{ kind: 'set-disposition', dispositionType: 'pcp-no-type', text: 'Follow up.', followUpInDays: '7' }],
       'follow up in a week'
     );
     expect(actions[0].followUpInDays).toBe(7);
+  });
+});
+
+describe('disposition', () => {
+  it('refuses a type the chart has no tab for', async () => {
+    const { actions, rejected } = await run(
+      [{ kind: 'set-disposition', dispositionType: 'ip', text: 'Admitted to the hospital.' }],
+      'we are admitting her'
+    );
+    expect(actions).toEqual([]);
+    expect(rejected[0].reason).toBe('"ip" is not a disposition the chart offers');
+  });
+
+  it('keeps an interval the card offers and drops one it cannot show, with a caution', async () => {
+    const { actions } = await run(
+      [
+        { kind: 'set-disposition', dispositionType: 'pcp-no-type', text: 'Follow up in a week.', followUpInDays: '7' },
+        { kind: 'set-disposition', dispositionType: 'specialty', text: 'See ortho in 10 days.', followUpInDays: '10' },
+        { kind: 'set-disposition', dispositionType: 'ed', text: 'Go to the ER tonight.', followUpInDays: '1' },
+      ],
+      'follow up in a week, ortho in 10 days, ER tonight'
+    );
+    expect(actions.map((action) => action.followUpInDays)).toEqual([7, undefined, undefined]);
+    expect(actions[1].caution).toMatch(/no follow-up option for that interval/);
   });
 });
 
@@ -461,7 +485,7 @@ describe('deterministic triggers', () => {
     const { triggers } = await run(
       [
         { kind: 'set-em-code', code: '99214' },
-        { kind: 'set-disposition', dispositionType: 'pcp', text: 'Follow up with PCP.' },
+        { kind: 'set-disposition', dispositionType: 'pcp-no-type', text: 'Follow up with PCP.' },
       ],
       'Follow up with primary care in one to two weeks.'
     );

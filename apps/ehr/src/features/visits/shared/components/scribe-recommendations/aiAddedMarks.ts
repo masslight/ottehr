@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { getRosFindingFieldKeys } from 'utils/lib/ottehr-config/review-of-systems';
 import { RosFindingState } from 'utils/lib/ottehr-config/review-of-systems/in-person.config';
+import { useAppointmentData } from '../../stores/appointment/appointment.store';
 import { useScribeRecommendationsStore } from './scribeRecommendations.store';
 import { ScribeRecommendation } from './types';
 
@@ -11,13 +12,21 @@ import { ScribeRecommendation } from './types';
 
 const normalize = (value: string | undefined): string => (value ?? '').trim().toLowerCase();
 
-/** Recommendations the panel has written into the chart during this sitting. */
+/**
+ * Recommendations the panel has written into this visit's chart during this sitting. The session belongs to
+ * the visit it was started on, so another visit's note shows none of its marks.
+ */
 export const useAiAddedRecommendations = (): ScribeRecommendation[] => {
+  const { encounter } = useAppointmentData();
+  const sessionEncounterId = useScribeRecommendationsStore((state) => state.encounterId);
   const recommendations = useScribeRecommendationsStore((state) => state.recommendations);
   const itemState = useScribeRecommendationsStore((state) => state.itemState);
   return useMemo(
-    () => recommendations.filter((rec) => itemState[rec.id]?.status === 'applied'),
-    [recommendations, itemState]
+    () =>
+      sessionEncounterId && sessionEncounterId === encounter?.id
+        ? recommendations.filter((rec) => itemState[rec.id]?.status === 'applied')
+        : [],
+    [sessionEncounterId, encounter?.id, recommendations, itemState]
   );
 };
 

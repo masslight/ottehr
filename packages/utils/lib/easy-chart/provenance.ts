@@ -112,16 +112,31 @@ export const NEGATION_TOKENS = new Set(['no', 'non', 'not', 'without', 'denies',
 const NORMALCY_PHRASES =
   /\b(?:clear\s+to\s+auscultation|ctab|clear\b|normal\b|unremarkable\b|intact\b|within\s+normal\s+limits|wnl\b|nontender\b|non-tender\b|nondistended\b|non-distended\b|reactive\b|supple\b|symmetric(?:al)?\b|abdomen\s+(?:is\s+)?soft\b|soft\s+abdomen\b)/i;
 
+const NEGATOR = new RegExp(`\\b(?:${[...NEGATION_TOKENS].join('|')})\\b`);
+
+/**
+ * Word starts that name an abnormal exam finding. Such a word before any negation makes the finding
+ * positive: a pertinent negative after it does not cancel it ("RLQ tenderness without rebound"), and nor
+ * does a normal-sounding word ("clear effusion", "reactive lymphadenopathy", "sluggishly reactive").
+ */
+const ABNORMAL_FINDING =
+  /\b(?:tender|erythem|injected|swell|swollen|edema|rash|lesion|mass(?:es)?\b|effusion|bulg|exudat|crackl|rales|rhonch|wheez|murmur|deform|lacerat|abrasion|contusion|bruis|ecchymo|drainage|discharge|lymphadenopath|adenopath|distress|guarding|rigid|indurat|fluctuan|vesic|pustul|papul|plaque|ulcer|crepitus|stridor|retraction|nystagmus|spasm|weak|decreased|diminished|absent|limited|purulen|hematoma|rhinorrh|sluggish|asymmetr|enlarged|hypertroph|petechia|jaundice|pallor|cyano|clubbing|tachycard|bradycard|irregular|gallop|hernia|excoriat|crust|blister|bleeding|congest|polyp|perforat)/;
+
+/** A negated normal quality is an abnormality: "pupils not reactive", "nonreactive", "unequal". */
+const NEGATED_NORMAL =
+  /\b(?:not\s+|non-?|un)(?:reactive|responsive|intact|clear|symmetric(?:al)?|equal|supple|normal)\b/;
+
 /**
  * 'negated' ("no wheezing"), 'normal' ("lungs clear") or 'positive' (an abnormality is present). Only
  * 'positive' may create an abnormal exam finding or remove a template's matching normal.
  */
 export function findingPolarity(display: string): 'positive' | 'negated' | 'normal' {
   const text = display.toLowerCase();
-  const tokens = text.split(/[^a-z]+/).filter(Boolean);
-  // A negator anywhere negates the finding, including a trailing "negative" ("straight leg raise negative").
-  if (tokens.some((t) => NEGATION_TOKENS.has(t))) return 'negated';
-  if (/\bno\s|\bnon-/.test(text)) return 'negated';
+  if (NEGATED_NORMAL.test(text)) return 'positive';
+  // A negation governs what follows it, including a trailing "negative" ("straight leg raise negative").
+  const negator = NEGATOR.exec(text);
+  if (ABNORMAL_FINDING.test(negator ? text.slice(0, negator.index) : text)) return 'positive';
+  if (negator) return 'negated';
   if (NORMALCY_PHRASES.test(text)) return 'normal';
   return 'positive';
 }

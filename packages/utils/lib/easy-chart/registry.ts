@@ -8,6 +8,7 @@ import {
   ACTION_KINDS,
   ActionField,
   ActionKind,
+  FOLLOW_UP_DAYS,
   NOTE_TEXT_FIELDS,
   PLANNABLE_DISPOSITION_TYPES,
   PLANNABLE_VITAL_FIELDS,
@@ -437,24 +438,31 @@ export const CAPABILITIES = {
     shape: z.object({
       dispositionType: z
         .enum(PLANNABLE_DISPOSITION_TYPES)
-        .describe('Where the patient goes: pcp | specialty | ed | another | ip (see below).'),
+        .describe(`Where the patient goes: ${PLANNABLE_DISPOSITION_TYPES.join(' | ')} (see below).`),
       text: F.sentence('The disposition as one clinical sentence.'),
-      followUpInDays: guardedNumber('Follow-up interval in DAYS when stated ("in 48–72 hours" → 3; "in 1 week" → 7).'),
+      followUpInDays: guardedNumber(
+        `Follow-up interval in DAYS when stated, for pcp-no-type and specialty only: one of ${FOLLOW_UP_DAYS.join(
+          ', '
+        )}.`
+      ),
     }),
     chartField: 'disposition',
     promptDoc: `where the patient goes after this
-  visit. dispositionType is one of ${DISPOSITION_TYPE_LIST}:
-    "pcp"       → follow up with their primary care provider / "see your doctor"
-    "specialty" → referral to a specialist (ortho, cardiology, ENT …), including "<specialist> or PCP"
-    "ed"        → directed to the Emergency Department / "go to the ER" / "call 911"
-    "another"   → follow up with this clinic / return here / another provider not above
-    "ip"        → admitted to hospital / inpatient
-  text is the disposition as one clinical sentence. followUpInDays is the interval in DAYS when stated
-  ("in 48–72 hours" → 3; "in 1 week" → 7; "in 2 weeks" → 14).
+  visit. dispositionType is one of ${DISPOSITION_TYPE_LIST}, the tabs of the chart's Disposition card:
+    "pcp-no-type" → follow up with their primary care provider / "see your doctor"
+    "specialty"   → referral to a specialist (ortho, cardiology, ENT …), including "<specialist> or PCP"
+    "ed"          → directed to the Emergency Department / "go to the ER" / "call 911"
+    "another"     → transferred to another location or facility, including admission to a hospital
+  A plan to come back to THIS clinic is not a disposition.
+  text is the disposition as one clinical sentence. followUpInDays is the interval in DAYS when stated,
+  for pcp-no-type and specialty only ("in 48–72 hours" → 3; "in 1 week" → 7; "in 2 weeks" → 14; "as
+  needed" → 0). The card offers only ${FOLLOW_UP_DAYS.join(', ')}; any other interval stays in text.
   DISPOSITION IS NEVER OPTIONAL when the provider states one — this is a patient-safety rule. It holds
   when the follow-up is CONDITIONAL ("if not improving in a week" → still followUpInDays 7) and when it
   offers a CHOICE ("dermatology or his PCP" → "specialty"). Writing the follow-up as a patient
   instruction does NOT replace the structured disposition: emit BOTH.`,
+    authoringDoc: `  A plan to come back to THIS clinic ("return here in 3 days if no better") goes in an
+  add-patient-instruction instead.`,
   },
 
   'add-patient-instruction': {

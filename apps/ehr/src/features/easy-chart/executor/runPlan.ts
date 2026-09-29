@@ -4,6 +4,7 @@
 import { ActionKind, ActionOfKind, RawAction } from 'utils/lib/easy-chart/actions';
 import { PlannedAction } from 'utils/lib/easy-chart/api';
 import { hasRequiredFields, missingRequiredFields } from 'utils/lib/easy-chart/registry';
+import { AllChartValues } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { advanceSnapshot } from './chartSnapshot';
 import { HANDLERS, isHandledKind } from './handlers';
 import { describeAction } from './labels';
@@ -58,21 +59,27 @@ export async function runPlan(
     label: describeAction(action),
   }));
 
-  // Steps depend on each other (a swap's removal frees the primary for the add), so handlers read the
-  // snapshot as it stands after the previous applied steps.
+  // Steps depend on each other (a swap's removal frees the primary for the add), so each step reads the
+  // snapshot as it stands after the previous applied steps, advanced by what those steps wrote.
   let liveChart = context.chart;
-  const liveContext: HandlerContext = {
-    ...context,
-    get chart() {
-      return liveChart;
-    },
-  };
 
   for (const step of steps) {
     options.onStepStart?.(step);
-    step.outcome = await executeStep(step.action, liveContext);
+    const saved: AllChartValues[] = [];
+    const stepContext: HandlerContext = {
+      ...context,
+      chart: liveChart,
+      writer: {
+        save: (fields) => {
+          saved.push(fields);
+          return context.writer.save(fields);
+        },
+        remove: (field, item) => context.writer.remove(field, item),
+      },
+    };
+    step.outcome = await executeStep(step.action, stepContext);
     if (step.outcome.status === 'applied') {
-      liveChart = advanceSnapshot(liveChart, step.action, step.outcome.createdResourceIds ?? []);
+      liveChart = advanceSnapshot(liveChart, step.action, step.outcome.createdResourceIds ?? [], saved);
     }
     options.onStepSettled?.(step);
   }

@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, render, screen, waitFor, within } from '@testing-library/react';
+import { act, render, renderHook, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { DocumentReference } from 'fhir/r4b';
 import { ReactNode } from 'react';
@@ -302,6 +302,7 @@ vi.mock('react-router-dom', async () => {
 
 import { dataTestIds } from '../../src/constants/data-test-ids';
 import { buildChartSnapshot as buildExecutorSnapshot } from '../../src/features/easy-chart/executor/chartSnapshot';
+import { useAiAddedRecommendations } from '../../src/features/visits/shared/components/scribe-recommendations/aiAddedMarks';
 import {
   appendToNoteField,
   buildAnalysis,
@@ -451,6 +452,8 @@ describe('ScribeRecommendationsDrawer', () => {
     expect(screen.getByTestId(testIds.analyzeButton)).toBeDisabled();
 
     await user.type(screen.getByTestId(testIds.narrativeInput), 'Sinus pressure for a week.');
+    // every keystroke lands, not just the first one
+    expect(useScribeRecommendationsStore.getState().narrativeDraft).toBe('Sinus pressure for a week.');
     expect(screen.getByTestId(testIds.analyzeButton)).toBeEnabled();
 
     await user.click(screen.getByTestId(testIds.collapseButton));
@@ -1908,5 +1911,23 @@ describe('isAlreadyCharted', () => {
     });
     expect(isAlreadyCharted({ kind: 'vital-weight', weightLbs: 170 } as ScribeRecommendation, withWeight)).toBe(true);
     expect(charted({ kind: 'vital-weight', weightLbs: 170 })).toBe(false);
+  });
+});
+
+describe('AI-added marks', () => {
+  beforeEach(() => resetStore());
+
+  it('shows the marks only on the visit the panel session belongs to', () => {
+    const allergy = { id: 'plan:add-allergy:penicillin', kind: 'allergy', name: 'Penicillin', section: 'allergies' };
+    useScribeRecommendationsStore.setState({
+      encounterId: 'encounter-1',
+      recommendations: [allergy as ScribeRecommendation],
+      itemState: { [allergy.id]: { selected: true, status: 'applied' } },
+    });
+    expect(renderHook(() => useAiAddedRecommendations()).result.current.map((rec) => rec.id)).toEqual([allergy.id]);
+
+    // the note of another visit (the mocked visit is encounter-1) shows none of this session's marks
+    useScribeRecommendationsStore.setState({ encounterId: 'encounter-2' });
+    expect(renderHook(() => useAiAddedRecommendations()).result.current).toEqual([]);
   });
 });

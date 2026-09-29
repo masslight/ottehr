@@ -3,6 +3,11 @@
 import { ActionKind, NoteTextField, PlannableVitalField } from 'utils/lib/easy-chart/actions';
 import { PlannedAction } from 'utils/lib/easy-chart/api';
 import { NOTE_FIELD_LABELS } from 'utils/lib/easy-chart/note-fields';
+import { mapDispositionTypeToLabel } from 'utils/lib/fhir/disposition';
+import { DispositionType } from 'utils/lib/types/api/chart-data/chart-data.types';
+
+/** The card's own name for a disposition type ("Primary Care Physician"), or the type when it has none. */
+const dispositionLabel = (type: string): string => mapDispositionTypeToLabel[type as DispositionType] ?? type;
 
 const VITAL_LABELS: Record<PlannableVitalField, string> = {
   'vital-temperature': 'temperature',
@@ -41,7 +46,7 @@ export function describeAction(action: PlannedAction): string {
     case 'set-em-code':
       return `Setting E&M level${action.code ? `: ${action.code}` : ''}`;
     case 'set-disposition':
-      return `Setting disposition${action.dispositionType ? `: ${action.dispositionType}` : ''}`;
+      return `Setting disposition${action.dispositionType ? `: ${dispositionLabel(action.dispositionType)}` : ''}`;
     case 'provider-note':
       return 'Note for you';
     case 'reply':

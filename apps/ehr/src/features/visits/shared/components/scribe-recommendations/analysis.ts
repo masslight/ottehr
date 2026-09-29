@@ -287,7 +287,8 @@ export function recommendationKey(rec: ScribeRecommendation): string {
     case 'hpi':
       return `note:${rec.field ?? HPI_FIELD}`;
     case 'vital-weight':
-      return 'vital:vital-weight';
+      // A recheck is another reading, as on the server; only the same reading twice is one proposal.
+      return `vital:vital-weight:${rec.weightLbs}`;
     case 'allergy':
       return `allergy:${normalize(rec.name)}`;
     case 'medication':
@@ -301,9 +302,17 @@ export function recommendationKey(rec: ScribeRecommendation): string {
       return `exam:${rec.resolution.kind === 'confident' ? rec.resolution.leaf.field : normalize(rec.display)}`;
     case 'action': {
       const { kind, code, field, display, text } = rec.action;
+      if (kind === 'set-vital') return `set-vital:${field}:${vitalReading(rec.action)}`;
       return `${kind}:${normalize(String(code ?? field ?? display ?? text ?? ''))}`;
     }
   }
+}
+
+/** The reading a guarded set-vital carries, in its canonical unit; the server keys repeats the same way. */
+function vitalReading(action: PlannedAction): string {
+  if (action.systolic != null && action.diastolic != null) return `${action.systolic}/${action.diastolic}`;
+  if (action.value != null) return `${action.value}|${action.unit ?? ''}`;
+  return normalize(action.display);
 }
 
 /** A readable, stable id such as `plan:add-diagnosis:J01-90`; a repeat gets a numeric suffix. */

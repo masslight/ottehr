@@ -24,7 +24,7 @@ describe('editableActionText', () => {
       label: 'Instruction',
     });
     expect(
-      editableActionText({ kind: 'set-disposition', dispositionType: 'pcp', text: 'Follow up in 3 days.' })
+      editableActionText({ kind: 'set-disposition', dispositionType: 'pcp-no-type', text: 'Follow up in 3 days.' })
     ).toMatchObject({ field: 'text', label: 'Disposition note' });
     expect(editableActionText({ kind: 'add-surgical-history', display: 'Appendectomy' })).toMatchObject({
       label: 'Surgery',
@@ -96,7 +96,7 @@ describe('withEditedText', () => {
       secondary: undefined,
     });
     const disposition = withEditedText(
-      { kind: 'set-disposition', dispositionType: 'pcp', text: 'Follow up in 3 days.' },
+      { kind: 'set-disposition', dispositionType: 'pcp-no-type', text: 'Follow up in 3 days.' },
       'Follow up with your PCP in one week.'
     );
     expect(actionEditPatch(disposition!)).toMatchObject({ secondary: 'Follow up with your PCP in one week.' });

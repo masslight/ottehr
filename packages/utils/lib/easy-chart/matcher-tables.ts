@@ -133,9 +133,12 @@ export const GENERIC_FINDING_TOKENS = new Set([
   'linear',
 ]);
 
-/** Phrases that assert a normal reading without a negation word. */
+/**
+ * Phrases that assert a normal reading without a negation word. A 2+ grade is normal only for pulses and
+ * reflexes; an edema grade is an abnormality.
+ */
 export const NORMALCY_PATTERNS =
-  /\b[0-9]\s*(?:\+|plus)\b|\b5 out of 5\b|\b5\s*\/\s*5\b|\b20\/20\b|\bwell[- ]appearing\b|\bwell[- ]hydrated\b|\bcalm\b|\bcomfortable\b|\bplayful\b|\binteractive\b|\bconsolable\b/i;
+  /\b(?:pulses?|reflex(?:es)?|dtrs?)\b[^.;]*\b2\s*(?:\+|plus)(?!\w)|\b2\s*(?:\+|plus)(?!\w)[^.;]*\b(?:pulses?|reflex(?:es)?|dtrs?)\b|\b5 out of 5\b|\b5\s*\/\s*5\b|\b20\/20\b|\bwell[- ]appearing\b|\bwell[- ]hydrated\b|\bcalm\b|\bcomfortable\b|\bplayful\b|\binteractive\b|\bconsolable\b/i;
 
 /**
  * Anatomy word → exam card label (a test checks the labels). Ambiguous terms ("vestibule" is nasal or vaginal,

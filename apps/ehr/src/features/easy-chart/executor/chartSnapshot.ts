@@ -8,7 +8,7 @@ import { chartKeyForNoteField } from 'utils/lib/easy-chart/note-fields';
 import { DefaultExamComponentsConfig } from 'utils/lib/ottehr-config/examination/default-components.config';
 import { getRosFindingStateFromKey } from 'utils/lib/ottehr-config/review-of-systems';
 import { InPersonRosConfig } from 'utils/lib/ottehr-config/review-of-systems/in-person.config';
-import { ExamObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { AllChartValues, ExamObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
 import { ChartedItem, ChartSnapshot } from './types';
 
@@ -45,10 +45,8 @@ export function buildChartSnapshot(chartData: GetChartDataResponse | undefined):
 
     examFindings: named(checked(chartData?.examObservations), (o) => o.label ?? examLabels.get(o.field) ?? o.field),
 
-    // Exam observations carrying a card's free-text `note` rather than a tick.
-    examComments: (chartData?.examObservations ?? [])
-      .filter((o) => typeof o.note === 'string' && o.note.trim().length > 0)
-      .map((o) => ({ resourceId: o.resourceId, field: o.field, note: (o.note ?? '').trim() })),
+    examRows: Object.fromEntries((chartData?.examObservations ?? []).map((row) => [row.field, row])),
+    emCode: chartData?.emCode,
 
     rosFindings: named(checked(chartData?.rosObservations), (o) => {
       // The key carries the polarity as a suffix; the provider reads "Denies fever".
@@ -75,12 +73,18 @@ export function buildChartSnapshot(chartData: GetChartDataResponse | undefined):
 
 /**
  * The snapshot after one applied action, so later steps of the same plan see it: a swap's removal frees
- * the primary for its add, and a duplicate check sees what was just charted. Kinds no later step reads
- * are no-ops.
+ * the primary for its add, and a duplicate check sees what was just charted. `saved` is what the step
+ * wrote; exam rows and the E&M row advance from it, so the next write updates them in place.
  */
-export function advanceSnapshot(snapshot: ChartSnapshot, action: PlannedAction, createdIds: string[]): ChartSnapshot {
+export function advanceSnapshot(
+  snapshot: ChartSnapshot,
+  action: PlannedAction,
+  createdIds: string[],
+  saved: AllChartValues[] = []
+): ChartSnapshot {
   const next: ChartSnapshot = {
     ...snapshot,
+    examRows: { ...snapshot.examRows },
     diagnoses: [...snapshot.diagnoses],
     examFindings: [...snapshot.examFindings],
     rosFindings: [...snapshot.rosFindings],
@@ -103,6 +107,16 @@ export function advanceSnapshot(snapshot: ChartSnapshot, action: PlannedAction, 
       items.find((item) => item.display.toLowerCase().includes(needle) || needle.includes(item.display.toLowerCase()));
     return hit ? items.filter((item) => item !== hit) : items;
   };
+
+  // A row saved without an id was created by this step.
+  const withCreatedId = <T extends { resourceId?: string }>(row: T): T => {
+    const resourceId = row.resourceId ?? createdIds[0];
+    return resourceId ? { ...row, resourceId } : row;
+  };
+  for (const fields of saved) {
+    for (const row of fields.examObservations ?? []) next.examRows[row.field] = withCreatedId(row);
+    if (fields.emCode) next.emCode = withCreatedId(fields.emCode);
+  }
 
   switch (action.kind) {
     case 'add-diagnosis':

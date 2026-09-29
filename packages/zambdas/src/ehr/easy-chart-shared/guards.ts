@@ -4,7 +4,14 @@
 
 import Oystehr from '@oystehr/sdk';
 import { captureException } from '@sentry/aws-serverless';
-import { ActionKind, PLANNABLE_VITAL_FIELDS, PlannableVitalField, Surface } from 'utils/lib/easy-chart/actions';
+import {
+  ActionKind,
+  chartableFollowUpDays,
+  isPlannableDispositionType,
+  PLANNABLE_VITAL_FIELDS,
+  PlannableVitalField,
+  Surface,
+} from 'utils/lib/easy-chart/actions';
 import { PlannedAction, RejectedAction, TriggerReport } from 'utils/lib/easy-chart/api';
 import {
   isCptShaped,
@@ -183,6 +190,8 @@ async function guardOne(input: unknown, context: ResolvedGuardContext): Promise<
     case 'remove-medication':
     case 'remove-diagnosis':
       return guardRemoval(action, kind, context);
+    case 'set-disposition':
+      return guardDisposition(action);
     default:
       return { action };
   }
@@ -394,6 +403,27 @@ function guardRosFinding(action: PlannedAction): GuardOutcome {
     };
   }
   action.finding = polarity;
+  return { action };
+}
+
+/**
+ * The type must be a tab of the chart's Disposition card, and the follow-up interval one its select
+ * offers for that type. An interval it cannot show is dropped here and stays in the disposition text.
+ */
+function guardDisposition(action: PlannedAction): GuardOutcome {
+  if (!isPlannableDispositionType(action.dispositionType)) {
+    return {
+      rejected: {
+        kind: 'set-disposition',
+        display: action.text,
+        reason: `"${action.dispositionType}" is not a disposition the chart offers`,
+      },
+    };
+  }
+  if (action.followUpInDays != null && chartableFollowUpDays(action.dispositionType, action.followUpInDays) == null) {
+    delete action.followUpInDays;
+    action.caution = 'the chart has no follow-up option for that interval, so it is kept in the disposition text only';
+  }
   return { action };
 }
 

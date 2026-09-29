@@ -90,7 +90,12 @@ describe('trigger compliance is judged over the whole response', () => {
   it('reports complied when a surviving action answers the trigger', () => {
     const reports = buildTriggerReports(narrative, [
       { kind: 'add-diagnosis', display: 'Otitis externa', code: 'H60.391' },
-      { kind: 'set-disposition', dispositionType: 'pcp', text: 'Follow up with PCP in one week', followUpInDays: 7 },
+      {
+        kind: 'set-disposition',
+        dispositionType: 'pcp-no-type',
+        text: 'Follow up with PCP in one week',
+        followUpInDays: 7,
+      },
     ]);
     const disposition = reports.find((r) => r.trigger === 'disposition-language-without-disposition');
     expect(disposition).toMatchObject({ fired: true, complied: true });

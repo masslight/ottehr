@@ -59,6 +59,21 @@ describe('findingPolarity', () => {
     expect(findingPolarity('sensation intact')).toBe('normal');
   });
 
+  it('keeps a finding positive when a pertinent negative or a normal-sounding word comes with it', () => {
+    expect(findingPolarity('RLQ tenderness without rebound')).toBe('positive');
+    expect(findingPolarity('Clear effusion behind right TM')).toBe('positive');
+    expect(findingPolarity('Reactive cervical lymphadenopathy')).toBe('positive');
+    expect(findingPolarity('Pupils sluggishly reactive')).toBe('positive');
+    // the negation still governs what follows it
+    expect(findingPolarity('abdomen soft, non-tender, without guarding')).toBe('negated');
+    expect(findingPolarity('skin warm and dry without rash')).toBe('negated');
+  });
+
+  it('reads a negated normal quality as an abnormality', () => {
+    expect(findingPolarity('pupils not reactive')).toBe('positive');
+    expect(findingPolarity('nonreactive pupils')).toBe('positive');
+  });
+
   it('reads a genuine abnormality as positive', () => {
     expect(findingPolarity('Right TM erythematous and bulging')).toBe('positive');
     expect(findingPolarity('tonsillar exudate present')).toBe('positive');
