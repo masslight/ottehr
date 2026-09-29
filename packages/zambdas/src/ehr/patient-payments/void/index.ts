@@ -5,6 +5,7 @@ import { DateTime } from 'luxon';
 import { PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import {
   parsePaymentRefundsFromNotice,
+  parsePaymentVoidFromNotice,
   PaymentVoidInfo,
   settledRefundTotalInCents,
 } from 'utils/lib/fhir/paymentRefunds';
@@ -66,6 +67,8 @@ interface VoidEffectInput {
   reason: VoidPatientPaymentInput['reason'];
   notes?: string;
   voidedBy?: string;
+  // set when the clinical notice is already voided; effects re-run billing-side voiding idempotently
+  resumeVoidInfo?: PaymentVoidInfo;
 }
 
 const complexValidation = async (params: VoidPatientPaymentInput, oystehrClient: Oystehr): Promise<VoidEffectInput> => {
@@ -83,7 +86,13 @@ const complexValidation = async (params: VoidPatientPaymentInput, oystehrClient:
     throw INVALID_INPUT_ERROR('Only cash, check, and external card reader payments can be voided.');
   }
   if (notice.status === 'cancelled') {
-    throw INVALID_INPUT_ERROR('This payment has already been voided.');
+    // A retry after the billing-side call failed finds the notice already voided: finish voiding
+    // the billing copies with the originally recorded info instead of rejecting.
+    const storedVoidInfo = parsePaymentVoidFromNotice(notice);
+    if (!storedVoidInfo) {
+      throw INVALID_INPUT_ERROR('This payment has already been voided.');
+    }
+    return { notice, paymentNoticeId, reason, notes, resumeVoidInfo: storedVoidInfo };
   }
   if (settledRefundTotalInCents(parsePaymentRefundsFromNotice(notice)) > 0) {
     throw INVALID_INPUT_ERROR('This payment has refunds recorded and can no longer be voided.');
@@ -93,15 +102,17 @@ const complexValidation = async (params: VoidPatientPaymentInput, oystehrClient:
 };
 
 const performEffect = async (input: VoidEffectInput, oystehrClient: Oystehr): Promise<VoidPatientPaymentResponse> => {
-  const { notice, paymentNoticeId, reason, notes, voidedBy } = input;
+  const { notice, paymentNoticeId, reason, notes, voidedBy, resumeVoidInfo } = input;
 
-  const voidInfo: PaymentVoidInfo = {
+  // on resume, keep the originally recorded void info so clinical and billing audit records match
+  const voidInfo: PaymentVoidInfo = resumeVoidInfo ?? {
     reason,
     notes,
     voidedAtISO: DateTime.now().toUTC().toISO() ?? new Date().toISOString(),
     voidedBy,
   };
 
+  // no-op when the notice is already cancelled (resume)
   await voidPaymentNotice(oystehrClient, notice, voidInfo);
 
   // Billing FHIR resources are owned by the billing app; EHR zambdas must not write them directly,
