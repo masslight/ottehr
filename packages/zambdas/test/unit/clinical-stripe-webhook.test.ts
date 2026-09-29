@@ -76,13 +76,16 @@ describe('clinical-stripe-webhook', () => {
     ['invoice.paid', 'paid'],
     ['invoice.voided', 'void'],
     ['invoice.marked_uncollectible', 'uncollectible'],
-  ])('updates %s once', async (type, status) => {
+  ])('updates %s once for a recorded invoice ID', async (type, status) => {
     const task: Task = {
       resourceType: 'Task',
       id: 'task-1',
       status: 'completed',
       intent: 'order',
-      output: [{ type: RcmTaskCodings.sendInvoiceOutputInvoiceId, valueString: 'in_1' }],
+      output: [
+        { type: RcmTaskCodings.sendInvoiceOutputInvoiceId, valueString: 'in_1' },
+        { type: RcmTaskCodings.sendInvoiceOutputInvoiceId, valueString: 'in_2' },
+      ],
     };
     const invoice = { id: 'in_1', metadata: { oystehr_encounter_id: 'enc-1' } };
     search.mockResolvedValue({ unbundle: () => [task] });

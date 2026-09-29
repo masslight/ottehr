@@ -80,7 +80,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           ],
         })
       ).unbundle();
-      const task = tasks.find((t) => getInvoiceTaskOutputs(t).invoiceId === invoice.id);
+      const task = tasks.find(
+        (t) =>
+          t.output?.some(
+            (o) =>
+              o.type?.coding?.find((c) => c.code === RcmTaskCode.sendInvoiceOutputInvoiceId) &&
+              o.valueString === invoice.id
+          )
+      );
       if (!task?.id || !task.status) {
         console.warn(`No invoice task found for Stripe invoice ${invoice.id} / encounter ${encounterId}`);
         break;
@@ -92,8 +99,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         'invoice.marked_uncollectible': 'uncollectible',
       }[event.type];
       await patchWithOptimisticLock(oystehr, { ...task, id: task.id }, (currentTask) => {
-        const outputs = getInvoiceTaskOutputs(currentTask);
-        if (outputs.invoiceId !== invoice.id || outputs.stripeInvoiceStatus === stripeStatus) return [];
+        if (getInvoiceTaskOutputs(currentTask).stripeInvoiceStatus === stripeStatus) return [];
         return [
           {
             op: currentTask.output ? 'replace' : 'add',

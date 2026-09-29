@@ -7,7 +7,6 @@ import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import { PaymentRefundDTO } from 'utils/lib/types/api/patient-payment-types';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { shouldUseOttehrBilling } from '../../shared/candid';
-import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import {
   applyRefundsToPaymentNotice,
@@ -330,11 +329,11 @@ const upsertPaymentNoticeForRefund = async (
 
   await persistPaymentNoticeUpsert(oystehr, desiredNotice, refund.id, claim, encounterId);
 
-  // stamp refund state on the original payment notices (clinical + billing) so consumers don't go back to stripe
-  await markSourceNoticesForRefundedCharge(oystehr, charge, stripeAccount, secrets);
+  // Update refund state on the original billing payment notices.
+  await markBillingNoticesForRefundedCharge(oystehr, charge, stripeAccount, secrets);
 };
 
-const markSourceNoticesForRefundedCharge = async (
+const markBillingNoticesForRefundedCharge = async (
   oystehr: Oystehr,
   charge: Stripe.Charge,
   stripeAccount: string | undefined,
@@ -354,41 +353,29 @@ const markSourceNoticesForRefundedCharge = async (
 
   const paymentIntentId = typeof charge.payment_intent === 'string' ? charge.payment_intent : charge.payment_intent?.id;
 
-  // the original notices live in two projects: billing copies carry charge id + payment intent id,
-  // the clinical notice carries the payment intent id only
-  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const clinicalOystehr = createClinicalOystehrClient(m2mToken, secrets);
-  const projectSearches: { client: Oystehr; stripeIds: (string | undefined)[] }[] = [
-    { client: oystehr, stripeIds: [charge.id, paymentIntentId] },
-    { client: clinicalOystehr, stripeIds: [paymentIntentId] },
-  ];
+  const identifierValues = [charge.id, paymentIntentId]
+    .filter((id): id is string => Boolean(id))
+    .map((id) => `${STRIPE_PAYMENT_ID_SYSTEM}|${id}`)
+    .join(',');
 
-  for (const { client, stripeIds } of projectSearches) {
-    const identifierValues = stripeIds
-      .filter((id): id is string => Boolean(id))
-      .map((id) => `${STRIPE_PAYMENT_ID_SYSTEM}|${id}`)
-      .join(',');
-    if (!identifierValues) continue;
+  let notices: PaymentNotice[];
+  try {
+    notices = (
+      await oystehr.fhir.search<PaymentNotice>({
+        resourceType: 'PaymentNotice',
+        params: [{ name: 'identifier', value: identifierValues }],
+      })
+    ).unbundle();
+  } catch (error) {
+    console.error(`Error searching source PaymentNotices for charge ${charge.id}`, error);
+    return;
+  }
 
-    let notices: PaymentNotice[];
+  for (const notice of notices) {
     try {
-      notices = (
-        await client.fhir.search<PaymentNotice>({
-          resourceType: 'PaymentNotice',
-          params: [{ name: 'identifier', value: identifierValues }],
-        })
-      ).unbundle();
+      await applyRefundsToPaymentNotice(oystehr, notice, refunds);
     } catch (error) {
-      console.error(`Error searching source PaymentNotices for charge ${charge.id}`, error);
-      continue;
-    }
-
-    for (const notice of notices) {
-      try {
-        await applyRefundsToPaymentNotice(client, notice, refunds);
-      } catch (error) {
-        console.error(`Error stamping refunds on PaymentNotice/${notice.id}`, error);
-      }
+      console.error(`Error stamping refunds on PaymentNotice/${notice.id}`, error);
     }
   }
 };
