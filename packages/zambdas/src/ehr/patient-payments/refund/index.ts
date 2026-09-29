@@ -9,6 +9,7 @@ import {
   mergeStripeRefundsWithStored,
   parsePaymentRefundsFromNotice,
   PENDING_RESERVATION_PREFIX,
+  pendingReservationTotalInCents,
   settledRefundTotalInCents,
   staleReservationIds,
 } from 'utils/lib/fhir/paymentRefunds';
@@ -249,7 +250,9 @@ const complexValidation = async (
     };
   }
 
-  const remainingInCents = amountInCents - settledRefundTotalInCents(existingRefunds);
+  // live reservations still hold balance even though they're excluded from settled totals
+  const remainingInCents =
+    amountInCents - settledRefundTotalInCents(existingRefunds) - pendingReservationTotalInCents(existingRefunds);
   if (remainingInCents <= 0) {
     throw INVALID_INPUT_ERROR('This payment has already been fully refunded.');
   }
@@ -521,6 +524,23 @@ const performEffect = async (
     );
   } catch (error: unknown) {
     console.error('Stripe refund failed', error);
+    // definitive failure: release the reservation so the balance isn't held for the TTL
+    if (input.pendingReservationId && notice.id) {
+      try {
+        const currentNotice = await oystehrClient.fhir.get<PaymentNotice>({
+          resourceType: 'PaymentNotice',
+          id: notice.id,
+        });
+        await applyRefundsToPaymentNotice(
+          oystehrClient,
+          currentNotice,
+          parsePaymentRefundsFromNotice(currentNotice) ?? [],
+          [input.pendingReservationId]
+        );
+      } catch (releaseError) {
+        console.error('Failed to release refund reservation', input.pendingReservationId, releaseError);
+      }
+    }
     throw parseStripeError(error);
   }
 

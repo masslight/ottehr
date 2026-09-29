@@ -7,6 +7,7 @@ import { getStripeCustomerIdFromAccount } from 'utils/lib/fhir/helpers';
 import { getFirstName, getLastName } from 'utils/lib/fhir/patient';
 import {
   isLocallyRecordedRefund,
+  isPendingReservation,
   mergeStripeRefundsWithStored,
   parsePaymentRefundsFromNotice,
   settledRefundTotalInCents,
@@ -511,8 +512,10 @@ async function buildPaymentDTOs(
         stripeAccount,
         oystehrClient
       );
-      const refundFields = refunds?.length
-        ? { refunds, refundedAmountInCents: settledRefundTotalInCents(refunds) }
+      // in-flight reservations stay on the notice but are not refunds to show or count
+      const displayRefunds = refunds?.filter((refund) => !isPendingReservation(refund));
+      const refundFields = displayRefunds?.length
+        ? { refunds: displayRefunds, refundedAmountInCents: settledRefundTotalInCents(displayRefunds) }
         : {};
       const takenBy = takenByByNoticeId.get(paymentNotice.id);
       const takenByField = takenBy ? { takenBy } : {};
