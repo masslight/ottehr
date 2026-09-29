@@ -1,4 +1,5 @@
 import {
+  InfoOutlined as InfoOutlinedIcon,
   KeyboardArrowDown as KeyboardArrowDownIcon,
   KeyboardArrowRight as KeyboardArrowRightIcon,
 } from '@mui/icons-material';
@@ -17,7 +18,7 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
-import { ReactElement, ReactNode, useMemo, useState } from 'react';
+import { Fragment, ReactElement, ReactNode, useMemo, useState } from 'react';
 import { ClaimDetailResponse } from 'utils/lib/types/data/billing/billing.types';
 import { carcDescription, X12_ADJUSTMENT_GROUP_LABELS } from 'utils/lib/types/data/billing/carc';
 import { formatCurrency } from 'utils/lib/utils/convert';
@@ -38,6 +39,7 @@ import { formatDate } from '../../utils/format';
 import { AdjustmentChip, AmountChip, EraStatusChip } from '../EraChips';
 import { thSx } from '../ReadOnlySection';
 import { useRemitHighlightTarget } from './RemitHighlight';
+import { ServiceLineIndicators } from './ServiceLineIndicators';
 
 type ServiceLine = ClaimDetailResponse['serviceLines'][number];
 
@@ -151,6 +153,7 @@ const SERVICE_LINE_COLUMNS: ServiceLineColumn[] = [
 
 const ledgerThSx = { ...thSx, fontSize: 12, borderBottom: 'none', whiteSpace: 'nowrap' };
 const ledgerRowSx = { '& > td': { borderBottom: 'none', py: 0.5 } };
+const indicatorsCellSx = { width: '1%', whiteSpace: 'nowrap', px: 0.5 };
 
 const remitCardSx = {
   bgcolor: 'background.paper',
@@ -166,7 +169,17 @@ const remitCardSx = {
 
 // The claim's service lines. Once an ERA is matched, each line also lists its transactions: the
 // charge, then every remit's response to it with the CAS adjustments behind that response.
-export function ServiceLinesTable({ claim }: { claim: ClaimDetailResponse }): ReactElement {
+// Each line also shows its medication (NDC) and ordering-provider indicators; clicking one opens
+// its dialog via onDrugClick / onProviderClick (indexes into claim.serviceLines).
+export function ServiceLinesTable({
+  claim,
+  onDrugClick,
+  onProviderClick,
+}: {
+  claim: ClaimDetailResponse;
+  onDrugClick: (lineIndex: number) => void;
+  onProviderClick: (lineIndex: number) => void;
+}): ReactElement {
   const hasRemits = claim.remits.length > 0;
   const { byClaimLine, other } = useMemo(
     () =>
@@ -182,8 +195,8 @@ export function ServiceLinesTable({ claim }: { claim: ClaimDetailResponse }): Re
     [claim.remits, claim.serviceLines]
   );
   const columns = SERVICE_LINE_COLUMNS.filter((column) => !column.institutionalOnly || claim.type === 'institutional');
-  // the expand toggle takes a column of its own once there are remits
-  const columnCount = columns.length + (hasRemits ? 1 : 0);
+  // the indicators take a column of their own, and so does the expand toggle once there are remits
+  const columnCount = columns.length + 1 + (hasRemits ? 1 : 0);
   // the charge is dated by when it was first sent to the payer
   const chargeDate = claim.firstSubmittedDate || claim.created;
 
@@ -193,7 +206,19 @@ export function ServiceLinesTable({ claim }: { claim: ClaimDetailResponse }): Re
         {content(column)}
       </TableCell>
     ));
-  const lineCells = (line: ServiceLine): ReactElement[] => cells((column) => column.claimLineCell(line, claim));
+  const lineCells = (line: ServiceLine, index: number): ReactElement[] => [
+    <TableCell key="indicators" sx={indicatorsCellSx} align="center">
+      <ServiceLineIndicators
+        drug={line.drug ?? null}
+        orderingProvider={line.orderingProvider ?? null}
+        onDrugClick={() => onDrugClick(index)}
+        onProviderClick={() => onProviderClick(index)}
+      />
+    </TableCell>,
+    ...cells((column) => column.claimLineCell(line, claim)),
+  ];
+  const lineExtras = (line: ServiceLine): ReactNode =>
+    line.drug || line.orderingProvider ? <ServiceLineExtras line={line} /> : null;
 
   return (
     <TableContainer>
@@ -201,6 +226,11 @@ export function ServiceLinesTable({ claim }: { claim: ClaimDetailResponse }): Re
         <TableHead>
           <TableRow>
             {hasRemits && <TableCell sx={{ ...thSx, width: 40 }} />}
+            <TableCell sx={{ ...thSx, ...indicatorsCellSx }} align="center">
+              <Tooltip title="Additional data">
+                <InfoOutlinedIcon sx={{ fontSize: 16, verticalAlign: 'middle', color: 'text.secondary' }} />
+              </Tooltip>
+            </TableCell>
             {columns.map((column) => (
               <TableCell key={column.label} sx={thSx} align={column.align}>
                 {column.label}
@@ -209,13 +239,14 @@ export function ServiceLinesTable({ claim }: { claim: ClaimDetailResponse }): Re
           </TableRow>
         </TableHead>
         <TableBody>
-          {claim.serviceLines.map((line) =>
+          {claim.serviceLines.map((line, index) =>
             hasRemits ? (
               <ExpandableLedgerRows
                 key={line.sequence}
                 toggleLabel={`Toggle remit details for line ${line.sequence}`}
                 columnCount={columnCount}
-                summary={lineCells(line)}
+                summary={lineCells(line, index)}
+                extras={lineExtras(line)}
                 ledger={
                   <RemitLedger
                     label={`Remit details for line ${line.sequence}`}
@@ -227,7 +258,18 @@ export function ServiceLinesTable({ claim }: { claim: ClaimDetailResponse }): Re
                 }
               />
             ) : (
-              <TableRow key={line.sequence}>{lineCells(line)}</TableRow>
+              <Fragment key={line.sequence}>
+                <TableRow sx={lineExtras(line) ? { '& > td': { borderBottom: 'none' } } : undefined}>
+                  {lineCells(line, index)}
+                </TableRow>
+                {lineExtras(line) && (
+                  <TableRow>
+                    <TableCell colSpan={columnCount} sx={{ pt: 0 }}>
+                      {lineExtras(line)}
+                    </TableCell>
+                  </TableRow>
+                )}
+              </Fragment>
             )
           )}
           {hasRemits && unmatched.length > 0 && (
@@ -254,7 +296,7 @@ export function ServiceLinesTable({ claim }: { claim: ClaimDetailResponse }): Re
                     toggleLabel={`Toggle remit details for ${name}`}
                     columnCount={columnCount}
                     muted
-                    summary={cells((column) => column.eraLineCell(eraLine))}
+                    summary={[<TableCell key="indicators" />, ...cells((column) => column.eraLineCell(eraLine))]}
                     ledger={
                       <RemitLedger
                         label={`Remit details for ${name}`}
@@ -278,6 +320,7 @@ function ExpandableLedgerRows({
   columnCount,
   muted = false,
   summary,
+  extras,
   ledger,
 }: {
   toggleLabel: string;
@@ -285,6 +328,8 @@ function ExpandableLedgerRows({
   // a line that isn't really on the claim, set back from the claim's own lines
   muted?: boolean;
   summary: ReactNode;
+  // shown under the summary row whether or not the ledger is expanded
+  extras?: ReactNode;
   ledger: ReactNode;
 }): ReactElement {
   const [expanded, setExpanded] = useState(true);
@@ -303,6 +348,13 @@ function ExpandableLedgerRows({
         </TableCell>
         {summary}
       </TableRow>
+      {extras && (
+        <TableRow sx={{ '& > td': { borderBottom: 'none' } }}>
+          <TableCell colSpan={columnCount} sx={{ pt: 0, pb: 0.5 }}>
+            {extras}
+          </TableCell>
+        </TableRow>
+      )}
       <TableRow>
         <TableCell colSpan={columnCount} sx={{ py: 0 }}>
           <Collapse in={expanded} timeout="auto" unmountOnExit>
@@ -310,6 +362,26 @@ function ExpandableLedgerRows({
           </Collapse>
         </TableCell>
       </TableRow>
+    </>
+  );
+}
+
+// The line's medication (NDC + dose) and ordering provider, as captions under its row.
+function ServiceLineExtras({ line }: { line: ServiceLine }): ReactElement {
+  return (
+    <>
+      {line.drug && (
+        <Typography variant="caption" display="block" color="text.secondary">
+          NDC {line.drug.ndc} · {line.drug.quantity} {line.drug.units}
+        </Typography>
+      )}
+      {line.orderingProvider && (
+        <Typography variant="caption" display="block" color="text.secondary">
+          Ordering Provider: {line.orderingProvider.name}
+          {line.orderingProvider.npi ? ` · NPI ${line.orderingProvider.npi}` : ''}
+          {line.orderingProvider.taxonomy ? ` · ${line.orderingProvider.taxonomy}` : ''}
+        </Typography>
+      )}
     </>
   );
 }

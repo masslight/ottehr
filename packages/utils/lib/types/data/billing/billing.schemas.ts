@@ -13,6 +13,8 @@ import { STATE_CODES } from '../../common';
 import {
   BILLING_MANUAL_PAYMENT_METHODS,
   BILLING_TASK_STATUSES,
+  DRUG_UNIT_CODE_VALUES,
+  NDC_REGEX,
   REFRESH_REPORT_KINDS,
   TAG_NAME_FORBIDDEN_CHARACTERS,
   TAG_NAME_FORBIDDEN_CHARACTERS_ERROR,
@@ -251,6 +253,34 @@ const claimServiceLineSchema = z.object({
   // 1-based references into the claim's diagnosis list (FHIR item.diagnosisSequence)
   diagnosisPointers: z.array(z.number().int().positive()).optional(),
   revenueCode: z.string().max(5).optional(),
+  drug: z
+    .object({
+      ndc: z.string().regex(NDC_REGEX, 'NDC must be 10-12 digits; dashes are optional but must match a valid layout'),
+      quantity: z.number().positive(),
+      units: z.enum(DRUG_UNIT_CODE_VALUES),
+    })
+    .optional(),
+  orderingProvider: z
+    .object({
+      name: nonEmptyString,
+      npi: z.string().trim().optional(),
+      taxonomy: z.string().trim().optional(),
+      kind: z.enum(['individual', 'organization']).optional(),
+      // FHIR id when picked from an existing billing provider
+      providerId: z.string().optional(),
+    })
+    // Providers picked from the system (providerId set) are trusted as stored; only
+    // manually entered NPIs get checksum-validated.
+    .superRefine((provider, ctx) => {
+      if (provider.npi && !provider.providerId && !isNPIValidWithChecksum(provider.npi)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['npi'],
+          message: 'NPI must be 10 digits with a valid check digit',
+        });
+      }
+    })
+    .optional(),
 });
 
 export const GetServiceFacilityInputSchema = z.object({
