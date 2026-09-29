@@ -314,7 +314,8 @@ const performManualRefund = async (
       amountInCents: refundEntry.amountInCents,
       paymentMethod,
       createdISO: refundEntry.dateISO,
-      reason,
+      // on resume, keep the originally recorded reason so audit records stay consistent
+      reason: refundEntry.reason ?? reason,
       secrets,
     });
   }
@@ -383,9 +384,10 @@ const performExternalRefund = async (
       encounterId,
       refundId,
       amountInCents: refundEntry.amountInCents,
-      paymentMethod: medium,
+      // on resume, keep the originally recorded medium/reason so audit records stay consistent
+      paymentMethod: refundEntry.medium ?? medium,
       createdISO: refundEntry.dateISO,
-      reason,
+      reason: refundEntry.reason ?? reason,
       secrets,
     });
   }

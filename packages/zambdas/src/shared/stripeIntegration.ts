@@ -156,13 +156,20 @@ export const applyRefundsToPaymentNoticeWithRetry = async (
   attempts = 3
 ): Promise<void> => {
   let current = notice;
+  let pending = refunds;
   for (let attempt = 1; ; attempt++) {
     try {
-      await applyRefundsToPaymentNotice(oystehr, current, refunds);
+      await applyRefundsToPaymentNotice(oystehr, current, pending);
       return;
     } catch (error) {
       if (attempt >= attempts || !current.id) throw error;
       current = await oystehr.fhir.get<PaymentNotice>({ resourceType: 'PaymentNotice', id: current.id });
+      // union refunds another writer stamped meanwhile, preferring our fresher Stripe data on id match
+      const pendingIds = new Set(pending.map((refund) => refund.stripeRefundId));
+      const newcomers = (parsePaymentRefundsFromNotice(current) ?? []).filter(
+        (refund) => !pendingIds.has(refund.stripeRefundId)
+      );
+      pending = [...pending, ...newcomers];
     }
   }
 };
