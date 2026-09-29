@@ -6,11 +6,14 @@ import { errorHasStatusCode, INVALID_INPUT_ERROR } from 'utils/lib/types/errors'
 import { getEmployees, getRoleMembers, getRoles } from '../../shared/users.helper';
 import {
   buildPairGroup,
+  conversationSidsOf,
   pairIdentifierQuery,
   pairKey,
   readConversationEncounter,
   readConversationSid,
   readPreviousConversations,
+  ReconciledPairGroups,
+  reconcilePairGroups,
   withConversation,
   withReplacement,
 } from '../shared/employee-chat';
@@ -34,16 +37,45 @@ export async function assertActiveEmployee(oystehr: Oystehr, profile: string): P
   }
 }
 
-async function findOrCreatePairGroup(oystehr: Oystehr, callerProfile: string, targetProfile: string): Promise<Group> {
-  const group = await oystehr.fhir.create<Group>(buildPairGroup(callerProfile, targetProfile), {
-    ifNoneExist: [{ name: 'identifier', value: pairIdentifierQuery(callerProfile, targetProfile) }],
-  });
-  if (!group?.id) {
+const MAX_RESOLVE_ATTEMPTS = 6;
+
+async function searchPairGroups(oystehr: Oystehr, callerProfile: string, targetProfile: string): Promise<Group[]> {
+  return (
+    await oystehr.fhir.search<Group>({
+      resourceType: 'Group',
+      params: [
+        { name: 'identifier', value: pairIdentifierQuery(callerProfile, targetProfile) },
+        { name: '_count', value: '100' },
+      ],
+    })
+  ).unbundle();
+}
+
+async function findOrCreatePairGroups(
+  oystehr: Oystehr,
+  callerProfile: string,
+  targetProfile: string
+): Promise<Group[]> {
+  const existing = await searchPairGroups(oystehr, callerProfile, targetProfile);
+  if (existing.length > 0) return existing;
+  const created = await oystehr.fhir.create<Group>(buildPairGroup(callerProfile, targetProfile));
+  if (!created?.id) {
     throw new Error(
-      `Conditional create of the employee chat Group for ${pairKey(callerProfile, targetProfile)} returned no resource`
+      `Creating the employee chat Group for ${pairKey(callerProfile, targetProfile)} returned no resource`
     );
   }
-  return group;
+  const found = await searchPairGroups(oystehr, callerProfile, targetProfile);
+  return found.some((group) => group.id === created.id) ? found : [...found, created];
+}
+
+async function writeGroup(oystehr: Oystehr, stored: Group, next: Group): Promise<boolean> {
+  try {
+    await oystehr.fhir.update<Group>(next, { optimisticLockingVersionId: stored.meta?.versionId });
+    return true;
+  } catch (error) {
+    if (errorHasStatusCode(error, 412)) return false;
+    throw error;
+  }
 }
 
 async function createPairConversation(
@@ -153,43 +185,48 @@ async function finishRetiredEncounter(oystehr: Oystehr, reference: string | unde
   }
 }
 
-async function commitConversation(
+interface CandidateConversation {
+  conversationSid: string;
+  encounter: Encounter;
+  keep: boolean;
+  replacedEncounter?: string;
+}
+
+async function storeCandidate(
   oystehr: Oystehr,
   group: Group,
-  updated: Group,
-  created: { conversationSid: string; encounter: Encounter },
-  profiles: string[]
-): Promise<ResolvedEmployeeChat> {
-  const { conversationSid, encounter } = created;
+  next: Group,
+  candidate: CandidateConversation
+): Promise<boolean> {
   try {
-    await oystehr.fhir.update<Group>(updated, { optimisticLockingVersionId: group.meta?.versionId });
-    return resolvedFrom(updated)!;
+    return await writeGroup(oystehr, group, next);
   } catch (error) {
     let stored: Group;
     try {
       stored = await oystehr.fhir.get<Group>({ resourceType: 'Group', id: group.id! });
     } catch (readError) {
+      candidate.keep = true;
       console.error(
-        `Failed to re-read employee chat Group/${group.id} after a failed write, leaving conversation ${conversationSid} in place`,
+        `Failed to re-read employee chat Group/${group.id} after a failed write, leaving conversation ${candidate.conversationSid} in place`,
         readError
       );
       throw error;
     }
-    const storedChat = resolvedFrom(stored);
-    if (storedChat?.conversationSid === conversationSid) {
-      console.log(`Employee chat Group/${group.id} write reported an error but stored ${conversationSid}`);
-      return storedChat;
+    if (readConversationSid(stored) === candidate.conversationSid) {
+      console.log(`Employee chat Group/${group.id} write reported an error but stored ${candidate.conversationSid}`);
+      return true;
     }
-    await discardOrphanConversation(oystehr, encounter, conversationSid, profiles);
-    if (!errorHasStatusCode(error, 412)) {
-      throw error;
-    }
-    if (!storedChat) {
-      throw new Error(`Employee chat Group/${group.id} changed concurrently but holds no conversation`);
-    }
-    console.log(`Employee chat Group/${group.id} was committed concurrently, using the stored conversation`);
-    return storedChat;
+    throw error;
   }
+}
+
+async function absorbDuplicates(oystehr: Oystehr, pair: ReconciledPairGroups): Promise<void> {
+  if (!(await writeGroup(oystehr, pair.canonical, pair.reconciled))) return;
+  console.log(
+    `Absorbed duplicate employee chat Groups into Group/${pair.canonical.id}` +
+      (pair.retired.length ? `, retiring ${pair.retired.map((retired) => retired.sid).join(', ')}` : '')
+  );
+  await Promise.all(pair.retired.map((retired) => finishRetiredEncounter(oystehr, retired.encounter)));
 }
 
 export async function resolveEmployeeChat(
@@ -198,20 +235,48 @@ export async function resolveEmployeeChat(
   targetProfile: string,
   replaceClosedConversationSid?: string
 ): Promise<ResolvedEmployeeChat> {
-  const group = await findOrCreatePairGroup(oystehr, callerProfile, targetProfile);
-  const current = resolvedFrom(group);
-  if (current && current.conversationSid !== replaceClosedConversationSid) {
-    return current;
-  }
+  let candidate: CandidateConversation | undefined;
+  let seen: Group[] = [];
+  try {
+    for (let attempt = 1; attempt <= MAX_RESOLVE_ATTEMPTS; attempt++) {
+      seen = await findOrCreatePairGroups(oystehr, callerProfile, targetProfile);
+      const pair = reconcilePairGroups(seen, new Date().toISOString());
+      if (pair.changed) {
+        await absorbDuplicates(oystehr, pair);
+        continue;
+      }
 
-  const created = await createPairConversation(oystehr, callerProfile, targetProfile);
-  const updated = current
-    ? withReplacement(group, created.conversationSid, created.encounter.id!, new Date().toISOString())
-    : withConversation(group, created.conversationSid, created.encounter.id!);
-  const committed = await commitConversation(oystehr, group, updated, created, [callerProfile, targetProfile]);
+      const group = pair.canonical;
+      const current = resolvedFrom(group);
+      if (current && current.conversationSid !== replaceClosedConversationSid) {
+        if (candidate?.conversationSid === current.conversationSid) {
+          await finishRetiredEncounter(oystehr, candidate.replacedEncounter);
+        }
+        return current;
+      }
 
-  if (current && committed.conversationSid === created.conversationSid) {
-    await finishRetiredEncounter(oystehr, readConversationEncounter(group));
+      candidate ??= { ...(await createPairConversation(oystehr, callerProfile, targetProfile)), keep: false };
+      candidate.replacedEncounter = current ? readConversationEncounter(group) : undefined;
+      const next = current
+        ? withReplacement(group, candidate.conversationSid, candidate.encounter.id!, new Date().toISOString())
+        : withConversation(group, candidate.conversationSid, candidate.encounter.id!);
+      if (await storeCandidate(oystehr, group, next, candidate)) {
+        candidate.keep = true;
+      }
+    }
+    throw new Error(
+      `Employee chat for ${pairKey(callerProfile, targetProfile)} did not settle after ${MAX_RESOLVE_ATTEMPTS} attempts`
+    );
+  } finally {
+    if (
+      candidate &&
+      !candidate.keep &&
+      !seen.some((group) => conversationSidsOf(group).includes(candidate!.conversationSid))
+    ) {
+      await discardOrphanConversation(oystehr, candidate.encounter, candidate.conversationSid, [
+        callerProfile,
+        targetProfile,
+      ]);
+    }
   }
-  return committed;
 }

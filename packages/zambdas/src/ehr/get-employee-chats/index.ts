@@ -7,7 +7,13 @@ import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
-import { EMPLOYEE_CHAT_CODE_QUERY, requireCallerPractitioner, toSummary } from '../shared/employee-chat';
+import {
+  EMPLOYEE_CHAT_CODE_QUERY,
+  otherMemberProfile,
+  reconcilePairGroups,
+  requireCallerPractitioner,
+  toSummary,
+} from '../shared/employee-chat';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -64,14 +70,18 @@ export async function listEmployeeChats(oystehr: Oystehr, myProfile: string): Pr
     .filter((resource): resource is Practitioner => resource.resourceType === 'Practitioner')
     .forEach((practitioner) => practitionersByProfile.set(`Practitioner/${practitioner.id}`, practitioner));
 
-  const summaries = new Map<string, EmployeeChatSummary>();
+  const groupsByPair = new Map<string, Group[]>();
   resources
     .filter((resource): resource is Group => resource.resourceType === 'Group')
     .forEach((group) => {
-      const summary = toSummary(group, practitionersByProfile, myProfile);
-      if (summary && !summaries.has(summary.otherEmployee.profile)) {
-        summaries.set(summary.otherEmployee.profile, summary);
-      }
+      const otherProfile = otherMemberProfile(group, myProfile);
+      if (!otherProfile) return;
+      groupsByPair.set(otherProfile, [...(groupsByPair.get(otherProfile) ?? []), group]);
     });
-  return [...summaries.values()];
+
+  const retiredAt = new Date().toISOString();
+  return [...groupsByPair.values()].flatMap((groups) => {
+    const summary = toSummary(reconcilePairGroups(groups, retiredAt).reconciled, practitionersByProfile, myProfile);
+    return summary ? [summary] : [];
+  });
 }

@@ -7,7 +7,16 @@ import { INTEGRATION_TEST_TAG_SYSTEM } from 'utils/lib/utils/e2eCleanup';
 import { afterAll, assert, beforeAll, describe, expect, it, vi } from 'vitest';
 import { listEmployeeChats } from '../../src/ehr/get-employee-chats';
 import { resolveEmployeeChat } from '../../src/ehr/open-employee-chat/helpers';
-import { pairKey, readConversationSid, readPreviousConversations } from '../../src/ehr/shared/employee-chat';
+import {
+  buildPairGroup,
+  pairKey,
+  readConversationEncounter,
+  readConversationSid,
+  readPreviousConversations,
+  reconcilePairGroups,
+  selectCanonicalGroup,
+  withConversation,
+} from '../../src/ehr/shared/employee-chat';
 import { setupIntegrationTest } from '../helpers/integration-test-seed-data-setup';
 
 const resolveSid = async (...args: Parameters<typeof resolveEmployeeChat>): Promise<string> =>
@@ -18,6 +27,7 @@ describe('employee chat pair resolution', () => {
   let cleanup: () => Promise<void>;
   let processId: string;
   const practitioners: Record<'alice' | 'bob' | 'carol', string> = { alice: '', bob: '', carol: '' };
+  const profiles: string[] = [];
   const encounterIds: string[] = [];
   let createSpy: ReturnType<typeof vi.spyOn>;
   let addParticipantSpy: ReturnType<typeof vi.spyOn>;
@@ -35,6 +45,35 @@ describe('employee chat pair resolution', () => {
       })
     ).unbundle();
 
+  const createPractitioner = async (given: string): Promise<string> => {
+    const practitioner = await oystehr.fhir.create<Practitioner>({
+      resourceType: 'Practitioner',
+      active: true,
+      name: [{ given: [given], family: `EmpChat-${randomUUID().slice(0, 8)}` }],
+      meta: tag(),
+    });
+    assert(practitioner.id);
+    const profile = `Practitioner/${practitioner.id}`;
+    profiles.push(profile);
+    return profile;
+  };
+
+  const seedPairGroup = async (a: string, b: string, withSid: boolean): Promise<Group> => {
+    const group = { ...buildPairGroup(a, b), meta: tag() };
+    if (!withSid) {
+      return oystehr.fhir.create<Group>(group);
+    }
+    const { encounter } = await oystehr.conversation.create({
+      encounter: { resourceType: 'Encounter', status: 'in-progress', class: { code: 'VR' } },
+    });
+    const sid = oystehr.conversation.getConversationIdFromEncounter(encounter);
+    assert(sid && encounter.id);
+    return oystehr.fhir.create<Group>(withConversation(group, sid, encounter.id));
+  };
+
+  const groupVersions = async (a: string, b: string): Promise<Record<string, string | undefined>> =>
+    Object.fromEntries((await groupsForPair(a, b)).map((group) => [group.id, group.meta?.versionId]));
+
   beforeAll(async () => {
     const setup = await setupIntegrationTest('employee-chat.test.ts', M2MClientMockType.provider);
     oystehr = setup.oystehr;
@@ -46,14 +85,7 @@ describe('employee chat pair resolution', () => {
       ['bob', 'Bob'],
       ['carol', 'Carol'],
     ] as const) {
-      const practitioner = await oystehr.fhir.create<Practitioner>({
-        resourceType: 'Practitioner',
-        active: true,
-        name: [{ given: [given], family: `EmpChat-${randomUUID().slice(0, 8)}` }],
-        meta: tag(),
-      });
-      assert(practitioner.id);
-      practitioners[key] = `Practitioner/${practitioner.id}`;
+      practitioners[key] = await createPractitioner(given);
     }
 
     createSpy = vi.spyOn(oystehr.conversation, 'create').mockImplementation(async ({ encounter }) => {
@@ -80,24 +112,25 @@ describe('employee chat pair resolution', () => {
     createSpy?.mockRestore();
     addParticipantSpy?.mockRestore();
     removeParticipantSpy?.mockRestore();
-    const { alice, bob, carol } = practitioners;
-    for (const [a, b] of [
-      [alice, bob],
-      [alice, carol],
-      [bob, carol],
-    ]) {
-      if (!a || !b) continue;
-      for (const group of await groupsForPair(a, b)) {
+    for (const profile of profiles) {
+      const groups = (
+        await oystehr.fhir.search<Group>({
+          resourceType: 'Group',
+          params: [
+            { name: 'member', value: profile },
+            { name: '_count', value: '1000' },
+          ],
+        })
+      ).unbundle();
+      for (const group of groups) {
         await oystehr.fhir.delete({ resourceType: 'Group', id: group.id! }).catch(() => undefined);
       }
     }
     for (const id of encounterIds) {
       await oystehr.fhir.delete({ resourceType: 'Encounter', id }).catch(() => undefined);
     }
-    for (const profile of Object.values(practitioners)) {
-      if (profile) {
-        await oystehr.fhir.delete({ resourceType: 'Practitioner', id: profile.split('/')[1] }).catch(() => undefined);
-      }
+    for (const profile of profiles) {
+      await oystehr.fhir.delete({ resourceType: 'Practitioner', id: profile.split('/')[1] }).catch(() => undefined);
     }
     await cleanup();
   });
@@ -138,14 +171,82 @@ describe('employee chat pair resolution', () => {
     expect(aliceCarol).not.toBe(aliceBob);
   });
 
-  it('converges concurrent first opens on one Group and one stored conversation', async () => {
+  it('converges concurrent first opens on one canonical Group and one stored conversation', async () => {
     const { bob, carol } = practitioners;
     const [fromBob, fromCarol] = await Promise.all([resolveSid(oystehr, bob, carol), resolveSid(oystehr, carol, bob)]);
 
     expect(fromBob).toBe(fromCarol);
-    const groups = await groupsForPair(bob, carol);
-    expect(groups).toHaveLength(1);
-    expect(readConversationSid(groups[0])).toBe(fromBob);
+    const pair = reconcilePairGroups(await groupsForPair(bob, carol), new Date().toISOString());
+    expect(pair.changed).toBe(false);
+    expect(readConversationSid(pair.canonical)).toBe(fromBob);
+    expect(await resolveSid(oystehr, bob, carol)).toBe(fromBob);
+  });
+
+  it('converges repeated concurrent first opens for fresh pairs', async () => {
+    for (let round = 0; round < 3; round++) {
+      const [first, second] = [await createPractitioner('Racer'), await createPractitioner('Racer')];
+      const sids = await Promise.all([
+        resolveSid(oystehr, first, second),
+        resolveSid(oystehr, second, first),
+        resolveSid(oystehr, first, second),
+      ]);
+
+      expect(new Set(sids).size).toBe(1);
+      const pair = reconcilePairGroups(await groupsForPair(first, second), new Date().toISOString());
+      expect(pair.changed).toBe(false);
+      expect(readConversationSid(pair.canonical)).toBe(sids[0]);
+      const listed = await listEmployeeChats(oystehr, first);
+      expect(listed.map((chat) => [chat.conversationSid, chat.otherEmployee.profile])).toEqual([[sids[0], second]]);
+    }
+  });
+
+  it('heals a pair whose duplicate Groups hold different conversations without losing either', async () => {
+    const [dave, erin] = [await createPractitioner('Dave'), await createPractitioner('Erin')];
+    const seeded = [await seedPairGroup(dave, erin, true), await seedPairGroup(dave, erin, true)];
+    const { canonical, duplicates } = selectCanonicalGroup(seeded);
+    const kept = readConversationSid(canonical)!;
+    const merged = readConversationSid(duplicates[0])!;
+    const creationsBefore = createSpy.mock.calls.length;
+
+    const healed = await resolveEmployeeChat(oystehr, erin, dave);
+
+    expect(healed).toEqual({ conversationSid: kept, previousConversationSids: [merged] });
+    const stored = await oystehr.fhir.get<Group>({ resourceType: 'Group', id: canonical.id! });
+    expect(readConversationSid(stored)).toBe(kept);
+    expect(readPreviousConversations(stored).map((retired) => retired.sid)).toEqual([merged]);
+    const mergedEncounter = readConversationEncounter(duplicates[0])!.split('/')[1];
+    expect((await oystehr.fhir.get<Encounter>({ resourceType: 'Encounter', id: mergedEncounter })).status).toBe(
+      'finished'
+    );
+    expect(createSpy.mock.calls.length).toBe(creationsBefore);
+
+    const before = await groupVersions(dave, erin);
+    expect(await resolveEmployeeChat(oystehr, dave, erin)).toEqual(healed);
+    expect(await resolveEmployeeChat(oystehr, erin, dave)).toEqual(healed);
+    expect(await groupVersions(dave, erin)).toEqual(before);
+
+    const daveChats = await listEmployeeChats(oystehr, dave);
+    expect(daveChats).toHaveLength(1);
+    expect(daveChats[0]).toMatchObject({ conversationSid: kept, previousConversationSids: [merged] });
+    expect(daveChats[0].otherEmployee).toMatchObject({ profile: erin, firstName: 'Erin' });
+  });
+
+  it('keeps the only conversation of a duplicated pair current wherever it lives and lists the pair once', async () => {
+    const [frank, gina] = [await createPractitioner('Frank'), await createPractitioner('Gina')];
+    const empty = await seedPairGroup(frank, gina, false);
+    const populated = await seedPairGroup(frank, gina, true);
+    const sid = readConversationSid(populated)!;
+    const creationsBefore = createSpy.mock.calls.length;
+
+    expect((await listEmployeeChats(oystehr, gina)).map((chat) => chat.conversationSid)).toEqual([sid]);
+    const resolved = await resolveEmployeeChat(oystehr, frank, gina);
+
+    expect(resolved).toEqual({ conversationSid: sid, previousConversationSids: [] });
+    const { canonical } = selectCanonicalGroup([empty, populated]);
+    const stored = await oystehr.fhir.get<Group>({ resourceType: 'Group', id: canonical.id! });
+    expect(readConversationSid(stored)).toBe(sid);
+    expect(createSpy.mock.calls.length).toBe(creationsBefore);
+    expect((await listEmployeeChats(oystehr, gina)).map((chat) => chat.conversationSid)).toEqual([sid]);
   });
 
   it('replaces a closed conversation once, keeps it as history and answers a stale request with the replacement', async () => {

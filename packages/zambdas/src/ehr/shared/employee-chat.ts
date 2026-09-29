@@ -76,7 +76,7 @@ export function readPreviousConversations(group: Group): RetiredConversation[] {
     .filter((retired) => retired.sid !== '');
 }
 
-export function withConversation(group: Group, conversationSid: string, encounterId: string): Group {
+function withCurrentConversation(group: Group, conversationSid: string, encounterReference: string | undefined): Group {
   const otherExtensions = (group.extension ?? []).filter(
     (extension) =>
       extension.url !== EMPLOYEE_CHAT_CONVERSATION_SID_EXTENSION_URL &&
@@ -87,29 +87,104 @@ export function withConversation(group: Group, conversationSid: string, encounte
     extension: [
       ...otherExtensions,
       { url: EMPLOYEE_CHAT_CONVERSATION_SID_EXTENSION_URL, valueString: conversationSid },
-      {
-        url: EMPLOYEE_CHAT_CONVERSATION_ENCOUNTER_EXTENSION_URL,
-        valueReference: { reference: `Encounter/${encounterId}` },
-      },
+      ...(encounterReference
+        ? [
+            {
+              url: EMPLOYEE_CHAT_CONVERSATION_ENCOUNTER_EXTENSION_URL,
+              valueReference: { reference: encounterReference },
+            },
+          ]
+        : []),
     ],
   };
 }
 
+function retiredConversationExtension({ sid, encounter, retiredAt }: RetiredConversation): Extension {
+  return {
+    url: EMPLOYEE_CHAT_PREVIOUS_CONVERSATION_EXTENSION_URL,
+    extension: [
+      { url: 'sid', valueString: sid },
+      ...(encounter ? [{ url: 'encounter', valueReference: { reference: encounter } }] : []),
+      ...(retiredAt ? [{ url: 'retiredAt', valueDateTime: retiredAt }] : []),
+    ],
+  };
+}
+
+export function withConversation(group: Group, conversationSid: string, encounterId: string): Group {
+  return withCurrentConversation(group, conversationSid, `Encounter/${encounterId}`);
+}
+
 export function withReplacement(group: Group, conversationSid: string, encounterId: string, retiredAt: string): Group {
   const retiredSid = readConversationSid(group);
-  const retiredEncounter = readConversationEncounter(group);
   if (!retiredSid) {
     throw new Error(`Employee chat Group/${group.id} has no current conversation to replace`);
   }
-  const retired: Extension = {
-    url: EMPLOYEE_CHAT_PREVIOUS_CONVERSATION_EXTENSION_URL,
-    extension: [
-      { url: 'sid', valueString: retiredSid },
-      ...(retiredEncounter ? [{ url: 'encounter', valueReference: { reference: retiredEncounter } }] : []),
-      { url: 'retiredAt', valueDateTime: retiredAt },
-    ],
-  };
+  const retired = retiredConversationExtension({
+    sid: retiredSid,
+    encounter: readConversationEncounter(group) ?? '',
+    retiredAt,
+  });
   return withConversation({ ...group, extension: [...(group.extension ?? []), retired] }, conversationSid, encounterId);
+}
+
+export function conversationSidsOf(group: Group): string[] {
+  const current = readConversationSid(group);
+  return [...readPreviousConversations(group).map((retired) => retired.sid), ...(current ? [current] : [])];
+}
+
+export function selectCanonicalGroup(groups: Group[]): { canonical: Group; duplicates: Group[] } {
+  const [canonical, ...duplicates] = [...groups].sort((a, b) => {
+    const [left, right] = [a.id ?? '', b.id ?? ''];
+    return left < right ? -1 : left > right ? 1 : 0;
+  });
+  if (!canonical) {
+    throw new Error('Cannot select a canonical employee chat Group from an empty list');
+  }
+  return { canonical, duplicates };
+}
+
+export interface ReconciledPairGroups {
+  canonical: Group;
+  reconciled: Group;
+  retired: RetiredConversation[];
+  changed: boolean;
+}
+
+export function reconcilePairGroups(groups: Group[], retiredAt: string): ReconciledPairGroups {
+  const { canonical, duplicates } = selectCanonicalGroup(groups);
+  const known = new Set(conversationSidsOf(canonical));
+  const history: RetiredConversation[] = [];
+  const retired: RetiredConversation[] = [];
+  let reconciled = canonical;
+  let adopted = false;
+
+  for (const duplicate of duplicates) {
+    for (const previous of readPreviousConversations(duplicate)) {
+      if (known.has(previous.sid)) continue;
+      known.add(previous.sid);
+      history.push(previous);
+    }
+    const sid = readConversationSid(duplicate);
+    if (!sid || known.has(sid)) continue;
+    known.add(sid);
+    const encounter = readConversationEncounter(duplicate);
+    if (!readConversationSid(reconciled)) {
+      reconciled = withCurrentConversation(reconciled, sid, encounter);
+      adopted = true;
+    } else {
+      const moved = { sid, encounter: encounter ?? '', retiredAt };
+      history.push(moved);
+      retired.push(moved);
+    }
+  }
+
+  if (history.length > 0) {
+    reconciled = {
+      ...reconciled,
+      extension: [...(reconciled.extension ?? []), ...history.map(retiredConversationExtension)],
+    };
+  }
+  return { canonical, reconciled, retired, changed: adopted || history.length > 0 };
 }
 
 export function otherMemberProfile(group: Group, myProfile: string): string | undefined {
