@@ -64,7 +64,7 @@ function isGuardedNumber(schema: z.ZodTypeAny): boolean {
   return GUARDED_NUMERICS.has(schema);
 }
 
-const F = {
+const field = {
   display: (doc: string) => requiredText(CAP.display).describe(doc),
   optionalDisplay: (doc: string) => optionalText(CAP.display).describe(doc),
   searchTerms: (doc = 'Synonyms or alternate phrasings for the catalogue search (1–3).') =>
@@ -86,10 +86,10 @@ const DISPOSITION_TYPE_LIST = PLANNABLE_DISPOSITION_TYPES.map((t) => `"${t}"`).j
 export const CAPABILITIES = {
   'apply-template': {
     shape: z.object({
-      display: F.display(
+      display: field.display(
         'The template title, as listed under AVAILABLE TEMPLATES. A suggestion — the provider applies it.'
       ),
-      searchTerms: F.searchTerms('Alternate words from the title, for a fuzzy match.'),
+      searchTerms: field.searchTerms('Alternate words from the title, for a fuzzy match.'),
     }),
     promptDoc: `match against the practice's saved templates by
   their EXACT listed titles; never invent a template name.
@@ -114,8 +114,8 @@ export const CAPABILITIES = {
 
   'add-allergy': {
     shape: z.object({
-      display: F.display('The allergen ("Penicillin", "Peanuts").'),
-      searchTerms: F.searchTerms(),
+      display: field.display('The allergen ("Penicillin", "Peanuts").'),
+      searchTerms: field.searchTerms(),
     }),
     promptDoc: `an allergy the provider states the patient HAS, or
   directs to be added to the allergy list. REQUIRED whenever one is stated, and SEPARATE from any
@@ -130,9 +130,9 @@ export const CAPABILITIES = {
 
   'add-condition': {
     shape: z.object({
-      display: F.display('The background condition ("Asthma", "Personal history of urinary calculus").'),
-      searchTerms: F.searchTerms(),
-      code: F.optionalCode(
+      display: field.display('The background condition ("Asthma", "Personal history of urinary calculus").'),
+      searchTerms: field.searchTerms(),
+      code: field.optionalCode(
         'Best ICD-10 code. Z-codes for resolved or past history; F17.210 / Z87.891 for smoking status.'
       ),
     }),
@@ -150,10 +150,10 @@ export const CAPABILITIES = {
 
   'add-medication': {
     shape: z.object({
-      display: F.display('Drug name with strength and form as stated ("Amoxicillin 400 mg/5 mL suspension").'),
-      searchTerms: F.searchTerms('Ingredient or brand name ONLY ("Amoxicillin") — no strength or form.'),
-      strength: F.optionalCode('Exact dose+concentration as written ("400 mg/5 mL"); omit when none was stated.'),
-      doseForm: F.optionalCode(
+      display: field.display('Drug name with strength and form as stated ("Amoxicillin 400 mg/5 mL suspension").'),
+      searchTerms: field.searchTerms('Ingredient or brand name ONLY ("Amoxicillin") — no strength or form.'),
+      strength: field.optionalCode('Exact dose+concentration as written ("400 mg/5 mL"); omit when none was stated.'),
+      doseForm: field.optionalCode(
         'Dosage-form word ("Suspension", "Tablet", "Cream", "Drops"); omit when none was stated.'
       ),
     }),
@@ -177,16 +177,16 @@ export const CAPABILITIES = {
   },
   'add-surgical-history': {
     shape: z.object({
-      display: F.display('The past operation ("Appendectomy").'),
-      searchTerms: F.searchTerms(),
+      display: field.display('The past operation ("Appendectomy").'),
+      searchTerms: field.searchTerms(),
     }),
     promptDoc: `a past operation the narrative states.`,
   },
 
   'add-hospitalization': {
     shape: z.object({
-      display: F.display('The past hospitalization, as stated.'),
-      searchTerms: F.searchTerms(),
+      display: field.display('The past hospitalization, as stated.'),
+      searchTerms: field.searchTerms(),
     }),
     promptDoc: `a past hospitalization the narrative states.`,
   },
@@ -194,7 +194,7 @@ export const CAPABILITIES = {
   'edit-note-text': {
     shape: z.object({
       field: z.enum(NOTE_TEXT_FIELDS).describe('The note field to write.'),
-      newText: F.noteField('The FULL new content of the field, not a fragment.'),
+      newText: field.noteField('The FULL new content of the field, not a fragment.'),
     }),
     promptDoc: `field is one of: ${NOTE_FIELD_LIST}.
   newText is the FULL new content for that field. When existing text is shown in the context below and
@@ -236,7 +236,7 @@ export const CAPABILITIES = {
   'set-vital': {
     shape: z.object({
       field: z.enum(PLANNABLE_VITAL_FIELDS).describe('Which vital the reading is.'),
-      display: F.display(
+      display: field.display(
         'The FULL reading exactly as stated, unit included ("98.9 F", "5\'8\\"", "130lb", "122/78", "98%").'
       ),
     }),
@@ -254,10 +254,10 @@ export const CAPABILITIES = {
 
   'add-exam-finding': {
     shape: z.object({
-      display: F.display(
+      display: field.display(
         'The abnormal finding with its modifiers ("Right TM erythematous and bulging"), matched against the exam-template leaf labels.'
       ),
-      searchTerms: F.searchTerms(),
+      searchTerms: field.searchTerms(),
     }),
     promptDoc: `matched against the practice's exam-template leaf
   labels. Emit an add-exam-finding for EVERY finding the provider VOICED — abnormal or normal
@@ -290,9 +290,9 @@ export const CAPABILITIES = {
 
   'add-ros-finding': {
     shape: z.object({
-      display: F.display('"Denies <symptom>" or "Reports <symptom>".'),
-      searchTerms: F.searchTerms('1–3 synonyms for the symptom, WITHOUT the word Denies/Reports.'),
-      finding: F.polarity(),
+      display: field.display('"Denies <symptom>" or "Reports <symptom>".'),
+      searchTerms: field.searchTerms('1–3 synonyms for the symptom, WITHOUT the word Denies/Reports.'),
+      finding: field.polarity(),
     }),
     promptDoc: `a structured Review-of-Systems finding. The display
   MUST begin with "Denies" or "Reports" followed by the symptom name; searchTerms are 1–3 synonyms for
@@ -316,9 +316,9 @@ export const CAPABILITIES = {
 
   'add-diagnosis': {
     shape: z.object({
-      display: F.display('Accurate, SPECIFIC diagnosis label; for S-/T-code injuries include site and laterality.'),
-      searchTerms: F.searchTerms(),
-      code: F.optionalCode(
+      display: field.display('Accurate, SPECIFIC diagnosis label; for S-/T-code injuries include site and laterality.'),
+      searchTerms: field.searchTerms(),
+      code: field.optionalCode(
         'Best billable, fully specified ICD-10 code, ALWAYS supplied ("H66.91", "S39.012A"). Just the code.'
       ),
       isPrimary: z.boolean().optional().describe('true for exactly ONE diagnosis per visit, false for every other.'),
@@ -355,8 +355,8 @@ export const CAPABILITIES = {
   },
   'set-em-code': {
     shape: z.object({
-      code: F.code('The E&M code ("99213").'),
-      display: F.optionalDisplay('The code description (optional).'),
+      code: field.code('The E&M code ("99213").'),
+      display: field.optionalDisplay('The code description (optional).'),
     }),
     promptDoc: `ALWAYS emit exactly one.
   Pick the code FAMILY from the PATIENT STATUS line in the per-visit context below, never from the
@@ -375,7 +375,7 @@ export const CAPABILITIES = {
       dispositionType: z
         .enum(PLANNABLE_DISPOSITION_TYPES)
         .describe(`Where the patient goes: ${PLANNABLE_DISPOSITION_TYPES.join(' | ')} (see below).`),
-      text: F.sentence('The disposition as one clinical sentence.'),
+      text: field.sentence('The disposition as one clinical sentence.'),
       followUpInDays: guardedNumber(
         `Follow-up interval in DAYS when stated, for pcp-no-type and specialty only: one of ${FOLLOW_UP_DAYS.join(
           ', '
@@ -402,7 +402,7 @@ export const CAPABILITIES = {
 
   'add-patient-instruction': {
     shape: z.object({
-      text: F.sentence('The instruction, written as a directive TO THE PATIENT.'),
+      text: field.sentence('The instruction, written as a directive TO THE PATIENT.'),
     }),
     promptDoc: `patient-FACING guidance, written as a directive TO THE
   PATIENT. REQUIRED, not optional: anything the patient must DO or WATCH FOR after the visit gets its
@@ -419,7 +419,7 @@ export const CAPABILITIES = {
 
   'provider-note': {
     shape: z.object({
-      text: F.sentence('One or two sentences for the provider; never charted.'),
+      text: field.sentence('One or two sentences for the provider; never charted.'),
     }),
     // Order-sensitive: reflowing this text measurably moved commitments from provider-note to guessed
     // add-medication actions.
@@ -443,7 +443,7 @@ export const CAPABILITIES = {
 
   reply: {
     shape: z.object({
-      text: F.sentence("The answer to the provider's question."),
+      text: field.sentence("The answer to the provider's question."),
     }),
     promptDoc: `the ANSWER to a question the provider asked. Writes nothing to the chart.
   Use it when the message is a question about the note or the visit ("what's still missing before I can
@@ -455,7 +455,7 @@ export const CAPABILITIES = {
 
   unknown: {
     shape: z.object({
-      message: F.optionalSentence('What was said that could not be classified.'),
+      message: field.optionalSentence('What was said that could not be classified.'),
     }),
     promptDoc: `use sparingly; prefer omitting an action you cannot classify. If the
   message contains nothing chartable at all, return an empty actions array rather than guessing.`,

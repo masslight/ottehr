@@ -221,14 +221,18 @@ describe('vitals', () => {
     expect(actions.map((a) => a.display)).toEqual(['98.9 F', '101.2 F', '130lb', '122/78']);
   });
 
-  it('recovers a reading the model dropped, for a non-blood-pressure vital', async () => {
-    const { actions, rejected } = await run(
-      [{ kind: 'set-vital', field: 'vital-height' }],
-      'add height 34 inches please'
-    );
-    expect(rejected).toEqual([]);
-    expect(actions[0]).toMatchObject({ display: '34 inches', value: 34, unit: 'in' });
-  });
+  // The schema makes display required, so the primary model sends a dropped reading as a blank string.
+  it.each([{}, { display: '' }, { display: '  ' }])(
+    'recovers a reading the model dropped, for a non-blood-pressure vital (%o)',
+    async (reading) => {
+      const { actions, rejected } = await run(
+        [{ kind: 'set-vital', field: 'vital-height', ...reading }],
+        'add height 34 inches please'
+      );
+      expect(rejected).toEqual([]);
+      expect(actions[0]).toMatchObject({ display: '34 inches', value: 34, unit: 'in' });
+    }
+  );
 
   it('asks rather than charting or reinterpreting an implausible height', async () => {
     const { actions, rejected } = await run(

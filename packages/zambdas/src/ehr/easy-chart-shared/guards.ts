@@ -154,9 +154,9 @@ async function guardOne(input: unknown, context: ResolvedGuardContext): Promise<
   else if (fromEdited !== undefined) action.sourceOrigin = 'edited-narrative';
   else if (fromChart !== undefined) action.sourceOrigin = 'chart';
 
-  const missing = missingRequiredFields(kind, action);
   // A set-vital without a display can still be recovered from the narrative in guardVital.
-  if (missing.length > 0 && kind !== 'set-vital') {
+  const missing = missingRequiredFields(kind, action).filter((field) => kind !== 'set-vital' || field !== 'display');
+  if (missing.length > 0) {
     return {
       rejected: {
         kind,
@@ -189,11 +189,15 @@ async function guardOne(input: unknown, context: ResolvedGuardContext): Promise<
 
 /**
  * The declared fields checked against the registry shape: the backup model decodes without the schema,
- * so an enum can come back as anything. A bad optional value is dropped; a bad required one refuses the
- * action. Valid values are kept as the shape outputs them, so a guarded numeric becomes a number.
+ * so an enum can come back as anything. A blank string counts as absent, as it does for required fields.
+ * A bad optional value is dropped; a bad required one refuses the action. Valid values are kept as the
+ * shape outputs them, so a guarded numeric becomes a number.
  */
 function checkValues(kind: ActionKind, bag: Record<string, unknown>, logPrefix: string): string | undefined {
   const shape = capabilityOf(kind).shape.partial();
+  for (const field of declaredFields(kind)) {
+    if (typeof bag[field] === 'string' && (bag[field] as string).trim() === '') delete bag[field];
+  }
   const present = declaredFields(kind).filter((field) => bag[field] !== undefined);
   const fields: Record<string, unknown> = Object.fromEntries(present.map((field) => [field, bag[field]]));
   let result = shape.safeParse(fields);
