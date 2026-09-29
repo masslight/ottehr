@@ -111,6 +111,7 @@ export const stripeRefundToDTO = (refund: Stripe.Refund): PaymentRefundDTO => ({
   reason: refund.metadata?.reason ?? refund.reason ?? undefined,
   notes: refund.metadata?.notes ?? undefined,
   refundedBy: refund.metadata?.refundedBy ?? undefined,
+  operationKey: refund.metadata?.operationKey ?? undefined,
 });
 
 // Stamps refund state onto the original PaymentNotice so consumers can read it from FHIR without Stripe.
@@ -154,13 +155,15 @@ export const applyRefundsToPaymentNoticeWithRetry = async (
   oystehr: Oystehr,
   notice: PaymentNotice,
   refunds: PaymentRefundDTO[],
+  removeIds?: string[],
   attempts = 3
 ): Promise<void> => {
   let current = notice;
   let pending = refunds;
+  const removed = new Set(removeIds ?? []);
   for (let attempt = 1; ; attempt++) {
     try {
-      await applyRefundsToPaymentNotice(oystehr, current, pending);
+      await applyRefundsToPaymentNotice(oystehr, current, pending, removeIds);
       return;
     } catch (error) {
       if (attempt >= attempts || !current.id) throw error;
@@ -168,7 +171,7 @@ export const applyRefundsToPaymentNoticeWithRetry = async (
       // union refunds another writer stamped meanwhile, preferring our fresher Stripe data on id match
       const pendingIds = new Set(pending.map((refund) => refund.stripeRefundId));
       const newcomers = (parsePaymentRefundsFromNotice(current) ?? []).filter(
-        (refund) => !pendingIds.has(refund.stripeRefundId)
+        (refund) => !pendingIds.has(refund.stripeRefundId) && !removed.has(refund.stripeRefundId)
       );
       pending = [...pending, ...newcomers];
     }

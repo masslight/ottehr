@@ -19,6 +19,7 @@ import {
   RcmTaskCode,
   RcmTaskCodings,
 } from 'utils/lib/fhir/constants';
+import { parsePaymentRefundsFromNotice, staleReservationIds } from 'utils/lib/fhir/paymentRefunds';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import { PaymentRefundDTO } from 'utils/lib/types/api/patient-payment-types';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
@@ -465,8 +466,9 @@ const markSourceNoticesForRefundedCharge = async (
     for (const notice of notices) {
       try {
         // retry variant: a version conflict from an unrelated concurrent update must not
-        // discard the webhook's only stamping attempt
-        await applyRefundsToPaymentNoticeWithRetry(client, notice, refunds);
+        // discard the webhook's only stamping attempt; stale reservations are cleaned here too
+        const staleIds = staleReservationIds([...(parsePaymentRefundsFromNotice(notice) ?? []), ...refunds]);
+        await applyRefundsToPaymentNoticeWithRetry(client, notice, refunds, staleIds);
       } catch (error) {
         console.error(`Error stamping refunds on PaymentNotice/${notice.id}`, error);
       }

@@ -8,7 +8,9 @@ import { PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import {
   mergeStripeRefundsWithStored,
   parsePaymentRefundsFromNotice,
+  PENDING_RESERVATION_PREFIX,
   settledRefundTotalInCents,
+  staleReservationIds,
 } from 'utils/lib/fhir/paymentRefunds';
 import { getStripeAccountForAppointmentOrEncounter } from 'utils/lib/fhir/payments';
 import { Secrets } from 'utils/lib/secrets';
@@ -51,15 +53,6 @@ export const PAYMENT_MANAGEMENT_ROLES = [RoleType.BillingAdmin];
 
 // no processor link in these flows, so their refunds are recorded in FHIR only
 const MANUAL_REFUNDABLE_PAYMENT_METHODS = ['cash', 'check', 'external-card-reader'];
-
-// Balance reservation stamped on the notice (version-guarded) before a Stripe refund moves money,
-// then swapped for the real refund; makes concurrent refund flows lose before money moves.
-const PENDING_RESERVATION_PREFIX = 'manual_pending_';
-const RESERVATION_TTL_MINUTES = 30;
-const isExpiredReservation = (refund: PaymentRefundDTO): boolean =>
-  refund.stripeRefundId.startsWith(PENDING_RESERVATION_PREFIX) &&
-  refund.status === 'pending' &&
-  DateTime.fromISO(refund.dateISO) < DateTime.now().minus({ minutes: RESERVATION_TTL_MINUTES });
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let oystehrM2MClientToken: string;
@@ -221,10 +214,8 @@ const complexValidation = async (
       parsePaymentRefundsFromNotice(notice),
       stripeRefundList.map(stripeRefundToDTO)
     );
-    expiredReservationIds = merged
-      .filter((refund) => refund.stripeRefundId !== pendingReservationId && isExpiredReservation(refund))
-      .map((refund) => refund.stripeRefundId);
-    // our own (re-claimed) reservation and abandoned ones don't count against the balance
+    expiredReservationIds = staleReservationIds(merged).filter((id) => id !== pendingReservationId);
+    // our own (re-claimed) reservation and stale ones don't count against the balance
     existingRefunds = merged.filter(
       (refund) =>
         refund.stripeRefundId !== pendingReservationId && !expiredReservationIds.includes(refund.stripeRefundId)

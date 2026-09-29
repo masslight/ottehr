@@ -10,6 +10,7 @@ import {
   mergeStripeRefundsWithStored,
   parsePaymentRefundsFromNotice,
   settledRefundTotalInCents,
+  staleReservationIds,
 } from 'utils/lib/fhir/paymentRefunds';
 import { getPaymentNoticeSubmitterRef, getStripeAccountForAppointmentOrEncounter } from 'utils/lib/fhir/payments';
 import { convertPaymentNoticeListToCashPaymentDTOs } from 'utils/lib/helpers/helpers';
@@ -328,6 +329,11 @@ const resolveRefundsForPaymentNotice = async (
   oystehrClient: Oystehr
 ): Promise<PaymentRefundDTO[] | undefined> => {
   const storedRefunds = parsePaymentRefundsFromNotice(paymentNotice);
+  // reservations superseded by their Stripe refund or expired unclaimed must not keep counting
+  const staleIds = staleReservationIds(storedRefunds);
+  const activeStored = staleIds.length
+    ? storedRefunds?.filter((refund) => !staleIds.includes(refund.stripeRefundId))
+    : storedRefunds;
   // externally recorded refunds have no Stripe counterpart, so they never participate in the Stripe reconciliation
   const storedStripeRefunds = (storedRefunds ?? []).filter((refund) => !isLocallyRecordedRefund(refund));
   const latestCharge =
@@ -337,15 +343,23 @@ const resolveRefundsForPaymentNotice = async (
   const stripeShowsRefunds = (latestCharge?.amount_refunded ?? 0) > 0;
 
   if (!paymentIntent || (!stripeShowsRefunds && !storedStripeRefunds.length)) {
-    return storedRefunds;
+    if (staleIds.length) {
+      try {
+        await applyRefundsToPaymentNotice(oystehrClient, paymentNotice, activeStored ?? [], staleIds);
+      } catch (error) {
+        console.error('Error clearing stale refund reservations on notice', paymentNotice.id, error);
+      }
+    }
+    return activeStored;
   }
 
-  // skip the Stripe round-trip when the stamped state is provably current
+  // skip the Stripe round-trip when the stamped state is provably current and nothing needs cleanup
   const storedAreTerminal = storedStripeRefunds.every((refund) =>
     ['succeeded', 'failed', 'canceled'].includes(refund.status ?? '')
   );
   if (
     latestCharge &&
+    staleIds.length === 0 &&
     storedStripeRefunds.length &&
     storedAreTerminal &&
     settledRefundTotalInCents(storedStripeRefunds) === latestCharge.amount_refunded
@@ -358,12 +372,15 @@ const resolveRefundsForPaymentNotice = async (
       { payment_intent: paymentIntent.id, limit: 100 },
       { stripeAccount }
     );
-    const refunds = mergeStripeRefundsWithStored(storedRefunds, refundList.data.map(stripeRefundToDTO));
-    await applyRefundsToPaymentNotice(oystehrClient, paymentNotice, refunds);
+    const stripeDTOs = refundList.data.map(stripeRefundToDTO);
+    // freshly created Stripe refunds may claim reservations the stored data didn't know about yet
+    const allStaleIds = staleReservationIds([...(storedRefunds ?? []), ...stripeDTOs]);
+    const refunds = mergeStripeRefundsWithStored(storedRefunds, stripeDTOs, allStaleIds);
+    await applyRefundsToPaymentNotice(oystehrClient, paymentNotice, refunds, allStaleIds);
     return refunds;
   } catch (error) {
     console.error('Error fetching refunds for payment intent', paymentIntent.id, error);
-    return storedRefunds;
+    return activeStored;
   }
 };
 

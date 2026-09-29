@@ -15,6 +15,7 @@ export const buildPaymentRefundsExtension = (refunds: PaymentRefundDTO[]): Exten
       ...(refund.notes ? [{ url: 'notes', valueString: refund.notes }] : []),
       ...(refund.refundedBy ? [{ url: 'refundedBy', valueString: refund.refundedBy }] : []),
       ...(refund.medium ? [{ url: 'medium', valueString: refund.medium }] : []),
+      ...(refund.operationKey ? [{ url: 'operationKey', valueString: refund.operationKey }] : []),
     ],
   })),
 });
@@ -40,6 +41,7 @@ export const parsePaymentRefundsFromNotice = (notice: PaymentNotice): PaymentRef
       notes: field('notes')?.valueString,
       refundedBy: field('refundedBy')?.valueString,
       medium: field('medium')?.valueString as PaymentRefundMedium | undefined,
+      operationKey: field('operationKey')?.valueString,
     });
   }
   return refunds;
@@ -48,6 +50,33 @@ export const parsePaymentRefundsFromNotice = (notice: PaymentNotice): PaymentRef
 // refunds recorded only in the EHR (no Stripe object behind them) carry a locally generated id
 export const isLocallyRecordedRefund = (refund: PaymentRefundDTO): boolean =>
   refund.stripeRefundId.startsWith('manual_');
+
+// Balance reservations stamped by the refund zambda before a Stripe refund is created;
+// id = manual_pending_<operationKey>, swapped for the real refund on success.
+export const PENDING_RESERVATION_PREFIX = 'manual_pending_';
+export const RESERVATION_TTL_MINUTES = 30;
+
+export const isPendingReservation = (refund: PaymentRefundDTO): boolean =>
+  refund.stripeRefundId.startsWith(PENDING_RESERVATION_PREFIX) && refund.status === 'pending';
+
+export const isExpiredReservation = (refund: PaymentRefundDTO): boolean =>
+  isPendingReservation(refund) && new Date(refund.dateISO).getTime() < Date.now() - RESERVATION_TTL_MINUTES * 60_000;
+
+// Reservations superseded by their created Stripe refund (operation key match) or expired unclaimed.
+// Reconciliation must drop these, or a crash between refund creation and the final stamp would
+// leave the payment counting both the reservation and the real refund indefinitely.
+export const staleReservationIds = (refunds: PaymentRefundDTO[] | undefined): string[] => {
+  const list = refunds ?? [];
+  const claimedKeys = new Set(list.map((refund) => refund.operationKey).filter(Boolean));
+  return list
+    .filter(
+      (refund) =>
+        isPendingReservation(refund) &&
+        (isExpiredReservation(refund) ||
+          claimedKeys.has(refund.stripeRefundId.slice(PENDING_RESERVATION_PREFIX.length)))
+    )
+    .map((refund) => refund.stripeRefundId);
+};
 
 // keeps locally recorded refunds when re-stamping a notice from Stripe's refund list;
 // removeIds drops specific stored local entries (e.g. a finalized pending reservation)

@@ -7,6 +7,7 @@ export interface PaymentRefundDTO {
   notes?: string;
   refundedBy?: string; // display name of the logged-in user who issued the refund
   medium?: PaymentRefundMedium; // how the money was returned when the refund happened outside Stripe
+  operationKey?: string; // EHR operation key stamped in Stripe refund metadata; ties refunds to reservations
 }
 
 // how an externally issued refund was returned to the patient
