@@ -20,6 +20,12 @@
  * Paths (relative to the working directory) limit which files are rewritten or checked. Symbol
  * resolution always follows imports across the whole repo.
  *
+ * Code written before the barrels were deleted, such as a hosted build's overlay, can still import
+ * one: `'config-types'`, or `'utils/lib/helpers/rcm'` for a deleted `rcm/index.ts`. Those resolve to
+ * nothing, so each imported name is looked up in the package or directory the barrel covered and
+ * rewritten when exactly one module there declares it. Apply the overlay with `./dev use <project>
+ * <env> --copy` first, then `./dev sync` the rewritten files back into its profile.
+ *
  * `export … from` is also rejected by ESLint (`no-restricted-syntax` in .eslintrc.cjs), so editors
  * flag new barrels as they are typed. This script additionally catches the import-then-export form,
  * mocks and dynamic imports aimed at a barrel, and fixes importers mechanically.
@@ -79,7 +85,19 @@ const PKGS: Pkg[] = git(
 
 const ownerOf = (file: string): Pkg => PKGS.find((p) => file.startsWith(p.dir + sep))!;
 
-const FILES = git('ls-files', '--cached', '--others', '--exclude-standard', '--', '*.ts', '*.tsx', '*.mts', '*.cts')
+// Untracked files are checked unless a .gitignore excludes them. `.git/info/exclude` is not honored
+// because hosted builds' `./dev use` lists the overlay's own files there, and those need checking too.
+const FILES = git(
+  'ls-files',
+  '--cached',
+  '--others',
+  '--exclude-per-directory=.gitignore',
+  '--',
+  '*.ts',
+  '*.tsx',
+  '*.mts',
+  '*.cts'
+)
   .filter((f) => !f.endsWith('.d.ts') && !f.includes('node_modules/'))
   .map((f) => resolve(REPO, f))
   .filter((f) => existsSync(f));
@@ -312,6 +330,32 @@ function fromStars(info: Info, name: string, stack: string[]): Origin {
   return { kind: 'unknown', why: NOT_EXPORTED };
 }
 
+/**
+ * The directory a deleted barrel covered, for a workspace-package specifier that no longer resolves:
+ * the package itself (`'config-types'`, whose entry module is gone) or a directory whose `index`
+ * barrel is (`'utils/lib/helpers/rcm'`). Code written before the barrels went, such as a hosted
+ * build's overlay, still imports them. Null for any other specifier.
+ */
+function deletedBarrelDir(spec: string): string | null {
+  const [head, ...rest] = spec.split('/');
+  const name = head.startsWith('@') ? `${head}/${rest.shift()}` : head;
+  const pkg = PKGS.find((p) => p.name === name && p.dir !== REPO);
+  if (!pkg) return null;
+  const dir = join(pkg.dir, ...rest);
+  return existsSync(dir) && statSync(dir).isDirectory() ? dir : null;
+}
+
+/** The one module under `dir` that declares `name`: where the deleted barrel must have got it from. */
+function declarationUnder(dir: string, name: string): Origin {
+  if (name === 'default') return { kind: 'unknown', why: 'default import of a barrel that no longer exists' };
+  const found = FILES.filter(
+    (f) => f.startsWith(dir + sep) && !/\.(test|spec)\.tsx?$/.test(f) && infoOf(f)?.local.has(name)
+  );
+  if (found.length === 1) return { kind: 'decl', file: found[0], name };
+  if (!found.length) return { kind: 'unknown', why: `no module under ${rel(dir)} declares it` };
+  return { kind: 'unknown', why: `declared in ${found.map(rel).join(', ')}` };
+}
+
 // ---------------------------------------------------------------------------------------------
 // How a rewritten import should spell the path to the declaring module.
 
@@ -385,17 +429,24 @@ for (const file of FILES) {
     if (!ts.isImportDeclaration(stmt) || !ts.isStringLiteral(stmt.moduleSpecifier)) continue;
     const spec = stmt.moduleSpecifier.text;
     const target = resolveSpec(spec, file);
-    if (target.kind !== 'repo' || !reexportsSomething(target.file)) continue;
+    const barrel = target.kind === 'repo' && reexportsSomething(target.file) ? target.file : null;
+    // A barrel that is already gone: look for each name's declaration where the barrel was.
+    const gone = target.kind === 'missing' ? deletedBarrelDir(spec) : null;
+    if (!barrel && !gone) continue;
     const clause = stmt.importClause;
     // `import './x'` and `import {} from './x'` bind nothing: only the module's side effects are
     // wanted, and tsc does not even check they resolve. Deleting the barrel would break them silently.
     const named = clause?.namedBindings;
     if (!clause || (!clause.name && named && ts.isNamedImports(named) && !named.elements.length)) {
-      if (infoOf(target.file)?.barrel) manual.push(`${where(sf, stmt)}  side-effect import of barrel '${spec}'`);
+      if (gone) manual.push(`${where(sf, stmt)}  side-effect import of '${spec}', which no longer resolves`);
+      else if (barrel && infoOf(barrel)?.barrel)
+        manual.push(`${where(sf, stmt)}  side-effect import of barrel '${spec}'`);
       continue;
     }
     if (clause.namedBindings && ts.isNamespaceImport(clause.namedBindings)) {
-      manual.push(`${where(sf, stmt)}  namespace import of '${spec}', which re-exports`);
+      manual.push(
+        `${where(sf, stmt)}  namespace import of '${spec}', which ${gone ? 'no longer resolves' : 're-exports'}`
+      );
       continue;
     }
     const bindings: (Binding & { text: string })[] = [];
@@ -414,14 +465,14 @@ for (const file of FILES) {
     const moved: Planned[] = [];
     let failed = false;
     for (const b of bindings) {
-      const origin = originOf(target.file, b.imported);
-      if (origin.kind === 'decl' && origin.file === target.file) kept.push(b);
+      const origin = barrel ? originOf(barrel, b.imported) : declarationUnder(gone!, b.imported);
+      if (origin.kind === 'decl' && origin.file === barrel) kept.push(b);
       else if (origin.kind === 'decl' && isAllowed(origin.file)) {
         // Reaching a theme by file path would bypass the THEME_PATH alias (`@ehrTheme/…`).
         manual.push(`${where(sf, stmt)}  '${b.imported}' is re-exported from theme module ${rel(origin.file)}`);
         failed = true;
       } else if (origin.kind === 'unknown') {
-        const k = `${rel(target.file)}: ${b.imported} (${origin.why})`;
+        const k = `${barrel ? rel(barrel) : `'${spec}'`}: ${b.imported} (${origin.why})`;
         unresolved.set(k, (unresolved.get(k) ?? 0) + 1);
         failed = true;
       } else if (origin.kind === 'package') {
@@ -610,6 +661,19 @@ for (const file of FILES) {
           );
         } else if (!names) {
           manual.push(`${where(sf, node)}  ${what} of '${spec.text}', which re-exports`);
+        }
+      } else if (target.kind === 'missing') {
+        const gone = deletedBarrelDir(spec.text);
+        const found = (names ?? []).map((n) => {
+          const o = gone && declarationUnder(gone, n);
+          return o && o.kind === 'decl' ? `${n} -> ${rel(o.file)}` : `${n} -> ?`;
+        });
+        if (gone) {
+          manual.push(
+            `${where(sf, node)}  ${what} '${spec.text}', which no longer resolves${
+              found.length ? `: ${found.join('; ')}` : ''
+            }`
+          );
         }
       }
     }
