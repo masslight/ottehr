@@ -7,8 +7,7 @@ export const FeatureFlagsConfigSchema = z.object({
   nursingOrdersEnabled: z.boolean(),
   supervisorApprovalEnabled: z.boolean(),
   demoVisitsEnabled: z.boolean(),
-  /** The Easy Chart (Autochart) panel on the in-person visit; access also requires EASY_CHART_ROLES. */
-  easyChartEnabled: z.boolean(),
+  easyChartEnabled: z.boolean().optional(),
   globalTemplatesEnabled: z.boolean(),
   formsEnabled: z.boolean(),
   legacyDataEnabled: z.boolean(),
