@@ -49,14 +49,18 @@ export const parsePaymentRefundsFromNotice = (notice: PaymentNotice): PaymentRef
 export const isLocallyRecordedRefund = (refund: PaymentRefundDTO): boolean =>
   refund.stripeRefundId.startsWith('manual_');
 
-// keeps locally recorded refunds when re-stamping a notice from Stripe's refund list
+// keeps locally recorded refunds when re-stamping a notice from Stripe's refund list;
+// removeIds drops specific stored local entries (e.g. a finalized pending reservation)
 export const mergeStripeRefundsWithStored = (
   storedRefunds: PaymentRefundDTO[] | undefined,
-  stripeRefunds: PaymentRefundDTO[]
+  stripeRefunds: PaymentRefundDTO[],
+  removeIds?: string[]
 ): PaymentRefundDTO[] => {
   const incomingIds = new Set(stripeRefunds.map((refund) => refund.stripeRefundId));
+  const removed = new Set(removeIds ?? []);
   const preservedLocal = (storedRefunds ?? []).filter(
-    (refund) => isLocallyRecordedRefund(refund) && !incomingIds.has(refund.stripeRefundId)
+    (refund) =>
+      isLocallyRecordedRefund(refund) && !incomingIds.has(refund.stripeRefundId) && !removed.has(refund.stripeRefundId)
   );
   return [...stripeRefunds, ...preservedLocal];
 };

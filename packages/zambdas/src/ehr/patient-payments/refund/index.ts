@@ -52,6 +52,15 @@ export const PAYMENT_MANAGEMENT_ROLES = [RoleType.BillingAdmin];
 // no processor link in these flows, so their refunds are recorded in FHIR only
 const MANUAL_REFUNDABLE_PAYMENT_METHODS = ['cash', 'check', 'external-card-reader'];
 
+// Balance reservation stamped on the notice (version-guarded) before a Stripe refund moves money,
+// then swapped for the real refund; makes concurrent refund flows lose before money moves.
+const PENDING_RESERVATION_PREFIX = 'manual_pending_';
+const RESERVATION_TTL_MINUTES = 30;
+const isExpiredReservation = (refund: PaymentRefundDTO): boolean =>
+  refund.stripeRefundId.startsWith(PENDING_RESERVATION_PREFIX) &&
+  refund.status === 'pending' &&
+  DateTime.fromISO(refund.dateISO) < DateTime.now().minus({ minutes: RESERVATION_TTL_MINUTES });
+
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let oystehrM2MClientToken: string;
 
@@ -101,6 +110,10 @@ interface RefundEffectInput {
   idempotencyKey?: string;
   // set when the refund was already stamped by a previous attempt; effects re-run idempotently
   resumeRefund?: PaymentRefundDTO;
+  // this request's balance reservation id (Stripe-linked payments only)
+  pendingReservationId?: string;
+  // abandoned reservations to drop on the next successful stamp
+  expiredReservationIds?: string[];
 }
 
 const complexValidation = async (
@@ -190,7 +203,9 @@ const complexValidation = async (
 
   const stripeAccount = await getStripeAccountForAppointmentOrEncounter({ encounterId }, oystehrClient);
 
+  const pendingReservationId = `${PENDING_RESERVATION_PREFIX}${idempotencyKey ?? randomUUID()}`;
   let existingRefunds: PaymentRefundDTO[];
+  let expiredReservationIds: string[];
   let stripeResumeRefund: PaymentRefundDTO | undefined;
   try {
     const stripeRefundList = (
@@ -202,9 +217,17 @@ const complexValidation = async (
       : undefined;
     stripeResumeRefund = priorRefund ? stripeRefundToDTO(priorRefund) : undefined;
     // externally recorded refunds live only in FHIR but still reduce what remains refundable
-    existingRefunds = mergeStripeRefundsWithStored(
+    const merged = mergeStripeRefundsWithStored(
       parsePaymentRefundsFromNotice(notice),
       stripeRefundList.map(stripeRefundToDTO)
+    );
+    expiredReservationIds = merged
+      .filter((refund) => refund.stripeRefundId !== pendingReservationId && isExpiredReservation(refund))
+      .map((refund) => refund.stripeRefundId);
+    // our own (re-claimed) reservation and abandoned ones don't count against the balance
+    existingRefunds = merged.filter(
+      (refund) =>
+        refund.stripeRefundId !== pendingReservationId && !expiredReservationIds.includes(refund.stripeRefundId)
     );
   } catch (error: unknown) {
     console.error('Stripe refund lookup failed', error);
@@ -230,6 +253,8 @@ const complexValidation = async (
       manualRefundId,
       idempotencyKey,
       resumeRefund,
+      pendingReservationId,
+      expiredReservationIds,
     };
   }
 
@@ -258,6 +283,8 @@ const complexValidation = async (
     medium,
     manualRefundId,
     idempotencyKey,
+    pendingReservationId,
+    expiredReservationIds,
   };
 };
 
@@ -363,7 +390,7 @@ const performExternalRefund = async (
   };
   const refunds: PaymentRefundDTO[] = resumeRefund ? existingRefunds : [...existingRefunds, refundEntry];
 
-  await applyRefundsToPaymentNotice(oystehrClient, notice, refunds);
+  await applyRefundsToPaymentNotice(oystehrClient, notice, refunds, input.expiredReservationIds);
 
   // billing copies of a Stripe payment carry the charge/payment-intent id; bridged ones carry the clinical notice id
   const identifierValues = [
@@ -449,10 +476,35 @@ const performEffect = async (
     );
   }
 
-  // Stripe already created this refund on a prior attempt; finish the stamping only
+  const reservationRemoveIds = [
+    ...(input.pendingReservationId ? [input.pendingReservationId] : []),
+    ...(input.expiredReservationIds ?? []),
+  ];
+
+  // Stripe already created this refund on a prior attempt; finish the stamping and release the reservation
   if (input.resumeRefund) {
-    await applyRefundsToPaymentNotice(oystehrClient, notice, existingRefunds);
+    await applyRefundsToPaymentNotice(oystehrClient, notice, existingRefunds, reservationRemoveIds);
     return { refundId: input.resumeRefund.stripeRefundId, amountInCents: input.resumeRefund.amountInCents };
+  }
+
+  // Reserve the balance on the notice before money moves: the version guard makes one of two
+  // concurrent refund flows fail here, before Stripe is called, instead of over-refunding.
+  if (input.pendingReservationId) {
+    const reservation: PaymentRefundDTO = {
+      stripeRefundId: input.pendingReservationId,
+      amountInCents: refundAmountInCents,
+      dateISO: DateTime.now().toUTC().toISO() ?? new Date().toISOString(),
+      status: 'pending',
+      reason,
+      notes,
+      refundedBy,
+    };
+    await applyRefundsToPaymentNotice(
+      oystehrClient,
+      notice,
+      [...existingRefunds, reservation],
+      input.expiredReservationIds
+    );
   }
 
   let refund: Stripe.Refund;
@@ -481,11 +533,17 @@ const performEffect = async (
     throw parseStripeError(error);
   }
 
-  // stamp the notice right away so the UI reflects the refund without waiting for the webhook
-  await applyRefundsToPaymentNotice(oystehrClient, notice, [
-    ...existingRefunds.filter((existing) => existing.stripeRefundId !== refund.id),
-    stripeRefundToDTO(refund),
-  ]);
+  // Stamp the notice right away so the UI reflects the refund without waiting for the webhook.
+  // Re-read first (the reservation bumped the version) and release the reservation in the same patch.
+  const freshNotice = notice.id
+    ? await oystehrClient.fhir.get<PaymentNotice>({ resourceType: 'PaymentNotice', id: notice.id })
+    : notice;
+  await applyRefundsToPaymentNotice(
+    oystehrClient,
+    freshNotice,
+    [...existingRefunds.filter((existing) => existing.stripeRefundId !== refund.id), stripeRefundToDTO(refund)],
+    reservationRemoveIds
+  );
 
   return { refundId: refund.id, amountInCents: refundAmountInCents };
 };

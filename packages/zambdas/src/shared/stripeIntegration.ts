@@ -115,15 +115,16 @@ export const stripeRefundToDTO = (refund: Stripe.Refund): PaymentRefundDTO => ({
 
 // Stamps refund state onto the original PaymentNotice so consumers can read it from FHIR without Stripe.
 // Locally recorded (manual/external) refunds already stamped on the notice always survive the re-stamp,
-// since Stripe's refund list never contains them.
+// since Stripe's refund list never contains them; removeIds drops specific local entries intentionally.
 export const applyRefundsToPaymentNotice = async (
   oystehr: Oystehr,
   notice: PaymentNotice,
-  refunds: PaymentRefundDTO[]
+  refunds: PaymentRefundDTO[],
+  removeIds?: string[]
 ): Promise<void> => {
   if (!notice.id) return;
   const existing = parsePaymentRefundsFromNotice(notice);
-  const merged = mergeStripeRefundsWithStored(existing, refunds);
+  const merged = mergeStripeRefundsWithStored(existing, refunds, removeIds);
   if (merged.length === 0 && !existing) return;
   const canonical = (list: PaymentRefundDTO[]): string =>
     JSON.stringify([...list].sort((a, b) => a.stripeRefundId.localeCompare(b.stripeRefundId)));
