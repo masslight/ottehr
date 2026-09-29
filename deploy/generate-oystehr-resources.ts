@@ -14,7 +14,7 @@ import path from 'node:path';
 import { BRANDING_CONFIG } from 'utils/lib/ottehr-config/branding';
 import { FEATURE_FLAGS_CONFIG } from 'utils/lib/ottehr-config/feature-flags';
 import { SENDGRID_CONFIG } from 'utils/lib/ottehr-config/sendgrid';
-import { StripeWebhookSigningSecretsSchema } from 'utils/lib/types/data/billing/stripe-webhook.schemas';
+import { StripeWebhookSigningSecretsSchema } from 'utils/lib/types/data/stripe-webhook.schemas';
 import { SpecFile } from '../packages/spec/src/schema';
 import { Schema20250319 } from '../packages/spec/src/schema-20250319';
 import { Schema20250925 } from '../packages/spec/src/schema-20250925';
@@ -23,7 +23,7 @@ const validSchemas = ['2025-03-19', '2025-09-25'];
 
 // Environments that don't configure it fall back to these defaults so the
 // deploy still succeeds, without them the unresolved "#{var/...}" literal is rejected by Oystehr at app create time.
-const BILLING_VAR_DEFAULTS: { [key: string]: string } = {
+const VAR_DEFAULTS: { [key: string]: string } = {
   BILLING_APP_NAME: 'Ottehr Billing',
   BILLING_APP_LOGO_URI:
     'https://assets-global.website-files.com/653fce065d76f84cf31488ae/65438838a5f9308ca9498887_otter%20logo%20dark.svg',
@@ -33,6 +33,7 @@ const BILLING_VAR_DEFAULTS: { [key: string]: string } = {
   PATIENT_BALANCE_SOURCE: 'candid',
   STRIPE_WEBHOOK_SECRET: '',
   STRIPE_PLATFORM_WEBHOOK_SECRET: '',
+  STRIPE_CLINICAL_WEBHOOK_SECRET: '',
 };
 
 const zambdasDirPath = path.resolve(__dirname, '../packages/zambdas');
@@ -181,12 +182,14 @@ async function generateOystehrResources(input: GenerateFhirResourcesArgs): Promi
   if (!isObject(vars)) {
     throw new Error(`Variable file ${varFile} is not a valid JSON map.`);
   }
-  if (Array.isArray(vars.STRIPE_WEBHOOK_SECRET)) {
-    StripeWebhookSigningSecretsSchema.parse(vars.STRIPE_WEBHOOK_SECRET);
-    vars.STRIPE_WEBHOOK_SECRET = JSON.stringify(vars.STRIPE_WEBHOOK_SECRET);
+  for (const key of ['STRIPE_WEBHOOK_SECRET', 'STRIPE_CLINICAL_WEBHOOK_SECRET']) {
+    if (Array.isArray(vars[key])) {
+      StripeWebhookSigningSecretsSchema.parse(vars[key]);
+      vars[key] = JSON.stringify(vars[key]);
+    }
   }
-  const coreVars = { ...BILLING_VAR_DEFAULTS, ...vars };
-  const billingVars = { ...BILLING_VAR_DEFAULTS, ...vars };
+  const coreVars = { ...VAR_DEFAULTS, ...vars };
+  const billingVars = { ...VAR_DEFAULTS, ...vars };
 
   assertBillingIntegrationSupportsNios(coreVars, env);
 

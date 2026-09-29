@@ -381,6 +381,10 @@ describe('generate-oystehr-resources', () => {
             name: 'STRIPE_PLATFORM_WEBHOOK_SECRET',
             value: '#{var/STRIPE_PLATFORM_WEBHOOK_SECRET}',
           },
+          STRIPE_CLINICAL_WEBHOOK_SECRET: {
+            name: 'STRIPE_CLINICAL_WEBHOOK_SECRET',
+            value: '#{var/STRIPE_CLINICAL_WEBHOOK_SECRET}',
+          },
         },
       };
       const setupMocks = (vars: VarsFile): void => {
@@ -433,6 +437,7 @@ describe('generate-oystehr-resources', () => {
         const platformWebhookSecret =
           writtenJson('secrets.tf.json').resource.oystehr_secret.STRIPE_PLATFORM_WEBHOOK_SECRET;
         expect(platformWebhookSecret.value).toBe('');
+        expect(writtenJson('secrets.tf.json').resource.oystehr_secret.STRIPE_CLINICAL_WEBHOOK_SECRET.value).toBe('');
       });
 
       it('prefers configured BILLING_* vars over defaults', async () => {
@@ -442,6 +447,7 @@ describe('generate-oystehr-resources', () => {
           PATIENT_BALANCE_SOURCE: 'ottehr',
           STRIPE_WEBHOOK_SECRET: 'whsec_connected',
           STRIPE_PLATFORM_WEBHOOK_SECRET: 'whsec_platform',
+          STRIPE_CLINICAL_WEBHOOK_SECRET: 'whsec_clinical',
         });
 
         await generateOystehrResources(createTestArgs());
@@ -458,27 +464,31 @@ describe('generate-oystehr-resources', () => {
         const platformWebhookSecret =
           writtenJson('secrets.tf.json').resource.oystehr_secret.STRIPE_PLATFORM_WEBHOOK_SECRET;
         expect(platformWebhookSecret.value).toBe('whsec_platform');
+        expect(writtenJson('secrets.tf.json').resource.oystehr_secret.STRIPE_CLINICAL_WEBHOOK_SECRET.value).toBe(
+          'whsec_clinical'
+        );
       });
 
-      it('rejects invalid webhook entries before generating resources', async () => {
-        setupMocks({ STRIPE_WEBHOOK_SECRET: [{ accountId: 'acct_123' }] });
+      const webhookSecretKeys = ['STRIPE_WEBHOOK_SECRET', 'STRIPE_CLINICAL_WEBHOOK_SECRET'];
+      it.each(webhookSecretKeys)('rejects invalid %s entries', async (key) => {
+        setupMocks({ [key]: [{ accountId: 'acct_123' }] });
 
         await expect(generateOystehrResources(createTestArgs())).rejects.toThrow('signingSecret');
         expect(fs.writeFile).not.toHaveBeenCalled();
       });
 
-      it('serializes webhook account entries into a string-valued Oystehr secret', async () => {
+      it.each(webhookSecretKeys)('serializes %s account entries', async (key) => {
         const entries = [
           { name: 'Clinic "A"', accountId: 'acct_123', signingSecret: 'whsec_first' },
           { accountId: 'acct_456', signingSecret: 'whsec_second' },
           { name: 'Platform', signingSecret: 'whsec_platform' },
         ];
-        setupMocks({ STRIPE_WEBHOOK_SECRET: entries });
+        setupMocks({ [key]: entries });
 
         await generateOystehrResources(createTestArgs());
 
-        const secret = writtenJson('secrets.tf.json').resource.oystehr_secret.STRIPE_WEBHOOK_SECRET;
-        expect(secret.name).toBe('STRIPE_WEBHOOK_SECRET');
+        const secret = writtenJson('secrets.tf.json').resource.oystehr_secret[key];
+        expect(secret.name).toBe(key);
         expect(typeof secret.value).toBe('string');
         expect(JSON.parse(secret.value)).toEqual(entries);
       });
