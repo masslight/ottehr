@@ -30,6 +30,7 @@ import { isValidUUID } from 'utils/lib/validation/helper';
 import { CLINICAL_PAYMENT_NOTICE_ID_SYSTEM, recordBillingManualRefund } from '../../../billing/payments';
 import { createBillingClient } from '../../../billing/shared';
 import { getUserToken, requireUserWithRole } from '../../../shared/auth';
+import { shouldUseOttehrBilling } from '../../../shared/candid';
 import { getAuth0Token } from '../../../shared/getAuth0Token';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { lambdaResponse } from '../../../shared/lambda';
@@ -306,8 +307,10 @@ const performManualRefund = async (
     await applyRefundsToPaymentNotice(billingClient, billingNotice, refunds);
   }
 
-  // only offset AR when the payment was bridged to billing in the first place
-  if (billingNotices.length > 0 && paymentMethod) {
+  // Gate on the billing flag, not on billing copies existing: the positive copy is bridged
+  // asynchronously, and a FHIR-only refund has no later Stripe event to repair a missed offset.
+  // recordBillingManualRefund tolerates the claim/copy arriving later.
+  if (secrets && shouldUseOttehrBilling(secrets) && paymentMethod) {
     await recordBillingManualRefund(billingClient, {
       encounterId,
       refundId,
@@ -378,8 +381,10 @@ const performExternalRefund = async (
     await applyRefundsToPaymentNotice(billingClient, billingNotice, refunds);
   }
 
-  // only offset AR when the payment reached billing in the first place
-  if (billingNotices.length > 0 && medium) {
+  // Gate on the billing flag, not on billing copies existing: the positive copy arrives via the
+  // async Stripe webhook, and this FHIR-only refund has no Stripe event to repair a missed offset.
+  // recordBillingManualRefund tolerates the claim/copy arriving later.
+  if (secrets && shouldUseOttehrBilling(secrets) && medium) {
     await recordBillingManualRefund(billingClient, {
       encounterId,
       refundId,
