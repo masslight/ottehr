@@ -173,24 +173,10 @@ export const MessageList: FC<MessageListProps> = ({
           New messages start further up
         </Typography>
       )}
-      {history.map(
-        (segment) =>
-          segment.messages.length > 0 && (
-            <Box
-              key={segment.sid}
-              data-testid="employee-chat-history-segment"
-              sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}
-            >
-              <Divider data-testid="employee-chat-history-separator">
-                <Typography variant="caption" color="text.secondary">
-                  Earlier messages
-                </Typography>
-              </Divider>
-              {segment.messages.map((message) => (
-                <MessageBubble key={message.sid} message={message} otherName={otherName} historical />
-              ))}
-            </Box>
-          )
+      {history.flatMap((segment) =>
+        segment.messages.map((message) => (
+          <MessageBubble key={message.sid} message={message} otherName={otherName} historical />
+        ))
       )}
       {!loading && !loadFailed && messages.length === 0 && historyCount === 0 && (
         <Typography color="text.secondary" sx={{ textAlign: 'center', mt: 4 }}>

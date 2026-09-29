@@ -304,6 +304,7 @@ const mockScrollLayout = (): { scrollTop: () => number } => {
   const isContainer = (element: Element): boolean => (element as HTMLElement).dataset?.testid === MESSAGES_TEST_ID;
   const heightOf = (element: HTMLElement): number => {
     if (element.dataset.messageIndex !== undefined) return MESSAGE_HEIGHT;
+    if (element.dataset.testid === 'employee-chat-history-message') return MESSAGE_HEIGHT;
     if (element.dataset.testid === DIVIDER_TEST_ID) return DIVIDER_HEIGHT;
     return 0;
   };
@@ -1683,7 +1684,7 @@ describe('employee chat flows', () => {
 
       await waitFor(() => expect(useEmployeeChatStore.getState().activeSid).toBe('CH-bob2'));
       await waitFor(() => expect(historyMessages()).toHaveLength(3));
-      expect(screen.getByTestId('employee-chat-history-separator')).toHaveTextContent('Earlier messages');
+      expect(screen.queryByText('Earlier messages')).not.toBeInTheDocument();
       expect(screen.queryByTestId('employee-chat-recovering')).not.toBeInTheDocument();
       expect(screen.getByTestId('employee-chat-input')).not.toBeDisabled();
       expect(chatSids()).toEqual(['CH-bob2', 'CH-carol']);
@@ -1958,19 +1959,22 @@ describe('employee chat flows', () => {
       expect(historyMessages()).toHaveLength(3);
     });
 
-    it('pages older retired conversations one at a time, oldest at the top', async () => {
+    it('renders several retired conversations as one continuous chronological history above the current one', async () => {
       mockGetEmployeeChats.mockResolvedValue({
         token: 'token',
         conversations: [summaryOf('CH-bob3', BOB, ['CH-bob1', 'CH-bob2']), summaryOf('CH-carol', CAROL)],
       });
       await connectWith((client) => {
         const first = client.addConversation('CH-bob1');
-        first.push('bob-identity', 'oldest');
+        first.push('bob-identity', 'first a');
+        first.push('me-identity', 'first b');
         first.close();
         const second = client.addConversation('CH-bob2');
-        second.push('bob-identity', 'middle');
+        second.push('bob-identity', 'second a');
+        second.push('me-identity', 'second b');
         second.close();
-        client.addConversation('CH-bob3');
+        const current = client.addConversation('CH-bob3');
+        current.push('bob-identity', 'current a');
         client.addConversation('CH-carol');
       });
       renderChat();
@@ -1979,17 +1983,99 @@ describe('employee chat flows', () => {
         await openConversation('CH-bob3');
       });
 
-      expect(historyMessages().map((message) => message.textContent)).toEqual([expect.stringContaining('middle')]);
+      const bodies = (): string[] =>
+        Array.from(
+          screen
+            .getByTestId('employee-chat-messages')
+            .querySelectorAll('[data-testid="employee-chat-history-message"], [data-testid="employee-chat-message"]'),
+          (element) => element.textContent ?? ''
+        );
+      expect(bodies()).toEqual([
+        expect.stringContaining('second a'),
+        expect.stringContaining('second b'),
+        expect.stringContaining('current a'),
+      ]);
       expect(screen.queryByText('No messages yet')).not.toBeInTheDocument();
+
       await act(async () => {
         fireEvent.click(screen.getByRole('button', { name: 'Load earlier messages' }));
       });
 
-      expect(historyMessages().map((message) => message.textContent)).toEqual([
-        expect.stringContaining('oldest'),
-        expect.stringContaining('middle'),
+      expect(bodies()).toEqual([
+        expect.stringContaining('first a'),
+        expect.stringContaining('first b'),
+        expect.stringContaining('second a'),
+        expect.stringContaining('second b'),
+        expect.stringContaining('current a'),
       ]);
+      const container = screen.getByTestId('employee-chat-messages');
+      expect(Array.from(container.children, (child) => (child as HTMLElement).dataset.testid)).toEqual([
+        'employee-chat-history-message',
+        'employee-chat-history-message',
+        'employee-chat-history-message',
+        'employee-chat-history-message',
+        DIVIDER_TEST_ID,
+        'employee-chat-message',
+      ]);
+      expect(within(container).getAllByRole('separator')).toEqual([newDivider()]);
+      expect(screen.queryByText('Earlier messages')).not.toBeInTheDocument();
       expect(screen.queryByRole('button', { name: 'Load earlier messages' })).not.toBeInTheDocument();
+    });
+
+    it('loads retired history above an unread boundary without moving, recreating or extending the New divider', async () => {
+      const layout = mockScrollLayout();
+      mockAttention(() => true);
+      let retired: any;
+      let current: any;
+      mockGetEmployeeChats.mockResolvedValue({
+        token: 'token',
+        conversations: [summaryOf('CH-bob2', BOB, ['CH-bob']), summaryOf('CH-carol', CAROL)],
+      });
+      await connectWith((client) => {
+        retired = client.addConversation('CH-bob');
+        retired.seed(3, 'bob-identity');
+        retired.close();
+        current = client.addConversation('CH-bob2');
+        current.seed(10, 'bob-identity');
+        current.lastReadMessageIndex = 5;
+        client.addConversation('CH-carol');
+      });
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+      renderChat();
+      act(() => openEmployeeChatDrawer());
+      const releaseHistory = retired.holdNextGetMessages();
+
+      let opening!: Promise<void>;
+      await act(async () => {
+        opening = openConversation('CH-bob2');
+        await Promise.resolve();
+      });
+      await act(async () => {
+        await vi.waitFor(() => expect(messageAfterDivider()).toBe('6'));
+      });
+      const entryBefore = useEmployeeChatStore.getState().unreadEntry;
+      const dividerTopBefore = newDivider()!.getBoundingClientRect().top;
+      const scrollBefore = layout.scrollTop();
+      expect(historyMessages()).toHaveLength(0);
+
+      await act(async () => {
+        releaseHistory();
+        await opening;
+      });
+
+      expect(historyMessages()).toHaveLength(3);
+      historyMessages().forEach((message) => expect(message).not.toHaveAttribute('data-message-index'));
+      expect(useEmployeeChatStore.getState().unreadEntry).toBe(entryBefore);
+      expect(screen.getAllByTestId(DIVIDER_TEST_ID)).toHaveLength(1);
+      expect(messageAfterDivider()).toBe('6');
+      expect(layout.scrollTop()).toBe(scrollBefore + 3 * MESSAGE_HEIGHT);
+      expect(newDivider()!.getBoundingClientRect().top).toBe(dividerTopBefore);
+
+      await advance(SEEN_DWELL_MS);
+      expect(retired.advanceCalls).toEqual([]);
+      expect(current.advanceCalls).toEqual([9]);
+      expect(messageAfterDivider()).toBe('6');
+      expect(useEmployeeChatStore.getState().chats['CH-bob2'].lastReadIndex).toBe(9);
     });
   });
 });
