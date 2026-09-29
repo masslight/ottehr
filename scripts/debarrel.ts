@@ -15,7 +15,8 @@
  *
  * Usage:  npx tsx scripts/debarrel.ts [<path>...] [--apply | --check]
  *   (no flag)  dry run: list every import that reaches a symbol through a re-export
- *   --apply    rewrite those imports to name the declaring module
+ *   --apply    rewrite those imports to name the declaring module. Each is written on one line where
+ *              the old one was, so run `npm run lint:fix` afterwards to sort and wrap them.
  *   --check    exit 1 if any re-export, or any import through one, remains (`npm run lint:barrels`)
  * Paths (relative to the working directory) limit which files are rewritten or checked. Symbol
  * resolution always follows imports across the whole repo.
@@ -24,7 +25,8 @@
  * one: `'config-types'`, or `'utils/lib/helpers/rcm'` for a deleted `rcm/index.ts`. Those resolve to
  * nothing, so each imported name is looked up in the package or directory the barrel covered and
  * rewritten when exactly one module there declares it. Apply the overlay with `./dev use <project>
- * <env> --copy` first, then `./dev sync` the rewritten files back into its profile.
+ * <env> --copy` first; after `--apply` and `npm run lint:fix`, `./dev sync` the rewritten files back
+ * into its profile.
  *
  * `export … from` is also rejected by ESLint (`no-restricted-syntax` in .eslintrc.cjs), so editors
  * flag new barrels as they are typed. This script additionally catches the import-then-export form,
@@ -713,10 +715,14 @@ list(
 list('Specifiers to fix by hand', manual);
 list('Re-exports', remaining);
 
+if (APPLY && filesChanged.length) {
+  console.log('\nThe rewritten imports are unsorted and on one line: run `npm run lint:fix` to sort and wrap them.');
+}
+
 if (CHECK && (importsRewritten || unresolved.size || manual.length || remaining.length)) {
   console.error(
     '\nImport each symbol from the module that declares it. `npx tsx scripts/debarrel.ts --apply` rewrites ' +
-      'importers; then delete the re-exports.'
+      'importers; then delete the re-exports and run `npm run lint:fix`.'
   );
   process.exit(1);
 }
