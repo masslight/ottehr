@@ -1,7 +1,7 @@
 import { ExpandMore as ExpandMoreIcon } from '@mui/icons-material';
 import { Button, ButtonGroup, ListItemIcon, ListItemText, Menu, MenuItem } from '@mui/material';
 import { ReactElement, useState } from 'react';
-import { AssessmentIcon, HpiMoiIcon, MedicalRecordIcon } from '../icons';
+import { MedicalRecordIcon, ProgressNoteIcon } from '../icons';
 
 const MENU_ID = 'ehr-links-menu';
 const NEW_TAB = { target: '_blank', rel: 'noopener noreferrer' } as const;
@@ -13,7 +13,7 @@ interface EhrLinksButtonProps {
 }
 
 // Split button: "Visit Details" opens the EHR visit page; the arrow reveals
-// deep links into the progress note's Assessment and HPI&MOI screens.
+// a deep link into the progress note's Review & Sign screen.
 export function EhrLinksButton({ ehrUrl, appointmentId, encounterId }: EhrLinksButtonProps): ReactElement {
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
 
@@ -59,8 +59,7 @@ export function EhrLinksButton({ ehrUrl, appointmentId, encounterId }: EhrLinksB
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
         transformOrigin={{ vertical: 'top', horizontal: 'right' }}
       >
-        {link(<AssessmentIcon fontSize="small" />, 'Assessment', noteUrl('assessment'))}
-        {link(<HpiMoiIcon fontSize="small" />, 'HPI&MOI', noteUrl('history-of-present-illness-and-templates'))}
+        {link(<ProgressNoteIcon fontSize="small" />, 'Progress Note', noteUrl('review-and-sign'))}
       </Menu>
     </>
   );

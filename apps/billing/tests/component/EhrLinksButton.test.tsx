@@ -21,26 +21,19 @@ describe('EhrLinksButton', () => {
     expect(visitLink).toHaveAttribute('rel', 'noopener noreferrer');
   });
 
-  it('opens the arrow menu with encounter-scoped Assessment and HPI&MOI deep links', async () => {
+  it('opens the arrow menu with an encounter-scoped Progress Note deep link', async () => {
     const user = userEvent.setup();
     renderButton();
 
     await user.click(screen.getByRole('button', { name: 'More EHR links' }));
 
-    const assessment = screen.getByRole('menuitem', { name: 'Assessment' });
-    expect(assessment).toHaveAttribute(
+    const progressNote = screen.getByRole('menuitem', { name: 'Progress Note' });
+    expect(progressNote).toHaveAttribute(
       'href',
-      `${EHR_URL}/in-person/${APPOINTMENT_ID}/assessment?encounterId=${ENCOUNTER_ID}`
+      `${EHR_URL}/in-person/${APPOINTMENT_ID}/review-and-sign?encounterId=${ENCOUNTER_ID}`
     );
-    const hpiMoi = screen.getByRole('menuitem', { name: 'HPI&MOI' });
-    expect(hpiMoi).toHaveAttribute(
-      'href',
-      `${EHR_URL}/in-person/${APPOINTMENT_ID}/history-of-present-illness-and-templates?encounterId=${ENCOUNTER_ID}`
-    );
-    for (const item of [assessment, hpiMoi]) {
-      expect(item).toHaveAttribute('target', '_blank');
-      expect(item).toHaveAttribute('rel', 'noopener noreferrer');
-    }
+    expect(progressNote).toHaveAttribute('target', '_blank');
+    expect(progressNote).toHaveAttribute('rel', 'noopener noreferrer');
   });
 
   it('closes the menu when a link is clicked', async () => {
@@ -48,7 +41,7 @@ describe('EhrLinksButton', () => {
     renderButton();
 
     await user.click(screen.getByRole('button', { name: 'More EHR links' }));
-    await user.click(screen.getByRole('menuitem', { name: 'Assessment' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Progress Note' }));
     await waitFor(() => expect(screen.queryByRole('menu')).not.toBeInTheDocument());
   });
 });
