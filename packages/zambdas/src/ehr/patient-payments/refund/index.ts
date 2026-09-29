@@ -22,7 +22,6 @@ import {
   RefundPatientPaymentResponse,
 } from 'utils/lib/types/api/patient-payment-types';
 import { RoleType } from 'utils/lib/types/api/user.types';
-import { RecordBillingRefundInput } from 'utils/lib/types/data/billing/billing.schemas';
 import {
   INVALID_INPUT_ERROR,
   MISSING_REQUEST_BODY,
@@ -294,10 +293,10 @@ const complexValidation = async (
   };
 };
 
-// Billing FHIR resources are owned by the billing app; EHR zambdas must not write them directly,
-// so billing copies + the negative AR offset are recorded by the record-billing-refund zambda.
-const recordRefundOnBillingSide = async (oystehr: Oystehr, input: RecordBillingRefundInput): Promise<void> => {
-  await oystehr.zambda.execute({ id: 'record-billing-refund', ...input });
+// Billing FHIR resources are owned by the billing app; EHR zambdas must not write them directly.
+// The billing zambda derives copy stamps and AR offsets from the freshly stamped clinical notice.
+const recordRefundOnBillingSide = async (oystehr: Oystehr, clinicalPaymentNoticeId: string): Promise<void> => {
+  await oystehr.zambda.execute({ id: 'record-billing-refund', clinicalPaymentNoticeId });
 };
 
 // Records the refund on the clinical notice and hands billing-side recording (copy stamps + the
@@ -308,8 +307,6 @@ const performManualRefund = async (
 ): Promise<RefundPatientPaymentResponse> => {
   const {
     notice,
-    encounterId,
-    paymentMethod,
     existingRefunds,
     refundAmountInCents,
     reason,
@@ -332,21 +329,7 @@ const performManualRefund = async (
 
   await applyRefundsToPaymentNotice(oystehrClient, notice, refunds);
 
-  await recordRefundOnBillingSide(oystehrClient, {
-    encounterId,
-    clinicalPaymentNoticeId: notice.id!,
-    refunds,
-    arOffset: paymentMethod
-      ? {
-          refundId,
-          amountInCents: refundEntry.amountInCents,
-          paymentMethod,
-          createdISO: refundEntry.dateISO,
-          // on resume, keep the originally recorded reason so audit records stay consistent
-          reason: refundEntry.reason ?? reason,
-        }
-      : undefined,
-  });
+  await recordRefundOnBillingSide(oystehrClient, notice.id!);
 
   return { refundId, amountInCents: refundEntry.amountInCents };
 };
@@ -361,7 +344,6 @@ const performExternalRefund = async (
 ): Promise<RefundPatientPaymentResponse> => {
   const {
     notice,
-    encounterId,
     stripePaymentId,
     stripeAccount,
     existingRefunds,
@@ -388,23 +370,7 @@ const performExternalRefund = async (
 
   await applyRefundsToPaymentNotice(oystehrClient, notice, refunds, input.expiredReservationIds);
 
-  await recordRefundOnBillingSide(oystehrClient, {
-    encounterId,
-    clinicalPaymentNoticeId: notice.id!,
-    stripePaymentId,
-    refunds,
-    removeIds: input.expiredReservationIds,
-    arOffset: medium
-      ? {
-          refundId,
-          amountInCents: refundEntry.amountInCents,
-          // on resume, keep the originally recorded medium/reason so audit records stay consistent
-          paymentMethod: refundEntry.medium ?? medium,
-          createdISO: refundEntry.dateISO,
-          reason: refundEntry.reason ?? reason,
-        }
-      : undefined,
-  });
+  await recordRefundOnBillingSide(oystehrClient, notice.id!);
 
   // documentation only — makes the external refund visible next to the payment in Stripe
   if (stripePaymentId) {

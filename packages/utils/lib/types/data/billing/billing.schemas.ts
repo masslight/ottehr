@@ -8,7 +8,6 @@ import {
   CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES,
 } from '../../../helpers/rcm/constants';
 import { fullZipRegex, stripeAccountIdRegex, taxIdRegex, zipRegex } from '../../../validation/regex';
-import { PAYMENT_REFUND_MEDIUMS } from '../../api/patient-payment-types';
 import { PractitionerQualificationCodesLabels } from '../../api/practitioner.types';
 import { STATE_CODES } from '../../common';
 import {
@@ -840,52 +839,15 @@ export const RecordBillingManualPaymentInputSchema = z.object({
     .regex(/^[A-Za-z0-9._-]+$/),
 });
 
-// mirrors PaymentRefundDTO (utils patient-payment-types)
-const PaymentRefundEntrySchema = z.object({
-  stripeRefundId: nonEmptyString,
-  amountInCents: z.number().int(),
-  dateISO: nonEmptyString,
-  status: z.string().optional(),
-  reason: z.string().optional(),
-  notes: z.string().optional(),
-  refundedBy: z.string().optional(),
-  medium: z.enum(PAYMENT_REFUND_MEDIUMS).optional(),
-  operationKey: z.string().optional(),
-});
-
-// Billing-side companion to the EHR patient-payments refund zambda: EHR zambdas may not write
-// billing-tagged resources, so refund recording on the billing side goes through this endpoint.
+// Billing-side companions to the EHR patient-payments refund/void zambdas. Input is only the
+// clinical notice id: the zambdas derive all billing writes from the authoritative clinical
+// PaymentNotice, so an unauthorized caller can only trigger an idempotent re-sync.
 export const RecordBillingRefundInputSchema = z.object({
-  encounterId: nonEmptyString.uuid(),
   clinicalPaymentNoticeId: nonEmptyString.uuid(),
-  // present for Stripe-linked payments: webhook-bridged billing copies carry this identifier
-  stripePaymentId: nonEmptyString.optional(),
-  // full refunds snapshot to stamp on the billing copies of the clinical notice
-  refunds: z.array(PaymentRefundEntrySchema),
-  // stale/expired reservation ids to drop while stamping
-  removeIds: z.array(nonEmptyString).optional(),
-  // negative AR notice mirroring the stripe webhook's; gated server-side on the billing flag
-  arOffset: z
-    .object({
-      refundId: nonEmptyString,
-      amountInCents: z.number().int().positive(),
-      paymentMethod: nonEmptyString,
-      createdISO: nonEmptyString,
-      reason: nonEmptyString,
-    })
-    .optional(),
 });
 
-// Billing-side companion to the EHR patient-payments void zambda: cancels billing copies of the
-// voided clinical PaymentNotice. Same separation rule as RecordBillingRefundInputSchema.
 export const RecordBillingVoidInputSchema = z.object({
   clinicalPaymentNoticeId: nonEmptyString.uuid(),
-  voidInfo: z.object({
-    reason: nonEmptyString,
-    notes: z.string().optional(),
-    voidedAtISO: nonEmptyString,
-    voidedBy: z.string().optional(),
-  }),
 });
 
 export const AddClaimAttachmentInputSchema = z.object({

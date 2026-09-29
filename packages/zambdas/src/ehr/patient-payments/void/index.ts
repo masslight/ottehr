@@ -115,13 +115,12 @@ const performEffect = async (input: VoidEffectInput, oystehrClient: Oystehr): Pr
   // no-op when the notice is already cancelled (resume)
   await voidPaymentNotice(oystehrClient, notice, voidInfo);
 
-  // Billing FHIR resources are owned by the billing app; EHR zambdas must not write them directly,
-  // so billing copies are voided by the record-billing-void zambda.
+  // Billing FHIR resources are owned by the billing app; EHR zambdas must not write them directly.
+  // The billing zambda derives the void state from the just-cancelled clinical notice.
   const { billingNoticesVoided } = chooseJson<RecordBillingVoidResponse>(
     await oystehrClient.zambda.execute({
       id: 'record-billing-void',
       clinicalPaymentNoticeId: paymentNoticeId,
-      voidInfo,
     })
   );
 
