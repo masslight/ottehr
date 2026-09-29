@@ -525,14 +525,16 @@ const performEffect = async (
   }
 
   // Stamp the notice right away so the UI reflects the refund without waiting for the webhook.
-  // Re-read first (the reservation bumped the version) and release the reservation in the same patch.
+  // Re-read first (the reservation bumped the version) and build from the fresh notice's refunds so
+  // anything stamped since our snapshot survives; release the reservation in the same patch.
   const freshNotice = notice.id
     ? await oystehrClient.fhir.get<PaymentNotice>({ resourceType: 'PaymentNotice', id: notice.id })
     : notice;
+  const freshRefunds = parsePaymentRefundsFromNotice(freshNotice) ?? existingRefunds;
   await applyRefundsToPaymentNotice(
     oystehrClient,
     freshNotice,
-    [...existingRefunds.filter((existing) => existing.stripeRefundId !== refund.id), stripeRefundToDTO(refund)],
+    [...freshRefunds.filter((existing) => existing.stripeRefundId !== refund.id), stripeRefundToDTO(refund)],
     reservationRemoveIds
   );
 
