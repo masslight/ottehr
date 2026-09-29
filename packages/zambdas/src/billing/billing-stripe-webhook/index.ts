@@ -26,7 +26,7 @@ import { shouldUseOttehrBilling } from '../../shared/candid';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import {
-  applyRefundsToPaymentNotice,
+  applyRefundsToPaymentNoticeWithRetry,
   encounterIdFromStripeMetadata,
   getStripeClient,
   STRIPE_PAYMENT_ID_SYSTEM,
@@ -464,7 +464,9 @@ const markSourceNoticesForRefundedCharge = async (
 
     for (const notice of notices) {
       try {
-        await applyRefundsToPaymentNotice(client, notice, refunds);
+        // retry variant: a version conflict from an unrelated concurrent update must not
+        // discard the webhook's only stamping attempt
+        await applyRefundsToPaymentNoticeWithRetry(client, notice, refunds);
       } catch (error) {
         console.error(`Error stamping refunds on PaymentNotice/${notice.id}`, error);
       }

@@ -147,6 +147,26 @@ export const applyRefundsToPaymentNotice = async (
   });
 };
 
+// For reconciliation flows (webhook re-stamps) where losing the write to an unrelated concurrent
+// update is worse than staleness: re-reads the notice and re-merges on version conflict.
+export const applyRefundsToPaymentNoticeWithRetry = async (
+  oystehr: Oystehr,
+  notice: PaymentNotice,
+  refunds: PaymentRefundDTO[],
+  attempts = 3
+): Promise<void> => {
+  let current = notice;
+  for (let attempt = 1; ; attempt++) {
+    try {
+      await applyRefundsToPaymentNotice(oystehr, current, refunds);
+      return;
+    } catch (error) {
+      if (attempt >= attempts || !current.id) throw error;
+      current = await oystehr.fhir.get<PaymentNotice>({ resourceType: 'PaymentNotice', id: current.id });
+    }
+  }
+};
+
 interface EnsureStripeCustomerIdParams {
   guarantorResource: Patient | RelatedPerson | undefined;
   account: Account;

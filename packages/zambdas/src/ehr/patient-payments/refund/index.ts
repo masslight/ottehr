@@ -190,12 +190,21 @@ const complexValidation = async (
   const stripeAccount = await getStripeAccountForAppointmentOrEncounter({ encounterId }, oystehrClient);
 
   let existingRefunds: PaymentRefundDTO[];
+  let stripeResumeRefund: PaymentRefundDTO | undefined;
   try {
-    const stripeRefunds = (
+    const stripeRefundList = (
       await stripeClient.refunds.list({ payment_intent: stripePaymentId, limit: 100 }, { stripeAccount })
-    ).data.map(stripeRefundToDTO);
+    ).data;
+    // a retry after Stripe created the refund but stamping failed finds it by its operation key
+    const priorRefund = idempotencyKey
+      ? stripeRefundList.find((refund) => refund.metadata?.operationKey === idempotencyKey)
+      : undefined;
+    stripeResumeRefund = priorRefund ? stripeRefundToDTO(priorRefund) : undefined;
     // externally recorded refunds live only in FHIR but still reduce what remains refundable
-    existingRefunds = mergeStripeRefundsWithStored(parsePaymentRefundsFromNotice(notice), stripeRefunds);
+    existingRefunds = mergeStripeRefundsWithStored(
+      parsePaymentRefundsFromNotice(notice),
+      stripeRefundList.map(stripeRefundToDTO)
+    );
   } catch (error: unknown) {
     console.error('Stripe refund lookup failed', error);
     throw parseStripeError(error);
@@ -204,7 +213,7 @@ const complexValidation = async (
   const amountInCents = Math.round((notice.amount?.value ?? 0) * 100);
   const resumeRefund = external
     ? existingRefunds.find((refund) => refund.stripeRefundId === manualRefundId)
-    : undefined;
+    : stripeResumeRefund;
   if (resumeRefund) {
     return {
       notice,
@@ -433,6 +442,12 @@ const performEffect = async (
     );
   }
 
+  // Stripe already created this refund on a prior attempt; finish the stamping only
+  if (input.resumeRefund) {
+    await applyRefundsToPaymentNotice(oystehrClient, notice, existingRefunds);
+    return { refundId: input.resumeRefund.stripeRefundId, amountInCents: input.resumeRefund.amountInCents };
+  }
+
   let refund: Stripe.Refund;
   try {
     refund = await stripeClient.refunds.create(
@@ -440,8 +455,13 @@ const performEffect = async (
         payment_intent: stripePaymentId,
         amount: refundAmountInCents,
         reason: reason === 'Duplicate charge' ? 'duplicate' : 'requested_by_customer',
-        // carried in metadata so webhook re-stamps of refund state preserve who issued it
-        metadata: { reason, ...(notes ? { notes } : {}), ...(refundedBy ? { refundedBy } : {}) },
+        // reason/notes/refundedBy survive webhook re-stamps; operationKey lets retries find this refund
+        metadata: {
+          reason,
+          ...(notes ? { notes } : {}),
+          ...(refundedBy ? { refundedBy } : {}),
+          ...(input.idempotencyKey ? { operationKey: input.idempotencyKey } : {}),
+        },
       },
       {
         stripeAccount,
@@ -455,7 +475,10 @@ const performEffect = async (
   }
 
   // stamp the notice right away so the UI reflects the refund without waiting for the webhook
-  await applyRefundsToPaymentNotice(oystehrClient, notice, [...existingRefunds, stripeRefundToDTO(refund)]);
+  await applyRefundsToPaymentNotice(oystehrClient, notice, [
+    ...existingRefunds.filter((existing) => existing.stripeRefundId !== refund.id),
+    stripeRefundToDTO(refund),
+  ]);
 
   return { refundId: refund.id, amountInCents: refundAmountInCents };
 };
