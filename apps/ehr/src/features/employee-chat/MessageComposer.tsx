@@ -29,13 +29,15 @@ export const MessageComposer: FC<MessageComposerProps> = ({ disabled, onSend, fo
 
   const send = async (): Promise<void> => {
     if (!canSend) return;
+    const draft = text;
     setSending(true);
     setError(undefined);
+    setText('');
     try {
       await onSend(body);
-      setText('');
     } catch (sendError) {
       console.error('employee chat send failed', sendError);
+      setText((typed) => (typed.trim() === '' ? draft : `${draft}\n${typed}`));
       setError('Message not sent. Please try again.');
     } finally {
       setSending(false);

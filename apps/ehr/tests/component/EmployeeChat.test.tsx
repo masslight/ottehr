@@ -139,8 +139,19 @@ const twilio = vi.hoisted(() => {
       return result;
     }
 
+    nextSendGate: Promise<void> | undefined;
+
+    holdNextSend(): () => void {
+      let release!: () => void;
+      this.nextSendGate = new Promise<void>((resolve) => (release = resolve));
+      return release;
+    }
+
     async sendMessage(body: string): Promise<number> {
       this.sendCalls.push(body);
+      const gate = this.nextSendGate;
+      this.nextSendGate = undefined;
+      if (gate) await gate;
       if (this.failNextSend) {
         this.failNextSend = false;
         throw new Error('network down');
@@ -1347,6 +1358,64 @@ describe('employee chat flows', () => {
       fireEvent.keyDown(input, { key: 'Enter' });
     });
     expect(input.value).toBe('will fail');
+    expect(screen.getByText('Message not sent. Please try again.')).toBeInTheDocument();
+  });
+
+  it('keeps a draft typed while the previous message is still sending', async () => {
+    let bob: any;
+    await connectWith((client) => {
+      bob = client.addConversation('CH-bob');
+      client.addConversation('CH-carol');
+    });
+    renderChat();
+    act(() => openEmployeeChatDrawer());
+    await act(async () => {
+      await openConversation('CH-bob');
+    });
+
+    const input = screen.getByTestId('employee-chat-input') as HTMLTextAreaElement;
+    const release = bob.holdNextSend();
+    fireEvent.change(input, { target: { value: 'first' } });
+    await act(async () => {
+      fireEvent.keyDown(input, { key: 'Enter' });
+    });
+    expect(input.value).toBe('');
+
+    fireEvent.change(input, { target: { value: 'second draft' } });
+    await act(async () => {
+      release();
+    });
+
+    expect(await screen.findByText('first')).toBeInTheDocument();
+    expect(input.value).toBe('second draft');
+    expect(bob.sendCalls).toEqual(['first']);
+  });
+
+  it('restores a failed message ahead of the draft typed while it was sending', async () => {
+    let bob: any;
+    await connectWith((client) => {
+      bob = client.addConversation('CH-bob');
+      client.addConversation('CH-carol');
+    });
+    renderChat();
+    act(() => openEmployeeChatDrawer());
+    await act(async () => {
+      await openConversation('CH-bob');
+    });
+
+    const input = screen.getByTestId('employee-chat-input') as HTMLTextAreaElement;
+    bob.failNextSend = true;
+    const release = bob.holdNextSend();
+    fireEvent.change(input, { target: { value: 'will fail' } });
+    await act(async () => {
+      fireEvent.keyDown(input, { key: 'Enter' });
+    });
+    fireEvent.change(input, { target: { value: 'typed meanwhile' } });
+    await act(async () => {
+      release();
+    });
+
+    expect(input.value).toBe('will fail\ntyped meanwhile');
     expect(screen.getByText('Message not sent. Please try again.')).toBeInTheDocument();
   });
 
