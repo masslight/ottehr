@@ -79,19 +79,21 @@ export const staleReservationIds = (refunds: PaymentRefundDTO[] | undefined): st
 };
 
 // keeps locally recorded refunds when re-stamping a notice from Stripe's refund list;
-// removeIds drops specific stored local entries (e.g. a finalized pending reservation)
+// removeIds drops the matching entries from both the incoming and stored sides
+// (e.g. a finalized pending reservation)
 export const mergeStripeRefundsWithStored = (
   storedRefunds: PaymentRefundDTO[] | undefined,
   stripeRefunds: PaymentRefundDTO[],
   removeIds?: string[]
 ): PaymentRefundDTO[] => {
-  const incomingIds = new Set(stripeRefunds.map((refund) => refund.stripeRefundId));
   const removed = new Set(removeIds ?? []);
+  const incoming = stripeRefunds.filter((refund) => !removed.has(refund.stripeRefundId));
+  const incomingIds = new Set(incoming.map((refund) => refund.stripeRefundId));
   const preservedLocal = (storedRefunds ?? []).filter(
     (refund) =>
       isLocallyRecordedRefund(refund) && !incomingIds.has(refund.stripeRefundId) && !removed.has(refund.stripeRefundId)
   );
-  return [...stripeRefunds, ...preservedLocal];
+  return [...incoming, ...preservedLocal];
 };
 
 // failed/canceled refunds never settle, so they don't reduce what the patient paid
