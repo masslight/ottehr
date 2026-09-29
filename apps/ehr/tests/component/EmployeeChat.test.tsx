@@ -1233,6 +1233,83 @@ describe('employee chat flows', () => {
     expect(mockGetEmployeeChats.mock.calls.length).toBeLessThanOrEqual(3);
   });
 
+  const advanceAsync = async (ms: number): Promise<void> => {
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(ms);
+    });
+  };
+
+  it('keeps discovering a DM whose join and first message all arrived before the server listed it', async () => {
+    let fakeClient: any;
+    await connectWith((client) => {
+      fakeClient = client;
+      client.addConversation('CH-bob');
+      client.addConversation('CH-carol');
+    });
+    renderChat();
+    act(() => openEmployeeChatDrawer());
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+
+    const known = [
+      { conversationSid: 'CH-bob', otherEmployee: BOB },
+      { conversationSid: 'CH-carol', otherEmployee: CAROL },
+    ];
+    const dan = fakeClient.addConversation('CH-dan');
+    await act(async () => {
+      fakeClient.emit('conversationAdded', dan);
+      fakeClient.emit('conversationJoined', dan);
+    });
+    await act(async () => {
+      dan.receive('dan-identity', 'hi, are you free?');
+    });
+    await advanceAsync(500);
+    expect(screen.queryByText('Dan Evans')).not.toBeInTheDocument();
+
+    mockGetEmployeeChats.mockResolvedValue({
+      token: 'token',
+      conversations: [...known, { conversationSid: 'CH-dan', otherEmployee: DAN }],
+    });
+    await advanceAsync(1000);
+
+    expect(within(chatRow('Dan Evans')).getByText('hi, are you free?')).toBeInTheDocument();
+    expect(rowUnreadDot('Dan Evans')).toBeInTheDocument();
+    const callsWhenFound = mockGetEmployeeChats.mock.calls.length;
+    await advanceAsync(60_000);
+    expect(mockGetEmployeeChats.mock.calls.length).toBe(callsWhenFound);
+  });
+
+  it('stops retrying a conversation that never becomes an employee chat and then refreshes at most once a minute', async () => {
+    let legacy: any;
+    await connectWith((client) => {
+      client.addConversation('CH-bob');
+      client.addConversation('CH-carol');
+      legacy = client.addConversation('CH-legacy-team-chat');
+    });
+    renderChat();
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
+    const callsAtStart = mockGetEmployeeChats.mock.calls.length;
+
+    await act(async () => {
+      legacy.receive('someone', 'team update');
+    });
+    await advanceAsync(10_000);
+    expect(mockGetEmployeeChats.mock.calls.length - callsAtStart).toBe(5);
+
+    await act(async () => {
+      legacy.receive('someone', 'too soon');
+    });
+    expect(mockGetEmployeeChats.mock.calls.length - callsAtStart).toBe(5);
+
+    await advanceAsync(60_000);
+    for (const body of ['after a minute', 'right after']) {
+      await act(async () => {
+        legacy.receive('someone', body);
+      });
+    }
+    await advanceAsync(10_000);
+    expect(mockGetEmployeeChats.mock.calls.length - callsAtStart).toBe(6);
+  });
+
   it('opens a conversation with the latest 50 messages and pages older history without duplicates', async () => {
     await connectWith((client) => {
       const bob = client.addConversation('CH-bob');

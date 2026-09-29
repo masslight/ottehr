@@ -17,7 +17,15 @@ export const INITIAL_PAGE_SIZE = 50;
 export const UNREAD_PRELOAD_CAP = 200;
 const PREVIEW_CONCURRENCY = 5;
 const JOIN_TIMEOUT_MS = 5000;
-const UNKNOWN_SID_REFRESH_LIMIT = 2;
+const UNKNOWN_SID_RETRY_DELAYS_MS = [500, 1000, 2000, 4000];
+const UNKNOWN_SID_IDLE_REFRESH_MS = 60_000;
+
+interface UnknownSidDiscovery {
+  retries: number;
+  refreshing: boolean;
+  timer?: ReturnType<typeof setTimeout>;
+  lastRefreshAt: number;
+}
 
 let client: Client | undefined;
 let oystehrZambda: Oystehr | undefined;
@@ -32,7 +40,7 @@ const summariesBySid = new Map<string, EmployeeChatSummary>();
 const joinWaiters = new Map<string, (conversation: Conversation) => void>();
 const previewsRequested = new Set<string>();
 const historyPreviewsRequested = new Set<string>();
-const unknownSidRefreshes = new Map<string, number>();
+const unknownSidDiscoveries = new Map<string, UnknownSidDiscovery>();
 const pendingReadIndex = new Map<string, number>();
 const retiredSids = new Set<string>();
 const lookupsRequested = new Set<string>();
@@ -135,8 +143,9 @@ function dropChats(sids: string[]): void {
 }
 
 function upsertSummary(summary: EmployeeChatSummary): void {
-  if (retiredSids.has(summary.conversationSid)) return;
   const previous = previousSidsOf(summary);
+  [summary.conversationSid, ...previous].forEach(stopUnknownSidDiscovery);
+  if (retiredSids.has(summary.conversationSid)) return;
   previous.forEach((sid) => retiredSids.add(sid));
   const replaced = [...summariesBySid.entries()]
     .filter(
@@ -167,11 +176,57 @@ function followReplacement(replaced: string[], summary: EmployeeChatSummary): vo
     .catch((error) => console.error('employee chat could not follow the replacement conversation', error));
 }
 
+function isUnknownSid(sid: string): boolean {
+  return !summariesBySid.has(sid) && !retiredSids.has(sid);
+}
+
+function stopUnknownSidDiscovery(sid: string): void {
+  const discovery = unknownSidDiscoveries.get(sid);
+  if (discovery?.timer) clearTimeout(discovery.timer);
+  unknownSidDiscoveries.delete(sid);
+}
+
+function refreshUntilKnown(sid: string, discovery: UnknownSidDiscovery): void {
+  discovery.refreshing = true;
+  void (chatListRefresh ?? Promise.resolve())
+    .then(() => {
+      discovery.lastRefreshAt = Date.now();
+      return refreshChatList();
+    })
+    .finally(() => {
+      discovery.refreshing = false;
+      if (unknownSidDiscoveries.get(sid) !== discovery) return;
+      if (!isUnknownSid(sid)) {
+        unknownSidDiscoveries.delete(sid);
+        return;
+      }
+      const delay = UNKNOWN_SID_RETRY_DELAYS_MS[discovery.retries];
+      if (delay === undefined) return;
+      discovery.retries++;
+      discovery.timer = setTimeout(() => {
+        discovery.timer = undefined;
+        if (unknownSidDiscoveries.get(sid) === discovery) refreshUntilKnown(sid, discovery);
+      }, delay);
+    });
+}
+
 function refreshForUnknownConversation(sid: string): void {
-  const attempts = unknownSidRefreshes.get(sid) ?? 0;
-  if (summariesBySid.has(sid) || retiredSids.has(sid) || attempts >= UNKNOWN_SID_REFRESH_LIMIT) return;
-  unknownSidRefreshes.set(sid, attempts + 1);
-  void (chatListRefresh ?? Promise.resolve()).then(refreshChatList);
+  if (!isUnknownSid(sid)) {
+    stopUnknownSidDiscovery(sid);
+    return;
+  }
+  const existing = unknownSidDiscoveries.get(sid);
+  if (
+    existing &&
+    (existing.refreshing ||
+      existing.timer !== undefined ||
+      Date.now() - existing.lastRefreshAt < UNKNOWN_SID_IDLE_REFRESH_MS)
+  ) {
+    return;
+  }
+  const discovery = existing ?? { retries: 0, refreshing: false, lastRefreshAt: 0 };
+  unknownSidDiscoveries.set(sid, discovery);
+  refreshUntilKnown(sid, discovery);
 }
 
 function applySummaries(summaries: EmployeeChatSummary[]): void {
@@ -209,6 +264,7 @@ function handleConversationUpdated(conversation: Conversation): void {
 
 function handleConversationGone(conversation: Conversation): void {
   const sid = conversation.sid;
+  stopUnknownSidDiscovery(sid);
   if (retiredSids.has(sid)) return;
   if (isClosed(conversation)) {
     conversationsBySid.set(sid, conversation);
@@ -510,7 +566,10 @@ export function disconnectEmployeeChat(): void {
   joinWaiters.clear();
   previewsRequested.clear();
   historyPreviewsRequested.clear();
-  unknownSidRefreshes.clear();
+  unknownSidDiscoveries.forEach((discovery) => {
+    if (discovery.timer) clearTimeout(discovery.timer);
+  });
+  unknownSidDiscoveries.clear();
   pendingReadIndex.clear();
   retiredSids.clear();
   lookupsRequested.clear();
