@@ -15,6 +15,13 @@ import {
 import { applyClaimNonInsurancePayerTag, claimNonInsurancePayerExtension } from 'utils/lib/fhir/billing';
 import { codeableConcept, setNpi } from 'utils/lib/fhir/helpers';
 import {
+  CLAIM_ACCIDENT_STATE_EXTENSION_URL,
+  CLAIM_ACCIDENT_TYPE,
+  CLAIM_ACCIDENT_TYPE_EXTENSION_URLS,
+  CLAIM_ACCIDENT_TYPES,
+  CODE_SYSTEM_CLAIM_ACCIDENT_DATE,
+  CODE_SYSTEM_CLAIM_ACCIDENT_DATE_CODE,
+  CODE_SYSTEM_CLAIM_INFORMATION_CATEGORY,
   CODE_SYSTEM_CLAIM_TYPE,
   CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
   CODE_SYSTEM_HL7_HCPCS,
@@ -52,6 +59,7 @@ import {
   getClaimTypeCoding,
   payerDisplay,
   prepareWorkingCopy,
+  removeClaimSupportingInfo,
   resolvePayersByRef,
   resourceDisplayName,
   setClaimRenderingProviderCareTeam,
@@ -59,6 +67,7 @@ import {
   setCoverageRelationship,
   setTaxId,
   setTaxonomy,
+  updateClaimSupportingInfo,
 } from '../shared';
 import { UpdateBillingClaimParams, validateRequestParameters } from './validateRequestParameters';
 
@@ -436,6 +445,50 @@ async function attachClaimResources(
 
   if (fields.admissionDate && fields.dischargeDate) {
     claim.billablePeriod = { start: fields.admissionDate, end: fields.dischargeDate };
+  }
+
+  // Accident Info
+  if (fields.accidentType != null) {
+    CLAIM_ACCIDENT_TYPES.forEach((type) => {
+      if (fields.accidentType?.includes(type)) {
+        updateExtension(claim, {
+          url: CLAIM_ACCIDENT_TYPE_EXTENSION_URLS[type as CLAIM_ACCIDENT_TYPE],
+          valueBoolean: true,
+        });
+      } else {
+        removeExtension(claim, CLAIM_ACCIDENT_TYPE_EXTENSION_URLS[type as CLAIM_ACCIDENT_TYPE]);
+      }
+    });
+  }
+  if (fields.accidentState != null) {
+    if (fields.accidentState) {
+      updateExtension(claim, {
+        url: CLAIM_ACCIDENT_STATE_EXTENSION_URL,
+        valueString: fields.accidentState,
+      });
+    } else {
+      removeExtension(claim, CLAIM_ACCIDENT_STATE_EXTENSION_URL);
+    }
+  }
+  if (fields.accidentDate != null) {
+    if (fields.accidentDate) {
+      updateClaimSupportingInfo(
+        claim,
+        CODE_SYSTEM_CLAIM_INFORMATION_CATEGORY,
+        'info',
+        CODE_SYSTEM_CLAIM_ACCIDENT_DATE,
+        CODE_SYSTEM_CLAIM_ACCIDENT_DATE_CODE,
+        { timingDate: fields.accidentDate }
+      );
+    } else {
+      removeClaimSupportingInfo(
+        claim,
+        CODE_SYSTEM_CLAIM_INFORMATION_CATEGORY,
+        'info',
+        CODE_SYSTEM_CLAIM_ACCIDENT_DATE,
+        CODE_SYSTEM_CLAIM_ACCIDENT_DATE_CODE
+      );
+    }
   }
 
   return commitClaimResourceChange(oystehr, {

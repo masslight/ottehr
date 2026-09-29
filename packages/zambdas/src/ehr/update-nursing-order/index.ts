@@ -15,8 +15,6 @@ import { validateRequestParameters } from './validateRequestParameters';
 let m2mToken: string;
 
 export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  console.log(`update-nursing-order started, input: ${JSON.stringify(input)}`);
-
   let validatedParameters: UpdateNursingOrderInputValidated;
 
   try {

@@ -52,6 +52,7 @@ const buildDiagnosisCarryOver = async (
     if (parentEntries.length === 0) return { requests, entries };
 
     const existingCodes = await getExistingDiagnosisCodes(oystehr, encounter);
+    let hasPrimary = (encounter.diagnosis ?? []).some((entry) => entry.rank === 1);
 
     const parentConditions = await Promise.all(
       parentEntries.map((entry) =>
@@ -65,6 +66,9 @@ const buildDiagnosisCarryOver = async (
         existingCodes.has(`${coding.system}|${coding.code}`)
       );
       if (alreadyPresent) return;
+
+      const rank = entry.rank === 1 && hasPrimary ? undefined : entry.rank;
+      if (rank === 1) hasPrimary = true;
 
       const newConditionUrl = `urn:uuid:${uuid()}`;
       requests.push({
@@ -85,7 +89,7 @@ const buildDiagnosisCarryOver = async (
       });
       entries.push({
         condition: { reference: newConditionUrl },
-        ...(entry.rank !== undefined && { rank: entry.rank }),
+        ...(rank !== undefined && { rank }),
       });
     });
   } catch (error) {

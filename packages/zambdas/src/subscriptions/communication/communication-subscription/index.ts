@@ -25,7 +25,6 @@ export interface CommunicationSubscriptionInput {
 let oystehrToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  console.log(`Input: ${JSON.stringify(input)}`);
   console.group('validateRequestParameters');
   const validatedParameters = validateRequestParameters(input);
   const { communication, secrets } = validatedParameters;

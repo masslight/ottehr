@@ -34,8 +34,6 @@ let oystehrToken: string;
 
 const ZAMBDA_NAME = 'appointment-chart-data-prefilling';
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  console.log(`Input: ${JSON.stringify(input)}`);
-
   const updateAppointmentRequests: BatchInputRequest<Appointment>[] = [];
   const encounterUpdateRequests: BatchInputRequest<Encounter>[] = [];
   const saveOrUpdateRequests: (

@@ -20,8 +20,6 @@ let m2mToken: string;
 export const index = wrapHandler(
   'pending-supervisor-approval',
   async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-    console.log(`pending-supervisor-approval started, input: ${JSON.stringify(input)}`);
-
     let validatedParameters: PendingSupervisorApprovalInputValidated;
 
     try {

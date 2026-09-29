@@ -79,7 +79,6 @@ let m2mToken: string;
 
 const ZAMBDA_NAME = 'handle-in-house-lab-results';
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  console.log(`handle-in-house-lab-results started, input: ${JSON.stringify(input)}`);
   console.log('Validating input');
   const { serviceRequestId, data: resultsEntryData, secrets, userToken } = validateRequestParameters(input);
   console.log('validateRequestParameters success');

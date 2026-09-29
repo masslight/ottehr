@@ -21,6 +21,8 @@ const ZAMBDA_NAME = 'sub-refresh-billing-report';
 
 // Async worker for all billing-report refreshes: routes the Task to its ReportDefinition,
 // computes, and writes the payload + detail caches.
+// TODO(OTR-3041 follow-up): wrapTaskHandler marks Task statuses with a clinical client; once it
+// accepts { createClient }, pass createBillingClient so billing Tasks are updated as billing.
 export const index = wrapTaskHandler(ZAMBDA_NAME, async (input, _oystehr) => {
   const { kind, paramsJson, taskId, secrets } = validateRequestParameters(input);
   const definition = reportRegistry[kind];
@@ -42,7 +44,16 @@ export const index = wrapTaskHandler(ZAMBDA_NAME, async (input, _oystehr) => {
     onProgress
   );
   if (!definition.savesOwnCache) {
-    await saveReportCache(oystehr, secrets, definition, fullCacheKey(definition, params), payload);
+    // history info makes this run discoverable in the kind's report history
+    const committed = await saveReportCache(oystehr, secrets, definition, fullCacheKey(definition, params), payload, {
+      kind: definition.kind,
+      params,
+    });
+    // a concurrent refresh won the commit: writing our detail or chaining a continuation would
+    // pair the winner's report with this run's data
+    if (!committed) {
+      return { taskStatus: 'completed', statusReason: 'superseded by a concurrent refresh' };
+    }
   }
   if (detail !== undefined && definition.drilldown) {
     // envelope gives the generic cache a generatedAt

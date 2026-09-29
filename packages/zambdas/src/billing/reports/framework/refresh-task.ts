@@ -60,7 +60,7 @@ const instantOf = (iso: string | undefined): number => (iso ? DateTime.fromISO(i
 const staleBeforeMillis = (): number => DateTime.now().minus({ minutes: STALE_REFRESH_MINUTES }).toMillis();
 
 // HTTP 412 from a version-locked write: the resource changed since we read it
-const isVersionConflict = (err: unknown): boolean =>
+export const isVersionConflict = (err: unknown): boolean =>
   err instanceof Oystehr.OystehrSdkError && String(err.code) === '412';
 
 // the running (or queued) refresh for one cache key, if any; stale tasks don't count

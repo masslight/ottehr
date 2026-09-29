@@ -29,6 +29,7 @@ import {
   createAccidentCondition,
   createDispositionServiceRequest,
   createProcedureServiceRequest,
+  findAccidentConditions,
   followUpToPerformerMap,
   followUpTypeFromPerformerType,
   makeAllergyResource,
@@ -82,7 +83,6 @@ const ZAMBDA_NAME = 'save-chart-data';
 let m2mToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  console.log(`Input: ${JSON.stringify(input)}`);
   console.log('Validating input');
   const {
     encounterId,
@@ -507,7 +507,17 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   }
 
   if (accident) {
-    saveOrUpdateRequests.push(createAccidentCondition(accident, encounterId, patient.id!));
+    const existingAccidentConditions = findAccidentConditions(allResources);
+    const accidentId = accident.resourceId ?? existingAccidentConditions[0]?.id;
+    saveOrUpdateRequests.push(
+      createAccidentCondition({ ...accident, resourceId: accidentId }, encounterId, patient.id!)
+    );
+    existingAccidentConditions
+      .filter((condition) => condition.id != null && condition.id !== accidentId)
+      .forEach((condition) => saveOrUpdateRequests.push(deleteResourceRequest('Condition', condition.id!)));
+    if (!additionalResourcesForResponse.includes(encounter)) {
+      additionalResourcesForResponse.push(encounter);
+    }
   }
 
   console.log('Starting a transaction update of chart data...');

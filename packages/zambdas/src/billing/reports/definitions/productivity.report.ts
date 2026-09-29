@@ -18,7 +18,7 @@ type ProductivityReportPayload = Omit<GetBillingProductivityReportResponse, 'fro
 
 export const productivityReport: ReportDefinition<ReportDateWindowParams, ProductivityReportPayload> = {
   kind: 'productivity',
-  cacheVersion: 'v1',
+  cacheVersion: 'v2',
   paramsSchema: ReportDateWindowParamsSchema,
   cacheKeyOf: (params) => `${params.dateFrom ?? 'all'}:${params.dateTo ?? 'all'}`,
   emptyPayload: () => ({ rows: [], totals: { actions: 0, claimsTouched: 0, actors: 0 }, generatedAt: '' }),

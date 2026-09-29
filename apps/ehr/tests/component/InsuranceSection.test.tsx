@@ -5,7 +5,9 @@ import type { Coverage, Patient, QuestionnaireResponse, RelatedPerson } from 'fh
 import React, { type InputHTMLAttributes, type ReactNode, useState } from 'react';
 import { FormProvider, useForm, type UseFormReturn } from 'react-hook-form';
 import { PATIENT_RECORD_CONFIG } from 'utils/lib/ottehr-config/patient-record';
+import { CoverageCheckWithDetails } from 'utils/lib/types/api/patient-account';
 import { CoverageWithPriority, OrderedCoveragesWithSubscribers } from 'utils/lib/types/data/account';
+import { InsuranceEligibilityCheckStatus } from 'utils/lib/types/data/paperwork/paperwork.types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // ============================================================================
@@ -117,6 +119,7 @@ const makeFullPrimaryCoverages = (): OrderedCoveragesWithSubscribers => ({
     id: PRIMARY_COVERAGE_ID,
     status: 'active',
     beneficiary: { reference: `Patient/${PATIENT_ID}` },
+    subscriberId: 'MEMBER-123',
     payor: [{ reference: 'Organization/payer-1' }],
     class: [{ type: { coding: [{ code: 'plan' }] }, value: 'J1585' }],
     order: 1,
@@ -210,10 +213,11 @@ interface HarnessControl {
 interface HarnessProps {
   initialCoverages?: OrderedCoveragesWithSubscribers;
   defaultValues?: Record<string, unknown>;
+  coverageChecks?: CoverageCheckWithDetails[];
   controlRef: { current?: HarnessControl };
 }
 
-const Harness: React.FC<HarnessProps> = ({ initialCoverages, defaultValues, controlRef }) => {
+const Harness: React.FC<HarnessProps> = ({ initialCoverages, defaultValues, coverageChecks, controlRef }) => {
   const [coverages, setCoveragesState] = useState<OrderedCoveragesWithSubscribers>(initialCoverages ?? {});
   const [coveragesFormValues, setCoveragesFormValuesState] = useState<Record<string, unknown> | undefined>(undefined);
 
@@ -272,7 +276,7 @@ const Harness: React.FC<HarnessProps> = ({ initialCoverages, defaultValues, cont
       <InsuranceSection
         coverages={orderedCoverages}
         patient={fakePatient}
-        accountData={{ coverageChecks: [] }}
+        accountData={{ coverageChecks: coverageChecks ?? [] }}
         removeCoverage={{ isPending: false }}
         onRemoveCoverage={() => undefined}
         isAddingInsurance={isAddingInsurance}
@@ -448,5 +452,48 @@ describe('InsuranceSection — section save flow', () => {
         'patient-relationship-to-insured-2',
       ])
     );
+  });
+});
+
+describe('InsuranceSection — eligibility-derived insurance type', () => {
+  const makeCoverageCheck = (insuranceCode: string): CoverageCheckWithDetails =>
+    ({
+      status: InsuranceEligibilityCheckStatus.eligibilityConfirmed,
+      dateISO: '2026-01-01T00:00:00.000Z',
+      coverageDetails: { insurance: { insuranceCode } },
+      subscriberId: 'MEMBER-123',
+      payorRef: 'Organization/payer-1',
+      planId: undefined,
+    }) as CoverageCheckWithDetails;
+
+  it('prefills the plan type from the eligibility check (PPO)', async () => {
+    const control = renderHarness({
+      initialCoverages: makeFullPrimaryCoverages(),
+      coverageChecks: [makeCoverageCheck('PR')],
+    });
+
+    await waitFor(() => expect(control.methods.getValues(PRIMARY.insurancePlanType.key)).toBe('12'));
+    expect(screen.getByDisplayValue(/^12 - /)).toBeInTheDocument();
+  });
+
+  it('leaves a plan type already on the coverage alone', async () => {
+    const control = renderHarness({
+      initialCoverages: makeFullPrimaryCoverages(),
+      defaultValues: { ...seedPrimaryFromCoverage(makeEmptyFormDefaults()), [PRIMARY.insurancePlanType.key]: 'HM' },
+      coverageChecks: [makeCoverageCheck('PR')],
+    });
+
+    await screen.findByText(/Primary insurance/i);
+    expect(control.methods.getValues(PRIMARY.insurancePlanType.key)).toBe('HM');
+  });
+
+  it('leaves the plan type empty when no check matches the coverage', async () => {
+    const control = renderHarness({
+      initialCoverages: makeFullPrimaryCoverages(),
+      coverageChecks: [{ ...makeCoverageCheck('PR'), subscriberId: 'SOMEONE-ELSE' } as CoverageCheckWithDetails],
+    });
+
+    await screen.findByText(/Primary insurance/i);
+    expect(control.methods.getValues(PRIMARY.insurancePlanType.key)).toBe('');
   });
 });

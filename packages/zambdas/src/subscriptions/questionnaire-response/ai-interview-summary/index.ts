@@ -23,7 +23,6 @@ interface Input {
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   configSentry('sub-ai-interview-summary', input.secrets);
   console.log('AI interview summary invoked');
-  console.log(`Input: ${JSON.stringify(input)}`);
   const { questionnaireResponse, secrets } = validateInput(input);
   const chatTranscript = createChatTranscript(questionnaireResponse);
   const oystehr = await createOystehr(secrets);

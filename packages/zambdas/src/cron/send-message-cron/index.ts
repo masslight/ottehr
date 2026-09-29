@@ -39,7 +39,6 @@ import { ZambdaInput } from '../../shared/types/common';
 let oystehrToken: string;
 
 export const index = wrapHandler('send-message-cron', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  console.log(`Input: ${JSON.stringify(input)}`);
   const { secrets } = input;
   if (!oystehrToken) {
     oystehrToken = await getAuth0Token(secrets);

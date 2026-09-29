@@ -1,8 +1,10 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Location } from 'fhir/r4b';
+import { FHIR_IDENTIFIER_CLIA, FHIR_IDENTIFIER_NPI } from 'utils/lib/fhir/constants';
 import { SearchServiceFacilitiesResponse } from 'utils/lib/types/data/billing/billing.types';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { truncateForLog } from '../../shared/logging';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { mapServiceFacility } from '../service-facility.helpers';
@@ -15,9 +17,8 @@ const ZAMBDA_NAME = 'search-billing-service-facilities';
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.group('validateRequestParameters');
   const params = validateRequestParameters(input);
-  const { secrets, ...restOfParams } = params;
+  const { secrets } = params;
   console.groupEnd();
-  console.debug('validateRequestParameters success', restOfParams);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createBillingClient(m2mToken, secrets);
@@ -25,7 +26,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.group('performEffect');
   const response = await performEffect(oystehr, params);
   console.groupEnd();
-  console.debug('performEffect success', response);
+  console.debug('performEffect success', truncateForLog(response));
 
   return {
     statusCode: 200,
@@ -78,6 +79,18 @@ async function performEffect(
     searchParams.push({
       name: 'name',
       value: params.name,
+    });
+  }
+  if (params.npi) {
+    searchParams.push({
+      name: 'identifier',
+      value: `${FHIR_IDENTIFIER_NPI}|${params.npi}`,
+    });
+  }
+  if (params.clia) {
+    searchParams.push({
+      name: 'identifier',
+      value: `${FHIR_IDENTIFIER_CLIA}|${params.clia}`,
     });
   }
 

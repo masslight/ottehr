@@ -34,8 +34,6 @@ export const index = wrapHandler('check-availability', async (input: ZambdaInput
   const projectAPI = getSecret(SecretsKeys.PROJECT_API, input.secrets);
   const basicInput = validateRequestParameters(input);
 
-  console.log('basicInput', JSON.stringify(basicInput));
-
   if (!oystehrToken) {
     console.log('getting m2m token for service calls');
     oystehrToken = await getAuth0Token(input.secrets);

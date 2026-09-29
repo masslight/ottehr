@@ -13,7 +13,6 @@ let m2mToken: string;
 const ZAMBDA_NAME = 'admin-update-lab-set';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  console.log(`${ZAMBDA_NAME} started, input: ${JSON.stringify(input)}`);
   const validatedParameters = validateRequestParameters(input);
 
   const { updateType, data, secrets } = validatedParameters;

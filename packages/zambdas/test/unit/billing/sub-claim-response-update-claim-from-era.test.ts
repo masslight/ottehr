@@ -12,7 +12,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   ComplexValidationOutput,
   performEffect,
-} from '../../../src/subscriptions/claim-response/sub-claim-response-adjust-status';
+} from '../../../src/subscriptions/claim-response/sub-claim-response-update-claim-from-era';
 
 const transaction = vi.fn();
 const get = vi.fn();
@@ -134,7 +134,7 @@ const versionConflict = (): Error =>
     code: 412,
   });
 
-describe('sub-claim-response-adjust-status performEffect', () => {
+describe('sub-claim-response-update-claim-from-era performEffect', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     transaction.mockResolvedValue({ entry: [] });

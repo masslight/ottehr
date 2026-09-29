@@ -567,9 +567,28 @@ describe('ConditionalEditor', () => {
     await waitFor(() => expect(screen.getByLabelText('Value *')).toHaveAttribute('aria-invalid', 'true'));
 
     // Switch the condition to a different property; the NPI error no longer applies to its value.
-    fireEvent.mouseDown(screen.getByText('NPI'));
+    fireEvent.mouseDown(screen.getByText('Rendering provider - NPI'));
     fireEvent.click((await screen.findAllByRole('option', { name: 'Member ID' }))[0]);
 
     await waitFor(() => expect(screen.getByLabelText('Value *')).not.toHaveAttribute('aria-invalid', 'true'));
+  });
+
+  it('prefixes the selected property with its group only when the label is ambiguous', () => {
+    const conditional: RuleConditional = {
+      branches: [
+        {
+          condition: { type: 'field', field: 'secondaryInsurance.memberId', operator: 'eq', value: 'abc' },
+          outcome: { type: 'noop' },
+        },
+        {
+          condition: { type: 'field', field: 'billingProvider.taxId', operator: 'eq', value: '12-3456789' },
+          outcome: { type: 'noop' },
+        },
+      ],
+    };
+    render(<ConditionalForm conditional={conditional} />);
+
+    expect(screen.getByText('Secondary insurance - Member ID')).toBeInTheDocument();
+    expect(screen.getByText('Tax ID (TIN)')).toBeInTheDocument();
   });
 });

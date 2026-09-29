@@ -13,6 +13,7 @@ import { estimatedTimeStatesGroups } from '../../shared/appointment/constants';
 import { getUser } from '../../shared/auth';
 import { getVideoEncounterForAppointment } from '../../shared/encounters';
 import { getAuth0Token } from '../../shared/getAuth0Token';
+import { truncateForLog } from '../../shared/logging';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { convertStatesAbbreviationsToLocationIds, getAllAppointmentsByLocations } from './utils/fhir';
@@ -25,7 +26,6 @@ const ZAMBDA_NAME = 'get-wait-status';
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.group('validateRequestParameters');
   const validatedParameters = validateRequestParameters(input);
-  console.log(JSON.stringify(validatedParameters, null, 4));
   const { appointmentID, secrets, authorization } = validatedParameters;
   console.groupEnd();
   console.debug('validateRequestParameters success');
@@ -125,7 +125,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         appointmentType: appointmentTypeForAppointment(appointment),
       }),
     };
-    console.log(JSON.stringify(response, null, 4));
+    console.log(truncateForLog(response));
     return response;
   } else {
     console.log(videoEncounter.status, appointment.status);
@@ -135,7 +135,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         status: status === 'cancelled' ? 'cancelled' : 'completed',
       }),
     };
-    console.log(JSON.stringify(response, null, 4));
+    console.log(truncateForLog(response));
     return response;
   }
 });

@@ -24,6 +24,10 @@ import { DateTime } from 'luxon';
 import { ReactElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Controller, FormProvider, useForm } from 'react-hook-form';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
+import {
+  TAG_NAME_FORBIDDEN_CHARACTERS,
+  TAG_NAME_FORBIDDEN_CHARACTERS_ERROR,
+} from 'utils/lib/types/data/billing/billing.constants';
 import { SaveBillingTagInput } from 'utils/lib/types/data/billing/billing.schemas';
 import { BillingTag } from 'utils/lib/types/data/billing/billing.types';
 import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils/lib/validation/constants';
@@ -355,7 +359,11 @@ export default function Tags(): ReactElement {
                 <Controller
                   name="name"
                   control={control}
-                  rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
+                  rules={{
+                    required: REQUIRED_FIELD_ERROR_MESSAGE,
+                    validate: (value) =>
+                      !TAG_NAME_FORBIDDEN_CHARACTERS.test(value ?? '') || TAG_NAME_FORBIDDEN_CHARACTERS_ERROR,
+                  }}
                   render={({ field, fieldState: { error: fieldError } }) => (
                     <TextField
                       autoFocus

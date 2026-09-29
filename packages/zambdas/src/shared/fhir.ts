@@ -592,12 +592,16 @@ export async function fetchAllPages(
   initialPageSize: number,
   // failOnLimit: callers whose result must be complete (e.g. cached reports) fail loudly
   // instead of silently serving a truncated dataset
-  options?: { failOnLimit?: boolean }
+  options?: { failOnLimit?: boolean; maxItems?: number }
 ): Promise<void> {
   let offset = 0;
   let pageSize = initialPageSize;
   let hasMorePages = true;
   do {
+    if (options?.maxItems !== undefined) {
+      if (offset >= options.maxItems) break;
+      pageSize = Math.min(pageSize, options.maxItems - offset);
+    }
     const page = await withResponseSizeRetry({
       attempt: (count) => fetchPage(offset, count),
       initialPageSize: pageSize,

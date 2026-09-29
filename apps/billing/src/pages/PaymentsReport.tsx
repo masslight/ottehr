@@ -8,6 +8,7 @@ import {
   Alert,
   Box,
   Button,
+  ButtonBase,
   Checkbox,
   Chip,
   CircularProgress,
@@ -51,62 +52,14 @@ import {
   getBillingPaymentsReport,
   getBillingPaymentsReportDrilldown,
 } from '../api/api';
-import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
-import { DateRangeInput } from '../components/DateInput';
-import { mergeReportStatuses, ReportStatusBar } from '../components/ReportStatusBar';
+import { dataGridSlots, dataGridSx, drilldownIndicatorColumn } from '../components/BillingDataGrid';
+import { CardActionHint } from '../components/CardActionHint';
+import { mergeReportStatuses, ReportStatusBar, sameWindow, windowParamsOf } from '../components/ReportStatusBar';
 import { useApiClients } from '../hooks/useAppClients';
 import { useBillingReport } from '../hooks/useBillingReport';
-import { otherColors, palette } from '../themes/ottehr/colors';
+import { useBillingReportHistory } from '../hooks/useBillingReportHistory';
+import { otherColors } from '../themes/ottehr/colors';
 import { reportPalette } from '../themes/ottehr/reportPalette';
-
-type DateRangePreset =
-  | 'previous-month'
-  | 'current-month'
-  | 'previous-quarter'
-  | 'this-quarter'
-  | 'year-to-date'
-  | 'trailing-30-days'
-  | 'trailing-12-months'
-  | 'custom';
-
-const DATE_RANGE_PRESETS: { value: DateRangePreset; label: string }[] = [
-  { value: 'previous-month', label: 'Previous Month' },
-  { value: 'current-month', label: 'Current Month' },
-  { value: 'previous-quarter', label: 'Previous Quarter' },
-  { value: 'this-quarter', label: 'This Quarter' },
-  { value: 'year-to-date', label: 'Year-to-Date' },
-  { value: 'trailing-30-days', label: 'Trailing 30 Days' },
-  { value: 'trailing-12-months', label: 'Trailing 12 Months' },
-  { value: 'custom', label: 'Custom Range' },
-];
-
-const presetRange = (preset: DateRangePreset): { from: string; to: string } => {
-  const now = DateTime.now();
-  switch (preset) {
-    case 'previous-month': {
-      const month = now.minus({ months: 1 });
-      return { from: month.startOf('month').toISODate() ?? '', to: month.endOf('month').toISODate() ?? '' };
-    }
-    case 'current-month':
-      return { from: now.startOf('month').toISODate() ?? '', to: now.toISODate() ?? '' };
-    case 'previous-quarter': {
-      const quarter = now.minus({ quarters: 1 });
-      return { from: quarter.startOf('quarter').toISODate() ?? '', to: quarter.endOf('quarter').toISODate() ?? '' };
-    }
-    case 'this-quarter':
-      return { from: now.startOf('quarter').toISODate() ?? '', to: now.toISODate() ?? '' };
-    case 'year-to-date':
-      return { from: now.startOf('year').toISODate() ?? '', to: now.toISODate() ?? '' };
-    case 'trailing-30-days':
-      return { from: now.minus({ days: 30 }).toISODate() ?? '', to: now.toISODate() ?? '' };
-    case 'trailing-12-months':
-      return { from: now.minus({ months: 12 }).toISODate() ?? '', to: now.toISODate() ?? '' };
-    case 'custom':
-      return { from: '', to: '' };
-  }
-};
-
-const DEFAULT_PRESET: DateRangePreset = 'trailing-30-days';
 
 const currencyCol = (field: string, headerName: string, width = 130): GridColDef => ({
   field,
@@ -231,33 +184,52 @@ function StatCard({
   active?: boolean;
   onClick?: () => void;
 }): ReactElement {
-  return (
-    <Box
-      onClick={onClick}
-      sx={{
-        flex: 1,
-        minWidth: 160,
-        bgcolor: active ? reportPalette.activeCardBg : 'background.paper',
-        border: `1px solid ${active ? reportPalette.activeCardBorder : otherColors.lightDivider}`,
-        borderRadius: 2,
-        px: 2.5,
-        py: 2,
-        ...(onClick ? { cursor: 'pointer', '&:hover': { borderColor: reportPalette.activeCardBorder } } : {}),
-      }}
-    >
+  const cardSx = {
+    flex: 1,
+    minWidth: 160,
+    position: 'relative',
+    bgcolor: active ? reportPalette.activeCardBg : 'background.paper',
+    border: `1px solid ${active ? reportPalette.activeCardBorder : otherColors.lightDivider}`,
+    borderRadius: 2,
+    px: 2.5,
+    py: 2,
+  } as const;
+  const content = (
+    <>
+      {onClick && <CardActionHint kind="filter" active={active} />}
       <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.4 }}>
         {label}
       </Typography>
-      <Typography variant="h5" color="primary.dark" fontWeight={600} sx={{ mt: 0.5 }}>
+      <Typography variant="h5" color="primary.dark" fontWeight={600} sx={{ mt: 0.5 }} component="div">
         {value}
       </Typography>
       {hint && (
-        <Typography variant="caption" color="text.secondary">
+        <Typography variant="caption" color="text.secondary" component="div">
           {hint}
         </Typography>
       )}
-    </Box>
+    </>
   );
+  // filter cards are toggles: a real button keeps them keyboard/AT-operable
+  if (onClick) {
+    return (
+      <ButtonBase
+        focusRipple
+        onClick={onClick}
+        aria-pressed={!!active}
+        sx={{
+          ...cardSx,
+          display: 'block',
+          textAlign: 'left',
+          '&:hover': { borderColor: reportPalette.activeCardBorder, bgcolor: otherColors.apptHover },
+          '&:hover .card-action-hint': { color: 'primary.main' },
+        }}
+      >
+        {content}
+      </ButtonBase>
+    );
+  }
+  return <Box sx={cardSx}>{content}</Box>;
 }
 
 const monthLabel = (month: string): string =>
@@ -685,10 +657,11 @@ function WaterfallMatrix({
       }}
     >
       <Typography variant="subtitle2" color="primary.dark" fontWeight={600}>
-        Insurance Payments Waterfall — Check Date (X), DOS (Y)
+        Insurance Payments Waterfall — Service Date (down), Check Date (across)
       </Typography>
       <Typography variant="caption" color="text.secondary">
-        Insurance paid by claim date of service (rows) and ERA check month (columns), across all ERAs
+        Insurance paid by claim date of service (rows) and ERA check month (columns), across all ERAs — click any amount
+        to see its ERAs
       </Typography>
       {cells.length === 0 ? (
         <Box sx={{ py: 5, textAlign: 'center' }}>
@@ -720,23 +693,18 @@ function WaterfallMatrix({
                       {paid === undefined ? (
                         ''
                       ) : (
-                        <button
+                        <Link
+                          component="button"
                           type="button"
+                          underline="always"
                           onClick={() => onCellClick(serviceMonth, checkMonth)}
                           aria-label={`View ERAs for ${monthLabel(serviceMonth)} service, ${monthLabel(
                             checkMonth
                           )} checks`}
-                          style={{
-                            background: 'none',
-                            border: 'none',
-                            padding: 0,
-                            font: 'inherit',
-                            cursor: 'pointer',
-                            color: palette.primary.main,
-                          }}
+                          sx={{ font: 'inherit', textDecorationColor: 'inherit' }}
                         >
                           {formatCurrency(paid)}
-                        </button>
+                        </Link>
                       )}
                     </td>
                   );
@@ -767,14 +735,20 @@ function WaterfallMatrix({
 export default function PaymentsReport(): ReactElement {
   const navigate = useNavigate();
 
-  const [dateFrom, setDateFrom] = useState(() => presetRange(DEFAULT_PRESET).from);
-  const [dateTo, setDateTo] = useState(() => presetRange(DEFAULT_PRESET).to);
-  const [rangePreset, setRangePreset] = useState<DateRangePreset>(DEFAULT_PRESET);
   const [drilldown, setDrilldown] = useState<DrilldownCriteria | null>(null);
   const [patientDrilldown, setPatientDrilldown] = useState<PatientPaymentsCriteria | null>(null);
   const [methodFilter, setMethodFilter] = useState<string | null>(null);
   // empty = all locations
   const [locationFilter, setLocationFilter] = useState<string[]>([]);
+
+  // insurance + patient payments always run together over one window; payments anchors the history
+  const { entries: history, reload: reloadHistory } = useBillingReportHistory('payments');
+  // null until the latest cached run (or the empty state) is adopted from history
+  const [range, setRange] = useState<ReportDateWindowParams | null>(null);
+  useEffect(() => {
+    if (history) setRange((current) => current ?? windowParamsOf(history[0]?.params));
+  }, [history]);
+  const { dateFrom, dateTo } = range ?? {};
 
   const windowParams = useMemo(
     () => ({ ...(dateFrom ? { dateFrom } : {}), ...(dateTo ? { dateTo } : {}) }),
@@ -788,12 +762,14 @@ export default function PaymentsReport(): ReactElement {
     error,
     clearError,
     refresh: refreshInsurance,
+    refreshNext: refreshInsuranceNext,
   } = useBillingReport<GetBillingPaymentsReportResponse>({
     fetch: useCallback(
       (client: Oystehr, refresh?: boolean) => getBillingPaymentsReport(client, windowParams, refresh),
       [windowParams]
     ),
     errorMessage: 'Failed to load payments report',
+    enabled: range !== null,
   });
 
   const {
@@ -803,13 +779,26 @@ export default function PaymentsReport(): ReactElement {
     error: patientError,
     clearError: clearPatientError,
     refresh: refreshPatient,
+    refreshNext: refreshPatientNext,
   } = useBillingReport<GetBillingPatientPaymentsReportResponse>({
     fetch: useCallback(
       (client: Oystehr, refresh?: boolean) => getBillingPatientPaymentsReport(client, windowParams, refresh),
       [windowParams]
     ),
     errorMessage: 'Failed to load patient payments',
+    enabled: range !== null,
   });
+
+  const runReport = (params: ReportDateWindowParams): void => {
+    if (sameWindow(params, range)) {
+      refreshInsurance();
+      refreshPatient();
+      return;
+    }
+    refreshInsuranceNext();
+    refreshPatientNext();
+    setRange(params);
+  };
 
   const totals = report?.totals;
   const insurancePaid = totals?.insurancePaid ?? 0;
@@ -851,58 +840,22 @@ export default function PaymentsReport(): ReactElement {
             Payments Report
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-            Insurance payments from posted ERAs, grouped by payer.
+            A consolidated view of insurance and patient payments.
           </Typography>
         </Box>
         <ReportStatusBar
           status={mergeReportStatuses(insuranceStatus, patientStatus)}
           loading={loading || patientLoading}
-          onRefresh={() => {
-            refreshInsurance();
-            refreshPatient();
-          }}
           dateFrom={dateFrom}
           dateTo={dateTo}
+          history={{
+            entries: history,
+            onOpen: reloadHistory,
+            onView: setRange,
+            onRun: runReport,
+            rangeLabel: 'Check Date Range',
+          }}
         />
-      </Stack>
-
-      <Stack direction={{ xs: 'column', sm: 'row' }} gap={1.5} alignItems={{ sm: 'center' }} mb={2.5}>
-        <FormControl size="small" sx={{ width: { xs: '100%', sm: 220 } }}>
-          <InputLabel>Check Date Range</InputLabel>
-          <Select
-            label="Check Date Range"
-            value={rangePreset}
-            onChange={(e) => {
-              const preset = e.target.value as DateRangePreset;
-              setRangePreset(preset);
-              if (preset === 'custom') return; // wait for the user to pick dates
-              const { from, to } = presetRange(preset);
-              setDateFrom(from);
-              setDateTo(to);
-            }}
-          >
-            {DATE_RANGE_PRESETS.map((option) => (
-              <MenuItem key={option.value} value={option.value}>
-                {option.label}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-        {rangePreset === 'custom' && (
-          <Box sx={{ width: { xs: '100%', sm: 320 } }}>
-            <DateRangeInput
-              label="Check Date"
-              size="small"
-              fullWidth
-              valueFrom={dateFrom}
-              valueTo={dateTo}
-              onChange={(from, to) => {
-                setDateFrom(from);
-                setDateTo(to);
-              }}
-            />
-          </Box>
-        )}
       </Stack>
 
       {error && (
@@ -965,7 +918,9 @@ export default function PaymentsReport(): ReactElement {
         autoHeight
         rows={report?.rows ?? []}
         getRowId={(row) => `${row.payerId}|${row.payerName}`}
-        columns={payerColumns}
+        columns={[...payerColumns, drilldownIndicatorColumn]}
+        // pinned right so the clickability arrow stays visible when the grid scrolls horizontally
+        pinnedColumns={{ right: [drilldownIndicatorColumn.field] }}
         loading={loading}
         disableRowSelectionOnClick
         disableColumnMenu
@@ -1083,31 +1038,34 @@ export default function PaymentsReport(): ReactElement {
         />
       </Stack>
 
-      <DataGridPro
-        autoHeight
-        rows={filteredPatientRows}
-        getRowId={(row) => `${row.locationId || row.locationName}|${row.paymentMethod}`}
-        columns={patientPaymentColumns}
-        loading={patientLoading}
-        disableRowSelectionOnClick
-        disableColumnMenu
-        hideFooter
-        onRowClick={(gridRow) => {
-          const row = gridRow.row as PatientPaymentsReportRow;
-          setPatientDrilldown({
-            title: `${row.locationName} — ${methodLabel(row.paymentMethod)} Payments`,
-            params: {
-              // 'none' selects payments with no resolvable location
-              locationId: row.locationId || 'none',
-              paymentMethod: row.paymentMethod,
-              ...(dateFrom ? { dateFrom } : {}),
-              ...(dateTo ? { dateTo } : {}),
-            },
-          });
-        }}
-        sx={dataGridSx}
-        slots={dataGridSlots()}
-      />
+      {/* fixed height so switching method filters never shrinks the page and jumps the scroll */}
+      <Box sx={{ height: 480 }}>
+        <DataGridPro
+          rows={filteredPatientRows}
+          getRowId={(row) => `${row.locationId || row.locationName}|${row.paymentMethod}`}
+          columns={[...patientPaymentColumns, drilldownIndicatorColumn]}
+          pinnedColumns={{ right: [drilldownIndicatorColumn.field] }}
+          loading={patientLoading}
+          disableRowSelectionOnClick
+          disableColumnMenu
+          hideFooter
+          onRowClick={(gridRow) => {
+            const row = gridRow.row as PatientPaymentsReportRow;
+            setPatientDrilldown({
+              title: `${row.locationName} — ${methodLabel(row.paymentMethod)} Payments`,
+              params: {
+                // 'none' selects payments with no resolvable location
+                locationId: row.locationId || 'none',
+                paymentMethod: row.paymentMethod,
+                ...(dateFrom ? { dateFrom } : {}),
+                ...(dateTo ? { dateTo } : {}),
+              },
+            });
+          }}
+          sx={dataGridSx}
+          slots={dataGridSlots()}
+        />
+      </Box>
 
       <PatientPaymentsDrawer criteria={patientDrilldown} onClose={() => setPatientDrilldown(null)} />
     </Box>

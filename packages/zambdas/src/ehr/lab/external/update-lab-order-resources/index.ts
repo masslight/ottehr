@@ -66,8 +66,6 @@ const ZAMBDA_NAME = 'update-lab-order-resources';
 let m2mToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  console.log(`update-lab-order-resources started, input: ${JSON.stringify(input)}`);
-
   let secrets = input.secrets;
   let validatedParameters: UpdateLabOrderResourcesInput & { secrets: Secrets | null; userToken: string };
 

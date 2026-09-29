@@ -18,6 +18,25 @@ describe('escapeCsvField', () => {
     expect(escapeCsvField('line one\nline two')).toBe('"line one\nline two"');
     expect(escapeCsvField('line one\r\nline two')).toBe('"line one\r\nline two"');
   });
+
+  it.each(['=1+1', '+1+1', '-1+1', '@SUM(A1)', '\tcmd', '\rcmd'])(
+    'prefixes %j, which a spreadsheet would evaluate',
+    (value) => {
+      expect(escapeCsvField(value)).toBe(/[",\n\r]/.test(value) ? `"'${value}"` : `'${value}`);
+    }
+  );
+
+  it('prefixes a formula that also needs RFC-4180 quoting', () => {
+    expect(escapeCsvField('=HYPERLINK("a","b")')).toBe('"\'=HYPERLINK(""a"",""b"")"');
+  });
+
+  it.each(['-50.00', '+12', '1,234.56', '0.00', '-1,234.56'])('leaves the amount %s unprefixed', (value) => {
+    expect(escapeCsvField(value)).toBe(/[",\n\r]/.test(value) ? `"${value}"` : value);
+  });
+
+  it('prefixes a value that only looks numeric', () => {
+    expect(escapeCsvField('-1+cmd')).toBe("'-1+cmd");
+  });
 });
 
 describe('toCsvRow', () => {

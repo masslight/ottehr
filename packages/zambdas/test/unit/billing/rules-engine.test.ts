@@ -454,6 +454,46 @@ describe('rules-engine evaluator', () => {
     expect(readField(m, 'payerId')).toBe('123456');
   });
 
+  it('writes each coverage slot to its own coverage, leaving the other slots untouched', () => {
+    const prefixes = ['insurance', 'secondaryInsurance', 'tertiaryInsurance', 'quaternaryInsurance'];
+    const makeFourCoverageModel = (): RulesEngineClaimModel => {
+      const m = makeModel();
+      m.coverages.push(
+        {
+          ...m.coverages[1],
+          id: 'cov-tertiary',
+          subscriberId: 'MEM-789',
+          payor: [{ reference: getPayerUrl('444444') }],
+        },
+        {
+          ...m.coverages[1],
+          id: 'cov-quaternary',
+          subscriberId: 'MEM-000',
+          payor: [{ reference: getPayerUrl('555555') }],
+        }
+      );
+      return m;
+    };
+
+    prefixes.forEach((prefix, index) => {
+      const m = makeFourCoverageModel();
+      const before = m.coverages.map((c) => ({ subscriberId: c.subscriberId, payor: c.payor }));
+
+      expect(writeField(m, `${prefix}.memberId`, `NEW-${index}`)).toBe(true);
+      expect(writeField(m, `${prefix}.payerId`, `99999${index}`)).toBe(true);
+
+      m.coverages.forEach((coverage, i) => {
+        if (i === index) {
+          expect(coverage.subscriberId).toBe(`NEW-${index}`);
+          expect(readField(m, `${prefix}.payerId`)).toBe(`99999${index}`);
+        } else {
+          expect(coverage.subscriberId).toBe(before[i].subscriberId);
+          expect(coverage.payor).toEqual(before[i].payor);
+        }
+      });
+    });
+  });
+
   it('writes policy holder fields on the subscriber working copy, failing when there is none', () => {
     const m = makeModel();
     expect(writeField(m, 'policyHolder.lastName', 'Newname')).toBe(true);
@@ -1064,6 +1104,22 @@ describe('apply charge master prices action', () => {
     expect(m.claim.total?.value).toBe(400);
   });
 
+  it('re-prices matched lines with a fallthrough for a missing modifier match', () => {
+    const m = makeModel(); // the fixture claim carries a real coverage -> insurance billing type
+    addLine(m, '99214', 200, '25');
+    m.chargeMasters = [
+      makeChargeMaster('insurance', '2025-06-01', [
+        { code: '99213', amount: 150 },
+        { code: '99214', amount: 350 }, // no matching entry for 99214+25
+      ]),
+      makeChargeMaster('self-pay', '2025-06-01', [{ code: '99213', amount: 60 }]),
+    ];
+    const error = applyAction({ type: 'applyChargeMasterPrices', match: { type: 'all' } }, m);
+    expect(error).toBeUndefined();
+    expect(lineCharges(m)).toEqual(['150', '350']);
+    expect(m.claim.total?.value).toBe(500);
+  });
+
   it('prices only the lines matching the predicate', () => {
     const m = makeModel();
     addLine(m, '99214', 200);
@@ -1146,12 +1202,12 @@ describe('apply charge master prices action', () => {
   it('prices the lines the charge master has entries for and leaves the rest unchanged', () => {
     const m = makeModel();
     addLine(m, '99999', 200); // no charge master entry for this code
-    addLine(m, '99213', 90, '25'); // entry exists but only modifier-less -> no match for this line
+    addLine(m, '99213', 90, '25'); // entry exists but only modifier-less -> matches against modifier-less entry
     m.chargeMasters = [makeChargeMaster('insurance', '2025-06-01', [{ code: '99213', amount: 150 }])];
     const error = applyAction({ type: 'applyChargeMasterPrices', match: { type: 'all' } }, m);
     expect(error).toBeUndefined();
-    expect(lineCharges(m)).toEqual(['150', '200', '90']);
-    expect(m.claim.total?.value).toBe(440);
+    expect(lineCharges(m)).toEqual(['150', '200', '150']);
+    expect(m.claim.total?.value).toBe(500);
   });
 
   it('skips a matched line with no CPT code instead of failing', () => {

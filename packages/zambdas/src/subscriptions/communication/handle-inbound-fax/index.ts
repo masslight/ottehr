@@ -83,8 +83,6 @@ export function isOutboundFax(communication: Communication): boolean {
 }
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  console.log(`[${ZAMBDA_NAME}] handler start, body length: ${input.body?.length ?? 0}`);
-
   try {
     const { communication, secrets } = validateRequestParameters(input);
 

@@ -6,6 +6,7 @@ import { EXPORT_TASK_SYSTEM } from 'utils/lib/types/api/invoicing.types';
 import { EXPORT_CLAIMS_CSV_TASK_CODE } from 'utils/lib/types/data/billing/billing.constants';
 import { createBillingClient } from '../../billing/shared';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { truncateForLog } from '../../shared/logging';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { cleanupExportTaskFiles, CleanupExportTaskFilesResult } from '../cleanup-export-task-files';
@@ -30,7 +31,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.group('performEffect');
   const response = await performEffect(oystehr, secrets);
   console.groupEnd();
-  console.debug('performEffect success', response);
+  console.debug('performEffect success', truncateForLog(response));
 
   return {
     statusCode: 200,

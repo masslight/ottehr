@@ -9,7 +9,7 @@ import {
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { parseCoverageEligibilityResponse } from 'utils/lib/fhir/billing';
-import { findOrgMatchingReference, getPayerUrl } from 'utils/lib/helpers/helpers';
+import { findOrgMatchingReference, getPayerUrl, isCustomInsuranceOrgReferenceUrl } from 'utils/lib/helpers/helpers';
 import { ELIGIBILITY_BENEFIT_CODES } from 'utils/lib/telemed/constants';
 import { InsuranceEligibilityCheckStatus } from 'utils/lib/types/data/paperwork/paperwork.types';
 import { InsuranceCheckStatusWithDate } from 'utils/lib/types/data/telemed/eligibility.types';
@@ -107,9 +107,16 @@ export const parseEligibilityCheckResponsePromiseResult = async (
   }
 };
 
+// A custom insurance organization isn't in RCM's payer directory, so RCM can't check eligibility
+// against it; callers report such a coverage as not checked instead of building a request.
+export const coverageHasCustomInsuranceOrgPayor = (coverage: Coverage): boolean =>
+  coverage.payor.some((payorRef) => isCustomInsuranceOrgReferenceUrl(payorRef.reference));
+
 export const getPayorRef = (coverage: Coverage, orgs: Organization[]): string | undefined => {
   let payor: Organization | undefined;
   for (const payorRef of coverage.payor) {
+    // Never mint an RCM payer URL from a custom insurance organization's id.
+    if (isCustomInsuranceOrgReferenceUrl(payorRef.reference)) continue;
     const match = findOrgMatchingReference(payorRef.reference, orgs);
     if (match) {
       payor = match;
