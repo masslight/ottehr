@@ -9,12 +9,18 @@ const NEW_TAB = { target: '_blank', rel: 'noopener noreferrer' } as const;
 interface EhrLinksButtonProps {
   ehrUrl: string;
   appointmentId: string;
+  encounterId: string;
 }
 
 // Split button: "Visit Details" opens the EHR visit page; the arrow reveals
 // deep links into the progress note's Assessment and HPI&MOI screens.
-export function EhrLinksButton({ ehrUrl, appointmentId }: EhrLinksButtonProps): ReactElement {
+export function EhrLinksButton({ ehrUrl, appointmentId, encounterId }: EhrLinksButtonProps): ReactElement {
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
+
+  // Same shape as the EHR's withEncounterIdParam: selects the claim's encounter when the
+  // appointment also owns follow-up encounters (a plain main-encounter id is a no-op there).
+  const noteUrl = (screen: string): string =>
+    `${ehrUrl}/in-person/${appointmentId}/${screen}?encounterId=${encounterId}`;
 
   const link = (icon: ReactElement, label: string, href: string): ReactElement => (
     <MenuItem component="a" href={href} {...NEW_TAB} onClick={() => setAnchor(null)}>
@@ -53,12 +59,8 @@ export function EhrLinksButton({ ehrUrl, appointmentId }: EhrLinksButtonProps): 
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
         transformOrigin={{ vertical: 'top', horizontal: 'right' }}
       >
-        {link(<AssessmentIcon fontSize="small" />, 'Assessment', `${ehrUrl}/in-person/${appointmentId}/assessment`)}
-        {link(
-          <HpiMoiIcon fontSize="small" />,
-          'HPI&MOI',
-          `${ehrUrl}/in-person/${appointmentId}/history-of-present-illness-and-templates`
-        )}
+        {link(<AssessmentIcon fontSize="small" />, 'Assessment', noteUrl('assessment'))}
+        {link(<HpiMoiIcon fontSize="small" />, 'HPI&MOI', noteUrl('history-of-present-illness-and-templates'))}
       </Menu>
     </>
   );

@@ -506,7 +506,9 @@ export default function ClaimDetail(): ReactElement {
         </Box>
 
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0, mt: 0.25 }}>
-          {EHR_URL && claim.appointmentId && <EhrLinksButton ehrUrl={EHR_URL} appointmentId={claim.appointmentId} />}
+          {EHR_URL && claim.appointmentId && (
+            <EhrLinksButton ehrUrl={EHR_URL} appointmentId={claim.appointmentId} encounterId={claim.encounterId} />
+          )}
           <Button
             size="small"
             variant="outlined"
