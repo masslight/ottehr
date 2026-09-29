@@ -31,6 +31,7 @@ const conversationsBySid = new Map<string, Conversation>();
 const summariesBySid = new Map<string, EmployeeChatSummary>();
 const joinWaiters = new Map<string, (conversation: Conversation) => void>();
 const previewsRequested = new Set<string>();
+const historyPreviewsRequested = new Set<string>();
 const unknownSidRefreshes = new Map<string, number>();
 const pendingReadIndex = new Map<string, number>();
 const retiredSids = new Set<string>();
@@ -508,6 +509,7 @@ export function disconnectEmployeeChat(): void {
   summariesBySid.clear();
   joinWaiters.clear();
   previewsRequested.clear();
+  historyPreviewsRequested.clear();
   unknownSidRefreshes.clear();
   pendingReadIndex.clear();
   retiredSids.clear();
@@ -898,31 +900,95 @@ export async function sendChatMessage(body: string): Promise<void> {
   void advanceReadHorizon(activeSid, index);
 }
 
-export async function loadMissingPreviews(): Promise<void> {
-  const myEpoch = epoch;
-  const pending = Object.values(getState().chats)
-    .filter((chat) => chat.lastMessageIndex != null && !chat.preview && !previewsRequested.has(chat.sid))
-    .map((chat) => chat.sid);
-  pending.forEach((sid) => previewsRequested.add(sid));
+async function loadCurrentPreview(sid: string, myEpoch: number): Promise<void> {
+  const conversation = conversationsBySid.get(sid);
+  if (!conversation) return;
+  try {
+    const page = await conversation.getMessages(1);
+    const last = page.items[page.items.length - 1];
+    if (myEpoch !== epoch || !last) return;
+    const dto = toChatMessage(last, myIdentity);
+    setState((state) => {
+      const chat = state.chats[sid];
+      if (!chat || (chat.preview && !chat.preview.fromHistory)) return {};
+      return { chats: { ...state.chats, [sid]: { ...chat, preview: { body: dto.body, mine: dto.mine } } } };
+    });
+  } catch (error) {
+    console.error('employee chat preview failed', error);
+    previewsRequested.delete(sid);
+  }
+}
 
+async function lastHistoryMessage(twilioClient: Client, sid: string): Promise<ChatMessage | undefined> {
+  const cached = historyCache.get(sid);
+  if (cached) return cached.messages[cached.messages.length - 1];
+  try {
+    const page = await (await twilioClient.peekConversationBySid(sid)).getMessages(1);
+    const last = page.items[page.items.length - 1];
+    return last ? toChatMessage(last, myIdentity) : undefined;
+  } catch (error) {
+    if (!isForbidden(error)) throw error;
+    console.error(`employee chat history preview for ${sid} is not accessible`, error);
+    return undefined;
+  }
+}
+
+async function loadHistoryPreview(twilioClient: Client, sid: string, myEpoch: number): Promise<void> {
+  try {
+    for (const retiredSid of [...previousSidsOf(summariesBySid.get(sid))].reverse()) {
+      const last = await lastHistoryMessage(twilioClient, retiredSid);
+      if (myEpoch !== epoch) return;
+      if (!last) continue;
+      setState((state) => {
+        const chat = state.chats[sid];
+        if (!chat || chat.lastMessageIndex != null || chat.preview) return {};
+        return {
+          chats: {
+            ...state.chats,
+            [sid]: {
+              ...chat,
+              lastMessageAt: chat.lastMessageAt ?? last.dateCreated,
+              preview: { body: last.body, mine: last.mine, fromHistory: true },
+            },
+          },
+        };
+      });
+      return;
+    }
+  } catch (error) {
+    console.error('employee chat history preview failed', error);
+    historyPreviewsRequested.delete(sid);
+  }
+}
+
+export async function loadMissingPreviews(): Promise<void> {
+  const twilioClient = client;
+  const myEpoch = epoch;
+  const chats = Object.values(getState().chats);
+  const current = chats
+    .filter(
+      (chat) =>
+        chat.lastMessageIndex != null && (!chat.preview || chat.preview.fromHistory) && !previewsRequested.has(chat.sid)
+    )
+    .map((chat) => chat.sid);
+  current.forEach((sid) => previewsRequested.add(sid));
+  const tasks: (() => Promise<void>)[] = current.map((sid) => () => loadCurrentPreview(sid, myEpoch));
+  if (twilioClient) {
+    const fromHistory = chats
+      .filter(
+        (chat) =>
+          chat.lastMessageIndex == null &&
+          chat.hasHistory === true &&
+          !chat.preview &&
+          !historyPreviewsRequested.has(chat.sid)
+      )
+      .map((chat) => chat.sid);
+    fromHistory.forEach((sid) => historyPreviewsRequested.add(sid));
+    tasks.push(...fromHistory.map((sid) => () => loadHistoryPreview(twilioClient, sid, myEpoch)));
+  }
   const worker = async (): Promise<void> => {
-    for (let sid = pending.shift(); sid; sid = pending.shift()) {
-      const conversation = conversationsBySid.get(sid);
-      if (!conversation) continue;
-      try {
-        const page = await conversation.getMessages(1);
-        const last = page.items[page.items.length - 1];
-        if (myEpoch !== epoch || !last) continue;
-        const dto = toChatMessage(last, myIdentity);
-        setState((state) => {
-          const chat = state.chats[sid];
-          if (!chat || chat.preview) return {};
-          return { chats: { ...state.chats, [sid]: { ...chat, preview: { body: dto.body, mine: dto.mine } } } };
-        });
-      } catch (error) {
-        console.error('employee chat preview failed', error);
-        previewsRequested.delete(sid);
-      }
+    for (let task = tasks.shift(); task; task = tasks.shift()) {
+      await task();
     }
   };
   await Promise.all(Array.from({ length: PREVIEW_CONCURRENCY }, worker));

@@ -2066,6 +2066,65 @@ describe('employee chat flows', () => {
       expect(historyMessages()).toHaveLength(3);
     });
 
+    it('previews and orders an empty replacement by its latest retired message until the current one has messages', async () => {
+      let fakeClient: any;
+      let current: any;
+      mockGetEmployeeChats.mockResolvedValue({
+        token: 'token',
+        conversations: [summaryOf('CH-bob3', BOB, ['CH-bob1', 'CH-bob2']), summaryOf('CH-carol', CAROL)],
+      });
+      await connectWith((client) => {
+        fakeClient = client;
+        const first = client.addConversation('CH-bob1');
+        first.push('bob-identity', 'first a');
+        first.close();
+        const second = client.addConversation('CH-bob2');
+        second.push('bob-identity', 'second a');
+        second.push('me-identity', 'second b');
+        second.close();
+        current = client.addConversation('CH-bob3');
+        client.addConversation('CH-carol').push('carol-identity', 'carol a');
+      });
+      renderChat();
+      act(() => openEmployeeChatDrawer());
+
+      await waitFor(() => expect(within(chatRow('Bob Chen')).getByText('You: second b')).toBeInTheDocument());
+      const rows = (): string[] => screen.getAllByTestId('employee-chat-list-item').map((row) => row.textContent ?? '');
+      expect(rows()).toEqual([expect.stringContaining('Bob Chen'), expect.stringContaining('Carol Diaz')]);
+      expect(fakeClient.peekCalls).toEqual(['CH-bob2']);
+      expect(useEmployeeChatStore.getState().chats['CH-bob3'].lastMessageIndex).toBeUndefined();
+      expect(rowUnreadDot('Bob Chen')).not.toBeInTheDocument();
+
+      await act(async () => {
+        current.receive('bob-identity', 'fresh start');
+      });
+
+      expect(within(chatRow('Bob Chen')).getByText('fresh start')).toBeInTheDocument();
+      expect(within(chatRow('Bob Chen')).queryByText('You: second b')).not.toBeInTheDocument();
+    });
+
+    it('previews the retired conversation from history already loaded during recovery when returning to the list', async () => {
+      const { fakeClient } = await connectWithClosedBob();
+      const pending = deferOpenEmployeeChat();
+      renderChat();
+      act(() => openEmployeeChatDrawer());
+      fireEvent.click(await screen.findByText('Bob Chen'));
+      await waitFor(() => expect(historyMessages()).toHaveLength(3));
+      await act(async () => {
+        pending.resolve({ conversation: summaryOf('CH-bob2', BOB, ['CH-bob']) });
+      });
+      await act(async () => {
+        fakeClient.emit('conversationJoined', fakeClient.addConversation('CH-bob2'));
+      });
+      await waitFor(() => expect(useEmployeeChatStore.getState().activeSid).toBe('CH-bob2'));
+      const peeksBefore = [...fakeClient.peekCalls];
+
+      fireEvent.click(screen.getByRole('button', { name: 'Back to chats' }));
+
+      await waitFor(() => expect(within(chatRow('Bob Chen')).getByText('message 2')).toBeInTheDocument());
+      expect(fakeClient.peekCalls).toEqual(peeksBefore);
+    });
+
     it('renders several retired conversations as one continuous chronological history above the current one', async () => {
       mockGetEmployeeChats.mockResolvedValue({
         token: 'token',

@@ -17,7 +17,7 @@ export interface ChatListItem {
   lastMessageIndex?: number;
   lastMessageAt?: string;
   lastReadIndex?: number | null;
-  preview?: { body: string; mine: boolean };
+  preview?: { body: string; mine: boolean; fromHistory?: boolean };
   closed?: boolean;
   hasHistory?: boolean;
 }
