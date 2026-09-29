@@ -108,12 +108,13 @@ export const settledRefundTotalInCents = (refunds: PaymentRefundDTO[] | undefine
 export const pendingReservationTotalInCents = (refunds: PaymentRefundDTO[] | undefined): number =>
   (refunds ?? []).filter(isPendingReservation).reduce((sum, refund) => sum + refund.amountInCents, 0);
 
+// FHIR forbids empty arrays, so an empty refund list drops the extension instead of writing extension: []
 export const upsertPaymentRefundsExtension = (
   extensions: Extension[] | undefined,
   refunds: PaymentRefundDTO[]
 ): Extension[] => [
   ...(extensions ?? []).filter((ext) => ext.url !== PAYMENT_REFUNDS_EXTENSION_URL),
-  buildPaymentRefundsExtension(refunds),
+  ...(refunds.length > 0 ? [buildPaymentRefundsExtension(refunds)] : []),
 ];
 
 export interface PaymentVoidInfo {

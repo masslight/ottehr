@@ -131,6 +131,7 @@ export const applyRefundsToPaymentNotice = async (
     JSON.stringify([...list].sort((a, b) => a.stripeRefundId.localeCompare(b.stripeRefundId)));
   if (existing && canonical(existing) === canonical(merged)) return;
 
+  const updatedExtensions = upsertPaymentRefundsExtension(notice.extension, merged);
   await oystehr.fhir.patch<PaymentNotice>({
     resourceType: 'PaymentNotice',
     id: notice.id,
@@ -140,11 +141,14 @@ export const applyRefundsToPaymentNotice = async (
       ...(notice.meta?.versionId
         ? [{ op: 'test' as const, path: '/meta/versionId', value: notice.meta.versionId }]
         : []),
-      {
-        op: notice.extension !== undefined ? 'replace' : 'add',
-        path: '/extension',
-        value: upsertPaymentRefundsExtension(notice.extension, merged),
-      },
+      // FHIR forbids empty arrays, so an emptied extension list must be removed, not replaced
+      updatedExtensions.length === 0
+        ? { op: 'remove' as const, path: '/extension' }
+        : {
+            op: notice.extension !== undefined ? ('replace' as const) : ('add' as const),
+            path: '/extension',
+            value: updatedExtensions,
+          },
     ],
   });
 };
