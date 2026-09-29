@@ -231,9 +231,20 @@ const complexValidation = async (
   }
 
   const amountInCents = Math.round((notice.amount?.value ?? 0) * 100);
-  const resumeRefund = external
-    ? existingRefunds.find((refund) => refund.stripeRefundId === manualRefundId)
-    : stripeResumeRefund;
+  // the same operation key must not execute both refund modes: a replay that switched
+  // external on/off would record a second refund instead of resuming the first
+  const manualResumeRefund = existingRefunds.find((refund) => refund.stripeRefundId === manualRefundId);
+  if (external && stripeResumeRefund) {
+    throw INVALID_INPUT_ERROR(
+      'This operation already issued a Stripe refund; it cannot be replayed as an external refund.'
+    );
+  }
+  if (!external && manualResumeRefund) {
+    throw INVALID_INPUT_ERROR(
+      'This operation already recorded an external refund; it cannot be replayed as a Stripe refund.'
+    );
+  }
+  const resumeRefund = external ? manualResumeRefund : stripeResumeRefund;
   if (resumeRefund) {
     return {
       notice,
@@ -403,7 +414,17 @@ const performExternalRefund = async (
   ).unbundle();
 
   for (const billingNotice of billingNotices) {
-    await applyRefundsToPaymentNotice(billingClient, billingNotice, refunds);
+    // union with the copy's own stamped refunds: the webhook may have stamped a newer Stripe
+    // refund here that our clinical snapshot predates
+    const copyRefunds = parsePaymentRefundsFromNotice(billingNotice) ?? [];
+    const knownIds = new Set(refunds.map((refund) => refund.stripeRefundId));
+    const copyOnly = copyRefunds.filter((refund) => !knownIds.has(refund.stripeRefundId));
+    await applyRefundsToPaymentNotice(
+      billingClient,
+      billingNotice,
+      [...refunds, ...copyOnly],
+      input.expiredReservationIds
+    );
   }
 
   // Gate on the billing flag, not on billing copies existing: the positive copy arrives via the
