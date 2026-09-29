@@ -11,6 +11,7 @@ import {
   openChatWithEmployee,
   openConversation,
   openEmployeeChatDrawer,
+  sendChatMessage,
   UNREAD_PRELOAD_CAP,
 } from '../../src/features/employee-chat/employee-chat.connection';
 import { ChatListItem, ChatMessage, useEmployeeChatStore } from '../../src/features/employee-chat/employee-chat.store';
@@ -51,11 +52,23 @@ const twilio = vi.hoisted(() => {
     failNextSend = false;
     status: 'joined' | 'notParticipating' = 'joined';
     state: { current: 'active' | 'inactive' | 'closed' } = { current: 'active' };
+    participantReadIndex: number | null = null;
+    sendCalls: string[] = [];
 
     close(): void {
+      this.participantReadIndex = this.lastReadMessageIndex;
       this.status = 'notParticipating';
       this.state = { current: 'closed' };
       this.lastReadMessageIndex = null;
+    }
+
+    async getParticipants(): Promise<any[]> {
+      return [
+        {
+          identity: this.client.user.identity,
+          lastReadMessageIndex: this.participantReadIndex ?? this.lastReadMessageIndex,
+        },
+      ];
     }
 
     constructor(
@@ -127,6 +140,7 @@ const twilio = vi.hoisted(() => {
     }
 
     async sendMessage(body: string): Promise<number> {
+      this.sendCalls.push(body);
       if (this.failNextSend) {
         this.failNextSend = false;
         throw new Error('network down');
@@ -178,7 +192,19 @@ const twilio = vi.hoisted(() => {
     }
 
     async getSubscribedConversations(): Promise<any> {
-      return { items: [...this.conversations.values()], hasNextPage: false };
+      const items = [...this.conversations.values()].filter(
+        (conversation) => conversation.status === 'joined' && conversation.state.current !== 'closed'
+      );
+      return { items, hasNextPage: false };
+    }
+
+    peekCalls: string[] = [];
+
+    async peekConversationBySid(sid: string): Promise<FakeConversation> {
+      this.peekCalls.push(sid);
+      const conversation = this.conversations.get(sid);
+      if (!conversation) throw Object.assign(new Error('Forbidden'), { status: 403, body: { code: 50430 } });
+      return conversation;
     }
 
     async getConversationBySid(sid: string): Promise<FakeConversation> {
@@ -1589,5 +1615,381 @@ describe('employee chat flows', () => {
 
     expect(rowUnreadDot('Bob Chen')).toBeNull();
     expect(screen.getByText('Bob Chen')).toHaveStyle({ fontWeight: 500 });
+  });
+  describe('closed conversation recovery', () => {
+    const summaryOf = (sid: string, employee: typeof BOB, previous: string[] = []): any => ({
+      conversationSid: sid,
+      previousConversationSids: previous,
+      otherEmployee: employee,
+    });
+
+    const historyMessages = (): HTMLElement[] => screen.queryAllByTestId('employee-chat-history-message');
+    const currentMessages = (): HTMLElement[] => screen.queryAllByTestId('employee-chat-message');
+    const chatSids = (): string[] => Object.keys(useEmployeeChatStore.getState().chats).sort();
+
+    const connectWithClosedBob = async (): Promise<{ fakeClient: any; bob: any }> => {
+      let fakeClient: any;
+      let bob: any;
+      await connectWith((client) => {
+        fakeClient = client;
+        bob = client.addConversation('CH-bob');
+        bob.seed(3, 'bob-identity');
+        bob.lastReadMessageIndex = 1;
+        bob.close();
+        client.addConversation('CH-carol');
+      });
+      await waitFor(() => expect(useEmployeeChatStore.getState().chats['CH-bob']?.closed).toBe(true));
+      return { fakeClient, bob };
+    };
+
+    it('keeps a closed chat in the list after reconnecting, using my participant read horizon', async () => {
+      const { fakeClient, bob } = await connectWithClosedBob();
+      renderChat();
+      act(() => openEmployeeChatDrawer());
+
+      expect(await screen.findByText('Bob Chen')).toBeInTheDocument();
+      expect(fakeClient.peekCalls).toEqual(['CH-bob']);
+      expect(useEmployeeChatStore.getState().chats['CH-bob'].lastReadIndex).toBe(1);
+      expect(rowUnreadDot('Bob Chen')).toBeInTheDocument();
+      expect(mockOpenEmployeeChat).not.toHaveBeenCalled();
+      expect(bob.advanceCalls).toEqual([]);
+    });
+
+    it('replaces a closed conversation when it is opened and keeps its messages as read-only history', async () => {
+      const { fakeClient, bob } = await connectWithClosedBob();
+      const pending = deferOpenEmployeeChat();
+      renderChat();
+      act(() => openEmployeeChatDrawer());
+      fireEvent.click(await screen.findByText('Bob Chen'));
+
+      await waitFor(() =>
+        expect(mockOpenEmployeeChat).toHaveBeenCalledWith(expect.anything(), {
+          targetProfile: BOB.profile,
+          replaceClosedConversationSid: 'CH-bob',
+        })
+      );
+      expect(screen.getByTestId('employee-chat-recovering')).toBeInTheDocument();
+      expect(screen.getByTestId('employee-chat-input')).toBeDisabled();
+      expect(screen.getByRole('heading', { name: 'Bob Chen' })).toBeInTheDocument();
+      await waitFor(() => expect(historyMessages()).toHaveLength(3));
+      expect(currentMessages()).toHaveLength(0);
+
+      await act(async () => {
+        pending.resolve({ conversation: summaryOf('CH-bob2', BOB, ['CH-bob']) });
+      });
+      await act(async () => {
+        fakeClient.emit('conversationJoined', fakeClient.addConversation('CH-bob2'));
+      });
+
+      await waitFor(() => expect(useEmployeeChatStore.getState().activeSid).toBe('CH-bob2'));
+      await waitFor(() => expect(historyMessages()).toHaveLength(3));
+      expect(screen.getByTestId('employee-chat-history-separator')).toHaveTextContent('Earlier messages');
+      expect(screen.queryByTestId('employee-chat-recovering')).not.toBeInTheDocument();
+      expect(screen.getByTestId('employee-chat-input')).not.toBeDisabled();
+      expect(chatSids()).toEqual(['CH-bob2', 'CH-carol']);
+      expect(mockOpenEmployeeChat).toHaveBeenCalledTimes(1);
+      expect(bob.advanceCalls).toEqual([]);
+      expect(bob.sendCalls).toEqual([]);
+    });
+
+    it('leaves history readable and offers Retry when the replacement fails', async () => {
+      const { fakeClient, bob } = await connectWithClosedBob();
+      mockOpenEmployeeChat.mockRejectedValueOnce(new Error('FHIR unavailable'));
+      renderChat();
+      act(() => openEmployeeChatDrawer());
+      fireEvent.click(await screen.findByText('Bob Chen'));
+
+      expect(await screen.findByTestId('employee-chat-recovery-failed')).toBeInTheDocument();
+      expect(historyMessages()).toHaveLength(3);
+      expect(screen.getByTestId('employee-chat-input')).toBeDisabled();
+      expect(screen.queryByText('No messages yet')).not.toBeInTheDocument();
+
+      mockOpenEmployeeChat.mockImplementationOnce(async () => {
+        fakeClient.emit('conversationJoined', fakeClient.addConversation('CH-bob2'));
+        return { conversation: summaryOf('CH-bob2', BOB, ['CH-bob']) };
+      });
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+      });
+
+      await waitFor(() => expect(useEmployeeChatStore.getState().activeSid).toBe('CH-bob2'));
+      expect(screen.queryByTestId('employee-chat-recovery-failed')).not.toBeInTheDocument();
+      expect(historyMessages()).toHaveLength(3);
+      expect(screen.getByTestId('employee-chat-input')).not.toBeDisabled();
+      expect(bob.advanceCalls).toEqual([]);
+    });
+
+    it('settles on the canonical replacement when the other employee replaced the chat first', async () => {
+      const { fakeClient } = await connectWithClosedBob();
+      const pending = deferOpenEmployeeChat();
+      renderChat();
+      act(() => openEmployeeChatDrawer());
+      fireEvent.click(await screen.findByText('Bob Chen'));
+      await waitFor(() => expect(mockOpenEmployeeChat).toHaveBeenCalledTimes(1));
+
+      mockGetEmployeeChats.mockResolvedValue({
+        token: 'token',
+        conversations: [summaryOf('CH-bob2', BOB, ['CH-bob']), summaryOf('CH-carol', CAROL)],
+      });
+      await act(async () => {
+        fakeClient.emit('conversationJoined', fakeClient.addConversation('CH-bob2'));
+      });
+      await waitFor(() => expect(chatSids()).toEqual(['CH-bob2', 'CH-carol']));
+      expect(screen.getByRole('heading', { name: 'Bob Chen' })).toBeInTheDocument();
+      expect(useEmployeeChatStore.getState().activeSid).toBe('CH-bob');
+
+      await act(async () => {
+        pending.resolve({ conversation: summaryOf('CH-bob2', BOB, ['CH-bob']) });
+      });
+
+      await waitFor(() => expect(useEmployeeChatStore.getState().activeSid).toBe('CH-bob2'));
+      expect(chatSids()).toEqual(['CH-bob2', 'CH-carol']);
+      expect(mockOpenEmployeeChat).toHaveBeenCalledTimes(1);
+      expect(screen.getByTestId('employee-chat-input')).not.toBeDisabled();
+    });
+
+    it('starts recovery when the open conversation closes, and only marks other chats closed', async () => {
+      let bob: any;
+      let carol: any;
+      let fakeClient: any;
+      await connectWith((client) => {
+        fakeClient = client;
+        bob = client.addConversation('CH-bob');
+        bob.seed(2, 'bob-identity');
+        carol = client.addConversation('CH-carol');
+        carol.seed(1, 'carol-identity');
+      });
+      deferOpenEmployeeChat();
+      renderChat();
+      act(() => openEmployeeChatDrawer());
+      await act(async () => {
+        await openConversation('CH-bob');
+      });
+      expect(currentMessages()).toHaveLength(2);
+
+      carol.close();
+      act(() => {
+        fakeClient.emit('conversationUpdated', { conversation: carol, updateReasons: ['state'] });
+      });
+      expect(useEmployeeChatStore.getState().chats['CH-carol'].closed).toBe(true);
+      expect(mockOpenEmployeeChat).not.toHaveBeenCalled();
+
+      bob.close();
+      await act(async () => {
+        fakeClient.emit('conversationUpdated', { conversation: bob, updateReasons: ['state'] });
+      });
+
+      await waitFor(() =>
+        expect(mockOpenEmployeeChat).toHaveBeenCalledWith(expect.anything(), {
+          targetProfile: BOB.profile,
+          replaceClosedConversationSid: 'CH-bob',
+        })
+      );
+      expect(mockOpenEmployeeChat).toHaveBeenCalledTimes(1);
+      expect(screen.getByTestId('employee-chat-input')).toBeDisabled();
+      await waitFor(() => expect(historyMessages()).toHaveLength(2));
+      expect(currentMessages()).toHaveLength(0);
+      expect(bob.advanceCalls).toEqual([]);
+    });
+
+    it('treats a conversation removed while closed as history and only recovers the open chat', async () => {
+      let carol: any;
+      let fakeClient: any;
+      await connectWith((client) => {
+        fakeClient = client;
+        client.addConversation('CH-bob').seed(1, 'bob-identity');
+        carol = client.addConversation('CH-carol');
+        carol.seed(1, 'carol-identity');
+      });
+      renderChat();
+      act(() => openEmployeeChatDrawer());
+      await act(async () => {
+        await openConversation('CH-bob');
+      });
+
+      carol.close();
+      act(() => {
+        fakeClient.emit('conversationLeft', carol);
+        fakeClient.emit('conversationRemoved', carol);
+      });
+
+      expect(useEmployeeChatStore.getState().chats['CH-carol'].closed).toBe(true);
+      expect(mockOpenEmployeeChat).not.toHaveBeenCalled();
+      expect(useEmployeeChatStore.getState().activeSid).toBe('CH-bob');
+    });
+
+    it('drops a conversation I was removed from without leaving it writable', async () => {
+      let bob: any;
+      let fakeClient: any;
+      await connectWith((client) => {
+        fakeClient = client;
+        bob = client.addConversation('CH-bob');
+        bob.seed(1, 'bob-identity');
+        client.addConversation('CH-carol');
+      });
+      renderChat();
+      act(() => openEmployeeChatDrawer());
+      await act(async () => {
+        await openConversation('CH-bob');
+      });
+      const refreshesBefore = mockGetEmployeeChats.mock.calls.length;
+
+      bob.status = 'notParticipating';
+      await act(async () => {
+        fakeClient.emit('conversationLeft', bob);
+        fakeClient.emit('conversationRemoved', bob);
+      });
+
+      await waitFor(() => expect(mockGetEmployeeChats.mock.calls.length).toBe(refreshesBefore + 1));
+      expect(useEmployeeChatStore.getState().chats['CH-bob']).toBeUndefined();
+      expect(screen.getByText('This chat is no longer available.')).toBeInTheDocument();
+      expect(screen.getByTestId('employee-chat-input')).toBeDisabled();
+      await expect(sendChatMessage('still there?')).rejects.toThrow();
+      expect(bob.sendCalls).toEqual([]);
+      expect(mockOpenEmployeeChat).not.toHaveBeenCalled();
+    });
+
+    it('moves an open chat to the replacement the other employee created, keeping the old one as history', async () => {
+      let bob: any;
+      let fakeClient: any;
+      await connectWith((client) => {
+        fakeClient = client;
+        bob = client.addConversation('CH-bob');
+        bob.seed(2, 'bob-identity');
+        client.addConversation('CH-carol');
+      });
+      renderChat();
+      act(() => openEmployeeChatDrawer());
+      await act(async () => {
+        await openConversation('CH-bob');
+      });
+
+      bob.close();
+      mockGetEmployeeChats.mockResolvedValue({
+        token: 'token',
+        conversations: [summaryOf('CH-bob2', BOB, ['CH-bob']), summaryOf('CH-carol', CAROL)],
+      });
+      await act(async () => {
+        fakeClient.emit('conversationJoined', fakeClient.addConversation('CH-bob2'));
+      });
+
+      await waitFor(() => expect(useEmployeeChatStore.getState().activeSid).toBe('CH-bob2'));
+      await waitFor(() => expect(historyMessages()).toHaveLength(2));
+      expect(currentMessages()).toHaveLength(0);
+      expect(chatSids()).toEqual(['CH-bob2', 'CH-carol']);
+      expect(screen.getByRole('heading', { name: 'Bob Chen' })).toBeInTheDocument();
+      expect(screen.getByTestId('employee-chat-input')).not.toBeDisabled();
+      expect(mockOpenEmployeeChat).not.toHaveBeenCalled();
+      await expect(sendChatMessage('on the new one')).resolves.toBeUndefined();
+      expect(bob.sendCalls).toEqual([]);
+    });
+
+    it('never sends to a conversation that closed without an event, and recovers instead', async () => {
+      let bob: any;
+      await connectWith((client) => {
+        bob = client.addConversation('CH-bob');
+        client.addConversation('CH-carol');
+      });
+      deferOpenEmployeeChat();
+      renderChat();
+      act(() => openEmployeeChatDrawer());
+      await act(async () => {
+        await openConversation('CH-bob');
+      });
+
+      bob.close();
+      await expect(sendChatMessage('hello?')).rejects.toThrow();
+
+      expect(bob.sendCalls).toEqual([]);
+      await waitFor(() =>
+        expect(mockOpenEmployeeChat).toHaveBeenCalledWith(expect.anything(), {
+          targetProfile: BOB.profile,
+          replaceClosedConversationSid: 'CH-bob',
+        })
+      );
+      await expect(sendChatMessage('hello?')).rejects.toThrow();
+      expect(bob.sendCalls).toEqual([]);
+    });
+
+    it('loads retired history lazily after a reload, isolated from the current conversation indices and read horizon', async () => {
+      let fakeClient: any;
+      let retired: any;
+      let current: any;
+      mockGetEmployeeChats.mockResolvedValue({
+        token: 'token',
+        conversations: [summaryOf('CH-bob2', BOB, ['CH-bob']), summaryOf('CH-carol', CAROL)],
+      });
+      await connectWith((client) => {
+        fakeClient = client;
+        retired = client.addConversation('CH-bob');
+        retired.seed(3, 'bob-identity');
+        retired.close();
+        current = client.addConversation('CH-bob2');
+        current.seed(1, 'bob-identity');
+        client.addConversation('CH-carol');
+      });
+      mockLayout(() => 0);
+      mockAttention(() => true);
+      renderChat();
+      act(() => openEmployeeChatDrawer());
+      expect(chatSids()).toEqual(['CH-bob2', 'CH-carol']);
+      expect(fakeClient.peekCalls).toEqual([]);
+
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+      await act(async () => {
+        await openConversation('CH-bob2');
+      });
+
+      expect(fakeClient.peekCalls).toEqual(['CH-bob']);
+      expect(historyMessages()).toHaveLength(3);
+      historyMessages().forEach((message) => expect(message).not.toHaveAttribute('data-message-index'));
+      expect(currentMessages().map((message) => message.dataset.messageIndex)).toEqual(['0']);
+      expect(screen.getByTestId('employee-chat-input')).not.toBeDisabled();
+
+      await advance(SEEN_DWELL_MS);
+      expect(current.advanceCalls).toEqual([0]);
+      expect(retired.advanceCalls).toEqual([]);
+      expect(mockOpenEmployeeChat).not.toHaveBeenCalled();
+
+      await act(async () => {
+        current.receive('bob-identity', 'new message');
+      });
+      expect(currentMessages().map((message) => message.dataset.messageIndex)).toEqual(['0', '1']);
+      expect(historyMessages()).toHaveLength(3);
+    });
+
+    it('pages older retired conversations one at a time, oldest at the top', async () => {
+      mockGetEmployeeChats.mockResolvedValue({
+        token: 'token',
+        conversations: [summaryOf('CH-bob3', BOB, ['CH-bob1', 'CH-bob2']), summaryOf('CH-carol', CAROL)],
+      });
+      await connectWith((client) => {
+        const first = client.addConversation('CH-bob1');
+        first.push('bob-identity', 'oldest');
+        first.close();
+        const second = client.addConversation('CH-bob2');
+        second.push('bob-identity', 'middle');
+        second.close();
+        client.addConversation('CH-bob3');
+        client.addConversation('CH-carol');
+      });
+      renderChat();
+      act(() => openEmployeeChatDrawer());
+      await act(async () => {
+        await openConversation('CH-bob3');
+      });
+
+      expect(historyMessages().map((message) => message.textContent)).toEqual([expect.stringContaining('middle')]);
+      expect(screen.queryByText('No messages yet')).not.toBeInTheDocument();
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: 'Load earlier messages' }));
+      });
+
+      expect(historyMessages().map((message) => message.textContent)).toEqual([
+        expect.stringContaining('oldest'),
+        expect.stringContaining('middle'),
+      ]);
+      expect(screen.queryByRole('button', { name: 'Load earlier messages' })).not.toBeInTheDocument();
+    });
   });
 });

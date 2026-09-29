@@ -7,8 +7,11 @@ import { INTEGRATION_TEST_TAG_SYSTEM } from 'utils/lib/utils/e2eCleanup';
 import { afterAll, assert, beforeAll, describe, expect, it, vi } from 'vitest';
 import { listEmployeeChats } from '../../src/ehr/get-employee-chats';
 import { resolveEmployeeChat } from '../../src/ehr/open-employee-chat/helpers';
-import { pairKey, readConversationSid } from '../../src/ehr/shared/employee-chat';
+import { pairKey, readConversationSid, readPreviousConversations } from '../../src/ehr/shared/employee-chat';
 import { setupIntegrationTest } from '../helpers/integration-test-seed-data-setup';
+
+const resolveSid = async (...args: Parameters<typeof resolveEmployeeChat>): Promise<string> =>
+  (await resolveEmployeeChat(...args)).conversationSid;
 
 describe('employee chat pair resolution', () => {
   let oystehr: Oystehr;
@@ -101,7 +104,7 @@ describe('employee chat pair resolution', () => {
 
   it('creates one Group and one conversation for a pair, with exactly the two participants', async () => {
     const { alice, bob } = practitioners;
-    const sid = await resolveEmployeeChat(oystehr, alice, bob);
+    const sid = await resolveSid(oystehr, alice, bob);
 
     const groups = await groupsForPair(alice, bob);
     expect(groups).toHaveLength(1);
@@ -121,8 +124,8 @@ describe('employee chat pair resolution', () => {
   it('returns the same conversation for the reversed pair without creating another', async () => {
     const { alice, bob } = practitioners;
     const callsBefore = createSpy.mock.calls.length;
-    const first = await resolveEmployeeChat(oystehr, alice, bob);
-    const reversed = await resolveEmployeeChat(oystehr, bob, alice);
+    const first = await resolveSid(oystehr, alice, bob);
+    const reversed = await resolveSid(oystehr, bob, alice);
 
     expect(reversed).toBe(first);
     expect(createSpy.mock.calls.length).toBe(callsBefore);
@@ -130,22 +133,60 @@ describe('employee chat pair resolution', () => {
 
   it('creates a different conversation for a different pair', async () => {
     const { alice, bob, carol } = practitioners;
-    const aliceBob = await resolveEmployeeChat(oystehr, alice, bob);
-    const aliceCarol = await resolveEmployeeChat(oystehr, alice, carol);
+    const aliceBob = await resolveSid(oystehr, alice, bob);
+    const aliceCarol = await resolveSid(oystehr, alice, carol);
     expect(aliceCarol).not.toBe(aliceBob);
   });
 
   it('converges concurrent first opens on one Group and one stored conversation', async () => {
     const { bob, carol } = practitioners;
-    const [fromBob, fromCarol] = await Promise.all([
-      resolveEmployeeChat(oystehr, bob, carol),
-      resolveEmployeeChat(oystehr, carol, bob),
-    ]);
+    const [fromBob, fromCarol] = await Promise.all([resolveSid(oystehr, bob, carol), resolveSid(oystehr, carol, bob)]);
 
     expect(fromBob).toBe(fromCarol);
     const groups = await groupsForPair(bob, carol);
     expect(groups).toHaveLength(1);
     expect(readConversationSid(groups[0])).toBe(fromBob);
+  });
+
+  it('replaces a closed conversation once, keeps it as history and answers a stale request with the replacement', async () => {
+    const { alice, bob } = practitioners;
+    const closed = await resolveSid(oystehr, alice, bob);
+    const removalsBefore = removeParticipantSpy.mock.calls.length;
+
+    const replaced = await resolveEmployeeChat(oystehr, bob, alice, closed);
+    const stale = await resolveEmployeeChat(oystehr, alice, bob, closed);
+
+    expect(replaced.conversationSid).not.toBe(closed);
+    expect(replaced.previousConversationSids).toEqual([closed]);
+    expect(stale).toEqual(replaced);
+    const [group] = await groupsForPair(alice, bob);
+    expect(readConversationSid(group)).toBe(replaced.conversationSid);
+    expect(readPreviousConversations(group).map((retired) => retired.sid)).toEqual([closed]);
+    const retiredEncounter = readPreviousConversations(group)[0].encounter.split('/')[1];
+    expect((await oystehr.fhir.get<Encounter>({ resourceType: 'Encounter', id: retiredEncounter })).status).toBe(
+      'finished'
+    );
+    expect(removeParticipantSpy.mock.calls.length).toBe(removalsBefore);
+  });
+
+  it('converges concurrent replacements of the same closed conversation on one canonical conversation', async () => {
+    const { alice, carol } = practitioners;
+    const closed = await resolveSid(oystehr, alice, carol);
+
+    const [fromAlice, fromCarol] = await Promise.all([
+      resolveEmployeeChat(oystehr, alice, carol, closed),
+      resolveEmployeeChat(oystehr, carol, alice, closed),
+    ]);
+
+    expect(fromAlice).toEqual(fromCarol);
+    const [group] = await groupsForPair(alice, carol);
+    expect(readConversationSid(group)).toBe(fromAlice.conversationSid);
+    expect(readPreviousConversations(group).map((retired) => retired.sid)).toEqual([closed]);
+    expect(
+      removeParticipantSpy.mock.calls.some(
+        (call: unknown[]) => (call[0] as { conversationId: string }).conversationId === closed
+      )
+    ).toBe(false);
   });
 
   it("lists only the caller's conversations with the other employee's name", async () => {

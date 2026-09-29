@@ -8,19 +8,20 @@ import { LinkifiedText } from './LinkifiedText';
 interface MessageBubbleProps {
   message: ChatMessage;
   otherName: string;
+  historical?: boolean;
 }
 
 export const formatMessageTimestamp = (dateCreated: string | undefined): string =>
   dateCreated ? DateTime.fromISO(dateCreated).toFormat('MMM d, yyyy · h:mm a') : '';
 
-export const MessageBubble: FC<MessageBubbleProps> = ({ message, otherName }) => {
+export const MessageBubble: FC<MessageBubbleProps> = ({ message, otherName, historical = false }) => {
   const theme = useTheme();
   const timestamp = formatMessageTimestamp(message.dateCreated);
 
   return (
     <Box
-      data-testid="employee-chat-message"
-      data-message-index={message.index}
+      data-testid={historical ? 'employee-chat-history-message' : 'employee-chat-message'}
+      data-message-index={historical ? undefined : message.index}
       sx={{
         alignSelf: message.mine ? 'flex-end' : 'flex-start',
         maxWidth: '85%',

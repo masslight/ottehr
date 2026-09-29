@@ -80,6 +80,6 @@ export function selectHasUnread(state: EmployeeChatState): boolean {
 
 export function visibleChats(chats: Record<string, ChatListItem>, activeSid: string | undefined): ChatListItem[] {
   return Object.values(chats)
-    .filter((chat) => chat.lastMessageIndex != null || chat.sid === activeSid)
+    .filter((chat) => chat.lastMessageIndex != null || chat.sid === activeSid || chat.hasHistory === true)
     .sort((a, b) => (b.lastMessageAt ?? '').localeCompare(a.lastMessageAt ?? ''));
 }

@@ -12,6 +12,7 @@ import {
   markMissedMessage,
   openChatWithEmployee,
   openConversation,
+  retryConversationRecovery,
   retryEmployeeChat,
   sendChatMessage,
   showChatList,
@@ -39,12 +40,16 @@ export const EmployeeChatDrawer: FC = () => {
   const openError = useEmployeeChatStore((state) => state.openError);
   const myProfile = useEmployeeChatStore((state) => state.myProfile);
   const unreadEntry = useEmployeeChatStore((state) => state.unreadEntry);
+  const history = useEmployeeChatStore((state) => state.history);
+  const hasOlderHistory = useEmployeeChatStore((state) => state.hasOlderHistory);
+  const recovery = useEmployeeChatStore((state) => state.recovery);
 
   const { data: employees, isLoading: employeesLoading } = useChatEmployees({ enabled: drawerOpen, myProfile });
   const listItems = useMemo(() => visibleChats(chats, activeSid), [chats, activeSid]);
   const activeChat = activeSid ? chats[activeSid] : undefined;
   const headerEmployee = activeChat?.otherEmployee ?? pendingEmployee;
   const connected = status === 'connected';
+  const activeWritable = activeSid === undefined || (activeChat !== undefined && activeChat.closed !== true);
   const chatSidsKey = Object.keys(chats).sort().join(',');
   const [focusComposerWhenReady, setFocusComposerWhenReady] = useState(false);
   const clearComposerFocusRequest = useCallback(() => setFocusComposerWhenReady(false), []);
@@ -118,6 +123,25 @@ export const EmployeeChatDrawer: FC = () => {
           {openError}
         </Alert>
       )}
+      {view === 'conversation' && recovery === 'recovering' && (
+        <Alert severity="info" sx={{ borderRadius: 0 }} data-testid="employee-chat-recovering">
+          Reconnecting this chat…
+        </Alert>
+      )}
+      {view === 'conversation' && recovery === 'failed' && (
+        <Alert
+          severity="error"
+          sx={{ borderRadius: 0 }}
+          data-testid="employee-chat-recovery-failed"
+          action={
+            <Button color="inherit" size="small" onClick={() => void retryConversationRecovery()}>
+              Retry
+            </Button>
+          }
+        >
+          This chat could not be reconnected. Earlier messages are still available.
+        </Alert>
+      )}
 
       {view === 'list' && status !== 'connecting' && (
         <Box sx={{ flex: 1, overflowY: 'auto' }}>
@@ -141,13 +165,14 @@ export const EmployeeChatDrawer: FC = () => {
           <MessageList
             key={activeSid}
             messages={messages}
+            history={history}
             entryId={unreadEntry?.sid === activeSid ? unreadEntry?.id : undefined}
             dividerIndex={unreadEntry?.sid === activeSid ? unreadEntry?.dividerIndex : undefined}
             unreadAbove={unreadEntry?.sid === activeSid && unreadEntry?.unreadAbove === true}
             otherName={activeChat?.otherEmployee.name ?? ''}
-            loading={loadingMessages}
-            loadFailed={openError !== undefined}
-            hasOlderMessages={hasOlderMessages}
+            loading={loadingMessages || (recovery === 'recovering' && history.length === 0)}
+            loadFailed={openError !== undefined || recovery === 'failed'}
+            hasOlderMessages={hasOlderMessages || hasOlderHistory}
             loadingOlder={loadingOlder}
             onLoadOlder={() => void loadOlderMessages()}
             onSeen={markActiveConversationSeen}
@@ -157,7 +182,7 @@ export const EmployeeChatDrawer: FC = () => {
           <Box sx={{ p: 2 }}>
             <MessageComposer
               key={activeSid}
-              disabled={!connected || loadingMessages}
+              disabled={!connected || loadingMessages || recovery !== undefined || !activeWritable}
               onSend={sendChatMessage}
               focusWhenEnabled={focusComposerWhenReady}
               onFocusHandled={clearComposerFocusRequest}

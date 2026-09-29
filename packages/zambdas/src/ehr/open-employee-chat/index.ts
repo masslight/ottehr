@@ -13,7 +13,7 @@ import { validateRequestParameters } from './validateRequestParameters';
 let m2mToken: string;
 
 export const index = wrapHandler('open-employee-chat', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const { targetProfile, secrets, userToken } = validateRequestParameters(input);
+  const { targetProfile, replaceClosedConversationSid, secrets, userToken } = validateRequestParameters(input);
   const callerProfile = await requireCallerPractitioner(userToken, secrets);
   if (callerProfile === targetProfile) {
     throw INVALID_INPUT_ERROR('Cannot start a chat with yourself');
@@ -23,14 +23,19 @@ export const index = wrapHandler('open-employee-chat', async (input: ZambdaInput
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
   await assertActiveEmployee(oystehr, targetProfile);
-  const conversationSid = await resolveEmployeeChat(oystehr, callerProfile, targetProfile);
+  const { conversationSid, previousConversationSids } = await resolveEmployeeChat(
+    oystehr,
+    callerProfile,
+    targetProfile,
+    replaceClosedConversationSid
+  );
 
   const targetPractitioner = await oystehr.fhir.get<Practitioner>({
     resourceType: 'Practitioner',
     id: practitionerIdFromProfile(targetProfile),
   });
   const response: OpenEmployeeChatResponse = {
-    conversation: buildSummary(conversationSid, targetProfile, targetPractitioner),
+    conversation: buildSummary(conversationSid, targetProfile, targetPractitioner, previousConversationSids),
   };
   return {
     statusCode: 200,

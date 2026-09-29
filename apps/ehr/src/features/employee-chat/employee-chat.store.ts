@@ -18,7 +18,17 @@ export interface ChatListItem {
   lastMessageAt?: string;
   lastReadIndex?: number | null;
   preview?: { body: string; mine: boolean };
+  closed?: boolean;
+  hasHistory?: boolean;
 }
+
+export interface HistorySegment {
+  sid: string;
+  messages: ChatMessage[];
+  hasOlder: boolean;
+}
+
+export type RecoveryStatus = 'recovering' | 'failed';
 
 export interface UnreadEntry {
   id: number;
@@ -43,6 +53,9 @@ export interface EmployeeChatState {
   pendingEmployee?: EmployeeChatParticipant;
   openError?: string;
   unreadEntry?: UnreadEntry;
+  history: HistorySegment[];
+  hasOlderHistory: boolean;
+  recovery?: RecoveryStatus;
 }
 
 export const initialEmployeeChatState: EmployeeChatState = {
@@ -60,6 +73,9 @@ export const initialEmployeeChatState: EmployeeChatState = {
   pendingEmployee: undefined,
   openError: undefined,
   unreadEntry: undefined,
+  history: [],
+  hasOlderHistory: false,
+  recovery: undefined,
 };
 
 export const useEmployeeChatStore = create<EmployeeChatState>()(() => ({ ...initialEmployeeChatState }));

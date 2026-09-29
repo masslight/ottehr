@@ -1,6 +1,6 @@
 import { Box, Button, CircularProgress, Divider, Stack, Typography } from '@mui/material';
 import { FC, Fragment, useEffect, useLayoutEffect, useRef } from 'react';
-import { ChatMessage } from './employee-chat.store';
+import { ChatMessage, HistorySegment } from './employee-chat.store';
 import { MessageBubble } from './MessageBubble';
 import { isAttending, useSeenMessages } from './useSeenMessages';
 
@@ -9,9 +9,11 @@ const STICK_TO_BOTTOM_PX = 80;
 const DIVIDER_TOP_GAP_PX = 8;
 const NEW_DIVIDER_TEST_ID = 'employee-chat-new-divider';
 const UNREAD_ABOVE_TEST_ID = 'employee-chat-unread-above';
+const NO_HISTORY: HistorySegment[] = [];
 
 interface MessageListProps {
   messages: ChatMessage[];
+  history?: HistorySegment[];
   otherName: string;
   loading: boolean;
   loadFailed: boolean;
@@ -41,10 +43,12 @@ interface ScrollSnapshot {
   firstIndex?: number;
   lastIndex?: number;
   dividerIndex?: number;
+  historyCount?: number;
 }
 
 export const MessageList: FC<MessageListProps> = ({
   messages,
+  history = NO_HISTORY,
   otherName,
   loading,
   loadFailed,
@@ -62,6 +66,7 @@ export const MessageList: FC<MessageListProps> = ({
   const positionedEntry = useRef<number | undefined>(undefined);
   const positioned = useRef(false);
   const scheduleSeenCheck = useSeenMessages(containerRef, onSeen, positioned);
+  const historyCount = history.reduce((count, segment) => count + segment.messages.length, 0);
 
   useEffect(() => {
     scheduleSeenCheck();
@@ -74,10 +79,27 @@ export const MessageList: FC<MessageListProps> = ({
     const first = messages[0];
     const last = messages[messages.length - 1];
     const wasNearBottom = previous.height - previous.top - previous.client < STICK_TO_BOTTOM_PX;
+    const historyGrew = historyCount > (previous.historyCount ?? 0);
+    const keepPlaceBelowHistory = (): void => {
+      element.scrollTop = element.scrollHeight - previous.height + previous.top;
+    };
 
     if (entryId === undefined || positionedEntry.current !== entryId) {
       positioned.current = false;
-      if (entryId === undefined) return;
+      if (entryId === undefined) {
+        if (historyCount === 0) return;
+        if (historyGrew) {
+          if (previous.historyCount) keepPlaceBelowHistory();
+          else element.scrollTop = element.scrollHeight;
+        }
+        snapshot.current = {
+          height: element.scrollHeight,
+          top: element.scrollTop,
+          client: element.clientHeight,
+          historyCount,
+        };
+        return;
+      }
       element.scrollTop = initialScrollTop(element);
       positionedEntry.current = entryId;
       positioned.current = true;
@@ -95,6 +117,7 @@ export const MessageList: FC<MessageListProps> = ({
         const missed = messages.find((message) => !message.mine && message.index > (previous.lastIndex ?? -1));
         if (missed && (!wasNearBottom || !isAttending())) onMissedMessage(missed.index);
       }
+      if (historyGrew) keepPlaceBelowHistory();
     }
 
     snapshot.current = {
@@ -104,8 +127,9 @@ export const MessageList: FC<MessageListProps> = ({
       firstIndex: first?.index,
       lastIndex: last?.index,
       dividerIndex,
+      historyCount,
     };
-  }, [messages, entryId, dividerIndex, unreadAbove, onMissedMessage]);
+  }, [messages, historyCount, entryId, dividerIndex, unreadAbove, onMissedMessage]);
 
   const handleScroll = (): void => {
     const element = containerRef.current;
@@ -149,7 +173,26 @@ export const MessageList: FC<MessageListProps> = ({
           New messages start further up
         </Typography>
       )}
-      {!loading && !loadFailed && messages.length === 0 && (
+      {history.map(
+        (segment) =>
+          segment.messages.length > 0 && (
+            <Box
+              key={segment.sid}
+              data-testid="employee-chat-history-segment"
+              sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}
+            >
+              <Divider data-testid="employee-chat-history-separator">
+                <Typography variant="caption" color="text.secondary">
+                  Earlier messages
+                </Typography>
+              </Divider>
+              {segment.messages.map((message) => (
+                <MessageBubble key={message.sid} message={message} otherName={otherName} historical />
+              ))}
+            </Box>
+          )
+      )}
+      {!loading && !loadFailed && messages.length === 0 && historyCount === 0 && (
         <Typography color="text.secondary" sx={{ textAlign: 'center', mt: 4 }}>
           No messages yet
         </Typography>

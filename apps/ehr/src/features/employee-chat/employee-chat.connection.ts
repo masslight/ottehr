@@ -5,6 +5,7 @@ import { getEmployeeChats, openEmployeeChat } from '../../api/api';
 import {
   ChatListItem,
   ChatMessage,
+  HistorySegment,
   initialEmployeeChatState,
   UnreadEntry,
   useEmployeeChatStore,
@@ -31,12 +32,33 @@ const joinWaiters = new Map<string, (conversation: Conversation) => void>();
 const previewsRequested = new Set<string>();
 const unknownSidRefreshes = new Map<string, number>();
 const pendingReadIndex = new Map<string, number>();
+const retiredSids = new Set<string>();
+const lookupsRequested = new Set<string>();
+const historyCache = new Map<string, { messages: ChatMessage[]; paginator: Paginator<Message> | undefined }>();
+let activeHistorySids: string[] = [];
+let recoveringSid: string | undefined;
 
 const setState = useEmployeeChatStore.setState;
 const getState = useEmployeeChatStore.getState;
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : JSON.stringify(error);
+}
+
+function isClosed(conversation: Conversation): boolean {
+  return conversation.state?.current === 'closed';
+}
+
+function isWritable(conversation: Conversation): boolean {
+  return conversation.status === 'joined' && !isClosed(conversation);
+}
+
+function previousSidsOf(summary: EmployeeChatSummary | undefined): string[] {
+  return summary?.previousConversationSids ?? [];
+}
+
+function isForbidden(error: unknown): boolean {
+  return (error as { status?: number } | undefined)?.status === 403;
 }
 
 export function toChatMessage(message: Message, identity: string | undefined): ChatMessage {
@@ -70,6 +92,8 @@ function syncChat(sid: string): void {
   const conversation = conversationsBySid.get(sid);
   if (!summary || !conversation) return;
   const meta = conversationMeta(conversation);
+  const closed = isClosed(conversation);
+  const hasHistory = previousSidsOf(summary).length > 0;
   setState((state) => {
     const existing = state.chats[sid];
     return {
@@ -82,33 +106,165 @@ function syncChat(sid: string): void {
           lastMessageIndex: maxIndex(meta.lastMessageIndex, existing?.lastMessageIndex),
           lastMessageAt: meta.lastMessageAt ?? existing?.lastMessageAt,
           lastReadIndex: maxIndex(meta.lastReadIndex, existing?.lastReadIndex),
+          closed: closed || existing?.closed ? true : undefined,
+          hasHistory: hasHistory ? true : undefined,
         },
       },
     };
   });
 }
 
+function dropChats(sids: string[]): void {
+  if (sids.length === 0) return;
+  setState((state) => {
+    const chats = { ...state.chats };
+    sids.forEach((sid) => delete chats[sid]);
+    return { chats };
+  });
+}
+
+function upsertSummary(summary: EmployeeChatSummary): void {
+  if (retiredSids.has(summary.conversationSid)) return;
+  const previous = previousSidsOf(summary);
+  previous.forEach((sid) => retiredSids.add(sid));
+  const replaced = [...summariesBySid.entries()]
+    .filter(
+      ([sid, existing]) =>
+        sid !== summary.conversationSid &&
+        (previous.includes(sid) || existing.otherEmployee.profile === summary.otherEmployee.profile)
+    )
+    .map(([sid]) => sid);
+  replaced.forEach((sid) => summariesBySid.delete(sid));
+  [...replaced, ...previous].forEach((sid) => conversationsBySid.delete(sid));
+  summariesBySid.set(summary.conversationSid, summary);
+  dropChats(replaced);
+  followReplacement(replaced, summary);
+}
+
+function followReplacement(replaced: string[], summary: EmployeeChatSummary): void {
+  const { view, activeSid } = getState();
+  if (view !== 'conversation' || !activeSid || !replaced.includes(activeSid) || recoveringSid === activeSid) return;
+  const myEpoch = epoch;
+  const myOpen = openSeq;
+  setState({ pendingEmployee: summary.otherEmployee });
+  waitForConversation(summary.conversationSid)
+    .then(async () => {
+      if (myEpoch !== epoch || myOpen !== openSeq || getState().activeSid !== activeSid) return;
+      syncChat(summary.conversationSid);
+      await openConversation(summary.conversationSid);
+    })
+    .catch((error) => console.error('employee chat could not follow the replacement conversation', error));
+}
+
 function refreshForUnknownConversation(sid: string): void {
   const attempts = unknownSidRefreshes.get(sid) ?? 0;
-  if (summariesBySid.has(sid) || attempts >= UNKNOWN_SID_REFRESH_LIMIT) return;
+  if (summariesBySid.has(sid) || retiredSids.has(sid) || attempts >= UNKNOWN_SID_REFRESH_LIMIT) return;
   unknownSidRefreshes.set(sid, attempts + 1);
   void (chatListRefresh ?? Promise.resolve()).then(refreshChatList);
 }
 
 function applySummaries(summaries: EmployeeChatSummary[]): void {
-  summaries.forEach((summary) => summariesBySid.set(summary.conversationSid, summary));
+  summaries.forEach(upsertSummary);
   summaries.forEach((summary) => syncChat(summary.conversationSid));
+  void loadMissingConversations();
+}
+
+function recoverIfActive(sid: string): void {
+  const { view, activeSid } = getState();
+  if (view === 'conversation' && activeSid === sid) void recoverClosedConversation(sid);
 }
 
 function registerConversation(conversation: Conversation): void {
-  conversationsBySid.set(conversation.sid, conversation);
-  joinWaiters.get(conversation.sid)?.(conversation);
-  joinWaiters.delete(conversation.sid);
-  if (summariesBySid.has(conversation.sid)) {
-    syncChat(conversation.sid);
-  } else if (getState().status === 'connected') {
-    refreshForUnknownConversation(conversation.sid);
+  const sid = conversation.sid;
+  if (retiredSids.has(sid)) return;
+  conversationsBySid.set(sid, conversation);
+  joinWaiters.get(sid)?.(conversation);
+  joinWaiters.delete(sid);
+  if (summariesBySid.has(sid)) {
+    syncChat(sid);
+    if (isClosed(conversation)) recoverIfActive(sid);
+  } else if (getState().status === 'connected' && conversation.status === 'joined') {
+    refreshForUnknownConversation(sid);
   }
+}
+
+function handleConversationUpdated(conversation: Conversation): void {
+  const sid = conversation.sid;
+  if (retiredSids.has(sid)) return;
+  conversationsBySid.set(sid, conversation);
+  syncChat(sid);
+  if (isClosed(conversation)) recoverIfActive(sid);
+}
+
+function handleConversationGone(conversation: Conversation): void {
+  const sid = conversation.sid;
+  if (retiredSids.has(sid)) return;
+  if (isClosed(conversation)) {
+    conversationsBySid.set(sid, conversation);
+    syncChat(sid);
+    recoverIfActive(sid);
+    return;
+  }
+  if (!conversationsBySid.has(sid)) return;
+  conversationsBySid.delete(sid);
+  if (!summariesBySid.has(sid)) return;
+  dropChats([sid]);
+  lookupsRequested.delete(sid);
+  const { view, activeSid, recovery } = getState();
+  if (view === 'conversation' && activeSid === sid && recovery === undefined) {
+    setState({ openError: 'This chat is no longer available.' });
+  }
+  void refreshChatList().then(loadMissingConversations);
+}
+
+async function applyParticipantReadHorizon(conversation: Conversation, myEpoch: number): Promise<void> {
+  try {
+    const mine = (await conversation.getParticipants()).find((participant) => participant.identity === myIdentity);
+    const index = mine?.lastReadMessageIndex;
+    if (myEpoch !== epoch || index == null) return;
+    setState((state) => {
+      const chat = state.chats[conversation.sid];
+      if (!chat) return {};
+      return {
+        chats: { ...state.chats, [conversation.sid]: { ...chat, lastReadIndex: maxIndex(chat.lastReadIndex, index) } },
+      };
+    });
+  } catch (error) {
+    console.error('employee chat participant read horizon failed', error);
+  }
+}
+
+async function loadMissingConversation(twilioClient: Client, sid: string, myEpoch: number): Promise<void> {
+  try {
+    const conversation = await twilioClient.peekConversationBySid(sid);
+    if (myEpoch !== epoch || !summariesBySid.has(sid) || retiredSids.has(sid)) return;
+    if (!isClosed(conversation) && conversation.status !== 'joined') return;
+    conversationsBySid.set(sid, conversation);
+    syncChat(sid);
+    if (isClosed(conversation)) {
+      await applyParticipantReadHorizon(conversation, myEpoch);
+      recoverIfActive(sid);
+    }
+  } catch (error) {
+    console.error('employee chat conversation lookup failed', error);
+    if (!isForbidden(error)) lookupsRequested.delete(sid);
+  }
+}
+
+async function loadMissingConversations(): Promise<void> {
+  const twilioClient = client;
+  if (!twilioClient || !myIdentity) return;
+  const myEpoch = epoch;
+  const pending = [...summariesBySid.keys()].filter(
+    (sid) => !conversationsBySid.has(sid) && !lookupsRequested.has(sid)
+  );
+  pending.forEach((sid) => lookupsRequested.add(sid));
+  const worker = async (): Promise<void> => {
+    for (let sid = pending.shift(); sid; sid = pending.shift()) {
+      await loadMissingConversation(twilioClient, sid, myEpoch);
+    }
+  };
+  await Promise.all(Array.from({ length: PREVIEW_CONCURRENCY }, worker));
 }
 
 export function refreshChatList(): Promise<void> {
@@ -169,6 +325,7 @@ export function markMissedMessage(index: number): void {
 
 function handleMessageAdded(message: Message): void {
   const sid = message.conversation.sid;
+  if (retiredSids.has(sid)) return;
   if (!conversationsBySid.has(sid)) conversationsBySid.set(sid, message.conversation);
   const dto = toChatMessage(message, myIdentity);
 
@@ -218,7 +375,7 @@ async function resync(): Promise<void> {
   await refreshChatList();
   const { activeSid } = getState();
   const conversation = activeSid ? conversationsBySid.get(activeSid) : undefined;
-  if (!activeSid || !conversation) return;
+  if (!activeSid || !conversation || !isWritable(conversation) || getState().recovery !== undefined) return;
   try {
     const latest = await conversation.getMessages(INITIAL_PAGE_SIZE);
     if (myEpoch !== epoch || getState().activeSid !== activeSid) return;
@@ -244,7 +401,7 @@ export async function connectEmployeeChat(params: { oystehrZambda: Oystehr; myPr
     const access = await getEmployeeChats(params.oystehrZambda);
     const { Client: TwilioClient } = await import('@twilio/conversations');
     if (myEpoch !== epoch) return;
-    access.conversations.forEach((summary) => summariesBySid.set(summary.conversationSid, summary));
+    access.conversations.forEach(upsertSummary);
 
     const newClient = new TwilioClient(access.token);
     client = newClient;
@@ -271,11 +428,10 @@ export async function connectEmployeeChat(params: { oystehrZambda: Oystehr; myPr
     newClient.on('conversationAdded', guard(registerConversation));
     newClient.on(
       'conversationUpdated',
-      guard(({ conversation }) => {
-        conversationsBySid.set(conversation.sid, conversation);
-        syncChat(conversation.sid);
-      })
+      guard(({ conversation }) => handleConversationUpdated(conversation))
     );
+    newClient.on('conversationLeft', guard(handleConversationGone));
+    newClient.on('conversationRemoved', guard(handleConversationGone));
     newClient.on('messageAdded', guard(handleMessageAdded));
     newClient.on(
       'connectionStateChanged',
@@ -314,7 +470,9 @@ export async function connectEmployeeChat(params: { oystehrZambda: Oystehr; myPr
 
     const subscribed = await loadAllSubscribedConversations(newClient);
     if (myEpoch !== epoch) return;
-    subscribed.forEach((conversation) => conversationsBySid.set(conversation.sid, conversation));
+    subscribed
+      .filter((conversation) => !retiredSids.has(conversation.sid))
+      .forEach((conversation) => conversationsBySid.set(conversation.sid, conversation));
     applySummaries(access.conversations);
     setState({ status: 'connected' });
   } catch (error) {
@@ -338,6 +496,11 @@ export function disconnectEmployeeChat(): void {
   previewsRequested.clear();
   unknownSidRefreshes.clear();
   pendingReadIndex.clear();
+  retiredSids.clear();
+  lookupsRequested.clear();
+  historyCache.clear();
+  activeHistorySids = [];
+  recoveringSid = undefined;
   setState({ ...initialEmployeeChatState });
 }
 
@@ -389,8 +552,11 @@ export function closeEmployeeChatDrawer(): void {
   setState({ drawerOpen: false, unreadEntry: undefined });
 }
 
+const noHistory = { history: [], hasOlderHistory: false, recovery: undefined };
+
 export function showChatList(): void {
   activePaginator = undefined;
+  activeHistorySids = [];
   openSeq++;
   setState({
     view: 'list',
@@ -401,16 +567,152 @@ export function showChatList(): void {
     unreadEntry: undefined,
     pendingEmployee: undefined,
     openError: undefined,
+    ...noHistory,
   });
+}
+
+function historySegments(loaded: Set<string>): Pick<typeof initialEmployeeChatState, 'history' | 'hasOlderHistory'> {
+  const history: HistorySegment[] = activeHistorySids
+    .filter((sid) => loaded.has(sid))
+    .map((sid) => {
+      const entry = historyCache.get(sid);
+      return { sid, messages: entry?.messages ?? [], hasOlder: entry?.paginator?.hasPrevPage ?? false };
+    });
+  const hasOlderHistory = (history[0]?.hasOlder ?? false) || activeHistorySids.some((sid) => !loaded.has(sid));
+  return { history, hasOlderHistory };
+}
+
+async function loadHistoryConversation(sid: string): Promise<void> {
+  if (historyCache.has(sid)) return;
+  const twilioClient = client;
+  if (!twilioClient) throw new Error('Chat is not connected');
+  try {
+    const conversation = conversationsBySid.get(sid) ?? (await twilioClient.peekConversationBySid(sid));
+    const page = await conversation.getMessages(INITIAL_PAGE_SIZE);
+    historyCache.set(sid, { messages: page.items.map((m) => toChatMessage(m, myIdentity)), paginator: page });
+  } catch (error) {
+    if (!isForbidden(error)) throw error;
+    console.error(`employee chat history for ${sid} is not accessible`, error);
+    historyCache.set(sid, { messages: [], paginator: undefined });
+  }
+}
+
+async function loadOlderHistoryPage(sid: string): Promise<void> {
+  const entry = historyCache.get(sid);
+  if (!entry?.paginator?.hasPrevPage) return;
+  const previous = await entry.paginator.prevPage();
+  historyCache.set(sid, {
+    messages: upsertByIndex(
+      entry.messages,
+      previous.items.map((m) => toChatMessage(m, myIdentity))
+    ),
+    paginator: previous,
+  });
+}
+
+async function loadEarlierHistory(): Promise<void> {
+  const { activeSid, history, loadingOlder } = getState();
+  if (!activeSid || loadingOlder) return;
+  const loaded = new Set(history.map((segment) => segment.sid));
+  const top = history[0];
+  const next = [...activeHistorySids].reverse().find((sid) => !loaded.has(sid));
+  if (!top?.hasOlder && !next) return;
+  const myEpoch = epoch;
+  const myOpen = openSeq;
+  const isCurrent = (): boolean => myEpoch === epoch && myOpen === openSeq && getState().activeSid === activeSid;
+  setState({ loadingOlder: true });
+  try {
+    if (top?.hasOlder) {
+      await loadOlderHistoryPage(top.sid);
+    } else if (next) {
+      await loadHistoryConversation(next);
+      loaded.add(next);
+    }
+    if (!isCurrent()) return;
+    setState({ ...historySegments(loaded), loadingOlder: false });
+  } catch (error) {
+    console.error('employee chat history load failed', error);
+    if (isCurrent()) setState({ loadingOlder: false });
+  }
+}
+
+async function recoverClosedConversation(closedSid: string): Promise<void> {
+  const summary = summariesBySid.get(closedSid);
+  const zambda = oystehrZambda;
+  if (!summary || !zambda || recoveringSid === closedSid) return;
+  recoveringSid = closedSid;
+  const myEpoch = epoch;
+  const myOpen = ++openSeq;
+  activePaginator = undefined;
+  activeHistorySids = [...previousSidsOf(summary), closedSid];
+  setState({
+    view: 'conversation',
+    activeSid: closedSid,
+    pendingEmployee: summary.otherEmployee,
+    messages: [],
+    hasOlderMessages: false,
+    loadingOlder: false,
+    loadingMessages: false,
+    openError: undefined,
+    unreadEntry: undefined,
+    history: [],
+    hasOlderHistory: true,
+    recovery: 'recovering',
+  });
+  const isCurrent = (): boolean => myEpoch === epoch && myOpen === openSeq && getState().activeSid === closedSid;
+  try {
+    await loadEarlierHistory();
+    const { conversation: next } = await openEmployeeChat(zambda, {
+      targetProfile: summary.otherEmployee.profile,
+      replaceClosedConversationSid: closedSid,
+    });
+    if (myEpoch !== epoch) return;
+    upsertSummary(next);
+    if (next.conversationSid === closedSid) {
+      throw new Error(`Replacing closed conversation ${closedSid} returned the same conversation`);
+    }
+    const replacement = await waitForConversation(next.conversationSid);
+    if (myEpoch !== epoch) return;
+    syncChat(next.conversationSid);
+    if (!isCurrent()) return;
+    if (!isWritable(replacement)) {
+      throw new Error(`Replacement conversation ${next.conversationSid} is not writable`);
+    }
+    recoveringSid = undefined;
+    await openConversation(next.conversationSid);
+  } catch (error) {
+    console.error('employee chat recovery failed', error);
+    if (isCurrent()) setState({ recovery: 'failed' });
+  } finally {
+    if (recoveringSid === closedSid) recoveringSid = undefined;
+  }
+}
+
+export async function retryConversationRecovery(): Promise<void> {
+  const { activeSid, pendingEmployee } = getState();
+  if (!activeSid) return;
+  if (summariesBySid.has(activeSid)) {
+    await recoverClosedConversation(activeSid);
+    return;
+  }
+  const current = [...summariesBySid.values()].find(
+    (summary) => summary.otherEmployee.profile === pendingEmployee?.profile
+  );
+  if (current) await openConversation(current.conversationSid);
 }
 
 export async function openConversation(sid: string): Promise<void> {
   const conversation = conversationsBySid.get(sid);
   if (!conversation) return;
+  if (isClosed(conversation)) {
+    await recoverClosedConversation(sid);
+    return;
+  }
   const myEpoch = epoch;
   const myOpen = ++openSeq;
   const horizon = readHorizon(sid);
   activePaginator = undefined;
+  activeHistorySids = previousSidsOf(summariesBySid.get(sid));
   setState({
     view: 'conversation',
     activeSid: sid,
@@ -421,6 +723,8 @@ export async function openConversation(sid: string): Promise<void> {
     loadingMessages: true,
     openError: undefined,
     unreadEntry: undefined,
+    ...historySegments(new Set()),
+    recovery: undefined,
   });
   const isCurrent = (): boolean => myEpoch === epoch && myOpen === openSeq && getState().activeSid === sid;
   try {
@@ -449,6 +753,7 @@ export async function openConversation(sid: string): Promise<void> {
         unreadEntry: newEntry(sid, messages, hasOlderMessages, horizon),
       };
     });
+    if (!hasOlderMessages) await loadEarlierHistory();
   } catch (error) {
     console.error('employee chat load messages failed', error);
     if (!isCurrent()) return;
@@ -461,9 +766,13 @@ export async function openConversation(sid: string): Promise<void> {
 }
 
 export async function loadOlderMessages(): Promise<void> {
+  if (!activePaginator?.hasPrevPage) {
+    await loadEarlierHistory();
+    return;
+  }
   const { activeSid, loadingOlder } = getState();
   const paginator = activePaginator;
-  if (!paginator?.hasPrevPage || loadingOlder || !activeSid) return;
+  if (loadingOlder || !activeSid) return;
   const myEpoch = epoch;
   const myOpen = openSeq;
   setState({ loadingOlder: true });
@@ -539,11 +848,13 @@ export async function openChatWithEmployee(employee: EmployeeChatParticipant): P
     loadingMessages: true,
     openError: undefined,
     unreadEntry: undefined,
+    ...noHistory,
   });
+  activeHistorySids = [];
   try {
     const { conversation: summary } = await openEmployeeChat(oystehrZambda, { targetProfile: employee.profile });
     if (myEpoch !== epoch) return;
-    summariesBySid.set(summary.conversationSid, summary);
+    upsertSummary(summary);
     await waitForConversation(summary.conversationSid);
     if (myEpoch !== epoch) return;
     syncChat(summary.conversationSid);
@@ -562,9 +873,13 @@ export async function openChatWithEmployee(employee: EmployeeChatParticipant): P
 }
 
 export async function sendChatMessage(body: string): Promise<void> {
-  const { activeSid } = getState();
+  const { activeSid, recovery } = getState();
   const conversation = activeSid ? conversationsBySid.get(activeSid) : undefined;
   if (!activeSid || !conversation) throw new Error('No conversation is open');
+  if (recovery !== undefined || !isWritable(conversation)) {
+    if (recovery === undefined && isClosed(conversation)) void recoverClosedConversation(activeSid);
+    throw new Error(`Conversation ${activeSid} can no longer receive messages`);
+  }
   const index = await conversation.sendMessage(body);
   void advanceReadHorizon(activeSid, index);
 }

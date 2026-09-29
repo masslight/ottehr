@@ -1,4 +1,4 @@
-import { Group, Practitioner } from 'fhir/r4b';
+import { Extension, Group, Practitioner } from 'fhir/r4b';
 import { getFirstName, getFullestAvailableName, getLastName } from 'utils/lib/fhir/patient';
 import { Secrets } from 'utils/lib/secrets';
 import {
@@ -7,6 +7,7 @@ import {
   EMPLOYEE_CHAT_CONVERSATION_ENCOUNTER_EXTENSION_URL,
   EMPLOYEE_CHAT_CONVERSATION_SID_EXTENSION_URL,
   EMPLOYEE_CHAT_PAIR_SYSTEM,
+  EMPLOYEE_CHAT_PREVIOUS_CONVERSATION_EXTENSION_URL,
   EmployeeChatSummary,
 } from 'utils/lib/types/api/employee-chat.types';
 import { NOT_AUTHORIZED } from 'utils/lib/types/errors';
@@ -45,9 +46,34 @@ export function buildPairGroup(profileA: string, profileB: string): Group {
   };
 }
 
+export interface RetiredConversation {
+  sid: string;
+  encounter: string;
+  retiredAt: string;
+}
+
 export function readConversationSid(group: Group): string | undefined {
   return group.extension?.find((extension) => extension.url === EMPLOYEE_CHAT_CONVERSATION_SID_EXTENSION_URL)
     ?.valueString;
+}
+
+export function readConversationEncounter(group: Group): string | undefined {
+  return group.extension?.find((extension) => extension.url === EMPLOYEE_CHAT_CONVERSATION_ENCOUNTER_EXTENSION_URL)
+    ?.valueReference?.reference;
+}
+
+export function readPreviousConversations(group: Group): RetiredConversation[] {
+  return (group.extension ?? [])
+    .filter((extension) => extension.url === EMPLOYEE_CHAT_PREVIOUS_CONVERSATION_EXTENSION_URL)
+    .map((extension) => {
+      const part = (url: string): Extension | undefined => extension.extension?.find((inner) => inner.url === url);
+      return {
+        sid: part('sid')?.valueString ?? '',
+        encounter: part('encounter')?.valueReference?.reference ?? '',
+        retiredAt: part('retiredAt')?.valueDateTime ?? '',
+      };
+    })
+    .filter((retired) => retired.sid !== '');
 }
 
 export function withConversation(group: Group, conversationSid: string, encounterId: string): Group {
@@ -69,6 +95,23 @@ export function withConversation(group: Group, conversationSid: string, encounte
   };
 }
 
+export function withReplacement(group: Group, conversationSid: string, encounterId: string, retiredAt: string): Group {
+  const retiredSid = readConversationSid(group);
+  const retiredEncounter = readConversationEncounter(group);
+  if (!retiredSid) {
+    throw new Error(`Employee chat Group/${group.id} has no current conversation to replace`);
+  }
+  const retired: Extension = {
+    url: EMPLOYEE_CHAT_PREVIOUS_CONVERSATION_EXTENSION_URL,
+    extension: [
+      { url: 'sid', valueString: retiredSid },
+      ...(retiredEncounter ? [{ url: 'encounter', valueReference: { reference: retiredEncounter } }] : []),
+      { url: 'retiredAt', valueDateTime: retiredAt },
+    ],
+  };
+  return withConversation({ ...group, extension: [...(group.extension ?? []), retired] }, conversationSid, encounterId);
+}
+
 export function otherMemberProfile(group: Group, myProfile: string): string | undefined {
   const references = (group.member ?? [])
     .map((member) => member.entity.reference)
@@ -80,13 +123,15 @@ export function otherMemberProfile(group: Group, myProfile: string): string | un
 export function buildSummary(
   conversationSid: string,
   otherProfile: string,
-  practitioner: Practitioner | undefined
+  practitioner: Practitioner | undefined,
+  previousConversationSids: string[] = []
 ): EmployeeChatSummary {
   const firstName = (practitioner && getFirstName(practitioner)) ?? '';
   const lastName = (practitioner && getLastName(practitioner)) ?? '';
   const name = (practitioner && getFullestAvailableName(practitioner)) || `${firstName} ${lastName}`.trim();
   return {
     conversationSid,
+    previousConversationSids,
     otherEmployee: { profile: otherProfile, firstName, lastName, name: name || 'Unknown employee' },
   };
 }
@@ -99,7 +144,12 @@ export function toSummary(
   const conversationSid = readConversationSid(group);
   const otherProfile = otherMemberProfile(group, myProfile);
   if (!conversationSid || !otherProfile) return undefined;
-  return buildSummary(conversationSid, otherProfile, practitionersByProfile.get(otherProfile));
+  return buildSummary(
+    conversationSid,
+    otherProfile,
+    practitionersByProfile.get(otherProfile),
+    readPreviousConversations(group).map((retired) => retired.sid)
+  );
 }
 
 export async function requireCallerPractitioner(userToken: string, secrets: Secrets | null): Promise<string> {

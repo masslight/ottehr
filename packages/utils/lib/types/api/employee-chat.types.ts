@@ -7,6 +7,7 @@ export interface EmployeeChatParticipant {
 
 export interface EmployeeChatSummary {
   conversationSid: string;
+  previousConversationSids: string[];
   otherEmployee: EmployeeChatParticipant;
 }
 
@@ -17,6 +18,7 @@ export interface GetEmployeeChatsResponse {
 
 export interface OpenEmployeeChatInput {
   targetProfile: string;
+  replaceClosedConversationSid?: string;
 }
 
 export interface OpenEmployeeChatResponse {
@@ -30,3 +32,6 @@ export const EMPLOYEE_CHAT_CONVERSATION_SID_EXTENSION_URL =
   'https://fhir.ottehr.com/Extension/employee-chat-conversation-sid';
 export const EMPLOYEE_CHAT_CONVERSATION_ENCOUNTER_EXTENSION_URL =
   'https://fhir.ottehr.com/Extension/employee-chat-conversation-encounter';
+export const EMPLOYEE_CHAT_PREVIOUS_CONVERSATION_EXTENSION_URL =
+  'https://fhir.ottehr.com/Extension/employee-chat-previous-conversation';
+export const TWILIO_CONVERSATION_SID_PATTERN = /^CH[0-9a-fA-F]{32}$/;
