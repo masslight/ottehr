@@ -171,6 +171,11 @@ export const voidPaymentNotice = async (
     resourceType: 'PaymentNotice',
     id: notice.id,
     operations: [
+      // optimistic lock: the extension array is rebuilt from this snapshot, so a concurrent
+      // refund stamp must fail this patch instead of being silently overwritten
+      ...(notice.meta?.versionId
+        ? [{ op: 'test' as const, path: '/meta/versionId', value: notice.meta.versionId }]
+        : []),
       { op: 'replace', path: '/status', value: 'cancelled' },
       { op: notice.extension !== undefined ? 'replace' : 'add', path: '/extension', value: extension },
     ],
