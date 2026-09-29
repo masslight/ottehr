@@ -58,9 +58,7 @@ async function fetchAdHocEncounters({
 export const adhocEncountersDataset: AdHocDataset = {
   id: 'encounters-comprehensive',
   label: 'Encounters',
-  description:
-    'One row per encounter with visit, patient, contact, and location/provider detail; optional ' +
-    'clinical codes, KPI timing, and AI-assistance layers.',
+  description: 'One row per encounter with visit, patient, contact, and location/provider detail.',
   options: ADHOC_ENCOUNTERS_OPTIONS,
   layers: ENCOUNTER_LAYERS,
   baseSchema: EncounterBaseRowSchema,

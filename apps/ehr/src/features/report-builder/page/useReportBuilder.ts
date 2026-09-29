@@ -5,14 +5,15 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { AdHocRow, LlmDatasetSchema } from 'utils/lib/types/adhoc/datasets/llm-schema';
-import { GenerateAdHocReportInput } from 'utils/lib/types/adhoc/generation/generate.types';
+import { GenerateAdHocReportInput, GenerateAdHocReportOutput } from 'utils/lib/types/adhoc/generation/generate.types';
+import { InferDatasetFeedback } from 'utils/lib/types/adhoc/generation/infer.types';
 import { AdHocDateRangeFilter } from 'utils/lib/types/adhoc/query/date-range';
 import { ADHOC_RUNTIME_VERSION, SavedAdHocReportDefinition } from 'utils/lib/types/adhoc/saved/saved.types';
 import { AD_HOC_REPORT_EDIT_ROLES, AD_HOC_REPORT_VIEW_ROLES } from 'utils/lib/types/api/adhoc-report-access';
 import { generateAdHocReport, inferAdHocReportLayers, listAdHocReports, saveAdHocReport } from '../../../api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
 import useEvolveUser from '../../../hooks/useEvolveUser';
-import { AD_HOC_DATASETS, datasetCatalog, getDataset, otherDatasetsFor } from '../datasets/registry';
+import { datasetCatalog, getDataset, otherDatasetsFor } from '../datasets/registry';
 import { showAdHocDebugLog } from '../debug';
 import { SANDBOX_TIMEOUT_MESSAGE } from '../hooks/useSandbox';
 
@@ -23,6 +24,7 @@ const MAX_AUTO_RETRIES = 2;
 type PreviousAttempt = NonNullable<GenerateAdHocReportInput['previousAttempt']>;
 
 interface InferResult {
+  datasetIds: string[];
   options: Record<string, boolean>;
   unavailable?: string[];
   hint?: string;
@@ -30,6 +32,11 @@ interface InferResult {
 
 export interface UnavailableRequest {
   concepts: string[];
+  hint?: string;
+}
+
+export interface MultiDatasetRequest {
+  datasets: string[];
   hint?: string;
 }
 
@@ -65,6 +72,10 @@ function rangeFromControls(
   }
 }
 
+function toMultiDatasetRequest({ datasetIds, hint }: Pick<InferResult, 'datasetIds' | 'hint'>): MultiDatasetRequest {
+  return { datasets: datasetIds.map((id) => getDataset(id)?.label ?? id), ...(hint ? { hint } : {}) };
+}
+
 function defaultOptionsFor(datasetId: string): Record<string, boolean> {
   const out: Record<string, boolean> = {};
   (getDataset(datasetId)?.options ?? []).forEach((opt) => {
@@ -77,7 +88,7 @@ type UseReportBuilder = {
   oystehrZambda: ReturnType<typeof useApiClients>['oystehrZambda'];
   canView: boolean;
   canCreate: boolean;
-  datasetId: string;
+  datasetId: string | null;
   dateRange: AdHocDateRangeFilter;
   customDate: string;
   customStartDate: string;
@@ -95,6 +106,7 @@ type UseReportBuilder = {
   generatedTitle: string | undefined;
   generateError: string | null;
   unavailableRequest: UnavailableRequest | null;
+  multiDatasetRequest: MultiDatasetRequest | null;
   renderError: string | null;
   showSchema: boolean;
   showCode: boolean;
@@ -113,7 +125,6 @@ type UseReportBuilder = {
   setSavedName: (savedName: string) => void;
   setSavedDescription: (savedDescription: string) => void;
   setSaveDialogOpen: (saveDialogOpen: boolean) => void;
-  onDatasetChange: (datasetId: string) => void;
   handleFetch: () => void;
   handleGenerate: () => void;
   handleReset: () => void;
@@ -131,17 +142,14 @@ export function useReportBuilder(): UseReportBuilder {
   const canView = user?.hasRole(AD_HOC_REPORT_VIEW_ROLES) ?? false;
   const canCreate = user?.hasRole(AD_HOC_REPORT_EDIT_ROLES) ?? false;
 
-  const initialDatasetId = AD_HOC_DATASETS[0]?.id ?? 'encounters-comprehensive';
-  const [datasetId, setDatasetId] = useState<string>(initialDatasetId);
+  const [datasetId, setDatasetId] = useState<string | null>(null);
   const [dateRange, setDateRange] = useState<AdHocDateRangeFilter>('last-30-days');
   const [customDate, setCustomDate] = useState<string>(DateTime.now().toFormat('yyyy-MM-dd'));
   const [customStartDate, setCustomStartDate] = useState<string>(
     DateTime.now().minus({ days: 30 }).toFormat('yyyy-MM-dd')
   );
   const [customEndDate, setCustomEndDate] = useState<string>(DateTime.now().toFormat('yyyy-MM-dd'));
-  const [datasetOptions, setDatasetOptions] = useState<Record<string, boolean>>(() =>
-    defaultOptionsFor(initialDatasetId)
-  );
+  const [datasetOptions, setDatasetOptions] = useState<Record<string, boolean>>({});
 
   const [rows, setRows] = useState<AdHocRow[] | null>(null);
   const [schema, setSchema] = useState<LlmDatasetSchema | null>(null);
@@ -155,6 +163,7 @@ export function useReportBuilder(): UseReportBuilder {
   const [generatedTitle, setGeneratedTitle] = useState<string | undefined>(undefined);
   const [generateError, setGenerateError] = useState<string | null>(null);
   const [unavailableRequest, setUnavailableRequest] = useState<UnavailableRequest | null>(null);
+  const [multiDatasetRequest, setMultiDatasetRequest] = useState<MultiDatasetRequest | null>(null);
   const [renderError, setRenderError] = useState<string | null>(null);
   const [showSchema, setShowSchema] = useState(false);
   const [showCode, setShowCode] = useState(false);
@@ -176,7 +185,10 @@ export function useReportBuilder(): UseReportBuilder {
   );
 
   const fetchWithOptions = useCallback(
-    async (opts: Record<string, boolean>): Promise<{ rows: AdHocRow[]; schema: LlmDatasetSchema } | null> => {
+    async (
+      datasetId: string,
+      opts: Record<string, boolean>
+    ): Promise<{ rows: AdHocRow[]; schema: LlmDatasetSchema } | null> => {
       if (!oystehrZambda) return null;
       const dataset = getDataset(datasetId);
       if (!dataset) return null;
@@ -194,6 +206,7 @@ export function useReportBuilder(): UseReportBuilder {
           options: opts,
           fields: builtSchema.fields.length,
         });
+        setDatasetId(datasetId);
         setRows(fetched);
         setSchema(builtSchema);
         setDatasetOptions(opts);
@@ -206,51 +219,47 @@ export function useReportBuilder(): UseReportBuilder {
         setLoading(false);
       }
     },
-    [oystehrZambda, queryClient, datasetId, dateRange, getDateRangeIso]
+    [oystehrZambda, queryClient, dateRange, getDateRangeIso]
   );
 
   const handleFetch = useCallback((): void => {
-    void fetchWithOptions(datasetOptions);
-  }, [fetchWithOptions, datasetOptions]);
-
-  const onDatasetChange = useCallback((id: string): void => {
-    setDatasetId(id);
-    setDatasetOptions(defaultOptionsFor(id));
-  }, []);
+    if (datasetId) void fetchWithOptions(datasetId, datasetOptions);
+  }, [fetchWithOptions, datasetId, datasetOptions]);
 
   const inferOptions = useCallback(
-    async (message: string): Promise<InferResult> => {
-      const dataset = getDataset(datasetId);
-      const layers = dataset?.options ?? [];
-      const base = defaultOptionsFor(datasetId);
-      if (!oystehrZambda || layers.length === 0) return { options: base };
-      try {
-        const { layerIds, unavailable, hint } = await inferAdHocReportLayers(oystehrZambda, {
-          datasetId,
-          datasets: datasetCatalog(),
-          request: message,
-        });
-        if (unavailable?.length) return { options: base, unavailable, hint };
-        const out = { ...base };
-        layerIds.forEach((id) => {
-          if (id in out) out[id] = true;
-        });
-        return { options: out };
-      } catch (e) {
-        showAdHocDebugLog('infer', 'layer inference failed — using defaults', e);
-        return { options: base };
+    async (message: string, feedback?: InferDatasetFeedback): Promise<InferResult> => {
+      if (!oystehrZambda) throw new Error('Not connected');
+      const inferred = await inferAdHocReportLayers(oystehrZambda, {
+        datasets: datasetCatalog(),
+        request: message,
+        ...(feedback ? { feedback } : {}),
+      });
+      showAdHocDebugLog('infer', 'classified request', { ...inferred, feedback });
+      const datasetIds = inferred.datasets.map((d) => d.id);
+      if (inferred.unavailable?.length) {
+        return { datasetIds, options: {}, unavailable: inferred.unavailable, hint: inferred.hint };
       }
+
+      const options = defaultOptionsFor(datasetIds[0]);
+
+      if (datasetIds.length > 1) return { datasetIds, options, hint: inferred.hint };
+
+      inferred.datasets[0].layerIds.forEach((layerId) => {
+        if (layerId in options) options[layerId] = true;
+      });
+
+      return { datasetIds, options };
     },
-    [oystehrZambda, datasetId]
+    [oystehrZambda]
   );
 
-  const callGenerate = useCallback(
+  const requestGenerate = useCallback(
     async (
       message: string,
       useSchema: LlmDatasetSchema,
       previousAttempt?: PreviousAttempt
-    ): Promise<{ code: string; needsLayers?: string[] } | null> => {
-      if (!oystehrZambda) return null;
+    ): Promise<GenerateAdHocReportOutput> => {
+      if (!oystehrZambda) throw new Error('Not connected');
       showAdHocDebugLog('generate', 'requesting report code', {
         request: message,
         repair: !!previousAttempt,
@@ -265,15 +274,19 @@ export function useReportBuilder(): UseReportBuilder {
       showAdHocDebugLog('generate', 'received report code', {
         title: result.title,
         needsLayers: result.needsLayers,
+        needsDataset: result.needsDataset,
         codeLength: result.code.length,
       });
-      activeRequestRef.current = message;
-      setGeneratedCode(result.code);
-      setGeneratedTitle(result.title);
       return result;
     },
     [oystehrZambda]
   );
+
+  const commitGenerated = useCallback((message: string, result: GenerateAdHocReportOutput): void => {
+    activeRequestRef.current = message;
+    setGeneratedCode(result.code);
+    setGeneratedTitle(result.title);
+  }, []);
 
   const orchestrateRef = useRef<(m: string, infer: boolean, prev?: PreviousAttempt) => Promise<void>>();
 
@@ -284,7 +297,9 @@ export function useReportBuilder(): UseReportBuilder {
       setGenerateError(null);
       setRenderError(null);
       setUnavailableRequest(null);
+      setMultiDatasetRequest(null);
       try {
+        let activeId = datasetId;
         let activeOpts = datasetOptions;
         let activeSchema = schema;
         if (infer) {
@@ -293,26 +308,97 @@ export function useReportBuilder(): UseReportBuilder {
             setUnavailableRequest({ concepts: inferred.unavailable, hint: inferred.hint });
             return;
           }
+          if (inferred.datasetIds.length > 1) {
+            setMultiDatasetRequest(toMultiDatasetRequest(inferred));
+            return;
+          }
+          activeId = inferred.datasetIds[0];
           activeOpts = inferred.options;
-          const fetched = await fetchWithOptions(activeOpts);
+          const fetched = await fetchWithOptions(activeId, activeOpts);
           if (!fetched) return;
           activeSchema = fetched.schema;
-        } else if (!activeSchema) {
-          const fetched = await fetchWithOptions(activeOpts);
+        } else if (!activeSchema && activeId) {
+          const fetched = await fetchWithOptions(activeId, activeOpts);
           if (!fetched) return;
           activeSchema = fetched.schema;
         }
 
-        const result = await callGenerate(message, activeSchema, previousAttempt);
+        if (!activeId || !activeSchema) return;
 
-        const wanted = (result?.needsLayers ?? []).filter((id) => id in activeOpts && !activeOpts[id]);
+        let currentId = activeId;
+        let repicked = false;
+        let switched = false;
+
+        const reject = (apply: () => void): null => {
+          setGeneratedCode(null);
+          setGeneratedTitle(undefined);
+          apply();
+          return null;
+        };
+
+        const resolveDataset = async (res: GenerateAdHocReportOutput): Promise<GenerateAdHocReportOutput | null> => {
+          const needed = res.needsDataset;
+          if (!infer || !needed) return res;
+
+          if (switched) {
+            return reject(() => setMultiDatasetRequest(toMultiDatasetRequest({ datasetIds: [currentId, needed.id] })));
+          }
+
+          if (repicked) return res;
+
+          repicked = true;
+
+          const retried = await inferOptions(message, {
+            datasetId: currentId,
+            concepts: needed.concepts,
+            suggestedDatasetId: needed.id,
+          }).catch((e) => {
+            showAdHocDebugLog('infer', 're-pick failed — keeping the first report', e);
+            return null;
+          });
+
+          if (!retried) return res;
+
+          if (retried.unavailable?.length) {
+            const { unavailable, hint } = retried;
+            return reject(() => setUnavailableRequest({ concepts: unavailable, hint }));
+          }
+
+          if (retried.datasetIds.length > 1)
+            return reject(() => setMultiDatasetRequest(toMultiDatasetRequest(retried)));
+
+          if (retried.datasetIds[0] === currentId) return res;
+
+          const refetched = await fetchWithOptions(retried.datasetIds[0], retried.options);
+
+          if (!refetched) return res;
+
+          currentId = retried.datasetIds[0];
+          activeOpts = retried.options;
+          switched = true;
+
+          return resolveDataset(await requestGenerate(message, refetched.schema));
+        };
+
+        const result = await resolveDataset(await requestGenerate(message, activeSchema, previousAttempt));
+
+        if (!result) return;
+
+        commitGenerated(message, result);
+
+        const wanted = (result.needsLayers ?? []).filter((id) => id in activeOpts && !activeOpts[id]);
+
         if (wanted.length) {
-          const layerLabels = getDataset(datasetId)?.options ?? [];
+          const layerLabels = getDataset(currentId)?.options ?? [];
           setLoadingLayers(wanted.map((id) => layerLabels.find((l) => l.id === id)?.label ?? id));
           const merged = { ...activeOpts };
           wanted.forEach((id) => (merged[id] = true));
-          const refetched = await fetchWithOptions(merged);
-          if (refetched) await callGenerate(message, refetched.schema, previousAttempt);
+          const refetched = await fetchWithOptions(currentId, merged);
+
+          if (refetched) {
+            const rerun = await resolveDataset(await requestGenerate(message, refetched.schema, previousAttempt));
+            if (rerun) commitGenerated(message, rerun);
+          }
         }
       } catch (e) {
         showAdHocDebugLog('generate', 'orchestrate FAILED', e);
@@ -322,7 +408,7 @@ export function useReportBuilder(): UseReportBuilder {
         setLoadingLayers([]);
       }
     },
-    [oystehrZambda, datasetId, datasetOptions, schema, inferOptions, fetchWithOptions, callGenerate]
+    [oystehrZambda, datasetId, datasetOptions, schema, inferOptions, fetchWithOptions, requestGenerate, commitGenerated]
   );
 
   orchestrateRef.current = orchestrate;
@@ -374,6 +460,7 @@ export function useReportBuilder(): UseReportBuilder {
     setGeneratedTitle(undefined);
     setGenerateError(null);
     setUnavailableRequest(null);
+    setMultiDatasetRequest(null);
     setRenderError(null);
     setLoadedSavedId(null);
     activeRequestRef.current = '';
@@ -464,48 +551,42 @@ export function useReportBuilder(): UseReportBuilder {
   }, [oystehrZambda]);
 
   const buildDefinition = useCallback(
-    (name: string, code: string): SavedAdHocReportDefinition => ({
+    (name: string, code: string, reportDatasetId: string): SavedAdHocReportDefinition => ({
       name: name.trim(),
       description: savedDescription.trim() || undefined,
-      datasetId,
+      datasetId: reportDatasetId,
       criteria: { dateRange, customDate, customStartDate, customEndDate, options: datasetOptions },
       request: activeRequestRef.current || request,
       code,
       title: generatedTitle,
       runtimeVersion: ADHOC_RUNTIME_VERSION,
     }),
-    [
-      savedDescription,
-      datasetId,
-      dateRange,
-      customDate,
-      customStartDate,
-      customEndDate,
-      datasetOptions,
-      request,
-      generatedTitle,
-    ]
+    [savedDescription, dateRange, customDate, customStartDate, customEndDate, datasetOptions, request, generatedTitle]
   );
 
   const handleRendered = useCallback((): void => {
     setRenderError(null);
+
     if (!autoFixedRef.current) return;
+
     autoFixedRef.current = false;
-    if (!canCreate || !oystehrZambda || !loadedSavedId || !generatedCode) return;
+
+    if (!canCreate || !oystehrZambda || !loadedSavedId || !generatedCode || !datasetId) return;
+
     void saveAdHocReport(oystehrZambda, {
       reportId: loadedSavedId,
-      definition: buildDefinition(savedName || generatedTitle || 'Report', generatedCode),
+      definition: buildDefinition(savedName || generatedTitle || 'Report', generatedCode, datasetId),
     }).catch((e) => console.warn('Could not persist auto-fixed report', e));
-  }, [canCreate, oystehrZambda, loadedSavedId, generatedCode, buildDefinition, savedName, generatedTitle]);
+  }, [canCreate, oystehrZambda, loadedSavedId, generatedCode, datasetId, buildDefinition, savedName, generatedTitle]);
 
   const handleSave = useCallback(
     async (mode: 'update' | 'new'): Promise<void> => {
-      if (!oystehrZambda || !generatedCode || !savedName.trim()) return;
+      if (!oystehrZambda || !generatedCode || !datasetId || !savedName.trim()) return;
       setSaving(true);
       try {
         const { report: saved } = await saveAdHocReport(oystehrZambda, {
           reportId: mode === 'update' ? loadedSavedId ?? undefined : undefined,
-          definition: buildDefinition(savedName, generatedCode),
+          definition: buildDefinition(savedName, generatedCode, datasetId),
         });
         setLoadedSavedId(saved.id);
         setSavedName(saved.name);
@@ -517,7 +598,7 @@ export function useReportBuilder(): UseReportBuilder {
         setSaving(false);
       }
     },
-    [oystehrZambda, generatedCode, savedName, loadedSavedId, buildDefinition]
+    [oystehrZambda, generatedCode, datasetId, savedName, loadedSavedId, buildDefinition]
   );
 
   const openSaveDialog = useCallback((): void => {
@@ -546,6 +627,7 @@ export function useReportBuilder(): UseReportBuilder {
     generatedTitle,
     generateError,
     unavailableRequest,
+    multiDatasetRequest,
     renderError,
     showSchema,
     showCode,
@@ -564,7 +646,6 @@ export function useReportBuilder(): UseReportBuilder {
     setSavedName,
     setSavedDescription,
     setSaveDialogOpen,
-    onDatasetChange,
     handleFetch,
     handleGenerate,
     handleReset,
