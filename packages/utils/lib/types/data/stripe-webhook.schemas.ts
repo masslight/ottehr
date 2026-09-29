@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { stripeAccountIdRegex } from '../../../validation/regex';
+import { stripeAccountIdRegex } from '../../validation/regex';
 
 export const StripeWebhookSigningSecretsSchema = z.array(
   z.object({
