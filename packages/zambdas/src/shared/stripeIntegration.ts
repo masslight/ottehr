@@ -1,11 +1,14 @@
 import Oystehr from '@oystehr/sdk';
 import { Account, Identifier, Patient, PaymentNotice, RelatedPerson } from 'fhir/r4b';
 import Stripe from 'stripe';
+import { PAYMENT_VOID_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { getStripeCustomerIdFromAccount } from 'utils/lib/fhir/helpers';
 import { getEmailForIndividual, getFullName } from 'utils/lib/fhir/patient';
 import {
+  buildPaymentVoidExtension,
   mergeStripeRefundsWithStored,
   parsePaymentRefundsFromNotice,
+  PaymentVoidInfo,
   upsertPaymentRefundsExtension,
 } from 'utils/lib/fhir/paymentRefunds';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
@@ -149,6 +152,27 @@ export const applyRefundsToPaymentNotice = async (
             path: '/extension',
             value: updatedExtensions,
           },
+    ],
+  });
+};
+
+// Cancels a PaymentNotice and stamps the void extension; no-op when already cancelled.
+export const voidPaymentNotice = async (
+  oystehr: Oystehr,
+  notice: PaymentNotice,
+  voidInfo: PaymentVoidInfo
+): Promise<void> => {
+  if (!notice.id || notice.status === 'cancelled') return;
+  const extension = [
+    ...(notice.extension ?? []).filter((ext) => ext.url !== PAYMENT_VOID_EXTENSION_URL),
+    buildPaymentVoidExtension(voidInfo),
+  ];
+  await oystehr.fhir.patch<PaymentNotice>({
+    resourceType: 'PaymentNotice',
+    id: notice.id,
+    operations: [
+      { op: 'replace', path: '/status', value: 'cancelled' },
+      { op: notice.extension !== undefined ? 'replace' : 'add', path: '/extension', value: extension },
     ],
   });
 };

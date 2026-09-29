@@ -14,7 +14,6 @@ import {
   staleReservationIds,
 } from 'utils/lib/fhir/paymentRefunds';
 import { getStripeAccountForAppointmentOrEncounter } from 'utils/lib/fhir/payments';
-import { Secrets } from 'utils/lib/secrets';
 import {
   PAYMENT_REFUND_MEDIUMS,
   PAYMENT_REFUND_VOID_REASONS,
@@ -23,6 +22,7 @@ import {
   RefundPatientPaymentResponse,
 } from 'utils/lib/types/api/patient-payment-types';
 import { RoleType } from 'utils/lib/types/api/user.types';
+import { RecordBillingRefundInput } from 'utils/lib/types/data/billing/billing.schemas';
 import {
   INVALID_INPUT_ERROR,
   MISSING_REQUEST_BODY,
@@ -30,10 +30,7 @@ import {
   parseStripeError,
 } from 'utils/lib/types/errors';
 import { isValidUUID } from 'utils/lib/validation/helper';
-import { CLINICAL_PAYMENT_NOTICE_ID_SYSTEM, recordBillingManualRefund } from '../../../billing/payments';
-import { createBillingClient } from '../../../billing/shared';
 import { getUserToken, requireUserWithRole } from '../../../shared/auth';
-import { shouldUseOttehrBilling } from '../../../shared/candid';
 import { getAuth0Token } from '../../../shared/getAuth0Token';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { lambdaResponse } from '../../../shared/lambda';
@@ -80,7 +77,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   const refundedBy = (await practitionerRefForUser(user, oystehrClient)).display;
 
-  const response = await performEffect({ ...effectInput, refundedBy }, oystehrClient, stripeClient, secrets);
+  const response = await performEffect({ ...effectInput, refundedBy }, oystehrClient, stripeClient);
   return lambdaResponse(200, response);
 });
 
@@ -297,13 +294,17 @@ const complexValidation = async (
   };
 };
 
-// Records the refund on the clinical notice, stamps any billing copies, and writes the negative
-// billing AR notice the stripe webhook would have produced for a processor refund.
+// Billing FHIR resources are owned by the billing app; EHR zambdas must not write them directly,
+// so billing copies + the negative AR offset are recorded by the record-billing-refund zambda.
+const recordRefundOnBillingSide = async (oystehr: Oystehr, input: RecordBillingRefundInput): Promise<void> => {
+  await oystehr.zambda.execute({ id: 'record-billing-refund', ...input });
+};
+
+// Records the refund on the clinical notice and hands billing-side recording (copy stamps + the
+// negative AR notice the stripe webhook would have produced) to the billing zambda.
 const performManualRefund = async (
   input: RefundEffectInput,
-  oystehrClient: Oystehr,
-  billingClient: Oystehr,
-  secrets: Secrets | null
+  oystehrClient: Oystehr
 ): Promise<RefundPatientPaymentResponse> => {
   const {
     notice,
@@ -331,46 +332,32 @@ const performManualRefund = async (
 
   await applyRefundsToPaymentNotice(oystehrClient, notice, refunds);
 
-  // billing copies carry the clinical notice id as their dedup identifier
-  const billingNotices = (
-    await billingClient.fhir.search<PaymentNotice>({
-      resourceType: 'PaymentNotice',
-      params: [{ name: 'identifier', value: `${CLINICAL_PAYMENT_NOTICE_ID_SYSTEM}|${notice.id}` }],
-    })
-  ).unbundle();
-
-  for (const billingNotice of billingNotices) {
-    await applyRefundsToPaymentNotice(billingClient, billingNotice, refunds);
-  }
-
-  // Gate on the billing flag, not on billing copies existing: the positive copy is bridged
-  // asynchronously, and a FHIR-only refund has no later Stripe event to repair a missed offset.
-  // recordBillingManualRefund tolerates the claim/copy arriving later.
-  if (secrets && shouldUseOttehrBilling(secrets) && paymentMethod) {
-    await recordBillingManualRefund(billingClient, {
-      encounterId,
-      refundId,
-      amountInCents: refundEntry.amountInCents,
-      paymentMethod,
-      createdISO: refundEntry.dateISO,
-      // on resume, keep the originally recorded reason so audit records stay consistent
-      reason: refundEntry.reason ?? reason,
-      secrets,
-    });
-  }
+  await recordRefundOnBillingSide(oystehrClient, {
+    encounterId,
+    clinicalPaymentNoticeId: notice.id!,
+    refunds,
+    arOffset: paymentMethod
+      ? {
+          refundId,
+          amountInCents: refundEntry.amountInCents,
+          paymentMethod,
+          createdISO: refundEntry.dateISO,
+          // on resume, keep the originally recorded reason so audit records stay consistent
+          reason: refundEntry.reason ?? reason,
+        }
+      : undefined,
+  });
 
   return { refundId, amountInCents: refundEntry.amountInCents };
 };
 
 // Records a refund issued outside Stripe (external reader, cash, check, ...) for a Stripe-linked payment:
-// FHIR-only refund entry, billing stamps + negative AR notice, and a documentation-only note on the
-// Stripe payment intent. No money moves through Stripe.
+// FHIR-only refund entry, billing-side recording via the billing zambda, and a documentation-only note
+// on the Stripe payment intent. No money moves through Stripe.
 const performExternalRefund = async (
   input: RefundEffectInput,
   oystehrClient: Oystehr,
-  billingClient: Oystehr,
-  stripeClient: Stripe,
-  secrets: Secrets | null
+  stripeClient: Stripe
 ): Promise<RefundPatientPaymentResponse> => {
   const {
     notice,
@@ -401,47 +388,23 @@ const performExternalRefund = async (
 
   await applyRefundsToPaymentNotice(oystehrClient, notice, refunds, input.expiredReservationIds);
 
-  // billing copies of a Stripe payment carry the charge/payment-intent id; bridged ones carry the clinical notice id
-  const identifierValues = [
-    `${CLINICAL_PAYMENT_NOTICE_ID_SYSTEM}|${notice.id}`,
-    `${STRIPE_PAYMENT_ID_SYSTEM}|${stripePaymentId}`,
-  ].join(',');
-  const billingNotices = (
-    await billingClient.fhir.search<PaymentNotice>({
-      resourceType: 'PaymentNotice',
-      params: [{ name: 'identifier', value: identifierValues }],
-    })
-  ).unbundle();
-
-  for (const billingNotice of billingNotices) {
-    // union with the copy's own stamped refunds: the webhook may have stamped a newer Stripe
-    // refund here that our clinical snapshot predates
-    const copyRefunds = parsePaymentRefundsFromNotice(billingNotice) ?? [];
-    const knownIds = new Set(refunds.map((refund) => refund.stripeRefundId));
-    const copyOnly = copyRefunds.filter((refund) => !knownIds.has(refund.stripeRefundId));
-    await applyRefundsToPaymentNotice(
-      billingClient,
-      billingNotice,
-      [...refunds, ...copyOnly],
-      input.expiredReservationIds
-    );
-  }
-
-  // Gate on the billing flag, not on billing copies existing: the positive copy arrives via the
-  // async Stripe webhook, and this FHIR-only refund has no Stripe event to repair a missed offset.
-  // recordBillingManualRefund tolerates the claim/copy arriving later.
-  if (secrets && shouldUseOttehrBilling(secrets) && medium) {
-    await recordBillingManualRefund(billingClient, {
-      encounterId,
-      refundId,
-      amountInCents: refundEntry.amountInCents,
-      // on resume, keep the originally recorded medium/reason so audit records stay consistent
-      paymentMethod: refundEntry.medium ?? medium,
-      createdISO: refundEntry.dateISO,
-      reason: refundEntry.reason ?? reason,
-      secrets,
-    });
-  }
+  await recordRefundOnBillingSide(oystehrClient, {
+    encounterId,
+    clinicalPaymentNoticeId: notice.id!,
+    stripePaymentId,
+    refunds,
+    removeIds: input.expiredReservationIds,
+    arOffset: medium
+      ? {
+          refundId,
+          amountInCents: refundEntry.amountInCents,
+          // on resume, keep the originally recorded medium/reason so audit records stay consistent
+          paymentMethod: refundEntry.medium ?? medium,
+          createdISO: refundEntry.dateISO,
+          reason: refundEntry.reason ?? reason,
+        }
+      : undefined,
+  });
 
   // documentation only — makes the external refund visible next to the payment in Stripe
   if (stripePaymentId) {
@@ -475,24 +438,17 @@ const performExternalRefund = async (
 const performEffect = async (
   input: RefundEffectInput,
   oystehrClient: Oystehr,
-  stripeClient: Stripe,
-  secrets: Secrets | null
+  stripeClient: Stripe
 ): Promise<RefundPatientPaymentResponse> => {
   const { notice, stripePaymentId, stripeAccount, existingRefunds, refundAmountInCents, reason, notes, refundedBy } =
     input;
 
   if (!stripePaymentId) {
-    return performManualRefund(input, oystehrClient, createBillingClient(oystehrM2MClientToken, secrets), secrets);
+    return performManualRefund(input, oystehrClient);
   }
 
   if (input.external) {
-    return performExternalRefund(
-      input,
-      oystehrClient,
-      createBillingClient(oystehrM2MClientToken, secrets),
-      stripeClient,
-      secrets
-    );
+    return performExternalRefund(input, oystehrClient, stripeClient);
   }
 
   const reservationRemoveIds = [
