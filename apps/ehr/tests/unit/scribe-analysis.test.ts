@@ -2,7 +2,7 @@
 // the panel can show and edit out, and the edited recommendation back into the action the executor runs.
 
 import { ExamLeaf } from 'utils/lib/config-helpers/exam-leaves';
-import { ChartPlanResponse, ChartReviewResponse, PlannedAction, ReviewSuggestion } from 'utils/lib/easy-chart/api';
+import { ChartPlanResponse, PlannedAction } from 'utils/lib/easy-chart/api';
 import { RosFindingState } from 'utils/lib/ottehr-config/review-of-systems/in-person.config';
 import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
 import { describe, expect, it } from 'vitest';
@@ -28,16 +28,11 @@ const plan = (actions: PlannedAction[], rejected: ChartPlanResponse['rejected'] 
   rejected,
   ...envelope,
 });
-const review = (
-  suggestions: ReviewSuggestion[],
-  rejected: ChartReviewResponse['rejected'] = []
-): ChartReviewResponse => ({ suggestions, rejected, ...envelope });
 
 const analyse = (
   actions: PlannedAction[],
-  options: { review?: ChartReviewResponse; written?: Record<string, string> } = {}
-): ScribeRecommendation[] =>
-  buildAnalysis(plan(actions), options.review, { written: options.written ?? {} }).recommendations;
+  options: { written?: Record<string, string> } = {}
+): ScribeRecommendation[] => buildAnalysis(plan(actions), { written: options.written ?? {} }).recommendations;
 
 describe('buildAnalysis', () => {
   it('turns the kinds the panel has editors for into typed recommendations, in their sections', () => {
@@ -102,27 +97,23 @@ describe('buildAnalysis', () => {
 
   it('wraps everything else as a generic row carrying the step label the executor would show', () => {
     const recs = analyse([
-      // A removal is matched against the chart, not the catalogue, so it stays generic.
-      { kind: 'remove-medication', display: 'Motrin', sourceText: 'stop the Motrin' },
       { kind: 'set-disposition', dispositionType: 'pcp-no-type', text: 'Follow up with PCP in one week.' },
       { kind: 'set-em-code', code: '99213', display: 'Office visit, established, low' },
       // Another vital has no editor of its own.
       { kind: 'set-vital', field: 'vital-temperature', display: '38 C', value: 38, unit: 'C' },
     ]);
     expect(recs.map((rec) => [rec.kind, rec.section])).toEqual([
-      ['action', 'medications'],
       ['action', 'plan'],
       ['action', 'assessment'],
       ['action', 'vitals'],
     ]);
-    expect(recs[0]).toMatchObject({ label: 'Removing medication: Motrin' });
-    expect(recs[1]).toMatchObject({
+    expect(recs[0]).toMatchObject({
       label: 'Setting disposition: Primary Care Physician',
       secondary: 'Follow up with PCP in one week.',
     });
-    expect(recs[2]).toMatchObject({ label: 'Setting E&M level: 99213', secondary: 'Office visit, established, low' });
+    expect(recs[1]).toMatchObject({ label: 'Setting E&M level: 99213', secondary: 'Office visit, established, low' });
     // The wrapped action is returned untouched.
-    expect(toPlannedAction(recs[3])).toEqual({
+    expect(toPlannedAction(recs[2])).toEqual({
       kind: 'set-vital',
       field: 'vital-temperature',
       display: '38 C',
@@ -165,7 +156,6 @@ describe('buildAnalysis', () => {
           sourceOrigin: 'chart',
         },
       ]),
-      undefined,
       { written: {}, narrative: 'Sore throat for two days.', narrativeGenerated: [], narrativeIsTranscript: true }
     ).recommendations;
     expect(fromChart).toMatchObject({ chartSources: [chartLine], evidenceOrigin: 'chart' });
@@ -183,36 +173,6 @@ describe('buildAnalysis', () => {
     const [fresh] = analyse([edit], { written: {} });
     expect(fresh).not.toHaveProperty('existingWords');
     expect(fresh.warning).toBeUndefined();
-  });
-
-  it('drops what the review repeats from the plan and keeps what it adds, tagged with its question', () => {
-    const recs = analyse(
-      [{ kind: 'add-diagnosis', code: 'J01.90', display: 'Acute sinusitis, unspecified', isPrimary: true }],
-      {
-        review: review([
-          {
-            category: 'diagnosis',
-            question: 'Is sinusitis the primary diagnosis?',
-            actions: [
-              { kind: 'add-diagnosis', code: 'J01.90', display: 'Acute sinusitis, unspecified', isPrimary: true },
-            ],
-          },
-          {
-            category: 'pertinent-negative',
-            question: 'Record the pertinent negative for chills?',
-            rationale: 'Fever was denied; chills were not asked.',
-            actions: [{ kind: 'add-ros-finding', display: 'denies chills', finding: 'denies' }],
-          },
-        ]),
-      }
-    );
-    expect(recs.map((rec) => rec.id)).toEqual(['plan:add-diagnosis:J01-90', 'review:add-ros-finding:denies-chills']);
-    expect(recs[1]).toMatchObject({
-      kind: 'ros',
-      baseKey: 'ros-constitutional-chills',
-      source: { pass: 'review', category: 'pertinent-negative' },
-      note: `Note review asked: Record the pertinent negative for chills? Fever was denied; chills were not asked. ${INFERRED_NOTE}`,
-    });
   });
 
   it('keeps one proposal per thing the chart would hold, whichever way the model said it', () => {
@@ -260,7 +220,6 @@ describe('buildAnalysis', () => {
         ],
         [{ kind: 'set-vital', display: '5.8', reason: 'a bare height could be centimetres or inches' }]
       ),
-      review([], [{ kind: 'remove-diagnosis', display: 'R42', reason: 'the replacement could not be charted' }]),
       { written: {} }
     );
     expect(analysis.recommendations).toEqual([]);
@@ -269,10 +228,7 @@ describe('buildAnalysis', () => {
       'Noted.',
       'Could not classify "call the pharmacy".',
     ]);
-    expect(analysis.rejected.map((item) => item.reason)).toEqual([
-      'a bare height could be centimetres or inches',
-      'the replacement could not be charted',
-    ]);
+    expect(analysis.rejected.map((item) => item.reason)).toEqual(['a bare height could be centimetres or inches']);
   });
 
   it('gives readable ids made of the action, unique even when an action repeats', () => {
@@ -335,7 +291,7 @@ describe('exam findings', () => {
   });
   const examCatalogue = [wheezing, rightTm, leftTm];
   const analyseExam = (actions: PlannedAction[]): ScribeRecommendation[] =>
-    buildAnalysis(plan(actions), undefined, { written: {}, examCatalogue }).recommendations;
+    buildAnalysis(plan(actions), { written: {}, examCatalogue }).recommendations;
 
   it('names the one box a clear match will tick', () => {
     const [rec] = analyseExam([
@@ -370,12 +326,11 @@ describe('exam findings', () => {
       { kind: 'add-exam-finding', display: 'Diaphoretic and pale' },
     ]);
     expect(placed).toMatchObject({
-      resolution: { kind: 'none', sectionKey: 'ears', sectionLabel: 'Ears', commentField: 'ears-comment' },
+      resolution: { kind: 'none', sectionLabel: 'Ears', commentField: 'ears-comment' },
     });
     expect(unplaced).toMatchObject({
       resolution: {
         kind: 'none',
-        sectionKey: 'general',
         sectionLabel: 'General Appearance',
         commentField: 'general-comment',
       },
@@ -441,7 +396,7 @@ describe('transcript provenance for an inexact narrative sentence', () => {
       escalation: { attempts: 1, escalated: false, failures: [] },
       triggers: [],
     } as unknown as ChartPlanResponse;
-    const analysis = buildAnalysis(plan, undefined, { written: {}, narrative, narrativeGenerated: generated });
+    const analysis = buildAnalysis(plan, { written: {}, narrative, narrativeGenerated: generated });
     const rec = analysis.recommendations[0];
     expect(rec.evidenceOrigin).toBe('inexact');
     expect(rec.transcriptSources).toEqual(['they gave me some antibiotics. And I think there are a couple more left.']);

@@ -10,7 +10,7 @@ import { ScribeAnalyzer } from './scribeRecommendations.store';
 /**
  * `plan` sends the transcript (or, without one, the typed narrative) to the Easy Chart plan endpoint, with the
  * provider's edits when the draft was changed; `analysisOf` maps the answer to recommendations. The endpoint
- * reads the chart itself by encounterId. The review pass belongs after the plan is applied, so it is not called here.
+ * reads the chart itself by encounterId.
  */
 export const useScribeAnalyzer = (): ScribeAnalyzer => {
   const apiClient = useOystehrAPIClient();
@@ -36,7 +36,7 @@ export const useScribeAnalyzer = (): ScribeAnalyzer => {
       },
       // The narrative and its generated sentences let each recommendation's quote be traced to transcript snippets.
       analysisOf: (plan, narrative, narrativeGenerated, transcript) =>
-        buildAnalysis(plan, undefined, {
+        buildAnalysis(plan, {
           written: buildNoteContextFromChart(chartData) ?? {},
           narrative: narrativeText(narrative),
           narrativeGenerated,

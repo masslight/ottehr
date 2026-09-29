@@ -8,11 +8,9 @@ import { PlannedAction } from 'utils/lib/easy-chart/api';
 import { NoteChartKey } from 'utils/lib/easy-chart/note-fields';
 import {
   AllChartValues,
-  AllChartValuesKeys,
   CPTCodeDTO,
   ExamObservationDTO,
   FreeTextNoteDTO,
-  SaveableDTO,
 } from 'utils/lib/types/api/chart-data/chart-data.types';
 
 /** Every step ends in one of these; a step that ends silently reads as "there was nothing to chart". */
@@ -75,16 +73,11 @@ export interface Catalogue {
   hospitalizations(query: CatalogueQuery): Promise<CatalogueResult>;
 }
 
-/** A row already on the chart, as the executor needs it to remove or deduplicate. */
+/** A row already on the chart, as the executor needs it to deduplicate. */
 export interface ChartedItem {
   resourceId: string;
   display: string;
 }
-
-/** The save-chart-data fields that hold a list of rows, which is what a removal deletes from. */
-export type ChartListField = {
-  [K in AllChartValuesKeys]: NonNullable<AllChartValues[K]> extends SaveableDTO[] ? K : never;
-}[AllChartValuesKeys];
 
 /**
  * The write layer. It goes through the shared save mutation, so a signed visit refuses writes exactly as
@@ -93,19 +86,12 @@ export type ChartListField = {
 export interface ChartWriter {
   /** Save save-chart-data fields; returns the ids of the rows the save created. */
   save(fields: AllChartValues): Promise<string[]>;
-  remove(field: ChartListField, item: ChartedItem): Promise<void>;
 }
 
 /** What is already on the chart, as the executor needs to see it. */
 export interface ChartSnapshot {
   diagnoses: (ChartedItem & { code?: string; isPrimary?: boolean })[];
-  examFindings: ChartedItem[];
-  rosFindings: ChartedItem[];
-  medications: ChartedItem[];
-  allergies: ChartedItem[];
   conditions: ChartedItem[];
-  surgicalHistory: ChartedItem[];
-  hospitalizations: ChartedItem[];
   /**
    * Exam rows by field, which a write updates in place as the Exam tab does: ticks, modal options and the
    * cards' free-text comments, where a finding with no matching checkbox goes.
@@ -123,8 +109,6 @@ export interface PickerRequest {
   /** The wording the assistant was trying to chart. */
   query: string;
   prompt: string;
-  /** A removal: the provider confirms a destructive action rather than picking an addition. */
-  destructive?: boolean;
 }
 
 /** Undefined means the provider skipped rather than picked. */
@@ -143,13 +127,12 @@ export interface ResolvedExamFindingAction {
 
 export interface HandlerContext {
   mode: ExecutionMode;
-  encounterId: string;
   catalogue: Catalogue;
   writer: ChartWriter;
   chart: ChartSnapshot;
   ask(request: PickerRequest): Promise<PickerResponse>;
   /** A message for the provider instead of a write: a reply, a note, something unclassified. */
-  say(text: string, kind: 'reply' | 'provider-note' | 'unknown'): void;
+  say(text: string): void;
 }
 
 export type Handler<K extends ActionKind = ActionKind> = (
@@ -162,6 +145,5 @@ export type HandlerTable = { [K in ActionKind]: Handler<K> };
 export interface PlanStep {
   index: number;
   action: PlannedAction;
-  label: string;
   outcome?: StepOutcome;
 }

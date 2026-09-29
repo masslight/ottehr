@@ -39,7 +39,7 @@ export async function resolvePick(
   if (resolution.kind === 'none') return undefined;
   if (resolution.kind === 'confident') return { match: resolution.match, lowConfidence: false };
 
-  if (context.mode === 'bulk' && !request.destructive) {
+  if (context.mode === 'bulk') {
     return {
       match: resolution.match,
       lowConfidence: true,
@@ -47,7 +47,7 @@ export async function resolvePick(
     };
   }
 
-  // Interactive, or destructive at any time: ask.
+  // Interactive: ask.
   const chosen = await context.ask({ ...request, options: resolution.alternatives });
   return chosen ? { match: chosen, lowConfidence: false } : undefined;
 }

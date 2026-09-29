@@ -8,13 +8,7 @@ import { classifyMatches } from 'src/features/easy-chart/executor/resolve';
 import { ChartSnapshot, ResolvedExamFindingAction } from 'src/features/easy-chart/executor/types';
 import { buildExamLeafCatalogue, ExamLeaf } from 'utils/lib/config-helpers/exam-leaves';
 import { ActionKind } from 'utils/lib/easy-chart/actions';
-import {
-  ChartPlanResponse,
-  ChartReviewResponse,
-  NarrativeLine,
-  PlannedAction,
-  RejectedAction,
-} from 'utils/lib/easy-chart/api';
+import { ChartPlanResponse, NarrativeLine, PlannedAction, RejectedAction } from 'utils/lib/easy-chart/api';
 import {
   buildRosCatalogue,
   findExamLeafMatches,
@@ -27,13 +21,12 @@ import { LBS_IN_KG } from 'utils/lib/helpers/vitals/vitals-weight.helper';
 import { DefaultExamComponentsConfig } from 'utils/lib/ottehr-config/examination/default-components.config';
 import { RosFindingState } from 'utils/lib/ottehr-config/review-of-systems/in-person.config';
 import { locateGeneratedLines } from './narrativeLines';
-import { HPI_FIELD, resolvedExamLeaf, wordCount } from './scribeSections';
+import { HPI_FIELD, normalizeName, resolvedExamLeaf, wordCount } from './scribeSections';
 import {
   EvidenceOrigin,
   ExamResolution,
   LocatedLine,
   NoteMode,
-  RecommendationSource,
   ScribeAnalysis,
   ScribeRecommendation,
   ScribeSectionKey,
@@ -75,7 +68,6 @@ export function sectionForAction(action: PlannedAction): ScribeSectionKey {
     case 'add-allergy':
       return 'allergies';
     case 'add-medication':
-    case 'remove-medication':
       return 'medications';
     case 'add-condition':
     case 'add-surgical-history':
@@ -86,7 +78,6 @@ export function sectionForAction(action: PlannedAction): ScribeSectionKey {
     case 'add-ros-finding':
       return 'ros';
     case 'add-diagnosis':
-    case 'remove-diagnosis':
     case 'set-em-code':
       return 'assessment';
     default:
@@ -97,18 +88,12 @@ export function sectionForAction(action: PlannedAction): ScribeSectionKey {
 /** The quote, the guard's caution and how the AI got here, as the row shows them on hover. */
 function provenanceOf(
   action: PlannedAction,
-  source: RecommendationSource,
   narrativeIsTranscript: boolean
 ): Pick<
   ScribeRecommendation,
   'evidence' | 'warning' | 'note' | 'transcriptSources' | 'chartSources' | 'evidenceOrigin'
 > {
-  const notes: string[] = [];
-  if (source.pass === 'review') {
-    notes.push(`Note review asked: ${source.question}${source.rationale ? ` ${source.rationale}` : ''}`);
-  }
   const { sourceText } = action;
-  if (!sourceText) notes.push(INFERRED_NOTE);
   // A chart quote and a transcript quote are shown as such; only a narrative quote is highlighted in
   // the narrative and traced further by `transcriptProvenance`.
   const quotesChart = action.sourceOrigin === 'chart';
@@ -120,7 +105,7 @@ function provenanceOf(
       ? { transcriptSources: [sourceText], evidenceOrigin: 'transcript' as const }
       : { evidence: sourceText }),
     warning: action.caution,
-    note: notes.length > 0 ? notes.join(' ') : undefined,
+    note: sourceText ? undefined : INFERRED_NOTE,
   };
 }
 
@@ -157,9 +142,7 @@ export function resolveExamFinding(
     };
   }
   const target = examCommentTarget(display, searchTerms, leaves);
-  return target
-    ? { kind: 'none', sectionKey: target.sectionKey, sectionLabel: target.sectionLabel, commentField: target.field }
-    : { kind: 'none' };
+  return target ? { kind: 'none', sectionLabel: target.sectionLabel, commentField: target.field } : { kind: 'none' };
 }
 
 /** The second line of a generic row, for kinds whose label alone does not say what will be charted. */
@@ -175,18 +158,12 @@ export function actionSecondary(action: PlannedAction): string | undefined {
 }
 
 /** One action as the panel shows it: typed where the panel has an editor for the kind, generic otherwise. */
-function toRecommendation(
-  action: PlannedAction,
-  source: RecommendationSource,
-  id: string,
-  options: AnalysisContext
-): ScribeRecommendation {
+function toRecommendation(action: PlannedAction, id: string, options: AnalysisContext): ScribeRecommendation {
   const base = {
     id,
     section: sectionForAction(action),
     action,
-    source,
-    ...provenanceOf(action, source, options.narrativeIsTranscript === true),
+    ...provenanceOf(action, options.narrativeIsTranscript === true),
   };
 
   switch (action.kind) {
@@ -277,8 +254,6 @@ function toRecommendation(
   return { ...base, kind: 'action', label: describeAction(action), secondary: actionSecondary(action) };
 }
 
-const normalize = (value: string | undefined): string => (value ?? '').trim().toLowerCase();
-
 /** What a recommendation would put on the chart; two with the same key are one proposal. */
 export function recommendationKey(rec: ScribeRecommendation): string {
   switch (rec.kind) {
@@ -290,20 +265,20 @@ export function recommendationKey(rec: ScribeRecommendation): string {
       // A recheck is another reading, as on the server; only the same reading twice is one proposal.
       return `vital:vital-weight:${rec.weightLbs}`;
     case 'allergy':
-      return `allergy:${normalize(rec.name)}`;
+      return `allergy:${normalizeName(rec.name)}`;
     case 'medication':
-      return `medication:${normalize(rec.name)}`;
+      return `medication:${normalizeName(rec.name)}`;
     case 'diagnosis':
       return `diagnosis:${rec.code.toUpperCase()}`;
     case 'ros':
       // A symptom cannot be both reported and denied.
       return `ros:${rec.baseKey}`;
     case 'exam':
-      return `exam:${rec.resolution.kind === 'confident' ? rec.resolution.leaf.field : normalize(rec.display)}`;
+      return `exam:${rec.resolution.kind === 'confident' ? rec.resolution.leaf.field : normalizeName(rec.display)}`;
     case 'action': {
       const { kind, code, field, display, text } = rec.action;
       if (kind === 'set-vital') return `set-vital:${field}:${vitalReading(rec.action)}`;
-      return `${kind}:${normalize(String(code ?? field ?? display ?? text ?? ''))}`;
+      return `${kind}:${normalizeName(String(code ?? field ?? display ?? text ?? ''))}`;
     }
   }
 }
@@ -312,16 +287,16 @@ export function recommendationKey(rec: ScribeRecommendation): string {
 function vitalReading(action: PlannedAction): string {
   if (action.systolic != null && action.diastolic != null) return `${action.systolic}/${action.diastolic}`;
   if (action.value != null) return `${action.value}|${action.unit ?? ''}`;
-  return normalize(action.display);
+  return normalizeName(action.display);
 }
 
 /** A readable, stable id such as `plan:add-diagnosis:J01-90`; a repeat gets a numeric suffix. */
-function recommendationId(pass: RecommendationSource['pass'], action: PlannedAction, taken: Set<string>): string {
+function recommendationId(action: PlannedAction, taken: Set<string>): string {
   const identity = String(action.code ?? action.field ?? action.display ?? action.text ?? '')
     .replace(/[^a-zA-Z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
     .slice(0, 40);
-  const stem = [pass, action.kind, identity].filter(Boolean).join(':');
+  const stem = ['plan', action.kind, identity].filter(Boolean).join(':');
   let id = stem;
   for (let n = 2; taken.has(id); n += 1) id = `${stem}:${n}`;
   taken.add(id);
@@ -350,47 +325,28 @@ function transcriptProvenance(
     : { transcriptSources, evidenceOrigin: 'unbacked' };
 }
 
-/**
- * The plan's actions, then any review suggestions, as one deduplicated list. Chat-only actions become
- * notes, and the servers' refusals are carried through.
- */
-export function buildAnalysis(
-  plan: ChartPlanResponse,
-  review: ChartReviewResponse | undefined,
-  options: AnalysisContext
-): ScribeAnalysis {
+/** The plan's actions as one deduplicated list. Chat-only actions become notes; the server's refusals are carried through. */
+export function buildAnalysis(plan: ChartPlanResponse, options: AnalysisContext): ScribeAnalysis {
   const ids = new Set<string>();
   const keys = new Set<string>();
   const recommendations: ScribeRecommendation[] = [];
   const notes: string[] = [];
   const rejected: RejectedAction[] = [...plan.rejected];
 
-  const consider = (action: PlannedAction, source: RecommendationSource): void => {
+  const consider = (action: PlannedAction): void => {
     if (CHAT_ONLY.has(action.kind)) {
       const text = (action.text ?? action.message ?? '').trim();
       if (text && !notes.includes(text)) notes.push(text);
       return;
     }
-    const candidate = toRecommendation(action, source, '', options);
+    const candidate = toRecommendation(action, '', options);
     const key = recommendationKey(candidate);
     if (keys.has(key)) return;
     keys.add(key);
-    recommendations.push({ ...candidate, id: recommendationId(source.pass, action, ids) });
+    recommendations.push({ ...candidate, id: recommendationId(action, ids) });
   };
 
-  for (const action of plan.actions) consider(action, { pass: 'plan' });
-  if (review) {
-    for (const suggestion of review.suggestions) {
-      const source: RecommendationSource = {
-        pass: 'review',
-        category: suggestion.category,
-        question: suggestion.question,
-        ...(suggestion.rationale ? { rationale: suggestion.rationale } : {}),
-      };
-      for (const action of suggestion.actions) consider(action, source);
-    }
-    rejected.push(...review.rejected);
-  }
+  for (const action of plan.actions) consider(action);
 
   const { narrative, narrativeGenerated } = options;
   let traced = recommendations;

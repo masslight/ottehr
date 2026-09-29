@@ -3,12 +3,11 @@
 
 import { ActionKind, ActionOfKind, RawAction } from 'utils/lib/easy-chart/actions';
 import { PlannedAction } from 'utils/lib/easy-chart/api';
-import { hasRequiredFields, missingRequiredFields } from 'utils/lib/easy-chart/registry';
+import { hasRequiredFields, isActionKind, missingRequiredFields } from 'utils/lib/easy-chart/registry';
 import { AllChartValues } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { advanceSnapshot } from './chartSnapshot';
-import { HANDLERS, isHandledKind } from './handlers';
-import { describeAction } from './labels';
-import { ChartSnapshot, failed, HandlerContext, PlanStep, skipped, StepOutcome } from './types';
+import { HANDLERS } from './handlers';
+import { failed, HandlerContext, PlanStep, skipped, StepOutcome } from './types';
 
 export interface RunPlanOptions {
   onStepStart?: (step: PlanStep) => void;
@@ -17,35 +16,6 @@ export interface RunPlanOptions {
 
 export interface PlanResult {
   steps: PlanStep[];
-  /** The starting snapshot advanced by every applied step. */
-  chart: ChartSnapshot;
-}
-
-/**
- * When a plan removes the primary diagnosis and adds another without claiming primary, the first add
- * takes it over; otherwise a diagnosis swap would leave the note with no primary. Never overrides an add
- * that claims primary itself. Pure.
- */
-function reclaimPrimaryOnSwap(actions: PlannedAction[], chart: ChartSnapshot): PlannedAction[] {
-  const removes = actions.filter((a) => a.kind === 'remove-diagnosis');
-  const addIndex = actions.findIndex((a) => a.kind === 'add-diagnosis');
-  if (removes.length === 0 || addIndex < 0) return actions;
-  if (actions.some((a) => a.kind === 'add-diagnosis' && a.isPrimary === true)) return actions;
-
-  // The same containment rule the remove handler resolves with.
-  const removesPrimary = removes.some((remove) => {
-    const needle = (remove.display ?? '').toLowerCase().trim();
-    if (!needle) return false;
-    const hit =
-      chart.diagnoses.find((dx) => dx.display.toLowerCase() === needle) ??
-      chart.diagnoses.find(
-        (dx) => dx.display.toLowerCase().includes(needle) || needle.includes(dx.display.toLowerCase())
-      );
-    return hit?.isPrimary === true;
-  });
-  if (!removesPrimary) return actions;
-
-  return actions.map((action, index) => (index === addIndex ? { ...action, isPrimary: true } : action));
 }
 
 export async function runPlan(
@@ -53,14 +23,10 @@ export async function runPlan(
   context: HandlerContext,
   options: RunPlanOptions = {}
 ): Promise<PlanResult> {
-  const steps: PlanStep[] = reclaimPrimaryOnSwap(actions, context.chart).map((action, index) => ({
-    index,
-    action,
-    label: describeAction(action),
-  }));
+  const steps: PlanStep[] = actions.map((action, index) => ({ index, action }));
 
-  // Steps depend on each other (a swap's removal frees the primary for the add), so each step reads the
-  // snapshot as it stands after the previous applied steps, advanced by what those steps wrote.
+  // Steps depend on each other (a second diagnosis must see the first one's primary), so each step reads
+  // the snapshot as it stands after the previous applied steps, advanced by what those steps wrote.
   let liveChart = context.chart;
 
   for (const step of steps) {
@@ -74,7 +40,6 @@ export async function runPlan(
           saved.push(fields);
           return context.writer.save(fields);
         },
-        remove: (field, item) => context.writer.remove(field, item),
       },
     };
     step.outcome = await executeStep(step.action, stepContext);
@@ -84,12 +49,12 @@ export async function runPlan(
     options.onStepSettled?.(step);
   }
 
-  return { steps, chart: liveChart };
+  return { steps };
 }
 
 async function executeStep(action: PlannedAction, context: HandlerContext): Promise<StepOutcome> {
   // A client older than the server can meet a kind it does not know.
-  if (!isHandledKind(action.kind)) {
+  if (!isActionKind(action.kind)) {
     return skipped(
       `this version of Easy Chart does not know how to do "${action.kind}" — reload the page, or chart it in the regular chart`
     );
@@ -101,7 +66,7 @@ async function executeStep(action: PlannedAction, context: HandlerContext): Prom
     return skipped(`the assistant did not supply ${missing.join(' and ')}, so this could not be charted`);
   }
 
-  // The required-field gate above is what makes this narrowing safe.
+  // Safe because the server checked the action against its registry shape; the gate above re-checks presence.
   const handler = HANDLERS[kind] as (a: ActionOfKind<typeof kind>, c: HandlerContext) => Promise<StepOutcome>;
   try {
     const outcome = await handler(action as unknown as ActionOfKind<typeof kind>, context);

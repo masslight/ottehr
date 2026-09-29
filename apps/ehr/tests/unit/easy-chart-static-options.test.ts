@@ -3,7 +3,7 @@ import { matchStaticOptions } from '../../src/features/easy-chart/executor/stati
 import { HospitalizationOptions } from '../../src/features/visits/in-person/components/hospitalization/hospitalizationOptions';
 import { SURGICAL_HISTORY_OPTIONS } from '../../src/features/visits/shared/components/medical-history-tab/SurgicalHistory/surgicalHistoryOptions';
 
-const top = (display: string, options: { display?: string; code?: string }[], searchTerms?: string[]): string =>
+const top = (display: string, options: { display: string; code: string }[], searchTerms?: string[]): string =>
   matchStaticOptions({ display, searchTerms }, options)[0]?.display ?? '';
 
 describe('matchStaticOptions', () => {

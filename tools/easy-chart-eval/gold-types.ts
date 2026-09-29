@@ -10,7 +10,7 @@ export interface CodeItem {
 }
 export interface DiagnosisItem extends CodeItem {
   primary: boolean;
-  fromLabOrder: boolean; // planner-scope: lab-order-added dx are not transcript-derivable
+  fromLabOrder: boolean; // lab-order-added dx are not transcript-derivable
 }
 export interface BillingCode extends CodeItem {
   modifiers?: { code: string; display: string }[];

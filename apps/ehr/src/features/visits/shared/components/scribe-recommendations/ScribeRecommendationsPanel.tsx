@@ -308,7 +308,7 @@ const ResultsStep: FC = () => {
   const { templates } = useListTemplates();
   // Shares the analyzer's query; used only to tell an empty plan's two meanings apart.
   const { encounter } = useAppointmentData();
-  const { chartData } = useEasyChartData(encounter?.id, Boolean(encounter?.id));
+  const { chartData } = useEasyChartData(encounter?.id);
   const { applyObservations, applyRecommendation } = useApplyRecommendations();
 
   // Marks off recommendations the chart already holds, however they got there.
@@ -439,7 +439,7 @@ const ResultsStep: FC = () => {
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
       {stages}
-      {/* Executor questions: near-equal matches, or a removal to confirm. */}
+      {/* Executor questions: which of several near-equal matches to use. */}
       <PickerDialog />
     </Box>
   );

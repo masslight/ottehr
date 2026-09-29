@@ -12,17 +12,10 @@ import { useExamObservationsStore } from '../../stores/appointment/exam-observat
 import { useRosObservationsStore } from '../../stores/appointment/ros-observations.store';
 import { useGetVitals } from '../vitals/hooks/useGetVitals';
 import { useScribeRecommendationsStore } from './scribeRecommendations.store';
-import { resolvedExamLeaf } from './scribeSections';
+import { normalizeName, resolvedExamLeaf } from './scribeSections';
 import { ScribeRecommendation } from './types';
 
-/**
- * Whether the chart already holds what a recommendation would write. One predicate drives both the greyed-out
- * rows and the apply loop's duplicate skip, so the two cannot drift apart.
- */
-
-const normalize = (value: string | undefined): string => (value ?? '').trim().toLowerCase();
-
-export interface ChartSnapshot {
+export interface ChartedState {
   diagnosisCodes: Set<string>;
   /** Current allergies only; an inactive one does not count as charted. */
   allergyNames: Set<string>;
@@ -40,7 +33,7 @@ export interface ChartSnapshot {
 
 type ChartDataForSnapshot = Pick<GetChartDataResponse, 'diagnosis' | 'allergies' | 'medications'>;
 
-export const buildChartSnapshot = ({
+export const buildChartedState = ({
   chartData,
   rosObservations,
   examObservations,
@@ -52,15 +45,15 @@ export const buildChartSnapshot = ({
   examObservations: Record<string, ExamObservationDTO>;
   historyOfPresentIllness: string | undefined;
   vitals: GetVitalsResponseData | undefined;
-}): ChartSnapshot => ({
+}): ChartedState => ({
   diagnosisCodes: new Set((chartData?.diagnosis ?? []).map((diagnosis) => diagnosis.code)),
   allergyNames: new Set(
-    (chartData?.allergies ?? []).filter((allergy) => allergy.current).map((allergy) => normalize(allergy.name))
+    (chartData?.allergies ?? []).filter((allergy) => allergy.current).map((allergy) => normalizeName(allergy.name))
   ),
   medicationNames: new Set(
     (chartData?.medications ?? [])
       .filter((medication) => medication.status === 'active')
-      .map((medication) => normalize(medication.name))
+      .map((medication) => normalizeName(medication.name))
   ),
   rosFields: new Set(
     Object.values(rosObservations)
@@ -82,7 +75,11 @@ export const buildChartSnapshot = ({
   hasWeight: (vitals?.[VitalFieldNames.VitalWeight]?.length ?? 0) > 0,
 });
 
-export const isAlreadyCharted = (recommendation: ScribeRecommendation, snapshot: ChartSnapshot): boolean => {
+/**
+ * Whether the chart already holds what a recommendation would write. One predicate drives both the greyed-out
+ * rows and the apply loop's duplicate skip, so the two cannot drift apart.
+ */
+export const isAlreadyCharted = (recommendation: ScribeRecommendation, snapshot: ChartedState): boolean => {
   switch (recommendation.kind) {
     // The chart doesn't record applied templates; the template stage tracks that itself.
     case 'template':
@@ -97,9 +94,9 @@ export const isAlreadyCharted = (recommendation: ScribeRecommendation, snapshot:
     case 'diagnosis':
       return snapshot.diagnosisCodes.has(recommendation.code);
     case 'allergy':
-      return snapshot.allergyNames.has(normalize(recommendation.name));
+      return snapshot.allergyNames.has(normalizeName(recommendation.name));
     case 'medication':
-      return snapshot.medicationNames.has(normalize(recommendation.name));
+      return snapshot.medicationNames.has(normalizeName(recommendation.name));
     case 'vital-weight':
       // Any weight on this encounter: a second one would be a correction, not this suggestion.
       return snapshot.hasWeight;
@@ -124,7 +121,7 @@ export const isAlreadyCharted = (recommendation: ScribeRecommendation, snapshot:
 };
 
 /** The live chart, read from the same queries and stores the visit screens write to. */
-const useChartSnapshot = (): ChartSnapshot => {
+const useChartedState = (): ChartedState => {
   const { chartData } = useChartData();
   const { encounter } = useAppointmentData();
   // Subscribes to the whole ROS and exam stores so ticks on those screens show up here immediately.
@@ -136,7 +133,7 @@ const useChartSnapshot = (): ChartSnapshot => {
 
   return useMemo(
     () =>
-      buildChartSnapshot({
+      buildChartedState({
         chartData,
         rosObservations,
         examObservations,
@@ -149,7 +146,7 @@ const useChartSnapshot = (): ChartSnapshot => {
 
 /** Syncs the store's already-charted ids with the chart, so rows, counts and the apply loop agree. */
 export const useSyncChartedRecommendations = (recommendations: ScribeRecommendation[]): void => {
-  const snapshot = useChartSnapshot();
+  const snapshot = useChartedState();
   const setChartedIds = useScribeRecommendationsStore((state) => state.setChartedIds);
 
   const chartedIds = useMemo(

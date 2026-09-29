@@ -3,12 +3,10 @@
  *
  * Usage:
  *   npx tsx tools/easy-chart-eval/compare-runs.ts <runDir> <runDir> [<runDir>...]
- *   npx tsx tools/easy-chart-eval/compare-runs.ts <a> <b> --scope plannerOnly
  */
 import { existsSync, readdirSync, readFileSync } from 'fs';
 import { basename, join } from 'path';
 
-type Scope = 'plannerOnly' | 'final';
 const SECTIONS = [
   'diagnoses',
   'cpt',
@@ -41,7 +39,7 @@ interface Tally {
 
 const num = (v: unknown): number => (typeof v === 'number' ? v : 0);
 
-function tally(runDir: string, ids: string[], scope: Scope): Tally {
+function tally(runDir: string, ids: string[]): Tally {
   const t: Tally = { sections: {}, scalars: {}, freeText: {}, counters: {}, usage: {} };
   for (const s of SECTIONS)
     t.sections[s] = {
@@ -58,28 +56,27 @@ function tally(runDir: string, ids: string[], scope: Scope): Tally {
 
   for (const id of ids) {
     const j = JSON.parse(readFileSync(join(runDir, `${id}.score.json`), 'utf8'));
-    const sc = j.scopes[scope];
-    for (const s of SECTIONS) for (const k of Object.keys(t.sections[s])) t.sections[s][k] += num(sc[s]?.[k]);
+    for (const s of SECTIONS) for (const k of Object.keys(t.sections[s])) t.sections[s][k] += num(j[s]?.[k]);
 
-    if (sc.em?.gold) bump('em: gold cases', 1);
-    if (sc.em?.predicted) bump('em: predicted', 1);
-    bump('em: exact', sc.em?.match === true ? 1 : 0);
-    bump('em: level', sc.em?.levelMatch === true ? 1 : 0);
-    if (sc.primaryDx?.goldCode) bump('primaryDx: gold cases', 1);
-    if (sc.primaryDx?.match !== null && sc.primaryDx?.match !== undefined) bump('primaryDx: both charted', 1);
-    bump('primaryDx: matched', sc.primaryDx?.match === true ? 1 : 0);
-    if (sc.primaryDx?.goldVoiced === true && sc.primaryDx?.match !== null) {
+    if (j.em?.gold) bump('em: gold cases', 1);
+    if (j.em?.predicted) bump('em: predicted', 1);
+    bump('em: exact', j.em?.match === true ? 1 : 0);
+    bump('em: level', j.em?.levelMatch === true ? 1 : 0);
+    if (j.primaryDx?.goldCode) bump('primaryDx: gold cases', 1);
+    if (j.primaryDx?.match !== null && j.primaryDx?.match !== undefined) bump('primaryDx: both charted', 1);
+    bump('primaryDx: matched', j.primaryDx?.match === true ? 1 : 0);
+    if (j.primaryDx?.goldVoiced === true && j.primaryDx?.match !== null) {
       bump('primaryDx: voiced denom', 1);
-      bump('primaryDx: voiced matched', sc.primaryDx.match === true ? 1 : 0);
+      bump('primaryDx: voiced matched', j.primaryDx.match === true ? 1 : 0);
     }
-    if (sc.primaryDx?.goldVoiced === false) bump('primaryDx: unvoicedGold', 1);
-    bump('ros: polarityAgree', num(sc.ros?.polarityAgree));
-    bump('exam: abnormalAgree', num(sc.exam?.abnormalAgree));
+    if (j.primaryDx?.goldVoiced === false) bump('primaryDx: unvoicedGold', 1);
+    bump('ros: polarityAgree', num(j.ros?.polarityAgree));
+    bump('exam: abnormalAgree', num(j.exam?.abnormalAgree));
     for (const k of ['predicted', 'matched', 'contextCharted', 'unvoicedMatched', 'intentMatched'] as const) {
-      bump(`medsCombined: ${k}`, num(sc.medsCombined?.[k]));
+      bump(`medsCombined: ${k}`, num(j.medsCombined?.[k]));
     }
     for (const k of ['legacyVoiced', 'intentVoiced', 'intentCovered'] as const)
-      bump(`medsVoicing: ${k}`, num(sc.medsPrescribed?.[k]));
+      bump(`medsVoicing: ${k}`, num(j.medsPrescribed?.[k]));
 
     for (const f of FREETEXT) {
       // Presence only; the lengths the scorer also records are not aggregated.
@@ -102,13 +99,12 @@ function tally(runDir: string, ids: string[], scope: Scope): Tally {
         (t.counters[`trigger: ${dt.fired ? (dt.modelProposed ? 'firedProposed' : 'firedDeclined') : 'notFired'}`] ??
           0) + 1;
     }
-    // `usage` is keyed by stage ({ planner: {...}, review: {...} }), not a list.
-    for (const [stage, u] of Object.entries((j.usage ?? {}) as Record<string, Record<string, unknown>>)) {
-      for (const k of ['inputTokens', 'outputTokens', 'thinkingTokens', 'cacheReadTokens', 'calls'] as const) {
-        t.usage[`${stage} ${k}`] = (t.usage[`${stage} ${k}`] ?? 0) + num(u?.[k]);
-      }
-      const esc = u?.escalation as { primaryFailed?: boolean } | undefined;
-      if (esc?.primaryFailed) t.usage[`${stage} primaryFailed`] = (t.usage[`${stage} primaryFailed`] ?? 0) + 1;
+    const u = (j.usage ?? {}) as Record<string, unknown>;
+    for (const k of ['inputTokens', 'outputTokens', 'thinkingTokens', 'cacheReadTokens', 'calls'] as const) {
+      t.usage[k] = (t.usage[k] ?? 0) + num(u[k]);
+    }
+    if ((u.escalation as { primaryFailed?: boolean } | undefined)?.primaryFailed) {
+      t.usage.primaryFailed = (t.usage.primaryFailed ?? 0) + 1;
     }
   }
   return t;
@@ -116,11 +112,9 @@ function tally(runDir: string, ids: string[], scope: Scope): Tally {
 
 function main(): void {
   const args = process.argv.slice(2);
-  const si = args.indexOf('--scope');
-  const scope = (si >= 0 ? args[si + 1] : 'final') as Scope;
-  const dirs = args.filter((a, i) => !a.startsWith('--') && args[i - 1] !== '--scope' && existsSync(a));
+  const dirs = args.filter((a) => !a.startsWith('--') && existsSync(a));
   if (dirs.length < 2) {
-    console.log('usage: compare-runs.ts <runDir> <runDir> [...] [--scope final|plannerOnly]');
+    console.log('usage: compare-runs.ts <runDir> <runDir> [...]');
     process.exit(1);
   }
   // Only the cases every run has, so a partial re-run cannot move a total.
@@ -133,7 +127,7 @@ function main(): void {
       )
   );
   const ids = [...idSets[0]].filter((id) => idSets.every((s) => s.has(id))).sort();
-  const ts = dirs.map((d) => tally(d, ids, scope));
+  const ts = dirs.map((d) => tally(d, ids));
 
   const W = 12;
   const head = (label: string): string =>
@@ -149,7 +143,7 @@ function main(): void {
     console.log(label.padEnd(34) + vals.map((v) => String(v).padStart(W)).join(''));
 
   console.log('='.repeat(34 + W * dirs.length));
-  console.log(`${ids.length} cases common to all runs   —   scope: ${scope}`);
+  console.log(`${ids.length} cases common to all runs`);
   dirs.forEach((d, i) => console.log(`  [${i + 1}] ${d}`));
   console.log('='.repeat(34 + W * dirs.length));
   console.log(`\n1. SECTIONS`);

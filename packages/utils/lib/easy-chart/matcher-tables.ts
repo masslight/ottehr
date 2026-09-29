@@ -210,7 +210,6 @@ const EXAM_DESCRIPTOR_SYNONYMS: string[][] = [
   ['rash', 'eruption', 'dermatitis'],
   ['bruising', 'bruise', 'bruised', 'ecchymosis', 'ecchymotic', 'contusion'],
   ['fluid', 'effusion'],
-  ['debris'],
 ];
 
 export const EXAM_DESCRIPTOR_CLASS_OF: Map<string, number> = new Map();

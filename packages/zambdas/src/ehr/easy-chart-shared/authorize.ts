@@ -12,13 +12,14 @@ import { ZambdaInput } from '../../shared/types/common';
 
 export interface AuthorizedCaller {
   userToken: string;
-  /** True for the test M2M client (automation, the eval harness), which has no user profile. */
+  /** True for the project's own M2M client (AUTH0_CLIENT), which has no user profile. */
   isServiceClient: boolean;
 }
 
 /**
- * The test M2M client is allowed as is. A user needs one of EASY_CHART_ROLES and, when an encounter is
- * named, must be able to read it with their own token.
+ * The project's own M2M client is allowed as is: it already holds the credentials these endpoints use.
+ * A user needs one of EASY_CHART_ROLES and, when an encounter is named, must be able to read it with their
+ * own token.
  */
 export async function authorizeEasyChartRequest(
   input: ZambdaInput,

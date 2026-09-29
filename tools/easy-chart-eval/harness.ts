@@ -28,7 +28,6 @@ export function buildEvalContext(): { context: HandlerContext } {
   let nextId = 1;
   const writer: ChartWriter = {
     save: async () => [`row-${nextId++}`],
-    remove: async () => undefined,
   };
 
   const catalogue: Catalogue = {
@@ -42,7 +41,6 @@ export function buildEvalContext(): { context: HandlerContext } {
 
   const context: HandlerContext = {
     mode: 'bulk',
-    encounterId: 'eval',
     catalogue,
     writer,
     chart: buildChartSnapshot(undefined),

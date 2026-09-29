@@ -1,10 +1,9 @@
 import { buildPrompt } from 'utils/lib/easy-chart/prompt';
 import { describe, expect, it } from 'vitest';
 
-const buildPlannerPrompt = (narrative: string): string => buildPrompt('plan', { narrative });
-const buildReviewPrompt = (narrative: string): string => buildPrompt('review', { narrative });
+const buildPlannerPrompt = (narrative: string): string => buildPrompt({ narrative });
 
-// Pins two rules in each prompt's fixed block: a stated diagnosis is never escalated to one inferred
+// Pins two rules in the prompt's fixed block: a stated diagnosis is never escalated to one inferred
 // from findings, and later statements override walked-back earlier impressions.
 describe('easy-chart dx-selection rule pins', () => {
   const fixedPrefixOf = (p: string): string => {
@@ -17,11 +16,5 @@ describe('easy-chart dx-selection rule pins', () => {
     const prefix = fixedPrefixOf(buildPlannerPrompt('Synthetic narrative.'));
     expect(prefix).toContain('Never chart a walked-back impression');
     expect(prefix).toContain('STATED DIAGNOSIS WINS');
-  });
-
-  it('review fixed block carries the later-statements and no-escalation principles', () => {
-    const prefix = fixedPrefixOf(buildReviewPrompt('Synthetic narrative.'));
-    expect(prefix).toContain('LATER STATEMENTS ARE GROUND TRUTH');
-    expect(prefix).toContain('NEVER ESCALATE A STATED DIAGNOSIS');
   });
 });

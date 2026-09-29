@@ -1,4 +1,4 @@
-// Compare eval runs against a baseline, in the terminal and as a self-contained HTML page.
+// Compare run-harvested.ts runs against a baseline, in the terminal and as a self-contained HTML page.
 //
 // PHI: reads only summary.json and *.score.json (counts and case ids), never *.result.json, which holds
 // clinical content. The HTML goes into the last run's gitignored directory; only point --out at an ignored path.
@@ -35,22 +35,26 @@ interface Section {
   precisionMeasured: boolean;
 }
 
-type Scope = 'plannerOnly' | 'final';
-const SCOPES: Scope[] = ['plannerOnly', 'final'];
+interface Usage {
+  calls?: number;
+  inputTokens?: number;
+  outputTokens?: number;
+}
 
 interface RunSummary {
   scoredCases: number;
-  scopes: Record<Scope, { sections: Record<string, SectionLike> }>;
+  sections: Record<string, SectionLike>;
   freeText: Record<string, { goldPresent: number; predictedPresent: number; bothPresent: number }>;
   counters: Record<string, number>;
   dispositionVoiced?: Record<string, number>;
   dispositionTrigger?: Record<string, unknown>;
-  usage: Record<string, Record<string, number>>;
+  usage?: Usage;
 }
 
+/** A per-case score file: its sections sit at the top level, beside `caseId` and the fields below. */
 interface CaseScore {
   caseId: string;
-  scopes: Record<Scope, Record<string, SectionLike>> & Record<Scope, { em?: EmLike }>;
+  em?: EmLike;
   /** Null when the corpus did not know the patient's status. */
   patientStatusSent?: 'new' | 'established' | null;
   /** Where that status came from — see emLine. */
@@ -72,14 +76,12 @@ interface Run {
 }
 
 /** Sections from either run's summary, read from the runs so scorer changes need no edit here. */
-function sectionNames(baseline: Run, current: Run, scope: Scope): string[] {
-  return [
-    ...new Set([
-      ...Object.keys(baseline.summary.scopes[scope]?.sections ?? {}),
-      ...Object.keys(current.summary.scopes[scope]?.sections ?? {}),
-    ]),
-  ].sort();
+function sectionNames(baseline: Run, current: Run): string[] {
+  return [...new Set([...Object.keys(baseline.summary.sections), ...Object.keys(current.summary.sections)])].sort();
 }
+
+/** Only the names passed to totalsOf are read, so the non-section fields of a score file are ignored. */
+const sectionsOf = (score: CaseScore): Record<string, SectionLike> => score as unknown as Record<string, SectionLike>;
 
 /** Filesystem names are written into the HTML, so anything but a plain name is refused rather than escaped. */
 function assertSafeId(value: string, what: string): string {
@@ -113,7 +115,7 @@ function normalize(section: SectionLike | undefined): Section {
 
 /**
  * Totals across `names` with rates recomputed from counts (averaging rates would overweight small sections).
- * Only `names` is summed: a per-case scope also holds `em` (code strings) and the `medsCombined` roll-up.
+ * Only `names` is summed: a per-case score also holds `em` (code strings) and the `medsCombined` roll-up.
  */
 function totalsOf(sections: Record<string, SectionLike>, names: string[]): Section {
   let gold = 0;
@@ -185,11 +187,11 @@ function deltaInt(current: number, base: number): string {
   return d === 0 ? '=' : `${d > 0 ? '+' : ''}${d}`;
 }
 
-function printScope(baseline: Run, current: Run, scope: Scope): void {
-  const bs = baseline.summary.scopes[scope].sections;
-  const cs = current.summary.scopes[scope].sections;
-  const names = sectionNames(baseline, current, scope);
-  console.log(`\n  scope: ${scope}`);
+function printSections(baseline: Run, current: Run): void {
+  const bs = baseline.summary.sections;
+  const cs = current.summary.sections;
+  const names = sectionNames(baseline, current);
+  console.log('');
   console.log(
     `  ${padEnd('section', 16)}${pad('gold', 6)}${pad('pred', 7)}${pad('Δ', 7)}${pad('match', 7)}${pad('Δ', 7)}` +
       `${pad('prec', 8)}${pad('recall', 8)}${pad('F1', 8)}${pad('ΔF1', 8)}`
@@ -243,7 +245,7 @@ function emLine(run: Run): string {
   let disc = 0;
   let discExact = 0;
   for (const score of run.cases.values()) {
-    const em = score.scopes?.final?.em;
+    const em = score.em;
     if (!em?.gold || !em.predicted) continue;
     const exact = em.gold === em.predicted;
     all++;
@@ -278,14 +280,14 @@ interface CaseMove {
   change: number;
 }
 
-function caseMoves(baseline: Run, current: Run, scope: Scope): CaseMove[] {
-  const names = sectionNames(baseline, current, scope);
+function caseMoves(baseline: Run, current: Run): CaseMove[] {
+  const names = sectionNames(baseline, current);
   const moves: CaseMove[] = [];
   for (const [caseId, score] of current.cases) {
     const before = baseline.cases.get(caseId);
     if (!before) continue;
-    const b = totalsOf(before.scopes[scope], names);
-    const c = totalsOf(score.scopes[scope], names);
+    const b = totalsOf(sectionsOf(before), names);
+    const c = totalsOf(sectionsOf(score), names);
     moves.push({ caseId, base: b.f1, current: c.f1, change: c.f1 - b.f1 });
   }
   return moves.sort((a, b) => a.change - b.change);
@@ -295,21 +297,21 @@ function caseMoves(baseline: Run, current: Run, scope: Scope): CaseMove[] {
  * Checks that the per-case files sum to summary.json. The two are computed by different code, so a
  * mismatch means one is being read wrong and the comparison can't be trusted.
  */
-function checkConsistency(run: Run, names: string[], scope: Scope): string | undefined {
+function checkConsistency(run: Run, names: string[]): string | undefined {
   if (run.cases.size === 0) return undefined;
-  const summary = totalsOf(run.summary.scopes[scope].sections, names);
+  const summary = totalsOf(run.summary.sections, names);
   let gold = 0;
   let predicted = 0;
   let matched = 0;
   for (const score of run.cases.values()) {
-    const totals = totalsOf(score.scopes[scope], names);
+    const totals = totalsOf(sectionsOf(score), names);
     gold += totals.gold;
     predicted += totals.predicted;
     matched += totals.matched;
   }
   if (gold === summary.gold && predicted === summary.predicted && matched === summary.matched) return undefined;
   return (
-    `${run.name} (${scope}): per-case files sum to ${gold}/${predicted}/${matched} gold/pred/matched, ` +
+    `${run.name}: per-case files sum to ${gold}/${predicted}/${matched} gold/pred/matched, ` +
     `but summary.json says ${summary.gold}/${summary.predicted}/${summary.matched}`
   );
 }
@@ -318,20 +320,20 @@ function printReport(baseline: Run, current: Run): void {
   console.log(`\nBASELINE  ${baseline.name}   cases=${baseline.summary.scoredCases}`);
   console.log(`CURRENT   ${current.name}   cases=${current.summary.scoredCases}`);
 
-  const problems = SCOPES.flatMap((scope) => {
-    const names = sectionNames(baseline, current, scope);
-    return [checkConsistency(baseline, names, scope), checkConsistency(current, names, scope)];
-  }).filter((problem): problem is string => Boolean(problem));
+  const names = sectionNames(baseline, current);
+  const problems = [checkConsistency(baseline, names), checkConsistency(current, names)].filter(
+    (problem): problem is string => Boolean(problem)
+  );
   if (problems.length > 0) {
     console.error('\n  ⚠ THE NUMBERS BELOW DO NOT RECONCILE — do not act on this comparison:');
     for (const problem of problems) console.error(`    ${problem}`);
     process.exitCode = 1;
   }
-  for (const scope of SCOPES) printScope(baseline, current, scope);
+  printSections(baseline, current);
 
-  const moves = caseMoves(baseline, current, 'final');
+  const moves = caseMoves(baseline, current);
   const moved = moves.filter((m) => Math.abs(m.change) >= 5e-4);
-  console.log(`\n  per-case F1 (scope: final) — ${moved.length} of ${moves.length} cases moved`);
+  console.log(`\n  per-case F1 — ${moved.length} of ${moves.length} cases moved`);
   if (moved.length === 0) {
     console.log('    every scored case is identical to the baseline');
   } else {
@@ -343,7 +345,7 @@ function printReport(baseline: Run, current: Run): void {
     }
   }
 
-  console.log('\n  E&M exact match (scope: final)');
+  console.log('\n  E&M exact match');
   for (const run of [baseline, current]) console.log(emLine(run));
 
   console.log('\n  counters');
@@ -357,12 +359,12 @@ function printReport(baseline: Run, current: Run): void {
   }
 
   console.log('\n  model usage');
-  for (const call of ['planner', 'review']) {
-    const b = baseline.summary.usage?.[call] ?? {};
-    const c = current.summary.usage?.[call] ?? {};
+  {
+    const b = baseline.summary.usage ?? {};
+    const c = current.summary.usage ?? {};
     if (b.calls || c.calls) {
       console.log(
-        `    ${padEnd(call, 10)}calls=${pad(c.calls ?? 0, 4)} (${deltaInt(c.calls ?? 0, b.calls ?? 0)})` +
+        `    calls=${pad(c.calls ?? 0, 4)} (${deltaInt(c.calls ?? 0, b.calls ?? 0)})` +
           `  in=${pad(c.inputTokens ?? 0, 8)} (${deltaInt(c.inputTokens ?? 0, b.inputTokens ?? 0)})` +
           `  out=${pad(c.outputTokens ?? 0, 7)} (${deltaInt(c.outputTokens ?? 0, b.outputTokens ?? 0)})`
       );
@@ -398,10 +400,10 @@ function deltaIntCell(current: number, base: number): string {
   return `<td class="num ${cls}">${d === 0 ? '=' : `${d > 0 ? '+' : ''}${d}`}</td>`;
 }
 
-function scopeTable(baseline: Run, current: Run, scope: Scope): string {
-  const bs = baseline.summary.scopes[scope].sections;
-  const cs = current.summary.scopes[scope].sections;
-  const names = sectionNames(baseline, current, scope);
+function sectionsTable(baseline: Run, current: Run): string {
+  const bs = baseline.summary.sections;
+  const cs = current.summary.sections;
+  const names = sectionNames(baseline, current);
   const rows = names
     .map((name) => {
       const b = normalize(bs[name]);
@@ -433,13 +435,13 @@ function scopeTable(baseline: Run, current: Run, scope: Scope): string {
     `<td class="num">${cell(ct.f1)}</td>` +
     deltaCell(ct.f1, bt.f1) +
     `<td></td></tr>`;
-  return `<h3>${scope}</h3><table><thead><tr><th>section</th><th>gold</th><th>pred</th><th>Δ</th>
+  return `<table><thead><tr><th>section</th><th>gold</th><th>pred</th><th>Δ</th>
     <th>match</th><th>Δ</th><th>prec</th><th>recall</th><th>F1</th><th>ΔF1</th><th>F1 vs baseline</th>
     </tr></thead><tbody>${rows}${total}</tbody></table>`;
 }
 
 function caseTable(baseline: Run, current: Run): string {
-  const moves = caseMoves(baseline, current, 'final');
+  const moves = caseMoves(baseline, current);
   if (moves.length === 0) return '<p class="muted">No cases are scored in both runs.</p>';
   const span = Math.max(0.05, ...moves.map((m) => Math.abs(m.change)));
   const rows = moves
@@ -478,13 +480,11 @@ function countersTable(baseline: Run, current: Run): string {
 }
 
 function usageTable(baseline: Run, current: Run): string {
-  const rows = ['planner', 'review']
-    .filter((call) => (baseline.summary.usage?.[call]?.calls ?? 0) || (current.summary.usage?.[call]?.calls ?? 0))
-    .map((call) => {
-      const b = baseline.summary.usage?.[call] ?? {};
-      const c = current.summary.usage?.[call] ?? {};
-      return (
-        `<tr><td>${call}</td><td class="num">${c.calls ?? 0}</td>${deltaIntCell(c.calls ?? 0, b.calls ?? 0)}` +
+  const b = baseline.summary.usage ?? {};
+  const c = current.summary.usage ?? {};
+  const row =
+    b.calls || c.calls
+      ? `<tr><td class="num">${c.calls ?? 0}</td>${deltaIntCell(c.calls ?? 0, b.calls ?? 0)}` +
         `<td class="num">${(c.inputTokens ?? 0).toLocaleString()}</td>${deltaIntCell(
           c.inputTokens ?? 0,
           b.inputTokens ?? 0
@@ -492,11 +492,9 @@ function usageTable(baseline: Run, current: Run): string {
           c.outputTokens ?? 0,
           b.outputTokens ?? 0
         )}</tr>`
-      );
-    })
-    .join('');
-  return `<table><thead><tr><th>call</th><th>calls</th><th>Δ</th><th>in</th><th>Δ</th><th>out</th><th>Δ</th>
-    </tr></thead><tbody>${rows}</tbody></table>`;
+      : '';
+  return `<table><thead><tr><th>calls</th><th>Δ</th><th>in</th><th>Δ</th><th>out</th><th>Δ</th>
+    </tr></thead><tbody>${row}</tbody></table>`;
 }
 
 function buildHtml(baseline: Run, current: Run): string {
@@ -522,7 +520,6 @@ function buildHtml(baseline: Run, current: Run): string {
   body { margin:0; padding:32px; background:var(--bg); color:var(--fg);
          font:14px/1.5 ui-sans-serif,-apple-system,"Segoe UI",Roboto,sans-serif; }
   h1 { font-size:20px; margin:0 0 4px; } h2 { font-size:16px; margin:32px 0 8px; }
-  h3 { font-size:13px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin:20px 0 6px; }
   .sub { color:var(--muted); margin:0 0 8px; }
   .warn { background:var(--warnbg); color:var(--warnfg); padding:10px 12px; border-radius:6px; }
   .muted { color:var(--muted); }
@@ -547,9 +544,8 @@ function buildHtml(baseline: Run, current: Run): string {
 <p class="sub">${current.summary.scoredCases} cases scored · baseline ${baseline.summary.scoredCases} ·
   generated ${new Date().toISOString().slice(0, 16).replace('T', ' ')}</p>
 ${warning}
-<h2>Sections</h2><div class="wrap">${scopeTable(baseline, current, 'plannerOnly')}
-${scopeTable(baseline, current, 'final')}</div>
-<h2>Per case <span class="muted" style="font-weight:400">— scope: final</span></h2>
+<h2>Sections</h2><div class="wrap">${sectionsTable(baseline, current)}</div>
+<h2>Per case</h2>
 <div class="wrap">${caseTable(baseline, current)}</div>
 <h2>Counters</h2><div class="wrap">${countersTable(baseline, current)}</div>
 <h2>Model usage</h2><div class="wrap">${usageTable(baseline, current)}</div>

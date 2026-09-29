@@ -29,9 +29,6 @@ describe('editableActionText', () => {
     expect(editableActionText({ kind: 'add-surgical-history', display: 'Appendectomy' })).toMatchObject({
       label: 'Surgery',
     });
-    expect(editableActionText({ kind: 'remove-diagnosis', display: 'Viral URI' })).toMatchObject({
-      label: 'Item to remove',
-    });
   });
 
   it('offers nothing for a kind whose meaning is a code, or one with no words to edit', () => {

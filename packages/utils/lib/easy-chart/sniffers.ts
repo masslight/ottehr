@@ -1,5 +1,4 @@
-// Deterministic recovery of details the model dropped, parsed from the narrative. Shared so the plan and review
-// paths chart identical input identically.
+// Deterministic recovery of details the model dropped, parsed from the narrative.
 
 import { ICD10_SCAN } from './codes';
 
@@ -49,9 +48,8 @@ export function sniffIcdCodeScoped(
 }
 
 /**
- * Disposition language that, with nothing charted, forces the review's disposition check. High precision on
- * purpose, since a false hit pushes the model to invent a disposition: bare "follow-up", "see your doctor" and
- * "if worse" are deliberately absent.
+ * Disposition language the plan's trigger report checks for a charted disposition. High precision on purpose:
+ * bare "follow-up", "see your doctor" and "if worse" are deliberately absent.
  */
 const DISPOSITION_LANGUAGE_PATTERNS: ReadonlyArray<{ label: string; re: RegExp }> = [
   {

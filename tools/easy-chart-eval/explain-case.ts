@@ -165,41 +165,32 @@ function explain(runDir: string, caseId: string): void {
   for (const t of turns) md.push(`**${t.n}. ${t.speaker}:** ${t.text}`);
   md.push('');
 
-  const live = (arr: unknown): Record<string, any>[] =>
-    (Array.isArray(arr) ? arr : []).filter((x: any) => x && !x.removed);
-  const rows: [string, { key: string; label: string; source?: string }[]][] = [
+  const list = (arr: unknown): Record<string, any>[] => (Array.isArray(arr) ? arr : []).filter(Boolean);
+  const rows: [string, { key: string; label: string }[]][] = [
     [
       'diagnoses',
-      live(state.diagnoses).map((p) => ({
+      list(state.diagnoses).map((p) => ({
         key: normCode(p.code),
         label: `${normCode(p.code) || '(no code)'} — ${p.display ?? ''}${p.isPrimary ? ' (primary)' : ''}`,
-        source: p.source,
       })),
     ],
     [
       'cpt',
-      live(state.cptCodes).map((p) => ({
+      list(state.cptCodes).map((p) => ({
         key: normCode(p.code),
         label: `${normCode(p.code)} — ${p.display ?? ''}`,
-        source: p.source,
       })),
     ],
-    [
-      'ros',
-      live(state.rosObservations).map((p) => ({ key: p.baseKey, label: p.label ?? p.baseKey, source: p.source })),
-    ],
-    ['exam', live(state.examObservations).map((p) => ({ key: p.field, label: p.label ?? p.field, source: p.source }))],
-    [
-      'medications',
-      live(state.medications).map((p) => ({ key: norm(p.display ?? ''), label: p.display ?? '', source: p.source })),
-    ],
+    ['ros', list(state.rosObservations).map((p) => ({ key: p.baseKey, label: p.label ?? p.baseKey }))],
+    ['exam', list(state.examObservations).map((p) => ({ key: p.field, label: p.label ?? p.field }))],
+    ['medications', list(state.medications).map((p) => ({ key: norm(p.display ?? ''), label: p.display ?? '' }))],
   ];
 
   md.push('## What the run charted', '');
   for (const [section, preds] of rows) {
     if (preds.length === 0) continue;
     md.push(`### ${section} — ${preds.length} charted`, '');
-    md.push('| charted | by | gold match | verdict | evidence | turn |', '|---|---|---|---|---|---|');
+    md.push('| charted | gold match | verdict | evidence | turn |', '|---|---|---|---|---|');
     const map = maps[section] ?? new Map<string, GoldEntry>();
     for (const p of preds) {
       // Medications match fuzzily, exactly as the scorer pools them; everything else is an exact key.
@@ -227,11 +218,7 @@ function explain(runDir: string, caseId: string): void {
         evidence = j?.evidence ?? '';
         turn = locate(evidence, turns);
       }
-      md.push(
-        `| ${p.label} | ${p.source ?? ''} | ${hit ? hit.label : '—'} | ${verdict} | ${
-          evidence ? `"${evidence}"` : ''
-        } | ${turn} |`
-      );
+      md.push(`| ${p.label} | ${hit ? hit.label : '—'} | ${verdict} | ${evidence ? `"${evidence}"` : ''} | ${turn} |`);
     }
     md.push('');
   }

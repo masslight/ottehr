@@ -5,7 +5,7 @@
 export const STRICT_ICD10 = /^[A-TV-Z][0-9][A-Z0-9](?:\.[A-Z0-9]{1,4})?[A-Z]?$/;
 /** Scanning counterpart of STRICT_ICD10, for finding codes inside text. Keep the two patterns in sync. */
 export const ICD10_SCAN = /\b([A-TV-Z][0-9][A-Z0-9](?:\.[A-Z0-9]{1,4})?[A-Z]?)\b/g;
-/** CPT, including the E&M 99xxx family. */
+/** Numeric CPT, E&M 99xxx included. Category II/III codes end in a letter and do not pass. */
 const STRICT_CPT = /^\d{4,5}$/;
 
 export function isIcd10Shaped(code: string | undefined): boolean {

@@ -1,12 +1,11 @@
 // Zod schemas for what the model returns, applied after `parseModelJson`.
 //
-// The envelope (`actions[]`, `suggestions[]`, `lines[]`) must be right or the attempt fails and escalates.
-// Items are parsed one by one and leniently: Gemini decodes against a schema, but the Anthropic fallback
-// does not, so a field can arrive as the wrong type, padded, or wrapped in quotes. A value that cannot be
-// used is dropped, so the required-field gate reports it, and one bad item never fails the whole answer.
+// The envelope (`actions[]`, `lines[]`) must be right or the attempt fails and escalates. Actions are
+// parsed one by one and leniently: Gemini decodes against a schema, but the Anthropic fallback does not,
+// so a field can arrive as the wrong type, padded, or wrapped in quotes. A value that cannot be used is
+// dropped for the guards to report, and one bad action never fails the whole plan.
 
 import { ActionField } from 'utils/lib/easy-chart/actions';
-import { REVIEW_CATEGORIES } from 'utils/lib/easy-chart/api';
 import { z } from 'zod';
 
 const QUOTE_PAIRS: Record<string, string> = { '"': '"', "'": "'", '`': '`', '“': '”', '‘': '’' };
@@ -40,7 +39,7 @@ const terms = z
   .optional()
   .catch(undefined);
 
-/** Numeric fields travel as strings (schema.ts, trap 1); `coerceNumericFields` restores them. */
+/** Numeric fields travel as strings (schema.ts, trap 1); the registry-shape check parses them. */
 const numeric = z
   .union([z.string(), z.number()])
   .transform((value) => String(value).trim())
@@ -72,18 +71,6 @@ const actionFields = {
 export const ModelActionSchema = z.object(actionFields).passthrough();
 
 export const PlanModelResponseSchema = z.object({ actions: z.array(z.unknown()) });
-
-export const ReviewModelResponseSchema = z.object({ suggestions: z.array(z.unknown()) });
-
-export const ModelSuggestionSchema = z.object({
-  category: z.enum(REVIEW_CATEGORIES),
-  question: z.string().transform(cleanModelText).pipe(z.string().min(1)),
-  rationale: text,
-  highlight: text,
-  partial: flag,
-  partialNote: text,
-  actions: z.array(z.unknown()).catch([]),
-});
 
 export const NarrativeModelResponseSchema = z.object({
   lines: z.array(

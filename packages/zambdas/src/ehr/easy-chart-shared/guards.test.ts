@@ -47,11 +47,9 @@ const fakeOystehr = {
   },
 } as unknown as Oystehr;
 
-const context = (narrative: string, chartedItems: string[] = [], extra: Partial<GuardContext> = {}): GuardContext => ({
+const context = (narrative: string, extra: Partial<GuardContext> = {}): GuardContext => ({
   oystehr: fakeOystehr,
-  surface: 'plan',
   narrative,
-  chartedItems,
   logPrefix: 'test',
   ...extra,
 });
@@ -59,9 +57,8 @@ const context = (narrative: string, chartedItems: string[] = [], extra: Partial<
 const run = (
   actions: unknown[],
   narrative: string,
-  chartedItems: string[] = [],
   extra: Partial<GuardContext> = {}
-): ReturnType<typeof applyGuards> => applyGuards(actions, context(narrative, chartedItems, extra));
+): ReturnType<typeof applyGuards> => applyGuards(actions, context(narrative, extra));
 
 describe('required-field gate', () => {
   it('skips an action with a reason rather than letting it be a silent no-op', async () => {
@@ -75,9 +72,20 @@ describe('required-field gate', () => {
     expect(rejected[0].reason).toMatch(/is not an action this build knows/);
   });
 
-  it('refuses a kind the surface does not offer, since the backup model decodes without a schema', async () => {
-    const { rejected } = await run([{ kind: 'remove-medication', display: 'Motrin' }], 'x', ['Motrin']);
-    expect(rejected[0].reason).toMatch(/not offered on the plan surface/);
+  // The backup model decodes without the schema, so the registry shape is checked on the server.
+  it('refuses a required value the chart does not accept, instead of writing it under a wrong key', async () => {
+    const { actions, rejected } = await run([{ kind: 'edit-note-text', field: 'hpi', newText: 'Sore throat.' }], 'x');
+    expect(actions).toEqual([]);
+    expect(rejected[0].reason).toBe('field "hpi" is not something the chart accepts');
+  });
+
+  it('drops an optional value the chart does not accept and keeps the action', async () => {
+    const { actions, rejected } = await run(
+      [{ kind: 'add-ros-finding', display: 'Denies fever', finding: 'negative' }],
+      'denies fever'
+    );
+    expect(rejected).toEqual([]);
+    expect(actions[0]).toMatchObject({ kind: 'add-ros-finding', display: 'Denies fever', finding: 'denies' });
   });
 
   it('reports a malformed item instead of failing the whole answer', async () => {
@@ -150,7 +158,7 @@ describe('disposition', () => {
       'we are admitting her'
     );
     expect(actions).toEqual([]);
-    expect(rejected[0].reason).toBe('"ip" is not a disposition the chart offers');
+    expect(rejected[0].reason).toBe('dispositionType "ip" is not something the chart accepts');
   });
 
   it('keeps an interval the card offers and drops one it cannot show, with a caution', async () => {
@@ -371,7 +379,6 @@ describe('exam and ROS polarity', () => {
     const { actions, rejected } = await run(
       [{ kind: 'add-exam-finding', display: 'Nontender', sourceText: 'Exam: Nontender' }],
       'Sore throat, otherwise well.',
-      [],
       { chartStateText: '- Exam: Nontender' }
     );
     expect(actions).toEqual([]);
@@ -382,7 +389,6 @@ describe('exam and ROS polarity', () => {
     const { actions } = await run(
       [{ kind: 'add-exam-finding', display: 'Nontender', sourceText: 'abdomen soft and nontender' }],
       'Sore throat, otherwise well.',
-      [],
       { editedNarrative: 'Sore throat. Abdomen soft and nontender.' }
     );
     expect(actions).toHaveLength(1);
@@ -406,36 +412,6 @@ describe('exam and ROS polarity', () => {
   it('refuses a ROS finding with no polarity rather than guessing one', async () => {
     const { rejected } = await run([{ kind: 'add-ros-finding', display: 'chest pain' }], 'chest pain');
     expect(rejected[0].reason).toMatch(/reports or denies/);
-  });
-});
-
-describe('removals', () => {
-  const review = { surface: 'review' } as const;
-
-  it('refuses a removal when the chart is empty', async () => {
-    const { rejected } = await run([{ kind: 'remove-medication', display: 'Motrin' }], 'remove Motrin', [], review);
-    expect(rejected[0].reason).toMatch(/chart is empty/);
-  });
-
-  it('refuses a removal that matches nothing on the chart', async () => {
-    const { rejected } = await run(
-      [{ kind: 'remove-medication', display: 'Motrin' }],
-      'remove Motrin',
-      ['Amoxicillin 400 mg/5 mL'],
-      review
-    );
-    expect(rejected[0].reason).toMatch(/is not on the chart/);
-  });
-
-  it('allows a removal that matches a charted item', async () => {
-    const { actions, rejected } = await run(
-      [{ kind: 'remove-medication', display: 'Motrin' }],
-      'remove Motrin',
-      ['Motrin 200 mg tablet'],
-      review
-    );
-    expect(rejected).toEqual([]);
-    expect(actions).toHaveLength(1);
   });
 });
 
@@ -526,19 +502,6 @@ describe('exactly-one-primary invariant', () => {
     expect(actions.find((a) => a.isPrimary)).toMatchObject({ code: 'H66.90' });
     expect(actions[0].caution).toBeUndefined();
   });
-
-  // Review guards one card at a time; promoting there would turn a secondary-dx card into a primary change.
-  it('does not promote on the review surface', async () => {
-    const { actions } = await run(
-      [{ kind: 'add-diagnosis', display: 'Otitis media' }],
-      'the right ear looks infected',
-      [],
-      {
-        surface: 'review',
-      }
-    );
-    expect(actions[0].isPrimary).toBeUndefined();
-  });
 });
 
 describe('speaker-label refusal', () => {
@@ -600,9 +563,7 @@ describe('billing-code lookup failure modes', () => {
         },
       },
     } as unknown as Oystehr,
-    surface: 'plan',
     narrative,
-    chartedItems: [],
     logPrefix: 'test',
   });
 
@@ -713,7 +674,6 @@ describe('chart-origin provenance', () => {
         },
       ],
       narrative,
-      [],
       { chartStateText }
     );
     expect(actions[0].sourceText).toBe('In-house lab resulted: Test: Rapid strep | Result: Positive');
@@ -724,7 +684,6 @@ describe('chart-origin provenance', () => {
     const { actions } = await run(
       [{ kind: 'add-diagnosis', display: 'Strep throat', code: 'J02.0', sourceText: 'Sore throat for two days' }],
       narrative,
-      [],
       { chartStateText: `${chartStateText}\n- Patient instruction: Sore throat for two days` }
     );
     expect(actions[0].sourceOrigin).toBe('narrative');
@@ -734,7 +693,6 @@ describe('chart-origin provenance', () => {
     const { actions } = await run(
       [{ kind: 'add-diagnosis', display: 'Strep throat', code: 'J02.0', sourceText: 'the culture grew group A strep' }],
       narrative,
-      [],
       { chartStateText }
     );
     expect(actions[0].sourceText).toBeUndefined();

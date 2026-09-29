@@ -1,7 +1,6 @@
 /**
  * Deterministic scorer for harvested-case runs: compares the simulated chart state with the clinician's
- * structured gold. Every metric is computed over the planner-only output and over the final post-review
- * state, so review's contribution is visible per section.
+ * structured gold.
  *
  * Gold that is not derivable from the transcript (`context: true` prior-chart items, lab-order diagnoses,
  * and items tagged `voiced: false` by tag-voiced.ts) leaves the recall denominator, and a prediction matching
@@ -39,22 +38,13 @@ import { parseVitalDisplay } from 'utils/lib/easy-chart/vitals';
 import { RosFindingState } from 'utils/lib/ottehr-config/review-of-systems/in-person.config';
 import { DiagnosisItem, ExamItem, GoldData } from './gold-types';
 
-// Simulated chart state. Items carry provenance (`source`) and soft-delete flags (`removed` / `removedBy`)
-// so both scopes can be rebuilt.
-export type SimSource = 'planner' | 'review';
-
+// Simulated chart state: what the executor applied, in the shape the scorer compares against gold.
 export interface SimItem {
   display: string;
   code?: string;
-  source: SimSource;
-  removed?: boolean;
-  removedBy?: SimSource;
 }
 export interface SimDiagnosis extends SimItem {
   isPrimary?: boolean;
-  // Set when review promoted this dx to primary. The plannerOnly scope ignores the promotion, even on a
-  // planner-sourced dx.
-  promotedPrimaryBy?: SimSource;
 }
 export interface SimMedication extends SimItem {
   strength?: string;
@@ -63,36 +53,24 @@ export interface SimExamComponent {
   code: string;
   label: string;
   abnormal?: boolean;
-  source: SimSource;
-  removed?: boolean;
-  removedBy?: SimSource;
 }
 export interface SimExamObs {
   field: string;
   label: string;
   components?: SimExamComponent[];
-  source: SimSource;
-  removed?: boolean;
-  removedBy?: SimSource;
 }
 export interface SimRosObs {
   baseKey: string;
   field: string;
   label: string;
   finding: 'reports' | 'denies';
-  source: SimSource;
-  removed?: boolean;
-  removedBy?: SimSource;
 }
 export interface SimEmEvent {
-  type: 'set' | 'remove';
   code?: string;
   display?: string;
-  source: SimSource;
 }
 export interface SimNoteText {
   text: string;
-  source: SimSource;
 }
 export interface SimFinalState {
   templatesApplied: string[];
@@ -103,7 +81,7 @@ export interface SimFinalState {
   examObservations: SimExamObs[];
   // Findings that had no confident checkbox and were appended to a section's free-text area
   // (mirrors the client's writeExamComment fallback).
-  examComments: { section: string; text: string; source: SimSource }[];
+  examComments: { section: string; text: string }[];
   rosObservations: SimRosObs[];
   conditions: SimItem[];
   allergies: SimItem[];
@@ -113,8 +91,6 @@ export interface SimFinalState {
   noteText: Partial<
     Record<'chiefComplaint' | 'historyOfPresentIllness' | 'mechanismOfInjury' | 'ros' | 'medicalDecision', SimNoteText>
   >;
-  // Review edit-note-text on a non-empty field is queued for confirmation, not folded into noteText.
-  pendingNoteEdits: { field: string; newText: string; source: SimSource }[];
   instructions: string[];
   disposition?: { type?: string; text?: string };
   labsOrdered: { kind: 'in-house' | 'external'; display: string }[];
@@ -144,7 +120,6 @@ export function emptySimState(): SimFinalState {
     surgicalHistory: [],
     hospitalizations: [],
     noteText: {},
-    pendingNoteEdits: [],
     instructions: [],
     labsOrdered: [],
     radiology: [],
@@ -157,13 +132,8 @@ export function emptySimState(): SimFinalState {
   };
 }
 
-export interface CaseUsage {
-  planner?: EvalTokenUsage;
-  review?: EvalTokenUsage;
-}
-
-// Passed through verbatim from the review response. On a CaseScore, `null` means the response had no
-// trigger info and an absent field means the run predates it; both land in the aggregate's no-data bucket.
+// The plan response's disposition trigger, passed through. On a CaseScore, `null` means the response had no
+// trigger info and an absent field means none was passed; both land in the aggregate's no-data bucket.
 export interface DispositionTriggerInfo {
   fired: boolean;
   matchedPattern?: string;
@@ -183,7 +153,7 @@ export interface SectionScore {
   precision: number | null;
   recall: number | null;
 }
-export interface ScopeScores {
+export interface ChartScores {
   diagnoses: SectionScore & { predictedNoCode: number };
   primaryDx: { goldCode?: string; goldVoiced?: boolean; predictedCode?: string; match: boolean | null };
   // levelMatch compares the E&M *level* (last digit — 9920x/9921x share levels) so a new-vs-
@@ -223,9 +193,8 @@ export interface FreeTextScore {
   predictedPresent: boolean;
   predictedLength: number;
 }
-export interface CaseScore {
+export interface CaseScore extends ChartScores {
   caseId: string;
-  scopes: { plannerOnly: ScopeScores; final: ScopeScores };
   freeText: Record<string, FreeTextScore>;
   contextCharted: {
     labOrderDiagnoses: number;
@@ -236,7 +205,6 @@ export interface CaseScore {
   counters: {
     templatesApplied: number;
     examComments: number;
-    pendingNoteEdits: number;
     providerNotes: number;
     predictedConditions: number;
     predictedAllergies: number;
@@ -246,10 +214,8 @@ export interface CaseScore {
     predictedDisposition: boolean;
     // gold.disposition.dispositionVoiced; omitted when untagged so untagged score files are unchanged.
     goldDispositionVoiced?: boolean;
-    // remove-* steps whose target wasn't on the simulated chart (planner hallucinated a removal).
-    removeTargetMissing: number;
   };
-  usage?: CaseUsage;
+  usage?: EvalTokenUsage;
   dispositionTrigger?: DispositionTriggerInfo | null;
 }
 
@@ -280,34 +246,6 @@ export function rosBaseAndPolarity(field: string): { base: string; polarity?: 'd
   if (field.endsWith(DENIES_SUFFIX)) return { base: field.slice(0, -DENIES_SUFFIX.length), polarity: 'denies' };
   if (field.endsWith(REPORTS_SUFFIX)) return { base: field.slice(0, -REPORTS_SUFFIX.length), polarity: 'reports' };
   return { base: field };
-}
-
-type Scope = 'plannerOnly' | 'final';
-function inScope<T extends { source: SimSource; removed?: boolean; removedBy?: SimSource }>(
-  items: T[],
-  scope: Scope
-): T[] {
-  return scope === 'plannerOnly'
-    ? items.filter((i) => i.source === 'planner' && !(i.removed && i.removedBy === 'planner'))
-    : items.filter((i) => !i.removed);
-}
-// Exam obs are in scope when the observation or any of its components belongs to the scope
-// (a review modal-option can land on a planner-created parent observation).
-function examInScope(obs: SimExamObs[], scope: Scope): SimExamObs[] {
-  if (scope === 'final') return obs.filter((o) => !o.removed);
-  return obs.filter(
-    (o) =>
-      !(o.removed && o.removedBy === 'planner') &&
-      (o.source === 'planner' || (o.components ?? []).some((c) => c.source === 'planner' && !c.removed))
-  );
-}
-function emForScope(events: SimEmEvent[], scope: Scope): { code?: string; display?: string } | undefined {
-  let cur: { code?: string; display?: string } | undefined;
-  for (const e of events) {
-    if (scope === 'plannerOnly' && e.source !== 'planner') continue;
-    cur = e.type === 'set' ? { code: e.code, display: e.display } : undefined;
-  }
-  return cur;
 }
 
 // `voiced` is stamped onto gold items by tag-voiced.ts and not declared on the gold types. Only an explicit
@@ -389,15 +327,15 @@ function mkSection(
   };
 }
 
-// Per-scope section scoring
-function scoreScope(gold: GoldData, state: SimFinalState, scope: Scope): ScopeScores {
+// Section scoring
+function scoreChart(gold: GoldData, state: SimFinalState): ChartScores {
   // Diagnoses match on codeNormalized.
   const goldDx = gold.assessment.diagnoses;
   const goldDxScorable = goldDx.filter((d) => !d.fromLabOrder);
   const goldDxInScope = goldDxScorable.filter((d) => !isUnvoiced(d));
   const goldDxUnvoiced = goldDxScorable.filter(isUnvoiced);
   const goldDxContext = goldDx.filter((d) => d.fromLabOrder);
-  const predDx = inScope(state.diagnoses, scope);
+  const predDx = state.diagnoses;
   const goldCodes = new Set(goldDxInScope.map((d) => d.codeNormalized));
   const unvoicedDxCodes = new Set(goldDxUnvoiced.map((d) => d.codeNormalized));
   const contextCodes = new Set(goldDxContext.map((d) => d.codeNormalized));
@@ -432,8 +370,7 @@ function scoreScope(gold: GoldData, state: SimFinalState, scope: Scope): ScopeSc
   // for the voiced-scoped aggregate.
   const goldPrimary = goldDxScorable.find((d) => d.primary);
   const goldPrimaryVoiced = (goldPrimary as { voiced?: boolean } | undefined)?.voiced;
-  // A review promotion never counts toward the planner-only scope.
-  const predPrimary = predDx.find((d) => d.isPrimary && !(scope === 'plannerOnly' && d.promotedPrimaryBy === 'review'));
+  const predPrimary = predDx.find((d) => d.isPrimary);
   const primaryDx = {
     ...(goldPrimary ? { goldCode: goldPrimary.codeNormalized } : {}),
     ...(goldPrimary && typeof goldPrimaryVoiced === 'boolean' ? { goldVoiced: goldPrimaryVoiced } : {}),
@@ -441,9 +378,9 @@ function scoreScope(gold: GoldData, state: SimFinalState, scope: Scope): ScopeSc
     match: goldPrimary && predPrimary?.code ? normCode(predPrimary.code) === goldPrimary.codeNormalized : null,
   };
 
-  // E&M: exact code, plus level (last digit; see ScopeScores.em).
+  // E&M: exact code, plus level (last digit; see ChartScores.em). The chart holds one code, so the last set wins.
   const goldEm = gold.billing.emCode?.code;
-  const predEm = emForScope(state.emEvents, scope)?.code;
+  const predEm = state.emEvents[state.emEvents.length - 1]?.code;
   const em = {
     ...(goldEm ? { gold: goldEm } : {}),
     ...(predEm ? { predicted: predEm } : {}),
@@ -454,11 +391,7 @@ function scoreScope(gold: GoldData, state: SimFinalState, scope: Scope): ScopeSc
   // CPT: set of normalized codes.
   const goldCpt = new Set(gold.billing.cptCodes.filter((c) => !isUnvoiced(c)).map((c) => c.codeNormalized));
   const goldCptUnvoiced = new Set(gold.billing.cptCodes.filter(isUnvoiced).map((c) => c.codeNormalized));
-  const predCpt = new Set(
-    inScope(state.cptCodes, scope)
-      .map((c) => normCode(c.code))
-      .filter(Boolean)
-  );
+  const predCpt = new Set(state.cptCodes.map((c) => normCode(c.code)).filter(Boolean));
   let cptMatched = 0;
   let cptUnvoicedMatched = 0;
   for (const c of predCpt) {
@@ -485,7 +418,7 @@ function scoreScope(gold: GoldData, state: SimFinalState, scope: Scope): ScopeSc
     else goldRos.set(base, polarity);
   }
   const predRos = new Map<string, 'denies' | 'reports'>();
-  for (const o of inScope(state.rosObservations, scope)) predRos.set(o.baseKey, o.finding);
+  for (const o of state.rosObservations) predRos.set(o.baseKey, o.finding);
   let rosMatched = 0;
   let polarityAgree = 0;
   let rosUnvoicedMatched = 0;
@@ -508,8 +441,9 @@ function scoreScope(gold: GoldData, state: SimFinalState, scope: Scope): ScopeSc
     polarityAgree,
   };
 
-  // Exam: presence by field. Abnormal agreement is derived from checked components on both sides, since the
-  // gold's abnormal flag only comes from component-level data.
+  // Exam: presence by field, each field counted once on both sides (a checkbox is ticked or not), so a
+  // repeated finding cannot push recall past 1. Abnormal agreement is derived from checked components on
+  // both sides, since the gold's abnormal flag only comes from component-level data.
   const goldExam = new Map<string, ExamItem>();
   const goldExamUnvoiced = new Set<string>();
   for (const o of gold.exam) {
@@ -517,25 +451,29 @@ function scoreScope(gold: GoldData, state: SimFinalState, scope: Scope): ScopeSc
     if (isUnvoiced(o)) goldExamUnvoiced.add(o.field);
     else goldExam.set(o.field, o);
   }
-  const predExam = examInScope(state.examObservations, scope);
+  // Predicted field → whether any observation on it has an abnormal component.
+  const predExam = new Map<string, boolean>();
+  for (const o of state.examObservations) {
+    const abnormal = (o.components ?? []).some((c) => c.abnormal === true);
+    predExam.set(o.field, (predExam.get(o.field) ?? false) || abnormal);
+  }
   let examMatched = 0;
   let abnormalAgree = 0;
   let examUnvoicedMatched = 0;
-  for (const o of predExam) {
-    const g = goldExam.get(o.field);
+  for (const [field, predAbnormal] of predExam) {
+    const g = goldExam.get(field);
     if (!g) {
-      if (goldExamUnvoiced.has(o.field)) examUnvoicedMatched++;
+      if (goldExamUnvoiced.has(field)) examUnvoicedMatched++;
       continue;
     }
     examMatched++;
     const goldAbnormal = (g.components ?? []).some((c) => c.value === true && c.abnormal === true);
-    const predAbnormal = (o.components ?? []).some((c) => !c.removed && c.abnormal === true);
     if (goldAbnormal === predAbnormal) abnormalAgree++;
   }
   const exam = {
     ...mkSection(
       goldExam.size,
-      predExam.length,
+      predExam.size,
       examMatched,
       undefined,
       undefined,
@@ -547,7 +485,7 @@ function scoreScope(gold: GoldData, state: SimFinalState, scope: Scope): ScopeSc
 
   // Medications: name-only against one shared predicted pool, consumed greedily (prescribed → in-house →
   // immunizations → context reconciled), each predicted item at most once.
-  const pool = inScope(state.medications, scope).map((m) => ({ display: m.display, used: false }));
+  const pool = state.medications.map((m) => ({ display: m.display, used: false }));
   const consume = (goldNames: (string | undefined)[]): number => {
     let matched = 0;
     for (const gn of goldNames) {
@@ -568,7 +506,7 @@ function scoreScope(gold: GoldData, state: SimFinalState, scope: Scope): ScopeSc
   const immunizationsMatched = consume(gold.medications.immunizations.map((m) => m.name));
   // Intent-voiced and unvoiced meds consume after the scorable sections (never stealing a match) and before
   // context. An intent-voiced med is also covered when a provider note or instruction shares a substantive
-  // token with it; notes and instructions have no source, so both scopes read the same lists.
+  // token with it.
   const noteTokens = [...state.providerNotes, ...state.instructions].map(substantiveTokens);
   let prescribedIntentMatched = 0;
   let prescribedIntentCovered = 0;
@@ -623,14 +561,14 @@ function scoreScope(gold: GoldData, state: SimFinalState, scope: Scope): ScopeSc
   const vitals = scoreVitals(gold, state);
   const allergies = scoreNamed(
     gold.allergies.map((a) => ({ display: a.name })),
-    inScope(state.allergies, scope)
+    state.allergies
   );
   const conditions = scoreNamed(
     gold.medicalHistory.map((h) => ({ display: h.display, codeNormalized: h.codeNormalized })),
-    inScope(state.conditions, scope)
+    state.conditions
   );
-  const surgicalHistory = scoreNamed(gold.surgicalHistory, inScope(state.surgicalHistory, scope));
-  const hospitalizations = scoreNamed(gold.hospitalizations, inScope(state.hospitalizations, scope));
+  const surgicalHistory = scoreNamed(gold.surgicalHistory, state.surgicalHistory);
+  const hospitalizations = scoreNamed(gold.hospitalizations, state.hospitalizations);
 
   return {
     diagnoses,
@@ -719,10 +657,7 @@ export function vitalMatchesGold(field: PlannableVitalField, display: string, g:
   return Math.abs(goldValue - toGoldUnits(field, parsed.value, parsed.unit)) <= (VITAL_TOLERANCE[field] ?? 1);
 }
 
-/**
- * Scored the same in both scopes, since only the planner sets vitals. Gold is limited to the fields the model
- * may set (BMI is derived; LMP and vision are never dictated).
- */
+/** Gold is limited to the fields the model may set (BMI is derived; LMP and vision are never dictated). */
 function scoreVitals(gold: GoldData, state: SimFinalState): SectionScore {
   const plannable = new Set<string>(PLANNABLE_VITAL_FIELDS);
   const goldVitals = gold.vitals.filter((v) => plannable.has(String(v.field)));
@@ -767,7 +702,7 @@ export function scoreCase(
   caseId: string,
   gold: GoldData,
   state: SimFinalState,
-  usage?: CaseUsage,
+  usage?: EvalTokenUsage,
   dispositionTrigger?: DispositionTriggerInfo | null
 ): CaseScore {
   const ft = (goldText: string | undefined, pred: SimNoteText | undefined): FreeTextScore => ({
@@ -794,34 +729,31 @@ export function scoreCase(
     mechanismOfInjury: ft(undefined, state.noteText.mechanismOfInjury),
   };
 
-  const scopes = { plannerOnly: scoreScope(gold, state, 'plannerOnly'), final: scoreScope(gold, state, 'final') };
+  const chart = scoreChart(gold, state);
 
   // Prior-chart items the system charted anyway: reported, never counted as false positives.
-  const finalDx = inScope(state.diagnoses, 'final');
   const labOrderCodes = new Set(gold.assessment.diagnoses.filter((d) => d.fromLabOrder).map((d) => d.codeNormalized));
   const contextCharted = {
-    labOrderDiagnoses: finalDx.filter((d) => d.code && labOrderCodes.has(normCode(d.code))).length,
-    conditionsMatchingHistory: inScope(state.conditions, 'final').filter((c) =>
+    labOrderDiagnoses: state.diagnoses.filter((d) => d.code && labOrderCodes.has(normCode(d.code))).length,
+    conditionsMatchingHistory: state.conditions.filter((c) =>
       gold.medicalHistory.some((h) => nameMatch(c.display, h.display))
     ).length,
-    allergiesMatchingPrior: inScope(state.allergies, 'final').filter((a) =>
-      gold.allergies.some((g) => nameMatch(a.display, g.name))
-    ).length,
-    medsMatchingReconciled: scopes.final.medsCombined.contextCharted,
+    allergiesMatchingPrior: state.allergies.filter((a) => gold.allergies.some((g) => nameMatch(a.display, g.name)))
+      .length,
+    medsMatchingReconciled: chart.medsCombined.contextCharted,
   };
 
   return {
     caseId,
-    scopes,
+    ...chart,
     freeText,
     contextCharted,
     counters: {
       templatesApplied: state.templatesApplied.length,
       examComments: state.examComments.length,
-      pendingNoteEdits: state.pendingNoteEdits.length,
       providerNotes: state.providerNotes.length,
-      predictedConditions: inScope(state.conditions, 'final').length,
-      predictedAllergies: inScope(state.allergies, 'final').length,
+      predictedConditions: state.conditions.length,
+      predictedAllergies: state.allergies.length,
       goldInstructions: gold.instructions.length,
       predictedInstructions: state.instructions.length,
       goldDisposition: !!(gold.disposition?.type || gold.disposition?.note),
@@ -830,7 +762,6 @@ export function scoreCase(
       ...(typeof (gold.disposition as { dispositionVoiced?: boolean } | undefined)?.dispositionVoiced === 'boolean'
         ? { goldDispositionVoiced: (gold.disposition as { dispositionVoiced?: boolean }).dispositionVoiced }
         : {}),
-      removeTargetMissing: state.skipped.filter((sk) => sk.kind.startsWith('remove-')).length,
     },
     ...(usage ? { usage } : {}),
     // undefined omits the key; null is kept (see DispositionTriggerInfo).
@@ -850,7 +781,7 @@ interface AggSection {
   precision: number | null;
   recall: number | null;
 }
-interface AggScope {
+interface AggChart {
   sections: Record<string, AggSection>;
   em: { goldCases: number; predictedCases: number; matched: number; levelMatched: number };
   // Over cases with a gold primary: voicedBoth = both charted and gold voiced (the denominator),
@@ -874,7 +805,7 @@ interface AggScope {
     intentMatched: number;
     precision: number | null;
   };
-  // Prescribed-med voicing fidelity breakdown (see ScopeScores.medsPrescribed).
+  // Prescribed-med voicing fidelity breakdown (see ChartScores.medsPrescribed).
   medsVoicing: { legacyVoiced: number; intentVoiced: number; intentCovered: number };
 }
 interface UsageAgg {
@@ -885,8 +816,8 @@ interface UsageAgg {
   cacheWriteTokens: number;
   thinkingTokens: number;
 }
-// Primary→backup escalation per phase. noData = no escalation field (never a denominator). okProviders
-// tallies primary-ok calls only, because on a failed call usage.provider is the backup's.
+// Primary→backup escalation. noData = no escalation field (never a denominator). okProviders tallies
+// primary-ok cases only, because on a failed call usage.provider is the backup's.
 interface EscalationAgg {
   primaryOk: number;
   primaryFailed: number;
@@ -894,21 +825,18 @@ interface EscalationAgg {
   okProviders: Record<string, number>;
   noData: number;
 }
-export interface AggregateSummary {
+export interface AggregateSummary extends AggChart {
   scoredCases: number;
-  scopes: { plannerOnly: AggScope; final: AggScope };
   freeText: Record<string, { goldPresent: number; predictedPresent: number; bothPresent: number }>;
   contextCharted: CaseScore['contextCharted'];
   counters: {
     templatesApplied: number;
     examComments: number;
-    pendingNoteEdits: number;
     providerNotes: number;
     goldInstructions: number;
     predictedInstructions: number;
     goldDisposition: number;
     predictedDisposition: number;
-    removeTargetMissing: number;
   };
   // Providers chart a disposition on nearly every visit but rarely voice it, so the raw counter mostly
   // measures guessing. Over cases with a gold disposition: voicedGold = tagged voiced (the denominator),
@@ -919,8 +847,7 @@ export interface AggregateSummary {
     unvoicedGold: number;
     noData: number;
   };
-  // noData = no trigger info on the score (pre-field run, or a response without the field);
-  // firedByPattern counts fired cases per matchedPattern.
+  // noData = no trigger info on the score; firedByPattern counts fired cases per matchedPattern.
   dispositionTrigger: {
     firedProposed: number;
     firedDeclined: number;
@@ -928,8 +855,8 @@ export interface AggregateSummary {
     noData: number;
     firedByPattern: Record<string, number>;
   };
-  usage: { planner: UsageAgg; review: UsageAgg };
-  escalation: { planner: EscalationAgg; review: EscalationAgg };
+  usage: UsageAgg;
+  escalation: EscalationAgg;
 }
 
 const SET_SECTIONS = [
@@ -947,7 +874,7 @@ const SET_SECTIONS = [
   'hospitalizations',
 ] as const;
 
-function aggregateScope(scores: CaseScore[], scope: Scope): AggScope {
+function aggregateChart(scores: CaseScore[]): AggChart {
   const sections: Record<string, AggSection> = {};
   for (const name of SET_SECTIONS) {
     let gold = 0,
@@ -958,9 +885,7 @@ function aggregateScope(scores: CaseScore[], scope: Scope): AggScope {
       unvoicedGold = 0,
       unvoicedMatched = 0;
     for (const s of scores) {
-      // Score files written before a section existed simply lack it; they aggregate to zero there.
-      const sec = s.scopes[scope][name] as SectionScore | undefined;
-      if (!sec) continue;
+      const sec: SectionScore = s[name];
       gold += sec.goldInScope;
       predicted += sec.predicted;
       matched += sec.matched;
@@ -1005,8 +930,7 @@ function aggregateScope(scores: CaseScore[], scope: Scope): AggScope {
     precision: null as number | null,
   };
   const medsVoicing = { legacyVoiced: 0, intentVoiced: 0, intentCovered: 0 };
-  for (const s of scores) {
-    const sc = s.scopes[scope];
+  for (const sc of scores) {
     if (sc.em.gold) em.goldCases++;
     if (sc.em.predicted) em.predictedCases++;
     if (sc.em.match === true) em.matched++;
@@ -1015,7 +939,7 @@ function aggregateScope(scores: CaseScore[], scope: Scope): AggScope {
     if (sc.primaryDx.match !== null) primaryDx.bothPresent++;
     if (sc.primaryDx.match === true) primaryDx.matched++;
     if (sc.primaryDx.goldCode) {
-      // undefined = untagged corpus (score predates the tag) → no-data bucket, never a denominator.
+      // undefined = untagged corpus → no-data bucket, never a denominator.
       const voiced = sc.primaryDx.goldVoiced;
       if (voiced === true) {
         if (sc.primaryDx.match !== null) {
@@ -1032,12 +956,11 @@ function aggregateScope(scores: CaseScore[], scope: Scope): AggScope {
     medsCombined.predicted += sc.medsCombined.predicted;
     medsCombined.matched += sc.medsCombined.matched;
     medsCombined.contextCharted += sc.medsCombined.contextCharted;
-    medsCombined.unvoicedMatched += sc.medsCombined.unvoicedMatched ?? 0;
-    // ?? 0: older score files lack the med voicing fields.
-    medsCombined.intentMatched += sc.medsCombined.intentMatched ?? 0;
-    medsVoicing.legacyVoiced += sc.medsPrescribed.legacyVoiced ?? 0;
-    medsVoicing.intentVoiced += sc.medsPrescribed.intentVoiced ?? 0;
-    medsVoicing.intentCovered += sc.medsPrescribed.intentCovered ?? 0;
+    medsCombined.unvoicedMatched += sc.medsCombined.unvoicedMatched;
+    medsCombined.intentMatched += sc.medsCombined.intentMatched;
+    medsVoicing.legacyVoiced += sc.medsPrescribed.legacyVoiced;
+    medsVoicing.intentVoiced += sc.medsPrescribed.intentVoiced;
+    medsVoicing.intentCovered += sc.medsPrescribed.intentCovered;
   }
   const medsDenom =
     medsCombined.predicted - medsCombined.contextCharted - medsCombined.unvoicedMatched - medsCombined.intentMatched;
@@ -1064,22 +987,21 @@ export function aggregateScores(scores: CaseScore[]): AggregateSummary {
   const counters = {
     templatesApplied: 0,
     examComments: 0,
-    pendingNoteEdits: 0,
     providerNotes: 0,
     goldInstructions: 0,
     predictedInstructions: 0,
     goldDisposition: 0,
     predictedDisposition: 0,
-    removeTargetMissing: 0,
   };
-  const usage = {
-    planner: { calls: 0, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, thinkingTokens: 0 },
-    review: { calls: 0, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, thinkingTokens: 0 },
+  const usage: UsageAgg = {
+    calls: 0,
+    inputTokens: 0,
+    outputTokens: 0,
+    cacheReadTokens: 0,
+    cacheWriteTokens: 0,
+    thinkingTokens: 0,
   };
-  const escalation: AggregateSummary['escalation'] = {
-    planner: { primaryOk: 0, primaryFailed: 0, reasons: {}, okProviders: {}, noData: 0 },
-    review: { primaryOk: 0, primaryFailed: 0, reasons: {}, okProviders: {}, noData: 0 },
-  };
+  const escalation: EscalationAgg = { primaryOk: 0, primaryFailed: 0, reasons: {}, okProviders: {}, noData: 0 };
   const dispositionVoiced: AggregateSummary['dispositionVoiced'] = {
     voicedGold: 0,
     voicedPredicted: 0,
@@ -1098,16 +1020,13 @@ export function aggregateScores(scores: CaseScore[]): AggregateSummary {
       contextCharted[k] += s.contextCharted[k];
     counters.templatesApplied += s.counters.templatesApplied;
     counters.examComments += s.counters.examComments;
-    counters.pendingNoteEdits += s.counters.pendingNoteEdits;
     counters.providerNotes += s.counters.providerNotes;
     counters.goldInstructions += s.counters.goldInstructions;
     counters.predictedInstructions += s.counters.predictedInstructions;
-    // ?? 0: older score files lack this counter.
-    counters.removeTargetMissing += s.counters.removeTargetMissing ?? 0;
     if (s.counters.goldDisposition) counters.goldDisposition++;
     if (s.counters.predictedDisposition) counters.predictedDisposition++;
     if (s.counters.goldDisposition) {
-      // undefined = untagged corpus (score predates the tag) → no-data bucket, never a denominator.
+      // undefined = untagged corpus → no-data bucket, never a denominator.
       const voiced = s.counters.goldDispositionVoiced;
       if (voiced === true) {
         dispositionVoiced.voicedGold++;
@@ -1115,7 +1034,7 @@ export function aggregateScores(scores: CaseScore[]): AggregateSummary {
       } else if (voiced === false) dispositionVoiced.unvoicedGold++;
       else dispositionVoiced.noData++;
     }
-    const t = s.dispositionTrigger; // == null: absent (pre-field run) or null (response lacked it)
+    const t = s.dispositionTrigger; // == null: not passed, or null (response lacked it)
     if (t == null) dispositionTrigger.noData++;
     else if (!t.fired) dispositionTrigger.notFired++;
     else {
@@ -1124,33 +1043,30 @@ export function aggregateScores(scores: CaseScore[]): AggregateSummary {
       const p = t.matchedPattern ?? '(unspecified)';
       dispositionTrigger.firedByPattern[p] = (dispositionTrigger.firedByPattern[p] ?? 0) + 1;
     }
-    for (const phase of ['planner', 'review'] as const) {
-      const u = s.usage?.[phase];
-      if (!u) continue;
-      // A staged visit makes several calls; score files without `calls` were single-call.
-      usage[phase].calls += u.calls ?? 1;
-      usage[phase].inputTokens += u.inputTokens ?? 0;
-      usage[phase].outputTokens += u.outputTokens ?? 0;
-      usage[phase].cacheReadTokens += u.cacheReadTokens ?? 0;
-      usage[phase].cacheWriteTokens += u.cacheWriteTokens ?? 0;
-      usage[phase].thinkingTokens += u.thinkingTokens ?? 0;
-      const esc = u.escalation; // absent = result predates the field → no-data bucket
-      const e = escalation[phase];
-      if (!esc) e.noData++;
-      else if (esc.primaryFailed) {
-        e.primaryFailed++;
-        const r = esc.reason ?? '(unspecified)';
-        e.reasons[r] = (e.reasons[r] ?? 0) + 1;
-      } else {
-        e.primaryOk++;
-        const p = u.provider ?? '(unknown)';
-        e.okProviders[p] = (e.okProviders[p] ?? 0) + 1;
-      }
+    const u = s.usage;
+    if (!u) continue;
+    // A staged visit makes several calls; absent `calls` means one.
+    usage.calls += u.calls ?? 1;
+    usage.inputTokens += u.inputTokens ?? 0;
+    usage.outputTokens += u.outputTokens ?? 0;
+    usage.cacheReadTokens += u.cacheReadTokens ?? 0;
+    usage.cacheWriteTokens += u.cacheWriteTokens ?? 0;
+    usage.thinkingTokens += u.thinkingTokens ?? 0;
+    const esc = u.escalation; // absent → no-data bucket
+    if (!esc) escalation.noData++;
+    else if (esc.primaryFailed) {
+      escalation.primaryFailed++;
+      const r = esc.reason ?? '(unspecified)';
+      escalation.reasons[r] = (escalation.reasons[r] ?? 0) + 1;
+    } else {
+      escalation.primaryOk++;
+      const p = u.provider ?? '(unknown)';
+      escalation.okProviders[p] = (escalation.okProviders[p] ?? 0) + 1;
     }
   }
   return {
     scoredCases: scores.length,
-    scopes: { plannerOnly: aggregateScope(scores, 'plannerOnly'), final: aggregateScope(scores, 'final') },
+    ...aggregateChart(scores),
     freeText,
     contextCharted,
     counters,
@@ -1168,59 +1084,51 @@ export function formatSummary(agg: AggregateSummary): string {
   const lines: string[] = [];
   lines.push(`scored cases: ${agg.scoredCases}`);
   lines.push('');
-  lines.push('section          scope     gold  pred  match  ctxG  ctxC  unvG  unvM      P      R');
+  lines.push('section           gold  pred  match  ctxG  ctxC  unvG  unvM      P      R');
   for (const name of SET_SECTIONS) {
-    for (const scope of ['plannerOnly', 'final'] as const) {
-      const s = agg.scopes[scope].sections[name];
-      lines.push(
-        `${name.padEnd(16)} ${(scope === 'plannerOnly' ? 'planner' : 'final').padEnd(8)} ${String(s.gold).padStart(
-          5
-        )} ${String(s.predicted).padStart(5)} ${String(s.matched).padStart(6)} ${String(s.contextGold).padStart(
-          5
-        )} ${String(s.contextCharted).padStart(5)} ${String(s.unvoicedGold ?? 0).padStart(5)} ${String(
-          s.unvoicedMatched ?? 0
-        ).padStart(5)}  ${fmt(s.precision).padStart(5)}  ${fmt(s.recall).padStart(5)}`
-      );
-    }
-  }
-  for (const scope of ['plannerOnly', 'final'] as const) {
-    const sc = agg.scopes[scope];
-    const label = scope === 'plannerOnly' ? 'planner' : 'final';
-    lines.push('');
+    const s = agg.sections[name];
     lines.push(
-      `[${label}] E&M: gold ${sc.em.goldCases} cases, predicted ${sc.em.predictedCases}, exact match ${sc.em.matched}` +
-        (sc.em.goldCases > 0 ? ` (${((sc.em.matched / sc.em.goldCases) * 100).toFixed(0)}%)` : '') +
-        `, level match ${sc.em.levelMatched}` +
-        (sc.em.goldCases > 0 ? ` (${((sc.em.levelMatched / sc.em.goldCases) * 100).toFixed(0)}%)` : '')
-    );
-    const pdx = sc.primaryDx;
-    lines.push(
-      `[${label}] primary dx: gold ${pdx.goldCases} cases, both charted ${pdx.bothPresent}, match ${pdx.matched} | ` +
-        (pdx.voicedBoth + pdx.unvoicedGold > 0
-          ? `voiced-scoped ${pdx.voicedMatched}/${pdx.voicedBoth}`
-          : 'voiced-scoped — (no voicing tags)')
-    );
-    lines.push(
-      `[${label}] ROS polarity agree ${sc.rosPolarity.agree}/${sc.rosPolarity.matched}; exam abnormal agree ${sc.examAbnormal.agree}/${sc.examAbnormal.matched}`
-    );
-    lines.push(
-      `[${label}] meds combined: pred ${sc.medsCombined.predicted}, matched ${sc.medsCombined.matched}, ctx ${
-        sc.medsCombined.contextCharted
-      }, P ${fmt(sc.medsCombined.precision).trim()}`
-    );
-    lines.push(
-      `[${label}] meds voicing: legacyVoiced ${sc.medsVoicing.legacyVoiced}; commitment coverage ${sc.medsVoicing.intentCovered}/${sc.medsVoicing.intentVoiced}` +
-        (sc.medsVoicing.intentVoiced > 0
-          ? ` (${((sc.medsVoicing.intentCovered / sc.medsVoicing.intentVoiced) * 100).toFixed(0)}%)`
-          : '')
+      `${name.padEnd(16)} ${String(s.gold).padStart(5)} ${String(s.predicted).padStart(5)} ${String(s.matched).padStart(
+        6
+      )} ${String(s.contextGold).padStart(5)} ${String(s.contextCharted).padStart(5)} ${String(s.unvoicedGold).padStart(
+        5
+      )} ${String(s.unvoicedMatched).padStart(5)}  ${fmt(s.precision).padStart(5)}  ${fmt(s.recall).padStart(5)}`
     );
   }
+  lines.push('');
+  lines.push(
+    `E&M: gold ${agg.em.goldCases} cases, predicted ${agg.em.predictedCases}, exact match ${agg.em.matched}` +
+      (agg.em.goldCases > 0 ? ` (${((agg.em.matched / agg.em.goldCases) * 100).toFixed(0)}%)` : '') +
+      `, level match ${agg.em.levelMatched}` +
+      (agg.em.goldCases > 0 ? ` (${((agg.em.levelMatched / agg.em.goldCases) * 100).toFixed(0)}%)` : '')
+  );
+  const pdx = agg.primaryDx;
+  lines.push(
+    `primary dx: gold ${pdx.goldCases} cases, both charted ${pdx.bothPresent}, match ${pdx.matched} | ` +
+      (pdx.voicedBoth + pdx.unvoicedGold > 0
+        ? `voiced-scoped ${pdx.voicedMatched}/${pdx.voicedBoth}`
+        : 'voiced-scoped — (no voicing tags)')
+  );
+  lines.push(
+    `ROS polarity agree ${agg.rosPolarity.agree}/${agg.rosPolarity.matched}; exam abnormal agree ${agg.examAbnormal.agree}/${agg.examAbnormal.matched}`
+  );
+  lines.push(
+    `meds combined: pred ${agg.medsCombined.predicted}, matched ${agg.medsCombined.matched}, ctx ${
+      agg.medsCombined.contextCharted
+    }, P ${fmt(agg.medsCombined.precision).trim()}`
+  );
+  lines.push(
+    `meds voicing: legacyVoiced ${agg.medsVoicing.legacyVoiced}; commitment coverage ${agg.medsVoicing.intentCovered}/${agg.medsVoicing.intentVoiced}` +
+      (agg.medsVoicing.intentVoiced > 0
+        ? ` (${((agg.medsVoicing.intentCovered / agg.medsVoicing.intentVoiced) * 100).toFixed(0)}%)`
+        : '')
+  );
   lines.push('');
   lines.push(
     `context items charted: labOrderDx ${agg.contextCharted.labOrderDiagnoses}, conditions ${agg.contextCharted.conditionsMatchingHistory}, allergies ${agg.contextCharted.allergiesMatchingPrior}, reconciledMeds ${agg.contextCharted.medsMatchingReconciled}`
   );
   lines.push(
-    `counters: templates ${agg.counters.templatesApplied}, examComments ${agg.counters.examComments}, pendingNoteEdits ${agg.counters.pendingNoteEdits}, providerNotes ${agg.counters.providerNotes}, instructions gold/pred ${agg.counters.goldInstructions}/${agg.counters.predictedInstructions}, disposition gold/pred ${agg.counters.goldDisposition}/${agg.counters.predictedDisposition}, removeTargetMissing ${agg.counters.removeTargetMissing}`
+    `counters: templates ${agg.counters.templatesApplied}, examComments ${agg.counters.examComments}, providerNotes ${agg.counters.providerNotes}, instructions gold/pred ${agg.counters.goldInstructions}/${agg.counters.predictedInstructions}, disposition gold/pred ${agg.counters.goldDisposition}/${agg.counters.predictedDisposition}`
   );
   const dv = agg.dispositionVoiced;
   lines.push(
@@ -1242,51 +1150,42 @@ export function formatSummary(agg: AggregateSummary): string {
   for (const [k, v] of Object.entries(agg.freeText)) {
     lines.push(`  ${k.padEnd(24)} ${v.goldPresent} / ${v.predictedPresent} / ${v.bothPresent}`);
   }
-  for (const phase of ['planner', 'review'] as const) {
-    const u = agg.usage[phase];
+  const u = agg.usage;
+  lines.push(
+    `usage: ${u.calls} calls, in ${u.inputTokens}, out ${u.outputTokens}, cacheR ${u.cacheReadTokens}, cacheW ${u.cacheWriteTokens}, think ${u.thinkingTokens}`
+  );
+  // Failure rate over cases with escalation data only; "no data" is never a denominator.
+  const e = agg.escalation;
+  const withData = e.primaryOk + e.primaryFailed;
+  if (withData === 0) {
+    lines.push('escalation: no data');
+  } else {
+    const byCount = (rec: Record<string, number>): string =>
+      Object.entries(rec)
+        .sort((a, b) => b[1] - a[1])
+        .map(([k, n]) => `${k} ${n}`)
+        .join(', ');
+    const pct = ((e.primaryFailed / withData) * 100).toFixed(0);
+    const reasons = byCount(e.reasons);
     lines.push(
-      `usage[${phase}]: ${u.calls} calls, in ${u.inputTokens}, out ${u.outputTokens}, cacheR ${u.cacheReadTokens}, cacheW ${u.cacheWriteTokens}, think ${u.thinkingTokens}`
+      `escalation: ${byCount(e.okProviders) || 'primary 0'}, backup ${e.primaryFailed} ` +
+        `(${pct}% primary failure${reasons ? ` — reasons: ${reasons}` : ''})` +
+        (e.noData > 0 ? `, no data ${e.noData}` : '')
     );
-    // Failure rate over calls with escalation data only; "no data" is never a denominator.
-    const e = agg.escalation[phase];
-    const withData = e.primaryOk + e.primaryFailed;
-    if (withData === 0) {
-      lines.push(`escalation[${phase}]: no data`);
-    } else {
-      const byCount = (rec: Record<string, number>): string =>
-        Object.entries(rec)
-          .sort((a, b) => b[1] - a[1])
-          .map(([k, n]) => `${k} ${n}`)
-          .join(', ');
-      const pct = ((e.primaryFailed / withData) * 100).toFixed(0);
-      const reasons = byCount(e.reasons);
-      lines.push(
-        `escalation[${phase}]: ${byCount(e.okProviders) || 'primary 0'}, backup ${e.primaryFailed} ` +
-          `(${pct}% primary failure${reasons ? ` — reasons: ${reasons}` : ''})` +
-          (e.noData > 0 ? `, no data ${e.noData}` : '')
-      );
-    }
   }
   return lines.join('\n');
 }
 
-// One-line per-case digest (final scope). primaryFixFired appends ⇄ when review carried or promoted the
-// primary dx on this case.
-export function formatCaseLine(
-  score: CaseScore,
-  planSteps: number,
-  reviewSuggestions: number,
-  primaryFixFired = false
-): string {
-  const f = score.scopes.final;
+// One-line per-case digest.
+export function formatCaseLine(score: CaseScore, planSteps: number): string {
+  const f = score;
   const em =
     f.em.gold && f.em.predicted
       ? `em ${f.em.predicted}${f.em.match ? '=' : '≠'}${f.em.gold}`
       : `em ${f.em.predicted ?? '—'}/${f.em.gold ?? '—'}`;
-  const primBase = f.primaryDx.match === null ? '' : f.primaryDx.match ? ' prim✓' : ' prim✗';
-  const prim = primaryFixFired ? `${primBase || ' prim'}⇄` : primBase;
+  const prim = f.primaryDx.match === null ? '' : f.primaryDx.match ? ' prim✓' : ' prim✗';
   return (
-    `${score.caseId}: plan ${planSteps} steps, review ${reviewSuggestions} sug | ` +
+    `${score.caseId}: plan ${planSteps} steps | ` +
     `dx ${f.diagnoses.matched}/${f.diagnoses.goldInScope} R, ${f.diagnoses.matched}/${Math.max(
       f.diagnoses.predicted - (f.diagnoses.contextCharted ?? 0),
       0
@@ -1295,11 +1194,11 @@ export function formatCaseLine(
     } | meds ${f.medsCombined.matched}/${
       f.medsPrescribed.goldInScope + f.medsInHouse.goldInScope + f.immunizations.goldInScope
     }` +
-    // Commitment coverage over intent-voiced meds (?? 0 for older score files).
-    ((f.medsPrescribed.intentVoiced ?? 0) > 0
+    // Commitment coverage over intent-voiced meds.
+    (f.medsPrescribed.intentVoiced > 0
       ? ` | commitCov ${f.medsPrescribed.intentCovered}/${f.medsPrescribed.intentVoiced}`
       : '') +
-    // Review disposition-trigger suffix: only when it fired (✓ proposed / ✗ declined).
+    // Disposition-trigger suffix: only when it fired (✓ proposed / ✗ declined).
     (score.dispositionTrigger?.fired ? ` | dispo:fired${score.dispositionTrigger.modelProposed ? '✓' : '✗'}` : '')
   );
 }
@@ -1356,23 +1255,18 @@ function runSelfTest(): void {
     gold.medications.currentReconciled = [{ name: 'Fluticasone', context: true }];
     const st = emptySimState();
     st.diagnoses = [
-      { display: 'Acute URI', code: 'j06.9', isPrimary: true, source: 'planner' }, // lowercase + dot → normalization
-      { display: 'Lab screening', code: 'Z1152', source: 'planner' }, // fromLabOrder gold → context, not FP
-      { display: 'Cough', code: 'R05.9', source: 'planner' }, // true FP
+      { display: 'Acute URI', code: 'j06.9', isPrimary: true }, // lowercase + dot → normalization
+      { display: 'Lab screening', code: 'Z1152' }, // fromLabOrder gold → context, not FP
+      { display: 'Cough', code: 'R05.9' }, // true FP
     ];
-    st.emEvents = [{ type: 'set', code: '99214', display: 'E/M 4', source: 'planner' }];
-    st.cptCodes = [{ display: 'Rapid strep', code: '87880', source: 'planner' }];
+    st.emEvents = [{ code: '99214', display: 'E/M 4' }];
+    st.cptCodes = [{ display: 'Rapid strep', code: '87880' }];
     st.medications = [
-      { display: 'amoxicillin 400 mg/5 mL suspension', source: 'planner' }, // containment either direction
-      { display: 'Fluticasone Propionate nasal spray', source: 'planner' }, // context med charted anyway
-    ];
-    st.skipped = [
-      { kind: 'remove-diagnosis', display: 'O86.20 — Not on chart', reason: 'no charted diagnosis matched' },
-      { kind: 'remove-medication', display: 'Never charted', reason: 'no charted medication matched' },
-      { kind: 'add-ros-finding', display: 'Fever', reason: 'already charted' }, // non-remove skip: not counted
+      { display: 'amoxicillin 400 mg/5 mL suspension' }, // containment either direction
+      { display: 'Fluticasone Propionate nasal spray' }, // context med charted anyway
     ];
     const s = scoreCase('fixtureA', gold, st);
-    const f = s.scopes.final;
+    const f = s;
     check('A dx recall', f.diagnoses.recall, 1);
     check('A dx precision (ctx excluded from denom)', f.diagnoses.precision, 0.5);
     check('A dx contextCharted', f.diagnoses.contextCharted, 1);
@@ -1384,39 +1278,31 @@ function runSelfTest(): void {
     check('A meds contextCharted', f.medsCombined.contextCharted, 1);
     check('A meds combined precision', f.medsCombined.precision, 1);
     check('A contextCharted.labOrderDiagnoses', s.contextCharted.labOrderDiagnoses, 1);
-    check('A removeTargetMissing (remove-* skips only)', s.counters.removeTargetMissing, 2);
-    check('A agg removeTargetMissing', aggregateScores([s]).counters.removeTargetMissing, 2);
-    // Pre-counter score files (no removeTargetMissing field) still aggregate to 0, not NaN.
-    const legacy = JSON.parse(JSON.stringify(s)) as CaseScore;
-    delete (legacy.counters as Partial<CaseScore['counters']>).removeTargetMissing;
-    check('A agg tolerates legacy score files', aggregateScores([legacy]).counters.removeTargetMissing, 0);
   }
 
-  // Fixture B — review-vs-planner attribution (dx swap by review) + primary-dx handling.
+  // Fixture B — exam: a field charted twice counts once on both sides, so recall stays within 1.
   {
     const gold = emptyGold();
-    gold.assessment.diagnoses = [goldDx('H66.006', 'Recurrent bilateral AOM', true), goldDx('J02.9', 'Pharyngitis')];
+    gold.exam = [
+      { field: 'clear-lungs', label: 'Clear lungs', present: true },
+      { field: 'normal-appearance-of-neck', label: 'Normal neck', present: true },
+      { field: 'sinus-tenderness', label: 'Sinus tenderness', present: true },
+    ];
     const st = emptySimState();
-    st.diagnoses = [
-      {
-        display: 'Bilateral AOM',
-        code: 'H66.003',
-        isPrimary: true,
-        source: 'planner',
-        removed: true,
-        removedBy: 'review',
-      },
-      { display: 'Recurrent bilateral AOM', code: 'H66.006', isPrimary: true, source: 'review' },
-      { display: 'Pharyngitis', code: 'J02.9', source: 'review' },
+    st.examObservations = [
+      { field: 'clear-lungs', label: 'Clear lungs' },
+      { field: 'clear-lungs', label: 'Lungs clear bilaterally' }, // same field again
+      { field: 'normal-appearance-of-neck', label: 'Normal neck' },
+      { field: 'rash', label: 'Rash' }, // FP
+      { field: 'rash', label: 'Rash on trunk' }, // same FP field again
     ];
     const s = scoreCase('fixtureB', gold, st);
-    check('B planner-only predicted', s.scopes.plannerOnly.diagnoses.predicted, 1);
-    check('B planner-only recall', s.scopes.plannerOnly.diagnoses.recall, 0);
-    check('B planner-only primary match', s.scopes.plannerOnly.primaryDx.match, false);
-    check('B final predicted', s.scopes.final.diagnoses.predicted, 2);
-    check('B final recall', s.scopes.final.diagnoses.recall, 1);
-    check('B final precision', s.scopes.final.diagnoses.precision, 1);
-    check('B final primary match', s.scopes.final.primaryDx.match, true);
+    check('B exam predicted (distinct fields)', s.exam.predicted, 3);
+    check('B exam matched (distinct gold fields)', s.exam.matched, 2);
+    check('B exam recall', s.exam.recall, 2 / 3);
+    check('B exam precision', s.exam.precision, 2 / 3);
+    const agg = aggregateScores([s]);
+    check('B agg exam recall', agg.sections.exam.recall, 2 / 3);
   }
 
   // Fixture C — ROS polarity + exam presence/abnormal agreement.
@@ -1443,50 +1329,45 @@ function runSelfTest(): void {
         field: rosField('ros-constitutional-fever', RosFindingState.Denies),
         label: 'Fever',
         finding: 'denies',
-        source: 'planner',
       },
       {
         baseKey: 'ros-respiratory-cough',
         field: rosField('ros-respiratory-cough', RosFindingState.Denies),
         label: 'Cough',
         finding: 'denies',
-        source: 'planner',
       }, // polarity mismatch
       {
         baseKey: 'ros-skin-rash',
         field: rosField('ros-skin-rash', RosFindingState.Denies),
         label: 'Rash',
         finding: 'denies',
-        source: 'review',
-      }, // review-added FP
+      }, // FP
     ];
     st.examObservations = [
       {
         field: 'sinus-tenderness',
         label: 'Sinus tenderness',
-        source: 'planner',
-        components: [{ code: 'sinus-frontal-r', label: 'Right frontal', abnormal: true, source: 'planner' }],
+        components: [{ code: 'sinus-frontal-r', label: 'Right frontal', abnormal: true }],
       },
-      { field: 'clear-lungs', label: 'Clear lungs', source: 'planner' }, // FP
+      { field: 'clear-lungs', label: 'Clear lungs' }, // FP
     ];
     const s = scoreCase('fixtureC', gold, st);
-    const f = s.scopes.final;
+    const f = s;
     check('C ros matched', f.ros.matched, 2);
     check('C ros polarity agree', f.ros.polarityAgree, 1);
     check('C ros precision', f.ros.precision, 2 / 3);
-    check('C ros planner-only predicted', s.scopes.plannerOnly.ros.predicted, 2);
     check('C exam gold in scope (present:false excluded)', f.exam.goldInScope, 2);
     check('C exam matched', f.exam.matched, 1);
     check('C exam abnormal agree', f.exam.abnormalAgree, 1);
 
     const agg = aggregateScores([s]);
-    check('C agg ros gold', agg.scopes.final.sections.ros.gold, 2);
+    check('C agg ros gold', agg.sections.ros.gold, 2);
     console.log('\n--- aggregate table over fixture C only ---');
     console.log(formatSummary(agg));
   }
 
   // Fixture D — voiced tagging (tag-voiced.ts flags) + E&M level match across families.
-  // Mixes per section: voiced:true, voiced:false (unvoiced), and untagged (legacy behavior).
+  // Mixes per section: voiced:true, voiced:false (unvoiced), and untagged.
   {
     const gold = emptyGold();
     const tag = <T>(item: T, voiced: boolean): T => ({ ...item, voiced }) as T;
@@ -1512,39 +1393,37 @@ function runSelfTest(): void {
 
     const st = emptySimState();
     st.diagnoses = [
-      { display: 'Acute URI', code: 'J06.9', isPrimary: true, source: 'planner' },
-      { display: 'GERD', code: 'K21.9', source: 'planner' }, // matches unvoiced gold
-      { display: 'Asthma', code: 'J45.909', source: 'planner' }, // true FP
+      { display: 'Acute URI', code: 'J06.9', isPrimary: true },
+      { display: 'GERD', code: 'K21.9' }, // matches unvoiced gold
+      { display: 'Asthma', code: 'J45.909' }, // true FP
     ];
-    st.emEvents = [{ type: 'set', code: '99214', display: 'E/M 4', source: 'planner' }]; // wrong family, right level
-    st.cptCodes = [{ display: 'Rapid strep', code: '87880', source: 'planner' }]; // matches unvoiced gold
+    st.emEvents = [{ code: '99214', display: 'E/M 4' }]; // wrong family, right level
+    st.cptCodes = [{ display: 'Rapid strep', code: '87880' }]; // matches unvoiced gold
     st.rosObservations = [
       {
         baseKey: 'ros-constitutional-fever',
         field: rosField('ros-constitutional-fever', RosFindingState.Denies),
         label: 'Fever',
         finding: 'denies',
-        source: 'planner',
       },
       {
         baseKey: 'ros-respiratory-cough',
         field: rosField('ros-respiratory-cough', RosFindingState.Denies),
         label: 'Cough',
         finding: 'denies',
-        source: 'planner',
       }, // matches unvoiced gold
     ];
     st.examObservations = [
-      { field: 'clear-lungs', label: 'Clear lungs', source: 'planner' },
-      { field: 'sinus-tenderness', label: 'Sinus tenderness', source: 'planner' }, // matches unvoiced gold
+      { field: 'clear-lungs', label: 'Clear lungs' },
+      { field: 'sinus-tenderness', label: 'Sinus tenderness' }, // matches unvoiced gold
     ];
     st.medications = [
-      { display: 'Amoxicillin 400 mg', source: 'planner' },
-      { display: 'Cetirizine 10 mg', source: 'planner' }, // matches unvoiced gold
+      { display: 'Amoxicillin 400 mg' },
+      { display: 'Cetirizine 10 mg' }, // matches unvoiced gold
     ];
 
     const s = scoreCase('fixtureD', gold, st);
-    const f = s.scopes.final;
+    const f = s;
     check('D dx goldInScope (unvoiced excluded, untagged kept)', f.diagnoses.goldInScope, 2);
     check('D dx unvoicedGold', f.diagnoses.unvoicedGold, 1);
     check('D dx unvoicedMatched', f.diagnoses.unvoicedMatched, 1);
@@ -1567,9 +1446,9 @@ function runSelfTest(): void {
     check('D medsCombined precision (unvoiced excluded)', f.medsCombined.precision, 1);
 
     const agg = aggregateScores([s]);
-    check('D agg em levelMatched', agg.scopes.final.em.levelMatched, 1);
-    check('D agg dx unvoicedGold', agg.scopes.final.sections.diagnoses.unvoicedGold, 1);
-    check('D agg dx precision', agg.scopes.final.sections.diagnoses.precision, 0.5);
+    check('D agg em levelMatched', agg.em.levelMatched, 1);
+    check('D agg dx unvoicedGold', agg.sections.diagnoses.unvoicedGold, 1);
+    check('D agg dx precision', agg.sections.diagnoses.precision, 0.5);
   }
 
   // Fixture E — prescribed-med voicing fidelity (nameVoiced) + commitment coverage.
@@ -1604,15 +1483,15 @@ function runSelfTest(): void {
     ];
     const st = emptySimState();
     st.medications = [
-      { display: 'Amoxicillin 400 mg', source: 'planner' },
-      { display: 'Prednisone 10 mg', source: 'planner' },
-      { display: 'Cephalexin 500 mg', source: 'planner' },
-      { display: 'Fluticasone Propionate nasal spray', source: 'planner' },
-      { display: 'Ibuprofen', source: 'planner' }, // true FP
+      { display: 'Amoxicillin 400 mg' },
+      { display: 'Prednisone 10 mg' },
+      { display: 'Cephalexin 500 mg' },
+      { display: 'Fluticasone Propionate nasal spray' },
+      { display: 'Ibuprofen' }, // true FP
     ];
     st.instructions = ['Take the cough medicine as directed', 'Use allergy eye drops as needed'];
     const s = scoreCase('fixtureE', gold, st);
-    const f = s.scopes.final;
+    const f = s;
     check('E meds goldInScope (nameVoiced + legacy only)', f.medsPrescribed.goldInScope, 3);
     check('E meds matched', f.medsPrescribed.matched, 2);
     check('E meds recall', f.medsPrescribed.recall, 2 / 3);
@@ -1623,40 +1502,15 @@ function runSelfTest(): void {
     check('E meds unvoicedMatched', f.medsPrescribed.unvoicedMatched, 1);
     check('E medsCombined intentMatched', f.medsCombined.intentMatched, 1);
     check('E medsCombined precision (intent+unvoiced excluded)', f.medsCombined.precision, 2 / 3);
-    check(
-      'E planner scope commitCov identical (all planner-sourced)',
-      s.scopes.plannerOnly.medsPrescribed.intentCovered,
-      3
-    );
-    check('E case line shows commitCov', formatCaseLine(s, 0, 0).includes('commitCov 3/4'), true);
+    check('E case line shows commitCov', formatCaseLine(s, 0).includes('commitCov 3/4'), true);
 
     const agg = aggregateScores([s]);
-    check('E agg medsVoicing', agg.scopes.final.medsVoicing, { legacyVoiced: 1, intentVoiced: 4, intentCovered: 3 });
-    check('E agg medsCombined precision', agg.scopes.final.medsCombined.precision, 2 / 3);
+    check('E agg medsVoicing', agg.medsVoicing, { legacyVoiced: 1, intentVoiced: 4, intentCovered: 3 });
+    check('E agg medsCombined precision', agg.medsCombined.precision, 2 / 3);
     check(
       'E agg summary has commitment coverage line',
       formatSummary(agg).includes('commitment coverage 3/4 (75%)'),
       true
-    );
-    // Older score files without the med voicing fields still aggregate.
-    const legacy = JSON.parse(JSON.stringify(s)) as CaseScore;
-    for (const scope of ['plannerOnly', 'final'] as const) {
-      const mp = legacy.scopes[scope].medsPrescribed as Partial<ScopeScores['medsPrescribed']>;
-      delete mp.legacyVoiced;
-      delete mp.intentVoiced;
-      delete mp.intentCovered;
-      delete (legacy.scopes[scope].medsCombined as Partial<ScopeScores['medsCombined']>).intentMatched;
-    }
-    const aggLegacy = aggregateScores([legacy]);
-    check('E agg tolerates legacy score files (voicing zeroed)', aggLegacy.scopes.final.medsVoicing, {
-      legacyVoiced: 0,
-      intentVoiced: 0,
-      intentCovered: 0,
-    });
-    check(
-      'E agg legacy precision falls back (no intent exclusion)',
-      aggLegacy.scopes.final.medsCombined.precision,
-      0.5
     );
   }
 
@@ -1673,19 +1527,19 @@ function runSelfTest(): void {
     const declined = scoreCase('fixtureF2', gold, st, undefined, { fired: true, modelProposed: false });
     const notFired = scoreCase('fixtureF3', gold, st, undefined, { fired: false, modelProposed: false });
     const nullTrigger = scoreCase('fixtureF4', gold, st, undefined, null); // response lacked the field
-    const legacy = scoreCase('fixtureF5', gold, st); // pre-field run: no key at all
+    const noTrigger = scoreCase('fixtureF5', gold, st); // no trigger passed: no key at all
     check('F stashed on score', proposed.dispositionTrigger, {
       fired: true,
       matchedPattern: 'discharge-home',
       modelProposed: true,
     });
     check('F null persisted as null', nullTrigger.dispositionTrigger, null);
-    check('F legacy score omits the key', 'dispositionTrigger' in legacy, false);
-    check('F case line proposed suffix', formatCaseLine(proposed, 0, 0).endsWith(' | dispo:fired✓'), true);
-    check('F case line declined suffix', formatCaseLine(declined, 0, 0).endsWith(' | dispo:fired✗'), true);
-    check('F case line silent when not fired', formatCaseLine(notFired, 0, 0).includes('dispo:'), false);
-    check('F case line silent on legacy score', formatCaseLine(legacy, 0, 0).includes('dispo:'), false);
-    const agg = aggregateScores([proposed, declined, notFired, nullTrigger, legacy]);
+    check('F no-trigger score omits the key', 'dispositionTrigger' in noTrigger, false);
+    check('F case line proposed suffix', formatCaseLine(proposed, 0).endsWith(' | dispo:fired✓'), true);
+    check('F case line declined suffix', formatCaseLine(declined, 0).endsWith(' | dispo:fired✗'), true);
+    check('F case line silent when not fired', formatCaseLine(notFired, 0).includes('dispo:'), false);
+    check('F case line silent without a trigger', formatCaseLine(noTrigger, 0).includes('dispo:'), false);
+    const agg = aggregateScores([proposed, declined, notFired, nullTrigger, noTrigger]);
     check('F agg buckets', agg.dispositionTrigger, {
       firedProposed: 1,
       firedDeclined: 1,
@@ -1702,7 +1556,7 @@ function runSelfTest(): void {
     check('F summary pattern line', summaryText.includes('fired by pattern: discharge-home 1, (unspecified) 1'), true);
     check(
       'F summary omits pattern line when nothing fired',
-      formatSummary(aggregateScores([notFired, legacy])).includes('fired by pattern'),
+      formatSummary(aggregateScores([notFired, noTrigger])).includes('fired by pattern'),
       false
     );
   }
@@ -1761,18 +1615,18 @@ function runSelfTest(): void {
       return g;
     };
     const chartedMatch = emptySimState();
-    chartedMatch.diagnoses = [{ display: 'Acute URI', code: 'J06.9', isPrimary: true, source: 'planner' }];
+    chartedMatch.diagnoses = [{ display: 'Acute URI', code: 'J06.9', isPrimary: true }];
     const chartedMiss = emptySimState();
-    chartedMiss.diagnoses = [{ display: 'GERD', code: 'K21.9', isPrimary: true, source: 'planner' }];
+    chartedMiss.diagnoses = [{ display: 'GERD', code: 'K21.9', isPrimary: true }];
     const voicedHit = scoreCase('fixtureH1', goldWithPrimary(true), chartedMatch); // voiced + matched
     const voicedMiss = scoreCase('fixtureH2', goldWithPrimary(true), chartedMiss); // voiced + mismatched
     const unvoicedMiss = scoreCase('fixtureH3', goldWithPrimary(false), chartedMiss); // unvoiced + mismatched
     const untagged = scoreCase('fixtureH4', goldWithPrimary(undefined), chartedMatch); // no tag
-    check('H tag stashed on score', voicedHit.scopes.final.primaryDx.goldVoiced, true);
-    check('H unvoiced raw match stays voicing-blind', unvoicedMiss.scopes.final.primaryDx.match, false);
-    check('H untagged score omits the key (byte-identical)', 'goldVoiced' in untagged.scopes.final.primaryDx, false);
+    check('H tag stashed on score', voicedHit.primaryDx.goldVoiced, true);
+    check('H unvoiced raw match stays voicing-blind', unvoicedMiss.primaryDx.match, false);
+    check('H untagged score omits the key (byte-identical)', 'goldVoiced' in untagged.primaryDx, false);
     const agg = aggregateScores([voicedHit, voicedMiss, unvoicedMiss, untagged]);
-    check('H agg buckets (unvoiced NOT in voicedBoth)', agg.scopes.final.primaryDx, {
+    check('H agg buckets (unvoiced NOT in voicedBoth)', agg.primaryDx, {
       goldCases: 4,
       bothPresent: 4,
       matched: 2,
@@ -1795,8 +1649,8 @@ function runSelfTest(): void {
     );
   }
 
-  // Fixture I — primary→backup escalation: pass-through on the score, per-phase buckets including no-data,
-  // and the summary line in both modes.
+  // Fixture I — primary→backup escalation: pass-through on the score, buckets including no-data, and the
+  // summary line in both modes.
   {
     const gold = emptyGold();
     const st = emptySimState();
@@ -1806,61 +1660,46 @@ function runSelfTest(): void {
       outputTokens: 50,
       ...(escalation ? { escalation } : {}),
     });
-    const ok = scoreCase('fixtureI1', gold, st, {
-      planner: mkUsage('gemini', { primaryFailed: false, primaryAttempts: 1 }),
-      review: mkUsage('gemini', { primaryFailed: false, primaryAttempts: 2 }),
-    });
-    const failed = scoreCase('fixtureI2', gold, st, {
-      planner: mkUsage('claude', { primaryFailed: true, primaryAttempts: 1, reason: 'timeout' }),
-      review: mkUsage('claude', { primaryFailed: true, primaryAttempts: 2, reason: 'rejected-by-acceptResult' }),
-    });
-    // Pre-field result file: usage present, no escalation key anywhere.
-    const legacy = scoreCase('fixtureI3', gold, st, { planner: mkUsage('gemini'), review: mkUsage('gemini') });
+    const ok = scoreCase('fixtureI1', gold, st, mkUsage('gemini', { primaryFailed: false, primaryAttempts: 1 }));
+    const failed = scoreCase(
+      'fixtureI2',
+      gold,
+      st,
+      mkUsage('claude', { primaryFailed: true, primaryAttempts: 1, reason: 'timeout' })
+    );
+    // Usage present, no escalation key.
+    const noEscalation = scoreCase('fixtureI3', gold, st, mkUsage('gemini'));
     const noUsage = scoreCase('fixtureI4', gold, st); // no usage at all: excluded, not even no-data
-    check('I escalation stashed on score usage', ok.usage?.planner?.escalation, {
+    check('I escalation stashed on score usage', ok.usage?.escalation, {
       primaryFailed: false,
       primaryAttempts: 1,
     });
-    check('I legacy usage omits the key (byte-identical)', 'escalation' in (legacy.usage?.planner ?? {}), false);
-    const agg = aggregateScores([ok, failed, legacy, noUsage]);
-    check('I agg planner buckets', agg.escalation.planner, {
+    check('I usage without escalation omits the key', 'escalation' in (noEscalation.usage ?? {}), false);
+    const agg = aggregateScores([ok, failed, noEscalation, noUsage]);
+    check('I agg buckets', agg.escalation, {
       primaryOk: 1,
       primaryFailed: 1,
       reasons: { timeout: 1 },
       okProviders: { gemini: 1 },
       noData: 1,
     });
-    check('I agg review buckets', agg.escalation.review, {
-      primaryOk: 1,
-      primaryFailed: 1,
-      reasons: { 'rejected-by-acceptResult': 1 },
-      okProviders: { gemini: 1 },
-      noData: 1,
-    });
-    const summaryText = formatSummary(agg);
+    check('I agg usage calls (absent calls count as one)', agg.usage.calls, 3);
     check(
-      'I summary planner line',
-      summaryText.includes(
-        'escalation[planner]: gemini 1, backup 1 (50% primary failure — reasons: timeout 1), no data 1'
+      'I summary escalation line',
+      formatSummary(agg).includes(
+        'escalation: gemini 1, backup 1 (50% primary failure — reasons: timeout 1), no data 1'
       ),
       true
     );
-    check(
-      'I summary review line',
-      summaryText.includes(
-        'escalation[review]: gemini 1, backup 1 (50% primary failure — reasons: rejected-by-acceptResult 1), no data 1'
-      ),
-      true
-    );
-    const aggLegacy = aggregateScores([legacy, noUsage]);
-    check('I legacy corpus goes to noData', aggLegacy.escalation.planner, {
+    const aggNoData = aggregateScores([noEscalation, noUsage]);
+    check('I no escalation data goes to noData', aggNoData.escalation, {
       primaryOk: 0,
       primaryFailed: 0,
       reasons: {},
       okProviders: {},
       noData: 1,
     });
-    check('I summary no-data mode', formatSummary(aggLegacy).includes('escalation[planner]: no data'), true);
+    check('I summary no-data mode', formatSummary(aggNoData).includes('escalation: no data'), true);
   }
 
   console.log(failures === 0 ? '\nSELF-TEST PASS' : `\nSELF-TEST FAIL (${failures} failing checks)`);

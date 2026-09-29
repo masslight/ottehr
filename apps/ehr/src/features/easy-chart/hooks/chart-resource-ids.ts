@@ -1,5 +1,5 @@
-// `saveChartData` returns the whole updated chart, so finding the rows a save created means diffing the
-// `resourceId`s before and after.
+// `saveChartData` returns the rows it saved, new and updated alike, so the new ones are those whose
+// `resourceId` the cached chart did not already hold.
 
 /**
  * Every `resourceId` reachable in a chart-data payload, at any depth. Walks generically so new sections are

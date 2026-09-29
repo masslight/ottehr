@@ -5,6 +5,9 @@ import { NOTE_FIELD_LABELS } from 'utils/lib/easy-chart/note-fields';
 import { RosFindingState } from 'utils/lib/ottehr-config/review-of-systems/in-person.config';
 import { ExamRecommendation, ScribeRecommendation, ScribeSectionKey } from './types';
 
+/** The comparison form of a name or code: case and surrounding spaces do not make a second item. */
+export const normalizeName = (value: string | undefined): string => (value ?? '').trim().toLowerCase();
+
 interface ScribeSectionMeta {
   label: string;
   /** Fits the narrow vertical rail beside the group; the full label lives in the tooltip. */
@@ -101,7 +104,7 @@ export const describeRecommendation = (rec: ScribeRecommendation): Recommendatio
         primary: `Apply template “${rec.templateName}”`,
         detail: detailOf(
           rec,
-          'Fills exam findings, MDM, patient instructions and codes; appends diagnoses. Leaves ROS and orders to the items below.'
+          'Opens the template preview, where you choose which sections to apply. The items below land on top of it.'
         ),
       };
     case 'hpi': {

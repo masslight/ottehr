@@ -128,8 +128,7 @@ async function claudeStructured(
 
 /** Predictions the gold does not contain, using the scorer's own match keys. */
 function overchartedItems(gold: Record<string, any>, state: Record<string, any>): Item[] {
-  const live = (arr: unknown): Record<string, any>[] =>
-    (Array.isArray(arr) ? arr : []).filter((x: any) => x && !x.removed);
+  const list = (arr: unknown): Record<string, any>[] => (Array.isArray(arr) ? arr : []).filter(Boolean);
   const out: Item[] = [];
 
   const dxScorable = (gold.assessment?.diagnoses ?? []).filter((d: any) => !d.fromLabOrder);
@@ -137,14 +136,14 @@ function overchartedItems(gold: Record<string, any>, state: Record<string, any>)
     ...dxScorable.map((d: any) => d.codeNormalized),
     ...(gold.assessment?.diagnoses ?? []).filter((d: any) => d.fromLabOrder).map((d: any) => d.codeNormalized),
   ]);
-  for (const p of live(state.diagnoses)) {
+  for (const p of list(state.diagnoses)) {
     const c = normCode(p.code);
     if (c && !dxKeys.has(c)) out.push({ section: 'diagnoses', text: `${c} — ${p.display ?? ''}` });
   }
 
   const cptKeys = new Set((gold.billing?.cptCodes ?? []).map((c: any) => c.codeNormalized));
   const seenCpt = new Set<string>();
-  for (const p of live(state.cptCodes)) {
+  for (const p of list(state.cptCodes)) {
     const c = normCode(p.code);
     if (c && !cptKeys.has(c) && !seenCpt.has(c)) {
       seenCpt.add(c);
@@ -157,7 +156,7 @@ function overchartedItems(gold: Record<string, any>, state: Record<string, any>)
     if (o.present === true) rosKeys.add(rosBaseAndPolarity(o.field).base);
   }
   const seenRos = new Set<string>();
-  for (const p of live(state.rosObservations)) {
+  for (const p of list(state.rosObservations)) {
     if (!rosKeys.has(p.baseKey) && !seenRos.has(p.baseKey)) {
       seenRos.add(p.baseKey);
       out.push({ section: 'ros', text: p.label ?? p.baseKey });
@@ -165,8 +164,12 @@ function overchartedItems(gold: Record<string, any>, state: Record<string, any>)
   }
 
   const examKeys = new Set<string>((gold.exam ?? []).filter((e: any) => e.present === true).map((e: any) => e.field));
-  for (const p of live(state.examObservations)) {
-    if (!examKeys.has(p.field)) out.push({ section: 'exam', text: p.label ?? p.field });
+  const seenExam = new Set<string>();
+  for (const p of list(state.examObservations)) {
+    if (!examKeys.has(p.field) && !seenExam.has(p.field)) {
+      seenExam.add(p.field);
+      out.push({ section: 'exam', text: p.label ?? p.field });
+    }
   }
 
   // Medications are one shared pool matched fuzzily, exactly as the scorer does it.
@@ -176,12 +179,11 @@ function overchartedItems(gold: Record<string, any>, state: Record<string, any>)
     ...(gold.medications?.immunizations ?? []).map((m: any) => m.name),
     ...(gold.medications?.currentReconciled ?? []).map((m: any) => m.name),
   ];
-  for (const p of live(state.medications)) {
+  for (const p of list(state.medications)) {
     if (!goldMeds.some((g) => nameMatch(p.display, g))) out.push({ section: 'medications', text: p.display ?? '' });
   }
 
   // Context sections use the scorer's match rules, so "overcharted" equals its predicted − matched.
-  // Vitals carry no `removed`/`source`; the others are plain SimItems.
   const plannable = new Set<string>(PLANNABLE_VITAL_FIELDS);
   const goldVitals: Record<string, unknown>[] = (gold.vitals ?? []).filter((v: any) => plannable.has(String(v.field)));
   const vitals = uniqueVitals(
@@ -200,7 +202,7 @@ function overchartedItems(gold: Record<string, any>, state: Record<string, any>)
     ['hospitalizations', state.hospitalizations, gold.hospitalizations ?? []],
   ];
   for (const [section, predicted, goldItems] of history) {
-    for (const p of live(predicted)) {
+    for (const p of list(predicted)) {
       if (!goldItems.some((g) => historyMatches(p, g))) {
         out.push({ section, text: p.code ? `${p.display ?? ''} (${p.code})` : p.display ?? '' });
       }

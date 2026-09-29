@@ -164,7 +164,7 @@ vi.mock('../../src/features/visits/shared/components/scribe-recommendations/useS
     useScribeAnalyzer: () => ({
       plan: async () => mocks.plan() as ChartPlanResponse,
       analysisOf: (plan: ChartPlanResponse, narrative: string) =>
-        buildAnalysis(plan, undefined, { written: mocks.written, narrative }),
+        buildAnalysis(plan, { written: mocks.written, narrative }),
     }),
   };
 });
@@ -301,7 +301,7 @@ vi.mock('react-router-dom', async () => {
 });
 
 import { dataTestIds } from '../../src/constants/data-test-ids';
-import { buildChartSnapshot as buildExecutorSnapshot } from '../../src/features/easy-chart/executor/chartSnapshot';
+import { buildChartSnapshot } from '../../src/features/easy-chart/executor/chartSnapshot';
 import { useAiAddedRecommendations } from '../../src/features/visits/shared/components/scribe-recommendations/aiAddedMarks';
 import {
   appendToNoteField,
@@ -315,7 +315,7 @@ import {
   RecommendationRunner,
 } from '../../src/features/visits/shared/components/scribe-recommendations/applyRecommendations';
 import {
-  buildChartSnapshot,
+  buildChartedState,
   isAlreadyCharted,
 } from '../../src/features/visits/shared/components/scribe-recommendations/chartedRecommendations';
 import { PickerDialog } from '../../src/features/visits/shared/components/scribe-recommendations/PickerDialog';
@@ -354,7 +354,6 @@ const resetStore = (): void => {
     width: SCRIBE_PANEL_DEFAULT_WIDTH,
     encounterId: undefined,
     transcript: '',
-    transcriptSource: 'none',
     sourceDocumentId: undefined,
     narrativeGenerated: [],
     narrativeDraft: '',
@@ -1388,9 +1387,12 @@ describe('ScribeRecommendationsDrawer', () => {
     expect(screen.getByTestId(testIds.rowText(ID.claritin))).toHaveTextContent('Claritin 10mg');
 
     // and a line that was only looked at is not an edit
+    const hpiRow = (): ScribeRecommendation | undefined =>
+      useScribeRecommendationsStore.getState().recommendations.find((rec) => rec.id === ID.hpi);
+    const before = hpiRow();
     await user.click(screen.getByTestId(testIds.rowEditButton(ID.hpi)));
     await lookAway(user);
-    expect(useScribeRecommendationsStore.getState().itemState[ID.hpi].edited).toBeUndefined();
+    expect(hpiRow()).toBe(before);
   });
 
   it('says so when the narrative yields nothing chartable', async () => {
@@ -1465,7 +1467,7 @@ describe('plans read ahead of the click', () => {
     return {
       calls,
       plan: (narrative, generated, transcript) => calls(narrative, generated, transcript),
-      analysisOf: (plan, narrative) => buildAnalysis(plan, undefined, { written: {}, narrative }),
+      analysisOf: (plan, narrative) => buildAnalysis(plan, { written: {}, narrative }),
     };
   };
   const generate = vi.fn(async (): Promise<NarrativeLine[]> => LINES_B);
@@ -1604,11 +1606,11 @@ describe('applyRecommendations', () => {
     { id: 'tpl', kind: 'template', section: 'template', templateName: 'Sinusitis' },
     { id: 'hpi', kind: 'hpi', section: 'hpi', text: 'HPI' },
     {
-      id: 'rm',
+      id: 'em',
       kind: 'action',
       section: 'assessment',
-      label: 'Removing diagnosis: Viral URI',
-      action: { kind: 'remove-diagnosis', display: 'Viral URI' },
+      label: 'Setting E&M level: 99213',
+      action: { kind: 'set-em-code', code: '99213' },
     },
   ];
 
@@ -1638,14 +1640,14 @@ describe('applyRecommendations', () => {
   });
 
   it('leaves the template out of the observations batch', () => {
-    expect(pendingObservationIds()).toEqual(['ros-1', 'dx-2', 'dx-1', 'hpi', 'rm']);
+    expect(pendingObservationIds()).toEqual(['ros-1', 'dx-2', 'dx-1', 'hpi', 'em']);
 
     useScribeRecommendationsStore.getState().setSelected('hpi', false);
     useScribeRecommendationsStore.getState().setItemStatus('dx-2', 'applied');
-    expect(pendingObservationIds()).toEqual(['ros-1', 'dx-1', 'rm']);
+    expect(pendingObservationIds()).toEqual(['ros-1', 'dx-1', 'em']);
   });
 
-  it('runs in a stable clinical order — template, removals, then the additions — and skips rows already applied', async () => {
+  it('runs in a stable clinical order — template, the typed rows, generic actions last — and skips rows already applied', async () => {
     const seen: string[] = [];
     useScribeRecommendationsStore.getState().setItemStatus('dx-2', 'applied');
 
@@ -1657,8 +1659,7 @@ describe('applyRecommendations', () => {
     );
 
     expect(result).toEqual({ applied: 5, skipped: 0, failed: 0 });
-    // the removal frees the primary before the add that takes it over
-    expect(seen).toEqual(['tpl', 'rm', 'hpi', 'dx-1', 'ros-1']);
+    expect(seen).toEqual(['tpl', 'hpi', 'dx-1', 'ros-1', 'em']);
     const { itemState, isApplying } = useScribeRecommendationsStore.getState();
     expect(isApplying).toBe(false);
     expect(itemState['tpl'].status).toBe('applied');
@@ -1723,7 +1724,7 @@ describe('applyRecommendations', () => {
 describe('appendToNoteField', () => {
   const hpi: ScribeRecommendation = { id: 'hpi', kind: 'hpi', section: 'hpi', text: 'Sinus pressure x 1 week.' };
   // The chart after the template has written the HPI — stored under the chiefComplaint key.
-  const written = buildExecutorSnapshot({
+  const written = buildChartSnapshot({
     patientId: 'p-1',
     chiefComplaint: { resourceId: 'cc-1', text: 'Template HPI.' },
   } as GetChartDataResponse);
@@ -1737,7 +1738,7 @@ describe('appendToNoteField', () => {
   });
 
   it('writes the text as is into an empty field, and over a written one when the row is set to replace', () => {
-    const empty = buildExecutorSnapshot(undefined);
+    const empty = buildChartSnapshot(undefined);
     expect(appendToNoteField(toPlannedAction(hpi), hpi, empty).newText).toBe('Sinus pressure x 1 week.');
     expect(appendToNoteField(toPlannedAction(hpi), hpi, written, 'replace').newText).toBe('Sinus pressure x 1 week.');
   });
@@ -1750,7 +1751,7 @@ describe('appendToNoteField', () => {
       section: 'assessment',
       text: 'Supportive care.',
     };
-    const chart = buildExecutorSnapshot({
+    const chart = buildChartSnapshot({
       patientId: 'p-1',
       medicalDecision: { resourceId: 'mdm-1', text: 'Likely viral.' },
       // the row under the historyOfPresentIllness key is the chief complaint, not the HPI
@@ -1795,7 +1796,7 @@ describe('PickerDialog', () => {
 });
 
 describe('isAlreadyCharted', () => {
-  const snapshot = buildChartSnapshot({
+  const snapshot = buildChartedState({
     chartData: {
       diagnosis: [{ code: 'J01.90', display: 'Acute sinusitis, unspecified', isPrimary: true }],
       allergies: [
@@ -1858,7 +1859,7 @@ describe('isAlreadyCharted', () => {
       })
     ).toBe(false);
     // the words are in that card's comment, up to case and punctuation — the executor's own dedupe rule
-    const noted = { kind: 'none' as const, sectionKey: 'lungs', sectionLabel: 'Lungs', commentField: 'lungs-comment' };
+    const noted = { kind: 'none' as const, sectionLabel: 'Lungs', commentField: 'lungs-comment' };
     expect(charted({ kind: 'exam', display: 'Malodorous', resolution: noted })).toBe(true);
     expect(
       charted({ kind: 'exam', display: 'Malodorous', resolution: { ...noted, commentField: 'ears-comment' } })
@@ -1902,7 +1903,7 @@ describe('isAlreadyCharted', () => {
   });
 
   it('treats any weight on the encounter as the weight suggestion being charted', () => {
-    const withWeight = buildChartSnapshot({
+    const withWeight = buildChartedState({
       chartData: {},
       rosObservations: {},
       examObservations: {},

@@ -103,7 +103,7 @@ const TEMPERATURE_UNITLESS_NOISE = /^[\s°%]*(?:degrees?)?[\s°]*$/i;
  * Physiologic bounds used only to catch a mis-stated unit, not to second-guess a clinician. Ranges
  * are deliberately wide: a value outside them is a data-entry error, not an unusual patient.
  */
-const PLAUSIBLE_RANGES: Partial<Record<PlannableVitalField, { min: number; max: number; unit?: string }>> = {
+const PLAUSIBLE_RANGES: Partial<Record<PlannableVitalField, { min: number; max: number }>> = {
   'vital-heartbeat': { min: 20, max: 300 },
   'vital-respiration-rate': { min: 4, max: 100 },
   'vital-oxygen-sat': { min: 40, max: 100 },

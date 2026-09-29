@@ -3,7 +3,7 @@
 // provider-readable reason when it skips.
 
 import { buildExamLeafCatalogue, ExamLeaf } from 'utils/lib/config-helpers/exam-leaves';
-import { ActionKind, chartableFollowUpDays, PlannableVitalField } from 'utils/lib/easy-chart/actions';
+import { chartableFollowUpDays, PlannableVitalField } from 'utils/lib/easy-chart/actions';
 import { chartKeyForNoteField, NOTE_FIELD_LABELS } from 'utils/lib/easy-chart/note-fields';
 import { HeightMeasurement } from 'utils/lib/helpers/vitals/vitals-height.helper';
 import { fahrenheitToCelsius } from 'utils/lib/helpers/vitals/vitals-temperature.helper';
@@ -20,8 +20,6 @@ import {
   CatalogueMatch,
   CatalogueQuery,
   CatalogueResult,
-  ChartedItem,
-  ChartListField,
   failed,
   Handler,
   HandlerContext,
@@ -66,39 +64,6 @@ async function addFromCatalogue(
   }
   const created = await options.write(pick.match);
   return applied(created, { lowConfidence: pick.lowConfidence, note: pick.note, matchedId: pick.match.id });
-}
-
-/** Remove a charted row. Destructive, so ambiguity asks even in a bulk run. */
-async function removeCharted(
-  action: { display?: string },
-  context: HandlerContext,
-  options: { items: ChartedItem[]; field: ChartListField; noun: string }
-): Promise<StepOutcome> {
-  const needle = (action.display ?? '').toLowerCase().trim();
-  if (!needle) return skipped(`no ${options.noun} was named, so nothing was removed`);
-
-  const candidates = options.items
-    .map((item) => ({ item, hay: item.display.toLowerCase() }))
-    .filter(({ hay }) => hay.includes(needle) || needle.includes(hay));
-  if (candidates.length === 0) {
-    return skipped(`"${action.display}" is not on the chart, so nothing was removed`);
-  }
-
-  const pick = await resolvePick(
-    candidates.map(({ item, hay }) => ({
-      id: item.resourceId,
-      display: item.display,
-      // An exact name outscores a partial one by more than the ambiguity ratio, so it never asks.
-      score: hay === needle ? 1 : 0.5,
-      payload: item,
-    })),
-    context,
-    { query: describeQuery(action.display), prompt: `Which ${options.noun} should be removed?`, destructive: true }
-  );
-  if (!pick) return skipped(`removal of "${action.display}" was not confirmed`);
-
-  await context.writer.remove(options.field, pick.match.payload as ChartedItem);
-  return applied();
 }
 
 /** The eRx id of a medication or allergen match, as the string the chart stores (the search returns a number). */
@@ -231,8 +196,7 @@ export const HANDLERS: HandlerTable = {
       );
     }
     context.say(
-      `Suggested template: "${action.display}". Apply it from the template picker if you want it — nothing was applied.`,
-      'provider-note'
+      `Suggested template: "${action.display}". Apply it from the template picker if you want it — nothing was applied.`
     );
     return applied([], { note: 'suggested only — not applied', matchedId: action.templateId });
   },
@@ -288,8 +252,6 @@ export const HANDLERS: HandlerTable = {
           ],
         }),
     }),
-  'remove-medication': async (action, context) =>
-    removeCharted(action, context, { items: context.chart.medications, field: 'medications', noun: 'medication' }),
 
   // Both catalogues are static coded option lists; a match's id is the option's code.
   'add-surgical-history': async (action, context) =>
@@ -351,8 +313,6 @@ export const HANDLERS: HandlerTable = {
     }),
 
   'add-diagnosis': addDiagnosis,
-  'remove-diagnosis': async (action, context) =>
-    removeCharted(action, context, { items: context.chart.diagnoses, field: 'diagnosis', noun: 'diagnosis' }),
 
   'set-em-code': async (action, context) => {
     const existing = context.chart.emCode;
@@ -377,18 +337,16 @@ export const HANDLERS: HandlerTable = {
     applied(await context.writer.save({ instructions: [{ text: action.text }] })),
 
   'provider-note': async (action, context) => {
-    context.say(action.text, 'provider-note');
+    context.say(action.text);
     return applied([], { note: 'left as a note for you' });
   },
   reply: async (action, context) => {
-    context.say(action.text, 'reply');
+    context.say(action.text);
     return applied([], { note: 'answered in the chat' });
   },
 
   unknown: async (action, context) => {
-    context.say(action.message ?? 'The assistant could not classify part of that request.', 'unknown');
+    context.say(action.message ?? 'The assistant could not classify part of that request.');
     return skipped(action.message ?? 'the assistant could not classify this part of the request');
   },
 };
-
-export const isHandledKind = (kind: string): kind is ActionKind => kind in HANDLERS;

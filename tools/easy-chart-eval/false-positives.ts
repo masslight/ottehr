@@ -7,7 +7,6 @@
  *
  * Usage:
  *   npx tsx tools/easy-chart-eval/false-positives.ts <runDir> [<runDir>...]
- *   npx tsx tools/easy-chart-eval/false-positives.ts <runDir> --scope plannerOnly
  *   npx tsx tools/easy-chart-eval/false-positives.ts <runDir> --top 25
  *   npx tsx tools/easy-chart-eval/false-positives.ts <runDir> --section exam --top 40
  *   npx tsx tools/easy-chart-eval/false-positives.ts <runDir> --transcript-check
@@ -22,23 +21,12 @@ import { dirname, join } from 'path';
 import { GoldData } from './gold-types';
 import { isIntentVoiced, isUnvoiced, nameMatch, normCode, normName, rosBaseAndPolarity } from './score-harvested';
 
-type Scope = 'plannerOnly' | 'final';
-
-interface SimItem {
-  source: 'planner' | 'review';
-  removed?: boolean;
-  removedBy?: 'planner' | 'review';
-}
 interface SimState {
-  diagnoses: (SimItem & { display?: string; code?: string })[];
-  cptCodes: (SimItem & { display?: string; code?: string })[];
-  rosObservations: (SimItem & { baseKey: string; label?: string; finding?: string })[];
-  examObservations: (SimItem & {
-    field: string;
-    label?: string;
-    components?: (SimItem & { removed?: boolean })[];
-  })[];
-  medications: (SimItem & { display?: string })[];
+  diagnoses: { display?: string; code?: string }[];
+  cptCodes: { display?: string; code?: string }[];
+  rosObservations: { baseKey: string; label?: string; finding?: string }[];
+  examObservations: { field: string; label?: string }[];
+  medications: { display?: string }[];
 }
 
 /**
@@ -72,10 +60,7 @@ type Bucket = 'matched' | 'dupInGold' | 'onUnvoicedGold' | 'onContextGold' | 'no
 /** Gold-side tally for --missed (the recall direction). */
 interface MissTally {
   goldInScope: number;
-  /**
-   * Gold items covered, each counted once. For exam this can differ from the scorer's `matched`, which
-   * counts per predicted observation.
-   */
+  /** Gold items covered, each counted once, as the scorer's `matched` counts them. */
   matched: number;
   missed: number;
   /** missed gold, by label, so the systematic gaps are visible. */
@@ -137,25 +122,9 @@ function record(tally: SectionTally, bucket: Bucket, label: string, transcript?:
   else tally.ungrounded++;
 }
 
-const inScope = <T extends SimItem>(items: T[], scope: Scope): T[] =>
-  scope === 'plannerOnly'
-    ? items.filter((i) => i.source === 'planner' && !(i.removed && i.removedBy === 'planner'))
-    : items.filter((i) => !i.removed);
-
-// Mirrors the scorer's examInScope: an observation is in planner scope when any of its components is.
-const examInScope = (obs: SimState['examObservations'], scope: Scope): SimState['examObservations'] =>
-  scope === 'final'
-    ? obs.filter((o) => !o.removed)
-    : obs.filter(
-        (o) =>
-          !(o.removed && o.removedBy === 'planner') &&
-          (o.source === 'planner' || (o.components ?? []).some((c) => c.source === 'planner' && !c.removed))
-      );
-
 function tallyCase(
   gold: GoldData,
   state: SimState,
-  scope: Scope,
   tallies: Record<string, SectionTally>,
   transcript?: Set<string>,
   misses?: Record<string, MissTally>
@@ -170,7 +139,7 @@ function tallyCase(
   // Mirrors the scorer: context is tested before in-scope gold, and a gold code is matched once
   // however many times it was predicted.
   const dxAlreadyMatched = new Set<string>();
-  for (const p of inScope(state.diagnoses ?? [], scope)) {
+  for (const p of state.diagnoses ?? []) {
     const code = normCode(p.code);
     const label = `${code || '(no code)'} — ${p.display ?? ''}`;
     // A predicted dx with no code cannot match anything; the scorer counts it as predictedNoCode.
@@ -189,11 +158,7 @@ function tallyCase(
       dxScorable
         .filter((d) => !isUnvoiced(d))
         .map((d) => ({ key: d.codeNormalized, label: `${d.codeNormalized} — ${d.display}` })),
-      new Set(
-        inScope(state.diagnoses ?? [], scope)
-          .map((p) => normCode(p.code))
-          .filter(Boolean)
-      )
+      new Set((state.diagnoses ?? []).map((p) => normCode(p.code)).filter(Boolean))
     );
   }
 
@@ -202,7 +167,7 @@ function tallyCase(
   const cptUnvoiced = new Set((gold.billing?.cptCodes ?? []).filter(isUnvoiced).map((c) => c.codeNormalized));
   // Like the scorer, predictions are a per-case set of codes (codeless dropped), so a repeated CPT counts once.
   const predCpt = new Map<string, string>();
-  for (const p of inScope(state.cptCodes ?? [], scope)) {
+  for (const p of state.cptCodes ?? []) {
     const code = normCode(p.code);
     if (code) predCpt.set(code, `${code} — ${p.display ?? ''}`);
   }
@@ -233,7 +198,7 @@ function tallyCase(
   }
   // The scorer keys the predicted side by baseKey in a Map, so a duplicate base counts once.
   const predRos = new Map<string, string>();
-  for (const o of inScope(state.rosObservations ?? [], scope)) predRos.set(o.baseKey, o.label ?? o.baseKey);
+  for (const o of state.rosObservations ?? []) predRos.set(o.baseKey, o.label ?? o.baseKey);
   for (const [base, label] of predRos) {
     if (rosInScope.has(base)) record(tallies.ros, 'matched', label);
     else if (rosUnvoiced.has(base)) record(tallies.ros, 'onUnvoicedGold', label);
@@ -250,7 +215,7 @@ function tallyCase(
     );
   }
 
-  // Exam: keyed on the observation field.
+  // Exam: keyed on the observation field. Like the scorer, a field charted twice counts once.
   const examInGold = new Set<string>();
   const examUnvoiced = new Set<string>();
   for (const o of gold.exam ?? []) {
@@ -258,11 +223,12 @@ function tallyCase(
     if (isUnvoiced(o)) examUnvoiced.add(o.field);
     else examInGold.add(o.field);
   }
-  for (const p of examInScope(state.examObservations ?? [], scope)) {
-    const label = p.label ?? p.field;
-    if (examInGold.has(p.field)) record(tallies.exam, 'matched', label);
-    else if (examUnvoiced.has(p.field)) record(tallies.exam, 'onUnvoicedGold', label);
-    else record(tallies.exam, 'notInGold', `${label}  [${p.field}]`, transcript);
+  const predExam = new Map<string, string>();
+  for (const p of state.examObservations ?? []) if (!predExam.has(p.field)) predExam.set(p.field, p.label ?? p.field);
+  for (const [field, label] of predExam) {
+    if (examInGold.has(field)) record(tallies.exam, 'matched', label);
+    else if (examUnvoiced.has(field)) record(tallies.exam, 'onUnvoicedGold', label);
+    else record(tallies.exam, 'notInGold', `${label}  [${field}]`, transcript);
   }
 
   if (misses) {
@@ -271,13 +237,13 @@ function tallyCase(
       (gold.exam ?? [])
         .filter((o) => o.present === true && !isUnvoiced(o))
         .map((o) => ({ key: o.field, label: o.label ?? o.field })),
-      new Set(examInScope(state.examObservations ?? [], scope).map((p) => p.field))
+      new Set(predExam.keys())
     );
   }
 
   // Medications: one predicted pool shared by prescribed, in-house and immunizations, matched greedily
   // in the scorer's order so a predicted item is consumed at most once.
-  const pool = inScope(state.medications ?? [], scope).map((m) => ({ display: m.display ?? '', used: false }));
+  const pool = (state.medications ?? []).map((m) => ({ display: m.display ?? '', used: false }));
   const consume = (names: (string | undefined)[], bucket: Bucket): void => {
     for (const gn of names) {
       const hit = pool.find((p) => !p.used && nameMatch(p.display, gn));
@@ -315,7 +281,7 @@ function tallyCase(
   for (const p of pool) if (!p.used) record(tallies.meds, 'notInGold', p.display);
   if (misses) {
     // Fresh greedy pass over the gold meds that carry recall: scorable prescribed, in-house, immunizations.
-    const fresh = inScope(state.medications ?? [], scope).map((m) => ({ display: m.display ?? '', used: false }));
+    const fresh = (state.medications ?? []).map((m) => ({ display: m.display ?? '', used: false }));
     const goldNames = [
       ...prescribed.filter((m) => !isUnvoiced(m) && !isIntentVoiced(m)).map((m) => m.name),
       ...(gold.medications?.inHouseAdministered ?? []).map((m) => m.name),
@@ -337,12 +303,11 @@ function tallyCase(
 }
 
 /** Cross-check against the run's own score files, so a drifted key function cannot pass silently. */
-function crossCheck(runDir: string, scope: Scope, tallies: Record<string, SectionTally>): string[] {
+function crossCheck(runDir: string, tallies: Record<string, SectionTally>): string[] {
   const problems: string[] = [];
   const totals: Record<string, { predicted: number; matched: number; unvoiced: number }> = {};
   for (const f of readdirSync(runDir).filter((n) => n.endsWith('.score.json'))) {
-    const sc = JSON.parse(readFileSync(join(runDir, f), 'utf8')).scopes?.[scope];
-    if (!sc) continue;
+    const score = JSON.parse(readFileSync(join(runDir, f), 'utf8'));
     for (const [name, key] of [
       ['diagnoses', 'diagnoses'],
       ['cpt', 'cpt'],
@@ -350,11 +315,11 @@ function crossCheck(runDir: string, scope: Scope, tallies: Record<string, Sectio
       ['exam', 'exam'],
       ['meds', 'medsCombined'],
     ] as const) {
-      const s = sc[key];
+      const s = score[key];
       totals[name] ??= { predicted: 0, matched: 0, unvoiced: 0 };
-      totals[name].predicted += s.predicted ?? 0;
-      totals[name].matched += s.matched ?? 0;
-      totals[name].unvoiced += s.unvoicedMatched ?? 0;
+      totals[name].predicted += s?.predicted ?? 0;
+      totals[name].matched += s?.matched ?? 0;
+      totals[name].unvoiced += s?.unvoicedMatched ?? 0;
     }
   }
   for (const [name, t] of Object.entries(totals)) {
@@ -380,7 +345,6 @@ function main(): void {
     const i = args.indexOf(`--${n}`);
     return i >= 0 ? args[i + 1] : undefined;
   };
-  const scope = (valueOf('scope') ?? 'final') as Scope;
   const top = Number(valueOf('top') ?? 12);
   const onlySection = valueOf('section');
   const transcriptCheck = args.includes('--transcript-check');
@@ -391,7 +355,9 @@ function main(): void {
   const dirs = runDirs.filter((a) => existsSync(a));
 
   if (dirs.length === 0) {
-    console.log('usage: false-positives.ts <runDir> [<runDir>...] [--scope final|plannerOnly] [--top N] [--section X]');
+    console.log(
+      'usage: false-positives.ts <runDir> [<runDir>...] [--top N] [--section X] [--transcript-check] [--missed]'
+    );
     process.exit(1);
   }
 
@@ -421,14 +387,14 @@ function main(): void {
               .filter(Boolean)
           )
         : undefined;
-      tallyCase(file.gold, state, scope, tallies, transcript, misses);
+      tallyCase(file.gold, state, tallies, transcript, misses);
       n++;
     }
 
     console.log('='.repeat(96));
-    console.log(`${runDir}   —   ${n} cases   —   scope: ${scope}`);
+    console.log(`${runDir}   —   ${n} cases`);
     console.log('='.repeat(96));
-    const problems = crossCheck(runDir, scope, tallies);
+    const problems = crossCheck(runDir, tallies);
     if (problems.length) {
       console.log('\n!! DOES NOT RECONCILE WITH .score.json — treat the numbers below as suspect:');
       for (const p of problems) console.log(`   ${p}`);

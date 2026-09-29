@@ -42,10 +42,9 @@ import {
 import { APIErrorCode } from 'utils/lib/types/errors';
 import { create } from 'zustand';
 import { OystehrTelemedAPIClient } from '../../api/oystehrApi';
-import { chartSectionsQueryKey, invalidateChart, visitNoteQueryKey } from '../../hooks/chartSectionCache';
+import { invalidateChart } from '../../hooks/chartSectionCache';
 import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAccessibility';
 import { useOystehrAPIClient } from '../../hooks/useOystehrAPIClient';
-import { collectResourceIds, diffCreatedResourceIds } from './chart-resource-ids';
 import { getAppointmentValues, getEncounterValues } from './parser/extractors';
 import { parseBundle } from './parser/parser';
 import { VisitMappedData, VisitResources } from './parser/types';
@@ -599,27 +598,17 @@ const useGetAppointment = (
   return query;
 };
 
-/** The updated chart, plus the ids of the rows the save created. */
-export type SaveChartDataResult = PromiseReturnType<ReturnType<OystehrTelemedAPIClient['saveChartData']>> & {
-  createdResourceIds: string[];
-};
-
 export const useSaveChartData = (): UseMutationResult<
-  SaveChartDataResult,
+  PromiseReturnType<ReturnType<OystehrTelemedAPIClient['saveChartData']>>,
   Error,
-  // An explicit encounterId wins over the appointment store's, which a caller may not have populated.
-  Omit<SaveChartDataRequest, 'encounterId'> & { encounterId?: string }
+  Omit<SaveChartDataRequest, 'encounterId'>
 > => {
   const apiClient = useOystehrAPIClient();
   const { encounter } = useAppointmentData();
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
-  const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({
-      encounterId: explicitEncounterId,
-      ...chartDataFields
-    }: Omit<SaveChartDataRequest, 'encounterId'> & { encounterId?: string }): Promise<SaveChartDataResult> => {
+    mutationFn: (chartDataFields: Omit<SaveChartDataRequest, 'encounterId'>) => {
       // disabled saving chart data in read only mode except addendum note (legacy single-string field
       // and the per-author `notes` array entries of type ADDENDUM, which providers can still append
       // after the visit is signed and the claim is created)
@@ -637,25 +626,13 @@ export const useSaveChartData = (): UseMutationResult<
         }
       }
 
-      const encounterId = explicitEncounterId ?? encounter?.id;
-      if (!apiClient || !encounterId) {
-        throw new Error('api client not defined or encounterId not provided');
+      if (apiClient && encounter?.id) {
+        return apiClient.saveChartData({
+          encounterId: encounter.id,
+          ...chartDataFields,
+        });
       }
-
-      // Every row id any cached chart entry for this encounter already knows, to diff the response against.
-      const before = new Set<string>();
-      for (const queryKey of [visitNoteQueryKey(encounterId), chartSectionsQueryKey(encounterId)]) {
-        for (const [, cached] of queryClient.getQueriesData({ queryKey })) {
-          collectResourceIds(cached, before);
-        }
-      }
-
-      const response = await apiClient.saveChartData({ encounterId, ...chartDataFields });
-
-      return {
-        ...response,
-        createdResourceIds: diffCreatedResourceIds(before, collectResourceIds(response.chartData)),
-      };
+      throw new Error('api client not defined or encounterId not provided');
     },
     retry: 2,
   });
@@ -664,32 +641,27 @@ export const useSaveChartData = (): UseMutationResult<
 export const useDeleteChartData = (): UseMutationResult<
   PromiseReturnType<ReturnType<OystehrTelemedAPIClient['deleteChartData']>>,
   Error,
-  // An explicit encounterId wins over the appointment store's, as in useSaveChartData.
-  AllChartValues & { schoolWorkNotes?: SchoolWorkNoteExcuseDocFileDTO[]; encounterId?: string }
+  AllChartValues & { schoolWorkNotes?: SchoolWorkNoteExcuseDocFileDTO[] }
 > => {
   const apiClient = useOystehrAPIClient();
   const { encounter } = useAppointmentData();
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({
-      encounterId: explicitEncounterId,
-      ...chartDataFields
-    }: AllChartValues & { schoolWorkNotes?: SchoolWorkNoteExcuseDocFileDTO[]; encounterId?: string }) => {
-      const encounterId = explicitEncounterId ?? encounter?.id;
-      if (apiClient && encounterId) {
+    mutationFn: (chartDataFields: AllChartValues & { schoolWorkNotes?: SchoolWorkNoteExcuseDocFileDTO[] }) => {
+      if (apiClient && encounter?.id) {
         return apiClient.deleteChartData({
-          encounterId,
+          encounterId: encounter.id,
           ...chartDataFields,
         });
       }
       throw new Error('api client not defined or encounterId not provided');
     },
-    onError: async (error, variables) => {
+    onError: async (error) => {
       if ((error as any).code === APIErrorCode.FHIR_RESOURCE_IS_GONE) {
         // Usually this happens due to an attempt to delete an already deleted resource. Thus full state refresh is required.
         resetExamObservationsStore();
-        await invalidateChart(queryClient, variables.encounterId ?? encounter?.id);
+        await invalidateChart(queryClient, encounter.id);
       }
     },
     retry: 2,

@@ -14,9 +14,9 @@ interface EasyChartData {
   refetch: () => Promise<GetChartDataResponse | undefined>;
 }
 
-export function useEasyChartData(encounterId: string | undefined, enabled = true): EasyChartData {
+export function useEasyChartData(encounterId: string | undefined): EasyChartData {
   // No refetch on mount: the visit screens keep these sections fresh, and callers refetch after writing.
-  const note = useVisitNote({ encounterId, enabled: enabled && Boolean(encounterId), refetchOnMount: false });
+  const note = useVisitNote({ encounterId, enabled: Boolean(encounterId), refetchOnMount: false });
 
   const chartData = useMemo(
     (): GetChartDataResponse | undefined => (note.data ? wholeChartFromVisitNote(note.data) : undefined),

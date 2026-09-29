@@ -160,7 +160,7 @@ async function main(): Promise<void> {
     if (!existsSync(casePath)) continue;
     const evalCase = JSON.parse(readFileSync(casePath, 'utf8')) as { transcript: string; gold: GoldData };
     const result = JSON.parse(readFileSync(join(resultsDir, `${caseId}.result.json`), 'utf8')) as {
-      state: { diagnoses: { display: string; code?: string; removed?: boolean }[] };
+      state: { diagnoses: { display: string; code?: string }[] };
     };
 
     // The same scope the scorer uses: lab-order diagnoses are context, and an unvoiced gold item is not
@@ -174,7 +174,7 @@ async function main(): Promise<void> {
       if (!goldByCategory.has(item.codeNormalized.slice(0, 3)))
         goldByCategory.set(item.codeNormalized.slice(0, 3), item);
     const sides = narrativeLaterality(evalCase.transcript);
-    const charted = result.state.diagnoses.filter((dx) => !dx.removed);
+    const charted = result.state.diagnoses;
     const claimedGold = new Set<string>();
 
     for (const dx of charted) {

@@ -12,7 +12,7 @@ interface ScribeStageProps {
 /** The tint shared by every Oystehr AI surface in the EHR. */
 export const AI_SURFACE = '#E1F5FECC';
 
-/** One step of the review, introduced by an assistant message (avatar and speech bubble) above its content. */
+/** One step of the panel, introduced by an assistant message (avatar and speech bubble) above its content. */
 export const ScribeStage: FC<ScribeStageProps> = ({ name, lead, children }) => (
   <Box
     component="section"

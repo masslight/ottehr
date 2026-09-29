@@ -1,6 +1,6 @@
 import { ExamLeaf } from 'utils/lib/config-helpers/exam-leaves';
 import { NoteTextField } from 'utils/lib/easy-chart/actions';
-import { NarrativeLine, PlannedAction, RejectedAction, ReviewCategory } from 'utils/lib/easy-chart/api';
+import { NarrativeLine, PlannedAction, RejectedAction } from 'utils/lib/easy-chart/api';
 import { RosFindingState } from 'utils/lib/ottehr-config/review-of-systems/in-person.config';
 import { TemplatePreviewApplyOptions, TemplateSectionActions } from 'utils/lib/types/data/apply-template.types';
 
@@ -16,11 +16,6 @@ export type ScribeSectionKey =
   | 'medications'
   | 'history'
   | 'plan';
-
-/** Which pass proposed it; a review card carries the question the provider reads. */
-export type RecommendationSource =
-  | { pass: 'plan' }
-  | { pass: 'review'; category: ReviewCategory; question: string; rationale?: string };
 
 /**
  * Where a quote came from, one hop past the quote itself. A quote in the narrative sits in a line that
@@ -42,11 +37,10 @@ interface ScribeRecommendationBase {
   evidenceOrigin?: EvidenceOrigin;
   /** Something to double-check before applying. */
   warning?: string;
-  /** How the AI got here: inferred rather than quoted, or what the review asked. */
+  /** Set when the AI inferred the recommendation rather than quoting it. */
   note?: string;
   /** The endpoint's action; the provider's edits are laid over it at apply time. Absent in fixtures. */
   action?: PlannedAction;
-  source?: RecommendationSource;
 }
 
 /** How a note paragraph lands in its field: after the existing text, over it, or not at all. */
@@ -107,7 +101,7 @@ export interface RosRecommendation extends ScribeRecommendationBase {
 export type ExamResolution =
   | { kind: 'confident'; leaf: ExamLeaf }
   | { kind: 'ambiguous'; leaf: ExamLeaf; alternatives: ExamLeaf[]; chosen?: ExamLeaf }
-  | { kind: 'none'; sectionKey?: string; sectionLabel?: string; commentField?: string };
+  | { kind: 'none'; sectionLabel?: string; commentField?: string };
 
 export interface ExamRecommendation extends ScribeRecommendationBase {
   kind: 'exam';
@@ -129,7 +123,7 @@ export interface TemplateRecommendation extends ScribeRecommendationBase {
   applyOptions?: TemplatePreviewApplyOptions;
 }
 
-/** Any other action (a surgery, a disposition, an E&M level, a removal), shown by its step label. */
+/** Any other action (a surgery, a disposition, an E&M level), shown by its step label. */
 export interface ActionRecommendation extends ScribeRecommendationBase {
   kind: 'action';
   label: string;

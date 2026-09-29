@@ -54,12 +54,6 @@ export interface SpeculativePlan {
  */
 export type NarrativeGenerator = (transcript: string, documentId?: string) => Promise<NarrativeLine[]>;
 
-/**
- * A transcript document already on the visit (an ambient recording, the intake chat), or none yet.
- * Transcripts are read-only here; the provider edits the narrative.
- */
-export type TranscriptSource = 'document' | 'none';
-
 export type NarrativeStatus = 'idle' | 'generating' | 'ready' | 'error';
 
 export interface RecommendationItemState {
@@ -78,8 +72,6 @@ export interface RecommendationItemState {
   note?: string;
   /** The executor picked or inferred this rather than matching it outright; the row says so. */
   lowConfidence?: boolean;
-  /** The provider has changed it, so the AI's wording no longer applies. */
-  edited?: boolean;
   /** When it landed in the chart, so the note can flash what has just arrived. */
   appliedAt?: number;
 }
@@ -95,7 +87,6 @@ interface ScribeRecommendationsState {
   encounterId?: string;
   /** The selected document's decoded text. Read-only evidence; sent to the planner as such. */
   transcript: string;
-  transcriptSource: TranscriptSource;
   sourceDocumentId?: string;
   /** The narrative as generated, kept so its sentences can be traced to their transcript snippets. */
   narrativeGenerated: NarrativeLine[];
@@ -202,7 +193,6 @@ const NARRATIVE_CLEARED = {
 const SESSION_INITIAL = {
   ...RESULTS_CLEARED,
   transcript: '',
-  transcriptSource: 'none' as TranscriptSource,
   sourceDocumentId: undefined,
   ...NARRATIVE_CLEARED,
   narrativeError: undefined,
@@ -240,7 +230,6 @@ export const useScribeRecommendationsStore = create<ScribeRecommendationsState>(
         if (transcript === undefined || get().sourceDocumentId === doc.id) return;
         set({
           transcript,
-          transcriptSource: 'document',
           sourceDocumentId: doc.id,
           analysisError: undefined,
           narrativeError: undefined,
@@ -258,7 +247,6 @@ export const useScribeRecommendationsStore = create<ScribeRecommendationsState>(
       clearTranscriptSelection: () =>
         set({
           transcript: '',
-          transcriptSource: 'none',
           sourceDocumentId: undefined,
           ...NARRATIVE_CLEARED,
           narrativeError: undefined,
@@ -412,7 +400,6 @@ export const useScribeRecommendationsStore = create<ScribeRecommendationsState>(
             ...state.itemState,
             [id]: {
               ...(state.itemState[id] ?? { selected: true, status: 'idle' }),
-              edited: true,
               // An edited recommendation that previously failed or was skipped gets a fresh start.
               ...(state.itemState[id]?.status === 'error' || state.itemState[id]?.status === 'skipped'
                 ? { status: 'idle', error: undefined, reason: undefined }

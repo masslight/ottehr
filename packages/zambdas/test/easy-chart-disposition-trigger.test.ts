@@ -1,8 +1,8 @@
 import { detectDispositionLanguage } from 'utils/lib/easy-chart/sniffers';
 import { describe, expect, it } from 'vitest';
 
-// A hit with no disposition charted forces a must-address instruction into the review prompt, so the
-// scan favors precision; a miss just leaves the disposition check to the model.
+// The plan's trigger report counts a hit with no disposition charted as a miss, so the scan favors
+// precision.
 describe('detectDispositionLanguage', () => {
   describe('positive disposition language', () => {
     it.each([

@@ -6,7 +6,6 @@ export type GetOystehrTelemedAPIParams = {
   saveChartDataZambdaID?: string;
   deleteChartDataZambdaID?: string;
   easyChartPlanZambdaID?: string;
-  easyChartReviewZambdaID?: string;
   easyChartNarrativeZambdaID?: string;
   easyChartSaveTranscriptZambdaID?: string;
   changeInPersonVisitStatusZambdaID?: string;

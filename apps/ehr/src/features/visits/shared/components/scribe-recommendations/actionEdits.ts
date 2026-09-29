@@ -33,9 +33,6 @@ export function editableActionText(action: PlannedAction): EditableActionText | 
       return action.display ? { field: 'display', value: action.display, label: 'Surgery' } : undefined;
     case 'add-hospitalization':
       return action.display ? { field: 'display', value: action.display, label: 'Hospitalization' } : undefined;
-    case 'remove-diagnosis':
-    case 'remove-medication':
-      return action.display ? { field: 'display', value: action.display, label: 'Item to remove' } : undefined;
     default:
       // Coded kinds (E&M level, conditions): the code is the meaning, the words only its label.
       return undefined;

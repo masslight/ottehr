@@ -17,26 +17,11 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { NoteTextField } from 'utils/lib/easy-chart/actions';
-import {
-  ChartPlanRequest,
-  ChartPlanResponse,
-  ChartReviewRequest,
-  ChartReviewResponse,
-  EscalationInfo,
-  PatientStatus,
-  PlannedAction,
-} from 'utils/lib/easy-chart/api';
-import {
-  buildChartStateSummary,
-  buildNoteContextFromChart,
-  chartedExamFindingLabels,
-} from 'utils/lib/easy-chart/chart-state';
-import { buildChartSnapshot } from '../../apps/ehr/src/features/easy-chart/executor/chartSnapshot';
+import { ChartPlanRequest, ChartPlanResponse, EscalationInfo, PatientStatus } from 'utils/lib/easy-chart/api';
 import { runPlan } from '../../apps/ehr/src/features/easy-chart/executor/runPlan';
 import { GoldData } from './gold-types';
 import { buildEvalContext } from './harness';
-import type { SimFinalState } from './score-harvested';
+import type { DispositionTriggerInfo, SimFinalState } from './score-harvested';
 import {
   aggregateScores,
   CaseScore,
@@ -46,7 +31,6 @@ import {
   scoreCase,
 } from './score-harvested';
 import { foldStepsIntoState } from './sim-state';
-import { simStateToChartData } from './sim-to-chart';
 import { mintToken } from './token';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -81,8 +65,6 @@ interface Options {
   quality?: string[];
   limit?: number;
   rescore: boolean;
-  /** Skip the review pass, to isolate a planner change. */
-  skipReview: boolean;
   /** Cases run at once. Too high and the model starts timing out. */
   concurrency: number;
 }
@@ -111,7 +93,6 @@ function parseArgs(argv: string[]): Options {
     quality,
     limit,
     rescore,
-    skipReview: argv.includes('--no-review'),
     concurrency: Math.max(1, Number(get('--concurrency') ?? 1) || 1),
   };
 }
@@ -162,33 +143,17 @@ async function plan(options: Options, request: ChartPlanRequest): Promise<ChartP
 interface RunResult {
   score: CaseScore;
   planSteps: number;
-  reviewSuggestions: number;
 }
 
-/** The chart fields the review endpoint needs, rendered from the simulated state by the production code. */
-function chartContextFrom(state: SimFinalState): {
-  chartState?: string;
-  chartedExamFindings?: string[];
-  noteContext?: Record<string, string>;
-} {
-  const chart = simStateToChartData(state);
-  const examFindings = chartedExamFindingLabels(chart);
+/** The plan response's disposition trigger in the scorer's shape; null when the response carries none. */
+function dispositionTriggerFrom(response: ChartPlanResponse): DispositionTriggerInfo | null {
+  const hit = response.triggers?.find((trigger) => trigger.trigger === 'disposition-language-without-disposition');
+  if (!hit) return null;
   return {
-    chartState: buildChartStateSummary(chart),
-    ...(examFindings.length > 0 ? { chartedExamFindings: examFindings } : {}),
-    noteContext: buildNoteContextFromChart(chart),
+    fired: hit.fired,
+    ...(hit.matchedPattern ? { matchedPattern: hit.matchedPattern } : {}),
+    modelProposed: hit.complied,
   };
-}
-
-async function review(options: Options, request: ChartReviewRequest): Promise<ChartReviewResponse> {
-  const response = await fetch(`${options.url}/local/zambda/easy-chart-review/execute`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${options.token}` },
-    body: JSON.stringify(request),
-  });
-  const text = await response.text();
-  if (!response.ok) throw new Error(`easy-chart-review returned ${response.status}: ${text.slice(0, 300)}`);
-  return unwrap<ChartReviewResponse>(JSON.parse(text));
 }
 
 async function runOne(options: Options, evalCase: HarvestedCase): Promise<RunResult> {
@@ -202,89 +167,19 @@ async function runOne(options: Options, evalCase: HarvestedCase): Promise<RunRes
 
   const { context } = buildEvalContext();
   const planRun = await runPlan(response.actions, context);
-  const state = foldStepsIntoState(planRun.steps, 'planner');
-
-  // The review pass, folded into the same state with source 'review'. In the app review only proposes,
-  // so `final` is the upper bound: the note if every suggestion were accepted.
-  let reviewSuggestions = 0;
-  let reviewRejected: ChartReviewResponse['rejected'] = [];
-  let reviewTriggers: ChartReviewResponse['triggers'] = [];
-  let reviewEscalation: ChartReviewResponse['escalation'] | undefined;
-  let reviewUsage: ChartReviewResponse['usage'] = [];
-  let dispositionTrigger: { fired: boolean; matchedPattern?: string; modelProposed: boolean } | null = null;
-  const readDispositionTrigger = (triggers: ChartPlanResponse['triggers'] | undefined): void => {
-    const hit = triggers?.find((trigger) => trigger.trigger === 'disposition-language-without-disposition');
-    // Review's trigger fires only when a disposition is still owed, so its not-fired must not erase the
-    // planner's fired-and-charted.
-    if (!hit || (dispositionTrigger?.fired && !hit.fired)) return;
-    dispositionTrigger = {
-      fired: hit.fired,
-      ...(hit.matchedPattern ? { matchedPattern: hit.matchedPattern } : {}),
-      modelProposed: hit.complied,
-    };
-  };
-  readDispositionTrigger(response.triggers);
-  if (!options.skipReview) {
-    try {
-      const reviewContext = chartContextFrom(state);
-      const reviewResponse = await review(options, {
-        narrative: evalCase.transcript,
-        ...(patientStatus ? { patientStatus } : {}),
-        ...reviewContext,
-      });
-      reviewSuggestions = reviewResponse.suggestions.length;
-      reviewRejected = reviewResponse.rejected;
-      reviewTriggers = reviewResponse.triggers;
-      reviewEscalation = reviewResponse.escalation;
-      reviewUsage = reviewResponse.usage;
-      readDispositionTrigger(reviewResponse.triggers);
-      // A review rewrite of a note field that already has text is held for the provider to confirm, not
-      // applied, so it is recorded as pending rather than scored as charted.
-      const written = reviewContext.noteContext ?? {};
-      const reviewActions: PlannedAction[] = [];
-      for (const action of reviewResponse.suggestions.flatMap((suggestion) => suggestion.actions ?? [])) {
-        if (action.kind === 'edit-note-text' && action.field && written[action.field]?.trim()) {
-          state.pendingNoteEdits.push({
-            field: action.field as NoteTextField,
-            newText: action.newText ?? '',
-            source: 'review',
-          });
-        } else {
-          reviewActions.push(action);
-        }
-      }
-      if (reviewActions.length > 0) {
-        // Against the chart the first pass left, so a removal resolves against the row actually charted.
-        const reviewRun = await runPlan(reviewActions, {
-          ...context,
-          chart: buildChartSnapshot(simStateToChartData(state)),
-        });
-        foldStepsIntoState(reviewRun.steps, 'review', state);
-      }
-    } catch (error) {
-      // A failed review must not lose the plan's score for this case.
-      console.error(`  review failed: ${error instanceof Error ? error.message : String(error)}`);
-    }
-  }
+  const state = foldStepsIntoState(planRun.steps);
 
   const score = scoreCase(
     evalCase.caseId,
     evalCase.gold,
     state,
-    {
-      planner: tokenUsage(response.usage, response.escalation),
-      review: tokenUsage(reviewUsage, reviewEscalation),
-    },
-    dispositionTrigger
+    tokenUsage(response.usage, response.escalation),
+    dispositionTriggerFrom(response)
   );
 
   writeFileSync(
     join(options.outDir, `${evalCase.caseId}.result.json`),
-    JSON.stringify(
-      { actions: response.actions, rejected: response.rejected, reviewRejected, reviewTriggers, state },
-      null,
-      2
-    )
+    JSON.stringify({ actions: response.actions, rejected: response.rejected, state }, null, 2)
   );
   writeFileSync(
     join(options.outDir, `${evalCase.caseId}.score.json`),
@@ -298,10 +193,10 @@ async function runOne(options: Options, evalCase: HarvestedCase): Promise<RunRes
       2
     )
   );
-  return { score, planSteps: planRun.steps.length, reviewSuggestions };
+  return { score, planSteps: planRun.steps.length };
 }
 
-/** One surface's token usage, summed over its calls, in the scorer's shape. */
+/** The plan's token usage, summed over its calls, in the scorer's shape. */
 function tokenUsage(
   usage: ChartPlanResponse['usage'],
   escalation: EscalationInfo | undefined
@@ -387,7 +282,7 @@ async function main(): Promise<void> {
         try {
           const result = await runOne(options, evalCase);
           scores.push(result.score);
-          console.log(formatCaseLine(result.score, result.planSteps, result.reviewSuggestions));
+          console.log(formatCaseLine(result.score, result.planSteps));
         } catch (error) {
           // One case must not end a run that costs hours; re-run it later with --cases.
           console.error(`${evalCase.caseId}: FAILED — ${error instanceof Error ? error.message : String(error)}`);

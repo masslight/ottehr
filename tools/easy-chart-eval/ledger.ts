@@ -1,5 +1,5 @@
-// Counts, per chart category, what each run added and removed, split by planner and review, including the
-// categories `summary.json` does not score. A diff tool, not a score: no gold is consulted.
+// Counts, per chart category, the rows each run charted, including the categories `summary.json` does not
+// score. A diff tool, not a score: no gold is consulted.
 //
 // PHI: reads `*.result.json`, which contains clinical text. Print counts and category names only, never a
 // display string.
@@ -10,15 +10,9 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 
-interface Sourced {
-  source?: string;
-  removed?: boolean;
-  removedBy?: string;
-}
-
 /**
- * State keys holding chart rows that can be added or removed. Listed explicitly so keys that are not rows
- * (`noteText`, `disposition`, `templatesApplied`) stay out.
+ * State keys holding chart rows. Listed explicitly so keys that are not rows (`noteText`, `disposition`,
+ * `templatesApplied`) stay out.
  */
 const LIST_KEYS = [
   'diagnoses',
@@ -39,21 +33,12 @@ const LIST_KEYS = [
   'vitals',
   'providerNotes',
   'examComments',
-  'pendingNoteEdits',
   'skipped',
   'otherSteps',
 ] as const;
 
-interface Tally {
-  addedPlanner: number;
-  addedReview: number;
-  removedPlanner: number;
-  removedReview: number;
-  live: number;
-}
-
-function tallyRun(dir: string): { totals: Record<string, Tally>; cases: number; missingKeys: string[] } {
-  const totals: Record<string, Tally> = {};
+function tallyRun(dir: string): { totals: Record<string, number>; cases: number; missingKeys: string[] } {
+  const totals: Record<string, number> = {};
   const missing = new Set<string>();
   let cases = 0;
 
@@ -71,20 +56,7 @@ function tallyRun(dir: string): { totals: Record<string, Tally>; cases: number; 
         if (!(key in state)) missing.add(key);
         continue;
       }
-      totals[key] ??= { addedPlanner: 0, addedReview: 0, removedPlanner: 0, removedReview: 0, live: 0 };
-      const t = totals[key];
-      for (const row of rows as Sourced[]) {
-        // Rows without a `source` (e.g. provider notes, which are plain strings) count as planner-added, so
-        // the category does not read as empty.
-        if (row?.source === 'review') t.addedReview += 1;
-        else t.addedPlanner += 1;
-        if (row?.removed) {
-          if (row.removedBy === 'review') t.removedReview += 1;
-          else t.removedPlanner += 1;
-        } else {
-          t.live += 1;
-        }
-      }
+      totals[key] = (totals[key] ?? 0) + rows.length;
     }
   }
   return { totals, cases, missingKeys: [...missing].sort() };
@@ -101,26 +73,18 @@ const runs = dirs.map((dir) => {
   return { name: basename(dir), ...tallyRun(dir) };
 });
 
-const keys = LIST_KEYS.filter((k) => runs.some((r) => r.totals[k]));
+const keys = LIST_KEYS.filter((k) => runs.some((r) => r.totals[k] !== undefined));
 const pad = (s: string | number, n: number): string => String(s).padStart(n);
 
-console.log('\nADDED / REMOVED per chart category — "+P/+R" = added by planner/review, "-P/-R" = removed by');
-console.log('planner/review, "live" = still on the note at the end. Counts across all cases in the run.\n');
+console.log('\nROWS per chart category, counted across all cases in the run.\n');
 
 for (const run of runs) {
   console.log(`${run.name}  (${run.cases} cases)`);
-  console.log(
-    `  ${'category'.padEnd(18)}${pad('+P', 6)}${pad('+R', 6)}${pad('-P', 6)}${pad('-R', 6)}${pad('live', 7)}`
-  );
+  console.log(`  ${'category'.padEnd(18)}${pad('rows', 7)}`);
   for (const key of keys) {
     const t = run.totals[key];
-    if (!t) continue;
-    console.log(
-      `  ${key.padEnd(18)}${pad(t.addedPlanner, 6)}${pad(t.addedReview, 6)}${pad(t.removedPlanner, 6)}${pad(
-        t.removedReview,
-        6
-      )}${pad(t.live, 7)}`
-    );
+    if (t === undefined) continue;
+    console.log(`  ${key.padEnd(18)}${pad(t, 7)}`);
   }
   if (run.missingKeys.length > 0) console.log(`  (state carried no key for: ${run.missingKeys.join(', ')})`);
   console.log();
@@ -130,28 +94,12 @@ for (const run of runs) {
 if (runs.length > 1) {
   const [base, ...rest] = runs;
   for (const run of rest) {
-    console.log(`DELTA  ${run.name}  vs  ${base.name}   (blank = unchanged)`);
-    console.log(
-      `  ${'category'.padEnd(18)}${pad('+P', 7)}${pad('+R', 7)}${pad('-P', 7)}${pad('-R', 7)}${pad('live', 8)}`
-    );
+    console.log(`DELTA  ${run.name}  vs  ${base.name}   (unchanged categories omitted)`);
+    console.log(`  ${'category'.padEnd(18)}${pad('rows', 8)}`);
     for (const key of keys) {
-      const a = base.totals[key] ?? { addedPlanner: 0, addedReview: 0, removedPlanner: 0, removedReview: 0, live: 0 };
-      const b = run.totals[key] ?? { addedPlanner: 0, addedReview: 0, removedPlanner: 0, removedReview: 0, live: 0 };
-      const d = (x: number, y: number): string => (y - x === 0 ? '' : `${y - x > 0 ? '+' : ''}${y - x}`);
-      const cells = [
-        d(a.addedPlanner, b.addedPlanner),
-        d(a.addedReview, b.addedReview),
-        d(a.removedPlanner, b.removedPlanner),
-        d(a.removedReview, b.removedReview),
-        d(a.live, b.live),
-      ];
-      if (cells.every((c) => c === '')) continue;
-      console.log(
-        `  ${key.padEnd(18)}${pad(cells[0], 7)}${pad(cells[1], 7)}${pad(cells[2], 7)}${pad(cells[3], 7)}${pad(
-          cells[4],
-          8
-        )}`
-      );
+      const d = (run.totals[key] ?? 0) - (base.totals[key] ?? 0);
+      if (d === 0) continue;
+      console.log(`  ${key.padEnd(18)}${pad(`${d > 0 ? '+' : ''}${d}`, 8)}`);
     }
     console.log();
   }

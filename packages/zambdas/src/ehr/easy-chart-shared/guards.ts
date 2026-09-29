@@ -7,10 +7,8 @@ import { captureException } from '@sentry/aws-serverless';
 import {
   ActionKind,
   chartableFollowUpDays,
-  isPlannableDispositionType,
   PLANNABLE_VITAL_FIELDS,
   PlannableVitalField,
-  Surface,
 } from 'utils/lib/easy-chart/actions';
 import { PlannedAction, RejectedAction, TriggerReport } from 'utils/lib/easy-chart/api';
 import {
@@ -23,11 +21,12 @@ import { IcdSearchFn, repairUnsupportedEtiology, resolveIcd } from 'utils/lib/ea
 import { findingPolarity, rosPolarity, verifiedSourceText } from 'utils/lib/easy-chart/provenance';
 import {
   allowedFields,
-  capabilitiesForSurface,
+  capabilityOf,
+  declaredFields,
   isActionKind,
   missingRequiredFields,
+  requiredFields,
 } from 'utils/lib/easy-chart/registry';
-import { coerceNumericFields } from 'utils/lib/easy-chart/schema';
 import { detectDispositionLanguage, detectSpeakerLabels, sniffIcdCodeScoped } from 'utils/lib/easy-chart/sniffers';
 import { parseVitalDisplay, recoverVitalReading, sniffVitalsFromNarrative } from 'utils/lib/easy-chart/vitals';
 import { createTerminologyIcdSearch } from './icd-search';
@@ -35,15 +34,11 @@ import { ModelActionSchema } from './model-output';
 
 export interface GuardContext {
   oystehr: Oystehr;
-  /** Which vocabulary the actions were requested in; anything outside it is refused. */
-  surface: Surface;
   narrative: string;
   /** The provider's edited narrative; a quote is verified against it when the narrative lacks it. */
   editedNarrative?: string;
   /** The ALREADY ON THE CHART block as the prompt showed it; a quote may cite one of its lines. */
   chartStateText?: string;
-  /** Display strings of items already on the chart. A removal must target one of these. */
-  chartedItems: string[];
   logPrefix: string;
   /** Injected by tests; built from `oystehr` otherwise, once per invocation for its cache. */
   icdSearch?: IcdSearchFn;
@@ -99,7 +94,7 @@ export async function applyGuards(raw: unknown[], context: GuardContext): Promis
     actions.push(outcome.action);
   }
 
-  const deduped = enforceDiagnosisInvariants(actions, rejected, context.surface === 'plan');
+  const deduped = enforceDiagnosisInvariants(actions, rejected);
   const complete = applyBackstops(deduped, resolved);
   const provenance = complete.reduce(
     (counts, action) => {
@@ -122,14 +117,10 @@ async function guardOne(input: unknown, context: ResolvedGuardContext): Promise<
     return { rejected: { kind: 'unknown', reason: 'the assistant returned a malformed action' } };
   }
   const bag: Record<string, unknown> = { ...parsed.data };
-  coerceNumericFields(bag);
 
   const kind = bag.kind;
   if (!isActionKind(kind)) {
     return { rejected: { kind: String(kind), reason: `"${kind}" is not an action this build knows` } };
-  }
-  if (!capabilitiesForSurface(context.surface).includes(kind)) {
-    return { rejected: { kind, reason: `"${kind}" is not offered on the ${context.surface} surface` } };
   }
 
   // Strip fields this kind does not declare: a field leaked from another kind's shape can change what
@@ -174,6 +165,8 @@ async function guardOne(input: unknown, context: ResolvedGuardContext): Promise<
       },
     };
   }
+  const unacceptable = checkValues(kind, bag, context.logPrefix);
+  if (unacceptable) return { rejected: { kind, display: action.display, reason: unacceptable } };
 
   switch (kind) {
     case 'set-vital':
@@ -187,14 +180,37 @@ async function guardOne(input: unknown, context: ResolvedGuardContext): Promise<
       return guardExamFinding(action);
     case 'add-ros-finding':
       return guardRosFinding(action);
-    case 'remove-medication':
-    case 'remove-diagnosis':
-      return guardRemoval(action, kind, context);
     case 'set-disposition':
       return guardDisposition(action);
     default:
       return { action };
   }
+}
+
+/**
+ * The declared fields checked against the registry shape: the backup model decodes without the schema,
+ * so an enum can come back as anything. A bad optional value is dropped; a bad required one refuses the
+ * action. Valid values are kept as the shape outputs them, so a guarded numeric becomes a number.
+ */
+function checkValues(kind: ActionKind, bag: Record<string, unknown>, logPrefix: string): string | undefined {
+  const shape = capabilityOf(kind).shape.partial();
+  const present = declaredFields(kind).filter((field) => bag[field] !== undefined);
+  const fields: Record<string, unknown> = Object.fromEntries(present.map((field) => [field, bag[field]]));
+  let result = shape.safeParse(fields);
+  if (!result.success) {
+    const invalid = [...new Set(result.error.issues.map((issue) => String(issue.path[0])))];
+    const required = new Set<string>(requiredFields(kind));
+    const badRequired = invalid.find((field) => required.has(field));
+    if (badRequired)
+      return `${badRequired} "${String(bag[badRequired]).slice(0, 60)}" is not something the chart accepts`;
+    console.log(`[${logPrefix}] dropped ${invalid.join(', ')} on ${kind}: values the chart does not accept`);
+    for (const field of invalid) delete fields[field];
+    result = shape.safeParse(fields);
+    if (!result.success) return 'the assistant returned values the chart does not accept';
+  }
+  for (const field of present) delete bag[field];
+  for (const [field, value] of Object.entries(result.data)) if (value !== undefined) bag[field] = value;
+  return undefined;
 }
 
 /** The canonical reading of a guarded set-vital: field plus value in its canonical unit. */
@@ -407,19 +423,10 @@ function guardRosFinding(action: PlannedAction): GuardOutcome {
 }
 
 /**
- * The type must be a tab of the chart's Disposition card, and the follow-up interval one its select
- * offers for that type. An interval it cannot show is dropped here and stays in the disposition text.
+ * The follow-up interval must be one the Disposition card offers for the type (the type itself is
+ * checked against the registry). An interval it cannot show is dropped and stays in the disposition text.
  */
 function guardDisposition(action: PlannedAction): GuardOutcome {
-  if (!isPlannableDispositionType(action.dispositionType)) {
-    return {
-      rejected: {
-        kind: 'set-disposition',
-        display: action.text,
-        reason: `"${action.dispositionType}" is not a disposition the chart offers`,
-      },
-    };
-  }
   if (action.followUpInDays != null && chartableFollowUpDays(action.dispositionType, action.followUpInDays) == null) {
     delete action.followUpInDays;
     action.caution = 'the chart has no follow-up option for that interval, so it is kept in the disposition text only';
@@ -427,40 +434,11 @@ function guardDisposition(action: PlannedAction): GuardOutcome {
   return { action };
 }
 
-/** A removal must match something on the chart. Choosing among several matches is the client's job. */
-function guardRemoval(action: PlannedAction, kind: ActionKind, context: ResolvedGuardContext): GuardOutcome {
-  if (context.chartedItems.length === 0) {
-    return {
-      rejected: { kind, display: action.display, reason: 'the chart is empty, so there was nothing to remove' },
-    };
-  }
-  const needle = (action.display ?? '').toLowerCase().trim();
-  const matches = context.chartedItems.filter((item) => {
-    const hay = item.toLowerCase();
-    return hay.includes(needle) || needle.includes(hay);
-  });
-  if (matches.length === 0) {
-    return {
-      rejected: {
-        kind,
-        display: action.display,
-        reason: `"${action.display}" is not on the chart, so nothing was removed`,
-      },
-    };
-  }
-  return { action };
-}
-
 /**
- * No diagnosis twice and at most one primary. On the plan surface also at least one primary: the model
- * often marks none, and a note without a primary is not billable. Review is guarded per suggestion, so
- * promoting there would turn a secondary-diagnosis card into a primary change.
+ * No diagnosis twice, at most one primary and at least one: the model often marks none, and a note
+ * without a primary is not billable.
  */
-function enforceDiagnosisInvariants(
-  actions: PlannedAction[],
-  rejected: RejectedAction[],
-  promoteMissingPrimary: boolean
-): PlannedAction[] {
+function enforceDiagnosisInvariants(actions: PlannedAction[], rejected: RejectedAction[]): PlannedAction[] {
   const seenCodes = new Set<string>();
   let primaryTaken = false;
   const kept: PlannedAction[] = [];
@@ -493,7 +471,7 @@ function enforceDiagnosisInvariants(
   }
 
   const firstDiagnosis = kept.find((action) => action.kind === 'add-diagnosis');
-  if (promoteMissingPrimary && firstDiagnosis && !primaryTaken) {
+  if (firstDiagnosis && !primaryTaken) {
     firstDiagnosis.isPrimary = true;
     firstDiagnosis.caution ??= 'no primary diagnosis was marked, so the first one was charted as primary';
   }
@@ -552,9 +530,9 @@ function applyBackstops(actions: PlannedAction[], context: ResolvedGuardContext)
 
 /**
  * Whether each deterministic trigger fired and whether the actions answer it. Counts and pattern labels
- * only, never narrative text. Exported because review computes it once over all of its cards.
+ * only, never narrative text.
  */
-export function buildTriggerReports(narrative: string, actions: PlannedAction[]): TriggerReport[] {
+function buildTriggerReports(narrative: string, actions: PlannedAction[]): TriggerReport[] {
   const disposition = detectDispositionLanguage(narrative);
   const prescriptionCommitment = /\bi'?ll send\b|\blet me get you on\b|\bwe'?ll start\b|\bi'?m going to treat\b/.test(
     narrative.toLowerCase()

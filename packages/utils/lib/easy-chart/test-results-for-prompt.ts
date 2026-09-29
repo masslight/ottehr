@@ -1,5 +1,4 @@
-// Lab results and radiology reports as one line of prose each, for a model prompt. Shared by the billing
-// suggester and the Easy Chart planner so both prompts describe a result identically.
+// Lab results and radiology reports as one line of prose each, for the planner's chart block.
 
 import { ExternalLabOrderResult, InHouseLabResult, NonNormalResult } from '../types/api/lab';
 import { RadiologyDTO } from '../types/api/radiology';
@@ -22,11 +21,6 @@ export function formatLabResultForPrompt(
   const flags = (result.nonNormalResultContained ?? []).filter((flag) => flag !== NonNormalResult.Neutral);
   if (flags.length > 0) parts.push(`Flag: ${flags.join(', ')}`);
   return parts.join(' | ');
-}
-
-/** A lab ordered whose result has not come back. */
-export function formatPendingLabForPrompt(name: string): string {
-  return `Test: ${name} | Result: PENDING`;
 }
 
 /**

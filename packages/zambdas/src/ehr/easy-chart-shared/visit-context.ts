@@ -1,5 +1,4 @@
-// Chart reads and prompt-tail inputs shared by the plan and review surfaces, so both describe the visit
-// to the model identically.
+// Chart reads and prompt-tail inputs for the planner: the visit as the model is told about it.
 
 import { Appointment, Encounter, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
@@ -64,7 +63,7 @@ export async function readVisitContext(
 }
 
 /** Age and sex only; nothing else about the patient is needed to chart or code. */
-export function describePatient(patient: Patient): string {
+function describePatient(patient: Patient): string {
   const parts: string[] = [];
   if (patient.birthDate) {
     const birth = DateTime.fromISO(patient.birthDate);
@@ -102,15 +101,6 @@ export function describeChart(chartState?: string, examFindings?: string[]): str
     parts.push(`Exam findings already checked:\n${examFindings.map((f) => `- ${f}`).join('\n')}`);
   }
   return parts.length > 0 ? parts.join('\n\n') : undefined;
-}
-
-/** A chart-state summary as individual item lines, for the removal guard to match against. */
-export function splitChartState(chartState?: string): string[] {
-  if (!chartState) return [];
-  return chartState
-    .split('\n')
-    .map((line) => line.replace(/^[-•*]\s*/, '').trim())
-    .filter(Boolean);
 }
 
 export interface PracticeTemplate {

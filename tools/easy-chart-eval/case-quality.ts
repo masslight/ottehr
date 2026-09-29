@@ -6,10 +6,14 @@
  * Usage:
  *   npx tsx tools/easy-chart-eval/case-quality.ts                 # corpus summary + worst cases
  *   npx tsx tools/easy-chart-eval/case-quality.ts case001         # one case, in detail
+ *   npx tsx tools/easy-chart-eval/case-quality.ts case001 --transcript   # also quote the transcript (PHI)
  *   npx tsx tools/easy-chart-eval/case-quality.ts --flag gold-missing:allergies
  *   npx tsx tools/easy-chart-eval/case-quality.ts --csv > /tmp/quality.csv
  *   npx tsx tools/easy-chart-eval/case-quality.ts --verdict [out.md]   # classify every case (default: harvested-results/)
  *   npx tsx tools/easy-chart-eval/case-quality.ts --stamp              # write the verdict into each case file
+ *
+ * One-case detail quotes transcript lines (its ending, and the lines behind each gold-missing flag) only
+ * with --transcript.
  *
  * --stamp writes a top-level `quality` block into each caseNNN.json and leaves `gold` untouched, so scores do
  * not change. The runner's `--quality OK` uses it to evaluate only cases that can measure a model.
@@ -195,7 +199,7 @@ function analyse(caseId: string): Report {
   };
 }
 
-function detail(caseId: string): void {
+function detail(caseId: string, showTranscript: boolean): void {
   const r = analyse(caseId);
   const raw = JSON.parse(readFileSync(join(CASES_DIR, `${caseId}.json`), 'utf8')) as {
     transcript?: string;
@@ -210,12 +214,19 @@ function detail(caseId: string): void {
       r.goldItems ? ((100 * r.voicedItems) / r.goldItems).toFixed(1) : '0'
     }%)`
   );
-  console.log(`  ends: ${JSON.stringify(t.slice(-70))}`);
+  if (showTranscript) console.log(`  ends: ${JSON.stringify(t.slice(-70))}`);
   console.log(`  flags: ${r.flags.length ? r.flags.join(', ') : 'none'}`);
   for (const topic of TOPICS) {
     if (!topic.pattern.test(t) || !topic.empty(raw.gold)) continue;
+    const lines = t.split('\n').filter((line) => topic.pattern.test(line));
+    if (!showTranscript) {
+      console.log(
+        `\n  gold.${topic.section} is EMPTY, but ${lines.length} transcript line(s) state it (--transcript quotes them)`
+      );
+      continue;
+    }
     console.log(`\n  gold.${topic.section} is EMPTY, but the transcript says:`);
-    for (const line of t.split('\n')) if (topic.pattern.test(line)) console.log(`    ${line.trim().slice(0, 160)}`);
+    for (const line of lines) console.log(`    ${line.trim().slice(0, 160)}`);
   }
 }
 
@@ -247,7 +258,7 @@ function stamp(ids: string[]): void {
 function main(): void {
   const args = process.argv.slice(2);
   const one = args.find((a) => /^case\d+$/.test(a));
-  if (one) return detail(one);
+  if (one) return detail(one, args.includes('--transcript'));
 
   const flagFilter = args.includes('--flag') ? args[args.indexOf('--flag') + 1] : undefined;
   const ids = readdirSync(CASES_DIR)

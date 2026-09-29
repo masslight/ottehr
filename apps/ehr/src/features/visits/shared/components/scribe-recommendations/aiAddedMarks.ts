@@ -3,14 +3,13 @@ import { getRosFindingFieldKeys } from 'utils/lib/ottehr-config/review-of-system
 import { RosFindingState } from 'utils/lib/ottehr-config/review-of-systems/in-person.config';
 import { useAppointmentData } from '../../stores/appointment/appointment.store';
 import { useScribeRecommendationsStore } from './scribeRecommendations.store';
+import { normalizeName } from './scribeSections';
 import { ScribeRecommendation } from './types';
 
 /**
  * Which visit-note items the scribe panel wrote. The chart doesn't record authorship, so an item counts as AI
  * added when an applied recommendation matches it by the `isAlreadyCharted` rule. Session state only.
  */
-
-const normalize = (value: string | undefined): string => (value ?? '').trim().toLowerCase();
 
 /**
  * Recommendations the panel has written into this visit's chart during this sitting. The session belongs to
@@ -50,9 +49,9 @@ export const findAiAddedFor = (
   applied.find((rec) => {
     switch (target.kind) {
       case 'allergy':
-        return rec.kind === 'allergy' && normalize(rec.name) === normalize(target.name);
+        return rec.kind === 'allergy' && normalizeName(rec.name) === normalizeName(target.name);
       case 'medication':
-        return rec.kind === 'medication' && normalize(rec.name) === normalize(target.name);
+        return rec.kind === 'medication' && normalizeName(rec.name) === normalizeName(target.name);
       case 'diagnosis':
         return rec.kind === 'diagnosis' && rec.code === target.code;
       case 'ros': {

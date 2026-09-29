@@ -1,12 +1,12 @@
-// Prompt assembly for the plan and review surfaces.
+// Prompt assembly for the planner.
 //
 // The static instructions come first and everything per-call (patient, chart, narrative) goes in the
 // variable tail, so the provider can cache the prefix. The per-action text comes from the registry;
 // the surrounding instructions are hand-tuned against eval runs.
 
-import { Surface } from './actions';
+import { ACTION_KINDS } from './actions';
 import { PatientStatus } from './api';
-import { capabilitiesForSurface, promptBlockFor } from './registry';
+import { promptBlockFor } from './registry';
 
 const FIXED_INSTRUCTIONS_END = '═══ END OF FIXED INSTRUCTIONS — act on the narrative + context below ═══';
 
@@ -86,8 +86,7 @@ const TRANSCRIPT_RULES = `- Each step is one self-contained action. "add diagnos
   "sourceText" may instead be ONE line of the ALREADY ON THE CHART block, copied exactly. It is checked
   against that block the same way.`;
 
-// Plan-only: the review surface's em-level check exists to catch under-coding, so it must not be told
-// to round down. A billing-policy choice, deliberately kept as is.
+// A billing-policy choice, deliberately kept as is.
 const EM_LEVEL_TIEBREAK = `- When torn between two E&M levels choose the LOWER — the goal is that a defensible level is always
   present and the provider can adjust.`;
 
@@ -101,171 +100,22 @@ ${TRANSCRIPT_RULES}
 ${PREFER_SPECIFIC_CODE}
 ${EM_LEVEL_TIEBREAK}`;
 
-const REVIEW_PREAMBLE = `You are a clinical documentation reviewer. A provider just charted a visit note from the NARRATIVE
-that appears at the END of this message; the structured items now on the chart are in the ALREADY ON
-THE CHART block beside it. Your job is to surface clarifications the provider can accept with ONE
-CLICK to improve the note.
-
-You are correcting a note, not charting a visit, so your vocabulary is deliberately narrow. Work
-through all nine checks below and emit one suggestion for EACH check that finds a real gap (commonly
-two to five in total). Do not invent low-value suggestions, and do not skip a check that genuinely
-applies. If truly nothing warrants a prompt, return {"suggestions": []}.
-
-Each suggestion carries its own actions[] — accepting a card just runs those actions — plus a short
-"question" the provider reads on the card and, where required below, a "rationale".`;
-
-const REVIEW_CHECKS = `THE NINE CHECKS:
-
-1) "med-name" — a medication in the note looks misheard or garbled by speech-to-text, or is not a
-   real drug, and you can identify the intended one ("Ciner" → "Cefdinir"; a 14 mg/kg once-daily dose
-   and a red-stool side effect confirm cefdinir). ACTION: one edit-note-text on medicalDecision whose
-   newText is the FULL current MDM with the garbled name replaced. We cannot create the eRx order
-   programmatically, so set "partial": true and "partialNote": "Corrects the note text only — add the
-   eRx order manually." Set "highlight" to the corrected drug name.
-
-2) "diagnosis" — the charted diagnosis code is less specific than the narrative supports: recurrence
-   ("frequent ear infections", "recurrent", repeated prior episodes), a laterality, or an acuity the
-   code does not capture. E.g. the chart shows non-recurrent bilateral AOM (H66.003) while the child
-   has frequent recurrent infections → suggest recurrent bilateral AOM (H66.006).
-   ACTION: remove-diagnosis for the charted text, then add-diagnosis for the more specific one, with
-   searchTerms and your best ICD-10 code. Set the add's "isPrimary" BOOLEAN to whatever the removed item
-   was — the chart marks a primary diagnosis "(primary)", so read it from there and answer true/false.
-   Never write that marker into any text field; the boolean is the only place it belongs. Swapping the
-   primary without isPrimary:true leaves the note with no primary diagnosis, which is billing-invalid.
-
-3) "pertinent-negative" — a negative the provider EXPLICITLY voiced in this dictation is not charted.
-   ACTION: one or more add-ros-finding. Only ROS negatives are chartable here — NEVER add-exam-finding
-   for a negative: exam findings are positive/abnormal checkboxes, so charting "no tragus tenderness"
-   would check the abnormal box and assert the OPPOSITE of what the provider said.
-   The display MUST begin with "Denies" or "Reports". Exam normals the provider voiced are the first
-   pass's job, not this check's.
-   HARD LIMITS, because this check fabricates findings if used loosely:
-   - Quote, don't infer. Only propose a negative whose words appear in the narrative — the dictation
-     literally says "denies fever" or "no photophobia". Do NOT pull the "classic" negatives for the
-     complaint from memory: do not suggest "no tragus tenderness", "canals normal" or "no neck
-     stiffness" just because they are typical for the visit type. If the provider didn't say it, it is
-     not a finding.
-   - Never deny the chief complaint or a symptom the patient is PRESENTING WITH — a visit for ear pain
-     must never get "Denies ear pain"; the patient HAS it.
-
-4) "em-level" — assess the charted E&M against the documented complexity, WITHIN the correct family
-   for the patient's status: NEW patient (no professional services in the past 3 years) → 99202-99205;
-   ESTABLISHED patient → 99212-99215. Read the status from the PATIENT STATUS line below; when no such
-   line is present the status is unknown — assume established and stay in 99212-99215. If the charted
-   code is in the WRONG family for the stated status, suggest the same-level code in the correct one.
-   THE LEVEL, not just the family: the MDM-complexity logic is identical in both families and the last
-   digit is the level. E.g. if a NEW prescription was given (prescription drug management = moderate
-   risk) and the charted code is the family's level-3 code (99203 new / 99213 established), suggest the
-   SAME family's level-4 code (99204 / 99214); if the documentation clearly supports a different level,
-   suggest that instead. Level 3 is right for a straightforward, low-complexity visit — a single
-   self-limited problem with simple management — and level 5 (99205 / 99215) for high complexity or high
-   risk. JUDGE THE LEVEL, do not default to one: this check's job is to match the code to the
-   documentation, in whichever direction that points, and a level the note genuinely supports needs no
-   suggestion at all. Emit nothing here when the charted code is already right.
-   ACTION: one set-em-code. REQUIRED: a one-line "rationale" explaining the level by MDM elements
-   (problems / data / risk).
-
-5) "secondary-dx" — a DISTINCT, active problem the provider actually evaluated or treated this visit
-   is not charted. ACTION: one add-diagnosis with isPrimary:false. BE CONSERVATIVE: a single minor
-   incidental exam finding is part of the exam, not a diagnosis; antecedent history is not an active
-   problem. When in doubt, omit.
-
-6) "med-reconcile" — the MDM states a dose/strength/form that does not match the actual ORDER on the
-   chart. The ORDER is the source of truth (the provider often has to pick the nearest available
-   formulary strength). ACTION: one edit-note-text on medicalDecision changing ONLY that medication's
-   dose/strength/form and nothing else; set "highlight" to the corrected value. Ignore pure formatting
-   differences ("5 mg" vs "5 MG"), and never flag a medication that is not actually on the chart.
-
-7) "disposition" — the narrative clearly STATES where the patient goes next or a follow-up plan
-   ("follow up with your PCP in a week", "go to the ER if it worsens", "referral to ortho"), but no
-   disposition is charted. A stated follow-up is a patient-safety item and must never silently vanish.
-   ACTION: one set-disposition with { dispositionType, text, followUpInDays }. Pick dispositionType:
-   "pcp-no-type" (follow up with their own PCP / "see your doctor"), "specialty" (referral or follow-up
-   with a named specialist — use this even when offered as "<specialist> or PCP"), "ed" (go to the ER /
-   call 911), "another" (transfer to another location or facility, including hospital admission). A plan
-   to come back to THIS clinic is not a disposition: stay silent about it.
-   "text" is the disposition as one clinical sentence. Set followUpInDays ONLY for pcp-no-type and
-   specialty when an interval is stated, converted to DAYS: "in 1 week" → 7, "in 3 days" → 3, "in 2
-   weeks" → 14. The chart offers only 0 (as needed), 1, 2, 3, 4, 5, 7 and 14; any other interval stays
-   in "text".
-   A CONDITIONAL follow-up ("if not improving") still counts — keep the condition in "text". STRICT:
-   only a disposition the narrative actually voices, never one inferred from the visit type.
-
-8) "coherence" — a charted structured item the note's own content does not support. Cross-check every
-   charted diagnosis first and foremost, then medications, against the HPI/MDM and the
-   narrative. Flag an item ONLY when it names a condition, body system or clinical scenario the note
-   clearly does not describe — e.g. the sole charted diagnosis is "Personal history of pneumonia" while
-   the MDM and HPI describe folliculitis of the nasal vestibule.
-   ACTION for a wrong DIAGNOSIS: the same two-action swap as check 2 — remove-diagnosis
-   then add-diagnosis for what the note DOES support, never a bare removal, and never one that would
-   leave the chart with zero diagnoses while the note documents a diagnosable condition. E.g. the chart
-   codes acute vaginitis (N76.0) but the note describes a candidal yeast infection → swap to candidal
-   vulvovaginitis (B37.3); do NOT merely remove N76.0.
-   The swap belongs to THIS check — do not defer it to check 2. A live failure, reproduced twice: the
-   chart coded acute vaginitis while the narrative described a candidal infection, and the review
-   emitted a BARE removal, leaving the chart with no diagnosis at all.
-   For an unsupported medication: remove-medication.
-   REQUIRED: a "rationale" citing WHAT in the note contradicts the item.
-   PRECISION OVER RECALL — a false alarm here erodes trust in every card. Flag only a clear mismatch a
-   clinician would immediately object to. Do not flag plausible comorbidities, incidental findings, or
-   items the narrative supports even when the note text omits them. A less-specific code of the RIGHT
-   condition is check 2's job. When unsure, stay silent.
-
-9) "dropped-commitment" — the provider clearly COMMITTED to a prescription, order or referral in the
-   narrative, and the commitment is represented NOWHERE on the chart: no matching medication, no
-   provider note, no patient instruction, no disposition covering it. Voiced commitments frequently
-   omit the drug name — that does not excuse dropping them. ACTION: one provider-note capturing what
-   was promised, for what indication, plus any pharmacy or logistics stated. NEVER invent a drug, dose
-   or strength that was not voiced.
-   Same precision bar as check 8: only clear commitments ("I'll send…", "let me get you on…", "we'll
-   start…"), never musings ("we could try…") and never offers the patient declined. Skip anything
-   ALREADY ON THE CHART covers in any form.`;
-
-const REVIEW_RULES = `RULES:
-- NEVER suggest adding something that already appears in ALREADY ON THE CHART.
-- LATER STATEMENTS ARE GROUND TRUTH. The narrative is a real-time record; a provider's later
-  statement overrides an earlier impression. Never propose a diagnosis the narrative walks back.
-- NEVER ESCALATE A STATED DIAGNOSIS. A diagnosis the provider explicitly named and treated is
-  coherent even when the findings could support something more severe — a stated UTI with flank
-  tenderness stays a UTI, not pyelonephritis, unless the provider voiced the escalation themselves.
-- Phrase "question" as a short question the provider reads on a card ("You wrote 'Ciner' — did you
-  mean Cefdinir?", "Add the pertinent negatives you noted?").
-- Provide your best ICD-10 code; every code is validated downstream and corrected or dropped, so
-  be confident even when unsure of the exact digits.
-- One suggestion per check that applies. Do not merge unrelated gaps into one card and do not pad
-  with marginal ones.
-- Be economical with the ROS. You need not re-list a chief-complaint symptom the note already
-  carries, and a symptom the planner already charted is not a gap. Propose a ROS finding only for a
-  symptom the provider clearly stated that the chart does NOT have.
-- A remove-* step may ONLY target an item explicitly listed in the ALREADY ON THE CHART block below,
-  and its "display" must be that line's wording, COPIED. If the chart is empty or the item is not
-  listed, there is nothing to remove and no remove-* step is valid.
-  A REPLACEMENT IS NOT ONE MOVE. Charting the right item and removing a wrong one are separate steps
-  and each stands on its own: when the thing you would replace is not on the chart, emit the add ALONE
-  and no removal. Naming what you are correcting rather than what is listed is the single most common
-  way a remove-* step ends up pointing at nothing — measured across a corpus, most misses shared not
-  one word with any line actually on the chart.`;
-
-function actionShapesBlock(surface: Surface): string {
-  const authoring = surface !== 'review';
-  const docs = capabilitiesForSurface(surface).map((kind) => promptBlockFor(kind, authoring));
+function actionShapesBlock(): string {
+  const docs = ACTION_KINDS.map((kind) => promptBlockFor(kind));
   return `ACTION SHAPES — these are the ONLY action kinds that exist. Anything not listed here cannot be
 charted through this interface.\n\n${docs.join('\n\n')}`;
 }
 
-/** The cacheable prefix for a surface: same registry in, same bytes out. */
-export function buildStaticInstructions(surface: Surface): string {
-  if (surface === 'review') {
-    return [REVIEW_PREAMBLE, REVIEW_CHECKS, actionShapesBlock('review'), REVIEW_RULES].join('\n\n');
-  }
-  return [PLAN_PREAMBLE, PLAN_ORDERING, actionShapesBlock('plan'), PLAN_RULES].join('\n\n');
+/** The cacheable prefix: same registry in, same bytes out. */
+export function buildStaticInstructions(): string {
+  return [PLAN_PREAMBLE, PLAN_ORDERING, actionShapesBlock(), PLAN_RULES].join('\n\n');
 }
 
 export interface PromptTailInput {
   narrative: string;
   /** The provider's corrections to the generated narrative; rendered only when the two texts differ. */
   providerEdits?: { draft: string; edited: string };
-  /** Practice template titles; only rendered on a surface that offers apply-template. */
+  /** Practice template titles the planner may suggest one of. */
   templateTitles?: string[];
   /** Age and sex read from the chart, never inferred from the narrative. */
   patientLine?: string;
@@ -273,8 +123,6 @@ export interface PromptTailInput {
   patientStatus?: PatientStatus;
   chartStateSummary?: string;
   noteContext?: string;
-  /** A deterministic instruction the caller forces for this call; rendered last. */
-  mustAddress?: string;
 }
 
 const CHART_RESULTS_NOTE = `Resulted tests ("… lab resulted: …") and radiology reports ("Radiology reported: …") above are FINDINGS
@@ -282,19 +130,17 @@ of THIS visit. Use them for the ASSESSMENT (diagnoses) and the MEDICAL DECISION 
 orders, medications or patient instructions from them — those come only from what the provider said.`;
 
 /** Everything that varies per call, appended after the static instructions. */
-export function buildVariableTail(surface: Surface, input: PromptTailInput): string {
+function buildVariableTail(input: PromptTailInput): string {
   const parts: string[] = [];
 
-  if (capabilitiesForSurface(surface).includes('apply-template')) {
-    const titles = input.templateTitles ?? [];
-    parts.push(
-      titles.length
-        ? `AVAILABLE TEMPLATES in this practice (exact titles — name one in apply-template to SUGGEST it; nothing here applies it; do NOT invent template names):\n${titles
-            .map((t) => `- ${t}`)
-            .join('\n')}`
-        : 'AVAILABLE TEMPLATES in this practice: none. Do NOT emit apply-template.'
-    );
-  }
+  const titles = input.templateTitles ?? [];
+  parts.push(
+    titles.length
+      ? `AVAILABLE TEMPLATES in this practice (exact titles — name one in apply-template to SUGGEST it; nothing here applies it; do NOT invent template names):\n${titles
+          .map((t) => `- ${t}`)
+          .join('\n')}`
+      : 'AVAILABLE TEMPLATES in this practice: none. Do NOT emit apply-template.'
+  );
 
   if (input.patientLine) {
     parts.push(`PATIENT (authoritative — take age and sex from here, never from the narrative):\n${input.patientLine}`);
@@ -313,7 +159,7 @@ export function buildVariableTail(surface: Surface, input: PromptTailInput): str
   parts.push(
     input.chartStateSummary?.trim()
       ? `ALREADY ON THE CHART:\n${input.chartStateSummary.trim()}\n\n${CHART_RESULTS_NOTE}`
-      : 'ALREADY ON THE CHART: nothing. The chart is currently EMPTY — there are no diagnoses, medications, allergies or other items on it, so there is NOTHING to remove. Do NOT emit any remove-* step.'
+      : 'ALREADY ON THE CHART: nothing. The chart is currently EMPTY — there are no diagnoses, medications, allergies or other items on it.'
   );
 
   const draft = input.providerEdits?.draft.trim();
@@ -326,12 +172,10 @@ export function buildVariableTail(surface: Surface, input: PromptTailInput): str
 
   parts.push(`The provider's free-text NARRATIVE:\n"""\n${input.narrative}\n"""`);
 
-  if (input.mustAddress?.trim()) parts.push(`MUST ADDRESS THIS CALL:\n${input.mustAddress.trim()}`);
-
   return parts.join('\n\n');
 }
 
 /** Static prefix + variable tail: the only supported way to build a prompt. */
-export function buildPrompt(surface: Surface, tail: PromptTailInput): string {
-  return `${buildStaticInstructions(surface)}\n\n${FIXED_INSTRUCTIONS_END}\n\n${buildVariableTail(surface, tail)}`;
+export function buildPrompt(tail: PromptTailInput): string {
+  return `${buildStaticInstructions()}\n\n${FIXED_INSTRUCTIONS_END}\n\n${buildVariableTail(tail)}`;
 }

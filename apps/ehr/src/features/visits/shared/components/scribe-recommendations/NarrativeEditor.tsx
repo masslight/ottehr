@@ -15,15 +15,13 @@ const testIds = dataTestIds.scribeRecommendations;
 interface NarrativeEditorProps {
   /** Nothing can be typed while the narrative is being written or read. */
   disabled: boolean;
-  /** The transcript snippets behind the sentence under the pointer; `undefined` once it leaves. */
-  onHoverSources?: (sources: string[] | undefined) => void;
 }
 
 /**
  * The one-paragraph narrative the provider corrects. At rest it is a read view where each generated sentence
  * shows its transcript sources on hover (unbacked ones underlined); a click swaps in a text area at that spot.
  */
-export const NarrativeEditor: FC<NarrativeEditorProps> = ({ disabled, onHoverSources }) => {
+export const NarrativeEditor: FC<NarrativeEditorProps> = ({ disabled }) => {
   const draft = useScribeRecommendationsStore((state) => state.narrativeDraft);
   const generated = useScribeRecommendationsStore((state) => state.narrativeGenerated);
   const status = useScribeRecommendationsStore((state) => state.narrativeStatus);
@@ -56,7 +54,6 @@ export const NarrativeEditor: FC<NarrativeEditorProps> = ({ disabled, onHoverSou
     setIsEditing(true);
   };
   const stopEditing = (): void => {
-    onHoverSources?.(undefined);
     setIsEditing(false);
   };
 
@@ -95,13 +92,7 @@ export const NarrativeEditor: FC<NarrativeEditorProps> = ({ disabled, onHoverSou
       {status === 'error' && error && <Alert severity="error">{error}</Alert>}
 
       {showReadView ? (
-        <NarrativeReadView
-          draft={draft}
-          located={located}
-          disabled={disabled}
-          onClick={startEditing}
-          onHoverSources={onHoverSources}
-        />
+        <NarrativeReadView draft={draft} located={located} disabled={disabled} onClick={startEditing} />
       ) : (
         <TextField
           value={draft}
@@ -139,14 +130,13 @@ interface NarrativeReadViewProps {
   located: LocatedLine[];
   disabled: boolean;
   onClick: (event: MouseEvent<HTMLElement>) => void;
-  onHoverSources?: (sources: string[] | undefined) => void;
 }
 
 /**
  * Renders the draft character for character, so a click maps back to an offset, cut into generated sentences
  * and the provider's own words between them.
  */
-const NarrativeReadView: FC<NarrativeReadViewProps> = ({ draft, located, disabled, onClick, onHoverSources }) => {
+const NarrativeReadView: FC<NarrativeReadViewProps> = ({ draft, located, disabled, onClick }) => {
   // Located lines never overlap, so each run carries at most one id: its index into `located`.
   const runs = useMemo(
     () =>
@@ -170,7 +160,7 @@ const NarrativeReadView: FC<NarrativeReadViewProps> = ({ draft, located, disable
           if (id === undefined) return <Fragment key={index}>{run.text}</Fragment>;
           const line = located[Number(id)];
           return (
-            <NarrativeSentence key={index} index={Number(id)} line={line} onHoverSources={onHoverSources}>
+            <NarrativeSentence key={index} index={Number(id)} line={line}>
               {run.text}
             </NarrativeSentence>
           );
@@ -183,12 +173,11 @@ const NarrativeReadView: FC<NarrativeReadViewProps> = ({ draft, located, disable
 interface NarrativeSentenceProps {
   index: number;
   line: LocatedLine;
-  onHoverSources?: (sources: string[] | undefined) => void;
   children: string;
 }
 
 /** A generated sentence with its transcript sources on hover; unbacked sentences get a dotted underline. */
-const NarrativeSentence: FC<NarrativeSentenceProps> = ({ index, line, onHoverSources, children }) => {
+const NarrativeSentence: FC<NarrativeSentenceProps> = ({ index, line, children }) => {
   const sources = line.original.sources;
   const isUnbacked = sources.length === 0;
 
@@ -210,8 +199,6 @@ const NarrativeSentence: FC<NarrativeSentenceProps> = ({ index, line, onHoverSou
       <Box
         component="span"
         data-testid={testIds.narrativeSentence(index)}
-        onMouseEnter={() => onHoverSources?.(sources)}
-        onMouseLeave={() => onHoverSources?.(undefined)}
         sx={(theme) => ({
           borderRadius: '4px',
           '&:hover': { backgroundColor: AI_SURFACE },

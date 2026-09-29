@@ -2,15 +2,15 @@
 // the client: a caller-supplied summary would be caller-controlled text inside the model's instructions.
 
 import { buildExamLeafCatalogue } from '../config-helpers/exam-leaves';
-import { formatLabResultForPrompt, formatRadiologyReportForPrompt } from '../helpers/test-results-for-prompt';
 import { DefaultExamComponentsConfig } from '../ottehr-config/examination/default-components.config';
 import { getRosFindingStateFromKey } from '../ottehr-config/review-of-systems';
 import { InPersonRosConfig } from '../ottehr-config/review-of-systems/in-person.config';
 import { GetChartDataResponse } from '../types/api/chart-data/get-chart-data.types';
+import { formatLabResultForPrompt, formatRadiologyReportForPrompt } from './test-results-for-prompt';
 
 /**
- * The chart as display lines, not ids: the model must name an item back exactly for a remove-*, and the
- * server's removal guard matches against these lines.
+ * The chart as display lines, not ids: the model reads what is already charted, and a quote it takes from the
+ * chart is verified against these lines.
  */
 export function buildChartStateSummary(chart: GetChartDataResponse | undefined): string | undefined {
   if (!chart) return undefined;
@@ -53,7 +53,7 @@ export function buildChartStateSummary(chart: GetChartDataResponse | undefined):
   }
 
   // Pending orders stop the model re-ordering; results are findings of this visit. A report is folded onto one
-  // line because these lines are matched line by line (removals, chart-origin quotes).
+  // line, like every other entry.
   for (const order of chart.radiologyOrders ?? []) {
     const report = formatRadiologyReportForPrompt(order);
     if (report) push('Radiology reported', report.replace(/\s+/g, ' '));
@@ -78,11 +78,8 @@ export function buildChartStateSummary(chart: GetChartDataResponse | undefined):
  * Labels of checked exam boxes. Kept apart from the summary because the prompt treats a checked box as a claim
  * the note makes, not merely something present.
  */
-export function chartedExamFindingLabels(
-  chart: GetChartDataResponse | undefined,
-  examComponents: typeof DefaultExamComponentsConfig = DefaultExamComponentsConfig
-): string[] {
-  const labels = new Map(buildExamLeafCatalogue(examComponents).map((leaf) => [leaf.field, leaf.label]));
+export function chartedExamFindingLabels(chart: GetChartDataResponse | undefined): string[] {
+  const labels = new Map(buildExamLeafCatalogue(DefaultExamComponentsConfig).map((leaf) => [leaf.field, leaf.label]));
   return (
     (chart?.examObservations ?? [])
       .filter((observation) => observation.value === true)

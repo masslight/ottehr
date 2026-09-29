@@ -7,15 +7,15 @@ import { NOTE_TEXT_FIELDS } from 'utils/lib/easy-chart/actions';
 import { PlannedAction } from 'utils/lib/easy-chart/api';
 import { DefaultExamComponentsConfig } from 'utils/lib/ottehr-config/examination/default-components.config';
 import { PlanStep } from '../../apps/ehr/src/features/easy-chart/executor/types';
-import { emptySimState, SimFinalState, SimSource } from './score-harvested';
+import { emptySimState, SimFinalState } from './score-harvested';
 
 /** The exam cards' free-text fields, so a comment write is never scored as a ticked checkbox. */
 const EXAM_COMMENT_FIELDS = new Set(Object.values(buildExamCommentFields(DefaultExamComponentsConfig)));
 
 const NOTE_FIELDS: readonly string[] = NOTE_TEXT_FIELDS;
 
-export function foldStepsIntoState(steps: PlanStep[], source: SimSource, into?: SimFinalState): SimFinalState {
-  const state = into ?? emptySimState();
+export function foldStepsIntoState(steps: PlanStep[]): SimFinalState {
+  const state = emptySimState();
 
   for (const step of steps) {
     const action = step.action as PlannedAction & Record<string, unknown>;
@@ -34,45 +34,37 @@ export function foldStepsIntoState(steps: PlanStep[], source: SimSource, into?: 
           display,
           code: typeof action.code === 'string' ? action.code : undefined,
           isPrimary: action.isPrimary === true,
-          source,
         });
         break;
-      case 'remove-diagnosis':
-        markRemoved(state.diagnoses, display, source);
-        break;
       case 'add-condition':
-        state.conditions.push({ display, code: asCode(action.code), source });
+        state.conditions.push({ display, code: asCode(action.code) });
         break;
       case 'add-allergy':
-        state.allergies.push({ display, source });
+        state.allergies.push({ display });
         break;
       case 'add-medication':
         state.medications.push({
           display,
           strength: typeof action.strength === 'string' ? action.strength : undefined,
-          source,
         });
         break;
-      case 'remove-medication':
-        markRemoved(state.medications, display, source);
-        break;
       case 'add-surgical-history':
-        state.surgicalHistory.push({ display, source });
+        state.surgicalHistory.push({ display });
         break;
       case 'add-hospitalization':
-        state.hospitalizations.push({ display, source });
+        state.hospitalizations.push({ display });
         break;
       case 'set-em-code':
-        state.emEvents.push({ type: 'set', code: asCode(action.code), display, source });
+        state.emEvents.push({ code: asCode(action.code), display });
         break;
       case 'add-exam-finding': {
         // The resolved catalogue field; a comment write is not a ticked checkbox and is kept apart.
         const field = resolvedId(step);
         if (EXAM_COMMENT_FIELDS.has(field)) {
-          state.examComments.push({ section: field, text: display, source });
+          state.examComments.push({ section: field, text: display });
           break;
         }
-        state.examObservations.push({ field, label: display, source });
+        state.examObservations.push({ field, label: display });
         break;
       }
       case 'add-ros-finding':
@@ -81,14 +73,13 @@ export function foldStepsIntoState(steps: PlanStep[], source: SimSource, into?: 
           field: resolvedId(step),
           label: display,
           finding: action.finding === 'denies' ? 'denies' : 'reports',
-          source,
         });
         break;
       case 'edit-note-text': {
         const field = typeof action.field === 'string' ? action.field : '';
         const text = typeof action.newText === 'string' ? action.newText : '';
         if (NOTE_FIELDS.includes(field)) {
-          state.noteText[field as keyof SimFinalState['noteText']] = { text, source };
+          state.noteText[field as keyof SimFinalState['noteText']] = { text };
         }
         break;
       }
@@ -132,25 +123,4 @@ function resolvedId(step: PlanStep): string {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '');
-}
-
-/** Marks the row removed rather than deleting it: the scorer tells "never charted" from "removed". */
-function markRemoved(
-  items: { display: string; removed?: boolean; removedBy?: SimSource }[],
-  needle: string,
-  by: SimSource
-): void {
-  const hit = findByDisplay(items, needle);
-  if (hit) {
-    hit.removed = true;
-    hit.removedBy = by;
-  }
-}
-
-function findByDisplay<T extends { display: string }>(items: T[], needle: string): T | undefined {
-  const lower = needle.toLowerCase();
-  return (
-    items.find((item) => item.display.toLowerCase() === lower) ??
-    items.find((item) => item.display.toLowerCase().includes(lower) || lower.includes(item.display.toLowerCase()))
-  );
 }

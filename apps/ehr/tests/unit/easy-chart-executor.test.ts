@@ -17,22 +17,15 @@ import {
 
 const emptyChart = (): ChartSnapshot => ({
   diagnoses: [],
-  examFindings: [],
-  examRows: {},
-  rosFindings: [],
-  medications: [],
-  allergies: [],
   conditions: [],
-  surgicalHistory: [],
-  hospitalizations: [],
+  examRows: {},
   noteFields: {},
 });
 
 interface Harness {
   context: HandlerContext;
   saved: AllChartValues[];
-  removed: { field: string; display: string }[];
-  said: { text: string; kind: string }[];
+  said: string[];
   asks: PickerRequest[];
 }
 
@@ -46,8 +39,7 @@ function harness(
   } = {}
 ): Harness {
   const saved: AllChartValues[] = [];
-  const removed: { field: string; display: string }[] = [];
-  const said: { text: string; kind: string }[] = [];
+  const said: string[] = [];
   const asks: PickerRequest[] = [];
   let nextId = 1;
 
@@ -57,16 +49,12 @@ function harness(
       saved.push(fields);
       return [`res-${nextId++}`];
     },
-    remove: async (field, item) => {
-      removed.push({ field, display: item.display });
-    },
   };
 
   const lookup = (name: string) => async (): Promise<CatalogueMatch[]> => overrides.matches?.[name] ?? [];
 
   const context: HandlerContext = {
     mode: overrides.mode ?? 'bulk',
-    encounterId: 'enc-1',
     writer,
     chart: { ...emptyChart(), ...overrides.chart },
     catalogue: {
@@ -81,10 +69,10 @@ function harness(
       asks.push(request);
       return overrides.answer?.(request);
     },
-    say: (text, kind) => said.push({ text, kind }),
+    say: (text) => said.push(text),
   };
 
-  return { context, saved, removed, said, asks };
+  return { context, saved, said, asks };
 }
 
 const match = (id: string, display: string, score: number): CatalogueMatch => ({ id, display, score });
@@ -502,57 +490,6 @@ describe('ambiguity', () => {
   });
 });
 
-describe('destructive actions ask', () => {
-  it('asks before removing when several charted items match, even in a bulk run', async () => {
-    const h = harness({
-      mode: 'bulk',
-      chart: {
-        medications: [
-          { resourceId: 'm1', display: 'Ibuprofen 200 mg tablet' },
-          { resourceId: 'm2', display: 'Ibuprofen 400 mg tablet' },
-        ],
-      },
-      answer: (request) => request.options[1],
-    });
-    const { steps } = await runPlan([{ kind: 'remove-medication', display: 'Ibuprofen' }], h.context);
-    expect(h.asks[0].destructive).toBe(true);
-    expect(steps[0].outcome?.status).toBe('applied');
-    expect(h.removed).toEqual([{ field: 'medications', display: 'Ibuprofen 400 mg tablet' }]);
-  });
-
-  it('removes without asking when exactly one charted item matches', async () => {
-    const h = harness({ chart: { medications: [{ resourceId: 'm1', display: 'Motrin 200 mg' }] } });
-    const { steps } = await runPlan([{ kind: 'remove-medication', display: 'Motrin' }], h.context);
-    expect(h.asks).toEqual([]);
-    expect(steps[0].outcome?.status).toBe('applied');
-  });
-
-  it('skips with a reason when nothing on the chart matches', async () => {
-    const h = harness({ chart: { medications: [{ resourceId: 'm1', display: 'Amoxicillin' }] } });
-    const { steps } = await runPlan([{ kind: 'remove-medication', display: 'Motrin' }], h.context);
-    expect(steps[0].outcome).toMatchObject({
-      status: 'skipped',
-      reason: expect.stringMatching(/is not on the chart/),
-    });
-    expect(h.removed).toEqual([]);
-  });
-
-  it('does not ask twice when the removal names an item exactly', async () => {
-    const h = harness({
-      chart: {
-        medications: [
-          { resourceId: 'm1', display: 'ibuprofen' },
-          { resourceId: 'm2', display: 'ibuprofen 400 mg tablet' },
-        ],
-      },
-    });
-    const { steps } = await runPlan([{ kind: 'remove-medication', display: 'ibuprofen' }], h.context);
-    expect(h.asks).toEqual([]);
-    expect(steps[0].outcome?.status).toBe('applied');
-    expect(h.removed).toEqual([{ field: 'medications', display: 'ibuprofen' }]);
-  });
-});
-
 describe('chat-only actions', () => {
   it('answers a question without writing anything to the chart', async () => {
     const h = harness();
@@ -562,79 +499,14 @@ describe('chat-only actions', () => {
     );
     expect(steps[0].outcome?.status).toBe('applied');
     expect(h.saved).toEqual([]);
-    expect(h.said).toEqual([{ text: 'You still need an E&M level before you can sign.', kind: 'reply' }]);
+    expect(h.said).toEqual(['You still need an E&M level before you can sign.']);
   });
 
   it('surfaces a provider note in the chat and charts nothing', async () => {
     const h = harness();
     await runPlan([{ kind: 'provider-note', text: 'Send the erythromycin prescription by eRx.' }], h.context);
     expect(h.saved).toEqual([]);
-    expect(h.said[0].kind).toBe('provider-note');
-  });
-});
-
-describe('primary diagnosis is not lost when a plan swaps it', () => {
-  const PRIMARY = [{ resourceId: 'dx-1', display: 'Viral pharyngitis', code: 'J02.9', isPrimary: true }];
-
-  it('promotes the replacement when the removed diagnosis was primary', async () => {
-    const h = harness({ chart: { diagnoses: PRIMARY } });
-    const { steps } = await runPlan(
-      [
-        { kind: 'remove-diagnosis', display: 'Viral pharyngitis' },
-        { kind: 'add-diagnosis', display: 'Strep pharyngitis', code: 'J02.0', isPrimary: false },
-      ],
-      h.context
-    );
-    expect(steps.map((s) => s.outcome?.status)).toEqual(['applied', 'applied']);
-    const charted = h.saved.flatMap((f) => f.diagnosis ?? []);
-    expect(charted).toHaveLength(1);
-    expect(charted[0].isPrimary).toBe(true);
-  });
-
-  it('does not promote when the removed diagnosis was NOT primary', async () => {
-    const secondary = [
-      { resourceId: 'dx-1', display: 'Fever', code: 'R50.9', isPrimary: false },
-      { resourceId: 'dx-2', display: 'Otitis media', code: 'H66.90', isPrimary: true },
-    ];
-    const h = harness({ chart: { diagnoses: secondary } });
-    await runPlan(
-      [
-        { kind: 'remove-diagnosis', display: 'Fever' },
-        { kind: 'add-diagnosis', display: 'Pharyngitis', code: 'J02.9', isPrimary: false },
-      ],
-      h.context
-    );
-    const charted = h.saved.flatMap((f) => f.diagnosis ?? []);
-    expect(charted[0].isPrimary).toBe(false);
-  });
-
-  it('never mints a second primary when an add already claims it', async () => {
-    const h = harness({ chart: { diagnoses: PRIMARY } });
-    await runPlan(
-      [
-        { kind: 'remove-diagnosis', display: 'Viral pharyngitis' },
-        { kind: 'add-diagnosis', display: 'Strep pharyngitis', code: 'J02.0', isPrimary: true },
-        { kind: 'add-diagnosis', display: 'Fever', code: 'R50.9', isPrimary: false },
-      ],
-      h.context
-    );
-    const charted = h.saved.flatMap((f) => f.diagnosis ?? []);
-    expect(charted.filter((d) => d.isPrimary)).toHaveLength(1);
-  });
-});
-
-describe('a plan sees what its own earlier steps charted', () => {
-  it('removes a diagnosis added earlier in the same plan', async () => {
-    const h = harness();
-    const { steps } = await runPlan(
-      [
-        { kind: 'add-diagnosis', display: 'Fatigue', code: 'R53.83', isPrimary: true },
-        { kind: 'remove-diagnosis', display: 'Fatigue' },
-      ],
-      h.context
-    );
-    expect(steps.map((step) => step.outcome?.status)).toEqual(['applied', 'applied']);
-    expect(h.removed).toEqual([{ field: 'diagnosis', display: 'Fatigue' }]);
+    expect(h.said).toEqual(['Send the erythromycin prescription by eRx.']);
   });
 });
 

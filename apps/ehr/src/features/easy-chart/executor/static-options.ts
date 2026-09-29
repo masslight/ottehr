@@ -3,31 +3,8 @@
 
 import { CatalogueMatch, CatalogueQuery } from './types';
 
-/** Words that describe the request rather than the thing named; each once pulled a match off target. */
-const QUERY_STOPWORDS = new Set([
-  'order',
-  'send',
-  'run',
-  'a',
-  'an',
-  'the',
-  'out',
-  'in',
-  'house',
-  'office',
-  'lab',
-  'labs',
-  'test',
-  'tests',
-  'do',
-  'get',
-  'please',
-  'to',
-  'and',
-  'for',
-  'reference',
-  'panel',
-]);
+/** Function words that carry nothing for a match; "in" would otherwise prefix-match "inguinal". */
+const QUERY_STOPWORDS = new Set(['a', 'an', 'the', 'in', 'to', 'and', 'for']);
 
 const tokenize = (text: string): string[] =>
   text
@@ -42,7 +19,7 @@ const tokenize = (text: string): string[] =>
  */
 export function matchStaticOptions(
   query: CatalogueQuery,
-  options: { display?: string; code?: string }[]
+  options: { display: string; code: string }[]
 ): CatalogueMatch[] {
   const queryTokens = [
     ...new Set(
@@ -56,7 +33,7 @@ export function matchStaticOptions(
 
   return options
     .flatMap((option) => {
-      const display = option.display ?? '';
+      const { display } = option;
       const nameTokens = tokenize(display);
       let score = 0;
       for (const token of queryTokens) {
@@ -65,7 +42,7 @@ export function matchStaticOptions(
       }
       if (display.trim().toLowerCase() === exact) score += 1000;
       score -= Math.max(0, nameTokens.length - queryTokens.length) * 2;
-      return score > 0 ? [{ id: option.code ?? display, display, score, payload: option }] : [];
+      return score > 0 ? [{ id: option.code, display, score, payload: option }] : [];
     })
     .sort((a, b) => b.score - a.score);
 }

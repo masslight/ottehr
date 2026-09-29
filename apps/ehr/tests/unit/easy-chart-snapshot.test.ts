@@ -40,7 +40,7 @@ describe('buildChartSnapshot', () => {
     ]);
   });
 
-  // A row with no resourceId cannot be removed or attributed, so it must not appear as removable.
+  // A row with no resourceId cannot be updated or attributed, so the executor must not see it.
   it('drops rows with no resourceId', () => {
     const snapshot = buildChartSnapshot(
       chart({ diagnosis: [{ code: 'J02.0', display: 'Strep', isPrimary: true }] as never })
@@ -48,64 +48,30 @@ describe('buildChartSnapshot', () => {
     expect(snapshot.diagnoses).toEqual([]);
   });
 
-  it('lists only exam findings that are actually checked', () => {
+  it('names a condition by its display, falling back to its code, and drops an unnamed one', () => {
     const snapshot = buildChartSnapshot(
       chart({
-        examObservations: [
-          { resourceId: 'e-1', field: 'general-normal-appearance-well', value: true, label: 'Well appearing' },
-          { resourceId: 'e-2', field: 'general-abnormal-distress', value: false, label: 'In distress' },
-        ],
+        conditions: [
+          { resourceId: 'c-1', display: 'Asthma', code: 'J45.909' },
+          { resourceId: 'c-2', code: 'E11.9' },
+          { resourceId: 'c-3' },
+        ] as never,
       })
     );
-    expect(snapshot.examFindings).toEqual([{ resourceId: 'e-1', display: 'Well appearing' }]);
+    expect(snapshot.conditions).toEqual([
+      { resourceId: 'c-1', display: 'Asthma' },
+      { resourceId: 'c-2', display: 'E11.9' },
+    ]);
   });
 
-  // A row the executor cannot see is one it would chart a second time.
-  it('keeps a finding whose field the current exam config no longer defines', () => {
-    const snapshot = buildChartSnapshot(
-      chart({ examObservations: [{ resourceId: 'e-9', field: 'legacy-field-from-2023', value: true }] })
-    );
-    expect(snapshot.examFindings).toEqual([{ resourceId: 'e-9', display: 'legacy-field-from-2023' }]);
-  });
-
-  it('resolves an exam label from the real config when the observation carries none', () => {
-    const snapshot = buildChartSnapshot(
-      // A real field from the default config.
-      chart({ examObservations: [{ resourceId: 'e-3', field: 'well-hydrated', value: true }] })
-    );
-    expect(snapshot.examFindings[0].display).not.toBe('well-hydrated');
-    expect(snapshot.examFindings[0].display).toContain('Well-hydrated');
-  });
-
-  // The provider reads "Denies fever", so a removal must match that, not the bare symptom.
-  it('rebuilds the ROS polarity verb into the display', () => {
-    const snapshot = buildChartSnapshot(
-      chart({
-        rosObservations: [
-          { resourceId: 'r-1', field: 'ros-constitutional-fever-denies', value: true },
-          { resourceId: 'r-2', field: 'ros-constitutional-fatigue-reports', value: true },
-        ],
-      })
-    );
-    expect(snapshot.rosFindings[0].display).toMatch(/^Denies .*Fever/);
-    expect(snapshot.rosFindings[1].display).toMatch(/^Reports .*Fatigue/);
-  });
-
-  it('names medications, allergies and conditions by what a provider would recognise', () => {
-    const snapshot = buildChartSnapshot(
-      chart({
-        medications: [{ resourceId: 'm-1', name: 'Amoxicillin' }] as never,
-        allergies: [{ resourceId: 'a-1', name: 'Penicillin' }],
-        conditions: [{ resourceId: 'c-1', display: 'Asthma', code: 'J45.909' }],
-      })
-    );
-    expect(snapshot.medications).toEqual([{ resourceId: 'm-1', display: 'Amoxicillin' }]);
-    expect(snapshot.allergies).toEqual([{ resourceId: 'a-1', display: 'Penicillin' }]);
-    expect(snapshot.conditions).toEqual([{ resourceId: 'c-1', display: 'Asthma' }]);
-  });
-
-  it('drops an unnamed row rather than offering a blank one for removal', () => {
-    const snapshot = buildChartSnapshot(chart({ allergies: [{ resourceId: 'a-1' }] }));
-    expect(snapshot.allergies).toEqual([]);
+  it('keys every exam row by its field, ticked or not, so a write updates it in place', () => {
+    const rows = [
+      { resourceId: 'e-1', field: 'general-normal-appearance-well', value: true, label: 'Well appearing' },
+      { resourceId: 'e-2', field: 'general-comment', note: 'Appears comfortable' },
+    ];
+    expect(buildChartSnapshot(chart({ examObservations: rows })).examRows).toEqual({
+      'general-normal-appearance-well': rows[0],
+      'general-comment': rows[1],
+    });
   });
 });

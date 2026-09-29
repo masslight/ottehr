@@ -23,15 +23,14 @@ interface ExamCommentTarget {
 export function examCommentTarget(
   display: string,
   searchTerms: string[] | undefined,
-  leaves: ExamLeaf[],
-  examConfig: typeof DefaultExamComponentsConfig = DefaultExamComponentsConfig
+  leaves: ExamLeaf[]
 ): ExamCommentTarget | undefined {
-  const commentFields = buildExamCommentFields(examConfig);
+  const commentFields = buildExamCommentFields(DefaultExamComponentsConfig);
   const inferred = inferExamSectionKey(`${display} ${searchTerms?.join(' ') ?? ''}`, leaves);
   const sectionKey = inferred && commentFields[inferred] ? inferred : COMMENT_FALLBACK_SECTION;
   const field = commentFields[sectionKey];
   if (!field) return undefined;
-  return { sectionKey, sectionLabel: examConfig[sectionKey]?.label ?? sectionKey, field };
+  return { sectionKey, sectionLabel: DefaultExamComponentsConfig[sectionKey]?.label ?? sectionKey, field };
 }
 
 /** The comparison form of a comment: case, punctuation and spacing do not make a second finding. */

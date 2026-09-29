@@ -9,7 +9,6 @@ import { useCatalogue } from 'src/features/easy-chart/hooks/useCatalogue';
 import { useChartWriter } from 'src/features/easy-chart/hooks/useChartWriter';
 import { useEasyChartData } from 'src/features/easy-chart/hooks/useEasyChartData';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { TemplateSectionActions } from 'utils/lib/types/data/apply-template.types';
 import { invalidateChart } from '../../hooks/chartSectionCache';
 import { GET_MEDICATION_ORDERS_QUERY_KEY } from '../../stores/appointment/appointment.queries';
 import { useAppointmentData } from '../../stores/appointment/appointment.store';
@@ -24,26 +23,6 @@ import {
 } from './applyRecommendations';
 import { useScribeRecommendationsStore } from './scribeRecommendations.store';
 import { TemplateRecommendation } from './types';
-
-/**
- * Section actions for a template applied without the apply-template dialog. ROS is skipped because the
- * transcript covers it, and orders are skipped because they stay a manual checklist.
- */
-const SCRIBE_TEMPLATE_SECTION_ACTIONS: TemplateSectionActions = {
-  hpi: 'append',
-  moi: 'skip',
-  ros: 'skip',
-  examFindings: 'overwrite',
-  mdm: 'overwrite',
-  diagnoses: 'append',
-  patientInstructions: 'overwrite',
-  cptCodes: 'append',
-  emCode: 'overwrite',
-  inHouseLabs: 'skip',
-  externalLabs: 'skip',
-  procedures: 'skip',
-  inHouseMedications: 'skip',
-};
 
 /**
  * Writes the selected recommendations into the chart through the Easy Chart executor. A template goes first,
@@ -80,10 +59,12 @@ export const useApplyRecommendations = (): {
       if (!template.isCurrentVersion) {
         throw new Error('This template is out of date and needs to be updated by an admin before it can be applied.');
       }
+      // Set by the apply-template dialog, the only way a template is applied from the panel.
+      if (!rec.sectionActions) throw new Error('Open the template preview to choose which sections to apply.');
       const result = await applyTemplate(oystehrZambda, {
         encounterId,
         templateName: template.value,
-        sectionActions: rec.sectionActions ?? SCRIBE_TEMPLATE_SECTION_ACTIONS,
+        sectionActions: rec.sectionActions,
         ...(rec.applyOptions?.externalLabs ? { externalLabs: rec.applyOptions.externalLabs } : {}),
       });
       // Exam observations live in Zustand rather than React Query, so they need a reset before the
@@ -127,7 +108,6 @@ export const useApplyRecommendations = (): {
       const store = useScribeRecommendationsStore.getState();
       const context: HandlerContext = {
         mode,
-        encounterId,
         catalogue,
         writer,
         chart: snapshot,

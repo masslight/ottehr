@@ -6,7 +6,7 @@ import { useScribeRecommendationsStore } from './scribeRecommendations.store';
 const testIds = dataTestIds.scribeRecommendations;
 
 /**
- * Asks the provider to choose among near-equal catalogue matches (single-row applies and removals). Skipping
+ * Asks the provider to choose among near-equal catalogue matches when one row is applied on its own. Skipping
  * settles the step as skipped rather than leaving it hanging.
  */
 export const PickerDialog: FC = () => {

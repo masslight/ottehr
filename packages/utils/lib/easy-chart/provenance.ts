@@ -110,7 +110,7 @@ export const NEGATION_TOKENS = new Set(['no', 'non', 'not', 'without', 'denies',
  * is normal, soft-tissue swelling is not.
  */
 const NORMALCY_PHRASES =
-  /\b(?:clear\s+to\s+auscultation|ctab|clear\b|normal\b|unremarkable\b|intact\b|within\s+normal\s+limits|wnl\b|nontender\b|non-tender\b|nondistended\b|non-distended\b|reactive\b|supple\b|symmetric(?:al)?\b|abdomen\s+(?:is\s+)?soft\b|soft\s+abdomen\b)/i;
+  /\b(?:clear\s+to\s+auscultation|ctab|clear\b|normal\b|unremarkable\b|intact\b|within\s+normal\s+limits|wnl\b|nontender\b|nondistended\b|reactive\b|supple\b|symmetric(?:al)?\b|abdomen\s+(?:is\s+)?soft\b|soft\s+abdomen\b)/i;
 
 const NEGATOR = new RegExp(`\\b(?:${[...NEGATION_TOKENS].join('|')})\\b`);
 

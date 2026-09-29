@@ -1,5 +1,6 @@
 /**
- * Prints a harvested case's transcript next to its voicing-tagged gold items, for checking the judge's work.
+ * Prints a harvested case's voicing-tagged gold items, and with --transcript the transcript beside them, for
+ * checking the judge's work.
  * The tags (`voiced`, `voicedEvidence`, `nameVoiced`, `dispositionVoiced`) are stamped onto the gold in place
  * by tag-voiced.ts and decide the recall denominators in score-harvested.ts.
  *
@@ -7,6 +8,7 @@
  *
  * Usage:
  *   npx tsx tools/easy-chart-eval/show-voiced.ts case001 case042
+ *   npx tsx tools/easy-chart-eval/show-voiced.ts case001 --transcript    # also print the transcript (PHI)
  *   npx tsx tools/easy-chart-eval/show-voiced.ts case001 --section exam
  *   npx tsx tools/easy-chart-eval/show-voiced.ts case001 --unvoiced      # only voiced:false
  *   npx tsx tools/easy-chart-eval/show-voiced.ts case001 --voiced        # only voiced:true
@@ -14,6 +16,7 @@
  *   npx tsx tools/easy-chart-eval/show-voiced.ts case001 --blind         # hide the judge's answer
  *
  * --blind hides tags and evidence so a hand audit is not anchored on the judge's label.
+ * --transcript prints the full transcript; it is off by default so the output carries less clinical text.
  */
 import { readdirSync, readFileSync } from 'fs';
 import { join } from 'path';
@@ -138,7 +141,7 @@ function main(): void {
   const blind = flag('blind');
   const wantVoiced = flag('voiced');
   const wantUnvoiced = flag('unvoiced');
-  const showTranscript = !flag('no-transcript');
+  const showTranscript = flag('transcript');
 
   const ids = flag('all')
     ? readdirSync(CASES_DIR)
@@ -148,7 +151,9 @@ function main(): void {
     : args.filter((a) => /^case\d+$/.test(a));
 
   if (ids.length === 0) {
-    console.log('usage: show-voiced.ts <caseNNN...> | --all   [--section exam] [--voiced|--unvoiced] [--blind]');
+    console.log(
+      'usage: show-voiced.ts <caseNNN...> | --all   [--section exam] [--voiced|--unvoiced] [--blind] [--transcript]'
+    );
     console.log(`cases live in ${CASES_DIR}`);
     process.exit(1);
   }

@@ -15,14 +15,8 @@ const APPLY_ORDER: Record<Exclude<ScribeRecommendation['kind'], 'action'>, numbe
   exam: 8,
 };
 
-/**
- * Removals run right after the template, so a diagnosis swap's add can become primary once the old primary
- * is gone. Other generic actions go last.
- */
-const applyOrder = (rec: ScribeRecommendation): number => {
-  if (rec.kind === 'action') return rec.action.kind.startsWith('remove-') ? 1 : 9;
-  return APPLY_ORDER[rec.kind];
-};
+/** Generic actions go last. */
+const applyOrder = (rec: ScribeRecommendation): number => (rec.kind === 'action' ? 9 : APPLY_ORDER[rec.kind]);
 
 const sortForApply = (recommendations: ScribeRecommendation[]): ScribeRecommendation[] =>
   [...recommendations].sort((a, b) => {

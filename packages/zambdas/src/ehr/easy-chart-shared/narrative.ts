@@ -15,7 +15,7 @@ import { callModelForJson } from './model';
 import { NarrativeModelResponseSchema } from './model-output';
 
 /** The prompt asks for 5–35 lines; anything past this is a runaway, not a long visit. */
-export const MAX_NARRATIVE_LINES = 60;
+const MAX_NARRATIVE_LINES = 60;
 
 const NARRATIVE_WIRE_SCHEMA = toWire(
   z.object({

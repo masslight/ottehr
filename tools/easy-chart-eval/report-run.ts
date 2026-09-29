@@ -8,8 +8,6 @@
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'fs';
 import { basename, dirname, join } from 'path';
 
-type Scope = 'plannerOnly' | 'final';
-const SCOPES: Scope[] = ['plannerOnly', 'final'];
 const SECTIONS = [
   'diagnoses',
   'cpt',
@@ -64,8 +62,8 @@ interface Agg {
   cases: number;
   goldSplit: Record<string, GoldSplit>;
   grounding?: Grounding;
-  sec: Record<string, Record<Scope, Record<string, number>>>;
-  scalar: Record<string, Record<Scope, number>>;
+  sec: Record<string, Record<string, number>>;
+  scalar: Record<string, number>;
   freeText: Record<string, { gold: number; pred: number; both: number }>;
   counters: Record<string, number>;
   usage: Record<string, number>;
@@ -181,49 +179,43 @@ function aggregate(runDir: string): Agg {
     usage: {},
   };
   for (const s of SECTIONS) {
-    a.sec[s] = { plannerOnly: {}, final: {} };
-    for (const sc of SCOPES)
-      for (const k of [
-        'goldInScope',
-        'unvoicedGold',
-        'contextGold',
-        'predicted',
-        'matched',
-        'unvoicedMatched',
-        'contextCharted',
-      ])
-        a.sec[s][sc][k] = 0;
+    a.sec[s] = {};
+    for (const k of [
+      'goldInScope',
+      'unvoicedGold',
+      'contextGold',
+      'predicted',
+      'matched',
+      'unvoicedMatched',
+      'contextCharted',
+    ])
+      a.sec[s][k] = 0;
   }
-  const bump = (k: string, sc: Scope, v: number): void => {
-    a.scalar[k] ??= { plannerOnly: 0, final: 0 };
-    a.scalar[k][sc] += v;
+  const bump = (k: string, v: number): void => {
+    a.scalar[k] = (a.scalar[k] ?? 0) + v;
   };
   for (const f of files) {
     const j = JSON.parse(readFileSync(join(runDir, f), 'utf8'));
     a.cases++;
-    for (const sc of SCOPES) {
-      const d = j.scopes?.[sc];
-      if (!d) continue;
-      for (const s of SECTIONS) for (const k of Object.keys(a.sec[s][sc])) a.sec[s][sc][k] += n(d[s]?.[k]);
-      bump('E&M: gold cases', sc, d.em?.gold ? 1 : 0);
-      bump('E&M: predicted', sc, d.em?.predicted ? 1 : 0);
-      bump('E&M: exact', sc, d.em?.match === true ? 1 : 0);
-      bump('E&M: level', sc, d.em?.levelMatch === true ? 1 : 0);
-      bump('primary dx: gold cases', sc, d.primaryDx?.goldCode ? 1 : 0);
-      bump('primary dx: both charted', sc, d.primaryDx?.match !== null && d.primaryDx?.match !== undefined ? 1 : 0);
-      bump('primary dx: matched', sc, d.primaryDx?.match === true ? 1 : 0);
-      if (d.primaryDx?.goldVoiced === true && d.primaryDx?.match !== null && d.primaryDx?.match !== undefined) {
-        bump('primary dx: voiced denominator', sc, 1);
-        bump('primary dx: voiced matched', sc, d.primaryDx.match === true ? 1 : 0);
-      }
-      bump('primary dx: unvoiced gold', sc, d.primaryDx?.goldVoiced === false ? 1 : 0);
-      bump('ROS: polarity agree', sc, n(d.ros?.polarityAgree));
-      bump('exam: abnormal agree', sc, n(d.exam?.abnormalAgree));
-      for (const k of ['predicted', 'matched', 'contextCharted', 'unvoicedMatched', 'intentMatched'])
-        bump(`meds combined: ${k}`, sc, n(d.medsCombined?.[k]));
-      for (const k of ['legacyVoiced', 'intentVoiced', 'intentCovered'])
-        bump(`meds voicing: ${k}`, sc, n(d.medsPrescribed?.[k]));
+    for (const s of SECTIONS) for (const k of Object.keys(a.sec[s])) a.sec[s][k] += n(j[s]?.[k]);
+    bump('E&M: gold cases', j.em?.gold ? 1 : 0);
+    bump('E&M: predicted', j.em?.predicted ? 1 : 0);
+    bump('E&M: exact', j.em?.match === true ? 1 : 0);
+    bump('E&M: level', j.em?.levelMatch === true ? 1 : 0);
+    bump('primary dx: gold cases', j.primaryDx?.goldCode ? 1 : 0);
+    bump('primary dx: both charted', j.primaryDx?.match !== null && j.primaryDx?.match !== undefined ? 1 : 0);
+    bump('primary dx: matched', j.primaryDx?.match === true ? 1 : 0);
+    if (j.primaryDx?.goldVoiced === true && j.primaryDx?.match !== null && j.primaryDx?.match !== undefined) {
+      bump('primary dx: voiced denominator', 1);
+      bump('primary dx: voiced matched', j.primaryDx.match === true ? 1 : 0);
     }
+    bump('primary dx: unvoiced gold', j.primaryDx?.goldVoiced === false ? 1 : 0);
+    bump('ROS: polarity agree', n(j.ros?.polarityAgree));
+    bump('exam: abnormal agree', n(j.exam?.abnormalAgree));
+    for (const k of ['predicted', 'matched', 'contextCharted', 'unvoicedMatched', 'intentMatched'])
+      bump(`meds combined: ${k}`, n(j.medsCombined?.[k]));
+    for (const k of ['legacyVoiced', 'intentVoiced', 'intentCovered'])
+      bump(`meds voicing: ${k}`, n(j.medsPrescribed?.[k]));
     for (const ft of FREETEXT) {
       a.freeText[ft] ??= { gold: 0, pred: 0, both: 0 };
       const x = j.freeText?.[ft];
@@ -238,12 +230,11 @@ function aggregate(runDir: string): Agg {
     }
     for (const [k, v] of Object.entries(j.contextCharted ?? {}))
       if (typeof v === 'number') a.counters[`context charted: ${k}`] = (a.counters[`context charted: ${k}`] ?? 0) + v;
-    for (const [stage, u] of Object.entries((j.usage ?? {}) as Record<string, Record<string, unknown>>)) {
-      for (const k of ['calls', 'inputTokens', 'outputTokens', 'thinkingTokens', 'cacheReadTokens'])
-        a.usage[`${stage} ${k}`] = (a.usage[`${stage} ${k}`] ?? 0) + n(u?.[k]);
-      if ((u?.escalation as { primaryFailed?: boolean })?.primaryFailed)
-        a.usage[`${stage} primary-model failures`] = (a.usage[`${stage} primary-model failures`] ?? 0) + 1;
-    }
+    const u = (j.usage ?? {}) as Record<string, unknown>;
+    for (const k of ['calls', 'inputTokens', 'outputTokens', 'thinkingTokens', 'cacheReadTokens'])
+      a.usage[k] = (a.usage[k] ?? 0) + n(u[k]);
+    if ((u.escalation as { primaryFailed?: boolean } | undefined)?.primaryFailed)
+      a.usage['primary-model failures'] = (a.usage['primary-model failures'] ?? 0) + 1;
   }
   return a;
 }
@@ -280,8 +271,8 @@ function readGrounding(runDir: string): Grounding | undefined {
 
 function render(runDir: string, a: Agg): string {
   const out: string[] = [];
-  const over = (s: string, sc: Scope): number => {
-    const x = a.sec[s][sc];
+  const over = (s: string): number => {
+    const x = a.sec[s];
     return x.predicted - x.matched - x.unvoicedMatched - x.contextCharted;
   };
   out.push(
@@ -306,7 +297,7 @@ function render(runDir: string, a: Agg): string {
   );
   out.push('## Sections', '');
   for (const s of SECTIONS) {
-    const f = a.sec[s].final;
+    const f = a.sec[s];
     if (f.goldInScope === 0 && f.predicted === 0) continue;
     out.push(`### ${s}`, '');
     const g = a.goldSplit[s];
@@ -321,15 +312,15 @@ function render(runDir: string, a: Agg): string {
       );
       if (g.note) out.push(`> ${g.note}`, '');
     }
-    out.push("| | planner | after review | review's contribution |", '|---|---:|---:|---:|');
-    const row = (label: string, p: number, fi: number): void => {
-      out.push(`| ${label} | ${p} | ${fi} | ${fi - p >= 0 ? '+' : ''}${fi - p} |`);
+    out.push('| | count |', '|---|---:|');
+    const row = (label: string, v: number): void => {
+      out.push(`| ${label} | ${v} |`);
     };
-    row('predicted', a.sec[s].plannerOnly.predicted, f.predicted);
-    row('matched (= matched voiced)', a.sec[s].plannerOnly.matched, f.matched);
-    row('on unvoiced gold (forgiven)', a.sec[s].plannerOnly.unvoicedMatched, f.unvoicedMatched);
-    if (f.contextGold) row('on context gold (forgiven)', a.sec[s].plannerOnly.contextCharted, f.contextCharted);
-    row('**overcharted**', over(s, 'plannerOnly'), over(s, 'final'));
+    row('predicted', f.predicted);
+    row('matched (= matched voiced)', f.matched);
+    row('on unvoiced gold (forgiven)', f.unvoicedMatched);
+    if (f.contextGold) row('on context gold (forgiven)', f.contextCharted);
+    row('**overcharted**', over(s));
     const den = f.predicted - f.unvoicedMatched - f.contextCharted;
     out.push('', `recall **${pct(f.matched, f.goldInScope)}** · precision **${pct(f.matched, den)}**`, '');
     const gsec = a.grounding ? GROUNDING_SECTION[s] : undefined;
@@ -377,12 +368,12 @@ function render(runDir: string, a: Agg): string {
       if (!GROUNDING_SECTION[s]) continue;
       const isMedPool = s === 'medsPrescribed' || s === 'medsInHouse' || s === 'immunizations';
       if (isMedPool && s !== 'medsPrescribed') continue;
-      const f = a.sec[s].final;
+      const f = a.sec[s];
       // The med sections share one predicted and one judged pool, so they are reported once, combined.
-      const matched = isMedPool ? a.scalar['meds combined: matched'].final : f.matched;
-      const predicted = isMedPool ? a.scalar['meds combined: predicted'].final : f.predicted;
-      const unv = isMedPool ? a.scalar['meds combined: unvoicedMatched'].final : f.unvoicedMatched;
-      const ctx = isMedPool ? a.scalar['meds combined: contextCharted'].final : f.contextCharted;
+      const matched = isMedPool ? a.scalar['meds combined: matched'] : f.matched;
+      const predicted = isMedPool ? a.scalar['meds combined: predicted'] : f.predicted;
+      const unv = isMedPool ? a.scalar['meds combined: unvoicedMatched'] : f.unvoicedMatched;
+      const ctx = isMedPool ? a.scalar['meds combined: contextCharted'] : f.contextCharted;
       const den = predicted - unv - ctx;
       const gOk = a.grounding.grounded[GROUNDING_SECTION[s]] ?? 0;
       const gNo = a.grounding.ungrounded[GROUNDING_SECTION[s]] ?? 0;
@@ -412,11 +403,8 @@ function render(runDir: string, a: Agg): string {
     );
   }
 
-  out.push('## Scalars', '', "| | planner | after review | review's contribution |", '|---|---:|---:|---:|');
-  for (const [k, v] of Object.entries(a.scalar))
-    out.push(
-      `| ${k} | ${v.plannerOnly} | ${v.final} | ${v.final - v.plannerOnly >= 0 ? '+' : ''}${v.final - v.plannerOnly} |`
-    );
+  out.push('## Scalars', '', '| | whole run |', '|---|---:|');
+  for (const [k, v] of Object.entries(a.scalar)) out.push(`| ${k} | ${v} |`);
   out.push('');
   out.push('## Free text (presence only)', '', '| field | gold | predicted | both |', '|---|---:|---:|---:|');
   for (const [k, v] of Object.entries(a.freeText))

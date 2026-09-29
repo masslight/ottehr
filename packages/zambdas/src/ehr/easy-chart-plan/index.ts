@@ -1,6 +1,5 @@
 // easy-chart-plan: a narrative in, guarded typed actions out. The model never writes; the client runs
-// the actions through the regular chart endpoints. Always one call returning 1..N actions: routing
-// short messages to a single-action endpoint once silently dropped one of two dictated vitals.
+// the actions through the regular chart endpoints.
 //
 // PHI: never logs the narrative, the chart or the model's answer. Envelope only.
 
@@ -27,7 +26,6 @@ import {
   readChart,
   readTemplates,
   readVisitContext,
-  splitChartState,
 } from '../easy-chart-shared/visit-context';
 import { resolveSuggestedTemplate } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -54,7 +52,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const chartStateSummary = describeChart(buildChartStateSummary(chart), chartedExamFindingLabels(chart));
   const noteContext = buildNoteContext(buildNoteContextFromChart(chart));
 
-  const prompt = buildPrompt('plan', {
+  const prompt = buildPrompt({
     narrative,
     providerEdits,
     templateTitles: practiceTemplates?.map((template) => template.title),
@@ -71,7 +69,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   const { parsed, usage, escalation } = await callModelForJson({
     prompt,
-    wireSchema: buildResponseSchema('plan'),
+    wireSchema: buildResponseSchema(),
     responseSchema: PlanModelResponseSchema,
     secrets,
     logPrefix: ZAMBDA_NAME,
@@ -83,14 +81,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     triggers,
   } = await applyGuards(parsed.actions, {
     oystehr,
-    surface: 'plan',
     narrative,
     editedNarrative: providerEdits?.edited,
     chartStateText: chartStateSummary,
     // A resulted test on the chart ("Rapid strep — Positive") supports "streptococcal" as much as the
     // narrative does.
     etiologyEvidence: [narrative, chartStateSummary, noteContext, providerEdits?.edited].filter(Boolean).join(' '),
-    chartedItems: splitChartState(chartStateSummary),
     logPrefix: ZAMBDA_NAME,
   });
 

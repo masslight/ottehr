@@ -1,8 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  collectResourceIds,
-  diffCreatedResourceIds,
-} from '../../src/features/visits/shared/stores/appointment/chart-resource-ids';
+import { collectResourceIds, diffCreatedResourceIds } from '../../src/features/easy-chart/hooks/chart-resource-ids';
 
 describe('collectResourceIds', () => {
   it('finds resourceIds at any depth, across sections', () => {

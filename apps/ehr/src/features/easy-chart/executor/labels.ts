@@ -25,13 +25,11 @@ const VERBS: Partial<Record<ActionKind, string>> = {
   'add-allergy': 'Allergy',
   'add-condition': 'Past medical history',
   'add-medication': 'Medication',
-  'remove-medication': 'Removing medication',
   'add-surgical-history': 'Surgical history',
   'add-hospitalization': 'Hospitalization',
   'add-exam-finding': 'Exam finding',
   'add-ros-finding': 'Review of systems',
   'add-diagnosis': 'Diagnosis',
-  'remove-diagnosis': 'Removing diagnosis',
   'add-patient-instruction': 'Patient instruction',
 };
 

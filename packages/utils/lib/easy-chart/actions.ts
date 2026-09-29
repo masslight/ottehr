@@ -2,14 +2,10 @@
 // actions, and deterministic code validates them and writes them through the regular chart endpoints.
 //
 // `RawAction` is the flat shape the model emits; `Action` is the discriminated union the executor runs.
-// `hasRequiredFields()` in registry.ts is the runtime gate between the two.
+// The server checks every action against its registry shape before the client sees it.
 
 import { VitalFieldNames } from '../types/api/chart-data/chart-data.constants';
 import { DispositionType, followUpInOptions } from '../types/api/chart-data/chart-data.types';
-
-/** `plan` authors a note from a narrative; `review` corrects a written note with a narrower vocabulary. */
-export const SURFACES = ['plan', 'review'] as const;
-export type Surface = (typeof SURFACES)[number];
 
 /** Every property an action may carry on the wire, in the order the response schema lists them. */
 export const ACTION_FIELDS = [
@@ -36,7 +32,6 @@ export const ACTION_KINDS = [
   'add-allergy',
   'add-condition',
   'add-medication',
-  'remove-medication',
   'add-surgical-history',
   'add-hospitalization',
   'edit-note-text',
@@ -44,7 +39,6 @@ export const ACTION_KINDS = [
   'add-exam-finding',
   'add-ros-finding',
   'add-diagnosis',
-  'remove-diagnosis',
   'set-em-code',
   'set-disposition',
   'add-patient-instruction',
@@ -141,7 +135,6 @@ export type Action = ActionProvenance &
     | ({ kind: 'add-allergy' } & SearchableAction)
     | ({ kind: 'add-condition'; code?: string } & SearchableAction)
     | ({ kind: 'add-medication'; strength?: string; doseForm?: string } & SearchableAction)
-    | ({ kind: 'remove-medication' } & SearchableAction)
     | ({ kind: 'add-surgical-history' } & SearchableAction)
     | ({ kind: 'add-hospitalization' } & SearchableAction)
     | { kind: 'edit-note-text'; field: NoteTextField; newText: string }
@@ -158,7 +151,6 @@ export type Action = ActionProvenance &
     | ({ kind: 'add-exam-finding' } & SearchableAction)
     | ({ kind: 'add-ros-finding'; finding?: string } & SearchableAction)
     | ({ kind: 'add-diagnosis'; code?: string; isPrimary?: boolean } & SearchableAction)
-    | ({ kind: 'remove-diagnosis' } & SearchableAction)
     | { kind: 'set-em-code'; code: string; display?: string }
     | {
         kind: 'set-disposition';

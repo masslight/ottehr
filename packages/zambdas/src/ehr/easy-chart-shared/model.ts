@@ -1,6 +1,6 @@
-// The structured-output model call behind every Easy Chart endpoint, with per-call token accounting.
-// Not `invokeChatbotVertexAI` from shared/ai: its staggered concurrent attempts outlive a plan-sized
-// generation, so every call was billed two or three times.
+// The structured-output model call behind every Easy Chart endpoint: Gemini, one retry, then Anthropic.
+// Not `invokeChatbotVertexAI` from shared/ai, which has no token accounting, thinking budget, finish-reason
+// handling or second provider.
 // PHI: only the envelope is logged unless EASY_CHART_LOG_RESPONSE is set in the local secrets file.
 
 import { ChatAnthropic } from '@langchain/anthropic';
@@ -9,9 +9,9 @@ import { getOptionalSecret, getSecret, Secrets, SecretsKeys } from 'utils/lib/se
 import { fixAndParseJsonObjectFromString } from 'utils/lib/validation/json-fix';
 import { z } from 'zod';
 
-export const EASY_CHART_PRIMARY_MODEL = 'gemini-3.1-flash-lite';
+const EASY_CHART_PRIMARY_MODEL = 'gemini-3.1-flash-lite';
 /** A different provider, so a provider-wide outage or refusal does not fail the request. */
-export const EASY_CHART_BACKUP_MODEL = 'claude-haiku-4-5-20251001';
+const EASY_CHART_BACKUP_MODEL = 'claude-haiku-4-5-20251001';
 
 const REQUEST_TIMEOUT_MS = 180_000;
 

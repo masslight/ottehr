@@ -2,12 +2,10 @@
 // zambdas validate against, so the client type and the server validation cannot drift apart.
 
 import { z } from 'zod';
-import { NOTE_TEXT_FIELDS, NoteTextField, RawAction } from './actions';
+import { RawAction } from './actions';
 
 /** A whole ambient transcript is a legitimate narrative; anything longer is not one visit. */
 export const MAX_NARRATIVE_CHARS = 120_000;
-/** Per note field, so a caller cannot push the prompt past the model's context on its own. */
-export const MAX_NOTE_FIELD_CHARS = 20_000;
 
 const narrativeText = z
   .string()
@@ -16,18 +14,6 @@ const narrativeText = z
 
 const PatientStatusSchema = z.enum(['new', 'established']);
 export type PatientStatus = z.infer<typeof PatientStatusSchema>;
-
-const noteContextShape = Object.fromEntries(
-  NOTE_TEXT_FIELDS.map((field) => [field, z.string().max(MAX_NOTE_FIELD_CHARS).optional()])
-) as Record<NoteTextField, z.ZodOptional<z.ZodString>>;
-
-/** Free-text note fields by clinical name. Blank fields are dropped; unknown keys never reach a prompt. */
-const NoteContextSchema = z
-  .object(noteContextShape)
-  .transform((context): Partial<Record<NoteTextField, string>> | undefined => {
-    const filled = Object.entries(context).filter(([, text]) => text?.trim());
-    return filled.length > 0 ? Object.fromEntries(filled) : undefined;
-  });
 
 export const ChartPlanRequestSchema = z.object({
   /** The transcript, or the narrative the provider typed when there is no transcript. */
@@ -46,21 +32,6 @@ export const ChartPlanRequestSchema = z.object({
   patientStatus: PatientStatusSchema.optional(),
 });
 export type ChartPlanRequest = z.input<typeof ChartPlanRequestSchema>;
-
-export const ChartReviewRequestSchema = z.object({
-  /** The narrative the note was written from. */
-  narrative: narrativeText,
-  encounterId: z.string().min(1).optional(),
-  patientStatus: PatientStatusSchema.optional(),
-  // Fallbacks for a request with no encounter to read the chart from (the eval harness).
-  chartState: z.string().max(MAX_NARRATIVE_CHARS).optional(),
-  chartedExamFindings: z
-    .array(z.string())
-    .optional()
-    .transform((findings) => findings?.filter((finding) => finding.trim() !== '')),
-  noteContext: NoteContextSchema.optional(),
-});
-export type ChartReviewRequest = z.input<typeof ChartReviewRequestSchema>;
 
 export const ChartNarrativeRequestSchema = z.object({
   transcript: narrativeText,
@@ -145,38 +116,6 @@ export interface RejectedAction {
 
 export interface ChartPlanResponse {
   actions: PlannedAction[];
-  rejected: RejectedAction[];
-  usage: ModelUsage[];
-  escalation: EscalationInfo;
-  triggers: TriggerReport[];
-}
-
-/** The review categories, one per check in the review prompt. */
-export const REVIEW_CATEGORIES = [
-  'med-name',
-  'diagnosis',
-  'pertinent-negative',
-  'em-level',
-  'secondary-dx',
-  'med-reconcile',
-  'disposition',
-  'coherence',
-  'dropped-commitment',
-] as const;
-export type ReviewCategory = (typeof REVIEW_CATEGORIES)[number];
-
-export interface ReviewSuggestion {
-  category: ReviewCategory;
-  question: string;
-  rationale?: string;
-  highlight?: string;
-  partial?: boolean;
-  partialNote?: string;
-  actions: PlannedAction[];
-}
-
-export interface ChartReviewResponse {
-  suggestions: ReviewSuggestion[];
   rejected: RejectedAction[];
   usage: ModelUsage[];
   escalation: EscalationInfo;

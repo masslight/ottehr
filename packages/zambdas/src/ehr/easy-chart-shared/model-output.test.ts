@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { parseModelJson } from './model';
-import { cleanModelText, ModelActionSchema, ModelSuggestionSchema, NarrativeModelResponseSchema } from './model-output';
+import { cleanModelText, ModelActionSchema, NarrativeModelResponseSchema } from './model-output';
 
 describe('parseModelJson', () => {
   const answer = { actions: [{ kind: 'reply', text: 'Done.' }] };
@@ -76,17 +76,6 @@ describe('ModelActionSchema', () => {
   it('refuses an item with no kind', () => {
     expect(ModelActionSchema.safeParse({ display: 'x' }).success).toBe(false);
     expect(ModelActionSchema.safeParse('add-diagnosis').success).toBe(false);
-  });
-});
-
-describe('ModelSuggestionSchema', () => {
-  it('refuses a card with an unknown category or no question', () => {
-    expect(ModelSuggestionSchema.safeParse({ category: 'billing', question: 'q?', actions: [] }).success).toBe(false);
-    expect(ModelSuggestionSchema.safeParse({ category: 'diagnosis', question: ' ', actions: [] }).success).toBe(false);
-  });
-
-  it('treats a missing actions list as empty', () => {
-    expect(ModelSuggestionSchema.parse({ category: 'diagnosis', question: 'More specific code?' }).actions).toEqual([]);
   });
 });
 
