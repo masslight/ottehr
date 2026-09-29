@@ -29,20 +29,18 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     '"STRIPE_CLINICAL_WEBHOOK_SECRET" was not set. Please configure it in project secrets.'
   );
 
+  console.log('Verified Stripe event:', event.id, event.type, 'connected account:', stripeAccount ?? 'none');
+
   switch (event.type) {
     case 'refund.created':
     case 'refund.updated':
     case 'refund.failed': {
       const refund = event.data.object;
-      const chargeId = typeof refund.charge === 'string' ? refund.charge : refund.charge?.id;
-      if (!chargeId) break;
-
-      const stripe = getStripeClient(secrets);
-      const charge = await stripe.charges.retrieve(chargeId, undefined, { stripeAccount });
       const paymentIntentId =
-        typeof charge.payment_intent === 'string' ? charge.payment_intent : charge.payment_intent?.id;
+        typeof refund.payment_intent === 'string' ? refund.payment_intent : refund.payment_intent?.id;
       if (!paymentIntentId) break;
 
+      const stripe = getStripeClient(secrets);
       m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
       const oystehr = createClinicalOystehrClient(m2mToken, secrets);
       const notices = (
@@ -54,7 +52,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       if (notices.length === 0) break;
 
       const refunds: PaymentRefundDTO[] = [];
-      for await (const currentRefund of stripe.refunds.list({ charge: charge.id, limit: 100 }, { stripeAccount })) {
+      for await (const currentRefund of stripe.refunds.list(
+        { payment_intent: paymentIntentId, limit: 100 },
+        { stripeAccount }
+      )) {
         refunds.push(stripeRefundToDTO(currentRefund));
       }
       for (const notice of notices) {
@@ -88,7 +89,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
               o.valueString === invoice.id
           )
       );
-      if (!task?.id || !task.status) {
+      if (!task?.id) {
         console.warn(`No invoice task found for Stripe invoice ${invoice.id} / encounter ${encounterId}`);
         break;
       }

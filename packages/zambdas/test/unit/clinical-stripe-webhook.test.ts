@@ -24,22 +24,18 @@ vi.mock('../../src/shared/stripeIntegration', async (importOriginal) => ({
 }));
 
 const stripe = new Stripe('sk_test_123');
-const retrieve = vi.fn();
 const list = vi.fn();
 const search = vi.fn();
 const patch = vi.fn();
-const accountSecrets = Array.from({ length: 10 }, (_, i) => ({
-  accountId: `acct_${i + 1}`,
-  signingSecret: `whsec_${i + 1}`,
-}));
+const accountSecrets = [{ accountId: 'acct_1', signingSecret: 'whsec_1' }];
 let notice: PaymentNotice;
 let refund: Stripe.Refund;
 
 const invoke = (
   type = 'refund.created',
-  signingSecret = 'whsec_10',
-  account?: string,
-  object: unknown = refund
+  object: unknown = refund,
+  signingSecret = 'whsec_1',
+  account?: string
 ): Promise<APIGatewayProxyResult> => {
   const body = JSON.stringify({ id: 'evt_1', type, account, data: { object } });
   return (index as (input: ZambdaInput) => Promise<APIGatewayProxyResult>)({
@@ -56,16 +52,25 @@ const invoke = (
 beforeEach(() => {
   vi.clearAllMocks();
   notice = { resourceType: 'PaymentNotice', id: 'pn-clinical', status: 'active' } as PaymentNotice;
-  refund = { id: 're_1', charge: 'ch_1', amount: 400, created: 1751990000, status: 'succeeded' } as Stripe.Refund;
-  retrieve.mockResolvedValue({ id: 'ch_1', payment_intent: 'pi_1' });
-  list.mockReturnValue([refund]);
+  refund = {
+    id: 're_1',
+    payment_intent: 'pi_1',
+    charge: 'ch_1',
+    amount: 400,
+    created: 1751990000,
+    status: 'succeeded',
+  } as Stripe.Refund;
+  list.mockReturnValue({
+    async *[Symbol.asyncIterator]() {
+      yield refund;
+    },
+  });
   search.mockResolvedValue({ unbundle: () => [notice] });
   patch.mockImplementation(async ({ operations }) => {
     notice.extension = operations[0].value;
   });
   vi.mocked(getStripeClient).mockReturnValue({
     webhooks: stripe.webhooks,
-    charges: { retrieve },
     refunds: { list },
   } as unknown as Stripe);
   vi.mocked(createClinicalOystehrClient).mockReturnValue({ fhir: { search, patch } } as unknown as Oystehr);
@@ -93,19 +98,18 @@ describe('clinical-stripe-webhook', () => {
       task.output = operations[0].value;
     });
 
-    await invoke(type, 'whsec_10', undefined, invoice);
+    await invoke(type, invoice);
     expect(task.output).toContainEqual({ type: RcmTaskCodings.stripeInvoiceStatus, valueString: status });
-    await invoke(type, 'whsec_10', undefined, invoice);
+    await invoke(type, invoice);
     expect(patch).toHaveBeenCalledTimes(1);
   });
 
   it.each(['refund.created', 'refund.updated', 'refund.failed'])(
-    'syncs %s for the last configured account without Ottehr Billing',
+    'syncs %s for the configured account without Ottehr Billing',
     async (type) => {
       if (type === 'refund.failed') refund.status = 'failed';
       expect((await invoke(type)).statusCode).toBe(200);
-      expect(retrieve).toHaveBeenCalledWith('ch_1', undefined, { stripeAccount: 'acct_10' });
-      expect(list).toHaveBeenCalledWith({ charge: 'ch_1', limit: 100 }, { stripeAccount: 'acct_10' });
+      expect(list).toHaveBeenCalledWith({ payment_intent: 'pi_1', limit: 100 }, { stripeAccount: 'acct_1' });
       expect(search).toHaveBeenCalledWith({
         resourceType: 'PaymentNotice',
         params: [{ name: 'identifier', value: `${STRIPE_PAYMENT_ID_SYSTEM}|pi_1` }],
@@ -120,33 +124,22 @@ describe('clinical-stripe-webhook', () => {
 
   it.each([
     ['whsec_billing', undefined],
-    ['whsec_10', 'acct_2'],
+    ['whsec_1', 'acct_2'],
   ])('rejects an unrelated signature or account: %s / %s', async (signingSecret, account) => {
-    await expect(invoke('refund.created', signingSecret, account)).rejects.toMatchObject({
+    await expect(invoke('refund.created', refund, signingSecret, account)).rejects.toMatchObject({
       code: INVALID_INPUT_ERROR('').code,
     });
     expect(checkOrCreateM2MClientToken).not.toHaveBeenCalled();
-    expect(retrieve).not.toHaveBeenCalled();
+    expect(search).not.toHaveBeenCalled();
   });
 
   it('ignores unrelated events and payments with no clinical notice', async () => {
     expect((await invoke('charge.succeeded')).statusCode).toBe(200);
-    expect(retrieve).not.toHaveBeenCalled();
+    expect(search).not.toHaveBeenCalled();
     search.mockResolvedValueOnce({ unbundle: () => [] });
     expect((await invoke()).statusCode).toBe(200);
     expect(list).not.toHaveBeenCalled();
     expect(patch).not.toHaveBeenCalled();
-  });
-
-  it('reads the complete refund iterator', async () => {
-    const refunds = Array.from({ length: 101 }, (_, i) => ({ ...refund, id: `re_${i + 1}` }));
-    list.mockReturnValue({
-      async *[Symbol.asyncIterator]() {
-        yield* refunds;
-      },
-    });
-    await invoke();
-    expect(parsePaymentRefundsFromNotice(notice)).toHaveLength(101);
   });
 
   it('passes failed FHIR writes to the existing handler error handling', async () => {

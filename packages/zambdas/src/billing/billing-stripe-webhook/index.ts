@@ -329,7 +329,6 @@ const upsertPaymentNoticeForRefund = async (
 
   await persistPaymentNoticeUpsert(oystehr, desiredNotice, refund.id, claim, encounterId);
 
-  // Update refund state on the original billing payment notices.
   await markBillingNoticesForRefundedCharge(oystehr, charge, stripeAccount, secrets);
 };
 
