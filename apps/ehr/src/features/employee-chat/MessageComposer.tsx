@@ -1,6 +1,6 @@
 import SendIcon from '@mui/icons-material/Send';
 import { Box, IconButton, TextField } from '@mui/material';
-import { FC, KeyboardEvent, useState } from 'react';
+import { FC, KeyboardEvent, useEffect, useRef, useState } from 'react';
 
 export const MAX_MESSAGE_LENGTH = 4000;
 const COUNTER_THRESHOLD = 3500;
@@ -8,14 +8,24 @@ const COUNTER_THRESHOLD = 3500;
 interface MessageComposerProps {
   disabled: boolean;
   onSend: (body: string) => Promise<void>;
+  focusWhenEnabled?: boolean;
+  onFocusHandled?: () => void;
 }
 
-export const MessageComposer: FC<MessageComposerProps> = ({ disabled, onSend }) => {
+export const MessageComposer: FC<MessageComposerProps> = ({ disabled, onSend, focusWhenEnabled, onFocusHandled }) => {
+  const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | undefined>(undefined);
   const body = text.trim();
   const canSend = !disabled && !sending && body !== '' && text.length <= MAX_MESSAGE_LENGTH;
+
+  useEffect(() => {
+    if (!focusWhenEnabled || disabled) return;
+    onFocusHandled?.();
+    const active = document.activeElement;
+    if (!(active instanceof HTMLElement) || active.tabIndex < 0) inputRef.current?.focus();
+  }, [focusWhenEnabled, disabled, onFocusHandled]);
 
   const send = async (): Promise<void> => {
     if (!canSend) return;
@@ -58,6 +68,7 @@ export const MessageComposer: FC<MessageComposerProps> = ({ disabled, onSend }) 
           if (error) setError(undefined);
         }}
         onKeyDown={handleKeyDown}
+        inputRef={inputRef}
         inputProps={{ 'data-testid': 'employee-chat-input' }}
       />
       <IconButton color="primary" aria-label="Send message" disabled={!canSend} onClick={() => void send()}>

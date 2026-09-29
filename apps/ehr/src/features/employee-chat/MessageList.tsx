@@ -14,6 +14,7 @@ interface MessageListProps {
   messages: ChatMessage[];
   otherName: string;
   loading: boolean;
+  loadFailed: boolean;
   hasOlderMessages: boolean;
   loadingOlder: boolean;
   entryId: number | undefined;
@@ -46,6 +47,7 @@ export const MessageList: FC<MessageListProps> = ({
   messages,
   otherName,
   loading,
+  loadFailed,
   hasOlderMessages,
   loadingOlder,
   entryId,
@@ -147,7 +149,7 @@ export const MessageList: FC<MessageListProps> = ({
           New messages start further up
         </Typography>
       )}
-      {!loading && messages.length === 0 && (
+      {!loading && !loadFailed && messages.length === 0 && (
         <Typography color="text.secondary" sx={{ textAlign: 'center', mt: 4 }}>
           No messages yet
         </Typography>

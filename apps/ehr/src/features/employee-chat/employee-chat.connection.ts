@@ -15,6 +15,7 @@ export const INITIAL_PAGE_SIZE = 50;
 export const UNREAD_PRELOAD_CAP = 200;
 const PREVIEW_CONCURRENCY = 5;
 const JOIN_TIMEOUT_MS = 5000;
+const UNKNOWN_SID_REFRESH_LIMIT = 2;
 
 let client: Client | undefined;
 let oystehrZambda: Oystehr | undefined;
@@ -28,7 +29,7 @@ const conversationsBySid = new Map<string, Conversation>();
 const summariesBySid = new Map<string, EmployeeChatSummary>();
 const joinWaiters = new Map<string, (conversation: Conversation) => void>();
 const previewsRequested = new Set<string>();
-const unknownSidsRefreshed = new Set<string>();
+const unknownSidRefreshes = new Map<string, number>();
 const pendingReadIndex = new Map<string, number>();
 
 const setState = useEmployeeChatStore.setState;
@@ -88,9 +89,10 @@ function syncChat(sid: string): void {
 }
 
 function refreshForUnknownConversation(sid: string): void {
-  if (summariesBySid.has(sid) || unknownSidsRefreshed.has(sid)) return;
-  unknownSidsRefreshed.add(sid);
-  void refreshChatList();
+  const attempts = unknownSidRefreshes.get(sid) ?? 0;
+  if (summariesBySid.has(sid) || attempts >= UNKNOWN_SID_REFRESH_LIMIT) return;
+  unknownSidRefreshes.set(sid, attempts + 1);
+  void (chatListRefresh ?? Promise.resolve()).then(refreshChatList);
 }
 
 function applySummaries(summaries: EmployeeChatSummary[]): void {
@@ -130,7 +132,7 @@ export function refreshChatList(): Promise<void> {
 
 async function advanceReadHorizon(sid: string, index: number): Promise<void> {
   const conversation = conversationsBySid.get(sid);
-  if (!conversation) return;
+  if (!conversation || conversation.status !== 'joined' || conversation.state?.current === 'closed') return;
   const known = maxIndex(getState().chats[sid]?.lastReadIndex, pendingReadIndex.get(sid));
   if (known !== undefined && index <= known) return;
   const myEpoch = epoch;
@@ -334,7 +336,7 @@ export function disconnectEmployeeChat(): void {
   summariesBySid.clear();
   joinWaiters.clear();
   previewsRequested.clear();
-  unknownSidsRefreshed.clear();
+  unknownSidRefreshes.clear();
   pendingReadIndex.clear();
   setState({ ...initialEmployeeChatState });
 }
@@ -369,10 +371,16 @@ function newEntry(
 }
 
 export function openEmployeeChatDrawer(): void {
-  const { view, activeSid, messages, hasOlderMessages, loadingMessages } = getState();
+  const { view, activeSid, messages, hasOlderMessages, loadingMessages, openError } = getState();
+  if (view === 'conversation' && activeSid !== undefined && openError) {
+    setState({ drawerOpen: true });
+    void openConversation(activeSid);
+    return;
+  }
   const reentering = view === 'conversation' && activeSid !== undefined && !loadingMessages;
   setState({
     drawerOpen: true,
+    openError: undefined,
     unreadEntry: reentering ? newEntry(activeSid, messages, hasOlderMessages, readHorizon(activeSid)) : undefined,
   });
 }
@@ -392,6 +400,7 @@ export function showChatList(): void {
     loadingOlder: false,
     unreadEntry: undefined,
     pendingEmployee: undefined,
+    openError: undefined,
   });
 }
 

@@ -1,7 +1,7 @@
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CloseIcon from '@mui/icons-material/Close';
 import { Alert, Box, Button, CircularProgress, Divider, Drawer, IconButton, Stack, Typography } from '@mui/material';
-import { FC, useEffect, useMemo } from 'react';
+import { FC, useCallback, useEffect, useMemo, useState } from 'react';
 import { adjustTopForBannerHeight } from 'src/helpers/misc.helper';
 import { ChatList } from './ChatList';
 import {
@@ -46,6 +46,12 @@ export const EmployeeChatDrawer: FC = () => {
   const headerEmployee = activeChat?.otherEmployee ?? pendingEmployee;
   const connected = status === 'connected';
   const chatSidsKey = Object.keys(chats).sort().join(',');
+  const [focusComposerWhenReady, setFocusComposerWhenReady] = useState(false);
+  const clearComposerFocusRequest = useCallback(() => setFocusComposerWhenReady(false), []);
+
+  useEffect(() => {
+    if (view === 'list' || !drawerOpen) setFocusComposerWhenReady(false);
+  }, [view, drawerOpen, focusComposerWhenReady]);
 
   useEffect(() => {
     if (drawerOpen && view === 'list' && connected) {
@@ -120,7 +126,10 @@ export const EmployeeChatDrawer: FC = () => {
               employees={employees ?? []}
               loading={employeesLoading}
               disabled={!connected}
-              onSelect={(employee) => void openChatWithEmployee(employee)}
+              onSelect={(employee) => {
+                void openChatWithEmployee(employee);
+                setFocusComposerWhenReady(true);
+              }}
             />
           </Box>
           <ChatList chats={listItems} onOpen={(sid) => void openConversation(sid)} />
@@ -137,6 +146,7 @@ export const EmployeeChatDrawer: FC = () => {
             unreadAbove={unreadEntry?.sid === activeSid && unreadEntry?.unreadAbove === true}
             otherName={activeChat?.otherEmployee.name ?? ''}
             loading={loadingMessages}
+            loadFailed={openError !== undefined}
             hasOlderMessages={hasOlderMessages}
             loadingOlder={loadingOlder}
             onLoadOlder={() => void loadOlderMessages()}
@@ -145,7 +155,13 @@ export const EmployeeChatDrawer: FC = () => {
           />
           <Divider />
           <Box sx={{ p: 2 }}>
-            <MessageComposer key={activeSid} disabled={!connected || loadingMessages} onSend={sendChatMessage} />
+            <MessageComposer
+              key={activeSid}
+              disabled={!connected || loadingMessages}
+              onSend={sendChatMessage}
+              focusWhenEnabled={focusComposerWhenReady}
+              onFocusHandled={clearComposerFocusRequest}
+            />
           </Box>
         </>
       )}

@@ -49,6 +49,14 @@ const twilio = vi.hoisted(() => {
     messages: FakeMessage[] = [];
     lastReadMessageIndex: number | null = null;
     failNextSend = false;
+    status: 'joined' | 'notParticipating' = 'joined';
+    state: { current: 'active' | 'inactive' | 'closed' } = { current: 'active' };
+
+    close(): void {
+      this.status = 'notParticipating';
+      this.state = { current: 'closed' };
+      this.lastReadMessageIndex = null;
+    }
 
     constructor(
       public sid: string,
@@ -132,6 +140,12 @@ const twilio = vi.hoisted(() => {
 
     async advanceLastReadMessageIndex(index: number): Promise<number> {
       this.advanceCalls.push(index);
+      if (this.state.current === 'closed') {
+        throw Object.assign(new Error('Bad Request'), {
+          status: 400,
+          body: { status: 400, code: 50377, message: "Can't update conversation as it's in final closed state" },
+        });
+      }
       this.lastReadMessageIndex = Math.max(this.lastReadMessageIndex ?? -1, index);
       return this.messages.filter((message) => message.index > this.lastReadMessageIndex!).length;
     }
@@ -529,6 +543,53 @@ describe('employee chat flows', () => {
     return bob;
   };
 
+  it('does not advance the read horizon of a closed conversation opened from search', async () => {
+    mockLayout(() => 2);
+    mockAttention(() => true);
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    let fakeClient: any;
+    await connectWith((client) => {
+      fakeClient = client;
+      client.addConversation('CH-bob');
+    });
+    const carol = fakeClient.addConversation('CH-carol');
+    carol.seed(3, 'carol-identity');
+    carol.close();
+    mockOpenEmployeeChat.mockResolvedValue({ conversation: { conversationSid: 'CH-carol', otherEmployee: CAROL } });
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    renderChat();
+    act(() => openEmployeeChatDrawer());
+
+    await act(async () => {
+      const opening = openChatWithEmployee(CAROL);
+      await Promise.resolve();
+      fakeClient.emit('conversationAdded', carol);
+      await opening;
+    });
+    expect(useEmployeeChatStore.getState().activeSid).toBe('CH-carol');
+    await advance(SEEN_DWELL_MS);
+
+    expect(carol.advanceCalls).toEqual([]);
+    expect(consoleError).not.toHaveBeenCalledWith('employee chat advance read horizon failed', expect.anything());
+  });
+
+  it('stops advancing the read horizon once the open conversation is closed or left', async () => {
+    mockLayout(() => 9);
+    mockAttention(() => true);
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const bob = await openBobWithUnread(10);
+
+    act(() => {
+      bob.close();
+      twilio.client!.emit('conversationLeft', bob);
+      twilio.client!.emit('conversationRemoved', bob);
+    });
+    await advance(SEEN_DWELL_MS);
+
+    expect(bob.advanceCalls).toEqual([]);
+    expect(consoleError).not.toHaveBeenCalledWith('employee chat advance read horizon failed', expect.anything());
+  });
+
   it('marks messages seen only after their bottom edge stays in view for the dwell time', async () => {
     let visibleThrough = 5;
     mockLayout(() => visibleThrough);
@@ -703,7 +764,6 @@ describe('employee chat flows', () => {
     await advance(SEEN_DWELL_MS);
 
     fireEvent.click(screen.getByRole('button', { name: 'Back to chats' }));
-    expect(useEmployeeChatStore.getState().unreadEntry).toBeUndefined();
 
     await open('CH-bob');
     expect(newDivider()).toBeNull();
@@ -727,7 +787,6 @@ describe('employee chat flows', () => {
     expect(bob.lastReadMessageIndex).toBe(19);
 
     act(() => closeEmployeeChatDrawer());
-    expect(useEmployeeChatStore.getState().unreadEntry).toBeUndefined();
     await act(async () => {
       bob.receive('bob-identity', 'sent while the drawer was closed');
     });
@@ -735,7 +794,6 @@ describe('employee chat flows', () => {
     expect(bob.lastReadMessageIndex).toBe(19);
 
     act(() => openEmployeeChatDrawer());
-    expect(useEmployeeChatStore.getState().unreadEntry).toMatchObject({ sid: 'CH-bob', dividerIndex: 20 });
     expect(messageAfterDivider()).toBe('20');
   });
 
@@ -774,8 +832,8 @@ describe('employee chat flows', () => {
       await bobOpen;
     });
 
-    expect(useEmployeeChatStore.getState().activeSid).toBe('CH-carol');
-    expect(useEmployeeChatStore.getState().unreadEntry).toMatchObject({ sid: 'CH-carol', dividerIndex: undefined });
+    expect(screen.getByRole('heading', { name: 'Carol Diaz' })).toBeInTheDocument();
+    expect(screen.getAllByTestId('employee-chat-message')).toHaveLength(5);
     expect(newDivider()).toBeNull();
   });
 
@@ -789,13 +847,12 @@ describe('employee chat flows', () => {
     await open('CH-carol');
     bob.lastReadMessageIndex = 14;
     await open('CH-bob');
-    expect(useEmployeeChatStore.getState().unreadEntry).toMatchObject({ sid: 'CH-bob', dividerIndex: 15 });
+    expect(messageAfterDivider()).toBe('15');
 
     release();
     await act(async () => {
       await staleOpen;
     });
-    expect(useEmployeeChatStore.getState().unreadEntry).toMatchObject({ sid: 'CH-bob', dividerIndex: 15 });
     expect(messageAfterDivider()).toBe('15');
   });
 
@@ -814,7 +871,9 @@ describe('employee chat flows', () => {
   };
 
   const unreadAboveMarker = (): HTMLElement | null => screen.queryByTestId('employee-chat-unread-above');
-  const loadedIndexes = (): number[] => useEmployeeChatStore.getState().messages.map((m) => m.index);
+  const loadedIndexes = (): number[] =>
+    screen.queryAllByTestId('employee-chat-message').map((element) => Number(element.dataset.messageIndex));
+  const loadEarlierButton = (): HTMLElement | null => screen.queryByRole('button', { name: 'Load earlier messages' });
 
   it('preloads older pages until the first unread message is loaded', async () => {
     mockScrollLayout();
@@ -824,7 +883,7 @@ describe('employee chat flows', () => {
 
     expect(loadedIndexes()[0]).toBe(20);
     expect(loadedIndexes()).toHaveLength(100);
-    expect(useEmployeeChatStore.getState().hasOlderMessages).toBe(true);
+    expect(loadEarlierButton()).not.toBeNull();
     expect(messageAfterDivider()).toBe('31');
     expect(unreadAboveMarker()).toBeNull();
   });
@@ -850,7 +909,7 @@ describe('employee chat flows', () => {
     mockAttention(() => true);
     const bob = await connectBobWithHistory(300, 10);
     await open('CH-bob');
-    const entryId = useEmployeeChatStore.getState().unreadEntry?.id;
+    expect(layout.scrollTop()).toBe(0);
 
     await act(async () => {
       await loadOlderMessages();
@@ -858,21 +917,19 @@ describe('employee chat flows', () => {
     expect(loadedIndexes()[0]).toBe(50);
     expect(unreadAboveMarker()).not.toBeNull();
     expect(newDivider()).toBeNull();
+    expect(layout.scrollTop()).toBe(50 * MESSAGE_HEIGHT);
 
-    const scrollTopBefore = layout.scrollTop();
     await act(async () => {
       await loadOlderMessages();
     });
     expect(loadedIndexes()[0]).toBe(0);
     expect(unreadAboveMarker()).toBeNull();
     expect(messageAfterDivider()).toBe('11');
-    expect(useEmployeeChatStore.getState().unreadEntry?.id).toBe(entryId);
-    expect(layout.scrollTop()).toBeGreaterThan(scrollTopBefore);
+    expect(layout.scrollTop()).toBe(100 * MESSAGE_HEIGHT + DIVIDER_HEIGHT);
 
     fireEvent.scroll(screen.getByTestId(MESSAGES_TEST_ID));
     await advance(SEEN_DWELL_MS);
-    expect(bob.advanceCalls).toHaveLength(1);
-    expect(bob.advanceCalls[0]).toBeGreaterThan(10);
+    expect(bob.advanceCalls).toEqual([105]);
   });
 
   it('preloads the capped window for a conversation that has never been read', async () => {
@@ -912,7 +969,6 @@ describe('employee chat flows', () => {
     const staleOlder = loadOlderMessages();
     fireEvent.click(screen.getByRole('button', { name: 'Back to chats' }));
     await open('CH-bob');
-    const freshEntry = useEmployeeChatStore.getState().unreadEntry;
 
     release();
     await act(async () => {
@@ -920,7 +976,6 @@ describe('employee chat flows', () => {
     });
     expect(loadedIndexes()[0]).toBe(100);
     expect(loadedIndexes()).toHaveLength(UNREAD_PRELOAD_CAP);
-    expect(useEmployeeChatStore.getState().unreadEntry).toEqual(freshEntry);
     expect(unreadAboveMarker()).not.toBeNull();
 
     await act(async () => {
@@ -1073,10 +1128,76 @@ describe('employee chat flows', () => {
     expect(within(items[1]).getByText('You: see you')).toBeInTheDocument();
   });
 
-  it('opens a conversation with the latest 50 messages without marking it read, and pages older without duplicates', async () => {
-    let bob: any;
+  it.each([
+    ['after the first refresh finished', false],
+    ['while the first refresh is still in flight', true],
+  ])('discovers a DM someone else started when its first message arrives %s', async (_case, firstRefreshInFlight) => {
+    let fakeClient: any;
     await connectWith((client) => {
-      bob = client.addConversation('CH-bob');
+      fakeClient = client;
+      client.addConversation('CH-bob');
+      client.addConversation('CH-carol');
+    });
+    renderChat();
+    act(() => openEmployeeChatDrawer());
+    expect(unreadDot()).toHaveClass('MuiBadge-invisible');
+
+    const known = [
+      { conversationSid: 'CH-bob', otherEmployee: BOB },
+      { conversationSid: 'CH-carol', otherEmployee: CAROL },
+    ];
+    let finishFirstRefresh = (): void => {};
+    mockGetEmployeeChats.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishFirstRefresh = () => resolve({ token: 'token', conversations: known });
+          if (!firstRefreshInFlight) finishFirstRefresh();
+        })
+    );
+    const dan = fakeClient.addConversation('CH-dan');
+    await act(async () => {
+      fakeClient.emit('conversationJoined', dan);
+    });
+    expect(screen.queryByText('Dan Evans')).not.toBeInTheDocument();
+
+    mockGetEmployeeChats.mockResolvedValue({
+      token: 'token',
+      conversations: [...known, { conversationSid: 'CH-dan', otherEmployee: DAN }],
+    });
+    await act(async () => {
+      dan.receive('dan-identity', 'hi, are you free?');
+    });
+    await act(async () => {
+      finishFirstRefresh();
+    });
+
+    await waitFor(() => expect(within(chatRow('Dan Evans')).getByText('hi, are you free?')).toBeInTheDocument());
+    expect(rowUnreadDot('Dan Evans')).toBeInTheDocument();
+    expect(unreadDot()).not.toHaveClass('MuiBadge-invisible');
+    expect(mockGetEmployeeChats).toHaveBeenCalledTimes(3);
+  });
+
+  it('does not refresh the chat list on every message of a conversation that never becomes an employee chat', async () => {
+    let legacy: any;
+    await connectWith((client) => {
+      client.addConversation('CH-bob');
+      client.addConversation('CH-carol');
+      legacy = client.addConversation('CH-legacy-team-chat');
+    });
+    renderChat();
+
+    for (let i = 0; i < 10; i++) {
+      await act(async () => {
+        legacy.receive('someone', `team update ${i}`);
+      });
+    }
+
+    expect(mockGetEmployeeChats.mock.calls.length).toBeLessThanOrEqual(3);
+  });
+
+  it('opens a conversation with the latest 50 messages and pages older history without duplicates', async () => {
+    await connectWith((client) => {
+      const bob = client.addConversation('CH-bob');
       bob.seed(60, 'bob-identity');
       bob.lastReadMessageIndex = 20;
       client.addConversation('CH-carol');
@@ -1087,21 +1208,19 @@ describe('employee chat flows', () => {
     await act(async () => {
       await openConversation('CH-bob');
     });
-    expect(screen.getAllByTestId('employee-chat-message')).toHaveLength(50);
-    expect(unreadDot()).not.toHaveClass('MuiBadge-invisible');
-    expect(bob.lastReadMessageIndex).toBe(20);
-    expect(bob.advanceCalls).toEqual([]);
+    const renderedIndexes = (): number[] =>
+      screen.getAllByTestId('employee-chat-message').map((element) => Number(element.dataset.messageIndex));
+    expect(renderedIndexes()).toEqual(Array.from({ length: 50 }, (_, i) => i + 10));
+    expect(screen.getByRole('button', { name: 'Load earlier messages' })).toBeInTheDocument();
 
     await act(async () => {
       await loadOlderMessages();
     });
-    const indexes = useEmployeeChatStore.getState().messages.map((m) => m.index);
-    expect(indexes).toHaveLength(60);
-    expect(new Set(indexes).size).toBe(60);
-    expect(useEmployeeChatStore.getState().hasOlderMessages).toBe(false);
+    expect(renderedIndexes()).toEqual(Array.from({ length: 60 }, (_, i) => i));
+    expect(screen.queryByRole('button', { name: 'Load earlier messages' })).not.toBeInTheDocument();
   });
 
-  it('appends realtime messages to the open conversation without marking them read', async () => {
+  it('appends realtime messages to the open conversation and routes other conversations to their list row', async () => {
     let bob: any;
     let carol: any;
     await connectWith((client) => {
@@ -1115,40 +1234,20 @@ describe('employee chat flows', () => {
     await act(async () => {
       await openConversation('CH-bob');
     });
-    expect(unreadDot()).toHaveClass('MuiBadge-invisible');
 
     await act(async () => {
       bob.receive('bob-identity', 'are you there?');
     });
     expect(screen.getByText('are you there?')).toBeInTheDocument();
-    expect(bob.lastReadMessageIndex).toBe(0);
-    expect(unreadDot()).not.toHaveClass('MuiBadge-invisible');
 
     await act(async () => {
       carol.receive('carol-identity', 'ping from carol');
     });
     expect(screen.queryByText('ping from carol')).not.toBeInTheDocument();
-    expect(useEmployeeChatStore.getState().chats['CH-carol'].lastMessageIndex).toBe(0);
-    expect(carol.lastReadMessageIndex).toBeNull();
-  });
 
-  it('does not mark the active conversation read when the drawer is reopened', async () => {
-    let bob: any;
-    await connectWith((client) => {
-      bob = client.addConversation('CH-bob');
-      bob.seed(3, 'bob-identity');
-      client.addConversation('CH-carol');
-    });
-    renderChat();
-    act(() => openEmployeeChatDrawer());
-    await act(async () => {
-      await openConversation('CH-bob');
-    });
-    act(() => closeEmployeeChatDrawer());
-    act(() => openEmployeeChatDrawer());
-
-    expect(bob.advanceCalls).toEqual([]);
-    expect(unreadDot()).not.toHaveClass('MuiBadge-invisible');
+    fireEvent.click(screen.getByRole('button', { name: 'Back to chats' }));
+    await waitFor(() => expect(within(chatRow('Carol Diaz')).getByText('ping from carol')).toBeInTheDocument());
+    expect(rowUnreadDot('Carol Diaz')).toBeInTheDocument();
   });
 
   it('marks the conversation read through my sent message, including earlier unread messages', async () => {
@@ -1214,7 +1313,6 @@ describe('employee chat flows', () => {
     });
     expect(await screen.findByText('hello bob')).toBeInTheDocument();
     expect(input.value).toBe('');
-    expect(unreadDot()).toHaveClass('MuiBadge-invisible');
 
     bob.failNextSend = true;
     fireEvent.change(input, { target: { value: 'will fail' } });
@@ -1223,34 +1321,6 @@ describe('employee chat flows', () => {
     });
     expect(input.value).toBe('will fail');
     expect(screen.getByText('Message not sent. Please try again.')).toBeInTheDocument();
-  });
-
-  it('starts a new conversation from employee search', async () => {
-    let fakeClient: any;
-    await connectWith((client) => {
-      fakeClient = client;
-      client.addConversation('CH-bob');
-      client.addConversation('CH-carol');
-    });
-    mockOpenEmployeeChat.mockImplementation(async () => {
-      const conversation = fakeClient.addConversation('CH-dan');
-      setTimeout(() => fakeClient.emit('conversationJoined', conversation), 0);
-      return { conversation: { conversationSid: 'CH-dan', otherEmployee: DAN } };
-    });
-    renderChat();
-    act(() => openEmployeeChatDrawer());
-
-    const search = await screen.findByTestId('employee-chat-search');
-    fireEvent.change(search, { target: { value: 'Dan' } });
-    const option = await screen.findByRole('option', { name: /Dan Evans/ });
-    await act(async () => {
-      fireEvent.click(option);
-    });
-
-    await waitFor(() => expect(useEmployeeChatStore.getState().activeSid).toBe('CH-dan'));
-    expect(mockOpenEmployeeChat).toHaveBeenCalledWith(expect.anything(), { targetProfile: DAN.profile });
-    expect(screen.getByText('No messages yet')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Dan Evans' })).toBeInTheDocument();
   });
 
   const selectFromSearch = async (query: string, name: RegExp): Promise<void> => {
@@ -1274,7 +1344,7 @@ describe('employee chat flows', () => {
     return handles;
   };
 
-  it('moves straight into the DM view with a loading state while the conversation is being created', async () => {
+  it('starts a new DM from search: loading state until the conversation is joined, then focuses the composer', async () => {
     let fakeClient: any;
     await connectWith((client) => {
       fakeClient = client;
@@ -1291,21 +1361,52 @@ describe('employee chat flows', () => {
     expect(screen.queryByTestId('employee-chat-search')).not.toBeInTheDocument();
     expect(within(screen.getByTestId('employee-chat-messages')).getByRole('progressbar')).toBeInTheDocument();
     expect(screen.getByTestId('employee-chat-input')).toBeDisabled();
+    expect(screen.getByTestId('employee-chat-input')).not.toHaveFocus();
     expect(useEmployeeChatStore.getState().activeSid).toBeUndefined();
+    expect(mockOpenEmployeeChat).toHaveBeenCalledWith(expect.anything(), { targetProfile: DAN.profile });
+
+    await act(async () => {
+      pending.resolve({ conversation: { conversationSid: 'CH-dan', otherEmployee: DAN } });
+    });
+    expect(within(screen.getByTestId('employee-chat-messages')).getByRole('progressbar')).toBeInTheDocument();
+    expect(screen.getByTestId('employee-chat-input')).toBeDisabled();
 
     await act(async () => {
       fakeClient.emit('conversationJoined', fakeClient.addConversation('CH-dan'));
-      pending.resolve({ conversation: { conversationSid: 'CH-dan', otherEmployee: DAN } });
     });
 
     await waitFor(() => expect(useEmployeeChatStore.getState().activeSid).toBe('CH-dan'));
     expect(screen.getByText('No messages yet')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Dan Evans' })).toBeInTheDocument();
     expect(screen.getByTestId('employee-chat-input')).not.toBeDisabled();
+    await waitFor(() => expect(screen.getByTestId('employee-chat-input')).toHaveFocus());
     expect(useEmployeeChatStore.getState().pendingEmployee).toBeUndefined();
   });
 
-  it('returns to the chat list with the existing error when creating the conversation fails', async () => {
+  it('does not take focus back from a control I moved to while the DM was being created', async () => {
+    let fakeClient: any;
+    await connectWith((client) => {
+      fakeClient = client;
+      client.addConversation('CH-bob');
+      client.addConversation('CH-carol');
+    });
+    const pending = deferOpenEmployeeChat();
+    renderChat();
+    act(() => openEmployeeChatDrawer());
+    await selectFromSearch('Dan', /Dan Evans/);
+
+    const closeButton = screen.getByRole('button', { name: 'Close chats' });
+    act(() => closeButton.focus());
+    await act(async () => {
+      fakeClient.emit('conversationJoined', fakeClient.addConversation('CH-dan'));
+      pending.resolve({ conversation: { conversationSid: 'CH-dan', otherEmployee: DAN } });
+    });
+
+    await waitFor(() => expect(screen.getByTestId('employee-chat-input')).not.toBeDisabled());
+    expect(closeButton).toHaveFocus();
+  });
+
+  it('returns to the chat list with the existing error when creating the conversation fails, and clears it when the drawer is reopened', async () => {
     await connectWith((client) => {
       client.addConversation('CH-bob');
       client.addConversation('CH-carol');
@@ -1324,9 +1425,67 @@ describe('employee chat flows', () => {
     expect(screen.getByText('Could not open the chat. Please try again.')).toBeInTheDocument();
     expect(screen.getByTestId('employee-chat-search')).toBeInTheDocument();
     expect(useEmployeeChatStore.getState().pendingEmployee).toBeUndefined();
+
+    act(() => closeEmployeeChatDrawer());
+    act(() => openEmployeeChatDrawer());
+    expect(screen.queryByText('Could not open the chat. Please try again.')).not.toBeInTheDocument();
   });
 
-  it('does not pull me back into a DM I left while it was being created', async () => {
+  it('clears a failed conversation load error when going back to the chat list', async () => {
+    let bob: any;
+    await connectWith((client) => {
+      bob = client.addConversation('CH-bob');
+      client.addConversation('CH-carol');
+    });
+    vi.spyOn(bob, 'getMessages').mockRejectedValueOnce(new Error('network down'));
+    renderChat();
+    act(() => openEmployeeChatDrawer());
+    await act(async () => {
+      await openConversation('CH-bob');
+    });
+    expect(screen.getByText('Could not load messages')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Back to chats' }));
+
+    expect(screen.getByRole('heading', { name: 'Chats' })).toBeInTheDocument();
+    expect(screen.queryByText('Could not load messages')).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ['shows the conversation when the retry succeeds', false],
+    ['shows the error again when the retry fails', true],
+  ])('retries a failed conversation load when the drawer is reopened and %s', async (_case, retryFails) => {
+    let bob: any;
+    await connectWith((client) => {
+      bob = client.addConversation('CH-bob');
+      bob.seed(3, 'bob-identity');
+      client.addConversation('CH-carol');
+    });
+    renderChat();
+    act(() => openEmployeeChatDrawer());
+    await screen.findByText('message 2');
+    const getMessages = vi.spyOn(bob, 'getMessages').mockRejectedValueOnce(new Error('network down'));
+    await open('CH-bob');
+    expect(screen.getByText('Could not load messages')).toBeInTheDocument();
+    expect(screen.queryByText('No messages yet')).not.toBeInTheDocument();
+
+    act(() => closeEmployeeChatDrawer());
+    if (retryFails) getMessages.mockRejectedValueOnce(new Error('still down'));
+    await act(async () => {
+      openEmployeeChatDrawer();
+    });
+
+    expect(getMessages).toHaveBeenCalledTimes(2);
+    expect(screen.queryByText('No messages yet')).not.toBeInTheDocument();
+    if (retryFails) {
+      expect(screen.getByText('Could not load messages')).toBeInTheDocument();
+    } else {
+      expect(screen.queryByText('Could not load messages')).not.toBeInTheDocument();
+      expect(screen.getAllByTestId('employee-chat-message')).toHaveLength(3);
+    }
+  });
+
+  it('does not pull me back into a DM I left while it was being created, or move focus into the next chat I open', async () => {
     let fakeClient: any;
     await connectWith((client) => {
       fakeClient = client;
@@ -1348,6 +1507,12 @@ describe('employee chat flows', () => {
     expect(useEmployeeChatStore.getState().activeSid).toBeUndefined();
     expect(screen.getByRole('heading', { name: 'Chats' })).toBeInTheDocument();
     expect(useEmployeeChatStore.getState().chats['CH-dan']?.otherEmployee.profile).toBe(DAN.profile);
+
+    await act(async () => {
+      await openConversation('CH-bob');
+    });
+    expect(screen.getByTestId('employee-chat-input')).not.toBeDisabled();
+    expect(screen.getByTestId('employee-chat-input')).not.toHaveFocus();
   });
 
   it('opens an existing DM from search without creating a conversation', async () => {
@@ -1379,18 +1544,6 @@ describe('employee chat flows', () => {
     await screen.findByRole('option', { name: /Dan Evans/ });
     expect(screen.queryByRole('option', { name: /Me Self/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('option', { name: /Gone Away/ })).not.toBeInTheDocument();
-  });
-
-  it('reuses the existing conversation when selecting someone I already chat with', async () => {
-    await connectWith((client) => {
-      client.addConversation('CH-bob').seed(1, 'bob-identity');
-      client.addConversation('CH-carol');
-    });
-    await act(async () => {
-      await openChatWithEmployee(BOB);
-    });
-    expect(mockOpenEmployeeChat).not.toHaveBeenCalled();
-    expect(useEmployeeChatStore.getState().activeSid).toBe('CH-bob');
   });
 
   it('clears the row dot when the read horizon advances from another session and restores it on a new message', async () => {
