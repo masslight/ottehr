@@ -331,17 +331,22 @@ function fromStars(info: Info, name: string, stack: string[]): Origin {
 }
 
 /**
- * The directory a deleted barrel covered, for a workspace-package specifier that no longer resolves:
- * the package itself (`'config-types'`, whose entry module is gone) or a directory whose `index`
- * barrel is (`'utils/lib/helpers/rcm'`). Code written before the barrels went, such as a hosted
- * build's overlay, still imports them. Null for any other specifier.
+ * The directory a deleted barrel covered, for a specifier that no longer resolves: a workspace
+ * package whose entry module is gone (`'config-types'`), a package subpath whose `index` barrel is
+ * (`'utils/lib/helpers/rcm'`), or the relative form of the same (`'../../fhir'`). Code written
+ * before the barrels went, such as a hosted build's overlay, still imports them. The specifier
+ * still names a real directory, so that is where each imported name was declared. Null otherwise.
  */
-function deletedBarrelDir(spec: string): string | null {
-  const [head, ...rest] = spec.split('/');
-  const name = head.startsWith('@') ? `${head}/${rest.shift()}` : head;
-  const pkg = PKGS.find((p) => p.name === name && p.dir !== REPO);
-  if (!pkg) return null;
-  const dir = join(pkg.dir, ...rest);
+function deletedBarrelDir(spec: string, from: string): string | null {
+  let dir: string;
+  if (spec.startsWith('.')) dir = resolve(dirname(from), spec);
+  else {
+    const [head, ...rest] = spec.split('/');
+    const name = head.startsWith('@') ? `${head}/${rest.shift()}` : head;
+    const pkg = PKGS.find((p) => p.name === name && p.dir !== REPO);
+    if (!pkg) return null;
+    dir = join(pkg.dir, ...rest);
+  }
   return existsSync(dir) && statSync(dir).isDirectory() ? dir : null;
 }
 
@@ -431,7 +436,7 @@ for (const file of FILES) {
     const target = resolveSpec(spec, file);
     const barrel = target.kind === 'repo' && reexportsSomething(target.file) ? target.file : null;
     // A barrel that is already gone: look for each name's declaration where the barrel was.
-    const gone = target.kind === 'missing' ? deletedBarrelDir(spec) : null;
+    const gone = target.kind === 'missing' ? deletedBarrelDir(spec, file) : null;
     if (!barrel && !gone) continue;
     const clause = stmt.importClause;
     // `import './x'` and `import {} from './x'` bind nothing: only the module's side effects are
@@ -663,7 +668,7 @@ for (const file of FILES) {
           manual.push(`${where(sf, node)}  ${what} of '${spec.text}', which re-exports`);
         }
       } else if (target.kind === 'missing') {
-        const gone = deletedBarrelDir(spec.text);
+        const gone = deletedBarrelDir(spec.text, file);
         const found = (names ?? []).map((n) => {
           const o = gone && declarationUnder(gone, n);
           return o && o.kind === 'decl' ? `${n} -> ${rel(o.file)}` : `${n} -> ?`;
