@@ -3,13 +3,14 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, Identifier, Money, Organization, PaymentNotice, PaymentReconciliation, Reference } from 'fhir/r4b';
 import Stripe from 'stripe';
 import { BILLING_RESOURCE_TAG, PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import { parsePaymentRefundsFromNotice, staleReservationIds } from 'utils/lib/fhir/paymentRefunds';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import { PaymentRefundDTO } from 'utils/lib/types/api/patient-payment-types';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { shouldUseOttehrBilling } from '../../shared/candid';
 import { wrapHandler } from '../../shared/sentry';
 import {
-  applyRefundsToPaymentNotice,
+  applyRefundsToPaymentNoticeWithRetry,
   encounterIdFromStripeMetadata,
   getStripeClient,
   STRIPE_PAYMENT_ID_SYSTEM,
@@ -372,7 +373,10 @@ const markBillingNoticesForRefundedCharge = async (
 
   for (const notice of notices) {
     try {
-      await applyRefundsToPaymentNotice(oystehr, notice, refunds);
+      // retry variant: a version conflict from an unrelated concurrent update must not
+      // discard the webhook's only stamping attempt; stale reservations are cleaned here too
+      const staleIds = staleReservationIds([...(parsePaymentRefundsFromNotice(notice) ?? []), ...refunds]);
+      await applyRefundsToPaymentNoticeWithRetry(oystehr, notice, refunds, staleIds);
     } catch (error) {
       console.error(`Error stamping refunds on PaymentNotice/${notice.id}`, error);
     }

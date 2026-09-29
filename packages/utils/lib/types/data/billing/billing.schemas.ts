@@ -839,6 +839,17 @@ export const RecordBillingManualPaymentInputSchema = z.object({
     .regex(/^[A-Za-z0-9._-]+$/),
 });
 
+// Billing-side companions to the EHR patient-payments refund/void zambdas. Input is only the
+// clinical notice id: the zambdas derive all billing writes from the authoritative clinical
+// PaymentNotice, so an unauthorized caller can only trigger an idempotent re-sync.
+export const RecordBillingRefundInputSchema = z.object({
+  clinicalPaymentNoticeId: nonEmptyString.uuid(),
+});
+
+export const RecordBillingVoidInputSchema = z.object({
+  clinicalPaymentNoticeId: nonEmptyString.uuid(),
+});
+
 export const AddClaimAttachmentInputSchema = z.object({
   claimId: nonEmptyString,
   name: nonEmptyString,
@@ -911,6 +922,8 @@ export type UpdateBillingProviderInput = z.output<typeof UpdateBillingProviderIn
 export type CreateBillingWorkingCopyInput = z.output<typeof CreateBillingWorkingCopyInputSchema>;
 export type CreateBillingClaimFromEncounterInput = z.output<typeof CreateBillingClaimFromEncounterInputSchema>;
 export type CreateBillingClaimTaskInput = z.output<typeof CreateBillingClaimTaskInputSchema>;
+export type RecordBillingRefundInput = z.output<typeof RecordBillingRefundInputSchema>;
+export type RecordBillingVoidInput = z.output<typeof RecordBillingVoidInputSchema>;
 export type RetryBillingClaimTaskInput = z.output<typeof RetryBillingClaimTaskInputSchema>;
 export type SearchBillingClaimTasksInput = z.output<typeof SearchBillingClaimTasksInputSchema>;
 export type UpdateBillingResourceInput = z.output<typeof UpdateBillingResourceInputSchema>;
