@@ -524,8 +524,15 @@ const performEffect = async (
     );
   } catch (error: unknown) {
     console.error('Stripe refund failed', error);
-    // definitive failure: release the reservation so the balance isn't held for the TTL
-    if (input.pendingReservationId && notice.id) {
+    // Release only when Stripe provably created no refund (4xx API rejections). Transport/5xx
+    // failures are indeterminate: Stripe may have accepted the idempotent request, so the
+    // reservation must keep holding the balance until the operation-key reconcile or TTL settles it.
+    const definitiveFailure =
+      error instanceof Stripe.errors.StripeError &&
+      ['StripeCardError', 'StripeInvalidRequestError', 'StripePermissionError', 'StripeAuthenticationError'].includes(
+        error.type
+      );
+    if (definitiveFailure && input.pendingReservationId && notice.id) {
       try {
         const currentNotice = await oystehrClient.fhir.get<PaymentNotice>({
           resourceType: 'PaymentNotice',
