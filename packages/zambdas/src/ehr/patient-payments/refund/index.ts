@@ -101,7 +101,8 @@ interface RefundEffectInput {
   medium?: RefundPatientPaymentInput['medium'];
   // stable across retries so a re-run resumes this refund instead of recording a second one
   manualRefundId: string;
-  idempotencyKey?: string;
+  // client key namespaced by paymentNoticeId, since derived ids/dedup identifiers are global
+  operationKey?: string;
   // set when the refund was already stamped by a previous attempt; effects re-run idempotently
   resumeRefund?: PaymentRefundDTO;
   // this request's balance reservation id (Stripe-linked payments only)
@@ -126,7 +127,10 @@ const complexValidation = async (
     idempotencyKey,
   } = params;
 
-  const manualRefundId = `manual_${idempotencyKey ?? randomUUID()}`;
+  // scope the client key to this payment: derived refund ids and billing dedup identifiers are
+  // global, so a key reused on another payment must not collide (mirrors patient-payments/post)
+  const operationKey = idempotencyKey ? `${paymentNoticeId}_${idempotencyKey}` : undefined;
+  const manualRefundId = `manual_${operationKey ?? randomUUID()}`;
 
   const notice = await oystehrClient.fhir.get<PaymentNotice>({ resourceType: 'PaymentNotice', id: paymentNoticeId });
 
@@ -163,7 +167,7 @@ const complexValidation = async (
         reason,
         notes,
         manualRefundId,
-        idempotencyKey,
+        operationKey,
         resumeRefund,
       };
     }
@@ -191,13 +195,13 @@ const complexValidation = async (
       reason,
       notes,
       manualRefundId,
-      idempotencyKey,
+      operationKey,
     };
   }
 
   const stripeAccount = await getStripeAccountForAppointmentOrEncounter({ encounterId }, oystehrClient);
 
-  const pendingReservationId = `${PENDING_RESERVATION_PREFIX}${idempotencyKey ?? randomUUID()}`;
+  const pendingReservationId = `${PENDING_RESERVATION_PREFIX}${operationKey ?? randomUUID()}`;
   let existingRefunds: PaymentRefundDTO[];
   let expiredReservationIds: string[];
   let stripeResumeRefund: PaymentRefundDTO | undefined;
@@ -206,8 +210,8 @@ const complexValidation = async (
       await stripeClient.refunds.list({ payment_intent: stripePaymentId, limit: 100 }, { stripeAccount })
     ).data;
     // a retry after Stripe created the refund but stamping failed finds it by its operation key
-    const priorRefund = idempotencyKey
-      ? stripeRefundList.find((refund) => refund.metadata?.operationKey === idempotencyKey)
+    const priorRefund = operationKey
+      ? stripeRefundList.find((refund) => refund.metadata?.operationKey === operationKey)
       : undefined;
     stripeResumeRefund = priorRefund ? stripeRefundToDTO(priorRefund) : undefined;
     // externally recorded refunds live only in FHIR but still reduce what remains refundable
@@ -243,7 +247,7 @@ const complexValidation = async (
       external,
       medium,
       manualRefundId,
-      idempotencyKey,
+      operationKey,
       resumeRefund,
       pendingReservationId,
       expiredReservationIds,
@@ -276,7 +280,7 @@ const complexValidation = async (
     external,
     medium,
     manualRefundId,
-    idempotencyKey,
+    operationKey,
     pendingReservationId,
     expiredReservationIds,
   };
@@ -513,13 +517,13 @@ const performEffect = async (
           reason,
           ...(notes ? { notes } : {}),
           ...(refundedBy ? { refundedBy } : {}),
-          ...(input.idempotencyKey ? { operationKey: input.idempotencyKey } : {}),
+          ...(input.operationKey ? { operationKey: input.operationKey } : {}),
         },
       },
       {
         stripeAccount,
         // retries of the same attempt reuse Stripe's stored response instead of double-refunding
-        ...(input.idempotencyKey ? { idempotencyKey: `refund_${input.idempotencyKey}` } : {}),
+        ...(input.operationKey ? { idempotencyKey: `refund_${input.operationKey}` } : {}),
       }
     );
   } catch (error: unknown) {
