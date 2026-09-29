@@ -105,6 +105,11 @@ export const EmployeeChatDrawer: FC = () => {
           Reconnecting…
         </Alert>
       )}
+      {status === 'unavailable' && (
+        <Alert severity="info" sx={{ borderRadius: 0 }} data-testid="employee-chat-unavailable">
+          Chat isn&apos;t available in this environment.
+        </Alert>
+      )}
       {status === 'error' && (
         <Alert
           severity="error"

@@ -1,7 +1,7 @@
 import { EmployeeChatParticipant } from 'utils/lib/types/api/employee-chat.types';
 import { create } from 'zustand';
 
-export type EmployeeChatStatus = 'idle' | 'connecting' | 'connected' | 'reconnecting' | 'error';
+export type EmployeeChatStatus = 'idle' | 'connecting' | 'connected' | 'reconnecting' | 'error' | 'unavailable';
 
 export interface ChatMessage {
   sid: string;

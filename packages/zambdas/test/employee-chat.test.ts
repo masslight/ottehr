@@ -1,7 +1,9 @@
 import Oystehr from '@oystehr/sdk';
 import { Encounter, FhirResource, Group, Practitioner } from 'fhir/r4b';
 import { EMPLOYEE_CHAT_PAIR_SYSTEM } from 'utils/lib/types/api/employee-chat.types';
+import { APIErrorCode, isApiError } from 'utils/lib/types/errors';
 import { describe, expect, it, vi } from 'vitest';
+import { getConversationToken } from '../src/ehr/get-employee-chats';
 import { resolveEmployeeChat } from '../src/ehr/open-employee-chat/helpers';
 import { validateRequestParameters } from '../src/ehr/open-employee-chat/validateRequestParameters';
 import {
@@ -619,5 +621,34 @@ describe('resolveEmployeeChat replacing a closed conversation', () => {
       expect(removedFrom(fake, sid)).toEqual([]);
     }
     expect(fake.participantsRemoved()).toHaveLength(4);
+  });
+});
+
+describe('get-employee-chats getConversationToken', () => {
+  const clientWith = (getToken: () => Promise<{ token: string }>): Oystehr =>
+    ({ conversation: { getToken } }) as unknown as Oystehr;
+
+  it('returns the Twilio token when Conversations is configured', async () => {
+    await expect(getConversationToken(clientWith(async () => ({ token: 'twilio-token' })))).resolves.toEqual({
+      token: 'twilio-token',
+    });
+  });
+
+  it('reports a project without Oystehr Conversations as a misconfigured environment instead of a 500', async () => {
+    const notConfigured = Object.assign(new Error('Messaging Service is not yet configured for Conversations.'), {
+      code: '4281',
+    });
+
+    const failure = await getConversationToken(clientWith(() => Promise.reject(notConfigured))).catch((error) => error);
+
+    expect(isApiError(failure)).toBe(true);
+    expect(failure.code).toBe(APIErrorCode.MISCONFIGURED_ENVIRONMENT);
+    expect(failure.message).toContain('Oystehr Conversations is not configured');
+  });
+
+  it('passes other Conversations failures through unchanged', async () => {
+    const forbidden = Object.assign(new Error('Forbidden'), { code: '4031' });
+
+    await expect(getConversationToken(clientWith(() => Promise.reject(forbidden)))).rejects.toBe(forbidden);
   });
 });

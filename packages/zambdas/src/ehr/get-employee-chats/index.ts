@@ -2,6 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Group, Practitioner } from 'fhir/r4b';
 import { EmployeeChatSummary, GetEmployeeChatsResponse } from 'utils/lib/types/api/employee-chat.types';
+import { MISCONFIGURED_ENVIRONMENT_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
@@ -20,7 +21,7 @@ export const index = wrapHandler('get-employee-chats', async (input: ZambdaInput
 
   const [conversations, { token }] = await Promise.all([
     listEmployeeChats(oystehr, myProfile),
-    createClinicalOystehrClient(userToken, secrets).conversation.getToken(),
+    getConversationToken(createClinicalOystehrClient(userToken, secrets)),
   ]);
 
   const response: GetEmployeeChatsResponse = { token, conversations };
@@ -29,6 +30,21 @@ export const index = wrapHandler('get-employee-chats', async (input: ZambdaInput
     body: JSON.stringify(response),
   };
 });
+
+const CONVERSATIONS_NOT_CONFIGURED = '4281';
+
+export async function getConversationToken(oystehr: Oystehr): Promise<{ token: string }> {
+  try {
+    return await oystehr.conversation.getToken();
+  } catch (error) {
+    if (String((error as { code?: unknown } | undefined)?.code) === CONVERSATIONS_NOT_CONFIGURED) {
+      throw MISCONFIGURED_ENVIRONMENT_ERROR(
+        'Oystehr Conversations is not configured for this project, so employee chat is unavailable'
+      );
+    }
+    throw error;
+  }
+}
 
 export async function listEmployeeChats(oystehr: Oystehr, myProfile: string): Promise<EmployeeChatSummary[]> {
   const resources = (

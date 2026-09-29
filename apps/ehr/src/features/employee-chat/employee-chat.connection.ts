@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import type { Client, Conversation, Message, Paginator } from '@twilio/conversations';
 import { EmployeeChatParticipant, EmployeeChatSummary } from 'utils/lib/types/api/employee-chat.types';
+import { APIErrorCode } from 'utils/lib/types/errors';
 import { getEmployeeChats, openEmployeeChat } from '../../api/api';
 import {
   ChatListItem,
@@ -55,6 +56,15 @@ function isWritable(conversation: Conversation): boolean {
 
 function previousSidsOf(summary: EmployeeChatSummary | undefined): string[] {
   return summary?.previousConversationSids ?? [];
+}
+
+function isChatUnavailable(error: unknown): boolean {
+  const detail = error instanceof Error ? error.message : JSON.stringify(error);
+  try {
+    return (JSON.parse(detail) as { code?: unknown } | null)?.code === APIErrorCode.MISCONFIGURED_ENVIRONMENT;
+  } catch {
+    return false;
+  }
 }
 
 function isForbidden(error: unknown): boolean {
@@ -478,6 +488,10 @@ export async function connectEmployeeChat(params: { oystehrZambda: Oystehr; myPr
   } catch (error) {
     console.error('employee chat connect failed', error);
     if (myEpoch !== epoch) return;
+    if (isChatUnavailable(error)) {
+      setState({ status: 'unavailable', error: undefined });
+      return;
+    }
     setState({ status: 'error', error: errorMessage(error) });
   }
 }

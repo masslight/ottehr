@@ -1617,6 +1617,44 @@ describe('employee chat flows', () => {
     expect(rowUnreadDot('Bob Chen')).toBeNull();
     expect(screen.getByText('Bob Chen')).toHaveStyle({ fontWeight: 500 });
   });
+  describe('environment without Oystehr Conversations', () => {
+    const apiFailure = (code: number, message: string): Error =>
+      new Error(JSON.stringify({ name: 'OystehrSdkError', message, code }));
+
+    it('explains that chat is unavailable instead of offering a retry', async () => {
+      mockGetEmployeeChats.mockRejectedValue(
+        apiFailure(5000, 'Oystehr Conversations is not configured for this project, so employee chat is unavailable')
+      );
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+      await act(async () => {
+        await connectEmployeeChat({ oystehrZambda: {} as any, myProfile: ME });
+      });
+      renderChat();
+      act(() => openEmployeeChatDrawer());
+
+      expect(useEmployeeChatStore.getState().status).toBe('unavailable');
+      expect(screen.getByTestId('employee-chat-unavailable')).toHaveTextContent(
+        "Chat isn't available in this environment."
+      );
+      expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument();
+      expect(screen.getByTestId('employee-chat-search')).toBeDisabled();
+    });
+
+    it('still reports other connection failures as retryable errors', async () => {
+      mockGetEmployeeChats.mockRejectedValue(apiFailure(500, 'Internal error'));
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+      await act(async () => {
+        await connectEmployeeChat({ oystehrZambda: {} as any, myProfile: ME });
+      });
+      renderChat();
+      act(() => openEmployeeChatDrawer());
+
+      expect(useEmployeeChatStore.getState().status).toBe('error');
+      expect(screen.queryByTestId('employee-chat-unavailable')).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument();
+    });
+  });
+
   describe('closed conversation recovery', () => {
     const summaryOf = (sid: string, employee: typeof BOB, previous: string[] = []): any => ({
       conversationSid: sid,
