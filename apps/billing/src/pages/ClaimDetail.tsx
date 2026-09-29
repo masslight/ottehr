@@ -9,7 +9,6 @@ import {
   Edit as EditIcon,
   EditOutlined as EditOutlinedIcon,
   MoreVert as MoreVertIcon,
-  OpenInNew as OpenInNewIcon,
   ReceiptLongOutlined as ReceiptLongIcon,
   Save as SaveIcon,
   SendOutlined as SendIcon,
@@ -118,6 +117,7 @@ import { ClaimDownloadsMenu } from '../components/claim/ClaimDownloadsMenu';
 import { ClaimHistory } from '../components/claim/ClaimHistory';
 import { ClaimNotesDrawer } from '../components/claim/ClaimNotesDrawer';
 import { ClaimStatusFields } from '../components/claim/ClaimStatusFields';
+import { EhrLinksButton } from '../components/claim/EhrLinksButton';
 import { Cms1500Dialog } from '../components/claim/Cms1500Dialog';
 import { DiagnosesEditor } from '../components/claim/DiagnosesEditor';
 import { EditableSection, EditableSectionSkeleton } from '../components/claim/EditableSection';
@@ -178,7 +178,7 @@ function applicableRulesEngine(claim: ClaimDetailResponse): RulesEngineDef | und
 // The header's buttons keep their labels on one line, so they're all the same height.
 const NO_WRAP = { whiteSpace: 'nowrap' } as const;
 
-// EHR app base URL for the "View in EHR" backlink
+// EHR app base URL for the visit details / progress note backlinks
 const EHR_URL = import.meta.env.VITE_APP_EHR_URL;
 
 export default function ClaimDetail(): ReactElement {
@@ -506,19 +506,7 @@ export default function ClaimDetail(): ReactElement {
         </Box>
 
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0, mt: 0.25 }}>
-          {EHR_URL && claim.appointmentId && (
-            <Button
-              variant="outlined"
-              size="small"
-              startIcon={<OpenInNewIcon />}
-              href={`${EHR_URL}/visit/${claim.appointmentId}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              sx={NO_WRAP}
-            >
-              View in EHR
-            </Button>
-          )}
+          {EHR_URL && claim.appointmentId && <EhrLinksButton ehrUrl={EHR_URL} appointmentId={claim.appointmentId} />}
           <Button
             size="small"
             variant="outlined"
