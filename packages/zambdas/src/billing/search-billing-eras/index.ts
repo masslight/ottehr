@@ -48,8 +48,7 @@ export async function performEffect(
   let payerIssuerFilter: string | undefined;
   if (params.payerId) {
     // A business-id-shaped payerId ("OTR-...") names a custom insurance organization rather than an
-    // RCM payer (see resolvePayerIssuerFilter). ERAs only ever come from RCM/clearinghouse remittance,
-    // so that case correctly matches nothing today — kept for filter-UI consistency with the claims list.
+    // RCM payer (see resolvePayerIssuerFilter). Only remits keyed in by hand can come from one.
     payerIssuerFilter = await resolvePayerIssuerFilter(oystehr, params.payerId);
   } else if (params.payerName) {
     const result = await oystehr.rcm.listPayers({ name: params.payerName, limit: 50 });

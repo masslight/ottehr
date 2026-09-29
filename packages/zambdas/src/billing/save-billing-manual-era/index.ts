@@ -14,7 +14,7 @@ import {
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { getNPI, getTaxID, makeOptimisticLockIfMatchHeader } from 'utils/lib/fhir/helpers';
-import { getPayerUrl } from 'utils/lib/helpers/helpers';
+import { getPayerId, getPayerUrl } from 'utils/lib/helpers/helpers';
 import { ERA_SOURCE } from 'utils/lib/types/data/billing/billing.constants';
 import { ManualEraClaim, ManualEraHeader } from 'utils/lib/types/data/billing/billing.schemas';
 import { SaveManualEraResponse } from 'utils/lib/types/data/billing/billing.types';
@@ -23,6 +23,7 @@ import { checkOrCreateM2MClientToken, getUser } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { eraProvenanceTargetIds, fetchEraProcessingProvenances, isMatchedToClaim } from '../claim-amounts';
+import { isCustomInsuranceOrganization, resolvePayerOrganization } from '../custom-insurance-org.helpers';
 import {
   buildManualClaimResponse,
   buildManualEraProvenance,
@@ -43,7 +44,6 @@ import {
   payerDisplay,
   PROVIDER_ROLE_BILLING,
   PROVIDER_ROLE_TAG,
-  resolvePayersByRef,
 } from '../shared';
 import { SaveManualEraParams, validateRequestParameters } from './validateRequestParameters';
 
@@ -251,10 +251,20 @@ async function loadManualEra(oystehr: Oystehr, eraId: string, expectedVersionId?
   };
 }
 
+// The payer as PayerSelect names it: an RCM payer, referenced by its payer list URL as the ERA
+// converters reference it, or a billing-app custom insurance organization, referenced directly as
+// Organization/{id} (as billing claims reference it, and as the ERA list's payer filter matches it).
+async function resolvePayer(oystehr: Oystehr, payerId: string): Promise<ManualEraContext['payer']> {
+  const payer = await resolvePayerOrganization(oystehr, payerId).catch(() => undefined);
+  if (!payer) throw INVALID_INPUT_ERROR(`Payer ${payerId} was not found`);
+  const reference = isCustomInsuranceOrganization(payer)
+    ? `Organization/${payer.id}`
+    : getPayerUrl(getPayerId(payer) ?? payerId);
+  return { reference, display: payerDisplay(payer) ?? payerId };
+}
+
 async function resolveContext(oystehr: Oystehr, header: ManualEraHeader): Promise<ManualEraContext> {
-  const payerUrl = getPayerUrl(header.payerId);
-  const payer = (await resolvePayersByRef(oystehr, [payerUrl])).get(payerUrl);
-  if (!payer) throw INVALID_INPUT_ERROR(`Payer ${header.payerId} was not found`);
+  const payer = await resolvePayer(oystehr, header.payerId);
 
   const [resourceType, id] = header.billingProviderRef.split('/') as ['Organization' | 'Practitioner', string];
   const provider = await findById<Organization | Practitioner>(oystehr, resourceType, id);
@@ -262,7 +272,7 @@ async function resolveContext(oystehr: Oystehr, header: ManualEraHeader): Promis
     throw INVALID_INPUT_ERROR('The billing provider was not found');
   }
   return {
-    payer: { reference: payerUrl, display: payerDisplay(payer) ?? header.payerId },
+    payer,
     billingProvider: {
       reference: header.billingProviderRef,
       name: provider.resourceType === 'Organization' ? provider.name ?? '' : fhirName(provider),

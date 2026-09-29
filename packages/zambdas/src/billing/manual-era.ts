@@ -362,11 +362,17 @@ export function buildManualEraProvenance(args: {
 const isPaymentMethod = (code: string | undefined): code is EraPaymentMethodCode =>
   ERA_PAYMENT_METHODS.some((method) => method.code === code);
 
+// What PayerSelect stores for the remit's payer: the RCM payer id of a payer list URL, or the id of a
+// custom insurance organization referenced directly.
+const payerIdFromReference = (reference: string | undefined): string =>
+  extractPayerIdFromUrl(reference) ??
+  (reference?.startsWith('Organization/') ? reference.slice('Organization/'.length) : '');
+
 export function manualEraHeaderFromFhir(pr: PaymentReconciliation): ManualEraHeader {
   const method = pr.paymentIdentifier?.type?.coding?.[0]?.code;
   const notes = pr.processNote?.[0]?.text;
   return {
-    payerId: extractPayerIdFromUrl(pr.paymentIssuer?.reference) ?? '',
+    payerId: payerIdFromReference(pr.paymentIssuer?.reference),
     billingProviderRef: pr.requestor?.reference ?? '',
     checkNumber: getEraCheckNumber(pr) ?? '',
     checkAmountCents: toCents(pr.paymentAmount?.value ?? 0),

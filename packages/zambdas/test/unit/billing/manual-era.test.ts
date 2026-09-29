@@ -230,6 +230,18 @@ describe('buildManualClaimResponse', () => {
 });
 
 describe('manualEraEntryFromFhir', () => {
+  it("reads a custom insurance organization back as the payer's id", () => {
+    const customPayer = { reference: 'Organization/6f1c2b3a-9d8e-4f70-8a1b-2c3d4e5f6a7b', display: 'Harbor County' };
+    const pr = buildManualPaymentReconciliation({
+      header: { ...header, payerId: '6f1c2b3a-9d8e-4f70-8a1b-2c3d4e5f6a7b' },
+      context: { ...context, payer: customPayer },
+      created: 'now',
+      editedAt: 'now',
+    });
+    expect(pr.paymentIssuer).toEqual(customPayer);
+    expect(manualEraEntryFromFhir(pr, []).header.payerId).toBe('6f1c2b3a-9d8e-4f70-8a1b-2c3d4e5f6a7b');
+  });
+
   it('round-trips what the editor saved', () => {
     const pr = buildManualPaymentReconciliation({ header, context, created: 'now', editedAt: 'now' });
     const cr = { ...buildManualClaimResponse({ claim: keyedClaim, header, context }), id: 'cr-1' };

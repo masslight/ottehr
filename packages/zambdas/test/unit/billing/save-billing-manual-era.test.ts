@@ -1,8 +1,14 @@
 import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
 import { Claim, ClaimResponse, FhirResource, Organization, PaymentReconciliation, Provenance } from 'fhir/r4b';
 import { ManualEraClaim, ManualEraHeader } from 'utils/lib/types/data/billing/billing.schemas';
+import {
+  CUSTOM_INSURANCE_ORG_ID_SYSTEM,
+  CUSTOM_INSURANCE_ORG_KIND_CODE,
+} from 'utils/lib/types/data/billing/custom-insurance-org.types';
+import { NIO_ORGANIZATION_KIND_SYSTEM } from 'utils/lib/types/data/billing/non-insurance-org.types';
 import { MANUAL_ERA_VERSION_CONFLICT_ERROR } from 'utils/lib/types/errors';
 import { beforeEach, describe, expect, it, Mock, vi } from 'vitest';
+import { resolvePayerOrganization } from '../../../src/billing/custom-insurance-org.helpers';
 import {
   buildManualClaimResponse,
   buildManualEraProvenance,
@@ -16,12 +22,11 @@ import {
   payerDisplay,
   PROVIDER_ROLE_BILLING,
   PROVIDER_ROLE_TAG,
-  resolvePayersByRef,
 } from '../../../src/billing/shared';
 
-vi.mock('../../../src/billing/shared', async (importOriginal) => ({
+vi.mock('../../../src/billing/custom-insurance-org.helpers', async (importOriginal) => ({
   ...(await importOriginal<object>()),
-  resolvePayersByRef: vi.fn(),
+  resolvePayerOrganization: vi.fn(),
 }));
 
 const PAYER_URL = 'https://rcm-api.zapehr.com/v1/payer/payer-uhc';
@@ -39,6 +44,14 @@ const header: ManualEraHeader = {
 };
 
 const PAYER_ORG: Organization = { resourceType: 'Organization', id: 'payer-uhc', name: 'United Health Care' };
+// a payer the billing app keeps itself (not in RCM's payer list)
+const CUSTOM_PAYER_ORG: Organization = {
+  resourceType: 'Organization',
+  id: '6f1c2b3a-9d8e-4f70-8a1b-2c3d4e5f6a7b',
+  name: 'Harbor County Health Plan',
+  type: [{ coding: [{ system: NIO_ORGANIZATION_KIND_SYSTEM, code: CUSTOM_INSURANCE_ORG_KIND_CODE }] }],
+  identifier: [{ system: CUSTOM_INSURANCE_ORG_ID_SYSTEM, value: 'OTR-00042' }],
+};
 
 // what the zambda resolves for the header above
 const context: ManualEraContext = {
@@ -169,7 +182,11 @@ const describeRequests = (requests: BatchInputRequest<FhirResource>[]): string[]
 describe('save-billing-manual-era performEffect', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    (resolvePayersByRef as Mock).mockResolvedValue(new Map([[PAYER_URL, PAYER_ORG]]));
+    (resolvePayerOrganization as Mock).mockImplementation(async (_oystehr: Oystehr, payerId: string) => {
+      const payer = [PAYER_ORG, CUSTOM_PAYER_ORG].find((org) => org.id === payerId);
+      if (!payer) throw new Error(`No payer ${payerId}`);
+      return payer;
+    });
   });
 
   it('creates the remit and its era-processing record, authored by the caller', async () => {
@@ -187,6 +204,32 @@ describe('save-billing-manual-era performEffect', () => {
       recorded: NOW,
     });
     expect(result).toEqual({ eraId: 'PaymentReconciliation-new-1', versionId: '1', claims: [] });
+  });
+
+  it('keys a remit from a custom insurance organization, referenced directly', async () => {
+    const { oystehr, transaction } = makeClient([billingOrg]);
+    await performEffect(
+      oystehr,
+      params({
+        header: { ...header, payerId: CUSTOM_PAYER_ORG.id ?? '' },
+        idempotencyKey: 'key-1',
+        claims: [keyedClaim({ clientKey: 'a' })],
+      }),
+      ACTOR,
+      NOW
+    );
+
+    const requests = requestsOf(transaction);
+    const payer = {
+      reference: `Organization/${CUSTOM_PAYER_ORG.id}`,
+      display: 'Harbor County Health Plan (OTR-00042)',
+    };
+    expect((requests[0] as { resource: PaymentReconciliation }).resource.paymentIssuer).toEqual(payer);
+    const claimResponse = (requests[1] as { resource: ClaimResponse }).resource;
+    expect(claimResponse.insurer).toEqual(payer);
+    expect(claimResponse.contained?.find((resource) => resource.resourceType === 'Coverage')).toMatchObject({
+      payor: [payer],
+    });
   });
 
   it('returns the remit a retried create already made', async () => {
@@ -411,7 +454,7 @@ describe('save-billing-manual-era performEffect', () => {
       performEffect(makeClient([renderingOnly]).oystehr, params({ header, idempotencyKey: 'k' }), ACTOR, NOW)
     ).rejects.toMatchObject({ message: 'The billing provider was not found' });
 
-    (resolvePayersByRef as Mock).mockResolvedValue(new Map());
+    (resolvePayerOrganization as Mock).mockRejectedValue(new Error('not found'));
     await expect(
       performEffect(makeClient([billingOrg]).oystehr, params({ header, idempotencyKey: 'k' }), ACTOR, NOW)
     ).rejects.toMatchObject({ message: 'Payer payer-uhc was not found' });

@@ -894,7 +894,7 @@ const cents = z.number().int();
 const optionalText = (max: number): z.ZodOptional<z.ZodString> => z.string().trim().max(max).optional();
 
 export const ManualEraHeaderSchema = z.object({
-  // Oystehr RCM payer id (what PayerSelect stores)
+  // what PayerSelect stores: an Oystehr RCM payer id, or a custom insurance organization's id
   payerId: nonEmptyString,
   // the billing provider the check pays
   billingProviderRef: z
