@@ -1,4 +1,4 @@
-import Oystehr, { BatchInputPostRequest, BatchInputRequest } from '@oystehr/sdk';
+import Oystehr, { BatchInputPatchRequest, BatchInputPostRequest, BatchInputRequest } from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
 import {
   Claim,
@@ -674,7 +674,7 @@ export function claimMetaTagsWithProvenanceRequests(
   activity: Extract<ClaimProvenanceActivityKey, 'statusChange' | 'tagChange'>,
   agent: ProvenanceAgent | ProvenanceAgent[],
   details: Pick<ClaimProvenanceArgs, 'extraChanges' | 'sourceReference'> = {}
-): BatchInputRequest<FhirResource>[] {
+): (BatchInputPatchRequest<Claim> | BatchInputPostRequest<Provenance>)[] {
   const claimReference = `Claim/${claim.id}`;
   const afterClaim: Claim = { ...claim, meta: { ...claim.meta, tag: updatedTags } };
   const recorded = recordedNow();
