@@ -58,11 +58,14 @@ const returningPatient: Patient = {
   ],
 };
 
+// A record merged away into pat-1 (merge-patients: active=false + replaced-by link).
 const newPatient: Patient = {
   resourceType: 'Patient',
   id: 'pat-2',
   name: [{ given: ['John'], family: 'Roe' }],
   deceasedBoolean: true,
+  active: false,
+  link: [{ other: { reference: 'Patient/pat-1' }, type: 'replaced-by' }],
 };
 
 const location: Location = { resourceType: 'Location', id: 'loc-1', name: 'Midtown Clinic' };
@@ -135,6 +138,12 @@ describe('ad-hoc Patients: layers mapped with the app logic (fixture)', () => {
     });
     expect(rows).toHaveLength(2);
     expect(issuesOf(AdHocPatientsOutputSchema.safeParse({ patients: rows }))).toEqual([]);
+  });
+
+  it('base: active and merged-away records', async () => {
+    const rows = await fetchAdHocPatientRows(fakeOystehr, { dateRange });
+    expect(rows.find((r) => r.patientId === 'pat-1')).toMatchObject({ active: true, mergedIntoPatientId: null });
+    expect(rows.find((r) => r.patientId === 'pat-2')).toMatchObject({ active: false, mergedIntoPatientId: 'pat-1' });
   });
 
   it('visit history: new vs existing by any appointment before the range', async () => {

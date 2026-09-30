@@ -8,6 +8,7 @@ import {
   DocumentReference,
   Encounter,
   FhirResource,
+  HealthcareService,
   Location,
   Patient,
   Practitioner,
@@ -26,9 +27,11 @@ import {
   PRIVATE_EXTENSION_BASE_URL,
   PROCEDURE_TYPE_SYSTEM,
   PROVIDER_TYPE_EXTENSION_URL,
+  ROOM_EXTENSION_URL,
 } from 'utils/lib/fhir/constants';
 import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
 import { AdHocEncountersOutputSchema } from 'utils/lib/types/adhoc/datasets/encounters';
+import { REASON_FOR_VISIT_SEPARATOR } from 'utils/lib/types/constants';
 import { PRACTITIONER_CODINGS } from 'utils/lib/types/data/appointments/appointments.types';
 import { DataEntryTestItem } from 'utils/lib/types/data/in-house/in-house.types';
 import {
@@ -80,6 +83,14 @@ const appointment = (id: string, status: Appointment['status'], extra: Partial<A
 
 const signedAppointment = appointment('appt-1', 'fulfilled', {
   meta: { tag: [{ code: OTTEHR_MODULE.IP }, APPOINTMENT_LOCKED_META_TAG] },
+  created: '2026-06-28T09:00:00.000Z',
+  description: `Sore throat${REASON_FOR_VISIT_SEPARATOR}worse at night`,
+  extension: [{ url: ROOM_EXTENSION_URL, valueString: 'Room 4' }],
+  participant: [
+    { actor: { reference: 'Patient/pat-1' }, status: 'accepted' },
+    { actor: { reference: 'Location/loc-1' }, status: 'accepted' },
+    { actor: { reference: 'HealthcareService/grp-1' }, status: 'accepted' },
+  ],
 });
 const cancelledAppointment = appointment('appt-2', 'cancelled', {
   cancelationReason: {
@@ -109,6 +120,12 @@ const signedEncounter: Encounter = {
     participant(PRACTITIONER_CODINGS.Attender, 'prac-1'),
     participant(PRACTITIONER_CODINGS.Admitter, 'prac-2'),
   ],
+  hospitalization: {
+    dischargeDisposition: {
+      coding: [{ system: `${PRIVATE_EXTENSION_BASE_URL}/discharge-disposition`, code: 'specialty' }],
+      text: 'See cardiology this week',
+    },
+  },
   extension: [
     { url: ENCOUNTER_PAYMENT_VARIANT_EXTENSION_URL, valueString: 'selfPay' },
     { url: 'awaiting-supervisor-approval', valueBoolean: false },
@@ -237,6 +254,21 @@ const procedureRequest: ServiceRequest = {
   occurrenceDateTime: '2026-07-01T14:10:00.000Z',
 };
 
+// The disposition's follow-up request, as the chart writes it (orderDetail by system, offset in minutes).
+const dispositionFollowUp: ServiceRequest = {
+  resourceType: 'ServiceRequest',
+  id: 'sr-dispo',
+  status: 'active',
+  intent: 'plan',
+  subject: { reference: 'Patient/pat-1' },
+  encounter: { reference: 'Encounter/enc-1' },
+  meta: { tag: [{ code: 'disposition-follow-up' }] },
+  orderDetail: [{ coding: [{ system: 'specialty-transfer', code: 'Cardiologist' }] }],
+  occurrenceTiming: { repeat: { offset: 2880 } },
+};
+
+const group: HealthcareService = { resourceType: 'HealthcareService', id: 'grp-1', name: 'Pediatrics Group' };
+
 // External lab: submitted (PST completed, order active, submit Provenance), no results yet → "sent".
 const externalLabRequest: ServiceRequest = {
   resourceType: 'ServiceRequest',
@@ -323,7 +355,8 @@ const resourcesByJob: Record<string, FhirResource[]> = {
   Condition: [chiefComplaint],
   ClinicalImpression: [medicalDecision],
   Communication: [instruction],
-  ServiceRequest: [procedureRequest, externalLabRequest, nursingRequest],
+  ServiceRequest: [procedureRequest, externalLabRequest, nursingRequest, dispositionFollowUp],
+  HealthcareService: [group],
   'ServiceRequest:orders': [
     externalLabRequest,
     nursingRequest,
@@ -380,6 +413,7 @@ const issuesOf = (result: { success: boolean; error?: { issues: unknown[] } }): 
   result.success ? [] : result.error?.issues ?? ['unknown'];
 
 const allLayers = {
+  includeDisposition: true,
   includeLabs: true,
   includeNursing: true,
   includeProcedures: true,
@@ -407,6 +441,34 @@ describe('ad-hoc Encounters: layers mapped with the app mappers (fixture)', () =
     expect(cancelled.cancellationReasonDisplay).toBe('Patient improved - feeling better');
     expect(cancelled.attendingProviderType).toBeNull();
     expect(cancelled.paymentVariant).toBeNull();
+  });
+
+  it('base: booking time, reason split, room and group', async () => {
+    const rows = await fetchAdHocEncounterRows(fakeOystehr, { dateRange });
+    const signed = rows.find((r) => r.appointmentId === 'appt-1')!;
+    expect(signed.bookedAt).toBe('2026-06-28T09:00:00.000Z');
+    expect(signed.reasonForVisit).toBe('Sore throat');
+    expect(signed.reasonDetails).toBe('worse at night');
+    expect(signed.room).toBe('Room 4');
+    expect(signed.group).toBe('Pediatrics Group');
+    const cancelled = rows.find((r) => r.appointmentId === 'appt-2')!;
+    expect(cancelled).toMatchObject({ bookedAt: null, reasonForVisit: '', room: '', group: '' });
+  });
+
+  it('disposition: the chart disposition DTO', async () => {
+    const rows = await fetchAdHocEncounterRows(fakeOystehr, { dateRange, includeDisposition: true });
+    const signed = rows.find((r) => r.appointmentId === 'appt-1')!;
+    expect(signed).toMatchObject({
+      dischargeDisposition: 'See cardiology this week',
+      dispositionType: 'specialty',
+      dispositionLabel: 'Specialty Transfer',
+      followUpInDays: 2,
+      transferSpecialty: 'Cardiologist',
+      transferSpecialtyOther: '',
+      nothingToEatOrDrink: false,
+    });
+    const cancelled = rows.find((r) => r.appointmentId === 'appt-2')!;
+    expect(cancelled).toMatchObject({ dispositionType: null, dispositionLabel: '', followUpInDays: null });
   });
 
   it('signing: signer, supervisor approval, charting lag, lock', async () => {

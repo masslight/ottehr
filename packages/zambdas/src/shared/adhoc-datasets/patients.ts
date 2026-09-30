@@ -18,6 +18,7 @@ import { isInPersonAppointment, isTelemedAppointment } from 'utils/lib/fhir/modu
 import {
   getAddressForIndividual,
   getEmailForIndividual,
+  getMergedIntoPatientReference,
   getPatientFirstName,
   getPatientLastName,
   getPhoneNumberForIndividual,
@@ -278,6 +279,8 @@ export async function fetchAdHocPatientRows(oystehr: Oystehr, params: AdHocPatie
       phone: getPhoneNumberForIndividual(patient) || '',
       email: getEmailForIndividual(patient) || '',
       source: patient.extension?.find((e) => e.url === PATIENT_POINT_OF_DISCOVERY_URL)?.valueString || '',
+      active: patient.active !== false,
+      mergedIntoPatientId: getMergedIntoPatientReference(patient)?.replace('Patient/', '') ?? null,
       totalVisits: agg.visitDates.length,
       // RAW ISO instants — the server never zone-formats dates. The client dataset rewrites both
       // to the viewer-local yyyy-MM-dd day in the browser.

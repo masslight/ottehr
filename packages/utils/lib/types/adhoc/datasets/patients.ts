@@ -20,6 +20,16 @@ export const PatientBaseRowSchema = z.object({
   phone: z.string().describe('Patient phone number.'),
   email: z.string().describe('Patient email address.'),
   source: z.string().describe('Point of discovery / marketing source.'),
+  active: z
+    .boolean()
+    .describe('The patient record is active. False for records deactivated or merged into another patient.'),
+  mergedIntoPatientId: z
+    .string()
+    .nullable()
+    .describe(
+      'Set when this record was merged into another patient: the surviving patient id. Exclude such rows (or count ' +
+        'them under the surviving id) to avoid counting one person twice. Null otherwise.'
+    ),
   // --- Visit summary within range ---
   totalVisits: z.number().describe('Visits this patient had within the range.'),
   firstVisitDate: z.string().nullable().describe('Earliest visit date in range (yyyy-MM-dd).'),
