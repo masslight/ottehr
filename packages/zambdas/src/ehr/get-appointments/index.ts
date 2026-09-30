@@ -13,7 +13,6 @@ import {
   Practitioner,
   Provenance,
   QuestionnaireResponse,
-  QuestionnaireResponseItem,
   RelatedPerson,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
@@ -26,20 +25,17 @@ import {
   TIMEZONE_EXTENSION_URL,
 } from 'utils/lib/fhir/constants';
 import { isAnnotationFollowupEncounter } from 'utils/lib/fhir/encounter';
-import { getAttestedConsentFromEncounter, getCoding } from 'utils/lib/fhir/helpers';
+import { getCoding } from 'utils/lib/fhir/helpers';
 import { isInPersonAppointment } from 'utils/lib/fhir/moduleIdentification';
 import {
   getMiddleName,
   getPatientFirstName,
   getPatientLastName,
   getSMSNumberForIndividual,
-  isPatientDemographicsComplete,
 } from 'utils/lib/fhir/patient';
 import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
 import { isResponseSizeExceededError } from 'utils/lib/fhir/responseSize';
 import { isNonPaperworkQuestionnaireResponse } from 'utils/lib/helpers/paperwork/paperwork';
-import { flattenItems } from 'utils/lib/helpers/paperwork/validation';
-import { CONSENT_FORMS_CONFIG } from 'utils/lib/ottehr-config/consent-forms';
 import { getOptionalSecret, getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { GetAppointmentsZambdaInput, GetAppointmentsZambdaOutput } from 'utils/lib/types/api/get-appointments.types';
 import { SMSModel, SMSRecipient } from 'utils/lib/types/api/messaging.types';
@@ -53,6 +49,7 @@ import { isTruthy } from 'utils/lib/types/utils';
 import { getVisitStatusHistory } from 'utils/lib/utils/visitUtils';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
+import { getPaperworkCompleteness } from '../../shared/paperwork-completeness';
 import { getTrackingBoardVisitStatus, sortAppointments } from '../../shared/queueingUtils';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
@@ -814,33 +811,12 @@ const makeAppointmentInformation = (
     console.log(`no patient ref found for appointment ${appointment.id}`);
   }
 
-  const flattenedItems = flattenItems(questionnaireResponse?.item ?? []);
-  const consentComplete =
-    CONSENT_FORMS_CONFIG.forms.every(
-      (form) =>
-        flattenedItems.find((item: { linkId: string }) => item.linkId === form.id)?.answer?.[0]?.valueBoolean === true
-    ) &&
-    flattenedItems.find((item: { linkId: string }) => item.linkId === 'signature') &&
-    flattenedItems.find((item: { linkId: string }) => item.linkId === 'full-name') &&
-    flattenedItems.find((item: { linkId: string }) => item.linkId === 'consent-form-signer-relationship');
-  const docRefComplete = (type: string, frontTitle: string): boolean => {
-    const docFound = allDocRefs.filter(
-      (document) =>
-        document.context?.related?.find((related) => related.reference === `Patient/${patient?.id}`) &&
-        document.type?.text === type
-    );
-    return !!docFound.find((doc) => doc.content.find((content) => content.attachment.title === frontTitle));
-  };
-  const idCard = docRefComplete('Photo ID cards', 'photo-id-front');
-  const insuranceCard = docRefComplete('Insurance cards', 'insurance-card-front');
+  const paperwork = getPaperworkCompleteness({ patient, encounter, questionnaireResponse, docRefs: allDocRefs });
   const cancellationReason = appointment.cancelationReason?.coding?.[0].code;
   const status = getTrackingBoardVisitStatus(appointment, encounter, supervisorApprovalEnabled);
 
   const waitingMinutesString = appointment.meta?.tag?.find((tag) => tag.system === 'waiting-minutes-estimate')?.code;
   const waitingMinutes = waitingMinutesString ? parseInt(waitingMinutesString) : undefined;
-
-  const ovrpInterest = flattenedItems.find((response: QuestionnaireResponseItem) => response.linkId === 'ovrp-interest')
-    ?.answer?.[0]?.valueString;
 
   const practitionerId = getAttendingPractitionerId(encounter);
   const practitioner = practitionerIdToResourceMap[`Practitioner/${practitionerId}`];
@@ -848,13 +824,6 @@ const makeAppointmentInformation = (
   if (practitioner && practitioner.name) {
     provider = oystehr.fhir.formatHumanName(practitioner.name[0]);
   }
-
-  // if the QR has been updated at least once, this tag will not be present
-  const demographicsByPaperworkSubmission = !!questionnaireResponse?.authored;
-
-  const demographicsByPatientResource = isPatientDemographicsComplete(patient);
-  const consentByPaperworkSignatures = !!consentComplete;
-  const consentByStaffAttestation = !!(encounter && getAttestedConsentFromEncounter(encounter));
 
   const participants = parseEncounterParticipants(encounter, practitionerIdToResourceMap);
   const attenderProviderType = parseAttenderProviderType(encounter, practitionerIdToResourceMap);
@@ -895,11 +864,11 @@ const makeAppointmentInformation = (
     group: group ? group.name : undefined,
     room: room,
     paperwork: {
-      demographics: demographicsByPaperworkSubmission || demographicsByPatientResource,
-      photoID: idCard,
-      insuranceCard: insuranceCard,
-      consent: consentByPaperworkSignatures || consentByStaffAttestation,
-      ovrpInterest: Boolean(ovrpInterest && ovrpInterest.startsWith('Yes')),
+      demographics: paperwork.demographics,
+      photoID: paperwork.photoID,
+      insuranceCard: paperwork.insuranceCard,
+      consent: paperwork.consent,
+      ovrpInterest: paperwork.ovrpInterest,
     },
     participants,
     next,

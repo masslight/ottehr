@@ -1,0 +1,519 @@
+import Oystehr from '@oystehr/sdk';
+import {
+  ActivityDefinition,
+  Appointment,
+  ClinicalImpression,
+  Communication,
+  Condition,
+  DocumentReference,
+  Encounter,
+  FhirResource,
+  Location,
+  Patient,
+  Practitioner,
+  Provenance,
+  QuestionnaireResponse,
+  ServiceRequest,
+  Task,
+} from 'fhir/r4b';
+import {
+  APPOINTMENT_LOCKED_META_TAG,
+  ENCOUNTER_PAYMENT_VARIANT_EXTENSION_URL,
+  FHIR_EXTENSION,
+  INTAKE_PAPERWORK_QR_TAG,
+  PARTICIPATION_CODE_SYSTEM,
+  PERFORMER_TYPE_SYSTEM,
+  PRIVATE_EXTENSION_BASE_URL,
+  PROCEDURE_TYPE_SYSTEM,
+  PROVIDER_TYPE_EXTENSION_URL,
+} from 'utils/lib/fhir/constants';
+import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
+import { AdHocEncountersOutputSchema } from 'utils/lib/types/adhoc/datasets/encounters';
+import { PRACTITIONER_CODINGS } from 'utils/lib/types/data/appointments/appointments.types';
+import { DataEntryTestItem } from 'utils/lib/types/data/in-house/in-house.types';
+import {
+  LAB_ORDER_TASK,
+  OYSTEHR_LAB_OI_CODE_SYSTEM,
+  PROVENANCE_ACTIVITY_CODING_ENTITY,
+} from 'utils/lib/types/data/labs/labs.constants';
+import { DISCHARGE_SUMMARY_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
+import { afterAll, describe, expect, it, vi } from 'vitest';
+import { inHouseResults } from '../src/shared/adhoc-datasets/encounter-orders';
+import { fetchAdHocEncounterRows } from '../src/shared/adhoc-datasets/encounters';
+
+// Fixture tests for the Encounters layers that reuse the app's own mappers (tracking-board orders, chart
+// sections, visit-note signatures, tracking-board paperwork). The stubbed Oystehr serves each async-bulk
+// job by resource type (plus a suffix for the searches that share a type), and the mapped rows must parse
+// against the dataset's own Output schema.
+
+const visitStatusEntry = (
+  status: string,
+  start: string,
+  end?: string
+): NonNullable<Encounter['statusHistory']>[number] => ({
+  status: 'in-progress',
+  period: { start, ...(end ? { end } : {}) },
+  extension: [{ url: FHIR_EXTENSION.EncounterStatusHistory.ottehrVisitStatus.url, valueCode: status }],
+});
+
+const participant = (
+  coding: typeof PRACTITIONER_CODINGS.Attender,
+  id: string
+): NonNullable<Encounter['participant']>[number] => ({
+  type: [{ coding }],
+  individual: { reference: `Practitioner/${id}` },
+});
+
+const appointment = (id: string, status: Appointment['status'], extra: Partial<Appointment> = {}): Appointment => ({
+  resourceType: 'Appointment',
+  id,
+  status,
+  start: '2026-07-01T14:00:00.000Z',
+  end: '2026-07-01T14:30:00.000Z',
+  meta: { tag: [{ code: OTTEHR_MODULE.IP }] },
+  participant: [
+    { actor: { reference: 'Patient/pat-1' }, status: 'accepted' },
+    { actor: { reference: 'Location/loc-1' }, status: 'accepted' },
+  ],
+  ...extra,
+});
+
+const signedAppointment = appointment('appt-1', 'fulfilled', {
+  meta: { tag: [{ code: OTTEHR_MODULE.IP }, APPOINTMENT_LOCKED_META_TAG] },
+});
+const cancelledAppointment = appointment('appt-2', 'cancelled', {
+  cancelationReason: {
+    coding: [
+      {
+        code: 'Patient improved',
+        display: 'Patient improved',
+        extension: [
+          {
+            url: 'https://fhir.zapehr.com/StructureDefinition/cancellation-reason-additional-info',
+            valueString: 'feeling better',
+          },
+        ],
+      },
+    ],
+  },
+});
+
+const signedEncounter: Encounter = {
+  resourceType: 'Encounter',
+  id: 'enc-1',
+  status: 'finished',
+  class: { code: 'AMB' },
+  appointment: [{ reference: 'Appointment/appt-1' }],
+  subject: { reference: 'Patient/pat-1' },
+  participant: [
+    participant(PRACTITIONER_CODINGS.Attender, 'prac-1'),
+    participant(PRACTITIONER_CODINGS.Admitter, 'prac-2'),
+  ],
+  extension: [
+    { url: ENCOUNTER_PAYMENT_VARIANT_EXTENSION_URL, valueString: 'selfPay' },
+    { url: 'awaiting-supervisor-approval', valueBoolean: false },
+  ],
+  statusHistory: [
+    visitStatusEntry('arrived', '2026-07-01T14:00:00.000Z', '2026-07-01T14:05:00.000Z'),
+    visitStatusEntry('provider', '2026-07-01T14:05:00.000Z', '2026-07-01T14:20:00.000Z'),
+    visitStatusEntry('discharged', '2026-07-01T14:20:00.000Z', '2026-07-01T14:40:00.000Z'),
+    visitStatusEntry('awaiting supervisor approval', '2026-07-01T14:40:00.000Z', '2026-07-01T15:00:00.000Z'),
+    visitStatusEntry('completed', '2026-07-01T15:00:00.000Z'),
+  ],
+};
+
+const cancelledEncounter: Encounter = {
+  resourceType: 'Encounter',
+  id: 'enc-2',
+  status: 'cancelled',
+  class: { code: 'AMB' },
+  appointment: [{ reference: 'Appointment/appt-2' }],
+  subject: { reference: 'Patient/pat-1' },
+  statusHistory: [visitStatusEntry('cancelled', '2026-07-01T13:00:00.000Z')],
+};
+
+const patient: Patient = {
+  resourceType: 'Patient',
+  id: 'pat-1',
+  name: [{ given: ['Jane'], family: 'Doe' }],
+  birthDate: '2010-01-01',
+  gender: 'female',
+};
+
+const location: Location = { resourceType: 'Location', id: 'loc-1', name: 'Midtown Clinic', address: { state: 'NY' } };
+
+const practitioner = (id: string, given: string, family: string, providerType?: string): Practitioner => ({
+  resourceType: 'Practitioner',
+  id,
+  name: [{ given: [given], family }],
+  ...(providerType
+    ? { extension: [{ url: PROVIDER_TYPE_EXTENSION_URL, valueCodeableConcept: { coding: [{ code: providerType }] } }] }
+    : {}),
+});
+
+const attending = practitioner('prac-1', 'Nina', 'Park', 'NP');
+const intakeNurse = practitioner('prac-2', 'Ivy', 'Lee');
+const supervisor = practitioner('prac-3', 'Sam', 'Stone', 'MD');
+
+const signatureProvenance = (id: string, role: 'author' | 'verifier', who: string, recorded: string): Provenance => ({
+  resourceType: 'Provenance',
+  id,
+  target: [{ reference: 'Encounter/enc-1' }],
+  recorded,
+  agent: [
+    {
+      role: [{ coding: [{ system: PARTICIPATION_CODE_SYSTEM, code: role }] }],
+      who: { reference: `Practitioner/${who}` },
+    },
+  ],
+});
+
+const paperworkQr: QuestionnaireResponse = {
+  resourceType: 'QuestionnaireResponse',
+  id: 'qr-1',
+  status: 'completed',
+  meta: { tag: [INTAKE_PAPERWORK_QR_TAG] },
+  encounter: { reference: 'Encounter/enc-1' },
+  authored: '2026-07-01T13:30:00.000Z',
+  item: [],
+};
+
+const photoIdDocRef: DocumentReference = {
+  resourceType: 'DocumentReference',
+  id: 'doc-id',
+  status: 'current',
+  type: { text: 'Photo ID cards' },
+  context: { related: [{ reference: 'Patient/pat-1' }] },
+  content: [{ attachment: { title: 'photo-id-front' } }],
+};
+
+const dischargeSummary: DocumentReference = {
+  resourceType: 'DocumentReference',
+  id: 'doc-ds',
+  status: 'current',
+  type: { coding: [{ code: DISCHARGE_SUMMARY_CODE }] },
+  context: { encounter: [{ reference: 'Encounter/enc-1' }] },
+  content: [{ attachment: {} }],
+};
+
+const chiefComplaint: Condition = {
+  resourceType: 'Condition',
+  id: 'cc-1',
+  subject: { reference: 'Patient/pat-1' },
+  encounter: { reference: 'Encounter/enc-1' },
+  meta: { tag: [{ code: 'chief-complaint' }] },
+  note: [{ text: 'Sore throat for 3 days' }],
+};
+
+const medicalDecision: ClinicalImpression = {
+  resourceType: 'ClinicalImpression',
+  id: 'mdm-1',
+  status: 'completed',
+  subject: { reference: 'Patient/pat-1' },
+  encounter: { reference: 'Encounter/enc-1' },
+  meta: { tag: [{ code: 'medical-decision' }] },
+  summary: 'Likely viral pharyngitis',
+};
+
+const instruction: Communication = {
+  resourceType: 'Communication',
+  id: 'comm-1',
+  status: 'completed',
+  encounter: { reference: 'Encounter/enc-1' },
+  meta: { tag: [{ code: 'patient-instruction' }] },
+  payload: [{ contentString: 'Rest and fluids' }],
+};
+
+const procedureRequest: ServiceRequest = {
+  resourceType: 'ServiceRequest',
+  id: 'sr-proc',
+  status: 'completed',
+  intent: 'original-order',
+  subject: { reference: 'Patient/pat-1' },
+  encounter: { reference: 'Encounter/enc-1' },
+  meta: { tag: [{ code: 'procedure' }] },
+  category: [{ coding: [{ system: PROCEDURE_TYPE_SYSTEM, code: 'Laceration repair' }] }],
+  performerType: { coding: [{ system: PERFORMER_TYPE_SYSTEM, code: 'Provider' }] },
+  occurrenceDateTime: '2026-07-01T14:10:00.000Z',
+};
+
+// External lab: submitted (PST completed, order active, submit Provenance), no results yet → "sent".
+const externalLabRequest: ServiceRequest = {
+  resourceType: 'ServiceRequest',
+  id: 'sr-lab',
+  status: 'active',
+  intent: 'order',
+  subject: { reference: 'Patient/pat-1' },
+  encounter: { reference: 'Encounter/enc-1' },
+  requester: { reference: 'Practitioner/prac-1' },
+  code: { coding: [{ system: OYSTEHR_LAB_OI_CODE_SYSTEM, code: 'CBC', display: 'CBC' }] },
+  reasonCode: [{ coding: [{ code: 'J02.9', display: 'Acute pharyngitis' }] }],
+  contained: [
+    {
+      resourceType: 'ActivityDefinition',
+      id: 'ad-1',
+      status: 'active',
+      publisher: 'Quest',
+      code: { coding: [{ system: OYSTEHR_LAB_OI_CODE_SYSTEM, code: 'CBC', display: 'Complete blood count' }] },
+    } as ActivityDefinition,
+  ],
+};
+
+const pstTask: Task = {
+  resourceType: 'Task',
+  id: 'task-pst',
+  status: 'completed',
+  intent: 'order',
+  authoredOn: '2026-07-01T14:12:00.000Z',
+  basedOn: [{ reference: 'ServiceRequest/sr-lab' }],
+  code: { coding: [{ system: LAB_ORDER_TASK.system, code: LAB_ORDER_TASK.code.preSubmission }] },
+};
+
+const submitProvenance: Provenance = {
+  resourceType: 'Provenance',
+  id: 'prov-submit',
+  target: [{ reference: 'ServiceRequest/sr-lab' }],
+  recorded: '2026-07-01T14:15:00.000Z',
+  activity: { coding: [PROVENANCE_ACTIVITY_CODING_ENTITY.submit] },
+  agent: [{ who: { reference: 'Practitioner/prac-1' } }],
+};
+
+// Nursing order: requested Task → pending; the create-order Provenance names the ordering provider.
+const nursingRequest: ServiceRequest = {
+  resourceType: 'ServiceRequest',
+  id: 'sr-nurse',
+  status: 'active',
+  intent: 'order',
+  subject: { reference: 'Patient/pat-1' },
+  encounter: { reference: 'Encounter/enc-1' },
+  authoredOn: '2026-07-01T14:08:00.000Z',
+  meta: { tag: [{ system: `${PRIVATE_EXTENSION_BASE_URL}/order-type-tag`, code: 'nursing order' }] },
+  note: [{ text: 'Rapid strep swab' }],
+};
+
+const nursingTask: Task = {
+  resourceType: 'Task',
+  id: 'task-nurse',
+  status: 'requested',
+  intent: 'order',
+  basedOn: [{ reference: 'ServiceRequest/sr-nurse' }],
+};
+
+const nursingProvenance: Provenance = {
+  resourceType: 'Provenance',
+  id: 'prov-nurse',
+  target: [{ reference: 'ServiceRequest/sr-nurse' }],
+  recorded: '2026-07-01T14:08:00.000Z',
+  activity: { coding: [PROVENANCE_ACTIVITY_CODING_ENTITY.createOrder] },
+  agent: [{ who: { reference: 'Practitioner/prac-1' } }],
+};
+
+const resourcesByJob: Record<string, FhirResource[]> = {
+  Appointment: [signedAppointment, cancelledAppointment, signedEncounter, cancelledEncounter, patient, location],
+  Practitioner: [attending, intakeNurse],
+  Provenance: [
+    signatureProvenance('prov-author', 'author', 'prac-1', '2026-07-01T14:40:00.000Z'),
+    signatureProvenance('prov-verifier', 'verifier', 'prac-3', '2026-07-01T15:00:00.000Z'),
+    attending,
+    supervisor,
+  ],
+  QuestionnaireResponse: [paperworkQr],
+  'DocumentReference:related': [photoIdDocRef],
+  DocumentReference: [dischargeSummary],
+  Condition: [chiefComplaint],
+  ClinicalImpression: [medicalDecision],
+  Communication: [instruction],
+  ServiceRequest: [procedureRequest, externalLabRequest, nursingRequest],
+  'ServiceRequest:orders': [
+    externalLabRequest,
+    nursingRequest,
+    pstTask,
+    nursingTask,
+    submitProvenance,
+    nursingProvenance,
+    attending,
+  ],
+};
+
+// Searches sharing a resource type are told apart by what they ask for.
+const jobIdFor = (resourceType: string, params: { name: string; value: string }[]): string => {
+  if (resourceType === 'ServiceRequest' && params.some((p) => p.value === 'Task:based-on'))
+    return 'ServiceRequest:orders';
+  if (resourceType === 'DocumentReference' && params.some((p) => p.name === 'related'))
+    return 'DocumentReference:related';
+  return resourceType;
+};
+
+const ndjsonByUrl = new Map<string, string>();
+const manifestFor = (jobId: string): { output: { type: string; url: string }[]; requiresAccessToken: boolean } => {
+  const url = `https://example.test/${jobId}.ndjson`;
+  ndjsonByUrl.set(url, (resourcesByJob[jobId] ?? []).map((resource) => JSON.stringify(resource)).join('\n'));
+  return { output: [{ type: jobId, url }], requiresAccessToken: true };
+};
+
+vi.stubGlobal('fetch', (async (input: RequestInfo | URL) => {
+  const ndjson = ndjsonByUrl.get(String(input));
+  if (ndjson === undefined) return { ok: false, status: 404, text: async () => 'not found' };
+  return { ok: true, status: 200, text: async () => ndjson };
+}) as unknown as typeof fetch);
+
+afterAll(() => {
+  vi.unstubAllGlobals();
+});
+
+const fakeOystehr = {
+  fhir: {
+    search: async ({ resourceType, params }: { resourceType: string; params: { name: string; value: string }[] }) => ({
+      jobId: jobIdFor(resourceType, params ?? []),
+      contentLocation: '',
+      mode: 'bulk',
+    }),
+
+    waitForAsyncJob: async (jobId: string) => ({ status: 200, mode: 'bulk', manifest: manifestFor(jobId) }),
+  },
+  user: { list: async () => [] },
+} as unknown as Oystehr;
+
+const dateRange = { start: '2026-07-01T00:00:00.000Z', end: '2026-07-02T00:00:00.000Z' };
+
+const issuesOf = (result: { success: boolean; error?: { issues: unknown[] } }): unknown[] =>
+  result.success ? [] : result.error?.issues ?? ['unknown'];
+
+const allLayers = {
+  includeLabs: true,
+  includeNursing: true,
+  includeProcedures: true,
+  includeSigning: true,
+  includePaperwork: true,
+  includeCharting: true,
+};
+
+describe('ad-hoc Encounters: layers mapped with the app mappers (fixture)', () => {
+  it('rows parse against the schema', async () => {
+    const rows = await fetchAdHocEncounterRows(fakeOystehr, { dateRange, ...allLayers });
+    expect(rows).toHaveLength(2);
+    expect(issuesOf(AdHocEncountersOutputSchema.safeParse({ encounters: rows }))).toEqual([]);
+  });
+
+  it('base: provider type, intake performer, payment variant, cancellation reason', async () => {
+    const rows = await fetchAdHocEncounterRows(fakeOystehr, { dateRange });
+    const signed = rows.find((r) => r.appointmentId === 'appt-1')!;
+    const cancelled = rows.find((r) => r.appointmentId === 'appt-2')!;
+    expect(signed.attendingProviderType).toBe('NP');
+    expect(signed.intakePerformer).toBe('Ivy Lee');
+    expect(signed.paymentVariant).toBe('selfPay');
+    expect(signed.cancellationReason).toBe('');
+    expect(cancelled.cancellationReason).toBe('Patient improved');
+    expect(cancelled.cancellationReasonDisplay).toBe('Patient improved - feeling better');
+    expect(cancelled.attendingProviderType).toBeNull();
+    expect(cancelled.paymentVariant).toBeNull();
+  });
+
+  it('signing: signer, supervisor approval, charting lag, lock', async () => {
+    const rows = await fetchAdHocEncounterRows(fakeOystehr, { dateRange, includeSigning: true });
+    const signed = rows.find((r) => r.appointmentId === 'appt-1')!;
+    expect(signed.signed).toBe(true);
+    expect(signed.signedAt).toBe('2026-07-01T14:40:00.000Z');
+    expect(signed.signedBy).toContain('Park, Nina'); // the visit note's "Last, First" signer format
+    expect(signed.dischargedToSignedMinutes).toBe(20);
+    expect(signed.awaitingSupervisorApproval).toBe(false);
+    expect(signed.supervisorApprovedBy).toContain('Stone, Sam');
+    expect(signed.supervisorApprovedAt).toBe('2026-07-01T15:00:00.000Z');
+    expect(signed.locked).toBe(true);
+
+    const cancelled = rows.find((r) => r.appointmentId === 'appt-2')!;
+    expect(cancelled.signed).toBe(false);
+    expect(cancelled.signedAt).toBeNull();
+    expect(cancelled.signedBy).toBeNull();
+    expect(cancelled.locked).toBe(false);
+  });
+
+  it('paperwork: tracking-board completeness flags', async () => {
+    const rows = await fetchAdHocEncounterRows(fakeOystehr, { dateRange, includePaperwork: true });
+    const signed = rows.find((r) => r.appointmentId === 'appt-1')!;
+    expect(signed.paperworkSubmittedAt).toBe('2026-07-01T13:30:00.000Z');
+    expect(signed.demographicsComplete).toBe(true);
+    expect(signed.photoIdOnFile).toBe(true);
+    expect(signed.insuranceCardOnFile).toBe(false);
+    expect(signed.consentComplete).toBe(false);
+    expect(signed.consentMethod).toBeNull();
+  });
+
+  it('charting: chart-section fields and visit documents', async () => {
+    const rows = await fetchAdHocEncounterRows(fakeOystehr, { dateRange, includeCharting: true });
+    const signed = rows.find((r) => r.appointmentId === 'appt-1')!;
+    expect(signed.chiefComplaint).toBe('Sore throat for 3 days');
+    expect(signed.medicalDecision).toBe('Likely viral pharyngitis');
+    expect(signed.patientInstructions).toEqual(['Rest and fluids']);
+    expect(signed.historyOfPresentIllness).toBe('');
+    expect(signed.dischargeSummaryCreated).toBe(true);
+    expect(signed.patientEducationCount).toBe(0);
+  });
+
+  it('procedures: the chart procedures DTO flattened', async () => {
+    const rows = await fetchAdHocEncounterRows(fakeOystehr, { dateRange, includeProcedures: true });
+    const signed = rows.find((r) => r.appointmentId === 'appt-1')!;
+    expect(signed.procedureCount).toBe(1);
+    expect(signed.procedureTypes).toEqual(['Laceration repair']);
+    expect(signed.procedures?.[0]).toMatchObject({
+      type: 'Laceration repair',
+      performerType: 'Provider',
+      performedAt: '2026-07-01T14:10:00.000Z',
+      consentObtained: null,
+    });
+  });
+
+  it('labs and nursing: order-page statuses and timing', async () => {
+    const rows = await fetchAdHocEncounterRows(fakeOystehr, { dateRange, includeLabs: true, includeNursing: true });
+    const signed = rows.find((r) => r.appointmentId === 'appt-1')!;
+    expect(signed.labTests).toHaveLength(1);
+    expect(signed.labTests?.[0]).toMatchObject({
+      name: 'Complete blood count',
+      kind: 'external',
+      lab: 'Quest',
+      status: 'sent',
+      orderedAt: '2026-07-01T14:12:00.000Z',
+      submittedAt: '2026-07-01T14:15:00.000Z',
+      resultedAt: null,
+      isPSC: false,
+      icdCodes: ['J02.9'],
+      nonNormalResults: [],
+    });
+    expect(signed.labTestNames).toEqual(['Complete blood count']);
+    expect(signed.labNames).toEqual(['Quest']);
+    expect(signed.nursingOrderDetails).toEqual([
+      { order: 'Rapid strep swab', status: 'pending', orderedAt: '2026-07-01T14:08:00.000Z', orderedBy: 'Nina Park' },
+    ]);
+  });
+
+  it('in-house results: entered values read as labels, parallel to the components', () => {
+    const labDetails = {
+      components: {
+        type: 'grouped',
+        components: [
+          {
+            componentName: 'Strep A',
+            dataType: 'CodeableConcept',
+            valueSet: [
+              { code: 'POS', display: 'Positive' },
+              { code: 'NEG', display: 'Negative' },
+            ],
+            result: { entry: 'POS', interpretationCode: 'A' },
+          },
+          {
+            componentName: 'Glucose',
+            dataType: 'Quantity',
+            unit: 'mg/dL',
+            result: { entry: '95', interpretationCode: 'N' },
+          },
+          { componentName: 'Comment', dataType: 'string' },
+        ],
+      },
+    } as unknown as DataEntryTestItem;
+    expect(inHouseResults(labDetails)).toEqual({
+      resultComponents: ['Strep A', 'Glucose'],
+      resultValues: ['Positive', '95 mg/dL'],
+      resultInterpretations: ['A', 'N'],
+    });
+  });
+});
