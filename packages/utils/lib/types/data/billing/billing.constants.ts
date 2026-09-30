@@ -87,19 +87,18 @@ export const PERSON_GENDER_OPTIONS: { value: NonNullable<Patient['gender']>; lab
 ];
 
 // X12 drug quantity unit codes offered by the service line medication detail dialog.
-export const DRUG_UNIT_CODE_VALUES = ['UN', 'ME', 'ML', 'GM', 'F2', 'MJ'] as const;
+export const DRUG_UNIT_CODE_VALUES = ['UN', 'ME', 'ML', 'GR', 'F2'] as const;
 export type DrugUnitCode = (typeof DRUG_UNIT_CODE_VALUES)[number];
 export const DRUG_UNIT_CODES: { code: DrugUnitCode; label: string; description: string }[] = [
   { code: 'UN', label: 'Units', description: 'Standard default for most drugs, procedures, or visits' },
-  { code: 'ME', label: 'Milligrams (MG)', description: 'Drug amount in milligrams' },
-  { code: 'ML', label: 'Milliliters (ML)', description: 'Drug amount in milliliters' },
-  { code: 'GM', label: 'Grams (GM)', description: 'Drug amount in grams' },
+  { code: 'ME', label: 'Milligrams', description: 'Drug amount in milligrams' },
+  { code: 'ML', label: 'Milliliters', description: 'Drug amount in milliliters' },
+  { code: 'GR', label: 'Grams', description: 'Drug amount in grams' },
   {
     code: 'F2',
     label: 'International Units',
     description: 'For specific biologicals/drugs; largely replaced by UN in 5010',
   },
-  { code: 'MJ', label: 'Minutes', description: 'Time-based modalities billed in increments' },
 ];
 
 // Dashed NDC layouts by digit count: 10 → 4-4-2 / 5-3-2 / 5-4-1, 11 → 5-4-2, 12 → 6-4-2.
