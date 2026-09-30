@@ -371,7 +371,7 @@ const serviceRequests: FhirResource[] = [
 
 // "Ask the patient" screening answers: chart-data Observations keyed by the config field's fhirField,
 // value = the option's fhirValue. Two answers for the same question keep the newest.
-const screeningObs = (id: string, field: string, value: string, at: string): Observation => ({
+const screeningObs = (id: string, field: string, value: string | boolean, at: string): Observation => ({
   resourceType: 'Observation' as const,
   id,
   status: 'final',
@@ -380,12 +380,14 @@ const screeningObs = (id: string, field: string, value: string, at: string): Obs
   subject: { reference: 'Patient/pat-1' },
   encounter: { reference: 'Encounter/enc-1' },
   effectiveDateTime: at,
-  valueString: value,
+  ...(typeof value === 'boolean' ? { valueBoolean: value } : { valueString: value }),
 });
 const screeningObservations: FhirResource[] = [
   screeningObs('obs-scr-1', PATIENT_BREASTFEEDING_STATUS, 'not-applicable', '2026-07-01T14:06:00.000Z'),
   screeningObs('obs-scr-2', SEEN_IN_LAST_THREE_YEARS_FIELD, 'no', '2026-07-01T14:06:00.000Z'),
   screeningObs('obs-scr-3', SEEN_IN_LAST_THREE_YEARS_FIELD, 'yes', '2026-07-01T14:08:00.000Z'),
+  screeningObs('obs-scr-4', 'covid-symptoms', true, '2026-07-01T14:07:00.000Z'),
+  screeningObs('obs-scr-5', 'tested-positive-covid', false, '2026-07-01T14:05:00.000Z'),
 ];
 
 const medicationAdministrations: FhirResource[] = [
@@ -593,11 +595,15 @@ describe('ad-hoc dataset zambdas: mapped rows parse against their Zod schema (fi
     expect(issuesOf(AdHocEncountersOutputSchema.safeParse({ encounters: rows }))).toEqual([]);
     expect(row.screeningAnswers).toEqual([
       { question: 'Has the patient been seen in one of our offices / telemed in last 3 years?', answer: 'Yes' },
+      { question: 'Do you have any COVID symptoms?', answer: 'Yes' },
       { question: 'Are you currently breastfeeding?', answer: 'Not applicable' },
+      { question: 'Have you tested positive for COVID?', answer: 'No' },
     ]);
     expect(row.screeningQuestions).toEqual([
       'Has the patient been seen in one of our offices / telemed in last 3 years?',
+      'Do you have any COVID symptoms?',
       'Are you currently breastfeeding?',
+      'Have you tested positive for COVID?',
     ]);
   });
 
