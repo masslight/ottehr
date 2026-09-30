@@ -263,9 +263,11 @@ import {
 import { UpdateUserParams, UpdateUserZambdaOutput } from 'utils/lib/types/api/update-user/update-user.types';
 import {
   DeleteVisitFilesInput,
+  DeleteVisitFormInput,
   UpdateVisitDetailsInput,
   UpdateVisitFilesInput,
   UpdateVisitFilesOutput,
+  UpdateVisitFormInput,
 } from 'utils/lib/types/api/update-visit-details.types';
 import { UserActivationZambdaInput, UserActivationZambdaOutput } from 'utils/lib/types/api/user-activation.types';
 import {
@@ -2410,6 +2412,30 @@ export const deleteVisitFiles = async (oystehr: Oystehr, parameters: DeleteVisit
   } catch (error: unknown) {
     console.log(error);
     throw error;
+  }
+};
+
+export const updateVisitForm = async (oystehr: Oystehr, parameters: UpdateVisitFormInput): Promise<void> => {
+  try {
+    await oystehr.zambda.execute({
+      id: 'update-visit-form',
+      ...parameters,
+    });
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const deleteVisitForm = async (oystehr: Oystehr, parameters: DeleteVisitFormInput): Promise<void> => {
+  try {
+    await oystehr.zambda.execute({
+      id: 'delete-visit-form',
+      ...parameters,
+    });
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
   }
 };
 
