@@ -1904,6 +1904,44 @@ describe('employee chat flows', () => {
       expect(bob.advanceCalls).toEqual([]);
     });
 
+    it('retries opening a replacement that had not joined when recovery gave up waiting for it', async () => {
+      const { fakeClient, bob } = await connectWithClosedBob();
+      mockOpenEmployeeChat.mockResolvedValueOnce({ conversation: summaryOf('CH-bob2', BOB, ['CH-bob']) });
+      renderChat();
+      act(() => openEmployeeChatDrawer());
+      const bobRow = await screen.findByText('Bob Chen');
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+
+      fireEvent.click(bobRow);
+      await advanceAsync(5000);
+      expect(screen.getByTestId('employee-chat-recovery-failed')).toBeInTheDocument();
+      expect(historyMessages()).toHaveLength(3);
+
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+      });
+      expect(screen.getByTestId('employee-chat-recovering')).toBeInTheDocument();
+      await advanceAsync(5000);
+      expect(screen.getByTestId('employee-chat-recovery-failed')).toBeInTheDocument();
+
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+      });
+      expect(screen.getByTestId('employee-chat-recovering')).toBeInTheDocument();
+      await act(async () => {
+        fakeClient.emit('conversationJoined', fakeClient.addConversation('CH-bob2'));
+      });
+      await advanceAsync(0);
+
+      expect(useEmployeeChatStore.getState().activeSid).toBe('CH-bob2');
+      expect(screen.queryByTestId('employee-chat-recovery-failed')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('employee-chat-recovering')).not.toBeInTheDocument();
+      expect(screen.getByTestId('employee-chat-input')).not.toBeDisabled();
+      expect(historyMessages()).toHaveLength(3);
+      expect(mockOpenEmployeeChat).toHaveBeenCalledTimes(1);
+      expect(bob.advanceCalls).toEqual([]);
+    });
+
     it('settles on the canonical replacement when the other employee replaced the chat first', async () => {
       const { fakeClient } = await connectWithClosedBob();
       const pending = deferOpenEmployeeChat();

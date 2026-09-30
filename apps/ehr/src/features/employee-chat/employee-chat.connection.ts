@@ -773,7 +773,24 @@ export async function retryConversationRecovery(): Promise<void> {
   const current = [...summariesBySid.values()].find(
     (summary) => summary.otherEmployee.profile === pendingEmployee?.profile
   );
-  if (current) await openConversation(current.conversationSid);
+  if (!current || getState().recovery !== 'failed') return;
+  const sid = current.conversationSid;
+  const myEpoch = epoch;
+  const myOpen = openSeq;
+  const isCurrent = (): boolean => myEpoch === epoch && myOpen === openSeq && getState().activeSid === activeSid;
+  setState({ recovery: 'recovering' });
+  try {
+    const replacement = await waitForConversation(sid);
+    if (!isCurrent()) return;
+    syncChat(sid);
+    if (!isClosed(replacement) && !isWritable(replacement)) {
+      throw new Error(`Replacement conversation ${sid} is not writable`);
+    }
+    await openConversation(sid);
+  } catch (error) {
+    console.error('employee chat recovery retry failed', error);
+    if (isCurrent()) setState({ recovery: 'failed' });
+  }
 }
 
 export async function openConversation(sid: string): Promise<void> {
