@@ -162,6 +162,7 @@ export const CustomFormCard: FC<CustomFormCardProps> = ({ form, patientId, delet
       try {
         await updateVisitForm(oystehrZambda, {
           questionnaireResponseId,
+          questionnaireId,
           patientId,
           pages: pages.map((page) => ({
             linkId: page.linkId,
@@ -183,7 +184,7 @@ export const CustomFormCard: FC<CustomFormCardProps> = ({ form, patientId, delet
       enqueueSnackbar('Form updated', { variant: 'success' });
       onSaved();
     },
-    [oystehrZambda, patientId, pages, questionnaireResponse.id, onSaved]
+    [oystehrZambda, patientId, pages, questionnaireId, questionnaireResponse.id, onSaved]
   );
 
   const submitFromHeader = useCallback((): void => {

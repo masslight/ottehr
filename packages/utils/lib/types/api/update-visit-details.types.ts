@@ -147,6 +147,8 @@ export interface DeleteVisitFilesInput {
 
 export interface UpdateVisitFormInput {
   questionnaireResponseId: string;
+  /** The form being edited. A flow response is shared, so this is what says which pages are its own. */
+  questionnaireId: string;
   patientId: string;
   pages: QuestionnaireResponseItem[];
 }

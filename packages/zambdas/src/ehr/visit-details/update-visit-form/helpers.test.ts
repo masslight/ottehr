@@ -62,8 +62,10 @@ describe('buildFormAnswerPatchOperations', () => {
     });
   });
 
-  // A paperwork flow de-duplicates repeated page linkIds when it assembles its constituent forms,
-  // so a form's page can be missing from the response the flow created.
+  // A response only carries the pages that were answered, so a page a patient never reached is
+  // absent. Note this branch is not what handles a page the flow de-duplicated away: that page's
+  // linkId is still present, held by the form that survived, which is why the caller's form identity
+  // is checked in complexValidation rather than here.
   it('appends a page the response does not carry yet', () => {
     const response = qr({ item: [{ linkId: 'page-one', item: [] }] });
 

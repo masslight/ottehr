@@ -165,6 +165,7 @@ describe('CustomFormCard', () => {
     await waitFor(() => expect(updateVisitForm).toHaveBeenCalledOnce());
     expect(vi.mocked(updateVisitForm).mock.calls[0][1]).toEqual({
       questionnaireResponseId: 'qr-1',
+      questionnaireId: 'work-status',
       patientId: 'patient-1',
       pages: [{ linkId: 'page-one', item: [{ linkId: 'employer', answer: [{ valueString: 'Beta Industries' }] }] }],
     });

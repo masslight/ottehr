@@ -23,6 +23,8 @@ const mockCanonical = vi.mocked(getCanonicalQuestionnaire);
 
 const QR_ID = '550e8400-e29b-41d4-a716-446655440000';
 const PATIENT_ID = '6ba7b810-9dad-11d1-80b4-00c04fd430c8';
+const FORM_ID = '3f2504e0-4f89-11d3-9a0c-0305e82c3301';
+const OTHER_FORM_ID = '3f2504e0-4f89-11d3-9a0c-0305e82c3302';
 
 const CUSTOM_FORM_PAGE = 'work-status-page';
 const CONSENT_PAGE = 'consent-forms-page';
@@ -47,19 +49,20 @@ const questionnaire = (overrides: Partial<Questionnaire>): Questionnaire => ({
   ...overrides,
 });
 
-const practiceManaged = (linkId: string): Questionnaire =>
+const practiceManaged = (linkId: string, id = FORM_ID): Questionnaire =>
   questionnaire({
+    id,
     meta: { tag: [PRACTICE_MANAGED_QUESTIONNAIRE_TAG] },
     item: [{ linkId, type: 'group' }],
   });
 
-const input = (pages: { linkId: string }[]): ValidatedInput => ({
-  body: { questionnaireResponseId: QR_ID, patientId: PATIENT_ID, pages },
+const input = (pages: { linkId: string }[], questionnaireId = FORM_ID): ValidatedInput => ({
+  body: { questionnaireResponseId: QR_ID, questionnaireId, patientId: PATIENT_ID, pages },
   callerAccessToken: 'token',
 });
 
-const validate = (pages: { linkId: string }[]): Promise<unknown> =>
-  complexValidation(input(pages), {} as Secrets, oystehr);
+const validate = (pages: { linkId: string }[], questionnaireId?: string): Promise<unknown> =>
+  complexValidation(input(pages, questionnaireId), {} as Secrets, oystehr);
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -119,5 +122,56 @@ describe('update-visit-form editable page allowlist', () => {
   it('allows the response own pages when it is not a flow', async () => {
     await expect(validate([{ linkId: CUSTOM_FORM_PAGE }])).resolves.toBeDefined();
     expect(mockCanonical).not.toHaveBeenCalled();
+  });
+
+  it('rejects a standalone response when the caller names a different form', async () => {
+    await expect(validate([{ linkId: CUSTOM_FORM_PAGE }], OTHER_FORM_ID)).rejects.toMatchObject({
+      message: expect.stringContaining(CUSTOM_FORM_PAGE),
+    });
+  });
+});
+
+// A flow keeps one page per linkId, dropping all but the last form that declares it
+// (handleFlowQuestionnaireItem), yet visit details still renders a card for every constituent form.
+// So the response's `page` item is the surviving form's storage: without checking which form the
+// save is for, the shadowed form's card would silently overwrite the surviving form's answers.
+describe('update-visit-form page ownership within a flow', () => {
+  const flowQuestionnaire = questionnaire({
+    derivedFrom: ['http://example.org/shadowed|1.0.0', 'http://example.org/survivor|1.0.0'],
+  });
+  const SHARED_PAGE = 'page-one';
+
+  beforeEach(() => {
+    mockQuestionnaireForQR.mockResolvedValue(flowQuestionnaire);
+    mockCanonical
+      .mockResolvedValueOnce(practiceManaged(SHARED_PAGE, FORM_ID))
+      .mockResolvedValueOnce(practiceManaged(SHARED_PAGE, OTHER_FORM_ID));
+  });
+
+  it('lets the last form that declares the page edit it', async () => {
+    await expect(validate([{ linkId: SHARED_PAGE }], OTHER_FORM_ID)).resolves.toBeDefined();
+  });
+
+  it('refuses the earlier form whose page the flow dropped', async () => {
+    await expect(validate([{ linkId: SHARED_PAGE }], FORM_ID)).rejects.toMatchObject({
+      message: expect.stringContaining(SHARED_PAGE),
+    });
+  });
+});
+
+// get-visit-details resolves the flow's forms with allSettled and shows the ones that came back, so
+// one unresolvable constituent must not make every card in the flow unsavable.
+describe('update-visit-form with an unresolvable flow member', () => {
+  const flowQuestionnaire = questionnaire({
+    derivedFrom: ['http://example.org/missing|1.0.0', 'http://example.org/custom-form|1.0.0'],
+  });
+
+  it('still accepts a page from a form that did resolve', async () => {
+    mockQuestionnaireForQR.mockResolvedValue(flowQuestionnaire);
+    mockCanonical
+      .mockRejectedValueOnce(new Error('Questionnaire not found'))
+      .mockResolvedValueOnce(practiceManaged(CUSTOM_FORM_PAGE));
+
+    await expect(validate([{ linkId: CUSTOM_FORM_PAGE }])).resolves.toBeDefined();
   });
 });

@@ -1,5 +1,5 @@
 import Oystehr from '@oystehr/sdk';
-import { QuestionnaireResponse } from 'fhir/r4b';
+import { Questionnaire, QuestionnaireResponse } from 'fhir/r4b';
 import {
   deconstructCanonicalUrl,
   getCanonicalQuestionnaire,
@@ -68,6 +68,7 @@ const QuestionnaireResponseItemSchema: z.ZodType<{ linkId: string; item?: unknow
 
 const UpdateVisitFormInputSchema = z.object({
   questionnaireResponseId: z.string().uuid('"questionnaireResponseId" must be a valid UUID.'),
+  questionnaireId: z.string().uuid('"questionnaireId" must be a valid UUID.'),
   patientId: z.string().uuid('"patientId" must be a valid UUID.'),
   pages: z.array(QuestionnaireResponseItemSchema).min(1, '"pages" must contain at least one page.'),
 });
@@ -100,7 +101,7 @@ export async function complexValidation(
   secrets: Secrets,
   oystehr: Oystehr
 ): Promise<EffectInput> {
-  const { questionnaireResponseId, patientId } = input.body;
+  const { questionnaireResponseId, questionnaireId, patientId } = input.body;
   const { callerAccessToken } = input;
 
   const user = await getUser(callerAccessToken, secrets);
@@ -134,32 +135,57 @@ export async function complexValidation(
     throw INVALID_INPUT_ERROR(`A form that has been deleted cannot be edited.`);
   }
 
-  const editablePageLinkIds = await getEditablePageLinkIds(questionnaireResponse, oystehr);
+  const editablePageLinkIds = await getEditablePageLinkIds(questionnaireResponse, questionnaireId, oystehr);
   const forbiddenPage = input.body.pages.find((page) => !editablePageLinkIds.has(page.linkId));
   if (forbiddenPage) {
-    throw INVALID_INPUT_ERROR(`Page "${forbiddenPage.linkId}" does not belong to an editable form on this response.`);
+    throw INVALID_INPUT_ERROR(
+      `Page "${forbiddenPage.linkId}" does not belong to Questionnaire/${questionnaireId} on this response.`
+    );
   }
 
   return { ...input, questionnaireResponse };
 }
 
+// The pages of `questionnaireId` that this response actually stores, which is the only thing a save
+// for that form may write. A flow assembles its constituent forms' pages in derivedFrom order and
+// keeps only the last of any repeated page linkId (see handleFlowQuestionnaireItem), so a page
+// linkId in the response belongs to exactly one form: the last one that declares it. Answering "any
+// page of any form in the flow" instead would let a form's card overwrite another form's answers.
 async function getEditablePageLinkIds(
   questionnaireResponse: QuestionnaireResponse,
+  questionnaireId: string,
   oystehr: Oystehr
 ): Promise<Set<string>> {
   const questionnaire = await getQuestionnaireForQR(questionnaireResponse, oystehr);
   const flowMembers = questionnaire.derivedFrom ?? [];
 
   if (flowMembers.length === 0) {
+    if (questionnaire.id !== questionnaireId) return new Set();
     return new Set((questionnaire.item ?? []).map((page) => page.linkId));
   }
 
-  const derived = await Promise.all(
+  // Matches how get-visit-details builds the cards: a constituent form that cannot be resolved is
+  // left out rather than failing the whole call, so the forms that did resolve stay editable.
+  const results = await Promise.allSettled(
     flowMembers.map((canonical) => {
       const { url, version } = deconstructCanonicalUrl(canonical, questionnaire);
       return getCanonicalQuestionnaire({ url, version }, oystehr);
     })
   );
+  results
+    .filter((result): result is PromiseRejectedResult => result.status === 'rejected')
+    .forEach((result) => console.error(result.reason));
 
-  return new Set(derived.filter(isPracticeManagedQ).flatMap((form) => (form.item ?? []).map((page) => page.linkId)));
+  const ownerByPage = new Map<string, Questionnaire>();
+  results
+    .filter((result): result is PromiseFulfilledResult<Questionnaire> => result.status === 'fulfilled')
+    .forEach(({ value: form }) => (form.item ?? []).forEach((page) => ownerByPage.set(page.linkId, form)));
+
+  const editable = new Set<string>();
+  ownerByPage.forEach((owner, linkId) => {
+    if (owner.id === questionnaireId && isPracticeManagedQ(owner)) {
+      editable.add(linkId);
+    }
+  });
+  return editable;
 }
