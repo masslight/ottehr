@@ -292,10 +292,6 @@ export type {
 export { TextingConfigSchema } from './texting';
 export type { TextingInvoicingConfig, TextingTelemedConfig, TextingConfig } from './texting';
 
-// Forms config types
-export { FormItemSchema, FormsConfigSchema } from './forms';
-export type { FormItem, FormsConfig } from './forms';
-
 // Procedures config types
 export { PrepopulationEntrySchema, ProceduresConfigSchema } from './procedures';
 export type { PrepopulationValue, PrepopulationEntry, ProceduresConfig } from './procedures';
