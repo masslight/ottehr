@@ -1,6 +1,6 @@
-import Oystehr, { BatchInputBinaryPatchRequest, BatchInputRequest } from '@oystehr/sdk';
+import Oystehr, { BatchInputBinaryPatchRequest, BatchInputJSONPatchRequest, BatchInputRequest } from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
-import { Binary, Claim, ClaimResponse, Coding, FhirResource, ProvenanceAgent } from 'fhir/r4b';
+import { Binary, Claim, ClaimResponse, Coding, FhirResource, Identifier, ProvenanceAgent } from 'fhir/r4b';
 import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
 import { AR_STAGE, CLAIM_STATUS_TAG_SYSTEMS } from 'utils/lib/types/data/billing/claim-status';
 import {
@@ -9,6 +9,7 @@ import {
   SECONDARY_SUBMISSION_TAG_NAME,
 } from 'utils/lib/types/data/billing/system-tags';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { CLAIM_PAYER_CLAIM_CONTROL_CODE_IDENTIFIER_SYSTEM, ERA_ICN_EXTENSION } from '../../../src/billing/shared';
 import {
   ComplexValidationOutput,
   performEffect,
@@ -124,6 +125,15 @@ const writtenTags = (): Coding[] => {
   const operations = JSON.parse(atob((patch.resource as Binary).data!)) as Operation[];
   const tagOp = operations.find((op) => op.path === '/meta/tag');
   return (tagOp as { value: Coding[] }).value;
+};
+
+const writtenIdentifiers = (): Identifier[] => {
+  const requests = transaction.mock.calls.at(-1)?.[0].requests as BatchInputRequest<FhirResource>[];
+  const patch = requests.find((r) => r.method === 'PATCH' && 'operations' in r && r.operations) as
+    | BatchInputJSONPatchRequest
+    | undefined;
+  const identifiers = patch?.operations.find((op) => op.path === '/identifier');
+  return (identifiers as { value: Identifier[] } | undefined)?.value ?? [];
 };
 
 const codesInSystem = (tags: Coding[], system: string): string[] =>
@@ -262,5 +272,23 @@ describe('sub-claim-response-update-claim-from-era performEffect', () => {
     await performEffect(oystehr, validated(claimWith([]), notForwardedResponse));
 
     expect(transaction).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not add a payer claim control number if claim response does not have one', async () => {
+    await performEffect(oystehr, validated(claimWith([]), notForwardedResponse));
+    const identifiers = writtenIdentifiers();
+    expect(identifiers).toEqual([]);
+  });
+
+  it('adds a payer claim control number if claim response has one', async () => {
+    await performEffect(
+      oystehr,
+      validated(claimWith([]), {
+        ...notForwardedResponse,
+        extension: [...(notForwardedResponse.extension ?? []), { url: ERA_ICN_EXTENSION, valueString: 'PCCN-12345' }],
+      })
+    );
+    const identifiers = writtenIdentifiers();
+    expect(identifiers).toEqual([{ system: CLAIM_PAYER_CLAIM_CONTROL_CODE_IDENTIFIER_SYSTEM, value: 'PCCN-12345' }]);
   });
 });
