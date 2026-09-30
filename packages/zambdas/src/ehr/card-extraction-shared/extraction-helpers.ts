@@ -1,4 +1,4 @@
-import { captureException } from '@sentry/aws-serverless';
+import { captureException } from '@sentry/node-core/light';
 import { Operation } from 'fast-json-patch';
 import { Extension } from 'fhir/r4b';
 import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
