@@ -2,6 +2,7 @@
 // response validation, prompt schema, UI checkboxes, and endpoint input flags all derive from the
 // objects below.
 import { z } from 'zod';
+import { RecentPatientRecordSchema } from '../../api/recent-patients-report.types';
 import { AdHocLayerMap, DatasetInput, datasetInputSchema, datasetRowSchema, LayerRowFields } from './dataset';
 
 export const PatientBaseRowSchema = z.object({
@@ -44,6 +45,13 @@ export const PATIENT_DOMAIN_FIELDS: readonly (keyof AdHocPatientRow)[] = [
   'serviceCategories',
   'source',
   'problemCodes',
+  'preferredLanguage',
+  'race',
+  'ethnicity',
+  'sexualOrientation',
+  'genderIdentity',
+  'pcpPracticeName',
+  'preferredPharmacy',
 ];
 
 // Opt-in layers, declared ONCE (metadata + Zod field schema); everything else derives from this map.
@@ -79,6 +87,45 @@ export const PATIENT_LAYERS = {
     schema: z.object({
       surgicalHistory: z.array(z.string()).describe('Past surgical procedures (names).'),
       surgicalHistoryCount: z.number().describe('Number of past surgeries charted.'),
+    }),
+  },
+  visitHistory: {
+    label: 'New vs returning',
+    description:
+      'Whether the patient is new or returning (had any appointment before the date range), as the Recent ' +
+      'Patients report decides it, and when their last appointment before the range was.',
+    schema: z.object({
+      patientStatus: RecentPatientRecordSchema.shape.patientStatus.describe(
+        'new = no appointment of any kind before the date range start; existing = at least one. Same rule as ' +
+          'the Recent Patients report.'
+      ),
+      lastAppointmentBeforeRange: z
+        .string()
+        .nullable()
+        .describe(
+          'Full ISO start of the latest appointment before the date range (any status, cancelled included). ' +
+            'Null for new patients.'
+        ),
+    }),
+  },
+  demographics: {
+    label: 'Demographics & preferences',
+    description:
+      'Preferred language, race, ethnicity, sexual orientation, gender identity, marketing opt-in, primary care ' +
+      'physician and preferred pharmacy — as on the patient record / visit details face sheet.',
+    schema: z.object({
+      preferredLanguage: z.string().describe('Preferred language. "" when not recorded.'),
+      race: z.string().describe('Race as recorded. "" when not recorded.'),
+      ethnicity: z.string().describe('Ethnicity as recorded. "" when not recorded.'),
+      sexualOrientation: z.string().describe('Sexual orientation as recorded. "" when not recorded.'),
+      genderIdentity: z.string().describe('Gender identity as recorded (separate from sex). "" when not recorded.'),
+      marketingOptIn: z.boolean().describe('The patient agreed to receive marketing messages.'),
+      commonWellConsent: z.boolean().describe('The patient consented to CommonWell record sharing.'),
+      hasPcp: z.boolean().describe('The patient has an active primary care physician on file.'),
+      pcpName: z.string().describe('Primary care physician name. "" when none.'),
+      pcpPracticeName: z.string().describe('Primary care physician\'s practice. "" when none.'),
+      preferredPharmacy: z.string().describe('Preferred pharmacy name. "" when none.'),
+      deceased: z.boolean().describe('The patient is marked deceased.'),
     }),
   },
   hospitalizations: {
