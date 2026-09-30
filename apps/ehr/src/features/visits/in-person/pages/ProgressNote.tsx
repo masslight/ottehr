@@ -1,6 +1,7 @@
 import { Box, Stack, Typography } from '@mui/material';
 import React from 'react';
 import { PatientNotesButton } from 'src/features/patient-notes/components/PatientNotesButton';
+import { useTrackRecentlyViewed } from '../../../../hooks/useTrackRecentlyViewed';
 import { Loader } from '../../shared/components/Loader';
 import { PageTitle } from '../../shared/components/PageTitle';
 import { AddendumCard } from '../../shared/components/review-tab/AddendumCard';
@@ -9,7 +10,8 @@ import { DischargeSummaryButton } from '../../shared/components/review-tab/Disch
 import { MissingCard } from '../../shared/components/review-tab/MissingCard';
 import { ReviewAndSignButton } from '../../shared/components/review-tab/ReviewAndSignButton';
 import { UnlockAppointmentButton } from '../../shared/components/review-tab/UnlockAppointmentButton';
-import { useAppointmentData, useChartData } from '../../shared/stores/appointment/appointment.store';
+import { useChartData } from '../../shared/hooks/useChartData';
+import { useAppointmentData } from '../../shared/stores/appointment/appointment.store';
 import { ProgressNoteDetails } from '../components/progress-note/ProgressNoteDetails';
 
 interface PatientInfoProps {
@@ -18,11 +20,15 @@ interface PatientInfoProps {
 
 export const ProgressNote: React.FC<PatientInfoProps> = () => {
   const {
-    resources: { appointment, patient },
+    patient,
+    resources: { appointment },
+    encounter,
     isAppointmentLoading,
     appointmentError,
     refetch,
   } = useAppointmentData();
+
+  useTrackRecentlyViewed({ appointment, patient, encounter, isAppointmentLoading });
 
   const { isChartDataLoading, chartDataError } = useChartData();
   const isLoading = isAppointmentLoading || isChartDataLoading;

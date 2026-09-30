@@ -2,7 +2,7 @@
  * @vitest-environment node
  */
 
-import { VisitType } from 'config-types';
+import { VisitType } from 'config-types/config/booking';
 import { Appointment } from 'fhir/r4b';
 import { SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
 import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';

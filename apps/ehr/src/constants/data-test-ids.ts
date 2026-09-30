@@ -547,6 +547,7 @@ export const dataTestIds = {
   patientRecordPage: {
     seeAllPatientInfoButton: 'see-all-patient-info-button',
     faxPatientDocsButton: 'fax-patient-docs-button',
+    legacyDataButton: 'legacy-data-button',
     medicalRecordButton: 'medical-record-button',
     downloadMedicalRecordArchiveMenuItem: 'download-medical-record-archive-menu-item',
     medicalRecordExportProgress: 'medical-record-export-progress',

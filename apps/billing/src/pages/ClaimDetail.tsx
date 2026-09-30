@@ -31,6 +31,7 @@ import {
   FormControl,
   FormControlLabel,
   FormHelperText,
+  FormLabel,
   IconButton,
   InputLabel,
   Link as MuiLink,
@@ -38,6 +39,8 @@ import {
   ListItemText,
   Menu,
   MenuItem,
+  Radio,
+  RadioGroup,
   Select,
   Stack,
   Switch,
@@ -65,6 +68,7 @@ import {
   CODE_SYSTEM_SERVICE_CATEGORY_CODE_NAMES,
 } from 'utils/lib/helpers/rcm/constants';
 import { VALUE_SETS } from 'utils/lib/ottehr-config/value-sets';
+import { otherColors } from 'utils/lib/theme/billing-palette';
 import {
   CreateBillingProviderInput,
   SaveServiceFacilityInput,
@@ -88,7 +92,11 @@ import {
   formatAntCaseString,
   formatClaimStatusValue,
 } from 'utils/lib/types/data/billing/claim-status';
-import { RULES_ENGINES, RulesEngineDef } from 'utils/lib/types/data/billing/rules-engine.constants';
+import {
+  RULES_ENGINES,
+  RulesEngineDef,
+  RulesEngineSubmissionType,
+} from 'utils/lib/types/data/billing/rules-engine.constants';
 import { formatCurrency } from 'utils/lib/utils/convert';
 import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils/lib/validation/constants';
 import z from 'zod';
@@ -155,7 +163,6 @@ import { useFacilityOptionsSearch, useProviderOptionsSearch } from '../hooks/use
 import { usePatient } from '../hooks/usePatient';
 import { useProvider } from '../hooks/useProvider';
 import { useServiceFacility } from '../hooks/useServiceFacility';
-import { otherColors } from '../themes/ottehr/colors';
 import { downloadBase64File } from '../utils/downloadFile';
 import { formatDate, formatDateTime } from '../utils/format';
 import { PatientDemographicsSection } from './PatientDetail';
@@ -202,6 +209,7 @@ export default function ClaimDetail(): ReactElement {
   const [claimType, setClaimType] = useState('');
   const [service, setService] = useState('');
   const [skipRules, setSkipRules] = useState(false);
+  const [submissionType, setSubmissionType] = useState<RulesEngineSubmissionType>('new');
   const [showCoverageMap, setShowCoverageMap] = useState<Record<string, boolean>>({
     primary: true,
     secondary: !!claim?.secondaryCoverageFhirId,
@@ -332,7 +340,12 @@ export default function ClaimDetail(): ReactElement {
     }
     setSubmitting(true);
     try {
-      await runBillingRulesEngine(oystehrZambda, { claimIds: [id], skipRules });
+      await runBillingRulesEngine(oystehrZambda, {
+        claimIds: [id],
+        skipRules,
+        submissionType: skipRules ? submissionType : undefined,
+        payerClaimControlNumber: skipRules && submissionType !== 'new' ? claim?.payerClaimControlNumber : undefined,
+      });
       const messageSegment = skipRules
         ? 'Claim submitted.'
         : `${engine.label} started — when every rule passes, ${engine.onPass}; a Hold keeps the claim for review.`;
@@ -350,7 +363,7 @@ export default function ClaimDetail(): ReactElement {
       setConfirmingSubmit(false);
       await fetchDetail();
     }
-  }, [oystehrZambda, id, claim, skipRules, fetchDetail]);
+  }, [oystehrZambda, id, claim, skipRules, submissionType, fetchDetail]);
 
   if (loading && !claim) {
     return (
@@ -733,28 +746,73 @@ export default function ClaimDetail(): ReactElement {
         <ConfirmDialog
           open={confirmingSubmit}
           title={runEngine.runButtonLabel}
-          confirmLabel={skipRules ? 'Submit claim (without running rules)' : 'Run rules'}
+          confirmLabel={getSubmitClaimLabel(skipRules, submissionType)}
           loading={submitting}
           onConfirm={() => void handleRunRulesEngine()}
           onCancel={() => setConfirmingSubmit(false)}
         >
-          <Typography variant="body2">
-            Run the {runEngine.label} on this claim? They apply the configured rules; when every rule passes,{' '}
-            {runEngine.onPass} — or the claim is held if a rule applies the Hold tag.
-          </Typography>
-          <FormControlLabel
-            control={<Switch checked={skipRules} onChange={(_event, checked) => setSkipRules(checked)} />}
-            label="Skip rules"
-            slotProps={{
-              typography: {
-                variant: 'body2',
-              },
-            }}
-          />
+          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr', gap: 2.25, maxWidth: 680 }}>
+            <Typography variant="body2">
+              Run the {runEngine.label} on this claim? They apply the configured rules; when every rule passes,{' '}
+              {runEngine.onPass} — or the claim is held if a rule applies the Hold tag.
+            </Typography>
+            <FormControlLabel
+              control={<Switch checked={skipRules} onChange={(_event, checked) => setSkipRules(checked)} />}
+              label="Skip rules"
+              slotProps={{
+                typography: {
+                  variant: 'body2',
+                },
+              }}
+            />
+            {skipRules ? (
+              <FormControl>
+                <FormLabel id="submission-type-label">Submission Type</FormLabel>
+                <RadioGroup
+                  aria-labelledby="submission-type-label"
+                  name="submission-type-group"
+                  value={submissionType}
+                  onChange={(event) => setSubmissionType(event.target.value as RulesEngineSubmissionType)}
+                >
+                  <FormControlLabel value="new" control={<Radio />} label="New Submission" />
+                  <FormControlLabel
+                    disabled={!claim.payerClaimControlNumber}
+                    value="correction"
+                    control={<Radio />}
+                    label="Correction"
+                  />
+                  <FormControlLabel
+                    disabled={!claim.payerClaimControlNumber}
+                    value="void"
+                    control={<Radio />}
+                    label="Void Claim"
+                  />
+                </RadioGroup>
+              </FormControl>
+            ) : (
+              <></>
+            )}
+          </Box>
         </ConfirmDialog>
       )}
     </Box>
   );
+}
+
+function getSubmitClaimLabel(skipRules: boolean, submissionType: RulesEngineSubmissionType): string {
+  let action = 'Submit claim';
+  switch (submissionType) {
+    case 'new':
+      action = 'Submit claim';
+      break;
+    case 'correction':
+      action = 'Correct claim';
+      break;
+    case 'void':
+      action = 'Void claim';
+      break;
+  }
+  return skipRules ? `${action} (without running rules)` : 'Run rules';
 }
 
 function PatientSection({ claim }: { claim: ClaimDetailResponse }): ReactElement {

@@ -1,6 +1,5 @@
-import EditNoteIcon from '@mui/icons-material/EditNote';
 import { LoadingButton } from '@mui/lab';
-import { Input, InputAdornment, useTheme } from '@mui/material';
+import { Input } from '@mui/material';
 import Oystehr from '@oystehr/sdk';
 import { ReactElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { InPersonAppointmentInformation } from 'utils/lib/types/data/appointments/appointments.types';
@@ -23,7 +22,6 @@ const AppointmentNote = ({
   updateAppointments,
   setEditingComment,
 }: AppointmentNoteProps): ReactElement => {
-  const theme = useTheme();
   const [apptComment, setApptComment] = useState<string>(appointment.comment || '');
   const [noteSaving, setNoteSaving] = useState<boolean>(false);
   const [editingRow, setEditingRow] = useState<boolean>(false);
@@ -87,12 +85,6 @@ const AppointmentNote = ({
             setEditingRow(true);
           }}
           fullWidth
-          sx={{ alignItems: 'baseline' }}
-          startAdornment={
-            <InputAdornment position="start">
-              <EditNoteIcon sx={{ fill: theme.palette.text.disabled }} />
-            </InputAdornment>
-          }
         />
         {editingRow && (
           <LoadingButton loading={noteSaving} sx={{ marginTop: '8px', padding: '5px' }} onClick={saveNote}>
@@ -101,7 +93,7 @@ const AppointmentNote = ({
         )}
       </>
     ),
-    [apptComment, editingRow, noteSaving, saveNote, theme.palette.text.disabled]
+    [apptComment, editingRow, noteSaving, saveNote]
   );
 
   return isOverflowing && !editingRow ? (

@@ -40,6 +40,7 @@ import {
   getOrderingProviderIds,
   getReportAuthor,
   getReportAuthorId,
+  isCurrentRadiologyResultDocRef,
   makeRadiologyDTO,
   resolveOrderingProvider,
   takeMostRecentPreliminaryReport,
@@ -47,7 +48,6 @@ import {
 } from '../../../shared/radiology';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
-import { isCurrentRadiologyResultDocRef } from '../shared/result-doc-refs';
 import { validateInput, validateSecrets } from './validation';
 
 // Types

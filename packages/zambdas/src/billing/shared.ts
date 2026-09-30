@@ -308,6 +308,10 @@ export const EXTENSION_CLAIM_FACILITY_TYPE_CODE = 'https://extensions.fhir.oyste
 export const EXTENSION_CLAIM_FREQUENCY_CODE = 'https://extensions.fhir.oystehr.com/rcm-claim-frequency-code';
 export const CODE_SYSTEM_NUBC_REVENUE = 'https://www.nubc.org/CodeSystem/RevenueCodes';
 
+export const CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM = ottehrIdentifierSystem(
+  'claim-payer-claim-control-number'
+);
+
 export function getEraExtensionString(
   resource: Pick<ClaimResponse, 'extension'> | Pick<ClaimResponseItem, 'extension'>,
   url: string

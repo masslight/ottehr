@@ -5,7 +5,7 @@ import { Appointment, Encounter, Practitioner, Resource } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { ApptTab } from 'src/components/AppointmentTabs';
 import { getEncounterStatusHistoryUpdateOp } from 'utils/lib/fhir/encounter';
-import { getAppointmentMetaTagOpForStatusUpdate } from 'utils/lib/fhir/helpers';
+import { getAppointmentMetaTagOpForStatusUpdate, getCriticalUpdateTagOp } from 'utils/lib/fhir/helpers';
 import { getNPIIdentifier } from 'utils/lib/fhir/patient';
 import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
 import { isPhysician, isPhysicianProviderType } from 'utils/lib/helpers/helpers';
@@ -15,7 +15,6 @@ import { InPersonAppointmentInformation } from 'utils/lib/types/data/appointment
 import { OrdersForTrackingBoardRow } from 'utils/lib/types/data/orders/types';
 import { formatDateForDisplay } from 'utils/lib/utils/dateUtils';
 import { EvolveUser } from '../hooks/useEvolveUser';
-import { getCriticalUpdateTagOp } from './activityLogsUtils';
 
 export const classifyAppointments = (appointments: InPersonAppointmentInformation[]): Map<any, any> => {
   const statusCounts = new Map();

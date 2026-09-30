@@ -2,7 +2,7 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ReactNode } from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { EraClaimRemit, EraDetailResponse } from 'utils';
+import { EraClaimRemit, EraDetailResponse } from 'utils/lib/types/data/billing/billing.types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import ERADetail from '../../src/pages/ERADetail';
 

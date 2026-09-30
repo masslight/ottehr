@@ -15,6 +15,7 @@ import {
 } from '@mui/material';
 import { ReactElement, ReactNode, Ref } from 'react';
 import { Controller, useFormContext, useWatch } from 'react-hook-form';
+import { otherColors } from 'utils/lib/theme/billing-palette';
 import {
   ADD_SERVICE_LINE_FIELDS,
   addServiceLineFieldProblem,
@@ -64,7 +65,6 @@ import {
   ServiceLineSetValue,
 } from 'utils/lib/types/data/billing/rules-engine.schemas';
 import { HOLD_TAG_NAME } from 'utils/lib/types/data/billing/system-tags';
-import { otherColors } from '../../themes/ottehr/colors';
 import { DateInput } from '../DateInput';
 import { FacilitySelect } from '../FacilitySelect';
 import { NioSelect } from '../NioSelect';

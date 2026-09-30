@@ -9,7 +9,7 @@
 //   npx tsx scripts/synthetic-patient-data/link-synth-staff-users.ts
 // Optional: APPLICATION_ID='<ehr-app-id>' to override application auto-detection.
 import { Practitioner } from 'fhir/r4b';
-import { FHIR_IDENTIFIER_NPI } from 'utils';
+import { FHIR_IDENTIFIER_NPI } from 'utils/lib/fhir/constants';
 import { makeValidNpi } from './shared/npi';
 import {
   createOystehrFromToken,

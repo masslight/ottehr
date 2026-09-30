@@ -10,7 +10,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { AISuggestionNotes, AISuggestionNotesInput } from 'utils';
+import { AISuggestionNotes, AISuggestionNotesInput } from 'utils/lib/types/api/ai-suggestions-notes';
 import { getToken } from './shared';
 import { TEST_SCENARIOS, TestScenario } from './test-hpi-suggestions-config';
 

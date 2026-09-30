@@ -16,7 +16,7 @@ import MailedStatements from 'src/pages/reports/MailedStatements';
 import PracticeKpis from 'src/pages/reports/PracticeKpis';
 import RecentPatients from 'src/pages/reports/RecentPatients';
 import VisitsOverview from 'src/pages/reports/VisitsOverview';
-import { setupSentry } from 'utils/lib/frontend';
+import { setupSentry } from 'utils/lib/frontend/configurations/sentry';
 import { parseCommaSeparatedTags } from 'utils/lib/helpers/parseCommaSeparatedTags';
 import { GLOBAL_ACTION_LOG_VIEWER_ROLES } from 'utils/lib/types/api/action-logs.types';
 import { RoleType } from 'utils/lib/types/api/user.types';
@@ -42,6 +42,8 @@ import {
   OUTREACH_URL,
 } from './features/admin/adminRoutes';
 import { AdminLayout } from './features/admin/AdminSidebar';
+import { EmployeeChatDrawer } from './features/employee-chat/EmployeeChatDrawer';
+import { EmployeeChatManager } from './features/employee-chat/EmployeeChatManager';
 import { UnsolicitedResultsInbox } from './features/external-labs/pages/UnsolicitedResultsInbox';
 import { UnsolicitedResultsMatch } from './features/external-labs/pages/UnsolicitedResultsMatch';
 import { UnsolicitedResultsReview } from './features/external-labs/pages/UnsolicitedResultsReview';
@@ -351,6 +353,12 @@ function App(): ReactElement {
           Components={{ medicalRecordExport: MedicalRecordExportSnackbar }}
         />
         {!roleUnknown && <MedicalRecordExportWatcher />}
+        {FEATURE_FLAGS.EMPLOYEE_CHAT_ENABLED && (
+          <>
+            <EmployeeChatManager />
+            <EmployeeChatDrawer />
+          </>
+        )}
       </BrowserRouter>
     </CustomThemeProvider>
   );

@@ -1,15 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { ADHOC_LINK_ROUTES } from '../sandbox/events';
+import { buildComponentsPromptSection, buildExecutionContractPromptSection } from './runtime-scope';
 import {
-  buildComponentsPromptSection,
-  buildExecutionContractPromptSection,
   MUI_COMPONENT_NAMES,
   REPORT_COMPONENTS,
   REPORT_ROOT_NAME,
   REPORT_WRAP_PREFIX,
   RUNTIME_SCOPE_PARAM_NAMES,
   VALUE_FORMATS,
-} from './runtime-scope';
+} from './runtime-scope.catalog';
 
 // The runtime-scope catalog is the ONE source of truth for what exists inside the report iframe.
 // Importing it above already runs its Zod validation (a malformed entry throws at module load);

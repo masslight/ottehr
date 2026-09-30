@@ -1,7 +1,8 @@
 import { Box, Divider, Typography, useTheme } from '@mui/material';
 import { FC } from 'react';
 import { PatientSideListSkeleton } from 'src/components/PatientSideListSkeleton';
-import { useAppointmentData, useChartData } from 'src/features/visits/shared/stores/appointment/appointment.store';
+import { useChartData } from 'src/features/visits/shared/hooks/useChartData';
+import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { AiObservationField } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import { ObservationTextFieldDTO } from 'utils/lib/types/data/screening-questions/types';
 import AiSuggestion from '../AiSuggestion';

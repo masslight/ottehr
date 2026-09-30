@@ -19,8 +19,6 @@ import {
   VALUE_FORMATS,
 } from './runtime-scope.catalog';
 
-export * from './runtime-scope.catalog';
-
 // ---------------------------------------------------------------------------------------------
 // Validation — every piece of the catalog the prompt and the runtime depend on.
 // ---------------------------------------------------------------------------------------------

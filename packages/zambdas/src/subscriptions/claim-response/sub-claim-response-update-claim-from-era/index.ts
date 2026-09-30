@@ -1,7 +1,7 @@
-import Oystehr, { FhirResourceReturnValue } from '@oystehr/sdk';
+import Oystehr, { BatchInputPatchRequest, BatchInputPostRequest, FhirResourceReturnValue } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Claim, ClaimResponse, ProvenanceAgent } from 'fhir/r4b';
-import { withVersionConflictRetries } from 'utils/lib/fhir/helpers';
+import { Claim, ClaimResponse, Provenance, ProvenanceAgent } from 'fhir/r4b';
+import { getExtensionValue, withVersionConflictRetries } from 'utils/lib/fhir/helpers';
 import { Secrets } from 'utils/lib/secrets';
 import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
 import { AR_STAGE, CLAIM_STATUS_TAG_SYSTEMS } from 'utils/lib/types/data/billing/claim-status';
@@ -10,8 +10,14 @@ import {
   SECONDARY_SUBMISSION_CROSSOVER_TAG_NAME,
   SECONDARY_SUBMISSION_TAG_NAME,
 } from 'utils/lib/types/data/billing/system-tags';
-import { commitClaimMetaTagsWithProvenance, resolveClaimActor } from '../../../billing/provenance';
-import { buildUpdatedClaimStatusTags, createBillingClient, getTag } from '../../../billing/shared';
+import { claimMetaTagsWithProvenanceRequests, resolveClaimActor } from '../../../billing/provenance';
+import {
+  buildUpdatedClaimStatusTags,
+  CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM,
+  createBillingClient,
+  ERA_ICN_EXTENSION,
+  getTag,
+} from '../../../billing/shared';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { truncateForLog } from '../../../shared/logging';
 import { wrapHandler } from '../../../shared/sentry';
@@ -115,26 +121,60 @@ export async function performEffect(oystehr: Oystehr, validated: ComplexValidati
   await withVersionConflictRetries(async (attempt) => {
     const current = attempt === 1 ? claim : await oystehr.fhir.get<Claim>({ resourceType: 'Claim', id: claim.id });
     const plan = planStatusAdjustment(current, claimResponse);
-    if (!plan) {
-      if (attempt > 1) {
-        console.log(`Claim/${current.id} no longer needs this adjustment after the conflict, skipping`);
-      }
+    const updatedTags = [];
+    if (plan) {
+      updatedTags.push(
+        ...plan.tagsToAdd.reduce(
+          (tags, name) =>
+            tags.some((t) => t.system === CLAIM_TAG_SYSTEM && t.code === name)
+              ? tags
+              : [
+                  ...tags,
+                  {
+                    system: CLAIM_TAG_SYSTEM,
+                    code: name,
+                  },
+                ],
+          buildUpdatedClaimStatusTags(current, 'insuranceArStatus', plan.targetARStatus)
+        )
+      );
+    } else if (attempt > 1) {
+      console.log(`Claim/${current.id} no longer needs this adjustment after the conflict, skipping`);
+    }
+    const claimResponseIcn = getExtensionValue(claimResponse, ERA_ICN_EXTENSION, 'valueString');
+    const requests: (BatchInputPatchRequest<Claim> | BatchInputPostRequest<Provenance>)[] = [
+      ...(updatedTags.length
+        ? claimMetaTagsWithProvenanceRequests(claim, updatedTags, 'statusChange', validated.agent)
+        : []),
+      ...(claimResponseIcn
+        ? [
+            {
+              method: 'PATCH',
+              url: `Claim/${claim.id}`,
+              operations: [
+                {
+                  op: 'replace',
+                  path: '/identifier',
+                  value: [
+                    ...(claim.identifier ?? []).filter(
+                      (identifier) => identifier.system !== CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM
+                    ),
+                    {
+                      system: CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM,
+                      value: claimResponseIcn,
+                    },
+                  ],
+                },
+              ],
+            } as BatchInputPatchRequest<Claim>,
+          ]
+        : []),
+    ];
+    if (!requests.length) {
+      // Nothing to do
       return;
     }
-    const updatedTags = plan.tagsToAdd.reduce(
-      (tags, name) =>
-        tags.some((t) => t.system === CLAIM_TAG_SYSTEM && t.code === name)
-          ? tags
-          : [
-              ...tags,
-              {
-                system: CLAIM_TAG_SYSTEM,
-                code: name,
-              },
-            ],
-      buildUpdatedClaimStatusTags(current, 'insuranceArStatus', plan.targetARStatus)
-    );
-    await commitClaimMetaTagsWithProvenance(oystehr, current, updatedTags, 'statusChange', validated.agent);
+    await oystehr.fhir.transaction({ requests });
   });
 }
 

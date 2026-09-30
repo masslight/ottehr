@@ -1,5 +1,6 @@
-import type { LegalConfig, LinkDef, TextWithLinkComposition } from 'config-types';
-import { LinkDefSchema } from 'config-types';
+import type { LinkDef, TextWithLinkComposition } from 'config-types/config/display-text';
+import { LinkDefSchema } from 'config-types/config/display-text';
+import type { LegalConfig } from 'config-types/config/legal';
 import { deepFreezeObject } from '../../utils/objects';
 
 const LEGAL_DATA: LegalConfig = {

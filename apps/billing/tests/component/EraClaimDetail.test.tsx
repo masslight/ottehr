@@ -1,7 +1,8 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { EraClaimListItem, EraClaimRemit, EraDetailResponse, getAgeInYears } from 'utils';
+import { EraClaimListItem, EraClaimRemit, EraDetailResponse } from 'utils/lib/types/data/billing/billing.types';
+import { getAgeInYears } from 'utils/lib/validation/helper';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import EraClaimDetail from '../../src/pages/EraClaimDetail';
 

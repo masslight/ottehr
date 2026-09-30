@@ -327,6 +327,20 @@
       "src": "src/ehr/save-followup-encounter/index",
       "zip": ".dist/zips/save-followup-encounter.zip"
     },
+    "GET-EMPLOYEE-CHATS": {
+      "name": "get-employee-chats",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/get-employee-chats/index",
+      "zip": ".dist/zips/get-employee-chats.zip"
+    },
+    "OPEN-EMPLOYEE-CHAT": {
+      "name": "open-employee-chat",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/open-employee-chat/index",
+      "zip": ".dist/zips/open-employee-chat.zip"
+    },
     "GET-CONVERSATION": {
       "name": "get-conversation",
       "type": "http_auth",

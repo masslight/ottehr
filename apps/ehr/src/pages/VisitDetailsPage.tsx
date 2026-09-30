@@ -67,7 +67,7 @@ import { useGetPatientAccount, useGetPatientCoverages } from 'src/hooks/useGetPa
 import { useGetPatientBalances } from 'src/hooks/useGetPatientBalances';
 import { useGetPatientDocs } from 'src/hooks/useGetPatientDocs';
 import { useGetPatientPaymentsList } from 'src/hooks/useGetPatientPaymentsList';
-import { DEFAULT_TAB_TITLE, formatPatientTabTitle } from 'src/shared/utils';
+import { DEFAULT_TAB_TITLE, formatPatientTabTitle } from 'src/shared/utils/patientTabTitle';
 import { getReasonForVisitOptionsForServiceCategory } from 'utils/lib/config-helpers/booking';
 import {
   getCancellationReasonDisplay,
@@ -83,7 +83,7 @@ import {
   SCHEDULED_FOLLOWUP_OTHER_REASON,
   SCHEDULED_FOLLOWUP_REASONS,
 } from 'utils/lib/fhir/encounter';
-import { getCoding } from 'utils/lib/fhir/helpers';
+import { getCoding, getCriticalUpdateTagOp } from 'utils/lib/fhir/helpers';
 import { isInPersonAppointment, isTelemedAppointment } from 'utils/lib/fhir/moduleIdentification';
 import { getFormattedPatientFullName, getFullestAvailableName } from 'utils/lib/fhir/patient';
 import { getPatchOperationForNewMetaTag } from 'utils/lib/fhir/resourcePatch';
@@ -125,9 +125,9 @@ import {
   formatActivityLogs,
   formatNotesHistory,
   getAppointmentAndPatientHistory,
-  getCriticalUpdateTagOp,
   NoteHistory,
 } from '../helpers/activityLogsUtils';
+import { getLegacyDataUrl } from '../helpers/legacyData';
 import { useApiClients } from '../hooks/useAppClients';
 import useEvolveUser from '../hooks/useEvolveUser';
 import { useVisitCards } from '../hooks/useVisitCards';
@@ -1191,17 +1191,7 @@ export default function VisitDetailsPage(): ReactElement {
                       disabled={!patient}
                       onClick={() => {
                         setDocsMenuAnchor(null);
-                        const patientLastName = patient?.name?.[0]?.family ?? '';
-                        const patientFirstName = patient?.name?.[0]?.given?.[0] ?? '';
-                        const rawDob = patient?.birthDate ?? '';
-                        // Convert YYYY-MM-DD to MM-DD-YYYY to match Z3 key format
-                        const dob = rawDob ? rawDob.split('-').slice(1).concat(rawDob.split('-')[0]).join('-') : '';
-                        const params = new URLSearchParams({
-                          lastName: patientLastName,
-                          firstName: patientFirstName,
-                          dob,
-                        });
-                        navigate(`/legacy-data?${params.toString()}`);
+                        if (patient) navigate(getLegacyDataUrl(patient));
                       }}
                       sx={MENU_ITEM_SX}
                     >
