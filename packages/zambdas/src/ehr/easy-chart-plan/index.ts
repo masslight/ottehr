@@ -35,7 +35,7 @@ const ZAMBDA_NAME = 'easy-chart-plan';
 let m2mToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const { secrets, narrative, encounterId, providerEdits, patientStatus } = validateRequestParameters(input);
+  const { secrets, narrative, encounterId, providerEdits, dictation, patientStatus } = validateRequestParameters(input);
 
   await authorizeEasyChartRequest(input, encounterId, secrets, ZAMBDA_NAME);
 
@@ -83,6 +83,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     oystehr,
     narrative,
     editedNarrative: providerEdits?.edited,
+    dictation,
     chartStateText: chartStateSummary,
     // A resulted test on the chart ("Rapid strep — Positive") supports "streptococcal" as much as the
     // narrative does.

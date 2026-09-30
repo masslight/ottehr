@@ -293,8 +293,7 @@ export function makeMedicationResource(
   const dose = data.intakeInfo.dose?.trim();
   return {
     id: data.resourceId,
-    // A medication typed by name has no eRx id, and an empty identifier fails FHIR validation.
-    ...(data.id ? { identifier: [{ value: data.id }] } : {}),
+    identifier: [{ value: data.id }],
     resourceType: 'MedicationStatement',
     subject: { reference: `Patient/${patientId}` },
     context: { reference: `Encounter/${encounterId}` },
@@ -309,9 +308,11 @@ export function makeMedicationResource(
     }),
     medicationCodeableConcept: {
       coding: [
-        data.id
-          ? { system: MEDICATION_DISPENSABLE_DRUG_ID, code: data.id, display: data.name }
-          : { display: data.name },
+        {
+          system: MEDICATION_DISPENSABLE_DRUG_ID,
+          code: data.id,
+          display: data.name,
+        },
       ],
     },
     ...(data.isRenewal !== undefined && {

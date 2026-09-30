@@ -37,6 +37,8 @@ export interface GuardContext {
   narrative: string;
   /** The provider's edited narrative; a quote is verified against it when the narrative lacks it. */
   editedNarrative?: string;
+  /** The narrative the provider reviewed; the only text readings the plan missed are recovered from. */
+  dictation?: string;
   /** The ALREADY ON THE CHART block as the prompt showed it; a quote may cite one of its lines. */
   chartStateText?: string;
   logPrefix: string;
@@ -494,7 +496,7 @@ function applyBackstops(actions: PlannedAction[], context: ResolvedGuardContext)
   const signature = (vital: { field?: string; systolic?: unknown; diastolic?: unknown; value?: unknown }): string =>
     `${vital.field}|${vital.systolic ?? ''}/${vital.diastolic ?? ''}|${vital.value ?? ''}`;
   const charted = new Set(out.filter((action) => action.kind === 'set-vital').map(signature));
-  for (const sniffed of sniffVitalsFromNarrative(context.narrative)) {
+  for (const sniffed of context.dictation ? sniffVitalsFromNarrative(context.dictation) : []) {
     if (charted.has(signature(sniffed)) || !isVitalField(sniffed.field)) continue;
     charted.add(signature(sniffed));
     out.push({
@@ -506,7 +508,7 @@ function applyBackstops(actions: PlannedAction[], context: ResolvedGuardContext)
       ...(sniffed.value != null ? { value: sniffed.value } : {}),
       ...(sniffed.unit ? { unit: sniffed.unit } : {}),
       sourceText: sniffed.sourceText,
-      sourceOrigin: 'narrative',
+      sourceOrigin: 'edited-narrative',
       caution: 'recovered from the dictation — the plan did not include this reading',
     });
   }

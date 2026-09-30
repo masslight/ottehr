@@ -28,6 +28,15 @@ export const ChartPlanRequestSchema = z.object({
     .object({ draft: z.string().max(MAX_NARRATIVE_CHARS), edited: z.string().max(MAX_NARRATIVE_CHARS) })
     .optional()
     .transform((edits) => (edits?.draft.trim() && edits.edited.trim() ? edits : undefined)),
+  /**
+   * The narrative the provider reviewed, as it stands. Readings the plan missed are looked for here only: a
+   * transcript also holds home readings, other people's vitals and return thresholds.
+   */
+  dictation: z
+    .string()
+    .max(MAX_NARRATIVE_CHARS)
+    .optional()
+    .transform((text) => text?.trim() || undefined),
   /** Used only when there is no encounter to read the status from (the eval harness). */
   patientStatus: PatientStatusSchema.optional(),
 });

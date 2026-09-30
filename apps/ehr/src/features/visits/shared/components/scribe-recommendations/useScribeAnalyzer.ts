@@ -32,6 +32,7 @@ export const useScribeAnalyzer = (): ScribeAnalyzer => {
           narrative: hasTranscript ? transcript : edited,
           encounterId,
           ...(providerEdits ? { providerEdits } : {}),
+          dictation: edited,
         });
       },
       // The narrative and its generated sentences let each recommendation's quote be traced to transcript snippets.

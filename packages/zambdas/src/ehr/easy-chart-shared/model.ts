@@ -23,7 +23,7 @@ export interface ModelCallResult<T> {
 
 export interface ModelCallOptions<T> {
   prompt: string;
-  /** The JSON schema Gemini decodes against. */
+  /** The JSON schema both providers decode against. */
   wireSchema: object;
   /** Validates and types the parsed answer. A failure counts as a failed attempt and escalates. */
   responseSchema: z.ZodType<T, z.ZodTypeDef, unknown>;
@@ -99,7 +99,7 @@ export async function callModelForJson<T>(options: ModelCallOptions<T>): Promise
   let escalated = false;
   if (parsed === undefined && !signal?.aborted) {
     escalated = true;
-    parsed = await attempt(() => callAnthropic(prompt, secrets, acc, logPrefix, signal));
+    parsed = await attempt(() => callAnthropic(prompt, wireSchema, secrets, acc, logPrefix, signal));
   }
 
   const usage = [...acc.values()];
@@ -251,8 +251,12 @@ async function callVertex(
 
 let anthropicClient: ChatAnthropic | undefined;
 
+/** Claude answers through this forced tool call, so its input is decoded against the same schema as Gemini's. */
+const ANSWER_TOOL = 'record_answer';
+
 async function callAnthropic(
   prompt: string,
+  wireSchema: object,
   secrets: Secrets | null,
   acc: UsageAccumulator,
   logPrefix: string,
@@ -268,17 +272,20 @@ async function callAnthropic(
     clientOptions: { timeout: REQUEST_TIMEOUT_MS },
   });
 
+  const answering = anthropicClient.bindTools(
+    [
+      {
+        name: ANSWER_TOOL,
+        description: 'Record the JSON answer the instructions describe.',
+        input_schema: wireSchema as { type: 'object'; [key: string]: unknown },
+      },
+    ],
+    { tool_choice: { type: 'tool', name: ANSWER_TOOL } }
+  );
+
   let message;
   try {
-    message = await anthropicClient.invoke(
-      [
-        {
-          role: 'user',
-          content: `${prompt}\n\nReturn ONLY the JSON object described above. No markdown fences, no commentary.`,
-        },
-      ],
-      { signal }
-    );
+    message = await answering.invoke([{ role: 'user', content: prompt }], { signal });
   } catch (error) {
     const timedOut = error instanceof Error && /timeout|aborted/i.test(error.message);
     throw new ModelAttemptError(timedOut ? 'timeout' : 'error', 'anthropic call failed');
@@ -295,10 +302,10 @@ async function callAnthropic(
     thinkingTokens: usage?.output_token_details?.reasoning ?? 0,
   });
 
-  const text = message.text;
   const stopReason = (message.response_metadata as { stop_reason?: string } | undefined)?.stop_reason;
-  console.log(`[${logPrefix}] anthropic stopReason=${stopReason} textLength=${text.length}`);
+  const answer = message.tool_calls?.find((call) => call.name === ANSWER_TOOL)?.args;
+  console.log(`[${logPrefix}] anthropic stopReason=${stopReason} answered=${answer !== undefined}`);
   if (stopReason === 'max_tokens') throw new ModelAttemptError('truncated', 'anthropic hit the output cap');
-  if (!text.trim()) throw new ModelAttemptError('empty-response', 'anthropic returned no text');
-  return parseOrFail(text, 'anthropic');
+  if (answer === undefined) throw new ModelAttemptError('empty-response', 'anthropic did not call the answer tool');
+  return answer;
 }

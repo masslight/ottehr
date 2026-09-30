@@ -79,7 +79,9 @@ const match = (id: string, display: string, score: number): CatalogueMatch => ({
 
 describe('every step settles', () => {
   it('reports applied / skipped-with-reason / failed and never leaves a step unsettled', async () => {
-    const h = harness({ matches: { medications: [match('m1', 'Amoxicillin 500 mg', 1)] } });
+    const h = harness({
+      matches: { medications: [{ ...match('m1', 'Amoxicillin 500 mg', 1), payload: { id: 12345 } }] },
+    });
     const actions: PlannedAction[] = [
       { kind: 'add-medication', display: 'Amoxicillin' },
       // No checkbox matches, so the words are noted on the exam card instead.
@@ -281,12 +283,19 @@ describe('history rows are written as the DTOs the tabs write', () => {
     });
   });
 
-  it('writes a medication with no eRx id as a name-only row', async () => {
-    const h = harness({ matches: { medications: [match('Motrin', 'Motrin', 1)] } });
-    await runPlan([{ kind: 'add-medication', display: 'Motrin' }], h.context);
-    expect(h.saved[0]).toEqual({
-      medications: [{ name: 'Motrin', type: 'scheduled', status: 'active', intakeInfo: {} }],
+  it('never writes a medication or allergy match that has no eRx id', async () => {
+    const h = harness({
+      matches: { medications: [match('Motrin', 'Motrin', 1)], allergies: [match('Latex', 'Latex', 1)] },
     });
+    const { steps } = await runPlan(
+      [
+        { kind: 'add-medication', display: 'Motrin' },
+        { kind: 'add-allergy', display: 'latex' },
+      ],
+      h.context
+    );
+    expect(steps.map((step) => step.outcome?.status)).toEqual(['skipped', 'skipped']);
+    expect(h.saved).toEqual([]);
   });
 
   it('writes an allergy as current, with the eRx id as a string', async () => {

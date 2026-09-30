@@ -72,6 +72,14 @@ function erxId(payload: unknown): string | undefined {
   return id === undefined || id === null || id === '' ? undefined : String(id);
 }
 
+/** Only eRx matches with a drug id: interaction checks skip a name-only row, so one is never written. */
+const withErxId =
+  (search: (q: CatalogueQuery) => Promise<CatalogueResult>) =>
+  async (q: CatalogueQuery): Promise<CatalogueResult> => {
+    const result = await search(q);
+    return isCatalogueList(result) ? result.filter((match) => erxId(match.payload)) : result;
+  };
+
 /**
  * The row the Exam tab would save for this box: the field's existing row updated in place, and a modal
  * option added to that row's components rather than written as a row of its own.
@@ -204,14 +212,14 @@ export const HANDLERS: HandlerTable = {
   // The same row the Allergies tab writes for an eRx pick.
   'add-allergy': async (action, context) =>
     addFromCatalogue(action, context, {
-      search: (q) => context.catalogue.allergies(q),
+      search: withErxId(context.catalogue.allergies),
       noun: 'allergy',
       write: (match) =>
         context.writer.save({
           allergies: [
             {
               name: match.display,
-              ...(erxId(match.payload) ? { id: erxId(match.payload) } : {}),
+              id: erxId(match.payload),
               current: true,
               lastUpdated: new Date().toISOString(),
             },
@@ -237,14 +245,14 @@ export const HANDLERS: HandlerTable = {
   // The same row the Medications tab writes for an eRx pick; the dictated strength is recorded as the dose.
   'add-medication': async (action, context) =>
     addFromCatalogue(action, context, {
-      search: (q) => context.catalogue.medications(q),
+      search: withErxId(context.catalogue.medications),
       noun: 'medication',
       write: (match) =>
         context.writer.save({
           medications: [
             {
               name: match.display,
-              ...(erxId(match.payload) ? { id: erxId(match.payload) } : {}),
+              id: erxId(match.payload),
               type: 'scheduled',
               status: 'active',
               intakeInfo: { ...(action.strength ? { dose: action.strength } : {}) },

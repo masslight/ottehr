@@ -44,16 +44,24 @@ const GUARDED_NUMERICS = new WeakSet<z.ZodTypeAny>();
 
 /**
  * A numeric field that travels as a capped string (schema.ts, trap 1) and is parsed back into a number
- * by the shape's transform. Every numeric field in the registry must be declared with this.
+ * by the shape's transform. A JSON number is taken too: the backup model's tool call is not strictly
+ * decoded, and the prompt calls the field a number. Every numeric field in the registry must be declared
+ * with this.
  */
-export function guardedNumber(doc: string): z.ZodOptional<z.ZodEffects<z.ZodString, number | undefined, string>> {
+export function guardedNumber(
+  doc: string
+): z.ZodOptional<z.ZodEffects<z.ZodEffects<z.ZodString, number | undefined, string>, number | undefined, unknown>> {
   const schema = z
-    .string()
-    .max(CAP.token)
-    .transform((v) => {
-      const n = v.trim() === '' ? NaN : Number(v);
-      return Number.isFinite(n) ? n : undefined;
-    })
+    .preprocess(
+      (v) => (typeof v === 'number' ? String(v) : v),
+      z
+        .string()
+        .max(CAP.token)
+        .transform((v) => {
+          const n = v.trim() === '' ? NaN : Number(v);
+          return Number.isFinite(n) ? n : undefined;
+        })
+    )
     .describe(doc)
     .optional();
   GUARDED_NUMERICS.add(schema);

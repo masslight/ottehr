@@ -519,22 +519,32 @@ describe('speaker-label refusal', () => {
 
 describe('deterministic backstops', () => {
   it('appends a dictated vital the plan omitted, flagged with where it came from', async () => {
+    const dictation =
+      'Blood pressure was 186 over 104. A repeat manual blood pressure dropped slightly to 176 over 92.';
     const { actions } = await run(
       [{ kind: 'set-vital', field: 'vital-blood-pressure', display: '186/104' }],
-      'Blood pressure was 186 over 104. A repeat manual blood pressure dropped slightly to 176 over 92.'
+      'transcript',
+      { dictation }
     );
     const pressures = actions.filter((a) => a.kind === 'set-vital');
     expect(pressures).toHaveLength(2);
     expect(pressures[1]).toMatchObject({ systolic: 176, diastolic: 92 });
     expect(typeof pressures[1].systolic).toBe('number');
     expect(pressures[1].caution).toMatch(/recovered from the dictation/);
+    expect(pressures[1].sourceOrigin).toBe('edited-narrative');
+  });
+
+  // A transcript also holds home readings, other people's vitals and return thresholds.
+  it('never recovers a reading from the transcript itself', async () => {
+    const { actions } = await run([], 'Her temp at home was 102. Call us if her temp is over 102.');
+    expect(actions.filter((a) => a.kind === 'set-vital')).toEqual([]);
   });
 
   it('does not duplicate a reading the plan already charted', async () => {
-    const { actions } = await run(
-      [{ kind: 'set-vital', field: 'vital-heartbeat', display: '115' }],
-      'She is slightly tachycardic at a heart rate of 115.'
-    );
+    const dictation = 'She is slightly tachycardic at a heart rate of 115.';
+    const { actions } = await run([{ kind: 'set-vital', field: 'vital-heartbeat', display: '115' }], dictation, {
+      dictation,
+    });
     expect(actions.filter((a) => a.kind === 'set-vital')).toHaveLength(1);
   });
 
@@ -655,7 +665,8 @@ describe('care-context and code salvage', () => {
 
 describe('backstop-appended vitals carry numbers', () => {
   it('appends a swept reading as a number, not a string', async () => {
-    const { actions } = await run([], 'Oxygen saturation was 94 percent on room air.');
+    const dictation = 'Oxygen saturation was 94 percent on room air.';
+    const { actions } = await run([], dictation, { dictation });
     const sweep = actions.find((a) => a.kind === 'set-vital');
     expect(sweep).toBeDefined();
     expect(typeof sweep!.value).toBe('number');
