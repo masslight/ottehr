@@ -9,7 +9,6 @@ const FEATURE_FLAGS_DATA: FeatureFlagsConfig = {
   supervisorApprovalEnabled: true,
   demoVisitsEnabled: true,
   globalTemplatesEnabled: true,
-  formsEnabled: true,
   legacyDataEnabled: true,
   mailingPaperStatementsEnabled: true,
   automatedPatientOutreachEnabled: true,
