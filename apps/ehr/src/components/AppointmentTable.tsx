@@ -4,11 +4,13 @@ import {
   Box,
   IconButton,
   Paper,
+  SxProps,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TableRow,
+  Theme,
   Typography,
   useTheme,
 } from '@mui/material';
@@ -27,6 +29,12 @@ import { AppointmentsStatusChipsCount } from './AppointmentStatusChipsCount';
 import AppointmentTableHeader from './AppointmentTableHeader';
 import AppointmentTableRow from './AppointmentTableRow';
 import { ApptTab } from './AppointmentTabs';
+
+const TRACKING_BOARD_TABLE_SX: SxProps<Theme> = {
+  tableLayout: 'auto',
+  width: '100%',
+  minWidth: { xs: '100%', md: TRACKING_BOARD_TABLE_WIDTH_MIN },
+};
 
 interface AppointmentTableProps {
   appointments: InPersonAppointmentInformation[];
@@ -106,7 +114,7 @@ export default function AppointmentTable({
       <AppointmentsStatusChipsCount appointments={appointments} />
       <Paper>
         <TableContainer sx={{ overflow: 'auto' }} data-testid={dataTestIds.dashboard.appointmentsTable(tab)}>
-          <Table sx={{ tableLayout: 'auto', width: '100%', minWidth: TRACKING_BOARD_TABLE_WIDTH_MIN }}>
+          <Table sx={TRACKING_BOARD_TABLE_SX}>
             <AppointmentTableHeader tab={tab} table="waiting-room" />
             <TableBody>
               {tab === ApptTab['in-office'] ? (
@@ -187,7 +195,7 @@ export default function AppointmentTable({
       {tab === ApptTab['in-office'] && (
         <Paper sx={{ marginTop: '16px' }}>
           <TableContainer sx={{ overflow: 'auto' }}>
-            <Table sx={{ tableLayout: 'auto', width: '100%', minWidth: TRACKING_BOARD_TABLE_WIDTH_MIN }}>
+            <Table sx={TRACKING_BOARD_TABLE_SX}>
               <AppointmentTableHeader tab={tab} table="in-exam" />
               <TableBody>
                 <TableRow>
