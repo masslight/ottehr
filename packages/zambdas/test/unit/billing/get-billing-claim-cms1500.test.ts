@@ -220,6 +220,7 @@ const graph: ClaimGraph = {
   serviceFacility: facility,
   coverages: [primary, secondary],
   renderingProvider,
+  orderingProviders: [],
   subscribers: [spouse],
   documentReferences: [],
 };

@@ -379,7 +379,6 @@ function ServiceLineExtras({ line }: { line: ServiceLine }): ReactElement {
         <Typography variant="caption" display="block" color="text.secondary">
           Ordering Provider: {line.orderingProvider.name}
           {line.orderingProvider.npi ? ` · NPI ${line.orderingProvider.npi}` : ''}
-          {line.orderingProvider.taxonomy ? ` · ${line.orderingProvider.taxonomy}` : ''}
         </Typography>
       )}
     </>

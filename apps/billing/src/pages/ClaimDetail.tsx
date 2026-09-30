@@ -123,7 +123,7 @@ import { Cms1500Dialog } from '../components/claim/Cms1500Dialog';
 import { DiagnosesEditor } from '../components/claim/DiagnosesEditor';
 import { EditableSection, EditableSectionSkeleton } from '../components/claim/EditableSection';
 import { MedicationDetailDialog } from '../components/claim/MedicationDetailDialog';
-import { OrderingProviderDialog, ServiceLineOrderingProvider } from '../components/claim/OrderingProviderDialog';
+import { OrderingProviderDialog } from '../components/claim/OrderingProviderDialog';
 import { RemitHighlightProvider } from '../components/claim/RemitHighlight';
 import { InsurancePaymentsSection, RemitsSection } from '../components/claim/RemitSections';
 import { ServiceLineRow, ServiceLinesEditor } from '../components/claim/ServiceLinesEditor';
@@ -1598,9 +1598,7 @@ function ServiceLinesSection({
         drug: line.drug
           ? { ndc: line.drug.ndc, quantity: String(line.drug.quantity), units: line.drug.units as DrugUnitCode }
           : null,
-        orderingProvider: line.orderingProvider
-          ? { ...line.orderingProvider, kind: line.orderingProvider.kind as ServiceLineOrderingProvider['kind'] }
-          : null,
+        orderingProvider: line.orderingProvider ?? null,
       })),
     [claim]
   );

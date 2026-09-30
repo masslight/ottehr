@@ -13,7 +13,6 @@ interface IndicatorDrug {
 interface IndicatorProvider {
   name: string;
   npi?: string;
-  taxonomy?: string;
 }
 
 interface ServiceLineIndicatorsProps {
@@ -97,9 +96,6 @@ export function ServiceLineIndicators({
               <>
                 <Typography variant="body2">{orderingProvider.name}</Typography>
                 {orderingProvider.npi && <Typography variant="body2">NPI: {orderingProvider.npi}</Typography>}
-                {orderingProvider.taxonomy && (
-                  <Typography variant="body2">Taxonomy: {orderingProvider.taxonomy}</Typography>
-                )}
               </>
             ) : (
               <Typography variant="body2" color="text.secondary">

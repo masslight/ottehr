@@ -264,9 +264,7 @@ const claimServiceLineSchema = z.object({
     .object({
       name: nonEmptyString,
       npi: z.string().trim().optional(),
-      taxonomy: z.string().trim().optional(),
-      kind: z.enum(['individual', 'organization']).optional(),
-      // FHIR id when picked from an existing billing provider
+      // FHIR id of an existing Practitioner (only a Practitioner can be an ordering provider)
       providerId: z.string().optional(),
     })
     // Providers picked from the system (providerId set) are trusted as stored; only

@@ -16,6 +16,7 @@ import {
   ChargeItemDefinitionPropertyGroup,
   Claim,
   ClaimItem,
+  ClaimItemDetail,
   ClaimResponse,
   ClaimResponseItem,
   ClaimSupportingInfo,
@@ -66,10 +67,12 @@ import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import {
   buildCoverageSubscriberRelatedPerson,
   createCoverageMemberIdentifier,
+  getCoding,
   getNPI,
   getResourcesFromBatchInlineRequests,
   getSubscriberRelationshipCodeableConcept,
   getTaxID,
+  setNpi,
 } from 'utils/lib/fhir/helpers';
 import { getPatchBinary, getPatchOperationForNewMetaTag } from 'utils/lib/fhir/resourcePatch';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
@@ -79,6 +82,7 @@ import {
   CODE_SYSTEM_CLAIM_TYPE,
   CODE_SYSTEM_CLAIM_TYPE_CODES,
   CODE_SYSTEM_COVERAGE_CLASS,
+  CODE_SYSTEM_NDC,
   CODE_SYSTEM_OYSTEHR_CLAIM_REFERRING_PROVIDER_TYPE,
   CODE_SYSTEM_SERVICE_CATEGORY_CODES,
   CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
@@ -307,6 +311,133 @@ export const EXTENSION_CLAIM_PATIENT_DISCHARGE_STATUS =
 export const EXTENSION_CLAIM_FACILITY_TYPE_CODE = 'https://extensions.fhir.oystehr.com/rcm-claim-facility-type-code';
 export const EXTENSION_CLAIM_FREQUENCY_CODE = 'https://extensions.fhir.oystehr.com/rcm-claim-frequency-code';
 export const CODE_SYSTEM_NUBC_REVENUE = 'https://www.nubc.org/CodeSystem/RevenueCodes';
+
+export interface ClaimLineDrug {
+  ndc: string;
+  quantity: number;
+  units: string;
+}
+
+// A line's medication (NDC + drug quantity/unit) is stored as its single item.detail entry.
+export const buildClaimItemDrugDetail = (drug: ClaimLineDrug | undefined): ClaimItemDetail[] | undefined =>
+  drug
+    ? [
+        {
+          sequence: 1,
+          productOrService: { coding: [{ system: CODE_SYSTEM_NDC, code: drug.ndc }] },
+          quantity: { value: drug.quantity, unit: drug.units },
+        },
+      ]
+    : undefined;
+
+export const readClaimItemDrug = (item: ClaimItem): ClaimLineDrug | undefined => {
+  const detail = item.detail?.find((d) => getCoding(d.productOrService, CODE_SYSTEM_NDC));
+  const ndc = getCoding(detail?.productOrService, CODE_SYSTEM_NDC)?.code;
+  if (!detail || !ndc) return undefined;
+  return { ndc, quantity: detail.quantity?.value ?? 0, units: detail.quantity?.unit ?? 'UN' };
+};
+
+export const EXTENSION_CLAIM_ITEM_ORDERING_PROVIDER =
+  'https://extensions.fhir.oystehr.com/rcm-claim-item-ordering-provider';
+// Manually entered ordering providers live in Claim.contained under ids with this prefix.
+const CONTAINED_ORDERING_PROVIDER_ID_PREFIX = 'ordering-provider-';
+
+export interface ClaimLineOrderingProvider {
+  name: string;
+  npi?: string;
+  // FHIR id of an existing Practitioner
+  providerId?: string;
+}
+
+// Points each claim item at its line's ordering provider (providers[i] belongs to claim.item[i])
+// through an extension's valueReference. Only a Practitioner can be one: an existing Practitioner
+// by reference, a manually entered one as a Practitioner contained in the claim (identical entries
+// share one). Replaces the claim's previously contained ordering providers.
+export function setClaimItemOrderingProviders(
+  claim: Claim,
+  providers: (ClaimLineOrderingProvider | undefined)[]
+): void {
+  const contained = (claim.contained ?? []).filter(
+    (resource) => !resource.id?.startsWith(CONTAINED_ORDERING_PROVIDER_ID_PREFIX)
+  );
+  const containedIdByKey = new Map<string, string>();
+
+  const reference = (provider: ClaimLineOrderingProvider): Reference => {
+    if (provider.providerId) return { reference: `Practitioner/${provider.providerId}`, display: provider.name };
+    const key = JSON.stringify([provider.name, provider.npi ?? '']);
+    let id = containedIdByKey.get(key);
+    if (!id) {
+      id = `${CONTAINED_ORDERING_PROVIDER_ID_PREFIX}${containedIdByKey.size + 1}`;
+      containedIdByKey.set(key, id);
+      const practitioner: Practitioner = { resourceType: 'Practitioner', id, name: [{ text: provider.name }] };
+      if (provider.npi) setNpi(practitioner, provider.npi);
+      contained.push(practitioner);
+    }
+    return { reference: `#${id}`, display: provider.name };
+  };
+
+  claim.item = claim.item?.map((item, i) => {
+    const extension = (item.extension ?? []).filter((ext) => ext.url !== EXTENSION_CLAIM_ITEM_ORDERING_PROVIDER);
+    const provider = providers[i];
+    if (provider) extension.push({ url: EXTENSION_CLAIM_ITEM_ORDERING_PROVIDER, valueReference: reference(provider) });
+    return { ...item, extension: extension.length ? extension : undefined };
+  });
+  claim.contained = contained.length ? contained : undefined;
+}
+
+// Existing Practitioners referenced as ordering providers must be there, so no item points at nothing.
+export async function assertOrderingProvidersExist(
+  oystehr: Oystehr,
+  providers: (ClaimLineOrderingProvider | undefined)[]
+): Promise<void> {
+  const ids = [...new Set(providers.map((provider) => provider?.providerId).filter((id): id is string => !!id))];
+  if (!ids.length) return;
+  const found = await getResourcesFromBatchInlineRequests(oystehr, [`/Practitioner?_id=${ids.join(',')}`]);
+  const missing = ids.filter((id) => !findRef(found, `Practitioner/${id}`));
+  if (missing.length) throw INVALID_INPUT_ERROR(`Ordering provider Practitioner not found: ${missing.join(', ')}`);
+}
+
+// Ids of the existing Practitioners the claim's items reference as their ordering providers.
+const orderingProviderIds = (claim: Claim): string[] => [
+  ...new Set(
+    (claim.item ?? [])
+      .map(
+        (item) =>
+          item.extension?.find((ext) => ext.url === EXTENSION_CLAIM_ITEM_ORDERING_PROVIDER)?.valueReference?.reference
+      )
+      .filter((ref): ref is string => !!ref?.startsWith('Practitioner/'))
+      .map((ref) => ref.replace('Practitioner/', ''))
+  ),
+];
+
+// The item's ordering provider, resolved from the claim's contained resources or, for an existing
+// Practitioner, from `practitioners` (the ones fetchClaimGraph loads). Falls back to the
+// reference's display when the Practitioner can't be resolved.
+export function readClaimItemOrderingProvider(
+  claim: Claim,
+  item: ClaimItem,
+  practitioners: Practitioner[]
+): ClaimLineOrderingProvider | undefined {
+  const valueReference = item.extension?.find((ext) => ext.url === EXTENSION_CLAIM_ITEM_ORDERING_PROVIDER)
+    ?.valueReference;
+  const ref = valueReference?.reference;
+  if (!ref) return undefined;
+
+  const isContained = ref.startsWith('#');
+  const practitioner = isContained
+    ? claim.contained?.find((r): r is Practitioner => r.id === ref.slice(1) && r.resourceType === 'Practitioner')
+    : findRef<Practitioner>(practitioners, ref);
+  if (!practitioner) return valueReference.display ? { name: valueReference.display } : undefined;
+
+  const name = practitioner.name?.[0]?.text ?? resourceDisplayName(practitioner) ?? valueReference.display ?? '';
+  const npi = getNPI(practitioner);
+  return {
+    name,
+    ...(npi ? { npi } : {}),
+    // contained providers were entered by hand, so they carry no provider id
+    ...(isContained ? {} : { providerId: practitioner.id }),
+  };
+}
 
 export function getEraExtensionString(
   resource: Pick<ClaimResponse, 'extension'> | Pick<ClaimResponseItem, 'extension'>,
@@ -813,6 +944,8 @@ export interface ClaimGraph {
   serviceFacility?: Location;
   coverages: Coverage[];
   renderingProvider?: Practitioner | Organization;
+  // Existing Practitioners the service lines reference as their ordering providers.
+  orderingProviders: Practitioner[];
   // Working-copy subscriber RelatedPersons of the fetched coverages.
   subscribers: RelatedPerson[];
   // Attachments
@@ -852,6 +985,8 @@ export async function fetchClaimGraph(oystehr: Oystehr, claimId: string): Promis
     const [type, id] = renderingRef.split('/');
     queries.push(`/${type}?_id=${id}`);
   }
+  const orderingIds = orderingProviderIds(claim);
+  if (orderingIds.length) queries.push(`/Practitioner?_id=${orderingIds.join(',')}`);
 
   // Any DocumentReference resources referenced in supportingInfo entries cannot be _include'd
   queries.push(
@@ -883,6 +1018,9 @@ export async function fetchClaimGraph(oystehr: Oystehr, claimId: string): Promis
     : undefined;
   const subscribers = followUp.filter((r): r is RelatedPerson => r.resourceType === 'RelatedPerson');
   const documentReferences = followUp.filter((r): r is DocumentReference => r.resourceType === 'DocumentReference');
+  const orderingProviders = orderingIds
+    .map((ordId) => findRef<Practitioner>(followUp, `Practitioner/${ordId}`))
+    .filter((practitioner): practitioner is Practitioner => !!practitioner);
 
   return {
     claim,
@@ -891,6 +1029,7 @@ export async function fetchClaimGraph(oystehr: Oystehr, claimId: string): Promis
     serviceFacility,
     coverages,
     renderingProvider,
+    orderingProviders,
     subscribers,
     documentReferences,
   };

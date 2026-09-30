@@ -11,7 +11,7 @@ import {
   ToggleButtonGroup,
   Typography,
 } from '@mui/material';
-import { ReactElement, useEffect, useState } from 'react';
+import { ReactElement, useEffect, useMemo, useState } from 'react';
 import { isNPIValidWithChecksum } from 'utils/lib/helpers/helpers';
 import { BillingProviderOption } from 'utils/lib/types/data/billing/billing.types';
 import { useProviderOptionsSearch } from '../../hooks/useOptionSearch';
@@ -20,9 +20,7 @@ import { useProviderOptionsSearch } from '../../hooks/useOptionSearch';
 export interface ServiceLineOrderingProvider {
   name: string;
   npi?: string;
-  taxonomy?: string;
-  kind?: 'individual' | 'organization';
-  /** FHIR id when picked from an existing billing provider. */
+  /** FHIR id of the Practitioner when picked from an existing provider. */
   providerId?: string;
 }
 
@@ -36,7 +34,7 @@ interface OrderingProviderDialogProps {
 
 /**
  * Small dialog to attach an ordering provider to a service line: pick an existing provider
- * (individual or organization) or type in a name, NPI, and taxonomy manually.
+ * (individuals only: only a Practitioner can be an ordering provider) or type in a name and NPI manually.
  */
 export function OrderingProviderDialog({
   open,
@@ -45,19 +43,18 @@ export function OrderingProviderDialog({
   onRemove,
   onClose,
 }: OrderingProviderDialogProps): ReactElement {
-  const { options, search } = useProviderOptionsSearch('rendering');
+  const { options: providerOptions, search } = useProviderOptionsSearch('rendering');
+  const options = useMemo(() => providerOptions.filter((o) => o.kind === 'individual'), [providerOptions]);
   const [mode, setMode] = useState<'existing' | 'manual'>('existing');
   const [selected, setSelected] = useState<BillingProviderOption | null>(null);
   const [name, setName] = useState('');
   const [npi, setNpi] = useState('');
-  const [taxonomy, setTaxonomy] = useState('');
 
   useEffect(() => {
     if (!open) return;
     setSelected(null);
     setName(value?.name ?? '');
     setNpi(value?.npi ?? '');
-    setTaxonomy(value?.taxonomy ?? '');
     setMode(value && !value.providerId ? 'manual' : 'existing');
     search();
   }, [open, value, search]);
@@ -70,15 +67,12 @@ export function OrderingProviderDialog({
       onSave({
         name: selected.name,
         ...(selected.npi ? { npi: selected.npi } : {}),
-        ...(selected.taxonomyCode ? { taxonomy: selected.taxonomyCode } : {}),
-        kind: selected.kind,
         providerId: selected.id,
       });
     } else {
       onSave({
         name: name.trim(),
         ...(npi.trim() ? { npi: npi.trim() } : {}),
-        ...(taxonomy.trim() ? { taxonomy: taxonomy.trim() } : {}),
       });
     }
   };
@@ -118,9 +112,7 @@ export function OrderingProviderDialog({
                     <Box>
                       <Typography variant="body2">{o.name}</Typography>
                       <Typography variant="caption" color="text.secondary">
-                        {o.kind === 'organization' ? 'Organization' : 'Individual'}
-                        {o.npi ? ` · NPI ${o.npi}` : ''}
-                        {o.taxonomyCode ? ` · ${o.taxonomyCode}` : ''}
+                        {o.npi ? `NPI ${o.npi}` : ''}
                       </Typography>
                     </Box>
                   </Box>
@@ -139,24 +131,15 @@ export function OrderingProviderDialog({
                 autoFocus
                 fullWidth
               />
-              <Box sx={{ display: 'flex', gap: 1 }}>
-                <TextField
-                  size="small"
-                  label="NPI"
-                  value={npi}
-                  onChange={(e) => setNpi(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                  error={!npiValid}
-                  helperText={npiValid ? undefined : 'NPI must be 10 digits with a valid check digit'}
-                  sx={{ width: 160 }}
-                />
-                <TextField
-                  size="small"
-                  label="Taxonomy"
-                  value={taxonomy}
-                  onChange={(e) => setTaxonomy(e.target.value)}
-                  fullWidth
-                />
-              </Box>
+              <TextField
+                size="small"
+                label="NPI"
+                value={npi}
+                onChange={(e) => setNpi(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                error={!npiValid}
+                helperText={npiValid ? undefined : 'NPI must be 10 digits with a valid check digit'}
+                sx={{ width: 160 }}
+              />
             </>
           )}
         </Box>
