@@ -65,8 +65,8 @@ import {
   CODE_SYSTEM_SERVICE_CATEGORY_CODE_NAMES,
 } from 'utils/lib/helpers/rcm/constants';
 import { VALUE_SETS } from 'utils/lib/ottehr-config/value-sets';
-import { DrugUnitCode } from 'utils/lib/types/data/billing/billing.constants';
 import { otherColors } from 'utils/lib/theme/billing-palette';
+import { DrugUnitCode } from 'utils/lib/types/data/billing/billing.constants';
 import {
   CreateBillingProviderInput,
   SaveServiceFacilityInput,
@@ -122,9 +122,9 @@ import { ClaimStatusFields } from '../components/claim/ClaimStatusFields';
 import { Cms1500Dialog } from '../components/claim/Cms1500Dialog';
 import { DiagnosesEditor } from '../components/claim/DiagnosesEditor';
 import { EditableSection, EditableSectionSkeleton } from '../components/claim/EditableSection';
+import { EhrLinksButton } from '../components/claim/EhrLinksButton';
 import { MedicationDetailDialog } from '../components/claim/MedicationDetailDialog';
 import { OrderingProviderDialog } from '../components/claim/OrderingProviderDialog';
-import { EhrLinksButton } from '../components/claim/EhrLinksButton';
 import { RemitHighlightProvider } from '../components/claim/RemitHighlight';
 import { InsurancePaymentsSection, RemitsSection } from '../components/claim/RemitSections';
 import { ServiceLineRow, ServiceLinesEditor } from '../components/claim/ServiceLinesEditor';
