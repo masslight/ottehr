@@ -38,7 +38,26 @@ describe('export-billing-claims - validateRequestParameters', () => {
       patientId: 'patient-1',
     };
 
-    expect(validateRequestParameters(inputWith(filters))).toEqual({ ...filters, secrets });
+    // Single values of the list filters are normalized to the list form they take.
+    expect(validateRequestParameters(inputWith(filters))).toEqual({
+      ...filters,
+      type: ['professional'],
+      arStage: ['patient-ar'],
+      status: ['denied'],
+      tag: ['rebill'],
+      payerId: ['P1'],
+      service: ['telemedicine'],
+      patientId: ['patient-1'],
+      secrets,
+    });
+  });
+
+  it('keeps several values of one filter', () => {
+    expect(validateRequestParameters(inputWith({ status: ['denied', 'paid'], tag: ['a', 'b'] }))).toEqual({
+      status: ['denied', 'paid'],
+      tag: ['a', 'b'],
+      secrets,
+    });
   });
 
   it('drops paging parameters instead of exporting one page', () => {
@@ -51,7 +70,7 @@ describe('export-billing-claims - validateRequestParameters', () => {
         })
       )
     ).toEqual({
-      status: 'denied',
+      status: ['denied'],
       secrets,
     });
   });
@@ -73,7 +92,7 @@ describe('export-billing-claims - validateRequestParameters', () => {
         })
       )
     ).toEqual({
-      status: 'denied',
+      status: ['denied'],
       secrets,
     });
   });

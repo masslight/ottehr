@@ -5,11 +5,7 @@ import {
   Box,
   Button,
   Chip,
-  FormControl,
   InputAdornment,
-  InputLabel,
-  MenuItem,
-  Select,
   Stack,
   TextField,
   Tooltip,
@@ -36,6 +32,7 @@ import {
   CLAIM_STATUS_FIELDS,
   CLAIM_STATUS_FIELDS_BY_KEY,
   CLAIM_STATUS_GROUPS,
+  ClaimStatusOption,
   formatAntCaseString,
   formatClaimStatusValue,
 } from 'utils/lib/types/data/billing/claim-status';
@@ -62,38 +59,59 @@ import { useApiClients } from '../hooks/useAppClients';
 import { downloadTextFile } from '../utils/downloadFile';
 import { pollExportTask } from '../utils/pollExportTask';
 
+type ClaimTypeCode = keyof typeof CODE_SYSTEM_CLAIM_TYPE_CODES;
+
+const CLAIM_TYPE_OPTIONS: { value: ClaimTypeCode; label: string }[] = [
+  { value: 'professional', label: 'Professional' },
+  { value: 'institutional', label: 'Institutional' },
+];
+
 interface Filters {
   searchText?: string;
-  arStage?: string;
-  status?: string;
-  tag?: string;
+  arStage?: string[];
+  status?: string[];
+  tag?: string[];
   createdFrom?: string;
   createdTo?: string;
   serviceDateFrom?: string;
   serviceDateTo?: string;
-  payerId?: string;
-  nonInsurancePayerId?: string;
-  patientId?: string;
-  type?: keyof typeof CODE_SYSTEM_CLAIM_TYPE_CODES | '';
-  service?: string;
+  payerId?: string[];
+  nonInsurancePayerId?: string[];
+  patientId?: string[];
+  type?: ClaimTypeCode[];
+  service?: string[];
 }
 
 function toSearchParams(filters: Filters): ExportBillingClaimsInput {
   const params: ExportBillingClaimsInput = {};
   if (filters.searchText) params.searchText = filters.searchText;
-  if (filters.arStage) params.arStage = filters.arStage;
-  if (filters.status) params.status = filters.status;
-  if (filters.tag) params.tag = filters.tag;
+  if (filters.arStage?.length) params.arStage = filters.arStage;
+  if (filters.status?.length) params.status = filters.status;
+  if (filters.tag?.length) params.tag = filters.tag;
   if (filters.createdFrom) params.createdFrom = filters.createdFrom;
   if (filters.createdTo) params.createdTo = filters.createdTo;
   if (filters.serviceDateFrom) params.serviceDateFrom = filters.serviceDateFrom;
   if (filters.serviceDateTo) params.serviceDateTo = filters.serviceDateTo;
-  if (filters.payerId) params.payerId = filters.payerId;
-  if (filters.nonInsurancePayerId) params.nonInsurancePayerId = filters.nonInsurancePayerId;
-  if (filters.patientId) params.patientId = filters.patientId;
-  if (filters.type) params.type = filters.type;
-  if (filters.service) params.service = filters.service;
+  if (filters.payerId?.length) params.payerId = filters.payerId;
+  if (filters.nonInsurancePayerId?.length) params.nonInsurancePayerId = filters.nonInsurancePayerId;
+  if (filters.patientId?.length) params.patientId = filters.patientId;
+  if (filters.type?.length) params.type = filters.type;
+  if (filters.service?.length) params.service = filters.service;
   return params;
+}
+
+// Status options in play for the chosen AR stages: the union of their groups' statuses, or every
+// status when no stage (or a stage without a group, such as "none") is chosen.
+function statusOptionsForArStages(arStages: string[]): ClaimStatusOption[] {
+  const groupKeys = arStages.map((stage) => CLAIM_STATUS_GROUPS.find((g) => g.arStageCode === stage)?.key);
+  if (groupKeys.length === 0 || groupKeys.some((key) => !key)) {
+    return ALL_CLAIM_STATUS_OPTIONS_2;
+  }
+  return groupKeys.reduce((acc, key) => {
+    if (!key) return acc;
+    acc.push(...ALL_CLAIM_STATUS_OPTIONS_BY_GROUP[key].filter((o) => !acc.some((ao) => ao.code === o.code)));
+    return acc;
+  }, [] as ClaimStatusOption[]);
 }
 
 const CLAIMS_LIST_FILTERS_STORAGE_KEY = 'billing.claimsListFilters';
@@ -108,24 +126,38 @@ interface StoredPatientOption {
 
 interface StoredClaimsListFilters {
   searchText: string;
-  arStageFilter: string;
-  statusFilter: string;
-  tagFilter: string;
+  arStageFilter: string[];
+  statusFilter: string[];
+  tagFilter: string[];
   createdFrom: string;
   createdTo: string;
   serviceDateFrom: string;
   serviceDateTo: string;
-  selectedPayer: BillingPayerOption | null;
-  selectedPatient: StoredPatientOption | null;
-  typeFilter: keyof typeof CODE_SYSTEM_CLAIM_TYPE_CODES | '';
-  selectedService: BillingService | null;
+  selectedPayers: BillingPayerOption[];
+  selectedPatients: StoredPatientOption[];
+  typeFilter: ClaimTypeCode[];
+  selectedServices: BillingService[];
   paginationModel: GridPaginationModel;
 }
+
+const STORED_LIST_FILTER_KEYS: (keyof StoredClaimsListFilters)[] = [
+  'arStageFilter',
+  'statusFilter',
+  'tagFilter',
+  'selectedPayers',
+  'selectedPatients',
+  'typeFilter',
+  'selectedServices',
+];
 
 function loadStoredClaimsListFilters(): StoredClaimsListFilters | null {
   try {
     const raw = sessionStorage.getItem(CLAIMS_LIST_FILTERS_STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as StoredClaimsListFilters) : null;
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<Record<keyof StoredClaimsListFilters, unknown>> | null;
+    // Filters saved before they became lists (single values) have the wrong shape — ignore them.
+    if (!parsed || STORED_LIST_FILTER_KEYS.some((key) => !Array.isArray(parsed[key]))) return null;
+    return parsed as StoredClaimsListFilters;
   } catch {
     return null;
   }
@@ -144,6 +176,48 @@ function toBillingPatientOption(stored: StoredPatientOption): BillingPatientOpti
     clinicalFriendlyId: '',
   };
 }
+
+interface MultiSelectFilterProps<T extends string> {
+  label: string;
+  options: { value: T; label: string }[];
+  value: T[];
+  onChange: (value: T[]) => void;
+  minWidth: number;
+  disabled?: boolean;
+}
+
+// An empty selection means "All". Styled like the searchable filters (Service, Payer, ...).
+function MultiSelectFilter<T extends string>({
+  label,
+  options,
+  value,
+  onChange,
+  minWidth,
+  disabled,
+}: MultiSelectFilterProps<T>): ReactElement {
+  // A chosen value can be missing from the options (e.g. a restored tag before the tags load), so
+  // fall back to showing the raw value rather than dropping it.
+  const selected = value.map((v) => options.find((o) => o.value === v) ?? { value: v, label: v });
+  return (
+    <Autocomplete
+      multiple
+      disableCloseOnSelect
+      limitTags={1}
+      size="small"
+      options={options}
+      getOptionLabel={(o) => o.label}
+      value={selected}
+      onChange={(_, v) => onChange(v.map((o) => o.value))}
+      renderInput={(params) => <TextField {...params} label={label} />}
+      isOptionEqualToValue={(o, v) => o.value === v.value}
+      disabled={disabled}
+      sx={{ minWidth, maxWidth: 300 }}
+    />
+  );
+}
+
+const patientIds = (patients: BillingPatientOption[]): string[] =>
+  patients.map((p) => p.id).filter((id): id is string => !!id);
 
 const currencyCol = (field: string, headerName: string, width: number): GridColDef => ({
   field,
@@ -239,39 +313,28 @@ export default function ClaimsList(): ReactElement {
   const [patientOptions, setPatientOptions] = useState<BillingPatientOption[]>([]);
 
   const [searchText, setSearchText] = useState(storedFilters?.searchText ?? '');
-  const [arStageFilter, setArStageFilter] = useState(storedFilters?.arStageFilter ?? '');
-  const [statusFilter, setStatusFilter] = useState(storedFilters?.statusFilter ?? '');
-  const [tagFilter, setTagFilter] = useState(storedFilters?.tagFilter ?? '');
+  const [arStageFilter, setArStageFilter] = useState<string[]>(storedFilters?.arStageFilter ?? []);
+  const [statusFilter, setStatusFilter] = useState<string[]>(storedFilters?.statusFilter ?? []);
+  const [tagFilter, setTagFilter] = useState<string[]>(storedFilters?.tagFilter ?? []);
   const [tagOptions, setTagOptions] = useState<{ id: string; name: string }[]>([]);
   const [createdFrom, setCreatedFrom] = useState(storedFilters?.createdFrom ?? '');
   const [createdTo, setCreatedTo] = useState(storedFilters?.createdTo ?? '');
   const [serviceDateFrom, setServiceDateFrom] = useState(storedFilters?.serviceDateFrom ?? '');
   const [serviceDateTo, setServiceDateTo] = useState(storedFilters?.serviceDateTo ?? '');
-  const [selectedPayer, setSelectedPayer] = useState<BillingPayerOption | null>(storedFilters?.selectedPayer ?? null);
-  const [selectedNio, setSelectedNio] = useState<NonInsuranceOrganizationItem | null>(null);
-  const [selectedPatient, setSelectedPatient] = useState<BillingPatientOption | null>(
-    storedFilters?.selectedPatient?.id ? toBillingPatientOption(storedFilters.selectedPatient) : null
+  const [selectedPayers, setSelectedPayers] = useState<BillingPayerOption[]>(storedFilters?.selectedPayers ?? []);
+  const [selectedNios, setSelectedNios] = useState<NonInsuranceOrganizationItem[]>([]);
+  const [selectedPatients, setSelectedPatients] = useState<BillingPatientOption[]>(
+    (storedFilters?.selectedPatients ?? []).filter((p) => p.id).map(toBillingPatientOption)
   );
-  const [typeFilter, setTypeFilter] = useState<keyof typeof CODE_SYSTEM_CLAIM_TYPE_CODES | ''>(
-    storedFilters?.typeFilter ?? ''
-  );
-  const [selectedService, setSelectedService] = useState<BillingService | null>(storedFilters?.selectedService ?? null);
+  const [typeFilter, setTypeFilter] = useState<ClaimTypeCode[]>(storedFilters?.typeFilter ?? []);
+  const [selectedServices, setSelectedServices] = useState<BillingService[]>(storedFilters?.selectedServices ?? []);
 
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const serviceDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const nioDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const patientDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const statusOptions = useMemo(() => {
-    if (!arStageFilter) {
-      return ALL_CLAIM_STATUS_OPTIONS_2;
-    }
-    const groupKey = CLAIM_STATUS_GROUPS.find((g) => g.arStageCode === arStageFilter)?.key;
-    if (!groupKey) {
-      return ALL_CLAIM_STATUS_OPTIONS_2;
-    }
-    return ALL_CLAIM_STATUS_OPTIONS_BY_GROUP[groupKey];
-  }, [arStageFilter]);
+  const statusOptions = useMemo(() => statusOptionsForArStages(arStageFilter), [arStageFilter]);
 
   useEffect(() => {
     return (): void => {
@@ -361,11 +424,11 @@ export default function ClaimsList(): ReactElement {
       createdTo: overrides?.createdTo ?? createdTo,
       serviceDateFrom: overrides?.serviceDateFrom ?? serviceDateFrom,
       serviceDateTo: overrides?.serviceDateTo ?? serviceDateTo,
-      payerId: overrides?.payerId ?? selectedPayer?.payerId,
-      nonInsurancePayerId: overrides?.nonInsurancePayerId ?? selectedNio?.id,
-      patientId: overrides?.patientId ?? selectedPatient?.id,
+      payerId: overrides?.payerId ?? selectedPayers.map((p) => p.payerId),
+      nonInsurancePayerId: overrides?.nonInsurancePayerId ?? selectedNios.map((n) => n.id),
+      patientId: overrides?.patientId ?? patientIds(selectedPatients),
       type: overrides?.type ?? typeFilter,
-      service: overrides?.service ?? selectedService?.name,
+      service: overrides?.service ?? selectedServices.map((sv) => sv.name),
     }),
     [
       searchText,
@@ -376,11 +439,11 @@ export default function ClaimsList(): ReactElement {
       createdTo,
       serviceDateFrom,
       serviceDateTo,
-      selectedPayer,
-      selectedNio,
-      selectedPatient,
+      selectedPayers,
+      selectedNios,
+      selectedPatients,
       typeFilter,
-      selectedService,
+      selectedServices,
     ]
   );
 
@@ -411,10 +474,10 @@ export default function ClaimsList(): ReactElement {
       createdTo,
       serviceDateFrom,
       serviceDateTo,
-      selectedPayer,
-      selectedPatient: selectedPatient?.id ? { id: selectedPatient.id, name: selectedPatient.name } : null,
+      selectedPayers,
+      selectedPatients: selectedPatients.filter((p) => p.id).map((p) => ({ id: p.id, name: p.name })),
       typeFilter,
-      selectedService,
+      selectedServices,
       paginationModel,
     };
 
@@ -436,10 +499,10 @@ export default function ClaimsList(): ReactElement {
     createdTo,
     serviceDateFrom,
     serviceDateTo,
-    selectedPayer,
-    selectedPatient,
+    selectedPayers,
+    selectedPatients,
     typeFilter,
-    selectedService,
+    selectedServices,
     paginationModel,
   ]);
 
@@ -464,18 +527,18 @@ export default function ClaimsList(): ReactElement {
 
   const clearFilters = (): void => {
     setSearchText('');
-    setArStageFilter('');
-    setStatusFilter('');
-    setTagFilter('');
+    setArStageFilter([]);
+    setStatusFilter([]);
+    setTagFilter([]);
     setCreatedFrom('');
     setCreatedTo('');
     setServiceDateFrom('');
     setServiceDateTo('');
-    setSelectedPayer(null);
-    setSelectedNio(null);
-    setSelectedPatient(null);
-    setTypeFilter('');
-    setSelectedService(null);
+    setSelectedPayers([]);
+    setSelectedNios([]);
+    setSelectedPatients([]);
+    setTypeFilter([]);
+    setSelectedServices([]);
     const resetPage = { ...paginationModel, page: 0 };
     setPaginationModel(resetPage);
     void fetchClaims({}, resetPage);
@@ -483,18 +546,18 @@ export default function ClaimsList(): ReactElement {
 
   const hasFilters =
     searchText ||
-    arStageFilter ||
-    statusFilter ||
-    tagFilter ||
+    arStageFilter.length ||
+    statusFilter.length ||
+    tagFilter.length ||
     createdFrom ||
     createdTo ||
     serviceDateFrom ||
     serviceDateTo ||
-    selectedPayer ||
-    selectedNio ||
-    selectedPatient ||
-    typeFilter ||
-    selectedService;
+    selectedPayers.length ||
+    selectedNios.length ||
+    selectedPatients.length ||
+    typeFilter.length ||
+    selectedServices.length;
 
   // Selection is limited to rows a rules engine applies to (any AR stage), and the backend picks
   // each claim's engine from its AR stage: one engine run is kicked off per claim, and each run
@@ -614,66 +677,47 @@ export default function ClaimsList(): ReactElement {
       />
 
       <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap', alignItems: 'center' }}>
-        <FormControl size="small" sx={{ minWidth: 180 }}>
-          <InputLabel>AR Stage</InputLabel>
-          <Select
-            value={arStageFilter}
-            label="AR Stage"
-            onChange={(e) => {
-              setArStageFilter(e.target.value);
-              applyFilters({ arStage: e.target.value });
-            }}
-          >
-            <MenuItem value="">All</MenuItem>
-            {CLAIM_STATUS_FIELDS_BY_KEY.arStage.options.map((o) => (
-              <MenuItem key={o.code} value={o.code}>
-                {o.label}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+        <MultiSelectFilter
+          label="AR Stage"
+          options={CLAIM_STATUS_FIELDS_BY_KEY.arStage.options.map((o) => ({ value: o.code, label: o.label }))}
+          value={arStageFilter}
+          minWidth={180}
+          onChange={(value) => {
+            // Drop chosen statuses the new stages no longer offer, so no hidden filter lingers.
+            const nextStatusCodes = statusOptionsForArStages(value).map((o) => o.code);
+            const nextStatus = statusFilter.filter((code) => nextStatusCodes.includes(code));
+            setArStageFilter(value);
+            setStatusFilter(nextStatus);
+            applyFilters({ arStage: value, status: nextStatus });
+          }}
+        />
 
-        <FormControl size="small" sx={{ minWidth: 180 }}>
-          <InputLabel>Status</InputLabel>
-          <Select
-            value={statusFilter}
-            label="Status"
-            onChange={(e) => {
-              setStatusFilter(e.target.value);
-              applyFilters({ status: e.target.value });
-            }}
-          >
-            <MenuItem value="">All</MenuItem>
-            {statusOptions.map((o) => (
-              <MenuItem key={o.code} value={o.code}>
-                {o.label}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+        <MultiSelectFilter
+          label="Status"
+          options={statusOptions.map((o) => ({ value: o.code, label: o.label }))}
+          value={statusFilter}
+          minWidth={180}
+          onChange={(value) => {
+            setStatusFilter(value);
+            applyFilters({ status: value });
+          }}
+        />
 
-        <FormControl size="small" sx={{ minWidth: 160 }}>
-          <InputLabel>Claim Type</InputLabel>
-          <Select
-            value={typeFilter}
-            label="Claim Type"
-            onChange={(e) => {
-              const value = e.target.value as '' | keyof typeof CODE_SYSTEM_CLAIM_TYPE_CODES;
-              setTypeFilter(value);
-              applyFilters({ type: value });
-            }}
-          >
-            <MenuItem value="">All</MenuItem>
-            <MenuItem key={'professional'} value={'professional'}>
-              Professional
-            </MenuItem>
-            <MenuItem key={'institutional'} value={'institutional'}>
-              Institutional
-            </MenuItem>
-          </Select>
-        </FormControl>
+        <MultiSelectFilter
+          label="Claim Type"
+          options={CLAIM_TYPE_OPTIONS}
+          value={typeFilter}
+          minWidth={160}
+          onChange={(value) => {
+            setTypeFilter(value);
+            applyFilters({ type: value });
+          }}
+        />
 
         <Autocomplete
+          multiple
+          disableCloseOnSelect
+          limitTags={1}
           size="small"
           options={serviceOptions}
           getOptionLabel={(o) => `${formatAntCaseString(o.name)}`}
@@ -682,36 +726,32 @@ export default function ClaimsList(): ReactElement {
           }}
           onOpen={() => searchServices('')}
           filterOptions={(x) => x}
-          value={selectedService}
+          value={selectedServices}
           onChange={(_, v) => {
-            setSelectedService(v);
-            applyFilters({ service: v?.name ?? '' });
+            setSelectedServices(v);
+            applyFilters({ service: v.map((sv) => sv.name) });
           }}
           renderInput={(params) => <TextField {...params} label="Service" />}
           isOptionEqualToValue={(o, v) => o.name === v.name}
-          sx={{ minWidth: 150 }}
+          sx={{ minWidth: 180, maxWidth: 300 }}
         />
 
-        <FormControl size="small" sx={{ minWidth: 140 }} disabled={tagOptions.length === 0}>
-          <InputLabel>Tag</InputLabel>
-          <Select
-            value={tagFilter}
-            label="Tag"
-            onChange={(e) => {
-              setTagFilter(e.target.value);
-              applyFilters({ tag: e.target.value });
-            }}
-          >
-            <MenuItem value="">All</MenuItem>
-            {tagOptions.map((t) => (
-              <MenuItem key={t.id || t.name} value={t.name}>
-                {t.name}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+        <MultiSelectFilter
+          label="Tag"
+          options={tagOptions.map((t) => ({ value: t.name, label: t.name }))}
+          value={tagFilter}
+          minWidth={140}
+          disabled={tagOptions.length === 0}
+          onChange={(value) => {
+            setTagFilter(value);
+            applyFilters({ tag: value });
+          }}
+        />
 
         <Autocomplete
+          multiple
+          disableCloseOnSelect
+          limitTags={1}
           size="small"
           options={payerOptions}
           getOptionLabel={(o) => `${o.name} (${o.payerId})`}
@@ -720,17 +760,20 @@ export default function ClaimsList(): ReactElement {
           }}
           onOpen={() => searchPayers('')}
           filterOptions={(x) => x}
-          value={selectedPayer}
+          value={selectedPayers}
           onChange={(_, v) => {
-            setSelectedPayer(v);
-            applyFilters({ payerId: v?.payerId ?? '' });
+            setSelectedPayers(v);
+            applyFilters({ payerId: v.map((p) => p.payerId) });
           }}
           renderInput={(params) => <TextField {...params} label="Payer" />}
           isOptionEqualToValue={(o, v) => o.id === v.id}
-          sx={{ minWidth: 200 }}
+          sx={{ minWidth: 200, maxWidth: 320 }}
         />
 
         <Autocomplete
+          multiple
+          disableCloseOnSelect
+          limitTags={1}
           size="small"
           options={nioOptions}
           getOptionLabel={(o) => o.name}
@@ -739,17 +782,20 @@ export default function ClaimsList(): ReactElement {
           }}
           onOpen={() => searchNios('')}
           filterOptions={(x) => x}
-          value={selectedNio}
+          value={selectedNios}
           onChange={(_, v) => {
-            setSelectedNio(v);
-            applyFilters({ nonInsurancePayerId: v?.id ?? '' });
+            setSelectedNios(v);
+            applyFilters({ nonInsurancePayerId: v.map((n) => n.id) });
           }}
           renderInput={(params) => <TextField {...params} label="Non-insurance Organization" />}
           isOptionEqualToValue={(o, v) => o.id === v.id}
-          sx={{ minWidth: 230 }}
+          sx={{ minWidth: 230, maxWidth: 340 }}
         />
 
         <Autocomplete
+          multiple
+          disableCloseOnSelect
+          limitTags={1}
           size="small"
           options={patientOptions}
           getOptionLabel={(o) => o.name || `${o.firstName} ${o.lastName}`}
@@ -758,14 +804,14 @@ export default function ClaimsList(): ReactElement {
           }}
           onOpen={() => searchPatients('')}
           filterOptions={(x) => x}
-          value={selectedPatient}
+          value={selectedPatients}
           onChange={(_, v) => {
-            setSelectedPatient(v);
-            applyFilters({ patientId: v?.id ?? '' });
+            setSelectedPatients(v);
+            applyFilters({ patientId: patientIds(v) });
           }}
           renderInput={(params) => <TextField {...params} label="Patient" />}
           isOptionEqualToValue={(o, v) => o.id === v.id}
-          sx={{ minWidth: 200 }}
+          sx={{ minWidth: 200, maxWidth: 320 }}
         />
 
         <DateRangeInput
