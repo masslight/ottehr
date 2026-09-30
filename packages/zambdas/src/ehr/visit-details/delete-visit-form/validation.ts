@@ -4,7 +4,7 @@ import { qrSentManually } from 'utils/lib/helpers/practice-managed-questionnaire
 import { Secrets } from 'utils/lib/secrets';
 import { DeleteVisitFormInput } from 'utils/lib/types/api/update-visit-details.types';
 import {
-  FHIR_RESOURCE_NOT_FOUND,
+  FHIR_RESOURCE_NOT_FOUND_CUSTOM,
   INVALID_INPUT_ERROR,
   MISSING_REQUEST_BODY,
   NOT_AUTHORIZED,
@@ -99,16 +99,18 @@ export async function complexValidation(
       id: questionnaireResponseId,
     });
   } catch {
-    throw FHIR_RESOURCE_NOT_FOUND('QuestionnaireResponse');
+    throw FHIR_RESOURCE_NOT_FOUND_CUSTOM(`QuestionnaireResponse/${questionnaireResponseId} could not be found.`);
   }
 
   if (!questionnaireResponse?.id) {
-    throw FHIR_RESOURCE_NOT_FOUND('QuestionnaireResponse');
+    throw FHIR_RESOURCE_NOT_FOUND_CUSTOM(`QuestionnaireResponse/${questionnaireResponseId} could not be found.`);
   }
 
   if (questionnaireResponse.subject?.reference !== `Patient/${patientId}`) {
     throw INVALID_INPUT_ERROR(
-      `The provided patient ID does not match the patient associated with the questionnaire response.`
+      `QuestionnaireResponse/${questionnaireResponseId} belongs to ${
+        questionnaireResponse.subject?.reference ?? 'no patient'
+      }, not Patient/${patientId}.`
     );
   }
 
