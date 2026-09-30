@@ -2,6 +2,8 @@ import Oystehr from '@oystehr/sdk';
 import { captureException } from '@sentry/node-core/light';
 import {
   Appointment,
+  ClinicalImpression,
+  Communication,
   Condition,
   DiagnosticReport,
   DocumentReference,
@@ -17,14 +19,23 @@ import {
   Patient,
   Practitioner,
   Procedure,
+  Provenance,
+  QuestionnaireResponse,
   Resource,
   ServiceRequest,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { appointmentTypeForAppointment } from 'utils/lib/fhir/appointments';
+import { appointmentTypeForAppointment, getCancellationReasonDisplay } from 'utils/lib/fhir/appointments';
 import { DOCUMENT_REFERENCE_SUMMARY_FROM_AUDIO, DOCUMENT_REFERENCE_SUMMARY_FROM_CHAT } from 'utils/lib/fhir/constants';
 import { dispositionCheckboxOptions } from 'utils/lib/fhir/disposition';
-import { getCoding } from 'utils/lib/fhir/helpers';
+import { getPaymentVariantFromEncounter, PaymentVariant } from 'utils/lib/fhir/encounter';
+import {
+  extractExtensionValue,
+  findExtensionIndex,
+  getCoding,
+  isAppointmentLocked,
+  isEncounterLocked,
+} from 'utils/lib/fhir/helpers';
 import {
   getAllCptCodesFromInHouseMedication,
   getAllHcpcsCodesFromInHouseMedication,
@@ -45,11 +56,14 @@ import {
   getPhoneNumberForIndividual,
   mapGenderToLabel,
 } from 'utils/lib/fhir/patient';
+import { getAdmitterPractitionerId } from 'utils/lib/fhir/practitioners';
+import { isIntakePaperworkQuestionnaireResponse } from 'utils/lib/fhir/questionnaires';
 import {
   DIAGNOSTIC_REPORT_PRELIMINARY_REVIEW_ON_EXTENSION_URL,
   SERVICE_REQUEST_PERFORMED_ON_EXTENSION_URL,
   SERVICE_REQUEST_REQUESTED_TIME_EXTENSION_URL,
 } from 'utils/lib/fhir/radiology';
+import { getProviderType } from 'utils/lib/helpers/helpers';
 import { isInHouseLabServiceRequest } from 'utils/lib/helpers/in-house-labs';
 import { CODE_SYSTEM_CPT, CODE_SYSTEM_NDC } from 'utils/lib/helpers/rcm/constants';
 import { getVitalDTOCriticalityFromObservation } from 'utils/lib/helpers/vitals/utils';
@@ -64,8 +78,15 @@ import {
   VACCINE_ADMINISTRATION_CODES_EXTENSION_URL,
   VACCINE_ADMINISTRATION_VIS_DATE_EXTENSION_URL,
 } from 'utils/lib/types/api/medication-administration.constants';
+import { PROVIDER_TYPE_VALUES } from 'utils/lib/types/api/practitioner.types';
 import { CREATED_BY_SYSTEM } from 'utils/lib/types/common';
 import { PATIENT_POINT_OF_DISCOVERY_URL } from 'utils/lib/types/constants';
+import {
+  DISCHARGE_SUMMARY_CODE,
+  INSURANCE_CARD_CODE,
+  PATIENT_EDUCATION_DOC_TYPE_CODE,
+  PHOTO_ID_CARD_CODE,
+} from 'utils/lib/types/data/paperwork/paperwork.constants';
 import { getTimezone } from 'utils/lib/utils/scheduleUtils';
 import { getVisitStatusHistory } from 'utils/lib/utils/visitUtils';
 import {
@@ -74,8 +95,16 @@ import {
   fetchScopedResources,
   resolveEncounterAppointment,
 } from '../adhoc-report';
-import { followUpTypeFromPerformerType } from '../chart-data';
+import {
+  chartDataResourceHasMetaTagByCode,
+  followUpTypeFromPerformerType,
+  makeProceduresDTOFromFhirResources,
+} from '../chart-data';
+import { mapChartResources } from '../chart-sections/map';
+import { getPaperworkCompleteness } from '../paperwork-completeness';
+import { resolveEncounterSignatures } from '../pdf/get-encounter-signatures';
 import { takeMostRecentPreliminaryReport, takeTheBestFinalDiagnosticReport } from '../radiology';
+import { EncounterOrderRecords, fetchEncounterOrders } from './encounter-orders';
 
 let staffNameByEmail: Map<string, string> | undefined;
 
@@ -274,9 +303,27 @@ const radiologyStudy = (sr: ServiceRequest, reports: DiagnosticReport[]): Radiol
   return { name: orderDisplay(sr), status, orderedAt, performedAt, preliminaryAt, finalAt };
 };
 
+const SIGNED_VISIT_STATUSES = ['completed', 'awaiting supervisor approval'];
+
+const lastSignedAt = (history: ReturnType<typeof getVisitStatusHistory>): string | null => {
+  let start: string | null = null;
+  for (const entry of history) {
+    if (SIGNED_VISIT_STATUSES.includes(entry.status)) start ??= entry.period.start ?? null;
+    else start = null;
+  }
+  return start;
+};
+
+const knownValueOrNull = <T extends string>(allowed: readonly T[], value: string | undefined): T | null =>
+  value && (allowed as readonly string[]).includes(value) ? (value as T) : null;
+
+const hasDocRefTypeCode = (docRef: DocumentReference, code: string): boolean =>
+  docRef.status === 'current' && Boolean(docRef.type?.coding?.some((c) => c.code === code));
+
 export async function fetchAdHocEncounterRows(
   oystehr: Oystehr,
-  params: AdHocEncountersInput
+  params: AdHocEncountersInput,
+  options: { environment?: string } = {}
 ): Promise<AdHocEncounterRow[]> {
   const {
     dateRange,
@@ -292,9 +339,14 @@ export async function fetchAdHocEncounterRows(
     includeExamRos,
     includeResults,
     includeNursing,
+    includeProcedures,
+    includeSigning,
+    includePaperwork,
+    includeCharting,
     includeIntake,
     includeDocuments,
   } = params;
+  const environment = options.environment ?? '';
 
   // The main search stays LIGHT — only the bounded per-appointment resources (patient, location,
   // encounter, practitioner) ride along; every opt-in layer's heavier resources (Observations above
@@ -325,6 +377,13 @@ export async function fetchAdHocEncounterRows(
   const radiologyReportsBySrId = new Map<string, DiagnosticReport[]>();
   const resultsByEncounterId = new Map<string, DiagnosticReport[]>();
   const encounterConditionsByEncounterId = new Map<string, Condition[]>();
+  const clinicalImpressionsByEncounterId = new Map<string, ClinicalImpression[]>();
+  const instructionsByEncounterId = new Map<string, Communication[]>();
+  const signatureProvenancesByEncounterId = new Map<string, Provenance[]>();
+  const signerById = new Map<string, Practitioner>();
+  const paperworkQrByEncounterId = new Map<string, QuestionnaireResponse>();
+  let identityDocRefs: DocumentReference[] = [];
+  let ordersByEncounterId = new Map<string, EncounterOrderRecords>();
   const encounterById = new Map<string, Encounter>();
 
   for (const r of allResources) {
@@ -369,7 +428,8 @@ export async function fetchAdHocEncounterRows(
   const stripEnc = (ref?: string): string | undefined => ref?.replace('Encounter/', '');
 
   if (encRefs.length) {
-    if (includeCodes) {
+    // Procedures link their CPT codes (Procedure) and diagnoses (Condition) the same way the codes layer does.
+    if (includeCodes || includeProcedures) {
       const dxIds = Array.from(
         new Set(
           encounters.flatMap((e) =>
@@ -385,10 +445,10 @@ export async function fetchAdHocEncounterRows(
         proceduresByEncounterId
       );
     }
-    if (includeAi || includeDocuments) {
+    if (includeAi || includeDocuments || includeCharting) {
       indexByEncounter(
         await fetchScoped<DocumentReference>('DocumentReference', 'encounter', encRefs, [
-          { name: '_elements', value: 'type,description,meta,context' },
+          { name: '_elements', value: 'type,description,meta,context,status' },
         ]),
         (d) => stripEnc(d.context?.encounter?.[0]?.reference),
         docRefsByEncounterId
@@ -479,7 +539,7 @@ export async function fetchAdHocEncounterRows(
         observationsByEncounterId
       );
     }
-    if (includeLabs || includeImaging || includeDisposition || includeNursing) {
+    if (includeLabs || includeImaging || includeDisposition || includeNursing || includeProcedures) {
       indexByEncounter(
         await fetchScoped<ServiceRequest>('ServiceRequest', 'encounter', encRefs),
         (s) => stripEnc(s.encounter?.reference),
@@ -515,12 +575,66 @@ export async function fetchAdHocEncounterRows(
         resultsByEncounterId
       );
     }
-    if (includeIntake) {
+    if (includeIntake || includeCharting) {
       indexByEncounter(
         await fetchScoped<Condition>('Condition', 'encounter', encRefs),
         (c) => stripEnc(c.encounter?.reference),
         encounterConditionsByEncounterId
       );
+    }
+    if (includeCharting) {
+      const [clinicalImpressions, instructions] = await Promise.all([
+        fetchScoped<ClinicalImpression>('ClinicalImpression', 'encounter', encRefs),
+        fetchScoped<Communication>('Communication', 'encounter', encRefs, [
+          { name: '_tag', value: 'patient-instruction' },
+        ]),
+      ]);
+      indexByEncounter(clinicalImpressions, (c) => stripEnc(c.encounter?.reference), clinicalImpressionsByEncounterId);
+      indexByEncounter(instructions, (c) => stripEnc(c.encounter?.reference), instructionsByEncounterId);
+    }
+    if (includeSigning) {
+      // The author (provider signed) and verifier (supervisor approved) Provenances getEncounterSignatures reads.
+      const provenancesAndAgents = await fetchScoped<Provenance | Practitioner>('Provenance', 'target', encRefs, [
+        { name: 'agent-role', value: 'author,verifier' },
+        { name: '_include', value: 'Provenance:agent' },
+      ]);
+      for (const r of provenancesAndAgents) {
+        if (r.resourceType === 'Practitioner') {
+          if (r.id) signerById.set(r.id, r);
+          continue;
+        }
+        for (const target of r.target ?? []) {
+          const encId = target.reference?.startsWith('Encounter/') ? stripEnc(target.reference) : undefined;
+          if (encId)
+            signatureProvenancesByEncounterId.set(encId, [...(signatureProvenancesByEncounterId.get(encId) ?? []), r]);
+        }
+      }
+    }
+    if (includePaperwork) {
+      // The tracking board's paperwork inputs: the visit's intake QuestionnaireResponse and the patient's
+      // current Photo ID / insurance card DocumentReferences.
+      const patientRefs = Array.from(patientMap.keys());
+      const [questionnaireResponses, docRefs] = await Promise.all([
+        fetchScoped<QuestionnaireResponse>('QuestionnaireResponse', 'encounter', encRefs),
+        fetchScoped<DocumentReference>('DocumentReference', 'related', patientRefs, [
+          { name: 'status', value: 'current' },
+          { name: 'type', value: `${INSURANCE_CARD_CODE},${PHOTO_ID_CARD_CODE}` },
+        ]),
+      ]);
+      for (const qr of questionnaireResponses) {
+        const encId = stripEnc(qr.encounter?.reference);
+        if (encId && isIntakePaperworkQuestionnaireResponse(qr)) paperworkQrByEncounterId.set(encId, qr);
+      }
+      identityDocRefs = docRefs;
+    }
+    if (includeLabs || includeNursing) {
+      ordersByEncounterId = await fetchEncounterOrders(oystehr, {
+        encounters: Array.from(encounterById.values()),
+        practitioners: Array.from(practitionerMap.values()),
+        environment,
+        includeLabs: !!includeLabs,
+        includeNursing: !!includeNursing,
+      });
     }
   }
 
@@ -547,6 +661,7 @@ export async function fetchAdHocEncounterRows(
 
     const {
       encounterType,
+      isFollowUpRow,
       patient,
       locationRef,
       location,
@@ -595,6 +710,8 @@ export async function fetchAdHocEncounterRows(
     const locationId = locationRef ? locationRef.replace('Location/', '') : undefined;
     const statusHistory = getVisitStatusHistory(encounter);
     const currentStatusSince = statusHistory.at(-1)?.period.start ?? null;
+    const intakePerformerId = getAdmitterPractitionerId(encounter);
+    const attendingPractitioner = attendingId ? practitionerMap.get(attendingId) : undefined;
 
     const row: AdHocEncounterRow = {
       appointmentId: appointment.id || '',
@@ -636,6 +753,13 @@ export async function fetchAdHocEncounterRows(
       clinicOpenHours,
       attendingProvider,
       attendingProviderId: attendingId,
+      attendingProviderType: knownValueOrNull(PROVIDER_TYPE_VALUES, getProviderType(attendingPractitioner)),
+      intakePerformer:
+        practitionerDisplayName(intakePerformerId ? practitionerMap.get(intakePerformerId) : undefined) ?? '',
+      intakePerformerId,
+      cancellationReason: appointment.cancelationReason?.coding?.[0]?.display ?? '',
+      cancellationReasonDisplay: getCancellationReasonDisplay(appointment) ?? '',
+      paymentVariant: knownValueOrNull(Object.values(PaymentVariant), getPaymentVariantFromEncounter(encounter)),
       registrationChannel,
       registeredBy,
       registeredByName,
@@ -909,12 +1033,17 @@ export async function fetchAdHocEncounterRows(
         row.weightKg && row.heightCm && row.heightCm > 0 ? round1(row.weightKg / (row.heightCm / 100) ** 2) : null;
     }
 
-    if (includeLabs || includeImaging || includeDisposition || includeNursing) {
+    if (includeLabs || includeImaging || includeDisposition || includeNursing || includeProcedures) {
       const srs = (encounter.id ? serviceRequestsByEncounterId.get(encounter.id) ?? [] : []).filter(isActiveOrder);
       if (includeLabs) {
         const labOrders = srs.filter(isLabOrder).map(orderDisplay).filter(Boolean);
         row.labOrders = labOrders;
         row.labOrderCount = labOrders.length;
+        const labTests = (encounter.id ? ordersByEncounterId.get(encounter.id)?.labTests : undefined) ?? [];
+        row.labTests = labTests;
+        row.labTestNames = labTests.map((test) => test.name);
+        row.labNames = Array.from(new Set(labTests.map((test) => test.lab).filter(Boolean)));
+        row.labResultComponents = Array.from(new Set(labTests.flatMap((test) => test.resultComponents)));
       }
       if (includeImaging) {
         const imagingOrders = srs.filter(isImagingOrder).map(orderDisplay).filter(Boolean);
@@ -932,6 +1061,44 @@ export async function fetchAdHocEncounterRows(
           .filter(Boolean);
         row.nursingOrders = nursingOrders;
         row.nursingOrderCount = nursingOrders.length;
+        row.nursingOrderDetails =
+          (encounter.id ? ordersByEncounterId.get(encounter.id)?.nursingOrders : undefined) ?? [];
+      }
+      if (includeProcedures) {
+        // As the tracking board and the chart's procedures section: completed procedure ServiceRequests,
+        // mapped with the chart's DTO builder (CPT codes via supportingInfo, diagnoses via reasonReference).
+        const procedureRequests = srs.filter(
+          (sr) => sr.status === 'completed' && chartDataResourceHasMetaTagByCode(sr, 'procedure')
+        );
+
+        const procedures = procedureRequests.length
+          ? makeProceduresDTOFromFhirResources(encounter, [
+              ...procedureRequests,
+              ...(encounter.id ? proceduresByEncounterId.get(encounter.id) ?? [] : []),
+              ...Array.from(conditionById.values()),
+            ]) ?? []
+          : [];
+
+        row.procedures = procedures.map((p) => ({
+          type: p.procedureType ?? '',
+          cptCodes: (p.cptCodes ?? []).map((c) => c.code).filter(Boolean),
+          icdCodes: (p.diagnoses ?? []).map((d) => d.code).filter(Boolean),
+          performedAt: p.procedureDateTime ?? null,
+          performerType: p.performerType ?? '',
+          bodySite: p.bodySite ?? '',
+          bodySide: p.bodySide ?? '',
+          technique: p.technique ?? [],
+          medicationUsed: p.medicationUsed ?? '',
+          timeSpent: p.timeSpent ?? '',
+          complications: p.complications ?? '',
+          patientResponse: p.patientResponse ?? '',
+          consentObtained: p.consentObtained ?? null,
+          specimenSent: p.specimenSent ?? null,
+          documentedBy: p.documentedBy ?? '',
+        }));
+
+        row.procedureTypes = row.procedures.map((p) => p.type);
+        row.procedureCount = row.procedures.length;
       }
       if (includeDisposition) {
         const followUpTypes = srs
@@ -1150,6 +1317,80 @@ export async function fetchAdHocEncounterRows(
       }
       row.workSchoolNotes = workSchoolNotes;
       row.workSchoolNoteCount = workSchoolNotes.length;
+    }
+
+    if (includeSigning) {
+      const signatures = resolveEncounterSignatures(
+        encounter.id ? signatureProvenancesByEncounterId.get(encounter.id) ?? [] : [],
+        signerById
+      );
+
+      const signed = SIGNED_VISIT_STATUSES.includes(visitStatus);
+      const signedAt = signed ? signatures.signedBy?.dateTimeISO ?? lastSignedAt(statusHistory) : null;
+
+      // The visit note prints the author Provenance's signer and falls back to the provider of the visit.
+      const fallbackSigner = attendingProvider && attendingProvider !== 'Unknown' ? attendingProvider : null;
+
+      const dischargedAt = statusHistory.filter((entry) => entry.status === 'discharged').at(-1)?.period.start;
+      const awaitingIndex = findExtensionIndex(encounter.extension ?? [], 'awaiting-supervisor-approval');
+      row.signed = signed;
+      row.signedAt = signedAt;
+      row.signedBy = signed ? signatures.signedBy?.name || fallbackSigner : null;
+      row.dischargedToSignedMinutes = signedAt ? minutesBetween(dischargedAt, signedAt) : null;
+      row.awaitingSupervisorApproval =
+        awaitingIndex >= 0 && extractExtensionValue(encounter.extension?.[awaitingIndex]) === true;
+      row.supervisorApprovedBy = signatures.approvedBy?.name || null;
+      row.supervisorApprovedAt = signatures.approvedBy?.dateTimeISO ?? null;
+
+      // Follow-up encounters have no Appointment of their own, so their lock lives on the Encounter.
+      row.locked = isFollowUpRow ? isEncounterLocked(encounter) : isAppointmentLocked(appointment);
+    }
+
+    if (includePaperwork) {
+      const questionnaireResponse = encounter.id ? paperworkQrByEncounterId.get(encounter.id) : undefined;
+
+      const paperwork = getPaperworkCompleteness({
+        patient,
+        encounter,
+        questionnaireResponse,
+        docRefs: identityDocRefs,
+      });
+
+      row.paperworkSubmittedAt = questionnaireResponse?.authored ?? null;
+      row.demographicsComplete = paperwork.demographics;
+      row.photoIdOnFile = paperwork.photoID;
+      row.insuranceCardOnFile = paperwork.insuranceCard;
+      row.consentComplete = paperwork.consent;
+
+      row.consentMethod = paperwork.consentByPaperworkSignatures
+        ? 'paperwork'
+        : paperwork.consentByStaffAttestation
+        ? 'staff attestation'
+        : null;
+    }
+
+    if (includeCharting && encounter.id) {
+      const chart = mapChartResources(
+        encounter,
+        [
+          ...(encounterConditionsByEncounterId.get(encounter.id) ?? []),
+          ...(clinicalImpressionsByEncounterId.get(encounter.id) ?? []),
+          ...(instructionsByEncounterId.get(encounter.id) ?? []),
+        ],
+        encounter.id,
+        { instructions: [] }
+      );
+
+      const docs = docRefsByEncounterId.get(encounter.id) ?? [];
+      row.chiefComplaint = chart.chiefComplaint?.text ?? '';
+      row.historyOfPresentIllness = chart.historyOfPresentIllness?.text ?? '';
+      row.mechanismOfInjury = chart.mechanismOfInjury?.text ?? '';
+      row.rosNote = chart.ros?.text ?? '';
+      row.medicalDecision = chart.medicalDecision?.text ?? '';
+      row.patientInstructions = (chart.instructions ?? []).map((i) => i.text ?? '').filter(Boolean);
+      row.addendumNote = chart.addendumNote?.text ?? '';
+      row.dischargeSummaryCreated = docs.some((d) => hasDocRefTypeCode(d, DISCHARGE_SUMMARY_CODE));
+      row.patientEducationCount = docs.filter((d) => hasDocRefTypeCode(d, PATIENT_EDUCATION_DOC_TYPE_CODE)).length;
     }
 
     rows.push(row);

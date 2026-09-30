@@ -3,7 +3,30 @@
 // (names/types/descriptions; enum members for closed vocabularies — never values sampled from data).
 // Field descriptions are written for the LLM.
 import { z } from 'zod';
+import { PaymentVariant } from '../../../fhir/encounter';
+import { NonNormalResult } from '../../api/lab';
+import { PROVIDER_TYPE_VALUES } from '../../api/practitioner.types';
+import { OBSERVATION_CODES } from '../../data/in-house/in-house.constants';
+import { TestStatus } from '../../data/in-house/in-house.types';
+import { ExternalLabsStatus } from '../../data/labs/labs.types';
+import { NursingOrdersStatus } from '../../data/orders/constants';
 import { AdHocLayerMap, DatasetInput, datasetInputSchema, datasetRowSchema, LayerRowFields } from './dataset';
+
+// Closed vocabularies are taken from the app's own constants, so a status the app adds or renames
+// changes the schema the report is generated against instead of failing validation at runtime.
+const enumValues = <T extends string>(values: T[]): [T, ...T[]] => values as [T, ...T[]];
+
+const PAYMENT_VARIANT_VALUES = enumValues(Object.values(PaymentVariant));
+const EXTERNAL_LAB_STATUS_VALUES = Object.values(ExternalLabsStatus);
+
+// Record<TestStatus, true> requires every TestStatus as a key — a new status fails to compile here.
+const IN_HOUSE_LAB_STATUSES = { ORDERED: true, COLLECTED: true, FINAL: true } satisfies Record<TestStatus, true>;
+// determineOrderStatus falls back to 'UNKNOWN' (cast) when no rule matches, so it is part of the domain.
+const IN_HOUSE_LAB_STATUS_VALUES = [...(Object.keys(IN_HOUSE_LAB_STATUSES) as TestStatus[]), 'UNKNOWN'] as const;
+const LAB_TEST_STATUS_VALUES = enumValues<string>([...EXTERNAL_LAB_STATUS_VALUES, ...IN_HOUSE_LAB_STATUS_VALUES]);
+const NURSING_ORDER_STATUS_VALUES = enumValues(Object.values(NursingOrdersStatus));
+const NON_NORMAL_RESULT_VALUES = enumValues(Object.values(NonNormalResult));
+const RESULT_INTERPRETATION_VALUES = enumValues(Object.values(OBSERVATION_CODES) as string[]);
 
 // Base columns — always present on every row.
 export const EncounterBaseRowSchema = z.object({
@@ -85,6 +108,37 @@ export const EncounterBaseRowSchema = z.object({
   clinicOpenHours: z.number().nullable().describe("Open hours on this visit's weekday. Null if unset."),
   attendingProvider: z.string().describe('Attending provider name.'),
   attendingProviderId: z.string().optional().describe('Attending provider id (internal — joins).'),
+  attendingProviderType: z
+    .enum(PROVIDER_TYPE_VALUES)
+    .nullable()
+    .describe(
+      "Attending provider's credential (MD / DO = physician, PA / NP = advanced practice). Null when no " +
+        'attending or not set on the provider.'
+    ),
+  intakePerformer: z
+    .string()
+    .describe('Staff member who performed intake (full name). "" when intake was not recorded.'),
+  intakePerformerId: z.string().optional().describe('Intake performer id (internal — joins).'),
+  // --- Cancellation / payment ---
+  cancellationReason: z
+    .string()
+    .describe(
+      'Reason picked when the visit was cancelled — the category; group and count by THIS. "" when the visit ' +
+        'was not cancelled or no reason was given. A no-show carries no reason.'
+    ),
+  cancellationReasonDisplay: z
+    .string()
+    .describe(
+      'Cancellation reason as the app shows it: the category plus any free-text detail added, e.g. ' +
+        '"Patient improved - feeling better". "" when none. For display only — group by cancellationReason.'
+    ),
+  paymentVariant: z
+    .enum(PAYMENT_VARIANT_VALUES)
+    .nullable()
+    .describe(
+      'How the patient said this visit will be paid: insurance, selfPay, or employer (occupational medicine). ' +
+        "Chosen per visit in paperwork — may differ from the patient's current coverage. Null when not chosen."
+    ),
   // --- Registration ---
   registrationChannel: z
     .enum(['Staff', 'Self-scheduled', 'Walk-in', 'Unknown'])
@@ -99,6 +153,7 @@ export const ENCOUNTER_INTERNAL_FIELDS: readonly (keyof AdHocEncounterRow)[] = [
   'encounterId',
   'locationId',
   'attendingProviderId',
+  'intakePerformerId',
 ];
 
 // Per-field opt-in value domain: for these fields ONLY, the distinct values present in the fetched
@@ -123,6 +178,7 @@ export const ENCOUNTER_DOMAIN_FIELDS: readonly (keyof AdHocEncounterRow)[] = [
   'region',
   'location',
   'source',
+  'cancellationReason',
   // codes / labels (codes layer)
   'icdCodes',
   'icdDisplays',
@@ -135,6 +191,9 @@ export const ENCOUNTER_DOMAIN_FIELDS: readonly (keyof AdHocEncounterRow)[] = [
   // clinical categoricals / name arrays (various layers)
   'aiType',
   'labOrders',
+  'labTestNames',
+  'labNames',
+  'labResultComponents',
   'imagingOrders',
   // Vaccine names sit inside `vaccines` records; value sampling only covers flat row fields.
   'nursingOrders',
@@ -145,6 +204,7 @@ export const ENCOUNTER_DOMAIN_FIELDS: readonly (keyof AdHocEncounterRow)[] = [
   'accidentType',
   'screeningQuestions',
   'workSchoolNotes',
+  'procedureTypes',
 ];
 
 // Opt-in layers, declared once (metadata + Zod field schema). Row/response schema, endpoint input
@@ -334,12 +394,85 @@ export const ENCOUNTER_LAYERS = {
   labs: {
     label: 'Lab orders',
     description:
-      'Lab tests ordered on the visit (names + counts). The physical test kit / reagent is NOT recorded ' +
+      'Lab tests ordered on the visit (external and in-house): names, performing lab, order status, ordered / ' +
+      'sent / resulted times, ordering provider, abnormal flags and in-house result values (e.g. positive / ' +
+      'negative rapid tests). External result values are NOT available. The physical test kit / reagent is NOT recorded ' +
       'anywhere — no kit lot number, expiration, manufacturer or NDC; a drug lot in the medications layer is ' +
       'NOT a substitute.',
     schema: z.object({
       labOrders: z.array(z.string()).describe('Lab tests ordered (names; excl. cancelled).'),
       labOrderCount: z.number().describe('Number of lab tests ordered. 0 when none.'),
+      labTestNames: z
+        .array(z.string())
+        .describe('Test name of each labTests[] record, same order — the values labTests[].name takes.'),
+      labNames: z
+        .array(z.string())
+        .describe('Distinct performing labs on the visit (external lab names, "In-house" for in-house tests).'),
+      labResultComponents: z
+        .array(z.string())
+        .describe(
+          'Distinct in-house result component names on the visit — the values labTests[].resultComponents takes.'
+        ),
+      labTests: z
+        .array(
+          z.object({
+            name: z.string().describe('Test name, as shown on the lab orders page.'),
+            kind: z.enum(['external', 'in-house']).describe('Sent to an outside lab (external) or run in the clinic.'),
+            lab: z.string().describe('Performing lab name for external tests; "In-house" for in-house tests.'),
+            status: z
+              .enum(LAB_TEST_STATUS_VALUES)
+              .describe(
+                'Order status as the lab orders page shows it. External: pending → ready → sent / sent manually → ' +
+                  'prelim → received → reviewed (corrected, cancelled by lab, rejected abn are side paths). In-house: ' +
+                  'ORDERED → COLLECTED → FINAL. A test with results has status received / reviewed / corrected ' +
+                  '(external) or FINAL (in-house).'
+              ),
+            orderedAt: z.string().nullable().describe('Full ISO instant the test was ordered. Null when unknown.'),
+            submittedAt: z
+              .string()
+              .nullable()
+              .describe('Full ISO instant an external order was sent to the lab. Null for in-house / not sent.'),
+            resultedAt: z
+              .string()
+              .nullable()
+              .describe(
+                'Full ISO instant the latest result arrived (external) or was entered (in-house). Null when no ' +
+                  'result yet. Turnaround = resultedAt − orderedAt.'
+              ),
+            orderedBy: z.string().describe('Ordering provider (full name). "" when unknown.'),
+            isPSC: z
+              .boolean()
+              .describe('External order sent to a patient service center for collection (not collected in clinic).'),
+            icdCodes: z
+              .array(z.string())
+              .describe('ICD-10 codes the test was ordered for. HIERARCHICAL — prefix-match.'),
+            nonNormalResults: z
+              .array(z.enum(NON_NORMAL_RESULT_VALUES))
+              .describe(
+                'Flags the lab put on the results of THIS test (abnormal / inconclusive / neutral). Empty when the ' +
+                  'results are normal or there are none yet — check status to tell them apart.'
+              ),
+            resultComponents: z
+              .array(z.string())
+              .describe('In-house only: result component names (e.g. "Strep A"). Empty for external / no result.'),
+            resultValues: z
+              .array(z.string())
+              .describe(
+                'In-house only, parallel to resultComponents: the entered value as a label (e.g. "Positive", ' +
+                  '"Negative") or a number with its unit. "" for a component left blank.'
+              ),
+            resultInterpretations: z
+              .array(z.enum(RESULT_INTERPRETATION_VALUES))
+              .describe(
+                'In-house only, parallel to resultComponents: A = abnormal (e.g. a POSITIVE rapid test), N = normal, ' +
+                  'IND = indeterminate. Count A for a positivity rate.'
+              ),
+          })
+        )
+        .describe(
+          'One record per lab test ordered on the visit (external and in-house; cancelled orders excluded), with ' +
+            'status, timing, ordering provider and results. Empty when none.'
+        ),
     }),
   },
   imaging: {
@@ -463,10 +596,148 @@ export const ENCOUNTER_LAYERS = {
   },
   nursing: {
     label: 'Nursing orders',
-    description: 'Nursing orders placed on the visit.',
+    description: 'Nursing orders placed on the visit, with their status, ordering provider and order time.',
     schema: z.object({
       nursingOrders: z.array(z.string()).describe('Nursing orders placed on the visit (names).'),
       nursingOrderCount: z.number().describe('Number of nursing orders. 0 when none.'),
+      nursingOrderDetails: z
+        .array(
+          z.object({
+            order: z.string().describe('The order as written by the provider (free text).'),
+            status: z.enum(NURSING_ORDER_STATUS_VALUES).describe('Current status of the order.'),
+            orderedAt: z.string().nullable().describe('Full ISO instant the order was placed. Null when unknown.'),
+            orderedBy: z.string().describe('Ordering provider (full name). "" when unknown.'),
+          })
+        )
+        .describe('One record per nursing order (cancelled orders excluded). Empty when none.'),
+    }),
+  },
+  procedures: {
+    label: 'Procedures',
+    description:
+      'Procedures documented on the visit: type, CPT codes, performer, body site, technique, time spent, ' +
+      'complications, consent.',
+    schema: z.object({
+      procedureTypes: z
+        .array(z.string())
+        .describe('Type of each procedures[] record, same order — the values procedures[].type takes.'),
+      procedureCount: z.number().describe('Number of procedures documented. 0 when none.'),
+      procedures: z
+        .array(
+          z.object({
+            type: z.string().describe('Procedure type as picked in the chart (e.g. "Laceration repair").'),
+            cptCodes: z.array(z.string()).describe('CPT codes billed for THIS procedure.'),
+            icdCodes: z
+              .array(z.string())
+              .describe('ICD-10 codes linked to THIS procedure. HIERARCHICAL — prefix-match.'),
+            performedAt: z
+              .string()
+              .nullable()
+              .describe('Full ISO instant the procedure was performed. Null when unset.'),
+            performerType: z
+              .string()
+              .describe('Who performed it, as picked in the chart (e.g. "Provider"). "" when unset.'),
+            bodySite: z.string().describe('Body site. "" when unset.'),
+            bodySide: z.string().describe('Body side (left / right / …). "" when unset.'),
+            technique: z.array(z.string()).describe('Techniques used.'),
+            medicationUsed: z.string().describe('Medication used (free text). "" when none.'),
+            timeSpent: z.string().describe('Time spent, as picked in the chart (e.g. "< 5 min"). "" when unset.'),
+            complications: z.string().describe('Complications as charted (e.g. "None"). "" when unset.'),
+            patientResponse: z.string().describe('Patient response as charted. "" when unset.'),
+            consentObtained: z.boolean().nullable().describe('Whether consent was obtained. Null when not charted.'),
+            specimenSent: z.boolean().nullable().describe('Whether a specimen was sent. Null when not charted.'),
+            documentedBy: z.string().describe('Who documented the procedure. "" when unset.'),
+          })
+        )
+        .describe('One record per procedure documented on the visit. Empty when none.'),
+    }),
+  },
+  signing: {
+    label: 'Chart signing',
+    description:
+      'Whether and when the visit note was signed and by whom, supervisor approval (who / when, still pending), ' +
+      'and whether the chart is locked.',
+    schema: z.object({
+      signed: z
+        .boolean()
+        .describe('The visit note is signed (the visit is completed, or awaiting supervisor approval).'),
+      signedAt: z
+        .string()
+        .nullable()
+        .describe(
+          'Full ISO instant the note was (last) signed. Null when not signed. A chart unlocked and re-signed ' +
+            'carries the latest signing.'
+        ),
+      signedBy: z
+        .string()
+        .nullable()
+        .describe(
+          'Provider who signed the note, as printed on the visit note (the attending provider unless a separate ' +
+            'signer was recorded). Null when not signed.'
+        ),
+      dischargedToSignedMinutes: z
+        .number()
+        .nullable()
+        .describe('Minutes from discharge to signing — charting lag. Null when either is missing.'),
+      awaitingSupervisorApproval: z
+        .boolean()
+        .describe('Signed by the provider but still waiting for a supervising physician to approve.'),
+      supervisorApprovedBy: z
+        .string()
+        .nullable()
+        .describe('Supervising physician who approved the note. Null when no approval recorded.'),
+      supervisorApprovedAt: z
+        .string()
+        .nullable()
+        .describe('Full ISO instant the supervisor approved. Null when no approval recorded.'),
+      locked: z.boolean().describe('The chart is locked for editing (signed and not unlocked since).'),
+    }),
+  },
+  paperwork: {
+    label: 'Paperwork status',
+    description:
+      'Whether the visit paperwork is complete, as the tracking board shows it: demographics, photo ID, ' +
+      'insurance card, consent (signed or staff-attested).',
+    schema: z.object({
+      paperworkSubmittedAt: z
+        .string()
+        .nullable()
+        .describe('Full ISO instant the patient submitted paperwork for this visit. Null when not submitted.'),
+      demographicsComplete: z
+        .boolean()
+        .describe('Demographics are complete (paperwork submitted, or already on the patient record).'),
+      photoIdOnFile: z
+        .boolean()
+        .describe("A photo ID is on file for the patient (the patient's current card, not per visit)."),
+      insuranceCardOnFile: z
+        .boolean()
+        .describe("An insurance card is on file for the patient (the patient's current card, not per visit)."),
+      consentComplete: z.boolean().describe('Consent is complete — signed in paperwork or attested by staff.'),
+      consentMethod: z
+        .enum(['paperwork', 'staff attestation'])
+        .nullable()
+        .describe('How consent was completed (paperwork signature wins when both). Null when consent is missing.'),
+    }),
+  },
+  charting: {
+    label: 'Chart notes',
+    description:
+      'Narrative chart content: chief complaint, HPI, mechanism of injury, ROS note, medical decision making ' +
+      '(MDM), patient instructions, addendum, and whether a discharge summary / patient education was produced.',
+    schema: z.object({
+      chiefComplaint: z.string().describe('Chief complaint as charted (free text). "" when not charted.'),
+      historyOfPresentIllness: z.string().describe('HPI (free text). "" when not charted.'),
+      mechanismOfInjury: z.string().describe('Mechanism of injury (free text). "" when not charted.'),
+      rosNote: z
+        .string()
+        .describe('Free-text ROS note (structured ROS findings are in the Exam & ROS layer). "" when none.'),
+      medicalDecision: z.string().describe('Medical decision making (MDM) text. "" when not charted.'),
+      patientInstructions: z.array(z.string()).describe('Patient instructions given on the visit (free text).'),
+      addendumNote: z.string().describe('Addendum added to the note (free text). "" when none.'),
+      dischargeSummaryCreated: z.boolean().describe('A discharge summary document was produced for the visit.'),
+      patientEducationCount: z
+        .number()
+        .describe('Number of patient education documents given on the visit. 0 when none.'),
     }),
   },
   intake: {
