@@ -39,6 +39,8 @@ export interface GuardContext {
   editedNarrative?: string;
   /** The narrative the provider reviewed; the only text readings the plan missed are recovered from. */
   dictation?: string;
+  /** The E&M codes the practice has enabled; a code outside them is refused. Unchecked when undefined. */
+  emCodes?: string[];
   /** The ALREADY ON THE CHART block as the prompt showed it; a quote may cite one of its lines. */
   chartStateText?: string;
   logPrefix: string;
@@ -360,6 +362,15 @@ async function guardEmCode(action: PlannedAction, context: ResolvedGuardContext)
   const code = /\b\d{5}\b/.exec(action.code ?? '')?.[0] ?? action.code?.trim();
   if (!code || !isCptShaped(code)) {
     return { rejected: { kind: 'set-em-code', display: code, reason: `"${code}" is not a CPT-shaped E&M code` } };
+  }
+  if (context.emCodes && !context.emCodes.includes(code)) {
+    return {
+      rejected: {
+        kind: 'set-em-code',
+        display: code,
+        reason: `E&M code ${code} is not one this practice has enabled, so it could not be charted`,
+      },
+    };
   }
   const row = await searchCpt(context, code);
   if (row === 'degraded') return { action };

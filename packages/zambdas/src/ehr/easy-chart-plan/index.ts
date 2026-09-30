@@ -24,6 +24,7 @@ import {
   buildNoteContext,
   describeChart,
   readChart,
+  readEmCodes,
   readTemplates,
   readVisitContext,
 } from '../easy-chart-shared/visit-context';
@@ -44,10 +45,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   // The chart is read here rather than posted by the client, so the prompt sees every section and no
   // caller-controlled text reaches the model's instructions.
-  const [visit, chart, practiceTemplates] = await Promise.all([
+  const [visit, chart, practiceTemplates, emCodes] = await Promise.all([
     encounterId ? readVisitContext(oystehr, encounterId, ZAMBDA_NAME) : undefined,
     encounterId ? readChart(oystehr, m2mToken, encounterId) : undefined,
     readTemplates(oystehr, ZAMBDA_NAME),
+    readEmCodes(oystehr, ZAMBDA_NAME),
   ]);
   const chartStateSummary = describeChart(buildChartStateSummary(chart), chartedExamFindingLabels(chart));
   const noteContext = buildNoteContext(buildNoteContextFromChart(chart));
@@ -84,6 +86,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     narrative,
     editedNarrative: providerEdits?.edited,
     dictation,
+    emCodes,
     chartStateText: chartStateSummary,
     // A resulted test on the chart ("Rapid strep — Positive") supports "streptococcal" as much as the
     // narrative does.

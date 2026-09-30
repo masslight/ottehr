@@ -202,15 +202,19 @@ export const CAPABILITIES = {
   'edit-note-text': {
     shape: z.object({
       field: z.enum(NOTE_TEXT_FIELDS).describe('The note field to write.'),
-      newText: field.noteField('The FULL new content of the field, not a fragment.'),
+      newText: field.noteField(
+        'The text for the field: the whole paragraph when it is empty, only what is new when it already has text.'
+      ),
     }),
     promptDoc: `field is one of: ${NOTE_FIELD_LIST}.
-  newText is the FULL new content for that field. When existing text is shown in the context below and
-  the narrative implies an edit in place, return the entire updated paragraph, not just the change.
+  newText is the text that goes INTO that field. When CURRENT NOTE TEXT exists for this note and already holds text for
+  the field, write ONLY what the narrative adds that is not already there, and never repeat the existing
+  text: the provider chooses whether your text is added after it or replaces it.
   Review of Systems is NOT free text here — it is structured; use add-ros-finding, not
   edit-note-text on "ros".
-  ALWAYS emit edit-note-text for historyOfPresentIllness AND medicalDecision on EVERY visit,
-    — all of them are required for a complete, signable note, they are patient-specific.
+  ALWAYS emit edit-note-text for historyOfPresentIllness AND medicalDecision on EVERY visit — both are
+  required for a complete, signable note — unless the field already holds text the narrative adds
+  nothing to.
   chiefComplaint is CONDITIONAL: most providers leave it blank because the HPI's opening one-liner
   already states the reason for the visit. Emit it ONLY when it adds information that first line does
   not already carry, and then as a 2–6 word label ("Low back pain", "Cough x3 days"), never a

@@ -4,6 +4,7 @@ import { Appointment, Encounter, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { PatientStatus } from 'utils/lib/easy-chart/api';
 import { wholeChartFromVisitNote } from 'utils/lib/easy-chart/visit-note-chart';
+import { getEmCodes } from 'utils/lib/helpers/em-codes';
 import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
 import { buildVisitNote } from '../../shared/chart-sections/visit-note';
 import { createClinicalOystehrClient } from '../../shared/helpers';
@@ -101,6 +102,16 @@ export function describeChart(chartState?: string, examFindings?: string[]): str
     parts.push(`Exam findings already checked:\n${examFindings.map((f) => `- ${f}`).join('\n')}`);
   }
   return parts.length > 0 ? parts.join('\n\n') : undefined;
+}
+
+/** The E&M codes the practice has enabled. Undefined when they could not be read, so no code is refused for it. */
+export async function readEmCodes(oystehr: ClinicalOystehrClient, zambdaName: string): Promise<string[] | undefined> {
+  try {
+    return (await getEmCodes(oystehr)).map((option) => option.code);
+  } catch {
+    console.log(`[${zambdaName}] could not read the practice's E&M codes; set-em-code is not checked against them`);
+    return undefined;
+  }
 }
 
 export interface PracticeTemplate {

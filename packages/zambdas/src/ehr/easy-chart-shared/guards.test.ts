@@ -344,6 +344,18 @@ describe('billing codes', () => {
     expect(rejected).toEqual([]);
     expect(actions[0].display).toBe('Office visit, established patient, moderate');
   });
+
+  // The practice configures which E&M codes can be charted; the Assessment tab offers only those.
+  it('refuses an E&M code the practice has not enabled, and keeps one it has', async () => {
+    const emCodes = ['99212', '99213', '99214'];
+    const refused = await run([{ kind: 'set-em-code', code: '99215' }], 'high complexity', { emCodes });
+    expect(refused.actions).toEqual([]);
+    expect(refused.rejected[0].reason).toMatch(/99215 is not one this practice has enabled/);
+
+    const kept = await run([{ kind: 'set-em-code', code: '99214' }], 'moderate complexity', { emCodes });
+    expect(kept.rejected).toEqual([]);
+    expect(kept.actions[0].code).toBe('99214');
+  });
 });
 
 describe('exam and ROS polarity', () => {
