@@ -1,8 +1,6 @@
 import Oystehr from '@oystehr/sdk';
-import { Claim, ClaimResponse, Coverage, Organization } from 'fhir/r4b';
+import { Claim, ClaimResponse, Organization } from 'fhir/r4b';
 import Stripe from 'stripe';
-import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
-import { SECONDARY_SUBMISSION_CROSSOVER_TAG_NAME } from 'utils/lib/types/data/billing/system-tags';
 import { describe, expect, it, vi } from 'vitest';
 import { agingReceivablesReport } from '../../../src/billing/reports/definitions/aging-receivables.report';
 import { reportRegistry } from '../../../src/billing/reports/framework/registry';
@@ -46,17 +44,6 @@ const claim = (id: string, billed: number, payerRef?: string, payerDisplay?: str
   ...(payerRef ? { insurer: { reference: payerRef, ...(payerDisplay ? { display: payerDisplay } : {}) } } : {}),
 });
 
-// a claim forwarded via crossover: primary ERA posted, status back to 'submitted', insurer untouched
-const crossoverClaim = (id: string, billed: number, payerRef: string, coverageRefs: string[]): Claim => ({
-  ...claim(id, billed, payerRef),
-  meta: { tag: [{ system: CLAIM_TAG_SYSTEM, code: SECONDARY_SUBMISSION_CROSSOVER_TAG_NAME }] },
-  insurance: coverageRefs.map((reference, index) => ({
-    sequence: index + 1,
-    focal: index === 0,
-    coverage: { reference },
-  })),
-});
-
 const eraResponse = (): ClaimResponse =>
   ({ resourceType: 'ClaimResponse', status: 'active', outcome: 'complete' }) as ClaimResponse;
 
@@ -77,7 +64,6 @@ const computeWith = async (input: {
   claims: Claim[];
   payersByRef?: Map<string, Organization>;
   claimResponsesByClaimId?: Record<string, ClaimResponse[]>;
-  coverages?: Coverage[];
   accounts?: (string | undefined)[];
   invoicesByAccount?: Record<string, Partial<Stripe.Invoice>[]>;
 }): Promise<Awaited<ReturnType<typeof agingReceivablesReport.compute>>> => {
@@ -91,13 +77,8 @@ const computeWith = async (input: {
     asyncListing(input.invoicesByAccount?.[options?.stripeAccount ?? 'platform'] ?? [])
   );
   vi.mocked(getRateLimitedStripeClient).mockReturnValue({ invoices: { list } } as unknown as Stripe);
-  const oystehr = {
-    fhir: {
-      search: vi.fn(async () => ({ unbundle: () => input.coverages ?? [] })),
-    },
-  } as unknown as Oystehr;
   return agingReceivablesReport.compute(
-    { oystehr, untaggedClient: {} as Oystehr, secrets: null },
+    { oystehr: {} as Oystehr, untaggedClient: {} as Oystehr, secrets: null },
     {},
     vi.fn(async () => undefined)
   );
@@ -145,26 +126,56 @@ describe('aging-receivables report', () => {
     ]);
   });
 
-  it('attributes crossover claims to the coverage awaiting its ERA, not Claim.insurer', async () => {
+  it('excludes claims with any posted ERA from both counts (e.g. crossover forwards back at submitted)', async () => {
     const { payload } = await computeWith({
       claims: [
-        crossoverClaim('c1', 100, 'Organization/medicare', ['Coverage/cov-primary', 'Coverage/cov-secondary']),
+        // primary ERA posted, crossover reset the status tag to 'submitted' — has an ERA, must not count
+        claim('c1', 100, 'Organization/medicare'),
         claim('c2', 40, 'Organization/medicare'),
       ],
       claimResponsesByClaimId: { c1: [eraResponse()] },
-      coverages: [
-        { resourceType: 'Coverage', id: 'cov-secondary', payor: [{ reference: 'Organization/medicaid' }] } as Coverage,
-      ],
-      payersByRef: new Map([
-        ['Organization/medicare', payerOrg('Medicare', 'MCARE')],
-        ['Organization/medicaid', payerOrg('Medicaid', 'MCAID')],
-      ]),
+      payersByRef: new Map([['Organization/medicare', payerOrg('Medicare', 'MCARE')]]),
     });
 
+    expect(payload.insurance).toEqual({ claimCount: 1, totalBilled: 40 });
     expect(payload.payerRows).toEqual([
-      { payerRef: 'Organization/medicaid', payerId: 'MCAID', payerName: 'Medicaid', claimCount: 1, totalBilled: 100 },
       { payerRef: 'Organization/medicare', payerId: 'MCARE', payerName: 'Medicare', claimCount: 1, totalBilled: 40 },
     ]);
+  });
+
+  it('scans claims by the insurance-payer AR stage and submitted status tags', async () => {
+    await computeWith({ claims: [] });
+
+    expect(vi.mocked(searchAllViaBulk)).toHaveBeenCalledWith(expect.anything(), {
+      resourceType: 'Claim',
+      params: expect.arrayContaining([
+        {
+          name: '_tag',
+          value: 'https://fhir.ottehr.com/billing/CodeSystem/ar-stage|insurance-payer-ar',
+        },
+        {
+          name: '_tag',
+          value: 'https://fhir.ottehr.com/billing/CodeSystem/insurance-ar-status|submitted',
+        },
+      ]),
+    });
+  });
+
+  it('counts a claim without a total as zero billed', async () => {
+    const { payload } = await computeWith({
+      claims: [{ ...claim('c1', 0, 'Organization/aetna'), total: undefined }],
+    });
+
+    expect(payload.insurance).toEqual({ claimCount: 1, totalBilled: 0 });
+  });
+
+  it('serves a zeroed payload with a generation stamp when nothing is outstanding', async () => {
+    const { payload } = await computeWith({ claims: [] });
+
+    expect(payload.insurance).toEqual({ claimCount: 0, totalBilled: 0 });
+    expect(payload.payerRows).toEqual([]);
+    expect(payload.patient).toEqual({ invoiceCount: 0, amountDue: 0 });
+    expect(payload.generatedAt).toBeTruthy();
   });
 
   it('sums open invoice balances across accounts without cross-account dedupe (ids are account-scoped)', async () => {
