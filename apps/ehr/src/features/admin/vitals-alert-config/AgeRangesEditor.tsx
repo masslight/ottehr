@@ -9,10 +9,10 @@ import { dataTestIds } from 'src/constants/data-test-ids';
 import {
   MAX_VITAL_ALERT_AGE_RANGES,
   VitalAlertAgeRange,
-  VitalsAlertConfig,
 } from 'utils/lib/types/api/vitals-alert-config/vitals-alert-config.types';
 import { formatVitalAlertAgeRange } from 'utils/lib/utils/vitals-alert-config';
 import { parseNumberInput } from './helpers';
+import { VitalsAlertConfigFormValues } from './vitalsAlertConfigFormValues';
 
 const AGE_UNITS = VitalsAgeUnitSchema.options;
 
@@ -44,7 +44,7 @@ const AgeRangeRemovalDescription = ({
 };
 
 interface AgeRangesEditorProps {
-  control: Control<VitalsAlertConfig>;
+  control: Control<VitalsAlertConfigFormValues>;
   ageRanges: VitalAlertAgeRange[];
   rowKeys: string[];
   onAdd: () => void;
