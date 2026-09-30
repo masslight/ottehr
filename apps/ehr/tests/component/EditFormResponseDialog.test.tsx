@@ -103,6 +103,9 @@ describe('EditFormResponseDialog', () => {
     expect(screen.getByText('Work Status Form')).toBeInTheDocument();
   });
 
+  // The 'Save' lookup is load-bearing: PagedQuestionnaire only honors `continueLabel` when the
+  // response it renders carries the sent-manually tag, which the dialog adds to its in-memory copy.
+  // Drop that tag and the button falls back to a translation key the EHR has no i18n bundle for.
   it('saves the corrected answer against the form response', async () => {
     const { onSaved } = renderDialog(singlePageForm());
 

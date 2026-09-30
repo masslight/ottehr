@@ -83,8 +83,6 @@ export const EditFormResponseDialog: FC<EditFormResponseDialogProps> = ({
     setContinueLabel(isLastPage ? 'Save' : 'Continue');
   }, [isLastPage]);
 
-  // The tag on this in-memory copy is what makes PagedQuestionnaire honor `continueLabel`; without it
-  // the submit button falls back to a translation key the EHR has no i18n bundle for.
   const liveQuestionnaireResponse = useMemo<QuestionnaireResponse | undefined>(() => {
     if (!form) return undefined;
     const persisted = form.questionnaireResponse;

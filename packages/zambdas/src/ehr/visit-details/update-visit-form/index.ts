@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { QuestionnaireResponse } from 'fhir/r4b';
+import { patchWithOptimisticLock } from 'utils/lib/fhir/helpers';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { wrapHandler } from '../../../shared/sentry';
@@ -33,13 +33,7 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<void
   const { questionnaireResponse } = input;
   const { pages } = input.body;
 
-  const operations = buildFormAnswerPatchOperations(questionnaireResponse, pages);
-
-  if (operations.length === 0) return;
-
-  await oystehr.fhir.patch<QuestionnaireResponse>({
-    resourceType: 'QuestionnaireResponse',
-    id: questionnaireResponse.id!,
-    operations,
-  });
+  await patchWithOptimisticLock(oystehr, { ...questionnaireResponse, id: questionnaireResponse.id! }, (current) =>
+    buildFormAnswerPatchOperations(current, pages)
+  );
 };
