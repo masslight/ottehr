@@ -1,10 +1,16 @@
 import Oystehr from '@oystehr/sdk';
-import { Claim, Organization } from 'fhir/r4b';
+import { Claim, ClaimResponse, Coverage, Organization } from 'fhir/r4b';
 import Stripe from 'stripe';
+import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
+import { SECONDARY_SUBMISSION_CROSSOVER_TAG_NAME } from 'utils/lib/types/data/billing/system-tags';
 import { describe, expect, it, vi } from 'vitest';
 import { agingReceivablesReport } from '../../../src/billing/reports/definitions/aging-receivables.report';
 import { reportRegistry } from '../../../src/billing/reports/framework/registry';
 
+vi.mock('../../../src/billing/claim-amounts', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  fetchClaimResponsesByClaimIds: vi.fn(),
+}));
 vi.mock('../../../src/billing/shared', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   resolvePayersByRef: vi.fn(),
@@ -20,6 +26,7 @@ vi.mock('../../../src/shared/stripeIntegration', async (importOriginal) => ({
   getRateLimitedStripeClient: vi.fn(),
 }));
 
+import { fetchClaimResponsesByClaimIds } from '../../../src/billing/claim-amounts';
 import { listStripeAccounts, searchAllViaBulk } from '../../../src/billing/reports/shared';
 import { resolvePayersByRef } from '../../../src/billing/shared';
 import { getRateLimitedStripeClient } from '../../../src/shared/stripeIntegration';
@@ -39,6 +46,20 @@ const claim = (id: string, billed: number, payerRef?: string, payerDisplay?: str
   ...(payerRef ? { insurer: { reference: payerRef, ...(payerDisplay ? { display: payerDisplay } : {}) } } : {}),
 });
 
+// a claim forwarded via crossover: primary ERA posted, status back to 'submitted', insurer untouched
+const crossoverClaim = (id: string, billed: number, payerRef: string, coverageRefs: string[]): Claim => ({
+  ...claim(id, billed, payerRef),
+  meta: { tag: [{ system: CLAIM_TAG_SYSTEM, code: SECONDARY_SUBMISSION_CROSSOVER_TAG_NAME }] },
+  insurance: coverageRefs.map((reference, index) => ({
+    sequence: index + 1,
+    focal: index === 0,
+    coverage: { reference },
+  })),
+});
+
+const eraResponse = (): ClaimResponse =>
+  ({ resourceType: 'ClaimResponse', status: 'active', outcome: 'complete' }) as ClaimResponse;
+
 const payerOrg = (name: string, payerId: string): Organization => ({
   resourceType: 'Organization',
   name,
@@ -55,18 +76,28 @@ const asyncListing = (invoices: Partial<Stripe.Invoice>[]): unknown => ({
 const computeWith = async (input: {
   claims: Claim[];
   payersByRef?: Map<string, Organization>;
+  claimResponsesByClaimId?: Record<string, ClaimResponse[]>;
+  coverages?: Coverage[];
   accounts?: (string | undefined)[];
   invoicesByAccount?: Record<string, Partial<Stripe.Invoice>[]>;
 }): Promise<Awaited<ReturnType<typeof agingReceivablesReport.compute>>> => {
   vi.mocked(searchAllViaBulk).mockResolvedValue(input.claims);
   vi.mocked(resolvePayersByRef).mockResolvedValue(input.payersByRef ?? new Map());
+  vi.mocked(fetchClaimResponsesByClaimIds).mockResolvedValue(
+    new Map(Object.entries(input.claimResponsesByClaimId ?? {}))
+  );
   vi.mocked(listStripeAccounts).mockResolvedValue(input.accounts ?? [undefined]);
   const list = vi.fn((_params: unknown, options?: { stripeAccount?: string }) =>
     asyncListing(input.invoicesByAccount?.[options?.stripeAccount ?? 'platform'] ?? [])
   );
   vi.mocked(getRateLimitedStripeClient).mockReturnValue({ invoices: { list } } as unknown as Stripe);
+  const oystehr = {
+    fhir: {
+      search: vi.fn(async () => ({ unbundle: () => input.coverages ?? [] })),
+    },
+  } as unknown as Oystehr;
   return agingReceivablesReport.compute(
-    { oystehr: {} as Oystehr, untaggedClient: {} as Oystehr, secrets: null },
+    { oystehr, untaggedClient: {} as Oystehr, secrets: null },
     {},
     vi.fn(async () => undefined)
   );
@@ -114,7 +145,29 @@ describe('aging-receivables report', () => {
     ]);
   });
 
-  it('sums open invoice balances across accounts, deduping repeated invoice ids', async () => {
+  it('attributes crossover claims to the coverage awaiting its ERA, not Claim.insurer', async () => {
+    const { payload } = await computeWith({
+      claims: [
+        crossoverClaim('c1', 100, 'Organization/medicare', ['Coverage/cov-primary', 'Coverage/cov-secondary']),
+        claim('c2', 40, 'Organization/medicare'),
+      ],
+      claimResponsesByClaimId: { c1: [eraResponse()] },
+      coverages: [
+        { resourceType: 'Coverage', id: 'cov-secondary', payor: [{ reference: 'Organization/medicaid' }] } as Coverage,
+      ],
+      payersByRef: new Map([
+        ['Organization/medicare', payerOrg('Medicare', 'MCARE')],
+        ['Organization/medicaid', payerOrg('Medicaid', 'MCAID')],
+      ]),
+    });
+
+    expect(payload.payerRows).toEqual([
+      { payerRef: 'Organization/medicaid', payerId: 'MCAID', payerName: 'Medicaid', claimCount: 1, totalBilled: 100 },
+      { payerRef: 'Organization/medicare', payerId: 'MCARE', payerName: 'Medicare', claimCount: 1, totalBilled: 40 },
+    ]);
+  });
+
+  it('sums open invoice balances across accounts without cross-account dedupe (ids are account-scoped)', async () => {
     const { payload } = await computeWith({
       claims: [],
       accounts: [undefined, 'acct_1'],
@@ -130,6 +183,6 @@ describe('aging-receivables report', () => {
       },
     });
 
-    expect(payload.patient).toEqual({ invoiceCount: 3, amountDue: 42.5 });
+    expect(payload.patient).toEqual({ invoiceCount: 4, amountDue: 52.5 });
   });
 });
