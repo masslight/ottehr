@@ -33,3 +33,4 @@ export * from './legacy-data';
 export * from './practice-managed-questionnaires';
 export * from './send-patient-form';
 export * from './paperwork-flows';
+export * from './address-book';
