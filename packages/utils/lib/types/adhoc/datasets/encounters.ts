@@ -3,7 +3,9 @@
 // (names/types/descriptions; enum members for closed vocabularies — never values sampled from data).
 // Field descriptions are written for the LLM.
 import { z } from 'zod';
+import { mapDispositionTypeToLabel } from '../../../fhir/disposition';
 import { PaymentVariant } from '../../../fhir/encounter';
+import { DispositionType } from '../../api/chart-data/chart-data.types';
 import { NonNormalResult } from '../../api/lab';
 import { PROVIDER_TYPE_VALUES } from '../../api/practitioner.types';
 import { OBSERVATION_CODES } from '../../data/in-house/in-house.constants';
@@ -24,6 +26,7 @@ const IN_HOUSE_LAB_STATUSES = { ORDERED: true, COLLECTED: true, FINAL: true } sa
 // determineOrderStatus falls back to 'UNKNOWN' (cast) when no rule matches, so it is part of the domain.
 const IN_HOUSE_LAB_STATUS_VALUES = [...(Object.keys(IN_HOUSE_LAB_STATUSES) as TestStatus[]), 'UNKNOWN'] as const;
 const LAB_TEST_STATUS_VALUES = enumValues<string>([...EXTERNAL_LAB_STATUS_VALUES, ...IN_HOUSE_LAB_STATUS_VALUES]);
+const DISPOSITION_TYPE_VALUES = enumValues(Object.keys(mapDispositionTypeToLabel) as DispositionType[]);
 const NURSING_ORDER_STATUS_VALUES = enumValues(Object.values(NursingOrdersStatus));
 const NON_NORMAL_RESULT_VALUES = enumValues(Object.values(NonNormalResult));
 const RESULT_INTERPRETATION_VALUES = enumValues(Object.values(OBSERVATION_CODES) as string[]);
@@ -87,7 +90,23 @@ export const EncounterBaseRowSchema = z.object({
     ),
   encounterType: z.enum(['main', 'follow-up', 'scheduled-follow-up']).describe('Kind of encounter row.'),
   reason: z.string().describe('Reason for visit as entered at booking (free text). "" when not given.'),
+  reasonForVisit: z
+    .string()
+    .describe(
+      'The reason for visit picked at booking, without the free-text details — group and count by THIS. "" when ' +
+        'not given.'
+    ),
+  reasonDetails: z.string().describe('Free-text details the patient added to the reason for visit. "" when none.'),
   scheduledSlotMinutes: z.number().nullable().describe('Booked slot length in minutes.'),
+  bookedAt: z
+    .string()
+    .nullable()
+    .describe(
+      'Full ISO instant the appointment was booked. Booking lead time = startTime − bookedAt. Follow-up rows ' +
+        "carry their parent visit's booking. Null when unknown."
+    ),
+  room: z.string().describe('Room the visit was assigned to. "" when none.'),
+  group: z.string().describe('Provider group the visit was booked through. "" when not booked via a group.'),
   // --- Patient ---
   patientId: z.string().describe('Patient id; rows are per-encounter, so count UNIQUE patientId for a patient count.'),
   firstName: z.string().describe('Patient first name.'),
@@ -179,6 +198,9 @@ export const ENCOUNTER_DOMAIN_FIELDS: readonly (keyof AdHocEncounterRow)[] = [
   'location',
   'source',
   'cancellationReason',
+  'reasonForVisit',
+  'room',
+  'group',
   // codes / labels (codes layer)
   'icdCodes',
   'icdDisplays',
@@ -200,6 +222,10 @@ export const ENCOUNTER_DOMAIN_FIELDS: readonly (keyof AdHocEncounterRow)[] = [
   'resultNames',
   'medicationIngredients',
   'followUpTypes',
+  'transferReason',
+  'transferSpecialty',
+  'dispositionLabServices',
+  'dispositionVirusTests',
   'asqScreen',
   'accidentType',
   'screeningQuestions',
@@ -567,13 +593,39 @@ export const ENCOUNTER_LAYERS = {
   },
   disposition: {
     label: 'Disposition / follow-up',
-    description: 'Discharge disposition and charted follow-up plan.',
+    description:
+      'Discharge disposition (type, follow-up in N days, transfer reason / specialty, labs and virus tests to do) ' +
+      'and the charted follow-up plan.',
     schema: z.object({
       followUpTypes: z.array(z.string()).describe('Charted follow-up plan types.'),
       followUpCount: z.number().describe('Number of follow-up plan items charted.'),
       dischargeDisposition: z
         .string()
-        .describe('Discharge disposition on the encounter — FREE TEXT (may be full instructions). "" when unset.'),
+        .describe(
+          'Disposition note given to the patient — FREE TEXT (may be full instructions). "" when unset. For the ' +
+            'kind of disposition use dispositionType.'
+        ),
+      dispositionType: z
+        .enum(DISPOSITION_TYPE_VALUES)
+        .nullable()
+        .describe(
+          'Kind of disposition — group and count by THIS: pcp / pcp-no-type = follow up with the primary care ' +
+            'physician, ed = ED transfer, ip / ip-lab / ip-oth = in-person / lab / other in-person transfer, ' +
+            'specialty = specialty transfer, another = transfer to another location. Null when not charted.'
+        ),
+      dispositionLabel: z.string().describe('dispositionType as the chart labels it. "" when not charted.'),
+      followUpInDays: z.number().nullable().describe('Follow up in this many days (0 = as needed). Null when not set.'),
+      transferReason: z.string().describe('Reason for the transfer. "" when not a transfer / not given.'),
+      transferSpecialty: z
+        .string()
+        .describe('Specialty transferred to (for specialty transfers); "Other" means see transferSpecialtyOther.'),
+      transferSpecialtyOther: z
+        .string()
+        .describe('Specialty typed in when transferSpecialty is "Other". "" otherwise.'),
+      dispositionLabServices: z.array(z.string()).describe('Lab services requested with the disposition.'),
+      dispositionVirusTests: z.array(z.string()).describe('Virus tests requested with the disposition.'),
+      nothingToEatOrDrink: z.boolean().describe('The patient was told to have nothing to eat or drink.'),
+      refusalOfEmsTransport: z.boolean().describe('The patient refused EMS transport.'),
     }),
   },
   examRos: {

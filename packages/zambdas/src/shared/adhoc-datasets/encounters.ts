@@ -9,6 +9,7 @@ import {
   DocumentReference,
   Encounter,
   FhirResource,
+  HealthcareService,
   Location,
   Medication,
   MedicationAdministration,
@@ -25,9 +26,14 @@ import {
   ServiceRequest,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { appointmentTypeForAppointment, getCancellationReasonDisplay } from 'utils/lib/fhir/appointments';
+import {
+  appointmentTypeForAppointment,
+  getAppointmentRoom,
+  getCancellationReasonDisplay,
+  getReasonForVisitAndAdditionalDetailsFromAppointment,
+} from 'utils/lib/fhir/appointments';
 import { DOCUMENT_REFERENCE_SUMMARY_FROM_AUDIO, DOCUMENT_REFERENCE_SUMMARY_FROM_CHAT } from 'utils/lib/fhir/constants';
-import { dispositionCheckboxOptions } from 'utils/lib/fhir/disposition';
+import { dispositionCheckboxOptions, mapDispositionTypeToLabel } from 'utils/lib/fhir/disposition';
 import { getPaymentVariantFromEncounter, PaymentVariant } from 'utils/lib/fhir/encounter';
 import {
   extractExtensionValue,
@@ -72,6 +78,11 @@ import { patientScreeningQuestionsConfig } from 'utils/lib/ottehr-config/screeni
 import { AdHocEncounterRow, AdHocEncountersInput } from 'utils/lib/types/adhoc/datasets/encounters';
 import { VitalAlertCriticality, VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import {
+  DispositionType,
+  NOTHING_TO_EAT_OR_DRINK_FIELD,
+  REFUSAL_OF_EMS_TRANSPORT_FIELD,
+} from 'utils/lib/types/api/chart-data/chart-data.types';
+import {
   CVX_CODE_SYSTEM_URL,
   MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE,
   MEDICATION_DISPENSABLE_DRUG_ID,
@@ -98,6 +109,7 @@ import {
 import {
   chartDataResourceHasMetaTagByCode,
   followUpTypeFromPerformerType,
+  makeDispositionDTOFromFhirResources,
   makeProceduresDTOFromFhirResources,
 } from '../chart-data';
 import { mapChartResources } from '../chart-sections/map';
@@ -316,6 +328,11 @@ const lastSignedAt = (history: ReturnType<typeof getVisitStatusHistory>): string
 
 const knownValueOrNull = <T extends string>(allowed: readonly T[], value: string | undefined): T | null =>
   value && (allowed as readonly string[]).includes(value) ? (value as T) : null;
+
+const groupIdOf = (appointment: Appointment): string | undefined =>
+  appointment.participant
+    ?.find((p) => p.actor?.reference?.startsWith('HealthcareService/'))
+    ?.actor?.reference?.replace('HealthcareService/', '');
 
 const hasDocRefTypeCode = (docRef: DocumentReference, code: string): boolean =>
   docRef.status === 'current' && Boolean(docRef.type?.coding?.some((c) => c.code === code));
@@ -642,6 +659,24 @@ export async function fetchAdHocEncounterRows(
     resolveEncounterAppointment(encounter, appointmentMap, encounterById);
 
   const staffNames = await getStaffNameByEmail(oystehr);
+
+  // Visits booked through a provider group carry the group (HealthcareService) as a participant.
+  const groupIds = Array.from(
+    new Set(
+      Array.from(appointmentMap.values())
+        .map(groupIdOf)
+        .filter((id): id is string => !!id)
+    )
+  );
+
+  const groupNameById = new Map<string, string>();
+
+  for (const group of await fetchScoped<HealthcareService>('HealthcareService', '_id', groupIds, [
+    { name: '_elements', value: 'id,name' },
+  ])) {
+    if (group.id && group.name) groupNameById.set(group.id, group.name);
+  }
+
   const tzByLocationId = new Map<string, string>();
 
   const timezoneForLocation = (loc: Location): string => {
@@ -711,6 +746,8 @@ export async function fetchAdHocEncounterRows(
     const statusHistory = getVisitStatusHistory(encounter);
     const currentStatusSince = statusHistory.at(-1)?.period.start ?? null;
     const intakePerformerId = getAdmitterPractitionerId(encounter);
+    const reasonParts = getReasonForVisitAndAdditionalDetailsFromAppointment(appointment);
+    const groupId = groupIdOf(appointment);
     const attendingPractitioner = attendingId ? practitionerMap.get(attendingId) : undefined;
 
     const row: AdHocEncounterRow = {
@@ -733,6 +770,11 @@ export async function fetchAdHocEncounterRows(
       // Reason for visit is the booking's free text (Appointment.description); appointmentType.text
       // is the booking KIND (walk-in / pre-book) and must never stand in for it.
       reason: appointment.description?.trim() || encounter.reasonCode?.[0]?.text || '',
+      reasonForVisit: reasonParts.reasonForVisit ?? '',
+      reasonDetails: reasonParts.additionalDetails ?? '',
+      bookedAt: appointment.created ?? null,
+      room: getAppointmentRoom(appointment) ?? '',
+      group: groupId ? groupNameById.get(groupId) ?? '' : '',
       visitStatusSince: currentStatusSince,
       scheduledSlotMinutes: minutesBetween(appointment.start, appointment.end),
       patientId: patient?.id || '',
@@ -1115,6 +1157,26 @@ export async function fetchAdHocEncounterRows(
           encounter.hospitalization?.dischargeDisposition?.coding?.[0]?.display ||
           encounter.hospitalization?.dischargeDisposition?.text ||
           '';
+        // The chart's disposition, read with the chart's own DTO builder (Encounter.hospitalization + the
+        // disposition-follow-up ServiceRequest).
+        const disposition = makeDispositionDTOFromFhirResources(
+          encounter,
+          encounter.id ? serviceRequestsByEncounterId.get(encounter.id) ?? [] : []
+        );
+        const dispositionType = knownValueOrNull(
+          Object.keys(mapDispositionTypeToLabel) as DispositionType[],
+          disposition?.type
+        );
+        row.dispositionType = dispositionType;
+        row.dispositionLabel = dispositionType ? mapDispositionTypeToLabel[dispositionType] : '';
+        row.followUpInDays = disposition?.followUpIn ?? null;
+        row.transferReason = disposition?.reason ?? '';
+        row.transferSpecialty = disposition?.specialty ?? '';
+        row.transferSpecialtyOther = disposition?.specialtyOther ?? '';
+        row.dispositionLabServices = disposition?.labService ?? [];
+        row.dispositionVirusTests = disposition?.virusTest ?? [];
+        row.nothingToEatOrDrink = disposition?.[NOTHING_TO_EAT_OR_DRINK_FIELD] ?? false;
+        row.refusalOfEmsTransport = disposition?.[REFUSAL_OF_EMS_TRANSPORT_FIELD] ?? false;
       }
     }
 
