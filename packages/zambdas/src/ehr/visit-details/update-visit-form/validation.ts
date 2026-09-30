@@ -1,15 +1,21 @@
 import Oystehr from '@oystehr/sdk';
 import { QuestionnaireResponse } from 'fhir/r4b';
+import {
+  deconstructCanonicalUrl,
+  getCanonicalQuestionnaire,
+  getQuestionnaireForQR,
+} from 'utils/lib/fhir/questionnaires';
+import { isPracticeManagedQ } from 'utils/lib/helpers/practice-managed-questionnaires';
 import { Secrets } from 'utils/lib/secrets';
 import { UpdateVisitFormInput } from 'utils/lib/types/api/update-visit-details.types';
 import {
   FHIR_RESOURCE_NOT_FOUND,
   INVALID_INPUT_ERROR,
   MISSING_REQUEST_BODY,
-  NO_READ_ACCESS_TO_PATIENT_ERROR,
+  NOT_AUTHORIZED,
 } from 'utils/lib/types/errors';
 import z from 'zod';
-import { checkIsEHRUser, getUser, isTestUser, userHasAccessToPatient } from '../../../shared/auth';
+import { checkIsEHRUser, getUser, isTestUser } from '../../../shared/auth';
 import { ZambdaInput } from '../../../shared/types/common';
 import { safeJsonParse } from '../../../shared/validation';
 
@@ -98,10 +104,8 @@ export async function complexValidation(
   const { callerAccessToken } = input;
 
   const user = await getUser(callerAccessToken, secrets);
-  const isEHRUser = user && checkIsEHRUser(user);
-  const userAccess = await userHasAccessToPatient(user, patientId, oystehr);
-  if (!user || (!userAccess && !isEHRUser && !isTestUser(user))) {
-    throw NO_READ_ACCESS_TO_PATIENT_ERROR;
+  if (!user || (!checkIsEHRUser(user) && !isTestUser(user))) {
+    throw NOT_AUTHORIZED;
   }
 
   let questionnaireResponse: QuestionnaireResponse | undefined;
@@ -128,5 +132,32 @@ export async function complexValidation(
     throw INVALID_INPUT_ERROR(`A form that has been deleted cannot be edited.`);
   }
 
+  const editablePageLinkIds = await getEditablePageLinkIds(questionnaireResponse, oystehr);
+  const forbiddenPage = input.body.pages.find((page) => !editablePageLinkIds.has(page.linkId));
+  if (forbiddenPage) {
+    throw INVALID_INPUT_ERROR(`Page "${forbiddenPage.linkId}" does not belong to an editable form on this response.`);
+  }
+
   return { ...input, questionnaireResponse };
+}
+
+async function getEditablePageLinkIds(
+  questionnaireResponse: QuestionnaireResponse,
+  oystehr: Oystehr
+): Promise<Set<string>> {
+  const questionnaire = await getQuestionnaireForQR(questionnaireResponse, oystehr);
+  const flowMembers = questionnaire.derivedFrom ?? [];
+
+  if (flowMembers.length === 0) {
+    return new Set((questionnaire.item ?? []).map((page) => page.linkId));
+  }
+
+  const derived = await Promise.all(
+    flowMembers.map((canonical) => {
+      const { url, version } = deconstructCanonicalUrl(canonical, questionnaire);
+      return getCanonicalQuestionnaire({ url, version }, oystehr);
+    })
+  );
+
+  return new Set(derived.filter(isPracticeManagedQ).flatMap((form) => (form.item ?? []).map((page) => page.linkId)));
 }

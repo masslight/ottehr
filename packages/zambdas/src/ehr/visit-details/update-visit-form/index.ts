@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { patchWithOptimisticLock } from 'utils/lib/fhir/helpers';
+import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { wrapHandler } from '../../../shared/sentry';
@@ -33,7 +34,10 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<void
   const { questionnaireResponse } = input;
   const { pages } = input.body;
 
-  await patchWithOptimisticLock(oystehr, { ...questionnaireResponse, id: questionnaireResponse.id! }, (current) =>
-    buildFormAnswerPatchOperations(current, pages)
-  );
+  await patchWithOptimisticLock(oystehr, { ...questionnaireResponse, id: questionnaireResponse.id! }, (current) => {
+    if (current.status === 'entered-in-error') {
+      throw INVALID_INPUT_ERROR('A form that has been deleted cannot be edited.');
+    }
+    return buildFormAnswerPatchOperations(current, pages);
+  });
 };
