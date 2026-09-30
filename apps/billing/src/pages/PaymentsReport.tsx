@@ -31,6 +31,7 @@ import { Fragment, ReactElement, useCallback, useEffect, useMemo, useState } fro
 import { Chart } from 'react-google-charts';
 import { useNavigate } from 'react-router-dom';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
+import { otherColors } from 'utils/lib/theme/billing-palette';
 import {
   GetBillingPaymentsReportDrilldownInput,
   PatientPaymentsDrilldownParams,
@@ -58,7 +59,6 @@ import { mergeReportStatuses, ReportStatusBar, sameWindow, windowParamsOf } from
 import { useApiClients } from '../hooks/useAppClients';
 import { useBillingReport } from '../hooks/useBillingReport';
 import { useBillingReportHistory } from '../hooks/useBillingReportHistory';
-import { otherColors } from '../themes/ottehr/colors';
 import { reportPalette } from '../themes/ottehr/reportPalette';
 
 const currencyCol = (field: string, headerName: string, width = 130): GridColDef => ({

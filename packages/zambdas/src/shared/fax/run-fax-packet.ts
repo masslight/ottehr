@@ -9,7 +9,12 @@ import { getAddressString, getCoding, getNPI, getOrganizationFaxNumber } from 'u
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
 import { standardizePhoneNumber } from 'utils/lib/helpers/helpers';
 import { Secrets } from 'utils/lib/secrets';
-import { FAX_PACKET_MAX_PAGES, FaxRecipient, FaxRecipientResult } from 'utils/lib/types/api/fax.types';
+import {
+  FAX_PACKET_MAX_PAGES,
+  FaxRecipient,
+  FaxRecipientResult,
+  formatFaxRecipientName,
+} from 'utils/lib/types/api/fax.types';
 import { getPcpPatchOpsFromDetails } from '../../ehr/shared/harvest';
 import { FaxCoverSheetData } from '../pdf/types';
 import { FullAppointmentResourcePackage } from '../pdf/visit-details-pdf/types';
@@ -70,7 +75,7 @@ export const deliverFaxPacket = async (args: {
   const results: FaxRecipientResult[] = [];
   for (const recipient of recipients) {
     const base: FaxRecipientResult = {
-      name: recipient.name,
+      name: formatFaxRecipientName(recipient),
       organization: recipient.organization,
       faxNumber: recipient.faxNumber,
       phoneNumber: recipient.phoneNumber,
@@ -100,7 +105,7 @@ export const deliverFaxPacket = async (args: {
           media: packet.pdfInfo.uploadURL,
           documentReferenceId: packet.documentReference.id!,
           userPractitioner: senderPractitioner,
-          recipientName: recipient.name,
+          recipientName: formatFaxRecipientName(recipient),
           recipientOrganization: recipient.organization,
           recipientPhone: recipient.phoneNumber,
           faxPacketPageCount: packet.pageCount,

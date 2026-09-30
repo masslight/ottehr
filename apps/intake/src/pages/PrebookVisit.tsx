@@ -7,7 +7,7 @@ import { generatePath, Navigate, useLocation, useNavigate, useParams, useSearchP
 import { PageContainer } from 'src/components/CustomContainer';
 import Schedule from 'src/components/Schedule';
 import { useOystehrAPIClient } from 'src/telemed/utils/getOystehrAPI';
-import { BoldPurpleInputLabel } from 'ui-components/lib/components/paperwork/form-components';
+import { BoldPurpleInputLabel } from 'ui-components/lib/components/paperwork/form-components/BoldPurpleInputLabel';
 import { shouldShowServiceCategorySelectionPage } from 'utils/lib/config-helpers/booking';
 import { BOOKING_CONFIG, ServiceCategoryCode, ServiceCategoryCodeSchema } from 'utils/lib/ottehr-config/booking';
 import { CreateSlotParams } from 'utils/lib/types/api/prebook-create-appointment/prebook-create-appointment.types';

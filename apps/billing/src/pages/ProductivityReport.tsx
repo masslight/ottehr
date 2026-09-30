@@ -16,6 +16,7 @@ import Oystehr from '@oystehr/sdk';
 import { DateTime } from 'luxon';
 import { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { otherColors } from 'utils/lib/theme/billing-palette';
 import { ReportDateWindowParams } from 'utils/lib/types/data/billing/billing.schemas';
 import {
   GetBillingProductivityReportResponse,
@@ -27,7 +28,6 @@ import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
 import { ReportStatusBar, sameWindow, windowParamsOf } from '../components/ReportStatusBar';
 import { useBillingReport } from '../hooks/useBillingReport';
 import { useBillingReportHistory } from '../hooks/useBillingReportHistory';
-import { otherColors } from '../themes/ottehr/colors';
 
 type ActorTypeFilter = 'all' | 'human' | 'system';
 

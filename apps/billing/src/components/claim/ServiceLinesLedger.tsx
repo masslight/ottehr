@@ -19,11 +19,11 @@ import {
   Typography,
 } from '@mui/material';
 import { Fragment, ReactElement, ReactNode, useMemo, useState } from 'react';
+import { otherColors } from 'utils/lib/theme/billing-palette';
 import { ClaimDetailResponse } from 'utils/lib/types/data/billing/billing.types';
 import { carcDescription, X12_ADJUSTMENT_GROUP_LABELS } from 'utils/lib/types/data/billing/carc';
 import { formatCurrency } from 'utils/lib/utils/convert';
 import { adjustmentCode, ERA_STATUS_LABELS, isAdverseRemitStatus } from '../../constants/era';
-import { otherColors } from '../../themes/ottehr/colors';
 import {
   adjustmentColumn,
   groupRemitLines,

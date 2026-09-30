@@ -2,7 +2,7 @@ import { Typography } from '@mui/material';
 import { DateTime } from 'luxon';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
-import { i18n } from 'utils/lib/frontend';
+import i18n from 'utils/lib/frontend/i18n-lib/i18n';
 import { PatientInfo } from 'utils/lib/types/data/telemed/appointments/create-appointment.types';
 import { yupDateTransform } from 'utils/lib/utils/date';
 import { useGetFullName } from '../../../hooks/useGetFullName';

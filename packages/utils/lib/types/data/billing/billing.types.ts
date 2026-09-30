@@ -1079,6 +1079,14 @@ export interface RecordBillingManualPaymentResponse {
   claimId?: string;
 }
 
+export interface RecordBillingRefundResponse {
+  billingNoticesStamped: number;
+}
+
+export interface RecordBillingVoidResponse {
+  billingNoticesVoided: number;
+}
+
 export interface AddClaimAttachmentResponse {
   uploadUrl: string;
 }

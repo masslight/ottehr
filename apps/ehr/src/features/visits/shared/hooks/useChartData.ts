@@ -1,6 +1,7 @@
 import { QueryKey, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useMemo } from 'react';
-import { useErrorQuery, useSuccessQuery } from 'utils/lib/frontend';
+import { useErrorQuery } from 'utils/lib/frontend/hooks/useErrorQuery';
+import { useSuccessQuery } from 'utils/lib/frontend/hooks/useSuccessQuery';
 import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
 import { ObservationDTO } from 'utils/lib/types/data/screening-questions/types';
 import { useExamObservations } from '../../telemed/hooks/useExamObservations';

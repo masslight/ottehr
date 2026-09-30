@@ -1,6 +1,7 @@
 import { Box, CircularProgress } from '@mui/material';
 import { FC } from 'react';
-import { useAppointmentData, useChartData } from '../../stores/appointment/appointment.store';
+import { useChartData } from '../../hooks/useChartData';
+import { useAppointmentData } from '../../stores/appointment/appointment.store';
 import { DispositionCard } from '../DispositionCard';
 import { FormsCard } from '../FormsCard';
 import { SchoolWorkExcuseCard } from '../SchoolWorkExcuseCard';

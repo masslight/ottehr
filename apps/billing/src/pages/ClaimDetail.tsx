@@ -9,7 +9,6 @@ import {
   Edit as EditIcon,
   EditOutlined as EditOutlinedIcon,
   MoreVert as MoreVertIcon,
-  OpenInNew as OpenInNewIcon,
   ReceiptLongOutlined as ReceiptLongIcon,
   Save as SaveIcon,
   SendOutlined as SendIcon,
@@ -67,6 +66,7 @@ import {
 } from 'utils/lib/helpers/rcm/constants';
 import { VALUE_SETS } from 'utils/lib/ottehr-config/value-sets';
 import { DrugUnitCode } from 'utils/lib/types/data/billing/billing.constants';
+import { otherColors } from 'utils/lib/theme/billing-palette';
 import {
   CreateBillingProviderInput,
   SaveServiceFacilityInput,
@@ -124,6 +124,7 @@ import { DiagnosesEditor } from '../components/claim/DiagnosesEditor';
 import { EditableSection, EditableSectionSkeleton } from '../components/claim/EditableSection';
 import { MedicationDetailDialog } from '../components/claim/MedicationDetailDialog';
 import { OrderingProviderDialog } from '../components/claim/OrderingProviderDialog';
+import { EhrLinksButton } from '../components/claim/EhrLinksButton';
 import { RemitHighlightProvider } from '../components/claim/RemitHighlight';
 import { InsurancePaymentsSection, RemitsSection } from '../components/claim/RemitSections';
 import { ServiceLineRow, ServiceLinesEditor } from '../components/claim/ServiceLinesEditor';
@@ -158,7 +159,6 @@ import { useFacilityOptionsSearch, useProviderOptionsSearch } from '../hooks/use
 import { usePatient } from '../hooks/usePatient';
 import { useProvider } from '../hooks/useProvider';
 import { useServiceFacility } from '../hooks/useServiceFacility';
-import { otherColors } from '../themes/ottehr/colors';
 import { downloadBase64File } from '../utils/downloadFile';
 import { formatDate, formatDateTime } from '../utils/format';
 import { PatientDemographicsSection } from './PatientDetail';
@@ -181,7 +181,7 @@ function applicableRulesEngine(claim: ClaimDetailResponse): RulesEngineDef | und
 // The header's buttons keep their labels on one line, so they're all the same height.
 const NO_WRAP = { whiteSpace: 'nowrap' } as const;
 
-// EHR app base URL for the "View in EHR" backlink
+// EHR app base URL for the visit details / progress note backlinks
 const EHR_URL = import.meta.env.VITE_APP_EHR_URL;
 
 export default function ClaimDetail(): ReactElement {
@@ -510,17 +510,7 @@ export default function ClaimDetail(): ReactElement {
 
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0, mt: 0.25 }}>
           {EHR_URL && claim.appointmentId && (
-            <Button
-              variant="outlined"
-              size="small"
-              startIcon={<OpenInNewIcon />}
-              href={`${EHR_URL}/visit/${claim.appointmentId}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              sx={NO_WRAP}
-            >
-              View in EHR
-            </Button>
+            <EhrLinksButton ehrUrl={EHR_URL} appointmentId={claim.appointmentId} encounterId={claim.encounterId} />
           )}
           <Button
             size="small"

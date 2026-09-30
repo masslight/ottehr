@@ -121,10 +121,18 @@ export const dataTestIds = {
   slots: {
     slot: 'slot',
   },
+  addressBook: {
+    addNewContactOption: 'address-book-add-new-contact',
+    editContactButton: 'address-book-edit-contact',
+    contactDialog: 'address-book-contact-dialog',
+    saveContactButton: 'address-book-save-contact',
+    deleteContactButton: 'address-book-delete-contact',
+  },
   faxDialog: {
     root: 'fax-dialog',
     menuItem: 'fax-documents-menu-item',
     recipientName: 'fax-dialog-recipient-name',
+    credential: 'fax-dialog-recipient-credential',
     organization: 'fax-dialog-recipient-organization',
     faxNumber: 'fax-dialog-recipient-fax-number',
     senderFax: 'fax-dialog-sender-fax',
@@ -535,6 +543,7 @@ export const dataTestIds = {
   patientRecordPage: {
     seeAllPatientInfoButton: 'see-all-patient-info-button',
     faxPatientDocsButton: 'fax-patient-docs-button',
+    legacyDataButton: 'legacy-data-button',
     medicalRecordButton: 'medical-record-button',
     downloadMedicalRecordArchiveMenuItem: 'download-medical-record-archive-menu-item',
     medicalRecordExportProgress: 'medical-record-export-progress',

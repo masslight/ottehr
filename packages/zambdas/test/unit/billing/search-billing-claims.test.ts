@@ -312,7 +312,7 @@ describe('search-billing-claims response size limit', () => {
       handler(
         makeInput({
           pageSize: 100,
-          patientId: '8a1c4e2f-5b6d-4c3a-9e8f-1d2c3b4a5e6f',
+          patientId: ['8a1c4e2f-5b6d-4c3a-9e8f-1d2c3b4a5e6f'],
         })
       )
     ).rejects.toBe(error);

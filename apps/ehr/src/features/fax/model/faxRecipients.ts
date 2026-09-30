@@ -4,6 +4,7 @@ import { FaxFormValues, FaxRecipientFormValue } from './types';
 
 export const emptyRecipient = (): FaxRecipientFormValue => ({
   name: '',
+  credential: '',
   organization: '',
   faxNumber: '',
   phoneNumber: '',
@@ -17,6 +18,7 @@ export const emptyRecipient = (): FaxRecipientFormValue => ({
 export const initialRecipients = (pcp: FaxRecipient | undefined, hasSavedPcp: boolean): FaxRecipientFormValue[] => [
   {
     name: pcp?.name ?? '',
+    credential: pcp?.credential ?? '',
     organization: pcp?.organization ?? '',
     faxNumber: pcp?.faxNumber ?? '',
     phoneNumber: pcp?.phoneNumber ?? '',
@@ -59,6 +61,7 @@ export const toSendFaxPacketInput = (source: FaxPacketSource, values: FaxFormVal
       : source,
   recipients: values.recipients.map((recipient) => ({
     name: trimmedOrUndefined(recipient.name),
+    credential: trimmedOrUndefined(recipient.credential),
     organization: trimmedOrUndefined(recipient.organization),
     faxNumber: recipient.faxNumber.trim(),
     phoneNumber: trimmedOrUndefined(recipient.phoneNumber),

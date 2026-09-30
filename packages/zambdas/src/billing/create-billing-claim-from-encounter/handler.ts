@@ -18,6 +18,7 @@ import {
   Condition,
   Coverage,
   Encounter,
+  Extension,
   Identifier,
   Location,
   Organization,
@@ -65,18 +66,18 @@ import {
   CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
   EXTENSION_CLAIM_AUTO_ACCIDENT,
   EXTENSION_CLAIM_AUTO_ACCIDENT_STATE,
+  EXTENSION_CLAIM_EMPLOYMENT_ACCIDENT,
+  EXTENSION_CLAIM_OTHER_ACCIDENT,
   EXTENSION_URL_CPT_MODIFIER,
 } from 'utils/lib/helpers/rcm/constants';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { AccidentDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { TIMEZONES } from 'utils/lib/types/constants';
-import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
 import {
   AR_STAGE,
   claimStatusValuesToTags,
   withArStageInitialization,
 } from 'utils/lib/types/data/billing/claim-status';
-import { AUTO_ACCIDENT_TAG_NAME } from 'utils/lib/types/data/billing/system-tags';
 import { FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { getTimezone } from 'utils/lib/utils/scheduleUtils';
 import { isValidUUID } from 'utils/lib/validation/helper';
@@ -171,8 +172,7 @@ interface ClaimResources {
   billingProvider?: Organization;
   diagnoses?: Array<Condition>;
   procedures?: Array<Procedure>;
-  billingTags?: Array<string>;
-  accident?: { date: string; state: string };
+  accident?: AccidentDTO;
 }
 
 export type CreateClaimFromEncounterRequests = Array<
@@ -450,14 +450,6 @@ export async function performEffect(
     order.push('billing-service');
   }
 
-  const billingTags = [];
-  const accident = clinicalResources.accident;
-  let claimAccident: ClaimResources['accident'];
-  if (accident?.type.includes('AA') && accident.date && accident.state) {
-    billingTags.push(AUTO_ACCIDENT_TAG_NAME);
-    claimAccident = { date: accident.date, state: accident.state };
-  }
-
   const claim = buildClaim({
     patientId: claimPatient.id,
     encounter: clinicalResources.encounter,
@@ -469,8 +461,7 @@ export async function performEffect(
     renderingProvider: claimRenderingProvider,
     serviceFacility: claimServiceFacility,
     billingProvider: claimBillingProvider,
-    billingTags,
-    accident: claimAccident,
+    accident: clinicalResources.accident,
   });
   const claimUrn = 'urn:uuid:claim';
   requests.push({ method: 'POST', url: '/Claim', resource: claim, fullUrl: claimUrn });
@@ -928,6 +919,7 @@ async function getClinicalResources(
   if (!billingProviders.length) throw FHIR_RESOURCE_NOT_FOUND('Organization');
 
   const accident = makeAccidentDTOFromFhirResources(resources);
+
   return {
     encounter,
     patient,
@@ -1188,7 +1180,6 @@ function buildClaim(resources: ClaimResources): Claim {
         { system: CURRENT_STATUS_TAG_SYSTEM, code: 'open' },
         getClaimTypeCoding(),
         ...(serviceCoding ? [serviceCoding] : []),
-        ...(resources.billingTags ?? []).map((t) => ({ system: CLAIM_TAG_SYSTEM, code: t })),
         ...claimStatusTags,
         ...(nonInsurancePayerId ? [claimNonInsurancePayerTag(nonInsurancePayerId)] : []),
       ],
@@ -1199,6 +1190,7 @@ function buildClaim(resources: ClaimResources): Claim {
     extension: [
       ...getDefaultClaimSubmissionExtensions(),
       ...(resources.nonInsurancePayer ? [claimNonInsurancePayerExtension(resources.nonInsurancePayer)] : []),
+      ...getAccidentExtensions(resources.accident),
     ],
     patient: uuidOrUrnReference('Patient', resources.patientId),
     provider: resources.billingProvider?.id
@@ -1255,6 +1247,17 @@ function buildClaim(resources: ClaimResources): Claim {
         }))
       : [],
     priority: { coding: [{ system: CODE_SYSTEM_PROCESS_PRIORITY, code: 'normal' }] },
+    supportingInfo: resources.accident?.date
+      ? [
+          {
+            sequence: 1,
+            category: codeableConcept('info', CODE_SYSTEM_CLAIM_INFORMATION_CATEGORY),
+            code: codeableConcept('439', CODE_SYSTEM_OYSTEHR_CLAIM_DATE_TYPE),
+            timingDate: resources.accident.date,
+          },
+        ]
+      : undefined,
+    billablePeriod: deriveClaimBillablePeriodFromEncounter(resources.encounter),
     item: resources.procedures
       ? resources.procedures.map<ClaimItem>((p, i) => {
           const procedureCode = assertDefined(p.code, 'Procedure code');
@@ -1318,24 +1321,26 @@ function buildClaim(resources: ClaimResources): Claim {
     },
   };
 
-  claim.billablePeriod = deriveClaimBillablePeriodFromEncounter(resources.encounter);
-  if (resources.accident) {
-    // The 837 exporter reads accident details from extensions and supportingInfo.
-    claim.extension!.push(
-      { url: EXTENSION_CLAIM_AUTO_ACCIDENT, valueBoolean: true },
-      { url: EXTENSION_CLAIM_AUTO_ACCIDENT_STATE, valueString: resources.accident.state }
-    );
-    claim.supportingInfo = [
-      {
-        sequence: 1,
-        category: codeableConcept('info', CODE_SYSTEM_CLAIM_INFORMATION_CATEGORY),
-        code: codeableConcept('439', CODE_SYSTEM_OYSTEHR_CLAIM_DATE_TYPE),
-        timingDate: resources.accident.date,
-      },
-    ];
-  }
-
   return claim;
+}
+
+function getAccidentExtensions(accident?: AccidentDTO): Extension[] {
+  const extensions: Extension[] = [];
+  if (accident) {
+    accident.type.forEach((type) => {
+      if (type === 'AA') {
+        extensions.push({ url: EXTENSION_CLAIM_AUTO_ACCIDENT, valueBoolean: true });
+      } else if (type === 'EM') {
+        extensions.push({ url: EXTENSION_CLAIM_EMPLOYMENT_ACCIDENT, valueBoolean: true });
+      } else if (type === 'OA') {
+        extensions.push({ url: EXTENSION_CLAIM_OTHER_ACCIDENT, valueBoolean: true });
+      }
+    });
+    if (accident.state) {
+      extensions.push({ url: EXTENSION_CLAIM_AUTO_ACCIDENT_STATE, valueString: accident.state });
+    }
+  }
+  return extensions;
 }
 
 function getLocalDateOfService(appointmentStart: string, location: Location | undefined): string {

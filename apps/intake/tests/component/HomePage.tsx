@@ -19,27 +19,30 @@ vi.mock('react-router-dom', async () => {
 });
 
 const mockUseOystehrAPIClient = vi.fn();
-vi.mock('../../src/telemed/utils', () => ({
+vi.mock('../../src/telemed/utils/getOystehrAPI', () => ({
   useOystehrAPIClient: () => mockUseOystehrAPIClient(),
+}));
+vi.mock('../../src/telemed/utils/zustandDevtools', () => ({
   zustandDevtools: vi.fn(),
 }));
 
 const mockUseAppointmentsData = vi.fn();
-vi.mock('../../src/telemed/features/appointments', async () => {
-  const actual = await vi.importActual('../../src/telemed/features/appointments');
-  return {
-    ...actual,
-    useAppointmentsData: (config: any) => mockUseAppointmentsData(config),
-    useAppointmentStore: {
-      setState: vi.fn(),
-    },
-    useGetAppointments: () => ({ refetch: vi.fn() }),
-  };
+vi.mock('../../src/telemed/features/appointments/hooks/useAppointmentsData', async () => {
+  const actual = await vi.importActual('../../src/telemed/features/appointments/hooks/useAppointmentsData');
+  return { ...actual, useAppointmentsData: (config: any) => mockUseAppointmentsData(config) };
+});
+vi.mock('../../src/telemed/features/appointments/appointment.store', async () => {
+  const actual = await vi.importActual('../../src/telemed/features/appointments/appointment.store');
+  return { ...actual, useAppointmentStore: { setState: vi.fn() } };
+});
+vi.mock('../../src/telemed/features/appointments/appointment.queries', async () => {
+  const actual = await vi.importActual('../../src/telemed/features/appointments/appointment.queries');
+  return { ...actual, useGetAppointments: () => ({ refetch: vi.fn() }) };
 });
 
 const mockUseIntakeCommonStore = vi.fn();
-vi.mock('../../src/telemed/features/common', async () => {
-  const actual = await vi.importActual('../../src/telemed/features/common');
+vi.mock('../../src/telemed/features/common/intake-common.store', async () => {
+  const actual = await vi.importActual('../../src/telemed/features/common/intake-common.store');
   return {
     ...actual,
     useIntakeCommonStore: (selector: any) => mockUseIntakeCommonStore(selector),
