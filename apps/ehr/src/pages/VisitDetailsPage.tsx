@@ -124,6 +124,7 @@ import {
   getAppointmentAndPatientHistory,
   NoteHistory,
 } from '../helpers/activityLogsUtils';
+import { getLegacyDataUrl } from '../helpers/legacyData';
 import { useApiClients } from '../hooks/useAppClients';
 import useEvolveUser from '../hooks/useEvolveUser';
 import { useVisitCards } from '../hooks/useVisitCards';
@@ -1158,17 +1159,7 @@ export default function VisitDetailsPage(): ReactElement {
                       disabled={!patient}
                       onClick={() => {
                         setDocsMenuAnchor(null);
-                        const patientLastName = patient?.name?.[0]?.family ?? '';
-                        const patientFirstName = patient?.name?.[0]?.given?.[0] ?? '';
-                        const rawDob = patient?.birthDate ?? '';
-                        // Convert YYYY-MM-DD to MM-DD-YYYY to match Z3 key format
-                        const dob = rawDob ? rawDob.split('-').slice(1).concat(rawDob.split('-')[0]).join('-') : '';
-                        const params = new URLSearchParams({
-                          lastName: patientLastName,
-                          firstName: patientFirstName,
-                          dob,
-                        });
-                        navigate(`/legacy-data?${params.toString()}`);
+                        if (patient) navigate(getLegacyDataUrl(patient));
                       }}
                       sx={MENU_ITEM_SX}
                     >

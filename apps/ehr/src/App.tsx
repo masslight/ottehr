@@ -42,6 +42,8 @@ import {
   OUTREACH_URL,
 } from './features/admin/adminRoutes';
 import { AdminLayout } from './features/admin/AdminSidebar';
+import { EmployeeChatDrawer } from './features/employee-chat/EmployeeChatDrawer';
+import { EmployeeChatManager } from './features/employee-chat/EmployeeChatManager';
 import { UnsolicitedResultsInbox } from './features/external-labs/pages/UnsolicitedResultsInbox';
 import { UnsolicitedResultsMatch } from './features/external-labs/pages/UnsolicitedResultsMatch';
 import { UnsolicitedResultsReview } from './features/external-labs/pages/UnsolicitedResultsReview';
@@ -351,6 +353,12 @@ function App(): ReactElement {
           Components={{ medicalRecordExport: MedicalRecordExportSnackbar }}
         />
         {!roleUnknown && <MedicalRecordExportWatcher />}
+        {FEATURE_FLAGS.EMPLOYEE_CHAT_ENABLED && (
+          <>
+            <EmployeeChatManager />
+            <EmployeeChatDrawer />
+          </>
+        )}
       </BrowserRouter>
     </CustomThemeProvider>
   );
