@@ -231,13 +231,13 @@ describe('search-billing-claims search text', () => {
   it('still applies the other filters alongside the search text', async () => {
     const matching = await search({
       searchText: patientFamily,
-      arStage: AR_STAGE.insurancePayer,
+      arStage: [AR_STAGE.insurancePayer],
     });
     expect(matching.claims.map((claim) => claim.id)).toEqual([createdClaimIds[0]]);
 
     const mismatched = await search({
       searchText: patientFamily,
-      arStage: AR_STAGE.patient,
+      arStage: [AR_STAGE.patient],
     });
     expect(mismatched.claims).toEqual([]);
     expect(mismatched.total).toBe(0);
@@ -245,7 +245,7 @@ describe('search-billing-claims search text', () => {
 
   it('filters by the patient of record supplied by the Patient picker', async () => {
     const matching = await search({
-      patientId,
+      patientId: [patientId],
     });
     expect(matching.claims.map((claim) => claim.id)).toEqual([createdClaimIds[0]]);
   }, 60_000);

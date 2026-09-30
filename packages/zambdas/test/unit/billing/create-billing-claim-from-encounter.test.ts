@@ -46,6 +46,7 @@ import {
   CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
   EXTENSION_CLAIM_AUTO_ACCIDENT,
   EXTENSION_CLAIM_AUTO_ACCIDENT_STATE,
+  EXTENSION_CLAIM_EMPLOYMENT_ACCIDENT,
   EXTENSION_CLAIM_INSURANCE_TYPE,
   EXTENSION_URL_CPT_MODIFIER,
 } from 'utils/lib/helpers/rcm/constants';
@@ -3291,7 +3292,7 @@ describe('create-billing-claim-from-encounter', () => {
         clinicalResources: {
           accounts: [clinicalResources.account],
           appointment: clinicalResources.appointment,
-          accident: autoAccident,
+          accident: { ...autoAccident, type: [...autoAccident.type, 'EM'] },
           billingProvider: clinicalResources.billingProvider,
           coverages: [clinicalResources.coverage],
           diagnoses: [...clinicalResources.conditions],
@@ -3336,7 +3337,6 @@ describe('create-billing-claim-from-encounter', () => {
                   { system: CURRENT_STATUS_TAG_SYSTEM, code: 'open' },
                   { system: CODE_SYSTEM_CLAIM_TYPE, code: CODE_SYSTEM_CLAIM_TYPE_CODES.professional },
                   { system: CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM, code: 'urgent-care' },
-                  { system: CLAIM_TAG_SYSTEM, code: AUTO_ACCIDENT_TAG_NAME },
                   { system: CLAIM_STATUS_TAG_SYSTEMS.arStage, code: AR_STAGE.insurancePayer },
                   { system: CLAIM_STATUS_TAG_SYSTEMS.insuranceArStatus, code: 'created' },
                 ],
@@ -3353,6 +3353,7 @@ describe('create-billing-claim-from-encounter', () => {
               ],
               extension: expect.arrayContaining([
                 { url: EXTENSION_CLAIM_AUTO_ACCIDENT, valueBoolean: true },
+                { url: EXTENSION_CLAIM_EMPLOYMENT_ACCIDENT, valueBoolean: true },
                 { url: EXTENSION_CLAIM_AUTO_ACCIDENT_STATE, valueString: autoAccident.state },
               ]),
               patient: {

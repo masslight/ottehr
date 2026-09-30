@@ -796,7 +796,7 @@ export const Header = (): JSX.Element => {
                     onClick={() => {
                       setHeaderMenuAnchorEl(null);
                       if (patient?.id) {
-                        const initialEncounterId = getInitialEncounterIdForFollowUp(encounter, followUpOriginEncounter);
+                        const initialEncounterId = getInitialEncounterIdForFollowUp(encounter);
                         navigate(`/patient/${patient.id}/followup/add`, {
                           state: { initialEncounterId },
                         });

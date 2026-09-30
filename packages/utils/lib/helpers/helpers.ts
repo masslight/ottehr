@@ -24,6 +24,7 @@ import { CANDID_PLAN_TYPE_SYSTEM, INSURANCE_CANDID_PLAN_TYPE_CODES } from '../fh
 import { OTTEHR_MODULE } from '../fhir/moduleIdentification';
 import { getFullName } from '../fhir/patient';
 import {
+  isPendingReservation,
   parsePaymentRefundsFromNotice,
   parsePaymentVoidFromNotice,
   settledRefundTotalInCents,
@@ -1650,7 +1651,8 @@ const cashPaymentDTOFromFhirPaymentNotice = (paymentNotice: PaymentNotice): Cash
     return undefined;
   }
 
-  const refunds = parsePaymentRefundsFromNotice(paymentNotice);
+  // in-flight reservations stay on the notice but are not refunds to show or count
+  const refunds = parsePaymentRefundsFromNotice(paymentNotice)?.filter((refund) => !isPendingReservation(refund));
   const voidInfo = parsePaymentVoidFromNotice(paymentNotice);
   const voided = !!voidInfo || paymentNotice.status === 'cancelled';
   const takenBy = getPaymentNoticeSubmitterRef(paymentNotice)?.display;
@@ -1661,7 +1663,7 @@ const cashPaymentDTOFromFhirPaymentNotice = (paymentNotice: PaymentNotice): Cash
     dateISO: created,
     fhirPaymentNotificationId: id,
     ...(takenBy ? { takenBy } : {}),
-    ...(refunds ? { refunds, refundedAmountInCents: settledRefundTotalInCents(refunds) } : {}),
+    ...(refunds?.length ? { refunds, refundedAmountInCents: settledRefundTotalInCents(refunds) } : {}),
     ...(voided
       ? { voided: true, voidReason: voidInfo?.reason, voidNotes: voidInfo?.notes, voidedBy: voidInfo?.voidedBy }
       : {}),
