@@ -42,10 +42,13 @@ const batchResponse = (resources: FhirResource[]): Bundle => ({
   ],
 });
 
+const house = { firstName: 'Gregory', lastName: 'House' };
+const outside = { firstName: 'Jane', lastName: 'Outside' };
+
 describe('setClaimItemOrderingProviders', () => {
   it('references an existing Practitioner by id', () => {
     const claim = claimWithItems(1);
-    setClaimItemOrderingProviders(claim, [{ name: 'House, Gregory', providerId: 'prac-1' }]);
+    setClaimItemOrderingProviders(claim, [{ ...house, providerId: 'prac-1' }]);
 
     expect(orderingExtension(claim, 0)).toEqual({
       url: EXTENSION_CLAIM_ITEM_ORDERING_PROVIDER,
@@ -56,31 +59,35 @@ describe('setClaimItemOrderingProviders', () => {
 
   it('stores a manually entered provider as a contained Practitioner, shared by identical entries', () => {
     const claim = claimWithItems(3);
-    const manual = { name: 'Dr. Outside', npi: '1234567893' };
-    setClaimItemOrderingProviders(claim, [manual, { ...manual }, { name: 'Dr. Other' }]);
+    const manual = { ...outside, npi: '1234567893' };
+    setClaimItemOrderingProviders(claim, [manual, { ...manual }, { firstName: 'John', lastName: 'Other' }]);
 
     expect(claim.contained).toHaveLength(2);
     const [first, second] = claim.contained as Practitioner[];
-    expect(first).toMatchObject({ resourceType: 'Practitioner', name: [{ text: 'Dr. Outside' }] });
+    expect(first).toMatchObject({ resourceType: 'Practitioner', name: [{ family: 'Outside', given: ['Jane'] }] });
     expect(first.identifier?.some((id) => id.system === FHIR_IDENTIFIER_NPI && id.value === '1234567893')).toBe(true);
-    expect(second).toMatchObject({ resourceType: 'Practitioner', name: [{ text: 'Dr. Other' }] });
+    expect(second).toMatchObject({ resourceType: 'Practitioner', name: [{ family: 'Other', given: ['John'] }] });
 
     const refs = [0, 1, 2].map(
-      (i) => (orderingExtension(claim, i) as { valueReference: { reference: string } }).valueReference.reference
+      (i) => (orderingExtension(claim, i) as { valueReference: { reference: string; display: string } }).valueReference
     );
-    expect(refs).toEqual([`#${first.id}`, `#${first.id}`, `#${second.id}`]);
+    expect(refs).toEqual([
+      { reference: `#${first.id}`, display: 'Outside, Jane' },
+      { reference: `#${first.id}`, display: 'Outside, Jane' },
+      { reference: `#${second.id}`, display: 'Other, John' },
+    ]);
   });
 
   it('leaves items without an ordering provider untouched', () => {
     const claim = claimWithItems(2);
-    setClaimItemOrderingProviders(claim, [undefined, { name: 'Dr. Outside' }]);
+    setClaimItemOrderingProviders(claim, [undefined, outside]);
     expect(claim.item?.[0]?.extension).toBeUndefined();
     expect(orderingExtension(claim, 1)).toBeDefined();
   });
 
   it('replaces previously contained ordering providers and keeps other contained resources', () => {
     const claim = claimWithItems(1);
-    setClaimItemOrderingProviders(claim, [{ name: 'Dr. Old' }]);
+    setClaimItemOrderingProviders(claim, [{ firstName: 'Old', lastName: 'Doc' }]);
     claim.contained = [...(claim.contained ?? []), { resourceType: 'Organization', id: 'something-else' }];
 
     setClaimItemOrderingProviders(claim, [undefined]);
@@ -93,20 +100,18 @@ describe('setClaimItemOrderingProviders', () => {
 describe('readClaimItemOrderingProvider', () => {
   it('round-trips a manually entered provider through the claim contained resources', () => {
     const claim = claimWithItems(1);
-    setClaimItemOrderingProviders(claim, [{ name: 'Dr. Outside', npi: '1234567893' }]);
+    const manual = { ...outside, npi: '1234567893' };
+    setClaimItemOrderingProviders(claim, [manual]);
 
-    expect(readClaimItemOrderingProvider(claim, claim.item![0], [])).toEqual({
-      name: 'Dr. Outside',
-      npi: '1234567893',
-    });
+    expect(readClaimItemOrderingProvider(claim, claim.item![0], [])).toEqual(manual);
   });
 
   it('resolves an existing Practitioner from the fetched practitioners', () => {
     const claim = claimWithItems(1);
-    setClaimItemOrderingProviders(claim, [{ name: 'stale name', providerId: 'prac-1' }]);
+    setClaimItemOrderingProviders(claim, [{ firstName: 'stale', lastName: 'name', providerId: 'prac-1' }]);
 
     expect(readClaimItemOrderingProvider(claim, claim.item![0], [existingPractitioner])).toEqual({
-      name: 'House, Gregory',
+      ...house,
       npi: '1234567893',
       providerId: 'prac-1',
     });
@@ -120,10 +125,10 @@ describe('readClaimItemOrderingProvider', () => {
     expect(readClaimItemOrderingProvider(claim, claim.item![0], [existingPractitioner])).toBeUndefined();
   });
 
-  it('falls back to the reference display when the provider cannot be resolved', () => {
+  it('returns undefined when the provider cannot be resolved', () => {
     const claim = claimWithItems(1);
-    setClaimItemOrderingProviders(claim, [{ name: 'House, Gregory', providerId: 'gone' }]);
-    expect(readClaimItemOrderingProvider(claim, claim.item![0], [])).toEqual({ name: 'House, Gregory' });
+    setClaimItemOrderingProviders(claim, [{ ...house, providerId: 'gone' }]);
+    expect(readClaimItemOrderingProvider(claim, claim.item![0], [])).toBeUndefined();
   });
 
   it('returns undefined for an item without the extension', () => {
@@ -142,9 +147,9 @@ describe('assertOrderingProvidersExist', () => {
     const { oystehr, batch } = oystehrWith([existingPractitioner]);
     await expect(
       assertOrderingProvidersExist(oystehr, [
-        { name: 'House, Gregory', providerId: 'prac-1' },
-        { name: 'House, Gregory', providerId: 'prac-1' },
-        { name: 'Dr. Outside' },
+        { ...house, providerId: 'prac-1' },
+        { ...house, providerId: 'prac-1' },
+        outside,
         undefined,
       ])
     ).resolves.toBeUndefined();
@@ -155,15 +160,15 @@ describe('assertOrderingProvidersExist', () => {
     const { oystehr } = oystehrWith([existingPractitioner]);
     await expect(
       assertOrderingProvidersExist(oystehr, [
-        { name: 'House, Gregory', providerId: 'prac-1' },
-        { name: 'Princeton Plainsboro', providerId: 'org-1' },
+        { ...house, providerId: 'prac-1' },
+        { firstName: 'Princeton', lastName: 'Plainsboro', providerId: 'org-1' },
       ])
     ).rejects.toMatchObject({ message: expect.stringContaining('org-1') });
   });
 
   it('skips the lookup when no line references an existing Practitioner', async () => {
     const { oystehr, batch } = oystehrWith([]);
-    await assertOrderingProvidersExist(oystehr, [{ name: 'Dr. Outside' }, undefined]);
+    await assertOrderingProvidersExist(oystehr, [outside, undefined]);
     expect(batch).not.toHaveBeenCalled();
   });
 });

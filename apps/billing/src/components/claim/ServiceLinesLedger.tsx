@@ -35,7 +35,7 @@ import {
   RemitLineEntry,
   UnmatchedRemitLine,
 } from '../../utils/claimRemits';
-import { formatDate } from '../../utils/format';
+import { formatDate, formatDisplayName } from '../../utils/format';
 import { AdjustmentChip, AmountChip, EraStatusChip } from '../EraChips';
 import { thSx } from '../ReadOnlySection';
 import { useRemitHighlightTarget } from './RemitHighlight';
@@ -377,7 +377,7 @@ function ServiceLineExtras({ line }: { line: ServiceLine }): ReactElement {
       )}
       {line.orderingProvider && (
         <Typography variant="caption" display="block" color="text.secondary">
-          Ordering Provider: {line.orderingProvider.name}
+          Ordering Provider: {formatDisplayName(line.orderingProvider)}
           {line.orderingProvider.npi ? ` · NPI ${line.orderingProvider.npi}` : ''}
         </Typography>
       )}

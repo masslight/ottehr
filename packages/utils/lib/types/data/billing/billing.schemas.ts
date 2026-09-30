@@ -262,7 +262,8 @@ const claimServiceLineSchema = z.object({
     .optional(),
   orderingProvider: z
     .object({
-      name: nonEmptyString,
+      firstName: nonEmptyString,
+      lastName: nonEmptyString,
       npi: z.string().trim().optional(),
       // FHIR id of an existing Practitioner (only a Practitioner can be an ordering provider)
       providerId: z.string().optional(),

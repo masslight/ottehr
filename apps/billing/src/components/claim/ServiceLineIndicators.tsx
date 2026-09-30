@@ -1,5 +1,6 @@
 import { Box, IconButton, Typography } from '@mui/material';
 import { ReactElement, ReactNode } from 'react';
+import { formatDisplayName } from '../../utils/format';
 import { RichTooltip } from '../RichTooltip';
 import { CapsuleIcon } from './CapsuleIcon';
 import { DoctorIcon } from './DoctorIcon';
@@ -11,7 +12,8 @@ interface IndicatorDrug {
 }
 
 interface IndicatorProvider {
-  name: string;
+  firstName: string;
+  lastName: string;
   npi?: string;
 }
 
@@ -94,7 +96,7 @@ export function ServiceLineIndicators({
           >
             {orderingProvider ? (
               <>
-                <Typography variant="body2">{orderingProvider.name}</Typography>
+                <Typography variant="body2">{formatDisplayName(orderingProvider)}</Typography>
                 {orderingProvider.npi && <Typography variant="body2">NPI: {orderingProvider.npi}</Typography>}
               </>
             ) : (

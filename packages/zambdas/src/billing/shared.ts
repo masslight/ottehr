@@ -26,6 +26,7 @@ import {
   DomainResource,
   Encounter,
   FhirResource,
+  HumanName,
   Identifier,
   List,
   Location,
@@ -343,11 +344,17 @@ export const EXTENSION_CLAIM_ITEM_ORDERING_PROVIDER =
 const CONTAINED_ORDERING_PROVIDER_ID_PREFIX = 'ordering-provider-';
 
 export interface ClaimLineOrderingProvider {
-  name: string;
+  firstName: string;
+  lastName: string;
   npi?: string;
   // FHIR id of an existing Practitioner
   providerId?: string;
 }
+
+const orderingProviderName = (provider: ClaimLineOrderingProvider): HumanName => ({
+  family: provider.lastName,
+  given: [provider.firstName],
+});
 
 // Points each claim item at its line's ordering provider (providers[i] belongs to claim.item[i])
 // through an extension's valueReference. Only a Practitioner can be one: an existing Practitioner
@@ -363,17 +370,22 @@ export function setClaimItemOrderingProviders(
   const containedIdByKey = new Map<string, string>();
 
   const reference = (provider: ClaimLineOrderingProvider): Reference => {
-    if (provider.providerId) return { reference: `Practitioner/${provider.providerId}`, display: provider.name };
-    const key = JSON.stringify([provider.name, provider.npi ?? '']);
+    const display = convertFhirNameToDisplayName(orderingProviderName(provider));
+    if (provider.providerId) return { reference: `Practitioner/${provider.providerId}`, display };
+    const key = JSON.stringify([provider.firstName, provider.lastName, provider.npi ?? '']);
     let id = containedIdByKey.get(key);
     if (!id) {
       id = `${CONTAINED_ORDERING_PROVIDER_ID_PREFIX}${containedIdByKey.size + 1}`;
       containedIdByKey.set(key, id);
-      const practitioner: Practitioner = { resourceType: 'Practitioner', id, name: [{ text: provider.name }] };
+      const practitioner: Practitioner = {
+        resourceType: 'Practitioner',
+        id,
+        name: [orderingProviderName(provider)],
+      };
       if (provider.npi) setNpi(practitioner, provider.npi);
       contained.push(practitioner);
     }
-    return { reference: `#${id}`, display: provider.name };
+    return { reference: `#${id}`, display };
   };
 
   claim.item = claim.item?.map((item, i) => {
@@ -411,8 +423,7 @@ const orderingProviderIds = (claim: Claim): string[] => [
 ];
 
 // The item's ordering provider, resolved from the claim's contained resources or, for an existing
-// Practitioner, from `practitioners` (the ones fetchClaimGraph loads). Falls back to the
-// reference's display when the Practitioner can't be resolved.
+// Practitioner, from `practitioners` (the ones fetchClaimGraph loads).
 export function readClaimItemOrderingProvider(
   claim: Claim,
   item: ClaimItem,
@@ -427,12 +438,12 @@ export function readClaimItemOrderingProvider(
   const practitioner = isContained
     ? claim.contained?.find((r): r is Practitioner => r.id === ref.slice(1) && r.resourceType === 'Practitioner')
     : findRef<Practitioner>(practitioners, ref);
-  if (!practitioner) return valueReference.display ? { name: valueReference.display } : undefined;
+  if (!practitioner) return undefined;
 
-  const name = practitioner.name?.[0]?.text ?? resourceDisplayName(practitioner) ?? valueReference.display ?? '';
   const npi = getNPI(practitioner);
   return {
-    name,
+    firstName: practitioner.name?.[0]?.given?.join(' ') ?? '',
+    lastName: practitioner.name?.[0]?.family ?? '',
     ...(npi ? { npi } : {}),
     // contained providers were entered by hand, so they carry no provider id
     ...(isContained ? {} : { providerId: practitioner.id }),
