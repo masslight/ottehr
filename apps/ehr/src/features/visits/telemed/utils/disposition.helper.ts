@@ -4,7 +4,6 @@ import {
   DispositionDTO,
   DispositionFollowUpType,
   DispositionType,
-  followUpInOptions,
   NOTHING_TO_EAT_OR_DRINK_FIELD,
   REFUSAL_OF_EMS_TRANSPORT_FIELD,
 } from 'utils/lib/types/api/chart-data/chart-data.types';
@@ -158,8 +157,6 @@ export const mapDispositionToForm = (disposition: DispositionDTO): DispositionFo
 
   return values;
 };
-
-export { followUpInOptions };
 
 export const SEND_OUT_VIRUS_TEST_LABEL = 'Send out virus test';
 

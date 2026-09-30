@@ -13,10 +13,10 @@ import {
   Typography,
 } from '@mui/material';
 import { ReactElement } from 'react';
+import { otherColors } from 'utils/lib/theme/billing-palette';
 import { ClaimInsurancePayment, ClaimRemit } from 'utils/lib/types/data/billing/billing.types';
 import { formatCurrency } from 'utils/lib/utils/convert';
 import { adjustmentCode, formatAdjustment } from '../../constants/era';
-import { otherColors } from '../../themes/ottehr/colors';
 import { aggregateAdjustments, eraHref } from '../../utils/claimRemits';
 import { formatDate } from '../../utils/format';
 import { AdjustmentChip, AmountChip, EraStatusChip } from '../EraChips';

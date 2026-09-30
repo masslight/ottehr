@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { FormFillContext, resolveToken } from '../../src/ehr/shared/form-token-resolvers';
+import { FormFillContext } from '../../src/ehr/shared/form-fill-context';
+import { resolveToken } from '../../src/ehr/shared/form-token-resolvers';
 
 /**
  * Resolution of the tokens whose value is computed rather than copied.

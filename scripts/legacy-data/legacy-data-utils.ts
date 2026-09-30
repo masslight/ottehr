@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import { basename, dirname, join } from 'path';
 import { fileURLToPath } from 'url';
-import { FileType, FileTypeMap } from '../../packages/utils/lib/types/data/legacy-data';
+import { FileType, FileTypeMap } from 'utils/lib/types/data/legacy-data/legacy-data.types';
 
 // ── V1 data ──────────────────────────────────────────────────────────
 

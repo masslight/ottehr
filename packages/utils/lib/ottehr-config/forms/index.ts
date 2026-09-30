@@ -1,4 +1,4 @@
-import type { FormsConfig } from 'config-types';
+import type { FormsConfig } from 'config-types/config/forms';
 
 const FORMS_DATA: FormsConfig = {
   forms: [

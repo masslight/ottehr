@@ -31,7 +31,7 @@ import { DateTime } from 'luxon';
 import { default as React, ReactElement, useCallback, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { AdminHeaderActionSlot } from 'src/features/admin/AdminPageHeader';
-import { useSuccessQuery } from 'utils/lib/frontend';
+import { useSuccessQuery } from 'utils/lib/frontend/hooks/useSuccessQuery';
 import { State } from 'utils/lib/helpers/states';
 import {
   EmployeeDetails,

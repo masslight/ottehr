@@ -1,5 +1,5 @@
+import { Age as VitalsAge, AgeSchema as VitalsAgeSchema } from 'config-types/config/vitals';
 import { z } from 'zod';
-import { VitalsAge, VitalsAgeSchema } from '../../../config-helpers/vitals';
 import { Secrets } from '../../../secrets';
 import { ALL_EHR_STAFF_ROLES, RoleType } from '../user.types';
 

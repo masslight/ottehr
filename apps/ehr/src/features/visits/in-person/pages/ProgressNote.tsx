@@ -9,7 +9,8 @@ import { DischargeSummaryButton } from '../../shared/components/review-tab/Disch
 import { MissingCard } from '../../shared/components/review-tab/MissingCard';
 import { ReviewAndSignButton } from '../../shared/components/review-tab/ReviewAndSignButton';
 import { UnlockAppointmentButton } from '../../shared/components/review-tab/UnlockAppointmentButton';
-import { useAppointmentData, useChartData } from '../../shared/stores/appointment/appointment.store';
+import { useChartData } from '../../shared/hooks/useChartData';
+import { useAppointmentData } from '../../shared/stores/appointment/appointment.store';
 import { ProgressNoteDetails } from '../components/progress-note/ProgressNoteDetails';
 
 interface PatientInfoProps {

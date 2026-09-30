@@ -2,7 +2,7 @@
  * @vitest-environment node
  */
 
-import { FormFieldsInputItem } from 'config-types';
+import { FormFieldsInputItem } from 'config-types/config/form-fields';
 import { DateTime } from 'luxon';
 import { evaluateFieldTriggers } from 'utils/lib/config-helpers/patient-record';
 import { PATIENT_RECORD_CONFIG } from 'utils/lib/ottehr-config/patient-record';

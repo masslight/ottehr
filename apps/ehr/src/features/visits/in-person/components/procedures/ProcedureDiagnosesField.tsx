@@ -4,7 +4,8 @@ import { FC } from 'react';
 import { ActionsList } from 'src/components/ActionsList';
 import { DeleteIconButton } from 'src/components/DeleteIconButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { DiagnosisDTO, IcdSearchResponse } from 'utils';
+import { DiagnosisDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { IcdSearchResponse } from 'utils/lib/types/api/icd-search/icd-search.types';
 import { DiagnosesField } from '../../../shared/components/assessment-tab/DiagnosesField';
 
 interface ProcedureDiagnosesFieldProps {

@@ -1,4 +1,5 @@
-import { type FeatureFlagsConfig, FeatureFlagsConfigSchema } from 'config-types';
+import type { FeatureFlagsConfig } from 'config-types/config/feature-flags';
+import { FeatureFlagsConfigSchema } from 'config-types/config/feature-flags';
 
 const FEATURE_FLAGS_DATA: FeatureFlagsConfig = {
   labOrdersEnabled: true,

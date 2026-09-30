@@ -17,11 +17,6 @@ import { capitalize } from 'lodash-es';
 import { DateTime } from 'luxon';
 import { getReasonForVisitOptionsForServiceCategory } from '../../config-helpers/booking';
 import {
-  DOES_NOT_HAVE_ATTORNEY_OPTION,
-  HAS_ATTORNEY_OPTION,
-  INSURANCE_PAY_OPTION,
-} from '../../config-helpers/shared-questionnaire';
-import {
   ATTORNEY_FIRM_EXTENSION_URL,
   PREFERRED_PHARMACY_ERX_ID_FOR_SYNC_URL,
   PREFERRED_PHARMACY_MANUAL_ENTRY_URL,
@@ -32,6 +27,11 @@ import { genderMap } from '../../fhir/helpers';
 import { getFirstName, getLastName, getMiddleName, getNameSuffix, getPronounsFromExtension } from '../../fhir/patient';
 import { LANGUAGE_OPTIONS, LanguageOption } from '../../fhir/patientMasterRecord';
 import { FEATURE_FLAGS_CONFIG } from '../../ottehr-config/feature-flags';
+import {
+  DOES_NOT_HAVE_ATTORNEY_OPTION,
+  HAS_ATTORNEY_OPTION,
+  INSURANCE_PAY_OPTION,
+} from '../../ottehr-config/value-sets';
 import { PatientAccountResponse } from '../../types/api/patient-account';
 import {
   COVERAGE_ADDITIONAL_INFORMATION_URL,

@@ -24,11 +24,11 @@ import { enqueueSnackbar } from 'notistack';
 import React, { useCallback, useRef, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { dataTestIds } from 'src/constants/data-test-ids';
+import { useChartData } from 'src/features/visits/shared/hooks/useChartData';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
 import {
   useAppointmentData,
-  useChartData,
   useDeleteChartData,
 } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { useDebounce } from 'src/shared/hooks/useDebounce';

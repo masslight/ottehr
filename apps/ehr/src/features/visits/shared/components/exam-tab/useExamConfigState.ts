@@ -1,4 +1,4 @@
-import type { ExamItemConfig } from 'config-types';
+import type { ExamItemConfig } from 'config-types/config/examination';
 import { useMemo } from 'react';
 import { collectKnownExamFields } from 'utils/lib/config-helpers/exam-observations';
 import { encounterHasLegacyExamVersion } from 'utils/lib/fhir/encounter';

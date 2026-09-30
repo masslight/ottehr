@@ -65,6 +65,7 @@ import {
   CODE_SYSTEM_SERVICE_CATEGORY_CODE_NAMES,
 } from 'utils/lib/helpers/rcm/constants';
 import { VALUE_SETS } from 'utils/lib/ottehr-config/value-sets';
+import { otherColors } from 'utils/lib/theme/billing-palette';
 import {
   CreateBillingProviderInput,
   SaveServiceFacilityInput,
@@ -155,7 +156,6 @@ import { useFacilityOptionsSearch, useProviderOptionsSearch } from '../hooks/use
 import { usePatient } from '../hooks/usePatient';
 import { useProvider } from '../hooks/useProvider';
 import { useServiceFacility } from '../hooks/useServiceFacility';
-import { otherColors } from '../themes/ottehr/colors';
 import { downloadBase64File } from '../utils/downloadFile';
 import { formatDate, formatDateTime } from '../utils/format';
 import { PatientDemographicsSection } from './PatientDetail';

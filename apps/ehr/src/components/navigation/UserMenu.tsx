@@ -17,7 +17,7 @@ import { enqueueSnackbar } from 'notistack';
 import { FC, MouseEvent, useCallback, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { CommandPaletteSearchButton } from 'src/components/CommandPaletteSearchButton';
-import { EmployeeChatButton } from 'src/features/employee-chat';
+import { EmployeeChatButton } from 'src/features/employee-chat/EmployeeChatButton';
 import { UnsolicitedResultsIcon } from 'src/features/external-labs/components/unsolicited-results/UnsolicitedResultsIcon';
 import { ProviderNotifications } from 'src/features/notifications/ProviderNotifications';
 import {

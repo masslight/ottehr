@@ -14,7 +14,13 @@ import {
   Typography,
 } from '@mui/material';
 import { FC, ReactNode } from 'react';
-import { CodingField, getStructuredFieldsData, ProcedureFamilyModel, StructuredFacts, StructuredRow } from 'utils';
+import { ProcedureFamilyModel } from 'utils/lib/procedure-coding/model.types';
+import {
+  CodingField,
+  getStructuredFieldsData,
+  StructuredFacts,
+  StructuredRow,
+} from 'utils/lib/procedure-coding/structured-fields';
 
 /** Answers are read back off this form during a visit, so they are set at the body text size, not the dense
  * default: 14px grey-on-white was the complaint that prompted this. Controls stay `size="small"` to match

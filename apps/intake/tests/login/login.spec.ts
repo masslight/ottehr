@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { login } from 'test-utils';
+import { login } from 'test-utils/lib/e2e/login';
 
 // This test creates a fresh user.json if user is not authenticated for E2E tests.
 // It runs before the main test suite via run-e2e.ts for local and via github actions for CI.

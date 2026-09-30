@@ -69,12 +69,13 @@ import { PatientNotesButton } from '../../../patient-notes/components/PatientNot
 import { ProfileAvatar } from '../../shared/components/ProfileAvatar';
 import { useGetHistoricalVitals, useGetVitals } from '../../shared/components/vitals/hooks/useGetVitals';
 import { invalidateChart } from '../../shared/hooks/chartSectionCache';
+import { useChartData } from '../../shared/hooks/useChartData';
 import { useGetAppointmentAccessibility } from '../../shared/hooks/useGetAppointmentAccessibility';
 import { useGetEmployees } from '../../shared/hooks/useGetEmployees';
 import { useGroupMemberPractitionerIds } from '../../shared/hooks/useGroupMemberPractitionerIds';
 import { useOystehrAPIClient } from '../../shared/hooks/useOystehrAPIClient';
 import { usePractitionerActions } from '../../shared/hooks/usePractitioner';
-import { useAppointmentData, useChartData } from '../../shared/stores/appointment/appointment.store';
+import { useAppointmentData } from '../../shared/stores/appointment/appointment.store';
 import { getVisitEmployerDisplay } from '../../shared/visitEmployer';
 import { ChangeStatusDropdown } from './ChangeStatusDropdown';
 import { InternalNotes } from './InternalNotes';

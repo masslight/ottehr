@@ -5,7 +5,7 @@
 The Ottehr EHR uses feature flags to control the display of certain features. Flag values are defined centrally in [`packages/utils/lib/ottehr-config/feature-flags/index.ts`](/packages/utils/lib/ottehr-config/feature-flags/index.ts) and validated against the schema in [`packages/config-types/config/feature-flags.ts`](/packages/config-types/config/feature-flags.ts). The EHR consumes them via [`src/constants/feature-flags.ts`](/apps/ehr/src/constants/feature-flags.ts), which re-exports the shared config as the app-level `FEATURE_FLAGS` object. For example:
 
 ```ts
-import { FEATURE_FLAGS_CONFIG } from 'utils';
+import { FEATURE_FLAGS_CONFIG } from 'utils/lib/ottehr-config/feature-flags';
 
 export const FEATURE_FLAGS = {
   LAB_ORDERS_ENABLED: FEATURE_FLAGS_CONFIG.labOrdersEnabled,
