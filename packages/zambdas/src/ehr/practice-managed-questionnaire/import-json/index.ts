@@ -7,32 +7,31 @@ import {
 } from 'utils/lib/helpers/practice-managed-questionnaires';
 import { RoleType } from 'utils/lib/types/api/user.types';
 import { PracticeManagedQuestionnaireImportJsonOutput } from 'utils/lib/types/data/practice-managed-questionnaires/practice-managed-questionnaire.types';
-import { INVALID_INPUT_ERROR, MANAGED_QUESTIONNAIRE_ERROR } from 'utils/lib/types/errors';
+import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken, requireUserWithRole } from '../../../shared/auth';
 import { compareVersions } from '../../../shared/fhir';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
-import { handleFormInFlows, patchQuestionnaireVersion, validateQisPracticeManaged } from '../helpers';
-import { validateRequestParameters } from './validateRequestParameters';
+import { handleFormInFlows, patchQuestionnaireVersion } from '../helpers';
+import { ValidatedRequest, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'practice-managed-questionnaire-import-json';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`${ZAMBDA_NAME} started`);
-  const { questionnaire, questionnaireId, secrets, userToken } = validateRequestParameters(input);
+  const validatedInput = validateRequestParameters(input);
 
   console.log('validateRequestParameters success');
 
-  await requireUserWithRole(userToken, secrets, [RoleType.CustomerSupport]);
+  await requireUserWithRole(validatedInput.userToken, validatedInput.secrets, [RoleType.CustomerSupport]);
 
-  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedInput.secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, validatedInput.secrets);
 
-  const response = questionnaireId
-    ? await importNewVersion(questionnaire, questionnaireId, oystehr)
-    : await importNewQuestionnaire(questionnaire, oystehr);
+  const effectInput = await complexValidation(validatedInput, oystehr);
+  const response = await performEffect(effectInput, oystehr);
 
   return {
     statusCode: 200,
@@ -40,113 +39,144 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   };
 });
 
-const searchQuestionnairesByUrl = async (url: string, oystehr: Oystehr): Promise<Questionnaire[]> => {
+interface EffectInput extends Pick<ValidatedRequest, 'questionnaire'> {
+  questionnaireUrl: string;
+  existingQuestionnaireId: string | undefined;
+  existingVersion: string | undefined;
+}
+
+async function complexValidation(input: ValidatedRequest, oystehr: Oystehr): Promise<EffectInput> {
+  const { questionnaire, questionnaireId } = input;
+
+  if (!questionnaire.url) {
+    throw INVALID_INPUT_ERROR(`Questionnaire.url is missing and is a required attribute`);
+  }
+
+  let fhirQ: Questionnaire | undefined;
+
+  // deduce the correct fhir questionnaire resource, if one exists
+  if (questionnaireId) {
+    fhirQ = await oystehr.fhir.get<Questionnaire>({ resourceType: 'Questionnaire', id: questionnaireId });
+  } else {
+    const existing = await searchActiveQuestionnairesByUrl(questionnaire.url, oystehr);
+
+    if (existing.length > 1) {
+      throw new Error(
+        `Attempt to import failed: an unexpected number of questionnaires were returned for this url, ${questionnaire.url}`
+      );
+    } else if (existing.length === 1) {
+      fhirQ = existing[0];
+    }
+  }
+
+  if (fhirQ) {
+    // only imported questionnaires can be updated via the import again
+    if (!isJsonImportedQ(fhirQ)) {
+      throw INVALID_INPUT_ERROR(
+        `This questionnaire was created in the Admin Questionnaire portal, please use the Questionnaire Builder to make any desired updates.`
+      );
+    }
+
+    // validate that the questionnaire.url passed matches
+    if (fhirQ.url !== questionnaire.url) {
+      throw INVALID_INPUT_ERROR(
+        `The questionnaire.url uploaded does not match the existing url. Url from uploaded json: ${questionnaire.url} Existing Url: ${fhirQ.url}`
+      );
+    }
+  }
+
+  return {
+    questionnaire,
+    questionnaireUrl: questionnaire.url,
+    existingQuestionnaireId: fhirQ?.id,
+    existingVersion: fhirQ?.version,
+  };
+}
+
+const searchActiveQuestionnairesByUrl = async (url: string, oystehr: Oystehr): Promise<Questionnaire[]> => {
   return (
     await oystehr.fhir.search<Questionnaire>({
       resourceType: 'Questionnaire',
       params: [
+        { name: 'status', value: 'active' },
         { name: 'url', value: url },
-        { name: '_elements', value: 'id,url,version,status' },
+        { name: '_elements', value: 'id,url,version' },
         { name: '_count', value: '1000' },
       ],
     })
   ).unbundle();
 };
 
-async function importNewQuestionnaire(
-  questionnaire: Questionnaire,
+async function performEffect(
+  input: EffectInput,
   oystehr: Oystehr
 ): Promise<PracticeManagedQuestionnaireImportJsonOutput> {
-  const url = questionnaire.url ?? '';
+  const { existingQuestionnaireId } = input;
 
-  // a url identifies the questionnaire across all of its versions, reusing one here would silently turn this import
-  // into a new version of an existing questionnaire
-  console.log(`checking that no questionnaire exists with url ${url}`);
-  const existing = await searchQuestionnairesByUrl(url, oystehr);
-  if (existing.length > 0) {
-    throw INVALID_INPUT_ERROR(
-      `A questionnaire with url ${url} already exists (${existing
-        .map((q) => `Questionnaire/${q.id}`)
-        .join(', ')}). To upload a new version, use "Upload New Version" from that questionnaire's detail page.`
-    );
+  if (existingQuestionnaireId) {
+    return await importNewVersion({ ...input, existingQuestionnaireId }, oystehr);
+  } else {
+    return await importNewQuestionnaire(input, oystehr);
   }
+}
+
+async function importNewQuestionnaire(
+  input: EffectInput,
+  oystehr: Oystehr
+): Promise<PracticeManagedQuestionnaireImportJsonOutput> {
+  const { questionnaire, questionnaireUrl } = input;
 
   const version = questionnaire.version ?? PRACTICE_MANAGED_QUESTIONNAIRE_BASE_VERSION;
   const created = await oystehr.fhir.create<Questionnaire>({
     ...questionnaire,
     version,
-    status: questionnaire.status ?? 'active',
+    status: 'active',
   });
 
-  console.log(`created Questionnaire/${created.id} ${url}|${version}`);
+  console.log(`created Questionnaire/${created.id} ${questionnaireUrl}|${version}`);
 
   return { questionnaireId: created.id ?? '', version };
 }
 
 async function importNewVersion(
-  questionnaire: Questionnaire,
-  questionnaireId: string,
+  input: Omit<EffectInput, 'existingQuestionnaireId'> & { existingQuestionnaireId: string },
   oystehr: Oystehr
 ): Promise<PracticeManagedQuestionnaireImportJsonOutput> {
-  const previous = await oystehr.fhir.get<Questionnaire>({ resourceType: 'Questionnaire', id: questionnaireId });
+  const { questionnaire, questionnaireUrl, existingQuestionnaireId, existingVersion } = input;
 
-  validateQisPracticeManaged(previous, questionnaireId);
-  if (!isJsonImportedQ(previous)) {
-    throw MANAGED_QUESTIONNAIRE_ERROR(
-      `Only questionnaires imported via json can receive a new version via json. Questionnaire/${questionnaireId}`
-    );
-  }
-
-  const url = previous.url ?? '';
-  if (questionnaire.url !== url) {
-    throw INVALID_INPUT_ERROR(
-      `The url in the uploaded json (${questionnaire.url}) must match the url of the questionnaire being updated (${url})`
-    );
-  }
-
-  const previousVersion = previous.version ?? PRACTICE_MANAGED_QUESTIONNAIRE_BASE_VERSION;
-
-  // bump against the highest version that exists for the url (not just the one being viewed) so url|version stays unique
-  const allVersions = await searchQuestionnairesByUrl(url, oystehr);
-  const highestVersion = allVersions.reduce(
-    (highest, q) => (q.version && compareVersions(q.version, highest) > 0 ? q.version : highest),
-    previousVersion
-  );
+  const previousVersion = existingVersion ?? PRACTICE_MANAGED_QUESTIONNAIRE_BASE_VERSION;
 
   // respect a version the user already bumped in the json, otherwise patch
   const nextVersion =
-    questionnaire.version && compareVersions(questionnaire.version, highestVersion) > 0
+    questionnaire.version && compareVersions(questionnaire.version, previousVersion) > 0
       ? questionnaire.version
-      : patchQuestionnaireVersion(highestVersion);
-  console.log(`previous version ${previousVersion}, highest version ${highestVersion}, next version ${nextVersion}`);
+      : patchQuestionnaireVersion(previousVersion);
+  console.log(`previous version ${previousVersion}, next version ${nextVersion}`);
 
+  // questionnaire uploaded with next version
   const createRequest: BatchInputPostRequest<Questionnaire> = {
     method: 'POST',
     url: '/Questionnaire',
     resource: {
       ...questionnaire,
       version: nextVersion,
-      // deleted / restored state is managed in the admin portal, so the new version carries over the current status
-      status: previous.status,
     },
   };
 
-  const retireRequests: BatchInputPatchRequest<Questionnaire>[] =
-    previous.status === 'retired'
-      ? []
-      : [
-          {
-            method: 'PATCH',
-            url: `Questionnaire/${questionnaireId}`,
-            operations: [{ op: 'replace', path: '/status', value: 'retired' }],
-          },
-        ];
+  // retire the existing version
+  const retireRequests: BatchInputPatchRequest<Questionnaire>[] = [
+    {
+      method: 'PATCH',
+      url: `Questionnaire/${existingQuestionnaireId}`,
+      operations: [{ op: 'replace', path: '/status', value: 'retired' }],
+    },
+  ];
 
   console.log('checking if form is contained in any flows');
   const flowRequests: BatchInputRequest<Questionnaire>[] = await handleFormInFlows({
     previousVersion,
     nextVersion,
-    url,
+    url: questionnaireUrl,
     oystehr,
   });
   console.log(
@@ -155,7 +185,9 @@ async function importNewVersion(
     }`
   );
 
-  console.log(`Creating version ${nextVersion} of "${url}", "superseding" Questionnaire/${questionnaireId}`);
+  console.log(
+    `Creating version ${nextVersion} of "${questionnaireUrl}", "superseding" Questionnaire/${existingQuestionnaireId}`
+  );
   const res = (
     await oystehr.fhir.transaction<Questionnaire>({
       requests: [...retireRequests, createRequest, ...flowRequests],
@@ -164,11 +196,13 @@ async function importNewVersion(
 
   const created = res.find(
     (resource): resource is Questionnaire =>
-      resource.resourceType === 'Questionnaire' && resource.url === url && resource.version === nextVersion
+      resource.resourceType === 'Questionnaire' && resource.url === questionnaireUrl && resource.version === nextVersion
   );
 
   if (!created?.id) {
-    throw new Error(`Failed to find the created questionnaire in the transaction response for ${url}|${nextVersion}`);
+    throw new Error(
+      `Failed to find the created questionnaire in the transaction response for ${questionnaireUrl}|${nextVersion}`
+    );
   }
 
   return { questionnaireId: created.id, version: nextVersion };

@@ -3,7 +3,6 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import RestoreFromTrashIcon from '@mui/icons-material/RestoreFromTrash';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
-import VisibilityIcon from '@mui/icons-material/Visibility';
 import {
   Box,
   Chip,
@@ -172,7 +171,10 @@ export const QuestionnaireAdminPage: FC = () => {
             <TableBody>
               {visibleQuestionnaires.map((q) => {
                 const deleted = q.status === 'retired';
-                const canChangeStatus = !q.isJsonImport || isCustomerSupport;
+                const canChangeStatus = !q.readOnly || isCustomerSupport;
+
+                console.log('check!', q);
+
                 return (
                   <TableRow
                     key={q.id}
@@ -183,9 +185,9 @@ export const QuestionnaireAdminPage: FC = () => {
                     <TableCell>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         {q.title || '(untitled)'}
-                        {q.isJsonImport && (
+                        {q.readOnly && (
                           <Chip
-                            label="JSON Import"
+                            label="Imported / Read Only"
                             size="small"
                             sx={{ ...tagChipSx, backgroundColor: 'rgba(15, 52, 124, 0.12)', color: '#0F347C' }}
                           />
@@ -215,11 +217,13 @@ export const QuestionnaireAdminPage: FC = () => {
                         )
                       ) : (
                         <>
-                          <Tooltip title={q.isJsonImport ? 'View' : 'Edit'}>
-                            <IconButton size="small" onClick={() => navigate(`/admin/questionnaires/${q.id}`)}>
-                              {q.isJsonImport ? <VisibilityIcon fontSize="small" /> : <EditIcon fontSize="small" />}
-                            </IconButton>
-                          </Tooltip>
+                          {!q.readOnly && (
+                            <Tooltip title="Edit">
+                              <IconButton size="small" onClick={() => navigate(`/admin/questionnaires/${q.id}`)}>
+                                <EditIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          )}
                           {canChangeStatus && (
                             <Tooltip title="Delete">
                               <IconButton

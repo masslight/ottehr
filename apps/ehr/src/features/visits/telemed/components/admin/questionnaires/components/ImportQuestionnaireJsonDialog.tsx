@@ -6,8 +6,7 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
-  Tab,
-  Tabs,
+  Divider,
   TextField,
   Typography,
 } from '@mui/material';
@@ -17,13 +16,11 @@ import { RoundedButton } from 'src/components/RoundedButton';
 import { PracticeManagedQuestionnaireImportJsonOutput } from 'utils/lib/types/data/practice-managed-questionnaires/practice-managed-questionnaire.types';
 import { usePracticeManagedQuestionnaireImportJson } from '../../admin.queries';
 
-type ImportMode = 'upload' | 'paste';
-
 interface ImportQuestionnaireJsonDialogProps {
   open: boolean;
   onClose: () => void;
   onImported: (result: PracticeManagedQuestionnaireImportJsonOutput) => void;
-  // when passed, the json is uploaded as a new version of this questionnaire
+  // passed when opened from the detail page
   existingQuestionnaire?: { id: string; url: string; version?: string };
 }
 
@@ -67,10 +64,8 @@ export const ImportQuestionnaireJsonDialog: FC<ImportQuestionnaireJsonDialogProp
   onImported,
   existingQuestionnaire,
 }) => {
-  const [mode, setMode] = useState<ImportMode>('upload');
   const [fileName, setFileName] = useState<string | undefined>();
-  const [fileText, setFileText] = useState('');
-  const [pastedText, setPastedText] = useState('');
+  const [jsonText, setJsonText] = useState('');
   const [error, setError] = useState<string | undefined>();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -79,10 +74,8 @@ export const ImportQuestionnaireJsonDialog: FC<ImportQuestionnaireJsonDialogProp
   const isNewVersion = Boolean(existingQuestionnaire);
 
   const reset = (): void => {
-    setMode('upload');
     setFileName(undefined);
-    setFileText('');
-    setPastedText('');
+    setJsonText('');
     setError(undefined);
   };
 
@@ -101,16 +94,16 @@ export const ImportQuestionnaireJsonDialog: FC<ImportQuestionnaireJsonDialogProp
     setError(undefined);
     setFileName(file.name);
     try {
-      setFileText(await file.text());
+      // the file contents are loaded into the text field so they can be reviewed before importing
+      setJsonText(await file.text());
     } catch {
-      setFileText('');
+      setFileName(undefined);
       setError(`Unable to read ${file.name}`);
     }
   };
 
   const handleSubmit = async (): Promise<void> => {
-    const text = mode === 'upload' ? fileText : pastedText;
-    const result = parseQuestionnaireJson(text, existingQuestionnaire?.url);
+    const result = parseQuestionnaireJson(jsonText, existingQuestionnaire?.url);
     if (result.error !== undefined) {
       setError(result.error);
       return;
@@ -146,55 +139,47 @@ export const ImportQuestionnaireJsonDialog: FC<ImportQuestionnaireJsonDialogProp
           </Typography>
         )}
 
-        <Tabs
-          value={mode}
-          onChange={(_e, value: ImportMode) => {
-            setMode(value);
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".json,application/json"
+            hidden
+            onChange={(e) => void handleFileChange(e)}
+          />
+          <RoundedButton
+            variant="outlined"
+            startIcon={<UploadFileIcon />}
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isPending}
+          >
+            Choose File
+          </RoundedButton>
+          <Typography variant="body2" color={fileName ? 'text.primary' : 'text.secondary'}>
+            {fileName ?? 'No file selected'}
+          </Typography>
+        </Box>
+
+        <Divider sx={{ my: 2 }}>
+          <Typography variant="body2" color="text.secondary">
+            or paste JSON
+          </Typography>
+        </Divider>
+
+        <TextField
+          value={jsonText}
+          onChange={(e) => {
+            setJsonText(e.target.value);
             setError(undefined);
           }}
-          sx={{ mb: 2 }}
-        >
-          <Tab value="upload" label="Upload File" />
-          <Tab value="paste" label="Paste JSON" />
-        </Tabs>
-
-        {mode === 'upload' ? (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".json,application/json"
-              hidden
-              onChange={(e) => void handleFileChange(e)}
-            />
-            <RoundedButton
-              variant="outlined"
-              startIcon={<UploadFileIcon />}
-              onClick={() => fileInputRef.current?.click()}
-              disabled={isPending}
-            >
-              Choose File
-            </RoundedButton>
-            <Typography variant="body2" color={fileName ? 'text.primary' : 'text.secondary'}>
-              {fileName ?? 'No file selected'}
-            </Typography>
-          </Box>
-        ) : (
-          <TextField
-            value={pastedText}
-            onChange={(e) => {
-              setPastedText(e.target.value);
-              setError(undefined);
-            }}
-            placeholder='{ "resourceType": "Questionnaire", ... }'
-            multiline
-            minRows={12}
-            maxRows={24}
-            fullWidth
-            disabled={isPending}
-            inputProps={{ style: { fontFamily: 'monospace', fontSize: 12 } }}
-          />
-        )}
+          placeholder='{ "resourceType": "Questionnaire", ... }'
+          multiline
+          minRows={12}
+          maxRows={24}
+          fullWidth
+          disabled={isPending}
+          inputProps={{ style: { fontFamily: 'monospace', fontSize: 12 } }}
+        />
 
         {error && (
           <Alert severity="error" sx={{ mt: 2 }}>

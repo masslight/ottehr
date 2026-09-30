@@ -60,8 +60,7 @@ export type PracticeManagedQuestionnaireDTO = {
   title: string;
   status: Questionnaire['status'];
   url: string;
-  // questionnaires imported via raw json are read only in the admin portal
-  isJsonImport: boolean;
+  readOnly: boolean; // questionnaires imported via raw json are read only in the admin portal
 };
 
 export type StandaloneFormDTO = Omit<QAndQRResponse, 'questionnaireTitle'> & {
@@ -75,15 +74,16 @@ export type StandaloneFormDTO = Omit<QAndQRResponse, 'questionnaireTitle'> & {
 export type PracticeManagedQuestionnaireGetInput = {
   questionnaireId: string;
 };
+
 // json imported questionnaires are not edited with the questionnaire builder, so they are returned as raw fhir
 // (they may contain attributes the builder cannot process)
 export type PracticeManagedQuestionnaireGetOutput =
   | {
-      isJsonImport: false;
+      readOnly: false;
       practiceManagedQuestionnaire: PracticeManagedQuestionnaire;
     }
   | {
-      isJsonImport: true;
+      readOnly: true;
       questionnaire: Questionnaire;
     };
 
@@ -120,10 +120,9 @@ export type PracticeManagedQuestionnaireCreateOutput = {
 };
 
 // import a raw fhir questionnaire json
-// when questionnaireId is passed, the json is uploaded as a new version of that (json imported) questionnaire
 export type PracticeManagedQuestionnaireImportJsonInput = {
   questionnaire: Questionnaire;
-  questionnaireId?: string;
+  questionnaireId?: string; // when questionnaireId is passed, the json is validated against that specific questionnaire
 };
 export type PracticeManagedQuestionnaireImportJsonOutput = {
   questionnaireId: string;
