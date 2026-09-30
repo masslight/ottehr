@@ -57,7 +57,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const prompt = buildPrompt({
     narrative,
     providerEdits,
-    templateTitles: practiceTemplates?.map((template) => template.title),
+    templates: practiceTemplates,
     patientLine: visit?.patientLine,
     // The chart wins; the caller's status only fills in when there is no encounter to read.
     patientStatus: visit?.patientStatus ?? patientStatus,

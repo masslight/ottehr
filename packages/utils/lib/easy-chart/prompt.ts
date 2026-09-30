@@ -27,9 +27,9 @@ the FINAL version. This applies to diagnoses, exam findings, and medications ali
 const PLAN_ORDERING = `ORDERING — follow this canonical note order, and emit nothing for things the narrative does not
 mention:
 
-  1. apply-template — a SUGGESTION, listed first, when one of the AVAILABLE TEMPLATES matches this
-     visit's primary presentation. Nothing in this plan applies it: the provider applies a template by
-     hand, later, at their discretion. So NOTHING a template would bring — its default exam normals, its
+  1. apply-template — a SUGGESTION, listed first, when one of the AVAILABLE TEMPLATES, judged by the
+     diagnoses listed with it, fits this visit's presentation. Nothing in this plan applies it: the
+     provider applies a template by hand, later, at their discretion. So NOTHING a template would bring — its default exam normals, its
      diagnosis, its MDM scaffolding, its instructions — is on the chart, and the rest of this plan must
      chart the visit COMPLETELY on its own. Never omit anything because a template "would carry it".
   2. Patient history — add-allergy, add-condition, add-medication, add-surgical-history,
@@ -115,8 +115,8 @@ export interface PromptTailInput {
   narrative: string;
   /** The provider's corrections to the generated narrative; rendered only when the two texts differ. */
   providerEdits?: { draft: string; edited: string };
-  /** Practice template titles the planner may suggest one of. */
-  templateTitles?: string[];
+  /** The practice's templates the planner may suggest one of, each with the diagnoses it charts. */
+  templates?: PromptTemplate[];
   /** Age and sex read from the chart, never inferred from the narrative. */
   patientLine?: string;
   /** Decides the E&M code family; unknown falls back to the established family. */
@@ -129,15 +129,32 @@ const CHART_RESULTS_NOTE = `Resulted tests ("… lab resulted: …") and radiolo
 of THIS visit. Use them for the ASSESSMENT (diagnoses) and the MEDICAL DECISION MAKING. Do NOT derive
 orders, medications or patient instructions from them — those come only from what the provider said.`;
 
+export interface PromptTemplate {
+  title: string;
+  /** ICD-10 code and name, primary first. */
+  diagnoses: { code: string; display: string }[];
+}
+
+/** Enough of a template to judge the fit; the whole template is far too long for the prompt. */
+const MAX_TEMPLATE_DIAGNOSES = 3;
+
+const templateLine = (template: PromptTemplate): string => {
+  const diagnoses = template.diagnoses
+    .slice(0, MAX_TEMPLATE_DIAGNOSES)
+    .map((dx) => `${dx.display} (${dx.code})`)
+    .join('; ');
+  return `- ${template.title} — diagnoses: ${diagnoses || 'none listed'}`;
+};
+
 /** Everything that varies per call, appended after the static instructions. */
 function buildVariableTail(input: PromptTailInput): string {
   const parts: string[] = [];
 
-  const titles = input.templateTitles ?? [];
+  const templates = input.templates ?? [];
   parts.push(
-    titles.length
-      ? `AVAILABLE TEMPLATES in this practice (exact titles — name one in apply-template to SUGGEST it; nothing here applies it; do NOT invent template names):\n${titles
-          .map((t) => `- ${t}`)
+    templates.length
+      ? `AVAILABLE TEMPLATES in this practice (exact title, then the diagnoses the template charts — name the title alone in apply-template to SUGGEST it; nothing here applies it; do NOT invent template names):\n${templates
+          .map(templateLine)
           .join('\n')}`
       : 'AVAILABLE TEMPLATES in this practice: none. Do NOT emit apply-template.'
   );

@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { List, Resource } from 'fhir/r4b';
+import { Condition, Encounter, List, Resource } from 'fhir/r4b';
 import { collectKnownExamFields } from 'utils/lib/config-helpers/exam-observations';
 import { chunkThings } from 'utils/lib/fhir/chat';
 import { chartDataTagSystem, GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM } from 'utils/lib/fhir/constants';
@@ -9,6 +9,7 @@ import { collectKnownRosFields } from 'utils/lib/ottehr-config/review-of-systems
 import {
   ListTemplatesZambdaInput,
   ListTemplatesZambdaOutput,
+  TemplateDiagnosis,
   TemplateInfo,
   TemplateVersionData,
 } from 'utils/lib/types/data/list-template.types';
@@ -16,7 +17,7 @@ import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
-import { analyzeTemplateVersionData, findHolderList } from '../shared/template-helpers';
+import { analyzeTemplateVersionData, findHolderList, isDiagnosisCondition } from '../shared/template-helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
@@ -42,7 +43,7 @@ export const performEffect = async (
   validatedInput: ListTemplatesZambdaInput,
   oystehr: Oystehr
 ): Promise<ListTemplatesZambdaOutput> => {
-  const { includeVersionData } = validatedInput;
+  const { includeVersionData, includeDiagnoses } = validatedInput;
 
   // Find the holder list
   const holderList = await findHolderList(oystehr);
@@ -135,6 +136,7 @@ export const performEffect = async (
         title: template.title ?? '',
         examVersion,
         versionData,
+        ...(includeDiagnoses ? { diagnoses: templateDiagnoses(template) } : {}),
       };
     })
     .filter((info) => info.title !== '');
@@ -143,3 +145,24 @@ export const performEffect = async (
 
   return { templates: templateInfos };
 };
+
+/** The diagnoses a template charts, ordered by the rank the template was saved with (primary first). */
+function templateDiagnoses(template: List): TemplateDiagnosis[] {
+  const contained = (template.contained ?? []) as Resource[];
+  const encounter = contained.find((resource): resource is Encounter => resource.resourceType === 'Encounter');
+  const rankById = new Map(
+    (encounter?.diagnosis ?? []).map((diagnosis) => [
+      diagnosis.condition.reference?.split('/').pop()?.replace('#', ''),
+      diagnosis.rank ?? Number.MAX_SAFE_INTEGER,
+    ])
+  );
+  const rank = (id: string | undefined): number => rankById.get(id) ?? Number.MAX_SAFE_INTEGER;
+  return contained
+    .filter((resource): resource is Condition => isDiagnosisCondition(resource))
+    .flatMap((condition) => {
+      const coding = condition.code?.coding?.find((candidate) => candidate.code && candidate.display);
+      return coding?.code && coding.display ? [{ id: condition.id, code: coding.code, display: coding.display }] : [];
+    })
+    .sort((a, b) => rank(a.id) - rank(b.id))
+    .map(({ code, display }) => ({ code, display }));
+}

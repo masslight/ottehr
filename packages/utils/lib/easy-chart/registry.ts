@@ -95,7 +95,7 @@ export const CAPABILITIES = {
   'apply-template': {
     shape: z.object({
       display: field.display(
-        'The template title, as listed under AVAILABLE TEMPLATES. A suggestion — the provider applies it.'
+        'The template title exactly as listed under AVAILABLE TEMPLATES, without its diagnoses. A suggestion — the provider applies it.'
       ),
       searchTerms: field.searchTerms('Alternate words from the title, for a fuzzy match.'),
     }),
@@ -106,6 +106,12 @@ export const CAPABILITIES = {
   SUGGEST A TEMPLATE ONLY ON A STRONG, SPECIFIC MATCH — one that clearly corresponds to THIS visit's
   primary diagnosis or presentation. A mismatched template pollutes the note with the wrong exam and
   MDM scaffolding, so it is better to have NO template than the wrong one; when in doubt, omit it.
+  USE THE TEMPLATE'S DIAGNOSES TO JUDGE THE FIT, not just its title: each template is listed with the
+  diagnoses it charts. Suggest the template whose diagnoses fit what THIS visit is about — the
+  presentation and the provider's assessment — better than any other listed template, minding the side
+  where a code carries one (a left-ear template for a left-ear problem). Titles are named by each practice
+  and can be vague or misleading; the diagnoses show what the template actually contains. A template
+  listed with no diagnoses can be suggested by its title only when the title is unambiguous.
   Concrete do-NOTs: "Asthma" for a COPD exacerbation, "Bug Bite" for a cutaneous abscess,
   "Sprain/strain" for a FRACTURE, a generic procedure template for a specific laceration.
   Match by the DIAGNOSIS/condition, NOT by whether an x-ray or procedure happened: a template titled

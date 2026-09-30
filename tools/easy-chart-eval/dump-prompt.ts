@@ -20,7 +20,15 @@ const SYNTHETIC: PromptTailInput = {
     'tender nodes in the neck. Lungs are clear. I am going to run a rapid strep. That is positive, so ' +
     'this is strep throat. I will send amoxicillin 500 milligrams twice a day for ten days, and you ' +
     'can take ibuprofen for the pain. Follow up in a week if it is not better.',
-  templateTitles: ['Pharyngitis', 'Sinusitis', 'Otitis Media', 'Urinary Tract Infection'],
+  templates: [
+    { title: 'Pharyngitis', diagnoses: [{ code: 'J02.9', display: 'Acute pharyngitis, unspecified' }] },
+    { title: 'Sinusitis', diagnoses: [{ code: 'J01.90', display: 'Acute sinusitis, unspecified' }] },
+    { title: 'Otitis Media', diagnoses: [{ code: 'H66.90', display: 'Otitis media, unspecified, unspecified ear' }] },
+    {
+      title: 'Urinary Tract Infection',
+      diagnoses: [{ code: 'N39.0', display: 'Urinary tract infection, site not specified' }],
+    },
+  ],
 
   patientLine: 'Age: 24 years, Sex: female',
   patientStatus: 'new',

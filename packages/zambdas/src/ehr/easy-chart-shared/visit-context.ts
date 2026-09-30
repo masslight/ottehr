@@ -6,6 +6,7 @@ import { PatientStatus } from 'utils/lib/easy-chart/api';
 import { wholeChartFromVisitNote } from 'utils/lib/easy-chart/visit-note-chart';
 import { getEmCodes } from 'utils/lib/helpers/em-codes';
 import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
+import { TemplateDiagnosis } from 'utils/lib/types/data/list-template.types';
 import { buildVisitNote } from '../../shared/chart-sections/visit-note';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { performEffect as listTemplates } from '../list-templates';
@@ -117,6 +118,8 @@ export async function readEmCodes(oystehr: ClinicalOystehrClient, zambdaName: st
 export interface PracticeTemplate {
   id: string;
   title: string;
+  /** Primary first. */
+  diagnoses: TemplateDiagnosis[];
 }
 
 /** The practice's templates. Undefined when the list is empty or could not be read: a degraded prompt, not a failure. */
@@ -125,13 +128,13 @@ export async function readTemplates(
   zambdaName: string
 ): Promise<PracticeTemplate[] | undefined> {
   try {
-    const { templates } = await listTemplates({ includeVersionData: false }, oystehr);
+    const { templates } = await listTemplates({ includeVersionData: false, includeDiagnoses: true }, oystehr);
     const usable = templates
       .filter(
         (template): template is typeof template & { id: string; title: string } =>
           !!template.id && !!template.title?.trim()
       )
-      .map((template) => ({ id: template.id, title: template.title }));
+      .map((template) => ({ id: template.id, title: template.title, diagnoses: template.diagnoses ?? [] }));
     return usable.length > 0 ? usable : undefined;
   } catch {
     console.log(`[${zambdaName}] could not list templates; apply-template will be unavailable this call`);
