@@ -21,6 +21,7 @@ const FEATURE_FLAGS_DATA: FeatureFlagsConfig = {
   // and land at undefined (falsy → FHIR categories suppressed) — customers
   // opt in explicitly by setting `dynamicServiceCategoriesEnabled: true`.
   dynamicServiceCategoriesEnabled: true,
+  employeeChatEnabled: true,
   // OFF until an environment puts Ottehr billing in its claims path. Flag-on requires
   // BILLING_INTEGRATION 'ottehr' or 'all' — with 'all', Candid runs alongside for claim
   // comparison, but employers come only from the billing app (Candid claims go out without a
