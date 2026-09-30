@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Group, Practitioner } from 'fhir/r4b';
+import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { EmployeeChatSummary, GetEmployeeChatsResponse } from 'utils/lib/types/api/employee-chat.types';
 import { MISCONFIGURED_ENVIRONMENT_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
@@ -53,17 +54,17 @@ export async function getConversationToken(oystehr: Oystehr): Promise<{ token: s
 }
 
 export async function listEmployeeChats(oystehr: Oystehr, myProfile: string): Promise<EmployeeChatSummary[]> {
-  const resources = (
-    await oystehr.fhir.search<Group | Practitioner>({
+  const resources = await getAllFhirSearchPages<Group | Practitioner>(
+    {
       resourceType: 'Group',
       params: [
         { name: 'code', value: EMPLOYEE_CHAT_CODE_QUERY },
         { name: 'member', value: myProfile },
         { name: '_include', value: 'Group:member' },
-        { name: '_count', value: '1000' },
       ],
-    })
-  ).unbundle();
+    },
+    oystehr
+  );
 
   const practitionersByProfile = new Map<string, Practitioner>();
   resources

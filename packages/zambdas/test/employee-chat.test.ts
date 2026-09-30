@@ -252,6 +252,8 @@ interface FakeFailures {
   groupGet?: Error;
   encounterFinish?: Error;
   denied?: Set<ConversationAction>;
+  serverPageCap?: number;
+  maxSearchPageSize?: number;
 }
 
 function createFakeOystehr(): {
@@ -263,9 +265,11 @@ function createFakeOystehr(): {
   participantsAdded: () => string[][];
   participantsRemoved: () => { conversationId: string; participantReference: string }[];
   removalAttempts: () => { conversationId: string; participantReference: string }[];
+  searches: () => { offset: number; pageSize: number | undefined }[];
   failures: FakeFailures;
 } {
   const store = new Map<string, FhirResource>();
+  const searches: { offset: number; pageSize: number | undefined }[] = [];
   let nextId = 0;
   let conversations = 0;
   const participants: string[][] = [];
@@ -296,20 +300,39 @@ function createFakeOystehr(): {
       const param = (name: string): string | undefined => params.find((candidate) => candidate.name === name)?.value;
       const identifier = param('identifier');
       const member = param('member');
+      const requested = param('_count') === undefined ? undefined : Number(param('_count'));
+      const offset = Number(param('_offset') ?? '0');
+      if (
+        requested !== undefined &&
+        failures.maxSearchPageSize !== undefined &&
+        requested > failures.maxSearchPageSize
+      ) {
+        throw Object.assign(new Error('Response size exceeds the maximum allowed size'), { code: 4130 });
+      }
+      const pageSize = Math.min(requested ?? Infinity, failures.serverPageCap ?? Infinity);
+      searches.push({ offset, pageSize: requested });
       const matches = ([...store.values()] as Group[]).filter(
         (candidate) =>
           candidate.resourceType === resourceType &&
           (!identifier || candidate.identifier?.some((id) => `${id.system}|${id.value}` === identifier)) &&
           (!member || candidate.member?.some((entry) => entry.entity.reference === member))
       );
+      const page = matches.slice(offset, offset + pageSize);
       const included =
         param('_include') === 'Group:member'
           ? [
-              ...new Set(matches.flatMap((group) => group.member?.map((entry) => entry.entity.reference ?? '') ?? [])),
+              ...new Set(page.flatMap((group) => group.member?.map((entry) => entry.entity.reference ?? '') ?? [])),
             ].flatMap((reference) => (store.has(reference) ? [store.get(reference)!] : []))
           : [];
-      const results = structuredClone([...matches, ...included]);
-      return { unbundle: () => results };
+      const entry = structuredClone([
+        ...page.map((resource) => ({ resource, search: { mode: 'match' } })),
+        ...included.map((resource) => ({ resource, search: { mode: 'include' } })),
+      ]);
+      return {
+        entry,
+        total: param('_total') === 'accurate' ? matches.length : undefined,
+        unbundle: () => entry.map((item) => item.resource),
+      };
     },
     update: async (resource: FhirResource, options?: { optimisticLockingVersionId?: string }) => {
       await tick();
@@ -381,6 +404,7 @@ function createFakeOystehr(): {
     participantsAdded: () => participants,
     participantsRemoved: () => removed,
     removalAttempts: () => removalAttempts,
+    searches: () => searches,
     failures,
   };
 }
@@ -867,6 +891,35 @@ describe('resolveEmployeeChat with duplicate pair Groups', () => {
     const listed = await listEmployeeChats(fake.oystehr, BOB);
 
     expect(listed.map((chat) => [chat.conversationSid, chat.otherEmployee.profile])).toEqual([['CHB', ALICE]]);
+  });
+});
+
+describe('listEmployeeChats paging', () => {
+  const seedChats = (fake: ReturnType<typeof createFakeOystehr>, count: number): string[] =>
+    Array.from({ length: count }, (_unused, i) => {
+      const id = `${i}${i}${i}${i}${i}${i}${i}${i}-0000-0000-0000-000000000000`;
+      const profile = `Practitioner/${id}`;
+      fake.seed({ resourceType: 'Practitioner', id, name: [{ given: [`Emp${i}`], family: 'Paged' }] });
+      fake.seed(withConversation({ ...buildPairGroup(ALICE, profile), id: `group-${i}` }, `CH${i}`, `enc-${i}`));
+      return profile;
+    });
+
+  it.each([
+    ['the server returns fewer matches per page than requested', { serverPageCap: 2 }],
+    ['a page exceeds the response size limit', { maxSearchPageSize: 2 }],
+  ])('lists every chat with its employee name when %s', async (_case, failures) => {
+    const fake = createFakeOystehr();
+    const profiles = seedChats(fake, 5);
+    Object.assign(fake.failures, failures);
+
+    const chats = await listEmployeeChats(fake.oystehr, ALICE);
+
+    expect(chats.map((chat) => chat.conversationSid).sort()).toEqual(['CH0', 'CH1', 'CH2', 'CH3', 'CH4']);
+    expect(chats.map((chat) => chat.otherEmployee.profile).sort()).toEqual([...profiles].sort());
+    expect(chats.map((chat) => chat.otherEmployee.name).sort()).toEqual(
+      ['Emp0 Paged', 'Emp1 Paged', 'Emp2 Paged', 'Emp3 Paged', 'Emp4 Paged'].sort()
+    );
+    expect(fake.searches().length).toBeGreaterThan(1);
   });
 });
 
