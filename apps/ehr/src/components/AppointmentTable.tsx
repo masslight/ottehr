@@ -20,6 +20,7 @@ import {
 } from 'utils/lib/types/api/chart-data/get-vitals.types';
 import { InPersonAppointmentInformation } from 'utils/lib/types/data/appointments/appointments.types';
 import { OrdersForTrackingBoardRow, OrdersForTrackingBoardTable } from 'utils/lib/types/data/orders/types';
+import { TRACKING_BOARD_TABLE_WIDTH_MIN } from '../constants';
 import { dataTestIds } from '../constants/data-test-ids';
 import { useGetEmployees } from '../features/visits/shared/hooks/useGetEmployees';
 import { AppointmentsStatusChipsCount } from './AppointmentStatusChipsCount';
@@ -105,7 +106,7 @@ export default function AppointmentTable({
       <AppointmentsStatusChipsCount appointments={appointments} />
       <Paper>
         <TableContainer sx={{ overflow: 'auto' }} data-testid={dataTestIds.dashboard.appointmentsTable(tab)}>
-          <Table style={{ tableLayout: 'auto', width: '100%', maxWidth: '100%' }}>
+          <Table sx={{ tableLayout: 'auto', width: '100%', minWidth: TRACKING_BOARD_TABLE_WIDTH_MIN }}>
             <AppointmentTableHeader tab={tab} table="waiting-room" />
             <TableBody>
               {tab === ApptTab['in-office'] ? (
@@ -186,7 +187,7 @@ export default function AppointmentTable({
       {tab === ApptTab['in-office'] && (
         <Paper sx={{ marginTop: '16px' }}>
           <TableContainer sx={{ overflow: 'auto' }}>
-            <Table style={{ tableLayout: 'auto', width: '100%', maxWidth: '100%' }}>
+            <Table sx={{ tableLayout: 'auto', width: '100%', minWidth: TRACKING_BOARD_TABLE_WIDTH_MIN }}>
               <AppointmentTableHeader tab={tab} table="in-exam" />
               <TableBody>
                 <TableRow>

@@ -46,9 +46,11 @@ export const PROVIDER_WIDTH_MIN = '140px';
 export const INTAKE_AND_PROVIDER_WIDTH_MIN = '200px';
 export const VISIT_ICONS_WIDTH_MIN = '160px';
 export const VITALS_ICON_WIDTH_MIN = '90px';
-export const NOTES_WIDTH_MIN = '220px';
+export const NOTES_WIDTH = '220px';
+export const NOTES_WIDTH_MIN = '140px';
 export const CHAT_WIDTH_MIN = '80px';
 export const ACTION_WIDTH_MIN = '170px';
+export const TRACKING_BOARD_TABLE_WIDTH_MIN = '1400px';
 
 // Constants for default page sizes. Could also consider adding constants for the page size options
 export const LOCATION_ROWS_PER_PAGE = 25;
