@@ -77,6 +77,7 @@ import {
   DownloadClaimAttachmentResponse,
   EraDetailResponse,
   ExportClaimX12Response,
+  GetBillingAgingReceivablesReportResponse,
   GetBillingCardsOnFileReportResponse,
   GetBillingCoverageResponse,
   GetBillingInvoiceReportResponse,
@@ -531,6 +532,13 @@ export const getBillingNetCollectionsReport = (
   refresh?: boolean
 ): Promise<GetBillingNetCollectionsReportResponse> =>
   getBillingReport(oystehr, 'net-collections', params as Record<string, unknown>, refresh);
+
+export const getBillingAgingReceivablesReport = (
+  oystehr: Oystehr,
+  _params?: undefined,
+  refresh?: boolean
+): Promise<GetBillingAgingReceivablesReportResponse> =>
+  getBillingReport(oystehr, 'aging-receivables', undefined, refresh);
 
 // this kind's cached runs, newest first
 export const getBillingReportHistory = (

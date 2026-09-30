@@ -3,6 +3,7 @@ import {
   ChevronRight as ChevronRightIcon,
   CreditCard as CreditCardIcon,
   Groups as GroupsIcon,
+  HourglassBottom as HourglassBottomIcon,
   Paid as PaidIcon,
   Percent as PercentIcon,
   ReceiptLong as ReceiptLongIcon,
@@ -302,6 +303,54 @@ export default function Reports(): ReactElement {
           </Stack>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25 }}>
             Claim actions by user: creates, updates, status changes, submits, and notes from the claim change history.
+          </Typography>
+        </Box>
+        <ChevronRightIcon sx={{ color: 'action.disabled' }} />
+      </Box>
+
+      <Box
+        component={ButtonBase}
+        focusRipple
+        onClick={() => navigate('/reports/aging-receivables')}
+        sx={{
+          width: '100%',
+          textAlign: 'left',
+          bgcolor: 'background.paper',
+          border: `1px solid ${otherColors.lightDivider}`,
+          borderRadius: 2,
+          px: 3,
+          py: 2.5,
+          mb: 3,
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 2,
+          '&:hover': { bgcolor: otherColors.apptHover },
+        }}
+      >
+        <Box
+          sx={{
+            width: 44,
+            height: 44,
+            borderRadius: 2,
+            bgcolor: 'primary.dark',
+            display: 'grid',
+            placeItems: 'center',
+            color: 'primary.contrastText',
+            flexShrink: 0,
+          }}
+        >
+          <HourglassBottomIcon />
+        </Box>
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Stack direction="row" spacing={1} alignItems="center">
+            <Typography variant="h6" color="primary.dark" fontWeight={600}>
+              Aging Receivables Report
+            </Typography>
+          </Stack>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25 }}>
+            Outstanding AR: claims submitted to insurance awaiting an ERA, per payer, and patient invoices sent but
+            unpaid.
           </Typography>
         </Box>
         <ChevronRightIcon sx={{ color: 'action.disabled' }} />
