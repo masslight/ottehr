@@ -48,7 +48,7 @@ async function getQuestionnaire(
 
   // json imported questionnaires are read only and may contain attributes the builder cannot process
   if (isJsonImportedQ(questionnaire)) {
-    return { isJsonImport: true, questionnaire };
+    return { readOnly: true, questionnaire };
   }
 
   let practiceManagedQuestionnaire: PracticeManagedQuestionnaire | undefined;
@@ -59,7 +59,7 @@ async function getQuestionnaire(
   }
 
   const res: PracticeManagedQuestionnaireGetOutput = {
-    isJsonImport: false,
+    readOnly: false,
     practiceManagedQuestionnaire,
   };
 

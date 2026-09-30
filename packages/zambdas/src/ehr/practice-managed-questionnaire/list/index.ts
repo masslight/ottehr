@@ -65,7 +65,7 @@ async function makeListResponse(oystehr: Oystehr): Promise<PracticeManagedQuesti
       title: questionnaire.title ?? '',
       status: questionnaire.status,
       url: questionnaire.url ?? '',
-      isJsonImport: isJsonImportedQ(questionnaire),
+      readOnly: isJsonImportedQ(questionnaire),
     };
 
     return dto;

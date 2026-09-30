@@ -511,7 +511,7 @@ export const PRACTICE_MANAGED_QUESTIONNAIRE_TAG = {
 };
 
 // applied (alongside the practice-managed tag) to questionnaires uploaded as raw FHIR JSON.
-// these are read only in the admin portal: they can only be replaced by uploading a new version
+// these are read only in the admin portal: they can only be updated by uploading a new version
 export const JSON_IMPORT_QUESTIONNAIRE_TAG = {
   system: ottehrCodeSystemUrl('questionnaire-type'),
   code: 'json-import',
