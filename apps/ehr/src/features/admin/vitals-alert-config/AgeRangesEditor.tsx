@@ -1,18 +1,18 @@
 import AddIcon from '@mui/icons-material/Add';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import { Box, Button, IconButton, MenuItem, Stack, TextField, Tooltip, Typography } from '@mui/material';
+import { AgeUnitSchema as VitalsAgeUnitSchema } from 'config-types/config/vitals';
 import { ReactElement } from 'react';
 import { Control, Controller } from 'react-hook-form';
 import { ConfirmationDialog } from 'src/components/ConfirmationDialog';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { VitalsAgeUnitSchema } from 'utils/lib/config-helpers/vitals';
 import {
   MAX_VITAL_ALERT_AGE_RANGES,
   VitalAlertAgeRange,
-  VitalsAlertConfig,
 } from 'utils/lib/types/api/vitals-alert-config/vitals-alert-config.types';
 import { formatVitalAlertAgeRange } from 'utils/lib/utils/vitals-alert-config';
 import { parseNumberInput } from './helpers';
+import { VitalsAlertConfigFormValues } from './vitalsAlertConfigFormValues';
 
 const AGE_UNITS = VitalsAgeUnitSchema.options;
 
@@ -44,7 +44,7 @@ const AgeRangeRemovalDescription = ({
 };
 
 interface AgeRangesEditorProps {
-  control: Control<VitalsAlertConfig>;
+  control: Control<VitalsAlertConfigFormValues>;
   ageRanges: VitalAlertAgeRange[];
   rowKeys: string[];
   onAdd: () => void;

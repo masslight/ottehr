@@ -17,7 +17,8 @@ import { isErxPermissionDeniedError } from 'src/features/visits/shared/utils/erx
 import { useGetErxConfigQuery } from 'src/features/visits/telemed/hooks/useGetErxConfig';
 import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser from 'src/hooks/useEvolveUser';
-import { useErrorQuery, useSuccessQuery } from 'utils/lib/frontend';
+import { useErrorQuery } from 'utils/lib/frontend/hooks/useErrorQuery';
+import { useSuccessQuery } from 'utils/lib/frontend/hooks/useSuccessQuery';
 import { CODE_SYSTEM_NDC } from 'utils/lib/helpers/rcm/constants';
 import { AISuggestionNotesInput } from 'utils/lib/types/api/ai-suggestions-notes';
 import { BillingSuggestionInput, CommunicationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';

@@ -9,7 +9,7 @@ import {
   SECONDARY_SUBMISSION_TAG_NAME,
 } from 'utils/lib/types/data/billing/system-tags';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { CLAIM_PAYER_CLAIM_CONTROL_CODE_IDENTIFIER_SYSTEM, ERA_ICN_EXTENSION } from '../../../src/billing/shared';
+import { CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM, ERA_ICN_EXTENSION } from '../../../src/billing/shared';
 import {
   ComplexValidationOutput,
   performEffect,
@@ -289,6 +289,6 @@ describe('sub-claim-response-update-claim-from-era performEffect', () => {
       })
     );
     const identifiers = writtenIdentifiers();
-    expect(identifiers).toEqual([{ system: CLAIM_PAYER_CLAIM_CONTROL_CODE_IDENTIFIER_SYSTEM, value: 'PCCN-12345' }]);
+    expect(identifiers).toEqual([{ system: CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM, value: 'PCCN-12345' }]);
   });
 });

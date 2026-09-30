@@ -1,34 +1,5 @@
 vi.mock('src/hooks/useAppClients', () => ({ useApiClients: () => ({ oystehr: undefined }) }));
 vi.mock('@tanstack/react-query', () => ({ useQuery: () => ({ data: undefined }) }));
-const { procedureCodingModel } = vi.hoisted(() => ({
-  procedureCodingModel: import('utils/lib/procedure-coding/model.types'),
-}));
-
-vi.mock('utils', async () => {
-  const model = await procedureCodingModel;
-  const format = await import('utils/lib/procedure-coding/format');
-  return {
-    ...model,
-    ...format,
-    MAX_PLAUSIBLE_LENGTH_CM: 100,
-    isPlausibleLengthCm: (value: number | undefined) =>
-      value !== undefined && Number.isFinite(value) && value > 0 && value <= 100,
-    extractInfusionDuration: (input: { infusionStartTime?: string; infusionStopTime?: string }) => {
-      const startMinutes = format.parseClockTime(input.infusionStartTime);
-      const stopMinutes = format.parseClockTime(input.infusionStopTime);
-      if (startMinutes === undefined || stopMinutes === undefined) return undefined;
-      const duration = format.clockSpan(startMinutes, stopMinutes);
-      return {
-        startMinutes,
-        stopMinutes,
-        ...duration,
-        implausible: duration.durationMinutes > 12 * 60,
-        evidence: { source: model.EvidenceSource.Field, field: 'Infusion start / stop times' },
-      };
-    },
-  };
-});
-
 vi.mock('@mui/x-date-pickers/AdapterLuxon', () => ({ AdapterLuxon: class AdapterLuxon {} }));
 
 vi.mock('@mui/x-date-pickers-pro', () => ({

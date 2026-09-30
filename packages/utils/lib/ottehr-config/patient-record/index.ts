@@ -1,9 +1,5 @@
-import {
-  type FormFieldTrigger,
-  type PatientRecordConfig,
-  type PatientRecordFormFields,
-  type QuestionnaireBase,
-} from 'config-types';
+import type { PatientRecordConfig, PatientRecordFormFields } from 'config-types/config/patient-record';
+import type { FormFieldTrigger, QuestionnaireBase } from 'config-types/config/questionnaire';
 import { Questionnaire } from 'fhir/r4b';
 import { createQuestionnaireFromConfig } from '../../config-helpers/shared-questionnaire';
 import { VALUE_SETS as formValueSets } from '../value-sets';
