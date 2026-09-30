@@ -434,11 +434,13 @@ describe('employee chat utils', () => {
 
   it('detects when unread messages may start above the loaded window', () => {
     const loaded = [{ index: 50 }, { index: 51 }];
-    expect(unreadStartsAboveLoaded(loaded, true, 49)).toBe(true);
+    expect(unreadStartsAboveLoaded(loaded, true, 48)).toBe(true);
+    expect(unreadStartsAboveLoaded(loaded, true, 49)).toBe(false);
     expect(unreadStartsAboveLoaded(loaded, true, undefined)).toBe(true);
     expect(unreadStartsAboveLoaded(loaded, true, 50)).toBe(false);
     expect(unreadStartsAboveLoaded(loaded, false, 10)).toBe(false);
     expect(unreadStartsAboveLoaded([], true, undefined)).toBe(false);
+    expect(unreadStartsAboveLoaded([{ index: 0 }, { index: 1 }], true, undefined)).toBe(false);
   });
 
   it('finds the last message whose bottom edge is inside the viewport', () => {
@@ -924,6 +926,35 @@ describe('employee chat flows', () => {
     expect(loadEarlierButton()).not.toBeNull();
     expect(messageAfterDivider()).toBe('31');
     expect(unreadAboveMarker()).toBeNull();
+  });
+
+  it('does not preload an older page when the first unread message is the oldest one loaded', async () => {
+    mockScrollLayout();
+    mockAttention(() => true);
+    await connectBobWithHistory(100, 49);
+    await open('CH-bob');
+
+    expect(loadedIndexes()[0]).toBe(50);
+    expect(loadedIndexes()).toHaveLength(50);
+    expect(loadEarlierButton()).not.toBeNull();
+    expect(messageAfterDivider()).toBe('50');
+    expect(unreadAboveMarker()).toBeNull();
+  });
+
+  it(`shows the divider instead of the further-up marker when the first unread message lands exactly at the ${UNREAD_PRELOAD_CAP} cap`, async () => {
+    mockScrollLayout();
+    mockAttention(() => true);
+    const bob = await connectBobWithHistory(UNREAD_PRELOAD_CAP + 60, 59);
+    await open('CH-bob');
+
+    expect(loadedIndexes()).toHaveLength(UNREAD_PRELOAD_CAP);
+    expect(loadedIndexes()[0]).toBe(60);
+    expect(unreadAboveMarker()).toBeNull();
+    expect(messageAfterDivider()).toBe('60');
+
+    scrollToBottom();
+    await advance(SEEN_DWELL_MS);
+    expect(bob.lastReadMessageIndex).toBe(UNREAD_PRELOAD_CAP + 59);
   });
 
   it(`stops preloading at ${UNREAD_PRELOAD_CAP} messages and marks that new messages start further up`, async () => {

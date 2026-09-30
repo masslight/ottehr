@@ -55,7 +55,7 @@ export function unreadStartsAboveLoaded(
   hasOlderMessages: boolean,
   horizon: number | undefined
 ): boolean {
-  return hasOlderMessages && messages.length > 0 && messages[0].index > (horizon ?? -1);
+  return hasOlderMessages && messages.length > 0 && messages[0].index > (horizon ?? -1) + 1;
 }
 
 export function lastSeenMessageIndex(
