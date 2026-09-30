@@ -7,6 +7,7 @@ import {
   EpisodeOfCare,
   Location,
   MedicationStatement,
+  Organization,
   Patient,
   Practitioner,
   Procedure,
@@ -26,7 +27,15 @@ import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
 import { AdHocPatientRow, AdHocPatientsInput } from 'utils/lib/types/adhoc/datasets/patients';
 import { PATIENT_POINT_OF_DISCOVERY_URL } from 'utils/lib/types/constants';
 import { getInPersonVisitStatus } from 'utils/lib/utils/visitUtils';
-import { fetchAppointmentReportResources, REPORT_ATTENDED_APPOINTMENT_STATUSES } from '../adhoc-report';
+import { PATIENT_CONTAINED_PHARMACY_ID } from '../../ehr/shared/harvest';
+import {
+  fetchAppointmentReportResources,
+  fetchScopedResources,
+  REPORT_ATTENDED_APPOINTMENT_STATUSES,
+} from '../adhoc-report';
+import { composePatientDetailsData } from '../pdf/sections/patientDetails';
+import { composePharmacyData } from '../pdf/sections/pharmacyInfo';
+import { composePrimaryCarePhysicianData } from '../pdf/sections/primaryCarePhysician';
 
 const hasTag = (resource: { meta?: { tag?: { code?: string }[] } }, code: string): boolean =>
   Boolean(resource.meta?.tag?.some((t) => t.code === code));
@@ -56,6 +65,8 @@ export async function fetchAdHocPatientRows(oystehr: Oystehr, params: AdHocPatie
     includeMedications,
     includeSurgicalHistory,
     includeHospitalizations,
+    includeVisitHistory,
+    includeDemographics,
   } = params;
 
   type ReportResource =
@@ -219,6 +230,30 @@ export async function fetchAdHocPatientRows(oystehr: Oystehr, params: AdHocPatie
     if (serviceCategory) agg.serviceCategories.add(serviceCategory);
   }
 
+  // The Recent Patients report's new-vs-existing check: any Appointment of the patient before the range
+  // start, whatever its status or type, makes the patient existing.
+  const lastAppointmentBeforeRange = new Map<string, string>();
+  if (includeVisitHistory && aggByPatient.size) {
+    const priorAppointments = await fetchScopedResources<Appointment>(
+      oystehr,
+      'Appointment',
+      'patient',
+      Array.from(aggByPatient.keys()),
+      [
+        { name: 'date', value: `lt${dateRange.start}` },
+        { name: '_elements', value: 'id,start,participant' },
+      ]
+    );
+
+    for (const prior of priorAppointments) {
+      const patientRef = prior.participant?.find((p) => p.actor?.reference?.startsWith('Patient/'))?.actor?.reference;
+      if (!patientRef) continue;
+      const latest = lastAppointmentBeforeRange.get(patientRef);
+      const start = prior.start ?? '';
+      if (latest === undefined || start > latest) lastAppointmentBeforeRange.set(patientRef, start);
+    }
+  }
+
   const rows: AdHocPatientRow[] = [];
   for (const agg of aggByPatient.values()) {
     const patient = agg.patient;
@@ -297,6 +332,44 @@ export async function fetchAdHocPatientRows(oystehr: Oystehr, params: AdHocPatie
         .filter(Boolean);
       row.hospitalizations = uniq(hosps);
       row.hospitalizationCount = row.hospitalizations.length;
+    }
+
+    if (includeVisitHistory) {
+      const lastBefore = lastAppointmentBeforeRange.get(patientRef);
+      row.patientStatus = lastBefore === undefined ? 'new' : 'existing';
+      row.lastAppointmentBeforeRange = lastBefore || null;
+    }
+
+    if (includeDemographics) {
+      // The visit details face sheet's composers, fed the way visit-details-to-pdf feeds them: the PCP is the
+      // active contained Practitioner and the pharmacy the contained Organization with the pharmacy id.
+      const details = composePatientDetailsData({ patient });
+
+      const pcp = composePrimaryCarePhysicianData({
+        physician: patient.contained?.find(
+          (resource): resource is Practitioner => resource.resourceType === 'Practitioner' && resource.active === true
+        ),
+      });
+
+      const pharmacy = composePharmacyData(
+        patient.contained?.find(
+          (resource): resource is Organization =>
+            resource.resourceType === 'Organization' && resource.id === PATIENT_CONTAINED_PHARMACY_ID
+        )
+      );
+
+      row.preferredLanguage = details.preferredLanguage;
+      row.race = details.patientsRace;
+      row.ethnicity = details.patientsEthnicity;
+      row.sexualOrientation = details.patientSexualOrientation;
+      row.genderIdentity = details.patientGenderIdentity;
+      row.marketingOptIn = details.patientSendMarketing;
+      row.commonWellConsent = details.patientCommonWellConsent;
+      row.hasPcp = pcp.hasPcp;
+      row.pcpName = pcp.pcpName;
+      row.pcpPracticeName = pcp.pcpPracticeName;
+      row.preferredPharmacy = pharmacy.name;
+      row.deceased = patient.deceasedBoolean === true || Boolean(patient.deceasedDateTime);
     }
 
     rows.push(row);
