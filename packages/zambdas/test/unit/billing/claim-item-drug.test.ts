@@ -10,11 +10,11 @@ const lineItem = (detail?: ClaimItem['detail']): ClaimItem => ({
 });
 
 describe('buildClaimItemDrugDetail', () => {
-  it('stores the NDC, quantity, and unit as a single item.detail entry', () => {
-    expect(buildClaimItemDrugDetail({ ndc: '0409-4888-02', quantity: 2.5, units: 'ML' })).toEqual([
+  it('stores the NDC (as 11 plain digits), quantity, and unit as a single item.detail entry', () => {
+    expect(buildClaimItemDrugDetail({ ndc: '00409-4888-02', quantity: 2.5, units: 'ML' })).toEqual([
       {
         sequence: 1,
-        productOrService: { coding: [{ system: CODE_SYSTEM_NDC, code: '0409-4888-02' }] },
+        productOrService: { coding: [{ system: CODE_SYSTEM_NDC, code: '00409488802' }] },
         quantity: { value: 2.5, unit: 'ML' },
       },
     ]);
@@ -27,7 +27,7 @@ describe('buildClaimItemDrugDetail', () => {
 
 describe('readClaimItemDrug', () => {
   it('round-trips what buildClaimItemDrugDetail stores', () => {
-    const drug = { ndc: '00409-4888-02', quantity: 10, units: 'ME' };
+    const drug = { ndc: '00409488802', quantity: 10, units: 'ME' };
     expect(readClaimItemDrug(lineItem(buildClaimItemDrugDetail(drug)))).toEqual(drug);
   });
 

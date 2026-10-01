@@ -259,7 +259,7 @@ const claimServiceLineSchema = z.object({
   revenueCode: z.string().max(5).optional(),
   drug: z
     .object({
-      ndc: z.string().regex(NDC_REGEX, 'NDC must be 10-12 digits; dashes are optional but must match a valid layout'),
+      ndc: z.string().regex(NDC_REGEX, 'NDC must be 11 digits in the 5-4-2 layout; dashes are optional'),
       quantity: z.number().positive(),
       units: z.enum(DRUG_UNIT_CODE_VALUES),
     })

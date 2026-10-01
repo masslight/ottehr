@@ -1,5 +1,6 @@
 import { Box, IconButton, Typography } from '@mui/material';
 import { ReactElement, ReactNode } from 'react';
+import { formatNdcForDisplay } from 'utils/lib/types/data/billing/billing.constants';
 import { formatDisplayName } from '../../utils/format';
 import { RichTooltip } from '../RichTooltip';
 import { CapsuleIcon } from './CapsuleIcon';
@@ -64,7 +65,7 @@ export function ServiceLineIndicators({
           >
             {drug ? (
               <>
-                <Typography variant="body2">NDC: {drug.ndc}</Typography>
+                <Typography variant="body2">NDC: {formatNdcForDisplay(drug.ndc)}</Typography>
                 <Typography variant="body2">
                   Quantity: {drug.quantity} {drug.units}
                 </Typography>

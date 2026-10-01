@@ -20,6 +20,7 @@ import {
 } from '@mui/material';
 import { Fragment, ReactElement, ReactNode, useMemo, useState } from 'react';
 import { otherColors } from 'utils/lib/theme/billing-palette';
+import { formatNdcForDisplay } from 'utils/lib/types/data/billing/billing.constants';
 import { ClaimDetailResponse } from 'utils/lib/types/data/billing/billing.types';
 import { carcDescription, X12_ADJUSTMENT_GROUP_LABELS } from 'utils/lib/types/data/billing/carc';
 import { formatCurrency } from 'utils/lib/utils/convert';
@@ -372,7 +373,7 @@ function ServiceLineExtras({ line }: { line: ServiceLine }): ReactElement {
     <>
       {line.drug && (
         <Typography variant="caption" display="block" color="text.secondary">
-          NDC {line.drug.ndc} · {line.drug.quantity} {line.drug.units}
+          NDC {formatNdcForDisplay(line.drug.ndc)} · {line.drug.quantity} {line.drug.units}
         </Typography>
       )}
       {line.orderingProvider && (

@@ -101,25 +101,13 @@ export const DRUG_UNIT_CODES: { code: DrugUnitCode; label: string; description: 
   },
 ];
 
-// Dashed NDC layouts by digit count: 10 → 4-4-2 / 5-3-2 / 5-4-1, 11 → 5-4-2, 12 → 6-4-2.
-export const NDC_DASH_FORMATS: Record<number, readonly (readonly [number, number, number])[]> = {
-  10: [
-    [4, 4, 2],
-    [5, 3, 2],
-    [5, 4, 1],
-  ],
-  11: [[5, 4, 2]],
-  12: [[6, 4, 2]],
-};
-// Plain 10-12 digits, or dashed per an allowed layout (dashes are validated only when present).
-export const NDC_REGEX = /^(?:\d{10,12}|\d{4}-\d{4}-\d{2}|\d{5}-\d{3}-\d{2}|\d{5}-\d{4}-\d{1,2}|\d{6}-\d{4}-\d{2})$/;
-export const formatNdc = (digits: string, [a, b]: readonly [number, number, number]): string =>
-  `${digits.slice(0, a)}-${digits.slice(a, a + b)}-${digits.slice(a + b)}`;
-// Undashed entries default to the first layout for their length (10 → 4-4-2, 11 → 5-4-2, 12 → 6-4-2).
-export const normalizeNdc = (ndc: string): string => {
-  if (ndc.includes('-')) return ndc;
-  const format = NDC_DASH_FORMATS[ndc.length]?.[0];
-  return format ? formatNdc(ndc, format) : ndc;
+// Only the 11-digit 5-4-2 NDC layout is supported. It is persisted as 11 plain digits and shown dashed.
+export const NDC_REGEX = /^(?:\d{11}|\d{5}-\d{4}-\d{2})$/;
+export const ndcToDigits = (ndc: string): string => ndc.replace(/-/g, '');
+// Values that aren't 11 digits (e.g. legacy entries) are shown as stored.
+export const formatNdcForDisplay = (ndc: string): string => {
+  const digits = ndcToDigits(ndc);
+  return /^\d{11}$/.test(digits) ? `${digits.slice(0, 5)}-${digits.slice(5, 9)}-${digits.slice(9)}` : ndc;
 };
 
 export const X12_ADJUSTMENT_GROUP_CODE = {

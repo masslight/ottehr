@@ -10,9 +10,15 @@ import {
   Typography,
 } from '@mui/material';
 import { ReactElement, useEffect, useState } from 'react';
-import { DRUG_UNIT_CODES, DrugUnitCode, NDC_REGEX, normalizeNdc } from 'utils/lib/types/data/billing/billing.constants';
+import {
+  DRUG_UNIT_CODES,
+  DrugUnitCode,
+  formatNdcForDisplay,
+  NDC_REGEX,
+  ndcToDigits,
+} from 'utils/lib/types/data/billing/billing.constants';
 
-/** Medication detail carried on a service line row (NDC already dashed). */
+/** Medication detail carried on a service line row (NDC as 11 plain digits). */
 export interface ServiceLineDrug {
   ndc: string;
   quantity: string;
@@ -29,10 +35,9 @@ interface MedicationDetailDialogProps {
 }
 
 /**
- * Small dialog to attach an NDC drug code + dosage to a service line. The NDC accepts 10, 11, or
- * 12 digits, dashes optional; when dashes are present they must match a valid layout
- * (10 → 4-4-2 / 5-3-2 / 5-4-1, 11 → 5-4-2, 12 → 6-4-2). The input is never re-dashed while
- * typing; an undashed entry gets the default layout for its length on save (10 → 4-4-2).
+ * Small dialog to attach an NDC drug code + dosage to a service line. Only the 11-digit 5-4-2 NDC
+ * layout is supported: the input takes digits and is dashed as 5-4-2 while typing, and the NDC is
+ * saved as 11 plain digits.
  */
 export function MedicationDetailDialog({
   open,
@@ -49,25 +54,20 @@ export function MedicationDetailDialog({
 
   useEffect(() => {
     if (!open) return;
-    setNdc(value?.ndc ?? '');
+    setNdc(value?.ndc ? formatNdcForDisplay(value.ndc) : '');
     setNdcTouched(false);
     setQuantity(value?.quantity ?? '');
     setUnits(value?.units ?? 'UN');
   }, [open, value]);
 
   const handleNdcChange = (raw: string): void => {
-    let dashes = 0;
-    const next = raw
-      .replace(/[^0-9-]/g, '')
-      .split('')
-      .filter((c) => c !== '-' || ++dashes <= 2)
-      .join('');
-    setNdc(next.slice(0, 14));
+    const digits = raw.replace(/\D/g, '').slice(0, 11);
+    setNdc([digits.slice(0, 5), digits.slice(5, 9), digits.slice(9)].filter(Boolean).join('-'));
   };
 
   const ndcValid = NDC_REGEX.test(ndc);
   const ndcError = ndcTouched && ndc.length > 0 && !ndcValid;
-  const ndcHelperText = ndcError ? 'Must be a 10, 11 or 12 digits number' : '10, 11 or 12 digits number';
+  const ndcHelperText = ndcError ? 'Must be 11 digits in 5-4-2 format' : '11 digits, 5-4-2 format (e.g. 12345-6789-01)';
   const quantityValid = Number(quantity) > 0;
   const canSave = ndcValid && quantityValid;
 
@@ -82,7 +82,8 @@ export function MedicationDetailDialog({
             value={ndc}
             onChange={(e) => handleNdcChange(e.target.value)}
             onBlur={() => setNdcTouched(true)}
-            inputProps={{ maxLength: 14 }}
+            inputProps={{ maxLength: 13, inputMode: 'numeric' }}
+            placeholder="12345-6789-01"
             helperText={ndcHelperText}
             error={ndcError}
             autoFocus
@@ -136,7 +137,7 @@ export function MedicationDetailDialog({
           size="small"
           variant="contained"
           disabled={!canSave || saving}
-          onClick={() => onSave({ ndc: normalizeNdc(ndc), quantity, units })}
+          onClick={() => onSave({ ndc: ndcToDigits(ndc), quantity, units })}
         >
           {saving ? 'Saving...' : 'Save'}
         </Button>

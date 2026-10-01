@@ -91,7 +91,7 @@ import {
 } from 'utils/lib/helpers/rcm/constants';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { STATE_CODES } from 'utils/lib/types/common';
-import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
+import { CLAIM_TAG_SYSTEM, ndcToDigits } from 'utils/lib/types/data/billing/billing.constants';
 import {
   BillingInsuranceType,
   BillingPolicyHolderInput,
@@ -323,13 +323,13 @@ export interface ClaimLineDrug {
   units: string;
 }
 
-// A line's medication (NDC + drug quantity/unit) is stored as its single item.detail entry.
+// A line's medication (NDC + drug quantity/unit) is stored as its single item.detail entry; the NDC as 11 plain digits.
 export const buildClaimItemDrugDetail = (drug: ClaimLineDrug | undefined): ClaimItemDetail[] | undefined =>
   drug
     ? [
         {
           sequence: 1,
-          productOrService: { coding: [{ system: CODE_SYSTEM_NDC, code: drug.ndc }] },
+          productOrService: { coding: [{ system: CODE_SYSTEM_NDC, code: ndcToDigits(drug.ndc) }] },
           quantity: { value: drug.quantity, unit: drug.units },
         },
       ]
