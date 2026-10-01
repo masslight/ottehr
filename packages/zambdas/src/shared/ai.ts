@@ -141,6 +141,7 @@ export const VERTEX_AI_FEATURE_LABEL = 'ottehr_feature';
 /** Recorded for calls that don't name a feature, so their spend still shows up as its own line. */
 export const UNATTRIBUTED_AI_FEATURE = 'unattributed';
 export const VERTEX_AI_ENVIRONMENT_LABEL = 'ottehr_environment';
+export const VERTEX_AI_PROJECT_LABEL = 'ottehr_project';
 
 // Vertex rejects label values outside [a-z0-9_-] or longer than 63 characters.
 const toLabelValue = (value: string): string =>
@@ -151,13 +152,15 @@ const toLabelValue = (value: string): string =>
 
 /**
  * Vertex AI request labels, which Google carries into the Cloud Billing export and Billing reports so Gemini
- * spend can be broken down by feature and environment.
+ * spend can be broken down by feature, environment and project.
  */
 export const buildVertexAILabels = (feature: string | undefined, secrets: Secrets | null): Record<string, string> => {
   const environment = getOptionalSecret(SecretsKeys.ENVIRONMENT, secrets);
+  const projectName = getOptionalSecret(SecretsKeys.PROJECT_NAME, secrets);
   return {
     [VERTEX_AI_FEATURE_LABEL]: toLabelValue(feature || UNATTRIBUTED_AI_FEATURE),
     ...(environment && { [VERTEX_AI_ENVIRONMENT_LABEL]: toLabelValue(environment) }),
+    ...(projectName && { [VERTEX_AI_PROJECT_LABEL]: toLabelValue(projectName) }),
   };
 };
 
