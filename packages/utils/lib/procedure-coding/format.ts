@@ -1,6 +1,6 @@
 import { detectProcedureFamily } from './evaluate';
 import { CptCodeRef, RepairDepthSelection } from './model.types';
-import { CodingField, StructuredFacts } from './structured-fields';
+import { CodingField, readRows, StructuredFacts } from './structured-fields';
 
 export const REPAIR_DEPTH_OPTIONS: Array<{ value: RepairDepthSelection; label: string }> = [
   { value: 'superficial-single', label: 'Superficial — single-layer closure' },
@@ -83,10 +83,13 @@ export function formatStructuredFacts(facts: StructuredFacts | undefined, proced
       const field = definitions.find((item) => item.key === key);
       const label = field?.label ?? humanize(key);
       if (Array.isArray(value)) {
+        // Several choices read as a list: "Intervals and conduction: normal".
+        if (field?.kind !== 'rows' && value.every((item) => typeof item === 'string'))
+          return value.length ? [`${label}: ${value.join(', ')}`] : [];
         const children = field?.kind === 'rows' ? field.fields : [];
         // A row is one of the things the group is named after: "Wounds" holds "Wound 1", "Wound 2".
         const rowLabel = field?.kind === 'rows' ? field.rowLabel : label;
-        return value.flatMap((row, index) => {
+        return readRows(answers, key).flatMap((row, index) => {
           const parts = format(row, children);
           return parts.length ? [`${rowLabel} ${index + 1}: ${parts.join('; ')}`] : [];
         });

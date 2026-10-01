@@ -356,6 +356,8 @@ interface MultiBlankProps {
   values: readonly string[] | undefined;
   onChange: (values: string[]) => void;
   readOnly: boolean;
+  /** Set (true or false) to draw the empty blank as a dashed label like a select, instead of the "+ label" link. */
+  need?: boolean;
   dataTestId?: string;
 }
 
@@ -367,6 +369,7 @@ export const MultiBlank: FC<MultiBlankProps> = ({
   values = [],
   onChange,
   readOnly,
+  need,
   dataTestId,
 }) => {
   const known = toOptions(options);
@@ -377,10 +380,11 @@ export const MultiBlank: FC<MultiBlankProps> = ({
   const display = listText(values.map((v) => sentenceValue(all.find((option) => option.value === v)?.label ?? v)));
   return (
     <PopoverBlank
-      label={`+ ${label}`}
+      label={need === undefined ? `+ ${label}` : label}
       title={title ?? label}
       value={display || undefined}
-      ghost
+      ghost={need === undefined}
+      need={need}
       readOnly={readOnly}
       dataTestId={dataTestId}
     >

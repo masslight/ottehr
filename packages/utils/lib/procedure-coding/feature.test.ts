@@ -35,15 +35,17 @@ function answersToFacts(
     if (!field) {
       throw new Error(`The form has no field labelled "${label}". It has: ${[...byLabel.keys()].join(', ')}`);
     }
-    facts[field.key] = Array.isArray(value)
-      ? value.map(
-          (row) =>
-            answersToFacts(field.fields as readonly { label: string; key: string }[], row as FormAnswers) as Record<
-              string,
-              string | number | boolean | undefined
-            >
-        )
-      : value;
+    // A list answers a repeating group (rows) or a several-choices field (strings).
+    facts[field.key] =
+      Array.isArray(value) && field.fields
+        ? (value as FormAnswers[]).map(
+            (row) =>
+              answersToFacts(field.fields as readonly { label: string; key: string }[], row) as Record<
+                string,
+                string | number | boolean | undefined
+              >
+          )
+        : (value as StructuredFacts[string]);
   }
   return facts;
 }

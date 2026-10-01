@@ -55,7 +55,10 @@ export interface Visit {
   tells?: string;
 }
 
-export type FormAnswers = Record<string, string | number | boolean | Record<string, string | number | boolean>[]>;
+export type FormAnswers = Record<
+  string,
+  string | number | boolean | string[] | Record<string, string | number | boolean>[]
+>;
 
 // The names below are exactly what the provider sees in the procedure-type dropdown.
 export const LACERATION = 'Laceration Repair (Wound Closure)';

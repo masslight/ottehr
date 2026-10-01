@@ -620,6 +620,11 @@ export const dataTestIds = {
     procedureDate: 'procedure-date',
     procedureTime: 'procedure-time',
     addDiagnosis: 'add-diagnosis',
+    ekgTiles: 'ekg-tiles',
+    ekgTile: (key: string) => `ekg-tile-${key}`,
+    ekgQtcMethod: 'ekg-qtc-method',
+    ekgSuggestions: 'ekg-suggestions',
+    ekgReminders: 'ekg-reminders',
   },
   proceduresPage: {
     title: 'procedures-title',

@@ -25,6 +25,7 @@ import { useDebounce } from 'src/shared/hooks/useDebounce';
 import { useMarkDraftNavigatedAway, useProcedureStore } from 'src/state/draft-data.store';
 import { PROCEDURES_CONFIG } from 'utils/lib/ottehr-config/procedures';
 import { detectProcedureFamily } from 'utils/lib/procedure-coding/evaluate';
+import { ekgFamily } from 'utils/lib/procedure-coding/families/ekg';
 import { lacerationFamily } from 'utils/lib/procedure-coding/families/laceration';
 import { resolveFamilyFacts } from 'utils/lib/procedure-coding/family-support';
 import { CodeOutcomeKind } from 'utils/lib/procedure-coding/model.types';
@@ -33,6 +34,7 @@ import { IcdSearchResponse } from 'utils/lib/types/api/icd-search/icd-search.typ
 import { ProcedureQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import { RoleType } from 'utils/lib/types/api/user.types';
 import { FHIR_CODE_REGEX } from 'utils/lib/types/constants';
+import { isPediatricOnDate } from 'utils/lib/utils/dateUtils';
 import { DiagnosesField } from '../../shared/components/assessment-tab/DiagnosesField';
 import { PageTitle } from '../../shared/components/PageTitle';
 import { QuickPicksButton } from '../../shared/components/QuickPicksButton';
@@ -49,6 +51,7 @@ import { CodingFindingList } from '../components/procedures/coding-assist/Coding
 import { DocumentationCheck } from '../components/procedures/coding-assist/DocumentationCheck';
 import { ConditionalCodingFields } from '../components/procedures/ConditionalCodingFields';
 import { CodingFieldSentences, LacerationSentences } from '../components/procedures/narrative/CodingFieldSentences';
+import { EkgSentences } from '../components/procedures/narrative/EkgSentences';
 import {
   DateTimeBlank,
   MultiBlank,
@@ -124,7 +127,7 @@ export default function ProceduresNew({
   const appointmentAccessibility = useGetAppointmentAccessibility();
   const queryClient = useQueryClient();
 
-  const { encounter } = useAppointmentData();
+  const { encounter, patient } = useAppointmentData();
   const { setDraft, getDraft, clearDraft, hasDraft } = useProcedureStore();
   useMarkDraftNavigatedAway({ encounterId: encounter.id ?? '', setDraft, hasDraft });
   const draft = !procedureId && encounter.id ? getDraft(encounter.id) : {};
@@ -945,6 +948,15 @@ export default function ProceduresNew({
                         value={resolvedStructuredFacts ?? {}}
                         onChange={(value) => updateState((state) => (state.structuredFacts = value))}
                         readOnly={isReadOnly}
+                      />
+                    ) : codingFamily.id === ekgFamily.id ? (
+                      <EkgSentences
+                        family={codingFamily}
+                        value={resolvedStructuredFacts ?? {}}
+                        onChange={(value) => updateState((state) => (state.structuredFacts = value))}
+                        readOnly={isReadOnly}
+                        // Adult cut-offs don't apply under 18: only the normal read is suggested and no reminders.
+                        isChild={isPediatricOnDate(patient?.birthDate, state.procedureDate?.toISO() ?? undefined)}
                       />
                     ) : (
                       <CodingFieldSentences

@@ -8,6 +8,16 @@ import { EKG_PTP_EDITS } from '../medicare-ptp';
 import { CodeSuggestion, ProcedureFamilyModel } from '../model.types';
 import { PROCEDURE_NAMES } from '../procedure-names';
 import { CodingField, readNumber } from '../structured-fields';
+import {
+  EKG_AXES,
+  EKG_COMPARISONS,
+  EKG_CONDUCTION,
+  EKG_IMPRESSIONS,
+  EKG_OTHER_FINDINGS,
+  EKG_RHYTHMS,
+  EKG_ST_T,
+  QTC_METHODS,
+} from './ekg-interpretation';
 
 const EKG_CODES = {
   TracingAndReport: '93000',
@@ -42,6 +52,31 @@ const fields: readonly CodingField[] = [
     defaultValue: false,
     details: true,
   },
+  // Measurements, read off the printout. None is required to save; 93000 needs the rate and intervals.
+  { key: 'rate', label: 'Rate (bpm)', kind: 'number', min: 0, step: 1 },
+  { key: 'pr', label: 'PR (ms)', kind: 'number', min: 0, step: 1 },
+  { key: 'qrs', label: 'QRS (ms)', kind: 'number', min: 0, step: 1 },
+  { key: 'qt', label: 'QT (ms)', kind: 'number', min: 0, step: 1 },
+  // Calculated from QT and rate by the page (see ekgQtc) unless the method is manual; both are stored so
+  // the note can say how the value was arrived at.
+  { key: 'qtc', label: 'QTc (ms)', kind: 'number', min: 0, step: 1 },
+  { key: 'qtcMethod', label: 'QTc method', kind: 'select', options: QTC_METHODS },
+  { key: 'axisDegrees', label: 'Axis (°)', kind: 'number', min: -180, step: 1 },
+  // Interpretation. "Other findings" is optional; the rest are needed for the interpretation and report.
+  { key: 'rhythm', label: 'Rhythm', kind: 'select', options: EKG_RHYTHMS },
+  { key: 'axis', label: 'Axis', kind: 'select', options: EKG_AXES },
+  { key: 'conduction', label: 'Intervals and conduction', kind: 'multi', options: EKG_CONDUCTION, exclusive: 'normal' },
+  { key: 'stt', label: 'ST / T', kind: 'multi', options: EKG_ST_T, exclusive: 'no acute ST-T wave changes' },
+  {
+    key: 'otherFindings',
+    label: 'Other findings',
+    kind: 'multi',
+    options: EKG_OTHER_FINDINGS,
+    exclusive: 'none',
+    details: true,
+  },
+  { key: 'comparison', label: 'Comparison with prior', kind: 'select', options: EKG_COMPARISONS },
+  { key: 'impression', label: 'Impression', kind: 'select', options: EKG_IMPRESSIONS },
 ];
 
 export const ekgFamily: ProcedureFamilyModel<EkgCode> = {
