@@ -533,6 +533,7 @@ export interface ClaimDetailResponse {
   accidentState: string;
   accidentDate: string;
   attachments: ClaimAttachment[];
+  payerClaimControlNumber?: string;
 }
 
 interface Paginated {

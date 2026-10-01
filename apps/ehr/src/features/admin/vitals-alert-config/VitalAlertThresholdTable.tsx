@@ -10,10 +10,10 @@ import {
   VITAL_ALERT_UNITS,
   VitalAlertAgeRange,
   VitalAlertType,
-  VitalsAlertConfig,
 } from 'utils/lib/types/api/vitals-alert-config/vitals-alert-config.types';
 import { formatVitalAlertAgeRange, formatVitalNormalRange } from 'utils/lib/utils/vitals-alert-config';
 import { parseNumberInput } from './helpers';
+import { fromVitalAlertLevelsFormValues, VitalsAlertConfigFormValues } from './vitalsAlertConfigFormValues';
 
 const NORMAL_RANGE_AFTER_LEVEL = 'abnormalLow';
 
@@ -22,7 +22,7 @@ const LEVEL_COLUMN_MIN_WIDTH = 110;
 const NORMAL_RANGE_COLUMN_MIN_WIDTH = 120;
 
 interface NormalRangeCellProps {
-  control: Control<VitalsAlertConfig>;
+  control: Control<VitalsAlertConfigFormValues>;
   vital: VitalAlertType;
   rangeId: string;
 }
@@ -33,14 +33,14 @@ const NormalRangeCell = ({ control, vital, rangeId }: NormalRangeCellProps): Rea
   return (
     <TableCell align="center" data-testid={dataTestIds.vitalsAlertConfig.normalRangeCell(vital, rangeId)}>
       <Typography variant="body2" color="text.primary" sx={{ whiteSpace: 'nowrap' }}>
-        {formatVitalNormalRange(levels ?? {}, vital)}
+        {formatVitalNormalRange(fromVitalAlertLevelsFormValues(levels), vital)}
       </Typography>
     </TableCell>
   );
 };
 
 interface VitalAlertThresholdTableProps {
-  control: Control<VitalsAlertConfig>;
+  control: Control<VitalsAlertConfigFormValues>;
   vital: VitalAlertType;
   ageRanges: VitalAlertAgeRange[];
   hasErrors: boolean;
@@ -107,7 +107,7 @@ export const VitalAlertThresholdTable = ({
                           <TextField
                             {...field}
                             value={value ?? ''}
-                            onChange={(event) => onChange(parseNumberInput(event.target.value))}
+                            onChange={(event) => onChange(parseNumberInput(event.target.value) ?? null)}
                             type="number"
                             size="small"
                             inputProps={{

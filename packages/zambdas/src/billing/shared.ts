@@ -299,8 +299,6 @@ export const ERA_STATUS_CODE_EXTENSION = 'https://extensions.fhir.oystehr.com/er
 // Both arrive as ClaimResponse extensions, not identifiers.
 export const ERA_PCN_EXTENSION = 'https://extensions.fhir.oystehr.com/era-pcn';
 export const ERA_ICN_EXTENSION = 'https://extensions.fhir.oystehr.com/era-icn';
-export const CLAIM_PAYER_CLAIM_CONTROL_CODE_IDENTIFIER_SYSTEM =
-  'https://identifiers.fhir.oystehr.com/payer-claim-control-code';
 // SVC01 procedure code and SVC05 units, stamped on each ClaimResponse.item. The converter never
 // writes the submitted lines onto the contained Claim, so these are the only line identity the
 // remit itself carries.
@@ -314,6 +312,10 @@ export const EXTENSION_CLAIM_PATIENT_DISCHARGE_STATUS =
 export const EXTENSION_CLAIM_FACILITY_TYPE_CODE = 'https://extensions.fhir.oystehr.com/rcm-claim-facility-type-code';
 export const EXTENSION_CLAIM_FREQUENCY_CODE = 'https://extensions.fhir.oystehr.com/rcm-claim-frequency-code';
 export const CODE_SYSTEM_NUBC_REVENUE = 'https://www.nubc.org/CodeSystem/RevenueCodes';
+
+export const CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM = ottehrIdentifierSystem(
+  'claim-payer-claim-control-number'
+);
 
 export interface ClaimLineDrug {
   ndc: string;

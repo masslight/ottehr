@@ -17,7 +17,12 @@ import {
   fetchClaimResponsesByClaimIds,
 } from '../../../src/billing/claim-amounts';
 import { performEffect } from '../../../src/billing/get-billing-claim-detail';
-import { ERA_CHECK_SYSTEM, fetchClaimGraph, resolvePayersByRef } from '../../../src/billing/shared';
+import {
+  CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM,
+  ERA_CHECK_SYSTEM,
+  fetchClaimGraph,
+  resolvePayersByRef,
+} from '../../../src/billing/shared';
 import { adjudication, casAdjustment, claimResponse, eraItem } from './era-fixtures';
 
 vi.mock('../../../src/billing/shared', async (importOriginal) => ({
@@ -255,7 +260,7 @@ describe('get-billing-claim-detail performEffect: patient payments', () => {
 describe('get-billing-claim-detail performEffect: remits and insurance payments', () => {
   const PAYER_REF = 'https://rcm-api.zapehr.com/v1/payer/acme';
 
-  const claimWithItems = {
+  const claimWithItems: Claim = {
     ...claim,
     item: [
       {
@@ -275,7 +280,14 @@ describe('get-billing-claim-detail performEffect: remits and insurance payments'
         net: { value: 50, currency: 'USD' },
       },
     ],
-  } as unknown as Claim;
+    identifier: [
+      ...(claim.identifier ?? []),
+      {
+        system: CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM,
+        value: 'PCCN-12345',
+      },
+    ],
+  };
 
   // the ERA the first remit arrived on; process-era PaymentReconciliations carry no paymentIssuer
   const era: PaymentReconciliation = {
@@ -430,6 +442,12 @@ describe('get-billing-claim-detail performEffect: remits and insurance payments'
 
     expect(response.firstSubmittedDate).toBe('2026-07-02T12:00:00Z');
     expect(fetchClaimFirstSubmittedDate).toHaveBeenCalledWith(expect.anything(), 'claim-1');
+  });
+
+  it('has a payer claim control number', async () => {
+    const response = await run();
+
+    expect(response.payerClaimControlNumber).toBe('PCCN-12345');
   });
 });
 

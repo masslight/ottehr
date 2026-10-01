@@ -5,9 +5,9 @@ import {
   VITAL_ALERT_TYPES,
   VitalAlertAgeRange,
   VitalAlertType,
-  VitalsAlertConfig,
 } from 'utils/lib/types/api/vitals-alert-config/vitals-alert-config.types';
 import { formatVitalAlertAgeRange } from 'utils/lib/utils/vitals-alert-config';
+import { VitalsAlertConfigFormValues } from './vitalsAlertConfigFormValues';
 
 interface MessageNode {
   message?: string;
@@ -30,7 +30,7 @@ const ageNodeMessages = (node: AgeNodeErrors | undefined, label: string): string
     node?.unit?.message ? `${label} age unit is required` : undefined,
   ].filter((message): message is string => !!message);
 
-const collectAgeRangeErrors = (errors: FieldErrors<VitalsAlertConfig>): string[] => {
+const collectAgeRangeErrors = (errors: FieldErrors<VitalsAlertConfigFormValues>): string[] => {
   const ageRangeErrors = errors.ageRanges as AgeRangeErrors;
   if (!ageRangeErrors) return [];
 
@@ -53,7 +53,7 @@ const collectAgeRangeErrors = (errors: FieldErrors<VitalsAlertConfig>): string[]
   return messages;
 };
 
-export const getVitalsWithThresholdErrors = (errors: FieldErrors<VitalsAlertConfig>): Set<VitalAlertType> => {
+export const getVitalsWithThresholdErrors = (errors: FieldErrors<VitalsAlertConfigFormValues>): Set<VitalAlertType> => {
   const withErrors = new Set<VitalAlertType>();
   const thresholds = errors.thresholds as Record<string, unknown> | undefined;
   if (!thresholds) return withErrors;
@@ -65,7 +65,10 @@ export const getVitalsWithThresholdErrors = (errors: FieldErrors<VitalsAlertConf
   return withErrors;
 };
 
-const collectThresholdErrors = (errors: FieldErrors<VitalsAlertConfig>, ageRanges: VitalAlertAgeRange[]): string[] => {
+const collectThresholdErrors = (
+  errors: FieldErrors<VitalsAlertConfigFormValues>,
+  ageRanges: VitalAlertAgeRange[]
+): string[] => {
   const thresholds = errors.thresholds as
     | Record<string, Record<string, Record<string, MessageNode | undefined> | undefined> | undefined>
     | undefined;
@@ -91,6 +94,6 @@ const collectThresholdErrors = (errors: FieldErrors<VitalsAlertConfig>, ageRange
 };
 
 export const collectVitalsAlertConfigErrors = (
-  errors: FieldErrors<VitalsAlertConfig>,
+  errors: FieldErrors<VitalsAlertConfigFormValues>,
   ageRanges: VitalAlertAgeRange[]
 ): string[] => Array.from(new Set([...collectAgeRangeErrors(errors), ...collectThresholdErrors(errors, ageRanges)]));
