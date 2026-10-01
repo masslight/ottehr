@@ -914,7 +914,9 @@ function getSearchsetFromBatchEntry(entry: BundleEntry): Bundle | undefined {
  */
 function getNextPageRequestUrl(requestUrl: string, searchset: Bundle): string | undefined {
   if (!searchset.link?.some((link) => link.relation === 'next')) return undefined;
-  const matchCount = (searchset.entry ?? []).filter((entry) => entry.search?.mode !== 'include').length;
+  const matchCount = (searchset.entry ?? []).filter(
+    (entry) => entry.search?.mode !== 'include' && entry.search?.mode !== 'outcome'
+  ).length;
   // A page with no matches advances nothing, so following it would request the same page forever.
   if (matchCount === 0) return undefined;
 
