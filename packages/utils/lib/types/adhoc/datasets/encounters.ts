@@ -13,7 +13,7 @@ import {
   VitalsOxygenSatObservationMethod,
   VitalTemperatureObservationMethod,
 } from '../../api/chart-data/chart-data.constants';
-import { DispositionType, VitalsVisionOption } from '../../api/chart-data/chart-data.types';
+import { DispositionType, NOTE_TYPE, VitalsVisionOption } from '../../api/chart-data/chart-data.types';
 import { NonNormalResult } from '../../api/lab';
 import { DrugInteraction } from '../../api/medication-administration.types';
 import { PROVIDER_TYPE_VALUES } from '../../api/practitioner.types';
@@ -73,6 +73,12 @@ const VISION_OPTIONS = { child_too_young: true, with_glasses: true, without_glas
 const VISION_OPTION_VALUES = enumValues(Object.keys(VISION_OPTIONS) as VitalsVisionOption[]);
 const DISPOSITION_TYPE_VALUES = enumValues(Object.keys(mapDispositionTypeToLabel) as DispositionType[]);
 const NURSING_ORDER_STATUS_VALUES = enumValues(Object.values(NursingOrdersStatus));
+
+// The chart's per-section note types; addenda have their own list and "unknown" is the mapper's fallback.
+export const CHART_NOTE_TYPE_VALUES = enumValues(
+  Object.values(NOTE_TYPE).filter((type) => type !== NOTE_TYPE.ADDENDUM && type !== NOTE_TYPE.UNKNOWN)
+);
+
 const NON_NORMAL_RESULT_VALUES = enumValues(Object.values(NonNormalResult));
 const RESULT_INTERPRETATION_VALUES = enumValues(Object.values(OBSERVATION_CODES) as string[]);
 
@@ -669,6 +675,11 @@ export const ENCOUNTER_LAYERS = {
             isPSC: z
               .boolean()
               .describe('External order sent to a patient service center for collection (not collected in clinic).'),
+            orderNumber: z
+              .string()
+              .describe(
+                'Requisition / order number of an external order, as the lab orders page shows it. "" when none.'
+              ),
             icdCodes: z
               .array(z.string())
               .describe('ICD-10 codes the test was ordered for. HIERARCHICAL — prefix-match.'),
@@ -779,6 +790,15 @@ export const ENCOUNTER_LAYERS = {
               .boolean()
               .nullable()
               .describe('Consent for the study was obtained. Null for cancelled orders.'),
+            clinicalHistory: z
+              .string()
+              .describe('Clinical history / indication entered with the order (free text). "" when none.'),
+            preliminaryReport: z
+              .string()
+              .describe('Preliminary read text, as the radiology page and visit note show it. "" when none.'),
+            finalReport: z
+              .string()
+              .describe('Final read text, as the radiology page and visit note show it. "" when none.'),
           })
         )
         .describe('One record per radiology order with its status timestamps. Empty when no radiology on the visit.'),
@@ -988,8 +1008,8 @@ export const ENCOUNTER_LAYERS = {
   procedures: {
     label: 'Procedures',
     description:
-      'Procedures documented on the visit: type, CPT codes, performer, body site, technique, time spent, ' +
-      'complications, consent.',
+      'Procedures documented on the visit: type, CPT codes, performer, body site, technique, wound length / repair ' +
+      'depth, infusion times, supplies, details, time spent, complications, post-procedure instructions, consent.',
     schema: z.object({
       procedureTypes: z
         .array(z.string())
@@ -1014,12 +1034,29 @@ export const ENCOUNTER_LAYERS = {
             bodySide: z.string().describe('Body side (left / right / …). "" when unset.'),
             technique: z.array(z.string()).describe('Techniques used.'),
             medicationUsed: z.string().describe('Medication used (free text). "" when none.'),
+            suppliesUsed: z.string().describe('Supplies used (free text). "" when none.'),
+            lengthCm: z.number().nullable().describe('Wound / laceration length in cm. Null when not charted.'),
+            repairDepth: z.string().describe('Repair depth as picked in the chart. "" when unset.'),
+            infusionStartTime: z
+              .string()
+              .nullable()
+              .describe('Infusion start time as charted (ISO). Null when not an infusion / unset.'),
+            infusionStopTime: z
+              .string()
+              .nullable()
+              .describe('Infusion stop time as charted (ISO). Null when not an infusion / unset.'),
+            procedureDetails: z.string().describe('Procedure details (free text). "" when none.'),
             timeSpent: z.string().describe('Time spent, as picked in the chart (e.g. "< 5 min"). "" when unset.'),
             complications: z.string().describe('Complications as charted (e.g. "None"). "" when unset.'),
             patientResponse: z.string().describe('Patient response as charted. "" when unset.'),
+            postInstructions: z.string().describe('Post-procedure instructions (free text). "" when none.'),
             consentObtained: z.boolean().nullable().describe('Whether consent was obtained. Null when not charted.'),
             specimenSent: z.boolean().nullable().describe('Whether a specimen was sent. Null when not charted.'),
             documentedBy: z.string().describe('Who documented the procedure. "" when unset.'),
+            documentedAt: z
+              .string()
+              .nullable()
+              .describe('Full ISO instant the procedure was documented. Null when unset.'),
           })
         )
         .describe('One record per procedure documented on the visit. Empty when none.'),
@@ -1090,23 +1127,78 @@ export const ENCOUNTER_LAYERS = {
         .enum(['paperwork', 'staff attestation'])
         .nullable()
         .describe('How consent was completed (paperwork signature wins when both). Null when consent is missing.'),
+      consentSignerName: z
+        .string()
+        .describe('Full name typed by whoever signed the consent forms in the paperwork. "" when not signed there.'),
+      consentSignerRelationship: z
+        .string()
+        .describe(
+          'Relationship of the consent signer to the patient ("Self", "Parent", …) from the paperwork. "" when ' +
+            'not signed there.'
+        ),
     }),
   },
   charting: {
     label: 'Chart notes',
     description:
-      'Narrative chart content: chief complaint, HPI, mechanism of injury, ROS note, medical decision making ' +
-      '(MDM), patient instructions, addendum, and whether a discharge summary / patient education was produced.',
+      'Narrative chart content: chief complaint, HPI, reason for visit as charted, mechanism of injury, ROS note, ' +
+      'medical decision making (MDM), patient instructions, surgical history note, addenda, the per-section provider ' +
+      'notes (intake, internal, vitals, …), whether the patient name / DOB were verified, and whether a discharge ' +
+      'summary / patient education was produced.',
     schema: z.object({
       chiefComplaint: z.string().describe('Chief complaint as charted (free text). "" when not charted.'),
       historyOfPresentIllness: z.string().describe('HPI (free text). "" when not charted.'),
+      chartReasonForVisit: z
+        .string()
+        .describe(
+          "Reason for visit as charted by staff on the visit note (free text; may differ from the booking's " +
+            'reasonForVisit). "" when not charted.'
+        ),
       mechanismOfInjury: z.string().describe('Mechanism of injury (free text). "" when not charted.'),
       rosNote: z
         .string()
         .describe('Free-text ROS note (structured ROS findings are in the Exam & ROS layer). "" when none.'),
       medicalDecision: z.string().describe('Medical decision making (MDM) text. "" when not charted.'),
       patientInstructions: z.array(z.string()).describe('Patient instructions given on the visit (free text).'),
-      addendumNote: z.string().describe('Addendum added to the note (free text). "" when none.'),
+      surgicalHistoryNote: z.string().describe('Surgical history free-text note on the visit. "" when none.'),
+      patientInfoConfirmed: z
+        .boolean()
+        .describe('Staff verified the patient name and date of birth on the visit ("Patient name and DOB verified").'),
+      addendumNote: z
+        .string()
+        .describe('Legacy single-text addendum on the note (read-only in the chart). "" when none. See addenda[].'),
+      addenda: z
+        .array(
+          z.object({
+            text: z.string().describe('Addendum text (free text).'),
+            author: z.string().describe('Who added it. "" when unknown.'),
+            addedAt: z.string().nullable().describe('Full ISO instant it was last saved. Null when unknown.'),
+            edited: z.boolean().describe('Edited after it was first added.'),
+            deleted: z.boolean().describe('Deleted (the chart shows a tombstone with the original text).'),
+          })
+        )
+        .describe('Addenda added to the signed note, one per entry (per author). Empty when none.'),
+      addendumCount: z.number().describe('Number of addenda not deleted (addenda[] with deleted = false).'),
+      chartNotes: z
+        .array(
+          z.object({
+            type: z
+              .enum(CHART_NOTE_TYPE_VALUES)
+              .describe(
+                'Which chart section the note belongs to: intake, internal, vitals, screening, allergy, ' +
+                  'intake-medication, medical-condition, surgical-history, hospitalization, medication (in-house), ' +
+                  'immunization.'
+              ),
+            text: z.string().describe('Note text (free text).'),
+            author: z.string().describe('Who wrote it. "" when unknown.'),
+            addedAt: z.string().nullable().describe('Full ISO instant it was last saved. Null when unknown.'),
+          })
+        )
+        .describe(
+          'Provider / staff notes written on THIS visit in the chart sections (not addenda, not patient ' +
+            'instructions). Deleted notes are left out. Empty when none.'
+        ),
+      chartNoteCount: z.number().describe('Number of chartNotes[] records. 0 when none.'),
       dischargeSummaryCreated: z.boolean().describe('A discharge summary document was produced for the visit.'),
       patientEducationCount: z
         .number()
@@ -1116,11 +1208,28 @@ export const ENCOUNTER_LAYERS = {
   intake: {
     label: 'Intake & screenings',
     description:
-      'ASQ screen, accident type, birth history, and the "Ask the patient" screening questions answered on the ' +
-      'visit (e.g. pregnancy, breastfeeding, seen in the last 3 years, vaccination status, history obtained from).',
+      'ASQ screen, accident details (types, date, state), birth history, the "Ask the patient" screening questions ' +
+      'answered on the visit (e.g. pregnancy, breastfeeding, seen in the last 3 years, vaccination status, history ' +
+      'obtained from), and the paperwork details shown during the visit (person accompanying a minor, relay phone).',
     schema: z.object({
       asqScreen: z.string().describe('ASQ screen: Negative/Positive/Declined/NotOffered/"".'),
-      accidentType: z.string().describe('Accident type when accident-related, else "".'),
+      accidentType: z.string().describe('First accident type when accident-related, else "". See accidentTypes[].'),
+      accidentTypes: z
+        .array(z.string())
+        .describe('All accident types charted (e.g. "Motor vehicle accident", "Work-related"). Empty when none.'),
+      accidentDate: z
+        .string()
+        .nullable()
+        .describe('Date of the accident as charted (ISO date). Null when not charted.'),
+      accidentState: z
+        .string()
+        .describe('US state where the accident happened, as charted (2-letter). "" when not charted.'),
+      personAccompanyingMinor: z
+        .string()
+        .describe('Name of the person accompanying a minor patient, from the intake paperwork. "" when none.'),
+      hearingImpairedRelayPhone: z
+        .string()
+        .describe('Relay service phone for a hearing-impaired patient, from the intake paperwork. "" when none.'),
       birthHistory: z.array(z.string()).describe('Birth-history items (peds), when present.'),
       screeningQuestions: z
         .array(z.string())
@@ -1181,11 +1290,14 @@ export const ENCOUNTER_LAYERS = {
     }),
   },
   documents: {
-    label: 'Work / school notes',
-    description: 'Work and school excuse notes issued on the visit.',
+    label: 'Work / school notes & photos',
+    description: 'Work and school excuse notes issued on the visit, and patient condition photos uploaded to it.',
     schema: z.object({
       workSchoolNotes: z.array(z.string()).describe('Work/school excuse notes issued ("school"/"work").'),
       workSchoolNoteCount: z.number().describe('Number of work/school notes issued.'),
+      patientConditionPhotoCount: z
+        .number()
+        .describe('Number of patient condition photos attached to the visit (paperwork or chart). 0 when none.'),
     }),
   },
 } as const satisfies AdHocLayerMap;

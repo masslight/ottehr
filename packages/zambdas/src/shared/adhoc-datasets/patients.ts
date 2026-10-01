@@ -2,6 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import {
   AllergyIntolerance,
   Appointment,
+  Communication,
   Condition,
   Encounter,
   EpisodeOfCare,
@@ -14,13 +15,15 @@ import {
   Procedure,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
+import { FHIR_EXTENSION, PRIVATE_EXTENSION_BASE_URL, SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
 import { isAnnotationFollowupEncounter } from 'utils/lib/fhir/encounter';
 import { isInPersonAppointment, isTelemedAppointment } from 'utils/lib/fhir/moduleIdentification';
 import {
   getAddressForIndividual,
   getEmailForIndividual,
   getMergedIntoPatientReference,
+  getMiddleName,
+  getNameSuffix,
   getPatientFirstName,
   getPatientLastName,
   getPhoneNumberForIndividual,
@@ -28,6 +31,7 @@ import {
   mapGenderToLabel,
 } from 'utils/lib/fhir/patient';
 import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
+import { isNoteEdited } from 'utils/lib/helpers/visit-note/note-edit-detection.helper';
 import { AdHocPatientRow, AdHocPatientsInput } from 'utils/lib/types/adhoc/datasets/patients';
 import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
 import {
@@ -61,6 +65,25 @@ const PRONOUNS_NOT_LISTED = ['My pronounces are not listed', 'My pronouns are no
 
 const uniq = (values: string[]): string[] => Array.from(new Set(values.filter(Boolean)));
 
+// The patient page's notes tag (get-patient-notes).
+const PATIENT_NOTE_TAG = `${PRIVATE_EXTENSION_BASE_URL}/patient|patient-note`;
+
+// An address as the face sheet composers split it, on one line.
+const oneLineAddress = (parts: {
+  streetAddress: string;
+  addressLineOptional: string;
+  city: string;
+  state: string;
+  zip: string;
+}): string =>
+  [
+    [parts.streetAddress, parts.addressLineOptional].filter(Boolean).join(' '),
+    parts.city,
+    [parts.state, parts.zip].filter(Boolean).join(' '),
+  ]
+    .filter(Boolean)
+    .join(', ');
+
 // Per-patient accumulator while we fold the appointment/encounter graph down to one row per patient.
 interface PatientAgg {
   patient: Patient;
@@ -89,6 +112,7 @@ export async function fetchAdHocPatientRows(oystehr: Oystehr, params: AdHocPatie
     includeContacts,
     includeInsurance,
     includeEmployers,
+    includeNotes,
   } = params;
 
   type ReportResource =
@@ -287,10 +311,16 @@ export async function fetchAdHocPatientRows(oystehr: Oystehr, params: AdHocPatie
 
     for (const prior of priorAppointments) {
       const patientRef = prior.participant?.find((p) => p.actor?.reference?.startsWith('Patient/'))?.actor?.reference;
+
       if (!patientRef) continue;
+
       const latest = lastAppointmentBeforeRange.get(patientRef);
       const start = prior.start ?? '';
-      if (latest === undefined || start > latest) lastAppointmentBeforeRange.set(patientRef, start);
+
+      // Compared as instants, not strings — starts are stored with varying UTC offsets.
+      if (latest === undefined || DateTime.fromISO(start) > DateTime.fromISO(latest)) {
+        lastAppointmentBeforeRange.set(patientRef, start);
+      }
     }
   }
 
@@ -302,6 +332,24 @@ export async function fetchAdHocPatientRows(oystehr: Oystehr, params: AdHocPatie
           Array.from(aggByPatient.values()).map((agg) => agg.patient)
         )
       : new Map<string, PatientAccountAndCoverageResources>();
+
+  // The patient page's notes (get-patient-notes): completed patient-note Communications, newest first.
+  const patientNotesByPatient = new Map<string, Communication[]>();
+
+  if (includeNotes && aggByPatient.size) {
+    const notes = await fetchScopedResources<Communication>(
+      oystehr,
+      'Communication',
+      'subject',
+      Array.from(aggByPatient.keys()),
+      [
+        { name: '_tag', value: PATIENT_NOTE_TAG },
+        { name: 'status', value: 'completed' },
+      ]
+    );
+
+    for (const note of notes) pushTo(patientNotesByPatient, note.subject?.reference, note);
+  }
 
   const rows: AdHocPatientRow[] = [];
 
@@ -362,13 +410,15 @@ export async function fetchAdHocPatientRows(oystehr: Oystehr, params: AdHocPatie
       const allergies = (chart.allergies ?? []).filter((a) => a.name);
       row.allergies = uniq(allergies.map((a) => a.name ?? ''));
       row.allergyCount = row.allergies.length;
-      row.allergyDetails = allergies.map((a) => ({ name: a.name ?? '', current: !!a.current }));
+      row.allergyDetails = allergies.map((a) => ({ name: a.name ?? '', current: !!a.current, note: a.note ?? '' }));
     }
 
     if (includeProblems) {
       const conditions = (chart.conditions ?? []).filter((c) => c.display || c.code);
+
       // A coded condition without a display still counts, by its code.
       row.problems = uniq(conditions.map((c) => c.display || c.code || ''));
+
       row.problemCodes = uniq(conditions.map((c) => c.code ?? ''));
       row.problemCount = row.problems.length;
 
@@ -376,6 +426,7 @@ export async function fetchAdHocPatientRows(oystehr: Oystehr, params: AdHocPatie
         display: c.display || c.code || '',
         code: c.code ?? '',
         current: !!c.current,
+        note: c.note ?? '',
       }));
     }
 
@@ -429,17 +480,36 @@ export async function fetchAdHocPatientRows(oystehr: Oystehr, params: AdHocPatie
         )
       );
 
+      row.middleName = getMiddleName(patient) ?? '';
+      row.nameSuffix = getNameSuffix(patient) ?? '';
+
+      // The street lines as the face sheet's contact composer reads them (patient.address[0].line).
+      row.addressLine1 = patient.address?.[0]?.line?.[0] ?? '';
+
+      row.addressLine2 = patient.address?.[0]?.line?.[1] ?? '';
+
+      // As the face sheet's composePatientData reads it (it prints "none" when empty; the dataset keeps "").
+      row.authorizedNonLegalGuardians =
+        patient.extension?.find((e) => e.url === FHIR_EXTENSION.Patient.authorizedNonLegalGuardians.url)?.valueString ??
+        '';
+
       row.preferredLanguage = details.preferredLanguage;
       row.race = details.patientsRace;
       row.ethnicity = details.patientsEthnicity;
       row.sexualOrientation = details.patientSexualOrientation;
       row.genderIdentity = details.patientGenderIdentity;
+      row.genderIdentityDetails = details.patientGenderIdentityDetails;
       row.marketingOptIn = details.patientSendMarketing;
       row.commonWellConsent = details.patientCommonWellConsent;
       row.hasPcp = pcp.hasPcp;
       row.pcpName = pcp.pcpName;
       row.pcpPracticeName = pcp.pcpPracticeName;
+      row.pcpAddress = pcp.pcpAddress;
+      row.pcpPhone = pcp.pcpPhone;
+      row.pcpFax = pcp.pcpFax;
       row.preferredPharmacy = pharmacy.name;
+      row.preferredPharmacyAddress = pharmacy.address;
+      row.preferredPharmacyPhone = pharmacy.phone;
       row.deceased = patient.deceasedBoolean === true || Boolean(patient.deceasedDateTime);
       // Read the way the face sheet (composePatientData / composeContactData) and the payments list read them.
       row.preferredName = patient.name?.find((name) => name.use === 'nickname')?.given?.[0] ?? '';
@@ -465,11 +535,19 @@ export async function fetchAdHocPatientRows(oystehr: Oystehr, params: AdHocPatie
 
       row.responsiblePartyRelationship = responsibleParty.relationship;
       row.responsiblePartyName = responsibleParty.fullName;
+      row.responsiblePartyDateOfBirth = responsibleParty.dob;
+      row.responsiblePartySex = responsibleParty.sex;
+      row.responsiblePartyPhone = responsibleParty.phone;
+      row.responsiblePartyEmail = responsibleParty.email;
+      row.responsiblePartyAddress = oneLineAddress(responsibleParty);
       row.emergencyContactRelationship = emergencyContact.relationship;
 
       row.emergencyContactName = [emergencyContact.firstName, emergencyContact.middleName, emergencyContact.lastName]
         .filter(Boolean)
         .join(' ');
+
+      row.emergencyContactPhone = emergencyContact.phone;
+      row.emergencyContactAddress = oneLineAddress(emergencyContact);
 
       // The face sheet's attorney composer.
       const attorney = composeAttorneyData({ attorneyRelatedPerson: account?.attorneyRelatedPerson });
@@ -477,6 +555,9 @@ export async function fetchAdHocPatientRows(oystehr: Oystehr, params: AdHocPatie
       row.hasAttorney = !!account?.attorneyRelatedPerson;
       row.attorneyFirm = attorney.firm;
       row.attorneyName = [attorney.firstName, attorney.lastName].filter(Boolean).join(' ');
+      row.attorneyEmail = attorney.email;
+      row.attorneyPhone = attorney.mobile;
+      row.attorneyFax = attorney.fax;
     }
 
     if (includeInsurance) {
@@ -490,9 +571,20 @@ export async function fetchAdHocPatientRows(oystehr: Oystehr, params: AdHocPatie
       row.primaryPlanType = insurance.primary.planType;
       row.primaryMemberId = insurance.primary.memberId;
       row.primaryRelationshipToInsured = insurance.primary.relationship;
+      row.primaryPolicyHolderName = insurance.primary.policyHoldersName;
+      row.primaryPolicyHolderDateOfBirth = insurance.primary.policyHoldersDateOfBirth;
+      row.primaryPolicyHolderSex = insurance.primary.policyHoldersSex;
+      row.primaryPolicyHolderAddress = oneLineAddress(insurance.primary);
+      row.primaryInsuranceAdditionalInformation = insurance.primary.additionalInformation;
       row.secondaryInsuranceCarrier = insurance.secondary.insuranceCarrier;
       row.secondaryPlanType = insurance.secondary.planType;
       row.secondaryMemberId = insurance.secondary.memberId;
+      row.secondaryRelationshipToInsured = insurance.secondary.relationship;
+      row.secondaryPolicyHolderName = insurance.secondary.policyHoldersName;
+      row.secondaryPolicyHolderDateOfBirth = insurance.secondary.policyHoldersDateOfBirth;
+      row.secondaryPolicyHolderSex = insurance.secondary.policyHoldersSex;
+      row.secondaryPolicyHolderAddress = oneLineAddress(insurance.secondary);
+      row.secondaryInsuranceAdditionalInformation = insurance.secondary.additionalInformation;
     }
 
     if (includeEmployers) {
@@ -509,7 +601,30 @@ export async function fetchAdHocPatientRows(oystehr: Oystehr, params: AdHocPatie
         }) ?? '';
 
       row.workersCompEmployer = workersComp.employerName;
+      row.workersCompEmployerAddress = oneLineAddress(workersComp);
+      row.workersCompEmployerContactName = [workersComp.firstName, workersComp.lastName].filter(Boolean).join(' ');
+      row.workersCompEmployerContactTitle = workersComp.title;
+      row.workersCompEmployerContactEmail = workersComp.email;
+      row.workersCompEmployerContactPhone = workersComp.phone;
+      row.workersCompEmployerContactFax = workersComp.fax;
       row.workersCompCarrier = workersComp.workersCompInsuranceCarrier;
+      row.workersCompMemberId = workersComp.workersCompMemberId;
+    }
+
+    if (includeNotes) {
+      // Mapped as get-patient-notes maps them, newest first.
+      const notes = [...(patientNotesByPatient.get(patientRef) ?? [])].sort((a, b) =>
+        (b.meta?.lastUpdated ?? '').localeCompare(a.meta?.lastUpdated ?? '')
+      );
+
+      row.patientNotes = notes.map((note) => ({
+        text: note.payload?.[0]?.contentString ?? '',
+        author: note.sender?.display ?? '',
+        addedAt: note.meta?.lastUpdated || null,
+        edited: isNoteEdited(note.sent, note.meta?.lastUpdated),
+      }));
+
+      row.patientNoteCount = row.patientNotes.length;
     }
 
     rows.push(row);

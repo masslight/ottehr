@@ -105,6 +105,7 @@ export const PATIENT_LAYERS = {
           z.object({
             name: z.string().describe('Allergen, same value as in allergies[].'),
             current: z.boolean().describe('Marked active on the chart (false = no longer current).'),
+            note: z.string().describe('Note on the entry (the chart shows it for inactive allergies). "" when none.'),
           })
         )
         .describe('One record per charted allergy, with whether it is still current. Empty when none.'),
@@ -125,6 +126,7 @@ export const PATIENT_LAYERS = {
             display: z.string().describe('Condition, same value as in problems[].'),
             code: z.string().describe('ICD-10 code. "" when not coded.'),
             current: z.boolean().describe('Marked active on the chart (false = resolved / history).'),
+            note: z.string().describe('Note on the entry (the chart shows it for inactive conditions). "" when none.'),
           })
         )
         .describe('One record per problem-list condition, with whether it is still current. Empty when none.'),
@@ -191,21 +193,37 @@ export const PATIENT_LAYERS = {
   demographics: {
     label: 'Demographics & preferences',
     description:
-      'Preferred language, race, ethnicity, sexual orientation, gender identity, preferred name, pronouns, ' +
-      'preferred communication method, Medicaid, marketing opt-in, primary care physician and preferred pharmacy — ' +
-      'as on the patient record / visit details face sheet.',
+      'Full name parts and street address, preferred language, race, ethnicity, sexual orientation, gender identity ' +
+      '(with details), preferred name, pronouns, preferred communication method, Medicaid, marketing opt-in, ' +
+      'authorized non-legal guardians, primary care physician (with contact details) and preferred pharmacy (with ' +
+      'address / phone) — as on the patient record / visit details face sheet.',
     schema: z.object({
+      middleName: z.string().describe('Middle name. "" when none.'),
+      nameSuffix: z.string().describe('Name suffix (Jr., III, …). "" when none.'),
+      addressLine1: z.string().describe('Street address, line 1. "" when none.'),
+      addressLine2: z.string().describe('Street address, line 2 (apt / unit). "" when none.'),
+      authorizedNonLegalGuardians: z
+        .string()
+        .describe('Authorized non-legal guardians as recorded (free text). "" when none recorded.'),
       preferredLanguage: z.string().describe('Preferred language. "" when not recorded.'),
       race: z.string().describe('Race as recorded. "" when not recorded.'),
       ethnicity: z.string().describe('Ethnicity as recorded. "" when not recorded.'),
       sexualOrientation: z.string().describe('Sexual orientation as recorded. "" when not recorded.'),
       genderIdentity: z.string().describe('Gender identity as recorded (separate from sex). "" when not recorded.'),
+      genderIdentityDetails: z
+        .string()
+        .describe('Free-text gender identity details when "Other" was picked. "" when none.'),
       marketingOptIn: z.boolean().describe('The patient agreed to receive marketing messages.'),
       commonWellConsent: z.boolean().describe('The patient consented to CommonWell record sharing.'),
       hasPcp: z.boolean().describe('The patient has an active primary care physician on file.'),
       pcpName: z.string().describe('Primary care physician name. "" when none.'),
       pcpPracticeName: z.string().describe('Primary care physician\'s practice. "" when none.'),
+      pcpAddress: z.string().describe('Primary care physician\'s address. "" when none.'),
+      pcpPhone: z.string().describe('Primary care physician\'s phone. "" when none.'),
+      pcpFax: z.string().describe('Primary care physician\'s fax. "" when none.'),
       preferredPharmacy: z.string().describe('Preferred pharmacy name. "" when none.'),
+      preferredPharmacyAddress: z.string().describe('Preferred pharmacy address. "" when none.'),
+      preferredPharmacyPhone: z.string().describe('Preferred pharmacy phone. "" when none.'),
       deceased: z.boolean().describe('The patient is marked deceased.'),
       preferredName: z.string().describe('Preferred name (what the patient wants to be called). "" when none.'),
       pronouns: z
@@ -232,18 +250,34 @@ export const PATIENT_LAYERS = {
           'Responsible party relationship to the patient ("Self" when the patient is responsible). "" when none.'
         ),
       responsiblePartyName: z.string().describe('Responsible party full name. "" when none.'),
+      responsiblePartyDateOfBirth: z
+        .string()
+        .describe('Responsible party date of birth, as the face sheet prints it. "" when none / Self.'),
+      responsiblePartySex: z.string().describe('Responsible party birth sex. "" when none.'),
+      responsiblePartyPhone: z.string().describe('Responsible party phone. "" when none.'),
+      responsiblePartyEmail: z.string().describe('Responsible party email. "" when none.'),
+      responsiblePartyAddress: z
+        .string()
+        .describe('Responsible party address, one line (street, city, state zip). "" when none.'),
       emergencyContactRelationship: z.string().describe('Emergency contact relationship. "" when none.'),
       emergencyContactName: z.string().describe('Emergency contact full name. "" when none.'),
+      emergencyContactPhone: z.string().describe('Emergency contact phone. "" when none.'),
+      emergencyContactAddress: z
+        .string()
+        .describe('Emergency contact address, one line (street, city, state zip). "" when none.'),
       hasAttorney: z.boolean().describe('An MVA attorney is on file for the patient.'),
       attorneyFirm: z.string().describe('MVA attorney\'s firm. "" when none.'),
       attorneyName: z.string().describe('MVA attorney full name. "" when none.'),
+      attorneyEmail: z.string().describe('MVA attorney email. "" when none.'),
+      attorneyPhone: z.string().describe('MVA attorney mobile phone. "" when none.'),
+      attorneyFax: z.string().describe('MVA attorney fax. "" when none.'),
     }),
   },
   insurance: {
     label: 'Insurance',
     description:
       "The patient's current insurance as on the patient record: primary and secondary carrier, plan type, member " +
-      'id and relationship to the insured.',
+      'id, relationship to the insured, policy holder (name, date of birth, sex, address) and additional information.',
     schema: z.object({
       insured: z.boolean().describe('The patient has a primary insurance on file.'),
       primaryInsuranceCarrier: z.string().describe('Primary insurance carrier (payer) name. "" when none.'),
@@ -252,20 +286,58 @@ export const PATIENT_LAYERS = {
       primaryRelationshipToInsured: z
         .string()
         .describe('Patient relationship to the primary policy holder ("Self", "Child", …). "" when none.'),
+      primaryPolicyHolderName: z.string().describe('Primary policy holder full name. "" when none.'),
+      primaryPolicyHolderDateOfBirth: z
+        .string()
+        .describe('Primary policy holder date of birth, as the face sheet prints it. "" when none.'),
+      primaryPolicyHolderSex: z.string().describe('Primary policy holder birth sex. "" when none.'),
+      primaryPolicyHolderAddress: z
+        .string()
+        .describe('Primary policy holder address, one line (street, city, state zip). "" when none.'),
+      primaryInsuranceAdditionalInformation: z
+        .string()
+        .describe('Additional insurance information on the primary coverage (free text). "" when none.'),
       secondaryInsuranceCarrier: z.string().describe('Secondary insurance carrier name. "" when none.'),
       secondaryPlanType: z.string().describe('Secondary plan type. "" when none.'),
       secondaryMemberId: z.string().describe('Member id on the secondary insurance. "" when none.'),
+      secondaryRelationshipToInsured: z
+        .string()
+        .describe('Patient relationship to the secondary policy holder ("Self", "Child", …). "" when none.'),
+      secondaryPolicyHolderName: z.string().describe('Secondary policy holder full name. "" when none.'),
+      secondaryPolicyHolderDateOfBirth: z
+        .string()
+        .describe('Secondary policy holder date of birth, as the face sheet prints it. "" when none.'),
+      secondaryPolicyHolderSex: z.string().describe('Secondary policy holder birth sex. "" when none.'),
+      secondaryPolicyHolderAddress: z
+        .string()
+        .describe('Secondary policy holder address, one line (street, city, state zip). "" when none.'),
+      secondaryInsuranceAdditionalInformation: z
+        .string()
+        .describe('Additional insurance information on the secondary coverage (free text). "" when none.'),
     }),
   },
   employers: {
     label: 'Employers',
-    description: "The patient's occupational-medicine employer and workers' comp employer / carrier on file.",
+    description:
+      "The patient's occupational-medicine employer and workers' comp employer (address, contact person) / " +
+      'carrier (member id) on file.',
     schema: z.object({
       occupationalMedicineEmployer: z
         .string()
         .describe('Occupational-medicine employer on the patient account. "" when none.'),
       workersCompEmployer: z.string().describe('Workers\' comp employer on file. "" when none.'),
+      workersCompEmployerAddress: z
+        .string()
+        .describe('Workers\' comp employer address, one line (street, city, state zip). "" when none.'),
+      workersCompEmployerContactName: z
+        .string()
+        .describe('Workers\' comp employer contact person full name. "" when none.'),
+      workersCompEmployerContactTitle: z.string().describe('Workers\' comp employer contact title. "" when none.'),
+      workersCompEmployerContactEmail: z.string().describe('Workers\' comp employer contact email. "" when none.'),
+      workersCompEmployerContactPhone: z.string().describe('Workers\' comp employer contact phone. "" when none.'),
+      workersCompEmployerContactFax: z.string().describe('Workers\' comp employer contact fax. "" when none.'),
       workersCompCarrier: z.string().describe('Workers\' comp insurance carrier. "" when none.'),
+      workersCompMemberId: z.string().describe('Member id on the workers\' comp coverage. "" when none.'),
     }),
   },
   hospitalizations: {
@@ -276,6 +348,23 @@ export const PATIENT_LAYERS = {
       hospitalizationCount: z
         .number()
         .describe('Number of distinct prior hospitalization reasons (length of hospitalizations[]).'),
+    }),
+  },
+  notes: {
+    label: 'Patient notes',
+    description: "Staff notes on the patient record (the patient page's Notes), not tied to a visit.",
+    schema: z.object({
+      patientNotes: z
+        .array(
+          z.object({
+            text: z.string().describe('Note text (free text).'),
+            author: z.string().describe('Who wrote it. "" when unknown.'),
+            addedAt: z.string().nullable().describe('Full ISO instant it was last saved. Null when unknown.'),
+            edited: z.boolean().describe('Edited after it was first added.'),
+          })
+        )
+        .describe('Notes on the patient record, newest first, as the patient page lists them. Empty when none.'),
+      patientNoteCount: z.number().describe('Number of patientNotes[] records. 0 when none.'),
     }),
   },
 } as const satisfies AdHocLayerMap;

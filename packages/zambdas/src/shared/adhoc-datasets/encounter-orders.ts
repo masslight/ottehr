@@ -13,6 +13,7 @@ import {
 } from 'fhir/r4b';
 import { AdHocEncounterRow } from 'utils/lib/types/adhoc/datasets/encounters';
 import { DataEntryTestItem, InHouseOrderListPageItemDTO } from 'utils/lib/types/data/in-house/in-house.types';
+import { PROVENANCE_ACTIVITY_CODING_ENTITY } from 'utils/lib/types/data/labs/labs.constants';
 import { LabOrderHistoryRow, LabOrderListPageDTO } from 'utils/lib/types/data/labs/labs.types';
 import { NursingOrdersStatus } from 'utils/lib/types/data/orders/constants';
 import { NursingOrder, NursingOrderDetailedDTO } from 'utils/lib/types/data/orders/types';
@@ -107,9 +108,24 @@ export const inHouseResults = (
 // '-' is how the lab history writes a specimen without a collection time.
 const historyDate = (date: string | undefined): string | null => (date && date !== '-' ? date : null);
 
+// When the order was submitted to the lab: the recorded time of its submit Provenance, as the lab order
+// page reads it (parseLabOrderSubmittedDate) — but from THIS order's Provenances only. The list mapper
+// takes the first submit Provenance of whatever it is handed, which in a report spanning many orders
+// would be some other order's.
+const submittedAtOf = (provenances: Provenance[]): string | null =>
+  provenances.find(
+    (prov) =>
+      prov.activity?.coding?.some(
+        (c) =>
+          c.system === PROVENANCE_ACTIVITY_CODING_ENTITY.submit.system &&
+          c.code === PROVENANCE_ACTIVITY_CODING_ENTITY.submit.code
+      )
+  )?.recorded ?? null;
+
 const externalLabRecord = (
   order: LabOrderListPageDTO,
   serviceRequest: ServiceRequest,
+  provenances: Provenance[],
   reports: DiagnosticReport[],
   history: LabOrderHistoryRow[]
 ): LabTestRecord => {
@@ -123,10 +139,11 @@ const externalLabRecord = (
     lab: order.fillerLab,
     status: order.orderStatus,
     orderedAt: order.orderAddedDate || null,
-    submittedAt: order.orderSubmittedDate || null,
+    submittedAt: submittedAtOf(provenances),
     resultedAt: order.lastResultReceivedDate || null,
     orderedBy: order.orderingPhysician,
     isPSC: order.isPSC,
+    orderNumber: order.orderNumber ?? '',
     icdCodes: order.diagnosesDTO.map((dx) => dx.code).filter(Boolean),
     nonNormalResults: nonNormalResultsFor(serviceRequest, reports),
     resultComponents: [],
@@ -163,6 +180,7 @@ const inHouseLabRecord = (
     resultedAt,
     orderedBy: order.orderingPhysicianFullName,
     isPSC: false,
+    orderNumber: '',
     icdCodes: order.diagnosesDTO.map((dx) => dx.code).filter(Boolean),
     nonNormalResults: nonNormalResultsFor(serviceRequest, reports),
     ...inHouseResults(order.labDetails),
@@ -244,12 +262,38 @@ export async function fetchEncounterOrders(
   let allPractitioners = dedupeById([...practitioners, ...pools.practitioners]);
   const specimens = fetched.filter((r): r is Specimen => r.resourceType === 'Specimen');
 
+  // Indexed once, so each order's Specimens and Provenances are lookups, not scans of the report's pools.
+  const specimenById = new Map(specimens.map((sp) => [`Specimen/${sp.id}`, sp]));
+  const specimensByRequestRef = new Map<string, Specimen[]>();
+
+  for (const sp of specimens) {
+    for (const ref of sp.request ?? []) {
+      if (ref.reference)
+        specimensByRequestRef.set(ref.reference, [...(specimensByRequestRef.get(ref.reference) ?? []), sp]);
+    }
+  }
+
   const specimensFor = (sr: ServiceRequest): Specimen[] =>
-    specimens.filter(
-      (sp) =>
-        sr.specimen?.some((ref) => ref.reference === `Specimen/${sp.id}`) ||
-        sp.request?.some((ref) => ref.reference === `ServiceRequest/${sr.id}`)
-    );
+    dedupeById([
+      ...(sr.specimen ?? []).flatMap((ref) => {
+        const sp = ref.reference ? specimenById.get(ref.reference) : undefined;
+        return sp ? [sp] : [];
+      }),
+      ...(specimensByRequestRef.get(`ServiceRequest/${sr.id}`) ?? []),
+    ]);
+
+  const provenancesByTargetRef = new Map<string, Provenance[]>();
+
+  for (const provenance of pools.provenances) {
+    for (const target of provenance.target ?? []) {
+      if (target.reference) {
+        provenancesByTargetRef.set(target.reference, [
+          ...(provenancesByTargetRef.get(target.reference) ?? []),
+          provenance,
+        ]);
+      }
+    }
+  }
 
   // Practitioners named only by a Provenance agent or a specimen collector are loaded once, by id.
   const loadMissingPractitioners = async (ids: (string | undefined)[]): Promise<void> => {
@@ -273,12 +317,22 @@ export async function fetchEncounterOrders(
     searchBy: { field: 'encounterIds' as const, value: encounters.map((e) => e.id).filter((id): id is string => !!id) },
   };
 
-  const provenancesFor = (serviceRequests: ServiceRequest[]): Provenance[] => {
-    const refs = new Set(serviceRequests.map((sr) => `ServiceRequest/${sr.id}`));
-    return pools.provenances.filter((p) => p.target?.some((t) => t.reference && refs.has(t.reference)));
-  };
+  const provenancesFor = (serviceRequests: ServiceRequest[]): Provenance[] =>
+    dedupeById(serviceRequests.flatMap((sr) => provenancesByTargetRef.get(`ServiceRequest/${sr.id}`) ?? []));
 
   const serviceRequestById = new Map(pools.serviceRequests.map((sr) => [sr.id, sr]));
+
+  const reportsByBasedOnRef = new Map<string, DiagnosticReport[]>();
+
+  for (const report of pools.diagnosticReports) {
+    for (const ref of report.basedOn ?? []) {
+      if (ref.reference)
+        reportsByBasedOnRef.set(ref.reference, [...(reportsByBasedOnRef.get(ref.reference) ?? []), report]);
+    }
+  }
+
+  const reportsFor = (sr: ServiceRequest): DiagnosticReport[] =>
+    reportsByBasedOnRef.get(`ServiceRequest/${sr.id}`) ?? [];
 
   if (includeLabs && partitions.externalLab.length) {
     // get-lab-orders hands its mapper the pre-submission Tasks plus the result-review Tasks based on the
@@ -344,17 +398,26 @@ export async function fetchEncounterOrders(
 
       if (!serviceRequest || !encounterId) continue;
 
-      const history = parseLabOrdersHistory(
-        serviceRequest,
-        order.orderStatus,
-        labTasks,
-        pools.diagnosticReports,
-        allPractitioners,
-        [...provenancesFor([serviceRequest]), ...reviewProvenances],
-        specimensFor(serviceRequest)
-      );
+      const ownProvenances = provenancesFor([serviceRequest]);
 
-      recordsFor(encounterId).labTests.push(externalLabRecord(order, serviceRequest, pools.diagnosticReports, history));
+      // The history builder dereferences the first Specimen of a non-PSC order past "pending" (AutoLab orders
+      // may have none), so a malformed order costs its timeline, not the report.
+      const history =
+        mapSafely(`external lab ${serviceRequest.id} history`, () =>
+          parseLabOrdersHistory(
+            serviceRequest,
+            order.orderStatus,
+            labTasks,
+            pools.diagnosticReports,
+            allPractitioners,
+            [...ownProvenances, ...reviewProvenances],
+            specimensFor(serviceRequest)
+          )
+        ) ?? [];
+
+      recordsFor(encounterId).labTests.push(
+        externalLabRecord(order, serviceRequest, ownProvenances, reportsFor(serviceRequest), history)
+      );
     }
   }
 
@@ -414,7 +477,7 @@ export async function fetchEncounterOrders(
           order,
           serviceRequest,
           provenancesFor([serviceRequest]),
-          pools.diagnosticReports,
+          reportsFor(serviceRequest),
           specimensFor(serviceRequest)[0]
         )
       );

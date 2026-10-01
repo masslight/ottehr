@@ -35,7 +35,11 @@ import {
   getReasonForVisitAndAdditionalDetailsFromAppointment,
   getServiceCategoryCodeFromAppointment,
 } from 'utils/lib/fhir/appointments';
-import { DOCUMENT_REFERENCE_SUMMARY_FROM_AUDIO, DOCUMENT_REFERENCE_SUMMARY_FROM_CHAT } from 'utils/lib/fhir/constants';
+import {
+  DOCUMENT_REFERENCE_SUMMARY_FROM_AUDIO,
+  DOCUMENT_REFERENCE_SUMMARY_FROM_CHAT,
+  ERX_MEDICATION_META_TAG_CODE,
+} from 'utils/lib/fhir/constants';
 import { dispositionCheckboxOptions, mapDispositionTypeToLabel } from 'utils/lib/fhir/disposition';
 import {
   formatFhirEncounterToPatientFollowupDetails,
@@ -71,6 +75,7 @@ import { ORDER_TYPE_CODE_SYSTEM } from 'utils/lib/fhir/radiology';
 import { makeVitalsObservationDTO } from 'utils/lib/fhir/vitals';
 import { getProviderType } from 'utils/lib/helpers/helpers';
 import { isInHouseLabServiceRequest } from 'utils/lib/helpers/in-house-labs';
+import { getQuestionnaireResponseByLinkId } from 'utils/lib/helpers/paperwork/paperwork-response';
 import {
   formatScreeningQuestionValue,
   getPaperworkScreeningAnswer,
@@ -85,7 +90,11 @@ import {
 import { isDotVisionScreeningEntry } from 'utils/lib/helpers/vitals/vitals-vision.helper';
 import { kgToLbs } from 'utils/lib/helpers/vitals/vitals-weight.helper';
 import { patientScreeningQuestionsConfig } from 'utils/lib/ottehr-config/screening-questions';
-import { AdHocEncounterRow, AdHocEncountersInput } from 'utils/lib/types/adhoc/datasets/encounters';
+import {
+  AdHocEncounterRow,
+  AdHocEncountersInput,
+  CHART_NOTE_TYPE_VALUES,
+} from 'utils/lib/types/adhoc/datasets/encounters';
 import {
   VitalAlertCriticality,
   VitalBloodPressureObservationMethod,
@@ -96,6 +105,9 @@ import {
 } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import {
   DispositionType,
+  IN_PERSON_NOTE_ID,
+  NOTE_TYPE,
+  NoteDTO,
   NOTHING_TO_EAT_OR_DRINK_FIELD,
   REFUSAL_OF_EMS_TRANSPORT_FIELD,
   VitalsObservationDTO,
@@ -111,6 +123,7 @@ import {
   DISCHARGE_SUMMARY_CODE,
   INSURANCE_CARD_CODE,
   PATIENT_EDUCATION_DOC_TYPE_CODE,
+  PATIENT_PHOTO_CODE,
   PHOTO_ID_CARD_CODE,
 } from 'utils/lib/types/data/paperwork/paperwork.constants';
 import { applyOverridesToDailySchedule, DOW, getScheduleExtension, getTimezone } from 'utils/lib/utils/scheduleUtils';
@@ -124,6 +137,7 @@ import {
 import {
   chartDataResourceHasMetaTagByCode,
   followUpTypeFromPerformerType,
+  makeAccidentDTOFromFhirResources,
   makeDispositionDTOFromFhirResources,
   makeProceduresDTOFromFhirResources,
   mapResourceToChartDataResponse,
@@ -148,15 +162,19 @@ async function getStaffNameByEmail(oystehr: Oystehr): Promise<Map<string, string
     const users = await oystehr.user.list();
     const pidByEmail = new Map<string, string>();
     const ids: string[] = [];
+
     for (const u of users) {
       const email = (u.email || '').toLowerCase().trim();
       const pid = u.profile?.startsWith('Practitioner/') ? u.profile.split('/')[1] : undefined;
+
       if (email && pid) {
         pidByEmail.set(email, pid);
         ids.push(pid);
       }
     }
+
     const nameById = new Map<string, string>();
+
     for (let i = 0; i < ids.length; i += 80) {
       const bundle = await oystehr.fhir.search<Practitioner>({
         resourceType: 'Practitioner',
@@ -166,11 +184,13 @@ async function getStaffNameByEmail(oystehr: Oystehr): Promise<Map<string, string
           { name: '_count', value: '1000' },
         ],
       });
+
       for (const p of bundle.unbundle()) {
         const nm = `${p.name?.[0]?.given?.[0] || ''} ${p.name?.[0]?.family || ''}`.trim();
         if (p.id && nm) nameById.set(p.id, nm);
       }
     }
+
     for (const [email, pid] of pidByEmail) {
       const nm = nameById.get(pid);
       if (nm) map.set(email, nm);
@@ -184,7 +204,9 @@ async function getStaffNameByEmail(oystehr: Oystehr): Promise<Map<string, string
 
 const minutesBetween = (start?: string, end?: string): number | null => {
   if (!start || !end) return null;
+
   const m = Math.round(DateTime.fromISO(end).diff(DateTime.fromISO(start), 'minutes').minutes);
+
   return Number.isFinite(m) ? m : null;
 };
 
@@ -200,6 +222,8 @@ const round1 = (n: number): number => Math.round(n * 10) / 10;
 
 const hasChartTag = (resource: Resource, code: string): boolean =>
   Boolean(resource.meta?.tag?.some((tag) => tag.code === code));
+
+type ChartNoteType = NonNullable<AdHocEncounterRow['chartNotes']>[number]['type'];
 
 const practitionerDisplayName = (p?: Practitioner): string | null => {
   const nm = `${p?.name?.[0]?.given?.[0] || ''} ${p?.name?.[0]?.family || ''}`.trim();
@@ -329,6 +353,25 @@ const groupIdOf = (appointment: Appointment): string | undefined =>
 const hasDocRefTypeCode = (docRef: DocumentReference, code: string): boolean =>
   docRef.status === 'current' && Boolean(docRef.type?.coding?.some((c) => c.code === code));
 
+// A free-text answer in the intake paperwork, the way the chart reads one (getQuestionnaireResponseByLinkId).
+const paperworkAnswer = (questionnaireResponse: QuestionnaireResponse | undefined, linkId: string): string =>
+  getQuestionnaireResponseByLinkId(linkId, questionnaireResponse)?.answer?.[0]?.valueString?.trim() ?? '';
+
+// The accident Condition stores the checkbox codes; these are the checkbox labels on the HPI screen's "Patient's
+// condition related to" card, as the visit note prints them (HpiMoiContainer).
+const ACCIDENT_TYPE_LABELS: Record<string, string> = {
+  AA: 'Auto Accident',
+  EM: 'Employment',
+  OA: 'Other Accident',
+};
+
+// The chart's own note DTO builder, for the visit's provider notes and addenda.
+const noteRecordBase = (note: NoteDTO): { text: string; author: string; addedAt: string | null } => ({
+  text: note.text,
+  author: note.authorName,
+  addedAt: note.lastUpdated || null,
+});
+
 export async function fetchAdHocEncounterRows(
   oystehr: Oystehr,
   params: AdHocEncountersInput,
@@ -396,7 +439,9 @@ export async function fetchAdHocEncounterRows(
   const resultsByEncounterId = new Map<string, DiagnosticReport[]>();
   const encounterConditionsByEncounterId = new Map<string, Condition[]>();
   const clinicalImpressionsByEncounterId = new Map<string, ClinicalImpression[]>();
-  const instructionsByEncounterId = new Map<string, Communication[]>();
+  const communicationsByEncounterId = new Map<string, Communication[]>();
+  const surgicalHistoryNotesByEncounterId = new Map<string, Procedure[]>();
+  const conditionPhotoDocRefsByAppointmentId = new Map<string, DocumentReference[]>();
   const signatureProvenancesByEncounterId = new Map<string, Provenance[]>();
   const signerById = new Map<string, Practitioner>();
   const paperworkQrByEncounterId = new Map<string, QuestionnaireResponse>();
@@ -475,8 +520,12 @@ export async function fetchAdHocEncounterRows(
       );
     }
     if (includeMedications) {
+      // The prescriptions as get-erx-orders / the tracking board search them: only eRx-tagged requests (the
+      // in-house medication orders also carry a MedicationRequest on the encounter, read via their MA below).
       indexByEncounter(
-        await fetchScoped<MedicationRequest>('MedicationRequest', 'encounter', encRefs),
+        await fetchScoped<MedicationRequest>('MedicationRequest', 'encounter', encRefs, [
+          { name: '_tag', value: ERX_MEDICATION_META_TAG_CODE },
+        ]),
         (m) => stripEnc(m.encounter?.reference),
         medRequestsByEncounterId
       );
@@ -654,14 +703,24 @@ export async function fetchAdHocEncounterRows(
     }
 
     if (includeCharting) {
-      const [clinicalImpressions, instructions] = await Promise.all([
+      // The visit's Communications: patient instructions and the chart's provider notes (every NOTE_TYPE, addenda
+      // included — the css-note tag), plus the surgical history note Procedure, as the chart sections read them.
+      const [clinicalImpressions, communications, surgicalHistoryNotes] = await Promise.all([
         fetchScoped<ClinicalImpression>('ClinicalImpression', 'encounter', encRefs),
         fetchScoped<Communication>('Communication', 'encounter', encRefs, [
-          { name: '_tag', value: 'patient-instruction' },
+          { name: '_tag', value: `patient-instruction,${IN_PERSON_NOTE_ID}` },
         ]),
+        fetchScoped<Procedure>('Procedure', 'encounter', encRefs, [{ name: '_tag', value: 'surgical-history-note' }]),
       ]);
+
       indexByEncounter(clinicalImpressions, (c) => stripEnc(c.encounter?.reference), clinicalImpressionsByEncounterId);
-      indexByEncounter(instructions, (c) => stripEnc(c.encounter?.reference), instructionsByEncounterId);
+      indexByEncounter(communications, (c) => stripEnc(c.encounter?.reference), communicationsByEncounterId);
+
+      indexByEncounter(
+        surgicalHistoryNotes,
+        (p) => stripEnc(p.encounter?.reference),
+        surgicalHistoryNotesByEncounterId
+      );
     }
 
     if (includeSigning) {
@@ -692,6 +751,36 @@ export async function fetchAdHocEncounterRows(
         if (encId && isIntakePaperworkQuestionnaireResponse(qr)) paperworkQrByEncounterId.set(encId, qr);
       }
     }
+    if (includeDocuments) {
+      // Patient condition photos hang off the Appointment (upload-patient-condition-photo / the paperwork harvest),
+      // not the Encounter: the visit's current photo DocumentReferences, as the chart's photos card lists them.
+      const photoDocRefs = await fetchScoped<DocumentReference>(
+        'DocumentReference',
+        'related',
+        Array.from(appointmentMap.keys()),
+        [
+          { name: 'status', value: 'current' },
+          { name: 'type', value: PATIENT_PHOTO_CODE },
+          { name: '_elements', value: 'type,status,context,content' },
+        ]
+      );
+
+      for (const docRef of photoDocRefs) {
+        for (const related of docRef.context?.related ?? []) {
+          const appointmentId = related.reference?.startsWith('Appointment/')
+            ? related.reference.replace('Appointment/', '')
+            : undefined;
+
+          if (appointmentId) {
+            conditionPhotoDocRefsByAppointmentId.set(appointmentId, [
+              ...(conditionPhotoDocRefsByAppointmentId.get(appointmentId) ?? []),
+              docRef,
+            ]);
+          }
+        }
+      }
+    }
+
     if (includePaperwork) {
       // The tracking board's other paperwork input: the patient's current Photo ID / insurance card DocumentReferences.
       const docRefs = await fetchScoped<DocumentReference>(
@@ -1344,12 +1433,20 @@ export async function fetchAdHocEncounterRows(
           bodySide: p.bodySide ?? '',
           technique: p.technique ?? [],
           medicationUsed: p.medicationUsed ?? '',
+          suppliesUsed: p.suppliesUsed ?? '',
+          lengthCm: typeof p.lengthCm === 'number' && Number.isFinite(p.lengthCm) ? p.lengthCm : null,
+          repairDepth: p.repairDepth ?? '',
+          infusionStartTime: p.infusionStartTime || null,
+          infusionStopTime: p.infusionStopTime || null,
+          procedureDetails: p.procedureDetails ?? '',
           timeSpent: p.timeSpent ?? '',
           complications: p.complications ?? '',
           patientResponse: p.patientResponse ?? '',
+          postInstructions: p.postInstructions ?? '',
           consentObtained: p.consentObtained ?? null,
           specimenSent: p.specimenSent ?? null,
           documentedBy: p.documentedBy ?? '',
+          documentedAt: p.documentedDateTime || null,
         }));
 
         row.procedureTypes = row.procedures.map((p) => p.type);
@@ -1365,8 +1462,10 @@ export async function fetchAdHocEncounterRows(
             return dispositionCheckboxOptions.find((o) => o.name === type)?.label ?? type;
           })
           .filter(Boolean);
+
         row.followUpTypes = followUpTypes;
         row.followUpCount = followUpTypes.length;
+
         row.dischargeDisposition =
           encounter.hospitalization?.dischargeDisposition?.coding?.[0]?.display ||
           encounter.hospitalization?.dischargeDisposition?.text ||
@@ -1585,16 +1684,23 @@ export async function fetchAdHocEncounterRows(
       row.patientScreeningAnswers = patientScreeningAnswers;
       row.patientScreeningQuestions = patientScreeningAnswers.map((e) => e.question);
 
-      const accidentCond = (encounter.id ? encounterConditionsByEncounterId.get(encounter.id) ?? [] : []).find(
-        (c) => c.meta?.tag?.some((t) => t.code === 'accident')
+      // The chart's accident record (the latest accident Condition of the visit), labelled as the visit note prints it.
+      const accident = makeAccidentDTOFromFhirResources(
+        encounter.id ? encounterConditionsByEncounterId.get(encounter.id) ?? [] : []
       );
 
-      row.accidentType = accidentCond
-        ? accidentCond.code?.coding?.[0]?.display ||
-          accidentCond.code?.coding?.[0]?.code ||
-          accidentCond.code?.text ||
-          ''
-        : '';
+      const accidentTypes = (accident?.type ?? []).map((type) => ACCIDENT_TYPE_LABELS[type] ?? type);
+      row.accidentTypes = accidentTypes;
+      row.accidentType = accidentTypes[0] ?? '';
+      row.accidentDate = accident?.date || null;
+      row.accidentState = accident?.state ?? '';
+
+      // Paperwork details the visit shows: the person accompanying a minor (review tab) and the relay phone
+      // (telemed footer), read as those components read them.
+      const accompanyingFirst = paperworkAnswer(paperwork, 'person-accompanying-minor-first-name');
+      const accompanyingLast = paperworkAnswer(paperwork, 'person-accompanying-minor-last-name');
+      row.personAccompanyingMinor = [accompanyingFirst, accompanyingLast].filter(Boolean).join(' ');
+      row.hearingImpairedRelayPhone = paperworkAnswer(paperwork, 'relay-phone');
     }
 
     if (includeDocuments) {
@@ -1613,6 +1719,13 @@ export async function fetchAdHocEncounterRows(
 
       row.workSchoolNotes = workSchoolNotes;
       row.workSchoolNoteCount = workSchoolNotes.length;
+
+      // As the chart's photos card counts them: one per attachment of the visit's current photo documents.
+      row.patientConditionPhotoCount = (
+        appointment.id ? conditionPhotoDocRefsByAppointmentId.get(appointment.id) ?? [] : []
+      )
+        .filter((docRef) => hasDocRefTypeCode(docRef, PATIENT_PHOTO_CODE))
+        .reduce((count, docRef) => count + (docRef.content ?? []).filter((c) => c.attachment?.url).length, 0);
     }
 
     if (includeEmployer) {
@@ -1707,6 +1820,16 @@ export async function fetchAdHocEncounterRows(
         : paperwork.consentByStaffAttestation
         ? 'staff attestation'
         : null;
+
+      // The consent signer as the visit details face sheet prints it (composeConsentFormsData's full name /
+      // relationship answers), only when the forms were signed in the paperwork.
+      row.consentSignerName = paperwork.consentByPaperworkSignatures
+        ? paperworkAnswer(questionnaireResponse, 'full-name')
+        : '';
+
+      row.consentSignerRelationship = paperwork.consentByPaperworkSignatures
+        ? paperworkAnswer(questionnaireResponse, 'consent-form-signer-relationship')
+        : '';
     }
 
     if (includeCharting && encounter.id) {
@@ -1715,20 +1838,47 @@ export async function fetchAdHocEncounterRows(
         [
           ...(encounterConditionsByEncounterId.get(encounter.id) ?? []),
           ...(clinicalImpressionsByEncounterId.get(encounter.id) ?? []),
-          ...(instructionsByEncounterId.get(encounter.id) ?? []),
+          ...(communicationsByEncounterId.get(encounter.id) ?? []),
+          ...(surgicalHistoryNotesByEncounterId.get(encounter.id) ?? []),
         ],
         encounter.id,
-        { instructions: [] }
+        { instructions: [], notes: [] }
       );
 
       const docs = docRefsByEncounterId.get(encounter.id) ?? [];
       row.chiefComplaint = chart.chiefComplaint?.text ?? '';
       row.historyOfPresentIllness = chart.historyOfPresentIllness?.text ?? '';
+
+      // Read as the encounter-notes chart section reads it.
+      row.chartReasonForVisit = encounter.extension?.find((e) => e.url === 'reason-for-visit')?.valueString ?? '';
+
       row.mechanismOfInjury = chart.mechanismOfInjury?.text ?? '';
       row.rosNote = chart.ros?.text ?? '';
       row.medicalDecision = chart.medicalDecision?.text ?? '';
       row.patientInstructions = (chart.instructions ?? []).map((i) => i.text ?? '').filter(Boolean);
+      row.surgicalHistoryNote = chart.surgicalHistoryNote?.text ?? '';
+      row.patientInfoConfirmed = chart.patientInfoConfirmed?.value === true;
       row.addendumNote = chart.addendumNote?.text ?? '';
+
+      // Oldest first, as the chart lists notes.
+      const notes = [...(chart.notes ?? [])].sort((a, b) => (a.lastUpdated ?? '').localeCompare(b.lastUpdated ?? ''));
+
+      row.addenda = notes
+        .filter((note) => note.type === NOTE_TYPE.ADDENDUM)
+        .map((note) => ({ ...noteRecordBase(note), edited: !!note.edited, deleted: !!note.deleted }));
+
+      row.addendumCount = row.addenda.filter((note) => !note.deleted).length;
+
+      row.chartNotes = notes
+        .filter(
+          (note) =>
+            !note.deleted &&
+            note.type !== NOTE_TYPE.ADDENDUM &&
+            (CHART_NOTE_TYPE_VALUES as readonly string[]).includes(note.type)
+        )
+        .map((note) => ({ type: note.type as ChartNoteType, ...noteRecordBase(note) }));
+
+      row.chartNoteCount = row.chartNotes.length;
       row.dischargeSummaryCreated = docs.some((d) => hasDocRefTypeCode(d, DISCHARGE_SUMMARY_CODE));
       row.patientEducationCount = docs.filter((d) => hasDocRefTypeCode(d, PATIENT_EDUCATION_DOC_TYPE_CODE)).length;
     }

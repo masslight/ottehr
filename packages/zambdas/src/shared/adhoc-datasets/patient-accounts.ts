@@ -36,22 +36,29 @@ const indexAccountResources = (all: AccountSearchResource[]): ((patientRef: stri
     all.filter((r): r is Account => r.resourceType === 'Account'),
     (a) => getPatientReferenceFromAccount(a)
   );
+
   const coveragesByPatient = groupBy(
     all.filter((r): r is Coverage => r.resourceType === 'Coverage'),
     (c) => c.beneficiary?.reference
   );
+
   const relatedPersonsByPatient = groupBy(
     all.filter((r): r is RelatedPerson => r.resourceType === 'RelatedPerson'),
     (rp) => rp.patient?.reference
   );
+
+  // Organizations, RelatedPersons and Patients: the targets an Account owner or a Coverage payor / subscriber
+  // can point at (a Coverage subscriber may be another Patient — a parent who is a patient too).
   const byRef = new Map<string, AccountSearchResource>(
     all
-      .filter((r) => r.resourceType === 'Organization' || r.resourceType === 'RelatedPerson')
+      .filter(
+        (r) => r.resourceType === 'Organization' || r.resourceType === 'RelatedPerson' || r.resourceType === 'Patient'
+      )
       .map((r) => [referenceOf(r), r])
   );
 
-  // The resources one patient's own patient-account search returns. Organizations come in only as an
-  // Account owner or a Coverage payor; subscribers as a Coverage subscriber.
+  // The resources one patient's own patient-account search returns (the patient itself is passed separately).
+  // Organizations come in only as an Account owner or a Coverage payor; subscribers as a Coverage subscriber.
   return (patientRef) => {
     const accounts = accountsByPatient.get(patientRef) ?? [];
     const coverages = coveragesByPatient.get(patientRef) ?? [];
@@ -59,9 +66,10 @@ const indexAccountResources = (all: AccountSearchResource[]): ((patientRef: stri
     const linkedRefs = new Set(
       [
         ...accounts.map((a) => a.owner?.reference),
-        ...coverages.flatMap((c) => [...c.payor.map((p) => p.reference), c.subscriber?.reference]),
-      ].filter((ref): ref is string => !!ref)
+        ...coverages.flatMap((c) => [...(c.payor ?? []).map((p) => p.reference), c.subscriber?.reference]),
+      ].filter((ref): ref is string => !!ref && ref !== patientRef)
     );
+
     const linked: AccountSearchResource[] = [];
 
     for (const ref of linkedRefs) {
@@ -89,15 +97,14 @@ export async function fetchPatientAccounts(
   const ids = patients.map((p) => p.id).filter((id): id is string => !!id);
   if (!ids.length) return out;
 
-  const all = (
-    await fetchScopedResources<AccountSearchResource>(
-      oystehr,
-      'Patient',
-      '_id',
-      ids,
-      PATIENT_ACCOUNT_AND_COVERAGE_SEARCH_INCLUDES
-    )
-  ).filter((r) => r.resourceType !== 'Patient');
+  // Patients stay in: besides the report's own, the search includes other Patients that subscribe a Coverage.
+  const all = await fetchScopedResources<AccountSearchResource>(
+    oystehr,
+    'Patient',
+    '_id',
+    ids,
+    PATIENT_ACCOUNT_AND_COVERAGE_SEARCH_INCLUDES
+  );
 
   // Payers are shared between patients, so each is resolved once. A payer that cannot be resolved costs
   // its patients the carrier name, not the whole report.

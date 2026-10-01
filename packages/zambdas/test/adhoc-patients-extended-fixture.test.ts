@@ -1,5 +1,14 @@
 import Oystehr from '@oystehr/sdk';
-import { Appointment, Encounter, FhirResource, Location, Organization, Patient, Practitioner } from 'fhir/r4b';
+import {
+  Appointment,
+  Communication,
+  Encounter,
+  FhirResource,
+  Location,
+  Organization,
+  Patient,
+  Practitioner,
+} from 'fhir/r4b';
 import {
   ATTORNEY_FIRM_EXTENSION_URL,
   CPT_CODE_SYSTEM,
@@ -58,9 +67,10 @@ const returningPatient: Patient = {
   resourceType: 'Patient',
   id: 'pat-1',
   name: [
-    { given: ['Jane'], family: 'Doe' },
+    { given: ['Jane', 'Marie'], family: 'Doe', suffix: ['III'] },
     { given: ['JJ'], use: 'nickname' },
   ],
+  address: [{ line: ['12 Elm St', 'Apt 4'], city: 'Hoboken', state: 'NJ', postalCode: '07030' }],
   birthDate: '2010-01-01',
   gender: 'female',
   communication: [{ language: { coding: [{ code: 'es', display: 'Spanish' }] }, preferred: true }],
@@ -195,6 +205,13 @@ const accountResources: FhirResource[] = [
         patient: { reference: 'Patient/pat-1' },
         name: [{ given: ['Mary'], family: 'Doe' }],
         relationship: [{ coding: [{ code: 'parent', display: 'Parent' }] }],
+        birthDate: '1980-05-05',
+        gender: 'female',
+        telecom: [
+          { system: 'phone', value: '5550101234' },
+          { system: 'email', value: 'mary@example.test' },
+        ],
+        address: [{ line: ['12 Elm St'], city: 'Hoboken', state: 'NJ', postalCode: '07030' }],
       },
     ],
   },
@@ -212,12 +229,22 @@ const accountResources: FhirResource[] = [
     status: 'active',
     order: 1,
     beneficiary: { reference: 'Patient/pat-1' },
+    // The policy holder is the parent — a patient of the practice herself, not a RelatedPerson.
+    subscriber: { reference: 'Patient/pat-parent' },
     payor: [{ reference: 'Organization/payer-1' }],
     class: [{ type: { coding: [{ code: 'plan' }] }, value: '60054' }],
     identifier: [
       { type: { coding: [{ code: 'MB' }] }, value: 'MEM-123', assigner: { reference: 'Organization/payer-1' } },
     ],
     relationship: { coding: [{ code: 'child', display: 'Child' }] },
+  },
+  {
+    resourceType: 'Patient',
+    id: 'pat-parent',
+    name: [{ given: ['Mary'], family: 'Doe' }],
+    birthDate: '1980-05-05',
+    gender: 'female',
+    address: [{ line: ['12 Elm St'], city: 'Hoboken', state: 'NJ', postalCode: '07030' }],
   },
   {
     resourceType: 'Organization',
@@ -237,6 +264,7 @@ const accountResources: FhirResource[] = [
     id: 'ec-1',
     patient: { reference: 'Patient/pat-1' },
     name: [{ given: ['Tom'], family: 'Doe' }],
+    telecom: [{ system: 'phone', value: '5550105678' }],
     relationship: [
       { coding: [{ system: 'http://terminology.hl7.org/CodeSystem/v2-0131', code: 'EP', display: 'Spouse' }] },
     ],
@@ -321,8 +349,27 @@ const pricingDefinitions: FhirResource[] = [
 ] as FhirResource[];
 const unpricedCpt = makeProcedureResource('enc-1', 'pat-1', { code: '99999', display: 'Unlisted service' }, 'cpt-code');
 
+// Notes on the patient record as the patient page writes them (patient-notes/create).
+const patientNote = (id: string, text: string, lastUpdated: string, sent = lastUpdated): Communication => ({
+  resourceType: 'Communication',
+  id,
+  status: 'completed',
+  meta: { tag: [{ system: `${PRIVATE_EXTENSION_BASE_URL}/patient`, code: 'patient-note' }], lastUpdated },
+  subject: { reference: 'Patient/pat-1' },
+  sender: { reference: 'Practitioner/prac-1', display: 'Nina Park' },
+  sent,
+  payload: [{ contentString: text }],
+});
+
+const patientNotes: Communication[] = [
+  patientNote('pn-1', 'Prefers morning appointments', '2026-06-01T10:00:00.000Z'),
+  // Edited after it was written: sent and lastUpdated drifted apart.
+  patientNote('pn-2', 'Mother handles scheduling', '2026-06-20T10:00:00.000Z', '2026-06-10T10:00:00.000Z'),
+];
+
 const resourcesByJob: Record<string, FhirResource[]> = {
   ChargeItemDefinition: pricingDefinitions,
+  Communication: patientNotes,
   'Procedure:encounter': [
     { ...billedCpt, id: 'cpt-1' },
     { ...unpricedCpt, id: 'cpt-2' },
@@ -472,19 +519,36 @@ describe('ad-hoc Patients: layers mapped with the app logic (fixture)', () => {
     expect(rows.find((r) => r.patientId === 'pat-1')).toMatchObject({
       responsiblePartyRelationship: 'Parent',
       responsiblePartyName: 'Mary Doe',
+      responsiblePartySex: 'Female',
+      responsiblePartyPhone: '(555) 010-1234',
+      responsiblePartyEmail: 'mary@example.test',
+      responsiblePartyAddress: '12 Elm St, Hoboken, NJ 07030',
       emergencyContactRelationship: 'Spouse',
       emergencyContactName: 'Tom Doe',
+      emergencyContactPhone: '(555) 010-5678',
+      emergencyContactAddress: '',
       hasAttorney: true,
       attorneyFirm: 'Goodwin & Co',
       attorneyName: 'Saul Goodwin',
+      attorneyEmail: '',
       insured: true,
       primaryInsuranceCarrier: 'Aetna',
       primaryMemberId: 'MEM-123',
       primaryRelationshipToInsured: 'Child',
+      // The policy holder is another Patient of the practice: the bulk account search keeps her, as the
+      // single-patient search includes her as the Coverage subscriber.
+      primaryPolicyHolderName: 'Mary Doe',
+      primaryPolicyHolderSex: 'Female',
+      primaryPolicyHolderAddress: '12 Elm St, Hoboken, NJ 07030',
       secondaryInsuranceCarrier: '',
+      secondaryPolicyHolderName: '',
       occupationalMedicineEmployer: 'Acme Corp',
       workersCompEmployer: '',
+      workersCompEmployerAddress: '',
+      workersCompMemberId: '',
     });
+    expect(rows.find((r) => r.patientId === 'pat-1')?.responsiblePartyDateOfBirth).toContain('1980');
+    expect(rows.find((r) => r.patientId === 'pat-1')?.primaryPolicyHolderDateOfBirth).toContain('1980');
     expect(rows.find((r) => r.patientId === 'pat-2')).toMatchObject({
       responsiblePartyRelationship: '',
       hasAttorney: false,
@@ -508,12 +572,12 @@ describe('ad-hoc Patients: layers mapped with the app logic (fixture)', () => {
     const row = rows.find((r) => r.patientId === 'pat-1')!;
     expect(row.allergies).toEqual(['Penicillin', 'Aspirin']);
     expect(row.allergyDetails).toEqual([
-      { name: 'Penicillin', current: true },
-      { name: 'Aspirin', current: false },
+      { name: 'Penicillin', current: true, note: '' },
+      { name: 'Aspirin', current: false, note: '' },
     ]);
     expect(row.problems).toEqual(['Asthma']);
     expect(row.problemCodes).toEqual(['J45.909']);
-    expect(row.problemDetails).toEqual([{ display: 'Asthma', code: 'J45.909', current: true }]);
+    expect(row.problemDetails).toEqual([{ display: 'Asthma', code: 'J45.909', current: true, note: '' }]);
     expect(row.currentMedications).toEqual(['Albuterol inhaler']);
     expect(row.currentMedicationDetails).toMatchObject([
       { name: 'Albuterol inhaler', type: 'as-needed', status: 'active', lastTakenAt: '2026-06-30T08:00:00.000Z' },
@@ -577,6 +641,18 @@ describe('ad-hoc Patients: layers mapped with the app logic (fixture)', () => {
       hasMedicaid: true,
     });
     expect(returning.pcpName).toContain('Care');
+    expect(returning).toMatchObject({
+      middleName: 'Marie',
+      nameSuffix: 'III',
+      addressLine1: '12 Elm St',
+      addressLine2: 'Apt 4',
+      authorizedNonLegalGuardians: '',
+      genderIdentityDetails: '',
+      pcpAddress: '',
+      pcpPhone: '',
+      preferredPharmacyAddress: '',
+      preferredPharmacyPhone: '',
+    });
 
     const fresh = rows.find((r) => r.patientId === 'pat-2')!;
     expect(fresh).toMatchObject({
@@ -588,6 +664,20 @@ describe('ad-hoc Patients: layers mapped with the app logic (fixture)', () => {
       pronouns: '',
       preferredCommunicationMethod: '',
       hasMedicaid: false,
+      middleName: '',
+      addressLine1: '',
     });
+  });
+
+  it("notes: the patient page's notes, newest first, with the edited marker", async () => {
+    const rows = await fetchAdHocPatientRows(fakeOystehr, { dateRange, includeNotes: true });
+    expect(issuesOf(AdHocPatientsOutputSchema.safeParse({ patients: rows }))).toEqual([]);
+    const returning = rows.find((r) => r.patientId === 'pat-1')!;
+    expect(returning.patientNotes).toEqual([
+      { text: 'Mother handles scheduling', author: 'Nina Park', addedAt: '2026-06-20T10:00:00.000Z', edited: true },
+      { text: 'Prefers morning appointments', author: 'Nina Park', addedAt: '2026-06-01T10:00:00.000Z', edited: false },
+    ]);
+    expect(returning.patientNoteCount).toBe(2);
+    expect(rows.find((r) => r.patientId === 'pat-2')).toMatchObject({ patientNotes: [], patientNoteCount: 0 });
   });
 });

@@ -22,9 +22,12 @@ import {
   Task,
 } from 'fhir/r4b';
 import {
+  ACCIDENT_STATE_EXTENSION,
+  ACCIDENT_TYPE_SYSTEM,
   APPOINTMENT_LOCKED_META_TAG,
   ENCOUNTER_PAYMENT_VARIANT_EXTENSION_URL,
   ENCOUNTER_VISIT_OCCUPATIONAL_MEDICINE_EMPLOYER_EXTENSION_URL,
+  ERX_MEDICATION_META_TAG_CODE,
   FHIR_EXTENSION,
   INTAKE_PAPERWORK_QR_TAG,
   OCCUPATIONAL_MEDICINE_ACCOUNT_TYPE,
@@ -41,6 +44,7 @@ import { getProviderNameWithProfession } from 'utils/lib/fhir/helpers';
 import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
 import { ORDER_TYPE_CODE_SYSTEM, SERVICE_REQUEST_REQUESTED_TIME_EXTENSION_URL } from 'utils/lib/fhir/radiology';
 import { CODE_SYSTEM_SERVICE_CATEGORY_CODES } from 'utils/lib/helpers/rcm/constants';
+import { CONSENT_FORMS_CONFIG } from 'utils/lib/ottehr-config/consent-forms';
 import { patientScreeningQuestionsConfig } from 'utils/lib/ottehr-config/screening-questions';
 import { AdHocEncountersOutputSchema } from 'utils/lib/types/adhoc/datasets/encounters';
 import {
@@ -50,7 +54,12 @@ import {
   VitalsOxygenSatObservationMethod,
   VitalTemperatureObservationMethod,
 } from 'utils/lib/types/api/chart-data/chart-data.constants';
-import { PATIENT_VITALS_META_SYSTEM, VitalsObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import {
+  NOTE_TYPE,
+  NoteDTO,
+  PATIENT_VITALS_META_SYSTEM,
+  VitalsObservationDTO,
+} from 'utils/lib/types/api/chart-data/chart-data.types';
 import {
   MEDICATION_ADMINISTRATION_PERFORMER_TYPE_SYSTEM,
   MEDICATION_DISPENSABLE_DRUG_ID,
@@ -63,10 +72,11 @@ import { DataEntryTestItem } from 'utils/lib/types/data/in-house/in-house.types'
 import {
   LAB_ORDER_TASK,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
+  OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
 } from 'utils/lib/types/data/labs/labs.constants';
 import { NURSING_ORDER_PROVENANCE_ACTIVITY_CODING_ENTITY } from 'utils/lib/types/data/orders/constants';
-import { DISCHARGE_SUMMARY_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
+import { DISCHARGE_SUMMARY_CODE, PATIENT_PHOTO_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
 import { afterAll, describe, expect, it, vi } from 'vitest';
 import {
   CONTAINED_MEDICATION_ID,
@@ -74,6 +84,7 @@ import {
 } from '../src/ehr/immunization/common';
 import { inHouseResults } from '../src/shared/adhoc-datasets/encounter-orders';
 import { fetchAdHocEncounterRows } from '../src/shared/adhoc-datasets/encounters';
+import { makeNoteResource } from '../src/shared/chart-data';
 import { makeExamObservationResource, makeObservationResource } from '../src/shared/chart-data';
 
 // Fixture tests for the Encounters layers that reuse the app's own mappers (tracking-board orders, chart
@@ -166,6 +177,9 @@ const signedEncounter: Encounter = {
   extension: [
     { url: ENCOUNTER_PAYMENT_VARIANT_EXTENSION_URL, valueString: 'selfPay' },
     { url: 'awaiting-supervisor-approval', valueBoolean: false },
+    // Charted by staff on the visit note (ReasonForVisitField / VerifiedPatientInfo).
+    { url: 'reason-for-visit', valueString: 'Sore throat, fever since Monday' },
+    { url: 'patient-info-confirmed', valueBoolean: true },
   ],
   statusHistory: [
     visitStatusEntry('arrived', '2026-07-01T14:00:00.000Z', '2026-07-01T14:05:00.000Z'),
@@ -269,7 +283,36 @@ const paperworkQr: QuestionnaireResponse = {
         { linkId: paperworkScreeningField.fhirField, answer: [{ valueString: paperworkScreeningOption.fhirValue }] },
       ],
     },
+    {
+      linkId: 'patient-details-page',
+      item: [
+        { linkId: 'person-accompanying-minor-first-name', answer: [{ valueString: 'Mary' }] },
+        { linkId: 'person-accompanying-minor-last-name', answer: [{ valueString: 'Doe' }] },
+        { linkId: 'relay-phone', answer: [{ valueString: '(555) 010-0199' }] },
+      ],
+    },
+    {
+      // The consent forms, signed in the paperwork (what getPaperworkCompleteness / the face sheet read).
+      linkId: 'consent-forms-page',
+      item: [
+        ...CONSENT_FORMS_CONFIG.forms.map((form) => ({ linkId: form.id, answer: [{ valueBoolean: true }] })),
+        { linkId: 'signature', answer: [{ valueString: 'Mary Doe' }] },
+        { linkId: 'full-name', answer: [{ valueString: 'Mary Doe' }] },
+        { linkId: 'consent-form-signer-relationship', answer: [{ valueString: 'Parent' }] },
+      ],
+    },
   ],
+};
+
+// A patient condition photo uploaded for the visit (upload-patient-condition-photo: related to the Appointment).
+const conditionPhotoDocRef: DocumentReference = {
+  resourceType: 'DocumentReference',
+  id: 'doc-photo',
+  status: 'current',
+  type: { coding: [{ system: 'http://loinc.org', code: PATIENT_PHOTO_CODE }], text: 'Patient photos' },
+  subject: { reference: 'Patient/pat-1' },
+  context: { related: [{ reference: 'Appointment/appt-1' }] },
+  content: [{ attachment: { url: 'z3://photos/rash-1.jpg', title: 'rash-1.jpg' } }],
 };
 
 const photoIdDocRef: DocumentReference = {
@@ -316,6 +359,69 @@ const instruction: Communication = {
   encounter: { reference: 'Encounter/enc-1' },
   meta: { tag: [{ code: 'patient-instruction' }] },
   payload: [{ contentString: 'Rest and fluids' }],
+};
+
+// Provider notes written by the chart's own writer (save-chart-data → makeNoteResource), saved at `sent`.
+const chartNote = (
+  id: string,
+  note: Pick<NoteDTO, 'type' | 'text'> & { deleted?: boolean },
+  sent: string
+): Communication => {
+  const resource = makeNoteResource('enc-1', 'pat-1', {
+    ...note,
+    patientId: 'pat-1',
+    encounterId: 'enc-1',
+    authorId: 'prac-1',
+    authorName: 'Nina Park',
+  });
+
+  return { ...resource, id, sent, meta: { ...resource.meta, lastUpdated: sent } };
+};
+
+const intakeNote = chartNote(
+  'note-intake',
+  { type: NOTE_TYPE.INTAKE, text: 'Pt arrived with mother' },
+  '2026-07-01T14:02:00.000Z'
+);
+
+const addendum = chartNote(
+  'note-addendum',
+  { type: NOTE_TYPE.ADDENDUM, text: 'Culture came back negative' },
+  '2026-07-02T09:00:00.000Z'
+);
+
+const deletedInternalNote = chartNote(
+  'note-internal-deleted',
+  { type: NOTE_TYPE.INTERNAL, text: 'wrong patient', deleted: true },
+  '2026-07-01T14:03:00.000Z'
+);
+
+// The surgical history free-text note (encounter-notes chart section: Procedure tagged surgical-history-note).
+const surgicalHistoryNote: FhirResource = {
+  resourceType: 'Procedure',
+  id: 'proc-shn',
+  status: 'completed',
+  subject: { reference: 'Patient/pat-1' },
+  encounter: { reference: 'Encounter/enc-1' },
+  meta: { tag: [{ code: 'surgical-history-note' }] },
+  note: [{ text: 'Tonsils out at age 5' }],
+};
+
+// The chart's accident record ("Patient's condition related to": auto accident in NJ on the 28th).
+const accidentCondition: Condition = {
+  resourceType: 'Condition',
+  id: 'cond-accident',
+  subject: { reference: 'Patient/pat-1' },
+  encounter: { reference: 'Encounter/enc-1' },
+  meta: { tag: [{ code: 'accident' }] },
+  onsetDateTime: '2026-06-28',
+  code: {
+    coding: [
+      { system: ACCIDENT_TYPE_SYSTEM, code: 'AA' },
+      { system: ACCIDENT_TYPE_SYSTEM, code: 'OA' },
+    ],
+  },
+  extension: [{ url: ACCIDENT_STATE_EXTENSION, valueString: 'NJ' }],
 };
 
 const procedureRequest: ServiceRequest = {
@@ -385,6 +491,7 @@ const prescription: MedicationRequest = {
   id: 'mr-1',
   status: 'active',
   intent: 'order',
+  meta: { tag: [{ code: ERX_MEDICATION_META_TAG_CODE }] },
   subject: { reference: 'Patient/pat-1' },
   encounter: { reference: 'Encounter/enc-1' },
   requester: { reference: 'Practitioner/prac-1' },
@@ -392,6 +499,19 @@ const prescription: MedicationRequest = {
     coding: [{ system: MEDICATION_DISPENSABLE_DRUG_ID, code: '12345', display: 'Amoxicillin 500 mg capsule' }],
   },
   dosageInstruction: [{ patientInstruction: 'Take 1 capsule 3 times a day' }],
+};
+
+// The in-house medication order's MedicationRequest (create-update-medication-order): on the encounter too, but
+// NOT a prescription — the eRx list is the erx-medication-tagged requests only.
+const inHouseMedicationRequest: MedicationRequest = {
+  resourceType: 'MedicationRequest',
+  id: 'mr-inhouse',
+  status: 'active',
+  intent: 'order',
+  meta: { tag: [{ code: 'in-house-medication' }] },
+  subject: { reference: 'Patient/pat-1' },
+  encounter: { reference: 'Encounter/enc-1' },
+  medicationCodeableConcept: { coding: [{ code: '99999', display: 'Ibuprofen 400 mg (in-house)' }] },
 };
 
 // A STAT left-shoulder X-ray, still pending.
@@ -603,6 +723,24 @@ const submitProvenance: Provenance = {
   agent: [{ who: { reference: 'Practitioner/prac-1' } }],
 };
 
+// A second external lab on the cancelled visit, submitted later and with no Specimen of its own.
+const secondExternalLabRequest: ServiceRequest = {
+  ...externalLabRequest,
+  id: 'sr-lab-2',
+  encounter: { reference: 'Encounter/enc-2' },
+  identifier: [{ system: OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM, value: 'REQ-2' }],
+  code: { coding: [{ system: OYSTEHR_LAB_OI_CODE_SYSTEM, code: 'LIPID', display: 'Lipid panel' }] },
+};
+
+const secondPstTask: Task = { ...pstTask, id: 'task-pst-2', basedOn: [{ reference: 'ServiceRequest/sr-lab-2' }] };
+
+const secondSubmitProvenance: Provenance = {
+  ...submitProvenance,
+  id: 'prov-submit-2',
+  target: [{ reference: 'ServiceRequest/sr-lab-2' }],
+  recorded: '2026-07-01T16:45:00.000Z',
+};
+
 // Nursing order: requested Task → pending; the create-order Provenance names the ordering provider.
 const nursingRequest: ServiceRequest = {
   resourceType: 'ServiceRequest',
@@ -694,11 +832,12 @@ const resourcesByJob: Record<string, FhirResource[]> = {
     supervisor,
   ],
   QuestionnaireResponse: [paperworkQr],
-  'DocumentReference:related': [photoIdDocRef],
+  'DocumentReference:related': [photoIdDocRef, conditionPhotoDocRef],
   DocumentReference: [dischargeSummary],
-  Condition: [chiefComplaint],
+  Condition: [chiefComplaint, accidentCondition],
   ClinicalImpression: [medicalDecision],
-  Communication: [instruction],
+  Communication: [instruction, intakeNote, addendum, deletedInternalNote],
+  Procedure: [surgicalHistoryNote],
   ServiceRequest: [procedureRequest, externalLabRequest, nursingRequest, completedNursingRequest, dispositionFollowUp],
   HealthcareService: [group],
   Observation: [...vitals, booleanScreeningAnswer, ...examObservations],
@@ -708,17 +847,22 @@ const resourcesByJob: Record<string, FhirResource[]> = {
     vaccineOrder('ma-tdap', 'Tdap', 'in-progress'),
     vaccineOrder('ma-flu', 'Influenza', 'not-done', 'Patient declined'),
   ],
-  MedicationRequest: [prescription],
+  // What an untagged MedicationRequest search would return — the dataset must ask for the eRx tag.
+  MedicationRequest: [prescription, inHouseMedicationRequest],
+  'MedicationRequest:erx': [prescription],
   'ServiceRequest:radiology': [statXray, attending],
   'ServiceRequest:orders': [
     externalLabRequest,
+    secondExternalLabRequest,
     nursingRequest,
     completedNursingRequest,
     labSpecimen,
     pstTask,
+    secondPstTask,
     nursingTask,
     completedNursingTask,
     submitProvenance,
+    secondSubmitProvenance,
     nursingProvenance,
     ...completedNursingProvenances,
     attending,
@@ -733,6 +877,11 @@ const jobIdFor = (resourceType: string, params: { name: string; value: string }[
     return 'ServiceRequest:orders';
   if (resourceType === 'DocumentReference' && params.some((p) => p.name === 'related'))
     return 'DocumentReference:related';
+  if (
+    resourceType === 'MedicationRequest' &&
+    params.some((p) => p.name === '_tag' && p.value === ERX_MEDICATION_META_TAG_CODE)
+  )
+    return 'MedicationRequest:erx';
   return resourceType;
 };
 
@@ -786,6 +935,8 @@ const allLayers = {
   includeSigning: true,
   includePaperwork: true,
   includeCharting: true,
+  includeDocuments: true,
+  includeCodes: true,
 };
 
 describe('ad-hoc Encounters: layers mapped with the app mappers (fixture)', () => {
@@ -852,6 +1003,8 @@ describe('ad-hoc Encounters: layers mapped with the app mappers (fixture)', () =
       lotNumber: null,
     });
     expect(signed.medicationCodes).toEqual(['12345']);
+    // The in-house order's MedicationRequest on the same encounter is not a prescription.
+    expect(signed.drugs?.map((d) => d.name)).not.toContain('Ibuprofen 400 mg (in-house)');
   });
 
   it('immunizations: vaccine orders not given, with the reason', async () => {
@@ -894,6 +1047,9 @@ describe('ad-hoc Encounters: layers mapped with the app mappers (fixture)', () =
         performedBy: '',
         performingOrganization: '',
         safetyFlags: [],
+        clinicalHistory: '',
+        preliminaryReport: '',
+        finalReport: '',
         consentObtained: false,
       },
     ]);
@@ -1031,8 +1187,68 @@ describe('ad-hoc Encounters: layers mapped with the app mappers (fixture)', () =
     expect(signed.demographicsComplete).toBe(true);
     expect(signed.photoIdOnFile).toBe(true);
     expect(signed.insuranceCardOnFile).toBe(false);
-    expect(signed.consentComplete).toBe(false);
-    expect(signed.consentMethod).toBeNull();
+    expect(signed.consentComplete).toBe(true);
+    expect(signed.consentMethod).toBe('paperwork');
+    // The signer as the face sheet's consent section prints it.
+    expect(signed.consentSignerName).toBe('Mary Doe');
+    expect(signed.consentSignerRelationship).toBe('Parent');
+    const cancelled = rows.find((r) => r.appointmentId === 'appt-2')!;
+    expect(cancelled.consentSignerName).toBe('');
+  });
+
+  it('charting: reason for visit, verified flag, notes and addenda through the chart note DTO', async () => {
+    const rows = await fetchAdHocEncounterRows(fakeOystehr, { dateRange, includeCharting: true });
+    const signed = rows.find((r) => r.appointmentId === 'appt-1')!;
+    expect(signed.chartReasonForVisit).toBe('Sore throat, fever since Monday');
+    expect(signed.patientInfoConfirmed).toBe(true);
+    expect(signed.surgicalHistoryNote).toBe('Tonsils out at age 5');
+    expect(signed.patientInstructions).toEqual(['Rest and fluids']);
+    // The deleted internal note is left out of the section notes; the addendum is listed apart.
+    expect(signed.chartNotes).toEqual([
+      { type: 'intake', text: 'Pt arrived with mother', author: 'Nina Park', addedAt: '2026-07-01T14:02:00.000Z' },
+    ]);
+    expect(signed.chartNoteCount).toBe(1);
+    expect(signed.addenda).toEqual([
+      {
+        text: 'Culture came back negative',
+        author: 'Nina Park',
+        addedAt: '2026-07-02T09:00:00.000Z',
+        edited: false,
+        deleted: false,
+      },
+    ]);
+    expect(signed.addendumCount).toBe(1);
+    const cancelled = rows.find((r) => r.appointmentId === 'appt-2')!;
+    expect(cancelled).toMatchObject({
+      chartNotes: [],
+      addenda: [],
+      patientInfoConfirmed: false,
+      chartReasonForVisit: '',
+    });
+  });
+
+  it('intake: accident record as the visit note prints it, paperwork details shown during the visit', async () => {
+    const rows = await fetchAdHocEncounterRows(fakeOystehr, { dateRange, includeIntake: true });
+    const signed = rows.find((r) => r.appointmentId === 'appt-1')!;
+    expect(signed.accidentTypes).toEqual(['Auto Accident', 'Other Accident']);
+    expect(signed.accidentType).toBe('Auto Accident');
+    expect(signed.accidentDate).toBe('2026-06-28');
+    expect(signed.accidentState).toBe('NJ');
+    expect(signed.personAccompanyingMinor).toBe('Mary Doe');
+    expect(signed.hearingImpairedRelayPhone).toBe('(555) 010-0199');
+    const cancelled = rows.find((r) => r.appointmentId === 'appt-2')!;
+    expect(cancelled).toMatchObject({
+      accidentTypes: [],
+      accidentDate: null,
+      accidentState: '',
+      personAccompanyingMinor: '',
+    });
+  });
+
+  it('documents: patient condition photos counted per visit (Appointment-related)', async () => {
+    const rows = await fetchAdHocEncounterRows(fakeOystehr, { dateRange, includeDocuments: true });
+    expect(rows.find((r) => r.appointmentId === 'appt-1')!.patientConditionPhotoCount).toBe(1);
+    expect(rows.find((r) => r.appointmentId === 'appt-2')!.patientConditionPhotoCount).toBe(0);
   });
 
   it('charting: chart-section fields and visit documents', async () => {
@@ -1081,6 +1297,19 @@ describe('ad-hoc Encounters: layers mapped with the app mappers (fixture)', () =
     });
     expect(signed.labTestNames).toEqual(['Complete blood count']);
     expect(signed.labNames).toEqual(['Quest']);
+    // The other visit's order carries ITS OWN submit time (not the first submit Provenance of the report), its
+    // requisition number, and — with no Specimen — still maps instead of failing the report.
+    const cancelled = rows.find((r) => r.appointmentId === 'appt-2')!;
+    expect(cancelled.labTests).toHaveLength(1);
+    expect(cancelled.labTests?.[0]).toMatchObject({
+      name: 'Complete blood count',
+      status: 'sent',
+      submittedAt: '2026-07-01T16:45:00.000Z',
+      orderNumber: 'REQ-2',
+      collectedAt: null,
+      collectedBy: '',
+    });
+    expect(signed.labTests?.[0].orderNumber).toBe('');
     expect(signed.nursingOrderDetails).toEqual([
       {
         order: 'Rapid strep swab',
