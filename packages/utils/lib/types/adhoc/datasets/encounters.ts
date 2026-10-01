@@ -7,7 +7,13 @@ import { z } from 'zod';
 import { mapDispositionTypeToLabel } from '../../../fhir/disposition';
 import { PaymentVariant } from '../../../fhir/encounter';
 import { LATERALITY_SELECTORS, LateralityValue } from '../../../fhir/radiology';
-import { DispositionType } from '../../api/chart-data/chart-data.types';
+import {
+  VitalBloodPressureObservationMethod,
+  VitalHeartbeatObservationMethod,
+  VitalsOxygenSatObservationMethod,
+  VitalTemperatureObservationMethod,
+} from '../../api/chart-data/chart-data.constants';
+import { DispositionType, VitalsVisionOption } from '../../api/chart-data/chart-data.types';
 import { NonNormalResult } from '../../api/lab';
 import { DrugInteraction } from '../../api/medication-administration.types';
 import { PROVIDER_TYPE_VALUES } from '../../api/practitioner.types';
@@ -53,6 +59,18 @@ const MEDICATION_REQUEST_STATUSES = {
 const MEDICATION_REQUEST_STATUS_VALUES = enumValues(
   Object.keys(MEDICATION_REQUEST_STATUSES) as NonNullable<MedicationRequest['status']>[]
 );
+const TEMPERATURE_METHOD_VALUES = enumValues(Object.values(VitalTemperatureObservationMethod));
+const HEARTBEAT_METHOD_VALUES = enumValues(Object.values(VitalHeartbeatObservationMethod));
+const BLOOD_PRESSURE_METHOD_VALUES = enumValues(Object.values(VitalBloodPressureObservationMethod));
+const OXYGEN_SAT_METHOD_VALUES = enumValues(Object.values(VitalsOxygenSatObservationMethod));
+
+// Record<…, true> requires every chart vision option as a key.
+const VISION_OPTIONS = { child_too_young: true, with_glasses: true, without_glasses: true } satisfies Record<
+  VitalsVisionOption,
+  true
+>;
+
+const VISION_OPTION_VALUES = enumValues(Object.keys(VISION_OPTIONS) as VitalsVisionOption[]);
 const DISPOSITION_TYPE_VALUES = enumValues(Object.keys(mapDispositionTypeToLabel) as DispositionType[]);
 const NURSING_ORDER_STATUS_VALUES = enumValues(Object.values(NursingOrdersStatus));
 const NON_NORMAL_RESULT_VALUES = enumValues(Object.values(NonNormalResult));
@@ -410,7 +428,10 @@ export const ENCOUNTER_LAYERS = {
   },
   vitals: {
     label: 'Vital signs',
-    description: 'Temperature, heart rate, blood pressure, SpO₂, respiration, weight, height, and BMI.',
+    description:
+      'Temperature (°F and °C), heart rate, blood pressure, SpO₂, respiration, weight (kg and lbs), height (cm, ' +
+      'inches, feet/inches), BMI, how each was taken (route / position / room air), weight refused, vision ' +
+      '(visual acuity) and last menstrual period.',
     schema: z.object({
       temperatureF: z
         .number()
@@ -478,6 +499,60 @@ export const ENCOUNTER_LAYERS = {
       criticalVitals: z
         .array(z.string())
         .describe('The subset of abnormalVitals that reached the CRITICAL level, not merely abnormal. Same values.'),
+      // --- The same readings in the other units the chart shows (converted with the chart's own helpers) ---
+      temperatureC: z
+        .number()
+        .nullable()
+        .describe('Temperature °C, MOST RECENT reading only — same reading as temperatureF. Null if not taken.'),
+      temperatureCReadings: z
+        .array(z.number())
+        .describe('Temperature readings in °C, oldest first, parallel to temperatureFReadings. Empty if not taken.'),
+      weightLbs: z
+        .number()
+        .nullable()
+        .describe('Weight lbs (most recent) — same reading as weightKg. Null if not taken.'),
+      heightInches: z
+        .number()
+        .nullable()
+        .describe('Height in total inches (most recent) — same reading as heightCm. Null if not taken.'),
+      heightFeetInches: z
+        .string()
+        .describe('Height as feet and inches, e.g. 5\'7.5" (most recent) — same reading as heightCm. "" if not taken.'),
+      // --- How the most recent reading was taken ---
+      temperatureMethod: z
+        .enum(TEMPERATURE_METHOD_VALUES)
+        .nullable()
+        .describe('How the most recent temperature was taken. Null when not recorded / not taken.'),
+      heartRateMethod: z
+        .enum(HEARTBEAT_METHOD_VALUES)
+        .nullable()
+        .describe('Patient position for the most recent heart rate. Null when not recorded / not taken.'),
+      bloodPressureMethod: z
+        .enum(BLOOD_PRESSURE_METHOD_VALUES)
+        .nullable()
+        .describe('Patient position for the most recent blood pressure. Null when not recorded / not taken.'),
+      oxygenSaturationMethod: z
+        .enum(OXYGEN_SAT_METHOD_VALUES)
+        .nullable()
+        .describe('Room air or supplemental O₂ for the most recent SpO₂. Null when not recorded / not taken.'),
+      weightRefused: z
+        .boolean()
+        .describe('The most recent weight entry is "patient refused" (no value). False when weighed or not entered.'),
+      // --- Vision and last menstrual period (most recent entry) ---
+      visionLeftEye: z.string().describe('Left-eye visual acuity as charted, e.g. "20/20". "" if not taken.'),
+      visionRightEye: z.string().describe('Right-eye visual acuity as charted. "" if not taken.'),
+      visionBothEyes: z.string().describe('Both-eyes visual acuity as charted. "" if not taken.'),
+      visionOptions: z
+        .array(z.enum(VISION_OPTION_VALUES))
+        .describe('Vision test conditions: with_glasses / without_glasses / child_too_young. Empty when none.'),
+      lastMenstrualPeriod: z
+        .string()
+        .nullable()
+        .describe('Last menstrual period date as charted (ISO). Null if not charted.'),
+      lastMenstrualPeriodUnsure: z
+        .boolean()
+        .nullable()
+        .describe('The patient was unsure of the last menstrual period date. Null if not charted.'),
     }),
   },
   labs: {

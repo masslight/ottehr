@@ -13,6 +13,7 @@ import {
   Medication,
   MedicationAdministration,
   MedicationRequest,
+  Observation,
   Patient,
   Practitioner,
   Provenance,
@@ -40,6 +41,14 @@ import { ORDER_TYPE_CODE_SYSTEM, SERVICE_REQUEST_REQUESTED_TIME_EXTENSION_URL } 
 import { CODE_SYSTEM_SERVICE_CATEGORY_CODES } from 'utils/lib/helpers/rcm/constants';
 import { AdHocEncountersOutputSchema } from 'utils/lib/types/adhoc/datasets/encounters';
 import {
+  VitalBloodPressureObservationMethod,
+  VitalFieldNames,
+  VitalHeartbeatObservationMethod,
+  VitalsOxygenSatObservationMethod,
+  VitalTemperatureObservationMethod,
+} from 'utils/lib/types/api/chart-data/chart-data.constants';
+import { PATIENT_VITALS_META_SYSTEM, VitalsObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import {
   MEDICATION_ADMINISTRATION_PERFORMER_TYPE_SYSTEM,
   MEDICATION_DISPENSABLE_DRUG_ID,
   MEDICATION_IDENTIFIER_NAME_SYSTEM,
@@ -61,6 +70,7 @@ import {
 } from '../src/ehr/immunization/common';
 import { inHouseResults } from '../src/shared/adhoc-datasets/encounter-orders';
 import { fetchAdHocEncounterRows } from '../src/shared/adhoc-datasets/encounters';
+import { makeObservationResource } from '../src/shared/chart-data';
 
 // Fixture tests for the Encounters layers that reuse the app's own mappers (tracking-board orders, chart
 // sections, visit-note signatures, tracking-board paperwork). The stubbed Oystehr serves each async-bulk
@@ -383,6 +393,77 @@ const statXray: ServiceRequest = {
   extension: [{ url: SERVICE_REQUEST_REQUESTED_TIME_EXTENSION_URL, valueDateTime: '2026-07-01T14:06:00.000Z' }],
 };
 
+// Vitals written by the chart's own writer (save-chart-data → makeObservationResource), at fixed times.
+const vital = (encounterId: string, dto: VitalsObservationDTO, at: string): Observation => ({
+  ...makeObservationResource(
+    encounterId,
+    'pat-1',
+    'prac-2',
+    undefined,
+    dto,
+    PATIENT_VITALS_META_SYSTEM,
+    undefined,
+    undefined,
+    undefined
+  ),
+  id: `vit-${encounterId}-${dto.field}`,
+  effectiveDateTime: at,
+});
+
+const vitals: Observation[] = [
+  vital(
+    'enc-1',
+    { field: VitalFieldNames.VitalTemperature, value: 37, observationMethod: VitalTemperatureObservationMethod.Oral },
+    '2026-07-01T14:06:00.000Z'
+  ),
+  vital(
+    'enc-1',
+    { field: VitalFieldNames.VitalHeartbeat, value: 80, observationMethod: VitalHeartbeatObservationMethod.Sitting },
+    '2026-07-01T14:06:00.000Z'
+  ),
+  vital(
+    'enc-1',
+    {
+      field: VitalFieldNames.VitalBloodPressure,
+      systolicPressure: 120,
+      diastolicPressure: 80,
+      observationMethod: VitalBloodPressureObservationMethod.Standing,
+    },
+    '2026-07-01T14:06:00.000Z'
+  ),
+  vital(
+    'enc-1',
+    {
+      field: VitalFieldNames.VitalOxygenSaturation,
+      value: 98,
+      observationMethod: VitalsOxygenSatObservationMethod.OnRoomAir,
+    },
+    '2026-07-01T14:06:00.000Z'
+  ),
+  vital('enc-1', { field: VitalFieldNames.VitalWeight, value: 70 }, '2026-07-01T14:07:00.000Z'),
+  vital('enc-1', { field: VitalFieldNames.VitalHeight, value: 170 }, '2026-07-01T14:07:00.000Z'),
+  vital(
+    'enc-1',
+    {
+      field: VitalFieldNames.VitalVision,
+      leftEyeVisionText: '20/20',
+      rightEyeVisionText: '20/40',
+      extraVisionOptions: ['with_glasses'],
+    },
+    '2026-07-01T14:08:00.000Z'
+  ),
+  vital(
+    'enc-1',
+    { field: VitalFieldNames.VitalLastMenstrualPeriod, value: '2026-06-10', isUnsure: true },
+    '2026-07-01T14:08:00.000Z'
+  ),
+  vital(
+    'enc-2',
+    { field: VitalFieldNames.VitalWeight, extraWeightOptions: ['patient_refused'] },
+    '2026-07-01T13:01:00.000Z'
+  ),
+];
+
 const group: HealthcareService = { resourceType: 'HealthcareService', id: 'grp-1', name: 'Pediatrics Group' };
 
 // External lab: submitted (PST completed, order active, submit Provenance), no results yet → "sent".
@@ -473,6 +554,7 @@ const resourcesByJob: Record<string, FhirResource[]> = {
   Communication: [instruction],
   ServiceRequest: [procedureRequest, externalLabRequest, nursingRequest, dispositionFollowUp],
   HealthcareService: [group],
+  Observation: vitals,
   Patient: [patient, occMedAccount, accountEmployer],
   Organization: [preOpEmployer],
   MedicationAdministration: [
@@ -540,6 +622,7 @@ const issuesOf = (result: { success: boolean; error?: { issues: unknown[] } }): 
 
 const allLayers = {
   includeDisposition: true,
+  includeVitals: true,
   includeEmployer: true,
   includeImaging: true,
   includeImmunizations: true,
@@ -667,6 +750,48 @@ describe('ad-hoc Encounters: layers mapped with the app mappers (fixture)', () =
     const rows = await fetchAdHocEncounterRows(fakeOystehr, { dateRange, includeEmployer: true });
     expect(rows.find((r) => r.appointmentId === 'appt-1')?.occupationalMedicineEmployer).toBe('Acme Corp');
     expect(rows.find((r) => r.appointmentId === 'appt-2')?.occupationalMedicineEmployer).toBe('City Hospital');
+  });
+
+  it('vitals: every unit the chart shows, how each reading was taken, vision and LMP', async () => {
+    const rows = await fetchAdHocEncounterRows(fakeOystehr, { dateRange, includeVitals: true });
+    expect(issuesOf(AdHocEncountersOutputSchema.safeParse({ encounters: rows }))).toEqual([]);
+    const signed = rows.find((r) => r.appointmentId === 'appt-1')!;
+    expect(signed).toMatchObject({
+      // the existing fields keep their values
+      temperatureF: 98.6,
+      weightKg: 70,
+      heightCm: 170,
+      // the same readings in the chart's other units
+      temperatureC: 37,
+      temperatureCReadings: [37],
+      weightLbs: 154.3,
+      heightInches: 66.93,
+      heightFeetInches: `5'7"`,
+      temperatureMethod: 'Oral',
+      heartRateMethod: 'Sitting',
+      bloodPressureMethod: 'Standing',
+      oxygenSaturationMethod: 'On room air',
+      weightRefused: false,
+      visionLeftEye: '20/20',
+      visionRightEye: '20/40',
+      visionBothEyes: '',
+      visionOptions: ['with_glasses'],
+      lastMenstrualPeriodUnsure: true,
+    });
+    expect(signed.lastMenstrualPeriod?.startsWith('2026-06-10')).toBe(true);
+
+    const cancelled = rows.find((r) => r.appointmentId === 'appt-2')!;
+    expect(cancelled).toMatchObject({
+      weightKg: null,
+      weightLbs: null,
+      weightRefused: true,
+      temperatureC: null,
+      temperatureMethod: null,
+      heightFeetInches: '',
+      visionOptions: [],
+      lastMenstrualPeriod: null,
+      lastMenstrualPeriodUnsure: null,
+    });
   });
 
   it('signing: signer, supervisor approval, charting lag, lock', async () => {
