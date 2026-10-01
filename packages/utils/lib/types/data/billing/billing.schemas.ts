@@ -17,6 +17,7 @@ import {
   TAG_NAME_FORBIDDEN_CHARACTERS,
   TAG_NAME_FORBIDDEN_CHARACTERS_ERROR,
 } from './billing.constants';
+import { CHARGE_ITEM_DEFINITION_DEFAULTS } from './billing.types';
 import { CLAIM_NOTE_MAX_LENGTH } from './claim-history';
 import {
   CLAIM_STATUS_FIELD_KEYS,
@@ -711,7 +712,7 @@ export const CreateChargeItemDefinitionInputSchema = z.object({
   name: nonEmptyString,
   effectiveDate: nonEmptyString.optional(),
   description: nonEmptyString.optional(),
-  default: z.enum(['insurance', 'self-pay']).optional(),
+  default: z.enum(CHARGE_ITEM_DEFINITION_DEFAULTS).optional(),
 });
 
 export const GetChargeItemDefinitionInputSchema = z.object({
@@ -733,7 +734,7 @@ export const UpdateChargeItemDefinitionInputSchema = z.object({
   status: z.enum(['active', 'retired']).optional(),
   effectiveDate: nonEmptyString.nullable().optional(),
   description: nonEmptyString.nullable().optional(),
-  default: z.enum(['insurance', 'self-pay']).nullable().optional(),
+  default: z.enum(CHARGE_ITEM_DEFINITION_DEFAULTS).nullable().optional(),
   procedureCodes: z.array(ChargeItemDefinitionProcedureCodeSchema).optional(),
 });
 
