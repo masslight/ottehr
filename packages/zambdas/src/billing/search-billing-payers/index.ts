@@ -3,7 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Organization } from 'fhir/r4b';
 import { OYSTEHR_RCM_PAYER_ID_SYSTEM } from 'utils/lib/fhir/constants';
 import { getPayerId } from 'utils/lib/helpers/helpers';
-import { BillingPayerOption } from 'utils/lib/types/data/billing/billing.types';
+import { BillingPayerOption, SearchBillingPayersResponse } from 'utils/lib/types/data/billing/billing.types';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
@@ -25,7 +25,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 async function performEffect(
   oystehr: Oystehr,
   params: SearchBillingPayersParams
-): Promise<{ payers: BillingPayerOption[]; nextCursor?: string | null }> {
+): Promise<SearchBillingPayersResponse> {
   // Payers live in the Oystehr RCM service. An ID lookup is a resolve, not a search — return
   // whatever it finds (including nothing) rather than falling through to the directory listing below.
   if (params.payerId) {
@@ -43,14 +43,36 @@ async function performEffect(
     });
     return { payers: result.data.map(mapPayer), nextCursor: result.metadata.nextCursor };
   }
-  const resultByName = await oystehr.rcm.listPayers({ name: params.name, limit: 50 });
-  const resultById = await oystehr.rcm.listPayers({ id: params.name, limit: 50 });
-  const payers = [...resultByName.data, ...resultById.data]
+  const { searchCursor } = params;
+  const limit = params.limit ?? 50;
+  // Skip the name or ID search once it has no more results.
+  const [resultByName, resultById] = await Promise.all([
+    searchCursor?.nameCursor === null
+      ? undefined
+      : oystehr.rcm.listPayers({
+          name: params.name,
+          limit,
+          ...(searchCursor?.nameCursor ? { cursor: searchCursor.nameCursor } : {}),
+        }),
+    searchCursor?.idCursor === null
+      ? undefined
+      : oystehr.rcm.listPayers({
+          id: params.name,
+          limit,
+          ...(searchCursor?.idCursor ? { cursor: searchCursor.idCursor } : {}),
+        }),
+  ]);
+  const payers = [...(resultByName?.data ?? []), ...(resultById?.data ?? [])]
     .map((payer) => mapPayer(payer))
     .reduce((map, payer) => map.set(payer.id, payer), new Map<string, BillingPayerOption>())
     .values()
     .toArray();
-  return { payers };
+  const nameCursor = resultByName?.metadata.nextCursor ?? null;
+  const idCursor = resultById?.metadata.nextCursor ?? null;
+  return {
+    payers,
+    nextCursor: nameCursor || idCursor ? JSON.stringify({ query: params.name, nameCursor, idCursor }) : null,
+  };
 }
 
 function mapPayer(payer: Organization): BillingPayerOption {

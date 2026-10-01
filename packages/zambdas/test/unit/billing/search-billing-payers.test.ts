@@ -3,6 +3,7 @@ import { Organization } from 'fhir/r4b';
 import { FHIR_IDENTIFIER_NPI, OYSTEHR_RCM_PAYER_ID_SYSTEM } from 'utils/lib/fhir/constants';
 import { SearchBillingPayersInput } from 'utils/lib/types/data/billing/billing.schemas';
 import { SearchBillingPayersResponse } from 'utils/lib/types/data/billing/billing.types';
+import { APIErrorCode } from 'utils/lib/types/errors';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ZambdaInput } from '../../../src/shared/types/common';
 
@@ -172,6 +173,37 @@ describe('search-billing-payers', () => {
   });
 
   describe('name search (typeahead)', () => {
+    it.each(['name', 'id'] as const)('continues %s matches without restarting the exhausted search', async (field) => {
+      mockOystehrClient.rcm.listPayers.mockImplementation(
+        async (params: { name?: string; id?: string; cursor?: string }) => ({
+          data: [params.cursor ? payerOrg('AET02', 'Aetna Two', 'AET02') : payerOrg('AET01', 'Aetna One', 'AET01')],
+          metadata: { nextCursor: !params.cursor && params[field] ? `${field}-2` : null },
+        })
+      );
+      const firstPage = await search({ name: 'Aetna', limit: 1 });
+      expect(firstPage.nextCursor).toBeTruthy();
+      expect(firstPage.payers.map((payer) => payer.id)).toEqual(['AET01']);
+      mockOystehrClient.rcm.listPayers.mockClear();
+
+      const nextPage = await search({ name: 'Aetna', limit: 1, cursor: firstPage.nextCursor ?? undefined });
+
+      expect(mockOystehrClient.rcm.listPayers).toHaveBeenCalledExactlyOnceWith({
+        [field]: 'Aetna',
+        limit: 1,
+        cursor: `${field}-2`,
+      });
+      expect(nextPage.payers.map((payer) => payer.id)).toEqual(['AET02']);
+      expect(nextPage.nextCursor).toBeNull();
+    });
+
+    it.each(['invalid-json', '{}', JSON.stringify({ query: 'Cigna', nameCursor: 'name-2', idCursor: null })])(
+      'rejects invalid or mismatched search cursor %s',
+      async (cursor) => {
+        await expect(search({ name: 'Aetna', cursor })).rejects.toMatchObject({ code: APIErrorCode.INVALID_INPUT });
+        expect(mockOystehrClient.rcm.listPayers).not.toHaveBeenCalled();
+      }
+    );
+
     it('merges name and id matches, de-duplicated by payer id', async () => {
       mockOystehrClient.rcm.listPayers.mockImplementation(async ({ name, id }: { name?: string; id?: string }) => {
         if (name) {
@@ -191,7 +223,7 @@ describe('search-billing-payers', () => {
       expect(mockOystehrClient.rcm.listPayers).toHaveBeenCalledWith({ name: 'Aetna', limit: 50 });
       expect(mockOystehrClient.rcm.listPayers).toHaveBeenCalledWith({ id: 'Aetna', limit: 50 });
       expect(response.payers.map((p) => p.id).sort()).toEqual(['org-1', 'org-2']);
-      expect(response.nextCursor).toBeUndefined();
+      expect(response.nextCursor).toBeNull();
     });
   });
 });

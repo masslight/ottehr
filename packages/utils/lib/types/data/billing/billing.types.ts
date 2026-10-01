@@ -635,7 +635,7 @@ export interface SearchBillingServicesResponse {
 
 export interface SearchBillingPayersResponse {
   payers: BillingPayerOption[];
-  // Present when listing (no name/payerId filter) — pass back as `cursor` to fetch the next page.
+  // Pass back as `cursor` with the same search query to fetch the next page.
   nextCursor?: string | null;
 }
 
