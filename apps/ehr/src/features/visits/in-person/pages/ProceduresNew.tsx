@@ -86,11 +86,20 @@ import {
 } from './procedureQuickPick';
 
 const SPECIMEN_SENT = ['sent', 'not sent'];
+/** The coding column keeps its full width while the page has room, then gives up to 60px before the
+ * two columns stack. 280px still fits the suggestion rows and the code search; the sentence form needs
+ * about 420px (its button row is the widest piece) so it never gets squeezed below that. */
 const CODING_COLUMN_WIDTH = 340;
+const CODING_COLUMN_MIN_WIDTH = 280;
+const FORM_COLUMN_MIN_WIDTH = 420;
+const COLUMN_GAP_PX = 16;
 /** Coding column beside the sentences once the page itself is wide enough, measured on the page rather
- * than the viewport so the visit sidebar (244px open, 56px collapsed) and the progress-note inline flow
- * are accounted for: about 1180px viewport with the sidebar open, about 1000px collapsed. */
-const CODING_COLUMN_QUERY = '@container (min-width: 900px)';
+ * than the viewport so the visit sidebar (244px open, 56px collapsed), the scribe panel (440px by
+ * default) and the progress-note inline flow are accounted for: the 716px threshold is about a 1000px
+ * viewport with the sidebar open, and still holds on a 1440px laptop with the sidebar and panel open. */
+const CODING_COLUMN_QUERY = `@container (min-width: ${
+  FORM_COLUMN_MIN_WIDTH + COLUMN_GAP_PX + CODING_COLUMN_MIN_WIDTH
+}px)`;
 const CONSENT = ['obtained', 'not obtained'];
 
 interface ProceduresNewProps {
@@ -685,9 +694,11 @@ export default function ProceduresNew({
             sx={{
               display: 'grid',
               gridTemplateColumns: 'minmax(0, 1fr)',
-              gap: 2,
+              gap: `${COLUMN_GAP_PX}px`,
               alignItems: 'start',
-              [CODING_COLUMN_QUERY]: { gridTemplateColumns: `minmax(0, 1fr) ${CODING_COLUMN_WIDTH}px` },
+              [CODING_COLUMN_QUERY]: {
+                gridTemplateColumns: `minmax(${FORM_COLUMN_MIN_WIDTH}px, 1fr) minmax(${CODING_COLUMN_MIN_WIDTH}px, ${CODING_COLUMN_WIDTH}px)`,
+              },
             }}
           >
             <AccordionCard>
@@ -827,6 +838,14 @@ export default function ProceduresNew({
                             });
                             close();
                           }}
+                          // The visit's diagnoses as one-click choices; a charted one keeps its resourceId, so
+                          // the procedure links the existing Condition instead of saving a copy. A visit can hold the
+                          // same code twice (e.g. one from an earlier procedure), so each code is offered once.
+                          quickPickOptions={chartDiagnoses.filter(
+                            (chartDiagnosis, index) =>
+                              chartDiagnoses.findIndex((other) => other.code === chartDiagnosis.code) === index &&
+                              !diagnoses.some((item) => item.code === chartDiagnosis.code)
+                          )}
                           disableForPrimary={false}
                           disabled={isReadOnly}
                         />
