@@ -1,9 +1,9 @@
-import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {
   CatalogDataset,
   InferAdHocLayersOutput,
   InferAdHocLayersOutputSchema,
+  InferDatasetFeedback,
 } from 'utils/lib/types/adhoc/generation/infer.types';
 import { AD_HOC_REPORT_EDIT_ROLES } from 'utils/lib/types/api/adhoc-report-access';
 import { fixAndParseJsonObjectFromString } from 'utils/lib/validation/json-fix';
@@ -21,17 +21,27 @@ const ZAMBDA_NAME = 'infer-adhoc-report-layers';
 // generation time because there the model's task is "produce a report", so it tends to substitute a
 // near-miss field (attending provider for referring provider) instead of refusing. Picking layers is
 // a classification task, where "nothing covers this" is an ordinary answer.
-const RESPONSE_SCHEMA = {
+const responseSchema = (datasets: CatalogDataset[]): object => ({
   type: 'object',
   properties: {
-    layerIds: { type: 'array', items: { type: 'string' } },
+    datasets: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', enum: datasets.map((d) => d.id) },
+          layerIds: { type: 'array', items: { type: 'string' } },
+        },
+        required: ['id', 'layerIds'],
+      },
+    },
     unavailable: { type: 'array', items: { type: 'string' } },
     hint: { type: 'string' },
   },
   // "hint" is required so the model always writes one when it rejects; it is dropped below when
   // nothing was rejected. Marking it optional made the model skip it exactly when it was needed.
-  required: ['layerIds', 'hint'],
-};
+  required: ['datasets', 'hint'],
+});
 
 type CatalogField = { name: string; description?: string; fields?: { name: string; description?: string }[] };
 
@@ -51,10 +61,10 @@ const renderFields = (fields: CatalogField[], indent: string): string =>
         })
         .join('\n');
 
-const renderCatalog = (datasets: CatalogDataset[], activeId: string): string =>
+const renderCatalog = (datasets: CatalogDataset[]): string =>
   datasets
     .map((dataset) => {
-      const head = `${dataset.id === activeId ? '* ' : '  '}DATASET ${dataset.id}: ${dataset.label}`;
+      const head = `DATASET ${dataset.id}: ${dataset.label}${dataset.description ? ` — ${dataset.description}` : ''}`;
       const base = `    ALWAYS-PRESENT FIELDS:\n${renderFields(dataset.fields, '      ')}`;
       const layers = dataset.layers.map(
         (layer) =>
@@ -65,17 +75,39 @@ const renderCatalog = (datasets: CatalogDataset[], activeId: string): string =>
     })
     .join('\n\n');
 
-const buildPrompt = (activeId: string, datasets: CatalogDataset[], request: string): string => {
+const buildFeedbackBlock = (feedback: InferDatasetFeedback | undefined): string =>
+  feedback
+    ? `
+PREVIOUS PASS. Dataset ${feedback.datasetId} was chosen for this request, but the report generator
+could not find ${feedback.concepts.map((c) => `"${c}"`).join(', ')} there and pointed to dataset
+${feedback.suggestedDatasetId}. Pick again with that in mind. If no single dataset covers the whole
+request, return every dataset it needs in "datasets".
+`
+    : '';
+
+const buildPrompt = (datasets: CatalogDataset[], request: string, feedback?: InferDatasetFeedback): string => {
   return `
-You prepare a clinical ad-hoc report BEFORE any data is fetched. You do two things.
+You prepare a clinical ad-hoc report BEFORE any data is fetched. You do three things.
 
-JOB 1 — PICK THE LAYERS. Optional layers add columns (and a heavier fetch) to the active dataset,
-marked "*" below. Return the ids of ONLY the layers the request genuinely needs — the minimal set.
-Base fields are always present, so never request a layer for those. When a borderline layer is
-doubtful, LEAVE IT OUT: a later step can still pull a missing layer on demand.
+JOB 1 — PICK THE DATASETS. Datasets differ in what one row is (see each description) and cannot be
+joined. Return in "datasets" the ONE dataset whose rows are the thing the request counts, lists or
+compares and whose fields cover EVERY requested concept — through its always-present fields, its
+layers, or what can be computed from them (tests 1-3 below). Words like "visits", "patients" or
+"diagnoses" do not by themselves point to a dataset: several datasets carry visit counts,
+demographics or codes, so judge by the fields. Only when NO single dataset covers the whole request,
+return every dataset the request needs, two or more.
 
-JOB 2 — REJECT WHAT THE DATA CANNOT ANSWER. List in "unavailable" every concept the request asks for
-that NO dataset holds — not in the active dataset, not in any other, not in any layer.
+JOB 2 — PICK THE LAYERS. Optional layers add columns (and a heavier fetch) to a dataset. For each
+returned dataset, put in its "layerIds" ONLY the ids of its own layers the request genuinely needs —
+the minimal set. Base fields are always present, so never request a layer for those. When a
+borderline layer is doubtful, LEAVE IT OUT: a later step can still pull a missing layer on demand.
+
+JOB 3 — REJECT WHAT THE DATA CANNOT ANSWER. List in "unavailable" every concept the request asks for
+that NO dataset holds — not in the chosen dataset, not in any other, not in any layer. Look for it in
+the layers of EVERY dataset: when the SAME fact is recorded in another dataset, it is not
+"unavailable". Include that dataset in "datasets" only if no single dataset covers the whole
+request. A NEAR MATCH is not the same fact, in any dataset: it stays "unavailable" (see ONLY THEN
+REJECT below).
 
 REJECTING IS A LAST RESORT. It blocks the whole report, so a wrong rejection is worse than loading an
 unnecessary layer. Reject ONLY a fact that nobody recorded. Apply these tests in order, and stop at
@@ -114,64 +146,78 @@ isn't recorded, and naming the closest real field only to contrast it — "The a
 saw the patient) is recorded, but not who referred them." If nothing comes close, say so plainly:
 "No field records this." If you find yourself writing that a field "could be used to derive" the
 answer, then it IS available: drop the rejection and return the layers instead. Name real fields
-only, from the catalogue. Do not apologise and do not restate the request. When "unavailable" is
-empty, return an empty string for "hint".
+only, from the catalogue. When "datasets" has several entries, it is one short sentence saying which
+requested concept each dataset holds. Refer to a dataset by its label, never its id. Do not apologise
+and do not restate the request. Otherwise return an empty string for "hint".
 
-CATALOGUE (every dataset; "*" marks the active one):
-${renderCatalog(datasets, activeId)}
-
+CATALOGUE (every dataset):
+${renderCatalog(datasets)}
+${buildFeedbackBlock(feedback)}
 USER REQUEST:
 """
 ${request}
 """
 
-Return JSON: { "layerIds": ["<id>", ...], "unavailable": ["<concept>", ...], "hint": "<one sentence>" }
-"layerIds" is an empty array when no optional layer is needed. Omit "unavailable" and "hint" when
-every requested concept exists. Use ONLY layer ids from the active dataset.
+Return JSON: { "datasets": [{ "id": "<dataset id>", "layerIds": ["<layer id>", ...] }, ...], "unavailable": ["<concept>", ...], "hint": "<one sentence>" }
+"datasets" normally holds exactly one entry. "id" is a DATASET id from the catalogue; "layerIds" holds
+only LAYER ids of that dataset and is an empty array when no optional layer is needed. Omit
+"unavailable" when every requested concept exists.
 `;
 };
 
+export const parseDatasets = (value: unknown, catalog: CatalogDataset[]): InferAdHocLayersOutput['datasets'] => {
+  if (!Array.isArray(value)) return [];
+  const picked = new Map<string, Set<string>>();
+  for (const entry of value) {
+    const { id, layerIds } = (entry ?? {}) as { id?: unknown; layerIds?: unknown };
+    const dataset = catalog.find((d) => d.id === id);
+    if (!dataset) continue;
+    const validLayerIds = new Set(dataset.layers.map((l) => l.id));
+    const layers = picked.get(dataset.id) ?? new Set<string>();
+    if (Array.isArray(layerIds)) {
+      layerIds.forEach((layerId) => {
+        if (typeof layerId === 'string' && validLayerIds.has(layerId)) layers.add(layerId);
+      });
+    }
+    picked.set(dataset.id, layers);
+  }
+  return Array.from(picked, ([id, layerIds]) => ({ id, layerIds: Array.from(layerIds) }));
+};
+
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const { datasetId, datasets, request, secrets } = validateRequestParameters(input);
+  const { datasets, request, feedback, secrets } = validateRequestParameters(input);
 
   await requireUserWithRole(getUserToken(input), secrets, AD_HOC_REPORT_EDIT_ROLES);
 
-  const activeLayers = datasets.find((d) => d.id === datasetId)?.layers ?? [];
-  const validIds = new Set(activeLayers.map((l) => l.id));
-  let layerIds: string[] = [];
-  let unavailable: string[] = [];
-  let hint: string | undefined;
+  const raw = await invokeChatbotVertexAI(
+    [{ text: buildPrompt(datasets, request, feedback) }],
+    secrets,
+    responseSchema(datasets),
+    VERTEX_AI_MODEL
+  );
 
-  try {
-    const raw = await invokeChatbotVertexAI(
-      [{ text: buildPrompt(datasetId, datasets, request) }],
-      secrets,
-      RESPONSE_SCHEMA,
-      VERTEX_AI_MODEL
-    );
-    const parsed = fixAndParseJsonObjectFromString(raw) as {
-      layerIds?: unknown;
-      unavailable?: unknown;
-      hint?: unknown;
-    };
-    if (Array.isArray(parsed?.layerIds)) {
-      layerIds = parsed.layerIds.filter((id): id is string => typeof id === 'string' && validIds.has(id));
-    }
-    if (Array.isArray(parsed?.unavailable)) {
-      unavailable = parsed.unavailable.filter((c): c is string => typeof c === 'string' && c.trim().length > 0);
-    }
-    if (typeof parsed?.hint === 'string' && parsed.hint.trim()) hint = parsed.hint.trim();
-  } catch (e) {
-    console.warn('infer-adhoc-report-layers: inference failed, returning no layers', e);
-    captureException(e);
+  const parsed = fixAndParseJsonObjectFromString(raw) as {
+    datasets?: unknown;
+    unavailable?: unknown;
+    hint?: unknown;
+  };
+
+  const picked = parseDatasets(parsed?.datasets, datasets);
+  const unavailable = Array.isArray(parsed.unavailable)
+    ? parsed.unavailable.filter((c): c is string => typeof c === 'string' && c.trim().length > 0)
+    : [];
+  const hint = typeof parsed.hint === 'string' && parsed.hint.trim() ? parsed.hint.trim() : undefined;
+
+  if (!picked.length && !unavailable.length) {
+    throw new Error(`${ZAMBDA_NAME}: model returned no valid datasets (${JSON.stringify(parsed?.datasets)})`);
   }
 
   const output: InferAdHocLayersOutput = validateOutputWithSchema(
     InferAdHocLayersOutputSchema,
     {
-      layerIds: Array.from(new Set(layerIds)),
+      datasets: picked,
       ...(unavailable.length ? { unavailable: Array.from(new Set(unavailable)) } : {}),
-      ...(unavailable.length && hint ? { hint } : {}),
+      ...((unavailable.length || picked.length > 1) && hint ? { hint } : {}),
     },
     ZAMBDA_NAME
   );
