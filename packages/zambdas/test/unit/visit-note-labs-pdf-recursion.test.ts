@@ -34,7 +34,9 @@ describe('visit note Labs PDF — flag rendering in a narrow column', () => {
     vi.spyOn(console, 'warn').mockImplementation(() => undefined);
 
     client = await createPdfClient(PDF_CLIENT_STYLES);
-    const font = await client.embedFont(fs.readFileSync(join(__dirname, '..', '..', 'assets', 'Rubik-Regular.otf')));
+    const font = await client.embedFont(
+      fs.readFileSync(join(import.meta.dirname, '..', '..', 'assets', 'Rubik-Regular.otf'))
+    );
     // Mirrors createProgressNoteStyles().textStyles.regularText
     regularText = { fontSize: 16, spacing: 1, font, newLineAfter: true };
     regularTextNoLineAfter = { ...regularText, newLineAfter: false };

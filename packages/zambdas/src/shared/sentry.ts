@@ -14,6 +14,10 @@ export function configSentry(zambdaName: string, secrets: Secrets | null): void 
       environment: environment,
       dsn: secrets?.SENTRY_DSN,
       tracesSampleRate: 1.0,
+      // Running as a native ES module (the local server), Sentry would otherwise register
+      // import-in-the-middle loader hooks. Every later import then goes through them, and they fail
+      // on JSON modules whose keys aren't identifiers, like the questionnaire archives.
+      registerEsmLoaderHooks: false,
       beforeSend(event) {
         const environment = event.tags?.environment?.toString();
         // https://github.com/getsentry/sentry-javascript/issues/13391#issuecomment-2359832269

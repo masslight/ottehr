@@ -112,6 +112,13 @@ jobs:
         env:
           NODE_OPTIONS: "--max-old-space-size=8192"
 
+      - name: Bundle zambdas and check each one loads
+        if: ${{ !contains(github.event.pull_request.body, '/skip-build-and-lint') }}
+        # tsc and the unit tests run the source, not the bundles, so a zambda that builds but
+        # throws on load would otherwise only surface when a deploy bundles it.
+        run: npm run bundle
+        working-directory: packages/zambdas
+
       - name: TruffleHog -- Check for secrets in bundles of publicly available code
         run: |
           docker run --rm -v .:/tmp -w /tmp \

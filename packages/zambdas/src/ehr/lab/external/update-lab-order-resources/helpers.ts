@@ -1,4 +1,5 @@
 import Oystehr, { BatchInputPatchRequest, BatchInputPostRequest, BatchInputRequest } from '@oystehr/sdk';
+import { randomUUID } from 'crypto';
 import { Operation } from 'fast-json-patch';
 import {
   Communication,
@@ -12,7 +13,6 @@ import {
   Task,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { uuid } from 'short-uuid';
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
 import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
 import { docRefIsAbnAndCurrent } from 'utils/lib/helpers/labs/helpers';
@@ -133,7 +133,7 @@ export const makePstCompletePatchRequests = async (
   now: DateTime<true>
 ): Promise<BatchInputRequest<Provenance | Task>[]> => {
   const curUserReference = { reference: `Practitioner/${practitionerIdFromCurrentUser}` };
-  const provenanceFhirUrl = `urn:uuid:${uuid()}`;
+  const provenanceFhirUrl = `urn:uuid:${randomUUID()}`;
 
   const provenanceFhir: Provenance = {
     resourceType: 'Provenance',

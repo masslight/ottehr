@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { Address, Coverage, FhirResource, HumanName, Patient, RelatedPerson } from 'fhir/r4b';
-import { min } from 'lodash';
+import { min } from 'lodash-es';
 import { DateTime } from 'luxon';
 import { BUCKET_NAMES, FHIR_IDENTIFIER_NPI } from 'utils/lib/fhir/constants';
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';

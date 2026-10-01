@@ -4,7 +4,7 @@ import { PDFDict, PDFDocument, PDFName } from 'pdf-lib';
 import { describe, expect, it } from 'vitest';
 import { analyzeFormTemplatePdf } from '../../src/ehr/shared/form-template-pdf';
 
-const DWC073 = join(__dirname, '../fixtures/dwc073.pdf');
+const DWC073 = join(import.meta.dirname, '../fixtures/dwc073.pdf');
 
 /** A document whose catalog carries a `/Perms` dictionary with the given entries. */
 const withPerms = async (entries: string[]): Promise<Uint8Array> => {

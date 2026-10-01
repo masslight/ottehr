@@ -44,7 +44,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function loadEnvConfig(env: string): EnvConfig {
-  const configPath = path.resolve(__dirname, `../../../../config/.env/${env}.json`);
+  const configPath = path.resolve(import.meta.dirname, `../../../../config/.env/${env}.json`);
   if (!fs.existsSync(configPath)) {
     throw new Error(`Environment config not found: ${configPath}`);
   }

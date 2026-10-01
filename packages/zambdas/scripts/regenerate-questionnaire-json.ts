@@ -22,7 +22,7 @@ if (BRANDING_CONFIG.projectName !== 'Ottehr') {
   process.exit(0);
 }
 
-const testDataDir = path.join(__dirname, '../test/data');
+const testDataDir = path.join(import.meta.dirname, '../test/data');
 
 // Patient record questionnaire
 const patientRecordItems = createQuestionnaireItemFromConfig(PATIENT_RECORD_CONFIG);

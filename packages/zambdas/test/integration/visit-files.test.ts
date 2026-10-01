@@ -39,11 +39,11 @@ describe('saving card files from EHR', () => {
   ): Promise<Attachment> => {
     let file: File;
     if (`${cardType}`.includes('front')) {
-      const filePath = join(__dirname, '..', 'data', 'files', '00InsuranceCard.png');
+      const filePath = join(import.meta.dirname, '..', 'data', 'files', '00InsuranceCard.png');
       const fileBuffer = readFileSync(filePath);
       file = new File([Uint8Array.from(fileBuffer)], cardType, { type: 'image/png' });
     } else {
-      const filePath = join(__dirname, '..', 'data', 'files', '00Insurance_back.jpg');
+      const filePath = join(import.meta.dirname, '..', 'data', 'files', '00Insurance_back.jpg');
       const fileBuffer = readFileSync(filePath);
       file = new File([Uint8Array.from(fileBuffer)], cardType, { type: 'image/jpg' });
     }

@@ -1,8 +1,8 @@
 import Oystehr, { BatchInputPostRequest, BatchInputRequest } from '@oystehr/sdk';
+import { randomUUID } from 'crypto';
 import { Operation } from 'fast-json-patch';
 import { Appointment, Encounter, List, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { uuid } from 'short-uuid';
 import { AppointmentInsuranceRelatedResourcesExtension, FHIR_EXTENSION } from 'utils/lib/fhir/constants';
 import { createPatientDocumentLists } from 'utils/lib/fhir/list';
 import {
@@ -494,7 +494,7 @@ export function creatingPatientCreateRequest(
   createPatientRequest = {
     method: 'POST',
     url: '/Patient',
-    fullUrl: `urn:uuid:${uuid()}`,
+    fullUrl: `urn:uuid:${randomUUID()}`,
     resource: patientResource,
   };
 

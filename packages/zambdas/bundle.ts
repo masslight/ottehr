@@ -7,7 +7,8 @@ import path from 'path';
 import billingZambdasSpec from '../../config/billing-app-core/zambdas.json';
 import zambdasSpec from '../../config/oystehr-core/zambdas.json';
 import { assetsRequiredBy, listAssetFiles } from './bundle-assets';
-import { zipZambda } from './bundle-zip';
+import { findBundlesThatFailToLoad } from './bundle-load-check';
+import { ESM_PACKAGE_JSON, zipZambda } from './bundle-zip';
 
 dotenv.config({ path: path.join(process.cwd(), '.env.sentry-build-plugin') });
 
@@ -25,7 +26,7 @@ interface ZambdasJson {
 }
 
 const loadEnvZambdas = (env: string): ZambdaSpec[] => {
-  const envConfigPath = path.resolve(__dirname, `../../config/oystehr/env/${env}/zambdas.json`);
+  const envConfigPath = path.resolve(import.meta.dirname, `../../config/oystehr/env/${env}/zambdas.json`);
   try {
     if (fs.existsSync(envConfigPath)) {
       const envSpec = JSON.parse(fs.readFileSync(envConfigPath, 'utf-8')) as ZambdasJson;
@@ -52,6 +53,14 @@ const zambdasList = (): ZambdaSpec[] => {
 
 const BUNDLE_CHUNK_SIZE = 35;
 const ZIP_CHUNK_SIZE = 20;
+
+// The bundles are ES modules, but the CommonJS dependencies bundled into them still call require()
+// for Node built-ins. ES modules have no require, so without this esbuild's stand-in throws
+// "Dynamic require of ... is not supported" as soon as a bundle loads.
+const ESM_REQUIRE_BANNER = [
+  "import { createRequire as __createRequire } from 'node:module';",
+  'const require = __createRequire(import.meta.url);',
+].join('\n');
 
 const chunkArray = <T>(array: T[], chunkSize: number): T[][] => {
   const chunks: T[][] = [];
@@ -92,6 +101,12 @@ const buildZambdaChunk = async (zambdas: ZambdaSpec[], outdir: string, isSentryE
       outdir,
       sourcemap: isSentryEnabled,
       platform: 'node',
+      format: 'esm',
+      banner: { js: ESM_REQUIRE_BANNER },
+      // Some dependencies (pdfkit, via pdfmake) read files relative to __dirname, which ES modules
+      // also lack. Rewriting the references rather than declaring them in the banner avoids a
+      // duplicate declaration wherever bundled code declares its own.
+      define: { __dirname: 'import.meta.dirname', __filename: 'import.meta.filename' },
       external: ['@aws-sdk/*'],
       treeShaking: true,
       minify: true,
@@ -254,6 +269,8 @@ const main = async (): Promise<void> => {
 
   await $({ stdio: 'inherit' })`rm -rf ./.dist`;
   await fs.promises.mkdir('.dist/zips', { recursive: true });
+  // So Node loads the bundles in .dist as the ES modules they are; each zip carries its own copy.
+  await fs.promises.writeFile('.dist/package.json', ESM_PACKAGE_JSON);
 
   const zambdas = zambdasList();
   console.log('Bundling...');
@@ -277,6 +294,31 @@ const main = async (): Promise<void> => {
     await injectSourceMaps(zambdas);
     console.timeEnd('Source maps time');
   }
+
+  console.log('Checking that every bundle loads...');
+  console.time('Load check time');
+  const loadFailures = await findBundlesThatFailToLoad(
+    zambdas.map((z) => `.dist/${z.src.substring('src/'.length)}.js`)
+  );
+  console.timeEnd('Load check time');
+  if (loadFailures.length > 0) {
+    // One broken dependency usually breaks many bundles the same way, so report each error once.
+    const failuresByError = new Map<string, { error: string; bundlePaths: string[] }>();
+    for (const { bundlePath, error } of loadFailures) {
+      const summary = error.split('\n')[0];
+      const group = failuresByError.get(summary) ?? { error, bundlePaths: [] };
+      group.bundlePaths.push(bundlePath);
+      failuresByError.set(summary, group);
+    }
+    for (const { error, bundlePaths } of failuresByError.values()) {
+      const examples = bundlePaths.slice(0, 3).join(', ');
+      console.error(`\n${bundlePaths.length} bundle(s) failed to load, e.g. ${examples}:`);
+      console.error(error.split('\n').slice(0, 6).join('\n'));
+    }
+    console.error(`\n${loadFailures.length} of ${zambdas.length} zambdas fail to load, so none were zipped.`);
+    process.exit(1);
+  }
+
   console.log('Zipping...');
   console.time('Zip time');
 

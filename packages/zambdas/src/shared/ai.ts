@@ -3,9 +3,9 @@ import { BaseChatModel } from '@langchain/core/language_models/chat_models';
 import { AIMessageChunk, BaseMessageLike, MessageContentComplex } from '@langchain/core/messages';
 import Oystehr, { BatchInputPostRequest, BatchInputPutRequest, BatchInputRequest } from '@oystehr/sdk';
 import { captureException } from '@sentry/aws-serverless';
+import { randomUUID } from 'crypto';
 import { Appointment, Condition, DocumentReference, Encounter, Observation, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { uuid } from 'short-uuid';
 import {
   DOCUMENT_REFERENCE_SUMMARY_FROM_AUDIO,
   DOCUMENT_REFERENCE_SUMMARY_FROM_CHAT,
@@ -484,7 +484,7 @@ export async function createResourcesFromAiInterview(
   const requests: BatchInputRequest<DocumentReference | Observation | Condition>[] = [];
   const documentReferenceCreateUrl = existingDocumentReference?.id
     ? `DocumentReference/${existingDocumentReference.id}`
-    : `urn:uuid:${uuid()}`;
+    : `urn:uuid:${randomUUID()}`;
   requests.push(
     existingDocumentReference
       ? updateDocumentReference(existingDocumentReference, chatTranscript)

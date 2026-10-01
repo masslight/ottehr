@@ -14,7 +14,7 @@ import {
   PaymentNotice,
 } from 'fhir/r4b';
 import fs from 'fs';
-import { capitalize } from 'lodash';
+import { capitalize } from 'lodash-es';
 import { DateTime } from 'luxon';
 import { PageSizes, PDFImage } from 'pdf-lib';
 import Stripe from 'stripe';

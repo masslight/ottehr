@@ -28,7 +28,7 @@ import { createOystehrClientFromConfig, performEffectWithEnvFile } from './helpe
  *      optional integration fields (stripe/advapacs/lab identifiers) that an admin
  *      now configures self-service — never booking-gating fields.
  */
-const RUNTIME_SEED_DIR = path.resolve(__dirname, '../../../../config/runtime-seed');
+const RUNTIME_SEED_DIR = path.resolve(import.meta.dirname, '../../../../config/runtime-seed');
 
 interface SeedFile {
   name: string;

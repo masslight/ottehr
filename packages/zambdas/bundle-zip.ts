@@ -26,6 +26,9 @@ interface EntryOptions extends Partial<yazl.Options> {
 
 const ENTRY_OPTIONS: EntryOptions = { mtime: ZIP_ENTRY_DATE, mode: ZIP_ENTRY_MODE, compressionLevel: 1 };
 
+/** Bundles are ES modules; Node, and so Lambda, loads index.js as one only when a package.json beside it says so. */
+export const ESM_PACKAGE_JSON = '{"type":"module"}\n';
+
 export const zipZambda = async (
   sourceFilePath: string,
   assetsPath: string,
@@ -43,6 +46,7 @@ export const zipZambda = async (
     zip.outputStream.pipe(stream);
 
     zip.addFile(sourceFilePath, 'index.js', ENTRY_OPTIONS);
+    zip.addBuffer(Buffer.from(ESM_PACKAGE_JSON), 'package.json', ENTRY_OPTIONS);
     for (const asset of assets) {
       zip.addBuffer(asset.contents, `${assetsPath}/${asset.name}`, ENTRY_OPTIONS);
     }

@@ -160,13 +160,6 @@ export function getPatchBinary<F extends FhirResource>(input: GetPatchBinaryInpu
   };
 }
 
-export function logTime(): void {
-  if (process.env.IS_OFFLINE === 'true') {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    require('console-stamp')(console, 'HH:MM:ss.l');
-  }
-}
-
 export function isValidPhoneNumber(phone: string): boolean {
   const phoneRegex = /^\(?([0-9]{3})\)?[-. ]?([0-9]{3})[-. ]?([0-9]{4})$/;
   return phoneRegex.test(phone);

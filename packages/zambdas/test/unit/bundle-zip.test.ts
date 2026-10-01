@@ -2,6 +2,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import * as yauzl from 'yauzl';
 import { zipZambda } from '../../bundle-zip';
 
 // Terraform decides whether to re-upload a Zambda by diffing the zip's
@@ -57,8 +58,29 @@ const entryNames = (zip: Buffer): string[] => {
   return names;
 };
 
+/** The inflated text of one entry. */
+const entryText = (zip: Buffer, name: string): Promise<string> =>
+  new Promise((resolve, reject) => {
+    yauzl.fromBuffer(zip, { lazyEntries: true }, (openError, zipFile) => {
+      if (openError || !zipFile) return reject(openError ?? new Error('zip could not be opened'));
+      zipFile.on('error', reject);
+      zipFile.on('end', () => reject(new Error(`no ${name} entry`)));
+      zipFile.on('entry', (entry: yauzl.Entry) => {
+        if (entry.fileName !== name) return zipFile.readEntry();
+        zipFile.openReadStream(entry, (streamError, stream) => {
+          if (streamError || !stream) return reject(streamError ?? new Error(`could not read ${name}`));
+          let text = '';
+          stream.on('data', (chunk: Buffer) => (text += chunk.toString('utf8')));
+          stream.on('end', () => resolve(text));
+          stream.on('error', reject);
+        });
+      });
+      zipFile.readEntry();
+    });
+  });
+
 beforeAll(() => {
-  fs.writeFileSync(sourceFile, 'exports.index=async()=>({statusCode:200});');
+  fs.writeFileSync(sourceFile, 'export const index=async()=>({statusCode:200});');
 });
 
 afterAll(() => fs.rmSync(root, { recursive: true, force: true }));
@@ -74,8 +96,13 @@ describe('zipZambda', () => {
   it('writes the assets in the order they were passed', async () => {
     const names = entryNames(await buildZip('ordered.zip'));
 
-    expect(names).toContain('index.js');
-    expect(names.filter((name) => name !== 'index.js')).toEqual(ASSET_NAMES.map((name) => `assets/${name}`));
+    expect(names).toEqual(['index.js', 'package.json', ...ASSET_NAMES.map((name) => `assets/${name}`)]);
+  });
+
+  it('marks index.js as an ES module for the Lambda runtime', async () => {
+    const zip = await buildZip('module-type.zip');
+
+    expect(JSON.parse(await entryText(zip, 'package.json'))).toEqual({ type: 'module' });
   });
 
   it('ignores the source file mtime so a rebuild of unchanged code matches', async () => {
@@ -92,6 +119,6 @@ describe('zipZambda', () => {
     const outPath = path.join(root, 'no-assets.zip');
     await zipZambda(sourceFile, 'assets', [], outPath);
 
-    expect(entryNames(fs.readFileSync(outPath))).toEqual(['index.js']);
+    expect(entryNames(fs.readFileSync(outPath))).toEqual(['index.js', 'package.json']);
   });
 });
