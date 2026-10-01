@@ -539,6 +539,12 @@ export const dataTestIds = {
     legacyDataMenuItem: 'legacy-data-menu-item',
     accessAndChangeLogMenuItem: 'access-and-change-log-menu-item',
     progressNoteButton: 'visit-details-progress-note-button',
+    customFormCard: (questionnaireId: string) => `custom-form-card-${questionnaireId}`,
+    customFormMenuButton: (questionnaireId: string) => `custom-form-menu-button-${questionnaireId}`,
+    customFormEditMenuItem: 'custom-form-edit-menu-item',
+    customFormDeleteMenuItem: 'custom-form-delete-menu-item',
+    editFormResponseDialog: 'edit-form-response-dialog',
+    editFormResponseSaveButton: 'edit-form-response-save-button',
   },
   patientRecordPage: {
     seeAllPatientInfoButton: 'see-all-patient-info-button',

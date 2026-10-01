@@ -1748,6 +1748,20 @@
       "src": "src/ehr/visit-details/delete-visit-files/index",
       "zip": ".dist/zips/delete-visit-files.zip"
     },
+    "UPDATE-VISIT-FORM": {
+      "name": "update-visit-form",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/visit-details/update-visit-form/index",
+      "zip": ".dist/zips/update-visit-form.zip"
+    },
+    "DELETE-VISIT-FORM": {
+      "name": "delete-visit-form",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/visit-details/delete-visit-form/index",
+      "zip": ".dist/zips/delete-visit-form.zip"
+    },
     "EHR-GET-VISIT-DETAILS": {
       "name": "ehr-get-visit-details",
       "type": "http_auth",
