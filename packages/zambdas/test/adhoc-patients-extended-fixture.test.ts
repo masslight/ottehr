@@ -8,11 +8,14 @@ import {
 } from 'utils/lib/fhir/constants';
 import { buildFollowupEncounterType } from 'utils/lib/fhir/encounter';
 import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
+import { AdHocBillingOutputSchema } from 'utils/lib/types/adhoc/datasets/billing';
 import { AdHocPatientsOutputSchema } from 'utils/lib/types/adhoc/datasets/patients';
 import { PRACTICE_NAME_URL } from 'utils/lib/types/constants';
 import { afterAll, describe, expect, it, vi } from 'vitest';
 import { PATIENT_CONTAINED_PHARMACY_ID } from '../src/ehr/shared/harvest';
+import { fetchAdHocBillingRows } from '../src/shared/adhoc-datasets/billing';
 import { fetchAdHocPatientRows } from '../src/shared/adhoc-datasets/patients';
+import { makeProcedureResource } from '../src/shared/chart-data';
 
 // Fixture tests for the Patients layers that reuse app logic: the Recent Patients report's new-vs-existing
 // rule and the visit details face sheet's demographics / PCP / pharmacy composers.
@@ -219,12 +222,49 @@ const accountResources: FhirResource[] = [
   },
 ] as FhirResource[];
 
+// enc-1's billed codes as the chart writes them: a CPT with modifier 25 and 2 units, and two diagnoses
+// listed secondary-first on the Encounter.
+const billedCpt = makeProcedureResource(
+  'enc-1',
+  'pat-1',
+  {
+    code: '99000',
+    display: 'Specimen handling',
+    modifier: [{ code: '25', display: 'Significant, separately identifiable E/M' }],
+    billableUnits: 2,
+  },
+  'cpt-code'
+);
+
+const visitDiagnoses: FhirResource[] = [
+  {
+    resourceType: 'Condition',
+    id: 'dx-a',
+    subject: { reference: 'Patient/pat-1' },
+    code: { coding: [{ system: 'http://hl7.org/fhir/sid/icd-10-cm', code: 'J02.9' }] },
+  },
+  {
+    resourceType: 'Condition',
+    id: 'dx-b',
+    subject: { reference: 'Patient/pat-1' },
+    code: { coding: [{ system: 'http://hl7.org/fhir/sid/icd-10-cm', code: 'R50.9' }] },
+  },
+] as FhirResource[];
+
 const resourcesByJob: Record<string, FhirResource[]> = {
+  'Procedure:encounter': [{ ...billedCpt, id: 'cpt-1' }],
+  'Condition:byId': visitDiagnoses,
   Patient: [returningPatient, newPatient, ...accountResources],
   Appointment: [
     appointment('appt-1', 'pat-1'),
     appointment('appt-2', 'pat-2'),
-    encounter('enc-1', 'appt-1', 'pat-1'),
+    {
+      ...encounter('enc-1', 'appt-1', 'pat-1'),
+      diagnosis: [
+        { condition: { reference: 'Condition/dx-b' }, rank: 2 },
+        { condition: { reference: 'Condition/dx-a' }, rank: 1 },
+      ],
+    },
     // An open annotation follow-up of enc-1: it carries the visit's appointment reference, but it is not the visit.
     {
       ...encounter('enc-1-fu', 'appt-1', 'pat-1'),
@@ -248,8 +288,13 @@ const resourcesByJob: Record<string, FhirResource[]> = {
   'Appointment:prior': [priorAppointment],
 };
 
-const jobIdFor = (resourceType: string, params: { name: string; value: string }[]): string =>
-  resourceType === 'Appointment' && params.some((p) => p.name === 'patient') ? 'Appointment:prior' : resourceType;
+const jobIdFor = (resourceType: string, params: { name: string; value: string }[]): string => {
+  if (resourceType === 'Appointment' && params.some((p) => p.name === 'patient')) return 'Appointment:prior';
+  // Visit-scoped billing codes vs the patient's chart lists.
+  if (resourceType === 'Procedure' && params.some((p) => p.name === 'encounter')) return 'Procedure:encounter';
+  if (resourceType === 'Condition' && params.some((p) => p.name === '_id')) return 'Condition:byId';
+  return resourceType;
+};
 
 const ndjsonByUrl = new Map<string, string>();
 
@@ -285,6 +330,34 @@ const dateRange = { start: '2026-07-01T00:00:00.000Z', end: '2026-07-02T00:00:00
 
 const issuesOf = (result: { success: boolean; error?: { issues: unknown[] } }): unknown[] =>
   result.success ? [] : result.error?.issues ?? ['unknown'];
+
+describe('ad-hoc Billing: coverage and codes as the patient record and the chart have them (fixture)', () => {
+  it("coverage: the account's primary coverage, resolved payer, MB member id", async () => {
+    const rows = await fetchAdHocBillingRows(fakeOystehr, { dateRange, includeCoverage: true });
+    expect(issuesOf(AdHocBillingOutputSchema.safeParse({ rows }))).toEqual([]);
+    expect(rows.find((r) => r.appointmentId === 'appt-1')).toMatchObject({
+      payerType: 'Insured',
+      primaryPayer: 'Aetna',
+      memberId: 'MEM-123',
+      subscriberRelationship: 'Child',
+      coverageStatus: 'active',
+      secondaryPayer: '',
+    });
+    expect(rows.find((r) => r.appointmentId === 'appt-2')).toMatchObject({ payerType: 'Unknown', primaryPayer: '' });
+  });
+
+  it('codes: CPT modifiers and units, primary diagnosis first', async () => {
+    const rows = await fetchAdHocBillingRows(fakeOystehr, { dateRange, includeCodes: true });
+    expect(issuesOf(AdHocBillingOutputSchema.safeParse({ rows }))).toEqual([]);
+    expect(rows.find((r) => r.appointmentId === 'appt-1')).toMatchObject({
+      cptCodes: ['99000'],
+      cptModifiers: ['25'],
+      cptBillableUnits: [2],
+      emCode: '',
+      icdCodes: ['J02.9', 'R50.9'],
+    });
+  });
+});
 
 describe('ad-hoc Patients: layers mapped with the app logic (fixture)', () => {
   it('contacts, insurance and employers: the patient-account picture through the face-sheet composers', async () => {

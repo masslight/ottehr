@@ -93,12 +93,16 @@ export const BILLING_LAYERS = {
     description: 'Insurance for the patient: payer/plan, self-pay vs insured, member id, and coverage status.',
     schema: z.object({
       payerType: z.enum(['Insured', 'Self-pay', 'Unknown']).describe('Primary coverage bucket.'),
-      primaryPayer: z.string().describe('Primary insurance plan/payer name.'),
+      primaryPayer: z
+        .string()
+        .describe(
+          'Primary insurance payer name, as on the patient record (the account\'s primary coverage). "" when none.'
+        ),
       insuranceType: z.string().describe('Primary coverage type label/code.'),
       memberId: z.string().describe('Subscriber/member id on primary coverage.'),
       subscriberRelationship: z.string().describe('Relationship to subscriber ("self"/"parent"/…).'),
       coverageStatus: z.string().describe('Status of primary coverage (active/cancelled/…).'),
-      secondaryPayer: z.string().describe('Secondary insurance plan/payer, when present.'),
+      secondaryPayer: z.string().describe('Secondary insurance payer, as on the patient record. "" when none.'),
     }),
   },
   charges: {
@@ -119,8 +123,14 @@ export const BILLING_LAYERS = {
     description: 'Diagnosis and procedure codes from the chart used for billing.',
     schema: z.object({
       cptCodes: z.array(z.string()).describe('Procedure CPT codes charted on the visit.'),
-      emCode: z.string().describe('E&M level code (e.g. "99213").'),
-      icdCodes: z.array(z.string()).describe('ICD-10 diagnosis codes. HIERARCHICAL — prefix-match.'),
+      cptModifiers: z
+        .array(z.string())
+        .describe('Parallel to cptCodes: the CPT modifiers of each code, comma-separated (e.g. "25"); "" when none.'),
+      cptBillableUnits: z
+        .array(z.number())
+        .describe('Parallel to cptCodes: billable units of each code (1 when not set).'),
+      emCode: z.string().describe('E&M level code (e.g. "99213"). "" when unset.'),
+      icdCodes: z.array(z.string()).describe('ICD-10 diagnosis codes, primary first. HIERARCHICAL — prefix-match.'),
     }),
   },
 } as const satisfies AdHocLayerMap;
