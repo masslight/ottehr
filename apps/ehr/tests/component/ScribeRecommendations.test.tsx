@@ -332,6 +332,7 @@ import {
   pendingObservationIds,
   RecommendationRunner,
 } from '../../src/features/visits/shared/components/scribe-recommendations/applyRecommendations';
+import { AUTOCHART_BETA_NOTICE } from '../../src/features/visits/shared/components/scribe-recommendations/BetaNotice';
 import {
   buildChartedState,
   isAlreadyCharted,
@@ -390,6 +391,7 @@ const resetStore = (): void => {
     editingId: undefined,
     pendingPick: null,
     visitLockedByServer: false,
+    planRequested: false,
   });
 };
 
@@ -461,7 +463,7 @@ describe('ScribeRecommendationsDrawer', () => {
 
     expect(screen.getByTestId(testIds.rail)).toBeVisible();
     expect(screen.queryByTestId(testIds.panel)).toBeNull();
-    expect(screen.getByTestId(testIds.openButton)).toHaveAccessibleName('Open Autochart');
+    expect(screen.getByTestId(testIds.openButton)).toHaveAccessibleName('Open AutoChart');
 
     await user.click(screen.getByTestId(testIds.openButton));
     expect(screen.getByTestId(testIds.panel)).toBeVisible();
@@ -634,6 +636,28 @@ describe('ScribeRecommendationsDrawer', () => {
       expect(screen.getByTestId(testIds.analyzeButton)).toBeDisabled();
       expect(screen.getByTestId(testIds.transcriptPreview)).toBeDisabled();
     });
+  });
+
+  it('shows the Beta notice once Plan note is clicked, and keeps it even when planning fails', async () => {
+    const user = userEvent.setup();
+    render(<ScribeRecommendationsDrawer />, { wrapper: Wrapper });
+    await user.click(screen.getByTestId(testIds.openButton));
+    act(() => seedNarrative());
+    // not before the provider asks for a plan
+    expect(screen.queryByTestId(testIds.betaNotice)).toBeNull();
+
+    await user.click(screen.getByTestId(testIds.analyzeButton));
+    await screen.findByTestId(testIds.applyObservationsButton);
+    expect(screen.getByTestId(testIds.betaNotice)).toHaveTextContent(AUTOCHART_BETA_NOTICE);
+
+    // a failed re-plan hides the results but not the notice
+    mocks.plan.mockImplementation(() => {
+      throw new Error('model unavailable');
+    });
+    await user.click(screen.getByTestId(testIds.analyzeButton));
+    await user.click(screen.getByTestId(testIds.replanConfirmButton));
+    await waitFor(() => expect(screen.queryByTestId(testIds.applyObservationsButton)).toBeNull());
+    expect(screen.getByTestId(testIds.betaNotice)).toBeVisible();
   });
 
   describe('a signed, locked visit', () => {

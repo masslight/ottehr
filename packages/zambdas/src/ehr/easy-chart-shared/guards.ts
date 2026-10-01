@@ -536,7 +536,7 @@ function applyBackstops(actions: PlannedAction[], context: ResolvedGuardContext)
   if (sending && hasMedication && !hasErxNote) {
     out.push({
       kind: 'provider-note',
-      text: 'Send the prescription via eRx — the medication was charted, but easy-chart does not transmit prescriptions.',
+      text: 'Send the prescription via eRx — the medication was charted, but AutoChart does not transmit prescriptions.',
       sourceText: sending[0],
       sourceOrigin: 'narrative',
     });

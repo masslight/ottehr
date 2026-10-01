@@ -402,6 +402,7 @@ export const dataTestIds = {
     transcriptSaveButton: 'scribe-transcript-save-button',
     transcriptSaveError: 'scribe-transcript-save-error',
     lockedNotice: 'scribe-locked-notice',
+    betaNotice: 'scribe-beta-notice',
     narrativeEditor: 'scribe-narrative-editor',
     narrativeReadView: 'scribe-narrative-read-view',
     narrativeSentence: (index: number) => `scribe-narrative-sentence-${index}`,

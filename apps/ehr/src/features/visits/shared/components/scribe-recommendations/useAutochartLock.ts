@@ -4,7 +4,7 @@ import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAcc
 import { useScribeRecommendationsStore } from './scribeRecommendations.store';
 
 /** Shown on every Autochart control that is turned off because the chart is locked. */
-export const AUTOCHART_LOCKED_TOOLTIP = 'The chart is signed and locked, so Autochart can’t change it.';
+export const AUTOCHART_LOCKED_TOOLTIP = 'The chart is signed and locked, so AutoChart can’t change it.';
 
 /** The message the client-side save mutation throws for a read-only visit (`useSaveChartData`). */
 const READ_ONLY_SAVE_MESSAGE = 'update disabled in read only mode';

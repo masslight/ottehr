@@ -120,6 +120,8 @@ interface ScribeRecommendationsState {
    * appointment it loaded still says otherwise (the visit was locked after the panel opened).
    */
   visitLockedByServer: boolean;
+  /** Plan note was clicked in this session; the Beta notice shows from then on. */
+  planRequested: boolean;
 
   open: () => void;
   close: () => void;
@@ -205,6 +207,7 @@ const SESSION_INITIAL = {
   speculativePlans: {} as Record<string, SpeculativePlan>,
   chartedIds: [] as string[],
   visitLockedByServer: false,
+  planRequested: false,
 };
 
 const withoutSpeculativePlan = (
@@ -339,7 +342,7 @@ export const useScribeRecommendationsStore = create<ScribeRecommendationsState>(
       analyze: async (analyzer) => {
         const { narrativeDraft, narrativeGenerated, transcript, encounterId, sourceDocumentId } = get();
         const narrative = narrativeText(narrativeDraft);
-        set({ phase: 'analyzing', analysisError: undefined });
+        set({ phase: 'analyzing', analysisError: undefined, planRequested: true });
         try {
           // Reuse the plan read ahead for this exact text; plan live if there is none or it failed.
           const ahead = sourceDocumentId ? get().speculativePlans[sourceDocumentId] : undefined;

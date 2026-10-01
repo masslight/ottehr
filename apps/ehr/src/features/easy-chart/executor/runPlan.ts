@@ -56,7 +56,7 @@ async function executeStep(action: PlannedAction, context: HandlerContext): Prom
   // A client older than the server can meet a kind it does not know.
   if (!isActionKind(action.kind)) {
     return skipped(
-      `this version of Easy Chart does not know how to do "${action.kind}" — reload the page, or chart it in the regular chart`
+      `this version of AutoChart does not know how to do "${action.kind}" — reload the page, or chart it in the regular chart`
     );
   }
   const kind: ActionKind = action.kind;

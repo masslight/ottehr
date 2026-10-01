@@ -40,6 +40,7 @@ import { useAppointmentData } from '../../stores/appointment/appointment.store';
 import { AiDisclaimerTooltip } from '../AiSection';
 import { getDocumentReferenceSource, getSource } from '../OttehrAi';
 import { useListTemplates } from '../templates/useListTemplates';
+import { BetaNotice } from './BetaNotice';
 import { useSyncChartedRecommendations } from './chartedRecommendations';
 import { LockedHint } from './LockedHint';
 import { NarrativeEditor } from './NarrativeEditor';
@@ -66,13 +67,15 @@ const testIds = dataTestIds.scribeRecommendations;
 export const ScribeRecommendationsPanel: FC<ScribeRecommendationsPanelProps> = ({ onCollapse }) => {
   const theme = useTheme();
   const phase = useScribeRecommendationsStore((state) => state.phase);
+  // Shown from the first Plan note on, and kept through re-plans, errors and applying.
+  const planRequested = useScribeRecommendationsStore((state) => state.planRequested);
 
   return (
     <Box
       data-testid={testIds.panel}
       sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}
       role="complementary"
-      aria-label="Autochart"
+      aria-label="AutoChart"
     >
       <Box
         sx={{
@@ -87,7 +90,7 @@ export const ScribeRecommendationsPanel: FC<ScribeRecommendationsPanelProps> = (
       >
         <img src={aiIcon} alt="" aria-hidden style={{ width: 22 }} />
         <Typography variant="subtitle2" sx={{ flex: 1, minWidth: 0, fontWeight: 700, fontSize: scaled(13) }}>
-          Autochart
+          AutoChart
         </Typography>
         <AiDisclaimerTooltip />
         <Tooltip title="Collapse panel">
@@ -105,6 +108,7 @@ export const ScribeRecommendationsPanel: FC<ScribeRecommendationsPanelProps> = (
       {/* The input stays on screen and results appear below it, so planning again uses the same button. */}
       <Box sx={{ flex: 1, minHeight: 0, overflowY: 'auto', p: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
         <NarrativeStep />
+        {planRequested && <BetaNotice />}
         {/* Hidden while planning again, since the old results answer the previous narrative. */}
         {phase === 'ready' && <ResultsStep />}
       </Box>
@@ -207,7 +211,7 @@ const NarrativeStep: FC = () => {
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
       {locked && (
         <Alert severity="info" data-testid={testIds.lockedNotice}>
-          This visit is signed and locked. Autochart can’t change the chart, so its actions are turned off.
+          This visit is signed and locked. AutoChart can’t change the chart, so its actions are turned off.
         </Alert>
       )}
       <Typography variant="body2" color="text.secondary">
