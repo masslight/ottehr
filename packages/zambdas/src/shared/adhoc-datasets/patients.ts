@@ -5,6 +5,7 @@ import {
   Condition,
   Encounter,
   EpisodeOfCare,
+  FhirResource,
   Location,
   MedicationStatement,
   Organization,
@@ -26,6 +27,7 @@ import {
 } from 'utils/lib/fhir/patient';
 import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
 import { AdHocPatientRow, AdHocPatientsInput } from 'utils/lib/types/adhoc/datasets/patients';
+import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
 import { PATIENT_POINT_OF_DISCOVERY_URL } from 'utils/lib/types/constants';
 import { getInPersonVisitStatus } from 'utils/lib/utils/visitUtils';
 import { PATIENT_CONTAINED_PHARMACY_ID } from '../../ehr/shared/harvest';
@@ -34,12 +36,10 @@ import {
   fetchScopedResources,
   REPORT_ATTENDED_APPOINTMENT_STATUSES,
 } from '../adhoc-report';
+import { mapResourceToChartDataResponse } from '../chart-data';
 import { composePatientDetailsData } from '../pdf/sections/patientDetails';
 import { composePharmacyData } from '../pdf/sections/pharmacyInfo';
 import { composePrimaryCarePhysicianData } from '../pdf/sections/primaryCarePhysician';
-
-const hasTag = (resource: { meta?: { tag?: { code?: string }[] } }, code: string): boolean =>
-  Boolean(resource.meta?.tag?.some((t) => t.code === code));
 
 const uniq = (values: string[]): string[] => Array.from(new Set(values.filter(Boolean)));
 
@@ -105,12 +105,8 @@ export async function fetchAdHocPatientRows(oystehr: Oystehr, params: AdHocPatie
   const patientMap = new Map<string, Patient>();
   const locationMap = new Map<string, Location>();
   const encounters: Encounter[] = [];
-  // Patient-bound clinical resources, keyed by `Patient/{id}`.
-  const allergiesByPatient = new Map<string, AllergyIntolerance[]>();
-  const conditionsByPatient = new Map<string, Condition[]>();
-  const medsByPatient = new Map<string, MedicationStatement[]>();
-  const surgeriesByPatient = new Map<string, Procedure[]>();
-  const hospitalizationsByPatient = new Map<string, EpisodeOfCare[]>();
+  // Patient-bound clinical resources, keyed by `Patient/{id}`; sorted into chart fields by the chart's mapper.
+  const chartResourcesByPatient = new Map<string, FhirResource[]>();
 
   const pushTo = <T>(map: Map<string, T[]>, key: string | undefined, value: T): void => {
     if (!key) return;
@@ -132,20 +128,13 @@ export async function fetchAdHocPatientRows(oystehr: Oystehr, params: AdHocPatie
         encounters.push(r);
         break;
       case 'AllergyIntolerance':
-        if (includeAllergies && hasTag(r, 'known-allergy')) pushTo(allergiesByPatient, r.patient?.reference, r);
+      case 'EpisodeOfCare':
+        pushTo(chartResourcesByPatient, r.patient?.reference, r);
         break;
       case 'Condition':
-        if (includeProblems && hasTag(r, 'medical-condition')) pushTo(conditionsByPatient, r.subject?.reference, r);
-        break;
       case 'MedicationStatement':
-        if (includeMedications && hasTag(r, 'current-medication')) pushTo(medsByPatient, r.subject?.reference, r);
-        break;
       case 'Procedure':
-        if (includeSurgicalHistory && hasTag(r, 'surgical-history'))
-          pushTo(surgeriesByPatient, r.subject?.reference, r);
-        break;
-      case 'EpisodeOfCare':
-        if (includeHospitalizations) pushTo(hospitalizationsByPatient, r.patient?.reference, r);
+        pushTo(chartResourcesByPatient, r.subject?.reference, r);
         break;
     }
   }
@@ -293,47 +282,62 @@ export async function fetchAdHocPatientRows(oystehr: Oystehr, params: AdHocPatie
       serviceCategories: [...agg.serviceCategories].sort(),
     };
 
+    // The patient's chart lists, built by the chart's own resource → DTO mapper (the tags it reads decide
+    // which list a resource belongs to).
+    let chart: GetChartDataResponse = {
+      patientId: patient.id ?? '',
+      allergies: [],
+      conditions: [],
+      medications: [],
+      surgicalHistory: [],
+      episodeOfCare: [],
+    };
+
+    for (const resource of chartResourcesByPatient.get(patientRef) ?? []) {
+      chart = mapResourceToChartDataResponse(chart, resource, '').chartDataResponse;
+    }
+
     if (includeAllergies) {
-      const allergies = (allergiesByPatient.get(patientRef) ?? [])
-        .map((a) => a.code?.coding?.[0]?.display || a.code?.text || '')
-        .filter(Boolean);
-      row.allergies = uniq(allergies);
+      const allergies = (chart.allergies ?? []).filter((a) => a.name);
+      row.allergies = uniq(allergies.map((a) => a.name ?? ''));
       row.allergyCount = row.allergies.length;
+      row.allergyDetails = allergies.map((a) => ({ name: a.name ?? '', current: !!a.current }));
     }
     if (includeProblems) {
-      const conditions = conditionsByPatient.get(patientRef) ?? [];
-      const problems: string[] = [];
-      const problemCodes: string[] = [];
-      for (const c of conditions) {
-        const codings = c.code?.coding ?? [];
-        const icd = codings.find((cd) => cd.system?.toLowerCase().includes('icd-10')) ?? codings[0];
-        const display = icd?.display || c.code?.text || '';
-        if (display) problems.push(display);
-        if (icd?.code) problemCodes.push(icd.code);
-      }
-      row.problems = uniq(problems);
-      row.problemCodes = uniq(problemCodes);
+      const conditions = (chart.conditions ?? []).filter((c) => c.display || c.code);
+      row.problems = uniq(conditions.map((c) => c.display ?? ''));
+      row.problemCodes = uniq(conditions.map((c) => c.code ?? ''));
       row.problemCount = row.problems.length;
+
+      row.problemDetails = conditions.map((c) => ({
+        display: c.display ?? '',
+        code: c.code ?? '',
+        current: !!c.current,
+      }));
     }
     if (includeMedications) {
-      const meds = (medsByPatient.get(patientRef) ?? [])
-        .map((m) => m.medicationCodeableConcept?.coding?.[0]?.display || m.medicationCodeableConcept?.text || '')
-        .filter(Boolean);
-      row.currentMedications = uniq(meds);
+      const meds = (chart.medications ?? []).filter((m) => m.name);
+      row.currentMedications = uniq(meds.map((m) => m.name));
       row.currentMedicationCount = row.currentMedications.length;
+
+      row.currentMedicationDetails = meds.map((m) => ({
+        name: m.name,
+        type: m.type,
+        dose: m.intakeInfo.dose ?? '',
+        status: m.status,
+        lastTakenAt: m.intakeInfo.date ?? null,
+      }));
     }
+
     if (includeSurgicalHistory) {
-      const surgeries = (surgeriesByPatient.get(patientRef) ?? [])
-        .map((p) => p.code?.coding?.[0]?.display || p.code?.text || '')
-        .filter(Boolean);
-      row.surgicalHistory = uniq(surgeries);
+      const surgeries = chart.surgicalHistory ?? [];
+      row.surgicalHistory = uniq(surgeries.map((p) => p.display));
       row.surgicalHistoryCount = row.surgicalHistory.length;
+      row.surgicalHistoryCodes = uniq(surgeries.map((p) => p.code));
     }
+
     if (includeHospitalizations) {
-      const hosps = (hospitalizationsByPatient.get(patientRef) ?? [])
-        .map((e) => e.type?.[0]?.text || e.type?.[0]?.coding?.[0]?.display || '')
-        .filter(Boolean);
-      row.hospitalizations = uniq(hosps);
+      row.hospitalizations = uniq((chart.episodeOfCare ?? []).map((e) => e.display));
       row.hospitalizationCount = row.hospitalizations.length;
     }
 

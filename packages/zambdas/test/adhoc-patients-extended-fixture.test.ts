@@ -79,6 +79,69 @@ const priorAppointment: Appointment = {
   participant: [{ actor: { reference: 'Patient/pat-1' }, status: 'accepted' }],
 };
 
+// pat-1's chart lists, tagged the way chart-data writes them. The untagged Condition is a visit diagnosis,
+// not a problem-list entry, and must stay out.
+const tag = (code: string): { meta: { tag: { code: string }[] } } => ({ meta: { tag: [{ code }] } });
+
+const chartResources: FhirResource[] = [
+  {
+    resourceType: 'AllergyIntolerance',
+    id: 'al-1',
+    patient: { reference: 'Patient/pat-1' },
+    code: { coding: [{ code: '7980', display: 'Penicillin' }] },
+    clinicalStatus: { coding: [{ code: 'active' }] },
+    ...tag('known-allergy'),
+  },
+  {
+    resourceType: 'AllergyIntolerance',
+    id: 'al-2',
+    patient: { reference: 'Patient/pat-1' },
+    code: { coding: [{ code: '1191', display: 'Aspirin' }] },
+    clinicalStatus: { coding: [{ code: 'inactive' }] },
+    ...tag('known-allergy'),
+  },
+  {
+    resourceType: 'Condition',
+    id: 'pl-1',
+    subject: { reference: 'Patient/pat-1' },
+    code: { coding: [{ code: 'J45.909', display: 'Asthma' }] },
+    clinicalStatus: { coding: [{ code: 'active' }] },
+    ...tag('medical-condition'),
+  },
+  {
+    resourceType: 'Condition',
+    id: 'dx-1',
+    subject: { reference: 'Patient/pat-1' },
+    code: { coding: [{ code: 'J02.9', display: 'Acute pharyngitis' }] },
+  },
+  {
+    resourceType: 'MedicationStatement',
+    id: 'ms-1',
+    status: 'active',
+    subject: { reference: 'Patient/pat-1' },
+    medicationCodeableConcept: { coding: [{ code: '745679', display: 'Albuterol inhaler' }] },
+    dosage: [{ text: '2 puffs', asNeededBoolean: true }],
+    effectiveDateTime: '2026-06-30T08:00:00.000Z',
+    ...tag('current-medication'),
+  },
+  {
+    resourceType: 'Procedure',
+    id: 'sh-1',
+    status: 'completed',
+    subject: { reference: 'Patient/pat-1' },
+    code: { coding: [{ code: '44950', display: 'Appendectomy' }] },
+    ...tag('surgical-history'),
+  },
+  {
+    resourceType: 'EpisodeOfCare',
+    id: 'eoc-1',
+    status: 'finished',
+    patient: { reference: 'Patient/pat-1' },
+    type: [{ text: 'Pneumonia' }],
+    ...tag('hospitalization'),
+  },
+] as FhirResource[];
+
 const resourcesByJob: Record<string, FhirResource[]> = {
   Appointment: [
     appointment('appt-1', 'pat-1'),
@@ -88,6 +151,7 @@ const resourcesByJob: Record<string, FhirResource[]> = {
     returningPatient,
     newPatient,
     location,
+    ...chartResources,
   ],
   'Appointment:prior': [priorAppointment],
 };
@@ -96,6 +160,7 @@ const jobIdFor = (resourceType: string, params: { name: string; value: string }[
   resourceType === 'Appointment' && params.some((p) => p.name === 'patient') ? 'Appointment:prior' : resourceType;
 
 const ndjsonByUrl = new Map<string, string>();
+
 const manifestFor = (jobId: string): { output: { type: string; url: string }[]; requiresAccessToken: boolean } => {
   const url = `https://example.test/${jobId}.ndjson`;
   ndjsonByUrl.set(url, (resourcesByJob[jobId] ?? []).map((resource) => JSON.stringify(resource)).join('\n'));
@@ -130,6 +195,37 @@ const issuesOf = (result: { success: boolean; error?: { issues: unknown[] } }): 
   result.success ? [] : result.error?.issues ?? ['unknown'];
 
 describe('ad-hoc Patients: layers mapped with the app logic (fixture)', () => {
+  it('chart lists: built by the chart mapper, with current / history status', async () => {
+    const rows = await fetchAdHocPatientRows(fakeOystehr, {
+      dateRange,
+      includeAllergies: true,
+      includeProblems: true,
+      includeMedications: true,
+      includeSurgicalHistory: true,
+      includeHospitalizations: true,
+    });
+    expect(issuesOf(AdHocPatientsOutputSchema.safeParse({ patients: rows }))).toEqual([]);
+    const row = rows.find((r) => r.patientId === 'pat-1')!;
+    expect(row.allergies).toEqual(['Penicillin', 'Aspirin']);
+    expect(row.allergyDetails).toEqual([
+      { name: 'Penicillin', current: true },
+      { name: 'Aspirin', current: false },
+    ]);
+    expect(row.problems).toEqual(['Asthma']);
+    expect(row.problemCodes).toEqual(['J45.909']);
+    expect(row.problemDetails).toEqual([{ display: 'Asthma', code: 'J45.909', current: true }]);
+    expect(row.currentMedications).toEqual(['Albuterol inhaler']);
+    expect(row.currentMedicationDetails).toMatchObject([
+      { name: 'Albuterol inhaler', type: 'as-needed', status: 'active', lastTakenAt: '2026-06-30T08:00:00.000Z' },
+    ]);
+    expect(row.surgicalHistory).toEqual(['Appendectomy']);
+    expect(row.surgicalHistoryCodes).toEqual(['44950']);
+    expect(row.hospitalizations).toEqual(['Pneumonia']);
+
+    const other = rows.find((r) => r.patientId === 'pat-2')!;
+    expect(other).toMatchObject({ allergies: [], problemCount: 0, currentMedicationCount: 0, surgicalHistory: [] });
+  });
+
   it('rows parse against the schema', async () => {
     const rows = await fetchAdHocPatientRows(fakeOystehr, {
       dateRange,

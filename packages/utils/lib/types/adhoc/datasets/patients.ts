@@ -2,8 +2,23 @@
 // response validation, prompt schema, UI checkboxes, and endpoint input flags all derive from the
 // objects below.
 import { z } from 'zod';
+import { MedicationDTO } from '../../api/chart-data/chart-data.types';
 import { RecentPatientRecordSchema } from '../../api/recent-patients-report.types';
 import { AdHocLayerMap, DatasetInput, datasetInputSchema, datasetRowSchema, LayerRowFields } from './dataset';
+
+// The chart medication list's vocabularies (MedicationDTO), required exhaustively.
+const MEDICATION_TYPES = { scheduled: true, 'as-needed': true, 'prescribed-medication': true } satisfies Record<
+  MedicationDTO['type'],
+  true
+>;
+
+const MEDICATION_STATUSES = { active: true, completed: true } satisfies Record<MedicationDTO['status'], true>;
+const MEDICATION_TYPE_VALUES = Object.keys(MEDICATION_TYPES) as [MedicationDTO['type'], ...MedicationDTO['type'][]];
+
+const MEDICATION_STATUS_VALUES = Object.keys(MEDICATION_STATUSES) as [
+  MedicationDTO['status'],
+  ...MedicationDTO['status'][],
+];
 
 export const PatientBaseRowSchema = z.object({
   // --- Patient ---
@@ -72,6 +87,14 @@ export const PATIENT_LAYERS = {
     schema: z.object({
       allergies: z.array(z.string()).describe('Known allergens (display names). Tally for top allergens.'),
       allergyCount: z.number().describe('Number of charted allergies. 0 when none.'),
+      allergyDetails: z
+        .array(
+          z.object({
+            name: z.string().describe('Allergen, same value as in allergies[].'),
+            current: z.boolean().describe('Marked active on the chart (false = no longer current).'),
+          })
+        )
+        .describe('One record per charted allergy, with whether it is still current. Empty when none.'),
     }),
   },
   problems: {
@@ -81,14 +104,43 @@ export const PATIENT_LAYERS = {
       problems: z.array(z.string()).describe('Problem-list / chronic conditions (display names).'),
       problemCodes: z.array(z.string()).describe('ICD-10 codes for the problem list. HIERARCHICAL — prefix-match.'),
       problemCount: z.number().describe('Number of problem-list conditions.'),
+      problemDetails: z
+        .array(
+          z.object({
+            display: z.string().describe('Condition, same value as in problems[].'),
+            code: z.string().describe('ICD-10 code. "" when not coded.'),
+            current: z.boolean().describe('Marked active on the chart (false = resolved / history).'),
+          })
+        )
+        .describe('One record per problem-list condition, with whether it is still current. Empty when none.'),
     }),
   },
   medications: {
     label: 'Current medications',
-    description: "The patient's current/home medication list.",
+    description:
+      "The patient's medication list as the chart shows it: home medications (scheduled / as-needed) and those " +
+      'prescribed by us, with dose and whether still taken.',
     schema: z.object({
-      currentMedications: z.array(z.string()).describe('Current/home medications (display names).'),
+      currentMedications: z
+        .array(z.string())
+        .describe('Medications on the chart medication list (display names) — home and prescribed by us.'),
       currentMedicationCount: z.number().describe('Number of current/home medications. 0 when none.'),
+      currentMedicationDetails: z
+        .array(
+          z.object({
+            name: z.string().describe('Medication, same value as in currentMedications[].'),
+            type: z
+              .enum(MEDICATION_TYPE_VALUES)
+              .describe('scheduled / as-needed home medication, or prescribed-medication (prescribed by us).'),
+            dose: z.string().describe('Dose as charted. "" when not given.'),
+            status: z.enum(MEDICATION_STATUS_VALUES).describe('active = still taking; completed = no longer taking.'),
+            lastTakenAt: z
+              .string()
+              .nullable()
+              .describe('When the patient last took it, as charted (ISO). Null when not charted.'),
+          })
+        )
+        .describe('One record per medication on the chart medication list. Empty when none.'),
     }),
   },
   surgicalHistory: {
@@ -97,6 +149,7 @@ export const PATIENT_LAYERS = {
     schema: z.object({
       surgicalHistory: z.array(z.string()).describe('Past surgical procedures (names).'),
       surgicalHistoryCount: z.number().describe('Number of past surgeries charted.'),
+      surgicalHistoryCodes: z.array(z.string()).describe('CPT codes of the past surgeries. NOT hierarchical.'),
     }),
   },
   visitHistory: {
