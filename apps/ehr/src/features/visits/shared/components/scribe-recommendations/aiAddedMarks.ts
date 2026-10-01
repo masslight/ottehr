@@ -1,10 +1,11 @@
 import { useMemo } from 'react';
 import { getRosFindingFieldKeys } from 'utils/lib/ottehr-config/review-of-systems';
 import { RosFindingState } from 'utils/lib/ottehr-config/review-of-systems/in-person.config';
+import { TEMPLATE_SECTION_DEFAULT_ACTIONS, TemplateSectionKey } from 'utils/lib/types/data/apply-template.types';
 import { useAppointmentData } from '../../stores/appointment/appointment.store';
 import { useScribeRecommendationsStore } from './scribeRecommendations.store';
 import { normalizeName } from './scribeSections';
-import { ScribeRecommendation } from './types';
+import { ScribeRecommendation, TemplateRecommendation } from './types';
 
 /**
  * Which visit-note items the scribe panel wrote. The chart doesn't record authorship, so an item counts as AI
@@ -73,3 +74,21 @@ export const findAiAddedFor = (
         return rec.kind === 'template';
     }
   });
+
+/** The template sections each visit-note card shows, which decide whether the card gets the template badge. */
+export const TEMPLATE_SECTIONS_BY_CARD = {
+  examination: ['examFindings'],
+  assessment: ['mdm', 'diagnoses', 'emCode', 'cptCodes'],
+  plan: ['patientInstructions'],
+} as const satisfies Record<string, readonly TemplateSectionKey[]>;
+
+export type TemplateBadgeCard = keyof typeof TEMPLATE_SECTIONS_BY_CARD;
+
+/**
+ * Whether the applied template wrote into this card: at least one of the sections the card shows was not
+ * skipped in the apply dialog. A section the dialog did not set took its default action, which is never skip.
+ */
+export const templateFilledCard = (template: TemplateRecommendation, card: TemplateBadgeCard): boolean =>
+  TEMPLATE_SECTIONS_BY_CARD[card].some(
+    (section) => (template.sectionActions?.[section] ?? TEMPLATE_SECTION_DEFAULT_ACTIONS[section]) !== 'skip'
+  );
