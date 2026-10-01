@@ -1,10 +1,10 @@
-import { existsSync, readFileSync } from 'fs';
+import { readFileSync } from 'fs';
 import { join } from 'path';
 import { PDFDict, PDFDocument, PDFName } from 'pdf-lib';
 import { describe, expect, it } from 'vitest';
 import { analyzeFormTemplatePdf } from '../../src/ehr/shared/form-template-pdf';
 
-const DWC073 = join(__dirname, '../../../../apps/ehr/public/dwc073.pdf');
+const DWC073 = join(__dirname, '../fixtures/dwc073.pdf');
 
 /** A document whose catalog carries a `/Perms` dictionary with the given entries. */
 const withPerms = async (entries: string[]): Promise<Uint8Array> => {
@@ -43,7 +43,7 @@ describe('certifying signatures', () => {
     expect(analysis.status).toBe('fillable');
   });
 
-  it.runIf(existsSync(DWC073))('accepts DWC073, which carries Reader Extensions but no certification', async () => {
+  it('accepts DWC073, which carries Reader Extensions but no certification', async () => {
     // The form this feature exists to replace. It has `/Perms`, `/UR3` and an applied signature, and would
     // be lost to a check that keyed on any of those rather than on `/DocMDP` specifically.
     const analysis = await analyzeFormTemplatePdf(new Uint8Array(readFileSync(DWC073)));

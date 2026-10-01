@@ -13,7 +13,7 @@ import {
 import { claimMetaTagsWithProvenanceRequests, resolveClaimActor } from '../../../billing/provenance';
 import {
   buildUpdatedClaimStatusTags,
-  CLAIM_PAYER_CLAIM_CONTROL_CODE_IDENTIFIER_SYSTEM,
+  CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM,
   createBillingClient,
   ERA_ICN_EXTENSION,
   getTag,
@@ -157,10 +157,10 @@ export async function performEffect(oystehr: Oystehr, validated: ComplexValidati
                   path: '/identifier',
                   value: [
                     ...(claim.identifier ?? []).filter(
-                      (identifier) => identifier.system !== CLAIM_PAYER_CLAIM_CONTROL_CODE_IDENTIFIER_SYSTEM
+                      (identifier) => identifier.system !== CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM
                     ),
                     {
-                      system: CLAIM_PAYER_CLAIM_CONTROL_CODE_IDENTIFIER_SYSTEM,
+                      system: CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM,
                       value: claimResponseIcn,
                     },
                   ],

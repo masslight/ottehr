@@ -1,5 +1,5 @@
 import Oystehr, { BatchInputPatchRequest, BatchInputPostRequest } from '@oystehr/sdk';
-import { captureException } from '@sentry/aws-serverless';
+import { captureException } from '@sentry/node-core/light';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Coding, Encounter, Location, Observation, Patient, Questionnaire, Task } from 'fhir/r4b';
 import { FHIR_APPOINTMENT_INTAKE_HARVESTING_COMPLETED_TAG } from 'utils/lib/fhir/constants';

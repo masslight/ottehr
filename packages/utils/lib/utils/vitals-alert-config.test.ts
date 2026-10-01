@@ -134,6 +134,21 @@ describe('VitalsAlertConfigSchema', () => {
     expect(VitalsAlertConfigSchema.safeParse(config).success).toBe(true);
   });
 
+  it('treats a level the form cleared to null as blank, so it is not stored', () => {
+    const config = cloneDefault();
+    (config.thresholds['vital-heartbeat']['18+y'] as Record<string, unknown>).criticalLow = null;
+    const result = VitalsAlertConfigSchema.safeParse(config);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      const stored = JSON.parse(JSON.stringify(result.data)) as VitalsAlertConfig;
+      expect(stored.thresholds['vital-heartbeat']['18+y']).toEqual({
+        abnormalLow: 57,
+        abnormalHigh: 100,
+        criticalHigh: 115,
+      });
+    }
+  });
+
   it('rejects thresholds referencing an unknown age range', () => {
     const config = cloneDefault();
     config.thresholds['vital-heartbeat']['not-a-range'] = { abnormalLow: 1, abnormalHigh: 2 };
