@@ -87,6 +87,9 @@ export const PATIENT_DOMAIN_FIELDS: readonly (keyof AdHocPatientRow)[] = [
   'occupationalMedicineEmployer',
   'workersCompEmployer',
   'workersCompCarrier',
+  'preferredCommunicationMethod',
+  'pronouns',
+  'attorneyFirm',
 ];
 
 // Opt-in layers, declared ONCE (metadata + Zod field schema); everything else derives from this map.
@@ -188,8 +191,9 @@ export const PATIENT_LAYERS = {
   demographics: {
     label: 'Demographics & preferences',
     description:
-      'Preferred language, race, ethnicity, sexual orientation, gender identity, marketing opt-in, primary care ' +
-      'physician and preferred pharmacy — as on the patient record / visit details face sheet.',
+      'Preferred language, race, ethnicity, sexual orientation, gender identity, preferred name, pronouns, ' +
+      'preferred communication method, Medicaid, marketing opt-in, primary care physician and preferred pharmacy — ' +
+      'as on the patient record / visit details face sheet.',
     schema: z.object({
       preferredLanguage: z.string().describe('Preferred language. "" when not recorded.'),
       race: z.string().describe('Race as recorded. "" when not recorded.'),
@@ -203,12 +207,24 @@ export const PATIENT_LAYERS = {
       pcpPracticeName: z.string().describe('Primary care physician\'s practice. "" when none.'),
       preferredPharmacy: z.string().describe('Preferred pharmacy name. "" when none.'),
       deceased: z.boolean().describe('The patient is marked deceased.'),
+      preferredName: z.string().describe('Preferred name (what the patient wants to be called). "" when none.'),
+      pronouns: z
+        .string()
+        .describe(
+          'Pronouns as recorded; the patient\'s own wording when they picked "My pronouns are not listed". "" when ' +
+            'not recorded.'
+        ),
+      preferredCommunicationMethod: z
+        .string()
+        .describe('Preferred communication method ("Email", "Cell Phone", …). "" when not recorded.'),
+      hasMedicaid: z.boolean().describe('The patient indicated they have Medicaid coverage.'),
     }),
   },
   contacts: {
     label: 'Responsible party & emergency contact',
     description:
-      "The patient's responsible party (guarantor: self, parent, …) and emergency contact, as on the patient record.",
+      "The patient's responsible party (guarantor: self, parent, …), emergency contact and MVA attorney, as on the " +
+      'patient record.',
     schema: z.object({
       responsiblePartyRelationship: z
         .string()
@@ -218,6 +234,9 @@ export const PATIENT_LAYERS = {
       responsiblePartyName: z.string().describe('Responsible party full name. "" when none.'),
       emergencyContactRelationship: z.string().describe('Emergency contact relationship. "" when none.'),
       emergencyContactName: z.string().describe('Emergency contact full name. "" when none.'),
+      hasAttorney: z.boolean().describe('An MVA attorney is on file for the patient.'),
+      attorneyFirm: z.string().describe('MVA attorney\'s firm. "" when none.'),
+      attorneyName: z.string().describe('MVA attorney full name. "" when none.'),
     }),
   },
   insurance: {

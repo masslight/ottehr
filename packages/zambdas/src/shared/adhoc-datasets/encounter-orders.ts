@@ -14,7 +14,8 @@ import {
 import { AdHocEncounterRow } from 'utils/lib/types/adhoc/datasets/encounters';
 import { DataEntryTestItem, InHouseOrderListPageItemDTO } from 'utils/lib/types/data/in-house/in-house.types';
 import { LabOrderHistoryRow, LabOrderListPageDTO } from 'utils/lib/types/data/labs/labs.types';
-import { NursingOrder } from 'utils/lib/types/data/orders/types';
+import { NursingOrdersStatus } from 'utils/lib/types/data/orders/constants';
+import { NursingOrder, NursingOrderDetailedDTO } from 'utils/lib/types/data/orders/types';
 import { partitionServiceRequests, poolTrackingBoardResources } from '../../ehr/get-appointments/tracking-board';
 import { mapResourcesNursingOrderDTOs } from '../../ehr/get-nursing-orders/helpers';
 import {
@@ -173,12 +174,23 @@ const inHouseLabRecord = (
   };
 };
 
-const nursingOrderRecord = (order: NursingOrder): NursingOrderRecord => ({
-  order: order.note,
-  status: order.status,
-  orderedAt: order.orderAddedDate || null,
-  orderedBy: order.orderingPhysician,
-});
+// The nursing mapper writes "-" for a practitioner it cannot resolve.
+const nursingPerformer = (name: string | undefined): string => (name && name !== '-' ? name : '');
+
+const nursingOrderRecord = (order: NursingOrder | NursingOrderDetailedDTO): NursingOrderRecord => {
+  // The order page's history (newest first): the latest "completed" row is the completion.
+  const history = 'history' in order ? order.history : [];
+  const completed = history.find((row) => row.status === NursingOrdersStatus.completed);
+
+  return {
+    order: order.note,
+    status: order.status,
+    orderedAt: order.orderAddedDate || null,
+    orderedBy: nursingPerformer(order.orderingPhysician),
+    completedAt: completed?.date || null,
+    completedBy: nursingPerformer(completed?.performer),
+  };
+};
 
 /**
  * Loads and maps the lab and nursing orders of the given encounters, keyed by encounter id. `encounters`
@@ -410,6 +422,11 @@ export async function fetchEncounterOrders(
   }
 
   if (includeNursing) {
+    // Who placed / completed a nursing order is named only by its Provenance agent.
+    await loadMissingPractitioners(
+      provenancesFor(partitions.nursing).map((p) => practitionerIdOf(p.agent?.[0]?.who?.reference))
+    );
+
     for (const serviceRequest of partitions.nursing) {
       const encounterId = encounterIdOf(serviceRequest);
 
@@ -424,7 +441,9 @@ export async function fetchEncounterOrders(
             pools.tasks,
             allPractitioners,
             provenancesFor([serviceRequest]),
-            encounters
+            encounters,
+            // Searching by the order itself makes the mapper return the order page's detailed DTO with history.
+            { field: 'serviceRequestId', value: serviceRequest.id ?? '' }
           )
         ) ?? [];
       if (order) recordsFor(encounterId).nursingOrders.push(nursingOrderRecord(order));
