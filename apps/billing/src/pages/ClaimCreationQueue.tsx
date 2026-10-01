@@ -187,7 +187,9 @@ export default function ClaimCreationQueue(): ReactElement {
   return (
     <Stack spacing={3}>
       <Stack direction="row" justifyContent="space-between" alignItems="center">
-        <Typography variant="h4">Claim Creation Queue</Typography>
+        <Typography variant="h4" color="primary.dark" fontWeight={600}>
+          Claim Creation Queue
+        </Typography>
         <Button startIcon={<RefreshIcon />} disabled={!oystehrZambda || loading} onClick={refresh}>
           Refresh
         </Button>
