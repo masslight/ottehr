@@ -51,6 +51,7 @@ import ActivityLogDialog from 'src/components/dialogs/ActivityLogDialog';
 import CancellationReasonDialog from 'src/components/dialogs/CancellationReasonDialog';
 import { CustomDialog } from 'src/components/dialogs/CustomDialog';
 import DeleteDialog from 'src/components/dialogs/DeleteDialog';
+import { EditFormResponseDialog } from 'src/components/dialogs/EditFormResponseDialog';
 import EditPatientInfoDialog from 'src/components/dialogs/EditPatientInfoDialog';
 import ReportIssueDialog from 'src/components/dialogs/ReportIssueDialog';
 import { SendFormDialog } from 'src/components/dialogs/SendFormDialog';
@@ -281,6 +282,7 @@ export default function VisitDetailsPage(): ReactElement {
   const user = useEvolveUser();
 
   const [sendFormDialogOpen, setSendFormDialogOpen] = useState(false);
+  const [formToEdit, setFormToEdit] = useState<StandaloneFormDTO | undefined>(undefined);
   const [formToDelete, setFormToDelete] = useState<StandaloneFormDTO | undefined>(undefined);
   const [deletingForm, setDeletingForm] = useState(false);
   const [actionsMenuAnchor, setActionsMenuAnchor] = useState<HTMLElement | null>(null);
@@ -1560,10 +1562,9 @@ export default function VisitDetailsPage(): ReactElement {
                         <Grid item key={`${form.questionnaireId}-${idx}`} sx={{ mt: 2 }}>
                           <CustomFormCard
                             form={form}
-                            patientId={patientId}
                             deletable={deletable}
+                            onEdit={() => setFormToEdit(form)}
                             onDelete={() => setFormToDelete(form)}
-                            onSaved={() => void refetchVisitDetails()}
                           />
                         </Grid>
                       ))
@@ -1915,6 +1916,17 @@ export default function VisitDetailsPage(): ReactElement {
             open={sendFormDialogOpen}
             onClose={() => setSendFormDialogOpen(false)}
             appointmentId={appointmentID}
+          />
+        )}
+        {formToEdit && (
+          <EditFormResponseDialog
+            form={formToEdit}
+            patientId={patientId}
+            onClose={() => setFormToEdit(undefined)}
+            onSaved={() => {
+              setFormToEdit(undefined);
+              void refetchVisitDetails();
+            }}
           />
         )}
         <DeleteDialog
