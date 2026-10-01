@@ -1,5 +1,5 @@
 import Oystehr from '@oystehr/sdk';
-import { captureException } from '@sentry/aws-serverless';
+import { captureException } from '@sentry/node-core/light';
 import { Operation } from 'fast-json-patch';
 import { Appointment, Encounter } from 'fhir/r4b';
 import { getEncounterStatusHistoryUpdateOp } from 'utils/lib/fhir/encounter';

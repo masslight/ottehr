@@ -1,4 +1,3 @@
-import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Provenance, ServiceRequest, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
@@ -8,13 +7,14 @@ import { UpdateNursingOrderInputValidated } from 'utils/lib/types/data/orders/ty
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { getMyPractitionerId } from '../../shared/practitioners';
+import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mToken: string;
 
-export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler('update-nursing-order', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   let validatedParameters: UpdateNursingOrderInputValidated;
 
   try {
