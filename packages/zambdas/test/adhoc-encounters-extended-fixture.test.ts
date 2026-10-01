@@ -36,9 +36,12 @@ import {
   ROOM_EXTENSION_URL,
   SERVICE_CATEGORY_SYSTEM,
 } from 'utils/lib/fhir/constants';
+import { buildFollowupEncounterType } from 'utils/lib/fhir/encounter';
+import { getProviderNameWithProfession } from 'utils/lib/fhir/helpers';
 import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
 import { ORDER_TYPE_CODE_SYSTEM, SERVICE_REQUEST_REQUESTED_TIME_EXTENSION_URL } from 'utils/lib/fhir/radiology';
 import { CODE_SYSTEM_SERVICE_CATEGORY_CODES } from 'utils/lib/helpers/rcm/constants';
+import { patientScreeningQuestionsConfig } from 'utils/lib/ottehr-config/screening-questions';
 import { AdHocEncountersOutputSchema } from 'utils/lib/types/adhoc/datasets/encounters';
 import {
   VitalBloodPressureObservationMethod,
@@ -482,6 +485,43 @@ const vitals: Observation[] = [
   ),
 ];
 
+// A booked follow-up visit (convert-visit-to-follow-up): its own Appointment, status history and lock. It was
+// signed through the regular flow, which writes no signature Provenance.
+const scheduledFollowUpAppointment = appointment('appt-3', 'fulfilled', {
+  start: '2026-07-01T16:00:00.000Z',
+  meta: { tag: [{ code: OTTEHR_MODULE.IP }, APPOINTMENT_LOCKED_META_TAG] },
+});
+
+const scheduledFollowUpEncounter: Encounter = {
+  resourceType: 'Encounter',
+  id: 'enc-3',
+  status: 'finished',
+  class: { code: 'AMB' },
+  type: buildFollowupEncounterType('scheduled'),
+  partOf: { reference: 'Encounter/enc-1' },
+  appointment: [{ reference: 'Appointment/appt-3' }],
+  subject: { reference: 'Patient/pat-1' },
+  participant: [participant(PRACTITIONER_CODINGS.Attender, 'prac-1')],
+  statusHistory: [
+    visitStatusEntry('provider', '2026-07-01T16:00:00.000Z', '2026-07-01T16:20:00.000Z'),
+    visitStatusEntry('completed', '2026-07-01T16:30:00.000Z'),
+  ],
+};
+
+// A yes/no screening question answered by staff: the chart saves it as valueBoolean.
+const radioScreeningField = patientScreeningQuestionsConfig.fields.find((f) => f.type === 'radio')!;
+
+const booleanScreeningAnswer: Observation = {
+  resourceType: 'Observation',
+  id: 'obs-scr-bool',
+  status: 'final',
+  code: { text: radioScreeningField.fhirField },
+  subject: { reference: 'Patient/pat-1' },
+  encounter: { reference: 'Encounter/enc-1' },
+  effectiveDateTime: '2026-07-01T14:06:00.000Z',
+  valueBoolean: true,
+};
+
 const group: HealthcareService = { resourceType: 'HealthcareService', id: 'grp-1', name: 'Pediatrics Group' };
 
 // External lab: submitted (PST completed, order active, submit Provenance), no results yet → "sent".
@@ -556,7 +596,16 @@ const nursingProvenance: Provenance = {
 };
 
 const resourcesByJob: Record<string, FhirResource[]> = {
-  Appointment: [signedAppointment, cancelledAppointment, signedEncounter, cancelledEncounter, patient, location],
+  Appointment: [
+    signedAppointment,
+    cancelledAppointment,
+    scheduledFollowUpAppointment,
+    signedEncounter,
+    cancelledEncounter,
+    scheduledFollowUpEncounter,
+    patient,
+    location,
+  ],
   Practitioner: [attending, intakeNurse, supervisor],
   Provenance: [
     signatureProvenance('prov-author', 'author', 'prac-1', '2026-07-01T14:40:00.000Z'),
@@ -572,7 +621,7 @@ const resourcesByJob: Record<string, FhirResource[]> = {
   Communication: [instruction],
   ServiceRequest: [procedureRequest, externalLabRequest, nursingRequest, dispositionFollowUp],
   HealthcareService: [group],
-  Observation: vitals,
+  Observation: [...vitals, booleanScreeningAnswer],
   Patient: [patient, occMedAccount, accountEmployer],
   Organization: [preOpEmployer],
   MedicationAdministration: [
@@ -656,7 +705,7 @@ const allLayers = {
 describe('ad-hoc Encounters: layers mapped with the app mappers (fixture)', () => {
   it('rows parse against the schema', async () => {
     const rows = await fetchAdHocEncounterRows(fakeOystehr, { dateRange, ...allLayers });
-    expect(rows).toHaveLength(2);
+    expect(rows).toHaveLength(3);
     expect(issuesOf(AdHocEncountersOutputSchema.safeParse({ encounters: rows }))).toEqual([]);
   });
 
@@ -825,6 +874,28 @@ describe('ad-hoc Encounters: layers mapped with the app mappers (fixture)', () =
       vitalsRecordedBy: ['Ivy Lee'],
       vitalsFirstRecordedAt: '2026-07-01T13:01:00.000Z',
     });
+  });
+
+  it('scheduled follow-up: a visit of its own — status, start, lock and signer like any visit', async () => {
+    const rows = await fetchAdHocEncounterRows(fakeOystehr, { dateRange, includeSigning: true });
+    const followUp = rows.find((r) => r.appointmentId === 'appt-3')!;
+    expect(followUp).toMatchObject({
+      encounterType: 'scheduled-follow-up',
+      visitStatus: 'completed',
+      startTime: '2026-07-01T16:00:00.000Z',
+      signed: true,
+      locked: true,
+    });
+    // No signature Provenance: the signer falls back to the attending, written like a Provenance signer.
+    expect(followUp.signedBy).toBe(getProviderNameWithProfession(attending));
+    const signed = rows.find((r) => r.appointmentId === 'appt-1')!;
+    expect(signed.signedBy).toBe(getProviderNameWithProfession(attending));
+  });
+
+  it('intake: a yes/no screening answer reads as the chart shows it', async () => {
+    const rows = await fetchAdHocEncounterRows(fakeOystehr, { dateRange, includeIntake: true });
+    const signed = rows.find((r) => r.appointmentId === 'appt-1')!;
+    expect(signed.screeningAnswers).toContainEqual({ question: radioScreeningField.question, answer: 'Yes' });
   });
 
   it('signing: signer, supervisor approval, charting lag, lock', async () => {

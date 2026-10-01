@@ -96,7 +96,7 @@ export const PATIENT_LAYERS = {
     description: "The patient's known allergy list.",
     schema: z.object({
       allergies: z.array(z.string()).describe('Known allergens (display names). Tally for top allergens.'),
-      allergyCount: z.number().describe('Number of charted allergies. 0 when none.'),
+      allergyCount: z.number().describe('Number of distinct allergens (length of allergies[]). 0 when none.'),
       allergyDetails: z
         .array(
           z.object({
@@ -113,7 +113,9 @@ export const PATIENT_LAYERS = {
     schema: z.object({
       problems: z.array(z.string()).describe('Problem-list / chronic conditions (display names).'),
       problemCodes: z.array(z.string()).describe('ICD-10 codes for the problem list. HIERARCHICAL — prefix-match.'),
-      problemCount: z.number().describe('Number of problem-list conditions.'),
+      problemCount: z
+        .number()
+        .describe('Number of distinct problem-list conditions (length of problems[]). 0 when none.'),
       problemDetails: z
         .array(
           z.object({
@@ -134,7 +136,9 @@ export const PATIENT_LAYERS = {
       currentMedications: z
         .array(z.string())
         .describe('Medications on the chart medication list (display names) — home and prescribed by us.'),
-      currentMedicationCount: z.number().describe('Number of current/home medications. 0 when none.'),
+      currentMedicationCount: z
+        .number()
+        .describe('Number of distinct medications on the list (length of currentMedications[]). 0 when none.'),
       currentMedicationDetails: z
         .array(
           z.object({
@@ -158,7 +162,7 @@ export const PATIENT_LAYERS = {
     description: "The patient's past surgical procedures.",
     schema: z.object({
       surgicalHistory: z.array(z.string()).describe('Past surgical procedures (names).'),
-      surgicalHistoryCount: z.number().describe('Number of past surgeries charted.'),
+      surgicalHistoryCount: z.number().describe('Number of distinct past surgeries (length of surgicalHistory[]).'),
       surgicalHistoryCodes: z.array(z.string()).describe('CPT codes of the past surgeries. NOT hierarchical.'),
     }),
   },
@@ -250,7 +254,9 @@ export const PATIENT_LAYERS = {
     description: "The patient's prior hospitalizations.",
     schema: z.object({
       hospitalizations: z.array(z.string()).describe('Prior hospitalization reasons.'),
-      hospitalizationCount: z.number().describe('Number of prior hospitalizations charted.'),
+      hospitalizationCount: z
+        .number()
+        .describe('Number of distinct prior hospitalization reasons (length of hospitalizations[]).'),
     }),
   },
 } as const satisfies AdHocLayerMap;

@@ -15,6 +15,7 @@ import {
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
+import { isAnnotationFollowupEncounter } from 'utils/lib/fhir/encounter';
 import { isInPersonAppointment, isTelemedAppointment } from 'utils/lib/fhir/moduleIdentification';
 import {
   getAddressForIndividual,
@@ -93,21 +94,13 @@ export async function fetchAdHocPatientRows(oystehr: Oystehr, params: AdHocPatie
     | EpisodeOfCare;
 
   // Anchored on Appointment in the date range (like the Encounters dataset), but folded to one row
-  // per patient. Patient-bound clinical layers ride along via patient-scoped revincludes.
-  const layerRevincludes: { name: string; value: string }[] = [];
-  if (includeAllergies) layerRevincludes.push({ name: '_revinclude:iterate', value: 'AllergyIntolerance:patient' });
-  if (includeProblems) layerRevincludes.push({ name: '_revinclude:iterate', value: 'Condition:patient' });
-  if (includeMedications) layerRevincludes.push({ name: '_revinclude:iterate', value: 'MedicationStatement:patient' });
-  if (includeSurgicalHistory) layerRevincludes.push({ name: '_revinclude:iterate', value: 'Procedure:patient' });
-  if (includeHospitalizations) layerRevincludes.push({ name: '_revinclude:iterate', value: 'EpisodeOfCare:patient' });
-
+  // per patient. The main search stays light; the chart lists are loaded afterwards per patient.
   // Attended visits only (no cancelled / no-show): unlike the Encounters/Billing datasets, the
   // per-patient rollups (totalVisits, first/lastVisitDate, locations, providers) carry no per-visit
   // status a report could filter on, so cancelled/no-show visits would silently inflate the counts
   // and disagree with the Recent Patients report.
   const allResources = await fetchAppointmentReportResources<ReportResource>(oystehr, {
     dateRange,
-    extraParams: layerRevincludes,
     statuses: REPORT_ATTENDED_APPOINTMENT_STATUSES,
   });
 
@@ -137,26 +130,46 @@ export async function fetchAdHocPatientRows(oystehr: Oystehr, params: AdHocPatie
       case 'Encounter':
         encounters.push(r);
         break;
-      case 'AllergyIntolerance':
-      case 'EpisodeOfCare':
-        pushTo(chartResourcesByPatient, r.patient?.reference, r);
-        break;
-      case 'Condition':
-      case 'MedicationStatement':
-      case 'Procedure':
-        pushTo(chartResourcesByPatient, r.subject?.reference, r);
-        break;
+    }
+  }
+
+  // The chart lists of the patients, by the tags chart-data writes them with (the chart's mapper then sorts
+  // them into lists) — only the list resources, not every Condition / Procedure the patient ever had.
+  const patientRefs = Array.from(patientMap.keys());
+
+  type ChartListResource = AllergyIntolerance | Condition | MedicationStatement | Procedure | EpisodeOfCare;
+
+  const chartListSearches: [ChartListResource['resourceType'], string, boolean][] = [
+    ['AllergyIntolerance', 'known-allergy', !!includeAllergies],
+    ['Condition', 'medical-condition', !!includeProblems],
+    ['MedicationStatement', 'current-medication,prescribed-medication', !!includeMedications],
+    ['Procedure', 'surgical-history', !!includeSurgicalHistory],
+    ['EpisodeOfCare', 'hospitalization', !!includeHospitalizations],
+  ];
+
+  for (const [resourceType, tags, included] of chartListSearches) {
+    if (!included || !patientRefs.length) continue;
+
+    const resources = await fetchScopedResources<ChartListResource>(oystehr, resourceType, 'patient', patientRefs, [
+      { name: '_tag', value: tags },
+    ]);
+
+    for (const r of resources) {
+      const patientRef = 'patient' in r ? r.patient?.reference : r.subject?.reference;
+      pushTo(chartResourcesByPatient, patientRef, r);
     }
   }
 
   // Build a quick provider-name lookup off the Encounter participants we included.
   const practitionerNameById = new Map<string, string>();
+
   for (const r of allResources) {
     if (r.resourceType === 'Practitioner' && r.id) {
       const name = `${r.name?.[0]?.given?.[0] || ''} ${r.name?.[0]?.family || ''}`.trim();
       if (name) practitionerNameById.set(r.id, name);
     }
   }
+
   const providerNameForEncounter = (encounter: Encounter): string | undefined => {
     // The attending (ATND participant), not the first Practitioner participant (which can be intake
     // staff) — matches the Encounters dataset's attendingProvider so provider rollups agree.
@@ -167,33 +180,46 @@ export async function fetchAdHocPatientRows(oystehr: Oystehr, params: AdHocPatie
   // Fold each appointment (+ its encounter) into its patient's accumulator.
   const aggByPatient = new Map<string, PatientAgg>();
   const encounterByApptRef = new Map<string, Encounter>();
+
   for (const e of encounters) {
+    // An annotation follow-up carries its parent visit's appointment reference; the visit is the main encounter.
+    if (isAnnotationFollowupEncounter(e)) continue;
+
     const apptRef = e.appointment?.[0]?.reference;
+
     if (apptRef) encounterByApptRef.set(apptRef, e);
   }
 
   for (const appointment of appointmentMap.values()) {
     const patientRef = appointment.participant?.find((p) => p.actor?.reference?.startsWith('Patient/'))?.actor
       ?.reference;
+
     const patient = patientRef ? patientMap.get(patientRef) : undefined;
+
     if (!patient || !patientRef) continue;
     const start = appointment.start || '';
+
     if (!start) continue;
 
     const locationRef = appointment.participant?.find((p) => p.actor?.reference?.startsWith('Location/'))?.actor
       ?.reference;
+
     const location = locationRef ? locationMap.get(locationRef) : undefined;
+
     const visitType = isTelemedAppointment(appointment)
       ? 'Telemed'
       : isInPersonAppointment(appointment)
       ? 'In-Person'
       : 'Unknown';
+
     const svcCoding = (appointment.serviceCategory ?? [])
       .flatMap((sc) => sc.coding ?? [])
       .find((c) => c.system === SERVICE_CATEGORY_SYSTEM);
+
     const serviceCategory = svcCoding?.display || svcCoding?.code || '';
     const encounter = appointment.id ? encounterByApptRef.get(`Appointment/${appointment.id}`) : undefined;
     const provider = encounter ? providerNameForEncounter(encounter) : undefined;
+
     // Same Ottehr status vocabulary as the Encounters/Billing datasets (completed/pending/…), not
     // the raw FHIR statuses (finished/booked/…) — cross-dataset filters and rollups must agree.
     // When the appointment has no encounter riding along, map through the helper with a stub so
@@ -206,6 +232,7 @@ export async function fetchAdHocPatientRows(oystehr: Oystehr, params: AdHocPatie
     );
 
     let agg = aggByPatient.get(patientRef);
+
     if (!agg) {
       agg = {
         patient,
@@ -219,11 +246,14 @@ export async function fetchAdHocPatientRows(oystehr: Oystehr, params: AdHocPatie
       };
       aggByPatient.set(patientRef, agg);
     }
+
     agg.visitDates.push(start);
+
     if (DateTime.fromISO(start) >= DateTime.fromISO(agg.lastVisitStart)) {
       agg.lastVisitStart = start;
       agg.lastVisitStatus = status;
     }
+
     if (visitType !== 'Unknown') agg.visitTypes.add(visitType);
     if (location?.name) agg.locations.add(location.name);
     if (provider) agg.providers.add(provider);
@@ -264,11 +294,13 @@ export async function fetchAdHocPatientRows(oystehr: Oystehr, params: AdHocPatie
       : new Map<string, PatientAccountAndCoverageResources>();
 
   const rows: AdHocPatientRow[] = [];
+
   for (const agg of aggByPatient.values()) {
     const patient = agg.patient;
     const patientRef = `Patient/${patient.id}`;
     const address = getAddressForIndividual(patient);
     const sortedDates = [...agg.visitDates].sort();
+
     const age = patient.birthDate
       ? Math.floor(DateTime.now().diff(DateTime.fromISO(patient.birthDate), 'years').years)
       : null;
@@ -322,18 +354,21 @@ export async function fetchAdHocPatientRows(oystehr: Oystehr, params: AdHocPatie
       row.allergyCount = row.allergies.length;
       row.allergyDetails = allergies.map((a) => ({ name: a.name ?? '', current: !!a.current }));
     }
+
     if (includeProblems) {
       const conditions = (chart.conditions ?? []).filter((c) => c.display || c.code);
-      row.problems = uniq(conditions.map((c) => c.display ?? ''));
+      // A coded condition without a display still counts, by its code.
+      row.problems = uniq(conditions.map((c) => c.display || c.code || ''));
       row.problemCodes = uniq(conditions.map((c) => c.code ?? ''));
       row.problemCount = row.problems.length;
 
       row.problemDetails = conditions.map((c) => ({
-        display: c.display ?? '',
+        display: c.display || c.code || '',
         code: c.code ?? '',
         current: !!c.current,
       }));
     }
+
     if (includeMedications) {
       const meds = (chart.medications ?? []).filter((m) => m.name);
       row.currentMedications = uniq(meds.map((m) => m.name));
@@ -399,6 +434,7 @@ export async function fetchAdHocPatientRows(oystehr: Oystehr, params: AdHocPatie
     }
 
     const account = accountsByPatient.get(patientRef);
+
     if (includeContacts) {
       // The face sheet's responsible-party and emergency-contact composers.
       const responsibleParty = composeResponsiblePartyData({ guarantorResource: account?.guarantorResource });

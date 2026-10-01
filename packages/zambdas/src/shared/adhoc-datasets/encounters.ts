@@ -23,6 +23,7 @@ import {
   Provenance,
   QuestionnaireResponse,
   Resource,
+  Schedule,
   ServiceRequest,
   Task,
 } from 'fhir/r4b';
@@ -40,6 +41,7 @@ import { getPaymentVariantFromEncounter, PaymentVariant } from 'utils/lib/fhir/e
 import {
   extractExtensionValue,
   findExtensionIndex,
+  getProviderNameWithProfession,
   isAppointmentLocked,
   isEncounterLocked,
 } from 'utils/lib/fhir/helpers';
@@ -63,6 +65,7 @@ import { ORDER_TYPE_CODE_SYSTEM } from 'utils/lib/fhir/radiology';
 import { makeVitalsObservationDTO } from 'utils/lib/fhir/vitals';
 import { getProviderType } from 'utils/lib/helpers/helpers';
 import { isInHouseLabServiceRequest } from 'utils/lib/helpers/in-house-labs';
+import { formatScreeningQuestionValue } from 'utils/lib/helpers/screening-questions/screening-questions-formatting.helper';
 import { getVitalDTOCriticalityFromObservation } from 'utils/lib/helpers/vitals/utils';
 import { HeightMeasurement } from 'utils/lib/helpers/vitals/vitals-height.helper';
 import {
@@ -91,7 +94,7 @@ import {
 } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE } from 'utils/lib/types/api/medication-administration.constants';
 import { PROVIDER_TYPE_VALUES } from 'utils/lib/types/api/practitioner.types';
-import { CREATED_BY_SYSTEM } from 'utils/lib/types/common';
+import { ClosureType, CREATED_BY_SYSTEM, OVERRIDE_DATE_FORMAT } from 'utils/lib/types/common';
 import { PATIENT_POINT_OF_DISCOVERY_URL } from 'utils/lib/types/constants';
 import { PatientAccountAndCoverageResources } from 'utils/lib/types/data/account';
 import {
@@ -100,7 +103,7 @@ import {
   PATIENT_EDUCATION_DOC_TYPE_CODE,
   PHOTO_ID_CARD_CODE,
 } from 'utils/lib/types/data/paperwork/paperwork.constants';
-import { getTimezone } from 'utils/lib/utils/scheduleUtils';
+import { applyOverridesToDailySchedule, DOW, getScheduleExtension, getTimezone } from 'utils/lib/utils/scheduleUtils';
 import { getVisitStatusHistory } from 'utils/lib/utils/visitUtils';
 import {
   buildEncounterRowContext,
@@ -127,10 +130,7 @@ import {
 import { EncounterOrderRecords, fetchEncounterOrders } from './encounter-orders';
 import { fetchPatientAccounts } from './patient-accounts';
 
-let staffNameByEmail: Map<string, string> | undefined;
-
 async function getStaffNameByEmail(oystehr: Oystehr): Promise<Map<string, string>> {
-  if (staffNameByEmail) return staffNameByEmail;
   const map = new Map<string, string>();
   try {
     const users = await oystehr.user.list();
@@ -163,7 +163,6 @@ async function getStaffNameByEmail(oystehr: Oystehr): Promise<Map<string, string
       const nm = nameById.get(pid);
       if (nm) map.set(email, nm);
     }
-    staffNameByEmail = map;
   } catch (e) {
     console.warn('adhoc-encounters: registrar name resolution failed, falling back to email', e);
     captureException(e);
@@ -216,16 +215,28 @@ const VITAL_ALERT_FIELDS: Record<string, string> = {
 
 // "Ask the patient" screening answers are chart-data Observations (makeObservationResource): code.text
 // is the config field's fhirField; radio/select/text answers are valueString (the option's fhirValue
-// or free text), date answers are valueDateTime.
+// or free text), yes/no answers valueBoolean, date answers valueDateTime, date ranges effectivePeriod.
 const SCREENING_FIELD_BY_CODE = new Map(patientScreeningQuestionsConfig.fields.map((f) => [f.fhirField, f]));
 
 const screeningAnswer = (o: Observation): { question: string; answer: string } | undefined => {
   const field = o.code?.text ? SCREENING_FIELD_BY_CODE.get(o.code.text) : undefined;
+
   if (!field) return undefined;
-  const raw = typeof o.valueBoolean === 'boolean' ? (o.valueBoolean ? 'Yes' : 'No') : o.valueString ?? o.valueDateTime;
-  if (!raw) return undefined;
-  const answer = field.options?.find((opt) => opt.fhirValue === raw)?.label ?? raw;
-  return { question: field.question, answer };
+
+  // A date answer stays the ISO date as charted.
+  if (o.valueDateTime) return { question: field.question, answer: o.valueDateTime };
+
+  const raw =
+    o.valueString ??
+    o.valueBoolean ??
+    (o.effectivePeriod ? [o.effectivePeriod.start ?? '', o.effectivePeriod.end ?? ''] : undefined);
+
+  if (raw === undefined || raw === '') return undefined;
+
+  // The chart's own formatter: option label, Yes / No, date range.
+  const answer = formatScreeningQuestionValue(field.fhirField, raw);
+
+  return answer ? { question: field.question, answer } : undefined;
 };
 
 const isActiveOrder = (sr: ServiceRequest): boolean => sr.status !== 'revoked' && sr.status !== 'entered-in-error';
@@ -252,6 +263,51 @@ const lastSignedAt = (history: ReturnType<typeof getVisitStatusHistory>): string
 
 const knownValueOrNull = <T extends string>(allowed: readonly T[], value: string | undefined): T | null =>
   value && (allowed as readonly string[]).includes(value) ? (value as T) : null;
+
+/**
+ * Hours the clinic was open on the day `start` falls on, from a Schedule extension (closures and the day's
+ * override applied, as slot generation applies them). 0 on a closed day; null when no schedule is set.
+ */
+const openHoursOnDay = (owner: Schedule | Location, start: string, timezone: string): number | null => {
+  const scheduleExtension = getScheduleExtension(owner);
+
+  if (!scheduleExtension?.schedule) return null;
+
+  const day = DateTime.fromISO(start).setZone(timezone);
+
+  if (!day.isValid) return null;
+
+  const dayKey = day.toFormat(OVERRIDE_DATE_FORMAT);
+
+  for (const closure of scheduleExtension.closures ?? []) {
+    if (closure.type === ClosureType.OneDay && closure.start === dayKey) return 0;
+
+    if (closure.type === ClosureType.Period) {
+      const from = DateTime.fromFormat(closure.start, OVERRIDE_DATE_FORMAT, { zone: timezone }).startOf('day');
+      const to = DateTime.fromFormat(closure.end, OVERRIDE_DATE_FORMAT, { zone: timezone }).endOf('day');
+
+      if (day >= from && day <= to) return 0;
+    }
+  }
+
+  const { dailySchedule } = applyOverridesToDailySchedule({
+    from: day,
+    scheduleOverrides: scheduleExtension.scheduleOverrides ?? {},
+    dailySchedule: scheduleExtension.schedule,
+    timezone,
+  });
+
+  const scheduleDay = dailySchedule[day.toFormat('cccc').toLowerCase() as DOW];
+
+  if (!scheduleDay) return null;
+
+  if (!scheduleDay.workingDay) return 0;
+
+  // As slot generation reads it: a close of 0 after a later opening means midnight.
+  const close = scheduleDay.close === 0 && scheduleDay.open !== 0 ? 24 : scheduleDay.close;
+
+  return Math.max(0, close - scheduleDay.open);
+};
 
 const groupIdOf = (appointment: Appointment): string | undefined =>
   appointment.participant
@@ -331,7 +387,7 @@ export async function fetchAdHocEncounterRows(
   const signatureProvenancesByEncounterId = new Map<string, Provenance[]>();
   const signerById = new Map<string, Practitioner>();
   const paperworkQrByEncounterId = new Map<string, QuestionnaireResponse>();
-  let identityDocRefs: DocumentReference[] = [];
+  const identityDocRefsByPatient = new Map<string, DocumentReference[]>();
   let ordersByEncounterId = new Map<string, EncounterOrderRecords>();
   let accountsByPatient = new Map<string, PatientAccountAndCoverageResources>();
   const visitEmployerOrgById = new Map<string, Organization>();
@@ -618,6 +674,7 @@ export async function fetchAdHocEncounterRows(
       // The tracking board's paperwork inputs: the visit's intake QuestionnaireResponse and the patient's
       // current Photo ID / insurance card DocumentReferences.
       const patientRefs = Array.from(patientMap.keys());
+
       const [questionnaireResponses, docRefs] = await Promise.all([
         fetchScoped<QuestionnaireResponse>('QuestionnaireResponse', 'encounter', encRefs),
         fetchScoped<DocumentReference>('DocumentReference', 'related', patientRefs, [
@@ -625,11 +682,20 @@ export async function fetchAdHocEncounterRows(
           { name: 'type', value: `${INSURANCE_CARD_CODE},${PHOTO_ID_CARD_CODE}` },
         ]),
       ]);
+
       for (const qr of questionnaireResponses) {
         const encId = stripEnc(qr.encounter?.reference);
         if (encId && isIntakePaperworkQuestionnaireResponse(qr)) paperworkQrByEncounterId.set(encId, qr);
       }
-      identityDocRefs = docRefs;
+
+      for (const docRef of docRefs) {
+        for (const related of docRef.context?.related ?? []) {
+          const ref = related.reference;
+
+          if (ref?.startsWith('Patient/'))
+            identityDocRefsByPatient.set(ref, [...(identityDocRefsByPatient.get(ref) ?? []), docRef]);
+        }
+      }
     }
 
     if (includeEmployer) {
@@ -669,6 +735,23 @@ export async function fetchAdHocEncounterRows(
 
   const staffNames = await getStaffNameByEmail(oystehr);
 
+  // Each location's Schedule, for the operating hours on the visit day.
+  const scheduleByLocationId = new Map<string, Schedule>();
+
+  for (const schedule of await fetchScoped<Schedule>(
+    'Schedule',
+    'actor',
+    Array.from(locationMap.values())
+      .filter((loc) => loc.id)
+      .map((loc) => `Location/${loc.id}`)
+  )) {
+    const locationId = schedule.actor?.find((a) => a.reference?.startsWith('Location/'))?.reference?.split('/')[1];
+
+    if (locationId && !scheduleByLocationId.has(locationId) && getScheduleExtension(schedule)) {
+      scheduleByLocationId.set(locationId, schedule);
+    }
+  }
+
   // Visits booked through a provider group carry the group (HealthcareService) as a participant.
   const groupIds = Array.from(
     new Set(
@@ -697,6 +780,36 @@ export async function fetchAdHocEncounterRows(
     }
     return tz;
   };
+
+  // Built once: the per-row mappers look related resources up in these.
+  const allPractitioners = Array.from(practitionerMap.values());
+  const allEncounters = Array.from(encounterById.values());
+
+  // Only what buildOrderPackage reads for one order: its patient, its practitioners, its MedicationRequest and
+  // its administration MedicationStatement — so mapping an order never scans every resource of the report.
+  const medicationResourceByRef = new Map(medicationOrderResources.map((r) => [`${r.resourceType}/${r.id}`, r]));
+
+  const statementByMaRef = new Map<string, MedicationStatement>();
+
+  for (const r of medicationOrderResources) {
+    if (r.resourceType !== 'MedicationStatement') continue;
+
+    for (const part of r.partOf ?? []) if (part.reference) statementByMaRef.set(part.reference, r);
+  }
+
+  const orderResourcesOf = (ma: MedicationAdministration): FhirResource[] => {
+    const refs = [
+      ma.subject?.reference,
+      ma.request?.reference,
+      ...(ma.performer ?? []).map((p) => p.actor?.reference),
+    ].filter((ref): ref is string => !!ref);
+    const statement = statementByMaRef.get(`MedicationAdministration/${ma.id}`);
+    return [
+      ...refs.map((ref) => medicationResourceByRef.get(ref)).filter((r): r is FhirResource => !!r),
+      ...(statement ? [statement] : []),
+    ];
+  };
+
   const rows: AdHocEncounterRow[] = [];
 
   for (const encounter of encounterById.values()) {
@@ -719,23 +832,17 @@ export async function fetchAdHocEncounterRows(
       start,
     } = buildEncounterRowContext(encounter, appointment, { encounterById, patientMap, locationMap, practitionerMap });
 
-    let clinicOpenHours: number | null = null;
-
-    const weekday =
+    // Operating hours live in the location's Schedule extension (the Schedule tab), not in
+    // Location.hoursOfOperation, which nothing in the app reads.
+    const clinicOpenHours =
       start && location
-        ? DateTime.fromISO(start).setZone(timezoneForLocation(location)).toFormat('ccc').toLowerCase()
-        : '';
-
-    for (const h of location?.hoursOfOperation ?? []) {
-      if (!weekday || !h.daysOfWeek?.includes(weekday as never) || !h.openingTime || !h.closingTime) continue;
-
-      const hrs = DateTime.fromFormat(h.closingTime, 'HH:mm:ss').diff(
-        DateTime.fromFormat(h.openingTime, 'HH:mm:ss'),
-        'hours'
-      ).hours;
-
-      if (Number.isFinite(hrs) && hrs > 0) clinicOpenHours = (clinicOpenHours ?? 0) + hrs;
-    }
+        ? openHoursOnDay(
+            (location.id ? scheduleByLocationId.get(location.id) : undefined) ?? location,
+            start,
+            // The clinic's own timezone, as for the visit day everywhere else in the row.
+            timezoneForLocation(location)
+          )
+        : null;
 
     const createdBy = appointment.meta?.tag?.find((t) => t.system === CREATED_BY_SYSTEM)?.display ?? '';
 
@@ -825,6 +932,8 @@ export async function fetchAdHocEncounterRows(
     if (includeCodes) {
       const icdCodes: string[] = [];
       const icdDisplays: string[] = [];
+      let primaryIcd = '';
+      let primaryIcdDisplay = '';
       const dxEntries = [...(encounter.diagnosis ?? [])].sort((a, b) => (a.rank ?? 99) - (b.rank ?? 99));
       for (const dx of dxEntries) {
         const conditionId = dx.condition?.reference?.replace('Condition/', '');
@@ -832,9 +941,17 @@ export async function fetchAdHocEncounterRows(
         const codings = condition?.code?.coding ?? [];
         const icdCoding = codings.find((c) => c.system?.toLowerCase().includes('icd-10')) ?? codings[0];
         const code = icdCoding?.code;
+        const display = icdCoding?.display ?? condition?.code?.text ?? code;
+
         if (code && !icdCodes.includes(code)) {
           icdCodes.push(code);
-          icdDisplays.push(icdCoding?.display ?? condition?.code?.text ?? code);
+          icdDisplays.push(display ?? code);
+        }
+
+        // The chart marks the primary diagnosis with rank 1 (DiagnosisDTO.isPrimary).
+        if (code && dx.rank === 1 && !primaryIcd) {
+          primaryIcd = code;
+          primaryIcdDisplay = display ?? code;
         }
       }
       const cptCodes: string[] = [];
@@ -858,12 +975,12 @@ export async function fetchAdHocEncounterRows(
       }
       row.icdCodes = icdCodes;
       row.icdDisplays = icdDisplays;
-      row.primaryIcd = icdCodes[0];
-      row.primaryIcdDisplay = icdDisplays[0];
+      row.primaryIcd = primaryIcd;
+      row.primaryIcdDisplay = primaryIcdDisplay;
       row.cptCodes = cptCodes;
       row.cptDisplays = cptDisplays;
-      row.emCode = emCode;
-      row.emDisplay = emDisplay;
+      row.emCode = emCode ?? '';
+      row.emDisplay = emDisplay ?? '';
     }
 
     if (includeTiming) {
@@ -934,7 +1051,7 @@ export async function fetchAdHocEncounterRows(
 
         if (!hasChartTag(ma, MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE)) continue;
 
-        const record = inHouseDrugRecord(ma, medicationOrderResources, conditionById);
+        const record = inHouseDrugRecord(ma, orderResourcesOf(ma), conditionById);
 
         if (record) drugs.push(record);
       }
@@ -1158,8 +1275,8 @@ export async function fetchAdHocEncounterRows(
           tasks: radiologyPool.tasks,
           diagnosticReports: radiologyPool.diagnosticReports,
           documentReferences: radiologyPool.documentReferences,
-          practitioners: Array.from(practitionerMap.values()),
-          encounters: Array.from(encounterById.values()),
+          practitioners: allPractitioners,
+          encounters: allEncounters,
           nameOf: orderDisplay,
         });
       }
@@ -1452,8 +1569,11 @@ export async function fetchAdHocEncounterRows(
       const signed = SIGNED_VISIT_STATUSES.includes(visitStatus);
       const signedAt = signed ? signatures.signedBy?.dateTimeISO ?? lastSignedAt(statusHistory) : null;
 
-      // The visit note prints the author Provenance's signer and falls back to the provider of the visit.
-      const fallbackSigner = attendingProvider && attendingProvider !== 'Unknown' ? attendingProvider : null;
+      // The visit note prints the author Provenance's signer and falls back to the provider of the visit —
+      // written the same way the Provenance signer is, so one provider is one value.
+      const fallbackSigner = attendingPractitioner
+        ? getProviderNameWithProfession(attendingPractitioner) || null
+        : null;
 
       const dischargedAt = statusHistory.filter((entry) => entry.status === 'discharged').at(-1)?.period.start;
       const awaitingIndex = findExtensionIndex(encounter.extension ?? [], 'awaiting-supervisor-approval');
@@ -1477,7 +1597,7 @@ export async function fetchAdHocEncounterRows(
         patient,
         encounter,
         questionnaireResponse,
-        docRefs: identityDocRefs,
+        docRefs: patient?.id ? identityDocRefsByPatient.get(`Patient/${patient.id}`) ?? [] : [],
       });
 
       row.paperworkSubmittedAt = questionnaireResponse?.authored ?? null;

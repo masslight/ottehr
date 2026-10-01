@@ -14,9 +14,10 @@ import {
   Practitioner,
   ServiceRequest,
 } from 'fhir/r4b';
-import { FHIR_EXTENSION, PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import { FHIR_EXTENSION, PAYMENT_METHOD_EXTENSION_URL, SCHEDULE_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { MEDICATION_CPT_CODES_EXTENSION_URL } from 'utils/lib/fhir/medication-administration';
 import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
+import { upsertPaymentRefundsExtension } from 'utils/lib/fhir/paymentRefunds';
 import {
   DIAGNOSTIC_REPORT_PRELIMINARY_REVIEW_ON_EXTENSION_URL,
   SERVICE_REQUEST_PERFORMED_ON_EXTENSION_URL,
@@ -129,7 +130,40 @@ const location: Location = {
   id: 'loc-1',
   name: 'Midtown Clinic',
   address: { state: 'NY' },
-  hoursOfOperation: [{ daysOfWeek: ['wed'], openingTime: '08:00:00', closingTime: '18:00:00' }],
+};
+
+// Operating hours are the Schedule extension of the location's Schedule (the Schedule tab), 08–18 on Wednesday.
+const scheduleDay = (workingDay: boolean, open = 8, close = 18): Record<string, unknown> => ({
+  open,
+  close,
+  openingBuffer: 0,
+  closingBuffer: 0,
+  workingDay,
+  hours: [],
+});
+
+const locationSchedule: FhirResource = {
+  resourceType: 'Schedule',
+  id: 'sched-1',
+  actor: [{ reference: 'Location/loc-1' }],
+  extension: [
+    {
+      url: SCHEDULE_EXTENSION_URL,
+      valueString: JSON.stringify({
+        schedule: {
+          monday: scheduleDay(true),
+          tuesday: scheduleDay(true),
+          wednesday: scheduleDay(true),
+          thursday: scheduleDay(true),
+          friday: scheduleDay(true),
+          saturday: scheduleDay(false),
+          sunday: scheduleDay(false),
+        },
+        scheduleOverrides: {},
+        closures: [],
+      }),
+    },
+  ],
 };
 
 const practitioner: Practitioner = {
@@ -424,10 +458,18 @@ const paymentNotice = (id: string, amount: number, created: string, method?: str
   ...(method ? { extension: [{ url: PAYMENT_METHOD_EXTENSION_URL, valueString: method }] } : {}),
 });
 
+// pay-3 was partly refunded (one settled refund, one failed); pay-4 was voided (patient-payments/void
+// marks the notice cancelled) — neither the void nor the failed refund changes what was collected.
+const refundedNotice = paymentNotice('pay-3', 10, '2026-07-01T19:00:00.000Z');
+refundedNotice.extension = upsertPaymentRefundsExtension(refundedNotice.extension, [
+  { stripeRefundId: 're_1', amountInCents: 400, dateISO: '2026-07-02T10:00:00.000Z', status: 'succeeded' },
+  { stripeRefundId: 're_2', amountInCents: 600, dateISO: '2026-07-02T11:00:00.000Z', status: 'failed' },
+]);
 const paymentNotices: FhirResource[] = [
   paymentNotice('pay-2', 25.5, '2026-07-01T18:00:00.000Z', 'cash'),
   paymentNotice('pay-1', 40, '2026-07-01T15:00:00.000Z', 'card'),
-  paymentNotice('pay-3', 10, '2026-07-01T19:00:00.000Z'),
+  refundedNotice,
+  { ...paymentNotice('pay-4', 99, '2026-07-01T20:00:00.000Z', 'card'), status: 'cancelled' },
 ];
 
 // The attending provider is not an _include on the main search: it is fetched by id afterwards, so
@@ -435,6 +477,7 @@ const paymentNotices: FhirResource[] = [
 const rootResources: FhirResource[] = [appointment, encounter, patient, location];
 const scopedByType: Record<string, FhirResource[]> = {
   Practitioner: [practitioner],
+  Schedule: [locationSchedule],
   Condition: [condition],
   Observation: [...observations, ...screeningObservations],
   ServiceRequest: serviceRequests,
@@ -749,10 +792,11 @@ describe('ad-hoc dataset zambdas: mapped rows parse against their Zod schema (fi
     expect(row.payments).toEqual([
       { date: '2026-07-01T15:00:00.000Z', amount: 40, method: 'card' },
       { date: '2026-07-01T18:00:00.000Z', amount: 25.5, method: 'cash' },
-      { date: '2026-07-01T19:00:00.000Z', amount: 10, method: '' },
+      // net of its settled refund; the voided pay-4 is not money collected
+      { date: '2026-07-01T19:00:00.000Z', amount: 6, method: '' },
     ]);
     // The aggregates must agree with the records, or a report mixing both contradicts itself.
-    expect(row.paymentsCollected).toBe(75.5);
+    expect(row.paymentsCollected).toBe(71.5);
     expect(row.paymentCount).toBe(3);
     expect(row.lastPaymentDate).toBe('2026-07-01T19:00:00.000Z');
     expect(row.payments?.reduce((sum, p) => sum + p.amount, 0)).toBe(row.paymentsCollected);
