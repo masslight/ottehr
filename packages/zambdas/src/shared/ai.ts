@@ -151,6 +151,8 @@ export const AI_FEATURES = [
 export type AiFeature = (typeof AI_FEATURES)[number];
 
 export const VERTEX_AI_FEATURE_LABEL = 'ottehr_feature';
+/** Recorded for calls that don't name a feature, so their spend still shows up as its own line. */
+export const UNATTRIBUTED_AI_FEATURE = 'unattributed';
 export const VERTEX_AI_ENVIRONMENT_LABEL = 'ottehr_environment';
 
 // Vertex rejects label values outside [a-z0-9_-] or longer than 63 characters.
@@ -160,17 +162,20 @@ const toLabelValue = (value: string): string =>
     .replace(/[^a-z0-9_-]/g, '_')
     .slice(0, 63);
 
-export const buildVertexAILabels = (feature: AiFeature, secrets: Secrets | null): Record<string, string> => {
+export const buildVertexAILabels = (
+  feature: AiFeature | undefined,
+  secrets: Secrets | null
+): Record<string, string> => {
   const environment = getOptionalSecret(SecretsKeys.ENVIRONMENT, secrets);
   return {
-    [VERTEX_AI_FEATURE_LABEL]: feature,
+    [VERTEX_AI_FEATURE_LABEL]: feature ?? UNATTRIBUTED_AI_FEATURE,
     ...(environment && { [VERTEX_AI_ENVIRONMENT_LABEL]: toLabelValue(environment) }),
   };
 };
 
 interface VertexAIRequestOptions {
-  /** The feature this call is billed to. Required so no Gemini spend goes unattributed. */
-  feature: AiFeature;
+  /** The feature this call is billed to. Calls without one are labelled `unattributed`. */
+  feature?: AiFeature;
   /** Sequential retries wait for an error; hedged requests overlap to reduce latency. */
   retryMode?: 'sequential' | 'hedged';
 }
@@ -180,7 +185,7 @@ export async function invokeChatbotVertexAI(
   secrets: Secrets | null,
   responseSchema?: object,
   model: string = VERTEX_AI_MODEL,
-  options: VertexAIRequestOptions
+  options: VertexAIRequestOptions = {}
 ): Promise<string> {
   const GOOGLE_CLOUD_PROJECT_ID = getSecret(SecretsKeys.GOOGLE_CLOUD_PROJECT_ID, secrets);
   const GOOGLE_CLOUD_API_KEY = getSecret(SecretsKeys.GOOGLE_CLOUD_API_KEY, secrets);
@@ -339,7 +344,7 @@ interface VertexAIUsageMetadata {
  * Token counts only — never prompt or response content, which can be PHI.
  */
 function logVertexAIUsage(args: {
-  feature: AiFeature;
+  feature: AiFeature | undefined;
   model: string;
   attempt: number;
   usageMetadata: VertexAIUsageMetadata | undefined;
@@ -350,7 +355,7 @@ function logVertexAIUsage(args: {
   );
   console.log(
     `[ai-usage] ${JSON.stringify({
-      feature: args.feature,
+      feature: args.feature ?? UNATTRIBUTED_AI_FEATURE,
       model: args.model,
       attempt: args.attempt,
       promptTokens: usage.promptTokenCount ?? 0,

@@ -666,6 +666,19 @@ describe('Gemini spend is attributed to a feature', () => {
     expect(buildVertexAILabels('extract-photo-id', {})).toEqual({ ottehr_feature: 'extract-photo-id' });
   });
 
+  test('labels a call that names no feature as unattributed', async () => {
+    respondWith(200, USAGE_200);
+    const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    const pending = invokeChatbotVertexAI([{ text: 'hello' }], secrets);
+    await vi.advanceTimersByTimeAsync(10_000);
+    await expect(pending).resolves.toBe('result');
+
+    const [, init] = vi.mocked(globalThis.fetch).mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string).labels).toEqual({ ottehr_feature: 'unattributed' });
+    expect(usageLines(log).map((line) => line.feature)).toEqual(['unattributed']);
+    log.mockRestore();
+  });
+
   test('every feature is a valid Vertex label value', () => {
     for (const feature of AI_FEATURES) expect(feature).toMatch(/^[a-z0-9_-]{1,63}$/);
   });
