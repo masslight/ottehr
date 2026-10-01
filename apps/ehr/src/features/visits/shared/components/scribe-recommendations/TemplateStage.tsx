@@ -7,6 +7,7 @@ import { dataTestIds } from 'src/constants/data-test-ids';
 import { TemplatePreviewApplyOptions, TemplateSectionActions } from 'utils/lib/types/data/apply-template.types';
 import { TemplatePreviewDialog } from '../templates/TemplatePreviewDialog';
 import { TemplateOption } from '../templates/useListTemplates';
+import { LockedHint } from './LockedHint';
 import { hasProvenance, ProvenanceContent } from './Provenance';
 import { HOVER_ONLY, RecommendationEditor, ROW_CLASS } from './RecommendationRow';
 import {
@@ -24,8 +25,10 @@ interface TemplateStageProps {
   recommendation: TemplateRecommendation;
   itemState: RecommendationItemState;
   templates: TemplateOption[];
-  /** True while any stage is writing to the chart. */
+  /** True while any stage is writing to the chart, or while the chart is locked. */
   locked: boolean;
+  /** The chart is signed and locked; the apply button says so. */
+  visitLocked?: boolean;
   onEdit: (patch: Partial<ScribeRecommendation>) => void;
   /** Resolves once the apply has finished, successfully or not. */
   onApply: (sectionActions: TemplateSectionActions, options?: TemplatePreviewApplyOptions) => Promise<void>;
@@ -39,6 +42,7 @@ export const TemplateStage: FC<TemplateStageProps> = ({
   itemState,
   templates,
   locked,
+  visitLocked = false,
   onEdit,
   onApply,
 }) => {
@@ -121,22 +125,24 @@ export const TemplateStage: FC<TemplateStageProps> = ({
                   </Typography>
                 </Box>
               ) : (
-                <RoundedButton
-                  variant="contained"
-                  size="small"
-                  onClick={(event) => {
-                    // Applying the template is not editing which template it is.
-                    event.stopPropagation();
-                    setIsPreviewOpen(true);
-                  }}
-                  loading={isApplying}
-                  disabled={locked || templateMissing}
-                  data-testid={testIds.templateApplyButton}
-                  // A long template name wraps inside the button rather than overflowing the panel.
-                  sx={{ ...roundedButtonSx, whiteSpace: 'normal' }}
-                >
-                  {`${itemState.status === 'error' ? 'Try again' : 'Apply'}: ${recommendation.templateName}`}
-                </RoundedButton>
+                <LockedHint locked={visitLocked}>
+                  <RoundedButton
+                    variant="contained"
+                    size="small"
+                    onClick={(event) => {
+                      // Applying the template is not editing which template it is.
+                      event.stopPropagation();
+                      setIsPreviewOpen(true);
+                    }}
+                    loading={isApplying}
+                    disabled={locked || templateMissing}
+                    data-testid={testIds.templateApplyButton}
+                    // A long template name wraps inside the button rather than overflowing the panel.
+                    sx={{ ...roundedButtonSx, whiteSpace: 'normal' }}
+                  >
+                    {`${itemState.status === 'error' ? 'Try again' : 'Apply'}: ${recommendation.templateName}`}
+                  </RoundedButton>
+                </LockedHint>
               )}
 
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25, flexShrink: 0, ml: 'auto' }}>

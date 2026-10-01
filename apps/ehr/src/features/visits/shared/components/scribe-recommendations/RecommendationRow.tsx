@@ -297,15 +297,23 @@ export const RecommendationRow: FC<RecommendationRowProps> = ({
           </>
         )}
 
-        {/* Executor remark on an applied row; amber when the executor picked or inferred it. */}
+        {/* Executor remark on an applied row. When the executor picked or inferred it, an amber icon flags it; */}
         {isApplied && (itemState.note || itemState.lowConfidence) && (
-          <Typography
-            variant="caption"
-            color={itemState.lowConfidence ? 'warning.main' : 'text.secondary'}
-            data-testid={testIds.rowNote(recommendation.id)}
-          >
-            {itemState.note ?? 'Picked by the assistant from several near matches — verify.'}
-          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5 }}>
+            {itemState.lowConfidence && (
+              <WarningAmberOutlinedIcon
+                aria-hidden
+                sx={{ fontSize: scaled(14), mt: '2px', flexShrink: 0, color: 'warning.main' }}
+              />
+            )}
+            <Typography
+              variant="caption"
+              color={itemState.lowConfidence ? 'text.primary' : 'text.secondary'}
+              data-testid={testIds.rowNote(recommendation.id)}
+            >
+              {itemState.note ?? 'Picked by the assistant from several near matches — verify.'}
+            </Typography>
+          </Box>
         )}
 
         {/* Failed (red) and skipped (grey) rows say why and offer a retry. */}

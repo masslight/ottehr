@@ -40,6 +40,7 @@ import { AiDisclaimerTooltip } from '../AiSection';
 import { getDocumentReferenceSource, getSource } from '../OttehrAi';
 import { useListTemplates } from '../templates/useListTemplates';
 import { useSyncChartedRecommendations } from './chartedRecommendations';
+import { LockedHint } from './LockedHint';
 import { NarrativeEditor } from './NarrativeEditor';
 import { narrativeText } from './narrativeLines';
 import { PickerDialog } from './PickerDialog';
@@ -51,6 +52,7 @@ import { TemplateStage } from './TemplateStage';
 import { TranscriptEvidence } from './TranscriptEvidence';
 import { TemplateRecommendation } from './types';
 import { useApplyRecommendations } from './useApplyRecommendations';
+import { isVisitLockedError, useAutochartLock } from './useAutochartLock';
 import { useNarrativeGenerator } from './useNarrativeGenerator';
 import { useScribeAnalyzer } from './useScribeAnalyzer';
 
@@ -126,8 +128,11 @@ const NarrativeStep: FC = () => {
   const reloadTranscriptDocument = useScribeRecommendationsStore((state) => state.reloadTranscriptDocument);
   const clearTranscriptSelection = useScribeRecommendationsStore((state) => state.clearTranscriptSelection);
   const analyze = useScribeRecommendationsStore((state) => state.analyze);
+  const markVisitLocked = useScribeRecommendationsStore((state) => state.markVisitLocked);
   const generate = useNarrativeGenerator();
   const analyzer = useScribeAnalyzer();
+  // A signed visit: nothing here may start a model call or a write.
+  const { locked } = useAutochartLock();
 
   // Transcripts come from the aiChat chart section, the same cache entry the layout's recording poll updates.
   const { encounter } = useAppointmentData();
@@ -163,11 +168,18 @@ const NarrativeStep: FC = () => {
   const [savedTranscript, setSavedTranscript] = useState<{ documentId: string; text: string; edited: boolean }>();
   const saveTranscript = async (text: string): Promise<void> => {
     if (!apiClient || !encounter?.id) throw new Error('The visit is still loading. Please try again.');
-    const { documentId } = await apiClient.easyChartSaveTranscript({
-      transcript: text,
-      encounterId: encounter.id,
-      documentId: sourceDocumentId,
-    });
+    let documentId: string;
+    try {
+      ({ documentId } = await apiClient.easyChartSaveTranscript({
+        transcript: text,
+        encounterId: encounter.id,
+        documentId: sourceDocumentId,
+      }));
+    } catch (error) {
+      // The visit was locked after the panel opened: the editor shows the server's message, the panel locks.
+      if (isVisitLockedError(error)) markVisitLocked();
+      throw error;
+    }
     // Only the aiChat section changed; refetching it brings in the saved document.
     await invalidateChartSections(queryClient, encounter.id, ['aiChat']);
     setSavedTranscript({ documentId, text: text.trim(), edited: Boolean(sourceDocumentId) });
@@ -192,6 +204,11 @@ const NarrativeStep: FC = () => {
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+      {locked && (
+        <Alert severity="info" data-testid={testIds.lockedNotice}>
+          This visit is signed and locked. Autochart can’t change the chart, so its actions are turned off.
+        </Alert>
+      )}
       <Typography variant="body2" color="text.secondary">
         Select a transcript or type/dictate a narrative.
       </Typography>
@@ -210,15 +227,20 @@ const NarrativeStep: FC = () => {
               const source = getDocumentReferenceSource(doc);
               const selected = doc.id === sourceDocumentId;
               return (
-                <Chip
-                  key={doc.id}
-                  label={`${source === 'audio' ? '🎤' : '💬'} ${getSource(doc, oystehr, chartData?.aiChat?.providers)}`}
-                  variant={selected ? 'filled' : 'outlined'}
-                  color={selected ? 'primary' : 'default'}
-                  onClick={() => pick(doc)}
-                  disabled={isBusy}
-                  data-testid={testIds.transcriptChip(doc.id ?? '')}
-                />
+                <LockedHint key={doc.id} locked={locked}>
+                  <Chip
+                    label={`${source === 'audio' ? '🎤' : '💬'} ${getSource(
+                      doc,
+                      oystehr,
+                      chartData?.aiChat?.providers
+                    )}`}
+                    variant={selected ? 'filled' : 'outlined'}
+                    color={selected ? 'primary' : 'default'}
+                    onClick={() => pick(doc)}
+                    disabled={isBusy || locked}
+                    data-testid={testIds.transcriptChip(doc.id ?? '')}
+                  />
+                </LockedHint>
               );
             })}
             {hasPendingRecording && (
@@ -232,23 +254,25 @@ const NarrativeStep: FC = () => {
       <TranscriptEvidence
         transcript={transcript}
         documentId={sourceDocumentId}
-        disabled={isBusy || isApplying}
+        disabled={isBusy || isApplying || locked}
         onSave={saveTranscript}
       />
 
-      <NarrativeEditor disabled={isBusy} />
+      <NarrativeEditor disabled={isBusy || locked} />
 
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 1, flexWrap: 'wrap' }}>
-        <RoundedButton
-          variant="contained"
-          onClick={() => (phase === 'ready' ? setReplanOpen(true) : runAnalysis())}
-          disabled={!narrative || isBusy || isApplying}
-          loading={isAnalyzing}
-          sx={roundedButtonSx}
-          data-testid={testIds.analyzeButton}
-        >
-          Plan note
-        </RoundedButton>
+        <LockedHint locked={locked}>
+          <RoundedButton
+            variant="contained"
+            onClick={() => (phase === 'ready' ? setReplanOpen(true) : runAnalysis())}
+            disabled={!narrative || isBusy || isApplying || locked}
+            loading={isAnalyzing}
+            sx={roundedButtonSx}
+            data-testid={testIds.analyzeButton}
+          >
+            Plan note
+          </RoundedButton>
+        </LockedHint>
       </Box>
       <Dialog open={replanOpen} onClose={() => setReplanOpen(false)} data-testid={testIds.replanDialog}>
         <DialogTitle>Replace the suggestions?</DialogTitle>
@@ -310,6 +334,7 @@ const ResultsStep: FC = () => {
   const { encounter } = useAppointmentData();
   const { chartData } = useEasyChartData(encounter?.id);
   const { applyObservations, applyRecommendation } = useApplyRecommendations();
+  const { locked } = useAutochartLock();
 
   // Marks off recommendations the chart already holds, however they got there.
   useSyncChartedRecommendations(recommendations);
@@ -363,7 +388,8 @@ const ResultsStep: FC = () => {
           recommendation={template}
           itemState={itemState[template.id] ?? { selected: true, status: 'idle' }}
           templates={templates}
-          locked={isApplying}
+          locked={isApplying || locked}
+          visitLocked={locked}
           onEdit={(patch) => updateRecommendation(template.id, patch)}
           onApply={async (sectionActions, options) => {
             // Park the choice on the recommendation so the apply — and any retry — uses it.
@@ -385,6 +411,7 @@ const ResultsStep: FC = () => {
         <RecommendationsList
           recommendations={observations}
           templates={templates}
+          locked={locked}
           onRetry={() => void applyObservations()}
         />
         <Box
@@ -409,7 +436,7 @@ const ResultsStep: FC = () => {
                     !allPendingSelected
                   )
                 }
-                disabled={isApplying}
+                disabled={isApplying || locked}
                 sx={{ textTransform: 'none', alignSelf: 'flex-start', minWidth: 0, p: 0, fontSize: scaled(12) }}
                 data-testid={testIds.toggleAllButton}
               >
@@ -418,16 +445,18 @@ const ResultsStep: FC = () => {
             )}
           </Box>
           {pending.length > 0 && (
-            <RoundedButton
-              variant="contained"
-              onClick={() => void applyObservations()}
-              disabled={selectedPending.length === 0 || isApplying}
-              loading={isApplying}
-              sx={roundedButtonSx}
-              data-testid={testIds.applyObservationsButton}
-            >
-              Chart note
-            </RoundedButton>
+            <LockedHint locked={locked}>
+              <RoundedButton
+                variant="contained"
+                onClick={() => void applyObservations()}
+                disabled={selectedPending.length === 0 || isApplying || locked}
+                loading={isApplying}
+                sx={roundedButtonSx}
+                data-testid={testIds.applyObservationsButton}
+              >
+                Chart note
+              </RoundedButton>
+            </LockedHint>
           )}
         </Box>
       </ScribeStage>

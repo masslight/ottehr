@@ -5,6 +5,7 @@ import { DocumentReference } from 'fhir/r4b';
 import { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { ExamLeaf } from 'utils/lib/config-helpers/exam-leaves';
+import { EASY_CHART_VISIT_LOCKED_MESSAGE } from 'utils/lib/easy-chart/access';
 import { ChartPlanResponse, NarrativeLine } from 'utils/lib/easy-chart/api';
 import { narrativeExtension, TRANSCRIPT_ATTACHMENT_TITLE } from 'utils/lib/easy-chart/narrative';
 import { RosFindingState } from 'utils/lib/ottehr-config/review-of-systems/in-person.config';
@@ -151,7 +152,21 @@ const mocks = vi.hoisted(() => ({
   vitals: undefined as Record<string, unknown> | undefined,
   // The zambda client. Null, as with no Oystehr session, unless a test supplies the endpoints it calls.
   apiClient: null as unknown,
+  /** The visit is signed and locked, as the EHR's accessibility rule reads it. */
+  readOnly: false,
 }));
+
+// The real accessibility rule, with the read-only flag under the test's control.
+vi.mock('../../src/features/visits/shared/hooks/useGetAppointmentAccessibility', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('../../src/features/visits/shared/hooks/useGetAppointmentAccessibility')>();
+  return {
+    useGetAppointmentAccessibility: () => ({
+      ...actual.useGetAppointmentAccessibility(),
+      isAppointmentReadOnly: mocks.readOnly,
+    }),
+  };
+});
 
 vi.mock('../../src/features/visits/shared/hooks/useOystehrAPIClient', () => ({
   useOystehrAPIClient: () => mocks.apiClient,
@@ -327,6 +342,7 @@ import {
 } from '../../src/features/visits/shared/components/scribe-recommendations/scribeRecommendations.store';
 import { ScribeRecommendationsDrawer } from '../../src/features/visits/shared/components/scribe-recommendations/ScribeRecommendationsDrawer';
 import { ScribeRecommendation } from '../../src/features/visits/shared/components/scribe-recommendations/types';
+import { AUTOCHART_LOCKED_TOOLTIP } from '../../src/features/visits/shared/components/scribe-recommendations/useAutochartLock';
 import { useExamObservationsStore } from '../../src/features/visits/shared/stores/appointment/exam-observations.store';
 import { useRosObservationsStore } from '../../src/features/visits/shared/stores/appointment/ros-observations.store';
 
@@ -345,6 +361,7 @@ const resetStore = (): void => {
   mocks.apiClient = null;
   mocks.vitals = undefined;
   mocks.written = {};
+  mocks.readOnly = false;
   mocks.plan.mockReturnValue(PLAN);
   useRosObservationsStore.setState({}, true);
   useExamObservationsStore.setState({}, true);
@@ -369,6 +386,7 @@ const resetStore = (): void => {
     isApplying: false,
     editingId: undefined,
     pendingPick: null,
+    visitLockedByServer: false,
   });
 };
 
@@ -590,6 +608,66 @@ describe('ScribeRecommendationsDrawer', () => {
       expect(await screen.findByTestId(testIds.transcriptSaveError)).toHaveTextContent('exceeds 60000 characters');
       expect(screen.getByTestId(testIds.transcriptPreview)).toHaveValue('Provider: Hello.');
       expect(useScribeRecommendationsStore.getState().sourceDocumentId).toBeUndefined();
+      // not a lock, so the panel stays usable
+      expect(screen.queryByTestId(testIds.lockedNotice)).toBeNull();
+    });
+
+    it('says the visit is locked when the server refuses the save for that, and turns the panel read-only', async () => {
+      const user = userEvent.setup();
+      // The zambda's APIError, as the SDK rejects with it.
+      mocks.apiClient = {
+        easyChartSaveTranscript: vi.fn(async () => {
+          throw { output: { message: EASY_CHART_VISIT_LOCKED_MESSAGE } };
+        }),
+      };
+
+      await openTranscriptBox(user);
+      seedNarrative();
+      await replaceTranscript(user, 'Provider: Hello.');
+      await user.click(screen.getByTestId(testIds.transcriptSaveButton));
+
+      expect(await screen.findByTestId(testIds.transcriptSaveError)).toHaveTextContent(EASY_CHART_VISIT_LOCKED_MESSAGE);
+      expect(screen.getByTestId(testIds.lockedNotice)).toBeVisible();
+      expect(screen.getByTestId(testIds.analyzeButton)).toBeDisabled();
+      expect(screen.getByTestId(testIds.transcriptPreview)).toBeDisabled();
+    });
+  });
+
+  describe('a signed, locked visit', () => {
+    it('opens read-only: the narrative step says why and starts nothing', async () => {
+      const user = userEvent.setup();
+      mocks.readOnly = true;
+      render(<ScribeRecommendationsDrawer />, { wrapper: Wrapper });
+      await user.click(screen.getByTestId(testIds.openButton));
+      act(() => seedNarrative());
+
+      expect(screen.getByTestId(testIds.lockedNotice)).toHaveTextContent('signed and locked');
+      const plan = screen.getByTestId(testIds.analyzeButton);
+      expect(plan).toBeDisabled();
+      // a disabled button gets no pointer events, so the tooltip hangs off its wrapper
+      await user.hover(plan.parentElement!);
+      expect(await screen.findByRole('tooltip')).toHaveTextContent(AUTOCHART_LOCKED_TOOLTIP);
+      // the narrative stays readable but cannot be opened for editing
+      await user.click(screen.getByTestId(testIds.narrativeReadView));
+      expect(screen.queryByTestId(testIds.narrativeInput)).toBeNull();
+      expect(mocks.plan).not.toHaveBeenCalled();
+    });
+
+    it('keeps suggestions on screen but stops them being charted once the visit is locked', async () => {
+      const user = userEvent.setup();
+      await openPanelWithRecommendations(user);
+      expect(screen.getByTestId(testIds.applyObservationsButton)).toBeEnabled();
+
+      // The visit is signed elsewhere; a write endpoint has just said so.
+      act(() => useScribeRecommendationsStore.getState().markVisitLocked());
+
+      expect(screen.getByTestId(testIds.lockedNotice)).toBeVisible();
+      expect(screen.getByTestId(testIds.applyObservationsButton)).toBeDisabled();
+      expect(screen.getByTestId(testIds.templateApplyButton)).toBeDisabled();
+      expect(screen.getByTestId(testIds.toggleAllButton)).toBeDisabled();
+      expect(screen.queryByTestId(testIds.rowEditButton(ID.fentanyl))).toBeNull();
+      await user.hover(screen.getByTestId(testIds.applyObservationsButton).parentElement!);
+      expect(await screen.findByRole('tooltip')).toHaveTextContent(AUTOCHART_LOCKED_TOOLTIP);
     });
   });
 

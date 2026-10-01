@@ -115,6 +115,11 @@ interface ScribeRecommendationsState {
    */
   editingId?: string;
   pendingPick: PendingPick | null;
+  /**
+   * A write endpoint answered that the visit is signed and locked. The panel then goes read-only even if the
+   * appointment it loaded still says otherwise (the visit was locked after the panel opened).
+   */
+  visitLockedByServer: boolean;
 
   open: () => void;
   close: () => void;
@@ -168,6 +173,7 @@ interface ScribeRecommendationsState {
   /** The executor asks; the panel shows the picker; the answer resolves the promise. */
   askPick: (request: PickerRequest) => Promise<PickerResponse>;
   answerPick: (response: PickerResponse) => void;
+  markVisitLocked: () => void;
 }
 
 /** Analysis results, reset on a new visit. Planning again replaces them rather than clearing them. */
@@ -198,6 +204,7 @@ const SESSION_INITIAL = {
   narrativeError: undefined,
   speculativePlans: {} as Record<string, SpeculativePlan>,
   chartedIds: [] as string[],
+  visitLockedByServer: false,
 };
 
 const withoutSpeculativePlan = (
@@ -444,6 +451,7 @@ export const useScribeRecommendationsStore = create<ScribeRecommendationsState>(
         set({ pendingPick: null });
         pendingPick?.resolve(response);
       },
+      markVisitLocked: () => set({ visitLockedByServer: true }),
     }),
     {
       name: 'ambient-scribe-recommendations-panel',

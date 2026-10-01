@@ -20,6 +20,7 @@ import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { authorizeEasyChartRequest } from '../easy-chart-shared/authorize';
 import { generateNarrative } from '../easy-chart-shared/narrative';
+import { isVisitLocked } from '../easy-chart-shared/visit-lock';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'easy-chart-narrative';
@@ -67,6 +68,11 @@ async function stampNarrativeBestEffort(
       console.log(
         `[${ZAMBDA_NAME}] not stamping DocumentReference ${documentId}: transcript differs from the document's`
       );
+      return;
+    }
+    // A signed visit's documents are not written to, even best-effort; the narrative is still returned.
+    if (await isVisitLocked(oystehr, encounterId)) {
+      console.log(`[${ZAMBDA_NAME}] not stamping DocumentReference ${documentId}: the visit is locked`);
       return;
     }
 

@@ -9,7 +9,7 @@ import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-d
 import { TemplateDiagnosis } from 'utils/lib/types/data/list-template.types';
 import { buildVisitNote } from '../../shared/chart-sections/visit-note';
 import { createClinicalOystehrClient } from '../../shared/helpers';
-import { performEffect as listTemplates } from '../list-templates';
+import { listTemplates } from '../shared/list-templates';
 
 type ClinicalOystehrClient = ReturnType<typeof createClinicalOystehrClient>;
 

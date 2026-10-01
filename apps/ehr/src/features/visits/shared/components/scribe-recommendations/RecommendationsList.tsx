@@ -12,6 +12,8 @@ interface RecommendationsListProps {
   /** The observations to group. The template is its own stage, so it never appears here. */
   recommendations: ScribeRecommendation[];
   templates: TemplateOption[];
+  /** The chart is signed and locked: rows can't be ticked, edited or retried. */
+  locked: boolean;
   onRetry: () => void;
 }
 
@@ -21,7 +23,7 @@ const testIds = dataTestIds.scribeRecommendations;
  * Observations grouped by the chart section each writes into. A coloured rail names each section and links
  * to that part of the note.
  */
-export const RecommendationsList: FC<RecommendationsListProps> = ({ recommendations, templates, onRetry }) => {
+export const RecommendationsList: FC<RecommendationsListProps> = ({ recommendations, templates, locked, onRetry }) => {
   const itemState = useScribeRecommendationsStore((state) => state.itemState);
   const chartedIds = useScribeRecommendationsStore((state) => state.chartedIds);
   const isApplying = useScribeRecommendationsStore((state) => state.isApplying);
@@ -64,7 +66,7 @@ export const RecommendationsList: FC<RecommendationsListProps> = ({ recommendati
                 key={rec.id}
                 recommendation={rec}
                 itemState={itemState[rec.id] ?? { selected: true, status: 'idle' }}
-                locked={isApplying}
+                locked={isApplying || locked}
                 charted={chartedIds.includes(rec.id)}
                 templates={templates}
                 onSelectedChange={(selected) => setSelected(rec.id, selected)}

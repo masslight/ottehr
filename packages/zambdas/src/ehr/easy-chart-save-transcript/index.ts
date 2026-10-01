@@ -20,6 +20,7 @@ import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { authorizeEasyChartRequest } from '../easy-chart-shared/authorize';
+import { assertVisitIsEditable } from '../easy-chart-shared/visit-lock';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'easy-chart-save-transcript';
@@ -33,6 +34,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
+
+  // Every write below runs under the M2M token, so a signed visit has to be refused here, not just in the EHR.
+  await assertVisitIsEditable(oystehr, encounterId, ZAMBDA_NAME);
 
   let existing: DocumentReference | undefined;
   let staleObservationIds: string[] = [];

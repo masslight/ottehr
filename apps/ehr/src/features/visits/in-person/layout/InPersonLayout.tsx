@@ -110,14 +110,11 @@ export const InPersonLayout: React.FC = () => {
     : 'Select a provider in order to begin charting.';
   const virtual = isTelemedAppointment(appointment);
   const { meetingData } = getSelectors(useVideoCallStore, ['meetingData']);
-  // Gated by the feature flag and by the same role set the Easy Chart endpoints check.
+  // Gated by the feature flag and by the same role set the Easy Chart endpoints check. A signed, locked visit
+  // still shows the panel, read-only: its actions are turned off and say why (useAutochartLock).
   const user = useEvolveUser();
   const showScribeRecommendations =
-    FEATURE_FLAGS.EASY_CHART_ENABLED &&
-    Boolean(user?.hasRole([...EASY_CHART_ROLES])) &&
-    !isFollowup &&
-    !isAppointmentReadOnly &&
-    canChart;
+    FEATURE_FLAGS.EASY_CHART_ENABLED && Boolean(user?.hasRole([...EASY_CHART_ROLES])) && !isFollowup && canChart;
   const scribePanelOffset = useScribePanelOffset();
   // Keeps the fixed-position recorder controls clear of the panel.
   const fixedControlsOffset = showScribeRecommendations ? scribePanelOffset : 0;
