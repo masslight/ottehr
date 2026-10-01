@@ -16,6 +16,7 @@ import {
   MedicationRequest,
   MedicationStatement,
   Observation,
+  Organization,
   Patient,
   Practitioner,
   Procedure,
@@ -31,6 +32,7 @@ import {
   getAppointmentRoom,
   getCancellationReasonDisplay,
   getReasonForVisitAndAdditionalDetailsFromAppointment,
+  getServiceCategoryCodeFromAppointment,
 } from 'utils/lib/fhir/appointments';
 import { DOCUMENT_REFERENCE_SUMMARY_FROM_AUDIO, DOCUMENT_REFERENCE_SUMMARY_FROM_CHAT } from 'utils/lib/fhir/constants';
 import { dispositionCheckboxOptions, mapDispositionTypeToLabel } from 'utils/lib/fhir/disposition';
@@ -73,6 +75,7 @@ import { MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE } from 'utils/lib/typ
 import { PROVIDER_TYPE_VALUES } from 'utils/lib/types/api/practitioner.types';
 import { CREATED_BY_SYSTEM } from 'utils/lib/types/common';
 import { PATIENT_POINT_OF_DISCOVERY_URL } from 'utils/lib/types/constants';
+import { PatientAccountAndCoverageResources } from 'utils/lib/types/data/account';
 import {
   DISCHARGE_SUMMARY_CODE,
   INSURANCE_CARD_CODE,
@@ -94,6 +97,7 @@ import {
   makeProceduresDTOFromFhirResources,
 } from '../chart-data';
 import { mapChartResources } from '../chart-sections/map';
+import { getOccupationalMedicineEmployerName, getVisitEmployerOrganizationId } from '../occupational-medicine-employer';
 import { getPaperworkCompleteness } from '../paperwork-completeness';
 import { resolveEncounterSignatures } from '../pdf/get-encounter-signatures';
 import {
@@ -103,6 +107,7 @@ import {
   vaccineOrderRecord,
 } from './encounter-clinical-orders';
 import { EncounterOrderRecords, fetchEncounterOrders } from './encounter-orders';
+import { fetchPatientAccounts } from './patient-accounts';
 
 let staffNameByEmail: Map<string, string> | undefined;
 
@@ -263,6 +268,7 @@ export async function fetchAdHocEncounterRows(
     includeCharting,
     includeIntake,
     includeDocuments,
+    includeEmployer,
   } = params;
   const environment = options.environment ?? '';
 
@@ -309,6 +315,8 @@ export async function fetchAdHocEncounterRows(
   const paperworkQrByEncounterId = new Map<string, QuestionnaireResponse>();
   let identityDocRefs: DocumentReference[] = [];
   let ordersByEncounterId = new Map<string, EncounterOrderRecords>();
+  let accountsByPatient = new Map<string, PatientAccountAndCoverageResources>();
+  const visitEmployerOrgById = new Map<string, Organization>();
   const encounterById = new Map<string, Encounter>();
 
   for (const r of allResources) {
@@ -588,6 +596,27 @@ export async function fetchAdHocEncounterRows(
       identityDocRefs = docRefs;
     }
 
+    if (includeEmployer) {
+      // The visit details face sheet's inputs: the patient's account picture and, for pre-op visits, the
+      // Organization the visit's employer selection points at.
+      const visitEmployerOrgIds = Array.from(
+        new Set(
+          Array.from(encounterById.values())
+            .map((encounter) => getVisitEmployerOrganizationId(encounter))
+            .filter((id): id is string => !!id)
+        )
+      );
+
+      const [accounts, visitEmployerOrgs] = await Promise.all([
+        fetchPatientAccounts(oystehr, Array.from(patientMap.values())),
+        fetchScoped<Organization>('Organization', '_id', visitEmployerOrgIds),
+      ]);
+
+      accountsByPatient = accounts;
+
+      for (const org of visitEmployerOrgs) if (org.id) visitEmployerOrgById.set(org.id, org);
+    }
+
     if (includeLabs || includeNursing) {
       ordersByEncounterId = await fetchEncounterOrders(oystehr, {
         encounters: Array.from(encounterById.values()),
@@ -636,6 +665,7 @@ export async function fetchAdHocEncounterRows(
 
   for (const encounter of encounterById.values()) {
     const appointment = resolveAppointment(encounter);
+
     if (!appointment) continue;
 
     const {
@@ -662,14 +692,17 @@ export async function fetchAdHocEncounterRows(
 
     for (const h of location?.hoursOfOperation ?? []) {
       if (!weekday || !h.daysOfWeek?.includes(weekday as never) || !h.openingTime || !h.closingTime) continue;
+
       const hrs = DateTime.fromFormat(h.closingTime, 'HH:mm:ss').diff(
         DateTime.fromFormat(h.openingTime, 'HH:mm:ss'),
         'hours'
       ).hours;
+
       if (Number.isFinite(hrs) && hrs > 0) clinicOpenHours = (clinicOpenHours ?? 0) + hrs;
     }
 
     const createdBy = appointment.meta?.tag?.find((t) => t.system === CREATED_BY_SYSTEM)?.display ?? '';
+
     const registrationChannel = createdBy.startsWith('Staff')
       ? 'Staff'
       : createdBy.startsWith('QR - Patient')
@@ -677,15 +710,17 @@ export async function fetchAdHocEncounterRows(
       : createdBy.startsWith('Patient')
       ? 'Self-scheduled'
       : 'Unknown';
+
     const registeredBy = createdBy.startsWith('Staff') ? createdBy.replace(/^Staff\s*/, '').trim() : 'Patient';
+
     const regEmail = registeredBy.includes('@')
       ? registeredBy
           .replace(/ via QRS$/, '')
           .trim()
           .toLowerCase()
       : '';
-    const registeredByName = (regEmail && staffNames.get(regEmail)) || registeredBy;
 
+    const registeredByName = (regEmail && staffNames.get(regEmail)) || registeredBy;
     const locationId = locationRef ? locationRef.replace('Location/', '') : undefined;
     const statusHistory = getVisitStatusHistory(encounter);
     const currentStatusSince = statusHistory.at(-1)?.period.start ?? null;
@@ -797,19 +832,23 @@ export async function fetchAdHocEncounterRows(
 
     if (includeTiming) {
       const history = getVisitStatusHistory(encounter);
+
       const firstStart = (status: string): string | undefined =>
         history.find((e) => e.status === status)?.period?.start;
+
       const arrived = firstStart('arrived') ?? firstStart('ready');
       const intake = firstStart('intake');
       const provider = firstStart('provider');
       const discharged = firstStart('discharged') ?? firstStart('completed') ?? encounter.period?.end;
 
       let timeWithProviderMinutes: number | null = null;
+
       for (const entry of history) {
         if (entry.status !== 'provider' || !entry.period.start || !entry.period.end) continue;
         const mins = minutesBetween(entry.period.start, entry.period.end);
         if (mins != null && mins >= 0) timeWithProviderMinutes = (timeWithProviderMinutes ?? 0) + mins;
       }
+
       row.timeWithProviderMinutes = timeWithProviderMinutes;
       row.arrivedToProviderMinutes = minutesBetween(arrived, provider);
       row.arrivedToIntakeMinutes = minutesBetween(arrived, intake);
@@ -827,6 +866,7 @@ export async function fetchAdHocEncounterRows(
       const descriptions = (encounter.id ? docRefsByEncounterId.get(encounter.id) ?? [] : []).map((d) => d.description);
       const hasAudio = descriptions.includes(DOCUMENT_REFERENCE_SUMMARY_FROM_AUDIO);
       const hasChat = descriptions.includes(DOCUMENT_REFERENCE_SUMMARY_FROM_CHAT);
+
       row.aiType =
         hasAudio && hasChat
           ? 'ambient scribe & patient HPI chatbot'
@@ -873,6 +913,7 @@ export async function fetchAdHocEncounterRows(
     if (includeVitals) {
       const obs = encounter.id ? observationsByEncounterId.get(encounter.id) ?? [] : [];
       const fieldCode = (o: Observation): string => o.meta?.tag?.find((t) => t.code?.startsWith('vital-'))?.code ?? '';
+
       const effectiveMillis = (o: Observation): number => {
         const ms = o.effectiveDateTime ? DateTime.fromISO(o.effectiveDateTime).toMillis() : NaN;
         return Number.isFinite(ms) ? ms : 0;
@@ -903,6 +944,7 @@ export async function fetchAdHocEncounterRows(
         const c = bpObs?.component?.find((cm) => cm.code?.coding?.some((cd) => cd.code && codes.includes(cd.code)));
         return typeof c?.valueQuantity?.value === 'number' ? c.valueQuantity.value : null;
       };
+
       const bp = latest('vital-blood-pressure');
       row.systolicBP = bpComp(bp, SYSTOLIC_CODES);
       row.diastolicBP = bpComp(bp, DIASTOLIC_CODES);
@@ -937,12 +979,14 @@ export async function fetchAdHocEncounterRows(
       const weightObs = latest('vital-weight');
       const weightVal = qty(weightObs);
       const weightUnit = (weightObs?.valueQuantity?.unit || '').toLowerCase();
+
       row.weightKg =
         weightVal == null ? null : weightUnit.startsWith('lb') ? round1(weightVal * 0.453592) : round1(weightVal);
 
       const heightObs = latest('vital-height');
       const heightVal = qty(heightObs);
       const heightUnit = (heightObs?.valueQuantity?.unit || '').toLowerCase();
+
       row.heightCm =
         heightVal == null ? null : heightUnit.startsWith('in') ? round1(heightVal * 2.54) : round1(heightVal);
 
@@ -952,6 +996,7 @@ export async function fetchAdHocEncounterRows(
 
     if (includeLabs || includeImaging || includeDisposition || includeNursing || includeProcedures) {
       const srs = (encounter.id ? serviceRequestsByEncounterId.get(encounter.id) ?? [] : []).filter(isActiveOrder);
+
       if (includeLabs) {
         const labOrders = srs.filter(isLabOrder).map(orderDisplay).filter(Boolean);
         row.labOrders = labOrders;
@@ -962,6 +1007,7 @@ export async function fetchAdHocEncounterRows(
         row.labNames = Array.from(new Set(labTests.map((test) => test.lab).filter(Boolean)));
         row.labResultComponents = Array.from(new Set(labTests.flatMap((test) => test.resultComponents)));
       }
+
       if (includeImaging) {
         const imagingOrders = srs.filter(isImagingOrder).map(orderDisplay).filter(Boolean);
         row.imagingOrders = imagingOrders;
@@ -976,6 +1022,7 @@ export async function fetchAdHocEncounterRows(
           nameOf: orderDisplay,
         });
       }
+
       if (includeNursing) {
         const nursingOrders = srs
           .filter((sr) => sr.meta?.tag?.some((t) => t.code?.includes('nursing')))
@@ -986,6 +1033,7 @@ export async function fetchAdHocEncounterRows(
         row.nursingOrderDetails =
           (encounter.id ? ordersByEncounterId.get(encounter.id)?.nursingOrders : undefined) ?? [];
       }
+
       if (includeProcedures) {
         // As the tracking board and the chart's procedures section: completed procedure ServiceRequests,
         // mapped with the chart's DTO builder (CPT codes via supportingInfo, diagnoses via reasonReference).
@@ -1022,6 +1070,7 @@ export async function fetchAdHocEncounterRows(
         row.procedureTypes = row.procedures.map((p) => p.type);
         row.procedureCount = row.procedures.length;
       }
+
       if (includeDisposition) {
         const followUpTypes = srs
           .filter((sr) => hasChartTag(sr, 'sub-follow-up'))
@@ -1037,16 +1086,19 @@ export async function fetchAdHocEncounterRows(
           encounter.hospitalization?.dischargeDisposition?.coding?.[0]?.display ||
           encounter.hospitalization?.dischargeDisposition?.text ||
           '';
+
         // The chart's disposition, read with the chart's own DTO builder (Encounter.hospitalization + the
         // disposition-follow-up ServiceRequest).
         const disposition = makeDispositionDTOFromFhirResources(
           encounter,
           encounter.id ? serviceRequestsByEncounterId.get(encounter.id) ?? [] : []
         );
+
         const dispositionType = knownValueOrNull(
           Object.keys(mapDispositionTypeToLabel) as DispositionType[],
           disposition?.type
         );
+
         row.dispositionType = dispositionType;
         row.dispositionLabel = dispositionType ? mapDispositionTypeToLabel[dispositionType] : '';
         row.followUpInDays = disposition?.followUpIn ?? null;
@@ -1062,6 +1114,7 @@ export async function fetchAdHocEncounterRows(
 
     if (includeImmunizations) {
       type VaccineRecord = NonNullable<AdHocEncounterRow['vaccines']>[number];
+
       const emptyVaccineDetail = {
         visDate: null,
         lotNumber: null,
@@ -1121,11 +1174,14 @@ export async function fetchAdHocEncounterRows(
 
     if (includeExamRos) {
       const obs = encounter.id ? observationsByEncounterId.get(encounter.id) ?? [] : [];
+
       const tagOf = (o: Observation, sys: string): string | undefined =>
         o.meta?.tag?.find((t) => t.system?.includes(sys))?.code;
+
       const rosFindings: string[] = [];
       const examSystems: string[] = [];
       const examFindings: string[] = [];
+
       for (const o of obs) {
         const rosTag = tagOf(o, 'ros-observation-field');
         if (rosTag && o.valueBoolean) {
@@ -1140,6 +1196,7 @@ export async function fetchAdHocEncounterRows(
         // a boolean) still pass; their components are already filtered to positives at write time.
         if (tagOf(o, 'exam-observation-field') && o.valueBoolean !== false) {
           if (o.code?.text) examSystems.push(o.code.text);
+
           for (const c of o.component ?? []) {
             const code = c.code?.coding?.[0]?.code || c.code?.text;
             if (code) examFindings.push(code);
@@ -1155,12 +1212,17 @@ export async function fetchAdHocEncounterRows(
       const drs = encounter.id ? resultsByEncounterId.get(encounter.id) ?? [] : [];
       const resultNames: string[] = [];
       let abnormalResultCount = 0;
+
       for (const dr of drs) {
         if (dr.status === 'entered-in-error' || dr.status === 'cancelled') continue;
+
         const name = dr.code?.coding?.find((c) => c.display)?.display || dr.code?.text || '';
+
         if (name) resultNames.push(name);
+
         if (dr.meta?.tag?.some((t) => t.code === 'abnormal' || t.code === 'inconclusive')) abnormalResultCount++;
       }
+
       row.resultNames = resultNames;
       row.resultCount = resultNames.length;
       row.abnormalResultCount = abnormalResultCount;
@@ -1171,19 +1233,23 @@ export async function fetchAdHocEncounterRows(
       const asqObs = obs.find((o) => o.meta?.tag?.some((t) => t.code === 'asq'));
       row.asqScreen = asqObs?.valueString || asqObs?.valueCodeableConcept?.coding?.[0]?.code || '';
       const birthHistory: string[] = [];
+
       for (const o of obs) {
         if (!o.meta?.tag?.some((t) => t.code?.includes('birth'))) continue;
         const label = o.code?.text || o.code?.coding?.[0]?.display;
         if (label) birthHistory.push(label);
       }
+
       row.birthHistory = birthHistory;
       const screeningAnswers: { question: string; answer: string }[] = [];
+
       // Newest first, so a re-answered question keeps its latest answer.
       const byNewest = [...obs].sort((a, b) =>
         (b.effectiveDateTime ?? b.meta?.lastUpdated ?? '').localeCompare(
           a.effectiveDateTime ?? a.meta?.lastUpdated ?? ''
         )
       );
+
       for (const o of byNewest) {
         if (o.status === 'entered-in-error') continue;
         const entry = screeningAnswer(o);
@@ -1191,9 +1257,11 @@ export async function fetchAdHocEncounterRows(
       }
       row.screeningAnswers = screeningAnswers;
       row.screeningQuestions = screeningAnswers.map((e) => e.question);
+
       const accidentCond = (encounter.id ? encounterConditionsByEncounterId.get(encounter.id) ?? [] : []).find(
         (c) => c.meta?.tag?.some((t) => t.code === 'accident')
       );
+
       row.accidentType = accidentCond
         ? accidentCond.code?.coding?.[0]?.display ||
           accidentCond.code?.coding?.[0]?.code ||
@@ -1205,16 +1273,33 @@ export async function fetchAdHocEncounterRows(
     if (includeDocuments) {
       const docs = encounter.id ? docRefsByEncounterId.get(encounter.id) ?? [] : [];
       const workSchoolNotes: string[] = [];
+
       for (const d of docs) {
         const isSchoolWork =
           d.type?.coding?.some((c) => c.code === '47420-5') ||
           d.meta?.tag?.some((t) => t.system?.includes('school-work-note'));
+
         if (!isSchoolWork) continue;
         const typeTag = d.meta?.tag?.find((t) => t.system?.includes('school-work-note'))?.code;
         workSchoolNotes.push(typeTag || 'note');
       }
+
       row.workSchoolNotes = workSchoolNotes;
       row.workSchoolNoteCount = workSchoolNotes.length;
+    }
+
+    if (includeEmployer) {
+      const account = patient?.id ? accountsByPatient.get(`Patient/${patient.id}`) : undefined;
+      const visitEmployerOrgId = getVisitEmployerOrganizationId(encounter);
+
+      row.occupationalMedicineEmployer =
+        getOccupationalMedicineEmployerName({
+          encounter,
+          appointmentServiceCategory: getServiceCategoryCodeFromAppointment(appointment),
+          occupationalMedicineEmployerOrganization: account?.occupationalMedicineEmployerOrganization,
+          occupationalMedicineAccount: account?.occupationalMedicineAccount,
+          visitEmployerOrganization: visitEmployerOrgId ? visitEmployerOrgById.get(visitEmployerOrgId) : undefined,
+        }) ?? '';
     }
 
     if (includeSigning) {

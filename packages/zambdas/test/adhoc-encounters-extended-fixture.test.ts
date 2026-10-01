@@ -23,17 +23,21 @@ import {
 import {
   APPOINTMENT_LOCKED_META_TAG,
   ENCOUNTER_PAYMENT_VARIANT_EXTENSION_URL,
+  ENCOUNTER_VISIT_OCCUPATIONAL_MEDICINE_EMPLOYER_EXTENSION_URL,
   FHIR_EXTENSION,
   INTAKE_PAPERWORK_QR_TAG,
+  OCCUPATIONAL_MEDICINE_ACCOUNT_TYPE,
   PARTICIPATION_CODE_SYSTEM,
   PERFORMER_TYPE_SYSTEM,
   PRIVATE_EXTENSION_BASE_URL,
   PROCEDURE_TYPE_SYSTEM,
   PROVIDER_TYPE_EXTENSION_URL,
   ROOM_EXTENSION_URL,
+  SERVICE_CATEGORY_SYSTEM,
 } from 'utils/lib/fhir/constants';
 import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
 import { ORDER_TYPE_CODE_SYSTEM, SERVICE_REQUEST_REQUESTED_TIME_EXTENSION_URL } from 'utils/lib/fhir/radiology';
+import { CODE_SYSTEM_SERVICE_CATEGORY_CODES } from 'utils/lib/helpers/rcm/constants';
 import { AdHocEncountersOutputSchema } from 'utils/lib/types/adhoc/datasets/encounters';
 import {
   MEDICATION_ADMINISTRATION_PERFORMER_TYPE_SYSTEM,
@@ -107,6 +111,10 @@ const signedAppointment = appointment('appt-1', 'fulfilled', {
   ],
 });
 const cancelledAppointment = appointment('appt-2', 'cancelled', {
+  // A pre-op visit: its employer is the one picked for the visit, not the patient account's.
+  serviceCategory: [
+    { coding: [{ system: SERVICE_CATEGORY_SYSTEM, code: CODE_SYSTEM_SERVICE_CATEGORY_CODES['pre-op'] }] },
+  ],
   cancelationReason: {
     coding: [
       {
@@ -160,8 +168,35 @@ const cancelledEncounter: Encounter = {
   class: { code: 'AMB' },
   appointment: [{ reference: 'Appointment/appt-2' }],
   subject: { reference: 'Patient/pat-1' },
+  extension: [
+    {
+      url: ENCOUNTER_VISIT_OCCUPATIONAL_MEDICINE_EMPLOYER_EXTENSION_URL,
+      valueReference: { reference: 'Organization/emp-preop' },
+    },
+  ],
   statusHistory: [visitStatusEntry('cancelled', '2026-07-01T13:00:00.000Z')],
 };
+
+// The patient's occupational-medicine Account, owned by the employer, and the pre-op visit's employer.
+const occMedAccount: FhirResource = {
+  resourceType: 'Account',
+  id: 'acct-om',
+  status: 'active',
+  type: OCCUPATIONAL_MEDICINE_ACCOUNT_TYPE,
+  subject: [{ reference: 'Patient/pat-1' }],
+  owner: { reference: 'Organization/emp-1' },
+};
+
+const accountEmployer: FhirResource = {
+  resourceType: 'Organization',
+  id: 'emp-1',
+  name: 'Acme Corp',
+  type: [
+    { coding: [{ system: FHIR_EXTENSION.Organization.organizationType.url, code: 'occupational-medicine-employer' }] },
+  ],
+};
+
+const preOpEmployer: FhirResource = { resourceType: 'Organization', id: 'emp-preop', name: 'City Hospital' };
 
 const patient: Patient = {
   resourceType: 'Patient',
@@ -438,6 +473,8 @@ const resourcesByJob: Record<string, FhirResource[]> = {
   Communication: [instruction],
   ServiceRequest: [procedureRequest, externalLabRequest, nursingRequest, dispositionFollowUp],
   HealthcareService: [group],
+  Patient: [patient, occMedAccount, accountEmployer],
+  Organization: [preOpEmployer],
   MedicationAdministration: [
     vaccineOrder('ma-tdap', 'Tdap', 'in-progress'),
     vaccineOrder('ma-flu', 'Influenza', 'not-done', 'Patient declined'),
@@ -503,6 +540,7 @@ const issuesOf = (result: { success: boolean; error?: { issues: unknown[] } }): 
 
 const allLayers = {
   includeDisposition: true,
+  includeEmployer: true,
   includeImaging: true,
   includeImmunizations: true,
   includeMedications: true,
@@ -623,6 +661,12 @@ describe('ad-hoc Encounters: layers mapped with the app mappers (fixture)', () =
         consentObtained: false,
       },
     ]);
+  });
+
+  it('employer: account employer, or the visit pick for pre-op', async () => {
+    const rows = await fetchAdHocEncounterRows(fakeOystehr, { dateRange, includeEmployer: true });
+    expect(rows.find((r) => r.appointmentId === 'appt-1')?.occupationalMedicineEmployer).toBe('Acme Corp');
+    expect(rows.find((r) => r.appointmentId === 'appt-2')?.occupationalMedicineEmployer).toBe('City Hospital');
   });
 
   it('signing: signer, supervisor approval, charting lag, lock', async () => {

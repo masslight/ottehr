@@ -29,6 +29,7 @@ import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
 import { AdHocPatientRow, AdHocPatientsInput } from 'utils/lib/types/adhoc/datasets/patients';
 import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
 import { PATIENT_POINT_OF_DISCOVERY_URL } from 'utils/lib/types/constants';
+import { PatientAccountAndCoverageResources } from 'utils/lib/types/data/account';
 import { getInPersonVisitStatus } from 'utils/lib/utils/visitUtils';
 import { PATIENT_CONTAINED_PHARMACY_ID } from '../../ehr/shared/harvest';
 import {
@@ -37,9 +38,15 @@ import {
   REPORT_ATTENDED_APPOINTMENT_STATUSES,
 } from '../adhoc-report';
 import { mapResourceToChartDataResponse } from '../chart-data';
+import { getOccupationalMedicineEmployerName } from '../occupational-medicine-employer';
+import { composeEmergencyContactData } from '../pdf/sections/emergencyContactInfo';
+import { composeEmployerData } from '../pdf/sections/employerInfo';
+import { composeInsuranceData } from '../pdf/sections/insuranceInfo';
 import { composePatientDetailsData } from '../pdf/sections/patientDetails';
 import { composePharmacyData } from '../pdf/sections/pharmacyInfo';
 import { composePrimaryCarePhysicianData } from '../pdf/sections/primaryCarePhysician';
+import { composeResponsiblePartyData } from '../pdf/sections/responsiblePartyInfo';
+import { fetchPatientAccounts } from './patient-accounts';
 
 const uniq = (values: string[]): string[] => Array.from(new Set(values.filter(Boolean)));
 
@@ -68,6 +75,9 @@ export async function fetchAdHocPatientRows(oystehr: Oystehr, params: AdHocPatie
     includeHospitalizations,
     includeVisitHistory,
     includeDemographics,
+    includeContacts,
+    includeInsurance,
+    includeEmployers,
   } = params;
 
   type ReportResource =
@@ -244,6 +254,15 @@ export async function fetchAdHocPatientRows(oystehr: Oystehr, params: AdHocPatie
     }
   }
 
+  // The patient-account page's account / coverage picture, for the contacts, insurance and employer layers.
+  const accountsByPatient =
+    includeContacts || includeInsurance || includeEmployers
+      ? await fetchPatientAccounts(
+          oystehr,
+          Array.from(aggByPatient.values()).map((agg) => agg.patient)
+        )
+      : new Map<string, PatientAccountAndCoverageResources>();
+
   const rows: AdHocPatientRow[] = [];
   for (const agg of aggByPatient.values()) {
     const patient = agg.patient;
@@ -377,6 +396,57 @@ export async function fetchAdHocPatientRows(oystehr: Oystehr, params: AdHocPatie
       row.pcpPracticeName = pcp.pcpPracticeName;
       row.preferredPharmacy = pharmacy.name;
       row.deceased = patient.deceasedBoolean === true || Boolean(patient.deceasedDateTime);
+    }
+
+    const account = accountsByPatient.get(patientRef);
+    if (includeContacts) {
+      // The face sheet's responsible-party and emergency-contact composers.
+      const responsibleParty = composeResponsiblePartyData({ guarantorResource: account?.guarantorResource });
+
+      const emergencyContact = composeEmergencyContactData({
+        emergencyContactResource: account?.emergencyContactResource,
+      });
+
+      row.responsiblePartyRelationship = responsibleParty.relationship;
+      row.responsiblePartyName = responsibleParty.fullName;
+      row.emergencyContactRelationship = emergencyContact.relationship;
+
+      row.emergencyContactName = [emergencyContact.firstName, emergencyContact.middleName, emergencyContact.lastName]
+        .filter(Boolean)
+        .join(' ');
+    }
+
+    if (includeInsurance) {
+      const insurance = composeInsuranceData({
+        coverages: account?.coverages ?? {},
+        insuranceOrgs: account?.insuranceOrgs ?? [],
+      });
+
+      row.insured = !!account?.coverages.primary;
+      row.primaryInsuranceCarrier = insurance.primary.insuranceCarrier;
+      row.primaryPlanType = insurance.primary.planType;
+      row.primaryMemberId = insurance.primary.memberId;
+      row.primaryRelationshipToInsured = insurance.primary.relationship;
+      row.secondaryInsuranceCarrier = insurance.secondary.insuranceCarrier;
+      row.secondaryPlanType = insurance.secondary.planType;
+      row.secondaryMemberId = insurance.secondary.memberId;
+    }
+
+    if (includeEmployers) {
+      const workersComp = composeEmployerData({
+        employer: account?.employerOrganization,
+        workersCompCoverage: account?.coverages.workersComp,
+        insuranceOrgs: account?.insuranceOrgs,
+      });
+
+      row.occupationalMedicineEmployer =
+        getOccupationalMedicineEmployerName({
+          occupationalMedicineEmployerOrganization: account?.occupationalMedicineEmployerOrganization,
+          occupationalMedicineAccount: account?.occupationalMedicineAccount,
+        }) ?? '';
+
+      row.workersCompEmployer = workersComp.employerName;
+      row.workersCompCarrier = workersComp.workersCompInsuranceCarrier;
     }
 
     rows.push(row);

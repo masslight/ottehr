@@ -77,6 +77,16 @@ export const PATIENT_DOMAIN_FIELDS: readonly (keyof AdHocPatientRow)[] = [
   'genderIdentity',
   'pcpPracticeName',
   'preferredPharmacy',
+  'responsiblePartyRelationship',
+  'emergencyContactRelationship',
+  'primaryInsuranceCarrier',
+  'primaryPlanType',
+  'primaryRelationshipToInsured',
+  'secondaryInsuranceCarrier',
+  'secondaryPlanType',
+  'occupationalMedicineEmployer',
+  'workersCompEmployer',
+  'workersCompCarrier',
 ];
 
 // Opt-in layers, declared ONCE (metadata + Zod field schema); everything else derives from this map.
@@ -189,6 +199,50 @@ export const PATIENT_LAYERS = {
       pcpPracticeName: z.string().describe('Primary care physician\'s practice. "" when none.'),
       preferredPharmacy: z.string().describe('Preferred pharmacy name. "" when none.'),
       deceased: z.boolean().describe('The patient is marked deceased.'),
+    }),
+  },
+  contacts: {
+    label: 'Responsible party & emergency contact',
+    description:
+      "The patient's responsible party (guarantor: self, parent, …) and emergency contact, as on the patient record.",
+    schema: z.object({
+      responsiblePartyRelationship: z
+        .string()
+        .describe(
+          'Responsible party relationship to the patient ("Self" when the patient is responsible). "" when none.'
+        ),
+      responsiblePartyName: z.string().describe('Responsible party full name. "" when none.'),
+      emergencyContactRelationship: z.string().describe('Emergency contact relationship. "" when none.'),
+      emergencyContactName: z.string().describe('Emergency contact full name. "" when none.'),
+    }),
+  },
+  insurance: {
+    label: 'Insurance',
+    description:
+      "The patient's current insurance as on the patient record: primary and secondary carrier, plan type, member " +
+      'id and relationship to the insured.',
+    schema: z.object({
+      insured: z.boolean().describe('The patient has a primary insurance on file.'),
+      primaryInsuranceCarrier: z.string().describe('Primary insurance carrier (payer) name. "" when none.'),
+      primaryPlanType: z.string().describe('Primary plan type, e.g. "12 - PPO". "" when not set.'),
+      primaryMemberId: z.string().describe('Member id on the primary insurance. "" when none.'),
+      primaryRelationshipToInsured: z
+        .string()
+        .describe('Patient relationship to the primary policy holder ("Self", "Child", …). "" when none.'),
+      secondaryInsuranceCarrier: z.string().describe('Secondary insurance carrier name. "" when none.'),
+      secondaryPlanType: z.string().describe('Secondary plan type. "" when none.'),
+      secondaryMemberId: z.string().describe('Member id on the secondary insurance. "" when none.'),
+    }),
+  },
+  employers: {
+    label: 'Employers',
+    description: "The patient's occupational-medicine employer and workers' comp employer / carrier on file.",
+    schema: z.object({
+      occupationalMedicineEmployer: z
+        .string()
+        .describe('Occupational-medicine employer on the patient account. "" when none.'),
+      workersCompEmployer: z.string().describe('Workers\' comp employer on file. "" when none.'),
+      workersCompCarrier: z.string().describe('Workers\' comp insurance carrier. "" when none.'),
     }),
   },
   hospitalizations: {
