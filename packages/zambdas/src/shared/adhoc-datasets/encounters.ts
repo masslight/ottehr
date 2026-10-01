@@ -16,7 +16,6 @@ import {
   MedicationRequest,
   MedicationStatement,
   Observation,
-  Organization,
   Patient,
   Practitioner,
   Procedure,
@@ -24,6 +23,7 @@ import {
   QuestionnaireResponse,
   Resource,
   ServiceRequest,
+  Task,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
@@ -38,22 +38,14 @@ import { getPaymentVariantFromEncounter, PaymentVariant } from 'utils/lib/fhir/e
 import {
   extractExtensionValue,
   findExtensionIndex,
-  getCoding,
   isAppointmentLocked,
   isEncounterLocked,
 } from 'utils/lib/fhir/helpers';
 import {
-  getAllCptCodesFromInHouseMedication,
-  getAllHcpcsCodesFromInHouseMedication,
-  getCptCodesFromMA,
-  getCreatedTheOrderProviderId,
   getCurrentOrderedByProviderId,
-  getDosageUnitsAndRouteOfMedication,
-  getMedicationFromMA,
   getMedicationName,
-  getNdcCodeFromMedication,
+  getPractitionerIdThatOrderedMedication,
   getProviderIdAndDateMedicationWasAdministered,
-  mapFhirToOrderStatus,
 } from 'utils/lib/fhir/medication-administration';
 import {
   getEmailForIndividual,
@@ -64,14 +56,9 @@ import {
 } from 'utils/lib/fhir/patient';
 import { getAdmitterPractitionerId } from 'utils/lib/fhir/practitioners';
 import { isIntakePaperworkQuestionnaireResponse } from 'utils/lib/fhir/questionnaires';
-import {
-  DIAGNOSTIC_REPORT_PRELIMINARY_REVIEW_ON_EXTENSION_URL,
-  SERVICE_REQUEST_PERFORMED_ON_EXTENSION_URL,
-  SERVICE_REQUEST_REQUESTED_TIME_EXTENSION_URL,
-} from 'utils/lib/fhir/radiology';
+import { ORDER_TYPE_CODE_SYSTEM } from 'utils/lib/fhir/radiology';
 import { getProviderType } from 'utils/lib/helpers/helpers';
 import { isInHouseLabServiceRequest } from 'utils/lib/helpers/in-house-labs';
-import { CODE_SYSTEM_CPT, CODE_SYSTEM_NDC } from 'utils/lib/helpers/rcm/constants';
 import { getVitalDTOCriticalityFromObservation } from 'utils/lib/helpers/vitals/utils';
 import { celsiusToFahrenheit, roundTemperatureValue } from 'utils/lib/helpers/vitals/vitals-temperature.helper';
 import { patientScreeningQuestionsConfig } from 'utils/lib/ottehr-config/screening-questions';
@@ -82,13 +69,7 @@ import {
   NOTHING_TO_EAT_OR_DRINK_FIELD,
   REFUSAL_OF_EMS_TRANSPORT_FIELD,
 } from 'utils/lib/types/api/chart-data/chart-data.types';
-import {
-  CVX_CODE_SYSTEM_URL,
-  MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE,
-  MEDICATION_DISPENSABLE_DRUG_ID,
-  VACCINE_ADMINISTRATION_CODES_EXTENSION_URL,
-  VACCINE_ADMINISTRATION_VIS_DATE_EXTENSION_URL,
-} from 'utils/lib/types/api/medication-administration.constants';
+import { MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE } from 'utils/lib/types/api/medication-administration.constants';
 import { PROVIDER_TYPE_VALUES } from 'utils/lib/types/api/practitioner.types';
 import { CREATED_BY_SYSTEM } from 'utils/lib/types/common';
 import { PATIENT_POINT_OF_DISCOVERY_URL } from 'utils/lib/types/constants';
@@ -115,7 +96,12 @@ import {
 import { mapChartResources } from '../chart-sections/map';
 import { getPaperworkCompleteness } from '../paperwork-completeness';
 import { resolveEncounterSignatures } from '../pdf/get-encounter-signatures';
-import { takeMostRecentPreliminaryReport, takeTheBestFinalDiagnosticReport } from '../radiology';
+import {
+  erxDrugRecord,
+  inHouseDrugRecord,
+  radiologyStudyRecords,
+  vaccineOrderRecord,
+} from './encounter-clinical-orders';
 import { EncounterOrderRecords, fetchEncounterOrders } from './encounter-orders';
 
 let staffNameByEmail: Map<string, string> | undefined;
@@ -178,11 +164,6 @@ const normalizeDrugName = (display: string): string => {
 
 const round1 = (n: number): number => Math.round(n * 10) / 10;
 
-// Medication.batch.expirationDate is a FHIR dateTime and the app writes a full instant with the
-// entry device's offset. An expiry is a calendar date, so take the date AS WRITTEN — converting the
-// zone would move "2026-07-29T00:00:00.000+04:00" back to the 28th and report a wrong expiry.
-const expiryDate = (value?: string): string | null => value?.slice(0, 10) ?? null;
-
 const hasChartTag = (resource: Resource, code: string): boolean =>
   Boolean(resource.meta?.tag?.some((tag) => tag.code === code));
 
@@ -196,56 +177,6 @@ const practitionerIdFromRef = (ref?: string): string | undefined =>
 
 const conditionIdFromRef = (ref?: string): string | undefined =>
   ref?.startsWith('Condition/') ? ref.replace('Condition/', '') : undefined;
-
-const administeredPractitionerId = (ma: MedicationAdministration): string | undefined =>
-  getProviderIdAndDateMedicationWasAdministered(ma)?.administeredProviderId;
-
-const orderedPractitionerId = (ma: MedicationAdministration): string | undefined =>
-  getCurrentOrderedByProviderId(ma) ?? getCreatedTheOrderProviderId(ma);
-
-const icdFromCondition = (condition?: Condition): { icdCode: string | null; icdDisplay: string | null } => {
-  const codings = condition?.code?.coding ?? [];
-  const coding = codings.find((c) => c.system?.toLowerCase().includes('icd-10')) ?? codings[0];
-  if (!coding?.code) return { icdCode: null, icdDisplay: null };
-  return { icdCode: coding.code, icdDisplay: coding.display ?? condition?.code?.text ?? coding.code };
-};
-
-type InHouseDrugStatus = NonNullable<AdHocEncounterRow['drugs']>[number]['status'];
-const inHouseDrugStatus = (ma: MedicationAdministration): InHouseDrugStatus => {
-  switch (mapFhirToOrderStatus(ma)) {
-    case 'administered':
-      return 'administered';
-    case 'administered-partly':
-      return 'partially-administered';
-    case 'administered-not':
-      return 'not-administered';
-    case 'cancelled':
-      return 'cancelled';
-    default:
-      return 'pending';
-  }
-};
-
-// The in-house order's MedicationAdministration.effectiveDateTime is the ORDER CREATION time; the instant
-// the drug was actually given lives on the MedicationStatement created at administration (partOf → MA).
-// Older records carry it as date + time extensions on the administering performer.
-const inHouseAdministeredAt = (
-  ma: MedicationAdministration,
-  statementsByMaId: Map<string, MedicationStatement>
-): string | null => {
-  if (!ma.id) return null;
-
-  const fromStatement = statementsByMaId.get(ma.id)?.effectiveDateTime;
-
-  if (fromStatement) return fromStatement;
-
-  const legacy = getProviderIdAndDateMedicationWasAdministered(ma);
-
-  if (legacy?.dateAdministered && legacy.timeAdministered)
-    return `${legacy.dateAdministered}T${legacy.timeAdministered}`;
-
-  return null;
-};
 
 const SYSTOLIC_CODES = ['271649006', '8480-6'];
 const DIASTOLIC_CODES = ['271650006', '8462-4'];
@@ -284,36 +215,6 @@ const isLabOrder = (sr: ServiceRequest): boolean =>
 const isImagingOrder = (sr: ServiceRequest): boolean => Boolean(sr.meta?.tag?.some((t) => t.code === 'radiology'));
 const orderDisplay = (sr: ServiceRequest): string =>
   sr.code?.text || sr.code?.coding?.find((c) => c.display)?.display || sr.code?.coding?.[0]?.code || '';
-
-const extensionDateTime = (
-  resource: { extension?: { url: string; valueDateTime?: string }[] },
-  url: string
-): string | null => resource.extension?.find((e) => e.url === url)?.valueDateTime ?? null;
-
-// Mirrors radiology/order-list buildHistory: order time and performed time live on ServiceRequest
-// extensions, the preliminary read time on the preliminary DiagnosticReport, the final read on issued.
-type RadiologyStudy = NonNullable<AdHocEncounterRow['imagingStudies']>[number];
-const radiologyStudy = (sr: ServiceRequest, reports: DiagnosticReport[]): RadiologyStudy => {
-  const preliminary = takeMostRecentPreliminaryReport(reports);
-  const final = takeTheBestFinalDiagnosticReport(reports);
-  const preliminaryAt =
-    (preliminary ? extensionDateTime(preliminary, DIAGNOSTIC_REPORT_PRELIMINARY_REVIEW_ON_EXTENSION_URL) : null) ??
-    (final ? extensionDateTime(final, DIAGNOSTIC_REPORT_PRELIMINARY_REVIEW_ON_EXTENSION_URL) : null);
-  const finalAt = final ? final.issued ?? final.meta?.lastUpdated ?? null : null;
-  const performedAt = extensionDateTime(sr, SERVICE_REQUEST_PERFORMED_ON_EXTENSION_URL);
-  const orderedAt = extensionDateTime(sr, SERVICE_REQUEST_REQUESTED_TIME_EXTENSION_URL) ?? sr.authoredOn ?? null;
-  const status: RadiologyStudy['status'] =
-    sr.status === 'revoked'
-      ? 'cancelled'
-      : final
-      ? 'final'
-      : preliminary
-      ? 'preliminary'
-      : performedAt || sr.status === 'completed'
-      ? 'performed'
-      : 'pending';
-  return { name: orderDisplay(sr), status, orderedAt, performedAt, preliminaryAt, finalAt };
-};
 
 const SIGNED_VISIT_STATUSES = ['completed', 'awaiting supervisor approval'];
 
@@ -388,10 +289,17 @@ export async function fetchAdHocEncounterRows(
   const medRequestsByEncounterId = new Map<string, MedicationRequest[]>();
   const medAdminsByEncounterId = new Map<string, MedicationAdministration[]>();
   const medStatementsByEncounterId = new Map<string, MedicationStatement[]>();
-  const statementByMaId = new Map<string, MedicationStatement>();
+  const medicationOrderResources: FhirResource[] = [];
   const observationsByEncounterId = new Map<string, Observation[]>();
   const serviceRequestsByEncounterId = new Map<string, ServiceRequest[]>();
-  const radiologyReportsBySrId = new Map<string, DiagnosticReport[]>();
+  const radiologyRequestsByEncounterId = new Map<string, ServiceRequest[]>();
+
+  const radiologyPool = {
+    tasks: [] as Task[],
+    diagnosticReports: [] as DiagnosticReport[],
+    documentReferences: [] as DocumentReference[],
+  };
+
   const resultsByEncounterId = new Map<string, DiagnosticReport[]>();
   const encounterConditionsByEncounterId = new Map<string, Condition[]>();
   const clinicalImpressionsByEncounterId = new Map<string, ClinicalImpression[]>();
@@ -481,29 +389,32 @@ export async function fetchAdHocEncounterRows(
     if (includeMedications || includeImmunizations) {
       // The in-house administration MedicationStatement has no encounter context — only partOf → MA —
       // so it rides along the MA search as a revinclude (the same way get-medication-orders reads it).
-      const maAndStatements = await fetchScoped<MedicationAdministration | MedicationStatement>(
+      // As get-medication-orders searches: the order's performers (who ordered / gave it) and its
+      // MedicationRequest (the interactions checked at ordering) ride along.
+      const maAndStatements = await fetchScoped<
+        MedicationAdministration | MedicationStatement | MedicationRequest | Practitioner
+      >(
         'MedicationAdministration',
         'context',
         encRefs,
-        includeMedications ? [{ name: '_revinclude', value: 'MedicationStatement:part-of' }] : []
+        includeMedications
+          ? [
+              { name: '_revinclude', value: 'MedicationStatement:part-of' },
+              { name: '_include', value: 'MedicationAdministration:performer' },
+              { name: '_include', value: 'MedicationAdministration:request' },
+            ]
+          : []
       );
+
+      medicationOrderResources.push(...maAndStatements);
+
+      for (const r of maAndStatements) if (r.resourceType === 'Practitioner' && r.id) practitionerMap.set(r.id, r);
 
       indexByEncounter(
         maAndStatements.filter((r): r is MedicationAdministration => r.resourceType === 'MedicationAdministration'),
         (m) => stripEnc(m.context?.reference),
         medAdminsByEncounterId
       );
-
-      for (const ms of maAndStatements) {
-        if (ms.resourceType !== 'MedicationStatement' || ms.status === 'entered-in-error') continue;
-
-        const maId = ms.partOf
-          ?.map((r) => r.reference)
-          .find((ref) => ref?.startsWith('MedicationAdministration/'))
-          ?.replace('MedicationAdministration/', '');
-
-        if (maId) statementByMaId.set(maId, ms);
-      }
     }
 
     if (includeImmunizations) {
@@ -521,8 +432,16 @@ export async function fetchAdHocEncounterRows(
 
       for (const mas of medAdminsByEncounterId.values()) {
         for (const ma of mas) {
-          for (const id of [administeredPractitionerId(ma), orderedPractitionerId(ma)]) if (id) practitionerIds.add(id);
+          for (const id of [
+            getProviderIdAndDateMedicationWasAdministered(ma)?.administeredProviderId,
+            getCurrentOrderedByProviderId(ma),
+            getPractitionerIdThatOrderedMedication(ma),
+          ]) {
+            if (id) practitionerIds.add(id);
+          }
+
           const dxId = conditionIdFromRef(ma.reasonReference?.[0]?.reference);
+
           if (dxId) drugConditionIds.add(dxId);
         }
       }
@@ -547,6 +466,9 @@ export async function fetchAdHocEncounterRows(
       for (const c of await fetchScoped<Condition>('Condition', '_id', missingConditionIds)) {
         if (c.id) conditionById.set(c.id, c);
       }
+
+      // buildOrderPackage looks the order's patient and practitioners up among these.
+      medicationOrderResources.push(...patientMap.values(), ...practitionerMap.values());
     }
 
     if (includeVitals || includeExamRos || includeIntake) {
@@ -564,25 +486,42 @@ export async function fetchAdHocEncounterRows(
       );
     }
     if (includeImaging) {
-      // Radiology reads are DiagnosticReports linked to the order by basedOn, not by encounter. Scope the
-      // revinclude to radiology orders only — lab reports can carry PDF attachments and are not needed.
-      const radiologyAndReads = await fetchScoped<ServiceRequest | DiagnosticReport>(
+      // The radiology orders page's search (getRadiologyOrders), keyed by encounter. Cancelled (revoked)
+      // orders are kept: the dataset lists them, the page does not.
+      const radiology = await fetchScoped<ServiceRequest | Task | DiagnosticReport | DocumentReference | Practitioner>(
         'ServiceRequest',
         'encounter',
         encRefs,
         [
-          { name: '_tag', value: 'radiology' },
+          { name: '_tag', value: `${ORDER_TYPE_CODE_SYSTEM}|radiology` },
+          { name: '_revinclude', value: 'Task:based-on' },
           { name: '_revinclude', value: 'DiagnosticReport:based-on' },
+          { name: '_revinclude', value: 'DocumentReference:related' },
+          { name: '_include', value: 'ServiceRequest:requester' },
         ]
       );
-      for (const dr of radiologyAndReads) {
-        if (dr.resourceType !== 'DiagnosticReport' || dr.status === 'entered-in-error') continue;
-        for (const ref of dr.basedOn ?? []) {
-          const srId = ref.reference?.startsWith('ServiceRequest/') ? ref.reference.replace('ServiceRequest/', '') : '';
-          if (srId) radiologyReportsBySrId.set(srId, [...(radiologyReportsBySrId.get(srId) ?? []), dr]);
+
+      for (const r of radiology) {
+        switch (r.resourceType) {
+          case 'ServiceRequest':
+            indexByEncounter([r], (sr) => stripEnc(sr.encounter?.reference), radiologyRequestsByEncounterId);
+            break;
+          case 'Task':
+            radiologyPool.tasks.push(r);
+            break;
+          case 'DiagnosticReport':
+            if (r.status !== 'entered-in-error') radiologyPool.diagnosticReports.push(r);
+            break;
+          case 'DocumentReference':
+            radiologyPool.documentReferences.push(r);
+            break;
+          case 'Practitioner':
+            if (r.id && !practitionerMap.has(r.id)) practitionerMap.set(r.id, r);
+            break;
         }
       }
     }
+
     if (includeResults) {
       indexByEncounter(
         await fetchScoped<DiagnosticReport>('DiagnosticReport', 'encounter', encRefs, [
@@ -592,6 +531,7 @@ export async function fetchAdHocEncounterRows(
         resultsByEncounterId
       );
     }
+
     if (includeIntake || includeCharting) {
       indexByEncounter(
         await fetchScoped<Condition>('Condition', 'encounter', encRefs),
@@ -599,6 +539,7 @@ export async function fetchAdHocEncounterRows(
         encounterConditionsByEncounterId
       );
     }
+
     if (includeCharting) {
       const [clinicalImpressions, instructions] = await Promise.all([
         fetchScoped<ClinicalImpression>('ClinicalImpression', 'encounter', encRefs),
@@ -609,6 +550,7 @@ export async function fetchAdHocEncounterRows(
       indexByEncounter(clinicalImpressions, (c) => stripEnc(c.encounter?.reference), clinicalImpressionsByEncounterId);
       indexByEncounter(instructions, (c) => stripEnc(c.encounter?.reference), instructionsByEncounterId);
     }
+
     if (includeSigning) {
       // The author (provider signed) and verifier (supervisor approved) Provenances getEncounterSignatures reads.
       const provenancesAndAgents = await fetchScoped<Provenance | Practitioner>('Provenance', 'target', encRefs, [
@@ -627,6 +569,7 @@ export async function fetchAdHocEncounterRows(
         }
       }
     }
+
     if (includePaperwork) {
       // The tracking board's paperwork inputs: the visit's intake QuestionnaireResponse and the patient's
       // current Photo ID / insurance card DocumentReferences.
@@ -644,6 +587,7 @@ export async function fetchAdHocEncounterRows(
       }
       identityDocRefs = docRefs;
     }
+
     if (includeLabs || includeNursing) {
       ordersByEncounterId = await fetchEncounterOrders(oystehr, {
         encounters: Array.from(encounterById.values()),
@@ -894,104 +838,35 @@ export async function fetchAdHocEncounterRows(
     }
 
     if (includeMedications) {
-      const medications: string[] = [];
-      const medicationIngredients: string[] = [];
-      const medicationSources: ('eRx' | 'in-house')[] = [];
+      const drugs: NonNullable<AdHocEncounterRow['drugs']> = [];
       const medicationCodes: string[] = [];
-      type DrugRecord = NonNullable<AdHocEncounterRow['drugs']>[number];
-      const drugs: DrugRecord[] = [];
-      const addMed = (
-        display: string,
-        source: 'eRx' | 'in-house',
-        code: string | undefined,
-        detail: Partial<Omit<DrugRecord, 'name' | 'source'>> & Pick<DrugRecord, 'status'>
-      ): void => {
-        if (!display) return;
-        medications.push(display);
-        medicationIngredients.push(normalizeDrugName(display));
-        medicationSources.push(source);
-        if (code) medicationCodes.push(code);
-        drugs.push({
-          name: display,
-          source,
-          status: detail.status,
-          dose: detail.dose ?? null,
-          units: detail.units ?? null,
-          route: detail.route ?? null,
-          ndc: detail.ndc ?? null,
-          lotNumber: detail.lotNumber ?? null,
-          expirationDate: detail.expirationDate ?? null,
-          manufacturer: detail.manufacturer ?? null,
-          administeredAt: detail.administeredAt ?? null,
-          administeredBy: detail.administeredBy ?? null,
-          orderedBy: detail.orderedBy ?? null,
-          cptCodes: detail.cptCodes ?? [],
-          icdCode: detail.icdCode ?? null,
-          icdDisplay: detail.icdDisplay ?? null,
-        });
-      };
 
       for (const req of encounter.id ? medRequestsByEncounterId.get(encounter.id) ?? [] : []) {
         if (req.status === 'entered-in-error') continue;
 
-        const coding = (req.medicationCodeableConcept?.coding ?? []).find(
-          (c) => c.system === MEDICATION_DISPENSABLE_DRUG_ID
-        );
+        const erx = erxDrugRecord(req, practitionerMap);
 
-        const requesterId = practitionerIdFromRef(req.requester?.reference);
+        if (!erx) continue;
 
-        addMed(coding?.display || req.medicationCodeableConcept?.text || '', 'eRx', coding?.code, {
-          status: 'prescribed',
-          orderedBy: requesterId ? practitionerDisplayName(practitionerMap.get(requesterId)) : null,
-        });
+        drugs.push(erx.record);
+
+        if (erx.code) medicationCodes.push(erx.code);
       }
 
       for (const ma of encounter.id ? medAdminsByEncounterId.get(encounter.id) ?? [] : []) {
         if (ma.status === 'entered-in-error') continue;
+
         if (!hasChartTag(ma, MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE)) continue;
-        const medication = getMedicationFromMA(ma);
-        const name =
-          getMedicationName(medication) ||
-          ma.medicationCodeableConcept?.coding?.[0]?.display ||
-          ma.medicationCodeableConcept?.text ||
-          '';
-        const dosage = getDosageUnitsAndRouteOfMedication(ma);
-        const status = inHouseDrugStatus(ma);
-        const given = status === 'administered' || status === 'partially-administered';
-        const orderCpts = getCptCodesFromMA(ma)?.map((c) => c.code);
 
-        const catalogCpts = medication
-          ? [...getAllCptCodesFromInHouseMedication(medication), ...getAllHcpcsCodesFromInHouseMedication(medication)]
-          : [];
+        const record = inHouseDrugRecord(ma, medicationOrderResources, conditionById);
 
-        const cptCodes = Array.from(new Set((orderCpts ?? catalogCpts).filter((c): c is string => Boolean(c))));
-        const administeredId = administeredPractitionerId(ma);
-        const orderedId = orderedPractitionerId(ma);
-        const dxId = conditionIdFromRef(ma.reasonReference?.[0]?.reference);
-
-        addMed(name, 'in-house', undefined, {
-          status,
-          dose: dosage.dose ?? null,
-          units: dosage.units ?? null,
-          route: dosage.route ?? null,
-          ndc: (medication ? getNdcCodeFromMedication(medication) : undefined) ?? null,
-          // Vial data (lot, expiry) is tied to the patient only when something was given; the contained
-          // copy may still carry a stale batch after an order is flipped to not-administered.
-          lotNumber: given ? medication?.batch?.lotNumber ?? null : null,
-          expirationDate: given ? expiryDate(medication?.batch?.expirationDate) : null,
-          manufacturer: medication?.manufacturer?.display ?? null,
-          administeredAt: given ? inHouseAdministeredAt(ma, statementByMaId) : null,
-          administeredBy: given && administeredId ? practitionerDisplayName(practitionerMap.get(administeredId)) : null,
-          orderedBy: orderedId ? practitionerDisplayName(practitionerMap.get(orderedId)) : null,
-          cptCodes,
-          ...icdFromCondition(dxId ? conditionById.get(dxId) : undefined),
-        });
+        if (record) drugs.push(record);
       }
-      row.medications = medications;
-      row.medicationIngredients = medicationIngredients;
-      row.medicationSources = medicationSources;
+      row.medications = drugs.map((d) => d.name);
+      row.medicationIngredients = drugs.map((d) => normalizeDrugName(d.name));
+      row.medicationSources = drugs.map((d) => d.source);
       row.medicationCodes = medicationCodes;
-      row.medicationCount = medications.length;
+      row.medicationCount = drugs.length;
       row.drugs = drugs;
     }
 
@@ -1091,10 +966,15 @@ export async function fetchAdHocEncounterRows(
         const imagingOrders = srs.filter(isImagingOrder).map(orderDisplay).filter(Boolean);
         row.imagingOrders = imagingOrders;
         row.imagingOrderCount = imagingOrders.length;
-        row.imagingStudies = (encounter.id ? serviceRequestsByEncounterId.get(encounter.id) ?? [] : [])
-          .filter((sr) => isImagingOrder(sr) && sr.status !== 'entered-in-error')
-          .map((sr) => radiologyStudy(sr, sr.id ? radiologyReportsBySrId.get(sr.id) ?? [] : []))
-          .filter((study) => Boolean(study.name));
+        row.imagingStudies = radiologyStudyRecords({
+          serviceRequests: encounter.id ? radiologyRequestsByEncounterId.get(encounter.id) ?? [] : [],
+          tasks: radiologyPool.tasks,
+          diagnosticReports: radiologyPool.diagnosticReports,
+          documentReferences: radiologyPool.documentReferences,
+          practitioners: Array.from(practitionerMap.values()),
+          encounters: Array.from(encounterById.values()),
+          nameOf: orderDisplay,
+        });
       }
       if (includeNursing) {
         const nursingOrders = srs
@@ -1188,79 +1068,33 @@ export async function fetchAdHocEncounterRows(
         expirationDate: null,
         ndc: null,
         cvx: null,
+        mvx: null,
         manufacturer: null,
         dose: null,
         units: null,
         route: null,
+        bodySite: null,
+        instructions: null,
         administeredAt: null,
         administeredBy: null,
+        orderedAt: null,
         orderedBy: null,
         cptCodes: [] as string[],
       };
 
       const vaccines: VaccineRecord[] = [];
+      const vaccinesNotGiven: NonNullable<AdHocEncounterRow['vaccinesNotGiven']> = [];
 
       for (const ma of encounter.id ? medAdminsByEncounterId.get(encounter.id) ?? [] : []) {
-        if (!hasChartTag(ma, 'immunization')) continue;
+        if (ma.status === 'entered-in-error' || !hasChartTag(ma, 'immunization')) continue;
 
-        const status =
-          ma.status === 'completed' ? 'administered' : ma.status === 'on-hold' ? 'partially-administered' : undefined;
+        const record = vaccineOrderRecord(ma);
 
-        if (!status) continue;
-
-        const medication = getMedicationFromMA(ma);
-
-        const name =
-          getMedicationName(medication) ||
-          ma.medicationCodeableConcept?.coding?.[0]?.display ||
-          ma.medicationCodeableConcept?.text ||
-          '';
-        if (!name) continue;
-
-        const visDate = medication?.extension?.find((e) => e.url === VACCINE_ADMINISTRATION_VIS_DATE_EXTENSION_URL)
-          ?.valueDate;
-        const codeExtensions = (medication?.extension ?? []).filter(
-          (e) => e.url === VACCINE_ADMINISTRATION_CODES_EXTENSION_URL
-        );
-
-        const codeOf = (system: string): string | null => {
-          for (const ext of codeExtensions) {
-            const code = getCoding(ext.valueCodeableConcept, system)?.code;
-            if (code) return code;
-          }
-
-          return null;
-        };
-
-        const cptCodes = codeExtensions
-          .map((ext) => getCoding(ext.valueCodeableConcept, CODE_SYSTEM_CPT)?.code)
-          .filter((c): c is string => Boolean(c));
-
-        const manufacturerOrg = ma.contained?.find(
-          (r): r is Organization => r.resourceType === 'Organization' && r.id === 'manufacturer-org'
-        );
-
-        const dosage = getDosageUnitsAndRouteOfMedication(ma);
-        const administeredId = administeredPractitionerId(ma);
-        const orderedId = orderedPractitionerId(ma);
-
-        vaccines.push({
-          name,
-          status,
-          visDate: visDate ?? null,
-          lotNumber: medication?.batch?.lotNumber ?? null,
-          expirationDate: expiryDate(medication?.batch?.expirationDate),
-          ndc: codeOf(CODE_SYSTEM_NDC),
-          cvx: codeOf(CVX_CODE_SYSTEM_URL),
-          manufacturer: manufacturerOrg?.name ?? medication?.manufacturer?.display ?? null,
-          dose: dosage.dose ?? null,
-          units: dosage.units ?? null,
-          route: dosage.route ?? null,
-          administeredAt: ma.effectiveDateTime ?? null,
-          administeredBy: administeredId ? practitionerDisplayName(practitionerMap.get(administeredId)) : null,
-          orderedBy: orderedId ? practitionerDisplayName(practitionerMap.get(orderedId)) : null,
-          cptCodes,
-        });
+        if (record && 'given' in record) {
+          vaccines.push(record.given);
+        } else if (record) {
+          vaccinesNotGiven.push(record.notGiven);
+        }
       }
 
       for (const ms of encounter.id ? medStatementsByEncounterId.get(encounter.id) ?? [] : []) {
@@ -1281,6 +1115,8 @@ export async function fetchAdHocEncounterRows(
         if (name) vaccines.push({ name, status: 'recorded', ...emptyVaccineDetail });
       }
       row.vaccines = vaccines;
+      row.vaccinesNotGiven = vaccinesNotGiven;
+      row.vaccineNames = Array.from(new Set([...vaccines, ...vaccinesNotGiven].map((v) => v.name)));
     }
 
     if (includeExamRos) {

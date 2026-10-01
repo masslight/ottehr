@@ -10,6 +10,9 @@ import {
   FhirResource,
   HealthcareService,
   Location,
+  Medication,
+  MedicationAdministration,
+  MedicationRequest,
   Patient,
   Practitioner,
   Provenance,
@@ -30,7 +33,14 @@ import {
   ROOM_EXTENSION_URL,
 } from 'utils/lib/fhir/constants';
 import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
+import { ORDER_TYPE_CODE_SYSTEM, SERVICE_REQUEST_REQUESTED_TIME_EXTENSION_URL } from 'utils/lib/fhir/radiology';
 import { AdHocEncountersOutputSchema } from 'utils/lib/types/adhoc/datasets/encounters';
+import {
+  MEDICATION_ADMINISTRATION_PERFORMER_TYPE_SYSTEM,
+  MEDICATION_DISPENSABLE_DRUG_ID,
+  MEDICATION_IDENTIFIER_NAME_SYSTEM,
+  PRACTITIONER_ORDERED_BY_MEDICATION_CODE,
+} from 'utils/lib/types/api/medication-administration.constants';
 import { REASON_FOR_VISIT_SEPARATOR } from 'utils/lib/types/constants';
 import { PRACTITIONER_CODINGS } from 'utils/lib/types/data/appointments/appointments.types';
 import { DataEntryTestItem } from 'utils/lib/types/data/in-house/in-house.types';
@@ -41,6 +51,10 @@ import {
 } from 'utils/lib/types/data/labs/labs.constants';
 import { DISCHARGE_SUMMARY_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
 import { afterAll, describe, expect, it, vi } from 'vitest';
+import {
+  CONTAINED_MEDICATION_ID,
+  IMMUNIZATION_ORDER_CREATED_DATETIME_EXTENSION_URL,
+} from '../src/ehr/immunization/common';
 import { inHouseResults } from '../src/shared/adhoc-datasets/encounter-orders';
 import { fetchAdHocEncounterRows } from '../src/shared/adhoc-datasets/encounters';
 
@@ -267,6 +281,73 @@ const dispositionFollowUp: ServiceRequest = {
   occurrenceTiming: { repeat: { offset: 2880 } },
 };
 
+// A vaccine ordered but not given yet, and one the patient declined — as the immunization order writes them.
+const vaccineOrder = (
+  id: string,
+  name: string,
+  status: MedicationAdministration['status'],
+  note?: string
+): MedicationAdministration => ({
+  resourceType: 'MedicationAdministration',
+  id,
+  status,
+  meta: { tag: [{ code: 'immunization' }] },
+  subject: { reference: 'Patient/pat-1' },
+  context: { reference: 'Encounter/enc-1' },
+  effectiveDateTime: '2026-07-01T14:20:00.000Z',
+  extension: [{ url: IMMUNIZATION_ORDER_CREATED_DATETIME_EXTENSION_URL, valueDateTime: '2026-07-01T14:20:00.000Z' }],
+  performer: [
+    {
+      actor: { reference: 'Practitioner/prac-1', display: 'Nina Park' },
+      function: {
+        coding: [
+          { system: MEDICATION_ADMINISTRATION_PERFORMER_TYPE_SYSTEM, code: PRACTITIONER_ORDERED_BY_MEDICATION_CODE },
+        ],
+      },
+    },
+  ],
+  ...(note ? { note: [{ text: note }] } : {}),
+  contained: [
+    {
+      resourceType: 'Medication',
+      id: CONTAINED_MEDICATION_ID,
+      identifier: [{ system: MEDICATION_IDENTIFIER_NAME_SYSTEM, value: name }],
+    } as Medication,
+  ],
+});
+
+// eRx prescription as the eRx sync writes it.
+const prescription: MedicationRequest = {
+  resourceType: 'MedicationRequest',
+  id: 'mr-1',
+  status: 'active',
+  intent: 'order',
+  subject: { reference: 'Patient/pat-1' },
+  encounter: { reference: 'Encounter/enc-1' },
+  requester: { reference: 'Practitioner/prac-1' },
+  medicationCodeableConcept: {
+    coding: [{ system: MEDICATION_DISPENSABLE_DRUG_ID, code: '12345', display: 'Amoxicillin 500 mg capsule' }],
+  },
+  dosageInstruction: [{ patientInstruction: 'Take 1 capsule 3 times a day' }],
+};
+
+// A STAT left-shoulder X-ray, still pending.
+const statXray: ServiceRequest = {
+  resourceType: 'ServiceRequest',
+  id: 'sr-xr',
+  status: 'active',
+  intent: 'order',
+  priority: 'stat',
+  subject: { reference: 'Patient/pat-1' },
+  encounter: { reference: 'Encounter/enc-1' },
+  requester: { reference: 'Practitioner/prac-1' },
+  authoredOn: '2026-07-01T14:06:00.000Z',
+  meta: { tag: [{ system: ORDER_TYPE_CODE_SYSTEM, code: 'radiology' }] },
+  code: { coding: [{ code: '73030-LT', display: 'XR shoulder' }] },
+  reasonCode: [{ coding: [{ code: 'S43.401A', display: 'Sprain of shoulder' }] }],
+  extension: [{ url: SERVICE_REQUEST_REQUESTED_TIME_EXTENSION_URL, valueDateTime: '2026-07-01T14:06:00.000Z' }],
+};
+
 const group: HealthcareService = { resourceType: 'HealthcareService', id: 'grp-1', name: 'Pediatrics Group' };
 
 // External lab: submitted (PST completed, order active, submit Provenance), no results yet → "sent".
@@ -357,6 +438,12 @@ const resourcesByJob: Record<string, FhirResource[]> = {
   Communication: [instruction],
   ServiceRequest: [procedureRequest, externalLabRequest, nursingRequest, dispositionFollowUp],
   HealthcareService: [group],
+  MedicationAdministration: [
+    vaccineOrder('ma-tdap', 'Tdap', 'in-progress'),
+    vaccineOrder('ma-flu', 'Influenza', 'not-done', 'Patient declined'),
+  ],
+  MedicationRequest: [prescription],
+  'ServiceRequest:radiology': [statXray, attending],
   'ServiceRequest:orders': [
     externalLabRequest,
     nursingRequest,
@@ -370,6 +457,8 @@ const resourcesByJob: Record<string, FhirResource[]> = {
 
 // Searches sharing a resource type are told apart by what they ask for.
 const jobIdFor = (resourceType: string, params: { name: string; value: string }[]): string => {
+  if (resourceType === 'ServiceRequest' && params.some((p) => p.name === '_tag' && p.value.endsWith('|radiology')))
+    return 'ServiceRequest:radiology';
   if (resourceType === 'ServiceRequest' && params.some((p) => p.value === 'Task:based-on'))
     return 'ServiceRequest:orders';
   if (resourceType === 'DocumentReference' && params.some((p) => p.name === 'related'))
@@ -414,6 +503,9 @@ const issuesOf = (result: { success: boolean; error?: { issues: unknown[] } }): 
 
 const allLayers = {
   includeDisposition: true,
+  includeImaging: true,
+  includeImmunizations: true,
+  includeMedications: true,
   includeLabs: true,
   includeNursing: true,
   includeProcedures: true,
@@ -469,6 +561,68 @@ describe('ad-hoc Encounters: layers mapped with the app mappers (fixture)', () =
     });
     const cancelled = rows.find((r) => r.appointmentId === 'appt-2')!;
     expect(cancelled).toMatchObject({ dispositionType: null, dispositionLabel: '', followUpInDays: null });
+  });
+
+  it('medications: eRx through the chart eRx DTO', async () => {
+    const rows = await fetchAdHocEncounterRows(fakeOystehr, { dateRange, includeMedications: true });
+    const signed = rows.find((r) => r.appointmentId === 'appt-1')!;
+    expect(signed.drugs).toHaveLength(1);
+    expect(signed.drugs?.[0]).toMatchObject({
+      name: 'Amoxicillin 500 mg capsule',
+      source: 'eRx',
+      status: 'prescribed',
+      erxStatus: 'active',
+      instructions: 'Take 1 capsule 3 times a day',
+      isRenewal: false,
+      orderedBy: 'Nina Park',
+      lotNumber: null,
+    });
+    expect(signed.medicationCodes).toEqual(['12345']);
+  });
+
+  it('immunizations: vaccine orders not given, with the reason', async () => {
+    const rows = await fetchAdHocEncounterRows(fakeOystehr, { dateRange, includeImmunizations: true });
+    const signed = rows.find((r) => r.appointmentId === 'appt-1')!;
+    expect(signed.vaccines).toEqual([]);
+    expect(signed.vaccinesNotGiven).toEqual([
+      { name: 'Tdap', status: 'pending', reason: null, orderedAt: '2026-07-01T14:20:00.000Z', orderedBy: 'Nina Park' },
+      {
+        name: 'Influenza',
+        status: 'not-administered',
+        reason: 'Patient declined',
+        orderedAt: '2026-07-01T14:20:00.000Z',
+        orderedBy: 'Nina Park',
+      },
+    ]);
+    expect(signed.vaccineNames).toEqual(['Tdap', 'Influenza']);
+  });
+
+  it('imaging: the radiology page order — STAT, laterality, diagnoses', async () => {
+    const rows = await fetchAdHocEncounterRows(fakeOystehr, { dateRange, includeImaging: true });
+    const signed = rows.find((r) => r.appointmentId === 'appt-1')!;
+    expect(signed.imagingStudies).toEqual([
+      {
+        name: 'XR shoulder',
+        status: 'pending',
+        orderStatus: 'pending',
+        orderedAt: '2026-07-01T14:06:00.000Z',
+        performedAt: null,
+        preliminaryAt: null,
+        pendingFinalAt: null,
+        finalAt: null,
+        reviewedAt: null,
+        cptCode: '73030',
+        laterality: 'LT',
+        stat: true,
+        external: false,
+        orderedBy: 'Nina Park',
+        icdCodes: ['S43.401A'],
+        performedBy: '',
+        performingOrganization: '',
+        safetyFlags: [],
+        consentObtained: false,
+      },
+    ]);
   });
 
   it('signing: signer, supervisor approval, charting lag, lock', async () => {
