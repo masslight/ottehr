@@ -14,14 +14,16 @@ type DiagnosesFieldProps = {
   label?: string;
   placeholder?: string;
   error?: FieldError;
+  /** A known set of diagnoses (e.g. the encounter's charted ones) offered while the search box is empty. */
+  quickPickOptions?: IcdSearchResponse['codes'];
 };
 
 export const DiagnosesField: FC<DiagnosesFieldProps> = (props) => {
-  const { onChange, disabled, disableForPrimary, value, label, placeholder, error } = props;
+  const { onChange, disabled, disableForPrimary, value, label, placeholder, error, quickPickOptions } = props;
 
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const { isFetching: isSearching, data } = useICD10SearchNew({ search: debouncedSearchTerm });
-  const icdSearchOptions = data?.codes || [];
+  const icdSearchOptions = debouncedSearchTerm === '' && quickPickOptions ? quickPickOptions : data?.codes || [];
 
   const { debounce } = useDebounce(800);
 
@@ -43,6 +45,7 @@ export const DiagnosesField: FC<DiagnosesFieldProps> = (props) => {
       blurOnSelect
       disabled={disabled}
       options={icdSearchOptions}
+      openOnFocus={quickPickOptions != null}
       noOptionsText={
         debouncedSearchTerm && icdSearchOptions.length === 0
           ? 'Nothing found for this search criteria'

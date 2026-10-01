@@ -100,15 +100,18 @@ export const CodeSuggestionRow: FC<CodeSuggestionRowProps> = ({
               </IconButton>
             ) : (
               <Tooltip title={isLoadingDescriptions ? 'Loading the description…' : 'Add CPT code'}>
-                <IconButton
-                  size="small"
-                  disabled={isLoadingDescriptions}
-                  aria-label={`Add CPT code ${suggestion.code}`}
-                  onClick={() => onAddCodes(entries)}
-                  data-testid={dataTestIds.documentProcedurePage.cptCodeQuickAddButton(suggestion.code)}
-                >
-                  <AddCircleOutline sx={{ fontSize: '26px', color: 'primary.main' }} />
-                </IconButton>
+                {/* A disabled button fires no events, so the tooltip listens on the wrapping span. */}
+                <span>
+                  <IconButton
+                    size="small"
+                    disabled={isLoadingDescriptions}
+                    aria-label={`Add CPT code ${suggestion.code}`}
+                    onClick={() => onAddCodes(entries)}
+                    data-testid={dataTestIds.documentProcedurePage.cptCodeQuickAddButton(suggestion.code)}
+                  >
+                    <AddCircleOutline sx={{ fontSize: '26px', color: 'primary.main' }} />
+                  </IconButton>
+                </span>
               </Tooltip>
             )}
           </Box>

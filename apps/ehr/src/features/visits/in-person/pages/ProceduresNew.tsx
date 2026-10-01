@@ -1,11 +1,10 @@
-import { Backdrop, Checkbox, CircularProgress, Divider, FormHelperText, TextField, Typography } from '@mui/material';
+import { Close, OpenInNew } from '@mui/icons-material';
+import { Backdrop, CircularProgress, Divider, FormHelperText, IconButton, TextField, Typography } from '@mui/material';
 import { Box, Stack, useTheme } from '@mui/system';
-import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
-import { DatePicker, LocalizationProvider, TimePicker } from '@mui/x-date-pickers-pro';
 import { useQueryClient } from '@tanstack/react-query';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
-import { ReactElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, ReactElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { createProcedureQuickPick, getProcedureQuickPicks, updateProcedureQuickPick } from 'src/api/api';
@@ -26,6 +25,7 @@ import { useDebounce } from 'src/shared/hooks/useDebounce';
 import { useMarkDraftNavigatedAway, useProcedureStore } from 'src/state/draft-data.store';
 import { PROCEDURES_CONFIG } from 'utils/lib/ottehr-config/procedures';
 import { detectProcedureFamily } from 'utils/lib/procedure-coding/evaluate';
+import { lacerationFamily } from 'utils/lib/procedure-coding/families/laceration';
 import { resolveFamilyFacts } from 'utils/lib/procedure-coding/family-support';
 import { CodeOutcomeKind } from 'utils/lib/procedure-coding/model.types';
 import { CPTCodeDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
@@ -33,6 +33,7 @@ import { IcdSearchResponse } from 'utils/lib/types/api/icd-search/icd-search.typ
 import { ProcedureQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import { RoleType } from 'utils/lib/types/api/user.types';
 import { FHIR_CODE_REGEX } from 'utils/lib/types/constants';
+import { DiagnosesField } from '../../shared/components/assessment-tab/DiagnosesField';
 import { PageTitle } from '../../shared/components/PageTitle';
 import { QuickPicksButton } from '../../shared/components/QuickPicksButton';
 import { useChartData } from '../../shared/hooks/useChartData';
@@ -43,20 +44,22 @@ import {
   useDeleteChartData,
   useSaveChartData,
 } from '../../shared/stores/appointment/appointment.store';
-import { InfoAlert } from '../components/InfoAlert';
 import { CodingAssistPanel } from '../components/procedures/coding-assist/CodingAssistPanel';
+import { CodingFindingList } from '../components/procedures/coding-assist/CodingFindingList';
 import { DocumentationCheck } from '../components/procedures/coding-assist/DocumentationCheck';
 import { ConditionalCodingFields } from '../components/procedures/ConditionalCodingFields';
-import { ProcedureCptCodesField } from '../components/procedures/ProcedureCptCodesField';
-import { ProcedureDiagnosesField } from '../components/procedures/ProcedureDiagnosesField';
+import { CodingFieldSentences, LacerationSentences } from '../components/procedures/narrative/CodingFieldSentences';
 import {
-  ProcedureDropdown,
-  ProcedureMultiSelect,
-  ProcedureOtherTextInput,
-  ProcedureRadioGroup,
-} from '../components/procedures/ProcedureFormFields';
+  DateTimeBlank,
+  MultiBlank,
+  PopoverBlank,
+  SectionLabel,
+  SelectBlank,
+  Sentence,
+} from '../components/procedures/narrative/InlineBlanks';
+import { ProcedureCptCodesField } from '../components/procedures/ProcedureCptCodesField';
+import { ProcedureOtherTextInput } from '../components/procedures/ProcedureFormFields';
 import { ProcedureQuickPickDialogs } from '../components/procedures/ProcedureQuickPickDialogs';
-import { StructuredCodingFields } from '../components/procedures/StructuredCodingFields';
 import { useProcedureSelectOptions } from '../components/procedures/useProcedureSelectOptions';
 import { ProcedureCodingEvaluationStateKind, useProcedureCoding } from '../hooks/useProcedureCoding';
 import { ROUTER_PATH } from '../routing/routesInPerson';
@@ -74,6 +77,7 @@ import {
   procedureFactsFromPageState,
   procedurePageStateToDraft,
 } from './procedurePageState';
+import { DOCUMENTED_BY_OPTIONS, PERFORMED_BY_OPTIONS } from './procedurePerformerOptions';
 import {
   applyProcedureQuickPick,
   buildProcedureQuickPick,
@@ -81,9 +85,22 @@ import {
   sameCptLine,
 } from './procedureQuickPick';
 
-const PERFORMED_BY = ['Healthcare staff', 'Provider', 'Both'];
-const SPECIMEN_SENT = ['Yes', 'No'];
-const DOCUMENTED_BY = ['Provider', 'Healthcare staff'];
+const SPECIMEN_SENT = ['sent', 'not sent'];
+/** The coding column keeps its full width while the page has room, then gives up to 60px before the
+ * two columns stack. 280px still fits the suggestion rows and the code search; the sentence form needs
+ * about 420px (its button row is the widest piece) so it never gets squeezed below that. */
+const CODING_COLUMN_WIDTH = 340;
+const CODING_COLUMN_MIN_WIDTH = 280;
+const FORM_COLUMN_MIN_WIDTH = 420;
+const COLUMN_GAP_PX = 16;
+/** Coding column beside the sentences once the page itself is wide enough, measured on the page rather
+ * than the viewport so the visit sidebar (244px open, 56px collapsed), the scribe panel (440px by
+ * default) and the progress-note inline flow are accounted for: the 716px threshold is about a 1000px
+ * viewport with the sidebar open, and still holds on a 1440px laptop with the sidebar and panel open. */
+const CODING_COLUMN_QUERY = `@container (min-width: ${
+  FORM_COLUMN_MIN_WIDTH + COLUMN_GAP_PX + CODING_COLUMN_MIN_WIDTH
+}px)`;
+const CONSENT = ['obtained', 'not obtained'];
 
 interface ProceduresNewProps {
   procedureId?: string;
@@ -169,6 +186,7 @@ export default function ProceduresNew({
     persistDraftAfterStateChangeRef.current = false;
     if (encounter.id) clearDraft(encounter.id);
     setState({ procedureDate: DateTime.now(), procedureTime: DateTime.now() });
+    previousProcedureType.current = undefined;
     methods.reset({ procedureType: '' });
   };
 
@@ -524,6 +542,9 @@ export default function ProceduresNew({
 
   const forwardEvaluation = codingEvaluations?.suggestion;
 
+  // Documentation reminders for the suggested code, shown below the CPT codes rather than in the panel.
+  const codingGuidance = (forwardEvaluation?.findings ?? []).filter((finding) => finding.level === 'bestPractice');
+
   const suggestionVisible =
     forwardEvaluation?.outcome?.kind === CodeOutcomeKind.Suggestions ||
     forwardEvaluation?.outcome?.kind === CodeOutcomeKind.Determined ||
@@ -643,6 +664,12 @@ export default function ProceduresNew({
     };
   }, []);
 
+  const resolvedStructuredFacts = codingFamily
+    ? resolveFamilyFacts(codingFamily, procedureFacts)
+    : state.structuredFacts;
+
+  const diagnoses = state.diagnoses ?? [];
+
   return (
     <FormProvider {...methods}>
       <Stack spacing={1}>
@@ -662,373 +689,515 @@ export default function ProceduresNew({
             }
           />
         )}
-        <AccordionCard>
-          <Stack spacing={2} style={{ padding: '24px' }}>
-            <Box style={{ display: 'flex', alignItems: 'center' }}>
-              <Checkbox
-                checked={state.consentObtained ?? false}
-                onChange={(_e: any, checked: boolean) => updateState((state) => (state.consentObtained = checked))}
-                disabled={isReadOnly}
-                data-testid={dataTestIds.documentProcedurePage.consentForProcedure}
-              />
-              <Typography>
-                I have obtained the{' '}
-                {consentPdfExists ? (
-                  <Link target="_blank" to={`/consent_procedure.pdf`} style={{ color: theme.palette.primary.main }}>
-                    Consent for Procedure
-                  </Link>
-                ) : (
-                  'Consent for Procedure'
+        <Box sx={{ containerType: 'inline-size' }}>
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: 'minmax(0, 1fr)',
+              gap: `${COLUMN_GAP_PX}px`,
+              alignItems: 'start',
+              [CODING_COLUMN_QUERY]: {
+                gridTemplateColumns: `minmax(${FORM_COLUMN_MIN_WIDTH}px, 1fr) minmax(${CODING_COLUMN_MIN_WIDTH}px, ${CODING_COLUMN_WIDTH}px)`,
+              },
+            }}
+          >
+            <AccordionCard>
+              <Stack spacing={1.5} style={{ padding: '24px' }}>
+                <QuickPicksButton
+                  quickPicks={sortedMergedQuickPicks}
+                  loading={mergedQuickPicksLoading}
+                  disabled={selectOptions == null}
+                  getLabel={(quickPick) => quickPick.name}
+                  onSelect={onQuickPickSelect}
+                  showAddOption
+                  isAdmin={isAdmin}
+                  onAddOrUpdate={() => void openQuickPickDialog()}
+                  searchable
+                />
+
+                <SectionLabel>Procedure</SectionLabel>
+                <Sentence>
+                  <PopoverBlank
+                    label="procedure type"
+                    title="Procedure type"
+                    value={formValues.procedureType || undefined}
+                    need
+                    readOnly={isReadOnly}
+                    dataTestId={dataTestIds.documentProcedurePage.procedureType}
+                  >
+                    {(close) => (
+                      <AutocompleteInput
+                        name="procedureType"
+                        label="Procedure type"
+                        options={selectOptions?.procedureTypes.map((procedureType) => procedureType.name)}
+                        disabled={isReadOnly}
+                        loading={isSelectOptionsLoading}
+                        freeSolo
+                        dataTestId={dataTestIds.documentProcedurePage.procedureTypeInput}
+                        onOptionSelected={close}
+                        openOnFocus
+                        required
+                        validate={(value) =>
+                          !value || FHIR_CODE_REGEX.test(value) || 'No leading, trailing, or consecutive spaces allowed'
+                        }
+                      />
+                    )}
+                  </PopoverBlank>
+                  {' on '}
+                  <DateTimeBlank
+                    kind="date"
+                    label="date of the procedure"
+                    value={state.procedureDate}
+                    onChange={(date) => updateState((state) => (state.procedureDate = date))}
+                    readOnly={isReadOnly}
+                    dataTestId={dataTestIds.documentProcedurePage.procedureDate}
+                  />
+                  {' at '}
+                  <DateTimeBlank
+                    kind="time"
+                    label="time of the procedure"
+                    value={state.procedureTime}
+                    onChange={(time) => updateState((state) => (state.procedureTime = time))}
+                    readOnly={isReadOnly}
+                    dataTestId={dataTestIds.documentProcedurePage.procedureTime}
+                  />
+                  {', performed by the '}
+                  <SelectBlank
+                    label="performed by"
+                    title="Performed by"
+                    options={PERFORMED_BY_OPTIONS}
+                    value={state.performerType}
+                    onChange={(value) => updateState((state) => (state.performerType = value))}
+                    readOnly={isReadOnly}
+                    dataTestId={dataTestIds.documentProcedurePage.performedBy}
+                  />
+                  {' and documented by the '}
+                  <SelectBlank
+                    label="documented by"
+                    title="Documented by"
+                    options={DOCUMENTED_BY_OPTIONS}
+                    value={state.documentedBy}
+                    onChange={(value) => updateState((state) => (state.documentedBy = value))}
+                    readOnly={isReadOnly}
+                    dataTestId={dataTestIds.documentProcedurePage.documentedBy}
+                  />
+                  .
+                </Sentence>
+                {errors.procedureType && (
+                  <FormHelperText error sx={{ mt: '-8px' }}>
+                    {String(errors.procedureType.message)}
+                  </FormHelperText>
                 )}
-              </Typography>
-            </Box>
+                <Sentence>
+                  Diagnosis:{' '}
+                  {diagnoses.map((diagnosis, index) => (
+                    <Fragment key={diagnosis.resourceId ?? diagnosis.code}>
+                      {index > 0 && '; '}
+                      <Box component="span" data-testid={dataTestIds.documentProcedurePage.diagnosisItem}>
+                        <Box
+                          component="span"
+                          sx={{ color: 'primary.main', fontWeight: 500 }}
+                          data-testid={dataTestIds.documentProcedurePage.diagnosis}
+                        >
+                          {diagnosis.display} {diagnosis.code}
+                        </Box>
+                        {!isReadOnly && (
+                          <IconButton
+                            size="small"
+                            aria-label={`Remove ${diagnosis.code}`}
+                            data-testid={dataTestIds.documentProcedurePage.diagnosisDeleteButton}
+                            onClick={() =>
+                              updateState(
+                                (state) =>
+                                  (state.diagnoses = state.diagnoses?.filter((item) => item.code != diagnosis.code))
+                              )
+                            }
+                            sx={{ p: '2px', ml: '2px' }}
+                          >
+                            <Close sx={{ fontSize: 16 }} />
+                          </IconButton>
+                        )}
+                      </Box>
+                    </Fragment>
+                  ))}{' '}
+                  <PopoverBlank
+                    label={diagnoses.length ? '+ another' : 'add diagnosis'}
+                    title="Diagnosis"
+                    ghost={diagnoses.length > 0}
+                    need={diagnoses.length === 0}
+                    readOnly={isReadOnly}
+                    dataTestId={dataTestIds.documentProcedurePage.addDiagnosis}
+                  >
+                    {(close) => (
+                      <Box sx={{ width: 360, pt: 0.5 }}>
+                        <DiagnosesField
+                          label="Dx"
+                          onChange={(value: IcdSearchResponse['codes'][number]) => {
+                            updateState((state) => {
+                              state.diagnoses = [...(state.diagnoses ?? []), { ...value, isPrimary: false }];
+                            });
+                            close();
+                          }}
+                          // The visit's diagnoses as one-click choices; a charted one keeps its resourceId, so
+                          // the procedure links the existing Condition instead of saving a copy. A visit can hold the
+                          // same code twice (e.g. one from an earlier procedure), so each code is offered once.
+                          quickPickOptions={chartDiagnoses.filter(
+                            (chartDiagnosis, index) =>
+                              chartDiagnoses.findIndex((other) => other.code === chartDiagnosis.code) === index &&
+                              !diagnoses.some((item) => item.code === chartDiagnosis.code)
+                          )}
+                          disableForPrimary={false}
+                          disabled={isReadOnly}
+                        />
+                      </Box>
+                    )}
+                  </PopoverBlank>
+                </Sentence>
+                <Sentence>
+                  Consent for Procedure{' '}
+                  {consentPdfExists && (
+                    <Link
+                      target="_blank"
+                      to={`/consent_procedure.pdf`}
+                      aria-label="Open the Consent for Procedure form"
+                      title="Open the Consent for Procedure form"
+                      style={{ color: theme.palette.text.secondary, lineHeight: 0 }}
+                    >
+                      <OpenInNew sx={{ fontSize: 16, verticalAlign: 'text-bottom' }} />
+                    </Link>
+                  )}{' '}
+                  <SelectBlank
+                    label="consent"
+                    title="Consent for Procedure"
+                    options={CONSENT}
+                    value={state.consentObtained == null ? undefined : state.consentObtained ? CONSENT[0] : CONSENT[1]}
+                    onChange={(value) =>
+                      updateState(
+                        (state) => (state.consentObtained = value === undefined ? undefined : value === CONSENT[0])
+                      )
+                    }
+                    readOnly={isReadOnly}
+                    need
+                    dataTestId={dataTestIds.documentProcedurePage.consentForProcedure}
+                  />
+                  .
+                </Sentence>
 
-            <QuickPicksButton
-              quickPicks={sortedMergedQuickPicks}
-              loading={mergedQuickPicksLoading}
-              disabled={selectOptions == null}
-              getLabel={(quickPick) => quickPick.name}
-              onSelect={onQuickPickSelect}
-              showAddOption
-              isAdmin={isAdmin}
-              onAddOrUpdate={() => void openQuickPickDialog()}
-              searchable
-            />
+                {(!codingFamily?.capturesSite || !codingFamily?.capturesSide) && (
+                  <>
+                    <SectionLabel>Site</SectionLabel>
+                    <Sentence>
+                      {!codingFamily?.capturesSite && (
+                        <>
+                          Site:{' '}
+                          <SelectBlank
+                            label="site/location"
+                            title="Site/location"
+                            options={selectOptions?.bodySites}
+                            value={state.bodySite}
+                            onChange={(value) =>
+                              updateState((state) => {
+                                state.bodySite = value;
+                                state.otherBodySite = undefined;
+                              })
+                            }
+                            readOnly={isReadOnly}
+                            clearable
+                            dataTestId={dataTestIds.documentProcedurePage.site}
+                          />
+                        </>
+                      )}
+                      {!codingFamily?.capturesSite && !codingFamily?.capturesSide && ', '}
+                      {!codingFamily?.capturesSide && (
+                        <>
+                          <SelectBlank
+                            label="side"
+                            title="Side of body"
+                            options={selectOptions?.bodySides}
+                            value={state.bodySide}
+                            onChange={(value) => updateState((state) => (state.bodySide = value))}
+                            readOnly={isReadOnly}
+                            clearable
+                            dataTestId={dataTestIds.documentProcedurePage.sideOfBody}
+                          />{' '}
+                          side
+                        </>
+                      )}
+                      .
+                    </Sentence>
+                    <ProcedureOtherTextInput
+                      parentLabel="Site/location"
+                      visible={!codingFamily?.capturesSite && state.bodySite === OTHER}
+                      value={state.otherBodySite}
+                      onChange={(value) => updateState((state) => (state.otherBodySite = value))}
+                      disabled={isReadOnly}
+                    />
+                  </>
+                )}
 
-            <Box sx={{ marginTop: '16px', color: '#0F347C' }}>
-              <Typography style={{ color: '#0F347C', fontSize: '16px', fontWeight: '500' }}>Procedure Type</Typography>
-            </Box>
-
-            <AutocompleteInput
-              name="procedureType"
-              label="Procedure type"
-              options={selectOptions?.procedureTypes.map((procedureType) => procedureType.name)}
-              disabled={isReadOnly}
-              loading={isSelectOptionsLoading}
-              freeSolo
-              dataTestId={dataTestIds.documentProcedurePage.procedureType}
-              required
-              validate={(value) =>
-                !value || FHIR_CODE_REGEX.test(value) || 'No leading, trailing, or consecutive spaces allowed'
-              }
-            />
-
-            <Typography style={{ marginTop: '8px', color: '#0F347C', fontSize: '16px', fontWeight: '500' }}>
-              Dx
-            </Typography>
-
-            <ProcedureDiagnosesField
-              diagnoses={state.diagnoses ?? []}
-              onAdd={(value: IcdSearchResponse['codes'][number]) =>
-                updateState((state) => {
-                  state.diagnoses = [...(state.diagnoses ?? []), { ...value, isPrimary: false }];
-                })
-              }
-              onDelete={(value) =>
-                updateState(
-                  (state) => (state.diagnoses = state.diagnoses?.filter((diagnosis) => diagnosis.code != value.code))
-                )
-              }
-              disabled={isReadOnly}
-            />
-
-            <Typography style={{ marginTop: '8px', color: '#0F347C', fontSize: '16px', fontWeight: '500' }}>
-              Procedure Details
-            </Typography>
-
-            <Stack direction="row" spacing={2}>
-              <LocalizationProvider dateAdapter={AdapterLuxon}>
-                <DatePicker
-                  label="Date of the procedure"
-                  slotProps={{
-                    textField: {
-                      InputLabelProps: { shrink: true },
-                      InputProps: { size: 'small', placeholder: 'MM/DD/YYYY' },
-                    },
-                  }}
-                  value={state.procedureDate}
-                  onChange={(date: DateTime | null, _e: any) => updateState((state) => (state.procedureDate = date))}
-                  disabled={isReadOnly}
-                />
-              </LocalizationProvider>
-
-              <LocalizationProvider dateAdapter={AdapterLuxon}>
-                <TimePicker
-                  label="Time of the procedure"
-                  slotProps={{
-                    textField: {
-                      InputLabelProps: { shrink: true },
-                      InputProps: { size: 'small' },
-                    },
-                  }}
-                  value={state.procedureTime}
-                  onChange={(time: DateTime | null, _e: any) => updateState((state) => (state.procedureTime = time))}
-                  disabled={isReadOnly}
-                />
-              </LocalizationProvider>
-            </Stack>
-
-            <ProcedureRadioGroup
-              label="Performed by"
-              options={PERFORMED_BY}
-              value={state.performerType}
-              onChange={(value) => updateState((state) => (state.performerType = value))}
-              disabled={isReadOnly}
-              dataTestId={dataTestIds.documentProcedurePage.performedBy}
-            />
-
-            <InfoAlert text="Please include body part including laterality, type and quantity anesthesia used, specific materials (type and quantity) used, technique, findings, complications, specimen sent, and after-procedure status." />
-
-            <ProcedureDropdown
-              label="Anaesthesia / medication used"
-              options={selectOptions?.medicationsUsed}
-              value={state.medicationUsed}
-              onChange={(value) => updateState((state) => (state.medicationUsed = value))}
-              disabled={isReadOnly}
-              dataTestId={dataTestIds.documentProcedurePage.anaesthesia}
-            />
-
-            {!codingFamily?.capturesSite && (
-              <>
-                <ProcedureDropdown
-                  label="Site/location"
-                  options={selectOptions?.bodySites}
-                  value={state.bodySite}
-                  onChange={(value) =>
-                    updateState((state) => {
-                      state.bodySite = value;
-                      state.otherBodySite = undefined;
-                    })
+                {codingFamily && (
+                  <>
+                    <SectionLabel>{codingFamily.displayName}</SectionLabel>
+                    {codingFamily.id === lacerationFamily.id ? (
+                      <LacerationSentences
+                        family={codingFamily}
+                        value={resolvedStructuredFacts ?? {}}
+                        onChange={(value) => updateState((state) => (state.structuredFacts = value))}
+                        readOnly={isReadOnly}
+                      />
+                    ) : (
+                      <CodingFieldSentences
+                        family={codingFamily}
+                        value={resolvedStructuredFacts ?? {}}
+                        onChange={(value) => updateState((state) => (state.structuredFacts = value))}
+                        readOnly={isReadOnly}
+                        medicationUsed={state.medicationUsed}
+                      />
+                    )}
+                  </>
+                )}
+                <ConditionalCodingFields
+                  visibility={
+                    detectProcedureFamily(procedureFacts)
+                      ? { length: false, repairDepth: false, infusionTimes: false }
+                      : codingAssist.fieldVisibility
                   }
-                  disabled={isReadOnly}
-                  dataTestId={dataTestIds.documentProcedurePage.site}
+                  isReadOnly={isReadOnly}
+                  lengthCm={state.lengthCm}
+                  repairDepth={state.repairDepth}
+                  infusionStartTime={state.infusionStartTime}
+                  infusionStopTime={state.infusionStopTime}
+                  onLengthChange={(value) => updateState((state) => (state.lengthCm = value))}
+                  onRepairDepthChange={(value) => updateState((state) => (state.repairDepth = value))}
+                  onInfusionStartChange={(value) => updateState((state) => (state.infusionStartTime = value))}
+                  onInfusionStopChange={(value) => updateState((state) => (state.infusionStopTime = value))}
                 />
 
+                <SectionLabel>Technique</SectionLabel>
+                <Sentence>
+                  Anesthesia:{' '}
+                  <SelectBlank
+                    label="anesthesia"
+                    title="Anaesthesia / medication used"
+                    options={selectOptions?.medicationsUsed}
+                    value={state.medicationUsed}
+                    onChange={(value) => updateState((state) => (state.medicationUsed = value))}
+                    readOnly={isReadOnly}
+                    clearable
+                    dataTestId={dataTestIds.documentProcedurePage.anaesthesia}
+                  />
+                  . Technique:{' '}
+                  <MultiBlank
+                    label="technique"
+                    title="Technique"
+                    options={selectOptions?.techniques}
+                    values={state.technique}
+                    onChange={(values) => updateState((state) => (state.technique = values))}
+                    readOnly={isReadOnly}
+                    dataTestId={dataTestIds.documentProcedurePage.technique}
+                  />
+                  . Supplies:{' '}
+                  <MultiBlank
+                    label="supplies"
+                    title="Instruments / supplies used"
+                    options={selectOptions?.supplies}
+                    values={state.suppliesUsed}
+                    onChange={(values) => updateState((state) => (state.suppliesUsed = values))}
+                    readOnly={isReadOnly}
+                    dataTestId={dataTestIds.documentProcedurePage.instruments}
+                  />
+                  .
+                </Sentence>
                 <ProcedureOtherTextInput
-                  parentLabel="Site/location"
-                  visible={state.bodySite === OTHER}
-                  value={state.otherBodySite}
-                  onChange={(value) => updateState((state) => (state.otherBodySite = value))}
+                  parentLabel="Instruments / supplies used"
+                  visible={state.suppliesUsed?.includes(OTHER) ?? false}
+                  value={state.otherSuppliesUsed}
+                  onChange={(value) => updateState((state) => (state.otherSuppliesUsed = value))}
                   disabled={isReadOnly}
                 />
-              </>
-            )}
-            {!codingFamily?.capturesSide && (
-              <ProcedureDropdown
-                label="Side of body"
-                options={selectOptions?.bodySides}
-                value={state.bodySide}
-                onChange={(value) => updateState((state) => (state.bodySide = value))}
-                disabled={isReadOnly}
-                dataTestId={dataTestIds.documentProcedurePage.sideOfBody}
-              />
-            )}
 
-            <StructuredCodingFields
-              family={detectProcedureFamily({ procedureType: formValues.procedureType })}
-              value={codingFamily ? resolveFamilyFacts(codingFamily, procedureFacts) : state.structuredFacts}
-              onChange={(value) =>
-                updateState((state) => {
-                  state.structuredFacts = value;
-                })
-              }
-              readOnly={isReadOnly}
-              medicationUsed={state.medicationUsed}
-            />
-            <ConditionalCodingFields
-              visibility={
-                detectProcedureFamily(procedureFacts)
-                  ? { length: false, repairDepth: false, infusionTimes: false }
-                  : codingAssist.fieldVisibility
-              }
-              isReadOnly={isReadOnly}
-              lengthCm={state.lengthCm}
-              repairDepth={state.repairDepth}
-              infusionStartTime={state.infusionStartTime}
-              infusionStopTime={state.infusionStopTime}
-              onLengthChange={(value) => updateState((state) => (state.lengthCm = value))}
-              onRepairDepthChange={(value) => updateState((state) => (state.repairDepth = value))}
-              onInfusionStartChange={(value) => updateState((state) => (state.infusionStartTime = value))}
-              onInfusionStopChange={(value) => updateState((state) => (state.infusionStopTime = value))}
-            />
+                <SectionLabel>Outcome</SectionLabel>
+                <Sentence>
+                  Specimen{' '}
+                  <SelectBlank
+                    label="specimen"
+                    title="Specimen sent"
+                    options={SPECIMEN_SENT}
+                    value={
+                      state.specimenSent == null ? undefined : state.specimenSent ? SPECIMEN_SENT[0] : SPECIMEN_SENT[1]
+                    }
+                    onChange={(value) =>
+                      updateState(
+                        (state) => (state.specimenSent = value === undefined ? undefined : value === SPECIMEN_SENT[0])
+                      )
+                    }
+                    readOnly={isReadOnly}
+                    dataTestId={dataTestIds.documentProcedurePage.specimenSent}
+                  />
+                  . Complications:{' '}
+                  <SelectBlank
+                    label="complications"
+                    title="Complications"
+                    options={selectOptions?.complications}
+                    value={state.complications}
+                    onChange={(value) =>
+                      updateState((state) => {
+                        state.complications = value;
+                        state.otherComplications = undefined;
+                      })
+                    }
+                    readOnly={isReadOnly}
+                    clearable
+                    dataTestId={dataTestIds.documentProcedurePage.complications}
+                  />
+                  . Patient{' '}
+                  <SelectBlank
+                    label="response"
+                    title="Patient response"
+                    options={selectOptions?.patientResponses}
+                    value={state.patientResponse}
+                    onChange={(value) => updateState((state) => (state.patientResponse = value))}
+                    readOnly={isReadOnly}
+                    clearable
+                    dataTestId={dataTestIds.documentProcedurePage.patientResponse}
+                  />
+                  . Time spent:{' '}
+                  <SelectBlank
+                    label="time spent"
+                    title="Time spent"
+                    options={selectOptions?.timeSpent}
+                    value={state.timeSpent}
+                    onChange={(value) => updateState((state) => (state.timeSpent = value))}
+                    readOnly={isReadOnly}
+                    clearable
+                    dataTestId={dataTestIds.documentProcedurePage.timeSpent}
+                  />
+                  .
+                </Sentence>
+                <ProcedureOtherTextInput
+                  parentLabel="Complications"
+                  visible={state.complications === OTHER}
+                  value={state.otherComplications}
+                  onChange={(value) => updateState((state) => (state.otherComplications = value))}
+                  disabled={isReadOnly}
+                />
+                <Sentence>
+                  Instructions given:{' '}
+                  <MultiBlank
+                    label="instructions"
+                    title="Post-procedure Instructions"
+                    options={selectOptions?.postProcedureInstructions}
+                    values={state.postInstructions}
+                    onChange={(values) => updateState((state) => (state.postInstructions = values))}
+                    readOnly={isReadOnly}
+                    dataTestId={dataTestIds.documentProcedurePage.postProcedureInstructions}
+                  />
+                  .
+                </Sentence>
+                <ProcedureOtherTextInput
+                  parentLabel="Post-procedure Instructions"
+                  visible={state.postInstructions?.includes(OTHER) ?? false}
+                  value={state.otherPostInstructions}
+                  onChange={(value) => updateState((state) => (state.otherPostInstructions = value))}
+                  disabled={isReadOnly}
+                />
 
-            <ProcedureMultiSelect
-              label="Technique"
-              options={selectOptions?.techniques}
-              values={state.technique}
-              onChange={(values) => updateState((state) => (state.technique = values))}
-              disabled={isReadOnly}
-              dataTestId={dataTestIds.documentProcedurePage.technique}
-            />
+                <SectionLabel>Procedure details</SectionLabel>
+                <TextField
+                  placeholder="Anything the sentences above don't cover"
+                  inputProps={{ 'aria-label': 'Procedure details' }}
+                  multiline
+                  rows={4}
+                  value={state.procedureDetails ?? ''}
+                  onChange={(e: any) => updateState((state) => (state.procedureDetails = e.target.value))}
+                  disabled={isReadOnly}
+                  data-testid={dataTestIds.documentProcedurePage.procedureDetails}
+                />
 
-            <ProcedureMultiSelect
-              label="Instruments / supplies used"
-              options={selectOptions?.supplies}
-              values={state.suppliesUsed}
-              onChange={(values) => updateState((state) => (state.suppliesUsed = values))}
-              disabled={isReadOnly}
-              dataTestId={dataTestIds.documentProcedurePage.instruments}
-            />
+                <Divider orientation="horizontal" />
 
-            <ProcedureOtherTextInput
-              parentLabel="Instruments / supplies used"
-              visible={state.suppliesUsed?.includes(OTHER) ?? false}
-              value={state.otherSuppliesUsed}
-              onChange={(value) => updateState((state) => (state.otherSuppliesUsed = value))}
-              disabled={isReadOnly}
-            />
-
-            <TextField
-              label="Procedure details"
-              multiline
-              rows={4}
-              value={state.procedureDetails ?? ''}
-              onChange={(e: any) => updateState((state) => (state.procedureDetails = e.target.value))}
-              disabled={isReadOnly}
-              data-testid={dataTestIds.documentProcedurePage.procedureDetails}
-            />
-
-            <ProcedureRadioGroup
-              label="Specimen sent"
-              options={SPECIMEN_SENT}
-              value={state.specimenSent != null ? (state.specimenSent ? 'Yes' : 'No') : undefined}
-              onChange={(value) => updateState((state) => (state.specimenSent = value === 'Yes'))}
-              disabled={isReadOnly}
-              dataTestId={dataTestIds.documentProcedurePage.specimenSent}
-            />
-
-            <ProcedureDropdown
-              label="Complications"
-              options={selectOptions?.complications}
-              value={state.complications}
-              onChange={(value) =>
-                updateState((state) => {
-                  state.complications = value;
-                  state.otherComplications = undefined;
-                })
-              }
-              disabled={isReadOnly}
-              dataTestId={dataTestIds.documentProcedurePage.complications}
-            />
-
-            <ProcedureOtherTextInput
-              parentLabel="Complications"
-              visible={state.complications === OTHER}
-              value={state.otherComplications}
-              onChange={(value) => updateState((state) => (state.otherComplications = value))}
-              disabled={isReadOnly}
-            />
-
-            <ProcedureDropdown
-              label="Patient response"
-              options={selectOptions?.patientResponses}
-              value={state.patientResponse}
-              onChange={(value) => updateState((state) => (state.patientResponse = value))}
-              disabled={isReadOnly}
-              dataTestId={dataTestIds.documentProcedurePage.patientResponse}
-            />
-
-            <ProcedureMultiSelect
-              label="Post-procedure Instructions"
-              options={selectOptions?.postProcedureInstructions}
-              values={state.postInstructions}
-              onChange={(values) => updateState((state) => (state.postInstructions = values))}
-              disabled={isReadOnly}
-              dataTestId={dataTestIds.documentProcedurePage.postProcedureInstructions}
-            />
-
-            <ProcedureOtherTextInput
-              parentLabel="Post-procedure Instructions"
-              visible={state.postInstructions?.includes(OTHER) ?? false}
-              value={state.otherPostInstructions}
-              onChange={(value) => updateState((state) => (state.otherPostInstructions = value))}
-              disabled={isReadOnly}
-            />
-
-            <ProcedureDropdown
-              label="Time spent"
-              options={selectOptions?.timeSpent}
-              value={state.timeSpent}
-              onChange={(value) => updateState((state) => (state.timeSpent = value))}
-              disabled={isReadOnly}
-              dataTestId={dataTestIds.documentProcedurePage.timeSpent}
-            />
-
-            <ProcedureRadioGroup
-              label="Documented by"
-              options={DOCUMENTED_BY}
-              value={state.documentedBy}
-              onChange={(value) => updateState((state) => (state.documentedBy = value))}
-              disabled={isReadOnly}
-              dataTestId={dataTestIds.documentProcedurePage.documentedBy}
-            />
-
-            <TooltipWrapper tooltipProps={CPT_TOOLTIP_PROPS}>
-              <Typography style={{ color: '#0F347C', fontSize: '16px', fontWeight: '500' }}>CPT Code</Typography>
-            </TooltipWrapper>
-
-            <CodingAssistPanel
-              onRetrySuggestions={codingAssist.retrySuggestions}
-              evaluation={forwardEvaluation}
-              isEvaluating={codingAssistIsEvaluating}
-              rulesVintage={codingAssist.rulesVintage}
-              procedureTypeSelected={Boolean(formValues.procedureType)}
-              isReadOnly={isReadOnly}
-              selectedCodes={state.cptCodes ?? []}
-              onAddCodes={addRecommendedCptCodes}
-            />
-
-            <DocumentationCheck evaluation={codingEvaluations?.defense} suggestionVisible={suggestionVisible} />
-
-            <ProcedureCptCodesField
-              codes={state.cptCodes ?? []}
-              searchOptions={cptSearchOptions}
-              isSearching={isSearching}
-              searchTerm={debouncedSearchTerm}
-              onSearchTermChange={debouncedHandleInputChange}
-              onAdd={(code) => updateState((state) => (state.cptCodes = [...(state.cptCodes ?? []), code]))}
-              onDelete={(code) =>
-                updateState((state) => {
-                  // The same code can appear twice with different modifiers (a repeat recording, a payer
-                  // alternative). Delete the line the user clicked, not every line sharing its code.
-                  const index = state.cptCodes?.findIndex((cptCode) => sameCptLine(cptCode, code)) ?? -1;
-                  if (index >= 0) state.cptCodes = state.cptCodes?.filter((_, i) => i !== index);
-                })
-              }
-              disabled={isReadOnly}
-            />
-
-            <Divider orientation="horizontal" />
-
-            <Box style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <Stack direction="row" spacing={2}>
-                <RoundedButton color="primary" onClick={onCancel}>
-                  Cancel
-                </RoundedButton>
-                {!procedureId && (
-                  <RoundedButton color="primary" onClick={handleClearForm}>
-                    Clear Form
+                <Box style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <Stack direction="row" spacing={2}>
+                    <RoundedButton color="primary" onClick={onCancel}>
+                      Cancel
+                    </RoundedButton>
+                    {!procedureId && (
+                      <RoundedButton color="primary" onClick={handleClearForm}>
+                        Clear Form
+                      </RoundedButton>
+                    )}
+                  </Stack>
+                  <RoundedButton
+                    color="primary"
+                    variant="contained"
+                    disabled={isReadOnly}
+                    onClick={methods.handleSubmit(onSave)}
+                    data-testid={dataTestIds.documentProcedurePage.saveButton}
+                  >
+                    Save
                   </RoundedButton>
+                </Box>
+
+                {Object.entries(errors).length > 0 && (
+                  <FormHelperText sx={{ textAlign: 'right' }} error={true}>
+                    Please fix all errors
+                  </FormHelperText>
                 )}
               </Stack>
-              <RoundedButton
-                color="primary"
-                variant="contained"
-                disabled={isReadOnly}
-                onClick={methods.handleSubmit(onSave)}
-                data-testid={dataTestIds.documentProcedurePage.saveButton}
-              >
-                Save
-              </RoundedButton>
-            </Box>
+            </AccordionCard>
+            <Box sx={{ [CODING_COLUMN_QUERY]: { position: 'sticky', top: 16 } }}>
+              <AccordionCard>
+                <Stack spacing={1.5} style={{ padding: '24px' }}>
+                  <TooltipWrapper tooltipProps={CPT_TOOLTIP_PROPS}>
+                    <Typography style={{ color: '#0F347C', fontSize: '16px', fontWeight: '500' }}>CPT Code</Typography>
+                  </TooltipWrapper>
 
-            {Object.entries(errors).length > 0 && (
-              <FormHelperText sx={{ textAlign: 'right' }} error={true}>
-                Please fix all errors
-              </FormHelperText>
-            )}
-          </Stack>
-        </AccordionCard>
+                  <CodingAssistPanel
+                    onRetrySuggestions={codingAssist.retrySuggestions}
+                    evaluation={forwardEvaluation}
+                    isEvaluating={codingAssistIsEvaluating}
+                    rulesVintage={codingAssist.rulesVintage}
+                    procedureTypeSelected={Boolean(formValues.procedureType)}
+                    isReadOnly={isReadOnly}
+                    selectedCodes={state.cptCodes ?? []}
+                    onAddCodes={addRecommendedCptCodes}
+                    bestPracticesInline={false}
+                    showRulesVintage={false}
+                  />
+
+                  <DocumentationCheck evaluation={codingEvaluations?.defense} suggestionVisible={suggestionVisible} />
+
+                  <ProcedureCptCodesField
+                    codes={state.cptCodes ?? []}
+                    searchOptions={cptSearchOptions}
+                    isSearching={isSearching}
+                    searchTerm={debouncedSearchTerm}
+                    onSearchTermChange={debouncedHandleInputChange}
+                    onAdd={(code) => updateState((state) => (state.cptCodes = [...(state.cptCodes ?? []), code]))}
+                    onDelete={(code) =>
+                      updateState((state) => {
+                        // The same code can appear twice with different modifiers (a repeat recording, a payer
+                        // alternative). Delete the line the user clicked, not every line sharing its code.
+                        const index = state.cptCodes?.findIndex((cptCode) => sameCptLine(cptCode, code)) ?? -1;
+                        if (index >= 0) state.cptCodes = state.cptCodes?.filter((_, i) => i !== index);
+                      })
+                    }
+                    disabled={isReadOnly}
+                  />
+
+                  {codingGuidance.length > 0 && !codingAssistIsEvaluating && (
+                    <Box sx={{ background: '#F4F6F8', borderRadius: '8px', padding: '8px' }}>
+                      <CodingFindingList
+                        findings={codingGuidance}
+                        dataTestId={dataTestIds.documentProcedurePage.codingGuidance}
+                      />
+                    </Box>
+                  )}
+                </Stack>
+              </AccordionCard>
+            </Box>
+          </Box>
+        </Box>
       </Stack>
 
       <Backdrop sx={(theme) => ({ color: '#fff', zIndex: theme.zIndex.drawer + 1 })} open={saveInProgress}>
