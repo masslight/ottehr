@@ -50,15 +50,18 @@ function makeMockOystehr(options?: { withCandidAppointmentId?: boolean }): any {
   };
 }
 
-function makeMockCandidApiClient(existingRefundNotes: string[] = []): any {
+function makeMockCandidApiClient(existingRefunds: { refundNote?: string; patientRefundId?: string }[] = []): any {
   return {
     patientRefunds: {
       v1: {
         getMulti: vi.fn().mockResolvedValue({
           ok: true,
-          body: { items: existingRefundNotes.map((refundNote) => ({ refundNote })) },
+          body: {
+            items: existingRefunds.map((item, index) => ({ patientRefundId: `existing-${index}`, ...item })),
+          },
         }),
         create: vi.fn().mockResolvedValue({ ok: true, body: { patientRefundId: 'candid-refund-1' } }),
+        delete: vi.fn().mockResolvedValue({ ok: true }),
       },
     },
   };
@@ -113,7 +116,9 @@ describe('syncCandidPatientRefunds', () => {
   });
 
   it('skips refunds already recorded in Candid (note-marker dedup)', async () => {
-    const candidApiClient = makeMockCandidApiClient(['[ottehr-refund:manual_notice-1_key-1] — Overcharge']);
+    const candidApiClient = makeMockCandidApiClient([
+      { refundNote: '[ottehr-refund:manual_notice-1_key-1] — Overcharge' },
+    ]);
     const recorded = await syncCandidPatientRefunds({
       encounterId: ENCOUNTER_ID,
       refunds: [makeRefund(), makeRefund({ stripeRefundId: 'manual_notice-1_key-2', amountInCents: 1000 })],
@@ -208,5 +213,93 @@ describe('syncCandidPatientRefunds', () => {
         candidApiClient,
       })
     ).rejects.toThrow('Error creating Candid patient refund');
+  });
+
+  it('re-lists after creating and trims a duplicate created by a concurrent sync', async () => {
+    const candidApiClient = makeMockCandidApiClient();
+    candidApiClient.patientRefunds.v1.getMulti
+      .mockResolvedValueOnce({ ok: true, body: { items: [] } })
+      .mockResolvedValueOnce({
+        ok: true,
+        body: {
+          items: [
+            { patientRefundId: 'refund-b', refundNote: '[ottehr-refund:manual_notice-1_key-1]' },
+            { patientRefundId: 'refund-a', refundNote: '[ottehr-refund:manual_notice-1_key-1]' },
+          ],
+        },
+      });
+
+    const recorded = await syncCandidPatientRefunds({
+      encounterId: ENCOUNTER_ID,
+      refunds: [makeRefund()],
+      oystehr: makeMockOystehr(),
+      candidApiClient,
+    });
+
+    expect(recorded).toBe(1);
+    expect(candidApiClient.patientRefunds.v1.getMulti).toHaveBeenCalledTimes(2);
+    // keeps the lowest id so every racer picks the same winner
+    expect(candidApiClient.patientRefunds.v1.delete).toHaveBeenCalledOnce();
+    expect(candidApiClient.patientRefunds.v1.delete).toHaveBeenCalledWith('refund-b');
+  });
+
+  it('trims pre-existing duplicates even when nothing new is created', async () => {
+    const candidApiClient = makeMockCandidApiClient([
+      { patientRefundId: 'refund-2', refundNote: '[ottehr-refund:manual_notice-1_key-1]' },
+      { patientRefundId: 'refund-1', refundNote: '[ottehr-refund:manual_notice-1_key-1]' },
+    ]);
+
+    const recorded = await syncCandidPatientRefunds({
+      encounterId: ENCOUNTER_ID,
+      refunds: [makeRefund()],
+      oystehr: makeMockOystehr(),
+      candidApiClient,
+    });
+
+    expect(recorded).toBe(0);
+    expect(candidApiClient.patientRefunds.v1.create).not.toHaveBeenCalled();
+    // no re-list needed when nothing was created
+    expect(candidApiClient.patientRefunds.v1.getMulti).toHaveBeenCalledOnce();
+    expect(candidApiClient.patientRefunds.v1.delete).toHaveBeenCalledWith('refund-2');
+  });
+
+  it('tolerates a duplicate already deleted by a concurrent sync', async () => {
+    const candidApiClient = makeMockCandidApiClient([
+      { patientRefundId: 'refund-2', refundNote: '[ottehr-refund:manual_notice-1_key-1]' },
+      { patientRefundId: 'refund-1', refundNote: '[ottehr-refund:manual_notice-1_key-1]' },
+    ]);
+    candidApiClient.patientRefunds.v1.delete.mockResolvedValue({
+      ok: false,
+      error: { errorName: 'EntityNotFoundError' },
+    });
+
+    await expect(
+      syncCandidPatientRefunds({
+        encounterId: ENCOUNTER_ID,
+        refunds: [makeRefund()],
+        oystehr: makeMockOystehr(),
+        candidApiClient,
+      })
+    ).resolves.toBe(0);
+  });
+
+  it('throws when deleting a duplicate fails for another reason', async () => {
+    const candidApiClient = makeMockCandidApiClient([
+      { patientRefundId: 'refund-2', refundNote: '[ottehr-refund:manual_notice-1_key-1]' },
+      { patientRefundId: 'refund-1', refundNote: '[ottehr-refund:manual_notice-1_key-1]' },
+    ]);
+    candidApiClient.patientRefunds.v1.delete.mockResolvedValue({
+      ok: false,
+      error: { errorName: 'UnauthorizedError' },
+    });
+
+    await expect(
+      syncCandidPatientRefunds({
+        encounterId: ENCOUNTER_ID,
+        refunds: [makeRefund()],
+        oystehr: makeMockOystehr(),
+        candidApiClient,
+      })
+    ).rejects.toThrow('Error deleting duplicate Candid patient refund');
   });
 });
