@@ -287,6 +287,8 @@ export const ENCOUNTER_DOMAIN_FIELDS: readonly (keyof AdHocEncounterRow)[] = [
   'accidentType',
   'screeningQuestions',
   'workSchoolNotes',
+  'patientScreeningQuestions',
+  'followUpReason',
   'procedureTypes',
   'occupationalMedicineEmployer',
 ];
@@ -684,6 +686,19 @@ export const ENCOUNTER_LAYERS = {
                 'In-house only, parallel to resultComponents: A = abnormal (e.g. a POSITIVE rapid test), N = normal, ' +
                   'IND = indeterminate. Count A for a positivity rate.'
               ),
+            collectedAt: z
+              .string()
+              .nullable()
+              .describe('Full ISO instant the specimen was collected. Null when not recorded / sent to a PSC.'),
+            collectedBy: z.string().describe('Who collected the specimen. "" when not recorded.'),
+            reviewedAt: z
+              .string()
+              .nullable()
+              .describe(
+                'External only: full ISO instant the provider reviewed the (latest) result. Null until reviewed. ' +
+                  'Result-to-review time = reviewedAt − resultedAt.'
+              ),
+            reviewedBy: z.string().describe('External only: provider who reviewed the result. "" until reviewed.'),
           })
         )
         .describe(
@@ -1088,6 +1103,48 @@ export const ENCOUNTER_LAYERS = {
           })
         )
         .describe('One record per screening question answered on this visit. Empty when none.'),
+      patientScreeningQuestions: z
+        .array(z.string())
+        .describe(
+          'Screening questions the PATIENT answered in the intake paperwork (question text) — the values ' +
+            'patientScreeningAnswers[].question takes.'
+        ),
+      patientScreeningAnswers: z
+        .array(
+          z.object({
+            question: z.string().describe('Question text, same value as in patientScreeningQuestions[].'),
+            answer: z.string().describe('The patient\'s answer as a label ("Yes", "No", …) or free text.'),
+          })
+        )
+        .describe(
+          "The patient's own answers in the intake paperwork, as the chart shows them next to the staff answers " +
+            '(screeningAnswers). Empty when the patient answered none.'
+        ),
+    }),
+  },
+  followUp: {
+    label: 'Follow-up notes',
+    description:
+      'Telephone / annotation follow-ups: on a follow-up row its reason, caller, who answered, message, provider ' +
+      'and open / resolved status; on a visit row how many follow-up notes it has.',
+    schema: z.object({
+      followUpNoteCount: z
+        .number()
+        .describe('On a visit row: number of follow-up notes added to this visit. 0 on follow-up rows.'),
+      followUpReason: z.string().describe('Follow-up row: reason picked (e.g. "Result - Lab"). "" otherwise.'),
+      followUpReasonOther: z.string().describe('Follow-up row: free-text reason when "Other". "" otherwise.'),
+      followUpCaller: z.string().describe('Follow-up row: who made the call. "" when not recorded.'),
+      followUpAnswered: z.string().describe('Follow-up row: who answered. "" when not recorded.'),
+      followUpProvider: z.string().describe('Follow-up row: provider on the follow-up. "" when none.'),
+      followUpMessage: z.string().describe('Follow-up row: the note message (free text). "" when none.'),
+      followUpStatus: z
+        .enum(['OPEN', 'RESOLVED'])
+        .nullable()
+        .describe('Follow-up row: OPEN while in progress, RESOLVED once closed. Null on visit rows.'),
+      followUpResolvedAt: z
+        .string()
+        .nullable()
+        .describe('Follow-up row: full ISO instant it was resolved. Null while open and on visit rows.'),
     }),
   },
   documents: {

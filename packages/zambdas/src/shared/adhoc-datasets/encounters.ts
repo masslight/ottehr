@@ -37,7 +37,13 @@ import {
 } from 'utils/lib/fhir/appointments';
 import { DOCUMENT_REFERENCE_SUMMARY_FROM_AUDIO, DOCUMENT_REFERENCE_SUMMARY_FROM_CHAT } from 'utils/lib/fhir/constants';
 import { dispositionCheckboxOptions, mapDispositionTypeToLabel } from 'utils/lib/fhir/disposition';
-import { getPaymentVariantFromEncounter, PaymentVariant } from 'utils/lib/fhir/encounter';
+import {
+  formatFhirEncounterToPatientFollowupDetails,
+  getAnnotationFollowupStatusLabel,
+  getPaymentVariantFromEncounter,
+  isAnnotationFollowupEncounter,
+  PaymentVariant,
+} from 'utils/lib/fhir/encounter';
 import {
   extractExtensionValue,
   findExtensionIndex,
@@ -65,7 +71,10 @@ import { ORDER_TYPE_CODE_SYSTEM } from 'utils/lib/fhir/radiology';
 import { makeVitalsObservationDTO } from 'utils/lib/fhir/vitals';
 import { getProviderType } from 'utils/lib/helpers/helpers';
 import { isInHouseLabServiceRequest } from 'utils/lib/helpers/in-house-labs';
-import { formatScreeningQuestionValue } from 'utils/lib/helpers/screening-questions/screening-questions-formatting.helper';
+import {
+  formatScreeningQuestionValue,
+  getPaperworkScreeningAnswer,
+} from 'utils/lib/helpers/screening-questions/screening-questions-formatting.helper';
 import { getVitalDTOCriticalityFromObservation } from 'utils/lib/helpers/vitals/utils';
 import { HeightMeasurement } from 'utils/lib/helpers/vitals/vitals-height.helper';
 import {
@@ -343,6 +352,7 @@ export async function fetchAdHocEncounterRows(
     includeIntake,
     includeDocuments,
     includeEmployer,
+    includeFollowUp,
   } = params;
   const environment = options.environment ?? '';
 
@@ -670,23 +680,26 @@ export async function fetchAdHocEncounterRows(
       }
     }
 
-    if (includePaperwork) {
-      // The tracking board's paperwork inputs: the visit's intake QuestionnaireResponse and the patient's
-      // current Photo ID / insurance card DocumentReferences.
-      const patientRefs = Array.from(patientMap.keys());
-
-      const [questionnaireResponses, docRefs] = await Promise.all([
-        fetchScoped<QuestionnaireResponse>('QuestionnaireResponse', 'encounter', encRefs),
-        fetchScoped<DocumentReference>('DocumentReference', 'related', patientRefs, [
-          { name: 'status', value: 'current' },
-          { name: 'type', value: `${INSURANCE_CARD_CODE},${PHOTO_ID_CARD_CODE}` },
-        ]),
-      ]);
-
-      for (const qr of questionnaireResponses) {
+    if (includePaperwork || includeIntake) {
+      // The visit's intake paperwork (QuestionnaireResponse): paperwork status, and the patient's own
+      // screening answers in the intake layer.
+      for (const qr of await fetchScoped<QuestionnaireResponse>('QuestionnaireResponse', 'encounter', encRefs)) {
         const encId = stripEnc(qr.encounter?.reference);
+
         if (encId && isIntakePaperworkQuestionnaireResponse(qr)) paperworkQrByEncounterId.set(encId, qr);
       }
+    }
+    if (includePaperwork) {
+      // The tracking board's other paperwork input: the patient's current Photo ID / insurance card DocumentReferences.
+      const docRefs = await fetchScoped<DocumentReference>(
+        'DocumentReference',
+        'related',
+        Array.from(patientMap.keys()),
+        [
+          { name: 'status', value: 'current' },
+          { name: 'type', value: `${INSURANCE_CARD_CODE},${PHOTO_ID_CARD_CODE}` },
+        ]
+      );
 
       for (const docRef of docRefs) {
         for (const related of docRef.context?.related ?? []) {
@@ -780,6 +793,16 @@ export async function fetchAdHocEncounterRows(
     }
     return tz;
   };
+
+  // Follow-up notes (annotation follow-ups) per visit they were added to.
+  const followUpNoteCountByParentId = new Map<string, number>();
+  for (const e of encounterById.values()) {
+    const parentId = e.partOf?.reference?.replace('Encounter/', '');
+
+    if (parentId && isAnnotationFollowupEncounter(e)) {
+      followUpNoteCountByParentId.set(parentId, (followUpNoteCountByParentId.get(parentId) ?? 0) + 1);
+    }
+  }
 
   // Built once: the per-row mappers look related resources up in these.
   const allPractitioners = Array.from(practitionerMap.values());
@@ -1516,6 +1539,21 @@ export async function fetchAdHocEncounterRows(
       row.screeningAnswers = screeningAnswers;
       row.screeningQuestions = screeningAnswers.map((e) => e.question);
 
+      // The patient's answers in the intake paperwork, as the chart's patient column reads them.
+      const paperwork = encounter.id ? paperworkQrByEncounterId.get(encounter.id) : undefined;
+
+      const patientScreeningAnswers = paperwork
+        ? patientScreeningQuestionsConfig.fields
+            .filter((field) => field.existsInQuestionnaire)
+            .flatMap((field) => {
+              const answer = getPaperworkScreeningAnswer(field.fhirField, paperwork);
+              return answer ? [{ question: field.question, answer }] : [];
+            })
+        : [];
+
+      row.patientScreeningAnswers = patientScreeningAnswers;
+      row.patientScreeningQuestions = patientScreeningAnswers.map((e) => e.question);
+
       const accidentCond = (encounter.id ? encounterConditionsByEncounterId.get(encounter.id) ?? [] : []).find(
         (c) => c.meta?.tag?.some((t) => t.code === 'accident')
       );
@@ -1558,6 +1596,33 @@ export async function fetchAdHocEncounterRows(
           occupationalMedicineAccount: account?.occupationalMedicineAccount,
           visitEmployerOrganization: visitEmployerOrgId ? visitEmployerOrgById.get(visitEmployerOrgId) : undefined,
         }) ?? '';
+    }
+
+    if (includeFollowUp) {
+      if (isFollowUpRow) {
+        // The follow-up note as the follow-up page reads it.
+        const details = formatFhirEncounterToPatientFollowupDetails(encounter, patient?.id ?? '');
+        const status = getAnnotationFollowupStatusLabel(encounter.status);
+        row.followUpNoteCount = 0;
+        row.followUpReason = details.reason ?? '';
+        row.followUpReasonOther = details.otherReason ?? '';
+        row.followUpCaller = details.caller ?? '';
+        row.followUpAnswered = details.answered ?? '';
+        row.followUpProvider = details.provider?.name ?? '';
+        row.followUpMessage = details.message ?? '';
+        row.followUpStatus = status;
+        row.followUpResolvedAt = status === 'RESOLVED' ? encounter.period?.end ?? null : null;
+      } else {
+        row.followUpNoteCount = encounter.id ? followUpNoteCountByParentId.get(encounter.id) ?? 0 : 0;
+        row.followUpReason = '';
+        row.followUpReasonOther = '';
+        row.followUpCaller = '';
+        row.followUpAnswered = '';
+        row.followUpProvider = '';
+        row.followUpMessage = '';
+        row.followUpStatus = null;
+        row.followUpResolvedAt = null;
+      }
     }
 
     if (includeSigning) {

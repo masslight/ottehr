@@ -247,6 +247,12 @@ const signatureProvenance = (id: string, role: 'author' | 'verifier', who: strin
   ],
 });
 
+// A screening question the patient answers in the intake paperwork (an option question), answered there.
+const paperworkScreeningField = patientScreeningQuestionsConfig.fields.find(
+  (f) => f.existsInQuestionnaire && f.options?.length
+)!;
+
+const paperworkScreeningOption = paperworkScreeningField.options![0];
 const paperworkQr: QuestionnaireResponse = {
   resourceType: 'QuestionnaireResponse',
   id: 'qr-1',
@@ -254,7 +260,14 @@ const paperworkQr: QuestionnaireResponse = {
   meta: { tag: [INTAKE_PAPERWORK_QR_TAG] },
   encounter: { reference: 'Encounter/enc-1' },
   authored: '2026-07-01T13:30:00.000Z',
-  item: [],
+  item: [
+    {
+      linkId: 'screening-page',
+      item: [
+        { linkId: paperworkScreeningField.fhirField, answer: [{ valueString: paperworkScreeningOption.fhirValue }] },
+      ],
+    },
+  ],
 };
 
 const photoIdDocRef: DocumentReference = {
@@ -522,6 +535,29 @@ const booleanScreeningAnswer: Observation = {
   valueBoolean: true,
 };
 
+// A resolved phone follow-up added to enc-1 (save-followup-encounter: the parent's appointment reference).
+const phoneFollowUp: Encounter = {
+  resourceType: 'Encounter',
+  id: 'enc-1-fu',
+  status: 'finished',
+  class: { code: 'AMB' },
+  type: buildFollowupEncounterType('annotation'),
+  partOf: { reference: 'Encounter/enc-1' },
+  appointment: [{ reference: 'Appointment/appt-1' }],
+  subject: { reference: 'Patient/pat-1' },
+  period: { start: '2026-07-02T10:00:00.000Z', end: '2026-07-02T10:15:00.000Z' },
+  reasonCode: [{ coding: [{ display: 'Result - Lab' }] }],
+};
+
+// The external lab's specimen, collected in the clinic by the intake nurse.
+const labSpecimen: FhirResource = {
+  resourceType: 'Specimen',
+  id: 'spec-1',
+  subject: { reference: 'Patient/pat-1' },
+  request: [{ reference: 'ServiceRequest/sr-lab' }],
+  collection: { collector: { reference: 'Practitioner/prac-2' }, collectedDateTime: '2026-07-01T14:13:00.000Z' },
+};
+
 const group: HealthcareService = { resourceType: 'HealthcareService', id: 'grp-1', name: 'Pediatrics Group' };
 
 // External lab: submitted (PST completed, order active, submit Provenance), no results yet → "sent".
@@ -603,6 +639,7 @@ const resourcesByJob: Record<string, FhirResource[]> = {
     signedEncounter,
     cancelledEncounter,
     scheduledFollowUpEncounter,
+    phoneFollowUp,
     patient,
     location,
   ],
@@ -633,6 +670,7 @@ const resourcesByJob: Record<string, FhirResource[]> = {
   'ServiceRequest:orders': [
     externalLabRequest,
     nursingRequest,
+    labSpecimen,
     pstTask,
     nursingTask,
     submitProvenance,
@@ -689,6 +727,8 @@ const issuesOf = (result: { success: boolean; error?: { issues: unknown[] } }): 
 
 const allLayers = {
   includeDisposition: true,
+  includeFollowUp: true,
+  includeIntake: true,
   includeVitals: true,
   includeEmployer: true,
   includeImaging: true,
@@ -705,7 +745,7 @@ const allLayers = {
 describe('ad-hoc Encounters: layers mapped with the app mappers (fixture)', () => {
   it('rows parse against the schema', async () => {
     const rows = await fetchAdHocEncounterRows(fakeOystehr, { dateRange, ...allLayers });
-    expect(rows).toHaveLength(3);
+    expect(rows).toHaveLength(4);
     expect(issuesOf(AdHocEncountersOutputSchema.safeParse({ encounters: rows }))).toEqual([]);
   });
 
@@ -892,6 +932,27 @@ describe('ad-hoc Encounters: layers mapped with the app mappers (fixture)', () =
     expect(signed.signedBy).toBe(getProviderNameWithProfession(attending));
   });
 
+  it("intake: the patient's own paperwork answers, as the chart's patient column shows them", async () => {
+    const rows = await fetchAdHocEncounterRows(fakeOystehr, { dateRange, includeIntake: true });
+    const signed = rows.find((r) => r.encounterId === 'enc-1')!;
+    expect(signed.patientScreeningAnswers).toEqual([
+      { question: paperworkScreeningField.question, answer: paperworkScreeningOption.label },
+    ]);
+    expect(signed.patientScreeningQuestions).toEqual([paperworkScreeningField.question]);
+  });
+
+  it('follow-up: note details on the follow-up row, the note count on the visit row', async () => {
+    const rows = await fetchAdHocEncounterRows(fakeOystehr, { dateRange, includeFollowUp: true });
+    expect(rows.find((r) => r.encounterId === 'enc-1')).toMatchObject({ followUpNoteCount: 1, followUpStatus: null });
+    expect(rows.find((r) => r.encounterId === 'enc-1-fu')).toMatchObject({
+      encounterType: 'follow-up',
+      followUpNoteCount: 0,
+      followUpReason: 'Result - Lab',
+      followUpStatus: 'RESOLVED',
+      followUpResolvedAt: '2026-07-02T10:15:00.000Z',
+    });
+  });
+
   it('intake: a yes/no screening answer reads as the chart shows it', async () => {
     const rows = await fetchAdHocEncounterRows(fakeOystehr, { dateRange, includeIntake: true });
     const signed = rows.find((r) => r.appointmentId === 'appt-1')!;
@@ -967,6 +1028,10 @@ describe('ad-hoc Encounters: layers mapped with the app mappers (fixture)', () =
       isPSC: false,
       icdCodes: ['J02.9'],
       nonNormalResults: [],
+      collectedAt: '2026-07-01T14:13:00.000Z',
+      collectedBy: 'Ivy Lee',
+      reviewedAt: null,
+      reviewedBy: '',
     });
     expect(signed.labTestNames).toEqual(['Complete blood count']);
     expect(signed.labNames).toEqual(['Quest']);
