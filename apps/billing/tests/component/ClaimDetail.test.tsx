@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { ReactNode } from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import {
+  BillingCoverageOption,
   ClaimDetailResponse,
   ClaimInsurancePayment,
   ClaimRemit,
@@ -11,10 +12,11 @@ import {
 import { AR_STAGE, emptyClaimStatusValues } from 'utils/lib/types/data/billing/claim-status';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { PROVISIONAL_BALANCE_HINT } from '../../src/constants/claimStatus';
-import ClaimDetail from '../../src/pages/ClaimDetail';
+import ClaimDetail, { InsuranceSection } from '../../src/pages/ClaimDetail';
 
 const {
   getBillingClaimDetailMock,
+  getBillingCoverageMock,
   runBillingRulesEngineMock,
   getBillingClaimHistoryMock,
   addBillingClaimNoteMock,
@@ -25,6 +27,7 @@ const {
   oystehrZambdaStub,
 } = vi.hoisted(() => ({
   getBillingClaimDetailMock: vi.fn(),
+  getBillingCoverageMock: vi.fn(),
   runBillingRulesEngineMock: vi.fn(),
   getBillingClaimHistoryMock: vi.fn(),
   addBillingClaimNoteMock: vi.fn(),
@@ -37,6 +40,7 @@ const {
 
 vi.mock('../../src/api/api', () => ({
   getBillingClaimDetail: getBillingClaimDetailMock,
+  getBillingCoverage: getBillingCoverageMock,
   runBillingRulesEngine: runBillingRulesEngineMock,
   getBillingClaimHistory: getBillingClaimHistoryMock,
   addBillingClaimNote: addBillingClaimNoteMock,
@@ -228,6 +232,44 @@ function renderDetail(): void {
     </MemoryRouter>
   );
 }
+
+describe('ClaimDetail — payer links', () => {
+  it.each([
+    ['primary', '60054', '60054', '/insurance-organizations/rcm/60054'],
+    ['secondary', 'OTR-ACME', 'org-1', '/insurance-organizations/org-1'],
+    ['primary', '', '', undefined],
+    ['secondary', 'OTR-ACME', '', undefined],
+  ] as const)(
+    'links %s payer %s only when its identity is available',
+    async (coverageType, payorId, payorFhirId, href) => {
+      getBillingCoverageMock.mockResolvedValue({
+        id: 'coverage-1',
+        status: 'active',
+        subscriberId: 'member-1',
+        payorName: 'Selected Payer',
+        payorId,
+        payorFhirId,
+      } satisfies BillingCoverageOption);
+      render(
+        <MemoryRouter>
+          <InsuranceSection
+            coverageType={coverageType}
+            getCoverageIdFromClaim={() => 'coverage-1'}
+            claim={makeClaim(AR_STAGE.insurancePayer)}
+            updateResource={vi.fn()}
+            showAddButton={false}
+            onAdd={vi.fn()}
+          />
+        </MemoryRouter>
+      );
+
+      expect(await screen.findByText('Selected Payer')).toBeInTheDocument();
+      const link = screen.queryByRole('link', { name: 'Selected Payer' });
+      if (href) expect(link).toHaveAttribute('href', href);
+      else expect(link).not.toBeInTheDocument();
+    }
+  );
+});
 
 describe('ClaimDetail — remits', () => {
   beforeEach(() => {

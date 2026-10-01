@@ -44,7 +44,10 @@ import {
 import { ScheduleOwnerFhirResource } from '../types/api/schedules';
 import { FhirAppointmentType } from '../types/common';
 import { appointmentTypeLabels, appointmentTypeMap } from '../types/data/appointments/appointments.types';
-import { CUSTOM_INSURANCE_ORG_ID_SYSTEM } from '../types/data/billing/custom-insurance-org.types';
+import {
+  CUSTOM_INSURANCE_ORG_ID_PREFIX,
+  CUSTOM_INSURANCE_ORG_ID_SYSTEM,
+} from '../types/data/billing/custom-insurance-org.types';
 import { PatchPaperworkParameters } from '../types/data/paperwork/paperwork.types';
 import { emailRegex, fullZipRegex, npiRegex, phoneRegex, zipRegex } from '../validation/regex';
 
@@ -1730,6 +1733,12 @@ export const getPayerName = (org: Organization | undefined): string | undefined 
 // carries its user-entered "OTR-" business id under this identifier system instead of an RCM one.
 export const getCustomInsuranceOrgBusinessId = (org: Organization | undefined): string | undefined =>
   org?.identifier?.find((identifier) => identifier.system === CUSTOM_INSURANCE_ORG_ID_SYSTEM)?.value;
+
+// Every business id starts with this prefix a "payer id" search/filter value shaped like one names
+// a custom insurance organization rather than an RCM payer.
+export function isCustomInsuranceOrgBusinessId(value: string): boolean {
+  return value.trim().toUpperCase().startsWith(CUSTOM_INSURANCE_ORG_ID_PREFIX);
+}
 
 export function getPayerUrl(payerId: string): string {
   const oystehr = new Oystehr({}); // get access to static helper
