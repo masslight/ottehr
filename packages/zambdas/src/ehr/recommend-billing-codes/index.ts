@@ -65,6 +65,7 @@ export const index = wrapHandler(
             billingCodesSchema,
             undefined,
             {
+              feature: 'recommend-billing-codes',
               retryMode: 'sequential',
             }
           )

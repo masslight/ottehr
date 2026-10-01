@@ -1,7 +1,7 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import { invokeChatbotVertexAI } from '../../src/shared/ai';
+import { AI_FEATURES, buildVertexAILabels, invokeChatbotVertexAI } from '../../src/shared/ai';
 import { lambdaResponse } from '../../src/shared/lambda';
 import { wrapHandler } from '../../src/shared/sentry';
 import { ZambdaInput } from '../../src/shared/types/common';
@@ -21,6 +21,8 @@ const secrets: Secrets = {
   [SecretsKeys.GOOGLE_CLOUD_PROJECT_ID]: 'test-project',
   [SecretsKeys.GOOGLE_CLOUD_API_KEY]: 'test-key',
 };
+
+const FEATURE = { feature: 'ai-suggestion-notes' } as const;
 
 // sendErrors drops events on 'local', so a deployed environment is what proves reporting still happens.
 const deployedSecrets: Secrets = { ...secrets, [SecretsKeys.ENVIRONMENT]: 'development' };
@@ -97,7 +99,7 @@ afterEach(() => {
 // Drive the call and the retry ladder's timers together. The outcome is captured as a value before the
 // timers run, so a rejection is never briefly unhandled — vitest reports those as errors.
 const invoke = async (): Promise<string> => {
-  const outcome = invokeChatbotVertexAI([{ text: 'hello' }], secrets).then(
+  const outcome = invokeChatbotVertexAI([{ text: 'hello' }], secrets, undefined, undefined, FEATURE).then(
     (value) => ({ ok: true as const, value }),
     (error: unknown) => ({ ok: false as const, error })
   );
@@ -113,7 +115,10 @@ const settleDelay = async (): Promise<number> => {
   const record = (): void => {
     if (elapsed < 0) elapsed = Date.now() - start;
   };
-  const outcome = invokeChatbotVertexAI([{ text: 'hello' }], secrets).then(record, record);
+  const outcome = invokeChatbotVertexAI([{ text: 'hello' }], secrets, undefined, undefined, FEATURE).then(
+    record,
+    record
+  );
   await vi.advanceTimersByTimeAsync(10_000);
   await outcome;
   return elapsed;
@@ -123,7 +128,7 @@ const settleDelay = async (): Promise<number> => {
 // below are about what Sentry actually receives in production, not about a hand-rolled catch block.
 const invokeThroughHandler = async (): Promise<APIGatewayProxyResult> => {
   const handler = wrapHandler('test-ai-zambda', async (input: ZambdaInput) => {
-    const text = await invokeChatbotVertexAI([{ text: 'hello' }], input.secrets);
+    const text = await invokeChatbotVertexAI([{ text: 'hello' }], input.secrets, undefined, undefined, FEATURE);
     return lambdaResponse(200, { text });
   }) as unknown as (input: ZambdaInput) => Promise<APIGatewayProxyResult>;
 
@@ -452,7 +457,7 @@ describe('invokeChatbotVertexAI promise lifecycle', () => {
   const EMPTY_200 = { usageMetadata: { totalTokenCount: 1798, thoughtsTokenCount: 273 } };
 
   const start = (): Promise<string> =>
-    invokeChatbotVertexAI([{ text: 'hello' }], secrets).then(
+    invokeChatbotVertexAI([{ text: 'hello' }], secrets, undefined, undefined, FEATURE).then(
       (value) => `resolved: ${value}`,
       (error: Error) => `rejected: ${error.message}`
     );
@@ -580,7 +585,7 @@ describe('invokeChatbotVertexAI promise lifecycle', () => {
 
 describe('procedure recommendations use sequential Vertex retries', () => {
   const invokeSequentially = (): Promise<string> =>
-    invokeChatbotVertexAI([{ text: 'hello' }], secrets, undefined, undefined, { retryMode: 'sequential' });
+    invokeChatbotVertexAI([{ text: 'hello' }], secrets, undefined, undefined, { ...FEATURE, retryMode: 'sequential' });
 
   test('keeps one slow successful generation in flight beyond both previous hedge delays', async () => {
     let finish!: (value: ReturnType<typeof responseOf>) => void;
@@ -614,5 +619,92 @@ describe('procedure recommendations use sequential Vertex retries', () => {
     await vi.advanceTimersByTimeAsync(20_000);
     expect(await pending).toBeInstanceOf(Error);
     expect(fetch).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('Gemini spend is attributed to a feature', () => {
+  const USAGE_200 = {
+    candidates: [{ finishReason: 'STOP', content: { parts: [{ text: 'result' }] } }],
+    usageMetadata: {
+      promptTokenCount: 1200,
+      candidatesTokenCount: 80,
+      thoughtsTokenCount: 15,
+      totalTokenCount: 1295,
+      promptTokensDetails: [
+        { modality: 'TEXT', tokenCount: 200 },
+        { modality: 'AUDIO', tokenCount: 1000 },
+      ],
+    },
+  };
+
+  const usageLines = (log: { mock: { calls: unknown[][] } }): Record<string, unknown>[] =>
+    log.mock.calls
+      .map(([line]) => String(line))
+      .filter((line) => line.startsWith('[ai-usage] '))
+      .map((line) => JSON.parse(line.slice('[ai-usage] '.length)));
+
+  test('sends the feature and environment as Vertex billing labels', async () => {
+    respondWith(200, USAGE_200);
+    const pending = invokeChatbotVertexAI([{ text: 'hello' }], deployedSecrets, undefined, undefined, {
+      feature: 'ambient-scribe-transcription',
+    });
+    await vi.advanceTimersByTimeAsync(10_000);
+    await expect(pending).resolves.toBe('result');
+
+    const [, init] = vi.mocked(globalThis.fetch).mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string).labels).toEqual({
+      ottehr_feature: 'ambient-scribe-transcription',
+      ottehr_environment: 'development',
+    });
+  });
+
+  test('normalizes the environment into a valid label value and omits it when unset', () => {
+    expect(buildVertexAILabels('extract-photo-id', { [SecretsKeys.ENVIRONMENT]: 'Staging.US East' })).toEqual({
+      ottehr_feature: 'extract-photo-id',
+      ottehr_environment: 'staging_us_east',
+    });
+    expect(buildVertexAILabels('extract-photo-id', {})).toEqual({ ottehr_feature: 'extract-photo-id' });
+  });
+
+  test('every feature is a valid Vertex label value', () => {
+    for (const feature of AI_FEATURES) expect(feature).toMatch(/^[a-z0-9_-]{1,63}$/);
+  });
+
+  test('logs token usage per feature without any response content', async () => {
+    respondWith(200, USAGE_200);
+    const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    const pending = invokeChatbotVertexAI([{ text: 'hello' }], secrets, undefined, 'gemini-test', {
+      feature: 'ambient-scribe-transcription',
+    });
+    await vi.advanceTimersByTimeAsync(10_000);
+    await pending;
+
+    expect(usageLines(log)).toEqual([
+      {
+        feature: 'ambient-scribe-transcription',
+        model: 'gemini-test',
+        attempt: 0,
+        promptTokens: 1200,
+        promptTokensByModality: { TEXT: 200, AUDIO: 1000 },
+        outputTokens: 80,
+        thinkingTokens: 15,
+        cachedTokens: 0,
+        totalTokens: 1295,
+      },
+    ]);
+    expect(log.mock.calls.flat().join('\n')).not.toContain('result');
+    log.mockRestore();
+  });
+
+  test('logs usage for every billed attempt, including a hedged attempt that loses the race', async () => {
+    // The first attempt is slow, so the 3s hedge fires and wins; the first still completes and is billed.
+    respondAfter([5000, 200, USAGE_200], [0, 200, USAGE_200]);
+    const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    const pending = invokeChatbotVertexAI([{ text: 'hello' }], secrets, undefined, undefined, FEATURE);
+    await vi.advanceTimersByTimeAsync(10_000);
+    await pending;
+
+    expect(usageLines(log).map((line) => line.attempt)).toEqual([1, 0]);
+    log.mockRestore();
   });
 });

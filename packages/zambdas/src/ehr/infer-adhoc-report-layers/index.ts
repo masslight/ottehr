@@ -147,7 +147,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       [{ text: buildPrompt(datasetId, datasets, request) }],
       secrets,
       RESPONSE_SCHEMA,
-      VERTEX_AI_MODEL
+      VERTEX_AI_MODEL,
+      { feature: 'infer-adhoc-report-layers' }
     );
     const parsed = fixAndParseJsonObjectFromString(raw) as {
       layerIds?: unknown;

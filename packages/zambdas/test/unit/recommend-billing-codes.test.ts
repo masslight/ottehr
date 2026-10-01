@@ -34,7 +34,7 @@ describe('recommend-billing-codes boundary', () => {
       codeAssessments: {},
     });
     expect(invoke).toHaveBeenCalledTimes(1);
-    expect(invoke.mock.calls[0][4]).toEqual({ retryMode: 'sequential' });
+    expect(invoke.mock.calls[0][4]).toEqual({ feature: 'recommend-billing-codes', retryMode: 'sequential' });
     const prompt = invoke.mock.calls[0][0][0].text;
     expect(prompt).toContain('Clinical narrative');
     expect(prompt).toContain('"length":2');

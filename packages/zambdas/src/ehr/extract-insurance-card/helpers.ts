@@ -151,7 +151,9 @@ export async function extractInsuranceCardFieldsFromImage(
   const rawModelResponse = await invokeChatbotVertexAI(
     [{ text: EXTRACTION_PROMPT }, { inlineData: { mimeType, data: bytes.toString('base64') } }],
     secrets,
-    insuranceCardResponseSchema
+    insuranceCardResponseSchema,
+    undefined,
+    { feature: 'extract-insurance-card' }
   );
   const parsed = parseModelResponse(rawModelResponse);
   return { ...parsed, unsupportedContentType: false };

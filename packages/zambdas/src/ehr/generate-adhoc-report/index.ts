@@ -215,7 +215,9 @@ const performEffect = async (
           `The code must RUN without throwing (guard nulls; watch variable scope), define a root ` +
           `component, and end with \`return ${REPORT_ROOT_NAME};\`.`;
 
-    const raw = await invokeChatbotVertexAI([{ text: prompt }], secrets, RESPONSE_SCHEMA, REPORT_MODEL);
+    const raw = await invokeChatbotVertexAI([{ text: prompt }], secrets, RESPONSE_SCHEMA, REPORT_MODEL, {
+      feature: 'generate-adhoc-report',
+    });
 
     let parsed: { code?: unknown; title?: unknown; needsLayers?: unknown };
     try {

@@ -13,7 +13,7 @@ import {
   SERVICE_CATEGORY_SYSTEM,
 } from 'utils/lib/fhir/constants';
 import { getFormatDuration } from 'utils/lib/helpers/helpers';
-import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { getOptionalSecret, getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { VISIT_CONSULT_NOTE_DOC_REF_CODING_CODE } from 'utils/lib/types/api/appointment.types';
 import { AiObservationField } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import { AI_OBSERVATION_META_SYSTEM } from 'utils/lib/types/api/chart-data/chart-data.types';
@@ -129,7 +129,48 @@ export const VERTEX_AI_MODEL = 'gemini-3.1-flash-lite';
 
 const TERMINAL_FINISH_REASONS = new Set(['SAFETY', 'RECITATION', 'PROHIBITED_CONTENT', 'BLOCKLIST', 'SPII']);
 
+/**
+ * Every Gemini call is attributed to the product feature that made it, so spend can be broken down per feature.
+ * The value is sent as a Vertex AI request label (see {@link buildVertexAILabels}), which Google carries into the
+ * Cloud Billing export and Billing reports, and is also written to the `[ai-usage]` log line with token counts.
+ * Label values must be lowercase letters, digits, `-` or `_`.
+ */
+export const AI_FEATURES = [
+  'ambient-scribe-transcription',
+  'ambient-scribe-summary',
+  'ai-interview-summary',
+  'ai-suggestion-notes',
+  'recommend-billing-codes',
+  'recommend-billing-suggestions',
+  'generate-patient-education',
+  'extract-insurance-card',
+  'extract-photo-id',
+  'generate-adhoc-report',
+  'infer-adhoc-report-layers',
+] as const;
+export type AiFeature = (typeof AI_FEATURES)[number];
+
+export const VERTEX_AI_FEATURE_LABEL = 'ottehr_feature';
+export const VERTEX_AI_ENVIRONMENT_LABEL = 'ottehr_environment';
+
+// Vertex rejects label values outside [a-z0-9_-] or longer than 63 characters.
+const toLabelValue = (value: string): string =>
+  value
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]/g, '_')
+    .slice(0, 63);
+
+export const buildVertexAILabels = (feature: AiFeature, secrets: Secrets | null): Record<string, string> => {
+  const environment = getOptionalSecret(SecretsKeys.ENVIRONMENT, secrets);
+  return {
+    [VERTEX_AI_FEATURE_LABEL]: feature,
+    ...(environment && { [VERTEX_AI_ENVIRONMENT_LABEL]: toLabelValue(environment) }),
+  };
+};
+
 interface VertexAIRequestOptions {
+  /** The feature this call is billed to. Required so no Gemini spend goes unattributed. */
+  feature: AiFeature;
   /** Sequential retries wait for an error; hedged requests overlap to reduce latency. */
   retryMode?: 'sequential' | 'hedged';
 }
@@ -139,13 +180,14 @@ export async function invokeChatbotVertexAI(
   secrets: Secrets | null,
   responseSchema?: object,
   model: string = VERTEX_AI_MODEL,
-  options: VertexAIRequestOptions = {}
+  options: VertexAIRequestOptions
 ): Promise<string> {
   const GOOGLE_CLOUD_PROJECT_ID = getSecret(SecretsKeys.GOOGLE_CLOUD_PROJECT_ID, secrets);
   const GOOGLE_CLOUD_API_KEY = getSecret(SecretsKeys.GOOGLE_CLOUD_API_KEY, secrets);
   const RETRY_COUNT = 3;
   const FIRST_DELAY_MS = 3000;
   const JITTER = 0.01;
+  const labels = buildVertexAILabels(options.feature, secrets);
 
   const shouldRetry = (status: number): boolean => {
     // Retry on rate limiting and server errors
@@ -165,7 +207,7 @@ export async function invokeChatbotVertexAI(
   const terminalFailure = new Promise<never>((_resolve, reject) => {
     failTerminally = reject;
   });
-  const request = async (backoffTime: number): Promise<string> => {
+  const request = async (backoffTime: number, attempt: number): Promise<string> => {
     await new Promise((resolve) => setTimeout(resolve, backoffTime));
 
     // Reject rather than resolve, so a skipped attempt can never become Promise.any's winning value.
@@ -183,6 +225,7 @@ export async function invokeChatbotVertexAI(
           },
           body: JSON.stringify({
             contents: [{ role: 'user', parts: [input] }],
+            labels,
             generationConfig: {
               temperature: 0,
               ...(responseSchema && {
@@ -220,6 +263,10 @@ export async function invokeChatbotVertexAI(
         throw new Error(`Vertex AI returned a non-JSON body: ${body.slice(0, 1000)}`);
       }
 
+      // Any 200 is billed — including a hedged attempt that loses the race and a response with no text — so
+      // usage is logged here, before deciding whether this attempt is the one whose text is returned.
+      logVertexAIUsage({ feature: options.feature, model, attempt, usageMetadata: parsed?.usageMetadata });
+
       const finishReason = parsed?.candidates?.[0]?.finishReason;
       if (finishReason !== 'STOP') {
         console.warn(`Vertex AI output finishReason: ${finishReason}`);
@@ -252,9 +299,9 @@ export async function invokeChatbotVertexAI(
 
   const requestSequentially = async (): Promise<string> => {
     const errors: unknown[] = [];
-    for (const backoffTime of backoffTimes) {
+    for (const [attempt, backoffTime] of backoffTimes.entries()) {
       try {
-        return await request(backoffTime);
+        return await request(backoffTime, attempt);
       } catch (error) {
         errors.push(error);
       }
@@ -264,7 +311,9 @@ export async function invokeChatbotVertexAI(
 
   try {
     const attempts =
-      options.retryMode === 'sequential' ? requestSequentially() : Promise.any(backoffTimes.map(request));
+      options.retryMode === 'sequential'
+        ? requestSequentially()
+        : Promise.any(backoffTimes.map((backoffTime, attempt) => request(backoffTime, attempt)));
     return await Promise.race([attempts, terminalFailure]);
   } catch (error) {
     if (!(error instanceof AggregateError)) throw error;
@@ -273,6 +322,46 @@ export async function invokeChatbotVertexAI(
     const reasons = error.errors.map((reason) => (reason instanceof Error ? reason.message : String(reason)));
     throw new Error(`Vertex AI request failed after ${backoffTimes.length} attempts: ${reasons.join('; ')}`);
   }
+}
+
+interface VertexAIUsageMetadata {
+  promptTokenCount?: number;
+  candidatesTokenCount?: number;
+  thoughtsTokenCount?: number;
+  cachedContentTokenCount?: number;
+  totalTokenCount?: number;
+  promptTokensDetails?: { modality?: string; tokenCount?: number }[];
+}
+
+/**
+ * One structured line per billed Gemini response, e.g.
+ * `[ai-usage] {"feature":"extract-photo-id","model":"gemini-3.1-flash-lite","attempt":0,"promptTokens":1290,...}`.
+ * Token counts only — never prompt or response content, which can be PHI.
+ */
+function logVertexAIUsage(args: {
+  feature: AiFeature;
+  model: string;
+  attempt: number;
+  usageMetadata: VertexAIUsageMetadata | undefined;
+}): void {
+  const usage = args.usageMetadata ?? {};
+  const promptTokensByModality = Object.fromEntries(
+    (usage.promptTokensDetails ?? []).map((detail) => [detail.modality ?? 'UNKNOWN', detail.tokenCount ?? 0])
+  );
+  console.log(
+    `[ai-usage] ${JSON.stringify({
+      feature: args.feature,
+      model: args.model,
+      attempt: args.attempt,
+      promptTokens: usage.promptTokenCount ?? 0,
+      // Audio input is priced differently from text and images, so keep the per-modality split.
+      promptTokensByModality,
+      outputTokens: usage.candidatesTokenCount ?? 0,
+      thinkingTokens: usage.thoughtsTokenCount ?? 0,
+      cachedTokens: usage.cachedContentTokenCount ?? 0,
+      totalTokens: usage.totalTokenCount ?? 0,
+    })}`
+  );
 }
 
 /**
@@ -316,7 +405,10 @@ export async function transcribeAndCreateResourcesFromZ3Audio(
 
   const transcript = await invokeChatbotVertexAI(
     [{ text: TRANSCRIPT_PROMPT }, { inlineData: { mimeType, data: fileBase64 } }],
-    secrets
+    secrets,
+    undefined,
+    undefined,
+    { feature: 'ambient-scribe-transcription' }
   );
 
   // Trim: Vertex commonly wraps the sentinel in trailing whitespace/newline, and an untrimmed compare would
@@ -464,7 +556,10 @@ export async function createResourcesFromAiInterview(
 
   const aiResponseString = await invokeChatbotVertexAI(
     [{ text: getPrompt(patientInfoDetails || 'unknown patient details', fields) + '\n' + chatTranscript }],
-    secrets
+    secrets,
+    undefined,
+    undefined,
+    { feature: source === 'audio-recording' ? 'ambient-scribe-summary' : 'ai-interview-summary' }
   );
   console.log(`AI response: "${aiResponseString}"`);
   let aiResponse;
