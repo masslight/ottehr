@@ -108,6 +108,9 @@ const radiologyRecord = (
   performedBy: dto.performedBy?.name ?? '',
   performingOrganization: dto.performingOrganization?.name ?? '',
   safetyFlags: dto.safetyFlags ?? [],
+  clinicalHistory: dto.clinicalHistory ?? '',
+  preliminaryReport: dto.preliminaryReport ?? '',
+  finalReport: dto.finalReport ?? '',
 });
 
 /**

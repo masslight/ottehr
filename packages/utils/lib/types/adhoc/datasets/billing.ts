@@ -61,14 +61,25 @@ export const BILLING_DOMAIN_FIELDS: readonly (keyof AdHocBillingRow)[] = [
 export const BILLING_LAYERS = {
   payments: {
     label: 'Patient payments',
-    description: 'Money collected from the patient for the visit — amounts, method (card/cash/check), and dates.',
+    description:
+      'Money collected from the patient for the visit — amounts, method (card/cash/check), dates, refunds and ' +
+      'voided payments.',
     schema: z.object({
       paymentsCollected: z
         .number()
         .nullable()
         .describe('Total USD collected from the patient, net of refunds; voided payments excluded. Null when none.'),
-      paymentCount: z.number().describe('Number of payments collected.'),
-      paymentMethods: z.array(z.string()).describe('Distinct methods: "card"/"card-reader"/"cash"/"check".'),
+      paymentCount: z.number().describe('Number of payments collected (voided payments excluded).'),
+      paymentMethods: z
+        .array(z.string())
+        .describe('Distinct methods: "card"/"card-reader"/"external-card-reader"/"cash"/"check".'),
+      refundedTotal: z
+        .number()
+        .describe("Total USD refunded to the patient across the visit's payments (settled refunds). 0 when none."),
+      voidedPaymentCount: z
+        .number()
+        .describe('Number of payments that were voided (the EHR lists them struck out). 0 when none.'),
+      voidedPaymentsTotal: z.number().describe('Total USD of the voided payments (never collected). 0 when none.'),
       lastPaymentDate: z.string().nullable().describe('Date of the most recent payment (yyyy-MM-dd).'),
       payments: z
         .array(
@@ -80,6 +91,7 @@ export const BILLING_LAYERS = {
                   'new Date(date); do NOT slice the ISO string (shows UTC).'
               ),
             amount: z.number().describe('Amount of THIS payment in USD, net of its refunds.'),
+            refundedAmount: z.number().describe('USD refunded from THIS payment (settled refunds). 0 when none.'),
             method: z.string().describe('Method of THIS payment; "" when not recorded.'),
           })
         )
@@ -128,7 +140,10 @@ export const BILLING_LAYERS = {
       outstandingBalance: z
         .number()
         .nullable()
-        .describe('expectedCharge − paymentsCollected (needs both layers). Null when no charge could be priced.'),
+        .describe(
+          'expectedCharge − paymentsCollected (needs both layers) — the charted codes priced less what was ' +
+            'collected, NOT the claim balance the Visit Details page shows. Null when no charge could be priced.'
+        ),
       pricingSource: z
         .enum(['fee-schedule', 'payer-charge-master', 'default-charge-master', 'self-pay-charge-master'])
         .nullable()
@@ -151,7 +166,12 @@ export const BILLING_LAYERS = {
     label: 'Billing codes (CPT / E&M / ICD-10)',
     description: 'Diagnosis and procedure codes from the chart used for billing.',
     schema: z.object({
-      cptCodes: z.array(z.string()).describe('Procedure CPT codes charted on the visit.'),
+      cptCodes: z
+        .array(z.string())
+        .describe(
+          'Procedure CPT codes charted on the visit, one entry per charted line (a code charted twice with ' +
+            'different modifiers appears twice).'
+        ),
       cptModifiers: z
         .array(z.string())
         .describe('Parallel to cptCodes: the CPT modifiers of each code, comma-separated (e.g. "25"); "" when none.'),

@@ -170,9 +170,12 @@ const priceVisit = ({
   return { schedule, pricingSource, lineItems, expectedCharge };
 };
 
+// The refunds of a payment that settled, in USD (as the EHR's refundedAmountInCents).
+const refundedAmount = (notice: PaymentNotice): number =>
+  settledRefundTotalInCents(parsePaymentRefundsFromNotice(notice)) / 100;
+
 // What the patient actually paid with a payment: its amount less the refunds that settled.
-const netPaymentAmount = (notice: PaymentNotice): number =>
-  (notice.amount?.value ?? 0) - settledRefundTotalInCents(parsePaymentRefundsFromNotice(notice)) / 100;
+const netPaymentAmount = (notice: PaymentNotice): number => (notice.amount?.value ?? 0) - refundedAmount(notice);
 
 export async function fetchAdHocBillingRows(oystehr: Oystehr, params: AdHocBillingInput): Promise<AdHocBillingRow[]> {
   const { dateRange, includePayments, includeCoverage, includeCharges, includeCodes } = params;
@@ -254,6 +257,7 @@ export async function fetchAdHocBillingRows(oystehr: Oystehr, params: AdHocBilli
     ref ? (prefix ? ref.replace(`${prefix}/`, '') : ref.split('/')[1]) : undefined;
 
   const paymentsByEncId = new Map<string, PaymentNotice[]>();
+  const voidedPaymentsByEncId = new Map<string, PaymentNotice[]>();
   let accountsByPatient = new Map<string, PatientAccountAndCoverageResources>();
   const proceduresByEncId = new Map<string, Procedure[]>();
   const conditionById = new Map<string, Condition>();
@@ -274,9 +278,15 @@ export async function fetchAdHocBillingRows(oystehr: Oystehr, params: AdHocBilli
       const notices = await fetchScoped<PaymentNotice>('PaymentNotice', 'request', encRefs);
 
       // A voided payment is marked cancelled (patient-payments/void); only active notices are money collected.
+      // The voided ones are kept apart — the EHR lists them struck out.
       for (const n of notices) {
-        if (n.status !== 'active' || !n.created) continue;
-        pushTo(paymentsByEncId, stripRef(n.request?.reference, 'Encounter'), n);
+        if (!n.created) continue;
+
+        pushTo(
+          n.status === 'active' ? paymentsByEncId : voidedPaymentsByEncId,
+          stripRef(n.request?.reference, 'Encounter'),
+          n
+        );
       }
     }
 
@@ -379,14 +389,17 @@ export async function fetchAdHocBillingRows(oystehr: Oystehr, params: AdHocBilli
     };
 
     let paymentsCollected: number | null = null;
+
     if (includePayments) {
       const notices = paymentsByEncId.get(encId) ?? [];
       const total = notices.reduce((acc, n) => acc + netPaymentAmount(n), 0);
       paymentsCollected = notices.length ? round2(total) : null;
+
       const dates = notices
         .map((n) => n.created)
         .filter((d): d is string => Boolean(d))
         .sort();
+
       const methods = Array.from(
         new Set(
           notices
@@ -394,16 +407,24 @@ export async function fetchAdHocBillingRows(oystehr: Oystehr, params: AdHocBilli
             .filter((m): m is string => Boolean(m))
         )
       );
+
+      const voided = voidedPaymentsByEncId.get(encId) ?? [];
       row.paymentsCollected = paymentsCollected;
       row.paymentCount = notices.length;
       row.paymentMethods = methods;
+      row.refundedTotal = round2(notices.reduce((acc, n) => acc + refundedAmount(n), 0));
+      row.voidedPaymentCount = voided.length;
+      row.voidedPaymentsTotal = round2(voided.reduce((acc, n) => acc + (n.amount?.value ?? 0), 0));
+
       // RAW ISO instant of the latest payment (client-side becomes the viewer-local day).
       row.lastPaymentDate = dates.length ? dates[dates.length - 1] : null;
+
       // Same raw ISO instants as lastPaymentDate — one format for every date in this layer.
       row.payments = notices
         .map((n) => ({
           date: n.created,
           amount: round2(netPaymentAmount(n)),
+          refundedAmount: round2(refundedAmount(n)),
           method: n.extension?.find((e) => e.url === PAYMENT_METHOD_EXTENSION_URL)?.valueString ?? '',
         }))
         .sort((a, b) => a.date.localeCompare(b.date));
@@ -437,9 +458,16 @@ export async function fetchAdHocBillingRows(oystehr: Oystehr, params: AdHocBilli
     }
 
     let expectedCharge: number | null = null;
+
     if (includeCharges) {
+      // An annotation follow-up is a note on its parent visit: the payment option that prices it lives on the
+      // parent Encounter (the payments panel is the visit's), so the parent decides the schedule.
+      const parentEncounter = encounter.partOf?.reference
+        ? encounterById.get(encounter.partOf.reference.replace('Encounter/', ''))
+        : undefined;
+
       const pricingResult = priceVisit({
-        encounter,
+        encounter: encounterType === 'follow-up' && parentEncounter ? parentEncounter : encounter,
         appointment,
         account: patient?.id ? accountsByPatient.get(`Patient/${patient.id}`) : undefined,
         procedures: proceduresByEncId.get(encId) ?? [],
@@ -468,14 +496,18 @@ export async function fetchAdHocBillingRows(oystehr: Oystehr, params: AdHocBilli
       const cptModifiers: string[] = [];
       const cptBillableUnits: number[] = [];
       let emCode: string | undefined;
+
       for (const procedure of procedures) {
         const coding = procedure.code?.coding?.find((c) => c.system === CPT_SYSTEM);
         const code = coding?.code;
 
         if (!code) continue;
 
-        if (hasChartTag(procedure, 'em-code')) emCode = emCode ?? code;
-        else if (hasChartTag(procedure, 'cpt-code') && !cptCodes.includes(code)) {
+        if (hasChartTag(procedure, 'em-code')) {
+          emCode = emCode ?? code;
+        } else if (hasChartTag(procedure, 'cpt-code')) {
+          // One entry per charted CPT line, as the chart lists them — the same code can be charted twice with
+          // different modifiers / units, and cptModifiers / cptBillableUnits run parallel to this array.
           cptCodes.push(code);
           // Modifiers and units as the chart's CPT DTO (makeCPTCodeDTO) and the claim read them.
           cptModifiers.push((getCptModifierCodeFromProcedure(procedure) ?? []).map((m) => m.code).join(','));

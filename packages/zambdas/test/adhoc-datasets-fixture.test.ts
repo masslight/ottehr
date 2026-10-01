@@ -790,14 +790,18 @@ describe('ad-hoc dataset zambdas: mapped rows parse against their Zod schema (fi
     expect(issuesOf(AdHocBillingOutputSchema.safeParse({ rows }))).toEqual([]);
     // Charted out of order in the fixture; the records come back oldest first.
     expect(row.payments).toEqual([
-      { date: '2026-07-01T15:00:00.000Z', amount: 40, method: 'card' },
-      { date: '2026-07-01T18:00:00.000Z', amount: 25.5, method: 'cash' },
-      // net of its settled refund; the voided pay-4 is not money collected
-      { date: '2026-07-01T19:00:00.000Z', amount: 6, method: '' },
+      { date: '2026-07-01T15:00:00.000Z', amount: 40, refundedAmount: 0, method: 'card' },
+      { date: '2026-07-01T18:00:00.000Z', amount: 25.5, refundedAmount: 0, method: 'cash' },
+      // net of its settled refund (the failed one does not count); the voided pay-4 is not money collected
+      { date: '2026-07-01T19:00:00.000Z', amount: 6, refundedAmount: 4, method: '' },
     ]);
     // The aggregates must agree with the records, or a report mixing both contradicts itself.
     expect(row.paymentsCollected).toBe(71.5);
     expect(row.paymentCount).toBe(3);
+    expect(row.refundedTotal).toBe(4);
+    // The voided payment is listed apart, as the EHR strikes it out rather than hiding it.
+    expect(row.voidedPaymentCount).toBe(1);
+    expect(row.voidedPaymentsTotal).toBe(99);
     expect(row.lastPaymentDate).toBe('2026-07-01T19:00:00.000Z');
     expect(row.payments?.reduce((sum, p) => sum + p.amount, 0)).toBe(row.paymentsCollected);
   });
