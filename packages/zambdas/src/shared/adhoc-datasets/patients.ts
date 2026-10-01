@@ -24,12 +24,18 @@ import {
   getPatientFirstName,
   getPatientLastName,
   getPhoneNumberForIndividual,
+  getPronounsFromExtension,
   mapGenderToLabel,
 } from 'utils/lib/fhir/patient';
 import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
 import { AdHocPatientRow, AdHocPatientsInput } from 'utils/lib/types/adhoc/datasets/patients';
 import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
-import { PATIENT_POINT_OF_DISCOVERY_URL } from 'utils/lib/types/constants';
+import {
+  PATIENT_HAS_MEDICAID_URL,
+  PATIENT_INDIVIDUAL_PRONOUNS_CUSTOM_URL,
+  PATIENT_POINT_OF_DISCOVERY_URL,
+  PREFERRED_COMMUNICATION_METHOD_EXTENSION_URL,
+} from 'utils/lib/types/constants';
 import { PatientAccountAndCoverageResources } from 'utils/lib/types/data/account';
 import { getInPersonVisitStatus } from 'utils/lib/utils/visitUtils';
 import { PATIENT_CONTAINED_PHARMACY_ID } from '../../ehr/shared/harvest';
@@ -40,6 +46,7 @@ import {
 } from '../adhoc-report';
 import { mapResourceToChartDataResponse } from '../chart-data';
 import { getOccupationalMedicineEmployerName } from '../occupational-medicine-employer';
+import { composeAttorneyData } from '../pdf/sections/attorneyInfo';
 import { composeEmergencyContactData } from '../pdf/sections/emergencyContactInfo';
 import { composeEmployerData } from '../pdf/sections/employerInfo';
 import { composeInsuranceData } from '../pdf/sections/insuranceInfo';
@@ -48,6 +55,9 @@ import { composePharmacyData } from '../pdf/sections/pharmacyInfo';
 import { composePrimaryCarePhysicianData } from '../pdf/sections/primaryCarePhysician';
 import { composeResponsiblePartyData } from '../pdf/sections/responsiblePartyInfo';
 import { fetchPatientAccounts } from './patient-accounts';
+
+// Both spellings the app has written for the "not listed" pronoun choice.
+const PRONOUNS_NOT_LISTED = ['My pronounces are not listed', 'My pronouns are not listed'];
 
 const uniq = (values: string[]): string[] => Array.from(new Set(values.filter(Boolean)));
 
@@ -431,6 +441,16 @@ export async function fetchAdHocPatientRows(oystehr: Oystehr, params: AdHocPatie
       row.pcpPracticeName = pcp.pcpPracticeName;
       row.preferredPharmacy = pharmacy.name;
       row.deceased = patient.deceasedBoolean === true || Boolean(patient.deceasedDateTime);
+      // Read the way the face sheet (composePatientData / composeContactData) and the payments list read them.
+      row.preferredName = patient.name?.find((name) => name.use === 'nickname')?.given?.[0] ?? '';
+      const pronouns = getPronounsFromExtension(patient);
+      const customPronouns = patient.extension?.find((e) => e.url === PATIENT_INDIVIDUAL_PRONOUNS_CUSTOM_URL)
+        ?.valueString;
+      // The chart header's rule (getPronouns): the custom wording replaces the "not listed" choice.
+      row.pronouns = PRONOUNS_NOT_LISTED.includes(pronouns) ? customPronouns ?? '' : pronouns;
+      row.preferredCommunicationMethod =
+        patient.extension?.find((e) => e.url === PREFERRED_COMMUNICATION_METHOD_EXTENSION_URL)?.valueString ?? '';
+      row.hasMedicaid = patient.extension?.find((e) => e.url === PATIENT_HAS_MEDICAID_URL)?.valueBoolean ?? false;
     }
 
     const account = accountsByPatient.get(patientRef);
@@ -450,6 +470,13 @@ export async function fetchAdHocPatientRows(oystehr: Oystehr, params: AdHocPatie
       row.emergencyContactName = [emergencyContact.firstName, emergencyContact.middleName, emergencyContact.lastName]
         .filter(Boolean)
         .join(' ');
+
+      // The face sheet's attorney composer.
+      const attorney = composeAttorneyData({ attorneyRelatedPerson: account?.attorneyRelatedPerson });
+
+      row.hasAttorney = !!account?.attorneyRelatedPerson;
+      row.attorneyFirm = attorney.firm;
+      row.attorneyName = [attorney.firstName, attorney.lastName].filter(Boolean).join(' ');
     }
 
     if (includeInsurance) {

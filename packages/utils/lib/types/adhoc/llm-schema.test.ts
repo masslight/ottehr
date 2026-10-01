@@ -114,6 +114,7 @@ describe('llm-schema serialization (Zod → prompt)', () => {
       reason: 'cough',
       reasonForVisit: 'cough',
       reasonDetails: '',
+      trackingBoardNote: '',
       bookedAt: null,
       room: '',
       group: '',

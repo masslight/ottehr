@@ -65,6 +65,7 @@ import {
   OYSTEHR_LAB_OI_CODE_SYSTEM,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
 } from 'utils/lib/types/data/labs/labs.constants';
+import { NURSING_ORDER_PROVENANCE_ACTIVITY_CODING_ENTITY } from 'utils/lib/types/data/orders/constants';
 import { DISCHARGE_SUMMARY_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
 import { afterAll, describe, expect, it, vi } from 'vitest';
 import {
@@ -73,7 +74,7 @@ import {
 } from '../src/ehr/immunization/common';
 import { inHouseResults } from '../src/shared/adhoc-datasets/encounter-orders';
 import { fetchAdHocEncounterRows } from '../src/shared/adhoc-datasets/encounters';
-import { makeObservationResource } from '../src/shared/chart-data';
+import { makeExamObservationResource, makeObservationResource } from '../src/shared/chart-data';
 
 // Fixture tests for the Encounters layers that reuse the app's own mappers (tracking-board orders, chart
 // sections, visit-note signatures, tracking-board paperwork). The stubbed Oystehr serves each async-bulk
@@ -115,6 +116,7 @@ const appointment = (id: string, status: Appointment['status'], extra: Partial<A
 const signedAppointment = appointment('appt-1', 'fulfilled', {
   meta: { tag: [{ code: OTTEHR_MODULE.IP }, APPOINTMENT_LOCKED_META_TAG] },
   created: '2026-06-28T09:00:00.000Z',
+  comment: 'Mom waiting in lobby',
   description: `Sore throat${REASON_FOR_VISIT_SEPARATOR}worse at night`,
   extension: [{ url: ROOM_EXTENSION_URL, valueString: 'Room 4' }],
   participant: [
@@ -631,6 +633,47 @@ const nursingProvenance: Provenance = {
   agent: [{ who: { reference: 'Practitioner/prac-1' } }],
 };
 
+// A completed nursing order: the complete-order Provenance names who completed it.
+const completedNursingRequest: ServiceRequest = {
+  ...nursingRequest,
+  id: 'sr-nurse-2',
+  status: 'completed',
+  authoredOn: '2026-07-01T14:09:00.000Z',
+  note: [{ text: 'Ice pack' }],
+};
+
+const completedNursingTask: Task = {
+  ...nursingTask,
+  id: 'task-nurse-2',
+  status: 'completed',
+  basedOn: [{ reference: 'ServiceRequest/sr-nurse-2' }],
+};
+
+const completedNursingProvenances: Provenance[] = [
+  {
+    ...nursingProvenance,
+    id: 'prov-nurse-2-create',
+    target: [{ reference: 'ServiceRequest/sr-nurse-2' }],
+    recorded: '2026-07-01T14:09:00.000Z',
+  },
+  {
+    resourceType: 'Provenance',
+    id: 'prov-nurse-2-complete',
+    target: [{ reference: 'ServiceRequest/sr-nurse-2' }],
+    recorded: '2026-07-01T14:25:00.000Z',
+    activity: { coding: [NURSING_ORDER_PROVENANCE_ACTIVITY_CODING_ENTITY.completeOrder] },
+    agent: [{ who: { reference: 'Practitioner/prac-2' } }],
+  },
+];
+
+// Exam findings written by the chart's own writer (save-chart-data → makeExamObservationResource).
+const examObservations: Observation[] = [
+  { field: 'alert', value: true, label: 'Alert' },
+  { field: 'mild-distress', value: true, label: 'Mild distress' },
+  { field: 'soft', value: true, label: 'Soft' },
+  { field: 'abdomen-comment', note: 'Mild guarding RLQ' },
+].map((dto, i) => ({ ...makeExamObservationResource('enc-1', 'pat-1', dto, undefined, dto.label), id: `exam-${i}` }));
+
 const resourcesByJob: Record<string, FhirResource[]> = {
   Appointment: [
     signedAppointment,
@@ -656,9 +699,9 @@ const resourcesByJob: Record<string, FhirResource[]> = {
   Condition: [chiefComplaint],
   ClinicalImpression: [medicalDecision],
   Communication: [instruction],
-  ServiceRequest: [procedureRequest, externalLabRequest, nursingRequest, dispositionFollowUp],
+  ServiceRequest: [procedureRequest, externalLabRequest, nursingRequest, completedNursingRequest, dispositionFollowUp],
   HealthcareService: [group],
-  Observation: [...vitals, booleanScreeningAnswer],
+  Observation: [...vitals, booleanScreeningAnswer, ...examObservations],
   Patient: [patient, occMedAccount, accountEmployer],
   Organization: [preOpEmployer],
   MedicationAdministration: [
@@ -670,11 +713,14 @@ const resourcesByJob: Record<string, FhirResource[]> = {
   'ServiceRequest:orders': [
     externalLabRequest,
     nursingRequest,
+    completedNursingRequest,
     labSpecimen,
     pstTask,
     nursingTask,
+    completedNursingTask,
     submitProvenance,
     nursingProvenance,
+    ...completedNursingProvenances,
     attending,
   ],
 };
@@ -1036,8 +1082,42 @@ describe('ad-hoc Encounters: layers mapped with the app mappers (fixture)', () =
     expect(signed.labTestNames).toEqual(['Complete blood count']);
     expect(signed.labNames).toEqual(['Quest']);
     expect(signed.nursingOrderDetails).toEqual([
-      { order: 'Rapid strep swab', status: 'pending', orderedAt: '2026-07-01T14:08:00.000Z', orderedBy: 'Nina Park' },
+      {
+        order: 'Rapid strep swab',
+        status: 'pending',
+        orderedAt: '2026-07-01T14:08:00.000Z',
+        orderedBy: 'Nina Park',
+        completedAt: null,
+        completedBy: '',
+      },
+      {
+        order: 'Ice pack',
+        status: 'completed',
+        orderedAt: '2026-07-01T14:09:00.000Z',
+        orderedBy: 'Nina Park',
+        completedAt: '2026-07-01T14:25:00.000Z',
+        completedBy: 'Ivy Lee',
+      },
     ]);
+  });
+
+  it('exam: findings per section with the abnormal flag and section comments, as on the visit note', async () => {
+    const rows = await fetchAdHocEncounterRows(fakeOystehr, { dateRange, includeExamRos: true });
+    const signed = rows.find((r) => r.appointmentId === 'appt-1')!;
+    expect(signed.examFindingDetails).toEqual([
+      { system: 'General Appearance', finding: 'Alert', abnormal: false },
+      { system: 'General Appearance', finding: 'Mild distress', abnormal: true },
+      { system: 'Abdomen', finding: 'Soft', abnormal: false },
+    ]);
+    expect(signed.examAbnormalSystems).toEqual(['General Appearance']);
+    expect(signed.examAbnormalFindingCount).toBe(1);
+    expect(signed.examComments).toEqual([{ system: 'Abdomen', comment: 'Mild guarding RLQ' }]);
+  });
+
+  it('base: the tracking-board staff note', async () => {
+    const rows = await fetchAdHocEncounterRows(fakeOystehr, { dateRange });
+    expect(rows.find((r) => r.appointmentId === 'appt-1')!.trackingBoardNote).toBe('Mom waiting in lobby');
+    expect(rows.find((r) => r.appointmentId === 'appt-2')!.trackingBoardNote).toBe('');
   });
 
   it('in-house results: entered values read as labels, parallel to the components', () => {

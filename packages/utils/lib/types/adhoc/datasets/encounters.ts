@@ -158,6 +158,12 @@ export const EncounterBaseRowSchema = z.object({
     ),
   room: z.string().describe('Room the visit was assigned to. "" when none.'),
   group: z.string().describe('Provider group the visit was booked through. "" when not booked via a group.'),
+  trackingBoardNote: z
+    .string()
+    .describe(
+      'Current staff note on the visit (the tracking-board note, free text). Follow-up rows carry their parent ' +
+        'visit\'s note. "" when none.'
+    ),
   // --- Patient ---
   patientId: z.string().describe('Patient id; rows are per-encounter, so count UNIQUE patientId for a patient count.'),
   firstName: z.string().describe('Patient first name.'),
@@ -291,6 +297,7 @@ export const ENCOUNTER_DOMAIN_FIELDS: readonly (keyof AdHocEncounterRow)[] = [
   'followUpReason',
   'procedureTypes',
   'occupationalMedicineEmployer',
+  'examAbnormalSystems',
 ];
 
 // Opt-in layers, declared once (metadata + Zod field schema). Row/response schema, endpoint input
@@ -923,6 +930,27 @@ export const ENCOUNTER_LAYERS = {
       rosFindings: z.array(z.string()).describe('ROS findings with state, e.g. "Reports Chills".'),
       examSystems: z.array(z.string()).describe('Physical-exam statements per system.'),
       examFindings: z.array(z.string()).describe('Specific physical-exam finding keys.'),
+      examFindingDetails: z
+        .array(
+          z.object({
+            system: z.string().describe('Exam section (body system) the finding is charted under, e.g. "Abdomen".'),
+            finding: z.string().describe('The finding as shown on the visit note.'),
+            abnormal: z.boolean().describe('True when charted as an abnormal finding.'),
+          })
+        )
+        .describe('Every charted physical-exam finding, normal and abnormal, as on the visit note. Empty when none.'),
+      examAbnormalSystems: z
+        .array(z.string())
+        .describe('Exam sections (body systems) with at least one abnormal finding. Empty when none.'),
+      examAbnormalFindingCount: z.number().describe('Number of abnormal physical-exam findings on the visit.'),
+      examComments: z
+        .array(
+          z.object({
+            system: z.string().describe('Exam section (body system) the comment belongs to.'),
+            comment: z.string().describe('Provider comment on that section (free text).'),
+          })
+        )
+        .describe('Provider comments per exam section. Empty when none.'),
     }),
   },
   results: {
@@ -947,6 +975,11 @@ export const ENCOUNTER_LAYERS = {
             status: z.enum(NURSING_ORDER_STATUS_VALUES).describe('Current status of the order.'),
             orderedAt: z.string().nullable().describe('Full ISO instant the order was placed. Null when unknown.'),
             orderedBy: z.string().describe('Ordering provider (full name). "" when unknown.'),
+            completedAt: z
+              .string()
+              .nullable()
+              .describe('Full ISO instant the order was marked completed. Null when not completed.'),
+            completedBy: z.string().describe('Staff member who completed the order. "" when not completed/unknown.'),
           })
         )
         .describe('One record per nursing order (cancelled orders excluded). Empty when none.'),

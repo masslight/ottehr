@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { Appointment, Encounter, FhirResource, Location, Organization, Patient, Practitioner } from 'fhir/r4b';
 import {
+  ATTORNEY_FIRM_EXTENSION_URL,
   CPT_CODE_SYSTEM,
   CPT_MODIFIER_EXTENSION_URL,
   ENCOUNTER_PAYMENT_VARIANT_EXTENSION_URL,
@@ -14,7 +15,13 @@ import { buildFollowupEncounterType } from 'utils/lib/fhir/encounter';
 import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
 import { AdHocBillingOutputSchema } from 'utils/lib/types/adhoc/datasets/billing';
 import { AdHocPatientsOutputSchema } from 'utils/lib/types/adhoc/datasets/patients';
-import { PRACTICE_NAME_URL } from 'utils/lib/types/constants';
+import {
+  PATIENT_HAS_MEDICAID_URL,
+  PATIENT_INDIVIDUAL_PRONOUNS_CUSTOM_URL,
+  PATIENT_INDIVIDUAL_PRONOUNS_URL,
+  PRACTICE_NAME_URL,
+  PREFERRED_COMMUNICATION_METHOD_EXTENSION_URL,
+} from 'utils/lib/types/constants';
 import { afterAll, describe, expect, it, vi } from 'vitest';
 import { PATIENT_CONTAINED_PHARMACY_ID } from '../src/ehr/shared/harvest';
 import { fetchAdHocBillingRows } from '../src/shared/adhoc-datasets/billing';
@@ -50,7 +57,10 @@ const codeable = (display: string): { coding: { display: string }[] } => ({ codi
 const returningPatient: Patient = {
   resourceType: 'Patient',
   id: 'pat-1',
-  name: [{ given: ['Jane'], family: 'Doe' }],
+  name: [
+    { given: ['Jane'], family: 'Doe' },
+    { given: ['JJ'], use: 'nickname' },
+  ],
   birthDate: '2010-01-01',
   gender: 'female',
   communication: [{ language: { coding: [{ code: 'es', display: 'Spanish' }] }, preferred: true }],
@@ -58,6 +68,13 @@ const returningPatient: Patient = {
     { url: `${PRIVATE_EXTENSION_BASE_URL}/race`, valueCodeableConcept: codeable('Asian') },
     { url: `${PRIVATE_EXTENSION_BASE_URL}/ethnicity`, valueCodeableConcept: codeable('Not Hispanic or Latino') },
     { url: `${PRIVATE_EXTENSION_BASE_URL}/send-marketing`, valueBoolean: true },
+    {
+      url: PATIENT_INDIVIDUAL_PRONOUNS_URL,
+      valueCodeableConcept: { coding: [{ code: 'LA0000-0', display: 'My pronouns are not listed' }] },
+    },
+    { url: PATIENT_INDIVIDUAL_PRONOUNS_CUSTOM_URL, valueString: 'Ze/zir' },
+    { url: PREFERRED_COMMUNICATION_METHOD_EXTENSION_URL, valueString: 'Cell Phone' },
+    { url: PATIENT_HAS_MEDICAID_URL, valueBoolean: true },
   ],
   contained: [
     {
@@ -222,6 +239,17 @@ const accountResources: FhirResource[] = [
     name: [{ given: ['Tom'], family: 'Doe' }],
     relationship: [
       { coding: [{ system: 'http://terminology.hl7.org/CodeSystem/v2-0131', code: 'EP', display: 'Spouse' }] },
+    ],
+  },
+  // The MVA attorney as harvest writes it (buildAttorneyRelatedPerson).
+  {
+    resourceType: 'RelatedPerson',
+    id: 'atty-1',
+    patient: { reference: 'Patient/pat-1' },
+    name: [{ given: ['Saul'], family: 'Goodwin' }],
+    extension: [{ url: ATTORNEY_FIRM_EXTENSION_URL, valueString: 'Goodwin & Co' }],
+    relationship: [
+      { coding: [{ system: 'http://terminology.hl7.org/CodeSystem/v2-0131', code: 'OTHER', display: 'MVA Attorney' }] },
     ],
   },
 ] as FhirResource[];
@@ -446,6 +474,9 @@ describe('ad-hoc Patients: layers mapped with the app logic (fixture)', () => {
       responsiblePartyName: 'Mary Doe',
       emergencyContactRelationship: 'Spouse',
       emergencyContactName: 'Tom Doe',
+      hasAttorney: true,
+      attorneyFirm: 'Goodwin & Co',
+      attorneyName: 'Saul Goodwin',
       insured: true,
       primaryInsuranceCarrier: 'Aetna',
       primaryMemberId: 'MEM-123',
@@ -456,6 +487,8 @@ describe('ad-hoc Patients: layers mapped with the app logic (fixture)', () => {
     });
     expect(rows.find((r) => r.patientId === 'pat-2')).toMatchObject({
       responsiblePartyRelationship: '',
+      hasAttorney: false,
+      attorneyFirm: '',
       insured: false,
       primaryInsuranceCarrier: '',
       occupationalMedicineEmployer: '',
@@ -538,10 +571,23 @@ describe('ad-hoc Patients: layers mapped with the app logic (fixture)', () => {
       pcpPracticeName: 'Family Practice',
       preferredPharmacy: 'Main St Pharmacy',
       deceased: false,
+      preferredName: 'JJ',
+      pronouns: 'Ze/zir',
+      preferredCommunicationMethod: 'Cell Phone',
+      hasMedicaid: true,
     });
     expect(returning.pcpName).toContain('Care');
 
     const fresh = rows.find((r) => r.patientId === 'pat-2')!;
-    expect(fresh).toMatchObject({ preferredLanguage: '', hasPcp: false, preferredPharmacy: '', deceased: true });
+    expect(fresh).toMatchObject({
+      preferredLanguage: '',
+      hasPcp: false,
+      preferredPharmacy: '',
+      deceased: true,
+      preferredName: '',
+      pronouns: '',
+      preferredCommunicationMethod: '',
+      hasMedicaid: false,
+    });
   });
 });

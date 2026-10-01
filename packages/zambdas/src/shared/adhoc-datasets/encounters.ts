@@ -101,6 +101,7 @@ import {
   VitalsObservationDTO,
   VitalsVisionObservationDTO,
 } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
 import { MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE } from 'utils/lib/types/api/medication-administration.constants';
 import { PROVIDER_TYPE_VALUES } from 'utils/lib/types/api/practitioner.types';
 import { ClosureType, CREATED_BY_SYSTEM, OVERRIDE_DATE_FORMAT } from 'utils/lib/types/common';
@@ -125,11 +126,13 @@ import {
   followUpTypeFromPerformerType,
   makeDispositionDTOFromFhirResources,
   makeProceduresDTOFromFhirResources,
+  mapResourceToChartDataResponse,
 } from '../chart-data';
 import { mapChartResources } from '../chart-sections/map';
 import { getOccupationalMedicineEmployerName, getVisitEmployerOrganizationId } from '../occupational-medicine-employer';
 import { getPaperworkCompleteness } from '../paperwork-completeness';
 import { resolveEncounterSignatures } from '../pdf/get-encounter-signatures';
+import { parseExamFieldsFromExamObservations } from '../pdf/sections/visit-note/examination';
 import {
   erxDrugRecord,
   inHouseDrugRecord,
@@ -920,6 +923,7 @@ export async function fetchAdHocEncounterRows(
       bookedAt: appointment.created ?? null,
       room: getAppointmentRoom(appointment) ?? '',
       group: groupId ? groupNameById.get(groupId) ?? '' : '',
+      trackingBoardNote: appointment.comment ?? '',
       visitStatusSince: currentStatusSince,
       scheduledSlotMinutes: minutesBetween(appointment.start, appointment.end),
       patientId: patient?.id || '',
@@ -1487,6 +1491,33 @@ export async function fetchAdHocEncounterRows(
       row.rosFindings = rosFindings;
       row.examSystems = Array.from(new Set(examSystems));
       row.examFindings = examFindings;
+
+      // The visit note's examination section: findings per exam section with their abnormal flag, and
+      // the provider's per-section comments.
+      let examChart: GetChartDataResponse = { patientId: '', examObservations: [] };
+
+      for (const o of obs)
+        examChart = mapResourceToChartDataResponse(examChart, o, encounter.id ?? '').chartDataResponse;
+
+      const examSections = Object.values(parseExamFieldsFromExamObservations(examChart).examination);
+
+      row.examFindingDetails = examSections.flatMap((section) =>
+        (section.items ?? []).map((item) => ({
+          system: section.groupLabel,
+          finding: item.label,
+          abnormal: item.abnormal,
+        }))
+      );
+
+      row.examAbnormalSystems = examSections
+        .filter((section) => section.items?.some((item) => item.abnormal))
+        .map((section) => section.groupLabel);
+
+      row.examAbnormalFindingCount = row.examFindingDetails.filter((finding) => finding.abnormal).length;
+
+      row.examComments = examSections
+        .filter((section) => !!section.comment)
+        .map((section) => ({ system: section.groupLabel, comment: section.comment ?? '' }));
     }
 
     if (includeResults) {
