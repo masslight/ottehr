@@ -1,6 +1,7 @@
 import Oystehr, { BatchInput, BatchInputPostRequest, BatchInputRequest } from '@oystehr/sdk';
 import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { randomUUID } from 'crypto';
 import {
   Account,
   Appointment,
@@ -21,7 +22,6 @@ import {
   Task,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { uuid } from 'short-uuid';
 import {
   ACCIDENT_TYPE_SYSTEM,
   CURRENT_EXAM_MIGRATION_VERSION,
@@ -550,7 +550,7 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     });
   }
 
-  const apptUrl = `urn:uuid:${uuid()}`;
+  const apptUrl = `urn:uuid:${randomUUID()}`;
   const bookedViaGroupId = slot ? getSlotBookedViaGroupId(slot) : undefined;
   const participants: AppointmentParticipant[] = [];
 
@@ -638,7 +638,7 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
         id: undefined,
         status: 'busy',
       },
-      fullUrl: `urn:uuid:${uuid()}`,
+      fullUrl: `urn:uuid:${randomUUID()}`,
     });
     slotReference = {
       reference: postSlotRequests[0].fullUrl,
@@ -677,7 +677,7 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     extension: apptExtensions,
   };
 
-  const encUrl = `urn:uuid:${uuid()}`;
+  const encUrl = `urn:uuid:${randomUUID()}`;
 
   // Determine whether to pre-stamp the attending Practitioner on
   // Encounter.participant[ATND] (CodeSystem v3-ParticipationType / ATND).
@@ -735,7 +735,7 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
   const followUpDiagnosisEntries: NonNullable<Encounter['diagnosis']> = [];
 
   for (const { condition: parentCondition, rank } of carriedOverDiagnoses) {
-    const newConditionUrl = `urn:uuid:${uuid()}`;
+    const newConditionUrl = `urn:uuid:${randomUUID()}`;
     const newCondition: Condition = {
       resourceType: 'Condition',
       subject: { reference: patientRef },

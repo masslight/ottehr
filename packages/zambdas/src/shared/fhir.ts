@@ -4,6 +4,7 @@ import Oystehr, {
   BatchInputPostRequest,
   SearchParam,
 } from '@oystehr/sdk';
+import { randomUUID } from 'crypto';
 import { Operation } from 'fast-json-patch';
 import {
   Appointment,
@@ -19,7 +20,6 @@ import {
   Schedule,
   Slot,
 } from 'fhir/r4b';
-import { uuid } from 'short-uuid';
 import { BookableScheduleData, ScheduleStrategy, SLUG_SYSTEM } from 'utils/lib/fhir/constants';
 import { withResponseSizeRetry } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { getGroupAllLocations, walkGroupMemberPractitionerRoleSchedules } from 'utils/lib/fhir/healthcareService';
@@ -511,7 +511,7 @@ export async function updateAppointmentTime(
             id: undefined,
             status: 'busy',
           },
-          fullUrl: `urn:uuid:${uuid()}`,
+          fullUrl: `urn:uuid:${randomUUID()}`,
         });
         newSlotReference = {
           reference: postSlotRequests[0].fullUrl,

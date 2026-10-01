@@ -26,7 +26,7 @@ interface ZambdasJson {
 }
 
 const loadEnvZambdas = (env: string): ZambdaSpec[] => {
-  const envConfigPath = path.resolve(__dirname, `../../config/oystehr/env/${env}/zambdas.json`);
+  const envConfigPath = path.resolve(import.meta.dirname, `../../config/oystehr/env/${env}/zambdas.json`);
   try {
     if (fs.existsSync(envConfigPath)) {
       const envSpec = JSON.parse(fs.readFileSync(envConfigPath, 'utf-8')) as ZambdasJson;

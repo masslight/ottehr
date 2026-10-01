@@ -2,6 +2,7 @@
   "name": "zambdas",
   "version": "1.44.8",
   "private": true,
+  "type": "module",
   "sideEffects": false,
   "scripts": {
     "start": "npm run start:iac",

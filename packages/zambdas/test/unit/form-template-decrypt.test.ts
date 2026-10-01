@@ -13,7 +13,7 @@ import { analyzeFormTemplatePdf } from '../../src/ehr/shared/form-template-pdf';
  * Permissions-only encryption with an empty user password — `/V 4 /R 4 /CFM AESV2`, `/P -1084`, which
  * denies modification and text extraction while explicitly allowing form filling.
  */
-const DWC073 = join(__dirname, '../fixtures/dwc073.pdf');
+const DWC073 = join(import.meta.dirname, '../fixtures/dwc073.pdf');
 
 describe('decryptTemplatePdf', () => {
   it('leaves an unencrypted document alone', async () => {

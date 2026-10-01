@@ -16,7 +16,7 @@ import {
   Specimen,
   Task,
 } from 'fhir/r4b';
-import { isEqual } from 'lodash';
+import { isEqual } from 'lodash-es';
 import { DateTime } from 'luxon';
 import { COVERAGE_MEMBER_IDENTIFIER_BASE } from 'utils/lib/fhir/constants';
 import { getLabListStatus, getLabListType } from 'utils/lib/helpers/labs/helpers';

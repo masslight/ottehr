@@ -42,7 +42,7 @@ const secrets: Record<string, string> = {};
 
 function populateSecrets({ pathToSecretsFile }: { pathToSecretsFile: string }): void {
   console.log('Populating secrets from', pathToSecretsFile);
-  const configString = readFileSync(resolve(__dirname, `../../${pathToSecretsFile}`), { encoding: 'utf8' });
+  const configString = readFileSync(resolve(import.meta.dirname, `../../${pathToSecretsFile}`), { encoding: 'utf8' });
   const fileContents: Record<string, string> = JSON.parse(configString);
   Object.entries(fileContents).forEach(([key, value]) => {
     secrets[key] = value;

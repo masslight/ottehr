@@ -17,7 +17,7 @@ enum PayersFileColumns {
   payerType = 'Payer Type',
 }
 
-const CSV_FILE_PATH = path.join(__dirname, 'data', 'insurance-payers.csv');
+const CSV_FILE_PATH = path.join(import.meta.dirname, 'data', 'insurance-payers.csv');
 
 const PAYER_ID_SYSTEM = 'payer-id';
 

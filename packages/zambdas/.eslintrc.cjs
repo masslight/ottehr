@@ -4,5 +4,4 @@ module.exports = {
     tsconfigRootDir: __dirname,
     project: ['tsconfig.json'],
   },
-  ignorePatterns: ['src/scripts/detect-tls.js'],
 };

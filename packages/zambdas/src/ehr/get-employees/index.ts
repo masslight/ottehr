@@ -18,12 +18,6 @@ import { ZambdaInput } from '../../shared/types/common';
 import { getRoleMembers } from '../../shared/users.helper';
 import { validateRequestParameters } from './validateRequestParameters';
 
-// For local development it makes it easier to track performance
-if (process.env.IS_OFFLINE === 'true') {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  require('console-stamp')(console, { pattern: 'HH:MM:ss.l' });
-}
-
 export interface GetEmployeesInput {
   secrets: Secrets | null;
   /**

@@ -1,4 +1,4 @@
-import { capitalize } from 'lodash';
+import { capitalize } from 'lodash-es';
 import { formatDateForDisplay } from 'utils/lib/utils/dateUtils';
 import { DataComposer } from '../pdf-common';
 import { PatientPaymentsDataInput, PatientPaymentsInfo, PdfSection } from '../types';

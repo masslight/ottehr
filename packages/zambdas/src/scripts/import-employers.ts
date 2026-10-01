@@ -144,7 +144,7 @@ async function main(): Promise<void> {
   }
 
   // Load secrets / config
-  const configPath = path.resolve(__dirname, `../../../../config/.env/${env}.json`);
+  const configPath = path.resolve(import.meta.dirname, `../../../../config/.env/${env}.json`);
   let secrets: Secrets;
   try {
     secrets = JSON.parse(fs.readFileSync(configPath, 'utf8'));
