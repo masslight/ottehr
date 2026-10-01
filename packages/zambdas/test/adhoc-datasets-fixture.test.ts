@@ -34,6 +34,7 @@ import {
   MEDICATION_IDENTIFIER_NAME_SYSTEM,
   PRACTITIONER_ADMINISTERED_MEDICATION_CODE,
   PRACTITIONER_ORDERED_BY_MEDICATION_CODE,
+  PRACTITIONER_ORDERED_MEDICATION_CODE,
   VACCINE_ADMINISTRATION_CODES_EXTENSION_URL,
   VACCINE_ADMINISTRATION_VIS_DATE_EXTENSION_URL,
 } from 'utils/lib/types/api/medication-administration.constants';
@@ -44,6 +45,7 @@ import {
   SEEN_IN_LAST_THREE_YEARS_FIELD,
 } from 'utils/lib/types/data/screening-questions/constants';
 import { afterAll, describe, expect, it, vi } from 'vitest';
+import { CONTAINED_MEDICATION_ID } from '../src/ehr/immunization/common';
 import { fetchAdHocBillingRows } from '../src/shared/adhoc-datasets/billing';
 import { fetchAdHocEncounterRows } from '../src/shared/adhoc-datasets/encounters';
 import { fetchAdHocPatientRows } from '../src/shared/adhoc-datasets/patients';
@@ -212,7 +214,7 @@ const observations: Observation[] = [
 ];
 
 const performer = (code: string): NonNullable<MedicationAdministration['performer']>[number] => ({
-  actor: { reference: 'Practitioner/prac-1' },
+  actor: { reference: 'Practitioner/prac-1', display: 'Greg House' },
   function: { coding: [{ system: MEDICATION_ADMINISTRATION_PERFORMER_TYPE_SYSTEM, code }] },
 });
 // One vaccine with a VIS date, a vial (lot + expiry) and the full administration detail (codes,
@@ -247,7 +249,8 @@ const vaccineAdmin = (
   contained: [
     {
       resourceType: 'Medication' as const,
-      id: `med-${id}`,
+      // The immunization order writes its Medication copy under this contained id.
+      id: CONTAINED_MEDICATION_ID,
       identifier: [{ system: MEDICATION_IDENTIFIER_NAME_SYSTEM, value: name }],
       ...(batch ? { batch } : {}),
       ...(withDetail ? { manufacturer: { reference: '#manufacturer-org' } } : {}),
@@ -294,7 +297,9 @@ const inHouseAdmin = (
       valueString: JSON.stringify([{ code: 'J0696', display: 'Ceftriaxone' }]),
     },
   ],
+  // Every in-house order carries the practitioner who created it (create-update-medication-order).
   performer: [
+    performer(PRACTITIONER_ORDERED_MEDICATION_CODE),
     performer(PRACTITIONER_ORDERED_BY_MEDICATION_CODE),
     ...(withVial ? [performer(PRACTITIONER_ADMINISTERED_MEDICATION_CODE)] : []),
   ],
@@ -344,6 +349,7 @@ const radiologyOrder = (
   intent: 'order',
   subject: { reference: 'Patient/pat-1' },
   encounter: { reference: 'Encounter/enc-1' },
+  authoredOn: '2026-07-01T14:12:00.000Z',
   meta: { tag: [{ code: 'radiology' }] },
   code: { coding: [{ system: CODE_SYSTEM_CPT, code: '73030', display: name }] },
   extension: [
@@ -558,7 +564,8 @@ describe('ad-hoc dataset zambdas: mapped rows parse against their Zod schema (fi
     expect(issuesOf(AdHocEncountersOutputSchema.safeParse({ encounters: rows }))).toEqual([]);
     // The flat list keeps excluding cancelled orders; the records carry every order with a status.
     expect(row.imagingOrders).toEqual(['XR shoulder', 'XR wrist']);
-    expect(row.imagingStudies).toEqual([
+    // The coarse fields keep their meaning (saved reports read them); the page's own status is orderStatus.
+    expect(row.imagingStudies).toMatchObject([
       {
         name: 'XR shoulder',
         status: 'final',
@@ -566,10 +573,17 @@ describe('ad-hoc dataset zambdas: mapped rows parse against their Zod schema (fi
         performedAt: '2026-07-01T14:30:00.000Z',
         preliminaryAt: '2026-07-01T14:45:00.000Z',
         finalAt: '2026-07-01T18:00:00.000Z',
+        orderStatus: 'final',
+        reviewedAt: null,
+        cptCode: '73030',
+        laterality: null,
+        stat: false,
+        orderedBy: 'Greg House',
       },
       {
         name: 'XR wrist',
         status: 'pending',
+        orderStatus: 'pending',
         orderedAt: '2026-07-01T14:12:00.000Z',
         performedAt: null,
         preliminaryAt: null,
@@ -578,6 +592,8 @@ describe('ad-hoc dataset zambdas: mapped rows parse against their Zod schema (fi
       {
         name: 'XR knee',
         status: 'cancelled',
+        orderStatus: null,
+        stat: null,
         orderedAt: '2026-07-01T14:12:00.000Z',
         performedAt: null,
         preliminaryAt: null,
@@ -618,7 +634,10 @@ describe('ad-hoc dataset zambdas: mapped rows parse against their Zod schema (fi
       orderedBy: null,
       cptCodes: [],
     };
-    expect(row.vaccines).toEqual([
+    // The recall fields keep their values; the order-page extras (mvx, site, …) come on top.
+    expect(row.vaccinesNotGiven).toEqual([]);
+    expect(row.vaccineNames).toEqual(['Influenza', 'MMR']);
+    expect(row.vaccines).toMatchObject([
       {
         name: 'Influenza',
         status: 'administered',
@@ -656,7 +675,8 @@ describe('ad-hoc dataset zambdas: mapped rows parse against their Zod schema (fi
     expect(row.drugs?.map((d) => d.name)).toEqual(['Ceftriaxone 1 g', 'Ceftriaxone 500 mg']);
 
     const given = row.drugs?.find((d) => d.name === 'Ceftriaxone 1 g');
-    expect(given).toEqual({
+    // The recall fields keep their values; the medication-orders page extras come on top.
+    expect(given).toMatchObject({
       name: 'Ceftriaxone 1 g',
       source: 'in-house',
       status: 'administered',
@@ -675,6 +695,11 @@ describe('ad-hoc dataset zambdas: mapped rows parse against their Zod schema (fi
       cptCodes: ['J0696'],
       icdCode: 'H66.90',
       icdDisplay: 'Otitis media, unspecified',
+      // The order creation time on the MA.
+      orderedAt: '2026-07-01T15:00:00.000Z',
+      notGivenReason: null,
+      drugInteractionSeverities: [],
+      erxStatus: null,
     });
 
     // Marked as not administered: no vial is tied to the patient, so no lot, expiry or manufacturer.

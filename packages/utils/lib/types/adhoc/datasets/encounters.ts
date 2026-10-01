@@ -2,12 +2,16 @@
 // they derive the TS types, validate the response, and are serialized for the generation prompt
 // (names/types/descriptions; enum members for closed vocabularies — never values sampled from data).
 // Field descriptions are written for the LLM.
+import { MedicationRequest } from 'fhir/r4b';
 import { z } from 'zod';
 import { mapDispositionTypeToLabel } from '../../../fhir/disposition';
 import { PaymentVariant } from '../../../fhir/encounter';
+import { LATERALITY_SELECTORS, LateralityValue } from '../../../fhir/radiology';
 import { DispositionType } from '../../api/chart-data/chart-data.types';
 import { NonNormalResult } from '../../api/lab';
+import { DrugInteraction } from '../../api/medication-administration.types';
 import { PROVIDER_TYPE_VALUES } from '../../api/practitioner.types';
+import { RADIOLOGY_SAFETY_FLAGS, RadiologyOrderStatus } from '../../api/radiology';
 import { OBSERVATION_CODES } from '../../data/in-house/in-house.constants';
 import { TestStatus } from '../../data/in-house/in-house.types';
 import { ExternalLabsStatus } from '../../data/labs/labs.types';
@@ -26,6 +30,29 @@ const IN_HOUSE_LAB_STATUSES = { ORDERED: true, COLLECTED: true, FINAL: true } sa
 // determineOrderStatus falls back to 'UNKNOWN' (cast) when no rule matches, so it is part of the domain.
 const IN_HOUSE_LAB_STATUS_VALUES = [...(Object.keys(IN_HOUSE_LAB_STATUSES) as TestStatus[]), 'UNKNOWN'] as const;
 const LAB_TEST_STATUS_VALUES = enumValues<string>([...EXTERNAL_LAB_STATUS_VALUES, ...IN_HOUSE_LAB_STATUS_VALUES]);
+const RADIOLOGY_ORDER_STATUS_VALUES = enumValues(Object.values(RadiologyOrderStatus));
+const LATERALITY_VALUES = enumValues(Object.keys(LATERALITY_SELECTORS) as LateralityValue[]);
+const DRUG_INTERACTION_SEVERITIES = { high: true, moderate: true, low: true } satisfies Record<
+  NonNullable<DrugInteraction['severity']>,
+  true
+>;
+const DRUG_INTERACTION_SEVERITY_VALUES = enumValues(
+  Object.keys(DRUG_INTERACTION_SEVERITIES) as NonNullable<DrugInteraction['severity']>[]
+);
+// Record<…, true> requires every FHIR MedicationRequest.status as a key.
+const MEDICATION_REQUEST_STATUSES = {
+  active: true,
+  'on-hold': true,
+  cancelled: true,
+  completed: true,
+  'entered-in-error': true,
+  stopped: true,
+  draft: true,
+  unknown: true,
+} satisfies Record<NonNullable<MedicationRequest['status']>, true>;
+const MEDICATION_REQUEST_STATUS_VALUES = enumValues(
+  Object.keys(MEDICATION_REQUEST_STATUSES) as NonNullable<MedicationRequest['status']>[]
+);
 const DISPOSITION_TYPE_VALUES = enumValues(Object.keys(mapDispositionTypeToLabel) as DispositionType[]);
 const NURSING_ORDER_STATUS_VALUES = enumValues(Object.values(NursingOrdersStatus));
 const NON_NORMAL_RESULT_VALUES = enumValues(Object.values(NonNormalResult));
@@ -217,7 +244,8 @@ export const ENCOUNTER_DOMAIN_FIELDS: readonly (keyof AdHocEncounterRow)[] = [
   'labNames',
   'labResultComponents',
   'imagingOrders',
-  // Vaccine names sit inside `vaccines` records; value sampling only covers flat row fields.
+  // Value sampling only covers flat row fields, so the vaccine names inside the records get a flat list.
+  'vaccineNames',
   'nursingOrders',
   'resultNames',
   'medicationIngredients',
@@ -333,6 +361,40 @@ export const ENCOUNTER_LAYERS = {
               .describe('CPT/HCPCS codes billed for THIS drug (e.g. J-codes). Empty for eRx.'),
             icdCode: z.string().nullable().describe('ICD-10 diagnosis the drug was given for. Null when none linked.'),
             icdDisplay: z.string().nullable().describe('Description of icdCode. Null when none linked.'),
+            instructions: z
+              .string()
+              .nullable()
+              .describe('Instructions on the order (in-house) or for the patient (eRx). Null when none.'),
+            orderedAt: z
+              .string()
+              .nullable()
+              .describe('Full ISO instant an in-house order was placed. Null for eRx / unknown.'),
+            notGivenReason: z
+              .string()
+              .nullable()
+              .describe('Why an in-house drug was not (fully) given, as picked in the chart. Null otherwise.'),
+            notGivenReasonOther: z
+              .string()
+              .nullable()
+              .describe('Free-text reason typed when notGivenReason is "other". Null otherwise.'),
+            administrationSite: z
+              .string()
+              .nullable()
+              .describe('Body site the in-house drug was given at. Null for eRx / not recorded.'),
+            drugInteractionSeverities: z
+              .array(z.enum(DRUG_INTERACTION_SEVERITY_VALUES))
+              .describe('Severity of each drug–drug interaction flagged for THIS drug at ordering. Empty when none.'),
+            allergyInteractionCount: z
+              .number()
+              .describe('Number of drug–allergy interactions flagged for THIS drug at ordering.'),
+            interactionOverridden: z
+              .boolean()
+              .describe('The provider overrode at least one flagged interaction (gave an override reason).'),
+            erxStatus: z
+              .enum(MEDICATION_REQUEST_STATUS_VALUES)
+              .nullable()
+              .describe('eRx only: prescription status (active, completed, cancelled, …). Null for in-house.'),
+            isRenewal: z.boolean().nullable().describe('eRx only: the prescription is a renewal. Null for in-house.'),
           })
         )
         .describe(
@@ -503,7 +565,9 @@ export const ENCOUNTER_LAYERS = {
   },
   imaging: {
     label: 'Radiology orders',
-    description: "Radiology studies ordered on the visit: names, counts, and each order's status timeline.",
+    description:
+      "Radiology studies ordered on the visit: names, counts, each order's status timeline (through the final read " +
+      'and its review), CPT and laterality, STAT, external orders, ordering provider, diagnoses and safety flags.',
     schema: z.object({
       imagingOrders: z.array(z.string()).describe('Radiology studies ordered (excl. cancelled).'),
       imagingOrderCount: z.number().describe('Number of radiology studies ordered. 0 when none.'),
@@ -515,14 +579,55 @@ export const ENCOUNTER_LAYERS = {
               .describe('Study name, same value as the corresponding radiology order (including cancelled orders).'),
             status: z
               .enum(['pending', 'performed', 'preliminary', 'final', 'cancelled'])
-              .describe('Current order status: pending → performed → preliminary (read) → final (read).'),
+              .describe(
+                'Order progress, coarse: pending → performed → preliminary (read) → final (read). For the exact ' +
+                  'status as the radiology page shows it (incl. pending final, reviewed) use orderStatus.'
+              ),
+            orderStatus: z
+              .enum(RADIOLOGY_ORDER_STATUS_VALUES)
+              .nullable()
+              .describe(
+                'Status as the radiology orders page shows it: pending → performed → preliminary → pending final ' +
+                  '(sent for the final read) → final → reviewed (final read reviewed by the provider). External ' +
+                  '(print-only) orders go ordered → reviewed (result uploaded). Null for cancelled orders.'
+              ),
             orderedAt: z.string().nullable().describe('Full ISO instant the order was placed (status pending).'),
             performedAt: z.string().nullable().describe('Full ISO instant the study was performed. Null until then.'),
             preliminaryAt: z
               .string()
               .nullable()
               .describe('Full ISO instant the preliminary read was saved. Null until then.'),
+            pendingFinalAt: z
+              .string()
+              .nullable()
+              .describe('Full ISO instant the study was sent for the final read. Null until then / never sent.'),
             finalAt: z.string().nullable().describe('Full ISO instant the final read was issued. Null until then.'),
+            reviewedAt: z
+              .string()
+              .nullable()
+              .describe('Full ISO instant the final read (or an external result) was reviewed. Null until then.'),
+            cptCode: z.string().describe('Base CPT code of the study (without the laterality modifier).'),
+            laterality: z
+              .enum(LATERALITY_VALUES)
+              .nullable()
+              .describe('CPT laterality modifier: LT = left, RT = right, 50 = bilateral. Null when none.'),
+            stat: z.boolean().nullable().describe('Ordered STAT. Null for cancelled orders.'),
+            external: z.boolean().describe('External (print-only) order performed outside the clinic.'),
+            orderedBy: z
+              .string()
+              .describe("Ordering provider as the radiology page shows it (the visit's attending provider)."),
+            icdCodes: z
+              .array(z.string())
+              .describe('ICD-10 codes the study was ordered for. HIERARCHICAL — prefix-match.'),
+            performedBy: z.string().describe('Who performed the study. "" when not recorded.'),
+            performingOrganization: z.string().describe('Organization performing an external study. "" when none.'),
+            safetyFlags: z
+              .array(z.enum(RADIOLOGY_SAFETY_FLAGS))
+              .describe('Patient-safety flags on the order (implants, metal, pacemaker, pregnancy, contrast allergy).'),
+            consentObtained: z
+              .boolean()
+              .nullable()
+              .describe('Consent for the study was obtained. Null for cancelled orders.'),
           })
         )
         .describe('One record per radiology order with its status timestamps. Empty when no radiology on the visit.'),
@@ -582,12 +687,38 @@ export const ENCOUNTER_LAYERS = {
               .nullable()
               .describe('Ordering provider (full name). Null when unknown or for history.'),
             cptCodes: z.array(z.string()).describe('CPT codes billed for THIS vaccine. Empty for history.'),
+            mvx: z.string().nullable().describe('MVX manufacturer code. Null when not recorded or for history.'),
+            bodySite: z
+              .string()
+              .nullable()
+              .describe('Body site the vaccine was given at. Null when not recorded / history.'),
+            instructions: z.string().nullable().describe('Instructions on the order. Null when none / history.'),
+            orderedAt: z.string().nullable().describe('Full ISO instant the vaccine was ordered. Null for history.'),
           })
         )
         .describe(
           'One record per vaccine on the visit with the detail a recall or an audit needs: lot, expiry, NDC, CVX, ' +
             'manufacturer, dose, time given, who gave it, who ordered it. Count vaccines GIVEN with ' +
-            'status !== "recorded"; the VIS gap is status !== "recorded" && visDate === null. Empty when none.'
+            'status !== "recorded"; the VIS gap is status !== "recorded" && visDate === null. Empty when none. ' +
+            'Vaccine orders that were NOT given are in vaccinesNotGiven, not here.'
+        ),
+      vaccineNames: z
+        .array(z.string())
+        .describe('Distinct names of the vaccines in vaccines[] and vaccinesNotGiven[] — the values their name takes.'),
+      vaccinesNotGiven: z
+        .array(
+          z.object({
+            name: z.string().describe('Vaccine name.'),
+            status: z
+              .enum(['pending', 'not-administered', 'cancelled'])
+              .describe('pending = ordered, not given yet; not-administered = the order was declined / not given.'),
+            reason: z.string().nullable().describe('Why it was not given, as charted. Null when none.'),
+            orderedAt: z.string().nullable().describe('Full ISO instant the vaccine was ordered. Null when unknown.'),
+            orderedBy: z.string().nullable().describe('Ordering provider (full name). Null when unknown.'),
+          })
+        )
+        .describe(
+          'Vaccine orders on the visit that were not given (pending, not administered, cancelled). Empty when none.'
         ),
     }),
   },
