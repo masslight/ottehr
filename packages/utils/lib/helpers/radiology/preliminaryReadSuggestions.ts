@@ -1,23 +1,14 @@
 import type { PreliminaryReadChoiceList, PreliminaryReadRegion } from 'config-types/config/radiology';
 import type { LateralityValue } from '../../fhir/radiology';
+import { SentenceSegment } from '../suggested-sentences';
 import { PRELIMINARY_READ_TEMPLATES } from './preliminaryReadTemplates';
 
-export interface PreliminaryReadBlank {
-  title: string;
-  options: string[];
-  /** The value the blank starts on; `undefined` means it must be picked before the sentence can be added */
-  initial: string | undefined;
-}
-
 /** A template split into literal text and the blanks the provider can change */
-export type PreliminaryReadSegment = string | PreliminaryReadBlank;
-
 export interface PreliminaryReadSuggestion {
   name: string;
-  segments: PreliminaryReadSegment[];
+  segments: SentenceSegment[];
 }
 
-export const PRELIMINARY_READ_NONE_LABEL = '(none)';
 const PRELIMINARY_READ_SIDE_BLANK = 'side';
 const SIDE_CHOICES: PreliminaryReadChoiceList = { title: 'Side', options: ['left', 'right', 'bilateral'] };
 const SIDE_BY_LATERALITY: Partial<Record<LateralityValue, string>> = { LT: 'left', RT: 'right' };
@@ -43,7 +34,7 @@ export const buildPreliminaryReadSuggestions = (input: {
   const side = input.laterality && SIDE_BY_LATERALITY[input.laterality];
 
   return region.templates.map((template) => {
-    const segments: PreliminaryReadSegment[] = [];
+    const segments: SentenceSegment[] = [];
     const tokens = /\{(\w+)\}/g;
     let cursor = 0;
     let match: RegExpExecArray | null;
@@ -74,8 +65,8 @@ export const buildPreliminaryReadSuggestions = (input: {
  * Adjacent literals (left by a fixed side or a dropped child-only blank) merged, runs of whitespace collapsed
  * and the ends trimmed, so the segments read the same on screen as the assembled sentence does.
  */
-const tidySegments = (segments: PreliminaryReadSegment[]): PreliminaryReadSegment[] => {
-  const merged: PreliminaryReadSegment[] = [];
+const tidySegments = (segments: SentenceSegment[]): SentenceSegment[] => {
+  const merged: SentenceSegment[] = [];
   for (const segment of segments) {
     const last = merged[merged.length - 1];
     if (typeof segment === 'string' && typeof last === 'string') merged[merged.length - 1] = last + segment;
@@ -89,22 +80,3 @@ const tidySegments = (segments: PreliminaryReadSegment[]): PreliminaryReadSegmen
     })
     .filter((segment) => segment !== '');
 };
-
-/** The first blank with neither a default nor a picked value — the sentence can't be added until it has one. */
-export const findUnpickedBlank = (
-  segments: PreliminaryReadSegment[],
-  values: (string | undefined)[]
-): PreliminaryReadBlank | undefined =>
-  segments.find(
-    (segment, i): segment is PreliminaryReadBlank =>
-      typeof segment !== 'string' && segment.initial === undefined && values[i] === undefined
-  );
-
-/** The finished sentence; `values[i]` overrides the blank at segment `i`, and '' (none) contributes nothing. */
-export const assemblePreliminaryRead = (segments: PreliminaryReadSegment[], values: (string | undefined)[]): string =>
-  segments
-    .map((segment, i) => (typeof segment === 'string' ? segment : values[i] ?? segment.initial ?? ''))
-    .join('')
-    .replace(/\s+/g, ' ')
-    .replace(/ \./g, '.')
-    .trim();
