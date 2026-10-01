@@ -145,7 +145,6 @@ interface VertexAIRequestOptions {
 export async function invokeChatbotVertexAI(
   input: MessageContentComplex[],
   secrets: Secrets | null,
-  /** The feature this call is billed to, e.g. 'extract-photo-id'. Sent as a Vertex AI billing label. */
   feature: string,
   responseSchema?: object,
   model: string = VERTEX_AI_MODEL,
@@ -195,7 +194,6 @@ export async function invokeChatbotVertexAI(
           },
           body: JSON.stringify({
             contents: [{ role: 'user', parts: [input] }],
-            // Billing labels, so Gemini spend can be broken down in Google Cloud Billing.
             labels: {
               ottehr_feature: feature,
               ...(ENVIRONMENT && { ottehr_environment: ENVIRONMENT }),
