@@ -160,18 +160,36 @@ describe('update-visit-form page ownership within a flow', () => {
 });
 
 // get-visit-details resolves the flow's forms with allSettled and shows the ones that came back, so
-// one unresolvable constituent must not make every card in the flow unsavable.
+// one unresolvable constituent must not make every card in the flow unsavable. But ownership is
+// positional — the flow keeps the last form to declare a page linkId — so a member we could not read
+// is only harmless for the pages declared after it.
 describe('update-visit-form with an unresolvable flow member', () => {
-  const flowQuestionnaire = questionnaire({
-    derivedFrom: ['http://example.org/missing|1.0.0', 'http://example.org/custom-form|1.0.0'],
-  });
-
-  it('still accepts a page from a form that did resolve', async () => {
-    mockQuestionnaireForQR.mockResolvedValue(flowQuestionnaire);
+  it('still accepts a page from a form that resolved after the failure', async () => {
+    mockQuestionnaireForQR.mockResolvedValue(
+      questionnaire({ derivedFrom: ['http://example.org/missing|1.0.0', 'http://example.org/custom-form|1.0.0'] })
+    );
     mockCanonical
       .mockRejectedValueOnce(new Error('Questionnaire not found'))
       .mockResolvedValueOnce(practiceManaged(CUSTOM_FORM_PAGE));
 
     await expect(validate([{ linkId: CUSTOM_FORM_PAGE }])).resolves.toBeDefined();
+  });
+
+  // The unreadable form may declare CUSTOM_FORM_PAGE as well, in which case the flow kept its page
+  // and the answers stored there are its own. Trusting the form that did resolve would hand that
+  // storage to the wrong card and silently overwrite another form's answers, so this fails closed —
+  // cheap, because a flow with an unresolvable member cannot be filled out by a patient at all
+  // (assembleFlowQuestionnaireItems throws).
+  it('refuses a page that an unresolved later member could have shadowed', async () => {
+    mockQuestionnaireForQR.mockResolvedValue(
+      questionnaire({ derivedFrom: ['http://example.org/custom-form|1.0.0', 'http://example.org/missing|1.0.0'] })
+    );
+    mockCanonical
+      .mockResolvedValueOnce(practiceManaged(CUSTOM_FORM_PAGE))
+      .mockRejectedValueOnce(new Error('Questionnaire not found'));
+
+    await expect(validate([{ linkId: CUSTOM_FORM_PAGE }])).rejects.toMatchObject({
+      message: expect.stringContaining(CUSTOM_FORM_PAGE),
+    });
   });
 });

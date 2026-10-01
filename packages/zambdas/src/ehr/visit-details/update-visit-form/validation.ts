@@ -172,18 +172,26 @@ async function getEditablePageLinkIds(
       return getCanonicalQuestionnaire({ url, version }, oystehr);
     })
   );
-  results
-    .filter((result): result is PromiseRejectedResult => result.status === 'rejected')
-    .forEach((result) => console.error(result.reason));
+  let lastUnresolvedIndex = -1;
+  results.forEach((result, index) => {
+    if (result.status === 'rejected') {
+      lastUnresolvedIndex = index;
+      console.error(`Could not resolve flow member "${flowMembers[index]}":`, result.reason);
+    }
+  });
 
-  const ownerByPage = new Map<string, Questionnaire>();
-  results
-    .filter((result): result is PromiseFulfilledResult<Questionnaire> => result.status === 'fulfilled')
-    .forEach(({ value: form }) => (form.item ?? []).forEach((page) => ownerByPage.set(page.linkId, form)));
+  const ownerByPage = new Map<string, { form: Questionnaire; index: number }>();
+  results.forEach((result, index) => {
+    if (result.status !== 'fulfilled') return;
+    (result.value.item ?? []).forEach((page) => ownerByPage.set(page.linkId, { form: result.value, index }));
+  });
 
   const editable = new Set<string>();
-  ownerByPage.forEach((owner, linkId) => {
-    if (owner.id === questionnaireId && isPracticeManagedQ(owner)) {
+  ownerByPage.forEach(({ form, index }, linkId) => {
+    // A member that did not resolve may declare this page too, and the later declaration is the one
+    // the flow kept, so ownership is only knowable for pages declared after the last failure.
+    if (index < lastUnresolvedIndex) return;
+    if (form.id === questionnaireId && isPracticeManagedQ(form)) {
       editable.add(linkId);
     }
   });
