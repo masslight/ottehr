@@ -431,7 +431,7 @@ export const ENCOUNTER_LAYERS = {
     description:
       'Temperature (°F and °C), heart rate, blood pressure, SpO₂, respiration, weight (kg and lbs), height (cm, ' +
       'inches, feet/inches), BMI, how each was taken (route / position / room air), weight refused, vision ' +
-      '(visual acuity) and last menstrual period.',
+      '(visual acuity, DOT vision screening), last menstrual period, and who recorded the vitals and when.',
     schema: z.object({
       temperatureF: z
         .number()
@@ -553,6 +553,41 @@ export const ENCOUNTER_LAYERS = {
         .boolean()
         .nullable()
         .describe('The patient was unsure of the last menstrual period date. Null if not charted.'),
+      // --- DOT (FMCSA MCSA-5875) vision screening, most recent DOT entry ---
+      dotHorizontalFieldLeftDegrees: z
+        .number()
+        .nullable()
+        .describe('DOT screening: horizontal field of vision, left eye, degrees. Null if not screened.'),
+      dotHorizontalFieldRightDegrees: z
+        .number()
+        .nullable()
+        .describe('DOT screening: horizontal field of vision, right eye, degrees. Null if not screened.'),
+      dotCanRecognizeColors: z
+        .boolean()
+        .nullable()
+        .describe('DOT screening: can recognize red, green and amber. Null if not answered.'),
+      dotMonocularVision: z
+        .boolean()
+        .nullable()
+        .describe('DOT screening: monocular vision (false = binocular). Null if not answered.'),
+      dotReferredToSpecialist: z
+        .boolean()
+        .nullable()
+        .describe('DOT screening: referred to an ophthalmologist or optometrist. Null if not answered.'),
+      dotReceivedReferralDocumentation: z
+        .boolean()
+        .nullable()
+        .describe('DOT screening: documentation received from the specialist. Null if not answered.'),
+      // --- Who recorded the vitals ---
+      vitalsRecordedBy: z
+        .array(z.string())
+        .describe(
+          'Staff who recorded vitals on the visit (full names, in order of their first reading). Empty if none.'
+        ),
+      vitalsFirstRecordedAt: z
+        .string()
+        .nullable()
+        .describe('Full ISO instant of the first vital reading on the visit. Null if no vitals.'),
     }),
   },
   labs: {

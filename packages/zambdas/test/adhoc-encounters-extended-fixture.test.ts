@@ -394,11 +394,11 @@ const statXray: ServiceRequest = {
 };
 
 // Vitals written by the chart's own writer (save-chart-data → makeObservationResource), at fixed times.
-const vital = (encounterId: string, dto: VitalsObservationDTO, at: string): Observation => ({
+const vital = (encounterId: string, dto: VitalsObservationDTO, at: string, author = 'prac-2'): Observation => ({
   ...makeObservationResource(
     encounterId,
     'pat-1',
-    'prac-2',
+    author,
     undefined,
     dto,
     PATIENT_VITALS_META_SYSTEM,
@@ -406,7 +406,7 @@ const vital = (encounterId: string, dto: VitalsObservationDTO, at: string): Obse
     undefined,
     undefined
   ),
-  id: `vit-${encounterId}-${dto.field}`,
+  id: `vit-${encounterId}-${dto.field}-${at}`,
   effectiveDateTime: at,
 });
 
@@ -456,6 +456,24 @@ const vitals: Observation[] = [
     'enc-1',
     { field: VitalFieldNames.VitalLastMenstrualPeriod, value: '2026-06-10', isUnsure: true },
     '2026-07-01T14:08:00.000Z'
+  ),
+  // A DOT vision screening is its own entry on the vision vital — here recorded later, by another staff member.
+  vital(
+    'enc-1',
+    {
+      field: VitalFieldNames.VitalVision,
+      leftEyeVisionText: '',
+      rightEyeVisionText: '',
+      dotVisionScreening: {
+        horizontalFieldLeftDegrees: 70,
+        horizontalFieldRightDegrees: 75,
+        canRecognizeColors: true,
+        hasMonocularVision: false,
+        referredToSpecialist: false,
+      },
+    },
+    '2026-07-01T14:09:00.000Z',
+    'prac-3'
   ),
   vital(
     'enc-2',
@@ -539,7 +557,7 @@ const nursingProvenance: Provenance = {
 
 const resourcesByJob: Record<string, FhirResource[]> = {
   Appointment: [signedAppointment, cancelledAppointment, signedEncounter, cancelledEncounter, patient, location],
-  Practitioner: [attending, intakeNurse],
+  Practitioner: [attending, intakeNurse, supervisor],
   Provenance: [
     signatureProvenance('prov-author', 'author', 'prac-1', '2026-07-01T14:40:00.000Z'),
     signatureProvenance('prov-verifier', 'verifier', 'prac-3', '2026-07-01T15:00:00.000Z'),
@@ -779,6 +797,17 @@ describe('ad-hoc Encounters: layers mapped with the app mappers (fixture)', () =
       lastMenstrualPeriodUnsure: true,
     });
     expect(signed.lastMenstrualPeriod?.startsWith('2026-06-10')).toBe(true);
+    // The later DOT entry neither replaces the acuity reading above nor hides its own answers.
+    expect(signed).toMatchObject({
+      dotHorizontalFieldLeftDegrees: 70,
+      dotHorizontalFieldRightDegrees: 75,
+      dotCanRecognizeColors: true,
+      dotMonocularVision: false,
+      dotReferredToSpecialist: false,
+      dotReceivedReferralDocumentation: null,
+      vitalsRecordedBy: ['Ivy Lee', 'Sam Stone'],
+      vitalsFirstRecordedAt: '2026-07-01T14:06:00.000Z',
+    });
 
     const cancelled = rows.find((r) => r.appointmentId === 'appt-2')!;
     expect(cancelled).toMatchObject({
@@ -791,6 +820,10 @@ describe('ad-hoc Encounters: layers mapped with the app mappers (fixture)', () =
       visionOptions: [],
       lastMenstrualPeriod: null,
       lastMenstrualPeriodUnsure: null,
+      dotHorizontalFieldLeftDegrees: null,
+      dotCanRecognizeColors: null,
+      vitalsRecordedBy: ['Ivy Lee'],
+      vitalsFirstRecordedAt: '2026-07-01T13:01:00.000Z',
     });
   });
 

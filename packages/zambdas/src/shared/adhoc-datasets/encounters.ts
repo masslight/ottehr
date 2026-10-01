@@ -51,6 +51,7 @@ import {
 } from 'utils/lib/fhir/medication-administration';
 import {
   getEmailForIndividual,
+  getFullName,
   getPatientFirstName,
   getPatientLastName,
   getPhoneNumberForIndividual,
@@ -502,6 +503,24 @@ export async function fetchAdHocEncounterRows(
         (o) => stripEnc(o.encounter?.reference),
         observationsByEncounterId
       );
+    }
+    if (includeVitals) {
+      // Names of the staff who recorded vitals: each reading's performer.
+      const authorIds = new Set<string>();
+
+      for (const observations of observationsByEncounterId.values()) {
+        for (const o of observations) {
+          if (!o.meta?.tag?.some((t) => t.code?.startsWith('vital-'))) continue;
+          const id = makeVitalsObservationDTO(o)?.authorId;
+          if (id && !practitionerMap.has(id)) authorIds.add(id);
+        }
+      }
+
+      for (const p of await fetchScoped<Practitioner>('Practitioner', '_id', Array.from(authorIds), [
+        { name: '_elements', value: 'id,name' },
+      ])) {
+        if (p.id) practitionerMap.set(p.id, p);
+      }
     }
     if (includeLabs || includeImaging || includeDisposition || includeNursing || includeProcedures) {
       indexByEncounter(
@@ -1080,6 +1099,37 @@ export async function fetchAdHocEncounterRows(
       const lmpDto = lmp?.field === VitalFieldNames.VitalLastMenstrualPeriod ? lmp : undefined;
       row.lastMenstrualPeriod = lmpDto?.value || null;
       row.lastMenstrualPeriodUnsure = lmpDto ? !!lmpDto.isUnsure : null;
+
+      const dot = chronological(VitalFieldNames.VitalVision)
+        .map((o) => makeVitalsObservationDTO(o))
+        .filter(
+          (dto): dto is VitalsVisionObservationDTO =>
+            dto?.field === VitalFieldNames.VitalVision && isDotVisionScreeningEntry(dto.dotVisionScreening)
+        )
+        .at(-1)?.dotVisionScreening;
+      row.dotHorizontalFieldLeftDegrees = dot?.horizontalFieldLeftDegrees ?? null;
+      row.dotHorizontalFieldRightDegrees = dot?.horizontalFieldRightDegrees ?? null;
+      row.dotCanRecognizeColors = dot?.canRecognizeColors ?? null;
+      row.dotMonocularVision = dot?.hasMonocularVision ?? null;
+      row.dotReferredToSpecialist = dot?.referredToSpecialist ?? null;
+      row.dotReceivedReferralDocumentation = dot?.receivedDocumentation ?? null;
+
+      // The vitals history names each reading's author as the chart does (getFullName of the performer).
+      const vitalReadings = obs
+        .filter((o) => fieldCode(o).length > 0)
+        .sort((a, b) => effectiveMillis(a) - effectiveMillis(b));
+
+      const recordedBy: string[] = [];
+
+      for (const reading of vitalReadings) {
+        const authorId = makeVitalsObservationDTO(reading)?.authorId;
+        const author = authorId ? practitionerMap.get(authorId) : undefined;
+        const name = author ? getFullName(author).trim() : '';
+        if (name && !recordedBy.includes(name)) recordedBy.push(name);
+      }
+
+      row.vitalsRecordedBy = recordedBy;
+      row.vitalsFirstRecordedAt = vitalReadings[0]?.effectiveDateTime ?? null;
 
       row.bmi =
         row.weightKg && row.heightCm && row.heightCm > 0 ? round1(row.weightKg / (row.heightCm / 100) ** 2) : null;
