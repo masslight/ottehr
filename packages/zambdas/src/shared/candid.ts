@@ -847,7 +847,9 @@ export const syncCandidPatientRefunds = async (input: SyncCandidPatientRefundsIn
         if (!item.refundNote) {
           return;
         }
-        const marker = markers.find((m) => item.refundNote?.includes(m));
+        // marker is always written at the start of the note; startsWith avoids matching
+        // marker-like text inside a user-written note
+        const marker = markers.find((m) => item.refundNote?.startsWith(m));
         if (marker) {
           byMarker.set(marker, [...(byMarker.get(marker) ?? []), item.patientRefundId]);
         }

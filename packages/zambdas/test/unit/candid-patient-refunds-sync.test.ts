@@ -133,6 +133,21 @@ describe('syncCandidPatientRefunds', () => {
     );
   });
 
+  it('ignores marker-like text inside a user-written note (only matches notes starting with the marker)', async () => {
+    const candidApiClient = makeMockCandidApiClient([
+      { refundNote: 'user note mentioning [ottehr-refund:manual_notice-1_key-1] mid-string' },
+    ]);
+    const recorded = await syncCandidPatientRefunds({
+      encounterId: ENCOUNTER_ID,
+      refunds: [makeRefund()],
+      oystehr: makeMockOystehr(),
+      candidApiClient,
+    });
+
+    expect(recorded).toBe(1);
+    expect(candidApiClient.patientRefunds.v1.create).toHaveBeenCalledOnce();
+  });
+
   it('falls back to an unattributed allocation when the appointment has no Candid id', async () => {
     const candidApiClient = makeMockCandidApiClient();
     await syncCandidPatientRefunds({
