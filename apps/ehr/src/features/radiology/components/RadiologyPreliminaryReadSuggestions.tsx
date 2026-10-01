@@ -9,7 +9,7 @@ import {
   findUnpickedBlank,
   PRELIMINARY_READ_NONE_LABEL,
   PreliminaryReadBlank,
-} from 'utils/lib/ottehr-config/radiology/preliminaryReadSuggestions';
+} from 'utils/lib/helpers/radiology/preliminaryReadSuggestions';
 
 interface RadiologyPreliminaryReadSuggestionsProps {
   cptCode?: string;
