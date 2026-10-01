@@ -6,6 +6,7 @@ import { safeJsonParse, safeValidate } from '../../shared/validation';
 
 const ListTemplatesSchema = z.object({
   includeVersionData: z.boolean(),
+  includeDiagnoses: z.boolean().optional(),
 });
 
 export function validateRequestParameters(input: ZambdaInput): ListTemplatesZambdaInput & Pick<ZambdaInput, 'secrets'> {
@@ -18,10 +19,11 @@ export function validateRequestParameters(input: ZambdaInput): ListTemplatesZamb
   }
 
   const parsed = safeJsonParse(input.body) as unknown;
-  const { includeVersionData } = safeValidate(ListTemplatesSchema, parsed);
+  const { includeVersionData, includeDiagnoses } = safeValidate(ListTemplatesSchema, parsed);
 
   return {
     includeVersionData,
+    ...(includeDiagnoses !== undefined ? { includeDiagnoses } : {}),
     secrets: input.secrets,
   };
 }
