@@ -20,7 +20,7 @@ import {
 } from 'utils/lib/fhir/constants';
 import { getFormatDuration } from 'utils/lib/helpers/helpers';
 import { FEATURE_FLAGS_CONFIG } from 'utils/lib/ottehr-config/feature-flags';
-import { getOptionalSecret, getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { VISIT_CONSULT_NOTE_DOC_REF_CODING_CODE } from 'utils/lib/types/api/appointment.types';
 import { AiObservationField } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import { AI_OBSERVATION_META_SYSTEM } from 'utils/lib/types/api/chart-data/chart-data.types';
@@ -155,8 +155,6 @@ export async function invokeChatbotVertexAI(
   const RETRY_COUNT = 3;
   const FIRST_DELAY_MS = 3000;
   const JITTER = 0.01;
-  const ENVIRONMENT = getOptionalSecret(SecretsKeys.ENVIRONMENT, secrets);
-  const PROJECT_ID = getOptionalSecret(SecretsKeys.PROJECT_ID, secrets);
 
   const shouldRetry = (status: number): boolean => {
     // Retry on rate limiting and server errors
@@ -196,8 +194,8 @@ export async function invokeChatbotVertexAI(
             contents: [{ role: 'user', parts: [input] }],
             labels: {
               ottehr_feature: feature,
-              ...(ENVIRONMENT && { ottehr_environment: ENVIRONMENT }),
-              ...(PROJECT_ID && { ottehr_project_id: PROJECT_ID }),
+              ottehr_environment: getSecret(SecretsKeys.ENVIRONMENT, secrets),
+              ottehr_project_id: getSecret(SecretsKeys.PROJECT_ID, secrets),
             },
             generationConfig: {
               temperature: 0,

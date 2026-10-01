@@ -20,6 +20,8 @@ vi.mock('@sentry/aws-serverless', () => ({
 const secrets: Secrets = {
   [SecretsKeys.GOOGLE_CLOUD_PROJECT_ID]: 'test-project',
   [SecretsKeys.GOOGLE_CLOUD_API_KEY]: 'test-key',
+  [SecretsKeys.ENVIRONMENT]: 'local',
+  [SecretsKeys.PROJECT_ID]: 'test-project-id',
 };
 
 // sendErrors drops events on 'local', so a deployed environment is what proves reporting still happens.
