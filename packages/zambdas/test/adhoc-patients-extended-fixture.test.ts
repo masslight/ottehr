@@ -6,6 +6,7 @@ import {
   PATIENT_BILLING_ACCOUNT_TYPE,
   PRIVATE_EXTENSION_BASE_URL,
 } from 'utils/lib/fhir/constants';
+import { buildFollowupEncounterType } from 'utils/lib/fhir/encounter';
 import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
 import { AdHocPatientsOutputSchema } from 'utils/lib/types/adhoc/datasets/patients';
 import { PRACTICE_NAME_URL } from 'utils/lib/types/constants';
@@ -224,12 +225,26 @@ const resourcesByJob: Record<string, FhirResource[]> = {
     appointment('appt-1', 'pat-1'),
     appointment('appt-2', 'pat-2'),
     encounter('enc-1', 'appt-1', 'pat-1'),
+    // An open annotation follow-up of enc-1: it carries the visit's appointment reference, but it is not the visit.
+    {
+      ...encounter('enc-1-fu', 'appt-1', 'pat-1'),
+      status: 'in-progress',
+      type: buildFollowupEncounterType('annotation'),
+      partOf: { reference: 'Encounter/enc-1' },
+    },
     encounter('enc-2', 'appt-2', 'pat-2'),
     returningPatient,
     newPatient,
     location,
-    ...chartResources,
   ],
+  // The chart lists are loaded per patient after the main search, one search per resource type.
+  ...Object.fromEntries(
+    ['AllergyIntolerance', 'Condition', 'MedicationStatement', 'Procedure', 'EpisodeOfCare'].map((type) => [
+      type,
+      // The search filters by the chart's tags; the untagged visit diagnosis is never returned.
+      chartResources.filter((r) => r.resourceType === type && r.meta?.tag?.length),
+    ])
+  ),
   'Appointment:prior': [priorAppointment],
 };
 
@@ -340,6 +355,13 @@ describe('ad-hoc Patients: layers mapped with the app logic (fixture)', () => {
     });
     expect(rows).toHaveLength(2);
     expect(issuesOf(AdHocPatientsOutputSchema.safeParse({ patients: rows }))).toEqual([]);
+  });
+
+  it('base: an open follow-up does not replace the visit it belongs to', async () => {
+    const rows = await fetchAdHocPatientRows(fakeOystehr, { dateRange });
+    // The finished visit's status, not the open follow-up's.
+    expect(rows.find((r) => r.patientId === 'pat-1')?.lastVisitStatus).toBe('completed');
+    expect(rows.find((r) => r.patientId === 'pat-1')?.totalVisits).toBe(1);
   });
 
   it('base: active and merged-away records', async () => {

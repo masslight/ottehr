@@ -16,6 +16,7 @@ import {
 } from 'fhir/r4b';
 import { PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { getPatientFirstName, getPatientLastName, mapGenderToLabel } from 'utils/lib/fhir/patient';
+import { parsePaymentRefundsFromNotice, settledRefundTotalInCents } from 'utils/lib/fhir/paymentRefunds';
 import { AdHocBillingInput, AdHocBillingRow } from 'utils/lib/types/adhoc/datasets/billing';
 import {
   buildEncounterRowContext,
@@ -31,6 +32,10 @@ const round2 = (n: number): number => Math.round(n * 100) / 100;
 // The full fetch+map pipeline, separated from auth/transport so fixture tests can run it against a
 // stubbed Oystehr client and assert the mapped rows parse with the endpoint's Zod schema — the same
 // schema the runtime output validation uses.
+// What the patient actually paid with a payment: its amount less the refunds that settled.
+const netPaymentAmount = (notice: PaymentNotice): number =>
+  (notice.amount?.value ?? 0) - settledRefundTotalInCents(parsePaymentRefundsFromNotice(notice)) / 100;
+
 export async function fetchAdHocBillingRows(oystehr: Oystehr, params: AdHocBillingInput): Promise<AdHocBillingRow[]> {
   const { dateRange, includePayments, includeCoverage, includeCharges, includeCodes } = params;
 
@@ -123,7 +128,12 @@ export async function fetchAdHocBillingRows(oystehr: Oystehr, params: AdHocBilli
       // every PaymentNotice project-wide on each of the ~52 concurrent 7-day batch calls — that
       // whole-table scan grows unbounded as billing history accumulates.
       const notices = await fetchScoped<PaymentNotice>('PaymentNotice', 'request', encRefs);
-      for (const n of notices) pushTo(paymentsByEncId, stripRef(n.request?.reference, 'Encounter'), n);
+
+      // A voided payment is marked cancelled (patient-payments/void); only active notices are money collected.
+      for (const n of notices) {
+        if (n.status !== 'active' || !n.created) continue;
+        pushTo(paymentsByEncId, stripRef(n.request?.reference, 'Encounter'), n);
+      }
     }
     if (includeCharges) {
       // Scope to this batch's encounters (ChargeItem.context → Encounter) instead of a full-table scan.
@@ -222,7 +232,7 @@ export async function fetchAdHocBillingRows(oystehr: Oystehr, params: AdHocBilli
     let paymentsCollected: number | null = null;
     if (includePayments) {
       const notices = paymentsByEncId.get(encId) ?? [];
-      const total = notices.reduce((acc, n) => acc + (n.amount?.value ?? 0), 0);
+      const total = notices.reduce((acc, n) => acc + netPaymentAmount(n), 0);
       paymentsCollected = notices.length ? round2(total) : null;
       const dates = notices
         .map((n) => n.created)
@@ -242,10 +252,9 @@ export async function fetchAdHocBillingRows(oystehr: Oystehr, params: AdHocBilli
       row.lastPaymentDate = dates.length ? dates[dates.length - 1] : null;
       // Same raw ISO instants as lastPaymentDate — one format for every date in this layer.
       row.payments = notices
-        .filter((n) => n.created)
         .map((n) => ({
-          date: n.created!,
-          amount: round2(n.amount?.value ?? 0),
+          date: n.created,
+          amount: round2(netPaymentAmount(n)),
           method: n.extension?.find((e) => e.url === PAYMENT_METHOD_EXTENSION_URL)?.valueString ?? '',
         }))
         .sort((a, b) => a.date.localeCompare(b.date));
@@ -294,10 +303,8 @@ export async function fetchAdHocBillingRows(oystehr: Oystehr, params: AdHocBilli
 
     // Outstanding balance only makes sense when BOTH charges and payments were loaded.
     if (includeCharges && includePayments) {
-      row.outstandingBalance =
-        expectedCharge === null && paymentsCollected === null
-          ? null
-          : round2((expectedCharge ?? 0) - (paymentsCollected ?? 0));
+      // Without a priced charge there is nothing to owe against: a payment alone is not a negative balance.
+      row.outstandingBalance = expectedCharge === null ? null : round2(expectedCharge - (paymentsCollected ?? 0));
     }
 
     if (includeCodes) {

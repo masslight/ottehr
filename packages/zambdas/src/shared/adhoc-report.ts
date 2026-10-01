@@ -356,7 +356,10 @@ export function buildEncounterRowContext(
   const { encounterById, patientMap, locationMap, practitionerMap } = lookups;
 
   const encounterType = getEncounterVisitType(encounter) ?? 'main';
-  const isFollowUpRow = encounterType === 'follow-up' || encounterType === 'scheduled-follow-up';
+
+  // Only an annotation follow-up is a note on its parent visit (no Appointment of its own, status and lock on the
+  // Encounter). A scheduled follow-up is a visit converted in place — its own Appointment, status and lock.
+  const isFollowUpRow = encounterType === 'follow-up';
 
   const parentEncounter = encounter.partOf?.reference
     ? encounterById.get(encounter.partOf.reference.replace('Encounter/', ''))

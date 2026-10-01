@@ -133,7 +133,13 @@ export const EncounterBaseRowSchema = z.object({
         'source for anything about the ORDER of statuses (e.g. a status moving backward through the ' +
         'workflow) or how long a status lasted. Empty when no history was recorded.'
     ),
-  encounterType: z.enum(['main', 'follow-up', 'scheduled-follow-up']).describe('Kind of encounter row.'),
+  encounterType: z
+    .enum(['main', 'follow-up', 'scheduled-follow-up'])
+    .describe(
+      'Kind of encounter row. follow-up = a note added to a visit (phone call etc.) — it is included when its ' +
+        'PARENT visit falls in the date range, and its startTime/date are its own; scheduled-follow-up = a ' +
+        'booked follow-up visit, a visit of its own.'
+    ),
   reason: z.string().describe('Reason for visit as entered at booking (free text). "" when not given.'),
   reasonForVisit: z
     .string()
@@ -169,7 +175,12 @@ export const EncounterBaseRowSchema = z.object({
   location: z.string().describe('Clinic / location name.'),
   locationId: z.string().optional().describe('Location id (internal — joins).'),
   region: z.string().describe("Clinic region (location's state)."),
-  clinicOpenHours: z.number().nullable().describe("Open hours on this visit's weekday. Null if unset."),
+  clinicOpenHours: z
+    .number()
+    .nullable()
+    .describe(
+      "Hours the clinic was open on this visit's day (schedule, overrides and closures applied); 0 when closed. Null if unset."
+    ),
   attendingProvider: z.string().describe('Attending provider name.'),
   attendingProviderId: z.string().optional().describe('Attending provider id (internal — joins).'),
   attendingProviderType: z
@@ -290,12 +301,14 @@ export const ENCOUNTER_LAYERS = {
     schema: z.object({
       icdCodes: z.array(z.string()).describe('ICD-10 dx codes (primary first). HIERARCHICAL — prefix-match.'),
       icdDisplays: z.array(z.string()).describe('Dx descriptions, parallel to icdCodes.'),
-      primaryIcd: z.string().describe('Primary (rank-1) ICD-10 code, if marked.'),
-      primaryIcdDisplay: z.string().describe('Primary dx description.'),
+      primaryIcd: z
+        .string()
+        .describe('Primary (rank-1) ICD-10 code, if marked. "" when no diagnosis is marked primary.'),
+      primaryIcdDisplay: z.string().describe('Primary dx description. "" when none marked.'),
       cptCodes: z.array(z.string()).describe('CPT/HCPCS codes (excl. E&M). NOT hierarchical.'),
       cptDisplays: z.array(z.string()).describe('CPT/HCPCS descriptions, parallel to cptCodes.'),
       emCode: z.string().describe('E&M code, e.g. "99213". "" when unset.'),
-      emDisplay: z.string().describe('E&M code description.'),
+      emDisplay: z.string().describe('E&M code description. "" when unset.'),
     }),
   },
   timing: {
@@ -599,8 +612,13 @@ export const ENCOUNTER_LAYERS = {
       'anywhere — no kit lot number, expiration, manufacturer or NDC; a drug lot in the medications layer is ' +
       'NOT a substitute.',
     schema: z.object({
-      labOrders: z.array(z.string()).describe('Lab tests ordered (names; excl. cancelled).'),
-      labOrderCount: z.number().describe('Number of lab tests ordered. 0 when none.'),
+      labOrders: z
+        .array(z.string())
+        .describe(
+          'Lab orders on the visit (names; excl. cancelled), as tagged on the order. For per-test status, lab and ' +
+            'results use labTests[] — it lists the orders the lab pages show, so its length can differ.'
+        ),
+      labOrderCount: z.number().describe('Number of entries in labOrders. 0 when none.'),
       labTestNames: z
         .array(z.string())
         .describe('Test name of each labTests[] record, same order — the values labTests[].name takes.'),

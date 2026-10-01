@@ -18,34 +18,64 @@ type AccountSearchResource = Patient | Account | Coverage | RelatedPerson | Orga
 
 const referenceOf = (resource: FhirResource): string => `${resource.resourceType}/${resource.id}`;
 
-/** The resources one patient's own patient-account search returns, picked out of the bulk result. */
-const resourcesOfPatient = (patientRef: string, all: AccountSearchResource[]): AccountSearchResource[] => {
-  const accounts = all.filter(
-    (r): r is Account => r.resourceType === 'Account' && getPatientReferenceFromAccount(r) === patientRef
-  );
+const groupBy = <T>(items: T[], key: (item: T) => string | undefined): Map<string, T[]> => {
+  const out = new Map<string, T[]>();
 
-  const coverages = all.filter(
-    (r): r is Coverage => r.resourceType === 'Coverage' && r.beneficiary?.reference === patientRef
-  );
+  for (const item of items) {
+    const k = key(item);
 
-  const relatedPersons = all.filter(
-    (r): r is RelatedPerson => r.resourceType === 'RelatedPerson' && r.patient?.reference === patientRef
-  );
+    if (k) out.set(k, [...(out.get(k) ?? []), item]);
+  }
 
-  // Organizations come in only as an Account owner or a Coverage payor; subscribers as a Coverage subscriber.
-  const linked = new Set<string>(
-    [
-      ...accounts.map((a) => a.owner?.reference),
-      ...coverages.flatMap((c) => [...c.payor.map((p) => p.reference), c.subscriber?.reference]),
-    ].filter((ref): ref is string => !!ref)
-  );
-
-  const linkedResources = all.filter(
-    (r) => (r.resourceType === 'Organization' || r.resourceType === 'RelatedPerson') && linked.has(referenceOf(r))
-  );
-
-  return [...accounts, ...coverages, ...relatedPersons, ...linkedResources];
+  return out;
 };
+
+/** The bulk result indexed once, so each patient's share is picked out by lookups, not scans. */
+const indexAccountResources = (all: AccountSearchResource[]): ((patientRef: string) => AccountSearchResource[]) => {
+  const accountsByPatient = groupBy(
+    all.filter((r): r is Account => r.resourceType === 'Account'),
+    (a) => getPatientReferenceFromAccount(a)
+  );
+  const coveragesByPatient = groupBy(
+    all.filter((r): r is Coverage => r.resourceType === 'Coverage'),
+    (c) => c.beneficiary?.reference
+  );
+  const relatedPersonsByPatient = groupBy(
+    all.filter((r): r is RelatedPerson => r.resourceType === 'RelatedPerson'),
+    (rp) => rp.patient?.reference
+  );
+  const byRef = new Map<string, AccountSearchResource>(
+    all
+      .filter((r) => r.resourceType === 'Organization' || r.resourceType === 'RelatedPerson')
+      .map((r) => [referenceOf(r), r])
+  );
+
+  // The resources one patient's own patient-account search returns. Organizations come in only as an
+  // Account owner or a Coverage payor; subscribers as a Coverage subscriber.
+  return (patientRef) => {
+    const accounts = accountsByPatient.get(patientRef) ?? [];
+    const coverages = coveragesByPatient.get(patientRef) ?? [];
+
+    const linkedRefs = new Set(
+      [
+        ...accounts.map((a) => a.owner?.reference),
+        ...coverages.flatMap((c) => [...c.payor.map((p) => p.reference), c.subscriber?.reference]),
+      ].filter((ref): ref is string => !!ref)
+    );
+    const linked: AccountSearchResource[] = [];
+
+    for (const ref of linkedRefs) {
+      const resource = byRef.get(ref);
+
+      if (resource) linked.push(resource);
+    }
+    return [...accounts, ...coverages, ...(relatedPersonsByPatient.get(patientRef) ?? []), ...linked];
+  };
+};
+
+// Payer lookups go to the RCM service one by one; a bounded number at a time keeps a report with hundreds of
+// payers from being throttled.
+const PAYER_LOOKUP_CONCURRENCY = 8;
 
 /**
  * Account, guarantor, coverages (with resolved payers), employer organizations and emergency contact of each
@@ -75,22 +105,36 @@ export async function fetchPatientAccounts(
   const payorRefs = Array.from(new Set(getCoveragePayorReferences(all)));
   const insuranceOrgByRef = new Map<string, Organization>();
 
-  await Promise.all(
-    payorRefs.map(async (ref) => {
-      try {
-        const [org] = await searchInsuranceInformation(oystehr, [ref], fhirInsuranceOrgs);
-        if (org) insuranceOrgByRef.set(ref, org);
-      } catch (error) {
-        console.warn(`[adhoc] could not resolve insurance payer ${ref}`, error);
-      }
-    })
-  );
+  let unresolvedPayers = 0;
+
+  for (let i = 0; i < payorRefs.length; i += PAYER_LOOKUP_CONCURRENCY) {
+    await Promise.all(
+      payorRefs.slice(i, i + PAYER_LOOKUP_CONCURRENCY).map(async (ref) => {
+        try {
+          const [org] = await searchInsuranceInformation(oystehr, [ref], fhirInsuranceOrgs);
+
+          if (org) {
+            insuranceOrgByRef.set(ref, org);
+          } else {
+            unresolvedPayers++;
+          }
+        } catch (error) {
+          unresolvedPayers++;
+          console.warn(`[adhoc] could not resolve insurance payer ${ref}`, error);
+        }
+      })
+    );
+  }
+
+  if (unresolvedPayers) console.warn(`[adhoc] ${unresolvedPayers} of ${payorRefs.length} insurance payers unresolved`);
+
+  const resourcesOfPatient = indexAccountResources(all);
 
   for (const patient of patients) {
     if (!patient.id) continue;
 
     const patientRef = `Patient/${patient.id}`;
-    const resources = resourcesOfPatient(patientRef, all);
+    const resources = resourcesOfPatient(patientRef);
 
     const insuranceOrgs = Array.from(
       new Set(getCoveragePayorReferences(resources).map((ref) => insuranceOrgByRef.get(ref)))

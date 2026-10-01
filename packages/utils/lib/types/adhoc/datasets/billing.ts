@@ -61,7 +61,10 @@ export const BILLING_LAYERS = {
     label: 'Patient payments',
     description: 'Money collected from the patient for the visit — amounts, method (card/cash/check), and dates.',
     schema: z.object({
-      paymentsCollected: z.number().nullable().describe('Total USD collected from the patient. Null when none.'),
+      paymentsCollected: z
+        .number()
+        .nullable()
+        .describe('Total USD collected from the patient, net of refunds; voided payments excluded. Null when none.'),
       paymentCount: z.number().describe('Number of payments collected.'),
       paymentMethods: z.array(z.string()).describe('Distinct methods: "card"/"card-reader"/"cash"/"check".'),
       lastPaymentDate: z.string().nullable().describe('Date of the most recent payment (yyyy-MM-dd).'),
@@ -74,7 +77,7 @@ export const BILLING_LAYERS = {
                 "Full ISO instant the payment was taken. Format in the viewer's LOCAL timezone via " +
                   'new Date(date); do NOT slice the ISO string (shows UTC).'
               ),
-            amount: z.number().describe('Amount of THIS payment in USD.'),
+            amount: z.number().describe('Amount of THIS payment in USD, net of its refunds.'),
             method: z.string().describe('Method of THIS payment; "" when not recorded.'),
           })
         )
@@ -105,7 +108,10 @@ export const BILLING_LAYERS = {
       chargeCpts: z.array(z.string()).describe('CPT codes billed (charge line items).'),
       chargeCount: z.number().describe('Number of charge line items.'),
       expectedCharge: z.number().nullable().describe('Sum of fee-schedule prices for billed CPTs, USD.'),
-      outstandingBalance: z.number().nullable().describe('expectedCharge − paymentsCollected (needs both layers).'),
+      outstandingBalance: z
+        .number()
+        .nullable()
+        .describe('expectedCharge − paymentsCollected (needs both layers). Null when no charge could be priced.'),
     }),
   },
   codes: {
