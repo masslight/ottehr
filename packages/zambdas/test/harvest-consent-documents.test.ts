@@ -32,6 +32,24 @@ import { createPdfBytes } from '../src/shared/pdf';
 // patches, per-form PDF fan-out, type-code grouping, attachment dedup, creation-time
 // sorting, and reference wiring — runs for real.
 
+// Inject a stable IL-specific CTT path so the "Illinois variant" test works regardless of
+// whether the deployment's consent-forms config has a byState.IL entry.
+vi.mock('utils/lib/ottehr-config/consent-forms', async (importOriginal) => {
+  const original = await importOriginal<typeof import('utils/lib/ottehr-config/consent-forms')>();
+  return {
+    ...original,
+    getConsentFormsForLocation: (state?: string) => {
+      const forms = original.getConsentFormsForLocation(state);
+      if (state === 'IL') {
+        return forms.map((form) =>
+          form.id === 'consent-to-treat' ? { ...form, assetPath: './assets/CTT.Illinois-test.pdf' } : form
+        );
+      }
+      return forms;
+    },
+  };
+});
+
 vi.mock('utils/lib/fhir/helpers', async (importOriginal) => {
   const original = await importOriginal<typeof import('utils/lib/fhir/helpers')>();
   return { ...original, createFilesDocumentReferences: vi.fn(), createConsentResource: vi.fn() };
