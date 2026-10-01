@@ -1650,6 +1650,8 @@ function ServiceLinesSection({
       })),
     [claim]
   );
+  // memoized so the detail dialogs get a stable value and don't reset their fields on every render
+  const claimRows = useMemo(toRows, [toRows]);
   const [rows, setRows] = useState<ServiceLineRow[]>(toRows);
   // indexes into claim.serviceLines for the read-only view's "edit one detail only" dialogs
   const [drugEditIndex, setDrugEditIndex] = useState<number | null>(null);
@@ -1697,15 +1699,26 @@ function ServiceLinesSection({
     });
 
   // Saves one line's medication or ordering-provider detail from the read-only view, keeping all lines as-is.
+  // The whole serviceLines array is rewritten from the current claim snapshot, so the dialog stays open (and
+  // modal) until the save and refetch finish; otherwise a second edit could overwrite the first with stale lines.
+  const [savingLineExtras, setSavingLineExtras] = useState(false);
   const saveLineExtras = async (
     index: number,
     patch: Partial<Pick<ServiceLineRow, 'drug' | 'orderingProvider'>>
   ): Promise<void> => {
-    const error = await saveRows(toRows().map((row, i) => (i === index ? { ...row, ...patch } : row)));
-    if (error) enqueueSnackbar(error, { variant: 'error' });
+    if (savingLineExtras) return;
+    setSavingLineExtras(true);
+    const error = await saveRows(claimRows.map((row, i) => (i === index ? { ...row, ...patch } : row)));
+    setSavingLineExtras(false);
+    if (error) {
+      enqueueSnackbar(error, { variant: 'error' });
+      return;
+    }
+    setDrugEditIndex(null);
+    setProviderEditIndex(null);
   };
-  const drugEditRow = drugEditIndex !== null ? toRows()[drugEditIndex] : undefined;
-  const providerEditRow = providerEditIndex !== null ? toRows()[providerEditIndex] : undefined;
+  const drugEditRow = drugEditIndex !== null ? claimRows[drugEditIndex] : undefined;
+  const providerEditRow = providerEditIndex !== null ? claimRows[providerEditIndex] : undefined;
 
   return (
     <EditableSection
@@ -1734,38 +1747,24 @@ function ServiceLinesSection({
         <MedicationDetailDialog
           open
           value={drugEditRow?.drug ?? null}
-          onSave={(drug) => {
-            setDrugEditIndex(null);
-            void saveLineExtras(drugEditIndex, { drug });
-          }}
-          onRemove={
-            drugEditRow?.drug
-              ? () => {
-                  setDrugEditIndex(null);
-                  void saveLineExtras(drugEditIndex, { drug: null });
-                }
-              : undefined
-          }
+          onSave={(drug) => void saveLineExtras(drugEditIndex, { drug })}
+          onRemove={drugEditRow?.drug ? () => void saveLineExtras(drugEditIndex, { drug: null }) : undefined}
           onClose={() => setDrugEditIndex(null)}
+          saving={savingLineExtras}
         />
       )}
       {providerEditIndex !== null && (
         <OrderingProviderDialog
           open
           value={providerEditRow?.orderingProvider ?? null}
-          onSave={(orderingProvider) => {
-            setProviderEditIndex(null);
-            void saveLineExtras(providerEditIndex, { orderingProvider });
-          }}
+          onSave={(orderingProvider) => void saveLineExtras(providerEditIndex, { orderingProvider })}
           onRemove={
             providerEditRow?.orderingProvider
-              ? () => {
-                  setProviderEditIndex(null);
-                  void saveLineExtras(providerEditIndex, { orderingProvider: null });
-                }
+              ? () => void saveLineExtras(providerEditIndex, { orderingProvider: null })
               : undefined
           }
           onClose={() => setProviderEditIndex(null)}
+          saving={savingLineExtras}
         />
       )}
     </EditableSection>

@@ -32,6 +32,7 @@ interface OrderingProviderDialogProps {
   onSave: (provider: ServiceLineOrderingProvider) => void;
   onRemove?: () => void;
   onClose: () => void;
+  saving?: boolean;
 }
 
 /**
@@ -45,6 +46,7 @@ export function OrderingProviderDialog({
   onSave,
   onRemove,
   onClose,
+  saving = false,
 }: OrderingProviderDialogProps): ReactElement {
   const { options: providerOptions, search } = useProviderOptionsSearch('rendering');
   const options = useMemo(() => providerOptions.filter((o) => o.kind === 'individual'), [providerOptions]);
@@ -89,7 +91,7 @@ export function OrderingProviderDialog({
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
+    <Dialog open={open} onClose={saving ? undefined : onClose} maxWidth="xs" fullWidth>
       <DialogTitle>Ordering Provider</DialogTitle>
       <DialogContent>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
@@ -167,15 +169,15 @@ export function OrderingProviderDialog({
       </DialogContent>
       <DialogActions>
         {onRemove && (
-          <Button size="small" color="error" onClick={onRemove} sx={{ mr: 'auto' }}>
+          <Button size="small" color="error" onClick={onRemove} disabled={saving} sx={{ mr: 'auto' }}>
             Remove
           </Button>
         )}
-        <Button size="small" onClick={onClose}>
+        <Button size="small" onClick={onClose} disabled={saving}>
           Cancel
         </Button>
-        <Button size="small" variant="contained" disabled={!canSave} onClick={handleSave}>
-          Save
+        <Button size="small" variant="contained" disabled={!canSave || saving} onClick={handleSave}>
+          {saving ? 'Saving...' : 'Save'}
         </Button>
       </DialogActions>
     </Dialog>

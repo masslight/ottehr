@@ -25,6 +25,7 @@ interface MedicationDetailDialogProps {
   onSave: (drug: ServiceLineDrug) => void;
   onRemove?: () => void;
   onClose: () => void;
+  saving?: boolean;
 }
 
 /**
@@ -39,6 +40,7 @@ export function MedicationDetailDialog({
   onSave,
   onRemove,
   onClose,
+  saving = false,
 }: MedicationDetailDialogProps): ReactElement {
   const [ndc, setNdc] = useState('');
   const [ndcTouched, setNdcTouched] = useState(false);
@@ -70,7 +72,7 @@ export function MedicationDetailDialog({
   const canSave = ndcValid && quantityValid;
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
+    <Dialog open={open} onClose={saving ? undefined : onClose} maxWidth="xs" fullWidth>
       <DialogTitle>Medication Detail</DialogTitle>
       <DialogContent>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
@@ -123,20 +125,20 @@ export function MedicationDetailDialog({
       </DialogContent>
       <DialogActions>
         {onRemove && (
-          <Button size="small" color="error" onClick={onRemove} sx={{ mr: 'auto' }}>
+          <Button size="small" color="error" onClick={onRemove} disabled={saving} sx={{ mr: 'auto' }}>
             Remove
           </Button>
         )}
-        <Button size="small" onClick={onClose}>
+        <Button size="small" onClick={onClose} disabled={saving}>
           Cancel
         </Button>
         <Button
           size="small"
           variant="contained"
-          disabled={!canSave}
+          disabled={!canSave || saving}
           onClick={() => onSave({ ndc: normalizeNdc(ndc), quantity, units })}
         >
-          Save
+          {saving ? 'Saving...' : 'Save'}
         </Button>
       </DialogActions>
     </Dialog>
