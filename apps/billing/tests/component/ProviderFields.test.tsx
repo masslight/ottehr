@@ -4,7 +4,13 @@ import { describe, expect, it, vi } from 'vitest';
 import { ProviderAddressFields, ProviderFields } from '../../src/components/ProviderFields';
 import { emptyProviderForm, ProviderForm } from '../../src/constants/provider';
 
-function TestForm({ onSubmit }: { onSubmit: (data: ProviderForm) => void }): JSX.Element {
+function TestForm({
+  onSubmit,
+  overrides,
+}: {
+  onSubmit: (data: ProviderForm) => void;
+  overrides?: Partial<ProviderForm>;
+}): JSX.Element {
   const methods = useForm<ProviderForm>({
     defaultValues: {
       ...emptyProviderForm('rendering'),
@@ -12,7 +18,10 @@ function TestForm({ onSubmit }: { onSubmit: (data: ProviderForm) => void }): JSX
       lastName: 'Lovelace',
       npi: '1234567893',
       licenseType: 'MD',
+      licenseNumber: 'A12345',
+      licenseState: 'CA',
       taxonomyCode: '207Q00000X',
+      ...overrides,
     },
   });
 
@@ -40,5 +49,25 @@ describe('ProviderFields', () => {
 
     expect(await screen.findAllByText('This field is required')).toHaveLength(5);
     expect(onSubmit).toHaveBeenCalledTimes(1);
+  });
+
+  it('requires license number and state', async () => {
+    const onSubmit = vi.fn();
+    render(<TestForm onSubmit={onSubmit} overrides={{ licenseNumber: '', licenseState: '' }} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    expect(await screen.findAllByText('This field is required')).toHaveLength(2);
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it('shows license fields only for providers that render', () => {
+    render(<TestForm onSubmit={vi.fn()} />);
+    expect(screen.getByLabelText('License Number *')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Renders medical services' }));
+
+    expect(screen.queryByLabelText('License Number *')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('License State *')).not.toBeInTheDocument();
   });
 });

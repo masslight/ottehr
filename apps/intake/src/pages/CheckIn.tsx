@@ -7,7 +7,7 @@ import { DateTime } from 'luxon';
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { PageContainer } from 'src/components/CustomContainer';
-import { i18n } from 'utils/lib/frontend';
+import i18n from 'utils/lib/frontend/i18n-lib/i18n';
 import { FEATURE_FLAGS_CONFIG } from 'utils/lib/ottehr-config/feature-flags';
 import { CheckInZambdaOutput } from 'utils/lib/types/api/check-in.types';
 import { VisitType } from 'utils/lib/types/data/telemed/appointments/create-appointment.types';

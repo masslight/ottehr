@@ -2,10 +2,12 @@ import { renderHook } from '@testing-library/react';
 import { Practitioner } from 'fhir/r4b';
 import { PROVIDER_TYPE_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { VisitStatusLabel } from 'utils/lib/types/api/appointment.types';
+import { VisitNoteResponse } from 'utils/lib/types/api/chart-data/get-visit-note.types';
 import { ProviderTypeCode } from 'utils/lib/types/api/practitioner.types';
 import { NO_SIGN_PERMISSION_MESSAGE } from 'utils/lib/types/api/sign-appointment/sign-appointment.types';
 import { RoleType } from 'utils/lib/types/api/user.types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { emptyVisitNote } from './helpers/emptyVisitNote';
 
 const signAppointment = vi.fn().mockResolvedValue(undefined);
 const updateVisitStatusToAwaitSupervisorApproval = vi.fn().mockResolvedValue(undefined);
@@ -26,8 +28,7 @@ let userRoles: RoleType[] = [RoleType.Provider];
 let practitioner: Practitioner = makePractitioner('NP');
 let visitStatus: VisitStatusLabel = 'discharged';
 let isAssignedProviderEligible = true;
-let chartFields: Record<string, unknown> = {};
-let chartData: Record<string, unknown> = {};
+let note: VisitNoteResponse | undefined;
 let supervisorApprovalEnabled = true;
 
 vi.mock('src/hooks/useEvolveUser', () => ({
@@ -49,7 +50,10 @@ vi.mock('src/features/visits/shared/stores/appointment/appointment.store', () =>
     encounter: { id: 'encounter-1', resourceType: 'Encounter' },
     appointmentRefetch,
   }),
-  useChartData: () => ({ chartData }),
+}));
+
+vi.mock('src/features/visits/shared/hooks/useVisitNote', () => ({
+  useVisitNote: () => ({ data: note }),
 }));
 
 vi.mock('utils/lib/utils/visitUtils', async (importOriginal) => ({
@@ -60,10 +64,6 @@ vi.mock('utils/lib/utils/visitUtils', async (importOriginal) => ({
 
 vi.mock('src/features/visits/shared/hooks/useGetAppointmentAccessibility', () => ({
   useGetAppointmentAccessibility: () => ({ visitType: 'in-person', isAppointmentReadOnly: false }),
-}));
-
-vi.mock('src/features/visits/shared/hooks/useChartFields', () => ({
-  useChartFields: () => ({ data: chartFields }),
 }));
 
 vi.mock('src/features/visits/shared/hooks/useOystehrAPIClient', () => ({
@@ -104,15 +104,11 @@ vi.mock('src/state/draft-data.store', () => ({
 
 import { useProgressNoteSigning } from '../../src/features/visits/shared/hooks/useProgressNoteSigning';
 
-const signable = {
-  chartData: { diagnosis: [{ isPrimary: true }], emCode: { code: '99213' } },
-  chartFields: {
-    chiefComplaint: { text: 'HPI' },
-    accident: {},
-    inHouseLabResults: {},
-    patientInfoConfirmed: { value: true },
-  },
-};
+const signableNote = (): VisitNoteResponse =>
+  emptyVisitNote({
+    assessment: { diagnosis: [{ isPrimary: true }], emCode: { code: '99213' } },
+    encounterNotes: { chiefComplaint: { text: 'HPI' }, patientInfoConfirmed: { value: true } },
+  } as unknown as Partial<VisitNoteResponse>);
 
 describe('useProgressNoteSigning', () => {
   beforeEach(() => {
@@ -122,8 +118,7 @@ describe('useProgressNoteSigning', () => {
     visitStatus = 'discharged';
     isAssignedProviderEligible = true;
     supervisorApprovalEnabled = true;
-    chartData = signable.chartData;
-    chartFields = signable.chartFields;
+    note = signableNote();
   });
 
   it('reports nothing blocking a complete, discharged note', () => {
@@ -144,8 +139,7 @@ describe('useProgressNoteSigning', () => {
   });
 
   it('puts chart gaps in readinessMessages so both callers block on them', () => {
-    chartData = {};
-    chartFields = { accident: {}, inHouseLabResults: {} };
+    note = emptyVisitNote();
     const { result } = renderHook(() => useProgressNoteSigning());
 
     expect(result.current.readinessMessages).toEqual([
@@ -157,7 +151,7 @@ describe('useProgressNoteSigning', () => {
 
   it('reports a role that may not sign alone, hiding every other gap', () => {
     userRoles = [RoleType.Clinician];
-    chartData = {};
+    note = emptyVisitNote();
     visitStatus = 'provider';
     const { result } = renderHook(() => useProgressNoteSigning());
 
@@ -168,7 +162,7 @@ describe('useProgressNoteSigning', () => {
 
   it('reports an ineligible assigned provider alongside the remaining gaps', () => {
     isAssignedProviderEligible = false;
-    chartData = {};
+    note = emptyVisitNote();
     const { result } = renderHook(() => useProgressNoteSigning());
 
     expect(result.current.errorMessages[0]).toBe('A provider must be assigned to this visit');

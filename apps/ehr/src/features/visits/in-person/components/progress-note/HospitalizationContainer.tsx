@@ -6,15 +6,15 @@ import {
   SectionHeading,
   useNoteSectionTitleInCardHeader,
 } from 'src/features/visits/shared/components/NoteSectionHeading';
-import { useProgressNoteChartFields } from 'src/features/visits/shared/hooks/useProgressNoteChartFields';
 import { NoteDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { useVisitNote } from '../../../shared/hooks/useVisitNote';
 
 export const HospitalizationContainer: FC<{ notes?: NoteDTO[] }> = ({ notes }) => {
   const titleInCardHeader = useNoteSectionTitleInCardHeader();
-  const { data: chartData } = useProgressNoteChartFields();
+  const { data: note } = useVisitNote();
   const theme = useTheme();
 
-  const episodeOfCare = chartData?.episodeOfCare;
+  const episodeOfCare = note?.history.episodeOfCare;
 
   return (
     <Box

@@ -14,6 +14,7 @@ import { getPayerUrl } from 'utils/lib/helpers/helpers';
 import { CODE_SYSTEM_CMS_PLACE_OF_SERVICE, EXTENSION_URL_CPT_MODIFIER } from 'utils/lib/helpers/rcm/constants';
 import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
 import { BillingInsuranceType } from 'utils/lib/types/data/billing/billing.schemas';
+import { ChargeItemDefinitionDefault } from 'utils/lib/types/data/billing/billing.types';
 import {
   CLAIM_NON_INSURANCE_PAYER_EXTENSION_URL,
   CLAIM_NON_INSURANCE_PAYER_TAG_SYSTEM,
@@ -54,7 +55,9 @@ import {
 import {
   buildRulesEngineKickoffTask,
   listToRules,
+  RULES_ENGINE_INPUT_PAYER_CLAIM_CONTROL_NUMBER_CODE,
   RULES_ENGINE_INPUT_SKIP_RULES_CODE,
+  RULES_ENGINE_INPUT_SUBMISSION_TYPE_CODE,
   RULES_ENGINE_INPUT_SYSTEM,
   rulesToList,
 } from '../../../src/billing/rules-engine/serialization';
@@ -452,6 +455,46 @@ describe('rules-engine evaluator', () => {
     expect(m.coverages[1].payor?.[0]?.reference).toContain('333333');
     // The primary payer and the claim's insurer are untouched by a secondary payer change.
     expect(readField(m, 'payerId')).toBe('123456');
+  });
+
+  it('writes each coverage slot to its own coverage, leaving the other slots untouched', () => {
+    const prefixes = ['insurance', 'secondaryInsurance', 'tertiaryInsurance', 'quaternaryInsurance'];
+    const makeFourCoverageModel = (): RulesEngineClaimModel => {
+      const m = makeModel();
+      m.coverages.push(
+        {
+          ...m.coverages[1],
+          id: 'cov-tertiary',
+          subscriberId: 'MEM-789',
+          payor: [{ reference: getPayerUrl('444444') }],
+        },
+        {
+          ...m.coverages[1],
+          id: 'cov-quaternary',
+          subscriberId: 'MEM-000',
+          payor: [{ reference: getPayerUrl('555555') }],
+        }
+      );
+      return m;
+    };
+
+    prefixes.forEach((prefix, index) => {
+      const m = makeFourCoverageModel();
+      const before = m.coverages.map((c) => ({ subscriberId: c.subscriberId, payor: c.payor }));
+
+      expect(writeField(m, `${prefix}.memberId`, `NEW-${index}`)).toBe(true);
+      expect(writeField(m, `${prefix}.payerId`, `99999${index}`)).toBe(true);
+
+      m.coverages.forEach((coverage, i) => {
+        if (i === index) {
+          expect(coverage.subscriberId).toBe(`NEW-${index}`);
+          expect(readField(m, `${prefix}.payerId`)).toBe(`99999${index}`);
+        } else {
+          expect(coverage.subscriberId).toBe(before[i].subscriberId);
+          expect(coverage.payor).toEqual(before[i].payor);
+        }
+      });
+    });
   });
 
   it('writes policy holder fields on the subscriber working copy, failing when there is none', () => {
@@ -1008,7 +1051,7 @@ describe('service line actions', () => {
 
 describe('apply charge master prices action', () => {
   const makeChargeMaster = (
-    kind: 'insurance' | 'self-pay',
+    kind: ChargeItemDefinitionDefault,
     date: string,
     prices: { code: string; amount: number; modifier?: string }[],
     over?: Partial<ChargeItemDefinition>
@@ -1064,6 +1107,22 @@ describe('apply charge master prices action', () => {
     expect(m.claim.total?.value).toBe(400);
   });
 
+  it('re-prices matched lines with a fallthrough for a missing modifier match', () => {
+    const m = makeModel(); // the fixture claim carries a real coverage -> insurance billing type
+    addLine(m, '99214', 200, '25');
+    m.chargeMasters = [
+      makeChargeMaster('insurance', '2025-06-01', [
+        { code: '99213', amount: 150 },
+        { code: '99214', amount: 350 }, // no matching entry for 99214+25
+      ]),
+      makeChargeMaster('self-pay', '2025-06-01', [{ code: '99213', amount: 60 }]),
+    ];
+    const error = applyAction({ type: 'applyChargeMasterPrices', match: { type: 'all' } }, m);
+    expect(error).toBeUndefined();
+    expect(lineCharges(m)).toEqual(['150', '350']);
+    expect(m.claim.total?.value).toBe(500);
+  });
+
   it('prices only the lines matching the predicate', () => {
     const m = makeModel();
     addLine(m, '99214', 200);
@@ -1095,6 +1154,23 @@ describe('apply charge master prices action', () => {
     const error = applyAction({ type: 'applyChargeMasterPrices', match: { type: 'all' } }, m);
     expect(error).toBeUndefined();
     expect(lineCharges(m)).toEqual(['60']);
+  });
+
+  it('selects the non-insurance default when appropriate', () => {
+    const m = makeModel();
+    m.claim.insurance = [buildNoCoverageStub()];
+    m.claim.extension = [
+      ...(m.claim.extension ?? []),
+      { url: CLAIM_NON_INSURANCE_PAYER_EXTENSION_URL, valueReference: { reference: 'Organization/some-org' } },
+    ];
+    m.chargeMasters = [
+      makeChargeMaster('insurance', '2025-06-01', [{ code: '99213', amount: 150 }]),
+      makeChargeMaster('non-insurance', '2025-06-01', [{ code: '99213', amount: 100 }]),
+      makeChargeMaster('self-pay', '2025-06-01', [{ code: '99213', amount: 60 }]),
+    ];
+    const error = applyAction({ type: 'applyChargeMasterPrices', match: { type: 'all' } }, m);
+    expect(error).toBeUndefined();
+    expect(lineCharges(m)).toEqual(['100']);
   });
 
   it('selects the most recent charge master effective on or before the date of service', () => {
@@ -1146,12 +1222,12 @@ describe('apply charge master prices action', () => {
   it('prices the lines the charge master has entries for and leaves the rest unchanged', () => {
     const m = makeModel();
     addLine(m, '99999', 200); // no charge master entry for this code
-    addLine(m, '99213', 90, '25'); // entry exists but only modifier-less -> no match for this line
+    addLine(m, '99213', 90, '25'); // entry exists but only modifier-less -> matches against modifier-less entry
     m.chargeMasters = [makeChargeMaster('insurance', '2025-06-01', [{ code: '99213', amount: 150 }])];
     const error = applyAction({ type: 'applyChargeMasterPrices', match: { type: 'all' } }, m);
     expect(error).toBeUndefined();
-    expect(lineCharges(m)).toEqual(['150', '200', '90']);
-    expect(m.claim.total?.value).toBe(440);
+    expect(lineCharges(m)).toEqual(['150', '200', '150']);
+    expect(m.claim.total?.value).toBe(500);
   });
 
   it('skips a matched line with no CPT code instead of failing', () => {
@@ -1886,6 +1962,140 @@ describe('rules-engine kickoff task', () => {
       expect(task.input?.[0].type.coding?.[0]).toEqual({
         system: RULES_ENGINE_INPUT_SYSTEM,
         code: RULES_ENGINE_INPUT_SKIP_RULES_CODE,
+      });
+      expect(task.requester).toBe(requester);
+    }
+    const codes = RULES_ENGINE_TYPES.map((engine) => RULES_ENGINE_FHIR[engine].taskCode);
+    expect(new Set(codes).size).toBe(codes.length);
+  });
+
+  it('builds a rules engine task for a new submission', () => {
+    const requester: Reference = {
+      reference: 'Practitioner/practitioner',
+    };
+    for (const engine of RULES_ENGINE_TYPES) {
+      const task = buildRulesEngineKickoffTask(engine, 'claim-123', true, requester, 'new');
+      expect(task.status).toBe('requested');
+      expect(task.focus?.reference).toBe('Claim/claim-123');
+      expect(task.code?.coding?.[0]).toEqual({
+        system: RULES_ENGINE_TASK_SYSTEM,
+        code: RULES_ENGINE_FHIR[engine].taskCode,
+      });
+      expect(task.input?.length).toEqual(1);
+      expect(task.input?.[0]).toEqual({
+        type: {
+          coding: [
+            {
+              system: RULES_ENGINE_INPUT_SYSTEM,
+              code: RULES_ENGINE_INPUT_SKIP_RULES_CODE,
+            },
+          ],
+        },
+        valueBoolean: true,
+      });
+      expect(task.requester).toBe(requester);
+    }
+    const codes = RULES_ENGINE_TYPES.map((engine) => RULES_ENGINE_FHIR[engine].taskCode);
+    expect(new Set(codes).size).toBe(codes.length);
+  });
+
+  it('builds a rules engine task for a correction', () => {
+    const requester: Reference = {
+      reference: 'Practitioner/practitioner',
+    };
+    for (const engine of RULES_ENGINE_TYPES) {
+      const task = buildRulesEngineKickoffTask(engine, 'claim-123', true, requester, 'correction', 'PCCN-12345');
+      expect(task.status).toBe('requested');
+      expect(task.focus?.reference).toBe('Claim/claim-123');
+      expect(task.code?.coding?.[0]).toEqual({
+        system: RULES_ENGINE_TASK_SYSTEM,
+        code: RULES_ENGINE_FHIR[engine].taskCode,
+      });
+      expect(task.input?.length).toEqual(3);
+      expect(task.input?.[0]).toEqual({
+        type: {
+          coding: [
+            {
+              system: RULES_ENGINE_INPUT_SYSTEM,
+              code: RULES_ENGINE_INPUT_SKIP_RULES_CODE,
+            },
+          ],
+        },
+        valueBoolean: true,
+      });
+      expect(task.input?.[1]).toEqual({
+        type: {
+          coding: [
+            {
+              system: RULES_ENGINE_INPUT_SYSTEM,
+              code: RULES_ENGINE_INPUT_SUBMISSION_TYPE_CODE,
+            },
+          ],
+        },
+        valueString: 'correction',
+      });
+      expect(task.input?.[2]).toEqual({
+        type: {
+          coding: [
+            {
+              system: RULES_ENGINE_INPUT_SYSTEM,
+              code: RULES_ENGINE_INPUT_PAYER_CLAIM_CONTROL_NUMBER_CODE,
+            },
+          ],
+        },
+        valueString: 'PCCN-12345',
+      });
+      expect(task.requester).toBe(requester);
+    }
+    const codes = RULES_ENGINE_TYPES.map((engine) => RULES_ENGINE_FHIR[engine].taskCode);
+    expect(new Set(codes).size).toBe(codes.length);
+  });
+
+  it('builds a rules engine task for a void', () => {
+    const requester: Reference = {
+      reference: 'Practitioner/practitioner',
+    };
+    for (const engine of RULES_ENGINE_TYPES) {
+      const task = buildRulesEngineKickoffTask(engine, 'claim-123', true, requester, 'void', 'PCCN-12345');
+      expect(task.status).toBe('requested');
+      expect(task.focus?.reference).toBe('Claim/claim-123');
+      expect(task.code?.coding?.[0]).toEqual({
+        system: RULES_ENGINE_TASK_SYSTEM,
+        code: RULES_ENGINE_FHIR[engine].taskCode,
+      });
+      expect(task.input?.length).toEqual(3);
+      expect(task.input?.[0]).toEqual({
+        type: {
+          coding: [
+            {
+              system: RULES_ENGINE_INPUT_SYSTEM,
+              code: RULES_ENGINE_INPUT_SKIP_RULES_CODE,
+            },
+          ],
+        },
+        valueBoolean: true,
+      });
+      expect(task.input?.[1]).toEqual({
+        type: {
+          coding: [
+            {
+              system: RULES_ENGINE_INPUT_SYSTEM,
+              code: RULES_ENGINE_INPUT_SUBMISSION_TYPE_CODE,
+            },
+          ],
+        },
+        valueString: 'void',
+      });
+      expect(task.input?.[2]).toEqual({
+        type: {
+          coding: [
+            {
+              system: RULES_ENGINE_INPUT_SYSTEM,
+              code: RULES_ENGINE_INPUT_PAYER_CLAIM_CONTROL_NUMBER_CODE,
+            },
+          ],
+        },
+        valueString: 'PCCN-12345',
       });
       expect(task.requester).toBe(requester);
     }

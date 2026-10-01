@@ -159,12 +159,19 @@
       "src": "src/ehr/pending-supervisor-approval/index",
       "zip": ".dist/zips/pending-supervisor-approval.zip"
     },
-    "GET-CHART-DATA": {
-      "name": "get-chart-data",
+    "GET-CHART-SECTION": {
+      "name": "get-chart-section",
       "type": "http_auth",
       "runtime": "nodejs22.x",
-      "src": "src/ehr/get-chart-data/index",
-      "zip": ".dist/zips/get-chart-data.zip"
+      "src": "src/ehr/get-chart-section/index",
+      "zip": ".dist/zips/get-chart-section.zip"
+    },
+    "GET-VISIT-NOTE": {
+      "name": "get-visit-note",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/get-visit-note/index",
+      "zip": ".dist/zips/get-visit-note.zip"
     },
     "SAVE-CHART-DATA": {
       "name": "save-chart-data",
@@ -319,6 +326,20 @@
       "runtime": "nodejs22.x",
       "src": "src/ehr/save-followup-encounter/index",
       "zip": ".dist/zips/save-followup-encounter.zip"
+    },
+    "GET-EMPLOYEE-CHATS": {
+      "name": "get-employee-chats",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/get-employee-chats/index",
+      "zip": ".dist/zips/get-employee-chats.zip"
+    },
+    "OPEN-EMPLOYEE-CHAT": {
+      "name": "open-employee-chat",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/open-employee-chat/index",
+      "zip": ".dist/zips/open-employee-chat.zip"
     },
     "GET-CONVERSATION": {
       "name": "get-conversation",
@@ -1259,6 +1280,27 @@
       "src": "src/ehr/em-codes/delete/index",
       "zip": ".dist/zips/delete-em-code.zip"
     },
+    "EASY-CHART-PLAN": {
+      "name": "easy-chart-plan",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/easy-chart-plan/index",
+      "zip": ".dist/zips/easy-chart-plan.zip"
+    },
+    "EASY-CHART-NARRATIVE": {
+      "name": "easy-chart-narrative",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/easy-chart-narrative/index",
+      "zip": ".dist/zips/easy-chart-narrative.zip"
+    },
+    "EASY-CHART-SAVE-TRANSCRIPT": {
+      "name": "easy-chart-save-transcript",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/easy-chart-save-transcript/index",
+      "zip": ".dist/zips/easy-chart-save-transcript.zip"
+    },
     "RECOMMEND-BILLING-SUGGESTIONS": {
       "name": "recommend-billing-suggestions",
       "type": "http_auth",
@@ -1509,6 +1551,13 @@
       "src": "src/ehr/update-nursing-order/index",
       "zip": ".dist/zips/update-nursing-order.zip"
     },
+    "CLINICAL-STRIPE-WEBHOOK": {
+      "name": "clinical-stripe-webhook",
+      "type": "http_open",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/clinical-stripe-webhook/index",
+      "zip": ".dist/zips/clinical-stripe-webhook.zip"
+    },
     "PATIENT-PAYMENTS-LIST": {
       "name": "patient-payments-list",
       "type": "http_auth",
@@ -1719,6 +1768,20 @@
       "runtime": "nodejs22.x",
       "src": "src/ehr/visit-details/delete-visit-files/index",
       "zip": ".dist/zips/delete-visit-files.zip"
+    },
+    "UPDATE-VISIT-FORM": {
+      "name": "update-visit-form",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/visit-details/update-visit-form/index",
+      "zip": ".dist/zips/update-visit-form.zip"
+    },
+    "DELETE-VISIT-FORM": {
+      "name": "delete-visit-form",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/visit-details/delete-visit-form/index",
+      "zip": ".dist/zips/delete-visit-form.zip"
     },
     "EHR-GET-VISIT-DETAILS": {
       "name": "ehr-get-visit-details",
@@ -2085,6 +2148,34 @@
       "runtime": "nodejs22.x",
       "src": "src/rcm/employers/update-employer/index",
       "zip": ".dist/zips/update-employer.zip"
+    },
+    "SEARCH-ADDRESS-BOOK": {
+      "name": "search-address-book",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/address-book/search-address-book/index",
+      "zip": ".dist/zips/search-address-book.zip"
+    },
+    "CREATE-ADDRESS-BOOK-CONTACT": {
+      "name": "create-address-book-contact",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/address-book/create-address-book-contact/index",
+      "zip": ".dist/zips/create-address-book-contact.zip"
+    },
+    "UPDATE-ADDRESS-BOOK-CONTACT": {
+      "name": "update-address-book-contact",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/address-book/update-address-book-contact/index",
+      "zip": ".dist/zips/update-address-book-contact.zip"
+    },
+    "DELETE-ADDRESS-BOOK-CONTACT": {
+      "name": "delete-address-book-contact",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/address-book/delete-address-book-contact/index",
+      "zip": ".dist/zips/delete-address-book-contact.zip"
     },
     "DESIGNATE-CHARGE-MASTER-ENTRY": {
       "name": "designate-charge-master-entry",

@@ -1,5 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { Basic } from 'fhir/r4b';
+import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
 import {
   AUTO_ACCIDENT_SYSTEM_TAG,
   AUTO_ACCIDENT_TAG_NAME,
@@ -25,15 +26,26 @@ const userTag = (id: string, name: string, description?: string): Basic => ({
 });
 
 // Usage-count batch stub: answers each count-only claim search from usageByName, keyed by the tag
-// name encoded in the request URL.
+// name read out of the request URL.
 const mockUsage = (usageByName: Record<string, number>): void => {
   batch.mockImplementation(async ({ requests }: { requests: { url: string }[] }) => ({
     entry: requests.map((request) => {
-      const name = decodeURIComponent(request.url).match(/\|(.*)&_total/)?.[1] ?? '';
-      return { resource: { resourceType: 'Bundle', type: 'searchset', total: usageByName[name] ?? 0 } };
+      const name = request.url.match(/\|(.*)&_total/)?.[1] ?? '';
+      return {
+        resource: {
+          resourceType: 'Bundle',
+          type: 'searchset',
+          total: usageByName[name] ?? 0,
+        },
+      };
     }),
   }));
 };
+
+const batchedTagValues = (): string[] =>
+  (batch.mock.calls[0][0] as { requests: { url: string }[] }).requests.map(
+    (request) => request.url.match(/_tag=(.*)&_total/)?.[1] ?? ''
+  );
 
 describe('search-billing-tags', () => {
   beforeEach(() => {
@@ -78,6 +90,32 @@ describe('search-billing-tags', () => {
       updatedAt: '2026-07-01T00:00:00Z',
       isSystemTag: false,
     });
+  });
+
+  it('sends the claim tag to the batch raw, leaving the SDK to encode it once', async () => {
+    search.mockResolvedValue({ unbundle: () => [userTag('tag-1', 'VIP')] });
+
+    await performEffect(oystehr);
+
+    const values = batchedTagValues();
+    expect(values).toContain(`${CLAIM_TAG_SYSTEM}|VIP`);
+    expect(values).toContain(`${CLAIM_TAG_SYSTEM}|${HOLD_TAG_NAME}`);
+    values.forEach((value) => expect(value).not.toMatch(/%[0-9A-F]{2}/i));
+  });
+
+  it('reports 0 for a tag whose entry came back without a searchset', async () => {
+    search.mockResolvedValue({ unbundle: () => [userTag('tag-1', 'VIP')] });
+    batch.mockResolvedValue({
+      entry: [
+        {
+          response: { status: '404' },
+        },
+      ],
+    });
+
+    const { tags } = await performEffect(oystehr);
+
+    expect(tags.find((tag) => tag.name === 'VIP')?.usage).toBe(0);
   });
 
   it('counts claims tagged with a system-managed tag although no definition is stored', async () => {

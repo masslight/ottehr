@@ -1,11 +1,11 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback } from 'react';
-import { CHART_DATA_QUERY_KEY } from 'src/constants';
 import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { VitalsObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { invalidateChartSections } from '../../../hooks/chartSectionCache';
+import { useChartSection } from '../../../hooks/useChartSection';
 import { useOystehrAPIClient } from '../../../hooks/useOystehrAPIClient';
-import { useChartData } from '../../../stores/appointment/appointment.store';
 import { autoAddVisionCptCodes } from './visionCptAutoAdd';
 
 export type UseBatchSaveVitals = (props: {
@@ -16,7 +16,7 @@ export const useBatchSaveVitals: UseBatchSaveVitals = ({ encounterId }) => {
   const apiClient = useOystehrAPIClient();
   const user = useEvolveUser();
   const { oystehr } = useApiClients();
-  const { chartData } = useChartData({ encounterId });
+  const { data: assessment } = useChartSection('assessment', { encounterId });
   const queryClient = useQueryClient();
 
   const handleBatchSave = useCallback(
@@ -30,18 +30,17 @@ export const useBatchSaveVitals: UseBatchSaveVitals = ({ encounterId }) => {
 
       await apiClient?.saveChartData?.(payload);
 
-      const existingCptCodes = new Set(chartData?.cptCodes?.map((code) => code.code) ?? []);
+      const existingCptCodes = new Set(assessment?.cptCodes.map((code) => code.code) ?? []);
       await autoAddVisionCptCodes({
         vitals: vitalEntities,
         encounterId,
         existingCptCodes,
         apiClient,
         oystehr,
-        queryClient,
-        chartDataQueryKey: CHART_DATA_QUERY_KEY,
+        onCptCodesAdded: () => invalidateChartSections(queryClient, encounterId, ['assessment']),
       });
     },
-    [apiClient, encounterId, user, oystehr, chartData, queryClient]
+    [apiClient, encounterId, user, oystehr, assessment, queryClient]
   );
 
   return handleBatchSave;

@@ -1,5 +1,13 @@
 export interface ListTemplatesZambdaInput {
   includeVersionData: boolean;
+  /** Adds each template's diagnoses, for a caller that describes templates without applying one. */
+  includeDiagnoses?: boolean;
+}
+
+export interface TemplateDiagnosis {
+  /** ICD-10. */
+  code: string;
+  display: string;
 }
 
 export type TemplateVersionData =
@@ -19,6 +27,8 @@ export interface TemplateInfo {
   title: string;
   examVersion: string;
   versionData?: TemplateVersionData;
+  /** Primary first; set only when `includeDiagnoses` was asked for. */
+  diagnoses?: TemplateDiagnosis[];
 }
 
 export interface ListTemplatesZambdaOutput {

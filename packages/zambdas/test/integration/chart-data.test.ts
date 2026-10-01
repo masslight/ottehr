@@ -1,12 +1,14 @@
 import Oystehr from '@oystehr/sdk';
 import { MedicationStatement } from 'fhir/r4b';
 import { M2MClientMockType } from 'utils/lib/auth/user-me.helper';
+import { visitNoteToLegacyChartData } from 'utils/lib/helpers/visit-note/visit-note-to-chart-data.helper';
 import { SchoolWorkNoteExcuseDocDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import {
   DeleteChartDataRequest,
   DeleteChartDataResponse,
 } from 'utils/lib/types/api/chart-data/delete-chart-data.types';
-import { GetChartDataRequest, GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
+import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
+import { GetVisitNoteRequest, VisitNoteResponse } from 'utils/lib/types/api/chart-data/get-visit-note.types';
 import { SaveChartDataRequest, SaveChartDataResponse } from 'utils/lib/types/api/chart-data/save-chart-data.types';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
@@ -16,6 +18,12 @@ import {
 } from '../helpers/integration-test-seed-data-setup';
 
 let baseResources: InsertFullAppointmentDataBaseResult;
+
+/** The visit note in the whole-chart shape these tests were written against: every list plus the note's fields. */
+const legacyChart = (note: VisitNoteResponse): GetChartDataResponse => {
+  const { chartData, additionalChartData } = visitNoteToLegacyChartData(note, { module: 'in-person' });
+  return { ...additionalChartData, ...chartData, disposition: additionalChartData.disposition };
+};
 
 describe('chart-data integration tests', () => {
   let oystehrLocalZambdas: Oystehr;
@@ -32,19 +40,21 @@ describe('chart-data integration tests', () => {
     await cleanup();
   });
 
-  describe('get-chart-data happy paths', () => {
+  describe('chart read happy paths', () => {
     it('should get chart data with no params on base chart-- success', async () => {
-      const getChartDataInput: GetChartDataRequest = {
+      const getChartDataInput: GetVisitNoteRequest = {
         encounterId: baseResources.encounter.id!,
       };
       let getChartDataOutput: any;
       try {
-        getChartDataOutput = (
-          await oystehrLocalZambdas.zambda.execute({
-            id: 'GET-CHART-DATA',
-            ...getChartDataInput,
-          })
-        ).output as GetChartDataResponse;
+        getChartDataOutput = legacyChart(
+          (
+            await oystehrLocalZambdas.zambda.execute({
+              id: 'GET-VISIT-NOTE',
+              ...getChartDataInput,
+            })
+          ).output as VisitNoteResponse
+        );
       } catch (error) {
         console.error('Error executing zambda:', error);
         getChartDataOutput = error as Error;
@@ -131,17 +141,19 @@ describe('chart-data integration tests', () => {
         ...conditionDTO,
       });
 
-      const getChartDataInput: GetChartDataRequest = {
+      const getChartDataInput: GetVisitNoteRequest = {
         encounterId: baseResources.encounter.id!,
       };
       let getChartDataOutput: any;
       try {
-        getChartDataOutput = (
-          await oystehrLocalZambdas.zambda.execute({
-            id: 'GET-CHART-DATA',
-            ...getChartDataInput,
-          })
-        ).output as GetChartDataResponse;
+        getChartDataOutput = legacyChart(
+          (
+            await oystehrLocalZambdas.zambda.execute({
+              id: 'GET-VISIT-NOTE',
+              ...getChartDataInput,
+            })
+          ).output as VisitNoteResponse
+        );
       } catch (error) {
         console.error('Error executing zambda:', error);
         getChartDataOutput = error as Error;
@@ -185,17 +197,19 @@ describe('chart-data integration tests', () => {
         ...medicationDTO,
       });
 
-      const getChartDataInput: GetChartDataRequest = {
+      const getChartDataInput: GetVisitNoteRequest = {
         encounterId: baseResources.encounter.id!,
       };
       let getChartDataOutput: any;
       try {
-        getChartDataOutput = (
-          await oystehrLocalZambdas.zambda.execute({
-            id: 'GET-CHART-DATA',
-            ...getChartDataInput,
-          })
-        ).output as GetChartDataResponse;
+        getChartDataOutput = legacyChart(
+          (
+            await oystehrLocalZambdas.zambda.execute({
+              id: 'GET-VISIT-NOTE',
+              ...getChartDataInput,
+            })
+          ).output as VisitNoteResponse
+        );
       } catch (error) {
         console.error('Error executing zambda:', error);
         getChartDataOutput = error as Error;
@@ -238,17 +252,19 @@ describe('chart-data integration tests', () => {
         ...allergyDTO,
       });
 
-      const getChartDataInput: GetChartDataRequest = {
+      const getChartDataInput: GetVisitNoteRequest = {
         encounterId: baseResources.encounter.id!,
       };
       let getChartDataOutput: any;
       try {
-        getChartDataOutput = (
-          await oystehrLocalZambdas.zambda.execute({
-            id: 'GET-CHART-DATA',
-            ...getChartDataInput,
-          })
-        ).output as GetChartDataResponse;
+        getChartDataOutput = legacyChart(
+          (
+            await oystehrLocalZambdas.zambda.execute({
+              id: 'GET-VISIT-NOTE',
+              ...getChartDataInput,
+            })
+          ).output as VisitNoteResponse
+        );
       } catch (error) {
         console.error('Error executing zambda:', error);
         getChartDataOutput = error as Error;
@@ -289,17 +305,19 @@ describe('chart-data integration tests', () => {
         ...surgicalHistoryDTO,
       });
 
-      const getChartDataInput: GetChartDataRequest = {
+      const getChartDataInput: GetVisitNoteRequest = {
         encounterId: baseResources.encounter.id!,
       };
       let getChartDataOutput: any;
       try {
-        getChartDataOutput = (
-          await oystehrLocalZambdas.zambda.execute({
-            id: 'GET-CHART-DATA',
-            ...getChartDataInput,
-          })
-        ).output as GetChartDataResponse;
+        getChartDataOutput = legacyChart(
+          (
+            await oystehrLocalZambdas.zambda.execute({
+              id: 'GET-VISIT-NOTE',
+              ...getChartDataInput,
+            })
+          ).output as VisitNoteResponse
+        );
       } catch (error) {
         console.error('Error executing zambda:', error);
         getChartDataOutput = error as Error;
@@ -343,17 +361,19 @@ describe('chart-data integration tests', () => {
         ...examObservationDTO,
       });
 
-      const getChartDataInput: GetChartDataRequest = {
+      const getChartDataInput: GetVisitNoteRequest = {
         encounterId: baseResources.encounter.id!,
       };
       let getChartDataOutput: any;
       try {
-        getChartDataOutput = (
-          await oystehrLocalZambdas.zambda.execute({
-            id: 'GET-CHART-DATA',
-            ...getChartDataInput,
-          })
-        ).output as GetChartDataResponse;
+        getChartDataOutput = legacyChart(
+          (
+            await oystehrLocalZambdas.zambda.execute({
+              id: 'GET-VISIT-NOTE',
+              ...getChartDataInput,
+            })
+          ).output as VisitNoteResponse
+        );
       } catch (error) {
         console.error('Error executing zambda:', error);
         getChartDataOutput = error as Error;
@@ -400,17 +420,19 @@ describe('chart-data integration tests', () => {
         ...instructionDTO,
       });
 
-      const getChartDataInput: GetChartDataRequest = {
+      const getChartDataInput: GetVisitNoteRequest = {
         encounterId: baseResources.encounter.id!,
       };
       let getChartDataOutput: any;
       try {
-        getChartDataOutput = (
-          await oystehrLocalZambdas.zambda.execute({
-            id: 'GET-CHART-DATA',
-            ...getChartDataInput,
-          })
-        ).output as GetChartDataResponse;
+        getChartDataOutput = legacyChart(
+          (
+            await oystehrLocalZambdas.zambda.execute({
+              id: 'GET-VISIT-NOTE',
+              ...getChartDataInput,
+            })
+          ).output as VisitNoteResponse
+        );
       } catch (error) {
         console.error('Error executing zambda:', error);
         getChartDataOutput = error as Error;
@@ -452,17 +474,19 @@ describe('chart-data integration tests', () => {
         ...diagnosisDTO,
       });
 
-      const getChartDataInput: GetChartDataRequest = {
+      const getChartDataInput: GetVisitNoteRequest = {
         encounterId: baseResources.encounter.id!,
       };
       let getChartDataOutput: any;
       try {
-        getChartDataOutput = (
-          await oystehrLocalZambdas.zambda.execute({
-            id: 'GET-CHART-DATA',
-            ...getChartDataInput,
-          })
-        ).output as GetChartDataResponse;
+        getChartDataOutput = legacyChart(
+          (
+            await oystehrLocalZambdas.zambda.execute({
+              id: 'GET-VISIT-NOTE',
+              ...getChartDataInput,
+            })
+          ).output as VisitNoteResponse
+        );
       } catch (error) {
         console.error('Error executing zambda:', error);
         getChartDataOutput = error as Error;
@@ -503,17 +527,19 @@ describe('chart-data integration tests', () => {
         ...cptCodeDTO,
       });
 
-      const getChartDataInput: GetChartDataRequest = {
+      const getChartDataInput: GetVisitNoteRequest = {
         encounterId: baseResources.encounter.id!,
       };
       let getChartDataOutput: any;
       try {
-        getChartDataOutput = (
-          await oystehrLocalZambdas.zambda.execute({
-            id: 'GET-CHART-DATA',
-            ...getChartDataInput,
-          })
-        ).output as GetChartDataResponse;
+        getChartDataOutput = legacyChart(
+          (
+            await oystehrLocalZambdas.zambda.execute({
+              id: 'GET-VISIT-NOTE',
+              ...getChartDataInput,
+            })
+          ).output as VisitNoteResponse
+        );
       } catch (error) {
         console.error('Error executing zambda:', error);
         getChartDataOutput = error as Error;
@@ -604,12 +630,14 @@ describe('chart-data integration tests', () => {
       // Now get chart data and verify round-trip
       let getChartDataOutput: any;
       try {
-        getChartDataOutput = (
-          await oystehrLocalZambdas.zambda.execute({
-            id: 'GET-CHART-DATA',
-            encounterId: baseResources.encounter.id!,
-          })
-        ).output as GetChartDataResponse;
+        getChartDataOutput = legacyChart(
+          (
+            await oystehrLocalZambdas.zambda.execute({
+              id: 'GET-VISIT-NOTE',
+              encounterId: baseResources.encounter.id!,
+            })
+          ).output as VisitNoteResponse
+        );
       } catch (error) {
         console.error('Error executing zambda:', error);
         getChartDataOutput = error as Error;
@@ -710,12 +738,14 @@ describe('chart-data integration tests', () => {
       // Get chart data and verify cleared
       let getChartDataOutput: any;
       try {
-        getChartDataOutput = (
-          await oystehrLocalZambdas.zambda.execute({
-            id: 'GET-CHART-DATA',
-            encounterId: baseResources.encounter.id!,
-          })
-        ).output as GetChartDataResponse;
+        getChartDataOutput = legacyChart(
+          (
+            await oystehrLocalZambdas.zambda.execute({
+              id: 'GET-VISIT-NOTE',
+              encounterId: baseResources.encounter.id!,
+            })
+          ).output as VisitNoteResponse
+        );
       } catch (error) {
         console.error('Error executing zambda:', error);
         getChartDataOutput = error as Error;
@@ -783,12 +813,14 @@ describe('chart-data integration tests', () => {
       // Get chart data and verify all three components are present in one observation
       let getChartDataOutput: any;
       try {
-        getChartDataOutput = (
-          await oystehrLocalZambdas.zambda.execute({
-            id: 'GET-CHART-DATA',
-            encounterId: baseResources.encounter.id!,
-          })
-        ).output as GetChartDataResponse;
+        getChartDataOutput = legacyChart(
+          (
+            await oystehrLocalZambdas.zambda.execute({
+              id: 'GET-VISIT-NOTE',
+              encounterId: baseResources.encounter.id!,
+            })
+          ).output as VisitNoteResponse
+        );
       } catch (error) {
         console.error('Error executing zambda:', error);
         getChartDataOutput = error as Error;
@@ -864,12 +896,14 @@ describe('chart-data integration tests', () => {
       // Get chart data and verify label, groupLabel, and columnLabel all persisted
       let getChartDataOutput: any;
       try {
-        getChartDataOutput = (
-          await oystehrLocalZambdas.zambda.execute({
-            id: 'GET-CHART-DATA',
-            encounterId: baseResources.encounter.id!,
-          })
-        ).output as GetChartDataResponse;
+        getChartDataOutput = legacyChart(
+          (
+            await oystehrLocalZambdas.zambda.execute({
+              id: 'GET-VISIT-NOTE',
+              encounterId: baseResources.encounter.id!,
+            })
+          ).output as VisitNoteResponse
+        );
       } catch (error) {
         console.error('Error executing zambda:', error);
         getChartDataOutput = error as Error;
@@ -953,12 +987,14 @@ describe('chart-data integration tests', () => {
       // Finally, get chart data to ensure the school work note is deleted
       let getChartOutput: any;
       try {
-        getChartOutput = (
-          await oystehrLocalZambdas.zambda.execute({
-            id: 'GET-CHART-DATA',
-            encounterId: baseResources.encounter.id!,
-          })
-        ).output as GetChartDataResponse;
+        getChartOutput = legacyChart(
+          (
+            await oystehrLocalZambdas.zambda.execute({
+              id: 'GET-VISIT-NOTE',
+              encounterId: baseResources.encounter.id!,
+            })
+          ).output as VisitNoteResponse
+        );
       } catch (error) {
         console.error('Error executing zambda:', error);
         getChartOutput = error as Error;

@@ -1,7 +1,7 @@
 import { BrowserContext, Page, test } from '@playwright/test';
-import { FormFieldItemRecord, FormFieldsInputItem } from 'config-types';
+import { FormFieldItemRecord, FormFieldsInputItem } from 'config-types/config/form-fields';
 import { DateTime } from 'luxon';
-import { waitForResponseWithData } from 'test-utils';
+import { waitForResponseWithData } from 'test-utils/lib/e2e/response-utils';
 import { getReasonForVisitOptionsForServiceCategory } from 'utils/lib/config-helpers/booking';
 import { unpackFhirResponse } from 'utils/lib/fhir/helpers';
 import {

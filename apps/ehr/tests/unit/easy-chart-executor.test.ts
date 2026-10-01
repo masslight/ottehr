@@ -1,0 +1,681 @@
+import { ExamLeaf } from 'utils/lib/config-helpers/exam-leaves';
+import { PlannedAction } from 'utils/lib/easy-chart/api';
+import { AllChartValues } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { describe, expect, it } from 'vitest';
+import { HANDLERS, toStoredVitalValue } from '../../src/features/easy-chart/executor/handlers';
+import { AMBIGUITY_RATIO, classifyMatches } from '../../src/features/easy-chart/executor/resolve';
+import { runPlan } from '../../src/features/easy-chart/executor/runPlan';
+import {
+  CatalogueMatch,
+  ChartSnapshot,
+  ChartWriter,
+  HandlerContext,
+  PickerRequest,
+  PickerResponse,
+  ResolvedExamFindingAction,
+} from '../../src/features/easy-chart/executor/types';
+
+const emptyChart = (): ChartSnapshot => ({
+  diagnoses: [],
+  conditions: [],
+  examRows: {},
+  noteFields: {},
+});
+
+interface Harness {
+  context: HandlerContext;
+  saved: AllChartValues[];
+  said: string[];
+  asks: PickerRequest[];
+}
+
+function harness(
+  overrides: {
+    chart?: Partial<ChartSnapshot>;
+    matches?: Record<string, CatalogueMatch[]>;
+    mode?: 'bulk' | 'interactive';
+    answer?: (request: PickerRequest) => PickerResponse;
+    saveFails?: boolean;
+  } = {}
+): Harness {
+  const saved: AllChartValues[] = [];
+  const said: string[] = [];
+  const asks: PickerRequest[] = [];
+  let nextId = 1;
+
+  const writer: ChartWriter = {
+    save: async (fields) => {
+      if (overrides.saveFails) throw new Error('the chart could not be saved');
+      saved.push(fields);
+      return [`res-${nextId++}`];
+    },
+  };
+
+  const lookup = (name: string) => async (): Promise<CatalogueMatch[]> => overrides.matches?.[name] ?? [];
+
+  const context: HandlerContext = {
+    mode: overrides.mode ?? 'bulk',
+    writer,
+    chart: { ...emptyChart(), ...overrides.chart },
+    catalogue: {
+      examFindings: lookup('examFindings'),
+      rosFindings: lookup('rosFindings'),
+      medications: lookup('medications'),
+      allergies: lookup('allergies'),
+      surgicalHistory: lookup('surgicalHistory'),
+      hospitalizations: lookup('hospitalizations'),
+    },
+    ask: async (request) => {
+      asks.push(request);
+      return overrides.answer?.(request);
+    },
+    say: (text) => said.push(text),
+  };
+
+  return { context, saved, said, asks };
+}
+
+const match = (id: string, display: string, score: number): CatalogueMatch => ({ id, display, score });
+
+describe('every step settles', () => {
+  it('reports applied / skipped-with-reason / failed and never leaves a step unsettled', async () => {
+    const h = harness({
+      matches: { medications: [{ ...match('m1', 'Amoxicillin 500 mg', 1), payload: { id: 12345 } }] },
+    });
+    const actions: PlannedAction[] = [
+      { kind: 'add-medication', display: 'Amoxicillin' },
+      // No checkbox matches, so the words are noted on the exam card instead.
+      { kind: 'add-exam-finding', display: 'Right TM bulging' },
+      { kind: 'add-diagnosis', display: 'Strep throat' }, // no confirmed code
+    ];
+    const { steps } = await runPlan(actions, h.context);
+
+    expect(steps.map((s) => s.outcome?.status)).toEqual(['applied', 'applied', 'skipped']);
+    for (const step of steps) {
+      expect(step.outcome, `step ${step.index} never settled`).toBeDefined();
+      if (step.outcome!.status !== 'applied') {
+        expect(step.outcome!.reason?.trim(), `step ${step.index} skipped with no reason`).toBeTruthy();
+      }
+    }
+  });
+
+  it('says so plainly when the action kind is one this build does not know', async () => {
+    const h = harness();
+    const { steps } = await runPlan([{ kind: 'add-telepathy' } as unknown as PlannedAction], h.context);
+    expect(steps[0].outcome?.status).toBe('skipped');
+    expect(steps[0].outcome?.reason).toMatch(/does not know how to do "add-telepathy"/);
+  });
+
+  it('reports a required field the assistant did not supply', async () => {
+    const h = harness();
+    const { steps } = await runPlan([{ kind: 'edit-note-text', field: 'medicalDecision' }], h.context);
+    expect(steps[0].outcome?.reason).toMatch(/did not supply newText/);
+  });
+
+  it('turns a thrown error into a failed step with readable text, not a crashed run', async () => {
+    const h = harness({ saveFails: true });
+    const { steps } = await runPlan(
+      [
+        { kind: 'edit-note-text', field: 'medicalDecision', newText: 'MDM text' },
+        { kind: 'add-patient-instruction', text: 'Rest and fluids.' },
+      ],
+      h.context
+    );
+    expect(steps[0].outcome?.status).toBe('failed');
+    expect(steps[0].outcome?.reason).toMatch(/the chart could not be saved/);
+    // One bad step does not abandon the rest of the plan.
+    expect(steps[1].outcome?.status).toBe('failed');
+  });
+
+  it('reports progress so the current step can be kept in view', async () => {
+    const h = harness();
+    const started: number[] = [];
+    const settled: number[] = [];
+    await runPlan(
+      [
+        { kind: 'add-patient-instruction', text: 'One' },
+        { kind: 'add-patient-instruction', text: 'Two' },
+      ],
+      h.context,
+      { onStepStart: (s) => started.push(s.index), onStepSettled: (s) => settled.push(s.index) }
+    );
+    expect(started).toEqual([0, 1]);
+    expect(settled).toEqual([0, 1]);
+  });
+});
+
+describe('dispatch table', () => {
+  it('has a handler for every registered action kind', async () => {
+    const { ACTION_KINDS } = await import('utils/lib/easy-chart/actions');
+    expect(Object.keys(HANDLERS).sort()).toEqual([...ACTION_KINDS].sort());
+  });
+});
+
+describe('the CC↔HPI storage swap is applied exactly once', () => {
+  it('writes a clinical Chief Complaint under the historyOfPresentIllness key, and vice versa', async () => {
+    const h = harness();
+    await runPlan(
+      [
+        { kind: 'edit-note-text', field: 'chiefComplaint', newText: 'Right ear pain' },
+        { kind: 'edit-note-text', field: 'historyOfPresentIllness', newText: '7y M p/w right otalgia x1 day.' },
+        { kind: 'edit-note-text', field: 'medicalDecision', newText: 'Consistent with AOM.' },
+      ],
+      h.context
+    );
+    expect(h.saved).toEqual([
+      { historyOfPresentIllness: { text: 'Right ear pain' } },
+      { chiefComplaint: { text: '7y M p/w right otalgia x1 day.' } },
+      { medicalDecision: { text: 'Consistent with AOM.' } },
+    ]);
+  });
+});
+
+describe('note text updates the row that already holds the field', () => {
+  it('passes the existing row id, so the save updates it rather than creating a second one beside it', async () => {
+    // A template wrote the HPI (stored under chiefComplaint); the scribe's text is appended.
+    const h = harness({ chart: { noteFields: { chiefComplaint: { resourceId: 'cc-1', text: 'Template HPI.' } } } });
+    await runPlan(
+      [
+        {
+          kind: 'edit-note-text',
+          field: 'historyOfPresentIllness',
+          newText: 'Template HPI.\nSinus pressure x 1 week.',
+        },
+      ],
+      h.context
+    );
+    expect(h.saved).toEqual([
+      { chiefComplaint: { resourceId: 'cc-1', text: 'Template HPI.\nSinus pressure x 1 week.' } },
+    ]);
+  });
+
+  it('carries the row a first write created on to a second write of the same field in one plan', async () => {
+    const h = harness();
+    await runPlan(
+      [
+        { kind: 'edit-note-text', field: 'medicalDecision', newText: 'First.' },
+        { kind: 'edit-note-text', field: 'medicalDecision', newText: 'Second.' },
+      ],
+      h.context
+    );
+    expect(h.saved).toEqual([
+      { medicalDecision: { text: 'First.' } },
+      { medicalDecision: { resourceId: 'res-1', text: 'Second.' } },
+    ]);
+  });
+});
+
+describe('vitals', () => {
+  it('writes the value the server produced when it is already in the stored unit', async () => {
+    const h = harness();
+    await runPlan([{ kind: 'set-vital', field: 'vital-height', display: '1.73 m', value: 173, unit: 'cm' }], h.context);
+    expect(h.saved[0]).toEqual({ vitalsObservations: [{ field: 'vital-height', value: 173 }] });
+  });
+
+  it('converts a reading into the unit the chart stores before writing it', async () => {
+    const h = harness();
+    await runPlan(
+      [
+        { kind: 'set-vital', field: 'vital-weight', display: '170 lb', value: 170, unit: 'lb' },
+        { kind: 'set-vital', field: 'vital-height', display: `5'8"`, value: 68, unit: 'in' },
+        { kind: 'set-vital', field: 'vital-temperature', display: '100.4 F', value: 100.4, unit: 'F' },
+        { kind: 'set-vital', field: 'vital-weight', display: '77 kg', value: 77, unit: 'kg' },
+        { kind: 'set-vital', field: 'vital-heartbeat', display: '88 bpm', value: 88 },
+      ],
+      h.context
+    );
+    expect(h.saved.map((fields) => fields.vitalsObservations?.[0])).toEqual([
+      { field: 'vital-weight', value: 77.11 },
+      { field: 'vital-height', value: 172.72 },
+      { field: 'vital-temperature', value: 38 },
+      { field: 'vital-weight', value: 77 },
+      { field: 'vital-heartbeat', value: 88 },
+    ]);
+    expect(toStoredVitalValue(100.4, 'F')).toBe(38);
+  });
+
+  it('writes both numbers for a blood pressure', async () => {
+    const h = harness();
+    await runPlan(
+      [{ kind: 'set-vital', field: 'vital-blood-pressure', display: '122/78', systolic: 122, diastolic: 78 }],
+      h.context
+    );
+    expect(h.saved[0]).toEqual({
+      vitalsObservations: [{ field: 'vital-blood-pressure', systolicPressure: 122, diastolicPressure: 78 }],
+    });
+  });
+
+  it('fails rather than charting a vital with no usable reading', async () => {
+    const h = harness();
+    const { steps } = await runPlan(
+      [{ kind: 'set-vital', field: 'vital-weight', display: '80 stones-ish' }],
+      h.context
+    );
+    expect(steps[0].outcome?.status).toBe('failed');
+    expect(h.saved).toEqual([]);
+  });
+});
+
+describe('history rows are written as the DTOs the tabs write', () => {
+  it('writes a medication with status, type, intake info and the eRx id as a string', async () => {
+    const h = harness({
+      matches: {
+        medications: [
+          { ...match('m1', 'Amoxicillin 500 mg oral capsule', 1), payload: { id: 12345, name: 'Amoxicillin' } },
+        ],
+      },
+    });
+    const { steps } = await runPlan(
+      [{ kind: 'add-medication', display: 'Amoxicillin', strength: '500 mg' }],
+      h.context
+    );
+    expect(steps[0].outcome?.status).toBe('applied');
+    expect(h.saved[0]).toEqual({
+      medications: [
+        {
+          name: 'Amoxicillin 500 mg oral capsule',
+          id: '12345',
+          type: 'scheduled',
+          status: 'active',
+          intakeInfo: { dose: '500 mg' },
+        },
+      ],
+    });
+  });
+
+  it('never writes a medication or allergy match that has no eRx id', async () => {
+    const h = harness({
+      matches: { medications: [match('Motrin', 'Motrin', 1)], allergies: [match('Latex', 'Latex', 1)] },
+    });
+    const { steps } = await runPlan(
+      [
+        { kind: 'add-medication', display: 'Motrin' },
+        { kind: 'add-allergy', display: 'latex' },
+      ],
+      h.context
+    );
+    expect(steps.map((step) => step.outcome?.status)).toEqual(['skipped', 'skipped']);
+    expect(h.saved).toEqual([]);
+  });
+
+  it('writes an allergy as current, with the eRx id as a string', async () => {
+    const h = harness({
+      matches: { allergies: [{ ...match('a1', 'Penicillin', 1), payload: { id: 777, name: 'Penicillin' } }] },
+    });
+    await runPlan([{ kind: 'add-allergy', display: 'penicillin' }], h.context);
+    const saved = h.saved[0].allergies ?? [];
+    expect(saved[0]).toMatchObject({ name: 'Penicillin', id: '777', current: true });
+    expect(typeof saved[0].lastUpdated).toBe('string');
+  });
+
+  it('charts a past medical history item from its validated code without a catalogue', async () => {
+    const h = harness();
+    const { steps } = await runPlan([{ kind: 'add-condition', display: 'Asthma', code: 'J45.909' }], h.context);
+    expect(steps[0].outcome).toMatchObject({ status: 'applied', matchedId: 'J45.909' });
+    expect(h.saved[0].conditions?.[0]).toMatchObject({ code: 'J45.909', display: 'Asthma', current: true });
+  });
+
+  it('skips a past medical history item that is already on the chart, or has no code', async () => {
+    const h = harness({ chart: { conditions: [{ resourceId: 'c1', display: 'Asthma' }] } });
+    const { steps } = await runPlan(
+      [
+        { kind: 'add-condition', display: 'asthma', code: 'J45.909' },
+        { kind: 'add-condition', display: 'COPD' },
+      ],
+      h.context
+    );
+    expect(steps[0].outcome).toMatchObject({
+      status: 'skipped',
+      reason: expect.stringMatching(/already on the chart/),
+    });
+    expect(steps[1].outcome).toMatchObject({
+      status: 'skipped',
+      reason: expect.stringMatching(/confirmed ICD-10 code/),
+    });
+    expect(h.saved).toEqual([]);
+  });
+
+  it('writes a review-of-systems finding as the ROS table does: the polarity key, true, and the label', async () => {
+    const h = harness({
+      matches: {
+        rosFindings: [
+          {
+            ...match('ros-constitutional-fever', 'Constitutional: Fever', 1),
+            payload: { baseField: 'ros-constitutional-fever', label: 'Fever', systemLabel: 'Constitutional' },
+          },
+        ],
+      },
+    });
+    await runPlan([{ kind: 'add-ros-finding', display: 'denies fever', finding: 'denies' }], h.context);
+    expect(h.saved[0]).toEqual({
+      rosObservations: [{ field: 'ros-constitutional-fever-denies', value: true, label: 'Fever' }],
+    });
+  });
+});
+
+describe('the exactly-one-primary-diagnosis invariant', () => {
+  it('charts the first primary as primary', async () => {
+    const h = harness();
+    await runPlan([{ kind: 'add-diagnosis', display: 'Strep pharyngitis', code: 'J02.0', isPrimary: true }], h.context);
+    expect(h.saved[0]).toEqual({ diagnosis: [{ code: 'J02.0', display: 'Strep pharyngitis', isPrimary: true }] });
+  });
+
+  it('demotes a second primary and says so', async () => {
+    const h = harness({
+      chart: { diagnoses: [{ resourceId: 'dx-1', display: 'AOM', code: 'H66.91', isPrimary: true }] },
+    });
+    const { steps } = await runPlan(
+      [{ kind: 'add-diagnosis', display: 'Strep pharyngitis', code: 'J02.0', isPrimary: true }],
+      h.context
+    );
+    expect(h.saved[0]).toEqual({ diagnosis: [{ code: 'J02.0', display: 'Strep pharyngitis', isPrimary: false }] });
+    expect(steps[0].outcome?.note).toMatch(/charted as secondary/);
+  });
+
+  it('skips a diagnosis already on the chart', async () => {
+    const h = harness({ chart: { diagnoses: [{ resourceId: 'dx-1', display: 'Strep', code: 'J02.0' }] } });
+    const { steps } = await runPlan(
+      [{ kind: 'add-diagnosis', display: 'Strep pharyngitis', code: 'J02.0' }],
+      h.context
+    );
+    expect(steps[0].outcome).toMatchObject({
+      status: 'skipped',
+      reason: expect.stringMatching(/already on the chart/),
+    });
+    expect(h.saved).toEqual([]);
+  });
+});
+
+describe('ambiguity', () => {
+  it('treats a runner-up within the ratio as ambiguous and a clear winner as confident', () => {
+    expect(classifyMatches([match('a', 'A', 1), match('b', 'B', AMBIGUITY_RATIO + 0.01)]).kind).toBe('ambiguous');
+    expect(classifyMatches([match('a', 'A', 1), match('b', 'B', AMBIGUITY_RATIO - 0.01)]).kind).toBe('confident');
+    expect(classifyMatches([]).kind).toBe('none');
+  });
+
+  it('auto-picks the top match during a bulk run and marks it low-confidence', async () => {
+    const h = harness({
+      mode: 'bulk',
+      matches: { examFindings: [match('e1', 'Erythematous pharynx', 1), match('e2', 'Erythematous tonsils', 0.95)] },
+    });
+    const { steps } = await runPlan([{ kind: 'add-exam-finding', display: 'throat injected' }], h.context);
+    expect(steps[0].outcome).toMatchObject({ status: 'applied', lowConfidence: true });
+    expect(steps[0].outcome?.note).toMatch(/auto-picked from 2/);
+    expect(h.asks).toEqual([]);
+  });
+
+  it('asks when the provider typed one request and is watching', async () => {
+    const h = harness({
+      mode: 'interactive',
+      matches: { examFindings: [match('e1', 'Erythematous pharynx', 1), match('e2', 'Erythematous tonsils', 0.95)] },
+      answer: (request) => request.options[1],
+    });
+    const { steps } = await runPlan([{ kind: 'add-exam-finding', display: 'throat injected' }], h.context);
+    expect(h.asks).toHaveLength(1);
+    expect(steps[0].outcome).toMatchObject({ status: 'applied', lowConfidence: false });
+    expect(h.saved[0]).toMatchObject({ examObservations: [{ field: 'e2' }] });
+  });
+
+  it('skips with a reason when the provider declines the picker', async () => {
+    const h = harness({
+      mode: 'interactive',
+      matches: { examFindings: [match('e1', 'A', 1), match('e2', 'B', 0.95)] },
+      answer: () => undefined,
+    });
+    const { steps } = await runPlan([{ kind: 'add-exam-finding', display: 'something' }], h.context);
+    expect(steps[0].outcome).toMatchObject({ status: 'skipped' });
+    expect(h.saved).toEqual([]);
+  });
+
+  it('ticks the box the provider already confirmed instead of searching again', async () => {
+    const h = harness({
+      mode: 'interactive',
+      matches: { examFindings: [match('e1', 'Erythematous pharynx', 1), match('e2', 'Erythematous tonsils', 0.95)] },
+      answer: () => {
+        throw new Error('the picker must not be asked');
+      },
+    });
+    const resolvedLeaf: ExamLeaf = {
+      field: 'wheezing',
+      leafLabel: 'Wheezing',
+      label: 'Wheezing',
+      sectionKey: 'lungs',
+      sectionLabel: 'Lungs, Chest Wall',
+      polarity: 'abnormal',
+      path: [],
+    };
+    const action: PlannedAction & ResolvedExamFindingAction = {
+      kind: 'add-exam-finding',
+      display: 'throat injected',
+      resolvedLeaf,
+    };
+    const { steps } = await runPlan([action], h.context);
+    expect(steps[0].outcome).toMatchObject({ status: 'applied', matchedId: 'wheezing' });
+    expect(steps[0].outcome?.lowConfidence).toBeFalsy();
+    expect(h.asks).toEqual([]);
+    expect(h.saved).toEqual([{ examObservations: [{ field: 'wheezing', value: true }] }]);
+  });
+
+  it('adds a modal option to its box’s row, as the Exam tab does, instead of ticking the bare box', async () => {
+    const charted = { code: 'frontal-left', label: 'Left', groupLabel: 'Frontal', value: true, abnormal: true };
+    const h = harness({
+      chart: {
+        examRows: {
+          'sinus-tenderness': { resourceId: 'obs-7', field: 'sinus-tenderness', value: true, components: [charted] },
+        },
+      },
+    });
+    const resolvedLeaf: ExamLeaf = {
+      field: 'sinus-tenderness',
+      leafLabel: 'Right',
+      label: 'Nose: Sinus tenderness: Maxillary: Right',
+      sectionKey: 'nose',
+      sectionLabel: 'Nose',
+      polarity: 'abnormal',
+      path: ['Maxillary'],
+      component: { code: 'maxillary-right', label: 'Right', groupLabel: 'Maxillary' },
+    };
+    const action: PlannedAction & ResolvedExamFindingAction = {
+      kind: 'add-exam-finding',
+      display: 'Right maxillary sinus tenderness',
+      resolvedLeaf,
+    };
+    await runPlan([action], h.context);
+    expect(h.saved).toEqual([
+      {
+        examObservations: [
+          {
+            resourceId: 'obs-7',
+            field: 'sinus-tenderness',
+            value: true,
+            components: [
+              charted,
+              { code: 'maxillary-right', label: 'Right', groupLabel: 'Maxillary', abnormal: true, value: true },
+            ],
+          },
+        ],
+      },
+    ]);
+  });
+});
+
+describe('chat-only actions', () => {
+  it('answers a question without writing anything to the chart', async () => {
+    const h = harness();
+    const { steps } = await runPlan(
+      [{ kind: 'reply', text: 'You still need an E&M level before you can sign.' }],
+      h.context
+    );
+    expect(steps[0].outcome?.status).toBe('applied');
+    expect(h.saved).toEqual([]);
+    expect(h.said).toEqual(['You still need an E&M level before you can sign.']);
+  });
+
+  it('surfaces a provider note in the chat and charts nothing', async () => {
+    const h = harness();
+    await runPlan([{ kind: 'provider-note', text: 'Send the erythromycin prescription by eRx.' }], h.context);
+    expect(h.saved).toEqual([]);
+    expect(h.said).toEqual(['Send the erythromycin prescription by eRx.']);
+  });
+});
+
+describe('ROS polarity is stored in the field key', () => {
+  // Review & Sign reads the `…-denies` / `…-reports` key with value true, not the base key.
+  const ros = { rosFindings: [match('ros-gi-vomiting', 'Vomiting', 1)] };
+
+  it('charts a denial as the -denies field with value true', async () => {
+    const h = harness({ matches: ros });
+    await runPlan(
+      [{ kind: 'add-ros-finding', display: 'Denies vomiting', finding: 'denies' } as PlannedAction],
+      h.context
+    );
+    const written = h.saved.flatMap((call) => call.rosObservations ?? []);
+    expect(written).toEqual([{ field: 'ros-gi-vomiting-denies', value: true }]);
+  });
+
+  it('charts a reported symptom as the -reports field with value true', async () => {
+    const h = harness({ matches: ros });
+    await runPlan(
+      [{ kind: 'add-ros-finding', display: 'Reports vomiting', finding: 'reports' } as PlannedAction],
+      h.context
+    );
+    const written = h.saved.flatMap((call) => call.rosObservations ?? []);
+    expect(written).toEqual([{ field: 'ros-gi-vomiting-reports', value: true }]);
+  });
+});
+
+// A finding with no checkbox to tick is noted in the free-text comment of the card it belongs to.
+describe('exam finding with no checkbox', () => {
+  it('writes the words into the inferred exam card note instead of skipping', async () => {
+    const h = harness({ matches: { examFindings: [] } });
+    const { steps } = await runPlan(
+      [{ kind: 'add-exam-finding', display: 'Tenderness over the left ear canal' }],
+      h.context
+    );
+
+    expect(steps[0].outcome?.status).toBe('applied');
+    expect(steps[0].outcome?.lowConfidence).toBe(true);
+    const saved = h.saved.find((s) => 'examObservations' in s) as {
+      examObservations: { field: string; note: string }[];
+    };
+    expect(saved.examObservations[0].note).toBe('Tenderness over the left ear canal');
+    expect(saved.examObservations[0].field).toBe('ears-comment');
+  });
+
+  it('falls back to the general card when the wording names no body system', async () => {
+    const h = harness({ matches: { examFindings: [] } });
+    const { steps } = await runPlan([{ kind: 'add-exam-finding', display: 'Diaphoretic and pale' }], h.context);
+
+    expect(steps[0].outcome?.status).toBe('applied');
+    const saved = h.saved.find((s) => 'examObservations' in s) as { examObservations: { field: string }[] };
+    expect(saved.examObservations[0].field).toBe('general-comment');
+  });
+
+  it('APPENDS to an existing note rather than overwriting what the provider typed', async () => {
+    const h = harness({
+      matches: { examFindings: [] },
+      chart: {
+        examRows: { 'general-comment': { resourceId: 'obs-1', field: 'general-comment', note: 'Appears comfortable' } },
+      },
+    });
+    await runPlan([{ kind: 'add-exam-finding', display: 'Diaphoretic and pale' }], h.context);
+
+    const saved = h.saved.find((s) => 'examObservations' in s) as {
+      examObservations: { resourceId?: string; note: string }[];
+    };
+    expect(saved.examObservations[0].note).toBe('Appears comfortable; Diaphoretic and pale');
+    expect(saved.examObservations[0].resourceId).toBe('obs-1');
+  });
+
+  it('does not duplicate a finding the note already carries', async () => {
+    const h = harness({
+      matches: { examFindings: [] },
+      chart: { examRows: { 'general-comment': { field: 'general-comment', note: 'Diaphoretic and pale' } } },
+    });
+    const { steps } = await runPlan([{ kind: 'add-exam-finding', display: 'Diaphoretic and pale' }], h.context);
+
+    expect(steps[0].outcome?.status).toBe('skipped');
+    expect(h.saved.some((s) => 'examObservations' in s)).toBe(false);
+  });
+
+  it('keeps both findings when two of them land in the same card note in one plan', async () => {
+    const h = harness({ matches: { examFindings: [] } });
+    await runPlan(
+      [
+        { kind: 'add-exam-finding', display: 'Diaphoretic and pale' },
+        { kind: 'add-exam-finding', display: 'Appears anxious' },
+      ],
+      h.context
+    );
+    expect(h.saved.flatMap((fields) => fields.examObservations ?? [])).toEqual([
+      { field: 'general-comment', note: 'Diaphoretic and pale' },
+      // the second write updates the row the first one created, keeping both findings
+      { resourceId: 'res-1', field: 'general-comment', note: 'Diaphoretic and pale; Appears anxious' },
+    ]);
+  });
+
+  it('respects a declined picker instead of writing a comment', async () => {
+    const h = harness({
+      mode: 'interactive',
+      matches: { examFindings: [match('e1', 'Erythematous pharynx', 1), match('e2', 'Erythematous tonsils', 0.95)] },
+      answer: () => undefined,
+    });
+    const { steps } = await runPlan([{ kind: 'add-exam-finding', display: 'Erythema' }], h.context);
+
+    expect(steps[0].outcome?.status).toBe('skipped');
+    expect(h.saved.some((s) => 'examObservations' in s)).toBe(false);
+  });
+});
+
+describe('E&M code', () => {
+  it('updates the charted E&M row in place, as the Assessment tab does', async () => {
+    const h = harness({ chart: { emCode: { resourceId: 'proc-1', code: '99213', display: 'Office visit, low' } } });
+    const { steps } = await runPlan(
+      [{ kind: 'set-em-code', code: '99214', display: 'Office visit, moderate' }],
+      h.context
+    );
+    expect(steps[0].outcome?.status).toBe('applied');
+    expect(h.saved).toEqual([{ emCode: { resourceId: 'proc-1', code: '99214', display: 'Office visit, moderate' } }]);
+  });
+
+  it('leaves a code the chart already has alone', async () => {
+    const h = harness({
+      chart: { emCode: { resourceId: 'proc-1', code: '99214', display: 'Office visit, moderate' } },
+    });
+    const { steps } = await runPlan([{ kind: 'set-em-code', code: '99214' }], h.context);
+    expect(steps[0].outcome).toMatchObject({ status: 'skipped', reason: 'E&M code 99214 is already on the chart' });
+    expect(h.saved).toEqual([]);
+  });
+
+  it('creates one row and updates it when a later step in the same plan sets the code again', async () => {
+    const h = harness();
+    await runPlan(
+      [
+        { kind: 'set-em-code', code: '99213' },
+        { kind: 'set-em-code', code: '99214' },
+      ],
+      h.context
+    );
+    expect(h.saved).toEqual([
+      { emCode: { code: '99213', display: '99213' } },
+      { emCode: { resourceId: 'res-1', code: '99214', display: '99214' } },
+    ]);
+  });
+});
+
+describe('disposition', () => {
+  it('writes the follow-up interval only for a type whose card offers it', async () => {
+    const h = harness();
+    await runPlan(
+      [
+        { kind: 'set-disposition', dispositionType: 'pcp-no-type', text: 'See your PCP in a week.', followUpInDays: 7 },
+        { kind: 'set-disposition', dispositionType: 'another', text: 'Transfer to urgent care.', followUpInDays: 3 },
+      ],
+      h.context
+    );
+    expect(h.saved).toEqual([
+      { disposition: { type: 'pcp-no-type', note: 'See your PCP in a week.', followUpIn: 7 } },
+      { disposition: { type: 'another', note: 'Transfer to urgent care.' } },
+    ]);
+  });
+});

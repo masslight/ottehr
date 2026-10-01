@@ -2,9 +2,10 @@ import { Alert, FormControl, Grid, MenuItem, Paper, Select, Typography, useTheme
 import { enqueueSnackbar } from 'notistack';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
+import { useChartData } from 'src/features/visits/shared/hooks/useChartData';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
-import { useAppointmentData, useChartData } from 'src/features/visits/shared/stores/appointment/appointment.store';
+import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { ASQ_FIELD, ASQKeys, asqLabels } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import { ASQObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { ObservationDTO } from 'utils/lib/types/data/screening-questions/types';

@@ -2,10 +2,8 @@
   "name": "config-types",
   "private": true,
   "type": "module",
-  "version": "1.43.26",
+  "version": "1.44.11",
   "description": "Core type definitions for Ottehr configuration contracts",
-  "main": "index.ts",
-  "types": "index.ts",
   "engines": {
     "node": ">=22.0.0",
     "npm": ">=10.0.0"

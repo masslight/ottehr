@@ -27,12 +27,11 @@ const {
   buildEmployerType,
   getCandidPayerIdFromOrganization,
   isEmployerOrganization,
-  normalizeAddress,
   normalizeEmployerNotesExtension,
   normalizeIdentifier,
-  normalizeTelecom,
   setOrUpdateCandidIdentifier,
 } = await import('../../src/rcm/employers/helpers');
+const { normalizeAddress, normalizeTelecom } = await import('../../src/shared/organization');
 
 describe('RCM employer helpers', () => {
   it('detects employer organizations by type code', () => {

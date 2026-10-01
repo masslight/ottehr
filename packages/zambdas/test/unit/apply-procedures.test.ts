@@ -203,7 +203,7 @@ describe('buildLiveProcedureRequest', () => {
     expect(sr.authoredOn).toMatch(/^\d{4}-\d{2}-\d{2}T/);
   });
 
-  test('tags the new resource with chartDataTagSystem("procedure") so it shows up in get-chart-data', () => {
+  test('tags the new resource with chartDataTagSystem("procedure") so it shows up in the chart', () => {
     const request = buildLiveProcedureRequest({
       plan: buildPlan(),
       encounter: buildEncounter(),

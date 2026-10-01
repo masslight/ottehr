@@ -26,6 +26,7 @@ import { isTelemedAppointment } from 'utils/lib/fhir/moduleIdentification';
 import { AllergyDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { AllergyQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import { DeleteIconButton } from '../../../../../components/DeleteIconButton';
+import { useChartData } from '../../hooks/useChartData';
 import { useChartDataArrayValue } from '../../hooks/useChartDataArrayValue';
 import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAccessibility';
 import {
@@ -36,7 +37,6 @@ import {
 import {
   ChartDataState,
   useAppointmentData,
-  useChartData,
   useDeleteChartData,
   useSaveChartData,
 } from '../../stores/appointment/appointment.store';

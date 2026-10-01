@@ -4,8 +4,6 @@ import { CODE_SYSTEM_CPT } from 'utils/lib/helpers/rcm/constants';
 import { RADIOLOGY_TASK } from 'utils/lib/types/data/tasks/types';
 import { createTask } from '../../../shared/tasks';
 
-export * from './advapacs';
-
 export interface ResourcesForTask {
   diagnosticReport: DiagnosticReport;
   serviceRequest: ServiceRequest;

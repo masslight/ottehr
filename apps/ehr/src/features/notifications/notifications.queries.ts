@@ -1,6 +1,6 @@
 import { useMutation, UseMutationResult, useQuery, useQueryClient, UseQueryResult } from '@tanstack/react-query';
 import { getProviderNotificationPreferencesV2 } from 'utils/lib/fhir/patient';
-import { useSuccessQuery } from 'utils/lib/frontend';
+import { useSuccessQuery } from 'utils/lib/frontend/hooks/useSuccessQuery';
 import { ProviderNotificationMethod } from 'utils/lib/types/api/practitioner.types';
 import {
   getAllNotificationRows,

@@ -2,18 +2,12 @@ import { Box, CircularProgress, Typography } from '@mui/material';
 import { FC, useState } from 'react';
 import { AssessmentTitle } from 'src/components/AssessmentTitle';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { useChartFields } from '../../hooks/useChartFields';
+import { useChartSection } from '../../hooks/useChartSection';
 import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAccessibility';
 import { MedicalDecisionField } from './MedicalDecisionField';
 
 export const MedicalDecisionContainer: FC = () => {
-  const { data: chartFields, isLoading: isChartDataLoading } = useChartFields({
-    requestedFields: {
-      medicalDecision: {
-        _tag: 'medical-decision',
-      },
-    },
-  });
+  const { data: chartFields, isLoading: isChartDataLoading } = useChartSection('encounterNotes');
 
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
   const mdm = chartFields?.medicalDecision?.text;

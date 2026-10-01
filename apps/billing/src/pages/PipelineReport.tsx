@@ -10,6 +10,7 @@ import { DateTime } from 'luxon';
 import { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
+import { otherColors } from 'utils/lib/theme/billing-palette';
 import { ReportDateWindowParams } from 'utils/lib/types/data/billing/billing.schemas';
 import { BillingClaimItem, GetBillingPipelineReportResponse } from 'utils/lib/types/data/billing/billing.types';
 import {
@@ -27,7 +28,6 @@ import { ReportStatusBar, sameWindow, windowParamsOf } from '../components/Repor
 import { useApiClients } from '../hooks/useAppClients';
 import { useBillingReport } from '../hooks/useBillingReport';
 import { useBillingReportHistory } from '../hooks/useBillingReportHistory';
-import { otherColors } from '../themes/ottehr/colors';
 import { reportPalette } from '../themes/ottehr/reportPalette';
 
 const DRILLDOWN_PAGE_SIZE = 100;

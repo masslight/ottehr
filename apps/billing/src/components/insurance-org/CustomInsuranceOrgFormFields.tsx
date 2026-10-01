@@ -25,6 +25,8 @@ import {
 } from 'utils/lib/types/data/billing/custom-insurance-org.types';
 import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils/lib/validation/constants';
 import { CustomInsuranceOrgForm } from '../../constants/customInsuranceOrg';
+import { EmailInput } from '../input/EmailInput';
+import { PhoneInput } from '../input/PhoneInput';
 import { ContactsPanel } from '../nio/ContactsPanel';
 import { NioAddressFields } from '../nio/NioAddressFields';
 
@@ -125,27 +127,7 @@ export function CustomInsuranceOrgFormFields(): ReactElement {
           )}
         />
 
-        {submissionMechanism === 'email' && (
-          <Controller
-            name="submissionDetails.email"
-            control={control}
-            rules={{
-              validate: (value: string) =>
-                !value || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim()) || 'Invalid email address',
-            }}
-            render={({ field, fieldState: { error } }) => (
-              <TextField
-                label="Email Address"
-                size="small"
-                fullWidth
-                value={field.value}
-                onChange={(e) => field.onChange(e.target.value)}
-                error={!!error}
-                helperText={error?.message}
-              />
-            )}
-          />
-        )}
+        {submissionMechanism === 'email' && <EmailInput name="submissionDetails.email" label="Email Address" />}
 
         {submissionMechanism === 'portal' && (
           <>
@@ -181,19 +163,7 @@ export function CustomInsuranceOrgFormFields(): ReactElement {
         )}
 
         {submissionMechanism === 'fax' && (
-          <Controller
-            name="submissionDetails.faxNumber"
-            control={control}
-            render={({ field }) => (
-              <TextField
-                label="Fax Number"
-                size="small"
-                fullWidth
-                value={field.value}
-                onChange={(e) => field.onChange(e.target.value)}
-              />
-            )}
-          />
+          <PhoneInput name="submissionDetails.faxNumber" label="Fax Number" fieldLabel="Fax number" />
         )}
 
         {submissionMechanism === 'mail' && <NioAddressFields prefix="submissionDetails.mailAddress" />}

@@ -41,12 +41,15 @@ vi.mock('src/features/visits/shared/stores/appointment/appointment.store', () =>
     location: { id: 'loc-1' },
     followUpOriginEncounter: undefined,
   }),
+  useSaveChartData: () => ({
+    mutate: vi.fn(),
+  }),
+}));
+
+vi.mock('src/features/visits/shared/hooks/useChartData', () => ({
   useChartData: () => ({
     chartData: { diagnosis: [] },
     setPartialChartData: vi.fn(),
-  }),
-  useSaveChartData: () => ({
-    mutate: vi.fn(),
   }),
 }));
 
