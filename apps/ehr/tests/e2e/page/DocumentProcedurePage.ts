@@ -1,5 +1,8 @@
-import { expect, Page } from '@playwright/test';
+import { expect, Locator, Page } from '@playwright/test';
 import { dataTestIds } from 'src/constants/data-test-ids';
+import { BLANK_POPOVER_TEST_ID } from 'src/features/visits/in-person/components/procedures/narrative/InlineBlanks';
+import { sentenceValue } from 'src/features/visits/in-person/components/procedures/narrative/sentenceValue';
+import { performerDisplay } from 'src/features/visits/in-person/pages/procedurePerformerOptions';
 import { expectProceduresPage, ProceduresPage } from './ProceduresPage';
 
 export class DocumentProcedurePage {
@@ -10,38 +13,32 @@ export class DocumentProcedurePage {
   }
 
   async setConsentForProcedureChecked(checked: boolean): Promise<void> {
-    const consentCheckbox = this.#page
-      .getByTestId(dataTestIds.documentProcedurePage.consentForProcedure)
-      .locator('input');
-
-    // Consent checkbox is optional - exists in some repos but not in others
-    const count = await consentCheckbox.count();
+    // Consent blank is optional - exists in some repos but not in others
+    const count = await this.#page.getByTestId(dataTestIds.documentProcedurePage.consentForProcedure).count();
     if (count > 0) {
-      await consentCheckbox.setChecked(checked);
+      await this.#pick(dataTestIds.documentProcedurePage.consentForProcedure, checked ? 'obtained' : 'not obtained');
     }
   }
 
   async verifyConsentForProcedureChecked(checked: boolean): Promise<void> {
-    const consentCheckbox = this.#page
-      .getByTestId(dataTestIds.documentProcedurePage.consentForProcedure)
-      .locator('input');
+    const consentBlank = this.#page.getByTestId(dataTestIds.documentProcedurePage.consentForProcedure);
 
-    // Consent checkbox is optional - exists in some repos but not in others
-    const count = await consentCheckbox.count();
+    // Consent blank is optional - exists in some repos but not in others
+    const count = await consentBlank.count();
     if (count > 0) {
-      await expect(consentCheckbox).toBeChecked({ checked });
+      await expect(consentBlank).toHaveText(checked ? 'obtained' : 'not obtained');
     }
   }
 
   async selectProcedureType(type: string): Promise<void> {
     await this.#page.getByTestId(dataTestIds.documentProcedurePage.procedureType).click();
-    await this.#page.getByText(type, { exact: true }).click();
+    await this.#page.getByTestId(dataTestIds.documentProcedurePage.procedureTypeInput).locator('input').fill(type);
+    await this.#page.getByRole('option', { name: type, exact: true }).click();
+    await this.#page.keyboard.press('Escape');
   }
 
   async verifyProcedureType(type: string): Promise<void> {
-    await expect(this.#page.getByTestId(dataTestIds.documentProcedurePage.procedureType).locator('input')).toHaveValue(
-      type
-    );
+    await expect(this.#page.getByTestId(dataTestIds.documentProcedurePage.procedureType)).toHaveText(type);
   }
 
   async selectCptCode(cptCode: string): Promise<void> {
@@ -57,6 +54,7 @@ export class DocumentProcedurePage {
   }
 
   async selectDiagnosis(diagnosis: string): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.documentProcedurePage.addDiagnosis).click();
     await this.#page.getByTestId(dataTestIds.diagnosisContainer.diagnosisDropdown).locator('input').fill(diagnosis);
     await this.#page.locator('li').getByText(diagnosis, { exact: false }).click();
   }
@@ -76,47 +74,39 @@ export class DocumentProcedurePage {
   }
 
   async selectPerformedBy(performedBy: string): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.documentProcedurePage.performedBy).getByText(performedBy).setChecked(true);
+    // Arguments are the stored values ("Provider", "Both"); the sentence shows their display wording.
+    await this.#pick(dataTestIds.documentProcedurePage.performedBy, performerDisplay(performedBy) ?? performedBy);
   }
 
   async verifyPerformedBy(performedBy: string): Promise<void> {
-    await expect(
-      this.#page
-        .getByTestId(dataTestIds.documentProcedurePage.performedBy)
-        .filter({ hasText: performedBy })
-        .getByTestId(dataTestIds.radioButton.checkedIcon)
-    ).toBeVisible();
+    await this.#verifyBlank(
+      dataTestIds.documentProcedurePage.performedBy,
+      performerDisplay(performedBy) ?? performedBy
+    );
   }
 
   async selectAnaesthesia(anaesthesia: string): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.documentProcedurePage.anaesthesia).click();
-    await this.#page.getByText(anaesthesia, { exact: true }).click();
+    await this.#pick(dataTestIds.documentProcedurePage.anaesthesia, anaesthesia);
   }
 
   async verifyAnaesthesia(anaesthesia: string): Promise<void> {
-    await expect(this.#page.getByTestId(dataTestIds.documentProcedurePage.anaesthesia).locator('input')).toHaveValue(
-      anaesthesia
-    );
+    await this.#verifyBlank(dataTestIds.documentProcedurePage.anaesthesia, anaesthesia);
   }
 
   async selectSite(site: string): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.documentProcedurePage.site).click();
-    await this.#page.getByText(site, { exact: true }).click();
+    await this.#pick(dataTestIds.documentProcedurePage.site, site);
   }
 
   async verifySite(site: string): Promise<void> {
-    await expect(this.#page.getByTestId(dataTestIds.documentProcedurePage.site).locator('input')).toHaveValue(site);
+    await this.#verifyBlank(dataTestIds.documentProcedurePage.site, site);
   }
 
   async selectSideOfBody(sidOfBody: string): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.documentProcedurePage.sideOfBody).click();
-    await this.#page.getByText(sidOfBody, { exact: true }).click();
+    await this.#pick(dataTestIds.documentProcedurePage.sideOfBody, sidOfBody);
   }
 
   async verifySideOfBody(sidOfBody: string): Promise<void> {
-    await expect(this.#page.getByTestId(dataTestIds.documentProcedurePage.sideOfBody).locator('input')).toHaveValue(
-      sidOfBody
-    );
+    await this.#verifyBlank(dataTestIds.documentProcedurePage.sideOfBody, sidOfBody);
   }
 
   async selectTechnique(technique: string[]): Promise<void> {
@@ -152,42 +142,32 @@ export class DocumentProcedurePage {
     ).toHaveValue(procedureDetails);
   }
 
+  /** Accepts the historical "Yes" / "No" answers; the sentence reads "Specimen sent" / "Specimen not sent". */
   async selectSpecimenSent(specimenSent: string): Promise<void> {
-    await this.#page
-      .getByTestId(dataTestIds.documentProcedurePage.specimenSent)
-      .getByText(specimenSent)
-      .setChecked(true);
+    await this.#pick(dataTestIds.documentProcedurePage.specimenSent, specimenSent === 'Yes' ? 'sent' : 'not sent');
   }
 
   async verifySpecimenSent(specimenSent: string): Promise<void> {
-    await expect(
-      this.#page
-        .getByTestId(dataTestIds.documentProcedurePage.specimenSent)
-        .filter({ hasText: specimenSent })
-        .getByTestId(dataTestIds.radioButton.checkedIcon)
-    ).toBeVisible();
-  }
-
-  async selectComplications(complications: string): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.documentProcedurePage.complications).click();
-    await this.#page.getByText(complications, { exact: true }).click();
-  }
-
-  async verifyComplications(complications: string): Promise<void> {
-    await expect(this.#page.getByTestId(dataTestIds.documentProcedurePage.complications).locator('input')).toHaveValue(
-      complications
+    await this.#verifyBlank(
+      dataTestIds.documentProcedurePage.specimenSent,
+      specimenSent === 'Yes' ? 'sent' : 'not sent'
     );
   }
 
+  async selectComplications(complications: string): Promise<void> {
+    await this.#pick(dataTestIds.documentProcedurePage.complications, complications);
+  }
+
+  async verifyComplications(complications: string): Promise<void> {
+    await this.#verifyBlank(dataTestIds.documentProcedurePage.complications, complications);
+  }
+
   async selectPatientResponse(patientResponse: string): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.documentProcedurePage.patientResponse).click();
-    await this.#page.getByText(patientResponse, { exact: true }).click();
+    await this.#pick(dataTestIds.documentProcedurePage.patientResponse, patientResponse);
   }
 
   async verifyPatientResponse(patientResponse: string): Promise<void> {
-    await expect(
-      this.#page.getByTestId(dataTestIds.documentProcedurePage.patientResponse).locator('input')
-    ).toHaveValue(patientResponse);
+    await this.#verifyBlank(dataTestIds.documentProcedurePage.patientResponse, patientResponse);
   }
 
   async selectPostProcedureInstructions(postProcedureInstructions: string[]): Promise<void> {
@@ -202,30 +182,23 @@ export class DocumentProcedurePage {
   }
 
   async selectTimeSpent(timeSpent: string): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.documentProcedurePage.timeSpent).click();
-    await this.#page.getByText(timeSpent, { exact: true }).click();
+    await this.#pick(dataTestIds.documentProcedurePage.timeSpent, timeSpent);
   }
 
   async verifyTimeSpent(timeSpent: string): Promise<void> {
-    await expect(this.#page.getByTestId(dataTestIds.documentProcedurePage.timeSpent).locator('input')).toHaveValue(
-      timeSpent
-    );
+    await this.#verifyBlank(dataTestIds.documentProcedurePage.timeSpent, timeSpent);
   }
 
   async selectDocumentedBy(documentedBy: string): Promise<void> {
-    await this.#page
-      .getByTestId(dataTestIds.documentProcedurePage.documentedBy)
-      .getByText(documentedBy)
-      .setChecked(true);
+    // Arguments are the stored values ("Provider", "Both"); the sentence shows their display wording.
+    await this.#pick(dataTestIds.documentProcedurePage.documentedBy, performerDisplay(documentedBy) ?? documentedBy);
   }
 
   async verifyDocumentedBy(documentedBy: string): Promise<void> {
-    await expect(
-      this.#page
-        .getByTestId(dataTestIds.documentProcedurePage.documentedBy)
-        .filter({ hasText: documentedBy })
-        .getByTestId(dataTestIds.radioButton.checkedIcon)
-    ).toBeVisible();
+    await this.#verifyBlank(
+      dataTestIds.documentProcedurePage.documentedBy,
+      performerDisplay(documentedBy) ?? documentedBy
+    );
   }
 
   async clickSaveButton(): Promise<ProceduresPage> {
@@ -233,36 +206,45 @@ export class DocumentProcedurePage {
     return await expectProceduresPage(this.#page);
   }
 
-  async #selectFromMultiselect(testId: string, values: string[]): Promise<void> {
-    const field = this.#page.getByTestId(testId);
-    await field.click();
+  /** Every single-value field is a blank in a sentence: click it, then pick from the popover list. */
+  async #pick(testId: string, value: string): Promise<void> {
+    await this.#page.getByTestId(testId).click();
+    await this.#popover().getByRole('option', { name: value, exact: true }).click();
+  }
 
-    const clearButton = field.locator('button[aria-label="Clear"]');
-    if (await clearButton.isVisible()) {
-      await clearButton.click();
+  /** Arguments are stored values; the sentence shows them in prose case ("Local" reads "local"). */
+  async #verifyBlank(testId: string, value: string): Promise<void> {
+    await expect(this.#page.getByTestId(testId)).toHaveText(sentenceValue(value));
+  }
+
+  #popover(): Locator {
+    return this.#page.getByTestId(BLANK_POPOVER_TEST_ID);
+  }
+
+  async #selectFromMultiselect(testId: string, values: string[]): Promise<void> {
+    await this.#page.getByTestId(testId).click();
+    const popover = this.#popover();
+
+    const checked = popover.getByRole('checkbox', { checked: true });
+    for (let i = (await checked.count()) - 1; i >= 0; i--) {
+      await checked.nth(i).uncheck();
     }
 
     for (const value of values) {
-      await this.#page.getByText(value, { exact: true }).click();
+      await popover.getByRole('checkbox', { name: value, exact: true }).check();
     }
 
-    await this.#page.keyboard.press('Escape');
+    await popover.getByRole('button', { name: 'Done' }).click();
   }
 
   async #verifyMultiselect(testId: string, expectedValues: string[]): Promise<void> {
-    const field = this.#page.getByTestId(testId);
-    const selectedOptions = field.locator('.MuiChip-label');
-    const count = await selectedOptions.count();
-    const actualValues: string[] = [];
-
-    for (let i = 0; i < count; i++) {
-      actualValues.push(await selectedOptions.nth(i).innerText());
+    const blank = this.#page.getByTestId(testId);
+    if (expectedValues.length === 0) {
+      await expect(blank).toHaveText(/^\+ /);
+      return;
     }
-
-    expect(actualValues.length).toBe(expectedValues.length);
-
     for (const expectedValue of expectedValues) {
-      expect(actualValues).toContain(expectedValue);
+      await expect(blank).toContainText(sentenceValue(expectedValue));
     }
   }
 }

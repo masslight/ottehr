@@ -39,10 +39,6 @@ import { CodingAssistPanel } from '../../src/features/visits/in-person/component
 import { DocumentationCheck } from '../../src/features/visits/in-person/components/procedures/coding-assist/DocumentationCheck';
 import { ConditionalCodingFields } from '../../src/features/visits/in-person/components/procedures/ConditionalCodingFields';
 import { ProcedureCptCodesField } from '../../src/features/visits/in-person/components/procedures/ProcedureCptCodesField';
-import {
-  ProcedureDropdown,
-  ProcedureMultiSelect,
-} from '../../src/features/visits/in-person/components/procedures/ProcedureFormFields';
 
 const RULES_VINTAGE = 'CPT 2026';
 
@@ -385,42 +381,5 @@ describe('procedure form selections', () => {
       'true'
     );
     expect(onAdd).not.toHaveBeenCalled();
-  });
-
-  it('matches multi-select values by value and allows deselection', async () => {
-    const user = userEvent.setup();
-    const onChange = vi.fn();
-    render(
-      <ProcedureMultiSelect
-        label="Technique"
-        options={['Curette']}
-        values={['Curette']}
-        onChange={onChange}
-        disabled={false}
-        dataTestId="technique"
-      />
-    );
-
-    await user.click(screen.getByRole('combobox', { name: 'Technique' }));
-    await user.click(await screen.findByRole('option', { name: 'Curette' }));
-    expect(onChange).toHaveBeenCalledWith([]);
-  });
-
-  it('clears an optional selection', async () => {
-    const user = userEvent.setup();
-    const onChange = vi.fn();
-    render(
-      <ProcedureDropdown
-        label="Site/location"
-        options={['Hand']}
-        value="Hand"
-        onChange={onChange}
-        disabled={false}
-        dataTestId="site"
-      />
-    );
-
-    await user.click(screen.getByRole('button', { name: 'Clear Site/location' }));
-    expect(onChange).toHaveBeenCalledWith(undefined);
   });
 });
