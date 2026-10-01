@@ -114,10 +114,6 @@ vi.mock('../../src/features/visits/shared/components/assessment-tab/DiagnosesFie
   DiagnosesField: () => <div />,
 }));
 
-vi.mock('../../src/features/visits/in-person/components/InfoAlert', () => ({
-  InfoAlert: () => <div />,
-}));
-
 vi.mock('../../src/api/api', () => ({
   createProcedureQuickPick: vi.fn(),
   getProcedureQuickPicks: vi.fn().mockResolvedValue({ quickPicks: [] }),
@@ -315,5 +311,45 @@ describe('ProceduresNew — Other field fallback on save', () => {
     await saveDraftAndSubmit({ complications: OTHER, otherComplications: '  Minor bleeding  ' });
     const procedurePayload = mockSaveChartData.mock.calls[1][0].procedures[0];
     expect(procedurePayload.complications).toBe('Minor bleeding');
+  });
+});
+
+describe('ProceduresNew — sentence layout', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    useProcedureStore.getState().clearDraft(ENCOUNTER_ID);
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, headers: { get: () => '' } }));
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('starts every blank empty and saves picks as their stored values', async () => {
+    const user = userEvent.setup();
+    renderComponent();
+    const consent = screen.getByTestId(dataTestIds.documentProcedurePage.consentForProcedure);
+    expect(consent).toHaveTextContent('consent');
+    expect(screen.getByTestId(dataTestIds.documentProcedurePage.specimenSent)).toHaveTextContent('specimen');
+    expect(screen.getByTestId(dataTestIds.documentProcedurePage.performedBy)).toHaveTextContent('performed by');
+
+    await user.click(consent);
+    await user.click(screen.getByRole('option', { name: 'obtained' }));
+    expect(consent).toHaveTextContent('obtained');
+    await user.click(screen.getByTestId(dataTestIds.documentProcedurePage.specimenSent));
+    await user.click(screen.getByRole('option', { name: 'not sent' }));
+    // "Both" is stored as-is but reads as its display wording in the sentence.
+    await user.click(screen.getByTestId(dataTestIds.documentProcedurePage.performedBy));
+    await user.click(screen.getByRole('option', { name: 'provider and healthcare staff' }));
+    expect(screen.getByTestId(dataTestIds.documentProcedurePage.performedBy)).toHaveTextContent(
+      'provider and healthcare staff'
+    );
+
+    await user.click(screen.getByTestId(dataTestIds.documentProcedurePage.saveButton));
+    await waitFor(() => {
+      expect(mockSaveChartData).toHaveBeenCalledTimes(2);
+    });
+    const procedurePayload = mockSaveChartData.mock.calls[1][0].procedures[0];
+    expect(procedurePayload).toMatchObject({ consentObtained: true, specimenSent: false, performerType: 'Both' });
   });
 });

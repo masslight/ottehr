@@ -588,6 +588,7 @@ export const dataTestIds = {
     codingAssistLoading: 'coding-assist-loading',
     codingAssistEmpty: 'coding-assist-empty',
     codingAssistFindings: 'coding-assist-findings',
+    codingGuidance: 'coding-guidance',
     codingAssistNotAssessed: 'coding-assist-not-assessed',
     codingRulesVintage: 'coding-rules-vintage',
     lengthCmInput: 'length-cm-input',
@@ -615,6 +616,10 @@ export const dataTestIds = {
     timeSpent: 'time-spent',
     documentedBy: 'documented-by',
     saveButton: 'save-button',
+    procedureTypeInput: 'procedure-type-input',
+    procedureDate: 'procedure-date',
+    procedureTime: 'procedure-time',
+    addDiagnosis: 'add-diagnosis',
   },
   proceduresPage: {
     title: 'procedures-title',
