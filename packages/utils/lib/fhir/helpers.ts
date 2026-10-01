@@ -5,6 +5,7 @@ import {
   Address,
   Appointment,
   Bundle,
+  BundleEntry,
   CodeableConcept,
   Coding,
   Consent,
@@ -886,45 +887,82 @@ export function createReference(resource: Resource): Reference {
   };
 }
 
-function parseBundleIntoResources(bundle: Bundle): Resource[] {
+function assertBatchBundle(bundle: Bundle): void {
   if (bundle.resourceType !== 'Bundle' || bundle.entry === undefined) {
     console.log('search bundle malformed: ', JSON.stringify(bundle));
     throw new Error('could not parse search bundle');
   }
+}
 
+function getSearchsetFromBatchEntry(entry: BundleEntry): Bundle | undefined {
+  if (
+    entry.response?.outcome?.id === 'ok' &&
+    entry.resource &&
+    entry.resource.resourceType === 'Bundle' &&
+    entry.resource.type === 'searchset'
+  ) {
+    return entry.resource as Bundle;
+  }
+  return undefined;
+}
+
+/**
+ * The request for the page after `searchset`, or undefined when it is the last page. A `next` link means the
+ * page was full, so its match count is the page size. The follow-up is the original request with `_offset`
+ * advanced by that count (and `_count` pinned to it), rather than the server's link, which may percent-encode
+ * values the batch parser rejects.
+ */
+function getNextPageRequestUrl(requestUrl: string, searchset: Bundle): string | undefined {
+  if (!searchset.link?.some((link) => link.relation === 'next')) return undefined;
+  const matchCount = (searchset.entry ?? []).filter((entry) => entry.search?.mode !== 'include').length;
+  // A page with no matches advances nothing, so following it would request the same page forever.
+  if (matchCount === 0) return undefined;
+
+  const offsetMatch = /[?&]_offset=(\d+)(?=&|$)/.exec(requestUrl);
+  const nextOffset = (offsetMatch ? Number(offsetMatch[1]) : 0) + matchCount;
+  let url = offsetMatch
+    ? requestUrl.replace(/([?&])_offset=\d+(?=&|$)/, `$1_offset=${nextOffset}`)
+    : `${requestUrl}${requestUrl.includes('?') ? '&' : '?'}_offset=${nextOffset}`;
+  if (!/[?&]_count=\d+(?=&|$)/.test(url)) url += `&_count=${matchCount}`;
+  return url;
+}
+
+/**
+ * Runs the GET searches as one batch and returns the resources of every searchset, following each search's
+ * `next` links with further batches until all pages are fetched.
+ */
+export async function getResourcesFromBatchInlineRequests(oystehr: Oystehr, requests: string[]): Promise<Resource[]> {
   const result: Resource[] = [];
-  bundle.entry.forEach((entry) => {
-    if (
-      entry.response?.outcome?.id === 'ok' &&
-      entry.resource &&
-      entry.resource.resourceType === 'Bundle' &&
-      entry.resource.type === 'searchset'
-    ) {
-      const innerBundle = entry.resource as Bundle;
-      const innerEntry = innerBundle.entry;
-      if (!innerEntry) {
+  let pending = requests;
+  while (pending.length > 0) {
+    const batchResult = await oystehr.fhir.batch<FhirResource>({
+      requests: pending.map((url) => {
+        return {
+          method: 'GET',
+          url,
+        };
+      }),
+    });
+    assertBatchBundle(batchResult);
+
+    const nextRequests: string[] = [];
+    batchResult.entry?.forEach((entry, index) => {
+      const searchset = getSearchsetFromBatchEntry(entry);
+      if (!searchset) return;
+      if (!searchset.entry) {
         console.log('no inner entry found in bundle');
         // A FHIR searchset bundle with 0 results may omit the entry field entirely — that's valid.
         return;
       }
-      innerEntry.forEach((e) => {
+      searchset.entry.forEach((e) => {
         if (e.resource?.resourceType && e.resource?.id) result.push(e.resource);
       });
-    }
-  });
+      const nextRequest = getNextPageRequestUrl(pending[index], searchset);
+      if (nextRequest) nextRequests.push(nextRequest);
+    });
+    pending = nextRequests;
+  }
   return result;
-}
-
-export async function getResourcesFromBatchInlineRequests(oystehr: Oystehr, requests: string[]): Promise<Resource[]> {
-  const batchResult = await oystehr.fhir.batch<FhirResource>({
-    requests: requests.map((url) => {
-      return {
-        method: 'GET',
-        url,
-      };
-    }),
-  });
-  return parseBundleIntoResources(batchResult);
 }
 
 export async function getInsuranceOrgById(id: string, oystehr: Oystehr): Promise<Organization> {
