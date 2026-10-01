@@ -1,6 +1,8 @@
+import { QuestionnaireResponse } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { patientScreeningQuestionsConfig } from '../../ottehr-config/screening-questions';
 import { Field } from '../../types/data/screening-questions/types';
+import { getQuestionnaireResponseByLinkId } from '../paperwork/paperwork-response';
 
 /**
  * Format field value for display based on field configuration
@@ -112,6 +114,22 @@ export function formatScreeningQuestionWithNote(fieldId: string, observation: an
  */
 export function shouldDisplayScreeningQuestion(rawValue: any): boolean {
   return rawValue !== null && rawValue !== undefined;
+}
+
+/**
+ * The patient's own answer to a screening question in the intake paperwork, formatted for display; null when the
+ * paperwork has no answer for it.
+ */
+export function getPaperworkScreeningAnswer(
+  fhirField: string,
+  questionnaireResponse: QuestionnaireResponse | undefined
+): string | null {
+  const response = getQuestionnaireResponseByLinkId(fhirField, questionnaireResponse);
+  const stringAnswer = response?.answer?.[0]?.valueString;
+
+  if (!shouldDisplayScreeningQuestion(stringAnswer)) return null;
+
+  return formatScreeningQuestionValue(fhirField, stringAnswer);
 }
 
 /**

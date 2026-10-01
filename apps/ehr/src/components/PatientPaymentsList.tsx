@@ -123,9 +123,6 @@ const formatUsd = (amount: number | string | undefined | null): string | null =>
   return usdFormatter.format(numericAmount);
 };
 
-// The line-item pricing lives in utils.
-export { buildLineItems };
-
 interface EmPreviewRate {
   code: string;
   label: string;
