@@ -45,7 +45,7 @@ describe('coding rows written by the sentence UI', () => {
     const lengths = screen.getAllByRole('spinbutton', { name: 'length (cm)' });
     expect(lengths).toHaveLength(3);
     await user.type(lengths[2], '4');
-    await user.click(screen.getAllByRole('button', { name: 'closure (empty)' })[2]);
+    await user.click(screen.getAllByRole('button', { name: 'repair type (empty)' })[2]);
     await user.click(screen.getByRole('option', { name: 'layered' }));
     await user.click(screen.getAllByRole('button', { name: 'site (empty)' })[2]);
     await user.click(screen.getByRole('option', { name: 'hand' }));

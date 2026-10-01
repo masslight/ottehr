@@ -41,7 +41,7 @@ describe('coding field sentences', () => {
   it('stores picks and details on the wound row with the family keys', async () => {
     const user = userEvent.setup();
     render(<Form family={lacerationFamily} />);
-    await user.click(screen.getByRole('button', { name: 'closure (empty)' }));
+    await user.click(screen.getByRole('button', { name: 'repair type (empty)' }));
     await user.click(screen.getByRole('option', { name: 'layered' }));
     await user.type(screen.getByRole('spinbutton', { name: 'length (cm)' }), '3.5');
     await user.click(screen.getByRole('button', { name: '+ details (empty)' }));
@@ -79,12 +79,12 @@ describe('coding field sentences', () => {
     const user = userEvent.setup();
     render(<Form family={lacerationFamily} />);
     await user.type(screen.getByRole('spinbutton', { name: 'suture/staple count' }), '4');
-    await user.click(screen.getByRole('button', { name: 'closure (empty)' }));
+    await user.click(screen.getByRole('button', { name: 'repair type (empty)' }));
     await user.click(screen.getByRole('option', { name: 'adhesive only' }));
     expect(screen.queryByText(/sutures\/staples/)).not.toBeInTheDocument();
     expect(readRows(latest.facts ?? {}, 'wounds')[0]).toMatchObject({ closure: 'adhesive only', sutureCount: 4 });
 
-    await user.click(screen.getByRole('button', { name: 'closure: adhesive only' }));
+    await user.click(screen.getByRole('button', { name: 'repair type: adhesive only' }));
     await user.click(screen.getByRole('option', { name: 'layered' }));
     expect(screen.getByRole('spinbutton', { name: 'suture/staple count' })).toHaveValue(4);
   });

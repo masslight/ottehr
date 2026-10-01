@@ -22,6 +22,8 @@ export interface FieldBlankOptions {
   need?: boolean;
   /** Shorter placeholder for an input blank; the field label stays its accessible name. */
   placeholder?: string;
+  /** Wording for the blank and its popover when the field's own label reads wrong in the sentence. */
+  label?: string;
 }
 
 export function fieldBlank(
@@ -32,11 +34,12 @@ export function fieldBlank(
   options: FieldBlankOptions = {}
 ): ReactNode {
   const need = options.need ?? !field.details;
+  const label = options.label ?? field.label;
   if (field.kind === 'checkbox')
     return (
       <SelectBlank
-        label={field.label.toLowerCase()}
-        title={field.label}
+        label={label.toLowerCase()}
+        title={label}
         options={YES_NO}
         value={current === true ? 'yes' : current === false ? 'no' : undefined}
         onChange={(value) => change(value === undefined ? undefined : value === 'yes')}
@@ -47,8 +50,8 @@ export function fieldBlank(
   if (field.kind === 'select')
     return (
       <SelectBlank
-        label={field.label.toLowerCase()}
-        title={field.label}
+        label={label.toLowerCase()}
+        title={label}
         options={[...field.options].sort((a, b) => a.localeCompare(b))}
         value={typeof current === 'string' ? current : undefined}
         onChange={change}
@@ -60,7 +63,7 @@ export function fieldBlank(
     );
   return (
     <TextBlank
-      label={field.label.toLowerCase()}
+      label={label.toLowerCase()}
       placeholder={options.placeholder}
       kind={field.kind}
       value={typeof current === 'string' || typeof current === 'number' ? current : undefined}
@@ -271,8 +274,9 @@ export const LacerationSentences: FC<Omit<Props, 'renderRow'>> = (props) => (
     {...props}
     renderRow={({ row, readOnly, blank, details }) => (
       <>
-        {blank('closure')} repair of a {blank('length')} cm laceration of the {blank('site')} ({blank('side')}), closed
-        with {blank('material', { placeholder: 'material' })}
+        {/* The family calls this "Closure"; in the sentence that read as the closure material. */}
+        {blank('closure', { label: 'Repair type' })} repair of a {blank('length')} cm laceration of the {blank('site')}{' '}
+        ({blank('side')}), closed with {blank('material', { placeholder: 'material' })}
         {/* Display only: an adhesive closure has no count to show, but a stored count is left as it is. */}
         {row.closure !== ADHESIVE_ONLY && !(readOnly && row.sutureCount === undefined) && (
           <> ({blank('sutureCount')} sutures/staples)</>

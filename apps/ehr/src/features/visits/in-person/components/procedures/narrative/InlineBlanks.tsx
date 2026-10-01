@@ -80,6 +80,8 @@ const emptySx = (theme: Theme, need: boolean): Record<string, unknown> => ({
 
 const ghostSx = (theme: Theme): Record<string, unknown> => ({
   color: theme.palette.text.secondary,
+  // "+ details" and friends never break between the "+" and the word.
+  whiteSpace: 'nowrap',
   '&:hover': { backgroundColor: theme.palette.action.hover, color: theme.palette.text.primary },
 });
 
@@ -629,9 +631,18 @@ function attachPunctuation(children: ReactNode): ReactNode[] {
       slot
     ) : (
       <Box component="span" key={slot.key} sx={isAtomicBlank(slot.element) ? { whiteSpace: 'nowrap' } : undefined}>
-        {slot.prefix && `${slot.prefix}${JOIN}`}
+        {/* A hair of space so brackets don't touch an empty blank's dashed outline. */}
+        {slot.prefix && (
+          <Box component="span" sx={{ mr: '2px' }}>
+            {`${slot.prefix}${JOIN}`}
+          </Box>
+        )}
         {slot.element}
-        {slot.suffix && `${JOIN}${slot.suffix}`}
+        {slot.suffix && (
+          <Box component="span" sx={/^[)\]]/.test(slot.suffix) ? { ml: '2px' } : undefined}>
+            {`${JOIN}${slot.suffix}`}
+          </Box>
+        )}
       </Box>
     )
   );

@@ -63,12 +63,17 @@ vi.mock('../../src/features/visits/shared/stores/appointment/appointment.store',
   useDeleteChartData: () => ({ mutateAsync: mockDeleteChartData }),
 }));
 
+const { mockChartData } = vi.hoisted(() => ({
+  mockChartData: {} as { diagnosis?: { code: string; display: string; isPrimary: boolean; resourceId?: string }[] },
+}));
+
 vi.mock('../../src/features/visits/shared/hooks/useChartData', () => ({
-  useChartData: () => ({ chartData: {}, setPartialChartData: vi.fn() }),
+  useChartData: () => ({ chartData: mockChartData, setPartialChartData: vi.fn() }),
 }));
 
 vi.mock('../../src/features/visits/shared/stores/appointment/appointment.queries', () => ({
   useGetCPTHCPCSSearch: () => ({ isFetching: false, data: { codes: [] } }),
+  useICD10SearchNew: () => ({ isFetching: false, data: { codes: [] } }),
 }));
 
 vi.mock('../../src/components/AccordionCard', () => ({
@@ -108,10 +113,6 @@ vi.mock('../../src/features/visits/shared/components/QuickPicksButton', () => ({
   QuickPicksButton: ({ quickPicks, onSelect }: any) => (
     <button onClick={() => onSelect(quickPicks[0])}>Select Quick Pick</button>
   ),
-}));
-
-vi.mock('../../src/features/visits/shared/components/assessment-tab/DiagnosesField', () => ({
-  DiagnosesField: () => <div />,
 }));
 
 vi.mock('../../src/api/api', () => ({
@@ -318,11 +319,47 @@ describe('ProceduresNew — sentence layout', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     useProcedureStore.getState().clearDraft(ENCOUNTER_ID);
+    delete mockChartData.diagnosis;
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, headers: { get: () => '' } }));
   });
 
   afterEach(() => {
     vi.unstubAllGlobals();
+  });
+
+  it('offers the visit diagnoses as one-click picks and links the charted Condition on save', async () => {
+    const user = userEvent.setup();
+    mockChartData.diagnosis = [
+      { code: 'S61.411A', display: 'Laceration of right hand', isPrimary: true, resourceId: 'cond-1' },
+      { code: 'J06.9', display: 'Acute URI', isPrimary: false, resourceId: 'cond-2' },
+      // The same code charted twice (e.g. by an earlier procedure) is offered once.
+      { code: 'J06.9', display: 'Acute URI', isPrimary: false, resourceId: 'cond-3' },
+    ];
+    renderComponent();
+
+    await user.click(screen.getByTestId(dataTestIds.documentProcedurePage.addDiagnosis));
+    // The charted diagnoses are listed as soon as the popover opens, before anything is typed.
+    expect(screen.getAllByRole('option', { name: 'J06.9 Acute URI' })).toHaveLength(1);
+    await user.click(screen.getByRole('option', { name: 'S61.411A Laceration of right hand' }));
+    expect(screen.getByTestId(dataTestIds.documentProcedurePage.diagnosis)).toHaveTextContent(
+      'Laceration of right hand S61.411A'
+    );
+
+    // A diagnosis already on the procedure is not offered again.
+    await user.click(screen.getByTestId(dataTestIds.documentProcedurePage.addDiagnosis));
+    expect(screen.getByRole('option', { name: 'J06.9 Acute URI' })).toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: 'S61.411A Laceration of right hand' })).not.toBeInTheDocument();
+    await user.keyboard('{Escape}');
+
+    await user.click(screen.getByTestId(dataTestIds.documentProcedurePage.saveButton));
+    await waitFor(() => {
+      expect(mockSaveChartData).toHaveBeenCalledTimes(2);
+    });
+    // Nothing new to create: the charted Condition is linked by its resourceId.
+    expect(mockSaveChartData.mock.calls[0][0].diagnosis).toEqual([]);
+    expect(mockSaveChartData.mock.calls[1][0].procedures[0].diagnoses).toEqual([
+      expect.objectContaining({ code: 'S61.411A', resourceId: 'cond-1' }),
+    ]);
   });
 
   it('starts every blank empty and saves picks as their stored values', async () => {
