@@ -25,7 +25,7 @@ import {
 } from 'src/features/visits/telemed/utils/appointments';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { isLocationInPerson, isLocationVirtual } from 'utils/lib/fhir/location';
-import { useSuccessQuery } from 'utils/lib/frontend';
+import { useSuccessQuery } from 'utils/lib/frontend/hooks/useSuccessQuery';
 import {
   AllChartValues,
   NOTE_TYPE,
@@ -667,7 +667,5 @@ export const useDeleteChartData = (): UseMutationResult<
     retry: 2,
   });
 };
-
-export { useChartData } from '../../hooks/useChartData';
 
 export const TELEMED_APPOINTMENT_QUERY_KEY = 'telemed-appointment';

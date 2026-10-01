@@ -7,7 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { PageFormContext } from 'src/contexts/PageFormContext';
 import { filterFormInputFields } from 'src/helpers/form/form.helper';
 import { FormInputType, FormInputTypeField, FormInputTypeGroup, OverrideValues } from 'src/types/form/form-input-type';
-import { ControlButtons } from 'ui-components/lib/components/paperwork/form-components';
+import { ControlButtons } from 'ui-components/lib/components/paperwork/form-components/ControlButtons';
 import { ControlButtonsProps } from 'ui-components/lib/components/paperwork/types';
 import { checkEnable } from 'utils/lib/helpers/paperwork/paperwork';
 import { yupDateTransform } from 'utils/lib/utils/date';

@@ -18,8 +18,9 @@ import {
 import { ClearIcon } from '@mui/x-date-pickers';
 import React, { useState } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
+import { useChartData } from 'src/features/visits/shared/hooks/useChartData';
 import { useGetCPTHCPCSSearch } from 'src/features/visits/shared/stores/appointment/appointment.queries';
-import { useChartData, useSaveChartData } from 'src/features/visits/shared/stores/appointment/appointment.store';
+import { useSaveChartData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
 import { LATERALITY_SELECTORS, LateralityValue } from 'utils/lib/fhir/radiology';
 import { radiologyStudiesConfig } from 'utils/lib/ottehr-config/radiology';

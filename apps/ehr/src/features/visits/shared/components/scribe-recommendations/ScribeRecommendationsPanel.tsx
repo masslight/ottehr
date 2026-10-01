@@ -34,8 +34,9 @@ import {
 import { isTranscriptDocument, transcriptTextOf } from 'utils/lib/easy-chart/narrative';
 import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
 import { invalidateChartSections } from '../../hooks/chartSectionCache';
+import { useChartData } from '../../hooks/useChartData';
 import { useOystehrAPIClient } from '../../hooks/useOystehrAPIClient';
-import { useAppointmentData, useChartData } from '../../stores/appointment/appointment.store';
+import { useAppointmentData } from '../../stores/appointment/appointment.store';
 import { AiDisclaimerTooltip } from '../AiSection';
 import { getDocumentReferenceSource, getSource } from '../OttehrAi';
 import { useListTemplates } from '../templates/useListTemplates';

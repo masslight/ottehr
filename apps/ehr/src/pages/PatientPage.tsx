@@ -3,6 +3,7 @@ import ContactPageOutlinedIcon from '@mui/icons-material/ContactPageOutlined';
 import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined';
 import DownloadIcon from '@mui/icons-material/Download';
 import FaxOutlinedIcon from '@mui/icons-material/FaxOutlined';
+import HistoryEduOutlinedIcon from '@mui/icons-material/HistoryEduOutlined';
 import HistoryOutlinedIcon from '@mui/icons-material/HistoryOutlined';
 import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined';
 import MergeIcon from '@mui/icons-material/MergeType';
@@ -31,7 +32,9 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { AccountSettingsDialog } from 'src/components/dialogs/AccountSettingsDialog';
 import { PatientInHouseLabsTab } from 'src/components/PatientInHouseLabsTab';
 import { PatientRadiologyTab } from 'src/components/PatientRadiologyTab';
-import { FaxVisitOption, SendFaxDialog, useSendFax } from 'src/features/fax';
+import { useSendFax } from 'src/features/fax/hooks/useSendFax';
+import { FaxVisitOption } from 'src/features/fax/model/types';
+import { SendFaxDialog } from 'src/features/fax/ui/SendFaxDialog';
 import { PatientNotesButton } from 'src/features/patient-notes/components/PatientNotesButton';
 import { ROUTER_PATH } from 'src/features/visits/in-person/routing/routesInPerson';
 import { PatientAvatar } from 'src/features/visits/shared/components/patient/info/Avatar';
@@ -41,10 +44,11 @@ import { IdentifiersRow } from 'src/features/visits/shared/components/patient/in
 import Summary from 'src/features/visits/shared/components/patient/info/Summary';
 import { PatientFollowupEncountersGrid } from 'src/features/visits/shared/components/patient/PatientFollowupEncountersGrid';
 import { formatVisitDateTimeWithZone } from 'src/helpers/formatDateTime';
+import { getLegacyDataUrl } from 'src/helpers/legacyData';
 import { useDownloadMedicalRecord } from 'src/hooks/useDownloadMedicalRecord';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { useGetActiveMergeTask } from 'src/hooks/useGetPatient';
-import { formatPatientTabTitle } from 'src/shared/utils';
+import { formatPatientTabTitle } from 'src/shared/utils/patientTabTitle';
 import { otherColors } from 'src/themes/ottehr/colors';
 import { getFirstName, getFullestAvailableName, getLastName } from 'utils/lib/fhir/patient';
 import { GetMergePatientsTaskResponse, MergePatientsResponse } from 'utils/lib/types/api/patient-account';
@@ -324,6 +328,16 @@ export default function PatientPage(): JSX.Element {
                   >
                     <SettingsOutlinedIcon />
                   </GoToButton>
+                  {FEATURE_FLAGS.LEGACY_DATA_ENABLED && patient && (
+                    <GoToButton
+                      text="Legacy Data"
+                      backgroundColor={otherColors.lightBlue}
+                      dataTestId={dataTestIds.patientRecordPage.legacyDataButton}
+                      to={getLegacyDataUrl(patient)}
+                    >
+                      <HistoryOutlinedIcon />
+                    </GoToButton>
+                  )}
                   {/* Review Docs opens the second row of the grid, as laid out in the design. */}
                   <Box sx={{ gridColumnStart: 1 }}>
                     <GoToButton
@@ -356,7 +370,7 @@ export default function PatientPage(): JSX.Element {
                     backgroundColor={otherColors.lightBlue}
                     onClick={() => navigate(`/patient/${id}/action-logs`)}
                   >
-                    <HistoryOutlinedIcon />
+                    <HistoryEduOutlinedIcon />
                   </GoToButton>
                 </>
               )}

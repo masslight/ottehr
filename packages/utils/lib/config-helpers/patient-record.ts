@@ -1,4 +1,5 @@
-import { FormFieldsDisplayItem, FormFieldsGroupItem, FormFieldsInputItem, FormFieldTrigger } from 'config-types';
+import { FormFieldsDisplayItem, FormFieldsGroupItem, FormFieldsInputItem } from 'config-types/config/form-fields';
+import { FormFieldTrigger } from 'config-types/config/questionnaire';
 import {
   Questionnaire,
   QuestionnaireItem,

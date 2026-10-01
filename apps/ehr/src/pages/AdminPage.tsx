@@ -5,6 +5,7 @@ import { Navigate, useLocation, useParams } from 'react-router-dom';
 import { resolveAccessibleAdminNavGroups, resolveActiveAdminItem } from 'src/features/admin/adminNav';
 import { AdminHeaderSlotProvider } from 'src/features/admin/AdminPageHeader';
 import useEvolveUser from 'src/hooks/useEvolveUser';
+import { DEFAULT_TAB_TITLE } from 'src/shared/utils/patientTabTitle';
 
 const { VITE_APP_ORGANIZATION_NAME_LONG: ORGANIZATION_NAME_LONG } = import.meta.env;
 
@@ -18,12 +19,22 @@ export function AdminPage(): ReactElement | null {
   const resolvedItem = resolveActiveAdminItem({ adminTab, billingTab, outreachSubTab });
   const accessibleItems = user ? resolveAccessibleAdminNavGroups(user.hasRole).flatMap((group) => group.items) : [];
   const activeItem = accessibleItems.find((item) => item.path === resolvedItem?.path);
+  const adminTitle =
+    activeItem && ORGANIZATION_NAME_LONG
+      ? `${activeItem.title ?? activeItem.label} | ${ORGANIZATION_NAME_LONG} EHR`
+      : undefined;
 
   useEffect(() => {
-    if (activeItem && ORGANIZATION_NAME_LONG) {
-      document.title = `${activeItem.title ?? activeItem.label} | ${ORGANIZATION_NAME_LONG} EHR`;
+    if (!adminTitle) {
+      return;
     }
-  }, [activeItem]);
+    document.title = adminTitle;
+    return () => {
+      if (document.title === adminTitle) {
+        document.title = DEFAULT_TAB_TITLE;
+      }
+    };
+  }, [adminTitle]);
 
   if (!user) {
     return null;

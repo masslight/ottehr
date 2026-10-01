@@ -1,7 +1,7 @@
 import { Task } from 'fhir/r4b';
 import * as fs from 'fs';
 import * as path from 'path';
-import { createOystehrClient } from 'utils';
+import { createOystehrClient } from 'utils/lib/helpers/helpers';
 import { GetPatientMedicalRecordOutput } from 'utils/lib/types/data/get-patient-medical-record.types';
 import { callZambda, getToken } from './shared';
 

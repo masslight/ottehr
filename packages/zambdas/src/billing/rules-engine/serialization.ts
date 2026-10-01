@@ -1,6 +1,6 @@
 import { Basic, Extension, List, Reference, Task } from 'fhir/r4b';
 import { ottehrCodeSystemUrl } from 'utils/lib/fhir/systemUrls';
-import { RulesEngineType } from 'utils/lib/types/data/billing/rules-engine.constants';
+import { RulesEngineSubmissionType, RulesEngineType } from 'utils/lib/types/data/billing/rules-engine.constants';
 import {
   BillingRule,
   BillingRuleSchema,
@@ -31,6 +31,8 @@ import {
 const LIST_ORDER_SYSTEM = 'http://terminology.hl7.org/CodeSystem/list-order';
 export const RULES_ENGINE_INPUT_SYSTEM = ottehrCodeSystemUrl('rules-engine-input');
 export const RULES_ENGINE_INPUT_SKIP_RULES_CODE = 'skip-rules';
+export const RULES_ENGINE_INPUT_SUBMISSION_TYPE_CODE = 'submission-type';
+export const RULES_ENGINE_INPUT_PAYER_CLAIM_CONTROL_NUMBER_CODE = 'payer-claim-control-number';
 
 export function ruleToContainedBasic(rule: BillingRule): Basic {
   return {
@@ -117,7 +119,9 @@ export function buildRulesEngineKickoffTask(
   engine: RulesEngineType,
   claimId: string,
   skipRules: boolean,
-  requester: Reference
+  requester: Reference,
+  submissionType?: RulesEngineSubmissionType,
+  payerClaimControlNumber?: string
 ): Task {
   return {
     resourceType: 'Task',
@@ -126,15 +130,31 @@ export function buildRulesEngineKickoffTask(
     code: { coding: [{ system: RULES_ENGINE_TASK_SYSTEM, code: RULES_ENGINE_FHIR[engine].taskCode }] },
     focus: { reference: `Claim/${claimId}` },
     requester,
-    ...(skipRules
-      ? {
-          input: [
+    input: [
+      ...(skipRules
+        ? [
             {
               type: { coding: [{ system: RULES_ENGINE_INPUT_SYSTEM, code: RULES_ENGINE_INPUT_SKIP_RULES_CODE }] },
               valueBoolean: true,
             },
-          ],
-        }
-      : {}),
+          ]
+        : []),
+      ...(submissionType !== 'new' && payerClaimControlNumber
+        ? [
+            {
+              type: { coding: [{ system: RULES_ENGINE_INPUT_SYSTEM, code: RULES_ENGINE_INPUT_SUBMISSION_TYPE_CODE }] },
+              valueString: submissionType,
+            },
+            {
+              type: {
+                coding: [
+                  { system: RULES_ENGINE_INPUT_SYSTEM, code: RULES_ENGINE_INPUT_PAYER_CLAIM_CONTROL_NUMBER_CODE },
+                ],
+              },
+              valueString: payerClaimControlNumber,
+            },
+          ]
+        : []),
+    ],
   };
 }

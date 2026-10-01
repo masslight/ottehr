@@ -271,6 +271,9 @@ vi.mock('../../src/features/visits/shared/components/templates/useListTemplates'
 
 vi.mock('../../src/features/visits/shared/stores/appointment/appointment.store', () => ({
   useAppointmentData: () => ({ encounter: { id: 'encounter-1' } }),
+}));
+
+vi.mock('../../src/features/visits/shared/hooks/useChartData', () => ({
   useChartData: () => ({ chartData: mocks.chartData }),
 }));
 

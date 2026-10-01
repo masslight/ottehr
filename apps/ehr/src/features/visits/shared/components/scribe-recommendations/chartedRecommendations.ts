@@ -6,8 +6,9 @@ import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.const
 import { ExamObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
 import { GetVitalsResponseData } from 'utils/lib/types/api/chart-data/get-vitals.types';
+import { useChartData } from '../../hooks/useChartData';
 import { useChartSection } from '../../hooks/useChartSection';
-import { useAppointmentData, useChartData } from '../../stores/appointment/appointment.store';
+import { useAppointmentData } from '../../stores/appointment/appointment.store';
 import { useExamObservationsStore } from '../../stores/appointment/exam-observations.store';
 import { useRosObservationsStore } from '../../stores/appointment/ros-observations.store';
 import { useGetVitals } from '../vitals/hooks/useGetVitals';

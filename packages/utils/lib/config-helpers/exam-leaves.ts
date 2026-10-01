@@ -6,7 +6,7 @@ import type {
   ExamCardNonTextComponent,
   ExamItemConfig,
   ExamModalWithColumnsSection,
-} from 'config-types';
+} from 'config-types/config/examination';
 import { isDropdownComponent, isMultiSelectComponent } from '../ottehr-config/examination/examination.schema';
 
 export interface ExamLeaf {

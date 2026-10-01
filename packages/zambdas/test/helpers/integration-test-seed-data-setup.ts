@@ -18,17 +18,12 @@ import { cleanAppointmentGraph } from 'utils/lib/utils/e2eCleanup';
 import { inject } from 'vitest';
 import { createBillingClient } from '../../src/billing/shared';
 import { SECRETS } from '../data/secrets';
-import {
-  addRunTagToResource,
-  INTEGRATION_TEST_PROCESS_ID_SYSTEM,
-  INTEGRATION_TEST_RUN_SYSTEM,
-} from './integration-tags';
+import { INTEGRATION_TEST_PROCESS_ID_SYSTEM, INTEGRATION_TEST_RUN_SYSTEM } from './integration-tags';
 
 // The tag-system constants and the run-tag helper live in integration-tags.ts (which is free of any
 // `vitest` import) so global setup and the leak gate can use them without loading this module — this
 // one imports `inject` from `vitest`, which must not be loaded in the globalSetup context. Re-exported
 // here so existing test-file imports keep resolving.
-export { addRunTagToResource, INTEGRATION_TEST_PROCESS_ID_SYSTEM, INTEGRATION_TEST_RUN_SYSTEM };
 
 // Set once per worker by setupIntegrationTest (from inject('INTEGRATION_TEST_RUN_ID')) so the
 // synchronous addProcessIdMetaTagToResource helper can stamp it without each call site passing it.
