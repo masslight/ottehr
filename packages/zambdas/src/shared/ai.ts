@@ -137,33 +137,6 @@ export const VERTEX_AI_MODEL = 'gemini-3.1-flash-lite';
 
 const TERMINAL_FINISH_REASONS = new Set(['SAFETY', 'RECITATION', 'PROHIBITED_CONTENT', 'BLOCKLIST', 'SPII']);
 
-export const VERTEX_AI_FEATURE_LABEL = 'ottehr_feature';
-/** Recorded for calls that don't name a feature, so their spend still shows up as its own line. */
-export const UNATTRIBUTED_AI_FEATURE = 'unattributed';
-export const VERTEX_AI_ENVIRONMENT_LABEL = 'ottehr_environment';
-export const VERTEX_AI_PROJECT_ID_LABEL = 'ottehr_project_id';
-
-// Vertex rejects label values outside [a-z0-9_-] or longer than 63 characters.
-const toLabelValue = (value: string): string =>
-  value
-    .toLowerCase()
-    .replace(/[^a-z0-9_-]/g, '_')
-    .slice(0, 63);
-
-/**
- * Vertex AI request labels, which Google carries into the Cloud Billing export and Billing reports so Gemini
- * spend can be broken down by feature, environment and project.
- */
-export const buildVertexAILabels = (feature: string | undefined, secrets: Secrets | null): Record<string, string> => {
-  const environment = getOptionalSecret(SecretsKeys.ENVIRONMENT, secrets);
-  const projectId = getOptionalSecret(SecretsKeys.PROJECT_ID, secrets);
-  return {
-    [VERTEX_AI_FEATURE_LABEL]: toLabelValue(feature || UNATTRIBUTED_AI_FEATURE),
-    ...(environment && { [VERTEX_AI_ENVIRONMENT_LABEL]: toLabelValue(environment) }),
-    ...(projectId && { [VERTEX_AI_PROJECT_ID_LABEL]: toLabelValue(projectId) }),
-  };
-};
-
 interface VertexAIRequestOptions {
   /** Sequential retries wait for an error; hedged requests overlap to reduce latency. */
   retryMode?: 'sequential' | 'hedged';
@@ -172,18 +145,19 @@ interface VertexAIRequestOptions {
 export async function invokeChatbotVertexAI(
   input: MessageContentComplex[],
   secrets: Secrets | null,
+  /** The feature this call is billed to, e.g. 'extract-photo-id'. Sent as a Vertex AI billing label. */
+  feature: string,
   responseSchema?: object,
   model: string = VERTEX_AI_MODEL,
-  options: VertexAIRequestOptions = {},
-  /** The feature this call is billed to, e.g. 'extract-photo-id'. Calls without one are labelled `unattributed`. */
-  feature?: string
+  options: VertexAIRequestOptions = {}
 ): Promise<string> {
   const GOOGLE_CLOUD_PROJECT_ID = getSecret(SecretsKeys.GOOGLE_CLOUD_PROJECT_ID, secrets);
   const GOOGLE_CLOUD_API_KEY = getSecret(SecretsKeys.GOOGLE_CLOUD_API_KEY, secrets);
   const RETRY_COUNT = 3;
   const FIRST_DELAY_MS = 3000;
   const JITTER = 0.01;
-  const labels = buildVertexAILabels(feature, secrets);
+  const ENVIRONMENT = getOptionalSecret(SecretsKeys.ENVIRONMENT, secrets);
+  const PROJECT_ID = getOptionalSecret(SecretsKeys.PROJECT_ID, secrets);
 
   const shouldRetry = (status: number): boolean => {
     // Retry on rate limiting and server errors
@@ -221,7 +195,12 @@ export async function invokeChatbotVertexAI(
           },
           body: JSON.stringify({
             contents: [{ role: 'user', parts: [input] }],
-            labels,
+            // Billing labels, so Gemini spend can be broken down in Google Cloud Billing.
+            labels: {
+              ottehr_feature: feature,
+              ...(ENVIRONMENT && { ottehr_environment: ENVIRONMENT }),
+              ...(PROJECT_ID && { ottehr_project_id: PROJECT_ID }),
+            },
             generationConfig: {
               temperature: 0,
               ...(responseSchema && {
@@ -356,9 +335,6 @@ export async function transcribeAndCreateResourcesFromZ3Audio(
   const transcript = await invokeChatbotVertexAI(
     [{ text: TRANSCRIPT_PROMPT }, { inlineData: { mimeType, data: fileBase64 } }],
     secrets,
-    undefined,
-    undefined,
-    undefined,
     'ambient-scribe-transcription'
   );
 
@@ -515,9 +491,6 @@ export async function createResourcesFromAiInterview(
     aiResponseString = await invokeChatbotVertexAI(
       [{ text: getPrompt(patientInfoDetails || 'unknown patient details', fields) + '\n' + chatTranscript }],
       secrets,
-      undefined,
-      undefined,
-      undefined,
       source === 'audio-recording' ? 'ambient-scribe-summary' : 'ai-interview-summary'
     );
     narrativeLines = await settledWithin(narrative, NARRATIVE_GRACE_MS);

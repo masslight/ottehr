@@ -62,12 +62,12 @@ export const index = wrapHandler(
           await invokeChatbotVertexAI(
             [{ text: billingCodePrompt(facts) }],
             input.secrets,
+            'recommend-billing-codes',
             billingCodesSchema,
             undefined,
             {
               retryMode: 'sequential',
-            },
-            'recommend-billing-codes'
+            }
           )
         );
 

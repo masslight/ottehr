@@ -151,10 +151,8 @@ export async function extractPhotoIdFieldsFromImage(
   const rawModelResponse = await invokeChatbotVertexAI(
     [{ text: EXTRACTION_PROMPT }, { inlineData: { mimeType, data: bytes.toString('base64') } }],
     secrets,
-    photoIdResponseSchema,
-    undefined,
-    undefined,
-    'extract-photo-id'
+    'extract-photo-id',
+    photoIdResponseSchema
   );
   const parsed = parseModelResponse(rawModelResponse);
   return { ...parsed, unsupportedContentType: false };

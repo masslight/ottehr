@@ -218,10 +218,9 @@ const performEffect = async (
     const raw = await invokeChatbotVertexAI(
       [{ text: prompt }],
       secrets,
+      'generate-adhoc-report',
       RESPONSE_SCHEMA,
-      REPORT_MODEL,
-      undefined,
-      'generate-adhoc-report'
+      REPORT_MODEL
     );
 
     let parsed: { code?: unknown; title?: unknown; needsLayers?: unknown };

@@ -204,7 +204,7 @@ describe('extract-insurance-card handler', () => {
 
     // model call: prompt + inline image + schema
     expect(invokeChatbotVertexAI).toHaveBeenCalledTimes(1);
-    const [parts, , schema] = vi.mocked(invokeChatbotVertexAI).mock.calls[0];
+    const [parts, , , schema] = vi.mocked(invokeChatbotVertexAI).mock.calls[0];
     expect(parts[0]).toEqual({ text: EXTRACTION_PROMPT });
     expect((parts[1] as any).inlineData.mimeType).toBe('image/jpeg');
     expect((parts[1] as any).inlineData.data).toBe(IMAGE_BYTES.toString('base64'));
