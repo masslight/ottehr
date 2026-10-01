@@ -50,6 +50,8 @@ export const BILLING_DOMAIN_FIELDS: readonly (keyof AdHocBillingRow)[] = [
   'paymentMethods',
   // codes
   'chargeCpts',
+  'pricingScheduleName',
+  'unpricedCpts',
   'cptCodes',
   'emCode',
   'icdCodes',
@@ -107,15 +109,42 @@ export const BILLING_LAYERS = {
   },
   charges: {
     label: 'Charges & fee schedule',
-    description: 'CPT codes billed on the visit and the expected charge from the fee schedule (charge master).',
+    description:
+      "The visit's expected charge as the EHR's patient payments shows it: the charted CPT / E&M codes priced by " +
+      'the applicable fee schedule (payer or employer, location, date of service) or else the charge master ' +
+      '(self-pay, payer-specific or default-insurance), plus case rates and codes the schedule does not price.',
     schema: z.object({
-      chargeCpts: z.array(z.string()).describe('CPT codes billed (charge line items).'),
+      chargeCpts: z
+        .array(z.string())
+        .describe('CPT / E&M codes of the charge line items (the charted codes, as priced). Empty when none.'),
       chargeCount: z.number().describe('Number of charge line items.'),
-      expectedCharge: z.number().nullable().describe('Sum of fee-schedule prices for billed CPTs, USD.'),
+      expectedCharge: z
+        .number()
+        .nullable()
+        .describe(
+          'Sum of the line items in USD (fee × units). A code the schedule does not list counts 0 (see ' +
+            'unpricedCpts). Null when no fee schedule / charge master applies or no codes are charted.'
+        ),
       outstandingBalance: z
         .number()
         .nullable()
         .describe('expectedCharge − paymentsCollected (needs both layers). Null when no charge could be priced.'),
+      pricingSource: z
+        .enum(['fee-schedule', 'payer-charge-master', 'default-charge-master', 'self-pay-charge-master'])
+        .nullable()
+        .describe(
+          'What priced the visit: the payer / employer fee schedule, a payer-specific charge master, the default ' +
+            "(insurance) charge master, or the self-pay charge master — chosen by the visit's payment option. " +
+            'Null when nothing applies.'
+        ),
+      pricingScheduleName: z.string().describe('Title of the fee schedule / charge master used. "" when none.'),
+      caseRate: z
+        .number()
+        .nullable()
+        .describe('Flat case rate in USD when the applicable fee schedule is a case rate. Null otherwise.'),
+      unpricedCpts: z
+        .array(z.string())
+        .describe('Charted codes the applicable schedule does not list (their fee is unknown, counted as 0).'),
     }),
   },
   codes: {

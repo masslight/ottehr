@@ -1,10 +1,14 @@
 import Oystehr from '@oystehr/sdk';
 import { Appointment, Encounter, FhirResource, Location, Organization, Patient, Practitioner } from 'fhir/r4b';
 import {
+  CPT_CODE_SYSTEM,
+  CPT_MODIFIER_EXTENSION_URL,
+  ENCOUNTER_PAYMENT_VARIANT_EXTENSION_URL,
   FHIR_EXTENSION,
   OCCUPATIONAL_MEDICINE_ACCOUNT_TYPE,
   PATIENT_BILLING_ACCOUNT_TYPE,
   PRIVATE_EXTENSION_BASE_URL,
+  RCM_TAG_SYSTEM,
 } from 'utils/lib/fhir/constants';
 import { buildFollowupEncounterType } from 'utils/lib/fhir/encounter';
 import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
@@ -251,8 +255,50 @@ const visitDiagnoses: FhirResource[] = [
   },
 ] as FhirResource[];
 
+// The clinical RCM pricing: payer-1's fee schedule (99000 with modifier 25 at $40) and the default-insurance
+// charge master. A second charted CPT the fee schedule does not list prices as unknown.
+const priceEntry = (code: string, amount: number, modifier?: string): Record<string, unknown> => ({
+  priceComponent: [
+    {
+      type: 'base',
+      code: { coding: [{ system: CPT_CODE_SYSTEM, code }] },
+      amount: { value: amount, currency: 'USD' },
+      ...(modifier ? { extension: [{ url: CPT_MODIFIER_EXTENSION_URL, valueCode: modifier }] } : {}),
+    },
+  ],
+});
+
+const pricingDefinitions: FhirResource[] = [
+  {
+    resourceType: 'ChargeItemDefinition',
+    id: 'fs-1',
+    status: 'active',
+    url: 'https://example.test/fs-1',
+    title: 'Aetna 2026',
+    date: '2026-01-01',
+    meta: { tag: [{ system: RCM_TAG_SYSTEM, code: 'fee-schedule' }] },
+    useContext: [{ code: { code: 'payer' }, valueReference: { reference: 'Organization/payer-1' } }],
+    propertyGroup: [priceEntry('99000', 30), priceEntry('99000', 40, '25')],
+  },
+  {
+    resourceType: 'ChargeItemDefinition',
+    id: 'cm-default',
+    status: 'active',
+    url: 'https://example.test/cm-default',
+    title: 'Default 2026',
+    date: '2026-01-01',
+    meta: { tag: [{ system: RCM_TAG_SYSTEM, code: 'default-insurance' }] },
+    propertyGroup: [priceEntry('99000', 55)],
+  },
+] as FhirResource[];
+const unpricedCpt = makeProcedureResource('enc-1', 'pat-1', { code: '99999', display: 'Unlisted service' }, 'cpt-code');
+
 const resourcesByJob: Record<string, FhirResource[]> = {
-  'Procedure:encounter': [{ ...billedCpt, id: 'cpt-1' }],
+  ChargeItemDefinition: pricingDefinitions,
+  'Procedure:encounter': [
+    { ...billedCpt, id: 'cpt-1' },
+    { ...unpricedCpt, id: 'cpt-2' },
+  ],
   'Condition:byId': visitDiagnoses,
   Patient: [returningPatient, newPatient, ...accountResources],
   Appointment: [
@@ -260,6 +306,8 @@ const resourcesByJob: Record<string, FhirResource[]> = {
     appointment('appt-2', 'pat-2'),
     {
       ...encounter('enc-1', 'appt-1', 'pat-1'),
+      // The visit is billed to insurance (the payment option chosen on the visit).
+      extension: [{ url: ENCOUNTER_PAYMENT_VARIANT_EXTENSION_URL, valueString: 'insurance' }],
       diagnosis: [
         { condition: { reference: 'Condition/dx-b' }, rank: 2 },
         { condition: { reference: 'Condition/dx-a' }, rank: 1 },
@@ -316,11 +364,14 @@ afterAll(() => {
 
 const fakeOystehr = {
   fhir: {
-    search: async ({ resourceType, params }: { resourceType: string; params: { name: string; value: string }[] }) => ({
-      jobId: jobIdFor(resourceType, params ?? []),
-      contentLocation: '',
-      mode: 'bulk',
-    }),
+    search: async (
+      { resourceType, params }: { resourceType: string; params: { name: string; value: string }[] },
+      options?: { mode?: string }
+    ) =>
+      options?.mode === 'async-bulk'
+        ? { jobId: jobIdFor(resourceType, params ?? []), contentLocation: '', mode: 'bulk' }
+        : // A plain (paginated) search: one page with no next link.
+          { unbundle: () => resourcesByJob[jobIdFor(resourceType, params ?? [])] ?? [], link: [] },
     waitForAsyncJob: async (jobId: string) => ({ status: 200, mode: 'bulk', manifest: manifestFor(jobId) }),
   },
   user: { list: async () => [] },
@@ -346,13 +397,35 @@ describe('ad-hoc Billing: coverage and codes as the patient record and the chart
     expect(rows.find((r) => r.appointmentId === 'appt-2')).toMatchObject({ payerType: 'Unknown', primaryPayer: '' });
   });
 
+  it("charges: priced as the EHR's patient payments prices the visit", async () => {
+    const rows = await fetchAdHocBillingRows(fakeOystehr, { dateRange, includeCharges: true });
+    expect(issuesOf(AdHocBillingOutputSchema.safeParse({ rows }))).toEqual([]);
+    // Insurance visit → the payer's fee schedule; 99000 with modifier 25 × 2 units = $80; 99999 is not listed.
+    expect(rows.find((r) => r.appointmentId === 'appt-1')).toMatchObject({
+      pricingSource: 'fee-schedule',
+      pricingScheduleName: 'Aetna 2026',
+      chargeCpts: ['99000', '99999'],
+      chargeCount: 2,
+      expectedCharge: 80,
+      unpricedCpts: ['99999'],
+      caseRate: null,
+    });
+    // No payment option chosen yet → the default-insurance charge master; nothing charted, nothing to price.
+    expect(rows.find((r) => r.appointmentId === 'appt-2')).toMatchObject({
+      pricingSource: 'default-charge-master',
+      pricingScheduleName: 'Default 2026',
+      chargeCount: 0,
+      expectedCharge: null,
+    });
+  });
+
   it('codes: CPT modifiers and units, primary diagnosis first', async () => {
     const rows = await fetchAdHocBillingRows(fakeOystehr, { dateRange, includeCodes: true });
     expect(issuesOf(AdHocBillingOutputSchema.safeParse({ rows }))).toEqual([]);
     expect(rows.find((r) => r.appointmentId === 'appt-1')).toMatchObject({
-      cptCodes: ['99000'],
-      cptModifiers: ['25'],
-      cptBillableUnits: [2],
+      cptCodes: ['99000', '99999'],
+      cptModifiers: ['25', ''],
+      cptBillableUnits: [2, 1],
       emCode: '',
       icdCodes: ['J02.9', 'R50.9'],
     });
