@@ -66,6 +66,7 @@ import {
 } from 'utils/lib/types/api/medication-administration.constants';
 import { CREATED_BY_SYSTEM } from 'utils/lib/types/common';
 import { PATIENT_POINT_OF_DISCOVERY_URL } from 'utils/lib/types/constants';
+import { baseScreeningQuestionsConfig } from 'utils/lib/types/data/screening-questions/config';
 import { getTimezone } from 'utils/lib/utils/scheduleUtils';
 import { getVisitStatusHistory } from 'utils/lib/utils/visitUtils';
 import {
@@ -222,7 +223,10 @@ const VITAL_ALERT_FIELDS: Record<string, string> = {
 // "Ask the patient" screening answers are chart-data Observations (makeObservationResource): code.text
 // is the config field's fhirField; radio/select/text answers are valueString (the option's fhirValue
 // or free text), date answers are valueDateTime.
-const SCREENING_FIELD_BY_CODE = new Map(patientScreeningQuestionsConfig.fields.map((f) => [f.fhirField, f]));
+const SCREENING_FIELD_BY_CODE = new Map([
+  ...baseScreeningQuestionsConfig.fields.map((f) => [f.fhirField, f] as const),
+  ...patientScreeningQuestionsConfig.fields.map((f) => [f.fhirField, f] as const),
+]);
 
 const screeningAnswer = (o: Observation): { question: string; answer: string } | undefined => {
   const field = o.code?.text ? SCREENING_FIELD_BY_CODE.get(o.code.text) : undefined;

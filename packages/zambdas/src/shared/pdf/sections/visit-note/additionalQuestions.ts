@@ -1,6 +1,5 @@
 import { renderScreeningQuestionsForPDF } from 'utils/lib/helpers/screening-questions/screening-questions-formatting.helper';
-import { patientScreeningQuestionsConfig } from 'utils/lib/ottehr-config/screening-questions';
-import { ASQ_FIELD, ASQKeys, asqLabels } from 'utils/lib/types/api/chart-data/chart-data.constants';
+import { AiObservationField, ASQ_FIELD, ASQKeys, asqLabels } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import { NOTE_TYPE } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { drawBlockHeader } from '../../helpers/render/blockHeader';
 import { drawRegularText } from '../../helpers/render/regularText';
@@ -8,16 +7,17 @@ import { createConfiguredSection, DataComposer } from '../../pdf-common';
 import { AdditionalQuestions, EncounterInfo, PdfSection } from '../../types';
 import { AllChartData } from '../../visit-details-pdf/types';
 
+const AI_OBSERVATION_FIELDS = new Set<string>(Object.values(AiObservationField));
+
 export const composeAdditionalQuestions: DataComposer<{ allChartData: AllChartData }, AdditionalQuestions> = ({
   allChartData,
 }) => {
   const { chartData, additionalChartData } = allChartData;
   const additionalQuestions: Record<string, any> = {};
-  // Add ALL fields from config (if they have values)
-  patientScreeningQuestionsConfig.fields.forEach((field) => {
-    const observation = chartData.observations?.find((obs) => obs.field === field.fhirField);
-    if (observation?.value !== undefined) {
-      additionalQuestions[field.fhirField] = observation;
+  // Include all screening observations, skipping AI-generated fields and the ASQ field (handled below).
+  chartData.observations?.forEach((obs) => {
+    if (obs.value !== undefined && !AI_OBSERVATION_FIELDS.has(obs.field) && obs.field !== ASQ_FIELD) {
+      additionalQuestions[obs.field] = obs;
     }
   });
 
