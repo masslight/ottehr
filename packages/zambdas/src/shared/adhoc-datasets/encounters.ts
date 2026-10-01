@@ -59,17 +59,34 @@ import {
 import { getAdmitterPractitionerId } from 'utils/lib/fhir/practitioners';
 import { isIntakePaperworkQuestionnaireResponse } from 'utils/lib/fhir/questionnaires';
 import { ORDER_TYPE_CODE_SYSTEM } from 'utils/lib/fhir/radiology';
+import { makeVitalsObservationDTO } from 'utils/lib/fhir/vitals';
 import { getProviderType } from 'utils/lib/helpers/helpers';
 import { isInHouseLabServiceRequest } from 'utils/lib/helpers/in-house-labs';
 import { getVitalDTOCriticalityFromObservation } from 'utils/lib/helpers/vitals/utils';
-import { celsiusToFahrenheit, roundTemperatureValue } from 'utils/lib/helpers/vitals/vitals-temperature.helper';
+import { HeightMeasurement } from 'utils/lib/helpers/vitals/vitals-height.helper';
+import {
+  celsiusToFahrenheit,
+  fahrenheitToCelsius,
+  roundTemperatureValue,
+} from 'utils/lib/helpers/vitals/vitals-temperature.helper';
+import { isDotVisionScreeningEntry } from 'utils/lib/helpers/vitals/vitals-vision.helper';
+import { kgToLbs } from 'utils/lib/helpers/vitals/vitals-weight.helper';
 import { patientScreeningQuestionsConfig } from 'utils/lib/ottehr-config/screening-questions';
 import { AdHocEncounterRow, AdHocEncountersInput } from 'utils/lib/types/adhoc/datasets/encounters';
-import { VitalAlertCriticality, VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
+import {
+  VitalAlertCriticality,
+  VitalBloodPressureObservationMethod,
+  VitalFieldNames,
+  VitalHeartbeatObservationMethod,
+  VitalsOxygenSatObservationMethod,
+  VitalTemperatureObservationMethod,
+} from 'utils/lib/types/api/chart-data/chart-data.constants';
 import {
   DispositionType,
   NOTHING_TO_EAT_OR_DRINK_FIELD,
   REFUSAL_OF_EMS_TRANSPORT_FIELD,
+  VitalsObservationDTO,
+  VitalsVisionObservationDTO,
 } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE } from 'utils/lib/types/api/medication-administration.constants';
 import { PROVIDER_TYPE_VALUES } from 'utils/lib/types/api/practitioner.types';
@@ -936,6 +953,22 @@ export async function fetchAdHocEncounterRows(
 
       row.temperatureF = toF(latest('vital-temperature'));
 
+      // The chart stores °C, kg and cm; a reading charted in °F, lbs or inches is normalized first, so every
+      // unit below is the same reading as the field it mirrors. The other units come from the chart's helpers.
+      const celsiusOf = (o?: Observation): number | null => {
+        const val = qty(o);
+        if (val == null) return null;
+        const unit = (o?.valueQuantity?.unit || o?.valueQuantity?.code || '').toUpperCase();
+        return unit.startsWith('F') ? fahrenheitToCelsius(val) : val;
+      };
+
+      const roundedCelsius = (o?: Observation): number | null => {
+        const celsius = celsiusOf(o);
+        return celsius == null ? null : roundTemperatureValue(celsius);
+      };
+
+      row.temperatureC = roundedCelsius(latest('vital-temperature'));
+
       row.heartRate = qty(latest('vital-heartbeat'));
       row.respirationRate = qty(latest('vital-respiration-rate'));
       row.oxygenSaturation = qty(latest('vital-oxygen-sat'));
@@ -951,6 +984,7 @@ export async function fetchAdHocEncounterRows(
 
       const numbers = (values: (number | null)[]): number[] => values.filter((v): v is number => v != null);
       row.temperatureFReadings = numbers(chronological('vital-temperature').map(toF));
+      row.temperatureCReadings = numbers(chronological('vital-temperature').map(roundedCelsius));
       row.heartRateReadings = numbers(chronological('vital-heartbeat').map(qty));
       row.respirationRateReadings = numbers(chronological('vital-respiration-rate').map(qty));
       row.oxygenSaturationReadings = numbers(chronological('vital-oxygen-sat').map(qty));
@@ -980,15 +1014,72 @@ export async function fetchAdHocEncounterRows(
       const weightVal = qty(weightObs);
       const weightUnit = (weightObs?.valueQuantity?.unit || '').toLowerCase();
 
-      row.weightKg =
-        weightVal == null ? null : weightUnit.startsWith('lb') ? round1(weightVal * 0.453592) : round1(weightVal);
+      const weightInKg = weightVal == null ? null : weightUnit.startsWith('lb') ? weightVal * 0.453592 : weightVal;
+      row.weightKg = weightInKg == null ? null : round1(weightInKg);
+      row.weightLbs = weightInKg == null ? null : kgToLbs(weightInKg);
 
       const heightObs = latest('vital-height');
       const heightVal = qty(heightObs);
       const heightUnit = (heightObs?.valueQuantity?.unit || '').toLowerCase();
 
-      row.heightCm =
-        heightVal == null ? null : heightUnit.startsWith('in') ? round1(heightVal * 2.54) : round1(heightVal);
+      const heightInCm = heightVal == null ? null : heightUnit.startsWith('in') ? heightVal * 2.54 : heightVal;
+      row.heightCm = heightInCm == null ? null : round1(heightInCm);
+      const height = heightInCm == null ? undefined : HeightMeasurement.fromCm(heightInCm);
+      row.heightInches = height ? height.getInches() : null;
+      row.heightFeetInches = height ? height.getFeetInchesLabel() : '';
+
+      // How each reading was taken, vision and LMP — read with the chart's vitals DTO builder.
+      const latestDto = (field: VitalFieldNames): VitalsObservationDTO | undefined => {
+        const o = latest(field);
+        return o ? makeVitalsObservationDTO(o) : undefined;
+      };
+
+      const methodOf = (dto: VitalsObservationDTO | undefined): string | undefined =>
+        dto && 'observationMethod' in dto ? dto.observationMethod : undefined;
+
+      row.temperatureMethod = knownValueOrNull(
+        Object.values(VitalTemperatureObservationMethod),
+        methodOf(latestDto(VitalFieldNames.VitalTemperature))
+      );
+
+      row.heartRateMethod = knownValueOrNull(
+        Object.values(VitalHeartbeatObservationMethod),
+        methodOf(latestDto(VitalFieldNames.VitalHeartbeat))
+      );
+
+      row.bloodPressureMethod = knownValueOrNull(
+        Object.values(VitalBloodPressureObservationMethod),
+        methodOf(latestDto(VitalFieldNames.VitalBloodPressure))
+      );
+
+      row.oxygenSaturationMethod = knownValueOrNull(
+        Object.values(VitalsOxygenSatObservationMethod),
+        methodOf(latestDto(VitalFieldNames.VitalOxygenSaturation))
+      );
+
+      const weightDto = latestDto(VitalFieldNames.VitalWeight);
+
+      row.weightRefused =
+        weightDto?.field === VitalFieldNames.VitalWeight && !!weightDto.extraWeightOptions?.includes('patient_refused');
+
+      // A DOT vision screening is a separate entry on the same vital; the acuity reading is the latest other one.
+      const vision = chronological(VitalFieldNames.VitalVision)
+        .map((o) => makeVitalsObservationDTO(o))
+        .filter(
+          (dto): dto is VitalsVisionObservationDTO =>
+            dto?.field === VitalFieldNames.VitalVision && !isDotVisionScreeningEntry(dto.dotVisionScreening)
+        )
+        .at(-1);
+
+      row.visionLeftEye = vision?.leftEyeVisionText ?? '';
+      row.visionRightEye = vision?.rightEyeVisionText ?? '';
+      row.visionBothEyes = vision?.bothEyesVisionText ?? '';
+      row.visionOptions = vision?.extraVisionOptions ?? [];
+
+      const lmp = latestDto(VitalFieldNames.VitalLastMenstrualPeriod);
+      const lmpDto = lmp?.field === VitalFieldNames.VitalLastMenstrualPeriod ? lmp : undefined;
+      row.lastMenstrualPeriod = lmpDto?.value || null;
+      row.lastMenstrualPeriodUnsure = lmpDto ? !!lmpDto.isUnsure : null;
 
       row.bmi =
         row.weightKg && row.heightCm && row.heightCm > 0 ? round1(row.weightKg / (row.heightCm / 100) ** 2) : null;
