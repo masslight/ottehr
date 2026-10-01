@@ -3,7 +3,7 @@ import React, { ChangeEvent, FC, useContext } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
 import Markdown from 'react-markdown';
 import { IntakeThemeContext } from 'src/contexts/IntakeThemeContext';
-import { DescriptionRenderer } from 'ui-components/lib/components/paperwork/form-components';
+import { DescriptionRenderer } from 'ui-components/lib/components/paperwork/form-components/DescriptionRenderer';
 import { MIME_TYPES } from 'utils/lib/utils/file';
 
 const DEFAULT_IMAGE_ACCEPT = [

@@ -1,7 +1,8 @@
 export type GetOystehrTelemedAPIParams = {
   isAppLocal?: 'true' | 'false';
   initTelemedSessionZambdaID?: string;
-  getChartDataZambdaID?: string;
+  getChartSectionZambdaID?: string;
+  getVisitNoteZambdaID?: string;
   saveChartDataZambdaID?: string;
   deleteChartDataZambdaID?: string;
   changeInPersonVisitStatusZambdaID?: string;
@@ -39,5 +40,3 @@ export type GetOystehrTelemedAPIParams = {
   deleteApprovedPatientEducationZambdaID?: string;
   updateApprovedPatientEducationCodesZambdaID?: string;
 };
-
-export type { PromiseReturnType } from 'utils/lib/types/common';

@@ -3,7 +3,8 @@ import { FC } from 'react';
 import { dataTestIds } from '../../../../constants/data-test-ids';
 import { Loader } from '../../shared/components/Loader';
 import { PageTitle } from '../../shared/components/PageTitle';
-import { useAppointmentData, useChartData } from '../../shared/stores/appointment/appointment.store';
+import { useChartData } from '../../shared/hooks/useChartData';
+import { useAppointmentData } from '../../shared/stores/appointment/appointment.store';
 import { MedicalConditionsBody } from '../components/medical-conditions/MedicalConditionsBody';
 import { useInPersonNavigationContext } from '../context/InPersonNavigationContext';
 interface MedicalConditionsProps {

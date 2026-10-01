@@ -16,11 +16,13 @@ const mockOpen = vi.fn();
 const mockDownloadMedicalRecord = vi.fn<() => Promise<void>>();
 
 // The fax slice owns sending; this page's job is to hand it the right source and visit list.
-vi.mock('src/features/fax', () => ({
+vi.mock('src/features/fax/hooks/useSendFax', () => ({
   useSendFax: (source: unknown) => {
     mockUseSendFax(source);
     return { isOpen: false, open: mockOpen, close: vi.fn(), isSending: false, failures: [] };
   },
+}));
+vi.mock('src/features/fax/ui/SendFaxDialog', () => ({
   SendFaxDialog: ({ title, visits }: { title?: string; visits?: { label: string }[] }) => (
     <div data-testid="fax-dialog" data-title={title}>
       {visits?.map((visit) => <span key={visit.label}>{visit.label}</span>)}

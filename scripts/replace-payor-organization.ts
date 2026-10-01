@@ -1,5 +1,5 @@
 import { Coverage } from 'fhir/r4b';
-import { replaceOperation } from 'utils';
+import { replaceOperation } from 'utils/lib/helpers/operations';
 import { fetchAllPages } from '../packages/zambdas/src/shared/fhir';
 import { createClinicalOystehrClient, getPatchBinary } from '../packages/zambdas/src/shared/helpers';
 

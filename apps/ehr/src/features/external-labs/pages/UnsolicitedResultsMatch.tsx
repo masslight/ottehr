@@ -32,8 +32,8 @@ import {
   useGetUnsolicitedResultsMatchData,
 } from 'src/features/visits/shared/stores/appointment/appointment.queries';
 import PageContainer from 'src/layout/PageContainer';
-import { APIErrorCode } from 'utils';
 import { LAB_ORDER_UPDATE_RESOURCES_EVENTS, UnsolicitedResultsRequestType } from 'utils/lib/types/data/labs/labs.types';
+import { APIErrorCode } from 'utils/lib/types/errors';
 import { formatDateForLabs } from 'utils/lib/utils/dateUtils';
 import { UnsolicitedPatientMatchSearchCard } from '../components/unsolicited-results/UnsolicitedPatientMatchSearchCard';
 import { UnsolicitedVisitMatchCard } from '../components/unsolicited-results/UnsolicitedVisitMatchCard';

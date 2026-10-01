@@ -125,7 +125,7 @@ Tests inject booking configuration overrides before page navigation using window
 Questionnaire selection is handled via the Slot extension (injected into create-slot requests).
 
 ```typescript
-import { CONFIG_INJECTION_KEYS } from 'utils';
+import { CONFIG_INJECTION_KEYS } from 'utils/lib/config-helpers/helpers';
 import { injectTestConfig } from '../config/injectTestConfig';
 
 // Inject booking config before navigation - app reads on load

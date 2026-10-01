@@ -26,10 +26,15 @@ import {
   CommunicationDTO,
 } from 'utils/lib/types/api/chart-data/chart-data.types';
 import {
+  ChartSection,
+  GetChartSectionRequest,
+  GetChartSectionResponse,
+} from 'utils/lib/types/api/chart-data/chart-sections.types';
+import {
   DeleteChartDataRequest,
   DeleteChartDataResponse,
 } from 'utils/lib/types/api/chart-data/delete-chart-data.types';
-import { GetChartDataRequest, GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
+import { GetVisitNoteRequest, VisitNoteResponse } from 'utils/lib/types/api/chart-data/get-visit-note.types';
 import { SaveChartDataRequest, SaveChartDataResponse } from 'utils/lib/types/api/chart-data/save-chart-data.types';
 import {
   GetFaxPacketPreviewInput,
@@ -106,7 +111,8 @@ import { GetOystehrTelemedAPIParams } from './types';
 
 enum ZambdaNames {
   'init telemed session' = 'init telemed session',
-  'get chart data' = 'get chart data',
+  'get chart section' = 'get chart section',
+  'get visit note' = 'get visit note',
   'save chart data' = 'save chart data',
   'delete chart data' = 'delete chart data',
   'change in person visit status' = 'change in person visit status',
@@ -147,7 +153,8 @@ enum ZambdaNames {
 
 const zambdasPublicityMap: Record<keyof typeof ZambdaNames, boolean> = {
   'init telemed session': false,
-  'get chart data': false,
+  'get chart section': false,
+  'get visit note': false,
   'save chart data': false,
   'delete chart data': false,
   'change in person visit status': false,
@@ -197,7 +204,8 @@ export const getOystehrTelemedAPI = (
   oystehr: Oystehr
 ): {
   initTelemedSession: typeof initTelemedSession;
-  getChartData: typeof getChartData;
+  getChartSection: typeof getChartSection;
+  getVisitNote: typeof getVisitNote;
   saveChartData: typeof saveChartData;
   deleteChartData: typeof deleteChartData;
   changeInPersonVisitStatus: typeof changeInPersonVisitStatus;
@@ -239,7 +247,8 @@ export const getOystehrTelemedAPI = (
 } => {
   const {
     initTelemedSessionZambdaID,
-    getChartDataZambdaID,
+    getChartSectionZambdaID,
+    getVisitNoteZambdaID,
     saveChartDataZambdaID,
     deleteChartDataZambdaID,
     changeInPersonVisitStatusZambdaID,
@@ -280,7 +289,8 @@ export const getOystehrTelemedAPI = (
 
   const zambdasToIdsMap: Record<keyof typeof ZambdaNames, string | undefined> = {
     'init telemed session': initTelemedSessionZambdaID,
-    'get chart data': getChartDataZambdaID,
+    'get chart section': getChartSectionZambdaID,
+    'get visit note': getVisitNoteZambdaID,
     'save chart data': saveChartDataZambdaID,
     'delete chart data': deleteChartDataZambdaID,
     'change in person visit status': changeInPersonVisitStatusZambdaID,
@@ -334,8 +344,14 @@ export const getOystehrTelemedAPI = (
     return await makeZapRequest('init telemed session', parameters);
   };
 
-  const getChartData = async (parameters: GetChartDataRequest): Promise<GetChartDataResponse> => {
-    return await makeZapRequest('get chart data', parameters);
+  const getChartSection = async <S extends ChartSection>(
+    parameters: GetChartSectionRequest<S>
+  ): Promise<GetChartSectionResponse<S>> => {
+    return await makeZapRequest('get chart section', parameters);
+  };
+
+  const getVisitNote = async (parameters: GetVisitNoteRequest): Promise<VisitNoteResponse> => {
+    return await makeZapRequest('get visit note', parameters);
   };
 
   const saveChartData = async (parameters: SaveChartDataRequest): Promise<SaveChartDataResponse> => {
@@ -546,7 +562,8 @@ export const getOystehrTelemedAPI = (
 
   return {
     initTelemedSession,
-    getChartData,
+    getChartSection,
+    getVisitNote,
     saveChartData,
     deleteChartData,
     changeInPersonVisitStatus,

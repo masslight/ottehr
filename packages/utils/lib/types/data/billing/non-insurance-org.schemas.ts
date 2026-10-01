@@ -46,6 +46,8 @@ const workersCompCoverageSchema = z.object({
   payerId: nonEmptyString.optional(),
   // Manual submission details; direct mode only.
   submission: NioSubmissionSchema.optional(),
+  // Direct mode only: the submission mail address mirrors the NIO's own address.
+  sameAsOrgAddress: z.boolean().optional(),
 });
 
 const occupationalMedicineCoverageSchema = z.object({

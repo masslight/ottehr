@@ -7,7 +7,7 @@ import {
   useNoteSectionTitleInCardHeader,
 } from 'src/features/visits/shared/components/NoteSectionHeading';
 import { formatISODateToLocaleDate } from 'src/helpers/formatDateTime';
-import { useProgressNoteChartFields } from '../../../hooks/useProgressNoteChartFields';
+import { useVisitNote } from '../../../hooks/useVisitNote';
 
 // Matches the checkbox labels on the HPI screen's "Patient's condition related to" card.
 const ACCIDENT_TYPE_LABELS: Record<string, string> = {
@@ -20,14 +20,14 @@ export const HpiMoiContainer: FC = () => {
   const titleInCardHeader = useNoteSectionTitleInCardHeader();
   const theme = useTheme();
 
-  const { data: chartFields } = useProgressNoteChartFields();
+  const { data: note } = useVisitNote();
 
   // Legacy tagging: the history of present illness text is stored under the
   // chief-complaint tag.
-  const historyOfPresentIllness = chartFields?.chiefComplaint?.text;
-  const mechanismOfInjury = chartFields?.mechanismOfInjury?.text;
+  const historyOfPresentIllness = note?.encounterNotes.chiefComplaint?.text;
+  const mechanismOfInjury = note?.encounterNotes.mechanismOfInjury?.text;
 
-  const accident = chartFields?.accident;
+  const accident = note?.encounterNotes.accident;
   const accidentTypes = (accident?.type ?? []).map((type) => ACCIDENT_TYPE_LABELS[type] ?? type);
   const accidentDetails = [
     accident?.date ? `Date of accident: ${formatISODateToLocaleDate(accident.date) ?? accident.date}` : undefined,

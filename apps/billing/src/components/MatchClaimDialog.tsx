@@ -135,7 +135,7 @@ export function MatchClaimDialog({ claimResponseId, eraClaim, onMatched, onClose
             </Typography>
             <Box sx={{ display: 'flex', gap: 3, mt: 0.5, flexWrap: 'wrap' }}>
               <Meta label="Date of Service" value={eraClaim.dos} />
-              <Meta label="Patient DOB" value={eraClaim.patientDob} />
+              <Meta label="Patient DOB" value={eraClaim.patientDob || 'Not in ERA'} />
               <Meta label="Billed" value={formatCurrency(eraClaim.billed)} />
               <Meta label="Allowed" value={formatCurrency(eraClaim.allowed)} />
               <Meta label="Ins Paid" value={formatCurrency(eraClaim.paid)} />

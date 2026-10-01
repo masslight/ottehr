@@ -4,7 +4,7 @@ import { Box, useTheme } from '@mui/system';
 import { FC, MouseEvent, useContext, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { IntakeThemeContext } from 'src/contexts/IntakeThemeContext';
-import { languages } from 'utils/lib/frontend';
+import { languages } from 'utils/lib/frontend/i18n-lib/i18n';
 
 export const LanguagePicker: FC = () => {
   const theme = useTheme();

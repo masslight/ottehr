@@ -16,6 +16,7 @@ import {
 import { ReactElement, useCallback, useEffect, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
+import { otherColors } from 'utils/lib/theme/billing-palette';
 import {
   ClaimAcknowledgmentEvent,
   ClaimHistoryEntry,
@@ -24,7 +25,6 @@ import {
 } from 'utils/lib/types/data/billing/claim-history';
 import { getBillingClaimHistory } from '../../api/api';
 import { useApiClients } from '../../hooks/useAppClients';
-import { otherColors } from '../../themes/ottehr/colors';
 import { formatDateTime } from '../../utils/format';
 
 const thSx = { color: 'primary.dark', fontWeight: 600, fontSize: 13 };

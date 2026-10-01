@@ -1,6 +1,7 @@
 import { useQuery, UseQueryResult } from '@tanstack/react-query';
 import { OystehrAPIClient } from 'ui-components/lib/data/oystehrApi';
-import { useErrorQuery, useSuccessQuery } from 'utils/lib/frontend';
+import { useErrorQuery } from 'utils/lib/frontend/hooks/useErrorQuery';
+import { useSuccessQuery } from 'utils/lib/frontend/hooks/useSuccessQuery';
 import { PromiseReturnType } from 'utils/lib/types/common';
 
 export const useJoinCall = (

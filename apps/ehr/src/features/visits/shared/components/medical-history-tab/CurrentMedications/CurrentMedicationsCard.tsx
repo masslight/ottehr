@@ -17,16 +17,7 @@ export const CurrentMedicationsCard: FC = () => {
     onSubmit,
     onRemove,
     values: medications,
-  } = useChartDataArrayValue(
-    'medications',
-    undefined,
-    {
-      _sort: '-_lastUpdated',
-      _include: 'MedicationStatement:source',
-      status: { type: 'token', value: 'active' },
-    },
-    refetchHistory
-  );
+  } = useChartDataArrayValue('medications', undefined, refetchHistory);
 
   const medicationData = { medications, isLoading, onRemove };
 

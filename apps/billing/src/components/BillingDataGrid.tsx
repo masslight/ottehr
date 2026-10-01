@@ -2,7 +2,7 @@ import { FileDownloadOutlined as FileDownloadOutlinedIcon, NorthEast as Drilldow
 import { Box, Button, CircularProgress, Typography } from '@mui/material';
 import { DataGridProProps, GridColDef, GridPagination, GridToolbarExport } from '@mui/x-data-grid-pro';
 import { ReactElement } from 'react';
-import { otherColors } from '../themes/ottehr/colors';
+import { otherColors } from 'utils/lib/theme/billing-palette';
 
 // trailing column marking rows that open a drilldown — same arrow language as CardActionHint
 export const drilldownIndicatorColumn: GridColDef = {

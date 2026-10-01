@@ -1,5 +1,5 @@
 import fs from 'node:fs';
-import { FormFieldsDisplayItem, FormFieldSection } from 'config-types';
+import { FormFieldsDisplayItem, FormFieldSection } from 'config-types/config/form-fields';
 import { PDFImage } from 'pdf-lib';
 import { AppointmentContext, evaluateFieldTriggers } from 'utils/lib/config-helpers/patient-record';
 import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';

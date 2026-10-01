@@ -6,7 +6,8 @@ import { ApprovedPatientEducationItem } from 'utils/lib/types/api/approved-patie
 import { CommunicationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { PatientEducationLanguage } from 'utils/lib/types/data/patient-education.types';
 import { fitWrappedTextToBanner } from 'utils/lib/utils/pdf';
-import { useAppointmentData, useChartData, useSaveChartData } from '../stores/appointment/appointment.store';
+import { useAppointmentData, useSaveChartData } from '../stores/appointment/appointment.store';
+import { useChartData } from './useChartData';
 import { useOystehrAPIClient } from './useOystehrAPIClient';
 
 export interface DiagnosisOption {

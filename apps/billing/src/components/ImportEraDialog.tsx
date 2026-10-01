@@ -156,7 +156,7 @@ export function ImportEraDialog({ onClose }: Props): ReactElement {
                       fullWidth
                       multiline
                       label="ERA in X12 Format *"
-                      value={field.value}
+                      value={field.value ?? ''}
                       minRows={20}
                       onChange={(e) => {
                         setFileError(null);

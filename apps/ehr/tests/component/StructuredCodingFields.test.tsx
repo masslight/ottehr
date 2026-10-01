@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { ReactElement, useState } from 'react';
-import { resolveFamilyFacts } from 'utils/lib/procedure-coding';
 import { lacerationFamily } from 'utils/lib/procedure-coding/families/laceration';
+import { resolveFamilyFacts } from 'utils/lib/procedure-coding/family-support';
 import { StructuredFacts } from 'utils/lib/procedure-coding/structured-fields';
 import { describe, expect, it } from 'vitest';
 import { StructuredCodingFields } from '../../src/features/visits/in-person/components/procedures/StructuredCodingFields';

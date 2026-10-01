@@ -5,8 +5,8 @@ import { MedicationsContainer } from '../../src/features/visits/shared/component
 
 let mockChartData: { medications?: MedicationDTO[] } = {};
 
-vi.mock('../../src/features/visits/shared/stores/appointment/appointment.store', () => ({
-  useChartData: () => ({ chartData: mockChartData }),
+vi.mock('../../src/features/visits/shared/hooks/useVisitNote', () => ({
+  useVisitNote: () => ({ data: { history: { medications: mockChartData.medications ?? [] } } }),
 }));
 
 const medication = (name: string, status: MedicationDTO['status']): MedicationDTO => ({
@@ -28,7 +28,7 @@ describe('Review & Sign medications section', () => {
   });
 
   // A medication removed in a later encounter is patched to 'completed' rather than deleted, so it
-  // keeps coming back in the patient-scoped chart-data search for every encounter of that patient.
+  // keeps coming back in the patient-scoped history section for every encounter of that patient.
   it('omits medications that were removed from the chart', () => {
     mockChartData = {
       medications: [medication('Ibuprofen 200 mg', 'active'), medication('Acetaminophen 500 mg', 'completed')],

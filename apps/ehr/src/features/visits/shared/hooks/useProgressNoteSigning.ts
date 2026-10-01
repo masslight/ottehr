@@ -21,13 +21,13 @@ import {
 } from 'utils/lib/types/api/sign-appointment/sign-appointment.types';
 import { PRACTITIONER_CODINGS } from 'utils/lib/types/data/appointments/appointments.types';
 import { getInPersonVisitStatus, getSupervisorApprovalStatus } from 'utils/lib/utils/visitUtils';
-import { useAppointmentData, useChartData } from '../stores/appointment/appointment.store';
+import { useAppointmentData } from '../stores/appointment/appointment.store';
 import { useSignAppointmentMutation } from '../stores/tracking-board/tracking-board.queries';
 import { useAssignedProvider } from './useAssignedProvider';
 import { useGetAppointmentAccessibility } from './useGetAppointmentAccessibility';
 import { useOystehrAPIClient } from './useOystehrAPIClient';
 import { usePractitionerActions } from './usePractitioner';
-import { useProgressNoteChartFields } from './useProgressNoteChartFields';
+import { useVisitNote } from './useVisitNote';
 
 export interface ProgressNoteSigning {
   /** The note is already signed, or awaiting supervisor approval. */
@@ -51,8 +51,7 @@ export interface ProgressNoteSigning {
  */
 export const useProgressNoteSigning = (): ProgressNoteSigning => {
   const { appointment, encounter, appointmentRefetch } = useAppointmentData();
-  const { chartData } = useChartData();
-  const { data: chartFields } = useProgressNoteChartFields();
+  const { data: note } = useVisitNote();
   const appointmentAccessibility = useGetAppointmentAccessibility();
   const isFollowup = appointmentAccessibility.visitType === 'follow-up';
 
@@ -83,17 +82,17 @@ export const useProgressNoteSigning = (): ProgressNoteSigning => {
   const { data: progressNoteConfig } = useProgressNoteConfig();
   const mdmRequired = progressNoteConfig?.mdmRequired ?? true;
 
-  const primaryDiagnosis = (chartData?.diagnosis || []).find((item) => item.isPrimary);
-  const medicalDecision = chartFields?.medicalDecision?.text;
-  const hpi = chartFields?.chiefComplaint?.text;
-  const emCode = chartData?.emCode;
-  const patientInfoConfirmed = chartFields?.patientInfoConfirmed?.value;
-  const hasAccidentType = (chartFields?.accident?.type?.length ?? 0) > 0;
-  const isAutoAccident = chartFields?.accident?.type?.includes('AA') ?? false;
-  const accidentMissingDate = hasAccidentType && !chartFields?.accident?.date;
-  const accidentMissingState = isAutoAccident && !chartFields?.accident?.state;
-  const inHouseLabResultsPending = chartFields?.inHouseLabResults?.resultsPending;
-  const inHouseLabReflexTestPending = chartFields?.inHouseLabResults?.reflexTestsPending;
+  const primaryDiagnosis = (note?.assessment.diagnosis || []).find((item) => item.isPrimary);
+  const medicalDecision = note?.encounterNotes.medicalDecision?.text;
+  const hpi = note?.encounterNotes.chiefComplaint?.text;
+  const emCode = note?.assessment.emCode;
+  const patientInfoConfirmed = note?.encounterNotes.patientInfoConfirmed?.value;
+  const hasAccidentType = (note?.encounterNotes.accident?.type?.length ?? 0) > 0;
+  const isAutoAccident = note?.encounterNotes.accident?.type?.includes('AA') ?? false;
+  const accidentMissingDate = hasAccidentType && !note?.encounterNotes.accident?.date;
+  const accidentMissingState = isAutoAccident && !note?.encounterNotes.accident?.state;
+  const inHouseLabResultsPending = note?.inHouseLabResults?.resultsPending;
+  const inHouseLabReflexTestPending = note?.inHouseLabResults?.reflexTestsPending;
 
   const { isEncounterUpdatePending } = usePractitionerActions(encounter, 'end', PRACTITIONER_CODINGS.Attender);
 
