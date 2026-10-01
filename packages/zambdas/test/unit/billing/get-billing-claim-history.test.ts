@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { captureException } from '@sentry/aws-serverless';
 import { Organization, Practitioner, Provenance, Resource } from 'fhir/r4b';
+import { Secrets } from 'utils/lib/secrets';
 import {
   CLAIM_PROVENANCE_ACKNOWLEDGMENT_EXTENSION_URL,
   CLAIM_PROVENANCE_ACTIVITY,
@@ -388,7 +389,7 @@ describe('get-billing-claim-history performEffect', () => {
 
     const { entries } = await performEffect(oystehr, {
       claimId: 'c1',
-      secrets: null,
+      secrets: { ENVIRONMENT: 'staging' } as unknown as Secrets,
     });
 
     expect(entries[0].acknowledgment).toBeUndefined();

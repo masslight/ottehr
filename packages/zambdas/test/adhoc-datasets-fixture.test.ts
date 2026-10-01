@@ -386,8 +386,8 @@ const screeningObservations: FhirResource[] = [
   screeningObs('obs-scr-1', PATIENT_BREASTFEEDING_STATUS, 'not-applicable', '2026-07-01T14:06:00.000Z'),
   screeningObs('obs-scr-2', SEEN_IN_LAST_THREE_YEARS_FIELD, 'no', '2026-07-01T14:06:00.000Z'),
   screeningObs('obs-scr-3', SEEN_IN_LAST_THREE_YEARS_FIELD, 'yes', '2026-07-01T14:08:00.000Z'),
-  screeningObs('obs-scr-4', 'covid-symptoms', true, '2026-07-01T14:07:00.000Z'),
-  screeningObs('obs-scr-5', 'tested-positive-covid', false, '2026-07-01T14:05:00.000Z'),
+  screeningObs('obs-scr-4', 'travel-usa', true, '2026-07-01T14:07:00.000Z'),
+  screeningObs('obs-scr-5', 'depression-hopelessness', false, '2026-07-01T14:05:00.000Z'),
 ];
 
 const medicationAdministrations: FhirResource[] = [
@@ -595,15 +595,15 @@ describe('ad-hoc dataset zambdas: mapped rows parse against their Zod schema (fi
     expect(issuesOf(AdHocEncountersOutputSchema.safeParse({ encounters: rows }))).toEqual([]);
     expect(row.screeningAnswers).toEqual([
       { question: 'Has the patient been seen in one of our offices / telemed in last 3 years?', answer: 'Yes' },
-      { question: 'Do you have any COVID symptoms?', answer: 'Yes' },
+      { question: 'Have you traveled out of the USA in the last 2 weeks?', answer: 'Yes' },
       { question: 'Are you currently breastfeeding?', answer: 'Not applicable' },
-      { question: 'Have you tested positive for COVID?', answer: 'No' },
+      { question: 'Any feelings of depression or hopelessness?', answer: 'No' },
     ]);
     expect(row.screeningQuestions).toEqual([
       'Has the patient been seen in one of our offices / telemed in last 3 years?',
-      'Do you have any COVID symptoms?',
+      'Have you traveled out of the USA in the last 2 weeks?',
       'Are you currently breastfeeding?',
-      'Have you tested positive for COVID?',
+      'Any feelings of depression or hopelessness?',
     ]);
   });
 
