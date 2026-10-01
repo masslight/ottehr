@@ -148,7 +148,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       secrets,
       RESPONSE_SCHEMA,
       VERTEX_AI_MODEL,
-      { feature: 'infer-adhoc-report-layers' }
+      undefined,
+      'infer-adhoc-report-layers'
     );
     const parsed = fixAndParseJsonObjectFromString(raw) as {
       layerIds?: unknown;

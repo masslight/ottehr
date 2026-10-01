@@ -350,9 +350,14 @@ export const index = wrapHandler(
     console.log(`[recommend-billing-suggestions] prompt length ${prompt.length} chars`);
 
     const aiResponseString = await timed('invokeChatbotVertexAI', () =>
-      invokeChatbotVertexAI([{ text: prompt }], secrets, billingSuggestionsSchema, undefined, {
-        feature: 'recommend-billing-suggestions',
-      })
+      invokeChatbotVertexAI(
+        [{ text: prompt }],
+        secrets,
+        billingSuggestionsSchema,
+        undefined,
+        undefined,
+        'recommend-billing-suggestions'
+      )
     );
     // const aiResponseString = (await invokeChatbot([{ role: 'user', content: prompt }], secrets)).content.toString();
 

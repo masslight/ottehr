@@ -153,7 +153,8 @@ export async function extractPhotoIdFieldsFromImage(
     secrets,
     photoIdResponseSchema,
     undefined,
-    { feature: 'extract-photo-id' }
+    undefined,
+    'extract-photo-id'
   );
   const parsed = parseModelResponse(rawModelResponse);
   return { ...parsed, unsupportedContentType: false };

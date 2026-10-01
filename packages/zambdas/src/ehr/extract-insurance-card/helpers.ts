@@ -153,7 +153,8 @@ export async function extractInsuranceCardFieldsFromImage(
     secrets,
     insuranceCardResponseSchema,
     undefined,
-    { feature: 'extract-insurance-card' }
+    undefined,
+    'extract-insurance-card'
   );
   const parsed = parseModelResponse(rawModelResponse);
   return { ...parsed, unsupportedContentType: false };
