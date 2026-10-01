@@ -14,17 +14,22 @@ import {
   Procedure,
   Resource,
 } from 'fhir/r4b';
+import { getCptBillableUnitsFromCoding } from 'utils/lib/fhir/billing';
 import { PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { getPatientFirstName, getPatientLastName, mapGenderToLabel } from 'utils/lib/fhir/patient';
 import { parsePaymentRefundsFromNotice, settledRefundTotalInCents } from 'utils/lib/fhir/paymentRefunds';
 import { AdHocBillingInput, AdHocBillingRow } from 'utils/lib/types/adhoc/datasets/billing';
+import { PatientAccountAndCoverageResources } from 'utils/lib/types/data/account';
 import {
   buildEncounterRowContext,
   fetchAppointmentReportResources,
   fetchScopedResources,
   resolveEncounterAppointment,
 } from '../adhoc-report';
+import { getCptModifierCodeFromProcedure } from '../candid';
 import { fetchAllPages } from '../fhir';
+import { composeInsuranceData } from '../pdf/sections/insuranceInfo';
+import { fetchPatientAccounts } from './patient-accounts';
 
 const CPT_SYSTEM = 'http://www.ama-assn.org/go/cpt';
 const round2 = (n: number): number => Math.round(n * 100) / 100;
@@ -117,7 +122,7 @@ export async function fetchAdHocBillingRows(oystehr: Oystehr, params: AdHocBilli
 
   const paymentsByEncId = new Map<string, PaymentNotice[]>();
   const chargesByEncId = new Map<string, ChargeItem[]>();
-  const coveragesByPatId = new Map<string, Coverage[]>();
+  let accountsByPatient = new Map<string, PatientAccountAndCoverageResources>();
   const proceduresByEncId = new Map<string, Procedure[]>();
   const conditionById = new Map<string, Condition>();
   const cptPriceMap = new Map<string, number>(); // CPT code -> fee-schedule price (USD)
@@ -153,13 +158,9 @@ export async function fetchAdHocBillingRows(oystehr: Oystehr, params: AdHocBilli
       }
     }
     if (includeCoverage) {
-      const patRefs = Array.from(
-        new Set(encounters.map((e) => e.subject?.reference).filter((r): r is string => Boolean(r)))
-      );
-      const coverages = await fetchScoped<Coverage>('Coverage', 'patient', patRefs, [
-        { name: '_elements', value: 'status,type,payor,beneficiary,subscriberId,relationship,order,class' },
-      ]);
-      for (const c of coverages) pushTo(coveragesByPatId, stripRef(c.beneficiary?.reference), c);
+      // The patient-account page's coverage picture: primary / secondary by the Account's coverage priority,
+      // workers' comp kept apart on its own Account, payers resolved.
+      accountsByPatient = await fetchPatientAccounts(oystehr, Array.from(patientMap.values()));
     }
     if (includeCodes) {
       const dxIds = Array.from(
@@ -261,35 +262,42 @@ export async function fetchAdHocBillingRows(oystehr: Oystehr, params: AdHocBilli
     }
 
     if (includeCoverage) {
-      // Only active coverage participates in primary/secondary selection — a cancelled/draft/
-      // entered-in-error plan must not be reported as the payer.
-      const coverages = (patient?.id ? coveragesByPatId.get(patient.id) ?? [] : [])
-        .filter((c) => c.status === 'active')
-        .sort((a, b) => (a.order ?? 99) - (b.order ?? 99));
-      const primary = coverages[0];
-      const secondary = coverages[1];
+      const account = patient?.id ? accountsByPatient.get(`Patient/${patient.id}`) : undefined;
+      const { primary, secondary } = account?.coverages ?? {};
+
+      // The face sheet's insurance composer: carrier from the resolved payer, member id from the MB identifier.
+      const insurance = composeInsuranceData({
+        coverages: account?.coverages ?? {},
+        insuranceOrgs: account?.insuranceOrgs ?? [],
+      });
+
       const primaryTypeCode = primary?.type?.coding?.[0]?.code;
+
       row.payerType = !primary
         ? 'Unknown'
         : primaryTypeCode && SELF_PAY_TYPE_CODES.has(primaryTypeCode)
         ? 'Self-pay'
         : 'Insured';
-      row.primaryPayer = planName(primary);
+
+      row.primaryPayer = insurance.primary.insuranceCarrier || planName(primary);
       row.insuranceType = primary?.type?.coding?.[0]?.display || primaryTypeCode || '';
-      row.memberId = primary?.subscriberId || '';
+      row.memberId = insurance.primary.memberId || primary?.subscriberId || '';
       row.subscriberRelationship =
         primary?.relationship?.coding?.[0]?.display || primary?.relationship?.coding?.[0]?.code || '';
       row.coverageStatus = primary?.status || '';
-      row.secondaryPayer = planName(secondary);
+      row.secondaryPayer = insurance.secondary.insuranceCarrier || planName(secondary);
     }
 
     let expectedCharge: number | null = null;
     if (includeCharges) {
       const charges = chargesByEncId.get(encId) ?? [];
+
       const lineCpts = charges
         .map((c) => c.code?.coding?.find((cd) => cd.system === CPT_SYSTEM)?.code)
         .filter((c): c is string => Boolean(c));
+
       const cpts = Array.from(new Set(lineCpts));
+
       // Price PER line item (two charges with the same CPT bill twice — chargeCount already counts
       // them both). When none of the line items could be priced (CPT absent from the charge
       // master), expectedCharge is null, not 0 — a 0 here would make outstandingBalance read as a
@@ -310,22 +318,40 @@ export async function fetchAdHocBillingRows(oystehr: Oystehr, params: AdHocBilli
     if (includeCodes) {
       const procedures = proceduresByEncId.get(encId) ?? [];
       const cptCodes: string[] = [];
+      const cptModifiers: string[] = [];
+      const cptBillableUnits: number[] = [];
       let emCode: string | undefined;
       for (const procedure of procedures) {
-        const code = procedure.code?.coding?.find((c) => c.system === CPT_SYSTEM)?.code;
+        const coding = procedure.code?.coding?.find((c) => c.system === CPT_SYSTEM);
+        const code = coding?.code;
+
         if (!code) continue;
+
         if (hasChartTag(procedure, 'em-code')) emCode = emCode ?? code;
-        else if (hasChartTag(procedure, 'cpt-code') && !cptCodes.includes(code)) cptCodes.push(code);
+        else if (hasChartTag(procedure, 'cpt-code') && !cptCodes.includes(code)) {
+          cptCodes.push(code);
+          // Modifiers and units as the chart's CPT DTO (makeCPTCodeDTO) and the claim read them.
+          cptModifiers.push((getCptModifierCodeFromProcedure(procedure) ?? []).map((m) => m.code).join(','));
+          cptBillableUnits.push(getCptBillableUnitsFromCoding(coding) ?? 1);
+        }
       }
+
       const icdCodes: string[] = [];
-      for (const d of encounter.diagnosis ?? []) {
+
+      // Primary (rank 1) first, as the chart and the claim order the diagnoses.
+      const diagnoses = [...(encounter.diagnosis ?? [])].sort((a, b) => (a.rank ?? 99) - (b.rank ?? 99));
+
+      for (const d of diagnoses) {
         const cid = stripRef(d.condition?.reference, 'Condition');
         const condition = cid ? conditionById.get(cid) : undefined;
         const icd = condition?.code?.coding?.find((c) => c.system?.includes('icd'))?.code;
+
         if (icd && !icdCodes.includes(icd)) icdCodes.push(icd);
       }
       row.cptCodes = cptCodes;
-      row.emCode = emCode;
+      row.cptModifiers = cptModifiers;
+      row.cptBillableUnits = cptBillableUnits;
+      row.emCode = emCode ?? '';
       row.icdCodes = icdCodes;
     }
 
