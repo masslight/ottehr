@@ -1,6 +1,11 @@
 import Oystehr from '@oystehr/sdk';
 import { Appointment, Encounter, FhirResource, Location, Organization, Patient, Practitioner } from 'fhir/r4b';
-import { PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
+import {
+  FHIR_EXTENSION,
+  OCCUPATIONAL_MEDICINE_ACCOUNT_TYPE,
+  PATIENT_BILLING_ACCOUNT_TYPE,
+  PRIVATE_EXTENSION_BASE_URL,
+} from 'utils/lib/fhir/constants';
 import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
 import { AdHocPatientsOutputSchema } from 'utils/lib/types/adhoc/datasets/patients';
 import { PRACTICE_NAME_URL } from 'utils/lib/types/constants';
@@ -142,7 +147,79 @@ const chartResources: FhirResource[] = [
   },
 ] as FhirResource[];
 
+// pat-1's account picture, shaped as the patient-account harvest writes it: a billing Account with a contained
+// guarantor (a parent) and the primary Coverage, an occupational-medicine Account owned by the employer, the
+// payer Organization and an emergency contact.
+const orgType = (code: string): Organization['type'] => [
+  { coding: [{ system: FHIR_EXTENSION.Organization.organizationType.url, code }] },
+];
+
+const accountResources: FhirResource[] = [
+  {
+    resourceType: 'Account',
+    id: 'acct-1',
+    status: 'active',
+    type: PATIENT_BILLING_ACCOUNT_TYPE,
+    subject: [{ reference: 'Patient/pat-1' }],
+    guarantor: [{ party: { reference: '#rp-guarantor' } }],
+    coverage: [{ coverage: { reference: 'Coverage/cov-1' }, priority: 1 }],
+    contained: [
+      {
+        resourceType: 'RelatedPerson',
+        id: 'rp-guarantor',
+        patient: { reference: 'Patient/pat-1' },
+        name: [{ given: ['Mary'], family: 'Doe' }],
+        relationship: [{ coding: [{ code: 'parent', display: 'Parent' }] }],
+      },
+    ],
+  },
+  {
+    resourceType: 'Account',
+    id: 'acct-om',
+    status: 'active',
+    type: OCCUPATIONAL_MEDICINE_ACCOUNT_TYPE,
+    subject: [{ reference: 'Patient/pat-1' }],
+    owner: { reference: 'Organization/emp-1' },
+  },
+  {
+    resourceType: 'Coverage',
+    id: 'cov-1',
+    status: 'active',
+    order: 1,
+    beneficiary: { reference: 'Patient/pat-1' },
+    payor: [{ reference: 'Organization/payer-1' }],
+    class: [{ type: { coding: [{ code: 'plan' }] }, value: '60054' }],
+    identifier: [
+      { type: { coding: [{ code: 'MB' }] }, value: 'MEM-123', assigner: { reference: 'Organization/payer-1' } },
+    ],
+    relationship: { coding: [{ code: 'child', display: 'Child' }] },
+  },
+  {
+    resourceType: 'Organization',
+    id: 'payer-1',
+    name: 'Aetna',
+    type: orgType('pay'),
+    identifier: [{ system: 'https://identifiers.fhir.oystehr.com/rcm-payer-id', value: '60054' }],
+  },
+  {
+    resourceType: 'Organization',
+    id: 'emp-1',
+    name: 'Acme Corp',
+    type: orgType('occupational-medicine-employer'),
+  },
+  {
+    resourceType: 'RelatedPerson',
+    id: 'ec-1',
+    patient: { reference: 'Patient/pat-1' },
+    name: [{ given: ['Tom'], family: 'Doe' }],
+    relationship: [
+      { coding: [{ system: 'http://terminology.hl7.org/CodeSystem/v2-0131', code: 'EP', display: 'Spouse' }] },
+    ],
+  },
+] as FhirResource[];
+
 const resourcesByJob: Record<string, FhirResource[]> = {
+  Patient: [returningPatient, newPatient, ...accountResources],
   Appointment: [
     appointment('appt-1', 'pat-1'),
     appointment('appt-2', 'pat-2'),
@@ -195,6 +272,35 @@ const issuesOf = (result: { success: boolean; error?: { issues: unknown[] } }): 
   result.success ? [] : result.error?.issues ?? ['unknown'];
 
 describe('ad-hoc Patients: layers mapped with the app logic (fixture)', () => {
+  it('contacts, insurance and employers: the patient-account picture through the face-sheet composers', async () => {
+    const rows = await fetchAdHocPatientRows(fakeOystehr, {
+      dateRange,
+      includeContacts: true,
+      includeInsurance: true,
+      includeEmployers: true,
+    });
+    expect(issuesOf(AdHocPatientsOutputSchema.safeParse({ patients: rows }))).toEqual([]);
+    expect(rows.find((r) => r.patientId === 'pat-1')).toMatchObject({
+      responsiblePartyRelationship: 'Parent',
+      responsiblePartyName: 'Mary Doe',
+      emergencyContactRelationship: 'Spouse',
+      emergencyContactName: 'Tom Doe',
+      insured: true,
+      primaryInsuranceCarrier: 'Aetna',
+      primaryMemberId: 'MEM-123',
+      primaryRelationshipToInsured: 'Child',
+      secondaryInsuranceCarrier: '',
+      occupationalMedicineEmployer: 'Acme Corp',
+      workersCompEmployer: '',
+    });
+    expect(rows.find((r) => r.patientId === 'pat-2')).toMatchObject({
+      responsiblePartyRelationship: '',
+      insured: false,
+      primaryInsuranceCarrier: '',
+      occupationalMedicineEmployer: '',
+    });
+  });
+
   it('chart lists: built by the chart mapper, with current / history status', async () => {
     const rows = await fetchAdHocPatientRows(fakeOystehr, {
       dateRange,

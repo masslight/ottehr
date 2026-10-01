@@ -259,6 +259,7 @@ export const ENCOUNTER_DOMAIN_FIELDS: readonly (keyof AdHocEncounterRow)[] = [
   'screeningQuestions',
   'workSchoolNotes',
   'procedureTypes',
+  'occupationalMedicineEmployer',
 ];
 
 // Opt-in layers, declared once (metadata + Zod field schema). Row/response schema, endpoint input
@@ -719,6 +720,19 @@ export const ENCOUNTER_LAYERS = {
         )
         .describe(
           'Vaccine orders on the visit that were not given (pending, not administered, cancelled). Empty when none.'
+        ),
+    }),
+  },
+  employer: {
+    label: 'Occupational medicine employer',
+    description: 'The occupational-medicine employer of the visit, as printed on the visit details face sheet.',
+    schema: z.object({
+      occupationalMedicineEmployer: z
+        .string()
+        .describe(
+          'Employer name: for pre-op visits the employer picked for THIS visit; otherwise the occupational-' +
+            "medicine employer on the patient's account (it may be set on any visit — filter by serviceCategory " +
+            'for occupational-medicine visits). "" when none.'
         ),
     }),
   },
