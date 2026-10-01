@@ -523,8 +523,9 @@ export const CreateBillingClaimTaskInputSchema = z.object({
   encounterId: z.string().uuid(),
 });
 
-export const RetryBillingClaimTaskInputSchema = z.object({
+export const UpdateBillingClaimTaskInputSchema = z.object({
   taskId: z.string().uuid(),
+  action: z.enum(['retry', 'cancel']),
 });
 
 export const SearchBillingClaimTasksInputSchema = z.object({
@@ -929,7 +930,7 @@ export type CreateBillingClaimFromEncounterInput = z.output<typeof CreateBilling
 export type CreateBillingClaimTaskInput = z.output<typeof CreateBillingClaimTaskInputSchema>;
 export type RecordBillingRefundInput = z.output<typeof RecordBillingRefundInputSchema>;
 export type RecordBillingVoidInput = z.output<typeof RecordBillingVoidInputSchema>;
-export type RetryBillingClaimTaskInput = z.output<typeof RetryBillingClaimTaskInputSchema>;
+export type UpdateBillingClaimTaskInput = z.output<typeof UpdateBillingClaimTaskInputSchema>;
 export type SearchBillingClaimTasksInput = z.output<typeof SearchBillingClaimTasksInputSchema>;
 export type UpdateBillingResourceInput = z.output<typeof UpdateBillingResourceInputSchema>;
 export type BillingResourceType = (typeof ALLOWED_BILLING_RESOURCE_TYPES)[number];
