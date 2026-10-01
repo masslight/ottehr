@@ -15,6 +15,7 @@ import {
   disassociatePayer,
   findApplicableFeeSchedule,
   FindApplicableFeeScheduleResponse,
+  getChargeItemDefinitionVersion,
   getVersionHistory,
   GetVersionHistoryResponse,
   listFeeSchedules,
@@ -220,5 +221,29 @@ export const useGetVersionHistoryQuery = (
     },
 
     enabled: !!oystehrZambda && !!resourceId && enabled,
+    retry: false,
+  });
+};
+
+export const useGetChargeItemDefinitionVersionQuery = (
+  resourceId: string | undefined,
+  versionId: string | undefined,
+  enabled: boolean
+): UseQueryResult<ChargeItemDefinition, Error> => {
+  const { oystehrZambda } = useApiClients();
+
+  return useQuery({
+    queryKey: ['charge-item-definition-version', resourceId, versionId],
+
+    queryFn: async () => {
+      if (!oystehrZambda) throw new Error('OystehrZambda is not defined');
+      if (!resourceId || !versionId) throw new Error('resourceId and versionId are required');
+
+      return getChargeItemDefinitionVersion(oystehrZambda, { resourceId, versionId });
+    },
+
+    enabled: !!oystehrZambda && !!resourceId && !!versionId && enabled,
+    staleTime: Infinity,
+    retry: false,
   });
 };

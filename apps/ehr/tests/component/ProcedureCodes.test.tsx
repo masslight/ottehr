@@ -1,10 +1,11 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ChargeItemDefinition } from 'fhir/r4b';
 import { ReactNode } from 'react';
+import { GetVersionHistoryResponse } from 'src/rcm/state/fee-schedules/fee-schedule.api';
 import { CPT_CODE_SYSTEM, CPT_MODIFIER_EXTENSION_URL } from 'utils/lib/fhir/constants';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // ============================================================================
 // MOCKS
@@ -20,16 +21,25 @@ const mockUpdateCode = vi.fn();
 const mockDeleteCode = vi.fn();
 const mockBulkAdd = vi.fn();
 
+interface QueryState<T> {
+  data: T | undefined;
+  isFetching: boolean;
+  isError: boolean;
+}
+
+const idleQuery = <T,>(): QueryState<T> => ({ data: undefined, isFetching: false, isError: false });
+let mockVersionHistory: QueryState<GetVersionHistoryResponse> = idleQuery();
+let mockSelectedVersion: QueryState<ChargeItemDefinition> = idleQuery();
+const mockUseGetVersionHistoryQuery = vi.fn((..._args: unknown[]) => mockVersionHistory);
+const mockUseGetChargeItemDefinitionVersionQuery = vi.fn((..._args: unknown[]) => mockSelectedVersion);
+
 vi.mock('src/rcm/state/fee-schedules/fee-schedule.queries', () => ({
   useAddProcedureCodeMutation: () => ({ mutateAsync: mockAddCode, isPending: false }),
   useUpdateProcedureCodeMutation: () => ({ mutateAsync: mockUpdateCode, isPending: false }),
   useDeleteProcedureCodeMutation: () => ({ mutateAsync: mockDeleteCode, isPending: false }),
   useBulkAddProcedureCodesMutation: () => ({ mutateAsync: mockBulkAdd, isPending: false }),
-  useGetVersionHistoryQuery: () => ({
-    data: undefined,
-    isFetching: false,
-    error: null,
-  }),
+  useGetVersionHistoryQuery: (...args: unknown[]) => mockUseGetVersionHistoryQuery(...args),
+  useGetChargeItemDefinitionVersionQuery: (...args: unknown[]) => mockUseGetChargeItemDefinitionVersionQuery(...args),
 }));
 
 vi.mock('src/rcm/state/charge-masters/charge-master.queries', () => ({
@@ -84,13 +94,15 @@ if (!File.prototype.text) {
 // ============================================================================
 
 function makeFeeSchedule(
-  codes: Array<{ code: string; modifier?: string; amount: number; description?: string }>
+  codes: Array<{ code: string; modifier?: string; amount: number; description?: string }>,
+  overrides: Partial<ChargeItemDefinition> = {}
 ): ChargeItemDefinition {
   return {
     resourceType: 'ChargeItemDefinition',
     id: 'fs-test-1',
     status: 'active',
     url: 'http://example.com/fee-schedule',
+    ...overrides,
     propertyGroup: codes.map((entry) => ({
       priceComponent: [
         {
@@ -144,6 +156,8 @@ describe('ProcedureCodes', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockCptSearchOptions = [];
+    mockVersionHistory = idleQuery();
+    mockSelectedVersion = idleQuery();
   });
 
   describe('renders correctly', () => {
@@ -464,6 +478,274 @@ describe('ProcedureCodes', () => {
       await waitFor(() => {
         expect(screen.getByText(/showing 1 of 2 codes/i)).toBeInTheDocument();
       });
+    });
+  });
+
+  describe('Download CSV', () => {
+    const CURRENT = { versionId: 'v3', timestamp: '2026-03-01T10:20:30.250Z' };
+    const PREVIOUS = { versionId: 'v2', timestamp: '2026-01-02T03:04:06.010Z' };
+    const OLDEST = { versionId: 'v1', timestamp: '2025-12-01T00:00:00.300Z' };
+    const CURRENT_CODES = [
+      { code: '99213', amount: 100 },
+      { code: '99214', modifier: '25', amount: 200.5 },
+    ];
+    const previousVersion = makeFeeSchedule(
+      [
+        { code: '99213', amount: 80 },
+        { code: '99215', amount: 300 },
+        { code: '99214', modifier: '25', amount: 200.5 },
+      ],
+      { meta: { versionId: PREVIOUS.versionId, lastUpdated: '2026-01-02T03:04:05.678Z' } }
+    );
+
+    let blobs: Blob[];
+    let downloadNames: string[];
+    let anchorClick: ReturnType<typeof vi.spyOn>;
+    const originalCreateObjectURL = URL.createObjectURL;
+    const originalRevokeObjectURL = URL.revokeObjectURL;
+
+    beforeEach(() => {
+      blobs = [];
+      downloadNames = [];
+      URL.createObjectURL = vi.fn((blob: Blob) => {
+        blobs.push(blob);
+        return 'blob:mock';
+      });
+      URL.revokeObjectURL = vi.fn();
+      anchorClick = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (
+        this: HTMLAnchorElement
+      ) {
+        downloadNames.push(this.download);
+      });
+      mockVersionHistory = { data: { versions: [CURRENT, PREVIOUS, OLDEST] }, isFetching: false, isError: false };
+    });
+
+    afterEach(() => {
+      URL.createObjectURL = originalCreateObjectURL;
+      URL.revokeObjectURL = originalRevokeObjectURL;
+      anchorClick.mockRestore();
+    });
+
+    const readBlob = (blob: Blob): Promise<string> =>
+      new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = () => reject(reader.error);
+        reader.readAsText(blob);
+      });
+
+    const scheduleId = (mode: 'fee-schedule' | 'charge-master'): string =>
+      mode === 'charge-master' ? 'cm-test-1' : 'fs-test-1';
+
+    const renderSchedule = (mode: 'fee-schedule' | 'charge-master' = 'fee-schedule'): void => {
+      render(
+        <ProcedureCodes
+          feeSchedule={makeFeeSchedule(CURRENT_CODES, {
+            id: scheduleId(mode),
+            title: 'BCBS 2026',
+            meta: { versionId: CURRENT.versionId, lastUpdated: '2026-03-01T10:20:30.000Z' },
+          })}
+          isFetching={false}
+          mode={mode}
+        />,
+        { wrapper: createWrapper() }
+      );
+    };
+
+    type User = ReturnType<typeof userEvent.setup>;
+
+    const openDeltaMode = async (user: User): Promise<void> => {
+      await user.click(screen.getByRole('button', { name: 'Download CSV' }));
+      await user.click(screen.getByRole('radio', { name: /^Delta since a previous version/ }));
+    };
+
+    const versionOptions = async (user: User): Promise<string[]> => {
+      await user.click(screen.getByRole('combobox', { name: /compare against version/i }));
+      const listbox = await screen.findByRole('listbox');
+      return within(listbox)
+        .getAllByRole('option')
+        .map((option) => option.textContent ?? '');
+    };
+
+    const selectVersion = async (user: User, timestamp: string): Promise<void> => {
+      await user.click(screen.getByRole('combobox', { name: /compare against version/i }));
+      const listbox = await screen.findByRole('listbox');
+      await user.click(within(listbox).getByRole('option', { name: new Date(timestamp).toLocaleString() }));
+    };
+
+    const downloadButton = (): HTMLElement => screen.getByRole('button', { name: 'Download' });
+
+    it('downloads the latest version with the existing CSV schema and filename', async () => {
+      const user = userEvent.setup();
+      renderSchedule();
+
+      await user.click(screen.getByRole('button', { name: 'Download CSV' }));
+      await user.click(downloadButton());
+
+      expect(downloadNames).toEqual(['BCBS_2026_procedure_codes.csv']);
+      expect(await readBlob(blobs[0])).toBe(
+        ['"Procedure Code","Modifier","Amount"', '"99213","","100.00"', '"99214","25","200.50"'].join('\n')
+      );
+      expect(mockUseGetChargeItemDefinitionVersionQuery).not.toHaveBeenCalledWith(
+        expect.anything(),
+        expect.any(String),
+        true
+      );
+    });
+
+    it('requests the version list only while the dialog is open', async () => {
+      const user = userEvent.setup();
+      renderSchedule();
+
+      expect(mockUseGetVersionHistoryQuery).toHaveBeenLastCalledWith('fs-test-1', false);
+      await user.click(screen.getByRole('button', { name: 'Download CSV' }));
+      expect(mockUseGetVersionHistoryQuery).toHaveBeenLastCalledWith('fs-test-1', true);
+    });
+
+    it('labels versions with their list timestamp and leaves out the version on screen', async () => {
+      const user = userEvent.setup();
+      renderSchedule();
+      await openDeltaMode(user);
+
+      expect(await versionOptions(user)).toEqual([
+        new Date(PREVIOUS.timestamp).toLocaleString(),
+        new Date(OLDEST.timestamp).toLocaleString(),
+      ]);
+    });
+
+    it('lists a version newer than the one on screen, such as one supplemented from the history, and leaves out the version on screen', async () => {
+      const newer = { versionId: 'v4', timestamp: '2026-04-01T00:00:00.000Z' };
+      mockVersionHistory = { data: { versions: [newer, CURRENT, PREVIOUS] }, isFetching: false, isError: false };
+      const user = userEvent.setup();
+      renderSchedule();
+      await openDeltaMode(user);
+
+      expect(await versionOptions(user)).toEqual([
+        new Date(newer.timestamp).toLocaleString(),
+        new Date(PREVIOUS.timestamp).toLocaleString(),
+      ]);
+    });
+
+    it('disables the delta option when the version list is unavailable', async () => {
+      mockVersionHistory = { data: undefined, isFetching: false, isError: true };
+      const user = userEvent.setup();
+      renderSchedule();
+      await user.click(screen.getByRole('button', { name: 'Download CSV' }));
+
+      expect(screen.getByRole('radio', { name: /\(unavailable\)/ })).toBeDisabled();
+    });
+
+    it.each(['fee-schedule', 'charge-master'] as const)(
+      'fetches only the selected historical version in %s mode',
+      async (mode) => {
+        const user = userEvent.setup();
+        renderSchedule(mode);
+        await openDeltaMode(user);
+
+        expect(mockUseGetChargeItemDefinitionVersionQuery).toHaveBeenLastCalledWith(scheduleId(mode), undefined, true);
+
+        await selectVersion(user, PREVIOUS.timestamp);
+
+        expect(mockUseGetChargeItemDefinitionVersionQuery).toHaveBeenLastCalledWith(
+          scheduleId(mode),
+          PREVIOUS.versionId,
+          true
+        );
+        const requestedVersions = mockUseGetChargeItemDefinitionVersionQuery.mock.calls
+          .map(([, versionId]) => versionId)
+          .filter((versionId) => versionId !== undefined);
+        expect(new Set(requestedVersions)).toEqual(new Set([PREVIOUS.versionId]));
+      }
+    );
+
+    it('shows a loading state while the selected version is fetched', async () => {
+      mockSelectedVersion = { data: undefined, isFetching: true, isError: false };
+      const user = userEvent.setup();
+      renderSchedule();
+      await openDeltaMode(user);
+      await selectVersion(user, PREVIOUS.timestamp);
+
+      expect(screen.getByText('Computing changes...')).toBeInTheDocument();
+      expect(screen.queryByText(/no changes found/i)).not.toBeInTheDocument();
+      expect(downloadButton()).toBeDisabled();
+    });
+
+    it('shows an error instead of an empty delta when the selected version cannot be fetched', async () => {
+      mockSelectedVersion = { data: undefined, isFetching: false, isError: true };
+      const user = userEvent.setup();
+      renderSchedule();
+      await openDeltaMode(user);
+      await selectVersion(user, PREVIOUS.timestamp);
+
+      expect(screen.getByText(/error loading the selected version/i)).toBeInTheDocument();
+      expect(screen.queryByText(/no changes found/i)).not.toBeInTheDocument();
+      expect(downloadButton()).toBeDisabled();
+    });
+
+    it('refuses to compare against a version other than the one selected', async () => {
+      mockSelectedVersion = {
+        data: { ...previousVersion, meta: { versionId: 'v9', lastUpdated: '2026-01-09T00:00:00.000Z' } },
+        isFetching: false,
+        isError: false,
+      };
+      const user = userEvent.setup();
+      renderSchedule();
+      await openDeltaMode(user);
+      await selectVersion(user, PREVIOUS.timestamp);
+
+      expect(screen.getByText(/error loading the selected version/i)).toBeInTheDocument();
+      expect(screen.queryByText('Changed')).not.toBeInTheDocument();
+      expect(downloadButton()).toBeDisabled();
+    });
+
+    it('previews the delta between the fetched version and the codes on screen', async () => {
+      mockSelectedVersion = { data: previousVersion, isFetching: false, isError: false };
+      const user = userEvent.setup();
+      renderSchedule();
+      await openDeltaMode(user);
+      await selectVersion(user, PREVIOUS.timestamp);
+
+      const dialog = screen.getByRole('dialog');
+      expect(within(dialog).getByText('Changed')).toBeInTheDocument();
+      expect(within(dialog).getByText('Removed')).toBeInTheDocument();
+      expect(within(dialog).getByText('99215')).toBeInTheDocument();
+      expect(within(dialog).getByText('$80.00')).toBeInTheDocument();
+      expect(within(dialog).getByText('2 changes')).toBeInTheDocument();
+      expect(downloadButton()).toBeEnabled();
+    });
+
+    it('says no changes were found when the fetched version matches the codes on screen', async () => {
+      mockSelectedVersion = {
+        data: makeFeeSchedule(CURRENT_CODES, { meta: { versionId: PREVIOUS.versionId } }),
+        isFetching: false,
+        isError: false,
+      };
+      const user = userEvent.setup();
+      renderSchedule();
+      await openDeltaMode(user);
+      await selectVersion(user, PREVIOUS.timestamp);
+
+      expect(screen.getByText(/no changes found between the selected version/i)).toBeInTheDocument();
+      expect(downloadButton()).toBeDisabled();
+    });
+
+    it('downloads the delta CSV named after the exact version time rather than the list timestamp', async () => {
+      mockSelectedVersion = { data: previousVersion, isFetching: false, isError: false };
+      const user = userEvent.setup();
+      renderSchedule();
+      await openDeltaMode(user);
+      await selectVersion(user, PREVIOUS.timestamp);
+      await user.click(downloadButton());
+
+      expect(downloadNames).toEqual(['BCBS_2026_delta_since_2026-01-02T03-04-05.csv']);
+      expect(await readBlob(blobs[0])).toBe(
+        [
+          '"Status","Procedure Code","Modifier","Old Amount","New Amount"',
+          '"Changed","99213","","80.00","100.00"',
+          '"Removed","99215","","300.00",""',
+        ].join('\n')
+      );
+      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     });
   });
 });
