@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Organization } from 'fhir/r4b';
+import { OYSTEHR_RCM_PAYER_ID_SYSTEM } from 'utils/lib/fhir/constants';
 import { getPayerId } from 'utils/lib/helpers/helpers';
 import { BillingPayerOption } from 'utils/lib/types/data/billing/billing.types';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
@@ -57,5 +58,10 @@ function mapPayer(payer: Organization): BillingPayerOption {
     id: payer.id ?? '',
     name: payer.name ?? '',
     payerId: getPayerId(payer) ?? '',
+    alternateNames: payer.alias ?? [],
+    alternatePayerIds: (payer.identifier ?? [])
+      .filter((identifier) => identifier.system === OYSTEHR_RCM_PAYER_ID_SYSTEM && identifier.use === 'old')
+      .flatMap((identifier) => (identifier.value ? [identifier.value] : [])),
+    addresses: payer.address ?? [],
   };
 }

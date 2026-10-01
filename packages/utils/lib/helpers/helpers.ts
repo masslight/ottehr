@@ -15,6 +15,7 @@ import { DateTime } from 'luxon';
 import {
   BILLING_RESOURCE_TAG,
   FHIR_IDENTIFIER_SYSTEM,
+  OYSTEHR_RCM_PAYER_ID_SYSTEM,
   PAYMENT_METHOD_EXTENSION_URL,
   PROVIDER_TYPE_EXTENSION_URL,
   SLUG_SYSTEM,
@@ -1705,9 +1706,7 @@ export const checkResourceHasSlug = (resource: ScheduleOwnerFhirResource, slug: 
 
 export const getPayerId = (org: Organization | undefined): string | undefined => {
   // First look for Oystehr payer ID by system
-  let payerId = org?.identifier?.find(
-    (identifier) => identifier.system === 'https://identifiers.fhir.oystehr.com/rcm-payer-id'
-  )?.value;
+  let payerId = org?.identifier?.find((identifier) => identifier.system === OYSTEHR_RCM_PAYER_ID_SYSTEM)?.value;
   if (!payerId) {
     // Second look at coding using PAYERID code
     payerId = org?.identifier?.find(

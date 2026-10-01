@@ -1,4 +1,4 @@
-import { Task } from 'fhir/r4b';
+import { Address, Task } from 'fhir/r4b';
 import { SubscriberRelationship } from '../../../fhir/constants';
 import { CLAIM_ACCIDENT_TYPE, CODE_SYSTEM_CLAIM_TYPE_CODES } from '../../../helpers/rcm/constants';
 import type { EraClaimStatusCode, X12AdjustmentGroupCode } from './billing.constants';
@@ -159,6 +159,9 @@ export interface BillingPayerOption {
   id: string;
   name: string;
   payerId: string;
+  alternateNames?: string[];
+  alternatePayerIds?: string[];
+  addresses?: Address[];
 }
 
 // A diagnosis (ICD-10) or procedure (CPT/HCPCS) code option from terminology search.
