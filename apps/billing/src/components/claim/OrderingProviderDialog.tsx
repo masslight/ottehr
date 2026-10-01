@@ -62,7 +62,7 @@ export function OrderingProviderDialog({
     const manual = value && !value.providerId ? value : null;
     setFirstName(manual?.firstName ?? '');
     setLastName(manual?.lastName ?? '');
-    setNpi(value?.npi ?? '');
+    setNpi(manual?.npi ?? '');
     setMode(value && !value.providerId ? 'manual' : 'existing');
     search();
   }, [open, value, search]);
