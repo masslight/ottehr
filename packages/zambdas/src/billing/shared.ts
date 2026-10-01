@@ -66,6 +66,7 @@ import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import {
   buildCoverageSubscriberRelatedPerson,
   createCoverageMemberIdentifier,
+  getExtensionValue,
   getNPI,
   getResourcesFromBatchInlineRequests,
   getSubscriberRelationshipCodeableConcept,
@@ -97,6 +98,7 @@ import {
   BillingChargeItemDefinitionProcedureCode,
   BillingProviderLicense,
   BillingProviderOption,
+  CHARGE_ITEM_DEFINITION_DEFAULTS,
   ChargeItemDefinitionDefault,
   ChargeItemDefinitionType,
   ClaimCoverageType,
@@ -113,6 +115,7 @@ import {
   isValidClaimStatusValue,
   withArStageInitialization,
 } from 'utils/lib/types/data/billing/claim-status';
+import { CLAIM_NON_INSURANCE_PAYER_EXTENSION_URL } from 'utils/lib/types/data/billing/non-insurance-org.types';
 import { RulesEngineType } from 'utils/lib/types/data/billing/rules-engine.constants';
 import { BillingRule } from 'utils/lib/types/data/billing/rules-engine.schemas';
 import { isSystemManagedTagName } from 'utils/lib/types/data/billing/system-tags';
@@ -209,6 +212,16 @@ export function buildNoCoverageStub(): ClaimInsurance {
 
 export function isNoCoverageStub(entry: ClaimInsurance): boolean {
   return entry.coverage?.identifier?.system === NO_COVERAGE_SYSTEM;
+}
+
+export function getChargeItemDefinitionDefault(claim: Claim): ChargeItemDefinitionDefault {
+  if (getExtensionValue(claim, CLAIM_NON_INSURANCE_PAYER_EXTENSION_URL, 'valueReference')?.reference) {
+    return 'non-insurance';
+  }
+  if (claimHasRealCoverage(claim.insurance)) {
+    return 'insurance';
+  }
+  return 'self-pay';
 }
 
 // True when the claim carries at least one real (non-stub) coverage.
@@ -1670,11 +1683,10 @@ export function getTypeForChargeItemDefinition(cid: ChargeItemDefinition): Charg
 export function getDefaultSettingForChargeItemDefinition(
   cid: ChargeItemDefinition
 ): ChargeItemDefinitionDefault | undefined {
-  const defaultCode = cid.meta?.tag?.find((t) => t.system === CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM)?.code;
+  const defaultCode = cid.meta?.tag?.find((t) => t.system === CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM)
+    ?.code as ChargeItemDefinitionDefault;
   const defaultValue: ChargeItemDefinitionDefault | undefined =
-    defaultCode && ['insurance', 'self-pay'].includes(defaultCode)
-      ? (defaultCode as 'insurance' | 'self-pay')
-      : undefined;
+    defaultCode && CHARGE_ITEM_DEFINITION_DEFAULTS.includes(defaultCode) ? defaultCode : undefined;
   return defaultValue;
 }
 
