@@ -1,7 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import {
   Appointment,
-  ChargeItem,
   ChargeItemDefinition,
   Condition,
   Coverage,
@@ -15,10 +14,22 @@ import {
   Resource,
 } from 'fhir/r4b';
 import { getCptBillableUnitsFromCoding } from 'utils/lib/fhir/billing';
-import { PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import { PAYMENT_METHOD_EXTENSION_URL, RCM_TAG_SYSTEM } from 'utils/lib/fhir/constants';
+import { getPaymentVariantFromEncounter, PaymentVariant } from 'utils/lib/fhir/encounter';
+import { getLocationIdFromAppointment } from 'utils/lib/fhir/helpers';
 import { getPatientFirstName, getPatientLastName, mapGenderToLabel } from 'utils/lib/fhir/patient';
 import { parsePaymentRefundsFromNotice, settledRefundTotalInCents } from 'utils/lib/fhir/paymentRefunds';
+import { extractPayerIdFromUrl } from 'utils/lib/helpers/helpers';
+import {
+  buildLineItems,
+  findApplicableFeeSchedule,
+  findChargeMasterEntry,
+  getCaseRateInfo,
+  VisitPricingLineItem,
+} from 'utils/lib/helpers/rcm/visit-pricing';
+import { FEATURE_FLAGS_CONFIG } from 'utils/lib/ottehr-config/feature-flags';
 import { AdHocBillingInput, AdHocBillingRow } from 'utils/lib/types/adhoc/datasets/billing';
+import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
 import { PatientAccountAndCoverageResources } from 'utils/lib/types/data/account';
 import {
   buildEncounterRowContext,
@@ -27,6 +38,7 @@ import {
   resolveEncounterAppointment,
 } from '../adhoc-report';
 import { getCptModifierCodeFromProcedure } from '../candid';
+import { mapResourceToChartDataResponse } from '../chart-data';
 import { fetchAllPages } from '../fhir';
 import { composeInsuranceData } from '../pdf/sections/insuranceInfo';
 import { fetchPatientAccounts } from './patient-accounts';
@@ -37,6 +49,127 @@ const round2 = (n: number): number => Math.round(n * 100) / 100;
 // The full fetch+map pipeline, separated from auth/transport so fixture tests can run it against a
 // stubbed Oystehr client and assert the mapped rows parse with the endpoint's Zod schema — the same
 // schema the runtime output validation uses.
+type VisitPricingSource = NonNullable<AdHocBillingRow['pricingSource']>;
+
+/**
+ * Prices one visit the way the EHR's patient payments (PatientPaymentsList) does: the visit's payment option picks
+ * the schedule — self-pay → the self-pay charge master; insurance / employer → the payer or employer fee schedule,
+ * else a charge master (payer-specific, then default-insurance); not chosen yet → the default-insurance charge
+ * master — and the chart's CPT / E&M codes are priced against it with the shared line-item pricing.
+ */
+const priceVisit = ({
+  encounter,
+  appointment,
+  account,
+  procedures,
+  pricing,
+}: {
+  encounter: Encounter;
+  appointment: Appointment | undefined;
+  account: PatientAccountAndCoverageResources | undefined;
+  procedures: Procedure[];
+  pricing: {
+    feeSchedules: ChargeItemDefinition[];
+    chargeMasters: ChargeItemDefinition[];
+    selfPay: ChargeItemDefinition[];
+    defaultInsurance: ChargeItemDefinition[];
+  };
+}): {
+  schedule: ChargeItemDefinition | null;
+  pricingSource: VisitPricingSource | null;
+  lineItems: VisitPricingLineItem[];
+  expectedCharge: number | null;
+} => {
+  const paymentVariant = getPaymentVariantFromEncounter(encounter);
+  const primaryPayerRef = account?.coverages.primary?.payor.find((p) => !!p.reference)?.reference;
+  const insuranceOrgId = extractPayerIdFromUrl(primaryPayerRef) ?? primaryPayerRef?.replace('Organization/', '');
+
+  // Employer fee schedules / charge masters are legacy-only: custom-organizations-mode employers live in the
+  // billing app and carry no clinical fee-schedule associations.
+  const employerOrgId =
+    paymentVariant === PaymentVariant.employer && !FEATURE_FLAGS_CONFIG.customOrganizationsEnabled
+      ? account?.occupationalMedicineEmployerOrganization?.id ?? account?.employerOrganization?.id
+      : undefined;
+
+  const dateOfService = appointment?.start ? appointment.start.split('T')[0] : undefined;
+  const locationId = appointment ? getLocationIdFromAppointment(appointment) : undefined;
+
+  // get-charge-master-entry prices an undated visit as of today.
+  const cutoffDate = dateOfService ?? new Date().toISOString().split('T')[0];
+
+  let schedule: ChargeItemDefinition | null = null;
+  let pricingSource: VisitPricingSource | null = null;
+  const isPayerVariant = paymentVariant === PaymentVariant.insurance || paymentVariant === PaymentVariant.employer;
+
+  if (paymentVariant === PaymentVariant.selfPay) {
+    schedule = findChargeMasterEntry({
+      designation: 'self-pay',
+      locationId,
+      cutoffDate,
+      orgChargeMasters: pricing.chargeMasters,
+      designatedChargeMasters: pricing.selfPay,
+    }).chargeMaster;
+
+    pricingSource = schedule ? 'self-pay-charge-master' : null;
+  } else if (isPayerVariant) {
+    const canQueryFeeSchedule = (!!insuranceOrgId || !!employerOrgId) && !!dateOfService;
+
+    const feeSchedule =
+      canQueryFeeSchedule && dateOfService
+        ? findApplicableFeeSchedule(pricing.feeSchedules, {
+            payerOrganizationId: insuranceOrgId,
+            dateOfService,
+            locationId,
+            employerOrganizationId: employerOrgId,
+          })
+        : null;
+    if (feeSchedule) {
+      schedule = feeSchedule;
+      pricingSource = 'fee-schedule';
+    } else {
+      const chargeMasterEntry = findChargeMasterEntry({
+        designation: 'default-insurance',
+        payerOrganizationId: insuranceOrgId,
+        employerOrganizationId: employerOrgId,
+        locationId,
+        cutoffDate,
+        orgChargeMasters: pricing.chargeMasters,
+        designatedChargeMasters: pricing.defaultInsurance,
+      });
+      schedule = chargeMasterEntry.chargeMaster;
+      pricingSource = !schedule
+        ? null
+        : chargeMasterEntry.source === 'payer'
+        ? 'payer-charge-master'
+        : 'default-charge-master';
+    }
+  } else {
+    schedule = findChargeMasterEntry({
+      designation: 'default-insurance',
+      locationId,
+      cutoffDate,
+      orgChargeMasters: pricing.chargeMasters,
+      designatedChargeMasters: pricing.defaultInsurance,
+    }).chargeMaster;
+
+    pricingSource = schedule ? 'default-charge-master' : null;
+  }
+
+  // The chart's CPT and E&M codes, read by the chart's own mapper (as useChartData gives them to the page).
+  let chart: GetChartDataResponse = { patientId: '', cptCodes: [] };
+
+  for (const procedure of procedures) {
+    chart = mapResourceToChartDataResponse(chart, procedure, encounter.id ?? '').chartDataResponse;
+  }
+
+  const lineItems = buildLineItems(schedule, chart.cptCodes, chart.emCode);
+
+  const expectedCharge =
+    schedule && lineItems.length ? round2(lineItems.reduce((sum, item) => sum + item.amount, 0)) : null;
+
+  return { schedule, pricingSource, lineItems, expectedCharge };
+};
+
 // What the patient actually paid with a payment: its amount less the refunds that settled.
 const netPaymentAmount = (notice: PaymentNotice): number =>
   (notice.amount?.value ?? 0) - settledRefundTotalInCents(parsePaymentRefundsFromNotice(notice)) / 100;
@@ -121,11 +254,17 @@ export async function fetchAdHocBillingRows(oystehr: Oystehr, params: AdHocBilli
     ref ? (prefix ? ref.replace(`${prefix}/`, '') : ref.split('/')[1]) : undefined;
 
   const paymentsByEncId = new Map<string, PaymentNotice[]>();
-  const chargesByEncId = new Map<string, ChargeItem[]>();
   let accountsByPatient = new Map<string, PatientAccountAndCoverageResources>();
   const proceduresByEncId = new Map<string, Procedure[]>();
   const conditionById = new Map<string, Condition>();
-  const cptPriceMap = new Map<string, number>(); // CPT code -> fee-schedule price (USD)
+
+  // The clinical RCM fee schedules and charge masters the EHR prices a visit with, sorted by kind.
+  const pricing = {
+    feeSchedules: [] as ChargeItemDefinition[],
+    chargeMasters: [] as ChargeItemDefinition[],
+    selfPay: [] as ChargeItemDefinition[],
+    defaultInsurance: [] as ChargeItemDefinition[],
+  };
 
   if (encRefs.length) {
     if (includePayments) {
@@ -140,29 +279,34 @@ export async function fetchAdHocBillingRows(oystehr: Oystehr, params: AdHocBilli
         pushTo(paymentsByEncId, stripRef(n.request?.reference, 'Encounter'), n);
       }
     }
+
     if (includeCharges) {
-      // Scope to this batch's encounters (ChargeItem.context → Encounter) instead of a full-table scan.
-      const charges = await fetchScoped<ChargeItem>('ChargeItem', 'context', encRefs);
-      for (const c of charges) pushTo(chargesByEncId, stripRef(c.context?.reference, 'Encounter'), c);
-      // The CPT price map comes from the charge masters (ChargeItemDefinition fee schedules), which
-      // are a bounded, encounter-independent fee schedule — legitimately global, so fetchAll stays.
-      const defs = await fetchAll<ChargeItemDefinition>('ChargeItemDefinition');
-      for (const def of defs) {
-        for (const group of def.propertyGroup ?? []) {
-          for (const pc of group.priceComponent ?? []) {
-            const cpt = pc.code?.coding?.find((c) => c.system === CPT_SYSTEM)?.code;
-            const amount = pc.amount?.value;
-            if (cpt && typeof amount === 'number' && !cptPriceMap.has(cpt)) cptPriceMap.set(cpt, amount);
-          }
-        }
+      // The same ChargeItemDefinitions find-applicable-fee-schedule and get-charge-master-entry search: a bounded,
+      // encounter-independent set, so it is loaded whole and sorted by its RCM tag.
+      const hasRcmTag = (cid: ChargeItemDefinition, code: string): boolean =>
+        !!cid.meta?.tag?.some((t) => t.system === RCM_TAG_SYSTEM && t.code === code);
+      const definitions = await fetchAll<ChargeItemDefinition>('ChargeItemDefinition', [
+        {
+          name: '_tag',
+          value: ['fee-schedule', 'charge-master', 'self-pay', 'default-insurance']
+            .map((code) => `${RCM_TAG_SYSTEM}|${code}`)
+            .join(','),
+        },
+      ]);
+
+      for (const cid of definitions) {
+        if (hasRcmTag(cid, 'fee-schedule')) pricing.feeSchedules.push(cid);
+        if (hasRcmTag(cid, 'charge-master')) pricing.chargeMasters.push(cid);
+        if (hasRcmTag(cid, 'self-pay')) pricing.selfPay.push(cid);
+        if (hasRcmTag(cid, 'default-insurance')) pricing.defaultInsurance.push(cid);
       }
     }
-    if (includeCoverage) {
+    if (includeCoverage || includeCharges) {
       // The patient-account page's coverage picture: primary / secondary by the Account's coverage priority,
-      // workers' comp kept apart on its own Account, payers resolved.
+      // workers' comp kept apart on its own Account, payers resolved. Charges price by its payer / employer.
       accountsByPatient = await fetchPatientAccounts(oystehr, Array.from(patientMap.values()));
     }
-    if (includeCodes) {
+    if (includeCodes || includeCharges) {
       const dxIds = Array.from(
         new Set(
           encounters.flatMap((e) =>
@@ -170,9 +314,13 @@ export async function fetchAdHocBillingRows(oystehr: Oystehr, params: AdHocBilli
           )
         )
       ) as string[];
+
       const dxConditions = dxIds.length ? await fetchScoped<Condition>('Condition', '_id', dxIds) : [];
+
       for (const c of dxConditions) if (c.id) conditionById.set(c.id, c);
+
       const procedures = await fetchScoped<Procedure>('Procedure', 'encounter', encRefs);
+
       for (const p of procedures) pushTo(proceduresByEncId, stripRef(p.encounter?.reference, 'Encounter'), p);
     }
   }
@@ -290,23 +438,22 @@ export async function fetchAdHocBillingRows(oystehr: Oystehr, params: AdHocBilli
 
     let expectedCharge: number | null = null;
     if (includeCharges) {
-      const charges = chargesByEncId.get(encId) ?? [];
+      const pricingResult = priceVisit({
+        encounter,
+        appointment,
+        account: patient?.id ? accountsByPatient.get(`Patient/${patient.id}`) : undefined,
+        procedures: proceduresByEncId.get(encId) ?? [],
+        pricing,
+      });
 
-      const lineCpts = charges
-        .map((c) => c.code?.coding?.find((cd) => cd.system === CPT_SYSTEM)?.code)
-        .filter((c): c is string => Boolean(c));
-
-      const cpts = Array.from(new Set(lineCpts));
-
-      // Price PER line item (two charges with the same CPT bill twice — chargeCount already counts
-      // them both). When none of the line items could be priced (CPT absent from the charge
-      // master), expectedCharge is null, not 0 — a 0 here would make outstandingBalance read as a
-      // negative payment.
-      const priced = lineCpts.map((c) => cptPriceMap.get(c)).filter((v): v is number => typeof v === 'number');
-      expectedCharge = priced.length ? round2(priced.reduce((a, b) => a + b, 0)) : null;
-      row.chargeCpts = cpts;
-      row.chargeCount = charges.length;
+      expectedCharge = pricingResult.expectedCharge;
+      row.chargeCpts = Array.from(new Set(pricingResult.lineItems.map((item) => item.code)));
+      row.chargeCount = pricingResult.lineItems.length;
       row.expectedCharge = expectedCharge;
+      row.pricingSource = pricingResult.pricingSource;
+      row.pricingScheduleName = pricingResult.schedule?.title ?? '';
+      row.caseRate = getCaseRateInfo(pricingResult.schedule)?.amount ?? null;
+      row.unpricedCpts = pricingResult.lineItems.filter((item) => item.feeUnknown).map((item) => item.code);
     }
 
     // Outstanding balance only makes sense when BOTH charges and payments were loaded.
