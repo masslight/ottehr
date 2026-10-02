@@ -1,28 +1,34 @@
 import { QuestionnaireItem, QuestionnaireResponseItem, QuestionnaireResponseItemAnswer } from 'fhir/r4b';
-import { OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS } from '../../fhir/constants';
+import { OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS, QUESTIONNAIRE_HIDDEN_EXTENSION_URL } from '../../fhir/constants';
 import { IntakeQuestionnaireItem } from '../../types/data/paperwork/paperwork.types';
 
 /**
- * Scored forms have a results page (a top level group with disabled-display: hidden) that is never rendered to the
+ * Scored forms have a results page (a top level group with disabled-display: hidden or questionnaire-hidden) that is
+ * never rendered to the
  * patient. Its items carry a javascript expression (score-form-expression extension, mapped to `scoreExpression`)
  * that is evaluated against the patient's answers to fill in that item's answer.
  */
 
 export type ScoreAnswerContext = Record<string, unknown>;
 
-// a top level page the patient never sees, e.g. a scored form's results page
-export const isHiddenPage = (page: Pick<IntakeQuestionnaireItem, 'disabledDisplay'>): boolean =>
-  page.disabledDisplay === 'hidden';
+type HiddenPageFields = Pick<IntakeQuestionnaireItem, 'disabledDisplay' | 'hidden'>;
+
+// a top level page the patient never sees, e.g. a scored form's results page. either the ottehr disabled-display
+// extension ('hidden') or the standard questionnaire-hidden extension marks it
+export const isHiddenPage = (page: HiddenPageFields): boolean =>
+  page.disabledDisplay === 'hidden' || page.hidden === true;
 
 // same as isHiddenPage, for raw fhir questionnaire items (before extensions are mapped)
 export const isHiddenPageQItem = (page: Pick<QuestionnaireItem, 'extension'> | undefined): boolean =>
   Boolean(
     page?.extension?.some(
-      (ext) => ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.disabledDisplay && ext.valueString === 'hidden'
+      (ext) =>
+        (ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.disabledDisplay && ext.valueString === 'hidden') ||
+        (ext.url === QUESTIONNAIRE_HIDDEN_EXTENSION_URL && ext.valueBoolean === true)
     )
   );
 
-export const getVisiblePages = <T extends Pick<IntakeQuestionnaireItem, 'disabledDisplay'>>(pages: T[]): T[] =>
+export const getVisiblePages = <T extends HiddenPageFields>(pages: T[]): T[] =>
   pages.filter((page) => !isHiddenPage(page));
 
 const hasScoreExpression = (item: IntakeQuestionnaireItem): boolean =>

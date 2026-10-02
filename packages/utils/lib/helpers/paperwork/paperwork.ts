@@ -22,7 +22,11 @@ import _ from 'lodash';
 import { DateTime } from 'luxon';
 import { AnswerLoadingOptions } from '../../../../config-types/config/fhir';
 import { AnswerOptionSource } from '../../../../config-types/config/fhir';
-import { OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS, SCORE_FORM_EXPRESSION_EXTENSION_URL } from '../../fhir/constants';
+import {
+  OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS,
+  QUESTIONNAIRE_HIDDEN_EXTENSION_URL,
+  SCORE_FORM_EXPRESSION_EXTENSION_URL,
+} from '../../fhir/constants';
 import {
   getCanonicalQuestionnaire,
   isIntakePaperworkQuestionnaireResponse,
@@ -213,6 +217,9 @@ export const structureExtension = (item: QuestionnaireItem): QuestionnaireItemEx
 
   const requireWhen = getConditionalExtensions(extension, OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.requireWhen)[0]
     ?.baseConditionDef;
+
+  const hidden =
+    extension.find((ext) => ext.url === QUESTIONNAIRE_HIDDEN_EXTENSION_URL)?.valueBoolean === true ? true : undefined;
 
   const scoreExpression = extension.find((ext) => ext.url === SCORE_FORM_EXPRESSION_EXTENSION_URL)?.valueExpression
     ?.expression;
@@ -440,6 +447,7 @@ export const structureExtension = (item: QuestionnaireItem): QuestionnaireItemEx
     acceptsMultipleAnswers,
     alwaysFilter,
     disabledDisplay,
+    hidden,
     hideControlLabel,
     requireWhen,
     scoreExpression,

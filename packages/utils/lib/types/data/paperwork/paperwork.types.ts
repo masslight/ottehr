@@ -94,6 +94,8 @@ export interface QuestionnaireItemExtension {
   disabledDisplay?: 'hidden' | 'protected';
   filterWhen?: QuestionnaireItemConditionDefinition[];
   groupType?: QuestionnaireItemGroupType;
+  // standard questionnaire-hidden extension: the item (or page) is never displayed to the patient
+  hidden?: boolean;
   /**
    * Suppresses the "control label" — the bold-color heading rendered above
    * the input in the intake paperwork UI. Optional-tri-state:
