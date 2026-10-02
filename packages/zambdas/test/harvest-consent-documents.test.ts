@@ -32,6 +32,34 @@ import { createPdfBytes } from '../src/shared/pdf';
 // patches, per-form PDF fan-out, type-code grouping, attachment dedup, creation-time
 // sorting, and reference wiring — runs for real.
 
+vi.mock('utils/lib/ottehr-config/consent-forms', async (importOriginal) => {
+  const original = await importOriginal<typeof import('utils/lib/ottehr-config/consent-forms')>();
+  return {
+    ...original,
+    getConsentFormsForLocation: (locationState?: string) => {
+      const hipaa = {
+        id: 'hipaa-acknowledgement',
+        formTitle: 'HIPAA Acknowledgement',
+        resourceTitle: 'HIPAA forms',
+        assetPath: './assets/HIPAA.Acknowledgement-S.pdf',
+        publicUrl: '/hipaa_notice_template.pdf',
+        type: { coding: [{ system: 'http://loinc.org', code: '64292-6' }], text: 'HIPAA Acknowledgement forms' },
+        createsConsentResource: false,
+      };
+      const ctt = {
+        id: 'consent-to-treat',
+        formTitle: 'Consent to Treat',
+        resourceTitle: 'Consent to treat forms',
+        assetPath: './assets/CTT.and.Guarantee-S.pdf',
+        publicUrl: '/CTT.and.Guarantee-S.pdf',
+        type: { coding: [{ system: 'http://snomed.info/sct', code: '425691002' }], text: 'Consent to treat forms' },
+        createsConsentResource: true,
+      };
+      return [hipaa, locationState === 'IL' ? { ...ctt, assetPath: './assets/CTT.and.Guarantee.Illinois-S.pdf' } : ctt];
+    },
+  };
+});
+
 vi.mock('utils/lib/fhir/helpers', async (importOriginal) => {
   const original = await importOriginal<typeof import('utils/lib/fhir/helpers')>();
   return { ...original, createFilesDocumentReferences: vi.fn(), createConsentResource: vi.fn() };
