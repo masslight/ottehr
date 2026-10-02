@@ -497,6 +497,8 @@ export interface ClaimDetailResponse {
     placeOfService: string;
     diagnosisPointers: number[];
     revenueCode: string;
+    drug?: { ndc: string; quantity: number; units: string };
+    orderingProvider?: { firstName: string; lastName: string; npi?: string; providerId?: string };
   }[];
   billed: number;
   allowed: number;

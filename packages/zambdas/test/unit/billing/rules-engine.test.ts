@@ -74,6 +74,7 @@ import {
   EXTENSION_CLAIM_PATIENT_DISCHARGE_STATUS,
   EXTENSION_CLAIM_POINT_OF_ORIGIN_CODE,
   PROVIDER_ROLE_TAG,
+  setClaimItemOrderingProviders,
   SOURCE_IDENTIFIER_SYSTEM,
 } from '../../../src/billing/shared';
 
@@ -782,6 +783,43 @@ describe('service line actions', () => {
     expect(error).toBeUndefined();
     expect(readField(m, 'cptCodes')).toEqual(['99213']);
     expect(m.claim.total?.value).toBe(125.5);
+  });
+
+  it('drops the contained ordering providers only the removed lines referenced', () => {
+    const m = makeModel();
+    addLine(m, '99214', 200);
+    addLine(m, '99215', 300);
+    addLine(m, '99212', 50);
+    const shared = { firstName: 'Jane', lastName: 'Shared' };
+    setClaimItemOrderingProviders(m.claim, [
+      shared,
+      { firstName: 'John', lastName: 'Removed' },
+      { ...shared },
+      { firstName: 'Gregory', lastName: 'House', providerId: 'prac-1' },
+    ]);
+    m.claim.contained = [...(m.claim.contained ?? []), { resourceType: 'Organization', id: 'something-else' }];
+
+    const error = applyAction(
+      { type: 'removeServiceLines', match: { type: 'field', property: 'cptCode', operator: 'eq', value: '99214' } },
+      m
+    );
+    expect(error).toBeUndefined();
+    const sharedId = (m.claim.contained ?? []).find((r) => r.resourceType === 'Practitioner')?.id;
+    expect(m.claim.contained?.map((r) => r.id)).toEqual([sharedId, 'something-else']);
+    expect(m.claim.item?.map((line) => line.extension?.[0]?.valueReference?.reference)).toEqual([
+      `#${sharedId}`,
+      `#${sharedId}`,
+      'Practitioner/prac-1',
+    ]);
+  });
+
+  it('drops every contained ordering provider when all lines are removed', () => {
+    const m = makeModel();
+    setClaimItemOrderingProviders(m.claim, [{ firstName: 'Jane', lastName: 'Outside' }]);
+    expect(m.claim.contained).toHaveLength(1);
+
+    applyAction({ type: 'removeServiceLines', match: { type: 'all' } }, m);
+    expect(m.claim.contained).toBeUndefined();
   });
 
   it('removes all lines when the match is "all"', () => {

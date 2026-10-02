@@ -87,6 +87,30 @@ export const PERSON_GENDER_OPTIONS: { value: NonNullable<Patient['gender']>; lab
   { value: 'unknown', label: 'Unknown' },
 ];
 
+// X12 drug quantity unit codes offered by the service line medication detail dialog.
+export const DRUG_UNIT_CODE_VALUES = ['UN', 'ME', 'ML', 'GR', 'F2'] as const;
+export type DrugUnitCode = (typeof DRUG_UNIT_CODE_VALUES)[number];
+export const DRUG_UNIT_CODES: { code: DrugUnitCode; label: string; description: string }[] = [
+  { code: 'UN', label: 'Units', description: 'Standard default for most drugs, procedures, or visits' },
+  { code: 'ME', label: 'Milligrams', description: 'Drug amount in milligrams' },
+  { code: 'ML', label: 'Milliliters', description: 'Drug amount in milliliters' },
+  { code: 'GR', label: 'Grams', description: 'Drug amount in grams' },
+  {
+    code: 'F2',
+    label: 'International Units',
+    description: 'For specific biologicals/drugs; largely replaced by UN in 5010',
+  },
+];
+
+// Only the 11-digit 5-4-2 NDC layout is supported. It is persisted as 11 plain digits and shown dashed.
+export const NDC_REGEX = /^(?:\d{11}|\d{5}-\d{4}-\d{2})$/;
+export const ndcToDigits = (ndc: string): string => ndc.replace(/-/g, '');
+// Values that aren't 11 digits (e.g. legacy entries) are shown as stored.
+export const formatNdcForDisplay = (ndc: string): string => {
+  const digits = ndcToDigits(ndc);
+  return /^\d{11}$/.test(digits) ? `${digits.slice(0, 5)}-${digits.slice(5, 9)}-${digits.slice(9)}` : ndc;
+};
+
 export const X12_ADJUSTMENT_GROUP_CODE = {
   contractualObligation: 'CO',
   correctionReversal: 'CR',

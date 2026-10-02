@@ -722,7 +722,7 @@ describe('ClaimDetail — service line remit details', () => {
     const codedRow = screen
       .getByRole('button', { name: 'Toggle remit details for 99214 (not on claim)' })
       .closest('tr');
-    expect(cellTexts(codedRow)).toEqual(['', 'ERA', '2026-08-14', '99214', '-', '-', '-', '1 UN', '$150.00']);
+    expect(cellTexts(codedRow)).toEqual(['', '', 'ERA', '2026-08-14', '99214', '-', '-', '-', '1 UN', '$150.00']);
     const codedLedger = screen.getByRole('table', { name: 'Remit details for 99214 (not on claim)' });
     expect(within(codedLedger).queryByText('Charge')).not.toBeInTheDocument();
     expect(cellTexts(within(codedLedger).getByText('CO-45').closest('tr'))[4]).toBe('$60.00');
@@ -730,7 +730,7 @@ describe('ClaimDetail — service line remit details', () => {
     const claimLevelRow = screen
       .getByRole('button', { name: 'Toggle remit details for claim-level adjustments' })
       .closest('tr') as HTMLElement;
-    expect(cellTexts(claimLevelRow)).toEqual(['', 'ERA', '-', 'Claim-level', '-', '-', '-', '-', '-']);
+    expect(cellTexts(claimLevelRow)).toEqual(['', '', 'ERA', '-', 'Claim-level', '-', '-', '-', '-', '-']);
     const claimLevelLedger = screen.getByRole('table', { name: 'Remit details for claim-level adjustments' });
     expect(cellTexts(within(claimLevelLedger).getByText('OA-23').closest('tr'))[4]).toBe('$2.00');
 
@@ -855,7 +855,7 @@ describe('ClaimDetail — service line remit details', () => {
       within(table)
         .getAllByRole('columnheader')
         .map((header) => header.textContent)
-    ).toEqual(['#', 'Date of Service', 'CPT Code', 'Modifiers', 'Dx', 'POS', 'Qty', 'Billed']);
+    ).toEqual(['', '#', 'Date of Service', 'CPT Code', 'Modifiers', 'Dx', 'POS', 'Qty', 'Billed']);
     expect(screen.queryByRole('button', { name: /Toggle remit details/ })).not.toBeInTheDocument();
     expect(screen.queryByText('Charge')).not.toBeInTheDocument();
     expect(screen.queryByRole('group', { name: 'Remit totals' })).not.toBeInTheDocument();
