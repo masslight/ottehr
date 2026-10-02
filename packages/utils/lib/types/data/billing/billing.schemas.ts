@@ -81,7 +81,6 @@ export const SearchErasInputSchema = z.object({
   checkNumber: nonEmptyString.optional(),
   eraDateFrom: nonEmptyString.optional(),
   eraDateTo: nonEmptyString.optional(),
-  eraStatus: nonEmptyString.optional(),
   // A value shaped like a custom insurance organization's business id ("OTR-...") is resolved to
   // that org rather than looked up as an RCM payer id (see resolvePayerIssuerFilter).
   payerId: nonEmptyString.optional(),

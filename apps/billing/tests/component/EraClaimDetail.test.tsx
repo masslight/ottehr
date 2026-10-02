@@ -29,7 +29,6 @@ const CO_45_DESCRIPTION =
 const mainRemit: EraClaimRemit = {
   claimResponseId: 'cr-1',
   created: '2026-08-03',
-  outcome: 'complete',
   disposition: '',
   eraStatusCode: '1',
   payerClaimControlNumber: 'PC0000123400',
@@ -136,7 +135,6 @@ const matchedClaim: EraClaimListItem = {
   patientResp: 43,
   patientAccountNumber: 'ACCT-000123456',
   memberId: '999000111',
-  status: 'complete',
   matched: true,
   claimResponseIds: ['cr-1'],
   remits: [mainRemit],
@@ -154,14 +152,12 @@ const unmatchedClaim: EraClaimListItem = {
   patientResp: 25,
   patientAccountNumber: 'ACC-7',
   memberId: '',
-  status: 'queued',
   matched: false,
   claimResponseIds: ['cr-9'],
   remits: [
     {
       claimResponseId: 'cr-9',
       created: '2026-08-03',
-      outcome: 'queued',
       disposition: '',
       eraStatusCode: '4',
       payerClaimControlNumber: '',
@@ -239,7 +235,6 @@ const makeEra = (): EraDetailResponse => ({
   payerName: 'Acme Health Plan of Tennessee',
   payerFhirId: 'org-9',
   payee: { name: 'Sunrise Pediatric Urgent Care', npi: '1234567893', taxId: '' },
-  status: 'complete',
   paymentMethod: '',
   totalClaims: 3,
   matchedClaims: 2,
@@ -407,6 +402,8 @@ describe('EraClaimDetail', () => {
     expect(await screen.findByText('Reversal')).toBeInTheDocument();
     expect(screen.getByText('Primary')).toBeInTheDocument();
     expect(screen.getAllByText('Service Line Details & Adjustments')).toHaveLength(2);
+    // the remits' FHIR outcome means nothing to billers
+    expect(screen.queryByText(/\b(complete|queued)\b/)).not.toBeInTheDocument();
   });
 
   it('closes back to the ERA detail page', async () => {

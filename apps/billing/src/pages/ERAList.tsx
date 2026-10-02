@@ -43,7 +43,6 @@ interface Filters {
   checkNumber?: string;
   eraDateFrom?: string;
   eraDateTo?: string;
-  eraStatus?: string;
   payerId?: string;
   matchingStatus?: string;
   // Claim-level
@@ -124,7 +123,6 @@ export default function ERAList(): ReactElement {
   const [checkNumber, setCheckNumber] = useState('');
   const [eraDateFrom, setEraDateFrom] = useState('');
   const [eraDateTo, setEraDateTo] = useState('');
-  const [eraStatus, setEraStatus] = useState('');
   const [selectedPayer, setSelectedPayer] = useState<BillingPayerOption | null>(null);
   const { options: payerOptions, search: searchPayers } = usePayerSearch();
   const [matchingStatus, setMatchingStatus] = useState('');
@@ -151,7 +149,6 @@ export default function ERAList(): ReactElement {
         if (filters.checkNumber) params.checkNumber = filters.checkNumber;
         if (filters.eraDateFrom) params.eraDateFrom = filters.eraDateFrom;
         if (filters.eraDateTo) params.eraDateTo = filters.eraDateTo;
-        if (filters.eraStatus) params.eraStatus = filters.eraStatus;
         if (filters.payerId) params.payerId = filters.payerId;
         if (filters.matchingStatus) params.matchingStatus = filters.matchingStatus;
         if (filters.searchText) params.searchText = filters.searchText;
@@ -183,7 +180,6 @@ export default function ERAList(): ReactElement {
       checkNumber: overrides?.checkNumber ?? checkNumber,
       eraDateFrom: overrides?.eraDateFrom ?? eraDateFrom,
       eraDateTo: overrides?.eraDateTo ?? eraDateTo,
-      eraStatus: overrides?.eraStatus ?? eraStatus,
       payerId: overrides?.payerId ?? selectedPayer?.payerId,
       matchingStatus: overrides?.matchingStatus ?? matchingStatus,
       searchText: overrides?.searchText ?? searchText,
@@ -196,7 +192,6 @@ export default function ERAList(): ReactElement {
       checkNumber,
       eraDateFrom,
       eraDateTo,
-      eraStatus,
       selectedPayer,
       matchingStatus,
       searchText,
@@ -231,7 +226,6 @@ export default function ERAList(): ReactElement {
     setCheckNumber('');
     setEraDateFrom('');
     setEraDateTo('');
-    setEraStatus('');
     setSelectedPayer(null);
     setSearchText('');
     setClaimStatus('');
@@ -247,7 +241,6 @@ export default function ERAList(): ReactElement {
     checkNumber ||
     eraDateFrom ||
     eraDateTo ||
-    eraStatus ||
     selectedPayer ||
     matchingStatus ||
     searchText ||
@@ -307,23 +300,6 @@ export default function ERAList(): ReactElement {
           onChange={(e) => handleDebouncedFilter(setCheckNumber, 'checkNumber')(e.target.value)}
           sx={{ minWidth: 140 }}
         />
-        <FormControl size="small" sx={{ minWidth: 140 }}>
-          <InputLabel>ERA Status</InputLabel>
-          <Select
-            value={eraStatus}
-            label="ERA Status"
-            onChange={(e) => {
-              setEraStatus(e.target.value);
-              applyFilters({ eraStatus: e.target.value });
-            }}
-          >
-            <MenuItem value="">All</MenuItem>
-            <MenuItem value="queued">Queued</MenuItem>
-            <MenuItem value="complete">Complete</MenuItem>
-            <MenuItem value="error">Error</MenuItem>
-            <MenuItem value="partial">Partial</MenuItem>
-          </Select>
-        </FormControl>
         <Autocomplete
           size="small"
           options={payerOptions}

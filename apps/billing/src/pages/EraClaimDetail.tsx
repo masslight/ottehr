@@ -236,7 +236,7 @@ function RemitSection({
         <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 1.5 }}>
           {remit.eraStatusCode && <EraStatusChip statusCode={remit.eraStatusCode} />}
           <Typography variant="body2" color="text.secondary">
-            {[remit.outcome, formatDate(remit.created), remit.disposition].filter(Boolean).join(' · ')}
+            {[formatDate(remit.created), remit.disposition].filter(Boolean).join(' · ')}
           </Typography>
         </Stack>
       )}

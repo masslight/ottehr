@@ -110,7 +110,6 @@ function eraClaimFor(claim: ClaimForm): EraClaimListItem {
     patientResp: totals.patientRespCents / 100,
     patientAccountNumber: claim.patientAccountNumber,
     memberId: claim.memberId,
-    status: '',
     matched: false,
     claimResponseIds: claim.claimResponseId ? [claim.claimResponseId] : [],
     remits: [],

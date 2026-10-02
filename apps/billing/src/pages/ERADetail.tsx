@@ -111,33 +111,33 @@ export default function ERADetail(): ReactElement {
     currencyCol('posted', 'Posted', 100),
     currencyCol('patientResp', 'Patient Resp', 110),
     {
-      field: 'status',
+      // whether the remit claim is matched to a claim in the system; the FHIR outcome every ERA
+      // carries ("complete") means nothing to billers
+      field: 'matched',
       headerName: 'Status',
       width: 140,
-      renderCell: ({ value, row }) =>
-        value ? (
-          <Stack direction="row" justifyContent="space-between" alignItems="center">
-            <Chip
-              label={!row.matched ? 'unmatched' : String(value)}
-              color={value === 'complete' && row.matched ? 'success' : 'warning'}
-              variant="outlined"
-              size="small"
-              sx={{ borderRadius: '4px', fontSize: 12 }}
-            />
-            {row.matched && (
-              <IconButton
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setMoreActionsPopoverData({ element: e.currentTarget, claimResponseIds: row.claimResponseIds });
-                }}
-              >
-                <MoreVertIcon fontSize="medium" />
-              </IconButton>
-            )}
-          </Stack>
-        ) : (
-          '—'
-        ),
+      valueGetter: (params: { row: EraClaimListItem }) => (params.row.matched ? 'Matched' : 'Unmatched'),
+      renderCell: ({ row }) => (
+        <Stack direction="row" justifyContent="space-between" alignItems="center">
+          <Chip
+            label={row.matched ? 'Matched' : 'Unmatched'}
+            color={row.matched ? 'success' : 'warning'}
+            variant="outlined"
+            size="small"
+            sx={{ borderRadius: '4px', fontSize: 12 }}
+          />
+          {row.matched && (
+            <IconButton
+              onClick={(e) => {
+                e.stopPropagation();
+                setMoreActionsPopoverData({ element: e.currentTarget, claimResponseIds: row.claimResponseIds });
+              }}
+            >
+              <MoreVertIcon fontSize="medium" />
+            </IconButton>
+          )}
+        </Stack>
+      ),
     },
   ];
 
@@ -233,12 +233,6 @@ export default function ERADetail(): ReactElement {
             Export X12
           </Button>
         )}
-        <Chip
-          label={era.status}
-          color={era.status === 'complete' ? 'success' : 'warning'}
-          variant="outlined"
-          sx={{ borderRadius: '4px' }}
-        />
       </Box>
 
       <Box sx={{ ml: 5 }}>

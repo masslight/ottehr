@@ -483,7 +483,6 @@ describe('buildEraClaimRemit', () => {
     expect(remit).toMatchObject({
       claimResponseId: 'cr-1',
       created: '2026-07-15',
-      outcome: 'complete',
       eraStatusCode: '1',
       payerClaimControlNumber: 'BTCN7WB7FC00',
       allowed: 55.32,

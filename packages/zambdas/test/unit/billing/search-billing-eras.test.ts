@@ -269,13 +269,13 @@ describe('search-billing-eras performEffect', () => {
       searchParams({
         checkNumber: 'CHK-100',
         eraDateFrom: '2026-07-01',
-        eraStatus: 'complete',
       })
     );
 
     const scan = search.mock.calls.map((call) => call[0]).find(isScan)!;
     expect(paramValue(scan, 'created')).toBe('ge2026-07-01');
-    expect(paramValue(scan, 'outcome')).toBe('complete');
+    // ERAs are not filtered by their FHIR outcome, which is always 'complete'
+    expect(paramValue(scan, 'outcome')).toBeUndefined();
   });
 
   it('lets the server paginate when no check number is given', async () => {

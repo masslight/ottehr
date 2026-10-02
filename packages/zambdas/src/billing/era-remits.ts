@@ -238,7 +238,6 @@ export function buildEraClaimRemit(claimResponse: ClaimResponse, claim: Claim | 
   return {
     claimResponseId: claimResponse.id ?? '',
     created: claimResponse.created ?? '',
-    outcome: claimResponse.outcome ?? '',
     disposition: claimResponse.disposition ?? '',
     eraStatusCode: asEraClaimStatusCode(getEraExtensionString(claimResponse, ERA_STATUS_CODE_EXTENSION)),
     payerClaimControlNumber:

@@ -61,7 +61,6 @@ export async function performEffect(
   const filterParams: SearchParam[] = [];
   if (params.eraDateFrom) filterParams.push({ name: 'created', value: `ge${params.eraDateFrom}` });
   if (params.eraDateTo) filterParams.push({ name: 'created', value: `le${params.eraDateTo}` });
-  if (params.eraStatus) filterParams.push({ name: 'outcome', value: params.eraStatus });
   if (payerIssuerFilter) filterParams.push({ name: 'payment-issuer', value: payerIssuerFilter });
 
   if (hasClaimFilters) {
@@ -287,7 +286,6 @@ function mapEra(
     source: getEraSource(pr),
     paymentDate: pr.paymentDate ?? pr.created ?? '',
     paymentAmount: pr.paymentAmount?.value ?? 0,
-    status: pr.outcome ?? pr.status ?? '',
     claimCount: counts.total,
     matchedCount: counts.matched,
     unmatchedCount: counts.unmatched,

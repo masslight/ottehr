@@ -283,7 +283,6 @@ describe('get-billing-era-detail performEffect', () => {
       checkAmount: 60,
       payerName: 'Acme Insurance',
       payerFhirId: 'org-9',
-      status: 'complete',
       // BPR04 is not preserved, and the trace number's system says nothing about it
       paymentMethod: '',
       totalClaims: 2,

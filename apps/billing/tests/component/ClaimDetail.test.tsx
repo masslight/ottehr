@@ -169,7 +169,6 @@ const makeRemit = (overrides: Partial<ClaimRemit>): ClaimRemit => ({
   claimResponseId: 'cr-1',
   date: '2026-07-08T18:20:39.029Z',
   payerName: 'Test Payer',
-  status: 'complete',
   eraStatusCode: '1',
   allowed: 80,
   paid: 60,
@@ -208,7 +207,6 @@ const makePayment = (overrides: Partial<ClaimInsurancePayment>): ClaimInsuranceP
   checkDate: '2026-07-08',
   paymentAmount: 350,
   payerName: 'CIGNA',
-  status: 'active',
   ...overrides,
 });
 

@@ -56,7 +56,6 @@ const era = (overrides: Partial<EraListItem>): EraListItem => ({
   source: 'clearing-house',
   paymentDate: '2026-09-10',
   paymentAmount: 100,
-  status: 'complete',
   claimCount: 1,
   matchedCount: 1,
   unmatchedCount: 0,
@@ -125,6 +124,8 @@ describe('ERAList', () => {
     expect(imported.getByText('-')).toBeInTheDocument();
 
     expect(within(screen.getByTestId('row-c')).getByText('Clearing House')).toBeInTheDocument();
+    // every ERA has the same FHIR outcome, so there is nothing to filter by
+    expect(screen.queryByLabelText('ERA Status')).not.toBeInTheDocument();
   });
 
   it('adds an ERA by importing an 835 or keying one in', async () => {

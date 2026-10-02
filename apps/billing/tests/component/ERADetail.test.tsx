@@ -84,7 +84,6 @@ vi.mock('@mui/x-data-grid-pro', async (importOriginal) => {
 const matchedRemit: EraClaimRemit = {
   claimResponseId: 'cr-1',
   created: '2026-07-15',
-  outcome: 'complete',
   disposition: '',
   eraStatusCode: '1',
   payerClaimControlNumber: 'ICN-123',
@@ -99,7 +98,6 @@ const matchedRemit: EraClaimRemit = {
 const unmatchedRemit: EraClaimRemit = {
   claimResponseId: 'cr-2',
   created: '2026-07-15',
-  outcome: 'queued',
   disposition: '',
   eraStatusCode: '4',
   payerClaimControlNumber: '',
@@ -128,7 +126,6 @@ const makeEra = (): EraDetailResponse => ({
   payerName: 'Acme Insurance',
   payerFhirId: 'org-9',
   payee: { name: 'Ottehr Medical Group', npi: '1234567890', taxId: '123456789' },
-  status: 'complete',
   paymentMethod: 'CHK',
   totalClaims: 2,
   matchedClaims: 1,
@@ -147,7 +144,6 @@ const makeEra = (): EraDetailResponse => ({
       patientResp: 20,
       patientAccountNumber: 'abc123',
       memberId: '999000111',
-      status: 'complete',
       matched: true,
       claimResponseIds: ['cr-1'],
       remits: [matchedRemit],
@@ -164,7 +160,6 @@ const makeEra = (): EraDetailResponse => ({
       patientResp: 25,
       patientAccountNumber: 'ACC-7',
       memberId: '',
-      status: 'queued',
       matched: false,
       claimResponseIds: ['cr-2'],
       remits: [unmatchedRemit],
@@ -272,6 +267,15 @@ describe('ERADetail', () => {
 
     expect(await screen.findByText('CHK-100')).toBeInTheDocument();
     expect(screen.getByTestId('grid-headers').textContent).toContain('Patient Resp');
+  });
+
+  it('says whether each claim is matched, and nothing about the FHIR outcome every ERA carries', async () => {
+    renderDetail();
+
+    expect(await screen.findByText('CHK-100')).toBeInTheDocument();
+    expect(within(screen.getByTestId('row-c1')).getByText('Matched')).toBeInTheDocument();
+    expect(within(screen.getByTestId('row-unmatched-cr-2')).getByText('Unmatched')).toBeInTheDocument();
+    expect(screen.queryByText(/^(complete|queued)$/i)).not.toBeInTheDocument();
   });
 
   it('keeps the Match button on unmatched rows', async () => {

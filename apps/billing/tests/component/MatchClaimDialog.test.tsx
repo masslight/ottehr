@@ -30,7 +30,6 @@ const unmatchedEraClaim: EraClaimListItem = {
   patientResp: 25,
   patientAccountNumber: 'ACC-7',
   memberId: 'MBR-777',
-  status: 'queued',
   matched: false,
   claimResponseIds: ['cr-2'],
   remits: [],

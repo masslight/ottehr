@@ -77,7 +77,6 @@ const savedRemit = (): EraDetailResponse => ({
   payerName: 'United Health Care',
   payerFhirId: '',
   payee: null,
-  status: 'complete',
   paymentMethod: 'ACH',
   totalClaims: 1,
   matchedClaims: 0,
