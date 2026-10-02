@@ -22,7 +22,7 @@ import { ReactElement, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import { formatCurrency } from 'utils/lib/utils/convert';
 import { formatDate } from '../../utils/format';
-import { ClaimForm, claimTotals } from '../../utils/manualEra';
+import { ClaimErrors, ClaimForm, claimTotals } from '../../utils/manualEra';
 import { EraClaimEditor } from './EraClaimEditor';
 
 function Total({ label, cents }: { label: string; cents: number }): ReactElement {
@@ -46,10 +46,12 @@ export interface ManualEraClaimCardActions {
 }
 
 // A claim of a keyed remit, editable in place. Its match state changes through Match / Unmatch (the
-// same as on the ERA screen); edits are saved with the page.
+// same as on the ERA screen); edits are saved with the page, and a claim the save found incomplete is
+// outlined in red.
 export function ManualEraClaimCard({
   claim,
   onChange,
+  errors,
   expanded,
   onToggle,
   dirty,
@@ -57,6 +59,7 @@ export function ManualEraClaimCard({
 }: {
   claim: ClaimForm;
   onChange: (claim: ClaimForm) => void;
+  errors?: ClaimErrors;
   expanded: boolean;
   onToggle: () => void;
   dirty: boolean;
@@ -71,7 +74,11 @@ export function ManualEraClaimCard({
   };
 
   return (
-    <Card variant="outlined" data-testid={`claim-card-${claim.claimResponseId ?? claim.key}`}>
+    <Card
+      variant="outlined"
+      data-testid={`claim-card-${claim.claimResponseId ?? claim.key}`}
+      sx={errors ? { borderColor: 'error.main' } : undefined}
+    >
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 2, py: 1.5 }}>
         <IconButton size="small" onClick={onToggle} aria-label={expanded ? 'Collapse claim' : 'Expand claim'}>
           {expanded ? <KeyboardArrowDownIcon fontSize="small" /> : <KeyboardArrowRightIcon fontSize="small" />}
@@ -132,7 +139,7 @@ export function ManualEraClaimCard({
       <Collapse in={expanded} unmountOnExit>
         <Divider />
         <Box sx={{ px: 2, py: 2 }}>
-          <EraClaimEditor claim={claim} onChange={onChange} />
+          <EraClaimEditor claim={claim} onChange={onChange} errors={errors} />
         </Box>
       </Collapse>
       <Divider />

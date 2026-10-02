@@ -1,11 +1,12 @@
 import { Add as AddIcon, Close as CloseIcon, WarningAmberRounded as WarningIcon } from '@mui/icons-material';
-import { Box, Button, IconButton, TextField, Tooltip, Typography } from '@mui/material';
+import { Box, Button, FormHelperText, IconButton, TextField, Tooltip, Typography } from '@mui/material';
 import { ReactElement } from 'react';
 import { formatCurrency } from 'utils/lib/utils/convert';
 import {
   addAdjustment,
   bucketIsLocked,
   bucketValue,
+  ClaimErrors,
   ClaimForm,
   emptyServiceLine,
   isMoneyText,
@@ -29,6 +30,11 @@ const headSx = { color: 'primary.dark', fontWeight: 700, fontSize: 14 };
 const AMOUNT_WIDTH = 104;
 // where adjustment rows line up: under the DOS column
 const INDENT = 5;
+// A row's fields line up along their tops, so one showing an error message under it doesn't move the
+// others; text and buttons sit level with the middle of the 40px fields.
+const ROW_SX = { display: 'flex', gap: 1.5, alignItems: 'flex-start' };
+const FIELD_HEIGHT = '40px';
+const BUTTON_IN_ROW_SX = { mt: '5px' };
 
 function AmountField({
   label,
@@ -36,12 +42,16 @@ function AmountField({
   onChange,
   disabled,
   helper,
+  error,
+  helperText,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   disabled?: boolean;
   helper?: string;
+  error?: boolean;
+  helperText?: string;
 }): ReactElement {
   const field = (
     <TextField
@@ -49,7 +59,9 @@ function AmountField({
       label={label}
       value={value}
       onChange={(event) => onChange(event.target.value)}
-      error={!isMoneyText(value)}
+      // what was typed isn't an amount: flagged as it's typed, not just on save
+      error={error || !isMoneyText(value)}
+      helperText={helperText}
       disabled={disabled}
       inputProps={{ inputMode: 'decimal', style: { textAlign: 'right' }, 'aria-label': label }}
       sx={{ width: AMOUNT_WIDTH }}
@@ -78,9 +90,12 @@ const BUCKETS: { bucket: PatientRespBucket; label: string }[] = [
 export function EraServiceLinesEditor({
   claim,
   onChange,
+  errors,
 }: {
   claim: ClaimForm;
   onChange: (claim: ClaimForm) => void;
+  // what a save found wrong with the claim
+  errors?: ClaimErrors;
 }): ReactElement {
   const setLine = (key: string, update: (line: ServiceLineForm) => ServiceLineForm): void =>
     onChange({ ...claim, serviceLines: claim.serviceLines.map((line) => (line.key === key ? update(line) : line)) });
@@ -97,6 +112,7 @@ export function EraServiceLinesEditor({
 
       {claim.serviceLines.map((line, index) => {
         const imbalance = lineImbalanceCents(line);
+        const lineErrors = errors?.serviceLines?.[index];
         return (
           <Box
             key={line.key}
@@ -111,14 +127,16 @@ export function EraServiceLinesEditor({
               borderColor: 'divider',
             }}
           >
-            <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', flexWrap: 'wrap' }}>
-              <Typography sx={{ width: 28 }}>{index + 1}</Typography>
+            <Box sx={{ ...ROW_SX, flexWrap: 'wrap' }}>
+              <Typography sx={{ width: 28, lineHeight: FIELD_HEIGHT }}>{index + 1}</Typography>
               <Box sx={{ width: 170 }}>
                 <DateInput
                   label="DOS"
                   value={line.serviceDate}
                   onChange={(value) => onChange(setLineServiceDate(claim, line.key, value))}
                   fullWidth
+                  error={!!lineErrors?.serviceDate}
+                  helperText={lineErrors?.serviceDate?.message}
                 />
               </Box>
               <ProcedureCodeAutocomplete
@@ -126,21 +144,29 @@ export function EraServiceLinesEditor({
                 value={line.procedureCode}
                 onChange={(code) => setLine(line.key, (current) => ({ ...current, procedureCode: code }))}
                 width={150}
+                error={!!lineErrors?.procedureCode}
+                helperText={lineErrors?.procedureCode?.message}
               />
               <AmountField
                 label="Billed"
                 value={line.billed}
                 onChange={(value) => setLine(line.key, (current) => syncContractual({ ...current, billed: value }))}
+                error={!!lineErrors?.billed}
+                helperText={lineErrors?.billed?.message}
               />
               <AmountField
                 label="Allowed"
                 value={line.allowed}
                 onChange={(value) => setLine(line.key, (current) => syncContractual({ ...current, allowed: value }))}
+                error={!!lineErrors?.allowed}
+                helperText={lineErrors?.allowed?.message}
               />
               <AmountField
                 label="Ins Paid"
                 value={line.paid}
                 onChange={(value) => setLine(line.key, (current) => ({ ...current, paid: value }))}
+                error={!!lineErrors?.paid}
+                helperText={lineErrors?.paid?.message}
               />
               {BUCKETS.map(({ bucket, label }) => (
                 <AmountField
@@ -160,6 +186,7 @@ export function EraServiceLinesEditor({
                 <Tooltip title="Remove line">
                   <IconButton
                     size="small"
+                    sx={BUTTON_IN_ROW_SX}
                     aria-label={`Remove line ${index + 1}`}
                     onClick={() =>
                       onChange({ ...claim, serviceLines: claim.serviceLines.filter((l) => l.key !== line.key) })
@@ -171,46 +198,57 @@ export function EraServiceLinesEditor({
               )}
             </Box>
 
-            {line.adjustments.map((row) => (
-              <Box key={row.key} sx={{ display: 'flex', gap: 1.5, alignItems: 'center', pl: INDENT }}>
-                <AdjustmentGroupSelect
-                  value={row.groupCode}
-                  onChange={(groupCode) =>
-                    setLine(line.key, (current) => updateAdjustment(current, row.key, { groupCode }))
-                  }
-                  error={!row.groupCode}
-                />
-                <RemitCodeAutocomplete
-                  kind="carc"
-                  value={row.reasonCode}
-                  onChange={(reasonCode) =>
-                    setLine(line.key, (current) => updateAdjustment(current, row.key, { reasonCode }))
-                  }
-                  error={!row.reasonCode}
-                />
-                <AmountField
-                  label="Amount"
-                  value={row.amount}
-                  onChange={(amount) => setLine(line.key, (current) => updateAdjustment(current, row.key, { amount }))}
-                />
-                <Box sx={{ flexGrow: 1 }} />
-                <IconButton
-                  size="small"
-                  aria-label={`Remove ${row.groupCode || 'CARC'}-${row.reasonCode}`}
-                  onClick={() => setLine(line.key, (current) => removeAdjustment(current, row.key))}
-                >
-                  <CloseIcon fontSize="small" />
-                </IconButton>
-              </Box>
-            ))}
+            {line.adjustments.map((row, rowIndex) => {
+              const rowErrors = lineErrors?.adjustments?.[rowIndex];
+              return (
+                <Box key={row.key} sx={{ ...ROW_SX, pl: INDENT }}>
+                  <AdjustmentGroupSelect
+                    value={row.groupCode}
+                    onChange={(groupCode) =>
+                      setLine(line.key, (current) => updateAdjustment(current, row.key, { groupCode }))
+                    }
+                    error={!!rowErrors?.groupCode}
+                    helperText={rowErrors?.groupCode?.message}
+                  />
+                  <RemitCodeAutocomplete
+                    kind="carc"
+                    value={row.reasonCode}
+                    onChange={(reasonCode) =>
+                      setLine(line.key, (current) => updateAdjustment(current, row.key, { reasonCode }))
+                    }
+                    error={!!rowErrors?.reasonCode}
+                    helperText={rowErrors?.reasonCode?.message}
+                  />
+                  <AmountField
+                    label="Amount"
+                    value={row.amount}
+                    onChange={(amount) =>
+                      setLine(line.key, (current) => updateAdjustment(current, row.key, { amount }))
+                    }
+                    error={!!rowErrors?.amount}
+                    helperText={rowErrors?.amount?.message}
+                  />
+                  <Box sx={{ flexGrow: 1 }} />
+                  <IconButton
+                    size="small"
+                    sx={BUTTON_IN_ROW_SX}
+                    aria-label={`Remove ${row.groupCode || 'CARC'}-${row.reasonCode}`}
+                    onClick={() => setLine(line.key, (current) => removeAdjustment(current, row.key))}
+                  >
+                    <CloseIcon fontSize="small" />
+                  </IconButton>
+                </Box>
+              );
+            })}
 
-            {line.remarkCodes.map((row) => (
-              <Box key={row.key} sx={{ display: 'flex', gap: 1.5, alignItems: 'center', pl: INDENT }}>
+            {line.remarkCodes.map((row, rowIndex) => (
+              <Box key={row.key} sx={{ ...ROW_SX, pl: INDENT }}>
                 <RemitCodeAutocomplete
                   kind="rarc"
                   value={row.code}
                   width={200}
-                  error={!row.code}
+                  error={!!lineErrors?.remarkCodes?.[rowIndex]?.code}
+                  helperText={lineErrors?.remarkCodes?.[rowIndex]?.code?.message}
                   onChange={(code) =>
                     setLine(line.key, (current) => ({
                       ...current,
@@ -223,6 +261,7 @@ export function EraServiceLinesEditor({
                 <Box sx={{ flexGrow: 1 }} />
                 <IconButton
                   size="small"
+                  sx={BUTTON_IN_ROW_SX}
                   aria-label={`Remove RARC ${row.code}`}
                   onClick={() =>
                     setLine(line.key, (current) => ({
@@ -276,6 +315,7 @@ export function EraServiceLinesEditor({
         >
           Add Line
         </Button>
+        {errors?.serviceLines?.root && <FormHelperText error>{errors.serviceLines.root.message}</FormHelperText>}
       </Box>
     </Box>
   );

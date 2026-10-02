@@ -126,6 +126,8 @@ describe('ManualRemit', () => {
     // only the clock: the page's debounces and waitFor keep real timers
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(new Date(2026, 8, 13, 9, 0));
+    // jsdom doesn't implement scrollIntoView, which taking the biller to an error calls
+    Element.prototype.scrollIntoView = vi.fn();
   });
 
   afterEach(() => {
@@ -141,6 +143,8 @@ describe('ManualRemit', () => {
     expect(await screen.findAllByText('Required')).toHaveLength(5);
     expect(screen.getByLabelText('Remit Date *')).toHaveValue('2026-09-13');
     expect(screen.getByLabelText('Deposit Date')).toHaveValue('');
+    // the cursor goes to the first one
+    await waitFor(() => expect(screen.getByLabelText('Payer')).toHaveFocus());
     expect(api.saveBillingManualEra).not.toHaveBeenCalled();
     // claims and attachments hang off the saved remit
     expect(
@@ -236,6 +240,41 @@ describe('ManualRemit', () => {
     expect(request.header).toBeUndefined();
     expect(request.claims).toHaveLength(1);
     expect(request.claims[0]).toMatchObject({ claimResponseId: 'cr-1', serviceLines: [{ paidCents: 6000 }] });
+  });
+
+  it('opens the claim a save found incomplete and puts the cursor on the field to fix', async () => {
+    api.getBillingEraDetail.mockResolvedValue(savedRemit());
+    api.saveBillingManualEra.mockResolvedValue({
+      eraId: 'era-1',
+      versionId: '4',
+      claims: [{ claimResponseId: 'cr-1' }],
+    });
+    renderAt('/eras/era-1/edit');
+    await screen.findByText('Joe Schmoe');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Expand claim' }));
+    type('Ins Paid', '');
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse claim' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    // the message is on the field, not in a banner at the top of the page
+    const insPaid = await screen.findByRole('textbox', { name: 'Ins Paid' });
+    await waitFor(() => expect(insPaid).toHaveFocus());
+    expect(insPaid).toHaveAccessibleDescription('Required');
+    expect(screen.getByRole('button', { name: 'Collapse claim' })).toBeInTheDocument();
+    // once the card has finished opening
+    await waitFor(() =>
+      expect(Element.prototype.scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'center' })
+    );
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(api.saveBillingManualEra).not.toHaveBeenCalled();
+
+    // fixing it clears the message, and the save goes through
+    type('Ins Paid', '60');
+    await waitFor(() => expect(insPaid).not.toHaveAccessibleDescription('Required'));
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(api.saveBillingManualEra).toHaveBeenCalledTimes(1));
+    expect(api.saveBillingManualEra.mock.calls[0][1].claims[0].serviceLines[0].paidCents).toBe(6000);
   });
 
   it('keys a claim in from the Add menu and saves it straight away', async () => {

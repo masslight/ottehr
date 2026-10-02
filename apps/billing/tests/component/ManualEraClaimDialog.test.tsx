@@ -4,21 +4,9 @@ import { ManualEraClaimDialog } from '../../src/components/era/ManualEraClaimDia
 import { ClaimForm, emptyClaimForm } from '../../src/utils/manualEra';
 
 // MUI's pickers and the terminology-backed CPT search don't run under jsdom; plain inputs stand in.
-vi.mock('../../src/components/DateInput', () => ({
-  DateInput: ({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) => (
-    <input aria-label={label} value={value} onChange={(event) => onChange(event.target.value)} />
-  ),
-}));
-vi.mock('../../src/components/ProcedureCodeAutocomplete', () => ({
-  ProcedureCodeAutocomplete: ({
-    label,
-    value,
-    onChange,
-  }: {
-    label: string;
-    value: string;
-    onChange: (value: string) => void;
-  }) => <input aria-label={label} value={value} onChange={(event) => onChange(event.target.value)} />,
+vi.mock('../../src/components/DateInput', async () => ({ DateInput: (await import('./inputStub')).InputStub }));
+vi.mock('../../src/components/ProcedureCodeAutocomplete', async () => ({
+  ProcedureCodeAutocomplete: (await import('./inputStub')).InputStub,
 }));
 
 const type = (label: string | RegExp, value: string, index = 0): void => {
@@ -29,12 +17,14 @@ const values = (label: string): string[] =>
 
 describe('ManualEraClaimDialog', () => {
   const onAdd = vi.fn();
-  beforeEach(() => onAdd.mockReset().mockResolvedValue(undefined));
+  beforeEach(() => {
+    onAdd.mockReset().mockResolvedValue(undefined);
+    // jsdom doesn't implement scrollIntoView, which taking the biller to an error calls
+    Element.prototype.scrollIntoView = vi.fn();
+  });
 
   it('builds the CARCs from the amounts and adds the claim to the remit', async () => {
     render(<ManualEraClaimDialog initialClaim={emptyClaimForm()} onCancel={vi.fn()} onAdd={onAdd} />);
-    const addButton = screen.getByRole('button', { name: 'Add to Remit' });
-    expect(addButton).toBeDisabled();
 
     type(/Patient Name/, 'Joe Schmoe');
     type('Service Date', '2026-08-15');
@@ -54,8 +44,7 @@ describe('ManualEraClaimDialog', () => {
     expect(values('CARC')).toEqual(['45', '3', '1']);
     expect(values('Amount')).toEqual(['50', '25', '25']);
 
-    await waitFor(() => expect(addButton).toBeEnabled());
-    fireEvent.click(addButton);
+    fireEvent.click(screen.getByRole('button', { name: 'Add to Remit' }));
 
     await waitFor(() => expect(onAdd).toHaveBeenCalledTimes(1));
     const added = onAdd.mock.calls[0][0] as ClaimForm;
@@ -65,6 +54,44 @@ describe('ManualEraClaimDialog', () => {
       'PR-3 25',
       'PR-1 25',
     ]);
+  });
+
+  it('marks what is missing on the fields themselves and takes the biller to the first', async () => {
+    render(<ManualEraClaimDialog initialClaim={emptyClaimForm()} onCancel={vi.fn()} onAdd={onAdd} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Add to Remit' }));
+
+    const patientName = screen.getByRole('textbox', { name: /Patient Name/ });
+    await waitFor(() => expect(patientName).toHaveFocus());
+    expect(patientName).toHaveAccessibleDescription('Required');
+    expect(Element.prototype.scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'center' });
+    // and the line's date of service, procedure code, billed and paid amounts
+    expect(screen.getAllByText('Required')).toHaveLength(5);
+    expect(onAdd).not.toHaveBeenCalled();
+
+    // from here on the errors follow the edits
+    type(/Patient Name/, 'Joe Schmoe');
+    await waitFor(() => expect(screen.getAllByText('Required')).toHaveLength(4));
+    expect(patientName).not.toHaveAccessibleDescription('Required');
+  });
+
+  it('flags each part of a CARC left incomplete', async () => {
+    render(
+      <ManualEraClaimDialog
+        initialClaim={emptyClaimForm({ patientName: 'Joe', serviceDate: '2026-08-15' })}
+        onCancel={vi.fn()}
+        onAdd={onAdd}
+      />
+    );
+    type('CPT/HCPCS', '99212');
+    type('Billed', '100');
+    type('Ins Paid', '100');
+    fireEvent.click(screen.getByRole('button', { name: 'CARC' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add to Remit' }));
+
+    // the group, the code and the amount
+    await waitFor(() => expect(screen.getAllByText('Required')).toHaveLength(3));
+    expect(screen.getByRole('combobox', { name: /^Group/ })).toHaveFocus();
+    expect(onAdd).not.toHaveBeenCalled();
   });
 
   it('lets the biller take over a generated CARC', () => {

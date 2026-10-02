@@ -2,7 +2,7 @@ import { Box, FormControl, InputLabel, MenuItem, Select, TextField, Typography }
 import { ReactElement, useId } from 'react';
 import { EraClaimStatusCode, MANUAL_ERA_LIMITS } from 'utils/lib/types/data/billing/billing.constants';
 import { ERA_STATUS_OPTIONS } from '../../constants/era';
-import { ClaimForm, setClaimServiceDate } from '../../utils/manualEra';
+import { ClaimErrors, ClaimForm, setClaimServiceDate } from '../../utils/manualEra';
 import { DateInput } from '../DateInput';
 import { EraServiceLinesEditor } from './EraServiceLinesEditor';
 
@@ -11,16 +11,19 @@ import { EraServiceLinesEditor } from './EraServiceLinesEditor';
 export function EraClaimEditor({
   claim,
   onChange,
+  errors,
 }: {
   claim: ClaimForm;
   onChange: (claim: ClaimForm) => void;
+  // what a save found wrong with the claim, shown on the fields to fix
+  errors?: ClaimErrors;
 }): ReactElement {
   const statusLabelId = useId();
   const set = (patch: Partial<ClaimForm>): void => onChange({ ...claim, ...patch });
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-      <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+      <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'flex-start' }}>
         <TextField
           size="small"
           label="Patient Name"
@@ -28,6 +31,8 @@ export function EraClaimEditor({
           value={claim.patientName}
           onChange={(event) => set({ patientName: event.target.value })}
           inputProps={{ maxLength: MANUAL_ERA_LIMITS.patientNameLength }}
+          error={!!errors?.patientName}
+          helperText={errors?.patientName?.message}
           sx={{ flex: 3, minWidth: 240 }}
         />
         <TextField
@@ -83,7 +88,7 @@ export function EraClaimEditor({
       <Typography variant="h6" color="primary.dark" fontWeight={600}>
         Service Lines
       </Typography>
-      <EraServiceLinesEditor claim={claim} onChange={onChange} />
+      <EraServiceLinesEditor claim={claim} onChange={onChange} errors={errors} />
     </Box>
   );
 }

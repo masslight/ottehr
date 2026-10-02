@@ -1,5 +1,16 @@
 import { DateTime } from 'luxon';
 import {
+  DeepRequired,
+  FieldError,
+  FieldErrors,
+  FieldErrorsImpl,
+  FieldValues,
+  Merge,
+  Resolver,
+  ResolverResult,
+  set,
+} from 'react-hook-form';
+import {
   ERA_CLAIM_STATUS_CODE,
   EraClaimStatusCode,
   EraPaymentMethodCode,
@@ -447,23 +458,41 @@ export function reconcileRemit(checkAmount: string, claims: ClaimForm[]): RemitR
 // --- validation ---
 
 const PROCEDURE_CODE = /^[A-Z0-9]{5}$/;
+const REQUIRED = 'Required';
+const NOT_AN_AMOUNT = 'Enter a dollar amount';
 
-// What still keeps a claim from being added (empty when it can be saved).
-export function claimProblems(claim: ClaimForm): string[] {
-  const problems: string[] = [];
-  if (!claim.patientName.trim()) problems.push('Enter the patient name');
-  if (claim.serviceLines.length === 0) problems.push('Add at least one service line');
+const requiredAmountProblem = (text: string): string | undefined =>
+  text.trim() === '' ? REQUIRED : parseMoneyToCents(text) === null ? NOT_AN_AMOUNT : undefined;
+
+// What keeps a claim from being saved, as a message per field path ("serviceLines.1.paid") in the order
+// the fields appear; empty when it can be saved.
+export function claimProblems(claim: ClaimForm): Record<string, string> {
+  const problems: Record<string, string> = {};
+  const check = (path: string, problem: string | undefined): void => {
+    if (problem) problems[path] = problem;
+  };
+  check('patientName', claim.patientName.trim() ? undefined : REQUIRED);
+  if (claim.serviceLines.length === 0) check('serviceLines.root', 'Add at least one service line');
   claim.serviceLines.forEach((line, index) => {
-    const label = `Line ${index + 1}`;
-    if (!line.serviceDate) problems.push(`${label}: enter the date of service`);
-    if (!PROCEDURE_CODE.test(line.procedureCode.trim().toUpperCase()))
-      problems.push(`${label}: enter a 5-character CPT/HCPCS code`);
-    if (parseMoneyToCents(line.billed) === null) problems.push(`${label}: enter the billed amount`);
-    if (parseMoneyToCents(line.paid) === null) problems.push(`${label}: enter the insurance paid amount`);
-    if (!isMoneyText(line.allowed)) problems.push(`${label}: the allowed amount isn't a dollar amount`);
-    if (line.adjustments.some((row) => !row.groupCode || !row.reasonCode || parseMoneyToCents(row.amount) === null))
-      problems.push(`${label}: complete or remove each CARC (group, code and amount)`);
-    if (line.remarkCodes.some((row) => !row.code)) problems.push(`${label}: choose or remove each RARC`);
+    const at = `serviceLines.${index}`;
+    const procedureCode = line.procedureCode.trim().toUpperCase();
+    check(`${at}.serviceDate`, line.serviceDate ? undefined : REQUIRED);
+    check(
+      `${at}.procedureCode`,
+      !procedureCode ? REQUIRED : PROCEDURE_CODE.test(procedureCode) ? undefined : 'Enter a 5-character code'
+    );
+    check(`${at}.billed`, requiredAmountProblem(line.billed));
+    check(`${at}.allowed`, isMoneyText(line.allowed) ? undefined : NOT_AN_AMOUNT);
+    check(`${at}.paid`, requiredAmountProblem(line.paid));
+    line.adjustments.forEach((row, rowIndex) => {
+      const rowAt = `${at}.adjustments.${rowIndex}`;
+      check(`${rowAt}.groupCode`, row.groupCode ? undefined : REQUIRED);
+      check(`${rowAt}.reasonCode`, row.reasonCode ? undefined : REQUIRED);
+      check(`${rowAt}.amount`, requiredAmountProblem(row.amount));
+    });
+    line.remarkCodes.forEach((row, rowIndex) => {
+      check(`${at}.remarkCodes.${rowIndex}.code`, row.code ? undefined : REQUIRED);
+    });
   });
   return problems;
 }
@@ -474,10 +503,53 @@ export function headerProblems(header: HeaderForm): Partial<Record<HeaderField, 
   const problems: Partial<Record<HeaderField, string>> = {};
   const required: HeaderField[] = ['payerId', 'billingProviderRef', 'checkNumber', 'remitDate', 'checkDate'];
   for (const field of required) {
-    if (!header[field].trim()) problems[field] = 'Required';
+    if (!header[field].trim()) problems[field] = REQUIRED;
   }
   const checkAmount = parseMoneyToCents(header.checkAmount);
-  if (header.checkAmount.trim() === '') problems.checkAmount = 'Required';
-  else if (checkAmount === null || checkAmount < 0) problems.checkAmount = 'Enter a dollar amount';
+  if (header.checkAmount.trim() === '') problems.checkAmount = REQUIRED;
+  else if (checkAmount === null || checkAmount < 0) problems.checkAmount = NOT_AN_AMOUNT;
   return problems;
 }
+
+// --- the react-hook-form forms ---
+
+export interface ManualRemitFormValues {
+  header: HeaderForm;
+  claims: ClaimForm[];
+}
+
+// the Enter ERA Claim Details dialog
+export interface ClaimFormValues {
+  claim: ClaimForm;
+}
+
+// one claim's errors, wherever the claim sits in its form
+export type ClaimErrors = Merge<FieldError, FieldErrorsImpl<DeepRequired<ClaimForm>>>;
+
+const prefixed = (prefix: string, problems: Partial<Record<string, string>>): Record<string, string> =>
+  Object.fromEntries(
+    Object.entries(problems).flatMap(([path, problem]) => (problem ? [[`${prefix}.${path}`, problem]] : []))
+  );
+
+// What keeps the remit from being saved, header and every claim, as a message per field path.
+export function remitProblems(values: ManualRemitFormValues): Record<string, string> {
+  return Object.assign(
+    prefixed('header', headerProblems(values.header)),
+    ...values.claims.map((claim, index) => prefixed(`claims.${index}`, claimProblems(claim)))
+  );
+}
+
+function resolveWith<T extends FieldValues>(values: T, problems: Record<string, string>): ResolverResult<T> {
+  if (Object.keys(problems).length === 0) return { values, errors: {} };
+  const errors = {};
+  for (const [path, message] of Object.entries(problems)) set(errors, path, { type: 'validate', message });
+  return { values: {}, errors: errors as FieldErrors<T> };
+}
+
+// Resolvers rather than field rules: react-hook-form only checks the fields on screen, and a collapsed
+// claim's fields aren't.
+export const manualRemitResolver: Resolver<ManualRemitFormValues> = (values) =>
+  resolveWith(values, remitProblems(values));
+
+export const claimFormResolver: Resolver<ClaimFormValues> = (values) =>
+  resolveWith(values, prefixed('claim', claimProblems(values.claim)));

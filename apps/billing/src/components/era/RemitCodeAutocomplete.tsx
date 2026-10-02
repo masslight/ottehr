@@ -45,6 +45,7 @@ interface RemitCodeAutocompleteProps {
   value: string;
   onChange: (code: string) => void;
   error?: boolean;
+  helperText?: string;
   width?: number;
 }
 
@@ -53,6 +54,7 @@ export function RemitCodeAutocomplete({
   value,
   onChange,
   error,
+  helperText,
   width,
 }: RemitCodeAutocompleteProps): ReactElement {
   const [options, setOptions] = useState<readonly X12CodeListEntry[]>(kind === 'carc' ? CARC_OPTIONS : []);
@@ -108,7 +110,13 @@ export function RemitCodeAutocomplete({
       )}
       slotProps={{ paper: { sx: { minWidth: 420 } } }}
       renderInput={(params) => (
-        <TextField {...params} label={label} error={error} title={selected?.description || undefined} />
+        <TextField
+          {...params}
+          label={label}
+          error={error}
+          helperText={helperText}
+          title={selected?.description || undefined}
+        />
       )}
       sx={{ width: width ?? 160 }}
     />

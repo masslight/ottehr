@@ -1,3 +1,4 @@
+import { FieldValues, ResolverOptions } from 'react-hook-form';
 import { ClaimDetailResponse, ManualEraEntryClaim } from 'utils/lib/types/data/billing/billing.types';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -6,6 +7,7 @@ import {
   bucketValue,
   claimFormFromClaimDetail,
   claimFormFromEntry,
+  claimFormResolver,
   claimFormToInput,
   claimProblems,
   claimTotals,
@@ -17,8 +19,11 @@ import {
   headerFormToInput,
   headerProblems,
   lineImbalanceCents,
+  ManualRemitFormValues,
+  manualRemitResolver,
   parseMoneyToCents,
   reconcileRemit,
+  remitProblems,
   removeAdjustment,
   ServiceLineForm,
   setBucketValue,
@@ -94,7 +99,7 @@ describe('CO-45 from billed and allowed', () => {
       claimProblems(
         emptyClaimForm({ patientName: 'A', serviceLines: [{ ...line, procedureCode: '99212', paid: '0' }] })
       )
-    ).toContain('Line 1: complete or remove each CARC (group, code and amount)');
+    ).toEqual({ 'serviceLines.0.adjustments.0.reasonCode': 'Required' });
   });
 
   it('adds nothing when the payer allowed more than was billed', () => {
@@ -183,7 +188,7 @@ describe('totals and reconciliation', () => {
 
   it('turns the form into the save input in cents', () => {
     const claim = mockupClaim();
-    expect(claimProblems(claim)).toEqual([]);
+    expect(claimProblems(claim)).toEqual({});
     expect(claimFormToInput(claim)).toEqual({
       clientKey: claim.key,
       statusCode: '1',
@@ -326,5 +331,94 @@ describe('header', () => {
     const form = headerFormFromEntry(header);
     expect(form.depositDate).toBe('');
     expect(headerFormToInput(form)).toStrictEqual(header);
+  });
+});
+
+describe('validation', () => {
+  const line = (overrides: Partial<ServiceLineForm> = {}): ServiceLineForm => ({
+    ...blankLine(),
+    procedureCode: '99212',
+    billed: '100',
+    paid: '100',
+    ...overrides,
+  });
+  const resolverOptions = <T extends FieldValues>(): ResolverOptions<T> => ({
+    fields: {},
+    shouldUseNativeValidation: false,
+  });
+  const header = {
+    ...emptyHeaderForm(),
+    payerId: 'payer-uhc',
+    billingProviderRef: 'Organization/org-1',
+    checkNumber: '557801',
+    checkAmount: '200',
+    checkDate: '2026-09-13',
+  };
+
+  it('puts each problem on the field to fix, in the order the fields appear', () => {
+    const claim = emptyClaimForm({
+      serviceLines: [
+        line(),
+        {
+          ...line({ serviceDate: '', procedureCode: '9921', billed: '', allowed: 'abc', paid: '' }),
+          adjustments: [{ key: 'a', groupCode: '', reasonCode: '', amount: '1.234' }],
+          remarkCodes: [{ key: 'r', code: '' }],
+        },
+      ],
+    });
+    expect(Object.entries(claimProblems(claim))).toEqual([
+      ['patientName', 'Required'],
+      ['serviceLines.1.serviceDate', 'Required'],
+      ['serviceLines.1.procedureCode', 'Enter a 5-character code'],
+      ['serviceLines.1.billed', 'Required'],
+      ['serviceLines.1.allowed', 'Enter a dollar amount'],
+      ['serviceLines.1.paid', 'Required'],
+      ['serviceLines.1.adjustments.0.groupCode', 'Required'],
+      ['serviceLines.1.adjustments.0.reasonCode', 'Required'],
+      ['serviceLines.1.adjustments.0.amount', 'Enter a dollar amount'],
+      ['serviceLines.1.remarkCodes.0.code', 'Required'],
+    ]);
+    expect(claimProblems(emptyClaimForm({ patientName: 'A', serviceLines: [line({ procedureCode: '' })] }))).toEqual({
+      'serviceLines.0.procedureCode': 'Required',
+    });
+  });
+
+  // a collapsed claim card has no fields on screen, so this can't be left to field-level rules
+  it('checks every claim on the remit, filing each problem under its claim', () => {
+    const values: ManualRemitFormValues = {
+      header,
+      claims: [
+        emptyClaimForm({ patientName: 'Joe', serviceLines: [line()] }),
+        emptyClaimForm({ patientName: 'Ann', serviceLines: [line({ paid: '' })] }),
+      ],
+    };
+    expect(remitProblems(values)).toEqual({ 'claims.1.serviceLines.0.paid': 'Required' });
+    expect(remitProblems({ header: emptyHeaderForm(), claims: [] })).toMatchObject({
+      'header.payerId': 'Required',
+      'header.checkAmount': 'Required',
+    });
+  });
+
+  it('hands react-hook-form the errors nested the way its fields are named', async () => {
+    const values: ManualRemitFormValues = {
+      header,
+      claims: [
+        emptyClaimForm({ patientName: 'Joe', serviceLines: [line()] }),
+        emptyClaimForm({ patientName: 'Ann', serviceLines: [line({ paid: '' })] }),
+      ],
+    };
+    expect(await manualRemitResolver(values, undefined, resolverOptions())).toEqual({
+      values: {},
+      errors: { claims: [undefined, { serviceLines: [{ paid: { type: 'validate', message: 'Required' } }] }] },
+    });
+    const fixed = { ...values, claims: [values.claims[0]] };
+    expect(await manualRemitResolver(fixed, undefined, resolverOptions())).toEqual({ values: fixed, errors: {} });
+
+    expect(
+      await claimFormResolver({ claim: emptyClaimForm({ serviceLines: [line()] }) }, undefined, resolverOptions())
+    ).toEqual({
+      values: {},
+      errors: { claim: { patientName: { type: 'validate', message: 'Required' } } },
+    });
   });
 });

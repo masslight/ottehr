@@ -22,7 +22,8 @@ import {
   Typography,
 } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
-import { ReactElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
+import { Controller, useForm, useWatch } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import {
@@ -57,21 +58,21 @@ import { ProviderSelect } from '../components/ProviderSelect';
 import { ReadOnlySection } from '../components/ReadOnlySection';
 import { useApiClients } from '../hooks/useAppClients';
 import { useDebounce } from '../hooks/useDebounce';
+import { useRevealFirstError } from '../hooks/useRevealFirstError';
 import { formatDate } from '../utils/format';
 import {
   ClaimForm,
   claimFormFromClaimDetail,
   claimFormFromEntry,
   claimFormToInput,
-  claimProblems,
   claimTotals,
   emptyClaimForm,
   emptyHeaderForm,
-  HeaderField,
   HeaderForm,
   headerFormFromEntry,
   headerFormToInput,
-  headerProblems,
+  ManualRemitFormValues,
+  manualRemitResolver,
   newKey,
   parseMoneyToCents,
   reconcileRemit,
@@ -129,14 +130,28 @@ export default function ManualRemit(): ReactElement {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [detail, setDetail] = useState<EraDetailResponse | null>(null);
   const [versionId, setVersionId] = useState('');
-  const [header, setHeader] = useState<HeaderForm>(emptyHeaderForm);
-  const [savedHeader, setSavedHeader] = useState<HeaderForm>(emptyHeaderForm);
-  const [claims, setClaims] = useState<ClaimForm[]>([]);
+  const [newHeader] = useState(emptyHeaderForm);
+  const {
+    control,
+    handleSubmit,
+    reset,
+    setValue,
+    getValues,
+    formState: { errors, isSubmitting, submitCount },
+  } = useForm<ManualRemitFormValues>({
+    defaultValues: { header: newHeader, claims: [] },
+    resolver: manualRemitResolver,
+    // useRevealFirstError takes the cursor to the first field to fix, in a claim the save opens if it's
+    // collapsed
+    shouldFocusError: false,
+  });
+  const { header, claims } = useWatch({ control }) as ManualRemitFormValues;
+  // what the remit and each stored claim looked like when last saved, to tell edits apart
+  const [savedHeader, setSavedHeader] = useState<HeaderForm>(newHeader);
   const [savedSnapshots, setSavedSnapshots] = useState<Map<string, string>>(new Map());
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
-  const [showHeaderErrors, setShowHeaderErrors] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  useRevealFirstError(submitCount, errors);
   const [duplicateCheckWarning, setDuplicateCheckWarning] = useState<string | null>(null);
   // one per page visit, so a retried create returns the remit the first attempt made
   const [idempotencyKey] = useState(() => globalThis.crypto?.randomUUID?.() ?? newKey());
@@ -150,20 +165,22 @@ export default function ManualRemit(): ReactElement {
 
   const { debounce } = useDebounce(600);
 
-  const applyDetail = useCallback((data: EraDetailResponse): void => {
-    if (!data.manualEntry) {
-      setLoadError('Only manually entered remits can be edited here.');
-      return;
-    }
-    const loadedHeader = headerFormFromEntry(data.manualEntry.header);
-    const loadedClaims = data.manualEntry.claims.map(claimFormFromEntry);
-    setDetail(data);
-    setVersionId(data.versionId);
-    setHeader(loadedHeader);
-    setSavedHeader(loadedHeader);
-    setClaims(loadedClaims);
-    setSavedSnapshots(new Map(loadedClaims.map((claim) => [claim.claimResponseId ?? '', snapshotOf(claim)])));
-  }, []);
+  const applyDetail = useCallback(
+    (data: EraDetailResponse): void => {
+      if (!data.manualEntry) {
+        setLoadError('Only manually entered remits can be edited here.');
+        return;
+      }
+      const loadedHeader = headerFormFromEntry(data.manualEntry.header);
+      const loadedClaims = data.manualEntry.claims.map(claimFormFromEntry);
+      setDetail(data);
+      setVersionId(data.versionId);
+      reset({ header: loadedHeader, claims: loadedClaims });
+      setSavedHeader(loadedHeader);
+      setSavedSnapshots(new Map(loadedClaims.map((claim) => [claim.claimResponseId ?? '', snapshotOf(claim)])));
+    },
+    [reset]
+  );
 
   const loadAll = useCallback(async (): Promise<void> => {
     if (!oystehrZambda || !eraId) return;
@@ -190,7 +207,8 @@ export default function ManualRemit(): ReactElement {
     return data;
   }, [oystehrZambda, eraId]);
 
-  const headerDirty = JSON.stringify(header) !== JSON.stringify(savedHeader);
+  const isHeaderDirty = (candidate: HeaderForm): boolean => JSON.stringify(candidate) !== JSON.stringify(savedHeader);
+  const headerDirty = isHeaderDirty(header);
   const isClaimDirty = useCallback(
     (claim: ClaimForm): boolean =>
       !!claim.claimResponseId && savedSnapshots.get(claim.claimResponseId) !== snapshotOf(claim),
@@ -238,11 +256,6 @@ export default function ManualRemit(): ReactElement {
     }, 'check-number');
   }, [oystehrZambda, checkNumber, eraId, debounce]);
 
-  const problems = headerProblems(header);
-  const fieldError = (field: HeaderField): string | undefined => (showHeaderErrors ? problems[field] : undefined);
-  const setField = <K extends HeaderField>(field: K, value: HeaderForm[K]): void =>
-    setHeader((current) => ({ ...current, [field]: value }));
-
   const handleSaveError = (err: unknown, fallback: string): void => {
     setSaveError(
       isVersionConflict(err)
@@ -251,52 +264,53 @@ export default function ManualRemit(): ReactElement {
     );
   };
 
-  const save = async (): Promise<void> => {
-    if (!oystehrZambda) return;
-    setShowHeaderErrors(true);
-    setSaveError(null);
-    if (Object.keys(problems).length > 0) return;
-    const incomplete = dirtyClaims.find((claim) => claimProblems(claim).length > 0);
-    if (incomplete) {
-      setExpanded((current) => new Set(current).add(cardId(incomplete)));
-      setSaveError(
-        `Finish the claim for ${incomplete.patientName || 'the unnamed patient'}: ${claimProblems(incomplete)[0]}`
-      );
-      return;
-    }
-    setSaving(true);
-    try {
-      if (!eraId) {
-        const created = await saveBillingManualEra(oystehrZambda, {
-          idempotencyKey,
-          header: headerFormToInput(header),
+  const save = handleSubmit(
+    async ({ header: submittedHeader, claims: submittedClaims }) => {
+      if (!oystehrZambda) return;
+      setSaveError(null);
+      const edited = submittedClaims.filter(isClaimDirty);
+      try {
+        if (!eraId) {
+          const created = await saveBillingManualEra(oystehrZambda, {
+            idempotencyKey,
+            header: headerFormToInput(submittedHeader),
+          });
+          setSavedHeader(submittedHeader);
+          enqueueSnackbar('Remit saved. Add its claims below.', { variant: 'success' });
+          navigate(`/eras/${created.eraId}/edit`, { replace: true });
+          return;
+        }
+        const saved = await saveBillingManualEra(oystehrZambda, {
+          eraId,
+          expectedVersionId: versionId,
+          ...(isHeaderDirty(submittedHeader) ? { header: headerFormToInput(submittedHeader) } : {}),
+          claims: edited.map(claimFormToInput),
         });
-        setSavedHeader(header);
-        enqueueSnackbar('Remit saved. Add its claims below.', { variant: 'success' });
-        navigate(`/eras/${created.eraId}/edit`, { replace: true });
-        return;
+        setVersionId(saved.versionId);
+        setSavedHeader(submittedHeader);
+        setSavedSnapshots((current) => {
+          const next = new Map(current);
+          edited.forEach((claim) => next.set(claim.claimResponseId ?? '', snapshotOf(claim)));
+          return next;
+        });
+        await refreshDetail();
+        enqueueSnackbar('Remit saved', { variant: 'success' });
+      } catch (err) {
+        handleSaveError(err, 'Failed to save the remit');
       }
-      const saved = await saveBillingManualEra(oystehrZambda, {
-        eraId,
-        expectedVersionId: versionId,
-        ...(headerDirty ? { header: headerFormToInput(header) } : {}),
-        claims: dirtyClaims.map(claimFormToInput),
-      });
-      setVersionId(saved.versionId);
-      setSavedHeader(header);
-      setSavedSnapshots((current) => {
-        const next = new Map(current);
-        dirtyClaims.forEach((claim) => next.set(claim.claimResponseId ?? '', snapshotOf(claim)));
-        return next;
-      });
-      await refreshDetail();
-      enqueueSnackbar('Remit saved', { variant: 'success' });
-    } catch (err) {
-      handleSaveError(err, 'Failed to save the remit');
-    } finally {
-      setSaving(false);
+    },
+    (invalid) => {
+      setSaveError(null);
+      const incomplete = getValues('claims')
+        .filter((_, index) => invalid.claims?.[index])
+        .map(cardId);
+      if (incomplete.length) setExpanded((current) => new Set([...current, ...incomplete]));
     }
-  };
+  );
+
+  // once a save has flagged a claim, its errors follow the edits
+  const setClaim = (index: number, claim: ClaimForm): void =>
+    setValue(`claims.${index}`, claim, { shouldValidate: !!errors.claims?.[index] });
 
   // Add to Remit: saves just this claim (not other pending edits) and puts it on the page
   const addClaim = async (claim: ClaimForm): Promise<void> => {
@@ -310,7 +324,7 @@ export default function ManualRemit(): ReactElement {
       const claimResponseId = saved.claims.find((entry) => entry.clientKey === claim.key)?.claimResponseId;
       const added: ClaimForm = { ...claim, claimResponseId };
       setVersionId(saved.versionId);
-      setClaims((current) => [...current, added]);
+      setValue('claims', [...getValues('claims'), added]);
       setSavedSnapshots((current) => new Map(current).set(claimResponseId ?? '', snapshotOf(added)));
       setExpanded(new Set([cardId(added)]));
       setClaimDialog(null);
@@ -334,7 +348,12 @@ export default function ManualRemit(): ReactElement {
         deleteClaimResponseIds: [claim.claimResponseId],
       });
       setVersionId(saved.versionId);
-      setClaims((current) => current.filter((candidate) => candidate.key !== claim.key));
+      // the claims after it move up, so any errors shown are worked out again for their new places
+      setValue(
+        'claims',
+        getValues('claims').filter((candidate) => candidate.key !== claim.key),
+        { shouldValidate: !!errors.claims }
+      );
       void refreshDetail();
     } catch (err) {
       handleSaveError(err, 'Failed to remove the claim');
@@ -348,11 +367,8 @@ export default function ManualRemit(): ReactElement {
   const refreshMatch = async (claim: ClaimForm): Promise<void> => {
     const data = await refreshDetail();
     const stored = data?.manualEntry?.claims.find((entry) => entry.claimResponseId === claim.claimResponseId);
-    setClaims((current) =>
-      current.map((candidate) =>
-        candidate.key === claim.key ? { ...candidate, matchedClaimId: stored?.matchedClaimId ?? null } : candidate
-      )
-    );
+    const index = getValues('claims').findIndex((candidate) => candidate.key === claim.key);
+    if (index >= 0) setValue(`claims.${index}.matchedClaimId`, stored?.matchedClaimId ?? null);
   };
 
   const unmatchClaim = async (claim: ClaimForm): Promise<void> => {
@@ -369,10 +385,7 @@ export default function ManualRemit(): ReactElement {
     }
   };
 
-  const claimsOnRemit = useMemo(
-    () => new Set(claims.map((claim) => claim.matchedClaimId).filter((id): id is string => !!id)),
-    [claims]
-  );
+  const claimsOnRemit = new Set(claims.map((claim) => claim.matchedClaimId).filter((id): id is string => !!id));
   const reconciliation = reconcileRemit(header.checkAmount, claims);
   const title = savedHeader.checkNumber ? `Manual Remit — ${savedHeader.checkNumber}` : 'Manual Remit';
   const notSavedYet = eraId ? undefined : 'Save the remit details first';
@@ -422,11 +435,11 @@ export default function ManualRemit(): ReactElement {
         </Box>
         <Button
           variant="contained"
-          startIcon={saving ? <CircularProgress size={14} color="inherit" /> : <SaveIcon />}
+          startIcon={isSubmitting ? <CircularProgress size={14} color="inherit" /> : <SaveIcon />}
           onClick={() => void save()}
-          disabled={saving || (!!eraId && !dirty)}
+          disabled={isSubmitting || (!!eraId && !dirty)}
         >
-          {saving ? 'Saving...' : 'Save'}
+          {isSubmitting ? 'Saving...' : 'Save'}
         </Button>
       </Box>
 
@@ -442,105 +455,170 @@ export default function ManualRemit(): ReactElement {
             <Typography variant="h6" color="primary.dark" fontWeight={600} fontSize={16}>
               Remit Details
             </Typography>
-            <PayerSelect
-              multiple={false}
-              label="Payer"
-              required
-              fullWidth
-              value={header.payerId}
-              onChange={(value) => setField('payerId', value as string)}
-              initialOptions={
-                header.payerId && detail?.payerName ? [{ id: header.payerId, name: detail.payerName, payerId: '' }] : []
-              }
-              error={!!fieldError('payerId')}
-              helperText={fieldError('payerId')}
+            <Controller
+              name="header.payerId"
+              control={control}
+              render={({ field, fieldState: { error } }) => (
+                <PayerSelect
+                  multiple={false}
+                  label="Payer"
+                  required
+                  fullWidth
+                  value={field.value}
+                  onChange={(value) => field.onChange(value as string)}
+                  initialOptions={
+                    field.value && detail?.payerName ? [{ id: field.value, name: detail.payerName, payerId: '' }] : []
+                  }
+                  error={!!error}
+                  helperText={error?.message}
+                  inputRef={field.ref}
+                />
+              )}
             />
-            <ProviderSelect
-              providerRole="billing"
-              multiple={false}
-              label="Billing Provider"
-              required
-              fullWidth
-              showTaxId
-              value={header.billingProviderRef}
-              onChange={(value) => setField('billingProviderRef', value as string)}
-              error={!!fieldError('billingProviderRef')}
-              helperText={fieldError('billingProviderRef')}
+            <Controller
+              name="header.billingProviderRef"
+              control={control}
+              render={({ field, fieldState: { error } }) => (
+                <ProviderSelect
+                  providerRole="billing"
+                  multiple={false}
+                  label="Billing Provider"
+                  required
+                  fullWidth
+                  showTaxId
+                  value={field.value}
+                  onChange={(value) => field.onChange(value as string)}
+                  error={!!error}
+                  helperText={error?.message}
+                  inputRef={field.ref}
+                />
+              )}
             />
-            <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', md: '1fr 1fr 1fr' } }}>
-              <TextField
-                size="small"
-                label="Check Number"
-                required
-                value={header.checkNumber}
-                onChange={(event) => setField('checkNumber', event.target.value)}
-                inputProps={{ maxLength: MANUAL_ERA_LIMITS.checkNumberLength }}
-                error={!!fieldError('checkNumber')}
-                helperText={fieldError('checkNumber') ?? duplicateCheckWarning ?? undefined}
-                FormHelperTextProps={{
-                  sx: duplicateCheckWarning && !fieldError('checkNumber') ? { color: 'warning.main' } : {},
-                }}
+            <Box
+              sx={{
+                display: 'grid',
+                gap: 2,
+                gridTemplateColumns: { xs: '1fr', md: '1fr 1fr 1fr' },
+                alignItems: 'start',
+              }}
+            >
+              <Controller
+                name="header.checkNumber"
+                control={control}
+                render={({ field, fieldState: { error } }) => (
+                  <TextField
+                    size="small"
+                    label="Check Number"
+                    required
+                    value={field.value}
+                    onChange={field.onChange}
+                    onBlur={field.onBlur}
+                    inputRef={field.ref}
+                    inputProps={{ maxLength: MANUAL_ERA_LIMITS.checkNumberLength }}
+                    error={!!error}
+                    helperText={error?.message ?? duplicateCheckWarning ?? undefined}
+                    FormHelperTextProps={{
+                      sx: duplicateCheckWarning && !error ? { color: 'warning.main' } : {},
+                    }}
+                  />
+                )}
               />
-              <TextField
-                size="small"
-                label="Check Amount"
-                required
-                value={header.checkAmount}
-                onChange={(event) => setField('checkAmount', event.target.value)}
-                InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
-                inputProps={{ inputMode: 'decimal' }}
-                error={!!fieldError('checkAmount')}
-                helperText={fieldError('checkAmount')}
+              <Controller
+                name="header.checkAmount"
+                control={control}
+                render={({ field, fieldState: { error } }) => (
+                  <TextField
+                    size="small"
+                    label="Check Amount"
+                    required
+                    value={field.value}
+                    onChange={field.onChange}
+                    onBlur={field.onBlur}
+                    inputRef={field.ref}
+                    InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
+                    inputProps={{ inputMode: 'decimal' }}
+                    error={!!error}
+                    helperText={error?.message}
+                  />
+                )}
               />
-              <FormControl size="small">
-                <InputLabel id="payment-method-label">Payment Method</InputLabel>
-                <Select
-                  labelId="payment-method-label"
-                  label="Payment Method"
-                  value={header.paymentMethod}
-                  onChange={(event) => setField('paymentMethod', event.target.value as EraPaymentMethodCode | '')}
-                >
-                  <MenuItem value="">
-                    <em>Not specified</em>
-                  </MenuItem>
-                  {ERA_PAYMENT_METHODS.map((method) => (
-                    <MenuItem key={method.code} value={method.code}>
-                      {method.label}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-              <DateInput
-                label="Remit Date *"
-                value={header.remitDate}
-                onChange={(value) => setField('remitDate', value)}
-                fullWidth
-                error={!!fieldError('remitDate')}
-                helperText={fieldError('remitDate')}
+              <Controller
+                name="header.paymentMethod"
+                control={control}
+                render={({ field }) => (
+                  <FormControl size="small">
+                    <InputLabel id="payment-method-label">Payment Method</InputLabel>
+                    <Select
+                      labelId="payment-method-label"
+                      label="Payment Method"
+                      value={field.value}
+                      onChange={(event) => field.onChange(event.target.value as EraPaymentMethodCode | '')}
+                      inputRef={field.ref}
+                    >
+                      <MenuItem value="">
+                        <em>Not specified</em>
+                      </MenuItem>
+                      {ERA_PAYMENT_METHODS.map((method) => (
+                        <MenuItem key={method.code} value={method.code}>
+                          {method.label}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                )}
               />
-              <DateInput
-                label="Check Date *"
-                value={header.checkDate}
-                onChange={(value) => setField('checkDate', value)}
-                fullWidth
-                error={!!fieldError('checkDate')}
-                helperText={fieldError('checkDate')}
+              <Controller
+                name="header.remitDate"
+                control={control}
+                render={({ field, fieldState: { error } }) => (
+                  <DateInput
+                    label="Remit Date *"
+                    value={field.value}
+                    onChange={field.onChange}
+                    fullWidth
+                    error={!!error}
+                    helperText={error?.message}
+                  />
+                )}
               />
-              <DateInput
-                label="Deposit Date"
-                value={header.depositDate}
-                onChange={(value) => setField('depositDate', value)}
-                fullWidth
+              <Controller
+                name="header.checkDate"
+                control={control}
+                render={({ field, fieldState: { error } }) => (
+                  <DateInput
+                    label="Check Date *"
+                    value={field.value}
+                    onChange={field.onChange}
+                    fullWidth
+                    error={!!error}
+                    helperText={error?.message}
+                  />
+                )}
+              />
+              <Controller
+                name="header.depositDate"
+                control={control}
+                render={({ field }) => (
+                  <DateInput label="Deposit Date" value={field.value} onChange={field.onChange} fullWidth />
+                )}
               />
             </Box>
-            <TextField
-              size="small"
-              label="Notes"
-              multiline
-              minRows={2}
-              value={header.notes}
-              onChange={(event) => setField('notes', event.target.value)}
-              inputProps={{ maxLength: MANUAL_ERA_LIMITS.notesLength }}
+            <Controller
+              name="header.notes"
+              control={control}
+              render={({ field }) => (
+                <TextField
+                  size="small"
+                  label="Notes"
+                  multiline
+                  minRows={2}
+                  value={field.value}
+                  onChange={field.onChange}
+                  onBlur={field.onBlur}
+                  inputRef={field.ref}
+                  inputProps={{ maxLength: MANUAL_ERA_LIMITS.notesLength }}
+                />
+              )}
             />
           </CardContent>
         </Card>
@@ -617,13 +695,12 @@ export default function ManualRemit(): ReactElement {
             </Typography>
           ) : (
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-              {claims.map((claim) => (
+              {claims.map((claim, index) => (
                 <ManualEraClaimCard
                   key={claim.key}
                   claim={claim}
-                  onChange={(next) =>
-                    setClaims((current) => current.map((candidate) => (candidate.key === claim.key ? next : candidate)))
-                  }
+                  errors={errors.claims?.[index]}
+                  onChange={(next) => setClaim(index, next)}
                   expanded={expanded.has(cardId(claim))}
                   onToggle={() =>
                     setExpanded((current) => {

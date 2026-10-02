@@ -1,4 +1,4 @@
-import { FormControl, InputLabel, MenuItem, Select } from '@mui/material';
+import { FormControl, FormHelperText, InputLabel, MenuItem, Select } from '@mui/material';
 import { ReactElement, useId } from 'react';
 import { X12_ADJUSTMENT_GROUP_CODES, X12AdjustmentGroupCode } from 'utils/lib/types/data/billing/billing.constants';
 import { X12_ADJUSTMENT_GROUP_LABELS } from 'utils/lib/types/data/billing/carc';
@@ -8,10 +8,12 @@ export function AdjustmentGroupSelect({
   value,
   onChange,
   error,
+  helperText,
 }: {
   value: X12AdjustmentGroupCode | '';
   onChange: (value: X12AdjustmentGroupCode) => void;
   error?: boolean;
+  helperText?: string;
 }): ReactElement {
   const labelId = useId();
   return (
@@ -30,6 +32,7 @@ export function AdjustmentGroupSelect({
           </MenuItem>
         ))}
       </Select>
+      {helperText && <FormHelperText>{helperText}</FormHelperText>}
     </FormControl>
   );
 }
