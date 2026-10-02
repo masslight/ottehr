@@ -239,6 +239,8 @@ describe('createDocumentResources', () => {
 describe('createConsentResources', () => {
   const [HIPAA_FORM, CTT_FORM] = getConsentFormsForLocation();
   const IL_FORMS = getConsentFormsForLocation('IL');
+  // True only when the active config defines an IL-specific asset; absent in some per-project overlays.
+  const hasIlVariant = IL_FORMS[1].assetPath !== CTT_FORM.assetPath;
 
   const SECRETS = { PROJECT_ID: 'proj-123', PROJECT_API: 'https://project.api' } as unknown as Secrets;
 
@@ -395,7 +397,7 @@ describe('createConsentResources', () => {
     });
   });
 
-  test('resolves state-specific consent form assets (the Illinois variant)', async () => {
+  test.skipIf(!hasIlVariant)('resolves state-specific consent form assets (the Illinois variant)', async () => {
     await run({ location: makeLocation('IL') });
     const cttPdfInfo = mockCreatePdfBytes.mock.calls[1][3];
     expect(cttPdfInfo.copyFromPath).toBe(IL_FORMS[1].assetPath);

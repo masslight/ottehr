@@ -388,7 +388,10 @@ describe('get-billing-claim-history performEffect', () => {
 
     const { entries } = await performEffect(oystehr, {
       claimId: 'c1',
-      secrets: null,
+      // Pass a non-local environment so sendErrors doesn't skip captureException.
+      // With secrets: null, getOptionalSecret falls back to process.env['ENVIRONMENT'],
+      // which is 'local' in CI — causing sendErrors to return early before calling captureException.
+      secrets: { ENVIRONMENT: 'test' },
     });
 
     expect(entries[0].acknowledgment).toBeUndefined();
