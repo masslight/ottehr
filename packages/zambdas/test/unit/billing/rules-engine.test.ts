@@ -14,12 +14,15 @@ import { getPayerUrl } from 'utils/lib/helpers/helpers';
 import { CODE_SYSTEM_CMS_PLACE_OF_SERVICE, EXTENSION_URL_CPT_MODIFIER } from 'utils/lib/helpers/rcm/constants';
 import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
 import { BillingInsuranceType } from 'utils/lib/types/data/billing/billing.schemas';
+import { CUSTOM_INSURANCE_ORG_KIND_CODE } from 'utils/lib/types/data/billing/custom-insurance-org.types';
 import {
   CLAIM_NON_INSURANCE_PAYER_EXTENSION_URL,
   CLAIM_NON_INSURANCE_PAYER_TAG_SYSTEM,
+  NIO_ORGANIZATION_KIND_SYSTEM,
 } from 'utils/lib/types/data/billing/non-insurance-org.types';
 import { RULES_ENGINE_TYPES } from 'utils/lib/types/data/billing/rules-engine.constants';
 import {
+  collectSetPayerIds,
   RULE_FIELD_CATALOG,
   SERVICE_LINE_PROPERTY_CATALOG,
 } from 'utils/lib/types/data/billing/rules-engine.field-catalog';
@@ -1450,6 +1453,121 @@ describe('non-insurance payer field', () => {
     m.nioOrganizations = new Map([['nio-1', nioOrg]]);
     expect(writeField(m, 'nonInsurancePayerId', 'nio-other')).toBe(false);
     expect(m.claim).toEqual(before);
+  });
+});
+
+describe('custom insurance organization payers', () => {
+  // Custom insurance organizations are plain FHIR Organizations referenced directly
+  // (Organization/{id}), unlike RCM payers, which are referenced by payer URL.
+  const CUSTOM_ORG_ID = '7c9e6679-7425-40de-944b-e07fc1f90ae7';
+  const OTHER_UUID = '0f8fad5b-d9cb-469f-a165-70867728950e';
+  const customOrg: Organization = {
+    resourceType: 'Organization',
+    id: CUSTOM_ORG_ID,
+    name: 'Local Health Plan',
+    type: [{ coding: [{ system: NIO_ORGANIZATION_KIND_SYSTEM, code: CUSTOM_INSURANCE_ORG_KIND_CODE }] }],
+  };
+  const withCustomOrgs = (m: RulesEngineClaimModel): RulesEngineClaimModel => {
+    m.customInsuranceOrganizations = new Map([[CUSTOM_ORG_ID, customOrg]]);
+    return m;
+  };
+
+  it('reads a custom insurance organization payor as its organization id', () => {
+    const m = makeModel();
+    m.coverages[0].payor = [{ reference: `Organization/${CUSTOM_ORG_ID}` }];
+    m.coverages[1].payor = [{ reference: `Organization/${CUSTOM_ORG_ID}` }];
+    expect(readField(m, 'payerId')).toBe(CUSTOM_ORG_ID);
+    expect(readField(m, 'insurance.payerId')).toBe(CUSTOM_ORG_ID);
+    expect(readField(m, 'secondaryInsurance.payerId')).toBe(CUSTOM_ORG_ID);
+  });
+
+  it('matches conditions on a custom insurance organization id', () => {
+    const m = makeModel();
+    m.coverages[0].payor = [{ reference: `Organization/${CUSTOM_ORG_ID}` }];
+    expect(evaluateCondition({ type: 'field', field: 'payerId', operator: 'eq', value: CUSTOM_ORG_ID }, m)).toBe(true);
+    expect(
+      evaluateCondition({ type: 'field', field: 'payerId', operator: 'in', value: ['123456', CUSTOM_ORG_ID] }, m)
+    ).toBe(true);
+    expect(evaluateCondition({ type: 'field', field: 'payerId', operator: 'neq', value: CUSTOM_ORG_ID }, m)).toBe(
+      false
+    );
+    expect(evaluateCondition({ type: 'field', field: 'payerId', operator: 'eq', value: '123456' }, m)).toBe(false);
+  });
+
+  it('sets the primary payer to a prefetched custom insurance organization by direct reference', () => {
+    const m = withCustomOrgs(makeModel());
+    expect(writeField(m, 'payerId', CUSTOM_ORG_ID)).toBe(true);
+    expect(m.coverages[0].payor).toEqual([{ reference: `Organization/${CUSTOM_ORG_ID}` }]);
+    expect(m.claim.insurer).toEqual({ reference: `Organization/${CUSTOM_ORG_ID}` });
+    expect(readField(m, 'payerId')).toBe(CUSTOM_ORG_ID);
+  });
+
+  it('sets a non-focal slot to a custom insurance organization without touching the insurer', () => {
+    const m = withCustomOrgs(makeModel());
+    m.claim.insurer = { reference: getPayerUrl('123456') };
+    expect(writeField(m, 'secondaryInsurance.payerId', CUSTOM_ORG_ID)).toBe(true);
+    expect(m.coverages[1].payor).toEqual([{ reference: `Organization/${CUSTOM_ORG_ID}` }]);
+    expect(m.claim.insurer).toEqual({ reference: getPayerUrl('123456') });
+    expect(readField(m, 'secondaryInsurance.payerId')).toBe(CUSTOM_ORG_ID);
+    expect(readField(m, 'payerId')).toBe('123456');
+  });
+
+  it('writes an id that is not a prefetched custom insurance organization as an RCM payer URL', () => {
+    const m = withCustomOrgs(makeModel());
+    expect(writeField(m, 'payerId', OTHER_UUID)).toBe(true);
+    expect(m.coverages[0].payor).toEqual([{ reference: getPayerUrl(OTHER_UUID) }]);
+    expect(m.claim.insurer).toEqual({ reference: getPayerUrl(OTHER_UUID) });
+  });
+
+  it('remaps an RCM payer to a custom insurance organization and back through rules', () => {
+    const m = withCustomOrgs(makeModel());
+    const remap = (from: string, to: string): BillingRule => ({
+      id: `r-${from}`,
+      name: `Remap ${from}`,
+      description: '',
+      enabled: true,
+      conditional: {
+        branches: [
+          {
+            condition: { type: 'field', field: 'payerId', operator: 'eq', value: from },
+            outcome: { type: 'actions', actions: [{ type: 'setField', field: 'payerId', value: to }] },
+          },
+        ],
+      },
+    });
+
+    expect(executeRule(remap('123456', CUSTOM_ORG_ID), m).held).toBe(false);
+    expect(m.coverages[0].payor?.[0]?.reference).toBe(`Organization/${CUSTOM_ORG_ID}`);
+
+    expect(executeRule(remap(CUSTOM_ORG_ID, '999999'), m).held).toBe(false);
+    expect(m.coverages[0].payor?.[0]?.reference).toBe(getPayerUrl('999999'));
+    expect(m.claim.insurer?.reference).toBe(getPayerUrl('999999'));
+  });
+
+  it('collects only payer-field setField values for prefetching', () => {
+    const rule: BillingRule = {
+      id: 'r-collect',
+      name: 'Collect',
+      description: '',
+      enabled: true,
+      conditional: {
+        branches: [
+          {
+            condition: { type: 'all' },
+            outcome: {
+              type: 'actions',
+              actions: [
+                { type: 'setField', field: 'payerId', value: CUSTOM_ORG_ID },
+                { type: 'setField', field: 'secondaryInsurance.payerId', value: ` ${CUSTOM_ORG_ID} ` },
+                { type: 'setField', field: 'tertiaryInsurance.payerId', value: '999999' },
+                { type: 'setField', field: 'nonInsurancePayerId', value: OTHER_UUID },
+              ],
+            },
+          },
+        ],
+      },
+    };
+    expect(collectSetPayerIds(rule)).toEqual([CUSTOM_ORG_ID, '999999']);
   });
 });
 

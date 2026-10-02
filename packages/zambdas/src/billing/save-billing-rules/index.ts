@@ -7,6 +7,7 @@ import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import {
   collectApplyTagNames,
   collectSetNioIds,
+  collectSetPayerIds,
   collectSetResourceRefs,
   getRuleFieldDef,
   NON_INSURANCE_PAYER_FIELD_ID,
@@ -14,9 +15,11 @@ import {
 import { BillingRule, BillingRulesResponse } from 'utils/lib/types/data/billing/rules-engine.schemas';
 import { isSystemManagedTagName } from 'utils/lib/types/data/billing/system-tags';
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
+import { isValidUUID } from 'utils/lib/validation/helper';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { isCustomInsuranceOrganization } from '../custom-insurance-org.helpers';
 import { isNonInsuranceOrganization } from '../non-insurance-org.helpers';
 import { rulesToList } from '../rules-engine/serialization';
 import {
@@ -52,6 +55,7 @@ export async function complexValidation(oystehr: Oystehr, params: SaveBillingRul
     validateAppliedTagsExist(oystehr, params.rules),
     validateReferencedResourcesExist(oystehr, params.rules),
     validateNioReferencesExist(oystehr, params.rules),
+    validatePayerReferencesExist(oystehr, params.rules),
   ]);
   return existing;
 }
@@ -133,6 +137,57 @@ async function validateNioReferencesExist(oystehr: Oystehr, rules: SaveBillingRu
       .map((id) => ({ id, problem: nioReferenceProblem(byId.get(id)) }))
       .filter((item) => item.problem)
       .map((item) => `rule "${entry.name}" sets "${NON_INSURANCE_PAYER_FIELD_ID}" to ${item.id} — ${item.problem}`)
+  );
+  if (problems.length > 0) throw INVALID_INPUT_ERROR(problems.join('; '));
+}
+
+// Every payer id a rule assigns to a payer field must name an active custom insurance organization
+// or an RCM payer. The engine can't tell the two apart without a lookup — an id that isn't a
+// prefetched custom insurance organization is written as an RCM payer URL — so a typo or a deleted
+// organization would otherwise silently stamp a bogus payer. One batched FHIR fetch covers the
+// custom-organization candidates; only ids it doesn't resolve are looked up in RCM.
+async function validatePayerReferencesExist(oystehr: Oystehr, rules: SaveBillingRulesParams['rules']): Promise<void> {
+  const perRule = rules
+    .map((rule) => ({ name: rule.name, ids: collectSetPayerIds(rule) }))
+    .filter((entry) => entry.ids.length > 0);
+  if (perRule.length === 0) return;
+
+  const distinct = [...new Set(perRule.flatMap((entry) => entry.ids))];
+  const uuids = distinct.filter((id) => isValidUUID(id));
+  const resources = uuids.length
+    ? await getResourcesFromBatchInlineRequests(
+        oystehr,
+        uuids.map((id) => `/Organization?_id=${id}`)
+      )
+    : [];
+  const customById = new Map(
+    resources
+      .filter((r): r is Organization => r.resourceType === 'Organization' && !!r.id)
+      .filter((org) => isCustomInsuranceOrganization(org))
+      .map((org) => [org.id, org])
+  );
+
+  const problemById = new Map<string, string | undefined>();
+  await Promise.all(
+    distinct.map(async (id) => {
+      const customOrg = customById.get(id);
+      if (customOrg) {
+        problemById.set(id, customOrg.active === false ? 'the custom insurance organization was deleted' : undefined);
+        return;
+      }
+      try {
+        await oystehr.rcm.getPayer({ id });
+        problemById.set(id, undefined);
+      } catch {
+        problemById.set(id, 'no such payer or custom insurance organization exists');
+      }
+    })
+  );
+
+  const problems = perRule.flatMap((entry) =>
+    entry.ids
+      .filter((id) => problemById.get(id))
+      .map((id) => `rule "${entry.name}" sets a payer to ${id} — ${problemById.get(id)}`)
   );
   if (problems.length > 0) throw INVALID_INPUT_ERROR(problems.join('; '));
 }

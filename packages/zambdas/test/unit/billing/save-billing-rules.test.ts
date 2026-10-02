@@ -1,5 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { Basic, Bundle, List, Organization, Resource } from 'fhir/r4b';
+import { CUSTOM_INSURANCE_ORG_KIND_CODE } from 'utils/lib/types/data/billing/custom-insurance-org.types';
 import { NIO_KIND_CODE, NIO_ORGANIZATION_KIND_SYSTEM } from 'utils/lib/types/data/billing/non-insurance-org.types';
 import { DEFAULT_RULES_ENGINE, RulesEngineType } from 'utils/lib/types/data/billing/rules-engine.constants';
 import { BillingRuleInput } from 'utils/lib/types/data/billing/rules-engine.schemas';
@@ -14,7 +15,8 @@ const search = vi.fn();
 const create = vi.fn();
 const update = vi.fn();
 const batch = vi.fn();
-const oystehr = { fhir: { search, create, update, batch } } as unknown as Oystehr;
+const getPayer = vi.fn();
+const oystehr = { fhir: { search, create, update, batch }, rcm: { getPayer } } as unknown as Oystehr;
 
 const rule = (name: string, id?: string): BillingRuleInput => ({
   ...(id ? { id } : {}),
@@ -287,5 +289,106 @@ describe('save-billing-rules complexValidation (non-insurance organizations must
   it('skips the lookup for clearing actions and rules that set nothing', async () => {
     await expect(complexValidation(oystehr, params([nioRule('Clear it', ''), rule('Plain')]))).resolves.toBeUndefined();
     expect(batch).not.toHaveBeenCalled();
+  });
+});
+
+describe('save-billing-rules complexValidation (payers must exist)', () => {
+  const CUSTOM_ORG_ID = '7c9e6679-7425-40de-944b-e07fc1f90ae7';
+  const RCM_PAYER_ID = '0f8fad5b-d9cb-469f-a165-70867728950e';
+
+  const payerRule = (name: string, field: string, value: string): BillingRuleInput => ({
+    name,
+    description: '',
+    enabled: true,
+    conditional: {
+      branches: [
+        {
+          condition: { type: 'all' },
+          outcome: { type: 'actions', actions: [{ type: 'setField', field, value }] },
+        },
+      ],
+    },
+  });
+
+  // The shape getResourcesFromBatchInlineRequests parses: a batch-response of searchset bundles.
+  const batchResponse = (resources: Resource[]): Bundle => ({
+    resourceType: 'Bundle',
+    type: 'batch-response',
+    entry: resources.map((resource) => ({
+      response: { status: '200', outcome: { resourceType: 'OperationOutcome' as const, id: 'ok', issue: [] } },
+      resource: { resourceType: 'Bundle', type: 'searchset', entry: [{ resource }] } as Bundle,
+    })),
+  });
+
+  const customOrg = (id: string, active = true): Organization => ({
+    resourceType: 'Organization',
+    id,
+    active,
+    name: 'Local Health Plan',
+    type: [{ coding: [{ system: NIO_ORGANIZATION_KIND_SYSTEM, code: CUSTOM_INSURANCE_ORG_KIND_CODE }] }],
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    search.mockResolvedValue({ unbundle: () => [] });
+    getPayer.mockRejectedValue(new Error('not found'));
+  });
+
+  it('passes for a custom insurance organization without consulting RCM', async () => {
+    batch.mockResolvedValue(batchResponse([customOrg(CUSTOM_ORG_ID)]));
+    await expect(
+      complexValidation(oystehr, params([payerRule('To custom', 'payerId', CUSTOM_ORG_ID)]))
+    ).resolves.toBeUndefined();
+    expect(batch).toHaveBeenCalledTimes(1);
+    expect(getPayer).not.toHaveBeenCalled();
+  });
+
+  it('passes for an RCM payer', async () => {
+    batch.mockResolvedValue(batchResponse([]));
+    getPayer.mockResolvedValue({ resourceType: 'Organization', id: RCM_PAYER_ID });
+    await expect(
+      complexValidation(oystehr, params([payerRule('To RCM', 'secondaryInsurance.payerId', RCM_PAYER_ID)]))
+    ).resolves.toBeUndefined();
+    expect(getPayer).toHaveBeenCalledWith({ id: RCM_PAYER_ID });
+  });
+
+  it('looks non-UUID payer ids up in RCM only', async () => {
+    getPayer.mockResolvedValue({ resourceType: 'Organization', id: '123456' });
+    await expect(
+      complexValidation(oystehr, params([payerRule('To RCM', 'payerId', '123456')]))
+    ).resolves.toBeUndefined();
+    expect(batch).not.toHaveBeenCalled();
+  });
+
+  it('rejects an id that is neither a custom insurance organization nor an RCM payer', async () => {
+    batch.mockResolvedValue(batchResponse([]));
+    await expect(complexValidation(oystehr, params([payerRule('Typo', 'payerId', CUSTOM_ORG_ID)]))).rejects.toThrow(
+      new RegExp(`rule "Typo" sets a payer to ${CUSTOM_ORG_ID} — no such payer or custom insurance organization exists`)
+    );
+  });
+
+  it('does not treat a non-insurance organization as a custom insurance organization', async () => {
+    const nio: Organization = {
+      resourceType: 'Organization',
+      id: CUSTOM_ORG_ID,
+      type: [{ coding: [{ system: NIO_ORGANIZATION_KIND_SYSTEM, code: NIO_KIND_CODE }] }],
+    };
+    batch.mockResolvedValue(batchResponse([nio]));
+    await expect(
+      complexValidation(oystehr, params([payerRule('Wrong kind', 'payerId', CUSTOM_ORG_ID)]))
+    ).rejects.toThrow(/no such payer or custom insurance organization exists/);
+  });
+
+  it('rejects a deleted (inactive) custom insurance organization', async () => {
+    batch.mockResolvedValue(batchResponse([customOrg(CUSTOM_ORG_ID, false)]));
+    await expect(complexValidation(oystehr, params([payerRule('Stale', 'payerId', CUSTOM_ORG_ID)]))).rejects.toThrow(
+      /the custom insurance organization was deleted/
+    );
+  });
+
+  it('skips the lookup when no rule sets a payer', async () => {
+    await expect(complexValidation(oystehr, params([rule('Plain')]))).resolves.toBeUndefined();
+    expect(batch).not.toHaveBeenCalled();
+    expect(getPayer).not.toHaveBeenCalled();
   });
 });
