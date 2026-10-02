@@ -7,7 +7,10 @@ import { BUCKET_NAMES } from 'utils/lib/fhir/constants';
 import { createFilesDocumentReferences } from 'utils/lib/fhir/helpers';
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
 import { getQuestionnaireForQR } from 'utils/lib/fhir/questionnaires';
-import { formatQuestionnaireItemValueToString } from 'utils/lib/helpers/practice-managed-questionnaires';
+import {
+  formatQuestionnaireItemValueToString,
+  isHiddenPageQItem,
+} from 'utils/lib/helpers/practice-managed-questionnaires';
 import { slugify } from 'utils/lib/helpers/slugify';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { EXPORTED_QUESTIONNAIRE_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
@@ -229,8 +232,9 @@ export async function renderQrPdf(
       (e: any) => e.url === 'http://hl7.org/fhir/StructureDefinition/questionnaire-hidden' && e.valueBoolean === true
     );
 
+  // hidden pages (e.g. a scored form's results page) are not part of the patient's answers
   // Render each page group
-  const pageGroups = (qr.item || []).filter((p) => p.linkId !== 'results');
+  const pageGroups = (qr.item || []).filter((p) => !isHiddenPageQItem(qItemByLinkId.get(p.linkId)));
   for (const p of pageGroups) {
     const qp = qItemByLinkId.get(p.linkId);
     const pageTitle = qp?.text || p.linkId;

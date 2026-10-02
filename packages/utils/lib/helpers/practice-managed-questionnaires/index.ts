@@ -12,6 +12,7 @@ import {
   PRACTICE_MANAGED_QUESTIONNAIRE_TAG,
   QR_DISTRIBUTION_TAG,
 } from '../../fhir/constants';
+import { IntakeQuestionnaireItem } from '../../types/data/paperwork/paperwork.types';
 import {
   DataTypeSchema,
   InputWidthSchema,
@@ -21,10 +22,12 @@ import {
 import {
   PracticeManagedQuestionnaire,
   PracticeManagedQuestionnaireItem,
+  ScoredFormResult,
   StandaloneFormDTO,
 } from '../../types/data/practice-managed-questionnaires/practice-managed-questionnaire.types';
 import { mapQuestionnaireAndValueSetsToItemsList } from '../paperwork/paperwork';
 import { slugify } from '../slugify';
+import { isHiddenPage } from './scoring';
 
 const DATA_TYPE_EXTENSION_URL = OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.dataType;
 const INPUT_WIDTH_EXTENSION_URL = OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.inputWidth;
@@ -225,7 +228,7 @@ export const formatQuestionnaireItemValueToString = (item: QuestionnaireResponse
 
   const a = item.answer?.[0];
   if (!a) return '';
-  if (a.valueCoding?.display) return a.valueCoding.display;
+  if (a.valueCoding) return a.valueCoding.display ?? a.valueCoding.code ?? '';
   if (a.valueString !== undefined) return a.valueString;
   if (a.valueBoolean !== undefined) return a.valueBoolean ? 'Positive' : 'Negative';
   if (a.valueInteger !== undefined) return String(a.valueInteger);
@@ -253,5 +256,39 @@ export const makeStandaloneFormDTO = (
     questionnaireResponse,
     questionnaireTitle,
     questionnaireId,
+    scores: getScoredFormResults(allItems, questionnaireResponse.item ?? []),
   };
 };
+
+/**
+ * Reads the computed results (answers to items with a score expression on hidden pages) from a QR for display.
+ * Works for flow QRs too since answers are matched by linkId.
+ */
+export const getScoredFormResults = (
+  items: IntakeQuestionnaireItem[],
+  qrItems: QuestionnaireResponseItem[]
+): ScoredFormResult[] => {
+  const answersByLinkId = new Map<string, QuestionnaireResponseItem>();
+  const walkQr = (responseItems: QuestionnaireResponseItem[]): void => {
+    for (const item of responseItems) {
+      answersByLinkId.set(item.linkId, item);
+      if (item.item) walkQr(item.item);
+    }
+  };
+  walkQr(qrItems);
+
+  const results: ScoredFormResult[] = [];
+  const walkItems = (questionnaireItems: IntakeQuestionnaireItem[]): void => {
+    for (const item of questionnaireItems) {
+      if (item.scoreExpression) {
+        const value = formatQuestionnaireItemValueToString(answersByLinkId.get(item.linkId));
+        if (value) results.push({ linkId: item.linkId, text: item.text ?? item.linkId, value });
+      }
+      if (item.item) walkItems(item.item);
+    }
+  };
+  walkItems(items.filter(isHiddenPage));
+
+  return results;
+};
+export * from './scoring';

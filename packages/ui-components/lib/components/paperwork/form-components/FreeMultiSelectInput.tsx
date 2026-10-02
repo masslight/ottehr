@@ -3,6 +3,11 @@ import { useQuery } from '@tanstack/react-query';
 import { QuestionnaireItemAnswerOption } from 'fhir/r4b';
 import { FC, ReactNode, useCallback, useMemo, useState } from 'react';
 import { useFormContext } from 'react-hook-form';
+import {
+  getAnswerOptionLabel,
+  getAnswerOptionValue,
+  getAnswerValueAsString,
+} from 'utils/lib/helpers/paperwork/paperwork';
 import { GetAnswerOptionsRequest } from 'utils/lib/types/data/telemed/appointments/appointments.types';
 import { AnswerLoadingOptions } from '../../../../../config-types/config/fhir';
 import { usePaperworkContext } from '../context';
@@ -96,7 +101,7 @@ export const FreeMultiSelectInput: FC<FreeMultiSelectInputProps> = ({
     (e: any): void => {
       const targetVal = e?.selectedOption ?? e?.target?.value;
       if (multiple && targetVal) {
-        const value = getValues(name)?.answer?.map((i: any) => i.valueString) ?? [];
+        const value = getValues(name)?.answer?.map((i: any) => getAnswerValueAsString(i)) ?? [];
         const newVal = [...value, targetVal];
         onChange({ target: { value: newVal } });
       } else {
@@ -123,7 +128,7 @@ export const FreeMultiSelectInput: FC<FreeMultiSelectInputProps> = ({
       Array.isArray(otherProps.value)
         ? (otherProps.value as any[]).map((val) => {
             if (valueType === 'String') {
-              return typeof val === 'string' ? val : val?.valueString ?? val;
+              return typeof val === 'string' ? val : getAnswerValueAsString(val) ?? val;
             }
             return val?.reference ?? val?.valueReference?.reference ?? val;
           })
@@ -135,7 +140,8 @@ export const FreeMultiSelectInput: FC<FreeMultiSelectInputProps> = ({
         return true;
       }
       if (valueType === 'String') {
-        return option.valueString && !selectedValues.has(option.valueString);
+        const optionValue = getAnswerOptionValue(option);
+        return optionValue && !selectedValues.has(optionValue);
       }
       const referenceValue = option?.valueReference?.reference;
       return referenceValue && !selectedValues.has(referenceValue);
@@ -199,12 +205,17 @@ export const FreeMultiSelectInput: FC<FreeMultiSelectInputProps> = ({
       defaultValue={defaultOrNull}
       renderTags={(_options, _getTagProps) => null}
       getOptionLabel={(option) => {
+        // the selected value is held as a string (e.g. a coded option's code), so show the matching option's label
+        if (typeof option === 'string') {
+          const matchingOption = options.find((o) => typeof o === 'object' && getAnswerOptionValue(o) === option);
+          if (matchingOption) return labelForOption(matchingOption);
+        }
         return labelForOption(option);
       }}
       isOptionEqualToValue={(option, value) => {
         if (typeof option === 'object') {
           if (valueType === 'String') {
-            return option.valueString === value;
+            return getAnswerOptionValue(option) === value;
           } else {
             return option?.valueReference?.reference === value?.reference;
           }
@@ -253,6 +264,8 @@ export const FreeMultiSelectInput: FC<FreeMultiSelectInputProps> = ({
 const labelForOption = (option: any): string => {
   if (option?.valueString !== undefined) {
     return option.valueString;
+  } else if (option?.valueCoding !== undefined) {
+    return getAnswerOptionLabel(option) ?? '';
   } else if (option?.valueReference?.display !== undefined) {
     return `${option?.valueReference?.display}`;
   } else if (option?.display !== undefined) {
@@ -262,12 +275,14 @@ const labelForOption = (option: any): string => {
 };
 
 const idForOption = (option: any): string => {
-  return option.id ?? option.valueString ?? option.valueReference?.reference ?? `${option}`;
+  return option.id ?? option.valueString ?? option.valueCoding?.code ?? option.valueReference?.reference ?? `${option}`;
 };
 
 const valueForOption = (option: any, valueType: 'String' | 'Reference'): any => {
-  const defaultVal = valueType === 'String' ? '' : null;
-  const value = option?.[`value${valueType}`] ?? defaultVal;
+  if (valueType === 'String') {
+    return getAnswerOptionValue(option) ?? '';
+  }
+  const value = option?.valueReference ?? null;
   if (valueType === 'Reference' && value?.type === 'other') {
     const { type: _type, ...rest } = value;
     return rest;

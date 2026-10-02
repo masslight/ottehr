@@ -2,6 +2,9 @@ import { DateTime } from 'luxon';
 import { useCallback, useMemo } from 'react';
 import { FieldValues, RefCallBack, useFormContext, useFormState } from 'react-hook-form';
 import {
+  getAnswerValueAsString,
+  isCodingValueTypeItem,
+  makeCodingAnswer,
   pickFirstValueFromAnswerItem,
   pickValueAsStringListFromAnswerItem,
 } from 'utils/lib/helpers/paperwork/paperwork';
@@ -38,6 +41,10 @@ const isStringValueTypeItem = (item: IntakeQuestionnaireItem): boolean => {
   return stringValTypes.includes(item.type) && !isReferenceValueTypeItem(item);
 };
 
+const isCodingItem = (item: IntakeQuestionnaireItem): boolean => {
+  return isCodingValueTypeItem(item) && !isReferenceValueTypeItem(item);
+};
+
 // todo here: take an existing fieldIdBase param to allow arbitrarily deep nesting of groups within groups
 export const getPaperworkFieldId = (input: UserPaperworkFieldIdInput): string => {
   const { item, parentItem, parentFieldId } = input;
@@ -61,6 +68,14 @@ export function usePaperworkFormHelpers(input: UsePaperworkFormHelpersInput): Pa
   const { register, setValue } = useFormContext();
   const memoizedItems = useMemo(() => {
     const value = (() => {
+      // coded options (e.g. scored forms): form state holds the code, the QR holds the valueCoding
+      if (isCodingItem(item)) {
+        if (item.acceptsMultipleAnswers) {
+          return (renderValue?.answer ?? []).map(getAnswerValueAsString).filter((v: string | undefined) => v);
+        } else {
+          return getAnswerValueAsString(renderValue?.answer?.[0]) ?? '';
+        }
+      }
       if (isStringValueTypeItem(item)) {
         if (item.acceptsMultipleAnswers) {
           return pickValueAsStringListFromAnswerItem(renderValue);
@@ -92,6 +107,9 @@ export function usePaperworkFormHelpers(input: UsePaperworkFormHelpersInput): Pa
 
     const { inputRef } = (() => {
       let valueTypeString = isStringValueTypeItem(item) ? 'valueString' : '';
+      if (isCodingItem(item)) {
+        valueTypeString = 'valueCoding';
+      }
       if (isReferenceValueTypeItem(item)) {
         valueTypeString = 'valueReference';
       }
@@ -123,6 +141,12 @@ export function usePaperworkFormHelpers(input: UsePaperworkFormHelpersInput): Pa
       if (item.linkId === PHARMACY_COLLECTION_LINK_IDS.pharmacyCollection) {
         const updatedPharmCollection = { ...base, item: e };
         return renderOnChange(updatedPharmCollection);
+      } else if (isCodingItem(item)) {
+        const values: string[] = (Array.isArray(e.target.value) ? e.target.value : [e.target.value]).filter(
+          (val: unknown): val is string => typeof val === 'string' && val.trim().length > 0
+        );
+        const answer = values.map((val) => makeCodingAnswer(item, val.trimStart()));
+        return renderOnChange({ ...base, answer });
       } else if (isStringValueTypeItem(item)) {
         if (item.acceptsMultipleAnswers) {
           const values = Array.isArray(e.target.value) ? e.target.value : [e.target.value];

@@ -6,6 +6,7 @@ import { enqueueSnackbar } from 'notistack';
 import { FC, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { RoundedButton } from 'src/components/RoundedButton';
+import { isHiddenPageQItem } from 'utils/lib/helpers/practice-managed-questionnaires';
 import { ImportQuestionnaireJsonDialog } from './ImportQuestionnaireJsonDialog';
 import { QuestionnaireJsonPreview } from './QuestionnaireJsonPreview';
 import { QuestionnairePreview } from './QuestionnairePreview';
@@ -117,7 +118,7 @@ export const QuestionnaireReadOnlyView: FC<QuestionnaireReadOnlyViewProps> = ({
           open={testDialogOpen}
           onClose={() => setTestDialogOpen(false)}
           questionnaire={questionnaire}
-          totalPages={questionnaire.item?.length ?? 0}
+          totalPages={(questionnaire.item ?? []).filter((page) => !isHiddenPageQItem(page)).length}
         />
 
         <QuestionnaireJsonPreview json={JSON.stringify(questionnaire, null, 2)} />

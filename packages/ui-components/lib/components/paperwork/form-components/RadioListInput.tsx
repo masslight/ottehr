@@ -1,6 +1,7 @@
 import { FormControlLabel, Radio, RadioGroup, RadioGroupProps, SxProps } from '@mui/material';
 import { QuestionnaireItemAnswerOption } from 'fhir/r4b';
 import { FC, SyntheticEvent } from 'react';
+import { getAnswerOptionLabel, getAnswerOptionValue } from 'utils/lib/helpers/paperwork/paperwork';
 import { useStyledAnswerOptions } from '../hooks/useStyleItems';
 
 interface RadioInputProps extends RadioGroupProps {
@@ -20,12 +21,13 @@ export const RadioListInput: FC<RadioInputProps> = ({ name, value, options: opti
   return (
     <RadioGroup row value={value} aria-labelledby={`${name}-label`}>
       {options.map((option) => {
+        const optionValue = getAnswerOptionValue(option);
         return (
           <FormControlLabel
-            value={option.valueString ?? ''}
-            control={<Radio checked={value === option.valueString} />}
-            key={option.id ?? option.valueString ?? ''}
-            label={option.valueString}
+            value={optionValue ?? ''}
+            control={<Radio checked={value === optionValue} />}
+            key={option.id ?? optionValue ?? ''}
+            label={getAnswerOptionLabel(option)}
             onChange={onChange}
             sx={{
               marginRight: 5,

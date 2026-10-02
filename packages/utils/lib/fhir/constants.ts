@@ -512,6 +512,9 @@ export const PRACTICE_MANAGED_QUESTIONNAIRE_TAG = {
 
 // applied (alongside the practice-managed tag) to questionnaires uploaded as raw FHIR JSON.
 // these are read only in the admin portal: they can only be updated by uploading a new version
+// item level extension on a scored form's (hidden) results page; holds the javascript used to compute that item's answer
+export const SCORE_FORM_EXPRESSION_EXTENSION_URL = ottehrExtensionUrl('score-form-expression');
+
 export const JSON_IMPORT_QUESTIONNAIRE_TAG = {
   system: ottehrCodeSystemUrl('questionnaire-type'),
   code: 'json-import',

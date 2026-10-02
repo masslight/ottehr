@@ -1,5 +1,6 @@
 import { QuestionnaireItemAnswerOption } from 'fhir/r4b';
 import { FieldValues } from 'react-hook-form';
+import { getAnswerOptionValue, getAnswerValueAsString } from 'utils/lib/helpers/paperwork/paperwork';
 import type { QuestionnaireItemExtension } from 'utils/lib/types/data/paperwork/paperwork.types';
 import { useQRState } from './useFormHelpers';
 
@@ -49,13 +50,16 @@ export const useDisplayFilteredOptions = (
     const allConditionsMet =
       filter.conditions.length > 0 &&
       filter.conditions.every(({ question, operator, answer }) => {
-        const actualValue = allValues[question]?.answer?.[0]?.valueString;
+        const actualValue = getAnswerValueAsString(allValues[question]?.answer?.[0]);
         return evalStringCondition(operator, answer, actualValue);
       });
 
     if (allConditionsMet) {
       // Filter by intersection: only include options whose value is in includeValues
-      return options.filter((opt) => opt.valueString != null && filter.includeValues.includes(opt.valueString));
+      return options.filter((opt) => {
+        const optionValue = getAnswerOptionValue(opt);
+        return optionValue != null && filter.includeValues.includes(optionValue);
+      });
     }
   }
 
@@ -102,7 +106,7 @@ function evaluateExpression(expression: string | undefined, allValues: FieldValu
   }
 
   const [targetLinkId, targetAnswer] = tokens;
-  const actualTargetValue = allValues[targetLinkId]?.answer?.[0]?.valueString;
+  const actualTargetValue = getAnswerValueAsString(allValues[targetLinkId]?.answer?.[0]);
 
   if (usedOperator === '!=') {
     return actualTargetValue !== targetAnswer;

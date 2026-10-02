@@ -22,7 +22,7 @@ import _ from 'lodash';
 import { DateTime } from 'luxon';
 import { AnswerLoadingOptions } from '../../../../config-types/config/fhir';
 import { AnswerOptionSource } from '../../../../config-types/config/fhir';
-import { OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS } from '../../fhir/constants';
+import { OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS, SCORE_FORM_EXPRESSION_EXTENSION_URL } from '../../fhir/constants';
 import {
   getCanonicalQuestionnaire,
   isIntakePaperworkQuestionnaireResponse,
@@ -60,6 +60,40 @@ const isReferenceValueTypeItem = (item: IntakeQuestionnaireItem): boolean => {
 
 const isStringValueTypeItem = (item: IntakeQuestionnaireItem): boolean => {
   return stringValTypes.includes(item.type) && !isReferenceValueTypeItem(item);
+};
+
+// choice items may offer coded options (e.g. scored forms) instead of strings. form state keeps the option's code as a
+// string so the select / radio components work unchanged, and the answer is written to the QR as a valueCoding
+export const isCodingValueTypeItem = (item: Pick<IntakeQuestionnaireItem, 'type' | 'answerOption'>): boolean => {
+  return (
+    (item.type === 'choice' || item.type === 'open-choice') &&
+    (item.answerOption ?? []).some((option) => option.valueCoding !== undefined)
+  );
+};
+
+// the string used to identify an answer option in form state
+export const getAnswerOptionValue = (option: QuestionnaireItemAnswerOption): string | undefined => {
+  return option.valueString ?? option.valueCoding?.code;
+};
+
+// the text shown to the user for an answer option
+export const getAnswerOptionLabel = (option: QuestionnaireItemAnswerOption): string | undefined => {
+  return option.valueString ?? option.valueCoding?.display ?? option.valueCoding?.code;
+};
+
+// the string value of an answer as held in form state (string answers, or the code of coded answers)
+export const getAnswerValueAsString = (answer: QuestionnaireResponseItemAnswer | undefined): string | undefined => {
+  return answer?.valueString ?? answer?.valueCoding?.code;
+};
+
+// maps a form state value back to a QR answer for coded items; values that are not one of the codes (open-choice free
+// text) are kept as strings
+export const makeCodingAnswer = (
+  item: Pick<IntakeQuestionnaireItem, 'answerOption'>,
+  value: string
+): QuestionnaireResponseItemAnswer => {
+  const valueCoding = item.answerOption?.find((option) => option.valueCoding?.code === value)?.valueCoding;
+  return valueCoding ? { valueCoding } : { valueString: value };
 };
 
 export const oldToCurrentOptionMappings: { [linkId: string]: { [oldValue: string]: string } } = {
@@ -179,6 +213,9 @@ export const structureExtension = (item: QuestionnaireItem): QuestionnaireItemEx
 
   const requireWhen = getConditionalExtensions(extension, OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.requireWhen)[0]
     ?.baseConditionDef;
+
+  const scoreExpression = extension.find((ext) => ext.url === SCORE_FORM_EXPRESSION_EXTENSION_URL)?.valueExpression
+    ?.expression;
 
   const textWhenExtensions = getConditionalExtensions(extension, OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.textWhen);
   const textWhen: QuestionnaireItemTextWhen[] | undefined =
@@ -405,6 +442,7 @@ export const structureExtension = (item: QuestionnaireItem): QuestionnaireItemEx
     disabledDisplay,
     hideControlLabel,
     requireWhen,
+    scoreExpression,
     textWhen,
     attachmentText,
     autofillFromWhenDisabled,
@@ -673,7 +711,14 @@ export const makeQRResponseItem = (
 ): QuestionnaireResponseItem | undefined => {
   const base = { linkId: item.linkId };
   try {
-    if (isStringValueTypeItem(item)) {
+    if (isCodingValueTypeItem(item) && !isReferenceValueTypeItem(item)) {
+      const values: string[] = (item.acceptsMultipleAnswers ? value ?? [] : [value]).filter(
+        (val: unknown): val is string => typeof val === 'string' && val.trim().length > 0
+      );
+      if (values.length > 0) {
+        return { ...base, answer: values.map((val) => makeCodingAnswer(item, val.trimStart())) };
+      }
+    } else if (isStringValueTypeItem(item)) {
       if (item.acceptsMultipleAnswers) {
         const answer = value?.map((val: string) => {
           const valueString = val?.trimStart();

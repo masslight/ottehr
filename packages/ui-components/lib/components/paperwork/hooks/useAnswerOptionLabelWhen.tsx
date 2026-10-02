@@ -1,5 +1,6 @@
 import { QuestionnaireItemAnswerOption } from 'fhir/r4b';
 import { getExtension } from 'utils/lib/fhir/helpers';
+import { getAnswerOptionValue, getAnswerValueAsString } from 'utils/lib/helpers/paperwork/paperwork';
 import { useQRState } from './useFormHelpers';
 
 const OPERATORS = ['=', '!='];
@@ -15,7 +16,8 @@ export const useAnswerOptionLabelWhen = (options: QuestionnaireItemAnswerOption[
       'https://fhir.zapehr.com/r4/StructureDefinitions/answer-label-when'
     )?.valueString;
 
-    if (!labelWhenExpression || !option.valueString) {
+    const optionValue = getAnswerOptionValue(option);
+    if (!labelWhenExpression || !optionValue) {
       continue;
     }
 
@@ -37,14 +39,14 @@ export const useAnswerOptionLabelWhen = (options: QuestionnaireItemAnswerOption[
     }
 
     const [targetLinkId, targetAnswer] = expressionTokens;
-    const actualTargetValue = allValues[targetLinkId]?.answer?.[0]?.valueString;
+    const actualTargetValue = getAnswerValueAsString(allValues[targetLinkId]?.answer?.[0]);
 
     if (usedOperator === '!=' && actualTargetValue !== targetAnswer) {
-      result[option.valueString] = label;
+      result[optionValue] = label;
     }
 
     if (usedOperator === '=' && actualTargetValue === targetAnswer) {
-      result[option.valueString] = label;
+      result[optionValue] = label;
     }
   }
 

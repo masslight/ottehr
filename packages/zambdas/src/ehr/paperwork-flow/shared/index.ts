@@ -1,6 +1,6 @@
 import Oystehr, { BatchInputPatchRequest, SearchParam } from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
-import { Coding, Extension, HealthcareService, Questionnaire } from 'fhir/r4b';
+import { Coding, Extension, HealthcareService, Questionnaire, QuestionnaireItem } from 'fhir/r4b';
 import { isEqual } from 'lodash-es';
 import { isBookingConfigServiceCategoryCode } from 'utils/lib/config-helpers/booking';
 import {
@@ -9,6 +9,7 @@ import {
   PAPERWORK_FLOW_TAG,
   PAPERWORK_FLOW_VIRTUAL_EXTENSION_URL,
   parseQuestionnaireCanonicalExtension,
+  SCORE_FORM_EXPRESSION_EXTENSION_URL,
   SERVICE_CATEGORY_SYSTEM,
   SERVICE_CATEGORY_TAG,
   SYSTEM_MANAGED_SERVICE_TAG_SYSTEM,
@@ -188,6 +189,7 @@ export function makeOttehrManagedServiceTags(services: FlowService[]): Coding[] 
 export function getFormCanonicals(formQuestionnaires: Questionnaire[], flowForms: FlowForm[]): string[] {
   const formUrlMap = new Map<string, Questionnaire>();
   const formCanonicalUrls: string[] = [];
+  const resolvedForms: Questionnaire[] = [];
 
   formQuestionnaires.forEach((form) => form.url && formUrlMap.set(form.url, form));
 
@@ -207,9 +209,48 @@ export function getFormCanonicals(formQuestionnaires: Questionnaire[], flowForms
     if (!canonical) throw new Error(`Could not parse canonical url from Questionnaire/${q.id}`);
 
     formCanonicalUrls.push(canonical);
+    resolvedForms.push(q);
   });
 
+  validateScoredFormLinkIds(resolvedForms);
+
   return formCanonicalUrls;
+}
+
+const collectLinkIds = (items: QuestionnaireItem[], linkIds = new Set<string>()): Set<string> => {
+  for (const item of items) {
+    linkIds.add(item.linkId);
+    if (item.item) collectLinkIds(item.item, linkIds);
+  }
+  return linkIds;
+};
+
+const isScoredForm = (items: QuestionnaireItem[]): boolean =>
+  items.some(
+    (item) =>
+      item.extension?.some((ext) => ext.url === SCORE_FORM_EXPRESSION_EXTENSION_URL) || isScoredForm(item.item ?? [])
+  );
+
+// flows merge their forms' items into a single questionnaire response (de-duplicating top level linkIds), so a scored
+// form sharing linkIds with another form in the flow would read or overwrite the wrong answers when scoring
+export function validateScoredFormLinkIds(forms: Questionnaire[]): void {
+  const linkIdsByForm = forms.map((form) => ({ form, linkIds: collectLinkIds(form.item ?? []) }));
+
+  for (const { form, linkIds } of linkIdsByForm) {
+    if (!isScoredForm(form.item ?? [])) continue;
+
+    for (const other of linkIdsByForm) {
+      if (other.form === form) continue;
+      const shared = [...linkIds].filter((linkId) => other.linkIds.has(linkId));
+      if (shared.length > 0) {
+        throw PAPERWORK_FLOW_ERROR(
+          `The scored form "${form.title}" shares linkIds with "${other.form.title}" (${shared.join(
+            ', '
+          )}). Scored forms must use linkIds that are unique within the flow.`
+        );
+      }
+    }
+  }
 }
 
 // builds the patch op for an upserted extension without mutating the resource passed in

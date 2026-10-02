@@ -2,12 +2,15 @@ import { Typography } from '@mui/material';
 import { Box } from '@mui/system';
 import { QuestionnaireResponseItem } from 'fhir/r4b';
 import { ReactElement, useMemo } from 'react';
-import { formatQuestionnaireItemValueToString } from 'utils/lib/helpers/practice-managed-questionnaires';
+import {
+  formatQuestionnaireItemValueToString,
+  getVisiblePages,
+} from 'utils/lib/helpers/practice-managed-questionnaires';
 import { IntakeQuestionnaireItem } from 'utils/lib/types/data/paperwork/paperwork.types';
 import { StandaloneFormDTO } from 'utils/lib/types/data/practice-managed-questionnaires/practice-managed-questionnaire.types';
 
 export const QuestionnaireResponseViewer = ({ form }: { form: StandaloneFormDTO }): ReactElement => {
-  const { allItems, questionnaireResponse } = form;
+  const { allItems, questionnaireResponse, scores } = form;
 
   // Build a flat map of linkId → answer from the response
   const answerMap = useMemo(() => {
@@ -25,7 +28,8 @@ export const QuestionnaireResponseViewer = ({ form }: { form: StandaloneFormDTO 
     return map;
   }, [questionnaireResponse.item]);
 
-  const flattenQuestions = allItems
+  // patient answers only: hidden pages (e.g. a scored form's results page) are shown separately as results
+  const flattenQuestions = getVisiblePages(allItems)
     .flatMap((item) => item.item)
     .filter((q): q is IntakeQuestionnaireItem => q !== undefined && q.type !== 'display');
 
@@ -53,6 +57,23 @@ export const QuestionnaireResponseViewer = ({ form }: { form: StandaloneFormDTO 
           </Box>
         );
       })}
+      {scores && scores.length > 0 && (
+        <Box sx={{ mt: 1.5 }}>
+          <Typography variant="subtitle2" sx={{ color: 'primary.dark', fontWeight: 700, mb: 0.5 }}>
+            Results
+          </Typography>
+          {scores.map((score) => (
+            <Box key={score.linkId} sx={{ py: 0.5 }}>
+              <Typography variant="body2">
+                <Box component="span" sx={{ color: 'primary.dark' }}>
+                  {score.text}:
+                </Box>{' '}
+                {score.value}
+              </Typography>
+            </Box>
+          ))}
+        </Box>
+      )}
     </Box>
   );
 };

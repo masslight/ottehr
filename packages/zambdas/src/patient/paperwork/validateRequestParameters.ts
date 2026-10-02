@@ -6,7 +6,7 @@ import {
   makeValidationSchema,
   recursiveGroupTransform,
 } from 'utils/lib/helpers/paperwork/validation';
-import { qrSentManually } from 'utils/lib/helpers/practice-managed-questionnaires';
+import { computeScores, qrSentManually } from 'utils/lib/helpers/practice-managed-questionnaires';
 import { PatchPaperworkParameters } from 'utils/lib/types/data/paperwork/paperwork.types';
 import { QUESTIONNAIRE_RESPONSE_INVALID_ERROR } from 'utils/lib/types/errors';
 import { ValidationError } from 'yup';
@@ -195,10 +195,14 @@ const complexSubmitValidation = async (
   const filteredAnswers = filterDisabledPages(items, updatedAnswers, fullQRResource);
   console.log('filtered disabled pages', JSON.stringify(filteredAnswers));
 
+  // scored forms: fill in the hidden results page from the patient's answers. done here (rather than in a subscription)
+  // so the single completed/amended write, the review pdf and task all see the scores. no-op for unscored forms
+  const scoredAnswers = computeScores(items, filteredAnswers);
+
   return {
     ...input,
     questionnaireResponseId,
-    updatedAnswers: filteredAnswers,
+    updatedAnswers: scoredAnswers,
     currentQRStatus: fullQRResource.status,
     createReviewTaskAndPdf: qrSentManually(fullQRResource),
   };

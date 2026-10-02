@@ -20,6 +20,10 @@ import {
   isNonPaperworkQuestionnaireResponse,
   mapQuestionnaireAndValueSetsToItemsList,
 } from 'utils/lib/helpers/paperwork/paperwork';
+import {
+  stripScoresFromQuestionnaireResponse,
+  stripScoringForPatient,
+} from 'utils/lib/helpers/practice-managed-questionnaires';
 import { Secrets } from 'utils/lib/secrets';
 import { HealthcareServiceWithLocationContext } from 'utils/lib/types/data/paperwork.types';
 import { PATIENT_PHOTO_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
@@ -248,7 +252,9 @@ export const index = wrapHandler('get-paperwork', async (input: ZambdaInput): Pr
 
   const effectiveQuestionnaire = await resolveEffectiveQuestionnaire(questionnaire, oystehr);
 
-  const allItems = mapQuestionnaireAndValueSetsToItemsList(effectiveQuestionnaire.item ?? [], valueSets);
+  const mappedItems = mapQuestionnaireAndValueSetsToItemsList(effectiveQuestionnaire.item ?? [], valueSets);
+  // patients should not be aware of scoring (flows may contain scored forms): drop score expressions and results pages
+  const allItems = stripScoringForPatient(mappedItems);
 
   console.log('checking user access to patient');
   console.time('check-user-access');
@@ -309,7 +315,7 @@ export const index = wrapHandler('get-paperwork', async (input: ZambdaInput): Pr
         sex: formatPatientSexForPaperwork(fhirPatient.gender || ''),
       },
       allItems,
-      questionnaireResponse: questionnaireResponseResource,
+      questionnaireResponse: stripScoresFromQuestionnaireResponse(mappedItems, questionnaireResponseResource),
       patientConditionPhotos,
     };
     // console.log('returning response: ', JSON.stringify(response));

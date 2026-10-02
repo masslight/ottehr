@@ -8,6 +8,7 @@ import { usePaperworkComponentHelpers } from 'src/hooks/usePaperworkComponentHel
 import { PaperworkContext, PaperworkProvider } from 'ui-components/lib/components/paperwork/context';
 import PagedQuestionnaire from 'ui-components/lib/components/paperwork/PagedQuestionnaire';
 import { convertQRItemToLinkIdMap, convertQuestionnaireItemToQRLinkIdMap } from 'utils/lib/helpers/paperwork/paperwork';
+import { getVisiblePages } from 'utils/lib/helpers/practice-managed-questionnaires/scoring';
 import { getSelectors } from 'utils/lib/store';
 import {
   findQuestionnaireResponseItemLinkId,
@@ -118,10 +119,9 @@ export const StandaloneFormPage: FC = () => {
     return questionnaireResponse?.item ?? [];
   }, [questionnaireResponse?.item]);
 
+  // hidden pages (e.g. a scored form's results page) are never shown to the patient
   const pages = useMemo(() => {
-    return (allItems ?? []).filter((item) => {
-      return item.linkId;
-    });
+    return getVisiblePages((allItems ?? []).filter((item) => item.linkId));
   }, [allItems]);
 
   // One-off forms can't pull in credit card fields, so these fields are not needed at the moment

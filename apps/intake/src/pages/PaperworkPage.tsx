@@ -28,6 +28,7 @@ import PagedQuestionnaire from 'ui-components/lib/components/paperwork/PagedQues
 import { getIntakeFormPageSubtitle } from 'utils/lib/config-helpers/intake-paperwork';
 import { convertQRItemToLinkIdMap, convertQuestionnaireItemToQRLinkIdMap } from 'utils/lib/helpers/paperwork/paperwork';
 import { evalComplexValidationTrigger, evalEnableWhen } from 'utils/lib/helpers/paperwork/validation';
+import { getVisiblePages } from 'utils/lib/helpers/practice-managed-questionnaires/scoring';
 import { getSelectors } from 'utils/lib/store';
 import {
   ComplexValidationResult,
@@ -214,10 +215,9 @@ export const PaperworkHome: FC = () => {
     return questionnaireResponse?.item ?? [];
   }, [questionnaireResponse?.item]);
 
+  // hidden pages (e.g. a scored form's results page within a flow) are never shown to the patient
   const pages = useMemo(() => {
-    return (allItems ?? []).filter((item) => {
-      return item.linkId;
-    });
+    return getVisiblePages((allItems ?? []).filter((item) => item.linkId));
   }, [allItems]);
 
   const {

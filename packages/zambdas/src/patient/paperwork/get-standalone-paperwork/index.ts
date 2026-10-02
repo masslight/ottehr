@@ -17,6 +17,10 @@ import {
 } from 'utils/lib/fhir/helpers';
 import { getQuestionnaireForQR } from 'utils/lib/fhir/questionnaires';
 import { mapQuestionnaireAndValueSetsToItemsList } from 'utils/lib/helpers/paperwork/paperwork';
+import {
+  stripScoresFromQuestionnaireResponse,
+  stripScoringForPatient,
+} from 'utils/lib/helpers/practice-managed-questionnaires';
 import { UCGetPaperworkResponse } from 'utils/lib/types/data/paperwork/paperwork.types';
 import {
   FHIR_RESOURCE_NOT_FOUND_CUSTOM,
@@ -88,7 +92,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     );
   }
 
-  const allItems = mapQuestionnaireAndValueSetsToItemsList(questionnaire.item ?? [], []);
+  const mappedItems = mapQuestionnaireAndValueSetsToItemsList(questionnaire.item ?? [], []);
+  // patients should not be aware of scoring: drop score expressions, results pages and computed results
+  const allItems = stripScoringForPatient(mappedItems);
 
   const resources = await getResources(oystehr, questionnaireResponse);
   const partialAppointment = getPaperworkSupportingInfoForUserWithAccess(resources);
@@ -111,7 +117,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       sex: formatPatientSexForPaperwork(fhirPatient.gender || ''),
     },
     allItems,
-    questionnaireResponse: questionnaireResponse,
+    questionnaireResponse: stripScoresFromQuestionnaireResponse(mappedItems, questionnaireResponse),
     questionnaireTitle: questionnaire.title,
   };
   return {

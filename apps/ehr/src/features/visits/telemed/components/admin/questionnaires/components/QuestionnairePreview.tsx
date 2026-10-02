@@ -5,7 +5,11 @@ import { QuestionnaireResponseViewer } from 'src/components/QuestionnaireRespons
 import { PaperworkProvider } from 'ui-components/lib/components/paperwork/context';
 import PagedQuestionnaire from 'ui-components/lib/components/paperwork/PagedQuestionnaire';
 import { convertQRItemToLinkIdMap, convertQuestionnaireItemToQRLinkIdMap } from 'utils/lib/helpers/paperwork/paperwork';
-import { makeStandaloneFormDTO } from 'utils/lib/helpers/practice-managed-questionnaires';
+import {
+  computeScores,
+  getVisiblePages,
+  makeStandaloneFormDTO,
+} from 'utils/lib/helpers/practice-managed-questionnaires';
 import { QuestionnaireFormFields } from 'utils/lib/types/data/paperwork/paperwork.types';
 import { stubPaperworkContext, stubPaperworkResponseForPreview } from '../questionnaire-utils';
 
@@ -32,7 +36,10 @@ export const QuestionnairePreview: FC<QuestionnairePreviewProps> = ({
 
   const theme = useTheme();
 
-  const { allItems, questionnaireResponse, questionnaireTitle } = stubPaperworkResponseForPreview(questionnaire);
+  const { allItems, questionnaireResponse, questionnaireTitle } = useMemo(
+    () => stubPaperworkResponseForPreview(questionnaire),
+    [questionnaire]
+  );
 
   const liveQuestionnaireResponse = useMemo(() => {
     return {
@@ -44,10 +51,9 @@ export const QuestionnairePreview: FC<QuestionnairePreviewProps> = ({
     };
   }, [questionnaireResponse, answersByPage]);
 
+  // hidden pages (e.g. a scored form's results page) are never shown to the patient
   const pages = useMemo(() => {
-    return (allItems ?? []).filter((item) => {
-      return item.linkId;
-    });
+    return getVisiblePages((allItems ?? []).filter((item) => item.linkId));
   }, [allItems]);
 
   const stubContext = useMemo(
@@ -105,8 +111,13 @@ export const QuestionnairePreview: FC<QuestionnairePreviewProps> = ({
   };
 
   const formattedFormResponse = useMemo(() => {
-    return makeStandaloneFormDTO(questionnaire, liveQuestionnaireResponse);
-  }, [questionnaire, liveQuestionnaireResponse]);
+    // nothing is submitted to the server here, so compute scores locally the same way submit-paperwork does
+    const scoredQuestionnaireResponse = {
+      ...liveQuestionnaireResponse,
+      item: computeScores(allItems, liveQuestionnaireResponse.item ?? []),
+    };
+    return makeStandaloneFormDTO(questionnaire, scoredQuestionnaireResponse);
+  }, [questionnaire, allItems, liveQuestionnaireResponse]);
 
   if (pages.length === 0) {
     return (

@@ -14,7 +14,8 @@ import {
 import { DOB_DATE_FORMAT } from '../../utils/date';
 import { DATE_ERROR_MESSAGE, REQUIRED_FIELD_ERROR_MESSAGE } from '../../validation/constants';
 import { emailRegex, emojiRegex, isoDateRegex, phoneRegex, ssnRegex, zipRegex } from '../../validation/regex';
-import { pickFirstValueFromAnswerItem } from './paperwork';
+import { isHiddenPage } from '../practice-managed-questionnaires/scoring';
+import { getAnswerValueAsString, isCodingValueTypeItem, pickFirstValueFromAnswerItem } from './paperwork';
 
 interface ValidatableQuestionnaireItem extends IntakeQuestionnaireItem {
   regex?: RegExp;
@@ -185,7 +186,25 @@ const schemaForItem = (item: ValidatableQuestionnaireItem, context: any): Yup.An
     }
   }
 
-  if (item.type === 'choice' && item.answerOption && item.answerOption.length) {
+  if (item.type === 'choice' && item.answerOption && item.answerOption.length && isCodingValueTypeItem(item)) {
+    // coded answer options (e.g. scored forms) are answered with valueCoding
+    let codeSchema = Yup.string().oneOf(
+      item.answerOption.map((option) => option.valueCoding?.code),
+      'Value must be one of the provided answer options'
+    );
+    if (required) {
+      codeSchema = codeSchema.required(REQUIRED_FIELD_ERROR_MESSAGE);
+    }
+    let codingSchema: Yup.AnySchema = Yup.object({ code: codeSchema }).default(undefined);
+    codingSchema = required ? codingSchema.required(REQUIRED_FIELD_ERROR_MESSAGE) : codingSchema.optional();
+    let schema = Yup.object({
+      valueCoding: codingSchema,
+    });
+    if (required) {
+      schema = schema.required(REQUIRED_FIELD_ERROR_MESSAGE);
+    }
+    schemaTemp = schema;
+  } else if (item.type === 'choice' && item.answerOption && item.answerOption.length) {
     // Apply .oneOf() first, then .required() - order matters because .oneOf() allows undefined by default
     let stringSchema = Yup.string().oneOf(
       item.answerOption.map((option) => option.valueString),
@@ -377,6 +396,11 @@ export const makeValidationSchema = (
         if (!questionItem) {
           console.log('page not found');
           return context.createError({ message: `Page ${pageId} not found in Questionnaire` });
+        }
+
+        // hidden pages (e.g. a scored form's results page) are never shown to the patient, so there is nothing to validate
+        if (isHiddenPage(questionItem)) {
+          return value;
         }
 
         // Build values object from all pages for enableWhen evaluation
@@ -660,7 +684,7 @@ const evalEnableWhenItem = (
   items: QuestionnaireItem[],
   itemsMap?: Map<string, QuestionnaireItem>
 ): boolean => {
-  const { answerString, answerBoolean, answerDate, answerInteger, question, operator } = enableWhen;
+  const { answerString, answerBoolean, answerCoding, answerDate, answerInteger, question, operator } = enableWhen;
   const questionPathNodes = question.split('.');
 
   const itemDef = (() => {
@@ -726,8 +750,11 @@ const evalEnableWhenItem = (
     (itemDef.type === 'string' || itemDef.type === 'choice' || itemDef.type === 'open-choice') &&
     answerString
   ) {
-    const verdict = evalString(operator, answerString, pickFirstValueFromAnswerItem(valueDef));
+    // string answers, or the code of a coded answer
+    const verdict = evalString(operator, answerString, getAnswerValueAsString(valueDef?.answer?.[0]));
     return verdict;
+  } else if ((itemDef.type === 'choice' || itemDef.type === 'open-choice') && answerCoding?.code) {
+    return evalString(operator, answerCoding.code, valueDef?.answer?.[0]?.valueCoding?.code);
   } else if (itemDef.type === 'date' && answerDate !== undefined) {
     return evalDateTime(operator, answerDate, pickFirstValueFromAnswerItem(valueDef));
   } else if (itemDef.type === 'date' && answerInteger !== undefined) {
@@ -906,7 +933,10 @@ const evalCondition = (
   }
 
   if (answerString !== undefined) {
-    const comparisonString = questionValue?.answer?.[0]?.valueString ?? questionValue?.valueString;
+    const comparisonString =
+      questionValue?.answer?.[0]?.valueString ??
+      questionValue?.valueString ??
+      questionValue?.answer?.[0]?.valueCoding?.code;
     if (operator === '=' && comparisonString === answerString) {
       return true;
     }

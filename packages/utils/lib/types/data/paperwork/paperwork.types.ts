@@ -108,6 +108,8 @@ export interface QuestionnaireItemExtension {
   minRows?: number;
   preferredElement?: FormElement;
   requireWhen?: QuestionnaireItemConditionDefinition;
+  // javascript used to compute this item's answer for scored forms; never sent to patients
+  scoreExpression?: string;
   secondaryInfoText?: string;
   textWhen?: QuestionnaireItemTextWhen[];
   validateAgeOver?: number;
