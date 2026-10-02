@@ -48,6 +48,48 @@ import { fetchAdHocBillingRows } from '../src/shared/adhoc-datasets/billing';
 import { fetchAdHocEncounterRows } from '../src/shared/adhoc-datasets/encounters';
 import { fetchAdHocPatientRows } from '../src/shared/adhoc-datasets/patients';
 
+// Stub the screening-questions config with stable, overlay-agnostic field definitions so the
+// fixture assertions for question text and option labels don't depend on the per-project branding
+// or on which additional questions each overlay includes.
+vi.mock('utils/lib/ottehr-config/screening-questions', () => ({
+  patientScreeningQuestionsConfig: {
+    title: 'ASK THE PATIENT',
+    fields: [
+      {
+        id: 'office_visit',
+        type: 'radio',
+        fhirField: 'seen-in-last-three-years',
+        question: 'Has the patient been seen in one of our offices / telemed in last 3 years?',
+        options: [
+          { value: 'yes', label: 'Yes', fhirValue: 'yes' },
+          { value: 'no', label: 'No', fhirValue: 'no' },
+        ],
+      },
+      {
+        id: 'covid_symptoms',
+        type: 'radio',
+        fhirField: 'covid-symptoms',
+        question: 'Do you have any COVID symptoms?',
+        options: [],
+      },
+      {
+        id: 'breastfeeding_status',
+        type: 'radio',
+        fhirField: 'patient-breastfeeding-status',
+        question: 'Are you currently breastfeeding?',
+        options: [{ value: 'not_applicable', label: 'Not applicable', fhirValue: 'not-applicable' }],
+      },
+      {
+        id: 'tested_positive_covid',
+        type: 'radio',
+        fhirField: 'tested-positive-covid',
+        question: 'Have you tested positive for COVID?',
+        options: [],
+      },
+    ],
+  },
+}));
+
 // Design requirement: "fixture tests asserting the fetched rows parse against the Zod schema
 // (fields present, typed, key resolved values correct) — the same schema the runtime validation
 // uses." The fetch+map pipeline runs against a stubbed Oystehr client returning a small FHIR graph;

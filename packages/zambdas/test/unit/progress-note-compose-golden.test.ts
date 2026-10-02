@@ -5,6 +5,30 @@
  */
 import { visitNoteToLegacyChartData } from 'utils/lib/helpers/visit-note/visit-note-to-chart-data.helper';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+
+// Stub screening-questions to include the fields present in the golden fixture observations
+// so composeAdditionalQuestions populates them regardless of which overlay is active.
+vi.mock('utils/lib/ottehr-config/screening-questions', () => ({
+  patientScreeningQuestionsConfig: {
+    title: 'ASK THE PATIENT',
+    fields: [
+      {
+        id: 'covid_symptoms',
+        type: 'radio',
+        fhirField: 'covid-symptoms',
+        question: 'Do you have any COVID symptoms?',
+        options: [],
+      },
+      {
+        id: 'travel_usa',
+        type: 'text',
+        fhirField: 'travel-usa',
+        question: 'Any recent travel in the USA?',
+        options: [],
+      },
+    ],
+  },
+}));
 import { buildVisitNote } from '../../src/shared/chart-sections/visit-note';
 import { composeProgressNoteData } from '../../src/shared/pdf/progress-note-pdf';
 import { ProgressNoteInput } from '../../src/shared/pdf/types';
