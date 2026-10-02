@@ -489,16 +489,13 @@ const makeValidationSchemaPrivate = (input: PrivateMakeSchemaArgs): Yup.AnyObjec
   allValues = { ...allValues, ...formValues };
 
   const validatableItems = [...items]
-    // hidden items are never shown to the patient, so they can't be required of them
-    .filter((item) => item?.type !== 'display' && !item?.readOnly && !item?.hidden && !evalFilterWhen(item, allValues))
+    .filter((item) => item?.type !== 'display' && !item?.readOnly && !evalFilterWhen(item, allValues))
     .flatMap((item) => makeValidatableItem(item));
   const validationTemp: any = {};
   validatableItems.forEach((item) => {
     let schemaTemp: any | undefined = item.type !== 'group' ? schemaForItem(item, allValues) : undefined;
     if (item.type === 'group' && item.item && item.dataType !== 'DOB') {
-      const filteredItems = (item.item ?? []).filter(
-        (item) => item?.type !== 'display' && !item?.readOnly && !item?.hidden
-      );
+      const filteredItems = (item.item ?? []).filter((item) => item?.type !== 'display' && !item?.readOnly);
       const embeddedSchema = makeValidationSchemaPrivate({
         items: filteredItems,
         formValues,

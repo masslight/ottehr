@@ -512,9 +512,6 @@ export const PRACTICE_MANAGED_QUESTIONNAIRE_TAG = {
 
 // applied (alongside the practice-managed tag) to questionnaires uploaded as raw FHIR JSON.
 // these are read only in the admin portal: they can only be updated by uploading a new version
-// standard fhir extension marking an item (or page) as never displayed to the person filling out the form
-export const QUESTIONNAIRE_HIDDEN_EXTENSION_URL = 'http://hl7.org/fhir/StructureDefinition/questionnaire-hidden';
-
 // item level extension on a scored form's (hidden) results page; holds the javascript used to compute that item's answer
 export const SCORE_FORM_EXPRESSION_EXTENSION_URL = ottehrExtensionUrl('score-form-expression');
 

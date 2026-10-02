@@ -11,10 +11,6 @@ export const getItemDisplayStrategy = (
   values: { [itemLinkId: string]: QuestionnaireResponseItem },
   questionnaireResponse?: QuestionnaireResponse
 ): DisplayStrategy => {
-  // standard questionnaire-hidden extension: never shown to the patient
-  if (item.hidden) {
-    return 'hidden';
-  }
   if (item.readOnly) {
     return item.disabledDisplay ?? 'hidden';
   }

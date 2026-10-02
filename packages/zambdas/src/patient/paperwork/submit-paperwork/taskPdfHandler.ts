@@ -3,7 +3,7 @@ import { randomUUID } from 'crypto';
 import { Encounter, List, Location, Patient, Questionnaire, QuestionnaireResponse } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { StandardFonts } from 'pdf-lib';
-import { BUCKET_NAMES, QUESTIONNAIRE_HIDDEN_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import { BUCKET_NAMES } from 'utils/lib/fhir/constants';
 import { createFilesDocumentReferences } from 'utils/lib/fhir/helpers';
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
 import { getQuestionnaireForQR } from 'utils/lib/fhir/questionnaires';
@@ -228,7 +228,9 @@ export async function renderQrPdf(
   walkQ(questionnaire?.item || []);
   const qItemByLinkId = new Map(allQItems.map((it) => [it.linkId, it]));
   const isHidden = (item: any): boolean =>
-    !!item?.extension?.some((e: any) => e.url === QUESTIONNAIRE_HIDDEN_EXTENSION_URL && e.valueBoolean === true);
+    !!item?.extension?.some(
+      (e: any) => e.url === 'http://hl7.org/fhir/StructureDefinition/questionnaire-hidden' && e.valueBoolean === true
+    );
 
   // hidden pages (e.g. a scored form's results page) are not part of the patient's answers
   // Render each page group
