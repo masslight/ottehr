@@ -306,7 +306,7 @@ export default function ERADetail(): ReactElement {
                     </InputAdornment>
                   ),
                 }}
-                sx={{ minWidth: 280 }}
+                sx={{ flex: 1, minWidth: 280, maxWidth: 480 }}
               />
               {claimSearch && (
                 <Button
