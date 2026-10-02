@@ -331,7 +331,7 @@ describe('save-billing-rules complexValidation (payers must exist)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     search.mockResolvedValue({ unbundle: () => [] });
-    getPayer.mockRejectedValue(new Error('not found'));
+    getPayer.mockRejectedValue(Object.assign(new Error('not found'), { statusCode: 404 }));
   });
 
   it('passes for a custom insurance organization without consulting RCM', async () => {
@@ -377,6 +377,14 @@ describe('save-billing-rules complexValidation (payers must exist)', () => {
     await expect(
       complexValidation(oystehr, params([payerRule('Wrong kind', 'payerId', CUSTOM_ORG_ID)]))
     ).rejects.toThrow(/no such payer or custom insurance organization exists/);
+  });
+
+  it('propagates RCM failures other than not-found instead of reporting the payer as missing', async () => {
+    batch.mockResolvedValue(batchResponse([]));
+    getPayer.mockRejectedValue(Object.assign(new Error('RCM unavailable'), { statusCode: 503 }));
+    await expect(complexValidation(oystehr, params([payerRule('Outage', 'payerId', CUSTOM_ORG_ID)]))).rejects.toThrow(
+      'RCM unavailable'
+    );
   });
 
   it('rejects a deleted (inactive) custom insurance organization', async () => {

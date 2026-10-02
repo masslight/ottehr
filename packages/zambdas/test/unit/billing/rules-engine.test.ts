@@ -1537,6 +1537,44 @@ describe('custom insurance organization payers', () => {
     expect(m.claim.insurer).toEqual({ reference: getPayerUrl(OTHER_UUID) });
   });
 
+  it('resolves a custom insurance organization id padded with whitespace', () => {
+    const m = withCustomOrgs(makeModel());
+    expect(writeField(m, 'payerId', ` ${CUSTOM_ORG_ID} `)).toBe(true);
+    expect(m.coverages[0].payor).toEqual([{ reference: `Organization/${CUSTOM_ORG_ID}` }]);
+  });
+
+  it('fails to set a payer to a deleted (inactive) custom insurance organization, leaving the claim untouched', () => {
+    const m = makeModel();
+    m.customInsuranceOrganizations = new Map([[CUSTOM_ORG_ID, { ...customOrg, active: false }]]);
+    const before = structuredClone({ claim: m.claim, coverages: m.coverages });
+    expect(writeField(m, 'payerId', CUSTOM_ORG_ID)).toBe(false);
+    expect(writeField(m, 'secondaryInsurance.payerId', CUSTOM_ORG_ID)).toBe(false);
+    expect({ claim: m.claim, coverages: m.coverages }).toEqual(before);
+  });
+
+  it('fails the rule (so the engine holds the claim) when it sets a deleted custom insurance organization', () => {
+    const m = makeModel();
+    m.customInsuranceOrganizations = new Map([[CUSTOM_ORG_ID, { ...customOrg, active: false }]]);
+    const rule: BillingRule = {
+      id: 'r-deleted',
+      name: 'To deleted org',
+      description: '',
+      enabled: true,
+      conditional: {
+        branches: [
+          {
+            condition: { type: 'all' },
+            outcome: { type: 'actions', actions: [{ type: 'setField', field: 'payerId', value: CUSTOM_ORG_ID }] },
+          },
+        ],
+      },
+    };
+    const result = executeRule(rule, m);
+    expect(result.error).toMatch(/could not set "payerId"/);
+    expect(result.appliedActions).toEqual([]);
+    expect(m.coverages[0].payor).toEqual([{ reference: getPayerUrl('123456') }]);
+  });
+
   it('remaps an RCM payer to a custom insurance organization and back through rules', () => {
     const m = withCustomOrgs(makeModel());
     const remap = (from: string, to: string): BillingRule => ({
