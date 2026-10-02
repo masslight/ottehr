@@ -88,7 +88,7 @@ jobs:
       - name: HashiCorp - Setup Terraform
         uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3 (v3.1.2)
         with:
-          terraform_version: "1.12.2"
+          terraform_version: "1.16.4"
 
       - name: TruffleHog -- Check for secrets committed to the repository
         uses: trufflesecurity/trufflehog@1aa1871f9ae24a8c8a3a48a9345514acf42beb39 # v3.82.13
