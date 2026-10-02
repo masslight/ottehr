@@ -77,7 +77,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     // snapshot, avoiding redundant FHIR reads and validate-vs-send inconsistencies. Missing reference
     // or a failed fetch is a system/data error (not an invalid contact), so we throw and fail the task.
     if (!patientRef) throw new Error('Task has no patient reference');
-    const patientId = removePrefix('Patient/', patientRef);
+    const patientId = patientRef.startsWith('Patient/') ? removePrefix('Patient/', patientRef) : undefined;
     if (!patientId || patientId.includes('/')) {
       throw new Error(`Task patient reference "${patientRef}" is not a literal "Patient/<id>" reference`);
     }
