@@ -178,7 +178,9 @@ async function validatePayerReferencesExist(oystehr: Oystehr, rules: SaveBilling
       try {
         const payer = await oystehr.rcm.getPayer({ id });
         problemById.set(id, payer ? undefined : 'no such payer or custom insurance organization exists');
-      } catch {
+      } catch (error: unknown) {
+        const { statusCode, status } = error as { statusCode?: number; status?: number };
+        if ((statusCode ?? status) !== 404) throw error;
         problemById.set(id, 'no such payer or custom insurance organization exists');
       }
     })
