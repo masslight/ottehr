@@ -42,6 +42,7 @@ import {
   useAddProcedureCodeMutation,
   useBulkAddProcedureCodesMutation,
   useDeleteProcedureCodeMutation,
+  useGetChargeItemDefinitionVersionQuery,
   useGetVersionHistoryQuery,
   useUpdateProcedureCodeMutation,
 } from 'src/rcm/state/fee-schedules/fee-schedule.queries';
@@ -514,9 +515,8 @@ export default function ProcedureCodes({
   const [downloadDialogOpen, setDownloadDialogOpen] = useState(false);
   const [downloadMode, setDownloadMode] = useState<'latest' | 'delta'>('latest');
   const [selectedVersionId, setSelectedVersionId] = useState('');
-  const [deltaRows, setDeltaRows] = useState<DeltaRow[]>([]);
+  const currentVersionId = feeSchedule?.meta?.versionId;
 
-  // Fetch version history via zambda when download dialog opens
   const {
     data: historyData,
     isFetching: loadingHistory,
@@ -524,33 +524,33 @@ export default function ProcedureCodes({
   } = useGetVersionHistoryQuery(feeSchedule?.id, downloadDialogOpen);
 
   const versionHistory = useMemo(() => {
-    if (!historyData?.entries) return [];
-    // Skip the latest (current) version for delta comparison
-    return historyData.entries.length > 1 ? historyData.entries.slice(1) : [];
-  }, [historyData]);
+    const versions = historyData?.versions ?? [];
+    const currentIndex = versions.findIndex((v) => v.versionId === currentVersionId);
+    return currentIndex === -1 ? [] : versions.slice(currentIndex + 1);
+  }, [historyData, currentVersionId]);
 
-  // Compute delta when a comparison version is selected
-  const loadingDelta = false; // delta is computed synchronously from cached data
-  useMemo(() => {
-    if (downloadMode !== 'delta' || !selectedVersionId || !historyData?.entries) {
-      setDeltaRows([]);
-      return;
-    }
-    const oldEntry = historyData.entries.find((e) => e.versionId === selectedVersionId);
-    if (!oldEntry) {
-      setDeltaRows([]);
-      return;
-    }
-    const oldCodes = extractProcedureCodes(oldEntry.resource);
-    const delta = computeDelta(procedureCodes, oldCodes);
-    setDeltaRows(delta);
-  }, [downloadMode, selectedVersionId, historyData, procedureCodes]);
+  const {
+    data: fetchedVersion,
+    isFetching: loadingDelta,
+    isError: versionFetchError,
+  } = useGetChargeItemDefinitionVersionQuery(
+    feeSchedule?.id,
+    selectedVersionId || undefined,
+    downloadDialogOpen && downloadMode === 'delta'
+  );
+
+  const selectedVersion = fetchedVersion?.meta?.versionId === selectedVersionId ? fetchedVersion : undefined;
+  const deltaError = versionFetchError || (!!fetchedVersion && !selectedVersion);
+
+  const deltaRows = useMemo(() => {
+    if (downloadMode !== 'delta' || !selectedVersion) return [];
+    return computeDelta(procedureCodes, extractProcedureCodes(selectedVersion));
+  }, [downloadMode, selectedVersion, procedureCodes]);
 
   const closeDownloadDialog = (): void => {
     setDownloadDialogOpen(false);
     setDownloadMode('latest');
     setSelectedVersionId('');
-    setDeltaRows([]);
   };
 
   const handleDownloadDelta = (): void => {
@@ -570,9 +570,9 @@ export default function ProcedureCodes({
     const link = document.createElement('a');
     link.href = url;
     const title = feeSchedule?.title?.replace(/[^a-zA-Z0-9]/g, '_') || 'fee-schedule';
-    const selectedVersion = versionHistory.find((v) => v.versionId === selectedVersionId);
-    const versionDate = selectedVersion
-      ? new Date(selectedVersion.lastUpdated).toISOString().replace(/[:.]/g, '-').slice(0, 19)
+    const selectedLastUpdated = selectedVersion?.meta?.lastUpdated;
+    const versionDate = selectedLastUpdated
+      ? new Date(selectedLastUpdated).toISOString().replace(/[:.]/g, '-').slice(0, 19)
       : 'unknown';
     link.download = `${title}_delta_since_${versionDate}.csv`;
     link.click();
@@ -922,7 +922,7 @@ export default function ProcedureCodes({
               >
                 {versionHistory.map((v) => (
                   <MenuItem key={v.versionId} value={v.versionId}>
-                    {new Date(v.lastUpdated).toLocaleString()}
+                    {new Date(v.timestamp).toLocaleString()}
                   </MenuItem>
                 ))}
               </TextField>
@@ -936,7 +936,13 @@ export default function ProcedureCodes({
                 </Box>
               )}
 
-              {!loadingDelta && selectedVersionId && deltaRows.length === 0 && (
+              {!loadingDelta && selectedVersionId && deltaError && (
+                <Typography variant="body2" color="error" sx={{ py: 1 }}>
+                  Error loading the selected version. Please try again.
+                </Typography>
+              )}
+
+              {!loadingDelta && selectedVersion && deltaRows.length === 0 && (
                 <Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>
                   No changes found between the selected version and the current version.
                 </Typography>
