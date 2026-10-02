@@ -1,6 +1,6 @@
 import { otherColors } from '@ehrTheme/colors';
 import { Box, Button, InputBase, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
-import { FC, useMemo } from 'react';
+import { FC, useMemo, useRef } from 'react';
 import { SuggestedSentences } from 'src/components/SuggestedSentences';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import {
@@ -19,6 +19,12 @@ import { ProcedureFamilyModel } from 'utils/lib/procedure-coding/model.types';
 import { readNumber, StructuredFacts } from 'utils/lib/procedure-coding/structured-fields';
 import { CodingFieldSentences } from './CodingFieldSentences';
 import { Sentence } from './InlineBlanks';
+
+/** Line colour between and around the tiles (the mockup's #dfe5e9). */
+const TILE_LINE = '#dfe5e9';
+/** Empty-tile underline and selected QTc method, exactly as in the approved mockup. */
+const TILE_EMPTY = '#ed6c02';
+const TILE_SELECTED = '#1976d2';
 
 /** The measurement tiles, in printout order; `qtc` is calculated unless the method is manual. */
 const TILES = [
@@ -42,6 +48,7 @@ interface TilesProps {
 /** Big plain numbers as on the printout: no flags or ranges, the reminders below speak to the interpretation. */
 const EkgMeasurementTiles: FC<TilesProps> = ({ facts, readOnly, update }) => {
   const method = ekgQtcMethod(facts);
+  const qtcInput = useRef<HTMLInputElement>(null);
   const qtc = ekgQtc(facts);
   const setNumber = (key: string, raw: string): void => {
     const number = raw === '' ? undefined : Number(raw);
@@ -50,6 +57,8 @@ const EkgMeasurementTiles: FC<TilesProps> = ({ facts, readOnly, update }) => {
   };
   const setMethod = (next: QtcMethod | null): void => {
     if (!next) return;
+    // Manual means the provider will type the printout's value: put the cursor there.
+    if (next === 'manual') requestAnimationFrame(() => qtcInput.current?.focus());
     // Manual starts from the value on screen; a calculated method recomputes it.
     update(next === 'manual' ? { ...facts, qtcMethod: next, qtc } : withEkgQtc({ ...facts, qtcMethod: next }));
   };
@@ -58,9 +67,10 @@ const EkgMeasurementTiles: FC<TilesProps> = ({ facts, readOnly, update }) => {
       sx={{
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fit, minmax(92px, 1fr))',
-        borderTop: 1,
-        borderBottom: 1,
-        borderColor: 'divider',
+        // Full width across the card, as in the approved mockup (the card has 24px side padding).
+        mx: '-24px',
+        borderTop: `1px solid ${TILE_LINE}`,
+        borderBottom: `1px solid ${TILE_LINE}`,
       }}
       data-testid={dataTestIds.documentProcedurePage.ekgTiles}
     >
@@ -69,7 +79,12 @@ const EkgMeasurementTiles: FC<TilesProps> = ({ facts, readOnly, update }) => {
         return (
           <Box
             key={key}
-            sx={{ px: 1.75, py: 1, borderRight: 1, borderColor: 'divider', '&:last-child': { borderRight: 0 } }}
+            sx={{
+              display: 'grid',
+              p: '8px 14px',
+              borderRight: `1px solid ${TILE_LINE}`,
+              '&:last-child': { borderRight: 0 },
+            }}
             data-testid={dataTestIds.documentProcedurePage.ekgTile(key)}
           >
             <Typography
@@ -91,6 +106,7 @@ const EkgMeasurementTiles: FC<TilesProps> = ({ facts, readOnly, update }) => {
                   type="number"
                   value={value ?? ''}
                   placeholder="—"
+                  inputRef={key === 'qtc' ? qtcInput : undefined}
                   onChange={(event) => setNumber(key, event.target.value)}
                   inputProps={{
                     'aria-label': `${label} (${unit})`,
@@ -100,15 +116,18 @@ const EkgMeasurementTiles: FC<TilesProps> = ({ facts, readOnly, update }) => {
                     autoComplete: 'off',
                   }}
                   sx={(theme) => ({
-                    width: '3.2em',
                     '& input': {
                       font: `500 20px ${theme.typography.fontFamily}`,
+                      // 3.2em of the 20px number, as in the mockup (not of the 16px input root).
+                      width: '3.2em',
+                      height: 'auto',
                       fontVariantNumeric: 'tabular-nums',
                       padding: 0,
+                      '&::placeholder': { color: 'rgba(0, 0, 0, 0.35)', fontWeight: 400, opacity: 1 },
                       borderBottom: '1px dashed transparent',
                       '&:hover': { borderBottomColor: 'rgba(0, 0, 0, 0.3)' },
                       // Empty tiles get the same orange underline so the row reads as something to fill in.
-                      '&:placeholder-shown': { borderBottomColor: theme.palette.warning.main },
+                      '&:placeholder-shown': { borderBottomColor: TILE_EMPTY },
                       MozAppearance: 'textfield',
                       '&::-webkit-outer-spin-button, &::-webkit-inner-spin-button': { WebkitAppearance: 'none', m: 0 },
                     },
@@ -120,25 +139,39 @@ const EkgMeasurementTiles: FC<TilesProps> = ({ facts, readOnly, update }) => {
               </Typography>
             </Box>
             {key === 'qtc' && (!readOnly || value !== undefined) && (
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mt: '2px' }}>
+              <>
                 {!readOnly && (
                   <ToggleButtonGroup
-                    size="small"
                     exclusive
                     value={method}
                     onChange={(_event, next: QtcMethod | null) => setMethod(next)}
                     aria-label="QTc method"
                     data-testid={dataTestIds.documentProcedurePage.ekgQtcMethod}
                     sx={{
-                      '& .MuiToggleButton-root': {
-                        px: 0.5,
-                        py: 0,
-                        minWidth: 20,
+                      gap: '2px',
+                      mt: '2px',
+                      // Three separate small buttons (mockup), not a joined group.
+                      '& .MuiToggleButtonGroup-grouped': {
+                        width: 20,
+                        height: 18,
+                        minWidth: 0,
+                        p: 0,
+                        m: 0,
                         fontSize: 11,
                         fontWeight: 600,
-                        lineHeight: '16px',
+                        lineHeight: 1,
                         textTransform: 'none',
+                        color: 'rgba(0, 0, 0, 0.6)',
+                        backgroundColor: '#fff',
+                        border: '1px solid #e0e0e0 !important',
+                        borderRadius: '3px !important',
                       },
+                      '& .MuiToggleButtonGroup-grouped.Mui-selected, & .MuiToggleButtonGroup-grouped.Mui-selected:hover':
+                        {
+                          borderColor: `${TILE_SELECTED} !important`,
+                          backgroundColor: 'rgba(25, 118, 210, 0.08)',
+                          color: TILE_SELECTED,
+                        },
                     }}
                   >
                     {QTC_METHODS.map((option) => (
@@ -149,7 +182,7 @@ const EkgMeasurementTiles: FC<TilesProps> = ({ facts, readOnly, update }) => {
                   </ToggleButtonGroup>
                 )}
                 <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>{method}</Typography>
-              </Box>
+              </>
             )}
           </Box>
         );
