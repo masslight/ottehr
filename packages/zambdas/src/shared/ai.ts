@@ -145,6 +145,7 @@ interface VertexAIRequestOptions {
 export async function invokeChatbotVertexAI(
   input: MessageContentComplex[],
   secrets: Secrets | null,
+  feature: string,
   responseSchema?: object,
   model: string = VERTEX_AI_MODEL,
   options: VertexAIRequestOptions = {}
@@ -191,6 +192,11 @@ export async function invokeChatbotVertexAI(
           },
           body: JSON.stringify({
             contents: [{ role: 'user', parts: [input] }],
+            labels: {
+              ottehr_feature: feature,
+              ottehr_environment: getSecret(SecretsKeys.ENVIRONMENT, secrets),
+              ottehr_project_id: getSecret(SecretsKeys.PROJECT_ID, secrets),
+            },
             generationConfig: {
               temperature: 0,
               ...(responseSchema && {
@@ -324,7 +330,8 @@ export async function transcribeAndCreateResourcesFromZ3Audio(
 
   const transcript = await invokeChatbotVertexAI(
     [{ text: TRANSCRIPT_PROMPT }, { inlineData: { mimeType, data: fileBase64 } }],
-    secrets
+    secrets,
+    'ambient-scribe-transcription'
   );
 
   // Trim: Vertex commonly wraps the sentinel in trailing whitespace/newline, and an untrimmed compare would
@@ -479,7 +486,8 @@ export async function createResourcesFromAiInterview(
   try {
     aiResponseString = await invokeChatbotVertexAI(
       [{ text: getPrompt(patientInfoDetails || 'unknown patient details', fields) + '\n' + chatTranscript }],
-      secrets
+      secrets,
+      source === 'audio-recording' ? 'ambient-scribe-summary' : 'ai-interview-summary'
     );
     narrativeLines = await settledWithin(narrative, NARRATIVE_GRACE_MS);
   } finally {
