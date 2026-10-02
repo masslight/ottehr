@@ -220,8 +220,8 @@ const EkgSuggestedInterpretations: FC<InterpretationProps & { isChild: boolean }
     >
       {isChild && rows.length > 0 && (
         <Typography variant="body2" color="text.secondary" sx={{ py: 0.5 }}>
-          Patient is under 18: adult cut-offs don't apply, so only the normal read is offered. For anything else, use
-          the interpretation fields below.
+          Patient is under 18: adult cut-offs don't apply, so only the normal interpretation is offered. For anything
+          else, use the interpretation fields below.
         </Typography>
       )}
     </SuggestedSentences>
