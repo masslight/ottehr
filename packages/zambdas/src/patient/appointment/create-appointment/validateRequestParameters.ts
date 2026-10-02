@@ -30,6 +30,7 @@ import {
   NO_READ_ACCESS_TO_PATIENT_ERROR,
   SLOT_UNAVAILABLE_ERROR,
 } from 'utils/lib/types/errors';
+import { isFhirDateString, removeTimeFromDate } from 'utils/lib/utils/date';
 import {
   checkSlotAvailable,
   getServiceModeFromScheduleOwner,
@@ -104,9 +105,11 @@ export function validateCreateAppointmentParams(
   if (missingRequiredPatientFields.length > 0) {
     throw MISSING_REQUIRED_PARAMETERS(missingRequiredPatientFields.map((field) => `patient.${field}`));
   }
-  const isInvalidPatientDate = !DateTime.fromISO(patient.dateOfBirth as string).isValid;
-  if (isInvalidPatientDate) {
-    throw INVALID_INPUT_ERROR('"patient.dateOfBirth" was not read as a valid date');
+  // Validate the value that actually reaches Patient.birthDate, not the raw input: Luxon accepts ISO
+  // shapes the FHIR `date` type rejects, and those only failed at the FHIR write.
+  const dateOfBirth = typeof patient.dateOfBirth === 'string' ? removeTimeFromDate(patient.dateOfBirth) : '';
+  if (!isFhirDateString(dateOfBirth)) {
+    throw INVALID_INPUT_ERROR('"patient.dateOfBirth" was not read as a valid date; expected YYYY-MM-DD');
   }
 
   if (patient.sex && !Object.values(PersonSex).includes(patient.sex as PersonSex)) {
