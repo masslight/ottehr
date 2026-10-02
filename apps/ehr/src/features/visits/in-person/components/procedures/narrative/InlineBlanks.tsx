@@ -31,6 +31,7 @@ import {
   ReactNode,
   useCallback,
   useEffect,
+  useRef,
   useState,
 } from 'react';
 import { sentenceValue } from './sentenceValue';
@@ -178,10 +179,14 @@ const inPortaledListbox = (target: EventTarget | null): boolean =>
  * another blank. Here the click away closes the popover and still reaches its target. */
 export const PopoverBlank: FC<PopoverBlankProps> = ({ title, children, onClose, ...blank }) => {
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
-  // A callback ref: the Popper's portal mounts the paper a render after `anchor` is set, so a mount
-  // effect keyed on `anchor` would run before the paper exists.
+  // Focus moves into the paper only after Popper has placed it: focusing earlier opens an autocomplete
+  // list (openOnFocus) while the paper still sits at the top-left corner, and that list stays there.
+  const paperEl = useRef<HTMLDivElement | null>(null);
   const paperRef = useCallback((paper: HTMLDivElement | null) => {
-    if (paper) focusPopoverContent(paper);
+    paperEl.current = paper;
+  }, []);
+  const onPlaced = useCallback(() => {
+    if (paperEl.current) focusPopoverContent(paperEl.current);
   }, []);
   const close = (): void => {
     setAnchor(null);
@@ -211,6 +216,7 @@ export const PopoverBlank: FC<PopoverBlankProps> = ({ title, children, onClose, 
           placement="bottom-start"
           sx={{ zIndex: (theme) => theme.zIndex.modal }}
           modifiers={[{ name: 'preventOverflow', options: { padding: 8 } }]}
+          popperOptions={{ onFirstUpdate: onPlaced }}
         >
           <ClickAwayListener
             mouseEvent="onMouseDown"
