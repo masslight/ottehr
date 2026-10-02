@@ -387,6 +387,25 @@ describe('save-billing-rules complexValidation (payers must exist)', () => {
     );
   });
 
+  it('bounds concurrent RCM lookups for a large rule set', async () => {
+    const ids = Array.from({ length: 40 }, (_, i) => `payer-${i}`);
+    let inFlight = 0;
+    let maxInFlight = 0;
+    getPayer.mockImplementation(async ({ id }: { id: string }) => {
+      inFlight++;
+      maxInFlight = Math.max(maxInFlight, inFlight);
+      await new Promise((resolve) => setTimeout(resolve, 1));
+      inFlight--;
+      return { resourceType: 'Organization', id };
+    });
+    await expect(
+      complexValidation(oystehr, params(ids.map((id) => payerRule(`To ${id}`, 'payerId', id))))
+    ).resolves.toBeUndefined();
+    expect(getPayer).toHaveBeenCalledTimes(ids.length);
+    expect(maxInFlight).toBeGreaterThan(1);
+    expect(maxInFlight).toBeLessThanOrEqual(5);
+  });
+
   it('rejects a deleted (inactive) custom insurance organization', async () => {
     batch.mockResolvedValue(batchResponse([customOrg(CUSTOM_ORG_ID, false)]));
     await expect(complexValidation(oystehr, params([payerRule('Stale', 'payerId', CUSTOM_ORG_ID)]))).rejects.toThrow(

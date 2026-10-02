@@ -17,6 +17,7 @@ import { isSystemManagedTagName } from 'utils/lib/types/data/billing/system-tags
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { isValidUUID } from 'utils/lib/validation/helper';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { mapWithConcurrency } from '../../shared/concurrency';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { isCustomInsuranceOrganization } from '../custom-insurance-org.helpers';
@@ -35,6 +36,9 @@ import { SaveBillingRulesParams, validateRequestParameters } from './validateReq
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'save-billing-rules';
+// RCM has no bulk lookup by id, so payer ids are checked one request at a time; the save schema
+// doesn't cap the rule set, so the lookups are pooled to avoid an outbound burst that RCM throttles.
+const RCM_PAYER_LOOKUP_CONCURRENCY = 5;
 
 // Saves the full ordered rule set as the engine's singleton rules List (create/edit/reorder/delete
 // all in one atomic write). Echoes back the saved rules + new versionId.
@@ -168,23 +172,25 @@ async function validatePayerReferencesExist(oystehr: Oystehr, rules: SaveBilling
   );
 
   const problemById = new Map<string, string | undefined>();
-  await Promise.all(
-    distinct.map(async (id) => {
-      const customOrg = customById.get(id);
-      if (customOrg) {
-        problemById.set(id, customOrg.active === false ? 'the custom insurance organization was deleted' : undefined);
-        return;
-      }
-      try {
-        const payer = await oystehr.rcm.getPayer({ id });
-        problemById.set(id, payer ? undefined : 'no such payer or custom insurance organization exists');
-      } catch (error: unknown) {
-        const { statusCode, status } = error as { statusCode?: number; status?: number };
-        if ((statusCode ?? status) !== 404) throw error;
-        problemById.set(id, 'no such payer or custom insurance organization exists');
-      }
-    })
-  );
+  const rcmCandidates: string[] = [];
+  for (const id of distinct) {
+    const customOrg = customById.get(id);
+    if (customOrg) {
+      problemById.set(id, customOrg.active === false ? 'the custom insurance organization was deleted' : undefined);
+    } else {
+      rcmCandidates.push(id);
+    }
+  }
+  await mapWithConcurrency(rcmCandidates, RCM_PAYER_LOOKUP_CONCURRENCY, async (id) => {
+    try {
+      const payer = await oystehr.rcm.getPayer({ id });
+      problemById.set(id, payer ? undefined : 'no such payer or custom insurance organization exists');
+    } catch (error: unknown) {
+      const { statusCode, status } = error as { statusCode?: number; status?: number };
+      if ((statusCode ?? status) !== 404) throw error;
+      problemById.set(id, 'no such payer or custom insurance organization exists');
+    }
+  });
 
   const problems = perRule.flatMap((entry) =>
     entry.ids
