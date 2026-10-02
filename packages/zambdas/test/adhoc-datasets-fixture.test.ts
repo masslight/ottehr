@@ -44,6 +44,14 @@ import {
   SEEN_IN_LAST_THREE_YEARS_FIELD,
 } from 'utils/lib/types/data/screening-questions/constants';
 import { afterAll, describe, expect, it, vi } from 'vitest';
+
+// Use the base (core) screening questions config so this test is not sensitive to per-instance
+// overlay overrides of utils/lib/ottehr-config/screening-questions.
+vi.mock('utils/lib/ottehr-config/screening-questions', async () => {
+  const { baseScreeningQuestionsConfig } = await import('utils/lib/types/data/screening-questions/config');
+  return { patientScreeningQuestionsConfig: baseScreeningQuestionsConfig };
+});
+
 import { fetchAdHocBillingRows } from '../src/shared/adhoc-datasets/billing';
 import { fetchAdHocEncounterRows } from '../src/shared/adhoc-datasets/encounters';
 import { fetchAdHocPatientRows } from '../src/shared/adhoc-datasets/patients';

@@ -5,6 +5,67 @@ import { FHIR_BASE_URL } from 'utils/lib/fhir/constants';
 import { createConsentResource, createFilesDocumentReferences } from 'utils/lib/fhir/helpers';
 import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
 import { getConsentFormsForLocation } from 'utils/lib/ottehr-config/consent-forms';
+
+// Use the base (core) consent forms config so this test is not sensitive to per-instance
+// overlay overrides of utils/lib/ottehr-config/consent-forms.
+vi.mock('utils/lib/ottehr-config/consent-forms', () => {
+  type PathConfig = string | { default: string; byState?: Record<string, string> };
+  const resolveAssetPath = (path: PathConfig, locationState?: string): string => {
+    if (typeof path === 'string') return path;
+    if (locationState && path.byState?.[locationState]) return path.byState[locationState];
+    return path.default;
+  };
+  const coreForms = [
+    {
+      id: 'hipaa-acknowledgement',
+      formTitle: 'HIPAA Acknowledgement',
+      resourceTitle: 'HIPAA forms',
+      assetPath: './assets/HIPAA.Acknowledgement-S.pdf',
+      publicUrl: '/hipaa_notice_template.pdf',
+      type: {
+        coding: [{ system: 'http://loinc.org', code: '64292-6', display: 'Privacy Policy' }],
+        text: 'HIPAA Acknowledgement forms',
+      },
+      createsConsentResource: false,
+    },
+    {
+      id: 'consent-to-treat',
+      formTitle: 'Consent to Treat, Guarantee of Payment & Card on File Agreement',
+      resourceTitle: 'Consent forms',
+      assetPath: {
+        default: './assets/CTT.and.Guarantee.of.Payment.and.Credit.Card.Agreement-S.pdf',
+        byState: { IL: './assets/CTT.and.Guarantee.of.Payment.and.Credit.Card.Agreement.Illinois-S.pdf' },
+      },
+      publicUrl: '/consent_to_treat_template.pdf',
+      type: {
+        coding: [
+          { system: 'http://loinc.org', code: '59284-0', display: 'Consent Documents' },
+          {
+            system: 'https://fhir.ottehr.com/CodeSystem/consent-source',
+            code: 'patient-registration',
+            display: 'Patient Registration Consent',
+          },
+        ],
+        text: 'Consent forms',
+      },
+      createsConsentResource: true,
+    },
+  ];
+  return {
+    getConsentFormsForLocation: (locationState?: string) =>
+      coreForms.map((form) => ({
+        ...form,
+        assetPath: resolveAssetPath(form.assetPath, locationState),
+        publicUrl: resolveAssetPath(form.publicUrl, locationState),
+      })),
+    resolveConsentFormsPaths: (forms: any[], locationState?: string) =>
+      forms.map((form: any) => ({
+        ...form,
+        assetPath: resolveAssetPath(form.assetPath, locationState),
+        publicUrl: resolveAssetPath(form.publicUrl, locationState),
+      })),
+  };
+});
 import { Secrets } from 'utils/lib/secrets';
 import {
   INSURANCE_CARD_BACK_2_ID,
