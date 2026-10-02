@@ -1213,10 +1213,18 @@ export const ENCOUNTER_LAYERS = {
       'obtained from), and the paperwork details shown during the visit (person accompanying a minor, relay phone).',
     schema: z.object({
       asqScreen: z.string().describe('ASQ screen: Negative/Positive/Declined/NotOffered/"".'),
-      accidentType: z.string().describe('First accident type when accident-related, else "". See accidentTypes[].'),
+      accidentType: z
+        .string()
+        .describe(
+          'Code of the first accident type charted: "AA" (auto accident), "EM" (employment), "OA" (other ' +
+            'accident). "" when not accident-related. accidentTypes[] has every type, labelled.'
+        ),
       accidentTypes: z
         .array(z.string())
-        .describe('All accident types charted (e.g. "Motor vehicle accident", "Work-related"). Empty when none.'),
+        .describe(
+          'Every accident type charted, as the chart labels them: "Auto Accident", "Employment", "Other Accident". ' +
+            'Empty when none.'
+        ),
       accidentDate: z
         .string()
         .nullable()

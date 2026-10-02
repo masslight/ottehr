@@ -1231,7 +1231,7 @@ describe('ad-hoc Encounters: layers mapped with the app mappers (fixture)', () =
     const rows = await fetchAdHocEncounterRows(fakeOystehr, { dateRange, includeIntake: true });
     const signed = rows.find((r) => r.appointmentId === 'appt-1')!;
     expect(signed.accidentTypes).toEqual(['Auto Accident', 'Other Accident']);
-    expect(signed.accidentType).toBe('Auto Accident');
+    expect(signed.accidentType).toBe('AA');
     expect(signed.accidentDate).toBe('2026-06-28');
     expect(signed.accidentState).toBe('NJ');
     expect(signed.personAccompanyingMinor).toBe('Mary Doe');

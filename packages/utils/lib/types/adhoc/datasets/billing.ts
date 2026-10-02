@@ -166,18 +166,19 @@ export const BILLING_LAYERS = {
     label: 'Billing codes (CPT / E&M / ICD-10)',
     description: 'Diagnosis and procedure codes from the chart used for billing.',
     schema: z.object({
-      cptCodes: z
-        .array(z.string())
+      cptCodes: z.array(z.string()).describe('Procedure CPT codes charted on the visit (distinct).'),
+      cptLines: z
+        .array(
+          z.object({
+            code: z.string().describe('CPT code.'),
+            modifiers: z.array(z.string()).describe('CPT modifiers on this line (e.g. "25"). Empty when none.'),
+            units: z.number().describe('Billable units on this line (1 when not set).'),
+          })
+        )
         .describe(
-          'Procedure CPT codes charted on the visit, one entry per charted line (a code charted twice with ' +
-            'different modifiers appears twice).'
+          'One record per charted CPT line, as the chart lists them — the same code can be charted twice with ' +
+            'different modifiers / units. Use for modifiers and units; count codes with cptCodes.'
         ),
-      cptModifiers: z
-        .array(z.string())
-        .describe('Parallel to cptCodes: the CPT modifiers of each code, comma-separated (e.g. "25"); "" when none.'),
-      cptBillableUnits: z
-        .array(z.number())
-        .describe('Parallel to cptCodes: billable units of each code (1 when not set).'),
       emCode: z.string().describe('E&M level code (e.g. "99213"). "" when unset.'),
       icdCodes: z.array(z.string()).describe('ICD-10 diagnosis codes, primary first. HIERARCHICAL — prefix-match.'),
     }),

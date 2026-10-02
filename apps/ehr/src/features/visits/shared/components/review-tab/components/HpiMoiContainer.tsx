@@ -7,16 +7,10 @@ import {
   useNoteSectionTitleInCardHeader,
 } from 'src/features/visits/shared/components/NoteSectionHeading';
 import { formatISODateToLocaleDate } from 'src/helpers/formatDateTime';
+import { ACCIDENT_TYPE_LABELS } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { useVisitNote } from '../../../hooks/useVisitNote';
 import { AiAddedMark } from '../../scribe-recommendations/AiAddedMark';
 import { findAiAddedFor, useAiAddedRecommendations } from '../../scribe-recommendations/aiAddedMarks';
-
-// Matches the checkbox labels on the HPI screen's "Patient's condition related to" card.
-const ACCIDENT_TYPE_LABELS: Record<string, string> = {
-  AA: 'Auto Accident',
-  EM: 'Employment',
-  OA: 'Other Accident',
-};
 
 export const HpiMoiContainer: FC = () => {
   const titleInCardHeader = useNoteSectionTitleInCardHeader();
