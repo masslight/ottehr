@@ -109,6 +109,9 @@ export const ekgFamily: ProcedureFamilyModel<EkgCode> = {
   id: 'ekg',
   procedureNames: PROCEDURE_NAMES['ekg'],
   displayName: 'EKG',
+  // A 12-lead EKG has no body site or side (fixed chest and limb leads), so the page hides Site.
+  capturesSite: true,
+  capturesSide: true,
   fields,
   // The note reads the measurements as one line ("Rate 72 bpm, PR 160 ms, …") rather than field by field.
   noteLines: (facts) => ({
