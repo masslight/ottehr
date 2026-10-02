@@ -19,7 +19,7 @@ import {
 } from 'utils/lib/types/data/billing/rules-engine.schemas';
 import { HOLD_TAG_NAME } from 'utils/lib/types/data/billing/system-tags';
 import { getChargeMasterPrice, selectBestChargeMaster } from '../charge-master.helpers';
-import { getChargeItemDefinitionDefault } from '../shared';
+import { getChargeItemDefinitionDefault, pruneUnreferencedOrderingProviders } from '../shared';
 import {
   ClaimServiceLine,
   readField,
@@ -414,7 +414,8 @@ const applyChargeMasterPricing = (
 };
 
 // Remove every line matching the predicate (all lines when the match is "all"). Survivors are
-// re-sequenced 1..n and the billed total is recomputed. Zero matching lines is a no-op.
+// re-sequenced 1..n, the billed total is recomputed, and contained ordering providers only the
+// removed lines referenced are dropped. Zero matching lines is a no-op.
 const applyServiceLineRemoval = (
   action: Extract<RuleAction, { type: 'removeServiceLines' }>,
   model: RulesEngineClaimModel
@@ -423,6 +424,7 @@ const applyServiceLineRemoval = (
   const remaining = lines.filter((line) => !serviceLineMatches(line, action.match));
   if (remaining.length === lines.length) return undefined;
   model.claim.item = remaining.length ? remaining.map((line, index) => ({ ...line, sequence: index + 1 })) : undefined;
+  pruneUnreferencedOrderingProviders(model.claim);
   recomputeClaimTotal(model.claim);
   return undefined;
 };

@@ -414,6 +414,22 @@ export function setClaimItemOrderingProviders(
   claim.contained = contained.length ? contained : undefined;
 }
 
+// Drops the contained ordering providers no claim item references any more (e.g. after lines were
+// removed), keeping everything else contained in the claim.
+export function pruneUnreferencedOrderingProviders(claim: Claim): void {
+  if (!claim.contained) return;
+  const referenced = new Set(
+    (claim.item ?? []).map(
+      (item) =>
+        item.extension?.find((ext) => ext.url === EXTENSION_CLAIM_ITEM_ORDERING_PROVIDER)?.valueReference?.reference
+    )
+  );
+  const contained = claim.contained.filter(
+    (resource) => !resource.id?.startsWith(CONTAINED_ORDERING_PROVIDER_ID_PREFIX) || referenced.has(`#${resource.id}`)
+  );
+  claim.contained = contained.length ? contained : undefined;
+}
+
 // Existing Practitioners referenced as ordering providers must be there, so no item points at nothing.
 export async function assertOrderingProvidersExist(
   oystehr: Oystehr,
