@@ -499,8 +499,10 @@ describe('ad-hoc Billing: coverage and codes as the patient record and the chart
     expect(issuesOf(AdHocBillingOutputSchema.safeParse({ rows }))).toEqual([]);
     expect(rows.find((r) => r.appointmentId === 'appt-1')).toMatchObject({
       cptCodes: ['99000', '99999'],
-      cptModifiers: ['25', ''],
-      cptBillableUnits: [2, 1],
+      cptLines: [
+        { code: '99000', modifiers: ['25'], units: 2 },
+        { code: '99999', modifiers: [], units: 1 },
+      ],
       emCode: '',
       icdCodes: ['J02.9', 'R50.9'],
     });

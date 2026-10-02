@@ -613,6 +613,14 @@ export interface AccidentDTO extends SaveableDTO {
   state?: string;
 }
 
+// The accident type codes stored on the accident Condition, labelled as the checkboxes on the HPI screen's
+// "Patient's condition related to" card.
+export const ACCIDENT_TYPE_LABELS: Record<string, string> = {
+  AA: 'Auto Accident',
+  EM: 'Employment',
+  OA: 'Other Accident',
+};
+
 export interface MigrateExamDataInput {
   encounterId: string;
   normalExternalGenitalExamSex?: 'male' | 'female';

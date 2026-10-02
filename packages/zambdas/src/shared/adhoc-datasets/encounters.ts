@@ -104,6 +104,7 @@ import {
   VitalTemperatureObservationMethod,
 } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import {
+  ACCIDENT_TYPE_LABELS,
   DispositionType,
   IN_PERSON_NOTE_ID,
   NOTE_TYPE,
@@ -356,14 +357,6 @@ const hasDocRefTypeCode = (docRef: DocumentReference, code: string): boolean =>
 // A free-text answer in the intake paperwork, the way the chart reads one (getQuestionnaireResponseByLinkId).
 const paperworkAnswer = (questionnaireResponse: QuestionnaireResponse | undefined, linkId: string): string =>
   getQuestionnaireResponseByLinkId(linkId, questionnaireResponse)?.answer?.[0]?.valueString?.trim() ?? '';
-
-// The accident Condition stores the checkbox codes; these are the checkbox labels on the HPI screen's "Patient's
-// condition related to" card, as the visit note prints them (HpiMoiContainer).
-const ACCIDENT_TYPE_LABELS: Record<string, string> = {
-  AA: 'Auto Accident',
-  EM: 'Employment',
-  OA: 'Other Accident',
-};
 
 // The chart's own note DTO builder, for the visit's provider notes and addenda.
 const noteRecordBase = (note: NoteDTO): { text: string; author: string; addedAt: string | null } => ({
@@ -1689,9 +1682,10 @@ export async function fetchAdHocEncounterRows(
         encounter.id ? encounterConditionsByEncounterId.get(encounter.id) ?? [] : []
       );
 
-      const accidentTypes = (accident?.type ?? []).map((type) => ACCIDENT_TYPE_LABELS[type] ?? type);
-      row.accidentTypes = accidentTypes;
-      row.accidentType = accidentTypes[0] ?? '';
+      row.accidentTypes = (accident?.type ?? []).map((type) => ACCIDENT_TYPE_LABELS[type] ?? type);
+
+      // Kept as it always was: the stored code of the first type ("AA" / "EM" / "OA") — saved reports filter on it.
+      row.accidentType = accident?.type[0] ?? '';
       row.accidentDate = accident?.date || null;
       row.accidentState = accident?.state ?? '';
 

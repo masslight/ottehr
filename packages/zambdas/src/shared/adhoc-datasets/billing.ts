@@ -493,8 +493,7 @@ export async function fetchAdHocBillingRows(oystehr: Oystehr, params: AdHocBilli
     if (includeCodes) {
       const procedures = proceduresByEncId.get(encId) ?? [];
       const cptCodes: string[] = [];
-      const cptModifiers: string[] = [];
-      const cptBillableUnits: number[] = [];
+      const cptLines: NonNullable<AdHocBillingRow['cptLines']> = [];
       let emCode: string | undefined;
 
       for (const procedure of procedures) {
@@ -506,12 +505,14 @@ export async function fetchAdHocBillingRows(oystehr: Oystehr, params: AdHocBilli
         if (hasChartTag(procedure, 'em-code')) {
           emCode = emCode ?? code;
         } else if (hasChartTag(procedure, 'cpt-code')) {
-          // One entry per charted CPT line, as the chart lists them — the same code can be charted twice with
-          // different modifiers / units, and cptModifiers / cptBillableUnits run parallel to this array.
-          cptCodes.push(code);
-          // Modifiers and units as the chart's CPT DTO (makeCPTCodeDTO) and the claim read them.
-          cptModifiers.push((getCptModifierCodeFromProcedure(procedure) ?? []).map((m) => m.code).join(','));
-          cptBillableUnits.push(getCptBillableUnitsFromCoding(coding) ?? 1);
+          if (!cptCodes.includes(code)) cptCodes.push(code);
+          // One record per charted line; modifiers and units as the chart's CPT DTO (makeCPTCodeDTO) and the claim
+          // read them.
+          cptLines.push({
+            code,
+            modifiers: (getCptModifierCodeFromProcedure(procedure) ?? []).map((m) => m.code),
+            units: getCptBillableUnitsFromCoding(coding) ?? 1,
+          });
         }
       }
 
@@ -528,8 +529,7 @@ export async function fetchAdHocBillingRows(oystehr: Oystehr, params: AdHocBilli
         if (icd && !icdCodes.includes(icd)) icdCodes.push(icd);
       }
       row.cptCodes = cptCodes;
-      row.cptModifiers = cptModifiers;
-      row.cptBillableUnits = cptBillableUnits;
+      row.cptLines = cptLines;
       row.emCode = emCode ?? '';
       row.icdCodes = icdCodes;
     }
