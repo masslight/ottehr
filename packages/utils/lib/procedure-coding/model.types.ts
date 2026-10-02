@@ -361,9 +361,21 @@ export interface ComponentCodeNotice<TCode extends string = string> {
   message: string;
 }
 
+/** Standard procedure-page fields a family can hide when they don't apply to it. */
+export type StandardProcedureField =
+  | 'anesthesia'
+  | 'technique'
+  | 'supplies'
+  | 'specimen'
+  | 'complications'
+  | 'patientResponse'
+  | 'timeSpent';
+
 export interface ProcedureFamilyModel<TCode extends string = string> {
   capturesSite?: boolean;
   capturesSide?: boolean;
+  /** Hidden on the procedure page unless a saved procedure already has a value in them. */
+  omitsStandardFields?: readonly StandardProcedureField[];
   codePairEdits?: readonly CptPairEdit[];
   componentCodeNotices?: readonly ComponentCodeNotice<TCode>[];
   procedureNames: readonly string[];

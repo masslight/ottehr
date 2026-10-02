@@ -212,6 +212,29 @@ describe('ProceduresNew — draft store', () => {
     });
   });
 
+  // --- Standard fields a family omits ---
+
+  it('hides the standard fields EKG omits but keeps consent and instructions', async () => {
+    useProcedureStore.getState().setDraft(ENCOUNTER_ID, { procedureType: 'EKG' });
+    renderComponent();
+    await waitFor(() => {
+      expect(screen.getByTestId(dataTestIds.documentProcedurePage.postProcedureInstructions)).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId(dataTestIds.documentProcedurePage.technique)).not.toBeInTheDocument();
+    expect(screen.queryByTestId(dataTestIds.documentProcedurePage.specimenSent)).not.toBeInTheDocument();
+    expect(screen.queryByText('Technique')).not.toBeInTheDocument();
+    expect(screen.getByTestId(dataTestIds.documentProcedurePage.consentForProcedure)).toBeInTheDocument();
+  });
+
+  it('still shows an omitted EKG field that already has a value', async () => {
+    useProcedureStore.getState().setDraft(ENCOUNTER_ID, { procedureType: 'EKG', timeSpent: '< 5 min' });
+    renderComponent();
+    await waitFor(() => {
+      expect(screen.getByTestId(dataTestIds.documentProcedurePage.timeSpent)).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId(dataTestIds.documentProcedurePage.complications)).not.toBeInTheDocument();
+  });
+
   // --- Clear Form clears the draft store ---
 
   it('clicking Clear Form removes the draft from the store', async () => {

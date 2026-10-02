@@ -112,6 +112,16 @@ export const ekgFamily: ProcedureFamilyModel<EkgCode> = {
   // A 12-lead EKG has no body site or side (fixed chest and limb leads), so the page hides Site.
   capturesSite: true,
   capturesSide: true,
+  // Nothing is anaesthetised, cut or sent off in an EKG; consent and instructions given still apply.
+  omitsStandardFields: [
+    'anesthesia',
+    'technique',
+    'supplies',
+    'specimen',
+    'complications',
+    'patientResponse',
+    'timeSpent',
+  ],
   fields,
   // The note reads the measurements as one line ("Rate 72 bpm, PR 160 ms, …") rather than field by field.
   noteLines: (facts) => ({
