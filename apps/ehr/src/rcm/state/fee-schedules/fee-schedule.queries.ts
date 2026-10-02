@@ -1,6 +1,7 @@
 import { useMutation, UseMutationResult, useQuery, UseQueryResult } from '@tanstack/react-query';
 import { ChargeItemDefinition } from 'fhir/r4b';
 import { useApiClients } from 'src/hooks/useAppClients';
+import { APIErrorCode } from 'utils/lib/types/errors';
 import {
   addProcedureCode,
   AddProcedureCodeInput,
@@ -221,7 +222,9 @@ export const useGetVersionHistoryQuery = (
     },
 
     enabled: !!oystehrZambda && !!resourceId && enabled,
-    retry: false,
+    retry: (failureCount, error) =>
+      (error as { code?: unknown })?.code === APIErrorCode.VERSION_HISTORY_UNAVAILABLE && failureCount < 4,
+    retryDelay: 4_000,
   });
 };
 

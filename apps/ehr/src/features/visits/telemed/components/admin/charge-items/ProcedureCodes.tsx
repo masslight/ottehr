@@ -523,10 +523,11 @@ export default function ProcedureCodes({
     isError: historyError,
   } = useGetVersionHistoryQuery(feeSchedule?.id, downloadDialogOpen);
 
-  const versionHistory = useMemo(
-    () => (historyData?.versions ?? []).filter((v) => v.versionId !== currentVersionId),
-    [historyData, currentVersionId]
-  );
+  const versionHistory = useMemo(() => {
+    const versions = historyData?.versions ?? [];
+    const currentIndex = versions.findIndex((v) => v.versionId === currentVersionId);
+    return currentIndex === -1 ? [] : versions.slice(currentIndex + 1);
+  }, [historyData, currentVersionId]);
 
   const {
     data: fetchedVersion,

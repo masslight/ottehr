@@ -613,17 +613,30 @@ describe('ProcedureCodes', () => {
       ]);
     });
 
-    it('lists a version newer than the one on screen, such as one supplemented from the history, and leaves out the version on screen', async () => {
+    it('offers only versions older than the one on screen when the list has a newer version', async () => {
       const newer = { versionId: 'v4', timestamp: '2026-04-01T00:00:00.000Z' };
       mockVersionHistory = { data: { versions: [newer, CURRENT, PREVIOUS] }, isFetching: false, isError: false };
       const user = userEvent.setup();
       renderSchedule();
       await openDeltaMode(user);
 
-      expect(await versionOptions(user)).toEqual([
-        new Date(newer.timestamp).toLocaleString(),
-        new Date(PREVIOUS.timestamp).toLocaleString(),
-      ]);
+      expect(await versionOptions(user)).toEqual([new Date(PREVIOUS.timestamp).toLocaleString()]);
+    });
+
+    it('offers no version for a delta when the version on screen is not in the list', async () => {
+      const newer = { versionId: 'v4', timestamp: '2026-04-01T00:00:00.000Z' };
+      mockVersionHistory = { data: { versions: [newer, PREVIOUS, OLDEST] }, isFetching: false, isError: false };
+      const user = userEvent.setup();
+      renderSchedule();
+      await user.click(screen.getByRole('button', { name: 'Download CSV' }));
+
+      expect(screen.getByRole('radio', { name: /\(no prior versions\)/ })).toBeDisabled();
+      expect(screen.queryByRole('combobox', { name: /compare against version/i })).not.toBeInTheDocument();
+      expect(mockUseGetChargeItemDefinitionVersionQuery).not.toHaveBeenCalledWith(
+        expect.anything(),
+        expect.any(String),
+        expect.anything()
+      );
     });
 
     it('disables the delta option when the version list is unavailable', async () => {
