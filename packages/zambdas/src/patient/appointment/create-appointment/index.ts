@@ -187,7 +187,7 @@ export const index = wrapHandler('create-appointment', async (input: ZambdaInput
       attendingPractitioner,
     },
     oystehr
-  ).catch(rethrowFhirRejection('transaction'));
+  );
 
   console.log('appointment created');
 
@@ -347,7 +347,7 @@ export async function createAppointment(
     slot,
     appointmentMetadata,
     followUpOptions: input.followUpOptions,
-  });
+  }).catch(rethrowFhirRejection('transaction'));
 
   let relatedPersonId = '';
 

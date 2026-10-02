@@ -105,10 +105,11 @@ export function validateCreateAppointmentParams(
   if (missingRequiredPatientFields.length > 0) {
     throw MISSING_REQUIRED_PARAMETERS(missingRequiredPatientFields.map((field) => `patient.${field}`));
   }
-  // Validate the value that actually reaches Patient.birthDate, not the raw input: Luxon accepts ISO
-  // shapes the FHIR `date` type rejects, and those only failed at the FHIR write.
-  const dateOfBirth = typeof patient.dateOfBirth === 'string' ? removeTimeFromDate(patient.dateOfBirth) : '';
-  if (!isFhirDateString(dateOfBirth)) {
+  // Both halves are needed: Luxon alone accepts ISO shapes the FHIR `date` type rejects (which only
+  // failed at the FHIR write), and the FHIR check alone runs on what removeTimeFromDate kept, so it
+  // never sees a malformed time suffix.
+  const rawDateOfBirth = typeof patient.dateOfBirth === 'string' ? patient.dateOfBirth : '';
+  if (!DateTime.fromISO(rawDateOfBirth).isValid || !isFhirDateString(removeTimeFromDate(rawDateOfBirth))) {
     throw INVALID_INPUT_ERROR('"patient.dateOfBirth" was not read as a valid date; expected YYYY-MM-DD');
   }
 

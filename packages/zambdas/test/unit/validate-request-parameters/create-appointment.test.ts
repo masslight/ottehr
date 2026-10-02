@@ -146,6 +146,21 @@ describe('create-appointment - validateCreateAppointmentParams', () => {
     }
   );
 
+  // The date half of each of these is a fine FHIR date, so checking only what reaches
+  // Patient.birthDate would wave the garbage through. The raw value has to be parsed too.
+  test.each(['1990-01-15Tgarbage', '1990Tanything', '1990-01-15T', '1990-01-15T99:99:99'])(
+    'should reject %s as patient.dateOfBirth, whose time suffix is malformed',
+    (dateOfBirth) => {
+      const input = createMockZambdaInput(
+        { slotId: VALID_SLOT_ID, patient: { ...validPatientBody, dateOfBirth } },
+        { secrets }
+      );
+      expect(() => validateCreateAppointmentParams(input, mockPatientUser, false)).toThrow(
+        expect.objectContaining({ code: APIErrorCode.INVALID_INPUT })
+      );
+    }
+  );
+
   test('should throw when patient.dateOfBirth is not a string', () => {
     const input = createMockZambdaInput(
       { slotId: VALID_SLOT_ID, patient: { ...validPatientBody, dateOfBirth: 19900115 } },
