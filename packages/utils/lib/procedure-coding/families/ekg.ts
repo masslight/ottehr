@@ -8,6 +8,7 @@ import { EKG_PTP_EDITS } from '../medicare-ptp';
 import { CodeSuggestion, ProcedureFamilyModel } from '../model.types';
 import { PROCEDURE_NAMES } from '../procedure-names';
 import { CodingField, readNumber, StructuredFacts } from '../structured-fields';
+import { EKG_MEASUREMENT_KEYS, ekgMeasurementLine, QTC_METHODS } from './ekg-interpretation';
 import {
   EKG_AXES,
   EKG_COMPARISONS,
@@ -16,8 +17,7 @@ import {
   EKG_OTHER_FINDINGS,
   EKG_RHYTHMS,
   EKG_ST_T,
-  QTC_METHODS,
-} from './ekg-interpretation';
+} from './ekg-templates';
 
 const EKG_CODES = {
   TracingAndReport: '93000',
@@ -52,7 +52,7 @@ const fields: readonly CodingField[] = [
     defaultValue: false,
     details: true,
   },
-  // Measurements, read off the printout. None is required to save; 93000 needs the rate and intervals.
+  // Measurements, read off the printout. None is required to save; a report needs the rate and intervals.
   { key: 'rate', label: 'Rate (bpm)', kind: 'number', min: 0, step: 1 },
   { key: 'pr', label: 'PR (ms)', kind: 'number', min: 0, step: 1 },
   { key: 'qrs', label: 'QRS (ms)', kind: 'number', min: 0, step: 1 },
@@ -84,7 +84,7 @@ const REPORT_FIELDS = ['rhythm', 'axis', 'conduction', 'stt', 'comparison', 'imp
 
 const label = (key: string): string => fields.find((field) => field.key === key)?.label ?? key;
 
-/** What the interpretation and report (CMS Claims Manual Ch.13 §100.1) still needs before 93000 is supported. */
+/** What the interpretation and report (CMS Claims Manual Ch.13 §100.1) still needs before 93000 or 93010 is supported. */
 const reportGaps = (facts: StructuredFacts): string[] => [
   ...(readNumber(facts, 'rate') === undefined ? [label('rate')] : []),
   ...(['pr', 'qrs', 'qt'].some((key) => readNumber(facts, key) === undefined) ? ['PR, QRS and QT intervals'] : []),
@@ -110,6 +110,11 @@ export const ekgFamily: ProcedureFamilyModel<EkgCode> = {
   procedureNames: PROCEDURE_NAMES['ekg'],
   displayName: 'EKG',
   fields,
+  // The note reads the measurements as one line ("Rate 72 bpm, PR 160 ms, …") rather than field by field.
+  noteLines: (facts) => ({
+    lines: [ekgMeasurementLine(facts)].filter((line): line is string => line !== undefined),
+    covers: EKG_MEASUREMENT_KEYS,
+  }),
   codes: Object.values(EKG_CODES),
   suggest: (facts) => {
     if (facts.integralEcg) return noCode('The ECG is included in the stress test or monitoring service.');
@@ -119,8 +124,8 @@ export const ekgFamily: ProcedureFamilyModel<EkgCode> = {
 
     if (!count || !Number.isInteger(count)) return missing('Same-day recordings');
 
-    // The global code includes the interpretation and report; a brief "normal" alone does not support it.
-    if (facts.component === 'tracing and report') {
+    // 93000 and 93010 include the interpretation and report; a brief "normal" alone does not support them.
+    if (facts.component !== 'tracing only') {
       const gaps = reportGaps(facts);
       if (gaps.length) return missing(...gaps);
     }

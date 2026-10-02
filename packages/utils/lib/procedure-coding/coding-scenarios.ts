@@ -587,7 +587,7 @@ export const INJECTION_VISITS: Visit[] = [
 //    https://www.cms.gov/regulations-and-guidance/guidance/manuals/downloads/clm104c13.pdf
 //    NCCI Policy Manual 2026, Chapter 11 §I:
 //    https://www.cms.gov/files/document/11-chapter11a-ncci-medicare-policy-manual-2026-final.pdf
-//  A report (93000) must cover the rate and intervals, rhythm, axis, intervals/conduction, ST-T,
+//  A report (93000, 93010) must cover the rate and intervals, rhythm, axis, intervals/conduction, ST-T,
 //  comparison with a prior tracing and an impression; "normal EKG" alone is not an interpretation.
 const EKG_REPORT: FormAnswers = {
   'Rate (bpm)': 72,
@@ -616,9 +616,9 @@ export const EKG_VISITS: Visit[] = [
     suggests: ['93005'],
   },
   {
-    visit: 'The practice only read a tracing recorded elsewhere',
+    visit: 'The practice only read a tracing recorded elsewhere, and wrote a complete report',
     procedure: EKG,
-    answers: { 'Component furnished': 'interpretation/report only' },
+    answers: { 'Component furnished': 'interpretation/report only', ...EKG_REPORT },
     suggests: ['93010'],
   },
   {
@@ -1092,6 +1092,21 @@ export const UNFINISHED_FORMS: { visit: string; procedure: string; answers: Form
     visit: 'The tracing was recorded but nothing of the report is written yet',
     procedure: EKG,
     answers: { 'Component furnished': 'tracing and report' },
+    asksFor: [
+      'Rate (bpm)',
+      'PR, QRS and QT intervals',
+      'Rhythm',
+      'Axis',
+      'Intervals and conduction',
+      'ST / T',
+      'Comparison with prior',
+      'Impression',
+    ],
+  },
+  {
+    visit: 'A tracing recorded elsewhere is to be read, but the report is not written yet',
+    procedure: EKG,
+    answers: { 'Component furnished': 'interpretation/report only' },
     asksFor: [
       'Rate (bpm)',
       'PR, QRS and QT intervals',

@@ -374,6 +374,8 @@ export interface ProcedureFamilyModel<TCode extends string = string> {
   structuredFieldsFor?(input: ProcedureStructuredFieldInput): readonly ProcedureStructuredField[];
   dailyLimits?: DailyUnitLimits<TCode>;
   documentationChecklist?: (facts: StructuredFacts) => readonly string[];
+  /** Note lines printed in place of the field-by-field list for the fields they cover. */
+  noteLines?: (facts: StructuredFacts) => { lines: string[]; covers: readonly string[] };
   /** Existing structured form fields only; never infer facts from the procedure name or narrative. */
   readLegacyFacts?(input: LegacyProcedureFields): StructuredFacts;
   /** Clinical decisions for this family. Shared validation and billing checks wrap this function. */

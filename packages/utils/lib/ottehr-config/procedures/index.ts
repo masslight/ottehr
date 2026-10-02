@@ -103,8 +103,8 @@ const PROCEDURES_DATA: ProceduresConfig = {
       patientResponse: 'Tolerated Well',
       postInstructions: ['Return if worsening'],
     },
-    // The common 12-lead reads: each fills the interpretation fields; the comparison with a prior
-    // tracing and the measurements are the provider's to enter.
+    // The common 12-lead read: fills the interpretation fields; the comparison with a prior tracing and
+    // the measurements are the provider's to enter.
     {
       name: 'EKG – normal',
       procedureType: 'ekg',
@@ -115,30 +115,6 @@ const PROCEDURES_DATA: ProceduresConfig = {
         stt: ['no acute ST-T wave changes'],
         otherFindings: ['none'],
         impression: 'normal ECG',
-      },
-    },
-    {
-      name: 'EKG – sinus tachycardia, otherwise normal',
-      procedureType: 'ekg',
-      structuredFacts: {
-        rhythm: 'sinus tachycardia',
-        axis: 'normal',
-        conduction: ['normal'],
-        stt: ['no acute ST-T wave changes'],
-        otherFindings: ['none'],
-        impression: 'otherwise normal ECG',
-      },
-    },
-    {
-      name: 'EKG – sinus bradycardia, otherwise normal',
-      procedureType: 'ekg',
-      structuredFacts: {
-        rhythm: 'sinus bradycardia',
-        axis: 'normal',
-        conduction: ['normal'],
-        stt: ['no acute ST-T wave changes'],
-        otherFindings: ['none'],
-        impression: 'otherwise normal ECG',
       },
     },
   ],

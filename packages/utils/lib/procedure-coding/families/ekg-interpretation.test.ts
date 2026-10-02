@@ -4,6 +4,7 @@ import { formatStructuredFacts } from '../format';
 import { PROCEDURE_NAMES } from '../procedure-names';
 import {
   calculateQtc,
+  ekgMeasurementLine,
   ekgQtc,
   ekgQtcMethod,
   ekgReminders,
@@ -13,6 +14,16 @@ import {
   suggestEkgInterpretations,
   withEkgQtc,
 } from './ekg-interpretation';
+import {
+  EKG_AXES,
+  EKG_CONDUCTION,
+  EKG_IMPRESSIONS,
+  EKG_NORMAL_READ,
+  EKG_OTHER_FINDINGS,
+  EKG_RHYTHMS,
+  EKG_ST_T,
+  EKG_TEMPLATES,
+} from './ekg-templates';
 
 describe('QTc', () => {
   it('calculates Bazett by default and Fridericia on request, rounded to the millisecond', () => {
@@ -32,20 +43,80 @@ describe('QTc', () => {
   it('keeps the stored value and method in step with QT and rate so the note needs no arithmetic', () => {
     expect(withEkgQtc({ qt: 380, rate: 72 })).toMatchObject({ qtc: 416, qtcMethod: 'Bazett' });
     expect(withEkgQtc({ qt: 380, rate: 72, qtcMethod: 'Fridericia' })).toMatchObject({ qtc: 404 });
-    expect(withEkgQtc({ qt: 380, qtc: 416, qtcMethod: 'Bazett' }).qtc).toBeUndefined();
-    const manual = { qt: 380, rate: 72, qtc: 430, qtcMethod: 'manual' };
-    expect(withEkgQtc(manual)).toBe(manual);
+    // No QTc, no method: a method alone would only be noise in the note.
+    expect(withEkgQtc({ qt: 380, qtc: 416, qtcMethod: 'Bazett' })).toEqual({
+      qt: 380,
+      qtc: undefined,
+      qtcMethod: undefined,
+    });
+    expect(withEkgQtc({ qtcMethod: 'manual' }).qtcMethod).toBeUndefined();
+    expect(withEkgQtc({ qt: 380, rate: 72, qtc: 430, qtcMethod: 'manual' })).toMatchObject({
+      qtc: 430,
+      qtcMethod: 'manual',
+    });
   });
 
-  it('prints the measurements with the QTc method and the interpretation lists in the note', () => {
+  it('reads the measurements as one line in the note, between the billing answers and the interpretation', () => {
+    expect(
+      ekgMeasurementLine({ rate: 72, pr: 160, qrs: 88, qt: 380, qtc: 416, qtcMethod: 'Bazett', axisDegrees: 45 })
+    ).toBe('Rate 72 bpm, PR 160 ms, QRS 88 ms, QT/QTc 380/416 ms (Bazett), axis +45°.');
+    expect(ekgMeasurementLine({ rate: 72, qt: 380, qtcMethod: 'Fridericia', axisDegrees: -30 })).toBe(
+      'Rate 72 bpm, QT/QTc 380/404 ms (Fridericia), axis -30°.'
+    );
+    expect(ekgMeasurementLine({ qtc: 430, qtcMethod: 'manual' })).toBe('QTc 430 ms (manual).');
+    expect(ekgMeasurementLine({ qt: 380, qtcMethod: 'Bazett' })).toBe('QT 380 ms.');
+    expect(ekgMeasurementLine({ rhythm: 'sinus rhythm' })).toBeUndefined();
+
     const text = formatStructuredFacts(
-      { rate: 72, qt: 380, qtc: 416, qtcMethod: 'Bazett', conduction: ['normal'], stt: [] },
+      {
+        component: 'tracing and report',
+        rate: 72,
+        qt: 380,
+        qtc: 416,
+        qtcMethod: 'Bazett',
+        conduction: ['normal'],
+        stt: [],
+      },
       PROCEDURE_NAMES.ekg[0]
     );
-    expect(text).toContain('Rate (bpm): 72');
-    expect(text).toContain('QTc (ms): 416\nQTc method: Bazett');
-    expect(text).toContain('Intervals and conduction: normal');
-    expect(text).not.toContain('ST / T');
+    expect(text).toBe(
+      'Component furnished: tracing and report\nRate 72 bpm, QT/QTc 380/416 ms (Bazett).\nIntervals and conduction: normal'
+    );
+    expect(formatStructuredFacts({ component: 'tracing only' }, PROCEDURE_NAMES.ekg[0])).toBe(
+      'Component furnished: tracing only'
+    );
+  });
+});
+
+describe('templates data', () => {
+  it('names a defined blank or typed number in every token, and fills only interpretation fields', () => {
+    const NUMBERS = ['rate', 'pr', 'qrs', 'qtc'];
+    for (const template of EKG_TEMPLATES) {
+      for (const [, name] of template.text.matchAll(/\{(\w+)\}/g))
+        expect(NUMBERS.includes(name) || name in (template.blanks ?? {}), `${template.id}: {${name}}`).toBe(true);
+      for (const blank of Object.values(template.blanks ?? {})) {
+        for (const initial of Object.values(blank.initial ?? {})) expect(blank.options).toContain(initial);
+        for (const word of Object.keys(blank.fieldValue ?? {})) expect(blank.options).toContain(word);
+      }
+      for (const key of Object.keys(template.fills)) expect(EKG_NORMAL_READ).toHaveProperty(key);
+    }
+    expect(EKG_TEMPLATES.filter((template) => template.forChildren)).toHaveLength(1);
+  });
+
+  it("fills every field with one of the field's own options", () => {
+    const lists: Record<string, string[]> = {
+      rhythm: EKG_RHYTHMS,
+      axis: EKG_AXES,
+      conduction: EKG_CONDUCTION,
+      stt: EKG_ST_T,
+      otherFindings: EKG_OTHER_FINDINGS,
+      impression: EKG_IMPRESSIONS,
+    };
+    for (const suggestion of suggestEkgInterpretations({ rate: 40, pr: 240, qrs: 140, qt: 500, qtc: 480 }, false)) {
+      for (const [key, value] of Object.entries(ekgSuggestionPicks(suggestion, [])))
+        for (const option of Array.isArray(value) ? value : [value])
+          expect(lists[key], `${suggestion.id}: ${key}`).toContain(option);
+    }
   });
 });
 

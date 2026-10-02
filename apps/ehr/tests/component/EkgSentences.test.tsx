@@ -73,6 +73,10 @@ describe('EKG sentences', () => {
     expect(qtc).toHaveValue(430);
     await user.click(screen.getByRole('button', { name: 'Bazett' }));
     expect(qtc).toHaveValue(439);
+    // Without a QTc there is no method to store either.
+    await user.clear(screen.getByRole('spinbutton', { name: 'QT (ms)' }));
+    expect(latest.facts?.qtc).toBeUndefined();
+    expect(latest.facts?.qtcMethod).toBeUndefined();
   });
 
   it('keeps the intervals list open while ticking, with "normal" standing alone', async () => {
