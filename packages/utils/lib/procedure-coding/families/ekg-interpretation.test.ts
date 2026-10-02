@@ -136,7 +136,7 @@ describe('suggested interpretations', () => {
     expect(block.id).toBe('first-degree-block');
     expect(block.reason).toBe('PR 236 ms is over 200');
     expect(text(block)).toBe(
-      'Sinus rhythm with first-degree AV block, PR 236 ms. Normal axis. No acute ST-T wave changes. Impression: borderline ECG.'
+      'Sinus rhythm with first-degree AV block, PR 236 ms. Normal axis. No acute ST-T wave changes. Impression: borderline EKG.'
     );
     expect(ids({ rate: 118, pr: 140, qrs: 84, qt: 320, qtc: 449 })).toEqual(['rate', 'normal', 'nonspecific-st-t']);
     const [tachy] = suggestEkgInterpretations({ rate: 118, qt: 320 }, false);
@@ -154,7 +154,7 @@ describe('suggested interpretations', () => {
       conduction: ['first-degree AV block'],
       stt: ['no acute ST-T wave changes'],
       otherFindings: ['none'],
-      impression: 'borderline ECG',
+      impression: 'borderline EKG',
     });
     const [wide] = suggestEkgInterpretations({ rate: 88, qrs: 136, qt: 400 }, false);
     const picks = wide.segments.map((segment, i) =>
@@ -168,7 +168,7 @@ describe('suggested interpretations', () => {
       conduction: ['left bundle branch block'],
       axis: 'left axis deviation',
       stt: ['no acute ST-T wave changes'],
-      impression: 'abnormal ECG',
+      impression: 'abnormal EKG',
     });
   });
 
@@ -180,7 +180,7 @@ describe('suggested interpretations', () => {
     const [normal] = suggestEkgInterpretations({ rate: 72, qt: 380 }, true);
     const read = ekgSuggestionPicks(normal, []);
     expect(isEkgInterpretationApplied({ ...read, comparison: 'no prior EKG available' }, read)).toBe(true);
-    expect(isEkgInterpretationApplied({ ...read, impression: 'otherwise normal ECG' }, read)).toBe(false);
+    expect(isEkgInterpretationApplied({ ...read, impression: 'otherwise normal EKG' }, read)).toBe(false);
     expect(isEkgInterpretationApplied({ ...read, conduction: ['normal', 'prolonged QTc'] }, read)).toBe(false);
     expect(isEkgInterpretationApplied({}, read)).toBe(false);
   });
@@ -191,7 +191,7 @@ describe('reminders', () => {
     expect(ekgReminders({ rate: 64, pr: 236, qt: 410, conduction: ['first-degree AV block'] })).toEqual([]);
     expect(ekgReminders({ rate: 64, pr: 236, qt: 410 })).toEqual([]);
     expect(
-      ekgReminders({ rate: 72, pr: 160, qrs: 88, qt: 380, conduction: ['normal'], impression: 'normal ECG' })
+      ekgReminders({ rate: 72, pr: 160, qrs: 88, qt: 380, conduction: ['normal'], impression: 'normal EKG' })
     ).toEqual([]);
   });
 
@@ -204,14 +204,14 @@ describe('reminders', () => {
       qtc: 495,
       qtcMethod: 'manual',
       conduction: ['normal'],
-      impression: 'normal ECG',
+      impression: 'normal EKG',
     };
     const reminders = ekgReminders(facts);
     expect(reminders.map((reminder) => reminder.message)).toEqual([
       'A PR of 236 ms meets the definition of first-degree AV block; Intervals says "normal".',
       'A QRS of 136 ms is wide, consistent with a bundle branch block or conduction delay; Intervals says "normal".',
       'A QTc of 495 ms is prolonged; Intervals says "normal".',
-      'Impression is "normal ECG", but the findings above (first-degree AV block, wide QRS, prolonged QTc) make it borderline or abnormal.',
+      'Impression is "normal EKG", but the findings above (first-degree AV block, wide QRS, prolonged QTc) make it borderline or abnormal.',
     ]);
     expect(reminders[0].fixes).toEqual([
       { label: 'Add first-degree AV block', apply: { conduction: ['first-degree AV block'] } },
@@ -221,9 +221,9 @@ describe('reminders', () => {
       'Add left bundle branch block',
       'Add nonspecific conduction delay',
     ]);
-    expect(reminders[3].fixes[0].apply).toEqual({ impression: 'abnormal ECG' });
+    expect(reminders[3].fixes[0].apply).toEqual({ impression: 'abnormal EKG' });
     // Applying a fix clears its reminder; a single finding makes the impression borderline.
     const fixed = { ...facts, ...reminders[0].fixes[0].apply, qrs: 90, qtc: 430 };
-    expect(ekgReminders(fixed).map((reminder) => reminder.fixes[0].apply)).toEqual([{ impression: 'borderline ECG' }]);
+    expect(ekgReminders(fixed).map((reminder) => reminder.fixes[0].apply)).toEqual([{ impression: 'borderline EKG' }]);
   });
 });

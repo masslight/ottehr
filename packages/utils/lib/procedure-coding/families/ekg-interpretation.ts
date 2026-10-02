@@ -253,13 +253,13 @@ export function ekgReminders(facts: StructuredFacts): EkgReminder[] {
         fixes: [{ label: 'Add prolonged QTc', apply: withFinding('prolonged QTc') }],
       });
   }
-  if (findings.length && facts.impression === 'normal ECG')
+  if (findings.length && facts.impression === 'normal EKG')
     reminders.push({
-      message: `Impression is "normal ECG", but the findings above (${findings.join(
+      message: `Impression is "normal EKG", but the findings above (${findings.join(
         ', '
       )}) make it borderline or abnormal.`,
       fixes: [
-        { label: 'Change impression', apply: { impression: findings.length > 1 ? 'abnormal ECG' : 'borderline ECG' } },
+        { label: 'Change impression', apply: { impression: findings.length > 1 ? 'abnormal EKG' : 'borderline EKG' } },
       ],
     });
   return reminders;

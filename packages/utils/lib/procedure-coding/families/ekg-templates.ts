@@ -57,7 +57,7 @@ export const EKG_OTHER_FINDINGS = [
 
 export const EKG_COMPARISONS = ['no significant change', 'changed (describe)', 'no prior EKG available'];
 
-export const EKG_IMPRESSIONS = ['normal ECG', 'otherwise normal ECG', 'borderline ECG', 'abnormal ECG'];
+export const EKG_IMPRESSIONS = ['normal EKG', 'otherwise normal EKG', 'borderline EKG', 'abnormal EKG'];
 
 /** The interpretation fields a suggestion, quick pick or reminder fills; keys are the ekg family's. */
 export interface EkgInterpretation {
@@ -77,7 +77,7 @@ export const EKG_NORMAL_READ: EkgInterpretation = {
   conduction: ['normal'],
   stt: ['no acute ST-T wave changes'],
   otherFindings: ['none'],
-  impression: 'normal ECG',
+  impression: 'normal EKG',
 };
 
 export type EkgFinding = 'slow' | 'fast' | 'longPr' | 'wideQrs' | 'longQtc';
@@ -127,7 +127,7 @@ export const EKG_TEMPLATES: EkgTemplate[] = [
   {
     id: 'normal',
     text: 'Sinus rhythm. Normal axis. Normal intervals. No acute ST-T wave changes. Impression: {impression}.',
-    blanks: { impression: { title: IMPRESSION, options: ['normal ECG', 'otherwise normal ECG'] } },
+    blanks: { impression: { title: IMPRESSION, options: ['normal EKG', 'otherwise normal EKG'] } },
     rank: 2,
     rankWhenNormal: 10,
     forChildren: true,
@@ -142,7 +142,7 @@ export const EKG_TEMPLATES: EkgTemplate[] = [
         options: ['Sinus bradycardia', 'Sinus tachycardia', 'Sinus arrhythmia'],
         initial: { slow: 'Sinus bradycardia', fast: 'Sinus tachycardia' },
       },
-      impression: { title: IMPRESSION, options: ['otherwise normal ECG', 'borderline ECG', 'abnormal ECG'] },
+      impression: { title: IMPRESSION, options: ['otherwise normal EKG', 'borderline EKG', 'abnormal EKG'] },
     },
     findings: ['slow', 'fast'],
     rank: 9,
@@ -151,14 +151,14 @@ export const EKG_TEMPLATES: EkgTemplate[] = [
   {
     id: 'first-degree-block',
     text: 'Sinus rhythm with first-degree AV block, PR {pr} ms. Normal axis. No acute ST-T wave changes. Impression: {impression}.',
-    blanks: { impression: { title: IMPRESSION, options: ['borderline ECG', 'abnormal ECG', 'otherwise normal ECG'] } },
+    blanks: { impression: { title: IMPRESSION, options: ['borderline EKG', 'abnormal EKG', 'otherwise normal EKG'] } },
     findings: ['longPr'],
     rank: 9,
     fills: { conduction: ['first-degree AV block'], impression: '{impression}' },
   },
   {
     id: 'wide-qrs',
-    text: 'Sinus rhythm with {conduction}, QRS {qrs} ms. {axis}. {stt}. Impression: abnormal ECG.',
+    text: 'Sinus rhythm with {conduction}, QRS {qrs} ms. {axis}. {stt}. Impression: abnormal EKG.',
     blanks: {
       conduction: {
         title: 'Conduction',
@@ -177,12 +177,12 @@ export const EKG_TEMPLATES: EkgTemplate[] = [
     },
     findings: ['wideQrs'],
     rank: 9,
-    fills: { conduction: ['{conduction}'], axis: '{axis}', stt: ['{stt}'], impression: 'abnormal ECG' },
+    fills: { conduction: ['{conduction}'], axis: '{axis}', stt: ['{stt}'], impression: 'abnormal EKG' },
   },
   {
     id: 'prolonged-qtc',
     text: 'Sinus rhythm. Prolonged QTc, {qtc} ms. Normal axis. No acute ST-T wave changes. Impression: {impression}.',
-    blanks: { impression: { title: IMPRESSION, options: ['abnormal ECG', 'borderline ECG'] } },
+    blanks: { impression: { title: IMPRESSION, options: ['abnormal EKG', 'borderline EKG'] } },
     findings: ['longQtc'],
     rank: 8,
     fills: { conduction: ['prolonged QTc'], impression: '{impression}' },
@@ -190,7 +190,7 @@ export const EKG_TEMPLATES: EkgTemplate[] = [
   {
     id: 'nonspecific-st-t',
     text: 'Sinus rhythm. Nonspecific ST-T wave changes. Normal axis. Normal intervals. Impression: {impression}.',
-    blanks: { impression: { title: IMPRESSION, options: ['borderline ECG', 'abnormal ECG'] } },
+    blanks: { impression: { title: IMPRESSION, options: ['borderline EKG', 'abnormal EKG'] } },
     rank: 1,
     fills: { stt: ['nonspecific ST-T wave changes'], impression: '{impression}' },
   },

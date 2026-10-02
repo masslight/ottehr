@@ -114,7 +114,7 @@ const PROCEDURES_DATA: ProceduresConfig = {
         conduction: ['normal'],
         stt: ['no acute ST-T wave changes'],
         otherFindings: ['none'],
-        impression: 'normal ECG',
+        impression: 'normal EKG',
       },
     },
   ],

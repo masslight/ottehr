@@ -18,7 +18,7 @@ const EKG_REPORT: StructuredFacts = {
   conduction: ['normal'],
   stt: ['no acute ST-T wave changes'],
   comparison: 'no prior EKG available',
-  impression: 'normal ECG',
+  impression: 'normal EKG',
 };
 const input = (id: string, structuredFacts: StructuredFacts): ProcedureFactsInput => ({
   procedureType: PROCEDURE_FAMILIES.find((f) => f.id === id)!.procedureNames[0],

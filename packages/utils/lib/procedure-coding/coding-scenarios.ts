@@ -599,7 +599,7 @@ const EKG_REPORT: FormAnswers = {
   'Intervals and conduction': ['normal'],
   'ST / T': ['no acute ST-T wave changes'],
   'Comparison with prior': 'no prior EKG available',
-  Impression: 'normal ECG',
+  Impression: 'normal EKG',
 };
 
 export const EKG_VISITS: Visit[] = [

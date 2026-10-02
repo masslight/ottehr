@@ -111,18 +111,18 @@ describe('EKG sentences', () => {
       rhythm: 'sinus rhythm',
       conduction: ['first-degree AV block'],
       stt: ['no acute ST-T wave changes'],
-      impression: 'borderline ECG',
+      impression: 'borderline EKG',
     });
-    expect(screen.getByRole('button', { name: 'impression: borderline ECG' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'impression: borderline EKG' })).toBeInTheDocument();
     expect(within(box).getAllByRole('img', { name: 'Added to interpretation' })).toHaveLength(1);
 
     // Changing a highlighted word re-arms the row; the fields are only touched on ⊕.
-    await user.click(within(box).getAllByRole('button', { name: 'Impression: borderline ECG' })[0]);
-    await user.click(screen.getByRole('option', { name: 'abnormal ECG' }));
+    await user.click(within(box).getAllByRole('button', { name: 'Impression: borderline EKG' })[0]);
+    await user.click(screen.getByRole('option', { name: 'abnormal EKG' }));
     expect(within(box).queryByRole('img', { name: 'Added to interpretation' })).not.toBeInTheDocument();
-    expect(latest.facts?.impression).toBe('borderline ECG');
+    expect(latest.facts?.impression).toBe('borderline EKG');
     await user.click(within(box).getAllByRole('button', { name: 'Use this interpretation' })[0]);
-    expect(latest.facts?.impression).toBe('abnormal ECG');
+    expect(latest.facts?.impression).toBe('abnormal EKG');
     // Editing the interpretation by hand re-arms the row too.
     await user.click(screen.getByRole('button', { name: 'rhythm: sinus rhythm' }));
     await user.click(screen.getByRole('option', { name: 'sinus arrhythmia' }));
@@ -140,7 +140,7 @@ describe('EKG sentences', () => {
     unmount();
 
     render(
-      <Form initial={{ rate: 118, pr: 236, qt: 410, conduction: ['normal'], impression: 'normal ECG' }} isChild />
+      <Form initial={{ rate: 118, pr: 236, qt: 410, conduction: ['normal'], impression: 'normal EKG' }} isChild />
     );
     const childBox = screen.getByTestId(dataTestIds.documentProcedurePage.ekgSuggestions);
     expect(within(childBox).getAllByRole('button', { name: 'Use this interpretation' })).toHaveLength(1);
@@ -151,7 +151,7 @@ describe('EKG sentences', () => {
   it('reminds an adult when the interpretation contradicts the numbers, with one-click fixes', async () => {
     const user = userEvent.setup();
     render(
-      <Form initial={{ rate: 64, pr: 236, qrs: 92, qt: 410, conduction: ['normal'], impression: 'normal ECG' }} />
+      <Form initial={{ rate: 64, pr: 236, qrs: 92, qt: 410, conduction: ['normal'], impression: 'normal EKG' }} />
     );
     const box = screen.getByTestId(dataTestIds.documentProcedurePage.ekgReminders);
     expect(within(box).getByText(/A PR of 236 ms meets the definition of first-degree AV block/)).toBeInTheDocument();
@@ -161,7 +161,7 @@ describe('EKG sentences', () => {
     expect(latest.facts?.conduction).toEqual(['first-degree AV block']);
     expect(within(box).queryByText(/A PR of 236 ms/)).not.toBeInTheDocument();
     await user.click(within(box).getByRole('button', { name: 'Change impression' }));
-    expect(latest.facts?.impression).toBe('borderline ECG');
+    expect(latest.facts?.impression).toBe('borderline EKG');
     expect(screen.queryByTestId(dataTestIds.documentProcedurePage.ekgReminders)).not.toBeInTheDocument();
   });
 
@@ -170,10 +170,10 @@ describe('EKG sentences', () => {
     const { unmount } = render(<Form />);
     await user.click(screen.getByRole('button', { name: 'impression (empty)' }));
     expect(screen.getAllByRole('option').map((option) => option.textContent)).toEqual([
-      'normal ECG',
-      'otherwise normal ECG',
-      'borderline ECG',
-      'abnormal ECG',
+      'normal EKG',
+      'otherwise normal EKG',
+      'borderline EKG',
+      'abnormal EKG',
     ]);
     unmount();
 
