@@ -1,5 +1,5 @@
 import { ClaimDetailResponse, ManualEraEntryClaim } from 'utils/lib/types/data/billing/billing.types';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   addAdjustment,
   bucketIsLocked,
@@ -281,11 +281,23 @@ describe('loading and pre-filling', () => {
 });
 
 describe('header', () => {
-  it('requires the remit details the mockup marks', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('requires the remit details other than the deposit date', () => {
     expect(Object.keys(headerProblems(emptyHeaderForm())).sort()).toEqual(
-      ['billingProviderRef', 'checkAmount', 'checkDate', 'checkNumber', 'depositDate', 'payerId', 'remitDate'].sort()
+      ['billingProviderRef', 'checkAmount', 'checkDate', 'checkNumber', 'payerId'].sort()
     );
+    expect(headerProblems({ ...emptyHeaderForm(), remitDate: '' }).remitDate).toBe('Required');
     expect(headerProblems({ ...emptyHeaderForm(), checkAmount: '-5' }).checkAmount).toBe('Enter a dollar amount');
+  });
+
+  it("dates a new remit the biller's today", () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    // late evening, when the UTC date has already moved on west of Greenwich
+    vi.setSystemTime(new Date(2026, 9, 2, 23, 30));
+    expect(emptyHeaderForm()).toMatchObject({ remitDate: '2026-10-02', checkDate: '', depositDate: '' });
   });
 
   it('round-trips through the save input', () => {
@@ -300,5 +312,19 @@ describe('header', () => {
       depositDate: '2026-09-13',
     };
     expect(headerFormToInput(headerFormFromEntry(header))).toEqual(header);
+  });
+
+  it('leaves a blank deposit date off the save input', () => {
+    const header = {
+      payerId: 'payer-uhc',
+      billingProviderRef: 'Organization/org-1',
+      checkNumber: '557801',
+      checkAmountCents: 5100045,
+      remitDate: '2026-09-13',
+      checkDate: '2026-09-13',
+    };
+    const form = headerFormFromEntry(header);
+    expect(form.depositDate).toBe('');
+    expect(headerFormToInput(form)).toStrictEqual(header);
   });
 });

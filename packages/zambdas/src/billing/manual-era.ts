@@ -185,7 +185,7 @@ export function buildManualPaymentReconciliation(args: {
     extension: [
       { url: ERA_SOURCE_EXTENSION, valueCode: ERA_SOURCE.manual },
       { url: ERA_REMIT_DATE_EXTENSION, valueDate: header.remitDate },
-      { url: ERA_DEPOSIT_DATE_EXTENSION, valueDate: header.depositDate },
+      ...(header.depositDate ? [{ url: ERA_DEPOSIT_DATE_EXTENSION, valueDate: header.depositDate }] : []),
       { url: ERA_LAST_EDITED_EXTENSION, valueDateTime: args.editedAt },
     ],
     identifier: [
@@ -371,6 +371,7 @@ const payerIdFromReference = (reference: string | undefined): string =>
 export function manualEraHeaderFromFhir(pr: PaymentReconciliation): ManualEraHeader {
   const method = pr.paymentIdentifier?.type?.coding?.[0]?.code;
   const notes = pr.processNote?.[0]?.text;
+  const depositDate = extensionValueDate(pr, ERA_DEPOSIT_DATE_EXTENSION);
   return {
     payerId: payerIdFromReference(pr.paymentIssuer?.reference),
     billingProviderRef: pr.requestor?.reference ?? '',
@@ -379,7 +380,7 @@ export function manualEraHeaderFromFhir(pr: PaymentReconciliation): ManualEraHea
     ...(isPaymentMethod(method) ? { paymentMethod: method } : {}),
     remitDate: extensionValueDate(pr, ERA_REMIT_DATE_EXTENSION),
     checkDate: pr.paymentDate ?? '',
-    depositDate: extensionValueDate(pr, ERA_DEPOSIT_DATE_EXTENSION),
+    ...(depositDate ? { depositDate } : {}),
     ...(notes ? { notes } : {}),
   };
 }

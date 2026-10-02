@@ -905,7 +905,8 @@ export const ManualEraHeaderSchema = z.object({
   paymentMethod: z.enum(ERA_PAYMENT_METHOD_CODES).optional(),
   remitDate: isoDate,
   checkDate: isoDate,
-  depositDate: isoDate,
+  // when the check reached the bank, if the biller knows it
+  depositDate: isoDate.optional(),
   notes: optionalText(MANUAL_ERA_LIMITS.notesLength),
 });
 

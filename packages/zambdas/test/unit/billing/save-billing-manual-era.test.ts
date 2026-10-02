@@ -1,5 +1,13 @@
 import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
-import { Claim, ClaimResponse, FhirResource, Organization, PaymentReconciliation, Provenance } from 'fhir/r4b';
+import {
+  Claim,
+  ClaimResponse,
+  Extension,
+  FhirResource,
+  Organization,
+  PaymentReconciliation,
+  Provenance,
+} from 'fhir/r4b';
 import { ManualEraClaim, ManualEraHeader } from 'utils/lib/types/data/billing/billing.schemas';
 import {
   CUSTOM_INSURANCE_ORG_ID_SYSTEM,
@@ -18,6 +26,7 @@ import {
 import { performEffect } from '../../../src/billing/save-billing-manual-era';
 import { SaveManualEraParams } from '../../../src/billing/save-billing-manual-era/validateRequestParameters';
 import {
+  ERA_DEPOSIT_DATE_EXTENSION,
   MANUAL_ERA_IDEMPOTENCY_SYSTEM,
   payerDisplay,
   PROVIDER_ROLE_BILLING,
@@ -176,6 +185,10 @@ const params = (overrides: Partial<SaveManualEraParams>): SaveManualEraParams =>
 });
 
 const requestsOf = (transaction: Mock): BatchInputRequest<FhirResource>[] => transaction.mock.calls[0][0].requests;
+const depositDateExtensionOf = (transaction: Mock): Extension | undefined =>
+  (requestsOf(transaction)[0] as { resource: PaymentReconciliation }).resource.extension?.find(
+    (extension) => extension.url === ERA_DEPOSIT_DATE_EXTENSION
+  );
 const describeRequests = (requests: BatchInputRequest<FhirResource>[]): string[] =>
   requests.map((request) => `${request.method} ${request.url}`);
 
@@ -389,6 +402,30 @@ describe('save-billing-manual-era performEffect', () => {
     expect((requests[1] as { resource: ClaimResponse }).resource.created).toBe('2026-09-15');
     // the matched claim stays matched through the rebuild
     expect((requests[2] as { resource: ClaimResponse }).resource.request).toEqual({ reference: 'Claim/claim-2' });
+  });
+
+  it('drops a deposit date the biller cleared', async () => {
+    const { depositDate: _cleared, ...noDeposit } = header;
+    const { oystehr, transaction } = makeClient([...storedRemit(), billingOrg]);
+    await performEffect(oystehr, params({ eraId: 'era-1', expectedVersionId: '3', header: noDeposit }), ACTOR, NOW);
+    expect(describeRequests(requestsOf(transaction))[0]).toBe('PUT /PaymentReconciliation/era-1');
+    expect(depositDateExtensionOf(transaction)).toBeUndefined();
+  });
+
+  it('writes no blank deposit date when only the claims of a remit without one change', async () => {
+    const [pr, ...rest] = storedRemit() as [PaymentReconciliation, ...FhirResource[]];
+    const withoutDeposit: PaymentReconciliation = {
+      ...pr,
+      extension: pr.extension?.filter((extension) => extension.url !== ERA_DEPOSIT_DATE_EXTENSION),
+    };
+    const { oystehr, transaction } = makeClient([withoutDeposit, ...rest, billingOrg]);
+    await performEffect(
+      oystehr,
+      params({ eraId: 'era-1', expectedVersionId: '3', claims: [keyedClaim({ claimResponseId: 'cr-1' })] }),
+      ACTOR,
+      NOW
+    );
+    expect(depositDateExtensionOf(transaction)).toBeUndefined();
   });
 
   it('removes an unmatched claim and drops it from the link record', async () => {

@@ -527,12 +527,10 @@ export default function ManualRemit(): ReactElement {
                 helperText={fieldError('checkDate')}
               />
               <DateInput
-                label="Deposit Date *"
+                label="Deposit Date"
                 value={header.depositDate}
                 onChange={(value) => setField('depositDate', value)}
                 fullWidth
-                error={!!fieldError('depositDate')}
-                helperText={fieldError('depositDate')}
               />
             </Box>
             <TextField

@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { ReactNode } from 'react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { EraDetailResponse } from 'utils/lib/types/data/billing/billing.types';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import ManualRemit from '../../src/pages/ManualRemit';
 
 const { api, oystehrZambdaStub } = vi.hoisted(() => ({
@@ -123,13 +123,24 @@ describe('ManualRemit', () => {
   beforeEach(() => {
     Object.values(api).forEach((mock) => mock.mockReset());
     api.searchBillingEras.mockResolvedValue({ eras: [], total: 0 });
+    // only the clock: the page's debounces and waitFor keep real timers
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(2026, 8, 13, 9, 0));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it('requires the remit details before the first save, and claims wait for it', async () => {
     renderAt('/eras/new');
     expect(screen.getByRole('heading', { name: 'Manual Remit' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
-    expect((await screen.findAllByText('Required')).length).toBeGreaterThanOrEqual(6);
+    // payer, billing provider, check number, check amount and check date; the remit date starts as
+    // today and the deposit date is optional
+    expect(await screen.findAllByText('Required')).toHaveLength(5);
+    expect(screen.getByLabelText('Remit Date *')).toHaveValue('2026-09-13');
+    expect(screen.getByLabelText('Deposit Date')).toHaveValue('');
     expect(api.saveBillingManualEra).not.toHaveBeenCalled();
     // claims and attachments hang off the saved remit
     expect(
@@ -146,13 +157,12 @@ describe('ManualRemit', () => {
     type('Billing Provider', 'Organization/org-1');
     type(/Check Number/, '557801');
     type(/Check Amount/, '51,000.45');
-    type('Remit Date *', '2026-09-13');
-    type('Check Date *', '2026-09-13');
-    type('Deposit Date *', '2026-09-13');
+    type('Check Date *', '2026-09-10');
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
     await waitFor(() => expect(api.saveBillingManualEra).toHaveBeenCalledTimes(1));
-    expect(api.saveBillingManualEra.mock.calls[0][1]).toEqual({
+    // dated today, with no deposit date
+    expect(api.saveBillingManualEra.mock.calls[0][1]).toStrictEqual({
       idempotencyKey: expect.any(String),
       header: {
         payerId: 'payer-uhc',
@@ -160,11 +170,33 @@ describe('ManualRemit', () => {
         checkNumber: '557801',
         checkAmountCents: 5100045,
         remitDate: '2026-09-13',
-        checkDate: '2026-09-13',
-        depositDate: '2026-09-13',
+        checkDate: '2026-09-10',
       },
     });
     await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('/eras/era-1/edit'));
+  });
+
+  it("doesn't count the remit date it fills in as an unsaved change", async () => {
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    renderAt('/eras/new');
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent(/^\/eras$/));
+    expect(confirm).not.toHaveBeenCalled();
+    confirm.mockRestore();
+  });
+
+  it('saves a cleared deposit date as no deposit date', async () => {
+    api.getBillingEraDetail.mockResolvedValue(savedRemit());
+    api.saveBillingManualEra.mockResolvedValue({ eraId: 'era-1', versionId: '4', claims: [] });
+    renderAt('/eras/era-1/edit');
+    await screen.findByText('Joe Schmoe');
+
+    type('Deposit Date', '');
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(api.saveBillingManualEra).toHaveBeenCalledTimes(1));
+    const { depositDate: _cleared, ...header } = savedRemit().manualEntry!.header;
+    expect(api.saveBillingManualEra.mock.calls[0][1].header).toStrictEqual(header);
   });
 
   it('shows a saved remit with who keyed it, its claims and how far it is from balancing', async () => {

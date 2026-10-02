@@ -22,6 +22,7 @@ import {
 import {
   ERA_CHECK_SYSTEM,
   ERA_CLAIM_RESPONSE_TYPE_TAG,
+  ERA_DEPOSIT_DATE_EXTENSION,
   ERA_ITEM_REMARK_CODE_EXTENSION,
   ERA_KEYED_CLAIM_EXTENSION,
   ERA_SOURCE_EXTENSION,
@@ -260,6 +261,13 @@ describe('manualEraEntryFromFhir', () => {
       claimResponseId: 'cr-1',
       serviceLines: serviceLines.map((line) => ({ ...line, itemSequence: 1 })),
     });
+  });
+
+  it('reads a remit keyed without a deposit date back without one', () => {
+    const { depositDate: _none, ...noDeposit } = header;
+    const pr = buildManualPaymentReconciliation({ header: noDeposit, context, created: 'now', editedAt: 'now' });
+    expect(pr.extension?.map((extension) => extension.url)).not.toContain(ERA_DEPOSIT_DATE_EXTENSION);
+    expect(manualEraEntryFromFhir(pr, []).header).toStrictEqual(noDeposit);
   });
 
   it('reports the claim a response was matched to', () => {

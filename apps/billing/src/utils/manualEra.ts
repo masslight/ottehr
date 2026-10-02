@@ -1,3 +1,4 @@
+import { DateTime } from 'luxon';
 import {
   ERA_CLAIM_STATUS_CODE,
   EraClaimStatusCode,
@@ -245,13 +246,14 @@ export function emptyClaimForm(overrides: Partial<ClaimForm> = {}): ClaimForm {
   return claim.serviceLines.length ? claim : { ...claim, serviceLines: [emptyServiceLine(claim)] };
 }
 
+// a new remit is dated the day it's keyed in until the biller says otherwise
 export const emptyHeaderForm = (): HeaderForm => ({
   payerId: '',
   billingProviderRef: '',
   checkNumber: '',
   checkAmount: '',
   paymentMethod: '',
-  remitDate: '',
+  remitDate: DateTime.now().toISODate() ?? '',
   checkDate: '',
   depositDate: '',
   notes: '',
@@ -341,7 +343,7 @@ export function headerFormFromEntry(header: ManualEraHeader): HeaderForm {
     paymentMethod: header.paymentMethod ?? '',
     remitDate: header.remitDate,
     checkDate: header.checkDate,
-    depositDate: header.depositDate,
+    depositDate: header.depositDate ?? '',
     notes: header.notes ?? '',
   };
 }
@@ -357,7 +359,7 @@ export function headerFormToInput(header: HeaderForm): ManualEraHeader {
     ...(header.paymentMethod ? { paymentMethod: header.paymentMethod } : {}),
     remitDate: header.remitDate,
     checkDate: header.checkDate,
-    depositDate: header.depositDate,
+    ...(header.depositDate ? { depositDate: header.depositDate } : {}),
     ...(header.notes.trim() ? { notes: header.notes.trim() } : {}),
   };
 }
@@ -470,14 +472,7 @@ export type HeaderField = keyof HeaderForm;
 
 export function headerProblems(header: HeaderForm): Partial<Record<HeaderField, string>> {
   const problems: Partial<Record<HeaderField, string>> = {};
-  const required: HeaderField[] = [
-    'payerId',
-    'billingProviderRef',
-    'checkNumber',
-    'remitDate',
-    'checkDate',
-    'depositDate',
-  ];
+  const required: HeaderField[] = ['payerId', 'billingProviderRef', 'checkNumber', 'remitDate', 'checkDate'];
   for (const field of required) {
     if (!header[field].trim()) problems[field] = 'Required';
   }
