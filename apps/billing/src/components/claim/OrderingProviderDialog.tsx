@@ -12,10 +12,10 @@ import {
   Typography,
 } from '@mui/material';
 import { ReactElement, useEffect, useMemo, useState } from 'react';
+import { commaFormattedName } from 'utils/lib/fhir/billing';
 import { isNPIValidWithChecksum } from 'utils/lib/helpers/helpers';
 import { BillingProviderOption } from 'utils/lib/types/data/billing/billing.types';
 import { useProviderOptionsSearch } from '../../hooks/useOptionSearch';
-import { formatDisplayName } from '../../utils/format';
 
 /** Ordering provider carried on a service line row. */
 export interface ServiceLineOrderingProvider {
@@ -109,7 +109,7 @@ export function OrderingProviderDialog({
             <>
               {value && (
                 <Typography variant="caption" color="text.secondary">
-                  Current: {formatDisplayName(value)}
+                  Current: {commaFormattedName(value)}
                   {value.npi ? ` · NPI ${value.npi}` : ''}
                 </Typography>
               )}

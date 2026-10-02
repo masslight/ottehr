@@ -1,7 +1,7 @@
 import { Box, IconButton, Typography } from '@mui/material';
 import { ReactElement, ReactNode } from 'react';
+import { commaFormattedName } from 'utils/lib/fhir/billing';
 import { formatNdcForDisplay } from 'utils/lib/types/data/billing/billing.constants';
-import { formatDisplayName } from '../../utils/format';
 import { RichTooltip } from '../RichTooltip';
 import { CapsuleIcon } from './CapsuleIcon';
 import { DoctorIcon } from './DoctorIcon';
@@ -97,7 +97,7 @@ export function ServiceLineIndicators({
           >
             {orderingProvider ? (
               <>
-                <Typography variant="body2">{formatDisplayName(orderingProvider)}</Typography>
+                <Typography variant="body2">{commaFormattedName(orderingProvider)}</Typography>
                 {orderingProvider.npi && <Typography variant="body2">NPI: {orderingProvider.npi}</Typography>}
               </>
             ) : (

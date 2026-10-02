@@ -19,6 +19,7 @@ import {
   Typography,
 } from '@mui/material';
 import { Fragment, ReactElement, ReactNode, useMemo, useState } from 'react';
+import { commaFormattedName } from 'utils/lib/fhir/billing';
 import { otherColors } from 'utils/lib/theme/billing-palette';
 import { formatNdcForDisplay } from 'utils/lib/types/data/billing/billing.constants';
 import { ClaimDetailResponse } from 'utils/lib/types/data/billing/billing.types';
@@ -36,7 +37,7 @@ import {
   RemitLineEntry,
   UnmatchedRemitLine,
 } from '../../utils/claimRemits';
-import { formatDate, formatDisplayName } from '../../utils/format';
+import { formatDate } from '../../utils/format';
 import { AdjustmentChip, AmountChip, EraStatusChip } from '../EraChips';
 import { thSx } from '../ReadOnlySection';
 import { useRemitHighlightTarget } from './RemitHighlight';
@@ -378,7 +379,7 @@ function ServiceLineExtras({ line }: { line: ServiceLine }): ReactElement {
       )}
       {line.orderingProvider && (
         <Typography variant="caption" display="block" color="text.secondary">
-          Ordering Provider: {formatDisplayName(line.orderingProvider)}
+          Ordering Provider: {commaFormattedName(line.orderingProvider)}
           {line.orderingProvider.npi ? ` · NPI ${line.orderingProvider.npi}` : ''}
         </Typography>
       )}
