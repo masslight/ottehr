@@ -51,7 +51,7 @@ describe('ERA attachments', () => {
       eraId: 'era-1',
       name: 'UHC remit',
       fileName: 'Paper remit.pdf',
-      contentType: 'application/pdf',
+      mimeType: 'application/pdf',
       secrets: SECRETS,
     });
 
@@ -84,7 +84,7 @@ describe('ERA attachments', () => {
         eraId: 'era-1',
         name: 'Remit',
         fileName: 'notes.docx',
-        contentType: '',
+        mimeType: '',
         secrets: SECRETS,
       })
     ).rejects.toMatchObject({ message: "Files of type application/octet-stream can't be attached here" });

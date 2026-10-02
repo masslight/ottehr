@@ -560,7 +560,7 @@ export default function ManualRemit(): ReactElement {
               eraId,
               name,
               fileName: file.name,
-              contentType: file.type,
+              mimeType: file.type,
             });
             try {
               await uploadFileToPresignedUrl(uploadUrl, file);

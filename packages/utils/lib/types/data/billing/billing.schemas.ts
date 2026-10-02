@@ -863,8 +863,9 @@ export const AddClaimAttachmentInputSchema = z.object({
   name: nonEmptyString,
   fileName: nonEmptyString,
   reportTypeCode: nonEmptyString.optional(),
-  // the browser's File.type; guessed from fileName when absent
-  contentType: nonEmptyString.optional(),
+  // the browser's File.type; guessed from fileName when absent. Not named contentType: the Oystehr SDK
+  // reads a zambda.execute argument with a MIME-shaped contentType as request options, and drops the id.
+  mimeType: nonEmptyString.optional(),
 });
 
 export const RenameClaimAttachmentInputSchema = z.object({
@@ -1026,8 +1027,8 @@ export const AddEraAttachmentInputSchema = z.object({
   // the uploaded file's own name, which names the stored object
   fileName: nonEmptyString.max(255),
   // the browser's File.type (empty for types it doesn't know), else guessed from fileName; checked
-  // against the allowed types
-  contentType: z.string().trim().optional(),
+  // against the allowed types. Not named contentType, as for claim attachments.
+  mimeType: z.string().trim().optional(),
 });
 
 export const RenameEraAttachmentInputSchema = z.object({

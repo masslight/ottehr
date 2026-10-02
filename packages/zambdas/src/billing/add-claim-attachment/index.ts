@@ -31,7 +31,7 @@ export async function performEffect(
     name: params.name,
     fileName: params.fileName,
     reportTypeCode: params.reportTypeCode,
-    contentType: params.contentType,
+    contentType: params.mimeType,
     secrets: params.secrets,
   });
 }

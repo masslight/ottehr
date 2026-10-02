@@ -38,7 +38,7 @@ export async function performEffect(
 ): Promise<AddEraAttachmentResponse> {
   // clearing-house ERAs are untagged, so the ERA is read with the untagged client
   const era = await fetchById<PaymentReconciliation>(eraReadClient, 'PaymentReconciliation', params.eraId);
-  const contentType = resolveAttachmentContentType(params.fileName, params.contentType, ERA_ATTACHMENT_CONTENT_TYPES);
+  const contentType = resolveAttachmentContentType(params.fileName, params.mimeType, ERA_ATTACHMENT_CONTENT_TYPES);
   const location = newAttachmentLocation(
     params.secrets['PROJECT_ID'],
     ERA_ATTACHMENT_PATH_PREFIX,

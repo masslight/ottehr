@@ -1713,7 +1713,7 @@ function ClaimAttachmentsSection({
           name,
           fileName: file.name,
           reportTypeCode,
-          ...(file.type ? { contentType: file.type } : {}),
+          ...(file.type ? { mimeType: file.type } : {}),
         });
         try {
           await uploadFileToPresignedUrl(uploadUrl, file);

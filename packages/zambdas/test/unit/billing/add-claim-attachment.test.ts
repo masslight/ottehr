@@ -303,7 +303,7 @@ describe('add-claim-attachment', () => {
       claimId: 'claim-id',
       name: 'Op note',
       fileName: 'op-note.png',
-      contentType: 'image/png',
+      mimeType: 'image/png',
       secrets,
     });
     expect(attachmentOf(reported).contentType).toBe('image/png');
