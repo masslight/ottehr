@@ -1,11 +1,18 @@
-import { Box, InputBase, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
-import { FC } from 'react';
+import { otherColors } from '@ehrTheme/colors';
+import { Box, Button, InputBase, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
+import { FC, useMemo } from 'react';
+import { SuggestedSentences } from 'src/components/SuggestedSentences';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import {
+  ekgMeasurements,
   ekgQtc,
   ekgQtcMethod,
+  ekgReminders,
+  ekgSuggestionPicks,
+  isEkgInterpretationApplied,
   QTC_METHODS,
   QtcMethod,
+  suggestEkgInterpretations,
   withEkgQtc,
 } from 'utils/lib/procedure-coding/families/ekg-interpretation';
 import { ProcedureFamilyModel } from 'utils/lib/procedure-coding/model.types';
@@ -151,6 +158,84 @@ const EkgMeasurementTiles: FC<TilesProps> = ({ facts, readOnly, update }) => {
   );
 };
 
+interface InterpretationProps {
+  facts: StructuredFacts;
+  update: (next: StructuredFacts) => void;
+}
+
+/** Suggested interpretations ranked for the typed numbers; ⊕ fills the interpretation fields, never on its own. */
+const EkgSuggestedInterpretations: FC<InterpretationProps & { isChild: boolean }> = ({ facts, isChild, update }) => {
+  const { rate, pr, qrs, qt, qtc } = ekgMeasurements(facts);
+  const rows = useMemo(
+    () => suggestEkgInterpretations({ rate, pr, qrs, qt, qtc }, isChild),
+    [rate, pr, qrs, qt, qtc, isChild]
+  );
+  return (
+    <SuggestedSentences
+      title="Suggested interpretations"
+      caption={
+        rows.length
+          ? 'ranked for these numbers · pick one, change any highlighted word'
+          : 'enter the rate and QT to see suggestions'
+      }
+      rows={rows}
+      isAdded={(row, picks) => isEkgInterpretationApplied(facts, ekgSuggestionPicks(row, picks))}
+      onAdd={(row, picks) => update({ ...facts, ...ekgSuggestionPicks(row, picks) })}
+      addLabel="Use this interpretation"
+      addedLabel="Added to interpretation"
+      dataTestId={dataTestIds.documentProcedurePage.ekgSuggestions}
+    >
+      {isChild && rows.length > 0 && (
+        <Typography variant="body2" color="text.secondary" sx={{ py: 0.5 }}>
+          Patient is under 18: adult cut-offs don't apply, so only the normal read is offered. For anything else, use
+          the interpretation fields below.
+        </Typography>
+      )}
+    </SuggestedSentences>
+  );
+};
+
+/** Where the chosen interpretation contradicts the numbers (adults only): a reminder with its fix, never a block. */
+const EkgReminders: FC<InterpretationProps> = ({ facts, update }) => {
+  const reminders = ekgReminders(facts);
+  if (!reminders.length) return null;
+  return (
+    <Box
+      sx={{
+        borderLeft: 4,
+        borderColor: 'warning.main',
+        backgroundColor: '#FFF4E5',
+        color: otherColors.warningText,
+        borderRadius: 1,
+        px: 1.5,
+        py: 1,
+        fontSize: 13,
+      }}
+      data-testid={dataTestIds.documentProcedurePage.ekgReminders}
+    >
+      <Typography sx={{ fontSize: 13, fontWeight: 600 }}>Check the interpretation</Typography>
+      <Box component="ul" sx={{ m: 0, pl: 2.25 }}>
+        {reminders.map((reminder) => (
+          <li key={reminder.message}>
+            {reminder.message}
+            {reminder.fixes.map((fix) => (
+              <Button
+                key={fix.label}
+                size="small"
+                onClick={() => update({ ...facts, ...fix.apply })}
+                sx={{ ml: 1, p: 0, minWidth: 0, fontSize: 13, textTransform: 'none', textDecoration: 'underline' }}
+              >
+                {fix.label}
+              </Button>
+            ))}
+          </li>
+        ))}
+      </Box>
+      <Typography sx={{ fontSize: 13 }}>You can still save; this is a reminder, not a block.</Typography>
+    </Box>
+  );
+};
+
 interface Props {
   family: ProcedureFamilyModel;
   value: StructuredFacts;
@@ -160,8 +245,9 @@ interface Props {
   isChild: boolean;
 }
 
-/** The EKG family's fields: the billing sentence, the measurement tiles, then the interpretation sentence. */
-export const EkgSentences: FC<Props> = ({ isChild: _isChild, ...props }) => (
+/** The EKG family's fields: the billing sentence, the measurement tiles, the suggested interpretations, then
+ * the interpretation sentence with any reminders under it. */
+export const EkgSentences: FC<Props> = ({ isChild, ...props }) => (
   <CodingFieldSentences
     {...props}
     renderMain={({ answers, readOnly, pieces, details, update }) => (
@@ -170,7 +256,9 @@ export const EkgSentences: FC<Props> = ({ isChild: _isChild, ...props }) => (
           {pieces(['component', 'count'])}. {details(INTERPRETATION_KEYS)}
         </Sentence>
         <EkgMeasurementTiles facts={answers} readOnly={readOnly} update={update} />
+        {!readOnly && <EkgSuggestedInterpretations facts={answers} isChild={isChild} update={update} />}
         <Sentence>{pieces(INTERPRETATION_KEYS, { ordered: true })}.</Sentence>
+        {!readOnly && !isChild && <EkgReminders facts={answers} update={update} />}
       </>
     )}
   />

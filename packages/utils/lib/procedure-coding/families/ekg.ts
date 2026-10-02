@@ -7,7 +7,7 @@ import { buildEvaluation, CPT_MODIFIERS, missing, MueAdjudication, noCode } from
 import { EKG_PTP_EDITS } from '../medicare-ptp';
 import { CodeSuggestion, ProcedureFamilyModel } from '../model.types';
 import { PROCEDURE_NAMES } from '../procedure-names';
-import { CodingField, readNumber } from '../structured-fields';
+import { CodingField, readNumber, StructuredFacts } from '../structured-fields';
 import {
   EKG_AXES,
   EKG_COMPARISONS,
@@ -79,6 +79,18 @@ const fields: readonly CodingField[] = [
   { key: 'impression', label: 'Impression', kind: 'select', options: EKG_IMPRESSIONS },
 ];
 
+/** The interpretation fields a report must cover besides the rate and intervals; "Other findings" is optional. */
+const REPORT_FIELDS = ['rhythm', 'axis', 'conduction', 'stt', 'comparison', 'impression'];
+
+const label = (key: string): string => fields.find((field) => field.key === key)?.label ?? key;
+
+/** What the interpretation and report (CMS Claims Manual Ch.13 §100.1) still needs before 93000 is supported. */
+const reportGaps = (facts: StructuredFacts): string[] => [
+  ...(readNumber(facts, 'rate') === undefined ? [label('rate')] : []),
+  ...(['pr', 'qrs', 'qt'].some((key) => readNumber(facts, key) === undefined) ? ['PR, QRS and QT intervals'] : []),
+  ...REPORT_FIELDS.filter((key) => facts[key] === undefined).map(label),
+];
+
 export const ekgFamily: ProcedureFamilyModel<EkgCode> = {
   codePairEdits: EKG_PTP_EDITS,
   // MPFS PC/TC indicator 4 on 93000: it is the global service, with 93005 the technical component
@@ -106,6 +118,12 @@ export const ekgFamily: ProcedureFamilyModel<EkgCode> = {
     const count = readNumber(facts, 'count');
 
     if (!count || !Number.isInteger(count)) return missing('Same-day recordings');
+
+    // The global code includes the interpretation and report; a brief "normal" alone does not support it.
+    if (facts.component === 'tracing and report') {
+      const gaps = reportGaps(facts);
+      if (gaps.length) return missing(...gaps);
+    }
     let cpt: EkgCode = EKG_CODES.InterpretationAndReportOnly;
     if (facts.component === 'tracing and report') cpt = EKG_CODES.TracingAndReport;
     else if (facts.component === 'tracing only') cpt = EKG_CODES.TracingOnly;

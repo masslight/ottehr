@@ -279,7 +279,7 @@ describe('source-aligned form coverage and documentation', () => {
       'clinician skill'
     );
     expect(messages('ekg', { component: 'tracing only' })).not.toContain('ST-T');
-    expect(messages('ekg', { component: 'tracing and report' })).toContain('ST-T');
+    expect(messages('ekg', { component: 'interpretation/report only' })).toContain('ST-T');
   });
   it.each([
     ['injection-infusion', '96366', '96523', false],

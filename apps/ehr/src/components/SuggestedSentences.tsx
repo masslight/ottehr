@@ -1,7 +1,7 @@
 import { otherColors } from '@ehrTheme/colors';
 import { AddCircleOutline, CheckCircle } from '@mui/icons-material';
 import { alpha, Box, IconButton, ListSubheader, Menu, MenuItem, Tooltip, Typography } from '@mui/material';
-import React, { ReactNode, useEffect, useState } from 'react';
+import React, { ReactElement, ReactNode, useEffect, useState } from 'react';
 import {
   findUnpickedBlank,
   isSentenceBlank,
@@ -21,14 +21,14 @@ export interface SuggestedSentence {
 /** The current value of each segment: a pick for a blank, `undefined` for text and for a blank left on its default. */
 export type SentencePicks = (string | undefined)[];
 
-interface SuggestedSentencesProps {
+interface SuggestedSentencesProps<T extends SuggestedSentence> {
   title: string;
   /** Lighter text after the title, e.g. how the rows were chosen. */
   caption?: string;
-  rows: SuggestedSentence[];
+  rows: T[];
   /** Whether the row, as currently filled in, is already in the target; derived by the caller, never stored here. */
-  isAdded: (row: SuggestedSentence, picks: SentencePicks) => boolean;
-  onAdd: (row: SuggestedSentence, picks: SentencePicks) => void;
+  isAdded: (row: T, picks: SentencePicks) => boolean;
+  onAdd: (row: T, picks: SentencePicks) => void;
   addLabel: string;
   addedLabel: string;
   dataTestId?: string;
@@ -48,7 +48,7 @@ const blankKey = ({ row, segment }: BlankRef): string => `${row}:${segment}`;
  * Template sentences with the variable words highlighted; picking a word swaps it and "+" hands the finished
  * row to the caller. Plain templates, nothing is read from the image or the chart.
  */
-export const SuggestedSentences: React.FC<SuggestedSentencesProps> = ({
+export const SuggestedSentences = <T extends SuggestedSentence>({
   title,
   caption,
   rows,
@@ -58,7 +58,7 @@ export const SuggestedSentences: React.FC<SuggestedSentencesProps> = ({
   addedLabel,
   dataTestId,
   children,
-}) => {
+}: SuggestedSentencesProps<T>): ReactElement => {
   // Picks are kept apart from the templates so a value the provider chose survives re-renders but not a
   // change of the rows themselves (another study, other numbers), which rebuilds the templates.
   const [values, setValues] = useState<Record<string, string>>({});
