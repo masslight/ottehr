@@ -256,7 +256,6 @@ export const makeStandaloneFormDTO = (
     questionnaireResponse,
     questionnaireTitle,
     questionnaireId,
-    scores: getScoredFormResults(allItems, questionnaireResponse.item ?? []),
   };
 };
 

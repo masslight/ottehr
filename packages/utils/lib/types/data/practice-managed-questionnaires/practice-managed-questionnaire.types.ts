@@ -72,8 +72,6 @@ export type ScoredFormResult = {
 export type StandaloneFormDTO = Omit<QAndQRResponse, 'questionnaireTitle'> & {
   questionnaireId: string;
   questionnaireTitle: string;
-  // computed results from a scored form's hidden results page, empty for unscored forms
-  scores: ScoredFormResult[];
 };
 
 // ============= api input / output types ===============

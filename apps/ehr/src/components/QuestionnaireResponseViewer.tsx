@@ -4,13 +4,20 @@ import { QuestionnaireResponseItem } from 'fhir/r4b';
 import { ReactElement, useMemo } from 'react';
 import {
   formatQuestionnaireItemValueToString,
+  getScoredFormResults,
   getVisiblePages,
 } from 'utils/lib/helpers/practice-managed-questionnaires';
 import { IntakeQuestionnaireItem } from 'utils/lib/types/data/paperwork/paperwork.types';
 import { StandaloneFormDTO } from 'utils/lib/types/data/practice-managed-questionnaires/practice-managed-questionnaire.types';
 
 export const QuestionnaireResponseViewer = ({ form }: { form: StandaloneFormDTO }): ReactElement => {
-  const { allItems, questionnaireResponse, scores } = form;
+  const { allItems, questionnaireResponse } = form;
+
+  // computed results of a scored form (answers to score expression items on its hidden results page)
+  const scores = useMemo(
+    () => getScoredFormResults(allItems, questionnaireResponse.item ?? []),
+    [allItems, questionnaireResponse.item]
+  );
 
   // Build a flat map of linkId → answer from the response
   const answerMap = useMemo(() => {
@@ -57,7 +64,7 @@ export const QuestionnaireResponseViewer = ({ form }: { form: StandaloneFormDTO 
           </Box>
         );
       })}
-      {scores && scores.length > 0 && (
+      {scores.length > 0 && (
         <Box sx={{ mt: 1.5 }}>
           <Typography variant="subtitle2" sx={{ color: 'primary.dark', fontWeight: 700, mb: 0.5 }}>
             Results
