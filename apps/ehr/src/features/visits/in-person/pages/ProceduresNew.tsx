@@ -734,7 +734,8 @@ export default function ProceduresNew({
                         loading={isSelectOptionsLoading}
                         freeSolo
                         dataTestId={dataTestIds.documentProcedurePage.procedureTypeInput}
-                        onOptionSelected={close}
+                        // Clearing the text reports a null option; only a real pick closes the popover.
+                        onOptionSelected={(option) => option != null && close()}
                         openOnFocus
                         required
                         validate={(value) =>

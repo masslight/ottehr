@@ -31,6 +31,7 @@ import {
   ReactNode,
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from 'react';
@@ -175,6 +176,8 @@ const focusPopoverContent = (paper: HTMLElement): void => {
 const inPortaledListbox = (target: EventTarget | null): boolean =>
   target instanceof Element && target.closest('.MuiAutocomplete-popper') != null;
 
+const POPOVER_MODIFIERS = [{ name: 'preventOverflow', options: { padding: 8 } }];
+
 /** Non-modal on purpose: a modal popover's backdrop swallowed the first click on Save / Clear Form /
  * another blank. Here the click away closes the popover and still reaches its target. */
 export const PopoverBlank: FC<PopoverBlankProps> = ({ title, children, onClose, ...blank }) => {
@@ -188,6 +191,9 @@ export const PopoverBlank: FC<PopoverBlankProps> = ({ title, children, onClose, 
   const onPlaced = useCallback(() => {
     if (paperEl.current) focusPopoverContent(paperEl.current);
   }, []);
+  // Stable props: MUI's Popper rebuilds itself (back at 0,0) whenever `modifiers` or `popperOptions`
+  // change identity, and an autocomplete list measured during that rebuild stays in the top-left corner.
+  const popperOptions = useMemo(() => ({ onFirstUpdate: onPlaced }), [onPlaced]);
   const close = (): void => {
     setAnchor(null);
     onClose?.();
@@ -215,8 +221,8 @@ export const PopoverBlank: FC<PopoverBlankProps> = ({ title, children, onClose, 
           anchorEl={anchor}
           placement="bottom-start"
           sx={{ zIndex: (theme) => theme.zIndex.modal }}
-          modifiers={[{ name: 'preventOverflow', options: { padding: 8 } }]}
-          popperOptions={{ onFirstUpdate: onPlaced }}
+          modifiers={POPOVER_MODIFIERS}
+          popperOptions={popperOptions}
         >
           <ClickAwayListener
             mouseEvent="onMouseDown"
