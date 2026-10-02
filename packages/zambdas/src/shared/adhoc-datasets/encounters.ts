@@ -63,7 +63,6 @@ import {
 } from 'utils/lib/fhir/medication-administration';
 import {
   getEmailForIndividual,
-  getFullName,
   getPatientFirstName,
   getPatientLastName,
   getPhoneNumberForIndividual,
@@ -133,6 +132,7 @@ import {
   buildEncounterRowContext,
   fetchAppointmentReportResources,
   fetchScopedResources,
+  presentFullName,
   resolveEncounterAppointment,
 } from '../adhoc-report';
 import {
@@ -1011,7 +1011,7 @@ export async function fetchAdHocEncounterRows(
       patientId: patient?.id || '',
       firstName: patient ? getPatientFirstName(patient) || '' : '',
       lastName: patient ? getPatientLastName(patient) || '' : '',
-      patientName: patient ? `${getPatientFirstName(patient)} ${getPatientLastName(patient)}`.trim() : '',
+      patientName: patient ? [getPatientFirstName(patient), getPatientLastName(patient)].filter(Boolean).join(' ') : '',
       dateOfBirth: patient?.birthDate || null,
       sex: patient?.gender ? mapGenderToLabel[patient.gender] ?? '' : '',
       city: address?.city || '',
@@ -1350,7 +1350,7 @@ export async function fetchAdHocEncounterRows(
       for (const reading of vitalReadings) {
         const authorId = makeVitalsObservationDTO(reading)?.authorId;
         const author = authorId ? practitionerMap.get(authorId) : undefined;
-        const name = author ? getFullName(author).trim() : '';
+        const name = presentFullName(author);
         if (name && !recordedBy.includes(name)) recordedBy.push(name);
       }
 

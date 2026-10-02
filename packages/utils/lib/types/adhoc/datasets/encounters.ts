@@ -928,7 +928,9 @@ export const ENCOUNTER_LAYERS = {
             'physician, ed = ED transfer, ip / ip-lab / ip-oth = in-person / lab / other in-person transfer, ' +
             'specialty = specialty transfer, another = transfer to another location. Null when not charted.'
         ),
-      dispositionLabel: z.string().describe('dispositionType as the chart labels it. "" when not charted.'),
+      dispositionLabel: z
+        .string()
+        .describe('dispositionType as the chart labels it — DISPLAY this, not the code. "" when not charted.'),
       followUpInDays: z.number().nullable().describe('Follow up in this many days (0 = as needed). Null when not set.'),
       transferReason: z.string().describe('Reason for the transfer. "" when not a transfer / not given.'),
       transferSpecialty: z

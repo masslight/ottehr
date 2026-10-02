@@ -10,12 +10,13 @@ import {
   OperationOutcome,
   Patient,
   Practitioner,
+  RelatedPerson,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { BUCKET_NAMES, SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
 import { getEncounterVisitType } from 'utils/lib/fhir/encounter';
 import { isInPersonAppointment, isTelemedAppointment, OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
-import { getAddressForIndividual } from 'utils/lib/fhir/patient';
+import { getAddressForIndividual, getFirstName, getLastName, getMiddleName } from 'utils/lib/fhir/patient';
 import { getAdmitterPractitionerId, getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { getInPersonVisitStatus } from 'utils/lib/utils/visitUtils';
@@ -416,3 +417,8 @@ export function buildEncounterRowContext(
     start,
   };
 }
+
+export const presentFullName = (individual: Patient | Practitioner | RelatedPerson | undefined): string =>
+  individual?.name?.[0]
+    ? [getFirstName(individual), getMiddleName(individual), getLastName(individual)].filter(Boolean).join(' ')
+    : '';

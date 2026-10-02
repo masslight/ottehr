@@ -46,6 +46,7 @@ import { PATIENT_CONTAINED_PHARMACY_ID } from '../../ehr/shared/harvest';
 import {
   fetchAppointmentReportResources,
   fetchScopedResources,
+  presentFullName,
   REPORT_ATTENDED_APPOINTMENT_STATUSES,
 } from '../adhoc-report';
 import { mapResourceToChartDataResponse } from '../chart-data';
@@ -367,7 +368,7 @@ export async function fetchAdHocPatientRows(oystehr: Oystehr, params: AdHocPatie
       patientId: patient.id || '',
       firstName: getPatientFirstName(patient) || '',
       lastName: getPatientLastName(patient) || '',
-      patientName: `${getPatientFirstName(patient)} ${getPatientLastName(patient)}`.trim(),
+      patientName: [getPatientFirstName(patient), getPatientLastName(patient)].filter(Boolean).join(' '),
       dateOfBirth: patient.birthDate || null,
       age,
       sex: patient.gender ? mapGenderToLabel[patient.gender] ?? '' : '',
@@ -467,11 +468,11 @@ export async function fetchAdHocPatientRows(oystehr: Oystehr, params: AdHocPatie
       // active contained Practitioner and the pharmacy the contained Organization with the pharmacy id.
       const details = composePatientDetailsData({ patient });
 
-      const pcp = composePrimaryCarePhysicianData({
-        physician: patient.contained?.find(
-          (resource): resource is Practitioner => resource.resourceType === 'Practitioner' && resource.active === true
-        ),
-      });
+      const pcpPractitioner = patient.contained?.find(
+        (resource): resource is Practitioner => resource.resourceType === 'Practitioner' && resource.active === true
+      );
+
+      const pcp = composePrimaryCarePhysicianData({ physician: pcpPractitioner });
 
       const pharmacy = composePharmacyData(
         patient.contained?.find(
@@ -480,7 +481,7 @@ export async function fetchAdHocPatientRows(oystehr: Oystehr, params: AdHocPatie
         )
       );
 
-      row.middleName = getMiddleName(patient) ?? '';
+      row.middleName = (patient.name?.[0] && getMiddleName(patient)) || '';
       row.nameSuffix = getNameSuffix(patient) ?? '';
 
       // The street lines as the face sheet's contact composer reads them (patient.address[0].line).
@@ -502,7 +503,7 @@ export async function fetchAdHocPatientRows(oystehr: Oystehr, params: AdHocPatie
       row.marketingOptIn = details.patientSendMarketing;
       row.commonWellConsent = details.patientCommonWellConsent;
       row.hasPcp = pcp.hasPcp;
-      row.pcpName = pcp.pcpName;
+      row.pcpName = presentFullName(pcpPractitioner);
       row.pcpPracticeName = pcp.pcpPracticeName;
       row.pcpAddress = pcp.pcpAddress;
       row.pcpPhone = pcp.pcpPhone;
@@ -534,7 +535,7 @@ export async function fetchAdHocPatientRows(oystehr: Oystehr, params: AdHocPatie
       });
 
       row.responsiblePartyRelationship = responsibleParty.relationship;
-      row.responsiblePartyName = responsibleParty.fullName;
+      row.responsiblePartyName = presentFullName(account?.guarantorResource);
       row.responsiblePartyDateOfBirth = responsibleParty.dob;
       row.responsiblePartySex = responsibleParty.sex;
       row.responsiblePartyPhone = responsibleParty.phone;
@@ -571,7 +572,7 @@ export async function fetchAdHocPatientRows(oystehr: Oystehr, params: AdHocPatie
       row.primaryPlanType = insurance.primary.planType;
       row.primaryMemberId = insurance.primary.memberId;
       row.primaryRelationshipToInsured = insurance.primary.relationship;
-      row.primaryPolicyHolderName = insurance.primary.policyHoldersName;
+      row.primaryPolicyHolderName = presentFullName(account?.coverages.primarySubscriber);
       row.primaryPolicyHolderDateOfBirth = insurance.primary.policyHoldersDateOfBirth;
       row.primaryPolicyHolderSex = insurance.primary.policyHoldersSex;
       row.primaryPolicyHolderAddress = oneLineAddress(insurance.primary);
@@ -580,7 +581,7 @@ export async function fetchAdHocPatientRows(oystehr: Oystehr, params: AdHocPatie
       row.secondaryPlanType = insurance.secondary.planType;
       row.secondaryMemberId = insurance.secondary.memberId;
       row.secondaryRelationshipToInsured = insurance.secondary.relationship;
-      row.secondaryPolicyHolderName = insurance.secondary.policyHoldersName;
+      row.secondaryPolicyHolderName = presentFullName(account?.coverages.secondarySubscriber);
       row.secondaryPolicyHolderDateOfBirth = insurance.secondary.policyHoldersDateOfBirth;
       row.secondaryPolicyHolderSex = insurance.secondary.policyHoldersSex;
       row.secondaryPolicyHolderAddress = oneLineAddress(insurance.secondary);

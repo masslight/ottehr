@@ -91,7 +91,7 @@ const returningPatient: Patient = {
       resourceType: 'Practitioner',
       id: 'primary-care-physician',
       active: true,
-      name: [{ given: ['Paul'], family: 'Care' }],
+      name: [{ family: 'Care' }],
       extension: [{ url: PRACTICE_NAME_URL, valueString: 'Family Practice' }],
     } as Practitioner,
     { resourceType: 'Organization', id: PATIENT_CONTAINED_PHARMACY_ID, name: 'Main St Pharmacy' } as Organization,
@@ -642,7 +642,8 @@ describe('ad-hoc Patients: layers mapped with the app logic (fixture)', () => {
       preferredCommunicationMethod: 'Cell Phone',
       hasMedicaid: true,
     });
-    expect(returning.pcpName).toContain('Care');
+    // No first name on file: the face sheet's getFullName would print "undefined Care".
+    expect(returning.pcpName).toBe('Care');
     expect(returning).toMatchObject({
       middleName: 'Marie',
       nameSuffix: 'III',
