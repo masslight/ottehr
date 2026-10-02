@@ -16,7 +16,7 @@ vi.mock('src/constants/feature-flags', async (importOriginal) => {
     ...actual,
     FEATURE_FLAGS: {
       ...actual.FEATURE_FLAGS,
-      get NON_INSURANCE_ORGANIZATIONS_ENABLED() {
+      get CUSTOM_ORGANIZATIONS_ENABLED() {
         return flags.nio;
       },
     },

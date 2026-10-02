@@ -1,7 +1,7 @@
 import { test } from '@playwright/test';
 import { AppointmentParticipant, Location } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { isTelemedEnabled } from 'test-utils';
+import { isTelemedEnabled } from 'test-utils/lib/telemed-config';
 import { openVisitsPage } from 'tests/e2e/page/VisitsPage';
 import { isLocationVirtual } from 'utils/lib/fhir/location';
 import { ResourceHandler } from '../../../e2e-utils/resource-handler';

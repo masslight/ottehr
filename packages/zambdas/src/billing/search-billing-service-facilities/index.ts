@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Location } from 'fhir/r4b';
+import { FHIR_IDENTIFIER_CLIA, FHIR_IDENTIFIER_NPI } from 'utils/lib/fhir/constants';
 import { SearchServiceFacilitiesResponse } from 'utils/lib/types/data/billing/billing.types';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { truncateForLog } from '../../shared/logging';
@@ -78,6 +79,18 @@ async function performEffect(
     searchParams.push({
       name: 'name',
       value: params.name,
+    });
+  }
+  if (params.npi) {
+    searchParams.push({
+      name: 'identifier',
+      value: `${FHIR_IDENTIFIER_NPI}|${params.npi}`,
+    });
+  }
+  if (params.clia) {
+    searchParams.push({
+      name: 'identifier',
+      value: `${FHIR_IDENTIFIER_CLIA}|${params.clia}`,
     });
   }
 

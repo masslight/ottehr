@@ -52,6 +52,7 @@ import { OrdersForTrackingBoardRow } from 'utils/lib/types/data/orders/types';
 import { mdyStringFromISOString } from 'utils/lib/utils/date';
 import { getSupportPhoneFor } from 'utils/lib/utils/support-dialog';
 import { formatMinutes, getDurationOfStatus, getVisitTotalTime, NON_LOS_STATUSES } from 'utils/lib/utils/visitUtils';
+import { NOTES_WIDTH_MIN } from '../constants';
 import { dataTestIds } from '../constants/data-test-ids';
 import ChatModal from '../features/chat/ChatModal';
 import { InfoIconsToolTip } from '../features/visits/shared/components/InfoIconsToolTip';
@@ -1033,7 +1034,7 @@ export default function AppointmentTableRow({
       >
         <InfoIconsToolTip appointment={appointment} tab={tab} orders={orders} />
       </TableCell>
-      <TableCell sx={{ verticalAlign: 'center' }}>
+      <TableCell sx={{ verticalAlign: 'center', minWidth: NOTES_WIDTH_MIN }}>
         <AppointmentNote
           appointment={appointment}
           oystehr={oystehr}

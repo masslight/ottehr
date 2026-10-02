@@ -11,7 +11,7 @@ import {
 } from '@mui/x-date-pickers-pro';
 import { DateTime } from 'luxon';
 import { MouseEvent, ReactElement, ReactNode, useState } from 'react';
-import { DISPLAY_DATE_AND_TIME_FORMAT, DISPLAY_DATE_FORMAT } from 'utils/lib/utils';
+import { DISPLAY_DATE_AND_TIME_FORMAT, DISPLAY_DATE_FORMAT } from 'utils/lib/utils/dateUtils';
 
 const RANGE_CALENDAR_SX = {
   '& .MuiPickersCalendarHeader-labelContainer': {

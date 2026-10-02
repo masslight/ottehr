@@ -2,7 +2,6 @@ import { OYSTEHR_EXTENSION_BASE_URL } from '../../fhir/constants';
 
 export const EMERGENCY_REVENUE_CODE = '1001';
 
-export const EXTENSION_PATIENT_PAID = 'http://fhir-api.zapehr.com/extension/patient-paid';
 export const EXTENSION_PATIENT_ACCOUNT_NUMBER = 'http://fhir-api.zapehr.com/extension/patient-account-number';
 export const EXTENSION_PATIENT_SIGNED_DATE = 'http://fhir-api.zapehr.com/extension/patient-signed-date';
 export const EXTENSION_PRACTITIONER_SIGNED_DATE = 'http://fhir-api.zapehr.com/extension/practitioner-signed-date';
@@ -12,6 +11,8 @@ export const RAW_RESPONSE = 'http://fhir-api.zapehr.com/extension/raw-response';
 
 export const EXTENSION_CLAIM_INSURANCE_TYPE = `${OYSTEHR_EXTENSION_BASE_URL}/rcm-claim-insurance-type`;
 export const EXTENSION_CLAIM_AUTO_ACCIDENT = `${OYSTEHR_EXTENSION_BASE_URL}/rcm-claim-auto-accident`;
+export const EXTENSION_CLAIM_EMPLOYMENT_ACCIDENT = `${OYSTEHR_EXTENSION_BASE_URL}/rcm-claim-employment-accident`;
+export const EXTENSION_CLAIM_OTHER_ACCIDENT = `${OYSTEHR_EXTENSION_BASE_URL}/rcm-claim-other-accident`;
 export const EXTENSION_CLAIM_AUTO_ACCIDENT_STATE = `${OYSTEHR_EXTENSION_BASE_URL}/rcm-claim-auto-accident-state`;
 
 export const EXTENSION_CLAIM_PROVIDER_SIGNATURE_INDICATOR = `${OYSTEHR_EXTENSION_BASE_URL}/rcm-claim-provider-signature-indicator`;

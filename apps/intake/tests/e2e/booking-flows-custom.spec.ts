@@ -22,14 +22,13 @@
 
 import { expect, test } from '@playwright/test';
 import { Appointment, Slot } from 'fhir/r4b';
+import { CONFIG_INJECTION_KEYS } from 'utils/lib/config-helpers/helpers';
 import {
-  BOOKING_CONFIG,
-  BookingConfig,
-  CONFIG_INJECTION_KEYS,
   parseQuestionnaireCanonicalExtension,
   SERVICE_CATEGORY_SYSTEM,
   SLOT_QUESTIONNAIRE_CANONICAL_EXTENSION_URL,
-} from 'utils';
+} from 'utils/lib/fhir/constants';
+import { BOOKING_CONFIG, BookingConfig } from 'utils/lib/ottehr-config/booking';
 import { BookingFlowHelpers, PatientTestData } from '../utils/booking/BookingFlowHelpers';
 import {
   CreatedGroupBookingResources,

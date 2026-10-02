@@ -9,8 +9,8 @@ import { usePatientLabOrders } from '../external-labs/components/labs-orders/use
 import { useInHouseLabOrders } from '../in-house-labs/components/orders/useInHouseLabOrders';
 import { useGetNursingOrders } from '../nursing-orders/components/orders/useNursingOrders';
 import { usePatientRadiologyOrders } from '../radiology/components/usePatientRadiologyOrders';
+import { useChartData } from '../visits/shared/hooks/useChartData';
 import { useGetMedicationOrders } from '../visits/shared/stores/appointment/appointment.queries';
-import { useChartData } from '../visits/shared/stores/appointment/appointment.store';
 
 export const TASK_CATEGORY_LABEL: Record<string, string> = {
   [LAB_ORDER_TASK.category]: 'External Lab',

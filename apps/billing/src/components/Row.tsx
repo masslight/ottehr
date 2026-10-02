@@ -1,6 +1,6 @@
 import { Box, Typography } from '@mui/material';
 import { ReactElement } from 'react';
-import { otherColors } from '../themes/ottehr/colors';
+import { otherColors } from 'utils/lib/theme/billing-palette';
 
 export function Row({
   label,

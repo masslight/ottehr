@@ -1,5 +1,5 @@
+import { Age as VitalsAge, AgeSchema as VitalsAgeSchema } from 'config-types/config/vitals';
 import { z } from 'zod';
-import { VitalsAge, VitalsAgeSchema } from '../../../config-helpers/vitals';
 import { Secrets } from '../../../secrets';
 import { ALL_EHR_STAFF_ROLES, RoleType } from '../user.types';
 
@@ -133,12 +133,14 @@ export const VitalAlertAgeRangeSchema = z.object({
   maxAge: OptionalMaxAgeSchema,
 });
 
+const OptionalLevelSchema = z.preprocess((value) => (value === null ? undefined : value), z.number().optional());
+
 export const VitalAlertLevelsSchema = z
   .object({
-    criticalLow: z.number().optional(),
-    abnormalLow: z.number().optional(),
-    abnormalHigh: z.number().optional(),
-    criticalHigh: z.number().optional(),
+    criticalLow: OptionalLevelSchema,
+    abnormalLow: OptionalLevelSchema,
+    abnormalHigh: OptionalLevelSchema,
+    criticalHigh: OptionalLevelSchema,
   })
   .superRefine((levels, ctx) => {
     const ordered = VITAL_ALERT_LEVELS.map((level) => ({ level, value: levels[level] })).filter(

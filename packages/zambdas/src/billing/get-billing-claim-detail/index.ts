@@ -40,6 +40,7 @@ import { buildEraRemitServiceLines } from '../era-remits';
 import { getCLIA } from '../service-facility.helpers';
 import {
   CLAIM_ATTACHMENT_REPORT_TYPE_CODE_SYSTEM,
+  CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM,
   CODE_SYSTEM_NUBC_REVENUE,
   copySourceId,
   createBillingClient,
@@ -343,6 +344,9 @@ export async function performEffect(
         CODE_SYSTEM_CLAIM_ACCIDENT_DATE_CODE
       )?.timingDate ?? '',
     attachments,
+    payerClaimControlNumber: claim.identifier?.find(
+      (i) => i.system === CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM
+    )?.value,
   };
 }
 

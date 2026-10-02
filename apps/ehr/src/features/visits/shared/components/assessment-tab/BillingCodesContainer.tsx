@@ -15,15 +15,11 @@ import { makeCptCodeDisplay } from 'utils/lib/fhir/helpers';
 import { AssessmentSectionData } from 'utils/lib/types/api/chart-data/chart-sections.types';
 import { CPTCodeOption } from 'utils/lib/types/common';
 import { APIErrorCode } from 'utils/lib/types/errors';
+import { useChartData } from '../../hooks/useChartData';
 import { useEMCodes } from '../../hooks/useEMCodes';
 import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAccessibility';
 import { useGetCPTHCPCSSearch } from '../../stores/appointment/appointment.queries';
-import {
-  useAppointmentData,
-  useChartData,
-  useDeleteChartData,
-  useSaveChartData,
-} from '../../stores/appointment/appointment.store';
+import { useAppointmentData, useDeleteChartData, useSaveChartData } from '../../stores/appointment/appointment.store';
 import { AiSectionContainer } from '../AiSection';
 
 export const useAddCptCode = (): { onAdd: (value: CPTCodeOption) => void; isPending: boolean } => {

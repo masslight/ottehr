@@ -10,7 +10,7 @@ import {
   Typography,
 } from '@mui/material';
 import { FC, useState } from 'react';
-import { ProcedureQuickPickData } from 'utils';
+import { ProcedureQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 
 interface ProcedureQuickPickDialogsProps {
   open: boolean;

@@ -25,7 +25,13 @@ import { FC, useMemo, useState } from 'react';
 import { deletePaperworkFlow, listPaperworkFlows, listServiceCategories } from 'src/api/api';
 import { AdminHeaderActionSlot } from 'src/features/admin/AdminPageHeader';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { BOOKING_CONFIG, FlowForm, PaperworkFlow, PaperworkFlowListOutput, SERVICE_MODE_LABEL } from 'utils';
+import { BOOKING_CONFIG } from 'utils/lib/ottehr-config/booking';
+import { SERVICE_MODE_LABEL } from 'utils/lib/types/common';
+import {
+  FlowForm,
+  PaperworkFlow,
+  PaperworkFlowListOutput,
+} from 'utils/lib/types/data/paperwork-flows/paperwork-flows.types';
 import { usePracticeManagedQuestionnaires } from '../../../hooks/usePracticeManagedQuestionnaires';
 import { DraftFlow, PaperworkFlowDialog } from './components/PaperworkFlowDialog';
 

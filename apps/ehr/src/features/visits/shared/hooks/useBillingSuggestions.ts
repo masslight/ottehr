@@ -11,8 +11,9 @@ import {
   DiagnosisDTO,
 } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { getReturningPatient } from '../components/additional-questions/AdditionalQuestionsPatientColumn';
-import { useAppointmentData, useChartData } from '../stores/appointment/appointment.store';
+import { useAppointmentData } from '../stores/appointment/appointment.store';
 import { useRosObservationsStore } from '../stores/appointment/ros-observations.store';
+import { useChartData } from './useChartData';
 import { useEMCodes } from './useEMCodes';
 import { useOystehrAPIClient } from './useOystehrAPIClient';
 import { useVisitNote } from './useVisitNote';

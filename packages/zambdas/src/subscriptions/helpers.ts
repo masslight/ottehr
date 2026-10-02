@@ -1,7 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
 import { Task, TaskOutput } from 'fhir/r4b';
-import { RcmTaskCodings } from 'utils/lib/fhir';
+import { RcmTaskCodings } from 'utils/lib/fhir/constants';
 import { patchWithOptimisticLock, sanitizeStringForFhirCode } from 'utils/lib/fhir/helpers';
 import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY } from 'utils/lib/types/errors';
 import { ZambdaInput } from '../shared/types/common';

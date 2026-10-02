@@ -193,6 +193,23 @@ describe('deliverFaxPacket', () => {
     expect(mockBuildAndUploadPacketForRecipient).toHaveBeenCalledWith(expect.objectContaining({ sourceType: 'visit' }));
   });
 
+  it('addresses a recipient with a credential as "Name, Credential"', async () => {
+    const results = await deliverFaxPacket(
+      deliverArgs([{ name: 'Jane Doe', credential: 'MD', faxNumber: '+12125551234' }])
+    );
+
+    expect(results[0].name).toBe('Jane Doe, MD');
+
+    expect(mockSendFaxAttempt).toHaveBeenCalledWith(
+      expect.objectContaining({ recipientName: 'Jane Doe, MD' }),
+      expect.anything()
+    );
+
+    expect(mockBuildAndUploadPacketForRecipient).toHaveBeenCalledWith(
+      expect.objectContaining({ recipient: expect.objectContaining({ name: 'Jane Doe', credential: 'MD' }) })
+    );
+  });
+
   it('keeps sending when a middle recipient fails, and never leaks the raw error', async () => {
     mockBuildAndUploadPacketForRecipient.mockImplementation(async ({ recipient }: any) => {
       if (recipient.faxNumber === '+12125552222') throw new Error('Z3 upload exploded');
@@ -319,6 +336,17 @@ describe('savePcpIfRequested', () => {
     expect(patch).toHaveBeenCalledTimes(1);
     const contained = patch.mock.calls[0][0].operations.find((op: any) => op.path === '/contained').value;
     expect(contained[0]).toMatchObject({ resourceType: 'Practitioner', id: 'primary-care-physician', active: true });
+  });
+
+  it('keeps the credential out of the PCP name', async () => {
+    await savePcpIfRequested(
+      [{ name: 'Jane Doe', credential: 'MD', faxNumber: '+12125551234', saveAsPcp: true }],
+      basePatient(),
+      oystehr
+    );
+
+    const contained = patch.mock.calls[0][0].operations.find((op: any) => op.path === '/contained').value;
+    expect(contained[0].name[0]).toMatchObject({ given: ['Jane'], family: 'Doe' });
   });
 
   it('never throws when the PCP patch fails', async () => {

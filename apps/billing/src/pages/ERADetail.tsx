@@ -27,6 +27,7 @@ import { DataGridPro, GridColDef } from '@mui/x-data-grid-pro';
 import { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
+import { otherColors } from 'utils/lib/theme/billing-palette';
 import { EraClaimListItem, EraDetailResponse, EraPayee } from 'utils/lib/types/data/billing/billing.types';
 import { formatCurrency, formatTaxId } from 'utils/lib/utils/convert';
 import { getBillingEraDetail, unmatchClaimResponse } from '../api/api';
@@ -37,7 +38,6 @@ import { MatchClaimDialog } from '../components/MatchClaimDialog';
 import { ReadOnlySection } from '../components/ReadOnlySection';
 import { Row } from '../components/Row';
 import { useApiClients } from '../hooks/useAppClients';
-import { otherColors } from '../themes/ottehr/colors';
 import { formatDate } from '../utils/format';
 
 const payeeRows = (payee: EraPayee): { label: string; value: string }[] =>
