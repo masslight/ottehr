@@ -977,6 +977,28 @@ export interface GetBillingPipelineReportResponse {
   status?: ReportRefreshStatus;
 }
 
+// One payer's slice of the outstanding insurance AR: claims submitted to it, awaiting an ERA.
+export interface AgingReceivablesPayerRow {
+  // Claim.insurer reference the row groups by ('' when the claim carries none)
+  payerRef: string;
+  payerId: string;
+  payerName: string;
+  claimCount: number;
+  // sum of Claim.total (charge-master billed charges)
+  totalBilled: number;
+}
+
+export interface GetBillingAgingReceivablesReportResponse {
+  // claims submitted to insurance with no ERA posted yet
+  insurance: { claimCount: number; totalBilled: number };
+  payerRows: AgingReceivablesPayerRow[];
+  // patient invoices sent (open in Stripe) but not yet paid
+  patient: { invoiceCount: number; amountDue: number };
+  generatedAt: string;
+  fromCache: boolean;
+  status?: ReportRefreshStatus;
+}
+
 // One actor's claim-action tallies over the report window, from claim-history Provenances.
 export interface ProductivityReportRow {
   // Practitioner/... (human) or Device/... (system) reference

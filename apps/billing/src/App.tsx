@@ -13,6 +13,7 @@ import { UnauthorizedPage } from './components/UnauthorizedPage';
 import { ChargeItemDefinitionLabels } from './constants/chargeItemDefinition';
 import { useApiClients } from './hooks/useAppClients';
 import { useEvolveUser } from './hooks/useEvolveUser';
+import AgingReceivablesReport from './pages/AgingReceivablesReport';
 import { BillingProviderDetail, BillingProvidersList } from './pages/BillingProviders';
 import CardsOnFileReport from './pages/CardsOnFileReport';
 import { ChargeItemDefinitionDetail, ChargeItemDefinitionList } from './pages/ChargeItemDefinitionsList';
@@ -115,6 +116,7 @@ export default function App(): ReactElement {
               <Route path="/reports/pipeline" element={<PipelineReport />} />
               <Route path="/reports/productivity" element={<ProductivityReport />} />
               <Route path="/reports/net-collections" element={<NetCollectionsReport />} />
+              <Route path="/reports/aging-receivables" element={<AgingReceivablesReport />} />
               {/* Rules routes are per engine; bare /rules lands on the Claim Submission engine. */}
               <Route path="/rules" element={<Navigate to={`/rules/${DEFAULT_RULES_ENGINE}`} replace />} />
               <Route path="/rules/:engine" element={<Rules />} />

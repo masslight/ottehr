@@ -66,6 +66,7 @@ export const REFRESH_REPORT_KINDS = [
   'pipeline',
   'productivity',
   'net-collections',
+  'aging-receivables',
 ] as const;
 export type RefreshReportKind = (typeof REFRESH_REPORT_KINDS)[number];
 
