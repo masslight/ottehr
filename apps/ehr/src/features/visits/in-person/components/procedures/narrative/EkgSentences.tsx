@@ -207,9 +207,11 @@ const EkgSuggestedInterpretations: FC<InterpretationProps & { isChild: boolean }
     <SuggestedSentences
       title="Suggested interpretations"
       caption={
-        rows.length
-          ? 'ranked for these numbers · pick one, change any highlighted word'
-          : 'enter the rate and QT to see suggestions'
+        !rows.length
+          ? 'enter the rate and QT to see suggestions'
+          : isChild
+          ? 'Under 18: enter abnormal interpretations manually'
+          : 'ranked for these numbers · pick one, change any highlighted word'
       }
       rows={rows}
       isAdded={(row, picks) => isEkgInterpretationApplied(facts, ekgSuggestionPicks(row, picks))}
@@ -217,14 +219,7 @@ const EkgSuggestedInterpretations: FC<InterpretationProps & { isChild: boolean }
       addLabel="Use this interpretation"
       addedLabel="Added to interpretation"
       dataTestId={dataTestIds.documentProcedurePage.ekgSuggestions}
-    >
-      {isChild && rows.length > 0 && (
-        <Typography variant="body2" color="text.secondary" sx={{ py: 0.5 }}>
-          Patient is under 18: adult cut-offs don't apply, so only the normal interpretation is offered. For anything
-          else, use the interpretation fields below.
-        </Typography>
-      )}
-    </SuggestedSentences>
+    />
   );
 };
 
@@ -274,7 +269,7 @@ interface Props {
   value: StructuredFacts;
   onChange: (value: StructuredFacts) => void;
   readOnly: boolean;
-  /** Under 18 the adult cut-offs don't apply: only the normal read is suggested and no reminders are shown. */
+  /** Under 18 the adult cut-offs don't apply: only the normal interpretation is suggested and no reminders are shown. */
   isChild: boolean;
 }
 

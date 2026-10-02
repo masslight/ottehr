@@ -144,7 +144,7 @@ describe('EKG sentences', () => {
     );
     const childBox = screen.getByTestId(dataTestIds.documentProcedurePage.ekgSuggestions);
     expect(within(childBox).getAllByRole('button', { name: 'Use this interpretation' })).toHaveLength(1);
-    expect(within(childBox).getByText(/Patient is under 18/)).toBeInTheDocument();
+    expect(within(childBox).getByText('Under 18: enter abnormal interpretations manually')).toBeInTheDocument();
     expect(screen.queryByTestId(dataTestIds.documentProcedurePage.ekgReminders)).not.toBeInTheDocument();
   });
 

@@ -979,7 +979,7 @@ export default function ProceduresNew({
                         value={resolvedStructuredFacts ?? {}}
                         onChange={(value) => updateState((state) => (state.structuredFacts = value))}
                         readOnly={isReadOnly}
-                        // Adult cut-offs don't apply under 18: only the normal read is suggested and no reminders.
+                        // Adult cut-offs don't apply under 18: only the normal interpretation is suggested and no reminders.
                         isChild={isPediatricOnDate(patient?.birthDate, state.procedureDate?.toISO() ?? undefined)}
                       />
                     ) : (
