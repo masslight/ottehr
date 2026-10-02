@@ -14,6 +14,7 @@ import { getPayerUrl } from 'utils/lib/helpers/helpers';
 import { CODE_SYSTEM_CMS_PLACE_OF_SERVICE, EXTENSION_URL_CPT_MODIFIER } from 'utils/lib/helpers/rcm/constants';
 import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
 import { BillingInsuranceType } from 'utils/lib/types/data/billing/billing.schemas';
+import { ChargeItemDefinitionDefault } from 'utils/lib/types/data/billing/billing.types';
 import {
   CLAIM_NON_INSURANCE_PAYER_EXTENSION_URL,
   CLAIM_NON_INSURANCE_PAYER_TAG_SYSTEM,
@@ -1050,7 +1051,7 @@ describe('service line actions', () => {
 
 describe('apply charge master prices action', () => {
   const makeChargeMaster = (
-    kind: 'insurance' | 'self-pay',
+    kind: ChargeItemDefinitionDefault,
     date: string,
     prices: { code: string; amount: number; modifier?: string }[],
     over?: Partial<ChargeItemDefinition>
@@ -1153,6 +1154,23 @@ describe('apply charge master prices action', () => {
     const error = applyAction({ type: 'applyChargeMasterPrices', match: { type: 'all' } }, m);
     expect(error).toBeUndefined();
     expect(lineCharges(m)).toEqual(['60']);
+  });
+
+  it('selects the non-insurance default when appropriate', () => {
+    const m = makeModel();
+    m.claim.insurance = [buildNoCoverageStub()];
+    m.claim.extension = [
+      ...(m.claim.extension ?? []),
+      { url: CLAIM_NON_INSURANCE_PAYER_EXTENSION_URL, valueReference: { reference: 'Organization/some-org' } },
+    ];
+    m.chargeMasters = [
+      makeChargeMaster('insurance', '2025-06-01', [{ code: '99213', amount: 150 }]),
+      makeChargeMaster('non-insurance', '2025-06-01', [{ code: '99213', amount: 100 }]),
+      makeChargeMaster('self-pay', '2025-06-01', [{ code: '99213', amount: 60 }]),
+    ];
+    const error = applyAction({ type: 'applyChargeMasterPrices', match: { type: 'all' } }, m);
+    expect(error).toBeUndefined();
+    expect(lineCharges(m)).toEqual(['100']);
   });
 
   it('selects the most recent charge master effective on or before the date of service', () => {

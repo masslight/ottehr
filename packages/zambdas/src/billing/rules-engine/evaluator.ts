@@ -1,6 +1,5 @@
 import { resourceHasTag } from 'utils/lib/fhir/helpers';
 import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
-import { ChargeItemDefinitionDefault } from 'utils/lib/types/data/billing/billing.types';
 import { getRuleFieldDef, getServiceLinePropertyDef } from 'utils/lib/types/data/billing/rules-engine.field-catalog';
 import {
   BillingRule,
@@ -20,7 +19,7 @@ import {
 } from 'utils/lib/types/data/billing/rules-engine.schemas';
 import { HOLD_TAG_NAME } from 'utils/lib/types/data/billing/system-tags';
 import { getChargeMasterPrice, selectBestChargeMaster } from '../charge-master.helpers';
-import { claimHasRealCoverage } from '../shared';
+import { getChargeItemDefinitionDefault } from '../shared';
 import {
   ClaimServiceLine,
   readField,
@@ -385,7 +384,7 @@ const applyChargeMasterPricing = (
 
   const dateOfService = asScalar(readField(model, 'serviceDate'));
   if (!dateOfService) return undefined;
-  const kind: ChargeItemDefinitionDefault = claimHasRealCoverage(claim.insurance) ? 'insurance' : 'self-pay';
+  const kind = getChargeItemDefinitionDefault(claim);
   const chargeMaster = selectBestChargeMaster(model.chargeMasters ?? [], kind, dateOfService);
   if (!chargeMaster) return undefined;
 

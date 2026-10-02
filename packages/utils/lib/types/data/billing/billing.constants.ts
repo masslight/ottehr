@@ -33,6 +33,7 @@ export const BILLING_CLAIM_TASK_FILTER_STATUSES = [
   'in-progress',
   'completed',
   'failed',
+  'cancelled',
 ] as const satisfies readonly (typeof BILLING_TASK_STATUSES)[number][];
 
 export const BILLING_CLAIM_TASK_PAYER_SCAN_LIMIT = 1_000;

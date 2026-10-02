@@ -2,7 +2,7 @@
   "name": "test-utils",
   "type": "module",
   "private": true,
-  "version": "1.44.9",
+  "version": "1.44.11",
   "engines": {
     "node": ">=22.13.0",
     "npm": ">=10.0.0"

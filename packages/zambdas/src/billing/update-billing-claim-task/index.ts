@@ -8,10 +8,10 @@ import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { createBillingClient, fetchById } from '../shared';
-import { RetryBillingClaimTaskParams, validateRequestParameters } from './validateRequestParameters';
+import { UpdateBillingClaimTaskParams, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
-const ZAMBDA_NAME = 'retry-billing-claim-task';
+const ZAMBDA_NAME = 'update-billing-claim-task';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const params = validateRequestParameters(input);
@@ -23,7 +23,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   return { statusCode: 200, body: JSON.stringify(response) };
 });
 
-async function complexValidation(oystehr: Oystehr, params: RetryBillingClaimTaskParams): Promise<Task> {
+async function complexValidation(oystehr: Oystehr, params: UpdateBillingClaimTaskParams): Promise<Task> {
   const task = await fetchById<Task>(oystehr, 'Task', params.taskId);
   const isBillingClaimTask = task.code?.coding?.some(
     ({ system, code }) => system === BILLING_CLAIM_TASK_CODING.system && code === BILLING_CLAIM_TASK_CODING.code
@@ -35,10 +35,11 @@ async function complexValidation(oystehr: Oystehr, params: RetryBillingClaimTask
 
 async function performEffect(
   oystehr: Oystehr,
-  params: RetryBillingClaimTaskParams,
+  params: UpdateBillingClaimTaskParams,
   task: Task
 ): Promise<{ taskId: string }> {
-  const operations: Operation[] = [{ op: 'replace', path: '/status', value: 'requested' }];
+  const status: Task['status'] = params.action === 'retry' ? 'requested' : 'cancelled';
+  const operations: Operation[] = [{ op: 'replace', path: '/status', value: status }];
   if (task.statusReason) operations.push({ op: 'remove', path: '/statusReason' });
 
   await oystehr.fhir.patch<Task>(
