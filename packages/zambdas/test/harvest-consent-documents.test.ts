@@ -52,6 +52,55 @@ vi.mock('../src/shared/pdf', async (importOriginal) => {
   return { ...original, createPdfBytes: vi.fn() };
 });
 
+// The UCW overlay reduces consent-forms to a single combined form. Pin the CORE 2-form config
+// (HIPAA + CTT) here so the tests exercise multi-form fan-out logic regardless of overlay.
+vi.mock('utils/lib/ottehr-config/consent-forms', async (importOriginal) => {
+  const original = await importOriginal<typeof import('utils/lib/ottehr-config/consent-forms')>();
+  const coreFormsData = [
+    {
+      id: 'hipaa-acknowledgement',
+      formTitle: 'HIPAA Acknowledgement',
+      resourceTitle: 'HIPAA forms',
+      assetPath: './assets/HIPAA.Acknowledgement-S.pdf',
+      publicUrl: '/hipaa_notice_template.pdf',
+      type: {
+        coding: [{ system: 'http://loinc.org', code: '64292-6', display: 'Privacy Policy' }],
+        text: 'HIPAA Acknowledgement forms',
+      },
+      createsConsentResource: false,
+    },
+    {
+      id: 'consent-to-treat',
+      formTitle: 'Consent to Treat, Guarantee of Payment & Card on File Agreement',
+      resourceTitle: 'Consent forms',
+      assetPath: {
+        default: './assets/CTT.and.Guarantee.of.Payment.and.Credit.Card.Agreement-S.pdf',
+        byState: {
+          IL: './assets/CTT.and.Guarantee.of.Payment.and.Credit.Card.Agreement.Illinois-S.pdf',
+        },
+      },
+      publicUrl: '/consent_to_treat_template.pdf',
+      type: {
+        coding: [
+          { system: 'http://loinc.org', code: '59284-0', display: 'Consent Documents' },
+          {
+            system: 'https://fhir.ottehr.com/CodeSystem/consent-source',
+            code: 'patient-registration',
+            display: 'Patient Registration Consent',
+          },
+        ],
+        text: 'Consent forms',
+      },
+      createsConsentResource: true,
+    },
+  ] as Parameters<typeof original.resolveConsentFormsPaths>[0];
+  return {
+    ...original,
+    getConsentFormsForLocation: (locationState?: string) =>
+      original.resolveConsentFormsPaths(coreFormsData, locationState),
+  };
+});
+
 const mockCreateFilesDocumentReferences = vi.mocked(createFilesDocumentReferences);
 const mockCreateConsentResource = vi.mocked(createConsentResource);
 const mockGetConsentAndDocRefs = vi.mocked(getConsentAndRelatedDocRefsForAppointment);
