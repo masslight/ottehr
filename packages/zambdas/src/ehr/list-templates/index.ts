@@ -1,22 +1,9 @@
-import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { List, Resource } from 'fhir/r4b';
-import { collectKnownExamFields } from 'utils/lib/config-helpers/exam-observations';
-import { chunkThings } from 'utils/lib/fhir/chat';
-import { chartDataTagSystem, GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM } from 'utils/lib/fhir/constants';
-import { examConfig } from 'utils/lib/ottehr-config/examination';
-import { collectKnownRosFields } from 'utils/lib/ottehr-config/review-of-systems';
-import {
-  ListTemplatesZambdaInput,
-  ListTemplatesZambdaOutput,
-  TemplateInfo,
-  TemplateVersionData,
-} from 'utils/lib/types/data/list-template.types';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
-import { analyzeTemplateVersionData, findHolderList } from '../shared/template-helpers';
+import { listTemplates } from '../shared/list-templates';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
@@ -29,122 +16,10 @@ export const index = wrapHandler('list-templates', async (input: ZambdaInput): P
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
-  const templates = await performEffect(validatedInput, oystehr);
+  const templates = await listTemplates(validatedInput, oystehr);
 
   return {
     statusCode: 200,
     body: JSON.stringify(templates),
   };
 });
-
-/**
- * Exported so a server-side caller can list templates without going back out through HTTP. The easy-chart
- * prompt needs the practice's real titles: it is told to match them exactly and never to invent one, and
- * when the list is absent the tail says "none. Do NOT emit apply-template" — which silently disabled
- * templates for that surface entirely.
- */
-export const performEffect = async (
-  validatedInput: ListTemplatesZambdaInput,
-  oystehr: Oystehr
-): Promise<ListTemplatesZambdaOutput> => {
-  const { includeVersionData } = validatedInput;
-
-  // Find the holder list
-  const holderList = await findHolderList(oystehr);
-
-  if (!holderList) {
-    throw new Error('Global templates holder list not found — this should never happen');
-  }
-
-  if (!holderList.entry?.length) {
-    return { templates: [] };
-  }
-
-  // Get all template IDs from the holder list entries (deduplicated)
-  const templateIds = [
-    ...new Set(
-      holderList.entry.map((entry) => entry.item.reference?.replace('List/', '')).filter((id): id is string => !!id)
-    ),
-  ];
-
-  if (templateIds.length === 0) {
-    return { templates: [] };
-  }
-
-  // Fetch all template Lists by their IDs in parallel groups of 50
-  const idChunks = chunkThings(templateIds, 50);
-  const chunkResults = await Promise.all(
-    idChunks.map((chunk) =>
-      oystehr.fhir
-        .search<List>({
-          resourceType: 'List',
-          params: [
-            { name: '_id', value: chunk.join(',') },
-            { name: '_count', value: '50' },
-          ],
-        })
-        .then((result) => result.unbundle())
-    )
-  );
-  const filteredTemplates = chunkResults.flat();
-
-  const codeSystem = GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM;
-  const examTypeConfig = examConfig.default;
-  const knownExamFields = collectKnownExamFields(examTypeConfig.components);
-  const knownRosFields = collectKnownRosFields();
-
-  // Filter to templates matching the requested exam type code system
-  const examTypeTemplates = filteredTemplates.filter(
-    (template) => template.code?.coding?.some((c) => c.system === codeSystem)
-  );
-
-  const examTagSystem = chartDataTagSystem('exam-observation-field');
-  const rosTagSystem = chartDataTagSystem('ros-observation-field');
-  const legacyRosTagSystem = chartDataTagSystem('ros');
-
-  const templateInfos: TemplateInfo[] = examTypeTemplates
-    .map((template) => {
-      const coding = template.code?.coding?.find((c) => c.system === codeSystem);
-      const examVersion = coding?.version ?? '';
-
-      let versionData: TemplateVersionData | undefined;
-
-      if (includeVersionData) {
-        const contained = (template.contained || []) as Resource[];
-
-        const { isCurrentVersion, unmatchedExamFields, unmatchedRosFields, rosNote } = analyzeTemplateVersionData({
-          contained,
-          examTagSystem,
-          rosTagSystem,
-          legacyRosTagSystem,
-          knownExamFields,
-          knownRosFields,
-        });
-
-        if (isCurrentVersion) {
-          versionData = { isCurrentVersion };
-        } else {
-          versionData = {
-            isCurrentVersion,
-            unmatchedFields: {
-              exam: unmatchedExamFields,
-              ros: unmatchedRosFields,
-              legacyRosContained: rosNote !== null,
-            },
-          };
-        }
-      }
-
-      return {
-        id: template.id!,
-        title: template.title ?? '',
-        examVersion,
-        versionData,
-      };
-    })
-    .filter((info) => info.title !== '');
-
-  templateInfos.sort((a, b) => a.title.localeCompare(b.title));
-
-  return { templates: templateInfos };
-};

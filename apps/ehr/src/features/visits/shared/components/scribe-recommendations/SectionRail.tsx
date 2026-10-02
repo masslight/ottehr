@@ -11,9 +11,8 @@ const RAIL_WIDTH = 26;
 const RAIL_BAR_WIDTH = 3;
 
 /**
- * The section name running down a coloured strip beside its content, rather than in a header row
- * of its own — with several blocks on screen those headers cost more vertical space than the
- * recommendations they introduce. Doubles as the link into that part of the note.
+ * Section name on a coloured strip beside its content (cheaper than a header row); links to that part of
+ * the note.
  */
 export const SectionRail: FC<{ section: ScribeSectionKey }> = ({ section }) => {
   const navigate = useNavigate();

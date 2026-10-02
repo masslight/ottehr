@@ -1,9 +1,4 @@
-// Offline unit tests for the server guards. The terminology service is faked, so these run in the
-// `unit` vitest project with no network and no Auth0 secrets.
-
 import Oystehr from '@oystehr/sdk';
-import { RawAction } from 'utils/lib/easy-chart/actions';
-import { DISABLED_KINDS } from 'utils/lib/easy-chart/registry';
 import { describe, expect, it } from 'vitest';
 import { applyGuards, GuardContext } from './guards';
 
@@ -22,10 +17,7 @@ const DESCRIPTION_ROWS: Record<string, { code: string; display: string }> = {
   'kidney stone': { code: 'N20.0', display: 'Calculus of kidney' },
   pharyngitis: { code: 'J02.9', display: 'Acute pharyngitis, unspecified' },
   'streptococcal pharyngitis': { code: 'J02.0', display: 'Streptococcal pharyngitis' },
-  // Mirrors the live platform response that caused the miscode: an unrelated top row for a bare
-  // one-word query.
-  // Mirrors the live platform: an unrelated top row, then obstetric codes that share only the condition
-  // word. The correct S01.81XA never appears — which is the point.
+  // Mirrors the live platform: unrelated rows for a bare "laceration", never the correct S01.81XA.
   laceration: { code: 'O70.20', display: 'Third degree perineal laceration during delivery, unspecified' },
   'laceration of left forehead': { code: 'M89.38', display: 'Hypertrophy of bone, other site' },
   'otitis media': { code: 'H66.90', display: 'Otitis media, unspecified, unspecified ear' },
@@ -33,17 +25,12 @@ const DESCRIPTION_ROWS: Record<string, { code: string; display: string }> = {
 
 const CPT_ROWS: Record<string, { code: string; display: string }> = {
   '99214': { code: '99214', display: 'Office visit, established patient, moderate' },
-  '96372': { code: '96372', display: 'Therapeutic injection, SC/IM' },
-};
-const HCPCS_ROWS: Record<string, { code: string; display: string }> = {
-  J1885: { code: 'J1885', display: 'Injection, ketorolac tromethamine, per 15 mg' },
 };
 
 /** A terminology service that only knows the rows above — a hallucinated code finds nothing. */
 const fakeOystehr = {
   terminology: {
-    // The resolution pipeline searches with searchType 'all' and pages by cursor, so one query has to be
-    // able to answer as an exact code, a category prefix (sibling enumeration) or a description.
+    // One query answers as an exact code, a category prefix (sibling enumeration) or a description.
     searchIcd10: async ({ query }: { query: string }) => {
       const upper = query.trim().toUpperCase();
       const exact = ICD10_ROWS[upper];
@@ -57,27 +44,21 @@ const fakeOystehr = {
       codes: CPT_ROWS[query] ? [CPT_ROWS[query]] : [],
       metadata: { nextCursor: null },
     }),
-    searchHcpcs: async ({ query }: { query: string }) => ({
-      codes: HCPCS_ROWS[query.toUpperCase()] ? [HCPCS_ROWS[query.toUpperCase()]] : [],
-      metadata: { nextCursor: null },
-    }),
   },
 } as unknown as Oystehr;
 
-const context = (narrative: string, chartedItems: string[] = [], extra: Partial<GuardContext> = {}): GuardContext => ({
+const context = (narrative: string, extra: Partial<GuardContext> = {}): GuardContext => ({
   oystehr: fakeOystehr,
   narrative,
-  chartedItems,
   logPrefix: 'test',
   ...extra,
 });
 
 const run = (
-  actions: RawAction[],
+  actions: unknown[],
   narrative: string,
-  chartedItems: string[] = [],
   extra: Partial<GuardContext> = {}
-): ReturnType<typeof applyGuards> => applyGuards(actions, context(narrative, chartedItems, extra));
+): ReturnType<typeof applyGuards> => applyGuards(actions, context(narrative, extra));
 
 describe('required-field gate', () => {
   it('skips an action with a reason rather than letting it be a silent no-op', async () => {
@@ -87,18 +68,110 @@ describe('required-field gate', () => {
   });
 
   it('refuses a kind this build does not know, instead of falling through to "nothing to chart"', async () => {
-    const { rejected } = await run([{ kind: 'add-telepathy' } as unknown as RawAction], 'x');
+    const { rejected } = await run([{ kind: 'add-telepathy' }], 'x');
     expect(rejected[0].reason).toMatch(/is not an action this build knows/);
+  });
+
+  // The backup model decodes without the schema, so the registry shape is checked on the server.
+  it('refuses a required value the chart does not accept, instead of writing it under a wrong key', async () => {
+    const { actions, rejected } = await run([{ kind: 'edit-note-text', field: 'hpi', newText: 'Sore throat.' }], 'x');
+    expect(actions).toEqual([]);
+    expect(rejected[0].reason).toBe('field "hpi" is not something the chart accepts');
+  });
+
+  it('drops an optional value the chart does not accept and keeps the action', async () => {
+    const { actions, rejected } = await run(
+      [{ kind: 'add-ros-finding', display: 'Denies fever', finding: 'negative' }],
+      'denies fever'
+    );
+    expect(rejected).toEqual([]);
+    expect(actions[0]).toMatchObject({ kind: 'add-ros-finding', display: 'Denies fever', finding: 'denies' });
+  });
+
+  it('reports a malformed item instead of failing the whole answer', async () => {
+    const { actions, rejected } = await run(
+      ['add-diagnosis', null, { display: 'no kind' }, { kind: 'add-patient-instruction', text: 'Rest.' }],
+      'rest'
+    );
+    expect(rejected.filter((item) => /malformed/.test(item.reason))).toHaveLength(3);
+    expect(actions.map((action) => action.kind)).toEqual(['add-patient-instruction']);
+  });
+});
+
+describe('model output normalization', () => {
+  it('strips wrapping quotes and padding, and accepts "true" and a lone search term', async () => {
+    const { actions } = await run(
+      [
+        {
+          kind: ' Add-Diagnosis ',
+          display: '"Strep throat"',
+          code: " 'J02.0' ",
+          isPrimary: 'true',
+          searchTerms: 'strep throat',
+        },
+      ],
+      'rapid strep positive'
+    );
+    expect(actions[0]).toMatchObject({ kind: 'add-diagnosis', code: 'J02.0', isPrimary: true });
+  });
+
+  it('keeps inner quotes that are part of the value', async () => {
+    const { actions } = await run(
+      [{ kind: 'add-patient-instruction', text: '"Rest" and "fluids"' }],
+      'rest and fluids'
+    );
+    expect(actions[0].text).toBe('"Rest" and "fluids"');
+  });
+
+  it('reads the code out of a decorated ICD-10 or E&M value', async () => {
+    const { actions, rejected } = await run(
+      [
+        { kind: 'add-diagnosis', display: 'Strep throat', code: 'ICD-10: j02.0', isPrimary: true },
+        { kind: 'set-em-code', code: '99214 (moderate complexity)' },
+      ],
+      'rapid strep positive'
+    );
+    expect(rejected).toEqual([]);
+    expect(actions.map((action) => action.code)).toEqual(['J02.0', '99214']);
+  });
+
+  it('drops a wrongly typed field so the required-field gate reports it', async () => {
+    const { rejected } = await run([{ kind: 'add-allergy', display: 42 }], 'penicillin allergy');
+    expect(rejected[0].reason).toMatch(/did not supply display/);
   });
 });
 
 describe('numeric coercion (digit-loop guard undo)', () => {
   it('restores a numeric field the schema declared as a string', async () => {
     const { actions } = await run(
-      [{ kind: 'set-disposition', dispositionType: 'pcp', text: 'Follow up.', followUpInDays: '7' }],
+      [{ kind: 'set-disposition', dispositionType: 'pcp-no-type', text: 'Follow up.', followUpInDays: '7' }],
       'follow up in a week'
     );
     expect(actions[0].followUpInDays).toBe(7);
+  });
+});
+
+describe('disposition', () => {
+  it('refuses a type the chart has no tab for', async () => {
+    const { actions, rejected } = await run(
+      [{ kind: 'set-disposition', dispositionType: 'ip', text: 'Admitted to the hospital.' }],
+      'we are admitting her'
+    );
+    expect(actions).toEqual([]);
+    expect(rejected[0].reason).toBe('dispositionType "ip" is not something the chart accepts');
+  });
+
+  it('keeps an interval the card offers and drops one it cannot show, with a caution', async () => {
+    const { actions } = await run(
+      [
+        { kind: 'set-disposition', dispositionType: 'pcp-no-type', text: 'Follow up in a week.', followUpInDays: '7' },
+        { kind: 'set-disposition', dispositionType: 'specialty', text: 'See ortho in 10 days.', followUpInDays: '10' },
+        { kind: 'set-disposition', dispositionType: 'ed', text: 'Go to the ER tonight.', followUpInDays: '1' },
+      ],
+      'follow up in a week, ortho in 10 days, ER tonight'
+    );
+    expect(actions.map((action) => action.followUpInDays)).toEqual([7, undefined, undefined]);
+    expect(actions[1].caution).toMatch(/no follow-up option for that interval/);
   });
 });
 
@@ -117,7 +190,6 @@ describe('vitals', () => {
     expect(actions[2]).toMatchObject({ systolic: 122, diastolic: 78 });
   });
 
-  // The regression that motivates one endpoint returning 1..N actions.
   it(`charts BOTH readings in "patient is 5'8\\", weighs 130lb"`, async () => {
     const narrative = `patient is 5'8", weighs 130lb`;
     const { actions, rejected } = await run(
@@ -149,15 +221,18 @@ describe('vitals', () => {
     expect(actions.map((a) => a.display)).toEqual(['98.9 F', '101.2 F', '130lb', '122/78']);
   });
 
-  // The model emits a set-vital with no display at all; the number is sitting in the message.
-  it('recovers a reading the model dropped, for a non-blood-pressure vital', async () => {
-    const { actions, rejected } = await run(
-      [{ kind: 'set-vital', field: 'vital-height' }],
-      'add height 34 inches please'
-    );
-    expect(rejected).toEqual([]);
-    expect(actions[0]).toMatchObject({ display: '34 inches', value: 34, unit: 'in' });
-  });
+  // The schema makes display required, so the primary model sends a dropped reading as a blank string.
+  it.each([{}, { display: '' }, { display: '  ' }])(
+    'recovers a reading the model dropped, for a non-blood-pressure vital (%o)',
+    async (reading) => {
+      const { actions, rejected } = await run(
+        [{ kind: 'set-vital', field: 'vital-height', ...reading }],
+        'add height 34 inches please'
+      );
+      expect(rejected).toEqual([]);
+      expect(actions[0]).toMatchObject({ display: '34 inches', value: 34, unit: 'in' });
+    }
+  );
 
   it('asks rather than charting or reinterpreting an implausible height', async () => {
     const { actions, rejected } = await run(
@@ -203,9 +278,6 @@ describe('diagnosis codes', () => {
     expect(rejected[0].reason).toMatch(/no ICD-10 code could be confirmed/);
   });
 
-  // REPAIR BEFORE REFUSING. The condition is right and only the qualifier is wrong, so the guard
-  // re-searches with the unsupported qualifier stripped and the SUPPORTED one substituted — the evidence
-  // says strep, so gonococcal pharyngitis becomes streptococcal pharyngitis instead of being dropped.
   it('repairs an organism qualifier the visit contradicts, using the qualifier it does support', async () => {
     const { actions, rejected } = await run(
       [{ kind: 'add-diagnosis', display: 'Pharyngitis', code: 'A54.5', isPrimary: true }],
@@ -215,8 +287,6 @@ describe('diagnosis codes', () => {
     expect(actions[0]).toMatchObject({ code: 'J02.0', display: 'Streptococcal pharyngitis' });
   });
 
-  // The other half of the same guard: when stripping the qualifier leaves a condition the terminology
-  // cannot match, there is nothing clean to chart and the action is refused rather than guessed at.
   it('refuses the qualifier outright when no clean replacement exists', async () => {
     const { actions, rejected } = await run(
       [{ kind: 'add-diagnosis', display: 'Gonococcal urethritis', code: 'A54.01', isPrimary: true }],
@@ -234,9 +304,6 @@ describe('diagnosis codes', () => {
     expect(actions[0].code).toBe('A54.5');
   });
 
-  // A history-of hint is now DISCARDED rather than fatal: the condition the provider named is usually
-  // right and only the code is wrong, so the display search gets to pick again. Charting the real code
-  // beats refusing the diagnosis, and refusing still happens when the search has nothing to offer.
   it('discards a history-of Z-code hint for a current problem and charts the real code', async () => {
     const { actions, rejected } = await run(
       [{ kind: 'add-diagnosis', display: 'Kidney stone', code: 'Z87.442', isPrimary: true }],
@@ -272,34 +339,26 @@ describe('diagnosis codes', () => {
 });
 
 describe('billing codes', () => {
-  // add-cpt is disabled in this build (CAPABILITIES entry commented out); revives when re-enabled.
-  it.skipIf(DISABLED_KINDS.includes('add-cpt'))(
-    'confirms an E&M code and a HCPCS J-code against the terminology service',
-    async () => {
-      const { actions, rejected } = await run(
-        [
-          { kind: 'set-em-code', code: '99214' },
-          { kind: 'add-cpt', code: 'J1885' },
-        ],
-        'gave a Toradol shot'
-      );
-      expect(rejected).toEqual([]);
-      expect(actions[0].display).toBe('Office visit, established patient, moderate');
-      expect(actions[1].display).toMatch(/ketorolac/);
-    }
-  );
+  it('confirms an E&M code against the terminology service', async () => {
+    const { actions, rejected } = await run([{ kind: 'set-em-code', code: '99214' }], 'moderate complexity');
+    expect(rejected).toEqual([]);
+    expect(actions[0].display).toBe('Office visit, established patient, moderate');
+  });
 
-  // add-cpt is disabled in this build (CAPABILITIES entry commented out); revives when re-enabled.
-  it.skipIf(DISABLED_KINDS.includes('add-cpt'))('drops a CPT that is not real', async () => {
-    const { rejected } = await run([{ kind: 'add-cpt', code: '11111' }], 'did a thing');
-    expect(rejected[0].reason).toMatch(/not a real CPT/);
+  // The practice configures which E&M codes can be charted; the Assessment tab offers only those.
+  it('refuses an E&M code the practice has not enabled, and keeps one it has', async () => {
+    const emCodes = ['99212', '99213', '99214'];
+    const refused = await run([{ kind: 'set-em-code', code: '99215' }], 'high complexity', { emCodes });
+    expect(refused.actions).toEqual([]);
+    expect(refused.rejected[0].reason).toMatch(/99215 is not one this practice has enabled/);
+
+    const kept = await run([{ kind: 'set-em-code', code: '99214' }], 'moderate complexity', { emCodes });
+    expect(kept.rejected).toEqual([]);
+    expect(kept.actions[0].code).toBe('99214');
   });
 });
 
 describe('exam and ROS polarity', () => {
-  // A normal the provider SAID is an examination that happened and charts; the guard tells it from a
-  // padded one by whether its quote verified. The blanket refusal it replaces existed because the model
-  // padded exams with normals for systems nobody examined — and those still carry no quote.
   it('charts a normal the provider voiced', async () => {
     const { actions, rejected } = await run(
       [{ kind: 'add-exam-finding', display: 'Lungs clear bilaterally', sourceText: 'lungs clear bilaterally' }],
@@ -310,7 +369,6 @@ describe('exam and ROS polarity', () => {
     expect(actions[0].sourceOrigin).toBe('narrative');
   });
 
-  // "No wheezing" is a normal, not a wheezing finding; voiced, it charts as the normal it asserts.
   it('charts a voiced negation as the normal it asserts', async () => {
     const { actions, rejected } = await run(
       [{ kind: 'add-exam-finding', display: 'No wheezing', sourceText: 'no wheezing' }],
@@ -333,13 +391,10 @@ describe('exam and ROS polarity', () => {
     for (const item of rejected) expect(item.reason).toMatch(/is a normal finding nobody voiced/);
   });
 
-  // A chart line is not the provider saying it: a quote that verifies only against the ALREADY ON THE
-  // CHART block does not make a normal voiced.
   it('does not count a chart-state quote as the provider voicing a normal', async () => {
     const { actions, rejected } = await run(
       [{ kind: 'add-exam-finding', display: 'Nontender', sourceText: 'Exam: Nontender' }],
       'Sore throat, otherwise well.',
-      [],
       { chartStateText: '- Exam: Nontender' }
     );
     expect(actions).toEqual([]);
@@ -350,27 +405,12 @@ describe('exam and ROS polarity', () => {
     const { actions } = await run(
       [{ kind: 'add-exam-finding', display: 'Nontender', sourceText: 'abdomen soft and nontender' }],
       'Sore throat, otherwise well.',
-      [],
       { editedNarrative: 'Sore throat. Abdomen soft and nontender.' }
     );
     expect(actions).toHaveLength(1);
     expect(actions[0].sourceOrigin).toBe('edited-narrative');
   });
 
-  // remove-exam-finding is disabled in this build (its CAPABILITIES entry is commented out); revives when re-enabled.
-  it.skipIf(DISABLED_KINDS.includes('remove-exam-finding'))(
-    'refuses to remove a normal on the strength of a negative that agrees with it',
-    async () => {
-      const { rejected } = await run(
-        [{ kind: 'remove-exam-finding', display: 'no signs of respiratory distress' }],
-        'lungs clear, no respiratory distress',
-        ['No signs of respiratory distress']
-      );
-      expect(rejected[0].reason).toMatch(/agrees with the charted normal/);
-    }
-  );
-
-  // Positives keep their latitude: an abnormality charts even with no quote (this one is inferred).
   it('keeps a genuine abnormality, quote or no quote', async () => {
     const { actions } = await run(
       [{ kind: 'add-exam-finding', display: 'Right TM erythematous and bulging' }],
@@ -388,28 +428,6 @@ describe('exam and ROS polarity', () => {
   it('refuses a ROS finding with no polarity rather than guessing one', async () => {
     const { rejected } = await run([{ kind: 'add-ros-finding', display: 'chest pain' }], 'chest pain');
     expect(rejected[0].reason).toMatch(/reports or denies/);
-  });
-});
-
-describe('removals', () => {
-  it('refuses a removal when the chart is empty', async () => {
-    const { rejected } = await run([{ kind: 'remove-medication', display: 'Motrin' }], 'remove Motrin');
-    expect(rejected[0].reason).toMatch(/chart is empty/);
-  });
-
-  it('refuses a removal that matches nothing on the chart', async () => {
-    const { rejected } = await run([{ kind: 'remove-medication', display: 'Motrin' }], 'remove Motrin', [
-      'Amoxicillin 400 mg/5 mL',
-    ]);
-    expect(rejected[0].reason).toMatch(/is not on the chart/);
-  });
-
-  it('allows a removal that matches a charted item', async () => {
-    const { actions, rejected } = await run([{ kind: 'remove-medication', display: 'Motrin' }], 'remove Motrin', [
-      'Motrin 200 mg tablet',
-    ]);
-    expect(rejected).toEqual([]);
-    expect(actions).toHaveLength(1);
   });
 });
 
@@ -431,7 +449,6 @@ describe('provenance', () => {
     expect(actions[0].sourceText).toBe('Rapid strep antigen was positive');
   });
 
-  // A fabricated citation in a medical record is worse than none: the item becomes honestly inferred.
   it('drops a fabricated quote so the item is marked inferred', async () => {
     const { actions } = await run(
       [{ kind: 'add-diagnosis', display: 'Strep throat', code: 'J02.0', sourceText: 'the culture grew group A strep' }],
@@ -442,8 +459,6 @@ describe('provenance', () => {
 });
 
 describe('deterministic triggers', () => {
-  // Report BOTH whether the trigger fired and whether the model complied — otherwise "the guard never
-  // fired" and "the guard fired and was ignored" look identical.
   it('reports a fired-but-ignored disposition trigger', async () => {
     const { triggers } = await run(
       [{ kind: 'set-em-code', code: '99214' }],
@@ -454,8 +469,6 @@ describe('deterministic triggers', () => {
       trigger: 'disposition-language-without-disposition',
       fired: true,
       complied: false,
-      // The pattern's own label, asserted rather than ignored: the trigger reports a FAMILY of nine
-      // patterns, and "which one fired" is what tells a referral apart from an ER instruction later.
       matchedPattern: 'follow-up',
     });
   });
@@ -464,7 +477,7 @@ describe('deterministic triggers', () => {
     const { triggers } = await run(
       [
         { kind: 'set-em-code', code: '99214' },
-        { kind: 'set-disposition', dispositionType: 'pcp', text: 'Follow up with PCP.' },
+        { kind: 'set-disposition', dispositionType: 'pcp-no-type', text: 'Follow up with PCP.' },
       ],
       'Follow up with primary care in one to two weeks.'
     );
@@ -480,23 +493,14 @@ describe('deterministic triggers', () => {
   });
 });
 
-// ---------------------------------------------------------------------------------------------
-// Restored invariants and backstops
-// ---------------------------------------------------------------------------------------------
-
 describe('exactly-one-primary invariant', () => {
-  // Measured on the harvested corpus: 0 of 13 add-diagnosis actions carried isPrimary, so every note
-  // came out with no primary diagnosis. The prompt asks for one and the model does not comply, and the
-  // response schema cannot require it per-kind, so promotion has to be deterministic.
   it('promotes the first diagnosis when the plan marked none', async () => {
     const { actions } = await run(
       [
         { kind: 'add-diagnosis', display: 'Strep throat' },
         { kind: 'add-diagnosis', display: 'Otitis media' },
       ],
-      'rapid strep positive, and the right ear looks infected',
-      [],
-      { promoteMissingPrimary: true }
+      'rapid strep positive, and the right ear looks infected'
     );
     expect(actions.filter((a) => a.kind === 'add-diagnosis' && a.isPrimary)).toHaveLength(1);
     expect(actions[0]).toMatchObject({ code: 'J02.0', isPrimary: true });
@@ -509,34 +513,14 @@ describe('exactly-one-primary invariant', () => {
         { kind: 'add-diagnosis', display: 'Strep throat' },
         { kind: 'add-diagnosis', display: 'Otitis media', isPrimary: true },
       ],
-      'rapid strep positive, and the right ear looks infected',
-      [],
-      { promoteMissingPrimary: true }
+      'rapid strep positive, and the right ear looks infected'
     );
     expect(actions.find((a) => a.isPrimary)).toMatchObject({ code: 'H66.90' });
     expect(actions[0].caution).toBeUndefined();
   });
-
-  // The review surface is guarded one suggestion at a time, and its secondary-dx card deliberately adds
-  // a single diagnosis with no primary claim. Promoting there would silently change the note's primary.
-  it('does NOT promote when the caller did not ask for it (the review surface)', async () => {
-    const { actions } = await run([{ kind: 'add-diagnosis', display: 'Otitis media' }], 'the right ear looks infected');
-    expect(actions[0].isPrimary).toBeUndefined();
-  });
-
-  it('never usurps an existing primary on an incremental turn', async () => {
-    const { actions } = await run(
-      [{ kind: 'add-diagnosis', display: 'Otitis media' }],
-      'also the right ear looks infected',
-      ['Diagnoses: Streptococcal pharyngitis (primary)'],
-      { promoteMissingPrimary: true, incremental: true }
-    );
-    expect(actions[0].isPrimary).toBe(false);
-  });
 });
 
 describe('speaker-label refusal', () => {
-  // "DOCTOR X31" matches the ICD-10 shape, and a code sniffer once charted it as a diagnosis.
   it('refuses a transcript speaker tag as a diagnosis code', async () => {
     const narrative =
       'DOCTOR X31: the throat looks red.\nPATIENT X31: it hurts.\nDOCTOR X31: rapid strep positive, so strep throat.';
@@ -547,47 +531,33 @@ describe('speaker-label refusal', () => {
 
 describe('deterministic backstops', () => {
   it('appends a dictated vital the plan omitted, flagged with where it came from', async () => {
+    const dictation =
+      'Blood pressure was 186 over 104. A repeat manual blood pressure dropped slightly to 176 over 92.';
     const { actions } = await run(
       [{ kind: 'set-vital', field: 'vital-blood-pressure', display: '186/104' }],
-      'Blood pressure was 186 over 104. A repeat manual blood pressure dropped slightly to 176 over 92.'
+      'transcript',
+      { dictation }
     );
     const pressures = actions.filter((a) => a.kind === 'set-vital');
     expect(pressures).toHaveLength(2);
     expect(pressures[1]).toMatchObject({ systolic: 176, diastolic: 92 });
-    // NUMBERS. The backstops run after coerceNumericFields, so a stringified reading here would reach
-    // the chart write uncoerced.
     expect(typeof pressures[1].systolic).toBe('number');
     expect(pressures[1].caution).toMatch(/recovered from the dictation/);
+    expect(pressures[1].sourceOrigin).toBe('edited-narrative');
+  });
+
+  // A transcript also holds home readings, other people's vitals and return thresholds.
+  it('never recovers a reading from the transcript itself', async () => {
+    const { actions } = await run([], 'Her temp at home was 102. Call us if her temp is over 102.');
+    expect(actions.filter((a) => a.kind === 'set-vital')).toEqual([]);
   });
 
   it('does not duplicate a reading the plan already charted', async () => {
-    const { actions } = await run(
-      [{ kind: 'set-vital', field: 'vital-heartbeat', display: '115' }],
-      'She is slightly tachycardic at a heart rate of 115.'
-    );
+    const dictation = 'She is slightly tachycardic at a heart rate of 115.';
+    const { actions } = await run([{ kind: 'set-vital', field: 'vital-heartbeat', display: '115' }], dictation, {
+      dictation,
+    });
     expect(actions.filter((a) => a.kind === 'set-vital')).toHaveLength(1);
-  });
-
-  // add-in-house-lab is disabled in this build (CAPABILITIES entry commented out); revives when re-enabled.
-  it.skipIf(DISABLED_KINDS.includes('add-in-house-lab'))(
-    'converts an order for a test the narrative reports as already performed into a note',
-    async () => {
-      const { actions } = await run(
-        [{ kind: 'add-in-house-lab', display: 'Rapid strep' }],
-        'The rapid strep test was performed in clinic and came back positive.'
-      );
-      expect(actions[0].kind).toBe('provider-note');
-      expect(actions[0].text).toMatch(/already performed/);
-    }
-  );
-
-  // add-in-house-lab is disabled in this build (CAPABILITIES entry commented out); revives when re-enabled.
-  it.skipIf(DISABLED_KINDS.includes('add-in-house-lab'))('leaves a genuine future order alone', async () => {
-    const { actions } = await run(
-      [{ kind: 'add-external-lab', display: 'Urine culture' }],
-      'We will send the urine out for culture.'
-    );
-    expect(actions[0].kind).toBe('add-external-lab');
   });
 
   it('reminds the provider that a charted medication is not a transmitted prescription', async () => {
@@ -600,7 +570,7 @@ describe('deterministic backstops', () => {
 
   it('strips numeric junk the model attaches to steps that have no reading', async () => {
     const { actions } = await run(
-      [{ kind: 'add-patient-instruction', text: 'Rest and fluids.', value: '0.0012' } as unknown as RawAction],
+      [{ kind: 'add-patient-instruction', text: 'Rest and fluids.', value: '0.0012' }],
       'rest and fluids'
     );
     expect(actions[0]).not.toHaveProperty('value');
@@ -608,7 +578,7 @@ describe('deterministic backstops', () => {
 });
 
 describe('billing-code lookup failure modes', () => {
-  /** Same fake, except the CPT/HCPCS endpoints are down. */
+  /** Same fake, except the CPT endpoint is down. */
   const outageContext = (narrative: string): GuardContext => ({
     oystehr: {
       ...(fakeOystehr as unknown as Record<string, unknown>),
@@ -617,19 +587,13 @@ describe('billing-code lookup failure modes', () => {
         searchCpt: async () => {
           throw new Error('terminology unavailable');
         },
-        searchHcpcs: async () => {
-          throw new Error('terminology unavailable');
-        },
       },
     } as unknown as Oystehr,
     narrative,
-    chartedItems: [],
     logPrefix: 'test',
   });
 
-  // "The service says this code is not real" and "the service is down" must not behave alike. Collapsing
-  // them strips billing from every visit for the length of an outage, and nobody notices until the
-  // invoices are short.
+  // An outage must not strip billing from every visit while it lasts.
   it('keeps the model E&M code when terminology is unreachable', async () => {
     const { actions, rejected } = await applyGuards(
       [{ kind: 'set-em-code', code: '99214', display: 'Level 4 established' }],
@@ -644,26 +608,9 @@ describe('billing-code lookup failure modes', () => {
     expect(actions).toEqual([]);
     expect(rejected[0].reason).toMatch(/not a real CPT code/);
   });
-
-  // add-cpt is disabled in this build (CAPABILITIES entry commented out); revives when re-enabled.
-  it.skipIf(DISABLED_KINDS.includes('add-cpt'))(
-    'keeps an unreachable-service HCPCS code rather than losing the charge',
-    async () => {
-      const { actions, rejected } = await applyGuards(
-        [{ kind: 'add-cpt', code: 'J1885', display: 'Ketorolac' }],
-        outageContext('ketorolac 30 mg IM given in clinic')
-      );
-      expect(rejected).toEqual([]);
-      expect(actions[0].code).toBe('J1885');
-    }
-  );
 });
 
 describe('field leaks between action kinds', () => {
-  // A real plan: the model named an unrelated condition in `code` and put the code it actually meant
-  // inside `updates` — update-procedure's shape — on an add-diagnosis. A field the executor does not read
-  // for this kind can only mislead whoever reads the plan; one it reads under another kind can change
-  // what gets charted.
   it('strips a field the action kind does not declare', async () => {
     const { actions } = await run(
       [
@@ -672,7 +619,7 @@ describe('field leaks between action kinds', () => {
           display: 'Strep throat',
           updates: [{ field: 'code', value: 'S01.81XA' }],
           strength: 'true',
-        } as unknown as RawAction,
+        },
       ],
       'rapid strep positive'
     );
@@ -691,9 +638,6 @@ describe('field leaks between action kinds', () => {
 });
 
 describe('unrelated search results', () => {
-  // Searching "laceration" for a forehead laceration returned "Hypertrophy of bone, other site" (M89.38)
-  // as its top row. No contradiction predicate objected — an unrelated condition contradicts nothing —
-  // and that is what got charted for a 9-year-old's scooter injury.
   it('refuses a top search row that names nothing the intent named', async () => {
     const { actions, rejected } = await run(
       [{ kind: 'add-diagnosis', display: 'Laceration of left forehead', searchTerms: ['laceration'] }],
@@ -705,9 +649,6 @@ describe('unrelated search results', () => {
 });
 
 describe('care-context and code salvage', () => {
-  // The terminology search cannot reach the S-chapter from a description: querying a forehead laceration
-  // returns obstetric and birth-injury codes that share the condition word and contradict no anatomy the
-  // guard knows. They assert a care setting the visit does not describe, which is what refuses them.
   it('refuses an obstetric code for an injury the visit describes plainly', async () => {
     const { actions, rejected } = await run(
       [{ kind: 'add-diagnosis', display: 'Laceration of left forehead', searchTerms: ['laceration'] }],
@@ -717,8 +658,6 @@ describe('care-context and code salvage', () => {
     expect(rejected).toHaveLength(1);
   });
 
-  // The model knew the right code and put it in update-procedure's `updates` field. Code lookup is the
-  // reliable path, so the salvaged value is fed to it as a candidate — and confirmed, not trusted.
   it('salvages a code-shaped value from a misplaced field and confirms it', async () => {
     const { actions, rejected } = await run(
       [
@@ -726,7 +665,7 @@ describe('care-context and code salvage', () => {
           kind: 'add-diagnosis',
           display: 'Laceration of left forehead',
           updates: [{ field: 'code', value: 'S01.81XA' }],
-        } as unknown as RawAction,
+        },
       ],
       'two centimeter linear laceration above the left eyebrow'
     );
@@ -737,11 +676,9 @@ describe('care-context and code salvage', () => {
 });
 
 describe('backstop-appended vitals carry numbers', () => {
-  // The response schema declares every numeric field as a string (the digit-loop guard) and guardOne
-  // coerces them back. The backstops append actions AFTER that, so anything numeric they add has to be a
-  // number already — nothing downstream will convert it.
   it('appends a swept reading as a number, not a string', async () => {
-    const { actions } = await run([], 'Oxygen saturation was 94 percent on room air.');
+    const dictation = 'Oxygen saturation was 94 percent on room air.';
+    const { actions } = await run([], dictation, { dictation });
     const sweep = actions.find((a) => a.kind === 'set-vital');
     expect(sweep).toBeDefined();
     expect(typeof sweep!.value).toBe('number');
@@ -750,10 +687,6 @@ describe('backstop-appended vitals carry numbers', () => {
 });
 
 describe('chart-origin provenance', () => {
-  // The model may cite one line of the ALREADY ON THE CHART block when the chart, not the narrative, is the
-  // reason for an action — a resulted rapid strep behind a strep diagnosis the provider never read aloud.
-  // Verified LAST, after the narrative and the edited read-back, and tagged so the UI shows it as the
-  // chart's words rather than hunting for it in the narrative.
   const narrative = 'Sore throat for two days. Will start amoxicillin.';
   const chartStateText = '- In-house lab resulted: Test: Rapid strep | Result: Positive | Flag: abnormal';
 
@@ -768,7 +701,6 @@ describe('chart-origin provenance', () => {
         },
       ],
       narrative,
-      [],
       { chartStateText }
     );
     expect(actions[0].sourceText).toBe('In-house lab resulted: Test: Rapid strep | Result: Positive');
@@ -779,7 +711,6 @@ describe('chart-origin provenance', () => {
     const { actions } = await run(
       [{ kind: 'add-diagnosis', display: 'Strep throat', code: 'J02.0', sourceText: 'Sore throat for two days' }],
       narrative,
-      [],
       { chartStateText: `${chartStateText}\n- Patient instruction: Sore throat for two days` }
     );
     expect(actions[0].sourceOrigin).toBe('narrative');
@@ -789,7 +720,6 @@ describe('chart-origin provenance', () => {
     const { actions } = await run(
       [{ kind: 'add-diagnosis', display: 'Strep throat', code: 'J02.0', sourceText: 'the culture grew group A strep' }],
       narrative,
-      [],
       { chartStateText }
     );
     expect(actions[0].sourceText).toBeUndefined();

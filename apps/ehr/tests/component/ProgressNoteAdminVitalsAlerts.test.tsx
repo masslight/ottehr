@@ -72,10 +72,28 @@ const expandVital = async (vital: string): Promise<void> => {
   await waitFor(() => expect(within(accordion).getByRole('table')).toBeInTheDocument());
 };
 
-const heartRateAdultInput = (): HTMLInputElement =>
+const heartRateAdultLevelInput = (level: string): HTMLInputElement =>
   screen
-    .getByTestId(dataTestIds.vitalsAlertConfig.thresholdInput('vital-heartbeat', '18+y', 'abnormalHigh'))
+    .getByTestId(dataTestIds.vitalsAlertConfig.thresholdInput('vital-heartbeat', '18+y', level))
     .querySelector('input') as HTMLInputElement;
+
+const heartRateAdultInput = (): HTMLInputElement => heartRateAdultLevelInput('abnormalHigh');
+
+const persistSavedConfig = (): void => {
+  let stored = cloneDefault();
+  vi.mocked(getVitalsAlertConfig).mockImplementation(async () => stored);
+  vi.mocked(adminUpdateVitalsAlertConfig).mockImplementation(async (_client, input) => {
+    stored = JSON.parse(JSON.stringify(input.config));
+  });
+};
+
+const saveAndRefetch = async (): Promise<VitalsAlertConfig> => {
+  fireEvent.click(getSaveButton());
+  await waitFor(() => expect(adminUpdateVitalsAlertConfig).toHaveBeenCalled());
+  await waitFor(() => expect(getVitalsAlertConfig).toHaveBeenCalledTimes(2));
+  await waitFor(() => expect(getSaveButton()).toBeDisabled());
+  return vi.mocked(adminUpdateVitalsAlertConfig).mock.calls[0][1].config;
+};
 
 const openHeartRateAdultInput = async (): Promise<HTMLInputElement> => {
   await expandVital('vital-heartbeat');
@@ -204,6 +222,21 @@ describe('ProgressNoteAdminPage - vital alert levels', () => {
     expect(payload.config.thresholds['vital-heartbeat']['18+y'].abnormalHigh).toBeUndefined();
   });
 
+  it('keeps an emptied level blank instead of restoring the previous value, before and after saving', async () => {
+    persistSavedConfig();
+    await renderSection();
+    await expandVital('vital-heartbeat');
+
+    fireEvent.change(heartRateAdultLevelInput('criticalLow'), { target: { value: '4' } });
+    fireEvent.change(heartRateAdultLevelInput('criticalLow'), { target: { value: '' } });
+    expect(heartRateAdultLevelInput('criticalLow').value).toBe('');
+
+    const saved = await saveAndRefetch();
+    expect(saved.thresholds['vital-heartbeat']['18+y'].criticalLow).toBeUndefined();
+    expect(saved.thresholds['vital-heartbeat']['18+y'].abnormalLow).toBe(57);
+    expect(heartRateAdultLevelInput('criticalLow').value).toBe('');
+  });
+
   it('surfaces a validation error and does not submit when levels are out of order', async () => {
     await renderSection();
 
@@ -325,7 +358,7 @@ describe('ProgressNoteAdminPage - vital alert levels', () => {
     const accordion = screen.getByTestId(dataTestIds.vitalsAlertConfig.vitalAccordion('vital-heartbeat'));
     const rows = within(accordion).getAllByRole('row');
     expect(rows[rows.length - 1]).toHaveTextContent(INCOMPLETE_VITAL_ALERT_AGE_RANGE_LABEL);
-    expect(screen.getByTestId(dataTestIds.vitalsAlertConfig.section)).not.toHaveTextContent(/undefined/);
+    expect(screen.getByTestId(dataTestIds.vitalsAlertConfig.section)).not.toHaveTextContent(/undefined|null/);
   });
 
   it('blocks a save whose age ranges the alert engine cannot apply, before it reaches the API', async () => {

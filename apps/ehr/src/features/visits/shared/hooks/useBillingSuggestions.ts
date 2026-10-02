@@ -2,11 +2,6 @@ import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { usePatientRadiologyOrders } from 'src/features/radiology/components/usePatientRadiologyOrders';
 import { hashInput } from 'src/helpers/hash';
-import {
-  formatLabResultForPrompt,
-  formatPendingLabForPrompt,
-  formatRadiologyReportForPrompt,
-} from 'utils/lib/helpers/test-results-for-prompt';
 import { getRosFindingStateFromKey, rosField } from 'utils/lib/ottehr-config/review-of-systems';
 import { InPersonRosConfig, RosFindingState } from 'utils/lib/ottehr-config/review-of-systems/in-person.config';
 import {
@@ -15,11 +10,10 @@ import {
   CPTCodeDTO,
   DiagnosisDTO,
 } from 'utils/lib/types/api/chart-data/chart-data.types';
-import { ExternalLabOrderResult, InHouseLabResult } from 'utils/lib/types/api/lab';
-import { RadiologyDTO } from 'utils/lib/types/api/radiology';
 import { getReturningPatient } from '../components/additional-questions/AdditionalQuestionsPatientColumn';
-import { useAppointmentData, useChartData } from '../stores/appointment/appointment.store';
+import { useAppointmentData } from '../stores/appointment/appointment.store';
 import { useRosObservationsStore } from '../stores/appointment/ros-observations.store';
+import { useChartData } from './useChartData';
 import { useEMCodes } from './useEMCodes';
 import { useOystehrAPIClient } from './useOystehrAPIClient';
 import { useVisitNote } from './useVisitNote';
@@ -44,27 +38,55 @@ export function buildBillingSuggestionInput(params: {
 }): BillingSuggestionInput | null {
   const { chartData, chartDataFields, radiologyOrders, appointment, patient, rosFindings } = params;
 
-  // Lab results and radiology reports, formatted by the helper the Easy Chart planner's chart state also
-  // uses, so the two prompts describe a result identically.
-  const externalLabOrderParts: string[] = [
-    ...(chartDataFields?.externalLabResults?.labOrderResults ?? []).map((result: ExternalLabOrderResult) =>
-      formatLabResultForPrompt(result, 'external')
-    ),
-    ...(chartDataFields?.externalLabResults?.resultsPending ?? []).map(formatPendingLabForPrompt),
-  ];
-  const inHouseLabOrderParts: string[] = [
-    ...(chartDataFields?.inHouseLabResults?.labOrderResults ?? []).map((result: InHouseLabResult) =>
-      formatLabResultForPrompt(result, 'in-house')
-    ),
-    ...(chartDataFields?.inHouseLabResults?.resultsPending ?? []).map(formatPendingLabForPrompt),
-  ];
+  // External lab results
+  const externalLabOrderParts: string[] = [];
+  if (chartDataFields?.externalLabResults?.labOrderResults) {
+    chartDataFields.externalLabResults.labOrderResults.forEach((result: any) => {
+      if (result.resultValues?.length) {
+        externalLabOrderParts.push(`Test: ${result.name} | Results: ${result.resultValues.join(', ')}`);
+      } else {
+        externalLabOrderParts.push(`Test: ${result.name} | Result: received`);
+      }
+    });
+  }
+  if (chartDataFields?.externalLabResults?.resultsPending?.length) {
+    chartDataFields.externalLabResults.resultsPending.forEach((name: string) => {
+      externalLabOrderParts.push(`Test: ${name} | Result: PENDING`);
+    });
+  }
+
+  // In-house lab results
+  const inHouseLabOrderParts: string[] = [];
+  if (chartDataFields?.inHouseLabResults?.labOrderResults) {
+    chartDataFields.inHouseLabResults.labOrderResults.forEach((result: any) => {
+      if (result.resultValues?.length) {
+        inHouseLabOrderParts.push(`Test: ${result.name} | Results: ${result.resultValues.join(', ')}`);
+      } else {
+        const resultValue = result.simpleResultValue ?? 'completed';
+        inHouseLabOrderParts.push(`Test: ${result.name} | Result: ${resultValue}`);
+      }
+    });
+  }
+  if (chartDataFields?.inHouseLabResults?.resultsPending?.length) {
+    chartDataFields.inHouseLabResults.resultsPending.forEach((name: string) => {
+      inHouseLabOrderParts.push(`Test: ${name} | Result: PENDING`);
+    });
+  }
 
   // Radiology
   const radiologyOrdersString = radiologyOrders?.map((order: any) => order.studyType).join(', ');
   const radiologyReportsString =
     radiologyOrders
-      ?.map((order: RadiologyDTO) => formatRadiologyReportForPrompt(order))
-      .filter((report): report is string => report !== undefined)
+      ?.filter((order: any) => order.finalReport || order.preliminaryReport)
+      .map((order: any) => {
+        const report = order.finalReport || order.preliminaryReport;
+        const reportType = order.finalReport ? 'Final' : 'Preliminary';
+        try {
+          return `${order.studyType} (${reportType}): ${atob(report!)}`;
+        } catch {
+          return `${order.studyType} (${reportType}): ${report}`;
+        }
+      })
       .join('\n') || '';
 
   // Procedures

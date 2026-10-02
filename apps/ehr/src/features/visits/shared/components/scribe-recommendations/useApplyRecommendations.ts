@@ -9,7 +9,6 @@ import { useCatalogue } from 'src/features/easy-chart/hooks/useCatalogue';
 import { useChartWriter } from 'src/features/easy-chart/hooks/useChartWriter';
 import { useEasyChartData } from 'src/features/easy-chart/hooks/useEasyChartData';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { TemplateSectionActions } from 'utils/lib/types/data/apply-template.types';
 import { invalidateChart } from '../../hooks/chartSectionCache';
 import { GET_MEDICATION_ORDERS_QUERY_KEY } from '../../stores/appointment/appointment.queries';
 import { useAppointmentData } from '../../stores/appointment/appointment.store';
@@ -26,39 +25,13 @@ import { useScribeRecommendationsStore } from './scribeRecommendations.store';
 import { TemplateRecommendation } from './types';
 
 /**
- * Fallback for applying the recommended template. The provider normally picks the sections in the
- * apply-template dialog; this is what a template applied without going through it would use. The
- * transcript-derived items cover ROS, so the template does not overwrite it, and orders stay a
- * manual checklist, so the template's lab/procedure/medication plans are skipped.
- */
-export const SCRIBE_TEMPLATE_SECTION_ACTIONS: TemplateSectionActions = {
-  hpi: 'append',
-  moi: 'skip',
-  ros: 'skip',
-  examFindings: 'overwrite',
-  mdm: 'overwrite',
-  diagnoses: 'append',
-  patientInstructions: 'overwrite',
-  cptCodes: 'append',
-  emCode: 'overwrite',
-  inHouseLabs: 'skip',
-  externalLabs: 'skip',
-  procedures: 'skip',
-  inHouseMedications: 'skip',
-};
-
-/**
- * Writes the selected recommendations into the chart through the Easy Chart executor — the same
- * catalogues, handlers and shared save mutation the charting assistant ran on. Every step settles as
- * applied, skipped with a reason, or failed with a reason, and each verdict lands on its row.
- *
- * The template is the one exception: it writes whole sections through the apply-template endpoint, which
- * the executor deliberately never calls, so it goes first on its own path and the rest run on top of it.
+ * Writes the selected recommendations into the chart through the Easy Chart executor. A template goes first,
+ * through the apply-template endpoint (which the executor never calls), and the rest run on top of it.
  */
 export const useApplyRecommendations = (): {
-  /** Stage 2: everything still checked in the observations list. */
+  /** Everything still checked in the observations list. */
   applyObservations: () => Promise<void>;
-  /** Stage 1: one recommendation on its own button, whether or not it is checked. */
+  /** One recommendation from its own button, whether or not it is checked. */
   applyRecommendation: (id: string) => Promise<void>;
 } => {
   const { encounter } = useAppointmentData();
@@ -67,18 +40,9 @@ export const useApplyRecommendations = (): {
   const { oystehrZambda } = useApiClients();
   const { templates } = useListTemplates();
 
-  // The executor's view of the chart, its catalogues and its write layer — the same three the assistant used.
   const { chartData, refetch: refetchChart } = useEasyChartData(encounterId);
-  const catalogue = useCatalogue({ encounterId });
-  const writer = useChartWriter({
-    encounterId: encounterId ?? '',
-    // For the procedure write: a quick-pick carries its own CPT codes and supporting diagnoses, and
-    // re-saving one already charted duplicates it on the note.
-    diagnoses: chartData?.diagnosis,
-    cptCodes: chartData?.cptCodes,
-    procedures: chartData?.procedures,
-    onOrdersChanged: () => void refetchChart(),
-  });
+  const catalogue = useCatalogue();
+  const writer = useChartWriter(encounterId ?? '');
   // Read inside the async run, so a chart refetched mid-run is not stale by the next step.
   const chartRef = useRef(chartData);
   chartRef.current = chartData;
@@ -95,18 +59,19 @@ export const useApplyRecommendations = (): {
       if (!template.isCurrentVersion) {
         throw new Error('This template is out of date and needs to be updated by an admin before it can be applied.');
       }
+      // Set by the apply-template dialog, the only way a template is applied from the panel.
+      if (!rec.sectionActions) throw new Error('Open the template preview to choose which sections to apply.');
       const result = await applyTemplate(oystehrZambda, {
         encounterId,
         templateName: template.value,
-        sectionActions: rec.sectionActions ?? SCRIBE_TEMPLATE_SECTION_ACTIONS,
+        sectionActions: rec.sectionActions,
         ...(rec.applyOptions?.externalLabs ? { externalLabs: rec.applyOptions.externalLabs } : {}),
       });
       // Exam observations live in Zustand rather than React Query, so they need a reset before the
       // refetch below can repopulate them (same as ApplyTemplate does).
       resetExamObservationsStore();
       await Promise.all([
-        // The visit note is re-read, re-seeding every section entry the screens read from it, and the rest
-        // of the chart's entries are marked stale for the next screen that shows them (same as ApplyTemplate).
+        // Re-reads the visit note and marks the other chart entries stale (same as ApplyTemplate).
         invalidateChart(queryClient, encounterId),
         queryClient.invalidateQueries({ queryKey: [GET_MEDICATION_ORDERS_QUERY_KEY] }),
       ]);
@@ -137,26 +102,21 @@ export const useApplyRecommendations = (): {
       }
       if (rest.length === 0) return;
 
-      // A template that just landed changed the chart, and the executor's duplicate checks and its
-      // primary-diagnosis rule have to see what it wrote before anything lands on top of it.
+      // Refetch after a template so the executor's duplicate checks and primary-diagnosis rule see what it wrote.
       const chart = templateLanded ? await refetchChart() : chartRef.current;
       const snapshot = buildChartSnapshot(chart);
       const store = useScribeRecommendationsStore.getState();
       const context: HandlerContext = {
         mode,
-        encounterId,
         catalogue,
         writer,
         chart: snapshot,
         ask: (request) => store.askPick(request),
-        // What a handler says instead of writing — a template it can only suggest, a request it could
-        // not classify — is kept for the panel to show.
+        // Handler remarks made instead of writing are shown in the panel.
         say: (text) => store.addNote(text),
       };
-      // One executor pass over the batch: the snapshot advances as steps apply, so a lab ordered after the
-      // diagnosis it needs sees that diagnosis, and a swap's removal frees the primary before the add.
-      // Note text lands as the row's mode says — after what the field holds now, which is what the template
-      // just wrote, or over it.
+      // One executor pass: the snapshot advances as steps apply, so later steps see earlier ones (a lab sees
+      // its diagnosis). Note text is appended to or replaces the field per the row's mode.
       const actions = rest.map((rec) =>
         appendToNoteField(toPlannedAction(rec), rec, snapshot, store.itemState[rec.id]?.noteMode)
       );
@@ -170,13 +130,10 @@ export const useApplyRecommendations = (): {
     [encounterId, applyTemplateRecommendation, refetchChart, catalogue, writer]
   );
 
-  // Reconcile every summary on screen with what the server actually stored: the chart, the vitals, and any
-  // orders a template placed.
+  // Refresh the chart, vitals and medication orders so every summary on screen matches the server.
   const reconcile = useCallback(async (): Promise<void> => {
     await Promise.all([
-      // The visit note is re-read in one call, re-seeding every section entry the screens read from it —
-      // the note fields, the lists, the ROS paragraph and the rest. A section variant it does not seed (a
-      // notes list of other types, say) is marked stale and re-read by the next screen that shows it.
+      // Re-reads the visit note; section variants it doesn't seed are marked stale.
       invalidateChart(queryClient, encounterId),
       queryClient.invalidateQueries({ queryKey: [`current-encounter-vitals-${encounterId}`] }),
       queryClient.invalidateQueries({ queryKey: [GET_MEDICATION_ORDERS_QUERY_KEY] }),
@@ -189,7 +146,7 @@ export const useApplyRecommendations = (): {
   );
 
   const applyObservations = useCallback(async (): Promise<void> => {
-    // A whole batch auto-picks among near-equal matches; a provider will not click through a picker per item.
+    // Bulk mode auto-picks among near-equal matches instead of asking per item.
     const { applied, failed, skipped } = await runApply(pendingObservationIds(), 'bulk');
     if (applied + failed + skipped === 0) return;
 

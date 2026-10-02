@@ -25,11 +25,12 @@ import { Sidebar } from '../../shared/components/Sidebar';
 import { useAiResourcesPolling } from '../../shared/components/useAiResourcesPolling';
 import { useAiSuggestionsPolling } from '../../shared/hooks/useAiSuggestionsPolling';
 import { useAssignedProvider } from '../../shared/hooks/useAssignedProvider';
+import { useChartData } from '../../shared/hooks/useChartData';
 import { useChartSection } from '../../shared/hooks/useChartSection';
 import { useGetAppointmentAccessibility } from '../../shared/hooks/useGetAppointmentAccessibility';
 import { useResetAppointmentStore } from '../../shared/hooks/useResetAppointmentStore';
 import { useStopAmbientScribeOnLeave } from '../../shared/hooks/useStopAmbientScribeOnLeave';
-import { useAppointmentData, useChartData } from '../../shared/stores/appointment/appointment.store';
+import { useAppointmentData } from '../../shared/stores/appointment/appointment.store';
 import { VideoChatContainer } from '../../telemed/components/appointment/VideoChatContainer';
 import { useVideoCallStore } from '../../telemed/state/video-call/video-call.store';
 import { Header } from '../components/Header';
@@ -110,21 +111,13 @@ export const InPersonLayout: React.FC = () => {
     : 'Select a provider in order to begin charting.';
   const virtual = isTelemedAppointment(appointment);
   const { meetingData } = getSelectors(useVideoCallStore, ['meetingData']);
-  // Autochart sits beside the note (not over it) so the provider can review a
-  // suggestion and the section it lands in at the same time. Follow-up notes and finished visits
-  // have nothing to apply them to.
-  //
-  // GATED TWICE, and both gates are the shared ones: the Easy Chart feature flag, and the SAME role set
-  // the plan and review endpoints check. A role that can open this can always use its API and vice versa.
+  // Gated by the feature flag and by the same role set the Easy Chart endpoints check. A signed, locked visit
+  // still shows the panel, read-only: its actions are turned off and say why (useAutochartLock).
   const user = useEvolveUser();
   const showScribeRecommendations =
-    FEATURE_FLAGS.EASY_CHART_ENABLED &&
-    Boolean(user?.hasRole([...EASY_CHART_ROLES])) &&
-    !isFollowup &&
-    !isAppointmentReadOnly &&
-    canChart;
+    FEATURE_FLAGS.EASY_CHART_ENABLED && Boolean(user?.hasRole([...EASY_CHART_ROLES])) && !isFollowup && canChart;
   const scribePanelOffset = useScribePanelOffset();
-  // The fixed-position recorder controls would otherwise sit on top of the panel.
+  // Keeps the fixed-position recorder controls clear of the panel.
   const fixedControlsOffset = showScribeRecommendations ? scribePanelOffset : 0;
 
   return (

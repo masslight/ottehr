@@ -1,5 +1,6 @@
 import { expect, Locator, Page } from '@playwright/test';
-import type { QuestionnaireConfigType, ValueSetsConfig } from 'config-types';
+import type { QuestionnaireConfigType } from 'config-types/config/form-fields';
+import type { ValueSetsConfig } from 'config-types/config/value-sets';
 import { Questionnaire, QuestionnaireResponse, QuestionnaireResponseItem } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { checkFieldHidden } from 'utils/lib/config-helpers/intake-paperwork';

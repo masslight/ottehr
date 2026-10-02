@@ -60,18 +60,6 @@ interface RecommendationRowProps {
   onSelectedChange: (selected: boolean) => void;
   onEdit: (patch: Partial<ScribeRecommendation>) => void;
   onRetry: () => void;
-  /** Opens straight into the editor, as the narrative popover does, so no pencil is needed. */
-  startEditing?: boolean;
-  /**
-   * Which open editor this row is, for the store's one-at-a-time rule. The same recommendation
-   * can be on screen twice — in the list and in the narrative popover — and only the one being
-   * worked in should be open, so the popover names its own copy.
-   */
-  editingKey?: string;
-  /** Fired once the editor closes, saving as it goes, so a host popover can close with it. */
-  onEditingEnd?: () => void;
-  /** The host already shows the "why" (the narrative does, on hover), so the row needn't. */
-  hideProvenance?: boolean;
 }
 
 const testIds = dataTestIds.scribeRecommendations;
@@ -79,13 +67,13 @@ const testIds = dataTestIds.scribeRecommendations;
 /** Hooks the row's hover state so the pencil can hide until the pointer (or focus) is on the line. */
 export const ROW_CLASS = 'scribe-row';
 
-/** The colours the Review of Systems table heads its two columns with, so a finding reads the same here. */
+/** Matches the Review of Systems table's column colours. */
 const ROS_FINDING_COLOR: Record<RosFindingState, string> = {
   [RosFindingState.Reports]: 'error.main',
   [RosFindingState.Denies]: 'success.main',
 };
 
-/** sx for a control that should only show itself while the line it belongs to is being read. */
+/** sx that shows a control only while its row is hovered or focused. */
 export const HOVER_ONLY = {
   opacity: 0,
   transition: 'opacity .15s',
@@ -101,28 +89,19 @@ export const RecommendationRow: FC<RecommendationRowProps> = ({
   onSelectedChange,
   onEdit,
   onRetry,
-  startEditing,
-  editingKey = recommendation.id,
-  onEditingEnd,
-  hideProvenance,
 }) => {
+  const editingKey = recommendation.id;
   const rowRef = useRef<HTMLDivElement>(null);
   const isEditing = useScribeRecommendationsStore((state) => state.editingId === editingKey);
   const setEditingId = useScribeRecommendationsStore((state) => state.setEditingId);
   const isHighlighted = useScribeRecommendationsStore((state) => state.hoveredItemId === recommendation.id);
   const setHoveredItemId = useScribeRecommendationsStore((state) => state.setHoveredItemId);
-
-  // The narrative popover opens onto the editor, which is the same as any other row taking it.
-  useEffect(() => {
-    if (startEditing) setEditingId(editingKey);
-  }, [startEditing, editingKey, setEditingId]);
   const { primary, secondary, detail } = describeRecommendation(recommendation);
   const isApplied = itemState.status === 'applied';
   const isApplying = itemState.status === 'applying';
   // Settled either way: this panel wrote it, or it was there already.
   const isDone = isApplied || charted;
-  // Every pending row opens: a generic action row onto its wording, where that is what the executor acts on;
-  // a coded one (an E&M level, a coded history item) onto nothing but its tick, so it can still be left out.
+  // Every pending row opens; a coded action (E&M level, coded history item) opens onto just its tick.
   const canEdit = !isDone && !isApplying && !locked;
 
   // A template the environment doesn't have can't be applied; say so before the provider tries.
@@ -152,8 +131,7 @@ export const RecommendationRow: FC<RecommendationRowProps> = ({
         <CircularProgress size={scaled(18)} data-testid={testIds.rowStatus(recommendation.id)} aria-label="Applying" />
       );
     }
-    // Nothing is drawn once it lands: the checkbox itself goes green, which is the same news
-    // in a place the eye is already on.
+    // No icon once applied; the checkbox turns green instead.
     if (itemState.status === 'skipped') {
       return (
         <Tooltip title={itemState.reason ?? 'Nothing was written'}>
@@ -182,16 +160,14 @@ export const RecommendationRow: FC<RecommendationRowProps> = ({
   };
 
   const canStartEditing = canEdit && !isEditing;
-  // A pending row carries its box in the editor; only a settled row shows one on the line. A note row has
-  // no box at all: its tick is the mode chip, on the line and in the editor alike.
+  // A pending row shows its checkbox only in the editor; a note row uses its mode chip instead.
   const showCheckbox = (isEditing && recommendation.kind !== 'hpi') || isDone;
 
-  // Closing is saving: there is nothing to cancel, so an empty patch is simply an untouched row.
+  // Closing saves; no patch means the row was left untouched.
   const closeEditor = (patch?: Partial<ScribeRecommendation>): void => {
     if (patch) onEdit(patch);
     // Only if this row still holds the editor: another row may have just taken it.
     if (useScribeRecommendationsStore.getState().editingId === editingKey) setEditingId(undefined);
-    onEditingEnd?.();
   };
 
   const row = (
@@ -201,7 +177,7 @@ export const RecommendationRow: FC<RecommendationRowProps> = ({
       data-testid={testIds.row(recommendation.id)}
       onMouseEnter={() => setHoveredItemId(recommendation.id)}
       onMouseLeave={() => setHoveredItemId(undefined)}
-      // The whole line is the edit affordance; the pencil is only the sign that it is one.
+      // The whole line opens the editor; the pencil is only a hint.
       onClick={canStartEditing ? () => startEditingUnlessAnotherIsOpen(editingKey) : undefined}
       sx={{
         display: 'flex',
@@ -214,8 +190,7 @@ export const RecommendationRow: FC<RecommendationRowProps> = ({
         '&:not(:last-of-type)': { borderBottom: '1px solid', borderColor: 'divider' },
       }}
     >
-      {/* A pending row carries no box to tick: it is read, and opened when it needs changing.
-          The slot is held open so the green of a settled row doesn't shunt the line beside it. */}
+      {/* Fixed-width slot so a settled row's checkbox doesn't shift the text. */}
       <Box sx={{ width: scaled(28), flexShrink: 0, display: 'flex', justifyContent: 'center' }}>
         {showCheckbox && (
           <Checkbox
@@ -231,9 +206,7 @@ export const RecommendationRow: FC<RecommendationRowProps> = ({
             sx={{
               p: 0.5,
               mt: -0.25,
-              // A settled row is disabled, and MUI paints a disabled checkbox in action.disabled;
-              // keep the green — that is how this row now says it is in the chart — but keep it faded
-              // too, so it still reads as something there is nothing left to do to.
+              // MUI greys out a disabled checkbox; keep a settled row's green, faded.
               ...(isDone ? { '&.Mui-disabled.Mui-checked': { color: 'success.main', opacity: 0.55 } } : {}),
             }}
           />
@@ -251,10 +224,7 @@ export const RecommendationRow: FC<RecommendationRowProps> = ({
         ) : (
           <>
             <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5 }}>
-              {/* The finding leads the line — "R: Eyes: Discharge" is the order it is read in —
-                  as the single coloured letter the Review of Systems screen heads its columns
-                  with. It sits in a fixed column of its own so the findings line up to skim down
-                  and a long system name wraps under itself rather than under the letter. */}
+              {/* The R/D finding letter, in a fixed column so long system names wrap under themselves. */}
               {recommendation.kind === 'ros' && (
                 <Typography
                   variant="body2"
@@ -276,8 +246,7 @@ export const RecommendationRow: FC<RecommendationRowProps> = ({
                   sx={{
                     fontWeight: 500,
                     overflowWrap: 'anywhere',
-                    // Unticked is struck out rather than dimmed: it says "not going in" in the
-                    // same hand the narrative above strikes the same item out in.
+                    // Struck out, matching how the narrative marks an unticked item.
                     ...(!itemState.selected && !isDone
                       ? { textDecoration: 'line-through', color: 'text.secondary' }
                       : {}),
@@ -304,7 +273,7 @@ export const RecommendationRow: FC<RecommendationRowProps> = ({
                     />
                   </Tooltip>
                 )}
-                {/* A note row's tick: how its paragraph lands in the field, chosen here rather than in a box. */}
+                {/* A note row's tick is its mode chip. */}
                 {recommendation.kind === 'hpi' && !isDone && (
                   <NoteModeChip
                     id={recommendation.id}
@@ -315,13 +284,11 @@ export const RecommendationRow: FC<RecommendationRowProps> = ({
                 )}
               </Box>
             </Box>
-            {/* An exam row's secondary is its PREDICTION of where the finding will land; once applied, the
-                executor's own note below says where it did, and showing both reads as a duplicate. */}
+            {/* An exam row's secondary is a prediction; once applied, the executor's note says where it landed. */}
             {secondary && !(recommendation.kind === 'exam' && isApplied) && (
               <Typography
                 variant="caption"
                 color="text.secondary"
-                // An exam row's second line is the box it will tick, or where a miss goes: named for tests.
                 data-testid={recommendation.kind === 'exam' ? testIds.examLeaf(recommendation.id) : undefined}
               >
                 {secondary}
@@ -330,21 +297,26 @@ export const RecommendationRow: FC<RecommendationRowProps> = ({
           </>
         )}
 
-        {/* An applied row that the executor has something to say about says it: charted as secondary
-            because a primary was already set, auto-picked from several near matches, filed as free text.
-            Amber when the pick or the inference is the executor's rather than the transcript's. */}
+        {/* Executor remark on an applied row. When the executor picked or inferred it, an amber icon flags it; */}
         {isApplied && (itemState.note || itemState.lowConfidence) && (
-          <Typography
-            variant="caption"
-            color={itemState.lowConfidence ? 'warning.main' : 'text.secondary'}
-            data-testid={testIds.rowNote(recommendation.id)}
-          >
-            {itemState.note ?? 'Picked by the assistant from several near matches — verify.'}
-          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5 }}>
+            {itemState.lowConfidence && (
+              <WarningAmberOutlinedIcon
+                aria-hidden
+                sx={{ fontSize: scaled(14), mt: '2px', flexShrink: 0, color: 'warning.main' }}
+              />
+            )}
+            <Typography
+              variant="caption"
+              color={itemState.lowConfidence ? 'text.primary' : 'text.secondary'}
+              data-testid={testIds.rowNote(recommendation.id)}
+            >
+              {itemState.note ?? 'Picked by the assistant from several near matches — verify.'}
+            </Typography>
+          </Box>
         )}
 
-        {/* A failed row says why in red; a skipped one says why nothing was written, in grey. Both
-            offer another go — the provider may have fixed the wording, or ticked it back on. */}
+        {/* Failed (red) and skipped (grey) rows say why and offer a retry. */}
         {(itemState.status === 'error' || itemState.status === 'skipped') && (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
             <Typography variant="caption" color={itemState.status === 'error' ? 'error' : 'text.secondary'}>
@@ -369,8 +341,7 @@ export const RecommendationRow: FC<RecommendationRowProps> = ({
       </Box>
 
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25, flexShrink: 0 }}>
-        {/* The caution has to be readable without hovering, so the flag stays on the row even
-            though the sentence behind it has moved into the hover. */}
+        {/* The warning flag stays visible without hovering; its text is in the tooltip. */}
         {warning && !isEditing && (
           <WarningAmberOutlinedIcon
             role="img"
@@ -389,7 +360,6 @@ export const RecommendationRow: FC<RecommendationRowProps> = ({
             }}
             aria-label={`Edit: ${primary}`}
             data-testid={testIds.rowEditButton(recommendation.id)}
-            // Hidden until the line is under the pointer (or holds focus, for the keyboard).
             sx={{ p: 0.5, ...HOVER_ONLY }}
           >
             <EditOutlinedIcon sx={{ fontSize: scaled(18) }} />
@@ -399,13 +369,9 @@ export const RecommendationRow: FC<RecommendationRowProps> = ({
     </Box>
   );
 
-  // The "why" is the hover on the line itself now — no "i" to press, and nothing pinned open
-  // pushing the rest of the list down. The tooltip stays wrapped around the row even when there is
-  // nothing to say — it just stops listening — because unwrapping it would hand React a different
-  // element and remount the row's DOM out from under whoever is holding it, the editor included.
-  // An empty title is MUI's own way of saying there is nothing to show: it closes a tooltip that
-  // is already up, which is what starting an edit under the pointer has to do.
-  const title = !showProvenance || hideProvenance || isEditing ? '' : <ProvenanceContent {...provenance} />;
+  // Keep the Tooltip wrapper even with nothing to show: unwrapping would remount the row, editor included.
+  // An empty title disables it and closes one already open, e.g. when an edit starts under the pointer.
+  const title = !showProvenance || isEditing ? '' : <ProvenanceContent {...provenance} />;
   return (
     <Tooltip title={title} placement="left" enterDelay={300}>
       {row}
@@ -418,26 +384,17 @@ export interface RecommendationEditorProps {
   templates: TemplateOption[];
   /** The line the editor sits on: a click anywhere on it, the tick included, is not a click away. */
   rowRef: RefObject<HTMLElement>;
-  /**
-   * Closes the editor, with the change to keep or nothing if the fields still say what they said.
-   * Fired exactly once, by whichever way out the provider takes.
-   */
+  /** Called exactly once when the editor closes, with the patch, or undefined if nothing changed. */
   onCommit: (patch?: Partial<ScribeRecommendation>) => void;
 }
 
-/**
- * A dropdown of the ICD-10 or template picker, or the note row's mode menu, is portalled out of the row,
- * but is still the editor.
- */
+/** Portalled dropdowns (the ICD-10 and template pickers, the note mode menu) count as inside the editor. */
 const isInPopup = (target: EventTarget | Element | null): boolean =>
   target instanceof Element && Boolean(target.closest(`.MuiAutocomplete-popper, .${NOTE_MODE_MENU_CLASS}`));
 
 /**
- * Inline editor for the parts of a recommendation a provider is likely to want to correct.
- *
- * There is no Save and no Cancel: the way out is to look somewhere else, and what the fields say
- * when that happens is what is kept. Every exit — clicking off the line, tabbing off it, Enter,
- * Escape, another row taking the editor, the popover closing — runs through the one commit.
+ * Inline recommendation editor with no Save or Cancel: every exit (click-away, Tab, Enter, Escape, another
+ * row opening, the popover closing) commits what the fields say.
  */
 export const RecommendationEditor: FC<RecommendationEditorProps> = ({
   recommendation,
@@ -446,7 +403,6 @@ export const RecommendationEditor: FC<RecommendationEditorProps> = ({
   onCommit,
 }) => {
   const id = recommendation.id;
-  // The note row's tick sits on the editor's header line, as the same chip the line shows when read.
   const noteMode = useScribeRecommendationsStore((state) => state.itemState[id]?.noteMode ?? 'append');
   const [text, setText] = useState(() => {
     switch (recommendation.kind) {
@@ -468,7 +424,7 @@ export const RecommendationEditor: FC<RecommendationEditorProps> = ({
   const [finding, setFinding] = useState<RosFindingState>(
     recommendation.kind === 'ros' ? recommendation.finding : RosFindingState.Reports
   );
-  // The box the provider picks among an exam row's near-equal matches, by its field; '' while unpicked.
+  // Field of the box picked among an exam row's near-equal matches; '' while unpicked.
   const [chosenField, setChosenField] = useState<string>(
     recommendation.kind === 'exam' ? resolvedExamLeaf(recommendation)?.field ?? '' : ''
   );
@@ -502,7 +458,7 @@ export const RecommendationEditor: FC<RecommendationEditorProps> = ({
           ? { code: diagnosis.code, display: diagnosis.display, transcriptTerm: recommendation.transcriptTerm }
           : {};
       case 'action': {
-        // Unusable wording — a reading that does not parse — keeps the old one, like an emptied field does.
+        // Wording that doesn't parse keeps the old value, like an emptied field.
         const edited = withEditedText(recommendation.action, text);
         return edited ? actionEditPatch(edited) : {};
       }
@@ -510,11 +466,8 @@ export const RecommendationEditor: FC<RecommendationEditorProps> = ({
   };
 
   /**
-   * An exam row's patch. Reworded, the new words are looked up again exactly as the analysis looked the
-   * old ones up, and the model's synonyms go with the old words; a pick that belonged to the old wording
-   * goes too, since the new words may resolve elsewhere. Unchanged words with a new pick keep the
-   * resolution and record the pick on it. Only what changed is in the patch: a fresh resolution object
-   * would otherwise always read as an edit.
+   * New wording is resolved afresh, dropping the old synonyms and pick; the same wording with a new pick records
+   * it. Returns only what changed, since a fresh resolution object would always read as an edit.
    */
   const examEdit = (rec: ExamRecommendation): Partial<ExamRecommendation> => {
     const next = text.trim();
@@ -528,27 +481,24 @@ export const RecommendationEditor: FC<RecommendationEditorProps> = ({
 
   const hasCommitted = useRef(false);
   const commit = (): void => {
-    // Click-away and blur can both fire on the way out; the first one out is the one that counts.
+    // Click-away and blur can both fire on the way out; only the first commits.
     if (hasCommitted.current) return;
     hasCommitted.current = true;
     const patch = edit();
-    // Opening a line and leaving it alone is not an edit, and mustn't be recorded as one: the
-    // narrative reads the AI's own wording back until the provider actually changes something.
+    // An untouched row is not an edit, so the narrative keeps showing the AI's wording.
     const changed = Object.entries(patch).some(
       ([key, value]) => (recommendation as unknown as Record<string, unknown>)[key] !== value
     );
     onCommit(changed ? patch : undefined);
   };
 
-  // Whatever takes the editor away — another row, the popover closing — saves it on the way.
+  // Unmounting (another row opening, the popover closing) commits too.
   const commitRef = useRef(commit);
   useEffect(() => {
     commitRef.current = commit;
   });
-  // Armed a beat after mounting, because React's StrictMode tears a fresh mount effect down and
-  // sets it up again in the same tick as the mount: committing on that simulated unmount closed
-  // the editor in the very tick the click opened it, and the row read as unclickable. Nothing can
-  // have been typed in the beat before arming, so nothing is lost by waiting for it.
+  // Armed a tick after mount so StrictMode's simulated unmount doesn't commit and close the editor the
+  // moment it opens.
   const isArmed = useRef(false);
   useEffect(() => {
     const arm = setTimeout(() => (isArmed.current = true), 0);
@@ -558,10 +508,8 @@ export const RecommendationEditor: FC<RecommendationEditorProps> = ({
     };
   }, []);
 
-  // Escape has to work even when the focus has slipped out of the editor — the ICD-10 picker
-  // blurs the field the moment a code is chosen — so it is listened for on the document rather
-  // than on the editor alone. Anything that has already answered the key (a picker closing its
-  // dropdown, the popover closing itself) stops it or marks it handled before it gets here.
+  // Listened for on the document because the ICD-10 picker blurs the field once a code is chosen.
+  // Whatever already handled the key (a dropdown closing) stops it or marks it defaultPrevented.
   useEffect(() => {
     const onEscape = (event: globalThis.KeyboardEvent): void => {
       if (event.key === 'Escape' && !event.defaultPrevented) commitRef.current();
@@ -576,7 +524,7 @@ export const RecommendationEditor: FC<RecommendationEditorProps> = ({
     (recommendation.kind === 'action' && editableActionText(recommendation.action)?.field === 'text');
 
   const onKeyDown = (event: KeyboardEvent): void => {
-    // Escape leaves the editor like everything else does: by keeping what is in the fields.
+    // Escape commits too; there is no cancel.
     if (event.key === 'Escape') commit();
     // Enter commits single-line edits; in a multiline editor it inserts a line break.
     if (event.key === 'Enter' && !isMultiline) {
@@ -649,8 +597,6 @@ export const RecommendationEditor: FC<RecommendationEditorProps> = ({
               onChange={(_event, value: RosFindingState | null) => value && setFinding(value)}
               aria-label="Finding"
             >
-              {/* The same two letters, in the same two colours, the row and the Review of
-                  Systems screen show the finding as. */}
               <ToggleButton
                 value={RosFindingState.Denies}
                 color="success"
@@ -675,10 +621,8 @@ export const RecommendationEditor: FC<RecommendationEditorProps> = ({
         return (
           <>
             {textField('Exam finding')}
-            {/* Several boxes fit the words about equally: the provider picks the one they meant here,
-                rather than in the executor's dialog at apply time. The labels are the ones the picker
-                would show — the card, then the path to the box. Retyping the words drops the pick, as
-                the new words are looked up afresh when the editor closes. */}
+            {/* Ambiguous match: the provider picks the box here rather than in the executor's dialog at apply
+                time. Retyped words are looked up afresh when the editor closes. */}
             {resolution.kind === 'ambiguous' && text.trim() === recommendation.display ? (
               <RadioGroup
                 value={chosenField}
@@ -745,9 +689,7 @@ export const RecommendationEditor: FC<RecommendationEditorProps> = ({
         );
       case 'action': {
         const editable = editableActionText(recommendation.action);
-        // A coded kind (an E&M level, a CPT, a coded history item) has no wording to edit: the editor is
-        // the tick beside the same words the row shows, so the provider can leave it out without being
-        // told there is nothing to type.
+        // Coded kinds (E&M level, conditions) have no wording to edit; the editor is just the tick.
         if (!editable) {
           const { primary, secondary } = describeRecommendation(recommendation);
           return (
@@ -768,11 +710,8 @@ export const RecommendationEditor: FC<RecommendationEditorProps> = ({
     }
   };
 
-  // Every way out but one is a keystroke, and a keystroke only reaches the editor if something
-  // inside it holds the focus. A text field takes it itself (autoFocus), but the R/D toggles and
-  // the ICD-10 search don't, and a row opened by clicking its text leaves the focus on the body —
-  // where Escape and Tab have nothing to act on. So the editor takes the focus if nothing in it
-  // has: the control that is already the answer where there is one, the first control otherwise.
+  // Pull focus into the editor so Escape and Tab reach it; the R/D toggles and ICD-10 search don't autofocus.
+  // Prefers the pressed toggle, else the first control.
   const editorRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const editor = editorRef.current;
@@ -786,7 +725,7 @@ export const RecommendationEditor: FC<RecommendationEditorProps> = ({
   return (
     <ClickAwayListener
       onClickAway={(event) => {
-        // Anywhere on the line — or in a dropdown the line put on screen — is still in here.
+        // Clicks on the row or in its portalled dropdowns are inside the editor.
         if (rowRef.current?.contains(event.target as Node) || isInPopup(event.target)) return;
         commit();
       }}

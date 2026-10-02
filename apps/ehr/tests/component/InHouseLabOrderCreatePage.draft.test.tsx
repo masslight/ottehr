@@ -29,6 +29,9 @@ vi.mock('../../src/features/visits/shared/hooks/useGetAppointmentAccessibility',
 
 vi.mock('../../src/features/visits/shared/stores/appointment/appointment.store', () => ({
   useAppointmentData: () => ({ encounter: { id: 'enc-inhouse-test' } }),
+}));
+
+vi.mock('../../src/features/visits/shared/hooks/useChartData', () => ({
   useChartData: () => ({ chartData: { diagnosis: [] }, setPartialChartData: vi.fn() }),
 }));
 

@@ -1,30 +1,17 @@
-// Compare eval runs, in the terminal and as a self-contained HTML page.
+// Compare run-harvested.ts runs against a baseline, in the terminal and as a self-contained HTML page.
 //
-// WHAT THIS IS FOR. A prompt or executor change is only worth keeping if the corpus says so, and
-// "the corpus says so" is a comparison, never a single number: a change that lifts diagnosis recall
-// while quietly dropping four exam findings reads as an improvement in the headline and a regression
-// on the note. So every view here is a DELTA against a baseline run, and the per-case table exists
-// because an aggregate that moves by +0.01 can be one case gaining a lot and three losing a little.
-//
-// PHI, AND WHY THIS TOOL IS SAFE BY CONSTRUCTION. The corpus is real clinical text. It lives in
-// gitignored directories and must never leave them. This tool reads `summary.json` and `*.score.json`
-// and NOTHING ELSE — deliberately not `*.result.json`, which carries the planned actions and the
-// simulated chart state, i.e. the clinical content. The score files are counts and case ids: verified
-// by scanning a whole run, the longest string in them is a trigger-pattern name. `assertSafeId`
-// enforces the one place a string reaches the output.
+// PHI: reads only summary.json and *.score.json (counts and case ids), never *.result.json, which holds
+// clinical content. The HTML goes into the last run's gitignored directory; only point --out at an ignored path.
 //
 // Usage:
 //   npx tsx tools/easy-chart-eval/report.ts <baselineDir> <currentDir> [<moreDirs>...]
 //   npx tsx tools/easy-chart-eval/report.ts run-a run-b --out /tmp/eval.html
 //   npx tsx tools/easy-chart-eval/report.ts run-a run-b --no-html      # terminal only
-//
-// The HTML lands inside the last run's directory by default, which is gitignored for the same reason
-// the corpus is. Point --out somewhere else only if you know that path is ignored too.
 
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, join, resolve } from 'node:path';
 
-/** A section as the SUMMARY writes it. Per-case files name the first field `goldInScope` instead. */
+/** A section as summary.json writes it; per-case score files use `goldInScope` instead of `gold`. */
 interface SectionLike {
   gold?: number;
   goldInScope?: number;
@@ -42,75 +29,61 @@ interface Section {
   recall: number;
   f1: number;
   /**
-   * Whether the scorer actually MEASURED precision here.
-   *
-   * It reports `null` — not zero — for `medsInHouse`, `medsPrescribed` and `immunizations`, because all
-   * three carry the SAME `predicted` count (the combined medication total) and dividing by it three
-   * times measures nothing. Precision for those lives in the `medsCombined` bucket instead. Collapsing
-   * that null to 0 printed "not measured" as "catastrophically bad", and worse, fed one set of
-   * predictions into the TOTAL denominator three times over.
+   * False when the scorer reports null precision, as for the med and immunization sections that share one
+   * combined `predicted` count (their precision is in `medsCombined`). Null means not measured, not zero.
    */
   precisionMeasured: boolean;
 }
 
-type Scope = 'plannerOnly' | 'final';
-const SCOPES: Scope[] = ['plannerOnly', 'final'];
+interface Usage {
+  calls?: number;
+  inputTokens?: number;
+  outputTokens?: number;
+}
 
 interface RunSummary {
   scoredCases: number;
-  scopes: Record<Scope, { sections: Record<string, SectionLike> }>;
+  sections: Record<string, SectionLike>;
   freeText: Record<string, { goldPresent: number; predictedPresent: number; bothPresent: number }>;
   counters: Record<string, number>;
   dispositionVoiced?: Record<string, number>;
   dispositionTrigger?: Record<string, unknown>;
-  usage: Record<string, Record<string, number>>;
+  usage?: Usage;
 }
 
+/** A per-case score file: its sections sit at the top level, beside `caseId` and the fields below. */
 interface CaseScore {
   caseId: string;
-  scopes: Record<Scope, Record<string, SectionLike>> & Record<Scope, { em?: EmLike }>;
-  /** 'new' | 'established' when the corpus knew the patient's status, null when it did not. */
+  em?: EmLike;
+  /** Null when the corpus did not know the patient's status. */
   patientStatusSent?: 'new' | 'established' | null;
   /** Where that status came from — see emLine. */
   patientStatusSource?: 'harvested' | 'gold-family' | 'none';
 }
 
-/** The per-case E&M pair. `gold`/`predicted` here are CPT code STRINGS, not counts. */
+/** The per-case E&M pair; `gold`/`predicted` are CPT code strings, not counts. */
 interface EmLike {
   gold?: string | null;
   predicted?: string | null;
 }
 
 interface Run {
-  /** Directory basename. The only free-form string that reaches the output, and it is validated. */
+  /** Directory basename, validated because it is written into the report. */
   name: string;
   dir: string;
   summary: RunSummary;
   cases: Map<string, CaseScore>;
 }
 
-/**
- * The sections the SUMMARY scores, which is the definition of "a section" everywhere in this tool.
- * Read from the runs rather than hardcoded, so a scorer that gains a section is picked up without an
- * edit here — and one that loses a section does not leave a phantom column.
- */
-function sectionNames(baseline: Run, current: Run, scope: Scope): string[] {
-  return [
-    ...new Set([
-      ...Object.keys(baseline.summary.scopes[scope]?.sections ?? {}),
-      ...Object.keys(current.summary.scopes[scope]?.sections ?? {}),
-    ]),
-  ].sort();
+/** Sections from either run's summary, read from the runs so scorer changes need no edit here. */
+function sectionNames(baseline: Run, current: Run): string[] {
+  return [...new Set([...Object.keys(baseline.summary.sections), ...Object.keys(current.summary.sections)])].sort();
 }
 
-/**
- * The one guard between a filesystem name and the report.
- *
- * Not paranoia about the corpus — case ids and directory names are structural. It is that this file
- * writes HTML, and a name that reached the page unchecked would be the one place markup could be
- * injected from a path someone chose. Refusing is better than escaping: a directory that needs
- * escaping is a directory that should be renamed.
- */
+/** Only the names passed to totalsOf are read, so the non-section fields of a score file are ignored. */
+const sectionsOf = (score: CaseScore): Record<string, SectionLike> => score as unknown as Record<string, SectionLike>;
+
+/** Filesystem names are written into the HTML, so anything but a plain name is refused rather than escaped. */
 function assertSafeId(value: string, what: string): string {
   if (!/^[A-Za-z0-9._-]{1,80}$/.test(value)) {
     throw new Error(`${what} "${value}" is not a plain name — rename it to [A-Za-z0-9._-] before reporting on it`);
@@ -141,23 +114,14 @@ function normalize(section: SectionLike | undefined): Section {
 }
 
 /**
- * Totals across sections, with the rates RECOMPUTED — averaging per-section rates would weight a
- * two-item section like a seventy-item one.
- *
- * `names` IS REQUIRED, and iterating the object instead was a real bug that made this tool lie. A
- * per-case scope holds more than sections: `em` carries the E&M CODES as `gold`/`predicted`, i.e.
- * STRINGS, so summing blindly produced NaN — and NaN compares false against every threshold, so the
- * per-case table cheerfully reported "every scored case is identical to the baseline" for two runs
- * that differ. `medsCombined` is the other trap: a roll-up of three sections that are already counted.
- * Taking the names from the SUMMARY's own section list makes the per-case totals agree with the
- * aggregate by construction.
+ * Totals across `names` with rates recomputed from counts (averaging rates would overweight small sections).
+ * Only `names` is summed: a per-case score also holds `em` (code strings) and the `medsCombined` roll-up.
  */
 function totalsOf(sections: Record<string, SectionLike>, names: string[]): Section {
   let gold = 0;
   let predicted = 0;
   let matched = 0;
-  // Precision gets its OWN accumulators, over the sections the scorer was willing to measure. Recall
-  // stays over everything: it divides by GOLD, which is counted once per section and is always sound.
+  // Precision covers only sections with measured precision; recall covers all, since gold is counted once per section.
   let predictedMeasured = 0;
   let matchedMeasured = 0;
   for (const name of names) {
@@ -183,7 +147,6 @@ function totalsOf(sections: Record<string, SectionLike>, names: string[]): Secti
   };
 }
 
-/** Sections the scorer declined to measure precision for, named so the total can say what it excluded. */
 function unmeasuredPrecisionSections(sections: Record<string, SectionLike>, names: string[]): string[] {
   return names.filter((name) => sections[name] && !normalize(sections[name]).precisionMeasured);
 }
@@ -194,7 +157,7 @@ function loadRun(dir: string): Run {
   if (!existsSync(summaryPath)) throw new Error(`${dir} has no summary.json — is it a run directory?`);
   const cases = new Map<string, CaseScore>();
   for (const file of readdirSync(full)) {
-    // ONLY score files. See the header: result files carry clinical text and are never opened here.
+    // Only score files: result files carry clinical text (see header).
     if (!file.endsWith('.score.json')) continue;
     const score = JSON.parse(readFileSync(join(full, file), 'utf8')) as CaseScore;
     cases.set(assertSafeId(score.caseId, 'case id'), score);
@@ -207,14 +170,12 @@ function loadRun(dir: string): Run {
   };
 }
 
-// ---------------------------------------------------------------------------
-// Terminal
-// ---------------------------------------------------------------------------
+// Terminal report
 
 const pad = (value: string | number, width: number): string => String(value).padStart(width);
 const padEnd = (value: string, width: number): string => value.padEnd(width);
 
-/** A delta, or a visible "=" — an empty cell reads as missing data rather than as no change. */
+/** Signed delta, or "=" for no change, since an empty cell would read as missing data. */
 function delta(current: number, base: number, digits = 3): string {
   const d = current - base;
   if (Math.abs(d) < 5e-4) return '=';
@@ -226,11 +187,11 @@ function deltaInt(current: number, base: number): string {
   return d === 0 ? '=' : `${d > 0 ? '+' : ''}${d}`;
 }
 
-function printScope(baseline: Run, current: Run, scope: Scope): void {
-  const bs = baseline.summary.scopes[scope].sections;
-  const cs = current.summary.scopes[scope].sections;
-  const names = sectionNames(baseline, current, scope);
-  console.log(`\n  scope: ${scope}`);
+function printSections(baseline: Run, current: Run): void {
+  const bs = baseline.summary.sections;
+  const cs = current.summary.sections;
+  const names = sectionNames(baseline, current);
+  console.log('');
   console.log(
     `  ${padEnd('section', 16)}${pad('gold', 6)}${pad('pred', 7)}${pad('Δ', 7)}${pad('match', 7)}${pad('Δ', 7)}` +
       `${pad('prec', 8)}${pad('recall', 8)}${pad('F1', 8)}${pad('ΔF1', 8)}`
@@ -272,40 +233,19 @@ function printScope(baseline: Run, current: Run, scope: Scope): void {
 }
 
 /**
- * E&M exact-match, reported TWICE: over every case, and over the cases where the patient's status was
- * actually supplied.
- *
- * The split is not a nicety. An E&M code's family — 99202-99205 for a new patient, 99212-99215 for an
- * established one — follows from patient status, and the prompt is instructed to default to the
- * established family when the status is unknown. 17 of the 40 harvested cases carry no status (a partial
- * backfill; production derives it from prior appointments) and 16 of those 17 gold codes are in the NEW
- * family. The overall figure therefore mostly measures that fallback firing, and moves for reasons that
- * have nothing to do with coding. Read the second column.
- */
-/**
- * E&M exact match, split by WHERE the patient status came from.
- *
- * The split used to be "status supplied vs not", which stopped saying anything once the runner started
- * resolving a status for every case. What matters now is the EVIDENCE behind it: a `harvested` status was
- * derived against the live project from the patient's prior encounters, exactly as production does, while
- * a `gold-family` one was read off the family of the gold code because the corpus never got backfilled.
- * The second is legitimate for measuring the LEVEL — it cannot reveal the last digit — but it is not the
- * same claim, so the harvested column is the honest headline and the total is the parity number.
+ * E&M exact match, split by patient-status source: `harvested` is derived from prior encounters as in
+ * production; `gold-family` is read off the gold code's family, which still leaves the level to the model.
  */
 function emLine(run: Run): string {
   const counts: Record<string, { n: number; exact: number }> = {};
   let all = 0;
   let allExact = 0;
-  // THE ONLY E&M COLUMN THAT DISCRIMINATES. Gold is the family's level-4 code in 35 of the 40 cases, so
-  // a predictor that always says "level 4 of the family I was told" scores 34/40 — above every
-  // implementation measured here. A rise in the headline is therefore consistent with getting BETTER at
-  // coding and with collapsing onto the mode, and those are opposite outcomes. One prompt edit scored
-  // 29/40 while going 0-for-5 on the cases where gold is NOT level 4, against the dabrams run's 4-of-5
-  // on the same five. Read `discriminating` first; the headline mostly measures the corpus.
+  // Most gold codes are level 4, so always guessing level 4 scores well on the headline. Only cases whose
+  // gold is not level 4 (`discriminating`) separate coding judgement from collapsing onto the mode.
   let disc = 0;
   let discExact = 0;
   for (const score of run.cases.values()) {
-    const em = score.scopes?.final?.em;
+    const em = score.em;
     if (!em?.gold || !em.predicted) continue;
     const exact = em.gold === em.predicted;
     all++;
@@ -323,21 +263,16 @@ function emLine(run: Run): string {
     .filter((source) => counts[source])
     .map((source) => `${source} ${counts[source].exact}/${counts[source].n}`)
     .join(', ');
-  return (
-    `  ${padEnd(run.name, 26)}exact ${pad(`${allExact}/${all}`, 8)} | discriminating ${pad(
-      `${discExact}/${disc}`,
-      6
-    )} | ${bySource || 'source not recorded'}`
-  );
+  return `  ${padEnd(run.name, 26)}exact ${pad(`${allExact}/${all}`, 8)} | discriminating ${pad(
+    `${discExact}/${disc}`,
+    6
+  )} | ${bySource || 'source not recorded'}`;
 }
 
-/**
- * The level-4 codes, i.e. the gold value for 35 of the 40 harvested cases. A case whose gold is one of
- * these cannot tell a coding judgement apart from a constant guess — see emLine.
- */
+/** Level-4 codes, the modal gold value; a case with one of these as gold can't reveal coding judgement. */
 const MODAL_EM_CODES = new Set(['99204', '99214']);
 
-/** Per-case F1 movement, worst first. The view that says whether an aggregate gain is broad or lucky. */
+/** Per-case F1 change; shows whether an aggregate gain is broad or down to a few cases. */
 interface CaseMove {
   caseId: string;
   base: number;
@@ -345,44 +280,38 @@ interface CaseMove {
   change: number;
 }
 
-function caseMoves(baseline: Run, current: Run, scope: Scope): CaseMove[] {
-  const names = sectionNames(baseline, current, scope);
+function caseMoves(baseline: Run, current: Run): CaseMove[] {
+  const names = sectionNames(baseline, current);
   const moves: CaseMove[] = [];
   for (const [caseId, score] of current.cases) {
     const before = baseline.cases.get(caseId);
     if (!before) continue;
-    const b = totalsOf(before.scopes[scope], names);
-    const c = totalsOf(score.scopes[scope], names);
+    const b = totalsOf(sectionsOf(before), names);
+    const c = totalsOf(sectionsOf(score), names);
     moves.push({ caseId, base: b.f1, current: c.f1, change: c.f1 - b.f1 });
   }
   return moves.sort((a, b) => a.change - b.change);
 }
 
 /**
- * Do the per-case files add up to the summary this tool is printing beside them?
- *
- * THE SELF-CHECK THAT SHOULD HAVE EXISTED FIRST. The two views are computed from different files by
- * different code, over the same run — so they must agree, and when they do not, one of them is being
- * read wrong. That is not hypothetical: summing a per-case scope blindly picked up `em`, whose
- * gold/predicted are E&M CODE STRINGS, and the resulting NaN made every case compare as unchanged.
- * The tool reported "every scored case is identical" for two runs that differ in fourteen. A tool that
- * is confidently wrong about a comparison is worse than no tool, so this runs on every report.
+ * Checks that the per-case files sum to summary.json. The two are computed by different code, so a
+ * mismatch means one is being read wrong and the comparison can't be trusted.
  */
-function checkConsistency(run: Run, names: string[], scope: Scope): string | undefined {
+function checkConsistency(run: Run, names: string[]): string | undefined {
   if (run.cases.size === 0) return undefined;
-  const summary = totalsOf(run.summary.scopes[scope].sections, names);
+  const summary = totalsOf(run.summary.sections, names);
   let gold = 0;
   let predicted = 0;
   let matched = 0;
   for (const score of run.cases.values()) {
-    const totals = totalsOf(score.scopes[scope], names);
+    const totals = totalsOf(sectionsOf(score), names);
     gold += totals.gold;
     predicted += totals.predicted;
     matched += totals.matched;
   }
   if (gold === summary.gold && predicted === summary.predicted && matched === summary.matched) return undefined;
   return (
-    `${run.name} (${scope}): per-case files sum to ${gold}/${predicted}/${matched} gold/pred/matched, ` +
+    `${run.name}: per-case files sum to ${gold}/${predicted}/${matched} gold/pred/matched, ` +
     `but summary.json says ${summary.gold}/${summary.predicted}/${summary.matched}`
   );
 }
@@ -391,20 +320,20 @@ function printReport(baseline: Run, current: Run): void {
   console.log(`\nBASELINE  ${baseline.name}   cases=${baseline.summary.scoredCases}`);
   console.log(`CURRENT   ${current.name}   cases=${current.summary.scoredCases}`);
 
-  const problems = SCOPES.flatMap((scope) => {
-    const names = sectionNames(baseline, current, scope);
-    return [checkConsistency(baseline, names, scope), checkConsistency(current, names, scope)];
-  }).filter((problem): problem is string => Boolean(problem));
+  const names = sectionNames(baseline, current);
+  const problems = [checkConsistency(baseline, names), checkConsistency(current, names)].filter(
+    (problem): problem is string => Boolean(problem)
+  );
   if (problems.length > 0) {
     console.error('\n  ⚠ THE NUMBERS BELOW DO NOT RECONCILE — do not act on this comparison:');
     for (const problem of problems) console.error(`    ${problem}`);
     process.exitCode = 1;
   }
-  for (const scope of SCOPES) printScope(baseline, current, scope);
+  printSections(baseline, current);
 
-  const moves = caseMoves(baseline, current, 'final');
+  const moves = caseMoves(baseline, current);
   const moved = moves.filter((m) => Math.abs(m.change) >= 5e-4);
-  console.log(`\n  per-case F1 (scope: final) — ${moved.length} of ${moves.length} cases moved`);
+  console.log(`\n  per-case F1 — ${moved.length} of ${moves.length} cases moved`);
   if (moved.length === 0) {
     console.log('    every scored case is identical to the baseline');
   } else {
@@ -416,7 +345,7 @@ function printReport(baseline: Run, current: Run): void {
     }
   }
 
-  console.log('\n  E&M exact match (scope: final)');
+  console.log('\n  E&M exact match');
   for (const run of [baseline, current]) console.log(emLine(run));
 
   console.log('\n  counters');
@@ -430,12 +359,12 @@ function printReport(baseline: Run, current: Run): void {
   }
 
   console.log('\n  model usage');
-  for (const call of ['planner', 'review']) {
-    const b = baseline.summary.usage?.[call] ?? {};
-    const c = current.summary.usage?.[call] ?? {};
+  {
+    const b = baseline.summary.usage ?? {};
+    const c = current.summary.usage ?? {};
     if (b.calls || c.calls) {
       console.log(
-        `    ${padEnd(call, 10)}calls=${pad(c.calls ?? 0, 4)} (${deltaInt(c.calls ?? 0, b.calls ?? 0)})` +
+        `    calls=${pad(c.calls ?? 0, 4)} (${deltaInt(c.calls ?? 0, b.calls ?? 0)})` +
           `  in=${pad(c.inputTokens ?? 0, 8)} (${deltaInt(c.inputTokens ?? 0, b.inputTokens ?? 0)})` +
           `  out=${pad(c.outputTokens ?? 0, 7)} (${deltaInt(c.outputTokens ?? 0, b.outputTokens ?? 0)})`
       );
@@ -450,15 +379,11 @@ function printReport(baseline: Run, current: Run): void {
       (onlyCurrent.length ? `, ${onlyCurrent.length} only in current` : '')
   );
   if (onlyBase.length || onlyCurrent.length) {
-    // A comparison over different case sets is not a comparison. Say so rather than printing a delta
-    // that silently mixes "the model changed" with "we scored a different corpus".
     console.log('  ⚠ the runs do not cover the same cases — aggregate deltas mix a code change with a corpus change');
   }
 }
 
-// ---------------------------------------------------------------------------
-// HTML
-// ---------------------------------------------------------------------------
+// HTML report
 
 const cell = (value: number, digits = 3): string => value.toFixed(digits);
 
@@ -475,16 +400,15 @@ function deltaIntCell(current: number, base: number): string {
   return `<td class="num ${cls}">${d === 0 ? '=' : `${d > 0 ? '+' : ''}${d}`}</td>`;
 }
 
-function scopeTable(baseline: Run, current: Run, scope: Scope): string {
-  const bs = baseline.summary.scopes[scope].sections;
-  const cs = current.summary.scopes[scope].sections;
-  const names = sectionNames(baseline, current, scope);
+function sectionsTable(baseline: Run, current: Run): string {
+  const bs = baseline.summary.sections;
+  const cs = current.summary.sections;
+  const names = sectionNames(baseline, current);
   const rows = names
     .map((name) => {
       const b = normalize(bs[name]);
       const c = normalize(cs[name]);
-      // The bar is F1, drawn against the baseline as a ghost behind it — the shape of the change is
-      // readable at a glance in a way a column of signed numbers is not.
+      // F1 bar, with the baseline drawn as a ghost behind it.
       const bar =
         `<div class="bar"><span class="ghost" style="width:${(b.f1 * 100).toFixed(1)}%"></span>` +
         `<span class="fill" style="width:${(c.f1 * 100).toFixed(1)}%"></span></div>`;
@@ -511,19 +435,18 @@ function scopeTable(baseline: Run, current: Run, scope: Scope): string {
     `<td class="num">${cell(ct.f1)}</td>` +
     deltaCell(ct.f1, bt.f1) +
     `<td></td></tr>`;
-  return `<h3>${scope}</h3><table><thead><tr><th>section</th><th>gold</th><th>pred</th><th>Δ</th>
+  return `<table><thead><tr><th>section</th><th>gold</th><th>pred</th><th>Δ</th>
     <th>match</th><th>Δ</th><th>prec</th><th>recall</th><th>F1</th><th>ΔF1</th><th>F1 vs baseline</th>
     </tr></thead><tbody>${rows}${total}</tbody></table>`;
 }
 
 function caseTable(baseline: Run, current: Run): string {
-  const moves = caseMoves(baseline, current, 'final');
+  const moves = caseMoves(baseline, current);
   if (moves.length === 0) return '<p class="muted">No cases are scored in both runs.</p>';
   const span = Math.max(0.05, ...moves.map((m) => Math.abs(m.change)));
   const rows = moves
     .map((m) => {
-      // A centred bar: left of the midline is a regression, right is a gain. The eye finds the one
-      // red bar in a list of twenty far faster than it finds the one negative number.
+      // Centred bar: left of the midline is a regression, right is a gain.
       const width = (Math.abs(m.change) / span) * 50;
       const bar =
         `<div class="dbar"><span class="mid"></span>` +
@@ -557,13 +480,11 @@ function countersTable(baseline: Run, current: Run): string {
 }
 
 function usageTable(baseline: Run, current: Run): string {
-  const rows = ['planner', 'review']
-    .filter((call) => (baseline.summary.usage?.[call]?.calls ?? 0) || (current.summary.usage?.[call]?.calls ?? 0))
-    .map((call) => {
-      const b = baseline.summary.usage?.[call] ?? {};
-      const c = current.summary.usage?.[call] ?? {};
-      return (
-        `<tr><td>${call}</td><td class="num">${c.calls ?? 0}</td>${deltaIntCell(c.calls ?? 0, b.calls ?? 0)}` +
+  const b = baseline.summary.usage ?? {};
+  const c = current.summary.usage ?? {};
+  const row =
+    b.calls || c.calls
+      ? `<tr><td class="num">${c.calls ?? 0}</td>${deltaIntCell(c.calls ?? 0, b.calls ?? 0)}` +
         `<td class="num">${(c.inputTokens ?? 0).toLocaleString()}</td>${deltaIntCell(
           c.inputTokens ?? 0,
           b.inputTokens ?? 0
@@ -571,11 +492,9 @@ function usageTable(baseline: Run, current: Run): string {
           c.outputTokens ?? 0,
           b.outputTokens ?? 0
         )}</tr>`
-      );
-    })
-    .join('');
-  return `<table><thead><tr><th>call</th><th>calls</th><th>Δ</th><th>in</th><th>Δ</th><th>out</th><th>Δ</th>
-    </tr></thead><tbody>${rows}</tbody></table>`;
+      : '';
+  return `<table><thead><tr><th>calls</th><th>Δ</th><th>in</th><th>Δ</th><th>out</th><th>Δ</th>
+    </tr></thead><tbody>${row}</tbody></table>`;
 }
 
 function buildHtml(baseline: Run, current: Run): string {
@@ -601,7 +520,6 @@ function buildHtml(baseline: Run, current: Run): string {
   body { margin:0; padding:32px; background:var(--bg); color:var(--fg);
          font:14px/1.5 ui-sans-serif,-apple-system,"Segoe UI",Roboto,sans-serif; }
   h1 { font-size:20px; margin:0 0 4px; } h2 { font-size:16px; margin:32px 0 8px; }
-  h3 { font-size:13px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin:20px 0 6px; }
   .sub { color:var(--muted); margin:0 0 8px; }
   .warn { background:var(--warnbg); color:var(--warnfg); padding:10px 12px; border-radius:6px; }
   .muted { color:var(--muted); }
@@ -626,9 +544,8 @@ function buildHtml(baseline: Run, current: Run): string {
 <p class="sub">${current.summary.scoredCases} cases scored · baseline ${baseline.summary.scoredCases} ·
   generated ${new Date().toISOString().slice(0, 16).replace('T', ' ')}</p>
 ${warning}
-<h2>Sections</h2><div class="wrap">${scopeTable(baseline, current, 'plannerOnly')}
-${scopeTable(baseline, current, 'final')}</div>
-<h2>Per case <span class="muted" style="font-weight:400">— scope: final</span></h2>
+<h2>Sections</h2><div class="wrap">${sectionsTable(baseline, current)}</div>
+<h2>Per case</h2>
 <div class="wrap">${caseTable(baseline, current)}</div>
 <h2>Counters</h2><div class="wrap">${countersTable(baseline, current)}</div>
 <h2>Model usage</h2><div class="wrap">${usageTable(baseline, current)}</div>
@@ -637,8 +554,6 @@ clinical text. This page contains counts and case ids and no patient data; it is
 gitignored directory, and should stay in one.</footer>
 </body></html>`;
 }
-
-// ---------------------------------------------------------------------------
 
 function main(argv: string[]): void {
   const flags = new Set(argv.filter((a) => a.startsWith('--')));

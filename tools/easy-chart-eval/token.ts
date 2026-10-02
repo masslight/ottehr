@@ -1,9 +1,5 @@
-// M2M token for the eval tools.
-//
-// The endpoints accept a `client_credentials` token whose client id matches the project's AUTH0_CLIENT:
-// a service client has no user profile and could never pass the role check, so it is recognised and the
-// check is skipped. Minting here means a run is one command with the secrets file, instead of copying a
-// token by hand and re-copying it when it expires.
+// Mints an M2M token for the eval tools. The endpoints skip the role check for a `client_credentials`
+// token whose client id is the project's AUTH0_CLIENT, since a service client has no user profile.
 //
 //   npx env-cmd -f packages/zambdas/.env/zambda-secrets-local.json npx tsx tools/easy-chart-eval/<tool>.ts
 
@@ -34,9 +30,8 @@ export async function mintToken(): Promise<string> {
 }
 
 /**
- * Mirrors projectApiUrlFromAuth0Audience / fhirApiUrlFromAuth0Audience in
- * packages/zambdas/src/shared/helpers.ts. Kept local rather than imported because that module pulls the
- * whole zambda secrets surface in behind it; if the canonical mapping gains an environment, add it here.
+ * Mirrors projectApiUrlFromAuth0Audience / fhirApiUrlFromAuth0Audience in packages/zambdas/src/shared/helpers.ts,
+ * copied because that module pulls in the zambda secrets. Keep the two mappings in sync.
  */
 export function apiUrls(): { projectApiUrl: string; fhirApiUrl: string } {
   const audience = requireEnv('AUTH0_AUDIENCE').replace(/\/$/, '');

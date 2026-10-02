@@ -1,21 +1,15 @@
-// The terminology-backed IcdSearchFn the guards resolve codes through.
-//
-// Same call shape as the EHR's diagnosis picker (searchType/synonyms/specialty), so server-side
-// resolution and the client UI see identical results — a code the server picked that the picker cannot
-// find is a code the provider cannot correct.
-//
-// Failures propagate on purpose. A dead terminology service must fail the invocation rather than let
-// resolution continue without the canonical source, because "continuing" means charting unvalidated
-// codes. The one exception is CPT/HCPCS validation, which degrades loudly rather than dropping billing.
+// The terminology-backed ICD-10 search the guards resolve codes through: the same call shape as the
+// EHR's diagnosis picker, so a code the server picks is one the provider can find and correct. Failures
+// propagate: continuing without the terminology service would mean charting unvalidated codes.
 
 import Oystehr from '@oystehr/sdk';
 import { expandQueryRegisters } from 'utils/lib/easy-chart/icd-contradictions';
 import { Icd10Row, IcdSearchFn } from 'utils/lib/easy-chart/icd-resolve';
 
-/** Page size the platform reliably serves — the same value the EHR picker requests. */
+/** The page size the EHR picker requests. */
 const TERMINOLOGY_PAGE_SIZE = 100;
 
-/** Cursor-paged so a caller asking for a whole 3-character category actually gets it. */
+/** Cursor-paged, so a request for a whole 3-character category gets all of it. */
 export async function searchIcd10ViaTerminology(oystehr: Oystehr, query: string, limit: number): Promise<Icd10Row[]> {
   const out: Icd10Row[] = [];
   let cursor: string | undefined;
@@ -37,10 +31,8 @@ export async function searchIcd10ViaTerminology(oystehr: Oystehr, query: string,
 }
 
 /**
- * Register-expansion layer over any backend: fan out the original query plus its variants, then merge
- * and dedupe by code preserving first-seen order, so the platform's own ranking still wins wherever it
- * produced anything. The merged list may exceed `limit` by the variant hits — that is the point:
- * variant results are the defence for queries the platform's synonym layer misses.
+ * Searches the query and its register variants ("ear infection" → "otitis") and merges the results by
+ * code in first-seen order, so the platform's own ranking wins wherever it found anything.
  */
 export function createExpandedIcdSearch(backend: IcdSearchFn): IcdSearchFn {
   return async (query, limit) => {
@@ -60,11 +52,8 @@ export function createExpandedIcdSearch(backend: IcdSearchFn): IcdSearchFn {
 }
 
 /**
- * Warm-invocation memoisation, the same pattern as the M2M token cache. One plan resolving several
- * diagnoses repeats queries — category enumerations especially, which page 1000 rows deep — and repeated
- * plans in a warm container repeat them again. Module scope is safe because a zambda process serves one
- * Oystehr project. The IN-FLIGHT promise is cached so concurrent duplicates share one call, and a
- * rejected promise evicts itself so a failure is never served from cache.
+ * Memoised across warm invocations (one process serves one project). The in-flight promise is cached so
+ * concurrent duplicates share a call, and a rejected one evicts itself.
  */
 const searchCache = new Map<string, Promise<Icd10Row[]>>();
 const SEARCH_CACHE_MAX_ENTRIES = 300;

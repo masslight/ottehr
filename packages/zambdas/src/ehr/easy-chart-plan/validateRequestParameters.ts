@@ -1,107 +1,11 @@
-import { ChartPlanRequest, ConversationTurn, PLAN_STAGES, PlanStage } from 'utils/lib/easy-chart/api';
-import { pickNoteContext } from 'utils/lib/easy-chart/note-fields';
-import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
+import { ChartPlanRequestSchema } from 'utils/lib/easy-chart/api';
+import { Secrets } from 'utils/lib/secrets';
+import { z } from 'zod';
 import { ZambdaInput } from '../../shared/types/common';
+import { validateWithSchema } from '../../shared/validate-zod';
 
-/**
- * The rolling conversation window. Capped here, on the server, rather than trusting the client:
- * every turn re-sends the history, so cost grows superlinearly with an uncapped window.
- */
-export const MAX_HISTORY_TURNS = 6;
-export const MAX_HISTORY_CHARS = 6000;
-/** A whole ambient transcript is a legitimate narrative. Anything past this is not a dictation. */
-export const MAX_NARRATIVE_CHARS = 120_000;
-
-export function validateRequestParameters(input: ZambdaInput): ChartPlanRequest & Pick<ZambdaInput, 'secrets'> {
-  if (!input.body) {
-    throw INVALID_INPUT_ERROR('No request body provided');
-  }
-
-  const body = JSON.parse(input.body) as Partial<ChartPlanRequest>;
-
-  if (typeof body.narrative !== 'string' || !body.narrative.trim()) {
-    throw INVALID_INPUT_ERROR('"narrative" is required');
-  }
-  if (body.narrative.length > MAX_NARRATIVE_CHARS) {
-    throw INVALID_INPUT_ERROR(`"narrative" exceeds ${MAX_NARRATIVE_CHARS} characters`);
-  }
-  if (body.encounterId !== undefined && typeof body.encounterId !== 'string') {
-    throw INVALID_INPUT_ERROR('"encounterId" must be a string');
-  }
-
-  return {
-    narrative: body.narrative,
-    providerEdits: asProviderEdits(body.providerEdits),
-    noteContext: pickNoteContext(body.noteContext),
-    chartState: typeof body.chartState === 'string' ? body.chartState : undefined,
-    chartedExamFindings: asStringArray(body.chartedExamFindings),
-    templateTitles: asStringArray(body.templateTitles),
-    encounterId: body.encounterId,
-    incremental: body.incremental === true,
-    reconcileTemplate: body.reconcileTemplate === true,
-    // Only a declared stage name. Anything else is dropped rather than reaching buildPrompt, which
-    // would otherwise fall through to the full-plan branch under a name nobody declared — a caller
-    // typo would then silently get the whole vocabulary instead of the slice it asked for.
-    stage: PLAN_STAGES.includes(body.stage as PlanStage) ? (body.stage as PlanStage) : undefined,
-    // Carried through as a plain string; the HANDLER validates it against the practice's own template
-    // list before it can reach the prompt. Validating here would need a second read of that list.
-    appliedTemplate: typeof body.appliedTemplate === 'string' ? body.appliedTemplate.trim() || undefined : undefined,
-    // Only the two known values; anything else is dropped rather than passed to the prompt.
-    patientStatus:
-      body.patientStatus === 'new' || body.patientStatus === 'established' ? body.patientStatus : undefined,
-    history: capHistory(body.history),
-    secrets: input.secrets,
-  };
-}
-
-/** Both texts under the same ceiling as the narrative. Either one blank counts as no edits at all. */
-function asProviderEdits(value: unknown): ChartPlanRequest['providerEdits'] {
-  if (value === undefined || value === null) return undefined;
-  if (typeof value !== 'object') {
-    throw INVALID_INPUT_ERROR('"providerEdits" must be an object');
-  }
-  const { draft, edited } = value as Record<string, unknown>;
-  for (const [name, text] of [
-    ['draft', draft],
-    ['edited', edited],
-  ] as const) {
-    if (typeof text !== 'string') {
-      throw INVALID_INPUT_ERROR(`"providerEdits.${name}" must be a string`);
-    }
-    if (text.length > MAX_NARRATIVE_CHARS) {
-      throw INVALID_INPUT_ERROR(`"providerEdits.${name}" exceeds ${MAX_NARRATIVE_CHARS} characters`);
-    }
-  }
-  return (draft as string).trim() && (edited as string).trim()
-    ? { draft: draft as string, edited: edited as string }
-    : undefined;
-}
-
-function asStringArray(value: unknown): string[] | undefined {
-  if (!Array.isArray(value)) return undefined;
-  return value.filter((item): item is string => typeof item === 'string' && item.trim() !== '');
-}
-
-/**
- * Keep the most recent turns, then trim from the oldest end until the whole window fits the
- * character ceiling. A transcript must never enter this window — it is the largest single payload in
- * the feature and would dominate every subsequent call — so provider turns are truncated too.
- */
-export function capHistory(history: unknown): ConversationTurn[] | undefined {
-  if (!Array.isArray(history) || history.length === 0) return undefined;
-
-  const turns = history
-    .filter((turn): turn is ConversationTurn => !!turn && typeof turn === 'object')
-    .slice(-MAX_HISTORY_TURNS)
-    .map((turn) => ({
-      role: turn.role === 'assistant' ? ('assistant' as const) : ('provider' as const),
-      text: typeof turn.text === 'string' ? turn.text : undefined,
-      charted: asStringArray(turn.charted),
-      skipped: asStringArray(turn.skipped),
-    }));
-
-  while (turns.length > 0 && JSON.stringify(turns).length > MAX_HISTORY_CHARS) {
-    turns.shift();
-  }
-  return turns.length > 0 ? turns : undefined;
+export function validateRequestParameters(
+  input: ZambdaInput
+): z.output<typeof ChartPlanRequestSchema> & { secrets: Secrets } {
+  return validateWithSchema(ChartPlanRequestSchema, input);
 }

@@ -6,28 +6,17 @@ import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.const
 import { ExamObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
 import { GetVitalsResponseData } from 'utils/lib/types/api/chart-data/get-vitals.types';
+import { useChartData } from '../../hooks/useChartData';
 import { useChartSection } from '../../hooks/useChartSection';
-import { useAppointmentData, useChartData } from '../../stores/appointment/appointment.store';
+import { useAppointmentData } from '../../stores/appointment/appointment.store';
 import { useExamObservationsStore } from '../../stores/appointment/exam-observations.store';
 import { useRosObservationsStore } from '../../stores/appointment/ros-observations.store';
 import { useGetVitals } from '../vitals/hooks/useGetVitals';
 import { useScribeRecommendationsStore } from './scribeRecommendations.store';
-import { resolvedExamLeaf } from './scribeSections';
+import { normalizeName, resolvedExamLeaf } from './scribeSections';
 import { ScribeRecommendation } from './types';
 
-/**
- * Whether the chart already holds what a recommendation would write.
- *
- * One predicate serves two jobs, so they cannot drift apart: the panel greys out a row that is
- * already charted, and the apply loop skips it rather than writing a duplicate. It covers three
- * cases with the same rule — the chart already had it before the transcript was read, a template
- * put it there, or the provider entered it by hand on one of the visit screens while the panel
- * was open.
- */
-
-const normalize = (value: string | undefined): string => (value ?? '').trim().toLowerCase();
-
-export interface ChartSnapshot {
+export interface ChartedState {
   diagnosisCodes: Set<string>;
   /** Current allergies only; an inactive one does not count as charted. */
   allergyNames: Set<string>;
@@ -45,7 +34,7 @@ export interface ChartSnapshot {
 
 type ChartDataForSnapshot = Pick<GetChartDataResponse, 'diagnosis' | 'allergies' | 'medications'>;
 
-export const buildChartSnapshot = ({
+export const buildChartedState = ({
   chartData,
   rosObservations,
   examObservations,
@@ -57,15 +46,15 @@ export const buildChartSnapshot = ({
   examObservations: Record<string, ExamObservationDTO>;
   historyOfPresentIllness: string | undefined;
   vitals: GetVitalsResponseData | undefined;
-}): ChartSnapshot => ({
+}): ChartedState => ({
   diagnosisCodes: new Set((chartData?.diagnosis ?? []).map((diagnosis) => diagnosis.code)),
   allergyNames: new Set(
-    (chartData?.allergies ?? []).filter((allergy) => allergy.current).map((allergy) => normalize(allergy.name))
+    (chartData?.allergies ?? []).filter((allergy) => allergy.current).map((allergy) => normalizeName(allergy.name))
   ),
   medicationNames: new Set(
     (chartData?.medications ?? [])
       .filter((medication) => medication.status === 'active')
-      .map((medication) => normalize(medication.name))
+      .map((medication) => normalizeName(medication.name))
   ),
   rosFields: new Set(
     Object.values(rosObservations)
@@ -87,14 +76,17 @@ export const buildChartSnapshot = ({
   hasWeight: (vitals?.[VitalFieldNames.VitalWeight]?.length ?? 0) > 0,
 });
 
-export const isAlreadyCharted = (recommendation: ScribeRecommendation, snapshot: ChartSnapshot): boolean => {
+/**
+ * Whether the chart already holds what a recommendation would write. One predicate drives both the greyed-out
+ * rows and the apply loop's duplicate skip, so the two cannot drift apart.
+ */
+export const isAlreadyCharted = (recommendation: ScribeRecommendation, snapshot: ChartedState): boolean => {
   switch (recommendation.kind) {
-    // Whether a template has been applied isn't something the chart records, so stage one tracks
-    // that itself.
+    // The chart doesn't record applied templates; the template stage tracks that itself.
     case 'template':
       return false;
     case 'hpi':
-      // Only the HPI itself is in the snapshot; another field's paragraph is settled by the apply, not by a look.
+      // Only the HPI is in the snapshot; other note fields are settled by the apply.
       return (
         (recommendation.field ?? 'historyOfPresentIllness') === 'historyOfPresentIllness' &&
         recommendation.text.trim().length > 0 &&
@@ -103,9 +95,9 @@ export const isAlreadyCharted = (recommendation: ScribeRecommendation, snapshot:
     case 'diagnosis':
       return snapshot.diagnosisCodes.has(recommendation.code);
     case 'allergy':
-      return snapshot.allergyNames.has(normalize(recommendation.name));
+      return snapshot.allergyNames.has(normalizeName(recommendation.name));
     case 'medication':
-      return snapshot.medicationNames.has(normalize(recommendation.name));
+      return snapshot.medicationNames.has(normalizeName(recommendation.name));
     case 'vital-weight':
       // Any weight on this encounter: a second one would be a correction, not this suggestion.
       return snapshot.hasWeight;
@@ -114,9 +106,8 @@ export const isAlreadyCharted = (recommendation: ScribeRecommendation, snapshot:
       return snapshot.rosFields.has(recommendation.finding === RosFindingState.Reports ? reportsKey : deniesKey);
     }
     case 'exam': {
-      // The box it will tick is on the chart, or the words it will note are already in that card's comment
-      // — the same containment rule `writeExamComment` dedupes by. An ambiguity nobody has chosen on names
-      // no box yet, so it is the executor's to judge.
+      // Charted if its box is ticked or its words are already in the card's comment (the rule
+      // `writeExamComment` dedupes by). An unresolved ambiguity names no box yet, so the executor judges it.
       const leaf = resolvedExamLeaf(recommendation);
       if (leaf) return snapshot.examFields.has(leaf.field);
       const { resolution } = recommendation;
@@ -131,21 +122,19 @@ export const isAlreadyCharted = (recommendation: ScribeRecommendation, snapshot:
 };
 
 /** The live chart, read from the same queries and stores the visit screens write to. */
-export const useChartSnapshot = (): ChartSnapshot => {
+const useChartedState = (): ChartedState => {
   const { chartData } = useChartData();
   const { encounter } = useAppointmentData();
-  // Subscribing to the whole ROS and exam stores is the point: ticking a box on the Review of Systems
-  // or Examination screen has to show up here immediately.
+  // Subscribes to the whole ROS and exam stores so ticks on those screens show up here immediately.
   const rosObservations = useRosObservationsStore();
   const examObservations = useExamObservationsStore();
-  // The HPI paragraph, from the encounter-notes section the HPI screen writes to (legacy tagging: it is
-  // stored under the chief-complaint key).
+  // The HPI is stored under the chief-complaint key of the encounter-notes section (legacy tagging).
   const { data: encounterNotes } = useChartSection('encounterNotes');
   const { data: vitals } = useGetVitals(encounter?.id);
 
   return useMemo(
     () =>
-      buildChartSnapshot({
+      buildChartedState({
         chartData,
         rosObservations,
         examObservations,
@@ -156,12 +145,9 @@ export const useChartSnapshot = (): ChartSnapshot => {
   );
 };
 
-/**
- * Keeps the panel store's list of already-charted recommendations in step with the chart, so the
- * rows, the counts and the apply loop all read the same answer.
- */
+/** Syncs the store's already-charted ids with the chart, so rows, counts and the apply loop agree. */
 export const useSyncChartedRecommendations = (recommendations: ScribeRecommendation[]): void => {
-  const snapshot = useChartSnapshot();
+  const snapshot = useChartedState();
   const setChartedIds = useScribeRecommendationsStore((state) => state.setChartedIds);
 
   const chartedIds = useMemo(

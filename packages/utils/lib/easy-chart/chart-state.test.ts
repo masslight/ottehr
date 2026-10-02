@@ -7,8 +7,7 @@ const chart = (partial: Partial<GetChartDataResponse>): GetChartDataResponse =>
   ({ patientId: 'p-1', ...partial }) as GetChartDataResponse;
 
 describe('buildChartStateSummary — labs and radiology', () => {
-  // A resulted test is a FINDING of this visit, and used to be listed as "already ordered" — a name with no
-  // value — so a positive rapid strep the provider never read aloud was invisible to the diagnoses and MDM.
+  // A resulted test is a finding of this visit, so its value must reach the prompt.
   it('states a resulted lab with its value and flag, and a pending one as already ordered', () => {
     const summary = buildChartStateSummary(
       chart({

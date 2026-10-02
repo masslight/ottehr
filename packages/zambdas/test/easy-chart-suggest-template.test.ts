@@ -1,6 +1,5 @@
-// apply-template is a SUGGESTION: the server resolves the model's title to a practice template and the
-// provider applies it by hand. These pin the resolution: exact titles first, a little tolerance for the
-// model's wording, and no match at all rather than a guess.
+// apply-template is only a suggestion: the server resolves the model's title to a practice template
+// and the provider applies it by hand.
 import { describe, expect, it } from 'vitest';
 import { resolveSuggestedTemplate } from '../src/ehr/easy-chart-plan/helpers';
 

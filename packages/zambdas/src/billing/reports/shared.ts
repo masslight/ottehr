@@ -158,6 +158,12 @@ export function eraReportedPayerName(claimResponses: ClaimResponse[]): string | 
   return display?.replace(/\s*\([^)]*\)\s*$/, '');
 }
 
+// the "(payerId)" suffix of the same converter-written display
+export function eraReportedPayerId(claimResponses: ClaimResponse[]): string | undefined {
+  const display = claimResponses.map((cr) => cr.insurer?.display).find((name) => !!name && name !== 'Unknown');
+  return display?.match(/\(([^)]+)\)\s*$/)?.[1];
+}
+
 // Best-known name per payer ref harvested across every remit; some ERAs carry the payer's name
 // while others under the same ref carry none, so the map lets any of them share it.
 export function payerNamesByRef(claimResponses: ClaimResponse[]): Map<string, string> {

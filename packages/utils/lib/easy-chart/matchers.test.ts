@@ -1,5 +1,4 @@
-// Matched against the REAL exam and ROS configs, not a fixture — a matcher that only works on a
-// hand-written catalogue tells you nothing about the note a provider actually gets.
+// Runs against the real exam and ROS configs rather than fixtures.
 
 import { describe, expect, it } from 'vitest';
 import { buildExamLeafCatalogue, ExamLeaf } from '../config-helpers/exam-leaves';
@@ -11,7 +10,6 @@ import {
   assertsNormal,
   findExamLeafMatches,
   findRosMatches,
-  isNegated,
   RosCatalogueEntry,
   stem,
 } from './matchers';
@@ -38,10 +36,8 @@ describe('the exam leaf catalogue', () => {
     }
   });
 
-  // A field may repeat, but ONLY for a checkbox-with-modal: its options are stored as COMPONENTS of the
-  // parent observation, so they all carry the parent's field and are told apart by `component`. Pushing
-  // an option's own key as the field is what produced "Exam observation with field
-  // skin-abscess-fluctuant not found" from save-chart-data, so a repeat without a component is a bug.
+  // Modal options are stored as components of the parent observation, so they share its field; save-chart-data
+  // rejects an option's own key.
   it('repeats a field only for modal options of the same parent', () => {
     const byField = new Map<string, ExamLeaf[]>();
     for (const leaf of LEAVES) {
@@ -57,14 +53,12 @@ describe('the exam leaf catalogue', () => {
         `"${field}" repeats without a component: ${withoutComponent.map((l) => l.leafLabel).join(', ')}`
       ).toBeLessThanOrEqual(1);
     }
-    // Two different counts, and the gap between them is the point: there are more selectable LEAVES
-    // than saveable FIELDS, because a modal's options collapse onto their parent observation.
+    // More selectable leaves than saveable fields, because modal options collapse onto their parent.
     expect(LEAVES.length).toBeGreaterThan(200);
     expect(byField.size).toBeGreaterThan(150);
   });
 
-  // The anatomy guard files findings by CARD LABEL, so a typo in the table silently disables the
-  // guard for that word rather than failing.
+  // The anatomy guard matches by card label, so a typo would silently disable it for that word.
   it('names only real exam card labels in the anatomy-section table', () => {
     const cardLabels = new Set(Object.values(DefaultExamComponentsConfig).map((card) => card.label));
     for (const [word, section] of Object.entries(EXAM_ANATOMY_SECTION_OF)) {
@@ -77,8 +71,7 @@ const polarities = (query: string, options?: { searchTerms?: string[] }): string
   findExamLeafMatches(query, LEAVES, options).map((m) => (m.payload as ExamLeaf).polarity);
 
 describe('negation guard', () => {
-  // "No wheezing" must neither create a wheezing finding nor remove the matching normal. It is a
-  // NORMAL, and a voiced normal now charts, so the negation must land on the normal side only.
+  // A negated finding is a normal, so it may land only on the normal side of the card.
   it('never matches an abnormal leaf from a negated finding', () => {
     for (const query of ['no wheezing', 'without crackles', 'non-tender abdomen', 'denies rash', 'not tender']) {
       for (const polarity of polarities(query)) {
@@ -88,8 +81,7 @@ describe('negation guard', () => {
     expect(findExamLeafMatches('no wheezing', LEAVES).some((m) => /wheez/i.test(m.display))).toBe(false);
   });
 
-  // Every spelling of a non-tender abdomen lands on Nontender and never on Tender. "tender" is on the
-  // generic list, so without the one-word-normal rule none of these could reach the leaf at all.
+  // "tender" is a generic token, so these reach the leaf only through the one-word-normal rule.
   it('lands every spelling of non-tender on the Nontender leaf', () => {
     for (const query of ['non-tender', 'nontender', 'no tenderness', 'not tender', 'abdomen non-tender']) {
       const matches = findExamLeafMatches(query, LEAVES);
@@ -111,17 +103,10 @@ describe('negation guard', () => {
     );
   });
 
-  // "absent bowel sounds" negates a NORMAL, which makes it an abnormality — it must not be filed under
-  // Normal Bowel Sounds.
+  // "absent bowel sounds" negates a normal, which makes it an abnormality.
   it('does not read "absent" as a negation', () => {
     expect(assertsNormal('absent bowel sounds')).toBe(false);
     expect(findExamLeafMatches('absent bowel sounds', LEAVES).some((m) => /normal bowel/i.test(m.display))).toBe(false);
-  });
-
-  it('recognises the negators without over-firing', () => {
-    expect(isNegated('no wheezing')).toBe(true);
-    expect(isNegated('negative straight leg raise')).toBe(true);
-    expect(isNegated('nodular thyroid')).toBe(false);
   });
 });
 
@@ -171,6 +156,38 @@ describe('normalcy veto', () => {
   });
 });
 
+describe('findings a negation or a normal-sounding word used to flip', () => {
+  it('lands an abnormality on the abnormal side even when its words sound normal', () => {
+    for (const query of [
+      '2 plus pitting edema',
+      'Clear effusion behind right TM',
+      'RLQ tenderness without rebound',
+      'Reactive cervical lymphadenopathy',
+      'clear rhinorrhea',
+    ]) {
+      for (const polarity of polarities(query)) {
+        expect(polarity, `"${query}" reached a normal leaf`).toBe('abnormal');
+      }
+    }
+  });
+
+  it('never lands a negated or impaired normal on the normal itself', () => {
+    for (const query of ['pupils not reactive', 'Pupils sluggishly reactive']) {
+      expect(
+        findExamLeafMatches(query, LEAVES).some((m) => /reactive to light/i.test(m.display)),
+        query
+      ).toBe(false);
+    }
+  });
+
+  it('reads a 2+ grade as normal only for pulses and reflexes', () => {
+    expect(top(findExamLeafMatches('2+ radial pulses', LEAVES))).toBe(
+      'Radial, posterior tibial, and dorsalis pulses 2+ bilaterally'
+    );
+    expect(assertsNormal('2 plus pitting edema')).toBe(false);
+  });
+});
+
 describe('anatomy-section guard', () => {
   it('maps an unambiguous anatomy word to its card', () => {
     expect(anatomySectionOf('tympanic membrane bulging')).toBe('Ears');
@@ -192,8 +209,6 @@ describe('anatomy-section guard', () => {
 });
 
 describe('generic-token discounting', () => {
-  // This is how "denies groin pain" charted "Denies Eye pain" and a shin cellulitis matched a
-  // rhinoscopy leaf.
   it('never lets a generic descriptor carry a match on its own', () => {
     expect(findExamLeafMatches('pain', LEAVES)).toEqual([]);
     expect(findExamLeafMatches('mild swelling', LEAVES)).toEqual([]);
@@ -216,8 +231,7 @@ describe('descriptor synonyms and stemming', () => {
     expect(matches.some((m) => /wheez/i.test(m.display))).toBe(true);
   });
 
-  // Without a synonym map, "throat injected" finds nothing because the catalogue says
-  // "Erythematous pharynx".
+  // The catalogue says "Erythematous pharynx", never "injected".
   it('finds an erythema leaf from "injected"', () => {
     const matches = findExamLeafMatches('pharynx injected', LEAVES);
     expect(matches.length).toBeGreaterThan(0);

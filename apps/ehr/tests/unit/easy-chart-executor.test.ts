@@ -1,14 +1,10 @@
-// The executor is testable WITHOUT a model, a network or a rendered page: given an action list, its
-// behaviour is deterministic. That is the payoff of the "LLM returns typed actions" architecture, so
-// these tests exercise it directly.
-
 import { ExamLeaf } from 'utils/lib/config-helpers/exam-leaves';
 import { PlannedAction } from 'utils/lib/easy-chart/api';
-import { describe, expect, it, vi } from 'vitest';
+import { AllChartValues } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { describe, expect, it } from 'vitest';
 import { HANDLERS, toStoredVitalValue } from '../../src/features/easy-chart/executor/handlers';
-import { ProcedureQuickPickContext } from '../../src/features/easy-chart/executor/procedure-quick-pick';
 import { AMBIGUITY_RATIO, classifyMatches } from '../../src/features/easy-chart/executor/resolve';
-import { runPlan, summarisePlan } from '../../src/features/easy-chart/executor/runPlan';
+import { runPlan } from '../../src/features/easy-chart/executor/runPlan';
 import {
   CatalogueMatch,
   ChartSnapshot,
@@ -21,29 +17,16 @@ import {
 
 const emptyChart = (): ChartSnapshot => ({
   diagnoses: [],
-  examFindings: [],
-  examComments: [],
-  rosFindings: [],
-  medications: [],
-  allergies: [],
   conditions: [],
-  surgicalHistory: [],
-  hospitalizations: [],
-  procedures: [],
-  cptCodes: [],
-  hasEmCode: false,
+  examRows: {},
   noteFields: {},
 });
 
 interface Harness {
   context: HandlerContext;
-  saved: Record<string, unknown>[];
-  removed: { field: string; display: string }[];
-  said: { text: string; kind: string }[];
+  saved: AllChartValues[];
+  said: string[];
   asks: PickerRequest[];
-  orderedLabs: { display: string; inHouse: boolean }[];
-  orderedImaging: { id: string; dictatedStudyName: string }[];
-  addedProcedures: ProcedureQuickPickContext[];
 }
 
 function harness(
@@ -53,71 +36,25 @@ function harness(
     mode?: 'bulk' | 'interactive';
     answer?: (request: PickerRequest) => PickerResponse;
     saveFails?: boolean;
-    supports?: Partial<ChartWriter['supports']>;
-    /** Catalogue name -> the reason it could not be consulted. */
-    unavailable?: Record<string, string>;
   } = {}
 ): Harness {
-  const saved: Record<string, unknown>[] = [];
-  const removed: { field: string; display: string }[] = [];
-  const said: { text: string; kind: string }[] = [];
+  const saved: AllChartValues[] = [];
+  const said: string[] = [];
   const asks: PickerRequest[] = [];
-  const orderedLabs: { display: string; inHouse: boolean }[] = [];
-  const orderedImaging: { id: string; dictatedStudyName: string }[] = [];
-  const addedProcedures: ProcedureQuickPickContext[] = [];
   let nextId = 1;
 
   const writer: ChartWriter = {
-    // Everything supported by default, so a test that cares about the unsupported path says so.
-    supports: {
-      labOrders: true,
-      radiologyOrders: true,
-      nursingOrders: true,
-      templates: true,
-      procedures: true,
-      ...overrides.supports,
-    },
-    // The two saves the real writer makes, in the shape the handler consumes: the procedure row, the
-    // linked codes it had to create first, and the fields the template filled.
-    addProcedure: async (procedureContext) => {
-      if (overrides.saveFails) throw new Error('the chart could not be saved');
-      addedProcedures.push(procedureContext);
-      const procedureResourceId = `res-${nextId++}`;
-      const inferredResourceIds = [...procedureContext.diagnoses, ...procedureContext.cptCodes].map(
-        () => `res-${nextId++}`
-      );
-      return {
-        createdResourceIds: [procedureResourceId, ...inferredResourceIds],
-        procedureResourceId,
-        inferredResourceIds,
-        templateFilledFields: procedureContext.templateFilledFields,
-      };
-    },
     save: async (fields) => {
       if (overrides.saveFails) throw new Error('the chart could not be saved');
       saved.push(fields);
       return [`res-${nextId++}`];
     },
-    remove: async (field, item) => {
-      removed.push({ field, display: item.display });
-    },
-    orderLab: async (match, inHouse) => {
-      orderedLabs.push({ display: match.display, inHouse });
-      return [];
-    },
-    orderRadiology: async (match, request) => {
-      orderedImaging.push({ id: match.id, dictatedStudyName: request.dictatedStudyName });
-      return [];
-    },
-    createNursingOrder: async () => [`res-${nextId++}`],
-    applyTemplate: async () => [`res-${nextId++}`],
   };
 
   const lookup = (name: string) => async (): Promise<CatalogueMatch[]> => overrides.matches?.[name] ?? [];
 
   const context: HandlerContext = {
     mode: overrides.mode ?? 'bulk',
-    encounterId: 'enc-1',
     writer,
     chart: { ...emptyChart(), ...overrides.chart },
     catalogue: {
@@ -125,33 +62,29 @@ function harness(
       rosFindings: lookup('rosFindings'),
       medications: lookup('medications'),
       allergies: lookup('allergies'),
-      conditions: lookup('conditions'),
       surgicalHistory: lookup('surgicalHistory'),
       hospitalizations: lookup('hospitalizations'),
-      templates: lookup('templates'),
-      procedures: lookup('procedures'),
-      labs: lookup('labs'),
-      radiology: lookup('radiology'),
     },
     ask: async (request) => {
       asks.push(request);
       return overrides.answer?.(request);
     },
-    say: (text, kind) => said.push({ text, kind }),
+    say: (text) => said.push(text),
   };
 
-  return { context, saved, removed, said, asks, orderedLabs, orderedImaging, addedProcedures };
+  return { context, saved, said, asks };
 }
 
 const match = (id: string, display: string, score: number): CatalogueMatch => ({ id, display, score });
 
 describe('every step settles', () => {
   it('reports applied / skipped-with-reason / failed and never leaves a step unsettled', async () => {
-    const h = harness({ matches: { medications: [match('m1', 'Amoxicillin 500 mg', 1)] } });
+    const h = harness({
+      matches: { medications: [{ ...match('m1', 'Amoxicillin 500 mg', 1), payload: { id: 12345 } }] },
+    });
     const actions: PlannedAction[] = [
       { kind: 'add-medication', display: 'Amoxicillin' },
-      // Nothing in the exam catalogue — which now APPLIES as a free-text note on the card rather than
-      // skipping, so the provider's words survive. See the exam-comment fallback tests below.
+      // No checkbox matches, so the words are noted on the exam card instead.
       { kind: 'add-exam-finding', display: 'Right TM bulging' },
       { kind: 'add-diagnosis', display: 'Strep throat' }, // no confirmed code
     ];
@@ -164,11 +97,8 @@ describe('every step settles', () => {
         expect(step.outcome!.reason?.trim(), `step ${step.index} skipped with no reason`).toBeTruthy();
       }
     }
-    expect(summarisePlan(steps)).toEqual({ applied: 2, skipped: 1, failed: 0 });
   });
 
-  // An old client against a newer endpoint. Falling through to a generic "no match" would read to a
-  // provider as "there was nothing to chart".
   it('says so plainly when the action kind is one this build does not know', async () => {
     const h = harness();
     const { steps } = await runPlan([{ kind: 'add-telepathy' } as unknown as PlannedAction], h.context);
@@ -193,24 +123,8 @@ describe('every step settles', () => {
     );
     expect(steps[0].outcome?.status).toBe('failed');
     expect(steps[0].outcome?.reason).toMatch(/the chart could not be saved/);
-    // The run continues: one bad step must not abandon the rest of the plan.
+    // One bad step does not abandon the rest of the plan.
     expect(steps[1].outcome?.status).toBe('failed');
-  });
-
-  it('settles the remaining steps as skipped when the run is cancelled', async () => {
-    const h = harness();
-    const controller = new AbortController();
-    const onStepSettled = vi.fn(() => controller.abort());
-    const { steps } = await runPlan(
-      [
-        { kind: 'add-patient-instruction', text: 'One' },
-        { kind: 'add-patient-instruction', text: 'Two' },
-      ],
-      h.context,
-      { onStepSettled, signal: controller.signal }
-    );
-    expect(steps[0].outcome?.status).toBe('applied');
-    expect(steps[1].outcome).toMatchObject({ status: 'skipped', reason: expect.stringMatching(/cancelled/) });
   });
 
   it('reports progress so the current step can be kept in view', async () => {
@@ -231,7 +145,6 @@ describe('every step settles', () => {
 });
 
 describe('dispatch table', () => {
-  // Exhaustiveness is a compile-time guarantee; this is the runtime twin of it.
   it('has a handler for every registered action kind', async () => {
     const { ACTION_KINDS } = await import('utils/lib/easy-chart/actions');
     expect(Object.keys(HANDLERS).sort()).toEqual([...ACTION_KINDS].sort());
@@ -259,7 +172,7 @@ describe('the CC↔HPI storage swap is applied exactly once', () => {
 
 describe('note text updates the row that already holds the field', () => {
   it('passes the existing row id, so the save updates it rather than creating a second one beside it', async () => {
-    // The chart after a template wrote the HPI (stored under chiefComplaint), then the scribe's appended text.
+    // A template wrote the HPI (stored under chiefComplaint); the scribe's text is appended.
     const h = harness({ chart: { noteFields: { chiefComplaint: { resourceId: 'cc-1', text: 'Template HPI.' } } } });
     await runPlan(
       [
@@ -296,12 +209,9 @@ describe('vitals', () => {
   it('writes the value the server produced when it is already in the stored unit', async () => {
     const h = harness();
     await runPlan([{ kind: 'set-vital', field: 'vital-height', display: '1.73 m', value: 173, unit: 'cm' }], h.context);
-    // The vitals DTO carries a bare number and no unit: the number has to be in the unit the chart stores.
     expect(h.saved[0]).toEqual({ vitalsObservations: [{ field: 'vital-height', value: 173 }] });
   });
 
-  // The server's guard names the unit the provider SAID ("lb", "in", "F"); the Vitals page stores kilograms,
-  // centimetres and Celsius. Writing the guard's number as-is charted "170 lb" as 170 kg.
   it('converts a reading into the unit the chart stores before writing it', async () => {
     const h = harness();
     await runPlan(
@@ -314,7 +224,7 @@ describe('vitals', () => {
       ],
       h.context
     );
-    expect(h.saved.map((fields) => (fields.vitalsObservations as { field: string; value: number }[])[0])).toEqual([
+    expect(h.saved.map((fields) => fields.vitalsObservations?.[0])).toEqual([
       { field: 'vital-weight', value: 77.11 },
       { field: 'vital-height', value: 172.72 },
       { field: 'vital-temperature', value: 38 },
@@ -335,7 +245,6 @@ describe('vitals', () => {
     });
   });
 
-  // A guard let something through: fail loudly rather than writing a vital with no number.
   it('fails rather than charting a vital with no usable reading', async () => {
     const h = harness();
     const { steps } = await runPlan(
@@ -348,9 +257,6 @@ describe('vitals', () => {
 });
 
 describe('history rows are written as the DTOs the tabs write', () => {
-  // The server builds a MedicationStatement straight off the DTO and reads `intakeInfo.dose` unconditionally,
-  // so a row without `intakeInfo` threw before anything was saved. The eRx id is a number in the search
-  // response and a string identifier on the chart.
   it('writes a medication with status, type, intake info and the eRx id as a string', async () => {
     const h = harness({
       matches: {
@@ -377,34 +283,36 @@ describe('history rows are written as the DTOs the tabs write', () => {
     });
   });
 
-  it('writes a medication with no eRx id as a name-only row', async () => {
-    const h = harness({ matches: { medications: [match('Motrin', 'Motrin', 1)] } });
-    await runPlan([{ kind: 'add-medication', display: 'Motrin' }], h.context);
-    expect(h.saved[0]).toEqual({
-      medications: [{ name: 'Motrin', type: 'scheduled', status: 'active', intakeInfo: {} }],
+  it('never writes a medication or allergy match that has no eRx id', async () => {
+    const h = harness({
+      matches: { medications: [match('Motrin', 'Motrin', 1)], allergies: [match('Latex', 'Latex', 1)] },
     });
+    const { steps } = await runPlan(
+      [
+        { kind: 'add-medication', display: 'Motrin' },
+        { kind: 'add-allergy', display: 'latex' },
+      ],
+      h.context
+    );
+    expect(steps.map((step) => step.outcome?.status)).toEqual(['skipped', 'skipped']);
+    expect(h.saved).toEqual([]);
   });
 
-  // Without `current: true` the note's allergy list — current allergies only — never showed what was charted.
   it('writes an allergy as current, with the eRx id as a string', async () => {
     const h = harness({
       matches: { allergies: [{ ...match('a1', 'Penicillin', 1), payload: { id: 777, name: 'Penicillin' } }] },
     });
     await runPlan([{ kind: 'add-allergy', display: 'penicillin' }], h.context);
-    const saved = h.saved[0].allergies as Record<string, unknown>[];
+    const saved = h.saved[0].allergies ?? [];
     expect(saved[0]).toMatchObject({ name: 'Penicillin', id: '777', current: true });
     expect(typeof saved[0].lastUpdated).toBe('string');
   });
 
-  // The server's ICD guard already confirmed {code, display} from one terminology row and rejects an
-  // add-condition without a code, so the client charts it directly — the same path add-diagnosis takes.
-  // Routing it through the (unavailable) conditions catalogue skipped every past-medical-history item.
   it('charts a past medical history item from its validated code without a catalogue', async () => {
     const h = harness();
     const { steps } = await runPlan([{ kind: 'add-condition', display: 'Asthma', code: 'J45.909' }], h.context);
     expect(steps[0].outcome).toMatchObject({ status: 'applied', matchedId: 'J45.909' });
-    const saved = h.saved[0].conditions as Record<string, unknown>[];
-    expect(saved[0]).toMatchObject({ code: 'J45.909', display: 'Asthma', current: true });
+    expect(h.saved[0].conditions?.[0]).toMatchObject({ code: 'J45.909', display: 'Asthma', current: true });
   });
 
   it('skips a past medical history item that is already on the chart, or has no code', async () => {
@@ -452,8 +360,6 @@ describe('the exactly-one-primary-diagnosis invariant', () => {
     expect(h.saved[0]).toEqual({ diagnosis: [{ code: 'J02.0', display: 'Strep pharyngitis', isPrimary: true }] });
   });
 
-  // Demote rather than drop: a note that loses a secondary diagnosis is worse than one with a
-  // demoted flag, and the provider is told what happened.
   it('demotes a second primary and says so', async () => {
     const h = harness({
       chart: { diagnoses: [{ resourceId: 'dx-1', display: 'AOM', code: 'H66.91', isPrimary: true }] },
@@ -487,7 +393,6 @@ describe('ambiguity', () => {
     expect(classifyMatches([]).kind).toBe('none');
   });
 
-  // During a whole-plan run a provider will not click through dozens of pickers.
   it('auto-picks the top match during a bulk run and marks it low-confidence', async () => {
     const h = harness({
       mode: 'bulk',
@@ -522,9 +427,6 @@ describe('ambiguity', () => {
     expect(h.saved).toEqual([]);
   });
 
-  // The recommendations panel resolves an exam finding before apply, and the provider reads or chooses the
-  // box there. Searching again here could land on a different one than they confirmed, so a resolved leaf
-  // is ticked as it comes — no catalogue, no picker, however many matches the words would have had.
   it('ticks the box the provider already confirmed instead of searching again', async () => {
     const h = harness({
       mode: 'interactive',
@@ -551,60 +453,49 @@ describe('ambiguity', () => {
     expect(steps[0].outcome).toMatchObject({ status: 'applied', matchedId: 'wheezing' });
     expect(steps[0].outcome?.lowConfidence).toBeFalsy();
     expect(h.asks).toEqual([]);
-    // The same row the catalogue path writes: the leaf's own fields, ticked.
-    expect(h.saved).toEqual([{ examObservations: [{ ...resolvedLeaf, value: true }] }]);
-  });
-});
-
-describe('destructive actions ask', () => {
-  // With several plausible matches for a removal we never delete the first substring match.
-  it('asks before removing when several charted items match, even in a bulk run', async () => {
-    const h = harness({
-      mode: 'bulk',
-      chart: {
-        medications: [
-          { resourceId: 'm1', display: 'Ibuprofen 200 mg tablet' },
-          { resourceId: 'm2', display: 'Ibuprofen 400 mg tablet' },
-        ],
-      },
-      answer: (request) => request.options[1],
-    });
-    const { steps } = await runPlan([{ kind: 'remove-medication', display: 'Ibuprofen' }], h.context);
-    expect(h.asks[0].destructive).toBe(true);
-    expect(steps[0].outcome?.status).toBe('applied');
-    expect(h.removed).toEqual([{ field: 'medications', display: 'Ibuprofen 400 mg tablet' }]);
+    expect(h.saved).toEqual([{ examObservations: [{ field: 'wheezing', value: true }] }]);
   });
 
-  it('removes without asking when exactly one charted item matches', async () => {
-    const h = harness({ chart: { medications: [{ resourceId: 'm1', display: 'Motrin 200 mg' }] } });
-    const { steps } = await runPlan([{ kind: 'remove-medication', display: 'Motrin' }], h.context);
-    expect(h.asks).toEqual([]);
-    expect(steps[0].outcome?.status).toBe('applied');
-  });
-
-  it('skips with a reason when nothing on the chart matches', async () => {
-    const h = harness({ chart: { medications: [{ resourceId: 'm1', display: 'Amoxicillin' }] } });
-    const { steps } = await runPlan([{ kind: 'remove-medication', display: 'Motrin' }], h.context);
-    expect(steps[0].outcome).toMatchObject({
-      status: 'skipped',
-      reason: expect.stringMatching(/is not on the chart/),
-    });
-    expect(h.removed).toEqual([]);
-  });
-
-  it('does not ask twice when the removal names an item exactly', async () => {
+  it('adds a modal option to its box’s row, as the Exam tab does, instead of ticking the bare box', async () => {
+    const charted = { code: 'frontal-left', label: 'Left', groupLabel: 'Frontal', value: true, abnormal: true };
     const h = harness({
       chart: {
-        medications: [
-          { resourceId: 'm1', display: 'ibuprofen' },
-          { resourceId: 'm2', display: 'ibuprofen 400 mg tablet' },
-        ],
+        examRows: {
+          'sinus-tenderness': { resourceId: 'obs-7', field: 'sinus-tenderness', value: true, components: [charted] },
+        },
       },
     });
-    const { steps } = await runPlan([{ kind: 'remove-medication', display: 'ibuprofen' }], h.context);
-    expect(h.asks).toEqual([]);
-    expect(steps[0].outcome?.status).toBe('applied');
-    expect(h.removed).toEqual([{ field: 'medications', display: 'ibuprofen' }]);
+    const resolvedLeaf: ExamLeaf = {
+      field: 'sinus-tenderness',
+      leafLabel: 'Right',
+      label: 'Nose: Sinus tenderness: Maxillary: Right',
+      sectionKey: 'nose',
+      sectionLabel: 'Nose',
+      polarity: 'abnormal',
+      path: ['Maxillary'],
+      component: { code: 'maxillary-right', label: 'Right', groupLabel: 'Maxillary' },
+    };
+    const action: PlannedAction & ResolvedExamFindingAction = {
+      kind: 'add-exam-finding',
+      display: 'Right maxillary sinus tenderness',
+      resolvedLeaf,
+    };
+    await runPlan([action], h.context);
+    expect(h.saved).toEqual([
+      {
+        examObservations: [
+          {
+            resourceId: 'obs-7',
+            field: 'sinus-tenderness',
+            value: true,
+            components: [
+              charted,
+              { code: 'maxillary-right', label: 'Right', groupLabel: 'Maxillary', abnormal: true, value: true },
+            ],
+          },
+        ],
+      },
+    ]);
   });
 });
 
@@ -617,109 +508,19 @@ describe('chat-only actions', () => {
     );
     expect(steps[0].outcome?.status).toBe('applied');
     expect(h.saved).toEqual([]);
-    expect(h.said).toEqual([{ text: 'You still need an E&M level before you can sign.', kind: 'reply' }]);
+    expect(h.said).toEqual(['You still need an E&M level before you can sign.']);
   });
 
   it('surfaces a provider note in the chat and charts nothing', async () => {
     const h = harness();
     await runPlan([{ kind: 'provider-note', text: 'Send the erythromycin prescription by eRx.' }], h.context);
     expect(h.saved).toEqual([]);
-    expect(h.said[0].kind).toBe('provider-note');
-  });
-});
-
-describe('the created-row map', () => {
-  it('records which step created each row, so provenance can be attached', async () => {
-    const h = harness();
-    const { createdBy } = await runPlan(
-      [
-        { kind: 'edit-note-text', field: 'medicalDecision', newText: 'MDM', sourceText: 'the plan is' },
-        { kind: 'add-patient-instruction', text: 'Rest.' },
-      ],
-      h.context
-    );
-    expect([...createdBy.keys()]).toEqual(['res-1', 'res-2']);
-    expect(createdBy.get('res-1')?.action.kind).toBe('edit-note-text');
-  });
-});
-
-describe('primary diagnosis is not lost when a plan swaps it', () => {
-  // REGRESSION. The review pass corrects a wrong diagnosis as a PAIR: remove-diagnosis +
-  // add-diagnosis. The add carries isPrimary:false (or omits it) because of the never-usurp rule —
-  // correct for a pure addition, wrong here: the diagnosis being removed IS the primary, so the note
-  // ends up with no primary at all, which is billing-invalid.
-  const PRIMARY = [{ resourceId: 'dx-1', display: 'Viral pharyngitis', code: 'J02.9', isPrimary: true }];
-
-  it('promotes the replacement when the removed diagnosis was primary', async () => {
-    const h = harness({ chart: { diagnoses: PRIMARY } });
-    const { steps } = await runPlan(
-      [
-        { kind: 'remove-diagnosis', display: 'Viral pharyngitis' },
-        { kind: 'add-diagnosis', display: 'Strep pharyngitis', code: 'J02.0', isPrimary: false },
-      ],
-      h.context
-    );
-    expect(steps.map((s) => s.outcome?.status)).toEqual(['applied', 'applied']);
-    const charted = h.saved.flatMap((f) => (f.diagnosis as { isPrimary?: boolean }[]) ?? []);
-    expect(charted).toHaveLength(1);
-    expect(charted[0].isPrimary).toBe(true);
-  });
-
-  it('does not promote when the removed diagnosis was NOT primary', async () => {
-    const secondary = [
-      { resourceId: 'dx-1', display: 'Fever', code: 'R50.9', isPrimary: false },
-      { resourceId: 'dx-2', display: 'Otitis media', code: 'H66.90', isPrimary: true },
-    ];
-    const h = harness({ chart: { diagnoses: secondary } });
-    await runPlan(
-      [
-        { kind: 'remove-diagnosis', display: 'Fever' },
-        { kind: 'add-diagnosis', display: 'Pharyngitis', code: 'J02.9', isPrimary: false },
-      ],
-      h.context
-    );
-    const charted = h.saved.flatMap((f) => (f.diagnosis as { isPrimary?: boolean }[]) ?? []);
-    expect(charted[0].isPrimary).toBe(false);
-  });
-
-  it('never mints a second primary when an add already claims it', async () => {
-    const h = harness({ chart: { diagnoses: PRIMARY } });
-    await runPlan(
-      [
-        { kind: 'remove-diagnosis', display: 'Viral pharyngitis' },
-        { kind: 'add-diagnosis', display: 'Strep pharyngitis', code: 'J02.0', isPrimary: true },
-        { kind: 'add-diagnosis', display: 'Fever', code: 'R50.9', isPrimary: false },
-      ],
-      h.context
-    );
-    const charted = h.saved.flatMap((f) => (f.diagnosis as { isPrimary?: boolean }[]) ?? []);
-    expect(charted.filter((d) => d.isPrimary)).toHaveLength(1);
-  });
-});
-
-describe('a plan sees what its own earlier steps charted', () => {
-  // REGRESSION. The snapshot used to be built once, before the run. A plan that charts a diagnosis and
-  // THEN orders a lab is the normal shape — the planner charts the assessment before the plan — but the
-  // lab step read the pre-plan snapshot, saw no diagnosis, and skipped an order the provider voiced.
-  it('orders a send-out lab against a diagnosis added earlier in the same plan', async () => {
-    const h = harness({ matches: { labs: [match('cbc', 'CBC', 1)] } });
-    const { steps } = await runPlan(
-      [
-        { kind: 'add-diagnosis', display: 'Fatigue', code: 'R53.83', isPrimary: true },
-        { kind: 'add-external-lab', display: 'CBC' },
-      ],
-      h.context
-    );
-    expect(steps[0].outcome?.status).toBe('applied');
-    expect(steps[1].outcome?.status, steps[1].outcome?.reason).toBe('applied');
+    expect(h.said).toEqual(['Send the erythromycin prescription by eRx.']);
   });
 });
 
 describe('ROS polarity is stored in the field key', () => {
-  // ROS storage gives each symptom two fields, `…-denies` and `…-reports`, and records the applicable one
-  // with value:true — that is what RosReviewContainer reads on Review & Sign. Writing the BASE key with
-  // the polarity in the boolean produced a shape nothing reads: the signed note's ROS section came out
-  // empty, and a denial was invisible in Easy Chart too, because the snapshot keeps only value===true.
+  // Review & Sign reads the `…-denies` / `…-reports` key with value true, not the base key.
   const ros = { rosFindings: [match('ros-gi-vomiting', 'Vomiting', 1)] };
 
   it('charts a denial as the -denies field with value true', async () => {
@@ -728,7 +529,7 @@ describe('ROS polarity is stored in the field key', () => {
       [{ kind: 'add-ros-finding', display: 'Denies vomiting', finding: 'denies' } as PlannedAction],
       h.context
     );
-    const written = h.saved.flatMap((call) => (call.rosObservations as { field: string; value: boolean }[]) ?? []);
+    const written = h.saved.flatMap((call) => call.rosObservations ?? []);
     expect(written).toEqual([{ field: 'ros-gi-vomiting-denies', value: true }]);
   });
 
@@ -738,14 +539,12 @@ describe('ROS polarity is stored in the field key', () => {
       [{ kind: 'add-ros-finding', display: 'Reports vomiting', finding: 'reports' } as PlannedAction],
       h.context
     );
-    const written = h.saved.flatMap((call) => (call.rosObservations as { field: string; value: boolean }[]) ?? []);
+    const written = h.saved.flatMap((call) => call.rosObservations ?? []);
     expect(written).toEqual([{ field: 'ros-gi-vomiting-reports', value: true }]);
   });
 });
 
-// The exam catalogue is a fixed set of checkboxes; a provider's vocabulary is not. "Positive Homan's
-// sign" is a real finding with no leaf to tick, and skipping it threw the words away — the one outcome
-// this executor exists to prevent. They now go into the free-text note of the card they belong to.
+// A finding with no checkbox to tick is noted in the free-text comment of the card it belongs to.
 describe('exam finding with no checkbox', () => {
   it('writes the words into the inferred exam card note instead of skipping', async () => {
     const h = harness({ matches: { examFindings: [] } });
@@ -755,13 +554,11 @@ describe('exam finding with no checkbox', () => {
     );
 
     expect(steps[0].outcome?.status).toBe('applied');
-    // Always low-confidence: the words are the provider's, the CARD is an inference.
     expect(steps[0].outcome?.lowConfidence).toBe(true);
     const saved = h.saved.find((s) => 'examObservations' in s) as {
       examObservations: { field: string; note: string }[];
     };
     expect(saved.examObservations[0].note).toBe('Tenderness over the left ear canal');
-    // Filed under Ears, not the general fallback — the inference read "ear" from the wording.
     expect(saved.examObservations[0].field).toBe('ears-comment');
   });
 
@@ -777,7 +574,9 @@ describe('exam finding with no checkbox', () => {
   it('APPENDS to an existing note rather than overwriting what the provider typed', async () => {
     const h = harness({
       matches: { examFindings: [] },
-      chart: { examComments: [{ resourceId: 'obs-1', field: 'general-comment', note: 'Appears comfortable' }] },
+      chart: {
+        examRows: { 'general-comment': { resourceId: 'obs-1', field: 'general-comment', note: 'Appears comfortable' } },
+      },
     });
     await runPlan([{ kind: 'add-exam-finding', display: 'Diaphoretic and pale' }], h.context);
 
@@ -791,7 +590,7 @@ describe('exam finding with no checkbox', () => {
   it('does not duplicate a finding the note already carries', async () => {
     const h = harness({
       matches: { examFindings: [] },
-      chart: { examComments: [{ field: 'general-comment', note: 'Diaphoretic and pale' }] },
+      chart: { examRows: { 'general-comment': { field: 'general-comment', note: 'Diaphoretic and pale' } } },
     });
     const { steps } = await runPlan([{ kind: 'add-exam-finding', display: 'Diaphoretic and pale' }], h.context);
 
@@ -799,9 +598,22 @@ describe('exam finding with no checkbox', () => {
     expect(h.saved.some((s) => 'examObservations' in s)).toBe(false);
   });
 
-  // The bug this fallback introduced on its first attempt: `resolvePick` returns undefined BOTH when
-  // nothing matched and when the provider was asked and declined. Answering a decline with a fallback
-  // write is the opposite of respecting it.
+  it('keeps both findings when two of them land in the same card note in one plan', async () => {
+    const h = harness({ matches: { examFindings: [] } });
+    await runPlan(
+      [
+        { kind: 'add-exam-finding', display: 'Diaphoretic and pale' },
+        { kind: 'add-exam-finding', display: 'Appears anxious' },
+      ],
+      h.context
+    );
+    expect(h.saved.flatMap((fields) => fields.examObservations ?? [])).toEqual([
+      { field: 'general-comment', note: 'Diaphoretic and pale' },
+      // the second write updates the row the first one created, keeping both findings
+      { resourceId: 'res-1', field: 'general-comment', note: 'Diaphoretic and pale; Appears anxious' },
+    ]);
+  });
+
   it('respects a declined picker instead of writing a comment', async () => {
     const h = harness({
       mode: 'interactive',
@@ -812,5 +624,58 @@ describe('exam finding with no checkbox', () => {
 
     expect(steps[0].outcome?.status).toBe('skipped');
     expect(h.saved.some((s) => 'examObservations' in s)).toBe(false);
+  });
+});
+
+describe('E&M code', () => {
+  it('updates the charted E&M row in place, as the Assessment tab does', async () => {
+    const h = harness({ chart: { emCode: { resourceId: 'proc-1', code: '99213', display: 'Office visit, low' } } });
+    const { steps } = await runPlan(
+      [{ kind: 'set-em-code', code: '99214', display: 'Office visit, moderate' }],
+      h.context
+    );
+    expect(steps[0].outcome?.status).toBe('applied');
+    expect(h.saved).toEqual([{ emCode: { resourceId: 'proc-1', code: '99214', display: 'Office visit, moderate' } }]);
+  });
+
+  it('leaves a code the chart already has alone', async () => {
+    const h = harness({
+      chart: { emCode: { resourceId: 'proc-1', code: '99214', display: 'Office visit, moderate' } },
+    });
+    const { steps } = await runPlan([{ kind: 'set-em-code', code: '99214' }], h.context);
+    expect(steps[0].outcome).toMatchObject({ status: 'skipped', reason: 'E&M code 99214 is already on the chart' });
+    expect(h.saved).toEqual([]);
+  });
+
+  it('creates one row and updates it when a later step in the same plan sets the code again', async () => {
+    const h = harness();
+    await runPlan(
+      [
+        { kind: 'set-em-code', code: '99213' },
+        { kind: 'set-em-code', code: '99214' },
+      ],
+      h.context
+    );
+    expect(h.saved).toEqual([
+      { emCode: { code: '99213', display: '99213' } },
+      { emCode: { resourceId: 'res-1', code: '99214', display: '99214' } },
+    ]);
+  });
+});
+
+describe('disposition', () => {
+  it('writes the follow-up interval only for a type whose card offers it', async () => {
+    const h = harness();
+    await runPlan(
+      [
+        { kind: 'set-disposition', dispositionType: 'pcp-no-type', text: 'See your PCP in a week.', followUpInDays: 7 },
+        { kind: 'set-disposition', dispositionType: 'another', text: 'Transfer to urgent care.', followUpInDays: 3 },
+      ],
+      h.context
+    );
+    expect(h.saved).toEqual([
+      { disposition: { type: 'pcp-no-type', note: 'See your PCP in a week.', followUpIn: 7 } },
+      { disposition: { type: 'another', note: 'Transfer to urgent care.' } },
+    ]);
   });
 });

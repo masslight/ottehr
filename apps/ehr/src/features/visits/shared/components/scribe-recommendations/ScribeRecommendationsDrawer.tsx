@@ -110,8 +110,8 @@ const DrawerBody: FC = () => {
           backgroundColor: theme.palette.background.paper,
         }}
       >
-        <Tooltip title="Autochart" placement="left">
-          <IconButton onClick={open} aria-label="Open Autochart" data-testid={testIds.openButton}>
+        <Tooltip title="AutoChart" placement="left">
+          <IconButton onClick={open} aria-label="Open AutoChart" data-testid={testIds.openButton}>
             <Badge badgeContent={pendingCount} color="primary" max={99}>
               <img src={aiIcon} alt="" aria-hidden style={{ width: 22 }} />
             </Badge>

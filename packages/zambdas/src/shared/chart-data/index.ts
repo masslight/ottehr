@@ -50,6 +50,7 @@ import {
   sanitizeStringForFhirCode,
 } from 'utils/lib/fhir/helpers';
 import { fillVitalObservationAttributes, isVitalObservation, makeVitalsObservationDTO } from 'utils/lib/fhir/vitals';
+import { removePrefix } from 'utils/lib/helpers/helpers';
 import {
   addEmptyArrOperation,
   addOperation,
@@ -117,7 +118,6 @@ import {
   ObservationDTO,
   ObservationTextFieldDTO,
 } from 'utils/lib/types/data/screening-questions/types';
-import { removePrefix } from '../appointment/helpers';
 import { getCptModifierCodeFromProcedure, makeCptModifierExtension } from '../candid';
 import { fillMeta } from '../helpers';
 import { isDocumentPublished, PdfDocumentReferencePublishedStatuses, PdfInfo } from '../pdf/pdf-utils';
@@ -293,9 +293,7 @@ export function makeMedicationResource(
   const dose = data.intakeInfo.dose?.trim();
   return {
     id: data.resourceId,
-    // A medication with no dispensable drug id — typed by name rather than picked from the eRx
-    // catalog — has no identifier to carry, and an empty one fails FHIR validation outright.
-    ...(data.id ? { identifier: [{ value: data.id }] } : {}),
+    identifier: [{ value: data.id }],
     resourceType: 'MedicationStatement',
     subject: { reference: `Patient/${patientId}` },
     context: { reference: `Encounter/${encounterId}` },
@@ -309,11 +307,12 @@ export function makeMedicationResource(
       note: [{ text: PATIENT_COULD_NOT_CONFIRM_DOSAGE_NOTE }],
     }),
     medicationCodeableConcept: {
-      // Without a code there is no code system to name, so the coding is the display name alone.
       coding: [
-        data.id
-          ? { system: MEDICATION_DISPENSABLE_DRUG_ID, code: data.id, display: data.name }
-          : { display: data.name },
+        {
+          system: MEDICATION_DISPENSABLE_DRUG_ID,
+          code: data.id,
+          display: data.name,
+        },
       ],
     },
     ...(data.isRenewal !== undefined && {

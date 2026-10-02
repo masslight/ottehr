@@ -12,29 +12,26 @@ interface RecommendationsListProps {
   /** The observations to group. The template is its own stage, so it never appears here. */
   recommendations: ScribeRecommendation[];
   templates: TemplateOption[];
+  /** The chart is signed and locked: rows can't be ticked, edited or retried. */
+  locked: boolean;
   onRetry: () => void;
 }
 
 const testIds = dataTestIds.scribeRecommendations;
 
 /**
- * Stage two: the individual observations, grouped by the chart section each one writes into.
- *
- * The section name runs down a coloured rail on the left rather than sitting in a header row of
- * its own — with six or seven groups on screen, those headers were costing more vertical space
- * than the recommendations they introduced. The rail doubles as the link into that part of the
- * note.
+ * Observations grouped by the chart section each writes into. A coloured rail names each section and links
+ * to that part of the note.
  */
-export const RecommendationsList: FC<RecommendationsListProps> = ({ recommendations, templates, onRetry }) => {
+export const RecommendationsList: FC<RecommendationsListProps> = ({ recommendations, templates, locked, onRetry }) => {
   const itemState = useScribeRecommendationsStore((state) => state.itemState);
   const chartedIds = useScribeRecommendationsStore((state) => state.chartedIds);
   const isApplying = useScribeRecommendationsStore((state) => state.isApplying);
   const setSelected = useScribeRecommendationsStore((state) => state.setSelected);
   const updateRecommendation = useScribeRecommendationsStore((state) => state.updateRecommendation);
 
-  // The review order keys on the ROS finding, which the provider toggles; sorting on every render moved
-  // the toggled row and put the next click on a different one. The order is fixed when the set of
-  // recommendations changes and reused while their contents are edited.
+  // The order is fixed per set of ids: it keys on the ROS finding, so re-sorting on edit would move the
+  // toggled row out from under the next click.
   const idKey = recommendations.map((rec) => rec.id).join('|');
   const rank = useMemo(
     () => new Map(sortForReview(recommendations).map((rec, index) => [rec.id, index])),
@@ -69,7 +66,7 @@ export const RecommendationsList: FC<RecommendationsListProps> = ({ recommendati
                 key={rec.id}
                 recommendation={rec}
                 itemState={itemState[rec.id] ?? { selected: true, status: 'idle' }}
-                locked={isApplying}
+                locked={isApplying || locked}
                 charted={chartedIds.includes(rec.id)}
                 templates={templates}
                 onSelectedChange={(selected) => setSelected(rec.id, selected)}

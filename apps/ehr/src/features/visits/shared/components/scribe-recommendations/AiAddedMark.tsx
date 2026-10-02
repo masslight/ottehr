@@ -21,12 +21,7 @@ interface AiAddedMarkProps {
   children: ReactNode;
 }
 
-/**
- * Wraps a note item the scribe panel wrote, so the provider can tell at a glance what came from
- * the transcript. The tint stays for the sitting; the glyph carries the AI's evidence on hover;
- * and an item that has just landed flashes once so the eye finds it. Nothing to click: the
- * reviewing happened in the panel.
- */
+/** Tints a note item the scribe panel wrote, shows its evidence on hover, and flashes it once on arrival. */
 export const AiAddedMark: FC<AiAddedMarkProps> = ({ recommendation, inline, children }) => {
   const appliedAt = useScribeRecommendationsStore((state) => state.itemState[recommendation.id]?.appliedAt);
   // Decided once at mount: a later re-render of the same row must not restart the flash.
@@ -40,7 +35,7 @@ export const AiAddedMark: FC<AiAddedMarkProps> = ({ recommendation, inline, chil
       enterDelay={300}
       title={
         <ProvenanceContent
-          note="Added from the transcript by Autochart"
+          note="Added from the transcript by AutoChart"
           evidence={recommendation.evidence}
           warning={recommendation.warning}
         />
@@ -79,7 +74,7 @@ export const AiAddedMark: FC<AiAddedMarkProps> = ({ recommendation, inline, chil
 export const AiAddedSectionChip: FC<{ templateName: string }> = ({ templateName }) => (
   // Stops the click from reaching the card header, which would open the editor.
   <Box onClick={(event) => event.stopPropagation()} sx={{ display: 'flex', flexShrink: 0, cursor: 'default' }}>
-    <Tooltip title="Filled by the template applied from Autochart" placement="left" enterDelay={300}>
+    <Tooltip title="Filled by the template applied from AutoChart" placement="left" enterDelay={300}>
       <Chip
         size="small"
         data-testid={dataTestIds.scribeRecommendations.aiAddedSectionChip}

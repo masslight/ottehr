@@ -54,7 +54,6 @@ describe('wholeChartFromVisitNote', () => {
 
     expect(chart.patientId).toBe('p-1');
     expect(chart.diagnosis?.map((dx) => dx.code)).toEqual(['J01.00']);
-    // The progress-note fields the old default read never carried.
     expect(chart.chiefComplaint?.text).toBe('Sinus pressure x 1 week.');
     expect(chart.medicalDecision?.text).toBe('Likely viral.');
     expect(chart.episodeOfCare?.map((stay) => stay.resourceId)).toEqual(['h-1']);

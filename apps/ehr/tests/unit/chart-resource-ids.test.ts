@@ -1,8 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  collectResourceIds,
-  diffCreatedResourceIds,
-} from '../../src/features/visits/shared/stores/appointment/chart-resource-ids';
+import { collectResourceIds, diffCreatedResourceIds } from '../../src/features/easy-chart/hooks/chart-resource-ids';
 
 describe('collectResourceIds', () => {
   it('finds resourceIds at any depth, across sections', () => {
@@ -18,8 +15,7 @@ describe('collectResourceIds', () => {
     expect([...collectResourceIds(chart)].sort()).toEqual(['cc-1', 'dx-1', 'dx-2', 'lab-1']);
   });
 
-  // Generic on purpose: a hand-written list of sections to walk goes stale the first time someone
-  // adds a section, and the symptom is an AI-written row rendering as provider-entered.
+  // A per-section list would go stale, and an AI-written row would then render as provider-entered.
   it('picks up a section it has never heard of', () => {
     expect([...collectResourceIds({ somethingNew: [{ resourceId: 'new-1' }] })]).toEqual(['new-1']);
   });

@@ -32,8 +32,8 @@ preserved (not destroyed) by the migration.
    (AC 2–4), a subsequent deploy / `terraform apply` does **not** delete, recreate, or overwrite
    it. *(This is the core "out of Terraform" guarantee. QA can confirm the observable outcome —
    the admin-created location is untouched after a deploy. The infra-level proof, that
-   `terraform apply` reports no changes/destroys for Location resources, is enforced
-   automatically by the "Ejection coverage" CI check on PRs and can be spot-confirmed with Eng.)*
+   `terraform apply` reports no changes/destroys for Location resources, can be
+   spot-confirmed with Eng.)*
 4. **No code/Terraform change is needed to add a location** — it's done entirely in the UI (AC 2).
 
 ## AC 2 — Create a location (self-service)
@@ -109,7 +109,5 @@ persists after reload. (Save writes via the self-service update endpoint.)
 - Non-admin hitting the endpoints directly (if QA can) → 401/403.
 
 ## Notes / out of scope
-- The **Ejection coverage** CI check guards the "no Location silently destroyed by Terraform"
-  invariant on every PR; it's not something QA needs to run manually.
 - Bulk import/migration of legacy locations, and the shape of the runtime seed, are infra
   concerns — QA verifies the *observable* result (existing locations intact, new ones self-service).

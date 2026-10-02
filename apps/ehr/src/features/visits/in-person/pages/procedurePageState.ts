@@ -1,5 +1,7 @@
 import { DateTime } from 'luxon';
-import { isRepairDepthSelection, ProcedureFactsInput, ProcedurePageState } from 'utils';
+import { isRepairDepthSelection } from 'utils/lib/procedure-coding/format';
+import { ProcedureFactsInput } from 'utils/lib/procedure-coding/model.types';
+import { ProcedurePageState } from 'utils/lib/types/api/procedures.types';
 import { combineMultipleValuesForSave } from './procedureOtherFields';
 
 export interface LocalProcedurePageState extends Omit<ProcedurePageState, 'procedureDate' | 'procedureTime'> {

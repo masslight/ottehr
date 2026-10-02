@@ -1,39 +1,25 @@
 /**
- * case-quality.ts — screen the CORPUS rather than the model: which cases are bad evidence?
- *
- * Every metric in this harness compares a prediction against a gold note, and silently assumes the
- * transcript and the note describe the same visit. Where they do not, the score measures the corpus.
- * Two failure shapes motivated this:
- *
- *   - the note is missing something the transcript plainly states. case001's provider says "Allergic
- *     to fentanyl" and `gold.allergies` is empty, so a model that charts the allergy is marked wrong.
- *   - the transcript is damaged. A recording cut mid-visit, or one whose diarisation collapsed so the
- *     whole dialogue is attributed to one speaker, cannot support the note no matter what reads it.
- *
- * Everything here is a HEURISTIC and is reported as a flag to look at, never as a verdict. The
- * keyword families are deliberately narrow — "allergic to" counts, a drug called "sinus allergy"
- * does not — because a loose pattern would bury the real cases in noise. Expect false positives and
- * read the ones you act on.
- *
- * The one non-heuristic signal is `voiced`: tag-voiced.ts already judged, per item, whether the
- * dictation supports it. A case where almost none of the note is voiced is one where the transcript
- * and the note have come apart, whatever the reason.
+ * Screens the corpus rather than the model: flags cases where the transcript and the gold note do not
+ * describe the same visit (the note omits what the transcript states, or the recording is cut or collapsed).
+ * Flags are heuristics to look at, not verdicts; keyword patterns are kept narrow to limit noise.
  *
  * Usage:
  *   npx tsx tools/easy-chart-eval/case-quality.ts                 # corpus summary + worst cases
  *   npx tsx tools/easy-chart-eval/case-quality.ts case001         # one case, in detail
+ *   npx tsx tools/easy-chart-eval/case-quality.ts case001 --transcript   # also quote the transcript (PHI)
  *   npx tsx tools/easy-chart-eval/case-quality.ts --flag gold-missing:allergies
  *   npx tsx tools/easy-chart-eval/case-quality.ts --csv > /tmp/quality.csv
- *   npx tsx tools/easy-chart-eval/case-quality.ts --verdict [out.md]   # classify every case, write lists
- *   npx tsx tools/easy-chart-eval/case-quality.ts --stamp              # write the verdict INTO each case file
+ *   npx tsx tools/easy-chart-eval/case-quality.ts --verdict [out.md]   # classify every case (default: harvested-results/)
+ *   npx tsx tools/easy-chart-eval/case-quality.ts --stamp              # write the verdict into each case file
  *
- * `--stamp` adds a top-level `quality` block to every caseNNN.json — additive, exactly like the voicing
- * tags: `gold` and every existing field are untouched, so a stamped corpus scores identically to an
- * unstamped one. The runner reads it via `--quality OK` to evaluate only the cases that can actually
- * measure a model. Re-running restamps in place, so the corpus never carries a stale verdict.
+ * One-case detail quotes transcript lines (its ending, and the lines behind each gold-missing flag) only
+ * with --transcript.
+ *
+ * --stamp writes a top-level `quality` block into each caseNNN.json and leaves `gold` untouched, so scores do
+ * not change. The runner's `--quality OK` uses it to evaluate only cases that can measure a model.
  */
-import { readdirSync, readFileSync, writeFileSync } from 'fs';
-import { join } from 'path';
+import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'fs';
+import { dirname, join } from 'path';
 
 const CASES_DIR = join(__dirname, 'harvested-cases');
 
@@ -46,7 +32,7 @@ interface Gold {
   radiology?: unknown[];
   vitals?: unknown[];
   labs?: { external?: unknown; inHouse?: unknown };
-  medications?: { prescribed?: unknown[]; inHouseAdministered?: unknown[] };
+  medications?: { prescribed?: { voiced?: boolean }[]; inHouseAdministered?: unknown[] };
   assessment?: { diagnoses?: { voiced?: boolean; fromLabOrder?: boolean }[] };
   billing?: { emCode?: unknown; cptCodes?: { voiced?: boolean }[] };
   exam?: { present?: boolean; voiced?: boolean }[];
@@ -55,9 +41,8 @@ interface Gold {
 }
 
 /**
- * A topic the transcript states outright, paired with the gold section that should then be non-empty.
- * Patterns are affirmative on purpose: "no known drug allergies" must NOT flag an empty allergy list,
- * because there an empty list is the correct answer.
+ * Topics the transcript states outright, each paired with the gold section that should then be non-empty.
+ * Patterns are affirmative so that, e.g., "no known drug allergies" does not flag an empty allergy list.
  */
 const TOPICS: { section: string; pattern: RegExp; empty: (g: Gold) => boolean }[] = [
   {
@@ -113,13 +98,8 @@ const TOPICS: { section: string; pattern: RegExp; empty: (g: Gold) => boolean }[
 ];
 
 /**
- * The tiers, ordered by what they cost a measurement.
- *
- * UNUSABLE is the only one that is really a verdict: a transcript of 39 characters, or one whose note
- * the judge could not source a single item from, cannot measure a model at all — whatever a run scores
- * on it is noise. The rest are degrees of "read before you trust it": DAMAGED still carries a visit,
- * GOLD-GAP means the transcript is fine and the NOTE is the incomplete side, so the model is marked
- * wrong for charting something that was actually said.
+ * Tiers, ordered by what they cost a measurement. UNUSABLE cannot measure a model at all; DAMAGED is a real
+ * visit with a cut or collapsed recording; GOLD-GAP means the note omits something the transcript states.
  */
 type Verdict = 'UNUSABLE' | 'DAMAGED' | 'GOLD-GAP' | 'OK';
 
@@ -130,9 +110,6 @@ function verdictOf(r: Report): { verdict: Verdict; why: string } {
     return { verdict: 'UNUSABLE', why: 'not one gold item is supported by the transcript' };
   if (has('very-short')) return { verdict: 'UNUSABLE', why: `transcript is ${r.chars} characters` };
   if (has('no-speaker-labels') && has('few-turns')) return { verdict: 'UNUSABLE', why: 'no speaker structure at all' };
-  // A transcript with no speaker structure at all is damaged whether or not one turn also dominates.
-  // Without the `collapsed-turn` companion this fell through every branch below and was reported OK —
-  // six cases, found only because the tier counts (330) disagreed with the no-flag count (324).
   if (has('no-speaker-labels'))
     return { verdict: 'DAMAGED', why: 'no speaker labels: the dialogue is one undifferentiated block' };
   if (has('single-speaker') && has('truncated-end'))
@@ -195,13 +172,10 @@ function analyse(caseId: string): Report {
   if (t.length < 400) flags.push('very-short');
   if (turns === 0) flags.push('no-speaker-labels');
   else if (Object.keys(speakers).length === 1) flags.push('single-speaker');
-  // A collapsed diarisation shows up as a visit with almost no turns, NOT as a dominant turn.
-  // Measured over the corpus: at 1-2 turns, 274 of 277 cases have one turn dominating and 79% have a
-  // single speaker — those are broken. From 17 turns up only 14% have a dominant turn, and sampling
-  // those found ordinary visits where the provider explains a plan at length. Flagging on the share
-  // alone therefore condemned normal monologue-heavy encounters; the turn count is the real signal.
+  // A collapsed diarisation shows up as very few turns. A dominant single turn is not flagged on its own,
+  // since ordinary visits often include a long plan explanation.
   if (turns <= 4) flags.push('few-turns');
-  // Mid-sentence stop. A visit that simply ends on a period is not flagged; this catches the cut.
+  // No closing punctuation means the recording was likely cut mid-sentence.
   if (t.length > 0 && !/[.!?"'’]$/.test(t)) flags.push('truncated-end');
 
   const v = voicing(g);
@@ -225,7 +199,7 @@ function analyse(caseId: string): Report {
   };
 }
 
-function detail(caseId: string): void {
+function detail(caseId: string, showTranscript: boolean): void {
   const r = analyse(caseId);
   const raw = JSON.parse(readFileSync(join(CASES_DIR, `${caseId}.json`), 'utf8')) as {
     transcript?: string;
@@ -240,12 +214,19 @@ function detail(caseId: string): void {
       r.goldItems ? ((100 * r.voicedItems) / r.goldItems).toFixed(1) : '0'
     }%)`
   );
-  console.log(`  ends: ${JSON.stringify(t.slice(-70))}`);
+  if (showTranscript) console.log(`  ends: ${JSON.stringify(t.slice(-70))}`);
   console.log(`  flags: ${r.flags.length ? r.flags.join(', ') : 'none'}`);
   for (const topic of TOPICS) {
     if (!topic.pattern.test(t) || !topic.empty(raw.gold)) continue;
+    const lines = t.split('\n').filter((line) => topic.pattern.test(line));
+    if (!showTranscript) {
+      console.log(
+        `\n  gold.${topic.section} is EMPTY, but ${lines.length} transcript line(s) state it (--transcript quotes them)`
+      );
+      continue;
+    }
     console.log(`\n  gold.${topic.section} is EMPTY, but the transcript says:`);
-    for (const line of t.split('\n')) if (topic.pattern.test(line)) console.log(`    ${line.trim().slice(0, 160)}`);
+    for (const line of lines) console.log(`    ${line.trim().slice(0, 160)}`);
   }
 }
 
@@ -277,7 +258,7 @@ function stamp(ids: string[]): void {
 function main(): void {
   const args = process.argv.slice(2);
   const one = args.find((a) => /^case\d+$/.test(a));
-  if (one) return detail(one);
+  if (one) return detail(one, args.includes('--transcript'));
 
   const flagFilter = args.includes('--flag') ? args[args.indexOf('--flag') + 1] : undefined;
   const ids = readdirSync(CASES_DIR)
@@ -308,7 +289,8 @@ function main(): void {
   if (args.includes('--stamp')) return stamp(ids);
 
   if (args.includes('--verdict')) {
-    const outPath = args[args.indexOf('--verdict') + 1] ?? join(CASES_DIR, '..', 'CASE-QUALITY.md');
+    // Kept out of git beside the other outputs derived from the real corpus.
+    const outPath = args[args.indexOf('--verdict') + 1] ?? join(__dirname, 'harvested-results', 'CASE-QUALITY.md');
     const rows = reports.map((r) => ({ r, ...verdictOf(r) }));
     const byTier: Record<string, typeof rows> = { UNUSABLE: [], DAMAGED: [], 'GOLD-GAP': [], OK: [] };
     for (const row of rows) byTier[row.verdict].push(row);
@@ -344,6 +326,7 @@ function main(): void {
     md.push('', '## Case ids only, for copy-paste', '');
     for (const t of ['UNUSABLE', 'DAMAGED', 'GOLD-GAP'])
       md.push(`**${t}**`, '', '```', byTier[t].map((x) => x.r.caseId).join(','), '```', '');
+    mkdirSync(dirname(outPath), { recursive: true });
     writeFileSync(outPath, md.join('\n'));
     for (const t of ['UNUSABLE', 'DAMAGED', 'GOLD-GAP', 'OK']) {
       console.log(

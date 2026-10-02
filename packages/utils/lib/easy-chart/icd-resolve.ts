@@ -1,16 +1,6 @@
-// The diagnosis-code resolution pipeline: hint → confirm → rank → sharpen → repair.
-//
-// THE INVARIANT: no code reaches the note unless the canonical terminology actually returned it, AND
-// the charted {code, display} pair comes from ONE row. Never a model-supplied code under a searched
-// display — that is how a note ends up asserting a condition whose code says something else.
-//
-// The step this pipeline exists for is RANKING. Confirming that the model's code exists is a weaker
-// check than it looks: "Other acute sinusitis" (J01.80) is a real, billable code, so an existence
-// check waves it through even when the visit describes plain acute sinusitis (J01.90) and the right row
-// sits two places down the search the guard already ran. Resolution therefore takes the first
-// NON-CONTRADICTING candidate rather than trusting the hint, and then tries to sharpen it.
-//
-// Pure: the terminology search is injected, so every branch here is unit-testable against fixtures.
+// Diagnosis-code resolution: accept the model's code only if it is consistent with the intent, else take the
+// first non-contradicting search row, then sharpen it. A charted {code, display} pair always comes from one
+// terminology row. The search is injected so every branch is unit-testable.
 
 import {
   ETIOLOGY_QUALIFIER_EVIDENCE,
@@ -36,32 +26,27 @@ export interface Icd10Row {
 }
 
 /**
- * The injected search. `limit` is the maximum number of candidates the caller wants to consider;
- * implementations may return extra rows (register-variant fan-out) but MUST preserve ranking order —
- * resolution takes the first non-contradicting candidate.
+ * Implementations may return more than `limit` rows (register-variant fan-out) but must preserve ranking order,
+ * because resolution takes the first non-contradicting candidate.
  */
 export type IcdSearchFn = (query: string, limit: number) => Promise<Icd10Row[]>;
 
 /**
- * How deep to look. Text and code searches take the first non-contradicting candidate, so a few dozen
- * ranked rows suffice. The category-sibling enumeration must instead see the WHOLE 3-character
- * category (S93 alone has 336 billable codes), so it pages far deeper; a category larger than the cap
- * degrades safely to "no upgrade".
+ * Text and code searches take the first acceptable row, so a few dozen suffice. Sibling enumeration must see a
+ * whole 3-character category (S93 has 336 billable codes); a larger one degrades safely to "no upgrade".
  */
 export const SEARCH_LIMIT = 50;
-export const CATEGORY_SIBLING_LIMIT = 1000;
+const CATEGORY_SIBLING_LIMIT = 1000;
 
 const LATERALITY_VALUES = ['left', 'right', 'bilateral'];
 const RECURRENCE_INTENT = /\b(recurrent|recurring|frequent|repeated)\b/i;
 /**
- * Displays phrase the side inconsistently ("…, unspecified ear" vs "…, bilateral" with no noun), so
- * these filler nouns may differ between otherwise-identical siblings without meaning a different
- * condition.
+ * Filler nouns that may differ between otherwise identical siblings, since displays phrase the side
+ * inconsistently ("…, unspecified ear" vs "…, bilateral").
  */
 const SIDE_NOUN_SLACK = new Set(['ear', 'ears', 'eye', 'eyes', 'side']);
 
-/** Digits are load-bearing ("stage 0" vs "stage 1"), so a letters-only split would make numerically
- * distinct siblings look base-identical. */
+/** Keeps digits, so siblings such as "stage 0" and "stage 1" do not look identical. */
 function displayWords(display: string): Set<string> {
   return new Set(
     display
@@ -84,9 +69,8 @@ function differOnlyBySideNouns(a: Set<string>, b: Set<string>): boolean {
 }
 
 /**
- * One attribute dimension: find same-category siblings whose display carries `want` (and none of
- * `forbid`) and equals the current display once the dimension's words are set aside. Exactly one such
- * sibling upgrades; zero or several keep the current code. Never cross-condition, never a downgrade.
+ * Upgrades to the one same-category sibling whose display adds `want` (and none of `forbid`) and otherwise
+ * matches the current display. Zero or several candidates keep the current code.
  */
 async function upgradeOneDimension(
   searchIcd: IcdSearchFn,
@@ -109,10 +93,8 @@ async function upgradeOneDimension(
 }
 
 /**
- * The model charts the base/unspecified variant when the narrative names laterality ("left ankle") or
- * recurrence ("frequent ear infections") — attributes ICD-10 encodes as sibling codes inside the same
- * 3-character category (H66.90 "…, unspecified ear" vs H66.92 "…, left ear"). Dimensions apply in
- * sequence, so a narrative naming both chains two single-attribute steps (H66.009 → H66.002 → H66.005).
+ * Upgrades an unspecified code to the sibling encoding the laterality or recurrence the intent names (H66.90 →
+ * H66.92 "left ear"). The dimensions chain, so both can apply (H66.009 → H66.002 → H66.005).
  */
 export async function upgradeCodeSpecificity(
   searchIcd: IcdSearchFn,
@@ -126,8 +108,7 @@ export async function upgradeCodeSpecificity(
   const intentWords = new Set(intent.split(/[^a-z]+/));
   let out = current;
 
-  // Exactly one side named across the intent texts — two or more means conflicting, so keep — and the
-  // validated code encodes none.
+  // Only when exactly one side is named (more means conflicting) and the code encodes none.
   const sides = LATERALITY_VALUES.filter((value) => intentWords.has(value));
   if (sides.length === 1 && !LATERALITY_VALUES.some((value) => displayWords(out.display).has(value))) {
     out = await upgradeOneDimension(
@@ -139,8 +120,7 @@ export async function upgradeCodeSpecificity(
     );
   }
 
-  // Base comparison neutralises only "recurrent", so a candidate may not smuggle in a laterality the
-  // current code lacks.
+  // Only "recurrent" is neutral here, so the candidate cannot also add a laterality.
   if (RECURRENCE_INTENT.test(intent) && !displayWords(out.display).has('recurrent')) {
     out = await upgradeOneDimension(searchIcd, out, 'recurrent', [], ['recurrent']);
   }
@@ -148,15 +128,8 @@ export async function upgradeCodeSpecificity(
 }
 
 /**
- * ONE deterministic repair attempt for a code whose display carries aetiology qualifiers the evidence
- * does not support: search with the display stripped of the unsupported tokens — each evidence-
- * SUPPORTED qualifier tried as a prefix first, the bare stripped display last — and accept the first
- * candidate that (a) carries no unsupported qualifier itself, (b) keeps every base condition token,
- * (c) keeps the original laterality, and (d) can stand alone. No candidate means the caller drops it.
- *
- * Why repair before refusing: the review once proposed A54.02 (gonococcal) for a narrative documenting
- * budding yeast, and H65.06 (serous) for a bulging purulent AOM. The condition was right both times
- * and only the qualifier was wrong, so refusing outright threw away a correct finding.
+ * Re-searches a code whose aetiology qualifier the evidence does not support ("gonococcal" on a yeast visit)
+ * without that qualifier, since the condition itself is usually right. Undefined means drop the code.
  */
 export async function repairUnsupportedEtiology(
   searchIcd: IcdSearchFn,
@@ -170,8 +143,7 @@ export async function repairUnsupportedEtiology(
     .filter(Boolean);
   const stripped = words.filter((word) => !unsupported.has(word));
   const strippedQuery = stripped.join(' ');
-  // Base condition tokens every replacement must keep — without them a same-organism code for a
-  // DIFFERENT condition ("Candidal stomatitis") could impersonate the repair.
+  // Base condition tokens a replacement must keep, or a same-organism code for another condition could win.
   const base = stripped.filter(
     (word) => word.length >= 4 && !CODE_DISPLAY_BOILERPLATE.has(word) && !(word in ETIOLOGY_QUALIFIER_EVIDENCE)
   );
@@ -204,19 +176,14 @@ function consistent(intentText: string, row: Icd10Row, narrative?: string): bool
     !contradictsAnatomy(intentText, row.display) &&
     !contradictsInjuryRegion(intentText, row.code) &&
     !contradictsHistoryContext(intentText, row.code, row.display) &&
-    // Care context is checked against the NARRATIVE, not the intent phrase: an obstetric or
-    // surgical-complication code is wrong because the VISIT was neither, and the model's short display
-    // would never mention it either way.
+    // Care context is checked against the whole narrative, which the model's short display never covers.
     unsupportedContextQualifiers(row.display, narrative ?? intentText).length === 0
   );
 }
 
 /**
- * Resolve a diagnosis-like action to one terminology row, or nothing.
- *
- * Returning nothing is a legitimate answer: a query whose results ALL contradict the intent yields
- * undefined rather than its top result, because attaching a code the guard calls anatomically wrong is
- * worse than letting the client's picker resolve by display.
+ * Resolves a diagnosis to one terminology row, or undefined when every candidate contradicts the intent; the
+ * client picker then resolves by display, which beats attaching a wrong code.
  */
 export async function resolveIcd(
   searchIcd: IcdSearchFn,
@@ -229,10 +196,7 @@ export async function resolveIcd(
   const intentTexts = [display, ...searchTerms, sourceText];
   const code = suggestedCode?.trim().toUpperCase();
 
-  // 1. Exact-lookup the model's code. The happy path needs no ranking — but a real code can still be
-  //    the WRONG code (the model once hinted H00.012, right LOWER eyelid, for a dictated left UPPER
-  //    stye), so the hint has to survive the consistency predicates and share vocabulary with the
-  //    intent before it is trusted.
+  // 1. Accept the model's code if it exists, passes the consistency predicates and overlaps the display.
   if (isIcd10Shaped(code)) {
     const byCode = await searchIcd(code!, SEARCH_LIMIT);
     const exact = byCode.find((row) => row.code.toUpperCase() === code);
@@ -241,15 +205,11 @@ export async function resolveIcd(
     }
   }
 
-  // 2. Text search by display, then each search term, taking the top non-contradicting row. The
-  //    platform ranking can surface a cross-organ code — "retained foreign body" once returned the
-  //    EYELID code for a palm splinter — so the same sanity applies here.
+  // 2. Search by display, then by each search term, taking the top consistent row.
   for (const query of [display, ...searchTerms]) {
     if (!query?.trim()) continue;
     const results = await searchIcd(query.trim(), SEARCH_LIMIT);
-    // The overlap floor is what stops an unrelated top row being charted: the predicates above only
-    // catch a candidate that CONTRADICTS the intent, and a condition with nothing in common contradicts
-    // nothing. See sharesAnyMeaningfulWord for the case that made this necessary.
+    // The overlap floor rejects an unrelated row, which contradicts nothing and so passes the predicates.
     const accepted = results.find(
       (row) => consistent(display, row, narrative) && sharesAnyMeaningfulWord(display, row.display)
     );

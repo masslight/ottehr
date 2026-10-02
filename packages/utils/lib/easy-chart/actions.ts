@@ -1,54 +1,13 @@
-// The closed vocabulary of things the Easy Chart assistant can do.
+// The closed vocabulary of Easy Chart actions. The model never writes to the chart: it returns typed
+// actions, and deterministic code validates them and writes them through the regular chart endpoints.
 //
-// THE architectural rule this file serves (see docs/easy-chart-rebuild-plan.md, Phase 0): the LLM
-// never writes. It returns a list of typed actions drawn from this vocabulary, and deterministic,
-// unit-tested code resolves each one against a catalogue and writes it through the pre-existing
-// chart endpoints. Every model mistake is therefore a *wrong action* — validatable, gateable, and
-// showable to the provider — rather than a wrong database row.
-//
-// Two shapes live here and they are deliberately different:
-//   - `RawAction` is the FLAT shape the model emits and the response schema declares. Every field
-//     except `kind` is optional. See the registry's schema module for why it is flat rather than a
-//     discriminated `anyOf`.
-//   - `Action` is the discriminated union the executor consumes, so a handler for `set-vital` can
-//     rely on `field` being present. `hasRequiredFields()` in the registry is the runtime gate that
-//     turns the former into the latter.
-//
-// ACTION_KINDS and Action['kind'] are proven to be the same set by two type assertions in
-// registry.ts. Adding a kind to one without the other is a build error, not a silent no-op.
+// `RawAction` is the flat shape the model emits; `Action` is the discriminated union the executor runs.
+// The server checks every action against its registry shape before the client sees it.
 
-import { DispositionType } from '../types/api/chart-data/chart-data.types';
+import { VitalFieldNames } from '../types/api/chart-data/chart-data.constants';
+import { DispositionType, followUpInOptions } from '../types/api/chart-data/chart-data.types';
 
-/**
- * Where an action may be offered. The planner charts a visit; the review pass corrects a note it
- * did not write, and is deliberately offered a much narrower vocabulary.
- *
- * `findings` is a STAGE rather than a separate feature: one call whose whole vocabulary is the exam,
- * the ROS and the vitals. It exists because those three are pure enumeration and they lose when they
- * share a call with everything else — a planner asked for the note AND the codes AND the disposition
- * spends its output on the shorter sections and stops early on the long ones. Measured: exam recall sat
- * at 0.18 and ROS at 0.36 while their precision stayed high, which is the signature of stopping early
- * rather than of guessing wrong.
- */
-export const SURFACES = [
-  'plan',
-  'review',
-  'template',
-  'findings',
-  'history',
-  'story',
-  'diagnoses',
-  'orders',
-  'plan-text',
-  'coding',
-] as const;
-export type Surface = (typeof SURFACES)[number];
-
-/**
- * Every property an action may carry, across all kinds. The response schema for a surface is
- * generated from the union of the fields its capabilities declare, so this list and the schema
- * cannot drift.
- */
+/** Every property an action may carry on the wire, in the order the response schema lists them. */
 export const ACTION_FIELDS = [
   'kind',
   'display',
@@ -59,16 +18,10 @@ export const ACTION_FIELDS = [
   'newText',
   'text',
   'finding',
-  'value',
-  'unit',
-  'systolic',
-  'diastolic',
   'strength',
   'doseForm',
   'dispositionType',
   'followUpInDays',
-  'procedureMatch',
-  'updates',
   'message',
   'sourceText',
 ] as const;
@@ -77,35 +30,18 @@ export type ActionField = (typeof ACTION_FIELDS)[number];
 export const ACTION_KINDS = [
   'apply-template',
   'add-allergy',
-  'remove-allergy',
   'add-condition',
-  'remove-condition',
   'add-medication',
-  'remove-medication',
   'add-surgical-history',
-  'remove-surgical-history',
   'add-hospitalization',
-  'remove-hospitalization',
   'edit-note-text',
   'set-vital',
   'add-exam-finding',
-  'remove-exam-finding',
   'add-ros-finding',
-  'remove-ros-finding',
   'add-diagnosis',
-  'remove-diagnosis',
-  'add-in-house-lab',
-  'add-external-lab',
-  'add-radiology',
-  'add-procedure',
-  'update-procedure',
   'set-em-code',
-  'remove-em-code',
-  'add-cpt',
-  'remove-cpt',
   'set-disposition',
   'add-patient-instruction',
-  'add-nursing-order',
   'provider-note',
   'reply',
   'unknown',
@@ -122,10 +58,7 @@ export const NOTE_TEXT_FIELDS = [
 ] as const;
 export type NoteTextField = (typeof NOTE_TEXT_FIELDS)[number];
 
-/**
- * The vitals `set-vital` may target. A subset of VitalFieldNames: BMI is derived, and vision and
- * LMP are not dictated in the narratives this feature reads.
- */
+/** The save-chart-data vitals `set-vital` may target: BMI is derived, and vision and LMP are not dictated. */
 export const PLANNABLE_VITAL_FIELDS = [
   'vital-temperature',
   'vital-heartbeat',
@@ -134,60 +67,42 @@ export const PLANNABLE_VITAL_FIELDS = [
   'vital-blood-pressure',
   'vital-weight',
   'vital-height',
-] as const;
+] as const satisfies readonly `${VitalFieldNames}`[];
 export type PlannableVitalField = (typeof PLANNABLE_VITAL_FIELDS)[number];
 
-/** The dispositions the assistant may set. A subset of DispositionType; the rest are workflow-only. */
-export const PLANNABLE_DISPOSITION_TYPES = ['pcp', 'specialty', 'ed', 'another', 'ip'] as const;
+/**
+ * The dispositions the assistant may set: the tabs of the in-person Disposition card, a subset of the
+ * save-chart-data `DispositionType`.
+ */
+export const PLANNABLE_DISPOSITION_TYPES = [
+  'pcp-no-type',
+  'specialty',
+  'ed',
+  'another',
+] as const satisfies readonly DispositionType[];
 export type PlannableDispositionType = (typeof PLANNABLE_DISPOSITION_TYPES)[number];
 
-// Compile-time proof that the plannable subset really is a subset of the chart's own type. Widening
-// DispositionType is fine; renaming one of these out from under us is not.
-const _DISPOSITION_SUBSET_CHECK: readonly DispositionType[] = PLANNABLE_DISPOSITION_TYPES;
-void _DISPOSITION_SUBSET_CHECK;
+export const isPlannableDispositionType = (value: unknown): value is PlannableDispositionType =>
+  typeof value === 'string' && (PLANNABLE_DISPOSITION_TYPES as readonly string[]).includes(value);
 
-/** The fields `update-procedure` may set. Mirrors the procedure form. */
-export const PROCEDURE_UPDATE_FIELDS = [
-  'bodySite',
-  'bodySide',
-  'technique',
-  'suppliesUsed',
-  'procedureDetails',
-  'medicationUsed',
-  'complications',
-  'patientResponse',
-  'postInstructions',
-  'timeSpent',
-  'performerType',
-  'documentedBy',
-  'specimenSent',
-  'consentObtained',
-] as const;
-export type ProcedureUpdateField = (typeof PROCEDURE_UPDATE_FIELDS)[number];
+/** The types whose card has a follow-up interval, and the intervals its select offers (0 is "as needed"). */
+const FOLLOW_UP_DISPOSITION_TYPES: readonly PlannableDispositionType[] = ['pcp-no-type', 'specialty'];
+export const FOLLOW_UP_DAYS: readonly number[] = followUpInOptions.map((option) => option.value);
 
-export interface ProcedureUpdate {
-  field: string;
-  value: string;
+/** The follow-up interval the Disposition card can show for this type, or undefined when it has none. */
+export function chartableFollowUpDays(type: unknown, days: unknown): number | undefined {
+  const typed = isPlannableDispositionType(type) && FOLLOW_UP_DISPOSITION_TYPES.includes(type);
+  return typed && typeof days === 'number' && FOLLOW_UP_DAYS.includes(days) ? days : undefined;
 }
 
-/**
- * Provenance, carried on every action the model returns.
- *
- * `sourceText` is the VERBATIM phrase from the narrative that justifies the action. It is verified
- * server-side against the narrative and dropped if it isn't really there — models paraphrase and
- * stitch list items together, and a fabricated citation in a medical record is worse than none.
- * An action with no `sourceText` is honestly marked *inferred* in the UI, which is the signal that
- * tells a provider to look closely.
- */
-export interface ActionProvenance {
+interface ActionProvenance {
+  /** The verbatim narrative phrase behind the action. The server drops it unless it really occurs there. */
   sourceText?: string;
-  /** Set by a server guard when the value was accepted but is questionable (see Phase 4.4). */
+  /** Set by a server guard when the value was accepted but deserves a second look. */
   caution?: string;
-  /** True when the value could not be established and the provider must supply it. */
-  needsProvider?: boolean;
 }
 
-/** The flat shape the model emits and the response schema declares. */
+/** The flat shape the model emits. Numeric fields are filled in by server guards, never by the model. */
 export interface RawAction extends ActionProvenance {
   kind: ActionKind;
   display?: string;
@@ -206,57 +121,37 @@ export interface RawAction extends ActionProvenance {
   doseForm?: string;
   dispositionType?: string;
   followUpInDays?: number | string;
-  procedureMatch?: string;
-  updates?: ProcedureUpdate[];
   message?: string;
 }
 
-/** A catalogue lookup: what the provider said, plus synonyms to search a clinical database with. */
-export interface SearchableAction extends ActionProvenance {
+interface SearchableAction extends ActionProvenance {
   display: string;
   searchTerms?: string[];
 }
 
 export type Action = ActionProvenance &
-  // `templateId` is SERVER-set: the plan zambda resolves the model's title to a practice template and
-  // puts its id here, with `display` rewritten to the exact title. A suggestion the provider acts on.
-  (| ({ kind: 'apply-template'; templateId?: string } & SearchableAction)
+  (
+    | ({ kind: 'apply-template'; templateId?: string } & SearchableAction)
     | ({ kind: 'add-allergy' } & SearchableAction)
-    | ({ kind: 'remove-allergy' } & SearchableAction)
     | ({ kind: 'add-condition'; code?: string } & SearchableAction)
-    | ({ kind: 'remove-condition' } & SearchableAction)
     | ({ kind: 'add-medication'; strength?: string; doseForm?: string } & SearchableAction)
-    | ({ kind: 'remove-medication' } & SearchableAction)
     | ({ kind: 'add-surgical-history' } & SearchableAction)
-    | ({ kind: 'remove-surgical-history' } & SearchableAction)
     | ({ kind: 'add-hospitalization' } & SearchableAction)
-    | ({ kind: 'remove-hospitalization' } & SearchableAction)
     | { kind: 'edit-note-text'; field: NoteTextField; newText: string }
     | {
         kind: 'set-vital';
         field: PlannableVitalField;
         display: string;
-        /** Populated server-side by the unit canonicaliser; never trusted from the model. */
+        /** Parsed from `display` by the server; never trusted from the model. */
         value?: number;
         unit?: string;
         systolic?: number;
         diastolic?: number;
       }
     | ({ kind: 'add-exam-finding' } & SearchableAction)
-    | ({ kind: 'remove-exam-finding' } & SearchableAction)
     | ({ kind: 'add-ros-finding'; finding?: string } & SearchableAction)
-    | ({ kind: 'remove-ros-finding'; finding?: string } & SearchableAction)
     | ({ kind: 'add-diagnosis'; code?: string; isPrimary?: boolean } & SearchableAction)
-    | ({ kind: 'remove-diagnosis' } & SearchableAction)
-    | ({ kind: 'add-in-house-lab' } & SearchableAction)
-    | ({ kind: 'add-external-lab' } & SearchableAction)
-    | ({ kind: 'add-radiology' } & SearchableAction)
-    | ({ kind: 'add-procedure' } & SearchableAction)
-    | { kind: 'update-procedure'; updates: ProcedureUpdate[]; procedureMatch?: string }
     | { kind: 'set-em-code'; code: string; display?: string }
-    | { kind: 'remove-em-code'; code?: string }
-    | { kind: 'add-cpt'; code: string; display?: string }
-    | { kind: 'remove-cpt'; code: string }
     | {
         kind: 'set-disposition';
         dispositionType: PlannableDispositionType;
@@ -264,11 +159,9 @@ export type Action = ActionProvenance &
         followUpInDays?: number;
       }
     | { kind: 'add-patient-instruction'; text: string }
-    | { kind: 'add-nursing-order'; text: string }
     | { kind: 'provider-note'; text: string }
     | { kind: 'reply'; text: string }
     | { kind: 'unknown'; message?: string }
   );
 
-/** Narrowing helper for the dispatch table. */
 export type ActionOfKind<K extends ActionKind> = Extract<Action, { kind: K }>;

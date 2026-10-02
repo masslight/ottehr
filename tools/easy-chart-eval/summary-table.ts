@@ -1,12 +1,7 @@
-// The whole of `summary.json` for one run, as eight tables — the full-fidelity view.
+// Prints every field of a run's `summary.json` as eight fixed-layout tables, so runs can be compared side by
+// side. `report.ts` is the delta tool and shows only a subset.
 //
-// `report.ts` is the DELTA tool and deliberately shows a subset: the sections, the E&M line and the
-// counters, because a comparison wants a few numbers you can hold in your head. This one is the
-// opposite: every field the scorer records, for a single run, in a fixed layout so two runs can be put
-// side by side by eye and nothing is quietly omitted. Reading only the headline metrics is how a
-// medication-precision regression (0.235 → 0.120) sat unnoticed behind an E&M gain.
-//
-// PHI: reads `summary.json` only — counts and pattern labels, never clinical text.
+// PHI: reads `summary.json` only, which holds counts and pattern labels, never clinical text.
 //
 // Usage:
 //   npx tsx tools/easy-chart-eval/summary-table.ts <runDir> [<runDir>...]
@@ -26,42 +21,31 @@ interface SectionLike {
   recall: number | null;
 }
 
-type Scope = 'plannerOnly' | 'final';
-
 interface Summary {
   scoredCases: number;
-  scopes: Record<
-    Scope,
-    {
-      sections: Record<string, SectionLike>;
-      em: { goldCases: number; predictedCases: number; matched: number; levelMatched: number };
-      primaryDx: Record<string, number>;
-      rosPolarity: { matched: number; agree: number };
-      examAbnormal: { matched: number; agree: number };
-      medsCombined: Record<string, number>;
-      medsVoicing: Record<string, number>;
-    }
-  >;
+  sections: Record<string, SectionLike>;
+  em: { goldCases: number; predictedCases: number; matched: number; levelMatched: number };
+  primaryDx: Record<string, number>;
+  rosPolarity: { matched: number; agree: number };
+  examAbnormal: { matched: number; agree: number };
+  medsCombined: Record<string, number>;
+  medsVoicing: Record<string, number>;
   freeText: Record<string, { goldPresent: number; predictedPresent: number; bothPresent: number }>;
   contextCharted: Record<string, number>;
   counters: Record<string, number>;
   dispositionVoiced: Record<string, number>;
   dispositionTrigger: Record<string, number | Record<string, number>>;
-  usage: Record<string, Record<string, number>>;
-  escalation: Record<
-    string,
-    {
-      primaryOk: number;
-      primaryFailed: number;
-      reasons: Record<string, number>;
-      okProviders: Record<string, number>;
-      noData: number;
-    }
-  >;
+  usage: Record<string, number>;
+  escalation: {
+    primaryOk: number;
+    primaryFailed: number;
+    reasons: Record<string, number>;
+    okProviders: Record<string, number>;
+    noData: number;
+  };
 }
 
 const SECTION_ORDER = ['diagnoses', 'cpt', 'ros', 'exam', 'medsPrescribed', 'medsInHouse', 'immunizations'];
-const SCOPES: Scope[] = ['plannerOnly', 'final'];
 
 const n = (v: number | null | undefined, digits = 3): string =>
   v == null ? '—' : v.toFixed(digits).replace(/^0\./, '.');
@@ -78,79 +62,51 @@ function render(dir: string): void {
   console.log('   denominators. unvG/unvM = gold tagged voiced:false, and predictions landing on them.');
   console.log('   Precision denominator = pred - ctxC - unvM.\n');
   console.log(
-    `   ${padE('section', 15)}${padE('scope', 9)}${pad('gold', 5)}${pad('pred', 6)}${pad('match', 6)}${pad(
-      'ctxG',
+    `   ${padE('section', 15)}${pad('gold', 5)}${pad('pred', 6)}${pad('match', 6)}${pad('ctxG', 5)}${pad(
+      'ctxC',
       5
-    )}${pad('ctxC', 5)}${pad('unvG', 6)}${pad('unvM', 5)}${pad('P', 6)}${pad('R', 6)}`
+    )}${pad('unvG', 6)}${pad('unvM', 5)}${pad('P', 6)}${pad('R', 6)}`
   );
   for (const sec of SECTION_ORDER) {
-    for (const scope of SCOPES) {
-      const x = s.scopes[scope]?.sections?.[sec];
-      if (!x) continue;
-      console.log(
-        `   ${padE(sec, 15)}${padE(scope === 'plannerOnly' ? 'planner' : 'final', 9)}${pad(x.gold, 5)}${pad(
-          x.predicted,
-          6
-        )}${pad(x.matched, 6)}${pad(x.contextGold, 5)}${pad(x.contextCharted, 5)}${pad(x.unvoicedGold, 6)}${pad(
-          x.unvoicedMatched,
-          5
-        )}${pad(n(x.precision), 6)}${pad(n(x.recall), 6)}`
-      );
-    }
+    const x = s.sections[sec];
+    if (!x) continue;
+    console.log(
+      `   ${padE(sec, 15)}${pad(x.gold, 5)}${pad(x.predicted, 6)}${pad(x.matched, 6)}${pad(x.contextGold, 5)}${pad(
+        x.contextCharted,
+        5
+      )}${pad(x.unvoicedGold, 6)}${pad(x.unvoicedMatched, 5)}${pad(n(x.precision), 6)}${pad(n(x.recall), 6)}`
+    );
   }
   console.log('\n   medsPrescribed / medsInHouse / immunizations share ONE pool of predicted medications, so');
   console.log('   per-section precision there is deliberately null — medsCombined below carries it.');
 
-  console.log('\n2. SCALAR METRICS BY SCOPE');
-  const p = s.scopes.plannerOnly;
-  const f = s.scopes.final;
-  const rows: [string, string | number, string | number][] = [
-    ['E&M: gold cases', p.em.goldCases, f.em.goldCases],
-    ['E&M: predicted', p.em.predictedCases, f.em.predictedCases],
-    [
-      'E&M: exact match',
-      `${p.em.matched} (${pct(p.em.matched, p.em.goldCases)})`,
-      `${f.em.matched} (${pct(f.em.matched, f.em.goldCases)})`,
-    ],
-    [
-      'E&M: level match',
-      `${p.em.levelMatched} (${pct(p.em.levelMatched, p.em.goldCases)})`,
-      `${f.em.levelMatched} (${pct(f.em.levelMatched, f.em.goldCases)})`,
-    ],
-    ['primary dx: gold cases', p.primaryDx.goldCases, f.primaryDx.goldCases],
-    ['primary dx: both charted', p.primaryDx.bothPresent, f.primaryDx.bothPresent],
-    ['primary dx: matched', p.primaryDx.matched, f.primaryDx.matched],
-    [
-      'primary dx: voiced num/den',
-      `${p.primaryDx.voicedMatched}/${p.primaryDx.voicedBoth}`,
-      `${f.primaryDx.voicedMatched}/${f.primaryDx.voicedBoth}`,
-    ],
-    ['primary dx: unvoicedGold', p.primaryDx.unvoicedGold, f.primaryDx.unvoicedGold],
-    ['primary dx: noData', p.primaryDx.noData, f.primaryDx.noData],
-    [
-      'ROS polarity agree/matched',
-      `${p.rosPolarity.agree}/${p.rosPolarity.matched}`,
-      `${f.rosPolarity.agree}/${f.rosPolarity.matched}`,
-    ],
-    [
-      'exam abnormal agree/matched',
-      `${p.examAbnormal.agree}/${p.examAbnormal.matched}`,
-      `${f.examAbnormal.agree}/${f.examAbnormal.matched}`,
-    ],
-    ['medsCombined: pred', p.medsCombined.predicted, f.medsCombined.predicted],
-    ['medsCombined: matched', p.medsCombined.matched, f.medsCombined.matched],
-    ['medsCombined: intentMatched', p.medsCombined.intentMatched, f.medsCombined.intentMatched],
-    ['medsCombined: P', n(p.medsCombined.precision), n(f.medsCombined.precision)],
-    ['medsVoicing: legacyVoiced', p.medsVoicing.legacyVoiced, f.medsVoicing.legacyVoiced],
-    ['medsVoicing: intentVoiced', p.medsVoicing.intentVoiced, f.medsVoicing.intentVoiced],
+  console.log('\n2. SCALAR METRICS');
+  const rows: [string, string | number][] = [
+    ['E&M: gold cases', s.em.goldCases],
+    ['E&M: predicted', s.em.predictedCases],
+    ['E&M: exact match', `${s.em.matched} (${pct(s.em.matched, s.em.goldCases)})`],
+    ['E&M: level match', `${s.em.levelMatched} (${pct(s.em.levelMatched, s.em.goldCases)})`],
+    ['primary dx: gold cases', s.primaryDx.goldCases],
+    ['primary dx: both charted', s.primaryDx.bothPresent],
+    ['primary dx: matched', s.primaryDx.matched],
+    ['primary dx: voiced num/den', `${s.primaryDx.voicedMatched}/${s.primaryDx.voicedBoth}`],
+    ['primary dx: unvoicedGold', s.primaryDx.unvoicedGold],
+    ['primary dx: noData', s.primaryDx.noData],
+    ['ROS polarity agree/matched', `${s.rosPolarity.agree}/${s.rosPolarity.matched}`],
+    ['exam abnormal agree/matched', `${s.examAbnormal.agree}/${s.examAbnormal.matched}`],
+    ['medsCombined: pred', s.medsCombined.predicted],
+    ['medsCombined: matched', s.medsCombined.matched],
+    ['medsCombined: intentMatched', s.medsCombined.intentMatched],
+    ['medsCombined: P', n(s.medsCombined.precision)],
+    ['medsVoicing: legacyVoiced', s.medsVoicing.legacyVoiced],
+    ['medsVoicing: intentVoiced', s.medsVoicing.intentVoiced],
     [
       'medsVoicing: intentCovered',
-      `${p.medsVoicing.intentCovered} (${pct(p.medsVoicing.intentCovered, p.medsVoicing.intentVoiced)})`,
-      `${f.medsVoicing.intentCovered} (${pct(f.medsVoicing.intentCovered, f.medsVoicing.intentVoiced)})`,
+      `${s.medsVoicing.intentCovered} (${pct(s.medsVoicing.intentCovered, s.medsVoicing.intentVoiced)})`,
     ],
   ];
-  console.log(`   ${padE('metric', 30)}${pad('planner', 14)}${pad('final', 14)}`);
-  for (const [label, a, b] of rows) console.log(`   ${padE(label, 30)}${pad(a, 14)}${pad(b, 14)}`);
+  console.log(`   ${padE('metric', 30)}${pad('value', 14)}`);
+  for (const [label, v] of rows) console.log(`   ${padE(label, 30)}${pad(v, 14)}`);
 
   console.log('\n3. FREE TEXT (presence only, not content)');
   console.log(`   ${padE('field', 26)}${pad('gold', 6)}${pad('pred', 6)}${pad('both', 6)}`);
@@ -180,45 +136,36 @@ function render(dir: string): void {
   }
 
   console.log('\n7. TOKENS');
+  const u = s.usage;
   console.log(
-    `   ${padE('stage', 10)}${pad('calls', 7)}${pad('in', 10)}${pad('out', 9)}${pad('cacheR', 9)}${pad(
-      'cacheW',
-      9
-    )}${pad('thinking', 10)}`
+    `   ${pad('calls', 7)}${pad('in', 10)}${pad('out', 9)}${pad('cacheR', 9)}${pad('cacheW', 9)}${pad('thinking', 10)}`
   );
-  for (const [stage, u] of Object.entries(s.usage)) {
-    console.log(
-      `   ${padE(stage, 10)}${pad(u.calls, 7)}${pad(u.inputTokens, 10)}${pad(u.outputTokens, 9)}${pad(
-        u.cacheReadTokens,
-        9
-      )}${pad(u.cacheWriteTokens, 9)}${pad(u.thinkingTokens, 10)}`
-    );
-  }
+  console.log(
+    `   ${pad(u.calls, 7)}${pad(u.inputTokens, 10)}${pad(u.outputTokens, 9)}${pad(u.cacheReadTokens, 9)}${pad(
+      u.cacheWriteTokens,
+      9
+    )}${pad(u.thinkingTokens, 10)}`
+  );
 
   console.log('\n8. MODEL ESCALATION');
+  const e = s.escalation;
   console.log(
-    `   ${padE('stage', 10)}${pad('primaryOk', 11)}${pad('failed', 10)}${padE('  reasons', 22)}${padE(
-      'providers',
-      16
-    )}${pad('noData', 8)}`
+    `   ${pad('primaryOk', 11)}${pad('failed', 10)}${padE('  reasons', 22)}${padE('providers', 16)}${pad('noData', 8)}`
   );
-  for (const [stage, e] of Object.entries(s.escalation)) {
-    const reasons =
-      Object.entries(e.reasons ?? {})
-        .map(([k, v]) => `${k} x${v}`)
-        .join(', ') || '—';
-    const provs =
-      Object.entries(e.okProviders ?? {})
-        .map(([k, v]) => `${k} ${v}`)
-        .join(', ') || '—';
-    const total = e.primaryOk + e.primaryFailed;
-    console.log(
-      `   ${padE(stage, 10)}${pad(e.primaryOk, 11)}${pad(
-        `${e.primaryFailed} (${pct(e.primaryFailed, total)})`,
-        10
-      )}${padE(`  ${reasons}`, 22)}${padE(provs, 16)}${pad(e.noData, 8)}`
-    );
-  }
+  const reasons =
+    Object.entries(e.reasons)
+      .map(([k, v]) => `${k} x${v}`)
+      .join(', ') || '—';
+  const provs =
+    Object.entries(e.okProviders)
+      .map(([k, v]) => `${k} ${v}`)
+      .join(', ') || '—';
+  console.log(
+    `   ${pad(e.primaryOk, 11)}${pad(
+      `${e.primaryFailed} (${pct(e.primaryFailed, e.primaryOk + e.primaryFailed)})`,
+      10
+    )}${padE(`  ${reasons}`, 22)}${padE(provs, 16)}${pad(e.noData, 8)}`
+  );
 }
 
 const dirs = process.argv.slice(2).filter((a) => !a.startsWith('--'));

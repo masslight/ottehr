@@ -1,13 +1,15 @@
-// Step labels — what the provider reads on the plan card while a step runs and after it settles.
-//
-// Derived from the action, not written by the model: a label the model supplies is one more thing
-// that can disagree with what was actually charted.
+// The label a provider reads for an action, derived from the action rather than written by the model.
 
-import { ActionKind, NoteTextField } from 'utils/lib/easy-chart/actions';
+import { ActionKind, NoteTextField, PlannableVitalField } from 'utils/lib/easy-chart/actions';
 import { PlannedAction } from 'utils/lib/easy-chart/api';
 import { NOTE_FIELD_LABELS } from 'utils/lib/easy-chart/note-fields';
+import { mapDispositionTypeToLabel } from 'utils/lib/fhir/disposition';
+import { DispositionType } from 'utils/lib/types/api/chart-data/chart-data.types';
 
-const VITAL_LABELS: Record<string, string> = {
+/** The card's own name for a disposition type ("Primary Care Physician"), or the type when it has none. */
+const dispositionLabel = (type: string): string => mapDispositionTypeToLabel[type as DispositionType] ?? type;
+
+const VITAL_LABELS: Record<PlannableVitalField, string> = {
   'vital-temperature': 'temperature',
   'vital-heartbeat': 'heart rate',
   'vital-respiration-rate': 'respiration rate',
@@ -17,37 +19,17 @@ const VITAL_LABELS: Record<string, string> = {
   'vital-height': 'height',
 };
 
-// An addition names what it is and nothing more: "Exam finding: Sinus tenderness". The "Adding" said
-// nothing the panel had not already said — every suggestion in a list of suggestions is something being
-// added — and it pushed the thing itself, which is what the provider is checking, a word further right.
-// Verbs that carry meaning stay: a removal, an order and a template are each doing something other than
-// adding an entry, and the row has to say which.
+/** An addition names only what it is ("Exam finding: Sinus tenderness"); other verbs say what they do. */
 const VERBS: Partial<Record<ActionKind, string>> = {
   'apply-template': 'Suggesting template',
   'add-allergy': 'Allergy',
-  'remove-allergy': 'Removing allergy',
   'add-condition': 'Past medical history',
-  'remove-condition': 'Removing past medical history',
   'add-medication': 'Medication',
-  'remove-medication': 'Removing medication',
   'add-surgical-history': 'Surgical history',
-  'remove-surgical-history': 'Removing surgical history',
   'add-hospitalization': 'Hospitalization',
-  'remove-hospitalization': 'Removing hospitalization',
   'add-exam-finding': 'Exam finding',
-  'remove-exam-finding': 'Removing exam finding',
   'add-ros-finding': 'Review of systems',
-  'remove-ros-finding': 'Removing review of systems',
   'add-diagnosis': 'Diagnosis',
-  'remove-diagnosis': 'Removing diagnosis',
-  'add-in-house-lab': 'Ordering in-house lab',
-  'add-external-lab': 'Ordering lab',
-  'add-radiology': 'Ordering imaging',
-  'add-procedure': 'Procedure',
-  'update-procedure': 'Updating procedure',
-  'add-cpt': 'CPT code',
-  'remove-cpt': 'Removing CPT code',
-  'add-nursing-order': 'Nursing order',
   'add-patient-instruction': 'Patient instruction',
 };
 
@@ -56,13 +38,13 @@ export function describeAction(action: PlannedAction): string {
     case 'edit-note-text':
       return `Writing ${NOTE_FIELD_LABELS[action.field as NoteTextField] ?? action.field}`;
     case 'set-vital':
-      return `Recording ${VITAL_LABELS[action.field ?? ''] ?? 'vital'}${action.display ? `: ${action.display}` : ''}`;
+      return `Recording ${VITAL_LABELS[action.field as PlannableVitalField] ?? 'vital'}${
+        action.display ? `: ${action.display}` : ''
+      }`;
     case 'set-em-code':
       return `Setting E&M level${action.code ? `: ${action.code}` : ''}`;
-    case 'remove-em-code':
-      return 'Removing E&M level';
     case 'set-disposition':
-      return `Setting disposition${action.dispositionType ? `: ${action.dispositionType}` : ''}`;
+      return `Setting disposition${action.dispositionType ? `: ${dispositionLabel(action.dispositionType)}` : ''}`;
     case 'provider-note':
       return 'Note for you';
     case 'reply':
@@ -70,7 +52,7 @@ export function describeAction(action: PlannedAction): string {
     case 'unknown':
       return 'Unclassified request';
     default: {
-      const verb = VERBS[action.kind as ActionKind] ?? action.kind;
+      const verb = VERBS[action.kind] ?? action.kind;
       const subject = action.display ?? action.code ?? action.text;
       return subject ? `${verb}: ${subject}` : verb;
     }

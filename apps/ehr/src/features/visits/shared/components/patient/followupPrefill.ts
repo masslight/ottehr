@@ -1,4 +1,4 @@
-import { VisitType } from 'config-types';
+import { VisitType } from 'config-types/config/booking';
 import { Appointment } from 'fhir/r4b';
 import {
   appointmentAttendanceTypeAppointment,

@@ -18,8 +18,9 @@ import { AiObservationField } from 'utils/lib/types/api/chart-data/chart-data.co
 import { ObservationTextFieldDTO } from 'utils/lib/types/data/screening-questions/types';
 import { Loader } from '../../shared/components/Loader';
 import { PageTitle } from '../../shared/components/PageTitle';
+import { useChartData } from '../../shared/hooks/useChartData';
 import { useGetAppointmentAccessibility } from '../../shared/hooks/useGetAppointmentAccessibility';
-import { useChartData, useDeleteChartData } from '../../shared/stores/appointment/appointment.store';
+import { useDeleteChartData } from '../../shared/stores/appointment/appointment.store';
 import { useDeleteProcedureDialog } from '../components/DeleteProcedureDialog';
 import { ROUTER_PATH } from '../routing/routesInPerson';
 

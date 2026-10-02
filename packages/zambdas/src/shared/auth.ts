@@ -34,12 +34,7 @@ export async function callerHasRole(
     return false;
   }
 }
-// The caller's bearer token, or NOT_AUTHORIZED (a handled 401) when there isn't one.
-//
-// The `input.headers.Authorization.replace('Bearer ', '')` line this replaces is copy-pasted at ~118
-// sites, inconsistently: the versions without `?.` throw a TypeError — a 500 — when the header is
-// simply absent, and none of them reject a header that is present but blank. New code should use
-// this; existing sites can converge on it as they're touched.
+/** The caller's bearer token; a missing or blank Authorization header is NOT_AUTHORIZED (401). */
 export function getUserToken(input: Pick<ZambdaInput, 'headers'>): string {
   const authorization = input.headers?.Authorization ?? input.headers?.authorization;
   if (typeof authorization !== 'string') {

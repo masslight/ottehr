@@ -1,20 +1,9 @@
-// Why a REAL ICD-10 code can still be the WRONG code.
-//
-// The model's `code` is a hint. Confirming that the hint exists is not enough: every predicate here
-// was written for a specific charted-the-wrong-thing failure, because "the code is billable" and "the
-// code says what the visit says" are different questions. A hint that fails any of these is discarded
-// and the display-based search picks again — attaching a code the guard calls anatomically wrong is
-// worse than making the client's picker resolve by display.
-//
-// Ported from the first implementation, where these predicates and their vocabularies were built out
-// against live failures; each comment naming a specific miscode is that history, not speculation.
+// Predicates that reject a real ICD-10 code which does not say what the visit says. A hinted code that fails
+// one is discarded and the display search picks again.
 
 /**
- * Latin/anatomical ↔ common-name synonyms for the fuzzy word match used when JUDGING a candidate
- * display. Providers dictate in one register and ICD-10 publishes in another, so the etiology-repair
- * step has to decide whether a replacement display still names the same base condition without
- * demanding identical vocabulary. Conservative, unambiguous pairs only; multi-word synonyms are
- * checked against the whole display string.
+ * Synonyms bridging dictated and ICD-10 wording ("neck" ↔ "cervical"), for judging whether a candidate display
+ * names the same condition. Unambiguous pairs only; multi-word synonyms are checked against the whole display.
  */
 const WORD_SYNONYMS: Record<string, string[]> = {
   cervical: ['neck'],
@@ -40,8 +29,7 @@ const WORD_SYNONYMS: Record<string, string[]> = {
   drug: ['medicament', 'medication'],
   calf: ['lower limb', 'lower leg'],
   shin: ['lower leg', 'lower limb'],
-  // Trunk sites: ICD-10 files superficial tailbone/buttock injuries under "lower back and pelvis"
-  // (S30.x), so the site word must still count as naming that region.
+  // ICD-10 files superficial tailbone and buttock injuries under "lower back and pelvis" (S30.x).
   coccyx: ['lower back'],
   coccygeal: ['lower back'],
   tailbone: ['coccyx', 'lower back'],
@@ -51,8 +39,7 @@ const WORD_SYNONYMS: Record<string, string[]> = {
   buttocks: ['lower back'],
   bruise: ['contusion'],
   bruised: ['contusion'],
-  // Organism register: providers say "candidal"/"yeast" while the displays say "Candidiasis". A live
-  // review charted A54.02 "Gonococcal vulvovaginitis" for a yeast narrative when this bridge was missing.
+  // Providers say "candidal"/"yeast" where ICD-10 displays say "Candidiasis".
   candidal: ['candid'],
   candidiasis: ['candid'],
   yeast: ['candid'],
@@ -72,21 +59,17 @@ export function wordMatchesDisplay(searchWord: string, displayWords: string[], n
 }
 
 /**
- * Phrasings that EXPLICITLY ask for an asymptomatic history/status code. Clinical narratives use
- * "history of X" loosely for the CURRENT complaint's backstory ("history of recurrent ingrown hairs"
- * means an active ingrown hair), so bare "history of" deliberately does not count — only unambiguous
- * chart shorthand does.
+ * Phrasings that explicitly ask for a history/status code. Bare "history of" does not count: narratives use it
+ * for the current complaint's backstory ("history of recurrent ingrown hairs").
  */
-export const EXPLICIT_HISTORY_INTENT =
+const EXPLICIT_HISTORY_INTENT =
   /\b(?:personal|family|past(?: medical)?) history\b|\bpmh\b|\bhx\b|\bh\/o\b|\bstatus[- ]post\b|\bs\/p\b/i;
 
 /**
- * TEMPORARY upstream shim. The terminology service is our own product and its lay-register synonym
- * gaps are reported upstream; this expansion exists only until the service's synonym layer covers
- * them. Keep the vocabulary intentionally small — only entries with a demonstrated live failure or a
- * probe gap, never a comprehensive lay-term list.
+ * Temporary shim for lay-register gaps in the terminology service, until its synonym layer covers them. Keep
+ * it small: only terms with a demonstrated search failure.
  */
-export const REGISTER_QUERY_SYNONYMS: Record<string, string[]> = {
+const REGISTER_QUERY_SYNONYMS: Record<string, string[]> = {
   yeast: ['candidiasis'],
   candidal: ['candidiasis'],
 };
@@ -108,18 +91,13 @@ export function expandQueryRegisters(query: string): string[] {
 }
 
 /**
- * Mutually exclusive qualifier groups. A hinted code whose display sits in a DIFFERENT member of a
- * group than the intent's own text is a mis-hint even though the code is real. A contradiction needs
- * both texts to name a member and no member to match both, so text naming several members ("thumb and
- * index finger") never contradicts a code for any of them.
+ * Mutually exclusive qualifiers. A code contradicts only when both texts name a member of a group and share
+ * none, so "thumb and index finger" contradicts neither code.
  */
 const OPPOSING_QUALIFIER_GROUPS: RegExp[][] = [
   [/\bleft\b/i, /\bright\b/i],
   [/\bupper\b/i, /\blower\b/i],
-  // Digits are disjoint sites ICD partitions into sibling codes (S61.01x thumb vs S61.21x other
-  // finger). A "right index finger" laceration once charted the right-THUMB code: same anatomy class,
-  // same S6 block, and display overlap carried by "laceration"+"foreign"+"body", so only a
-  // digit-level opposition catches it.
+  // Digits are sibling codes (S61.01x thumb vs S61.21x other finger) in the same anatomy class and S-block.
   [
     /\bthumb\b/i,
     /\b(?:index|pointer)\s+finger/i,
@@ -127,9 +105,7 @@ const OPPOSING_QUALIFIER_GROUPS: RegExp[][] = [
     /\bring\s+finger/i,
     /\b(?:little|pinky|fifth)\s+finger/i,
   ],
-  // Wound types are sibling partitions of the same injury categories (S61.21x laceration vs S61.23x
-  // puncture): a "Laceration of right index finger" display once carried the PUNCTURE code past the
-  // overlap check on shared site words alone.
+  // Wound types are sibling codes too (S61.21x laceration vs S61.23x puncture).
   [/\blacerat/i, /\bpuncture\b/i, /\bbite\b/i],
 ];
 
@@ -144,9 +120,8 @@ export function contradictsQualifiers(intentText: string, codeDisplay: string): 
 }
 
 /**
- * Coarse anatomy classes: a PALM splinter must never resolve to an EYELID foreign-body code just
- * because "retained foreign body" matched. Only obviously disjoint organ families — anything unlisted
- * imposes no constraint.
+ * Coarse, obviously disjoint anatomy classes, so a palm splinter cannot take an eyelid foreign-body code.
+ * Unlisted words impose no constraint.
  */
 const ANATOMY_CLASSES: string[][] = [
   ['eye', 'eyes', 'eyelid', 'ocular', 'conjunctiva', 'cornea', 'orbit'],
@@ -178,10 +153,8 @@ export function contradictsAnatomy(intentText: string, codeDisplay: string): boo
 }
 
 /**
- * ICD-10 injury codes (S-chapter) are partitioned by body region in the digit after the S. When the
- * intent names a site, a code from a different block is the wrong body region even though the code is
- * real and the injury word matches — a head-block contusion code once attached to a dictated TAILBONE
- * contusion because "contusion" matched and no anatomy class covered the trunk.
+ * Site words per ICD-10 injury block, indexed by the digit after "S", which encodes the body region. An S-code
+ * from another block is the wrong region even when the injury word matches.
  */
 const S_BLOCK_SITE_WORDS: string[][] = [
   [
@@ -226,21 +199,33 @@ const S_BLOCK_SITE_WORDS: string[][] = [
     'groin',
     'flank',
   ], // S30–S39
-  ['shoulder', 'clavicle', 'collarbone', 'scapula', 'axilla', 'armpit', 'upper arm', 'humerus'], // S40–S49
-  ['elbow', 'forearm', 'radius', 'ulna'], // S50–S59
-  ['wrist', 'hand', 'finger', 'fingers', 'thumb', 'palm'], // S60–S69
+  ['shoulder', 'clavicle', 'collarbone', 'scapula', 'axilla', 'armpit', 'upper arm', 'humerus', 'humeral'], // S40–S49
+  ['elbow', 'forearm', 'radius', 'radial', 'ulna', 'ulnar'], // S50–S59
+  ['wrist', 'hand', 'finger', 'fingers', 'thumb', 'palm', 'metacarpal'], // S60–S69
   ['hip', 'thigh', 'femur', 'femoral'], // S70–S79
-  ['knee', 'kneecap', 'patella', 'lower leg', 'calf', 'shin', 'tibia', 'fibula'], // S80–S89
+  ['knee', 'kneecap', 'patella', 'lower leg', 'calf', 'shin', 'tibia', 'tibial', 'fibula', 'fibular'], // S80–S89
   ['ankle', 'foot', 'heel', 'toe', 'toes', 'metatarsal'], // S90–S99
 ];
 
+/**
+ * A joint sits on a block boundary, and ICD-10-CM files its fractures in the neighbouring block too: the
+ * supracondylar (elbow) fracture in S42, the distal radius (wrist) fracture in S52, the distal femur (knee)
+ * fracture in S72 and the malleolar (ankle) fracture in S82.
+ */
+const JOINT_NEIGHBOUR_BLOCK: Record<string, number> = { elbow: 4, wrist: 5, knee: 7, ankle: 8 };
+
+/** "Radial head" or "femoral head" is part of a bone, not the head. */
+const BONE_HEAD =
+  /\b(radial|radius|ulnar|humeral|humerus|femoral|femur|fibular|fibula|metacarpal|metatarsal)\s+head\b/g;
+
 function injuryRegionsIn(text: string): Set<number> {
-  const lower = text.toLowerCase();
+  const lower = text.toLowerCase().replace(BONE_HEAD, '$1');
   const words = new Set(lower.split(/[^a-z]+/));
   const out = new Set<number>();
   S_BLOCK_SITE_WORDS.forEach((siteWords, block) => {
     if (siteWords.some((word) => (word.includes(' ') ? lower.includes(word) : words.has(word)))) out.add(block);
   });
+  for (const [joint, block] of Object.entries(JOINT_NEIGHBOUR_BLOCK)) if (words.has(joint)) out.add(block);
   return out;
 }
 
@@ -253,9 +238,8 @@ export function contradictsInjuryRegion(intentText: string, code: string): boole
 }
 
 /**
- * Asymptomatic history/status Z-codes read like active problems lexically — "history of recurrent
- * ingrown hairs" once charted Z87.01 "Personal history of pneumonia (recurrent)" carried entirely by
- * "history"+"recurrent". These may attach only when the intent uses explicit history/status phrasing.
+ * History/status Z-codes read like active problems, so they may attach only when the intent uses explicit
+ * history/status phrasing.
  */
 export function contradictsHistoryContext(intentText: string, code: string, codeDisplay: string): boolean {
   const isHistoryStatus =
@@ -265,9 +249,8 @@ export function contradictsHistoryContext(intentText: string, code: string, code
 }
 
 /**
- * Coding words that carry no clinical identity. Laterality is in here on purpose: "Mastitis of right
- * breast" must not pass overlap with "Fibroadenosis of right breast" on the strength of
- * "right"+"breast" alone — position describes WHERE, not WHAT.
+ * Coding words that carry no clinical identity. Laterality is included on purpose: "right breast" alone must
+ * not make fibroadenosis overlap with mastitis.
  */
 export const CODE_DISPLAY_BOILERPLATE = new Set([
   'with',
@@ -294,13 +277,10 @@ export const CODE_DISPLAY_BOILERPLATE = new Set([
 ]);
 
 /**
- * The hinted code's canonical display must share meaningful words with the intent's display. A hint of
- * S09.90XA ("Unspecified injury of head") for "Concussion without loss of consciousness" is a real
- * code for the WRONG problem, and the display search finds the right one (S06.0X0A). Rich intents
- * (≥3 meaningful words) must share at least TWO — one shared anatomy word ("breast") is how
- * fibroadenosis impersonated mastitis.
+ * Meaningful intent words the code display shares (substring either way). `displaysOverlap` needs two when the
+ * intent has two or more, since one shared anatomy word ("breast") does not identify a condition.
  */
-export function sharedMeaningfulWords(intentText: string, codeDisplay: string): number {
+function sharedMeaningfulWords(intentText: string, codeDisplay: string): number {
   const meaningful = (text: string): Set<string> =>
     new Set(
       text
@@ -327,14 +307,9 @@ export function displaysOverlap(intentText: string, codeDisplay: string): boolea
 }
 
 /**
- * The floor for a SEARCH result: it must name something the intent named. Weaker than
- * `displaysOverlap` on purpose — the search path cannot demand two shared words, because a provider's
- * "strep throat" legitimately resolves to "Streptococcal pharyngitis" on one shared stem.
- *
- * It exists because none of the contradiction predicates constrain an unrelated condition, and a
- * one-word query does not protect you: searching "laceration" for a forehead laceration returned
- * "Hypertrophy of bone, other site" (M89.38) as its top row, no predicate objected, and that is what
- * got charted for a 9-year-old's scooter injury.
+ * Floor for a search result: it must name something the intent named, because the contradiction predicates
+ * never reject an unrelated condition. One shared word is enough, since "strep throat" legitimately resolves to
+ * "Streptococcal pharyngitis".
  */
 export function sharesAnyMeaningfulWord(intentText: string, codeDisplay: string): boolean {
   const intentWords = intentText
@@ -342,9 +317,7 @@ export function sharesAnyMeaningfulWord(intentText: string, codeDisplay: string)
     .split(/[^a-z]+/)
     .filter((word) => word.length >= 4 && !CODE_DISPLAY_BOILERPLATE.has(word));
   if (intentWords.length === 0) return true; // nothing to compare — trust the search
-  // Synonym-aware, not plain substring: providers and ICD-10 publish in different registers, so
-  // "Yeast infection" must still count as naming "Candidiasis, unspecified". A plain comparison rejects
-  // it, and the lay-register query expansion above becomes pointless.
+  // Synonym-aware, so "Yeast infection" still counts as naming "Candidiasis, unspecified".
   const normalized = codeDisplay.toLowerCase();
   const candidateWords = normalized.split(/[^a-z0-9]+/).filter(Boolean);
   return intentWords.some((word) => wordMatchesDisplay(word, candidateWords, normalized));

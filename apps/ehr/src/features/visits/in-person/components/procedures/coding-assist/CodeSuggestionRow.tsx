@@ -4,7 +4,8 @@ import { useQuery } from '@tanstack/react-query';
 import { FC } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { CodeSuggestion, CPTCodeDTO } from 'utils';
+import { CodeSuggestion } from 'utils/lib/procedure-coding/model.types';
+import { CPTCodeDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 
 export const stripCodePrefix = (display: string, code: string): string =>
   display.startsWith(code) ? display.slice(code.length).replace(/^\s*[—–-]\s*/, '') : display;

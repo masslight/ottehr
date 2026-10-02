@@ -1,83 +1,61 @@
-// Server-side guards. Each of these exists because the model did the wrong thing in a measured run.
-//
-// Everything here runs BEFORE the client ever sees an action, and nothing here is silent: an action
-// a guard refuses is returned in `rejected[]` with a reason the UI shows as "skipped because…".
-// Silent no-ops are the single worst failure mode in this product.
+// Server-side guards over the model's raw actions. Everything here runs before the client sees an
+// action, and nothing is dropped silently: a refused action is returned in `rejected[]` with a reason
+// the provider reads.
 
 import Oystehr from '@oystehr/sdk';
 import { captureException } from '@sentry/aws-serverless';
-import { ActionKind, PLANNABLE_VITAL_FIELDS, PlannableVitalField, RawAction } from 'utils/lib/easy-chart/actions';
+import {
+  ActionKind,
+  chartableFollowUpDays,
+  PLANNABLE_VITAL_FIELDS,
+  PlannableVitalField,
+} from 'utils/lib/easy-chart/actions';
 import { PlannedAction, RejectedAction, TriggerReport } from 'utils/lib/easy-chart/api';
 import {
   isCptShaped,
-  isHcpcsShaped,
   isPersonalHistoryCode,
   scanIcd10Codes,
   unsupportedEtiologyQualifiers,
 } from 'utils/lib/easy-chart/codes';
 import { IcdSearchFn, repairUnsupportedEtiology, resolveIcd } from 'utils/lib/easy-chart/icd-resolve';
 import { findingPolarity, rosPolarity, verifiedSourceText } from 'utils/lib/easy-chart/provenance';
-import { allowedFields, isActionKind, missingRequiredFields } from 'utils/lib/easy-chart/registry';
-import { coerceNumericFields } from 'utils/lib/easy-chart/schema';
+import {
+  allowedFields,
+  capabilityOf,
+  declaredFields,
+  isActionKind,
+  missingRequiredFields,
+  requiredFields,
+} from 'utils/lib/easy-chart/registry';
 import { detectDispositionLanguage, detectSpeakerLabels, sniffIcdCodeScoped } from 'utils/lib/easy-chart/sniffers';
 import { parseVitalDisplay, recoverVitalReading, sniffVitalsFromNarrative } from 'utils/lib/easy-chart/vitals';
 import { createTerminologyIcdSearch } from './icd-search';
+import { ModelActionSchema } from './model-output';
 
 export interface GuardContext {
   oystehr: Oystehr;
   narrative: string;
-  /**
-   * The provider's edited read-back, when they sent corrections. A quote is verified against the narrative
-   * FIRST and against this only when the narrative does not contain it. See ChartPlanRequest.providerEdits.
-   */
+  /** The provider's edited narrative; a quote is verified against it when the narrative lacks it. */
   editedNarrative?: string;
-  /**
-   * The ALREADY ON THE CHART block exactly as the prompt rendered it, so a quote may be verified against it
-   * LAST — after the narrative and the edited read-back. The model is told it may cite one line of that
-   * block when the chart, not the narrative, justifies an action (a resulted test behind a diagnosis); such
-   * a quote is tagged `chart` and the UI shows it as the chart's words rather than highlighting the narrative.
-   */
+  /** The narrative the provider reviewed; the only text readings the plan missed are recovered from. */
+  dictation?: string;
+  /** The E&M codes the practice has enabled; a code outside them is refused. Unchecked when undefined. */
+  emCodes?: string[];
+  /** The ALREADY ON THE CHART block as the prompt showed it; a quote may cite one of its lines. */
   chartStateText?: string;
-  /** Display strings of items already on the chart. A remove-* may only target one of these. */
-  chartedItems: string[];
   logPrefix: string;
-  /**
-   * True when the note is already written and this narrative only adds to it. The primary-diagnosis
-   * invariant reads it: an addendum's new diagnoses are additions, never usurpers of an existing primary.
-   */
-  incremental?: boolean;
-  /**
-   * Promote the first diagnosis to primary when the plan marked none — a WHOLE-PLAN invariant, so only
-   * the planning surface may ask for it.
-   *
-   * The review surface must not: it is guarded one suggestion at a time, and its "secondary-dx" card
-   * deliberately adds a single diagnosis with isPrimary:false. Blanket promotion there would turn every
-   * such card into a primary-diagnosis change the provider never asked for. Review's own primary problem
-   * is the SWAP case, and `carrySwapPrimaryFromChartState` handles that from the chart state instead.
-   */
-  promoteMissingPrimary?: boolean;
-  /**
-   * Injected so tests resolve codes against fixtures instead of the network. Built from `oystehr` when
-   * absent — one instance per invocation, because it carries the warm-call cache.
-   */
+  /** Injected by tests; built from `oystehr` otherwise, once per invocation for its cache. */
   icdSearch?: IcdSearchFn;
   /**
-   * What the aetiology guard judges a code's qualifiers against. Defaults to the narrative, which is the
-   * whole story on the PLAN surface — there the narrative is the only thing that has been said yet.
-   *
-   * The REVIEW surface needs more. It runs against a note that is already written, so the note's own free
-   * text and the items already charted are just as trustworthy as the dictation: a qualifier the PROVIDER
-   * charted must never be refused as "unsupported by the visit". Deliberately never includes the action's
-   * own display or searchTerms — the failure mode this guard exists for is the model inventing the
-   * qualifier inside the proposal itself, and quoting the proposal back at the guard would excuse it.
+   * What a code's aetiology qualifiers are judged against; defaults to the narrative. Never includes the
+   * action's own display, since a qualifier the model invented must not excuse itself.
    */
   etiologyEvidence?: string;
 }
 
-/** The context every guard actually runs against: the search function is resolved exactly once. */
 interface ResolvedGuardContext extends GuardContext {
   icdSearch: IcdSearchFn;
-  /** Code-shaped transcript tokens that are speaker tags, not diagnoses. Computed once per plan. */
+  /** Code-shaped transcript tokens that are speaker tags ("DOCTOR X31"), not diagnoses. */
   speakerLabels: Set<string>;
 }
 
@@ -90,14 +68,8 @@ export interface GuardResult {
 const isVitalField = (value: unknown): value is PlannableVitalField =>
   typeof value === 'string' && (PLANNABLE_VITAL_FIELDS as readonly string[]).includes(value);
 
-/**
- * Run every guard over the model's raw actions.
- *
- * Order matters: shape first (so a malformed action is rejected cheaply), then per-kind semantics,
- * then the cross-action invariants that can only be judged with the whole list (duplicate diagnoses,
- * exactly one primary).
- */
-export async function applyGuards(raw: RawAction[], context: GuardContext): Promise<GuardResult> {
+/** Per-action guards first, then the invariants that need the whole list, then the backstops. */
+export async function applyGuards(raw: unknown[], context: GuardContext): Promise<GuardResult> {
   const resolved: ResolvedGuardContext = {
     ...context,
     icdSearch: context.icdSearch ?? createTerminologyIcdSearch(context.oystehr),
@@ -106,12 +78,8 @@ export async function applyGuards(raw: RawAction[], context: GuardContext): Prom
   const actions: PlannedAction[] = [];
   const rejected: RejectedAction[] = [];
 
-  // A REPEATED READING IS A DUPLICATE WRITE, NOT A SECOND MEASUREMENT. The prompt asks for one set-vital
-  // per reading and a separate one for a genuine recheck, and the model complies — then repeats the same
-  // reading anyway: 17 of 66 set-vitals in one 396-case run were exact repeats, each of which the executor
-  // would chart as another observation. Two readings that differ (an initial temperature and a recheck)
-  // are both kept; only a reading identical after unit canonicalisation is dropped. Dropped silently with
-  // a log line rather than reported as a refusal: nothing the provider said was lost.
+  // The model repeats identical readings; each would chart as another observation. A genuine recheck
+  // has a different value and is kept.
   const seenVitals = new Set<string>();
   for (const item of raw) {
     const outcome = await guardOne(item, resolved);
@@ -122,9 +90,7 @@ export async function applyGuards(raw: RawAction[], context: GuardContext): Prom
     if (outcome.action.kind === 'set-vital') {
       const key = vitalReadingKey(outcome.action);
       if (seenVitals.has(key)) {
-        console.log(
-          `[${context.logPrefix}] dropped a repeated ${outcome.action.field} reading "${outcome.action.display}"`
-        );
+        console.log(`[${context.logPrefix}] dropped a repeated ${outcome.action.field} reading`);
         continue;
       }
       seenVitals.add(key);
@@ -132,14 +98,8 @@ export async function applyGuards(raw: RawAction[], context: GuardContext): Prom
     actions.push(outcome.action);
   }
 
-  const deduped = enforceDiagnosisInvariants(actions, rejected, {
-    promoteMissingPrimary: context.promoteMissingPrimary === true,
-    incremental: context.incremental === true,
-    chartedItems: context.chartedItems,
-  });
+  const deduped = enforceDiagnosisInvariants(actions, rejected);
   const complete = applyBackstops(deduped, resolved);
-  // Where the quotes landed — counts only. The corrections cover only what the provider changed, so a run
-  // whose quotes are mostly edited-narrative-origin is the model reading the wrong text.
   const provenance = complete.reduce(
     (counts, action) => {
       counts[action.sourceOrigin ?? 'none'] += 1;
@@ -155,45 +115,35 @@ export async function applyGuards(raw: RawAction[], context: GuardContext): Prom
 
 type GuardOutcome = { action: PlannedAction } | { rejected: RejectedAction };
 
-async function guardOne(input: RawAction, context: ResolvedGuardContext): Promise<GuardOutcome> {
-  const action = { ...input } as PlannedAction;
-
-  // Undo the digit-loop guard: every numeric field arrived as a string. A value that does not parse
-  // is DELETED, so the required-fields gate below rejects it honestly instead of charting NaN.
-  coerceNumericFields(action as unknown as Record<string, unknown>);
-
-  if (!isActionKind(action.kind)) {
-    return { rejected: { kind: String(action.kind), reason: `"${action.kind}" is not an action this build knows` } };
+async function guardOne(input: unknown, context: ResolvedGuardContext): Promise<GuardOutcome> {
+  const parsed = ModelActionSchema.safeParse(input);
+  if (!parsed.success) {
+    return { rejected: { kind: 'unknown', reason: 'the assistant returned a malformed action' } };
   }
-  const kind: ActionKind = action.kind;
+  const bag: Record<string, unknown> = { ...parsed.data };
 
-  // Strip fields this kind does not declare. A leak is not cosmetic: an add-diagnosis for a forehead
-  // laceration arrived carrying `updates: [{field:'code', value:'S01.81XA'}]` — update-procedure's shape,
-  // holding the code the model actually meant — while its own `code` field named an unrelated condition.
-  // Whatever the model intended, a field the executor does not read for this kind can only mislead a
-  // reader of the plan, and one that it DOES read under a different kind can change what gets charted.
+  const kind = bag.kind;
+  if (!isActionKind(kind)) {
+    return { rejected: { kind: String(kind), reason: `"${kind}" is not an action this build knows` } };
+  }
+
+  // Strip fields this kind does not declare: a field leaked from another kind's shape can change what
+  // the executor charts. A code-shaped value in a leaked field is salvaged first, since code lookup is
+  // far more reliable than description search (S-chapter injury codes especially).
   const allowed = new Set<string>(allowedFields(kind));
-  const bag = action as unknown as Record<string, unknown>;
-  const leaked = Object.keys(bag).filter((field) => !allowed.has(field) && field !== 'caution');
-  // Salvage before stripping. A code-shaped value inside a leaked field is a candidate, not a decision:
-  // it goes through the same terminology confirmation as any other, so a bad salvage is rejected by the
-  // normal path. It matters because CODE lookup is reliable while DESCRIPTION search is not — the
-  // S-chapter injury codes are effectively unreachable by description, so for a laceration the model's
-  // own code is the only route to the right row, and it arrived in `updates` instead of `code`.
-  if ((kind === 'add-diagnosis' || kind === 'add-condition') && !action.code?.trim()) {
+  const leaked = Object.keys(bag).filter((field) => !allowed.has(field));
+  if ((kind === 'add-diagnosis' || kind === 'add-condition') && !(bag.code as string | undefined)?.trim()) {
     const salvaged = scanIcd10Codes(JSON.stringify(leaked.map((field) => bag[field])))[0];
     if (salvaged) {
       console.log(`[${context.logPrefix}] recovered ${salvaged} from a misplaced field on ${kind}`);
-      action.code = salvaged;
+      bag.code = salvaged;
     }
   }
   for (const field of leaked) delete bag[field];
+  const action = bag as unknown as PlannedAction;
 
-  // Provenance: verify the quote actually occurs in the narrative, or failing that in the provider's edited
-  // read-back when one was sent, or failing that in the chart state the prompt showed, and tag which. A
-  // quote that is in none is dropped, and the item is then honestly marked inferred rather than carrying a
-  // fabricated citation. Do this before anything else so every later rejection reason is quote-free —
-  // and because `guardExamFinding` reads the tag: a normal charts only when its quote verified.
+  // Keep the quote only if it really occurs in the narrative, the edited narrative or the chart block,
+  // in that order; otherwise the action is marked inferred.
   const fromNarrative = verifiedSourceText(action.sourceText, context.narrative);
   const fromEdited =
     fromNarrative === undefined && context.editedNarrative
@@ -207,10 +157,10 @@ async function guardOne(input: RawAction, context: ResolvedGuardContext): Promis
   if (fromNarrative !== undefined) action.sourceOrigin = 'narrative';
   else if (fromEdited !== undefined) action.sourceOrigin = 'edited-narrative';
   else if (fromChart !== undefined) action.sourceOrigin = 'chart';
-  else delete action.sourceOrigin;
 
-  const missing = missingRequiredFields(kind, action);
-  if (missing.length > 0 && kind !== 'set-vital') {
+  // A set-vital without a display can still be recovered from the narrative in guardVital.
+  const missing = missingRequiredFields(kind, action).filter((field) => kind !== 'set-vital' || field !== 'display');
+  if (missing.length > 0) {
     return {
       rejected: {
         kind,
@@ -219,6 +169,8 @@ async function guardOne(input: RawAction, context: ResolvedGuardContext): Promis
       },
     };
   }
+  const unacceptable = checkValues(kind, bag, context.logPrefix);
+  if (unacceptable) return { rejected: { kind, display: action.display, reason: unacceptable } };
 
   switch (kind) {
     case 'set-vital':
@@ -228,44 +180,48 @@ async function guardOne(input: RawAction, context: ResolvedGuardContext): Promis
       return guardDiagnosisLike(action, context);
     case 'set-em-code':
       return guardEmCode(action, context);
-    case 'add-cpt':
-      return guardCpt(action, context);
     case 'add-exam-finding':
-      return guardExamFinding(action, kind);
+      return guardExamFinding(action);
     case 'add-ros-finding':
       return guardRosFinding(action);
-    // A REMOVAL OF EITHER MUST ALSO NAME SOMETHING ON THE CHART.
-    //
-    // These two used to stop at the polarity check, so "a remove-* may only target an item listed in
-    // ALREADY ON THE CHART" — enforced for allergies, conditions, medications, surgical history,
-    // hospitalizations and diagnoses — was not enforced for the two kinds that make up almost every
-    // removal the `findings` stage emits. Measured on the hybrid: 18 removals, 14 of which matched
-    // nothing, against the monolith's 2. What they targeted says why the polarity check alone cannot
-    // catch it — the chart held "Denies fever" and the stage asked to remove "REPORTS fever", the
-    // opposite entry, which was never charted. Polarity-valid, chart-invalid.
-    case 'remove-exam-finding':
-    case 'remove-ros-finding': {
-      const shape = kind === 'remove-exam-finding' ? guardExamFinding(action, kind) : guardRosFinding(action);
-      if ('rejected' in shape) return shape;
-      return guardRemoval(shape.action, kind, context);
-    }
-    case 'remove-allergy':
-    case 'remove-condition':
-    case 'remove-medication':
-    case 'remove-surgical-history':
-    case 'remove-hospitalization':
-    case 'remove-diagnosis':
-      return guardRemoval(action, kind, context);
+    case 'set-disposition':
+      return guardDisposition(action);
     default:
       return { action };
   }
 }
 
-// ---------------------------------------------------------------------------------------------
-// 4.2 / 4.3 / 4.4 — units, value recovery, plausibility
-// ---------------------------------------------------------------------------------------------
+/**
+ * The declared fields checked against the registry shape: the backup model decodes without the schema,
+ * so an enum can come back as anything. A blank string counts as absent, as it does for required fields.
+ * A bad optional value is dropped; a bad required one refuses the action. Valid values are kept as the
+ * shape outputs them, so a guarded numeric becomes a number.
+ */
+function checkValues(kind: ActionKind, bag: Record<string, unknown>, logPrefix: string): string | undefined {
+  const shape = capabilityOf(kind).shape.partial();
+  for (const field of declaredFields(kind)) {
+    if (typeof bag[field] === 'string' && (bag[field] as string).trim() === '') delete bag[field];
+  }
+  const present = declaredFields(kind).filter((field) => bag[field] !== undefined);
+  const fields: Record<string, unknown> = Object.fromEntries(present.map((field) => [field, bag[field]]));
+  let result = shape.safeParse(fields);
+  if (!result.success) {
+    const invalid = [...new Set(result.error.issues.map((issue) => String(issue.path[0])))];
+    const required = new Set<string>(requiredFields(kind));
+    const badRequired = invalid.find((field) => required.has(field));
+    if (badRequired)
+      return `${badRequired} "${String(bag[badRequired]).slice(0, 60)}" is not something the chart accepts`;
+    console.log(`[${logPrefix}] dropped ${invalid.join(', ')} on ${kind}: values the chart does not accept`);
+    for (const field of invalid) delete fields[field];
+    result = shape.safeParse(fields);
+    if (!result.success) return 'the assistant returned values the chart does not accept';
+  }
+  for (const field of present) delete bag[field];
+  for (const [field, value] of Object.entries(result.data)) if (value !== undefined) bag[field] = value;
+  return undefined;
+}
 
-/** The canonical reading a guarded set-vital carries — field plus the parsed value in its converted unit. */
+/** The canonical reading of a guarded set-vital: field plus value in its canonical unit. */
 function vitalReadingKey(action: PlannedAction): string {
   if (action.systolic != null && action.diastolic != null) {
     return `${action.field}|${action.systolic}/${action.diastolic}`;
@@ -279,8 +235,6 @@ function guardVital(action: PlannedAction, context: ResolvedGuardContext): Guard
   }
   const field = action.field;
 
-  // 4.3 — the model is inconsistent about populating optional fields and will emit a set-vital with
-  // no display at all. Recover the reading from the provider's OWN words, for EVERY vital.
   let display = action.display?.trim();
   if (!display) {
     display = recoverVitalReading(field, context.narrative);
@@ -307,7 +261,7 @@ function guardVital(action: PlannedAction, context: ResolvedGuardContext): Guard
       action.systolic = parsed.systolic;
       action.diastolic = parsed.diastolic;
       return { action };
-    // 4.4 — do NOT chart it and do NOT silently reinterpret it. Ask.
+    // Never chart or silently reinterpret an implausible or unit-less reading.
     case 'implausible':
     case 'unrecognized-unit':
     case 'missing-unit':
@@ -316,25 +270,17 @@ function guardVital(action: PlannedAction, context: ResolvedGuardContext): Guard
   }
 }
 
-// ---------------------------------------------------------------------------------------------
-// 4.1 — diagnosis codes
-// ---------------------------------------------------------------------------------------------
-
 /**
- * Validate the code against the real terminology service — the same search the EHR picker uses.
- * Shape-check first, then confirm; if the code is not real, fall back to searching the model's
- * display/searchTerms.
- *
- * THE CHARTED {code, display} PAIR MUST COME FROM ONE TERMINOLOGY ROW. Never a model code with a
- * searched display, or vice versa — that is how a note ends up asserting a condition whose code says
- * something else.
+ * Confirm the code against the terminology service, falling back to a search on the display. The
+ * charted code and display always come from one terminology row, never a model code with a searched
+ * display or vice versa.
  */
 async function guardDiagnosisLike(action: PlannedAction, context: ResolvedGuardContext): Promise<GuardOutcome> {
   const kind = action.kind as 'add-diagnosis' | 'add-condition';
+  // The model sometimes decorates the code ("ICD-10: J02.0", "(j02.0)"); keep the code itself.
+  if (action.code) action.code = scanIcd10Codes(action.code.toUpperCase())[0] ?? action.code;
 
-  // The model omits the code often enough to be worth one deterministic look first: narratives write
-  // "Acute otitis media, right ear (H66.91)" with the code right there. A code-shaped token that is
-  // really a speaker tag ("DOCTOR X31") is refused — that was the single most embarrassing miscode.
+  // Narratives often carry the code inline ("Acute otitis media, right ear (H66.91)").
   if (!action.code?.trim()) {
     const sniffed = sniffIcdCodeScoped(
       context.narrative,
@@ -345,7 +291,6 @@ async function guardDiagnosisLike(action: PlannedAction, context: ResolvedGuardC
     if (sniffed) action.code = sniffed;
   }
   if (action.code && context.speakerLabels.has(action.code.trim().toUpperCase())) {
-    // Better to let the client picker resolve by display than to commit a transcript artefact.
     delete action.code;
   }
 
@@ -367,16 +312,13 @@ async function guardDiagnosisLike(action: PlannedAction, context: ResolvedGuardC
     };
   }
 
-  // An aetiology qualifier the narrative does not support makes a real code the WRONG code. REPAIR
-  // FIRST: the condition is usually right and only the qualifier is wrong ("Gonococcal vulvovaginitis"
-  // for a yeast narrative, "serous" otitis media for a purulent one), so refusing outright throws away
-  // a correct finding. Only an unrepairable one is refused.
+  // A qualifier the visit does not support ("gonococcal" for a yeast infection) makes the code wrong.
+  // Repair to the unqualified sibling first; refuse only when there is none.
   const evidence = context.etiologyEvidence ?? context.narrative;
   const unsupported = unsupportedEtiologyQualifiers(row.display, evidence);
   if (unsupported.length > 0) {
     const repaired = await repairUnsupportedEtiology(context.icdSearch, row, evidence);
     if (!repaired) {
-      // Codes and qualifier labels only — never narrative text.
       console.log(`[${context.logPrefix}] etiology guard refused ${row.code} (unsupported: ${unsupported.join(', ')})`);
       return {
         rejected: {
@@ -395,8 +337,7 @@ async function guardDiagnosisLike(action: PlannedAction, context: ResolvedGuardC
     row.display = repaired.display;
   }
 
-  // A "history of…" Z-code used when the visit describes a CURRENT problem. add-condition may
-  // legitimately record past history; a visit diagnosis may not.
+  // A "history of" Z-code is fine for past history (add-condition), not for a current visit diagnosis.
   if (
     kind === 'add-diagnosis' &&
     isPersonalHistoryCode(row.code) &&
@@ -417,11 +358,21 @@ async function guardDiagnosisLike(action: PlannedAction, context: ResolvedGuardC
 }
 
 async function guardEmCode(action: PlannedAction, context: ResolvedGuardContext): Promise<GuardOutcome> {
-  const code = action.code?.trim();
-  if (!isCptShaped(code)) {
+  // "99214 (moderate)" or "CPT 99214" is the code 99214.
+  const code = /\b\d{5}\b/.exec(action.code ?? '')?.[0] ?? action.code?.trim();
+  if (!code || !isCptShaped(code)) {
     return { rejected: { kind: 'set-em-code', display: code, reason: `"${code}" is not a CPT-shaped E&M code` } };
   }
-  const row = await searchCpt(context, code!);
+  if (context.emCodes && !context.emCodes.includes(code)) {
+    return {
+      rejected: {
+        kind: 'set-em-code',
+        display: code,
+        reason: `E&M code ${code} is not one this practice has enabled, so it could not be charted`,
+      },
+    };
+  }
+  const row = await searchCpt(context, code);
   if (row === 'degraded') return { action };
   if (!row) {
     return { rejected: { kind: 'set-em-code', display: code, reason: `E&M code ${code} is not a real CPT code` } };
@@ -431,33 +382,14 @@ async function guardEmCode(action: PlannedAction, context: ResolvedGuardContext)
   return { action };
 }
 
-async function guardCpt(action: PlannedAction, context: ResolvedGuardContext): Promise<GuardOutcome> {
-  const code = action.code?.trim().toUpperCase();
-  if (!isCptShaped(code) && !isHcpcsShaped(code)) {
-    return { rejected: { kind: 'add-cpt', display: code, reason: `"${code}" is not a CPT or HCPCS code shape` } };
-  }
-  const row = isHcpcsShaped(code) ? await searchHcpcs(context, code!) : await searchCpt(context, code!);
-  if (row === 'degraded') return { action };
-  if (!row) {
-    return { rejected: { kind: 'add-cpt', display: code, reason: `${code} is not a real CPT/HCPCS code` } };
-  }
-  action.code = row.code;
-  action.display = row.display;
-  return { action };
-}
-
 /**
- * `undefined` = the service answered and the code is not real → drop it.
- * `degraded` = the service could not be reached → KEEP the model's code.
- *
- * The distinction is the whole point. Collapsing both into "drop" means a terminology outage silently
- * strips billing from every visit for as long as it lasts, and nobody notices until the invoices are
- * short. An unvalidated billing code for the duration of an outage is the lesser harm, so the outage is
- * reported to Sentry and the code is kept.
+ * `undefined`: the service answered and the code is not real. `degraded`: the service could not be
+ * reached, so the model's code is kept rather than silently stripping billing for the whole outage.
  */
-type CodeLookup = { code: string; display: string } | undefined | 'degraded';
-
-async function searchCpt(context: ResolvedGuardContext, code: string): Promise<CodeLookup> {
+async function searchCpt(
+  context: ResolvedGuardContext,
+  code: string
+): Promise<{ code: string; display: string } | undefined | 'degraded'> {
   try {
     const response = await context.oystehr.terminology.searchCpt({
       query: code,
@@ -473,67 +405,25 @@ async function searchCpt(context: ResolvedGuardContext, code: string): Promise<C
   }
 }
 
-async function searchHcpcs(context: ResolvedGuardContext, code: string): Promise<CodeLookup> {
-  try {
-    const response = await context.oystehr.terminology.searchHcpcs({
-      query: code,
-      searchType: 'code',
-      limit: 10,
-      strictMatch: true,
-    });
-    return response.codes.length === 1 ? response.codes[0] : undefined;
-  } catch (error) {
-    console.warn(`[${context.logPrefix}] HCPCS terminology unavailable, keeping the model code as-is`);
-    captureException(error);
-    return 'degraded';
-  }
-}
-
-// ---------------------------------------------------------------------------------------------
-// 4.5 — exam and ROS
-// ---------------------------------------------------------------------------------------------
-
 /**
- * A negated finding ("no wheezing", "non-tender") and an asserted normal ("lungs clear") are the same
- * thing to the chart: the NORMAL side of the card. Neither is an abnormal finding, and neither may
- * remove the matching normal, since it AGREES with it. Match on polarity, not on the keyword.
- *
- * A NORMAL CHARTS ONLY WHEN THE PROVIDER SAID IT. This used to refuse every normal, because the model
- * padded exams with normals for systems nobody examined. But "abdomen soft, non-tender" is an
- * examination that happened, and the checkbox for it exists. The provenance check upstream is what
- * tells the two apart: a voiced normal has a quote that verified against the narrative or the
- * provider's edited read-back; a padded one has none. A quote verified against the chart-state block
- * does NOT count — a chart line is not the provider saying it. Positives keep their latitude: an
- * abnormality is charted even when inferred.
+ * A normal exam finding charts only when the provider voiced it: its quote verified against the
+ * narrative or the edited narrative. Abnormal findings are charted even when inferred.
  */
-function guardExamFinding(action: PlannedAction, kind: 'add-exam-finding' | 'remove-exam-finding'): GuardOutcome {
-  const polarity = findingPolarity(action.display ?? '');
+function guardExamFinding(action: PlannedAction): GuardOutcome {
   const voiced = action.sourceOrigin === 'narrative' || action.sourceOrigin === 'edited-narrative';
-  if (kind === 'add-exam-finding' && polarity !== 'positive' && !voiced) {
+  if (findingPolarity(action.display ?? '') !== 'positive' && !voiced) {
     return {
       rejected: {
-        kind,
+        kind: 'add-exam-finding',
         display: action.display,
         reason: `"${action.display}" is a normal finding nobody voiced — exam normals chart only when the provider said them`,
-      },
-    };
-  }
-  if (kind === 'remove-exam-finding' && polarity === 'negated') {
-    return {
-      rejected: {
-        kind,
-        display: action.display,
-        reason: `"${action.display}" is a negative, which agrees with the charted normal — nothing was removed`,
       },
     };
   }
   return { action };
 }
 
-/**
- * ROS records both positives and negatives, and carries the polarity in the display text. A finding
- * with neither verb cannot be filed with the right polarity, so it is rejected rather than guessed.
- */
+/** ROS carries its polarity in the display verb; a finding with neither verb cannot be filed. */
 function guardRosFinding(action: PlannedAction): GuardOutcome {
   const polarity = rosPolarity(action.display ?? '', action.finding);
   if (!polarity) {
@@ -550,52 +440,22 @@ function guardRosFinding(action: PlannedAction): GuardOutcome {
 }
 
 /**
- * A remove-* may only target something actually on the chart. With several plausible matches the
- * CLIENT asks rather than deleting the first substring match; here we only refuse removals that
- * match nothing at all, so the step reports a reason instead of quietly doing nothing.
+ * The follow-up interval must be one the Disposition card offers for the type (the type itself is
+ * checked against the registry). An interval it cannot show is dropped and stays in the disposition text.
  */
-function guardRemoval(action: PlannedAction, kind: ActionKind, context: ResolvedGuardContext): GuardOutcome {
-  if (context.chartedItems.length === 0) {
-    return {
-      rejected: { kind, display: action.display, reason: 'the chart is empty, so there was nothing to remove' },
-    };
-  }
-  const needle = (action.display ?? '').toLowerCase().trim();
-  const matches = context.chartedItems.filter((item) => {
-    const hay = item.toLowerCase();
-    return hay.includes(needle) || needle.includes(hay);
-  });
-  if (matches.length === 0) {
-    return {
-      rejected: {
-        kind,
-        display: action.display,
-        reason: `"${action.display}" is not on the chart, so nothing was removed`,
-      },
-    };
+function guardDisposition(action: PlannedAction): GuardOutcome {
+  if (action.followUpInDays != null && chartableFollowUpDays(action.dispositionType, action.followUpInDays) == null) {
+    delete action.followUpInDays;
+    action.caution = 'the chart has no follow-up option for that interval, so it is kept in the disposition text only';
   }
   return { action };
 }
 
-// ---------------------------------------------------------------------------------------------
-// Cross-action invariants
-// ---------------------------------------------------------------------------------------------
-
 /**
- * The same diagnosis cannot be charted twice, and there is EXACTLY one primary.
- *
- * Both halves matter and only one of them is about the model behaving badly. "No more than one primary"
- * cleans up over-marking; "at least one primary" fixes a measured 0-out-of-13: the prompt says "exactly
- * ONE isPrimary=true" and the model simply never emits the flag, so every note came out with no primary
- * diagnosis — which is billing-invalid, since the E&M code attaches to it. It cannot be fixed in the
- * response schema either: all action kinds share one flat object schema, so making `isPrimary` required
- * would force it onto every action of every kind. Deterministic promotion is the only place left.
+ * No diagnosis twice, at most one primary and at least one: the model often marks none, and a note
+ * without a primary is not billable.
  */
-function enforceDiagnosisInvariants(
-  actions: PlannedAction[],
-  rejected: RejectedAction[],
-  options: { promoteMissingPrimary: boolean; incremental: boolean; chartedItems: string[] }
-): PlannedAction[] {
+function enforceDiagnosisInvariants(actions: PlannedAction[], rejected: RejectedAction[]): PlannedAction[] {
   const seenCodes = new Set<string>();
   let primaryTaken = false;
   const kept: PlannedAction[] = [];
@@ -618,8 +478,6 @@ function enforceDiagnosisInvariants(
 
     if (action.isPrimary) {
       if (primaryTaken) {
-        // Demote rather than drop: the diagnosis is real, only the primary flag is wrong, and a note
-        // that loses a secondary diagnosis is worse than one with a demoted flag.
         action.isPrimary = false;
         action.caution = 'a primary diagnosis was already set, so this was charted as secondary';
       } else {
@@ -629,103 +487,45 @@ function enforceDiagnosisInvariants(
     kept.push(action);
   }
 
-  const diagnoses = kept.filter((action) => action.kind === 'add-diagnosis');
-  if (diagnoses.length === 0 || !options.promoteMissingPrimary) return kept;
-
-  // INCREMENTAL guard: when the chart already carries a primary, an addendum's new diagnoses are
-  // additions, never usurpers — "allergic reaction to amoxicillin" charted from a phone-call addendum
-  // must not demote the visit's actual primary. The provider can still change it explicitly.
-  const chartHasPrimary =
-    options.incremental && options.chartedItems.some((item) => /\(primary\)|\[PRIMARY\]/i.test(item));
-  if (chartHasPrimary) {
-    for (const action of diagnoses) action.isPrimary = false;
-    return kept;
-  }
-  if (!primaryTaken) {
-    diagnoses[0].isPrimary = true;
-    diagnoses[0].caution =
-      diagnoses[0].caution ?? 'no primary diagnosis was marked, so the first one was charted as primary';
+  const firstDiagnosis = kept.find((action) => action.kind === 'add-diagnosis');
+  if (firstDiagnosis && !primaryTaken) {
+    firstDiagnosis.isPrimary = true;
+    firstDiagnosis.caution ??= 'no primary diagnosis was marked, so the first one was charted as primary';
   }
   return kept;
 }
 
-// ---------------------------------------------------------------------------------------------
-// Deterministic backstops — chart and flag beats silently missing
-// ---------------------------------------------------------------------------------------------
-
 /**
- * Things the model drops often enough that recovering them in code is cheaper than another prompt rule.
- * Each one is additive and visible: an appended step carries the sentence it came from, so the provider
- * reviewing it sees exactly why it is there.
+ * Deterministic recovery of what the model drops often enough to be worth code. Every appended action
+ * carries the sentence it came from, so the provider sees why it is there.
  */
 function applyBackstops(actions: PlannedAction[], context: ResolvedGuardContext): PlannedAction[] {
   const out = [...actions];
 
-  // 1) Vitals sweep. The model reports the first reading and drops rechecks — most often the SECOND of
-  //    two serial blood pressures, or a vital phrased indirectly ("slightly tachycardic at 115").
-  const charted = new Set(
-    out
-      .filter((action) => action.kind === 'set-vital')
-      .map((action) => `${action.field}|${action.systolic ?? ''}/${action.diastolic ?? ''}|${action.value ?? ''}`)
-  );
-  for (const sniffed of sniffVitalsFromNarrative(context.narrative)) {
-    const signature = `${sniffed.field}|${sniffed.systolic ?? ''}/${sniffed.diastolic ?? ''}|${sniffed.value ?? ''}`;
-    if (charted.has(signature)) continue;
-    // A field the model already charted with a DIFFERENT value is the recheck case, which is exactly
-    // what this sweep is for — so only an identical reading is skipped, never the whole field.
-    charted.add(signature);
-    if (!isVitalField(sniffed.field)) continue;
+  // Vital readings the plan missed, most often the second of two serial measurements. Only an
+  // identical reading counts as charted, never the whole field.
+  const signature = (vital: { field?: string; systolic?: unknown; diastolic?: unknown; value?: unknown }): string =>
+    `${vital.field}|${vital.systolic ?? ''}/${vital.diastolic ?? ''}|${vital.value ?? ''}`;
+  const charted = new Set(out.filter((action) => action.kind === 'set-vital').map(signature));
+  for (const sniffed of context.dictation ? sniffVitalsFromNarrative(context.dictation) : []) {
+    if (charted.has(signature(sniffed)) || !isVitalField(sniffed.field)) continue;
+    charted.add(signature(sniffed));
     out.push({
       kind: 'set-vital',
       field: sniffed.field,
       display: sniffed.display,
       ...(sniffed.systolic != null ? { systolic: sniffed.systolic } : {}),
       ...(sniffed.diastolic != null ? { diastolic: sniffed.diastolic } : {}),
-      // A NUMBER, not a string. The digit-loop guard declares numeric fields as strings in the response
-      // schema and coerceNumericFields undoes that in guardOne — which has already run by the time the
-      // backstops append anything, so a stringified reading here would reach the chart write uncoerced.
       ...(sniffed.value != null ? { value: sniffed.value } : {}),
       ...(sniffed.unit ? { unit: sniffed.unit } : {}),
       sourceText: sniffed.sourceText,
-      sourceOrigin: 'narrative',
+      sourceOrigin: 'edited-narrative',
       caution: 'recovered from the dictation — the plan did not include this reading',
-    } as PlannedAction);
+    });
   }
 
-  // 2) A test the narrative reports as ALREADY PERFORMED WITH A RESULT must not be re-ordered. The
-  //    prompt says so and the model re-orders anyway (roughly two cases in three: rapid strep, rapid
-  //    flu), so the order is converted into a provider-note quoting the sentence. The sentence has to be
-  //    about a test being RUN — not epidemiology ("coworkers have confirmed influenza") and not a future
-  //    order ("send the urine out for culture").
-  const RESULT_MARKERS =
-    /\b(?:was performed|were performed|came back|returned|resulted|is positive|is negative|was positive|was negative|positive for|negative for|show(?:s|ed|ing)?|reveal(?:s|ed|ing)?)\b/i;
-  const TEST_CONTEXT =
-    /\b(?:test|tests|tested|performed|rapid|in[- ]?house|in[- ]?clinic|specimen|swab|urinalysis|x[- ]?ray|ecg|ekg)\b/i;
-  const sentences = context.narrative.split(/(?<=[.!?])\s+/);
-  for (const action of out) {
-    if (action.kind !== 'add-in-house-lab' && action.kind !== 'add-external-lab') continue;
-    const needles = [action.display ?? '', ...(action.searchTerms ?? [])]
-      .flatMap((term) => term.toLowerCase().split(/[^a-z0-9]+/))
-      .filter((word) => word.length >= 4);
-    const sentence = sentences.find(
-      (candidate) =>
-        RESULT_MARKERS.test(candidate) &&
-        TEST_CONTEXT.test(candidate) &&
-        needles.some((needle) => candidate.toLowerCase().includes(needle))
-    );
-    if (!sentence) continue;
-    const label = action.display ?? 'test';
-    const converted = action as PlannedAction & { kind: string; text?: string };
-    converted.kind = 'provider-note';
-    converted.text = `The ${label} was already performed — enter its result through the labs flow. Dictated: ${sentence.trim()}`;
-    converted.sourceText = sentence.trim();
-    converted.sourceOrigin = 'narrative';
-    delete (converted as { display?: string }).display;
-    delete (converted as { searchTerms?: string[] }).searchTerms;
-  }
-
-  // 3) eRx reminder: the narrative says a prescription is being SENT, a medication was charted, and
-  //    nothing tells the provider that easy-chart does not transmit scripts.
+  // The narrative says a prescription is being sent and a medication was charted: remind the provider
+  // that Easy Chart does not transmit prescriptions.
   const sending = /\b(?:send(?:ing)?|sent)\b[^.;]{0,60}\b(?:pharmacy|prescription|script)\b|\bsend that over\b/i.exec(
     context.narrative
   );
@@ -736,75 +536,40 @@ function applyBackstops(actions: PlannedAction[], context: ResolvedGuardContext)
   if (sending && hasMedication && !hasErxNote) {
     out.push({
       kind: 'provider-note',
-      text: 'Send the prescription via eRx — the medication was charted, but easy-chart does not transmit prescriptions.',
+      text: 'Send the prescription via eRx — the medication was charted, but AutoChart does not transmit prescriptions.',
       sourceText: sending[0],
       sourceOrigin: 'narrative',
-    } as PlannedAction);
-  }
-
-  // 4) Numeric junk the model attaches to steps that have no reading (value=0.0012 on a patient
-  //    instruction), so it never leaks into a payload or a log.
-  for (const action of out) {
-    if (action.kind === 'set-vital' || action.kind === 'add-medication') continue;
-    delete (action as { value?: unknown }).value;
-    delete (action as { unit?: unknown }).unit;
+    });
   }
 
   return out;
 }
 
-// ---------------------------------------------------------------------------------------------
-// Deterministic triggers (7.2)
-// ---------------------------------------------------------------------------------------------
-
 /**
- * Report BOTH whether the trigger fired and whether the model complied. Without the pair you cannot
- * distinguish "the guard never fired" from "the guard fired and the model ignored it" — opposite
- * bugs with the same symptom. Counts and pattern labels only, never narrative text.
- *
- * Exported because the REVIEW surface cannot use the set `applyGuards` returns. Review guards one
- * SUGGESTION at a time, so those reports are per card: a run whose disposition arrived on the second
- * card read as "the trigger fired and the model ignored it", which is how the harvested corpus
- * reported 0 complied out of 6 fired while the disposition was in fact charted in all six. Compliance
- * is a property of the WHOLE response, so review computes it once over every surviving action.
+ * Whether each deterministic trigger fired and whether the actions answer it. Counts and pattern labels
+ * only, never narrative text.
  */
-export function buildTriggerReports(narrative: string, actions: PlannedAction[]): TriggerReport[] {
-  const text = narrative.toLowerCase();
-  const reports: TriggerReport[] = [];
-
-  // The SHARED detector, not a regex of its own.
-  //
-  // This used to test one loose alternation — a bare "follow up", "referral" or "discharge" anywhere in
-  // the narrative. `detectDispositionLanguage` exists for exactly this, is unit-tested, and was wired to
-  // nothing: it anchors each of its nine patterns ("follow-up" needs `with`/an interval/`as needed`/`if`,
-  // so "here for follow-up of his asthma" — the visit's REASON — does not fire), suppresses leading and
-  // trailing negation ("no referral needed"), and scans every occurrence so an early negated hit cannot
-  // mask a later real one. Measured on the harvested corpus the loose version fired 6 times and the model
-  // proposed a disposition 0 of those times, which read as the model disobeying a guard when it was the
-  // guard crying wolf.
+function buildTriggerReports(narrative: string, actions: PlannedAction[]): TriggerReport[] {
   const disposition = detectDispositionLanguage(narrative);
-  reports.push({
-    trigger: 'disposition-language-without-disposition',
-    fired: disposition !== undefined,
-    complied: actions.some((a) => a.kind === 'set-disposition'),
-    ...(disposition ? { matchedPattern: disposition.pattern } : {}),
-  });
-
-  const emRequired = actions.length > 0;
-  reports.push({
-    trigger: 'em-code-always-required',
-    fired: emRequired,
-    complied: actions.some((a) => a.kind === 'set-em-code'),
-  });
-
   const prescriptionCommitment = /\bi'?ll send\b|\blet me get you on\b|\bwe'?ll start\b|\bi'?m going to treat\b/.test(
-    text
+    narrative.toLowerCase()
   );
-  reports.push({
-    trigger: 'voiced-prescription-commitment',
-    fired: prescriptionCommitment,
-    complied: actions.some((a) => a.kind === 'add-medication' || a.kind === 'provider-note'),
-  });
-
-  return reports;
+  return [
+    {
+      trigger: 'disposition-language-without-disposition',
+      fired: disposition !== undefined,
+      complied: actions.some((a) => a.kind === 'set-disposition'),
+      ...(disposition ? { matchedPattern: disposition.pattern } : {}),
+    },
+    {
+      trigger: 'em-code-always-required',
+      fired: actions.length > 0,
+      complied: actions.some((a) => a.kind === 'set-em-code'),
+    },
+    {
+      trigger: 'voiced-prescription-commitment',
+      fired: prescriptionCommitment,
+      complied: actions.some((a) => a.kind === 'add-medication' || a.kind === 'provider-note'),
+    },
+  ];
 }

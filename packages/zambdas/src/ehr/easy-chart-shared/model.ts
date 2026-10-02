@@ -1,29 +1,17 @@
-// The model call for Easy Chart: sequential retry, escalation to a backup provider, and per-call
-// accounting. Deliberately NOT `invokeChatbotVertexAI` from shared/ai.
-//
-// WHY NOT THE SHARED HELPER: it fires three STAGGERED CONCURRENT attempts as a hedge. A plan-sized
-// generation outlives the first stagger, so nearly every call ran two or three full generations and
-// was billed for all of them. Retry here is SEQUENTIAL and only after a failure.
-//
-// TWO MORE SPECIFICS FROM PHASE 4.7:
-//  - MAX_TOKENS is a FAILURE, not partial success. Returning truncated text hands the caller broken
-//    JSON that only fails to parse AFTER the escalation opportunity has passed.
-//  - On empty response / unparseable JSON / MAX_TOKENS / timeout: retry once, then escalate to the
-//    backup model.
-//
-// PHI: never log a response body. For this feature the candidates ARE the generated note (HPI, MDM,
-// diagnoses, doses); on a transcription call the body is the transcript. Log only the envelope —
-// model, candidate count, finish reason, text length, block reason, token usage.
+// The structured-output model call behind every Easy Chart endpoint: Gemini, one retry, then Anthropic.
+// Not `invokeChatbotVertexAI` from shared/ai, which has no token accounting, thinking budget, finish-reason
+// handling or second provider.
+// PHI: only the envelope is logged unless EASY_CHART_LOG_RESPONSE is set in the local secrets file.
 
 import { ChatAnthropic } from '@langchain/anthropic';
 import { EscalationInfo, ModelFailureReason, ModelUsage } from 'utils/lib/easy-chart/api';
 import { getOptionalSecret, getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { fixAndParseJsonObjectFromString } from 'utils/lib/validation/json-fix';
+import { z } from 'zod';
 
-/** Primary: fast and cheap. Escalation exists because it sometimes is not enough. */
-export const EASY_CHART_PRIMARY_MODEL = 'gemini-3.1-flash-lite';
-/** Backup: a different provider, so a provider-wide outage or refusal does not end the turn. */
-export const EASY_CHART_BACKUP_MODEL = 'claude-haiku-4-5-20251001';
+const EASY_CHART_PRIMARY_MODEL = 'gemini-3.1-flash-lite';
+/** A different provider, so a provider-wide outage or refusal does not fail the request. */
+const EASY_CHART_BACKUP_MODEL = 'claude-haiku-4-5-20251001';
 
 const REQUEST_TIMEOUT_MS = 180_000;
 
@@ -31,6 +19,18 @@ export interface ModelCallResult<T> {
   parsed: T;
   usage: ModelUsage[];
   escalation: EscalationInfo;
+}
+
+export interface ModelCallOptions<T> {
+  prompt: string;
+  /** The JSON schema both providers decode against. */
+  wireSchema: object;
+  /** Validates and types the parsed answer. A failure counts as a failed attempt and escalates. */
+  responseSchema: z.ZodType<T, z.ZodTypeDef, unknown>;
+  secrets: Secrets | null;
+  logPrefix: string;
+  /** Cancels the running request and starts no further attempt. */
+  signal?: AbortSignal;
 }
 
 class ModelAttemptError extends Error {
@@ -43,15 +43,13 @@ class ModelAttemptError extends Error {
   }
 }
 
-interface UsageAccumulator {
-  byModel: Map<string, ModelUsage>;
-}
+type UsageAccumulator = Map<string, ModelUsage>;
 
 function record(acc: UsageAccumulator, usage: Omit<ModelUsage, 'calls'>): void {
   const key = `${usage.provider}:${usage.model}`;
-  const existing = acc.byModel.get(key);
+  const existing = acc.get(key);
   if (!existing) {
-    acc.byModel.set(key, { ...usage, calls: 1 });
+    acc.set(key, { ...usage, calls: 1 });
     return;
   }
   existing.inputTokens += usage.inputTokens;
@@ -63,87 +61,89 @@ function record(acc: UsageAccumulator, usage: Omit<ModelUsage, 'calls'>): void {
 }
 
 /**
- * Call the model for a structured response, retrying once and then escalating to the backup
- * provider. `validate` gets the parsed object and must throw when it is unusable — a response the
- * validator rejects is a `rejected-by-validation` failure and is worth escalating for, exactly like
- * a truncated one.
+ * Call the model for a structured answer: Gemini, a sequential retry after a failure, then Anthropic.
+ * Throws when every attempt failed; the error message carries attempt counts and reasons only.
  */
-export async function callModelForJson<T>(
-  prompt: string,
-  responseSchema: object,
-  secrets: Secrets | null,
-  logPrefix: string,
-  validate: (parsed: unknown) => T
-): Promise<ModelCallResult<T>> {
-  const acc: UsageAccumulator = { byModel: new Map() };
+export async function callModelForJson<T>(options: ModelCallOptions<T>): Promise<ModelCallResult<T>> {
+  const { prompt, wireSchema, responseSchema, secrets, logPrefix, signal } = options;
+  const acc: UsageAccumulator = new Map();
   const failures: ModelFailureReason[] = [];
   let attempts = 0;
 
   const attempt = async (runner: () => Promise<unknown>): Promise<T | undefined> => {
     attempts += 1;
     try {
-      return validate(await runner());
+      const result = responseSchema.safeParse(await runner());
+      if (result.success) return result.data;
+      failures.push('rejected-by-validation');
+      // Issue paths and codes only: the messages can quote the model's answer.
+      const issues = result.error.issues
+        .slice(0, 3)
+        .map((issue) => `${issue.path.join('.') || '(root)'} ${issue.code}`)
+        .join('; ');
+      console.log(`[${logPrefix}] attempt ${attempts} failed validation: ${issues}`);
+      return undefined;
     } catch (error) {
-      const reason = error instanceof ModelAttemptError ? error.reason : 'rejected-by-validation';
+      const reason = error instanceof ModelAttemptError ? error.reason : 'error';
       failures.push(reason);
-      // Message only — never the body. Our own attempt errors carry envelope facts by construction.
       console.log(`[${logPrefix}] attempt ${attempts} failed: ${reason}`);
       return undefined;
     }
   };
 
-  const primary = (): Promise<unknown> => callVertex(prompt, responseSchema, secrets, acc, logPrefix);
+  const primary = (): Promise<unknown> => callVertex(prompt, wireSchema, secrets, acc, logPrefix, signal);
 
-  // Sequential: retry only AFTER a failure. Never staggered concurrent attempts.
   let parsed = await attempt(primary);
-  if (parsed === undefined) parsed = await attempt(primary);
+  if (parsed === undefined && !signal?.aborted) parsed = await attempt(primary);
 
   let escalated = false;
-  if (parsed === undefined) {
+  if (parsed === undefined && !signal?.aborted) {
     escalated = true;
-    parsed = await attempt(() => callAnthropic(prompt, secrets, acc, logPrefix));
+    parsed = await attempt(() => callAnthropic(prompt, wireSchema, secrets, acc, logPrefix, signal));
   }
 
-  const usage = [...acc.byModel.values()];
+  const usage = [...acc.values()];
   if (parsed === undefined) {
     console.log(`[${logPrefix}] all ${attempts} attempts failed: ${failures.join(',')}`);
     throw new Error(`Easy Chart model call failed after ${attempts} attempts (${failures.join(', ')})`);
   }
 
   logUsage(logPrefix, usage);
-  logResponseBody(logPrefix, parsed, secrets);
+  if (getOptionalSecret('EASY_CHART_LOG_RESPONSE', secrets) === 'true') {
+    console.log(`[${logPrefix}] model response (contains PHI, local use only):\n${JSON.stringify(parsed, null, 2)}`);
+  }
   return { parsed, usage, escalation: { attempts, escalated, failures } };
 }
 
 /**
- * The model's parsed response, in full, for reading in a console.
- *
- * OFF UNLESS EXPLICITLY ENABLED, because this is the one thing in the feature that is guaranteed to
- * contain PHI: the actions carry diagnosis displays, note text and the provider's own quoted words. The
- * rest of this file logs envelope facts only — counts, reasons, token figures — and that is the rule for
- * anything that can reach a deployed environment.
- *
- * Enable it by adding to the LOCAL secrets file (packages/zambdas/.env/zambda-secrets-local.json) and
- * restarting the zambda server:
- *
- *   "EASY_CHART_LOG_RESPONSE": "true"
- *
- * Read through getOptionalSecret and NOT as a SecretsKeys member: a debug switch has no business in the
- * typed contract every environment shares. Note that getOptionalSecret reads process.env only when
- * `secrets` is null — the local server always passes a secrets object, so locally the FILE is the switch.
+ * Parse a model's JSON answer, tolerating what models wrap around it: a markdown fence, prose before
+ * or after the object, or the whole object encoded as a JSON string. Throws when there is no JSON.
  */
-function logResponseBody(logPrefix: string, parsed: unknown, secrets: Secrets | null): void {
-  if (getOptionalSecret('EASY_CHART_LOG_RESPONSE', secrets) !== 'true') return;
-  console.log(
-    `[${logPrefix}] MODEL RESPONSE (EASY_CHART_LOG_RESPONSE is on — contains PHI, local use only):\n` +
-      JSON.stringify(parsed, null, 2)
-  );
+export function parseModelJson(text: string): unknown {
+  const body = stripCodeFence(text.replace(/^\uFEFF/, '').trim());
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(body);
+  } catch {
+    parsed = fixAndParseJsonObjectFromString(body);
+  }
+  return typeof parsed === 'string' ? parseModelJson(parsed) : parsed;
 }
 
-/**
- * The cache figures are the point of this line: a cacheRead of 0 across a session means the
- * static-prefix ordering broke and every call is being billed in full.
- */
+function stripCodeFence(text: string): string {
+  const fenced = /^```[\w-]*\s*([\s\S]*?)\s*```$/.exec(text);
+  return fenced ? fenced[1] : text;
+}
+
+function parseOrFail(text: string, provider: string): unknown {
+  try {
+    return parseModelJson(text);
+  } catch {
+    throw new ModelAttemptError('unparseable', `${provider} returned unparseable JSON`);
+  }
+}
+
+/** A cache read of 0 across a session means the static prompt prefix stopped being cacheable. */
 function logUsage(logPrefix: string, usage: ModelUsage[]): void {
   for (const u of usage) {
     console.log(
@@ -153,12 +153,24 @@ function logUsage(logPrefix: string, usage: ModelUsage[]): void {
   }
 }
 
+interface VertexResponse {
+  candidates?: { finishReason?: string; content?: { parts?: { text?: string }[] } }[];
+  promptFeedback?: { blockReason?: string };
+  usageMetadata?: {
+    promptTokenCount?: number;
+    candidatesTokenCount?: number;
+    cachedContentTokenCount?: number;
+    thoughtsTokenCount?: number;
+  };
+}
+
 async function callVertex(
   prompt: string,
-  responseSchema: object,
+  wireSchema: object,
   secrets: Secrets | null,
   acc: UsageAccumulator,
-  logPrefix: string
+  logPrefix: string,
+  signal: AbortSignal | undefined
 ): Promise<unknown> {
   const projectId = getSecret(SecretsKeys.GOOGLE_CLOUD_PROJECT_ID, secrets);
   const apiKey = getSecret(SecretsKeys.GOOGLE_CLOUD_API_KEY, secrets);
@@ -179,26 +191,17 @@ async function callVertex(
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
         generationConfig: {
           temperature: 0,
-          // BOTH of these, and neither is optional.
-          //
-          // Leaving `thinkingConfig` unset does NOT mean "the model decides" — on gemini-3.1-flash-lite
-          // the provider default reports `thoughtsTokenCount: 0`, i.e. the planner was extracting a whole
-          // visit in one forward pass with no reasoning at all. Measured against the harvested corpus,
-          // that alone accounted for most of the gap to the dabrams implementation, which has carried a
-          // 2048 budget all along: its planner emitted 104 ROS findings to our 76 on the same 40 cases,
-          // same model, same prompt — and ROS was 10 of the 17 gold items it matched and we did not.
-          //
-          // The budget is CAPPED rather than uncapped because a reasoning model with no bound burns tens
-          // of thousands of tokens thinking and never emits the plan. `maxOutputTokens` has to be raised
-          // alongside it: the plan carries per-action `sourceText` provenance and a full visit runs to
-          // several thousand tokens, so a small cap truncates the JSON and fails the entire chart.
+          // Unset, this model does no reasoning at all, which measurably cost recall. Capped because an
+          // unbounded budget can think without ever answering; the output cap is raised to match.
           maxOutputTokens: 16384,
           thinkingConfig: { thinkingBudget: 2048 },
           responseMimeType: 'application/json',
-          responseSchema,
+          responseSchema: wireSchema,
         },
       }),
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      signal: signal
+        ? AbortSignal.any([signal, AbortSignal.timeout(REQUEST_TIMEOUT_MS)])
+        : AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
   } catch (error) {
     const timedOut = error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError');
@@ -207,111 +210,102 @@ async function callVertex(
 
   const body = await response.text();
   if (!response.ok) {
-    // Status and length only: an error body can echo the prompt, and the prompt contains the note.
+    // Status and length only: an error body can echo the prompt.
     console.log(`[${logPrefix}] vertex returned ${response.status}, ${body.length} bytes`);
     throw new ModelAttemptError('error', `vertex returned ${response.status}`);
   }
 
-  let payload: any;
+  let payload: VertexResponse;
   try {
-    payload = JSON.parse(body);
+    payload = JSON.parse(body) as VertexResponse;
   } catch {
     throw new ModelAttemptError('unparseable', 'vertex returned a non-JSON envelope');
   }
 
-  const meta = payload?.usageMetadata ?? {};
+  const meta = payload.usageMetadata ?? {};
   record(acc, {
     provider: 'vertex',
     model: EASY_CHART_PRIMARY_MODEL,
     inputTokens: meta.promptTokenCount ?? 0,
     outputTokens: meta.candidatesTokenCount ?? 0,
-    // A SUBSET of promptTokenCount above, not an addition to it — see ModelUsage. Anthropic reports the
-    // opposite convention, which is why the two mappings look inconsistent and are not.
     cacheReadTokens: meta.cachedContentTokenCount ?? 0,
-    // Hardcoded because Gemini has no cache-write metric at all: implicit caching costs nothing to
-    // populate and explicit caching is billed per hour of storage. Not an unmapped field.
     cacheWriteTokens: 0,
     thinkingTokens: meta.thoughtsTokenCount ?? 0,
   });
 
-  const candidate = payload?.candidates?.[0];
+  const candidate = payload.candidates?.[0];
   const finishReason = candidate?.finishReason;
   const text = candidate?.content?.parts?.[0]?.text;
   console.log(
-    `[${logPrefix}] vertex candidates=${payload?.candidates?.length ?? 0} finishReason=${finishReason} ` +
-      `textLength=${typeof text === 'string' ? text.length : 0} blockReason=${payload?.promptFeedback?.blockReason}`
+    `[${logPrefix}] vertex candidates=${payload.candidates?.length ?? 0} finishReason=${finishReason} ` +
+      `textLength=${text?.length ?? 0} blockReason=${payload.promptFeedback?.blockReason}`
   );
 
-  // MAX_TOKENS is a FAILURE. Truncated text parses as broken JSON only after the escalation
-  // opportunity has passed — treat it as truncated here and escalate.
+  // Truncated JSON is a failure to escalate, not a partial answer.
   if (finishReason === 'MAX_TOKENS') throw new ModelAttemptError('truncated', 'vertex hit the output cap');
-  if (typeof text !== 'string' || !text.trim()) {
+  if (!text?.trim()) {
     throw new ModelAttemptError('empty-response', `vertex returned no text (finishReason ${finishReason})`);
   }
-
-  try {
-    return JSON.parse(text);
-  } catch {
-    throw new ModelAttemptError('unparseable', 'vertex returned unparseable JSON');
-  }
+  return parseOrFail(text, 'vertex');
 }
 
 let anthropicClient: ChatAnthropic | undefined;
 
+/** Claude answers through this forced tool call, so its input is decoded against the same schema as Gemini's. */
+const ANSWER_TOOL = 'record_answer';
+
 async function callAnthropic(
   prompt: string,
+  wireSchema: object,
   secrets: Secrets | null,
   acc: UsageAccumulator,
-  logPrefix: string
+  logPrefix: string,
+  signal: AbortSignal | undefined
 ): Promise<unknown> {
-  process.env.ANTHROPIC_API_KEY = getSecret(SecretsKeys.ANTHROPIC_API_KEY, secrets);
-  if (!anthropicClient) {
-    anthropicClient = new ChatAnthropic({
-      model: EASY_CHART_BACKUP_MODEL,
-      temperature: 0,
-      maxTokens: 8192,
-      clientOptions: { timeout: REQUEST_TIMEOUT_MS, maxRetries: 0 },
-    });
-  }
+  anthropicClient ??= new ChatAnthropic({
+    model: EASY_CHART_BACKUP_MODEL,
+    anthropicApiKey: getSecret(SecretsKeys.ANTHROPIC_API_KEY, secrets),
+    temperature: 0,
+    maxTokens: 8192,
+    // This is already the last of three attempts; LangChain's own retries would multiply the timeout.
+    maxRetries: 0,
+    clientOptions: { timeout: REQUEST_TIMEOUT_MS },
+  });
+
+  const answering = anthropicClient.bindTools(
+    [
+      {
+        name: ANSWER_TOOL,
+        description: 'Record the JSON answer the instructions describe.',
+        input_schema: wireSchema as { type: 'object'; [key: string]: unknown },
+      },
+    ],
+    { tool_choice: { type: 'tool', name: ANSWER_TOOL } }
+  );
 
   let message;
   try {
-    message = await anthropicClient.invoke([
-      {
-        role: 'user',
-        content: `${prompt}\n\nReturn ONLY the JSON object described above. No markdown fences, no commentary.`,
-      },
-    ]);
+    message = await answering.invoke([{ role: 'user', content: prompt }], { signal });
   } catch (error) {
     const timedOut = error instanceof Error && /timeout|aborted/i.test(error.message);
     throw new ModelAttemptError(timedOut ? 'timeout' : 'error', 'anthropic call failed');
   }
 
-  const usage: any = (message as any).usage_metadata ?? {};
+  const usage = message.usage_metadata;
   record(acc, {
     provider: 'anthropic',
     model: EASY_CHART_BACKUP_MODEL,
-    inputTokens: usage.input_tokens ?? 0,
-    outputTokens: usage.output_tokens ?? 0,
-    cacheReadTokens: usage.input_token_details?.cache_read ?? 0,
-    cacheWriteTokens: usage.input_token_details?.cache_creation ?? 0,
-    thinkingTokens: usage.output_token_details?.reasoning ?? 0,
+    inputTokens: usage?.input_tokens ?? 0,
+    outputTokens: usage?.output_tokens ?? 0,
+    cacheReadTokens: usage?.input_token_details?.cache_read ?? 0,
+    cacheWriteTokens: usage?.input_token_details?.cache_creation ?? 0,
+    thinkingTokens: usage?.output_token_details?.reasoning ?? 0,
   });
 
-  const text = message.content.toString();
-  const stopReason = (message as any).response_metadata?.stop_reason;
-  console.log(`[${logPrefix}] anthropic stopReason=${stopReason} textLength=${text.length}`);
+  const stopReason = (message.response_metadata as { stop_reason?: string } | undefined)?.stop_reason;
+  const answer = message.tool_calls?.find((call) => call.name === ANSWER_TOOL)?.args;
+  console.log(`[${logPrefix}] anthropic stopReason=${stopReason} answered=${answer !== undefined}`);
   if (stopReason === 'max_tokens') throw new ModelAttemptError('truncated', 'anthropic hit the output cap');
-  if (!text.trim()) throw new ModelAttemptError('empty-response', 'anthropic returned no text');
-
-  try {
-    return JSON.parse(text);
-  } catch {
-    try {
-      // The backup path has no constrained decoding, so a stray fence or trailing comma is expected.
-      return fixAndParseJsonObjectFromString(text);
-    } catch {
-      throw new ModelAttemptError('unparseable', 'anthropic returned unparseable JSON');
-    }
-  }
+  if (answer === undefined) throw new ModelAttemptError('empty-response', 'anthropic did not call the answer tool');
+  return answer;
 }

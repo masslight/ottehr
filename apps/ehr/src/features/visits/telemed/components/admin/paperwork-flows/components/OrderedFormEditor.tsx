@@ -2,7 +2,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import DragHandleIcon from '@mui/icons-material/DragHandle';
 import { Box, FormControl, IconButton, InputLabel, MenuItem, Select, Stack, Typography } from '@mui/material';
 import { FC, useState } from 'react';
-import { FlowForm } from 'utils';
+import { FlowForm } from 'utils/lib/types/data/paperwork-flows/paperwork-flows.types';
 
 interface OrderedFormEditorProps {
   formsSelected: FlowForm[];

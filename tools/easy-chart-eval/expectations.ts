@@ -1,12 +1,6 @@
-// Per-case deterministic expectations for the twenty synthetic dictations in ./cases.
-//
-// THERE ARE NO GOLD NOTES. The harvested (transcript, gold note) corpus was PHI, lived in gitignored
-// directories, and was never committed — correctly so. So these cases cannot answer "did the planner
-// match what a clinician wrote". What they answer, cheaply and on every change, is "is the output
-// internally correct and clinically sane".
-//
-// Everything below is derivable from the narrative text alone, by reading it. Nothing here is a
-// judgement call about what a clinician would have charted.
+// Deterministic expectations for the synthetic dictations in ./cases. There are no gold notes, so these check
+// that the output is internally correct and clinically sane, not that it matches what a clinician charted.
+// Every expectation is derivable from the narrative text alone.
 
 import { EvalExpectations } from 'utils/lib/easy-chart/eval-scorer';
 

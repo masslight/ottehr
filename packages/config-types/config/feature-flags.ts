@@ -7,13 +7,8 @@ export const FeatureFlagsConfigSchema = z.object({
   nursingOrdersEnabled: z.boolean(),
   supervisorApprovalEnabled: z.boolean(),
   demoVisitsEnabled: z.boolean(),
-  /**
-   * Easy Chart: the Autochart panel beside the in-person visit note, and the plan/review
-   * endpoints behind it. Gated by BOTH this flag and the charting role set (EASY_CHART_ROLES).
-   */
-  easyChartEnabled: z.boolean(),
+  easyChartEnabled: z.boolean().optional(),
   globalTemplatesEnabled: z.boolean(),
-  formsEnabled: z.boolean(),
   legacyDataEnabled: z.boolean(),
   mailingPaperStatementsEnabled: z.boolean(),
   automatedPatientOutreachEnabled: z.boolean(),
@@ -30,12 +25,16 @@ export const FeatureFlagsConfigSchema = z.object({
   // The admin UI is unaffected (it queries `admin-list-service-categories`,
   // not the patient-facing `get-service-categories`).
   dynamicServiceCategoriesEnabled: z.boolean().optional(),
-  // When true, this deployment runs in NIO mode: the billing app manages
-  // non-insurance organizations (and clinical employer pickers will source from
-  // them). When false/omitted, the legacy clinical Employers feature — with its
-  // Candid non-insurance payer sync — stays active. Per-deployment so customers
-  // can migrate at different times.
-  nonInsuranceOrganizationsEnabled: z.boolean().optional(),
+  employeeChatEnabled: z.boolean().optional(),
+  // When true, this deployment runs in custom-organizations mode: the billing app manages
+  // non-insurance organizations (employers) and custom insurance organizations, and clinical
+  // pickers source from them — employer pickers exclusively, insurance-carrier pickers (EHR and
+  // Intake) alongside Oystehr's payer list. When false/omitted, the legacy clinical Employers
+  // feature — with its Candid non-insurance payer sync — stays active, and insurance-carrier
+  // pickers offer only Oystehr payers. Existing coverages/visits already referencing a custom
+  // organization still resolve and display correctly either way. Per-deployment so customers can
+  // migrate at different times.
+  customOrganizationsEnabled: z.boolean().optional(),
 });
 
 export type FeatureFlagsConfig = z.infer<typeof FeatureFlagsConfigSchema>;

@@ -9,17 +9,10 @@ interface ScribeStageProps {
   children: ReactNode;
 }
 
-/** The tint every Oystehr AI surface in the EHR uses, so the panel speaks in the same voice. */
+/** The tint shared by every Oystehr AI surface in the EHR. */
 export const AI_SURFACE = '#E1F5FECC';
-/** The same tint one step stronger: the narrative run under the pointer, the transcript snippet behind it. */
-export const AI_SURFACE_ACTIVE = '#B3E5FC';
 
-/**
- * One step of the review, introduced by the scribe itself. The lead is set as a message from the
- * assistant — avatar and speech bubble — so the panel reads as advice being offered in order
- * rather than as anonymous headings, and the work each step asks for sits underneath it. The
- * leads say "then" and "finally", so the sequence needs no step numbers on top of that.
- */
+/** One step of the panel, introduced by an assistant message (avatar and speech bubble) above its content. */
 export const ScribeStage: FC<ScribeStageProps> = ({ name, lead, children }) => (
   <Box
     component="section"

@@ -1,20 +1,9 @@
-// Catalogue resolution: turn a list of candidate matches into one of three outcomes.
-//
-//   exactly one confident match  → write it, mark AI-authored
-//   several near-equal matches   → ASK (interactive) or auto-pick and mark low-confidence (bulk)
-//   nothing                      → skip WITH A REASON
-//
-// The bulk/interactive split matters: during a whole-plan run a provider will not click through
-// dozens of pickers, so ambiguity auto-picks the top match and tints it amber. When they typed one
-// request and are watching, ambiguity asks.
+// Catalogue resolution: one confident match is written; several near-equal matches ask the provider
+// (interactive) or auto-pick the top one and mark it low confidence (bulk); no match skips with a reason.
 
 import { CatalogueMatch, HandlerContext, PickerRequest } from './types';
 
-/**
- * A second candidate scoring within this fraction of the top one means the pick is genuinely
- * ambiguous. Discovered by tuning, not derived: below it the top match is reliably right, above it
- * the runner-up is right often enough that guessing is wrong.
- */
+/** A runner-up scoring within this fraction of the top match makes the pick ambiguous. Tuned, not derived. */
 export const AMBIGUITY_RATIO = 0.75;
 
 export type Resolution =
@@ -33,17 +22,14 @@ export function classifyMatches(matches: CatalogueMatch[]): Resolution {
   return { kind: 'ambiguous', match: top, alternatives: [top, ...contenders] };
 }
 
-export interface ResolvedPick {
+interface ResolvedPick {
   match: CatalogueMatch;
-  /** True when the provider did not choose this — the run auto-picked it from several candidates. */
+  /** The run auto-picked this among several candidates; the provider did not choose it. */
   lowConfidence: boolean;
   note?: string;
 }
 
-/**
- * Resolve to something writable, or undefined when there is nothing to write. `undefined` always
- * means the caller must SKIP WITH A REASON — never write a fallback.
- */
+/** Something writable, or undefined, which means skip with a reason rather than write a fallback. */
 export async function resolvePick(
   matches: CatalogueMatch[],
   context: HandlerContext,
@@ -53,7 +39,7 @@ export async function resolvePick(
   if (resolution.kind === 'none') return undefined;
   if (resolution.kind === 'confident') return { match: resolution.match, lowConfidence: false };
 
-  if (context.mode === 'bulk' && !request.destructive) {
+  if (context.mode === 'bulk') {
     return {
       match: resolution.match,
       lowConfidence: true,
@@ -61,11 +47,10 @@ export async function resolvePick(
     };
   }
 
-  // Interactive, or destructive at any time: ask. With several plausible matches for a removal we
-  // never delete the first substring match.
+  // Interactive: ask.
   const chosen = await context.ask({ ...request, options: resolution.alternatives });
   return chosen ? { match: chosen, lowConfidence: false } : undefined;
 }
 
-/** A catalogue query built from what the model said, for the picker's "you asked for…" line. */
+/** What the model said, for reasons and the picker's "you asked for…" line. */
 export const describeQuery = (display: string | undefined): string => display?.trim() || 'this item';

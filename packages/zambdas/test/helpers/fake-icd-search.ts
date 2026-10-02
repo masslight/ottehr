@@ -1,15 +1,8 @@
 import { Icd10Row as Icd10Code, IcdSearchFn } from 'utils/lib/easy-chart/icd-resolve';
 import corpus from '../data/icd10-terminology-corpus.json';
 
-// Deterministic stand-in for the Oystehr terminology ICD-10 search so the code-resolution guards
-// (codes.ts) unit-test offline. Two behaviors, mirroring the platform:
-//   - a code-shaped query ("H66", "s93.409a") prefix-filters the fixture corpus — real 2026
-//     tabular data for every category the tests enumerate (H35/H61/H66/J02/J03/L73/S93 complete,
-//     plus the individually hinted codes), so exact-lookup and category-sibling enumeration see
-//     the same rows the live service would return;
-//   - a text query returns its entry from `displayFixtures` (keys normalized lowercase), which
-//     each suite builds to mirror live-probed platform responses — including the probed gaps the
-//     query-register expansion exists to cover. Unknown text queries return [].
+// Offline stand-in for the terminology ICD-10 search. Text queries return their `displayFixtures` entry;
+// code-shaped queries prefix-filter the corpus, which is complete only for the categories the tests enumerate.
 const CODE_SHAPED = /^[a-tv-z][0-9]/i;
 
 const CORPUS = corpus as Icd10Code[];
@@ -34,10 +27,8 @@ export function fakeIcdSearch(displayFixtures: Record<string, Icd10Code[]> = {})
   };
 }
 
-// The display-query responses shared by the resolution/guard suites. Ordering matters: resolution
-// takes the first non-contradicting row, so rows a guard must skip are listed FIRST when that is
-// what the live probe / live failure showed (e.g. the head-block ear-contusion code outranking the
-// trunk code for "contusion" queries).
+// Mirrors the terminology service's ranking. Resolution takes the first non-contradicting row, so rows
+// a guard must skip come first wherever the service ranks them first.
 export const PLATFORM_DISPLAY_FIXTURES: Record<string, Icd10Code[]> = {
   'hordeolum, left upper eyelid': fromCorpus('H00.014', 'H00.012'),
   'concussion without loss of consciousness': fromCorpus('S06.0X0A'),
@@ -48,13 +39,12 @@ export const PLATFORM_DISPLAY_FIXTURES: Record<string, Icd10Code[]> = {
   'recurrent ingrown hair nasal vestibule': fromCorpus('Z87.01', 'L73.8'),
   'recurrent ingrown hair': fromCorpus('Z87.01', 'L73.8'),
   'otitis media': fromCorpus('H66.90', 'H66.93'),
-  // Live probe: the platform resolves the ADJECTIVE register itself — B37.31 is its top hit.
+  // The service resolves the adjective "candidal" itself; B37.31 is its top hit.
   'candidal vulvovaginitis': fromCorpus('B37.31', 'B37.32'),
   'candidal vulvovaginitis unspecified': fromCorpus('B37.31', 'B37.32'),
   'suppurative acute otitis media recurrent bilateral': fromCorpus('H66.006'),
   'gingivostomatitis and pharyngotonsillitis': fromCorpus('B00.2'),
-  // Digit / wound-type pair-consistency cases: rows the qualifier groups must skip (wrong digit,
-  // wrong wound type, wrong side) are listed before the consistent row.
+  // Pair-consistency cases: rows with the wrong digit, wound type or side come before the consistent row.
   'laceration without foreign body of right index finger': fromCorpus('S61.011A', 'S61.230A', 'S61.210A'),
   'laceration of right index finger without damage to nail': fromCorpus('S61.230A', 'S61.210A'),
   'laceration of left index finger': fromCorpus('S61.210A', 'S61.211A'),

@@ -77,7 +77,7 @@ export function AddServiceFacilityDialog({ open, onClose, onCreated }: AddServic
           <Box sx={{ display: 'flex', gap: 5, mt: 1 }}>
             {/* Left: facility */}
             <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2.5 }}>
-              <ServiceFacilityFields />
+              <ServiceFacilityFields duplicateCheck={{}} />
             </Box>
 
             {/* Right: address */}

@@ -1,16 +1,8 @@
-// THE CC↔HPI STORAGE SWAP, isolated in one place.
-//
-// The in-person Chief Complaint textarea is backed by the `historyOfPresentIllness` chart key, and
-// the History of Present Illness textarea is backed by `chiefComplaint`. This is a data-model wart,
-// not a bug to fix here: the progress note, Review & Sign and the sign blockers all read it this way
-// already, and changing the storage would need a migration.
-//
-// It is isolated in this module because the alternative is reasoning about it in five places. Every
-// consumer — client and server, reader and writer — goes through these functions. Verified against
-// ProgressNoteDetails, which reads the displayed chief complaint from
-// `chartFields.historyOfPresentIllness.text` and the displayed HPI from `chartFields.chiefComplaint.text`.
+// The CC↔HPI storage swap, isolated in one place: the in-person Chief Complaint box is stored under the
+// `historyOfPresentIllness` chart key and the HPI box under `chiefComplaint` (see ProgressNoteDetails).
+// Everything else in Easy Chart uses clinical names and converts through `chartKeyForNoteField`.
 
-import { NOTE_TEXT_FIELDS, NoteTextField } from './actions';
+import { NoteTextField } from './actions';
 
 /** Chart-data keys the free-text note fields are stored under. */
 export type NoteChartKey =
@@ -21,7 +13,6 @@ export type NoteChartKey =
   | 'medicalDecision';
 
 const CLINICAL_FIELD_TO_CHART_KEY: Record<NoteTextField, NoteChartKey> = {
-  // Swapped on purpose — see the module comment.
   chiefComplaint: 'historyOfPresentIllness',
   historyOfPresentIllness: 'chiefComplaint',
   mechanismOfInjury: 'mechanismOfInjury',
@@ -29,74 +20,11 @@ const CLINICAL_FIELD_TO_CHART_KEY: Record<NoteTextField, NoteChartKey> = {
   medicalDecision: 'medicalDecision',
 };
 
-/**
- * The chart-data key that stores what a clinician calls `field`.
- *
- * `field` is the CLINICAL name — what the provider, the prompt and the note pane call it. The return
- * value is the STORAGE name, which for chief complaint and HPI is the other one.
- */
+/** The chart-data key that stores what a clinician calls `field`. */
 export function chartKeyForNoteField(field: NoteTextField): NoteChartKey {
   return CLINICAL_FIELD_TO_CHART_KEY[field];
 }
 
-/**
- * Whitelist-copy a caller-supplied note snapshot down to the fields that actually exist.
- *
- * Passing the caller's object through verbatim looks harmless and is not: the tail builder renders every
- * entry as `key: value` INSIDE the prompt, so an unknown key is caller-controlled text landing in the
- * model's instructions, with no size bound. Whitelisting also keeps a new note section from being
- * silently visible to one surface and not another.
- */
-export function pickNoteContext(value: unknown): Partial<Record<NoteTextField, string>> | undefined {
-  if (!value || typeof value !== 'object') return undefined;
-  const source = value as Record<string, unknown>;
-  const out: Partial<Record<NoteTextField, string>> = {};
-  for (const field of NOTE_TEXT_FIELDS) {
-    const text = source[field];
-    if (typeof text === 'string' && text.trim()) out[field] = text.slice(0, MAX_NOTE_FIELD_CHARS);
-  }
-  return Object.keys(out).length > 0 ? out : undefined;
-}
-
-/**
- * Per-field cap. A note field is prose a provider typed, so this is generous — it exists so a
- * malformed or hostile caller cannot push the prompt past the model's context on its own.
- */
-export const MAX_NOTE_FIELD_CHARS = 20_000;
-
-const CHART_KEY_TO_CLINICAL_FIELD = Object.fromEntries(
-  Object.entries(CLINICAL_FIELD_TO_CHART_KEY).map(([clinical, storage]) => [storage, clinical])
-) as Record<NoteChartKey, NoteTextField>;
-
-/** The inverse: what a clinician calls the text stored under `key`. */
-export function noteFieldForChartKey(key: NoteChartKey): NoteTextField {
-  return CHART_KEY_TO_CLINICAL_FIELD[key];
-}
-
-/**
- * Would applying this action REPLACE prose that is already in the note?
- *
- * The one review action that is never applied unattended. Every other suggestion adds a structured row —
- * visible, attributable, trivially undone — while this one overwrites a paragraph the provider wrote. It
- * went wrong once and that was enough: a med-reconcile card "corrected" a medical-decision paragraph
- * whose colchicine loading dose was right. Overwriting correct clinical prose is worse than missing the
- * suggestion, so a hit here becomes a card the provider confirms.
- *
- * An edit to an EMPTY field is not a replacement and applies like anything else.
- *
- * `written` is a note context keyed by CLINICAL field name and carrying only non-empty fields — i.e.
- * exactly what `buildNoteContextFromChart` returns. Shared between the client and the eval harness on
- * purpose: they must agree, or `final` scores a note the product would never produce.
- */
-export function overwritesWrittenNoteField<T extends { kind: string; field?: string }>(
-  action: T,
-  written: Record<string, string | undefined>
-): action is T & { field: NoteTextField } {
-  if (action.kind !== 'edit-note-text' || !action.field) return false;
-  return !!written[action.field]?.trim();
-}
-
-/** Human label for a clinical note field, for step cards and picker prompts. */
 export const NOTE_FIELD_LABELS: Record<NoteTextField, string> = {
   chiefComplaint: 'Chief Complaint',
   historyOfPresentIllness: 'History of Present Illness',

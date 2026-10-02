@@ -1,25 +1,32 @@
 import { useMemo } from 'react';
 import { getRosFindingFieldKeys } from 'utils/lib/ottehr-config/review-of-systems';
 import { RosFindingState } from 'utils/lib/ottehr-config/review-of-systems/in-person.config';
+import { TEMPLATE_SECTION_DEFAULT_ACTIONS, TemplateSectionKey } from 'utils/lib/types/data/apply-template.types';
+import { useAppointmentData } from '../../stores/appointment/appointment.store';
 import { useScribeRecommendationsStore } from './scribeRecommendations.store';
-import { ScribeRecommendation } from './types';
+import { normalizeName } from './scribeSections';
+import { ScribeRecommendation, TemplateRecommendation } from './types';
 
 /**
- * Which items on the visit note the scribe panel put there. The chart does not record who wrote
- * an item, so the note asks the panel: a chart item is "AI added" when an applied recommendation
- * matches it by the same rule the panel uses to spot a duplicate (`isAlreadyCharted`). Session
- * state only — a reload forgets, as the panel does.
+ * Which visit-note items the scribe panel wrote. The chart doesn't record authorship, so an item counts as AI
+ * added when an applied recommendation matches it by the `isAlreadyCharted` rule. Session state only.
  */
 
-const normalize = (value: string | undefined): string => (value ?? '').trim().toLowerCase();
-
-/** Recommendations the panel has written into the chart during this sitting. */
+/**
+ * Recommendations the panel has written into this visit's chart during this sitting. The session belongs to
+ * the visit it was started on, so another visit's note shows none of its marks.
+ */
 export const useAiAddedRecommendations = (): ScribeRecommendation[] => {
+  const { encounter } = useAppointmentData();
+  const sessionEncounterId = useScribeRecommendationsStore((state) => state.encounterId);
   const recommendations = useScribeRecommendationsStore((state) => state.recommendations);
   const itemState = useScribeRecommendationsStore((state) => state.itemState);
   return useMemo(
-    () => recommendations.filter((rec) => itemState[rec.id]?.status === 'applied'),
-    [recommendations, itemState]
+    () =>
+      sessionEncounterId && sessionEncounterId === encounter?.id
+        ? recommendations.filter((rec) => itemState[rec.id]?.status === 'applied')
+        : [],
+    [sessionEncounterId, encounter?.id, recommendations, itemState]
   );
 };
 
@@ -43,9 +50,9 @@ export const findAiAddedFor = (
   applied.find((rec) => {
     switch (target.kind) {
       case 'allergy':
-        return rec.kind === 'allergy' && normalize(rec.name) === normalize(target.name);
+        return rec.kind === 'allergy' && normalizeName(rec.name) === normalizeName(target.name);
       case 'medication':
-        return rec.kind === 'medication' && normalize(rec.name) === normalize(target.name);
+        return rec.kind === 'medication' && normalizeName(rec.name) === normalizeName(target.name);
       case 'diagnosis':
         return rec.kind === 'diagnosis' && rec.code === target.code;
       case 'ros': {
@@ -67,3 +74,21 @@ export const findAiAddedFor = (
         return rec.kind === 'template';
     }
   });
+
+/** The template sections each visit-note card shows, which decide whether the card gets the template badge. */
+export const TEMPLATE_SECTIONS_BY_CARD = {
+  examination: ['examFindings'],
+  assessment: ['mdm', 'diagnoses', 'emCode', 'cptCodes'],
+  plan: ['patientInstructions'],
+} as const satisfies Record<string, readonly TemplateSectionKey[]>;
+
+export type TemplateBadgeCard = keyof typeof TEMPLATE_SECTIONS_BY_CARD;
+
+/**
+ * Whether the applied template wrote into this card: at least one of the sections the card shows was not
+ * skipped in the apply dialog. A section the dialog did not set took its default action, which is never skip.
+ */
+export const templateFilledCard = (template: TemplateRecommendation, card: TemplateBadgeCard): boolean =>
+  TEMPLATE_SECTIONS_BY_CARD[card].some(
+    (section) => (template.sectionActions?.[section] ?? TEMPLATE_SECTION_DEFAULT_ACTIONS[section]) !== 'skip'
+  );

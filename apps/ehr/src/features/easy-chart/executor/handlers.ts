@@ -1,36 +1,25 @@
-// THE DISPATCH TABLE. One entry per action kind, assembled as `satisfies HandlerTable`.
-//
-// Exhaustiveness is guaranteed by construction: adding an action to the registry without a handler
-// here is a BUILD ERROR. The previous version was a single 730-line function whose only safety net
-// was an accidental type-narrowing at the end.
-//
-// Handlers are grouped by write path rather than one file per kind — the property that matters is
-// the typed table, and thirty-four one-function modules obscure the shape of the note more than they
-// clarify it. Every entry is still independently addressable and independently testable.
-//
-// Rules every handler follows:
-//   - Return a StepOutcome. Never return nothing, and never write and then report a skip.
-//   - A skip carries a REASON written for a provider to read.
-//   - Nothing is written on a guess. If the catalogue does not resolve, skip and say why.
+// The dispatch table: one handler per action kind, typed as HandlerTable, so a kind without a handler
+// is a build error. Every handler returns a StepOutcome, writes nothing on a guess, and gives a
+// provider-readable reason when it skips.
 
 import { buildExamLeafCatalogue, ExamLeaf } from 'utils/lib/config-helpers/exam-leaves';
-import { ActionKind, NoteTextField } from 'utils/lib/easy-chart/actions';
+import { chartableFollowUpDays, PlannableVitalField } from 'utils/lib/easy-chart/actions';
 import { chartKeyForNoteField, NOTE_FIELD_LABELS } from 'utils/lib/easy-chart/note-fields';
 import { HeightMeasurement } from 'utils/lib/helpers/vitals/vitals-height.helper';
 import { fahrenheitToCelsius } from 'utils/lib/helpers/vitals/vitals-temperature.helper';
 import { LBS_IN_KG } from 'utils/lib/helpers/vitals/vitals-weight.helper';
 import { DefaultExamComponentsConfig } from 'utils/lib/ottehr-config/examination/default-components.config';
 import { getRosFindingFieldKeys } from 'utils/lib/ottehr-config/review-of-systems';
+import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
+import { ExamObservationDTO, VitalsObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { roundNumberToDecimalPlaces } from 'utils/lib/utils/convert';
 import { examCommentTarget, normalizeExamComment } from './examComment';
-import { ProcedureQuickPickContext } from './procedure-quick-pick';
 import { describeQuery, resolvePick } from './resolve';
 import {
   applied,
   CatalogueMatch,
   CatalogueQuery,
   CatalogueResult,
-  ChartedItem,
   failed,
   Handler,
   HandlerContext,
@@ -44,150 +33,71 @@ import {
 const query = (action: { display?: string; searchTerms?: string[]; sourceText?: string }): CatalogueQuery => ({
   display: action.display ?? '',
   searchTerms: action.searchTerms,
-  // The quote is the only thing here that speaks for the VISIT rather than for the model's phrasing.
   evidence: [action.sourceText, action.display, ...(action.searchTerms ?? [])].filter(Boolean).join(' '),
 });
 
-/**
- * Resolve against a catalogue, then write. The shared shape behind most add-* handlers: it keeps the
- * "confident / ask / skip-with-reason" rule in exactly one place instead of thirteen.
- */
+/** Resolve against a catalogue, then write: confident writes, ambiguous asks or auto-picks, none skips. */
 async function addFromCatalogue(
-  action: { display?: string; searchTerms?: string[] },
+  action: { display?: string; searchTerms?: string[]; sourceText?: string },
   context: HandlerContext,
   options: {
     search: (q: CatalogueQuery) => Promise<CatalogueResult>;
     noun: string;
-    /** Set when the write path is not reachable here; the step skips before searching. */
-    unsupported?: boolean;
-    /**
-     * A plain id list for a simple row. A COMPOSITE row (a procedure) returns the extra provenance it
-     * produced instead — which of the rows it created were the template's contribution rather than the
-     * provider's words, and which of its fields need their own "default, verify".
-     */
-    write: (match: CatalogueMatch) => Promise<string[] | CompositeWriteResult>;
-    /**
-     * What to do when the catalogue holds nothing for this wording, instead of skipping.
-     *
-     * Only the exam passes it: its catalogue is a fixed set of checkboxes while the provider's
-     * vocabulary is not, and the exam tab has a free-text note per card to put the words in. Every
-     * other catalogue is a real terminology and "no match" there means the item genuinely cannot be
-     * charted, which the provider must be told rather than have written somewhere approximate.
-     */
+    write: (match: CatalogueMatch) => Promise<string[]>;
+    /** Instead of skipping when the catalogue holds nothing for these words (exam findings only). */
     onNoMatch?: () => Promise<StepOutcome>;
   }
 ): Promise<StepOutcome> {
   const subject = describeQuery(action.display);
-
-  // Not supported HERE is not a failure and not an empty search result. Say what it is, and say
-  // where the provider can do it, so a dictated item is never just quietly gone.
-  if (options.unsupported) {
-    return skipped(`the assistant cannot add a ${options.noun} yet ("${subject}") — enter it in the chart yourself`);
-  }
-
   const result = await options.search(query(action));
   if (!isCatalogueList(result)) {
-    // The catalogue could not be consulted. Prefer its own reason — it names the unmet precondition
-    // and the item — and fall back to a generic one only when it gave none.
     return skipped(
       result?.reason ?? `the assistant cannot search ${options.noun}s yet — enter "${subject}" in the chart yourself`
     );
   }
-  const matches = result;
 
-  const pick = await resolvePick(matches, context, {
-    query: subject,
-    prompt: `Which ${options.noun} did you mean?`,
-  });
+  const pick = await resolvePick(result, context, { query: subject, prompt: `Which ${options.noun} did you mean?` });
   if (!pick) {
-    // ONLY when the catalogue held nothing. `resolvePick` also returns undefined when the provider was
-    // ASKED and declined, and a decline must be respected, not answered with a fallback write — its own
-    // doc comment says as much. `classifyMatches` reports 'none' only for an empty candidate list, so
-    // that is the condition to test, never the absence of a pick.
-    if (options.onNoMatch && matches.length === 0) return options.onNoMatch();
+    // Only an empty catalogue falls back; a provider who declined the picker is respected.
+    if (options.onNoMatch && result.length === 0) return options.onNoMatch();
     return skipped(`no ${options.noun} in the catalogue matches "${subject}"`);
   }
-  const written = await options.write(pick.match);
-  const composite: CompositeWriteResult = Array.isArray(written) ? { createdResourceIds: written } : written;
-  if (composite.skipReason) return skipped(composite.skipReason);
-  return applied(composite.createdResourceIds, {
-    lowConfidence: pick.lowConfidence,
-    note: pick.note,
-    matchedId: pick.match.id,
-    ...(composite.inferredResourceIds?.length ? { inferredResourceIds: composite.inferredResourceIds } : {}),
-    ...(composite.templateFilledFields?.length ? { templateFilledFields: composite.templateFilledFields } : {}),
-  });
+  const created = await options.write(pick.match);
+  return applied(created, { lowConfidence: pick.lowConfidence, note: pick.note, matchedId: pick.match.id });
 }
 
-/** What a write returns when the row it created is composite. See `addFromCatalogue`'s `write`. */
-interface CompositeWriteResult {
-  createdResourceIds: string[];
-  inferredResourceIds?: string[];
-  templateFilledFields?: { resourceId: string; fields: string[] }[];
-  /**
-   * Set when the write could not proceed on what the catalogue handed back. The step settles as
-   * SKIPPED with this reason rather than as applied-with-nothing — a step that reports success having
-   * charted nothing reads to a provider as "there was nothing to chart".
-   */
-  skipReason?: string;
-}
-
-/**
- * Remove a charted row. Destructive, so ambiguity ASKS even during a bulk run — with several
- * plausible matches for a removal we never delete the first substring match.
- */
-async function removeCharted(
-  action: { display?: string },
-  context: HandlerContext,
-  options: { items: ChartedItem[]; field: string; noun: string }
-): Promise<StepOutcome> {
-  const needle = (action.display ?? '').toLowerCase().trim();
-  if (!needle) return skipped(`no ${options.noun} was named, so nothing was removed`);
-
-  const candidates = options.items
-    .map((item) => ({ item, hay: item.display.toLowerCase() }))
-    .filter(({ hay }) => hay.includes(needle) || needle.includes(hay));
-
-  if (candidates.length === 0) {
-    return skipped(`"${action.display}" is not on the chart, so nothing was removed`);
-  }
-
-  const pick = await resolvePick(
-    candidates.map(({ item, hay }) => ({
-      id: item.resourceId,
-      display: item.display,
-      // Exact wording beats partial containment by more than the ambiguity ratio, so naming an item
-      // exactly never asks — while two partial matches tie and therefore do.
-      score: hay === needle ? 1 : 0.5,
-      payload: item,
-    })),
-    context,
-    { query: describeQuery(action.display), prompt: `Which ${options.noun} should be removed?`, destructive: true }
-  );
-  if (!pick) return skipped(`removal of "${action.display}" was not confirmed`);
-
-  await context.writer.remove(options.field, pick.match.payload as ChartedItem);
-  return applied();
-}
-
-/**
- * The eRx catalogue id off a medication or allergen match, as the STRING the chart stores. The eRx search
- * returns it as a number, and a numeric identifier fails FHIR validation outright; a match with no id (a fake
- * catalogue, an echo) simply carries none, which the server handles as a name-only row.
- */
+/** The eRx id of a medication or allergen match, as the string the chart stores (the search returns a number). */
 function erxId(payload: unknown): string | undefined {
   const id = (payload as { id?: unknown } | undefined)?.id;
   return id === undefined || id === null || id === '' ? undefined : String(id);
 }
 
+/** Only eRx matches with a drug id: interaction checks skip a name-only row, so one is never written. */
+const withErxId =
+  (search: (q: CatalogueQuery) => Promise<CatalogueResult>) =>
+  async (q: CatalogueQuery): Promise<CatalogueResult> => {
+    const result = await search(q);
+    return isCatalogueList(result) ? result.filter((match) => erxId(match.payload)) : result;
+  };
+
 /**
- * Append a dictated exam finding to the free-text note of the card it most likely belongs to.
- *
- * The last resort for `add-exam-finding`, reached only when the checkbox catalogue matched nothing.
- * Appends rather than overwrites — the provider may have typed in that box, and the plan and the
- * review pass can both route a finding here — and dedupes, because "Positive Homan's sign; Positive
- * Homan's sign" is what appending twice looks like. The card and the dedupe rule live in
- * `examComment.ts`, shared with the recommendations panel, which promises this card before apply.
+ * The row the Exam tab would save for this box: the field's existing row updated in place, and a modal
+ * option added to that row's components rather than written as a row of its own.
+ */
+function examRowFor(
+  existing: ExamObservationDTO | undefined,
+  field: string,
+  leaf: ExamLeaf | undefined
+): ExamObservationDTO {
+  const row: ExamObservationDTO = { ...existing, field, value: true };
+  const option = leaf?.component;
+  if (!option) return row;
+  const others = (existing?.components ?? []).filter((component) => component.code !== option.code);
+  return { ...row, components: [...others, { ...option, abnormal: option.abnormal ?? true, value: true }] };
+}
+/**
+ * A dictated finding no checkbox matched: appended to the free-text comment of the card it most likely
+ * belongs to, once. Always low confidence, because the card is a guess.
  */
 async function writeExamComment(
   action: { display?: string; searchTerms?: string[] },
@@ -200,45 +110,25 @@ async function writeExamComment(
   if (!target) return skipped(`"${text}" matched no exam finding, and this exam has no comment field to note it in`);
   const { field } = target;
 
-  const existing = context.chart.examComments.find((comment) => comment.field === field);
-  if (existing && normalizeExamComment(existing.note).includes(normalizeExamComment(text))) {
+  const existing = context.chart.examRows[field];
+  const existingNote = existing?.note?.trim();
+  if (existingNote && normalizeExamComment(existingNote).includes(normalizeExamComment(text))) {
     return skipped(`"${text}" is already in that exam section's note`);
   }
-  const note = existing?.note ? `${existing.note}; ${text}` : text;
+  const note = existingNote ? `${existingNote}; ${text}` : text;
   const created = await context.writer.save({
     examObservations: [{ ...(existing?.resourceId ? { resourceId: existing.resourceId } : {}), field, note }],
   });
-  // LOW CONFIDENCE, always. The words are the provider's, but the CARD is this function's guess, and a
-  // finding filed one section away is exactly what a reader needs flagged.
   return applied(created, {
     lowConfidence: true,
     note: `no checkbox matched — noted in ${target.sectionLabel} comments`,
-    // The chart field actually written. Anything reading a plan afterwards — the provenance layer, the
-    // eval harness — needs to tell a comment write from a ticked checkbox, and the field is what says
-    // so: every comment field is one of `buildExamCommentFields`' values, which is a membership test
-    // rather than a guess at the shape of the name.
     matchedId: field,
   });
 }
 
-const noteText: Handler<'edit-note-text'> = async (action, context) => {
-  const field = action.field as NoteTextField;
-  // ONE mapping function owns the CC↔HPI storage swap. Do not inline it.
-  const chartKey = chartKeyForNoteField(field);
-  // The row that already holds this field, so the save updates it rather than creating a second one
-  // beside it — the note only ever shows one, and get-chart-data warns about the duplicate.
-  const existing = context.chart.noteFields[chartKey];
-  const created = await context.writer.save({
-    [chartKey]: { ...(existing?.resourceId ? { resourceId: existing.resourceId } : {}), text: action.newText },
-  });
-  return applied(created, { note: `${NOTE_FIELD_LABELS[field]} rewritten` });
-};
-
 /**
- * The unit each vital is STORED in. The vitals DTO carries a bare number and no unit, so the number has to
- * be in the unit the Vitals page itself saves: kilograms, centimetres, degrees Celsius. The server's guard
- * canonicalises what the provider SAID into one of a few units it can name (`lb` or `kg`, `in` or `cm`,
- * `F` or `C`) — it does not convert into storage, and writing its value as-is charted "170 lb" as 170 kg.
+ * Convert a canonicalised reading to the unit vitals are stored in (kg, cm, °C). The server names the
+ * unit the provider said; it does not convert, and storing "170 lb" as-is once charted 170 kg.
  */
 export function toStoredVitalValue(value: number, unit: string | undefined): number {
   switch (unit) {
@@ -249,39 +139,49 @@ export function toStoredVitalValue(value: number, unit: string | undefined): num
     case 'F':
       return fahrenheitToCelsius(value);
     default:
-      // kg, cm, C, or a vital whose stored unit is fixed (bpm, %, breaths/min): the number is the reading.
       return value;
   }
 }
 
+/** A numeric-valued vitals row. The field list is tied to VitalFieldNames in actions.ts. */
+const numericVital = (
+  field: Exclude<PlannableVitalField, 'vital-blood-pressure'>,
+  value: number
+): VitalsObservationDTO => ({ field: field as VitalFieldNames, value }) as VitalsObservationDTO;
+
 const setVital: Handler<'set-vital'> = async (action, context) => {
-  // The server already parsed and plausibility-checked the reading and named its unit; an action that got
-  // this far carries numbers in a unit `toStoredVitalValue` provably converts. A set-vital with neither a
-  // value nor a blood-pressure pair means a guard let something through, so fail loudly.
-  const hasBloodPressure = action.systolic != null && action.diastolic != null;
-  if (action.value == null && !hasBloodPressure) {
-    return failed(`no usable reading reached the chart for ${action.field}`);
+  const { field } = action;
+  if (field === 'vital-blood-pressure') {
+    if (action.systolic == null || action.diastolic == null) {
+      return failed('no usable blood pressure reading reached the chart');
+    }
+    const created = await context.writer.save({
+      vitalsObservations: [
+        {
+          field: VitalFieldNames.VitalBloodPressure,
+          systolicPressure: action.systolic,
+          diastolicPressure: action.diastolic,
+        },
+      ],
+    });
+    return applied(created, { note: action.caution });
   }
+  // The server parsed and plausibility-checked the reading; reaching here without one is a guard bug.
+  if (action.value == null) return failed(`no usable reading reached the chart for ${field}`);
   const created = await context.writer.save({
-    vitalsObservations: [
-      hasBloodPressure
-        ? { field: action.field, systolicPressure: action.systolic, diastolicPressure: action.diastolic }
-        : { field: action.field, value: toStoredVitalValue(action.value as number, action.unit) },
-    ],
+    vitalsObservations: [numericVital(field, toStoredVitalValue(action.value, action.unit))],
   });
   return applied(created, { note: action.caution });
 };
 
 const addDiagnosis: Handler<'add-diagnosis'> = async (action, context) => {
-  // No catalogue lookup: the server already confirmed {code, display} against the terminology
-  // service and both fields come from ONE row.
+  // The server confirmed code and display against the terminology service from one row.
   if (!action.code) return skipped(`"${action.display}" reached the chart without a confirmed ICD-10 code`);
+  if (context.chart.diagnoses.some((dx) => dx.code === action.code)) {
+    return skipped(`"${action.display}" is already on the chart`);
+  }
 
-  const alreadyCharted = context.chart.diagnoses.some((dx) => dx.code === action.code);
-  if (alreadyCharted) return skipped(`"${action.display}" is already on the chart`);
-
-  // The exactly-one-primary invariant. It lives here rather than in the shared save hook because it
-  // is the one chart rule this feature genuinely owns.
+  // Exactly one primary: a new diagnosis never takes over an existing primary.
   const primaryTaken = context.chart.diagnoses.some((dx) => dx.isPrimary);
   const isPrimary = action.isPrimary === true && !primaryTaken;
   const created = await context.writer.save({
@@ -295,46 +195,8 @@ const addDiagnosis: Handler<'add-diagnosis'> = async (action, context) => {
   });
 };
 
-const setEmCode: Handler<'set-em-code'> = async (action, context) => {
-  const created = await context.writer.save({ emCode: { code: action.code, display: action.display } });
-  return applied(created);
-};
-
-const addCpt: Handler<'add-cpt'> = async (action, context) => {
-  if (context.chart.cptCodes.some((cpt) => cpt.code === action.code)) {
-    return skipped(`CPT ${action.code} is already on the chart`);
-  }
-  const created = await context.writer.save({ cptCodes: [{ code: action.code, display: action.display }] });
-  return applied(created);
-};
-
-const setDisposition: Handler<'set-disposition'> = async (action, context) => {
-  const created = await context.writer.save({
-    disposition: {
-      type: action.dispositionType,
-      note: action.text,
-      ...(action.followUpInDays != null ? { followUpIn: action.followUpInDays } : {}),
-    },
-  });
-  return applied(created);
-};
-
-const addInstruction: Handler<'add-patient-instruction'> = async (action, context) => {
-  const created = await context.writer.save({ instructions: [{ text: action.text }] });
-  return applied(created);
-};
-
-/** A chat-only action: it writes nothing, and saying so is the whole point of its outcome. */
-const chatOnly = <K extends 'reply' | 'provider-note'>(kind: K): Handler<K> =>
-  (async (action: { text: string }, context: HandlerContext) => {
-    context.say(action.text, kind);
-    return applied([], { note: kind === 'reply' ? 'answered in the chat' : 'left as a note for you' });
-  }) as Handler<K>;
-
-export const HANDLERS = {
-  // A SUGGESTION, never a write. The server resolved the model's title to a practice template and put its
-  // id and exact title on the action; the provider applies it by hand from the template picker. Nothing
-  // lands on the chart here, so the rest of the plan runs against the chart exactly as it was.
+export const HANDLERS: HandlerTable = {
+  // Only a suggestion: the provider applies templates from the template picker.
   'apply-template': async (action, context) => {
     if (!action.templateId) {
       return skipped(
@@ -342,70 +204,55 @@ export const HANDLERS = {
       );
     }
     context.say(
-      `Suggested template: "${action.display}". Apply it from the template picker if you want it — nothing was applied.`,
-      'provider-note'
+      `Suggested template: "${action.display}". Apply it from the template picker if you want it — nothing was applied.`
     );
     return applied([], { note: 'suggested only — not applied', matchedId: action.templateId });
   },
 
+  // The same row the Allergies tab writes for an eRx pick.
   'add-allergy': async (action, context) =>
     addFromCatalogue(action, context, {
-      search: (q) => context.catalogue.allergies(q),
+      search: withErxId(context.catalogue.allergies),
       noun: 'allergy',
-      // The SAME row the Allergies tab writes for an eRx pick. Spreading the raw eRx row in was wrong twice
-      // over: its numeric `id` failed FHIR validation as an identifier, and without `current: true` the note's
-      // allergy list — which shows current allergies only — never displayed what was just charted.
       write: (match) =>
         context.writer.save({
           allergies: [
             {
               name: match.display,
-              ...(erxId(match.payload) ? { id: erxId(match.payload) } : {}),
+              id: erxId(match.payload),
               current: true,
               lastUpdated: new Date().toISOString(),
             },
           ],
         }),
     }),
-  'remove-allergy': async (action, context) =>
-    removeCharted(action, context, { items: context.chart.allergies, field: 'allergies', noun: 'allergy' }),
 
-  // NO CATALOGUE, the same path add-diagnosis takes. The server's ICD guard has already confirmed {code,
-  // display} against the terminology service from ONE row, and rejects an add-condition with no code — so
-  // there is nothing left for a client catalogue to do but disagree. Routing this through the (unavailable)
-  // conditions catalogue skipped EVERY past-medical-history item in the app with "cannot search conditions
-  // yet", while the eval harness, whose catalogue echoes, charted them all.
+  // No catalogue: the server already confirmed the ICD-10 code, exactly as for add-diagnosis.
   'add-condition': async (action, context) => {
-    if (!action.code)
+    if (!action.code) {
       return skipped(`"${describeQuery(action.display)}" reached the chart without a confirmed ICD-10 code`);
-    const display = (action.display ?? '').trim() || action.code;
-    const needle = display.toLowerCase();
-    const alreadyCharted = context.chart.conditions.some((item) => item.display.toLowerCase() === needle);
-    if (alreadyCharted) return skipped(`"${display}" is already on the chart`);
-    // The row the Medical Conditions tab writes: coded, current, stamped.
+    }
+    const display = action.display.trim() || action.code;
+    if (context.chart.conditions.some((item) => item.display.toLowerCase() === display.toLowerCase())) {
+      return skipped(`"${display}" is already on the chart`);
+    }
     const created = await context.writer.save({
       conditions: [{ code: action.code, display, current: true, lastUpdated: new Date().toISOString() }],
     });
     return applied(created, { matchedId: action.code });
   },
-  'remove-condition': async (action, context) =>
-    removeCharted(action, context, { items: context.chart.conditions, field: 'conditions', noun: 'condition' }),
 
+  // The same row the Medications tab writes for an eRx pick; the dictated strength is recorded as the dose.
   'add-medication': async (action, context) =>
     addFromCatalogue(action, context, {
-      search: (q) => context.catalogue.medications(q),
+      search: withErxId(context.catalogue.medications),
       noun: 'medication',
-      // The SAME row the Medications tab (and the AI Suggestions card) writes for an eRx pick. The server
-      // builds a MedicationStatement straight off this DTO and reads `intakeInfo.dose` unconditionally, so a
-      // row without `intakeInfo` threw before anything was saved; `status` and `type` are required too. The
-      // dictated strength is the closest thing a dictation has to a dose, so it is recorded as one; the dose
-      // form is already part of the eRx product name ("... oral capsule") and has no field of its own.
       write: (match) =>
         context.writer.save({
           medications: [
             {
               name: match.display,
-              ...(erxId(match.payload) ? { id: erxId(match.payload) } : {}),
+              id: erxId(match.payload),
               type: 'scheduled',
               status: 'active',
               intakeInfo: { ...(action.strength ? { dose: action.strength } : {}) },
@@ -413,53 +260,42 @@ export const HANDLERS = {
           ],
         }),
     }),
-  'remove-medication': async (action, context) =>
-    removeCharted(action, context, { items: context.chart.medications, field: 'medications', noun: 'medication' }),
 
+  // Both catalogues are static coded option lists; a match's id is the option's code.
   'add-surgical-history': async (action, context) =>
     addFromCatalogue(action, context, {
       search: (q) => context.catalogue.surgicalHistory(q),
       noun: 'procedure',
-      write: (match) =>
-        context.writer.save({ surgicalHistory: [{ display: match.display, ...(match.payload as object) }] }),
-    }),
-  'remove-surgical-history': async (action, context) =>
-    removeCharted(action, context, {
-      items: context.chart.surgicalHistory,
-      field: 'surgicalHistory',
-      noun: 'surgical history item',
+      write: (match) => context.writer.save({ surgicalHistory: [{ code: match.id, display: match.display }] }),
     }),
 
   'add-hospitalization': async (action, context) =>
     addFromCatalogue(action, context, {
       search: (q) => context.catalogue.hospitalizations(q),
       noun: 'hospitalization',
-      write: (match) =>
-        context.writer.save({ episodeOfCare: [{ display: match.display, ...(match.payload as object) }] }),
-    }),
-  'remove-hospitalization': async (action, context) =>
-    removeCharted(action, context, {
-      items: context.chart.hospitalizations,
-      field: 'episodeOfCare',
-      noun: 'hospitalization',
+      write: (match) => context.writer.save({ episodeOfCare: [{ code: match.id, display: match.display }] }),
     }),
 
-  'edit-note-text': noteText,
+  'edit-note-text': async (action, context) => {
+    const chartKey = chartKeyForNoteField(action.field);
+    // Update the row that already holds the field; a second row would never show on the note.
+    const existing = context.chart.noteFields[chartKey];
+    const created = await context.writer.save({
+      [chartKey]: { ...(existing?.resourceId ? { resourceId: existing.resourceId } : {}), text: action.newText },
+    });
+    return applied(created, { note: `${NOTE_FIELD_LABELS[action.field]} rewritten` });
+  },
+
   'set-vital': setVital,
 
   'add-exam-finding': async (action, context) => {
-    // The row the exam tab saves is the leaf's own fields with the tick on it. The real catalogue's payload
-    // is the leaf; a fake's may be nothing, so the field is always named on its own. One write whether the
-    // leaf was matched here or handed in already resolved.
     const tick = (field: string, leaf: ExamLeaf | undefined): Promise<string[]> =>
-      context.writer.save({ examObservations: [{ ...leaf, field, value: true }] });
-    // Resolved on the recommendations panel, where the provider read (or chose) this leaf: tick that
-    // one. Searching again could land elsewhere than what they confirmed.
+      context.writer.save({ examObservations: [examRowFor(context.chart.examRows[field], field, leaf)] });
+    // The provider already confirmed this leaf in the panel; searching again could land elsewhere.
     const { resolvedLeaf } = action as ResolvedExamFindingAction;
     if (resolvedLeaf) {
       return applied(await tick(resolvedLeaf.field, resolvedLeaf), { matchedId: resolvedLeaf.field });
     }
-    // NO CHECKBOX FOR IT IS NOT NOTHING TO CHART — see onNoMatch.
     return addFromCatalogue(action, context, {
       search: (q) => context.catalogue.examFindings(q),
       noun: 'exam finding',
@@ -467,28 +303,14 @@ export const HANDLERS = {
       onNoMatch: () => writeExamComment(action, context),
     });
   },
-  'remove-exam-finding': async (action, context) =>
-    removeCharted(action, context, {
-      items: context.chart.examFindings,
-      field: 'examObservations',
-      noun: 'exam finding',
-    }),
 
   'add-ros-finding': async (action, context) =>
     addFromCatalogue(action, context, {
       search: (q) => context.catalogue.rosFindings(q),
       noun: 'review-of-systems finding',
       write: (match) => {
-        // POLARITY IS IN THE FIELD KEY, NOT IN THE BOOLEAN.
-        //
-        // ROS storage gives each symptom two fields — `…-denies` and `…-reports` — and records the one
-        // that applies with `value: true`. This wrote the BASE key instead, with the boolean carrying the
-        // polarity, which produced a shape nothing reads: Review & Sign looks up the suffixed keys and
-        // found none, so the signed note's ROS section was empty; Easy Chart's own snapshot keeps only
-        // `value === true`, so a denial was invisible here too and could not be removed.
+        // The polarity is in the field key (…-denies / …-reports), not in the boolean.
         const { deniesKey, reportsKey } = getRosFindingFieldKeys(match.id);
-        // The catalogue's payload is its own entry (baseField, systemLabel, …), not a DTO; the Review of
-        // Systems table writes `field`, `value` and the symptom's label, so that is what goes to the chart.
         const label = (match.payload as { label?: string } | undefined)?.label;
         return context.writer.save({
           rosObservations: [
@@ -497,136 +319,42 @@ export const HANDLERS = {
         });
       },
     }),
-  'remove-ros-finding': async (action, context) =>
-    removeCharted(action, context, {
-      items: context.chart.rosFindings,
-      field: 'rosObservations',
-      noun: 'review-of-systems finding',
-    }),
 
   'add-diagnosis': addDiagnosis,
-  'remove-diagnosis': async (action, context) =>
-    removeCharted(action, context, { items: context.chart.diagnoses, field: 'diagnosis', noun: 'diagnosis' }),
 
-  'add-in-house-lab': async (action, context) =>
-    addFromCatalogue(action, context, {
-      search: (q) => context.catalogue.labs({ ...q, inHouse: true }),
-      noun: 'in-house lab',
-      write: (match) => context.writer.orderLab(match, true),
-    }),
-  'add-external-lab': async (action, context) =>
-    addFromCatalogue(action, context, {
-      search: (q) => context.catalogue.labs({ ...q, inHouse: false }),
-      noun: 'send-out lab',
-      write: (match) => context.writer.orderLab(match, false),
-    }),
-  'add-radiology': async (action, context) => {
-    // An imaging order is filed AGAINST a diagnosis, so refuse before searching rather than placing an
-    // unlinked order the radiology tab would reject.
-    if (context.chart.diagnoses.length === 0) {
-      return skipped(`"${describeQuery(action.display)}" needs a diagnosis on the chart before it can be ordered`);
-    }
-    return addFromCatalogue(action, context, {
-      search: (q) => context.catalogue.radiology(q),
-      noun: 'imaging study',
-      unsupported: !context.writer.supports.radiologyOrders,
-      // `dictatedStudyName` is what the PROVIDER said, which is what goes on the order — the catalogue
-      // match supplies the CPT, and its own display is the coding system's wording, not the visit's.
-      write: (match) => context.writer.orderRadiology(match, { dictatedStudyName: action.display ?? match.display }),
-    });
+  'set-em-code': async (action, context) => {
+    const existing = context.chart.emCode;
+    if (existing?.code === action.code) return skipped(`E&M code ${action.code} is already on the chart`);
+    // Updated in place, as the Assessment tab does: a second E&M row would be billed alongside the first.
+    return applied(
+      await context.writer.save({ emCode: { ...existing, code: action.code, display: action.display ?? action.code } })
+    );
   },
 
-  // A procedure is one dictated phrase in and a ten-field clinical form out, all of it pre-filled by
-  // the practice's quick-pick: complications, patientResponse and timeSpent among them. Two of those
-  // are legal claims and one feeds billing, so under per-ITEM provenance alone one confirm click would
-  // have accepted ten assertions the provider never made — which is why this was deferred until the
-  // per-FIELD "default, verify" marker existed. It does, so the write reports which fields the template
-  // filled and each is confirmed on its own.
-  'add-procedure': async (action, context) =>
-    addFromCatalogue(action, context, {
-      search: (q) => context.catalogue.procedures(q),
-      noun: 'procedure',
-      unsupported: !context.writer.supports.procedures,
-      write: async (match) => {
-        const payload = match.payload as ProcedureQuickPickContext | undefined;
-        // THE CAST IS NOT A GUARANTEE. `payload` is whatever the catalogue chose to attach, and a
-        // catalogue that attaches none — the eval harness stubbed procedures exactly that way — turned
-        // `payload.dto` into a TypeError. A handler that throws reports the step as failed with a raw
-        // `Cannot read properties of undefined (reading 'dto')`, which tells a provider nothing about
-        // what went wrong or what to do instead. Skipping with the reason is the honest outcome, and it
-        // is what every other unresolvable catalogue result already produces.
-        if (!payload?.dto) {
-          return {
-            createdResourceIds: [],
-            skipReason: `the procedure catalogue returned no quick-pick for "${match.display}" — chart it from the Procedures tab`,
-          };
-        }
-        // A quick-pick whose template names no procedureType writes a row with NO NAME — the note then
-        // shows a "Procedure" heading with a body site under it and nothing identifying what was done.
-        // The provider named it, so fall back to that: an identifiable row beats a blank one, and the
-        // catalogue display is the same text the plan step reported.
-        const named = payload.dto.procedureType?.trim()
-          ? payload
-          : { ...payload, dto: { ...payload.dto, procedureType: match.display } };
-        const written = await context.writer.addProcedure(named);
-        return {
-          createdResourceIds: written.createdResourceIds,
-          inferredResourceIds: written.inferredResourceIds,
-          // Only when the row came back with an id: a marker keyed to `undefined` would attach the
-          // whole template's verify set to whatever row that hashes to.
-          ...(written.procedureResourceId && written.templateFilledFields.length > 0
-            ? {
-                templateFilledFields: [
-                  { resourceId: written.procedureResourceId, fields: written.templateFilledFields },
-                ],
-              }
-            : {}),
-        };
-      },
-    }),
-  'update-procedure': async (action, context) => {
-    const target = action.procedureMatch?.toLowerCase().trim();
-    const procedure = target
-      ? context.chart.procedures.find((p) => p.display.toLowerCase().includes(target))
-      : context.chart.procedures[0];
-    if (!procedure) {
-      return skipped(`no charted procedure matches "${action.procedureMatch ?? 'the one described'}"`);
-    }
-    const updates = Object.fromEntries(action.updates.map((u) => [u.field, u.value]));
-    const created = await context.writer.save({
-      procedures: [{ resourceId: procedure.resourceId, ...updates }],
-    });
-    // Composite item: the procedure itself was dictated, but these field values may be template
-    // defaults, so provenance is tracked per field by the caller from this note.
-    return applied(created, { note: `updated ${Object.keys(updates).join(', ')}` });
+  'set-disposition': async (action, context) => {
+    // Only an interval the card offers for this type; any other stays in the note.
+    const followUpIn = chartableFollowUpDays(action.dispositionType, action.followUpInDays);
+    return applied(
+      await context.writer.save({
+        disposition: { type: action.dispositionType, note: action.text, ...(followUpIn != null ? { followUpIn } : {}) },
+      })
+    );
   },
 
-  'set-em-code': setEmCode,
-  'remove-em-code': async (_action, context) => {
-    if (!context.chart.hasEmCode) return skipped('no E&M level was set, so there was nothing to remove');
-    await context.writer.remove('emCode', { resourceId: 'emCode', display: 'E&M code' });
-    return applied();
-  },
-  'add-cpt': addCpt,
-  'remove-cpt': async (action, context) => {
-    const charted = context.chart.cptCodes.find((cpt) => cpt.code === action.code);
-    if (!charted) return skipped(`CPT ${action.code} is not on the chart, so nothing was removed`);
-    await context.writer.remove('cptCodes', charted);
-    return applied();
-  },
+  'add-patient-instruction': async (action, context) =>
+    applied(await context.writer.save({ instructions: [{ text: action.text }] })),
 
-  'set-disposition': setDisposition,
-  'add-patient-instruction': addInstruction,
-  'add-nursing-order': async (action, context) => applied(await context.writer.createNursingOrder(action.text)),
-
-  'provider-note': chatOnly('provider-note'),
-  reply: chatOnly('reply'),
+  'provider-note': async (action, context) => {
+    context.say(action.text);
+    return applied([], { note: 'left as a note for you' });
+  },
+  reply: async (action, context) => {
+    context.say(action.text);
+    return applied([], { note: 'answered in the chat' });
+  },
 
   unknown: async (action, context) => {
-    context.say(action.message ?? 'The assistant could not classify part of that request.', 'unknown');
+    context.say(action.message ?? 'The assistant could not classify part of that request.');
     return skipped(action.message ?? 'the assistant could not classify this part of the request');
   },
-} satisfies HandlerTable;
-
-/** Exported for the runtime twin in the step machine: does this build know how to execute `kind`? */
-export const isHandledKind = (kind: string): kind is ActionKind => kind in HANDLERS;
+};

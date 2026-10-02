@@ -41,11 +41,7 @@ terraform.json
 
 .claude
 scripts/setup/project/setup-progress.json
-# Easy Chart evaluation corpus. Harvested (transcript, gold note) pairs are PHI: they come from real
-# visits in a live environment and must never be committed. These rules are in place BEFORE the first
-# harvest, deliberately — adding them afterwards is how PHI reaches a git history.
-# The twenty SYNTHETIC dictations in tools/easy-chart-eval/cases/ are written-for-purpose teaching
-# cases with no identifiers, and are committed on purpose.
+# Easy Chart eval corpus and results: real visits (PHI), never committed. The synthetic cases/ are.
 tools/easy-chart-eval/harvested-cases/
 tools/easy-chart-eval/harvested-results/
 tools/easy-chart-eval/results/

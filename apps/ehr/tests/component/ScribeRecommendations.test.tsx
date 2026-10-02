@@ -1,20 +1,17 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, render, screen, waitFor, within } from '@testing-library/react';
+import { act, render, renderHook, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { DocumentReference } from 'fhir/r4b';
 import { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { ExamLeaf } from 'utils/lib/config-helpers/exam-leaves';
+import { EASY_CHART_VISIT_LOCKED_MESSAGE } from 'utils/lib/easy-chart/access';
 import { ChartPlanResponse, NarrativeLine } from 'utils/lib/easy-chart/api';
 import { narrativeExtension, TRANSCRIPT_ATTACHMENT_TITLE } from 'utils/lib/easy-chart/narrative';
 import { RosFindingState } from 'utils/lib/ottehr-config/review-of-systems/in-person.config';
 import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { StepOutcome } from '../../src/features/easy-chart/executor/types';
-
-// ============================================================================
-// FIXTURES — what the plan endpoint answers for the narrative under test
-// ============================================================================
 
 const envelope = { usage: [], escalation: { attempts: 1, escalated: false, failures: [] }, triggers: [] };
 
@@ -139,10 +136,6 @@ const ID = {
   temperature: 'plan:set-vital:vital-temperature',
 };
 
-// ============================================================================
-// MOCKS
-// ============================================================================
-
 const mocks = vi.hoisted(() => ({
   /**
    * Resolves to nothing for an applied row, to an outcome to settle it another way, or throws to fail it.
@@ -159,7 +152,21 @@ const mocks = vi.hoisted(() => ({
   vitals: undefined as Record<string, unknown> | undefined,
   // The zambda client. Null, as with no Oystehr session, unless a test supplies the endpoints it calls.
   apiClient: null as unknown,
+  /** The visit is signed and locked, as the EHR's accessibility rule reads it. */
+  readOnly: false,
 }));
+
+// The real accessibility rule, with the read-only flag under the test's control.
+vi.mock('../../src/features/visits/shared/hooks/useGetAppointmentAccessibility', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('../../src/features/visits/shared/hooks/useGetAppointmentAccessibility')>();
+  return {
+    useGetAppointmentAccessibility: () => ({
+      ...actual.useGetAppointmentAccessibility(),
+      isAppointmentReadOnly: mocks.readOnly,
+    }),
+  };
+});
 
 vi.mock('../../src/features/visits/shared/hooks/useOystehrAPIClient', () => ({
   useOystehrAPIClient: () => mocks.apiClient,
@@ -172,7 +179,7 @@ vi.mock('../../src/features/visits/shared/components/scribe-recommendations/useS
     useScribeAnalyzer: () => ({
       plan: async () => mocks.plan() as ChartPlanResponse,
       analysisOf: (plan: ChartPlanResponse, narrative: string) =>
-        buildAnalysis(plan, undefined, { written: mocks.written, narrative }),
+        buildAnalysis(plan, { written: mocks.written, narrative }),
     }),
   };
 });
@@ -264,10 +271,13 @@ vi.mock('../../src/features/visits/shared/components/templates/useListTemplates'
 
 vi.mock('../../src/features/visits/shared/stores/appointment/appointment.store', () => ({
   useAppointmentData: () => ({ encounter: { id: 'encounter-1' } }),
+}));
+
+vi.mock('../../src/features/visits/shared/hooks/useChartData', () => ({
   useChartData: () => ({ chartData: mocks.chartData }),
 }));
 
-// The HPI section the charted predicate reads: nothing written, as before.
+// The HPI section the charted predicate reads: empty.
 vi.mock('../../src/features/visits/shared/hooks/useChartSection', () => ({
   useChartSection: () => ({ data: undefined }),
 }));
@@ -309,7 +319,8 @@ vi.mock('react-router-dom', async () => {
 });
 
 import { dataTestIds } from '../../src/constants/data-test-ids';
-import { buildChartSnapshot as buildExecutorSnapshot } from '../../src/features/easy-chart/executor/chartSnapshot';
+import { buildChartSnapshot } from '../../src/features/easy-chart/executor/chartSnapshot';
+import { useAiAddedRecommendations } from '../../src/features/visits/shared/components/scribe-recommendations/aiAddedMarks';
 import {
   appendToNoteField,
   buildAnalysis,
@@ -321,8 +332,9 @@ import {
   pendingObservationIds,
   RecommendationRunner,
 } from '../../src/features/visits/shared/components/scribe-recommendations/applyRecommendations';
+import { AUTOCHART_BETA_NOTICE } from '../../src/features/visits/shared/components/scribe-recommendations/BetaNotice';
 import {
-  buildChartSnapshot,
+  buildChartedState,
   isAlreadyCharted,
 } from '../../src/features/visits/shared/components/scribe-recommendations/chartedRecommendations';
 import { PickerDialog } from '../../src/features/visits/shared/components/scribe-recommendations/PickerDialog';
@@ -334,17 +346,13 @@ import {
 } from '../../src/features/visits/shared/components/scribe-recommendations/scribeRecommendations.store';
 import { ScribeRecommendationsDrawer } from '../../src/features/visits/shared/components/scribe-recommendations/ScribeRecommendationsDrawer';
 import { ScribeRecommendation } from '../../src/features/visits/shared/components/scribe-recommendations/types';
+import { AUTOCHART_LOCKED_TOOLTIP } from '../../src/features/visits/shared/components/scribe-recommendations/useAutochartLock';
 import { useExamObservationsStore } from '../../src/features/visits/shared/stores/appointment/exam-observations.store';
 import { useRosObservationsStore } from '../../src/features/visits/shared/stores/appointment/ros-observations.store';
 
-// ============================================================================
-// HELPERS
-// ============================================================================
-
 const testIds = dataTestIds.scribeRecommendations;
 
-// The app always renders under a QueryClientProvider; the narrative generator reaches for the query client
-// to refresh chart data after a document is stamped, so the drawer needs one here too.
+// The narrative generator uses the query client to refresh chart data, so the drawer needs a provider.
 const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 const Wrapper = ({ children }: { children: ReactNode }): JSX.Element => (
   <QueryClientProvider client={queryClient}>
@@ -357,6 +365,7 @@ const resetStore = (): void => {
   mocks.apiClient = null;
   mocks.vitals = undefined;
   mocks.written = {};
+  mocks.readOnly = false;
   mocks.plan.mockReturnValue(PLAN);
   useRosObservationsStore.setState({}, true);
   useExamObservationsStore.setState({}, true);
@@ -366,7 +375,6 @@ const resetStore = (): void => {
     width: SCRIBE_PANEL_DEFAULT_WIDTH,
     encounterId: undefined,
     transcript: '',
-    transcriptSource: 'none',
     sourceDocumentId: undefined,
     narrativeGenerated: [],
     narrativeDraft: '',
@@ -375,24 +383,19 @@ const resetStore = (): void => {
     speculativePlans: {},
     phase: 'input',
     analysisError: undefined,
-    narrativeRuns: [],
     recommendations: [],
     itemState: {},
-    orderSuggestions: [],
-    ordersDone: {},
     rejected: [],
     notes: [],
     isApplying: false,
     editingId: undefined,
     pendingPick: null,
+    visitLockedByServer: false,
+    planRequested: false,
   });
 };
 
-/**
- * The narrative the plan is read from. A transcript reaches the panel only as a document on the visit —
- * recorded, or pasted and stored by the server — so a test that wants a narrative to plan puts one in the
- * store, exactly as picking a transcript chip or typing into the editor would leave it.
- */
+/** The narrative to plan, seeded into the store as picking a transcript or typing would leave it. */
 const NARRATIVE =
   'Patient reports post-nasal drip and sinus pressure for about a week, with afternoon headaches and ' +
   'morning eye crusting. Denies fever, ear pain and sore throat. Taking ibuprofen and an antihistamine.';
@@ -411,27 +414,24 @@ const openPanelWithRecommendations = async (user: ReturnType<typeof userEvent.se
 const rowCheckbox = (id: string): HTMLInputElement =>
   within(screen.getByTestId(testIds.rowCheckbox(id))).getByRole('checkbox') as HTMLInputElement;
 
-/** A row that has landed in the chart says so by turning its own checkbox green, and settling. */
+/** A charted row shows a checked, disabled, green checkbox. */
 const expectCharted = (id: string): void => {
   expect(rowCheckbox(id)).toBeChecked();
   expect(rowCheckbox(id)).toBeDisabled();
   expect(screen.getByTestId(testIds.rowCheckbox(id))).toHaveClass('MuiCheckbox-colorSuccess');
 };
 
-/** Nothing in the editor is confirmed: looking away is what closes it, and what saves it. */
+/** Clicking away closes and saves the editor. */
 const lookAway = async (user: ReturnType<typeof userEvent.setup>): Promise<void> => user.click(document.body);
 
-/**
- * A pending row carries no box to tick — the tick lives in the editor — so unticking one means
- * opening the line, unticking it there, and looking away again.
- */
+/** A pending row's checkbox lives in its editor: open it, untick, click away. */
 const untick = async (user: ReturnType<typeof userEvent.setup>, id: string): Promise<void> => {
   await user.click(screen.getByTestId(testIds.rowEditButton(id)));
   await user.click(rowCheckbox(id));
   await lookAway(user);
 };
 
-/** With no box on the line, a row that is not going in says so by striking itself through. */
+/** An unticked pending row has no checkbox and is struck through. */
 const expectUnticked = (id: string): void => {
   expect(screen.queryByTestId(testIds.rowCheckbox(id))).toBeNull();
   expect(screen.getByTestId(testIds.rowText(id))).toHaveStyle({ textDecoration: 'line-through' });
@@ -449,10 +449,6 @@ const appliedAction = (id: string): unknown =>
 /** What the provider had typed into the HPI before the transcript arrived: nine words. */
 const EXISTING_HPI = 'The HPI the provider typed before the transcript arrived.';
 
-// ============================================================================
-// TESTS
-// ============================================================================
-
 describe('ScribeRecommendationsDrawer', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -467,7 +463,7 @@ describe('ScribeRecommendationsDrawer', () => {
 
     expect(screen.getByTestId(testIds.rail)).toBeVisible();
     expect(screen.queryByTestId(testIds.panel)).toBeNull();
-    expect(screen.getByTestId(testIds.openButton)).toHaveAccessibleName('Open Autochart');
+    expect(screen.getByTestId(testIds.openButton)).toHaveAccessibleName('Open AutoChart');
 
     await user.click(screen.getByTestId(testIds.openButton));
     expect(screen.getByTestId(testIds.panel)).toBeVisible();
@@ -478,6 +474,8 @@ describe('ScribeRecommendationsDrawer', () => {
     expect(screen.getByTestId(testIds.analyzeButton)).toBeDisabled();
 
     await user.type(screen.getByTestId(testIds.narrativeInput), 'Sinus pressure for a week.');
+    // every keystroke lands, not just the first one
+    expect(useScribeRecommendationsStore.getState().narrativeDraft).toBe('Sinus pressure for a week.');
     expect(screen.getByTestId(testIds.analyzeButton)).toBeEnabled();
 
     await user.click(screen.getByTestId(testIds.collapseButton));
@@ -615,6 +613,88 @@ describe('ScribeRecommendationsDrawer', () => {
       expect(await screen.findByTestId(testIds.transcriptSaveError)).toHaveTextContent('exceeds 60000 characters');
       expect(screen.getByTestId(testIds.transcriptPreview)).toHaveValue('Provider: Hello.');
       expect(useScribeRecommendationsStore.getState().sourceDocumentId).toBeUndefined();
+      // not a lock, so the panel stays usable
+      expect(screen.queryByTestId(testIds.lockedNotice)).toBeNull();
+    });
+
+    it('says the visit is locked when the server refuses the save for that, and turns the panel read-only', async () => {
+      const user = userEvent.setup();
+      // The zambda's APIError, as the SDK rejects with it.
+      mocks.apiClient = {
+        easyChartSaveTranscript: vi.fn(async () => {
+          throw { output: { message: EASY_CHART_VISIT_LOCKED_MESSAGE } };
+        }),
+      };
+
+      await openTranscriptBox(user);
+      seedNarrative();
+      await replaceTranscript(user, 'Provider: Hello.');
+      await user.click(screen.getByTestId(testIds.transcriptSaveButton));
+
+      expect(await screen.findByTestId(testIds.transcriptSaveError)).toHaveTextContent(EASY_CHART_VISIT_LOCKED_MESSAGE);
+      expect(screen.getByTestId(testIds.lockedNotice)).toBeVisible();
+      expect(screen.getByTestId(testIds.analyzeButton)).toBeDisabled();
+      expect(screen.getByTestId(testIds.transcriptPreview)).toBeDisabled();
+    });
+  });
+
+  it('shows the Beta notice once Plan note is clicked, and keeps it even when planning fails', async () => {
+    const user = userEvent.setup();
+    render(<ScribeRecommendationsDrawer />, { wrapper: Wrapper });
+    await user.click(screen.getByTestId(testIds.openButton));
+    act(() => seedNarrative());
+    // not before the provider asks for a plan
+    expect(screen.queryByTestId(testIds.betaNotice)).toBeNull();
+
+    await user.click(screen.getByTestId(testIds.analyzeButton));
+    await screen.findByTestId(testIds.applyObservationsButton);
+    expect(screen.getByTestId(testIds.betaNotice)).toHaveTextContent(AUTOCHART_BETA_NOTICE);
+
+    // a failed re-plan hides the results but not the notice
+    mocks.plan.mockImplementation(() => {
+      throw new Error('model unavailable');
+    });
+    await user.click(screen.getByTestId(testIds.analyzeButton));
+    await user.click(screen.getByTestId(testIds.replanConfirmButton));
+    await waitFor(() => expect(screen.queryByTestId(testIds.applyObservationsButton)).toBeNull());
+    expect(screen.getByTestId(testIds.betaNotice)).toBeVisible();
+  });
+
+  describe('a signed, locked visit', () => {
+    it('opens read-only: the narrative step says why and starts nothing', async () => {
+      const user = userEvent.setup();
+      mocks.readOnly = true;
+      render(<ScribeRecommendationsDrawer />, { wrapper: Wrapper });
+      await user.click(screen.getByTestId(testIds.openButton));
+      act(() => seedNarrative());
+
+      expect(screen.getByTestId(testIds.lockedNotice)).toHaveTextContent('signed and locked');
+      const plan = screen.getByTestId(testIds.analyzeButton);
+      expect(plan).toBeDisabled();
+      // a disabled button gets no pointer events, so the tooltip hangs off its wrapper
+      await user.hover(plan.parentElement!);
+      expect(await screen.findByRole('tooltip')).toHaveTextContent(AUTOCHART_LOCKED_TOOLTIP);
+      // the narrative stays readable but cannot be opened for editing
+      await user.click(screen.getByTestId(testIds.narrativeReadView));
+      expect(screen.queryByTestId(testIds.narrativeInput)).toBeNull();
+      expect(mocks.plan).not.toHaveBeenCalled();
+    });
+
+    it('keeps suggestions on screen but stops them being charted once the visit is locked', async () => {
+      const user = userEvent.setup();
+      await openPanelWithRecommendations(user);
+      expect(screen.getByTestId(testIds.applyObservationsButton)).toBeEnabled();
+
+      // The visit is signed elsewhere; a write endpoint has just said so.
+      act(() => useScribeRecommendationsStore.getState().markVisitLocked());
+
+      expect(screen.getByTestId(testIds.lockedNotice)).toBeVisible();
+      expect(screen.getByTestId(testIds.applyObservationsButton)).toBeDisabled();
+      expect(screen.getByTestId(testIds.templateApplyButton)).toBeDisabled();
+      expect(screen.getByTestId(testIds.toggleAllButton)).toBeDisabled();
+      expect(screen.queryByTestId(testIds.rowEditButton(ID.fentanyl))).toBeNull();
+      await user.hover(screen.getByTestId(testIds.applyObservationsButton).parentElement!);
+      expect(await screen.findByRole('tooltip')).toHaveTextContent(AUTOCHART_LOCKED_TOOLTIP);
     });
   });
 
@@ -625,8 +705,7 @@ describe('ScribeRecommendationsDrawer', () => {
     const template = screen.getByTestId(testIds.stage('template'));
     const observationsStage = screen.getByTestId(testIds.stage('observations'));
 
-    // the leads carry the sequence, so the stages need no numbering of their own. The narrative is not one
-    // of them: it stays above, in the editor the plan was run from.
+    // the narrative is not a stage; it stays above, in the editor
     expect(
       screen
         .getAllByRole('region')
@@ -643,8 +722,7 @@ describe('ScribeRecommendationsDrawer', () => {
     expect(screen.queryByTestId(testIds.rowCheckbox(ID.template))).toBeNull();
     expect(screen.queryByTestId(testIds.group('template'))).toBeNull();
 
-    // stage two holds every observation, grouped by the section it writes into. No pending row carries a
-    // checkbox — they are all going in unless the provider says otherwise, and the tick lives in the editor.
+    // observations are grouped by section; pending rows carry no checkbox (the tick lives in the editor)
     expect(within(observationsStage).queryAllByRole('checkbox')).toHaveLength(0);
     ['hpi', 'assessment', 'ros', 'exam', 'vitals', 'allergies', 'medications'].forEach((section) => {
       const group = within(observationsStage).getByTestId(testIds.group(section));
@@ -722,8 +800,7 @@ describe('ScribeRecommendationsDrawer', () => {
     const before = rowOrder();
     expect(before[0]).toBe(testIds.rowFinding(ID.eyeDischarge));
 
-    // flipping the first positive to a denial used to re-sort it to the bottom, so the next click
-    // landed on whichever row slid up into its place
+    // re-sorting on a flip would move the row out from under the next click
     act(() => {
       useScribeRecommendationsStore
         .getState()
@@ -851,8 +928,7 @@ describe('ScribeRecommendationsDrawer', () => {
     const user = userEvent.setup();
     await openPanelWithRecommendations(user);
 
-    // the exam finding's words are what gets looked up, and the new words are looked up again on save:
-    // the box changes with them, here from the plain sinus box to its maxillary option
+    // reworded exam findings are looked up again on save, here moving to the maxillary option
     expect(screen.getByTestId(testIds.examLeaf(ID.examTenderness))).toHaveTextContent('→ Nose: Sinus tenderness');
     await user.click(screen.getByTestId(testIds.rowEditButton(ID.examTenderness)));
     const wording = screen.getByTestId(testIds.rowEditInput(ID.examTenderness));
@@ -877,7 +953,7 @@ describe('ScribeRecommendationsDrawer', () => {
     await user.type(again, 'warm{Enter}');
     expect(screen.getByTestId(testIds.rowText(ID.temperature))).toHaveTextContent('Recording temperature: 38.2 C');
 
-    // a coded row has no wording to edit, and says so by offering no pencil
+    // every pending row offers a pencil, coded ones included
     expect(screen.queryByTestId(testIds.rowEditButton(ID.dxSinusitis))).not.toBeNull();
 
     await user.click(screen.getByTestId(testIds.applyObservationsButton));
@@ -885,8 +961,7 @@ describe('ScribeRecommendationsDrawer', () => {
       expect(screen.getByTestId(testIds.rowCheckbox(ID.temperature))).toHaveClass('MuiCheckbox-colorSuccess')
     );
     const applied = mocks.applyOne.mock.calls.map(([rec]) => rec as ScribeRecommendation);
-    // The reworded finding goes to the executor with the box the new words resolved to, so it ticks that
-    // one rather than searching the words a second time.
+    // The reworded finding carries its resolved box, so the executor doesn't search the words again.
     expect(appliedAction(ID.examTenderness)).toMatchObject({
       kind: 'add-exam-finding',
       display: 'Maxillary sinus tenderness',
@@ -1192,8 +1267,7 @@ describe('ScribeRecommendationsDrawer', () => {
     expect(screen.getByTestId(testIds.selectionSummary)).toHaveTextContent(`${before - 1} of ${before - 1} selected`);
   });
 
-  // An exam finding is looked up in the exam's checkboxes when the list is built, so the row says which box it
-  // will tick, lets the provider choose among near-equal ones, or says where a miss goes — all before apply.
+  // Exam findings are resolved to checkboxes when the list is built, so rows show their box before apply.
   describe('exam findings', () => {
     const TM_BULGING = 'plan:add-exam-finding:TM-bulging';
     const HOMAN = 'plan:add-exam-finding:Malodorous';
@@ -1309,12 +1383,12 @@ describe('ScribeRecommendationsDrawer', () => {
 
     const quote = "I'm about 170 pounds.";
     const caution = 'Patient-reported, not measured.';
-    // the row shows neither; the quote is on screen only as a run of the transcript above
+    // the row shows neither the quote nor the caution
     const row = screen.getByTestId(testIds.row(ID.weight));
     expect(within(row).queryByText(quote)).toBeNull();
     expect(within(row).queryByText(caution)).toBeNull();
 
-    // hovering the line reads it: there is no "i" to press, and nothing to pin open
+    // hovering the line shows both
     await user.hover(row);
     const tooltip = await screen.findByRole('tooltip');
     expect(within(tooltip).getByText(quote)).toBeVisible();
@@ -1338,7 +1412,7 @@ describe('ScribeRecommendationsDrawer', () => {
 
     const row = screen.getByTestId(testIds.row(ID.fentanyl));
     await user.click(within(row).getByText('Fentanyl'));
-    // the same editor the narrative popover opens: the tick and the field, and nothing to press
+    // the tick and the field, with no Save or Cancel
     expect(within(row).getByTestId(testIds.rowEditInput(ID.fentanyl))).toHaveValue('Fentanyl');
     expect(rowCheckbox(ID.fentanyl)).toBeChecked();
     expect(within(row).queryByRole('button', { name: /save|cancel/i })).toBeNull();
@@ -1360,8 +1434,7 @@ describe('ScribeRecommendationsDrawer', () => {
     expect(rowCheckbox(ID.examTenderness)).toBeChecked();
     await lookAway(user);
 
-    // and applying the template is not editing which template it is, though its own line is
-    // otherwise clickable the same way
+    // the template's apply button doesn't open its editor
     await user.click(screen.getByTestId(testIds.templateApplyButton));
     expect(screen.getByTestId('template-preview-dialog')).toBeVisible();
     expect(screen.queryByTestId(testIds.rowEditInput(ID.template))).toBeNull();
@@ -1402,8 +1475,7 @@ describe('ScribeRecommendationsDrawer', () => {
     await user.clear(input);
     await user.type(input, 'Fentanyl patch');
 
-    // clicking another line puts the first one away, with what was typed in it kept — and that
-    // is all it does: the line clicked on stays closed until it is clicked on its own
+    // clicking another line only closes (and saves) the open one; the clicked line stays closed
     await user.click(screen.getByTestId(testIds.rowText(ID.claritin)));
     expect(screen.queryByTestId(testIds.rowEditInput(ID.fentanyl))).toBeNull();
     expect(screen.queryByTestId(testIds.rowEditInput(ID.claritin))).toBeNull();
@@ -1420,9 +1492,12 @@ describe('ScribeRecommendationsDrawer', () => {
     expect(screen.getByTestId(testIds.rowText(ID.claritin))).toHaveTextContent('Claritin 10mg');
 
     // and a line that was only looked at is not an edit
+    const hpiRow = (): ScribeRecommendation | undefined =>
+      useScribeRecommendationsStore.getState().recommendations.find((rec) => rec.id === ID.hpi);
+    const before = hpiRow();
     await user.click(screen.getByTestId(testIds.rowEditButton(ID.hpi)));
     await lookAway(user);
-    expect(useScribeRecommendationsStore.getState().itemState[ID.hpi].edited).toBeUndefined();
+    expect(hpiRow()).toBe(before);
   });
 
   it('says so when the narrative yields nothing chartable', async () => {
@@ -1470,9 +1545,7 @@ describe('ScribeRecommendationsDrawer', () => {
 });
 
 describe('plans read ahead of the click', () => {
-  // The store's own rules, driven directly: picking a transcript reads its plan in the background, the
-  // first edit to the narrative drops it, and "Plan note" reuses it when the text is still what it was read
-  // for. The endpoint is a counting fake, so every rule is a statement about how many calls were made.
+  // Drives the store directly against a counting fake endpoint, so each rule is asserted as a call count.
   const transcriptDocument = (id: string, transcript: string, narrative?: NarrativeLine[]): DocumentReference => ({
     resourceType: 'DocumentReference',
     id,
@@ -1499,7 +1572,7 @@ describe('plans read ahead of the click', () => {
     return {
       calls,
       plan: (narrative, generated, transcript) => calls(narrative, generated, transcript),
-      analysisOf: (plan, narrative) => buildAnalysis(plan, undefined, { written: {}, narrative }),
+      analysisOf: (plan, narrative) => buildAnalysis(plan, { written: {}, narrative }),
     };
   };
   const generate = vi.fn(async (): Promise<NarrativeLine[]> => LINES_B);
@@ -1562,12 +1635,6 @@ describe('plans read ahead of the click', () => {
     expect(analyzer.calls).toHaveBeenCalledTimes(1);
     expect(store().phase).toBe('ready');
     expect(store().recommendations.map((rec) => rec.id)).toContain(ID.dxSinusitis);
-    // the narrative told back is the draft, as on the live path
-    expect(
-      store()
-        .narrativeRuns.map((run) => run.text)
-        .join('')
-    ).toBe(TEXT_A);
   });
 
   it('plans live when the narrative was edited, and after a read-ahead that failed', async () => {
@@ -1644,15 +1711,15 @@ describe('applyRecommendations', () => {
     { id: 'tpl', kind: 'template', section: 'template', templateName: 'Sinusitis' },
     { id: 'hpi', kind: 'hpi', section: 'hpi', text: 'HPI' },
     {
-      id: 'rm',
+      id: 'em',
       kind: 'action',
       section: 'assessment',
-      label: 'Removing diagnosis: Viral URI',
-      action: { kind: 'remove-diagnosis', display: 'Viral URI' },
+      label: 'Setting E&M level: 99213',
+      action: { kind: 'set-em-code', code: '99213' },
     },
   ];
 
-  /** A runner that settles each row from `applyOne`: nothing back is applied, an outcome is that outcome, a throw fails it. */
+  /** Settles each row from `applyOne`: no result means applied, an outcome is used as is, a throw fails it. */
   const runnerFrom =
     (applyOne: (rec: ScribeRecommendation) => Promise<StepOutcome | void>): RecommendationRunner =>
     async (recs, report) => {
@@ -1678,14 +1745,14 @@ describe('applyRecommendations', () => {
   });
 
   it('leaves the template out of the observations batch', () => {
-    expect(pendingObservationIds()).toEqual(['ros-1', 'dx-2', 'dx-1', 'hpi', 'rm']);
+    expect(pendingObservationIds()).toEqual(['ros-1', 'dx-2', 'dx-1', 'hpi', 'em']);
 
     useScribeRecommendationsStore.getState().setSelected('hpi', false);
     useScribeRecommendationsStore.getState().setItemStatus('dx-2', 'applied');
-    expect(pendingObservationIds()).toEqual(['ros-1', 'dx-1', 'rm']);
+    expect(pendingObservationIds()).toEqual(['ros-1', 'dx-1', 'em']);
   });
 
-  it('runs in a stable clinical order — template, removals, then the additions — and skips rows already applied', async () => {
+  it('runs in a stable clinical order — template, the typed rows, generic actions last — and skips rows already applied', async () => {
     const seen: string[] = [];
     useScribeRecommendationsStore.getState().setItemStatus('dx-2', 'applied');
 
@@ -1697,8 +1764,7 @@ describe('applyRecommendations', () => {
     );
 
     expect(result).toEqual({ applied: 5, skipped: 0, failed: 0 });
-    // the removal frees the primary before the add that takes it over
-    expect(seen).toEqual(['tpl', 'rm', 'hpi', 'dx-1', 'ros-1']);
+    expect(seen).toEqual(['tpl', 'hpi', 'dx-1', 'ros-1', 'em']);
     const { itemState, isApplying } = useScribeRecommendationsStore.getState();
     expect(isApplying).toBe(false);
     expect(itemState['tpl'].status).toBe('applied');
@@ -1763,7 +1829,7 @@ describe('applyRecommendations', () => {
 describe('appendToNoteField', () => {
   const hpi: ScribeRecommendation = { id: 'hpi', kind: 'hpi', section: 'hpi', text: 'Sinus pressure x 1 week.' };
   // The chart after the template has written the HPI — stored under the chiefComplaint key.
-  const written = buildExecutorSnapshot({
+  const written = buildChartSnapshot({
     patientId: 'p-1',
     chiefComplaint: { resourceId: 'cc-1', text: 'Template HPI.' },
   } as GetChartDataResponse);
@@ -1777,7 +1843,7 @@ describe('appendToNoteField', () => {
   });
 
   it('writes the text as is into an empty field, and over a written one when the row is set to replace', () => {
-    const empty = buildExecutorSnapshot(undefined);
+    const empty = buildChartSnapshot(undefined);
     expect(appendToNoteField(toPlannedAction(hpi), hpi, empty).newText).toBe('Sinus pressure x 1 week.');
     expect(appendToNoteField(toPlannedAction(hpi), hpi, written, 'replace').newText).toBe('Sinus pressure x 1 week.');
   });
@@ -1790,7 +1856,7 @@ describe('appendToNoteField', () => {
       section: 'assessment',
       text: 'Supportive care.',
     };
-    const chart = buildExecutorSnapshot({
+    const chart = buildChartSnapshot({
       patientId: 'p-1',
       medicalDecision: { resourceId: 'mdm-1', text: 'Likely viral.' },
       // the row under the historyOfPresentIllness key is the chief complaint, not the HPI
@@ -1835,7 +1901,7 @@ describe('PickerDialog', () => {
 });
 
 describe('isAlreadyCharted', () => {
-  const snapshot = buildChartSnapshot({
+  const snapshot = buildChartedState({
     chartData: {
       diagnosis: [{ code: 'J01.90', display: 'Acute sinusitis, unspecified', isPrimary: true }],
       allergies: [
@@ -1898,7 +1964,7 @@ describe('isAlreadyCharted', () => {
       })
     ).toBe(false);
     // the words are in that card's comment, up to case and punctuation — the executor's own dedupe rule
-    const noted = { kind: 'none' as const, sectionKey: 'lungs', sectionLabel: 'Lungs', commentField: 'lungs-comment' };
+    const noted = { kind: 'none' as const, sectionLabel: 'Lungs', commentField: 'lungs-comment' };
     expect(charted({ kind: 'exam', display: 'Malodorous', resolution: noted })).toBe(true);
     expect(
       charted({ kind: 'exam', display: 'Malodorous', resolution: { ...noted, commentField: 'ears-comment' } })
@@ -1942,7 +2008,7 @@ describe('isAlreadyCharted', () => {
   });
 
   it('treats any weight on the encounter as the weight suggestion being charted', () => {
-    const withWeight = buildChartSnapshot({
+    const withWeight = buildChartedState({
       chartData: {},
       rosObservations: {},
       examObservations: {},
@@ -1951,5 +2017,23 @@ describe('isAlreadyCharted', () => {
     });
     expect(isAlreadyCharted({ kind: 'vital-weight', weightLbs: 170 } as ScribeRecommendation, withWeight)).toBe(true);
     expect(charted({ kind: 'vital-weight', weightLbs: 170 })).toBe(false);
+  });
+});
+
+describe('AI-added marks', () => {
+  beforeEach(() => resetStore());
+
+  it('shows the marks only on the visit the panel session belongs to', () => {
+    const allergy = { id: 'plan:add-allergy:penicillin', kind: 'allergy', name: 'Penicillin', section: 'allergies' };
+    useScribeRecommendationsStore.setState({
+      encounterId: 'encounter-1',
+      recommendations: [allergy as ScribeRecommendation],
+      itemState: { [allergy.id]: { selected: true, status: 'applied' } },
+    });
+    expect(renderHook(() => useAiAddedRecommendations()).result.current.map((rec) => rec.id)).toEqual([allergy.id]);
+
+    // the note of another visit (the mocked visit is encounter-1) shows none of this session's marks
+    useScribeRecommendationsStore.setState({ encounterId: 'encounter-2' });
+    expect(renderHook(() => useAiAddedRecommendations()).result.current).toEqual([]);
   });
 });

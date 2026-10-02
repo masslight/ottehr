@@ -1,23 +1,8 @@
-// The transcript → narrative prompt: turn an ambient recording (or the intake chat) into the dictation
-// the planner expects.
-//
-// WHY A SEPARATE STEP. The planner (prompt.ts) is tuned to read a provider's own NARRATIVE and every
-// action it returns carries a verbatim `sourceText` checked against that narrative. Fed a raw dialogue
-// transcript it works, but the provider then edits a wall of "Provider: / Patient:" turns and the
-// provenance quotes point into the middle of a conversation. Generating a terse, line-per-fact narrative
-// first gives the provider something they can actually edit before charting, and it gives provenance two
-// hops: action → narrative line → transcript phrase.
-//
-// The rules below are written for THIS register and are deliberately not the planner's — those are about
-// which action to emit; these are about what a sentence of dictation may say. The three that carry over
-// (same-patient only, never invent negatives, verbatim provenance or nothing) are restated here in
-// narrative terms rather than imported, so each prompt reads whole.
-//
-// STRUCTURE: the rules are static and come first; the transcript, which varies per call, comes LAST
-// under a clear delimiter — the same prefix-caching rule as prompt.ts, and it also keeps a transcript
-// that happens to contain instruction-shaped text from reading as instructions.
+// Prompt that turns an ambient transcript (or intake chat) into the terse, line-per-fact dictation the planner
+// expects, giving provenance two hops: action → narrative line → transcript snippet. The transcript comes last,
+// under a delimiter, for prefix caching and so instruction-like transcript text is not read as instructions.
 
-export const NARRATIVE_TRANSCRIPT_DELIMITER = '═══ END OF INSTRUCTIONS — the TRANSCRIPT to dictate from follows ═══';
+const NARRATIVE_TRANSCRIPT_DELIMITER = '═══ END OF INSTRUCTIONS — the TRANSCRIPT to dictate from follows ═══';
 
 const NARRATIVE_PREAMBLE = `You are a provider dictating a clinical visit to a scribe, working from the raw transcript of that visit.
 The transcript is an ambient recording of the room (or a patient intake chat) and appears at the END of this

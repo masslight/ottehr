@@ -8,16 +8,13 @@ import { NoteMode } from './types';
 
 const testIds = dataTestIds.scribeRecommendations;
 
-/**
- * Marks the menu's portal so the editor knows a click or a focus in it is still inside the row: the menu
- * is rendered under the body, where the click-away and blur guards would otherwise take it for a way out.
- */
+/** Marks the portalled menu so the editor's click-away and blur guards treat it as inside the row. */
 export const NOTE_MODE_MENU_CLASS = 'scribe-note-mode-menu';
 
 interface NoteModeChipProps {
   id: string;
   mode: NoteMode;
-  /** How much the field already holds. Nothing means the choice is only add or skip. */
+  /** Word count already in the field; without it the only choices are add or skip. */
   existingWords?: number;
   disabled?: boolean;
 }
@@ -28,7 +25,6 @@ interface NoteModeOption {
   hint: string;
 }
 
-/** The choices for a field that already holds text, in the order they are offered. */
 const optionsFor = (existingWords: number | undefined): NoteModeOption[] =>
   existingWords
     ? [
@@ -37,15 +33,14 @@ const optionsFor = (existingWords: number | undefined): NoteModeOption[] =>
         { mode: 'skip', label: 'Skip', hint: 'Leaves the note as it is' },
       ]
     : [
-        // An empty field has nothing to append to or replace: the text simply goes in, or it doesn't.
+        // An empty field has nothing to append to or replace.
         { mode: 'append', label: 'Add', hint: 'Adds to the empty field' },
         { mode: 'skip', label: 'Skip', hint: 'Leaves the note as it is' },
       ];
 
 /**
- * A note row's tick, as a chip: how its paragraph lands in a field that may already hold text. It stands
- * where "Already charted" would, reads as the mode word, and opens a menu of the modes on click. The click
- * is the chip's own — it must not open the row's editor, which any other click on the line does.
+ * A note row's tick: a chip showing how its paragraph lands in the field, with a menu of modes. Its clicks
+ * stop propagating so they don't open the row's editor.
  */
 export const NoteModeChip: FC<NoteModeChipProps> = ({ id, mode, existingWords, disabled }) => {
   const setNoteMode = useScribeRecommendationsStore((state) => state.setNoteMode);
@@ -86,8 +81,7 @@ export const NoteModeChip: FC<NoteModeChipProps> = ({ id, mode, existingWords, d
         anchorEl={anchor}
         open={Boolean(anchor)}
         onClose={() => setAnchor(null)}
-        // A click in the menu — an item, or the backdrop closing it — bubbles through the portal to the row,
-        // which would open the editor.
+        // Clicks in the menu (items or backdrop) bubble through the portal to the row and would open the editor.
         onClick={(event) => event.stopPropagation()}
         className={NOTE_MODE_MENU_CLASS}
         data-testid={testIds.noteModeMenu(id)}

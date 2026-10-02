@@ -1,17 +1,16 @@
-// Batch runner: every synthetic case through the real chart-plan endpoint, scored deterministically.
+// Runs every synthetic case in ./cases through the chart-plan endpoint and scores the plans deterministically.
+// Local tool only: an LLM judge belongs here too, not in a zambda where any project token could spend model budget.
 //
-// A LOCAL TOOL, never a deployed endpoint. The LLM judge that will eventually score free text and
-// semantics belongs here too — in the first implementation it shipped as a normal authenticated
-// zambda, which means anyone holding a project token could spend model budget scoring arbitrary
-// text.
-//
-// Usage:
+// Usage (without --token, an M2M token is minted from the zambda secrets, as run-harvested.ts does):
+//   npx env-cmd -f packages/zambdas/.env/zambda-secrets-local.json npx tsx tools/easy-chart-eval/run.ts
 //   npx tsx tools/easy-chart-eval/run.ts --url http://localhost:3000 --token "$TOKEN"
 //   npx tsx tools/easy-chart-eval/run.ts --case case-07          # one case
 //   npx tsx tools/easy-chart-eval/run.ts --out tools/easy-chart-eval/harvested-results
 //
-// The output directory is gitignored: results contain the generated note, which for a harvested case
-// is PHI. The synthetic cases in ./cases are not, which is why they are committed.
+// Scoring is pass/fail against expectations.ts. report.ts compares run-harvested.ts runs, not these.
+//
+// PHI: output directories are gitignored because results contain the generated note, which is PHI for a
+// harvested case. The synthetic cases in ./cases contain no PHI and are committed.
 
 import { readFileSync } from 'node:fs';
 import { mkdir, writeFile } from 'node:fs/promises';
@@ -21,6 +20,7 @@ import { ChartPlanRequest, ChartPlanResponse } from 'utils/lib/easy-chart/api';
 import { EvalViolation, scorePlan, scoreProvenance } from 'utils/lib/easy-chart/eval-scorer';
 import { quoteOccursInNarrative } from 'utils/lib/easy-chart/provenance';
 import { EVAL_CASES } from './expectations';
+import { mintToken } from './token';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
@@ -38,9 +38,6 @@ function parseArgs(argv: string[]): Options {
   };
   const url = get('--url') ?? process.env.EASY_CHART_EVAL_URL ?? 'http://localhost:3000';
   const token = get('--token') ?? process.env.EASY_CHART_EVAL_TOKEN ?? '';
-  if (!token) {
-    throw new Error('A bearer token is required: pass --token or set EASY_CHART_EVAL_TOKEN');
-  }
   return { url, token, caseId: get('--case'), outDir: get('--out') };
 }
 
@@ -68,6 +65,10 @@ async function main(): Promise<void> {
   const options = parseArgs(process.argv.slice(2));
   const cases = options.caseId ? EVAL_CASES.filter((c) => c.id === options.caseId) : EVAL_CASES;
   if (cases.length === 0) throw new Error(`No case matched "${options.caseId}"`);
+  if (!options.token) {
+    options.token = await mintToken();
+    console.log('Minted an M2M token from the environment.');
+  }
 
   let totalViolations = 0;
   let totalInputTokens = 0;

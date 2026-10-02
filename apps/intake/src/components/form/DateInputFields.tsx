@@ -1,7 +1,7 @@
 import { FormControl, Grid, Input, InputBaseProps, InputLabel, MenuItem, Select, useMediaQuery } from '@mui/material';
 import { RefCallBack } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
-import { BoldPurpleInputLabel } from 'ui-components/lib/components/paperwork/form-components';
+import { BoldPurpleInputLabel } from 'ui-components/lib/components/paperwork/form-components/BoldPurpleInputLabel';
 import { months } from 'utils/lib/types/common';
 import { breakpoints } from '../../providers/IntakeThemeProviderBase';
 

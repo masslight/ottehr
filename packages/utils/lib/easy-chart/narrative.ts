@@ -1,13 +1,8 @@
-// The generated narrative as it is STORED beside a transcript, and the two reads the client makes of a
-// transcript DocumentReference: the transcript text itself, and the narrative the recording pipeline
-// generated from it.
-//
-// A transcript document is a DocumentReference carrying an inline attachment titled 'Transcript' — the
-// shape both the ambient-scribe recording and the intake chatbot leave on the encounter (see
-// createDocumentReference in zambdas/src/shared/ai.ts). The narrative rides on the same document as an
-// extension, so it is ready when Easy Chart opens and needs no second call.
+// Reads a transcript DocumentReference (an inline attachment titled 'Transcript') and the generated narrative
+// stored on it as an extension, so the narrative is ready when Easy Chart opens without a second call.
 
 import { DocumentReference } from 'fhir/r4b';
+import { z } from 'zod';
 import { PUBLIC_EXTENSION_BASE_URL } from '../fhir/constants';
 import { NarrativeLine } from './api';
 
@@ -16,11 +11,19 @@ export const EASY_CHART_NARRATIVE_EXTENSION_URL = `${PUBLIC_EXTENSION_BASE_URL}/
 export const TRANSCRIPT_ATTACHMENT_TITLE = 'Transcript';
 
 /** What the extension's valueString holds. Versioned so a later shape can be told from this one. */
-export interface StoredNarrative {
+interface StoredNarrative {
   version: 1;
   generatedAt: string;
   lines: NarrativeLine[];
 }
+
+const StoredNarrativeSchema = z.object({ version: z.literal(1), lines: z.array(z.unknown()) });
+
+const StoredLineSchema = z.object({
+  text: z.string().refine((text) => text.trim() !== ''),
+  sources: z.array(z.string()),
+  approximateSource: z.string().optional(),
+}) satisfies z.ZodType<NarrativeLine>;
 
 /** The transcript text of a transcript document, decoded; undefined when the document carries none. */
 export function transcriptTextOf(doc: DocumentReference): string | undefined {
@@ -36,23 +39,24 @@ export function isTranscriptDocument(doc: DocumentReference): boolean {
 }
 
 /**
- * The narrative stored on a transcript document, or undefined when there is none or it cannot be read.
- * A malformed payload counts as absent: the stored narrative is a convenience, and the client generates
- * one on demand when it is missing.
+ * The stored narrative, or undefined when absent or malformed; the client then generates one on demand.
+ * A malformed line is dropped rather than discarding the whole narrative.
  */
 export function storedNarrativeOf(doc: DocumentReference): NarrativeLine[] | undefined {
   const raw = doc.extension?.find((e) => e.url === EASY_CHART_NARRATIVE_EXTENSION_URL)?.valueString;
   if (!raw) return undefined;
+  let json: unknown;
   try {
-    const parsed = JSON.parse(raw) as Partial<StoredNarrative>;
-    if (parsed.version !== 1 || !Array.isArray(parsed.lines)) return undefined;
-    return parsed.lines.filter(
-      (line): line is NarrativeLine =>
-        typeof line?.text === 'string' && line.text.trim() !== '' && Array.isArray(line.sources)
-    );
+    json = JSON.parse(raw);
   } catch {
     return undefined;
   }
+  const stored = StoredNarrativeSchema.safeParse(json);
+  if (!stored.success) return undefined;
+  return stored.data.lines.flatMap((line) => {
+    const parsed = StoredLineSchema.safeParse(line);
+    return parsed.success ? [parsed.data] : [];
+  });
 }
 
 /** The extension the pipeline stamps on a transcript document once its narrative is generated. */

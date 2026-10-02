@@ -16,7 +16,6 @@ export const useOystehrAPIClient = (): ReturnType<typeof getOystehrTelemedAPI> |
           saveChartDataZambdaID: 'save-chart-data',
           deleteChartDataZambdaID: 'delete-chart-data',
           easyChartPlanZambdaID: 'easy-chart-plan',
-          easyChartReviewZambdaID: 'easy-chart-review',
           easyChartNarrativeZambdaID: 'easy-chart-narrative',
           easyChartSaveTranscriptZambdaID: 'easy-chart-save-transcript',
           changeInPersonVisitStatusZambdaID: 'change-in-person-visit-status',
