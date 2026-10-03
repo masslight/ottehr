@@ -20,6 +20,8 @@ import {
   Select,
   TextField,
   Typography,
+  useScrollTrigger,
+  useTheme,
 } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
@@ -51,7 +53,8 @@ import { DateInput } from '../components/DateInput';
 import { AssociateClaimDialog } from '../components/era/AssociateClaimDialog';
 import { ManualEraClaimCard } from '../components/era/ManualEraClaimCard';
 import { ManualEraClaimDialog } from '../components/era/ManualEraClaimDialog';
-import { RemitReconciliation } from '../components/era/RemitReconciliation';
+import { RemitBalanceChip, RemitReconciliation } from '../components/era/RemitReconciliation';
+import { MAIN_PADDING_Y } from '../components/Layout';
 import { MatchClaimDialog } from '../components/MatchClaimDialog';
 import { PayerSelect } from '../components/PayerSelect';
 import { ProviderSelect } from '../components/ProviderSelect';
@@ -90,6 +93,14 @@ const SCAN_MAX_BYTES = 20 * 1024 * 1024;
 // what a stored claim looked like when last saved, to tell edited cards apart
 const snapshotOf = (claim: ClaimForm): string => JSON.stringify({ ...claimFormToInput(claim), clientKey: undefined });
 const cardId = (claim: ClaimForm): string => claim.claimResponseId ?? claim.key;
+
+// The header sticks flush with the top of Layout's scrolling <main>. Sticky offsets count from inside
+// main's padding, hence a negative top. The header reaches this far up into that padding, which is the
+// room it keeps above the title once stuck.
+const HEADER_TOP_ROOM = 2;
+// Fields scrolled into view (tabbing back up the page, say) stop this far below the top, clear of the
+// stuck header.
+const CLEAR_OF_HEADER = { '& input, & textarea, & button, & [tabindex]': { scrollMarginTop: 96 } };
 
 const isVersionConflict = (error: unknown): boolean =>
   (error as { output?: { code?: number } } | undefined)?.output?.code === APIErrorCode.MANUAL_ERA_VERSION_CONFLICT ||
@@ -152,6 +163,15 @@ export default function ManualRemit(): ReactElement {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [saveError, setSaveError] = useState<string | null>(null);
   useRevealFirstError(submitCount, errors);
+  // Layout's <main> is what scrolls; the header shows a divider once the page scrolls under it
+  const theme = useTheme();
+  const [scroller, setScroller] = useState<HTMLElement | undefined>();
+  const pageRef = useCallback((page: HTMLElement | null) => setScroller(page?.closest('main') ?? undefined), []);
+  const scrolledUnder = useScrollTrigger({
+    target: scroller,
+    disableHysteresis: true,
+    threshold: parseFloat(theme.spacing(MAIN_PADDING_Y - HEADER_TOP_ROOM)),
+  });
   const [duplicateCheckWarning, setDuplicateCheckWarning] = useState<string | null>(null);
   // one per page visit, so a retried create returns the remit the first attempt made
   const [idempotencyKey] = useState(() => globalThis.crypto?.randomUUID?.() ?? newKey());
@@ -410,46 +430,71 @@ export default function ManualRemit(): ReactElement {
   }
 
   return (
-    <Box sx={{ p: 0 }}>
-      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, mb: 2 }}>
-        <Button
-          onClick={() => leave(eraId ? `/eras/${eraId}` : '/eras')}
-          aria-label="Back"
-          sx={{ minWidth: 0, mt: 0.25, color: 'text.secondary' }}
-        >
-          <ArrowBackIcon />
-        </Button>
-        <Box sx={{ flexGrow: 1 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+    <Box ref={pageRef} sx={CLEAR_OF_HEADER}>
+      <Box
+        data-testid="remit-header"
+        sx={{
+          position: 'sticky',
+          top: theme.spacing(-MAIN_PADDING_Y),
+          zIndex: 'appBar',
+          bgcolor: 'background.default',
+          mt: -HEADER_TOP_ROOM,
+          pt: HEADER_TOP_ROOM,
+          pb: 1,
+          borderBottom: 1,
+          borderColor: scrolledUnder ? 'divider' : 'transparent',
+        }}
+      >
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Button
+            onClick={() => leave(eraId ? `/eras/${eraId}` : '/eras')}
+            aria-label="Back"
+            sx={{ minWidth: 0, color: 'text.secondary' }}
+          >
+            <ArrowBackIcon />
+          </Button>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap', flexGrow: 1 }}>
             <Typography variant="h4" color="primary.dark" fontWeight={600}>
               {title}
             </Typography>
             <Chip label="Source: Manual" color="primary" variant="outlined" size="small" sx={{ borderRadius: '4px' }} />
           </Box>
-          {detail?.enteredBy && (
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-              Entered by {detail.enteredBy}
-              {detail.enteredAt ? ` on ${formatDate(detail.enteredAt.slice(0, 10))}` : ''}
-            </Typography>
-          )}
+          {/* how far the claims keyed so far are from the check, in view however far down the biller is */}
+          {eraId && <RemitBalanceChip differenceCents={reconciliation.differenceCents} />}
+          <Button
+            variant="contained"
+            startIcon={isSubmitting ? <CircularProgress size={14} color="inherit" /> : <SaveIcon />}
+            onClick={() => void save()}
+            disabled={isSubmitting || (!!eraId && !dirty)}
+            sx={{ ml: 1 }}
+          >
+            {isSubmitting ? 'Saving...' : 'Save'}
+          </Button>
         </Box>
-        <Button
-          variant="contained"
-          startIcon={isSubmitting ? <CircularProgress size={14} color="inherit" /> : <SaveIcon />}
-          onClick={() => void save()}
-          disabled={isSubmitting || (!!eraId && !dirty)}
-        >
-          {isSubmitting ? 'Saving...' : 'Save'}
-        </Button>
+        {/* here rather than below the header, so a save made far down the page shows why it failed */}
+        {saveError && (
+          <Alert severity="error" sx={{ mt: 1.5 }} onClose={() => setSaveError(null)}>
+            {saveError}
+          </Alert>
+        )}
       </Box>
-
-      {saveError && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setSaveError(null)}>
-          {saveError}
-        </Alert>
+      {detail?.enteredBy && (
+        // under the title, scrolling away with the page
+        <Typography variant="body2" color="text.secondary" sx={{ pl: 6, mt: -0.5 }}>
+          Entered by {detail.enteredBy}
+          {detail.enteredAt ? ` on ${formatDate(detail.enteredAt.slice(0, 10))}` : ''}
+        </Typography>
       )}
 
-      <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', lg: '2fr 1fr' }, alignItems: 'start' }}>
+      <Box
+        sx={{
+          mt: detail?.enteredBy ? 2 : 1,
+          display: 'grid',
+          gap: 2,
+          gridTemplateColumns: { xs: '1fr', lg: '2fr 1fr' },
+          alignItems: 'start',
+        }}
+      >
         <Card variant="outlined">
           <CardContent sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             <Typography variant="h6" color="primary.dark" fontWeight={600} fontSize={16}>

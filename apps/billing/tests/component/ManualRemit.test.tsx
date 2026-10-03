@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { ReactNode } from 'react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { EraDetailResponse } from 'utils/lib/types/data/billing/billing.types';
+import { APIErrorCode } from 'utils/lib/types/errors';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import ManualRemit from '../../src/pages/ManualRemit';
 
@@ -146,6 +147,8 @@ describe('ManualRemit', () => {
     // the cursor goes to the first one
     await waitFor(() => expect(screen.getByLabelText('Payer')).toHaveFocus());
     expect(api.saveBillingManualEra).not.toHaveBeenCalled();
+    // nothing to balance until the remit exists and its claims are keyed
+    expect(within(screen.getByTestId('remit-header')).queryByText(/^(Off by|Balanced)/)).not.toBeInTheDocument();
     // claims and attachments hang off the saved remit
     expect(
       screen.getAllByRole('button', { name: 'Add' }).every((button) => (button as HTMLButtonElement).disabled)
@@ -215,8 +218,12 @@ describe('ManualRemit', () => {
     expect(reconciliation.getByText('$51,000.45')).toBeInTheDocument();
     expect(reconciliation.getByText('$50.00')).toBeInTheDocument();
     expect(reconciliation.getByText('Off by $50,950.45')).toBeInTheDocument();
+    // the header, with Save and the balance, stays at the top of the page as it scrolls
+    const header = screen.getByTestId('remit-header');
+    expect(header).toHaveStyle({ position: 'sticky' });
+    expect(within(header).getByText('Off by $50,950.45')).toBeInTheDocument();
     // nothing changed yet
-    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+    expect(within(header).getByRole('button', { name: 'Save' })).toBeDisabled();
   });
 
   it('saves only the claims edited in place', async () => {
@@ -232,6 +239,8 @@ describe('ManualRemit', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Expand claim' }));
     type('Ins Paid', '60');
     expect(screen.getByText('Unsaved changes')).toBeInTheDocument();
+    // the balance in the header follows the claims as they're keyed
+    expect(within(screen.getByTestId('remit-header')).getByText('Off by $50,940.45')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
     await waitFor(() => expect(api.saveBillingManualEra).toHaveBeenCalledTimes(1));
@@ -240,6 +249,20 @@ describe('ManualRemit', () => {
     expect(request.header).toBeUndefined();
     expect(request.claims).toHaveLength(1);
     expect(request.claims[0]).toMatchObject({ claimResponseId: 'cr-1', serviceLines: [{ paidCents: 6000 }] });
+  });
+
+  it('shows why a save failed in the header, in view however far down the biller saved from', async () => {
+    api.getBillingEraDetail.mockResolvedValue(savedRemit());
+    api.saveBillingManualEra.mockRejectedValue({ output: { code: APIErrorCode.MANUAL_ERA_VERSION_CONFLICT } });
+    renderAt('/eras/era-1/edit');
+    await screen.findByText('Joe Schmoe');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Expand claim' }));
+    type('Ins Paid', '60');
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    const alert = await within(screen.getByTestId('remit-header')).findByRole('alert');
+    expect(alert).toHaveTextContent('Someone else saved this remit since you opened it');
   });
 
   it('opens the claim a save found incomplete and puts the cursor on the field to fix', async () => {
