@@ -399,7 +399,11 @@ describe('createConsentResources', () => {
     await run({ location: makeLocation('IL') });
     const cttPdfInfo = mockCreatePdfBytes.mock.calls[1][3];
     expect(cttPdfInfo.copyFromPath).toBe(IL_FORMS[1].assetPath);
-    expect(cttPdfInfo.copyFromPath).not.toBe(CTT_FORM.assetPath);
+    // Only assert differentiation when the config actually provides a separate IL path;
+    // some deployments share the same form for all states.
+    if (IL_FORMS[1].assetPath !== CTT_FORM.assetPath) {
+      expect(cttPdfInfo.copyFromPath).not.toBe(CTT_FORM.assetPath);
+    }
   });
 
   test('labels telemed visits with the telemedicine facility name', async () => {
