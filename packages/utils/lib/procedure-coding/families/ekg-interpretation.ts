@@ -4,7 +4,7 @@
  * them. The sentences, choice lists and cut-offs are data in ekg-templates.ts. Plain rules on the typed
  * numbers: nothing reads the tracing.
  */
-import { isSentenceBlank, SentenceBlank, SentenceSegment } from '../../helpers/suggested-sentences';
+import { isSentenceBlank, parseTemplate, SentenceBlank, SentenceSegment } from '../../helpers/suggested-sentences';
 import { readNumber, readStrings, StructuredFacts } from '../structured-fields';
 import {
   EKG_FINDINGS,
@@ -120,12 +120,7 @@ const fillTokens = (text: string, values: Record<string, string | number | undef
 
 /** The template's text as segments: typed numbers in place, every other token a blank on its default. */
 function templateSegments(template: EkgTemplate, numbers: EkgMeasurements, found: EkgFinding[]): SentenceSegment[] {
-  const segments: SentenceSegment[] = [];
-  let cursor = 0;
-  for (const match of template.text.matchAll(TOKEN)) {
-    const [token, name] = match;
-    segments.push(template.text.slice(cursor, match.index));
-    cursor = (match.index ?? 0) + token.length;
+  return parseTemplate(template.text, (name) => {
     const blank = template.blanks?.[name];
     if (blank) {
       const byFinding = found.map((finding) => blank.initial?.[finding]).find((initial) => initial !== undefined);
@@ -136,15 +131,12 @@ function templateSegments(template: EkgTemplate, numbers: EkgMeasurements, found
         initial: byFinding ?? blank.options[0],
         fieldValue: blank.fieldValue,
       };
-      segments.push(segment);
-    } else {
-      const number = numbers[name as keyof EkgMeasurements];
-      if (number === undefined) throw new Error(`EKG template "${template.id}" uses an unknown token {${name}}`);
-      segments.push({ number: String(number) });
+      return segment;
     }
-  }
-  segments.push(template.text.slice(cursor));
-  return segments.filter((segment) => segment !== '');
+    const number = numbers[name as keyof EkgMeasurements];
+    if (number === undefined) throw new Error(`EKG template "${template.id}" uses an unknown token {${name}}`);
+    return { number: String(number) };
+  });
 }
 
 /**

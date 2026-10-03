@@ -48,3 +48,37 @@ export const assembleSentence = (segments: SentenceSegment[], values: (string | 
     .replace(/\s+/g, ' ')
     .replace(/ \./g, '.')
     .trim();
+
+/**
+ * A template's text as segments: the literal text between `{name}` tokens, and in each token's place what
+ * `resolve` returns for its name (a blank, a number, fixed text, or `undefined` to drop it). Adjacent literals
+ * are merged, runs of whitespace collapsed and the ends trimmed, so the segments read the same on screen as the
+ * assembled sentence does.
+ */
+export const parseTemplate = (
+  text: string,
+  resolve: (name: string) => SentenceSegment | undefined
+): SentenceSegment[] => {
+  const segments: SentenceSegment[] = [];
+  const push = (segment: SentenceSegment): void => {
+    const last = segments[segments.length - 1];
+    if (typeof segment === 'string' && typeof last === 'string') segments[segments.length - 1] = last + segment;
+    else segments.push(segment);
+  };
+  let cursor = 0;
+  for (const match of text.matchAll(/\{(\w+)\}/g)) {
+    const [token, name] = match;
+    push(text.slice(cursor, match.index));
+    cursor = (match.index ?? 0) + token.length;
+    const segment = resolve(name);
+    if (segment !== undefined) push(segment);
+  }
+  push(text.slice(cursor));
+  return segments
+    .map((segment, i) => {
+      if (typeof segment !== 'string') return segment;
+      const literal = segment.replace(/\s+/g, ' ');
+      return i === 0 ? literal.trimStart() : i === segments.length - 1 ? literal.trimEnd() : literal;
+    })
+    .filter((segment) => segment !== '');
+};
