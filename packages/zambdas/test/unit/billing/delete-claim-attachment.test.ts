@@ -9,6 +9,8 @@ vi.mock('../../../src/billing/shared', async (importOriginal) => ({
   fetchById: vi.fn(),
 }));
 
+const SECRETS = { PROJECT_API: 'https://project-api.zapehr.com/v1', PROJECT_ID: 'project-id' };
+
 function makeClient(): Oystehr {
   return {
     fhir: {
@@ -42,11 +44,12 @@ describe('delete-claim-attachment', () => {
         resourceType: 'DocumentReference',
         id: 'document-reference-id',
         status: 'current',
+        context: { related: [{ reference: 'Claim/claim-id' }] },
         content: [],
       });
     const oystehr = makeClient();
     await expect(() =>
-      performEffect(oystehr, { claimId: 'claim-id', documentReferenceId: 'document-reference-id', secrets: {} })
+      performEffect(oystehr, { claimId: 'claim-id', documentReferenceId: 'document-reference-id', secrets: SECRETS })
     ).rejects.toThrowErrorMatchingInlineSnapshot(`
       {
         "code": 4340,
@@ -72,6 +75,7 @@ describe('delete-claim-attachment', () => {
         resourceType: 'DocumentReference',
         id: 'document-reference-id',
         status: 'current',
+        context: { related: [{ reference: 'Claim/claim-id' }] },
         content: [
           {
             attachment: {
@@ -83,7 +87,7 @@ describe('delete-claim-attachment', () => {
       });
     const oystehr = makeClient();
     await expect(
-      performEffect(oystehr, { claimId: 'claim-id', documentReferenceId: 'document-reference-id', secrets: {} })
+      performEffect(oystehr, { claimId: 'claim-id', documentReferenceId: 'document-reference-id', secrets: SECRETS })
     ).rejects.toThrowErrorMatchingInlineSnapshot(`
       {
         "code": 4340,
@@ -109,6 +113,7 @@ describe('delete-claim-attachment', () => {
         resourceType: 'DocumentReference',
         id: 'document-reference-id',
         status: 'current',
+        context: { related: [{ reference: 'Claim/claim-id' }] },
         content: [
           {
             attachment: {
@@ -121,7 +126,7 @@ describe('delete-claim-attachment', () => {
       });
     const oystehr = makeClient();
     await expect(
-      performEffect(oystehr, { claimId: 'claim-id', documentReferenceId: 'document-reference-id', secrets: {} })
+      performEffect(oystehr, { claimId: 'claim-id', documentReferenceId: 'document-reference-id', secrets: SECRETS })
     ).rejects.toThrowErrorMatchingInlineSnapshot(`
       {
         "code": 4340,
@@ -147,10 +152,11 @@ describe('delete-claim-attachment', () => {
         resourceType: 'DocumentReference',
         id: 'document-reference-id',
         status: 'current',
+        context: { related: [{ reference: 'Claim/claim-id' }] },
         content: [
           {
             attachment: {
-              url: 'https://project-api.zapehr.com/v1/z3/some-bucket/some-path/File.pdf',
+              url: 'https://project-api.zapehr.com/v1/z3/project-id-billing-app/claim-attachments/claim-id/File.pdf',
               contentType: 'application/pdf',
               title: 'File.pdf',
             },
@@ -159,7 +165,7 @@ describe('delete-claim-attachment', () => {
       });
     const oystehr = makeClient();
     await expect(
-      performEffect(oystehr, { claimId: 'claim-id', documentReferenceId: 'document-reference-id', secrets: {} })
+      performEffect(oystehr, { claimId: 'claim-id', documentReferenceId: 'document-reference-id', secrets: SECRETS })
     ).rejects.toThrowErrorMatchingInlineSnapshot(`
       {
         "code": 4340,
@@ -194,10 +200,11 @@ describe('delete-claim-attachment', () => {
         resourceType: 'DocumentReference',
         id: 'document-reference-id',
         status: 'current',
+        context: { related: [{ reference: 'Claim/claim-id' }] },
         content: [
           {
             attachment: {
-              url: 'https://project-api.zapehr.com/v1/z3/some-bucket/some-path/File.pdf',
+              url: 'https://project-api.zapehr.com/v1/z3/project-id-billing-app/claim-attachments/claim-id/File.pdf',
               contentType: 'application/pdf',
               title: 'File.pdf',
             },
@@ -209,11 +216,14 @@ describe('delete-claim-attachment', () => {
       performEffect(oystehr, {
         claimId: 'claim-id',
         documentReferenceId: 'document-reference-id',
-        secrets: { PROJECT_API: 'https://project-api.zapehr.com/v1' },
+        secrets: SECRETS,
       })
     ).resolves.toBeUndefined();
     expect(oystehr.z3.deleteObject).toBeCalledTimes(1);
-    expect(oystehr.z3.deleteObject).toBeCalledWith({ bucketName: 'some-bucket', 'objectPath+': 'some-path/File.pdf' });
+    expect(oystehr.z3.deleteObject).toBeCalledWith({
+      bucketName: 'project-id-billing-app',
+      'objectPath+': 'claim-attachments/claim-id/File.pdf',
+    });
     expect(oystehr.fhir.transaction).toBeCalledTimes(1);
     expect(oystehr.fhir.transaction).toBeCalledWith({
       requests: [
@@ -283,10 +293,11 @@ describe('delete-claim-attachment', () => {
         resourceType: 'DocumentReference',
         id: 'document-reference-id-2',
         status: 'current',
+        context: { related: [{ reference: 'Claim/claim-id' }] },
         content: [
           {
             attachment: {
-              url: 'https://project-api.zapehr.com/v1/z3/some-bucket/some-path/File.pdf',
+              url: 'https://project-api.zapehr.com/v1/z3/project-id-billing-app/claim-attachments/claim-id/File.pdf',
               contentType: 'application/pdf',
               title: 'File.pdf',
             },
@@ -298,11 +309,14 @@ describe('delete-claim-attachment', () => {
       performEffect(oystehr, {
         claimId: 'claim-id',
         documentReferenceId: 'document-reference-id-2',
-        secrets: { PROJECT_API: 'https://project-api.zapehr.com/v1' },
+        secrets: SECRETS,
       })
     ).resolves.toBeUndefined();
     expect(oystehr.z3.deleteObject).toBeCalledTimes(1);
-    expect(oystehr.z3.deleteObject).toBeCalledWith({ bucketName: 'some-bucket', 'objectPath+': 'some-path/File.pdf' });
+    expect(oystehr.z3.deleteObject).toBeCalledWith({
+      bucketName: 'project-id-billing-app',
+      'objectPath+': 'claim-attachments/claim-id/File.pdf',
+    });
     expect(oystehr.fhir.transaction).toBeCalledTimes(1);
     expect(oystehr.fhir.transaction).toBeCalledWith({
       requests: [

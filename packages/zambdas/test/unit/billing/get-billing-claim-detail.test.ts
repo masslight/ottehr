@@ -430,7 +430,6 @@ describe('get-billing-claim-detail performEffect: remits and insurance payments'
         checkDate: '2026-07-16',
         paymentAmount: 500,
         payerName: 'Acme Health',
-        status: 'active',
       },
     ]);
   });

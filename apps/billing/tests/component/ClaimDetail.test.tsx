@@ -169,7 +169,6 @@ const makeRemit = (overrides: Partial<ClaimRemit>): ClaimRemit => ({
   claimResponseId: 'cr-1',
   date: '2026-07-08T18:20:39.029Z',
   payerName: 'Test Payer',
-  status: 'complete',
   eraStatusCode: '1',
   allowed: 80,
   paid: 60,
@@ -197,6 +196,7 @@ const makeRemitLine = (overrides: Partial<EraRemitServiceLine>): EraRemitService
   coinsurance: 0,
   copay: 0,
   adjustments: [],
+  remarkCodes: [],
   ...overrides,
 });
 
@@ -207,7 +207,6 @@ const makePayment = (overrides: Partial<ClaimInsurancePayment>): ClaimInsuranceP
   checkDate: '2026-07-08',
   paymentAmount: 350,
   payerName: 'CIGNA',
-  status: 'active',
   ...overrides,
 });
 
@@ -770,7 +769,7 @@ describe('ClaimDetail — service line remit details', () => {
     expect(
       within(card).getByText('Charge exceeds fee schedule/maximum allowable or contracted/legislated fee arrangement.')
     ).toBeInTheDocument();
-    expect(within(card).getByText('Co-payment amount.')).toBeInTheDocument();
+    expect(within(card).getByText('Co-payment Amount')).toBeInTheDocument();
     expect(within(card).getByText('$40.21')).toBeInTheDocument();
     expect(within(card).getByText('CHK00012347')).toBeInTheDocument();
     expect(within(card).getByText('08/22/2026')).toBeInTheDocument();
@@ -787,7 +786,7 @@ describe('ClaimDetail — service line remit details', () => {
       expect(screen.getAllByRole('tooltip')).toHaveLength(1);
       expect(remitRow).toHaveClass('Mui-selected');
     });
-    expect(within(screen.getByRole('tooltip')).getByText('Co-payment amount.')).toBeInTheDocument();
+    expect(within(screen.getByRole('tooltip')).getByText('Co-payment Amount')).toBeInTheDocument();
     expect(checkRow).toHaveClass('Mui-selected');
 
     // leaving the remit's rows clears both

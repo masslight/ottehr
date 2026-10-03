@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ReactNode } from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
@@ -84,7 +84,6 @@ vi.mock('@mui/x-data-grid-pro', async (importOriginal) => {
 const matchedRemit: EraClaimRemit = {
   claimResponseId: 'cr-1',
   created: '2026-07-15',
-  outcome: 'complete',
   disposition: '',
   eraStatusCode: '1',
   payerClaimControlNumber: 'ICN-123',
@@ -99,7 +98,6 @@ const matchedRemit: EraClaimRemit = {
 const unmatchedRemit: EraClaimRemit = {
   claimResponseId: 'cr-2',
   created: '2026-07-15',
-  outcome: 'queued',
   disposition: '',
   eraStatusCode: '4',
   payerClaimControlNumber: '',
@@ -113,6 +111,14 @@ const unmatchedRemit: EraClaimRemit = {
 
 const makeEra = (): EraDetailResponse => ({
   id: 'era-1',
+  source: 'clearing-house',
+  versionId: '1',
+  remitDate: '',
+  depositDate: '',
+  notes: '',
+  enteredBy: '',
+  enteredAt: '',
+  attachments: [],
   checkNumber: 'CHK-100',
   checkDate: '2026-07-18',
   createdDate: '2026-07-20T10:00:00Z',
@@ -120,7 +126,6 @@ const makeEra = (): EraDetailResponse => ({
   payerName: 'Acme Insurance',
   payerFhirId: 'org-9',
   payee: { name: 'Ottehr Medical Group', npi: '1234567890', taxId: '123456789' },
-  status: 'complete',
   paymentMethod: 'CHK',
   totalClaims: 2,
   matchedClaims: 1,
@@ -139,7 +144,6 @@ const makeEra = (): EraDetailResponse => ({
       patientResp: 20,
       patientAccountNumber: 'abc123',
       memberId: '999000111',
-      status: 'complete',
       matched: true,
       claimResponseIds: ['cr-1'],
       remits: [matchedRemit],
@@ -156,7 +160,6 @@ const makeEra = (): EraDetailResponse => ({
       patientResp: 25,
       patientAccountNumber: 'ACC-7',
       memberId: '',
-      status: 'queued',
       matched: false,
       claimResponseIds: ['cr-2'],
       remits: [unmatchedRemit],
@@ -171,6 +174,7 @@ function renderDetail(): void {
         <Route path="/eras/:id" element={<ERADetail />} />
         <Route path="/eras" element={<div>ERA list</div>} />
         <Route path="/eras/:eraId/claims/:claimId" element={<div>Reimbursement page</div>} />
+        <Route path="/eras/:id/edit" element={<div>Manual remit editor</div>} />
       </Routes>
     </MemoryRouter>
   );
@@ -194,6 +198,46 @@ describe('ERADetail', () => {
     expect(screen.getByText('Ottehr Medical Group')).toBeInTheDocument();
     expect(screen.getByText('1234567890')).toBeInTheDocument();
     expect(screen.getByText('12-3456789')).toBeInTheDocument();
+  });
+
+  it('labels a clearing-house ERA and offers its X12, but no editing', async () => {
+    renderDetail();
+    expect(await screen.findByText('Clearing House')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Export X12' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument();
+    // BPR04 codes read as words
+    expect(screen.getByText('Check')).toBeInTheDocument();
+  });
+
+  it('shows a keyed-in remit with its paper details, scan and an Edit button', async () => {
+    getBillingEraDetailMock.mockResolvedValue({
+      ...makeEra(),
+      source: 'manual',
+      x12: '',
+      paymentMethod: 'ACH',
+      remitDate: '2026-09-13',
+      depositDate: '2026-09-14',
+      notes: 'Mailed remit',
+      enteredBy: 'biller@example.com',
+      enteredAt: '2026-09-13T15:00:00Z',
+      attachments: [
+        { id: 'doc-1', fileName: 'Remit.pdf', contentType: 'application/pdf', dateAdded: '2026-09-13T16:00:00Z' },
+      ],
+    });
+    renderDetail();
+
+    expect(await screen.findByText('Manual')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Export X12' })).not.toBeInTheDocument();
+    expect(screen.getByText('EFT')).toBeInTheDocument();
+    expect(screen.getByText('09/14/2026')).toBeInTheDocument();
+    expect(screen.getByText('biller@example.com on 09/13/2026')).toBeInTheDocument();
+    expect(screen.getByText('Mailed remit')).toBeInTheDocument();
+    expect(screen.getByText('Remit.pdf')).toBeInTheDocument();
+    // the scan is download-only here; it is managed from the editor
+    expect(screen.queryByRole('button', { name: 'More actions' })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    expect(await screen.findByText('Manual remit editor')).toBeInTheDocument();
   });
 
   it('shows only the payee fields the ERA carries', async () => {
@@ -223,6 +267,15 @@ describe('ERADetail', () => {
 
     expect(await screen.findByText('CHK-100')).toBeInTheDocument();
     expect(screen.getByTestId('grid-headers').textContent).toContain('Patient Resp');
+  });
+
+  it('says whether each claim is matched, and nothing about the FHIR outcome every ERA carries', async () => {
+    renderDetail();
+
+    expect(await screen.findByText('CHK-100')).toBeInTheDocument();
+    expect(within(screen.getByTestId('row-c1')).getByText('Matched')).toBeInTheDocument();
+    expect(within(screen.getByTestId('row-unmatched-cr-2')).getByText('Unmatched')).toBeInTheDocument();
+    expect(screen.queryByText(/^(complete|queued)$/i)).not.toBeInTheDocument();
   });
 
   it('keeps the Match button on unmatched rows', async () => {

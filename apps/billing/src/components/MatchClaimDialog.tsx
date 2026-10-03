@@ -9,24 +9,17 @@ import {
   DialogContent,
   DialogTitle,
   IconButton,
-  InputAdornment,
-  List,
-  ListItemButton,
-  ListItemText,
-  TextField,
   Typography,
 } from '@mui/material';
-import { ReactElement, useEffect, useRef, useState } from 'react';
-import { Controller, FormProvider, useForm } from 'react-hook-form';
+import { ReactElement, useState } from 'react';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { BillingClaimItem, EraClaimListItem } from 'utils/lib/types/data/billing/billing.types';
 import { formatAntCaseString } from 'utils/lib/types/data/billing/claim-status';
 import { formatCurrency } from 'utils/lib/utils/convert';
-import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils/lib/validation/constants';
-import { matchClaimResponseToClaim, searchBillingClaims } from '../api/api';
+import { matchClaimResponseToClaim } from '../api/api';
 import { useApiClients } from '../hooks/useAppClients';
-import { useDebounce } from '../hooks/useDebounce';
 import { Meta } from '../pages/ClaimDetail';
+import { ClaimSearchList } from './ClaimSearchList';
 
 interface Props {
   claimResponseId: string;
@@ -35,71 +28,16 @@ interface Props {
   onMatched: () => void;
 }
 
-interface FormData {
-  searchText: string;
-}
-
 export function MatchClaimDialog({ claimResponseId, eraClaim, onMatched, onClose }: Props): ReactElement {
   const { oystehrZambda } = useApiClients();
-  const methods = useForm<FormData>({ defaultValues: { searchText: '' } });
-  const {
-    control,
-    handleSubmit,
-    formState: { isSubmitting },
-    subscribe,
-  } = methods;
-
   const [error, setError] = useState<string | null>(null);
-  const [claims, setClaims] = useState<BillingClaimItem[]>([]);
   const [claim, setClaim] = useState<BillingClaimItem | null>(null);
-  const [claimLoading, setClaimLoading] = useState<boolean>(false);
-  const searchRequest = useRef(0);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const { clear, debounce } = useDebounce();
-
-  useEffect(() => {
-    const unsubscribe = subscribe({
-      formState: { values: true },
-      callback: ({ values }) => {
-        const request = ++searchRequest.current;
-        const searchText = values.searchText ?? '';
-        setClaims([]);
-        setClaim(null);
-        setError(null);
-        setClaimLoading(false);
-
-        if (!searchText) {
-          clear();
-          return;
-        }
-
-        debounce(async () => {
-          if (!oystehrZambda) return;
-          try {
-            setClaimLoading(true);
-            const data = await searchBillingClaims(oystehrZambda, { searchText, pageSize: 25, patientNameOnly: true });
-            if (request !== searchRequest.current) return;
-            setClaims(data.claims);
-            if (data.claims.length === 0) setError('Claim not found');
-          } catch (err) {
-            if (request !== searchRequest.current) return;
-            setClaims([]);
-            setError(getApiError({ error: err, defaultError: 'Failed to search claims' }));
-          } finally {
-            if (request === searchRequest.current) setClaimLoading(false);
-          }
-        });
-      },
-    });
-    return () => {
-      unsubscribe();
-      searchRequest.current += 1;
-    };
-  }, [clear, debounce, oystehrZambda, subscribe]);
-
-  const handleMatch = async (_data: FormData): Promise<void> => {
+  const handleMatch = async (): Promise<void> => {
     if (!oystehrZambda || !claim) return;
     setError(null);
+    setIsSubmitting(true);
     try {
       await matchClaimResponseToClaim(oystehrZambda, {
         claimResponseId,
@@ -109,6 +47,8 @@ export function MatchClaimDialog({ claimResponseId, eraClaim, onMatched, onClose
       onMatched();
     } catch (err) {
       setError(getApiError({ error: err, defaultError: 'Failed to match' }));
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -144,62 +84,12 @@ export function MatchClaimDialog({ claimResponseId, eraClaim, onMatched, onClose
               <Meta label="Member ID" value={eraClaim.memberId} />
             </Box>
           </Box>
-          <FormProvider {...methods}>
-            <Box sx={{ display: 'flex', gap: 5, mt: 1 }}>
-              <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2.5 }}>
-                <Controller
-                  name="searchText"
-                  control={control}
-                  rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
-                  render={({ field, fieldState: { error: fieldError } }) => (
-                    <TextField
-                      size="small"
-                      fullWidth
-                      label="Patient name or claim ID"
-                      value={field.value}
-                      onChange={(e) => field.onChange(e.target.value)}
-                      error={!!fieldError}
-                      helperText={
-                        fieldError?.message ?? 'Patient names match from the start. Claim IDs must be entered in full.'
-                      }
-                      InputProps={{
-                        endAdornment: (
-                          <InputAdornment position="end">
-                            {claimLoading ? <CircularProgress sx={{ color: 'text.secondary' }} size={18} /> : null}
-                          </InputAdornment>
-                        ),
-                      }}
-                    />
-                  )}
-                />
-                {claims.length > 0 && (
-                  <List disablePadding sx={{ maxHeight: 240, overflowY: 'auto', border: 1, borderColor: 'divider' }}>
-                    {claims.map((option) => (
-                      <ListItemButton
-                        key={option.id}
-                        selected={claim?.id === option.id}
-                        onClick={() => setClaim(option)}
-                      >
-                        <ListItemText
-                          primary={option.patientName}
-                          secondary={`DOB ${option.patientDob || '—'} · DOS ${option.serviceDate || '—'} · Claim ID ${
-                            option.id
-                          }`}
-                          primaryTypographyProps={{ fontWeight: 600 }}
-                          secondaryTypographyProps={{ sx: { overflowWrap: 'anywhere' } }}
-                        />
-                      </ListItemButton>
-                    ))}
-                  </List>
-                )}
-                {error && (
-                  <Alert severity="error" sx={{ mb: 2 }}>
-                    {error}
-                  </Alert>
-                )}
-              </Box>
-            </Box>
-          </FormProvider>
+          <ClaimSearchList selectedId={claim?.id ?? null} onSelect={setClaim} />
+          {error && (
+            <Alert severity="error" sx={{ mt: 2 }}>
+              {error}
+            </Alert>
+          )}
           {claim ? (
             <Box sx={{ my: 2.5 }}>
               <Typography variant="h5" color="primary.dark" fontWeight={600}>
@@ -222,7 +112,7 @@ export function MatchClaimDialog({ claimResponseId, eraClaim, onMatched, onClose
           <Button
             variant="contained"
             startIcon={isSubmitting ? <CircularProgress size={14} /> : null}
-            onClick={handleSubmit(handleMatch)}
+            onClick={() => void handleMatch()}
             disabled={isSubmitting || !claim}
           >
             {isSubmitting ? 'Matching...' : 'Match'}
