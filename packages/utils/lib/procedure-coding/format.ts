@@ -1,6 +1,6 @@
 import { detectProcedureFamily } from './evaluate';
 import { CptCodeRef, RepairDepthSelection } from './model.types';
-import { CodingField, StructuredFacts } from './structured-fields';
+import { CodingField, readRows, StructuredFacts } from './structured-fields';
 
 export const REPAIR_DEPTH_OPTIONS: Array<{ value: RepairDepthSelection; label: string }> = [
   { value: 'superficial-single', label: 'Superficial — single-layer closure' },
@@ -70,23 +70,32 @@ export function formatInfusionTimeRange(startTime?: string, stopTime?: string): 
 /** Displays the actual saved answers, without inventing defaults or dropping unfamiliar legacy keys. */
 export function formatStructuredFacts(facts: StructuredFacts | undefined, procedureType?: string): string {
   if (!facts) return '';
-  const fields = detectProcedureFamily({ procedureType })?.fields ?? [];
+  const family = detectProcedureFamily({ procedureType });
+  const fields = family?.fields ?? [];
+  const note = family?.noteLines?.(facts);
+  const covered = new Set(note?.covers ?? []);
   const humanize = (key: string): string => {
     const words = key.replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/[_-]/g, ' ');
     return words.charAt(0).toUpperCase() + words.slice(1);
   };
-  const format = (answers: StructuredFacts, definitions: readonly CodingField[]): string[] => {
+  const format = (answers: StructuredFacts, definitions: readonly CodingField[], top = false): string[] => {
     const keys = [...new Set([...definitions.map((field) => field.key), ...Object.keys(answers)])];
-    return keys.flatMap((key) => {
+    return keys.flatMap((key, index) => {
+      // The family's own lines stand where its first covered field would have been.
+      if (top && covered.has(key))
+        return keys.findIndex((item) => covered.has(item)) === index ? note?.lines ?? [] : [];
       const value = answers[key];
       if (value === undefined || value === '') return [];
       const field = definitions.find((item) => item.key === key);
       const label = field?.label ?? humanize(key);
       if (Array.isArray(value)) {
+        // Several choices read as a list: "Intervals and conduction: normal".
+        if (field?.kind !== 'rows' && value.every((item) => typeof item === 'string'))
+          return value.length ? [`${label}: ${value.join(', ')}`] : [];
         const children = field?.kind === 'rows' ? field.fields : [];
         // A row is one of the things the group is named after: "Wounds" holds "Wound 1", "Wound 2".
         const rowLabel = field?.kind === 'rows' ? field.rowLabel : label;
-        return value.flatMap((row, index) => {
+        return readRows(answers, key).flatMap((row, index) => {
           const parts = format(row, children);
           return parts.length ? [`${rowLabel} ${index + 1}: ${parts.join('; ')}`] : [];
         });
@@ -94,7 +103,7 @@ export function formatStructuredFacts(facts: StructuredFacts | undefined, proced
       return [`${label}: ${typeof value === 'boolean' ? (value ? 'Yes' : 'No') : value}`];
     });
   };
-  return format(facts, fields).join('\n');
+  return format(facts, fields, true).join('\n');
 }
 
 /** Modifiers and quantity are part of a saved billing choice on every review surface. */

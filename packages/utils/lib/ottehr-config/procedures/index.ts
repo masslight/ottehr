@@ -103,6 +103,20 @@ const PROCEDURES_DATA: ProceduresConfig = {
       patientResponse: 'Tolerated Well',
       postInstructions: ['Return if worsening'],
     },
+    // The common 12-lead read: fills the interpretation fields; the comparison with a prior tracing and
+    // the measurements are the provider's to enter.
+    {
+      name: 'EKG – normal',
+      procedureType: 'ekg',
+      structuredFacts: {
+        rhythm: 'sinus rhythm',
+        axis: 'normal',
+        conduction: ['normal'],
+        stt: ['no acute ST-T wave changes'],
+        otherFindings: ['none'],
+        impression: 'normal EKG',
+      },
+    },
   ],
 };
 

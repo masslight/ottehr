@@ -1,16 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import {
-  assemblePreliminaryRead,
-  buildPreliminaryReadSuggestions,
-  findPreliminaryReadRegion,
+  assembleSentence,
   findUnpickedBlank,
-  PreliminaryReadBlank,
-  PreliminaryReadSegment,
-} from './preliminaryReadSuggestions';
+  isSentenceBlank,
+  SentenceBlank,
+  SentenceSegment,
+} from '../suggested-sentences';
+import { buildPreliminaryReadSuggestions, findPreliminaryReadRegion } from './preliminaryReadSuggestions';
 import { PRELIMINARY_READ_TEMPLATES } from './preliminaryReadTemplates';
 
-const blanks = (segments: PreliminaryReadSegment[]): PreliminaryReadBlank[] =>
-  segments.filter((segment): segment is PreliminaryReadBlank => typeof segment !== 'string');
+const blanks = (segments: SentenceSegment[]): SentenceBlank[] => segments.filter(isSentenceBlank);
 
 describe('preliminary read templates config', () => {
   it('names a defined choice list (or side) in every blank', () => {
@@ -71,7 +70,7 @@ describe('buildPreliminaryReadSuggestions', () => {
       const values: (string | undefined)[] = [];
       values[unfixed.segments.indexOf(side!)] = 'right';
       expect(findUnpickedBlank(unfixed.segments, values)).toBeUndefined();
-      expect(assemblePreliminaryRead(unfixed.segments, values)).toBe(
+      expect(assembleSentence(unfixed.segments, values)).toBe(
         'Nondisplaced fracture of the right distal fibula (lateral malleolus). Ankle mortise intact.'
       );
     }
@@ -90,7 +89,7 @@ describe('buildPreliminaryReadSuggestions', () => {
 
   it('offers the pediatric fracture types to children only, never as an adult option or default', () => {
     const pediatric = ['Buckle (torus)', 'Greenstick', 'Salter-Harris I', 'Salter-Harris II'];
-    const fractureTypes = (cptCode: string, isChild: boolean): PreliminaryReadBlank[] =>
+    const fractureTypes = (cptCode: string, isChild: boolean): SentenceBlank[] =>
       buildPreliminaryReadSuggestions({ cptCode, laterality: 'LT', isChild })
         .flatMap((s) => blanks(s.segments))
         .filter((b) => b.title === 'Fracture type');
@@ -133,17 +132,15 @@ describe('buildPreliminaryReadSuggestions', () => {
   });
 });
 
-describe('assemblePreliminaryRead', () => {
+describe('assembleSentence', () => {
   it('uses defaults, skips (none) blanks and tidies spacing', () => {
     const [negative, fracture] = buildPreliminaryReadSuggestions({
       cptCode: '73610',
       laterality: 'LT',
       isChild: false,
     });
-    expect(assemblePreliminaryRead(negative.segments, [])).toBe(
-      'No acute fracture or dislocation. Ankle mortise intact.'
-    );
-    expect(assemblePreliminaryRead(fracture.segments, [])).toBe(
+    expect(assembleSentence(negative.segments, [])).toBe('No acute fracture or dislocation. Ankle mortise intact.');
+    expect(assembleSentence(fracture.segments, [])).toBe(
       'Nondisplaced fracture of the left distal fibula (lateral malleolus). Ankle mortise intact.'
     );
   });
@@ -155,8 +152,8 @@ describe('assemblePreliminaryRead', () => {
           const suggestions = buildPreliminaryReadSuggestions({ cptCode: region.cptCodes[0], laterality, isChild });
           for (const { name, segments } of suggestions) {
             // The only blank without a default is the side; pick it the way the provider would.
-            const values = segments.map((s) => (typeof s !== 'string' && s.initial === undefined ? 'left' : undefined));
-            const text = assemblePreliminaryRead(segments, values);
+            const values = segments.map((s) => (isSentenceBlank(s) && s.initial === undefined ? 'left' : undefined));
+            const text = assembleSentence(segments, values);
             const label = `${region.name} / ${name} / child=${isChild} / ${laterality}`;
             expect(text, label).toMatch(/^[A-Z].*\.$/);
             expect(text, label).not.toMatch(/[{}]|\s{2}|\s\./);
@@ -170,11 +167,11 @@ describe('assemblePreliminaryRead', () => {
     const [, fracture] = buildPreliminaryReadSuggestions({ cptCode: '73610', laterality: 'RT', isChild: true });
     const values: (string | undefined)[] = [];
     fracture.segments.forEach((segment, i) => {
-      if (typeof segment === 'string') return;
+      if (!isSentenceBlank(segment)) return;
       if (segment.title === 'Bone') values[i] = 'medial malleolus';
       if (segment.title === 'Closing line') values[i] = '';
     });
-    expect(assemblePreliminaryRead(fracture.segments, values)).toBe(
+    expect(assembleSentence(fracture.segments, values)).toBe(
       'Salter-Harris I fracture of the right medial malleolus. Growth plate not involved.'
     );
   });

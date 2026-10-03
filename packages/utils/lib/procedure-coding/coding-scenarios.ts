@@ -55,7 +55,10 @@ export interface Visit {
   tells?: string;
 }
 
-export type FormAnswers = Record<string, string | number | boolean | Record<string, string | number | boolean>[]>;
+export type FormAnswers = Record<
+  string,
+  string | number | boolean | string[] | Record<string, string | number | boolean>[]
+>;
 
 // The names below are exactly what the provider sees in the procedure-type dropdown.
 export const LACERATION = 'Laceration Repair (Wound Closure)';
@@ -584,11 +587,26 @@ export const INJECTION_VISITS: Visit[] = [
 //    https://www.cms.gov/regulations-and-guidance/guidance/manuals/downloads/clm104c13.pdf
 //    NCCI Policy Manual 2026, Chapter 11 §I:
 //    https://www.cms.gov/files/document/11-chapter11a-ncci-medicare-policy-manual-2026-final.pdf
+//  A report (93000, 93010) must cover the rate and intervals, rhythm, axis, intervals/conduction, ST-T,
+//  comparison with a prior tracing and an impression; "normal EKG" alone is not an interpretation.
+const EKG_REPORT: FormAnswers = {
+  'Rate (bpm)': 72,
+  'PR (ms)': 160,
+  'QRS (ms)': 88,
+  'QT (ms)': 380,
+  Rhythm: 'sinus rhythm',
+  Axis: 'normal',
+  'Intervals and conduction': ['normal'],
+  'ST / T': ['no acute ST-T wave changes'],
+  'Comparison with prior': 'no prior EKG available',
+  Impression: 'normal EKG',
+};
+
 export const EKG_VISITS: Visit[] = [
   {
-    visit: 'The practice recorded the tracing and wrote the report',
+    visit: 'The practice recorded the tracing and wrote a complete report',
     procedure: EKG,
-    answers: { 'Component furnished': 'tracing and report' },
+    answers: { 'Component furnished': 'tracing and report', ...EKG_REPORT },
     suggests: ['93000'],
   },
   {
@@ -598,21 +616,26 @@ export const EKG_VISITS: Visit[] = [
     suggests: ['93005'],
   },
   {
-    visit: 'The practice only read a tracing recorded elsewhere',
+    visit: 'The practice only read a tracing recorded elsewhere, and wrote a complete report',
     procedure: EKG,
-    answers: { 'Component furnished': 'interpretation/report only' },
+    answers: { 'Component furnished': 'interpretation/report only', ...EKG_REPORT },
     suggests: ['93010'],
   },
   {
     visit: 'Two tracings the same day by the same clinician',
     procedure: EKG,
-    answers: { 'Component furnished': 'tracing and report', 'Same-day recordings': 2 },
+    answers: { 'Component furnished': 'tracing and report', 'Same-day recordings': 2, ...EKG_REPORT },
     suggests: ['93000', '93000-76'],
   },
   {
     visit: 'Two tracings the same day by different clinicians',
     procedure: EKG,
-    answers: { 'Component furnished': 'tracing and report', 'Same-day recordings': 2, 'Repeat clinician': 'different' },
+    answers: {
+      'Component furnished': 'tracing and report',
+      'Same-day recordings': 2,
+      'Repeat clinician': 'different',
+      ...EKG_REPORT,
+    },
     suggests: ['93000', '93000-77'],
   },
   {
@@ -1066,6 +1089,42 @@ export const UNFINISHED_FORMS: { visit: string; procedure: string; answers: Form
     asksFor: ['Component furnished'],
   },
   {
+    visit: 'The tracing was recorded but nothing of the report is written yet',
+    procedure: EKG,
+    answers: { 'Component furnished': 'tracing and report' },
+    asksFor: [
+      'Rate (bpm)',
+      'PR, QRS and QT intervals',
+      'Rhythm',
+      'Axis',
+      'Intervals and conduction',
+      'ST / T',
+      'Comparison with prior',
+      'Impression',
+    ],
+  },
+  {
+    visit: 'A tracing recorded elsewhere is to be read, but the report is not written yet',
+    procedure: EKG,
+    answers: { 'Component furnished': 'interpretation/report only' },
+    asksFor: [
+      'Rate (bpm)',
+      'PR, QRS and QT intervals',
+      'Rhythm',
+      'Axis',
+      'Intervals and conduction',
+      'ST / T',
+      'Comparison with prior',
+      'Impression',
+    ],
+  },
+  {
+    visit: 'The report has everything but the comparison with a prior tracing and the QT',
+    procedure: EKG,
+    answers: { 'Component furnished': 'tracing and report', ...EKG_REPORT, 'QT (ms)': '', 'Comparison with prior': '' },
+    asksFor: ['PR, QRS and QT intervals', 'Comparison with prior'],
+  },
+  {
     visit: 'The catheter type has not been chosen',
     procedure: CATHETER,
     answers: {},
@@ -1218,7 +1277,7 @@ export const CODE_CHECKS: {
   {
     visit: 'The practice recorded and read the tracing, but only the tracing code was billed',
     procedure: EKG,
-    answers: { 'Component furnished': 'tracing and report' },
+    answers: { 'Component furnished': 'tracing and report', ...EKG_REPORT },
     billed: { code: '93005' },
     verdict: 'not supported',
     // Flagged, never blocked: the provider is told the documentation supports more.
@@ -1235,7 +1294,7 @@ export const CODE_CHECKS: {
   {
     visit: 'Two recordings, and the repeat was billed with the wrong modifier',
     procedure: EKG,
-    answers: { 'Component furnished': 'tracing and report', 'Same-day recordings': 2 },
+    answers: { 'Component furnished': 'tracing and report', 'Same-day recordings': 2, ...EKG_REPORT },
     billed: { code: '93000', modifiers: ['59'] },
     verdict: 'not supported',
     because: 'The answers support 93000 with no modifier and with modifier 76.',
