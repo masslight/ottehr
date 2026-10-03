@@ -55,7 +55,7 @@ export const EKG_OTHER_FINDINGS = [
   'premature ventricular complexes',
 ];
 
-export const EKG_COMPARISONS = ['no significant change', 'changed (describe)', 'no prior EKG available'];
+export const EKG_COMPARISONS = ['no prior EKG available', 'no significant change', 'changed (describe)'];
 
 export const EKG_IMPRESSIONS = ['normal EKG', 'otherwise normal EKG', 'borderline EKG', 'abnormal EKG'];
 
