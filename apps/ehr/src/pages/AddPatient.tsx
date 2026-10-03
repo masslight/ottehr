@@ -135,7 +135,7 @@ export const getPostAppointmentSnackbar = ({
 
 export default function AddPatient(): JSX.Element {
   const location = useLocation();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const patientIdFromUrl = searchParams.get('patientId') ?? undefined;
   const followUpState = location.state as
     | {
@@ -183,10 +183,15 @@ export default function AddPatient(): JSX.Element {
     followUpState?.prefill?.serviceCategoryCode ?? defaultServiceCategory
   );
   const [slot, setSlot] = useState<Slot | undefined>();
-  // "No visit, just add the patient": the Patients page opens the form with it already ticked.
-  const [patientOnly, setPatientOnly] = useState<boolean>(
-    !isScheduledFollowUp && searchParams.get('patientOnly') === 'true'
-  );
+  // "No visit, just add the patient". Kept in the URL rather than in state: the Patients page opens the form
+  // with it ticked, and going to plain /visits/add from here (same route, no remount) shows the visit form again.
+  const patientOnly = !isScheduledFollowUp && searchParams.get('patientOnly') === 'true';
+  const setPatientOnly = (checked: boolean): void => {
+    const next = new URLSearchParams(searchParams);
+    if (checked) next.set('patientOnly', 'true');
+    else next.delete('patientOnly');
+    setSearchParams(next, { replace: true, state: location.state });
+  };
   const [loading, setLoading] = useState<boolean>(false);
   const [errors, setErrors] = useState<AddVisitErrorState>({
     submit: false,
@@ -504,6 +509,12 @@ export default function AddPatient(): JSX.Element {
       return;
     }
 
+    // An existing patient needs nothing created, so nothing about them is validated: open their record.
+    if (patientOnly && patientInfo.id) {
+      navigate(`/patient/${patientInfo.id}`);
+      return;
+    }
+
     const validations: Array<{ invalid: boolean; field: keyof AddVisitErrorState }> = [
       // first name, last name, and phone are empty strings when untouched
       { field: 'firstName', invalid: patientInfo.firstName != null && patientInfo.firstName.length === 0 },
@@ -535,11 +546,6 @@ export default function AddPatient(): JSX.Element {
         setErrors({ search: true });
         return;
       }
-      // An existing patient needs nothing created; take staff to their record instead.
-      if (patientInfo.id) {
-        navigate(`/patient/${patientInfo.id}`);
-        return;
-      }
       if (!validDate) return;
       if (!oystehrZambda) throw new Error('Zambda client not found');
       setLoading(true);
@@ -559,7 +565,11 @@ export default function AddPatient(): JSX.Element {
         navigate(`/patient/${patientId}/info`);
       } catch (error) {
         console.error(`Failed to add patient: ${error}`);
-        enqueueSnackbar('An unexpected error occurred, please try again.', { variant: 'error' });
+        // An input the server rejects (a blank name, say) comes back with a message staff can act on.
+        const errorMessage = isApiError(error)
+          ? (error as APIError).message
+          : 'An unexpected error occurred, please try again.';
+        enqueueSnackbar(errorMessage, { variant: 'error' });
         setErrors({ submit: true });
       } finally {
         setLoading(false);
