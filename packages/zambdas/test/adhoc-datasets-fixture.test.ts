@@ -48,6 +48,13 @@ import { fetchAdHocBillingRows } from '../src/shared/adhoc-datasets/billing';
 import { fetchAdHocEncounterRows } from '../src/shared/adhoc-datasets/encounters';
 import { fetchAdHocPatientRows } from '../src/shared/adhoc-datasets/patients';
 
+// Instance overlays may replace patientScreeningQuestionsConfig with a subset that excludes COVID and
+// travel fields. Pin the base config so the test exercises the full mapping logic regardless of overlay.
+vi.mock('utils/lib/ottehr-config/screening-questions', async () => {
+  const { baseScreeningQuestionsConfig } = await import('utils/lib/types/data/screening-questions/config');
+  return { patientScreeningQuestionsConfig: baseScreeningQuestionsConfig };
+});
+
 // Design requirement: "fixture tests asserting the fetched rows parse against the Zod schema
 // (fields present, typed, key resolved values correct) — the same schema the runtime validation
 // uses." The fetch+map pipeline runs against a stubbed Oystehr client returning a small FHIR graph;
