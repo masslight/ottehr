@@ -1,4 +1,5 @@
 import { User } from '@oystehr/sdk';
+import { APIErrorCode } from 'utils/lib/types/errors';
 import { describe, expect, test } from 'vitest';
 import { validateCreateAppointmentParams } from '../../../src/patient/appointment/create-appointment/validateRequestParameters';
 import { createMockSecrets, createMockZambdaInput } from './helpers';
@@ -129,6 +130,58 @@ describe('create-appointment - validateCreateAppointmentParams', () => {
     );
     expect(() => validateCreateAppointmentParams(input, mockPatientUser, false)).toThrow();
   });
+
+  // Luxon reads these as valid dates, so they used to pass validation and only fail at the FHIR
+  // write, where `Invalid date format - POST /Patient` surfaced to the caller as a 500.
+  test.each(['19900115', '1990-015', '1990-W03-1', '+001990-01-15', '1990-01-15 10:00'])(
+    'should reject %s as patient.dateOfBirth, which FHIR would not accept as a date',
+    (dateOfBirth) => {
+      const input = createMockZambdaInput(
+        { slotId: VALID_SLOT_ID, patient: { ...validPatientBody, dateOfBirth } },
+        { secrets }
+      );
+      expect(() => validateCreateAppointmentParams(input, mockPatientUser, false)).toThrow(
+        expect.objectContaining({ code: APIErrorCode.INVALID_INPUT })
+      );
+    }
+  );
+
+  // The date half of each of these is a fine FHIR date, so checking only what reaches
+  // Patient.birthDate would wave the garbage through. The raw value has to be parsed too.
+  test.each(['1990-01-15Tgarbage', '1990Tanything', '1990-01-15T', '1990-01-15T99:99:99'])(
+    'should reject %s as patient.dateOfBirth, whose time suffix is malformed',
+    (dateOfBirth) => {
+      const input = createMockZambdaInput(
+        { slotId: VALID_SLOT_ID, patient: { ...validPatientBody, dateOfBirth } },
+        { secrets }
+      );
+      expect(() => validateCreateAppointmentParams(input, mockPatientUser, false)).toThrow(
+        expect.objectContaining({ code: APIErrorCode.INVALID_INPUT })
+      );
+    }
+  );
+
+  test('should throw when patient.dateOfBirth is not a string', () => {
+    const input = createMockZambdaInput(
+      { slotId: VALID_SLOT_ID, patient: { ...validPatientBody, dateOfBirth: 19900115 } },
+      { secrets }
+    );
+    expect(() => validateCreateAppointmentParams(input, mockPatientUser, false)).toThrow(
+      expect.objectContaining({ code: APIErrorCode.INVALID_INPUT })
+    );
+  });
+
+  // Partial dates and datetimes reached FHIR fine before the gate was tightened; keep them working.
+  test.each(['1990-01-15', '1990-01', '1990', '1990-01-15T00:00:00.000Z'])(
+    'should accept %s as patient.dateOfBirth',
+    (dateOfBirth) => {
+      const input = createMockZambdaInput(
+        { slotId: VALID_SLOT_ID, patient: { ...validPatientBody, dateOfBirth } },
+        { secrets }
+      );
+      expect(() => validateCreateAppointmentParams(input, mockPatientUser, false)).not.toThrow();
+    }
+  );
 
   test('should throw when patient.sex is an invalid enum value', () => {
     const input = createMockZambdaInput(
