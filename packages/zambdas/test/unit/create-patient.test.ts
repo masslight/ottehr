@@ -25,12 +25,17 @@ const mockOystehr = (): {
   friendlyId: ReturnType<typeof vi.fn>;
 } => {
   const transaction = vi.fn().mockImplementation(async ({ requests }) => ({
-    entry: requests.map((request: any) => ({
-      resource: { ...request.resource, id: request.resource.resourceType === 'Patient' ? 'patient-1' : 'other' },
+    entry: requests.map((request: any, index: number) => ({
+      resource: request.resource && {
+        ...request.resource,
+        id: request.resource.resourceType === 'Patient' ? 'patient-1' : `other-${index}`,
+      },
     })),
   }));
   const friendlyId = vi.fn().mockResolvedValue({});
-  return { oystehr: { fhir: { transaction, generateFriendlyPatientId: friendlyId } }, transaction, friendlyId };
+  // a RelatedPerson the failed linking left behind
+  const search = vi.fn().mockResolvedValue({ unbundle: () => [{ resourceType: 'RelatedPerson', id: 'rp-1' }] });
+  return { oystehr: { fhir: { transaction, search, generateFriendlyPatientId: friendlyId } }, transaction, friendlyId };
 };
 
 describe('create-patient performEffect', () => {
@@ -80,9 +85,29 @@ describe('create-patient performEffect', () => {
     await expect(performEffect(input as any, oystehr)).resolves.toEqual({ patientId: 'patient-1' });
   });
 
-  it('fails when the account holder cannot be linked', async () => {
-    const { oystehr } = mockOystehr();
+  it('removes what it created when the account holder cannot be linked, so a retry starts clean', async () => {
+    const { oystehr, transaction } = mockOystehr();
     createUserResourcesForPatient.mockRejectedValue(new Error('no person'));
+
+    await expect(performEffect(input as any, oystehr)).rejects.toThrow('no person');
+
+    expect(transaction).toHaveBeenCalledTimes(2);
+    const created = transaction.mock.calls[0][0].requests.length;
+    const deletes = transaction.mock.calls[1][0].requests;
+    expect(deletes.every((request: any) => request.method === 'DELETE')).toBe(true);
+    expect(deletes.map((request: any) => request.url)).toEqual(
+      expect.arrayContaining(['/Patient/patient-1', '/RelatedPerson/rp-1'])
+    );
+    // everything from the create, plus the leftover RelatedPerson
+    expect(deletes).toHaveLength(created + 1);
+  });
+
+  it('still reports the linking failure when the clean-up fails too', async () => {
+    const { oystehr, transaction } = mockOystehr();
+    createUserResourcesForPatient.mockRejectedValue(new Error('no person'));
+    transaction
+      .mockImplementationOnce(transaction.getMockImplementation()!)
+      .mockRejectedValueOnce(new Error('cleanup'));
 
     await expect(performEffect(input as any, oystehr)).rejects.toThrow('no person');
   });

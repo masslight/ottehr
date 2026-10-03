@@ -1,7 +1,8 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor, waitForElementToBeRemoved } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, useNavigate } from 'react-router-dom';
+import { enqueueSnackbar } from 'notistack';
+import { Link, MemoryRouter, useNavigate } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createPatient } from '../../src/api/api';
 import { dataTestIds } from '../../src/constants/data-test-ids';
@@ -50,6 +51,8 @@ const renderAt = (url: string): void => {
   render(
     <QueryClientProvider client={queryClient}>
       <MemoryRouter initialEntries={[url]}>
+        {/* stands in for the command palette's "Add visit", which goes to the same route without a remount */}
+        <Link to="/visits/add">go to add visit</Link>
         <AddPatient />
       </MemoryRouter>
     </QueryClientProvider>
@@ -57,6 +60,27 @@ const renderAt = (url: string): void => {
 };
 
 const patientOnlyCheckbox = (): HTMLInputElement => screen.getByTestId(dataTestIds.addPatientPage.patientOnlyCheckbox);
+
+const enterNewPatient = async (user: ReturnType<typeof userEvent.setup>): Promise<void> => {
+  const phoneNumberInput = screen.getByTestId(dataTestIds.addPatientPage.mobilePhoneInput).querySelector('input');
+  await user.click(phoneNumberInput!);
+  await user.paste('2025550143');
+  await user.click(screen.getByTestId(dataTestIds.addPatientPage.searchForPatientsButton));
+  const notFoundButton = await screen.findByTestId(dataTestIds.addPatientPage.patientNotFoundButton);
+  await user.click(notFoundButton);
+  await waitForElementToBeRemoved(notFoundButton);
+
+  await user.click(screen.getByTestId(dataTestIds.addPatientPage.firstNameInput).querySelector('input')!);
+  await user.paste('John');
+  await user.click(screen.getByTestId(dataTestIds.addPatientPage.lastNameInput).querySelector('input')!);
+  await user.paste('Doe');
+  await user.click(await screen.findByPlaceholderText('MM/DD/YYYY'));
+  await user.paste('01/01/2000');
+  await user.click(
+    screen.getByTestId(dataTestIds.addPatientPage.sexAtBirthDropdown).querySelector('[role="combobox"]')!
+  );
+  await user.click(await screen.findByText('Male'));
+};
 
 describe('Add Visit: no visit, just add the patient', () => {
   const navigateMock = vi.fn();
@@ -111,24 +135,7 @@ describe('Add Visit: no visit, just add the patient', () => {
     const user = userEvent.setup();
     renderAt('/visits/add?patientOnly=true');
 
-    const phoneNumberInput = screen.getByTestId(dataTestIds.addPatientPage.mobilePhoneInput).querySelector('input');
-    await user.click(phoneNumberInput!);
-    await user.paste('2025550143');
-    await user.click(screen.getByTestId(dataTestIds.addPatientPage.searchForPatientsButton));
-    const notFoundButton = await screen.findByTestId(dataTestIds.addPatientPage.patientNotFoundButton);
-    await user.click(notFoundButton);
-    await waitForElementToBeRemoved(notFoundButton);
-
-    await user.click(screen.getByTestId(dataTestIds.addPatientPage.firstNameInput).querySelector('input')!);
-    await user.paste('John');
-    await user.click(screen.getByTestId(dataTestIds.addPatientPage.lastNameInput).querySelector('input')!);
-    await user.paste('Doe');
-    await user.click(await screen.findByPlaceholderText('MM/DD/YYYY'));
-    await user.paste('01/01/2000');
-    await user.click(
-      screen.getByTestId(dataTestIds.addPatientPage.sexAtBirthDropdown).querySelector('[role="combobox"]')!
-    );
-    await user.click(await screen.findByText('Male'));
+    await enterNewPatient(user);
 
     await user.click(screen.getByTestId(dataTestIds.addPatientPage.addButton));
 
@@ -156,4 +163,44 @@ describe('Add Visit: no visit, just add the patient', () => {
     expect(navigateMock).toHaveBeenCalledWith('/patient/existing-patient');
     expect(createPatient).not.toHaveBeenCalled();
   });
+
+  it('opens the record of an existing patient even when their sex and date of birth are missing', async () => {
+    mockApiClients.oystehr.fhir.get.mockResolvedValueOnce({
+      ...existingPatient,
+      gender: undefined,
+      birthDate: undefined,
+    });
+    const user = userEvent.setup();
+    renderAt('/visits/add?patientOnly=true&patientId=existing-patient');
+
+    const button = screen.getByTestId(dataTestIds.addPatientPage.addButton);
+    await waitFor(() => expect(button).toHaveTextContent('Open patient record'));
+    await user.click(button);
+
+    expect(navigateMock).toHaveBeenCalledWith('/patient/existing-patient');
+  });
+
+  it('goes back to the visit form when the address no longer asks for patient only', async () => {
+    const user = userEvent.setup();
+    renderAt('/visits/add?patientOnly=true');
+    expect(patientOnlyCheckbox()).toBeChecked();
+
+    await user.click(screen.getByText('go to add visit'));
+
+    expect(patientOnlyCheckbox()).not.toBeChecked();
+    expect(screen.getByTestId(dataTestIds.addPatientPage.pageTitle)).toHaveTextContent('Add Visit');
+    expect(screen.getByTestId(dataTestIds.addPatientPage.visitTypeDropdown)).toBeVisible();
+  });
+
+  it('shows the reason when the server rejects the details', async () => {
+    vi.mocked(createPatient).mockRejectedValue({ code: 4340, message: 'First name is required' });
+    const user = userEvent.setup();
+    renderAt('/visits/add?patientOnly=true');
+    await enterNewPatient(user);
+
+    await user.click(screen.getByTestId(dataTestIds.addPatientPage.addButton));
+
+    await waitFor(() => expect(enqueueSnackbar).toHaveBeenCalledWith('First name is required', { variant: 'error' }));
+    expect(navigateMock).not.toHaveBeenCalled();
+  }, 10000);
 });

@@ -11,9 +11,9 @@ import { safeValidate } from '../../shared/validation';
 // The same patient details, and the same checks, as a new patient on create-appointment.
 export const CreatePatientInputSchema = z.object({
   patient: z.object({
-    firstName: z.string().trim().min(1),
+    firstName: z.string().trim().min(1, 'First name is required'),
     middleName: z.string().trim().optional(),
-    lastName: z.string().trim().min(1),
+    lastName: z.string().trim().min(1, 'Last name is required'),
     dateOfBirth: z.string().refine((value) => DateTime.fromISO(value).isValid, 'must be a valid date'),
     sex: z.nativeEnum(PersonSex),
     // The account holder's number: any format formatPhoneNumber can normalize.
