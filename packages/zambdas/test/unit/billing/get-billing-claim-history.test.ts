@@ -1,5 +1,4 @@
 import Oystehr from '@oystehr/sdk';
-import { captureException } from '@sentry/node-core/light';
 import { Organization, Practitioner, Provenance, Resource } from 'fhir/r4b';
 import {
   CLAIM_PROVENANCE_ACKNOWLEDGMENT_EXTENSION_URL,
@@ -15,14 +14,15 @@ import {
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { performEffect } from '../../../src/billing/get-billing-claim-history';
 import { SOURCE_IDENTIFIER_SYSTEM } from '../../../src/billing/shared';
+import { sendErrors } from '../../../src/shared/errors';
 
-vi.mock('@sentry/node-core/light', async (importActual) => ({
-  ...(await importActual<typeof import('@sentry/node-core/light')>()),
-  captureException: vi.fn(),
+vi.mock('../../../src/shared/errors', async (importActual) => ({
+  ...(await importActual<typeof import('../../../src/shared/errors')>()),
+  sendErrors: vi.fn(),
 }));
-const captureExceptionMock = vi.mocked(captureException);
+const sendErrorsMock = vi.mocked(sendErrors);
 
-beforeEach(() => captureExceptionMock.mockClear());
+beforeEach(() => sendErrorsMock.mockClear());
 
 const PAYER_URL = 'https://rcm-api.zapehr.com/v1/payer/123';
 
@@ -118,7 +118,7 @@ describe('get-billing-claim-history performEffect', () => {
     });
     expect(entries[0].actor.display).toContain('Doe');
     // An empty change set on a note is expected, not a data anomaly.
-    expect(captureExceptionMock).not.toHaveBeenCalled();
+    expect(sendErrorsMock).not.toHaveBeenCalled();
   });
 
   it('leaves message unset on a non-note entry', async () => {
@@ -256,7 +256,7 @@ describe('get-billing-claim-history performEffect', () => {
     expect(entries.find((e) => e.id === 'bad')?.changes).toEqual([]);
     expect(entries.find((e) => e.id === 'good')?.changes).toHaveLength(1);
     // A malformed change set is skipped gracefully but reported to Sentry for observability.
-    expect(captureExceptionMock).toHaveBeenCalledTimes(1);
+    expect(sendErrorsMock).toHaveBeenCalledTimes(1);
   });
 
   it('reports to Sentry when a Provenance is missing expected fields but still returns an entry', async () => {
@@ -273,8 +273,8 @@ describe('get-billing-claim-history performEffect', () => {
     // Graceful: the entry is still returned (with its changes) rather than crashing the view.
     expect(entries).toHaveLength(1);
     expect(entries[0].changes).toHaveLength(1);
-    expect(captureExceptionMock).toHaveBeenCalledTimes(1);
-    const reported = captureExceptionMock.mock.calls[0][0] as Error;
+    expect(sendErrorsMock).toHaveBeenCalledTimes(1);
+    const reported = sendErrorsMock.mock.calls[0][0] as Error;
     expect(reported.message).toContain('missing');
   });
 
@@ -393,7 +393,7 @@ describe('get-billing-claim-history performEffect', () => {
 
     expect(entries[0].acknowledgment).toBeUndefined();
     expect(entries[0].changes).toHaveLength(1);
-    expect(captureExceptionMock).toHaveBeenCalled();
+    expect(sendErrorsMock).toHaveBeenCalled();
   });
 });
 
