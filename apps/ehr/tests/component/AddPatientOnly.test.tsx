@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor, waitForElementToBeRemoved } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { enqueueSnackbar } from 'notistack';
-import { Link, MemoryRouter, useNavigate } from 'react-router-dom';
+import { MemoryRouter, useNavigate } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createPatient } from '../../src/api/api';
 import { dataTestIds } from '../../src/constants/data-test-ids';
@@ -46,20 +46,17 @@ vi.mock('../../src/hooks/useAppClients', () => ({
   useApiClients: () => mockApiClients,
 }));
 
+// App.tsx renders <AddPatient patientOnly /> at /patients/add and <AddPatient /> at /visits/add.
 const renderAt = (url: string): void => {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={queryClient}>
       <MemoryRouter initialEntries={[url]}>
-        {/* stands in for the command palette's "Add visit", which goes to the same route without a remount */}
-        <Link to="/visits/add">go to add visit</Link>
-        <AddPatient />
+        <AddPatient patientOnly={url.startsWith('/patients/add')} />
       </MemoryRouter>
     </QueryClientProvider>
   );
 };
-
-const patientOnlyCheckbox = (): HTMLInputElement => screen.getByTestId(dataTestIds.addPatientPage.patientOnlyCheckbox);
 
 const enterNewPatient = async (user: ReturnType<typeof userEvent.setup>): Promise<void> => {
   const phoneNumberInput = screen.getByTestId(dataTestIds.addPatientPage.mobilePhoneInput).querySelector('input');
@@ -82,7 +79,7 @@ const enterNewPatient = async (user: ReturnType<typeof userEvent.setup>): Promis
   await user.click(await screen.findByText('Male'));
 };
 
-describe('Add Visit: no visit, just add the patient', () => {
+describe('Add Patient: a patient without a visit', () => {
   const navigateMock = vi.fn();
 
   beforeEach(() => {
@@ -90,31 +87,24 @@ describe('Add Visit: no visit, just add the patient', () => {
     vi.mocked(useNavigate).mockReturnValue(navigateMock);
   });
 
-  it('shows the visit fields until the box is ticked, and again when it is unticked', async () => {
-    const user = userEvent.setup();
+  it('leaves Add Visit as it was: the visit fields, and a visit to add', () => {
     renderAt('/visits/add');
 
-    expect(patientOnlyCheckbox()).not.toBeChecked();
+    expect(screen.getByTestId(dataTestIds.addPatientPage.pageTitle)).toHaveTextContent('Add Visit');
     expect(screen.getByTestId(dataTestIds.addPatientPage.visitTypeDropdown)).toBeVisible();
     expect(screen.getByTestId(dataTestIds.addPatientPage.bookableSelect)).toBeVisible();
+    expect(screen.getByTestId(dataTestIds.addPatientPage.addButton)).not.toHaveTextContent('Add patient');
+  });
 
-    await user.click(patientOnlyCheckbox());
+  it('shows no visit fields on Add Patient, and Cancel goes back to Patients', async () => {
+    const user = userEvent.setup();
+    renderAt('/patients/add');
+
+    expect(screen.getByTestId(dataTestIds.addPatientPage.pageTitle)).toHaveTextContent('Add Patient');
     expect(screen.queryByTestId(dataTestIds.addPatientPage.visitTypeDropdown)).not.toBeInTheDocument();
     expect(screen.queryByTestId(dataTestIds.addPatientPage.serviceCategoryDropdown)).not.toBeInTheDocument();
     expect(screen.queryByTestId(dataTestIds.addPatientPage.bookableSelect)).not.toBeInTheDocument();
     expect(screen.getByTestId(dataTestIds.addPatientPage.addButton)).toHaveTextContent('Add patient');
-
-    await user.click(patientOnlyCheckbox());
-    expect(screen.getByTestId(dataTestIds.addPatientPage.visitTypeDropdown)).toBeVisible();
-  });
-
-  it('opens with the box ticked from the Patients page, and Cancel goes back there', async () => {
-    const user = userEvent.setup();
-    renderAt('/visits/add?patientOnly=true');
-
-    expect(patientOnlyCheckbox()).toBeChecked();
-    expect(screen.getByTestId(dataTestIds.addPatientPage.pageTitle)).toHaveTextContent('Add Patient');
-    expect(screen.queryByTestId(dataTestIds.addPatientPage.visitTypeDropdown)).not.toBeInTheDocument();
 
     await user.click(screen.getByTestId(dataTestIds.addPatientPage.cancelButton));
     expect(navigateMock).toHaveBeenCalledWith('/patients');
@@ -122,7 +112,7 @@ describe('Add Visit: no visit, just add the patient', () => {
 
   it('still asks staff to search before adding', async () => {
     const user = userEvent.setup();
-    renderAt('/visits/add?patientOnly=true');
+    renderAt('/patients/add');
 
     await user.click(screen.getByTestId(dataTestIds.addPatientPage.addButton));
 
@@ -133,7 +123,7 @@ describe('Add Visit: no visit, just add the patient', () => {
   it('creates the patient without any visit details and lands on their information page', async () => {
     vi.mocked(createPatient).mockResolvedValue({ patientId: 'new-patient' });
     const user = userEvent.setup();
-    renderAt('/visits/add?patientOnly=true');
+    renderAt('/patients/add');
 
     await enterNewPatient(user);
 
@@ -154,7 +144,7 @@ describe('Add Visit: no visit, just add the patient', () => {
 
   it('creates nothing for a patient who already exists and opens their record instead', async () => {
     const user = userEvent.setup();
-    renderAt('/visits/add?patientOnly=true&patientId=existing-patient');
+    renderAt('/patients/add?patientId=existing-patient');
 
     const button = screen.getByTestId(dataTestIds.addPatientPage.addButton);
     await waitFor(() => expect(button).toHaveTextContent('Open patient record'));
@@ -171,7 +161,7 @@ describe('Add Visit: no visit, just add the patient', () => {
       birthDate: undefined,
     });
     const user = userEvent.setup();
-    renderAt('/visits/add?patientOnly=true&patientId=existing-patient');
+    renderAt('/patients/add?patientId=existing-patient');
 
     const button = screen.getByTestId(dataTestIds.addPatientPage.addButton);
     await waitFor(() => expect(button).toHaveTextContent('Open patient record'));
@@ -180,22 +170,10 @@ describe('Add Visit: no visit, just add the patient', () => {
     expect(navigateMock).toHaveBeenCalledWith('/patient/existing-patient');
   });
 
-  it('goes back to the visit form when the address no longer asks for patient only', async () => {
-    const user = userEvent.setup();
-    renderAt('/visits/add?patientOnly=true');
-    expect(patientOnlyCheckbox()).toBeChecked();
-
-    await user.click(screen.getByText('go to add visit'));
-
-    expect(patientOnlyCheckbox()).not.toBeChecked();
-    expect(screen.getByTestId(dataTestIds.addPatientPage.pageTitle)).toHaveTextContent('Add Visit');
-    expect(screen.getByTestId(dataTestIds.addPatientPage.visitTypeDropdown)).toBeVisible();
-  });
-
   it('shows the reason when the server rejects the details', async () => {
     vi.mocked(createPatient).mockRejectedValue({ code: 4340, message: 'First name is required' });
     const user = userEvent.setup();
-    renderAt('/visits/add?patientOnly=true');
+    renderAt('/patients/add');
     await enterNewPatient(user);
 
     await user.click(screen.getByTestId(dataTestIds.addPatientPage.addButton));
