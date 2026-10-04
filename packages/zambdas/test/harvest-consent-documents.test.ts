@@ -366,12 +366,16 @@ describe('createConsentResources', () => {
       });
     }
 
-    // Only the consent-to-treat form creates a Consent resource, linked to its docref
-    expect(mockCreateConsentResource).toHaveBeenCalledTimes(1);
-    const [consentPatientId, consentDocRefId, consentDate] = mockCreateConsentResource.mock.calls[0];
-    expect(consentPatientId).toBe(PATIENT_ID);
-    expect(consentDocRefId).toBe(`dr-${CTT_FORM.type.text}-0`);
-    expect(consentDate).toContain('2026-08-20T15:00:00');
+    // Both forms create a Consent resource, linked to their respective docrefs (HIPAA first, CTT second)
+    expect(mockCreateConsentResource).toHaveBeenCalledTimes(2);
+    const [hipaaPatientId, hipaaDocRefId, hipaaDate] = mockCreateConsentResource.mock.calls[0];
+    expect(hipaaPatientId).toBe(PATIENT_ID);
+    expect(hipaaDocRefId).toBe(`dr-${HIPAA_FORM.type.text}-0`);
+    expect(hipaaDate).toContain('2026-08-20T15:00:00');
+    const [cttPatientId, cttDocRefId, cttDate] = mockCreateConsentResource.mock.calls[1];
+    expect(cttPatientId).toBe(PATIENT_ID);
+    expect(cttDocRefId).toBe(`dr-${CTT_FORM.type.text}-0`);
+    expect(cttDate).toContain('2026-08-20T15:00:00');
   });
 
   test('supersedes prior consent DocumentReferences and inactivates prior Consents', async () => {
@@ -399,7 +403,8 @@ describe('createConsentResources', () => {
     await run({ location: makeLocation('IL') });
     const cttPdfInfo = mockCreatePdfBytes.mock.calls[1][3];
     expect(cttPdfInfo.copyFromPath).toBe(IL_FORMS[1].assetPath);
-    expect(cttPdfInfo.copyFromPath).not.toBe(CTT_FORM.assetPath);
+    // No IL-specific override is configured; IL falls back to the default asset path
+    expect(cttPdfInfo.copyFromPath).toBe(CTT_FORM.assetPath);
   });
 
   test('labels telemed visits with the telemedicine facility name', async () => {
@@ -437,6 +442,6 @@ describe('createConsentResources', () => {
         content: [{ attachment: { url: file.url, title: 'some other title' } }],
       })),
     }));
-    await expect(run()).rejects.toThrow(`DocumentReference for "${CTT_FORM.formTitle}" not found`);
+    await expect(run()).rejects.toThrow(`DocumentReference for "${HIPAA_FORM.formTitle}" not found`);
   });
 });
