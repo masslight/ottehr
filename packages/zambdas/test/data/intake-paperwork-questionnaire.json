@@ -1,7 +1,7 @@
 {
   "resourceType": "Questionnaire",
   "url": "https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson",
-  "version": "1.2.9",
+  "version": "1.2.8",
   "name": "in-person_pre-visit_paperwork",
   "title": "in-person pre-visit paperwork",
   "status": "active",
@@ -2215,9 +2215,6 @@
               "valueString": "Injured Party"
             },
             {
-              "valueString": "Employee"
-            },
-            {
               "valueString": "Other"
             }
           ],
@@ -2798,9 +2795,6 @@
                 },
                 {
                   "valueString": "Injured Party"
-                },
-                {
-                  "valueString": "Employee"
                 },
                 {
                   "valueString": "Other"
