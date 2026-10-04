@@ -48,6 +48,48 @@ import { fetchAdHocBillingRows } from '../src/shared/adhoc-datasets/billing';
 import { fetchAdHocEncounterRows } from '../src/shared/adhoc-datasets/encounters';
 import { fetchAdHocPatientRows } from '../src/shared/adhoc-datasets/patients';
 
+// Extend the screening-questions config with the COVID fields that the core base config
+// includes. Project-level overlays may remove these fields from the config on disk, so
+// we pin them here to keep this test independent of overlay variations.
+vi.mock('utils/lib/ottehr-config/screening-questions', async (importOriginal) => {
+  const original = await importOriginal<typeof import('utils/lib/ottehr-config/screening-questions')>();
+  const covidFields = [
+    {
+      id: 'covid_symptoms',
+      type: 'radio' as const,
+      question: 'Do you have any COVID symptoms?',
+      fhirField: 'covid-symptoms',
+      existsInQuestionnaire: true,
+      options: [
+        { value: 'yes', label: 'Yes', fhirValue: 'Yes' },
+        { value: 'no', label: 'No', fhirValue: 'No' },
+      ],
+    },
+    {
+      id: 'tested_positive_covid',
+      type: 'radio' as const,
+      question: 'Have you tested positive for COVID?',
+      fhirField: 'tested-positive-covid',
+      existsInQuestionnaire: true,
+      options: [
+        { value: 'yes', label: 'Yes', fhirValue: 'Yes' },
+        { value: 'no', label: 'No', fhirValue: 'No' },
+      ],
+    },
+  ];
+  const existingFieldIds = new Set(original.patientScreeningQuestionsConfig.fields.map((f) => f.fhirField));
+  return {
+    ...original,
+    patientScreeningQuestionsConfig: {
+      ...original.patientScreeningQuestionsConfig,
+      fields: [
+        ...original.patientScreeningQuestionsConfig.fields,
+        ...covidFields.filter((f) => !existingFieldIds.has(f.fhirField)),
+      ],
+    },
+  };
+});
+
 // Design requirement: "fixture tests asserting the fetched rows parse against the Zod schema
 // (fields present, typed, key resolved values correct) — the same schema the runtime validation
 // uses." The fetch+map pipeline runs against a stubbed Oystehr client returning a small FHIR graph;

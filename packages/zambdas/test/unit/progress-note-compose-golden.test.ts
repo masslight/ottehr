@@ -16,6 +16,45 @@ import {
 } from './fixtures/chart-data-golden.fixture';
 import { createGoldenFhirServer } from './fixtures/golden-fhir-server';
 
+vi.mock('utils/lib/ottehr-config/screening-questions', async (importOriginal) => {
+  const original = await importOriginal<typeof import('utils/lib/ottehr-config/screening-questions')>();
+  const covidFields = [
+    {
+      id: 'covid_symptoms',
+      type: 'radio' as const,
+      question: 'Do you have any COVID symptoms?',
+      fhirField: 'covid-symptoms',
+      existsInQuestionnaire: true,
+      options: [
+        { value: 'yes', label: 'Yes', fhirValue: 'Yes' },
+        { value: 'no', label: 'No', fhirValue: 'No' },
+      ],
+    },
+    {
+      id: 'tested_positive_covid',
+      type: 'radio' as const,
+      question: 'Have you tested positive for COVID?',
+      fhirField: 'tested-positive-covid',
+      existsInQuestionnaire: true,
+      options: [
+        { value: 'yes', label: 'Yes', fhirValue: 'Yes' },
+        { value: 'no', label: 'No', fhirValue: 'No' },
+      ],
+    },
+  ];
+  const existingFieldIds = new Set(original.patientScreeningQuestionsConfig.fields.map((f) => f.fhirField));
+  return {
+    ...original,
+    patientScreeningQuestionsConfig: {
+      ...original.patientScreeningQuestionsConfig,
+      fields: [
+        ...original.patientScreeningQuestionsConfig.fields,
+        ...covidFields.filter((f) => !existingFieldIds.has(f.fhirField)),
+      ],
+    },
+  };
+});
+
 describe('composeProgressNoteData — golden chart data', () => {
   let fixture: GoldenChartResources;
   let goldenChartData: ReturnType<typeof visitNoteToLegacyChartData>;
