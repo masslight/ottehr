@@ -242,6 +242,7 @@ function App(): ReactElement {
                 <Route path="/visit/:id" element={<VisitDetailsPage />} />
                 <Route path="/profile" element={<EmployeeProfilePage />} />
                 <Route path="/patients" element={<PatientsPage />} />
+                <Route path="/patients/add" element={<AddPatient key="patient-only" patientOnly />} />
                 <Route path="/patient/:id" element={<PatientPage />} />
                 <Route path="/patient/:id/info" element={<PatientInformationPage />} />
                 <Route path="/patient/:id/docs" element={<PatientDocumentsExplorerPage />} />
@@ -319,6 +320,7 @@ function App(): ReactElement {
                   <Route path="/patient/:id/followup/:encounterId" element={<PatientFollowup />} />
                 )}
                 <Route path="/patients" element={<PatientsPage />} />
+                <Route path="/patients/add" element={<AddPatient key="patient-only" patientOnly />} />
 
                 {currentUser.hasRole(GLOBAL_ACTION_LOG_VIEWER_ROLES) && (
                   <Route element={<AdminLayout />}>

@@ -11,8 +11,7 @@ export default function PatientsPage(): ReactElement {
     <PageContainer>
       <Box sx={{ px: 3 }}>
         <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
-          {/* Opens the Add Visit form with "No visit, just add the patient" already ticked. */}
-          <Link to="/visits/add?patientOnly=true" style={{ display: 'contents' }}>
+          <Link to="/patients/add" style={{ display: 'contents' }}>
             <Button
               data-testid={dataTestIds.patients.addPatientButton}
               sx={{ borderRadius: 100, textTransform: 'none', fontWeight: 600 }}

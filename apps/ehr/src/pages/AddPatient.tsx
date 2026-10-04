@@ -2,9 +2,7 @@ import { LoadingButton } from '@mui/lab';
 import {
   Box,
   Button,
-  Checkbox,
   FormControl,
-  FormControlLabel,
   FormHelperText,
   Grid,
   InputLabel,
@@ -132,9 +130,14 @@ export const getPostAppointmentSnackbar = ({
   return { message: 'Visit added successfully', variant: 'success' };
 };
 
-export default function AddPatient(): JSX.Element {
+interface AddPatientProps {
+  /** The Patients page's "Add patient": the same form with no visit fields, creating only the patient. */
+  patientOnly?: boolean;
+}
+
+export default function AddPatient({ patientOnly = false }: AddPatientProps): JSX.Element {
   const location = useLocation();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
   const patientIdFromUrl = searchParams.get('patientId') ?? undefined;
   const followUpState = location.state as
     | {
@@ -182,15 +185,6 @@ export default function AddPatient(): JSX.Element {
     followUpState?.prefill?.serviceCategoryCode ?? defaultServiceCategory
   );
   const [slot, setSlot] = useState<Slot | undefined>();
-  // "No visit, just add the patient". Kept in the URL rather than in state: the Patients page opens the form
-  // with it ticked, and going to plain /visits/add from here (same route, no remount) shows the visit form again.
-  const patientOnly = !isScheduledFollowUp && searchParams.get('patientOnly') === 'true';
-  const setPatientOnly = (checked: boolean): void => {
-    const next = new URLSearchParams(searchParams);
-    if (checked) next.set('patientOnly', 'true');
-    else next.delete('patientOnly');
-    setSearchParams(next, { replace: true, state: location.state });
-  };
   const [loading, setLoading] = useState<boolean>(false);
   const [errors, setErrors] = useState<AddVisitErrorState>({
     submit: false,
@@ -753,18 +747,6 @@ export default function AddPatient(): JSX.Element {
           <Paper>
             <form noValidate onSubmit={(e) => handleFormSubmit(e)}>
               <Stack spacing={2} padding={4}>
-                {!isScheduledFollowUp && (
-                  <FormControlLabel
-                    control={
-                      <Checkbox
-                        checked={patientOnly}
-                        onChange={(event) => setPatientOnly(event.target.checked)}
-                        inputProps={{ 'data-testid': dataTestIds.addPatientPage.patientOnlyCheckbox } as any}
-                      />
-                    }
-                    label="No visit, just add the patient"
-                  />
-                )}
                 {!patientOnly && (
                   <>
                     <FormControl fullWidth error={!!errors.visitType}>
