@@ -2,6 +2,8 @@
 export interface X12CodeListEntry {
   code: string;
   description: string;
+  // no longer in X12's current list, though older remits can still carry it
+  deactivated?: boolean;
 }
 
 const CODE_LINE = /^([A-Z]{0,2}\d{1,4}) (.+)$/;

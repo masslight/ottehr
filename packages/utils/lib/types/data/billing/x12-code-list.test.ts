@@ -76,9 +76,17 @@ describe('code lookups', () => {
     expect(carcDescription('P32')).toBe('Payment adjusted due to Apportionment.');
   });
 
-  it('keeps describing deactivated CARCs that older ERAs carry, without offering them', () => {
+  it('keeps describing deactivated CARCs that older ERAs carry, and offers them last, marked', () => {
     expect(carcDescription('15')).toMatch(/authorization number is missing/);
-    expect(CARC_OPTIONS.some((option) => option.code === '15')).toBe(false);
+    // every current code, in X12 order, then the deactivated ones
+    expect(CARC_OPTIONS.slice(0, CARC_CODE_LIST.length)).toEqual(CARC_CODE_LIST);
+    expect(CARC_OPTIONS.slice(CARC_CODE_LIST.length)).toEqual(
+      ['15', '138', '162', '168', '191'].map((code) => ({
+        code,
+        description: carcDescription(code),
+        deactivated: true,
+      }))
+    );
   });
 
   it('describes RARCs, including multi-paragraph ones', () => {

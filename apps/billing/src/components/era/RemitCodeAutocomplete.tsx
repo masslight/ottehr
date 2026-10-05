@@ -29,15 +29,18 @@ export function useRarcDescription(): (code: string) => string | undefined {
 
 const MAX_RESULTS = 50;
 
-// Codes starting with what was typed come first, then codes whose description mentions it.
+// The code typed comes first, then codes starting with it, then codes whose description mentions it.
 export function filterRemitCodes(options: readonly X12CodeListEntry[], query: string): X12CodeListEntry[] {
   const needle = query.trim().toLowerCase();
   if (!needle) return options.slice(0, MAX_RESULTS);
-  const byCode = options.filter((option) => option.code.toLowerCase().startsWith(needle));
+  const exact = options.filter((option) => option.code.toLowerCase() === needle);
+  const byCode = options.filter(
+    (option) => option.code.toLowerCase().startsWith(needle) && option.code.toLowerCase() !== needle
+  );
   const byText = options.filter(
     (option) => !option.code.toLowerCase().startsWith(needle) && option.description.toLowerCase().includes(needle)
   );
-  return [...byCode, ...byText].slice(0, MAX_RESULTS);
+  return [...exact, ...byCode, ...byText].slice(0, MAX_RESULTS);
 }
 
 interface RemitCodeAutocompleteProps {
@@ -98,6 +101,11 @@ export function RemitCodeAutocomplete({
         <Box component="li" {...props} key={option.code} sx={{ display: 'block !important' }}>
           <Typography variant="body2" fontWeight={700}>
             {option.code}
+            {option.deactivated && (
+              <Typography component="span" variant="caption" color="warning.main" sx={{ ml: 1 }}>
+                Deactivated
+              </Typography>
+            )}
           </Typography>
           <Typography
             variant="body2"

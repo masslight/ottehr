@@ -19,12 +19,7 @@ export const PATIENT_RESP_CARC = {
   copay: '3',
 } as const;
 
-// Current X12 claim adjustment reason codes (CARC, external code list 139), in X12 order: the codes
-// a biller may pick when keying in a remit.
-export const CARC_OPTIONS: readonly X12CodeListEntry[] = CARC_CODE_LIST;
-
-// Deactivated codes older ERAs still carry. Never offered for new entries, but their remits keep a
-// description.
+// Deactivated codes older ERAs still carry, with the description they had.
 const DEACTIVATED_CARC_DESCRIPTIONS: Record<string, string> = {
   '15': 'The authorization number is missing, invalid, or does not apply to the billed services or provider.',
   '138': 'Appeal procedures not followed or time limits not met.',
@@ -34,6 +29,18 @@ const DEACTIVATED_CARC_DESCRIPTIONS: Record<string, string> = {
     "Service(s) have been considered under the patient's medical plan. Benefits are not available under this dental plan.",
   '191': "Not a work related injury/illness and thus not the liability of the workers' compensation carrier.",
 };
+
+// The claim adjustment reason codes (CARC, external code list 139) a biller may pick when keying in a
+// remit: the current ones in X12 order, then the deactivated ones, since a paper remit is keyed as
+// printed and can still carry one.
+export const CARC_OPTIONS: readonly X12CodeListEntry[] = [
+  ...CARC_CODE_LIST,
+  ...Object.entries(DEACTIVATED_CARC_DESCRIPTIONS).map(([code, description]) => ({
+    code,
+    description,
+    deactivated: true,
+  })),
+];
 
 // CARC -> official description (without X12's payer-facing "Usage:" guidance). Unknown codes render
 // a generic label via carcDescription().
