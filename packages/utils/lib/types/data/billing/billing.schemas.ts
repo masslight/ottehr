@@ -961,19 +961,13 @@ export const ManualEraClaimSchema = z.object({
   serviceLines: z.array(ManualEraServiceLineSchema).min(1).max(MANUAL_ERA_LIMITS.serviceLinesPerClaim),
 });
 
-// Create (no eraId: header + idempotencyKey required) or update a manual ERA. Updates are
+// Create (no eraId: header required) or update a manual ERA. Updates are
 // operations: header when it changed, claims to add or change, and claims to remove by id.
 export const SaveManualEraInputSchema = z
   .object({
     eraId: nonEmptyString.optional(),
     // the PaymentReconciliation version the editor loaded; required on update
     expectedVersionId: nonEmptyString.optional(),
-    // embedded in a FHIR token search (`system|value`), so no `|` or whitespace
-    idempotencyKey: z
-      .string()
-      .max(128)
-      .regex(/^[A-Za-z0-9._-]+$/)
-      .optional(),
     header: ManualEraHeaderSchema.optional(),
     claims: z.array(ManualEraClaimSchema).max(MANUAL_ERA_LIMITS.claimsPerRemit).default([]),
     deleteClaimResponseIds: z.array(nonEmptyString).max(MANUAL_ERA_LIMITS.claimsPerRemit).default([]),
@@ -981,8 +975,6 @@ export const SaveManualEraInputSchema = z
   .superRefine((input, ctx) => {
     if (!input.eraId) {
       if (!input.header) ctx.addIssue({ code: 'custom', path: ['header'], message: 'Required to create a remit' });
-      if (!input.idempotencyKey)
-        ctx.addIssue({ code: 'custom', path: ['idempotencyKey'], message: 'Required to create a remit' });
       if (input.deleteClaimResponseIds.length > 0)
         ctx.addIssue({ code: 'custom', path: ['deleteClaimResponseIds'], message: 'Nothing to delete on a new remit' });
     } else if (!input.expectedVersionId) {

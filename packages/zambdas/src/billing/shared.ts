@@ -313,8 +313,6 @@ export const ERA_LAST_EDITED_EXTENSION = 'https://extensions.fhir.ottehr.com/bil
 // response even once `request` and `patient` point at a matched Claim, as FHIR requires of contained
 // resources, so unmatching and editing can still read them back.
 export const ERA_KEYED_CLAIM_EXTENSION = 'https://extensions.fhir.ottehr.com/billing/era-keyed-claim';
-// Client-generated key a manual ERA is created under, so a retried create returns the first one.
-export const MANUAL_ERA_IDEMPOTENCY_SYSTEM = 'https://fhir.ottehr.com/billing/manual-era-idempotency-key';
 // X12 835 BPR04 payment method, on PaymentReconciliation.paymentIdentifier.type
 export const X12_PAYMENT_METHOD_SYSTEM = 'https://x12.org/codes/payment-method-codes';
 // Oystehr RCM tags each ClaimResponse it writes with its kind, and the claim-update subscription

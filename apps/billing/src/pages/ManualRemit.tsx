@@ -76,7 +76,6 @@ import {
   headerFormToInput,
   ManualRemitFormValues,
   manualRemitResolver,
-  newKey,
   parseMoneyToCents,
   reconcileRemit,
 } from '../utils/manualEra';
@@ -173,8 +172,6 @@ export default function ManualRemit(): ReactElement {
     threshold: parseFloat(theme.spacing(MAIN_PADDING_Y - HEADER_TOP_ROOM)),
   });
   const [duplicateCheckWarning, setDuplicateCheckWarning] = useState<string | null>(null);
-  // one per page visit, so a retried create returns the remit the first attempt made
-  const [idempotencyKey] = useState(() => globalThis.crypto?.randomUUID?.() ?? newKey());
 
   const [claimDialog, setClaimDialog] = useState<ClaimForm | null>(null);
   const [associating, setAssociating] = useState(false);
@@ -291,10 +288,7 @@ export default function ManualRemit(): ReactElement {
       const edited = submittedClaims.filter(isClaimDirty);
       try {
         if (!eraId) {
-          const created = await saveBillingManualEra(oystehrZambda, {
-            idempotencyKey,
-            header: headerFormToInput(submittedHeader),
-          });
+          const created = await saveBillingManualEra(oystehrZambda, { header: headerFormToInput(submittedHeader) });
           setSavedHeader(submittedHeader);
           enqueueSnackbar('Remit saved. Add its claims below.', { variant: 'success' });
           navigate(`/eras/${created.eraId}/edit`, { replace: true });

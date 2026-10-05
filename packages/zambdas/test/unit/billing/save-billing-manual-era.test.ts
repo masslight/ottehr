@@ -27,7 +27,6 @@ import { performEffect } from '../../../src/billing/save-billing-manual-era';
 import { SaveManualEraParams } from '../../../src/billing/save-billing-manual-era/validateRequestParameters';
 import {
   ERA_DEPOSIT_DATE_EXTENSION,
-  MANUAL_ERA_IDEMPOTENCY_SYSTEM,
   payerDisplay,
   PROVIDER_ROLE_BILLING,
   PROVIDER_ROLE_TAG,
@@ -204,13 +203,12 @@ describe('save-billing-manual-era performEffect', () => {
 
   it('creates the remit and its era-processing record, authored by the caller', async () => {
     const { oystehr, transaction } = makeClient([billingOrg]);
-    const result = await performEffect(oystehr, params({ header, idempotencyKey: 'key-1' }), ACTOR, NOW);
+    const result = await performEffect(oystehr, params({ header }), ACTOR, NOW);
 
     const requests = requestsOf(transaction);
     expect(describeRequests(requests)).toEqual(['POST /PaymentReconciliation', 'POST /Provenance']);
     const prRequest = requests[0] as { fullUrl: string; resource: PaymentReconciliation };
     expect(prRequest.resource.created).toBe(NOW);
-    expect(prRequest.resource.identifier).toContainEqual({ system: MANUAL_ERA_IDEMPOTENCY_SYSTEM, value: 'key-1' });
     expect((requests[1] as { resource: Provenance }).resource).toMatchObject({
       target: [{ reference: prRequest.fullUrl }],
       agent: [{ who: ACTOR }],
@@ -225,7 +223,6 @@ describe('save-billing-manual-era performEffect', () => {
       oystehr,
       params({
         header: { ...header, payerId: CUSTOM_PAYER_ORG.id ?? '' },
-        idempotencyKey: 'key-1',
         claims: [keyedClaim({ clientKey: 'a' })],
       }),
       ACTOR,
@@ -243,20 +240,6 @@ describe('save-billing-manual-era performEffect', () => {
     expect(claimResponse.contained?.find((resource) => resource.resourceType === 'Coverage')).toMatchObject({
       payor: [payer],
     });
-  });
-
-  it('returns the remit a retried create already made', async () => {
-    const existing: PaymentReconciliation = {
-      ...(storedRemit()[0] as PaymentReconciliation),
-      identifier: [{ system: MANUAL_ERA_IDEMPOTENCY_SYSTEM, value: 'key-1' }],
-    };
-    const { oystehr, transaction } = makeClient([existing]);
-    await expect(performEffect(oystehr, params({ header, idempotencyKey: 'key-1' }), ACTOR, NOW)).resolves.toEqual({
-      eraId: 'era-1',
-      versionId: '3',
-      claims: [],
-    });
-    expect(transaction).not.toHaveBeenCalled();
   });
 
   it('refuses a save made from a stale copy', async () => {
@@ -488,12 +471,12 @@ describe('save-billing-manual-era performEffect', () => {
       meta: { tag: [{ system: PROVIDER_ROLE_TAG, code: 'rendering' }] },
     };
     await expect(
-      performEffect(makeClient([renderingOnly]).oystehr, params({ header, idempotencyKey: 'k' }), ACTOR, NOW)
+      performEffect(makeClient([renderingOnly]).oystehr, params({ header }), ACTOR, NOW)
     ).rejects.toMatchObject({ message: 'The billing provider was not found' });
 
     (resolvePayerOrganization as Mock).mockRejectedValue(new Error('not found'));
-    await expect(
-      performEffect(makeClient([billingOrg]).oystehr, params({ header, idempotencyKey: 'k' }), ACTOR, NOW)
-    ).rejects.toMatchObject({ message: 'Payer payer-uhc was not found' });
+    await expect(performEffect(makeClient([billingOrg]).oystehr, params({ header }), ACTOR, NOW)).rejects.toMatchObject(
+      { message: 'Payer payer-uhc was not found' }
+    );
   });
 });

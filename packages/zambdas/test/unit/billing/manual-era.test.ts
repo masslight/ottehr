@@ -86,7 +86,6 @@ describe('buildManualPaymentReconciliation', () => {
       context,
       created: '2026-09-23T15:00:00.000Z',
       editedAt: '2026-09-23T15:00:00.000Z',
-      idempotencyKey: 'key-1',
     });
 
     expect(getEraSource(pr)).toBe('manual');
@@ -105,13 +104,12 @@ describe('buildManualPaymentReconciliation', () => {
     });
   });
 
-  it('keeps the first save time and idempotency key on later saves', () => {
+  it('keeps the first save time on later saves', () => {
     const first = buildManualPaymentReconciliation({
       header,
       context,
       created: '2026-09-23T15:00:00.000Z',
       editedAt: '2026-09-23T15:00:00.000Z',
-      idempotencyKey: 'key-1',
     });
     const later = buildManualPaymentReconciliation({
       header: { ...header, paymentMethod: undefined, notes: undefined },

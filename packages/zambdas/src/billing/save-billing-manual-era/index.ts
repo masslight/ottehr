@@ -40,7 +40,6 @@ import {
   findById,
   getEraSource,
   hasTag,
-  MANUAL_ERA_IDEMPOTENCY_SYSTEM,
   payerDisplay,
   PROVIDER_ROLE_BILLING,
   PROVIDER_ROLE_TAG,
@@ -82,12 +81,6 @@ export async function performEffect(
   actor: Reference,
   now: string
 ): Promise<SaveManualEraResponse> {
-  if (!params.eraId && params.idempotencyKey) {
-    // a retried create returns the remit the first attempt made
-    const replayed = await findByIdempotencyKey(oystehr, params.idempotencyKey);
-    if (replayed?.id) return { eraId: replayed.id, versionId: replayed.meta?.versionId ?? '', claims: [] };
-  }
-
   const stored = params.eraId ? await loadManualEra(oystehr, params.eraId, params.expectedVersionId) : undefined;
   const header: ManualEraHeader = params.header ?? manualEraHeaderFromFhir(stored!.pr);
   const context = await resolveContext(oystehr, header);
@@ -121,7 +114,6 @@ export async function performEffect(
     context,
     created: stored?.pr.created ?? now,
     editedAt: now,
-    idempotencyKey: params.idempotencyKey,
     existing: stored?.pr,
   });
   // always written: the version bump is what makes a concurrent save of the same remit fail
@@ -212,14 +204,6 @@ export async function performEffect(
       };
     }),
   };
-}
-
-async function findByIdempotencyKey(oystehr: Oystehr, key: string): Promise<PaymentReconciliation | undefined> {
-  const bundle = await oystehr.fhir.search<PaymentReconciliation>({
-    resourceType: 'PaymentReconciliation',
-    params: [{ name: 'identifier', value: `${MANUAL_ERA_IDEMPOTENCY_SYSTEM}|${key}` }],
-  });
-  return bundle.unbundle()[0];
 }
 
 async function loadManualEra(oystehr: Oystehr, eraId: string, expectedVersionId?: string): Promise<StoredManualEra> {

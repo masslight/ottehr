@@ -57,7 +57,6 @@ import {
   ERA_STATUS_CODE_EXTENSION,
   getEraCheckNumber,
   getEraExtensionString,
-  MANUAL_ERA_IDEMPOTENCY_SYSTEM,
   PROVENANCE_ACTIVITY_TYPE_SYSTEM,
   setTaxId,
   X12_PAYMENT_METHOD_SYSTEM,
@@ -171,14 +170,10 @@ export function buildManualPaymentReconciliation(args: {
   // first save; kept on every later save
   created: string;
   editedAt: string;
-  idempotencyKey?: string;
   existing?: PaymentReconciliation;
 }): PaymentReconciliation {
   const { header, context, existing } = args;
   const method = ERA_PAYMENT_METHODS.find((candidate) => candidate.code === header.paymentMethod);
-  const idempotencyIdentifier =
-    existing?.identifier?.find((id) => id.system === MANUAL_ERA_IDEMPOTENCY_SYSTEM) ??
-    (args.idempotencyKey ? { system: MANUAL_ERA_IDEMPOTENCY_SYSTEM, value: args.idempotencyKey } : undefined);
   return {
     resourceType: 'PaymentReconciliation',
     ...(existing?.id ? { id: existing.id } : {}),
@@ -188,10 +183,7 @@ export function buildManualPaymentReconciliation(args: {
       ...(header.depositDate ? [{ url: ERA_DEPOSIT_DATE_EXTENSION, valueDate: header.depositDate }] : []),
       { url: ERA_LAST_EDITED_EXTENSION, valueDateTime: args.editedAt },
     ],
-    identifier: [
-      { system: ERA_CHECK_SYSTEM, value: header.checkNumber },
-      ...(idempotencyIdentifier ? [idempotencyIdentifier] : []),
-    ],
+    identifier: [{ system: ERA_CHECK_SYSTEM, value: header.checkNumber }],
     status: 'active',
     outcome: 'complete',
     created: args.created,

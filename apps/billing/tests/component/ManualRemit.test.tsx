@@ -170,7 +170,6 @@ describe('ManualRemit', () => {
     await waitFor(() => expect(api.saveBillingManualEra).toHaveBeenCalledTimes(1));
     // dated today, with no deposit date
     expect(api.saveBillingManualEra.mock.calls[0][1]).toStrictEqual({
-      idempotencyKey: expect.any(String),
       header: {
         payerId: 'payer-uhc',
         billingProviderRef: 'Organization/org-1',
