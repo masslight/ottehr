@@ -1409,8 +1409,7 @@ export function getProcedureDrug(
   }
 
   const storedDosage = getDosageFromMA(ma);
-  const dosage =
-    storedDosage && Number.isFinite(storedDosage.dose) && storedDosage.dose > 0 ? storedDosage : undefined;
+  const dosage = storedDosage && Number.isFinite(storedDosage.dose) && storedDosage.dose > 0 ? storedDosage : undefined;
   return {
     ndc: ndcToDigits(ndc),
     quantity: dosage?.dose ?? 1,
