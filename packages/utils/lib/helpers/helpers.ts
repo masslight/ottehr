@@ -1708,18 +1708,19 @@ export const checkResourceHasSlug = (resource: ScheduleOwnerFhirResource, slug: 
 };
 
 export const getPayerId = (org: Organization | undefined): string | undefined => {
+  const identifiers = org?.identifier?.filter((identifier) => identifier.use !== 'old');
   // First look for Oystehr payer ID by system
-  let payerId = org?.identifier?.find((identifier) => identifier.system === OYSTEHR_RCM_PAYER_ID_SYSTEM)?.value;
+  let payerId = identifiers?.find((identifier) => identifier.system === OYSTEHR_RCM_PAYER_ID_SYSTEM)?.value;
   if (!payerId) {
     // Second look at coding using PAYERID code
-    payerId = org?.identifier?.find(
+    payerId = identifiers?.find(
       (identifier) =>
         identifier.type?.coding?.some((coding) => coding.system === FHIR_IDENTIFIER_SYSTEM && coding.code === 'PAYERID')
     )?.value;
   }
   if (!payerId) {
     // Third look at coding using XX (Organization identifier) code
-    payerId = org?.identifier?.find(
+    payerId = identifiers?.find(
       (identifier) =>
         identifier.type?.coding?.some((coding) => coding.system === FHIR_IDENTIFIER_SYSTEM && coding.code === 'XX')
     )?.value;
@@ -1734,7 +1735,7 @@ export const getPayerName = (org: Organization | undefined): string | undefined 
 export const getCustomInsuranceOrgBusinessId = (org: Organization | undefined): string | undefined =>
   org?.identifier?.find((identifier) => identifier.system === CUSTOM_INSURANCE_ORG_ID_SYSTEM)?.value;
 
-// Every business id starts with this prefix a "payer id" search/filter value shaped like one names
+// Every business id starts with this prefix. A "payer id" search/filter value shaped like one names
 // a custom insurance organization rather than an RCM payer.
 export function isCustomInsuranceOrgBusinessId(value: string): boolean {
   return value.trim().toUpperCase().startsWith(CUSTOM_INSURANCE_ORG_ID_PREFIX);
