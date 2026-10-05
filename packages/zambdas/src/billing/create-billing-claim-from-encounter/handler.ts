@@ -46,8 +46,6 @@ import { FHIR_IDENTIFIER_NPI, SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/con
 import { getPaymentVariantFromEncounter, PaymentVariant } from 'utils/lib/fhir/encounter';
 import { codeableConcept, getCoding } from 'utils/lib/fhir/helpers';
 import {
-  getCreatedTheOrderProviderId,
-  getCurrentOrderedByProviderId,
   getDosageFromMA,
   getMedicationCptEntryFromMA,
   getMedicationFromMA,
@@ -61,7 +59,6 @@ import {
   extractCustomInsuranceOrgIdFromReferenceUrl,
   getCandidPlanTypeCodeFromCoverage,
   getPayerId,
-  isNPIValidWithChecksum,
 } from 'utils/lib/helpers/helpers';
 import { InternalError } from 'utils/lib/helpers/oystehrApi';
 import {
@@ -109,7 +106,6 @@ import {
   BillingFhirResource,
   buildClaimItemDrugDetail,
   ClaimLineDrug,
-  ClaimLineOrderingProvider,
   copyBillingPatient,
   copySourceRef,
   createBillingClient,
@@ -134,7 +130,6 @@ import {
   resourceDisplayName,
   searchPatientsByClinicalIds,
   selectClaimCoverages,
-  setClaimItemOrderingProviders,
   SOURCE_IDENTIFIER_SYSTEM,
 } from '../shared';
 import { CreateClaimFromEncounterParams, validateRequestParameters } from './validateRequestParameters';
@@ -160,8 +155,6 @@ interface ClinicalResources {
   procedures: Array<Procedure>;
   /** In-house medication administrations the procedures are part of (Procedure.partOf). */
   medicationAdministrations?: MedicationAdministration[];
-  /** Practitioners who ordered those administrations. */
-  medicationPractitioners?: Practitioner[];
   accident?: AccidentDTO;
   /** The patient's occ-med Account (owner = the visit's employer); resolved only for employer-billed visits. */
   occupationalMedicineAccount?: Account;
@@ -198,9 +191,6 @@ interface ClaimResources {
   diagnoses?: Array<Condition>;
   procedures?: Array<Procedure>;
   medicationAdministrations?: MedicationAdministration[];
-  medicationPractitioners?: Practitioner[];
-  /** Billing rendering providers matched by NPI to clinical practitioners; candidates for ordering providers. */
-  billingPractitioners?: Practitioner[];
   accident?: AccidentDTO;
 }
 
@@ -486,8 +476,6 @@ export async function performEffect(
     diagnoses: clinicalResources.diagnoses,
     procedures: clinicalResources.procedures,
     medicationAdministrations: clinicalResources.medicationAdministrations,
-    medicationPractitioners: clinicalResources.medicationPractitioners,
-    billingPractitioners: billingResources.practitioners,
     coverageRefs: getClaimCoveragesForEncounter(appointmentService, mainPatientAccounts, claimCoverages),
     nonInsurancePayer: await resolveNonInsurancePayer(billingOystehr, clinicalResources),
     renderingProvider: claimRenderingProvider,
@@ -898,7 +886,7 @@ async function getClinicalResources(
   if (!procedures.length) throw FHIR_RESOURCE_NOT_FOUND('Procedure');
 
   // In-house medication procedures point at their MedicationAdministration, which carries the
-  // NDC, dose and ordering provider for the claim line.
+  // NDC and dose for the claim line.
   const medicationAdministrationIds = [
     ...new Set(
       procedures
@@ -908,28 +896,14 @@ async function getClinicalResources(
         .map((ref) => ref.replace('MedicationAdministration/', ''))
     ),
   ];
-  let medicationAdministrations: MedicationAdministration[] = [];
-  let medicationPractitioners: Practitioner[] = [];
-  if (medicationAdministrationIds.length) {
-    const medicationResources = (
-      await oystehr.fhir.search<MedicationAdministration | Practitioner>({
-        resourceType: 'MedicationAdministration',
-        params: [
-          { name: '_id', value: medicationAdministrationIds.join(',') },
-          { name: '_include', value: 'MedicationAdministration:performer' },
-        ],
-      })
-    ).unbundle();
-    medicationAdministrations = medicationResources.filter(
-      (r): r is MedicationAdministration => r.resourceType === 'MedicationAdministration'
-    );
-    const orderingProviderIds = medicationAdministrations.map(
-      (ma) => getCurrentOrderedByProviderId(ma) ?? getCreatedTheOrderProviderId(ma)
-    );
-    medicationPractitioners = medicationResources.filter(
-      (r): r is Practitioner => r.resourceType === 'Practitioner' && orderingProviderIds.includes(r.id)
-    );
-  }
+  const medicationAdministrations = medicationAdministrationIds.length
+    ? (
+        await oystehr.fhir.search<MedicationAdministration>({
+          resourceType: 'MedicationAdministration',
+          params: [{ name: '_id', value: medicationAdministrationIds.join(',') }],
+        })
+      ).unbundle()
+    : [];
 
   // Manually look up coverages because FHIR doesn't support Account:coverage include
   const coverageIds = accounts.flatMap<string>((account) =>
@@ -998,7 +972,7 @@ async function getClinicalResources(
     payors,
     diagnoses,
     procedures,
-    ...(medicationAdministrations.length ? { medicationAdministrations, medicationPractitioners } : {}),
+    ...(medicationAdministrations.length ? { medicationAdministrations } : {}),
     ...(accident ? { accident } : {}),
     ...(occupationalMedicineAccount ? { occupationalMedicineAccount } : {}),
   };
@@ -1130,17 +1104,10 @@ async function findExistingBillingResources(
     );
   }
 
-  // Look for rendering providers that match NPIs for Practitioners involved in the Encounter,
-  // including the ones who ordered its in-house medications
-  const involvedPractitioners = [
-    ...clinicalResources.practitioners,
-    ...(clinicalResources.medicationPractitioners ?? []).filter(
-      (mp) => !clinicalResources.practitioners.some((p) => p.id === mp.id)
-    ),
-  ];
+  // Look for rendering providers that match NPIs for Practitioners involved in the Encounter
   const matchingPractitioners = (
     await Promise.all(
-      involvedPractitioners.map<Promise<Practitioner | undefined>>(async (p) => {
+      clinicalResources.practitioners.map<Promise<Practitioner | undefined>>(async (p) => {
         const npi = getNPIIdentifier(p)?.value;
         if (!npi) return undefined;
         const practitionerSearch = (
@@ -1396,19 +1363,6 @@ function buildClaim(resources: ClaimResources): Claim {
     },
   };
 
-  // Same storage as ordering providers entered in the billing app's claim editor
-  setClaimItemOrderingProviders(
-    claim,
-    (resources.procedures ?? []).map((p) =>
-      getProcedureOrderingProvider(
-        p,
-        resources.medicationAdministrations ?? [],
-        resources.medicationPractitioners ?? [],
-        resources.billingPractitioners ?? []
-      )
-    )
-  );
-
   return claim;
 }
 
@@ -1467,32 +1421,6 @@ export function getProcedureDrug(
     quantity: dosage?.dose ?? 1,
     units: dosage ? medicationUnitToDrugUnitCode(dosage.units) : 'UN',
   };
-}
-
-// Who ordered the in-house medication a procedure was billed for. A billing rendering provider with
-// the same NPI is referenced as an existing provider; otherwise the clinical practitioner's name and
-// NPI are kept as a manually entered one.
-export function getProcedureOrderingProvider(
-  procedure: Procedure,
-  medicationAdministrations: MedicationAdministration[],
-  clinicalPractitioners: Practitioner[],
-  billingPractitioners: Practitioner[]
-): ClaimLineOrderingProvider | undefined {
-  const ma = getProcedureMedicationAdministration(procedure, medicationAdministrations);
-  if (!ma) return undefined;
-  const orderingProviderId = getCurrentOrderedByProviderId(ma) ?? getCreatedTheOrderProviderId(ma);
-  const clinicalPractitioner = clinicalPractitioners.find((p) => p.id === orderingProviderId);
-  if (!clinicalPractitioner) return undefined;
-
-  const npi = getNPIIdentifier(clinicalPractitioner)?.value;
-  const billingPractitioner = npi ? billingPractitioners.find((p) => getNPIIdentifier(p)?.value === npi) : undefined;
-  const practitioner = billingPractitioner ?? clinicalPractitioner;
-  const firstName = practitioner.name?.[0]?.given?.join(' ');
-  const lastName = practitioner.name?.[0]?.family;
-  if (!firstName || !lastName) return undefined;
-
-  if (billingPractitioner) return { firstName, lastName, ...(npi ? { npi } : {}), providerId: billingPractitioner.id };
-  return { firstName, lastName, ...(npi && isNPIValidWithChecksum(npi) ? { npi } : {}) };
 }
 
 function getAccidentExtensions(accident?: AccidentDTO): Extension[] {

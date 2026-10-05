@@ -3,32 +3,16 @@ import { Claim, MedicationAdministration, Practitioner, Procedure } from 'fhir/r
 import { FHIR_IDENTIFIER_NPI, PARTICIPATION_CODE_SYSTEM, SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
 import { MEDICATION_CPT_CODES_EXTENSION_URL } from 'utils/lib/fhir/medication-administration';
 import { CODE_SYSTEM_CPT, CODE_SYSTEM_HL7_HCPCS, CODE_SYSTEM_NDC } from 'utils/lib/helpers/rcm/constants';
-import {
-  MEDICATION_ADMINISTRATION_PERFORMER_TYPE_SYSTEM,
-  PRACTITIONER_ADMINISTERED_MEDICATION_CODE,
-  PRACTITIONER_ORDERED_BY_MEDICATION_CODE,
-  PRACTITIONER_ORDERED_MEDICATION_CODE,
-} from 'utils/lib/types/api/medication-administration.constants';
 import { describe, expect, it, vi } from 'vitest';
 import {
   ComplexValidationOutput,
   getProcedureDrug,
-  getProcedureOrderingProvider,
   medicationUnitToDrugUnitCode,
   performEffect,
 } from '../../../src/billing/create-billing-claim-from-encounter/handler';
 import { EXTENSION_CLAIM_ITEM_ORDERING_PROVIDER, readClaimItemDrug } from '../../../src/billing/shared';
 
 const TEST_PROVENANCE_AGENT = { who: { reference: 'Device/test' } };
-const VALID_NPI = '1234567893';
-
-const performer = (
-  practitionerId: string,
-  code: string
-): NonNullable<MedicationAdministration['performer']>[number] => ({
-  actor: { reference: `Practitioner/${practitionerId}` },
-  function: { coding: [{ system: MEDICATION_ADMINISTRATION_PERFORMER_TYPE_SYSTEM, code }] },
-});
 
 function makeMedicationAdministration(opts: {
   id?: string;
@@ -36,7 +20,6 @@ function makeMedicationAdministration(opts: {
   dose?: number;
   unit?: string;
   cptCodes?: { code: string; display: string; isMedication?: boolean }[];
-  performers?: NonNullable<MedicationAdministration['performer']>;
 }): MedicationAdministration {
   return {
     resourceType: 'MedicationAdministration',
@@ -55,7 +38,6 @@ function makeMedicationAdministration(opts: {
       ? { extension: [{ url: MEDICATION_CPT_CODES_EXTENSION_URL, valueString: JSON.stringify(opts.cptCodes) }] }
       : {}),
     ...(opts.dose != null && opts.unit ? { dosage: { dose: { value: opts.dose, unit: opts.unit } } } : {}),
-    performer: opts.performers ?? [performer('ordering-practitioner', PRACTITIONER_ORDERED_MEDICATION_CODE)],
   };
 }
 
@@ -68,20 +50,6 @@ function makeProcedure(code: string, maId?: string, system = CODE_SYSTEM_CPT): P
     ...(maId ? { partOf: [{ reference: `MedicationAdministration/${maId}` }] } : {}),
   };
 }
-
-const clinicalOrderingPractitioner: Practitioner = {
-  resourceType: 'Practitioner',
-  id: 'ordering-practitioner',
-  name: [{ given: ['Olivia'], family: 'Order' }],
-  identifier: [{ system: FHIR_IDENTIFIER_NPI, value: VALID_NPI }],
-};
-
-const billingOrderingPractitioner: Practitioner = {
-  resourceType: 'Practitioner',
-  id: 'billing-ordering-practitioner',
-  name: [{ given: ['Olivia'], family: 'Order' }],
-  identifier: [{ system: FHIR_IDENTIFIER_NPI, value: VALID_NPI }],
-};
 
 describe('medicationUnitToDrugUnitCode', () => {
   it.each([
@@ -164,71 +132,8 @@ describe('getProcedureDrug', () => {
   });
 });
 
-describe('getProcedureOrderingProvider', () => {
-  const procedure = makeProcedure('J1885', 'ma-1');
-
-  it('references the billing rendering provider with the same NPI', () => {
-    const ma = makeMedicationAdministration({});
-    expect(
-      getProcedureOrderingProvider(procedure, [ma], [clinicalOrderingPractitioner], [billingOrderingPractitioner])
-    ).toEqual({ firstName: 'Olivia', lastName: 'Order', npi: VALID_NPI, providerId: 'billing-ordering-practitioner' });
-  });
-
-  it('falls back to a manually entered provider when billing has no match', () => {
-    const ma = makeMedicationAdministration({});
-    expect(getProcedureOrderingProvider(procedure, [ma], [clinicalOrderingPractitioner], [])).toEqual({
-      firstName: 'Olivia',
-      lastName: 'Order',
-      npi: VALID_NPI,
-    });
-  });
-
-  it('drops an NPI that fails the checksum from a manually entered provider', () => {
-    const ma = makeMedicationAdministration({});
-    const practitioner = {
-      ...clinicalOrderingPractitioner,
-      identifier: [{ system: FHIR_IDENTIFIER_NPI, value: '1234567890' }],
-    };
-    expect(getProcedureOrderingProvider(procedure, [ma], [practitioner], [])).toEqual({
-      firstName: 'Olivia',
-      lastName: 'Order',
-    });
-  });
-
-  it('prefers the latest "ordered by" provider over the one who created the order', () => {
-    const ma = makeMedicationAdministration({
-      performers: [
-        performer('creator', PRACTITIONER_ORDERED_MEDICATION_CODE),
-        performer('creator', PRACTITIONER_ORDERED_BY_MEDICATION_CODE),
-        performer('ordering-practitioner', PRACTITIONER_ORDERED_BY_MEDICATION_CODE),
-        performer('nurse', PRACTITIONER_ADMINISTERED_MEDICATION_CODE),
-      ],
-    });
-    const creator: Practitioner = {
-      resourceType: 'Practitioner',
-      id: 'creator',
-      name: [{ given: ['C'], family: 'R' }],
-    };
-    expect(getProcedureOrderingProvider(procedure, [ma], [creator, clinicalOrderingPractitioner], [])).toEqual({
-      firstName: 'Olivia',
-      lastName: 'Order',
-      npi: VALID_NPI,
-    });
-  });
-
-  it('returns nothing for procedures not tied to a medication or a practitioner without a name', () => {
-    const ma = makeMedicationAdministration({});
-    expect(getProcedureOrderingProvider(makeProcedure('99213'), [ma], [clinicalOrderingPractitioner], [])).toBe(
-      undefined
-    );
-    expect(
-      getProcedureOrderingProvider(procedure, [ma], [{ ...clinicalOrderingPractitioner, name: undefined }], [])
-    ).toBeUndefined();
-  });
-});
-
 describe('performEffect with in-house medications', () => {
-  it('stores the drug in item.detail and the ordering provider like the claim editor does', async () => {
+  it('stores the drug in item.detail and no ordering provider', async () => {
     const txFn = vi.fn().mockImplementation(async ({ requests }) => ({
       entry: requests.map((request: BatchInputPostRequest<any>, i: number) => ({
         resource: { ...(request.resource ?? { resourceType: 'Person' }), id: `id-${i}` },
@@ -285,13 +190,12 @@ describe('performEffect with in-house medications', () => {
         diagnoses: [],
         procedures: [makeProcedure('99213'), makeProcedure('96372', 'ma-1'), makeProcedure('J1885', 'ma-1')],
         medicationAdministrations: [ma],
-        medicationPractitioners: [clinicalOrderingPractitioner],
       },
       billingResources: {
         accounts: [],
         coverages: [],
         subscribers: [],
-        practitioners: [billingOrderingPractitioner],
+        practitioners: [],
       },
     };
 
@@ -306,14 +210,9 @@ describe('performEffect with in-house medications', () => {
       undefined,
       { ndc: '12345678901', quantity: 30, units: 'ME' },
     ]);
-    const orderingRefs = items.map(
-      (item) => item.extension?.find((ext) => ext.url === EXTENSION_CLAIM_ITEM_ORDERING_PROVIDER)?.valueReference
-    );
-    expect(orderingRefs).toEqual([
-      undefined,
-      { reference: 'Practitioner/billing-ordering-practitioner', display: expect.any(String) },
-      { reference: 'Practitioner/billing-ordering-practitioner', display: expect.any(String) },
-    ]);
+    expect(
+      items.every((item) => !item.extension?.some((ext) => ext.url === EXTENSION_CLAIM_ITEM_ORDERING_PROVIDER))
+    ).toBe(true);
     expect(claimRequest.resource.contained).toBeUndefined();
   });
 });
