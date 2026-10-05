@@ -10,10 +10,12 @@ export function ReadOnlySection({
   title,
   children,
   onAdd,
+  addLabel,
 }: {
   title: string;
   children: ReactNode;
   onAdd?: () => void;
+  addLabel?: string;
 }): ReactElement {
   return (
     <Card variant="outlined" sx={{ mb: 2 }}>
@@ -24,7 +26,7 @@ export function ReadOnlySection({
           </Typography>
           {onAdd ? (
             <Button size="small" variant="contained" startIcon={<AddIcon fontSize="small" />} onClick={() => onAdd()}>
-              Add
+              {addLabel ?? 'Add'}
             </Button>
           ) : (
             <></>

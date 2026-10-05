@@ -125,6 +125,7 @@ import { ClaimDownloadsMenu } from '../components/claim/ClaimDownloadsMenu';
 import { ClaimHistory } from '../components/claim/ClaimHistory';
 import { ClaimNotesDrawer } from '../components/claim/ClaimNotesDrawer';
 import { ClaimStatusFields } from '../components/claim/ClaimStatusFields';
+import { ClaimWriteOff, WriteOffsSection, writeOffsTotal } from '../components/claim/ClaimWriteOffs';
 import { Cms1500Dialog } from '../components/claim/Cms1500Dialog';
 import { DiagnosesEditor } from '../components/claim/DiagnosesEditor';
 import { EditableSection, EditableSectionSkeleton } from '../components/claim/EditableSection';
@@ -210,6 +211,8 @@ export default function ClaimDetail(): ReactElement {
   const [service, setService] = useState('');
   const [skipRules, setSkipRules] = useState(false);
   const [submissionType, setSubmissionType] = useState<RulesEngineSubmissionType>('new');
+  // UI prototype: write-offs live in page state and reduce the displayed balance until a backend exists.
+  const [writeOffs, setWriteOffs] = useState<ClaimWriteOff[]>([]);
   const [showCoverageMap, setShowCoverageMap] = useState<Record<string, boolean>>({
     primary: true,
     secondary: !!claim?.secondaryCoverageFhirId,
@@ -605,7 +608,7 @@ export default function ClaimDetail(): ReactElement {
             <Amount label="Patient Paid" value={claim.patientPaid} />
             <Amount
               label="Balance"
-              value={claim.balance}
+              value={claim.balance - writeOffsTotal(writeOffs)}
               hint={claim.adjudicated ? undefined : PROVISIONAL_BALANCE_HINT}
             />
             <Box>
@@ -632,9 +635,10 @@ export default function ClaimDetail(): ReactElement {
             <Tab label="Claim Properties" value="1" />
             <Tab label="Dx, Service Lines & Remits" value="2" />
             <Tab label="Attachments" value="3" />
-            <Tab label="Write offs & Patient payments" value="4" />
+            <Tab label="Patient payments" value="4" />
             <Tab label="Other claims" value="5" />
-            <Tab label="History" value="6" />
+            <Tab label="Write-offs" value="6" />
+            <Tab label="History" value="7" />
           </TabList>
 
           <TabPanel value="1" sx={{ px: 0, pt: 2 }}>
@@ -728,7 +732,6 @@ export default function ClaimDetail(): ReactElement {
           </TabPanel>
 
           <TabPanel value="4" sx={{ px: 0, pt: 2 }}>
-            <ReadOnlySection title="Write offs">No write offs</ReadOnlySection>
             <PatientPaymentsSection payments={claim.patientPayments} />
           </TabPanel>
 
@@ -737,6 +740,14 @@ export default function ClaimDetail(): ReactElement {
           </TabPanel>
 
           <TabPanel value="6" sx={{ px: 0, pt: 2 }}>
+            <WriteOffsSection
+              claim={claim}
+              writeOffs={writeOffs}
+              onAdd={(wo) => setWriteOffs((prev) => [...prev, wo])}
+            />
+          </TabPanel>
+
+          <TabPanel value="7" sx={{ px: 0, pt: 2 }}>
             <ClaimHistory key={historyVersion} claimId={claim.id} />
           </TabPanel>
         </TabContext>
