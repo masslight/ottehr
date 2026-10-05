@@ -428,6 +428,10 @@ describe('get-billing-era-detail performEffect', () => {
     (fetchClaimResponsesByPaymentReconciliations as Mock).mockResolvedValue(new Map([['era-m', [keyed]]]));
 
     const eraReadClient = {
+      fhir: { search: vi.fn().mockResolvedValue({ unbundle: () => [manualPr], link: [] }) },
+    } as unknown as Oystehr;
+    // who keyed the remit in comes from its era-processing Provenance, which carries the billing tag
+    const billingClient = {
       fhir: {
         search: vi.fn().mockImplementation(({ resourceType }: { resourceType: string }) =>
           Promise.resolve({
@@ -443,18 +447,7 @@ describe('get-billing-era-detail performEffect', () => {
                       agent: [{ who: { reference: 'Practitioner/b1', display: 'biller@example.com' } }],
                     },
                   ]
-                : [manualPr],
-            link: [],
-          })
-        ),
-      },
-    } as unknown as Oystehr;
-    const billingClient = {
-      fhir: {
-        search: vi.fn().mockImplementation(({ resourceType }: { resourceType: string }) =>
-          Promise.resolve({
-            unbundle: () =>
-              resourceType === 'Organization'
+                : resourceType === 'Organization'
                 ? [
                     {
                       resourceType: 'Organization',

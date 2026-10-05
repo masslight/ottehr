@@ -225,7 +225,7 @@ export async function performEffect(
     // a manual remit names its billing provider; converters only replicate the payee onto unmatched remits
     requestorPayee(oystehr, pr).then((fromRequestor) => fromRequestor ?? resolveEraPayee(claimResponses)),
     fetchEraAttachments(oystehr, pr.id ?? ''),
-    manual ? enteredBy(eraReadClient, pr.id ?? '') : Promise.resolve({ by: '', at: '' }),
+    manual ? enteredBy(oystehr, pr.id ?? '') : Promise.resolve({ by: '', at: '' }),
   ]);
 
   return {
@@ -293,9 +293,9 @@ async function fetchEraAttachments(oystehr: Oystehr, eraId: string): Promise<Era
 }
 
 // Who keyed a manual remit in and when: the author of its era-processing Provenance.
-async function enteredBy(eraReadClient: Oystehr, eraId: string): Promise<{ by: string; at: string }> {
-  const [first] = (await fetchEraProcessingProvenances(eraReadClient, [`PaymentReconciliation/${eraId}`])).sort(
-    (a, b) => (a.recorded ?? '').localeCompare(b.recorded ?? '')
+async function enteredBy(oystehr: Oystehr, eraId: string): Promise<{ by: string; at: string }> {
+  const [first] = (await fetchEraProcessingProvenances(oystehr, [`PaymentReconciliation/${eraId}`])).sort((a, b) =>
+    (a.recorded ?? '').localeCompare(b.recorded ?? '')
   );
   return { by: first?.agent?.[0]?.who?.display ?? '', at: first?.recorded ?? '' };
 }

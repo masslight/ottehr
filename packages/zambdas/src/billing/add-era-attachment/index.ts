@@ -13,7 +13,7 @@ import {
   presignAttachment,
   resolveAttachmentContentType,
 } from '../attachments';
-import { createBillingClient, createEraReadClient, fetchById } from '../shared';
+import { createBillingClient, fetchById } from '../shared';
 import { AddEraAttachmentParams, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -23,8 +23,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const params = validateRequestParameters(input);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
-  const eraReadClient = createEraReadClient(m2mToken, params.secrets);
-  const result = await performEffect(oystehr, eraReadClient, params);
+  const result = await performEffect(oystehr, params);
   return { statusCode: 200, body: JSON.stringify(result) };
 });
 
@@ -33,11 +32,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 // its upload fails.
 export async function performEffect(
   oystehr: Oystehr,
-  eraReadClient: Oystehr,
   params: AddEraAttachmentParams
 ): Promise<AddEraAttachmentResponse> {
-  // clearing-house ERAs are untagged, so the ERA is read with the untagged client
-  const era = await fetchById<PaymentReconciliation>(eraReadClient, 'PaymentReconciliation', params.eraId);
+  const era = await fetchById<PaymentReconciliation>(oystehr, 'PaymentReconciliation', params.eraId);
   const contentType = resolveAttachmentContentType(params.fileName, params.mimeType, ERA_ATTACHMENT_CONTENT_TYPES);
   const location = newAttachmentLocation(
     params.secrets['PROJECT_ID'],

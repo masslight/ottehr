@@ -45,9 +45,8 @@ describe('ERA attachments', () => {
   it('records a remit scan against the ERA and presigns its upload', async () => {
     (fetchById as Mock).mockResolvedValueOnce({ resourceType: 'PaymentReconciliation', id: 'era-1' });
     const oystehr = makeClient();
-    const eraReadClient = {} as Oystehr;
 
-    const result = await addEraAttachment(oystehr, eraReadClient, {
+    const result = await addEraAttachment(oystehr, {
       eraId: 'era-1',
       name: 'UHC remit',
       fileName: 'Paper remit.pdf',
@@ -55,8 +54,9 @@ describe('ERA attachments', () => {
       secrets: SECRETS,
     });
 
-    // the ERA is looked up with the untagged client (clearing-house ERAs aren't tagged)
-    expect(fetchById).toHaveBeenCalledWith(eraReadClient, 'PaymentReconciliation', 'era-1');
+    // every ERA carries the billing tag (sub-tag-era-resources tags the ones Oystehr writes), so the
+    // billing client reads it
+    expect(fetchById).toHaveBeenCalledWith(oystehr, 'PaymentReconciliation', 'era-1');
     const created = (oystehr.fhir.create as Mock).mock.calls[0][0] as DocumentReference;
     const { 'objectPath+': objectPath, action } = (oystehr.z3.getPresignedUrl as Mock).mock.calls[0][0];
     expect(action).toBe('upload');
@@ -80,7 +80,7 @@ describe('ERA attachments', () => {
     (fetchById as Mock).mockResolvedValueOnce({ resourceType: 'PaymentReconciliation', id: 'era-1' });
     const oystehr = makeClient();
     await expect(
-      addEraAttachment(oystehr, {} as Oystehr, {
+      addEraAttachment(oystehr, {
         eraId: 'era-1',
         name: 'Remit',
         fileName: 'notes.docx',

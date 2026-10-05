@@ -45,9 +45,10 @@ async function performEffect(oystehr: Oystehr, eraReadClient: Oystehr, params: I
 }
 
 // Stamps the imported ERA's PaymentReconciliation as an X12 import, so the ERA list can tell it from a
-// clearing-house delivery. Best effort: the import has already succeeded. The resources are untagged
-// (Oystehr writes them), hence the untagged client; the extension is appended, never replaced, so the
-// raw 835 extension stays put.
+// clearing-house delivery. Best effort: the import has already succeeded. This runs straight after
+// Oystehr writes the ERA, before sub-tag-era-resources has given it the billing tag, so unlike other ERA
+// reads it can't use the billing client (whose reads only see tagged resources). The extension is
+// appended, never replaced, so the raw 835 extension stays put.
 export async function markImportedEra(eraReadClient: Oystehr, bundle: Bundle): Promise<void> {
   try {
     const entry = bundle.entry?.find(
