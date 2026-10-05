@@ -21,6 +21,7 @@ import {
   Extension,
   Identifier,
   Location,
+  MedicationAdministration,
   Organization,
   Patient,
   Period,
@@ -44,6 +45,13 @@ import {
 import { FHIR_IDENTIFIER_NPI, SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
 import { getPaymentVariantFromEncounter, PaymentVariant } from 'utils/lib/fhir/encounter';
 import { codeableConcept, getCoding } from 'utils/lib/fhir/helpers';
+import {
+  getDosageFromMA,
+  getMedicationCptEntryFromMA,
+  getMedicationFromMA,
+  getNdcCodeFromMedication,
+  MedicationUnitOptions,
+} from 'utils/lib/fhir/medication-administration';
 import { getNPIIdentifier, getPatientFriendlyId } from 'utils/lib/fhir/patient';
 import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
@@ -73,6 +81,7 @@ import {
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { AccidentDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { TIMEZONES } from 'utils/lib/types/constants';
+import { DrugUnitCode, normalizeNdcTo11Digits } from 'utils/lib/types/data/billing/billing.constants';
 import {
   AR_STAGE,
   claimStatusValuesToTags,
@@ -90,6 +99,8 @@ import { claimProvenanceRequest, recordedNow, resolveClaimActor } from '../prove
 import {
   billingCopyMatches,
   BillingFhirResource,
+  buildClaimItemDrugDetail,
+  ClaimLineDrug,
   copyBillingPatient,
   copySourceRef,
   createBillingClient,
@@ -137,6 +148,7 @@ interface ClinicalResources {
   payors: Organization[];
   diagnoses: Array<Condition>;
   procedures: Array<Procedure>;
+  medicationAdministrations?: MedicationAdministration[];
   accident?: AccidentDTO;
   /** The patient's occ-med Account (owner = the visit's employer); resolved only for employer-billed visits. */
   occupationalMedicineAccount?: Account;
@@ -172,6 +184,7 @@ interface ClaimResources {
   billingProvider?: Organization;
   diagnoses?: Array<Condition>;
   procedures?: Array<Procedure>;
+  medicationAdministrations?: MedicationAdministration[];
   accident?: AccidentDTO;
 }
 
@@ -456,6 +469,7 @@ export async function performEffect(
     appointment: clinicalResources.appointment,
     diagnoses: clinicalResources.diagnoses,
     procedures: clinicalResources.procedures,
+    medicationAdministrations: clinicalResources.medicationAdministrations,
     coverageRefs: getClaimCoveragesForEncounter(appointmentService, mainPatientAccounts, claimCoverages),
     nonInsurancePayer: await resolveNonInsurancePayer(billingOystehr, clinicalResources),
     renderingProvider: claimRenderingProvider,
@@ -755,7 +769,9 @@ async function getClinicalResources(
   params: CreateClaimFromEncounterParams
 ): Promise<ClinicalResources> {
   const resources = (
-    await oystehr.fhir.search<Encounter | Patient | Location | Practitioner | Account | Condition | Procedure>({
+    await oystehr.fhir.search<
+      Encounter | Patient | Location | Practitioner | Account | Condition | Procedure | MedicationAdministration
+    >({
       resourceType: 'Encounter',
       params: [
         {
@@ -799,6 +815,8 @@ async function getClinicalResources(
           name: '_revinclude',
           value: 'Procedure:encounter:Encounter',
         },
+        // In-house medications, for the NDC + dose of the procedures billing them
+        { name: '_revinclude', value: 'MedicationAdministration:context' },
       ],
     })
   ).unbundle();
@@ -864,6 +882,9 @@ async function getClinicalResources(
       (chartDataResourceHasMetaTagByCode(r, 'cpt-code') || chartDataResourceHasMetaTagByCode(r, 'em-code'))
   );
   if (!procedures.length) throw FHIR_RESOURCE_NOT_FOUND('Procedure');
+  const medicationAdministrations = resources.filter(
+    (r): r is MedicationAdministration => r.resourceType === 'MedicationAdministration'
+  );
 
   // Manually look up coverages because FHIR doesn't support Account:coverage include
   const coverageIds = accounts.flatMap<string>((account) =>
@@ -932,6 +953,7 @@ async function getClinicalResources(
     payors,
     diagnoses,
     procedures,
+    ...(medicationAdministrations.length ? { medicationAdministrations } : {}),
     ...(accident ? { accident } : {}),
     ...(occupationalMedicineAccount ? { occupationalMedicineAccount } : {}),
   };
@@ -1312,6 +1334,7 @@ function buildClaim(resources: ClaimResources): Claim {
               currency: 'USD',
             },
             quantity: { value: getCptBillableUnitsFromCoding(procedureCode.coding?.[0]) ?? 1, unit: 'UN' },
+            detail: buildClaimItemDrugDetail(getProcedureDrug(p, resources.medicationAdministrations ?? [])),
           };
         })
       : [],
@@ -1322,6 +1345,40 @@ function buildClaim(resources: ClaimResources): Claim {
   };
 
   return claim;
+}
+
+// In-house medication dose units mapped to X12 drug quantity unit codes; the rest are counted as units.
+const DRUG_UNIT_CODE_BY_MEDICATION_UNIT: Partial<Record<MedicationUnitOptions, DrugUnitCode>> = {
+  mg: 'ME',
+  ml: 'ML',
+  cc: 'ML',
+  g: 'GR',
+};
+
+// The drug (NDC + administered dose) of a procedure created from an in-house medication order. Only the
+// procedure billing the medication itself carries it, not e.g. its administration code, and only when the
+// order has a normalizable NDC and a positive dose, the same data the biller would enter by hand.
+export function getProcedureDrug(
+  procedure: Procedure,
+  medicationAdministrations: MedicationAdministration[]
+): ClaimLineDrug | undefined {
+  const maReference = procedure.partOf?.find((ref) => ref.reference?.startsWith('MedicationAdministration/'))
+    ?.reference;
+  const medicationAdministration = medicationAdministrations.find(
+    (ma) => `MedicationAdministration/${ma.id}` === maReference
+  );
+  if (!medicationAdministration) return undefined;
+
+  const drugCode = getMedicationCptEntryFromMA(medicationAdministration)?.code;
+  if (!drugCode || !procedure.code?.coding?.some((coding) => coding.code === drugCode)) return undefined;
+
+  const medication = getMedicationFromMA(medicationAdministration);
+  const ndcCode = medication ? getNdcCodeFromMedication(medication) : undefined;
+  const ndc = ndcCode ? normalizeNdcTo11Digits(ndcCode) : undefined;
+  const dosage = getDosageFromMA(medicationAdministration);
+  if (!ndc || !dosage || !(dosage.dose > 0)) return undefined;
+
+  return { ndc, quantity: dosage.dose, units: DRUG_UNIT_CODE_BY_MEDICATION_UNIT[dosage.units] ?? 'UN' };
 }
 
 function getAccidentExtensions(accident?: AccidentDTO): Extension[] {
