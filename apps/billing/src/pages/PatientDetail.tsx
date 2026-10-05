@@ -35,6 +35,12 @@ import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
 import { EditableSection, TitleWithSourceLink } from '../components/claim/EditableSection';
 import { CoverageFields } from '../components/CoverageFields';
 import { DemographicFields } from '../components/DemographicFields';
+import { PatientPaymentsTab } from '../components/patient/PatientPaymentsTab';
+import {
+  MOCK_INVOICES,
+  openInvoicesTotalInCents,
+  pastDueInvoicesTotalInCents,
+} from '../components/patient/paymentsTabMock';
 import { Row } from '../components/Row';
 import { CLAIM_STATUS_COLORS } from '../constants/claimStatus';
 import { CoverageForm, coverageToUpdateInput, defaultCoverageFormValues } from '../constants/coverage';
@@ -172,6 +178,13 @@ export default function PatientDetail(): ReactElement {
             <BalanceItem label="Current Balance" value={formatCurrency(patient.balance.currentBalance)} />
             <BalanceItem label="Claims with Patient Balance" value={String(patient.balance.claimsWithPatientBalance)} />
             <BalanceItem label="Pending Payments" value={formatCurrency(patient.balance.pendingPayments)} />
+            {/* prototype: invoice-based totals computed from the Payments tab mock data */}
+            <BalanceItem label="Open Invoices" value={formatCurrency(openInvoicesTotalInCents(MOCK_INVOICES) / 100)} />
+            <BalanceItem
+              label="Past Due"
+              value={formatCurrency(pastDueInvoicesTotalInCents(MOCK_INVOICES) / 100)}
+              valueColor={pastDueInvoicesTotalInCents(MOCK_INVOICES) > 0 ? 'error.main' : undefined}
+            />
           </Box>
         </CardContent>
       </Card>
@@ -188,6 +201,7 @@ export default function PatientDetail(): ReactElement {
             <Tab label="Demographics" value="1" />
             <Tab label="Insurance" value="2" />
             <Tab label="Claims" value="3" />
+            <Tab label="Payments" value="4" />
           </TabList>
 
           <TabPanel value="1" sx={{ px: 0, pt: 2 }}>
@@ -211,6 +225,10 @@ export default function PatientDetail(): ReactElement {
               slots={dataGridSlots()}
               sx={{ ...dataGridSx }}
             />
+          </TabPanel>
+
+          <TabPanel value="4" sx={{ px: 0, pt: 2 }}>
+            <PatientPaymentsTab />
           </TabPanel>
         </TabContext>
       </Box>
@@ -449,13 +467,21 @@ export function CoverageCard({
   );
 }
 
-function BalanceItem({ label, value }: { label: string; value: string }): ReactElement {
+function BalanceItem({
+  label,
+  value,
+  valueColor,
+}: {
+  label: string;
+  value: string;
+  valueColor?: string;
+}): ReactElement {
   return (
     <Box>
       <Typography variant="caption" color="text.secondary">
         {label}
       </Typography>
-      <Typography variant="body1" fontWeight={600}>
+      <Typography variant="body1" fontWeight={600} color={valueColor}>
         {value}
       </Typography>
     </Box>

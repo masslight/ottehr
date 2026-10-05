@@ -65,9 +65,8 @@ export const Sidebar: FC = () => {
   const renderNavItem = ({ label, path, icon }: (typeof navItems)[number]): ReactElement => {
     const isActive = location.pathname === path || (path !== '/' && location.pathname.startsWith(path));
     return (
-      <Link to={path} style={{ display: 'contents', color: 'inherit', textDecoration: 'none' }}>
+      <Link key={path} to={path} style={{ display: 'contents', color: 'inherit', textDecoration: 'none' }}>
         <ListItemButton
-          key={path}
           selected={isActive}
           sx={{
             borderRadius: 1,
