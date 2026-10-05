@@ -1,6 +1,7 @@
 import Oystehr, { BatchInputPatchRequest, BatchInputPostRequest, FhirResourceReturnValue } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, ClaimResponse, Provenance, ProvenanceAgent } from 'fhir/r4b';
+import { BILLING_RESOURCE_TAG } from 'utils/lib/fhir/constants';
 import { getExtensionValue, withVersionConflictRetries } from 'utils/lib/fhir/helpers';
 import { Secrets } from 'utils/lib/secrets';
 import { CLAIM_TAG_SYSTEM, ERA_CLAIM_STATUS_CODE } from 'utils/lib/types/data/billing/billing.constants';
@@ -15,11 +16,13 @@ import {
   buildUpdatedClaimStatusTags,
   CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM,
   createBillingClient,
+  ERA_CLAIM_RESPONSE_TYPE_TAG,
   ERA_ICN_EXTENSION,
   ERA_ITEM_REMARK_CODE_EXTENSION,
   ERA_STATUS_CODE_EXTENSION,
   getEraExtensionString,
   getTag,
+  hasTag,
 } from '../../../billing/shared';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { truncateForLog } from '../../../shared/logging';
@@ -41,7 +44,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const oystehr = createBillingClient(m2mToken, secrets);
 
   console.group('complexValidation');
-  const validated = await complexValidation(oystehr, params.claimResponseId, secrets);
+  const validated = await complexValidation(oystehr, params.claimResponseId, params.firedVersionId, secrets);
   console.groupEnd();
 
   console.group('performEffect');
@@ -60,11 +63,15 @@ export interface ComplexValidationOutput {
   claimResponse: FhirResourceReturnValue<ClaimResponse>;
   claim: FhirResourceReturnValue<Claim>;
   agent: ProvenanceAgent;
+  // false when what fired this was an edit of a response already matched to the claim
+  newlyMatched: boolean;
 }
 
 export async function complexValidation(
   oystehr: Oystehr,
   claimResponseId: string,
+  // the version that fired the subscription, when the notification carries it
+  firedVersionId: string | undefined,
   secrets: Secrets
 ): Promise<ComplexValidationOutput> {
   const claimResponse = await oystehr.fhir.get<ClaimResponse>({ resourceType: 'ClaimResponse', id: claimResponseId });
@@ -77,13 +84,40 @@ export async function complexValidation(
   });
 
   const agent = await resolveClaimActor('system', oystehr, undefined, secrets);
+  const newlyMatched = await firedOnNewMatch(oystehr, claimResponseId, firedVersionId ?? claimResponse.meta?.versionId);
 
   return {
     claim,
     claimResponse,
     claimResponseId,
     agent,
+    newlyMatched,
   };
+}
+
+// The subscription is meant to act when a response gets matched to its claim: when it's created matched,
+// when sub-tag-era-resources tags an imported one, or when it's matched to the claim later. Each time, the
+// version before didn't qualify: it lacked a tag, or pointed elsewhere. Any other update is an edit of a
+// remit claim already matched, and leaves the claim's status and ICN alone.
+async function firedOnNewMatch(
+  oystehr: Oystehr,
+  claimResponseId: string,
+  firedVersionId: string | undefined
+): Promise<boolean> {
+  const history = await oystehr.fhir.history<ClaimResponse>({ resourceType: 'ClaimResponse', id: claimResponseId });
+  const versions = (history.entry ?? [])
+    .flatMap((entry) => (entry.resource?.meta?.lastUpdated ? [entry.resource] : []))
+    .sort((a, b) => (b.meta?.lastUpdated ?? '').localeCompare(a.meta?.lastUpdated ?? ''));
+  const firedIndex = versions.findIndex((version) => version.meta?.versionId === firedVersionId);
+  // without the fired version to compare, the claim is adjusted as it always was
+  if (firedIndex === -1) return true;
+  const [fired, before] = [versions[firedIndex], versions[firedIndex + 1]];
+  const beforeQualified =
+    !!before &&
+    hasTag(before, BILLING_RESOURCE_TAG.system, BILLING_RESOURCE_TAG.code) &&
+    hasTag(before, ERA_CLAIM_RESPONSE_TYPE_TAG.system ?? '', ERA_CLAIM_RESPONSE_TYPE_TAG.code ?? '') &&
+    before.request?.reference === fired.request?.reference;
+  return !beforeQualified;
 }
 
 interface StatusAdjustmentPlan {
@@ -120,6 +154,10 @@ function planStatusAdjustment(claim: Claim, claimResponse: ClaimResponse): Statu
 
 export async function performEffect(oystehr: Oystehr, validated: ComplexValidationOutput): Promise<void> {
   const { claim, claimResponse } = validated;
+  if (!validated.newlyMatched) {
+    console.log(`ClaimResponse/${validated.claimResponseId} was edited, not newly matched; leaving Claim/${claim.id}`);
+    return;
+  }
 
   await withVersionConflictRetries(async (attempt) => {
     const current = attempt === 1 ? claim : await oystehr.fhir.get<Claim>({ resourceType: 'Claim', id: claim.id });
