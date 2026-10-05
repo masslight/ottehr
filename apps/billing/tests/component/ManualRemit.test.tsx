@@ -304,6 +304,9 @@ describe('ManualRemit', () => {
     expect(request.header).toBeUndefined();
     expect(request.claims).toHaveLength(1);
     expect(request.claims[0]).toMatchObject({ claimResponseId: 'cr-1', serviceLines: [{ paidCents: 6000 }] });
+    // saved, the edit is no longer pending
+    await waitFor(() => expect(screen.queryByText('Unsaved changes')).not.toBeInTheDocument());
+    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
   });
 
   it('shows why a save failed in the header, in view however far down the biller saved from', async () => {

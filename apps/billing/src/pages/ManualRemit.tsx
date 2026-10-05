@@ -87,9 +87,6 @@ const SCAN_TYPES = {
   'image/tiff': ['.tif', '.tiff'],
 };
 
-// what a stored claim looked like when last saved, to tell edited cards apart
-const snapshotOf = (claim: ClaimForm): string => JSON.stringify({ ...claimFormToInput(claim), clientKey: undefined });
-
 // The header sticks flush with the top of Layout's scrolling <main>. Sticky offsets count from inside
 // main's padding, hence a negative top. The header reaches this far up into that padding, which is the
 // room it keeps above the title once stuck.
@@ -156,7 +153,7 @@ export default function ManualRemit(): ReactElement {
   const { header, claims } = useWatch({ control }) as ManualRemitFormValues;
   // what the remit and each stored claim looked like when last saved, to tell edits apart
   const [savedHeader, setSavedHeader] = useState<HeaderForm>(newHeader);
-  const [savedSnapshots, setSavedSnapshots] = useState<Map<string, string>>(new Map());
+  const [savedClaims, setSavedClaims] = useState<Map<string, ClaimForm>>(new Map());
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [saveError, setSaveError] = useState<string | null>(null);
   useRevealFirstError(submitCount, errors);
@@ -193,7 +190,7 @@ export default function ManualRemit(): ReactElement {
       setVersionId(data.versionId);
       reset({ header: loadedHeader, claims: loadedClaims });
       setSavedHeader(loadedHeader);
-      setSavedSnapshots(new Map(loadedClaims.map((claim) => [claim.claimResponseId ?? '', snapshotOf(claim)])));
+      setSavedClaims(new Map(loadedClaims.map((claim) => [claim.claimResponseId ?? '', claim])));
     },
     [reset]
   );
@@ -225,11 +222,14 @@ export default function ManualRemit(): ReactElement {
 
   const isHeaderDirty = (candidate: HeaderForm): boolean => JSON.stringify(candidate) !== JSON.stringify(savedHeader);
   const headerDirty = isHeaderDirty(header);
-  // a claim added on the page counts as an edit until it's saved
+  // a claim added on the page counts as an edit until it's saved; one on the remit, once Save would send
+  // something different for it
   const isClaimDirty = useCallback(
-    (claim: ClaimForm): boolean =>
-      !claim.claimResponseId || savedSnapshots.get(claim.claimResponseId) !== snapshotOf(claim),
-    [savedSnapshots]
+    (claim: ClaimForm): boolean => {
+      const saved = claim.claimResponseId ? savedClaims.get(claim.claimResponseId) : undefined;
+      return !saved || JSON.stringify(claimFormToInput(claim)) !== JSON.stringify(claimFormToInput(saved));
+    },
+    [savedClaims]
   );
   const dirtyClaims = claims.filter(isClaimDirty);
   const dirty = headerDirty || dirtyClaims.length > 0;
@@ -311,10 +311,10 @@ export default function ManualRemit(): ReactElement {
         setValue('claims', getValues('claims').map(savedAs));
         setVersionId(saved.versionId);
         setSavedHeader(submittedHeader);
-        setSavedSnapshots((current) => {
+        setSavedClaims((current) => {
           const next = new Map(current);
           edited.map(savedAs).forEach((claim) => {
-            if (claim.claimResponseId) next.set(claim.claimResponseId, snapshotOf(claim));
+            if (claim.claimResponseId) next.set(claim.claimResponseId, claim);
           });
           return next;
         });
