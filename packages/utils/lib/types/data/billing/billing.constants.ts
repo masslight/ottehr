@@ -105,18 +105,15 @@ export const DRUG_UNIT_CODES: { code: DrugUnitCode; label: string; description: 
 // Only the 11-digit 5-4-2 NDC layout is supported. It is persisted as 11 plain digits and shown dashed.
 export const NDC_REGEX = /^(?:\d{11}|\d{5}-\d{4}-\d{2})$/;
 export const ndcToDigits = (ndc: string): string => ndc.replace(/-/g, '');
-// Converts an NDC in a standard dashed layout (4-4-2, 5-3-2, 5-4-1 or 5-4-2) or as 11 plain digits into 11
-// plain digits (5-4-2), zero-padding the short segment. Undashed 10-digit NDCs are ambiguous, so they and any
-// other shape yield undefined.
-export const normalizeNdcTo11Digits = (ndc: string): string | undefined => {
-  const value = ndc.trim();
-  if (/^\d{11}$/.test(value)) return value;
-  const match = /^(\d{4,5})-(\d{3,4})-(\d{1,2})$/.exec(value);
-  if (!match) return undefined;
+// Converts the standard dashed 10-digit layouts (4-4-2, 5-3-2, 5-4-1) to 5-4-2 by left-padding the
+// short segment with a zero. Undashed 10-digit values are ambiguous and returned unchanged, as is
+// anything else, so NDC_REGEX still decides what's valid.
+export const normalizeNdcTo11Digits = (ndc: string): string => {
+  const match = /^(\d{4,5})-(\d{3,4})-(\d{1,2})$/.exec(ndc);
+  if (!match) return ndc;
   const [, labeler, product, pkg] = match;
-  const length = labeler.length + product.length + pkg.length;
-  if (length !== 10 && length !== 11) return undefined;
-  return `${labeler.padStart(5, '0')}${product.padStart(4, '0')}${pkg.padStart(2, '0')}`;
+  if (labeler.length + product.length + pkg.length !== 10) return ndc;
+  return `${labeler.padStart(5, '0')}-${product.padStart(4, '0')}-${pkg.padStart(2, '0')}`;
 };
 // Values that aren't 11 digits (e.g. legacy entries) are shown as stored.
 export const formatNdcForDisplay = (ndc: string): string => {

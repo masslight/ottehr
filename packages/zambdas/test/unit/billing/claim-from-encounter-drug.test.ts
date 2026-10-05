@@ -89,8 +89,19 @@ describe('getProcedureDrug', () => {
     expect(getProcedureDrug(procedure('J1100'), [medicationAdministration({ ndc: '0409488802' })])).toBeUndefined();
   });
 
-  it('skips the drug when there is no positive dose', () => {
-    expect(getProcedureDrug(procedure('J1100'), [medicationAdministration({ dose: undefined })])).toBeUndefined();
-    expect(getProcedureDrug(procedure('J1100'), [medicationAdministration({ dose: 0 })])).toBeUndefined();
+  it('defaults to one unit when there is no positive dose', () => {
+    for (const dose of [undefined, 0]) {
+      expect(getProcedureDrug(procedure('J1100'), [medicationAdministration({ dose })])).toEqual({
+        ndc: '00409488802',
+        quantity: 1,
+        units: 'UN',
+      });
+    }
+  });
+
+  it('puts the drug on every procedure of an order without CPT codes', () => {
+    const ma = medicationAdministration();
+    delete ma.extension;
+    expect(getProcedureDrug(procedure('96372'), [ma])?.ndc).toBe('00409488802');
   });
 });

@@ -20,20 +20,17 @@ describe('asEraClaimStatusCode', () => {
 
 describe('normalizeNdcTo11Digits', () => {
   it.each([
-    ['0409-4888-02', '00409488802'], // 4-4-2
-    ['00409-488-02', '00409048802'], // 5-3-2
-    ['00409-4888-2', '00409488802'], // 5-4-1
-    ['00409-4888-02', '00409488802'], // 5-4-2
-    ['00409488802', '00409488802'],
-    [' 0409-4888-02 ', '00409488802'],
-  ])('normalizes %s to %s', (ndc, expected) => {
+    ['0409-4888-02', '00409-4888-02'], // 4-4-2
+    ['00409-488-02', '00409-0488-02'], // 5-3-2
+    ['00409-4888-2', '00409-4888-02'], // 5-4-1
+  ])('pads the dashed 10-digit NDC %s to %s', (ndc, expected) => {
     expect(normalizeNdcTo11Digits(ndc)).toBe(expected);
   });
 
-  it.each(['0409488802', '409-4888-02', '0409-488-02', '00409-4888-002', '0409-4888', 'abcde-fghi-jk', ''])(
-    'rejects %s',
+  it.each(['00409-4888-02', '00409488802', '0409488802', '409-4888-02', '0409-488-02', '00409-4888-002', 'abc', ''])(
+    'returns %s unchanged',
     (ndc) => {
-      expect(normalizeNdcTo11Digits(ndc)).toBeUndefined();
+      expect(normalizeNdcTo11Digits(ndc)).toBe(ndc);
     }
   );
 });
