@@ -12,6 +12,7 @@ import {
   NioWcBillingMode,
 } from 'utils/lib/types/data/billing/non-insurance-org.schemas';
 import { NioCoverageDetail, NonInsuranceOrganizationItem } from 'utils/lib/types/data/billing/non-insurance-org.types';
+import { loadNioExtras, NioExtras, NioOrgType } from './nioPrototype';
 
 export interface NioAddressForm {
   line1: string;
@@ -49,9 +50,17 @@ export interface NioCoverageForm {
   submission: NioSubmissionForm;
 }
 
+export interface NioDocPricingForm {
+  perClaim: string;
+  perPage: string;
+  perDocument: string;
+}
+
 export interface NonInsuranceOrgForm {
   name: string;
-  employer: boolean;
+  type: NioOrgType;
+  notes: string;
+  docPricing: NioDocPricingForm;
   address: NioAddressForm;
   contacts: NioContactForm[];
   covers: Record<NioCoverageCategory, NioCoverageForm>;
@@ -84,7 +93,9 @@ function emptyCoverageForm(): NioCoverageForm {
 export function emptyNonInsuranceOrgForm(): NonInsuranceOrgForm {
   return {
     name: '',
-    employer: false,
+    type: 'employer',
+    notes: '',
+    docPricing: { perClaim: '', perPage: '', perDocument: '' },
     address: emptyNioAddressForm(),
     contacts: [],
     covers: {
@@ -141,8 +152,17 @@ function submissionToInput(submission: NioSubmissionForm, mailOverride?: NioAddr
 export function nioItemToFormValues(item?: NonInsuranceOrganizationItem | null): NonInsuranceOrgForm {
   const form = emptyNonInsuranceOrgForm();
   if (!item) return form;
+  const extras = loadNioExtras(item.id);
   form.name = item.name;
-  form.employer = item.employer;
+  form.type = extras?.type ?? (item.employer ? 'employer' : 'other');
+  form.notes = extras?.notes ?? '';
+  if (extras?.pricing) {
+    form.docPricing = {
+      perClaim: String(extras.pricing.perClaim),
+      perPage: String(extras.pricing.perPage),
+      perDocument: String(extras.pricing.perDocument),
+    };
+  }
   form.address = addressToForm(item.address);
   form.contacts = item.contacts.map((contact) => ({
     name: contact.name,
@@ -206,10 +226,25 @@ export function nioFormToInput(form: NonInsuranceOrgForm): CreateNonInsuranceOrg
 
   return {
     name: form.name.trim(),
-    employer: form.employer,
+    employer: form.type === 'employer',
     ...(orgAddress ? { address: orgAddress } : {}),
     ...(contacts.length ? { contacts } : {}),
     ...(covers.length ? { covers } : {}),
+  };
+}
+
+// The prototype extras saved alongside an API create/update (see nioPrototype.ts).
+export function nioFormToExtras(form: NonInsuranceOrgForm): NioExtras {
+  return {
+    type: form.type,
+    notes: form.notes.trim(),
+    ...(form.type === 'document-requestor' && {
+      pricing: {
+        perClaim: Number(form.docPricing.perClaim) || 0,
+        perPage: Number(form.docPricing.perPage) || 0,
+        perDocument: Number(form.docPricing.perDocument) || 0,
+      },
+    }),
   };
 }
 

@@ -14,7 +14,13 @@ import { ReactElement, useEffect, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { createBillingNonInsuranceOrg } from '../../api/api';
-import { emptyNonInsuranceOrgForm, nioFormToInput, NonInsuranceOrgForm } from '../../constants/nonInsuranceOrg';
+import { saveNioExtras } from '../../constants/nioPrototype';
+import {
+  emptyNonInsuranceOrgForm,
+  nioFormToExtras,
+  nioFormToInput,
+  NonInsuranceOrgForm,
+} from '../../constants/nonInsuranceOrg';
 import { useApiClients } from '../../hooks/useAppClients';
 import { NonInsuranceOrgFormFields } from './NonInsuranceOrgFormFields';
 
@@ -47,6 +53,7 @@ export function NonInsuranceOrgDialog({ open, onClose, onCreated }: NonInsurance
     try {
       const result = await createBillingNonInsuranceOrg(oystehrZambda, nioFormToInput(data));
       if (!result.id) throw new Error('Non-insurance organization was not created');
+      saveNioExtras(result.id, nioFormToExtras(data));
       onCreated();
       onClose();
     } catch (err) {

@@ -10,22 +10,28 @@ import {
 } from 'utils/lib/types/data/billing/non-insurance-org.types';
 import { deleteBillingNonInsuranceOrg, searchBillingNonInsuranceOrgs } from '../api/api';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
+import { NioInvoicingPrototype } from '../components/nio/NioInvoicingPrototype';
 import { NonInsuranceOrgDetailSection } from '../components/nio/NonInsuranceOrgDetailSection';
 import { NonInsuranceOrgDialog } from '../components/nio/NonInsuranceOrgDialog';
+import { loadNioExtras, NIO_ORG_TYPE_LABELS } from '../constants/nioPrototype';
+import { DEMO_NIOS, isDemoNioId, seedDemoNioExtras } from '../constants/nioPrototype';
 import { formatNioAddress } from '../constants/nonInsuranceOrg';
 import { useApiClients } from '../hooks/useAppClients';
 import { useDebounce } from '../hooks/useDebounce';
 
 interface NioRow extends NonInsuranceOrganizationItem {
-  employerDisplay: string;
+  typeDisplay: string;
+  notesDisplay: string;
   coversDisplay: string;
   addressDisplay: string;
 }
 
 function toRow(item: NonInsuranceOrganizationItem): NioRow {
+  const extras = loadNioExtras(item.id);
   return {
     ...item,
-    employerDisplay: item.employer ? 'Yes' : '—',
+    typeDisplay: extras?.type ? NIO_ORG_TYPE_LABELS[extras.type] : item.employer ? 'Employer' : '—',
+    notesDisplay: extras?.notes ?? '',
     coversDisplay: item.covers.map((coverage) => NIO_COVERAGE_CATEGORY_LABELS[coverage.category]).join(', '),
     addressDisplay: formatNioAddress(item.address),
   };
@@ -39,15 +45,21 @@ const columns: GridColDef[] = [
     minWidth: 220,
   },
   {
-    field: 'employerDisplay',
-    headerName: 'Employer',
-    width: 110,
+    field: 'typeDisplay',
+    headerName: 'Type',
+    width: 220,
   },
   {
     field: 'coversDisplay',
     headerName: 'Covers',
     flex: 1,
     minWidth: 240,
+  },
+  {
+    field: 'notesDisplay',
+    headerName: 'Notes',
+    flex: 1,
+    minWidth: 200,
   },
   {
     field: 'addressDisplay',
@@ -81,7 +93,10 @@ export function NonInsuranceOrganizationsList(): ReactElement {
           offset: pagination.page * pagination.pageSize,
           ...(name ? { name } : {}),
         });
-        setRows((data.organizations ?? []).map(toRow));
+        // Prototype: demo document-requestor rows ride along with the API results.
+        seedDemoNioExtras();
+        const demoRows = DEMO_NIOS.filter((d) => !name || d.name.toLowerCase().includes(name.toLowerCase())).map(toRow);
+        setRows([...demoRows, ...(data.organizations ?? []).map(toRow)]);
         setTotalRows(data.total ?? 0);
       } catch (err) {
         setError(getApiError({ error: err, defaultError: 'Failed to load non-insurance organizations' }));
@@ -194,6 +209,13 @@ export function NonInsuranceOrganizationDetail(): ReactElement {
     if (!oystehrZambda || !id) return;
     setLoading(true);
     setError(null);
+    const demo = DEMO_NIOS.find((d) => d.id === id);
+    if (demo) {
+      seedDemoNioExtras();
+      setItem(demo);
+      setLoading(false);
+      return;
+    }
     try {
       const data = await searchBillingNonInsuranceOrgs(oystehrZambda, { nioId: id });
       setItem((data.organizations ?? [])[0] ?? null);
@@ -211,6 +233,10 @@ export function NonInsuranceOrganizationDetail(): ReactElement {
   const handleDelete = async (): Promise<void> => {
     if (!oystehrZambda || !item) return;
     if (!window.confirm(`Delete non-insurance organization "${item.name}"?`)) return;
+    if (isDemoNioId(item.id)) {
+      navigate('/non-insurance-organizations');
+      return;
+    }
     try {
       await deleteBillingNonInsuranceOrg(oystehrZambda, { nioId: item.id });
       navigate('/non-insurance-organizations');
@@ -260,6 +286,7 @@ export function NonInsuranceOrganizationDetail(): ReactElement {
         </Button>
       </Box>
       <NonInsuranceOrgDetailSection item={item} onSaved={fetchDetail} />
+      <NioInvoicingPrototype nioName={item.name} />
     </Box>
   );
 }

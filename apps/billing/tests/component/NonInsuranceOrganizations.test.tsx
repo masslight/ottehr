@@ -65,6 +65,7 @@ function renderList(): void {
 describe('NonInsuranceOrganizationsList', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    localStorage.clear();
     searchBillingNonInsuranceOrgsMock.mockResolvedValue({
       organizations: [fedEx],
       total: 1,
@@ -74,12 +75,13 @@ describe('NonInsuranceOrganizationsList', () => {
     searchBillingPayersMock.mockResolvedValue({ payers: [] });
   });
 
-  it('lists organizations with employer, covers, and address columns', async () => {
+  it('lists organizations with type, covers, and address columns', async () => {
     renderList();
 
     // Generous timeout: the first grid render in a fresh jsdom is slow enough to flake at 1s.
     expect(await screen.findByText('FedEx', {}, { timeout: 5000 })).toBeInTheDocument();
-    expect(screen.getByText('Yes')).toBeInTheDocument();
+    // No stored prototype extras — the type falls back to the employer flag.
+    expect(screen.getByText('Employer')).toBeInTheDocument();
     // The address column sits far enough right that jsdom's viewport virtualizes it away, so the
     // formatted address is asserted on the detail view instead.
     expect(screen.getByText('Workers Comp, Other')).toBeInTheDocument();
@@ -139,7 +141,8 @@ describe('NonInsuranceOrganizationsList', () => {
     const dialog = within(screen.getByRole('dialog'));
 
     await user.type(dialog.getByLabelText('Organization Name *'), 'UPS');
-    await user.click(dialog.getByRole('checkbox', { name: 'Employer' }));
+    // Type defaults to Employer; notes are stored client-side only (prototype).
+    await user.type(dialog.getByLabelText('Notes'), 'Bills monthly');
 
     await user.click(dialog.getByRole('checkbox', { name: 'Other' }));
     await user.type(dialog.getByLabelText('Name'), 'Medical Clearance');
@@ -157,6 +160,11 @@ describe('NonInsuranceOrganizationsList', () => {
       employer: true,
       contacts: [{ name: 'Jane Smith', title: 'Billing Manager' }],
       covers: [{ category: 'other', name: 'Medical Clearance', submission: { preferredMechanism: 'portal' } }],
+    });
+    // The prototype extras (type + notes) persist in localStorage keyed by the created id.
+    expect(JSON.parse(localStorage.getItem('billing.nioPrototypeExtras') ?? '{}')['nio-new']).toEqual({
+      type: 'employer',
+      notes: 'Bills monthly',
     });
     // Initial load + refresh after create.
     await waitFor(() => expect(searchBillingNonInsuranceOrgsMock).toHaveBeenCalledTimes(2));
@@ -178,6 +186,7 @@ describe('NonInsuranceOrganizationsList', () => {
 describe('NonInsuranceOrganizationDetail', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    localStorage.clear();
     searchBillingNonInsuranceOrgsMock.mockResolvedValue({
       organizations: [fedEx],
       total: 1,

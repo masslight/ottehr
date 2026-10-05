@@ -29,10 +29,12 @@ import {
 import {
   ALL_CLAIM_STATUS_OPTIONS_2,
   ALL_CLAIM_STATUS_OPTIONS_BY_GROUP,
+  AR_STAGE,
   CLAIM_STATUS_FIELDS,
   CLAIM_STATUS_FIELDS_BY_KEY,
   CLAIM_STATUS_GROUPS,
   ClaimStatusOption,
+  emptyClaimStatusValues,
   formatAntCaseString,
   formatClaimStatusValue,
 } from 'utils/lib/types/data/billing/claim-status';
@@ -52,6 +54,7 @@ import {
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { DateRangeInput } from '../components/DateInput';
+import InvoiceClaimsDialog from '../components/InvoiceClaimsDialog';
 import { usePayerSearch } from '../components/PayerSelect';
 import { WarningIconWithTooltip } from '../components/WarningIconWithTooltip';
 import { claimStatusValueColor, PROVISIONAL_BALANCE_HINT } from '../constants/claimStatus';
@@ -219,6 +222,61 @@ function MultiSelectFilter<T extends string>({
 const patientIds = (patients: BillingPatientOption[]): string[] =>
   patients.map((p) => p.id).filter((id): id is string => !!id);
 
+// UI-only prototype rows so the "Invoice claims" flow can be demonstrated without backend data.
+const demoNioClaim = (
+  id: string,
+  patientName: string,
+  nonInsurancePayerName: string,
+  serviceDate: string,
+  service: string,
+  billed: number
+): BillingClaimItem => ({
+  id,
+  type: 'professional',
+  status: '',
+  statuses: {
+    ...emptyClaimStatusValues(),
+    arStage: AR_STAGE.nonInsurancePayer,
+    nonInsuranceArStatus: 'ready-to-invoice',
+  },
+  rulesEngine: 'non-insurance-payer-pre-invoice',
+  patientName,
+  patientDob: '',
+  payerName: '',
+  payerId: '',
+  nonInsurancePayerName,
+  memberId: '',
+  service,
+  serviceDate,
+  facility: 'Downtown Clinic',
+  renderingProvider: 'Dr. Dana Reyes',
+  billed,
+  allowed: billed,
+  insurancePaid: 0,
+  patientResp: 0,
+  patientPaid: 0,
+  claimBalance: billed,
+  adjudicated: true,
+  responsibleParty: nonInsurancePayerName,
+  tags: ['demo'],
+});
+
+const DEMO_NIO_CLAIMS: BillingClaimItem[] = [
+  demoNioClaim('demo-nio-1', 'Jordan Pruitt (demo)', 'Acme Health Services', '2026-09-14', 'office-visit', 180),
+  demoNioClaim('demo-nio-2', 'Maya Collins (demo)', 'Acme Health Services', '2026-09-18', 'sports-physical', 95),
+  demoNioClaim('demo-nio-3', 'Leo Marsh (demo)', 'Acme Health Services', '2026-09-21', 'drug-screening', 140),
+  demoNioClaim('demo-nio-4', 'Priya Natarajan (demo)', 'Lakeside School District', '2026-09-25', 'sports-physical', 95),
+  // Document Requestor (law firm) — billed amounts match the per-claim/document/page pricing demo.
+  demoNioClaim('demo-doc-1', 'Omar Reyes (demo)', 'Harrington & Lowe LLP', '2026-09-08', 'medical-records', 76),
+  demoNioClaim('demo-doc-2', 'Lily Chang (demo)', 'Harrington & Lowe LLP', '2026-09-12', 'medical-records', 41),
+  demoNioClaim('demo-doc-3', 'Marcus Webb (demo)', 'Harrington & Lowe LLP', '2026-09-19', 'medical-records', 58.5),
+  // Document Requestor (life underwriter) — $15/claim + $5/document + $0.25/page.
+  demoNioClaim('demo-doc-4', 'Nina Petrov (demo)', 'Meridian Life Underwriting', '2026-09-16', 'medical-records', 29.5),
+  demoNioClaim('demo-doc-5', 'Caleb Stone (demo)', 'Meridian Life Underwriting', '2026-09-23', 'medical-records', 27.5),
+];
+
+const isDemoClaimId = (id: unknown): boolean => String(id).startsWith('demo-nio-');
+
 const currencyCol = (field: string, headerName: string, width: number): GridColDef => ({
   field,
   headerName,
@@ -307,6 +365,7 @@ export default function ClaimsList(): ReactElement {
   const [confirmingSubmit, setConfirmingSubmit] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [invoicingClaims, setInvoicingClaims] = useState(false);
 
   const { options: payerOptions, search: searchPayers } = usePayerSearch();
   const [nioOptions, setNioOptions] = useState<NonInsuranceOrganizationItem[]>([]);
@@ -359,7 +418,8 @@ export default function ClaimsList(): ReactElement {
         };
 
         const data = await searchBillingClaims(oystehrZambda, params);
-        setClaims(data.claims ?? []);
+        // Prototype: prepend demo NIO rows so the "Invoice claims" flow is demonstrable.
+        setClaims([...DEMO_NIO_CLAIMS, ...(data.claims ?? [])]);
         setTotalRows(data.total ?? 0);
         setIncomplete(Boolean(data.incomplete));
       } catch (err) {
@@ -559,6 +619,16 @@ export default function ClaimsList(): ReactElement {
     typeFilter.length ||
     selectedServices.length;
 
+  const selectedClaims = useMemo(() => claims.filter((c) => selected.includes(c.id)), [claims, selected]);
+
+  // "Invoice claims" is only actionable when every selected claim is Non-insurance Payer AR and
+  // all are payable by the same non-insurance organization.
+  const invoiceEligible =
+    selectedClaims.length > 0 &&
+    selectedClaims.every((c) => c.statuses?.arStage === AR_STAGE.nonInsurancePayer) &&
+    !!selectedClaims[0].nonInsurancePayerName &&
+    selectedClaims.every((c) => c.nonInsurancePayerName === selectedClaims[0].nonInsurancePayerName);
+
   // Selection is limited to rows a rules engine applies to (any AR stage), and the backend picks
   // each claim's engine from its AR stage: one engine run is kicked off per claim, and each run
   // applies the configured rules, then performs its engine's success effect — submit to the payer
@@ -633,6 +703,27 @@ export default function ClaimsList(): ReactElement {
           Claims
         </Typography>
         <Box sx={{ display: 'flex', gap: 1 }}>
+          {selected.length > 0 && (
+            <Tooltip
+              title={
+                invoiceEligible
+                  ? ''
+                  : 'Enabled when every selected claim is in Non-insurance Payer AR and payable by the same ' +
+                    'non-insurance organization'
+              }
+            >
+              <span>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  disabled={!invoiceEligible}
+                  onClick={() => setInvoicingClaims(true)}
+                >
+                  Invoice claims ({selected.length})
+                </Button>
+              </span>
+            </Tooltip>
+          )}
           {selected.length > 0 && (
             <Tooltip
               title={
@@ -878,7 +969,10 @@ export default function ClaimsList(): ReactElement {
         paginationModel={paginationModel}
         onPaginationModelChange={handlePaginationChange}
         pageSizeOptions={[25, 50, 100]}
-        onRowClick={(params) => navigate(`/claims/${params.id}`)}
+        onRowClick={(params) => {
+          // Demo rows have no backing claim to navigate to.
+          if (!isDemoClaimId(params.id)) navigate(`/claims/${params.id}`);
+        }}
         disableRowSelectionOnClick
         disableColumnMenu
         checkboxSelection
@@ -905,6 +999,8 @@ export default function ClaimsList(): ReactElement {
         Insurance Payer AR claims are submitted to the payer and pre-invoice claims are made ready to invoice; a Hold
         keeps a claim for review.
       </ConfirmDialog>
+
+      <InvoiceClaimsDialog open={invoicingClaims} claims={selectedClaims} onClose={() => setInvoicingClaims(false)} />
     </Box>
   );
 }
