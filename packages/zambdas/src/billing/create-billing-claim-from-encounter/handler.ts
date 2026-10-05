@@ -84,7 +84,12 @@ import {
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { AccidentDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { TIMEZONES } from 'utils/lib/types/constants';
-import { DrugUnitCode, NDC_REGEX, ndcToDigits } from 'utils/lib/types/data/billing/billing.constants';
+import {
+  DrugUnitCode,
+  NDC_REGEX,
+  ndcToDigits,
+  normalizeNdcTo11Digits,
+} from 'utils/lib/types/data/billing/billing.constants';
 import {
   AR_STAGE,
   claimStatusValuesToTags,
@@ -1446,11 +1451,13 @@ export function getProcedureDrug(
   }
 
   const medication = getMedicationFromMA(ma);
-  const ndc = medication ? getNdcCodeFromMedication(medication)?.trim() : undefined;
-  if (!ndc) return undefined;
-  // Same rule as the claim editor: only 11-digit NDCs (5-4-2, dashes optional)
+  const storedNdc = medication ? getNdcCodeFromMedication(medication)?.trim() : undefined;
+  if (!storedNdc) return undefined;
+  // Dashed 10-digit NDCs (4-4-2, 5-3-2, 5-4-1) are padded to 5-4-2; then the claim editor's rule applies:
+  // only 11-digit NDCs (5-4-2, dashes optional)
+  const ndc = normalizeNdcTo11Digits(storedNdc);
   if (!NDC_REGEX.test(ndc)) {
-    console.warn(`NDC "${ndc}" on MedicationAdministration/${ma.id} is not an 11-digit NDC; skipping it`);
+    console.warn(`NDC "${storedNdc}" on MedicationAdministration/${ma.id} is not an 11-digit NDC; skipping it`);
     return undefined;
   }
 

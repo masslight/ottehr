@@ -134,7 +134,16 @@ describe('getProcedureDrug', () => {
     });
   });
 
-  it.each(['1234567890', '1234-5678-90', '12345-678-90', '12345-6789-0', '123456789012', 'abc'])(
+  it.each([
+    ['1234-5678-90', '01234567890'],
+    ['12345-678-90', '12345067890'],
+    ['12345-6789-0', '12345678900'],
+  ])('normalizes the dashed 10-digit NDC %s to %s', (ndc, expected) => {
+    const ma = makeMedicationAdministration({ ndc, dose: 1, unit: 'mg' });
+    expect(getProcedureDrug(makeProcedure('J1885', 'ma-1'), [ma])).toEqual({ ndc: expected, quantity: 1, units: 'ME' });
+  });
+
+  it.each(['1234567890', '1234-567-89', '1234-5678-9', '123-45678-90', '123456789012', 'abc'])(
     'skips the non 11-digit NDC %s',
     (ndc) => {
       const ma = makeMedicationAdministration({ ndc, dose: 1, unit: 'mg' });
