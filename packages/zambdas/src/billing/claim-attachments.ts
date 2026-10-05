@@ -88,8 +88,8 @@ export async function attachClaimDocument({
   ];
 
   const result = await oystehr.fhir.transaction<Claim | DocumentReference>({ requests });
-  const documentReferenceId =
-    result.unbundle().find((resource) => resource.resourceType === 'DocumentReference')?.id ?? '';
+  const documentReferenceId = result.unbundle().find((resource) => resource.resourceType === 'DocumentReference')?.id;
+  if (!documentReferenceId) throw new Error('The claim attachment was created without an id');
 
   return { documentReferenceId, uploadUrl: await presignAttachment(oystehr, location, 'upload') };
 }

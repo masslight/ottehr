@@ -15,7 +15,7 @@ import {
   buildManualEraProvenance,
   buildManualPaymentReconciliation,
   entryClaimToInput,
-  ManualEraContext,
+  ManualEraBillingProviderAndPayer,
   manualEraEntryFromFhir,
   parsePatientName,
 } from '../../../src/billing/manual-era';
@@ -46,7 +46,7 @@ const header: ManualEraHeader = {
   notes: 'Mailed remit',
 };
 
-const context: ManualEraContext = {
+const billingProviderAndPayer: ManualEraBillingProviderAndPayer = {
   payer: { reference: PAYER_URL, display: 'United Health Care (87726)' },
   billingProvider: { reference: 'Organization/org-1', name: 'some org', npi: '8675309123', taxId: '121234567' },
 };
@@ -83,7 +83,7 @@ describe('buildManualPaymentReconciliation', () => {
   it('writes the remit the way the ERA readers expect it', () => {
     const pr = buildManualPaymentReconciliation({
       header,
-      context,
+      billingProviderAndPayer,
       created: '2026-09-23T15:00:00.000Z',
       editedAt: '2026-09-23T15:00:00.000Z',
     });
@@ -107,13 +107,13 @@ describe('buildManualPaymentReconciliation', () => {
   it('keeps the first save time on later saves', () => {
     const first = buildManualPaymentReconciliation({
       header,
-      context,
+      billingProviderAndPayer,
       created: '2026-09-23T15:00:00.000Z',
       editedAt: '2026-09-23T15:00:00.000Z',
     });
     const later = buildManualPaymentReconciliation({
       header: { ...header, paymentMethod: undefined, notes: undefined },
-      context,
+      billingProviderAndPayer,
       created: first.created,
       editedAt: '2026-09-24T09:00:00.000Z',
       existing: { ...first, id: 'era-1' },
@@ -127,7 +127,7 @@ describe('buildManualPaymentReconciliation', () => {
 });
 
 describe('buildManualClaimResponse', () => {
-  const cr = buildManualClaimResponse({ claim: keyedClaim, header, context });
+  const cr = buildManualClaimResponse({ claim: keyedClaim, header, billingProviderAndPayer });
 
   it('adds a keyed claim unmatched, with the contained resources unmatch restores from', () => {
     expect(cr.request).toEqual({ reference: '#request' });
@@ -139,10 +139,10 @@ describe('buildManualClaimResponse', () => {
       'Organization#billing-provider',
       'Coverage#coverage',
     ]);
-    expect(containedOf<Claim>(cr, 'Claim').insurer).toEqual(context.payer);
+    expect(containedOf<Claim>(cr, 'Claim').insurer).toEqual(billingProviderAndPayer.payer);
     // the keyed claim stays referenced from the response whatever it is matched to
     expect(cr.extension).toContainEqual({ url: ERA_KEYED_CLAIM_EXTENSION, valueReference: { reference: '#request' } });
-    expect(cr).toMatchObject({ outcome: 'complete', created: '2026-09-13', insurer: context.payer });
+    expect(cr).toMatchObject({ outcome: 'complete', created: '2026-09-13', insurer: billingProviderAndPayer.payer });
     // tagged like the ERA responses RCM writes, which is what the claim-update subscription listens for
     expect(cr.meta?.tag).toEqual([ERA_CLAIM_RESPONSE_TYPE_TAG]);
   });
@@ -185,7 +185,7 @@ describe('buildManualClaimResponse', () => {
     const matched = buildManualClaimResponse({
       claim: keyedClaim,
       header,
-      context,
+      billingProviderAndPayer,
       matchedClaim: {
         id: 'claim-9',
         patient: { reference: 'Patient/p9' },
@@ -195,7 +195,7 @@ describe('buildManualClaimResponse', () => {
     expect(matched.request).toEqual({ reference: 'Claim/claim-9' });
     expect(matched.patient).toEqual({ reference: 'Patient/p9' });
     expect(matched.type).toEqual({ coding: [{ code: 'professional' }] });
-    expect(matched.insurer).toEqual(context.payer);
+    expect(matched.insurer).toEqual(billingProviderAndPayer.payer);
     expect(matched.extension).toContainEqual({
       url: ERA_KEYED_CLAIM_EXTENSION,
       valueReference: { reference: '#request' },
@@ -212,7 +212,7 @@ describe('buildManualClaimResponse', () => {
       request: { reference: 'Claim/claim-2' },
       patient: { reference: 'Patient/p2' },
     };
-    const rebuilt = buildManualClaimResponse({ claim: keyedClaim, header, context, existing: stored });
+    const rebuilt = buildManualClaimResponse({ claim: keyedClaim, header, billingProviderAndPayer, existing: stored });
     expect(rebuilt).toMatchObject({
       id: 'cr-1',
       request: { reference: 'Claim/claim-2' },
@@ -233,7 +233,7 @@ describe('manualEraEntryFromFhir', () => {
     const customPayer = { reference: 'Organization/6f1c2b3a-9d8e-4f70-8a1b-2c3d4e5f6a7b', display: 'Harbor County' };
     const pr = buildManualPaymentReconciliation({
       header: { ...header, payerId: '6f1c2b3a-9d8e-4f70-8a1b-2c3d4e5f6a7b' },
-      context: { ...context, payer: customPayer },
+      billingProviderAndPayer: { ...billingProviderAndPayer, payer: customPayer },
       created: 'now',
       editedAt: 'now',
     });
@@ -242,8 +242,8 @@ describe('manualEraEntryFromFhir', () => {
   });
 
   it('round-trips what the editor saved', () => {
-    const pr = buildManualPaymentReconciliation({ header, context, created: 'now', editedAt: 'now' });
-    const cr = { ...buildManualClaimResponse({ claim: keyedClaim, header, context }), id: 'cr-1' };
+    const pr = buildManualPaymentReconciliation({ header, billingProviderAndPayer, created: 'now', editedAt: 'now' });
+    const cr = { ...buildManualClaimResponse({ claim: keyedClaim, header, billingProviderAndPayer }), id: 'cr-1' };
     const entry = manualEraEntryFromFhir(pr, [cr]);
 
     expect(entry.header).toEqual(header);
@@ -263,15 +263,20 @@ describe('manualEraEntryFromFhir', () => {
 
   it('reads a remit keyed without a deposit date back without one', () => {
     const { depositDate: _none, ...noDeposit } = header;
-    const pr = buildManualPaymentReconciliation({ header: noDeposit, context, created: 'now', editedAt: 'now' });
+    const pr = buildManualPaymentReconciliation({
+      header: noDeposit,
+      billingProviderAndPayer,
+      created: 'now',
+      editedAt: 'now',
+    });
     expect(pr.extension?.map((extension) => extension.url)).not.toContain(ERA_DEPOSIT_DATE_EXTENSION);
     expect(manualEraEntryFromFhir(pr, []).header).toStrictEqual(noDeposit);
   });
 
   it('reports the claim a response was matched to', () => {
-    const pr = buildManualPaymentReconciliation({ header, context, created: 'now', editedAt: 'now' });
+    const pr = buildManualPaymentReconciliation({ header, billingProviderAndPayer, created: 'now', editedAt: 'now' });
     const cr = {
-      ...buildManualClaimResponse({ claim: keyedClaim, header, context }),
+      ...buildManualClaimResponse({ claim: keyedClaim, header, billingProviderAndPayer }),
       id: 'cr-1',
       request: { reference: 'Claim/c7' },
     };

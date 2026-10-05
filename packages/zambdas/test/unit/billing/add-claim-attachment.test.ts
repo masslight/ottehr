@@ -314,4 +314,32 @@ describe('add-claim-attachment', () => {
     await performEffect(guessed, { claimId: 'claim-id', name: 'Scan', fileName: 'scan.jpeg', secrets });
     expect(attachmentOf(guessed).contentType).toBe('image/jpeg');
   });
+
+  it('fails rather than hand out an upload for a record the server returned without an id', async () => {
+    (fetchById as Mock<typeof fetchById>).mockResolvedValueOnce({
+      resourceType: 'Claim',
+      id: 'claim-id',
+      status: 'active',
+      type: { coding: [] },
+      created: DateTime.now().toISO(),
+      insurance: [],
+      patient: { reference: 'patient-id' },
+      priority: { coding: [] },
+      provider: { reference: 'organization-id' },
+      use: 'claim',
+    });
+    const oystehr = makeClient();
+    (oystehr.fhir.transaction as Mock).mockResolvedValueOnce({
+      unbundle: () => [{ resourceType: 'DocumentReference' }],
+    });
+    await expect(
+      performEffect(oystehr, {
+        claimId: 'claim-id',
+        name: 'Op note',
+        fileName: 'op-note.pdf',
+        secrets: { PROJECT_API: 'https://project-api.zapehr.com/v1', PROJECT_ID: 'project-id' },
+      })
+    ).rejects.toThrow('The claim attachment was created without an id');
+    expect(oystehr.z3.getPresignedUrl).not.toHaveBeenCalled();
+  });
 });

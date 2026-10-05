@@ -29,9 +29,10 @@ import {
   buildManualEraProvenance,
   buildManualPaymentReconciliation,
   entryClaimToInput,
+  ManualEraBillingProviderAndPayer,
   manualEraClaimFromFhir,
-  ManualEraContext,
   manualEraHeaderFromFhir,
+  ManualEraPayer,
 } from '../manual-era';
 import {
   createBillingClient,
@@ -82,8 +83,10 @@ export async function performEffect(
   now: string
 ): Promise<SaveManualEraResponse> {
   const stored = params.eraId ? await loadManualEra(oystehr, params.eraId, params.expectedVersionId) : undefined;
-  const header: ManualEraHeader = params.header ?? manualEraHeaderFromFhir(stored!.pr);
-  const context = await resolveContext(oystehr, header);
+  // a save without remit details keeps the stored ones; a new remit has none to keep
+  const header = params.header ?? (stored ? manualEraHeaderFromFhir(stored.pr) : undefined);
+  if (!header) throw INVALID_INPUT_ERROR('"header" is required to create a remit');
+  const billingProviderAndPayer = await resolveManualEraBillingProviderAndPayer(oystehr, header);
 
   const storedClaimResponses = stored?.claimResponses ?? [];
   const storedById = new Map(storedClaimResponses.map((claimResponse) => [claimResponse.id ?? '', claimResponse]));
@@ -111,7 +114,7 @@ export async function performEffect(
   const requests: BatchInputRequest<FhirResource>[] = [];
   const pr = buildManualPaymentReconciliation({
     header,
-    context,
+    billingProviderAndPayer,
     created: stored?.pr.created ?? now,
     editedAt: now,
     existing: stored?.pr,
@@ -139,7 +142,12 @@ export async function performEffect(
     // remit date) may have changed
     if (!upsert && !params.header) continue;
     const input: ManualEraClaim = upsert ?? entryClaimToInput(manualEraClaimFromFhir(claimResponse));
-    const rebuilt = buildManualClaimResponse({ claim: input, header, context, existing: claimResponse });
+    const rebuilt = buildManualClaimResponse({
+      claim: input,
+      header,
+      billingProviderAndPayer,
+      existing: claimResponse,
+    });
     // an unchanged write would still re-fire the claim-response subscriptions
     if (sameContent(rebuilt, claimResponse)) continue;
     requests.push({ method: 'PUT', url: `/ClaimResponse/${claimResponse.id}`, resource: rebuilt });
@@ -151,7 +159,7 @@ export async function performEffect(
     requests.push({
       method: 'POST',
       url: '/ClaimResponse',
-      resource: buildManualClaimResponse({ claim, header, context, matchedClaim }),
+      resource: buildManualClaimResponse({ claim, header, billingProviderAndPayer, matchedClaim }),
       fullUrl,
     });
     savedClaims.push({ clientKey: claim.clientKey, requestIndex: requests.length - 1 });
@@ -190,18 +198,18 @@ export async function performEffect(
 
   const entries = bundle.entry ?? [];
   const prEntry = entries[0];
-  const eraId = prEntry?.resource?.id ?? idFromLocation(prEntry?.response?.location) ?? stored?.pr.id ?? '';
-  const versionId = prEntry?.resource?.meta?.versionId ?? versionFromLocation(prEntry?.response?.location) ?? '';
+  const eraId = prEntry?.resource?.id ?? idFromLocation(prEntry?.response?.location) ?? stored?.pr.id;
+  const versionId = prEntry?.resource?.meta?.versionId ?? versionFromLocation(prEntry?.response?.location);
+  // the server gives every write an id and a version; the editor's next save needs both
+  if (!eraId || !versionId) throw new Error('The remit was saved without an id or version');
   return {
     eraId,
     versionId,
     claims: savedClaims.map((saved) => {
       const entry = saved.requestIndex === undefined ? undefined : entries[saved.requestIndex];
-      return {
-        ...(saved.clientKey ? { clientKey: saved.clientKey } : {}),
-        claimResponseId:
-          saved.claimResponseId ?? entry?.resource?.id ?? idFromLocation(entry?.response?.location) ?? '',
-      };
+      const claimResponseId = saved.claimResponseId ?? entry?.resource?.id ?? idFromLocation(entry?.response?.location);
+      if (!claimResponseId) throw new Error('A claim on the remit was saved without an id');
+      return { ...(saved.clientKey ? { clientKey: saved.clientKey } : {}), claimResponseId };
     }),
   };
 }
@@ -238,7 +246,7 @@ async function loadManualEra(oystehr: Oystehr, eraId: string, expectedVersionId?
 // The payer as PayerSelect names it: an RCM payer, referenced by its payer list URL as the ERA
 // converters reference it, or a billing-app custom insurance organization, referenced directly as
 // Organization/{id} (as billing claims reference it, and as the ERA list's payer filter matches it).
-async function resolvePayer(oystehr: Oystehr, payerId: string): Promise<ManualEraContext['payer']> {
+async function resolvePayer(oystehr: Oystehr, payerId: string): Promise<ManualEraPayer> {
   const payer = await resolvePayerOrganization(oystehr, payerId).catch(() => undefined);
   if (!payer) throw INVALID_INPUT_ERROR(`Payer ${payerId} was not found`);
   const reference = isCustomInsuranceOrganization(payer)
@@ -247,7 +255,10 @@ async function resolvePayer(oystehr: Oystehr, payerId: string): Promise<ManualEr
   return { reference, display: payerDisplay(payer) ?? payerId };
 }
 
-async function resolveContext(oystehr: Oystehr, header: ManualEraHeader): Promise<ManualEraContext> {
+async function resolveManualEraBillingProviderAndPayer(
+  oystehr: Oystehr,
+  header: ManualEraHeader
+): Promise<ManualEraBillingProviderAndPayer> {
   const payer = await resolvePayer(oystehr, header.payerId);
 
   const [resourceType, id] = header.billingProviderRef.split('/') as ['Organization' | 'Practitioner', string];

@@ -76,6 +76,22 @@ describe('ERA attachments', () => {
     expect(result).toEqual({ documentReferenceId: 'doc-new', uploadUrl: 'signed-url' });
   });
 
+  it('fails rather than hand out an upload for a record the server returned without an id', async () => {
+    (fetchById as Mock).mockResolvedValueOnce({ resourceType: 'PaymentReconciliation', id: 'era-1' });
+    const oystehr = makeClient();
+    (oystehr.fhir.create as Mock).mockImplementationOnce(async (resource: DocumentReference) => resource);
+    await expect(
+      addEraAttachment(oystehr, {
+        eraId: 'era-1',
+        name: 'Remit',
+        fileName: 'remit.pdf',
+        mimeType: 'application/pdf',
+        secrets: SECRETS,
+      })
+    ).rejects.toThrow('The remit attachment was created without an id');
+    expect(oystehr.z3.getPresignedUrl).not.toHaveBeenCalled();
+  });
+
   it('only accepts PDFs and images for remit scans', async () => {
     (fetchById as Mock).mockResolvedValueOnce({ resourceType: 'PaymentReconciliation', id: 'era-1' });
     const oystehr = makeClient();

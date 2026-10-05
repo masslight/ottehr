@@ -21,7 +21,7 @@ import {
   buildManualClaimResponse,
   buildManualEraProvenance,
   buildManualPaymentReconciliation,
-  ManualEraContext,
+  ManualEraBillingProviderAndPayer,
 } from '../../../src/billing/manual-era';
 import { performEffect } from '../../../src/billing/save-billing-manual-era';
 import { SaveManualEraParams } from '../../../src/billing/save-billing-manual-era/validateRequestParameters';
@@ -62,7 +62,7 @@ const CUSTOM_PAYER_ORG: Organization = {
 };
 
 // what the zambda resolves for the header above
-const context: ManualEraContext = {
+const billingProviderAndPayer: ManualEraBillingProviderAndPayer = {
   payer: { reference: PAYER_URL, display: payerDisplay(PAYER_ORG) ?? '' },
   billingProvider: { reference: 'Organization/org-1', name: 'some org', npi: '8675309123' },
 };
@@ -98,7 +98,7 @@ function storedRemit(): FhirResource[] {
   const pr: PaymentReconciliation = {
     ...buildManualPaymentReconciliation({
       header,
-      context,
+      billingProviderAndPayer,
       created: '2026-09-20T10:00:00.000Z',
       editedAt: '2026-09-20T10:00:00.000Z',
     }),
@@ -106,14 +106,14 @@ function storedRemit(): FhirResource[] {
     meta: { versionId: '3' },
   };
   const unmatched: ClaimResponse = {
-    ...buildManualClaimResponse({ claim: keyedClaim(), header, context }),
+    ...buildManualClaimResponse({ claim: keyedClaim(), header, billingProviderAndPayer }),
     id: 'cr-1',
   };
   const matched: ClaimResponse = {
     ...buildManualClaimResponse({
       claim: keyedClaim({ patientName: 'Ann Lee' }),
       header,
-      context,
+      billingProviderAndPayer,
       matchedClaim: {
         id: 'claim-2',
         patient: { reference: 'Patient/p2' },
@@ -328,7 +328,7 @@ describe('save-billing-manual-era performEffect', () => {
     expect(added.resource).toMatchObject({
       request: { reference: 'Claim/claim-9' },
       patient: { reference: 'Patient/p9' },
-      insurer: context.payer,
+      insurer: billingProviderAndPayer.payer,
     });
   });
 
@@ -463,6 +463,22 @@ describe('save-billing-manual-era performEffect', () => {
         NOW
       )
     ).rejects.toMatchObject({ message: 'Claim cr-x is not part of this remit' });
+  });
+
+  it('needs the remit details to create a remit', async () => {
+    const { oystehr, transaction } = makeClient([billingOrg]);
+    await expect(performEffect(oystehr, params({}), ACTOR, NOW)).rejects.toMatchObject({
+      message: '"header" is required to create a remit',
+    });
+    expect(transaction).not.toHaveBeenCalled();
+  });
+
+  it('fails rather than hand back an empty id when the server returns none', async () => {
+    const { oystehr, transaction } = makeClient([billingOrg]);
+    transaction.mockResolvedValueOnce({ entry: [{ response: { status: '201' } }, { response: { status: '201' } }] });
+    await expect(performEffect(oystehr, params({ header }), ACTOR, NOW)).rejects.toThrow(
+      'The remit was saved without an id or version'
+    );
   });
 
   it('requires a billing provider and a known payer', async () => {

@@ -389,14 +389,14 @@ describe('get-billing-era-detail performEffect', () => {
       depositDate: '2026-09-14',
       notes: 'Mailed remit',
     };
-    const context = {
+    const billingProviderAndPayer = {
       payer: { reference: 'https://rcm-api.zapehr.com/v1/payer/payer-uhc', display: 'United Health Care' },
       billingProvider: { reference: 'Organization/org-1', name: 'some org' },
     };
     const manualPr: PaymentReconciliation = {
       ...buildManualPaymentReconciliation({
         header,
-        context,
+        billingProviderAndPayer,
         created: '2026-09-23T15:00:00Z',
         editedAt: '2026-09-23T15:00:00Z',
       }),
@@ -421,7 +421,7 @@ describe('get-billing-era-detail performEffect', () => {
           ],
         },
         header,
-        context,
+        billingProviderAndPayer,
       }),
       id: 'cr-m',
     };

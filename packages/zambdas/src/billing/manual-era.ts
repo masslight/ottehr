@@ -94,7 +94,7 @@ export interface ManualEraBillingProvider {
   taxId?: string;
 }
 
-export interface ManualEraContext {
+export interface ManualEraBillingProviderAndPayer {
   payer: ManualEraPayer;
   billingProvider: ManualEraBillingProvider;
 }
@@ -166,13 +166,13 @@ const claimServiceDate = (claim: ManualEraClaim): string =>
 
 export function buildManualPaymentReconciliation(args: {
   header: ManualEraHeader;
-  context: ManualEraContext;
+  billingProviderAndPayer: ManualEraBillingProviderAndPayer;
   // first save; kept on every later save
   created: string;
   editedAt: string;
   existing?: PaymentReconciliation;
 }): PaymentReconciliation {
-  const { header, context, existing } = args;
+  const { header, billingProviderAndPayer, existing } = args;
   const method = ERA_PAYMENT_METHODS.find((candidate) => candidate.code === header.paymentMethod);
   return {
     resourceType: 'PaymentReconciliation',
@@ -187,8 +187,14 @@ export function buildManualPaymentReconciliation(args: {
     status: 'active',
     outcome: 'complete',
     created: args.created,
-    paymentIssuer: { reference: context.payer.reference, display: context.payer.display },
-    requestor: { reference: context.billingProvider.reference, display: context.billingProvider.name },
+    paymentIssuer: {
+      reference: billingProviderAndPayer.payer.reference,
+      display: billingProviderAndPayer.payer.display,
+    },
+    requestor: {
+      reference: billingProviderAndPayer.billingProvider.reference,
+      display: billingProviderAndPayer.billingProvider.name,
+    },
     paymentDate: header.checkDate,
     paymentAmount: money(header.checkAmountCents),
     paymentIdentifier: {
@@ -209,13 +215,13 @@ export type MatchedClaimFields = Pick<Claim, 'id' | 'patient' | 'type'>;
 export function buildManualClaimResponse(args: {
   claim: ManualEraClaim;
   header: ManualEraHeader;
-  context: ManualEraContext;
+  billingProviderAndPayer: ManualEraBillingProviderAndPayer;
   // the Claim a new remit claim is associated with
   matchedClaim?: MatchedClaimFields;
   // the stored response when updating; its match state (request / patient / type) is kept
   existing?: ClaimResponse;
 }): ClaimResponse {
-  const { claim, header, context, matchedClaim, existing } = args;
+  const { claim, header, billingProviderAndPayer, matchedClaim, existing } = args;
   const sequences = assignItemSequences(claim.serviceLines);
   const serviceDate = claimServiceDate(claim);
   const lineDates = claim.serviceLines.map((line) => line.serviceDate).sort();
@@ -223,9 +229,10 @@ export function buildManualClaimResponse(args: {
   const paidCents = claim.serviceLines.reduce((sum, line) => sum + line.paidCents, 0);
 
   const billingProvider: Organization = { resourceType: 'Organization', id: CONTAINED.billingProvider };
-  if (context.billingProvider.name) billingProvider.name = context.billingProvider.name;
-  if (context.billingProvider.npi) setNpi(billingProvider, context.billingProvider.npi);
-  if (context.billingProvider.taxId) setTaxId(billingProvider, context.billingProvider.taxId);
+  if (billingProviderAndPayer.billingProvider.name) billingProvider.name = billingProviderAndPayer.billingProvider.name;
+  if (billingProviderAndPayer.billingProvider.npi) setNpi(billingProvider, billingProviderAndPayer.billingProvider.npi);
+  if (billingProviderAndPayer.billingProvider.taxId)
+    setTaxId(billingProvider, billingProviderAndPayer.billingProvider.taxId);
 
   const patient: Patient = {
     resourceType: 'Patient',
@@ -238,7 +245,7 @@ export function buildManualClaimResponse(args: {
     id: CONTAINED.coverage,
     status: 'active',
     beneficiary: { reference: `#${CONTAINED.patient}` },
-    payor: [{ reference: context.payer.reference, display: context.payer.display }],
+    payor: [{ reference: billingProviderAndPayer.payer.reference, display: billingProviderAndPayer.payer.display }],
     ...(claim.memberId ? { subscriberId: claim.memberId } : {}),
   };
 
@@ -251,7 +258,7 @@ export function buildManualClaimResponse(args: {
     patient: { reference: `#${CONTAINED.patient}` },
     billablePeriod: { start: lineDates[0], end: lineDates.at(-1) },
     created: serviceDate,
-    insurer: { reference: context.payer.reference, display: context.payer.display },
+    insurer: { reference: billingProviderAndPayer.payer.reference, display: billingProviderAndPayer.payer.display },
     provider: { reference: `#${CONTAINED.billingProvider}` },
     priority: codeableConcept('normal', CODE_SYSTEM_PROCESS_PRIORITY, 'Normal'),
     insurance: [{ sequence: 1, focal: true, coverage: { reference: `#${CONTAINED.coverage}` } }],
@@ -313,7 +320,7 @@ export function buildManualClaimResponse(args: {
     status: 'active',
     use: 'claim',
     created: header.remitDate,
-    insurer: { reference: context.payer.reference, display: context.payer.display },
+    insurer: { reference: billingProviderAndPayer.payer.reference, display: billingProviderAndPayer.payer.display },
     outcome: 'complete',
     ...matchFields,
     item,

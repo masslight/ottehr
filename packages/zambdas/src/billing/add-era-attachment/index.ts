@@ -51,8 +51,9 @@ export async function performEffect(
       relatedReference: `PaymentReconciliation/${era.id}`,
     })
   );
+  if (!documentReference.id) throw new Error('The remit attachment was created without an id');
   return {
-    documentReferenceId: documentReference.id ?? '',
+    documentReferenceId: documentReference.id,
     uploadUrl: await presignAttachment(oystehr, location, 'upload'),
   };
 }
