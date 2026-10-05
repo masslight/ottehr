@@ -145,12 +145,15 @@ interface VertexAIRequestOptions {
 export async function invokeChatbotVertexAI(
   input: MessageContentComplex[],
   secrets: Secrets | null,
+  feature: string,
   responseSchema?: object,
   model: string = VERTEX_AI_MODEL,
   options: VertexAIRequestOptions = {}
 ): Promise<string> {
   const GOOGLE_CLOUD_PROJECT_ID = getSecret(SecretsKeys.GOOGLE_CLOUD_PROJECT_ID, secrets);
   const GOOGLE_CLOUD_API_KEY = getSecret(SecretsKeys.GOOGLE_CLOUD_API_KEY, secrets);
+  const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
+  const PROJECT_ID = getSecret(SecretsKeys.PROJECT_ID, secrets);
   const RETRY_COUNT = 3;
   const FIRST_DELAY_MS = 3000;
   const JITTER = 0.01;
@@ -191,6 +194,11 @@ export async function invokeChatbotVertexAI(
           },
           body: JSON.stringify({
             contents: [{ role: 'user', parts: [input] }],
+            labels: {
+              ottehr_feature: feature,
+              ottehr_environment: ENVIRONMENT,
+              ottehr_project_id: PROJECT_ID,
+            },
             generationConfig: {
               temperature: 0,
               ...(responseSchema && {
@@ -324,7 +332,8 @@ export async function transcribeAndCreateResourcesFromZ3Audio(
 
   const transcript = await invokeChatbotVertexAI(
     [{ text: TRANSCRIPT_PROMPT }, { inlineData: { mimeType, data: fileBase64 } }],
-    secrets
+    secrets,
+    'ambient-scribe-transcription'
   );
 
   // Trim: Vertex commonly wraps the sentinel in trailing whitespace/newline, and an untrimmed compare would
@@ -352,7 +361,8 @@ export async function transcribeAndCreateResourcesFromZ3Audio(
     mimeType,
     args.providerUserProfile,
     args.existingDocumentReference,
-    secrets
+    secrets,
+    'ambient-scribe-summary'
   );
 }
 
@@ -409,7 +419,8 @@ export async function createResourcesFromAiInterview(
   mimeType: string | null,
   providerUserProfile: string | null,
   existingDocumentReference: DocumentReference | undefined,
-  secrets: Secrets | null
+  secrets: Secrets | null,
+  feature: string
 ): Promise<string> {
   let fields =
     'history of present illness, past medical history, past surgical history, medications history, allergies, social history, family history, hospitalizations history';
@@ -479,7 +490,8 @@ export async function createResourcesFromAiInterview(
   try {
     aiResponseString = await invokeChatbotVertexAI(
       [{ text: getPrompt(patientInfoDetails || 'unknown patient details', fields) + '\n' + chatTranscript }],
-      secrets
+      secrets,
+      feature
     );
     narrativeLines = await settledWithin(narrative, NARRATIVE_GRACE_MS);
   } finally {

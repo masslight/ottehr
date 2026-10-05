@@ -74,6 +74,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     wireSchema: buildResponseSchema(),
     responseSchema: PlanModelResponseSchema,
     secrets,
+    feature: 'easy-chart-plan',
     logPrefix: ZAMBDA_NAME,
   });
 
