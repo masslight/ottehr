@@ -11,6 +11,7 @@ import {
   ADDRESS_BOOK_ORG_OR_LAST_NAME_MESSAGE,
   ADDRESS_BOOK_PHONE_MESSAGE,
   ADDRESS_BOOK_TAG_MESSAGE,
+  ADDRESS_BOOK_ZIP_MESSAGE,
   AddressBookContact,
 } from 'utils/lib/types/data/address-book';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -94,11 +95,13 @@ describe('AddressBookDialog', () => {
 
     await user.type(screen.getByLabelText('Phone'), '212');
     await user.type(screen.getByLabelText('Email'), 'not-an-email');
+    await user.type(screen.getByLabelText('ZIP'), '1234');
     await user.type(screen.getByLabelText('Tags'), 'a,b{Enter}');
     await user.click(screen.getByRole('button', { name: 'Save' }));
 
     expect(await screen.findByText(ADDRESS_BOOK_PHONE_MESSAGE)).toBeInTheDocument();
     expect(screen.getByText('Invalid email')).toBeInTheDocument();
+    expect(screen.getByText(ADDRESS_BOOK_ZIP_MESSAGE)).toBeInTheDocument();
     expect(screen.getByText(ADDRESS_BOOK_TAG_MESSAGE)).toBeInTheDocument();
     expect(screen.getByText(ADDRESS_BOOK_ORG_OR_LAST_NAME_MESSAGE)).toBeInTheDocument();
     expect(api.createAddressBookContact).not.toHaveBeenCalled();

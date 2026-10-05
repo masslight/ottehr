@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { isPhoneNumberValid } from '../../helpers/helpers';
+import { zipRegex } from '../../validation/regex';
 
 /** Marker tag that makes an Organization an address-book contact. */
 export const ADDRESS_BOOK_TAG_SYSTEM = 'https://fhir.ottehr.com/CodeSystem/address-book';
@@ -11,6 +12,7 @@ export const ADDRESS_BOOK_ORG_OR_LAST_NAME_MESSAGE = 'Either an organization nam
 export const ADDRESS_BOOK_CREDENTIAL_NEEDS_LAST_NAME_MESSAGE = 'A credential needs a last name';
 export const ADDRESS_BOOK_LINE2_NEEDS_LINE1_MESSAGE = 'Address line 2 requires address line 1';
 export const ADDRESS_BOOK_PHONE_MESSAGE = 'Phone number must be 10 digits in the format (xxx) xxx-xxxx';
+export const ADDRESS_BOOK_ZIP_MESSAGE = 'ZIP code must be 5 digits, optionally with a 4-digit extension';
 export const ADDRESS_BOOK_TAG_MESSAGE =
   'Tags may only contain letters, numbers, spaces, hyphens, underscores, periods and apostrophes';
 
@@ -70,7 +72,12 @@ const AddressBookContactFieldsSchema = z.object({
       line2: optionalString,
       city: optionalString,
       state: optionalString,
-      zip: optionalString,
+      // The app's ZIP formats: 12345, 12345-6789, or 123456789 (how the employer section stores it).
+      zip: z
+        .string()
+        .trim()
+        .refine((value) => !value || zipRegex.test(value), ADDRESS_BOOK_ZIP_MESSAGE)
+        .optional(),
     })
     .refine((address) => !address.line2 || !!address.line1, {
       message: ADDRESS_BOOK_LINE2_NEEDS_LINE1_MESSAGE,

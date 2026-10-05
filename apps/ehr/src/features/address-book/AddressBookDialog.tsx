@@ -19,6 +19,7 @@ import { PhoneInput } from 'src/components/input/PhoneInput';
 import { SelectInput } from 'src/components/input/SelectInput';
 import { TextInput } from 'src/components/input/TextInput';
 import { dataTestIds } from 'src/constants/data-test-ids';
+import { InputMask } from 'ui-components/lib/components/InputMask';
 import { formatPhoneNumberDisplay } from 'utils/lib/helpers/helpers';
 import { AllStates } from 'utils/lib/types/common';
 import {
@@ -158,7 +159,12 @@ export const AddressBookDialog: FC<AddressBookDialogProps> = ({
               <TextInput name="address.line2" label="Address line 2" />
               <TextInput name="address.city" label="City" />
               <SelectInput name="address.state" label="State" options={STATE_OPTIONS} />
-              <TextInput name="address.zip" label="ZIP" />
+              <TextInput
+                name="address.zip"
+                label="ZIP"
+                inputProps={{ mask: '00000-0000' }}
+                InputProps={{ inputComponent: InputMask as any }}
+              />
               <PhoneInput name="phone" label="Phone" />
               <PhoneInput name="fax" label="Fax" />
               <TextInput name="email" label="Email" />
