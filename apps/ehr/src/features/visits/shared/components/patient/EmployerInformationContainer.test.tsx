@@ -95,6 +95,28 @@ describe('EmployerInformationContainer', () => {
     expect(formMethods!.formState.dirtyFields).toMatchObject({ [employer.state.key]: true });
   });
 
+  it('starts a new contact from everything entered in the section', async () => {
+    render(
+      <TestWrapper>
+        <EmployerInformationContainer isLoading={false} />
+      </TestWrapper>
+    );
+
+    await user.type(getFieldInput(employer.addressLine1.key), '9 Oak Ave');
+    await user.type(getFieldInput(employer.contactFirstName.key), 'Ann');
+    await user.type(getFieldInput(employer.contactLastName.key), 'Lee');
+    await user.type(getFieldInput(employer.contactEmail.key), 'ann@globex.example');
+    await user.type(within(document.getElementById(employer.employerName.key)!).getByRole('combobox'), 'Globex');
+    await user.click(await screen.findByRole('option', { name: /Add new contact/ }));
+
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByLabelText('Organization')).toHaveValue('Globex');
+    expect(within(dialog).getByLabelText('Address line 1')).toHaveValue('9 Oak Ave');
+    expect(within(dialog).getByLabelText('First name')).toHaveValue('Ann');
+    expect(within(dialog).getByLabelText('Last name')).toHaveValue('Lee');
+    expect(within(dialog).getByLabelText('Email')).toHaveValue('ann@globex.example');
+  });
+
   it('still takes a free-text employer name', async () => {
     render(
       <TestWrapper>

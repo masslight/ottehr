@@ -2,7 +2,7 @@ import { Box, Typography, useTheme } from '@mui/material';
 import { FC } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { Row } from 'src/components/layout/Row';
-import { formatPhoneNumberDisplay } from 'utils/lib/helpers/helpers';
+import { useContactFields } from 'src/features/address-book/useContactFields';
 import { PATIENT_RECORD_CONFIG } from 'utils/lib/ottehr-config/patient-record';
 import { AddressBookContact } from 'utils/lib/types/data/address-book';
 import { PatientRecordAddressBookField } from './PatientRecordAddressBookField';
@@ -27,24 +27,26 @@ export const EmployerInformationContainer: FC<EmployerInformationContainerProps>
   const { items, hiddenFields, requiredFields } = usePatientRecordFormSection({ formSection: employerInformation });
   const theme = useTheme();
   const { setValue } = useFormContext();
-
-  // Every field is set (to '' when the contact lacks it) so a re-pick leaves nothing stale.
-  const fillFromContact = (contact: AddressBookContact): void => {
-    const set = (item: { key: string }, value: string): void => setValue(item.key, value, { shouldDirty: true });
-    set(items.addressLine1, contact.address?.line1 ?? '');
-    set(items.addressLine2, contact.address?.line2 ?? '');
-    set(items.city, contact.address?.city ?? '');
-    set(items.state, contact.address?.state ?? '');
-    set(items.zip, contact.address?.zip ?? '');
-    set(items.contactFirstName, contact.firstName ?? '');
-    set(items.contactLastName, contact.lastName ?? '');
+  const contactFields = useContactFields({
+    organizationName: items.employerName.key,
+    line1: items.addressLine1.key,
+    line2: items.addressLine2.key,
+    city: items.city.key,
+    state: items.state.key,
+    zip: items.zip.key,
+    firstName: items.contactFirstName.key,
+    lastName: items.contactLastName.key,
+    email: items.contactEmail.key,
+    phone: items.contactPhone.key,
+    fax: items.contactFax.key,
+  });
+  const onSelect = (contact: AddressBookContact): void => {
+    contactFields.onSelect(contact);
     // The directory has no job title, so the pick has none to give. The title belongs to the contact person the
     // pick just replaced, so it is cleared rather than left behind.
-    set(items.contactTitle, '');
-    set(items.contactEmail, contact.email ?? '');
-    set(items.contactPhone, formatPhoneNumberDisplay(contact.phone));
-    set(items.contactFax, formatPhoneNumberDisplay(contact.fax));
+    setValue(items.contactTitle.key, '', { shouldDirty: true });
   };
+
   return (
     <PatientRecordFormSection
       formSection={employerInformation}
@@ -70,7 +72,8 @@ export const EmployerInformationContainer: FC<EmployerInformationContainerProps>
         hiddenFormFields={hiddenFields}
         requiredFormFields={requiredFields}
         tag="employer"
-        onSelect={fillFromContact}
+        onSelect={onSelect}
+        toContact={contactFields.toContact}
       />
       <PatientRecordFormField
         item={items.addressLine1}
