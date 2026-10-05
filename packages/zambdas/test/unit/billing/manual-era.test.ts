@@ -25,6 +25,7 @@ import {
   ERA_DEPOSIT_DATE_EXTENSION,
   ERA_ITEM_REMARK_CODE_EXTENSION,
   ERA_KEYED_CLAIM_EXTENSION,
+  ERA_REMIT_DATE_EXTENSION,
   ERA_SOURCE_EXTENSION,
   fhirName,
   getEraCheckNumber,
@@ -229,6 +230,13 @@ describe('buildManualClaimResponse', () => {
 });
 
 describe('manualEraEntryFromFhir', () => {
+  // who keyed the remit in
+  const provenance = buildManualEraProvenance({
+    targets: ['PaymentReconciliation/era-1'],
+    agent: { reference: 'Practitioner/pr-1', display: 'biller@example.com' },
+    recorded: '2026-09-23T15:00:00.000Z',
+  });
+
   it("reads a custom insurance organization back as the payer's id", () => {
     const customPayer = { reference: 'Organization/6f1c2b3a-9d8e-4f70-8a1b-2c3d4e5f6a7b', display: 'Harbor County' };
     const pr = buildManualPaymentReconciliation({
@@ -238,15 +246,16 @@ describe('manualEraEntryFromFhir', () => {
       editedAt: 'now',
     });
     expect(pr.paymentIssuer).toEqual(customPayer);
-    expect(manualEraEntryFromFhir(pr, []).header.payerId).toBe('6f1c2b3a-9d8e-4f70-8a1b-2c3d4e5f6a7b');
+    expect(manualEraEntryFromFhir(pr, [], provenance).header.payerId).toBe('6f1c2b3a-9d8e-4f70-8a1b-2c3d4e5f6a7b');
   });
 
   it('round-trips what the editor saved', () => {
     const pr = buildManualPaymentReconciliation({ header, billingProviderAndPayer, created: 'now', editedAt: 'now' });
     const cr = { ...buildManualClaimResponse({ claim: keyedClaim, header, billingProviderAndPayer }), id: 'cr-1' };
-    const entry = manualEraEntryFromFhir(pr, [cr]);
+    const entry = manualEraEntryFromFhir(pr, [cr], provenance);
 
     expect(entry.header).toEqual(header);
+    expect(entry).toMatchObject({ enteredBy: 'biller@example.com', enteredAt: '2026-09-23T15:00:00.000Z' });
     const { serviceLines, ...claimFields } = keyedClaim;
     expect(entry.claims[0]).toEqual({
       ...claimFields,
@@ -270,7 +279,7 @@ describe('manualEraEntryFromFhir', () => {
       editedAt: 'now',
     });
     expect(pr.extension?.map((extension) => extension.url)).not.toContain(ERA_DEPOSIT_DATE_EXTENSION);
-    expect(manualEraEntryFromFhir(pr, []).header).toStrictEqual(noDeposit);
+    expect(manualEraEntryFromFhir(pr, [], provenance).header).toStrictEqual(noDeposit);
   });
 
   it('reports the claim a response was matched to', () => {
@@ -280,7 +289,32 @@ describe('manualEraEntryFromFhir', () => {
       id: 'cr-1',
       request: { reference: 'Claim/c7' },
     };
-    expect(manualEraEntryFromFhir(pr, [cr]).claims[0].matchedClaimId).toBe('c7');
+    expect(manualEraEntryFromFhir(pr, [cr], provenance).claims[0].matchedClaimId).toBe('c7');
+  });
+
+  it('fails rather than fill in a blank for what saving a manual remit always writes', () => {
+    const pr = {
+      ...buildManualPaymentReconciliation({ header, billingProviderAndPayer, created: 'now', editedAt: 'now' }),
+      id: 'era-1',
+    };
+    const cr = { ...buildManualClaimResponse({ claim: keyedClaim, header, billingProviderAndPayer }), id: 'cr-1' };
+    expect(manualEraEntryFromFhir(pr, [cr], provenance).claims).toHaveLength(1);
+
+    const noRemitDate = { ...pr, extension: pr.extension?.filter((ext) => ext.url !== ERA_REMIT_DATE_EXTENSION) };
+    expect(() => manualEraEntryFromFhir(noRemitDate, [cr], provenance)).toThrow(
+      '"PaymentReconciliation/era-1 remit date" is undefined'
+    );
+    expect(() => manualEraEntryFromFhir({ ...pr, requestor: undefined }, [cr], provenance)).toThrow(
+      '"PaymentReconciliation/era-1 billing provider" is undefined'
+    );
+    const noCode = { ...cr, item: cr.item?.map((item) => ({ ...item, extension: [] })) };
+    expect(() => manualEraEntryFromFhir(pr, [noCode], provenance)).toThrow(
+      '"ClaimResponse/cr-1 line 1 procedure code" is undefined'
+    );
+    // nobody recorded as keying it in
+    expect(() => manualEraEntryFromFhir(pr, [cr], undefined)).toThrow(
+      '"PaymentReconciliation/era-1 entered by" is undefined'
+    );
   });
 });
 

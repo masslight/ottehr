@@ -42,6 +42,7 @@ const PAYER_REF = 'https://rcm.example.com/payer/123';
 const paymentReconciliation: PaymentReconciliation = {
   resourceType: 'PaymentReconciliation',
   id: 'era-1',
+  meta: { versionId: '2' },
   status: 'active',
   created: '2026-07-20T10:00:00Z',
   paymentDate: '2026-07-18',
@@ -479,11 +480,6 @@ describe('get-billing-era-detail performEffect', () => {
       source: 'manual',
       versionId: '7',
       checkNumber: '557801',
-      remitDate: '2026-09-13',
-      depositDate: '2026-09-14',
-      notes: 'Mailed remit',
-      enteredBy: 'biller@example.com',
-      enteredAt: '2026-09-23T15:00:00Z',
       payee: { name: 'some org', npi: '8675309123', taxId: '' },
       attachments: [
         { id: 'doc-1', fileName: 'Remit.pdf', contentType: 'application/pdf', dateAdded: '2026-09-23T16:00:00Z' },
@@ -491,10 +487,28 @@ describe('get-billing-era-detail performEffect', () => {
     });
     expect(result.claims[0]).toMatchObject({ matched: false, patientName: 'Schmoe, Joe', dos: '2026-08-15', paid: 50 });
     expect(result.claims[0].remits[0].serviceLines[0].remarkCodes).toEqual(['N130']);
+    // what was keyed from the paper remit, and by whom, is in its manual entry
+    expect(result).not.toHaveProperty('remitDate');
+    expect(result.manualEntry).toMatchObject({ enteredBy: 'biller@example.com', enteredAt: '2026-09-23T15:00:00Z' });
     expect(result.manualEntry?.header).toEqual(header);
     expect(result.manualEntry?.claims).toEqual([
       expect.objectContaining({ claimResponseId: 'cr-m', matchedClaimId: null, patientName: 'Joe Schmoe' }),
     ]);
+  });
+
+  it('fails rather than return an ERA without the version every write gets', async () => {
+    const { meta: _meta, ...unversioned } = paymentReconciliation;
+    const eraReadClient = {
+      fhir: {
+        search: vi.fn().mockImplementation(async ({ resourceType }: { resourceType: string }) => ({
+          unbundle: () => (resourceType === 'PaymentReconciliation' ? [unversioned] : []),
+          link: [],
+        })),
+      },
+    } as unknown as Oystehr;
+    await expect(performEffect(makeBillingClient(), eraReadClient, { eraId: 'era-1', secrets: null })).rejects.toThrow(
+      '"PaymentReconciliation/era-1 version" is undefined'
+    );
   });
 
   it('throws when the PaymentReconciliation does not exist', async () => {

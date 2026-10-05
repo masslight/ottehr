@@ -18,6 +18,7 @@ import { ERA_SOURCE } from 'utils/lib/types/data/billing/billing.constants';
 import { EraAttachment, EraDetailResponse, EraPayee } from 'utils/lib/types/data/billing/billing.types';
 import { FHIR_RESOURCE_NOT_FOUND } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { assertDefined } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import {
@@ -35,8 +36,6 @@ import { manualEraEntryFromFhir } from '../manual-era';
 import {
   createBillingClient,
   createEraReadClient,
-  ERA_DEPOSIT_DATE_EXTENSION,
-  ERA_REMIT_DATE_EXTENSION,
   fhirName,
   findById,
   findRef,
@@ -74,7 +73,7 @@ export async function performEffect(
 
   // ClaimResponses linked to this ERA via its era-processing Provenance
   const claimResponses: ClaimResponse[] =
-    (await fetchClaimResponsesByPaymentReconciliations(eraReadClient, [pr])).get(pr.id ?? '') ?? [];
+    (await fetchClaimResponsesByPaymentReconciliations(eraReadClient, [pr])).get(params.eraId) ?? [];
 
   // process-era PaymentReconciliations carry no paymentIssuer; fall back to the payer on the
   // ClaimResponses
@@ -221,30 +220,25 @@ export async function performEffect(
   const counts = countEraClaims(claimResponses);
   const source = getEraSource(pr);
   const manual = source === ERA_SOURCE.manual;
-  const [payee, attachments, entered] = await Promise.all([
+  const [payee, attachments, provenance] = await Promise.all([
     // a manual remit names its billing provider; converters only replicate the payee onto unmatched remits
     requestorPayee(oystehr, pr).then((fromRequestor) => fromRequestor ?? resolveEraPayee(claimResponses)),
-    fetchEraAttachments(oystehr, pr.id ?? ''),
-    manual ? enteredBy(oystehr, pr.id ?? '') : Promise.resolve({ by: '', at: '' }),
+    fetchEraAttachments(oystehr, params.eraId),
+    // its author keyed a manual remit in
+    manual
+      ? fetchEraProcessingProvenances(oystehr, [`PaymentReconciliation/${params.eraId}`]).then(([first]) => first)
+      : undefined,
   ]);
 
   return {
-    id: pr.id ?? '',
+    id: params.eraId,
     source,
-    versionId: pr.meta?.versionId ?? '',
+    // every ERA has these: the server versions each write, and FHIR requires the rest
+    versionId: assertDefined(pr.meta?.versionId, `PaymentReconciliation/${params.eraId} version`),
     checkNumber,
-    checkDate: pr.paymentDate ?? '',
-    createdDate: pr.created ?? '',
-    remitDate: getExtension(pr, ERA_REMIT_DATE_EXTENSION)?.valueDate ?? '',
-    depositDate: getExtension(pr, ERA_DEPOSIT_DATE_EXTENSION)?.valueDate ?? '',
-    notes:
-      pr.processNote
-        ?.map((note) => note.text ?? '')
-        .filter(Boolean)
-        .join('\n') ?? '',
-    enteredBy: entered.by,
-    enteredAt: entered.at,
-    checkAmount: pr.paymentAmount?.value ?? 0,
+    checkDate: pr.paymentDate,
+    createdDate: pr.created,
+    checkAmount: assertDefined(pr.paymentAmount.value, `PaymentReconciliation/${params.eraId} payment amount`),
     payee,
     payerName: payerOrg?.name ?? pr.paymentIssuer?.display ?? '',
     payerFhirId: payerOrg?.id ?? '',
@@ -258,7 +252,7 @@ export async function performEffect(
     x12: getExtension(pr, RAW_X12_EXTENSION_URL)?.valueString ?? '',
     claims: claimItems,
     attachments,
-    ...(manual ? { manualEntry: manualEraEntryFromFhir(pr, claimResponses) } : {}),
+    ...(manual ? { manualEntry: manualEraEntryFromFhir(pr, claimResponses, provenance) } : {}),
   };
 }
 
@@ -280,20 +274,21 @@ async function fetchEraAttachments(oystehr: Oystehr, eraId: string): Promise<Era
     resourceType: 'DocumentReference',
     params: [{ name: 'related', value: `PaymentReconciliation/${eraId}` }],
   });
-  return bundle
-    .unbundle()
-    .filter((resource): resource is DocumentReference => resource.resourceType === 'DocumentReference')
-    .map((documentReference) => ({
-      id: documentReference.id ?? '',
-      fileName: documentReference.content[0]?.attachment.title ?? '',
-      contentType: documentReference.content[0]?.attachment.contentType ?? '',
-      dateAdded: documentReference.date ?? '',
-    }))
-    .sort((a, b) => a.dateAdded.localeCompare(b.dateAdded));
-}
-
-// Who keyed a manual remit in and when: the author of its era-processing Provenance.
-async function enteredBy(oystehr: Oystehr, eraId: string): Promise<{ by: string; at: string }> {
-  const [provenance] = await fetchEraProcessingProvenances(oystehr, [`PaymentReconciliation/${eraId}`]);
-  return { by: provenance?.agent?.[0]?.who?.display ?? '', at: provenance?.recorded ?? '' };
+  return (
+    bundle
+      .unbundle()
+      .filter((resource): resource is DocumentReference => resource.resourceType === 'DocumentReference')
+      // adding an attachment always writes these
+      .map((documentReference) => {
+        const attachment = documentReference.content[0]?.attachment;
+        const field = (name: string): string => `DocumentReference/${documentReference.id} ${name}`;
+        return {
+          id: assertDefined(documentReference.id, 'DocumentReference id'),
+          fileName: assertDefined(attachment?.title, field('title')),
+          contentType: assertDefined(attachment?.contentType, field('content type')),
+          dateAdded: assertDefined(documentReference.date, field('date')),
+        };
+      })
+      .sort((a, b) => a.dateAdded.localeCompare(b.dateAdded))
+  );
 }

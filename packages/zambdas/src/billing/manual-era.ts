@@ -22,7 +22,6 @@ import {
 } from 'utils/lib/helpers/rcm/constants';
 import {
   asEraClaimStatusCode,
-  ERA_CLAIM_STATUS_CODE,
   ERA_PAYMENT_METHODS,
   ERA_SOURCE,
   EraPaymentMethodCode,
@@ -34,6 +33,7 @@ import {
   ManualEraServiceLine,
 } from 'utils/lib/types/data/billing/billing.schemas';
 import { ManualEraEntry, ManualEraEntryClaim } from 'utils/lib/types/data/billing/billing.types';
+import { assertDefined } from '../shared/helpers';
 import {
   ADJUDICATION_CODES,
   extractLineAmounts,
@@ -115,8 +115,8 @@ const adjustmentAdjudication = (adjustment: ManualEraAdjustment): ClaimResponseI
   amount: money(adjustment.amountCents),
 });
 
-const extensionValueDate = (resource: { extension?: Extension[] }, url: string): string =>
-  resource.extension?.find((ext) => ext.url === url)?.valueDate ?? '';
+const extensionValueDate = (resource: { extension?: Extension[] }, url: string): string | undefined =>
+  resource.extension?.find((ext) => ext.url === url)?.valueDate;
 
 // "Last, First Middle" or "First Middle Last"; a single word is taken as the last name (NM103 is the
 // one name an 835 always carries).
@@ -129,10 +129,10 @@ export function parsePatientName(text: string): HumanName {
   return { text: trimmed, family: lastPart || trimmed, ...(given.length ? { given } : {}) };
 }
 
-function patientNameText(patient: Patient | undefined): string {
+function patientNameText(patient: Patient | undefined): string | undefined {
   const name = patient?.name?.[0];
-  if (!name) return '';
-  return name.text ?? [...(name.given ?? []), name.family].filter(Boolean).join(' ');
+  if (!name) return undefined;
+  return name.text ?? ([...(name.given ?? []), name.family].filter(Boolean).join(' ') || undefined);
 }
 
 const procedureCoding = (code: string): { system: string; code: string } => ({
@@ -360,28 +360,33 @@ const isPaymentMethod = (code: string | undefined): code is EraPaymentMethodCode
 
 // What PayerSelect stores for the remit's payer: the RCM payer id of a payer list URL, or the id of a
 // custom insurance organization referenced directly.
-const payerIdFromReference = (reference: string | undefined): string =>
+const payerIdFromReference = (reference: string | undefined): string | undefined =>
   extractPayerIdFromUrl(reference) ??
-  (reference?.startsWith('Organization/') ? reference.slice('Organization/'.length) : '');
+  (reference?.startsWith('Organization/') ? reference.slice('Organization/'.length) : undefined);
 
+// The remit details as keyed in. Saving a remit always writes the required ones, so one that's missing
+// is an error rather than a blank.
 export function manualEraHeaderFromFhir(pr: PaymentReconciliation): ManualEraHeader {
   const method = pr.paymentIdentifier?.type?.coding?.[0]?.code;
   const notes = pr.processNote?.[0]?.text;
   const depositDate = extensionValueDate(pr, ERA_DEPOSIT_DATE_EXTENSION);
+  const field = (name: string): string => `PaymentReconciliation/${pr.id} ${name}`;
   return {
-    payerId: payerIdFromReference(pr.paymentIssuer?.reference),
-    billingProviderRef: pr.requestor?.reference ?? '',
-    checkNumber: getEraCheckNumber(pr) ?? '',
-    checkAmountCents: toCents(pr.paymentAmount?.value ?? 0),
+    payerId: assertDefined(payerIdFromReference(pr.paymentIssuer?.reference), field('payer')),
+    billingProviderRef: assertDefined(pr.requestor?.reference, field('billing provider')),
+    checkNumber: assertDefined(getEraCheckNumber(pr), field('check number')),
+    checkAmountCents: toCents(assertDefined(pr.paymentAmount.value, field('check amount'))),
     ...(isPaymentMethod(method) ? { paymentMethod: method } : {}),
-    remitDate: extensionValueDate(pr, ERA_REMIT_DATE_EXTENSION),
-    checkDate: pr.paymentDate ?? '',
+    remitDate: assertDefined(extensionValueDate(pr, ERA_REMIT_DATE_EXTENSION), field('remit date')),
+    checkDate: pr.paymentDate,
     ...(depositDate ? { depositDate } : {}),
     ...(notes ? { notes } : {}),
   };
 }
 
+// A claim of the remit as keyed in; like the remit details, what saving always writes is required.
 export function manualEraClaimFromFhir(claimResponse: ClaimResponse): ManualEraEntryClaim {
+  const field = (name: string): string => `ClaimResponse/${claimResponse.id} ${name}`;
   const contained = claimResponse.contained ?? [];
   const containedClaim = contained.find((resource): resource is Claim => resource.resourceType === 'Claim');
   const patient = contained.find((resource): resource is Patient => resource.resourceType === 'Patient');
@@ -392,11 +397,18 @@ export function manualEraClaimFromFhir(claimResponse: ClaimResponse): ManualEraE
   const serviceLines: ManualEraServiceLine[] = (claimResponse.item ?? []).map((item) => {
     const amounts = extractLineAmounts(item.adjudication);
     const submitted = containedClaim?.item?.find((claimItem) => claimItem.sequence === item.itemSequence);
+    const line = (name: string): string => field(`line ${item.itemSequence} ${name}`);
     return {
       itemSequence: item.itemSequence,
-      serviceDate: submitted?.servicedPeriod?.start ?? submitted?.servicedDate ?? containedClaim?.created ?? '',
-      procedureCode: getEraExtensionString(item, ERA_ITEM_PROCEDURE_CODE_EXTENSION) ?? '',
-      billedCents: toCents(amounts.billed ?? 0),
+      serviceDate: assertDefined(
+        submitted?.servicedPeriod?.start ?? submitted?.servicedDate ?? containedClaim?.created,
+        line('service date')
+      ),
+      procedureCode: assertDefined(
+        getEraExtensionString(item, ERA_ITEM_PROCEDURE_CODE_EXTENSION),
+        line('procedure code')
+      ),
+      billedCents: toCents(assertDefined(amounts.billed, line('billed amount'))),
       allowedCents: amounts.allowed === undefined ? null : toCents(amounts.allowed),
       paidCents: toCents(amounts.paid),
       adjustments: amounts.adjustments.map((adjustment) => ({
@@ -411,14 +423,15 @@ export function manualEraClaimFromFhir(claimResponse: ClaimResponse): ManualEraE
   });
 
   return {
-    claimResponseId: claimResponse.id ?? '',
+    claimResponseId: assertDefined(claimResponse.id, 'ClaimResponse id'),
     matchedClaimId: isMatchedToClaim(claimResponse)
       ? claimResponse.request?.reference?.replace('Claim/', '') ?? null
       : null,
-    statusCode:
-      asEraClaimStatusCode(getEraExtensionString(claimResponse, ERA_STATUS_CODE_EXTENSION)) ||
-      ERA_CLAIM_STATUS_CODE.primary,
-    patientName: patientNameText(patient),
+    statusCode: assertDefined(
+      asEraClaimStatusCode(getEraExtensionString(claimResponse, ERA_STATUS_CODE_EXTENSION)) || undefined,
+      field('claim status')
+    ),
+    patientName: assertDefined(patientNameText(patient), field('patient name')),
     ...(coverage?.subscriberId ? { memberId: coverage.subscriberId } : {}),
     ...(pcn ? { patientAccountNumber: pcn } : {}),
     ...(icn ? { payerClaimControlNumber: icn } : {}),
@@ -427,8 +440,18 @@ export function manualEraClaimFromFhir(claimResponse: ClaimResponse): ManualEraE
   };
 }
 
-export function manualEraEntryFromFhir(pr: PaymentReconciliation, claimResponses: ClaimResponse[]): ManualEraEntry {
-  return { header: manualEraHeaderFromFhir(pr), claims: claimResponses.map(manualEraClaimFromFhir) };
+// The remit as keyed in, and who keyed it in: the author of its era-processing Provenance.
+export function manualEraEntryFromFhir(
+  pr: PaymentReconciliation,
+  claimResponses: ClaimResponse[],
+  provenance: Provenance | undefined
+): ManualEraEntry {
+  return {
+    header: manualEraHeaderFromFhir(pr),
+    claims: claimResponses.map(manualEraClaimFromFhir),
+    enteredBy: assertDefined(provenance?.agent?.[0]?.who?.display, `PaymentReconciliation/${pr.id} entered by`),
+    enteredAt: assertDefined(provenance?.recorded, `PaymentReconciliation/${pr.id} entered at`),
+  };
 }
 
 // The editable form of a stored claim, as the save input carries it.

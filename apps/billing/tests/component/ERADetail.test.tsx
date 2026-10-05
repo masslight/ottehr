@@ -113,11 +113,6 @@ const makeEra = (): EraDetailResponse => ({
   id: 'era-1',
   source: 'clearing-house',
   versionId: '1',
-  remitDate: '',
-  depositDate: '',
-  notes: '',
-  enteredBy: '',
-  enteredAt: '',
   attachments: [],
   checkNumber: 'CHK-100',
   checkDate: '2026-07-18',
@@ -215,11 +210,22 @@ describe('ERADetail', () => {
       source: 'manual',
       x12: '',
       paymentMethod: 'ACH',
-      remitDate: '2026-09-13',
-      depositDate: '2026-09-14',
-      notes: 'Mailed remit',
-      enteredBy: 'biller@example.com',
-      enteredAt: '2026-09-13T15:00:00Z',
+      manualEntry: {
+        enteredBy: 'biller@example.com',
+        enteredAt: '2026-09-13T15:00:00Z',
+        header: {
+          payerId: 'payer-uhc',
+          billingProviderRef: 'Organization/org-1',
+          checkNumber: 'CHK-100',
+          checkAmountCents: 6000,
+          paymentMethod: 'ACH',
+          remitDate: '2026-09-12',
+          checkDate: '2026-07-18',
+          depositDate: '2026-09-14',
+          notes: 'Mailed remit',
+        },
+        claims: [],
+      },
       attachments: [
         { id: 'doc-1', fileName: 'Remit.pdf', contentType: 'application/pdf', dateAdded: '2026-09-13T16:00:00Z' },
       ],
@@ -229,6 +235,8 @@ describe('ERADetail', () => {
     expect(await screen.findByText('Manual')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Export X12' })).not.toBeInTheDocument();
     expect(screen.getByText('EFT')).toBeInTheDocument();
+    // the remit and deposit dates
+    expect(screen.getByText('09/12/2026')).toBeInTheDocument();
     expect(screen.getByText('09/14/2026')).toBeInTheDocument();
     expect(screen.getByText('biller@example.com on 09/13/2026')).toBeInTheDocument();
     expect(screen.getByText('Mailed remit')).toBeInTheDocument();

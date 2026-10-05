@@ -467,17 +467,16 @@ export default function ManualRemit(): ReactElement {
           </Alert>
         )}
       </Box>
-      {detail?.enteredBy && (
+      {detail?.manualEntry && (
         // under the title, scrolling away with the page
         <Typography variant="body2" color="text.secondary" sx={{ pl: 6, mt: -0.5 }}>
-          Entered by {detail.enteredBy}
-          {detail.enteredAt ? ` on ${formatDate(detail.enteredAt.slice(0, 10))}` : ''}
+          Entered by {detail.manualEntry.enteredBy} on {formatDate(detail.manualEntry.enteredAt.slice(0, 10))}
         </Typography>
       )}
 
       <Box
         sx={{
-          mt: detail?.enteredBy ? 2 : 1,
+          mt: detail?.manualEntry ? 2 : 1,
           display: 'grid',
           gap: 2,
           gridTemplateColumns: { xs: '1fr', lg: '2fr 1fr' },

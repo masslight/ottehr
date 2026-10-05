@@ -96,11 +96,6 @@ const savedRemit = (): EraDetailResponse => ({
   checkNumber: '557801',
   checkDate: '2026-09-13',
   createdDate: '2026-09-13T15:00:00Z',
-  remitDate: '2026-09-13',
-  depositDate: '2026-09-13',
-  notes: '',
-  enteredBy: 'rzinger@masslight.com',
-  enteredAt: '2026-09-13T15:00:00Z',
   checkAmount: 51000.45,
   payerName: 'United Health Care',
   payerFhirId: '',
@@ -113,6 +108,8 @@ const savedRemit = (): EraDetailResponse => ({
   claims: [],
   attachments: [],
   manualEntry: {
+    enteredBy: 'rzinger@masslight.com',
+    enteredAt: '2026-09-13T15:00:00Z',
     header: {
       payerId: 'payer-uhc',
       billingProviderRef: 'Organization/org-1',

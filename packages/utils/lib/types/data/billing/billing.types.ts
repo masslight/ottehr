@@ -281,6 +281,9 @@ export type ManualEraEntryClaim = Omit<ManualEraClaim, 'clientKey' | 'claimRespo
 export interface ManualEraEntry {
   header: ManualEraHeader;
   claims: ManualEraEntryClaim[];
+  // who keyed the remit in, and when
+  enteredBy: string;
+  enteredAt: string;
 }
 
 export interface SaveManualEraResponse {
@@ -298,13 +301,6 @@ export interface EraDetailResponse {
   checkDate: string;
   // when the ERA itself was produced/imported (PaymentReconciliation.created)
   createdDate: string;
-  // manual remits: the dates keyed from the paper remit ('' otherwise)
-  remitDate: string;
-  depositDate: string;
-  notes: string;
-  // manual remits: who keyed the remit in and when ('' otherwise)
-  enteredBy: string;
-  enteredAt: string;
   checkAmount: number;
   payerName: string;
   payerFhirId: string;
@@ -317,7 +313,7 @@ export interface EraDetailResponse {
   x12: string;
   claims: EraClaimListItem[];
   attachments: EraAttachment[];
-  // manual remits only: the editable form of the remit
+  // manual remits only: the remit as keyed in, and who keyed it
   manualEntry?: ManualEraEntry;
 }
 

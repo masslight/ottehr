@@ -189,6 +189,8 @@ export default function ERADetail(): ReactElement {
   }
 
   const manual = era.source === ERA_SOURCE.manual;
+  // a manual remit's details as keyed in, and who keyed it
+  const entry = era.manualEntry;
 
   return (
     <Box sx={{ p: 0 }}>
@@ -252,16 +254,20 @@ export default function ERADetail(): ReactElement {
               {era.paymentMethod && (
                 <Row label="Payment method" value={paymentMethodLabel(era.paymentMethod)} hideBorder />
               )}
-              {era.remitDate && <Row label="Remit date" value={formatDate(era.remitDate)} hideBorder />}
-              {era.depositDate && <Row label="Deposit date" value={formatDate(era.depositDate)} hideBorder />}
-              {era.enteredBy && (
-                <Row
-                  label="Entered by"
-                  value={`${era.enteredBy}${era.enteredAt ? ` on ${formatDate(era.enteredAt.slice(0, 10))}` : ''}`}
-                  hideBorder
-                />
+              {entry && (
+                <>
+                  <Row label="Remit date" value={formatDate(entry.header.remitDate)} hideBorder />
+                  {entry.header.depositDate && (
+                    <Row label="Deposit date" value={formatDate(entry.header.depositDate)} hideBorder />
+                  )}
+                  <Row
+                    label="Entered by"
+                    value={`${entry.enteredBy} on ${formatDate(entry.enteredAt.slice(0, 10))}`}
+                    hideBorder
+                  />
+                  {entry.header.notes && <Row label="Notes" value={entry.header.notes} hideBorder />}
+                </>
               )}
-              {era.notes && <Row label="Notes" value={era.notes} hideBorder />}
             </Box>
 
             {era.attachments.length > 0 && oystehrZambda && (
