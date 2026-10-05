@@ -518,11 +518,6 @@ export interface ManualRemitFormValues {
   claims: ClaimForm[];
 }
 
-// the Enter ERA Claim Details dialog
-export interface ClaimFormValues {
-  claim: ClaimForm;
-}
-
 // one claim's errors, wherever the claim sits in its form
 export type ClaimErrors = Merge<FieldError, FieldErrorsImpl<DeepRequired<ClaimForm>>>;
 
@@ -550,6 +545,3 @@ function resolveWith<T extends FieldValues>(values: T, problems: Record<string, 
 // claim's fields aren't.
 export const manualRemitResolver: Resolver<ManualRemitFormValues> = (values) =>
   resolveWith(values, remitProblems(values));
-
-export const claimFormResolver: Resolver<ClaimFormValues> = (values) =>
-  resolveWith(values, prefixed('claim', claimProblems(values.claim)));

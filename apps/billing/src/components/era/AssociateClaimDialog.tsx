@@ -17,8 +17,8 @@ import { getBillingClaimDetail } from '../../api/api';
 import { useApiClients } from '../../hooks/useAppClients';
 import { ClaimSearchList } from '../ClaimSearchList';
 
-// Step one of adding a remit claim for a claim already in the system: find the claim. The caller
-// then opens the claim details dialog pre-filled from it.
+// Adding a remit claim for a claim already in the system: find the claim, and it goes on the remit as a
+// new claim card pre-filled from it.
 export function AssociateClaimDialog({
   claimsOnRemit,
   onCancel,
@@ -36,7 +36,7 @@ export function AssociateClaimDialog({
 
   const unavailable = new Map([...claimsOnRemit].map((id) => [id, 'Already on this remit']));
 
-  const handleContinue = async (): Promise<void> => {
+  const handleAdd = async (): Promise<void> => {
     if (!oystehrZambda || !selected) return;
     setLoading(true);
     setError(null);
@@ -77,11 +77,11 @@ export function AssociateClaimDialog({
         </Button>
         <Button
           variant="contained"
-          onClick={() => void handleContinue()}
+          onClick={() => void handleAdd()}
           disabled={!selected || loading}
           startIcon={loading ? <CircularProgress size={14} /> : null}
         >
-          Continue
+          Add to Remit
         </Button>
       </DialogActions>
     </Dialog>

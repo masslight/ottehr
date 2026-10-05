@@ -6,8 +6,8 @@ import { ClaimErrors, ClaimForm, setClaimServiceDate } from '../../utils/manualE
 import { DateInput } from '../DateInput';
 import { EraServiceLinesEditor } from './EraServiceLinesEditor';
 
-// One remit claim as a paper remit prints it: who and which claim, then its service lines. Used by
-// the "Enter ERA Claim Details" dialog and by the claim cards on the manual remit page.
+// One remit claim as a paper remit prints it: who and which claim, then its service lines, as each claim
+// card on the manual remit page shows it.
 export function EraClaimEditor({
   claim,
   onChange,

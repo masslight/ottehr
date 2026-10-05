@@ -18,7 +18,7 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
-import { ReactElement, useState } from 'react';
+import { ReactElement, useEffect, useRef, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import { formatCurrency } from 'utils/lib/utils/convert';
 import { formatDate } from '../../utils/format';
@@ -45,9 +45,9 @@ export interface ManualEraClaimCardActions {
   onRemove: () => void;
 }
 
-// A claim of a keyed remit, editable in place. Its match state changes through Match / Unmatch (the
-// same as on the ERA screen); edits are saved with the page, and a claim the save found incomplete is
-// outlined in red.
+// A claim of a keyed remit, editable in place. Edits, and claims just added, are saved with the page; a
+// claim the save found incomplete is outlined in red. Once saved, its match state changes through
+// Match / Unmatch, the same as on the ERA screen.
 export function ManualEraClaimCard({
   claim,
   onChange,
@@ -55,6 +55,7 @@ export function ManualEraClaimCard({
   expanded,
   onToggle,
   dirty,
+  reveal,
   actions,
 }: {
   claim: ClaimForm;
@@ -63,18 +64,29 @@ export function ManualEraClaimCard({
   expanded: boolean;
   onToggle: () => void;
   dirty: boolean;
+  // just added: scroll to the card and put the cursor in its first field
+  reveal?: boolean;
   actions: ManualEraClaimCardActions;
 }): ReactElement {
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
   const totals = claimTotals(claim);
   const matched = !!claim.matchedClaimId;
+  const saved = !!claim.claimResponseId;
   const run = (action: () => void) => () => {
     setMenuAnchor(null);
     action();
   };
 
+  useEffect(() => {
+    if (!reveal) return;
+    cardRef.current?.querySelector<HTMLElement>('input:not([type="hidden"])')?.focus({ preventScroll: true });
+    cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [reveal]);
+
   return (
     <Card
+      ref={cardRef}
       variant="outlined"
       data-testid={`claim-card-${claim.claimResponseId ?? claim.key}`}
       sx={errors ? { borderColor: 'error.main' } : undefined}
@@ -109,31 +121,43 @@ export function ManualEraClaimCard({
         ) : (
           <Chip size="small" variant="outlined" color="warning" label="Unmatched" sx={{ borderRadius: '4px' }} />
         )}
-        {dirty && <Chip size="small" label="Unsaved changes" sx={{ borderRadius: '4px' }} />}
+        {dirty && (
+          <Chip size="small" label={saved ? 'Unsaved changes' : 'Not saved yet'} sx={{ borderRadius: '4px' }} />
+        )}
         <Box sx={{ flexGrow: 1 }} />
         <IconButton size="small" aria-label="Claim actions" onClick={(event) => setMenuAnchor(event.currentTarget)}>
           <MoreVertIcon fontSize="small" />
         </IconButton>
         <Menu anchorEl={menuAnchor} open={!!menuAnchor} onClose={() => setMenuAnchor(null)}>
-          {matched ? (
+          {saved && matched && (
             <MenuItem onClick={run(actions.onUnmatch)}>
               <ListItemText>Unmatch</ListItemText>
             </MenuItem>
-          ) : (
+          )}
+          {saved && !matched && (
             <MenuItem onClick={run(actions.onMatch)}>
               <ListItemText>Match to claim</ListItemText>
             </MenuItem>
           )}
-          <MenuItem onClick={run(actions.onView)}>
-            <ListItemText>View reimbursement details</ListItemText>
-          </MenuItem>
-          <Tooltip title={matched ? 'Unmatch the claim before removing it from the remit' : ''} placement="left">
-            <span>
-              <MenuItem onClick={run(actions.onRemove)} disabled={matched}>
-                <ListItemText primaryTypographyProps={{ color: 'error' }}>Remove from remit</ListItemText>
-              </MenuItem>
-            </span>
-          </Tooltip>
+          {saved && (
+            <MenuItem onClick={run(actions.onView)}>
+              <ListItemText>View reimbursement details</ListItemText>
+            </MenuItem>
+          )}
+          {saved ? (
+            <Tooltip title={matched ? 'Unmatch the claim before removing it from the remit' : ''} placement="left">
+              <span>
+                <MenuItem onClick={run(actions.onRemove)} disabled={matched}>
+                  <ListItemText primaryTypographyProps={{ color: 'error' }}>Remove from remit</ListItemText>
+                </MenuItem>
+              </span>
+            </Tooltip>
+          ) : (
+            // nothing saved yet to unmatch or remove
+            <MenuItem onClick={run(actions.onRemove)}>
+              <ListItemText primaryTypographyProps={{ color: 'error' }}>Discard</ListItemText>
+            </MenuItem>
+          )}
         </Menu>
       </Box>
       <Collapse in={expanded} unmountOnExit>

@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { ReactNode } from 'react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
-import { EraDetailResponse } from 'utils/lib/types/data/billing/billing.types';
+import { ClaimDetailResponse, EraDetailResponse } from 'utils/lib/types/data/billing/billing.types';
 import { APIErrorCode } from 'utils/lib/types/errors';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import ManualRemit from '../../src/pages/ManualRemit';
@@ -39,6 +39,19 @@ vi.mock('../../src/components/PayerSelect', async () => ({ PayerSelect: (await i
 vi.mock('../../src/components/ProviderSelect', async () => ({
   ProviderSelect: (await import('./inputStub')).InputStub,
 }));
+// Picking a claim from the claims list hands the page its details.
+const pickedClaim = {
+  id: 'claim-9',
+  patientName: 'Lee, Ann',
+  memberId: 'M-9',
+  pcn: 'PCN-9',
+  serviceLines: [{ sequence: 1, serviceDate: '2026-08-16', cptCode: '87880', charges: 40 }],
+} as unknown as ClaimDetailResponse;
+vi.mock('../../src/components/era/AssociateClaimDialog', () => ({
+  AssociateClaimDialog: ({ onSelected }: { onSelected: (claim: ClaimDetailResponse) => void }) => (
+    <button onClick={() => onSelected(pickedClaim)}>Pick claim-9</button>
+  ),
+}));
 
 function LocationProbe(): ReactNode {
   return <div data-testid="location">{useLocation().pathname}</div>;
@@ -59,6 +72,21 @@ function renderAt(path: string): void {
 
 const type = (label: string | RegExp, value: string, index = 0): void => {
   fireEvent.change(screen.getAllByLabelText(label)[index], { target: { value } });
+};
+const values = (label: string): string[] =>
+  screen.getAllByLabelText(label).map((input) => (input as HTMLInputElement).value);
+const section = (title: RegExp): HTMLElement => screen.getByText(title).closest('.MuiCard-root') as HTMLElement;
+const addClaim = async (option: 'Enter Manually' | 'Existing Claim'): Promise<void> => {
+  fireEvent.click(within(section(/^Claims \(/)).getByRole('button', { name: 'Add' }));
+  fireEvent.click(await screen.findByText(option));
+};
+// fills in the one-line claim a new card starts with
+const keyClaim = (index = 0): void => {
+  type(/Patient Name/, 'Ann Lee', index);
+  type('Service Date', '2026-08-16', index);
+  type('CPT/HCPCS', '87880', index);
+  type('Billed', '40', index);
+  type('Ins Paid', '40', index);
 };
 
 const savedRemit = (): EraDetailResponse => ({
@@ -134,7 +162,7 @@ describe('ManualRemit', () => {
     vi.useRealTimers();
   });
 
-  it('requires the remit details before the first save, and claims wait for it', async () => {
+  it('requires the remit details before the first save, and attachments wait for it', async () => {
     renderAt('/eras/new');
     expect(screen.getByRole('heading', { name: 'Manual Remit' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
@@ -148,10 +176,9 @@ describe('ManualRemit', () => {
     expect(api.saveBillingManualEra).not.toHaveBeenCalled();
     // nothing to balance until the remit exists and its claims are keyed
     expect(within(screen.getByTestId('remit-header')).queryByText(/^(Off by|Balanced)/)).not.toBeInTheDocument();
-    // claims and attachments hang off the saved remit
-    expect(
-      screen.getAllByRole('button', { name: 'Add' }).every((button) => (button as HTMLButtonElement).disabled)
-    ).toBe(true);
+    // a scan is attached to the saved remit; claims can be keyed in already
+    expect(within(section(/^Attachments$/)).getByRole('button', { name: 'Add' })).toBeDisabled();
+    expect(within(section(/^Claims \(/)).getByRole('button', { name: 'Add' })).toBeEnabled();
   });
 
   it('creates the remit and moves on to adding its claims', async () => {
@@ -178,6 +205,36 @@ describe('ManualRemit', () => {
         checkDate: '2026-09-10',
       },
     });
+    await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('/eras/era-1/edit'));
+  });
+
+  it('saves claims keyed in before the first save together with the remit', async () => {
+    api.saveBillingManualEra.mockImplementation(async (_client, input) => ({
+      eraId: 'era-1',
+      versionId: '1',
+      claims: [{ clientKey: input.claims[0].clientKey, claimResponseId: 'cr-2' }],
+    }));
+    api.getBillingEraDetail.mockResolvedValue(savedRemit());
+    renderAt('/eras/new');
+
+    type('Payer', 'payer-uhc');
+    type('Billing Provider', 'Organization/org-1');
+    type(/Check Number/, '557801');
+    type(/Check Amount/, '40');
+    type('Check Date *', '2026-09-10');
+    await addClaim('Enter Manually');
+    keyClaim();
+    // the balance shows as soon as there are claims to balance
+    expect(within(screen.getByTestId('remit-header')).getByText('Balanced')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(api.saveBillingManualEra).toHaveBeenCalledTimes(1));
+    const request = api.saveBillingManualEra.mock.calls[0][1];
+    expect(request.eraId).toBeUndefined();
+    expect(request.header).toMatchObject({ checkNumber: '557801', checkAmountCents: 4000 });
+    expect(request.claims).toEqual([
+      expect.objectContaining({ clientKey: expect.any(String), patientName: 'Ann Lee', serviceDate: '2026-08-16' }),
+    ]);
     await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('/eras/era-1/edit'));
   });
 
@@ -298,7 +355,7 @@ describe('ManualRemit', () => {
     expect(api.saveBillingManualEra.mock.calls[0][1].claims[0].serviceLines[0].paidCents).toBe(6000);
   });
 
-  it('keys a claim in from the Add menu and saves it straight away', async () => {
+  it('adds a claim on the page and saves it with the remit', async () => {
     api.getBillingEraDetail.mockResolvedValue(savedRemit());
     api.saveBillingManualEra.mockImplementation(async (_client, input) => ({
       eraId: 'era-1',
@@ -308,25 +365,106 @@ describe('ManualRemit', () => {
     renderAt('/eras/era-1/edit');
     await screen.findByText('Joe Schmoe');
 
-    const claimsCard = screen.getByText('Claims (1)').closest('.MuiCard-root') as HTMLElement;
-    fireEvent.click(within(claimsCard).getByRole('button', { name: 'Add' }));
-    fireEvent.click(await screen.findByText('Enter Manually'));
+    await addClaim('Enter Manually');
+    // a new card, open at the end of the page with the cursor in it
+    expect(screen.getByText('Claims (2)')).toBeInTheDocument();
+    expect(screen.getByText('Not saved yet')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole('textbox', { name: /Patient Name/ })).toHaveFocus());
+    expect(Element.prototype.scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' });
+    expect(api.saveBillingManualEra).not.toHaveBeenCalled();
 
-    const dialog = within(await screen.findByRole('dialog'));
-    fireEvent.change(dialog.getByLabelText(/Patient Name/), { target: { value: 'Ann Lee' } });
-    fireEvent.change(dialog.getByLabelText('Service Date'), { target: { value: '2026-08-16' } });
-    fireEvent.change(dialog.getByLabelText('CPT/HCPCS'), { target: { value: '87880' } });
-    fireEvent.change(dialog.getByLabelText('Billed'), { target: { value: '40' } });
-    fireEvent.change(dialog.getByLabelText('Ins Paid'), { target: { value: '40' } });
-    fireEvent.click(dialog.getByRole('button', { name: 'Add to Remit' }));
+    keyClaim();
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
     await waitFor(() => expect(api.saveBillingManualEra).toHaveBeenCalledTimes(1));
     const request = api.saveBillingManualEra.mock.calls[0][1];
     expect(request).toMatchObject({ eraId: 'era-1', expectedVersionId: '3' });
     expect(request.header).toBeUndefined();
-    expect(request.claims).toEqual([expect.objectContaining({ patientName: 'Ann Lee', serviceDate: '2026-08-16' })]);
-    expect(await screen.findByText('Claims (2)')).toBeInTheDocument();
-    expect(screen.getByText('Ann Lee')).toBeInTheDocument();
+    expect(request.claims).toEqual([
+      expect.objectContaining({ clientKey: expect.any(String), patientName: 'Ann Lee', serviceDate: '2026-08-16' }),
+    ]);
+    expect(request.claims[0].claimResponseId).toBeUndefined();
+    // saved: it's on the remit like the others, and there's nothing left to save
+    await waitFor(() => expect(screen.queryByText('Not saved yet')).not.toBeInTheDocument());
+    expect(screen.getByTestId('claim-card-cr-2')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+  });
+
+  it('adds a claim picked from the claims list, matched and filled in from it', async () => {
+    api.getBillingEraDetail.mockResolvedValue(savedRemit());
+    api.saveBillingManualEra.mockResolvedValue({ eraId: 'era-1', versionId: '4', claims: [] });
+    renderAt('/eras/era-1/edit');
+    await screen.findByText('Joe Schmoe');
+
+    await addClaim('Existing Claim');
+    fireEvent.click(screen.getByRole('button', { name: 'Pick claim-9' }));
+
+    expect(screen.getByText('Lee, Ann')).toBeInTheDocument();
+    expect(screen.getByText('claim-9')).toBeInTheDocument();
+    expect(values('CPT/HCPCS')).toEqual(['87880']);
+    expect(values('Billed')).toEqual(['40']);
+    type('Ins Paid', '40');
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(api.saveBillingManualEra).toHaveBeenCalledTimes(1));
+    expect(api.saveBillingManualEra.mock.calls[0][1].claims).toEqual([
+      expect.objectContaining({ matchedClaimId: 'claim-9', patientName: 'Lee, Ann', patientAccountNumber: 'PCN-9' }),
+    ]);
+  });
+
+  it('discards a claim that was never saved, without asking the server', async () => {
+    api.getBillingEraDetail.mockResolvedValue(savedRemit());
+    renderAt('/eras/era-1/edit');
+    await screen.findByText('Joe Schmoe');
+
+    await addClaim('Enter Manually');
+    const card = screen.getByText('Not saved yet').closest('.MuiCard-root') as HTMLElement;
+    fireEvent.click(within(card).getByRole('button', { name: 'Claim actions' }));
+    // nothing saved yet to match, view or remove
+    expect(screen.queryByText('Match to claim')).not.toBeInTheDocument();
+    expect(screen.queryByText('View reimbursement details')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByText('Discard'));
+
+    await waitFor(() => expect(screen.getByText('Claims (1)')).toBeInTheDocument());
+    expect(screen.queryByText('Not saved yet')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+    expect(api.saveBillingManualEra).not.toHaveBeenCalled();
+  });
+
+  it('marks what a new claim is missing on its fields and takes the biller to the first', async () => {
+    api.getBillingEraDetail.mockResolvedValue(savedRemit());
+    renderAt('/eras/era-1/edit');
+    await screen.findByText('Joe Schmoe');
+
+    await addClaim('Enter Manually');
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    const patientName = screen.getByRole('textbox', { name: /Patient Name/ });
+    await waitFor(() => expect(patientName).toHaveAccessibleDescription('Required'));
+    await waitFor(() => expect(patientName).toHaveFocus());
+    // and the line's date of service, procedure code, billed and paid amounts
+    expect(screen.getAllByText('Required')).toHaveLength(5);
+    expect(api.saveBillingManualEra).not.toHaveBeenCalled();
+
+    // from here on the errors follow the edits
+    type(/Patient Name/, 'Ann Lee');
+    await waitFor(() => expect(screen.getAllByText('Required')).toHaveLength(4));
+  });
+
+  it('flags each part of a CARC left incomplete', async () => {
+    api.getBillingEraDetail.mockResolvedValue(savedRemit());
+    renderAt('/eras/era-1/edit');
+    await screen.findByText('Joe Schmoe');
+
+    await addClaim('Enter Manually');
+    keyClaim();
+    fireEvent.click(screen.getByRole('button', { name: 'CARC' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    // the group, the code and the amount
+    await waitFor(() => expect(screen.getAllByText('Required')).toHaveLength(3));
+    await waitFor(() => expect(screen.getByRole('combobox', { name: /^Group/ })).toHaveFocus());
+    expect(api.saveBillingManualEra).not.toHaveBeenCalled();
   });
 
   it('refuses to edit an ERA that was not keyed in', async () => {

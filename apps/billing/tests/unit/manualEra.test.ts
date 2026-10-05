@@ -7,7 +7,6 @@ import {
   bucketValue,
   claimFormFromClaimDetail,
   claimFormFromEntry,
-  claimFormResolver,
   claimFormToInput,
   claimProblems,
   claimTotals,
@@ -413,12 +412,5 @@ describe('validation', () => {
     });
     const fixed = { ...values, claims: [values.claims[0]] };
     expect(await manualRemitResolver(fixed, undefined, resolverOptions())).toEqual({ values: fixed, errors: {} });
-
-    expect(
-      await claimFormResolver({ claim: emptyClaimForm({ serviceLines: [line()] }) }, undefined, resolverOptions())
-    ).toEqual({
-      values: {},
-      errors: { claim: { patientName: { type: 'validate', message: 'Required' } } },
-    });
   });
 });

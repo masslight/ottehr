@@ -52,7 +52,6 @@ import { ConfirmDialog } from '../components/ConfirmDialog';
 import { DateInput } from '../components/DateInput';
 import { AssociateClaimDialog } from '../components/era/AssociateClaimDialog';
 import { ManualEraClaimCard } from '../components/era/ManualEraClaimCard';
-import { ManualEraClaimDialog } from '../components/era/ManualEraClaimDialog';
 import { RemitBalanceChip, RemitReconciliation } from '../components/era/RemitReconciliation';
 import { MAIN_PADDING_Y } from '../components/Layout';
 import { MatchClaimDialog } from '../components/MatchClaimDialog';
@@ -91,15 +90,16 @@ const SCAN_MAX_BYTES = 20 * 1024 * 1024;
 
 // what a stored claim looked like when last saved, to tell edited cards apart
 const snapshotOf = (claim: ClaimForm): string => JSON.stringify({ ...claimFormToInput(claim), clientKey: undefined });
-const cardId = (claim: ClaimForm): string => claim.claimResponseId ?? claim.key;
 
 // The header sticks flush with the top of Layout's scrolling <main>. Sticky offsets count from inside
 // main's padding, hence a negative top. The header reaches this far up into that padding, which is the
 // room it keeps above the title once stuck.
 const HEADER_TOP_ROOM = 2;
-// Fields scrolled into view (tabbing back up the page, say) stop this far below the top, clear of the
-// stuck header.
-const CLEAR_OF_HEADER = { '& input, & textarea, & button, & [tabindex]': { scrollMarginTop: 96 } };
+// Fields scrolled into view (tabbing back up the page, say), and a claim just added, stop this far below
+// the top, clear of the stuck header.
+const CLEAR_OF_HEADER = {
+  '& input, & textarea, & button, & [tabindex], & .MuiCard-root': { scrollMarginTop: 96 },
+};
 
 const isVersionConflict = (error: unknown): boolean =>
   (error as { output?: { code?: number } } | undefined)?.output?.code === APIErrorCode.MANUAL_ERA_VERSION_CONFLICT ||
@@ -127,10 +127,9 @@ function eraClaimFor(claim: ClaimForm): EraClaimListItem {
   };
 }
 
-// Keying in a paper or PDF remit: the check and who it pays, the scan, then each claim on it. The remit
-// is saved on its own first; claims are added (and removed, matched, unmatched) one at a time and
-// saved as that happens, while edits to the remit details and to claims already on it are saved with
-// the Save button.
+// Keying in a paper or PDF remit: the check and who it pays, the scan, then each claim on it. Claims are
+// added and keyed in on the page, and Save saves them with any edits to the remit details and to claims
+// already on it. Removing, matching and unmatching a saved claim take effect straight away.
 export default function ManualRemit(): ReactElement {
   const { id: eraId } = useParams();
   const navigate = useNavigate();
@@ -173,7 +172,8 @@ export default function ManualRemit(): ReactElement {
   });
   const [duplicateCheckWarning, setDuplicateCheckWarning] = useState<string | null>(null);
 
-  const [claimDialog, setClaimDialog] = useState<ClaimForm | null>(null);
+  // the claim just added, which the page scrolls to and puts the cursor in
+  const [revealing, setRevealing] = useState<string | null>(null);
   const [associating, setAssociating] = useState(false);
   const [matching, setMatching] = useState<ClaimForm | null>(null);
   const [unmatching, setUnmatching] = useState<ClaimForm | null>(null);
@@ -226,9 +226,10 @@ export default function ManualRemit(): ReactElement {
 
   const isHeaderDirty = (candidate: HeaderForm): boolean => JSON.stringify(candidate) !== JSON.stringify(savedHeader);
   const headerDirty = isHeaderDirty(header);
+  // a claim added on the page counts as an edit until it's saved
   const isClaimDirty = useCallback(
     (claim: ClaimForm): boolean =>
-      !!claim.claimResponseId && savedSnapshots.get(claim.claimResponseId) !== snapshotOf(claim),
+      !claim.claimResponseId || savedSnapshots.get(claim.claimResponseId) !== snapshotOf(claim),
     [savedSnapshots]
   );
   const dirtyClaims = claims.filter(isClaimDirty);
@@ -288,9 +289,13 @@ export default function ManualRemit(): ReactElement {
       const edited = submittedClaims.filter(isClaimDirty);
       try {
         if (!eraId) {
-          const created = await saveBillingManualEra(oystehrZambda, { header: headerFormToInput(submittedHeader) });
+          const created = await saveBillingManualEra(oystehrZambda, {
+            header: headerFormToInput(submittedHeader),
+            ...(edited.length ? { claims: edited.map(claimFormToInput) } : {}),
+          });
           setSavedHeader(submittedHeader);
-          enqueueSnackbar('Remit saved. Add its claims below.', { variant: 'success' });
+          enqueueSnackbar('Remit saved', { variant: 'success' });
+          // the page loads the remit as saved, claims and all
           navigate(`/eras/${created.eraId}/edit`, { replace: true });
           return;
         }
@@ -300,11 +305,18 @@ export default function ManualRemit(): ReactElement {
           ...(isHeaderDirty(submittedHeader) ? { header: headerFormToInput(submittedHeader) } : {}),
           claims: edited.map(claimFormToInput),
         });
+        // claims added on the page take the ids they were saved under
+        const addedIds = new Map(saved.claims.map((entry) => [entry.clientKey, entry.claimResponseId]));
+        const savedAs = (claim: ClaimForm): ClaimForm =>
+          claim.claimResponseId ? claim : { ...claim, claimResponseId: addedIds.get(claim.key) };
+        setValue('claims', getValues('claims').map(savedAs));
         setVersionId(saved.versionId);
         setSavedHeader(submittedHeader);
         setSavedSnapshots((current) => {
           const next = new Map(current);
-          edited.forEach((claim) => next.set(claim.claimResponseId ?? '', snapshotOf(claim)));
+          edited.map(savedAs).forEach((claim) => {
+            if (claim.claimResponseId) next.set(claim.claimResponseId, snapshotOf(claim));
+          });
           return next;
         });
         await refreshDetail();
@@ -317,7 +329,7 @@ export default function ManualRemit(): ReactElement {
       setSaveError(null);
       const incomplete = getValues('claims')
         .filter((_, index) => invalid.claims?.[index])
-        .map(cardId);
+        .map((claim) => claim.key);
       if (incomplete.length) setExpanded((current) => new Set([...current, ...incomplete]));
     }
   );
@@ -326,31 +338,20 @@ export default function ManualRemit(): ReactElement {
   const setClaim = (index: number, claim: ClaimForm): void =>
     setValue(`claims.${index}`, claim, { shouldValidate: !!errors.claims?.[index] });
 
-  // Add to Remit: saves just this claim (not other pending edits) and puts it on the page
-  const addClaim = async (claim: ClaimForm): Promise<void> => {
-    if (!oystehrZambda || !eraId) return;
-    try {
-      const saved = await saveBillingManualEra(oystehrZambda, {
-        eraId,
-        expectedVersionId: versionId,
-        claims: [claimFormToInput(claim)],
-      });
-      const claimResponseId = saved.claims.find((entry) => entry.clientKey === claim.key)?.claimResponseId;
-      const added: ClaimForm = { ...claim, claimResponseId };
-      setVersionId(saved.versionId);
-      setValue('claims', [...getValues('claims'), added]);
-      setSavedSnapshots((current) => new Map(current).set(claimResponseId ?? '', snapshotOf(added)));
-      setExpanded(new Set([cardId(added)]));
-      setClaimDialog(null);
-      void refreshDetail();
-      enqueueSnackbar('Claim added to the remit', { variant: 'success' });
-    } catch (err) {
-      if (isVersionConflict(err)) {
-        throw new Error('Someone else saved this remit since you opened it. Reload the page before adding claims.');
-      }
-      throw err;
-    }
+  // Add: puts a new claim at the end of the page, open and ready to key in
+  const addClaim = (claim: ClaimForm): void => {
+    setValue('claims', [...getValues('claims'), claim]);
+    setExpanded((current) => new Set([...current, claim.key]));
+    setRevealing(claim.key);
   };
+
+  // the claims after it move up, so any errors shown are worked out again for their new places
+  const dropClaim = (claim: ClaimForm): void =>
+    setValue(
+      'claims',
+      getValues('claims').filter((candidate) => candidate.key !== claim.key),
+      { shouldValidate: !!errors.claims }
+    );
 
   const removeClaim = async (claim: ClaimForm): Promise<void> => {
     if (!oystehrZambda || !eraId || !claim.claimResponseId) return;
@@ -362,12 +363,7 @@ export default function ManualRemit(): ReactElement {
         deleteClaimResponseIds: [claim.claimResponseId],
       });
       setVersionId(saved.versionId);
-      // the claims after it move up, so any errors shown are worked out again for their new places
-      setValue(
-        'claims',
-        getValues('claims').filter((candidate) => candidate.key !== claim.key),
-        { shouldValidate: !!errors.claims }
-      );
+      dropClaim(claim);
       void refreshDetail();
     } catch (err) {
       handleSaveError(err, 'Failed to remove the claim');
@@ -454,7 +450,7 @@ export default function ManualRemit(): ReactElement {
             <Chip label="Source: Manual" color="primary" variant="outlined" size="small" sx={{ borderRadius: '4px' }} />
           </Box>
           {/* how far the claims keyed so far are from the check, in view however far down the biller is */}
-          {eraId && <RemitBalanceChip differenceCents={reconciliation.differenceCents} />}
+          {(eraId || claims.length > 0) && <RemitBalanceChip differenceCents={reconciliation.differenceCents} />}
           <Button
             variant="contained"
             startIcon={isSubmitting ? <CircularProgress size={14} color="inherit" /> : <SaveIcon />}
@@ -710,7 +706,6 @@ export default function ManualRemit(): ReactElement {
           action={
             <AddMenuButton
               size="small"
-              disabledReason={notSavedYet}
               options={[
                 {
                   label: 'Existing Claim',
@@ -722,7 +717,7 @@ export default function ManualRemit(): ReactElement {
                   label: 'Enter Manually',
                   description: 'Key in a claim from the paper remit',
                   icon: <EditNoteIcon fontSize="small" />,
-                  onSelect: () => setClaimDialog(emptyClaimForm()),
+                  onSelect: () => addClaim(emptyClaimForm()),
                 },
               ]}
             />
@@ -740,16 +735,17 @@ export default function ManualRemit(): ReactElement {
                   claim={claim}
                   errors={errors.claims?.[index]}
                   onChange={(next) => setClaim(index, next)}
-                  expanded={expanded.has(cardId(claim))}
+                  expanded={expanded.has(claim.key)}
                   onToggle={() =>
                     setExpanded((current) => {
                       const next = new Set(current);
-                      if (next.has(cardId(claim))) next.delete(cardId(claim));
-                      else next.add(cardId(claim));
+                      if (next.has(claim.key)) next.delete(claim.key);
+                      else next.add(claim.key);
                       return next;
                     })
                   }
                   dirty={isClaimDirty(claim)}
+                  reveal={claim.key === revealing}
                   actions={{
                     onMatch: () => setMatching(claim),
                     onUnmatch: () => setUnmatching(claim),
@@ -757,7 +753,8 @@ export default function ManualRemit(): ReactElement {
                       leave(
                         `/eras/${eraId}/claims/${claim.matchedClaimId ?? `unmatched-${claim.claimResponseId ?? ''}`}`
                       ),
-                    onRemove: () => setRemoving(claim),
+                    // a claim not saved yet is just dropped from the page
+                    onRemove: () => (claim.claimResponseId ? setRemoving(claim) : dropClaim(claim)),
                   }}
                 />
               ))}
@@ -774,12 +771,9 @@ export default function ManualRemit(): ReactElement {
           onCancel={() => setAssociating(false)}
           onSelected={(claimDetail) => {
             setAssociating(false);
-            setClaimDialog(claimFormFromClaimDetail(claimDetail));
+            addClaim(claimFormFromClaimDetail(claimDetail));
           }}
         />
-      )}
-      {claimDialog && (
-        <ManualEraClaimDialog initialClaim={claimDialog} onCancel={() => setClaimDialog(null)} onAdd={addClaim} />
       )}
       {matching?.claimResponseId && (
         <MatchClaimDialog
