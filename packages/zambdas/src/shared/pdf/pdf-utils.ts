@@ -1,7 +1,7 @@
 // cSpell:ignore annot, annots
 import fs from 'node:fs';
 import fontkit from '@pdf-lib/fontkit';
-import { captureException } from '@sentry/aws-serverless';
+import { captureException } from '@sentry/node-core/light';
 import { DocumentReference } from 'fhir/r4b';
 import {
   Color,

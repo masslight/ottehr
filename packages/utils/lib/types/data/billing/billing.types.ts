@@ -1083,6 +1083,7 @@ export interface RecordBillingManualPaymentResponse {
 
 export interface RecordBillingRefundResponse {
   billingNoticesStamped: number;
+  candidRefundsRecorded: number;
 }
 
 export interface RecordBillingVoidResponse {

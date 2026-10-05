@@ -1,4 +1,4 @@
-import { captureMessage } from '@sentry/aws-serverless';
+import { captureMessage } from '@sentry/node-core/light';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Task } from 'fhir/r4b';
 import { removePrefix } from 'utils/lib/helpers/helpers';
