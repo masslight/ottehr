@@ -59,11 +59,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   if (!user.profile?.startsWith('Practitioner/')) throw NOT_AUTHORIZED;
   const actor: Reference = { reference: user.profile, display: user.email || user.name };
 
-  const response = await performEffect(oystehr, params, actor, DateTime.now().toISO());
+  const validated = await complexValidation(oystehr, params);
+  const response = await performEffect(oystehr, params, validated, actor, DateTime.now().toISO());
   return { statusCode: 200, body: JSON.stringify(response) };
 });
 
-interface StoredManualEra {
+export interface StoredManualEra {
   pr: PaymentReconciliation;
   // manual ERAs keep a single era-processing Provenance; more would only come from outside edits
   provenances: Provenance[];
@@ -71,25 +72,32 @@ interface StoredManualEra {
   claimResponses: ClaimResponse[];
 }
 
-// Creates a manual ERA or applies one editor save to it, in a single transaction.
-//
-// Provenances are never updated in place: when the set of claims changes, the ERA's era-processing
-// Provenance is replaced by one carrying the new target list plus the original author and time (so
-// "Entered by" survives and no target is left pointing at a deleted claim).
-export async function performEffect(
+// What a save writes from, once its input checks out against what's stored.
+export interface ValidatedManualEraSave {
+  // the remit being edited, at the version the editor loaded; absent when creating one
+  stored?: StoredManualEra;
+  header: ManualEraHeader;
+  billingProviderAndPayer: ManualEraBillingProviderAndPayer;
+  // the Claims new remit claims are associated with, by id
+  matchedClaims: Map<string, Claim>;
+}
+
+// Loads what a save works from and checks the input against it: the stored remit, the remit details
+// to save with their payer and billing provider, the claims being edited or removed, and the Claims
+// new remit claims are associated with.
+export async function complexValidation(
   oystehr: Oystehr,
-  params: SaveManualEraParams,
-  actor: Reference,
-  now: string
-): Promise<SaveManualEraResponse> {
+  params: SaveManualEraParams
+): Promise<ValidatedManualEraSave> {
   const stored = params.eraId ? await loadManualEra(oystehr, params.eraId, params.expectedVersionId) : undefined;
   // a save without remit details keeps the stored ones; a new remit has none to keep
   const header = params.header ?? (stored ? manualEraHeaderFromFhir(stored.pr) : undefined);
   if (!header) throw INVALID_INPUT_ERROR('"header" is required to create a remit');
   const billingProviderAndPayer = await resolveManualEraBillingProviderAndPayer(oystehr, header);
 
-  const storedClaimResponses = stored?.claimResponses ?? [];
-  const storedById = new Map(storedClaimResponses.map((claimResponse) => [claimResponse.id ?? '', claimResponse]));
+  const storedById = new Map(
+    (stored?.claimResponses ?? []).map((claimResponse) => [claimResponse.id ?? '', claimResponse])
+  );
   for (const claim of params.claims) {
     if (claim.claimResponseId && !storedById.has(claim.claimResponseId)) {
       throw INVALID_INPUT_ERROR(`Claim ${claim.claimResponseId} is not part of this remit`);
@@ -104,6 +112,23 @@ export async function performEffect(
   }
   const matchedClaims = await loadMatchedClaims(oystehr, params.claims);
 
+  return { stored, header, billingProviderAndPayer, matchedClaims };
+}
+
+// Creates a manual ERA or applies one editor save to it, in a single transaction.
+//
+// Provenances are never updated in place: when the set of claims changes, the ERA's era-processing
+// Provenance is replaced by one carrying the new target list plus the original author and time (so
+// "Entered by" survives and no target is left pointing at a deleted claim).
+export async function performEffect(
+  oystehr: Oystehr,
+  params: SaveManualEraParams,
+  validated: ValidatedManualEraSave,
+  actor: Reference,
+  now: string
+): Promise<SaveManualEraResponse> {
+  const { stored, header, billingProviderAndPayer, matchedClaims } = validated;
+  const storedClaimResponses = stored?.claimResponses ?? [];
   const deleted = new Set(params.deleteClaimResponseIds);
   const upserts = new Map(
     params.claims.flatMap((claim) => (claim.claimResponseId ? [[claim.claimResponseId, claim] as const] : []))

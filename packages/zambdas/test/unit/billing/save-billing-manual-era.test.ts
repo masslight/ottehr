@@ -9,6 +9,7 @@ import {
   Provenance,
 } from 'fhir/r4b';
 import { ManualEraClaim, ManualEraHeader } from 'utils/lib/types/data/billing/billing.schemas';
+import { SaveManualEraResponse } from 'utils/lib/types/data/billing/billing.types';
 import {
   CUSTOM_INSURANCE_ORG_ID_SYSTEM,
   CUSTOM_INSURANCE_ORG_KIND_CODE,
@@ -23,7 +24,7 @@ import {
   buildManualPaymentReconciliation,
   ManualEraBillingProviderAndPayer,
 } from '../../../src/billing/manual-era';
-import { performEffect } from '../../../src/billing/save-billing-manual-era';
+import { complexValidation, performEffect } from '../../../src/billing/save-billing-manual-era';
 import { SaveManualEraParams } from '../../../src/billing/save-billing-manual-era/validateRequestParameters';
 import {
   ERA_DEPOSIT_DATE_EXTENSION,
@@ -191,7 +192,11 @@ const depositDateExtensionOf = (transaction: Mock): Extension | undefined =>
 const describeRequests = (requests: BatchInputRequest<FhirResource>[]): string[] =>
   requests.map((request) => `${request.method} ${request.url}`);
 
-describe('save-billing-manual-era performEffect', () => {
+// A save as the handler runs it: checked against what's stored, then written.
+const save = async (oystehr: Oystehr, input: SaveManualEraParams): Promise<SaveManualEraResponse> =>
+  performEffect(oystehr, input, await complexValidation(oystehr, input), ACTOR, NOW);
+
+describe('save-billing-manual-era', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     (resolvePayerOrganization as Mock).mockImplementation(async (_oystehr: Oystehr, payerId: string) => {
@@ -203,7 +208,7 @@ describe('save-billing-manual-era performEffect', () => {
 
   it('creates the remit and its era-processing record, authored by the caller', async () => {
     const { oystehr, transaction } = makeClient([billingOrg]);
-    const result = await performEffect(oystehr, params({ header }), ACTOR, NOW);
+    const result = await save(oystehr, params({ header }));
 
     const requests = requestsOf(transaction);
     expect(describeRequests(requests)).toEqual(['POST /PaymentReconciliation', 'POST /Provenance']);
@@ -219,14 +224,12 @@ describe('save-billing-manual-era performEffect', () => {
 
   it('keys a remit from a custom insurance organization, referenced directly', async () => {
     const { oystehr, transaction } = makeClient([billingOrg]);
-    await performEffect(
+    await save(
       oystehr,
       params({
         header: { ...header, payerId: CUSTOM_PAYER_ORG.id ?? '' },
         claims: [keyedClaim({ clientKey: 'a' })],
-      }),
-      ACTOR,
-      NOW
+      })
     );
 
     const requests = requestsOf(transaction);
@@ -244,36 +247,34 @@ describe('save-billing-manual-era performEffect', () => {
 
   it('refuses a save made from a stale copy', async () => {
     const { oystehr, transaction } = makeClient([...storedRemit(), billingOrg]);
-    await expect(
-      performEffect(oystehr, params({ eraId: 'era-1', expectedVersionId: '2', header }), ACTOR, NOW)
-    ).rejects.toEqual(MANUAL_ERA_VERSION_CONFLICT_ERROR);
+    await expect(save(oystehr, params({ eraId: 'era-1', expectedVersionId: '2', header }))).rejects.toEqual(
+      MANUAL_ERA_VERSION_CONFLICT_ERROR
+    );
     expect(transaction).not.toHaveBeenCalled();
   });
 
   it('turns a lost optimistic-lock race into the same conflict', async () => {
     const { oystehr, transaction } = makeClient([...storedRemit(), billingOrg]);
     transaction.mockRejectedValueOnce(new Oystehr.OystehrSdkError({ message: 'precondition failed', code: 412 }));
-    await expect(
-      performEffect(oystehr, params({ eraId: 'era-1', expectedVersionId: '3', header }), ACTOR, NOW)
-    ).rejects.toEqual(MANUAL_ERA_VERSION_CONFLICT_ERROR);
+    await expect(save(oystehr, params({ eraId: 'era-1', expectedVersionId: '3', header }))).rejects.toEqual(
+      MANUAL_ERA_VERSION_CONFLICT_ERROR
+    );
   });
 
   it('only edits manually entered remits', async () => {
     const [pr, ...rest] = storedRemit();
     const imported = { ...(pr as PaymentReconciliation), extension: [] };
     const { oystehr } = makeClient([imported, ...rest, billingOrg]);
-    await expect(
-      performEffect(oystehr, params({ eraId: 'era-1', expectedVersionId: '3', header }), ACTOR, NOW)
-    ).rejects.toMatchObject({ message: 'Only manually entered remits can be edited' });
+    await expect(save(oystehr, params({ eraId: 'era-1', expectedVersionId: '3', header }))).rejects.toMatchObject({
+      message: 'Only manually entered remits can be edited',
+    });
   });
 
   it('adds a claim and replaces the link record, keeping who keyed the remit in', async () => {
     const { oystehr, transaction } = makeClient([...storedRemit(), billingOrg]);
-    const result = await performEffect(
+    const result = await save(
       oystehr,
-      params({ eraId: 'era-1', expectedVersionId: '3', claims: [{ ...keyedClaim(), clientKey: 'k1' }] }),
-      ACTOR,
-      NOW
+      params({ eraId: 'era-1', expectedVersionId: '3', claims: [{ ...keyedClaim(), clientKey: 'k1' }] })
     );
 
     const requests = requestsOf(transaction);
@@ -318,11 +319,9 @@ describe('save-billing-manual-era performEffect', () => {
       insurance: [],
     };
     const { oystehr, transaction } = makeClient([...storedRemit(), billingOrg, claim]);
-    await performEffect(
+    await save(
       oystehr,
-      params({ eraId: 'era-1', expectedVersionId: '3', claims: [keyedClaim({ matchedClaimId: 'claim-9' })] }),
-      ACTOR,
-      NOW
+      params({ eraId: 'era-1', expectedVersionId: '3', claims: [keyedClaim({ matchedClaimId: 'claim-9' })] })
     );
     const added = requestsOf(transaction)[1] as { resource: ClaimResponse };
     expect(added.resource).toMatchObject({
@@ -335,11 +334,9 @@ describe('save-billing-manual-era performEffect', () => {
   it('rejects an associated claim that does not exist', async () => {
     const { oystehr } = makeClient([...storedRemit(), billingOrg]);
     await expect(
-      performEffect(
+      save(
         oystehr,
-        params({ eraId: 'era-1', expectedVersionId: '3', claims: [keyedClaim({ matchedClaimId: 'nope' })] }),
-        ACTOR,
-        NOW
+        params({ eraId: 'era-1', expectedVersionId: '3', claims: [keyedClaim({ matchedClaimId: 'nope' })] })
       )
     ).rejects.toMatchObject({ message: 'Claim nope was not found' });
   });
@@ -347,12 +344,7 @@ describe('save-billing-manual-era performEffect', () => {
   it('edits a claim in place, keeping its match, without touching the link record', async () => {
     const { oystehr, transaction } = makeClient([...storedRemit(), billingOrg]);
     const edited = keyedClaim({ claimResponseId: 'cr-2', patientName: 'Ann Lee', memberId: 'M-2' });
-    const result = await performEffect(
-      oystehr,
-      params({ eraId: 'era-1', expectedVersionId: '3', claims: [edited] }),
-      ACTOR,
-      NOW
-    );
+    const result = await save(oystehr, params({ eraId: 'era-1', expectedVersionId: '3', claims: [edited] }));
 
     const requests = requestsOf(transaction);
     expect(describeRequests(requests)).toEqual(['PUT /PaymentReconciliation/era-1', 'PUT /ClaimResponse/cr-2']);
@@ -366,15 +358,13 @@ describe('save-billing-manual-era performEffect', () => {
 
   it('skips claims a header save leaves unchanged, and rebuilds them when it changes what they copy', async () => {
     const unchanged = makeClient([...storedRemit(), billingOrg]);
-    await performEffect(unchanged.oystehr, params({ eraId: 'era-1', expectedVersionId: '3', header }), ACTOR, NOW);
+    await save(unchanged.oystehr, params({ eraId: 'era-1', expectedVersionId: '3', header }));
     expect(describeRequests(requestsOf(unchanged.transaction))).toEqual(['PUT /PaymentReconciliation/era-1']);
 
     const changed = makeClient([...storedRemit(), billingOrg]);
-    await performEffect(
+    await save(
       changed.oystehr,
-      params({ eraId: 'era-1', expectedVersionId: '3', header: { ...header, remitDate: '2026-09-15' } }),
-      ACTOR,
-      NOW
+      params({ eraId: 'era-1', expectedVersionId: '3', header: { ...header, remitDate: '2026-09-15' } })
     );
     const requests = requestsOf(changed.transaction);
     expect(describeRequests(requests)).toEqual([
@@ -390,7 +380,7 @@ describe('save-billing-manual-era performEffect', () => {
   it('drops a deposit date the biller cleared', async () => {
     const { depositDate: _cleared, ...noDeposit } = header;
     const { oystehr, transaction } = makeClient([...storedRemit(), billingOrg]);
-    await performEffect(oystehr, params({ eraId: 'era-1', expectedVersionId: '3', header: noDeposit }), ACTOR, NOW);
+    await save(oystehr, params({ eraId: 'era-1', expectedVersionId: '3', header: noDeposit }));
     expect(describeRequests(requestsOf(transaction))[0]).toBe('PUT /PaymentReconciliation/era-1');
     expect(depositDateExtensionOf(transaction)).toBeUndefined();
   });
@@ -402,23 +392,16 @@ describe('save-billing-manual-era performEffect', () => {
       extension: pr.extension?.filter((extension) => extension.url !== ERA_DEPOSIT_DATE_EXTENSION),
     };
     const { oystehr, transaction } = makeClient([withoutDeposit, ...rest, billingOrg]);
-    await performEffect(
+    await save(
       oystehr,
-      params({ eraId: 'era-1', expectedVersionId: '3', claims: [keyedClaim({ claimResponseId: 'cr-1' })] }),
-      ACTOR,
-      NOW
+      params({ eraId: 'era-1', expectedVersionId: '3', claims: [keyedClaim({ claimResponseId: 'cr-1' })] })
     );
     expect(depositDateExtensionOf(transaction)).toBeUndefined();
   });
 
   it('removes an unmatched claim and drops it from the link record', async () => {
     const { oystehr, transaction } = makeClient([...storedRemit(), billingOrg]);
-    await performEffect(
-      oystehr,
-      params({ eraId: 'era-1', expectedVersionId: '3', deleteClaimResponseIds: ['cr-1'] }),
-      ACTOR,
-      NOW
-    );
+    await save(oystehr, params({ eraId: 'era-1', expectedVersionId: '3', deleteClaimResponseIds: ['cr-1'] }));
     const requests = requestsOf(transaction);
     expect(describeRequests(requests)).toEqual([
       'PUT /PaymentReconciliation/era-1',
@@ -435,12 +418,7 @@ describe('save-billing-manual-era performEffect', () => {
   it('will not remove a matched claim', async () => {
     const { oystehr, transaction } = makeClient([...storedRemit(), billingOrg]);
     await expect(
-      performEffect(
-        oystehr,
-        params({ eraId: 'era-1', expectedVersionId: '3', deleteClaimResponseIds: ['cr-2'] }),
-        ACTOR,
-        NOW
-      )
+      save(oystehr, params({ eraId: 'era-1', expectedVersionId: '3', deleteClaimResponseIds: ['cr-2'] }))
     ).rejects.toMatchObject({ message: 'Unmatch this claim before removing it from the remit' });
     expect(transaction).not.toHaveBeenCalled();
   });
@@ -448,26 +426,19 @@ describe('save-billing-manual-era performEffect', () => {
   it('refuses claims that belong to another remit', async () => {
     const { oystehr } = makeClient([...storedRemit(), billingOrg]);
     await expect(
-      performEffect(
+      save(
         oystehr,
-        params({ eraId: 'era-1', expectedVersionId: '3', claims: [keyedClaim({ claimResponseId: 'cr-elsewhere' })] }),
-        ACTOR,
-        NOW
+        params({ eraId: 'era-1', expectedVersionId: '3', claims: [keyedClaim({ claimResponseId: 'cr-elsewhere' })] })
       )
     ).rejects.toMatchObject({ message: 'Claim cr-elsewhere is not part of this remit' });
     await expect(
-      performEffect(
-        oystehr,
-        params({ eraId: 'era-1', expectedVersionId: '3', deleteClaimResponseIds: ['cr-x'] }),
-        ACTOR,
-        NOW
-      )
+      save(oystehr, params({ eraId: 'era-1', expectedVersionId: '3', deleteClaimResponseIds: ['cr-x'] }))
     ).rejects.toMatchObject({ message: 'Claim cr-x is not part of this remit' });
   });
 
   it('needs the remit details to create a remit', async () => {
     const { oystehr, transaction } = makeClient([billingOrg]);
-    await expect(performEffect(oystehr, params({}), ACTOR, NOW)).rejects.toMatchObject({
+    await expect(save(oystehr, params({}))).rejects.toMatchObject({
       message: '"header" is required to create a remit',
     });
     expect(transaction).not.toHaveBeenCalled();
@@ -476,9 +447,7 @@ describe('save-billing-manual-era performEffect', () => {
   it('fails rather than hand back an empty id when the server returns none', async () => {
     const { oystehr, transaction } = makeClient([billingOrg]);
     transaction.mockResolvedValueOnce({ entry: [{ response: { status: '201' } }, { response: { status: '201' } }] });
-    await expect(performEffect(oystehr, params({ header }), ACTOR, NOW)).rejects.toThrow(
-      'The remit was saved without an id or version'
-    );
+    await expect(save(oystehr, params({ header }))).rejects.toThrow('The remit was saved without an id or version');
   });
 
   it('requires a billing provider and a known payer', async () => {
@@ -486,13 +455,13 @@ describe('save-billing-manual-era performEffect', () => {
       ...billingOrg,
       meta: { tag: [{ system: PROVIDER_ROLE_TAG, code: 'rendering' }] },
     };
-    await expect(
-      performEffect(makeClient([renderingOnly]).oystehr, params({ header }), ACTOR, NOW)
-    ).rejects.toMatchObject({ message: 'The billing provider was not found' });
+    await expect(save(makeClient([renderingOnly]).oystehr, params({ header }))).rejects.toMatchObject({
+      message: 'The billing provider was not found',
+    });
 
     (resolvePayerOrganization as Mock).mockRejectedValue(new Error('not found'));
-    await expect(performEffect(makeClient([billingOrg]).oystehr, params({ header }), ACTOR, NOW)).rejects.toMatchObject(
-      { message: 'Payer payer-uhc was not found' }
-    );
+    await expect(save(makeClient([billingOrg]).oystehr, params({ header }))).rejects.toMatchObject({
+      message: 'Payer payer-uhc was not found',
+    });
   });
 });
