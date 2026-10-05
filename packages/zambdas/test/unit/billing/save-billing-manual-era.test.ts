@@ -361,23 +361,47 @@ describe('save-billing-manual-era', () => {
     expect(result.claims).toEqual([{ claimResponseId: 'cr-2' }]);
   });
 
-  it('skips claims a header save leaves unchanged, and rebuilds them when it changes what they copy', async () => {
-    const unchanged = makeClient([...storedRemit(), billingOrg]);
-    await save(unchanged.oystehr, params({ eraId: 'era-1', expectedVersionId: '3', header }));
-    expect(describeRequests(requestsOf(unchanged.transaction))).toEqual(['PUT /PaymentReconciliation/era-1']);
+  it('leaves the claims alone when a header save changes nothing they copy', async () => {
+    const { oystehr, transaction } = makeClient([...storedRemit(), billingOrg]);
+    const fixed = { ...header, checkNumber: '557810', checkAmountCents: 12_000, notes: 'Check number fixed' };
+    await save(oystehr, params({ eraId: 'era-1', expectedVersionId: '3', header: fixed }));
+    const requests = requestsOf(transaction);
+    expect(describeRequests(requests)).toEqual(['PUT /PaymentReconciliation/era-1']);
+    expect((requests[0] as { resource: PaymentReconciliation }).resource).toMatchObject({
+      identifier: [{ value: '557810' }],
+      paymentAmount: { value: 120 },
+    });
+  });
 
-    const changed = makeClient([...storedRemit(), billingOrg]);
-    await save(
-      changed.oystehr,
-      params({ eraId: 'era-1', expectedVersionId: '3', header: { ...header, remitDate: '2026-09-15' } })
-    );
-    const requests = requestsOf(changed.transaction);
+  it.each<[string, Partial<ManualEraHeader>, Partial<ClaimResponse>]>([
+    ['remit date', { remitDate: '2026-09-15' }, { created: '2026-09-15' }],
+    [
+      'payer',
+      { payerId: CUSTOM_PAYER_ORG.id ?? '' },
+      {
+        insurer: { reference: `Organization/${CUSTOM_PAYER_ORG.id}`, display: 'Harbor County Health Plan (OTR-00042)' },
+      },
+    ],
+    [
+      'billing provider',
+      { billingProviderRef: 'Organization/org-2' },
+      {
+        contained: expect.arrayContaining([
+          expect.objectContaining({ resourceType: 'Organization', name: 'other org' }),
+        ]),
+      },
+    ],
+  ])('rebuilds every claim when the header changes its %s', async (_field, change, copied) => {
+    const otherBillingOrg: Organization = { ...billingOrg, id: 'org-2', name: 'other org' };
+    const { oystehr, transaction } = makeClient([...storedRemit(), billingOrg, otherBillingOrg]);
+    await save(oystehr, params({ eraId: 'era-1', expectedVersionId: '3', header: { ...header, ...change } }));
+    const requests = requestsOf(transaction);
     expect(describeRequests(requests)).toEqual([
       'PUT /PaymentReconciliation/era-1',
       'PUT /ClaimResponse/cr-1',
       'PUT /ClaimResponse/cr-2',
     ]);
-    expect((requests[1] as { resource: ClaimResponse }).resource.created).toBe('2026-09-15');
+    expect((requests[1] as { resource: ClaimResponse }).resource).toMatchObject(copied);
     // the matched claim stays matched through the rebuild
     expect((requests[2] as { resource: ClaimResponse }).resource.request).toEqual({ reference: 'Claim/claim-2' });
   });

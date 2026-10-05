@@ -1,5 +1,4 @@
 import { randomUUID } from 'node:crypto';
-import { isDeepStrictEqual } from 'node:util';
 import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {
@@ -156,6 +155,15 @@ export async function performEffect(
       : { method: 'POST', url: '/PaymentReconciliation', resource: pr, fullUrl: prReference }
   );
 
+  // Each claim copies the remit's payer, billing provider and remit date. Every write of a matched claim
+  // re-runs the subscription that sets its Claim's status and ICN, so a claim is rewritten only when it
+  // was edited or one of those changed.
+  const storedHeader = stored && manualEraHeaderFromFhir(stored.pr);
+  const copiedHeaderChanged =
+    !!storedHeader &&
+    (header.payerId !== storedHeader.payerId ||
+      header.billingProviderRef !== storedHeader.billingProviderRef ||
+      header.remitDate !== storedHeader.remitDate);
   const claimReferences: string[] = [];
   const savedClaims: { clientKey?: string; claimResponseId?: string; requestIndex?: number }[] = [];
   for (const claimResponse of storedClaimResponses) {
@@ -163,19 +171,13 @@ export async function performEffect(
     claimReferences.push(`ClaimResponse/${claimResponse.id}`);
     const upsert = upserts.get(claimResponse.id ?? '');
     if (upsert) savedClaims.push({ clientKey: upsert.clientKey, claimResponseId: claimResponse.id });
-    // a claim is rebuilt when it was edited, or when the header it copies (payer, billing provider,
-    // remit date) may have changed
-    if (!upsert && !params.header) continue;
+    if (!upsert && !copiedHeaderChanged) continue;
     const input: ManualEraClaim = upsert ?? entryClaimToInput(manualEraClaimFromFhir(claimResponse));
-    const rebuilt = buildManualClaimResponse({
-      claim: input,
-      header,
-      billingProviderAndPayer,
-      existing: claimResponse,
+    requests.push({
+      method: 'PUT',
+      url: `/ClaimResponse/${claimResponse.id}`,
+      resource: buildManualClaimResponse({ claim: input, header, billingProviderAndPayer, existing: claimResponse }),
     });
-    // an unchanged write would still re-fire the claim-response subscriptions
-    if (sameContent(rebuilt, claimResponse)) continue;
-    requests.push({ method: 'PUT', url: `/ClaimResponse/${claimResponse.id}`, resource: rebuilt });
   }
   for (const claim of added) {
     const fullUrl = `urn:uuid:${randomUUID()}`;
@@ -312,20 +314,6 @@ async function loadMatchedClaims(oystehr: Oystehr, claims: ManualEraClaim[]): Pr
     if (!byId.has(id)) throw INVALID_INPUT_ERROR(`Claim ${id} was not found`);
   }
   return byId;
-}
-
-// Both sides as they would serialize, without the server's bookkeeping; the stored one must also
-// already carry every tag the rebuilt one does.
-function sameContent(built: ClaimResponse, stored: ClaimResponse): boolean {
-  const normalize = (resource: ClaimResponse): unknown => {
-    const { meta: _meta, text: _text, ...rest } = JSON.parse(JSON.stringify(resource)) as ClaimResponse;
-    return rest;
-  };
-  const storedTags = stored.meta?.tag ?? [];
-  const tagsKept = (built.meta?.tag ?? []).every((tag) =>
-    storedTags.some((stored) => stored.system === tag.system && stored.code === tag.code)
-  );
-  return tagsKept && isDeepStrictEqual(normalize(built), normalize(stored));
 }
 
 function isVersionConflict(error: unknown): boolean {
