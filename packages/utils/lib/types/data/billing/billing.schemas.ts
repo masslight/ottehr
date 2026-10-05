@@ -1015,7 +1015,7 @@ export const SaveManualEraInputSchema = z
 export const AddEraAttachmentInputSchema = z.object({
   eraId: nonEmptyString,
   // the title billers see and can rename
-  name: nonEmptyString.max(200),
+  name: nonEmptyString.max(MANUAL_ERA_LIMITS.attachmentNameLength),
   // the uploaded file's own name, which names the stored object
   fileName: nonEmptyString.max(255),
   // the browser's File.type (empty for types it doesn't know), else guessed from fileName; checked
@@ -1026,7 +1026,7 @@ export const AddEraAttachmentInputSchema = z.object({
 export const RenameEraAttachmentInputSchema = z.object({
   eraId: nonEmptyString,
   documentReferenceId: nonEmptyString,
-  name: nonEmptyString.max(200),
+  name: nonEmptyString.max(MANUAL_ERA_LIMITS.attachmentNameLength),
 });
 
 export const DeleteEraAttachmentInputSchema = z.object({

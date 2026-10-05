@@ -174,6 +174,8 @@ export const MANUAL_ERA_LIMITS = {
   memberIdLength: 80,
   patientNameLength: 120,
   notesLength: 2000,
+  // an attachment's title, when added and when renamed
+  attachmentNameLength: 200,
   claimsPerRemit: 100,
   serviceLinesPerClaim: 50,
   adjustmentsPerLine: 20,
