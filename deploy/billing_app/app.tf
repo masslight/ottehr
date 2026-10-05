@@ -1,6 +1,6 @@
 locals {
   # The generator supplies the configured URLs. On AWS, aws.tf.override adds the hosting URLs.
-  billing_configured_app = jsondecode(file("${path.module}/apps.tf.json")).resource.oystehr_application.OTTEHR_BILLING
+  billing_configured_app = local.oystehr_application_OTTEHR_BILLING_config
   billing_cdn_domain     = null
   billing_hosted_urls = var.is_local ? [] : [
     for domain in compact([var.billing_domain, local.billing_cdn_domain]) : "https://${domain}"
