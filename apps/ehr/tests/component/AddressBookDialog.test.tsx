@@ -204,6 +204,7 @@ describe('AddressBookDialog', () => {
       firstName: '',
       lastName: 'Doe',
       credential: '',
+      title: '',
       organizationName: '',
       address: { line1: '', line2: '', city: 'Springfield', state: '', zip: '' },
       phone: '',

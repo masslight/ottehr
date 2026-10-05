@@ -65,6 +65,7 @@ const AddressBookContactFieldsSchema = z.object({
   firstName: optionalString,
   lastName: optionalString,
   credential: optionalString,
+  title: optionalString,
   organizationName: optionalString,
   address: z
     .object({

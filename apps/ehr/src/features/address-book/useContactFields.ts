@@ -15,6 +15,7 @@ export type ContactPart =
   | 'lastName'
   | 'name'
   | 'credential'
+  | 'title'
   | AddressPart
   | 'fullAddress'
   | 'phone'

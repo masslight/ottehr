@@ -1,10 +1,8 @@
 import { Box, Typography, useTheme } from '@mui/material';
 import { FC } from 'react';
-import { useFormContext } from 'react-hook-form';
 import { Row } from 'src/components/layout/Row';
 import { useContactFields } from 'src/features/address-book/useContactFields';
 import { PATIENT_RECORD_CONFIG } from 'utils/lib/ottehr-config/patient-record';
-import { AddressBookContact } from 'utils/lib/types/data/address-book';
 import { PatientRecordAddressBookField } from './PatientRecordAddressBookField';
 import PatientRecordFormField from './PatientRecordFormField';
 import PatientRecordFormSection, { usePatientRecordFormSection } from './PatientRecordFormSection';
@@ -26,8 +24,7 @@ export const EmployerInformationContainer: FC<EmployerInformationContainerProps>
 }) => {
   const { items, hiddenFields, requiredFields } = usePatientRecordFormSection({ formSection: employerInformation });
   const theme = useTheme();
-  const { setValue } = useFormContext();
-  const contactFields = useContactFields({
+  const { onSelect, toContact } = useContactFields({
     organizationName: items.employerName.key,
     line1: items.addressLine1.key,
     line2: items.addressLine2.key,
@@ -36,16 +33,11 @@ export const EmployerInformationContainer: FC<EmployerInformationContainerProps>
     zip: items.zip.key,
     firstName: items.contactFirstName.key,
     lastName: items.contactLastName.key,
+    title: items.contactTitle.key,
     email: items.contactEmail.key,
     phone: items.contactPhone.key,
     fax: items.contactFax.key,
   });
-  const onSelect = (contact: AddressBookContact): void => {
-    contactFields.onSelect(contact);
-    // The directory has no job title, so the pick has none to give. The title belongs to the contact person the
-    // pick just replaced, so it is cleared rather than left behind.
-    setValue(items.contactTitle.key, '', { shouldDirty: true });
-  };
 
   return (
     <PatientRecordFormSection
@@ -73,7 +65,7 @@ export const EmployerInformationContainer: FC<EmployerInformationContainerProps>
         requiredFormFields={requiredFields}
         tag="employer"
         onSelect={onSelect}
-        toContact={contactFields.toContact}
+        toContact={toContact}
       />
       <PatientRecordFormField
         item={items.addressLine1}

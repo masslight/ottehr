@@ -47,6 +47,7 @@ interface FormValues {
   firstName: string;
   lastName: string;
   credential: string;
+  title: string;
   organizationName: string;
   address: { line1: string; line2: string; city: string; state: string | null; zip: string };
   phone: string;
@@ -59,6 +60,7 @@ const toFormValues = (contact?: Partial<AddressBookContactInput>): FormValues =>
   firstName: contact?.firstName ?? '',
   lastName: contact?.lastName ?? '',
   credential: contact?.credential ?? '',
+  title: contact?.title ?? '',
   organizationName: contact?.organizationName ?? '',
   address: {
     line1: contact?.address?.line1 ?? '',
@@ -155,6 +157,7 @@ export const AddressBookDialog: FC<AddressBookDialogProps> = ({
               <TextInput name="firstName" label="First name" />
               <TextInput name="lastName" label="Last name" />
               <TextInput name="credential" label="Credential" />
+              <TextInput name="title" label="Title" />
               <TextInput name="address.line1" label="Address line 1" />
               <TextInput name="address.line2" label="Address line 2" />
               <TextInput name="address.city" label="City" />

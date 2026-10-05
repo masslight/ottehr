@@ -13,6 +13,7 @@ const directoryContact: AddressBookContact = vi.hoisted(() => ({
   id: 'c1',
   firstName: 'Jane',
   lastName: 'Doe',
+  title: 'HR Manager',
   organizationName: 'Acme Corp',
   address: { line1: '1 Main St', line2: 'Suite 2', city: 'Springfield', state: 'IL', zip: '62701' },
   phone: '+12125551234',
@@ -75,7 +76,6 @@ describe('EmployerInformationContainer', () => {
       </TestWrapper>
     );
 
-    // A title left from the previous employer's contact must not survive the pick.
     await user.type(getFieldInput(employer.contactTitle.key), 'Old title');
     await user.click(within(document.getElementById(employer.employerName.key)!).getByRole('combobox'));
     await user.click(await screen.findByRole('option', { name: /Jane Doe/ }));
@@ -88,7 +88,7 @@ describe('EmployerInformationContainer', () => {
     expect(getFieldInput(employer.zip.key)).toHaveValue('62701');
     expect(getFieldInput(employer.contactFirstName.key)).toHaveValue('Jane');
     expect(getFieldInput(employer.contactLastName.key)).toHaveValue('Doe');
-    expect(getFieldInput(employer.contactTitle.key)).toHaveValue('');
+    expect(getFieldInput(employer.contactTitle.key)).toHaveValue('HR Manager');
     expect(getFieldInput(employer.contactEmail.key)).toHaveValue('jane@acme.example');
     expect(getFieldInput(employer.contactPhone.key)).toHaveValue('(212) 555-1234');
     expect(getFieldInput(employer.contactFax.key)).toHaveValue('(212) 555-4321');
@@ -105,6 +105,7 @@ describe('EmployerInformationContainer', () => {
     await user.type(getFieldInput(employer.addressLine1.key), '9 Oak Ave');
     await user.type(getFieldInput(employer.contactFirstName.key), 'Ann');
     await user.type(getFieldInput(employer.contactLastName.key), 'Lee');
+    await user.type(getFieldInput(employer.contactTitle.key), 'Office Manager');
     await user.type(getFieldInput(employer.contactEmail.key), 'ann@globex.example');
     await user.type(within(document.getElementById(employer.employerName.key)!).getByRole('combobox'), 'Globex');
     await user.click(await screen.findByRole('option', { name: /Add new contact/ }));
@@ -114,6 +115,7 @@ describe('EmployerInformationContainer', () => {
     expect(within(dialog).getByLabelText('Address line 1')).toHaveValue('9 Oak Ave');
     expect(within(dialog).getByLabelText('First name')).toHaveValue('Ann');
     expect(within(dialog).getByLabelText('Last name')).toHaveValue('Lee');
+    expect(within(dialog).getByLabelText('Title')).toHaveValue('Office Manager');
     expect(within(dialog).getByLabelText('Email')).toHaveValue('ann@globex.example');
   });
 
