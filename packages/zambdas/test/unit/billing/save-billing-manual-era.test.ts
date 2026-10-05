@@ -135,7 +135,7 @@ function storedRemit(): FhirResource[] {
 }
 
 // In-memory FHIR store: searches by _id / target / identifier, and a transaction that echoes each
-// request back with an id and version, the way the server answers.
+// write back with an id and version, the way the server answers.
 function makeClient(resources: FhirResource[]): { oystehr: Oystehr; transaction: Mock } {
   const search = vi.fn(
     async ({ resourceType, params }: { resourceType: string; params: { name: string; value: string }[] }) => {
@@ -164,6 +164,7 @@ function makeClient(resources: FhirResource[]): { oystehr: Oystehr; transaction:
   const transaction = vi.fn(async ({ requests }: { requests: BatchInputRequest<FhirResource>[] }) => ({
     entry: requests.map((request) => {
       if (request.method === 'DELETE') return { response: { status: '204' } };
+      if (request.method === 'PATCH') return { response: { status: '200', location: `${request.url}/_history/2` } };
       const resource = (request as { resource: FhirResource }).resource;
       const id = resource.id ?? `${resource.resourceType}-new-${++created}`;
       const versionId = request.method === 'PUT' ? '4' : '1';
@@ -270,7 +271,7 @@ describe('save-billing-manual-era', () => {
     });
   });
 
-  it('adds a claim and replaces the link record, keeping who keyed the remit in', async () => {
+  it('adds a claim to the link record in place, keeping who keyed the remit in', async () => {
     const { oystehr, transaction } = makeClient([...storedRemit(), billingOrg]);
     const result = await save(
       oystehr,
@@ -281,22 +282,26 @@ describe('save-billing-manual-era', () => {
     expect(describeRequests(requests)).toEqual([
       'PUT /PaymentReconciliation/era-1',
       'POST /ClaimResponse',
-      'DELETE /Provenance/prov-1',
-      'POST /Provenance',
+      'PATCH /Provenance/prov-1',
     ]);
     // the PaymentReconciliation write carries the version the editor loaded
     expect(requests[0]).toMatchObject({ ifMatch: 'W/"3"' });
     const newClaim = requests[1] as { fullUrl: string; resource: ClaimResponse };
     expect(newClaim.resource.request).toEqual({ reference: '#request' });
-    expect((requests[3] as { resource: Provenance }).resource).toMatchObject({
-      target: [
-        { reference: 'PaymentReconciliation/era-1' },
-        { reference: 'ClaimResponse/cr-1' },
-        { reference: 'ClaimResponse/cr-2' },
-        { reference: newClaim.fullUrl },
+    // only the targets change, so the author and time stay
+    expect(requests[2]).toMatchObject({
+      operations: [
+        {
+          op: 'replace',
+          path: '/target',
+          value: [
+            { reference: 'PaymentReconciliation/era-1' },
+            { reference: 'ClaimResponse/cr-1' },
+            { reference: 'ClaimResponse/cr-2' },
+            { reference: newClaim.fullUrl },
+          ],
+        },
       ],
-      recorded: '2026-09-20T10:00:00.000Z',
-      agent: [{ who: { reference: 'Practitioner/first-biller', display: 'first@example.com' } }],
     });
     expect(result).toEqual({
       eraId: 'era-1',
@@ -405,14 +410,18 @@ describe('save-billing-manual-era', () => {
     const requests = requestsOf(transaction);
     expect(describeRequests(requests)).toEqual([
       'PUT /PaymentReconciliation/era-1',
-      'DELETE /Provenance/prov-1',
       'DELETE /ClaimResponse/cr-1',
-      'POST /Provenance',
+      'PATCH /Provenance/prov-1',
     ]);
-    expect((requests[3] as { resource: Provenance }).resource.target).toEqual([
-      { reference: 'PaymentReconciliation/era-1' },
-      { reference: 'ClaimResponse/cr-2' },
-    ]);
+    expect(requests[2]).toMatchObject({
+      operations: [
+        {
+          op: 'replace',
+          path: '/target',
+          value: [{ reference: 'PaymentReconciliation/era-1' }, { reference: 'ClaimResponse/cr-2' }],
+        },
+      ],
+    });
   });
 
   it('will not remove a matched claim', async () => {

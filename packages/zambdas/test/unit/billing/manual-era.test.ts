@@ -299,22 +299,6 @@ describe('buildManualEraProvenance', () => {
       agent: [{ who: { reference: 'Practitioner/pr-1', display: 'biller@example.com' } }],
     });
   });
-
-  it('keeps the original author and time when the target list is replaced', () => {
-    const provenance = buildManualEraProvenance({
-      targets: ['PaymentReconciliation/era-1'],
-      agent: { reference: 'Practitioner/someone-else' },
-      recorded: '2026-09-24T00:00:00.000Z',
-      existing: {
-        resourceType: 'Provenance',
-        target: [],
-        recorded: '2026-09-23T15:00:00.000Z',
-        agent: [{ who: { reference: 'Practitioner/pr-1', display: 'biller@example.com' } }],
-      },
-    });
-    expect(provenance.recorded).toBe('2026-09-23T15:00:00.000Z');
-    expect(provenance.agent).toEqual([{ who: { reference: 'Practitioner/pr-1', display: 'biller@example.com' } }]);
-  });
 });
 
 describe('helpers', () => {

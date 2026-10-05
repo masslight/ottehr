@@ -66,8 +66,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
 export interface StoredManualEra {
   pr: PaymentReconciliation;
-  // manual ERAs keep a single era-processing Provenance; more would only come from outside edits
-  provenances: Provenance[];
+  // links the remit to its claims, as an imported ERA's era-processing Provenance does
+  provenance?: Provenance;
   // in the order the remit lists them (the Provenance targets)
   claimResponses: ClaimResponse[];
 }
@@ -117,9 +117,9 @@ export async function complexValidation(
 
 // Creates a manual ERA or applies one editor save to it, in a single transaction.
 //
-// Provenances are never updated in place: when the set of claims changes, the ERA's era-processing
-// Provenance is replaced by one carrying the new target list plus the original author and time (so
-// "Entered by" survives and no target is left pointing at a deleted claim).
+// The remit's era-processing Provenance is what links it to its claims. Adding or removing a claim
+// updates that Provenance's target list in place; its author and time stay those of whoever keyed the
+// remit in, which the remit shows as "Entered by".
 export async function performEffect(
   oystehr: Oystehr,
   params: SaveManualEraParams,
@@ -190,26 +190,19 @@ export async function performEffect(
     savedClaims.push({ clientKey: claim.clientKey, requestIndex: requests.length - 1 });
   }
 
-  const claimsChanged = !stored || added.length > 0 || deleted.size > 0;
-  if (claimsChanged) {
-    // the original record keeps its author and time; any extra ones are folded into it
-    const original = [...(stored?.provenances ?? [])].sort((a, b) =>
-      (a.recorded ?? '').localeCompare(b.recorded ?? '')
-    )[0];
-    for (const provenance of stored?.provenances ?? []) {
-      requests.push({ method: 'DELETE', url: `/Provenance/${provenance.id}` });
-    }
-    for (const id of deleted) requests.push({ method: 'DELETE', url: `/ClaimResponse/${id}` });
-    const { id: _originalId, ...originalContent } = original ?? {};
+  for (const id of deleted) requests.push({ method: 'DELETE', url: `/ClaimResponse/${id}` });
+  const targets = [prReference, ...claimReferences];
+  if (!stored?.provenance) {
     requests.push({
       method: 'POST',
       url: '/Provenance',
-      resource: buildManualEraProvenance({
-        targets: [prReference, ...claimReferences],
-        agent: actor,
-        recorded: now,
-        existing: original ? (originalContent as Provenance) : undefined,
-      }),
+      resource: buildManualEraProvenance({ targets, agent: actor, recorded: now }),
+    });
+  } else if (added.length > 0 || deleted.size > 0) {
+    requests.push({
+      method: 'PATCH',
+      url: `/Provenance/${stored.provenance.id}`,
+      operations: [{ op: 'replace', path: '/target', value: targets.map((reference) => ({ reference })) }],
     });
   }
 
@@ -246,8 +239,8 @@ async function loadManualEra(oystehr: Oystehr, eraId: string, expectedVersionId?
   }
   if (pr.meta?.versionId !== expectedVersionId) throw MANUAL_ERA_VERSION_CONFLICT_ERROR;
 
-  const provenances = await fetchEraProcessingProvenances(oystehr, [`PaymentReconciliation/${eraId}`]);
-  const ids = [...new Set(provenances.flatMap((provenance) => eraProvenanceTargetIds(provenance, 'ClaimResponse')))];
+  const [provenance] = await fetchEraProcessingProvenances(oystehr, [`PaymentReconciliation/${eraId}`]);
+  const ids = provenance ? eraProvenanceTargetIds(provenance, 'ClaimResponse') : [];
   const found =
     ids.length > 0
       ? (
@@ -263,7 +256,7 @@ async function loadManualEra(oystehr: Oystehr, eraId: string, expectedVersionId?
   const byId = new Map(found.map((claimResponse) => [claimResponse.id, claimResponse]));
   return {
     pr,
-    provenances,
+    provenance,
     claimResponses: ids.flatMap((id) => byId.get(id) ?? []),
   };
 }

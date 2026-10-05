@@ -294,8 +294,6 @@ async function fetchEraAttachments(oystehr: Oystehr, eraId: string): Promise<Era
 
 // Who keyed a manual remit in and when: the author of its era-processing Provenance.
 async function enteredBy(oystehr: Oystehr, eraId: string): Promise<{ by: string; at: string }> {
-  const [first] = (await fetchEraProcessingProvenances(oystehr, [`PaymentReconciliation/${eraId}`])).sort((a, b) =>
-    (a.recorded ?? '').localeCompare(b.recorded ?? '')
-  );
-  return { by: first?.agent?.[0]?.who?.display ?? '', at: first?.recorded ?? '' };
+  const [provenance] = await fetchEraProcessingProvenances(oystehr, [`PaymentReconciliation/${eraId}`]);
+  return { by: provenance?.agent?.[0]?.who?.display ?? '', at: provenance?.recorded ?? '' };
 }

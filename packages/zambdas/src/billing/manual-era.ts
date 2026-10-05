@@ -337,22 +337,19 @@ export function buildManualClaimResponse(args: {
   };
 }
 
+// The new remit's era-processing Provenance, by whoever keyed it in.
 export function buildManualEraProvenance(args: {
   // PaymentReconciliation first, then the ClaimResponses in display order (urn:uuid fullUrls allowed)
   targets: string[];
   agent: Reference;
   recorded: string;
-  // an update keeps who keyed the remit in, and when
-  existing?: Provenance;
 }): Provenance {
-  const { existing } = args;
   return {
     resourceType: 'Provenance',
-    ...(existing?.id ? { id: existing.id } : {}),
     target: args.targets.map((reference) => ({ reference })),
-    recorded: existing?.recorded ?? args.recorded,
+    recorded: args.recorded,
     activity: { coding: [{ system: PROVENANCE_ACTIVITY_TYPE_SYSTEM, code: ERA_PROCESSING_ACTIVITY_CODE }] },
-    agent: existing?.agent ?? [{ who: args.agent }],
+    agent: [{ who: args.agent }],
   };
 }
 
