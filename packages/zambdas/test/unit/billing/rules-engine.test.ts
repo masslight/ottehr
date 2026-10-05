@@ -54,7 +54,9 @@ import {
 import {
   buildRulesEngineKickoffTask,
   listToRules,
+  RULES_ENGINE_INPUT_PAYER_CLAIM_CONTROL_NUMBER_CODE,
   RULES_ENGINE_INPUT_SKIP_RULES_CODE,
+  RULES_ENGINE_INPUT_SUBMISSION_TYPE_CODE,
   RULES_ENGINE_INPUT_SYSTEM,
   rulesToList,
 } from '../../../src/billing/rules-engine/serialization';
@@ -1942,6 +1944,140 @@ describe('rules-engine kickoff task', () => {
       expect(task.input?.[0].type.coding?.[0]).toEqual({
         system: RULES_ENGINE_INPUT_SYSTEM,
         code: RULES_ENGINE_INPUT_SKIP_RULES_CODE,
+      });
+      expect(task.requester).toBe(requester);
+    }
+    const codes = RULES_ENGINE_TYPES.map((engine) => RULES_ENGINE_FHIR[engine].taskCode);
+    expect(new Set(codes).size).toBe(codes.length);
+  });
+
+  it('builds a rules engine task for a new submission', () => {
+    const requester: Reference = {
+      reference: 'Practitioner/practitioner',
+    };
+    for (const engine of RULES_ENGINE_TYPES) {
+      const task = buildRulesEngineKickoffTask(engine, 'claim-123', true, requester, 'new');
+      expect(task.status).toBe('requested');
+      expect(task.focus?.reference).toBe('Claim/claim-123');
+      expect(task.code?.coding?.[0]).toEqual({
+        system: RULES_ENGINE_TASK_SYSTEM,
+        code: RULES_ENGINE_FHIR[engine].taskCode,
+      });
+      expect(task.input?.length).toEqual(1);
+      expect(task.input?.[0]).toEqual({
+        type: {
+          coding: [
+            {
+              system: RULES_ENGINE_INPUT_SYSTEM,
+              code: RULES_ENGINE_INPUT_SKIP_RULES_CODE,
+            },
+          ],
+        },
+        valueBoolean: true,
+      });
+      expect(task.requester).toBe(requester);
+    }
+    const codes = RULES_ENGINE_TYPES.map((engine) => RULES_ENGINE_FHIR[engine].taskCode);
+    expect(new Set(codes).size).toBe(codes.length);
+  });
+
+  it('builds a rules engine task for a correction', () => {
+    const requester: Reference = {
+      reference: 'Practitioner/practitioner',
+    };
+    for (const engine of RULES_ENGINE_TYPES) {
+      const task = buildRulesEngineKickoffTask(engine, 'claim-123', true, requester, 'correction', 'PCCN-12345');
+      expect(task.status).toBe('requested');
+      expect(task.focus?.reference).toBe('Claim/claim-123');
+      expect(task.code?.coding?.[0]).toEqual({
+        system: RULES_ENGINE_TASK_SYSTEM,
+        code: RULES_ENGINE_FHIR[engine].taskCode,
+      });
+      expect(task.input?.length).toEqual(3);
+      expect(task.input?.[0]).toEqual({
+        type: {
+          coding: [
+            {
+              system: RULES_ENGINE_INPUT_SYSTEM,
+              code: RULES_ENGINE_INPUT_SKIP_RULES_CODE,
+            },
+          ],
+        },
+        valueBoolean: true,
+      });
+      expect(task.input?.[1]).toEqual({
+        type: {
+          coding: [
+            {
+              system: RULES_ENGINE_INPUT_SYSTEM,
+              code: RULES_ENGINE_INPUT_SUBMISSION_TYPE_CODE,
+            },
+          ],
+        },
+        valueString: 'correction',
+      });
+      expect(task.input?.[2]).toEqual({
+        type: {
+          coding: [
+            {
+              system: RULES_ENGINE_INPUT_SYSTEM,
+              code: RULES_ENGINE_INPUT_PAYER_CLAIM_CONTROL_NUMBER_CODE,
+            },
+          ],
+        },
+        valueString: 'PCCN-12345',
+      });
+      expect(task.requester).toBe(requester);
+    }
+    const codes = RULES_ENGINE_TYPES.map((engine) => RULES_ENGINE_FHIR[engine].taskCode);
+    expect(new Set(codes).size).toBe(codes.length);
+  });
+
+  it('builds a rules engine task for a void', () => {
+    const requester: Reference = {
+      reference: 'Practitioner/practitioner',
+    };
+    for (const engine of RULES_ENGINE_TYPES) {
+      const task = buildRulesEngineKickoffTask(engine, 'claim-123', true, requester, 'void', 'PCCN-12345');
+      expect(task.status).toBe('requested');
+      expect(task.focus?.reference).toBe('Claim/claim-123');
+      expect(task.code?.coding?.[0]).toEqual({
+        system: RULES_ENGINE_TASK_SYSTEM,
+        code: RULES_ENGINE_FHIR[engine].taskCode,
+      });
+      expect(task.input?.length).toEqual(3);
+      expect(task.input?.[0]).toEqual({
+        type: {
+          coding: [
+            {
+              system: RULES_ENGINE_INPUT_SYSTEM,
+              code: RULES_ENGINE_INPUT_SKIP_RULES_CODE,
+            },
+          ],
+        },
+        valueBoolean: true,
+      });
+      expect(task.input?.[1]).toEqual({
+        type: {
+          coding: [
+            {
+              system: RULES_ENGINE_INPUT_SYSTEM,
+              code: RULES_ENGINE_INPUT_SUBMISSION_TYPE_CODE,
+            },
+          ],
+        },
+        valueString: 'void',
+      });
+      expect(task.input?.[2]).toEqual({
+        type: {
+          coding: [
+            {
+              system: RULES_ENGINE_INPUT_SYSTEM,
+              code: RULES_ENGINE_INPUT_PAYER_CLAIM_CONTROL_NUMBER_CODE,
+            },
+          ],
+        },
+        valueString: 'PCCN-12345',
       });
       expect(task.requester).toBe(requester);
     }

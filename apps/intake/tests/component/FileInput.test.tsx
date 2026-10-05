@@ -3,31 +3,20 @@ import imageCompression from 'browser-image-compression';
 import { FC } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { PaperworkContext } from 'ui-components/lib/components/paperwork/context';
-import {
+import FileInput, {
   COMPRESS_TARGET_MB,
   COMPRESS_THRESHOLD_MB,
-  FileInput,
-} from 'ui-components/lib/components/paperwork/form-components';
+} from 'ui-components/lib/components/paperwork/form-components/FileInput';
 import { describe, expect, test, vi } from 'vitest';
 
 vi.mock('browser-image-compression', () => ({
   default: vi.fn(async (file: File) => file),
 }));
 
-// FileInput/index.tsx imports convertHeicToJpegIfNeeded via a relative path
-// (../../../../utils/heic), not the ui-components barrel, so we must mock the
-// resolved module path directly.
+// Mock the module that declares it: FileInput/index.tsx imports it by relative path.
 vi.mock('ui-components/lib/utils/heic', () => ({
   convertHeicToJpegIfNeeded: vi.fn(async (file: File) => file),
 }));
-
-vi.mock('ui-components', async () => {
-  const actual = await vi.importActual<typeof import('ui-components')>('ui-components');
-  return {
-    ...actual,
-    convertHeicToJpegIfNeeded: vi.fn(async (file: File) => file),
-  };
-});
 
 vi.mock('../../src/hooks/useUCZambdaClient', () => ({
   useUCZambdaClient: () => null,

@@ -1188,8 +1188,8 @@ describe('ClaimDetail: timely filing report', () => {
     const user = userEvent.setup();
     renderDetail();
 
-    const reportButton = await screen.findByRole('button', { name: 'Timely Filing Report' });
-    await user.click(reportButton);
+    await user.click(await screen.findByRole('button', { name: 'Downloads' }));
+    await user.click(screen.getByRole('menuitem', { name: /proof of timely filing/i }));
 
     await waitFor(() =>
       expect(createTimelyFilingReportMock).toHaveBeenCalledWith(oystehrZambdaStub, {
@@ -1207,14 +1207,17 @@ describe('ClaimDetail: timely filing report', () => {
     createTimelyFilingReportMock.mockRejectedValue(new Error('Claim has no acknowledgments'));
     renderDetail();
 
-    const reportButton = await screen.findByRole('button', { name: 'Timely Filing Report' });
-    await user.click(reportButton);
+    await user.click(await screen.findByRole('button', { name: 'Downloads' }));
+    await user.click(screen.getByRole('menuitem', { name: /proof of timely filing/i }));
 
     await waitFor(() => expect(enqueueSnackbarMock).toHaveBeenCalled());
     expect(downloadBase64FileMock).not.toHaveBeenCalled();
-    // The button comes back so the biller can retry.
-    const retryButton = await screen.findByRole('button', { name: 'Timely Filing Report' });
-    expect(retryButton).toBeEnabled();
+    // The biller can try again.
+    await user.click(screen.getByRole('button', { name: 'Downloads' }));
+    expect(await screen.findByRole('menuitem', { name: /proof of timely filing/i })).not.toHaveAttribute(
+      'aria-disabled',
+      'true'
+    );
   });
 });
 

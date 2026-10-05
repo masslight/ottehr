@@ -40,5 +40,3 @@ export type GetOystehrTelemedAPIParams = {
   deleteApprovedPatientEducationZambdaID?: string;
   updateApprovedPatientEducationCodesZambdaID?: string;
 };
-
-export type { PromiseReturnType } from 'utils/lib/types/common';

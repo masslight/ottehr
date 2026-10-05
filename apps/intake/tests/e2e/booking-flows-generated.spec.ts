@@ -14,7 +14,7 @@
 
 import { expect, test } from '@playwright/test';
 import { Location, Schedule } from 'fhir/r4b';
-import { isTelemedEnabled } from 'test-utils';
+import { isTelemedEnabled } from 'test-utils/lib/telemed-config';
 import { FEATURE_FLAGS_CONFIG } from 'utils/lib/ottehr-config/feature-flags';
 import { CanonicalUrl, ServiceMode } from 'utils/lib/types/common';
 import { executeBookingScenario, generateBookingTestScenarios } from '../utils/booking/BookingTestFactory';

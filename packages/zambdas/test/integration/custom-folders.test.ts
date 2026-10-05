@@ -523,8 +523,8 @@ describe('custom folders zambdas integration tests', () => {
       // Pure unit — exercises the same util `createPatientDocumentLists` that the patient
       // registration path uses. We don't run that path here because it would require
       // the full registration flow. The util is the source of truth.
-      const utils = await import('utils');
-      const lists = utils.createPatientDocumentLists('Patient/abc');
+      const { createPatientDocumentLists } = await import('utils/lib/fhir/list');
+      const lists = createPatientDocumentLists('Patient/abc');
       expect(lists.length).toBe(FOLDERS_CONFIG.length);
       for (const list of lists) {
         const isCustom = (list.code?.coding ?? []).some((c) => c.code === 'custom');

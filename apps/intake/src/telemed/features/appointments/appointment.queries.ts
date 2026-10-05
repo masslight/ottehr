@@ -1,7 +1,7 @@
 import { useMutation, UseMutationResult, useQuery, UseQueryResult } from '@tanstack/react-query';
 import { DateTime } from 'luxon';
 import { OystehrAPIClient } from 'ui-components/lib/data/oystehrApi';
-import { useSuccessQuery } from 'utils/lib/frontend';
+import { useSuccessQuery } from 'utils/lib/frontend/hooks/useSuccessQuery';
 import { BookableItemListResponse, GetBookableItemListParams, PromiseReturnType } from 'utils/lib/types/common';
 import { GetScheduleRequestParams, GetScheduleResponse } from 'utils/lib/types/data/get-schedule.types';
 import { PatientInfo } from 'utils/lib/types/data/telemed/appointments/create-appointment.types';

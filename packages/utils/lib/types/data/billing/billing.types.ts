@@ -531,6 +531,7 @@ export interface ClaimDetailResponse {
   accidentState: string;
   accidentDate: string;
   attachments: ClaimAttachment[];
+  payerClaimControlNumber?: string;
 }
 
 interface Paginated {
@@ -1075,6 +1076,15 @@ export interface RecordBillingManualPaymentResponse {
   paymentNoticeId: string;
   // present when the notice is linked to an existing billing Claim
   claimId?: string;
+}
+
+export interface RecordBillingRefundResponse {
+  billingNoticesStamped: number;
+  candidRefundsRecorded: number;
+}
+
+export interface RecordBillingVoidResponse {
+  billingNoticesVoided: number;
 }
 
 export interface AddClaimAttachmentResponse {

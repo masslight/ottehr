@@ -12,7 +12,6 @@ import {
   Resource,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { INSURANCE_PAY_OPTION, SELF_PAY_OPTION } from '../config-helpers/shared-questionnaire';
 import {
   BILLING_RESOURCE_TAG,
   FHIR_IDENTIFIER_SYSTEM,
@@ -25,6 +24,7 @@ import { CANDID_PLAN_TYPE_SYSTEM, INSURANCE_CANDID_PLAN_TYPE_CODES } from '../fh
 import { OTTEHR_MODULE } from '../fhir/moduleIdentification';
 import { getFullName } from '../fhir/patient';
 import {
+  isPendingReservation,
   parsePaymentRefundsFromNotice,
   parsePaymentVoidFromNotice,
   settledRefundTotalInCents,
@@ -32,6 +32,7 @@ import {
 import { getPaymentNoticeSubmitterRef } from '../fhir/payments';
 import { CONSENT_FORMS_CONFIG } from '../ottehr-config/consent-forms';
 import { patientScreeningQuestionsConfig } from '../ottehr-config/screening-questions';
+import { INSURANCE_PAY_OPTION, SELF_PAY_OPTION } from '../ottehr-config/value-sets';
 import { CashPaymentDTO } from '../types/api/patient-payment-types';
 import {
   PHYSICIAN_TYPES,
@@ -1650,7 +1651,8 @@ const cashPaymentDTOFromFhirPaymentNotice = (paymentNotice: PaymentNotice): Cash
     return undefined;
   }
 
-  const refunds = parsePaymentRefundsFromNotice(paymentNotice);
+  // in-flight reservations stay on the notice but are not refunds to show or count
+  const refunds = parsePaymentRefundsFromNotice(paymentNotice)?.filter((refund) => !isPendingReservation(refund));
   const voidInfo = parsePaymentVoidFromNotice(paymentNotice);
   const voided = !!voidInfo || paymentNotice.status === 'cancelled';
   const takenBy = getPaymentNoticeSubmitterRef(paymentNotice)?.display;
@@ -1661,7 +1663,7 @@ const cashPaymentDTOFromFhirPaymentNotice = (paymentNotice: PaymentNotice): Cash
     dateISO: created,
     fhirPaymentNotificationId: id,
     ...(takenBy ? { takenBy } : {}),
-    ...(refunds ? { refunds, refundedAmountInCents: settledRefundTotalInCents(refunds) } : {}),
+    ...(refunds?.length ? { refunds, refundedAmountInCents: settledRefundTotalInCents(refunds) } : {}),
     ...(voided
       ? { voided: true, voidReason: voidInfo?.reason, voidNotes: voidInfo?.notes, voidedBy: voidInfo?.voidedBy }
       : {}),

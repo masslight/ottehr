@@ -1,5 +1,5 @@
 import Oystehr from '@oystehr/sdk';
-import { captureException } from '@sentry/aws-serverless';
+import { captureException } from '@sentry/node-core/light';
 import { randomUUID } from 'crypto';
 import { DocumentReference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
@@ -71,8 +71,6 @@ export const readExtensionJson = <T>(docRef: DocumentReference, url: string): T 
   readSharedExtensionJson<T>(docRef, url, (error) =>
     captureException(error, { extra: { extensionUrl: url, documentReferenceId: docRef.id } })
   );
-
-export { withExtensionJson } from 'utils/lib/fhir/extensions';
 
 export const isFillable = (docRef: DocumentReference): boolean =>
   (docRef.category ?? []).some((c) =>

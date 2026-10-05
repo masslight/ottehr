@@ -1,5 +1,5 @@
 import Oystehr, { BatchInputPostRequest, BatchInputPutRequest } from '@oystehr/sdk';
-import { captureException } from '@sentry/aws-serverless';
+import { captureException } from '@sentry/node-core/light';
 import { randomUUID } from 'crypto';
 import { Operation } from 'fast-json-patch';
 import {
@@ -50,6 +50,7 @@ import {
   sanitizeStringForFhirCode,
 } from 'utils/lib/fhir/helpers';
 import { fillVitalObservationAttributes, isVitalObservation, makeVitalsObservationDTO } from 'utils/lib/fhir/vitals';
+import { removePrefix } from 'utils/lib/helpers/helpers';
 import {
   addEmptyArrOperation,
   addOperation,
@@ -117,7 +118,6 @@ import {
   ObservationDTO,
   ObservationTextFieldDTO,
 } from 'utils/lib/types/data/screening-questions/types';
-import { removePrefix } from '../appointment/helpers';
 import { getCptModifierCodeFromProcedure, makeCptModifierExtension } from '../candid';
 import { fillMeta } from '../helpers';
 import { isDocumentPublished, PdfDocumentReferencePublishedStatuses, PdfInfo } from '../pdf/pdf-utils';

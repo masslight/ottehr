@@ -56,4 +56,101 @@ describe('run-billing-rules-engine - validateRequestParameters', () => {
     const input = createMockZambdaInput(null, { secrets });
     expect(() => validateRequestParameters(input)).toThrow();
   });
+
+  test('returns validated params for valid submission type params', () => {
+    expect(
+      validateRequestParameters(
+        createMockZambdaInput({ claimIds, skipRules: true, submissionType: 'new' }, { secrets })
+      )
+    ).toEqual({
+      claimIds,
+      secrets,
+      skipRules: true,
+      submissionType: 'new',
+    });
+    expect(
+      validateRequestParameters(
+        createMockZambdaInput({ claimIds, skipRules: false, submissionType: 'new' }, { secrets })
+      )
+    ).toEqual({
+      claimIds,
+      secrets,
+      skipRules: false,
+      submissionType: 'new',
+    });
+    expect(
+      validateRequestParameters(
+        createMockZambdaInput(
+          { claimIds, skipRules: true, submissionType: 'correction', payerClaimControlNumber: 'PCCN-12345' },
+          { secrets }
+        )
+      )
+    ).toEqual({
+      claimIds,
+      secrets,
+      skipRules: true,
+      submissionType: 'correction',
+      payerClaimControlNumber: 'PCCN-12345',
+    });
+    expect(
+      validateRequestParameters(
+        createMockZambdaInput(
+          { claimIds, skipRules: true, submissionType: 'void', payerClaimControlNumber: 'PCCN-12345' },
+          { secrets }
+        )
+      )
+    ).toEqual({
+      claimIds,
+      secrets,
+      skipRules: true,
+      submissionType: 'void',
+      payerClaimControlNumber: 'PCCN-12345',
+    });
+  });
+
+  test('throws for invalid submission type params', () => {
+    // New submissions should not have PCCN
+    expect(() =>
+      validateRequestParameters(
+        createMockZambdaInput(
+          { claimIds, skipRules: true, submissionType: 'new', payerClaimControlNumber: 'PCCN-12345' },
+          { secrets }
+        )
+      )
+    ).toThrow();
+    // Corrections and voids require PCCN
+    expect(() =>
+      validateRequestParameters(
+        createMockZambdaInput(
+          { claimIds, skipRules: true, submissionType: 'correction', payerClaimControlNumber: undefined },
+          { secrets }
+        )
+      )
+    ).toThrow();
+    expect(() =>
+      validateRequestParameters(
+        createMockZambdaInput(
+          { claimIds, skipRules: true, submissionType: 'void', payerClaimControlNumber: undefined },
+          { secrets }
+        )
+      )
+    ).toThrow();
+    // Only "new" can be used when skipRules is false
+    expect(() =>
+      validateRequestParameters(
+        createMockZambdaInput(
+          { claimIds, skipRules: false, submissionType: 'correction', payerClaimControlNumber: undefined },
+          { secrets }
+        )
+      )
+    ).toThrow();
+    expect(() =>
+      validateRequestParameters(
+        createMockZambdaInput(
+          { claimIds, skipRules: false, submissionType: 'correction', payerClaimControlNumber: undefined },
+          { secrets }
+        )
+      )
+    ).toThrow();
+  });
 });

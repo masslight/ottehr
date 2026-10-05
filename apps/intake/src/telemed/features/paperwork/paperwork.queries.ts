@@ -4,7 +4,7 @@ import { useClient } from 'src/providers/intakeOysterClientProvider';
 import { useAppointmentStore } from 'src/telemed/features/appointments/appointment.store';
 import { useOystehrAPIClient } from 'src/telemed/utils/getOystehrAPI';
 import { OystehrAPIClient } from 'ui-components/lib/data/oystehrApi';
-import { useSuccessQuery } from 'utils/lib/frontend';
+import { useSuccessQuery } from 'utils/lib/frontend/hooks/useSuccessQuery';
 import { PromiseReturnType } from 'utils/lib/types/common';
 import { isNullOrUndefined } from 'utils/lib/validation/helper';
 

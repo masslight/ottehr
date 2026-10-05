@@ -1,5 +1,5 @@
 import Oystehr from '@oystehr/sdk';
-import { captureException } from '@sentry/aws-serverless';
+import { captureException } from '@sentry/node-core/light';
 import {
   Appointment,
   Condition,
@@ -227,7 +227,7 @@ const SCREENING_FIELD_BY_CODE = new Map(patientScreeningQuestionsConfig.fields.m
 const screeningAnswer = (o: Observation): { question: string; answer: string } | undefined => {
   const field = o.code?.text ? SCREENING_FIELD_BY_CODE.get(o.code.text) : undefined;
   if (!field) return undefined;
-  const raw = o.valueString ?? o.valueDateTime;
+  const raw = typeof o.valueBoolean === 'boolean' ? (o.valueBoolean ? 'Yes' : 'No') : o.valueString ?? o.valueDateTime;
   if (!raw) return undefined;
   const answer = field.options?.find((opt) => opt.fhirValue === raw)?.label ?? raw;
   return { question: field.question, answer };

@@ -1,6 +1,12 @@
 import { Box, Typography } from '@mui/material';
 import { FC, ReactElement } from 'react';
-import { EvaluationResult, EvidenceSource, Finding, FindingEvidence, FindingScopeKind } from 'utils';
+import {
+  EvaluationResult,
+  EvidenceSource,
+  Finding,
+  FindingEvidence,
+  FindingScopeKind,
+} from 'utils/lib/procedure-coding/model.types';
 
 export function actionableFindings(findings: Finding[]): Finding[] {
   return findings.filter((finding) => finding.level !== 'bestPractice');

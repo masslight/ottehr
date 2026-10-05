@@ -1,42 +1,26 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import {
-  Claim,
-  Identifier,
-  Money,
-  Organization,
-  PaymentNotice,
-  PaymentReconciliation,
-  Reference,
-  Task,
-  TaskOutput,
-} from 'fhir/r4b';
+import { Claim, Identifier, Money, Organization, PaymentNotice, PaymentReconciliation, Reference } from 'fhir/r4b';
 import Stripe from 'stripe';
-import {
-  BILLING_RESOURCE_TAG,
-  PAYMENT_METHOD_EXTENSION_URL,
-  RCM_TASK_SYSTEM,
-  RcmTaskCode,
-  RcmTaskCodings,
-} from 'utils/lib/fhir/constants';
+import { BILLING_RESOURCE_TAG, PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import { parsePaymentRefundsFromNotice, staleReservationIds } from 'utils/lib/fhir/paymentRefunds';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import { PaymentRefundDTO } from 'utils/lib/types/api/patient-payment-types';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { shouldUseOttehrBilling } from '../../shared/candid';
-import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import {
-  applyRefundsToPaymentNotice,
+  applyRefundsToPaymentNoticeWithRetry,
   encounterIdFromStripeMetadata,
   getStripeClient,
   STRIPE_PAYMENT_ID_SYSTEM,
   stripeRefundToDTO,
 } from '../../shared/stripeIntegration';
+import { StripeWebhookParams } from '../../shared/stripeWebhook';
 import { ZambdaInput } from '../../shared/types/common';
-import { updateTaskStatusAndOutput } from '../../subscriptions/helpers';
 import { claimRequestFor, findBillingClaimForEncounter } from '../payments';
 import { createBillingClient, reconcilePaymentNoticesForClaim, STRIPE_ACCOUNT_IDENTIFIER_SYSTEM } from '../shared';
-import { BillingStripeWebhookParams, validateRequestParameters } from './validateRequestParameters';
+import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'billing-stripe-webhook';
 
@@ -47,11 +31,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const { event, stripeAccount } = params;
   console.log('Verified Stripe event:', event.id, event.type, 'connected account:', stripeAccount ?? 'none');
 
-  // Invoice task Stripe-status updates run for all billing integrations because
-  // sub-send-invoice-to-patient creates Stripe invoices for both Candid and Ottehr Billing tasks.
-  m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
-  await updateInvoiceTaskStripeStatusFromEvent(event, params.secrets);
-
   if (!shouldUseOttehrBilling(params.secrets)) {
     console.log('BILLING_INTEGRATION does not include ottehr; acknowledging event without processing');
     return {
@@ -60,6 +39,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     };
   }
 
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
 
   await performEffect(oystehr, params);
@@ -70,7 +50,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   };
 });
 
-export const performEffect = async (oystehr: Oystehr, params: BillingStripeWebhookParams): Promise<void> => {
+export const performEffect = async (oystehr: Oystehr, params: StripeWebhookParams): Promise<void> => {
   const { event, secrets, stripeAccount = event.account } = params;
   switch (event.type) {
     case 'charge.succeeded':
@@ -103,65 +83,6 @@ export const performEffect = async (oystehr: Oystehr, params: BillingStripeWebho
     default:
       console.log('Ignoring unhandled event type:', event.type);
   }
-};
-
-const INVOICE_EVENT_STATUS_MAP: Partial<Record<Stripe.Event['type'], string>> = {
-  'invoice.paid': 'paid',
-  'invoice.voided': 'void',
-  'invoice.marked_uncollectible': 'uncollectible',
-};
-
-const updateInvoiceTaskStripeStatusFromEvent = async (
-  event: Stripe.Event,
-  secrets: ZambdaInput['secrets']
-): Promise<void> => {
-  const stripeStatus = INVOICE_EVENT_STATUS_MAP[event.type];
-  if (!stripeStatus) return;
-
-  const invoice = event.data.object as Stripe.Invoice;
-  const encounterId = encounterIdFromStripeMetadata(invoice.metadata);
-  if (!encounterId) return;
-
-  const clinicalOystehr = createClinicalOystehrClient(m2mToken, secrets);
-  await updateInvoiceTaskStripeStatus(clinicalOystehr, invoice.id, stripeStatus, encounterId);
-};
-
-const updateInvoiceTaskStripeStatus = async (
-  oystehr: Oystehr,
-  stripeInvoiceId: string,
-  stripeStatus: string,
-  encounterId: string
-): Promise<void> => {
-  const tasks = (
-    await oystehr.fhir.search<Task>({
-      resourceType: 'Task',
-      params: [
-        { name: 'encounter', value: `Encounter/${encounterId}` },
-        { name: 'code', value: `${RCM_TASK_SYSTEM}|${RcmTaskCode.sendInvoiceToPatient}` },
-      ],
-    })
-  ).unbundle();
-
-  const task = tasks.find(
-    (t) =>
-      t.output?.some(
-        (o) =>
-          o.type?.coding?.find((c) => c.code === RcmTaskCode.sendInvoiceOutputInvoiceId) &&
-          o.valueString === stripeInvoiceId
-      )
-  );
-
-  if (!task?.id || !task.status) {
-    console.warn(`No invoice task found for Stripe invoice ${stripeInvoiceId} / encounter ${encounterId}`);
-    return;
-  }
-
-  const statusOutput: TaskOutput = {
-    type: RcmTaskCodings.stripeInvoiceStatus,
-    valueString: stripeStatus,
-  };
-  await updateTaskStatusAndOutput({ oystehr, task, outputToAppend: [statusOutput] });
-  console.log(`Updated invoice task ${task.id} stripe status to '${stripeStatus}'`);
 };
 
 // picks the billing provider org stamped with the connected account id or default org otherwise,
@@ -409,11 +330,10 @@ const upsertPaymentNoticeForRefund = async (
 
   await persistPaymentNoticeUpsert(oystehr, desiredNotice, refund.id, claim, encounterId);
 
-  // stamp refund state on the original payment notices (clinical + billing) so consumers don't go back to stripe
-  await markSourceNoticesForRefundedCharge(oystehr, charge, stripeAccount, secrets);
+  await markBillingNoticesForRefundedCharge(oystehr, charge, stripeAccount, secrets);
 };
 
-const markSourceNoticesForRefundedCharge = async (
+const markBillingNoticesForRefundedCharge = async (
   oystehr: Oystehr,
   charge: Stripe.Charge,
   stripeAccount: string | undefined,
@@ -433,41 +353,32 @@ const markSourceNoticesForRefundedCharge = async (
 
   const paymentIntentId = typeof charge.payment_intent === 'string' ? charge.payment_intent : charge.payment_intent?.id;
 
-  // the original notices live in two projects: billing copies carry charge id + payment intent id,
-  // the clinical notice carries the payment intent id only
-  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const clinicalOystehr = createClinicalOystehrClient(m2mToken, secrets);
-  const projectSearches: { client: Oystehr; stripeIds: (string | undefined)[] }[] = [
-    { client: oystehr, stripeIds: [charge.id, paymentIntentId] },
-    { client: clinicalOystehr, stripeIds: [paymentIntentId] },
-  ];
+  const identifierValues = [charge.id, paymentIntentId]
+    .filter((id): id is string => Boolean(id))
+    .map((id) => `${STRIPE_PAYMENT_ID_SYSTEM}|${id}`)
+    .join(',');
 
-  for (const { client, stripeIds } of projectSearches) {
-    const identifierValues = stripeIds
-      .filter((id): id is string => Boolean(id))
-      .map((id) => `${STRIPE_PAYMENT_ID_SYSTEM}|${id}`)
-      .join(',');
-    if (!identifierValues) continue;
+  let notices: PaymentNotice[];
+  try {
+    notices = (
+      await oystehr.fhir.search<PaymentNotice>({
+        resourceType: 'PaymentNotice',
+        params: [{ name: 'identifier', value: identifierValues }],
+      })
+    ).unbundle();
+  } catch (error) {
+    console.error(`Error searching source PaymentNotices for charge ${charge.id}`, error);
+    return;
+  }
 
-    let notices: PaymentNotice[];
+  for (const notice of notices) {
     try {
-      notices = (
-        await client.fhir.search<PaymentNotice>({
-          resourceType: 'PaymentNotice',
-          params: [{ name: 'identifier', value: identifierValues }],
-        })
-      ).unbundle();
+      // retry variant: a version conflict from an unrelated concurrent update must not
+      // discard the webhook's only stamping attempt; stale reservations are cleaned here too
+      const staleIds = staleReservationIds([...(parsePaymentRefundsFromNotice(notice) ?? []), ...refunds]);
+      await applyRefundsToPaymentNoticeWithRetry(oystehr, notice, refunds, staleIds);
     } catch (error) {
-      console.error(`Error searching source PaymentNotices for charge ${charge.id}`, error);
-      continue;
-    }
-
-    for (const notice of notices) {
-      try {
-        await applyRefundsToPaymentNotice(client, notice, refunds);
-      } catch (error) {
-        console.error(`Error stamping refunds on PaymentNotice/${notice.id}`, error);
-      }
+      console.error(`Error stamping refunds on PaymentNotice/${notice.id}`, error);
     }
   }
 };
