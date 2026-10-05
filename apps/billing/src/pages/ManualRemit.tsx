@@ -86,7 +86,6 @@ const SCAN_TYPES = {
   'image/jpeg': ['.jpg', '.jpeg'],
   'image/tiff': ['.tif', '.tiff'],
 };
-const SCAN_MAX_BYTES = 20 * 1024 * 1024;
 
 // what a stored claim looked like when last saved, to tell edited cards apart
 const snapshotOf = (claim: ClaimForm): string => JSON.stringify({ ...claimFormToInput(claim), clientKey: undefined });
@@ -662,7 +661,6 @@ export default function ManualRemit(): ReactElement {
           attachments={detail?.attachments ?? []}
           description="Attach a scan of the paper remit (PDF or image)."
           accept={SCAN_TYPES}
-          maxSize={SCAN_MAX_BYTES}
           disabledReason={notSavedYet}
           onUpload={async ({ name, file }) => {
             if (!oystehrZambda || !eraId) return;

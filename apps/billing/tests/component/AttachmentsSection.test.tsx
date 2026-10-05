@@ -62,6 +62,24 @@ describe('AttachmentsSection', () => {
     expect(screen.queryByLabelText('Report Type Code')).not.toBeInTheDocument();
   });
 
+  it('turns away a file over 20 MB', async () => {
+    const actions = handlers();
+    render(<AttachmentsSection attachments={[]} {...actions} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+
+    const scan = new File(['%PDF'], 'scan.pdf', { type: 'application/pdf' });
+    Object.defineProperty(scan, 'size', { value: 20 * 1024 * 1024 + 1 });
+    fireEvent.change(document.querySelector('input[type="file"]') as HTMLInputElement, { target: { files: [scan] } });
+
+    expect(
+      await screen.findByText('File could not be uploaded. Please select a file smaller than 20 MB.')
+    ).toBeInTheDocument();
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Save' }));
+    // the file never made it into the form: no file, and so no name taken from it
+    expect(await screen.findAllByText('This field is required')).toHaveLength(2);
+    expect(actions.onUpload).not.toHaveBeenCalled();
+  });
+
   it('renames with its own form, pre-filled with the current name', async () => {
     const actions = handlers();
     render(<AttachmentsSection attachments={attachments} reportTypeCodes={REPORT_TYPES} {...actions} />);

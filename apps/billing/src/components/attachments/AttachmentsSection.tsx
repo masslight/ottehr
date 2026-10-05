@@ -69,9 +69,8 @@ export interface AttachmentsSectionProps {
   // offered when adding and shown per row (claims); omit for attachments that have no report type
   reportTypeCodes?: readonly ReportTypeCode[];
   defaultReportTypeCode?: string;
-  // drop-zone restrictions for the add dialog
+  // file types the add dialog takes
   accept?: DropzoneProps['accept'];
-  maxSize?: number;
   // shown under the heading
   description?: string;
   // download only
@@ -90,6 +89,9 @@ interface AddForm {
   file: File | null;
 }
 
+// the largest file an attachment, a claim's or a remit's, can be
+const MAX_ATTACHMENT_BYTES = 20 * 1024 * 1024;
+
 // The attachments card shared by the claim detail and manual remit screens: a table of files with
 // download, rename and delete, and an add dialog with a drop zone. The screen supplies the storage
 // calls; this component owns the dialogs and their error handling.
@@ -98,7 +100,6 @@ export function AttachmentsSection({
   reportTypeCodes,
   defaultReportTypeCode,
   accept,
-  maxSize,
   description,
   readOnly,
   disabledReason,
@@ -368,7 +369,7 @@ export function AttachmentsSection({
                   )}
                 />
               )}
-              <DropzoneField name="file" multiple={false} required accept={accept} maxSize={maxSize} />
+              <DropzoneField name="file" multiple={false} required accept={accept} maxSize={MAX_ATTACHMENT_BYTES} />
             </Box>
           </FormProvider>
         </DialogContent>
