@@ -3,6 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { List } from 'fhir/r4b';
 import { BUCKET_NAMES } from 'utils/lib/fhir/constants';
 import { FileDocDataForDocReference } from 'utils/lib/fhir/helpers';
+import { uploadObjectToZ3 } from 'utils/lib/helpers/presigned-file-url/helpers';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import {
   normalizePatientEducationLanguage,
@@ -19,7 +20,7 @@ import {
 import { makeZ3Url } from '../../shared/presigned-file-urls/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
-import { createPresignedUrl, uploadObjectToZ3 } from '../../shared/z3Utils';
+import { createPresignedUrl } from '../../shared/z3Utils';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;

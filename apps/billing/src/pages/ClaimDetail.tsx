@@ -44,6 +44,7 @@ import { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom';
 import { CLAIM_ATTACHMENT_REPORT_TYPE_CODES, DEFAULT_CLAIM_ATTACHMENT_REPORT_TYPE_CODE } from 'utils/lib/fhir/billing';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
+import { uploadObjectToZ3 } from 'utils/lib/helpers/presigned-file-url/helpers';
 import {
   CLAIM_ACCIDENT_TYPE_DISPLAY_VALUES,
   CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES,
@@ -100,7 +101,6 @@ import {
   updateBillingPatient,
   updateBillingProvider,
   updateBillingResource,
-  uploadFileToPresignedUrl,
 } from '../api/api';
 import { AccidentInfoFields } from '../components/AccidentInfoFields';
 import { AttachmentsSection } from '../components/attachments/AttachmentsSection';
@@ -1716,7 +1716,7 @@ function ClaimAttachmentsSection({
           ...(file.type ? { mimeType: file.type } : {}),
         });
         try {
-          await uploadFileToPresignedUrl(uploadUrl, file);
+          await uploadObjectToZ3(file, uploadUrl, file.type);
         } catch (err) {
           // don't leave an attachment pointing at a file that never arrived
           if (documentReferenceId) {

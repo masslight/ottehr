@@ -28,6 +28,7 @@ import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
+import { uploadObjectToZ3 } from 'utils/lib/helpers/presigned-file-url/helpers';
 import {
   ERA_PAYMENT_METHODS,
   EraPaymentMethodCode,
@@ -44,7 +45,6 @@ import {
   saveBillingManualEra,
   searchBillingEras,
   unmatchClaimResponse,
-  uploadFileToPresignedUrl,
 } from '../api/api';
 import { AddMenuButton } from '../components/AddMenuButton';
 import { AttachmentsSection } from '../components/attachments/AttachmentsSection';
@@ -677,7 +677,7 @@ export default function ManualRemit(): ReactElement {
               mimeType: file.type,
             });
             try {
-              await uploadFileToPresignedUrl(uploadUrl, file);
+              await uploadObjectToZ3(file, uploadUrl, file.type);
             } catch (err) {
               // don't keep a record pointing at a file that never arrived
               await deleteEraAttachment(oystehrZambda, { eraId, documentReferenceId }).catch(() => undefined);

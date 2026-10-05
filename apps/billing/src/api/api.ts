@@ -713,10 +713,3 @@ export const downloadEraAttachment = (
   oystehr: Oystehr,
   parameters: z.input<typeof DownloadEraAttachmentInputSchema>
 ): Promise<DownloadEraAttachmentResponse> => executeBillingZambda(oystehr, 'download-era-attachment', parameters);
-
-// PUTs a file to a presigned Z3 upload URL; throws when storage refuses it, so the caller can clean up
-// the attachment record it created for the upload.
-export async function uploadFileToPresignedUrl(uploadUrl: string, file: File): Promise<void> {
-  const response = await fetch(uploadUrl, { method: 'PUT', headers: { 'Content-Type': file.type }, body: file });
-  if (!response.ok) throw new Error(`The file could not be uploaded (${response.status})`);
-}

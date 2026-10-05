@@ -9,6 +9,7 @@ import { randomUUID } from 'crypto';
 import { DocumentReference, List } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { BUCKET_NAMES } from 'utils/lib/fhir/constants';
+import { uploadObjectToZ3 } from 'utils/lib/helpers/presigned-file-url/helpers';
 import { CODE_SYSTEM_ICD_10 } from 'utils/lib/helpers/rcm/constants';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import {
@@ -27,7 +28,7 @@ import { topLevelCatch } from '../../shared/lambda';
 import { makeZ3FileUrl } from '../../shared/presigned-file-urls/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
-import { createPresignedUrl, deleteZ3Object, uploadObjectToZ3 } from '../../shared/z3Utils';
+import { createPresignedUrl, deleteZ3Object } from '../../shared/z3Utils';
 import { extractApprovedEducationIcdCodes } from '../shared/approved-patient-education-helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 

@@ -16,7 +16,6 @@ const { api, oystehrZambdaStub } = vi.hoisted(() => ({
     downloadEraAttachment: vi.fn(),
     renameEraAttachment: vi.fn(),
     unmatchClaimResponse: vi.fn(),
-    uploadFileToPresignedUrl: vi.fn(),
     getBillingClaimDetail: vi.fn(),
     searchBillingClaims: vi.fn(),
     matchClaimResponseToClaim: vi.fn(),
