@@ -55,10 +55,11 @@ import { isInPersonAppointment } from 'utils/lib/fhir/moduleIdentification';
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
 import { getAdmitterPractitionerId, getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
 import { extractPayerIdFromUrl, findOrgMatchingReference } from 'utils/lib/helpers/helpers';
-import { formatWeightKg } from 'utils/lib/helpers/vitals/vitals-weight.helper';
+import { formatWeightKg, formatWeightLbs } from 'utils/lib/helpers/vitals/vitals-weight.helper';
 import { VisitStatusLabel } from 'utils/lib/types/api/appointment.types';
 import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import type { VitalsWeightObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { VitalsUnitInputOrder } from 'utils/lib/types/api/progress-note-config/progress-note-config.types';
 import { FhirAppointmentType } from 'utils/lib/types/common';
 import { PRACTITIONER_CODINGS } from 'utils/lib/types/data/appointments/appointments.types';
 import { formatDateToMDYWithTime } from 'utils/lib/utils/date';
@@ -67,6 +68,7 @@ import { useApiClients } from '../../../../hooks/useAppClients';
 import { PatientNotesButton } from '../../../patient-notes/components/PatientNotesButton';
 import { ProfileAvatar } from '../../shared/components/ProfileAvatar';
 import { useGetHistoricalVitals, useGetVitals } from '../../shared/components/vitals/hooks/useGetVitals';
+import { useVitalsUnitInputOrder } from '../../shared/components/vitals/hooks/useVitalsUnitInputOrder';
 import { useChartFields } from '../../shared/hooks/useChartFields';
 import { useGetAppointmentAccessibility } from '../../shared/hooks/useGetAppointmentAccessibility';
 import { useGetEmployees } from '../../shared/hooks/useGetEmployees';
@@ -109,9 +111,16 @@ const PatientInfoWrapper = styled(Box)({
   gap: '8px',
 });
 
-const getPatientWeightFallback = (weight: string | undefined): string | undefined => {
+const formatHeaderWeight = (weightKg: number, unitInputOrder: VitalsUnitInputOrder): string =>
+  unitInputOrder === 'imperial-metric' ? `${formatWeightLbs(weightKg)}lbs` : `${formatWeightKg(weightKg)}kg`;
+
+const getPatientWeightFallback = (
+  weight: string | undefined,
+  unitInputOrder: VitalsUnitInputOrder
+): string | undefined => {
   const normalizedWeight = weight?.replace(/\s/g, '');
-  return normalizedWeight?.match(/^\d+(?:\.\d+)?kg/)?.[0];
+  const weightKg = normalizedWeight?.match(/^(\d+(?:\.\d+)?)kg/)?.[1];
+  return weightKg ? formatHeaderWeight(Number(weightKg), unitInputOrder) : undefined;
 };
 
 const getWeightRefusedLabel = (): string => 'Weight: Patient Refused';
@@ -122,7 +131,8 @@ const isPatientRefusedWeightObservation = (observation: VitalsWeightObservationD
 const getDisplayWeight = (
   currentObservations: VitalsWeightObservationDTO[],
   historicalObservations: VitalsWeightObservationDTO[],
-  patientWeight: string | undefined
+  patientWeight: string | undefined,
+  unitInputOrder: VitalsUnitInputOrder
 ): string | undefined => {
   const latestDisplayableObservation = [...currentObservations, ...historicalObservations].find(
     (observation) => isPatientRefusedWeightObservation(observation) || typeof observation.value === 'number'
@@ -134,12 +144,12 @@ const getDisplayWeight = (
     }
 
     if (typeof latestDisplayableObservation.value === 'number') {
-      return `${formatWeightKg(latestDisplayableObservation.value)}kg`;
+      return formatHeaderWeight(latestDisplayableObservation.value, unitInputOrder);
     }
   }
 
   if (currentObservations.length === 0 && historicalObservations.length === 0) {
-    return getPatientWeightFallback(patientWeight);
+    return getPatientWeightFallback(patientWeight, unitInputOrder);
   }
 
   return undefined;
@@ -231,6 +241,7 @@ export const Header = (): JSX.Element => {
   const vitalsEncounterId = isFollowup ? followUpOriginEncounter?.id : effectiveEncounterId;
   const { data: encounterVitals } = useGetVitals(vitalsEncounterId);
   const { data: historicalVitals } = useGetHistoricalVitals(vitalsEncounterId);
+  const vitalsUnitInputOrder = useVitalsUnitInputOrder();
 
   const start = encounter?.period?.start ?? appointmentValues?.start;
 
@@ -363,7 +374,8 @@ export const Header = (): JSX.Element => {
   const weight = getDisplayWeight(
     encounterVitals?.[VitalFieldNames.VitalWeight] ?? [],
     historicalVitals?.[VitalFieldNames.VitalWeight] ?? [],
-    mappedData?.weight
+    mappedData?.weight,
+    vitalsUnitInputOrder
   );
 
   const allergies = formatLabelValue(
