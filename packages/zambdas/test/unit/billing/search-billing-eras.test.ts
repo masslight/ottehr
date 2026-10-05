@@ -165,9 +165,7 @@ describe('search-billing-eras performEffect', () => {
   it('finds unmatched claims under the contained reference the converters and manual entry write', async () => {
     const { oystehr, search } = makeOystehr([]);
     await performEffect(oystehr, oystehr, searchParams({ matchingStatus: 'anyUnmatched' }));
-    expect(paramValue(search.mock.calls[0][0], '_has:Provenance:target:target:ClaimResponse.request')).toBe(
-      '#request,#claim'
-    );
+    expect(paramValue(search.mock.calls[0][0], '_has:Provenance:target:target:ClaimResponse.request')).toBe('#request');
   });
 
   it('finds an ERA whose check number the importing converter left only on paymentIdentifier', async () => {

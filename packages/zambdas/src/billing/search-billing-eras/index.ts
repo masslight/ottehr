@@ -77,11 +77,11 @@ export async function performEffect(
   }
 
   if (params.matchingStatus === 'anyUnmatched') {
-    // unmatched remits point at their contained claim; '#request' is what the converters and
-    // manual entry write, '#claim' what this filter always matched on
+    // unmatched remits point at their contained claim, '#request' (what Oystehr's converters and
+    // manual entry both write) rather than a Claim/{id}
     filterParams.push({
       name: '_has:Provenance:target:target:ClaimResponse.request',
-      value: '#request,#claim',
+      value: '#request',
     });
   }
 
