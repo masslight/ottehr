@@ -12,7 +12,7 @@ import {
   Reference,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { getNPI, getTaxID, makeOptimisticLockIfMatchHeader } from 'utils/lib/fhir/helpers';
+import { getNPI, getTaxID, isVersionConflictError, makeOptimisticLockIfMatchHeader } from 'utils/lib/fhir/helpers';
 import { getPayerId, getPayerUrl } from 'utils/lib/helpers/helpers';
 import { ERA_SOURCE } from 'utils/lib/types/data/billing/billing.constants';
 import { ManualEraClaim, ManualEraHeader } from 'utils/lib/types/data/billing/billing.schemas';
@@ -212,7 +212,7 @@ export async function performEffect(
   try {
     bundle = await oystehr.fhir.transaction<FhirResource>({ requests });
   } catch (error) {
-    if (isVersionConflict(error)) throw MANUAL_ERA_VERSION_CONFLICT_ERROR;
+    if (isVersionConflictError(error)) throw MANUAL_ERA_VERSION_CONFLICT_ERROR;
     throw error;
   }
 
@@ -314,11 +314,6 @@ async function loadMatchedClaims(oystehr: Oystehr, claims: ManualEraClaim[]): Pr
     if (!byId.has(id)) throw INVALID_INPUT_ERROR(`Claim ${id} was not found`);
   }
   return byId;
-}
-
-function isVersionConflict(error: unknown): boolean {
-  if (!(error instanceof Oystehr.OystehrSdkError)) return false;
-  return String(error.code) === '412' || String(error.code) === '409';
 }
 
 // "<Type>/<id>/_history/<version>"
