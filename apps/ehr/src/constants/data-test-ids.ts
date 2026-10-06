@@ -171,6 +171,7 @@ export const dataTestIds = {
     locationStateField: 'location-state-field',
   },
   patients: {
+    addPatientButton: 'patients-add-patient-button',
     searchByLastNameField: 'search-last-name-field',
     searchByGivenNamesField: 'search-given-names-field',
     searchByDateOfBirthField: 'searchByDateOfBirthField',
