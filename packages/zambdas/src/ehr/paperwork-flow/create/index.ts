@@ -49,16 +49,15 @@ interface EffectInput extends ValidatedRequest {
 }
 
 async function complexValidation(input: ValidatedRequest, oystehr: Oystehr): Promise<EffectInput> {
-  // need to validate url created with this slug is unique across all questionnaires
-  const uniqueSlugForFlow = await makeUniqueFlowSlug(oystehr, input.flow.name);
-
   console.log('searching questionnaire and service resources');
-  const [formQuestionnaires, ottehrManagedQuestionnaires, flowQuestionnaires, services] = await Promise.all([
-    searchActiveQuestionnairesByTag(oystehr, PRACTICE_MANAGED_QUESTIONNAIRE_TAG),
-    getOttehrManagedQuestionnaires(oystehr, input.secrets),
-    searchActiveQuestionnairesByTag(oystehr, PAPERWORK_FLOW_TAG),
-    searchServiceCategoryHealthcareServices(oystehr),
-  ]);
+  const [formQuestionnaires, ottehrManagedQuestionnaires, flowQuestionnaires, services, uniqueSlugForFlow] =
+    await Promise.all([
+      searchActiveQuestionnairesByTag(oystehr, PRACTICE_MANAGED_QUESTIONNAIRE_TAG),
+      getOttehrManagedQuestionnaires(oystehr, input.secrets),
+      searchActiveQuestionnairesByTag(oystehr, PAPERWORK_FLOW_TAG),
+      searchServiceCategoryHealthcareServices(oystehr),
+      makeUniqueFlowSlug(oystehr, input.flow.name),
+    ]);
 
   const allFormQuestionnaires = [...formQuestionnaires, ...ottehrManagedQuestionnaires];
 
@@ -102,6 +101,7 @@ async function performEffect(input: EffectInput, oystehr: Oystehr): Promise<void
 // someone would have had to made 50 identically named flows, which i say is unlikely but who knows!
 const MAX_SLUG_ATTEMPTS = 50;
 
+// need to validate url created with this slug is unique across all questionnaires
 async function makeUniqueFlowSlug(oystehr: Oystehr, desired: string): Promise<string> {
   const baseSlug = slugify(desired) || 'flow';
 
