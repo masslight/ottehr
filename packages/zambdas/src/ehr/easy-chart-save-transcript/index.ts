@@ -75,7 +75,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     null,
     providerUserProfile,
     existing,
-    secrets
+    secrets,
+    'easy-chart-save-transcript'
   );
 
   if (staleObservationIds.length > 0) {

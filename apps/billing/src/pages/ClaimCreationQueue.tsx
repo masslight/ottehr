@@ -68,10 +68,10 @@ export function CancelTaskButton({ taskId, onCanceled }: { taskId: string; onCan
     setCanceling(true);
     try {
       await cancelBillingClaimTask(oystehrZambda, { taskId });
-      enqueueSnackbar('Claim creation queued', { variant: 'success' });
+      enqueueSnackbar('Claim creation canceled', { variant: 'success' });
       onCanceled();
     } catch (error) {
-      enqueueSnackbar(getApiError({ error, defaultError: 'Failed to retry claim creation' }), { variant: 'error' });
+      enqueueSnackbar(getApiError({ error, defaultError: 'Failed to cancel claim creation' }), { variant: 'error' });
     } finally {
       setCanceling(false);
     }

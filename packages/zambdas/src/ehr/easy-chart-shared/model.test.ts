@@ -3,7 +3,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import { callModelForJson } from './model';
 
-const secrets: Secrets = { GOOGLE_CLOUD_PROJECT_ID: 'project', GOOGLE_CLOUD_API_KEY: 'key' };
+const secrets: Secrets = {
+  GOOGLE_CLOUD_PROJECT_ID: 'project',
+  GOOGLE_CLOUD_API_KEY: 'key',
+  ENVIRONMENT: 'local',
+  PROJECT_ID: 'test-project-id',
+};
 
 const vertexAnswer = (text: string): Response =>
   new Response(JSON.stringify({ candidates: [{ finishReason: 'STOP', content: { parts: [{ text }] } }] }), {
@@ -21,6 +26,7 @@ describe('callModelForJson', () => {
       wireSchema: {},
       responseSchema: z.object({ lines: z.array(z.string()) }),
       secrets,
+      feature: 'test-feature',
       logPrefix: 'test',
     });
     expect(result.parsed).toEqual({ lines: [] });
@@ -54,6 +60,7 @@ describe('callModelForJson', () => {
       wireSchema,
       responseSchema: z.object({ lines: z.array(z.string()) }),
       secrets: { ...secrets, ANTHROPIC_API_KEY: 'test-key' },
+      feature: 'test-feature',
       logPrefix: 'test',
     });
 
@@ -79,6 +86,7 @@ describe('callModelForJson', () => {
         wireSchema: {},
         responseSchema: z.object({}),
         secrets,
+        feature: 'test-feature',
         logPrefix: 'test',
         signal: controller.signal,
       })
