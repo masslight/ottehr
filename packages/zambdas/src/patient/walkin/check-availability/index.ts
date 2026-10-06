@@ -213,7 +213,7 @@ const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<E
   let serviceMode: ServiceMode | undefined = undefined;
 
   if (scheduleOwner) {
-    serviceMode = getServiceModeFromScheduleOwner(scheduleOwner);
+    serviceMode = getServiceModeFromScheduleOwner(scheduleOwner, undefined, ServiceMode['in-person']);
   }
 
   const scheduleExtension = getScheduleExtension(schedule);

@@ -2217,9 +2217,15 @@ export const getSlotServiceCategoryCodingFromScheduleOwner = (
   return [SlotServiceCategory.inPersonServiceMode, ...additionalCategories];
 };
 
+/**
+ * A Location may support several service modes (e.g. both virtual and in-person). `preferredServiceMode` lets the
+ * caller pick the one that fits its context (e.g. walk-in → in-person); it applies only if the Location supports it.
+ * If the context can't determine the mode unambiguously, consider passing it explicitly in the booking URL.
+ */
 export const getServiceModeFromScheduleOwner = (
   owner: ScheduleOwnerFhirResource,
-  schedule?: Schedule
+  schedule?: Schedule,
+  preferredServiceMode?: ServiceMode
 ): ServiceMode | undefined => {
   // customization point - override this to return a specific service mode given a known schedule owner, or, optionally a schedule.
   // for use cases that offer virtual or in-person services but not both, the owner resource may be sufficient to determine the service mode.
@@ -2246,6 +2252,17 @@ export const getServiceModeFromScheduleOwner = (
     });
     if (isInPerson) {
       return ServiceMode['in-person'];
+    }
+  }
+
+  if (preferredServiceMode) {
+    const isOwnerLocation = owner.resourceType === 'Location';
+
+    const isPreferredModeSupportedByLocation =
+      isOwnerLocation && locationSupportsServiceMode(owner, preferredServiceMode);
+
+    if (isPreferredModeSupportedByLocation) {
+      return preferredServiceMode;
     }
   }
 
