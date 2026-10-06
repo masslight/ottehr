@@ -40,7 +40,7 @@ describe('create-charge-item-definition', () => {
       expect(() => validateRequestParameters({ headers: null, body: JSON.stringify(body), secrets: {} })).toThrow(
         expect.objectContaining(
           INVALID_INPUT_ERROR(
-            "Validation error: Invalid enum value. Expected 'charge-master' | 'fee-schedule', received 'purple-people-eater' at \"type\"; Invalid enum value. Expected 'insurance' | 'self-pay', received 'loan' at \"default\""
+            "Validation error: Invalid enum value. Expected 'charge-master' | 'fee-schedule', received 'purple-people-eater' at \"type\"; Invalid enum value. Expected 'insurance' | 'non-insurance' | 'self-pay', received 'loan' at \"default\""
           )
         )
       );
@@ -155,6 +155,51 @@ describe('create-charge-item-definition', () => {
         status: 'active',
         effectiveDate: '2026-01-01',
         default: 'self-pay',
+        procedureCodes: [],
+      });
+      expect(oystehr.fhir.create).toHaveBeenCalledWith({ ...completeResource, id: undefined });
+    });
+    it('creates CID for NIOs', async () => {
+      const params: CreateChargeItemDefinitionParams = {
+        type: 'charge-master',
+        name: 'test',
+        effectiveDate: '2026-01-01',
+        description: 'test description',
+        default: 'non-insurance',
+        secrets: {},
+      };
+      const completeResource: ChargeItemDefinition = {
+        resourceType: 'ChargeItemDefinition',
+        id: 'some-uuid',
+        title: 'test',
+        description: 'test description',
+        status: 'active',
+        date: '2026-01-01',
+        url: 'urn:uuid:charge-master:test',
+        meta: {
+          tag: [
+            {
+              system: CHARGE_ITEM_DEFINITION_TYPE_SYSTEM,
+              code: 'charge-master',
+            },
+            { system: CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM, code: 'non-insurance' },
+          ],
+        },
+      };
+      const oystehr = {
+        fhir: {
+          create: vi.fn().mockResolvedValueOnce(completeResource),
+        },
+      } as unknown as Oystehr;
+      const result = await performEffect(oystehr, params);
+      expect(result).toEqual({
+        id: 'some-uuid',
+        type: 'charge-master',
+        name: 'test',
+        description: 'test description',
+        status: 'active',
+        effectiveDate: '2026-01-01',
+        default: 'non-insurance',
         procedureCodes: [],
       });
       expect(oystehr.fhir.create).toHaveBeenCalledWith({ ...completeResource, id: undefined });

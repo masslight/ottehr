@@ -1,6 +1,6 @@
 {
   "name": "ottehr",
-  "version": "1.44.9",
+  "version": "1.44.15",
   "private": true,
   "packageManager": "npm@10.9.3",
   "engines": {
@@ -13,6 +13,7 @@
     "load-secrets": "NODE_OPTIONS='--preserve-symlinks' tsx ./scripts/load-secrets.ts",
     "lint": "npm run lint:barrels && npm run lint:eslint",
     "lint:barrels": "tsx scripts/debarrel.ts --check",
+    "easy-chart:eval": "NODE_OPTIONS='--preserve-symlinks' tsx tools/easy-chart-eval/run.ts",
     "lint:eslint": "turbo lint",
     "lint:eslint:fix": "turbo lint:fix",
     "lint:fix": "npm run lint:eslint:fix",

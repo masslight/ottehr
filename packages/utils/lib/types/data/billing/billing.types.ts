@@ -497,6 +497,8 @@ export interface ClaimDetailResponse {
     placeOfService: string;
     diagnosisPointers: number[];
     revenueCode: string;
+    drug?: { ndc: string; quantity: number; units: string };
+    orderingProvider?: { firstName: string; lastName: string; npi?: string; providerId?: string };
   }[];
   billed: number;
   allowed: number;
@@ -1031,7 +1033,8 @@ export interface CreatedClaimResponse {
 
 export type ChargeItemDefinitionType = 'charge-master' | 'fee-schedule';
 
-export type ChargeItemDefinitionDefault = 'insurance' | 'self-pay';
+export const CHARGE_ITEM_DEFINITION_DEFAULTS = ['insurance', 'non-insurance', 'self-pay'] as const;
+export type ChargeItemDefinitionDefault = (typeof CHARGE_ITEM_DEFINITION_DEFAULTS)[number];
 
 export interface SearchChargeItemDefinitionItem {
   id: string;
