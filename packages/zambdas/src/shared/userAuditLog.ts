@@ -12,6 +12,7 @@ export enum AuditableZambdaEndpoints {
   paperworkUpdate = 'update-paperwork-in-progress',
   submitPaperwork = 'submit-paperwork',
   patchPaperwork = 'patch-paperwork',
+  patientCreate = 'create-patient',
 }
 
 function getEventAction(endpoint: AuditableZambdaEndpoints): 'C' | 'U' {
@@ -24,6 +25,7 @@ function getEventAction(endpoint: AuditableZambdaEndpoints): 'C' | 'U' {
     case AuditableZambdaEndpoints.submitPaperwork:
       return 'U'; // update
     case AuditableZambdaEndpoints.appointmentCreate:
+    case AuditableZambdaEndpoints.patientCreate:
       return 'C'; // create
   }
 }

@@ -1,9 +1,14 @@
 import Oystehr, { BatchInputPostRequest, BatchInputRequest } from '@oystehr/sdk';
+import { captureException } from '@sentry/node-core/light';
 import { Operation } from 'fast-json-patch';
-import { Appointment, Encounter, List, Patient } from 'fhir/r4b';
+import { Account, Appointment, Encounter, List, Patient, Person, RelatedPerson } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { uuid } from 'short-uuid';
-import { AppointmentInsuranceRelatedResourcesExtension, FHIR_EXTENSION } from 'utils/lib/fhir/constants';
+import {
+  AppointmentInsuranceRelatedResourcesExtension,
+  FHIR_EXTENSION,
+  PATIENT_BILLING_ACCOUNT_TYPE,
+} from 'utils/lib/fhir/constants';
 import { createPatientDocumentLists } from 'utils/lib/fhir/list';
 import {
   createUserResourcesForPatient,
@@ -503,6 +508,47 @@ export function creatingPatientCreateRequest(
   return createPatientRequest;
 }
 
+export const makePatientDocumentListRequests = (patientReference: string): BatchInputPostRequest<List>[] =>
+  createPatientDocumentLists(patientReference).map(
+    (list): BatchInputPostRequest<List> => ({
+      method: 'POST',
+      url: '/List',
+      resource: list,
+    })
+  );
+
+export const makePatientBillingAccountRequest = (patientReference: string): BatchInputPostRequest<Account> => ({
+  method: 'POST',
+  url: '/Account',
+  resource: {
+    resourceType: 'Account',
+    status: 'active',
+    type: { ...PATIENT_BILLING_ACCOUNT_TYPE },
+    subject: [{ reference: patientReference }],
+  },
+});
+
+// `patient` is undefined when the friendly id could not be generated; that does not fail the request.
+export async function linkNewPatientToAccountHolder(
+  oystehr: Oystehr,
+  patientId: string,
+  phoneNumber: string
+): Promise<{ relatedPerson: RelatedPerson; person: Person; patient: Patient | undefined }> {
+  const [userResource, patient] = await Promise.all([
+    createUserResourcesForPatient(oystehr, patientId, phoneNumber),
+    oystehr.fhir.generateFriendlyPatientId({ id: patientId }).catch((error) => {
+      console.error(`Failed to generate friendly patient ID for Patient/${patientId}:`, error);
+      captureException(error);
+      return undefined;
+    }),
+  ]);
+  return {
+    relatedPerson: userResource.relatedPerson,
+    person: userResource.person,
+    patient: patient as Patient | undefined,
+  };
+}
+
 export async function generatePatientRelatedRequests(
   user: User | undefined,
   patient: PatientInfo,
@@ -542,16 +588,7 @@ export async function generatePatientRelatedRequests(
     createPatientRequest = creatingPatientCreateRequest(patient, isEHRUser);
 
     if (createPatientRequest?.fullUrl) {
-      const patientLists = createPatientDocumentLists(createPatientRequest.fullUrl);
-      listRequests.push(
-        ...patientLists.map(
-          (list): BatchInputPostRequest<List> => ({
-            method: 'POST',
-            url: '/List',
-            resource: list,
-          })
-        )
-      );
+      listRequests.push(...makePatientDocumentListRequests(createPatientRequest.fullUrl));
     }
   }
 
