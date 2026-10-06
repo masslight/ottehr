@@ -1,6 +1,11 @@
 import { SUBSCRIBER_RELATIONSHIPS } from '../../../fhir/constants';
 import { isCLIAValid, isNPIValidWithChecksum } from '../../../helpers/helpers';
-import { CMS_PLACE_OF_SERVICE_CODE_SET, CMS_PLACE_OF_SERVICE_CODES } from '../../../helpers/rcm/constants';
+import {
+  CLAIM_ACCIDENT_TYPE_DISPLAY_VALUES,
+  CLAIM_ACCIDENT_TYPES,
+  CMS_PLACE_OF_SERVICE_CODE_SET,
+  CMS_PLACE_OF_SERVICE_CODES,
+} from '../../../helpers/rcm/constants';
 import { VALUE_SETS } from '../../../ottehr-config/value-sets';
 import { isValidUUID } from '../../../validation/helper';
 import { isoDateRegex, taxIdRegex, zipRegex } from '../../../validation/regex';
@@ -42,6 +47,7 @@ import {
 
 export type RuleFieldGroup =
   | 'claim'
+  | 'accident'
   | 'status'
   | 'patient'
   | 'insurance'
@@ -60,6 +66,7 @@ export type RuleFieldGroup =
 // Display order of groups in the rule builder's property pickers and in the generated docs.
 export const RULE_FIELD_GROUPS: RuleFieldGroup[] = [
   'claim',
+  'accident',
   'status',
   'patient',
   'insurance',
@@ -78,6 +85,7 @@ export const RULE_FIELD_GROUPS: RuleFieldGroup[] = [
 
 export const RULE_FIELD_GROUP_LABELS: Record<RuleFieldGroup, string> = {
   claim: 'Claim',
+  accident: 'Accident',
   status: 'Claim status',
   patient: 'Patient',
   insurance: 'Primary insurance',
@@ -211,10 +219,17 @@ const REF_OPS: RuleOperator[] = ['eq', 'neq', 'in', 'notIn', 'exists', 'notExist
 const DATE_OPS: RuleOperator[] = ['eq', 'neq', 'in', 'notIn', 'gt', 'gte', 'lt', 'lte', 'exists', 'notExists'];
 const NUMBER_OPS: RuleOperator[] = ['eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'exists', 'notExists'];
 const LIST_OPS: RuleOperator[] = ['contains', 'notContains', 'matches', 'notMatches', 'exists', 'notExists'];
+// Yes/no flags always read as 'true' or 'false', so only equality makes sense.
+const BOOLEAN_OPS: RuleOperator[] = ['eq', 'neq'];
 // Counts always exist (an empty claim counts 0), so exists/notExists would be noise.
 const COUNT_OPS: RuleOperator[] = ['eq', 'neq', 'gt', 'gte', 'lt', 'lte'];
 
 const GENDER_OPTIONS: RuleFieldOption[] = PERSON_GENDER_OPTIONS;
+
+const YES_NO_OPTIONS: RuleFieldOption[] = [
+  { value: 'true', label: 'Yes' },
+  { value: 'false', label: 'No' },
+];
 
 const PLAN_TYPE_OPTIONS: RuleFieldOption[] = VALUE_SETS.insuranceTypeOptions.map((option) => ({
   value: option.candidCode,
@@ -267,6 +282,20 @@ const STATUS_FIELDS: RuleFieldDef[] = CLAIM_STATUS_FIELDS.map((field) => ({
   settable: true,
   description: `The claim's ${field.label} indicator. Setting it rewrites the corresponding status tag on the claim (setting AR Stage also initializes that stage's progress status, as the claim screens do).`,
   options: field.options.map((option) => ({ value: option.code, label: option.label })),
+}));
+
+// One yes/no flag per accident type (CMS-1500 box 10a-c) — a claim can carry several at once, the
+// same multi-select the claim editor offers.
+const ACCIDENT_TYPE_FIELDS: RuleFieldDef[] = CLAIM_ACCIDENT_TYPES.map((type) => ({
+  id: `accident.${type}`,
+  label: CLAIM_ACCIDENT_TYPE_DISPLAY_VALUES[type],
+  group: 'accident',
+  valueType: 'select',
+  operators: BOOLEAN_OPS,
+  settable: true,
+  description: `Whether the claim carries the "${CLAIM_ACCIDENT_TYPE_DISPLAY_VALUES[type]}" accident type. Setting "No" removes it.`,
+  requiredOnSet: true,
+  options: YES_NO_OPTIONS,
 }));
 
 // A person-shaped resource (patient or policy holder) contributes the same name / birth date /
@@ -685,6 +714,30 @@ export const RULE_FIELD_CATALOG: RuleFieldDef[] = [
     description: 'Point of Origin / Admission Source code on the claim',
   },
 
+  // --- Accident ---
+  ...ACCIDENT_TYPE_FIELDS,
+  {
+    id: 'accident.state',
+    label: 'Auto accident state',
+    group: 'accident',
+    valueType: 'select',
+    operators: ENUM_OPS,
+    settable: true,
+    description:
+      'The state the auto accident occurred in (two-letter code, e.g. CA). Required on claims flagged as an auto accident.',
+    options: STATE_OPTIONS,
+    optionsDocNote: STATE_OPTIONS_DOC_NOTE,
+  },
+  {
+    id: 'accident.date',
+    label: 'Accident date',
+    group: 'accident',
+    valueType: 'date',
+    operators: DATE_OPS,
+    settable: true,
+    description: 'The date of the accident (YYYY-MM-DD). Required on claims flagged with any accident type.',
+  },
+
   // --- Claim status indicators ---
   ...STATUS_FIELDS,
 
@@ -717,6 +770,28 @@ export const RULE_FIELD_CATALOG: RuleFieldDef[] = [
 
   // --- Rendering provider ---
   ...providerFields('renderingProvider', 'rendering provider'),
+  {
+    id: 'renderingProvider.licenseNumber',
+    label: 'License number',
+    group: 'renderingProvider',
+    valueType: 'string',
+    operators: SCALAR_OPS,
+    settable: true,
+    description:
+      "The rendering provider's professional license number (individual providers only; setting it on an organization provider fails the rule).",
+  },
+  {
+    id: 'renderingProvider.licenseState',
+    label: 'License state',
+    group: 'renderingProvider',
+    valueType: 'select',
+    operators: ENUM_OPS,
+    settable: true,
+    description:
+      "The state that issued the rendering provider's professional license (individual providers only; setting it on an organization provider fails the rule).",
+    options: STATE_OPTIONS,
+    optionsDocNote: STATE_OPTIONS_DOC_NOTE,
+  },
 
   // --- Billing provider ---
   ...providerFields('billingProvider', 'billing provider'),
