@@ -2016,6 +2016,13 @@
       "src": "src/ehr/search-patients/index",
       "zip": ".dist/zips/search-patients.zip"
     },
+    "CREATE-PATIENT": {
+      "name": "create-patient",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/create-patient/index",
+      "zip": ".dist/zips/create-patient.zip"
+    },
     "CREATE-FEE-SCHEDULE": {
       "name": "create-fee-schedule",
       "type": "http_auth",
