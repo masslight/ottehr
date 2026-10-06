@@ -1,5 +1,5 @@
 import Oystehr, { User } from '@oystehr/sdk';
-import { captureException, captureMessage } from '@sentry/aws-serverless';
+import { captureException, captureMessage } from '@sentry/node-core/light';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { createFetchClientWithOystehrAuth, FetchClientWithOysterAuth } from 'utils/lib/helpers/helpers';
 import { getSecret, Secrets } from 'utils/lib/secrets';
