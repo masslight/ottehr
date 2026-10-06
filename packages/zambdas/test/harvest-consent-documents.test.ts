@@ -52,6 +52,20 @@ vi.mock('../src/shared/pdf', async (importOriginal) => {
   return { ...original, createPdfBytes: vi.fn() };
 });
 
+vi.mock('utils/lib/ottehr-config/consent-forms', async (importActual) => {
+  const actual = await importActual<typeof import('utils/lib/ottehr-config/consent-forms')>();
+  const IL_CTT_PATH = './assets/office_policies_and_procedures_IL.pdf';
+  return {
+    ...actual,
+    getConsentFormsForLocation: (locationState?: string) => {
+      const forms = actual.getConsentFormsForLocation();
+      return forms.map((form) =>
+        form.id === 'consent-to-treat' && locationState === 'IL' ? { ...form, assetPath: IL_CTT_PATH } : form
+      );
+    },
+  };
+});
+
 const mockCreateFilesDocumentReferences = vi.mocked(createFilesDocumentReferences);
 const mockCreateConsentResource = vi.mocked(createConsentResource);
 const mockGetConsentAndDocRefs = vi.mocked(getConsentAndRelatedDocRefsForAppointment);
