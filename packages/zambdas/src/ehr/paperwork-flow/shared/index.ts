@@ -29,6 +29,8 @@ export const healthcareServiceExtensionUrlMap = {
   [ServiceMode['virtual']]: PAPERWORK_FLOW_VIRTUAL_EXTENSION_URL,
 };
 
+export const QUESTIONNAIRE_URL_BASE = `https://ottehr.com/FHIR/Questionnaire/`;
+
 // matches url defined in config/oystehr/intake-paperwork-consent-only.json
 export const CONSENT_ONLY_QUESTIONNAIRE_URL = 'https://ottehr.com/FHIR/Questionnaire/intake-paperwork-consent-only';
 
@@ -153,7 +155,7 @@ export function buildFlowQuestionnaire(input: BuildFlowQuestionnaireInput): Ques
 
   const questionnaire: Questionnaire = {
     resourceType: 'Questionnaire',
-    url: `https://ottehr.com/FHIR/Questionnaire/${slug}`,
+    url: `${QUESTIONNAIRE_URL_BASE}${slug}`,
     version: version,
     name: slug,
     title,

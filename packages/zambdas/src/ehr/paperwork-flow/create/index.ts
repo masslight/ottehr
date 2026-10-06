@@ -19,6 +19,7 @@ import {
   healthcareServiceExtensionUrlMap,
   makeAdditionalFlowQuestionnairePatches,
   PAPERWORK_FLOW_BASE_VERSION,
+  QUESTIONNAIRE_URL_BASE,
   searchActiveQuestionnairesByTag,
   searchServiceCategoryHealthcareServices,
 } from '../shared';
@@ -106,7 +107,7 @@ async function makeUniqueFlowSlug(oystehr: Oystehr, desired: string): Promise<st
 
   for (let attempt = 1; attempt <= MAX_SLUG_ATTEMPTS; attempt++) {
     const candidate = attempt === 1 ? baseSlug : `${baseSlug}-${attempt}`;
-    const candidateUrl = `https://ottehr.com/FHIR/Questionnaire/${candidate}`;
+    const candidateUrl = `${QUESTIONNAIRE_URL_BASE}${candidate}`;
 
     const matches = (
       await oystehr.fhir.search<Questionnaire>({
