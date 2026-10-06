@@ -5,6 +5,16 @@
  */
 import { visitNoteToLegacyChartData } from 'utils/lib/helpers/visit-note/visit-note-to-chart-data.helper';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+
+vi.mock('utils/lib/ottehr-config/screening-questions', () => ({
+  patientScreeningQuestionsConfig: {
+    title: 'ASK THE PATIENT',
+    fields: [
+      { fhirField: 'covid-symptoms', question: 'Do you have any COVID symptoms?' },
+      { fhirField: 'travel-usa', question: 'Have you traveled outside the US recently?' },
+    ],
+  },
+}));
 import { buildVisitNote } from '../../src/shared/chart-sections/visit-note';
 import { composeProgressNoteData } from '../../src/shared/pdf/progress-note-pdf';
 import { ProgressNoteInput } from '../../src/shared/pdf/types';

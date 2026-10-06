@@ -44,6 +44,39 @@ import {
   SEEN_IN_LAST_THREE_YEARS_FIELD,
 } from 'utils/lib/types/data/screening-questions/constants';
 import { afterAll, describe, expect, it, vi } from 'vitest';
+
+vi.mock('utils/lib/ottehr-config/screening-questions', () => ({
+  patientScreeningQuestionsConfig: {
+    title: 'ASK THE PATIENT',
+    fields: [
+      {
+        fhirField: 'seen-in-last-three-years',
+        question: 'Has the patient been seen in one of our offices / telemed in last 3 years?',
+        options: [
+          { fhirValue: 'yes', label: 'Yes' },
+          { fhirValue: 'no', label: 'No' },
+        ],
+      },
+      {
+        fhirField: 'covid-symptoms',
+        question: 'Do you have any COVID symptoms?',
+      },
+      {
+        fhirField: 'patient-breastfeeding-status',
+        question: 'Are you currently breastfeeding?',
+        options: [
+          { fhirValue: 'yes', label: 'Yes' },
+          { fhirValue: 'no', label: 'No' },
+          { fhirValue: 'not-applicable', label: 'Not applicable' },
+        ],
+      },
+      {
+        fhirField: 'tested-positive-covid',
+        question: 'Have you tested positive for COVID?',
+      },
+    ],
+  },
+}));
 import { fetchAdHocBillingRows } from '../src/shared/adhoc-datasets/billing';
 import { fetchAdHocEncounterRows } from '../src/shared/adhoc-datasets/encounters';
 import { fetchAdHocPatientRows } from '../src/shared/adhoc-datasets/patients';

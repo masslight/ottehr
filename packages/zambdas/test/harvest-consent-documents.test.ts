@@ -32,6 +32,45 @@ import { createPdfBytes } from '../src/shared/pdf';
 // patches, per-form PDF fan-out, type-code grouping, attachment dedup, creation-time
 // sorting, and reference wiring — runs for real.
 
+vi.mock('utils/lib/ottehr-config/consent-forms', () => {
+  const HIPAA_FORM = {
+    id: 'hipaa-acknowledgement',
+    formTitle: 'HIPAA Notice of Privacy Practices',
+    resourceTitle: 'HIPAA forms',
+    assetPath: './assets/HIPAA.pdf',
+    publicUrl: '/HIPAA.pdf',
+    type: {
+      coding: [{ system: 'http://loinc.org', code: '64292-6', display: 'Privacy Policy' }],
+      text: 'HIPAA Acknowledgement forms',
+    },
+    createsConsentResource: false,
+  };
+  const CTT_FORM = {
+    id: 'consent-to-treat',
+    formTitle: 'Authorization for Treatment and Billing',
+    resourceTitle: 'Consent forms',
+    assetPath: './assets/Authorization_for_Treatment_Billing.pdf',
+    publicUrl: '/Authorization_for_Treatment_Billing.pdf',
+    type: {
+      coding: [
+        { system: 'http://loinc.org', code: '59284-0', display: 'Consent Documents' },
+        {
+          system: 'https://fhir.ottehr.com/CodeSystem/consent-source',
+          code: 'patient-registration',
+          display: 'Patient Registration Consent',
+        },
+      ],
+      text: 'Consent forms',
+    },
+    createsConsentResource: true,
+  };
+  const CTT_IL_FORM = { ...CTT_FORM, assetPath: './assets/Authorization_for_Treatment_Billing_IL.pdf' };
+  return {
+    getConsentFormsForLocation: (locationState?: string) =>
+      locationState === 'IL' ? [HIPAA_FORM, CTT_IL_FORM] : [HIPAA_FORM, CTT_FORM],
+  };
+});
+
 vi.mock('utils/lib/fhir/helpers', async (importOriginal) => {
   const original = await importOriginal<typeof import('utils/lib/fhir/helpers')>();
   return { ...original, createFilesDocumentReferences: vi.fn(), createConsentResource: vi.fn() };
