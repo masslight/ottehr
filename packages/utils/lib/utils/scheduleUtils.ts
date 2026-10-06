@@ -2463,7 +2463,7 @@ export const scheduleTypeFromFHIRType = (fhirType: FhirResource['resourceType'])
   return ScheduleType.group;
 };
 
-export interface PrebookModeLink {
+export interface BookingModeLink {
   mode: ServiceMode;
   /** Stable key for React lists / copy-button state, e.g. `prebook-virtual`. */
   key: string;
@@ -2473,42 +2473,74 @@ export interface PrebookModeLink {
   relativeUrl: string;
 }
 
+export const WALKIN_SERVICE_MODE_QUERY_PARAM = 'serviceMode';
+
+const getEnabledServiceModes = (params: { isVirtual?: boolean; isInPerson?: boolean }): ServiceMode[] => {
+  const modes: ServiceMode[] = [];
+  if (params.isInPerson) {
+    modes.push(ServiceMode['in-person']);
+  }
+  if (params.isVirtual) {
+    modes.push(ServiceMode.virtual);
+  }
+  if (modes.length === 0) {
+    modes.push(ServiceMode['in-person']);
+  }
+  return modes;
+};
+
+const getServiceModeLabel = (mode: ServiceMode): string => (mode === ServiceMode.virtual ? 'Virtual' : 'In person');
+
 /**
  * Prebook booking links for a schedule owner — one per enabled service mode.
  * A Location may be tagged both virtual and in-person (see isLocationVirtual /
  * isLocationInPerson), so each enabled mode gets its own `/prebook/{mode}` link;
- * the intake prebook route derives the mode from that path segment. An owner
- * with neither flag set falls back to in-person, matching the back-compat
- * default get-schedule applies to legacy Locations that predate the in-person
- * modifier.
+ * the intake prebook route derives the mode from that path segment.
  */
 export const buildPrebookModeLinks = (params: {
   fhirType?: FhirResource['resourceType'];
   slug?: string;
   isVirtual?: boolean;
   isInPerson?: boolean;
-}): PrebookModeLink[] => {
+}): BookingModeLink[] => {
   const { fhirType, slug, isVirtual, isInPerson } = params;
   if (!slug || !fhirType) {
     return [];
   }
   const scheduleType = scheduleTypeFromFHIRType(fhirType);
-  const modes: ServiceMode[] = [];
-  if (isInPerson) {
-    modes.push(ServiceMode['in-person']);
-  }
-  if (isVirtual) {
-    modes.push(ServiceMode.virtual);
-  }
-  if (modes.length === 0) {
-    modes.push(ServiceMode['in-person']);
-  }
+  const modes = getEnabledServiceModes({ isVirtual, isInPerson });
   const disambiguate = modes.length > 1;
   return modes.map((mode) => ({
     mode,
     key: `prebook-${mode}`,
-    label: disambiguate ? `Prebook (${mode === ServiceMode.virtual ? 'Virtual' : 'In person'})` : 'Prebook',
+    label: disambiguate ? `Prebook (${getServiceModeLabel(mode)})` : 'Prebook',
     relativeUrl: `/prebook/${mode}?bookingOn=${slug}&scheduleType=${scheduleType}`,
+  }));
+};
+
+/**
+ * Walk-in links for a schedule — one per enabled service mode, each pinning its mode via
+ * WALKIN_SERVICE_MODE_QUERY_PARAM so a dual-mode Location never hands out an ambiguous link.
+ */
+export const buildWalkinModeLinks = (params: {
+  scheduleId?: string;
+  isVirtual?: boolean;
+  isInPerson?: boolean;
+}): BookingModeLink[] => {
+  const { scheduleId, isVirtual, isInPerson } = params;
+
+  if (!scheduleId) {
+    return [];
+  }
+
+  const modes = getEnabledServiceModes({ isVirtual, isInPerson });
+  const disambiguate = modes.length > 1;
+
+  return modes.map((mode) => ({
+    mode,
+    key: `walkin-${scheduleId}-${mode}`,
+    label: disambiguate ? `Walk-in (${getServiceModeLabel(mode)})` : 'Walk-in',
+    relativeUrl: `/walkin/schedule/${scheduleId}?${WALKIN_SERVICE_MODE_QUERY_PARAM}=${mode}`,
   }));
 };
 
