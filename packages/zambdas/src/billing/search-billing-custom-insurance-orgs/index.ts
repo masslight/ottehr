@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Organization } from 'fhir/r4b';
+import { isCustomInsuranceOrgBusinessId } from 'utils/lib/helpers/helpers';
 import {
   CUSTOM_INSURANCE_ORG_ID_PREFIX,
   CUSTOM_INSURANCE_ORG_ID_SYSTEM,
@@ -12,7 +13,7 @@ import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { truncateForLog } from '../../shared/logging';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
-import { isCustomInsuranceOrgBusinessId, mapCustomInsuranceOrganization } from '../custom-insurance-org.helpers';
+import { mapCustomInsuranceOrganization } from '../custom-insurance-org.helpers';
 import { createBillingClient } from '../shared';
 import { SearchInsuranceOrgsParams, validateRequestParameters } from './validateRequestParameters';
 

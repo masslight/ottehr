@@ -61,6 +61,7 @@ import { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { Controller, FormProvider, useForm } from 'react-hook-form';
 import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom';
 import { CLAIM_ATTACHMENT_REPORT_TYPE_CODES, DEFAULT_CLAIM_ATTACHMENT_REPORT_TYPE_CODE } from 'utils/lib/fhir/billing';
+import { isCustomInsuranceOrgBusinessId } from 'utils/lib/helpers/helpers';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import {
   CLAIM_ACCIDENT_TYPE_DISPLAY_VALUES,
@@ -995,7 +996,25 @@ export function InsuranceSection({
     >
       {coverage ? (
         <>
-          <Row label="Payer" value={coverage.payorName} />
+          <Row
+            label="Payer"
+            value={
+              coverage.payorId && coverage.payorFhirId ? (
+                <MuiLink
+                  component={RouterLink}
+                  to={
+                    isCustomInsuranceOrgBusinessId(coverage.payorId)
+                      ? `/insurance-organizations/${encodeURIComponent(coverage.payorFhirId)}`
+                      : `/insurance-organizations/rcm/${encodeURIComponent(coverage.payorId)}`
+                  }
+                >
+                  {coverage.payorName || coverage.payorId}
+                </MuiLink>
+              ) : (
+                coverage.payorName
+              )
+            }
+          />
           <Row label="Payer ID" value={coverage.payorId} />
           <Row label="Member ID" value={coverage.memberId ?? ''} />
           <Row label="Relationship to insured" value={coverage.relationship ?? ''} />
