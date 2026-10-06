@@ -3,6 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { APIErrorCode } from 'utils/lib/types/errors';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { WalkinLanding } from '../../src/pages/WalkinLanding';
 
@@ -40,10 +41,14 @@ vi.mock('../../src/branding/primaryIconVisibility', () => ({
   PRIMARY_ICON_PAGE: { WALKIN_LANDING: 'walkin' },
 }));
 
-const makeCategory = (code: string, visitTypes: Array<'prebook' | 'walk-in'> = ['walk-in']): any => ({
+const makeCategory = (
+  code: string,
+  visitTypes: Array<'prebook' | 'walk-in'> = ['walk-in'],
+  serviceModes: Array<'in-person' | 'virtual'> = ['in-person']
+): any => ({
   category: { code, display: code, system: 'https://example.com/sc' },
   visitTypes,
-  serviceModes: ['in-person'],
+  serviceModes,
   reasonsForVisit: { default: [] },
 });
 
@@ -182,6 +187,140 @@ describe('WalkinLanding — service-category routing', () => {
     });
     expect(screen.queryByRole('button', { name: /continue|check.?in|next/i })).toBeNull();
     expect(mockCreateSlot).not.toHaveBeenCalled();
+  });
+
+  test('no serviceMode in URL → availability check is called without a mode', async () => {
+    mockUseServiceCategories.mockReturnValue({ serviceCategories: [], isLoading: false });
+
+    renderAt('/walkin/schedule/sched-1?serviceCategory=urgent-care');
+
+    await waitFor(() => expect(mockGetWalkinAvailability).toHaveBeenCalled());
+    expect(mockGetWalkinAvailability.mock.calls[0][0]).toEqual({ scheduleId: 'sched-1', locationName: undefined });
+  });
+
+  test('serviceMode=virtual → passed to the availability check and used for the slot', async () => {
+    const user = userEvent.setup();
+    mockGetWalkinAvailability.mockResolvedValue({
+      walkinOpen: true,
+      scheduleId: 'sched-1',
+      serviceMode: 'virtual',
+      scheduleOwnerName: 'Test Clinic',
+    });
+    mockUseServiceCategories.mockReturnValue({ serviceCategories: [], isLoading: false });
+
+    renderAt('/walkin/schedule/sched-1?serviceCategory=urgent-care&serviceMode=virtual');
+
+    await waitFor(() => expect(screen.queryByText('Welcome')).not.toBeNull());
+    expect(mockGetWalkinAvailability.mock.calls[0][0]).toMatchObject({ serviceMode: 'virtual' });
+
+    await user.click(screen.getByRole('button', { name: /continue|check.?in|next/i }));
+
+    await waitFor(() => expect(mockCreateSlot).toHaveBeenCalled());
+    expect(mockCreateSlot.mock.calls[0][0].serviceModality).toBe('virtual');
+  });
+
+  test('serviceMode=virtual → category auto-select filters on virtual, not in-person', async () => {
+    const user = userEvent.setup();
+    mockGetWalkinAvailability.mockResolvedValue({
+      walkinOpen: true,
+      scheduleId: 'sched-1',
+      serviceMode: 'virtual',
+      scheduleOwnerName: 'Test Clinic',
+    });
+    mockUseServiceCategories.mockReturnValue({
+      serviceCategories: [makeCategory('urgent-care'), makeCategory('telemed-uc', ['walk-in'], ['virtual'])],
+      isLoading: false,
+    });
+
+    renderAt('/walkin/schedule/sched-1?serviceMode=virtual');
+
+    await waitFor(() => expect(screen.queryByText('Welcome')).not.toBeNull());
+    expect(mockNavigate).not.toHaveBeenCalledWith(
+      expect.stringContaining('/select-service-category'),
+      expect.anything()
+    );
+
+    await user.click(screen.getByRole('button', { name: /continue|check.?in|next/i }));
+
+    await waitFor(() => expect(mockCreateSlot).toHaveBeenCalled());
+    expect(mockCreateSlot.mock.calls[0][0].serviceCategoryCode).toBe('telemed-uc');
+  });
+
+  test('no serviceMode, virtual-only location → auto-select filters on the resolved virtual mode', async () => {
+    const user = userEvent.setup();
+    mockGetWalkinAvailability.mockResolvedValue({
+      walkinOpen: true,
+      scheduleId: 'sched-1',
+      serviceMode: 'virtual',
+      scheduleOwnerName: 'Test Clinic',
+    });
+    mockUseServiceCategories.mockReturnValue({
+      serviceCategories: [makeCategory('urgent-care'), makeCategory('telemed-uc', ['walk-in'], ['virtual'])],
+      isLoading: false,
+    });
+
+    renderAt('/walkin/schedule/sched-1');
+
+    await waitFor(() => expect(screen.queryByText('Welcome')).not.toBeNull());
+    await user.click(screen.getByRole('button', { name: /continue|check.?in|next/i }));
+
+    await waitFor(() => expect(mockCreateSlot).toHaveBeenCalled());
+    expect(mockCreateSlot.mock.calls[0][0].serviceModality).toBe('virtual');
+    expect(mockCreateSlot.mock.calls[0][0].serviceCategoryCode).toBe('telemed-uc');
+  });
+
+  test('no serviceMode, 2+ categories → picker redirect pins the resolved mode', async () => {
+    mockGetWalkinAvailability.mockResolvedValue({
+      walkinOpen: true,
+      scheduleId: 'sched-1',
+      serviceMode: 'virtual',
+      scheduleOwnerName: 'Test Clinic',
+    });
+    mockUseServiceCategories.mockReturnValue({
+      serviceCategories: [
+        makeCategory('telemed-uc', ['walk-in'], ['virtual']),
+        makeCategory('telemed-oc', ['walk-in'], ['virtual']),
+      ],
+      isLoading: false,
+    });
+
+    renderAt('/walkin/schedule/sched-1');
+
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith(
+        expect.stringMatching(/^\/walkin\/schedule\/sched-1\/select-service-category\?.*serviceMode=virtual/),
+        expect.objectContaining({ replace: true })
+      );
+    });
+  });
+
+  test('serviceMode the location does not offer → shows the reason instead of the form', async () => {
+    mockGetWalkinAvailability.mockRejectedValue({
+      code: APIErrorCode.SERVICE_MODE_NOT_AVAILABLE,
+      message: 'Virtual walk-in visits are not available at this location.',
+    });
+    mockUseServiceCategories.mockReturnValue({ serviceCategories: [], isLoading: false });
+
+    renderAt('/walkin/schedule/sched-1?serviceCategory=urgent-care&serviceMode=virtual');
+
+    await waitFor(() =>
+      expect(screen.queryByText('Virtual walk-in visits are not available at this location.')).not.toBeNull()
+    );
+    expect(mockCreateSlot).not.toHaveBeenCalled();
+  });
+
+  test('other validation errors with serviceMode → generic not-found copy, not the technical message', async () => {
+    mockGetWalkinAvailability.mockRejectedValue({
+      code: APIErrorCode.INVALID_INPUT,
+      message: '"scheduleId" must be a valid UUID',
+    });
+    mockUseServiceCategories.mockReturnValue({ serviceCategories: [], isLoading: false });
+
+    renderAt('/walkin/schedule/not-a-uuid?serviceMode=virtual');
+
+    await waitFor(() => expect(mockGetWalkinAvailability).toHaveBeenCalled());
+    await waitFor(() => expect(screen.queryByText(/navigated to a page that is not found/i)).not.toBeNull());
+    expect(screen.queryByText('"scheduleId" must be a valid UUID')).toBeNull();
   });
 
   test('closed location with 2+ walk-in-capable categories → no redirect, closed message renders', async () => {
