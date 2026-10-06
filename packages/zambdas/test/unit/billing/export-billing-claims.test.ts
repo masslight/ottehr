@@ -137,11 +137,12 @@ describe('export-billing-claims', () => {
       );
 
       const task = mockOystehrClient.fhir.create.mock.calls[0][0] as Task;
+      // Single values are normalized to the list form the filters take.
       expect(taskFilters(task)).toEqual({
         searchText: 'Smith',
-        arStage: 'patient-ar',
-        status: 'denied',
-        payerId: 'P1',
+        arStage: ['patient-ar'],
+        status: ['denied'],
+        payerId: ['P1'],
         serviceDateFrom: '2026-01-01',
         serviceDateTo: '2026-01-31',
       });
@@ -151,7 +152,14 @@ describe('export-billing-claims', () => {
       await handler(makeInput({ status: 'denied' }));
 
       const task = mockOystehrClient.fhir.create.mock.calls[0][0] as Task;
-      expect(taskFilters(task)).toEqual({ status: 'denied' });
+      expect(taskFilters(task)).toEqual({ status: ['denied'] });
+    });
+
+    it('carries several values of one filter to the worker', async () => {
+      await handler(makeInput({ status: ['denied', 'paid'], tag: ['a', 'b'] }));
+
+      const task = mockOystehrClient.fhir.create.mock.calls[0][0] as Task;
+      expect(taskFilters(task)).toEqual({ status: ['denied', 'paid'], tag: ['a', 'b'] });
     });
 
     it('rejects a filter the claims list would not accept', async () => {

@@ -1,13 +1,11 @@
-import Oystehr, { BatchInputGetRequest } from '@oystehr/sdk';
+import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Bundle } from 'fhir/r4b';
-import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
 import { BillingTag } from 'utils/lib/types/data/billing/billing.types';
 import { SYSTEM_MANAGED_TAGS } from 'utils/lib/types/data/billing/system-tags';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
-import { createBillingClient, isSystemTag, searchTagBasics, TAG_DESCRIPTION_URL } from '../shared';
+import { countClaimsByTag, createBillingClient, isSystemTag, searchTagBasics, TAG_DESCRIPTION_URL } from '../shared';
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'search-billing-tags';
@@ -57,21 +55,13 @@ export async function performEffect(oystehr: Oystehr): Promise<{ tags: BillingTa
   return { tags };
 }
 
-// Count-only search per tag (_count=0 + _total=accurate) reads Bundle.total without fetching claims.
 async function getTagUsageCounts(oystehr: Oystehr, tagNames: string[]): Promise<Map<string, number>> {
-  const counts = new Map<string, number>();
-  if (tagNames.length === 0) return counts;
+  const counts = await countClaimsByTag(oystehr, tagNames);
 
-  const requests: BatchInputGetRequest[] = tagNames.map((name) => ({
-    method: 'GET',
-    url: `/Claim?_tag=${encodeURIComponent(`${CLAIM_TAG_SYSTEM}|${name}`)}&_total=accurate&_count=0`,
-  }));
+  const unreadable = [...counts.entries()].filter(([, count]) => count === undefined).map(([name]) => name);
+  if (unreadable.length > 0) {
+    console.warn(`usage count unavailable, reporting 0 for: ${unreadable.join(', ')}`);
+  }
 
-  const batchResult = await oystehr.fhir.batch<Bundle>({ requests });
-
-  (batchResult.entry ?? []).forEach((entry, i) => {
-    counts.set(tagNames[i], entry.resource?.total ?? 0);
-  });
-
-  return counts;
+  return new Map([...counts.entries()].map(([name, count]) => [name, count ?? 0]));
 }

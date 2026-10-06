@@ -38,6 +38,8 @@ import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { claimProvenanceRequest, recordedNow, resolveClaimActor } from '../provenance';
 import {
+  assertOrderingProvidersExist,
+  buildClaimItemDrugDetail,
   buildDiagnosisSequence,
   copyBillingPatientWithClinicalIds,
   createBillingClient,
@@ -51,6 +53,7 @@ import {
   prepareWorkingCopy,
   resolvePayersByRef,
   resourceDisplayName,
+  setClaimItemOrderingProviders,
 } from '../shared';
 import { CreateClaimParams, validateRequestParameters } from './validateRequestParameters';
 
@@ -87,6 +90,11 @@ async function performEffect(
   params: CreateClaimParams,
   agent: ProvenanceAgent
 ): Promise<{ claimId: string }> {
+  // before any working copies get created, so a bad ordering provider leaves nothing behind
+  await assertOrderingProvidersExist(
+    oystehr,
+    (params.serviceLines ?? []).map((line) => line.orderingProvider)
+  );
   const originals = await readOriginals(oystehr, params);
   const copies = await createWorkingCopies(oystehr, originals);
 
@@ -329,7 +337,12 @@ function buildClaim(copies: OriginalResources, params: CreateClaimParams, payerN
         : undefined,
       net: { value: line.charges, currency: 'USD' },
       quantity: { value: line.units, unit: 'UN' },
+      detail: buildClaimItemDrugDetail(line.drug),
     }));
+    setClaimItemOrderingProviders(
+      claim,
+      params.serviceLines.map((line) => line.orderingProvider)
+    );
     claim.total = { value: params.serviceLines.reduce((sum, l) => sum + l.charges, 0), currency: 'USD' };
   }
 

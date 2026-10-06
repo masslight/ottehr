@@ -23,6 +23,7 @@ import {
 } from '@mui/material';
 import { TypographyOptions } from '@mui/material/styles/createTypography';
 import { styled } from '@mui/system';
+import { useQueryClient } from '@tanstack/react-query';
 import { Appointment } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
@@ -69,13 +70,14 @@ import { PatientNotesButton } from '../../../patient-notes/components/PatientNot
 import { ProfileAvatar } from '../../shared/components/ProfileAvatar';
 import { useGetHistoricalVitals, useGetVitals } from '../../shared/components/vitals/hooks/useGetVitals';
 import { useVitalsUnitInputOrder } from '../../shared/components/vitals/hooks/useVitalsUnitInputOrder';
-import { useChartFields } from '../../shared/hooks/useChartFields';
+import { invalidateChart } from '../../shared/hooks/chartSectionCache';
+import { useChartData } from '../../shared/hooks/useChartData';
 import { useGetAppointmentAccessibility } from '../../shared/hooks/useGetAppointmentAccessibility';
 import { useGetEmployees } from '../../shared/hooks/useGetEmployees';
 import { useGroupMemberPractitionerIds } from '../../shared/hooks/useGroupMemberPractitionerIds';
 import { useOystehrAPIClient } from '../../shared/hooks/useOystehrAPIClient';
 import { usePractitionerActions } from '../../shared/hooks/usePractitioner';
-import { useAppointmentData, useChartData } from '../../shared/stores/appointment/appointment.store';
+import { useAppointmentData } from '../../shared/stores/appointment/appointment.store';
 import { getVisitEmployerDisplay } from '../../shared/visitEmployer';
 import { ChangeStatusDropdown } from './ChangeStatusDropdown';
 import { InternalNotes } from './InternalNotes';
@@ -390,28 +392,14 @@ export const Header = (): JSX.Element => {
 
   const [shouldRefetchPractitioners, setShouldRefetchPractitioners] = useState(false);
 
-  const { setQueryCache, refetch } = useChartFields({
-    requestedFields: {
-      practitioners: {},
-    },
-    enabled: false,
-    onSuccess: (data) => {
-      if (!data) {
-        return;
-      }
-      setQueryCache({
-        practitioners: data.practitioners,
-      });
-    },
-  });
-
+  const queryClient = useQueryClient();
   useEffect(() => {
     if (shouldRefetchPractitioners) {
-      console.log('refetching practitioners');
-      void refetch();
+      // The visit note carries the encounter's practitioners; re-read it where it is shown.
+      void invalidateChart(queryClient, encounter?.id);
       setShouldRefetchPractitioners(false);
     }
-  }, [shouldRefetchPractitioners, refetch]);
+  }, [shouldRefetchPractitioners, queryClient, encounter?.id]);
 
   const reasonForVisit = formatLabelValue(appointmentValues?.description, "Reason for today's Visit");
   const userId = formatLabelValue(patient?.id);
@@ -820,7 +808,7 @@ export const Header = (): JSX.Element => {
                     onClick={() => {
                       setHeaderMenuAnchorEl(null);
                       if (patient?.id) {
-                        const initialEncounterId = getInitialEncounterIdForFollowUp(encounter, followUpOriginEncounter);
+                        const initialEncounterId = getInitialEncounterIdForFollowUp(encounter);
                         navigate(`/patient/${patient.id}/followup/add`, {
                           state: { initialEncounterId },
                         });

@@ -32,10 +32,6 @@ export type PatientInfo = {
   reasonAdditional?: string;
 };
 
-export { AllStates } from 'utils/lib/types/common';
-export type { State } from 'utils/lib/helpers/states';
-export type { StateType } from 'utils/lib/types/common';
-
 export type EmailUserValue = 'Patient (Self)' | 'Parent/Guardian';
 
 export const appointmentTypeLabels: { [type in FhirAppointmentType]: string } = {

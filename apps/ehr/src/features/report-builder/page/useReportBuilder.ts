@@ -89,6 +89,8 @@ type UseReportBuilder = {
   error: string | null;
   request: string;
   generating: boolean;
+  /** Layer labels being auto-loaded after the model asked for them — the shown report is incomplete meanwhile. */
+  loadingLayers: string[];
   generatedCode: string | null;
   generatedTitle: string | undefined;
   generateError: string | null;
@@ -148,6 +150,7 @@ export function useReportBuilder(): UseReportBuilder {
 
   const [request, setRequest] = useState('');
   const [generating, setGenerating] = useState(false);
+  const [loadingLayers, setLoadingLayers] = useState<string[]>([]);
   const [generatedCode, setGeneratedCode] = useState<string | null>(null);
   const [generatedTitle, setGeneratedTitle] = useState<string | undefined>(undefined);
   const [generateError, setGenerateError] = useState<string | null>(null);
@@ -304,6 +307,8 @@ export function useReportBuilder(): UseReportBuilder {
 
         const wanted = (result?.needsLayers ?? []).filter((id) => id in activeOpts && !activeOpts[id]);
         if (wanted.length) {
+          const layerLabels = getDataset(datasetId)?.options ?? [];
+          setLoadingLayers(wanted.map((id) => layerLabels.find((l) => l.id === id)?.label ?? id));
           const merged = { ...activeOpts };
           wanted.forEach((id) => (merged[id] = true));
           const refetched = await fetchWithOptions(merged);
@@ -314,9 +319,10 @@ export function useReportBuilder(): UseReportBuilder {
         setGenerateError(getApiError({ error: e, defaultError: 'Failed to generate report' }));
       } finally {
         setGenerating(false);
+        setLoadingLayers([]);
       }
     },
-    [oystehrZambda, datasetOptions, schema, inferOptions, fetchWithOptions, callGenerate]
+    [oystehrZambda, datasetId, datasetOptions, schema, inferOptions, fetchWithOptions, callGenerate]
   );
 
   orchestrateRef.current = orchestrate;
@@ -535,6 +541,7 @@ export function useReportBuilder(): UseReportBuilder {
     error,
     request,
     generating,
+    loadingLayers,
     generatedCode,
     generatedTitle,
     generateError,

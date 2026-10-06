@@ -215,6 +215,16 @@
         },
         {
           "action": [
+            "Messaging:GetConversationToken"
+          ],
+          "effect": "Allow",
+          "resource": [
+            "Messaging:Conversation",
+            "Messaging:Conversation:*"
+          ]
+        },
+        {
+          "action": [
             "FHIR:Search",
             "FHIR:Read",
             "FHIR:Update",
@@ -278,7 +288,7 @@
           "resource": [
             "Zambda:Function:create-billing-claim-from-encounter",
             "Zambda:Function:create-billing-claim-task",
-            "Zambda:Function:retry-billing-claim-task",
+            "Zambda:Function:update-billing-claim-task",
             "Zambda:Function:search-billing-claim-tasks",
             "Zambda:Function:search-billing-providers",
             "Zambda:Function:get-billing-provider",
@@ -293,6 +303,7 @@
             "Zambda:Function:run-billing-rules-engine",
             "Zambda:Function:get-billing-claim-detail",
             "Zambda:Function:get-billing-claim-history",
+            "Zambda:Function:get-billing-claim-cms1500",
             "Zambda:Function:add-billing-claim-note",
             "Zambda:Function:search-billing-service-facilities",
             "Zambda:Function:get-billing-service-facility",
@@ -443,6 +454,16 @@
         },
         {
           "action": [
+            "Messaging:GetConversationToken"
+          ],
+          "effect": "Allow",
+          "resource": [
+            "Messaging:Conversation",
+            "Messaging:Conversation:*"
+          ]
+        },
+        {
+          "action": [
             "FHIR:Search",
             "FHIR:Read",
             "FHIR:Update",
@@ -571,6 +592,16 @@
           "effect": "Allow",
           "resource": [
             "Messaging:Messaging:*"
+          ]
+        },
+        {
+          "action": [
+            "Messaging:GetConversationToken"
+          ],
+          "effect": "Allow",
+          "resource": [
+            "Messaging:Conversation",
+            "Messaging:Conversation:*"
           ]
         },
         {
@@ -773,6 +804,16 @@
         },
         {
           "action": [
+            "Messaging:GetConversationToken"
+          ],
+          "effect": "Allow",
+          "resource": [
+            "Messaging:Conversation",
+            "Messaging:Conversation:*"
+          ]
+        },
+        {
+          "action": [
             "FHIR:Search",
             "FHIR:Read",
             "FHIR:Update",
@@ -944,6 +985,16 @@
         },
         {
           "action": [
+            "Messaging:GetConversationToken"
+          ],
+          "effect": "Allow",
+          "resource": [
+            "Messaging:Conversation",
+            "Messaging:Conversation:*"
+          ]
+        },
+        {
+          "action": [
             "FHIR:History"
           ],
           "effect": "Allow",
@@ -1102,6 +1153,16 @@
           "effect": "Allow",
           "resource": [
             "Messaging:Messaging:*"
+          ]
+        },
+        {
+          "action": [
+            "Messaging:GetConversationToken"
+          ],
+          "effect": "Allow",
+          "resource": [
+            "Messaging:Conversation",
+            "Messaging:Conversation:*"
           ]
         },
         {
@@ -1286,6 +1347,16 @@
           "effect": "Allow",
           "resource": [
             "Messaging:Messaging:*"
+          ]
+        },
+        {
+          "action": [
+            "Messaging:GetConversationToken"
+          ],
+          "effect": "Allow",
+          "resource": [
+            "Messaging:Conversation",
+            "Messaging:Conversation:*"
           ]
         },
         {

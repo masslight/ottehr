@@ -15,6 +15,7 @@ import {
 } from '@mui/material';
 import { ReactElement, ReactNode, Ref } from 'react';
 import { Controller, useFormContext, useWatch } from 'react-hook-form';
+import { otherColors } from 'utils/lib/theme/billing-palette';
 import {
   ADD_SERVICE_LINE_FIELDS,
   addServiceLineFieldProblem,
@@ -64,7 +65,6 @@ import {
   ServiceLineSetValue,
 } from 'utils/lib/types/data/billing/rules-engine.schemas';
 import { HOLD_TAG_NAME } from 'utils/lib/types/data/billing/system-tags';
-import { otherColors } from '../../themes/ottehr/colors';
 import { DateInput } from '../DateInput';
 import { FacilitySelect } from '../FacilitySelect';
 import { NioSelect } from '../NioSelect';
@@ -98,6 +98,25 @@ const operatorLabel = (op: RuleOperator, valueType: RuleFieldValueType | Service
 const LOGIC_LABELS: Record<RuleLogic, string> = {
   and: 'All (AND)',
   or: 'Any (OR)',
+};
+
+// Labels shared by fields in more than one group (e.g. "Member ID" on every coverage, "First name"
+// on the patient and each policy holder). The menu's group subheaders tell them apart, but the
+// closed select shows only the label, so these get their group prepended there.
+const AMBIGUOUS_FIELD_LABELS = (() => {
+  const groupsByLabel = new Map<string, Set<RuleFieldDef['group']>>();
+  for (const field of RULE_FIELD_CATALOG) {
+    groupsByLabel.set(field.label, (groupsByLabel.get(field.label) ?? new Set()).add(field.group));
+  }
+  return new Set([...groupsByLabel].filter(([, groups]) => groups.size > 1).map(([label]) => label));
+})();
+
+// The selected property as shown in the closed select: "Primary insurance - Member ID" rather than
+// "Member ID" when the bare label could mean more than one field.
+const fieldDisplayLabel = (fieldId: string): string => {
+  const def = getRuleFieldDef(fieldId);
+  if (!def) return fieldId;
+  return AMBIGUOUS_FIELD_LABELS.has(def.label) ? `${RULE_FIELD_GROUP_LABELS[def.group]} - ${def.label}` : def.label;
 };
 
 // Property menu items with a subheader per field group. The catalog is authored grouped, so a
@@ -677,6 +696,7 @@ function FieldConditionEditor({ name }: { name: string }): ReactElement | null {
         <Select
           label="Property"
           value={value.field}
+          renderValue={fieldDisplayLabel}
           onChange={(e) => {
             const field = e.target.value;
             const nextDef = getRuleFieldDef(field);
@@ -1165,6 +1185,7 @@ function ActionEditor({ name }: { name: string }): ReactElement | null {
             <Select
               label="Property"
               value={value.field}
+              renderValue={fieldDisplayLabel}
               onChange={(e) => {
                 // Reset the value: it's meaningless across a property change.
                 replace({ ...value, field: e.target.value, value: '' });

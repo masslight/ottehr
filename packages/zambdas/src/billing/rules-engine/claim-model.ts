@@ -116,6 +116,8 @@ export interface RulesEngineClaimModel {
   // as a literal value by the rule set's payer-field setField actions, keyed by id, prefetched by the
   // engine so the synchronous payerId writer can tell them apart from an RCM payer id and stamp the
   // claim's coverage with the right reference form (Organization/{id} rather than an RCM payer URL).
+  // Inactive (soft-deleted) organizations are kept, so the writer can fail the action instead of
+  // mistaking the id for an RCM payer.
   customInsuranceOrganizations?: Map<string, Organization>;
   // Local placeholder ids of working copies minted by writers during this run. persistModel
   // POSTs them (fullUrl urn:uuid:<id>) in the same transaction as the claim's update; the
@@ -568,17 +570,21 @@ const setPersonGender = (person: Patient | RelatedPerson | undefined, value: str
 // The payor/insurer reference for a chosen payer id: Organization/{id} when it names one of the
 // engine's prefetched custom insurance organizations (see loadCustomInsuranceOrganizations), else the
 // existing RCM payer URL form — no RCM lookup is needed there, getPayerUrl builds it from the id alone.
-const payerReferenceForId = (model: RulesEngineClaimModel, id: string): string => {
+// Undefined when the id is blank or names a deleted (inactive) custom insurance organization, which
+// fails the rule and holds the claim.
+const payerReferenceForId = (model: RulesEngineClaimModel, value: string | null): string | undefined => {
+  const id = value?.trim();
+  if (!id) return undefined;
   const customOrg = model.customInsuranceOrganizations?.get(id);
-  return customOrg ? `Organization/${customOrg.id}` : getPayerUrl(id);
+  if (!customOrg) return getPayerUrl(id);
+  return customOrg.active === false ? undefined : `Organization/${customOrg.id}`;
 };
 
 // Re-point the primary coverage's payor and the claim's insurer.
 const setPayerId = (model: RulesEngineClaimModel, value: string | null): boolean => {
-  if (!value) return false;
   const coverage = primaryCoverage(model);
-  if (!coverage) return false;
   const payerRef = payerReferenceForId(model, value);
+  if (!coverage || !payerRef) return false;
   coverage.payor = [{ reference: payerRef }];
   model.claim.insurer = { reference: payerRef };
   return true;
@@ -874,10 +880,9 @@ const coverageWriters = (
 ): Record<string, FieldWriter> => ({
   [`${prefix}.coverageFromPatient`]: (m, v) => setCoverageFromPatient(m, v, coverageType, resolve),
   [`${prefix}.payerId`]: (m, v) => {
-    if (!v) return false;
     const coverage = resolve(m);
-    if (!coverage) return false;
     const payerRef = payerReferenceForId(m, v);
+    if (!coverage || !payerRef) return false;
     coverage.payor = [{ reference: payerRef }];
     if (m.claim.insurance.find((ins) => ins.coverage.reference?.replace('Coverage/', '') === coverage.id)?.focal) {
       m.claim.insurer = { reference: payerRef };
@@ -1001,7 +1006,7 @@ const WRITERS: Record<string, FieldWriter> = {
   ...coverageWriters('secondaryInsurance', 'secondary', secondaryCoverage),
   ...personWriters('secondaryPolicyHolder', policyHolder(secondaryCoverage)),
 
-  ...coverageWriters('tertiaryInsurance', 'tertiary', secondaryCoverage),
+  ...coverageWriters('tertiaryInsurance', 'tertiary', tertiaryCoverage),
   ...personWriters('tertiaryPolicyHolder', policyHolder(tertiaryCoverage)),
 
   ...coverageWriters('quaternaryInsurance', 'quaternary', quaternaryCoverage),

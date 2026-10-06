@@ -17,7 +17,8 @@
 
 import Oystehr from '@oystehr/sdk';
 import { ActivityDefinition } from 'fhir/r4b';
-import { MEDICAL_HISTORY_CONFIG, PROCEDURES_CONFIG } from 'utils';
+import { MEDICAL_HISTORY_CONFIG } from 'utils/lib/ottehr-config/medical-history';
+import { PROCEDURES_CONFIG } from 'utils/lib/ottehr-config/procedures';
 import { createClinicalOystehrClient } from '../packages/zambdas/src/shared/helpers';
 
 // ── Constants (must match quick-pick-helpers.ts) ──

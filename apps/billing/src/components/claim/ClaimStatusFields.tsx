@@ -1,6 +1,7 @@
 import { ExpandLess as ExpandLessIcon, ExpandMore as ExpandMoreIcon } from '@mui/icons-material';
 import { Box, Button, FormControl, FormHelperText, InputLabel, MenuItem, Select, Typography } from '@mui/material';
 import { ReactElement, useState } from 'react';
+import { otherColors } from 'utils/lib/theme/billing-palette';
 import {
   CLAIM_STATUS_FIELDS,
   CLAIM_STATUS_GROUPS,
@@ -11,7 +12,6 @@ import {
   formatClaimStatusValue,
   getActiveStatusGroup,
 } from 'utils/lib/types/data/billing/claim-status';
-import { otherColors } from '../../themes/ottehr/colors';
 
 interface ClaimStatusFieldsProps {
   // Current value per status field (use empty string for None).

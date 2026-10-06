@@ -28,7 +28,6 @@ export function formatFacilityAddress(facility: ServiceFacilityItem | null): str
   return [facility.addressLine1, facility.addressLine2, facility.city, facility.state, zip].filter(Boolean).join(', ');
 }
 
-// Display names are "Last, First".
 export function splitDisplayName(name: string): { firstName: string; lastName: string } {
   const parts = name.split(', ');
   return { firstName: parts[1] ?? '', lastName: parts[0] ?? '' };

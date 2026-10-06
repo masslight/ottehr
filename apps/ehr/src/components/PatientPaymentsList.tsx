@@ -35,8 +35,8 @@ import { FC, Fragment, ReactElement, useCallback, useEffect, useMemo, useState }
 import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import { STATUS_TO_STYLE_MAP } from 'src/features/visits/shared/components/patient/InsuranceContainer';
 import { getEligibilityCheckDetailsForCoverage } from 'src/features/visits/shared/components/patient/InsuranceSection';
+import { useChartData } from 'src/features/visits/shared/hooks/useChartData';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
-import { useChartData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { structureQuestionnaireResponse } from 'src/helpers/qr-structure';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { useEncounterReceipt, useGetEncounter } from 'src/hooks/useEncounter';
@@ -390,9 +390,9 @@ export default function PatientPaymentList({
 
   const employerOrgId = useMemo(() => {
     if (paymentVariant !== PaymentVariant.employer) return undefined;
-    // Employer fee schedules / charge masters are legacy-only: NIO-mode employers live in the
-    // billing app and carry no clinical fee-schedule associations.
-    if (FEATURE_FLAGS.NON_INSURANCE_ORGANIZATIONS_ENABLED) return undefined;
+    // Employer fee schedules / charge masters are legacy-only: custom-organizations-mode
+    // employers live in the billing app and carry no clinical fee-schedule associations.
+    if (FEATURE_FLAGS.CUSTOM_ORGANIZATIONS_ENABLED) return undefined;
     return insuranceData?.occupationalMedicineEmployerOrganization?.id ?? insuranceData?.employerOrganization?.id;
   }, [
     paymentVariant,

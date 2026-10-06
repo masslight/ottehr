@@ -1,29 +1,31 @@
 /**
- * Characterization of the visit-note PDF data composer fed with the golden chart data, i.e. exactly what
- * `assembleProgressNoteInput` hands it today: the unscoped chart as `chartData` and the progress-note
- * field set as `additionalChartData`.
- *
- * When the assembly switches to the visit-note builder, this snapshot must not change.
+ * Characterization of the visit-note PDF data composer fed with the golden chart exactly the way
+ * `assembleProgressNoteInput` feeds it: the visit note read by the section builders, presented as the two
+ * whole-chart shapes the composer reads (`chartData` and `additionalChartData`).
  */
+import { visitNoteToLegacyChartData } from 'utils/lib/helpers/visit-note/visit-note-to-chart-data.helper';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { buildVisitNote } from '../../src/shared/chart-sections/visit-note';
 import { composeProgressNoteData } from '../../src/shared/pdf/progress-note-pdf';
 import { ProgressNoteInput } from '../../src/shared/pdf/types';
 import {
-  buildGoldenChartData,
   buildGoldenChartResources,
+  GOLDEN_IDS,
   GOLDEN_NOW,
-  GoldenChartData,
   GoldenChartResources,
 } from './fixtures/chart-data-golden.fixture';
+import { createGoldenFhirServer } from './fixtures/golden-fhir-server';
 
 describe('composeProgressNoteData — golden chart data', () => {
   let fixture: GoldenChartResources;
-  let goldenChartData: GoldenChartData;
+  let goldenChartData: ReturnType<typeof visitNoteToLegacyChartData>;
 
   beforeAll(async () => {
     vi.useFakeTimers({ now: new Date(GOLDEN_NOW), toFake: ['Date'] });
     fixture = buildGoldenChartResources();
-    goldenChartData = await buildGoldenChartData(fixture);
+    const server = createGoldenFhirServer([...fixture.resources, fixture.patient, fixture.appointment]);
+    const note = await buildVisitNote({ oystehr: server.oystehr, m2mToken: 'token' }, GOLDEN_IDS.encounterId);
+    goldenChartData = visitNoteToLegacyChartData(note, { module: 'in-person' });
   });
 
   afterAll(() => {
@@ -56,9 +58,9 @@ describe('composeProgressNoteData — golden chart data', () => {
     expect(composeProgressNoteData(buildInput())).toMatchSnapshot();
   });
 
-  it('reads each section from the mode the frontend fetches it in', () => {
+  it('reads each section from the shape the composer was written against', () => {
     const data = composeProgressNoteData(buildInput());
-    // From the unscoped chart
+    // From the whole-chart shape
     expect(data.allergies.allergies).toEqual(['Penicillin']);
     expect(data.assessment).toEqual({ primary: 'Acute pharyngitis, unspecified', secondary: ['Fever, unspecified'] });
     expect(data.emCode.emCode).toBe('Office visit, established patient, moderate');
@@ -66,9 +68,9 @@ describe('composeProgressNoteData — golden chart data', () => {
       '99213 Office visit, established patient, low',
       '12001 Simple repair of superficial wounds',
     ]);
-    // The PDF's "chief complaint" is the HPI text, read from the unscoped chart's historyOfPresentIllness.
+    // The PDF's "chief complaint" is the HPI text, read from historyOfPresentIllness.
     expect(data.chiefComplaint.chiefComplaint).toBe('Gradual onset, worse with swallowing');
-    // From the progress-note field set
+    // From the progress-note shape
     expect(data.historyOfPresentIllness.historyOfPresentIllness).toBe('Sore throat for 3 days');
     expect(data.mechanismOfInjury.mechanismOfInjury).toBe('No injury');
     expect(data.medicalDecision.medicalDecision).toContain('Viral pharyngitis');
@@ -77,7 +79,7 @@ describe('composeProgressNoteData — golden chart data', () => {
     ]);
     expect(data.plan.disposition.header).toContain('Disposition');
     expect(Object.keys(data.vitals.vitals ?? {})).toEqual(expect.arrayContaining(['vital-temperature', 'notes']));
-    // Notes come from the patient-wide progress-note request, filtered by type only.
+    // Notes are the progress-note types, filtered by type only.
     expect(data.allergies.allergiesNotes).toEqual(['allergy note text']);
     expect(data.surgicalHistory.surgicalHistoryNotes).toEqual(['surgical-history note text']);
     expect(data.intakeNotes.intakeNotes).toEqual(['intake note text']);

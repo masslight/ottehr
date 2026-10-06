@@ -16,15 +16,15 @@ import {
   isWeightVitalObservation,
 } from 'utils/lib/fhir/vitals';
 import { FormTokenKey } from 'utils/lib/form-tokens/token-catalog';
-import { celsiusToFahrenheit, HeightMeasurement, kgToLbs } from 'utils/lib/helpers/vitals';
+import { HeightMeasurement } from 'utils/lib/helpers/vitals/vitals-height.helper';
+import { celsiusToFahrenheit } from 'utils/lib/helpers/vitals/vitals-temperature.helper';
+import { kgToLbs } from 'utils/lib/helpers/vitals/vitals-weight.helper';
 import {
   AllergyDTO,
   VitalsBloodPressureObservationDTO,
   VitalsObservationDTO,
 } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { FormFillContext } from './form-fill-context';
-
-export type { FormFillContext };
 
 /**
  * Resolves one token against a real encounter.

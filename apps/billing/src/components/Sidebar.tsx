@@ -17,9 +17,9 @@ import {
 import { Box, Divider, Drawer, List, ListItemButton, ListItemIcon, ListItemText, Typography } from '@mui/material';
 import { FC, ReactElement } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { otherColors } from 'utils/lib/theme/billing-palette';
 import { RULES_ENGINE_TYPES, RULES_ENGINES } from 'utils/lib/types/data/billing/rules-engine.constants';
 import { ChargeItemDefinitionLabels } from '../constants/chargeItemDefinition';
-import { otherColors } from '../themes/ottehr/colors';
 
 const DRAWER_WIDTH = 220;
 

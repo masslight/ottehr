@@ -46,6 +46,7 @@ import {
   CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
   EXTENSION_CLAIM_AUTO_ACCIDENT,
   EXTENSION_CLAIM_AUTO_ACCIDENT_STATE,
+  EXTENSION_CLAIM_EMPLOYMENT_ACCIDENT,
   EXTENSION_CLAIM_INSURANCE_TYPE,
   EXTENSION_URL_CPT_MODIFIER,
 } from 'utils/lib/helpers/rcm/constants';
@@ -1002,10 +1003,59 @@ describe('create-billing-claim-from-encounter', () => {
         secrets: { DEFAULT_BILLING_RESOURCE: 'Organization/organization-123' },
         expectedError: INVALID_INPUT_ERROR(
           missingProvider === 'rendering'
-            ? 'No billing rendering provider matches the attending provider NPI. Add a matching provider in billing or correct the clinical provider NPI, then retry.'
-            : 'No billing provider matches the clinical default provider NPI. Add a billing provider with that NPI in the billing app, then retry.'
+            ? 'No billing rendering provider matches the attending provider NPI "11111111111". Add a rendering provider with that NPI in the billing app, then retry.'
+            : 'No billing provider matches the clinical default provider NPI "2222222222". Add a billing provider with that NPI in the billing app, then retry.'
         ),
       })),
+      {
+        name: 'fails when the clinical default billing provider has no NPI',
+        clinicalOystehrSearch: vi
+          .fn()
+          .mockResolvedValueOnce({
+            unbundle: () => [
+              clinicalResources.encounter,
+              clinicalResources.patient,
+              clinicalResources.appointment,
+              clinicalResources.location,
+              clinicalResources.practitioner,
+              emptyAccount,
+              ...clinicalResources.conditions,
+              clinicalResources.procedure,
+            ],
+          })
+          .mockResolvedValueOnce({
+            unbundle: () => [{ ...clinicalResources.billingProvider, identifier: undefined }],
+          }),
+        billingOystehrSearch: vi.fn().mockResolvedValueOnce({
+          unbundle: () => [],
+        }),
+        secrets: { DEFAULT_BILLING_RESOURCE: 'Organization/organization-123' },
+        expectedError: INVALID_INPUT_ERROR(
+          'The clinical default billing provider has no NPI. Add its NPI, then retry.'
+        ),
+      },
+      {
+        name: 'fails when the clinical attending provider has no NPI',
+        clinicalOystehrSearch: vi.fn().mockResolvedValueOnce({
+          unbundle: () => [
+            clinicalResources.encounter,
+            clinicalResources.patient,
+            clinicalResources.appointment,
+            clinicalResources.location,
+            { ...clinicalResources.practitioner, identifier: undefined },
+            emptyAccount,
+            ...clinicalResources.conditions,
+            clinicalResources.procedure,
+          ],
+        }),
+        billingOystehrSearch: vi.fn().mockResolvedValueOnce({
+          unbundle: () => [],
+        }),
+        secrets: { DEFAULT_BILLING_RESOURCE: 'Organization/organization-123' },
+        expectedError: INVALID_INPUT_ERROR(
+          'The clinical attending provider has no NPI. Add its NPI in the clinical app, then retry.'
+        ),
+      },
       {
         name: 'succeeds with required data and all found billing resources',
         clinicalOystehrSearch: vi
@@ -3242,7 +3292,7 @@ describe('create-billing-claim-from-encounter', () => {
         clinicalResources: {
           accounts: [clinicalResources.account],
           appointment: clinicalResources.appointment,
-          accident: autoAccident,
+          accident: { ...autoAccident, type: [...autoAccident.type, 'EM'] },
           billingProvider: clinicalResources.billingProvider,
           coverages: [clinicalResources.coverage],
           diagnoses: [...clinicalResources.conditions],
@@ -3287,7 +3337,6 @@ describe('create-billing-claim-from-encounter', () => {
                   { system: CURRENT_STATUS_TAG_SYSTEM, code: 'open' },
                   { system: CODE_SYSTEM_CLAIM_TYPE, code: CODE_SYSTEM_CLAIM_TYPE_CODES.professional },
                   { system: CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM, code: 'urgent-care' },
-                  { system: CLAIM_TAG_SYSTEM, code: AUTO_ACCIDENT_TAG_NAME },
                   { system: CLAIM_STATUS_TAG_SYSTEMS.arStage, code: AR_STAGE.insurancePayer },
                   { system: CLAIM_STATUS_TAG_SYSTEMS.insuranceArStatus, code: 'created' },
                 ],
@@ -3304,6 +3353,7 @@ describe('create-billing-claim-from-encounter', () => {
               ],
               extension: expect.arrayContaining([
                 { url: EXTENSION_CLAIM_AUTO_ACCIDENT, valueBoolean: true },
+                { url: EXTENSION_CLAIM_EMPLOYMENT_ACCIDENT, valueBoolean: true },
                 { url: EXTENSION_CLAIM_AUTO_ACCIDENT_STATE, valueString: autoAccident.state },
               ]),
               patient: {

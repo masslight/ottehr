@@ -1,5 +1,4 @@
 import Oystehr from '@oystehr/sdk';
-import { QueryClient } from '@tanstack/react-query';
 import { Coding } from 'fhir/r4b';
 import { PROVIDER_CONFIG } from 'utils/lib/ottehr-config/provider';
 import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
@@ -23,16 +22,15 @@ export const autoAddVisionCptCodes = async ({
   existingCptCodes,
   apiClient,
   oystehr,
-  queryClient,
-  chartDataQueryKey,
+  onCptCodesAdded,
 }: {
   vitals: VitalsObservationDTO[];
   encounterId: string;
   existingCptCodes: Set<string>;
   apiClient: OystehrTelemedAPIClient | undefined | null;
   oystehr: Oystehr | undefined;
-  queryClient?: QueryClient;
-  chartDataQueryKey?: string;
+  /** Called after codes were added, so the caller can re-read the billing codes where they are shown. */
+  onCptCodesAdded?: () => Promise<void>;
 }): Promise<void> => {
   const visionAutoCptCodes = PROVIDER_CONFIG.assessment.visionAutoCptCodes ?? [];
   if (!hasNumericVisionValue(vitals) || visionAutoCptCodes.length === 0) {
@@ -77,8 +75,6 @@ export const autoAddVisionCptCodes = async ({
       cptCodes: validCptCodes,
     });
 
-    if (queryClient && chartDataQueryKey) {
-      await queryClient.invalidateQueries({ queryKey: [chartDataQueryKey, encounterId] });
-    }
+    await onCptCodesAdded?.();
   }
 };

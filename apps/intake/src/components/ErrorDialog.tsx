@@ -13,7 +13,7 @@ import {
 import { FC, ReactElement } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
-import { i18n } from 'utils/lib/frontend';
+import i18n from 'utils/lib/frontend/i18n-lib/i18n';
 import { PROJECT_WEBSITE } from 'utils/lib/ottehr-config/branding';
 
 export interface ErrorDialogConfig {

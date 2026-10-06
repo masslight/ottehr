@@ -25,6 +25,7 @@ import {
   NIO_PREFERRED_SUBMISSION_EXTENSION_URL,
   NIO_WC_BILLING_MODE_EXTENSION_URL,
   NIO_WC_PAYER_EXTENSION_URL,
+  NIO_WC_SAME_AS_ORG_ADDRESS_EXTENSION_URL,
   NioCoverageDetail,
   NonInsuranceOrganizationItem,
 } from 'utils/lib/types/data/billing/non-insurance-org.types';
@@ -187,6 +188,9 @@ export function buildCoverageOrganization(params: {
         valueReference: { reference: payerRef.reference, ...(payerRef.display ? { display: payerRef.display } : {}) },
       });
     }
+    if (coverage.billingMode === 'direct' && coverage.sameAsOrgAddress) {
+      extension.push({ url: NIO_WC_SAME_AS_ORG_ADDRESS_EXTENSION_URL, valueBoolean: true });
+    }
   }
   const submission = coverage.submission;
   if (submission?.preferredMechanism) {
@@ -267,7 +271,17 @@ function mapCoverageDetail(
     const payer = payerRef?.reference
       ? payerOptionsByRef?.get(payerRef.reference) ?? fallbackPayerOption(payerRef)
       : undefined;
-    return { category, billingMode, ...(payer ? { payer } : {}), ...(submission ? { submission } : {}) };
+    const sameAsOrgAddress =
+      billingMode === 'direct' &&
+      !!coverageOrg &&
+      getExtension(coverageOrg, NIO_WC_SAME_AS_ORG_ADDRESS_EXTENSION_URL)?.valueBoolean === true;
+    return {
+      category,
+      billingMode,
+      ...(payer ? { payer } : {}),
+      ...(submission ? { submission } : {}),
+      ...(sameAsOrgAddress ? { sameAsOrgAddress } : {}),
+    };
   }
   if (category === 'other') {
     return {

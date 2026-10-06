@@ -43,7 +43,10 @@ vi.mock('src/features/visits/shared/hooks/useProgressNoteSigning', () => ({
 
 vi.mock('src/features/visits/shared/stores/appointment/appointment.store', () => ({
   useAppointmentData: () => ({ appointmentRefetch }),
-  useChartData: () => ({ chartData: { schoolWorkNotes, instructions } }),
+}));
+
+vi.mock('src/features/visits/shared/hooks/useVisitNote', () => ({
+  useVisitNote: () => ({ data: { plan: { schoolWorkNotes, instructions } } }),
 }));
 
 vi.mock('src/hooks/useAppClients', () => ({

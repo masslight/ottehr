@@ -102,6 +102,17 @@ export const CLAIM_LIST_PARAMS: ClaimSearchParam[] = [
   },
 ];
 
+// The status systems a status filter value can match in.
+const STATUS_FILTER_TAG_SYSTEMS = [
+  CLAIM_STATUS_TAG_SYSTEMS.insuranceArStatus,
+  CLAIM_STATUS_TAG_SYSTEMS.insurancePaidStatus,
+  CLAIM_STATUS_TAG_SYSTEMS.adjudicationStatus,
+  CLAIM_STATUS_TAG_SYSTEMS.patientArStatus,
+  CLAIM_STATUS_TAG_SYSTEMS.patientPaidStatus,
+  CLAIM_STATUS_TAG_SYSTEMS.nonInsuranceArStatus,
+  CLAIM_STATUS_TAG_SYSTEMS.nonInsurancePaidStatus,
+];
+
 export type ClaimFilterInput = Pick<
   SearchBillingClaimsInput,
   | 'type'
@@ -128,10 +139,11 @@ export async function buildClaimFilterParams({
   sort?: string;
 }): Promise<ClaimSearchParam[]> {
   let insurerFilter: string | undefined;
-  if (params.payerId) {
+  if (params.payerId?.length) {
     // A business-id-shaped payerId ("OTR-...") names a custom insurance organization rather than an
     // RCM payer — see resolvePayerIssuerFilter.
-    insurerFilter = await resolvePayerIssuerFilter(oystehr, params.payerId);
+    const issuers = await Promise.all(params.payerId.map((payerId) => resolvePayerIssuerFilter(oystehr, payerId)));
+    insurerFilter = [...new Set(issuers)].join(',');
   } else if (params.payerName) {
     const result = await oystehr.rcm.listPayers({
       name: params.payerName,
@@ -149,30 +161,41 @@ export async function buildClaimFilterParams({
     },
   ];
 
-  if (params.type)
+  // Values within one _tag param are ORed; separate _tag params AND together.
+  const pushTagFilter = (system: string, codes: string[] | undefined): void => {
+    if (!codes?.length) return;
     filterParams.push({
       name: '_tag',
-      value: `${CODE_SYSTEM_CLAIM_TYPE}|${params.type}`,
+      value: codes.map((code) => `${system}|${code}`).join(','),
     });
-  if (params.status) {
+  };
+
+  pushTagFilter(CODE_SYSTEM_CLAIM_TYPE, params.type);
+  if (params.status?.length) {
+    const statuses = params.status;
     filterParams.push({
       name: '_tag',
-      value: `${CLAIM_STATUS_TAG_SYSTEMS.insuranceArStatus}|${params.status},${CLAIM_STATUS_TAG_SYSTEMS.insurancePaidStatus}|${params.status},${CLAIM_STATUS_TAG_SYSTEMS.adjudicationStatus}|${params.status},${CLAIM_STATUS_TAG_SYSTEMS.patientArStatus}|${params.status},${CLAIM_STATUS_TAG_SYSTEMS.patientPaidStatus}|${params.status},${CLAIM_STATUS_TAG_SYSTEMS.nonInsuranceArStatus}|${params.status},${CLAIM_STATUS_TAG_SYSTEMS.nonInsurancePaidStatus}|${params.status}`,
+      value: STATUS_FILTER_TAG_SYSTEMS.flatMap((system) => statuses.map((status) => `${system}|${status}`)).join(','),
     });
   }
-  if (params.arStage === AR_STAGE_NONE)
-    // "no AR stage" = no stage tag at all; :not params AND together
-    Object.values(AR_STAGE).forEach((code) =>
-      filterParams.push({
-        name: '_tag:not',
-        value: `${CLAIM_STATUS_TAG_SYSTEMS.arStage}|${code}`,
-      })
-    );
-  else if (params.arStage)
-    filterParams.push({
-      name: '_tag',
-      value: `${CLAIM_STATUS_TAG_SYSTEMS.arStage}|${params.arStage}`,
-    });
+  if (params.arStage?.length) {
+    const stages = params.arStage.filter((stage) => stage !== AR_STAGE_NONE);
+    if (params.arStage.includes(AR_STAGE_NONE)) {
+      // "no AR stage" = no stage tag at all, which can't be ORed with a stage tag. A claim carries at
+      // most one stage, so "none or any of the chosen stages" is "none of the other stages"; :not
+      // params AND together.
+      Object.values(AR_STAGE)
+        .filter((code) => !stages.includes(code))
+        .forEach((code) =>
+          filterParams.push({
+            name: '_tag:not',
+            value: `${CLAIM_STATUS_TAG_SYSTEMS.arStage}|${code}`,
+          })
+        );
+    } else {
+      pushTagFilter(CLAIM_STATUS_TAG_SYSTEMS.arStage, stages);
+    }
+  }
   if (params.createdFrom)
     filterParams.push({
       name: 'created',
@@ -188,35 +211,25 @@ export async function buildClaimFilterParams({
       name: '_lastUpdated',
       value: `le${params.updatedBefore}`,
     });
-  if (params.patientId)
-    filterParams.push(
-      patientSearchParam(
-        await resolveLinkedPatientIds({
+  if (params.patientId?.length) {
+    const linkedPatientIds = await Promise.all(
+      params.patientId.map((patientId) =>
+        resolveLinkedPatientIds({
           oystehr,
-          patientId: params.patientId,
+          patientId,
         })
       )
     );
-  if (params.service)
-    filterParams.push({
-      name: '_tag',
-      value: `${CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM}|${params.service}`,
-    });
+    filterParams.push(patientSearchParam([...new Set(linkedPatientIds.flat())]));
+  }
+  pushTagFilter(CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM, params.service);
   if (insurerFilter)
     filterParams.push({
       name: 'insurer',
       value: insurerFilter,
     });
-  if (params.tag)
-    filterParams.push({
-      name: '_tag',
-      value: `${CLAIM_TAG_SYSTEM}|${params.tag}`,
-    });
-  if (params.nonInsurancePayerId)
-    filterParams.push({
-      name: '_tag',
-      value: `${CLAIM_NON_INSURANCE_PAYER_TAG_SYSTEM}|${params.nonInsurancePayerId}`,
-    });
+  pushTagFilter(CLAIM_TAG_SYSTEM, params.tag);
+  pushTagFilter(CLAIM_NON_INSURANCE_PAYER_TAG_SYSTEM, params.nonInsurancePayerId);
 
   return filterParams;
 }

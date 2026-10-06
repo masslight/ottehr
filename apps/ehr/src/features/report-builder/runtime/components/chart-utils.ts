@@ -93,15 +93,44 @@ export function isCategoryAxis(axis: unknown): boolean {
   return Array.isArray(axis) ? axis.some(one) : one(axis);
 }
 
+// Widest a category label may render before it is cut with an ellipsis — long free-text categories
+// (disposition instructions, reasons for visit) otherwise spill across the plot. The full text stays
+// in the tooltip.
+const X_LABEL_MAX_WIDTH = 120;
+const Y_LABEL_MAX_WIDTH = 180;
+
 // Force EVERY category label to render (interval:0), aligned under its bar. ECharts otherwise
 // auto-thins labels, so the few shown can land on empty positions and look desynced from the bars.
-// Rotate x labels so they don't collide; the option's own axisLabel settings win.
+// Rotate x labels so they don't collide and truncate long ones; the option's own axisLabel settings win.
 export function normalizeCategoryAxes(axis: unknown, isX: boolean): unknown {
   const one = (a: unknown): unknown => {
     if (!a || typeof a !== 'object' || (a as { type?: string }).type !== 'category') return a;
     const ax = a as Record<string, unknown>;
     const existing = (ax.axisLabel as Record<string, unknown> | undefined) ?? {};
-    return { ...ax, axisLabel: { interval: 0, ...(isX ? { rotate: 30 } : {}), ...existing } };
+    return {
+      ...ax,
+      axisLabel: {
+        interval: 0,
+        overflow: 'truncate',
+        width: isX ? X_LABEL_MAX_WIDTH : Y_LABEL_MAX_WIDTH,
+        ...(isX ? { rotate: 30 } : {}),
+        ...existing,
+      },
+    };
+  };
+  return Array.isArray(axis) ? axis.map(one) : one(axis);
+}
+
+// An axis name sits at the axis END and is centred on that point by default, so a y-axis name runs
+// off the container's left edge and an x-axis name off its right edge. Anchor each to the inside of
+// the plot instead. Applies to every axis type; the option's own nameTextStyle wins.
+export function anchorAxisNames(axis: unknown, isX: boolean): unknown {
+  const one = (a: unknown): unknown => {
+    if (!a || typeof a !== 'object') return a;
+    const ax = a as Record<string, unknown>;
+    if (typeof ax.name !== 'string' || !ax.name || 'nameTextStyle' in ax) return a;
+    if ('nameLocation' in ax && ax.nameLocation !== 'end') return a;
+    return { ...ax, nameTextStyle: { align: isX ? 'right' : 'left' } };
   };
   return Array.isArray(axis) ? axis.map(one) : one(axis);
 }
@@ -131,6 +160,9 @@ export function withEChartsDefaults(
   const wantZoom = hasAxes && !isMatrixChart(option) && seriesPointCount > 12 && !('dataZoom' in option);
   const full: Record<string, unknown> = { ...option };
 
+  // A tooltip so a truncated category label can still be read in full.
+  if (hasAxes && !('tooltip' in full)) full.tooltip = { trigger: 'axis', confine: true };
+
   if (hasAxes && !('grid' in full)) {
     full.grid = {
       left: 'visualMap' in full ? VISUAL_MAP_GUTTER : 8,
@@ -158,8 +190,8 @@ export function withEChartsDefaults(
     ];
   }
 
-  if ('xAxis' in full) full.xAxis = normalizeCategoryAxes(full.xAxis, true);
-  if ('yAxis' in full) full.yAxis = normalizeCategoryAxes(full.yAxis, false);
+  if ('xAxis' in full) full.xAxis = anchorAxisNames(normalizeCategoryAxes(full.xAxis, true), true);
+  if ('yAxis' in full) full.yAxis = anchorAxisNames(normalizeCategoryAxes(full.yAxis, false), false);
   return full;
 }
 

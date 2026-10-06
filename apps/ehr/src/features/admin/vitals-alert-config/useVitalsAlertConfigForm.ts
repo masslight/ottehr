@@ -5,7 +5,6 @@ import { useUpdateVitalsAlertConfig, useVitalsAlertConfig } from 'src/hooks/useV
 import {
   VITAL_ALERT_TYPES,
   VitalAlertAgeRange,
-  VitalsAlertConfig,
   VitalsAlertConfigSchema,
 } from 'utils/lib/types/api/vitals-alert-config/vitals-alert-config.types';
 import {
@@ -13,10 +12,15 @@ import {
   getVitalsAlertConfigEngineError,
   makeVitalAlertAgeRangeId,
 } from 'utils/lib/utils/vitals-alert-config';
+import {
+  toVitalAlertLevelsFormValues,
+  toVitalsAlertConfigFormValues,
+  VitalsAlertConfigFormValues,
+} from './vitalsAlertConfigFormValues';
 
 export interface VitalsAlertConfigForm {
-  control: Control<VitalsAlertConfig>;
-  errors: FieldErrors<VitalsAlertConfig>;
+  control: Control<VitalsAlertConfigFormValues>;
+  errors: FieldErrors<VitalsAlertConfigFormValues>;
   engineError?: string;
   ageRanges: VitalAlertAgeRange[];
   rowKeys: string[];
@@ -43,8 +47,8 @@ export const useVitalsAlertConfigForm = (): VitalsAlertConfigForm => {
     setValue,
     trigger,
     reset,
-  } = useForm<VitalsAlertConfig>({
-    defaultValues: DEFAULT_VITALS_ALERT_CONFIG,
+  } = useForm<VitalsAlertConfigFormValues>({
+    defaultValues: toVitalsAlertConfigFormValues(DEFAULT_VITALS_ALERT_CONFIG),
     resolver: zodResolver(VitalsAlertConfigSchema),
   });
 
@@ -67,7 +71,7 @@ export const useVitalsAlertConfigForm = (): VitalsAlertConfigForm => {
 
   useEffect(() => {
     if (!data) return;
-    reset(data, { keepDirtyValues: true });
+    reset(toVitalsAlertConfigFormValues(data), { keepDirtyValues: true });
   }, [data, reset]);
 
   const onAddAgeRange = (): void => {
@@ -80,7 +84,7 @@ export const useVitalsAlertConfigForm = (): VitalsAlertConfigForm => {
       maxAge: undefined,
     });
     VITAL_ALERT_TYPES.forEach((vital) => {
-      setValue(`thresholds.${vital}.${id}`, {}, { shouldDirty: true });
+      setValue(`thresholds.${vital}.${id}`, toVitalAlertLevelsFormValues(vital), { shouldDirty: true });
     });
   };
 
@@ -134,7 +138,7 @@ export const useVitalsAlertConfigForm = (): VitalsAlertConfigForm => {
     },
     discard: () => {
       setEngineError(undefined);
-      reset(data ?? DEFAULT_VITALS_ALERT_CONFIG);
+      reset(toVitalsAlertConfigFormValues(data ?? DEFAULT_VITALS_ALERT_CONFIG));
     },
     onAddAgeRange,
     onRemoveAgeRange,

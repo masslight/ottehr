@@ -1,3 +1,4 @@
+import { standardizePhoneNumber } from 'utils/lib/helpers/helpers';
 import {
   CreateBillingPatientInput,
   GenderOption,
@@ -43,7 +44,7 @@ export function defaultPatientFormValues(patient?: PatientDetailResponse | null)
     lastName: patient.lastName ?? '',
     dob: patient.dob ?? '',
     gender: patient.gender ?? '',
-    phone: patient.phone ?? '',
+    phone: standardizePhoneNumber(patient.phone) ?? patient.phone ?? '',
     email: patient.email ?? '',
     line1: patient.addressParts.line1 ?? '',
     line2: patient.addressParts.line2 ?? '',

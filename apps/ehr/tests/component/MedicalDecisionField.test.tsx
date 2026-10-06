@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import { useChartFields } from 'src/features/visits/shared/hooks/useChartFields';
+import { useChartSection } from 'src/features/visits/shared/hooks/useChartSection';
 import { useDebounceNotesField } from 'src/features/visits/shared/hooks/useDebounceNotesField';
 import { useProgressNoteConfig } from 'src/hooks/useProgressNoteConfig';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -9,8 +9,8 @@ vi.mock('src/hooks/useProgressNoteConfig', () => ({
   useProgressNoteConfig: vi.fn(),
 }));
 
-vi.mock('src/features/visits/shared/hooks/useChartFields', () => ({
-  useChartFields: vi.fn(),
+vi.mock('src/features/visits/shared/hooks/useChartSection', () => ({
+  useChartSection: vi.fn(),
 }));
 
 vi.mock('src/features/visits/shared/hooks/useDebounceNotesField', () => ({
@@ -18,13 +18,13 @@ vi.mock('src/features/visits/shared/hooks/useDebounceNotesField', () => ({
 }));
 
 const mockUseProgressNoteConfig = vi.mocked(useProgressNoteConfig);
-const mockUseChartFields = vi.mocked(useChartFields);
+const mockUseChartSection = vi.mocked(useChartSection);
 const mockUseDebounceNotesField = vi.mocked(useDebounceNotesField);
 
 describe('MedicalDecisionField', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockUseChartFields.mockReturnValue({
+    mockUseChartSection.mockReturnValue({
       data: {
         medicalDecision: {
           text: '',

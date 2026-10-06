@@ -8,12 +8,8 @@ vi.mock('src/shared/hooks/useExcusePresignedFiles', () => ({
   useExcusePresignedFiles: () => presignedFiles,
 }));
 
-vi.mock('src/features/visits/shared/stores/appointment/appointment.store', () => ({
-  useChartData: () => ({ chartData: { schoolWorkNotes } }),
-}));
-
-vi.mock('src/features/visits/shared/hooks/useProgressNoteChartFields', () => ({
-  useProgressNoteChartFields: () => ({ data: {} }),
+vi.mock('src/features/visits/shared/hooks/useVisitNote', () => ({
+  useVisitNote: () => ({ data: { plan: { schoolWorkNotes } } }),
 }));
 
 import { usePatientInstructionsVisibility } from '../../src/features/visits/shared/hooks/usePatientInstructionsVisibility';

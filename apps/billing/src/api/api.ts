@@ -26,6 +26,7 @@ import {
   GetBillingPaymentsReportDrilldownInputSchema,
   GetBillingProviderInputSchema,
   GetChargeItemDefinitionInputSchema,
+  GetClaimCms1500InputSchema,
   GetClaimDetailInputSchema,
   GetClaimHistoryInputSchema,
   GetEraDetailInputSchema,
@@ -34,11 +35,11 @@ import {
   GetServiceFacilityInputSchema,
   ImportEraInputSchema,
   MatchClaimResponseToClaimInputSchema,
+  NetCollectionsDrilldownParamsSchema,
   PatientPaymentsDrilldownParamsSchema,
   RecordBillingManualPaymentInputSchema,
   RenameClaimAttachmentInputSchema,
   ReportDateWindowParams,
-  RetryBillingClaimTaskInputSchema,
   SaveBillingTagInputSchema,
   SaveServiceFacilityInputSchema,
   SearchBillingClaimsInputSchema,
@@ -54,6 +55,7 @@ import {
   SearchServiceFacilitiesInputSchema,
   TagBillingClaimInputSchema,
   UnmatchClaimResponseInputSchema,
+  UpdateBillingClaimTaskInputSchema,
   UpdateBillingCoverageInputSchema,
   UpdateBillingPatientInputSchema,
   UpdateBillingProviderInputSchema,
@@ -78,6 +80,8 @@ import {
   GetBillingCardsOnFileReportResponse,
   GetBillingCoverageResponse,
   GetBillingInvoiceReportResponse,
+  GetBillingNetCollectionsDrilldownResponse,
+  GetBillingNetCollectionsReportResponse,
   GetBillingPatientBalanceResponse,
   GetBillingPatientPaymentsDrilldownResponse,
   GetBillingPatientPaymentsReportResponse,
@@ -107,6 +111,7 @@ import {
   ServiceFacilityItem,
 } from 'utils/lib/types/data/billing/billing.types';
 import { GetClaimHistoryResponse } from 'utils/lib/types/data/billing/claim-history';
+import { Cms1500FormData } from 'utils/lib/types/data/billing/cms1500.types';
 import {
   CreateCustomInsuranceOrgInputSchema,
   DeleteCustomInsuranceOrgInputSchema,
@@ -190,8 +195,15 @@ export const searchBillingClaimTasks = (
 
 export const retryBillingClaimTask = (
   oystehr: Oystehr,
-  parameters: z.input<typeof RetryBillingClaimTaskInputSchema>
-): Promise<{ taskId: string }> => executeBillingZambda(oystehr, 'retry-billing-claim-task', parameters);
+  parameters: Pick<z.input<typeof UpdateBillingClaimTaskInputSchema>, 'taskId'>
+): Promise<{ taskId: string }> =>
+  executeBillingZambda(oystehr, 'update-billing-claim-task', { ...parameters, action: 'retry' });
+
+export const cancelBillingClaimTask = (
+  oystehr: Oystehr,
+  parameters: Pick<z.input<typeof UpdateBillingClaimTaskInputSchema>, 'taskId'>
+): Promise<{ taskId: string }> =>
+  executeBillingZambda(oystehr, 'update-billing-claim-task', { ...parameters, action: 'cancel' });
 
 export const createBillingClaim = (
   oystehr: Oystehr,
@@ -239,6 +251,11 @@ export const exportClaimX12 = (
   oystehr: Oystehr,
   parameters: z.input<typeof ExportClaimX12InputSchema>
 ): Promise<ExportClaimX12Response> => executeBillingZambda(oystehr, 'export-billing-claim-x12', parameters);
+
+export const getBillingClaimCms1500 = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof GetClaimCms1500InputSchema>
+): Promise<Cms1500FormData> => executeBillingZambda(oystehr, 'get-billing-claim-cms1500', parameters);
 
 export const updateBillingResource = (
   oystehr: Oystehr,
@@ -515,6 +532,13 @@ export const getBillingProductivityReport = (
 ): Promise<GetBillingProductivityReportResponse> =>
   getBillingReport(oystehr, 'productivity', params as Record<string, unknown>, refresh);
 
+export const getBillingNetCollectionsReport = (
+  oystehr: Oystehr,
+  params?: ReportDateWindowParams,
+  refresh?: boolean
+): Promise<GetBillingNetCollectionsReportResponse> =>
+  getBillingReport(oystehr, 'net-collections', params as Record<string, unknown>, refresh);
+
 // this kind's cached runs, newest first
 export const getBillingReportHistory = (
   oystehr: Oystehr,
@@ -538,6 +562,20 @@ export const getBillingPatientPaymentsDrilldown = (
   getBillingReport(
     oystehr,
     'patient-payments',
+    params as Record<string, unknown>,
+    undefined,
+    drilldown as Record<string, unknown>
+  );
+
+// per-payer ERA drilldown over the window's cached net-collections detail
+export const getBillingNetCollectionsDrilldown = (
+  oystehr: Oystehr,
+  params: ReportDateWindowParams,
+  drilldown: z.input<typeof NetCollectionsDrilldownParamsSchema>
+): Promise<GetBillingNetCollectionsDrilldownResponse> =>
+  getBillingReport(
+    oystehr,
+    'net-collections',
     params as Record<string, unknown>,
     undefined,
     drilldown as Record<string, unknown>

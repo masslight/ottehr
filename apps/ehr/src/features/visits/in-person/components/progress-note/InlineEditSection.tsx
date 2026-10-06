@@ -17,6 +17,8 @@ interface InlineEditSectionProps {
   iconKey?: NoteSectionIconKey;
   editLabel: string;
   editContent: ReactNode;
+  // extra header content shown before the Edit button while reading (e.g. a provenance badge)
+  headerExtra?: ReactNode;
   // render children without any edit affordance (e.g. supervisor approval box)
   disabled?: boolean;
   children: ReactNode;
@@ -28,6 +30,7 @@ export const InlineEditSection: FC<InlineEditSectionProps> = ({
   iconKey,
   editLabel,
   editContent,
+  headerExtra,
   disabled,
   children,
 }) => {
@@ -52,7 +55,7 @@ export const InlineEditSection: FC<InlineEditSectionProps> = ({
 
   if (!canEdit) {
     return (
-      <NoteSectionCard title={title} iconKey={iconKey}>
+      <NoteSectionCard title={title} iconKey={iconKey} headerItem={headerExtra}>
         {children}
       </NoteSectionCard>
     );
@@ -109,19 +112,22 @@ export const InlineEditSection: FC<InlineEditSectionProps> = ({
         headerTestId={dataTestIds.progressNotePage.inlineEditHeader(sectionName)}
         onBodyClick={() => setIsEditing(true)}
         headerItem={
-          <Button
-            size="small"
-            startIcon={<EditOutlinedIcon fontSize="small" />}
-            onClick={(event) => {
-              event.stopPropagation();
-              setIsEditing(true);
-            }}
-            aria-label={editLabel}
-            data-testid={dataTestIds.progressNotePage.inlineEditButton(sectionName)}
-            sx={{ flexShrink: 0 }}
-          >
-            Edit
-          </Button>
+          <>
+            {headerExtra}
+            <Button
+              size="small"
+              startIcon={<EditOutlinedIcon fontSize="small" />}
+              onClick={(event) => {
+                event.stopPropagation();
+                setIsEditing(true);
+              }}
+              aria-label={editLabel}
+              data-testid={dataTestIds.progressNotePage.inlineEditButton(sectionName)}
+              sx={{ flexShrink: 0 }}
+            >
+              Edit
+            </Button>
+          </>
         }
       >
         {children}

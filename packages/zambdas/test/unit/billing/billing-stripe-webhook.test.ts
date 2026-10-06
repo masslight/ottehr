@@ -4,7 +4,7 @@ import { Claim, Organization, PaymentNotice } from 'fhir/r4b';
 import Stripe from 'stripe';
 import { BILLING_RESOURCE_TAG } from 'utils/lib/fhir/constants';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
-import { Secrets } from 'utils/lib/secrets';
+import { Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { INVALID_INPUT_ERROR, MISCONFIGURED_ENVIRONMENT_ERROR } from 'utils/lib/types/errors';
 import { afterEach, describe, expect, it, Mock, vi } from 'vitest';
 
@@ -39,6 +39,7 @@ import { createBillingClient, STRIPE_ACCOUNT_IDENTIFIER_SYSTEM } from '../../../
 import { checkOrCreateM2MClientToken } from '../../../src/shared/auth';
 import { createClinicalOystehrClient } from '../../../src/shared/helpers';
 import { getStripeClient, STRIPE_PAYMENT_ID_SYSTEM } from '../../../src/shared/stripeIntegration';
+import { validateStripeWebhook } from '../../../src/shared/stripeWebhook';
 import { ZambdaInput } from '../../../src/shared/types/common';
 
 const WEBHOOK_SECRET = 'whsec_test_secret';
@@ -145,6 +146,23 @@ describe('billing-stripe-webhook signing secrets', () => {
     signingSecret: `whsec_${i + 1}`,
   }));
   const webhookSecrets = { STRIPE_WEBHOOK_SECRET: JSON.stringify(accountSecrets) };
+
+  it('verifies only the signing-secret settings selected by the caller', () => {
+    (getStripeClient as Mock).mockReturnValue(stripe);
+    const event = makeEvent('charge.succeeded', makeCharge());
+    const secretKeys = [SecretsKeys.STRIPE_PLATFORM_WEBHOOK_SECRET];
+    const missingSecretsMessage = 'Missing platform webhook secret';
+
+    const params = validateStripeWebhook(
+      signedInput(event, PLATFORM_WEBHOOK_SECRET),
+      secretKeys,
+      missingSecretsMessage
+    );
+    expect(params.event).toEqual(event);
+    expect(() => validateStripeWebhook(signedInput(event), secretKeys, missingSecretsMessage)).toThrow(
+      expect.objectContaining(INVALID_INPUT_ERROR('Invalid Stripe webhook signature'))
+    );
+  });
 
   it('verifies the last of 12 accounts and uses it for billing and Stripe API calls', async () => {
     (getStripeClient as Mock).mockReturnValue(stripe);
@@ -272,16 +290,15 @@ describe('billing-stripe-webhook', () => {
     const { oystehr, create } = makeOystehr([]);
     (createBillingClient as Mock).mockReturnValue(oystehr);
     const input = {
-      ...signedInput(makeEvent('charge.succeeded', makeCharge())),
+      ...signedInput(makeEvent('invoice.paid', makeInvoice())),
       secrets: { ...secrets, BILLING_INTEGRATION: 'candid' },
     };
 
     const result = await (index as unknown as (i: ZambdaInput) => Promise<APIGatewayProxyResult>)(input);
 
     expect(result.statusCode).toBe(200);
-    // M2M token creation runs before the billing gate so invoice task status updates work in
-    // all billing modes; charge events skip the task-update path immediately (not in the map).
-    expect(checkOrCreateM2MClientToken).toHaveBeenCalledOnce();
+    expect(checkOrCreateM2MClientToken).not.toHaveBeenCalled();
+    expect(createClinicalOystehrClient).not.toHaveBeenCalled();
     expect(create).not.toHaveBeenCalled();
   });
 
@@ -411,7 +428,7 @@ describe('billing-stripe-webhook', () => {
     expect(notice.contained[0].outcome).toBe('error');
   });
 
-  it('stamps refund state on the source payment notices in both projects', async () => {
+  it('updates refund state only on billing payment notices', async () => {
     const retrieve = vi.fn().mockResolvedValue(makeCharge());
     const refundsList = vi.fn().mockResolvedValue({
       data: [{ id: 're_1', amount: 400, currency: 'usd', created: 1751990000, status: 'succeeded' }],
@@ -426,15 +443,7 @@ describe('billing-stripe-webhook', () => {
       status: 'active',
       identifier: [{ system: STRIPE_PAYMENT_ID_SYSTEM, value: 'ch_1' }],
     } as PaymentNotice;
-    const clinicalNotice = {
-      resourceType: 'PaymentNotice',
-      id: 'pn-clinical',
-      status: 'active',
-      identifier: [{ system: STRIPE_PAYMENT_ID_SYSTEM, value: 'pi_1' }],
-    } as PaymentNotice;
     const { oystehr, patch } = makeOystehr([[claim], [claim]], [], [[billingNotice]]);
-    const clinical = makeOystehr([], [], [[clinicalNotice]]);
-    (createClinicalOystehrClient as Mock).mockReturnValue(clinical.oystehr);
     const refund = {
       id: 're_1',
       charge: 'ch_1',
@@ -449,9 +458,12 @@ describe('billing-stripe-webhook', () => {
     expect(refundsList).toHaveBeenCalledWith({ charge: 'ch_1', limit: 100 }, { stripeAccount: undefined });
     expect(patch).toHaveBeenCalledTimes(1);
     expect(patch.mock.calls[0][0].id).toBe('pn-billing');
-    expect(clinical.patch).toHaveBeenCalledTimes(1);
-    const clinicalPatch = clinical.patch.mock.calls.find((c) => c[0].id === 'pn-clinical');
-    const extension = clinicalPatch?.[0].operations[0].value.find((ext: { url: string }) =>
+    expect(createClinicalOystehrClient).not.toHaveBeenCalled();
+    expect(oystehr.fhir.search).toHaveBeenCalledWith({
+      resourceType: 'PaymentNotice',
+      params: [{ name: 'identifier', value: `${STRIPE_PAYMENT_ID_SYSTEM}|ch_1,${STRIPE_PAYMENT_ID_SYSTEM}|pi_1` }],
+    });
+    const extension = patch.mock.calls[0][0].operations[0].value.find((ext: { url: string }) =>
       ext.url.endsWith('/payment-refunds')
     );
     expect(extension.extension[0].extension).toContainEqual({ url: 'refundId', valueString: 're_1' });

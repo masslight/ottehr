@@ -2,10 +2,10 @@ import { Alert, Box, Button, CircularProgress, TextField, Typography } from '@mu
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useCallback, useEffect, useState } from 'react';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
+import { otherColors } from 'utils/lib/theme/billing-palette';
 import { CLAIM_NOTE_MAX_LENGTH, ClaimHistoryEntry } from 'utils/lib/types/data/billing/claim-history';
 import { addBillingClaimNote, getBillingClaimHistory } from '../../api/api';
 import { useApiClients } from '../../hooks/useAppClients';
-import { otherColors } from '../../themes/ottehr/colors';
 import { formatDateTime } from '../../utils/format';
 import { SideDrawer } from '../SideDrawer';
 

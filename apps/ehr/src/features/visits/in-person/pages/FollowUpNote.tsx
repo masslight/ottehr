@@ -1,11 +1,13 @@
 import { Box, Stack, Typography } from '@mui/material';
 import React from 'react';
+import { useTrackRecentlyViewed } from '../../../../hooks/useTrackRecentlyViewed';
 import { Loader } from '../../shared/components/Loader';
 import { PageTitle } from '../../shared/components/PageTitle';
 import { AddendumCard } from '../../shared/components/review-tab/AddendumCard';
 import { ReviewAndSignButton } from '../../shared/components/review-tab/ReviewAndSignButton';
 import { UnlockAppointmentButton } from '../../shared/components/review-tab/UnlockAppointmentButton';
-import { useAppointmentData, useChartData } from '../../shared/stores/appointment/appointment.store';
+import { useChartData } from '../../shared/hooks/useChartData';
+import { useAppointmentData } from '../../shared/stores/appointment/appointment.store';
 import { FollowUpNoteDetails } from '../components/follow-up-note/FollowUpNoteDetails';
 import { FollowUpSummaryCard } from '../components/follow-up-note/FollowUpSummaryCard';
 
@@ -15,11 +17,15 @@ interface FollowUpNoteProps {
 
 export const FollowUpNote: React.FC<FollowUpNoteProps> = () => {
   const {
+    patient,
     resources: { appointment },
+    encounter,
     isAppointmentLoading,
     appointmentError,
     refetch,
   } = useAppointmentData();
+
+  useTrackRecentlyViewed({ appointment, patient, encounter, isAppointmentLoading });
 
   const { isChartDataLoading, chartDataError } = useChartData();
   const isLoading = isAppointmentLoading || isChartDataLoading;

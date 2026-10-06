@@ -9,6 +9,7 @@ import {
   NIO_PREFERRED_SUBMISSION_EXTENSION_URL,
   NIO_WC_BILLING_MODE_EXTENSION_URL,
   NIO_WC_PAYER_EXTENSION_URL,
+  NIO_WC_SAME_AS_ORG_ADDRESS_EXTENSION_URL,
   NioWorkersCompCoverage,
 } from 'utils/lib/types/data/billing/non-insurance-org.types';
 import { describe, expect, it, vi } from 'vitest';
@@ -167,6 +168,38 @@ describe('non-insurance-org FHIR mapping', () => {
     const unnamedOther = buildCoverageOrganization({ nioName: 'FedEx', coverage: { category: 'other' } });
     expect(unnamedOther.name).toBeUndefined();
     expect(unnamedOther.identifier).toEqual([{ system: NIO_ORGANIZATION_KIND_SYSTEM, value: 'nio-coverage' }]);
+  });
+
+  it('round-trips the workers-comp "same as organization address" flag in direct mode only', () => {
+    const direct = buildCoverageOrganization({
+      nioName: 'FedEx',
+      coverage: {
+        category: 'workers-comp',
+        billingMode: 'direct',
+        sameAsOrgAddress: true,
+        submission: { mailAddress: fullInput.address },
+      },
+    });
+    expect(direct.extension).toContainEqual({ url: NIO_WC_SAME_AS_ORG_ADDRESS_EXTENSION_URL, valueBoolean: true });
+
+    const item = mapNonInsuranceOrganization({
+      org: nioOrg,
+      affiliations: [wcAffiliation],
+      coverageOrgsById: new Map([['cov-wc', { ...direct, id: 'cov-wc' }]]),
+    });
+    expect((item.covers[0] as NioWorkersCompCoverage).sameAsOrgAddress).toBe(true);
+
+    const unchecked = buildCoverageOrganization({
+      nioName: 'FedEx',
+      coverage: { category: 'workers-comp', billingMode: 'direct' },
+    });
+    expect(unchecked.extension?.some((ext) => ext.url === NIO_WC_SAME_AS_ORG_ADDRESS_EXTENSION_URL)).toBe(false);
+    const uncheckedItem = mapNonInsuranceOrganization({
+      org: nioOrg,
+      affiliations: [wcAffiliation],
+      coverageOrgsById: new Map([['cov-wc', { ...unchecked, id: 'cov-wc' }]]),
+    });
+    expect((uncheckedItem.covers[0] as NioWorkersCompCoverage).sameAsOrgAddress).toBeUndefined();
   });
 
   it('writes submission details to telecom, address, and extensions', () => {

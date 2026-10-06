@@ -7,8 +7,8 @@ import { DeleteIconButton } from 'src/components/DeleteIconButton';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { CPTCodeDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { useChartData } from '../../../hooks/useChartData';
 import { useChartDataArrayValue } from '../../../hooks/useChartDataArrayValue';
-import { useChartData } from '../../../stores/appointment/appointment.store';
 import { ProviderSideListSkeleton } from '../../ProviderSideListSkeleton';
 import { SURGICAL_HISTORY_OPTIONS } from './surgicalHistoryOptions';
 
@@ -29,7 +29,7 @@ export const ProceduresForm: FC = () => {
 
   const { control, reset, handleSubmit } = methods;
 
-  const { isLoading, onSubmit, onRemove, values: procedures } = useChartDataArrayValue('surgicalHistory', reset, {});
+  const { isLoading, onSubmit, onRemove, values: procedures } = useChartDataArrayValue('surgicalHistory', reset);
 
   const handleSelectOption = (data: CPTCodeDTO | null): void => {
     if (data) {
