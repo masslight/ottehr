@@ -4,7 +4,7 @@
 //
 // PHI: never logs the transcript or a line of the narrative. Envelope only.
 
-import { captureException } from '@sentry/aws-serverless';
+import { captureException } from '@sentry/node-core/light';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DocumentReference } from 'fhir/r4b';
 import { ChartNarrativeResponse, NarrativeLine } from 'utils/lib/easy-chart/api';
