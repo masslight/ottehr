@@ -32,7 +32,7 @@ const existingPatient = {
   gender: 'female',
 };
 
-// Hoisted to module scope so useApiClients returns the same references on every render (see AddVisit.test.tsx).
+// Module scope so useApiClients returns stable references across renders.
 const mockApiClients = {
   oystehr: {
     fhir: {
@@ -46,7 +46,6 @@ vi.mock('../../src/hooks/useAppClients', () => ({
   useApiClients: () => mockApiClients,
 }));
 
-// App.tsx renders <AddPatient patientOnly /> at /patients/add and <AddPatient /> at /visits/add.
 const renderAt = (url: string): void => {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(

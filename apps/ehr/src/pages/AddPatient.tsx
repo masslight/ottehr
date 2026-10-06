@@ -131,7 +131,7 @@ export const getPostAppointmentSnackbar = ({
 };
 
 interface AddPatientProps {
-  /** The Patients page's "Add patient": the same form with no visit fields, creating only the patient. */
+  // creates only the patient, without visit fields
   patientOnly?: boolean;
 }
 
@@ -502,7 +502,6 @@ export default function AddPatient({ patientOnly = false }: AddPatientProps): JS
       return;
     }
 
-    // An existing patient needs nothing created, so nothing about them is validated: open their record.
     if (patientOnly && patientInfo.id) {
       navigate(`/patient/${patientInfo.id}`);
       return;
@@ -521,7 +520,6 @@ export default function AddPatient({ patientOnly = false }: AddPatientProps): JS
         invalid: patientInfo.newPatient ? !birthDate : !patientInfo.dateOfBirth,
       },
       { field: 'sexAtBirth', invalid: !patientInfo.sex },
-      // the visit fields are neither shown nor required when only the patient is being added
       { field: 'visitType', invalid: !patientOnly && !visitType },
       { field: 'serviceCategory', invalid: !patientOnly && !serviceCategory },
       { field: 'location', invalid: !patientOnly && !!visitType && !selectedBookable },
@@ -554,11 +552,9 @@ export default function AddPatient({ patientOnly = false }: AddPatientProps): JS
           },
         });
         enqueueSnackbar('Patient added', { variant: 'success' });
-        // The form collects only the basics; the rest is filled in on the patient's information page.
         navigate(`/patient/${patientId}/info`);
       } catch (error) {
         console.error(`Failed to add patient: ${error}`);
-        // An input the server rejects (a blank name, say) comes back with a message staff can act on.
         const errorMessage = isApiError(error)
           ? (error as APIError).message
           : 'An unexpected error occurred, please try again.';

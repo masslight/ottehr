@@ -33,7 +33,6 @@ const mockOystehr = (): {
     })),
   }));
   const friendlyId = vi.fn().mockResolvedValue({});
-  // a RelatedPerson the failed linking left behind
   const search = vi.fn().mockResolvedValue({ unbundle: () => [{ resourceType: 'RelatedPerson', id: 'rp-1' }] });
   return { oystehr: { fhir: { transaction, search, generateFriendlyPatientId: friendlyId } }, transaction, friendlyId };
 };
@@ -63,7 +62,6 @@ describe('create-patient performEffect', () => {
       name: [{ given: ['Example', 'Q'], family: 'Patient' }],
       birthDate: '2015-04-12',
       gender: 'female',
-      // the account holder's number, as the paperwork would default the patient's mobile to
       telecom: [{ system: 'phone', value: '+12025550143' }],
     });
     const account = requests.find((request: any) => request.resource.resourceType === 'Account').resource;
@@ -98,7 +96,6 @@ describe('create-patient performEffect', () => {
     expect(deletes.map((request: any) => request.url)).toEqual(
       expect.arrayContaining(['/Patient/patient-1', '/RelatedPerson/rp-1'])
     );
-    // everything from the create, plus the leftover RelatedPerson
     expect(deletes).toHaveLength(created + 1);
   });
 

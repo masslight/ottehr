@@ -14,6 +14,7 @@ import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { AuditableZambdaEndpoints, createAuditEvent } from '../../shared/userAuditLog';
 import { CreatePatientInputValidated, validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'create-patient';
@@ -24,14 +25,22 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, parameters.secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, parameters.secrets);
   const output = await performEffect(parameters, oystehr);
+  try {
+    await createAuditEvent(
+      AuditableZambdaEndpoints.patientCreate,
+      oystehr,
+      input,
+      output.patientId,
+      parameters.secrets
+    );
+  } catch (auditError) {
+    // the patient is already created, so don't fail the request
+    console.error('Failed to write create-patient audit event:', auditError);
+    captureException(auditError);
+  }
   return { statusCode: 200, body: JSON.stringify(output) };
 });
 
-/**
- * A new patient with no visit: the same patient resources create-appointment makes for a new patient staff
- * add with a visit (Patient, document folders, billing Account, then the account holder's user resources and
- * the friendly id), built by the same helpers, and nothing that belongs to a visit.
- */
 export async function performEffect(
   input: CreatePatientInputValidated,
   oystehr: Oystehr
@@ -42,9 +51,7 @@ export async function performEffect(
 
   const createPatientRequest = creatingPatientCreateRequest(patient, true);
   if (!createPatientRequest?.fullUrl) throw new Error('Could not build the request to create the patient');
-  // With a visit, the paperwork defaults the patient's mobile to the account holder's number and saves it on the
-  // Patient. There is no paperwork here, so it is stored now: the Patient Information page requires it and the
-  // Patients page searches by it.
+  // No paperwork will set the patient's mobile, so store the account holder's number now.
   createPatientRequest.resource.telecom = [{ system: 'phone', value: phoneNumber }];
 
   const bundle = await oystehr.fhir.transaction<Patient | List | Account>({
@@ -61,8 +68,7 @@ export async function performEffect(
   try {
     await linkNewPatientToAccountHolder(oystehr, patientId, phoneNumber);
   } catch (error) {
-    // Without an account holder the patient can't be found when adding a visit, and a retry would create a
-    // second one. Undo the create so the retry starts clean.
+    // An unlinked patient is unbookable and a retry would duplicate it, so roll back.
     await deleteCreatedPatient(oystehr, patientId, created).catch((cleanupError) => {
       console.error(
         `Failed to remove Patient/${patientId} after its account holder could not be linked:`,
@@ -76,7 +82,6 @@ export async function performEffect(
   return { patientId };
 }
 
-/** Removes what this request created, plus any RelatedPerson the failed linking left behind for the Patient. */
 async function deleteCreatedPatient(
   oystehr: Oystehr,
   patientId: string,

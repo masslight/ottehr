@@ -508,7 +508,6 @@ export function creatingPatientCreateRequest(
   return createPatientRequest;
 }
 
-/** The document folders every new patient gets; for the same transaction that creates the Patient. */
 export const makePatientDocumentListRequests = (patientReference: string): BatchInputPostRequest<List>[] =>
   createPatientDocumentLists(patientReference).map(
     (list): BatchInputPostRequest<List> => ({
@@ -518,7 +517,6 @@ export const makePatientDocumentListRequests = (patientReference: string): Batch
     })
   );
 
-/** The billing Account every patient has; `patientReference` may be the fullUrl of a Patient in the same transaction. */
 export const makePatientBillingAccountRequest = (patientReference: string): BatchInputPostRequest<Account> => ({
   method: 'POST',
   url: '/Account',
@@ -530,11 +528,7 @@ export const makePatientBillingAccountRequest = (patientReference: string): Batc
   },
 });
 
-/**
- * What a newly created Patient still needs once its transaction has committed: the account holder's user
- * resources (a RelatedPerson for the Patient, linked to the Person for that phone number) and a friendly id.
- * A missing friendly id is reported but does not fail the request; `patient` is undefined in that case.
- */
+// `patient` is undefined when the friendly id could not be generated; that does not fail the request.
 export async function linkNewPatientToAccountHolder(
   oystehr: Oystehr,
   patientId: string,
