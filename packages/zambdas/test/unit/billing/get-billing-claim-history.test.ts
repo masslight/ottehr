@@ -1,5 +1,5 @@
 import Oystehr from '@oystehr/sdk';
-import { captureException } from '@sentry/aws-serverless';
+import { captureException } from '@sentry/node-core/light';
 import { Organization, Practitioner, Provenance, Resource } from 'fhir/r4b';
 import {
   CLAIM_PROVENANCE_ACKNOWLEDGMENT_EXTENSION_URL,
@@ -16,8 +16,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { performEffect } from '../../../src/billing/get-billing-claim-history';
 import { SOURCE_IDENTIFIER_SYSTEM } from '../../../src/billing/shared';
 
-vi.mock('@sentry/aws-serverless', async (importActual) => ({
-  ...(await importActual<typeof import('@sentry/aws-serverless')>()),
+vi.mock('@sentry/node-core/light', async (importActual) => ({
+  ...(await importActual<typeof import('@sentry/node-core/light')>()),
   captureException: vi.fn(),
 }));
 const captureExceptionMock = vi.mocked(captureException);
