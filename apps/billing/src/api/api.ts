@@ -44,7 +44,6 @@ import {
   RenameClaimAttachmentInputSchema,
   RenameEraAttachmentInputSchema,
   ReportDateWindowParams,
-  RetryBillingClaimTaskInputSchema,
   SaveBillingTagInputSchema,
   SaveManualEraInputSchema,
   SaveServiceFacilityInputSchema,
@@ -61,6 +60,7 @@ import {
   SearchServiceFacilitiesInputSchema,
   TagBillingClaimInputSchema,
   UnmatchClaimResponseInputSchema,
+  UpdateBillingClaimTaskInputSchema,
   UpdateBillingCoverageInputSchema,
   UpdateBillingPatientInputSchema,
   UpdateBillingProviderInputSchema,
@@ -203,8 +203,15 @@ export const searchBillingClaimTasks = (
 
 export const retryBillingClaimTask = (
   oystehr: Oystehr,
-  parameters: z.input<typeof RetryBillingClaimTaskInputSchema>
-): Promise<{ taskId: string }> => executeBillingZambda(oystehr, 'retry-billing-claim-task', parameters);
+  parameters: Pick<z.input<typeof UpdateBillingClaimTaskInputSchema>, 'taskId'>
+): Promise<{ taskId: string }> =>
+  executeBillingZambda(oystehr, 'update-billing-claim-task', { ...parameters, action: 'retry' });
+
+export const cancelBillingClaimTask = (
+  oystehr: Oystehr,
+  parameters: Pick<z.input<typeof UpdateBillingClaimTaskInputSchema>, 'taskId'>
+): Promise<{ taskId: string }> =>
+  executeBillingZambda(oystehr, 'update-billing-claim-task', { ...parameters, action: 'cancel' });
 
 export const createBillingClaim = (
   oystehr: Oystehr,

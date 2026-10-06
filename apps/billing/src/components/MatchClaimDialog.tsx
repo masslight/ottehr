@@ -12,6 +12,7 @@ import {
   Typography,
 } from '@mui/material';
 import { ReactElement, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { BillingClaimItem, EraClaimListItem } from 'utils/lib/types/data/billing/billing.types';
 import { formatAntCaseString } from 'utils/lib/types/data/billing/claim-status';
@@ -75,7 +76,6 @@ export function MatchClaimDialog({ claimResponseId, eraClaim, onMatched, onClose
             </Typography>
             <Box sx={{ display: 'flex', gap: 3, mt: 0.5, flexWrap: 'wrap' }}>
               <Meta label="Date of Service" value={eraClaim.dos} />
-              <Meta label="Patient DOB" value={eraClaim.patientDob || 'Not in ERA'} />
               <Meta label="Billed" value={formatCurrency(eraClaim.billed)} />
               <Meta label="Allowed" value={formatCurrency(eraClaim.allowed)} />
               <Meta label="Ins Paid" value={formatCurrency(eraClaim.paid)} />
@@ -92,9 +92,16 @@ export function MatchClaimDialog({ claimResponseId, eraClaim, onMatched, onClose
           )}
           {claim ? (
             <Box sx={{ my: 2.5 }}>
-              <Typography variant="h5" color="primary.dark" fontWeight={600}>
-                {claim.patientName}
-              </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'baseline' }}>
+                <Typography variant="h5" color="primary.dark" fontWeight={600}>
+                  {claim.patientName}
+                </Typography>
+                <Link to={`/claims/${claim.id}`} target="_blank">
+                  <Typography variant="caption" ml={1}>
+                    Go to claim
+                  </Typography>
+                </Link>
+              </Box>
               <Box sx={{ display: 'flex', gap: 3, mt: 0.5, flexWrap: 'wrap' }}>
                 <Meta label="Date of Service" value={claim.serviceDate} />
                 <Meta label="Claim ID" value={claim.id} />

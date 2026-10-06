@@ -29,6 +29,7 @@ export enum APIErrorCode {
   ALREADY_EXISTS = 4023,
   CONCURRENT_UPDATE = 4024,
   RESOURCE_HAS_DEPENDENTS = 4025,
+  SERVICE_MODE_NOT_AVAILABLE = 4026,
   // 41xx
   QUESTIONNAIRE_RESPONSE_INVALID = 4100,
   QUESTIONNAIRE_NOT_FOUND_FOR_QR = 4101,
@@ -552,6 +553,12 @@ export const MISCONFIGURED_ENVIRONMENT_ERROR = (message: string): APIError => {
     message,
   };
 };
+
+export const SERVICE_MODE_NOT_AVAILABLE_ERROR = (message: string): APIError => ({
+  code: APIErrorCode.SERVICE_MODE_NOT_AVAILABLE,
+  message,
+  statusCode: 400,
+});
 
 export const SLOT_UNAVAILABLE_ERROR = {
   code: APIErrorCode.SLOT_UNAVAILABLE,

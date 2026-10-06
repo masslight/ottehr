@@ -6,6 +6,12 @@ import { captureException } from '@sentry/node-core/light';
 import { Appointment, Condition, DocumentReference, Encounter, Observation, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { uuid } from 'short-uuid';
+import { NarrativeLine } from 'utils/lib/easy-chart/api';
+import {
+  EASY_CHART_NARRATIVE_EXTENSION_URL,
+  narrativeExtension,
+  TRANSCRIPT_ATTACHMENT_TITLE,
+} from 'utils/lib/easy-chart/narrative';
 import {
   DOCUMENT_REFERENCE_SUMMARY_FROM_AUDIO,
   DOCUMENT_REFERENCE_SUMMARY_FROM_CHAT,
@@ -13,6 +19,7 @@ import {
   SERVICE_CATEGORY_SYSTEM,
 } from 'utils/lib/fhir/constants';
 import { getFormatDuration } from 'utils/lib/helpers/helpers';
+import { FEATURE_FLAGS_CONFIG } from 'utils/lib/ottehr-config/feature-flags';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { VISIT_CONSULT_NOTE_DOC_REF_CODING_CODE } from 'utils/lib/types/api/appointment.types';
 import { AiObservationField } from 'utils/lib/types/api/chart-data/chart-data.constants';
@@ -20,6 +27,7 @@ import { AI_OBSERVATION_META_SYSTEM } from 'utils/lib/types/api/chart-data/chart
 import { AiSuggestionItem } from 'utils/lib/types/data/screening-questions/types';
 import { MIME_TYPES } from 'utils/lib/utils/file';
 import { fixAndParseJsonObjectFromString } from 'utils/lib/validation/json-fix';
+import { generateNarrative } from '../ehr/easy-chart-shared/narrative';
 import { makeObservationResource } from './chart-data/index';
 import { assertDefined } from './helpers';
 import { parseCreatedResourcesBundle, saveResourceRequest, updateResourceRequest } from './resources.helpers';
@@ -137,12 +145,15 @@ interface VertexAIRequestOptions {
 export async function invokeChatbotVertexAI(
   input: MessageContentComplex[],
   secrets: Secrets | null,
+  feature: string,
   responseSchema?: object,
   model: string = VERTEX_AI_MODEL,
   options: VertexAIRequestOptions = {}
 ): Promise<string> {
   const GOOGLE_CLOUD_PROJECT_ID = getSecret(SecretsKeys.GOOGLE_CLOUD_PROJECT_ID, secrets);
   const GOOGLE_CLOUD_API_KEY = getSecret(SecretsKeys.GOOGLE_CLOUD_API_KEY, secrets);
+  const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
+  const PROJECT_ID = getSecret(SecretsKeys.PROJECT_ID, secrets);
   const RETRY_COUNT = 3;
   const FIRST_DELAY_MS = 3000;
   const JITTER = 0.01;
@@ -183,6 +194,11 @@ export async function invokeChatbotVertexAI(
           },
           body: JSON.stringify({
             contents: [{ role: 'user', parts: [input] }],
+            labels: {
+              ottehr_feature: feature,
+              ottehr_environment: ENVIRONMENT,
+              ottehr_project_id: PROJECT_ID,
+            },
             generationConfig: {
               temperature: 0,
               ...(responseSchema && {
@@ -316,7 +332,8 @@ export async function transcribeAndCreateResourcesFromZ3Audio(
 
   const transcript = await invokeChatbotVertexAI(
     [{ text: TRANSCRIPT_PROMPT }, { inlineData: { mimeType, data: fileBase64 } }],
-    secrets
+    secrets,
+    'ambient-scribe-transcription'
   );
 
   // Trim: Vertex commonly wraps the sentinel in trailing whitespace/newline, and an untrimmed compare would
@@ -344,7 +361,8 @@ export async function transcribeAndCreateResourcesFromZ3Audio(
     mimeType,
     args.providerUserProfile,
     args.existingDocumentReference,
-    secrets
+    secrets,
+    'ambient-scribe-summary'
   );
 }
 
@@ -401,7 +419,8 @@ export async function createResourcesFromAiInterview(
   mimeType: string | null,
   providerUserProfile: string | null,
   existingDocumentReference: DocumentReference | undefined,
-  secrets: Secrets | null
+  secrets: Secrets | null,
+  feature: string
 ): Promise<string> {
   let fields =
     'history of present illness, past medical history, past surgical history, medications history, allergies, social history, family history, hospitalizations history';
@@ -462,11 +481,24 @@ export async function createResourcesFromAiInterview(
     fields = 'labs, erx, procedures, ' + fields;
   }
 
-  const aiResponseString = await invokeChatbotVertexAI(
-    [{ text: getPrompt(patientInfoDetails || 'unknown patient details', fields) + '\n' + chatTranscript }],
-    secrets
-  );
-  console.log(`AI response: "${aiResponseString}"`);
+  // The Easy Chart narrative runs alongside the extraction. Once the extraction is done the write waits for it
+  // only briefly and then goes without one, so a slow model never holds up saving the transcript.
+  const narrativeAbort = new AbortController();
+  const narrative = generateNarrativeBestEffort(chatTranscript, secrets, narrativeAbort.signal);
+  let aiResponseString: string;
+  let narrativeLines: NarrativeLine[];
+  try {
+    aiResponseString = await invokeChatbotVertexAI(
+      [{ text: getPrompt(patientInfoDetails || 'unknown patient details', fields) + '\n' + chatTranscript }],
+      secrets,
+      feature
+    );
+    narrativeLines = await settledWithin(narrative, NARRATIVE_GRACE_MS);
+  } finally {
+    narrativeAbort.abort();
+  }
+  // The extraction is PHI: log its size, not its content.
+  console.log(`AI extraction response: ${aiResponseString.length} chars, source=${source}`);
   let aiResponse;
   try {
     aiResponse = JSON.parse(aiResponseString);
@@ -487,7 +519,7 @@ export async function createResourcesFromAiInterview(
     : `urn:uuid:${uuid()}`;
   requests.push(
     existingDocumentReference
-      ? updateDocumentReference(existingDocumentReference, chatTranscript)
+      ? updateDocumentReference(existingDocumentReference, chatTranscript, narrativeLines)
       : createDocumentReference(
           encounterID,
           patientId,
@@ -496,11 +528,17 @@ export async function createResourcesFromAiInterview(
           z3URL,
           chatTranscript,
           duration,
-          mimeType
+          mimeType,
+          narrativeLines
         )
   );
   requests.push(...createObservations(aiResponse, documentReferenceCreateUrl, encounterId, patientId));
-  console.log('Transaction requests: ' + JSON.stringify(requests, null, 2));
+  // The bundle carries the transcript and the extracted resources: log the resource types only.
+  console.log(
+    `Transaction requests: ${requests.length} — ${requests
+      .map((request) => ('resource' in request ? request.resource.resourceType : request.method))
+      .join(', ')}`
+  );
   const transactionBundle = await oystehr.fhir.transaction({
     requests: requests,
   });
@@ -511,6 +549,46 @@ export async function createResourcesFromAiInterview(
   return createdResources;
 }
 
+/** How long the write waits for the narrative after the extraction is done. */
+const NARRATIVE_GRACE_MS = 5_000;
+
+/**
+ * The Easy Chart narrative for this transcript, or [] when the feature is off, generation failed or it was
+ * cut off. Best-effort: the client generates it on demand when it is missing, so it never blocks the write.
+ */
+async function generateNarrativeBestEffort(
+  transcript: string,
+  secrets: Secrets | null,
+  signal: AbortSignal
+): Promise<NarrativeLine[]> {
+  if (!FEATURE_FLAGS_CONFIG.easyChartEnabled) return [];
+  try {
+    const { lines } = await generateNarrative(transcript, secrets, 'ai-narrative', signal);
+    return lines;
+  } catch (error) {
+    if (signal.aborted) {
+      console.log('[ai-narrative] the narrative was not ready in time; storing the transcript without one');
+      return [];
+    }
+    console.error(`[ai-narrative] narrative generation failed; storing the transcript without one: ${error}`);
+    captureException(error);
+    return [];
+  }
+}
+
+/** The narrative when it settles within `ms`, otherwise none. */
+async function settledWithin(narrative: Promise<NarrativeLine[]>, ms: number): Promise<NarrativeLine[]> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const cutoff = new Promise<NarrativeLine[]>((resolve) => {
+    timer = setTimeout(() => resolve([]), ms);
+  });
+  try {
+    return await Promise.race([narrative, cutoff]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 function createDocumentReference(
   encounterID: string,
   patientID: string,
@@ -519,7 +597,8 @@ function createDocumentReference(
   z3URL: string | null,
   transcript: string,
   duration: number | undefined,
-  mimeType: string | null
+  mimeType: string | null,
+  narrativeLines: NarrativeLine[]
 ): BatchInputPostRequest<DocumentReference> {
   const documentReference: DocumentReference = {
     resourceType: 'DocumentReference',
@@ -538,7 +617,10 @@ function createDocumentReference(
         ],
       },
     ],
-    description: z3URL ? DOCUMENT_REFERENCE_SUMMARY_FROM_AUDIO : DOCUMENT_REFERENCE_SUMMARY_FROM_CHAT,
+    // A provider-supplied transcript (recorded, or typed in Autochart) is labelled as a recording; only the
+    // patient chat has neither audio nor a provider.
+    description:
+      z3URL || providerUserProfile ? DOCUMENT_REFERENCE_SUMMARY_FROM_AUDIO : DOCUMENT_REFERENCE_SUMMARY_FROM_CHAT,
     subject: {
       reference: `Patient/${patientID}`,
     },
@@ -570,38 +652,51 @@ function createDocumentReference(
         },
       ],
     },
-    extension: providerUserProfile
-      ? [
-          {
-            url: `${PUBLIC_EXTENSION_BASE_URL}/provider`,
-            valueReference: {
-              reference: providerUserProfile,
+    extension: [
+      ...(providerUserProfile
+        ? [
+            {
+              url: `${PUBLIC_EXTENSION_BASE_URL}/provider`,
+              valueReference: {
+                reference: providerUserProfile,
+              },
             },
-          },
-        ]
-      : [],
+          ]
+        : []),
+      ...(narrativeLines.length > 0 ? [narrativeExtension(narrativeLines)] : []),
+    ],
   };
   return saveResourceRequest(documentReference, documentReferenceCreateUrl);
 }
 
 function updateDocumentReference(
   existingDocumentReference: DocumentReference,
-  transcript: string
+  transcript: string,
+  narrativeLines: NarrativeLine[]
 ): BatchInputPutRequest<DocumentReference> {
-  const existingAttachment = existingDocumentReference.content?.[0]?.attachment;
   const documentReference: DocumentReference = {
     ...existingDocumentReference,
+    // The stored narrative always matches the stored transcript: the old one goes with the old text, and a
+    // failed generation leaves none rather than a stale one. Other extensions are kept.
+    extension: [
+      ...(existingDocumentReference.extension ?? []).filter(
+        (extension) => extension.url !== EASY_CHART_NARRATIVE_EXTENSION_URL
+      ),
+      ...(narrativeLines.length > 0 ? [narrativeExtension(narrativeLines)] : []),
+    ],
     type: {
       coding: [VISIT_CONSULT_NOTE_DOC_REF_CODING_CODE],
     },
+    // The transcript attachment is replaced and every other one (the audio) kept, so a reprocessed
+    // document never carries two transcripts.
     content: [
-      ...(existingAttachment
-        ? [{ attachment: { ...existingAttachment, contentType: existingAttachment.contentType } }]
-        : []),
+      ...(existingDocumentReference.content ?? []).filter(
+        (content) => content.attachment?.title !== TRANSCRIPT_ATTACHMENT_TITLE
+      ),
       {
         attachment: {
           contentType: MIME_TYPES.TXT,
-          title: 'Transcript',
+          title: TRANSCRIPT_ATTACHMENT_TITLE,
           data: btoa(unescape(encodeURIComponent(transcript))),
         },
       },
@@ -706,7 +801,8 @@ export async function generateIcdTenCodesFromNotes(
     const prompt = getIcdTenCodesPrompt(hpiText, mdmText);
     const aiResponseString = (await aiClient.invoke([{ role: 'user', content: prompt }])).content.toString();
 
-    console.log(`AI ICD-10 codes response: "${aiResponseString}"`);
+    // The suggestions are derived from the patient's HPI and MDM (PHI): log the size only.
+    console.log(`AI ICD-10 codes response: ${aiResponseString.length} chars`);
     let aiResponse;
     try {
       aiResponse = JSON.parse(aiResponseString);

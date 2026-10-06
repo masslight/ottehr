@@ -1,0 +1,381 @@
+// Vitals: unit recognition and conversion, plausibility checks, and recovery of readings the model dropped. The
+// chart write path assumes cm unless a height unit starts with `i`/`"`, and kg unless a weight unit starts with
+// `l`/`p`, so every unit is converted to cm/in or kg/lb here and an unrecognised one is reported, never defaulted.
+
+import { PlannableVitalField } from './actions';
+
+interface UnitRule {
+  /** Matches the unit as written, at the end of the matched reading. */
+  pattern: RegExp;
+  /** The unit handed to the client, and the factor from the written unit into it. */
+  canonical: string;
+  factor: number;
+}
+
+// `(?<![a-z])` instead of a leading `\b`: `\b` fails on `130lb` (no boundary between a digit and a letter),
+// while the lookbehind still stops `grams` from yielding the `ms` of metres.
+const HEIGHT_UNITS: UnitRule[] = [
+  { pattern: /(?<![a-z])(?:millimet(?:er|re)s?|mm)\b/i, canonical: 'cm', factor: 0.1 },
+  { pattern: /(?<![a-z])(?:centimet(?:er|re)s?|cms?)\b/i, canonical: 'cm', factor: 1 },
+  { pattern: /(?<![a-z])(?:met(?:er|re)s?|ms?)\b/i, canonical: 'cm', factor: 100 },
+  { pattern: /(?<![a-z])(?:inch(?:es)?|ins?)\b|"|''/i, canonical: 'in', factor: 1 },
+  { pattern: /(?<![a-z])(?:feet|foot|ft)\b|'/i, canonical: 'in', factor: 12 },
+];
+
+const WEIGHT_UNITS: UnitRule[] = [
+  { pattern: /(?<![a-z])(?:milligrams?|mg)\b/i, canonical: 'kg', factor: 0.000001 },
+  { pattern: /(?<![a-z])(?:kilograms?|kilos?|kgs?)\b/i, canonical: 'kg', factor: 1 },
+  { pattern: /(?<![a-z])(?:grams?|gs?)\b/i, canonical: 'kg', factor: 0.001 },
+  { pattern: /(?<![a-z])(?:pounds?|lbs?)\b|#/i, canonical: 'lb', factor: 1 },
+  { pattern: /(?<![a-z])(?:ounces?|oz)\b/i, canonical: 'lb', factor: 1 / 16 },
+  { pattern: /(?<![a-z])(?:stones?|st)\b/i, canonical: 'lb', factor: 14 },
+];
+
+const UNIT_TABLES: Partial<Record<PlannableVitalField, UnitRule[]>> = {
+  'vital-height': HEIGHT_UNITS,
+  'vital-weight': WEIGHT_UNITS,
+};
+
+/**
+ * Convert one written unit into a unit the client handles. Returns undefined when the unit is not
+ * recognised, which the caller must treat as "ask the provider", never as "use the default".
+ */
+export function canonicalizeVitalUnit(
+  field: string,
+  value: number,
+  writtenUnit: string
+): { value: number; unit: string } | undefined {
+  const rules = UNIT_TABLES[field as PlannableVitalField];
+  if (!rules) return undefined;
+  const rule = rules.find((r) => r.pattern.test(writtenUnit));
+  if (!rule) return undefined;
+  // Round to 2dp: 5 st → 70 lb must not surface as 69.99999999999999.
+  return { value: Math.round(value * rule.factor * 100) / 100, unit: rule.canonical };
+}
+
+export const MIN_PLAUSIBLE_HEIGHT_IN = 20;
+export const MIN_PLAUSIBLE_HEIGHT_CM = 51;
+
+/**
+ * Below 20 in / 51 cm (any live-birth length) a height is a mis-stated unit, such as decimal feet written as
+ * inches ("5.8 inches"). It is flagged, never reinterpreted.
+ */
+export function isImplausibleHeight(value: number, unit: string | undefined): boolean {
+  if (!Number.isFinite(value) || value <= 0) return true;
+  return /^c/i.test(unit ?? '') ? value < MIN_PLAUSIBLE_HEIGHT_CM : value < MIN_PLAUSIBLE_HEIGHT_IN;
+}
+
+// Parsing a dictated vital
+
+export type VitalParse =
+  | { status: 'ok'; value: number; unit?: string; caution?: string }
+  | { status: 'ok-bp'; systolic: number; diastolic: number }
+  /** The written unit is not recognised. Report it, never default. */
+  | { status: 'unrecognized-unit'; writtenUnit: string; reason: string }
+  /** A bare number for a vital whose unit is genuinely ambiguous (height, weight). Ask. */
+  | { status: 'missing-unit'; value: number; reason: string }
+  /** Physiologically impossible as written — almost always a mis-stated unit. Ask. */
+  | { status: 'implausible'; value: number; unit?: string; reason: string }
+  | { status: 'no-value'; reason: string };
+
+const NUMBER = String.raw`\d+(?:\.\d+)?`;
+
+/** 5'8" · 5 ft 8 in · 5 feet 8 inches. Must be tried before the single-unit pattern, or a bare `5 ft` wins. */
+const FEET_INCHES = new RegExp(
+  String.raw`(${NUMBER})\s*(?:'|ft\b|feet\b|foot\b)\s*(${NUMBER})\s*(?:"|''|in\b|ins\b|inch\b|inches\b)?`,
+  'i'
+);
+/** 9 lb 4 oz. */
+const POUNDS_OUNCES = new RegExp(
+  String.raw`(${NUMBER})\s*(?:#|lbs?\b|pounds?\b)\s*(${NUMBER})\s*(?:oz\b|ounces?\b)`,
+  'i'
+);
+const BLOOD_PRESSURE = /(\d{2,3})\s*(?:\/|over)\s*(\d{2,3})/i;
+/** A number followed by whatever unit text trails it, up to the next number or end. */
+const NUMBER_WITH_TRAILING_UNIT = new RegExp(String.raw`(${NUMBER})\s*([^\d,;]*)`, 'i');
+
+/** The scale as written. Group 1 starts with f or c, which is all the caller needs. */
+const TEMPERATURE_SCALE = /(?:°\s*)?\b(fahrenheit|celsius|centigrade|f|c)\b/i;
+/** Unit text that carries no scale and is safe to ignore: "degrees", "°", "%" from a stray paste. */
+const TEMPERATURE_UNITLESS_NOISE = /^[\s°%]*(?:degrees?)?[\s°]*$/i;
+
+/**
+ * Physiologic bounds used only to catch a mis-stated unit, not to second-guess a clinician. Ranges
+ * are deliberately wide: a value outside them is a data-entry error, not an unusual patient.
+ */
+const PLAUSIBLE_RANGES: Partial<Record<PlannableVitalField, { min: number; max: number }>> = {
+  'vital-heartbeat': { min: 20, max: 300 },
+  'vital-respiration-rate': { min: 4, max: 100 },
+  'vital-oxygen-sat': { min: 40, max: 100 },
+};
+
+/**
+ * Parses a `set-vital` display into a unit the client handles. Anything ambiguous returns a non-`ok` status for
+ * the caller to skip with a reason, never a guessed interpretation.
+ */
+export function parseVitalDisplay(field: PlannableVitalField, display: string): VitalParse {
+  const text = (display ?? '').trim();
+  if (!text) return { status: 'no-value', reason: 'no reading was given' };
+
+  if (field === 'vital-blood-pressure') {
+    const match = BLOOD_PRESSURE.exec(text);
+    if (!match) return { status: 'no-value', reason: `could not read a blood pressure from "${text}"` };
+    return { status: 'ok-bp', systolic: Number(match[1]), diastolic: Number(match[2]) };
+  }
+
+  if (field === 'vital-height') {
+    const compound = FEET_INCHES.exec(text);
+    if (compound) {
+      const inches = Number(compound[1]) * 12 + Number(compound[2]);
+      return finishHeight(inches, 'in', text);
+    }
+    return parseSingleUnit(field, text, (value, writtenUnit) => {
+      if (!writtenUnit) {
+        return {
+          status: 'missing-unit',
+          value,
+          reason: `"${text}" has no unit — a bare height could be centimetres or inches, so it needs confirming`,
+        };
+      }
+      const converted = canonicalizeVitalUnit(field, value, writtenUnit);
+      if (!converted) {
+        return {
+          status: 'unrecognized-unit',
+          writtenUnit,
+          reason: `"${writtenUnit}" is not a height unit this system converts, so "${text}" was not charted`,
+        };
+      }
+      return finishHeight(converted.value, converted.unit, text);
+    });
+  }
+
+  if (field === 'vital-weight') {
+    const compound = POUNDS_OUNCES.exec(text);
+    if (compound) {
+      const pounds = Math.round((Number(compound[1]) + Number(compound[2]) / 16) * 100) / 100;
+      return { status: 'ok', value: pounds, unit: 'lb' };
+    }
+    return parseSingleUnit(field, text, (value, writtenUnit) => {
+      if (!writtenUnit) {
+        return {
+          status: 'missing-unit',
+          value,
+          reason: `"${text}" has no unit — a bare weight could be kilograms or pounds, so it needs confirming`,
+        };
+      }
+      const converted = canonicalizeVitalUnit(field, value, writtenUnit);
+      if (!converted) {
+        return {
+          status: 'unrecognized-unit',
+          writtenUnit,
+          reason: `"${writtenUnit}" is not a weight unit this system converts, so "${text}" was not charted`,
+        };
+      }
+      if (converted.value <= 0) {
+        return {
+          status: 'implausible',
+          value: converted.value,
+          unit: converted.unit,
+          reason: 'weight must be above 0',
+        };
+      }
+      return { status: 'ok', value: converted.value, unit: converted.unit };
+    });
+  }
+
+  if (field === 'vital-temperature') {
+    return parseSingleUnit(field, text, (value, writtenUnit) => {
+      const scale = TEMPERATURE_SCALE.exec(writtenUnit);
+      let unit: string;
+      let caution: string | undefined;
+      if (scale) {
+        unit = /^c/i.test(scale[1]) ? 'C' : 'F';
+      } else if (writtenUnit && !TEMPERATURE_UNITLESS_NOISE.test(writtenUnit)) {
+        return {
+          status: 'unrecognized-unit',
+          writtenUnit,
+          reason: `"${writtenUnit}" is not a temperature unit, so "${text}" was not charted`,
+        };
+      } else {
+        // No scale written: °F and °C ranges do not overlap for a living patient, but the reading is still
+        // flagged so the provider sees how it was read.
+        unit = value >= 45 ? 'F' : 'C';
+        caution = `no unit was stated; read as °${unit} from the value`;
+      }
+      const plausible = unit === 'C' ? value >= 25 && value <= 45 : value >= 77 && value <= 113;
+      if (!plausible) {
+        return {
+          status: 'implausible',
+          value,
+          unit,
+          reason: `${value} °${unit} is outside any survivable body temperature`,
+        };
+      }
+      return { status: 'ok', value, unit, caution };
+    });
+  }
+
+  // Heart rate, respiration rate, oxygen saturation: the stored unit is fixed, so a bare number is
+  // unambiguous. Anything else trailing the number is noise (bpm, %, "on room air").
+  return parseSingleUnit(field, text, (value) => {
+    const range = PLAUSIBLE_RANGES[field];
+    if (range && (value < range.min || value > range.max)) {
+      return {
+        status: 'implausible',
+        value,
+        reason: `${value} is outside the plausible range ${range.min}–${range.max} for this vital`,
+      };
+    }
+    return { status: 'ok', value };
+  });
+}
+
+function finishHeight(value: number, unit: string, text: string): VitalParse {
+  if (isImplausibleHeight(value, unit)) {
+    return {
+      status: 'implausible',
+      value,
+      unit,
+      reason:
+        `"${text}" reads as ${value} ${unit}, which is below any live-birth length — almost certainly a ` +
+        `mis-stated unit (e.g. decimal feet written as inches)`,
+    };
+  }
+  return { status: 'ok', value, unit };
+}
+
+function parseSingleUnit(
+  field: PlannableVitalField,
+  text: string,
+  finish: (value: number, writtenUnit: string) => VitalParse
+): VitalParse {
+  const match = NUMBER_WITH_TRAILING_UNIT.exec(text);
+  if (!match) return { status: 'no-value', reason: `could not read a number from "${text}" for ${field}` };
+  const value = Number(match[1]);
+  if (!Number.isFinite(value)) return { status: 'no-value', reason: `could not read a number from "${text}"` };
+  return finish(value, (match[2] ?? '').trim());
+}
+
+// Recovering a reading the model dropped: it sometimes emits a set-vital with no display. Each pattern is
+// anchored on a unit or vital keyword, so "cough for 5 days" is never read as a measurement.
+const RECOVERY_PATTERNS: Record<PlannableVitalField, RegExp[]> = {
+  'vital-blood-pressure': [new RegExp(String.raw`\b\d{2,3}\s*(?:\/|over)\s*\d{2,3}\b`, 'i')],
+  'vital-height': [
+    // Group 1 wraps the whole compound reading, because `recoverVitalReading` returns match[1].
+    new RegExp(String.raw`(${NUMBER}\s*(?:'|ft\b|feet\b|foot\b)\s*${NUMBER}\s*(?:"|''|in\b|inch(?:es)?\b)?)`, 'i'),
+    new RegExp(
+      String.raw`(?:height|tall|measures)\D{0,12}(${NUMBER}\s*(?:cm\b|centimet\w*|mm\b|millimet\w*|m\b|met(?:er|re)s?\b|in\b|ins\b|inch(?:es)?\b|"|''|ft\b|feet\b|foot\b|'))`,
+      'i'
+    ),
+    new RegExp(
+      String.raw`(${NUMBER}\s*(?:cm\b|centimet\w*|millimet\w*|mm\b|met(?:er|re)s?\b|inch(?:es)?\b|ins?\b|"|''))`,
+      'i'
+    ),
+  ],
+  'vital-weight': [
+    new RegExp(String.raw`(${NUMBER}\s*(?:#|lbs?\b|pounds?\b)\s*${NUMBER}\s*(?:oz\b|ounces?\b))`, 'i'),
+    new RegExp(
+      String.raw`(?:weigh\w*|weight)\D{0,12}(${NUMBER}\s*(?:kgs?\b|kilos?\b|kilograms?\b|lbs?\b|pounds?\b|#|grams?\b|g\b|stones?\b|st\b))`,
+      'i'
+    ),
+    new RegExp(String.raw`(${NUMBER}\s*(?:kgs?\b|kilos?\b|kilograms?\b|lbs?\b|pounds?\b|#|stones?\b))`, 'i'),
+  ],
+  'vital-temperature': [
+    new RegExp(String.raw`(${NUMBER}\s*(?:°\s*)?(?:f\b|c\b|degrees?\b|fahrenheit\b|celsius\b))`, 'i'),
+    new RegExp(String.raw`(?:temp\w*|fever|febrile)\D{0,12}(${NUMBER}(?:\s*(?:°\s*)?[fc]\b)?)`, 'i'),
+  ],
+  'vital-heartbeat': [
+    new RegExp(String.raw`(${NUMBER}\s*bpm\b)`, 'i'),
+    new RegExp(String.raw`(?:heart\s*rate|pulse|\bhr\b)\D{0,12}(${NUMBER})`, 'i'),
+  ],
+  'vital-respiration-rate': [
+    new RegExp(String.raw`(?:respirat\w*\s*rate|resp\s*rate|respirations?|\brr\b)\D{0,12}(${NUMBER})`, 'i'),
+  ],
+  'vital-oxygen-sat': [
+    new RegExp(String.raw`(${NUMBER}\s*(?:%|percent\b))`, 'i'),
+    new RegExp(String.raw`(?:o2\s*sat\w*|oxygen\s*sat\w*|\bspo2\b|\bsats?\b|saturation)\D{0,12}(${NUMBER})`, 'i'),
+  ],
+};
+
+/**
+ * Find the reading for `field` in the provider's own message. Returns the matched substring, ready
+ * to hand to `parseVitalDisplay`, or undefined when the message does not state one.
+ */
+export function recoverVitalReading(field: PlannableVitalField, narrative: string): string | undefined {
+  if (!narrative) return undefined;
+  for (const pattern of RECOVERY_PATTERNS[field]) {
+    const match = pattern.exec(narrative);
+    if (match) return (match[1] ?? match[0]).trim();
+  }
+  return undefined;
+}
+
+// Narrative sweep: finds vital readings stated in the narrative so the caller can add any the model missed (it
+// tends to drop rechecks). Keyword anchors and range checks keep out "20/20 vision" and "pulses 2+".
+
+export interface SniffedVital {
+  field: string;
+  display: string;
+  systolic?: number;
+  diastolic?: number;
+  value?: number;
+  unit?: string;
+  sourceText: string;
+}
+export function sniffVitalsFromNarrative(narrative: string): SniffedVital[] {
+  const out: SniffedVital[] = [];
+  const sentences = narrative.split(/(?<=[.!?])\s+/);
+  const push = (v: SniffedVital): void => {
+    // one entry per field+value signature — identical restatements collapse
+    const sig = (x: SniffedVital): string => `${x.field}|${x.systolic ?? ''}/${x.diastolic ?? ''}|${x.value ?? ''}`;
+    if (!out.some((x) => sig(x) === sig(v))) out.push(v);
+  };
+  for (const sentence of sentences) {
+    const src = sentence.trim();
+    // Instruction and threshold sentences ("return if saturation drops below 90") state limits, not readings.
+    if (
+      /\b(?:return precautions?|advis|instruct|counsel|call 911|seek emergency|go straight|below|above|less than|greater than|drops? under|exceed)\b/i.test(
+        sentence
+      )
+    ) {
+      continue;
+    }
+    for (const m of sentence.matchAll(/(?:blood pressure|\bbp\b)[^.;]{0,60}?(\d{2,3})\s*(?:\/|over)\s*(\d{2,3})/gi)) {
+      const sys = parseInt(m[1], 10);
+      const dia = parseInt(m[2], 10);
+      if (sys >= 60 && sys <= 260 && dia >= 30 && dia <= 160 && sys > dia) {
+        push({
+          field: 'vital-blood-pressure',
+          display: `${sys}/${dia}`,
+          systolic: sys,
+          diastolic: dia,
+          sourceText: src,
+        });
+      }
+    }
+    for (const m of sentence.matchAll(/(?:heart rate|\bpulse\b|\bhr\b)[^.;\d]{0,40}?(\d{2,3})\b/gi)) {
+      const hr = parseInt(m[1], 10);
+      if (hr >= 30 && hr <= 250) push({ field: 'vital-heartbeat', display: `${hr}`, value: hr, sourceText: src });
+    }
+    for (const m of sentence.matchAll(
+      /(?:oxygen saturation|o2 sat(?:uration)?|\bspo2\b|\bsats?\b)[^.;\d]{0,30}?(\d{2,3})\s*(?:%|percent)?/gi
+    )) {
+      const sat = parseInt(m[1], 10);
+      if (sat >= 50 && sat <= 100) push({ field: 'vital-oxygen-sat', display: `${sat}%`, value: sat, sourceText: src });
+    }
+    for (const m of sentence.matchAll(
+      /(?:temperature|\btemp\b)[^.;\d]{0,30}?(\d{2,3}(?:\.\d)?)\s*(f|c|fahrenheit|celsius)?\b/gi
+    )) {
+      const t = parseFloat(m[1]);
+      const unit = m[2] ? (m[2][0].toLowerCase() === 'c' ? 'C' : 'F') : t >= 90 ? 'F' : t >= 34 && t <= 44 ? 'C' : '';
+      if ((unit === 'F' && t >= 90 && t <= 110) || (unit === 'C' && t >= 34 && t <= 44)) {
+        push({ field: 'vital-temperature', display: `${t} ${unit}`, value: t, unit, sourceText: src });
+      }
+    }
+    for (const m of sentence.matchAll(/(?:respiratory rate|respirations?\b|\brr\b)[^.;\d]{0,30}?(\d{1,2})\b/gi)) {
+      const rr = parseInt(m[1], 10);
+      if (rr >= 6 && rr <= 60) push({ field: 'vital-respiration-rate', display: `${rr}`, value: rr, sourceText: src });
+    }
+  }
+  return out;
+}

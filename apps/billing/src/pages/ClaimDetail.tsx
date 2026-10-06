@@ -52,6 +52,7 @@ import {
 } from 'utils/lib/helpers/rcm/constants';
 import { VALUE_SETS } from 'utils/lib/ottehr-config/value-sets';
 import { otherColors } from 'utils/lib/theme/billing-palette';
+import { DrugUnitCode } from 'utils/lib/types/data/billing/billing.constants';
 import {
   CreateBillingProviderInput,
   SaveServiceFacilityInput,
@@ -112,6 +113,8 @@ import { Cms1500Dialog } from '../components/claim/Cms1500Dialog';
 import { DiagnosesEditor } from '../components/claim/DiagnosesEditor';
 import { EditableSection, EditableSectionSkeleton } from '../components/claim/EditableSection';
 import { EhrLinksButton } from '../components/claim/EhrLinksButton';
+import { MedicationDetailDialog } from '../components/claim/MedicationDetailDialog';
+import { OrderingProviderDialog } from '../components/claim/OrderingProviderDialog';
 import { RemitHighlightProvider } from '../components/claim/RemitHighlight';
 import { InsurancePaymentsSection, RemitsSection } from '../components/claim/RemitSections';
 import { ServiceLineRow, ServiceLinesEditor } from '../components/claim/ServiceLinesEditor';
@@ -1622,10 +1625,19 @@ function ServiceLinesSection({
         placeOfService: line.placeOfService,
         diagnosisPointers: line.diagnosisPointers,
         revenueCode: line.revenueCode,
+        drug: line.drug
+          ? { ndc: line.drug.ndc, quantity: String(line.drug.quantity), units: line.drug.units as DrugUnitCode }
+          : null,
+        orderingProvider: line.orderingProvider ?? null,
       })),
     [claim]
   );
+  // memoized so the detail dialogs get a stable value and don't reset their fields on every render
+  const claimRows = useMemo(toRows, [toRows]);
   const [rows, setRows] = useState<ServiceLineRow[]>(toRows);
+  // indexes into claim.serviceLines for the read-only view's "edit one detail only" dialogs
+  const [drugEditIndex, setDrugEditIndex] = useState<number | null>(null);
+  const [providerEditIndex, setProviderEditIndex] = useState<number | null>(null);
 
   const resetFields = useCallback((): void => setRows(toRows()), [toRows]);
 
@@ -1641,8 +1653,12 @@ function ServiceLinesSection({
       if (!(Number(row.units) > 0)) return 'Units must be a positive number';
       if (row.charges.trim() === '' || !Number.isFinite(Number(row.charges))) return 'Charges must be a number';
     }
-    return updateResource('Claim', claim.id, {
-      serviceLines: rows.map((row) => {
+    return saveRows(rows);
+  };
+
+  const saveRows = (nextRows: ServiceLineRow[]): Promise<string | null> =>
+    updateResource('Claim', claim.id, {
+      serviceLines: nextRows.map((row) => {
         const modifiers = row.modifiers
           .split(/[,\s]+/)
           .map((m) => m.trim())
@@ -1656,10 +1672,35 @@ function ServiceLinesSection({
           ...(modifiers.length ? { modifiers } : {}),
           ...(row.diagnosisPointers.length ? { diagnosisPointers: row.diagnosisPointers } : {}),
           revenueCode: row.revenueCode,
+          ...(row.drug
+            ? { drug: { ndc: row.drug.ndc, quantity: Number(row.drug.quantity), units: row.drug.units } }
+            : {}),
+          ...(row.orderingProvider ? { orderingProvider: row.orderingProvider } : {}),
         };
       }),
     });
+
+  // Saves one line's medication or ordering-provider detail from the read-only view, keeping all lines as-is.
+  // The whole serviceLines array is rewritten from the current claim snapshot, so the dialog stays open (and
+  // modal) until the save and refetch finish; otherwise a second edit could overwrite the first with stale lines.
+  const [savingLineExtras, setSavingLineExtras] = useState(false);
+  const saveLineExtras = async (
+    index: number,
+    patch: Partial<Pick<ServiceLineRow, 'drug' | 'orderingProvider'>>
+  ): Promise<void> => {
+    if (savingLineExtras) return;
+    setSavingLineExtras(true);
+    const error = await saveRows(claimRows.map((row, i) => (i === index ? { ...row, ...patch } : row)));
+    setSavingLineExtras(false);
+    if (error) {
+      enqueueSnackbar(error, { variant: 'error' });
+      return;
+    }
+    setDrugEditIndex(null);
+    setProviderEditIndex(null);
   };
+  const drugEditRow = drugEditIndex !== null ? claimRows[drugEditIndex] : undefined;
+  const providerEditRow = providerEditIndex !== null ? claimRows[providerEditIndex] : undefined;
 
   return (
     <EditableSection
@@ -1677,13 +1718,37 @@ function ServiceLinesSection({
       }
     >
       {claim.serviceLines.length > 0 ? (
-        <ServiceLinesTable claim={claim} />
+        <ServiceLinesTable claim={claim} onDrugClick={setDrugEditIndex} onProviderClick={setProviderEditIndex} />
       ) : (
         <Typography variant="body2" color="text.secondary">
           No service lines
         </Typography>
       )}
       {claim.remits.length > 0 && <RemitTotals claim={claim} />}
+      {drugEditIndex !== null && (
+        <MedicationDetailDialog
+          open
+          value={drugEditRow?.drug ?? null}
+          onSave={(drug) => void saveLineExtras(drugEditIndex, { drug })}
+          onRemove={drugEditRow?.drug ? () => void saveLineExtras(drugEditIndex, { drug: null }) : undefined}
+          onClose={() => setDrugEditIndex(null)}
+          saving={savingLineExtras}
+        />
+      )}
+      {providerEditIndex !== null && (
+        <OrderingProviderDialog
+          open
+          value={providerEditRow?.orderingProvider ?? null}
+          onSave={(orderingProvider) => void saveLineExtras(providerEditIndex, { orderingProvider })}
+          onRemove={
+            providerEditRow?.orderingProvider
+              ? () => void saveLineExtras(providerEditIndex, { orderingProvider: null })
+              : undefined
+          }
+          onClose={() => setProviderEditIndex(null)}
+          saving={savingLineExtras}
+        />
+      )}
     </EditableSection>
   );
 }
