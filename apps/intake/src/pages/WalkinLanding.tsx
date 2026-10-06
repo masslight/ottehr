@@ -12,7 +12,8 @@ import { BOOKING_CONFIG } from 'utils/lib/ottehr-config/booking';
 import { BRANDING_CONFIG, PROJECT_WEBSITE } from 'utils/lib/ottehr-config/branding';
 import { CreateSlotParams } from 'utils/lib/types/api/prebook-create-appointment/prebook-create-appointment.types';
 import { ServiceMode } from 'utils/lib/types/common';
-import { APIError, isApiError } from 'utils/lib/types/errors';
+import { APIError, APIErrorCode, isApiError } from 'utils/lib/types/errors';
+import { WALKIN_SERVICE_MODE_QUERY_PARAM } from 'utils/lib/utils/scheduleUtils';
 import { bookingBasePath } from '../App';
 import { getPrimaryIconContainerProps, PRIMARY_ICON_PAGE } from '../branding/primaryIconVisibility';
 import { getWelcomeTitle } from '../branding/welcomeTitle';
@@ -25,6 +26,8 @@ export const WalkinLanding: FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const serviceCategory = searchParams.get('serviceCategory');
+  const serviceModeParam = searchParams.get(WALKIN_SERVICE_MODE_QUERY_PARAM);
+  const requestedServiceMode = Object.values(ServiceMode).find((mode) => mode === serviceModeParam);
   const tokenlessZambdaClient = useUCZambdaClient({ tokenless: true });
   const { id: scheduleId, name } = useParams();
   const getWalkinAvailability = ottehrApi.getWalkinAvailability;
@@ -32,10 +35,13 @@ export const WalkinLanding: FC = () => {
 
   const locationName = name ? name.replaceAll('_', ' ') : undefined;
   const { data, error, isLoading, isFetching, isRefetching } = useQuery({
-    queryKey: ['walkin-check-availability', scheduleId, locationName],
+    queryKey: ['walkin-check-availability', scheduleId, locationName, requestedServiceMode],
     queryFn: () =>
       tokenlessZambdaClient && (scheduleId || locationName)
-        ? getWalkinAvailability({ scheduleId, locationName }, tokenlessZambdaClient)
+        ? getWalkinAvailability(
+            { scheduleId, locationName, ...(requestedServiceMode ? { serviceMode: requestedServiceMode } : {}) },
+            tokenlessZambdaClient
+          )
         : null,
     enabled: Boolean(scheduleId || locationName) && Boolean(tokenlessZambdaClient),
   });
@@ -45,36 +51,42 @@ export const WalkinLanding: FC = () => {
   // 1 → silent auto-select; 2+ → redirect to picker. Closed location skips
   // all of this and goes straight to the "closed" message.
   const { serviceCategories, isLoading: isCategoriesLoading } = useServiceCategories({});
+
+  const serviceMode = requestedServiceMode ?? data?.serviceMode ?? ServiceMode['in-person'];
+
   const walkinCapableCategories = useMemo(
-    // Walk-in implies physical presence — both `/walkin/location/:name`
-    // (Location is in-person by convention) and `/walkin/schedule/:id` flow
-    // through here. Virtual flows live under `/start-virtual/...` and never
-    // hit this page, so filter on in-person to keep virtual-only categories
-    // (e.g. an aesthetics consult that's virtual-only) out of the picker.
-    () =>
-      (serviceCategories ?? []).filter((sc) => serviceCategorySupportsContext(sc, ServiceMode['in-person'], 'walk-in')),
-    [serviceCategories]
+    () => (serviceCategories ?? []).filter((sc) => serviceCategorySupportsContext(sc, serviceMode, 'walk-in')),
+    [serviceCategories, serviceMode]
   );
+
   const categoryDecisionNeeded = !serviceCategory;
   const walkinIsOpen = data?.walkinOpen === true;
   const waitingForCategoryDecision = categoryDecisionNeeded && isCategoriesLoading && walkinIsOpen;
+
   const resolvedServiceCategory =
     serviceCategory ?? (walkinCapableCategories.length === 1 ? walkinCapableCategories[0].category.code : undefined);
+
   const needsPickerRedirect =
     categoryDecisionNeeded && !isCategoriesLoading && walkinCapableCategories.length >= 2 && walkinIsOpen;
 
   useEffect(() => {
     if (!needsPickerRedirect) return;
+
     // Mirror the entry URL shape so the picker's strip-and-return lands back here.
     const basePath = scheduleId
       ? `/walkin/schedule/${scheduleId}/select-service-category`
       : name
       ? `/walkin/location/${name}/select-service-category`
       : null;
+
     if (!basePath) return;
-    const query = searchParams.toString();
-    navigate(`${basePath}${query ? `?${query}` : ''}`, { replace: true });
-  }, [needsPickerRedirect, scheduleId, name, searchParams, navigate]);
+
+    // Pin the resolved mode so the picker filters categories for the same mode this page will book.
+    const query = new URLSearchParams(searchParams);
+
+    query.set(WALKIN_SERVICE_MODE_QUERY_PARAM, serviceMode);
+    navigate(`${basePath}?${query.toString()}`, { replace: true });
+  }, [needsPickerRedirect, scheduleId, name, searchParams, navigate, serviceMode]);
 
   // `needsPickerRedirect` is in here so PageForm doesn't briefly mount
   // before the useEffect navigation runs (race that would let a fast click
@@ -85,11 +97,20 @@ export const WalkinLanding: FC = () => {
   // todo: actually check error type
   const pageNotFound = error && isRefetching === false && !isLoading && !isFetching;
   if (pageNotFound) {
+    const unsupportedModeMessage =
+      isApiError(error) && (error as APIError).code === APIErrorCode.SERVICE_MODE_NOT_AVAILABLE
+        ? (error as APIError).message
+        : undefined;
+
     return (
       <PageContainer title={t('welcome.errors.notFound.title')}>
         <Typography variant="body1">
-          {t('welcome.errors.notFound.description', { PROJECT_NAME: BRANDING_CONFIG.projectName })}{' '}
-          <a href={PROJECT_WEBSITE}>{t('welcome.errors.notFound.link')}</a>.
+          {unsupportedModeMessage ?? (
+            <>
+              {t('welcome.errors.notFound.description', { PROJECT_NAME: BRANDING_CONFIG.projectName })}{' '}
+              <a href={PROJECT_WEBSITE}>{t('welcome.errors.notFound.link')}</a>.
+            </>
+          )}
         </Typography>
       </PageContainer>
     );
@@ -111,7 +132,6 @@ export const WalkinLanding: FC = () => {
             <PageForm
               onSubmit={async (_) => {
                 if (tokenlessZambdaClient && data.scheduleId) {
-                  const serviceMode = data.serviceMode ?? ServiceMode['in-person'];
                   // Use test questionnaire canonical if injected via config (for e2e test isolation)
                   const questionnaireCanonical =
                     serviceMode === ServiceMode.virtual
