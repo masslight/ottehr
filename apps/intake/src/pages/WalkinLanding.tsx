@@ -98,7 +98,7 @@ export const WalkinLanding: FC = () => {
   const pageNotFound = error && isRefetching === false && !isLoading && !isFetching;
   if (pageNotFound) {
     const unsupportedModeMessage =
-      requestedServiceMode && isApiError(error) && (error as APIError).code === APIErrorCode.INVALID_INPUT
+      isApiError(error) && (error as APIError).code === APIErrorCode.SERVICE_MODE_NOT_AVAILABLE
         ? (error as APIError).message
         : undefined;
 

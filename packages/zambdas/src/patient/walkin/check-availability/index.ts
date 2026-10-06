@@ -14,6 +14,7 @@ import {
   INVALID_INPUT_ERROR,
   MISSING_REQUEST_BODY,
   MISSING_SCHEDULE_EXTENSION_ERROR,
+  SERVICE_MODE_NOT_AVAILABLE_ERROR,
 } from 'utils/lib/types/errors';
 import {
   getScheduleExtension,
@@ -224,7 +225,7 @@ const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<E
     );
 
     if (requestedServiceMode && serviceMode !== requestedServiceMode) {
-      throw INVALID_INPUT_ERROR(
+      throw SERVICE_MODE_NOT_AVAILABLE_ERROR(
         `${
           requestedServiceMode === ServiceMode.virtual ? 'Virtual' : 'In-person'
         } walk-in visits are not available at this location.`

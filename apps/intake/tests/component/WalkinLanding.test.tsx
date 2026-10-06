@@ -3,6 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { APIErrorCode } from 'utils/lib/types/errors';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { WalkinLanding } from '../../src/pages/WalkinLanding';
 
@@ -295,7 +296,7 @@ describe('WalkinLanding — service-category routing', () => {
 
   test('serviceMode the location does not offer → shows the reason instead of the form', async () => {
     mockGetWalkinAvailability.mockRejectedValue({
-      code: 4340,
+      code: APIErrorCode.SERVICE_MODE_NOT_AVAILABLE,
       message: 'Virtual walk-in visits are not available at this location.',
     });
     mockUseServiceCategories.mockReturnValue({ serviceCategories: [], isLoading: false });
@@ -306,6 +307,20 @@ describe('WalkinLanding — service-category routing', () => {
       expect(screen.queryByText('Virtual walk-in visits are not available at this location.')).not.toBeNull()
     );
     expect(mockCreateSlot).not.toHaveBeenCalled();
+  });
+
+  test('other validation errors with serviceMode → generic not-found copy, not the technical message', async () => {
+    mockGetWalkinAvailability.mockRejectedValue({
+      code: APIErrorCode.INVALID_INPUT,
+      message: '"scheduleId" must be a valid UUID',
+    });
+    mockUseServiceCategories.mockReturnValue({ serviceCategories: [], isLoading: false });
+
+    renderAt('/walkin/schedule/not-a-uuid?serviceMode=virtual');
+
+    await waitFor(() => expect(mockGetWalkinAvailability).toHaveBeenCalled());
+    await waitFor(() => expect(screen.queryByText(/navigated to a page that is not found/i)).not.toBeNull());
+    expect(screen.queryByText('"scheduleId" must be a valid UUID')).toBeNull();
   });
 
   test('closed location with 2+ walk-in-capable categories → no redirect, closed message renders', async () => {
