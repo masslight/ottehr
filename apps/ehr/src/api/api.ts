@@ -71,6 +71,7 @@ import {
   CreateDischargeSummaryInput,
   CreateDischargeSummaryResponse,
 } from 'utils/lib/types/api/create-discharge-summary/create-discharge-summary.types';
+import { CreatePatientInput, CreatePatientResponse } from 'utils/lib/types/api/create-patient.types';
 import { CreateUserOutput, CreateUserParams } from 'utils/lib/types/api/create-user.types';
 import {
   DailyPaymentsReportZambdaInput,
@@ -439,6 +440,7 @@ const PRACTICE_KPIS_REPORT_ZAMBDA_ID = 'practice-kpis-report';
 const VISITS_OVERVIEW_REPORT_ZAMBDA_ID = 'visits-overview-report';
 const RECENT_PATIENTS_REPORT_ZAMBDA_ID = 'recent-patients-report';
 const CREATE_APPOINTMENT_ZAMBDA_ID = 'create-appointment';
+const CREATE_PATIENT_ZAMBDA_ID = 'create-patient';
 const CANCEL_TELEMED_APPOINTMENT_ZAMBDA_ID = 'telemed-cancel-appointment';
 const INVITE_PARTICIPANT_ZAMBDA_ID = 'video-chat-invites-create';
 const CREATE_USER_ZAMBDA_ID = 'create-user';
@@ -930,6 +932,22 @@ export const createAppointment = async (
 
     const response = await oystehr.zambda.execute({
       id: CREATE_APPOINTMENT_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const createPatient = async (
+  oystehr: Oystehr,
+  parameters: CreatePatientInput
+): Promise<CreatePatientResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: CREATE_PATIENT_ZAMBDA_ID,
       ...parameters,
     });
     return chooseJson(response);
