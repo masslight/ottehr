@@ -57,6 +57,7 @@ import { getAppointmentDurationFromSlot, getSlotBookedViaGroupId } from 'utils/l
 import { isValidUUID } from 'utils/lib/validation/helper';
 import { generatePatientRelatedRequests } from '../../../shared/appointment/helpers';
 import { getM2MClientId, getUser, isM2MClient, isTestUser } from '../../../shared/auth';
+import { fhirRejectionToApiError } from '../../../shared/errors';
 import { getAuth0Token } from '../../../shared/getAuth0Token';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { truncateForLog } from '../../../shared/logging';
@@ -95,6 +96,16 @@ interface CreateAppointmentInput {
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let oystehrToken: string;
 
+const rethrowFhirRejection =
+  (stage: string) =>
+  (error: unknown): never => {
+    const apiError = fhirRejectionToApiError(error);
+    if (!apiError) throw error;
+    // An APIError is silent in topLevelCatch, but a resource we built that FHIR refuses is still our bug.
+    captureException(error, { tags: { zambda: 'create-appointment', stage } });
+    throw apiError;
+  };
+
 export const index = wrapHandler('create-appointment', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.group('validateRequestParameters');
   // Step 1: Validate input
@@ -123,7 +134,9 @@ export const index = wrapHandler('create-appointment', async (input: ZambdaInput
 
   console.time('performing-complex-validation');
 
-  const effectInput = await createAppointmentComplexValidation(validatedParameters, oystehr);
+  const effectInput = await createAppointmentComplexValidation(validatedParameters, oystehr).catch(
+    rethrowFhirRejection('complex-validation')
+  );
   const {
     slot,
     scheduleOwner,
@@ -334,7 +347,7 @@ export async function createAppointment(
     slot,
     appointmentMetadata,
     followUpOptions: input.followUpOptions,
-  });
+  }).catch(rethrowFhirRejection('transaction'));
 
   let relatedPersonId = '';
 
