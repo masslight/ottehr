@@ -1,9 +1,11 @@
 import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Coverage } from 'fhir/r4b';
+import { DeleteBillingCoverageInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import {
   accountUnlinkRequests,
   BillingFhirResource,
@@ -11,13 +13,14 @@ import {
   fetchById,
   getPatientAccounts,
 } from '../shared';
-import { DeleteBillingCoverageParams, validateRequestParameters } from './validateRequestParameters';
+
+type DeleteBillingCoverageParams = ValidatedZambdaInput<typeof DeleteBillingCoverageInputSchema>;
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'delete-billing-coverage';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const params = validateRequestParameters(input);
+  const params = validateWithSchema(DeleteBillingCoverageInputSchema, input);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
 

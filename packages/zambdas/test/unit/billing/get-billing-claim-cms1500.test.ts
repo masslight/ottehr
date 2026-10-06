@@ -453,7 +453,7 @@ describe('get-billing-claim-cms1500 performEffect', () => {
       unbundle: () => [payment(20), payment(5.5), payment(100, 'cancelled')],
       link: [],
     });
-    const form = await performEffect(oystehr, { claimId: 'claim-1', secrets: null });
+    const form = await performEffect(oystehr, { claimId: 'claim-1', secrets: {} });
     expect(oystehr.fhir.search).toHaveBeenCalledWith({
       resourceType: 'PaymentNotice',
       params: expect.arrayContaining([
@@ -464,7 +464,7 @@ describe('get-billing-claim-cms1500 performEffect', () => {
   });
 
   it('resolves the payers of every coverage', async () => {
-    const form = await performEffect(oystehr, { claimId: 'claim-1', secrets: null });
+    const form = await performEffect(oystehr, { claimId: 'claim-1', secrets: {} });
     expect(resolvePayersByRef).toHaveBeenCalledWith(oystehr, [PRIMARY_PAYER, PRIMARY_PAYER, SECONDARY_PAYER]);
     expect(form.payer?.name).toBe('Aetna');
     expect(oystehr.fhir.get).not.toHaveBeenCalled();
@@ -489,7 +489,7 @@ describe('get-billing-claim-cms1500 performEffect', () => {
       name: [{ family: 'Wilson', given: ['James'], suffix: ['MD'] }],
       identifier: [{ system: FHIR_IDENTIFIER_NPI, value: '1234567893' }],
     });
-    const form = await performEffect(oystehr, { claimId: 'claim-1', secrets: null });
+    const form = await performEffect(oystehr, { claimId: 'claim-1', secrets: {} });
     expect(oystehr.fhir.get).toHaveBeenCalledWith({ resourceType: 'Practitioner', id: 'referring-1' });
     expect(form.referringProvider).toEqual({
       qualifier: 'DN',
@@ -505,7 +505,7 @@ describe('get-billing-claim-cms1500 performEffect', () => {
       type: { coding: [{ system: CODE_SYSTEM_CLAIM_TYPE, code: 'institutional' }] },
     };
     (fetchClaimGraph as Mock<typeof fetchClaimGraph>).mockResolvedValue({ ...graph, claim: institutional });
-    await expect(performEffect(oystehr, { claimId: 'claim-1', secrets: null })).rejects.toMatchObject({
+    await expect(performEffect(oystehr, { claimId: 'claim-1', secrets: {} })).rejects.toMatchObject({
       message: expect.stringContaining('UB-04'),
     });
   });

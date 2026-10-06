@@ -1,8 +1,9 @@
 import { describe, expect, test } from 'vitest';
-import { validateRequestParameters as validateCreateParams } from '../../src/ehr/admin-create-template/validateRequestParameters';
-import { validateRequestParameters as validateDeleteParams } from '../../src/ehr/admin-delete-template/validateRequestParameters';
-import { validateRequestParameters as validateRenameParams } from '../../src/ehr/admin-rename-template/validateRequestParameters';
+import { AdminCreateTemplateSchema } from '../../src/ehr/admin-create-template/index';
+import { AdminDeleteTemplateSchema } from '../../src/ehr/admin-delete-template/index';
+import { AdminRenameTemplateSchema } from '../../src/ehr/admin-rename-template/index';
 import { ZambdaInput } from '../../src/shared/types/common';
+import { validateWithSchema } from '../../src/shared/validation';
 
 const createMockZambdaInput = (body: Record<string, unknown>): ZambdaInput => ({
   body: JSON.stringify(body),
@@ -29,7 +30,7 @@ describe('Admin Create Template - validateRequestParameters', () => {
       templateName: 'My Template',
     });
 
-    const result = validateCreateParams(input);
+    const result = validateWithSchema(AdminCreateTemplateSchema, input);
 
     expect(result.encounterId).toBe(UUID_1);
     expect(result.templateName).toBe('My Template');
@@ -40,7 +41,7 @@ describe('Admin Create Template - validateRequestParameters', () => {
       templateName: 'My Template',
     });
 
-    expect(() => validateCreateParams(input)).toThrow('encounterId');
+    expect(() => validateWithSchema(AdminCreateTemplateSchema, input)).toThrow('encounterId');
   });
 
   test('should throw when templateName is missing', () => {
@@ -48,7 +49,7 @@ describe('Admin Create Template - validateRequestParameters', () => {
       encounterId: UUID_1,
     });
 
-    expect(() => validateCreateParams(input)).toThrow('templateName');
+    expect(() => validateWithSchema(AdminCreateTemplateSchema, input)).toThrow('templateName');
   });
 
   test('should throw when templateName is empty string', () => {
@@ -57,7 +58,7 @@ describe('Admin Create Template - validateRequestParameters', () => {
       templateName: '',
     });
 
-    expect(() => validateCreateParams(input)).toThrow('templateName');
+    expect(() => validateWithSchema(AdminCreateTemplateSchema, input)).toThrow('templateName');
   });
 
   test('should throw when encounterId is not a valid UUID', () => {
@@ -66,7 +67,7 @@ describe('Admin Create Template - validateRequestParameters', () => {
       templateName: 'My Template',
     });
 
-    expect(() => validateCreateParams(input)).toThrow();
+    expect(() => validateWithSchema(AdminCreateTemplateSchema, input)).toThrow();
   });
 
   test('should throw when no secrets are provided', () => {
@@ -75,7 +76,7 @@ describe('Admin Create Template - validateRequestParameters', () => {
       templateName: 'My Template',
     });
 
-    expect(() => validateCreateParams(input)).toThrow();
+    expect(() => validateWithSchema(AdminCreateTemplateSchema, input)).toThrow();
   });
 });
 
@@ -88,7 +89,7 @@ describe('Admin Rename Template - validateRequestParameters', () => {
       newName: 'Renamed Template',
     });
 
-    const result = validateRenameParams(input);
+    const result = validateWithSchema(AdminRenameTemplateSchema, input);
 
     expect(result.templateId).toBe(UUID_2);
     expect(result.newName).toBe('Renamed Template');
@@ -99,7 +100,7 @@ describe('Admin Rename Template - validateRequestParameters', () => {
       newName: 'Renamed Template',
     });
 
-    expect(() => validateRenameParams(input)).toThrow('templateId');
+    expect(() => validateWithSchema(AdminRenameTemplateSchema, input)).toThrow('templateId');
   });
 
   test('should throw when newName is missing', () => {
@@ -107,7 +108,7 @@ describe('Admin Rename Template - validateRequestParameters', () => {
       templateId: UUID_2,
     });
 
-    expect(() => validateRenameParams(input)).toThrow('newName');
+    expect(() => validateWithSchema(AdminRenameTemplateSchema, input)).toThrow('newName');
   });
 
   test('should throw when newName is empty string', () => {
@@ -116,7 +117,7 @@ describe('Admin Rename Template - validateRequestParameters', () => {
       newName: '',
     });
 
-    expect(() => validateRenameParams(input)).toThrow('newName');
+    expect(() => validateWithSchema(AdminRenameTemplateSchema, input)).toThrow('newName');
   });
 
   test('should throw when templateId is empty string', () => {
@@ -125,7 +126,7 @@ describe('Admin Rename Template - validateRequestParameters', () => {
       newName: 'Renamed Template',
     });
 
-    expect(() => validateRenameParams(input)).toThrow('templateId');
+    expect(() => validateWithSchema(AdminRenameTemplateSchema, input)).toThrow('templateId');
   });
 
   test('should throw when templateId is not a valid UUID', () => {
@@ -134,7 +135,7 @@ describe('Admin Rename Template - validateRequestParameters', () => {
       newName: 'Renamed Template',
     });
 
-    expect(() => validateRenameParams(input)).toThrow();
+    expect(() => validateWithSchema(AdminRenameTemplateSchema, input)).toThrow();
   });
 
   test('should throw when no secrets are provided', () => {
@@ -143,7 +144,7 @@ describe('Admin Rename Template - validateRequestParameters', () => {
       newName: 'Renamed Template',
     });
 
-    expect(() => validateRenameParams(input)).toThrow();
+    expect(() => validateWithSchema(AdminRenameTemplateSchema, input)).toThrow();
   });
 });
 
@@ -155,7 +156,7 @@ describe('Admin Delete Template - validateRequestParameters', () => {
       templateId: UUID_2,
     });
 
-    const result = validateDeleteParams(input);
+    const result = validateWithSchema(AdminDeleteTemplateSchema, input);
 
     expect(result.templateId).toBe(UUID_2);
   });
@@ -163,7 +164,7 @@ describe('Admin Delete Template - validateRequestParameters', () => {
   test('should throw when templateId is missing', () => {
     const input = createMockZambdaInputWithSecrets({});
 
-    expect(() => validateDeleteParams(input)).toThrow('templateId');
+    expect(() => validateWithSchema(AdminDeleteTemplateSchema, input)).toThrow('templateId');
   });
 
   test('should throw when templateId is empty string', () => {
@@ -171,7 +172,7 @@ describe('Admin Delete Template - validateRequestParameters', () => {
       templateId: '',
     });
 
-    expect(() => validateDeleteParams(input)).toThrow('templateId');
+    expect(() => validateWithSchema(AdminDeleteTemplateSchema, input)).toThrow('templateId');
   });
 
   test('should throw when templateId is not a valid UUID', () => {
@@ -179,7 +180,7 @@ describe('Admin Delete Template - validateRequestParameters', () => {
       templateId: 'template-789',
     });
 
-    expect(() => validateDeleteParams(input)).toThrow();
+    expect(() => validateWithSchema(AdminDeleteTemplateSchema, input)).toThrow();
   });
 
   test('should throw when no secrets are provided', () => {
@@ -187,7 +188,7 @@ describe('Admin Delete Template - validateRequestParameters', () => {
       templateId: UUID_2,
     });
 
-    expect(() => validateDeleteParams(input)).toThrow();
+    expect(() => validateWithSchema(AdminDeleteTemplateSchema, input)).toThrow();
   });
 
   test('should throw when body is missing', () => {
@@ -199,6 +200,6 @@ describe('Admin Delete Template - validateRequestParameters', () => {
       secrets: { AUTH0_SECRET: 'test-secret' },
     };
 
-    expect(() => validateDeleteParams(input)).toThrow();
+    expect(() => validateWithSchema(AdminDeleteTemplateSchema, input)).toThrow();
   });
 });

@@ -12,18 +12,23 @@ import {
   TemplateInfo,
   TemplateVersionData,
 } from 'utils/lib/types/data/list-template.types';
+import { z } from 'zod';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { validateWithSchema } from '../../shared/validation';
 import { analyzeTemplateVersionData, findHolderList } from '../shared/template-helpers';
-import { validateRequestParameters } from './validateRequestParameters';
+
+const ListTemplatesSchema = z.object({
+  includeVersionData: z.boolean(),
+});
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mToken: string;
 
 export const index = wrapHandler('list-templates', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const validatedInput = validateRequestParameters(input);
+  const validatedInput = validateWithSchema(ListTemplatesSchema, input);
 
   const { secrets } = validatedInput;
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);

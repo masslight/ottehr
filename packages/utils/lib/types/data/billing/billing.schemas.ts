@@ -310,6 +310,7 @@ export const DeleteServiceFacilityInputSchema = z.object({
 // so this input carries no override fields.
 export const CreateBillingClaimInputSchema = z.object({
   patientId: nonEmptyString,
+  // Optional — self-pay claims are represented with a no-coverage stub in Claim.insurance.
   coverageId: nonEmptyString.optional(),
   renderingProvider: z
     .object({

@@ -5,11 +5,13 @@ import { RAW_X12_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { codeableConcept, getExtension } from 'utils/lib/fhir/helpers';
 import { removePrefix } from 'utils/lib/helpers/helpers';
 import { CODE_SYSTEM_CLAIM_TYPE, CODE_SYSTEM_PROCESS_PRIORITY } from 'utils/lib/helpers/rcm/constants';
+import { GetEraDetailInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { EraDetailResponse } from 'utils/lib/types/data/billing/billing.types';
 import { FHIR_RESOURCE_NOT_FOUND } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import {
   countEraClaims,
   extractReportedCharge,
@@ -29,13 +31,14 @@ import {
   resolvePayersByRef,
   sortClaimInsurance,
 } from '../shared';
-import { GetEraDetailParams, validateRequestParameters } from './validateRequestParameters';
+
+type GetEraDetailParams = ValidatedZambdaInput<typeof GetEraDetailInputSchema>;
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'get-billing-era-detail';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const params = validateRequestParameters(input);
+  const params = validateWithSchema(GetEraDetailInputSchema, input);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
   const eraReadClient = createEraReadClient(m2mToken, params.secrets);

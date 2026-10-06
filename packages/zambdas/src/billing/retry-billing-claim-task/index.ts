@@ -3,18 +3,21 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import { Task } from 'fhir/r4b';
 import { BILLING_CLAIM_TASK_CODING } from 'utils/lib/types/data/billing/billing.constants';
+import { RetryBillingClaimTaskInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { createBillingClient, fetchById } from '../shared';
-import { RetryBillingClaimTaskParams, validateRequestParameters } from './validateRequestParameters';
+
+type RetryBillingClaimTaskParams = ValidatedZambdaInput<typeof RetryBillingClaimTaskInputSchema>;
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'retry-billing-claim-task';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const params = validateRequestParameters(input);
+  const params = validateWithSchema(RetryBillingClaimTaskInputSchema, input);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
 

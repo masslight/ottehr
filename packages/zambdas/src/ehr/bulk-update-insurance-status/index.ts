@@ -8,11 +8,17 @@ import {
   BulkUpdateInsuranceStatusInput,
   BulkUpdateInsuranceStatusResponse,
 } from 'utils/lib/types/api/bulk-update-insurance-status.types';
+import { z } from 'zod';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
-import { validateRequestParameters } from './validateRequestParameters';
+import { validateWithSchema } from '../../shared/validation';
+
+export const BulkUpdateInsuranceStatusBodySchema = z.object({
+  insuranceIds: z.array(z.string().uuid()).min(1),
+  active: z.boolean(),
+});
 
 const ZAMBDA_NAME = 'bulk-update-insurance-status';
 const BATCH_SIZE = 100;
@@ -20,7 +26,7 @@ const BATCH_SIZE = 100;
 let m2mToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const validatedParameters = validateRequestParameters(input);
+  const validatedParameters = validateWithSchema(BulkUpdateInsuranceStatusBodySchema, input);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
 

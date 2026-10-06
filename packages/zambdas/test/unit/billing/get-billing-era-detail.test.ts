@@ -264,7 +264,7 @@ describe('get-billing-era-detail performEffect', () => {
     );
 
     const billingClient = makeBillingClient();
-    const response = await performEffect(billingClient, makeEraReadClient(), { eraId: 'era-1', secrets: null });
+    const response = await performEffect(billingClient, makeEraReadClient(), { eraId: 'era-1', secrets: {} });
 
     // the contained '#patient' ref is not a real patient, so there is nothing to fetch
     expect(billingClient.fhir.search).not.toHaveBeenCalledWith(
@@ -359,7 +359,7 @@ describe('get-billing-era-detail performEffect', () => {
     );
 
     const billingClient = makeBillingClient();
-    const response = await performEffect(billingClient, makeEraReadClient(), { eraId: 'era-1', secrets: null });
+    const response = await performEffect(billingClient, makeEraReadClient(), { eraId: 'era-1', secrets: {} });
 
     expect(billingClient.fhir.search).toHaveBeenCalledWith({
       resourceType: 'Patient',
@@ -385,7 +385,7 @@ describe('get-billing-era-detail performEffect', () => {
       },
     } as unknown as Oystehr;
     await expect(
-      performEffect(makeBillingClient(), eraReadClient, { eraId: 'missing', secrets: null })
+      performEffect(makeBillingClient(), eraReadClient, { eraId: 'missing', secrets: {} })
     ).rejects.toThrow();
   });
 });

@@ -27,6 +27,7 @@ import {
   CODE_SYSTEM_OYSTEHR_CLAIM_REFERRING_PROVIDER_TYPE,
   CODE_SYSTEM_PROCESS_PRIORITY,
 } from 'utils/lib/helpers/rcm/constants';
+import { CreateBillingClaimInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import {
   ClaimStatusValues,
   claimStatusValuesToTags,
@@ -36,6 +37,7 @@ import { FHIR_RESOURCE_NOT_FOUND } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { claimProvenanceRequest, recordedNow, resolveClaimActor } from '../provenance';
 import {
   buildDiagnosisSequence,
@@ -52,7 +54,8 @@ import {
   resolvePayersByRef,
   resourceDisplayName,
 } from '../shared';
-import { CreateClaimParams, validateRequestParameters } from './validateRequestParameters';
+
+type CreateClaimParams = ValidatedZambdaInput<typeof CreateBillingClaimInputSchema>;
 
 type BillingFhirResource = Patient | Coverage | Practitioner | Organization | Location | RelatedPerson;
 
@@ -63,7 +66,7 @@ let m2mToken: string;
 const ZAMBDA_NAME = 'create-billing-claim';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const params = validateRequestParameters(input);
+  const params = validateWithSchema(CreateBillingClaimInputSchema, input);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);

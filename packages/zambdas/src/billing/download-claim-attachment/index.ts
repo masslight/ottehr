@@ -1,18 +1,21 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DocumentReference } from 'fhir/r4b';
+import { DownloadClaimAttachmentInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { DownloadClaimAttachmentResponse } from 'utils/lib/types/data/billing/billing.types';
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { createBillingClient, fetchById, getClaimAttachmentBucketAndPathFromZ3Url } from '../shared';
-import { DownloadClaimAttachmentParams, validateRequestParameters } from './validateRequestParameters';
+
+type DownloadClaimAttachmentParams = ValidatedZambdaInput<typeof DownloadClaimAttachmentInputSchema>;
 
 let m2mToken: string;
 
 export const index = wrapHandler('add-claim-attachment', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const params = validateRequestParameters(input);
+  const params = validateWithSchema(DownloadClaimAttachmentInputSchema, input);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
 
