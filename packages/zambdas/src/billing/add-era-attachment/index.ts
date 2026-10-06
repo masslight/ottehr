@@ -29,7 +29,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
 // Records a file attached to an ERA (typically the scan of a paper remit) and returns where the
 // browser uploads it. The record exists before the upload finishes; the client deletes it again when
-// its upload fails.
+// its upload fails. The upload URL comes first: once the record is written, the client must get its id
+// back to clean it up.
 export async function performEffect(
   oystehr: Oystehr,
   params: AddEraAttachmentParams
@@ -42,6 +43,7 @@ export async function performEffect(
     era.id,
     params.fileName
   );
+  const uploadUrl = await presignAttachment(oystehr, location, 'upload');
   const documentReference = await oystehr.fhir.create<DocumentReference>(
     buildAttachmentDocumentReference({
       location,
@@ -52,8 +54,5 @@ export async function performEffect(
     })
   );
   if (!documentReference.id) throw new Error('The remit attachment was created without an id');
-  return {
-    documentReferenceId: documentReference.id,
-    uploadUrl: await presignAttachment(oystehr, location, 'upload'),
-  };
+  return { documentReferenceId: documentReference.id, uploadUrl };
 }

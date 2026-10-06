@@ -274,13 +274,9 @@ export default function ERADetail(): ReactElement {
               <AttachmentsSection
                 readOnly
                 attachments={era.attachments}
-                onDownload={async (documentReferenceId) => {
-                  const { downloadUrl } = await downloadEraAttachment(oystehrZambda, {
-                    eraId: era.id,
-                    documentReferenceId,
-                  });
-                  window.open(downloadUrl, '_blank');
-                }}
+                getDownloadUrl={async (documentReferenceId) =>
+                  (await downloadEraAttachment(oystehrZambda, { eraId: era.id, documentReferenceId })).downloadUrl
+                }
               />
             )}
 

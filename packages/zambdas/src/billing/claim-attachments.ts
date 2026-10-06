@@ -17,7 +17,8 @@ const DOCUMENT_REFERENCE_PLACEHOLDER = 'urn:uuid:doc-ref';
 // Records a document on the claim (a DocumentReference plus a supportingInfo entry pointing at it) and
 // returns where to upload the file. `name` is the title billers see and can rename; `fileName` is the
 // uploaded file's own name, which names the stored object and gives its content type when the browser
-// didn't report one.
+// didn't report one. The upload URL comes first: once the records are written, the client must get the
+// id back to clean them up when its upload fails.
 export async function attachClaimDocument({
   oystehr,
   claim,
@@ -36,6 +37,7 @@ export async function attachClaimDocument({
   secrets: Secrets;
 }): Promise<{ documentReferenceId: string; uploadUrl: string }> {
   const location = newAttachmentLocation(secrets['PROJECT_ID'], CLAIM_ATTACHMENT_PATH_PREFIX, claim.id, fileName);
+  const uploadUrl = await presignAttachment(oystehr, location, 'upload');
   const supportingInfo = claim.supportingInfo ?? [];
   const supportingInfoEntry: ClaimSupportingInfo = {
     sequence: supportingInfo.length + 1,
@@ -91,5 +93,5 @@ export async function attachClaimDocument({
   const documentReferenceId = result.unbundle().find((resource) => resource.resourceType === 'DocumentReference')?.id;
   if (!documentReferenceId) throw new Error('The claim attachment was created without an id');
 
-  return { documentReferenceId, uploadUrl: await presignAttachment(oystehr, location, 'upload') };
+  return { documentReferenceId, uploadUrl };
 }

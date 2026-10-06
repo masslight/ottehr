@@ -89,7 +89,22 @@ describe('ERA attachments', () => {
         secrets: SECRETS,
       })
     ).rejects.toThrow('The remit attachment was created without an id');
-    expect(oystehr.z3.getPresignedUrl).not.toHaveBeenCalled();
+  });
+
+  it("writes nothing when the upload can't be presigned, so no record is left without a file", async () => {
+    (fetchById as Mock).mockResolvedValueOnce({ resourceType: 'PaymentReconciliation', id: 'era-1' });
+    const oystehr = makeClient();
+    (oystehr.z3.getPresignedUrl as Mock).mockRejectedValueOnce(new Error('z3 unavailable'));
+    await expect(
+      addEraAttachment(oystehr, {
+        eraId: 'era-1',
+        name: 'Remit',
+        fileName: 'remit.pdf',
+        mimeType: 'application/pdf',
+        secrets: SECRETS,
+      })
+    ).rejects.toThrow('z3 unavailable');
+    expect(oystehr.fhir.create).not.toHaveBeenCalled();
   });
 
   it('only accepts PDFs and images for remit scans', async () => {
@@ -142,7 +157,7 @@ describe('ERA attachments', () => {
     ).rejects.toMatchObject({ message: 'Invalid Z3 URL in DocumentReference doc-1' });
   });
 
-  it('deletes the stored file and the record, even when the upload never landed', async () => {
+  it('deletes the record and then the stored file, even when the upload never landed', async () => {
     (fetchById as Mock).mockResolvedValueOnce(scan());
     const oystehr = makeClient();
     (oystehr.z3.deleteObject as Mock).mockRejectedValueOnce(new Error('not found'));
@@ -150,6 +165,19 @@ describe('ERA attachments', () => {
       deleteEraAttachment(oystehr, { eraId: 'era-1', documentReferenceId: 'doc-1', secrets: SECRETS })
     ).resolves.toEqual({ deleted: true });
     expect(oystehr.fhir.delete).toHaveBeenCalledWith({ resourceType: 'DocumentReference', id: 'doc-1' });
+    expect((oystehr.fhir.delete as Mock).mock.invocationCallOrder[0]).toBeLessThan(
+      (oystehr.z3.deleteObject as Mock).mock.invocationCallOrder[0]
+    );
+  });
+
+  it("keeps the file when the record can't be deleted, so the record never points at a missing file", async () => {
+    (fetchById as Mock).mockResolvedValueOnce(scan());
+    const oystehr = makeClient();
+    (oystehr.fhir.delete as Mock).mockRejectedValueOnce(new Error('server error'));
+    await expect(
+      deleteEraAttachment(oystehr, { eraId: 'era-1', documentReferenceId: 'doc-1', secrets: SECRETS })
+    ).rejects.toThrow('server error');
+    expect(oystehr.z3.deleteObject).not.toHaveBeenCalled();
   });
 
   it('renames the attachment title only', async () => {

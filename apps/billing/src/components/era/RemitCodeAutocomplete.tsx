@@ -12,13 +12,22 @@ const loadRarcOptions = (): Promise<readonly X12CodeListEntry[]> => {
   return rarcOptions;
 };
 
+// one lookup for every service line that shows remark codes
+let rarcDescriptions: Promise<ReadonlyMap<string, string>> | undefined;
+const loadRarcDescriptions = (): Promise<ReadonlyMap<string, string>> => {
+  rarcDescriptions ??= loadRarcOptions().then(
+    (options) => new Map(options.map((option) => [option.code, option.description]))
+  );
+  return rarcDescriptions;
+};
+
 // RARC code -> description once the table has loaded (undefined until then, and for unknown codes)
 export function useRarcDescription(): (code: string) => string | undefined {
-  const [descriptions, setDescriptions] = useState<Map<string, string> | null>(null);
+  const [descriptions, setDescriptions] = useState<ReadonlyMap<string, string> | null>(null);
   useEffect(() => {
     let cancelled = false;
-    void loadRarcOptions().then((options) => {
-      if (!cancelled) setDescriptions(new Map(options.map((option) => [option.code, option.description])));
+    void loadRarcDescriptions().then((loaded) => {
+      if (!cancelled) setDescriptions(loaded);
     });
     return () => {
       cancelled = true;

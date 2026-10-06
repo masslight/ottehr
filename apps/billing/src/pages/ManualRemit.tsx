@@ -689,10 +689,10 @@ export default function ManualRemit(): ReactElement {
             await deleteEraAttachment(oystehrZambda, { eraId, documentReferenceId });
             await refreshDetail();
           }}
-          onDownload={async (documentReferenceId) => {
-            if (!oystehrZambda || !eraId) return;
-            const { downloadUrl } = await downloadEraAttachment(oystehrZambda, { eraId, documentReferenceId });
-            window.open(downloadUrl, '_blank');
+          getDownloadUrl={async (documentReferenceId) => {
+            // attachments are listed only once the remit is saved and loaded
+            if (!oystehrZambda || !eraId) throw new Error('The remit is not loaded yet');
+            return (await downloadEraAttachment(oystehrZambda, { eraId, documentReferenceId })).downloadUrl;
           }}
         />
       </Box>
@@ -703,6 +703,11 @@ export default function ManualRemit(): ReactElement {
           action={
             <AddMenuButton
               size="small"
+              disabledReason={
+                claims.length >= MANUAL_ERA_LIMITS.claimsPerRemit
+                  ? `A remit can have at most ${MANUAL_ERA_LIMITS.claimsPerRemit} claims`
+                  : undefined
+              }
               options={[
                 {
                   label: 'Existing Claim',

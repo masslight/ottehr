@@ -28,8 +28,8 @@ export async function performEffect(oystehr: Oystehr, params: DeleteEraAttachmen
     params.documentReferenceId
   );
   const location = ownedAttachmentLocation(documentReference, eraOwner(params));
-  await deleteAttachmentObject(oystehr, location);
   await oystehr.fhir.delete({ resourceType: 'DocumentReference', id: params.documentReferenceId });
+  await deleteAttachmentObject(oystehr, location);
   return { deleted: true };
 }
 

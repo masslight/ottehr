@@ -211,6 +211,7 @@ export const MANUAL_ERA_LIMITS = {
   notesLength: 2000,
   // an attachment's title, when added and when renamed
   attachmentNameLength: 200,
+  // the whole remit's, not just one save's: a change to the remit details rewrites every claim at once
   claimsPerRemit: 100,
   serviceLinesPerClaim: 50,
   adjustmentsPerLine: 20,

@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { ReactNode } from 'react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
+import { MANUAL_ERA_LIMITS } from 'utils/lib/types/data/billing/billing.constants';
 import { ClaimDetailResponse, EraDetailResponse } from 'utils/lib/types/data/billing/billing.types';
 import { APIErrorCode } from 'utils/lib/types/errors';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -429,6 +430,26 @@ describe('ManualRemit', () => {
     expect(screen.queryByText('Not saved yet')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
     expect(api.saveBillingManualEra).not.toHaveBeenCalled();
+  });
+
+  it('stops adding claims once the remit holds as many as it can', async () => {
+    const remit = savedRemit();
+    const [claim] = remit.manualEntry!.claims;
+    // one short of the limit
+    remit.manualEntry!.claims = Array.from({ length: MANUAL_ERA_LIMITS.claimsPerRemit - 1 }, (_, index) => ({
+      ...claim,
+      claimResponseId: `cr-${index + 1}`,
+    }));
+    api.getBillingEraDetail.mockResolvedValue(remit);
+    renderAt('/eras/era-1/edit');
+    await screen.findByText(`Claims (${MANUAL_ERA_LIMITS.claimsPerRemit - 1})`);
+
+    await addClaim('Enter Manually');
+    expect(screen.getByText(`Claims (${MANUAL_ERA_LIMITS.claimsPerRemit})`)).toBeInTheDocument();
+    expect(within(section(/^Claims \(/)).getByRole('button', { name: 'Add' })).toBeDisabled();
+    expect(
+      screen.getByLabelText(`A remit can have at most ${MANUAL_ERA_LIMITS.claimsPerRemit} claims`)
+    ).toBeInTheDocument();
   });
 
   it('marks what a new claim is missing on its fields and takes the biller to the first', async () => {

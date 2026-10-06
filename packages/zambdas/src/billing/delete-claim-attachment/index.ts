@@ -53,8 +53,6 @@ export async function performEffect(oystehr: Oystehr, params: DeleteClaimAttachm
     sequence: index + 1,
   }));
 
-  await deleteAttachmentObject(oystehr, location);
-
   const requests: BatchInputRequest<BillingFhirResource>[] = [
     {
       method: 'PATCH',
@@ -65,4 +63,5 @@ export async function performEffect(oystehr: Oystehr, params: DeleteClaimAttachm
   ];
 
   await oystehr.fhir.transaction<BillingFhirResource>({ requests });
+  await deleteAttachmentObject(oystehr, location);
 }

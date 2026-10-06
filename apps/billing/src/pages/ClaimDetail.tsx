@@ -1800,10 +1800,9 @@ function ClaimAttachmentsSection({
         await deleteClaimAttachment(oystehrZambda, { claimId, documentReferenceId });
         await refetchClaim();
       }}
-      onDownload={async (documentReferenceId) => {
-        const { downloadUrl } = await downloadClaimAttachment(oystehrZambda, { claimId, documentReferenceId });
-        window.open(downloadUrl, '_blank');
-      }}
+      getDownloadUrl={async (documentReferenceId) =>
+        (await downloadClaimAttachment(oystehrZambda, { claimId, documentReferenceId })).downloadUrl
+      }
     />
   );
 }

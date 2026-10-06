@@ -36,6 +36,7 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
+import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useEffect, useState } from 'react';
 import { DropzoneProps } from 'react-dropzone';
 import { Controller, FormProvider, useForm } from 'react-hook-form';
@@ -80,7 +81,8 @@ export interface AttachmentsSectionProps {
   onUpload?: (upload: AttachmentUpload) => Promise<void>;
   onRename?: (id: string, name: string) => Promise<void>;
   onDelete?: (id: string) => Promise<void>;
-  onDownload: (id: string) => Promise<void>;
+  // where to download the file from; the section opens it in a new tab
+  getDownloadUrl: (id: string) => Promise<string>;
 }
 
 interface AddForm {
@@ -106,7 +108,7 @@ export function AttachmentsSection({
   onUpload,
   onRename,
   onDelete,
-  onDownload,
+  getDownloadUrl,
 }: AttachmentsSectionProps): ReactElement {
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [renaming, setRenaming] = useState<AttachmentRow | null>(null);
@@ -200,6 +202,24 @@ export function AttachmentsSection({
     }
   };
 
+  // The tab opens within the click itself: one opened only once the URL comes back counts as a popup,
+  // which browsers (Safari especially) block.
+  const handleDownload = async (id: string): Promise<void> => {
+    const tab = window.open('', '_blank');
+    // the downloaded file gets no handle back to this page
+    if (tab) tab.opener = null;
+    try {
+      const url = await getDownloadUrl(id);
+      if (tab) tab.location.href = url;
+      else window.open(url, '_blank');
+    } catch (err) {
+      tab?.close();
+      enqueueSnackbar(getApiError({ error: err, defaultError: 'Failed to download attachment' }), {
+        variant: 'error',
+      });
+    }
+  };
+
   const addAction = readOnly ? undefined : (
     <Tooltip title={disabledReason ?? ''}>
       <span>
@@ -246,7 +266,7 @@ export function AttachmentsSection({
                     <TableCell>
                       <Box sx={{ display: 'flex', flexDirection: 'row' }}>
                         <Tooltip title="Download">
-                          <IconButton size="small" onClick={() => void onDownload(row.id)} aria-label="Download">
+                          <IconButton size="small" onClick={() => void handleDownload(row.id)} aria-label="Download">
                             <DownloadIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>

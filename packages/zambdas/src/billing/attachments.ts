@@ -130,8 +130,8 @@ export async function presignAttachment(
   return result.signedUrl;
 }
 
-// The upload happens in the browser, so the file may never have reached Z3; a missing object must
-// not block removing the record.
+// Runs once the record is gone, so a failure only leaves a file nothing points at, never a record
+// pointing at a missing file. The upload happens in the browser, so the file may never have reached Z3.
 export async function deleteAttachmentObject(oystehr: Oystehr, location: Z3Location): Promise<void> {
   try {
     await oystehr.z3.deleteObject({ bucketName: location.bucketName, 'objectPath+': location.path });

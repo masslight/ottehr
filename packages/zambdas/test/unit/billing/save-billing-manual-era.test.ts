@@ -8,6 +8,7 @@ import {
   PaymentReconciliation,
   Provenance,
 } from 'fhir/r4b';
+import { MANUAL_ERA_LIMITS } from 'utils/lib/types/data/billing/billing.constants';
 import { ManualEraClaim, ManualEraHeader } from 'utils/lib/types/data/billing/billing.schemas';
 import { SaveManualEraResponse } from 'utils/lib/types/data/billing/billing.types';
 import {
@@ -93,8 +94,8 @@ const billingOrg: Organization = {
   meta: { tag: [{ system: PROVIDER_ROLE_TAG, code: PROVIDER_ROLE_BILLING }] },
 };
 
-// A stored manual remit: PaymentReconciliation (version 3), one unmatched and one matched claim, and
-// the era-processing Provenance linking them.
+// A stored manual remit: PaymentReconciliation (version 3), one unmatched claim (version 5) and one
+// matched claim (version 7), and the era-processing Provenance linking them.
 function storedRemit(): FhirResource[] {
   const pr: PaymentReconciliation = {
     ...buildManualPaymentReconciliation({
@@ -106,23 +107,19 @@ function storedRemit(): FhirResource[] {
     id: 'era-1',
     meta: { versionId: '3' },
   };
-  const unmatched: ClaimResponse = {
-    ...buildManualClaimResponse({ claim: keyedClaim(), header, billingProviderAndPayer }),
-    id: 'cr-1',
-  };
-  const matched: ClaimResponse = {
-    ...buildManualClaimResponse({
-      claim: keyedClaim({ patientName: 'Ann Lee' }),
-      header,
-      billingProviderAndPayer,
-      matchedClaim: {
-        id: 'claim-2',
-        patient: { reference: 'Patient/p2' },
-        type: { coding: [{ code: 'professional' }] },
-      },
-    }),
-    id: 'cr-2',
-  };
+  const builtUnmatched = buildManualClaimResponse({ claim: keyedClaim(), header, billingProviderAndPayer });
+  const unmatched: ClaimResponse = { ...builtUnmatched, id: 'cr-1', meta: { ...builtUnmatched.meta, versionId: '5' } };
+  const builtMatched = buildManualClaimResponse({
+    claim: keyedClaim({ patientName: 'Ann Lee' }),
+    header,
+    billingProviderAndPayer,
+    matchedClaim: {
+      id: 'claim-2',
+      patient: { reference: 'Patient/p2' },
+      type: { coding: [{ code: 'professional' }] },
+    },
+  });
+  const matched: ClaimResponse = { ...builtMatched, id: 'cr-2', meta: { ...builtMatched.meta, versionId: '7' } };
   const provenance: Provenance = {
     ...buildManualEraProvenance({
       targets: ['PaymentReconciliation/era-1', 'ClaimResponse/cr-1', 'ClaimResponse/cr-2'],
@@ -358,6 +355,8 @@ describe('save-billing-manual-era', () => {
       request: { reference: 'Claim/claim-2' },
       patient: { reference: 'Patient/p2' },
     });
+    // the match kept above is the one loaded, so a match or unmatch since then conflicts instead of being undone
+    expect(requests[1]).toMatchObject({ ifMatch: 'W/"7"' });
     expect(result.claims).toEqual([{ claimResponseId: 'cr-2' }]);
   });
 
@@ -404,6 +403,7 @@ describe('save-billing-manual-era', () => {
     expect((requests[1] as { resource: ClaimResponse }).resource).toMatchObject(copied);
     // the matched claim stays matched through the rebuild
     expect((requests[2] as { resource: ClaimResponse }).resource.request).toEqual({ reference: 'Claim/claim-2' });
+    expect(requests.slice(1)).toMatchObject([{ ifMatch: 'W/"5"' }, { ifMatch: 'W/"7"' }]);
   });
 
   it('drops a deposit date the biller cleared', async () => {
@@ -454,6 +454,23 @@ describe('save-billing-manual-era', () => {
       save(oystehr, params({ eraId: 'era-1', expectedVersionId: '3', deleteClaimResponseIds: ['cr-2'] }))
     ).rejects.toMatchObject({ message: 'Unmatch this claim before removing it from the remit' });
     expect(transaction).not.toHaveBeenCalled();
+  });
+
+  it('keeps the whole remit within the claim limit, not just one save', async () => {
+    const { oystehr, transaction } = makeClient([...storedRemit(), billingOrg]);
+    // the remit holds 2 claims, so adding 99 would take it to 101
+    const added = Array.from({ length: MANUAL_ERA_LIMITS.claimsPerRemit - 1 }, () => keyedClaim());
+    await expect(
+      save(oystehr, params({ eraId: 'era-1', expectedVersionId: '3', claims: added }))
+    ).rejects.toMatchObject({ message: `A remit can have at most ${MANUAL_ERA_LIMITS.claimsPerRemit} claims` });
+    expect(transaction).not.toHaveBeenCalled();
+
+    // removing one in the same save makes room
+    await save(
+      oystehr,
+      params({ eraId: 'era-1', expectedVersionId: '3', claims: added, deleteClaimResponseIds: ['cr-1'] })
+    );
+    expect(transaction).toHaveBeenCalledTimes(1);
   });
 
   it('refuses claims that belong to another remit', async () => {

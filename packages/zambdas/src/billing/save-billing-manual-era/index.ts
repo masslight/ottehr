@@ -14,7 +14,7 @@ import {
 import { DateTime } from 'luxon';
 import { getNPI, getTaxID, isVersionConflictError, makeOptimisticLockIfMatchHeader } from 'utils/lib/fhir/helpers';
 import { getPayerId, getPayerUrl } from 'utils/lib/helpers/helpers';
-import { ERA_SOURCE } from 'utils/lib/types/data/billing/billing.constants';
+import { ERA_SOURCE, MANUAL_ERA_LIMITS } from 'utils/lib/types/data/billing/billing.constants';
 import { ManualEraClaim, ManualEraHeader } from 'utils/lib/types/data/billing/billing.schemas';
 import { SaveManualEraResponse } from 'utils/lib/types/data/billing/billing.types';
 import { INVALID_INPUT_ERROR, MANUAL_ERA_VERSION_CONFLICT_ERROR, NOT_AUTHORIZED } from 'utils/lib/types/errors';
@@ -109,6 +109,14 @@ export async function complexValidation(
     if (isMatchedToClaim(claimResponse))
       throw INVALID_INPUT_ERROR('Unmatch this claim before removing it from the remit');
   }
+  // the input schema caps one save's claims; this caps the remit's, which repeated saves would otherwise grow
+  const claimCount =
+    storedById.size -
+    new Set(params.deleteClaimResponseIds).size +
+    params.claims.filter((claim) => !claim.claimResponseId).length;
+  if (claimCount > MANUAL_ERA_LIMITS.claimsPerRemit) {
+    throw INVALID_INPUT_ERROR(`A remit can have at most ${MANUAL_ERA_LIMITS.claimsPerRemit} claims`);
+  }
   const matchedClaims = await loadMatchedClaims(oystehr, params.claims);
 
   return { stored, header, billingProviderAndPayer, matchedClaims };
@@ -177,6 +185,8 @@ export async function performEffect(
       method: 'PUT',
       url: `/ClaimResponse/${claimResponse.id}`,
       resource: buildManualClaimResponse({ claim: input, header, billingProviderAndPayer, existing: claimResponse }),
+      // the rewrite keeps the match state loaded above, so a match or unmatch since then must fail the save
+      ifMatch: makeOptimisticLockIfMatchHeader(claimResponse),
     });
   }
   for (const claim of added) {

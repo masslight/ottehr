@@ -340,6 +340,31 @@ describe('add-claim-attachment', () => {
         secrets: { PROJECT_API: 'https://project-api.zapehr.com/v1', PROJECT_ID: 'project-id' },
       })
     ).rejects.toThrow('The claim attachment was created without an id');
-    expect(oystehr.z3.getPresignedUrl).not.toHaveBeenCalled();
+  });
+
+  it("writes nothing when the upload can't be presigned, so no record is left without a file", async () => {
+    (fetchById as Mock<typeof fetchById>).mockResolvedValueOnce({
+      resourceType: 'Claim',
+      id: 'claim-id',
+      status: 'active',
+      type: { coding: [] },
+      created: DateTime.now().toISO(),
+      insurance: [],
+      patient: { reference: 'patient-id' },
+      priority: { coding: [] },
+      provider: { reference: 'organization-id' },
+      use: 'claim',
+    });
+    const oystehr = makeClient();
+    (oystehr.z3.getPresignedUrl as Mock).mockReset().mockRejectedValueOnce(new Error('z3 unavailable'));
+    await expect(
+      performEffect(oystehr, {
+        claimId: 'claim-id',
+        name: 'Op note',
+        fileName: 'op-note.pdf',
+        secrets: { PROJECT_API: 'https://project-api.zapehr.com/v1', PROJECT_ID: 'project-id' },
+      })
+    ).rejects.toThrow('z3 unavailable');
+    expect(oystehr.fhir.transaction).not.toHaveBeenCalled();
   });
 });
