@@ -5,6 +5,36 @@
  */
 import { visitNoteToLegacyChartData } from 'utils/lib/helpers/visit-note/visit-note-to-chart-data.helper';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+
+// Pin the screening-questions config so the snapshot does not depend on project-level overlays.
+// The golden fixture includes covid-symptoms and travel-usa observations; this mock ensures
+// composeAdditionalQuestions picks them up regardless of the base config in place.
+vi.mock('utils/lib/ottehr-config/screening-questions', () => ({
+  patientScreeningQuestionsConfig: {
+    title: 'ASK THE PATIENT',
+    fields: [
+      {
+        id: 'covid_symptoms',
+        type: 'radio',
+        question: 'Do you have any COVID symptoms?',
+        fhirField: 'covid-symptoms',
+        existsInQuestionnaire: true,
+        options: [
+          { value: 'yes', label: 'Yes', fhirValue: 'Yes' },
+          { value: 'no', label: 'No', fhirValue: 'No' },
+        ],
+      },
+      {
+        id: 'travel_usa',
+        type: 'text',
+        question: 'Recent travel to USA',
+        fhirField: 'travel-usa',
+        existsInQuestionnaire: true,
+      },
+    ],
+  },
+}));
+
 import { buildVisitNote } from '../../src/shared/chart-sections/visit-note';
 import { composeProgressNoteData } from '../../src/shared/pdf/progress-note-pdf';
 import { ProgressNoteInput } from '../../src/shared/pdf/types';

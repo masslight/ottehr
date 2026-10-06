@@ -32,6 +32,54 @@ import { createPdfBytes } from '../src/shared/pdf';
 // patches, per-form PDF fan-out, type-code grouping, attachment dedup, creation-time
 // sorting, and reference wiring — runs for real.
 
+// Pin a two-form config (HIPAA + consent-to-treat with IL state override) so this test is
+// independent of project-level consent-forms overlays that may change the form count or paths.
+vi.mock('utils/lib/ottehr-config/consent-forms', async (importOriginal) => {
+  const original = await importOriginal<typeof import('utils/lib/ottehr-config/consent-forms')>();
+  const HIPAA_FIXED = {
+    id: 'notice-of-privacy-practices',
+    formTitle: 'Notice of Privacy Practices',
+    resourceTitle: 'HIPAA forms',
+    assetPath: './assets/QUC_Notice_of_Privacy_Practices.pdf',
+    publicUrl: '/QUC_Notice_of_Privacy_Practices.pdf',
+    type: {
+      coding: [{ system: 'http://loinc.org', code: '64292-6', display: 'Privacy Policy' }],
+      text: 'HIPAA Acknowledgement forms',
+    },
+    createsConsentResource: false,
+  } as const;
+  const CTT_DEFAULT = {
+    id: 'consent-to-treat',
+    formTitle: 'Insurance Agreement',
+    resourceTitle: 'Consent forms',
+    assetPath: './assets/QUC_Insurance_Agreement.pdf',
+    publicUrl: '/QUC_Insurance_Agreement.pdf',
+    type: {
+      coding: [
+        { system: 'http://loinc.org', code: '59284-0', display: 'Consent Documents' },
+        {
+          system: 'https://fhir.ottehr.com/CodeSystem/consent-source',
+          code: 'patient-registration',
+          display: 'Patient Registration Consent',
+        },
+      ],
+      text: 'Consent forms',
+    },
+    createsConsentResource: true,
+  } as const;
+  const CTT_IL = {
+    ...CTT_DEFAULT,
+    assetPath: './assets/QUC_Insurance_Agreement_IL.pdf',
+  } as const;
+  return {
+    ...original,
+    getConsentFormsForLocation: (locationState?: string) =>
+      [HIPAA_FIXED, locationState === 'IL' ? CTT_IL : CTT_DEFAULT] as ReturnType<
+        typeof original.getConsentFormsForLocation
+      >,
+  };
+});
+
 vi.mock('utils/lib/fhir/helpers', async (importOriginal) => {
   const original = await importOriginal<typeof import('utils/lib/fhir/helpers')>();
   return { ...original, createFilesDocumentReferences: vi.fn(), createConsentResource: vi.fn() };

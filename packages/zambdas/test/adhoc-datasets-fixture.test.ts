@@ -48,6 +48,61 @@ import { fetchAdHocBillingRows } from '../src/shared/adhoc-datasets/billing';
 import { fetchAdHocEncounterRows } from '../src/shared/adhoc-datasets/encounters';
 import { fetchAdHocPatientRows } from '../src/shared/adhoc-datasets/patients';
 
+// Pin the screening-questions config so this test is independent of project-level overlays
+// that may remove COVID/travel fields or rename the "seen" fhirField. The fixture observations
+// use the original field IDs and question texts; this mock ensures those map correctly.
+vi.mock('utils/lib/ottehr-config/screening-questions', () => ({
+  patientScreeningQuestionsConfig: {
+    title: 'ASK THE PATIENT',
+    fields: [
+      {
+        id: 'seen_in_last_3_years',
+        type: 'radio',
+        question: 'Has the patient been seen in one of our offices / telemed in last 3 years?',
+        fhirField: 'seen-in-last-three-years',
+        existsInQuestionnaire: true,
+        options: [
+          { value: 'yes', label: 'Yes', fhirValue: 'yes' },
+          { value: 'no', label: 'No', fhirValue: 'no' },
+        ],
+      },
+      {
+        id: 'covid_symptoms',
+        type: 'radio',
+        question: 'Do you have any COVID symptoms?',
+        fhirField: 'covid-symptoms',
+        existsInQuestionnaire: true,
+        options: [
+          { value: 'yes', label: 'Yes', fhirValue: 'Yes' },
+          { value: 'no', label: 'No', fhirValue: 'No' },
+        ],
+      },
+      {
+        id: 'breastfeeding_status',
+        type: 'radio',
+        question: 'Are you currently breastfeeding?',
+        fhirField: 'patient-breastfeeding-status',
+        options: [
+          { value: 'yes', label: 'Yes', fhirValue: 'yes' },
+          { value: 'no', label: 'No', fhirValue: 'no' },
+          { value: 'not_applicable', label: 'Not applicable', fhirValue: 'not-applicable' },
+        ],
+      },
+      {
+        id: 'tested_positive_covid',
+        type: 'radio',
+        question: 'Have you tested positive for COVID?',
+        fhirField: 'tested-positive-covid',
+        existsInQuestionnaire: true,
+        options: [
+          { value: 'yes', label: 'Yes', fhirValue: 'Yes' },
+          { value: 'no', label: 'No', fhirValue: 'No' },
+        ],
+      },
+    ],
+  },
+}));
+
 // Design requirement: "fixture tests asserting the fetched rows parse against the Zod schema
 // (fields present, typed, key resolved values correct) — the same schema the runtime validation
 // uses." The fetch+map pipeline runs against a stubbed Oystehr client returning a small FHIR graph;
