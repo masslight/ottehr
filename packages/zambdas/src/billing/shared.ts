@@ -1624,17 +1624,12 @@ export function selectClaimCoverages(
   coverages: Coverage[],
   sourceReference: (coverage: Coverage) => string | undefined
 ): Coverage[] {
-  const workersComp = service === CODE_SYSTEM_SERVICE_CATEGORY_CODES['workers-comp'];
-  const account =
-    service === CODE_SYSTEM_SERVICE_CATEGORY_CODES['urgent-care']
-      ? findPatientBillingAccount(accounts)
-      : workersComp
-      ? findPatientWorkersCompAccount(accounts)
-      : undefined;
+  const isWorkersComp = service === CODE_SYSTEM_SERVICE_CATEGORY_CODES['workers-comp'];
+  const account = isWorkersComp ? findPatientWorkersCompAccount(accounts) : findPatientBillingAccount(accounts);
   const selected = new Map<number, Coverage | undefined>();
   for (const entry of account?.coverage ?? []) {
     const coverage = coverages.find((c) => sourceReference(c) === entry.coverage.reference);
-    if (workersComp) {
+    if (isWorkersComp) {
       if (coverage) selected.set(1, coverage);
     } else if (entry.priority && [1, 2, 3, 4].includes(entry.priority)) {
       selected.set(entry.priority, coverage);
