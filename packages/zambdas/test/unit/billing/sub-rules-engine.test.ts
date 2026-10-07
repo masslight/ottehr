@@ -780,18 +780,44 @@ describe('sub-rules-engine performEffect', () => {
       expect(submitClaimRcm).not.toHaveBeenCalled();
     });
 
-    it('leaves accident details the rules did not change to the claim editor', async () => {
-      const { oystehr, search, submitClaimRcm } = makeOystehrMock();
+    it('holds a claim that arrived with incomplete accident details, even when no rule touched them', async () => {
+      const { oystehr, submitClaimRcm } = makeOystehrMock();
       const model = makeModel(AR_STAGE.insurancePayer);
       writeField(model, 'accident.auto', 'true'); // already incomplete before the run
-      search.mockResolvedValue({ unbundle: () => [model.claim] });
+      writeField(model, 'accident.date', '2025-12-30');
 
       const result = await run(oystehr, model, [
         alwaysRule('tag', { type: 'actions', actions: [{ type: 'applyTag', tag: 'VIP' }] }),
       ]);
 
-      expect(result.taskStatus).toBe('completed');
-      expect(submitClaimRcm).toHaveBeenCalled();
+      expect(result.taskStatus).toBe('failed');
+      expect(result.statusReason).toContain('Accident state is required for auto accidents');
+      expect(result.statusReason).not.toContain('Accident date is required');
+      expect(submitClaimRcm).not.toHaveBeenCalled();
+    });
+
+    it('holds an incomplete claim when rules are skipped', async () => {
+      const { oystehr, submitClaimRcm } = makeOystehrMock();
+      const model = makeModel(AR_STAGE.insurancePayer);
+      writeField(model, 'accident.employment', 'true');
+
+      const result = await performEffect(
+        oystehr,
+        {
+          engine: 'claim-submission',
+          claimId: 'claim-1',
+          rules: [],
+          model,
+          skipRules: true,
+          submissionType: null,
+          payerClaimControlNumber: null,
+        },
+        [AGENT]
+      );
+
+      expect(result.taskStatus).toBe('failed');
+      expect(result.statusReason).toContain('Accident date is required');
+      expect(submitClaimRcm).not.toHaveBeenCalled();
     });
   });
 

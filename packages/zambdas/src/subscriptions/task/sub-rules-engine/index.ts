@@ -408,7 +408,6 @@ export async function performEffect(
   agent: ProvenanceAgent[]
 ): Promise<{ taskStatus: Task['status']; statusReason: string }> {
   const unchanged = snapshotModel(model);
-  const accidentBefore = JSON.stringify(readAccidentInfo(model));
   const attribution: RuleAttributionMap = new Map();
   let preRule = unchanged;
 
@@ -451,13 +450,11 @@ export async function performEffect(
   }
 
   // Accident details are checked once all rules have run, so rules may set the type, date and state
-  // in any order. Only a run that changed them is checked — the claim editor enforces the same
-  // invariants (claimAccidentProblems) on its own saves.
-  const accidentAfter = readAccidentInfo(model);
+  // in any order. The check covers the claim as it stands, not just what the rules changed: a claim
+  // that arrived incomplete (e.g. created from an encounter without an accident state) is held too.
+  // Same invariants (claimAccidentProblems) the claim editor enforces on its own saves.
   const accidentProblems =
-    failure || heldBy || unwritable.length > 0 || JSON.stringify(accidentAfter) === accidentBefore
-      ? []
-      : claimAccidentProblems(accidentAfter);
+    failure || heldBy || unwritable.length > 0 ? [] : claimAccidentProblems(readAccidentInfo(model));
   if (accidentProblems.length > 0) {
     applyAction({ type: RULE_ACTION_TYPE.applyTag, tag: HOLD_TAG_NAME }, model);
     attribution.get(`Claim/${model.claim.id}`)?.delete('tags');
@@ -478,10 +475,10 @@ export async function performEffect(
   }
 
   if (accidentProblems.length > 0) {
-    console.log(`[rules-engine] Claim/${claimId} held: rules left incomplete accident details`);
+    console.log(`[rules-engine] Claim/${claimId} held: incomplete accident details`);
     return {
       taskStatus: 'failed',
-      statusReason: `Rules left the claim's accident details incomplete: ${accidentProblems.join(
+      statusReason: `The claim's accident details are incomplete: ${accidentProblems.join(
         '; '
       )}. The claim was held for review.`,
     };
