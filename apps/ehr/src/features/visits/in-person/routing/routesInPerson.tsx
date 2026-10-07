@@ -26,6 +26,7 @@ import { RouteInPerson } from '../context/InPersonNavigationContext';
 import { Allergies } from '../pages/Allergies';
 import { ChiefComplaintAndIntakeNotes } from '../pages/ChiefComplaintAndIntakeNotes';
 import { ERXPage } from '../pages/ERXPage';
+import { ERXSurescriptsPage } from '../pages/ERXSurescriptsPage';
 import { FollowUpNote } from '../pages/FollowUpNote';
 import { HistoryAndTemplates } from '../pages/HistoryAndTemplates';
 import { Hospitalization } from '../pages/Hospitalization';
@@ -63,6 +64,7 @@ export enum ROUTER_PATH {
   EXAMINATION = 'examination',
   PLAN = 'plan',
   ERX = 'erx',
+  ERX_SURESCRIPTS = 'erx-surescripts',
   DOCUMENTS = 'documents',
   OTTEHR_AI = 'ottehr-ai',
 
@@ -436,6 +438,14 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
     modes: ['main', 'readonly', 'follow-up'],
     element: <ERXPage />,
     text: 'eRX',
+    iconKey: 'eRX',
+    groupLabel: 'Provider',
+  },
+  [ROUTER_PATH.ERX_SURESCRIPTS]: {
+    path: ROUTER_PATH.ERX_SURESCRIPTS,
+    modes: FEATURE_FLAGS.SURESCRIPTS_ERX_ENABLED ? ['main', 'readonly', 'follow-up'] : [],
+    element: FEATURE_FLAGS.SURESCRIPTS_ERX_ENABLED ? <ERXSurescriptsPage /> : null,
+    text: 'eRx (Surescripts)',
     iconKey: 'eRX',
     groupLabel: 'Provider',
   },
