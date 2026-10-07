@@ -1,7 +1,7 @@
 import { useMutation, UseMutationResult, useQuery, UseQueryResult } from '@tanstack/react-query';
 import { Operation } from 'fast-json-patch';
 import { Patient } from 'fhir/r4b';
-import { useSuccessQuery } from 'utils/lib/frontend';
+import { useSuccessQuery } from 'utils/lib/frontend/hooks/useSuccessQuery';
 import { addOrReplaceOperation, removeOperation } from 'utils/lib/helpers/operations';
 import { GetOrUploadPatientProfilePhotoZambdaResponse } from 'utils/lib/types/api/get-patient-profile-photo-url.types';
 import { getSignedPatientProfilePhotoUrl } from '../../../../api/api';

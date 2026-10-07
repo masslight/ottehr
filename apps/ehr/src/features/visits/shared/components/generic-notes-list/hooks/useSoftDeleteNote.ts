@@ -1,8 +1,7 @@
 import { enqueueSnackbar } from 'notistack';
 import { useCallback } from 'react';
 import { NoteDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
-import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
-import { useChartFields } from '../../../hooks/useChartFields';
+import { useChartSection } from '../../../hooks/useChartSection';
 import { useOystehrAPIClient } from '../../../hooks/useOystehrAPIClient';
 import { UseDeleteNote } from '../types';
 
@@ -11,10 +10,7 @@ import { UseDeleteNote } from '../types';
 // as the deleter so the tombstone shows who removed it.
 export const useSoftDeleteNote: UseDeleteNote = ({ appointmentId, apiConfig, locales }) => {
   const apiClient = useOystehrAPIClient();
-  const { setQueryCache } = useChartFields({
-    appointmentId,
-    requestedFields: { [apiConfig.fieldName]: apiConfig.searchParams },
-  });
+  const { setSectionData } = useChartSection('notes', { appointmentId, params: { types: [apiConfig.type] } });
 
   return useCallback(
     async (entity) => {
@@ -32,25 +28,21 @@ export const useSoftDeleteNote: UseDeleteNote = ({ appointmentId, apiConfig, loc
 
         await apiClient?.saveChartData?.({
           encounterId: entity.encounterId,
-          [apiConfig.fieldName]: [payload],
+          notes: [payload],
         });
 
         const deletedAt = new Date().toISOString();
-        setQueryCache((oldData: any) => {
-          if (!oldData?.[apiConfig.fieldName]) return oldData;
-          return {
-            ...oldData,
-            [apiConfig.fieldName]: (
-              oldData[apiConfig.fieldName] as GetChartDataResponse[typeof apiConfig.fieldName]
-            )?.map((n) => (n.resourceId === entity.resourceId ? { ...n, deleted: true, lastUpdated: deletedAt } : n)),
-          };
-        });
+        setSectionData((previous) => ({
+          notes: previous.notes.map((note) =>
+            note.resourceId === entity.resourceId ? { ...note, deleted: true, lastUpdated: deletedAt } : note
+          ),
+        }));
       } catch (error) {
         console.error(error);
         enqueueSnackbar(locales.getErrorMessage('deletion', locales.entityLabel), { variant: 'error' });
         throw error;
       }
     },
-    [apiClient, apiConfig, setQueryCache, locales]
+    [apiClient, setSectionData, locales]
   );
 };

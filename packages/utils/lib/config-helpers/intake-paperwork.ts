@@ -1,4 +1,5 @@
-import type { PaperworkConfig, ResolvedConsentFormConfig } from 'config-types';
+import type { ResolvedConsentFormConfig } from 'config-types/config/consent-forms';
+import type { PaperworkConfig } from 'config-types/config/intake-paperwork';
 import { camelCase } from 'lodash-es';
 import { INTAKE_PAPERWORK_CONFIG } from '../ottehr-config/intake-paperwork';
 

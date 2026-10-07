@@ -379,13 +379,10 @@ export const getAnnotationFollowupStatusLabel = (encounterStatus: string | undef
  * Determines which encounter should be pre-selected as the "initial visit"
  * when creating a new follow-up from the current visit context.
  * If the current encounter is itself a follow-up child (has partOf), the parent
- * (followUpOriginEncounter) is the initial visit; otherwise the current encounter is.
+ * it is part of is the initial visit; otherwise the current encounter is.
  */
-export const getInitialEncounterIdForFollowUp = (
-  encounter: Encounter | undefined,
-  followUpOriginEncounter: Encounter | undefined
-): string | undefined => {
-  return encounter?.partOf ? followUpOriginEncounter?.id : encounter?.id;
+export const getInitialEncounterIdForFollowUp = (encounter: Encounter | undefined): string | undefined => {
+  return encounter?.partOf ? encounter.partOf.reference?.replace('Encounter/', '') : encounter?.id;
 };
 
 export const getFollowUpProgressNotePathSegment = (

@@ -1,6 +1,10 @@
 import Oystehr from '@oystehr/sdk';
 import { Address, ContactPoint, Extension, Organization } from 'fhir/r4b';
-import { getPayerUrl } from 'utils/lib/helpers/helpers';
+import {
+  getCustomInsuranceOrgReferenceUrl,
+  getPayerUrl,
+  isCustomInsuranceOrgBusinessId,
+} from 'utils/lib/helpers/helpers';
 import {
   CreateCustomInsuranceOrgInput,
   CUSTOM_INSURANCE_ORG_TYPES,
@@ -10,8 +14,8 @@ import {
   CustomInsuranceOrgType,
 } from 'utils/lib/types/data/billing/custom-insurance-org.schemas';
 import {
+  ClinicalCustomInsuranceOrgOption,
   CUSTOM_INSURANCE_ORG_ACCEPTED_CLAIM_FORM_EXTENSION_URL,
-  CUSTOM_INSURANCE_ORG_ID_PREFIX,
   CUSTOM_INSURANCE_ORG_ID_SYSTEM,
   CUSTOM_INSURANCE_ORG_KIND_CODE,
   CUSTOM_INSURANCE_ORG_NOTE_EXTENSION_URL,
@@ -189,6 +193,21 @@ export function mapCustomInsuranceOrganization(org: Organization): CustomInsuran
   };
 }
 
+// --- Clinical directory mapping ---
+
+export function mapClinicalCustomInsuranceOrgOption(org: Organization): ClinicalCustomInsuranceOrgOption {
+  return {
+    id: org.id ?? '',
+    // A reference token, not a direct FHIR reference — the clinical app resolves it through the
+    // list-custom-insurance-organizations door instead of reading this Organization directly (the
+    // same pattern non-insurance organizations use, see getNioReferenceUrl).
+    reference: getCustomInsuranceOrgReferenceUrl(org.id ?? ''),
+    orgId: getCustomInsuranceOrgBusinessId(org),
+    name: org.name ?? '',
+    active: org.active !== false,
+  };
+}
+
 // --- Business-id uniqueness lookup ---
 
 export async function findCustomInsuranceOrgByBusinessId(
@@ -204,12 +223,6 @@ export async function findCustomInsuranceOrgByBusinessId(
     ],
   });
   return bundle.unbundle().find((org) => org.id !== excludeId);
-}
-
-// Every business id starts with this prefix — a "payer id" search/filter value shaped like one names
-// a custom insurance organization rather than an RCM payer.
-export function isCustomInsuranceOrgBusinessId(value: string): boolean {
-  return value.trim().toUpperCase().startsWith(CUSTOM_INSURANCE_ORG_ID_PREFIX);
 }
 
 // The Claim.insurer / PaymentReconciliation payment-issuer filter value for a chosen "payer id" —

@@ -47,6 +47,14 @@ describe('send-fax-packet - validateRequestParameters', () => {
     expect(result.source).toEqual(VISIT_SOURCE);
   });
 
+  test('throws when a recipient has a credential but no name', () => {
+    expect(() =>
+      validateRequestParameters(
+        createMockZambdaInput(body({ recipients: [{ faxNumber: '2125551234', credential: 'MD' }] }), { secrets })
+      )
+    ).toThrow();
+  });
+
   test('throws when the source type is unknown', () => {
     expect(() =>
       validateRequestParameters(createMockZambdaInput(body({ source: { type: 'everything' } }), { secrets }))

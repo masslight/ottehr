@@ -7,10 +7,6 @@ import {
   QuestionnaireDataTypeSchema,
 } from './questionnaire';
 
-// Re-export for convenience
-export { FormFieldTriggerSchema } from './questionnaire';
-export type { FormFieldTrigger } from './questionnaire';
-
 /**
  * DynamicPopulation - Configuration for auto-populating fields
  */

@@ -71,12 +71,18 @@ import {
   CreateDischargeSummaryInput,
   CreateDischargeSummaryResponse,
 } from 'utils/lib/types/api/create-discharge-summary/create-discharge-summary.types';
+import { CreatePatientInput, CreatePatientResponse } from 'utils/lib/types/api/create-patient.types';
 import { CreateUserOutput, CreateUserParams } from 'utils/lib/types/api/create-user.types';
 import {
   DailyPaymentsReportZambdaInput,
   DailyPaymentsReportZambdaOutput,
 } from 'utils/lib/types/api/daily-payments-report.types';
 import { DeleteUserZambdaInput, DeleteUserZambdaOutput } from 'utils/lib/types/api/delete-user.types';
+import {
+  GetEmployeeChatsResponse,
+  OpenEmployeeChatInput,
+  OpenEmployeeChatResponse,
+} from 'utils/lib/types/api/employee-chat.types';
 import { ExtractCardInput, ExtractCardResponse } from 'utils/lib/types/api/extract-card.types';
 import { GetAppointmentsZambdaInput, GetAppointmentsZambdaOutput } from 'utils/lib/types/api/get-appointments.types';
 import { GetConversationInput, GetConversationZambdaOutput } from 'utils/lib/types/api/get-conversation.types';
@@ -122,7 +128,6 @@ import {
   GetPatientNotesCountOutput,
   GetPatientNotesInput,
   GetPatientNotesOutput,
-  PatientNoteDTO,
   SavePatientNoteOutput,
   UpdatePatientNoteInput,
 } from 'utils/lib/types/api/patient-notes/patient-notes.types';
@@ -263,9 +268,11 @@ import {
 import { UpdateUserParams, UpdateUserZambdaOutput } from 'utils/lib/types/api/update-user/update-user.types';
 import {
   DeleteVisitFilesInput,
+  DeleteVisitFormInput,
   UpdateVisitDetailsInput,
   UpdateVisitFilesInput,
   UpdateVisitFilesOutput,
+  UpdateVisitFormInput,
 } from 'utils/lib/types/api/update-visit-details.types';
 import { UserActivationZambdaInput, UserActivationZambdaOutput } from 'utils/lib/types/api/user-activation.types';
 import {
@@ -368,7 +375,7 @@ import {
   PaperworkFlowDeleteInput,
   PaperworkFlowListOutput,
   PaperworkFlowUpdateInput,
-} from 'utils/lib/types/data/paperwork-flows';
+} from 'utils/lib/types/data/paperwork-flows/paperwork-flows.types';
 import {
   GetPatientBalancesZambdaInput,
   GetPatientBalancesZambdaOutput,
@@ -433,6 +440,7 @@ const PRACTICE_KPIS_REPORT_ZAMBDA_ID = 'practice-kpis-report';
 const VISITS_OVERVIEW_REPORT_ZAMBDA_ID = 'visits-overview-report';
 const RECENT_PATIENTS_REPORT_ZAMBDA_ID = 'recent-patients-report';
 const CREATE_APPOINTMENT_ZAMBDA_ID = 'create-appointment';
+const CREATE_PATIENT_ZAMBDA_ID = 'create-patient';
 const CANCEL_TELEMED_APPOINTMENT_ZAMBDA_ID = 'telemed-cancel-appointment';
 const INVITE_PARTICIPANT_ZAMBDA_ID = 'video-chat-invites-create';
 const CREATE_USER_ZAMBDA_ID = 'create-user';
@@ -444,6 +452,8 @@ const CHANGE_IN_PERSON_VISIT_STATUS_ZAMBDA_ID = 'change-in-person-visit-status';
 const GET_USER_ZAMBDA_ID = 'get-user';
 const USER_ACTIVATION_ZAMBDA_ID = 'user-activation';
 const GET_CONVERSATION_ZAMBDA_ID = 'get-conversation';
+const GET_EMPLOYEE_CHATS_ZAMBDA_ID = 'get-employee-chats';
+const OPEN_EMPLOYEE_CHAT_ZAMBDA_ID = 'open-employee-chat';
 const GET_SCHEDULE_ZAMBDA_ID = 'get-schedule';
 const CANCEL_APPOINTMENT_ZAMBDA_ID = 'cancel-appointment';
 const GET_EMPLOYEES_ZAMBDA_ID = 'get-employees';
@@ -931,6 +941,22 @@ export const createAppointment = async (
   }
 };
 
+export const createPatient = async (
+  oystehr: Oystehr,
+  parameters: CreatePatientInput
+): Promise<CreatePatientResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: CREATE_PATIENT_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
 export const saveFollowup = async (
   oystehr: Oystehr,
   parameters: SaveFollowupEncounterZambdaInput
@@ -1147,6 +1173,27 @@ export const getConversation = async (
       id: GET_CONVERSATION_ZAMBDA_ID,
       ...parameters,
     });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    throw new Error(JSON.stringify(error));
+  }
+};
+
+export const getEmployeeChats = async (oystehr: Oystehr): Promise<GetEmployeeChatsResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({ id: GET_EMPLOYEE_CHATS_ZAMBDA_ID });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    throw new Error(JSON.stringify(error));
+  }
+};
+
+export const openEmployeeChat = async (
+  oystehr: Oystehr,
+  parameters: OpenEmployeeChatInput
+): Promise<OpenEmployeeChatResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({ id: OPEN_EMPLOYEE_CHAT_ZAMBDA_ID, ...parameters });
     return chooseJson(response);
   } catch (error: unknown) {
     throw new Error(JSON.stringify(error));
@@ -2410,6 +2457,30 @@ export const deleteVisitFiles = async (oystehr: Oystehr, parameters: DeleteVisit
   } catch (error: unknown) {
     console.log(error);
     throw error;
+  }
+};
+
+export const updateVisitForm = async (oystehr: Oystehr, parameters: UpdateVisitFormInput): Promise<void> => {
+  try {
+    await oystehr.zambda.execute({
+      id: 'update-visit-form',
+      ...parameters,
+    });
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const deleteVisitForm = async (oystehr: Oystehr, parameters: DeleteVisitFormInput): Promise<void> => {
+  try {
+    await oystehr.zambda.execute({
+      id: 'delete-visit-form',
+      ...parameters,
+    });
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
   }
 };
 
@@ -3901,4 +3972,3 @@ export const deletePatientNote = async (oystehr: Oystehr, parameters: DeletePati
 };
 
 // Re-export for convenience in callers that import from this module
-export type { PatientNoteDTO };

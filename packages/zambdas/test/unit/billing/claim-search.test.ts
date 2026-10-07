@@ -2,8 +2,9 @@ import Oystehr from '@oystehr/sdk';
 import { Claim, ClaimResponse, Coverage, Location, Organization, Patient, Practitioner, Resource } from 'fhir/r4b';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { getPayerUrl } from 'utils/lib/helpers/helpers';
+import { CODE_SYSTEM_CLAIM_TYPE } from 'utils/lib/helpers/rcm/constants';
 import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
-import { AR_STAGE, CLAIM_STATUS_TAG_SYSTEMS } from 'utils/lib/types/data/billing/claim-status';
+import { AR_STAGE, AR_STAGE_NONE, CLAIM_STATUS_TAG_SYSTEMS } from 'utils/lib/types/data/billing/claim-status';
 import {
   CUSTOM_INSURANCE_ORG_ID_SYSTEM,
   CUSTOM_INSURANCE_ORG_KIND_CODE,
@@ -76,7 +77,7 @@ describe('buildClaimFilterParams: non-insurance payer', () => {
     const nioId = '5b0261af-71c6-4f7e-9a51-e0d16a468980';
     const params = await buildClaimFilterParams({
       oystehr: {} as unknown as Oystehr,
-      params: { nonInsurancePayerId: nioId },
+      params: { nonInsurancePayerId: [nioId] },
     });
     expect(params).toContainEqual({
       name: '_tag',
@@ -90,7 +91,7 @@ describe('buildClaimFilterParams: payer', () => {
     const search = vi.fn();
     const params = await buildClaimFilterParams({
       oystehr: { fhir: { search } } as unknown as Oystehr,
-      params: { payerId: 'PAYER1' },
+      params: { payerId: ['PAYER1'] },
     });
     expect(params).toContainEqual({ name: 'insurer', value: getPayerUrl('PAYER1') });
     expect(search).not.toHaveBeenCalled();
@@ -100,7 +101,7 @@ describe('buildClaimFilterParams: payer', () => {
     const search = vi.fn().mockResolvedValue({ unbundle: () => [{ resourceType: 'Organization', id: 'org-uuid' }] });
     const params = await buildClaimFilterParams({
       oystehr: { fhir: { search } } as unknown as Oystehr,
-      params: { payerId: 'OTR-ACME' },
+      params: { payerId: ['OTR-ACME'] },
     });
     expect(params).toContainEqual({ name: 'insurer', value: 'Organization/org-uuid' });
   });
@@ -110,9 +111,70 @@ describe('buildClaimFilterParams: payer', () => {
     await expect(
       buildClaimFilterParams({
         oystehr: { fhir: { search } } as unknown as Oystehr,
-        params: { payerId: 'OTR-UNKNOWN' },
+        params: { payerId: ['OTR-UNKNOWN'] },
       })
     ).rejects.toThrow();
+  });
+  it('ORs several payers into one insurer filter', async () => {
+    const params = await buildClaimFilterParams({
+      oystehr: {} as unknown as Oystehr,
+      params: { payerId: ['PAYER1', 'PAYER2'] },
+    });
+    expect(params).toContainEqual({ name: 'insurer', value: `${getPayerUrl('PAYER1')},${getPayerUrl('PAYER2')}` });
+  });
+});
+
+describe('buildClaimFilterParams: multi-value filters', () => {
+  const oystehr = {} as unknown as Oystehr;
+
+  it('ORs several values of one tag filter into a single _tag param', async () => {
+    const params = await buildClaimFilterParams({
+      oystehr,
+      params: { tag: ['a', 'b'], type: ['professional', 'institutional'] },
+    });
+    expect(params).toContainEqual({ name: '_tag', value: `${CLAIM_TAG_SYSTEM}|a,${CLAIM_TAG_SYSTEM}|b` });
+    expect(params).toContainEqual({
+      name: '_tag',
+      value: `${CODE_SYSTEM_CLAIM_TYPE}|professional,${CODE_SYSTEM_CLAIM_TYPE}|institutional`,
+    });
+  });
+
+  it('adds no param for an empty list', async () => {
+    const params = await buildClaimFilterParams({ oystehr, params: { tag: [], arStage: [], status: [] } });
+    expect(params).toEqual([{ name: '_sort', value: '-_lastUpdated' }]);
+  });
+
+  it('matches every status system for each chosen status', async () => {
+    const params = await buildClaimFilterParams({ oystehr, params: { status: ['s1', 's2'] } });
+    const statusParam = params.find((p) => p.name === '_tag');
+    const values = statusParam?.value.split(',') ?? [];
+    // seven status systems × two statuses
+    expect(values).toHaveLength(14);
+    expect(values).toContain(`${CLAIM_STATUS_TAG_SYSTEMS.insuranceArStatus}|s1`);
+    expect(values).toContain(`${CLAIM_STATUS_TAG_SYSTEMS.patientPaidStatus}|s2`);
+  });
+
+  it('ORs several AR stages', async () => {
+    const params = await buildClaimFilterParams({
+      oystehr,
+      params: { arStage: [AR_STAGE.patient, AR_STAGE.insurancePayer] },
+    });
+    expect(params).toContainEqual({
+      name: '_tag',
+      value: `${CLAIM_STATUS_TAG_SYSTEMS.arStage}|${AR_STAGE.patient},${CLAIM_STATUS_TAG_SYSTEMS.arStage}|${AR_STAGE.insurancePayer}`,
+    });
+  });
+
+  it('expresses "no AR stage or a chosen stage" as excluding the other stages', async () => {
+    const params = await buildClaimFilterParams({
+      oystehr,
+      params: { arStage: [AR_STAGE_NONE, AR_STAGE.patient] },
+    });
+    expect(params.filter((p) => p.name === '_tag')).toEqual([]);
+    expect(params.filter((p) => p.name === '_tag:not')).toEqual([
+      { name: '_tag:not', value: `${CLAIM_STATUS_TAG_SYSTEMS.arStage}|${AR_STAGE.insurancePayer}` },
+      { name: '_tag:not', value: `${CLAIM_STATUS_TAG_SYSTEMS.arStage}|${AR_STAGE.nonInsurancePayer}` },
+    ]);
   });
 });
 

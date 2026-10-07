@@ -1,4 +1,4 @@
-import { type ServiceCategoryConfig } from 'config-types';
+import type { ServiceCategoryConfig } from 'config-types/config/booking';
 import {
   Patient,
   Questionnaire,

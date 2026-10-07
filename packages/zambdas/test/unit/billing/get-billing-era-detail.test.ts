@@ -263,7 +263,15 @@ describe('get-billing-era-detail performEffect', () => {
       ])
     );
 
-    const response = await performEffect(makeBillingClient(), makeEraReadClient(), { eraId: 'era-1', secrets: null });
+    const billingClient = makeBillingClient();
+    const response = await performEffect(billingClient, makeEraReadClient(), { eraId: 'era-1', secrets: null });
+
+    // the contained '#patient' ref is not a real patient, so there is nothing to fetch
+    expect(billingClient.fhir.search).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        resourceType: 'Patient',
+      })
+    );
 
     // header — pre-existing fields unchanged, new fields populated
     expect(response).toMatchObject({
@@ -336,6 +344,37 @@ describe('get-billing-era-detail performEffect', () => {
       cptCode: '87880',
       serviceDate: '2026-06-30',
       copay: 25,
+    });
+  });
+
+  it('reads the patient DOB off a real patient an unmatched remit references', async () => {
+    const referencingResponse: ClaimResponse = {
+      ...structuredClone(unmatchedResponse),
+      patient: {
+        reference: 'Patient/p1',
+      },
+    };
+    (fetchClaimResponsesByPaymentReconciliations as Mock).mockResolvedValue(
+      new Map([['era-1', [referencingResponse]]])
+    );
+
+    const billingClient = makeBillingClient();
+    const response = await performEffect(billingClient, makeEraReadClient(), { eraId: 'era-1', secrets: null });
+
+    expect(billingClient.fhir.search).toHaveBeenCalledWith({
+      resourceType: 'Patient',
+      params: expect.arrayContaining([
+        {
+          name: '_id',
+          value: 'p1',
+        },
+      ]),
+    });
+    expect(response.claims[0]).toMatchObject({
+      matched: false,
+      // the name stays the one the payer reported
+      patientName: 'Smith, Riley',
+      patientDob: '2008-06-07',
     });
   });
 

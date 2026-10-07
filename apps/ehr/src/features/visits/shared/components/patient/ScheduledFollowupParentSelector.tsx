@@ -18,7 +18,6 @@ import { enqueueSnackbar } from 'notistack';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { convertVisitToFollowUp } from 'src/api/api';
-import { CHART_DATA_QUERY_KEY, CHART_FIELDS_QUERY_KEY } from 'src/constants';
 import { formatISOStringToDateAndTime } from 'src/helpers/formatDateTime';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { getFirstName, getLastName } from 'utils/lib/fhir/patient';
@@ -26,6 +25,7 @@ import {
   CopyableFollowupField,
   FollowUpOptions,
 } from 'utils/lib/types/api/prebook-create-appointment/prebook-create-appointment.types';
+import { markChartStale } from '../../hooks/chartSectionCache';
 import { useOystehrAPIClient } from '../../hooks/useOystehrAPIClient';
 import type { ConvertFromVisit } from './AddPatientFollowup';
 import { COPYABLE_FOLLOWUP_FIELDS, fetchCopySourceChartData } from './copyFollowupFields';
@@ -145,16 +145,7 @@ export default function ScheduledFollowupParentSelector({
         }
       }
 
-      await Promise.all([
-        queryClient.invalidateQueries({
-          queryKey: [CHART_DATA_QUERY_KEY, convertFrom.encounterId],
-          refetchType: 'none',
-        }),
-        queryClient.invalidateQueries({
-          queryKey: [CHART_FIELDS_QUERY_KEY, convertFrom.encounterId],
-          refetchType: 'none',
-        }),
-      ]);
+      await markChartStale(queryClient, convertFrom.encounterId);
 
       return { copyFailed };
     },

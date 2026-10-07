@@ -1,15 +1,16 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
+import { visitNoteToLegacyChartData } from 'utils/lib/helpers/visit-note/visit-note-to-chart-data.helper';
 import { PrintablePdfZambdaOutput } from 'utils/lib/types/api/print-chart-data/print-chart-data.types';
 import { CHART_DOCUMENT_ROLES } from 'utils/lib/types/api/user.types';
 import { NOT_AUTHORIZED } from 'utils/lib/types/errors';
 import { callerHasRole, checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { buildVisitNote } from '../../../shared/chart-sections/visit-note';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { createPatientInstructionsPdf } from '../../../shared/pdf/patient-instructions-pdf';
 import { getAppointmentAndRelatedResources } from '../../../shared/pdf/visit-details-pdf/get-video-resources';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
-import { getChartData } from '../../get-chart-data';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -43,7 +44,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     throw new Error(`No encounter has been found for appointment ${appointmentId}`);
   }
 
-  const chartData = (await getChartData(oystehr, m2mToken, encounter.id)).response;
+  // The instructions composer reads the whole-chart shape; the adapter presents the note as that shape.
+  const visitNote = await buildVisitNote({ oystehr, m2mToken }, encounter.id);
+  const { chartData } = visitNoteToLegacyChartData(visitNote, { module: 'in-person' });
 
   const { pdfInfo } = await createPatientInstructionsPdf(
     { allChartData: { chartData }, appointmentPackage: visitResources },

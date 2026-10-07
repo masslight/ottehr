@@ -14,12 +14,16 @@ import { getPayerUrl } from 'utils/lib/helpers/helpers';
 import { CODE_SYSTEM_CMS_PLACE_OF_SERVICE, EXTENSION_URL_CPT_MODIFIER } from 'utils/lib/helpers/rcm/constants';
 import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
 import { BillingInsuranceType } from 'utils/lib/types/data/billing/billing.schemas';
+import { ChargeItemDefinitionDefault } from 'utils/lib/types/data/billing/billing.types';
+import { CUSTOM_INSURANCE_ORG_KIND_CODE } from 'utils/lib/types/data/billing/custom-insurance-org.types';
 import {
   CLAIM_NON_INSURANCE_PAYER_EXTENSION_URL,
   CLAIM_NON_INSURANCE_PAYER_TAG_SYSTEM,
+  NIO_ORGANIZATION_KIND_SYSTEM,
 } from 'utils/lib/types/data/billing/non-insurance-org.types';
 import { RULES_ENGINE_TYPES } from 'utils/lib/types/data/billing/rules-engine.constants';
 import {
+  collectSetPayerIds,
   RULE_FIELD_CATALOG,
   SERVICE_LINE_PROPERTY_CATALOG,
 } from 'utils/lib/types/data/billing/rules-engine.field-catalog';
@@ -54,7 +58,9 @@ import {
 import {
   buildRulesEngineKickoffTask,
   listToRules,
+  RULES_ENGINE_INPUT_PAYER_CLAIM_CONTROL_NUMBER_CODE,
   RULES_ENGINE_INPUT_SKIP_RULES_CODE,
+  RULES_ENGINE_INPUT_SUBMISSION_TYPE_CODE,
   RULES_ENGINE_INPUT_SYSTEM,
   rulesToList,
 } from '../../../src/billing/rules-engine/serialization';
@@ -68,6 +74,7 @@ import {
   EXTENSION_CLAIM_PATIENT_DISCHARGE_STATUS,
   EXTENSION_CLAIM_POINT_OF_ORIGIN_CODE,
   PROVIDER_ROLE_TAG,
+  setClaimItemOrderingProviders,
   SOURCE_IDENTIFIER_SYSTEM,
 } from '../../../src/billing/shared';
 
@@ -454,6 +461,46 @@ describe('rules-engine evaluator', () => {
     expect(readField(m, 'payerId')).toBe('123456');
   });
 
+  it('writes each coverage slot to its own coverage, leaving the other slots untouched', () => {
+    const prefixes = ['insurance', 'secondaryInsurance', 'tertiaryInsurance', 'quaternaryInsurance'];
+    const makeFourCoverageModel = (): RulesEngineClaimModel => {
+      const m = makeModel();
+      m.coverages.push(
+        {
+          ...m.coverages[1],
+          id: 'cov-tertiary',
+          subscriberId: 'MEM-789',
+          payor: [{ reference: getPayerUrl('444444') }],
+        },
+        {
+          ...m.coverages[1],
+          id: 'cov-quaternary',
+          subscriberId: 'MEM-000',
+          payor: [{ reference: getPayerUrl('555555') }],
+        }
+      );
+      return m;
+    };
+
+    prefixes.forEach((prefix, index) => {
+      const m = makeFourCoverageModel();
+      const before = m.coverages.map((c) => ({ subscriberId: c.subscriberId, payor: c.payor }));
+
+      expect(writeField(m, `${prefix}.memberId`, `NEW-${index}`)).toBe(true);
+      expect(writeField(m, `${prefix}.payerId`, `99999${index}`)).toBe(true);
+
+      m.coverages.forEach((coverage, i) => {
+        if (i === index) {
+          expect(coverage.subscriberId).toBe(`NEW-${index}`);
+          expect(readField(m, `${prefix}.payerId`)).toBe(`99999${index}`);
+        } else {
+          expect(coverage.subscriberId).toBe(before[i].subscriberId);
+          expect(coverage.payor).toEqual(before[i].payor);
+        }
+      });
+    });
+  });
+
   it('writes policy holder fields on the subscriber working copy, failing when there is none', () => {
     const m = makeModel();
     expect(writeField(m, 'policyHolder.lastName', 'Newname')).toBe(true);
@@ -738,6 +785,43 @@ describe('service line actions', () => {
     expect(m.claim.total?.value).toBe(125.5);
   });
 
+  it('drops the contained ordering providers only the removed lines referenced', () => {
+    const m = makeModel();
+    addLine(m, '99214', 200);
+    addLine(m, '99215', 300);
+    addLine(m, '99212', 50);
+    const shared = { firstName: 'Jane', lastName: 'Shared' };
+    setClaimItemOrderingProviders(m.claim, [
+      shared,
+      { firstName: 'John', lastName: 'Removed' },
+      { ...shared },
+      { firstName: 'Gregory', lastName: 'House', providerId: 'prac-1' },
+    ]);
+    m.claim.contained = [...(m.claim.contained ?? []), { resourceType: 'Organization', id: 'something-else' }];
+
+    const error = applyAction(
+      { type: 'removeServiceLines', match: { type: 'field', property: 'cptCode', operator: 'eq', value: '99214' } },
+      m
+    );
+    expect(error).toBeUndefined();
+    const sharedId = (m.claim.contained ?? []).find((r) => r.resourceType === 'Practitioner')?.id;
+    expect(m.claim.contained?.map((r) => r.id)).toEqual([sharedId, 'something-else']);
+    expect(m.claim.item?.map((line) => line.extension?.[0]?.valueReference?.reference)).toEqual([
+      `#${sharedId}`,
+      `#${sharedId}`,
+      'Practitioner/prac-1',
+    ]);
+  });
+
+  it('drops every contained ordering provider when all lines are removed', () => {
+    const m = makeModel();
+    setClaimItemOrderingProviders(m.claim, [{ firstName: 'Jane', lastName: 'Outside' }]);
+    expect(m.claim.contained).toHaveLength(1);
+
+    applyAction({ type: 'removeServiceLines', match: { type: 'all' } }, m);
+    expect(m.claim.contained).toBeUndefined();
+  });
+
   it('removes all lines when the match is "all"', () => {
     const m = makeModel();
     addLine(m, '99214', 200);
@@ -1008,7 +1092,7 @@ describe('service line actions', () => {
 
 describe('apply charge master prices action', () => {
   const makeChargeMaster = (
-    kind: 'insurance' | 'self-pay',
+    kind: ChargeItemDefinitionDefault,
     date: string,
     prices: { code: string; amount: number; modifier?: string }[],
     over?: Partial<ChargeItemDefinition>
@@ -1064,6 +1148,22 @@ describe('apply charge master prices action', () => {
     expect(m.claim.total?.value).toBe(400);
   });
 
+  it('re-prices matched lines with a fallthrough for a missing modifier match', () => {
+    const m = makeModel(); // the fixture claim carries a real coverage -> insurance billing type
+    addLine(m, '99214', 200, '25');
+    m.chargeMasters = [
+      makeChargeMaster('insurance', '2025-06-01', [
+        { code: '99213', amount: 150 },
+        { code: '99214', amount: 350 }, // no matching entry for 99214+25
+      ]),
+      makeChargeMaster('self-pay', '2025-06-01', [{ code: '99213', amount: 60 }]),
+    ];
+    const error = applyAction({ type: 'applyChargeMasterPrices', match: { type: 'all' } }, m);
+    expect(error).toBeUndefined();
+    expect(lineCharges(m)).toEqual(['150', '350']);
+    expect(m.claim.total?.value).toBe(500);
+  });
+
   it('prices only the lines matching the predicate', () => {
     const m = makeModel();
     addLine(m, '99214', 200);
@@ -1095,6 +1195,23 @@ describe('apply charge master prices action', () => {
     const error = applyAction({ type: 'applyChargeMasterPrices', match: { type: 'all' } }, m);
     expect(error).toBeUndefined();
     expect(lineCharges(m)).toEqual(['60']);
+  });
+
+  it('selects the non-insurance default when appropriate', () => {
+    const m = makeModel();
+    m.claim.insurance = [buildNoCoverageStub()];
+    m.claim.extension = [
+      ...(m.claim.extension ?? []),
+      { url: CLAIM_NON_INSURANCE_PAYER_EXTENSION_URL, valueReference: { reference: 'Organization/some-org' } },
+    ];
+    m.chargeMasters = [
+      makeChargeMaster('insurance', '2025-06-01', [{ code: '99213', amount: 150 }]),
+      makeChargeMaster('non-insurance', '2025-06-01', [{ code: '99213', amount: 100 }]),
+      makeChargeMaster('self-pay', '2025-06-01', [{ code: '99213', amount: 60 }]),
+    ];
+    const error = applyAction({ type: 'applyChargeMasterPrices', match: { type: 'all' } }, m);
+    expect(error).toBeUndefined();
+    expect(lineCharges(m)).toEqual(['100']);
   });
 
   it('selects the most recent charge master effective on or before the date of service', () => {
@@ -1146,12 +1263,12 @@ describe('apply charge master prices action', () => {
   it('prices the lines the charge master has entries for and leaves the rest unchanged', () => {
     const m = makeModel();
     addLine(m, '99999', 200); // no charge master entry for this code
-    addLine(m, '99213', 90, '25'); // entry exists but only modifier-less -> no match for this line
+    addLine(m, '99213', 90, '25'); // entry exists but only modifier-less -> matches against modifier-less entry
     m.chargeMasters = [makeChargeMaster('insurance', '2025-06-01', [{ code: '99213', amount: 150 }])];
     const error = applyAction({ type: 'applyChargeMasterPrices', match: { type: 'all' } }, m);
     expect(error).toBeUndefined();
-    expect(lineCharges(m)).toEqual(['150', '200', '90']);
-    expect(m.claim.total?.value).toBe(440);
+    expect(lineCharges(m)).toEqual(['150', '200', '150']);
+    expect(m.claim.total?.value).toBe(500);
   });
 
   it('skips a matched line with no CPT code instead of failing', () => {
@@ -1392,6 +1509,159 @@ describe('non-insurance payer field', () => {
     m.nioOrganizations = new Map([['nio-1', nioOrg]]);
     expect(writeField(m, 'nonInsurancePayerId', 'nio-other')).toBe(false);
     expect(m.claim).toEqual(before);
+  });
+});
+
+describe('custom insurance organization payers', () => {
+  // Custom insurance organizations are plain FHIR Organizations referenced directly
+  // (Organization/{id}), unlike RCM payers, which are referenced by payer URL.
+  const CUSTOM_ORG_ID = '7c9e6679-7425-40de-944b-e07fc1f90ae7';
+  const OTHER_UUID = '0f8fad5b-d9cb-469f-a165-70867728950e';
+  const customOrg: Organization = {
+    resourceType: 'Organization',
+    id: CUSTOM_ORG_ID,
+    name: 'Local Health Plan',
+    type: [{ coding: [{ system: NIO_ORGANIZATION_KIND_SYSTEM, code: CUSTOM_INSURANCE_ORG_KIND_CODE }] }],
+  };
+  const withCustomOrgs = (m: RulesEngineClaimModel): RulesEngineClaimModel => {
+    m.customInsuranceOrganizations = new Map([[CUSTOM_ORG_ID, customOrg]]);
+    return m;
+  };
+
+  it('reads a custom insurance organization payor as its organization id', () => {
+    const m = makeModel();
+    m.coverages[0].payor = [{ reference: `Organization/${CUSTOM_ORG_ID}` }];
+    m.coverages[1].payor = [{ reference: `Organization/${CUSTOM_ORG_ID}` }];
+    expect(readField(m, 'payerId')).toBe(CUSTOM_ORG_ID);
+    expect(readField(m, 'insurance.payerId')).toBe(CUSTOM_ORG_ID);
+    expect(readField(m, 'secondaryInsurance.payerId')).toBe(CUSTOM_ORG_ID);
+  });
+
+  it('matches conditions on a custom insurance organization id', () => {
+    const m = makeModel();
+    m.coverages[0].payor = [{ reference: `Organization/${CUSTOM_ORG_ID}` }];
+    expect(evaluateCondition({ type: 'field', field: 'payerId', operator: 'eq', value: CUSTOM_ORG_ID }, m)).toBe(true);
+    expect(
+      evaluateCondition({ type: 'field', field: 'payerId', operator: 'in', value: ['123456', CUSTOM_ORG_ID] }, m)
+    ).toBe(true);
+    expect(evaluateCondition({ type: 'field', field: 'payerId', operator: 'neq', value: CUSTOM_ORG_ID }, m)).toBe(
+      false
+    );
+    expect(evaluateCondition({ type: 'field', field: 'payerId', operator: 'eq', value: '123456' }, m)).toBe(false);
+  });
+
+  it('sets the primary payer to a prefetched custom insurance organization by direct reference', () => {
+    const m = withCustomOrgs(makeModel());
+    expect(writeField(m, 'payerId', CUSTOM_ORG_ID)).toBe(true);
+    expect(m.coverages[0].payor).toEqual([{ reference: `Organization/${CUSTOM_ORG_ID}` }]);
+    expect(m.claim.insurer).toEqual({ reference: `Organization/${CUSTOM_ORG_ID}` });
+    expect(readField(m, 'payerId')).toBe(CUSTOM_ORG_ID);
+  });
+
+  it('sets a non-focal slot to a custom insurance organization without touching the insurer', () => {
+    const m = withCustomOrgs(makeModel());
+    m.claim.insurer = { reference: getPayerUrl('123456') };
+    expect(writeField(m, 'secondaryInsurance.payerId', CUSTOM_ORG_ID)).toBe(true);
+    expect(m.coverages[1].payor).toEqual([{ reference: `Organization/${CUSTOM_ORG_ID}` }]);
+    expect(m.claim.insurer).toEqual({ reference: getPayerUrl('123456') });
+    expect(readField(m, 'secondaryInsurance.payerId')).toBe(CUSTOM_ORG_ID);
+    expect(readField(m, 'payerId')).toBe('123456');
+  });
+
+  it('writes an id that is not a prefetched custom insurance organization as an RCM payer URL', () => {
+    const m = withCustomOrgs(makeModel());
+    expect(writeField(m, 'payerId', OTHER_UUID)).toBe(true);
+    expect(m.coverages[0].payor).toEqual([{ reference: getPayerUrl(OTHER_UUID) }]);
+    expect(m.claim.insurer).toEqual({ reference: getPayerUrl(OTHER_UUID) });
+  });
+
+  it('resolves a custom insurance organization id padded with whitespace', () => {
+    const m = withCustomOrgs(makeModel());
+    expect(writeField(m, 'payerId', ` ${CUSTOM_ORG_ID} `)).toBe(true);
+    expect(m.coverages[0].payor).toEqual([{ reference: `Organization/${CUSTOM_ORG_ID}` }]);
+  });
+
+  it('fails to set a payer to a deleted (inactive) custom insurance organization, leaving the claim untouched', () => {
+    const m = makeModel();
+    m.customInsuranceOrganizations = new Map([[CUSTOM_ORG_ID, { ...customOrg, active: false }]]);
+    const before = structuredClone({ claim: m.claim, coverages: m.coverages });
+    expect(writeField(m, 'payerId', CUSTOM_ORG_ID)).toBe(false);
+    expect(writeField(m, 'secondaryInsurance.payerId', CUSTOM_ORG_ID)).toBe(false);
+    expect({ claim: m.claim, coverages: m.coverages }).toEqual(before);
+  });
+
+  it('fails the rule (so the engine holds the claim) when it sets a deleted custom insurance organization', () => {
+    const m = makeModel();
+    m.customInsuranceOrganizations = new Map([[CUSTOM_ORG_ID, { ...customOrg, active: false }]]);
+    const rule: BillingRule = {
+      id: 'r-deleted',
+      name: 'To deleted org',
+      description: '',
+      enabled: true,
+      conditional: {
+        branches: [
+          {
+            condition: { type: 'all' },
+            outcome: { type: 'actions', actions: [{ type: 'setField', field: 'payerId', value: CUSTOM_ORG_ID }] },
+          },
+        ],
+      },
+    };
+    const result = executeRule(rule, m);
+    expect(result.error).toMatch(/could not set "payerId"/);
+    expect(result.appliedActions).toEqual([]);
+    expect(m.coverages[0].payor).toEqual([{ reference: getPayerUrl('123456') }]);
+  });
+
+  it('remaps an RCM payer to a custom insurance organization and back through rules', () => {
+    const m = withCustomOrgs(makeModel());
+    const remap = (from: string, to: string): BillingRule => ({
+      id: `r-${from}`,
+      name: `Remap ${from}`,
+      description: '',
+      enabled: true,
+      conditional: {
+        branches: [
+          {
+            condition: { type: 'field', field: 'payerId', operator: 'eq', value: from },
+            outcome: { type: 'actions', actions: [{ type: 'setField', field: 'payerId', value: to }] },
+          },
+        ],
+      },
+    });
+
+    expect(executeRule(remap('123456', CUSTOM_ORG_ID), m).held).toBe(false);
+    expect(m.coverages[0].payor?.[0]?.reference).toBe(`Organization/${CUSTOM_ORG_ID}`);
+
+    expect(executeRule(remap(CUSTOM_ORG_ID, '999999'), m).held).toBe(false);
+    expect(m.coverages[0].payor?.[0]?.reference).toBe(getPayerUrl('999999'));
+    expect(m.claim.insurer?.reference).toBe(getPayerUrl('999999'));
+  });
+
+  it('collects only payer-field setField values for prefetching', () => {
+    const rule: BillingRule = {
+      id: 'r-collect',
+      name: 'Collect',
+      description: '',
+      enabled: true,
+      conditional: {
+        branches: [
+          {
+            condition: { type: 'all' },
+            outcome: {
+              type: 'actions',
+              actions: [
+                { type: 'setField', field: 'payerId', value: CUSTOM_ORG_ID },
+                { type: 'setField', field: 'secondaryInsurance.payerId', value: ` ${CUSTOM_ORG_ID} ` },
+                { type: 'setField', field: 'tertiaryInsurance.payerId', value: '999999' },
+                { type: 'setField', field: 'nonInsurancePayerId', value: OTHER_UUID },
+              ],
+            },
+          },
+        ],
+      },
+    };
+    expect(collectSetPayerIds(rule)).toEqual([CUSTOM_ORG_ID, '999999']);
   });
 });
 
@@ -1886,6 +2156,140 @@ describe('rules-engine kickoff task', () => {
       expect(task.input?.[0].type.coding?.[0]).toEqual({
         system: RULES_ENGINE_INPUT_SYSTEM,
         code: RULES_ENGINE_INPUT_SKIP_RULES_CODE,
+      });
+      expect(task.requester).toBe(requester);
+    }
+    const codes = RULES_ENGINE_TYPES.map((engine) => RULES_ENGINE_FHIR[engine].taskCode);
+    expect(new Set(codes).size).toBe(codes.length);
+  });
+
+  it('builds a rules engine task for a new submission', () => {
+    const requester: Reference = {
+      reference: 'Practitioner/practitioner',
+    };
+    for (const engine of RULES_ENGINE_TYPES) {
+      const task = buildRulesEngineKickoffTask(engine, 'claim-123', true, requester, 'new');
+      expect(task.status).toBe('requested');
+      expect(task.focus?.reference).toBe('Claim/claim-123');
+      expect(task.code?.coding?.[0]).toEqual({
+        system: RULES_ENGINE_TASK_SYSTEM,
+        code: RULES_ENGINE_FHIR[engine].taskCode,
+      });
+      expect(task.input?.length).toEqual(1);
+      expect(task.input?.[0]).toEqual({
+        type: {
+          coding: [
+            {
+              system: RULES_ENGINE_INPUT_SYSTEM,
+              code: RULES_ENGINE_INPUT_SKIP_RULES_CODE,
+            },
+          ],
+        },
+        valueBoolean: true,
+      });
+      expect(task.requester).toBe(requester);
+    }
+    const codes = RULES_ENGINE_TYPES.map((engine) => RULES_ENGINE_FHIR[engine].taskCode);
+    expect(new Set(codes).size).toBe(codes.length);
+  });
+
+  it('builds a rules engine task for a correction', () => {
+    const requester: Reference = {
+      reference: 'Practitioner/practitioner',
+    };
+    for (const engine of RULES_ENGINE_TYPES) {
+      const task = buildRulesEngineKickoffTask(engine, 'claim-123', true, requester, 'correction', 'PCCN-12345');
+      expect(task.status).toBe('requested');
+      expect(task.focus?.reference).toBe('Claim/claim-123');
+      expect(task.code?.coding?.[0]).toEqual({
+        system: RULES_ENGINE_TASK_SYSTEM,
+        code: RULES_ENGINE_FHIR[engine].taskCode,
+      });
+      expect(task.input?.length).toEqual(3);
+      expect(task.input?.[0]).toEqual({
+        type: {
+          coding: [
+            {
+              system: RULES_ENGINE_INPUT_SYSTEM,
+              code: RULES_ENGINE_INPUT_SKIP_RULES_CODE,
+            },
+          ],
+        },
+        valueBoolean: true,
+      });
+      expect(task.input?.[1]).toEqual({
+        type: {
+          coding: [
+            {
+              system: RULES_ENGINE_INPUT_SYSTEM,
+              code: RULES_ENGINE_INPUT_SUBMISSION_TYPE_CODE,
+            },
+          ],
+        },
+        valueString: 'correction',
+      });
+      expect(task.input?.[2]).toEqual({
+        type: {
+          coding: [
+            {
+              system: RULES_ENGINE_INPUT_SYSTEM,
+              code: RULES_ENGINE_INPUT_PAYER_CLAIM_CONTROL_NUMBER_CODE,
+            },
+          ],
+        },
+        valueString: 'PCCN-12345',
+      });
+      expect(task.requester).toBe(requester);
+    }
+    const codes = RULES_ENGINE_TYPES.map((engine) => RULES_ENGINE_FHIR[engine].taskCode);
+    expect(new Set(codes).size).toBe(codes.length);
+  });
+
+  it('builds a rules engine task for a void', () => {
+    const requester: Reference = {
+      reference: 'Practitioner/practitioner',
+    };
+    for (const engine of RULES_ENGINE_TYPES) {
+      const task = buildRulesEngineKickoffTask(engine, 'claim-123', true, requester, 'void', 'PCCN-12345');
+      expect(task.status).toBe('requested');
+      expect(task.focus?.reference).toBe('Claim/claim-123');
+      expect(task.code?.coding?.[0]).toEqual({
+        system: RULES_ENGINE_TASK_SYSTEM,
+        code: RULES_ENGINE_FHIR[engine].taskCode,
+      });
+      expect(task.input?.length).toEqual(3);
+      expect(task.input?.[0]).toEqual({
+        type: {
+          coding: [
+            {
+              system: RULES_ENGINE_INPUT_SYSTEM,
+              code: RULES_ENGINE_INPUT_SKIP_RULES_CODE,
+            },
+          ],
+        },
+        valueBoolean: true,
+      });
+      expect(task.input?.[1]).toEqual({
+        type: {
+          coding: [
+            {
+              system: RULES_ENGINE_INPUT_SYSTEM,
+              code: RULES_ENGINE_INPUT_SUBMISSION_TYPE_CODE,
+            },
+          ],
+        },
+        valueString: 'void',
+      });
+      expect(task.input?.[2]).toEqual({
+        type: {
+          coding: [
+            {
+              system: RULES_ENGINE_INPUT_SYSTEM,
+              code: RULES_ENGINE_INPUT_PAYER_CLAIM_CONTROL_NUMBER_CODE,
+            },
+          ],
+        },
+        valueString: 'PCCN-12345',
       });
       expect(task.requester).toBe(requester);
     }

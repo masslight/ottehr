@@ -44,7 +44,7 @@ describe('addendum round-trip: DTO → Communication → DTO → PDF data', () =
     //    server-side when status was flipped to entered-in-error)
     communication.meta = { ...communication.meta, lastUpdated: '2026-05-21T15:48:00.000Z' };
 
-    // 3) get-chart-data: Communication → NoteDTO
+    // 3) the notes section: Communication → NoteDTO
     const dtoFromServer = makeNoteDTO(communication);
     expect(dtoFromServer.deleted).toBe(true);
     expect(dtoFromServer.edited).toBe(true);

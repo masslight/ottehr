@@ -1,6 +1,6 @@
 import { Box, Typography } from '@mui/material';
-import { ReactElement } from 'react';
-import { otherColors } from '../themes/ottehr/colors';
+import { ReactElement, ReactNode } from 'react';
+import { otherColors } from 'utils/lib/theme/billing-palette';
 
 export function Row({
   label,
@@ -8,7 +8,7 @@ export function Row({
   hideBorder,
 }: {
   label: string;
-  value: string;
+  value: ReactNode;
   hideBorder?: boolean;
 }): ReactElement {
   return (

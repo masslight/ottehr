@@ -1,5 +1,8 @@
-import { formatInfusionTimeRange, repairDepthDisplayLabel } from 'utils';
-import { formatStructuredFacts } from 'utils/lib/procedure-coding/format';
+import {
+  formatInfusionTimeRange,
+  formatStructuredFacts,
+  repairDepthDisplayLabel,
+} from 'utils/lib/procedure-coding/format';
 import { TemplateCptCodeInfo, TemplateProcedurePlan } from 'utils/lib/types/data/admin-template.types';
 
 export const formatCptCodeAndModifiersForDisplay = (info: TemplateCptCodeInfo): string => {

@@ -29,6 +29,7 @@ import {
 import { getEncounterVisitOccupationalMedicineEmployerExtension, PaymentVariant } from 'utils/lib/fhir/encounter';
 import { codeableConcept } from 'utils/lib/fhir/helpers';
 import { CANDID_PLAN_TYPE_SYSTEM } from 'utils/lib/fhir/insurance';
+import { MEDICATION_CPT_CODES_EXTENSION_URL } from 'utils/lib/fhir/medication-administration';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { getNioReferenceUrl } from 'utils/lib/helpers/helpers';
 import {
@@ -40,12 +41,14 @@ import {
   CODE_SYSTEM_CPT_MODIFIER,
   CODE_SYSTEM_HL7_HCPCS,
   CODE_SYSTEM_ICD_10,
+  CODE_SYSTEM_NDC,
   CODE_SYSTEM_OYSTEHR_CLAIM_DATE_TYPE,
   CODE_SYSTEM_PROCESS_PRIORITY,
   CODE_SYSTEM_SERVICE_CATEGORY_CODES,
   CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
   EXTENSION_CLAIM_AUTO_ACCIDENT,
   EXTENSION_CLAIM_AUTO_ACCIDENT_STATE,
+  EXTENSION_CLAIM_EMPLOYMENT_ACCIDENT,
   EXTENSION_CLAIM_INSURANCE_TYPE,
   EXTENSION_URL_CPT_MODIFIER,
 } from 'utils/lib/helpers/rcm/constants';
@@ -79,10 +82,12 @@ import {
 import { validateRequestParameters } from '../../../src/billing/create-billing-claim-from-encounter/validateRequestParameters';
 import {
   BILLING_WORKING_COPY_TAG,
+  buildClaimItemDrugDetail,
   buildNoCoverageStub,
   clinicalPatientIdentifier,
   CURRENT_STATUS_TAG_SYSTEM,
   EXCLUDE_WORKING_COPIES_PARAMS,
+  readClaimItemDrug,
   SOURCE_FRIENDLY_PATIENT_ID_EXTENSION,
   SOURCE_FRIENDLY_PATIENT_ID_SYSTEM,
   SOURCE_IDENTIFIER_SYSTEM,
@@ -1002,10 +1007,59 @@ describe('create-billing-claim-from-encounter', () => {
         secrets: { DEFAULT_BILLING_RESOURCE: 'Organization/organization-123' },
         expectedError: INVALID_INPUT_ERROR(
           missingProvider === 'rendering'
-            ? 'No billing rendering provider matches the attending provider NPI. Add a matching provider in billing or correct the clinical provider NPI, then retry.'
-            : 'No billing provider matches the clinical default provider NPI. Add a billing provider with that NPI in the billing app, then retry.'
+            ? 'No billing rendering provider matches the attending provider NPI "11111111111". Add a rendering provider with that NPI in the billing app, then retry.'
+            : 'No billing provider matches the clinical default provider NPI "2222222222". Add a billing provider with that NPI in the billing app, then retry.'
         ),
       })),
+      {
+        name: 'fails when the clinical default billing provider has no NPI',
+        clinicalOystehrSearch: vi
+          .fn()
+          .mockResolvedValueOnce({
+            unbundle: () => [
+              clinicalResources.encounter,
+              clinicalResources.patient,
+              clinicalResources.appointment,
+              clinicalResources.location,
+              clinicalResources.practitioner,
+              emptyAccount,
+              ...clinicalResources.conditions,
+              clinicalResources.procedure,
+            ],
+          })
+          .mockResolvedValueOnce({
+            unbundle: () => [{ ...clinicalResources.billingProvider, identifier: undefined }],
+          }),
+        billingOystehrSearch: vi.fn().mockResolvedValueOnce({
+          unbundle: () => [],
+        }),
+        secrets: { DEFAULT_BILLING_RESOURCE: 'Organization/organization-123' },
+        expectedError: INVALID_INPUT_ERROR(
+          'The clinical default billing provider has no NPI. Add its NPI, then retry.'
+        ),
+      },
+      {
+        name: 'fails when the clinical attending provider has no NPI',
+        clinicalOystehrSearch: vi.fn().mockResolvedValueOnce({
+          unbundle: () => [
+            clinicalResources.encounter,
+            clinicalResources.patient,
+            clinicalResources.appointment,
+            clinicalResources.location,
+            { ...clinicalResources.practitioner, identifier: undefined },
+            emptyAccount,
+            ...clinicalResources.conditions,
+            clinicalResources.procedure,
+          ],
+        }),
+        billingOystehrSearch: vi.fn().mockResolvedValueOnce({
+          unbundle: () => [],
+        }),
+        secrets: { DEFAULT_BILLING_RESOURCE: 'Organization/organization-123' },
+        expectedError: INVALID_INPUT_ERROR(
+          'The clinical attending provider has no NPI. Add its NPI in the clinical app, then retry.'
+        ),
+      },
       {
         name: 'succeeds with required data and all found billing resources',
         clinicalOystehrSearch: vi
@@ -3167,8 +3221,14 @@ describe('create-billing-claim-from-encounter', () => {
               },
               provider: { display: 'Unknown' },
               facility: undefined,
-              insurer: undefined,
-              insurance: [buildNoCoverageStub()],
+              insurer: { reference: 'https://rcm-api.zapehr.com/v1/payer/payer-123' },
+              insurance: [
+                {
+                  sequence: 1,
+                  focal: true,
+                  coverage: { reference: 'urn:uuid:claim-coverage-billing-coverage-coverage-123' },
+                },
+              ],
               careTeam: undefined,
               diagnosis: [
                 { sequence: 1, diagnosisCodeableConcept: clinicalResources.conditions[0].code },
@@ -3242,7 +3302,7 @@ describe('create-billing-claim-from-encounter', () => {
         clinicalResources: {
           accounts: [clinicalResources.account],
           appointment: clinicalResources.appointment,
-          accident: autoAccident,
+          accident: { ...autoAccident, type: [...autoAccident.type, 'EM'] },
           billingProvider: clinicalResources.billingProvider,
           coverages: [clinicalResources.coverage],
           diagnoses: [...clinicalResources.conditions],
@@ -3287,7 +3347,6 @@ describe('create-billing-claim-from-encounter', () => {
                   { system: CURRENT_STATUS_TAG_SYSTEM, code: 'open' },
                   { system: CODE_SYSTEM_CLAIM_TYPE, code: CODE_SYSTEM_CLAIM_TYPE_CODES.professional },
                   { system: CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM, code: 'urgent-care' },
-                  { system: CLAIM_TAG_SYSTEM, code: AUTO_ACCIDENT_TAG_NAME },
                   { system: CLAIM_STATUS_TAG_SYSTEMS.arStage, code: AR_STAGE.insurancePayer },
                   { system: CLAIM_STATUS_TAG_SYSTEMS.insuranceArStatus, code: 'created' },
                 ],
@@ -3304,6 +3363,7 @@ describe('create-billing-claim-from-encounter', () => {
               ],
               extension: expect.arrayContaining([
                 { url: EXTENSION_CLAIM_AUTO_ACCIDENT, valueBoolean: true },
+                { url: EXTENSION_CLAIM_EMPLOYMENT_ACCIDENT, valueBoolean: true },
                 { url: EXTENSION_CLAIM_AUTO_ACCIDENT_STATE, valueString: autoAccident.state },
               ]),
               patient: {
@@ -3577,6 +3637,95 @@ describe('create-billing-claim-from-encounter', () => {
           },
         ]),
       });
+    });
+    it("puts an in-house medication's NDC and dose on its line as item.detail, like a manual entry", async () => {
+      const txFn = vi.fn().mockResolvedValue({
+        entry: [
+          { resource: { resourceType: 'Patient', id: 'billing-patient' } },
+          { resource: { resourceType: 'Patient', id: 'claim-patient' } },
+          { resource: { resourceType: 'RelatedPerson', id: 'billing-subscriber' } },
+          { resource: { resourceType: 'Coverage', id: 'billing-coverage' } },
+          { resource: { resourceType: 'Account', id: 'billing-account' } },
+          { resource: { resourceType: 'RelatedPerson', id: 'claim-subscriber' } },
+          { resource: { resourceType: 'Coverage', id: 'claim-coverage' } },
+          { resource: { resourceType: 'Person', id: 'billing-person' } },
+          { resource: { resourceType: 'Basic', id: 'billing-service-basic' } },
+          { resource: { resourceType: 'Claim', id: 'claim' } },
+          { resource: { resourceType: 'Provenance', id: 'provenance' } },
+        ],
+      });
+      const billingOystehr = {
+        fhir: { transaction: txFn },
+        rcm: { constructPayerUrl: vi.fn().mockReturnValue('https://rcm-api.zapehr.com/v1/payer/payer-123') },
+      } as unknown as Oystehr;
+      const medicationProcedure = (code: string): Procedure => ({
+        ...clinicalResources.procedure,
+        code: { coding: [{ system: CODE_SYSTEM_CPT, code }] },
+        partOf: [{ reference: 'MedicationAdministration/ma-1' }],
+      });
+      const cvo: ComplexValidationOutput = {
+        clinicalResources: {
+          accounts: [clinicalResources.account],
+          appointment: clinicalResources.appointment,
+          billingProvider: clinicalResources.billingProvider,
+          coverages: [clinicalResources.coverage],
+          diagnoses: [...clinicalResources.conditions],
+          encounter: clinicalResources.encounter,
+          location: clinicalResources.location,
+          patient: clinicalResources.patient,
+          payors: [oystehrResources.payor],
+          practitioners: [clinicalResources.practitioner],
+          procedures: [medicationProcedure('96372'), medicationProcedure('J1100')],
+          medicationAdministrations: [
+            {
+              resourceType: 'MedicationAdministration',
+              id: 'ma-1',
+              status: 'completed',
+              subject: { reference: 'Patient/patient-123' },
+              effectiveDateTime: '2026-10-01T10:00:00Z',
+              medicationReference: { reference: '#medicationId' },
+              contained: [
+                {
+                  resourceType: 'Medication',
+                  id: 'medicationId',
+                  code: { coding: [{ system: CODE_SYSTEM_NDC, code: '0409-4888-02' }] },
+                },
+              ],
+              dosage: { dose: { value: 2.5, unit: 'ml' } },
+              extension: [
+                {
+                  url: MEDICATION_CPT_CODES_EXTENSION_URL,
+                  valueString: JSON.stringify([
+                    { code: '96372', display: 'Injection' },
+                    { code: 'J1100', display: 'Dexamethasone', isMedication: true },
+                  ]),
+                },
+              ],
+            },
+          ],
+        },
+        billingResources: {
+          accounts: [],
+          billingProvider: undefined,
+          coverages: [],
+          mainPatient: undefined,
+          person: undefined,
+          practitioners: [],
+          renderingProvider: undefined,
+          serviceFacility: undefined,
+          subscribers: [],
+          billingService: undefined,
+        },
+      };
+      await performEffect(billingOystehr, cvo, TEST_PROVENANCE_AGENT);
+      const claim = (txFn.mock.calls[0][0].requests as BatchInputPostRequest<Claim>[]).find(
+        (r) => r.url === '/Claim'
+      )!.resource;
+      expect(claim.item?.[0].detail).toBeUndefined();
+      expect(claim.item?.[1].detail).toEqual(
+        buildClaimItemDrugDetail({ ndc: '00409488802', quantity: 2.5, units: 'ML' })
+      );
+      expect(readClaimItemDrug(claim.item![1])).toEqual({ ndc: '00409488802', quantity: 2.5, units: 'ML' });
     });
     it('swaps incorrect ICD-10 system URL for correct ICD-10 system URL', async () => {
       const txFn = vi.fn().mockResolvedValue({

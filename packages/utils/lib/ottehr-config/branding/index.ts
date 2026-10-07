@@ -1,4 +1,4 @@
-import type { BrandingConfig, LogoConfig } from 'config-types';
+import type { BrandingConfig, LogoConfig } from 'config-types/config/branding';
 
 const BRANDING_DATA: BrandingConfig = {
   projectName: 'Ottehr',

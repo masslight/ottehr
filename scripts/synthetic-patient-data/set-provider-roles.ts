@@ -13,7 +13,7 @@
 //
 // Matches synth: providers carry the Provider role only (credential → providerType).
 
-import { isProvider } from 'utils';
+import { isProvider } from 'utils/lib/types/api/get-employees/get-employees.types';
 import { arg } from './shared/cli';
 import { mintAccessToken, need } from './shared/oystehr-client';
 import { type ZambdaCtx, zambdaPost } from './shared/zambda';

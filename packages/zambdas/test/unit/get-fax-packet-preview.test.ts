@@ -146,6 +146,14 @@ describe('get-fax-packet-preview', () => {
     });
   });
 
+  it('prefills the PCP credential into its own field, keeping the name plain', async () => {
+    const output = await runPreview(
+      patientWith([pcpPractitioner({ name: [{ given: ['Olivia'], family: 'Green', suffix: ['MD'] }] })])
+    );
+
+    expect(output.pcp).toMatchObject({ name: 'Olivia Green', credential: 'MD' });
+  });
+
   it('omits a fax number that is not cleanly ten digits rather than mangling it', async () => {
     const output = await runPreview(
       patientWith([pcpPractitioner({ telecom: [{ system: 'fax', value: '+12125551234 ext. 22' }] })])

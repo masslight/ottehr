@@ -112,11 +112,11 @@ describe('get-appointments integration — happy path', () => {
         execute<{ orders: any[] }>({ id: 'get-medication-orders', searchBy }),
         execute<{ orders: any[] }>({ id: 'get-erx-orders', encounterIds }),
         execute<{ orders: any[] }>({ id: 'get-immunization-orders', encounterIds }),
-        execute<{ procedures?: any[] }>({
-          id: 'get-chart-data',
-          encounterId: encounterIds[0],
-          requestedFields: { procedures: { encounterIds } },
-        }),
+        Promise.all(
+          encounterIds.map((encounterId) =>
+            execute<{ data: { procedures: any[] } }>({ id: 'get-chart-section', encounterId, section: 'assessment' })
+          )
+        ).then((sections) => ({ procedures: sections.flatMap((section) => section.data.procedures) })),
       ]);
 
     const orders = output.orders!;

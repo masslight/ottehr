@@ -25,9 +25,11 @@ import ERADetail from './pages/ERADetail';
 import ERAList from './pages/ERAList';
 import { CustomInsuranceOrganizationDetail, InsuranceOrganizationsList } from './pages/InsuranceOrganizations';
 import InvoiceReport from './pages/InvoiceReport';
+import NetCollectionsReport from './pages/NetCollectionsReport';
 import { NonInsuranceOrganizationDetail, NonInsuranceOrganizationsList } from './pages/NonInsuranceOrganizations';
 import PatientDetail from './pages/PatientDetail';
 import PatientsList from './pages/PatientsList';
+import { PayerDetail } from './pages/PayerDetail';
 import PaymentsReport from './pages/PaymentsReport';
 import PipelineReport from './pages/PipelineReport';
 import ProductivityReport from './pages/ProductivityReport';
@@ -86,6 +88,7 @@ export default function App(): ReactElement {
               <Route path="/patients" element={<PatientsList />} />
               <Route path="/patients/:id" element={<PatientDetail />} />
               <Route path="/insurance-organizations" element={<InsuranceOrganizationsList />} />
+              <Route path="/insurance-organizations/rcm/:payerId" element={<PayerDetail />} />
               <Route path="/insurance-organizations/:id" element={<CustomInsuranceOrganizationDetail />} />
               <Route path="/billing-providers" element={<BillingProvidersList />} />
               <Route path="/billing-providers/:id" element={<BillingProviderDetail />} />
@@ -113,6 +116,7 @@ export default function App(): ReactElement {
               <Route path="/reports/invoices" element={<InvoiceReport />} />
               <Route path="/reports/pipeline" element={<PipelineReport />} />
               <Route path="/reports/productivity" element={<ProductivityReport />} />
+              <Route path="/reports/net-collections" element={<NetCollectionsReport />} />
               {/* Rules routes are per engine; bare /rules lands on the Claim Submission engine. */}
               <Route path="/rules" element={<Navigate to={`/rules/${DEFAULT_RULES_ENGINE}`} replace />} />
               <Route path="/rules/:engine" element={<Rules />} />

@@ -10,6 +10,7 @@ import {
   getEmployerInformationStepAnswers,
   getPatientDetailsStepAnswers,
   getPayerId,
+  getPayerName,
   getPaymentOptionInsuranceAnswers,
   getPrimaryCarePhysicianStepAnswers,
   getResponsiblePartyStepAnswers,
@@ -730,7 +731,7 @@ async function buildResourceHandler(): Promise<[ResourceHandler, string, string]
   const payersById = new Map<string, Organization>();
   for (const payer of payersPage.data) {
     const payerId = getPayerId(payer);
-    const payerName = payer.alias?.[0] ?? payer.name;
+    const payerName = getPayerName(payer);
     if (typeof payerId === 'string' && typeof payerName === 'string' && !payersById.has(payerId)) {
       payersById.set(payerId, payer);
     }
@@ -746,15 +747,15 @@ async function buildResourceHandler(): Promise<[ResourceHandler, string, string]
   const toCarrierAnswer = (payer: Organization): QuestionnaireItemAnswerOption => ({
     valueReference: {
       reference: oystehr.rcm.constructPayerUrl({ id: getPayerId(payer)! }),
-      display: `${payer.alias?.[0] ?? payer.name}`,
+      display: `${getPayerName(payer)}`,
     },
   });
   insuranceCarrier1 = toCarrierAnswer(payer1);
   insuranceCarrier2 = toCarrierAnswer(payer2);
   // The EHR patient-record field labels its options "<payerId> - <name>" (prependIdentifier), and
   // because these payers are in the current list the value renders without a "(historical)" suffix.
-  const insuranceCarrier1ForResult = `${getPayerId(payer1)} - ${payer1.alias?.[0] ?? payer1.name}`;
-  const insuranceCarrier2ForResult = `${getPayerId(payer2)} - ${payer2.alias?.[0] ?? payer2.name}`;
+  const insuranceCarrier1ForResult = `${getPayerId(payer1)} - ${getPayerName(payer1)}`;
+  const insuranceCarrier2ForResult = `${getPayerId(payer2)} - ${getPayerName(payer2)}`;
   console.log('carriers: ', JSON.stringify([insuranceCarrier1ForResult, insuranceCarrier2ForResult]));
 
   return [resourceHandler, insuranceCarrier1ForResult ?? '', insuranceCarrier2ForResult ?? ''];
