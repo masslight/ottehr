@@ -34,6 +34,7 @@ export const FeatureFlagsConfigSchema = z.object({
   // organization still resolve and display correctly either way. Per-deployment so customers can
   // migrate at different times.
   customOrganizationsEnabled: z.boolean().optional(),
+  surescriptsErxEnabled: z.boolean().optional(),
 });
 
 export type FeatureFlagsConfig = z.infer<typeof FeatureFlagsConfigSchema>;
