@@ -1,6 +1,5 @@
-import Oystehr, { BatchInputBinaryPatchRequest, BatchInputJSONPatchRequest, BatchInputRequest } from '@oystehr/sdk';
-import { Operation } from 'fast-json-patch';
-import { Binary, Claim, ClaimResponse, Coding, FhirResource, Identifier, ProvenanceAgent } from 'fhir/r4b';
+import Oystehr, { BatchInputJSONPatchRequest, BatchInputRequest } from '@oystehr/sdk';
+import { Claim, ClaimResponse, Coding, FhirResource, Identifier, ProvenanceAgent } from 'fhir/r4b';
 import { BILLING_RESOURCE_TAG } from 'utils/lib/fhir/constants';
 import { Secrets } from 'utils/lib/secrets';
 import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
@@ -137,9 +136,10 @@ const validated = (claim: Claim, claimResponse: ClaimResponse): ComplexValidatio
 // The meta.tag array the committed transaction actually writes, read back out of the PATCH Binary.
 const writtenTags = (): Coding[] => {
   const requests = transaction.mock.calls.at(-1)?.[0].requests as BatchInputRequest<FhirResource>[];
-  const patch = requests.find((r) => r.method === 'PATCH') as BatchInputBinaryPatchRequest<FhirResource>;
-  const operations = JSON.parse(atob((patch.resource as Binary).data!)) as Operation[];
-  const tagOp = operations.find((op) => op.path === '/meta/tag');
+  const patch = requests.find((r) => r.method === 'PATCH' && 'operations' in r && r.operations) as
+    | BatchInputJSONPatchRequest
+    | undefined;
+  const tagOp = patch?.operations.find((op) => op.path === '/meta/tag');
   return (tagOp as { value: Coding[] }).value;
 };
 

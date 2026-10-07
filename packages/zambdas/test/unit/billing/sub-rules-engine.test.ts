@@ -155,6 +155,9 @@ const patchedTags = (transaction: ReturnType<typeof vi.fn>): { system: string; c
         const ops = JSON.parse(Buffer.from(request.resource.data, 'base64').toString());
         return ops.find((op: { path: string }) => op.path === '/meta/tag')?.value ?? [];
       }
+      if (request.method === 'PATCH' && request.operations?.length) {
+        return request.operations.find((op: { path: string }) => op.path === '/meta/tag')?.value ?? [];
+      }
     }
   }
   return [];

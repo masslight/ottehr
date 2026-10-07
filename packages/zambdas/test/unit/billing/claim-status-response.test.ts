@@ -187,9 +187,8 @@ describe('claim status subscription', () => {
     if (changesAr) {
       const patch = requests[0];
       expect(patch).toMatchObject({ url: '/Claim/claim-1', ifMatch: 'W/"3"' });
-      if (!('resource' in patch) || patch.resource.resourceType !== 'Binary')
-        throw new Error('Expected a Binary patch');
-      const operations = JSON.parse(Buffer.from(patch.resource.data!, 'base64').toString('utf8')) as Operation[];
+      if (!('operations' in patch)) throw new Error('Expected a JSON patch');
+      const operations = patch.operations;
       expect(getClaimStatusValues(applyPatch(billingClaim, operations, true, false).newDocument)).toMatchObject({
         insuranceArStatus: 'adjudicated',
         adjudicationStatus: 'rejected',
