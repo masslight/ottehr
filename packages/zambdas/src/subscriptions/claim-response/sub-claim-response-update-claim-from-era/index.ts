@@ -1,8 +1,8 @@
-import Oystehr, { BatchInputPatchRequest, BatchInputPostRequest, FhirResourceReturnValue } from '@oystehr/sdk';
+import Oystehr, { BatchInputPatchRequest, FhirResourceReturnValue } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, ClaimResponse, Provenance, ProvenanceAgent } from 'fhir/r4b';
 import { BILLING_RESOURCE_TAG } from 'utils/lib/fhir/constants';
-import { getExtensionValue, withVersionConflictRetries } from 'utils/lib/fhir/helpers';
+import { getExtensionValue, reducePatchOperations, withVersionConflictRetries } from 'utils/lib/fhir/helpers';
 import { Secrets } from 'utils/lib/secrets';
 import { CLAIM_TAG_SYSTEM, ERA_CLAIM_STATUS_CODE } from 'utils/lib/types/data/billing/billing.constants';
 import { AR_STAGE, CLAIM_STATUS_TAG_SYSTEMS } from 'utils/lib/types/data/billing/claim-status';
@@ -183,7 +183,7 @@ export async function performEffect(oystehr: Oystehr, validated: ComplexValidati
       console.log(`Claim/${current.id} no longer needs this adjustment after the conflict, skipping`);
     }
     const claimResponseIcn = getExtensionValue(claimResponse, ERA_ICN_EXTENSION, 'valueString');
-    const requests: (BatchInputPatchRequest<Claim> | BatchInputPostRequest<Provenance>)[] = [
+    const requests = reducePatchOperations<Claim | Provenance>([
       ...(updatedTags.length
         ? claimMetaTagsWithProvenanceRequests(claim, updatedTags, 'statusChange', validated.agent)
         : []),
@@ -191,7 +191,7 @@ export async function performEffect(oystehr: Oystehr, validated: ComplexValidati
         ? [
             {
               method: 'PATCH',
-              url: `Claim/${claim.id}`,
+              url: `/Claim/${claim.id}`,
               operations: [
                 {
                   op: 'replace',
@@ -210,7 +210,7 @@ export async function performEffect(oystehr: Oystehr, validated: ComplexValidati
             } as BatchInputPatchRequest<Claim>,
           ]
         : []),
-    ];
+    ]);
     if (!requests.length) {
       // Nothing to do
       return;
