@@ -192,6 +192,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const raw = await invokeChatbotVertexAI(
     [{ text: buildPrompt(datasets, request, feedback) }],
     secrets,
+    'infer-adhoc-report-layers',
     responseSchema(datasets),
     VERTEX_AI_MODEL
   );

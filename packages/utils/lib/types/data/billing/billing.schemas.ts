@@ -13,10 +13,13 @@ import { STATE_CODES } from '../../common';
 import {
   BILLING_MANUAL_PAYMENT_METHODS,
   BILLING_TASK_STATUSES,
+  DRUG_UNIT_CODE_VALUES,
+  NDC_REGEX,
   REFRESH_REPORT_KINDS,
   TAG_NAME_FORBIDDEN_CHARACTERS,
   TAG_NAME_FORBIDDEN_CHARACTERS_ERROR,
 } from './billing.constants';
+import { CHARGE_ITEM_DEFINITION_DEFAULTS } from './billing.types';
 import { CLAIM_NOTE_MAX_LENGTH } from './claim-history';
 import {
   CLAIM_STATUS_FIELD_KEYS,
@@ -255,6 +258,33 @@ const claimServiceLineSchema = z.object({
   // 1-based references into the claim's diagnosis list (FHIR item.diagnosisSequence)
   diagnosisPointers: z.array(z.number().int().positive()).optional(),
   revenueCode: z.string().max(5).optional(),
+  drug: z
+    .object({
+      ndc: z.string().regex(NDC_REGEX, 'NDC must be 11 digits in the 5-4-2 layout; dashes are optional'),
+      quantity: z.number().positive(),
+      units: z.enum(DRUG_UNIT_CODE_VALUES),
+    })
+    .optional(),
+  orderingProvider: z
+    .object({
+      firstName: nonEmptyString,
+      lastName: nonEmptyString,
+      npi: z.string().trim().optional(),
+      // FHIR id of an existing Practitioner (only a Practitioner can be an ordering provider)
+      providerId: z.string().optional(),
+    })
+    // Providers picked from the system (providerId set) are trusted as stored; only
+    // manually entered NPIs get checksum-validated.
+    .superRefine((provider, ctx) => {
+      if (provider.npi && !provider.providerId && !isNPIValidWithChecksum(provider.npi)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['npi'],
+          message: 'NPI must be 10 digits with a valid check digit',
+        });
+      }
+    })
+    .optional(),
 });
 
 export const GetServiceFacilityInputSchema = z.object({
@@ -522,8 +552,9 @@ export const CreateBillingClaimTaskInputSchema = z.object({
   encounterId: z.string().uuid(),
 });
 
-export const RetryBillingClaimTaskInputSchema = z.object({
+export const UpdateBillingClaimTaskInputSchema = z.object({
   taskId: z.string().uuid(),
+  action: z.enum(['retry', 'cancel']),
 });
 
 export const SearchBillingClaimTasksInputSchema = z.object({
@@ -711,7 +742,7 @@ export const CreateChargeItemDefinitionInputSchema = z.object({
   name: nonEmptyString,
   effectiveDate: nonEmptyString.optional(),
   description: nonEmptyString.optional(),
-  default: z.enum(['insurance', 'self-pay']).optional(),
+  default: z.enum(CHARGE_ITEM_DEFINITION_DEFAULTS).optional(),
 });
 
 export const GetChargeItemDefinitionInputSchema = z.object({
@@ -733,7 +764,7 @@ export const UpdateChargeItemDefinitionInputSchema = z.object({
   status: z.enum(['active', 'retired']).optional(),
   effectiveDate: nonEmptyString.nullable().optional(),
   description: nonEmptyString.nullable().optional(),
-  default: z.enum(['insurance', 'self-pay']).nullable().optional(),
+  default: z.enum(CHARGE_ITEM_DEFINITION_DEFAULTS).nullable().optional(),
   procedureCodes: z.array(ChargeItemDefinitionProcedureCodeSchema).optional(),
 });
 
@@ -928,7 +959,7 @@ export type CreateBillingClaimFromEncounterInput = z.output<typeof CreateBilling
 export type CreateBillingClaimTaskInput = z.output<typeof CreateBillingClaimTaskInputSchema>;
 export type RecordBillingRefundInput = z.output<typeof RecordBillingRefundInputSchema>;
 export type RecordBillingVoidInput = z.output<typeof RecordBillingVoidInputSchema>;
-export type RetryBillingClaimTaskInput = z.output<typeof RetryBillingClaimTaskInputSchema>;
+export type UpdateBillingClaimTaskInput = z.output<typeof UpdateBillingClaimTaskInputSchema>;
 export type SearchBillingClaimTasksInput = z.output<typeof SearchBillingClaimTasksInputSchema>;
 export type UpdateBillingResourceInput = z.output<typeof UpdateBillingResourceInputSchema>;
 export type BillingResourceType = (typeof ALLOWED_BILLING_RESOURCE_TYPES)[number];

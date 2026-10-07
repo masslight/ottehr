@@ -29,6 +29,7 @@ import NetCollectionsReport from './pages/NetCollectionsReport';
 import { NonInsuranceOrganizationDetail, NonInsuranceOrganizationsList } from './pages/NonInsuranceOrganizations';
 import PatientDetail from './pages/PatientDetail';
 import PatientsList from './pages/PatientsList';
+import { PayerDetail } from './pages/PayerDetail';
 import PaymentsReport from './pages/PaymentsReport';
 import PipelineReport from './pages/PipelineReport';
 import ProductivityReport from './pages/ProductivityReport';
@@ -87,6 +88,7 @@ export default function App(): ReactElement {
               <Route path="/patients" element={<PatientsList />} />
               <Route path="/patients/:id" element={<PatientDetail />} />
               <Route path="/insurance-organizations" element={<InsuranceOrganizationsList />} />
+              <Route path="/insurance-organizations/rcm/:payerId" element={<PayerDetail />} />
               <Route path="/insurance-organizations/:id" element={<CustomInsuranceOrganizationDetail />} />
               <Route path="/billing-providers" element={<BillingProvidersList />} />
               <Route path="/billing-providers/:id" element={<BillingProviderDetail />} />

@@ -1,4 +1,4 @@
-import { Task } from 'fhir/r4b';
+import { Address, Task } from 'fhir/r4b';
 import { SubscriberRelationship } from '../../../fhir/constants';
 import { CLAIM_ACCIDENT_TYPE, CODE_SYSTEM_CLAIM_TYPE_CODES } from '../../../helpers/rcm/constants';
 import type { EraClaimStatusCode, X12AdjustmentGroupCode } from './billing.constants';
@@ -159,6 +159,9 @@ export interface BillingPayerOption {
   id: string;
   name: string;
   payerId: string;
+  alternateNames?: string[];
+  alternatePayerIds?: string[];
+  addresses?: Address[];
 }
 
 // A diagnosis (ICD-10) or procedure (CPT/HCPCS) code option from terminology search.
@@ -497,6 +500,8 @@ export interface ClaimDetailResponse {
     placeOfService: string;
     diagnosisPointers: number[];
     revenueCode: string;
+    drug?: { ndc: string; quantity: number; units: string };
+    orderingProvider?: { firstName: string; lastName: string; npi?: string; providerId?: string };
   }[];
   billed: number;
   allowed: number;
@@ -632,7 +637,7 @@ export interface SearchBillingServicesResponse {
 
 export interface SearchBillingPayersResponse {
   payers: BillingPayerOption[];
-  // Present when listing (no name/payerId filter) — pass back as `cursor` to fetch the next page.
+  // Pass back as `cursor` with the same search query to fetch the next page.
   nextCursor?: string | null;
 }
 
@@ -1031,7 +1036,8 @@ export interface CreatedClaimResponse {
 
 export type ChargeItemDefinitionType = 'charge-master' | 'fee-schedule';
 
-export type ChargeItemDefinitionDefault = 'insurance' | 'self-pay';
+export const CHARGE_ITEM_DEFINITION_DEFAULTS = ['insurance', 'non-insurance', 'self-pay'] as const;
+export type ChargeItemDefinitionDefault = (typeof CHARGE_ITEM_DEFINITION_DEFAULTS)[number];
 
 export interface SearchChargeItemDefinitionItem {
   id: string;
