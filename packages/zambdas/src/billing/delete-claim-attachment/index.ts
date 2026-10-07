@@ -5,7 +5,7 @@ import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
-import { CLAIM_ATTACHMENT_PATH_PREFIX, deleteAttachmentObject, ownedAttachmentLocation } from '../attachments';
+import { claimAttachmentOwner, deleteAttachmentObject, ownedAttachmentLocation } from '../attachments';
 import { BillingFhirResource, createBillingClient, fetchById } from '../shared';
 import { DeleteClaimAttachmentParams, validateRequestParameters } from './validateRequestParameters';
 
@@ -30,13 +30,7 @@ export async function performEffect(oystehr: Oystehr, params: DeleteClaimAttachm
     'DocumentReference',
     params.documentReferenceId
   );
-  const location = ownedAttachmentLocation(documentReference, {
-    reference: `Claim/${claim.id}`,
-    projectApi: params.secrets['PROJECT_API'],
-    projectId: params.secrets['PROJECT_ID'],
-    prefix: CLAIM_ATTACHMENT_PATH_PREFIX,
-    ownerId: claim.id,
-  });
+  const location = ownedAttachmentLocation(documentReference, claimAttachmentOwner(claim.id, params.secrets));
   const supportingInfo = claim.supportingInfo ?? [];
   const supportingInfoIndex = supportingInfo.findIndex(
     (supportingInfo) =>

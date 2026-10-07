@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import Oystehr from '@oystehr/sdk';
 import { DocumentReference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { Secrets } from 'utils/lib/secrets';
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { getMimeType, MIME_TYPES, sanitizeFileNameForZ3 } from 'utils/lib/utils/file';
 import { BILLING_APP_BUCKET, getClaimAttachmentBucketAndPathFromZ3Url } from './shared';
@@ -90,13 +91,39 @@ export function buildAttachmentDocumentReference(args: {
   };
 }
 
+// The resource an attachment belongs to, and where its files live in the billing app bucket.
+export interface AttachmentOwner {
+  reference: string;
+  projectApi: string;
+  projectId: string;
+  prefix: string;
+  ownerId: string;
+}
+
+export function claimAttachmentOwner(claimId: string, secrets: Secrets): AttachmentOwner {
+  return {
+    reference: `Claim/${claimId}`,
+    projectApi: secrets['PROJECT_API'],
+    projectId: secrets['PROJECT_ID'],
+    prefix: CLAIM_ATTACHMENT_PATH_PREFIX,
+    ownerId: claimId,
+  };
+}
+
+export function eraAttachmentOwner(eraId: string, secrets: Secrets): AttachmentOwner {
+  return {
+    reference: `PaymentReconciliation/${eraId}`,
+    projectApi: secrets['PROJECT_API'],
+    projectId: secrets['PROJECT_ID'],
+    prefix: ERA_ATTACHMENT_PATH_PREFIX,
+    ownerId: eraId,
+  };
+}
+
 // The stored file behind a DocumentReference, after checking the document belongs to the given owner
 // (context.related) and its file sits under that owner's folder of the billing app bucket, so one
 // resource's attachment can't be reached through another's.
-export function ownedAttachmentLocation(
-  documentReference: DocumentReference,
-  owner: { reference: string; projectApi: string; projectId: string; prefix: string; ownerId: string }
-): Z3Location {
+export function ownedAttachmentLocation(documentReference: DocumentReference, owner: AttachmentOwner): Z3Location {
   const related = documentReference.context?.related ?? [];
   if (!related.some((ref) => ref.reference === owner.reference)) {
     throw INVALID_INPUT_ERROR(`DocumentReference ${documentReference.id} is not attached to ${owner.reference}`);

@@ -21,7 +21,11 @@ import { INVALID_INPUT_ERROR, MANUAL_ERA_VERSION_CONFLICT_ERROR, NOT_AUTHORIZED 
 import { checkOrCreateM2MClientToken, getUser } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
-import { eraProvenanceTargetIds, fetchEraProcessingProvenances, isMatchedToClaim } from '../claim-amounts';
+import {
+  fetchClaimResponsesFromEraProvenances,
+  fetchEraProcessingProvenances,
+  isMatchedToClaim,
+} from '../claim-amounts';
 import { isCustomInsuranceOrganization, resolvePayerOrganization } from '../custom-insurance-org.helpers';
 import {
   buildManualClaimResponse,
@@ -252,25 +256,10 @@ async function loadManualEra(oystehr: Oystehr, eraId: string, expectedVersionId?
   if (pr.meta?.versionId !== expectedVersionId) throw MANUAL_ERA_VERSION_CONFLICT_ERROR;
 
   const [provenance] = await fetchEraProcessingProvenances(oystehr, [`PaymentReconciliation/${eraId}`]);
-  const ids = provenance ? eraProvenanceTargetIds(provenance, 'ClaimResponse') : [];
-  const found =
-    ids.length > 0
-      ? (
-          await oystehr.fhir.search<ClaimResponse>({
-            resourceType: 'ClaimResponse',
-            params: [
-              { name: '_id', value: ids.join(',') },
-              { name: '_count', value: String(ids.length) },
-            ],
-          })
-        ).unbundle()
-      : [];
-  const byId = new Map(found.map((claimResponse) => [claimResponse.id, claimResponse]));
-  return {
-    pr,
-    provenance,
-    claimResponses: ids.flatMap((id) => byId.get(id) ?? []),
-  };
+  const claimResponses = provenance
+    ? (await fetchClaimResponsesFromEraProvenances(oystehr, [provenance])).get(eraId) ?? []
+    : [];
+  return { pr, provenance, claimResponses };
 }
 
 // The payer as PayerSelect names it: an RCM payer, referenced by its payer list URL as the ERA
