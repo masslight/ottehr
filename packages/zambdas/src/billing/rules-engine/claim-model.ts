@@ -868,6 +868,7 @@ const setAccidentDate = (claim: Claim, value: string | null): boolean => {
 const setLicensePart = (p: Provider | undefined, part: 'number' | 'state', value: string | null): boolean => {
   if (p?.resourceType !== 'Practitioner') return false;
   const license = { ...(getProviderLicense(p) ?? { type: '', number: '', state: '' }), [part]: value ?? '' };
+  if (license.number && !license.state) return false;
   setStateLicense(p, license.type || license.number || license.state ? license : undefined);
   return true;
 };

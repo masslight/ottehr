@@ -584,8 +584,13 @@ describe('rules-engine evaluator', () => {
     const practitioner = m.renderingProvider as Practitioner;
     expect(readField(m, 'renderingProvider.licenseNumber')).toBeUndefined();
 
-    expect(writeField(m, 'renderingProvider.licenseNumber', 'A12345')).toBe(true);
+    // A number without a state can't be stored unambiguously, so it needs the state first.
+    expect(writeField(m, 'renderingProvider.licenseNumber', 'A12345')).toBe(false);
+    expect(practitioner.identifier).toEqual([{ system: FHIR_IDENTIFIER_NPI, value: '1234567890' }]);
     expect(writeField(m, 'renderingProvider.licenseState', 'TX')).toBe(true);
+    expect(readField(m, 'renderingProvider.licenseNumber')).toBeUndefined();
+    expect(readField(m, 'renderingProvider.licenseState')).toBe('TX');
+    expect(writeField(m, 'renderingProvider.licenseNumber', 'A12345')).toBe(true);
     expect(readField(m, 'renderingProvider.licenseNumber')).toBe('A12345');
     expect(readField(m, 'renderingProvider.licenseState')).toBe('TX');
 
@@ -597,8 +602,18 @@ describe('rules-engine evaluator', () => {
 
     expect(writeField(m, 'renderingProvider.licenseState', 'ZZ')).toBe(false);
 
-    // Clearing every part removes the license identifier; the NPI stays.
+    // A number ending in a state code keeps its explicit state boundary.
     practitioner.meta = undefined;
+    expect(writeField(m, 'renderingProvider.licenseNumber', 'ABCAL')).toBe(true);
+    expect(readField(m, 'renderingProvider.licenseNumber')).toBe('ABCAL');
+    expect(readField(m, 'renderingProvider.licenseState')).toBe('TX');
+
+    // Clearing the state while a number remains would make "AL" read back as the state.
+    expect(writeField(m, 'renderingProvider.licenseState', '')).toBe(false);
+    expect(readField(m, 'renderingProvider.licenseNumber')).toBe('ABCAL');
+    expect(readField(m, 'renderingProvider.licenseState')).toBe('TX');
+
+    // Clearing number then state removes the license identifier; the NPI stays.
     expect(writeField(m, 'renderingProvider.licenseNumber', '')).toBe(true);
     expect(writeField(m, 'renderingProvider.licenseState', '')).toBe(true);
     expect(practitioner.identifier).toEqual([{ system: FHIR_IDENTIFIER_NPI, value: '1234567890' }]);

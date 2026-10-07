@@ -778,7 +778,8 @@ export const RULE_FIELD_CATALOG: RuleFieldDef[] = [
     operators: SCALAR_OPS,
     settable: true,
     description:
-      "The rendering provider's professional license number (individual providers only; setting it on an organization provider fails the rule).",
+      "The rendering provider's professional license number (individual providers only; setting it on an organization provider fails the rule). " +
+      'A license number needs a license state: setting a number when the license has no state fails the rule, so set the state first.',
   },
   {
     id: 'renderingProvider.licenseState',
@@ -788,7 +789,8 @@ export const RULE_FIELD_CATALOG: RuleFieldDef[] = [
     operators: ENUM_OPS,
     settable: true,
     description:
-      "The state that issued the rendering provider's professional license (individual providers only; setting it on an organization provider fails the rule).",
+      "The state that issued the rendering provider's professional license (individual providers only; setting it on an organization provider fails the rule). " +
+      'Clearing it while the license still has a number fails the rule — clear the number first.',
     options: STATE_OPTIONS,
     optionsDocNote: STATE_OPTIONS_DOC_NOTE,
   },
