@@ -15,6 +15,7 @@ import {
   CODE_SYSTEM_CLAIM_INFORMATION_CATEGORY,
 } from 'utils/lib/helpers/rcm/constants';
 import { asEraClaimStatusCode, CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
+import { GetClaimDetailInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import {
   BillingPolicyHolderSummary,
   ClaimAttachment,
@@ -24,6 +25,7 @@ import { getClaimStatusValues } from 'utils/lib/types/data/billing/claim-status'
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import {
   extractClaimResponseAmounts,
   extractRemitAdjustments,
@@ -67,13 +69,14 @@ import {
   resolvePayersByRef,
   toAddressParts,
 } from '../shared';
-import { GetClaimDetailParams, validateRequestParameters } from './validateRequestParameters';
+
+type GetClaimDetailParams = ValidatedZambdaInput<typeof GetClaimDetailInputSchema>;
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'get-billing-claim-detail';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const params = validateRequestParameters(input);
+  const params = validateWithSchema(GetClaimDetailInputSchema, input);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);

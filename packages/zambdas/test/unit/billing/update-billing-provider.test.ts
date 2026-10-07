@@ -46,7 +46,7 @@ describe('update-billing-provider', () => {
         lastName: 'Jones',
         roles: ['rendering'],
         npi: '1234567893',
-        secrets: null,
+        secrets: {},
       },
       agent
     );
@@ -81,7 +81,7 @@ describe('update-billing-provider', () => {
         firstName: 'John',
         lastName: 'Jones',
         roles: ['rendering'],
-        secrets: null,
+        secrets: {},
       },
       undefined
     );
@@ -109,7 +109,7 @@ describe('update-billing-provider', () => {
       lastName: 'Smith',
       roles: ['rendering'],
       license: { type: 'MD', number: 'A12345', state: 'CA' },
-      secrets: null,
+      secrets: {},
     });
 
     const saved = update.mock.calls[0][0] as Practitioner;

@@ -1,20 +1,23 @@
 import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, DocumentReference } from 'fhir/r4b';
+import { DeleteClaimAttachmentInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { claimAttachmentOwner, deleteAttachmentObject, ownedAttachmentLocation } from '../attachments';
 import { BillingFhirResource, createBillingClient, fetchById } from '../shared';
-import { DeleteClaimAttachmentParams, validateRequestParameters } from './validateRequestParameters';
+
+type DeleteClaimAttachmentParams = ValidatedZambdaInput<typeof DeleteClaimAttachmentInputSchema>;
 
 let m2mToken: string;
 
 export const index = wrapHandler(
   'delete-claim-attachment',
   async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-    const params = validateRequestParameters(input);
+    const params = validateWithSchema(DeleteClaimAttachmentInputSchema, input);
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
     const oystehr = createBillingClient(m2mToken, params.secrets);
 
