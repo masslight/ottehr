@@ -382,6 +382,22 @@ const billingStripeAccountIdSchema = nonEmptyString.regex(
   'Stripe account ID must start with acct_'
 );
 const billingTaxonomyCodeSchema = z.string().trim().length(10, 'Taxonomy code must be exactly 10 characters');
+// A claim's accident details are complete: any accident type needs the accident date, and an auto
+// accident also needs the state it happened in. Shared by the claim editor's update schema and the
+// rules engine's end-of-run check, so a rule can't leave a claim in a state the editor would reject.
+export function claimAccidentProblems(info: {
+  accidentType?: readonly string[];
+  accidentState?: string;
+  accidentDate?: string;
+}): string[] {
+  const problems: string[] = [];
+  if (info.accidentType?.includes('auto') && !info.accidentState) {
+    problems.push('Accident state is required for auto accidents');
+  }
+  if (info.accidentType?.length && !info.accidentDate) problems.push('Accident date is required');
+  return problems;
+}
+
 // Providers require a validated ZIP (5-digit or ZIP+4); the base address schema stays loose
 // because patient working copies carry addresses cloned from clinical data.
 const billingProviderAddressSchema = billingAddressSchema.extend({
@@ -678,17 +694,8 @@ const updateBillingResourceUnion = z.discriminatedUnion('resourceType', [
         accidentDate: nonEmptyString.optional().or(z.literal('')),
       })
       .superRefine((data, ctx) => {
-        if (data.accidentType?.includes('auto') && !data.accidentState) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: 'Accident state is required for auto accidents',
-          });
-        }
-        if (data.accidentType?.length && !data.accidentDate) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: 'Accident date is required',
-          });
+        for (const message of claimAccidentProblems(data)) {
+          ctx.addIssue({ code: z.ZodIssueCode.custom, message });
         }
       }),
   }),

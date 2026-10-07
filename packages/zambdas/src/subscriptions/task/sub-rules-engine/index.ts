@@ -20,6 +20,7 @@ import {
 } from 'utils/lib/fhir/helpers';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
+import { claimAccidentProblems } from 'utils/lib/types/data/billing/billing.schemas';
 import { CLAIM_PROVENANCE_AGENT_TYPE } from 'utils/lib/types/data/billing/claim-history';
 import { ClaimHistoryRuleRef } from 'utils/lib/types/data/billing/claim-history';
 import {
@@ -49,7 +50,7 @@ import {
   recordedNow,
   resolveClaimActor,
 } from '../../../billing/provenance';
-import { RulesEngineClaimModel } from '../../../billing/rules-engine/claim-model';
+import { readAccidentInfo, RulesEngineClaimModel } from '../../../billing/rules-engine/claim-model';
 import { RULES_ENGINE_TASK_SYSTEM, rulesEngineForTaskCode } from '../../../billing/rules-engine/constants';
 import { applyAction, executeRule } from '../../../billing/rules-engine/evaluator';
 import {
@@ -407,6 +408,7 @@ export async function performEffect(
   agent: ProvenanceAgent[]
 ): Promise<{ taskStatus: Task['status']; statusReason: string }> {
   const unchanged = snapshotModel(model);
+  const accidentBefore = JSON.stringify(readAccidentInfo(model));
   const attribution: RuleAttributionMap = new Map();
   let preRule = unchanged;
 
@@ -448,6 +450,19 @@ export async function performEffect(
     attribution.get(`Claim/${model.claim.id}`)?.delete('tags');
   }
 
+  // Accident details are checked once all rules have run, so rules may set the type, date and state
+  // in any order. Only a run that changed them is checked — the claim editor enforces the same
+  // invariants (claimAccidentProblems) on its own saves.
+  const accidentAfter = readAccidentInfo(model);
+  const accidentProblems =
+    failure || heldBy || unwritable.length > 0 || JSON.stringify(accidentAfter) === accidentBefore
+      ? []
+      : claimAccidentProblems(accidentAfter);
+  if (accidentProblems.length > 0) {
+    applyAction({ type: RULE_ACTION_TYPE.applyTag, tag: HOLD_TAG_NAME }, model);
+    attribution.get(`Claim/${model.claim.id}`)?.delete('tags');
+  }
+
   // Persist whatever the rules changed — including the Hold tag — so the claim reflects the run.
   const written = await persistModel(oystehr, model, unchanged, agent, attribution);
   console.log(`[rules-engine] persisted ${written} changed resource(s) for Claim/${claimId}`);
@@ -459,6 +474,16 @@ export async function performEffect(
       statusReason:
         `Rules changed ${unwritable.join(', ')}, which the engine cannot write (shared resources, ` +
         `not per-claim working copies). The claim was held for review.`,
+    };
+  }
+
+  if (accidentProblems.length > 0) {
+    console.log(`[rules-engine] Claim/${claimId} held: rules left incomplete accident details`);
+    return {
+      taskStatus: 'failed',
+      statusReason: `Rules left the claim's accident details incomplete: ${accidentProblems.join(
+        '; '
+      )}. The claim was held for review.`,
     };
   }
 

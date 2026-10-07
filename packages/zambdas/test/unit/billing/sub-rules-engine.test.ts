@@ -711,6 +711,90 @@ describe('sub-rules-engine performEffect', () => {
     expect(provenanceChanges(transaction, 'Claim/claim-1').find((c) => c.field === 'tags')?.rule).toEqual(expectedRule);
   });
 
+  describe('accident details check', () => {
+    const run = (
+      oystehr: Oystehr,
+      model: RulesEngineClaimModel,
+      rules: BillingRule[]
+    ): ReturnType<typeof performEffect> =>
+      performEffect(
+        oystehr,
+        {
+          engine: 'claim-submission',
+          claimId: 'claim-1',
+          rules,
+          model,
+          skipRules: false,
+          submissionType: null,
+          payerClaimControlNumber: null,
+        },
+        [AGENT]
+      );
+    const setRule = (id: string, field: string, value: string): BillingRule =>
+      alwaysRule(id, { type: 'actions', actions: [{ type: 'setField', field, value }] });
+
+    it('holds the claim instead of submitting when rules flag an accident without its date and state', async () => {
+      const { oystehr, transaction, submitClaimRcm } = makeOystehrMock();
+      const model = makeModel(AR_STAGE.insurancePayer);
+
+      const result = await run(oystehr, model, [setRule('flag', 'accident.auto', 'true')]);
+
+      expect(result.taskStatus).toBe('failed');
+      expect(result.statusReason).toContain('Accident state is required for auto accidents');
+      expect(result.statusReason).toContain('Accident date is required');
+      expect(submitClaimRcm).not.toHaveBeenCalled();
+      const requests = transaction.mock.calls.flatMap((call) => call[0].requests);
+      const claimPut = requests.find(
+        (r: { method: string; url: string }) => r.method === 'PUT' && r.url === 'Claim/claim-1'
+      );
+      expect(claimPut.resource.meta.tag).toContainEqual(HOLD_TAG);
+      // The Hold is the engine's own, not the flagging rule's.
+      expect(provenanceChanges(transaction, 'Claim/claim-1').find((c) => c.field === 'tags')?.rule).toBeUndefined();
+    });
+
+    it('accepts the dependent fields set by later rules, in any order', async () => {
+      const { oystehr, search, submitClaimRcm } = makeOystehrMock();
+      const model = makeModel(AR_STAGE.insurancePayer);
+      search.mockResolvedValue({ unbundle: () => [model.claim] });
+
+      const result = await run(oystehr, model, [
+        setRule('date', 'accident.date', '2025-12-30'),
+        setRule('flag', 'accident.auto', 'true'),
+        setRule('state', 'accident.state', 'TX'),
+      ]);
+
+      expect(result.taskStatus).toBe('completed');
+      expect(submitClaimRcm).toHaveBeenCalledWith({ claimId: 'claim-1' });
+    });
+
+    it('holds the claim when a rule clears the date of a flagged accident', async () => {
+      const { oystehr, submitClaimRcm } = makeOystehrMock();
+      const model = makeModel(AR_STAGE.insurancePayer);
+      writeField(model, 'accident.other', 'true');
+      writeField(model, 'accident.date', '2025-12-30');
+
+      const result = await run(oystehr, model, [setRule('clear', 'accident.date', '')]);
+
+      expect(result.taskStatus).toBe('failed');
+      expect(result.statusReason).toContain('Accident date is required');
+      expect(submitClaimRcm).not.toHaveBeenCalled();
+    });
+
+    it('leaves accident details the rules did not change to the claim editor', async () => {
+      const { oystehr, search, submitClaimRcm } = makeOystehrMock();
+      const model = makeModel(AR_STAGE.insurancePayer);
+      writeField(model, 'accident.auto', 'true'); // already incomplete before the run
+      search.mockResolvedValue({ unbundle: () => [model.claim] });
+
+      const result = await run(oystehr, model, [
+        alwaysRule('tag', { type: 'actions', actions: [{ type: 'applyTag', tag: 'VIP' }] }),
+      ]);
+
+      expect(result.taskStatus).toBe('completed');
+      expect(submitClaimRcm).toHaveBeenCalled();
+    });
+  });
+
   it("does not blame a rule for the engine's own unwritable-changes Hold", async () => {
     const { oystehr, transaction, submitClaimRcm } = makeOystehrMock();
     const model = makeModel(AR_STAGE.insurancePayer);

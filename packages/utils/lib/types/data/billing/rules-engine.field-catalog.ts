@@ -724,7 +724,8 @@ export const RULE_FIELD_CATALOG: RuleFieldDef[] = [
     operators: ENUM_OPS,
     settable: true,
     description:
-      'The state the auto accident occurred in (two-letter code, e.g. CA). Required on claims flagged as an auto accident.',
+      'The state the auto accident occurred in (two-letter code, e.g. CA). Required on claims flagged as an auto accident: ' +
+      'checked once all rules have run, so it can be set before or after the flag — a run that leaves it missing holds the claim.',
     options: STATE_OPTIONS,
     optionsDocNote: STATE_OPTIONS_DOC_NOTE,
   },
@@ -735,7 +736,9 @@ export const RULE_FIELD_CATALOG: RuleFieldDef[] = [
     valueType: 'date',
     operators: DATE_OPS,
     settable: true,
-    description: 'The date of the accident (YYYY-MM-DD). Required on claims flagged with any accident type.',
+    description:
+      'The date of the accident (YYYY-MM-DD). Required on claims flagged with any accident type: checked once all rules ' +
+      'have run, so it can be set before or after the flag — a run that leaves it missing holds the claim.',
   },
 
   // --- Claim status indicators ---

@@ -460,6 +460,15 @@ const accidentReaders = (): Record<string, FieldReader> => ({
   'accident.date': (m) => getClaimSupportingInfo(m.claim, ...ACCIDENT_DATE_INFO)?.timingDate,
 });
 
+// The claim's accident details in the claim editor's shape (see claimAccidentProblems).
+export const readAccidentInfo = (
+  model: RulesEngineClaimModel
+): { accidentType: string[]; accidentState?: string; accidentDate?: string } => ({
+  accidentType: CLAIM_ACCIDENT_TYPES.filter((type) => readField(model, `accident.${type}`) === 'true'),
+  accidentState: readField(model, 'accident.state') as string | undefined,
+  accidentDate: readField(model, 'accident.date') as string | undefined,
+});
+
 const statusFieldReaders = (): Record<string, FieldReader> =>
   Object.fromEntries(
     CLAIM_STATUS_FIELD_KEYS.map((key) => [
