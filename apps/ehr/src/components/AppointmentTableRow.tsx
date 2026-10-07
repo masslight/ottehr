@@ -512,6 +512,7 @@ export default function AppointmentTableRow({
       <AppointmentTableRowMobile
         appointment={appointment}
         patientName={patientName}
+        patientFriendlyId={appointment.patient.friendlyId}
         appointmentDate={appointmentDate}
         start={start}
         tab={tab}
@@ -933,6 +934,15 @@ export default function AppointmentTableRow({
                 {patientName}
               </Typography>
             </Link>
+            {appointment.patient.friendlyId && (
+              <Typography
+                variant="body2"
+                sx={{ color: theme.palette.text.secondary, whiteSpace: 'nowrap' }}
+                data-testid={dataTestIds.dashboard.patientFriendlyId}
+              >
+                {appointment.patient.friendlyId}
+              </Typography>
+            )}
             {appointment.isFollowUp && (
               <Tooltip title="Follow-up visit">
                 <CallSplitIcon sx={{ fontSize: 16, color: 'text.secondary', transform: 'rotate(180deg)' }} />

@@ -31,6 +31,7 @@ import { isInPersonAppointment } from 'utils/lib/fhir/moduleIdentification';
 import {
   getMiddleName,
   getPatientFirstName,
+  getPatientFriendlyId,
   getPatientLastName,
   getSMSNumberForIndividual,
   isPatientDemographicsComplete,
@@ -877,6 +878,7 @@ const makeAppointmentInformation = (
       firstName: getPatientFirstName(patient),
       lastName: getPatientLastName(patient),
       middleName: getMiddleName(patient),
+      friendlyId: getPatientFriendlyId(patient) || undefined,
       // suffix: patient?.name?.[0].suffix?.[0],
       sex: patient.gender,
       dateOfBirth: patient?.birthDate || 'Unknown',
