@@ -347,7 +347,18 @@
             "Zambda:Function:create-billing-custom-insurance-org",
             "Zambda:Function:update-billing-custom-insurance-org",
             "Zambda:Function:search-billing-custom-insurance-orgs",
-            "Zambda:Function:delete-billing-custom-insurance-org"
+            "Zambda:Function:delete-billing-custom-insurance-org",
+            "Zambda:Function:match-claim-response",
+            "Zambda:Function:unmatch-claim-response",
+            "Zambda:Function:add-claim-attachment",
+            "Zambda:Function:rename-claim-attachment",
+            "Zambda:Function:delete-claim-attachment",
+            "Zambda:Function:download-claim-attachment",
+            "Zambda:Function:save-billing-manual-era",
+            "Zambda:Function:add-era-attachment",
+            "Zambda:Function:rename-era-attachment",
+            "Zambda:Function:delete-era-attachment",
+            "Zambda:Function:download-era-attachment"
           ]
         }
       ]

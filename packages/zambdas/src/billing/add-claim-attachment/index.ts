@@ -25,13 +25,13 @@ export async function performEffect(
   params: AddClaimAttachmentParams
 ): Promise<AddClaimAttachmentResponse> {
   const claim = await fetchById<Claim>(oystehr, 'Claim', params.claimId);
-  const { uploadUrl } = await attachClaimDocument({
+  return attachClaimDocument({
     oystehr,
     claim,
     name: params.name,
     fileName: params.fileName,
     reportTypeCode: params.reportTypeCode,
+    contentType: params.mimeType,
     secrets: params.secrets,
   });
-  return { uploadUrl };
 }

@@ -1,10 +1,10 @@
 import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DocumentReference } from 'fhir/r4b';
-import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { renamedAttachmentContent } from '../attachments';
 import { BillingFhirResource, createBillingClient, fetchById } from '../shared';
 import { RenameClaimAttachmentParams, validateRequestParameters } from './validateRequestParameters';
 
@@ -18,7 +18,7 @@ export const index = wrapHandler(
     const oystehr = createBillingClient(m2mToken, params.secrets);
 
     await performEffect(oystehr, params);
-    return { statusCode: 200, body: JSON.stringify({ deleted: true }) };
+    return { statusCode: 200, body: JSON.stringify({ ok: true }) };
   }
 );
 
@@ -28,28 +28,12 @@ export async function performEffect(oystehr: Oystehr, params: RenameClaimAttachm
     'DocumentReference',
     params.documentReferenceId
   );
-  const content = documentReference.content[0];
-  if (!content) {
-    throw INVALID_INPUT_ERROR(`Missing attachment information for DocumentReference ${documentReference.id}`);
-  }
-
   const requests: BatchInputRequest<BillingFhirResource>[] = [
     {
       method: 'PATCH',
       url: `/DocumentReference/${documentReference.id}`,
       operations: [
-        {
-          op: 'replace',
-          path: `/content`,
-          value: [
-            {
-              attachment: {
-                ...content.attachment,
-                title: params.name,
-              },
-            },
-          ],
-        },
+        { op: 'replace', path: `/content`, value: renamedAttachmentContent(documentReference, params.name) },
       ],
     },
   ];

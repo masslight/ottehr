@@ -168,7 +168,6 @@ export async function performEffect(
       claimResponseId: cr.id ?? '',
       date: cr.created ?? '',
       payerName: payer?.name ?? cr.insurer?.display ?? '',
-      status: cr.outcome ?? '',
       eraStatusCode: asEraClaimStatusCode(
         cr.extension?.find((ext) => ext.url === ERA_STATUS_CODE_EXTENSION)?.valueString
       ),
@@ -201,7 +200,6 @@ export async function performEffect(
         checkDate: paymentReconciliation.paymentDate ?? '',
         paymentAmount: paymentReconciliation.paymentAmount?.value ?? 0,
         payerName: payer?.name ?? paymentReconciliation.paymentIssuer?.display ?? '',
-        status: paymentReconciliation.outcome ?? paymentReconciliation.status ?? '',
       };
     });
   const status = getClaimStatus(claim);
