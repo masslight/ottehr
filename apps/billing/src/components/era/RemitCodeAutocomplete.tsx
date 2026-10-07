@@ -1,13 +1,13 @@
 import { Autocomplete, Box, TextField, Typography } from '@mui/material';
 import { ReactElement, useEffect, useMemo, useState } from 'react';
 import { CARC_OPTIONS, carcDescription } from 'utils/lib/types/data/billing/carc';
-import type { X12CodeListEntry } from 'utils/lib/types/data/billing/x12-code-list';
+import type { RemitCodeEntry } from 'utils/lib/types/data/billing/remit-codes';
 
 export type RemitCodeKind = 'carc' | 'rarc';
 
 // the RARC table is large, so it is fetched the first time a remark-code picker renders
-let rarcOptions: Promise<readonly X12CodeListEntry[]> | undefined;
-const loadRarcOptions = (): Promise<readonly X12CodeListEntry[]> => {
+let rarcOptions: Promise<readonly RemitCodeEntry[]> | undefined;
+const loadRarcOptions = (): Promise<readonly RemitCodeEntry[]> => {
   rarcOptions ??= import('utils/lib/types/data/billing/rarc').then((module) => module.RARC_OPTIONS);
   return rarcOptions;
 };
@@ -39,7 +39,7 @@ export function useRarcDescription(): (code: string) => string | undefined {
 const MAX_RESULTS = 50;
 
 // The code typed comes first, then codes starting with it, then codes whose description mentions it.
-export function filterRemitCodes(options: readonly X12CodeListEntry[], query: string): X12CodeListEntry[] {
+export function filterRemitCodes(options: readonly RemitCodeEntry[], query: string): RemitCodeEntry[] {
   const needle = query.trim().toLowerCase();
   if (!needle) return options.slice(0, MAX_RESULTS);
   const exact = options.filter((option) => option.code.toLowerCase() === needle);
@@ -69,7 +69,7 @@ export function RemitCodeAutocomplete({
   helperText,
   width,
 }: RemitCodeAutocompleteProps): ReactElement {
-  const [options, setOptions] = useState<readonly X12CodeListEntry[]>(kind === 'carc' ? CARC_OPTIONS : []);
+  const [options, setOptions] = useState<readonly RemitCodeEntry[]>(kind === 'carc' ? CARC_OPTIONS : []);
   const [inputValue, setInputValue] = useState(value);
 
   useEffect(() => {
@@ -83,8 +83,8 @@ export function RemitCodeAutocomplete({
     };
   }, [kind]);
 
-  // a stored code that is no longer current (older remits) still shows, with its description if known
-  const selected = useMemo((): X12CodeListEntry | null => {
+  // a stored code the list doesn't have still shows, with its description if known
+  const selected = useMemo((): RemitCodeEntry | null => {
     if (!value) return null;
     return (
       options.find((option) => option.code === value) ?? {
@@ -96,9 +96,9 @@ export function RemitCodeAutocomplete({
 
   const label = kind === 'carc' ? 'CARC' : 'RARC';
   return (
-    <Autocomplete<X12CodeListEntry, false, false, false>
+    <Autocomplete<RemitCodeEntry, false, false, false>
       size="small"
-      options={options as X12CodeListEntry[]}
+      options={options as RemitCodeEntry[]}
       value={selected}
       onChange={(_, option) => onChange(option?.code ?? '')}
       inputValue={inputValue}
@@ -110,11 +110,6 @@ export function RemitCodeAutocomplete({
         <Box component="li" {...props} key={option.code} sx={{ display: 'block !important' }}>
           <Typography variant="body2" fontWeight={700}>
             {option.code}
-            {option.deactivated && (
-              <Typography component="span" variant="caption" color="warning.main" sx={{ ml: 1 }}>
-                Deactivated
-              </Typography>
-            )}
           </Typography>
           <Typography
             variant="body2"

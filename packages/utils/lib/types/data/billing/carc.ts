@@ -2,7 +2,7 @@ import { roundNumberToDecimalPlaces } from '../../../utils/convert';
 import { X12_ADJUSTMENT_GROUP_CODE, X12AdjustmentGroupCode } from './billing.constants';
 import type { ClaimRemitAdjustment } from './billing.types';
 import { CARC_CODE_LIST } from './carc-codes.generated';
-import type { X12CodeListEntry } from './x12-code-list';
+import type { RemitCodeEntry } from './remit-codes';
 
 export const X12_ADJUSTMENT_GROUP_LABELS: Record<X12AdjustmentGroupCode, string> = {
   [X12_ADJUSTMENT_GROUP_CODE.contractualObligation]: 'Contractual Obligation',
@@ -19,35 +19,14 @@ export const PATIENT_RESP_CARC = {
   copay: '3',
 } as const;
 
-// Deactivated codes older ERAs still carry, with the description they had.
-const DEACTIVATED_CARC_DESCRIPTIONS: Record<string, string> = {
-  '15': 'The authorization number is missing, invalid, or does not apply to the billed services or provider.',
-  '138': 'Appeal procedures not followed or time limits not met.',
-  '162':
-    'State-mandated requirement for property and casualty, see claim payment remarks code for specific explanation.',
-  '168':
-    "Service(s) have been considered under the patient's medical plan. Benefits are not available under this dental plan.",
-  '191': "Not a work related injury/illness and thus not the liability of the workers' compensation carrier.",
-};
+// The claim adjustment reason codes (CARCs) a biller may pick when keying in a remit, in code order.
+// Older codes are included, since a paper remit is keyed as printed.
+export const CARC_OPTIONS: readonly RemitCodeEntry[] = CARC_CODE_LIST;
 
-// The claim adjustment reason codes (CARC, external code list 139) a biller may pick when keying in a
-// remit: the current ones in X12 order, then the deactivated ones, since a paper remit is keyed as
-// printed and can still carry one.
-export const CARC_OPTIONS: readonly X12CodeListEntry[] = [
-  ...CARC_CODE_LIST,
-  ...Object.entries(DEACTIVATED_CARC_DESCRIPTIONS).map(([code, description]) => ({
-    code,
-    description,
-    deactivated: true,
-  })),
-];
-
-// CARC -> official description (without X12's payer-facing "Usage:" guidance). Unknown codes render
-// a generic label via carcDescription().
-export const CARC_DESCRIPTIONS: Record<string, string> = {
-  ...DEACTIVATED_CARC_DESCRIPTIONS,
-  ...Object.fromEntries(CARC_CODE_LIST.map(({ code, description }) => [code, description])),
-};
+// CARC -> plain-language description. Unknown codes render a generic label via carcDescription().
+export const CARC_DESCRIPTIONS: Record<string, string> = Object.fromEntries(
+  CARC_CODE_LIST.map(({ code, description }) => [code, description])
+);
 
 export function carcDescription(code: string): string | undefined {
   return CARC_DESCRIPTIONS[code];

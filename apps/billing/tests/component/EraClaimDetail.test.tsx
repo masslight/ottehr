@@ -23,8 +23,7 @@ vi.mock('../../src/hooks/useAppClients', () => ({
   }),
 }));
 
-const CO_45_DESCRIPTION =
-  'Contractual Obligation — Charge exceeds fee schedule/maximum allowable or contracted/legislated fee arrangement.';
+const CO_45_DESCRIPTION = "Contractual Obligation — Paid less: billed amount is above the payer's allowed rate";
 
 const mainRemit: EraClaimRemit = {
   claimResponseId: 'cr-1',
@@ -297,7 +296,7 @@ describe('EraClaimDetail', () => {
     expect(screen.getAllByText('08/03/2026').length).toBeGreaterThan(0);
     expect(screen.getByText('Sunrise Pediatric Urgent Care (NPI 1234567893)')).toBeInTheDocument();
     expect(
-      screen.getByText('PR-27 — Expenses incurred after coverage terminated.; PR-3 — Co-payment Amount')
+      screen.getByText("PR-27 — Coverage had ended before the visit; PR-3 — Patient's copay for the visit")
     ).toBeInTheDocument();
   });
 
@@ -332,9 +331,7 @@ describe('EraClaimDetail', () => {
     expect(screen.getAllByText('45')).toHaveLength(3);
     expect(screen.getAllByText(CO_45_DESCRIPTION)).toHaveLength(3);
     expect(screen.getByText('$310.95')).toBeInTheDocument();
-    expect(
-      screen.getByText('Patient Responsibility — Expenses incurred after coverage terminated.')
-    ).toBeInTheDocument();
+    expect(screen.getByText('Patient Responsibility — Coverage had ended before the visit')).toBeInTheDocument();
 
     // PR bucket footer renders only on the line with PR adjustments; $23.00 is both the PR-3
     // adjustment row amount and the footer's copay value
@@ -365,7 +362,9 @@ describe('EraClaimDetail', () => {
     expect(await screen.findByText('Remark codes')).toBeInTheDocument();
     // the RARC table loads on demand, then the description joins the code
     expect(
-      await screen.findByText((_, element) => element?.textContent?.startsWith('N130 — Consult plan benefit') ?? false)
+      await screen.findByText(
+        (_, element) => element?.textContent?.startsWith('N130 — See plan benefit documents for limits') ?? false
+      )
     ).toBeInTheDocument();
     // unknown codes still show
     expect(screen.getByText('ZZ99')).toBeInTheDocument();
