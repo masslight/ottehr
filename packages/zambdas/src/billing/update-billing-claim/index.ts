@@ -45,9 +45,11 @@ import { resolvePayerOrganization } from '../custom-insurance-org.helpers';
 import { isNonInsuranceOrganization } from '../non-insurance-org.helpers';
 import { commitClaimResourceChange, diffResources, resolveClaimActor } from '../provenance';
 import {
+  assertOrderingProvidersExist,
   attachCoverageToClaim,
   buildAddress,
   buildClaimCoverageCopies,
+  buildClaimItemDrugDetail,
   buildDiagnosisSequence,
   buildPayorReference,
   buildSubscriberRelatedPerson,
@@ -67,6 +69,7 @@ import {
   removeClaimSupportingInfo,
   resolvePayersByRef,
   resourceDisplayName,
+  setClaimItemOrderingProviders,
   setClaimRenderingProviderCareTeam,
   setClia,
   setCoverageRelationship,
@@ -353,7 +356,11 @@ async function attachClaimResources(
       net: { value: line.charges, currency: 'USD' },
       quantity: { value: line.units, unit: 'UN' },
       revenue: line.revenueCode ? codeableConcept(line.revenueCode, CODE_SYSTEM_NUBC_REVENUE) : undefined,
+      detail: buildClaimItemDrugDetail(line.drug),
     }));
+    const orderingProviders = fields.serviceLines.map((line) => line.orderingProvider);
+    await assertOrderingProvidersExist(oystehr, orderingProviders);
+    setClaimItemOrderingProviders(claim, orderingProviders);
     claim.total = { value: fields.serviceLines.reduce((sum, l) => sum + l.charges, 0), currency: 'USD' };
   } else if (fields.diagnoses) {
     // Diagnoses changed without lines: re-point items whose pointers no longer exist.

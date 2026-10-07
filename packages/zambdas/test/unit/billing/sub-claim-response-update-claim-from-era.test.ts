@@ -1,6 +1,8 @@
 import Oystehr, { BatchInputBinaryPatchRequest, BatchInputJSONPatchRequest, BatchInputRequest } from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
 import { Binary, Claim, ClaimResponse, Coding, FhirResource, Identifier, ProvenanceAgent } from 'fhir/r4b';
+import { BILLING_RESOURCE_TAG } from 'utils/lib/fhir/constants';
+import { Secrets } from 'utils/lib/secrets';
 import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
 import { AR_STAGE, CLAIM_STATUS_TAG_SYSTEMS } from 'utils/lib/types/data/billing/claim-status';
 import {
@@ -9,18 +11,31 @@ import {
   SECONDARY_SUBMISSION_TAG_NAME,
 } from 'utils/lib/types/data/billing/system-tags';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM, ERA_ICN_EXTENSION } from '../../../src/billing/shared';
 import {
+  CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM,
+  ERA_CLAIM_RESPONSE_TYPE_TAG,
+  ERA_ICN_EXTENSION,
+} from '../../../src/billing/shared';
+import {
+  complexValidation,
   ComplexValidationOutput,
   performEffect,
 } from '../../../src/subscriptions/claim-response/sub-claim-response-update-claim-from-era';
+import { validateRequestParameters } from '../../../src/subscriptions/claim-response/sub-claim-response-update-claim-from-era/validateRequestParameters';
+
+vi.mock('../../../src/billing/provenance', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../src/billing/provenance')>()),
+  resolveClaimActor: vi.fn(async () => ({ who: { reference: 'Device/system' } })),
+}));
 
 const transaction = vi.fn();
 const get = vi.fn();
+const history = vi.fn();
 const oystehr = {
   fhir: {
     transaction,
     get,
+    history,
   },
 } as unknown as Oystehr;
 
@@ -116,6 +131,7 @@ const validated = (claim: Claim, claimResponse: ClaimResponse): ComplexValidatio
     claimResponse,
     claimResponseId: 'response-1',
     agent,
+    newlyMatched: true,
   }) as unknown as ComplexValidationOutput;
 
 // The meta.tag array the committed transaction actually writes, read back out of the PATCH Binary.
@@ -210,6 +226,12 @@ describe('sub-claim-response-update-claim-from-era performEffect', () => {
     expect(transaction).not.toHaveBeenCalled();
   });
 
+  it('leaves the claim alone when the response was edited rather than newly matched', async () => {
+    await performEffect(oystehr, { ...validated(claimWith([]), forwardedResponse), newlyMatched: false });
+
+    expect(transaction).not.toHaveBeenCalled();
+  });
+
   it('does nothing when the claim is already adjudicated', async () => {
     const adjudicated = claimWith([]);
     adjudicated.meta!.tag!.push({
@@ -290,5 +312,91 @@ describe('sub-claim-response-update-claim-from-era performEffect', () => {
     );
     const identifiers = writtenIdentifiers();
     expect(identifiers).toEqual([{ system: CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM, value: 'PCCN-12345' }]);
+  });
+});
+
+describe('sub-claim-response-update-claim-from-era complexValidation', () => {
+  const ERA_TAGS = [
+    { system: BILLING_RESOURCE_TAG.system, code: BILLING_RESOURCE_TAG.code },
+    ERA_CLAIM_RESPONSE_TYPE_TAG,
+  ];
+  // one stored version of the response; by default tagged as a billing ERA claim and matched to claim-1
+  const version = (versionId: string, minute: number, overrides: Partial<ClaimResponse> = {}): ClaimResponse => ({
+    ...notForwardedResponse,
+    request: { reference: 'Claim/claim-1' },
+    ...overrides,
+    meta: { versionId, lastUpdated: `2026-10-05T12:${String(minute).padStart(2, '0')}:00.000Z`, tag: ERA_TAGS },
+  });
+  const storedAs = (...versions: ClaimResponse[]): void => {
+    const latest = [...versions].sort((a, b) =>
+      (b.meta?.lastUpdated ?? '').localeCompare(a.meta?.lastUpdated ?? '')
+    )[0];
+    get.mockImplementation(async ({ resourceType }: { resourceType: string }) =>
+      resourceType === 'Claim' ? claimWith([]) : latest
+    );
+    history.mockResolvedValue({ entry: versions.map((resource) => ({ resource })) });
+  };
+  const newlyMatched = async (firedVersionId?: string): Promise<boolean> =>
+    (await complexValidation(oystehr, 'response-1', firedVersionId, {} as Secrets)).newlyMatched;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('adjusts the claim for a response created matched to it', async () => {
+    storedAs(version('1', 0));
+    expect(await newlyMatched('1')).toBe(true);
+  });
+
+  it('adjusts it when an imported response gets its billing tag', async () => {
+    const untagged = {
+      ...version('1', 0),
+      meta: { versionId: '1', lastUpdated: '2026-10-05T12:00:00.000Z', tag: [ERA_CLAIM_RESPONSE_TYPE_TAG] },
+    };
+    storedAs(version('2', 1), untagged);
+    expect(await newlyMatched('2')).toBe(true);
+  });
+
+  it('adjusts it when a response gets its ERA type tag', async () => {
+    const untyped = {
+      ...version('1', 0),
+      meta: { versionId: '1', lastUpdated: '2026-10-05T12:00:00.000Z', tag: [ERA_TAGS[0]] },
+    };
+    storedAs(version('2', 1), untyped);
+    expect(await newlyMatched('2')).toBe(true);
+  });
+
+  it('adjusts it when an unmatched response is matched to the claim', async () => {
+    storedAs(version('2', 1), version('1', 0, { request: { reference: '#request' } }));
+    expect(await newlyMatched('2')).toBe(true);
+  });
+
+  it('leaves the claim alone when a response already matched to it is edited', async () => {
+    storedAs(version('2', 1, { extension: [{ url: ERA_ICN_EXTENSION, valueString: 'FIXED-ICN' }] }), version('1', 0));
+    expect(await newlyMatched('2')).toBe(false);
+  });
+
+  it('judges the version that fired, not an edit saved after it', async () => {
+    // history in oldest-first order: matched in version 2, then edited in version 3
+    storedAs(version('1', 0, { request: { reference: '#request' } }), version('2', 1), version('3', 2));
+    expect(await newlyMatched('2')).toBe(true);
+    expect(await newlyMatched('3')).toBe(false);
+    // a notification without its version is judged by the latest one
+    expect(await newlyMatched(undefined)).toBe(false);
+  });
+
+  it('adjusts the claim as before when the fired version is not in the history', async () => {
+    storedAs(version('2', 1), version('1', 0));
+    expect(await newlyMatched('9')).toBe(true);
+  });
+
+  it('reads the fired version from the notification', () => {
+    const body = { resourceType: 'ClaimResponse', id: 'response-1', meta: { versionId: '7' } };
+    expect(
+      validateRequestParameters({ headers: null, body: JSON.stringify(body), secrets: {} as Secrets })
+    ).toMatchObject({
+      claimResponseId: 'response-1',
+      firedVersionId: '7',
+    });
   });
 });

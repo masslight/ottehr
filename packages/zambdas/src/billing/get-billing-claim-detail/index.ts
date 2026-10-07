@@ -63,6 +63,8 @@ import {
   getClaimType,
   getEraCheckNumber,
   getTaxonomy,
+  readClaimItemDrug,
+  readClaimItemOrderingProvider,
   resolvedPayerId,
   resolvePayersByRef,
   toAddressParts,
@@ -169,7 +171,6 @@ export async function performEffect(
       claimResponseId: cr.id ?? '',
       date: cr.created ?? '',
       payerName: payer?.name ?? cr.insurer?.display ?? '',
-      status: cr.outcome ?? '',
       eraStatusCode: asEraClaimStatusCode(
         cr.extension?.find((ext) => ext.url === ERA_STATUS_CODE_EXTENSION)?.valueString
       ),
@@ -202,7 +203,6 @@ export async function performEffect(
         checkDate: paymentReconciliation.paymentDate ?? '',
         paymentAmount: paymentReconciliation.paymentAmount?.value ?? 0,
         payerName: payer?.name ?? paymentReconciliation.paymentIssuer?.display ?? '',
-        status: paymentReconciliation.outcome ?? paymentReconciliation.status ?? '',
       };
     });
   const status = getClaimStatus(claim);
@@ -310,6 +310,8 @@ export async function performEffect(
       placeOfService: item.locationCodeableConcept?.coding?.[0]?.code ?? '',
       diagnosisPointers: item.diagnosisSequence ?? [],
       revenueCode: getCoding(item.revenue, CODE_SYSTEM_NUBC_REVENUE)?.code ?? '',
+      drug: readClaimItemDrug(item),
+      orderingProvider: readClaimItemOrderingProvider(claim, item, graph.orderingProviders),
     })),
     billed,
     allowed: payments.allowed,

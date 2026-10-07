@@ -3,7 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import { Task } from 'fhir/r4b';
 import { BILLING_CLAIM_TASK_CODING } from 'utils/lib/types/data/billing/billing.constants';
-import { RetryBillingClaimTaskInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
+import { UpdateBillingClaimTaskInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
@@ -11,13 +11,13 @@ import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { createBillingClient, fetchById } from '../shared';
 
-type RetryBillingClaimTaskParams = ValidatedZambdaInput<typeof RetryBillingClaimTaskInputSchema>;
+type UpdateBillingClaimTaskParams = ValidatedZambdaInput<typeof UpdateBillingClaimTaskInputSchema>;
 
 let m2mToken: string;
-const ZAMBDA_NAME = 'retry-billing-claim-task';
+const ZAMBDA_NAME = 'update-billing-claim-task';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const params = validateWithSchema(RetryBillingClaimTaskInputSchema, input);
+  const params = validateWithSchema(UpdateBillingClaimTaskInputSchema, input);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
 
@@ -26,7 +26,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   return { statusCode: 200, body: JSON.stringify(response) };
 });
 
-async function complexValidation(oystehr: Oystehr, params: RetryBillingClaimTaskParams): Promise<Task> {
+async function complexValidation(oystehr: Oystehr, params: UpdateBillingClaimTaskParams): Promise<Task> {
   const task = await fetchById<Task>(oystehr, 'Task', params.taskId);
   const isBillingClaimTask = task.code?.coding?.some(
     ({ system, code }) => system === BILLING_CLAIM_TASK_CODING.system && code === BILLING_CLAIM_TASK_CODING.code
@@ -38,10 +38,11 @@ async function complexValidation(oystehr: Oystehr, params: RetryBillingClaimTask
 
 async function performEffect(
   oystehr: Oystehr,
-  params: RetryBillingClaimTaskParams,
+  params: UpdateBillingClaimTaskParams,
   task: Task
 ): Promise<{ taskId: string }> {
-  const operations: Operation[] = [{ op: 'replace', path: '/status', value: 'requested' }];
+  const status: Task['status'] = params.action === 'retry' ? 'requested' : 'cancelled';
+  const operations: Operation[] = [{ op: 'replace', path: '/status', value: status }];
   if (task.statusReason) operations.push({ op: 'remove', path: '/statusReason' });
 
   await oystehr.fhir.patch<Task>(

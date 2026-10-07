@@ -57,7 +57,7 @@ const performEffect = async (
 
   // Step 2: Ask Gemini to write the education materials grounded in those links, in the language
   const prompt = buildEducationPrompt(icdDescription, links, language);
-  const responseText = await invokeChatbotVertexAI([{ text: prompt }], secrets);
+  const responseText = await invokeChatbotVertexAI([{ text: prompt }], secrets, 'generate-patient-education');
 
   let content: string;
   let patientTitle: string;

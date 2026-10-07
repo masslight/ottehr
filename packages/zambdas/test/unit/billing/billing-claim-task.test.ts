@@ -6,9 +6,9 @@ import { BILLING_CLAIM_TASK_CODING } from 'utils/lib/types/data/billing/billing.
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { index as createTask } from '../../../src/billing/create-billing-claim-task/index';
-import { index as retryTask } from '../../../src/billing/retry-billing-claim-task';
 import { index as searchTasks } from '../../../src/billing/search-billing-claim-tasks';
 import * as payers from '../../../src/billing/search-billing-claim-tasks/payers';
+import { index as updateTask } from '../../../src/billing/update-billing-claim-task';
 import { ZambdaInput } from '../../../src/shared/types/common';
 import { wrapTaskHandler } from '../../../src/subscriptions/task/helpers';
 import { index as runTask } from '../../../src/subscriptions/task/sub-billing-claim-task/index';
@@ -133,7 +133,7 @@ describe('billing claim tasks', () => {
       const listed = JSON.parse((await invoke(searchTasks, {})).body);
       expect(listed.tasks).toMatchObject([{ id: task.id, status: 'failed', error: error.message }]);
 
-      expect((await invoke(retryTask, { taskId: task.id })).statusCode).toBe(200);
+      expect((await invoke(updateTask, { taskId: task.id, action: 'retry' })).statusCode).toBe(200);
       const [request, options] = billing.fhir.patch.mock.lastCall!;
       expect(options).toEqual({ optimisticLockingVersionId: '3' });
       expect(applyPatch(structuredClone(failedTask), request.operations, true).newDocument).toEqual(task);
@@ -156,7 +156,7 @@ describe('billing claim tasks', () => {
     billing.fhir.search.mockResolvedValueOnce({
       unbundle: () => (overrides ? [{ ...task, status: 'failed', ...overrides }] : []),
     });
-    expect((await invoke(retryTask, { taskId: task.id })).statusCode).toBe(400);
+    expect((await invoke(updateTask, { taskId: task.id, action: 'retry' })).statusCode).toBe(400);
     expect(billing.fhir.patch).not.toHaveBeenCalled();
   });
 
