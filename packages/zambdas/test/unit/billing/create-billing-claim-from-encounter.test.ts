@@ -3221,8 +3221,14 @@ describe('create-billing-claim-from-encounter', () => {
               },
               provider: { display: 'Unknown' },
               facility: undefined,
-              insurer: undefined,
-              insurance: [buildNoCoverageStub()],
+              insurer: { reference: 'https://rcm-api.zapehr.com/v1/payer/payer-123' },
+              insurance: [
+                {
+                  sequence: 1,
+                  focal: true,
+                  coverage: { reference: 'urn:uuid:claim-coverage-billing-coverage-coverage-123' },
+                },
+              ],
               careTeam: undefined,
               diagnosis: [
                 { sequence: 1, diagnosisCodeableConcept: clinicalResources.conditions[0].code },
