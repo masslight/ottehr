@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ChargeItemDefinition } from 'fhir/r4b';
+import { SearchChargeItemDefinitionsInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import {
   SearchChargeItemDefinitionItem,
   SearchChargeItemDefinitionsResponse,
@@ -8,19 +9,21 @@ import {
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { chargeItemDefinitionTypeSearchParam } from '../charge-master.helpers';
 import {
   createBillingClient,
   getDefaultSettingForChargeItemDefinition,
   getTypeForChargeItemDefinition,
 } from '../shared';
-import { SearchChargeItemDefinitionsParams, validateRequestParameters } from './validateRequestParameters';
+
+export type SearchChargeItemDefinitionsParams = ValidatedZambdaInput<typeof SearchChargeItemDefinitionsInputSchema>;
 
 let m2mToken: string;
 export const index = wrapHandler(
   'search-charge-item-definitions',
   async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-    const params = validateRequestParameters(input);
+    const params = validateWithSchema(SearchChargeItemDefinitionsInputSchema, input);
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
     const oystehr = createBillingClient(m2mToken, params.secrets);
 

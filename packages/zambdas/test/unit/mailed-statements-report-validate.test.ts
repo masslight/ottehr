@@ -1,7 +1,8 @@
 import { APIErrorCode } from 'utils/lib/types/errors';
 import { describe, expect, it } from 'vitest';
-import { validateRequestParameters } from '../../src/ehr/mailed-statements-report/validateRequestParameters';
+import { dateRangeSchema } from '../../src/ehr/mailed-statements-report/index';
 import type { ZambdaInput } from '../../src/shared/types/common';
+import { validateWithSchema } from '../../src/shared/validation';
 
 function makeInput(
   body: Record<string, unknown> | null,
@@ -18,7 +19,7 @@ describe('mailed-statements-report validateRequestParameters', () => {
   const validDateRange = { start: '2025-01-01', end: '2025-01-31' };
 
   it('returns validated params for valid input', () => {
-    const result = validateRequestParameters(makeInput({ dateRange: validDateRange }));
+    const result = validateWithSchema(dateRangeSchema, makeInput({ dateRange: validDateRange }));
     expect(result).toMatchObject({
       dateRange: validDateRange,
     });
@@ -26,9 +27,9 @@ describe('mailed-statements-report validateRequestParameters', () => {
   });
 
   it('throws when body is missing', () => {
-    expect(() => validateRequestParameters(makeInput(null))).toThrowError();
+    expect(() => validateWithSchema(dateRangeSchema, makeInput(null))).toThrowError();
     try {
-      validateRequestParameters(makeInput(null));
+      validateWithSchema(dateRangeSchema, makeInput(null));
     } catch (e: any) {
       expect(e.code).toBe(APIErrorCode.MISSING_REQUEST_BODY);
       expect(e.message).toBe('The request was missing a required request body');
@@ -36,32 +37,32 @@ describe('mailed-statements-report validateRequestParameters', () => {
   });
 
   it('throws when dateRange is missing', () => {
-    expect(() => validateRequestParameters(makeInput({}))).toThrow();
+    expect(() => validateWithSchema(dateRangeSchema, makeInput({}))).toThrow();
   });
 
   it('throws when dateRange.start is missing', () => {
-    expect(() => validateRequestParameters(makeInput({ dateRange: { end: '2025-01-31' } }))).toThrow();
+    expect(() => validateWithSchema(dateRangeSchema, makeInput({ dateRange: { end: '2025-01-31' } }))).toThrow();
   });
 
   it('throws when dateRange.end is missing', () => {
-    expect(() => validateRequestParameters(makeInput({ dateRange: { start: '2025-01-01' } }))).toThrow();
+    expect(() => validateWithSchema(dateRangeSchema, makeInput({ dateRange: { start: '2025-01-01' } }))).toThrow();
   });
 
   it('throws when dateRange.start is not a valid date', () => {
     expect(() =>
-      validateRequestParameters(makeInput({ dateRange: { start: 'not-a-date', end: '2025-01-31' } }))
+      validateWithSchema(dateRangeSchema, makeInput({ dateRange: { start: 'not-a-date', end: '2025-01-31' } }))
     ).toThrow('start must be a valid ISO date string');
   });
 
   it('throws when dateRange.end is not a valid date', () => {
     expect(() =>
-      validateRequestParameters(makeInput({ dateRange: { start: '2025-01-01', end: 'not-a-date' } }))
+      validateWithSchema(dateRangeSchema, makeInput({ dateRange: { start: '2025-01-01', end: 'not-a-date' } }))
     ).toThrow('end must be a valid ISO date string');
   });
 
   it('throws when secrets are missing', () => {
     try {
-      validateRequestParameters(makeInput({ dateRange: validDateRange }, null));
+      validateWithSchema(dateRangeSchema, makeInput({ dateRange: validDateRange }, null));
       expect.fail('should have thrown');
     } catch (e: any) {
       expect(e.code).toBe(APIErrorCode.MISSING_REQUEST_SECRETS);

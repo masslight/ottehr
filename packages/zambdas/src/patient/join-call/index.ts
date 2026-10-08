@@ -10,6 +10,7 @@ import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import { TELEMED_VIDEO_ROOM_CODE } from 'utils/lib/types/constants';
 import { JoinCallInput, JoinCallResponse } from 'utils/lib/types/data/telemed/join-call.types';
 import { CANNOT_JOIN_CALL_NOT_STARTED_ERROR, NO_READ_ACCESS_TO_PATIENT_ERROR } from 'utils/lib/types/errors';
+import { z } from 'zod';
 import { getUser, userHasAccessToPatient } from '../../shared/auth';
 import { getVideoEncounterForAppointment } from '../../shared/encounters';
 import { searchInvitedParticipantResourcesByEncounterId } from '../../shared/fhir';
@@ -18,8 +19,12 @@ import { reportMissingUserRelatedPerson } from '../../shared/invariants';
 import { lambdaResponse } from '../../shared/lambda';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { validateWithSchema } from '../../shared/validation';
 import { addUserToVideoEncounterIfNeeded } from './helpers';
-import { validateRequestParameters } from './validateRequestParameters';
+
+export const bodySchema = z.object({
+  appointmentId: z.string().uuid(),
+});
 
 const ZAMBDA_NAME = 'join-call';
 
@@ -37,7 +42,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   let validatedParameters: JoinCallInput;
 
   try {
-    validatedParameters = validateRequestParameters(input);
+    validatedParameters = validateWithSchema(bodySchema, input);
   } catch (error: any) {
     console.log(error);
     return lambdaResponse(400, { message: error.message });

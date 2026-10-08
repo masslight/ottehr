@@ -7,19 +7,25 @@ import { wrapHandler } from '../../src/shared/sentry';
 import { ZambdaInput } from '../../src/shared/types/common';
 
 const captureException = vi.fn();
-vi.mock('@sentry/aws-serverless', () => ({
+vi.mock('@sentry/node-core/light', () => ({
   captureException: (...args: unknown[]) => captureException(...args),
   captureMessage: vi.fn(),
   init: vi.fn(),
   isInitialized: vi.fn(() => true),
   setTag: vi.fn(),
   setTags: vi.fn(),
-  wrapHandler: (handler: unknown) => handler, // the real one only adds tracing
+  setContext: vi.fn(),
+  flush: vi.fn(async () => true),
+  withIsolationScope: (cb: () => unknown) => cb(),
+  continueTrace: (_traceHeaders: unknown, cb: () => unknown) => cb(),
+  startSpan: (_options: unknown, cb: () => unknown) => cb(),
 }));
 
 const secrets: Secrets = {
   [SecretsKeys.GOOGLE_CLOUD_PROJECT_ID]: 'test-project',
   [SecretsKeys.GOOGLE_CLOUD_API_KEY]: 'test-key',
+  [SecretsKeys.ENVIRONMENT]: 'local',
+  [SecretsKeys.PROJECT_ID]: 'test-project-id',
 };
 
 // sendErrors drops events on 'local', so a deployed environment is what proves reporting still happens.
@@ -97,7 +103,7 @@ afterEach(() => {
 // Drive the call and the retry ladder's timers together. The outcome is captured as a value before the
 // timers run, so a rejection is never briefly unhandled — vitest reports those as errors.
 const invoke = async (): Promise<string> => {
-  const outcome = invokeChatbotVertexAI([{ text: 'hello' }], secrets).then(
+  const outcome = invokeChatbotVertexAI([{ text: 'hello' }], secrets, 'test-feature').then(
     (value) => ({ ok: true as const, value }),
     (error: unknown) => ({ ok: false as const, error })
   );
@@ -113,7 +119,7 @@ const settleDelay = async (): Promise<number> => {
   const record = (): void => {
     if (elapsed < 0) elapsed = Date.now() - start;
   };
-  const outcome = invokeChatbotVertexAI([{ text: 'hello' }], secrets).then(record, record);
+  const outcome = invokeChatbotVertexAI([{ text: 'hello' }], secrets, 'test-feature').then(record, record);
   await vi.advanceTimersByTimeAsync(10_000);
   await outcome;
   return elapsed;
@@ -123,7 +129,7 @@ const settleDelay = async (): Promise<number> => {
 // below are about what Sentry actually receives in production, not about a hand-rolled catch block.
 const invokeThroughHandler = async (): Promise<APIGatewayProxyResult> => {
   const handler = wrapHandler('test-ai-zambda', async (input: ZambdaInput) => {
-    const text = await invokeChatbotVertexAI([{ text: 'hello' }], input.secrets);
+    const text = await invokeChatbotVertexAI([{ text: 'hello' }], input.secrets, 'test-feature');
     return lambdaResponse(200, { text });
   }) as unknown as (input: ZambdaInput) => Promise<APIGatewayProxyResult>;
 
@@ -452,7 +458,7 @@ describe('invokeChatbotVertexAI promise lifecycle', () => {
   const EMPTY_200 = { usageMetadata: { totalTokenCount: 1798, thoughtsTokenCount: 273 } };
 
   const start = (): Promise<string> =>
-    invokeChatbotVertexAI([{ text: 'hello' }], secrets).then(
+    invokeChatbotVertexAI([{ text: 'hello' }], secrets, 'test-feature').then(
       (value) => `resolved: ${value}`,
       (error: Error) => `rejected: ${error.message}`
     );
@@ -580,7 +586,9 @@ describe('invokeChatbotVertexAI promise lifecycle', () => {
 
 describe('procedure recommendations use sequential Vertex retries', () => {
   const invokeSequentially = (): Promise<string> =>
-    invokeChatbotVertexAI([{ text: 'hello' }], secrets, undefined, undefined, { retryMode: 'sequential' });
+    invokeChatbotVertexAI([{ text: 'hello' }], secrets, 'test-feature', undefined, undefined, {
+      retryMode: 'sequential',
+    });
 
   test('keeps one slow successful generation in flight beyond both previous hedge delays', async () => {
     let finish!: (value: ReturnType<typeof responseOf>) => void;

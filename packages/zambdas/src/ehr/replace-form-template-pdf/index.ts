@@ -1,5 +1,5 @@
 import Oystehr from '@oystehr/sdk';
-import { captureException } from '@sentry/aws-serverless';
+import { captureException } from '@sentry/node-core/light';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DocumentReference } from 'fhir/r4b';
 import {
@@ -11,7 +11,7 @@ import {
   FormTemplateFillability,
 } from 'utils/lib/fhir/constants';
 import { EMPTY_MAPPING, FormTemplateMapping } from 'utils/lib/form-tokens/mapping';
-import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
+import { getPresignedURL, uploadObjectToZ3 } from 'utils/lib/helpers/presigned-file-url/helpers';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import { ReplaceFormTemplatePdfInput, ReplaceFormTemplatePdfOutput } from 'utils/lib/types/api/form-template.types';
 import { FORM_TEMPLATE_REJECTED_ERRORS, MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils/lib/types/errors';
@@ -23,7 +23,7 @@ import { makeZ3ObjectUrl } from '../../shared/presigned-file-urls/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { safeJsonParse, safeValidate } from '../../shared/validation';
-import { createPresignedUrl, deleteZ3Object, uploadObjectToZ3 } from '../../shared/z3Utils';
+import { createPresignedUrl, deleteZ3Object } from '../../shared/z3Utils';
 import {
   FORM_TEMPLATE_DOC_STATUS,
   getFormTemplateOrThrow,

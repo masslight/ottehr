@@ -1,16 +1,22 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ChargeItemDefinition } from 'fhir/r4b';
+import { z } from 'zod';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
-import { validateRequestParameters } from './validateRequestParameters';
+import { validateWithSchema } from '../../../shared/validation';
+
+export const CmDeleteProcedureCodeBodySchema = z.object({
+  chargeMasterId: z.string().uuid(),
+  index: z.number().int().min(0),
+});
 
 let m2mToken: string;
 export const index = wrapHandler(
   'cm-delete-procedure-code',
   async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-    const { chargeMasterId, index, secrets } = validateRequestParameters(input);
+    const { chargeMasterId, index, secrets } = validateWithSchema(CmDeleteProcedureCodeBodySchema, input);
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
     const oystehr = createClinicalOystehrClient(m2mToken, secrets);

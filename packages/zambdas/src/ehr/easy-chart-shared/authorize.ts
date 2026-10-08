@@ -1,7 +1,7 @@
 // Authorisation for the Easy Chart endpoints. They work under the project's M2M token, so FHIR never
 // checks the caller: without this, any valid project token could read any encounter through them.
 
-import { captureException } from '@sentry/aws-serverless';
+import { captureException } from '@sentry/node-core/light';
 import { Encounter } from 'fhir/r4b';
 import { EASY_CHART_ROLES } from 'utils/lib/easy-chart/access';
 import { Secrets } from 'utils/lib/secrets';

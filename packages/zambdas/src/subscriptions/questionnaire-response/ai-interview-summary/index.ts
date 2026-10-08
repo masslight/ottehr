@@ -36,7 +36,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     null,
     null,
     undefined,
-    secrets
+    secrets,
+    'ai-interview-summary'
   );
 
   return {

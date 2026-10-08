@@ -43,6 +43,7 @@ export async function generateNarrative(
     wireSchema: NARRATIVE_WIRE_SCHEMA,
     responseSchema: NarrativeModelResponseSchema,
     secrets,
+    feature: 'easy-chart-narrative',
     logPrefix,
     signal,
   });

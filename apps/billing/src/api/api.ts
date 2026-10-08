@@ -4,6 +4,7 @@ import { CREATE_TIMELY_FILING_REPORT_ZAMBDA, RefreshReportKind } from 'utils/lib
 import {
   AddClaimAttachmentInputSchema,
   AddClaimNoteInputSchema,
+  AddEraAttachmentInputSchema,
   BulkAddChargeItemDefinitionProcedureCodesInputSchema,
   CreateBillingClaimInputSchema,
   CreateBillingCoverageInputSchema,
@@ -16,8 +17,10 @@ import {
   DeleteBillingTagInputSchema,
   DeleteChargeItemDefinitionInputSchema,
   DeleteClaimAttachmentInputSchema,
+  DeleteEraAttachmentInputSchema,
   DeleteServiceFacilityInputSchema,
   DownloadClaimAttachmentInputSchema,
+  DownloadEraAttachmentInputSchema,
   ExportBillingClaimsInputSchema,
   ExportClaimX12InputSchema,
   GetBillingClaimsExportStatusInputSchema,
@@ -39,8 +42,10 @@ import {
   PatientPaymentsDrilldownParamsSchema,
   RecordBillingManualPaymentInputSchema,
   RenameClaimAttachmentInputSchema,
+  RenameEraAttachmentInputSchema,
   ReportDateWindowParams,
   SaveBillingTagInputSchema,
+  SaveManualEraInputSchema,
   SaveServiceFacilityInputSchema,
   SearchBillingClaimsInputSchema,
   SearchBillingClaimTasksInputSchema,
@@ -64,6 +69,7 @@ import {
 } from 'utils/lib/types/data/billing/billing.schemas';
 import {
   AddClaimAttachmentResponse,
+  AddEraAttachmentResponse,
   BillingChargeItemDefinition,
   BillingClaimsExportKickOffResponse,
   BillingClaimsExportStatusResponse,
@@ -75,6 +81,7 @@ import {
   CreateTimelyFilingReportResponse,
   DeletedResponse,
   DownloadClaimAttachmentResponse,
+  DownloadEraAttachmentResponse,
   EraDetailResponse,
   ExportClaimX12Response,
   GetBillingCardsOnFileReportResponse,
@@ -95,6 +102,7 @@ import {
   PatientDetailResponse,
   RecordBillingManualPaymentResponse,
   SavedResourceResponse,
+  SaveManualEraResponse,
   SearchBillingClaimsResponse,
   SearchBillingClaimTasksResponse,
   SearchBillingErasResponse,
@@ -606,6 +614,11 @@ export const getBillingEraDetail = (
 export const importEra = (oystehr: Oystehr, parameters: z.input<typeof ImportEraInputSchema>): Promise<any> =>
   executeBillingZambda(oystehr, 'import-era', parameters);
 
+export const saveBillingManualEra = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof SaveManualEraInputSchema>
+): Promise<SaveManualEraResponse> => executeBillingZambda(oystehr, 'save-billing-manual-era', parameters);
+
 export const matchClaimResponseToClaim = (
   oystehr: Oystehr,
   parameters: z.input<typeof MatchClaimResponseToClaimInputSchema>
@@ -685,3 +698,25 @@ export const createTimelyFilingReport = (
   parameters: z.input<typeof CreateTimelyFilingReportInputSchema>
 ): Promise<CreateTimelyFilingReportResponse> =>
   executeBillingZambda(oystehr, CREATE_TIMELY_FILING_REPORT_ZAMBDA, parameters);
+
+// --- ERA Attachments ---
+
+export const addEraAttachment = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof AddEraAttachmentInputSchema>
+): Promise<AddEraAttachmentResponse> => executeBillingZambda(oystehr, 'add-era-attachment', parameters);
+
+export const renameEraAttachment = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof RenameEraAttachmentInputSchema>
+): Promise<OkResponse> => executeBillingZambda(oystehr, 'rename-era-attachment', parameters);
+
+export const deleteEraAttachment = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof DeleteEraAttachmentInputSchema>
+): Promise<DeletedResponse> => executeBillingZambda(oystehr, 'delete-era-attachment', parameters);
+
+export const downloadEraAttachment = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof DownloadEraAttachmentInputSchema>
+): Promise<DownloadEraAttachmentResponse> => executeBillingZambda(oystehr, 'download-era-attachment', parameters);

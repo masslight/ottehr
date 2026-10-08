@@ -1,4 +1,4 @@
-import { captureException } from '@sentry/aws-serverless';
+import { captureException } from '@sentry/node-core/light';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {
   CatalogDataset,
@@ -146,6 +146,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const raw = await invokeChatbotVertexAI(
       [{ text: buildPrompt(datasetId, datasets, request) }],
       secrets,
+      'infer-adhoc-report-layers',
       RESPONSE_SCHEMA,
       VERTEX_AI_MODEL
     );
