@@ -624,14 +624,6 @@ export const enrollPractitioner = async (
   return body as CheckPractitionerEnrollmentOutput;
 };
 
-const SAMPLE_MEDICATIONS: MedicationSearchResult[] = [
-  { ndc: '00093310901', description: 'Amoxicillin 500 MG Oral Capsule' },
-  { ndc: '00093227401', description: 'Amoxicillin 875 MG Oral Tablet' },
-  { ndc: '00781124092', description: 'Azithromycin 250 MG Oral Tablet' },
-  { ndc: '00378181501', description: 'Cephalexin 500 MG Oral Capsule' },
-  { ndc: '00093715398', description: 'Ibuprofen 800 MG Oral Tablet' },
-];
-
 const SAMPLE_PHARMACIES: PharmacySearchResult[] = [
   {
     ncpdpId: '0002026',
@@ -656,11 +648,29 @@ const SAMPLE_PHARMACIES: PharmacySearchResult[] = [
   },
 ];
 
-export const searchMedications = async (query: string): Promise<MedicationSearchResult[]> => {
-  const normalizedQuery = query.trim().toLowerCase();
-  return SAMPLE_MEDICATIONS.filter(
-    (medication) =>
-      medication.description.toLowerCase().includes(normalizedQuery) || medication.ndc.startsWith(normalizedQuery)
+const TERMINOLOGY_API_URL = import.meta.env.VITE_APP_TERMINOLOGY_API_URL ?? 'https://terminology-api.zapehr.com/v1';
+
+interface MedicationSearchResponse {
+  medications: { name: string; strengths: { strength: string; ndcs: string[] }[] }[];
+}
+
+export const searchMedications = async (token: string, query: string): Promise<MedicationSearchResult[]> => {
+  const projectId = import.meta.env.VITE_APP_PROJECT_ID;
+  const response = await fetch(`${TERMINOLOGY_API_URL}/medication/search?${new URLSearchParams({ query })}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'x-zapehr-project-id': projectId,
+    },
+  });
+  const body = await response.json().catch(() => undefined);
+  if (!response.ok) {
+    throw new Error(body?.message ?? `Failed to search medications (${response.status})`);
+  }
+  // An order needs an NDC, so a strength without one can't be picked. The first NDC stands in for the strength.
+  return (body as MedicationSearchResponse).medications.flatMap(({ name, strengths }) =>
+    strengths
+      .filter(({ ndcs }) => ndcs.length > 0)
+      .map(({ strength, ndcs }) => ({ ndc: ndcs[0], description: `${name} ${strength}` }))
   );
 };
 

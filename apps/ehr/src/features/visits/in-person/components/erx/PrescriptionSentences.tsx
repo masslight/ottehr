@@ -3,6 +3,7 @@ import { Autocomplete, Box, FormHelperText, IconButton, TextField } from '@mui/m
 import { FC, useMemo, useState } from 'react';
 import { SentencePicks, SuggestedSentences } from 'src/components/SuggestedSentences';
 import { useIcd10SearchInput } from 'src/features/admin/patient-education/useIcd10SearchInput';
+import { useDebounce } from 'src/shared/hooks/useDebounce';
 import {
   fillPrescriptionSuggestion,
   PrescriptionSuggestion,
@@ -34,7 +35,9 @@ const SUBSTITUTION_OPTIONS = [
 
 const MedicationSearch: FC<{ onPick: (medication: MedicationSearchResult) => void }> = ({ onPick }) => {
   const [query, setQuery] = useState('');
-  const { data: medications = [], isFetching } = useSearchMedications(query);
+  const [debouncedQuery, setDebouncedQuery] = useState('');
+  const { debounce } = useDebounce(300);
+  const { data: medications = [], isFetching } = useSearchMedications(debouncedQuery);
   return (
     <Box sx={{ width: 360, pt: 0.5 }}>
       <Autocomplete<MedicationSearchResult>
@@ -43,7 +46,10 @@ const MedicationSearch: FC<{ onPick: (medication: MedicationSearchResult) => voi
         filterOptions={(options) => options}
         getOptionLabel={(option) => `${option.description} (${option.ndc})`}
         inputValue={query}
-        onInputChange={(_event, value) => setQuery(value)}
+        onInputChange={(_event, value) => {
+          setQuery(value);
+          debounce(() => setDebouncedQuery(value));
+        }}
         value={null}
         onChange={(_event, option) => option && onPick(option)}
         noOptionsText={
