@@ -162,6 +162,7 @@ export interface PrescriptionQuickPickData {
   numberOfRefills?: number;
   substitutionAllowed?: boolean;
   patientInstructions?: string;
+  noteToPharmacy?: string;
 }
 
 export type CreatePrescriptionQuickPickInput = QuickPickCreateInput<PrescriptionQuickPickData>;

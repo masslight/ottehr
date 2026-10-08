@@ -291,10 +291,23 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
         Directions:{' '}
         <TextBlank
           label="directions"
+          width="480px"
           value={line.patientInstructions}
           onChange={(patientInstructions) => update({ patientInstructions })}
           readOnly={readOnly}
           need
+        />
+      </Sentence>
+
+      <Sentence>
+        Note to pharmacy:{' '}
+        <TextBlank
+          label="note to pharmacy"
+          width="520px"
+          placeholder="optional"
+          value={line.noteToPharmacy}
+          onChange={(noteToPharmacy) => update({ noteToPharmacy })}
+          readOnly={readOnly}
         />
       </Sentence>
 
