@@ -2,6 +2,9 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Secrets } from 'utils/lib/secrets';
 import { LlmDatasetSchema } from 'utils/lib/types/adhoc/datasets/llm-schema';
 import {
+  AD_HOC_REPORT_DEFAULT_MODEL,
+  AD_HOC_REPORT_LLM_MODELS,
+  AdHocReportModel,
   GenerateAdHocReportInput,
   GenerateAdHocReportOutput,
   GenerateAdHocReportOutputSchema,
@@ -11,10 +14,12 @@ import {
   buildExecutionContractPromptSection,
 } from 'utils/lib/types/adhoc/generation/runtime-scope';
 import { REPORT_FACTORY_NAME, REPORT_ROOT_NAME } from 'utils/lib/types/adhoc/generation/runtime-scope.catalog';
-import { AD_HOC_REPORT_EDIT_ROLES } from 'utils/lib/types/api/adhoc-report-access';
+import { AD_HOC_REPORT_EDIT_ROLES, AD_HOC_REPORT_MODEL_PICKER_ROLES } from 'utils/lib/types/api/adhoc-report-access';
+import { LlmModel } from 'utils/lib/types/api/ai-models.constants';
+import { RoleType } from 'utils/lib/types/api/user.types';
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { fixAndParseJsonObjectFromString } from 'utils/lib/validation/json-fix';
-import { invokeChatbotVertexAI, VERTEX_AI_MODEL } from '../../shared/ai';
+import { invokeChatbot, invokeChatbotVertexAI } from '../../shared/ai';
 import { getUserToken, requireUserWithRole } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
@@ -49,8 +54,6 @@ export const explainRuntimeError = (message: string): string => {
 
 const ZAMBDA_NAME = 'generate-adhoc-report';
 
-const REPORT_MODEL = VERTEX_AI_MODEL;
-
 const RESPONSE_SCHEMA = {
   type: 'object',
   properties: {
@@ -64,6 +67,34 @@ const RESPONSE_SCHEMA = {
     },
   },
   required: ['code'],
+};
+
+type ReportModelInvoker = (prompt: string, secrets: Secrets) => Promise<string>;
+
+const CLAUDE_REPORT_OPTIONS = {
+  // http_auth zambdas are capped at 27s by API Gateway; leave a margin for auth and response handling
+  timeout: 25_000,
+  maxTokens: 32_000,
+  // noCache: prevents caching the initiated model, so other callers won't use it from the cache
+  noCache: true,
+  // structured output: the API guarantees valid JSON; Anthropic requires closed objects
+  responseSchema: { ...RESPONSE_SCHEMA, additionalProperties: false },
+} as const;
+
+const createVertexReportInvoker =
+  ({ id }: LlmModel): ReportModelInvoker =>
+  (prompt, secrets) =>
+    invokeChatbotVertexAI([{ text: prompt }], secrets, ZAMBDA_NAME, RESPONSE_SCHEMA, id);
+
+const createAnthropicReportInvoker =
+  ({ id }: LlmModel): ReportModelInvoker =>
+  async (prompt, secrets) =>
+    (await invokeChatbot([{ role: 'user', content: prompt }], secrets, { ...CLAUDE_REPORT_OPTIONS, model: id })).text;
+
+const REPORT_MODEL_INVOKERS: Record<AdHocReportModel, ReportModelInvoker> = {
+  defaultVertexModel: createVertexReportInvoker(AD_HOC_REPORT_LLM_MODELS.defaultVertexModel),
+  claudeSonnet_5_5: createAnthropicReportInvoker(AD_HOC_REPORT_LLM_MODELS.claudeSonnet_5_5),
+  claudeOpus_5_5: createAnthropicReportInvoker(AD_HOC_REPORT_LLM_MODELS.claudeOpus_5_5),
 };
 
 const buildPrompt = (
@@ -221,9 +252,11 @@ export const parseNeedsDataset = (
 
 const performEffect = async (
   { schema, request, previousAttempt }: GenerateAdHocReportInput,
+  model: AdHocReportModel,
   secrets: Secrets
 ): Promise<GenerateAdHocReportOutput> => {
   const basePrompt = buildPrompt(schema, request, previousAttempt);
+  const invokeReportModel = REPORT_MODEL_INVOKERS[model] ?? REPORT_MODEL_INVOKERS[AD_HOC_REPORT_DEFAULT_MODEL];
   let lastError = '';
 
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
@@ -236,13 +269,7 @@ const performEffect = async (
           `The code must RUN without throwing (guard nulls; watch variable scope), define a root ` +
           `component, and end with \`return ${REPORT_ROOT_NAME};\`.`;
 
-    const raw = await invokeChatbotVertexAI(
-      [{ text: prompt }],
-      secrets,
-      'generate-adhoc-report',
-      RESPONSE_SCHEMA,
-      REPORT_MODEL
-    );
+    const raw = await invokeReportModel(prompt, secrets);
 
     let parsed: { code?: unknown; title?: unknown; needsLayers?: unknown; needsDataset?: unknown };
     try {
@@ -284,11 +311,18 @@ const performEffect = async (
 };
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const { secrets, ...params } = validateRequestParameters(input);
+  const { secrets, model: requestedModel, ...params } = validateRequestParameters(input);
 
-  await requireUserWithRole(getUserToken(input), secrets, AD_HOC_REPORT_EDIT_ROLES);
+  const user = await requireUserWithRole(getUserToken(input), secrets, AD_HOC_REPORT_EDIT_ROLES);
 
-  const output = await performEffect(params, secrets);
+  const canPickModel =
+    user.roles?.some((role) => AD_HOC_REPORT_MODEL_PICKER_ROLES.includes(role.name as RoleType)) ?? false;
+
+  const model = (canPickModel && requestedModel) || AD_HOC_REPORT_DEFAULT_MODEL;
+
+  console.log(`${ZAMBDA_NAME}: using model ${model}`);
+
+  const output = await performEffect(params, model, secrets);
 
   return { statusCode: 200, body: JSON.stringify(output) };
 });

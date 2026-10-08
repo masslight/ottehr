@@ -15,7 +15,6 @@ import { makePlainJpeg } from './image-fixtures';
 
 vi.mock('../../../shared/ai', () => ({
   invokeChatbotVertexAI: vi.fn(),
-  VERTEX_AI_MODEL: 'gemini-3.1-flash-lite',
 }));
 
 vi.mock('../../../shared/getAuth0Token', async (importOriginal) => {

@@ -5,7 +5,23 @@
 // rows; a runtime failure returns via `previousAttempt` through the client's bounded auto-repair. No
 // user-facing refinement: the user edits the prompt and regenerates.
 import { z } from 'zod';
+import {
+  CLAUDE_OPUS_5_5_MODEL,
+  CLAUDE_SONNET_5_5_MODEL,
+  LlmModel,
+  VERTEX_AI_MODEL,
+} from '../../api/ai-models.constants';
 import { LlmDatasetSchemaSchema } from '../datasets/llm-schema';
+
+export const AD_HOC_REPORT_MODELS = ['defaultVertexModel', 'claudeSonnet_5_5', 'claudeOpus_5_5'] as const;
+export type AdHocReportModel = (typeof AD_HOC_REPORT_MODELS)[number];
+export const AD_HOC_REPORT_DEFAULT_MODEL: AdHocReportModel = 'defaultVertexModel';
+
+export const AD_HOC_REPORT_LLM_MODELS: Record<AdHocReportModel, LlmModel> = {
+  defaultVertexModel: VERTEX_AI_MODEL,
+  claudeSonnet_5_5: CLAUDE_SONNET_5_5_MODEL,
+  claudeOpus_5_5: CLAUDE_OPUS_5_5_MODEL,
+};
 
 export const GenerateAdHocReportInputSchema = z.object({
   schema: LlmDatasetSchemaSchema,
@@ -18,6 +34,7 @@ export const GenerateAdHocReportInputSchema = z.object({
       error: z.string().min(1),
     })
     .optional(),
+  model: z.enum(AD_HOC_REPORT_MODELS).optional(),
 });
 export type GenerateAdHocReportInput = z.infer<typeof GenerateAdHocReportInputSchema>;
 
