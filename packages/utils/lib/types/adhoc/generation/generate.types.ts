@@ -47,3 +47,17 @@ export const GenerateAdHocReportOutputSchema = z.object({
   needsDataset: z.object({ id: z.string(), concepts: z.array(z.string()) }).optional(),
 });
 export type GenerateAdHocReportOutput = z.infer<typeof GenerateAdHocReportOutputSchema>;
+
+// Async flow: { ...GenerateAdHocReportInput } starts a generation Task and returns { taskId };
+// { taskId } polls its status until the generated report (or an error) is ready.
+export const GetAdHocGenerationStatusInputSchema = z.object({ taskId: z.string().min(1) });
+
+export type GetAdHocGenerationStatusInput = z.infer<typeof GetAdHocGenerationStatusInputSchema>;
+
+export const AdHocGenerationStatusSchema = z.object({
+  status: z.enum(['requested', 'in-progress', 'completed', 'failed']),
+  result: GenerateAdHocReportOutputSchema.optional(),
+  error: z.string().optional(),
+});
+
+export type AdHocGenerationStatus = z.infer<typeof AdHocGenerationStatusSchema>;

@@ -19,12 +19,13 @@ import {
   AD_HOC_REPORT_MODEL_PICKER_ROLES,
   AD_HOC_REPORT_VIEW_ROLES,
 } from 'utils/lib/types/api/adhoc-report-access';
-import { generateAdHocReport, inferAdHocReportLayers, listAdHocReports, saveAdHocReport } from '../../../api/api';
+import { inferAdHocReportLayers, listAdHocReports, saveAdHocReport } from '../../../api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
 import useEvolveUser from '../../../hooks/useEvolveUser';
 import { datasetCatalog, getDataset, otherDatasetsFor } from '../datasets/registry';
 import { showAdHocDebugLog } from '../debug';
 import { SANDBOX_TIMEOUT_MESSAGE } from '../hooks/useSandbox';
+import { runAdHocReportGeneration } from '../query/generation-query';
 
 // How many times to transparently regenerate after a runtime error before surfacing it to the user.
 // 1 initial generation + up to 2 repairs.
@@ -280,7 +281,7 @@ export function useReportBuilder(): UseReportBuilder {
         fields: useSchema.fields.map((f) => f.name),
         rowCount: useSchema.rowCount,
       });
-      const result = await generateAdHocReport(oystehrZambda, {
+      const result = await runAdHocReportGeneration(oystehrZambda, {
         schema: useSchema,
         request: message,
         previousAttempt,

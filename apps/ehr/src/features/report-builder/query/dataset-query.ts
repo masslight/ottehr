@@ -22,17 +22,35 @@ export async function downloadReportData<T>(downloadUrl: string): Promise<T> {
 const ADHOC_POLL_INTERVAL_MS = 2000;
 const ADHOC_POLL_TIMEOUT_MS = 15 * 60 * 1000;
 
-export async function runAdHocReport<T>(oystehr: Oystehr, input: StartAdHocReportInput): Promise<T> {
-  const { taskId } = await startAdHocReport(oystehr, input);
+/** Polls an ad-hoc Task (data fetch or report generation) until it completes; throws when it fails or times out. */
+export async function pollAdHocTask<S extends { status: string; error?: string }>(
+  getStatus: () => Promise<S>,
+  { failedMessage, timeoutMessage }: { failedMessage: string; timeoutMessage: string }
+): Promise<S> {
   const deadline = Date.now() + ADHOC_POLL_TIMEOUT_MS;
+
   while (Date.now() < deadline) {
-    const status = await getAdHocReportStatus(oystehr, taskId);
-    if (status.status === 'completed') {
-      if (!status.downloadUrl) throw new Error('Report completed but produced no data file');
-      return downloadReportData<T>(status.downloadUrl);
-    }
-    if (status.status === 'failed') throw new Error(status.error || 'Report generation failed');
+    const status = await getStatus();
+
+    if (status.status === 'completed') return status;
+
+    if (status.status === 'failed') throw new Error(status.error || failedMessage);
+
     await new Promise((resolve) => setTimeout(resolve, ADHOC_POLL_INTERVAL_MS));
   }
-  throw new Error('Report timed out while waiting for data');
+
+  throw new Error(timeoutMessage);
+}
+
+export async function runAdHocReport<T>(oystehr: Oystehr, input: StartAdHocReportInput): Promise<T> {
+  const { taskId } = await startAdHocReport(oystehr, input);
+
+  const status = await pollAdHocTask(() => getAdHocReportStatus(oystehr, taskId), {
+    failedMessage: 'Report generation failed',
+    timeoutMessage: 'Report timed out while waiting for data',
+  });
+
+  if (!status.downloadUrl) throw new Error('Report completed but produced no data file');
+
+  return downloadReportData<T>(status.downloadUrl);
 }
