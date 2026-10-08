@@ -43,7 +43,6 @@ export type QuantityUnit = (typeof QUANTITY_UNITS)[number];
 export interface OrderPrescriptionInput {
   patientId: string;
   practitionerId: string;
-  prescriberSpi: string;
   encounterId: string;
   ndc: string;
   medicationDescription: string;

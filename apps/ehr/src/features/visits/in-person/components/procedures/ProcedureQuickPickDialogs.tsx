@@ -12,14 +12,19 @@ import {
 import { FC, useState } from 'react';
 import { ProcedureQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 
+/** Only the name and id are read, so any category's quick picks fit. */
+type NamedQuickPick = Pick<ProcedureQuickPickData, 'id' | 'name'>;
+
 interface ProcedureQuickPickDialogsProps {
   open: boolean;
   name: string;
   onNameChange: (name: string) => void;
-  existingQuickPicks: ProcedureQuickPickData[];
+  existingQuickPicks: NamedQuickPick[];
   saving: boolean;
   onClose: () => void;
   onSave: (overwriteId?: string) => void;
+  /** What the quick pick holds, in the overwrite question ("the current procedure data"). */
+  subject?: string;
 }
 
 export const ProcedureQuickPickDialogs: FC<ProcedureQuickPickDialogsProps> = ({
@@ -30,8 +35,9 @@ export const ProcedureQuickPickDialogs: FC<ProcedureQuickPickDialogsProps> = ({
   saving,
   onClose,
   onSave,
+  subject = 'procedure',
 }) => {
-  const [overwriteTarget, setOverwriteTarget] = useState<ProcedureQuickPickData | null>(null);
+  const [overwriteTarget, setOverwriteTarget] = useState<NamedQuickPick | null>(null);
 
   return (
     <>
@@ -84,7 +90,7 @@ export const ProcedureQuickPickDialogs: FC<ProcedureQuickPickDialogsProps> = ({
         <DialogContent>
           <Typography>
             A quick pick named &ldquo;{overwriteTarget?.name}&rdquo; already exists. Do you want to replace it with the
-            current procedure data?
+            current {subject} data?
           </Typography>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
