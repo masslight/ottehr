@@ -1,3 +1,4 @@
+import { otherColors } from '@ehrTheme/colors';
 import AddOutlinedIcon from '@mui/icons-material/AddOutlined';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CalendarMonthOutlinedIcon from '@mui/icons-material/CalendarMonthOutlined';
@@ -30,6 +31,9 @@ import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useEffect, useMemo, useState } from 'react';
 import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom';
 import { CommandPaletteSearchButton } from 'src/components/CommandPaletteSearchButton';
+import { FlaggedReasonIcon } from 'src/components/FlaggedReasonIcon';
+import { GenericToolTip } from 'src/components/GenericToolTip';
+import { FLAGGED_REASON_FOR_VISIT_TOOLTIP, FLAGGED_REASONS_FOR_VISIT } from 'src/constants';
 import { useSendFax } from 'src/features/fax/hooks/useSendFax';
 import { SendFaxDialog } from 'src/features/fax/ui/SendFaxDialog';
 import { CreateTaskDialog } from 'src/features/tasks/components/CreateTaskDialog';
@@ -62,6 +66,7 @@ import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.const
 import type { VitalsWeightObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { VitalsUnitInputOrder } from 'utils/lib/types/api/progress-note-config/progress-note-config.types';
 import { FhirAppointmentType } from 'utils/lib/types/common';
+import { REASON_FOR_VISIT_SEPARATOR } from 'utils/lib/types/constants';
 import { PRACTITIONER_CODINGS } from 'utils/lib/types/data/appointments/appointments.types';
 import { formatDateToMDYWithTime } from 'utils/lib/utils/date';
 import { dataTestIds } from '../../../../constants/data-test-ids';
@@ -109,7 +114,7 @@ const PatientMetadata = styled(Typography)(({ theme }) => ({
 
 const PatientInfoWrapper = styled(Box)({
   display: 'flex',
-  alignItems: 'baseline',
+  alignItems: 'center',
   gap: '8px',
 });
 
@@ -403,7 +408,11 @@ export const Header = (): JSX.Element => {
 
   const reasonForVisit = formatLabelValue(appointmentValues?.description, "Reason for today's Visit");
   const userId = formatLabelValue(patient?.id);
-  const [_status, setStatus] = useState<VisitStatusLabel | undefined>(undefined);
+  const [status, setStatus] = useState<VisitStatusLabel | undefined>(undefined);
+  const [primaryReasonForVisit, additionalReasonForVisit] = reasonForVisit.split(REASON_FOR_VISIT_SEPARATOR);
+  const isReasonForVisitFlagged =
+    FLAGGED_REASONS_FOR_VISIT.includes(primaryReasonForVisit) &&
+    !(['cancelled', 'no show', 'completed', 'discharged'] as (VisitStatusLabel | undefined)[]).includes(status);
   const [headerMenuAnchorEl, setHeaderMenuAnchorEl] = useState<null | HTMLElement>(null);
   const [showCreateTaskDialog, setShowCreateTaskDialog] = useState(false);
   const sendFaxDialog = useSendFax(appointmentID ? { type: 'visit', appointmentId: appointmentID } : undefined);
@@ -745,7 +754,22 @@ export const Header = (): JSX.Element => {
                           <PatientMetadata data-testid={dataTestIds.inPersonHeader.weight}>{weight}</PatientMetadata> |
                         </>
                       ) : null}
-                      <PatientMetadata>{language}</PatientMetadata> |<PatientMetadata>{reasonForVisit}</PatientMetadata>
+                      <PatientMetadata>{language}</PatientMetadata> |
+                      {isReasonForVisitFlagged ? (
+                        <GenericToolTip title={FLAGGED_REASON_FOR_VISIT_TOOLTIP} placement="top">
+                          <Stack direction="row" alignItems="center">
+                            <FlaggedReasonIcon style={{ verticalAlign: 'middle' }} />
+                            <PatientMetadata data-testid={dataTestIds.inPersonHeader.reasonForVisit}>
+                              <span style={{ color: otherColors.priorityHighText }}>{primaryReasonForVisit}</span>
+                              {additionalReasonForVisit && `${REASON_FOR_VISIT_SEPARATOR}${additionalReasonForVisit}`}
+                            </PatientMetadata>
+                          </Stack>
+                        </GenericToolTip>
+                      ) : (
+                        <PatientMetadata data-testid={dataTestIds.inPersonHeader.reasonForVisit}>
+                          {reasonForVisit}
+                        </PatientMetadata>
+                      )}
                       <PatientMetadata
                         data-testid={dataTestIds.inPersonHeader.payment}
                         sx={{

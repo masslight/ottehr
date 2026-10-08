@@ -28,6 +28,7 @@ export const dataTestIds = {
     weight: 'header-weight',
     roomSelect: 'header-room-select',
     payment: 'header-payment',
+    reasonForVisit: 'header-reason-for-visit',
   },
   inPersonLayout: {
     selectProviderAlert: 'select-provider-alert',
