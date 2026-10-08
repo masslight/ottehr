@@ -551,6 +551,11 @@ export const Header = (): JSX.Element => {
                       <PatientMetadata sx={{ whiteSpace: 'nowrap' }}>{visitTypeAndCategory}</PatientMetadata>
                     </Grid>
                   )}
+                  {visitBookingType && (
+                    <Grid item>
+                      <PatientMetadata sx={{ whiteSpace: 'nowrap' }}>{visitBookingType}</PatientMetadata>
+                    </Grid>
+                  )}
                   <Grid item sx={{ display: 'flex' }}>
                     <GenericToolTip title={`Payment: ${paymentDisplayValue}`} placement="top" customWidth={400}>
                       <PaidOutlinedIcon
@@ -561,11 +566,6 @@ export const Header = (): JSX.Element => {
                       />
                     </GenericToolTip>
                   </Grid>
-                  {visitBookingType && (
-                    <Grid item>
-                      <PatientMetadata sx={{ whiteSpace: 'nowrap' }}>{visitBookingType}</PatientMetadata>
-                    </Grid>
-                  )}
                   <Grid item sx={{ display: 'flex' }}>
                     <GenericToolTip title={careTeamTooltip} placement="top" customWidth={400}>
                       <IconButton
