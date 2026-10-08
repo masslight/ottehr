@@ -115,10 +115,12 @@ const PatientMetadata = styled(Typography)(({ theme }) => ({
   color: theme.palette.text.secondary,
 }));
 
+const SMALL_SCREEN_MEDIA_QUERY = '@media (max-width: 1179px)';
+
 const PatientInfoWrapper = styled(Box)({
   display: 'flex',
   alignItems: 'center',
-  gap: '8px',
+  columnGap: '8px',
 });
 
 const formatHeaderWeight = (weightKg: number, unitInputOrder: VitalsUnitInputOrder): string =>
@@ -788,7 +790,7 @@ export const Header = (): JSX.Element => {
               <Grid item xs>
                 <PatientInfoWrapper>
                   <Grid>
-                    <PatientInfoWrapper>
+                    <PatientInfoWrapper sx={{ flexWrap: 'wrap' }}>
                       <GenericToolTip title={pronouns} placement="top">
                         <PatientName
                           data-testid={dataTestIds.inPersonHeader.patientName}
@@ -799,10 +801,16 @@ export const Header = (): JSX.Element => {
                       </GenericToolTip>
                       <PatientNotesButton patientId={userId} />
                       <PrintVisitLabelButton encounterId={effectiveEncounterId} />
-                      <PatientMetadata sx={{ fontWeight: 500 }}>{dob}</PatientMetadata> |
+                      <PatientMetadata sx={{ fontWeight: 500 }}>{dob}</PatientMetadata>
+                      <Box component="span">|</Box>
                       <PatientMetadata
                         data-testid={dataTestIds.inPersonHeader.allergies}
-                        sx={{ fontWeight: chartData?.allergies?.length ? 700 : 400, maxWidth: '60%' }}
+                        sx={{
+                          fontWeight: chartData?.allergies?.length ? 700 : 400,
+                          maxWidth: '60%',
+                          // On small screens allergies drop to their own line below the patient name
+                          [SMALL_SCREEN_MEDIA_QUERY]: { flexBasis: '100%', maxWidth: '100%' },
+                        }}
                       >
                         {allergies}
                       </PatientMetadata>
@@ -837,7 +845,7 @@ export const Header = (): JSX.Element => {
               <Grid
                 item
                 sx={{
-                  '@media (max-width: 1179px)': {
+                  [SMALL_SCREEN_MEDIA_QUERY]: {
                     display: 'flex',
                     flexDirection: 'column',
                     gap: 0.5,
