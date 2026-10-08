@@ -800,6 +800,12 @@ export const Header = (): JSX.Element => {
                       <PatientNotesButton patientId={userId} />
                       <PrintVisitLabelButton encounterId={effectiveEncounterId} />
                       <PatientMetadata sx={{ fontWeight: 500 }}>{dob}</PatientMetadata> |
+                      <PatientMetadata
+                        data-testid={dataTestIds.inPersonHeader.allergies}
+                        sx={{ fontWeight: chartData?.allergies?.length ? 700 : 400, maxWidth: '60%' }}
+                      >
+                        {allergies}
+                      </PatientMetadata>
                     </PatientInfoWrapper>
                     <PatientInfoWrapper>
                       <PatientMetadata>{gender}</PatientMetadata> |
@@ -826,12 +832,6 @@ export const Header = (): JSX.Element => {
                       )}
                     </PatientInfoWrapper>
                   </Grid>
-                  <PatientMetadata
-                    data-testid={dataTestIds.inPersonHeader.allergies}
-                    sx={{ fontWeight: chartData?.allergies?.length ? 700 : 400, maxWidth: '60%' }}
-                  >
-                    {allergies}
-                  </PatientMetadata>
                 </PatientInfoWrapper>
               </Grid>
               <Grid
