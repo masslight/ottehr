@@ -10,6 +10,7 @@ import { describe, expect, test } from 'vitest';
 import {
   deduplicateTemplateResourcesByMetaTag,
   filterEntriesToTemplateContent,
+  isInHouseMedicationCptLine,
   isValidExternalLabServiceRequestForTemplate,
   isValidInHouseLabServiceRequest,
   isValidProcedureServiceRequest,
@@ -589,5 +590,26 @@ describe('deduplicateTemplateResourcesByMetaTag', () => {
     };
     const result = deduplicateTemplateResourcesByMetaTag([enc]);
     expect(result.map((r) => r.id)).toEqual(['enc-1']);
+  });
+});
+
+describe('isInHouseMedicationCptLine', () => {
+  test('skips only CPT lines written by an in-house medication order, so vaccine and provider lines stay in the template', () => {
+    const cptLine = (partOf?: string): Procedure => ({
+      resourceType: 'Procedure',
+      status: 'completed',
+      subject: { reference: 'Patient/p1' },
+      meta: { tag: [{ system: chartDataTagSystem('cpt-code'), code: 'cpt-code' }] },
+      ...(partOf && { partOf: [{ reference: partOf }] }),
+    });
+    const inHouseMedicationOrderReferences = new Set(['MedicationAdministration/in-house']);
+
+    expect(
+      isInHouseMedicationCptLine(cptLine('MedicationAdministration/in-house'), inHouseMedicationOrderReferences)
+    ).toBe(true);
+    expect(
+      isInHouseMedicationCptLine(cptLine('MedicationAdministration/vaccine'), inHouseMedicationOrderReferences)
+    ).toBe(false);
+    expect(isInHouseMedicationCptLine(cptLine(), inHouseMedicationOrderReferences)).toBe(false);
   });
 });
