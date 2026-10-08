@@ -17,7 +17,7 @@ interface MedicationAPI {
   isLoading: boolean;
   loadMedications: () => Promise<void>;
   updateMedication: (updatedMedication: UpdateMedicationOrderInput) => Promise<{ id: string; message: string }>;
-  deleteMedication: (idsToDelete: string) => Promise<void>;
+  deleteMedication: (idToDelete: string) => Promise<string[]>;
 }
 
 const emptyArray: ExtendedMedicationDataForResponse[] = [];
@@ -68,10 +68,11 @@ export const useMedicationAPI = (): MedicationAPI => {
       return data;
     },
     deleteMedication: async (idToDelete) => {
-      await createUpdateMedicationOrder(
+      const response = await createUpdateMedicationOrder(
         { orderId: idToDelete, newStatus: 'cancelled' },
         { onSuccess: invalidateCache }
       );
+      return response.retainedCptCodes ?? [];
     },
   };
 };

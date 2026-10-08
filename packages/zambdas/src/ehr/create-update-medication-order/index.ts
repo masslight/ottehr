@@ -49,10 +49,7 @@ import { FHIR_RESOURCE_NOT_FOUND_CUSTOM, INVALID_INPUT_ERROR } from 'utils/lib/t
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { makeProcedureResource } from '../../shared/chart-data';
 import { assertDefined, createClinicalOystehrClient } from '../../shared/helpers';
-import {
-  makeOrderCptLinesDeleteRequests,
-  makeOrderStatementsEnteredInErrorRequests,
-} from '../../shared/medication-order-delete';
+import { makeOrderDeleteRequests } from '../../shared/medication-order-delete';
 import { makeNursingOrderTransactionRequests } from '../../shared/nursing-orders';
 import { getMyPractitionerId } from '../../shared/practitioners';
 import { wrapHandler } from '../../shared/sentry';
@@ -131,7 +128,7 @@ async function performEffect(
     };
   } else if (orderId && newStatus) {
     const orderResources = await getOrderResources(oystehr, orderId);
-    await changeOrderStatus(oystehr, orderResources, newStatus);
+    const { retainedCptCodes } = await changeOrderStatus(oystehr, orderResources, newStatus);
 
     const encounterIdFromMA = getEncounterIdFromMA(orderResources.medicationAdministration);
     if (encounterIdFromMA) {
@@ -146,6 +143,7 @@ async function performEffect(
     return {
       message: 'Order status was changed successfully',
       id: orderId,
+      retainedCptCodes,
     };
   } else if (orderData) {
     const medicationAdministrationId = await createOrder(
@@ -375,7 +373,7 @@ async function changeOrderStatus(
   oystehr: Oystehr,
   pkg: OrderPackage,
   newStatus: MedicationOrderStatusesType
-): Promise<MedicationAdministration> {
+): Promise<{ retainedCptCodes: string[] }> {
   console.log(`Changing status to: ${newStatus}`);
 
   let operations: Operation[] = [];
@@ -400,18 +398,16 @@ async function changeOrderStatus(
     })
   );
 
-  // If we're cancelling a medication and there's a corresponding MedicationStatement, update its status to 'entered-in-error'
+  let retainedCptCodes: string[] = [];
   if (newStatus === 'cancelled') {
-    transactionRequests.push(
-      ...(await makeOrderStatementsEnteredInErrorRequests(oystehr, pkg.medicationAdministration.id!)),
-      ...(await makeOrderCptLinesDeleteRequests(oystehr, pkg.medicationAdministration))
-    );
+    const cleanup = await makeOrderDeleteRequests(oystehr, pkg.medicationAdministration);
+    transactionRequests.push(...cleanup.requests);
+    retainedCptCodes = cleanup.retainedCptCodes;
   }
 
-  const transactionResult = await oystehr.fhir.transaction({ requests: transactionRequests });
+  await oystehr.fhir.transaction({ requests: transactionRequests });
 
-  return transactionResult.entry?.find((entry) => entry.resource?.resourceType === 'MedicationAdministration')
-    ?.resource as MedicationAdministration;
+  return { retainedCptCodes };
 }
 
 async function getOrderResources(oystehr: Oystehr, orderId: string): Promise<OrderPackage> {

@@ -31,6 +31,7 @@ import { getImmunizationMARUrl } from 'src/features/visits/in-person/routing/hel
 import { QuickPicksButton } from 'src/features/visits/shared/components/QuickPicksButton';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
+import { enqueueRetainedCptCodesWarning } from 'src/features/visits/shared/utils/retainedCptCodesWarning';
 import { cleanupProperties } from 'src/helpers/misc.helper';
 import { useCommandPaletteSource } from 'src/hooks/useCommandPaletteSource';
 import useEvolveUser from 'src/hooks/useEvolveUser';
@@ -77,7 +78,7 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
   const [isOrderSaved, setIsOrderSaved] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const { mutateAsync: createUpdateOrder, isPending: isOrderSaving } = useCreateUpdateImmunizationOrder();
-  const { mutateAsync: cancelOrder, isPending: isDeleting } = useCancelImmunizationOrder();
+  const { mutateAsync: cancelOrder, isPending: isDeleting } = useCancelImmunizationOrder(encounterId);
 
   const currentUser = useEvolveUser();
   const isAdmin = currentUser?.hasRole([RoleType.Administrator]) ?? false;
@@ -103,7 +104,8 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
   const handleDeleteOrder = async (): Promise<void> => {
     if (!orderId) return;
     try {
-      await cancelOrder({ orderId });
+      const response = await cancelOrder({ orderId });
+      enqueueRetainedCptCodesWarning(response?.retainedCptCodes);
       finish();
     } catch {
       setIsDeleteDialogOpen(false);

@@ -87,3 +87,7 @@ export interface AdministerImmunizationOrderRequest {
 export interface CancelImmunizationOrderRequest {
   orderId: string;
 }
+
+export interface CancelImmunizationOrderResponse {
+  retainedCptCodes: string[];
+}

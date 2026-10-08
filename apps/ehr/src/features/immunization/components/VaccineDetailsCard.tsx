@@ -49,6 +49,7 @@ import { EMERGENCY_CONTACT_RELATIONSHIPS } from 'utils/lib/types/api/medication-
 import { RoleType } from 'utils/lib/types/api/user.types';
 import { ImmunizationOrder } from 'utils/lib/types/data/immunization/types';
 import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils/lib/validation/constants';
+import { enqueueRetainedCptCodesWarning } from '../../visits/shared/utils/retainedCptCodesWarning';
 import { ADMINISTERED, AdministrationType, NOT_ADMINISTERED, PARTLY_ADMINISTERED } from '../common';
 import { useImmunizationQuickPickManagement } from '../hooks/useImmunizationQuickPickManagement';
 import { AdministrationConfirmationDialog } from './AdministrationConfirmationDialog';
@@ -90,7 +91,7 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order, onFinished }) => {
   const { mappedData } = useAppointmentData(appointmentId);
 
   const { mutateAsync: administerOrder } = useAdministerImmunizationOrder();
-  const { mutateAsync: cancelOrder, isPending: isDeleting } = useCancelImmunizationOrder();
+  const { mutateAsync: cancelOrder, isPending: isDeleting } = useCancelImmunizationOrder(order.encounterId);
   const currentUser = useEvolveUser();
   const isAdmin = currentUser?.hasRole([RoleType.Administrator]) ?? false;
 
@@ -112,7 +113,8 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order, onFinished }) => {
 
   const handleDeleteOrder = async (): Promise<void> => {
     try {
-      await cancelOrder({ orderId: order.id });
+      const response = await cancelOrder({ orderId: order.id });
+      enqueueRetainedCptCodesWarning(response?.retainedCptCodes);
       if (onFinished) {
         onFinished();
       } else {

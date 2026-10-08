@@ -19,6 +19,7 @@ import {
 } from 'src/features/visits/in-person/routing/helpers';
 import { searchRouteByCode } from 'utils/lib/fhir/medication-administration';
 import { ImmunizationOrder } from 'utils/lib/types/data/immunization/types';
+import { enqueueRetainedCptCodesWarning } from '../../visits/shared/utils/retainedCptCodesWarning';
 
 interface Props {
   order: ImmunizationOrder;
@@ -52,13 +53,14 @@ export const OrderHistoryTableRow: React.FC<Props> = ({
     navigate(getImmunizationOrderEditUrl(appointmentId, order.id));
   };
 
-  const { mutateAsync: cancelOrder, isPending: isDeleting } = useCancelImmunizationOrder();
+  const { mutateAsync: cancelOrder, isPending: isDeleting } = useCancelImmunizationOrder(order.encounterId);
 
   const handleConfirmDelete = async (): Promise<void> => {
     try {
-      await cancelOrder({
+      const response = await cancelOrder({
         orderId: order.id,
       });
+      enqueueRetainedCptCodesWarning(response?.retainedCptCodes);
     } catch {
       enqueueSnackbar('An error occurred while deleting the vaccine order. Please try again.', { variant: 'error' });
     } finally {

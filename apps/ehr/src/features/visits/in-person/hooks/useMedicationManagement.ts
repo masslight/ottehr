@@ -33,7 +33,7 @@ export const useMedicationManagement = (): {
     id: string;
     message: string;
   }>;
-  deleteMedication: (idToDelete: string) => Promise<void>;
+  deleteMedication: (idToDelete: string) => Promise<string[]>;
   getIsMedicationEditable: (type: MedicationOrderType, medication?: ExtendedMedicationDataForResponse) => boolean;
 } => {
   const { medications, isLoading, loadMedications, updateMedication, deleteMedication } = useMedicationAPI();
