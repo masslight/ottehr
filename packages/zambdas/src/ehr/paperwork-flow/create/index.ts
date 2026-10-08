@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import Oystehr, { BatchInputPatchRequest, BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
@@ -19,7 +20,6 @@ import {
   healthcareServiceExtensionUrlMap,
   makeAdditionalFlowQuestionnairePatches,
   PAPERWORK_FLOW_BASE_VERSION,
-  QUESTIONNAIRE_URL_BASE,
   searchActiveQuestionnairesByTag,
   searchServiceCategoryHealthcareServices,
 } from '../shared';
@@ -45,32 +45,31 @@ interface EffectInput extends ValidatedRequest {
   formQuestionnaires: Questionnaire[];
   flowQuestionnaires: Questionnaire[];
   services: HealthcareService[];
-  uniqueSlugForFlow: string;
 }
 
 async function complexValidation(input: ValidatedRequest, oystehr: Oystehr): Promise<EffectInput> {
   console.log('searching questionnaire and service resources');
-  const [formQuestionnaires, ottehrManagedQuestionnaires, flowQuestionnaires, services, uniqueSlugForFlow] =
-    await Promise.all([
-      searchActiveQuestionnairesByTag(oystehr, PRACTICE_MANAGED_QUESTIONNAIRE_TAG),
-      getOttehrManagedQuestionnaires(oystehr, input.secrets),
-      searchActiveQuestionnairesByTag(oystehr, PAPERWORK_FLOW_TAG),
-      searchServiceCategoryHealthcareServices(oystehr),
-      makeUniqueFlowSlug(oystehr, input.flow.name),
-    ]);
+  const [formQuestionnaires, ottehrManagedQuestionnaires, flowQuestionnaires, services] = await Promise.all([
+    searchActiveQuestionnairesByTag(oystehr, PRACTICE_MANAGED_QUESTIONNAIRE_TAG),
+    getOttehrManagedQuestionnaires(oystehr, input.secrets),
+    searchActiveQuestionnairesByTag(oystehr, PAPERWORK_FLOW_TAG),
+    searchServiceCategoryHealthcareServices(oystehr),
+  ]);
 
   const allFormQuestionnaires = [...formQuestionnaires, ...ottehrManagedQuestionnaires];
 
-  return { ...input, formQuestionnaires: allFormQuestionnaires, flowQuestionnaires, services, uniqueSlugForFlow };
+  return { ...input, formQuestionnaires: allFormQuestionnaires, flowQuestionnaires, services };
 }
 
 async function performEffect(input: EffectInput, oystehr: Oystehr): Promise<void> {
-  const { flow, flowServices, formQuestionnaires, flowQuestionnaires, services, uniqueSlugForFlow } = input;
+  const { flow, flowServices, formQuestionnaires, flowQuestionnaires, services } = input;
+
+  const slug = makeUniqueFlowSlug(input.flow.name);
 
   const ottehrManagedServices = flowServices.filter((s) => s.ottehrManagedService);
 
   console.log('configuring questionnaire resource');
-  const flowQuestionnaire = configFlowQuestionnaire(formQuestionnaires, uniqueSlugForFlow, flow, flowServices);
+  const flowQuestionnaire = configFlowQuestionnaire(formQuestionnaires, slug, flow, flowServices);
 
   console.log(
     `configuring healthcare service patch requests for ${flowServices.map(
@@ -97,33 +96,12 @@ async function performEffect(input: EffectInput, oystehr: Oystehr): Promise<void
   await oystehr.fhir.transaction({ requests });
 }
 
-// i doubt we would ever get to 50, its just here as a precaution
-// someone would have had to made 50 identically named flows, which i say is unlikely but who knows!
-const MAX_SLUG_ATTEMPTS = 50;
-
-// need to validate url created with this slug is unique across all questionnaires
-async function makeUniqueFlowSlug(oystehr: Oystehr, desired: string): Promise<string> {
+// create unique slug to ensure url is unique across all questionnaires
+function makeUniqueFlowSlug(desired: string): string {
   const baseSlug = slugify(desired) || 'flow';
+  const suffix = randomBytes(3).toString('hex'); // e.g. "a3f9c1"
 
-  for (let attempt = 1; attempt <= MAX_SLUG_ATTEMPTS; attempt++) {
-    const candidate = attempt === 1 ? baseSlug : `${baseSlug}-${attempt}`;
-    const candidateUrl = `${QUESTIONNAIRE_URL_BASE}${candidate}`;
-
-    const matches = (
-      await oystehr.fhir.search<Questionnaire>({
-        resourceType: 'Questionnaire',
-        params: [
-          { name: 'url', value: candidateUrl },
-          { name: '_count', value: '1' },
-          { name: '_elements', value: 'id' },
-        ],
-      })
-    ).unbundle();
-
-    if (matches.length === 0) return candidate;
-  }
-
-  throw new Error(`Could not find a unique url for flow "${desired}" after ${MAX_SLUG_ATTEMPTS} attempts`);
+  return `${baseSlug}-${suffix}`;
 }
 
 function configFlowQuestionnaire(
