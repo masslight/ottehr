@@ -1,8 +1,9 @@
 import Oystehr from '@oystehr/sdk';
 import { ClaimResponse, PaymentReconciliation } from 'fhir/r4b';
 import { BILLING_RESOURCE_TAG } from 'utils/lib/fhir/constants';
-import { describe, expect, it, vi } from 'vitest';
-import { tagEraResources } from '../../../src/billing/shared';
+import { describe, expect, it, Mock, vi } from 'vitest';
+import { markImportedEra } from '../../../src/billing/import-era';
+import { ERA_SOURCE_EXTENSION, tagEraResources } from '../../../src/billing/shared';
 
 const paymentReconciliation = (id?: string, tagged = false): PaymentReconciliation => ({
   resourceType: 'PaymentReconciliation',
@@ -114,5 +115,65 @@ describe('tagEraResources', () => {
 
     expect(tagged).toBe(2);
     expect(transaction.mock.calls[0][0].requests).toHaveLength(2);
+  });
+});
+
+describe('markImportedEra', () => {
+  const RAW_X12 = { url: 'https://extensions.fhir.oystehr.com/rcm-raw-x12', valueString: 'ISA*...' };
+  const MARKER = { url: ERA_SOURCE_EXTENSION, valueCode: 'x12-import' };
+
+  const makeClient = (stored: PaymentReconciliation): { oystehr: Oystehr; get: Mock; patch: Mock } => {
+    const get = vi.fn().mockResolvedValue(stored);
+    const patch = vi.fn().mockResolvedValue(stored);
+    return { oystehr: { fhir: { get, patch } } as unknown as Oystehr, get, patch };
+  };
+
+  it('appends the X12-import marker next to the raw 835', async () => {
+    const { oystehr, get, patch } = makeClient({ ...paymentReconciliation('pr1'), extension: [RAW_X12] });
+    await markImportedEra(oystehr, {
+      resourceType: 'Bundle',
+      type: 'transaction-response',
+      entry: [{ resource: paymentReconciliation('pr1') }],
+    });
+    expect(get).toHaveBeenCalledWith({ resourceType: 'PaymentReconciliation', id: 'pr1' });
+    expect(patch).toHaveBeenCalledWith({
+      resourceType: 'PaymentReconciliation',
+      id: 'pr1',
+      operations: [{ op: 'add', path: '/extension/-', value: MARKER }],
+    });
+  });
+
+  it('finds the ERA by its response location and starts the extension list when there is none', async () => {
+    const { oystehr, patch } = makeClient(paymentReconciliation('pr2'));
+    await markImportedEra(oystehr, {
+      resourceType: 'Bundle',
+      type: 'transaction-response',
+      entry: [{ response: { status: '201', location: 'PaymentReconciliation/pr2/_history/1' } }],
+    });
+    expect(patch).toHaveBeenCalledWith({
+      resourceType: 'PaymentReconciliation',
+      id: 'pr2',
+      operations: [{ op: 'add', path: '/extension', value: [MARKER] }],
+    });
+  });
+
+  it('leaves an already marked ERA alone and never fails the import', async () => {
+    const marked = makeClient({ ...paymentReconciliation('pr1'), extension: [RAW_X12, MARKER] });
+    await markImportedEra(marked.oystehr, {
+      resourceType: 'Bundle',
+      type: 'transaction-response',
+      entry: [{ resource: paymentReconciliation('pr1') }],
+    });
+    expect(marked.patch).not.toHaveBeenCalled();
+
+    const failing = makeClient(paymentReconciliation('pr1'));
+    failing.get.mockRejectedValue(new Error('boom'));
+    await expect(
+      markImportedEra(failing.oystehr, {
+        resourceType: 'Bundle',
+        type: 'transaction-response',
+        entry: [{ resource: paymentReconciliation('pr1') }],
+      })
+    ).resolves.toBeUndefined();
   });
 });

@@ -2,7 +2,7 @@
   "name": "config-types",
   "private": true,
   "type": "module",
-  "version": "1.44.15",
+  "version": "1.44.20",
   "description": "Core type definitions for Ottehr configuration contracts",
   "engines": {
     "node": ">=22.0.0",

@@ -7,7 +7,7 @@
 import { captureException } from '@sentry/node-core/light';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DocumentReference } from 'fhir/r4b';
-import { ChartNarrativeResponse, NarrativeLine } from 'utils/lib/easy-chart/api';
+import { ChartNarrativeRequestSchema, ChartNarrativeResponse, NarrativeLine } from 'utils/lib/easy-chart/api';
 import {
   EASY_CHART_NARRATIVE_EXTENSION_URL,
   narrativeExtension,
@@ -18,17 +18,17 @@ import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { validateWithSchema } from '../../shared/validation';
 import { authorizeEasyChartRequest } from '../easy-chart-shared/authorize';
 import { generateNarrative } from '../easy-chart-shared/narrative';
 import { isVisitLocked } from '../easy-chart-shared/visit-lock';
-import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'easy-chart-narrative';
 
 let m2mToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const { secrets, transcript, encounterId, documentId } = validateRequestParameters(input);
+  const { secrets, transcript, encounterId, documentId } = validateWithSchema(ChartNarrativeRequestSchema, input);
 
   await authorizeEasyChartRequest(input, encounterId, secrets, ZAMBDA_NAME);
 

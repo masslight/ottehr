@@ -41,11 +41,13 @@ import {
   PSC_HOLD_CONFIG,
 } from 'utils/lib/types/data/labs/labs.constants';
 import { v4 as uuidV4 } from 'uuid';
+import { z } from 'zod';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { topLevelCatch } from '../../shared/lambda';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { validateWithSchema } from '../../shared/validation';
 import { labOrderCommunicationType } from '../lab/external/get-lab-orders/helpers';
 import { AD_CANONICAL_URL_BASE } from '../lab/shared/in-house-labs';
 import {
@@ -57,7 +59,11 @@ import {
   isPatientEducationCommunication,
   TemplateEncounterResource,
 } from '../shared/template-helpers';
-import { validateRequestParameters } from './validateRequestParameters';
+
+export const AdminCreateTemplateSchema = z.object({
+  encounterId: z.string().uuid(),
+  templateName: z.string().trim().min(1),
+});
 
 // Local const so that DEPRECATED system doesn't get imported from utils
 const ICD_10_CODE_SYSTEM = 'http://hl7.org/fhir/sid/icd-10';
@@ -69,7 +75,7 @@ export const index = wrapHandler(
   'admin-create-template',
   async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
     try {
-      const validatedInput = validateRequestParameters(input);
+      const validatedInput = validateWithSchema(AdminCreateTemplateSchema, input);
 
       const { secrets } = validatedInput;
       m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);

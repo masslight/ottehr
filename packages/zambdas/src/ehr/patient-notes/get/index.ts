@@ -3,11 +3,18 @@ import { Communication } from 'fhir/r4b';
 import { PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
 import { isNoteEdited } from 'utils/lib/helpers/visit-note/note-edit-detection.helper';
 import { GetPatientNotesOutput, PatientNoteDTO } from 'utils/lib/types/api/patient-notes/patient-notes.types';
+import { z } from 'zod';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
-import { validateRequestParameters } from './validateRequestParameters';
+import { validateWithSchema } from '../../../shared/validation';
+
+export const GetPatientNotesSchema = z.object({
+  patientId: z.string().uuid(),
+  offset: z.number().int().min(0).default(0),
+  pageSize: z.number().int().min(1).max(100).default(20),
+});
 
 const ZAMBDA_NAME = 'get-patient-notes';
 let m2mToken: string;
@@ -15,7 +22,7 @@ let m2mToken: string;
 const PATIENT_NOTE_TAG = `${PRIVATE_EXTENSION_BASE_URL}/patient|patient-note`;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const { patientId, offset, pageSize, secrets } = validateRequestParameters(input);
+  const { patientId, offset, pageSize, secrets } = validateWithSchema(GetPatientNotesSchema, input);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 

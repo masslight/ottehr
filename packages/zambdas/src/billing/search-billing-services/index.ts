@@ -2,19 +2,22 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Basic } from 'fhir/r4b';
 import { CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM } from 'utils/lib/helpers/rcm/constants';
+import { SearchBillingServicesInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { BillingService, SearchBillingServicesResponse } from 'utils/lib/types/data/billing/billing.types';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { createBillingClient } from '../shared';
-import { SearchBillingServicesParams, validateRequestParameters } from './validateRequestParameters';
+
+type SearchBillingServicesParams = ValidatedZambdaInput<typeof SearchBillingServicesInputSchema>;
 
 let m2mToken: string;
 
 export const index = wrapHandler(
   'search-billing-services',
   async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-    const params = validateRequestParameters(input);
+    const params = validateWithSchema(SearchBillingServicesInputSchema, input);
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
     const oystehr = createBillingClient(m2mToken, params.secrets);
 
