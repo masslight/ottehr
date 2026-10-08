@@ -2,7 +2,7 @@ import Oystehr, { User } from '@oystehr/sdk';
 import { HealthcareService, Location, Medication, PractitionerRole, Schedule, Slot } from 'fhir/r4b';
 import { createClinicalOystehrClient } from 'ui-components/lib/utils/oystehr';
 import { apiErrorToThrow, chooseJson } from 'utils/lib/helpers/oystehrApi';
-import { GenerateAdHocReportInput, GenerateAdHocReportOutput } from 'utils/lib/types/adhoc/generation/generate.types';
+import { AdHocGenerationStatus, GenerateAdHocReportInput } from 'utils/lib/types/adhoc/generation/generate.types';
 import { InferAdHocLayersInput, InferAdHocLayersOutput } from 'utils/lib/types/adhoc/generation/infer.types';
 import {
   AdHocReportStatus,
@@ -660,14 +660,30 @@ export const getAppointments = async (
   }
 };
 
-export const generateAdHocReport = async (
+export const startAdHocReportGeneration = async (
   oystehr: Oystehr,
   parameters: GenerateAdHocReportInput
-): Promise<GenerateAdHocReportOutput> => {
+): Promise<StartAdHocReportResponse> => {
   try {
     const response = await oystehr.zambda.execute({
       id: GENERATE_ADHOC_REPORT_ZAMBDA_ID,
       ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const getAdHocReportGenerationStatus = async (
+  oystehr: Oystehr,
+  taskId: string
+): Promise<AdHocGenerationStatus> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: GENERATE_ADHOC_REPORT_ZAMBDA_ID,
+      taskId,
     });
     return chooseJson(response);
   } catch (error: unknown) {

@@ -2,26 +2,35 @@ import { Secrets } from 'utils/lib/secrets';
 import {
   GenerateAdHocReportInput,
   GenerateAdHocReportInputSchema,
+  GetAdHocGenerationStatusInput,
+  GetAdHocGenerationStatusInputSchema,
 } from 'utils/lib/types/adhoc/generation/generate.types';
 import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils/lib/types/errors';
 import { ZambdaInput } from '../../shared/types/common';
+import { safeJsonParse } from '../../shared/validation';
 
-export function validateRequestParameters(input: ZambdaInput): GenerateAdHocReportInput & { secrets: Secrets } {
+export type ValidatedParams =
+  | (GenerateAdHocReportInput & { secrets: Secrets })
+  | (GetAdHocGenerationStatusInput & { secrets: Secrets });
+
+export function validateRequestParameters(input: ZambdaInput): ValidatedParams {
   if (!input.body) {
     throw MISSING_REQUEST_BODY;
   }
+
   if (!input.secrets) {
     throw MISSING_REQUEST_SECRETS;
   }
 
-  const { GOOGLE_CLOUD_PROJECT_ID, GOOGLE_CLOUD_API_KEY } = input.secrets;
+  const body = safeJsonParse(input.body) as Record<string, unknown>;
 
-  if (!GOOGLE_CLOUD_PROJECT_ID || !GOOGLE_CLOUD_API_KEY) {
-    throw MISSING_REQUEST_SECRETS;
-  }
+  // { taskId } polls a generation started earlier; anything else starts a new one.
+  // The Zod input schemas are the endpoint's single source of truth (they also derive the TS types).
+  const parsed =
+    'taskId' in body && body.taskId
+      ? GetAdHocGenerationStatusInputSchema.safeParse(body)
+      : GenerateAdHocReportInputSchema.safeParse(body);
 
-  // The Zod input schema is the endpoint's single source of truth (it also derives the TS type).
-  const parsed = GenerateAdHocReportInputSchema.safeParse(JSON.parse(input.body));
   if (!parsed.success) {
     throw INVALID_INPUT_ERROR(
       parsed.error.issues

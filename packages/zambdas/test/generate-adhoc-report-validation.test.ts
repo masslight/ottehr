@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { explainRuntimeError } from '../src/ehr/generate-adhoc-report/index';
+import { explainRuntimeError } from '../src/shared/adhoc-generate';
 
 // The generate zambda no longer executes or transpiles code — validation happens where the code
 // runs (the sandboxed iframe over real rows), and failures come back through the client's bounded
