@@ -236,6 +236,7 @@ async function administerImmunizationOrder(
               resourceType: 'Procedure',
               subject: { reference: `Patient/${patientId}` },
               encounter: { reference: `Encounter/${encounterId}` },
+              partOf: [createReference(medicationAdministration)],
               status: 'completed',
               code: {
                 coding: [{ code: cptCode.code, display: cptCode.display, system: 'http://www.ama-assn.org/go/cpt' }],
