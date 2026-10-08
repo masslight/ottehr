@@ -104,7 +104,7 @@ describe('cancel-outreach-task', () => {
     const result = await handler(makeInput({ taskId: 'task-3' }));
 
     expect(result.statusCode).toBe(400);
-    expect(JSON.parse(result.body).error).toContain('cannot be cancelled');
+    expect(JSON.parse(result.body).message).toContain('cannot be cancelled');
     expect(mockPatch).not.toHaveBeenCalled();
   });
 
@@ -214,7 +214,7 @@ describe('retry-outreach-task', () => {
 
     const result = await handler(makeInput({ taskId: 'task-not-outreach' }));
     expect(result.statusCode).toBe(400);
-    expect(JSON.parse(result.body).error).toContain('not a scheduled outreach task');
+    expect(JSON.parse(result.body).message).toContain('not a scheduled outreach task');
     expect(mockPatch).not.toHaveBeenCalled();
   });
 
@@ -231,7 +231,7 @@ describe('retry-outreach-task', () => {
     const result = await handler(makeInput({ taskId: 'task-2' }));
 
     expect(result.statusCode).toBe(400);
-    expect(JSON.parse(result.body).error).toContain('cannot be retried');
+    expect(JSON.parse(result.body).message).toContain('cannot be retried');
     expect(mockPatch).not.toHaveBeenCalled();
   });
 

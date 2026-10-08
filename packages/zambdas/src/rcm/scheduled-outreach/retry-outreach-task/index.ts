@@ -32,7 +32,7 @@ export const index = wrapHandler('retry-outreach-task', async (input: ZambdaInpu
     return {
       statusCode: 400,
       body: JSON.stringify({
-        error: 'Task is not a scheduled outreach task and cannot be retried via this endpoint.',
+        message: 'Task is not a scheduled outreach task and cannot be retried via this endpoint.',
       }),
     };
   }
@@ -41,7 +41,7 @@ export const index = wrapHandler('retry-outreach-task', async (input: ZambdaInpu
     return {
       statusCode: 400,
       body: JSON.stringify({
-        error: `Task status "${task.status}" cannot be retried. Only ${RETRYABLE_STATUSES.join(
+        message: `Task status "${task.status}" cannot be retried. Only ${RETRYABLE_STATUSES.join(
           ', '
         )} tasks can be retried.`,
       }),

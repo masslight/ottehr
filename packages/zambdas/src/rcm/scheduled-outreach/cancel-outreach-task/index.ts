@@ -33,7 +33,7 @@ export const index = wrapHandler('cancel-outreach-task', async (input: ZambdaInp
     return {
       statusCode: 400,
       body: JSON.stringify({
-        error: 'Task is not a scheduled outreach task and cannot be cancelled via this endpoint.',
+        message: 'Task is not a scheduled outreach task and cannot be cancelled via this endpoint.',
       }),
     };
   }
@@ -42,7 +42,7 @@ export const index = wrapHandler('cancel-outreach-task', async (input: ZambdaInp
     return {
       statusCode: 400,
       body: JSON.stringify({
-        error: `Task status "${task.status}" cannot be cancelled. Only ${CANCELLABLE_STATUSES.join(
+        message: `Task status "${task.status}" cannot be cancelled. Only ${CANCELLABLE_STATUSES.join(
           ', '
         )} tasks can be cancelled.`,
       }),

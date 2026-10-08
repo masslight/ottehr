@@ -83,7 +83,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       return {
         statusCode: 400,
         body: JSON.stringify({
-          error: `Encounter ${encounterId} not found for patient ${patientId}`,
+          message: `Encounter ${encounterId} not found for patient ${patientId}`,
         }),
       };
     }
@@ -103,7 +103,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     return {
       statusCode: 400,
       body: JSON.stringify({
-        error: 'internalName is required (non-empty string) when fileFolderId is a synthetic folder id',
+        message: 'internalName is required (non-empty string) when fileFolderId is a synthetic folder id',
       }),
     };
   }
@@ -123,14 +123,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       return {
         statusCode: 404,
         body: JSON.stringify({
-          error: `Custom folder "${resolvedInternalName}" not found in catalog (it may have been deleted or renamed)`,
+          message: `Custom folder "${resolvedInternalName}" not found in catalog (it may have been deleted or renamed)`,
         }),
       };
     }
     return {
       statusCode: 404,
       body: JSON.stringify({
-        error: `List resource not found (fileFolderId=${fileFolderId})`,
+        message: `List resource not found (fileFolderId=${fileFolderId})`,
       }),
     };
   }
@@ -143,7 +143,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     return {
       statusCode: 500,
       body: JSON.stringify({
-        error: `Found List resource with id=${fileFolderId} but it does not have Folder identifier`,
+        message: `Found List resource with id=${fileFolderId} but it does not have Folder identifier`,
       }),
     };
   }
@@ -195,7 +195,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     return {
       statusCode: 500,
       body: JSON.stringify({
-        error: `Can't create a DocumentReference resource for the file ${fileName}`,
+        message: `Can't create a DocumentReference resource for the file ${fileName}`,
       }),
     };
   }
@@ -206,7 +206,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     return {
       statusCode: 500,
       body: JSON.stringify({
-        error: `Can't create a DocumentReference resource for the file ${fileName} - empty documentRefId`,
+        message: `Can't create a DocumentReference resource for the file ${fileName} - empty documentRefId`,
       }),
     };
   }

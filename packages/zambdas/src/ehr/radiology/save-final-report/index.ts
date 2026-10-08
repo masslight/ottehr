@@ -44,7 +44,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): 
     console.log('Error: ', JSON.stringify(error.message));
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: error.message }),
+      body: JSON.stringify({ message: error.message }),
     };
   }
 });
