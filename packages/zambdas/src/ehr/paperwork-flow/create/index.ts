@@ -64,7 +64,7 @@ async function complexValidation(input: ValidatedRequest, oystehr: Oystehr): Pro
 async function performEffect(input: EffectInput, oystehr: Oystehr): Promise<void> {
   const { flow, flowServices, formQuestionnaires, flowQuestionnaires, services } = input;
 
-  const slug = makeUniqueFlowSlug(input.flow.name);
+  const slug = makeUniqueFlowSlug(flow.name);
 
   const ottehrManagedServices = flowServices.filter((s) => s.ottehrManagedService);
 
