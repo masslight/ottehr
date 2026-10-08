@@ -28,6 +28,11 @@ import {
 } from '@mui/material';
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import {
+  AD_HOC_REPORT_LLM_MODELS,
+  AD_HOC_REPORT_MODELS,
+  AdHocReportModel,
+} from 'utils/lib/types/adhoc/generation/generate.types';
 import { AdHocDateRangeFilter } from 'utils/lib/types/adhoc/query/date-range';
 import PageContainer from '../../../layout/PageContainer';
 import { AD_HOC_DATASETS } from '../datasets/registry';
@@ -138,6 +143,23 @@ export default function ReportBuilderPage(): React.ReactElement {
                   InputLabelProps={{ shrink: true }}
                 />
               </>
+            )}
+
+            {rb.canPickModel && (
+              <FormControl size="small" sx={{ minWidth: 200 }}>
+                <InputLabel>Model</InputLabel>
+                <Select
+                  value={rb.model}
+                  label="Model"
+                  onChange={(e: SelectChangeEvent<AdHocReportModel>) => rb.setModel(e.target.value as AdHocReportModel)}
+                >
+                  {AD_HOC_REPORT_MODELS.map((m) => (
+                    <MenuItem key={m} value={m}>
+                      {AD_HOC_REPORT_LLM_MODELS[m].displayName}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
             )}
 
             <Button

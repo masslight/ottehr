@@ -6,8 +6,9 @@ import {
   InferAdHocLayersOutputSchema,
 } from 'utils/lib/types/adhoc/generation/infer.types';
 import { AD_HOC_REPORT_EDIT_ROLES } from 'utils/lib/types/api/adhoc-report-access';
+import { VERTEX_AI_MODEL } from 'utils/lib/types/api/ai-models.constants';
 import { fixAndParseJsonObjectFromString } from 'utils/lib/validation/json-fix';
-import { invokeChatbotVertexAI, VERTEX_AI_MODEL } from '../../shared/ai';
+import { invokeChatbotVertexAI } from '../../shared/ai';
 import { getUserToken, requireUserWithRole } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
@@ -148,7 +149,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       secrets,
       'infer-adhoc-report-layers',
       RESPONSE_SCHEMA,
-      VERTEX_AI_MODEL
+      VERTEX_AI_MODEL.id
     );
     const parsed = fixAndParseJsonObjectFromString(raw) as {
       layerIds?: unknown;
