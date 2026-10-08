@@ -737,18 +737,20 @@ export const Header = (): JSX.Element => {
                 <PatientInfoWrapper>
                   <Grid>
                     <PatientInfoWrapper>
-                      <PatientName
-                        data-testid={dataTestIds.inPersonHeader.patientName}
-                        onClick={() => navigate(`/patient/${userId}`)}
-                      >
-                        {patientName}
-                      </PatientName>
+                      <GenericToolTip title={pronouns} placement="top">
+                        <PatientName
+                          data-testid={dataTestIds.inPersonHeader.patientName}
+                          onClick={() => navigate(`/patient/${userId}`)}
+                        >
+                          {patientName}
+                        </PatientName>
+                      </GenericToolTip>
                       <PatientNotesButton patientId={userId} />
                       <PrintVisitLabelButton encounterId={effectiveEncounterId} />
                       <PatientMetadata sx={{ fontWeight: 500 }}>{dob}</PatientMetadata> |
                     </PatientInfoWrapper>
                     <PatientInfoWrapper>
-                      <PatientMetadata>{pronouns}</PatientMetadata> | <PatientMetadata>{gender}</PatientMetadata> |
+                      <PatientMetadata>{gender}</PatientMetadata> |
                       {weight ? (
                         <>
                           <PatientMetadata data-testid={dataTestIds.inPersonHeader.weight}>{weight}</PatientMetadata> |
