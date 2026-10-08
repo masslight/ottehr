@@ -350,11 +350,15 @@ export function makeMedicationDTO(medication: MedicationStatement): MedicationDT
   };
 }
 
+const NDC_SYSTEM = 'http://hl7.org/fhir/sid/ndc';
+
 export function makePrescribedMedicationDTO(medRequest: MedicationRequest): PrescribedMedicationDTO {
   return {
     resourceId: medRequest.id,
-    name: medRequest.medicationCodeableConcept?.coding?.find(
-      (coding) => coding.system === MEDICATION_DISPENSABLE_DRUG_ID
+    name: (
+      medRequest.medicationCodeableConcept?.coding?.find(
+        (coding) => coding.system === MEDICATION_DISPENSABLE_DRUG_ID
+      ) ?? medRequest.medicationCodeableConcept?.coding?.find((coding) => coding.system === NDC_SYSTEM)
     )?.display,
     instructions: medRequest.dosageInstruction?.[0]?.patientInstruction,
     added: medRequest.meta?.lastUpdated,

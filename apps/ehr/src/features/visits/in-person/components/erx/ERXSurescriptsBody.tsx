@@ -6,6 +6,7 @@ import { PageTitle } from '../../../shared/components/PageTitle';
 import { useCheckSurescriptsEnrollment } from '../../../shared/hooks/useCheckSurescriptsEnrollment';
 import { useEnrollSurescriptsPractitioner } from '../../../shared/hooks/useEnrollSurescriptsPractitioner';
 import { OrderPrescriptionForm } from './OrderPrescriptionForm';
+import { PrescriptionTable } from './PrescriptionTable';
 
 export const ERXSurescriptsBody: FC = () => {
   const { data: enrollment, isLoading, error } = useCheckSurescriptsEnrollment();
@@ -44,7 +45,12 @@ export const ERXSurescriptsBody: FC = () => {
           </LoadingButton>
         </>
       )}
-      {enrollment?.registered && <OrderPrescriptionForm />}
+      {enrollment?.registered && (
+        <>
+          <OrderPrescriptionForm />
+          <PrescriptionTable />
+        </>
+      )}
     </Stack>
   );
 };
