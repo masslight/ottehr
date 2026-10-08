@@ -49,7 +49,7 @@ import { FHIR_RESOURCE_NOT_FOUND_CUSTOM, INVALID_INPUT_ERROR } from 'utils/lib/t
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { makeProcedureResource } from '../../shared/chart-data';
 import { assertDefined, createClinicalOystehrClient } from '../../shared/helpers';
-import { makeOrderDeleteRequests } from '../../shared/medication-order-delete';
+import { makeOrderDeleteRequests, makePendingRecheckCancelRequests } from '../../shared/medication-order-delete';
 import { makeNursingOrderTransactionRequests } from '../../shared/nursing-orders';
 import { getMyPractitionerId } from '../../shared/practitioners';
 import { wrapHandler } from '../../shared/sentry';
@@ -128,7 +128,12 @@ async function performEffect(
     };
   } else if (orderId && newStatus) {
     const orderResources = await getOrderResources(oystehr, orderId);
-    const { retainedCptCodes } = await changeOrderStatus(oystehr, orderResources, newStatus);
+    const { retainedCptCodes } = await changeOrderStatus(
+      oystehr,
+      orderResources,
+      newStatus,
+      practitionerIdCalledZambda
+    );
 
     const encounterIdFromMA = getEncounterIdFromMA(orderResources.medicationAdministration);
     if (encounterIdFromMA) {
@@ -372,7 +377,8 @@ async function createOrder(
 async function changeOrderStatus(
   oystehr: Oystehr,
   pkg: OrderPackage,
-  newStatus: MedicationOrderStatusesType
+  newStatus: MedicationOrderStatusesType,
+  practitionerId: string
 ): Promise<{ retainedCptCodes: string[] }> {
   console.log(`Changing status to: ${newStatus}`);
 
@@ -400,8 +406,11 @@ async function changeOrderStatus(
 
   let retainedCptCodes: string[] = [];
   if (newStatus === 'cancelled') {
-    const cleanup = await makeOrderDeleteRequests(oystehr, pkg.medicationAdministration);
-    transactionRequests.push(...cleanup.requests);
+    const [cleanup, recheckCancelRequests] = await Promise.all([
+      makeOrderDeleteRequests(oystehr, pkg.medicationAdministration),
+      makePendingRecheckCancelRequests(oystehr, pkg.medicationAdministration, practitionerId),
+    ]);
+    transactionRequests.push(...cleanup.requests, ...recheckCancelRequests);
     retainedCptCodes = cleanup.retainedCptCodes;
   }
 

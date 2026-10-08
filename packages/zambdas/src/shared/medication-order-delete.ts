@@ -1,11 +1,13 @@
 import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
-import { FhirResource, MedicationAdministration, MedicationStatement, Procedure } from 'fhir/r4b';
+import { FhirResource, MedicationAdministration, MedicationStatement, Procedure, ServiceRequest, Task } from 'fhir/r4b';
+import { PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { getCptCodesFromMA, isImmunizationOrder } from 'utils/lib/fhir/medication-administration';
 import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
 import { replaceOperation } from 'utils/lib/helpers/operations';
 import { deleteResourceRequest } from '../ehr/delete-chart-data/helpers';
 import { mapMedicationAdministrationToImmunizationOrder } from '../ehr/immunization/get-orders';
+import { makeNursingOrderStatusChangeRequests } from './nursing-orders';
 
 const ADMINISTERED_STATUSES: MedicationAdministration['status'][] = ['completed', 'on-hold'];
 
@@ -153,4 +155,55 @@ export async function makeOrderDeleteRequests(
       deletedLines,
     }),
   };
+}
+
+export function selectPendingRecheckOrders({
+  orderId,
+  serviceRequests,
+  tasks,
+}: {
+  orderId: string;
+  serviceRequests: ServiceRequest[];
+  tasks: Task[];
+}): { serviceRequest: ServiceRequest; task: Task }[] {
+  return serviceRequests
+    .filter(
+      (serviceRequest) =>
+        serviceRequest.supportingInfo?.some((info) => info.reference === `MedicationAdministration/${orderId}`)
+    )
+    .flatMap((serviceRequest) => {
+      const task = tasks.find(
+        (candidate) => candidate.basedOn?.some((basedOn) => basedOn.reference === `ServiceRequest/${serviceRequest.id}`)
+      );
+      return task?.status === 'requested' ? [{ serviceRequest, task }] : [];
+    });
+}
+
+export async function makePendingRecheckCancelRequests(
+  oystehr: Oystehr,
+  medicationAdministration: MedicationAdministration,
+  practitionerId: string
+): Promise<BatchInputRequest<FhirResource>[]> {
+  const encounterReference = medicationAdministration.context?.reference;
+  if (!encounterReference) return [];
+  const nursingOrderResources = await getAllFhirSearchPages<ServiceRequest | Task>(
+    {
+      resourceType: 'ServiceRequest',
+      params: [
+        { name: 'encounter', value: encounterReference },
+        { name: '_tag', value: `${PRIVATE_EXTENSION_BASE_URL}/order-type-tag|nursing order` },
+        { name: '_revinclude', value: 'Task:based-on' },
+      ],
+    },
+    oystehr
+  );
+  return selectPendingRecheckOrders({
+    orderId: medicationAdministration.id!,
+    serviceRequests: nursingOrderResources.filter(
+      (resource): resource is ServiceRequest => resource.resourceType === 'ServiceRequest'
+    ),
+    tasks: nursingOrderResources.filter((resource): resource is Task => resource.resourceType === 'Task'),
+  }).flatMap(({ serviceRequest, task }) =>
+    makeNursingOrderStatusChangeRequests({ serviceRequest, task, action: 'CANCEL ORDER', practitionerId })
+  );
 }
