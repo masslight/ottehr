@@ -63,21 +63,22 @@ export class InPersonHeader {
   }
 
   async verifyPaymentText(expectedText: string): Promise<void> {
-    await expect(this.#page.getByTestId(dataTestIds.inPersonHeader.payment)).toContainText(expectedText, {
-      timeout: 15000,
-    });
+    const icon = this.#page.getByTestId(dataTestIds.inPersonHeader.payment);
+    await expect(icon).toHaveAttribute('aria-label', new RegExp(expectedText), { timeout: 15000 });
+    await icon.hover();
+    await expect(this.#page.getByRole('tooltip')).toContainText(`Payment: ${expectedText}`);
   }
 
   async verifyPaymentIsUnset(): Promise<void> {
-    const el = this.#page.getByTestId(dataTestIds.inPersonHeader.payment);
-    await expect(el).toContainText('Not set', { timeout: 15000 });
-    await expect(el).toHaveCSS('font-weight', '600');
+    await this.verifyPaymentText('Not set');
   }
 
   async verifyPaymentIsSet(): Promise<void> {
-    await expect(this.#page.getByTestId(dataTestIds.inPersonHeader.payment)).not.toContainText('Not set', {
-      timeout: 15000,
-    });
+    await expect(this.#page.getByTestId(dataTestIds.inPersonHeader.payment)).not.toHaveAttribute(
+      'aria-label',
+      /Not set/,
+      { timeout: 15000 }
+    );
   }
 
   async clickPatientName(patientId: string): Promise<PatientRecordPage> {

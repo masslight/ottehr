@@ -5,6 +5,7 @@ import CalendarMonthOutlinedIcon from '@mui/icons-material/CalendarMonthOutlined
 import CloseIcon from '@mui/icons-material/Close';
 import FaxOutlinedIcon from '@mui/icons-material/FaxOutlined';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
+import PaidOutlinedIcon from '@mui/icons-material/PaidOutlined';
 import {
   Box,
   Chip,
@@ -534,6 +535,16 @@ export const Header = (): JSX.Element => {
                       <PatientMetadata sx={{ whiteSpace: 'nowrap' }}>{visitTypeAndCategory}</PatientMetadata>
                     </Grid>
                   )}
+                  <Grid item sx={{ display: 'flex' }}>
+                    <GenericToolTip title={`Payment: ${paymentDisplayValue}`} placement="top" customWidth={400}>
+                      <PaidOutlinedIcon
+                        data-testid={dataTestIds.inPersonHeader.payment}
+                        aria-label={`Payment: ${paymentDisplayValue}`}
+                        fontSize="small"
+                        sx={{ color: isPaymentUnset ? theme.palette.error.main : theme.palette.text.secondary }}
+                      />
+                    </GenericToolTip>
+                  </Grid>
                   {visitBookingType && (
                     <Grid item>
                       <PatientMetadata sx={{ whiteSpace: 'nowrap' }}>{visitBookingType}</PatientMetadata>
@@ -772,20 +783,6 @@ export const Header = (): JSX.Element => {
                           {reasonForVisit}
                         </PatientMetadata>
                       )}
-                      <PatientMetadata
-                        data-testid={dataTestIds.inPersonHeader.payment}
-                        sx={{
-                          marginLeft: 6,
-                          maxWidth: 400,
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
-                          color: isPaymentUnset ? theme.palette.warning.dark : undefined,
-                          fontWeight: isPaymentUnset ? 600 : undefined,
-                        }}
-                      >
-                        Payment: {paymentDisplayValue}
-                      </PatientMetadata>
                     </PatientInfoWrapper>
                   </Grid>
                   <PatientMetadata
