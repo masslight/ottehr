@@ -7,7 +7,17 @@ import { buildEvaluation, CPT_MODIFIERS, missing, MueAdjudication, noCode } from
 import { EKG_PTP_EDITS } from '../medicare-ptp';
 import { CodeSuggestion, ProcedureFamilyModel } from '../model.types';
 import { PROCEDURE_NAMES } from '../procedure-names';
-import { CodingField, readNumber } from '../structured-fields';
+import { CodingField, readNumber, StructuredFacts } from '../structured-fields';
+import { EKG_MEASUREMENT_KEYS, ekgMeasurementLine, QTC_METHODS } from './ekg-interpretation';
+import {
+  EKG_AXES,
+  EKG_COMPARISONS,
+  EKG_CONDUCTION,
+  EKG_IMPRESSIONS,
+  EKG_OTHER_FINDINGS,
+  EKG_RHYTHMS,
+  EKG_ST_T,
+} from './ekg-templates';
 
 const EKG_CODES = {
   TracingAndReport: '93000',
@@ -42,6 +52,43 @@ const fields: readonly CodingField[] = [
     defaultValue: false,
     details: true,
   },
+  // Measurements, read off the printout. None is required to save; a report needs the rate and intervals.
+  { key: 'rate', label: 'Rate (bpm)', kind: 'number', min: 0, step: 1 },
+  { key: 'pr', label: 'PR (ms)', kind: 'number', min: 0, step: 1 },
+  { key: 'qrs', label: 'QRS (ms)', kind: 'number', min: 0, step: 1 },
+  { key: 'qt', label: 'QT (ms)', kind: 'number', min: 0, step: 1 },
+  // Calculated from QT and rate by the page (see ekgQtc) unless the method is manual; both are stored so
+  // the note can say how the value was arrived at.
+  { key: 'qtc', label: 'QTc (ms)', kind: 'number', min: 0, step: 1 },
+  { key: 'qtcMethod', label: 'QTc method', kind: 'select', options: QTC_METHODS },
+  { key: 'axisDegrees', label: 'Axis (°)', kind: 'number', min: -180, step: 1 },
+  // Interpretation. "Other findings" is optional; the rest are needed for the interpretation and report.
+  { key: 'rhythm', label: 'Rhythm', kind: 'select', options: EKG_RHYTHMS },
+  { key: 'axis', label: 'Axis', kind: 'select', options: EKG_AXES },
+  { key: 'conduction', label: 'Intervals and conduction', kind: 'multi', options: EKG_CONDUCTION, exclusive: 'normal' },
+  { key: 'stt', label: 'ST / T', kind: 'multi', options: EKG_ST_T, exclusive: 'no acute ST-T wave changes' },
+  {
+    key: 'otherFindings',
+    label: 'Other findings',
+    kind: 'multi',
+    options: EKG_OTHER_FINDINGS,
+    exclusive: 'none',
+    details: true,
+  },
+  { key: 'comparison', label: 'Comparison with prior', kind: 'select', options: EKG_COMPARISONS },
+  { key: 'impression', label: 'Impression', kind: 'select', options: EKG_IMPRESSIONS },
+];
+
+/** The interpretation fields a report must cover besides the rate and intervals; "Other findings" is optional. */
+const REPORT_FIELDS = ['rhythm', 'axis', 'conduction', 'stt', 'comparison', 'impression'];
+
+const label = (key: string): string => fields.find((field) => field.key === key)?.label ?? key;
+
+/** What the interpretation and report (CMS Claims Manual Ch.13 §100.1) still needs before 93000 or 93010 is supported. */
+const reportGaps = (facts: StructuredFacts): string[] => [
+  ...(readNumber(facts, 'rate') === undefined ? [label('rate')] : []),
+  ...(['pr', 'qrs', 'qt'].some((key) => readNumber(facts, key) === undefined) ? ['PR, QRS and QT intervals'] : []),
+  ...REPORT_FIELDS.filter((key) => facts[key] === undefined).map(label),
 ];
 
 export const ekgFamily: ProcedureFamilyModel<EkgCode> = {
@@ -62,7 +109,25 @@ export const ekgFamily: ProcedureFamilyModel<EkgCode> = {
   id: 'ekg',
   procedureNames: PROCEDURE_NAMES['ekg'],
   displayName: 'EKG',
+  // A 12-lead EKG has no body site or side (fixed chest and limb leads), so the page hides Site.
+  capturesSite: true,
+  capturesSide: true,
+  // Nothing is anaesthetised, cut or sent off in an EKG; consent and instructions given still apply.
+  omitsStandardFields: [
+    'anesthesia',
+    'technique',
+    'supplies',
+    'specimen',
+    'complications',
+    'patientResponse',
+    'timeSpent',
+  ],
   fields,
+  // The note reads the measurements as one line ("Rate 72 bpm, PR 160 ms, …") rather than field by field.
+  noteLines: (facts) => ({
+    lines: [ekgMeasurementLine(facts)].filter((line): line is string => line !== undefined),
+    covers: EKG_MEASUREMENT_KEYS,
+  }),
   codes: Object.values(EKG_CODES),
   suggest: (facts) => {
     if (facts.integralEcg) return noCode('The ECG is included in the stress test or monitoring service.');
@@ -71,6 +136,12 @@ export const ekgFamily: ProcedureFamilyModel<EkgCode> = {
     const count = readNumber(facts, 'count');
 
     if (!count || !Number.isInteger(count)) return missing('Same-day recordings');
+
+    // 93000 and 93010 include the interpretation and report; a brief "normal" alone does not support them.
+    if (facts.component !== 'tracing only') {
+      const gaps = reportGaps(facts);
+      if (gaps.length) return missing(...gaps);
+    }
     let cpt: EkgCode = EKG_CODES.InterpretationAndReportOnly;
     if (facts.component === 'tracing and report') cpt = EKG_CODES.TracingAndReport;
     else if (facts.component === 'tracing only') cpt = EKG_CODES.TracingOnly;

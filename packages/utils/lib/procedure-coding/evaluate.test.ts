@@ -7,6 +7,19 @@ import { resolveFamilyFacts } from './family-support';
 import { CodeAssessmentKind, LegacyProcedureFields, ProcedureFactsInput, ProcedureFamilyModel } from './model.types';
 import { CodingField, parseStructuredFacts, StructuredFacts } from './structured-fields';
 
+/** A complete 12-lead read, as the report codes require before they are suggested. */
+const EKG_REPORT: StructuredFacts = {
+  rate: 72,
+  pr: 160,
+  qrs: 88,
+  qt: 380,
+  rhythm: 'sinus rhythm',
+  axis: 'normal',
+  conduction: ['normal'],
+  stt: ['no acute ST-T wave changes'],
+  comparison: 'no prior EKG available',
+  impression: 'normal EKG',
+};
 const input = (id: string, structuredFacts: StructuredFacts): ProcedureFactsInput => ({
   procedureType: PROCEDURE_FAMILIES.find((f) => f.id === id)!.procedureNames[0],
   structuredFacts,
@@ -279,7 +292,8 @@ describe('source-aligned form coverage and documentation', () => {
       'clinician skill'
     );
     expect(messages('ekg', { component: 'tracing only' })).not.toContain('ST-T');
-    expect(messages('ekg', { component: 'tracing and report' })).toContain('ST-T');
+    expect(messages('ekg', { component: 'interpretation/report only', ...EKG_REPORT })).toContain('ST-T');
+    expect(messages('ekg', { component: 'interpretation/report only' })).not.toContain('ST-T');
   });
   it.each([
     ['injection-infusion', '96366', '96523', false],

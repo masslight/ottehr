@@ -81,6 +81,7 @@ const { mockSaveChartData, mockSetPartialChartData } = vi.hoisted(() => ({
 
 vi.mock('src/features/visits/shared/stores/appointment/appointment.store', () => ({
   useSaveChartData: () => ({ mutate: mockSaveChartData }),
+  useAppointmentData: () => ({ patient: { resourceType: 'Patient', birthDate: '1980-01-01' } }),
 }));
 
 vi.mock('src/features/visits/shared/hooks/useChartData', () => ({
@@ -370,6 +371,46 @@ describe('RadiologyOrderDetailsPage - final report', () => {
           CURRENT_USER_ID
         )
       );
+    });
+
+    it('offers suggested reads for a mapped study and appends the chosen one to the preliminary read', async () => {
+      const user = userEvent.setup();
+      mockUsePatientRadiologyOrders.mockReturnValue(
+        makeHookResult({
+          orders: [makeMockOrder({ status: RadiologyOrderStatus.performed, cptCode: '73610', laterality: 'LT' })],
+        })
+      );
+
+      renderPage();
+      expect(screen.getByText('Suggested reads')).toBeInTheDocument();
+      await user.click(screen.getAllByRole('button', { name: 'Add to read' })[0]);
+
+      expect(screen.getByRole('textbox', { name: PRELIMINARY_REPORT_TEXTBOX_LABEL })).toHaveValue(
+        'No acute fracture or dislocation. Ankle mortise intact.'
+      );
+      // The label must float even though the text arrived without the field ever being focused.
+      expect(document.querySelector('label[for="preliminary-report-field"]')).toHaveAttribute('data-shrink', 'true');
+    });
+
+    it.each([
+      { why: 'a preliminary read is already saved', status: RadiologyOrderStatus.performed, preliminaryReport: 'x' },
+      { why: 'the study is not yet performed', status: RadiologyOrderStatus.ordered, preliminaryReport: undefined },
+    ])('does not offer suggested reads when $why', ({ status, preliminaryReport }) => {
+      mockUsePatientRadiologyOrders.mockReturnValue(
+        makeHookResult({
+          orders: [
+            makeMockOrder({
+              status,
+              cptCode: '73610',
+              laterality: 'LT',
+              preliminaryReport: preliminaryReport && btoa(preliminaryReport),
+            }),
+          ],
+        })
+      );
+
+      renderPage();
+      expect(screen.queryByText('Suggested reads')).not.toBeInTheDocument();
     });
 
     it('writes the selected diagnosis to the encounter chart/Assessment before saving the read', async () => {

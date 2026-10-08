@@ -361,9 +361,21 @@ export interface ComponentCodeNotice<TCode extends string = string> {
   message: string;
 }
 
+/** Standard procedure-page fields a family can hide when they don't apply to it. */
+export type StandardProcedureField =
+  | 'anesthesia'
+  | 'technique'
+  | 'supplies'
+  | 'specimen'
+  | 'complications'
+  | 'patientResponse'
+  | 'timeSpent';
+
 export interface ProcedureFamilyModel<TCode extends string = string> {
   capturesSite?: boolean;
   capturesSide?: boolean;
+  /** Hidden on the procedure page unless a saved procedure already has a value in them. */
+  omitsStandardFields?: readonly StandardProcedureField[];
   codePairEdits?: readonly CptPairEdit[];
   componentCodeNotices?: readonly ComponentCodeNotice<TCode>[];
   procedureNames: readonly string[];
@@ -374,6 +386,8 @@ export interface ProcedureFamilyModel<TCode extends string = string> {
   structuredFieldsFor?(input: ProcedureStructuredFieldInput): readonly ProcedureStructuredField[];
   dailyLimits?: DailyUnitLimits<TCode>;
   documentationChecklist?: (facts: StructuredFacts) => readonly string[];
+  /** Note lines printed in place of the field-by-field list for the fields they cover. */
+  noteLines?: (facts: StructuredFacts) => { lines: string[]; covers: readonly string[] };
   /** Existing structured form fields only; never infer facts from the procedure name or narrative. */
   readLegacyFacts?(input: LegacyProcedureFields): StructuredFacts;
   /** Clinical decisions for this family. Shared validation and billing checks wrap this function. */
