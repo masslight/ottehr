@@ -90,4 +90,5 @@ export interface CancelImmunizationOrderRequest {
 
 export interface CancelImmunizationOrderResponse {
   retainedCptCodes: string[];
+  billingReviewRequired: boolean;
 }

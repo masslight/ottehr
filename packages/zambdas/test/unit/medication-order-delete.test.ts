@@ -1,10 +1,13 @@
-import { MedicationAdministration, Procedure, ServiceRequest, Task } from 'fhir/r4b';
+import Oystehr from '@oystehr/sdk';
+import { Claim, Encounter, MedicationAdministration, Procedure, ServiceRequest, Task } from 'fhir/r4b';
 import { IMMUNIZATION_ORDER_TAG_CODE, IMMUNIZATION_ORDER_TAG_SYSTEM } from 'utils/lib/fhir/medication-administration';
 import { CODE_SYSTEM_CPT } from 'utils/lib/helpers/rcm/constants';
 import { VACCINE_ADMINISTRATION_CODES_EXTENSION_URL } from 'utils/lib/types/api/medication-administration.constants';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { CONTAINED_MEDICATION_ID } from '../../src/ehr/immunization/common';
+import { CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM } from '../../src/shared/candid';
 import {
+  hasEncounterBillingRecord,
   selectOrderCptLinesToDelete,
   selectPendingRecheckOrders,
   selectRetainedCptCodes,
@@ -143,5 +146,34 @@ describe('selectPendingRecheckOrders', () => {
 
     expect(selectWithTaskStatus('requested')).toEqual(['recheck']);
     expect(selectWithTaskStatus('completed')).toEqual([]);
+  });
+});
+
+describe('hasEncounterBillingRecord', () => {
+  const clinicalWith = (encounter: Encounter): Oystehr =>
+    ({ fhir: { get: async () => encounter } }) as unknown as Oystehr;
+  const billingWith = (search: () => Promise<{ unbundle: () => Claim[] }>): Oystehr =>
+    ({ fhir: { search } }) as unknown as Oystehr;
+  const encounter: Encounter = { resourceType: 'Encounter', id: 'e1', status: 'finished', class: { code: 'AMB' } };
+
+  it('treats a Candid encounter id as billing evidence without searching for an Ottehr billing claim', async () => {
+    const claimSearch = vi.fn();
+    const billedEncounter: Encounter = {
+      ...encounter,
+      identifier: [{ system: CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM, value: 'candid-1' }],
+    };
+
+    expect(await hasEncounterBillingRecord(clinicalWith(billedEncounter), billingWith(claimSearch), 'e1')).toBe(true);
+    expect(claimSearch).not.toHaveBeenCalled();
+  });
+
+  it('treats an Ottehr billing claim for the encounter as billing evidence when no Candid encounter exists', async () => {
+    const claimsFound = (claims: Claim[]) => async () => ({ unbundle: () => claims });
+    const claim = { resourceType: 'Claim', id: 'c1' } as Claim;
+
+    expect(await hasEncounterBillingRecord(clinicalWith(encounter), billingWith(claimsFound([claim])), 'e1')).toBe(
+      true
+    );
+    expect(await hasEncounterBillingRecord(clinicalWith(encounter), billingWith(claimsFound([])), 'e1')).toBe(false);
   });
 });

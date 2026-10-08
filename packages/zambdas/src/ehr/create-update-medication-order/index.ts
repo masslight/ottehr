@@ -46,6 +46,7 @@ import {
 } from 'utils/lib/types/api/medication-administration.types';
 import { VITALS_RECHECK_NURSING_ORDER_NOTE } from 'utils/lib/types/data/orders/constants';
 import { FHIR_RESOURCE_NOT_FOUND_CUSTOM, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
+import { createBillingClient } from '../../billing/shared';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { makeProcedureResource } from '../../shared/chart-data';
 import { assertDefined, createClinicalOystehrClient } from '../../shared/helpers';
@@ -82,7 +83,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const practitionerId = await getMyPractitionerId(userToken, validatedParameters.secrets);
   console.log('Created zapToken, fhir and clients.');
 
-  const response = await performEffect(oystehr, validatedParameters, practitionerId);
+  const billingOystehr = createBillingClient(m2mToken, validatedParameters.secrets);
+  const response = await performEffect(oystehr, billingOystehr, validatedParameters, practitionerId);
   return {
     statusCode: 200,
     body: JSON.stringify(response),
@@ -91,6 +93,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
 async function performEffect(
   oystehr: Oystehr,
+  billingOystehr: Oystehr,
   params: UpdateMedicationOrderInput,
   practitionerIdCalledZambda: string
 ): Promise<any> {
@@ -128,8 +131,9 @@ async function performEffect(
     };
   } else if (orderId && newStatus) {
     const orderResources = await getOrderResources(oystehr, orderId);
-    const { retainedCptCodes } = await changeOrderStatus(
+    const { retainedCptCodes, billingReviewRequired } = await changeOrderStatus(
       oystehr,
+      billingOystehr,
       orderResources,
       newStatus,
       practitionerIdCalledZambda
@@ -149,6 +153,7 @@ async function performEffect(
       message: 'Order status was changed successfully',
       id: orderId,
       retainedCptCodes,
+      billingReviewRequired,
     };
   } else if (orderData) {
     const medicationAdministrationId = await createOrder(
@@ -376,15 +381,16 @@ async function createOrder(
 
 async function changeOrderStatus(
   oystehr: Oystehr,
+  billingOystehr: Oystehr,
   pkg: OrderPackage,
   newStatus: MedicationOrderStatusesType,
   practitionerId: string
-): Promise<{ retainedCptCodes: string[] }> {
+): Promise<{ retainedCptCodes: string[]; billingReviewRequired: boolean }> {
   console.log(`Changing status to: ${newStatus}`);
 
   if (newStatus === 'cancelled' && mapFhirToOrderStatus(pkg.medicationAdministration) === 'cancelled') {
     console.log(`Order ${pkg.medicationAdministration.id} is already cancelled, nothing to change`);
-    return { retainedCptCodes: [] };
+    return { retainedCptCodes: [], billingReviewRequired: false };
   }
 
   let operations: Operation[] = [];
@@ -410,18 +416,20 @@ async function changeOrderStatus(
   );
 
   let retainedCptCodes: string[] = [];
+  let billingReviewRequired = false;
   if (newStatus === 'cancelled') {
     const [cleanup, recheckCancelRequests] = await Promise.all([
-      makeOrderDeleteRequests(oystehr, pkg.medicationAdministration),
+      makeOrderDeleteRequests(oystehr, billingOystehr, pkg.medicationAdministration),
       makePendingRecheckCancelRequests(oystehr, pkg.medicationAdministration, practitionerId),
     ]);
     transactionRequests.push(...cleanup.requests, ...recheckCancelRequests);
     retainedCptCodes = cleanup.retainedCptCodes;
+    billingReviewRequired = cleanup.billingReviewRequired;
   }
 
   await oystehr.fhir.transaction({ requests: transactionRequests });
 
-  return { retainedCptCodes };
+  return { retainedCptCodes, billingReviewRequired };
 }
 
 async function getOrderResources(oystehr: Oystehr, orderId: string): Promise<OrderPackage> {

@@ -10,6 +10,7 @@ import {
   useGetMedicationOrders,
 } from '../../shared/stores/appointment/appointment.queries';
 import { useAppointmentData } from '../../shared/stores/appointment/appointment.store';
+import { OrderDeleteWarnings } from '../../shared/utils/orderDeleteWarnings';
 
 interface MedicationAPI {
   medications: ExtendedMedicationDataForResponse[];
@@ -17,7 +18,7 @@ interface MedicationAPI {
   isLoading: boolean;
   loadMedications: () => Promise<void>;
   updateMedication: (updatedMedication: UpdateMedicationOrderInput) => Promise<{ id: string; message: string }>;
-  deleteMedication: (idToDelete: string) => Promise<string[]>;
+  deleteMedication: (idToDelete: string) => Promise<OrderDeleteWarnings>;
 }
 
 const emptyArray: ExtendedMedicationDataForResponse[] = [];
@@ -72,7 +73,7 @@ export const useMedicationAPI = (): MedicationAPI => {
         { orderId: idToDelete, newStatus: 'cancelled' },
         { onSuccess: invalidateCache }
       );
-      return response.retainedCptCodes ?? [];
+      return response;
     },
   };
 };

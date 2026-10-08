@@ -49,7 +49,7 @@ import { EMERGENCY_CONTACT_RELATIONSHIPS } from 'utils/lib/types/api/medication-
 import { RoleType } from 'utils/lib/types/api/user.types';
 import { ImmunizationOrder } from 'utils/lib/types/data/immunization/types';
 import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils/lib/validation/constants';
-import { enqueueRetainedCptCodesWarning } from '../../visits/shared/utils/retainedCptCodesWarning';
+import { enqueueOrderDeleteWarnings } from '../../visits/shared/utils/orderDeleteWarnings';
 import { ADMINISTERED, AdministrationType, NOT_ADMINISTERED, PARTLY_ADMINISTERED } from '../common';
 import { useImmunizationQuickPickManagement } from '../hooks/useImmunizationQuickPickManagement';
 import { AdministrationConfirmationDialog } from './AdministrationConfirmationDialog';
@@ -114,7 +114,7 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order, onFinished }) => {
   const handleDeleteOrder = async (): Promise<void> => {
     try {
       const response = await cancelOrder({ orderId: order.id });
-      enqueueRetainedCptCodesWarning(response?.retainedCptCodes);
+      enqueueOrderDeleteWarnings(response);
       if (onFinished) {
         onFinished();
       } else {

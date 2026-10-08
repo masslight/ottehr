@@ -8,6 +8,7 @@ import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { medicationApplianceRoutes } from 'utils/lib/types/api/medication-administration.types';
 import { CancelImmunizationOrderResponse } from 'utils/lib/types/data/immunization/types';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM } from '../../src/shared/candid';
 import { makeProcedureResource } from '../../src/shared/chart-data';
 import {
   InsertFullAppointmentDataBaseResult,
@@ -120,17 +121,20 @@ describe('deleting in-house medication and vaccine orders', () => {
       });
     };
 
-    const deleteOrder = async (orderId: string, orderData?: Record<string, unknown>): Promise<string[] | undefined> =>
-      (
-        (
-          await oystehrProvider.zambda.execute({
-            id: 'create-update-medication-order',
-            orderId,
-            newStatus: 'cancelled',
-            ...(orderData && { orderData }),
-          })
-        ).output as { retainedCptCodes?: string[] }
-      ).retainedCptCodes;
+    const deleteOrder = async (
+      orderId: string,
+      orderData?: Record<string, unknown>
+    ): Promise<{ retainedCptCodes?: string[]; billingReviewRequired?: boolean }> => {
+      const { retainedCptCodes, billingReviewRequired } = (
+        await oystehrProvider.zambda.execute({
+          id: 'create-update-medication-order',
+          orderId,
+          newStatus: 'cancelled',
+          ...(orderData && { orderData }),
+        })
+      ).output as { retainedCptCodes?: string[]; billingReviewRequired?: boolean };
+      return { retainedCptCodes, billingReviewRequired };
+    };
 
     const getRecheckStatuses = async (
       visit: InsertFullAppointmentDataBaseResult,
@@ -182,7 +186,7 @@ describe('deleting in-house medication and vaccine orders', () => {
       expect(otherOrderLines.map(codeOf)).toEqual(['J3301']);
       expect(await getStatementStatuses(deletedOrderId)).toEqual(['active', 'active']);
 
-      expect(await deleteOrder(deletedOrderId)).toEqual(['96372']);
+      expect(await deleteOrder(deletedOrderId)).toEqual({ retainedCptCodes: ['96372'], billingReviewRequired: false });
 
       const deletedOrder = await getOrder(deletedOrderId);
       expect(deletedOrder.status).toBe('stopped');
@@ -192,7 +196,7 @@ describe('deleting in-house medication and vaccine orders', () => {
       expect(await getStatementStatuses(otherOrderId)).toEqual(['active']);
       expect(await getRecheckStatuses(visit, otherOrderId)).toEqual({ serviceRequest: 'draft', task: 'requested' });
 
-      expect(await deleteOrder(deletedOrderId)).toEqual([]);
+      expect(await deleteOrder(deletedOrderId)).toEqual({ retainedCptCodes: [], billingReviewRequired: false });
       expect((await getOrder(deletedOrderId)).meta?.versionId).toBe(deletedOrder.meta?.versionId);
 
       await deleteOrder(otherOrderId, inHouseOrderData(visit, ['J3301']));
@@ -242,13 +246,11 @@ describe('deleting in-house medication and vaccine orders', () => {
       });
     };
 
-    const deleteOrder = async (orderId: string): Promise<string[]> =>
-      (
-        (await oystehrProvider.zambda.execute({ id: 'cancel-immunization-order', orderId }))
-          .output as CancelImmunizationOrderResponse
-      ).retainedCptCodes;
+    const deleteOrder = async (orderId: string): Promise<CancelImmunizationOrderResponse> =>
+      (await oystehrProvider.zambda.execute({ id: 'cancel-immunization-order', orderId }))
+        .output as CancelImmunizationOrderResponse;
 
-    it('deleting an administered vaccine removes its own lines, keeps a line another vaccine relies on, reports an unlinked line, and the vaccine cannot be administered again', async () => {
+    it('deleting an administered vaccine removes its own lines, keeps a line another vaccine relies on, reports an unlinked line and billed visit, and the vaccine cannot be administered again', async () => {
       const visit = await insertInPersonAppointmentBase(oystehrAdmin, processId);
       const deletedOrderId = await createVaccineOrder(visit);
       await administerVaccine(deletedOrderId, ['90471', '90686', '90672']);
@@ -267,8 +269,23 @@ describe('deleting in-house medication and vaccine orders', () => {
         id: lineWithCode('90672').id!,
         operations: [{ op: 'remove', path: '/partOf' }],
       });
+      await oystehrAdmin.fhir.patch({
+        resourceType: 'Encounter',
+        id: visit.encounter.id!,
+        operations: [
+          {
+            op: 'add',
+            path: '/identifier',
+            value: [{ system: CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM, value: randomUUID() }],
+          },
+        ],
+      });
 
-      expect(await deleteOrder(deletedOrderId)).toEqual(['90672']);
+      expect(await deleteOrder(deletedOrderId)).toEqual({ retainedCptCodes: ['90672'], billingReviewRequired: true });
+      expect(await deleteOrder(await createVaccineOrder(visit))).toEqual({
+        retainedCptCodes: [],
+        billingReviewRequired: false,
+      });
 
       expect((await getOrder(deletedOrderId)).status).toBe('stopped');
       expect(await getStatementStatuses(deletedOrderId)).toEqual(['entered-in-error']);

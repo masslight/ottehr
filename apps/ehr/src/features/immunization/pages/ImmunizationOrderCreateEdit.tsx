@@ -31,7 +31,7 @@ import { getImmunizationMARUrl } from 'src/features/visits/in-person/routing/hel
 import { QuickPicksButton } from 'src/features/visits/shared/components/QuickPicksButton';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
-import { enqueueRetainedCptCodesWarning } from 'src/features/visits/shared/utils/retainedCptCodesWarning';
+import { enqueueOrderDeleteWarnings } from 'src/features/visits/shared/utils/orderDeleteWarnings';
 import { cleanupProperties } from 'src/helpers/misc.helper';
 import { useCommandPaletteSource } from 'src/hooks/useCommandPaletteSource';
 import useEvolveUser from 'src/hooks/useEvolveUser';
@@ -105,7 +105,7 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
     if (!orderId) return;
     try {
       const response = await cancelOrder({ orderId });
-      enqueueRetainedCptCodesWarning(response?.retainedCptCodes);
+      enqueueOrderDeleteWarnings(response);
       finish();
     } catch {
       setIsDeleteDialogOpen(false);

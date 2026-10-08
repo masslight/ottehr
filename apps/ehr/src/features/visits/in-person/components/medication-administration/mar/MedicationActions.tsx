@@ -4,7 +4,7 @@ import { Box, IconButton, Typography, useTheme } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { enqueueRetainedCptCodesWarning } from 'src/features/visits/shared/utils/retainedCptCodesWarning';
+import { enqueueOrderDeleteWarnings } from 'src/features/visits/shared/utils/orderDeleteWarnings';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { ExtendedMedicationDataForResponse } from 'utils/lib/types/api/medication-administration.types';
 import { CustomDialog } from '../../../../../../components/dialogs/CustomDialog';
@@ -58,7 +58,7 @@ export const MedicationActions: React.FC<MedicationActionsProps> = ({ medication
     setIsDeleting(true);
     setError(null);
     try {
-      enqueueRetainedCptCodesWarning(await deleteMedication(medication.id));
+      enqueueOrderDeleteWarnings(await deleteMedication(medication.id));
       setIsDeleteDialogOpen(false);
     } catch (error) {
       const errorMessage = getApiError({

@@ -8,6 +8,7 @@ import {
   CancelImmunizationOrderRequest,
   CancelImmunizationOrderResponse,
 } from 'utils/lib/types/data/immunization/types';
+import { createBillingClient } from '../../../billing/shared';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient, validateJsonBody } from '../../../shared/helpers';
 import { makeOrderDeleteRequests } from '../../../shared/medication-order-delete';
@@ -22,7 +23,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const validatedParameters = validateRequestParameters(input);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, validatedParameters.secrets);
-  const response = await cancelImmunizationOrder(oystehr, validatedParameters);
+  const billingOystehr = createBillingClient(m2mToken, validatedParameters.secrets);
+  const response = await cancelImmunizationOrder(oystehr, billingOystehr, validatedParameters);
   return {
     statusCode: 200,
     body: JSON.stringify(response),
@@ -31,6 +33,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
 async function cancelImmunizationOrder(
   oystehr: Oystehr,
+  billingOystehr: Oystehr,
   input: CancelImmunizationOrderRequest
 ): Promise<CancelImmunizationOrderResponse> {
   const { orderId } = input;
@@ -46,14 +49,14 @@ async function cancelImmunizationOrder(
 
   const patchOperations = [replaceOperation('/status', mapOrderStatusToFhir('cancelled'))];
 
-  const cleanup = await makeOrderDeleteRequests(oystehr, medicationAdministration);
+  const cleanup = await makeOrderDeleteRequests(oystehr, billingOystehr, medicationAdministration);
   await oystehr.fhir.transaction({
     requests: [
       getPatchBinary({ resourceType: 'MedicationAdministration', resourceId: orderId, patchOperations }),
       ...cleanup.requests,
     ],
   });
-  return { retainedCptCodes: cleanup.retainedCptCodes };
+  return { retainedCptCodes: cleanup.retainedCptCodes, billingReviewRequired: cleanup.billingReviewRequired };
 }
 
 export function validateRequestParameters(

@@ -19,7 +19,7 @@ import {
 } from 'src/features/visits/in-person/routing/helpers';
 import { searchRouteByCode } from 'utils/lib/fhir/medication-administration';
 import { ImmunizationOrder } from 'utils/lib/types/data/immunization/types';
-import { enqueueRetainedCptCodesWarning } from '../../visits/shared/utils/retainedCptCodesWarning';
+import { enqueueOrderDeleteWarnings } from '../../visits/shared/utils/orderDeleteWarnings';
 
 interface Props {
   order: ImmunizationOrder;
@@ -60,7 +60,7 @@ export const OrderHistoryTableRow: React.FC<Props> = ({
       const response = await cancelOrder({
         orderId: order.id,
       });
-      enqueueRetainedCptCodesWarning(response?.retainedCptCodes);
+      enqueueOrderDeleteWarnings(response);
     } catch {
       enqueueSnackbar('An error occurred while deleting the vaccine order. Please try again.', { variant: 'error' });
     } finally {

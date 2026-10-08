@@ -1,12 +1,22 @@
 import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
-import { FhirResource, MedicationAdministration, MedicationStatement, Procedure, ServiceRequest, Task } from 'fhir/r4b';
+import {
+  Encounter,
+  FhirResource,
+  MedicationAdministration,
+  MedicationStatement,
+  Procedure,
+  ServiceRequest,
+  Task,
+} from 'fhir/r4b';
 import { PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { getCptCodesFromMA, isImmunizationOrder } from 'utils/lib/fhir/medication-administration';
 import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
 import { replaceOperation } from 'utils/lib/helpers/operations';
+import { findBillingClaimForEncounter } from '../billing/payments';
 import { deleteResourceRequest } from '../ehr/delete-chart-data/helpers';
 import { mapMedicationAdministrationToImmunizationOrder } from '../ehr/immunization/get-orders';
+import { getCandidEncounterIdFromEncounter } from './candid';
 import { makeNursingOrderStatusChangeRequests } from './nursing-orders';
 
 const ADMINISTERED_STATUSES: MedicationAdministration['status'][] = ['completed', 'on-hold'];
@@ -81,10 +91,25 @@ const searchCptLines = (oystehr: Oystehr, param: { name: string; value: string }
     oystehr
   );
 
+export async function hasEncounterBillingRecord(
+  oystehr: Oystehr,
+  billingOystehr: Oystehr,
+  encounterId: string
+): Promise<boolean> {
+  const encounter = await oystehr.fhir.get<Encounter>({ resourceType: 'Encounter', id: encounterId });
+  if (getCandidEncounterIdFromEncounter(encounter) !== undefined) return true;
+  return (await findBillingClaimForEncounter(billingOystehr, encounterId)) !== undefined;
+}
+
 export async function makeOrderDeleteRequests(
   oystehr: Oystehr,
+  billingOystehr: Oystehr,
   medicationAdministration: MedicationAdministration
-): Promise<{ requests: BatchInputRequest<FhirResource>[]; retainedCptCodes: string[] }> {
+): Promise<{
+  requests: BatchInputRequest<FhirResource>[];
+  retainedCptCodes: string[];
+  billingReviewRequired: boolean;
+}> {
   const orderId = medicationAdministration.id!;
   const orderReference = `MedicationAdministration/${medicationAdministration.id}`;
   const encounterReference = medicationAdministration.context?.reference;
@@ -146,14 +171,24 @@ export async function makeOrderDeleteRequests(
       ).map((cptCode) => cptCode.code)
     : (getCptCodesFromMA(medicationAdministration) ?? []).map((cptCode) => cptCode.code);
 
+  const retainedCptCodes = selectRetainedCptCodes({
+    orderCodes,
+    wasAdministered: statements.length > 0,
+    visitLines,
+    deletedLines,
+  });
+
+  const encounterId = encounterReference?.replace('Encounter/', '');
+  const hasPotentialBillingCptImpact = deletedLines.length > 0 || retainedCptCodes.length > 0;
+  const billingReviewRequired =
+    encounterId !== undefined &&
+    hasPotentialBillingCptImpact &&
+    (await hasEncounterBillingRecord(oystehr, billingOystehr, encounterId));
+
   return {
     requests: [...statementRequests, ...cptLineRequests],
-    retainedCptCodes: selectRetainedCptCodes({
-      orderCodes,
-      wasAdministered: statements.length > 0,
-      visitLines,
-      deletedLines,
-    }),
+    retainedCptCodes,
+    billingReviewRequired,
   };
 }
 
