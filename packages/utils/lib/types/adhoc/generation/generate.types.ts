@@ -8,19 +8,39 @@ import { z } from 'zod';
 import {
   CLAUDE_OPUS_5_5_MODEL,
   CLAUDE_SONNET_5_5_MODEL,
-  LlmModel,
+  LlmModelVariant,
   VERTEX_AI_MODEL,
 } from '../../api/ai-models.constants';
 import { LlmDatasetSchemaSchema } from '../datasets/llm-schema';
 
-export const AD_HOC_REPORT_MODELS = ['defaultVertexModel', 'claudeSonnet_5_5', 'claudeOpus_5_5'] as const;
+export const AD_HOC_REPORT_MODELS = [
+  'defaultVertexModel',
+  'claudeSonnet_5_5_low',
+  'claudeSonnet_5_5_medium',
+  'claudeSonnet_5_5_high',
+  'claudeSonnet_5_5_low_noThinking',
+  'claudeSonnet_5_5_medium_noThinking',
+  'claudeSonnet_5_5_high_noThinking',
+  'claudeOpus_5_5_low',
+  'claudeOpus_5_5_medium',
+  'claudeOpus_5_5_high',
+] as const;
 export type AdHocReportModel = (typeof AD_HOC_REPORT_MODELS)[number];
 export const AD_HOC_REPORT_DEFAULT_MODEL: AdHocReportModel = 'defaultVertexModel';
 
-export const AD_HOC_REPORT_LLM_MODELS: Record<AdHocReportModel, LlmModel> = {
-  defaultVertexModel: VERTEX_AI_MODEL,
-  claudeSonnet_5_5: CLAUDE_SONNET_5_5_MODEL,
-  claudeOpus_5_5: CLAUDE_OPUS_5_5_MODEL,
+// Opus 5.5 always thinks: the API rejects turning thinking off, so it has no "no thinking" variants.
+export const AD_HOC_REPORT_LLM_MODELS: Record<AdHocReportModel, LlmModelVariant> = {
+  defaultVertexModel: { model: VERTEX_AI_MODEL },
+  claudeSonnet_5_5_low: { model: CLAUDE_SONNET_5_5_MODEL, effort: 'low', thinking: 'adaptive' },
+  claudeSonnet_5_5_medium: { model: CLAUDE_SONNET_5_5_MODEL, effort: 'medium', thinking: 'adaptive' },
+  claudeSonnet_5_5_high: { model: CLAUDE_SONNET_5_5_MODEL, effort: 'high', thinking: 'adaptive' },
+  // Sonnet 5.5 turns thinking off with "between_tools" (it rejects "disabled").
+  claudeSonnet_5_5_low_noThinking: { model: CLAUDE_SONNET_5_5_MODEL, effort: 'low', thinking: 'between_tools' },
+  claudeSonnet_5_5_medium_noThinking: { model: CLAUDE_SONNET_5_5_MODEL, effort: 'medium', thinking: 'between_tools' },
+  claudeSonnet_5_5_high_noThinking: { model: CLAUDE_SONNET_5_5_MODEL, effort: 'high', thinking: 'between_tools' },
+  claudeOpus_5_5_low: { model: CLAUDE_OPUS_5_5_MODEL, effort: 'low', thinking: 'adaptive' },
+  claudeOpus_5_5_medium: { model: CLAUDE_OPUS_5_5_MODEL, effort: 'medium', thinking: 'adaptive' },
+  claudeOpus_5_5_high: { model: CLAUDE_OPUS_5_5_MODEL, effort: 'high', thinking: 'adaptive' },
 };
 
 export const GenerateAdHocReportInputSchema = z.object({
