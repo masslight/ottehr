@@ -95,7 +95,7 @@ async function performEffect(
   practitionerIdCalledZambda: string
 ): Promise<any> {
   const { orderId, newStatus, orderData } = params;
-  if (orderId && orderData) {
+  if (orderId && orderData && newStatus !== 'cancelled') {
     const orderResources = await getOrderResources(oystehr, orderId);
     // Captured before updateOrder writes the new status, so the vitals re-check can tell a real
     // transition into "administered" from a re-save of an already-administered order.
@@ -381,6 +381,11 @@ async function changeOrderStatus(
   practitionerId: string
 ): Promise<{ retainedCptCodes: string[] }> {
   console.log(`Changing status to: ${newStatus}`);
+
+  if (newStatus === 'cancelled' && mapFhirToOrderStatus(pkg.medicationAdministration) === 'cancelled') {
+    console.log(`Order ${pkg.medicationAdministration.id} is already cancelled, nothing to change`);
+    return { retainedCptCodes: [] };
+  }
 
   let operations: Operation[] = [];
 
