@@ -117,7 +117,6 @@ export const QuestionnaireReadOnlyView: FC<QuestionnaireReadOnlyViewProps> = ({
           open={testDialogOpen}
           onClose={() => setTestDialogOpen(false)}
           questionnaire={questionnaire}
-          totalPages={questionnaire.item?.length ?? 0}
         />
 
         <QuestionnaireJsonPreview json={JSON.stringify(questionnaire, null, 2)} />

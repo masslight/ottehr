@@ -4,12 +4,21 @@ import { Questionnaire, QuestionnaireResponse } from 'fhir/r4b';
 import { PaperworkContext } from 'ui-components/lib/components/paperwork/context';
 import { QR_DISTRIBUTION_TAG } from 'utils/lib/fhir/constants';
 import { mapQuestionnaireAndValueSetsToItemsList } from 'utils/lib/helpers/paperwork/paperwork';
+import { isPageHidden } from 'utils/lib/helpers/paperwork/validation';
 import {
   findQuestionnaireResponseItemLinkId,
   flattenIntakeQuestionnaireItems,
   IntakeQuestionnaireItem,
   QAndQRResponse,
 } from 'utils/lib/types/data/paperwork/paperwork.types';
+
+// the pages a patient is taken through: hidden pages (readOnly + disabled-display hidden) are skipped, though their
+// items still feed calculated values, which read from the full item list
+export const getPreviewPages = (allItems: IntakeQuestionnaireItem[] | undefined): IntakeQuestionnaireItem[] =>
+  (allItems ?? []).filter((item) => item.linkId && !isPageHidden(item));
+
+export const countPreviewPages = (questionnaire: Questionnaire): number =>
+  getPreviewPages(stubPaperworkResponseForPreview(questionnaire).allItems).length;
 
 export const stubPaperworkResponseForPreview = (questionnaire: Questionnaire): QAndQRResponse => {
   // mapQuestionnaireAndValueSetsToItemsList mutates its input items in place, so pass a deep

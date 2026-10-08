@@ -2,9 +2,11 @@
  * @vitest-environment jsdom
  */
 
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { QuestionnaireItem, QuestionnaireResponse } from 'fhir/r4b';
+import { Questionnaire, QuestionnaireItem, QuestionnaireResponse } from 'fhir/r4b';
+import { ReactElement } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS } from 'utils/lib/fhir/constants';
 import { mapQuestionnaireAndValueSetsToItemsList } from 'utils/lib/helpers/paperwork/paperwork';
@@ -23,6 +25,9 @@ vi.mock('../../src/hooks/useAppClients', () => ({
 
 import { EditFormResponseDialog } from '../../src/components/dialogs/EditFormResponseDialog';
 import { QuestionnaireResponseViewer } from '../../src/components/QuestionnaireResponseViewer';
+import { QuestionnairePreview } from '../../src/features/visits/telemed/components/admin/questionnaires/components/QuestionnairePreview';
+import { QuestionnaireTestDialog } from '../../src/features/visits/telemed/components/admin/questionnaires/components/QuestionnaireTestDialog';
+import { countPreviewPages } from '../../src/features/visits/telemed/components/admin/questionnaires/questionnaire-utils';
 
 const calculated = (expression: string): QuestionnaireItem['extension'] => [
   {
@@ -185,5 +190,85 @@ describe('QuestionnaireResponseViewer', () => {
     render(<QuestionnaireResponseViewer form={form} />);
 
     expect(screen.getByText('Not Started')).toBeInTheDocument();
+  });
+});
+
+// the questionnaire as the admin tools receive it: raw FHIR, with a readOnly + disabled-display hidden results page
+const cageQuestionnaire = (hideResults: boolean): Questionnaire => ({
+  resourceType: 'Questionnaire',
+  url: 'https://ottehr.com/FHIR/Questionnaire/cage',
+  version: '1.0.0',
+  status: 'active',
+  title: 'CAGE',
+  item: [
+    { linkId: 'items', type: 'group', text: 'Items', item: [yesNo('q1', 'Cut down'), yesNo('q2', 'Annoyed')] },
+    {
+      linkId: 'results',
+      type: 'group',
+      text: 'Results',
+      ...(hideResults && { readOnly: true }),
+      extension: [{ url: OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.disabledDisplay, valueString: 'hidden' }],
+      item: [
+        {
+          linkId: 'total',
+          type: 'string',
+          text: 'Total',
+          extension: [
+            { url: OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.disabledDisplay, valueString: 'hidden' },
+            ...(calculated(TOTAL_EXPRESSION) ?? []),
+          ],
+        },
+      ],
+    },
+  ],
+});
+
+describe('admin preview and test of a form with a hidden results page', () => {
+  // the default select input for a choice loads its options through react-query
+  const withProviders = (ui: ReactElement): ReactElement => (
+    <QueryClientProvider client={new QueryClient()}>
+      <MemoryRouter>{ui}</MemoryRouter>
+    </QueryClientProvider>
+  );
+
+  const renderPreview = (questionnaire: Questionnaire): void => {
+    render(
+      withProviders(
+        <QuestionnairePreview
+          questionnaire={questionnaire}
+          currentPageIndex={0}
+          setCurrentPageIndex={vi.fn()}
+          completed={false}
+          setCompleted={vi.fn()}
+          previewMode="ui-only"
+        />
+      )
+    );
+  };
+
+  it('counts only the pages a patient is taken through', () => {
+    expect(countPreviewPages(cageQuestionnaire(true))).toBe(1);
+    expect(countPreviewPages(cageQuestionnaire(false))).toBe(2);
+  });
+
+  it('previews a single page when the results page is hidden', async () => {
+    renderPreview(cageQuestionnaire(true));
+
+    expect(await screen.findByText('Cut down')).toBeInTheDocument();
+    expect(screen.queryByText(/Page \d+ of/)).not.toBeInTheDocument();
+  });
+
+  it('still previews every page when no page is hidden', async () => {
+    renderPreview(cageQuestionnaire(false));
+
+    expect(await screen.findByText('Page 1 of 2')).toBeInTheDocument();
+  });
+
+  it('tests a single page, so the one button submits the form', async () => {
+    render(withProviders(<QuestionnaireTestDialog open onClose={vi.fn()} questionnaire={cageQuestionnaire(true)} />));
+
+    expect(await screen.findByText('Cut down')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Submit' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Continue' })).not.toBeInTheDocument();
   });
 });

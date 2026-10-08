@@ -252,7 +252,6 @@ export const QuestionnaireBuilder: FC<QuestionnaireBuilderProps> = ({ initial, o
             open={testDialogOpen}
             onClose={() => setTestDialogOpen(false)}
             questionnaire={fhirQuestionnaire}
-            totalPages={items.length}
           />
 
           <QuestionnaireJsonPreview json={jsonPreview} />
