@@ -2,10 +2,12 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { MedicationAdministration } from 'fhir/r4b';
 import { mapFhirToOrderStatus, mapOrderStatusToFhir } from 'utils/lib/fhir/medication-administration';
+import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
 import { replaceOperation } from 'utils/lib/helpers/operations';
 import { CancelImmunizationOrderRequest } from 'utils/lib/types/data/immunization/types';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient, validateJsonBody } from '../../../shared/helpers';
+import { makeOrderStatementsEnteredInErrorRequests } from '../../../shared/medication-order-delete';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
 
@@ -38,10 +40,11 @@ async function cancelImmunizationOrder(oystehr: Oystehr, input: CancelImmunizati
 
   const patchOperations = [replaceOperation('/status', mapOrderStatusToFhir('cancelled'))];
 
-  await oystehr.fhir.patch({
-    resourceType: 'MedicationAdministration',
-    id: orderId,
-    operations: patchOperations,
+  await oystehr.fhir.transaction({
+    requests: [
+      getPatchBinary({ resourceType: 'MedicationAdministration', resourceId: orderId, patchOperations }),
+      ...(await makeOrderStatementsEnteredInErrorRequests(oystehr, orderId)),
+    ],
   });
 }
 
