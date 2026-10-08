@@ -151,6 +151,13 @@ const unmatchedResponse: ClaimResponse = {
       patient: { reference: '#patient' },
       provider: { reference: '#billing-provider' },
       insurance: [],
+      item: [
+        {
+          productOrService: {},
+          sequence: 1,
+          servicedDate: '2020-01-01',
+        },
+      ],
     } as Claim,
     {
       resourceType: 'Patient',
@@ -343,7 +350,7 @@ describe('get-billing-era-detail performEffect', () => {
     expect(unmatched?.remits[0]).toMatchObject({ eraStatusCode: '4', payerClaimControlNumber: 'ICN-cr-2' });
     expect(unmatched?.remits[0].serviceLines[0]).toMatchObject({
       cptCode: '87880',
-      serviceDate: '2026-06-30',
+      serviceDate: '2020-01-01',
       copay: 25,
     });
   });
