@@ -98,7 +98,7 @@ async function performEffect(input: EffectInput, oystehr: Oystehr): Promise<void
 
 // create unique slug to ensure url is unique across all questionnaires
 function makeUniqueFlowSlug(desired: string): string {
-  const baseSlug = slugify(desired) || 'flow';
+  const baseSlug = slugify(desired);
   const suffix = randomBytes(3).toString('hex'); // e.g. "a3f9c1"
 
   return `${baseSlug}-${suffix}`;
