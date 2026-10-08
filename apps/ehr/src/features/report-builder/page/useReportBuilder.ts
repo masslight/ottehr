@@ -5,11 +5,20 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { AdHocRow, LlmDatasetSchema } from 'utils/lib/types/adhoc/datasets/llm-schema';
-import { GenerateAdHocReportInput, GenerateAdHocReportOutput } from 'utils/lib/types/adhoc/generation/generate.types';
+import {
+  AD_HOC_REPORT_DEFAULT_MODEL,
+  AdHocReportModel,
+  GenerateAdHocReportInput,
+  GenerateAdHocReportOutput,
+} from 'utils/lib/types/adhoc/generation/generate.types';
 import { InferDatasetFeedback } from 'utils/lib/types/adhoc/generation/infer.types';
 import { AdHocDateRangeFilter } from 'utils/lib/types/adhoc/query/date-range';
 import { ADHOC_RUNTIME_VERSION, SavedAdHocReportDefinition } from 'utils/lib/types/adhoc/saved/saved.types';
-import { AD_HOC_REPORT_EDIT_ROLES, AD_HOC_REPORT_VIEW_ROLES } from 'utils/lib/types/api/adhoc-report-access';
+import {
+  AD_HOC_REPORT_EDIT_ROLES,
+  AD_HOC_REPORT_MODEL_PICKER_ROLES,
+  AD_HOC_REPORT_VIEW_ROLES,
+} from 'utils/lib/types/api/adhoc-report-access';
 import { generateAdHocReport, inferAdHocReportLayers, listAdHocReports, saveAdHocReport } from '../../../api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
 import useEvolveUser from '../../../hooks/useEvolveUser';
@@ -88,6 +97,8 @@ type UseReportBuilder = {
   oystehrZambda: ReturnType<typeof useApiClients>['oystehrZambda'];
   canView: boolean;
   canCreate: boolean;
+  canPickModel: boolean;
+  model: AdHocReportModel;
   datasetId: string | null;
   dateRange: AdHocDateRangeFilter;
   customDate: string;
@@ -120,6 +131,7 @@ type UseReportBuilder = {
   setCustomStartDate: (customStartDate: string) => void;
   setCustomEndDate: (customEndDate: string) => void;
   setRequest: (request: string) => void;
+  setModel: (model: AdHocReportModel) => void;
   setShowSchema: (showSchema: boolean) => void;
   setShowCode: (showCode: boolean) => void;
   setSavedName: (savedName: string) => void;
@@ -141,6 +153,7 @@ export function useReportBuilder(): UseReportBuilder {
   const user = useEvolveUser();
   const canView = user?.hasRole(AD_HOC_REPORT_VIEW_ROLES) ?? false;
   const canCreate = user?.hasRole(AD_HOC_REPORT_EDIT_ROLES) ?? false;
+  const canPickModel = user?.hasRole(AD_HOC_REPORT_MODEL_PICKER_ROLES) ?? false;
 
   const [datasetId, setDatasetId] = useState<string | null>(null);
   const [dateRange, setDateRange] = useState<AdHocDateRangeFilter>('last-30-days');
@@ -157,6 +170,7 @@ export function useReportBuilder(): UseReportBuilder {
   const [error, setError] = useState<string | null>(null);
 
   const [request, setRequest] = useState('');
+  const [model, setModel] = useState<AdHocReportModel>(AD_HOC_REPORT_DEFAULT_MODEL);
   const [generating, setGenerating] = useState(false);
   const [loadingLayers, setLoadingLayers] = useState<string[]>([]);
   const [generatedCode, setGeneratedCode] = useState<string | null>(null);
@@ -270,6 +284,7 @@ export function useReportBuilder(): UseReportBuilder {
         schema: useSchema,
         request: message,
         previousAttempt,
+        ...(canPickModel ? { model } : {}),
       });
       showAdHocDebugLog('generate', 'received report code', {
         title: result.title,
@@ -277,9 +292,12 @@ export function useReportBuilder(): UseReportBuilder {
         needsDataset: result.needsDataset,
         codeLength: result.code.length,
       });
+      activeRequestRef.current = message;
+      setGeneratedCode(result.code);
+      setGeneratedTitle(result.title);
       return result;
     },
-    [oystehrZambda]
+    [oystehrZambda, canPickModel, model]
   );
 
   const commitGenerated = useCallback((message: string, result: GenerateAdHocReportOutput): void => {
@@ -610,6 +628,8 @@ export function useReportBuilder(): UseReportBuilder {
     oystehrZambda,
     canView,
     canCreate,
+    canPickModel,
+    model,
     datasetId,
     dateRange,
     customDate,
@@ -641,6 +661,7 @@ export function useReportBuilder(): UseReportBuilder {
     setCustomStartDate,
     setCustomEndDate,
     setRequest,
+    setModel,
     setShowSchema,
     setShowCode,
     setSavedName,

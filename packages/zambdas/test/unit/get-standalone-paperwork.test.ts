@@ -153,7 +153,7 @@ describe('get-standalone-paperwork', () => {
     const oystehr = makeOystehr(questionnaireResponse({ subject: { reference: 'Group/team-1' } }), fullGraph);
     const result = await invoke(oystehr);
     expect(result.statusCode).toBeGreaterThanOrEqual(400);
-    expect(JSON.parse(result.body)).toEqual({ error: 'Internal error' });
+    expect(JSON.parse(result.body)).toEqual({ message: 'Internal error' });
     // and it fails before any authorization or questionnaire work happens
     expect(mockGetQuestionnaireForQR).not.toHaveBeenCalled();
   });
@@ -190,7 +190,7 @@ describe('get-standalone-paperwork', () => {
   test('fails closed when the QR has no encounter to anchor the resource graph', async () => {
     const result = await invoke(makeOystehr(questionnaireResponse({ encounter: undefined }), fullGraph));
     expect(result.statusCode).toBeGreaterThanOrEqual(400);
-    expect(JSON.parse(result.body)).toEqual({ error: 'Internal error' });
+    expect(JSON.parse(result.body)).toEqual({ message: 'Internal error' });
   });
 
   test('errors when the encounter graph is missing the patient', async () => {

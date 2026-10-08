@@ -6,8 +6,9 @@ import {
   InferDatasetFeedback,
 } from 'utils/lib/types/adhoc/generation/infer.types';
 import { AD_HOC_REPORT_EDIT_ROLES } from 'utils/lib/types/api/adhoc-report-access';
+import { VERTEX_AI_MODEL } from 'utils/lib/types/api/ai-models.constants';
 import { fixAndParseJsonObjectFromString } from 'utils/lib/validation/json-fix';
-import { invokeChatbotVertexAI, VERTEX_AI_MODEL } from '../../shared/ai';
+import { invokeChatbotVertexAI } from '../../shared/ai';
 import { getUserToken, requireUserWithRole } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
@@ -185,28 +186,30 @@ export const parseDatasets = (value: unknown, catalog: CatalogDataset[]): InferA
 };
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const { datasets, request, feedback, secrets } = validateRequestParameters(input);
+  const { datasetId, datasets, request, secrets } = validateRequestParameters(input);
 
   await requireUserWithRole(getUserToken(input), secrets, AD_HOC_REPORT_EDIT_ROLES);
 
   const raw = await invokeChatbotVertexAI(
-    [{ text: buildPrompt(datasets, request, feedback) }],
+    [{ text: buildPrompt(datasetId, datasets, request) }],
     secrets,
     'infer-adhoc-report-layers',
-    responseSchema(datasets),
-    VERTEX_AI_MODEL
+    RESPONSE_SCHEMA,
+    VERTEX_AI_MODEL.id
   );
 
   const parsed = fixAndParseJsonObjectFromString(raw) as {
-    datasets?: unknown;
+    layerIds?: unknown;
     unavailable?: unknown;
     hint?: unknown;
   };
 
   const picked = parseDatasets(parsed?.datasets, datasets);
+
   const unavailable = Array.isArray(parsed.unavailable)
     ? parsed.unavailable.filter((c): c is string => typeof c === 'string' && c.trim().length > 0)
     : [];
+
   const hint = typeof parsed.hint === 'string' && parsed.hint.trim() ? parsed.hint.trim() : undefined;
 
   if (!picked.length && !unavailable.length) {

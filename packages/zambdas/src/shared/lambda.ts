@@ -24,7 +24,8 @@ const handleErrorResult = (errorResult: unknown): APIGatewayProxyResult => {
   } else {
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: 'Internal error' }),
+      // { message } is the zambda error format the Oystehr SDK reads; anything else surfaces as "[object Object]"
+      body: JSON.stringify({ message: 'Internal error' }),
     };
   }
 };
