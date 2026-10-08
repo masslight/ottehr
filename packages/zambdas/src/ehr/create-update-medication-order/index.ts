@@ -49,7 +49,10 @@ import { FHIR_RESOURCE_NOT_FOUND_CUSTOM, INVALID_INPUT_ERROR } from 'utils/lib/t
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { makeProcedureResource } from '../../shared/chart-data';
 import { assertDefined, createClinicalOystehrClient } from '../../shared/helpers';
-import { makeOrderStatementsEnteredInErrorRequests } from '../../shared/medication-order-delete';
+import {
+  makeOrderCptLinesDeleteRequests,
+  makeOrderStatementsEnteredInErrorRequests,
+} from '../../shared/medication-order-delete';
 import { makeNursingOrderTransactionRequests } from '../../shared/nursing-orders';
 import { getMyPractitionerId } from '../../shared/practitioners';
 import { wrapHandler } from '../../shared/sentry';
@@ -400,7 +403,8 @@ async function changeOrderStatus(
   // If we're cancelling a medication and there's a corresponding MedicationStatement, update its status to 'entered-in-error'
   if (newStatus === 'cancelled') {
     transactionRequests.push(
-      ...(await makeOrderStatementsEnteredInErrorRequests(oystehr, pkg.medicationAdministration.id!))
+      ...(await makeOrderStatementsEnteredInErrorRequests(oystehr, pkg.medicationAdministration.id!)),
+      ...(await makeOrderCptLinesDeleteRequests(oystehr, pkg.medicationAdministration.id!))
     );
   }
 
