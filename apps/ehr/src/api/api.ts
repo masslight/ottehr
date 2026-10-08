@@ -174,6 +174,8 @@ import {
   CreateMedicationHistoryQuickPickResponse,
   CreatePatientInstructionQuickPickInput,
   CreatePatientInstructionQuickPickResponse,
+  CreatePrescriptionQuickPickInput,
+  CreatePrescriptionQuickPickResponse,
   CreateProcedureQuickPickInput,
   CreateProcedureQuickPickResponse,
   CreateQuickTextQuickPickInput,
@@ -187,6 +189,7 @@ import {
   GetMedicalConditionQuickPicksResponse,
   GetMedicationHistoryQuickPicksResponse,
   GetPatientInstructionQuickPicksResponse,
+  GetPrescriptionQuickPicksResponse,
   GetProcedureQuickPicksResponse,
   GetQuickTextQuickPicksResponse,
   GetRadiologyQuickPicksResponse,
@@ -196,6 +199,7 @@ import {
   MedicalConditionQuickPickData,
   MedicationHistoryQuickPickData,
   PatientInstructionQuickPickData,
+  PrescriptionQuickPickData,
   ProcedureQuickPickData,
   QuickPickRemoveResponse,
   QuickTextQuickPickData,
@@ -207,6 +211,7 @@ import {
   UpdateMedicalConditionQuickPickResponse,
   UpdateMedicationHistoryQuickPickResponse,
   UpdatePatientInstructionQuickPickResponse,
+  UpdatePrescriptionQuickPickResponse,
   UpdateProcedureQuickPickResponse,
   UpdateQuickTextQuickPickResponse,
   UpdateRadiologyQuickPickResponse,
@@ -3191,6 +3196,57 @@ export const updateRadiologyQuickPick = async (
     const response = await oystehr.zambda.execute({
       id: ADMIN_UPDATE_QUICK_PICK_ZAMBDA_ID,
       category: 'radiology-quick-pick',
+      quickPickId,
+      quickPick,
+    } as any);
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+// ── Prescription (eRx) Quick Picks ──
+
+export const getPrescriptionQuickPicks = async (oystehr: Oystehr): Promise<GetPrescriptionQuickPicksResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: ADMIN_GET_QUICK_PICKS_ZAMBDA_ID,
+      category: 'prescription-quick-pick',
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const createPrescriptionQuickPick = async (
+  oystehr: Oystehr,
+  parameters: CreatePrescriptionQuickPickInput
+): Promise<CreatePrescriptionQuickPickResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: ADMIN_CREATE_QUICK_PICK_ZAMBDA_ID,
+      category: 'prescription-quick-pick',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const updatePrescriptionQuickPick = async (
+  oystehr: Oystehr,
+  quickPickId: string,
+  quickPick: Omit<PrescriptionQuickPickData, 'id'>
+): Promise<UpdatePrescriptionQuickPickResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: ADMIN_UPDATE_QUICK_PICK_ZAMBDA_ID,
+      category: 'prescription-quick-pick',
       quickPickId,
       quickPick,
     } as any);

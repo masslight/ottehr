@@ -57,7 +57,7 @@ import {
   addOrReplaceOperation,
   removeOperation,
 } from 'utils/lib/helpers/operations';
-import { CODE_SYSTEM_ICD_10 } from 'utils/lib/helpers/rcm/constants';
+import { CODE_SYSTEM_ICD_10, CODE_SYSTEM_NDC } from 'utils/lib/helpers/rcm/constants';
 import { isNoteEdited } from 'utils/lib/helpers/visit-note/note-edit-detection.helper';
 import { VitalsSchema } from 'utils/lib/helpers/vitals/config-schema';
 import { getVitalObservationFhirInterpretations } from 'utils/lib/helpers/vitals/utils';
@@ -350,15 +350,13 @@ export function makeMedicationDTO(medication: MedicationStatement): MedicationDT
   };
 }
 
-const NDC_SYSTEM = 'http://hl7.org/fhir/sid/ndc';
-
 export function makePrescribedMedicationDTO(medRequest: MedicationRequest): PrescribedMedicationDTO {
   return {
     resourceId: medRequest.id,
     name: (
       medRequest.medicationCodeableConcept?.coding?.find(
         (coding) => coding.system === MEDICATION_DISPENSABLE_DRUG_ID
-      ) ?? medRequest.medicationCodeableConcept?.coding?.find((coding) => coding.system === NDC_SYSTEM)
+      ) ?? medRequest.medicationCodeableConcept?.coding?.find((coding) => coding.system === CODE_SYSTEM_NDC)
     )?.display,
     instructions: medRequest.dosageInstruction?.[0]?.patientInstruction,
     added: medRequest.meta?.lastUpdated,

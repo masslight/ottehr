@@ -1,193 +1,157 @@
-import { zodResolver } from '@hookform/resolvers/zod';
-import { LoadingButton } from '@mui/lab';
+import { Add } from '@mui/icons-material';
 import {
   Autocomplete,
+  Box,
   Button,
-  FormControlLabel,
-  Grid,
-  InputBaseComponentProps,
-  MenuItem,
-  Paper,
+  Divider,
+  FormHelperText,
   Stack,
-  Switch,
   TextField,
   Typography,
+  useTheme,
 } from '@mui/material';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useState } from 'react';
-import { Controller, useForm } from 'react-hook-form';
-import { useIcd10SearchInput } from 'src/features/admin/patient-education/useIcd10SearchInput';
+import { createPrescriptionQuickPick, getPrescriptionQuickPicks, updatePrescriptionQuickPick } from 'src/api/api';
+import { AccordionCard } from 'src/components/AccordionCard';
+import { RoundedButton } from 'src/components/RoundedButton';
+import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser from 'src/hooks/useEvolveUser';
-import { MedicationSearchResult, PharmacySearchResult } from 'utils/lib/types/api/erx-search.types';
-import { OrderPrescriptionInput, QUANTITY_UNITS, QuantityUnit } from 'utils/lib/types/api/order-prescription.types';
-import { z } from 'zod';
-import { useAddDiagnosis } from '../../../shared/components/assessment-tab/DiagnosesContainer';
+import { sortQuickPicks, useMergedPrescriptionQuickPicks } from 'src/hooks/useMergedQuickPicks';
+import { PharmacyDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { PharmacySearchResult } from 'utils/lib/types/api/erx-search.types';
+import { PrescriptionQuickPickData } from 'utils/lib/types/api/quick-picks.types';
+import { RoleType } from 'utils/lib/types/api/user.types';
+import { AllergiesContainer } from '../../../shared/components/review-tab/components/AllergiesContainer';
+import { MedicationsContainer } from '../../../shared/components/review-tab/components/MedicationsContainer';
+import { useChartData } from '../../../shared/hooks/useChartData';
 import { useChartSection } from '../../../shared/hooks/useChartSection';
-import { useSearchMedications, useSearchPharmacies } from '../../../shared/hooks/useErxSearch';
+import { useSearchPharmacies } from '../../../shared/hooks/useErxSearch';
+import { useGetAppointmentAccessibility } from '../../../shared/hooks/useGetAppointmentAccessibility';
 import { useOrderPrescription } from '../../../shared/hooks/useOrderPrescription';
-import { useAppointmentData } from '../../../shared/stores/appointment/appointment.store';
+import { useAppointmentData, useSaveChartData } from '../../../shared/stores/appointment/appointment.store';
+import { PopoverBlank, Sentence } from '../procedures/narrative/InlineBlanks';
+import { ProcedureQuickPickDialogs } from '../procedures/ProcedureQuickPickDialogs';
+import {
+  applyPrescriptionQuickPick,
+  emptyPrescriptionLine,
+  PrescriptionLine,
+  prescriptionLineErrors,
+  prescriptionLineToOrder,
+  prescriptionLineToQuickPick,
+} from './prescriptionLines';
+import { PrescriptionSentences } from './PrescriptionSentences';
 
-const PRESCRIBER_SPI = '7955484659004';
+// Layout from the procedure page: the side column sits beside the form once the page is wide enough.
+const SIDE_COLUMN_WIDTH = 340;
+const SIDE_COLUMN_MIN_WIDTH = 280;
+const FORM_COLUMN_MIN_WIDTH = 420;
+const COLUMN_GAP_PX = 16;
+const SIDE_COLUMN_QUERY = `@container (min-width: ${FORM_COLUMN_MIN_WIDTH + COLUMN_GAP_PX + SIDE_COLUMN_MIN_WIDTH}px)`;
 
-const isWholeNumberInRange = (value: string, min: number, max: number): boolean => {
-  const number = Number(value);
-  return value.trim() !== '' && Number.isInteger(number) && number >= min && number <= max;
+const digits = (value: string | undefined): string => value?.replace(/\D/g, '') ?? '';
+
+/** The patient's preferred pharmacy as a Surescripts directory entry. The chart keeps only its name, address and
+ * phone, so it is looked up by name; a phone on file must match too. */
+const usePreferredPharmacy = (preferred: PharmacyDTO[] | undefined): PharmacySearchResult | null => {
+  const primary = preferred?.find((pharmacy) => pharmacy.primary) ?? preferred?.[0];
+  const { data: results = [] } = useSearchPharmacies(primary?.name ?? '');
+  if (!primary) return null;
+  return (
+    results.find(
+      (result) =>
+        result.name.trim().toLowerCase() === primary.name.trim().toLowerCase() &&
+        (!digits(primary.phone) || digits(result.phone).endsWith(digits(primary.phone).slice(-10)))
+    ) ?? null
+  );
 };
 
-const OrderPrescriptionFormSchema = z.object({
-  medicationDescription: z.string().trim().min(1, 'Required').max(105, 'Up to 105 characters'),
-  ndc: z.string().regex(/^\d{11}$/, 'Must be an 11-digit NDC'),
-  quantityValue: z.string().refine((value) => Number(value) > 0, 'Must be greater than 0'),
-  quantityUnit: z.string().min(1, 'Required'),
-  daysSupply: z
-    .string()
-    .refine((value) => value === '' || isWholeNumberInRange(value, 1, 999), 'Must be a whole number from 1 to 999'),
-  writtenDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Must be formatted YYYY-MM-DD'),
-  numberOfRefills: z
-    .string()
-    .refine((value) => isWholeNumberInRange(value, 0, 99), 'Must be a whole number from 0 to 99'),
-  substitutionAllowed: z.boolean(),
-  patientInstructions: z.string().trim().min(1, 'Required').max(1000, 'Up to 1000 characters'),
-  pharmacyId: z.string().regex(/^\d{7}$/, 'Must be a 7-digit NCPDP ID'),
-  pharmacyNpi: z.string().regex(/^\d{10}$/, 'Must be a 10-digit NPI'),
-  pharmacyName: z.string().trim().min(1, 'Required').max(105, 'Up to 105 characters'),
-  pharmacyPhone: z.string().refine((value) => value.replace(/\D/g, '').length >= 10, 'Must have at least 10 digits'),
-  diagnosisCode: z.string().trim().min(1, 'Required'),
-  diagnosisDescription: z.string().trim().min(1, 'Required'),
-});
-
-interface DiagnosisOption {
-  code: string;
-  display: string;
-  group: 'Visit diagnoses' | 'Search results';
-}
-
-type OrderPrescriptionFormValues = z.infer<typeof OrderPrescriptionFormSchema>;
-
-type TextFieldName = Exclude<keyof OrderPrescriptionFormValues, 'substitutionAllowed'>;
-
-interface TextFieldOptions {
-  helperText?: string;
-  required?: boolean;
-  type?: 'text' | 'number' | 'date' | 'tel';
-  htmlInput?: InputBaseComponentProps;
-  options?: readonly string[];
-}
-
-const defaultValues = (): OrderPrescriptionFormValues => ({
-  medicationDescription: '',
-  ndc: '',
-  quantityValue: '',
-  quantityUnit: '',
-  daysSupply: '',
-  writtenDate: DateTime.local().toISODate() ?? '',
-  numberOfRefills: '0',
-  substitutionAllowed: true,
-  patientInstructions: '',
-  pharmacyId: '',
-  pharmacyNpi: '',
-  pharmacyName: '',
-  pharmacyPhone: '',
-  diagnosisCode: '',
-  diagnosisDescription: '',
-});
+const PharmacySearch: FC<{ onPick: (pharmacy: PharmacySearchResult) => void }> = ({ onPick }) => {
+  const [query, setQuery] = useState('');
+  const { data: pharmacies = [], isFetching } = useSearchPharmacies(query);
+  return (
+    <Box sx={{ width: 360, pt: 0.5 }}>
+      <Autocomplete<PharmacySearchResult>
+        options={pharmacies}
+        loading={isFetching}
+        filterOptions={(options) => options}
+        getOptionLabel={(option) => `${option.name} - ${option.address}`}
+        inputValue={query}
+        onInputChange={(_event, value) => setQuery(value)}
+        value={null}
+        onChange={(_event, option) => option && onPick(option)}
+        noOptionsText={query.trim().length < 2 ? 'Type to search pharmacies' : 'Nothing found for this search criteria'}
+        renderInput={(params) => <TextField {...params} size="small" label="Pharmacy" />}
+      />
+    </Box>
+  );
+};
 
 export const OrderPrescriptionForm: FC = () => {
+  const theme = useTheme();
   const { patient, encounter } = useAppointmentData();
   const user = useEvolveUser();
-  const { mutateAsync: orderPrescription, isPending } = useOrderPrescription();
-  const { refetch: refetchPrescriptions } = useChartSection('plan');
-  const { data: assessment, isLoading: isLoadingDiagnoses } = useChartSection('assessment');
-  const {
-    inputValue: diagnosisSearch,
-    setInputValue: setDiagnosisSearch,
-    options: diagnosisSearchResults,
-    isFetching: isSearchingDiagnoses,
-  } = useIcd10SearchInput();
-  const [diagnosisInputValue, setDiagnosisInputValue] = useState('');
-  const { onAdd: addDiagnosisToVisit } = useAddDiagnosis();
-  const visitDiagnoses = assessment?.diagnosis ?? [];
-  const diagnosisOptions: DiagnosisOption[] = [
-    ...visitDiagnoses
-      .filter((diagnosis) =>
-        `${diagnosis.code} ${diagnosis.display}`.toLowerCase().includes(diagnosisSearch.trim().toLowerCase())
-      )
-      .map((diagnosis) => ({ code: diagnosis.code, display: diagnosis.display, group: 'Visit diagnoses' as const })),
-    ...(diagnosisSearch.trim()
-      ? diagnosisSearchResults
-          .filter((result) => !visitDiagnoses.some((diagnosis) => diagnosis.code === result.code))
-          .map((result) => ({ code: result.code, display: result.display, group: 'Search results' as const }))
-      : []),
-  ];
+  const isAdmin = user?.hasRole([RoleType.Administrator, RoleType.CustomerSupport]) ?? false;
+  const { isAppointmentReadOnly: readOnly } = useGetAppointmentAccessibility();
+  const { oystehrZambda } = useApiClients();
+  const { mutateAsync: orderPrescription } = useOrderPrescription();
+  const { data: plan, refetch: refetchPrescriptions } = useChartSection('plan');
+  const { chartData, setPartialChartData } = useChartData();
+  const { mutateAsync: saveChartData } = useSaveChartData();
+  const visitDiagnoses = chartData?.diagnosis ?? [];
+  const { quickPicks, refetch: refetchQuickPicks } = useMergedPrescriptionQuickPicks();
 
-  const {
-    control,
-    handleSubmit,
-    reset,
-    setValue,
-    formState: { errors },
-  } = useForm<OrderPrescriptionFormValues>({
-    resolver: zodResolver(OrderPrescriptionFormSchema),
-    defaultValues: defaultValues(),
-  });
+  const [lines, setLines] = useState<PrescriptionLine[]>(() => [emptyPrescriptionLine()]);
+  const [sendAttempted, setSendAttempted] = useState(false);
+  const [sending, setSending] = useState(false);
 
-  const isDisabled = isPending;
+  // Until a pharmacy is picked (or after Clear Form), the line reads the preferred one.
+  const preferredPharmacy = usePreferredPharmacy(plan?.preferredPharmacies);
+  const [pickedPharmacy, setPickedPharmacy] = useState<PharmacySearchResult | null>(null);
+  const pharmacy = pickedPharmacy ?? preferredPharmacy;
 
-  const [medicationQuery, setMedicationQuery] = useState('');
-  const [pharmacyQuery, setPharmacyQuery] = useState('');
-  const [selectedMedication, setSelectedMedication] = useState<MedicationSearchResult | null>(null);
-  const [selectedPharmacy, setSelectedPharmacy] = useState<PharmacySearchResult | null>(null);
-  const [selectedDiagnosis, setSelectedDiagnosis] = useState<DiagnosisOption | null>(null);
+  const [quickPickLineKey, setQuickPickLineKey] = useState<number | null>(null);
+  const [quickPickName, setQuickPickName] = useState('');
+  const [existingQuickPicks, setExistingQuickPicks] = useState<PrescriptionQuickPickData[]>([]);
+  const [quickPickSaving, setQuickPickSaving] = useState(false);
 
-  const resetForm = (): void => {
-    reset(defaultValues());
-    setMedicationQuery('');
-    setPharmacyQuery('');
-    setSelectedMedication(null);
-    setSelectedPharmacy(null);
-    setSelectedDiagnosis(null);
-    setDiagnosisInputValue('');
-    setDiagnosisSearch('');
+  const updateLine = (key: number, next: PrescriptionLine): void =>
+    setLines((current) => current.map((line) => (line.key === key ? next : line)));
+
+  const clearForm = (): void => {
+    setLines([emptyPrescriptionLine()]);
+    setPickedPharmacy(null);
+    setSendAttempted(false);
   };
 
-  const { data: medications = [], isFetching: isSearchingMedications } = useSearchMedications(medicationQuery);
-  const { data: pharmacies = [], isFetching: isSearchingPharmacies } = useSearchPharmacies(pharmacyQuery);
+  /** One chart save for every new diagnosis: the visit's first diagnosis becomes its primary one. */
+  const addDiagnosesToVisit = async (diagnoses: { code: string; display: string }[]): Promise<void> => {
+    const existing = chartData?.diagnosis ?? [];
+    const fresh = diagnoses.filter(
+      (diagnosis, i) =>
+        diagnoses.findIndex((other) => other.code === diagnosis.code) === i &&
+        !existing.some((item) => item.code === diagnosis.code)
+    );
+    if (!fresh.length) return;
+    const hasPrimary = existing.some((item) => item.isPrimary);
+    const prepared = fresh.map((diagnosis, i) => ({ ...diagnosis, isPrimary: !hasPrimary && i === 0 }));
+    try {
+      const saved = await saveChartData({ diagnosis: prepared });
+      setPartialChartData({ diagnosis: [...existing, ...(saved.chartData.diagnosis ?? [])] });
+    } catch (error) {
+      console.error(`Error adding prescription diagnoses to the visit: ${error}`);
+      enqueueSnackbar('The prescription diagnosis could not be added to the visit. Please add it on the Assessment.', {
+        variant: 'warning',
+      });
+    }
+  };
 
-  const textField = (
-    name: TextFieldName,
-    label: string,
-    { helperText, required = true, type, htmlInput, options }: TextFieldOptions = {}
-  ): JSX.Element => (
-    <Controller
-      name={name}
-      control={control}
-      render={({ field, fieldState }) => (
-        <TextField
-          {...field}
-          fullWidth
-          size="small"
-          label={label}
-          type={type}
-          required={required}
-          select={!!options}
-          InputLabelProps={type === 'date' ? { shrink: true } : undefined}
-          inputProps={htmlInput}
-          error={!!fieldState.error}
-          helperText={fieldState.error?.message ?? helperText}
-          disabled={isDisabled}
-        >
-          {options?.map((option) => (
-            <MenuItem key={option} value={option}>
-              {option}
-            </MenuItem>
-          ))}
-        </TextField>
-      )}
-    />
-  );
-
-  const onSubmit = async (values: OrderPrescriptionFormValues): Promise<void> => {
+  // The order endpoint takes one prescription, so each line is sent in turn; a sent line leaves the form, so a
+  // failure part-way leaves exactly the unsent ones to try again.
+  const send = async (): Promise<void> => {
+    setSendAttempted(true);
+    if (!pharmacy || lines.some((line) => prescriptionLineErrors(line).length > 0)) return;
     const practitionerId = user?.profileResource?.id;
     if (!patient?.id || !encounter?.id || !practitionerId) {
       enqueueSnackbar('The patient, encounter or provider could not be determined. Please reload and try again.', {
@@ -195,232 +159,223 @@ export const OrderPrescriptionForm: FC = () => {
       });
       return;
     }
-
-    const input: OrderPrescriptionInput = {
+    const context = {
       patientId: patient.id,
       practitionerId,
-      prescriberSpi: PRESCRIBER_SPI,
       encounterId: encounter.id,
-      ndc: values.ndc,
-      medicationDescription: values.medicationDescription.trim(),
-      quantityValue: Number(values.quantityValue),
-      quantityUnit: values.quantityUnit as QuantityUnit,
-      ...(values.daysSupply ? { daysSupply: Number(values.daysSupply) } : {}),
-      writtenDate: values.writtenDate,
-      substitutionAllowed: values.substitutionAllowed,
-      numberOfRefills: Number(values.numberOfRefills),
-      patientInstructions: values.patientInstructions.trim(),
-      pharmacyId: values.pharmacyId,
-      pharmacyNpi: values.pharmacyNpi,
-      pharmacyName: values.pharmacyName.trim(),
-      pharmacyPhone: values.pharmacyPhone,
-      diagnosisCode: values.diagnosisCode.trim(),
-      diagnosisDescription: values.diagnosisDescription.trim(),
+      pharmacy,
+      // The written date isn't shown: a prescription is always written today.
+      writtenDate: DateTime.local().toISODate() ?? '',
     };
-
+    setSending(true);
+    const sent: PrescriptionLine[] = [];
     try {
-      await orderPrescription(input);
-      enqueueSnackbar('Prescription sent', { variant: 'success' });
-      if (!visitDiagnoses.some((diagnosis) => diagnosis.code === values.diagnosisCode)) {
-        addDiagnosisToVisit({ code: values.diagnosisCode, display: values.diagnosisDescription });
+      for (const line of lines) {
+        await orderPrescription(prescriptionLineToOrder(line, context));
+        sent.push(line);
+        setLines((current) => current.filter((item) => item.key !== line.key));
       }
-      resetForm();
-      await refetchPrescriptions();
+      enqueueSnackbar(sent.length === 1 ? 'Prescription sent' : `${sent.length} prescriptions sent`, {
+        variant: 'success',
+      });
+      setLines([emptyPrescriptionLine()]);
+      setSendAttempted(false);
     } catch (error) {
       console.error(`Error ordering prescription: ${error}`);
-      enqueueSnackbar(
+      const message =
         error instanceof Error && error.message
           ? error.message
-          : 'An error occurred while sending the prescription. Please try again.',
-        { variant: 'error' }
-      );
+          : 'An error occurred while sending the prescription. Please try again.';
+      enqueueSnackbar(sent.length ? `${sent.length} of ${lines.length} prescriptions sent. ${message}` : message, {
+        variant: 'error',
+      });
+    } finally {
+      setSending(false);
+      await addDiagnosesToVisit(sent.flatMap((line) => (line.diagnosis ? [line.diagnosis] : [])));
+      if (sent.length) await refetchPrescriptions();
     }
   };
 
+  const openQuickPickDialog = async (line: PrescriptionLine): Promise<void> => {
+    if (!oystehrZambda) return;
+    try {
+      const response = await getPrescriptionQuickPicks(oystehrZambda);
+      setExistingQuickPicks([...response.quickPicks].sort(sortQuickPicks));
+    } catch (error) {
+      console.error('Failed to load existing quick picks:', error);
+      setExistingQuickPicks(quickPicks);
+    }
+    setQuickPickName(line.medication?.description ?? '');
+    setQuickPickLineKey(line.key);
+  };
+
+  const onSaveAsQuickPick = async (overwriteId?: string): Promise<void> => {
+    const line = lines.find((item) => item.key === quickPickLineKey);
+    if (!oystehrZambda || !line) return;
+    if (!quickPickName.trim()) {
+      enqueueSnackbar('Quick pick name is required', { variant: 'error' });
+      return;
+    }
+    setQuickPickSaving(true);
+    try {
+      const quickPickData = prescriptionLineToQuickPick(line, quickPickName);
+      if (overwriteId) {
+        await updatePrescriptionQuickPick(oystehrZambda, overwriteId, quickPickData);
+        enqueueSnackbar(`Quick pick "${quickPickName}" updated`, { variant: 'success' });
+      } else {
+        await createPrescriptionQuickPick(oystehrZambda, { quickPick: quickPickData });
+        enqueueSnackbar(`Quick pick "${quickPickName}" created`, { variant: 'success' });
+      }
+      setQuickPickLineKey(null);
+      void refetchQuickPicks();
+    } catch (error) {
+      console.error('Failed to save quick pick:', error);
+      enqueueSnackbar('Failed to save quick pick', { variant: 'error' });
+    } finally {
+      setQuickPickSaving(false);
+    }
+  };
+
+  const isPreferred = pharmacy != null && preferredPharmacy?.ncpdpId === pharmacy.ncpdpId;
+
   return (
-    <form onSubmit={handleSubmit(onSubmit)}>
-      <Paper sx={{ p: 2 }}>
-        <Grid container spacing={2}>
-          <Grid item xs={12}>
-            <Typography variant="subtitle2">Medication</Typography>
-          </Grid>
-          <Grid item xs={12}>
-            <Autocomplete
-              options={medications}
-              loading={isSearchingMedications}
-              filterOptions={(options) => options}
-              getOptionLabel={(option) => `${option.description} (${option.ndc})`}
-              inputValue={medicationQuery}
-              onInputChange={(_event, value) => setMedicationQuery(value)}
-              value={selectedMedication}
-              isOptionEqualToValue={(option, value) => option.ndc === value.ndc}
-              onChange={(_event, option) => {
-                setSelectedMedication(option);
-                setValue('medicationDescription', option?.description ?? '', { shouldValidate: true });
-                setValue('ndc', option?.ndc ?? '', { shouldValidate: true });
-              }}
-              disabled={isDisabled}
-              renderInput={(params) => (
-                <TextField
-                  {...params}
-                  size="small"
-                  label="Medication"
-                  required
-                  error={!!errors.medicationDescription || !!errors.ndc}
-                  helperText={errors.medicationDescription || errors.ndc ? 'Select a medication' : undefined}
-                />
-              )}
-            />
-          </Grid>
-          <Grid item xs={12} sm={3}>
-            {textField('quantityValue', 'Quantity', { type: 'number', htmlInput: { min: 0, step: 'any' } })}
-          </Grid>
-          <Grid item xs={12} sm={3}>
-            {textField('quantityUnit', 'Quantity unit', { options: QUANTITY_UNITS })}
-          </Grid>
-          <Grid item xs={12} sm={3}>
-            {textField('daysSupply', 'Days supply (optional)', {
-              required: false,
-              type: 'number',
-              htmlInput: { min: 1, max: 999, step: 1 },
-            })}
-          </Grid>
-          <Grid item xs={12} sm={3}>
-            {textField('numberOfRefills', 'Refills', { type: 'number', htmlInput: { min: 0, max: 99, step: 1 } })}
-          </Grid>
-          <Grid item xs={12} sm={4}>
-            {textField('writtenDate', 'Written date', { type: 'date' })}
-          </Grid>
-          <Grid item xs={12} sm={8}>
-            <Controller
-              name="substitutionAllowed"
-              control={control}
-              render={({ field }) => (
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={field.value}
-                      onChange={(event) => field.onChange(event.target.checked)}
-                      disabled={isDisabled}
+    <>
+      <Box sx={{ containerType: 'inline-size' }}>
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: 'minmax(0, 1fr)',
+            gap: `${COLUMN_GAP_PX}px`,
+            alignItems: 'start',
+            [SIDE_COLUMN_QUERY]: {
+              gridTemplateColumns: `minmax(${FORM_COLUMN_MIN_WIDTH}px, 1fr) minmax(${SIDE_COLUMN_MIN_WIDTH}px, ${SIDE_COLUMN_WIDTH}px)`,
+            },
+          }}
+        >
+          <AccordionCard>
+            <Stack spacing={1.5} style={{ padding: '24px' }}>
+              <Typography
+                component="h3"
+                sx={{
+                  fontSize: '12px',
+                  fontWeight: 500,
+                  textTransform: 'uppercase',
+                  color: theme.palette.primary.dark,
+                }}
+              >
+                Pharmacy
+              </Typography>
+              <Sentence>
+                Send to{' '}
+                <PopoverBlank label="pharmacy" title="Pharmacy" value={pharmacy?.name} need readOnly={readOnly}>
+                  {(close) => (
+                    <PharmacySearch
+                      onPick={(next) => {
+                        setPickedPharmacy(next);
+                        close();
+                      }}
                     />
-                  }
-                  label="Substitution allowed"
-                />
+                  )}
+                </PopoverBlank>
+                {pharmacy && (
+                  <>
+                    {isPreferred && ' (preferred)'},{' '}
+                    <Box component="span" sx={{ color: 'text.secondary' }}>
+                      {pharmacy.address} · {pharmacy.phone}
+                    </Box>
+                  </>
+                )}
+                .
+              </Sentence>
+              {sendAttempted && !pharmacy && (
+                <FormHelperText error sx={{ mt: '-8px' }}>
+                  Pick a pharmacy.
+                </FormHelperText>
               )}
-            />
-          </Grid>
-          <Grid item xs={12}>
-            <Controller
-              name="patientInstructions"
-              control={control}
-              render={({ field, fieldState }) => (
-                <TextField
-                  {...field}
-                  fullWidth
-                  multiline
-                  minRows={2}
-                  size="small"
-                  label="Patient instructions (SIG)"
-                  required
-                  inputProps={{ maxLength: 1000 }}
-                  error={!!fieldState.error}
-                  helperText={fieldState.error?.message}
-                  disabled={isDisabled}
-                />
-              )}
-            />
-          </Grid>
 
-          <Grid item xs={12}>
-            <Typography variant="subtitle2">Diagnosis</Typography>
-          </Grid>
-          <Grid item xs={12}>
-            <Autocomplete<DiagnosisOption>
-              options={diagnosisOptions}
-              loading={isLoadingDiagnoses || isSearchingDiagnoses}
-              filterOptions={(options) => options}
-              groupBy={(option) => option.group}
-              getOptionLabel={(option) => `${option.code} - ${option.display}`}
-              inputValue={diagnosisInputValue}
-              onInputChange={(_event, value, reason) => {
-                setDiagnosisInputValue(value);
-                if (reason === 'input' || reason === 'clear') {
-                  setDiagnosisSearch(reason === 'input' ? value : '');
-                }
-              }}
-              value={selectedDiagnosis}
-              isOptionEqualToValue={(option, value) => option.code === value.code}
-              onChange={(_event, option) => {
-                setSelectedDiagnosis(option);
-                setDiagnosisSearch('');
-                setValue('diagnosisCode', option?.code ?? '', { shouldValidate: true });
-                setValue('diagnosisDescription', option?.display ?? '', { shouldValidate: true });
-              }}
-              disabled={isDisabled}
-              noOptionsText={diagnosisSearch ? 'No diagnoses found' : 'Start typing to search for a diagnosis'}
-              renderInput={(params) => (
-                <TextField
-                  {...params}
+              <Typography
+                component="h3"
+                sx={{
+                  fontSize: '12px',
+                  fontWeight: 500,
+                  textTransform: 'uppercase',
+                  color: theme.palette.primary.dark,
+                }}
+              >
+                Prescriptions
+              </Typography>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                {lines.map((line, index) => (
+                  <PrescriptionSentences
+                    key={line.key}
+                    line={line}
+                    index={index}
+                    onChange={(next) => updateLine(line.key, next)}
+                    onRemove={
+                      lines.length > 1
+                        ? () => setLines((current) => current.filter((item) => item.key !== line.key))
+                        : undefined
+                    }
+                    quickPicks={quickPicks}
+                    onQuickPick={(quickPick) => updateLine(line.key, applyPrescriptionQuickPick(line, quickPick))}
+                    onSaveQuickPick={isAdmin ? () => void openQuickPickDialog(line) : undefined}
+                    visitDiagnoses={visitDiagnoses}
+                    errors={sendAttempted ? prescriptionLineErrors(line) : []}
+                    readOnly={readOnly}
+                  />
+                ))}
+              </Box>
+              {!readOnly && (
+                <Button
                   size="small"
-                  label="Diagnosis"
-                  placeholder="Select a visit diagnosis or type to search"
-                  required
-                  error={!!errors.diagnosisCode || !!errors.diagnosisDescription}
-                  helperText={errors.diagnosisCode || errors.diagnosisDescription ? 'Select a diagnosis' : undefined}
-                />
+                  startIcon={<Add />}
+                  sx={{ alignSelf: 'flex-start', textTransform: 'none' }}
+                  onClick={() => setLines((current) => [...current, emptyPrescriptionLine()])}
+                >
+                  Add another prescription
+                </Button>
               )}
-            />
-          </Grid>
-          <Grid item xs={12}>
-            <Typography variant="subtitle2">Pharmacy</Typography>
-          </Grid>
-          <Grid item xs={12}>
-            <Autocomplete
-              options={pharmacies}
-              loading={isSearchingPharmacies}
-              filterOptions={(options) => options}
-              getOptionLabel={(option) => `${option.name} - ${option.address}`}
-              inputValue={pharmacyQuery}
-              onInputChange={(_event, value) => setPharmacyQuery(value)}
-              value={selectedPharmacy}
-              isOptionEqualToValue={(option, value) => option.ncpdpId === value.ncpdpId}
-              onChange={(_event, option) => {
-                setSelectedPharmacy(option);
-                setValue('pharmacyName', option?.name ?? '', { shouldValidate: true });
-                setValue('pharmacyPhone', option?.phone ?? '', { shouldValidate: true });
-                setValue('pharmacyId', option?.ncpdpId ?? '', { shouldValidate: true });
-                setValue('pharmacyNpi', option?.npi ?? '', { shouldValidate: true });
-              }}
-              disabled={isDisabled}
-              renderInput={(params) => (
-                <TextField
-                  {...params}
-                  size="small"
-                  label="Pharmacy"
-                  required
-                  error={!!errors.pharmacyName || !!errors.pharmacyId || !!errors.pharmacyNpi || !!errors.pharmacyPhone}
-                  helperText={
-                    errors.pharmacyName || errors.pharmacyId || errors.pharmacyNpi || errors.pharmacyPhone
-                      ? 'Select a pharmacy'
-                      : undefined
-                  }
-                />
-              )}
-            />
-          </Grid>
 
-          <Grid item xs={12}>
-            <Stack direction="row" justifyContent="flex-end" gap={1}>
-              <Button type="button" onClick={resetForm} disabled={isDisabled}>
-                Clear
-              </Button>
-              <LoadingButton type="submit" variant="contained" loading={isPending}>
-                Send prescription
-              </LoadingButton>
+              <Divider orientation="horizontal" />
+
+              <Box style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <RoundedButton color="primary" onClick={clearForm} disabled={readOnly || sending}>
+                  Clear Form
+                </RoundedButton>
+                <RoundedButton
+                  color="primary"
+                  variant="contained"
+                  disabled={readOnly}
+                  loading={sending}
+                  onClick={() => void send()}
+                >
+                  {lines.length === 1 ? 'Send Prescription' : `Send ${lines.length} Prescriptions`}
+                </RoundedButton>
+              </Box>
             </Stack>
-          </Grid>
-        </Grid>
-      </Paper>
-    </form>
+          </AccordionCard>
+
+          <Box sx={{ [SIDE_COLUMN_QUERY]: { position: 'sticky', top: 16 } }}>
+            <AccordionCard>
+              <Stack spacing={1.5} style={{ padding: '24px' }}>
+                <AllergiesContainer />
+                <MedicationsContainer />
+              </Stack>
+            </AccordionCard>
+          </Box>
+        </Box>
+      </Box>
+
+      <ProcedureQuickPickDialogs
+        open={quickPickLineKey != null}
+        name={quickPickName}
+        onNameChange={setQuickPickName}
+        existingQuickPicks={existingQuickPicks}
+        saving={quickPickSaving}
+        onClose={() => setQuickPickLineKey(null)}
+        onSave={(overwriteId) => void onSaveAsQuickPick(overwriteId)}
+        subject="prescription"
+      />
+    </>
   );
 };

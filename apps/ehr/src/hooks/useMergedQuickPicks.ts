@@ -7,6 +7,7 @@ import {
   getInsuranceQuickPicks,
   getMedicalConditionQuickPicks,
   getMedicationHistoryQuickPicks,
+  getPrescriptionQuickPicks,
   getProcedureQuickPicks,
   getRadiologyQuickPicks,
 } from 'src/api/api';
@@ -17,6 +18,7 @@ import {
   InsuranceQuickPickData,
   MedicalConditionQuickPickData,
   MedicationHistoryQuickPickData,
+  PrescriptionQuickPickData,
   ProcedureQuickPickData,
   RadiologyQuickPickData,
 } from 'utils/lib/types/api/quick-picks.types';
@@ -99,6 +101,12 @@ export function useMergedRadiologyQuickPicks(options?: {
   enabled?: boolean;
 }): UseFhirQuickPicksResult<RadiologyQuickPickData> {
   return useFhirQuickPicks(getRadiologyQuickPicks, options);
+}
+
+export function useMergedPrescriptionQuickPicks(options?: {
+  enabled?: boolean;
+}): UseFhirQuickPicksResult<PrescriptionQuickPickData> {
+  return useFhirQuickPicks(getPrescriptionQuickPicks, options);
 }
 
 export function useMergedImmunizationQuickPicks(options?: {

@@ -260,6 +260,8 @@ interface SelectBlankProps {
   need?: boolean;
   /** Offers "Clear" at the end of the list, as the old dropdown's clear button did. */
   clearable?: boolean;
+  /** Shown in the popover when there is nothing to pick. */
+  emptyText?: string;
   dataTestId?: string;
   helperText?: string;
 }
@@ -273,6 +275,7 @@ export const SelectBlank: FC<SelectBlankProps> = ({
   readOnly,
   need,
   clearable,
+  emptyText,
   dataTestId,
   helperText,
 }) => {
@@ -317,6 +320,11 @@ export const SelectBlank: FC<SelectBlankProps> = ({
             />
           )}
           <List dense disablePadding role="listbox" aria-label={title ?? label}>
+            {shown.length === 0 && emptyText && (
+              <Typography sx={{ fontSize: '14px', color: 'text.secondary', fontStyle: 'italic', px: 1, py: 0.5 }}>
+                {emptyText}
+              </Typography>
+            )}
             {shown.map((option) => (
               <ListItemButton
                 key={option.value}

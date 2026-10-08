@@ -5,6 +5,7 @@ import { isRepairDepthSelection, REPAIR_DEPTH_OPTIONS } from 'utils/lib/procedur
 import { isStructuredFacts, StructuredFacts } from 'utils/lib/procedure-coding/structured-fields';
 import { isPlausibleLengthCm, MAX_PLAUSIBLE_LENGTH_CM } from 'utils/lib/procedure-coding/validation';
 import { Secrets } from 'utils/lib/secrets';
+import { QUANTITY_UNITS } from 'utils/lib/types/api/order-prescription.types';
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { z } from 'zod';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
@@ -20,6 +21,7 @@ import {
   MEDICAL_CONDITION_QUICK_PICK_CATEGORY,
   MEDICATION_HISTORY_QUICK_PICK_CATEGORY,
   PATIENT_INSTRUCTION_QUICK_PICK_CATEGORY,
+  PRESCRIPTION_QUICK_PICK_CATEGORY,
   PROCEDURE_QUICK_PICK_CATEGORY,
   QUICK_TEXT_QUICK_PICK_CATEGORY,
   RADIOLOGY_QUICK_PICK_CATEGORY,
@@ -72,6 +74,23 @@ const procedureQuickPickSchema = z
   })
   .passthrough();
 
+// Same limits as the eRx order form, so a saved pick always fits the order endpoint.
+const prescriptionQuickPickSchema = z
+  .object({
+    ndc: z
+      .string()
+      .regex(/^\d{11}$/, 'must be an 11-digit NDC')
+      .optional(),
+    medicationDescription: z.string().max(105).optional(),
+    quantityValue: z.number().positive().optional(),
+    quantityUnit: z.enum(QUANTITY_UNITS).optional(),
+    daysSupply: z.number().int().min(1).max(999).optional(),
+    numberOfRefills: z.number().int().min(0).max(99).optional(),
+    substitutionAllowed: z.boolean().optional(),
+    patientInstructions: z.string().max(1000).optional(),
+  })
+  .passthrough();
+
 const CATEGORIES: CategoryConfig[] = [
   { category: ALLERGY_QUICK_PICK_CATEGORY, requiredStringFields: ['name'] },
   { category: IMMUNIZATION_QUICK_PICK_CATEGORY, requiredStringFields: ['name'] },
@@ -109,6 +128,13 @@ const CATEGORIES: CategoryConfig[] = [
   { category: MEDICAL_CONDITION_QUICK_PICK_CATEGORY, requiredStringFields: ['display'] },
   { category: MEDICATION_HISTORY_QUICK_PICK_CATEGORY, requiredStringFields: ['name'] },
   { category: PATIENT_INSTRUCTION_QUICK_PICK_CATEGORY, requiredStringFields: ['name', 'text'] },
+  {
+    category: PRESCRIPTION_QUICK_PICK_CATEGORY,
+    requiredStringFields: ['name'],
+    validator: async (_oystehr, quickPick) => {
+      safeValidate(prescriptionQuickPickSchema, quickPick);
+    },
+  },
   {
     category: PROCEDURE_QUICK_PICK_CATEGORY,
     requiredStringFields: ['name'],

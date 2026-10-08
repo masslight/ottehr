@@ -1,4 +1,5 @@
 import type { StructuredFacts } from '../../procedure-coding/structured-fields';
+import type { QuantityUnit } from './order-prescription.types';
 // ── Generic CRUD types for all quick pick categories ──
 
 export interface QuickPickCreateInput<T> {
@@ -145,6 +146,29 @@ export type CreateRadiologyQuickPickResponse = QuickPickCreateResponse<Radiology
 export type UpdateRadiologyQuickPickInput = QuickPickUpdateInput<RadiologyQuickPickData>;
 export type UpdateRadiologyQuickPickResponse = QuickPickUpdateResponse<RadiologyQuickPickData>;
 export type GetRadiologyQuickPicksResponse = QuickPickListResponse<RadiologyQuickPickData>;
+
+// ── Prescription (eRx) Quick Picks ──
+
+/** A whole prescription: the medication with its dispense details and directions. The diagnosis and pharmacy
+ * are encounter-specific and never saved. */
+export interface PrescriptionQuickPickData {
+  id?: string;
+  name: string;
+  ndc?: string;
+  medicationDescription?: string;
+  quantityValue?: number;
+  quantityUnit?: QuantityUnit;
+  daysSupply?: number;
+  numberOfRefills?: number;
+  substitutionAllowed?: boolean;
+  patientInstructions?: string;
+}
+
+export type CreatePrescriptionQuickPickInput = QuickPickCreateInput<PrescriptionQuickPickData>;
+export type CreatePrescriptionQuickPickResponse = QuickPickCreateResponse<PrescriptionQuickPickData>;
+export type UpdatePrescriptionQuickPickInput = QuickPickUpdateInput<PrescriptionQuickPickData>;
+export type UpdatePrescriptionQuickPickResponse = QuickPickUpdateResponse<PrescriptionQuickPickData>;
+export type GetPrescriptionQuickPicksResponse = QuickPickListResponse<PrescriptionQuickPickData>;
 
 // ── Immunization Quick Picks ──
 
