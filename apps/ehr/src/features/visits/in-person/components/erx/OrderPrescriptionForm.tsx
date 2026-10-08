@@ -6,6 +6,7 @@ import {
   FormControlLabel,
   Grid,
   InputBaseComponentProps,
+  MenuItem,
   Paper,
   Stack,
   Switch,
@@ -16,10 +17,13 @@ import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
+import { useIcd10SearchInput } from 'src/features/admin/patient-education/useIcd10SearchInput';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { MedicationSearchResult, PharmacySearchResult } from 'utils/lib/types/api/erx-search.types';
-import { OrderPrescriptionInput } from 'utils/lib/types/api/order-prescription.types';
+import { OrderPrescriptionInput, QUANTITY_UNITS, QuantityUnit } from 'utils/lib/types/api/order-prescription.types';
 import { z } from 'zod';
+import { useAddDiagnosis } from '../../../shared/components/assessment-tab/DiagnosesContainer';
+import { useChartSection } from '../../../shared/hooks/useChartSection';
 import { useSearchMedications, useSearchPharmacies } from '../../../shared/hooks/useErxSearch';
 import { useOrderPrescription } from '../../../shared/hooks/useOrderPrescription';
 import { useAppointmentData } from '../../../shared/stores/appointment/appointment.store';
@@ -35,7 +39,7 @@ const OrderPrescriptionFormSchema = z.object({
   medicationDescription: z.string().trim().min(1, 'Required').max(105, 'Up to 105 characters'),
   ndc: z.string().regex(/^\d{11}$/, 'Must be an 11-digit NDC'),
   quantityValue: z.string().refine((value) => Number(value) > 0, 'Must be greater than 0'),
-  quantityUnit: z.string().trim().min(1, 'Required'),
+  quantityUnit: z.string().min(1, 'Required'),
   daysSupply: z
     .string()
     .refine((value) => value === '' || isWholeNumberInRange(value, 1, 999), 'Must be a whole number from 1 to 999'),
@@ -53,6 +57,12 @@ const OrderPrescriptionFormSchema = z.object({
   diagnosisDescription: z.string().trim().min(1, 'Required'),
 });
 
+interface DiagnosisOption {
+  code: string;
+  display: string;
+  group: 'Visit diagnoses' | 'Search results';
+}
+
 type OrderPrescriptionFormValues = z.infer<typeof OrderPrescriptionFormSchema>;
 
 type TextFieldName = Exclude<keyof OrderPrescriptionFormValues, 'substitutionAllowed'>;
@@ -62,6 +72,7 @@ interface TextFieldOptions {
   required?: boolean;
   type?: 'text' | 'number' | 'date' | 'tel';
   htmlInput?: InputBaseComponentProps;
+  options?: readonly string[];
 }
 
 const defaultValues = (): OrderPrescriptionFormValues => ({
@@ -86,6 +97,29 @@ export const OrderPrescriptionForm: FC = () => {
   const { patient, encounter } = useAppointmentData();
   const user = useEvolveUser();
   const { mutateAsync: orderPrescription, isPending } = useOrderPrescription();
+  const { refetch: refetchPrescriptions } = useChartSection('plan');
+  const { data: assessment, isLoading: isLoadingDiagnoses } = useChartSection('assessment');
+  const {
+    inputValue: diagnosisSearch,
+    setInputValue: setDiagnosisSearch,
+    options: diagnosisSearchResults,
+    isFetching: isSearchingDiagnoses,
+  } = useIcd10SearchInput();
+  const [diagnosisInputValue, setDiagnosisInputValue] = useState('');
+  const { onAdd: addDiagnosisToVisit } = useAddDiagnosis();
+  const visitDiagnoses = assessment?.diagnosis ?? [];
+  const diagnosisOptions: DiagnosisOption[] = [
+    ...visitDiagnoses
+      .filter((diagnosis) =>
+        `${diagnosis.code} ${diagnosis.display}`.toLowerCase().includes(diagnosisSearch.trim().toLowerCase())
+      )
+      .map((diagnosis) => ({ code: diagnosis.code, display: diagnosis.display, group: 'Visit diagnoses' as const })),
+    ...(diagnosisSearch.trim()
+      ? diagnosisSearchResults
+          .filter((result) => !visitDiagnoses.some((diagnosis) => diagnosis.code === result.code))
+          .map((result) => ({ code: result.code, display: result.display, group: 'Search results' as const }))
+      : []),
+  ];
 
   const {
     control,
@@ -104,6 +138,7 @@ export const OrderPrescriptionForm: FC = () => {
   const [pharmacyQuery, setPharmacyQuery] = useState('');
   const [selectedMedication, setSelectedMedication] = useState<MedicationSearchResult | null>(null);
   const [selectedPharmacy, setSelectedPharmacy] = useState<PharmacySearchResult | null>(null);
+  const [selectedDiagnosis, setSelectedDiagnosis] = useState<DiagnosisOption | null>(null);
 
   const resetForm = (): void => {
     reset(defaultValues());
@@ -111,6 +146,9 @@ export const OrderPrescriptionForm: FC = () => {
     setPharmacyQuery('');
     setSelectedMedication(null);
     setSelectedPharmacy(null);
+    setSelectedDiagnosis(null);
+    setDiagnosisInputValue('');
+    setDiagnosisSearch('');
   };
 
   const { data: medications = [], isFetching: isSearchingMedications } = useSearchMedications(medicationQuery);
@@ -119,7 +157,7 @@ export const OrderPrescriptionForm: FC = () => {
   const textField = (
     name: TextFieldName,
     label: string,
-    { helperText, required = true, type, htmlInput }: TextFieldOptions = {}
+    { helperText, required = true, type, htmlInput, options }: TextFieldOptions = {}
   ): JSX.Element => (
     <Controller
       name={name}
@@ -132,12 +170,19 @@ export const OrderPrescriptionForm: FC = () => {
           label={label}
           type={type}
           required={required}
+          select={!!options}
           InputLabelProps={type === 'date' ? { shrink: true } : undefined}
           inputProps={htmlInput}
           error={!!fieldState.error}
           helperText={fieldState.error?.message ?? helperText}
           disabled={isDisabled}
-        />
+        >
+          {options?.map((option) => (
+            <MenuItem key={option} value={option}>
+              {option}
+            </MenuItem>
+          ))}
+        </TextField>
       )}
     />
   );
@@ -159,7 +204,7 @@ export const OrderPrescriptionForm: FC = () => {
       ndc: values.ndc,
       medicationDescription: values.medicationDescription.trim(),
       quantityValue: Number(values.quantityValue),
-      quantityUnit: values.quantityUnit.trim(),
+      quantityUnit: values.quantityUnit as QuantityUnit,
       ...(values.daysSupply ? { daysSupply: Number(values.daysSupply) } : {}),
       writtenDate: values.writtenDate,
       substitutionAllowed: values.substitutionAllowed,
@@ -176,7 +221,11 @@ export const OrderPrescriptionForm: FC = () => {
     try {
       await orderPrescription(input);
       enqueueSnackbar('Prescription sent', { variant: 'success' });
+      if (!visitDiagnoses.some((diagnosis) => diagnosis.code === values.diagnosisCode)) {
+        addDiagnosisToVisit({ code: values.diagnosisCode, display: values.diagnosisDescription });
+      }
       resetForm();
+      await refetchPrescriptions();
     } catch (error) {
       console.error(`Error ordering prescription: ${error}`);
       enqueueSnackbar(
@@ -227,7 +276,7 @@ export const OrderPrescriptionForm: FC = () => {
             {textField('quantityValue', 'Quantity', { type: 'number', htmlInput: { min: 0, step: 'any' } })}
           </Grid>
           <Grid item xs={12} sm={3}>
-            {textField('quantityUnit', 'Quantity unit')}
+            {textField('quantityUnit', 'Quantity unit', { options: QUANTITY_UNITS })}
           </Grid>
           <Grid item xs={12} sm={3}>
             {textField('daysSupply', 'Days supply (optional)', {
@@ -285,13 +334,43 @@ export const OrderPrescriptionForm: FC = () => {
           <Grid item xs={12}>
             <Typography variant="subtitle2">Diagnosis</Typography>
           </Grid>
-          <Grid item xs={12} sm={4}>
-            {textField('diagnosisCode', 'ICD-10 code')}
+          <Grid item xs={12}>
+            <Autocomplete<DiagnosisOption>
+              options={diagnosisOptions}
+              loading={isLoadingDiagnoses || isSearchingDiagnoses}
+              filterOptions={(options) => options}
+              groupBy={(option) => option.group}
+              getOptionLabel={(option) => `${option.code} - ${option.display}`}
+              inputValue={diagnosisInputValue}
+              onInputChange={(_event, value, reason) => {
+                setDiagnosisInputValue(value);
+                if (reason === 'input' || reason === 'clear') {
+                  setDiagnosisSearch(reason === 'input' ? value : '');
+                }
+              }}
+              value={selectedDiagnosis}
+              isOptionEqualToValue={(option, value) => option.code === value.code}
+              onChange={(_event, option) => {
+                setSelectedDiagnosis(option);
+                setDiagnosisSearch('');
+                setValue('diagnosisCode', option?.code ?? '', { shouldValidate: true });
+                setValue('diagnosisDescription', option?.display ?? '', { shouldValidate: true });
+              }}
+              disabled={isDisabled}
+              noOptionsText={diagnosisSearch ? 'No diagnoses found' : 'Start typing to search for a diagnosis'}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  size="small"
+                  label="Diagnosis"
+                  placeholder="Select a visit diagnosis or type to search"
+                  required
+                  error={!!errors.diagnosisCode || !!errors.diagnosisDescription}
+                  helperText={errors.diagnosisCode || errors.diagnosisDescription ? 'Select a diagnosis' : undefined}
+                />
+              )}
+            />
           </Grid>
-          <Grid item xs={12} sm={8}>
-            {textField('diagnosisDescription', 'Diagnosis description')}
-          </Grid>
-
           <Grid item xs={12}>
             <Typography variant="subtitle2">Pharmacy</Typography>
           </Grid>
