@@ -339,7 +339,7 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order, onFinished }) => {
                   <Stack direction="row" justifyContent="space-between" alignItems="center">
                     <Stack direction="row" spacing={1} alignItems="center">
                       <OrderStatusChip status={order.status} />
-                      {order.status === 'pending' && !isReadOnly && (
+                      {order.status !== 'cancelled' && !isReadOnly && (
                         <>
                           <LoadingButton
                             variant="outlined"

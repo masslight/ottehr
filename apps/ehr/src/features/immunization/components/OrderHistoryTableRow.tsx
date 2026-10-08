@@ -147,7 +147,7 @@ export const OrderHistoryTableRow: React.FC<Props> = ({
               <IconButton size="small" aria-label="edit" onClick={isPending ? navigateToEditOrder : navigateToDetails}>
                 <EditIcon sx={{ color: theme.palette.primary.dark }} />
               </IconButton>
-              {isPending && (
+              {order.status !== 'cancelled' && (
                 <>
                   <IconButton size="small" aria-label="delete" onClick={() => setIsDeleteDialogOpened(true)}>
                     <DeleteIcon sx={{ color: theme.palette.error.main }} />

@@ -31,8 +31,8 @@ async function cancelImmunizationOrder(oystehr: Oystehr, input: CancelImmunizati
     id: orderId,
   });
 
-  if (medicationAdministration.status !== 'in-progress') {
-    const currentStatus = mapFhirToOrderStatus(medicationAdministration);
+  const currentStatus = mapFhirToOrderStatus(medicationAdministration);
+  if (currentStatus === 'cancelled') {
     throw new Error(`Can't cancel order in "${currentStatus}" status`);
   }
 
