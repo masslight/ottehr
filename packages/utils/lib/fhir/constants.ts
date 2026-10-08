@@ -987,6 +987,8 @@ export const OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS = {
   alwaysFilter: `${PRIVATE_EXTENSION_BASE_URL}/always-filter`,
   attachmentText: `${PRIVATE_EXTENSION_BASE_URL}/attachment-text`,
   autofillFromWhenDisabled: `${PRIVATE_EXTENSION_BASE_URL}/fill-from-when-disabled`,
+  // standard SDC extension (not a private one): the item's value is derived from other answers
+  calculatedExpression: 'http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-calculatedExpression',
   categoryTag: `${PRIVATE_EXTENSION_BASE_URL}/category-tag`,
   dataType: `${PRIVATE_EXTENSION_BASE_URL}/data-type`,
   disabledDisplay: `${PRIVATE_EXTENSION_BASE_URL}/disabled-display`,

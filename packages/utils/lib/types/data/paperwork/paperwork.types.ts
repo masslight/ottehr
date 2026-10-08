@@ -25,6 +25,7 @@ export interface QuestionnaireItemConditionDefinition {
   question: string;
   operator: '=' | '!=' | '>' | '<' | '>=' | '<=' | 'exists';
   answerString?: string;
+  answerCoding?: { system?: string; code?: string; display?: string };
   answerBoolean?: boolean;
   answerDate?: string;
   answerInteger?: number | string;
@@ -73,6 +74,11 @@ export enum QuestionnaireItemGroupType {
   PharmacyCollection = 'pharmacy-collection',
 }
 
+export interface CalculatedExpression {
+  language?: string;
+  expression?: string;
+}
+
 export type InputWidthOption = 's' | 'm' | 'l' | 'max';
 export interface QuestionnaireItemExtension {
   acceptsMultipleAnswers: boolean;
@@ -81,6 +87,11 @@ export interface QuestionnaireItemExtension {
   answerLoadingOptions?: AnswerLoadingOptions;
   attachmentText?: string;
   autofillFromWhenDisabled?: string;
+  /**
+   * The item's value is derived from other answers and is never stored on the QuestionnaireResponse.
+   * See `helpers/paperwork/calculated-expressions.ts`.
+   */
+  calculatedExpression?: CalculatedExpression;
   categoryTag?: string;
   dataType?: QuestionnaireDataType;
   disabledDisplay?: 'hidden' | 'protected';

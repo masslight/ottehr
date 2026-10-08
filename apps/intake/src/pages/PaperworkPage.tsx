@@ -27,7 +27,7 @@ import { usePaperworkContext } from 'ui-components/lib/components/paperwork/cont
 import PagedQuestionnaire from 'ui-components/lib/components/paperwork/PagedQuestionnaire';
 import { getIntakeFormPageSubtitle } from 'utils/lib/config-helpers/intake-paperwork';
 import { convertQRItemToLinkIdMap, convertQuestionnaireItemToQRLinkIdMap } from 'utils/lib/helpers/paperwork/paperwork';
-import { evalComplexValidationTrigger, evalEnableWhen } from 'utils/lib/helpers/paperwork/validation';
+import { evalComplexValidationTrigger, evalEnableWhen, isPageHidden } from 'utils/lib/helpers/paperwork/validation';
 import { getSelectors } from 'utils/lib/store';
 import {
   ComplexValidationResult,
@@ -215,8 +215,10 @@ export const PaperworkHome: FC = () => {
   }, [questionnaireResponse?.item]);
 
   const pages = useMemo(() => {
+    // hidden pages (readOnly + disabled-display hidden) are never navigated to or listed for review. their items
+    // still count towards calculated values, which read from allItems and the questionnaire response
     return (allItems ?? []).filter((item) => {
-      return item.linkId;
+      return item.linkId && !isPageHidden(item);
     });
   }, [allItems]);
 

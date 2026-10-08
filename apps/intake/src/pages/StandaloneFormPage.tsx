@@ -8,6 +8,7 @@ import { usePaperworkComponentHelpers } from 'src/hooks/usePaperworkComponentHel
 import { PaperworkContext, PaperworkProvider } from 'ui-components/lib/components/paperwork/context';
 import PagedQuestionnaire from 'ui-components/lib/components/paperwork/PagedQuestionnaire';
 import { convertQRItemToLinkIdMap, convertQuestionnaireItemToQRLinkIdMap } from 'utils/lib/helpers/paperwork/paperwork';
+import { isPageHidden } from 'utils/lib/helpers/paperwork/validation';
 import { getSelectors } from 'utils/lib/store';
 import {
   findQuestionnaireResponseItemLinkId,
@@ -119,8 +120,9 @@ export const StandaloneFormPage: FC = () => {
   }, [questionnaireResponse?.item]);
 
   const pages = useMemo(() => {
+    // hidden pages (readOnly + disabled-display hidden) are never shown, but still feed calculated values
     return (allItems ?? []).filter((item) => {
-      return item.linkId;
+      return item.linkId && !isPageHidden(item);
     });
   }, [allItems]);
 

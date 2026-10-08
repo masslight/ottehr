@@ -1,5 +1,6 @@
 import { Questionnaire, QuestionnaireItem } from 'fhir/r4b';
 import { JSON_IMPORT_QUESTIONNAIRE_TAG, PRACTICE_MANAGED_QUESTIONNAIRE_TAG } from 'utils/lib/fhir/constants';
+import { collectCalculatedExpressionIssues } from 'utils/lib/helpers/paperwork/calculated-expressions';
 import { slugify } from 'utils/lib/helpers/slugify';
 import { Secrets } from 'utils/lib/secrets';
 import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY } from 'utils/lib/types/errors';
@@ -84,6 +85,7 @@ export function validateRequestParameters(input: ZambdaInput): ValidatedRequest 
   const questionnaire = parsed.data as unknown as Questionnaire;
 
   validateUniqueLinkIds(questionnaire.item ?? []);
+  validateCalculatedExpressions(questionnaire.item ?? []);
 
   return {
     secrets: input.secrets,
@@ -101,6 +103,18 @@ function validateUniqueLinkIds(items: QuestionnaireItem[], seen = new Set<string
     }
     seen.add(item.linkId);
     if (item.item) validateUniqueLinkIds(item.item, seen);
+  }
+}
+
+// every problem with the calculated items is reported at once, so the questionnaire can be fixed in a single pass
+function validateCalculatedExpressions(items: QuestionnaireItem[]): void {
+  const issues = collectCalculatedExpressionIssues(items);
+  if (issues.length > 0) {
+    throw INVALID_INPUT_ERROR(
+      `The questionnaire has ${issues.length} problem${
+        issues.length === 1 ? '' : 's'
+      } with its calculated items:\n${issues.map((issue) => `- ${issue}`).join('\n')}`
+    );
   }
 }
 

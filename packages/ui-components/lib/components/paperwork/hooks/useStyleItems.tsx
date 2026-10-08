@@ -1,6 +1,7 @@
 import { GridSize } from '@mui/system';
 import { QuestionnaireItemAnswerOption, QuestionnaireResponse, QuestionnaireResponseItem } from 'fhir/r4b';
 import { useMemo } from 'react';
+import { getAnswerOptionLabel } from 'utils/lib/helpers/paperwork/paperwork';
 import {
   EMAIL_FIELDS,
   evalItemText,
@@ -159,13 +160,13 @@ interface StyledAnswerOption extends QuestionnaireItemAnswerOption {
 }
 
 export const useStyledAnswerOptions = (options: QuestionnaireItemAnswerOption[]): StyledAnswerOption[] => {
-  // this handles string type options only currently
+  // this handles string and coding type options; a coding option is shown by its display
   return useMemo(() => {
     const overrides: { [optionValue: string]: string } = {
       'Patient (Self)': 'Patient',
     };
     return options.map((option) => {
-      const valueString = option.valueString ?? '?';
+      const valueString = getAnswerOptionLabel(option) ?? '?';
       return {
         ...option,
         label: overrides[valueString] ?? valueString,

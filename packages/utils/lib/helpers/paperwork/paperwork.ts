@@ -30,6 +30,7 @@ import {
 } from '../../fhir/questionnaires';
 import { PaperworkPDFResourcePackage, Question } from '../../types/data/paperwork.types';
 import {
+  CalculatedExpression,
   ConditionKeyObject,
   FormDisplayElementList,
   FormElement,
@@ -176,6 +177,13 @@ export const structureExtension = (item: QuestionnaireItem): QuestionnaireItemEx
   if (disabledDisplay !== 'hidden' && disabledDisplay !== 'protected') {
     disabledDisplay = undefined;
   }
+
+  const calculatedValueExpression = extension.find(
+    (ext) => ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.calculatedExpression
+  )?.valueExpression;
+  const calculatedExpression: CalculatedExpression | undefined = calculatedValueExpression
+    ? { language: calculatedValueExpression.language, expression: calculatedValueExpression.expression }
+    : undefined;
 
   const requireWhen = getConditionalExtensions(extension, OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.requireWhen)[0]
     ?.baseConditionDef;
@@ -402,6 +410,7 @@ export const structureExtension = (item: QuestionnaireItem): QuestionnaireItemEx
   return {
     acceptsMultipleAnswers,
     alwaysFilter,
+    calculatedExpression,
     disabledDisplay,
     hideControlLabel,
     requireWhen,
@@ -522,6 +531,10 @@ export function getOptionsArray(item: QuestionnaireItem, valueSets?: ValueSet[])
       }, []);
   } else {
     options = item.answerOption?.map((option) => {
+      const coding = option.valueCoding;
+      if (coding) {
+        return { label: coding.display || coding.code || 'Unknown', value: coding.code || coding.display || 'Unknown' };
+      }
       const formatOption = { label: option.valueString || 'Unknown', value: option.valueString || 'Unknown' };
       return formatOption;
     });
@@ -630,6 +643,18 @@ export const pickValueAsStringListFromAnswerItem = (
     return ent[valString];
   });
 };
+
+// choice answers recorded from valueCoding options carry the selected option's code
+export const pickCodingCodeFromAnswerItem = (item: QuestionnaireResponseItem | undefined): string | undefined =>
+  item?.answer?.[0]?.valueCoding?.code;
+
+// the option an answer refers to, whether the item's options are valueCoding or valueString
+export const getAnswerOptionValue = (option: QuestionnaireItemAnswerOption): string | undefined =>
+  option.valueCoding ? option.valueCoding.code ?? option.valueCoding.display : option.valueString;
+
+export const getAnswerOptionLabel = (option: QuestionnaireItemAnswerOption): string | undefined =>
+  option.valueCoding ? option.valueCoding.display ?? option.valueCoding.code : option.valueString;
+
 function capitalizeFirstLetter(string: string): string {
   return string.charAt(0).toUpperCase() + string.slice(1);
 }

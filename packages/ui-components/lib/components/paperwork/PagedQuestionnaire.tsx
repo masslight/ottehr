@@ -41,6 +41,7 @@ import { InputMask } from '../InputMask';
 import { usePaperworkContext } from './context';
 import AIInterview from './form-components/AIInterview';
 import { BoldPurpleInputLabel } from './form-components/BoldPurpleInputLabel';
+import { CalculatedField } from './form-components/CalculatedField';
 import { ControlButtons } from './form-components/ControlButtons';
 import { CardErrorDialog } from './form-components/credit-card/CardErrorDialog';
 import { CreditCardVerification } from './form-components/credit-card/CreditCardVerification';
@@ -158,7 +159,9 @@ const makeFormErrorMessage = (items: IntakeQuestionnaireItem[], errors: any): st
         const internalErrors: IntakeQuestionnaireItem[] = [];
         items.forEach((e, idx) => {
           if (e != null) {
-            const errorItem = (i.item ?? []).filter((i) => i.type !== 'display' && !i.readOnly)[idx];
+            const errorItem = (i.item ?? []).filter(
+              (i) => i.type !== 'display' && !i.readOnly && !i.calculatedExpression
+            )[idx];
             if (errorItem) {
               internalErrors.push(errorItem);
             }
@@ -409,6 +412,8 @@ const RenderItems: FC<RenderItemsProps> = (props: RenderItemsProps) => {
       {styledItems.map((item, idx) => {
         if (item.type === 'display') {
           return <FormDisplayField item={item} key={`FDF-${fieldId ?? item.linkId}-${idx}`} />;
+        } else if (item.calculatedExpression) {
+          return <CalculatedField item={item} key={`CF-${fieldId ?? item.linkId}-${idx}`} />;
         } else if (
           item.type === 'group' &&
           item.dataType !== 'DOB' &&

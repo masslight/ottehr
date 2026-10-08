@@ -115,7 +115,8 @@ const complexSubmitValidation = async (
     }
     // because it may be more convenient to keep readOnly items in form state for purposes of front-end validation of dependent fields,
     // we merely filter them out here so there inclusion is a no-op rather than an error
-    if (item.readOnly) {
+    // calculated items are derived from other answers and never recorded, so a submitted value is ignored too
+    if (item.readOnly || item.calculatedExpression) {
       return false;
     }
     return true;

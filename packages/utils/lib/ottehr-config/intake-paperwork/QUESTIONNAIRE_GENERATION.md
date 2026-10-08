@@ -246,6 +246,57 @@ Special `dataType` values trigger specific UI behavior:
 - **`Select`**: Dropdown instead of radio buttons
 - **`Call Out`**: Styled callout/alert box for important messages (can be used on display fields)
 
+## Scored Forms: Coded Choices, Calculated Items and Hidden Pages
+
+These apply to questionnaires written directly as FHIR JSON (for example practice-managed forms uploaded with the
+JSON import), not to questionnaires generated from the config above.
+
+### Coded choices
+
+A `choice` item may list its options as `valueCoding` instead of `valueString`:
+
+```json
+{ "linkId": "q1", "type": "choice", "answerOption": [
+  { "valueCoding": { "code": "0", "display": "No" } },
+  { "valueCoding": { "code": "1", "display": "Yes" } } ] }
+```
+
+The patient only ever sees the `display`. The answer is recorded as `valueCoding` (code and display). `enableWhen`
+can match a coded answer with `answerCoding` (on the code) or `answerString` (on the display).
+
+### Calculated items
+
+An item carrying the standard `sdc-questionnaire-calculatedExpression` extension is a formula field. Its value is
+**derived from the other answers wherever results are shown** (the patient form, the EHR response viewer) and is
+**never stored** on the QuestionnaireResponse.
+
+```json
+{ "linkId": "total", "type": "string", "text": "Total",
+  "extension": [ { "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-calculatedExpression",
+    "valueExpression": { "language": "text/javascript",
+      "expression": "(answers[\"q1\"]||0)+(answers[\"q2\"]||0)" } } ] }
+```
+
+- The expression is javascript. Its one argument, `answers`, is keyed by `linkId`, across every page and group.
+- A coded answer is exposed as its code, **as a number when the code is numeric**, so scores can be summed. Strings,
+  booleans, numbers and dates pass through unchanged. An unanswered item is `undefined`, hence the `|| 0` above.
+- A calculated item can read another calculated item (`answers["total"]`), wherever it sits in the form.
+- Reference linkIds as literals (`answers["q1"]` or `answers.q1`). A reference built dynamically
+  (`answers[someVariable]`) can't be seen by the dependency ordering or by the import check.
+- If an expression throws, or doesn't produce a string, number or boolean, the item shows nothing. It never breaks the form.
+- Allowed on `string`, `text`, `boolean`, `integer`, `decimal` and `date` items.
+- Add `disabled-display` set to `hidden` to keep an item off the patient's form. The EHR still shows it.
+
+The import validates every calculated item up front and reports all problems at once (missing or unsupported
+language, syntax errors, references to linkIds that don't exist with a suggestion, an item reading itself, circular
+references, unsupported item types), so the questionnaire can be fixed in one pass.
+
+### Hiding a whole page
+
+Hide a page (a top-level group) from the patient with `readOnly: true` **and** the `disabled-display` extension set
+to `hidden`. This is the same convention used for hidden logical fields. The patient is never sent to the page and
+it isn't listed on the review screen. Calculated items on it are still evaluated for the EHR.
+
 ## Section Order and Structure
 
 Sections are generated in the order they appear in the `FormFields` object. Common sections in intake paperwork:

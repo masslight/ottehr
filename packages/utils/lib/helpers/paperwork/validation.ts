@@ -186,21 +186,48 @@ const schemaForItem = (item: ValidatableQuestionnaireItem, context: any): Yup.An
   }
 
   if (item.type === 'choice' && item.answerOption && item.answerOption.length) {
-    // Apply .oneOf() first, then .required() - order matters because .oneOf() allows undefined by default
-    let stringSchema = Yup.string().oneOf(
-      item.answerOption.map((option) => option.valueString),
-      'Value must be one of the provided answer options'
-    );
-    if (required) {
-      stringSchema = stringSchema.required(REQUIRED_FIELD_ERROR_MESSAGE);
+    const codingOptions = item.answerOption.filter((option) => option.valueCoding);
+    if (codingOptions.length) {
+      // answer options are codings: the answer is recorded as the selected option's valueCoding
+      let codeSchema = Yup.string().oneOf(
+        codingOptions.map((option) => option.valueCoding?.code),
+        'Value must be one of the provided answer options'
+      );
+      if (required) {
+        codeSchema = codeSchema.required(REQUIRED_FIELD_ERROR_MESSAGE);
+      }
+      let codingSchema = Yup.object({
+        system: Yup.string().optional(),
+        code: codeSchema,
+        display: Yup.string().optional(),
+      });
+      if (required) {
+        codingSchema = codingSchema.required(REQUIRED_FIELD_ERROR_MESSAGE);
+      }
+      let schema = Yup.object({
+        valueCoding: codingSchema,
+      });
+      if (required) {
+        schema = schema.required(REQUIRED_FIELD_ERROR_MESSAGE);
+      }
+      schemaTemp = schema;
+    } else {
+      // Apply .oneOf() first, then .required() - order matters because .oneOf() allows undefined by default
+      let stringSchema = Yup.string().oneOf(
+        item.answerOption.map((option) => option.valueString),
+        'Value must be one of the provided answer options'
+      );
+      if (required) {
+        stringSchema = stringSchema.required(REQUIRED_FIELD_ERROR_MESSAGE);
+      }
+      let schema = Yup.object({
+        valueString: stringSchema,
+      });
+      if (required) {
+        schema = schema.required(REQUIRED_FIELD_ERROR_MESSAGE);
+      }
+      schemaTemp = schema;
     }
-    let schema = Yup.object({
-      valueString: stringSchema,
-    });
-    if (required) {
-      schema = schema.required(REQUIRED_FIELD_ERROR_MESSAGE);
-    }
-    schemaTemp = schema;
   }
   if ((item.type === 'choice' || item.type === 'open-choice') && item.answerLoadingOptions !== undefined) {
     const { answerSource } = item.answerLoadingOptions;
@@ -465,13 +492,18 @@ const makeValidationSchemaPrivate = (input: PrivateMakeSchemaArgs): Yup.AnyObjec
   allValues = { ...allValues, ...formValues };
 
   const validatableItems = [...items]
-    .filter((item) => item?.type !== 'display' && !item?.readOnly && !evalFilterWhen(item, allValues))
+    .filter(
+      (item) =>
+        item?.type !== 'display' && !item?.readOnly && !item?.calculatedExpression && !evalFilterWhen(item, allValues)
+    )
     .flatMap((item) => makeValidatableItem(item));
   const validationTemp: any = {};
   validatableItems.forEach((item) => {
     let schemaTemp: any | undefined = item.type !== 'group' ? schemaForItem(item, allValues) : undefined;
     if (item.type === 'group' && item.item && item.dataType !== 'DOB') {
-      const filteredItems = (item.item ?? []).filter((item) => item?.type !== 'display' && !item?.readOnly);
+      const filteredItems = (item.item ?? []).filter(
+        (item) => item?.type !== 'display' && !item?.readOnly && !item?.calculatedExpression
+      );
       const embeddedSchema = makeValidationSchemaPrivate({
         items: filteredItems,
         formValues,
@@ -660,7 +692,7 @@ const evalEnableWhenItem = (
   items: QuestionnaireItem[],
   itemsMap?: Map<string, QuestionnaireItem>
 ): boolean => {
-  const { answerString, answerBoolean, answerDate, answerInteger, question, operator } = enableWhen;
+  const { answerString, answerBoolean, answerDate, answerInteger, answerCoding, question, operator } = enableWhen;
   const questionPathNodes = question.split('.');
 
   const itemDef = (() => {
@@ -722,11 +754,15 @@ const evalEnableWhenItem = (
     );
   } else if (itemDef.type === 'boolean' && answerBoolean !== undefined) {
     return evalBoolean(operator, answerBoolean, pickFirstValueFromAnswerItem(valueDef, 'boolean'));
+  } else if (itemDef.type === 'choice' && answerCoding?.code !== undefined) {
+    return evalString(operator, answerCoding.code, valueDef?.answer?.[0]?.valueCoding?.code);
   } else if (
     (itemDef.type === 'string' || itemDef.type === 'choice' || itemDef.type === 'open-choice') &&
     answerString
   ) {
-    const verdict = evalString(operator, answerString, pickFirstValueFromAnswerItem(valueDef));
+    // a coded answer is matched on its display, which is what the patient chose
+    const answered = pickFirstValueFromAnswerItem(valueDef) ?? valueDef?.answer?.[0]?.valueCoding?.display;
+    const verdict = evalString(operator, answerString, answered);
     return verdict;
   } else if (itemDef.type === 'date' && answerDate !== undefined) {
     return evalDateTime(operator, answerDate, pickFirstValueFromAnswerItem(valueDef));
@@ -779,6 +815,11 @@ const evalStatusCondition = (questionVal: any, questionnaireResponse?: Questionn
       return false;
   }
 };
+
+// a page is hidden from the patient the same way any read-only item is: readOnly, with a disabled-display of hidden
+// (which is also what a readOnly item gets when no disabled-display is set)
+export const isPageHidden = (page: Pick<IntakeQuestionnaireItem, 'readOnly' | 'disabledDisplay'>): boolean =>
+  page.readOnly === true && (page.disabledDisplay ?? 'hidden') === 'hidden';
 
 export const evalEnableWhen = (
   item: IntakeQuestionnaireItem,
@@ -953,7 +994,10 @@ export const recursiveGroupTransform = (items: IntakeQuestionnaireItem[], values
   // Use rootContext for filter-when evaluation (to access parent-level values like payment-option)
   // Use values for finding matching items at the current nesting level
   const context = rootContext ?? values;
-  const filteredItems = items.filter((item) => item && item?.type !== 'display' && !item?.readOnly);
+  // calculated items are derived from other answers and never recorded
+  const filteredItems = items.filter(
+    (item) => item && item?.type !== 'display' && !item?.readOnly && !item?.calculatedExpression
+  );
   const stringifiedInput = JSON.stringify(values);
   const output = filteredItems.map((item) => {
     const match = values?.find((i: any) => {
