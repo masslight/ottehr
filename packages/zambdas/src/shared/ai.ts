@@ -1,4 +1,4 @@
-import { AnthropicMessagesModelId, ChatAnthropic } from '@langchain/anthropic';
+import { AnthropicInput, AnthropicMessagesModelId, ChatAnthropic } from '@langchain/anthropic';
 import { BaseChatModel } from '@langchain/core/language_models/chat_models';
 import { AIMessageChunk, BaseMessageLike, MessageContentComplex } from '@langchain/core/messages';
 import Oystehr, { BatchInputPostRequest, BatchInputPutRequest, BatchInputRequest } from '@oystehr/sdk';
@@ -21,7 +21,7 @@ import {
 import { getFormatDuration } from 'utils/lib/helpers/helpers';
 import { FEATURE_FLAGS_CONFIG } from 'utils/lib/ottehr-config/feature-flags';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
-import { VERTEX_AI_MODEL } from 'utils/lib/types/api/ai-models.constants';
+import { LlmEffort, LlmThinkingMode, VERTEX_AI_MODEL } from 'utils/lib/types/api/ai-models.constants';
 import { VISIT_CONSULT_NOTE_DOC_REF_CODING_CODE } from 'utils/lib/types/api/appointment.types';
 import { AiObservationField } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import { AI_OBSERVATION_META_SYSTEM } from 'utils/lib/types/api/chart-data/chart-data.types';
@@ -371,8 +371,12 @@ interface ChatbotClientSettings {
   temperature?: number;
   timeout?: number;
   maxTokens?: number;
-  /** JSON schema the response must follow (Anthropic structured outputs); the reply text is then valid JSON. */
+  /** JSON schema the reply must follow (structured outputs). Sent as the API's output_config.format. */
   responseSchema?: Record<string, unknown>;
+  /** How much the model works on the reply (low/medium/high). Sent as the API's output_config.effort; omitted = model default. */
+  effort?: LlmEffort;
+  /** Sent as the API's thinking.type; omitted = model default. Valid values differ per model (see Anthropic effort docs). */
+  thinking?: LlmThinkingMode;
 }
 
 /**
@@ -380,7 +384,16 @@ interface ChatbotClientSettings {
  * Custom settings require noCache: true, so they always get their own client and never leak into the shared one.
  */
 export type InvokeChatbotOptions =
-  | { noCache?: false; model?: never; temperature?: never; timeout?: never; maxTokens?: never; responseSchema?: never }
+  | {
+      noCache?: false;
+      model?: never;
+      temperature?: never;
+      timeout?: never;
+      maxTokens?: never;
+      responseSchema?: never;
+      effort?: never;
+      thinking?: never;
+    }
   | ({ noCache: true } & ChatbotClientSettings);
 
 const createChatbot = ({
@@ -389,13 +402,19 @@ const createChatbot = ({
   timeout = CHATBOT_TIMEOUT_MS,
   maxTokens,
   responseSchema,
+  effort,
+  thinking,
 }: ChatbotClientSettings): ChatAnthropic =>
   new ChatAnthropic({
     model,
     temperature,
     maxTokens,
-    ...(responseSchema ? { outputConfig: { format: { type: 'json_schema', schema: responseSchema } } } : {}),
-    // Must stay top-level: LangChain forces the SDK client's maxRetries to 0, so clientOptions.maxRetries is ignored.
+    outputConfig: {
+      ...(effort ? { effort } : {}),
+      ...(responseSchema ? { format: { type: 'json_schema', schema: responseSchema } } : {}),
+    },
+    // The SDK's ThinkingConfigParam doesn't list "between_tools" yet; the API accepts it (Sonnet 5.5).
+    ...(thinking ? { thinking: { type: thinking } as AnthropicInput['thinking'] } : {}),
     maxRetries: CHATBOT_MAX_RETRIES,
     clientOptions: { timeout },
   });

@@ -15,7 +15,8 @@ import {
   buildExecutionContractPromptSection,
 } from 'utils/lib/types/adhoc/generation/runtime-scope';
 import { REPORT_FACTORY_NAME, REPORT_ROOT_NAME } from 'utils/lib/types/adhoc/generation/runtime-scope.catalog';
-import { LlmModel } from 'utils/lib/types/api/ai-models.constants';
+import { LlmModelVariant, LlmProvider } from 'utils/lib/types/api/ai-models.constants';
+import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { fixAndParseJsonObjectFromString } from 'utils/lib/validation/json-fix';
 import { invokeChatbot, invokeChatbotVertexAI } from './ai';
 import { validateOutputWithSchema } from './validate-zod';
@@ -72,19 +73,26 @@ const CLAUDE_REPORT_OPTIONS = {
 } as const;
 
 const createVertexReportInvoker =
-  ({ id }: LlmModel): ReportModelInvoker =>
+  ({ model }: LlmModelVariant): ReportModelInvoker =>
   (prompt, secrets) =>
-    invokeChatbotVertexAI([{ text: prompt }], secrets, FEATURE_NAME, RESPONSE_SCHEMA, id);
+    invokeChatbotVertexAI([{ text: prompt }], secrets, FEATURE_NAME, RESPONSE_SCHEMA, model.id);
 
 const createAnthropicReportInvoker =
-  ({ id }: LlmModel): ReportModelInvoker =>
-  async (prompt, secrets) =>
-    (await invokeChatbot([{ role: 'user', content: prompt }], secrets, { ...CLAUDE_REPORT_OPTIONS, model: id })).text;
+  ({ model, effort, thinking }: LlmModelVariant): ReportModelInvoker =>
+  async (prompt, secrets) => {
+    const response = await invokeChatbot([{ role: 'user', content: prompt }], secrets, {
+      ...CLAUDE_REPORT_OPTIONS,
+      model: model.id,
+      effort,
+      thinking,
+    });
 
-const REPORT_MODEL_INVOKERS: Record<AdHocReportModel, ReportModelInvoker> = {
-  defaultVertexModel: createVertexReportInvoker(AD_HOC_REPORT_LLM_MODELS.defaultVertexModel),
-  claudeSonnet_5_5: createAnthropicReportInvoker(AD_HOC_REPORT_LLM_MODELS.claudeSonnet_5_5),
-  claudeOpus_5_5: createAnthropicReportInvoker(AD_HOC_REPORT_LLM_MODELS.claudeOpus_5_5),
+    return response.text;
+  };
+
+const REPORT_INVOKER_FACTORIES: Record<LlmProvider, (variant: LlmModelVariant) => ReportModelInvoker> = {
+  vertex: createVertexReportInvoker,
+  anthropic: createAnthropicReportInvoker,
 };
 
 const buildPrompt = (
@@ -230,7 +238,8 @@ export const generateAdHocReportCode = async (
   secrets: Secrets
 ): Promise<GenerateAdHocReportOutput> => {
   const basePrompt = buildPrompt(schema, request, previousAttempt);
-  const invokeReportModel = REPORT_MODEL_INVOKERS[model] ?? REPORT_MODEL_INVOKERS[AD_HOC_REPORT_DEFAULT_MODEL];
+  const variant = AD_HOC_REPORT_LLM_MODELS[model] ?? AD_HOC_REPORT_LLM_MODELS[AD_HOC_REPORT_DEFAULT_MODEL];
+  const invokeReportModel = REPORT_INVOKER_FACTORIES[variant.model.provider](variant);
   let lastError = '';
 
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
@@ -276,8 +285,7 @@ export const generateAdHocReportCode = async (
     );
   }
 
-  // A plain Error: the Task handler stores its message as the Task's status reason, which the UI shows.
-  throw new Error(
+  throw INVALID_INPUT_ERROR(
     `Could not generate a valid report after ${MAX_ATTEMPTS} attempts (${lastError}). Please rephrase ` +
       `your request and try again.`
   );
