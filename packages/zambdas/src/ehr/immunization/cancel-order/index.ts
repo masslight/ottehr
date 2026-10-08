@@ -7,7 +7,10 @@ import { replaceOperation } from 'utils/lib/helpers/operations';
 import { CancelImmunizationOrderRequest } from 'utils/lib/types/data/immunization/types';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient, validateJsonBody } from '../../../shared/helpers';
-import { makeOrderStatementsEnteredInErrorRequests } from '../../../shared/medication-order-delete';
+import {
+  makeOrderCptLinesDeleteRequests,
+  makeOrderStatementsEnteredInErrorRequests,
+} from '../../../shared/medication-order-delete';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
 
@@ -44,6 +47,7 @@ async function cancelImmunizationOrder(oystehr: Oystehr, input: CancelImmunizati
     requests: [
       getPatchBinary({ resourceType: 'MedicationAdministration', resourceId: orderId, patchOperations }),
       ...(await makeOrderStatementsEnteredInErrorRequests(oystehr, orderId)),
+      ...(await makeOrderCptLinesDeleteRequests(oystehr, medicationAdministration)),
     ],
   });
 }

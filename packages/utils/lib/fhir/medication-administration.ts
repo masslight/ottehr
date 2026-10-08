@@ -408,6 +408,18 @@ export function isInHouseMedicationOrder(ma: MedicationAdministration): boolean 
   );
 }
 
+export const IMMUNIZATION_ORDER_TAG_SYSTEM = 'https://fhir.zapehr.com/r4/StructureDefinitions/immunization';
+
+export const IMMUNIZATION_ORDER_TAG_CODE = 'immunization';
+
+export function isImmunizationOrder(ma: MedicationAdministration): boolean {
+  return (
+    ma.meta?.tag?.some(
+      (tag) => tag.system === IMMUNIZATION_ORDER_TAG_SYSTEM && tag.code === IMMUNIZATION_ORDER_TAG_CODE
+    ) ?? false
+  );
+}
+
 export const MEDICATION_CPT_CODES_EXTENSION_URL = 'https://fhir.ottehr.com/Extension/medication-cpt-codes';
 
 export interface MedicationCptCodeEntry {

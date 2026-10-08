@@ -404,7 +404,7 @@ async function changeOrderStatus(
   if (newStatus === 'cancelled') {
     transactionRequests.push(
       ...(await makeOrderStatementsEnteredInErrorRequests(oystehr, pkg.medicationAdministration.id!)),
-      ...(await makeOrderCptLinesDeleteRequests(oystehr, pkg.medicationAdministration.id!))
+      ...(await makeOrderCptLinesDeleteRequests(oystehr, pkg.medicationAdministration))
     );
   }
 
