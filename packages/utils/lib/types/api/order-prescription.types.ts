@@ -53,12 +53,13 @@ export interface OrderPrescriptionInput {
   substitutionAllowed: boolean;
   numberOfRefills: number;
   patientInstructions: string;
+  noteToPharmacy?: string;
   pharmacyId: string;
   pharmacyNpi: string;
   pharmacyName: string;
   pharmacyPhone: string;
-  diagnosisCode: string;
-  diagnosisDescription: string;
+  diagnosisCode?: string;
+  diagnosisDescription?: string;
 }
 
 export interface OrderPrescriptionOutput {

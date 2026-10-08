@@ -34,7 +34,6 @@ describe('prescriptionLineErrors', () => {
       'Quantity must be greater than 0',
       'Pick a unit',
       'Enter the directions',
-      'Add a diagnosis',
     ]);
   });
 

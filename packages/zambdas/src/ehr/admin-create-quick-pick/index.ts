@@ -88,6 +88,7 @@ const prescriptionQuickPickSchema = z
     numberOfRefills: z.number().int().min(0).max(99).optional(),
     substitutionAllowed: z.boolean().optional(),
     patientInstructions: z.string().max(1000).optional(),
+    noteToPharmacy: z.string().max(210).optional(),
   })
   .passthrough();
 

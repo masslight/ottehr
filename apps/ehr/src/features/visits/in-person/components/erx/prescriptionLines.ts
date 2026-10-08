@@ -14,6 +14,7 @@ export interface PrescriptionLine {
   numberOfRefills: string;
   substitutionAllowed: boolean;
   patientInstructions: string;
+  noteToPharmacy: string;
   diagnosis: { code: string; display: string } | null;
 }
 
@@ -28,6 +29,7 @@ export const emptyPrescriptionLine = (): PrescriptionLine => ({
   numberOfRefills: '0',
   substitutionAllowed: true,
   patientInstructions: '',
+  noteToPharmacy: '',
   diagnosis: null,
 });
 
@@ -61,7 +63,8 @@ const PrescriptionLineSchema = z.object({
     .trim()
     .min(1, 'Enter the directions')
     .max(1000, 'Directions must be up to 1000 characters'),
-  diagnosis: z.object({ code: z.string().min(1), display: z.string() }, { invalid_type_error: 'Add a diagnosis' }),
+  noteToPharmacy: z.string().trim().max(210, 'Note to pharmacy must be up to 210 characters'),
+  diagnosis: z.object({ code: z.string().min(1), display: z.string() }).nullable(),
 });
 
 /** Every problem with the line, in sentence order; empty when it can be sent. */
@@ -80,7 +83,7 @@ interface OrderContext {
 
 /** The order input for a line that passed `prescriptionLineErrors`. */
 export const prescriptionLineToOrder = (line: PrescriptionLine, context: OrderContext): OrderPrescriptionInput => {
-  if (!line.medication || !line.diagnosis || !line.quantityUnit) {
+  if (!line.medication || !line.quantityUnit) {
     throw new Error('Prescription line is incomplete');
   }
   return {
@@ -96,12 +99,14 @@ export const prescriptionLineToOrder = (line: PrescriptionLine, context: OrderCo
     substitutionAllowed: line.substitutionAllowed,
     numberOfRefills: Number(line.numberOfRefills),
     patientInstructions: line.patientInstructions.trim(),
+    ...(line.noteToPharmacy.trim() ? { noteToPharmacy: line.noteToPharmacy.trim() } : {}),
     pharmacyId: context.pharmacy.ncpdpId,
     pharmacyNpi: context.pharmacy.npi,
     pharmacyName: context.pharmacy.name.trim(),
     pharmacyPhone: context.pharmacy.phone,
-    diagnosisCode: line.diagnosis.code.trim(),
-    diagnosisDescription: line.diagnosis.display.trim(),
+    ...(line.diagnosis
+      ? { diagnosisCode: line.diagnosis.code.trim(), diagnosisDescription: line.diagnosis.display.trim() }
+      : {}),
   };
 };
 
@@ -121,6 +126,7 @@ export const applyPrescriptionQuickPick = (
   numberOfRefills: String(quickPick.numberOfRefills ?? 0),
   substitutionAllowed: quickPick.substitutionAllowed ?? true,
   patientInstructions: quickPick.patientInstructions ?? '',
+  noteToPharmacy: quickPick.noteToPharmacy ?? '',
 });
 
 const numberOrUndefined = (value: string): number | undefined =>
@@ -139,6 +145,7 @@ export const prescriptionLineToQuickPick = (
   numberOfRefills: numberOrUndefined(line.numberOfRefills),
   substitutionAllowed: line.substitutionAllowed,
   patientInstructions: line.patientInstructions.trim() || undefined,
+  noteToPharmacy: line.noteToPharmacy.trim() || undefined,
   // diagnosis excluded — encounter-specific
 });
 
