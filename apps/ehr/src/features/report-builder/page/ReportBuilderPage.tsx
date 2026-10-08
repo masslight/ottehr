@@ -34,6 +34,7 @@ import {
   AdHocReportModel,
 } from 'utils/lib/types/adhoc/generation/generate.types';
 import { AdHocDateRangeFilter } from 'utils/lib/types/adhoc/query/date-range';
+import { getLlmModelVariantLabel } from 'utils/lib/types/api/ai-models.constants';
 import PageContainer from '../../../layout/PageContainer';
 import { AD_HOC_DATASETS } from '../datasets/registry';
 import { ReportFrame } from '../sandbox/ReportFrame';
@@ -155,7 +156,7 @@ export default function ReportBuilderPage(): React.ReactElement {
                 >
                   {AD_HOC_REPORT_MODELS.map((m) => (
                     <MenuItem key={m} value={m}>
-                      {AD_HOC_REPORT_LLM_MODELS[m].displayName}
+                      {getLlmModelVariantLabel(AD_HOC_REPORT_LLM_MODELS[m])}
                     </MenuItem>
                   ))}
                 </Select>

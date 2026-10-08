@@ -3,12 +3,14 @@ import {
   AD_HOC_REPORT_DEFAULT_MODEL,
   GenerateAdHocReportInput,
   GenerateAdHocReportInputSchema,
+  GenerateAdHocReportOutput,
 } from 'utils/lib/types/adhoc/generation/generate.types';
 import {
   ADHOC_GENERATE_OUTPUT_CODE,
   ADHOC_GENERATE_PARAMS_CODE,
   ADHOC_REPORT_TASK_SYSTEM,
 } from 'utils/lib/types/adhoc/generation/report-task';
+import { APIError, isApiError } from 'utils/lib/types/errors';
 import { generateAdHocReportCode } from '../../shared/adhoc-generate';
 import { wrapTaskHandler } from '../task/helpers';
 
@@ -34,7 +36,17 @@ export const index = wrapTaskHandler(ZAMBDA_NAME, async ({ task, secrets }, oyst
 
   console.log(`[adhoc-generate] start task=${task.id} model=${model} repair=${!!params.previousAttempt}`);
 
-  const result = await generateAdHocReportCode(params, model, secrets);
+  let result: GenerateAdHocReportOutput;
+
+  try {
+    result = await generateAdHocReportCode(params, model, secrets);
+  } catch (error) {
+    // The model could not produce a usable report: an expected outcome. Fail the Task with a readable
+    // reason for the UI and skip the Sentry alert that a thrown error gets.
+    if (isApiError(error)) return { taskStatus: 'failed' as const, statusReason: (error as APIError).message };
+
+    throw error;
+  }
 
   await oystehr.fhir.patch({
     resourceType: 'Task',
