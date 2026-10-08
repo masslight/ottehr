@@ -1596,7 +1596,6 @@ function extractValueFromItem(item: QuestionnaireResponseItem): string | boolean
 
   // Handle regular answers
   if (!answer) return undefined;
-  // Stray leading/trailing whitespace (e.g. "Smith ") breaks exact-match lookups against the record
   if ('valueString' in answer) return answer.valueString?.trim();
   if ('valueBoolean' in answer) return answer.valueBoolean;
   if ('valueDateTime' in answer) return answer.valueDateTime;
