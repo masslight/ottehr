@@ -5,6 +5,7 @@ import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { getCoding } from 'utils/lib/fhir/helpers';
 import { isPayerUrl } from 'utils/lib/helpers/helpers';
 import { getOptionalSecret, SecretsKeys } from 'utils/lib/secrets';
+import { GetClaimHistoryInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import {
   CLAIM_HISTORY_RESOURCE_LABELS,
   CLAIM_PROVENANCE_ACTIVITY_CODES,
@@ -24,6 +25,7 @@ import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { sendErrors } from '../../shared/errors';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { parseStoredAcknowledgment } from '../claim-acknowledgments';
 import {
   copySourceId,
@@ -33,7 +35,8 @@ import {
   resolvePayersByRef,
   resourceDisplayName,
 } from '../shared';
-import { GetClaimHistoryParams, validateRequestParameters } from './validateRequestParameters';
+
+type GetClaimHistoryParams = ValidatedZambdaInput<typeof GetClaimHistoryInputSchema>;
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'get-billing-claim-history';
@@ -47,7 +50,7 @@ const FIELD_SCREEN: Record<string, ClaimHistoryLink['screen']> = {
 };
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const params = validateRequestParameters(input);
+  const params = validateWithSchema(GetClaimHistoryInputSchema, input);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
 

@@ -2,6 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Organization } from 'fhir/r4b';
 import { isCustomInsuranceOrgBusinessId } from 'utils/lib/helpers/helpers';
+import { SearchCustomInsuranceOrgsInputSchema } from 'utils/lib/types/data/billing/custom-insurance-org.schemas';
 import {
   CUSTOM_INSURANCE_ORG_ID_PREFIX,
   CUSTOM_INSURANCE_ORG_ID_SYSTEM,
@@ -13,16 +14,18 @@ import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { truncateForLog } from '../../shared/logging';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { mapCustomInsuranceOrganization } from '../custom-insurance-org.helpers';
 import { createBillingClient } from '../shared';
-import { SearchInsuranceOrgsParams, validateRequestParameters } from './validateRequestParameters';
+
+type SearchInsuranceOrgsParams = ValidatedZambdaInput<typeof SearchCustomInsuranceOrgsInputSchema>;
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'search-billing-custom-insurance-orgs';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.group('validateRequestParameters');
-  const params = validateRequestParameters(input);
+  const params = validateWithSchema(SearchCustomInsuranceOrgsInputSchema, input);
   const { secrets } = params;
   console.groupEnd();
 

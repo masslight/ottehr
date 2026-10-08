@@ -92,7 +92,7 @@ import {
 } from 'utils/lib/helpers/rcm/constants';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { STATE_CODES } from 'utils/lib/types/common';
-import { CLAIM_TAG_SYSTEM, ndcToDigits } from 'utils/lib/types/data/billing/billing.constants';
+import { CLAIM_TAG_SYSTEM, ERA_SOURCE, EraSource, ndcToDigits } from 'utils/lib/types/data/billing/billing.constants';
 import {
   BillingInsuranceType,
   BillingPolicyHolderInput,
@@ -317,6 +317,26 @@ export const ERA_ICN_EXTENSION = 'https://extensions.fhir.oystehr.com/era-icn';
 // remit itself carries.
 export const ERA_ITEM_PROCEDURE_CODE_EXTENSION = 'https://extensions.fhir.oystehr.com/era-item-procedure-code';
 export const ERA_ITEM_UNITS_EXTENSION = 'https://extensions.fhir.oystehr.com/era-item-units';
+// LQ remark codes (RARC) on each ClaimResponse.item; one extension per code.
+export const ERA_ITEM_REMARK_CODE_EXTENSION = 'https://extensions.fhir.oystehr.com/era-item-remark-code';
+// Our own PaymentReconciliation extensions: where the ERA came from (ERA_SOURCE; absent on
+// clearing-house ERAs), the paper remit's own dates, and a stamp every manual save rewrites so the
+// resource version moves even when only claims changed.
+export const ERA_SOURCE_EXTENSION = 'https://extensions.fhir.ottehr.com/billing/era-source';
+export const ERA_REMIT_DATE_EXTENSION = 'https://extensions.fhir.ottehr.com/billing/era-remit-date';
+export const ERA_DEPOSIT_DATE_EXTENSION = 'https://extensions.fhir.ottehr.com/billing/era-deposit-date';
+export const ERA_LAST_EDITED_EXTENSION = 'https://extensions.fhir.ottehr.com/billing/era-last-edited';
+// On a manually keyed ClaimResponse: points at the contained claim holding what the biller keyed
+// (patient, lines, payee, member id). It keeps those contained resources referenced from the
+// response even once `request` and `patient` point at a matched Claim, as FHIR requires of contained
+// resources, so unmatching and editing can still read them back.
+export const ERA_KEYED_CLAIM_EXTENSION = 'https://extensions.fhir.ottehr.com/billing/era-keyed-claim';
+// X12 835 BPR04 payment method, on PaymentReconciliation.paymentIdentifier.type
+export const X12_PAYMENT_METHOD_SYSTEM = 'https://x12.org/codes/payment-method-codes';
+// Oystehr RCM tags each ClaimResponse it writes with its kind, and the claim-update subscription
+// listens for `era`, so a remit keyed in by hand is tagged the same way.
+export const RCM_CLAIM_RESPONSE_TYPE_TAG_SYSTEM = 'https://tags.fhir.oystehr.com/rcm-claim-response-type';
+export const ERA_CLAIM_RESPONSE_TYPE_TAG: Coding = { system: RCM_CLAIM_RESPONSE_TYPE_TAG_SYSTEM, code: 'era' };
 export const EXTENSION_CLAIM_ADMISSION_TYPE_CODE = 'https://extensions.fhir.oystehr.com/rcm-claim-admission-type-code';
 export const EXTENSION_CLAIM_POINT_OF_ORIGIN_CODE =
   'https://extensions.fhir.oystehr.com/rcm-claim-point-of-origin-code';
@@ -707,6 +727,15 @@ export function getEraCheckNumber(
   pr: Pick<PaymentReconciliation, 'identifier' | 'paymentIdentifier'>
 ): string | undefined {
   return pr.identifier?.find((id) => id.system === ERA_CHECK_SYSTEM)?.value ?? pr.paymentIdentifier?.value;
+}
+
+// Where an ERA came from. Manual and (since the marker was added) imported ERAs carry the
+// era-source extension. Unmarked ones are clearing-house deliveries, except legacy X12 imports:
+// Claim.MD stamps the check number as a searchable identifier and process-era never does.
+export function getEraSource(pr: Pick<PaymentReconciliation, 'extension' | 'identifier'>): EraSource {
+  const marked = pr.extension?.find((ext) => ext.url === ERA_SOURCE_EXTENSION)?.valueCode;
+  if (marked === ERA_SOURCE.manual || marked === ERA_SOURCE.x12Import) return marked;
+  return pr.identifier?.some((id) => id.system === ERA_CHECK_SYSTEM) ? ERA_SOURCE.clearingHouse : ERA_SOURCE.x12Import;
 }
 
 export function eraCheckNumberMatches(
@@ -1249,7 +1278,10 @@ export function setStripeAccountId(resource: Practitioner | Organization, stripe
 
 export function fhirName(resource?: Patient | Practitioner): string {
   const name = resource?.name?.[0];
-  return name ? convertFhirNameToDisplayName(name) : '';
+  if (!name) return '';
+  if (name.family && name.given?.length) return convertFhirNameToDisplayName(name);
+  // a partial name (e.g. a remit that only reported a last name) must not render "undefined"
+  return name.family || name.given?.join(' ') || name.text || '';
 }
 
 // Friendly display name for any resource that can be referenced from a claim (undefined when the
@@ -1624,17 +1656,12 @@ export function selectClaimCoverages(
   coverages: Coverage[],
   sourceReference: (coverage: Coverage) => string | undefined
 ): Coverage[] {
-  const workersComp = service === CODE_SYSTEM_SERVICE_CATEGORY_CODES['workers-comp'];
-  const account =
-    service === CODE_SYSTEM_SERVICE_CATEGORY_CODES['urgent-care']
-      ? findPatientBillingAccount(accounts)
-      : workersComp
-      ? findPatientWorkersCompAccount(accounts)
-      : undefined;
+  const isWorkersComp = service === CODE_SYSTEM_SERVICE_CATEGORY_CODES['workers-comp'];
+  const account = isWorkersComp ? findPatientWorkersCompAccount(accounts) : findPatientBillingAccount(accounts);
   const selected = new Map<number, Coverage | undefined>();
   for (const entry of account?.coverage ?? []) {
     const coverage = coverages.find((c) => sourceReference(c) === entry.coverage.reference);
-    if (workersComp) {
+    if (isWorkersComp) {
       if (coverage) selected.set(1, coverage);
     } else if (entry.priority && [1, 2, 3, 4].includes(entry.priority)) {
       selected.set(entry.priority, coverage);
@@ -2006,22 +2033,9 @@ export const CLAIM_ATTACHMENT_REPORT_TYPE_CODE_SYSTEM =
 export const BILLING_APP_BUCKET = (projectId: string): string => {
   return `${projectId}-billing-app`;
 };
-export const CLAIM_ATTACHMENT_OBJECT_PATH = (claimId: string, fileName: string): string => {
-  return `claim-attachments/${claimId}/${fileName}`;
-};
-
 export function getClaimAttachmentBucketAndPathFromZ3Url(projectApi: string, z3Url: string): [string, string] {
   const [bucket, ...pathParts] = z3Url.replace(`${projectApi}/z3/`, '').split('/');
   return [bucket, pathParts.join('/')];
-}
-
-export function getClaimAttachmentUrl(
-  projectApi: string,
-  projectId: string,
-  claimId: string,
-  fileName: string
-): string {
-  return `${projectApi}/z3/${BILLING_APP_BUCKET(projectId)}/${CLAIM_ATTACHMENT_OBJECT_PATH(claimId, fileName)}`;
 }
 
 function getClaimSupportingInfoIndex(

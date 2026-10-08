@@ -100,7 +100,7 @@ describe('run-billing-rules-engine - complexValidation', () => {
 
     const kickoffs = await complexValidation(oystehr, {
       claimIds: ['claim-1', 'claim-2'],
-      secrets: null,
+      secrets: {},
       skipRules: false,
     });
 
@@ -122,7 +122,7 @@ describe('run-billing-rules-engine - complexValidation', () => {
     const { oystehr } = makeSearchOystehr([makeClaim('claim-1', AR_STAGE.insurancePayer)]);
 
     await expect(
-      complexValidation(oystehr, { claimIds: ['claim-1', 'claim-2', 'claim-3'], secrets: null, skipRules: false })
+      complexValidation(oystehr, { claimIds: ['claim-1', 'claim-2', 'claim-3'], secrets: {}, skipRules: false })
     ).rejects.toMatchObject({ message: 'Claim(s) not found: claim-2, claim-3' });
   });
 
@@ -130,7 +130,7 @@ describe('run-billing-rules-engine - complexValidation', () => {
     const { oystehr } = makeSearchOystehr([makeClaim('claim-1', AR_STAGE.insurancePayer), makeClaim('claim-2')]);
 
     await expect(
-      complexValidation(oystehr, { claimIds: ['claim-1', 'claim-2'], secrets: null, skipRules: false })
+      complexValidation(oystehr, { claimIds: ['claim-1', 'claim-2'], secrets: {}, skipRules: false })
     ).rejects.toMatchObject({
       message: 'No rules engine applies to claim(s): claim-2. Set an AR Stage first.',
     });
