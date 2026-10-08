@@ -4,6 +4,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CalendarMonthOutlinedIcon from '@mui/icons-material/CalendarMonthOutlined';
 import CloseIcon from '@mui/icons-material/Close';
 import FaxOutlinedIcon from '@mui/icons-material/FaxOutlined';
+import GroupsOutlinedIcon from '@mui/icons-material/GroupsOutlined';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import PaidOutlinedIcon from '@mui/icons-material/PaidOutlined';
 import {
@@ -16,6 +17,7 @@ import {
   ListItemIcon,
   Menu,
   MenuItem,
+  Popover,
   Skeleton,
   Stack,
   Switch,
@@ -415,6 +417,7 @@ export const Header = (): JSX.Element => {
     FLAGGED_REASONS_FOR_VISIT.includes(primaryReasonForVisit) &&
     !(['cancelled', 'no show', 'completed', 'discharged'] as (VisitStatusLabel | undefined)[]).includes(status);
   const [headerMenuAnchorEl, setHeaderMenuAnchorEl] = useState<null | HTMLElement>(null);
+  const [careTeamAnchorEl, setCareTeamAnchorEl] = useState<null | HTMLElement>(null);
   const [showCreateTaskDialog, setShowCreateTaskDialog] = useState(false);
   const sendFaxDialog = useSendFax(appointmentID ? { type: 'visit', appointmentId: appointmentID } : undefined);
   const {
@@ -442,6 +445,19 @@ export const Header = (): JSX.Element => {
       ? employees?.providers?.filter((p) => groupMemberPractitionerIds.includes(p.practitionerId))
       : employees?.providers;
   const [roomSaving, setRoomSaving] = useState(false);
+
+  const findEmployeeName = (practitionerId: string | undefined): string =>
+    [...(employees?.nonProviders ?? []), ...(employees?.providers ?? [])].find(
+      (employee) => employee.practitionerId === practitionerId
+    )?.name ?? 'Not assigned';
+  const careTeamTooltip = isFollowup ? (
+    `Follow-up provider: ${findEmployeeName(assignedProviderId)}`
+  ) : (
+    <Box>
+      <div>Intake: {findEmployeeName(assignedIntakePerformerId)}</div>
+      <div>Provider: {findEmployeeName(assignedProviderId)}</div>
+    </Box>
+  );
 
   if (!employeesIsLoading && oystehrZambda && !employees) {
     return <Box sx={{ padding: '16px' }}>There must be some employees registered to use charting.</Box>;
@@ -550,183 +566,208 @@ export const Header = (): JSX.Element => {
                       <PatientMetadata sx={{ whiteSpace: 'nowrap' }}>{visitBookingType}</PatientMetadata>
                     </Grid>
                   )}
-                  <Grid item>
-                    {isFollowup ? (
-                      <Stack direction="row" spacing={1} alignItems="center">
-                        <PatientMetadata sx={{ whiteSpace: 'nowrap' }}>Follow-up provider: </PatientMetadata>
-                        {employees ? (
-                          <TextField
-                            select
-                            fullWidth
-                            data-testid={dataTestIds.inPersonHeader.providerPractitionerInput}
-                            sx={{ minWidth: 120 }}
-                            variant="standard"
-                            value={assignedProviderId ?? ''}
-                            disabled={isUpdatingPractitionerForProvider}
-                            onChange={(e) => {
-                              void handleUpdateProviderAssignment(e.target.value);
-                            }}
-                          >
-                            {employees.providers
-                              ?.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()))
-                              ?.map((provider) => (
-                                <MenuItem key={provider.practitionerId} value={provider.practitionerId}>
-                                  {provider.name}
-                                </MenuItem>
-                              ))}
-                          </TextField>
-                        ) : (
-                          <Skeleton sx={{ width: 120, minWidth: 120 }} animation="wave" />
-                        )}
-                      </Stack>
-                    ) : (
-                      <Stack direction="row" spacing={2}>
-                        <Stack direction="row" spacing={1} alignItems="center">
-                          <PatientMetadata>Intake: </PatientMetadata>
-                          {employees ? (
-                            <TextField
-                              select
-                              fullWidth
-                              data-testid={dataTestIds.inPersonHeader.intakePractitionerInput}
-                              sx={{ minWidth: 120 }}
-                              variant="standard"
-                              value={assignedIntakePerformerId ?? ''}
-                              disabled={isUpdatingPractitionerForIntake}
-                              onChange={(e) => {
-                                void handleUpdateIntakeAssignment(e.target.value);
-                              }}
-                            >
-                              {employees.nonProviders
-                                ?.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()))
-                                ?.map((nonProvider) => (
-                                  <MenuItem key={nonProvider.practitionerId} value={nonProvider.practitionerId}>
-                                    {nonProvider.name}
-                                  </MenuItem>
-                                ))}
-                            </TextField>
-                          ) : (
-                            <Skeleton sx={{ width: 120, minWidth: 120 }} animation="wave" />
-                          )}
-                        </Stack>
-
-                        <Stack direction="row" spacing={1} alignItems="center">
-                          <PatientMetadata>Provider: </PatientMetadata>
-                          {employees ? (
-                            <TextField
-                              select
-                              fullWidth
-                              data-testid={dataTestIds.inPersonHeader.providerPractitionerInput}
-                              sx={{ minWidth: 120 }}
-                              variant="standard"
-                              value={assignedProviderId ?? ''}
-                              disabled={isUpdatingPractitionerForProvider}
-                              onChange={(e) => {
-                                void handleUpdateProviderAssignment(e.target.value);
-                              }}
-                            >
-                              {group && (
-                                <MenuItem
-                                  // Embedding a non-option control inside a MUI Select
-                                  // menu requires defending against several behaviors that
-                                  // would otherwise close the dropdown on every toggle:
-                                  //   - `disabled` makes Select's selection logic skip
-                                  //     this child instead of treating clicks as option
-                                  //     picks. The sx overrides undo `disabled`'s visual
-                                  //     dimming and pointer-events blocking so the Switch
-                                  //     stays interactive.
-                                  //   - Stops on mousedown/click/keydown at the MenuItem
-                                  //     level catch Select's event delegation before it
-                                  //     can read the toggle interaction as an option pick.
-                                  //   - Stops on the Switch's own change/click prevent the
-                                  //     events from bubbling to any parent input listener.
-                                  //   - `inputProps.tabIndex: -1` keeps focus on the
-                                  //     MenuList — without it the hidden checkbox grabs
-                                  //     focus on click and the Menu closes thinking focus
-                                  //     left the option list.
-                                  // We don't know which single piece is sufficient (each
-                                  // trim attempt regressed). Treat this as a load-bearing
-                                  // bundle and edit only when MUI behavior changes.
-                                  disabled
-                                  disableRipple
-                                  sx={{
-                                    px: 2,
-                                    py: 1,
-                                    borderBottom: '1px solid',
-                                    borderColor: 'divider',
-                                    cursor: 'default',
-                                    '&.Mui-disabled': {
-                                      opacity: 1,
-                                      pointerEvents: 'auto',
-                                    },
-                                    '&:hover': { backgroundColor: 'transparent' },
-                                  }}
-                                  onMouseDown={(e) => e.stopPropagation()}
-                                  onClick={(e) => e.stopPropagation()}
-                                  onKeyDown={(e) => e.stopPropagation()}
-                                >
-                                  <FormControlLabel
-                                    onClick={(e) => e.stopPropagation()}
-                                    control={
-                                      <Switch
-                                        size="small"
-                                        checked={restrictProvidersToGroup}
-                                        onChange={(e) => {
-                                          e.stopPropagation();
-                                          setRestrictProvidersToGroup(e.target.checked);
-                                        }}
-                                        onClick={(e) => e.stopPropagation()}
-                                        inputProps={{ tabIndex: -1 }}
-                                      />
-                                    }
-                                    label={
-                                      <Typography variant="caption">Members of {group.name ?? 'group'} only</Typography>
-                                    }
-                                  />
-                                </MenuItem>
-                              )}
-                              {filteredProviders
-                                ?.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()))
-                                ?.map((provider) => (
-                                  <MenuItem key={provider.practitionerId} value={provider.practitionerId}>
-                                    {provider.name}
-                                  </MenuItem>
-                                ))}
-                            </TextField>
-                          ) : (
-                            <Skeleton sx={{ width: 120, minWidth: 120 }} animation="wave" />
-                          )}
-                        </Stack>
-
-                        {rooms && rooms.length > 0 && (
+                  <Grid item sx={{ display: 'flex' }}>
+                    <GenericToolTip title={careTeamTooltip} placement="top" customWidth={400}>
+                      <IconButton
+                        size="small"
+                        aria-label="Care team"
+                        data-testid={dataTestIds.inPersonHeader.careTeamButton}
+                        onClick={(e) => setCareTeamAnchorEl(e.currentTarget)}
+                      >
+                        <GroupsOutlinedIcon fontSize="small" />
+                      </IconButton>
+                    </GenericToolTip>
+                    <Popover
+                      open={Boolean(careTeamAnchorEl)}
+                      anchorEl={careTeamAnchorEl}
+                      onClose={() => setCareTeamAnchorEl(null)}
+                      anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+                    >
+                      <Stack
+                        spacing={2}
+                        sx={{ p: 2, minWidth: 300 }}
+                        data-testid={dataTestIds.inPersonHeader.careTeamPopover}
+                      >
+                        {isFollowup ? (
                           <Stack direction="row" spacing={1} alignItems="center">
-                            <PatientMetadata>Room: </PatientMetadata>
-                            <TextField
-                              select
-                              fullWidth
-                              data-testid={dataTestIds.inPersonHeader.roomSelect}
-                              sx={{ minWidth: 120 }}
-                              variant="standard"
-                              value={room ?? ''}
-                              disabled={roomSaving}
-                              onChange={(e) => {
-                                void handleRoomChange(e.target.value);
-                              }}
-                            >
-                              <MenuItem value={''}>None</MenuItem>
-                              {rooms.map(
-                                (roomOption) =>
-                                  roomOption && (
-                                    <MenuItem key={roomOption} value={roomOption}>
-                                      {roomOption}
+                            <PatientMetadata sx={{ whiteSpace: 'nowrap' }}>Follow-up provider:</PatientMetadata>
+                            {employees ? (
+                              <TextField
+                                select
+                                fullWidth
+                                data-testid={dataTestIds.inPersonHeader.providerPractitionerInput}
+                                sx={{ minWidth: 120 }}
+                                variant="standard"
+                                value={assignedProviderId ?? ''}
+                                disabled={isUpdatingPractitionerForProvider}
+                                onChange={(e) => {
+                                  void handleUpdateProviderAssignment(e.target.value);
+                                }}
+                              >
+                                {employees.providers
+                                  ?.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()))
+                                  ?.map((provider) => (
+                                    <MenuItem key={provider.practitionerId} value={provider.practitionerId}>
+                                      {provider.name}
                                     </MenuItem>
-                                  )
-                              )}
-                            </TextField>
+                                  ))}
+                              </TextField>
+                            ) : (
+                              <Skeleton sx={{ width: 120, minWidth: 120 }} animation="wave" />
+                            )}
                           </Stack>
+                        ) : (
+                          <>
+                            <Stack direction="row" spacing={1} alignItems="center">
+                              <PatientMetadata sx={{ minWidth: 70 }}>Intake:</PatientMetadata>
+                              {employees ? (
+                                <TextField
+                                  select
+                                  fullWidth
+                                  data-testid={dataTestIds.inPersonHeader.intakePractitionerInput}
+                                  sx={{ minWidth: 120 }}
+                                  variant="standard"
+                                  value={assignedIntakePerformerId ?? ''}
+                                  disabled={isUpdatingPractitionerForIntake}
+                                  onChange={(e) => {
+                                    void handleUpdateIntakeAssignment(e.target.value);
+                                  }}
+                                >
+                                  {employees.nonProviders
+                                    ?.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()))
+                                    ?.map((nonProvider) => (
+                                      <MenuItem key={nonProvider.practitionerId} value={nonProvider.practitionerId}>
+                                        {nonProvider.name}
+                                      </MenuItem>
+                                    ))}
+                                </TextField>
+                              ) : (
+                                <Skeleton sx={{ width: 120, minWidth: 120 }} animation="wave" />
+                              )}
+                            </Stack>
+                            <Stack direction="row" spacing={1} alignItems="center">
+                              <PatientMetadata sx={{ minWidth: 70 }}>Provider:</PatientMetadata>
+                              {employees ? (
+                                <TextField
+                                  select
+                                  fullWidth
+                                  data-testid={dataTestIds.inPersonHeader.providerPractitionerInput}
+                                  sx={{ minWidth: 120 }}
+                                  variant="standard"
+                                  value={assignedProviderId ?? ''}
+                                  disabled={isUpdatingPractitionerForProvider}
+                                  onChange={(e) => {
+                                    void handleUpdateProviderAssignment(e.target.value);
+                                  }}
+                                >
+                                  {group && (
+                                    <MenuItem
+                                      // Embedding a non-option control inside a MUI Select
+                                      // menu requires defending against several behaviors that
+                                      // would otherwise close the dropdown on every toggle:
+                                      //   - `disabled` makes Select's selection logic skip
+                                      //     this child instead of treating clicks as option
+                                      //     picks. The sx overrides undo `disabled`'s visual
+                                      //     dimming and pointer-events blocking so the Switch
+                                      //     stays interactive.
+                                      //   - Stops on mousedown/click/keydown at the MenuItem
+                                      //     level catch Select's event delegation before it
+                                      //     can read the toggle interaction as an option pick.
+                                      //   - Stops on the Switch's own change/click prevent the
+                                      //     events from bubbling to any parent input listener.
+                                      //   - `inputProps.tabIndex: -1` keeps focus on the
+                                      //     MenuList — without it the hidden checkbox grabs
+                                      //     focus on click and the Menu closes thinking focus
+                                      //     left the option list.
+                                      // We don't know which single piece is sufficient (each
+                                      // trim attempt regressed). Treat this as a load-bearing
+                                      // bundle and edit only when MUI behavior changes.
+                                      disabled
+                                      disableRipple
+                                      sx={{
+                                        px: 2,
+                                        py: 1,
+                                        borderBottom: '1px solid',
+                                        borderColor: 'divider',
+                                        cursor: 'default',
+                                        '&.Mui-disabled': {
+                                          opacity: 1,
+                                          pointerEvents: 'auto',
+                                        },
+                                        '&:hover': { backgroundColor: 'transparent' },
+                                      }}
+                                      onMouseDown={(e) => e.stopPropagation()}
+                                      onClick={(e) => e.stopPropagation()}
+                                      onKeyDown={(e) => e.stopPropagation()}
+                                    >
+                                      <FormControlLabel
+                                        onClick={(e) => e.stopPropagation()}
+                                        control={
+                                          <Switch
+                                            size="small"
+                                            checked={restrictProvidersToGroup}
+                                            onChange={(e) => {
+                                              e.stopPropagation();
+                                              setRestrictProvidersToGroup(e.target.checked);
+                                            }}
+                                            onClick={(e) => e.stopPropagation()}
+                                            inputProps={{ tabIndex: -1 }}
+                                          />
+                                        }
+                                        label={
+                                          <Typography variant="caption">
+                                            Members of {group.name ?? 'group'} only
+                                          </Typography>
+                                        }
+                                      />
+                                    </MenuItem>
+                                  )}
+                                  {filteredProviders
+                                    ?.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()))
+                                    ?.map((provider) => (
+                                      <MenuItem key={provider.practitionerId} value={provider.practitionerId}>
+                                        {provider.name}
+                                      </MenuItem>
+                                    ))}
+                                </TextField>
+                              ) : (
+                                <Skeleton sx={{ width: 120, minWidth: 120 }} animation="wave" />
+                              )}
+                            </Stack>
+                          </>
                         )}
                       </Stack>
-                    )}
+                    </Popover>
                   </Grid>
+                  {!isFollowup && rooms && rooms.length > 0 && (
+                    <Grid item>
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        <PatientMetadata>Room: </PatientMetadata>
+                        <TextField
+                          select
+                          fullWidth
+                          data-testid={dataTestIds.inPersonHeader.roomSelect}
+                          sx={{ minWidth: 120 }}
+                          variant="standard"
+                          value={room ?? ''}
+                          disabled={roomSaving}
+                          onChange={(e) => {
+                            void handleRoomChange(e.target.value);
+                          }}
+                        >
+                          <MenuItem value={''}>None</MenuItem>
+                          {rooms.map(
+                            (roomOption) =>
+                              roomOption && (
+                                <MenuItem key={roomOption} value={roomOption}>
+                                  {roomOption}
+                                </MenuItem>
+                              )
+                          )}
+                        </TextField>
+                      </Stack>
+                    </Grid>
+                  )}
                 </Grid>
               </Grid>
               <Grid item sx={{ flexShrink: 0 }}>
