@@ -149,7 +149,7 @@ describe('buildManualClaimResponse', () => {
   });
 
   it('reads back through the existing ERA readers', () => {
-    expect(extractClaimResponseAmounts(cr)).toEqual({ paid: 50, allowed: 100, patientResp: 50 });
+    expect(extractClaimResponseAmounts(cr)).toEqual({ paid: 50, allowed: 100, patientResp: 50, payerId: 'payer-uhc' });
     expect(countEraClaims([cr])).toMatchObject({ total: 1, matched: 0, unmatched: 1 });
     expect(eraContainedMemberId(cr)).toBe('888999000');
     expect(eraPatientAccountNumber([cr], undefined, false)).toBe('123');
