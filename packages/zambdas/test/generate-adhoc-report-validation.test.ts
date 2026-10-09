@@ -1,5 +1,6 @@
+import { LlmDatasetSchema } from 'utils/lib/types/adhoc/datasets/llm-schema';
 import { describe, expect, it } from 'vitest';
-import { explainRuntimeError } from '../src/ehr/generate-adhoc-report/index';
+import { explainRuntimeError, parseNeedsDataset } from '../src/ehr/generate-adhoc-report/index';
 
 // The generate zambda no longer executes or transpiles code — validation happens where the code
 // runs (the sandboxed iframe over real rows), and failures come back through the client's bounded
@@ -26,5 +27,33 @@ describe('explainRuntimeError (repair-prompt preparation)', () => {
 
   it('passes unknown errors through untouched', () => {
     expect(explainRuntimeError('r is not defined')).toBe('r is not defined');
+  });
+});
+
+describe('parseNeedsDataset (wrong-dataset signal)', () => {
+  const schema: LlmDatasetSchema = {
+    datasetId: 'encounters-comprehensive',
+    label: 'Encounters',
+    description: '',
+    rowCount: 0,
+    fields: [],
+    otherDatasets: [{ id: 'billing', label: 'Billing', description: '' }],
+  };
+
+  it('keeps a pointer to one of the schema otherDatasets', () => {
+    expect(parseNeedsDataset({ id: 'billing', concepts: ['payer balance', ''] }, schema)).toEqual({
+      id: 'billing',
+      concepts: ['payer balance'],
+    });
+  });
+
+  it('drops an invented or current dataset id', () => {
+    expect(parseNeedsDataset({ id: 'claims', concepts: ['x'] }, schema)).toBeUndefined();
+    expect(parseNeedsDataset({ id: 'encounters-comprehensive', concepts: ['x'] }, schema)).toBeUndefined();
+  });
+
+  it('ignores a missing or malformed value', () => {
+    expect(parseNeedsDataset(undefined, schema)).toBeUndefined();
+    expect(parseNeedsDataset('billing', schema)).toBeUndefined();
   });
 });
