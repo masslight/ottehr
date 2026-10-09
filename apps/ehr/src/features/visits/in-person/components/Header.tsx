@@ -565,6 +565,7 @@ export const Header = (): JSX.Element => {
                       <PaidOutlinedIcon
                         data-testid={dataTestIds.inPersonHeader.payment}
                         aria-label={`Payment: ${paymentDisplayValue}`}
+                        titleAccess={`Payment: ${paymentDisplayValue}`}
                         fontSize="small"
                         sx={{ color: isPaymentUnset ? theme.palette.error.main : theme.palette.text.secondary }}
                       />
