@@ -433,13 +433,11 @@ export const getPlanIdFromCoverage = (coverage: Coverage): string | undefined =>
 
 export const extractCptCodeModifiersFromCoding = (coding: Coding): { code: string; display: string }[] => {
   if (!coding.extension) return [];
-  const modifierExtension = coding.extension.find((ext) => ext.url === EXTENSION_URL_CPT_MODIFIER);
-  if (!modifierExtension || !modifierExtension.valueCodeableConcept?.coding) return [];
-  const modifiers = modifierExtension.valueCodeableConcept.coding
+  return coding.extension
+    .filter((ext) => ext.url === EXTENSION_URL_CPT_MODIFIER)
+    .flatMap((ext) => ext.valueCodeableConcept?.coding ?? [])
     .filter((extCoding) => extCoding.system === CODE_SYSTEM_CPT_MODIFIER)
     .map((extCoding) => ({ code: extCoding.code ?? '', display: extCoding.display ?? '' }));
-  console.log(`Modifiers for the coding ${JSON.stringify(coding)}: `, JSON.stringify(modifiers));
-  return modifiers;
 };
 
 export const getCptBillableUnitsFromCoding = (coding: Coding | undefined): number | undefined => {

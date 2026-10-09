@@ -1,6 +1,8 @@
-import { Coding } from 'fhir/r4b';
+import { Coding, Extension } from 'fhir/r4b';
 import { describe, expect, it } from 'vitest';
+import { CODE_SYSTEM_CPT_MODIFIER, EXTENSION_URL_CPT_MODIFIER } from '../helpers/rcm/constants';
 import {
+  extractCptCodeModifiersFromCoding,
   getCptBillableUnitsFromCoding,
   INSURANCE_TYPE_CODE_TO_CANDID_CODE,
   mapInsuranceTypeCodeToCandidCode,
@@ -25,6 +27,60 @@ describe('getCptBillableUnitsFromCoding', () => {
     };
 
     expect(getCptBillableUnitsFromCoding(coding)).toBeUndefined();
+  });
+});
+
+describe('extractCptCodeModifiersFromCoding', () => {
+  const modifierExtension = (codings: { code: string; display: string }[]): Extension => ({
+    url: EXTENSION_URL_CPT_MODIFIER,
+    valueCodeableConcept: {
+      coding: codings.map((c) => ({ system: CODE_SYSTEM_CPT_MODIFIER, code: c.code, display: c.display })),
+    },
+  });
+
+  it('returns modifiers from every modifier extension, not just the first', () => {
+    // repeat orders write the '91' extension ahead of the test's own modifier extension
+    const coding: Coding = {
+      system: 'http://www.ama-assn.org/go/cpt',
+      code: '87880',
+      extension: [
+        modifierExtension([{ code: '91', display: 'Repeat clinical test' }]),
+        modifierExtension([{ code: '50', display: 'Bilateral Procedure' }]),
+      ],
+    };
+
+    expect(extractCptCodeModifiersFromCoding(coding)).toEqual([
+      { code: '91', display: 'Repeat clinical test' },
+      { code: '50', display: 'Bilateral Procedure' },
+    ]);
+  });
+
+  it('returns every modifier coding held by a single extension', () => {
+    const coding: Coding = {
+      system: 'http://www.ama-assn.org/go/cpt',
+      code: '99213',
+      extension: [
+        modifierExtension([
+          { code: '25', display: 'Significant E/M' },
+          { code: '59', display: 'Distinct Procedural Service' },
+        ]),
+      ],
+    };
+
+    expect(extractCptCodeModifiersFromCoding(coding)).toEqual([
+      { code: '25', display: 'Significant E/M' },
+      { code: '59', display: 'Distinct Procedural Service' },
+    ]);
+  });
+
+  it('returns an empty list when the coding has no modifier extension', () => {
+    expect(extractCptCodeModifiersFromCoding({ code: '87880' })).toEqual([]);
+    expect(
+      extractCptCodeModifiersFromCoding({
+        code: '87880',
+        extension: [{ url: 'http://other-extension', valueString: 'x' }],
+      })
+    ).toEqual([]);
   });
 });
 
