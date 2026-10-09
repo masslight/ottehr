@@ -250,7 +250,7 @@ describe('deleting in-house medication and vaccine orders', () => {
       (await oystehrProvider.zambda.execute({ id: 'cancel-immunization-order', orderId }))
         .output as CancelImmunizationOrderResponse;
 
-    it('deleting an administered vaccine removes its own lines, keeps a line another vaccine relies on, reports an unlinked line and billed visit, and the vaccine cannot be administered again', async () => {
+    it('deleting an administered vaccine removes its own lines, hands a line another vaccine relies on to that vaccine, reports an unlinked line and billed visit, and the vaccine cannot be administered again', async () => {
       const visit = await insertInPersonAppointmentBase(oystehrAdmin, processId);
       const deletedOrderId = await createVaccineOrder(visit);
       await administerVaccine(deletedOrderId, ['90471', '90686', '90672']);
@@ -289,15 +289,22 @@ describe('deleting in-house medication and vaccine orders', () => {
 
       expect((await getOrder(deletedOrderId)).status).toBe('stopped');
       expect(await getStatementStatuses(deletedOrderId)).toEqual(['entered-in-error']);
-      expect(sortedIds(await getCptLines(visit))).toEqual(
+      const linesAfterDelete = await getCptLines(visit);
+      expect(sortedIds(linesAfterDelete)).toEqual(
         sortedIds([lineWithCode('90471'), lineWithCode('90672'), lineWithCode('90715')])
       );
+      expect(
+        linesAfterDelete.find((line) => line.id === lineWithCode('90471').id)?.partOf?.map((part) => part.reference)
+      ).toEqual([`MedicationAdministration/${otherOrderId}`]);
       expect(await getStatementStatuses(otherOrderId)).toEqual(['active']);
 
       await expect(administerVaccine(deletedOrderId, ['90686'])).rejects.toThrow();
 
       expect((await getOrder(deletedOrderId)).status).toBe('stopped');
       expect(await getStatementStatuses(deletedOrderId)).toEqual(['entered-in-error']);
+
+      expect(await deleteOrder(otherOrderId)).toEqual({ retainedCptCodes: [], billingReviewRequired: true });
+      expect(sortedIds(await getCptLines(visit))).toEqual([lineWithCode('90672').id]);
     });
   });
 });

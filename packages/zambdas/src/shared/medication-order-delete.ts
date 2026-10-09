@@ -23,38 +23,52 @@ const ADMINISTERED_STATUSES: MedicationAdministration['status'][] = ['completed'
 
 const codeOf = (line: Procedure): string | undefined => line.code?.coding?.[0]?.code;
 
-const isPartOf = (line: Procedure, orderId: string | undefined): boolean =>
-  line.partOf?.some((part) => part.reference === `MedicationAdministration/${orderId}`) ?? false;
+const declaredVaccineCptCodes = (vaccine: MedicationAdministration): string[] =>
+  (mapMedicationAdministrationToImmunizationOrder(vaccine).administrationDetails?.cptCodes ?? []).map(
+    (cptCode) => cptCode.code
+  );
 
-export function selectOrderCptLinesToDelete({
-  orderId,
+const byAdministrationTime = (a: MedicationAdministration, b: MedicationAdministration): number =>
+  (a.effectiveDateTime ?? '').localeCompare(b.effectiveDateTime ?? '') || (a.id ?? '').localeCompare(b.id ?? '');
+
+export interface CptLineHandoff {
+  line: Procedure;
+  newOwnerId: string;
+}
+
+export function selectOrderCptLineChanges({
+  order,
   ownLines,
   visitLines,
   visitOrders,
 }: {
-  orderId: string;
+  order: MedicationAdministration;
   ownLines: Procedure[];
   visitLines: Procedure[];
   visitOrders: MedicationAdministration[];
-}): Procedure[] {
+}): { linesToDelete: Procedure[]; lineHandoffs: CptLineHandoff[] } {
   const ownLineIds = new Set(ownLines.map((line) => line.id));
-  const codesReliedOnByOtherVaccines = new Set(
-    visitOrders
-      .filter(
-        (order) => order.id !== orderId && isImmunizationOrder(order) && ADMINISTERED_STATUSES.includes(order.status)
-      )
-      .flatMap((vaccine) =>
-        (mapMedicationAdministrationToImmunizationOrder(vaccine).administrationDetails?.cptCodes ?? [])
-          .map((cptCode) => cptCode.code)
-          .filter((code) => !visitLines.some((line) => isPartOf(line, vaccine.id) && codeOf(line) === code))
-      )
-  );
-  return ownLines.filter((line) => {
+  const activeVaccines = visitOrders
+    .filter(
+      (other) => other.id !== order.id && isImmunizationOrder(other) && ADMINISTERED_STATUSES.includes(other.status)
+    )
+    .sort(byAdministrationTime);
+  const linesToDelete: Procedure[] = [];
+  const lineHandoffs: CptLineHandoff[] = [];
+  for (const line of ownLines) {
     const code = codeOf(line);
-    if (!code || !codesReliedOnByOtherVaccines.has(code)) return true;
-    const anotherLineHasCode = visitLines.some((other) => !ownLineIds.has(other.id) && codeOf(other) === code);
-    return anotherLineHasCode || line !== ownLines.find((own) => codeOf(own) === code);
-  });
+    const newOwner = code
+      ? activeVaccines.find((vaccine) => declaredVaccineCptCodes(vaccine).includes(code))
+      : undefined;
+    const coveredByAnotherLine = visitLines.some((other) => !ownLineIds.has(other.id) && codeOf(other) === code);
+    const firstOwnLineForCode = line === ownLines.find((own) => codeOf(own) === code);
+    if (!newOwner?.id || coveredByAnotherLine || !firstOwnLineForCode) {
+      linesToDelete.push(line);
+    } else if (isImmunizationOrder(order)) {
+      lineHandoffs.push({ line, newOwnerId: newOwner.id });
+    }
+  }
+  return { linesToDelete, lineHandoffs };
 }
 
 export function selectRetainedCptCodes({
@@ -110,7 +124,6 @@ export async function makeOrderDeleteRequests(
   retainedCptCodes: string[];
   billingReviewRequired: boolean;
 }> {
-  const orderId = medicationAdministration.id!;
   const orderReference = `MedicationAdministration/${medicationAdministration.id}`;
   const encounterReference = medicationAdministration.context?.reference;
   const [statements, ownLines, visitLines, visitOrders] = await Promise.all([
@@ -154,32 +167,41 @@ export async function makeOrderDeleteRequests(
       : []
   );
 
-  const deletedLines = selectOrderCptLinesToDelete({
-    orderId,
+  const { linesToDelete, lineHandoffs } = selectOrderCptLineChanges({
+    order: medicationAdministration,
     ownLines,
     visitLines,
     visitOrders,
   });
 
-  const cptLineRequests = deletedLines.flatMap((line) =>
-    line.id ? [deleteResourceRequest('Procedure', line.id)] : []
-  );
+  const cptLineRequests = [
+    ...linesToDelete.flatMap((line) => (line.id ? [deleteResourceRequest('Procedure', line.id)] : [])),
+    ...lineHandoffs.flatMap(({ line, newOwnerId }) =>
+      line.id
+        ? [
+            getPatchBinary({
+              resourceType: 'Procedure',
+              resourceId: line.id,
+              patchOperations: [replaceOperation('/partOf', [{ reference: `MedicationAdministration/${newOwnerId}` }])],
+            }),
+          ]
+        : []
+    ),
+  ];
 
   const orderCodes = isImmunizationOrder(medicationAdministration)
-    ? (
-        mapMedicationAdministrationToImmunizationOrder(medicationAdministration).administrationDetails?.cptCodes ?? []
-      ).map((cptCode) => cptCode.code)
+    ? declaredVaccineCptCodes(medicationAdministration)
     : (getCptCodesFromMA(medicationAdministration) ?? []).map((cptCode) => cptCode.code);
 
   const retainedCptCodes = selectRetainedCptCodes({
     orderCodes,
     wasAdministered: statements.length > 0,
     visitLines,
-    deletedLines,
+    deletedLines: linesToDelete,
   });
 
   const encounterId = encounterReference?.replace('Encounter/', '');
-  const hasPotentialBillingCptImpact = deletedLines.length > 0 || retainedCptCodes.length > 0;
+  const hasPotentialBillingCptImpact = linesToDelete.length > 0 || retainedCptCodes.length > 0;
   const billingReviewRequired =
     encounterId !== undefined &&
     hasPotentialBillingCptImpact &&
