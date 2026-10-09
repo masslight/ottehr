@@ -6,12 +6,12 @@ This directory contains scripts and Terraform configuration for deploying Ottehr
 
 ### Terraform
 
-This project currently requires the `1.13` version of Terraform. You can download this directly from HashiCorp's [releases page](https://releases.hashicorp.com/terraform) and install it into your path, or use [Homebrew](https://brew.sh). For example to install from HashiCorp on an ARM Mac:
+This project currently requires the `1.16` version of Terraform. You can download this directly from HashiCorp's [releases page](https://releases.hashicorp.com/terraform) and install it into your path, or use [Homebrew](https://brew.sh). For example to install from HashiCorp on an ARM Mac:
 
 ```bash
 brew install wget # or use cURL
-wget https://releases.hashicorp.com/terraform/1.13.5/terraform_1.13.5_darwin_arm64.zip
-unzip terraform_1.13.5_darwin_arm64.zip -d /tmp
+wget https://releases.hashicorp.com/terraform/1.16.4/terraform_1.16.4_darwin_arm64.zip
+unzip terraform_1.16.4_darwin_arm64.zip -d /tmp
 sudo cp /tmp/terraform /usr/local/bin/terraform
 ```
 
@@ -22,7 +22,9 @@ brew tap hashicorp/tap
 brew install hashicorp/tap/terraform
 ```
 
-Check the [1.13 releases page](https://releases.hashicorp.com/terraform/1.13.5/) if you aren't sure which version to install.
+This Homebrew formula is not pinned and installs the latest Terraform release, which may be newer than 1.16.x and is not supported by this project. Run `terraform version` afterwards; if it does not report 1.16.x, use the download above instead.
+
+Check the [1.16.4 releases page](https://releases.hashicorp.com/terraform/1.16.4/) if you aren't sure which version to install.
 
 ### Config Files
 
