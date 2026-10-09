@@ -27,5 +27,6 @@ export const GenerateAdHocReportOutputSchema = z.object({
   title: z.string().optional(),
   // Opt-in layer ids the report needed but weren't loaded; the client auto-fetches + regenerates.
   needsLayers: z.array(z.string()).optional(),
+  needsDataset: z.object({ id: z.string(), concepts: z.array(z.string()) }).optional(),
 });
 export type GenerateAdHocReportOutput = z.infer<typeof GenerateAdHocReportOutputSchema>;
