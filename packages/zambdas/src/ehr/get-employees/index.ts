@@ -1,13 +1,12 @@
 import Oystehr, { RoleListItem, UserListItem } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { FhirResource, Practitioner, PractitionerQualification, Resource } from 'fhir/r4b';
+import { FhirResource, Practitioner, Resource } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { getResourcesFromBatchInlineRequests } from 'utils/lib/fhir/helpers';
+import { allLicensesForPractitioner, getResourcesFromBatchInlineRequests } from 'utils/lib/fhir/helpers';
 import { getFirstName, getLastName, getProviderNotificationPreferencesV2 } from 'utils/lib/fhir/patient';
 import { standardizePhoneNumber } from 'utils/lib/helpers/helpers';
 import { Secrets } from 'utils/lib/secrets';
 import { EmployeeDetails, GetEmployeesResponse } from 'utils/lib/types/api/get-employees/get-employees.types';
-import { PractitionerLicense, PractitionerQualificationCode } from 'utils/lib/types/api/practitioner.types';
 import { getAllNotificationRows } from 'utils/lib/types/api/provider-notifications';
 import { AVAILABLE_EMPLOYEE_ROLES, hasPractitionerProfile, RoleType } from 'utils/lib/types/api/user.types';
 import { getAuth0Token } from '../../shared/getAuth0Token';
@@ -128,23 +127,6 @@ export const index = wrapHandler('get-employees', async (input: ZambdaInput): Pr
 
     const phone = practitioner?.telecom?.find((telecom) => telecom.system === 'sms')?.value;
 
-    const licenses: PractitionerLicense[] = [];
-    if (practitioner?.qualification) {
-      practitioner.qualification.forEach((qualification: PractitionerQualification) => {
-        const qualificationStatusCode =
-          qualification.extension?.[0].extension?.[1].valueCodeableConcept?.coding?.[0].code;
-        const qualificationCode = qualification.code.coding?.[0].code as PractitionerQualificationCode;
-        if (qualificationStatusCode && qualificationCode) {
-          // Use direct mapping same as in get-user lambda, without checking for extension.urls.
-          licenses.push({
-            state: qualificationStatusCode,
-            code: qualificationCode,
-            active: qualification.extension?.[0].extension?.[0].valueCode === 'active',
-          });
-        }
-      });
-    }
-
     const notificationPreferences = getProviderNotificationPreferencesV2(practitioner);
     return {
       id: employee.id,
@@ -157,7 +139,7 @@ export const index = wrapHandler('get-employees', async (input: ZambdaInput): Pr
       firstName: getFirstName(practitioner) ?? '',
       lastName: getLastName(practitioner) ?? '',
       phoneNumber: phone ? standardizePhoneNumber(phone)! : '',
-      licenses: licenses,
+      licenses: practitioner ? allLicensesForPractitioner(practitioner) : [],
       seenPatientRecently: recentlyActivePractitioners.includes(employee.profile),
       gettingAlerts: notificationPreferences
         ? getAllNotificationRows(notificationPreferences).some((row) => row.enabled)
