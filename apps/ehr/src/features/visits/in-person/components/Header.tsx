@@ -417,7 +417,9 @@ export const Header = (): JSX.Element => {
   const [primaryReasonForVisit, additionalReasonForVisit] = reasonForVisit.split(REASON_FOR_VISIT_SEPARATOR);
   const isReasonForVisitFlagged =
     FLAGGED_REASONS_FOR_VISIT.includes(primaryReasonForVisit) &&
-    !(['cancelled', 'no show', 'completed', 'discharged'] as (VisitStatusLabel | undefined)[]).includes(status);
+    (isFollowup
+      ? getAnnotationFollowupStatusLabel(encounter?.status) === 'OPEN'
+      : !(['cancelled', 'no show', 'completed', 'discharged'] as (VisitStatusLabel | undefined)[]).includes(status));
   const [headerMenuAnchorEl, setHeaderMenuAnchorEl] = useState<null | HTMLElement>(null);
   const [careTeamAnchorEl, setCareTeamAnchorEl] = useState<null | HTMLElement>(null);
   const [showCreateTaskDialog, setShowCreateTaskDialog] = useState(false);
