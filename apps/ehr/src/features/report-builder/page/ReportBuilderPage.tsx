@@ -30,7 +30,6 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AdHocDateRangeFilter } from 'utils/lib/types/adhoc/query/date-range';
 import PageContainer from '../../../layout/PageContainer';
-import { AD_HOC_DATASETS } from '../datasets/registry';
 import { ReportFrame } from '../sandbox/ReportFrame';
 import { AllDatasetsInfo, DatasetLayersInfo } from './DatasetLayersInfo';
 import { useReportBuilder } from './useReportBuilder';
@@ -74,21 +73,6 @@ export default function ReportBuilderPage(): React.ReactElement {
           </Box>
 
           <Box sx={{ mb: 3, display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
-            <FormControl size="small" sx={{ minWidth: 180 }}>
-              <InputLabel>Dataset</InputLabel>
-              <Select
-                value={rb.datasetId}
-                label="Dataset"
-                onChange={(e: SelectChangeEvent) => rb.onDatasetChange(e.target.value)}
-              >
-                {AD_HOC_DATASETS.map((d) => (
-                  <MenuItem key={d.id} value={d.id}>
-                    {d.label}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-
             <FormControl size="small" sx={{ minWidth: 200 }}>
               <InputLabel>Date Range</InputLabel>
               <Select
@@ -140,13 +124,15 @@ export default function ReportBuilderPage(): React.ReactElement {
               </>
             )}
 
-            <Button
-              variant="contained"
-              onClick={() => void rb.handleFetch()}
-              disabled={rb.loading || !rb.oystehrZambda}
-            >
-              {rb.loading ? <CircularProgress size={20} /> : 'Fetch data'}
-            </Button>
+            {rb.schema && (
+              <Button
+                variant="contained"
+                onClick={() => void rb.handleFetch()}
+                disabled={rb.loading || rb.generating || !rb.oystehrZambda}
+              >
+                {rb.loading ? <CircularProgress size={20} /> : 'Refresh data'}
+              </Button>
+            )}
           </Box>
 
           {rb.error && (
@@ -223,12 +209,33 @@ export default function ReportBuilderPage(): React.ReactElement {
                 <Typography component="li" variant="body2">
                   If you meant a different field, use its exact name from the list below.
                 </Typography>
-                <Typography component="li" variant="body2">
-                  Another dataset may hold what you need — check the list below.
-                </Typography>
               </Box>
               <Typography variant="subtitle2" sx={{ mb: 1 }}>
                 What the datasets do contain
+              </Typography>
+              <AllDatasetsInfo />
+            </Paper>
+          )}
+
+          {rb.multiDatasetRequest && (
+            <Paper variant="outlined" sx={{ mb: 3, p: 2, borderColor: 'warning.main' }}>
+              <Typography color="warning.dark" variant="subtitle1" fontWeight={600} sx={{ mb: 1 }}>
+                This request combines data from separate datasets
+              </Typography>
+              <Typography variant="body2" sx={{ mb: 1 }}>
+                Reports are currently built from one dataset at a time. Your request needs:{' '}
+                <strong>{rb.multiDatasetRequest.datasets.join(', ')}</strong>
+              </Typography>
+              {rb.multiDatasetRequest.hint && (
+                <Typography variant="body2" sx={{ mb: 1, fontStyle: 'italic' }}>
+                  {rb.multiDatasetRequest.hint}
+                </Typography>
+              )}
+              <Typography variant="body2" sx={{ mb: 2 }}>
+                Split it into separate reports, one per dataset.
+              </Typography>
+              <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                What the datasets contain
               </Typography>
               <AllDatasetsInfo />
             </Paper>
@@ -238,8 +245,8 @@ export default function ReportBuilderPage(): React.ReactElement {
             <>
               <Box sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
                 <Typography variant="subtitle1">
-                  Fetched <strong>{rb.rows.length.toLocaleString()}</strong> rows · schema:{' '}
-                  <strong>{rb.schema.fields.length}</strong> fields
+                  Data: <strong>{rb.schema.label}</strong> · <strong>{rb.rows.length.toLocaleString()}</strong> rows ·
+                  schema: <strong>{rb.schema.fields.length}</strong> fields
                 </Typography>
                 <Button size="small" onClick={() => rb.setShowSchema(!rb.showSchema)}>
                   {rb.showSchema ? 'Hide fields' : 'Show fields'}
@@ -274,7 +281,7 @@ export default function ReportBuilderPage(): React.ReactElement {
                       ))}
                     </TableBody>
                   </Table>
-                  <DatasetLayersInfo datasetId={rb.datasetId} datasetOptions={rb.datasetOptions} />
+                  <DatasetLayersInfo datasetId={rb.schema.datasetId} datasetOptions={rb.datasetOptions} />
                 </Paper>
               </Collapse>
 
