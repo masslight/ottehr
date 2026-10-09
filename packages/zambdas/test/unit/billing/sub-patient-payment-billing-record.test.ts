@@ -78,7 +78,7 @@ vi.mock('../../../src/subscriptions/task/validateRequestParameters', () => ({
   validateRequestParameters: vi.fn(),
 }));
 
-vi.mock('@sentry/aws-serverless', () => ({
+vi.mock('@sentry/node-core/light', () => ({
   captureException: vi.fn(),
 }));
 

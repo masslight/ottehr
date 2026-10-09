@@ -1,7 +1,7 @@
 import { ErxGetMedicationHistoryResponse, ErxSearchMedicationsResponse } from '@oystehr/sdk';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
-import { isErxPermissionDeniedError } from 'src/features/visits/shared/utils/erxErrors';
+import { isErxPatientNotSyncedError, isErxPermissionDeniedError } from 'src/features/visits/shared/utils/erxErrors';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { MedicationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { ExtractObjectType } from '../stores/appointment/appointment.queries';
@@ -233,9 +233,10 @@ export const useExternalMedicationHistory = (
 ): UseExternalMedicationHistoryResult => {
   const { oystehr } = useApiClients();
   const {
-    resources: { patient },
+    resources: { patient, encounter },
   } = useAppointmentData();
   const patientId = patient?.id;
+  const encounterId = encounter?.id;
 
   // Step 1: Fetch external medication history (or use mock in dev)
   const {
@@ -246,8 +247,20 @@ export const useExternalMedicationHistory = (
     queryKey: ['external-medication-history', patientId],
     queryFn: async () => {
       if (!oystehr || !patientId) throw new Error('API client or patient not available');
+      // History is keyed on the patient's eRx identifier, which only exists once the patient has been
+      // synced to the eRx provider — normally a side effect of prescribing or an interaction check. For a
+      // patient who has had neither, sync them here and retry once, rather than failing the panel.
+      const getMedicationHistory = async (id: string): Promise<ErxGetMedicationHistoryResponse> => {
+        try {
+          return await oystehr.erx.getMedicationHistory({ patientId: id });
+        } catch (error) {
+          if (!encounterId || !isErxPatientNotSyncedError(error)) throw error;
+          await oystehr.erx.syncPatient({ patientId: id, encounterId });
+          return oystehr.erx.getMedicationHistory({ patientId: id });
+        }
+      };
       try {
-        const history = await oystehr.erx.getMedicationHistory({ patientId });
+        const history = await getMedicationHistory(patientId);
         if (history.length > 0) return history;
         // The request succeeded and the patient genuinely has nothing on file. A *successful* call is
         // the only path allowed to resolve rather than throw — which means empty in real environments,
@@ -264,7 +277,7 @@ export const useExternalMedicationHistory = (
         throw error;
       }
     },
-    enabled: !!oystehr && !!patientId,
+    enabled: !!oystehr && !!patientId && !!encounterId,
     staleTime: 5 * 60 * 1000,
     retry: (failureCount, error) => !isErxPermissionDeniedError(error) && failureCount < 1,
     // Poll every 10s while the eRx service is still populating history — that is, only while the call

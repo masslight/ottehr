@@ -1,15 +1,15 @@
-import { captureException } from '@sentry/aws-serverless';
+import { captureException } from '@sentry/node-core/light';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DocumentReference } from 'fhir/r4b';
 import { Jimp } from 'jimp';
-import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
+import { getPresignedURL, uploadObjectToZ3 } from 'utils/lib/helpers/presigned-file-url/helpers';
 import { INSURANCE_CARD_EXTRACTION_EXTENSION_URL, InsuranceCardExtraction } from 'utils/lib/types/data/documents';
 import { APIErrorCode } from 'utils/lib/types/errors';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { ZambdaInput } from '../../../shared/types/common';
-import { createPresignedUrl, uploadObjectToZ3 } from '../../../shared/z3Utils';
+import { createPresignedUrl } from '../../../shared/z3Utils';
 import { isRedAt, makeOrientedSceneJpeg } from '../../extract-insurance-card/test/image-fixtures';
 import { index } from '../index';
 import { validateRequestParameters } from '../validateRequestParameters';
@@ -35,7 +35,6 @@ vi.mock('../../../shared/z3Utils', async (importOriginal) => {
   return {
     ...actual,
     createPresignedUrl: vi.fn(),
-    uploadObjectToZ3: vi.fn(),
   };
 });
 
@@ -44,6 +43,7 @@ vi.mock('utils/lib/helpers/presigned-file-url/helpers', async (importOriginal) =
   return {
     ...actual,
     getPresignedURL: vi.fn(),
+    uploadObjectToZ3: vi.fn(),
   };
 });
 

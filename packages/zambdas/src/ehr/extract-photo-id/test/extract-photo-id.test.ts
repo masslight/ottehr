@@ -1,4 +1,4 @@
-import { captureException } from '@sentry/aws-serverless';
+import { captureException } from '@sentry/node-core/light';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DocumentReference } from 'fhir/r4b';
 import { createOystehrClient } from 'utils/lib/helpers/helpers';

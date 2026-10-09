@@ -1,4 +1,4 @@
-import { captureException } from '@sentry/aws-serverless';
+import { captureException } from '@sentry/node-core/light';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, HealthcareService, Location, Patient, Practitioner, RelatedPerson } from 'fhir/r4b';
 import { DateTime } from 'luxon';

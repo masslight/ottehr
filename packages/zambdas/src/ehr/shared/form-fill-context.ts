@@ -1,5 +1,5 @@
 import Oystehr from '@oystehr/sdk';
-import { captureException } from '@sentry/aws-serverless';
+import { captureException } from '@sentry/node-core/light';
 import { Account, Appointment, Coverage, Organization } from 'fhir/r4b';
 import { removePrefix } from 'utils/lib/helpers/helpers';
 import { getInsuranceRelatedRefsFromAppointmentExtension } from '../../shared/appointment/helpers';

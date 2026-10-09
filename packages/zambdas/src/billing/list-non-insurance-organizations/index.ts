@@ -1,7 +1,11 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Organization, OrganizationAffiliation } from 'fhir/r4b';
-import { NIO_COVERAGE_CATEGORIES, NioCoverageCategory } from 'utils/lib/types/data/billing/non-insurance-org.schemas';
+import {
+  ListNonInsuranceOrganizationsInputSchema,
+  NIO_COVERAGE_CATEGORIES,
+  NioCoverageCategory,
+} from 'utils/lib/types/data/billing/non-insurance-org.schemas';
 import {
   ListNonInsuranceOrganizationsResponse,
   NIO_EMPLOYER_KIND_CODE,
@@ -13,9 +17,11 @@ import { fetchAllPages } from '../../shared/fhir';
 import { truncateForLog } from '../../shared/logging';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { getNioCoverageCategory, mapClinicalNioOption, referencedId } from '../non-insurance-org.helpers';
 import { createBillingClient } from '../shared';
-import { ListNonInsuranceOrganizationsParams, validateRequestParameters } from './validateRequestParameters';
+
+type ListNonInsuranceOrganizationsParams = ValidatedZambdaInput<typeof ListNonInsuranceOrganizationsInputSchema>;
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'list-non-insurance-organizations';
@@ -27,7 +33,7 @@ const PAGE_SIZE = 1000;
 // wire.
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.group('validateRequestParameters');
-  const params = validateRequestParameters(input);
+  const params = validateWithSchema(ListNonInsuranceOrganizationsInputSchema, input);
   const { secrets } = params;
   console.groupEnd();
 
