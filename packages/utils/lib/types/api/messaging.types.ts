@@ -35,6 +35,7 @@ export interface AppointmentMessaging {
     firstName?: string;
     lastName?: string;
     middleName?: string;
+    friendlyId?: string;
     // suffix?: string;
     dateOfBirth: string;
     sex?: string;

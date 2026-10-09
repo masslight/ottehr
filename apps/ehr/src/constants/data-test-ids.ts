@@ -67,6 +67,7 @@ export const dataTestIds = {
     appointmentStatus: 'appointment-status',
     chatButton: 'Chat-outlined-icon',
     patientName: 'patient-name',
+    patientFriendlyId: 'patient-friendly-id',
   },
   appointmentPage: {
     patientFullName: 'patient-full-name',
