@@ -1,7 +1,17 @@
-import { Box, Checkbox, FormControlLabel, FormGroup, FormHelperText, FormLabel, TextField } from '@mui/material';
+import {
+  Autocomplete,
+  Box,
+  Checkbox,
+  FormControlLabel,
+  FormGroup,
+  FormHelperText,
+  FormLabel,
+  TextField,
+} from '@mui/material';
 import { ReactElement, useEffect } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
 import { CLAIM_ACCIDENT_TYPE, CLAIM_ACCIDENT_TYPE_DISPLAY_VALUES } from 'utils/lib/helpers/rcm/constants';
+import { AllStates, stateCodeToFullName } from 'utils/lib/types/common';
 import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils/lib/validation/constants';
 import { AccidentInfoData } from '../constants/accidentInfo';
 import { DateInput } from './DateInput';
@@ -51,13 +61,22 @@ export function AccidentInfoFields(): ReactElement {
           control={control}
           rules={{ required: accidentType.includes('auto') ? REQUIRED_FIELD_ERROR_MESSAGE : undefined }}
           render={({ field, fieldState: { error: fieldError } }) => (
-            <TextField
-              label="Accident State"
+            <Autocomplete
               size="small"
-              value={field.value}
-              onChange={(e) => field.onChange(e.target.value)}
-              error={!!fieldError}
-              helperText={fieldError?.message}
+              options={AllStates.map((state) => state.value)}
+              getOptionLabel={(state) => stateCodeToFullName[state] ?? state}
+              value={field.value || null}
+              onChange={(_, value) => field.onChange(value ?? '')}
+              onBlur={field.onBlur}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Accident State"
+                  inputRef={field.ref}
+                  error={!!fieldError}
+                  helperText={fieldError?.message}
+                />
+              )}
             />
           )}
         />
