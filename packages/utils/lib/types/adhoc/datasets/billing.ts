@@ -134,8 +134,9 @@ export const BILLING_LAYERS = {
         .number()
         .nullable()
         .describe(
-          'Sum of the line items in USD (fee × units). A code the schedule does not list counts 0 (see ' +
-            'unpricedCpts). Null when no fee schedule / charge master applies or no codes are charted.'
+          'The visit price in USD: the flat caseRate when the schedule is a case rate, else the sum of the line ' +
+            'items (fee × units; a code the schedule does not list counts 0, see unpricedCpts). Null when no fee ' +
+            'schedule / charge master applies, or no codes are charted on a non-case-rate schedule.'
         ),
       outstandingBalance: z
         .number()
@@ -159,7 +160,10 @@ export const BILLING_LAYERS = {
         .describe('Flat case rate in USD when the applicable fee schedule is a case rate. Null otherwise.'),
       unpricedCpts: z
         .array(z.string())
-        .describe('Charted codes the applicable schedule does not list (their fee is unknown, counted as 0).'),
+        .describe(
+          'Charted codes the applicable schedule does not list (their fee is unknown, counted as 0). Empty under a ' +
+            'case rate, which prices the visit as a whole.'
+        ),
     }),
   },
   codes: {

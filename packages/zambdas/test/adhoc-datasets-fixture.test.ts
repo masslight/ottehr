@@ -17,7 +17,7 @@ import {
 import { FHIR_EXTENSION, PAYMENT_METHOD_EXTENSION_URL, SCHEDULE_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { MEDICATION_CPT_CODES_EXTENSION_URL } from 'utils/lib/fhir/medication-administration';
 import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
-import { upsertPaymentRefundsExtension } from 'utils/lib/fhir/paymentRefunds';
+import { buildPaymentVoidExtension, upsertPaymentRefundsExtension } from 'utils/lib/fhir/paymentRefunds';
 import {
   DIAGNOSTIC_REPORT_PRELIMINARY_REVIEW_ON_EXTENSION_URL,
   SERVICE_REQUEST_PERFORMED_ON_EXTENSION_URL,
@@ -470,6 +470,17 @@ const paymentNotices: FhirResource[] = [
   paymentNotice('pay-1', 40, '2026-07-01T15:00:00.000Z', 'card'),
   refundedNotice,
   { ...paymentNotice('pay-4', 99, '2026-07-01T20:00:00.000Z', 'card'), status: 'cancelled' },
+  // Voided but still active (the billing-side step of the void failed): the void record makes it voided, as the
+  // payments list reads it.
+  {
+    ...paymentNotice('pay-5', 12, '2026-07-01T21:00:00.000Z', 'cash'),
+    extension: [
+      { url: PAYMENT_METHOD_EXTENSION_URL, valueString: 'cash' },
+      buildPaymentVoidExtension({ reason: 'Entered twice', voidedAtISO: '2026-07-01T21:05:00.000Z' }),
+    ],
+  },
+  // A draft notice is not a payment at all.
+  { ...paymentNotice('pay-6', 7, '2026-07-01T22:00:00.000Z', 'cash'), status: 'draft' },
 ];
 
 // The attending provider is not an _include on the main search: it is fetched by id afterwards, so
@@ -800,8 +811,8 @@ describe('ad-hoc dataset zambdas: mapped rows parse against their Zod schema (fi
     expect(row.paymentCount).toBe(3);
     expect(row.refundedTotal).toBe(4);
     // The voided payment is listed apart, as the EHR strikes it out rather than hiding it.
-    expect(row.voidedPaymentCount).toBe(1);
-    expect(row.voidedPaymentsTotal).toBe(99);
+    expect(row.voidedPaymentCount).toBe(2);
+    expect(row.voidedPaymentsTotal).toBe(111);
     expect(row.lastPaymentDate).toBe('2026-07-01T19:00:00.000Z');
     expect(row.payments?.reduce((sum, p) => sum + p.amount, 0)).toBe(row.paymentsCollected);
   });

@@ -18,7 +18,11 @@ import { PAYMENT_METHOD_EXTENSION_URL, RCM_TAG_SYSTEM } from 'utils/lib/fhir/con
 import { getPaymentVariantFromEncounter, PaymentVariant } from 'utils/lib/fhir/encounter';
 import { getLocationIdFromAppointment } from 'utils/lib/fhir/helpers';
 import { getPatientFirstName, getPatientLastName, mapGenderToLabel } from 'utils/lib/fhir/patient';
-import { parsePaymentRefundsFromNotice, settledRefundTotalInCents } from 'utils/lib/fhir/paymentRefunds';
+import {
+  parsePaymentRefundsFromNotice,
+  parsePaymentVoidFromNotice,
+  settledRefundTotalInCents,
+} from 'utils/lib/fhir/paymentRefunds';
 import { extractPayerIdFromUrl } from 'utils/lib/helpers/helpers';
 import {
   buildLineItems,
@@ -164,8 +168,15 @@ const priceVisit = ({
 
   const lineItems = buildLineItems(schedule, chart.cptCodes, chart.emCode);
 
-  const expectedCharge =
-    schedule && lineItems.length ? round2(lineItems.reduce((sum, item) => sum + item.amount, 0)) : null;
+  // A case-rate schedule prices the visit at one flat amount (the Payments panel shows "Case Rate" instead of line
+  // items); its codes are not priced one by one.
+  const caseRate = getCaseRateInfo(schedule);
+
+  const expectedCharge = caseRate
+    ? round2(caseRate.amount)
+    : schedule && lineItems.length
+    ? round2(lineItems.reduce((sum, item) => sum + item.amount, 0))
+    : null;
 
   return { schedule, pricingSource, lineItems, expectedCharge };
 };
@@ -277,16 +288,19 @@ export async function fetchAdHocBillingRows(oystehr: Oystehr, params: AdHocBilli
       // whole-table scan grows unbounded as billing history accumulates.
       const notices = await fetchScoped<PaymentNotice>('PaymentNotice', 'request', encRefs);
 
-      // A voided payment is marked cancelled (patient-payments/void); only active notices are money collected.
-      // The voided ones are kept apart — the EHR lists them struck out.
+      // Voided as the payments list reads it: the notice is cancelled or carries the void record. The voided ones are
+      // kept apart (the EHR lists them struck out); only the rest of the active notices are money collected. Any other
+      // status (draft, entered-in-error) is not a payment.
       for (const n of notices) {
         if (!n.created) continue;
 
-        pushTo(
-          n.status === 'active' ? paymentsByEncId : voidedPaymentsByEncId,
-          stripRef(n.request?.reference, 'Encounter'),
-          n
-        );
+        const encId = stripRef(n.request?.reference, 'Encounter');
+
+        if (n.status === 'cancelled' || (n.status === 'active' && parsePaymentVoidFromNotice(n))) {
+          pushTo(voidedPaymentsByEncId, encId, n);
+        } else if (n.status === 'active') {
+          pushTo(paymentsByEncId, encId, n);
+        }
       }
     }
 
@@ -481,7 +495,8 @@ export async function fetchAdHocBillingRows(oystehr: Oystehr, params: AdHocBilli
       row.pricingSource = pricingResult.pricingSource;
       row.pricingScheduleName = pricingResult.schedule?.title ?? '';
       row.caseRate = getCaseRateInfo(pricingResult.schedule)?.amount ?? null;
-      row.unpricedCpts = pricingResult.lineItems.filter((item) => item.feeUnknown).map((item) => item.code);
+      row.unpricedCpts =
+        row.caseRate === null ? pricingResult.lineItems.filter((item) => item.feeUnknown).map((item) => item.code) : [];
     }
 
     // Outstanding balance only makes sense when BOTH charges and payments were loaded.

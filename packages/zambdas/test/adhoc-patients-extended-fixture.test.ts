@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import {
   Appointment,
+  ChargeItemDefinition,
   Communication,
   Encounter,
   FhirResource,
@@ -11,6 +12,7 @@ import {
 } from 'fhir/r4b';
 import {
   ATTORNEY_FIRM_EXTENSION_URL,
+  CASE_RATE_CODE,
   CPT_CODE_SYSTEM,
   CPT_MODIFIER_EXTENSION_URL,
   ENCOUNTER_PAYMENT_VARIANT_EXTENSION_URL,
@@ -492,6 +494,33 @@ describe('ad-hoc Billing: coverage and codes as the patient record and the chart
       chargeCount: 0,
       expectedCharge: null,
     });
+  });
+
+  it('charges: a case-rate schedule prices the visit at its flat rate, codes not priced one by one', async () => {
+    const feeSchedule = pricingDefinitions[0] as ChargeItemDefinition;
+    const original = { ...feeSchedule };
+
+    feeSchedule.meta = {
+      tag: [
+        { system: RCM_TAG_SYSTEM, code: 'fee-schedule' },
+        { system: RCM_TAG_SYSTEM, code: CASE_RATE_CODE },
+      ],
+    };
+    feeSchedule.propertyGroup = [
+      { priceComponent: [{ type: 'base', amount: { value: 150, currency: 'USD' }, code: { text: 'Flat visit' } }] },
+    ];
+
+    try {
+      const rows = await fetchAdHocBillingRows(fakeOystehr, { dateRange, includeCharges: true, includePayments: true });
+      expect(issuesOf(AdHocBillingOutputSchema.safeParse({ rows }))).toEqual([]);
+      expect(rows.find((r) => r.appointmentId === 'appt-1')).toMatchObject({
+        caseRate: 150,
+        expectedCharge: 150,
+        unpricedCpts: [],
+      });
+    } finally {
+      Object.assign(feeSchedule, original);
+    }
   });
 
   it('codes: CPT modifiers and units, primary diagnosis first', async () => {
