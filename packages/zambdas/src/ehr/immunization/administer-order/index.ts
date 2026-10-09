@@ -83,7 +83,7 @@ async function administerImmunizationOrder(
     id: orderId,
   });
 
-  const allowedStatuses = ['in-progress', 'completed', 'stopped', 'on-hold', 'not-done'];
+  const allowedStatuses = ['in-progress', 'completed', 'on-hold', 'not-done'];
   if (!allowedStatuses.includes(medicationAdministration.status)) {
     const currentStatus = mapFhirToOrderStatus(medicationAdministration);
     throw new Error(`Can't administer order in "${currentStatus}" status`);
@@ -236,6 +236,7 @@ async function administerImmunizationOrder(
               resourceType: 'Procedure',
               subject: { reference: `Patient/${patientId}` },
               encounter: { reference: `Encounter/${encounterId}` },
+              partOf: [createReference(medicationAdministration)],
               status: 'completed',
               code: {
                 coding: [{ code: cptCode.code, display: cptCode.display, system: 'http://www.ama-assn.org/go/cpt' }],

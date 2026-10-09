@@ -19,6 +19,7 @@ import {
 } from 'src/features/visits/in-person/routing/helpers';
 import { searchRouteByCode } from 'utils/lib/fhir/medication-administration';
 import { ImmunizationOrder } from 'utils/lib/types/data/immunization/types';
+import { enqueueOrderDeleteWarnings } from '../../visits/shared/utils/orderDeleteWarnings';
 
 interface Props {
   order: ImmunizationOrder;
@@ -52,13 +53,14 @@ export const OrderHistoryTableRow: React.FC<Props> = ({
     navigate(getImmunizationOrderEditUrl(appointmentId, order.id));
   };
 
-  const { mutateAsync: cancelOrder, isPending: isDeleting } = useCancelImmunizationOrder();
+  const { mutateAsync: cancelOrder, isPending: isDeleting } = useCancelImmunizationOrder(order.encounterId);
 
   const handleConfirmDelete = async (): Promise<void> => {
     try {
-      await cancelOrder({
+      const response = await cancelOrder({
         orderId: order.id,
       });
+      enqueueOrderDeleteWarnings(response);
     } catch {
       enqueueSnackbar('An error occurred while deleting the vaccine order. Please try again.', { variant: 'error' });
     } finally {
@@ -147,7 +149,7 @@ export const OrderHistoryTableRow: React.FC<Props> = ({
               <IconButton size="small" aria-label="edit" onClick={isPending ? navigateToEditOrder : navigateToDetails}>
                 <EditIcon sx={{ color: theme.palette.primary.dark }} />
               </IconButton>
-              {isPending && (
+              {order.status !== 'cancelled' && (
                 <>
                   <IconButton size="small" aria-label="delete" onClick={() => setIsDeleteDialogOpened(true)}>
                     <DeleteIcon sx={{ color: theme.palette.error.main }} />

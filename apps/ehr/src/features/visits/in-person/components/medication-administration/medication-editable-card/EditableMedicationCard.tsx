@@ -28,6 +28,7 @@ import { ERXStatus } from 'src/features/visits/shared/components/ERX';
 import { ERXInteractionsReadiness } from 'src/features/visits/shared/components/ERXInteractionsReadiness';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
+import { enqueueOrderDeleteWarnings } from 'src/features/visits/shared/utils/orderDeleteWarnings';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { useCommandPaletteSource } from 'src/hooks/useCommandPaletteSource';
 import useEvolveUser from 'src/hooks/useEvolveUser';
@@ -192,9 +193,10 @@ export const EditableMedicationCard: React.FC<{
 
     setIsDeleting(true);
     try {
-      await deleteMedication(medication.id);
+      const deleteWarnings = await deleteMedication(medication.id);
       void refetchHistory();
       enqueueSnackbar('Medication deleted successfully', { variant: 'success' });
+      enqueueOrderDeleteWarnings(deleteWarnings);
       setIsDeleteDialogOpen(false);
       isSavedRef.current = true;
       if (onNavigateToMar) {

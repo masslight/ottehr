@@ -9,11 +9,13 @@ import {
 import {
   AdministerImmunizationOrderRequest,
   CancelImmunizationOrderRequest,
+  CancelImmunizationOrderResponse,
   CreateUpdateImmunizationOrderRequest,
   CreateUpdateImmunizationOrderResponse,
   GetImmunizationOrdersRequest,
   GetImmunizationOrdersResponse,
 } from 'utils/lib/types/data/immunization/types';
+import { invalidateChartSections } from '../../shared/hooks/chartSectionCache';
 
 const GET_IMMUNIZATION_ORDERS_KEY = 'get-immunization-orders';
 const GET_VACCINES_KEY = 'get-vaccines';
@@ -93,7 +95,9 @@ export const useGetImmunizationOrders = (
   });
 };
 
-export const useCancelImmunizationOrder = (): UseMutationResult<void, Error, CancelImmunizationOrderRequest> => {
+export const useCancelImmunizationOrder = (
+  encounterId: string | undefined
+): UseMutationResult<CancelImmunizationOrderResponse, Error, CancelImmunizationOrderRequest> => {
   const { oystehrZambda } = useApiClients();
   const queryClient = useQueryClient();
   return useMutation({
@@ -103,13 +107,14 @@ export const useCancelImmunizationOrder = (): UseMutationResult<void, Error, Can
         ...input,
         id: 'cancel-immunization-order',
       });
-      return chooseJson(response);
+      return chooseJson<CancelImmunizationOrderResponse>(response);
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({
         queryKey: [GET_IMMUNIZATION_ORDERS_KEY],
         exact: false,
       });
+      await invalidateChartSections(queryClient, encounterId, ['assessment']);
     },
   });
 };

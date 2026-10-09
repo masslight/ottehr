@@ -2,10 +2,16 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { MedicationAdministration } from 'fhir/r4b';
 import { mapFhirToOrderStatus, mapOrderStatusToFhir } from 'utils/lib/fhir/medication-administration';
+import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
 import { replaceOperation } from 'utils/lib/helpers/operations';
-import { CancelImmunizationOrderRequest } from 'utils/lib/types/data/immunization/types';
+import {
+  CancelImmunizationOrderRequest,
+  CancelImmunizationOrderResponse,
+} from 'utils/lib/types/data/immunization/types';
+import { createBillingClient } from '../../../billing/shared';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient, validateJsonBody } from '../../../shared/helpers';
+import { makeOrderDeleteRequests } from '../../../shared/medication-order-delete';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
 
@@ -17,32 +23,40 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const validatedParameters = validateRequestParameters(input);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, validatedParameters.secrets);
-  await cancelImmunizationOrder(oystehr, validatedParameters);
+  const billingOystehr = createBillingClient(m2mToken, validatedParameters.secrets);
+  const response = await cancelImmunizationOrder(oystehr, billingOystehr, validatedParameters);
   return {
     statusCode: 200,
-    body: '',
+    body: JSON.stringify(response),
   };
 });
 
-async function cancelImmunizationOrder(oystehr: Oystehr, input: CancelImmunizationOrderRequest): Promise<void> {
+async function cancelImmunizationOrder(
+  oystehr: Oystehr,
+  billingOystehr: Oystehr,
+  input: CancelImmunizationOrderRequest
+): Promise<CancelImmunizationOrderResponse> {
   const { orderId } = input;
   const medicationAdministration = await oystehr.fhir.get<MedicationAdministration>({
     resourceType: 'MedicationAdministration',
     id: orderId,
   });
 
-  if (medicationAdministration.status !== 'in-progress') {
-    const currentStatus = mapFhirToOrderStatus(medicationAdministration);
+  const currentStatus = mapFhirToOrderStatus(medicationAdministration);
+  if (currentStatus === 'cancelled') {
     throw new Error(`Can't cancel order in "${currentStatus}" status`);
   }
 
   const patchOperations = [replaceOperation('/status', mapOrderStatusToFhir('cancelled'))];
 
-  await oystehr.fhir.patch({
-    resourceType: 'MedicationAdministration',
-    id: orderId,
-    operations: patchOperations,
+  const cleanup = await makeOrderDeleteRequests(oystehr, billingOystehr, medicationAdministration);
+  await oystehr.fhir.transaction({
+    requests: [
+      getPatchBinary({ resourceType: 'MedicationAdministration', resourceId: orderId, patchOperations }),
+      ...cleanup.requests,
+    ],
   });
+  return { retainedCptCodes: cleanup.retainedCptCodes, billingReviewRequired: cleanup.billingReviewRequired };
 }
 
 export function validateRequestParameters(

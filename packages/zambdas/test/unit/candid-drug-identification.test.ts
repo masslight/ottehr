@@ -1,4 +1,9 @@
 import { MedicationAdministration, Procedure } from 'fhir/r4b';
+import { IMMUNIZATION_ORDER_TAG_CODE, IMMUNIZATION_ORDER_TAG_SYSTEM } from 'utils/lib/fhir/medication-administration';
+import {
+  MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE,
+  MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_SYSTEM,
+} from 'utils/lib/types/api/medication-administration.constants';
 import { describe, expect, it } from 'vitest';
 import { buildDrugIdentification, mapMedicationUnitToCandid } from '../../src/shared/candid';
 
@@ -26,6 +31,14 @@ function makeMedicationAdministration(opts: {
   return {
     resourceType: 'MedicationAdministration',
     id: opts.id,
+    meta: {
+      tag: [
+        {
+          system: MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_SYSTEM,
+          code: MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE,
+        },
+      ],
+    },
     status: 'completed',
     subject: { reference: 'Patient/patient-1' },
     medicationReference: { reference: 'Medication/med-1' },
@@ -100,6 +113,15 @@ describe('buildDrugIdentification', () => {
     const procedure = makeProcedure('ma-999'); // different ID
 
     expect(buildDrugIdentification(procedure, [ma])).toBeUndefined();
+  });
+
+  it('returns undefined for a line written by an immunization order, even when its Medication has an NDC', () => {
+    const ma: MedicationAdministration = {
+      ...makeMedicationAdministration({ id: 'ma-1', ndcCode: '12345-6789-01', dose: 0.5, doseUnit: 'ml' }),
+      meta: { tag: [{ system: IMMUNIZATION_ORDER_TAG_SYSTEM, code: IMMUNIZATION_ORDER_TAG_CODE }] },
+    };
+
+    expect(buildDrugIdentification(makeProcedure('ma-1'), [ma])).toBeUndefined();
   });
 
   it('returns undefined when medicationAdministrations array is empty', () => {

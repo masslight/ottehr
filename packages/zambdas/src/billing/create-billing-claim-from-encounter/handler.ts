@@ -50,6 +50,7 @@ import {
   getMedicationCptEntryFromMA,
   getMedicationFromMA,
   getNdcCodeFromMedication,
+  isInHouseMedicationOrder,
   MedicationUnitOptions,
 } from 'utils/lib/fhir/medication-administration';
 import { getNPIIdentifier, getPatientFriendlyId } from 'utils/lib/fhir/patient';
@@ -1393,7 +1394,7 @@ export function getProcedureDrug(
   medicationAdministrations: MedicationAdministration[]
 ): ClaimLineDrug | undefined {
   const ma = getProcedureMedicationAdministration(procedure, medicationAdministrations);
-  if (!ma) return undefined;
+  if (!ma || !isInHouseMedicationOrder(ma)) return undefined;
 
   const medicationEntry = getMedicationCptEntryFromMA(ma);
   if (medicationEntry && !procedure.code?.coding?.some((coding) => coding.code === medicationEntry.code)) {
