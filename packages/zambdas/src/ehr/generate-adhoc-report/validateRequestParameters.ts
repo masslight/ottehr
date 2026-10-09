@@ -22,12 +22,17 @@ export function validateRequestParameters(input: ZambdaInput): ValidatedParams {
     throw MISSING_REQUEST_SECRETS;
   }
 
-  const body = safeJsonParse(input.body) as Record<string, unknown>;
+  const body: unknown = safeJsonParse(input.body);
 
-  // { taskId } polls a generation started earlier; anything else starts a new one.
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    throw INVALID_INPUT_ERROR('Request body must be a JSON object');
+  }
+
+  // A body with taskId polls a generation started earlier (an empty taskId is rejected, not treated as
+  // a new generation); anything else starts a new one.
   // The Zod input schemas are the endpoint's single source of truth (they also derive the TS types).
   const parsed =
-    'taskId' in body && body.taskId
+    'taskId' in body
       ? GetAdHocGenerationStatusInputSchema.safeParse(body)
       : GenerateAdHocReportInputSchema.safeParse(body);
 
