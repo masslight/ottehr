@@ -298,6 +298,7 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
         <TextBlank
           label="directions"
           width="480px"
+          multiline
           value={line.patientInstructions}
           onChange={(patientInstructions) => update({ patientInstructions })}
           readOnly={readOnly}

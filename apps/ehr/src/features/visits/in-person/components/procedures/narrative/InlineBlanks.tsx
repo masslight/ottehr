@@ -475,6 +475,8 @@ interface TextBlankProps {
   min?: number;
   step?: number;
   width?: string;
+  /** Free text that wraps onto more lines and grows as it's typed, like the HPI box (text only). */
+  multiline?: boolean;
   dataTestId?: string;
 }
 
@@ -490,9 +492,11 @@ export const TextBlank: FC<TextBlankProps> = ({
   min,
   step,
   width,
+  multiline,
   dataTestId,
 }) => {
   const text = value === undefined ? '' : String(value);
+  const grows = multiline && kind === 'text';
   if (readOnly) {
     return (
       <Box component="span" sx={text ? { ...filledSx(), '&:hover': {} } : { color: 'text.secondary' }}>
@@ -503,7 +507,8 @@ export const TextBlank: FC<TextBlankProps> = ({
   const placeholder = placeholderProp ?? (kind === 'number' ? numberPlaceholder(label) : label);
   return (
     <InputBase
-      type={kind}
+      type={grows ? undefined : kind}
+      multiline={grows}
       value={text}
       placeholder={placeholder}
       onChange={(event) => onChange(event.target.value)}
@@ -521,6 +526,8 @@ export const TextBlank: FC<TextBlankProps> = ({
           ...inline,
           // One input style for every kind; the number tweaks are merged in, not swapped in.
           '& input': { ...(inline['& input'] as Record<string, unknown>), ...(kind === 'number' ? numberInputSx : {}) },
+          // A growing blank renders a textarea; it takes the same look and starts level with the sentence.
+          ...(grows ? { '& textarea': inline['& input'], verticalAlign: 'top' } : {}),
           maxWidth: '100%',
           // The box hugs its content: the placeholder at first, then whatever is typed.
           width: kind === 'time' ? 'auto' : width ?? `calc(${Math.max(placeholder.length, text.length) + 1}ch + 8px)`,
