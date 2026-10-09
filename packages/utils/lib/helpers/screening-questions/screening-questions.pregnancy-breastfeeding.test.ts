@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { BRANDING_CONFIG } from '../../ottehr-config/branding';
 import { patientScreeningQuestionsConfig } from '../../ottehr-config/screening-questions';
 import {
   PATIENT_BREASTFEEDING_STATUS,
@@ -8,7 +9,7 @@ import {
 } from '../../types/data/screening-questions/constants';
 import { formatScreeningQuestionValue, getScreeningQuestionText } from './screening-questions-formatting.helper';
 
-describe('pregnancy and breastfeeding screening questions', () => {
+describe.skipIf(BRANDING_CONFIG.projectName !== 'Ottehr')('pregnancy and breastfeeding screening questions', () => {
   it('asks the pregnancy question with all of its answers', () => {
     expect(getScreeningQuestionText(PATIENT_PREGNANCY_STATUS)).toBe('Is there any chance you could be pregnant?');
     expect(
