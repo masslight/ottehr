@@ -113,3 +113,23 @@ async function patchAttemptWithRetry(
   }
   throw lastError;
 }
+
+/** A resend chain is never deep; this only guards against a malformed `partOf` loop. */
+const MAX_RESEND_CHAIN_SIZE = 50;
+
+/** The attempt and every later attempt linked to it through `partOf`, including branches, oldest first. */
+export async function collectResendChain(oystehr: Oystehr, start: Task): Promise<Task[]> {
+  const chain: Task[] = [start];
+  for (let index = 0; index < chain.length && chain.length < MAX_RESEND_CHAIN_SIZE; index++) {
+    const children = (
+      await oystehr.fhir.search<Task>({
+        resourceType: 'Task',
+        params: [{ name: 'part-of', value: `Task/${chain[index].id}` }],
+      })
+    )
+      .unbundle()
+      .filter((resource) => resource.resourceType === 'Task' && !chain.some((seen) => seen.id === resource.id));
+    chain.push(...children);
+  }
+  return chain;
+}

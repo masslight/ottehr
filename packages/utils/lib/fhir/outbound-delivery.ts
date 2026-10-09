@@ -142,6 +142,10 @@ export function getOutboundDeliverySenderOrganizationId(task: Task): string | un
   );
 }
 
+/** An emailed document link, as opposed to a visit-note email: only link emails record the sending organization. */
+export const isDocumentLinkAttempt = (task: Task): boolean =>
+  getOutboundDeliveryChannel(task) === 'email' && Boolean(getOutboundDeliverySenderOrganizationId(task));
+
 export interface OutboundDeliveryFaxPacketSnapshot {
   pageCount?: number;
   parts: string[];
@@ -160,6 +164,7 @@ export function getOutboundDeliveryFaxPacketSnapshot(task: Task): OutboundDelive
 
 export function getOutboundDeliveryAttemptStatus(task: Task, communication?: Communication): ActionLogStatus {
   if (getOutboundDeliveryChannel(task) === 'email') {
+    if (task.status === 'cancelled') return 'revoked';
     if (task.status === 'completed') return 'sent';
     if (task.status === 'failed') return 'failed';
     return 'pending';
@@ -180,11 +185,12 @@ export function getOutboundDeliveryAttemptStatus(task: Task, communication?: Com
 
 export function makeOutboundDeliveryOutput(
   code: (typeof OUTBOUND_DELIVERY_OUTPUT_CODES)[keyof typeof OUTBOUND_DELIVERY_OUTPUT_CODES],
-  value: { valueString?: string; reference?: string }
+  value: { valueString?: string; reference?: string; valueDateTime?: string }
 ): TaskOutput {
   return {
     type: { coding: [{ system: OUTBOUND_DELIVERY_OUTPUT_SYSTEM, code }] },
     ...(value.valueString ? { valueString: value.valueString } : {}),
     ...(value.reference ? { valueReference: { reference: value.reference } } : {}),
+    ...(value.valueDateTime ? { valueDateTime: value.valueDateTime } : {}),
   };
 }

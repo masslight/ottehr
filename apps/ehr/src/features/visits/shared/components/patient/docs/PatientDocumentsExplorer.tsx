@@ -310,8 +310,11 @@ export const PatientDocumentsExplorer: FC<PatientDocumentsExplorerProps> = ({
   const documentTableActions: DocumentTableActions = useMemo(() => {
     return {
       // Reading a document is always allowed; only the mutating actions respect read-only.
+      // Downloading and sending leave the record unchanged, so a signed (read-only) visit still offers them.
       isActionAllowed: (_documentId: string, actionType: DocumentTableActionType): boolean =>
-        actionType === DocumentTableActionType.ActionDownload || !readOnly,
+        actionType === DocumentTableActionType.ActionDownload ||
+        actionType === DocumentTableActionType.ActionFax ||
+        !readOnly,
       onDocumentDownload: downloadDocument,
       onDocumentFax: handleDocumentFax,
       onDocumentRename: renameDocument,
@@ -457,7 +460,7 @@ export const PatientDocumentsExplorer: FC<PatientDocumentsExplorerProps> = ({
       </Grid>
 
       <ScannerModal open={isScanModalOpen} onClose={handleCloseScanModal} onScanComplete={handleScanComplete} />
-      <SendFaxDialog controller={faxController} title="Fax Document" />
+      <SendFaxDialog controller={faxController} title="Send Document" />
     </Stack>
   );
 };

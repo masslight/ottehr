@@ -2,8 +2,8 @@ import AddOutlinedIcon from '@mui/icons-material/AddOutlined';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CalendarMonthOutlinedIcon from '@mui/icons-material/CalendarMonthOutlined';
 import CloseIcon from '@mui/icons-material/Close';
-import FaxOutlinedIcon from '@mui/icons-material/FaxOutlined';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
+import SendOutlinedIcon from '@mui/icons-material/SendOutlined';
 import {
   Box,
   Chip,
@@ -844,9 +844,9 @@ export const Header = (): JSX.Element => {
                     data-testid={dataTestIds.faxDialog.menuItem}
                   >
                     <ListItemIcon sx={{ color: theme.palette.primary.main }}>
-                      <FaxOutlinedIcon fontSize="small" />
+                      <SendOutlinedIcon fontSize="small" />
                     </ListItemIcon>
-                    Fax Documents
+                    Send Documents
                   </MenuItem>
                 </Menu>
                 <CreateTaskDialog open={showCreateTaskDialog} handleClose={() => setShowCreateTaskDialog(false)} />

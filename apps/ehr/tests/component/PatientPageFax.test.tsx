@@ -19,7 +19,7 @@ const mockDownloadMedicalRecord = vi.fn<() => Promise<void>>();
 vi.mock('src/features/fax/hooks/useSendFax', () => ({
   useSendFax: (source: unknown) => {
     mockUseSendFax(source);
-    return { isOpen: false, open: mockOpen, close: vi.fn(), isSending: false, failures: [] };
+    return { isOpen: false, open: mockOpen, close: vi.fn(), isSending: false };
   },
 }));
 vi.mock('src/features/fax/ui/SendFaxDialog', () => ({
@@ -74,11 +74,11 @@ const lastSource = (): any => mockUseSendFax.mock.calls.at(-1)?.[0];
 describe('PatientPage fax actions', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('faxes the patient visits from Fax Patient Docs', async () => {
+  it('sends the patient visits from Send Patient Docs', async () => {
     const user = userEvent.setup();
     renderPage();
 
-    await user.click(screen.getByRole('button', { name: /Fax Patient Docs/i }));
+    await user.click(screen.getByRole('button', { name: /Send Patient Docs/i }));
 
     expect(lastSource()).toEqual({
       type: 'visits',
@@ -86,12 +86,12 @@ describe('PatientPage fax actions', () => {
       appointmentIds: ['appointment-1', 'appointment-2'],
     });
     expect(mockOpen).toHaveBeenCalledTimes(1);
-    expect(screen.getByTestId('fax-dialog')).toHaveAttribute('data-title', 'Fax Patient Docs');
+    expect(screen.getByTestId('fax-dialog')).toHaveAttribute('data-title', 'Send Patient Docs');
     // Visits are offered in the office's own timezone, not the reader's.
     expect(screen.getByText('04/11/2026 09:30 AM ET')).toBeInTheDocument();
   });
 
-  it('offers Download Archive and Send as Fax for the medical record', async () => {
+  it('offers Download Archive and Send by Fax or Email for the medical record', async () => {
     const user = userEvent.setup();
     renderPage();
 
@@ -107,7 +107,7 @@ describe('PatientPage fax actions', () => {
     renderPage();
 
     await user.click(screen.getByRole('button', { name: /Medical Record/i }));
-    await user.click(screen.getByRole('menuitem', { name: 'Send as Fax' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Send by Fax or Email' }));
 
     expect(lastSource()).toEqual({ type: 'medical-record', patientId: PATIENT_ID });
     expect(mockOpen).toHaveBeenCalledTimes(1);

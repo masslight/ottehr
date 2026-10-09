@@ -1,6 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { formatPhoneNumberDisplay } from 'utils/lib/helpers/helpers';
 import {
   FaxPacketSource,
   FaxRecipientResult,
@@ -26,32 +27,23 @@ export interface UseSendFaxResult {
   /** The number the packet is sent from, so the user can see which number the recipient will call back. */
   senderFaxNumber?: string;
 
-  /** True while the currently open dialog's submission is still in flight. */
+  /** True while the send is being queued. */
   isSending: boolean;
-  /** Queues the send; the dialog stays open showing a sending state until that job resolves. */
+  /** Queues the send and closes the dialog; the outcome arrives later as a snackbar. */
   send: (values: FaxFormValues) => Promise<void>;
-
-  /** Recipients any queued send could not be delivered to. Non-empty means the result dialog is shown. */
-  failures: FaxRecipientResult[];
-  dismissFailures: () => void;
 }
 
 export const useSendFax = (source: FaxPacketSource | undefined): UseSendFaxResult => {
   // Only a single-visit packet has a document checklist to preview; the other sources send a fixed set.
   const previewAppointmentId = source?.type === 'visit' ? source.appointmentId : undefined;
   const [isOpen, setIsOpen] = useState(false);
-  // Every queued send is tracked independently, so sending a second fax for the same visit never abandons
-  // the first. Jobs stay here (and keep polling) regardless of whether the dialog is open.
+  // Every queued send is tracked independently, so sending a second packet for the same visit never abandons
+  // the first. Jobs keep polling in the background after the dialog closes.
   const [activeTaskIds, setActiveTaskIds] = useState<string[]>([]);
-  // The one job the open dialog is waiting on, for its spinner and auto-close. Background jobs don't set it.
-  const [pendingTaskId, setPendingTaskId] = useState<string | undefined>(undefined);
-  const [failures, setFailures] = useState<FaxRecipientResult[]>([]);
 
   const handled = useRef<Set<string>>(new Set());
   const timers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const taskSources = useRef<Map<string, FaxPacketSource>>(new Map());
-  const pendingTaskIdRef = useRef<string | undefined>(undefined);
-  pendingTaskIdRef.current = pendingTaskId;
 
   const queryClient = useQueryClient();
   const preview = useFaxPacketPreview(previewAppointmentId, isOpen);
@@ -61,8 +53,7 @@ export const useSendFax = (source: FaxPacketSource | undefined): UseSendFaxResul
   const sendMutation = useSendFaxPacket();
   const statuses = useFaxPacketStatuses(activeTaskIds);
 
-  // Resolve a job exactly once: stop tracking it, drop the dialog if it was waiting on it, and refresh the
-  // visit's fax history. `handled` guards against a lingering status re-triggering this before the id is
+  // Resolve a job exactly once: stop tracking it and refresh the visit's fax history. `handled` guards against a lingering status re-triggering this before the id is
   // dropped from `activeTaskIds`.
   const finishJob = useCallback(
     (taskId: string): void => {
@@ -70,10 +61,6 @@ export const useSendFax = (source: FaxPacketSource | undefined): UseSendFaxResul
       if (timer) {
         clearTimeout(timer);
         timers.current.delete(taskId);
-      }
-      if (pendingTaskIdRef.current === taskId) {
-        setPendingTaskId(undefined);
-        setIsOpen(false);
       }
       setActiveTaskIds((prev) => prev.filter((id) => id !== taskId));
       const taskSource = taskSources.current.get(taskId);
@@ -83,19 +70,8 @@ export const useSendFax = (source: FaxPacketSource | undefined): UseSendFaxResul
     [queryClient]
   );
 
-  const open = useCallback(() => {
-    // A fresh compose dialog: it isn't waiting on any prior job, and any earlier failure dialog is cleared.
-    // In-flight background jobs are intentionally left running.
-    setFailures([]);
-    setPendingTaskId(undefined);
-    setIsOpen(true);
-  }, []);
-
-  // Closing leaves the job running in the background; it will resolve to a snackbar / failure dialog.
-  const close = useCallback(() => {
-    setPendingTaskId(undefined);
-    setIsOpen(false);
-  }, []);
+  const open = useCallback(() => setIsOpen(true), []);
+  const close = useCallback(() => setIsOpen(false), []);
 
   const send = useCallback(
     async (values: FaxFormValues): Promise<void> => {
@@ -114,7 +90,8 @@ export const useSendFax = (source: FaxPacketSource | undefined): UseSendFaxResul
       );
 
       setActiveTaskIds((prev) => [...prev, taskId]);
-      setPendingTaskId(taskId);
+      setIsOpen(false);
+      enqueueSnackbar('Sending documents…', { variant: 'info' });
     },
     [source, sendMutation, finishJob]
   );
@@ -124,7 +101,7 @@ export const useSendFax = (source: FaxPacketSource | undefined): UseSendFaxResul
     for (const { taskId, data } of statuses) {
       if (!data || data.jobStatus === 'pending' || handled.current.has(taskId)) continue;
       handled.current.add(taskId);
-      resolveTerminal(data, setFailures);
+      resolveTerminal(data);
       finishJob(taskId);
     }
   }, [statuses, finishJob]);
@@ -143,30 +120,33 @@ export const useSendFax = (source: FaxPacketSource | undefined): UseSendFaxResul
     previewError: Boolean(previewAppointmentId) && preview.isError,
     preview: preview.data,
     senderFaxNumber: preview.data?.senderFaxNumber ?? sender.data ?? undefined,
-    isSending: sendMutation.isPending || Boolean(pendingTaskId),
+    isSending: sendMutation.isPending,
     send,
-    failures,
-    dismissFailures: useCallback(() => setFailures([]), []),
   };
 };
 
-/** Surfaces a job's outcome: a snackbar for a whole-job failure or a clean success, and appends any
- * per-recipient failures to the result dialog's list (so concurrent jobs' failures accumulate). */
-function resolveTerminal(
-  data: GetFaxPacketStatusOutput,
-  setFailures: (updater: (prev: FaxRecipientResult[]) => FaxRecipientResult[]) => void
-): void {
+/** Surfaces a job's outcome as a snackbar: a whole-job failure, the recipients it could not reach, or success. */
+function resolveTerminal(data: GetFaxPacketStatusOutput): void {
   if (data.jobStatus === 'failed') {
-    enqueueSnackbar('The fax could not be processed. Please try again.', { variant: 'error' });
+    enqueueSnackbar('The documents could not be sent. Please try again.', { variant: 'error' });
     return;
   }
 
   const failed = data.recipients.filter((recipient) => recipient.status === 'failed');
   if (failed.length === 0) {
     const count = data.recipients.length;
-    enqueueSnackbar(`Fax sent to ${count} recipient${count === 1 ? '' : 's'}`, { variant: 'success' });
+    enqueueSnackbar(`Documents sent to ${count} recipient${count === 1 ? '' : 's'}`, { variant: 'success' });
     return;
   }
 
-  setFailures((prev) => [...prev, ...failed]);
+  enqueueSnackbar(`Could not send to ${failed.map(describeRecipient).join(', ')}`, {
+    variant: 'error',
+    persist: true,
+  });
 }
+
+const describeRecipient = (recipient: FaxRecipientResult): string => {
+  const address = recipient.email ?? (recipient.faxNumber ? formatPhoneNumberDisplay(recipient.faxNumber) : '');
+  const name = recipient.name || 'Unnamed recipient';
+  return address ? `${name} (${address})` : name;
+};

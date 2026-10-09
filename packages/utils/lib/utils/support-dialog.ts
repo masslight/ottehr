@@ -46,3 +46,11 @@ export function buildLocationSupportPhonesMap(locations: Location[]): Record<str
   }
   return map;
 }
+
+/** A location's support number, else its main phone: who to call about the location's outreach. */
+export function getLocationContactPhone(location: Location | undefined): string | undefined {
+  return (
+    location?.extension?.find((extension) => extension.url === LOCATION_SUPPORT_PHONE_EXTENSION_URL)?.valueString ??
+    location?.telecom?.find((telecom) => telecom.system === 'phone')?.value
+  );
+}

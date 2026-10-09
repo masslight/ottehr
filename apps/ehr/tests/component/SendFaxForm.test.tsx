@@ -1,8 +1,9 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { FAX_RECIPIENT_CREDENTIAL_NEEDS_NAME_MESSAGE, FaxDocumentAvailability } from 'utils/lib/types/api/fax.types';
 import { describe, expect, it, vi } from 'vitest';
+import { FaxFormValues } from '../../src/features/fax/model/types';
 import { SendFaxForm } from '../../src/features/fax/ui/SendFaxForm';
 
 // The organization picker reads the address book; keep it small and offline here.
@@ -34,7 +35,8 @@ const documents: FaxDocumentAvailability[] = [
 
 const renderForm = (
   preview?: { documents: FaxDocumentAvailability[]; hasSavedPcp: boolean },
-  senderFaxNumber?: string
+  senderFaxNumber?: string,
+  onSubmit: (values: FaxFormValues) => void = vi.fn()
 ): void => {
   render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
@@ -42,7 +44,7 @@ const renderForm = (
         preview={preview}
         senderFaxNumber={senderFaxNumber}
         isSending={false}
-        onSubmit={vi.fn()}
+        onSubmit={onSubmit}
         onCancel={vi.fn()}
       />
     </QueryClientProvider>
@@ -138,5 +140,66 @@ describe('SendFaxForm recipient picker', () => {
     expect(screen.getByLabelText('Organization')).toHaveValue('');
     expect(screen.getByLabelText("Recipient's name")).toHaveValue('John Roe');
     expect(screen.getByRole('button', { name: 'Edit contact' })).toBeInTheDocument();
+  });
+});
+
+describe('SendFaxForm delivery channel', () => {
+  it('starts on fax and swaps in an email field when Email is chosen', async () => {
+    const user = userEvent.setup();
+    renderForm();
+
+    expect(screen.getByLabelText(/Recipient Fax/)).toBeVisible();
+    expect(screen.queryByLabelText(/Recipient Email/)).toBeNull();
+
+    await user.click(screen.getByRole('radio', { name: 'Email' }));
+
+    expect(screen.getByLabelText(/Recipient Email/)).toBeVisible();
+    expect(screen.queryByLabelText(/Recipient Fax/)).toBeNull();
+  });
+
+  it('keeps the typed fax number and email while switching channels', async () => {
+    const user = userEvent.setup();
+    renderForm();
+
+    await user.type(screen.getByLabelText(/Recipient Fax/), '2125550000');
+    const typedFax = (screen.getByLabelText(/Recipient Fax/) as HTMLInputElement).value;
+
+    await user.click(screen.getByRole('radio', { name: 'Email' }));
+    await user.type(screen.getByLabelText(/Recipient Email/), 'olivia@example.com');
+    await user.click(screen.getByRole('radio', { name: 'Fax' }));
+    expect(screen.getByLabelText(/Recipient Fax/)).toHaveValue(typedFax);
+
+    await user.click(screen.getByRole('radio', { name: 'Email' }));
+    expect(screen.getByLabelText(/Recipient Email/)).toHaveValue('olivia@example.com');
+  });
+
+  it('submits an email recipient with its address and no fax number', async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn();
+    renderForm(undefined, undefined, onSubmit);
+
+    await user.click(screen.getByRole('radio', { name: 'Email' }));
+    await user.type(screen.getByLabelText(/Recipient Email/), 'Olivia@Example.com');
+    await user.click(screen.getByRole('button', { name: 'Send' }));
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+    expect(onSubmit.mock.calls[0][0].recipients[0]).toMatchObject({
+      channel: 'email',
+      email: 'Olivia@Example.com',
+      faxNumber: '',
+    });
+  });
+
+  it('keeps Send disabled until the email address is valid', async () => {
+    const user = userEvent.setup();
+    renderForm();
+
+    await user.click(screen.getByRole('radio', { name: 'Email' }));
+    await user.type(screen.getByLabelText(/Recipient Email/), 'not-an-email');
+    expect(screen.getByRole('button', { name: 'Send' })).toBeDisabled();
+
+    await user.clear(screen.getByLabelText(/Recipient Email/));
+    await user.type(screen.getByLabelText(/Recipient Email/), 'olivia@example.com');
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Send' })).toBeEnabled());
   });
 });

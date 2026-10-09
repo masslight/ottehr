@@ -82,6 +82,14 @@ describe('faxRecipients', () => {
     expect(applySaveAsPcp(afterSecond, 1, false).map((entry) => entry.saveAsPcp)).toEqual([false, false, false]);
   });
 
+  it('starts a PCP-prefilled recipient on the fax channel', () => {
+    expect(initialRecipients({ faxNumber: '2027139680' }, true)[0]).toMatchObject({
+      channel: 'fax',
+      faxNumber: '2027139680',
+      email: '',
+    });
+  });
+
   it('caps the recipient list', () => {
     expect(canAddRecipient(new Array(FAX_MAX_RECIPIENTS - 1).fill(recipient()))).toBe(true);
     expect(canAddRecipient(new Array(FAX_MAX_RECIPIENTS).fill(recipient()))).toBe(false);
@@ -92,6 +100,26 @@ describe('faxRecipients', () => {
     expect(canSend([recipient()], false)).toBe(false);
     expect(canSend([], true)).toBe(false);
     expect(canSend([recipient({ faxNumber: '123' })], true)).toBe(false);
+  });
+
+  it('validates an email recipient by its address, ignoring the blank fax field', () => {
+    expect(canSend([recipient({ channel: 'email', email: 'olivia@example.com', faxNumber: '' })], true)).toBe(true);
+    expect(canSend([recipient({ channel: 'email', email: 'not-an-email', faxNumber: '' })], true)).toBe(false);
+    expect(canSend([recipient({ channel: 'email', email: '', faxNumber: '2027139680' })], true)).toBe(false);
+  });
+
+  it('sends an email recipient with its address only, trimmed and lowercased', () => {
+    const input = toSendFaxPacketInput(visitSource, {
+      recipients: [recipient({ channel: 'email', email: '  Olivia@Example.COM ', faxNumber: '' })],
+    });
+
+    expect(input.recipients[0]).toEqual({
+      name: undefined,
+      organization: undefined,
+      email: 'olivia@example.com',
+      phoneNumber: undefined,
+    });
+    expect('faxNumber' in input.recipients[0]).toBe(false);
   });
 
   it('narrows a multi-visit source to the visits left checked', () => {

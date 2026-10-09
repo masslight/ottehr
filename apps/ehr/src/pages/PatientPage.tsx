@@ -2,11 +2,11 @@ import { progressNoteIcon } from '@ehrTheme/icons';
 import ContactPageOutlinedIcon from '@mui/icons-material/ContactPageOutlined';
 import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined';
 import DownloadIcon from '@mui/icons-material/Download';
-import FaxOutlinedIcon from '@mui/icons-material/FaxOutlined';
 import HistoryEduOutlinedIcon from '@mui/icons-material/HistoryEduOutlined';
 import HistoryOutlinedIcon from '@mui/icons-material/HistoryOutlined';
 import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined';
 import MergeIcon from '@mui/icons-material/MergeType';
+import SendOutlinedIcon from '@mui/icons-material/SendOutlined';
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
 import { TabContext, TabList, TabPanel } from '@mui/lab';
 import {
@@ -78,7 +78,7 @@ export default function PatientPage(): JSX.Element {
   const [showAccountSettingsDialog, setShowAccountSettingsDialog] = useState(false);
   const [mergePatientIds, setMergePatientIds] = useState<[string, string] | null>(null);
   const [medicalRecordMenuAnchor, setMedicalRecordMenuAnchor] = useState<HTMLElement | null>(null);
-  // Which of the patient-record fax entry points is open; the source it sends is derived from it.
+  // Which of the patient-record send entry points is open; the source it sends is derived from it.
   const [faxDialog, setFaxDialog] = useState<'patient-docs' | 'medical-record' | null>(null);
 
   const currentUser = useEvolveUser();
@@ -234,7 +234,7 @@ export default function PatientPage(): JSX.Element {
 
   const openFaxFor = (target: 'patient-docs' | 'medical-record'): void => {
     if (target === 'patient-docs' && !faxableVisits.length) {
-      enqueueSnackbar('This patient has no visits to fax.', { variant: 'info' });
+      enqueueSnackbar('This patient has no visits to send.', { variant: 'info' });
       return;
     }
     setFaxDialog(target);
@@ -349,12 +349,12 @@ export default function PatientPage(): JSX.Element {
                     </GoToButton>
                   </Box>
                   <GoToButton
-                    text="Fax Patient Docs"
+                    text="Send Patient Docs"
                     backgroundColor={otherColors.lightBlue}
                     dataTestId={dataTestIds.patientRecordPage.faxPatientDocsButton}
                     onClick={() => openFaxFor('patient-docs')}
                   >
-                    <FaxOutlinedIcon />
+                    <SendOutlinedIcon />
                   </GoToButton>
                   <GoToButton
                     text="Medical Record"
@@ -403,15 +403,15 @@ export default function PatientPage(): JSX.Element {
               }}
             >
               <ListItemIcon>
-                <FaxOutlinedIcon fontSize="small" color="primary" />
+                <SendOutlinedIcon fontSize="small" color="primary" />
               </ListItemIcon>
-              <ListItemText>Send as Fax</ListItemText>
+              <ListItemText>Send by Fax or Email</ListItemText>
             </MenuItem>
           </Menu>
 
           <SendFaxDialog
             controller={faxController}
-            title={faxDialog === 'medical-record' ? 'Fax Medical Record' : 'Fax Patient Docs'}
+            title={faxDialog === 'medical-record' ? 'Send Medical Record' : 'Send Patient Docs'}
             visits={faxDialog === 'patient-docs' ? faxableVisits : undefined}
           />
 

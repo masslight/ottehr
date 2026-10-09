@@ -96,6 +96,17 @@ describe('retry-action-log eligibility', () => {
     expect(await isRetryable({ ...emailTask, status: 'in-progress' }, 'email', {} as any)).toBe(false);
   });
 
+  it('never retries an emailed document link', async () => {
+    const linkTask = makeOutboundDeliveryAttempt({
+      channel: 'email',
+      patientId: 'patient-1',
+      recipientAddress: 'recipient@example.com',
+      documentReferenceId: 'packet-1',
+      senderOrganizationReference: 'Organization/org-1',
+    });
+    expect(await isRetryable({ ...linkTask, status: 'failed' }, 'email', {} as any)).toBe(false);
+  });
+
   it('uses the linked fax delivery outcome', async () => {
     const faxTask: Task = {
       ...makeOutboundDeliveryAttempt({

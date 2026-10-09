@@ -17,19 +17,19 @@ import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { validateRequestParameters } from './validateRequestParameters';
 
-const ZAMBDA_NAME = 'send-fax-packet';
+const ZAMBDA_NAME = 'send-document-packet';
 
 let m2mToken: string;
 
 /**
- * Queues an outbound fax: validates the request, resolves the patient, and creates a `send-fax-packet` Task.
- * The heavy work (build the packet, send to each recipient) runs asynchronously in `sub-send-fax-packet`,
- * so this returns immediately with the Task id, which the caller polls via `get-fax-packet-status`.
+ * Queues an outbound fax: validates the request, resolves the patient, and creates a `send-document-packet` Task.
+ * The heavy work (build the packet, send to each recipient) runs asynchronously in `sub-send-document-packet`,
+ * so this returns immediately with the Task id, which the caller polls via `get-document-packet-status`.
  */
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const validatedInput = validateRequestParameters(input);
   const { source, recipients, secrets } = validatedInput;
-  console.log(`send-fax-packet queue: source=${source.type} recipients=${recipients.length}`);
+  console.log(`send-document-packet queue: source=${source.type} recipients=${recipients.length}`);
 
   const user = await getUser(input.headers.Authorization.replace('Bearer ', ''), secrets);
   const senderPractitionerId = removePrefix('Practitioner/', user.profile);

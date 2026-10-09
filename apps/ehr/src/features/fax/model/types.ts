@@ -1,8 +1,13 @@
+export type FaxRecipientChannel = 'fax' | 'email';
+
 export interface FaxRecipientFormValue {
   name: string;
   credential: string;
   organization: string;
+  /** Which of `faxNumber` / `email` is in use; the other is kept blank. */
+  channel: FaxRecipientChannel;
   faxNumber: string;
+  email: string;
   phoneNumber: string;
   saveAsPcp: boolean;
 }

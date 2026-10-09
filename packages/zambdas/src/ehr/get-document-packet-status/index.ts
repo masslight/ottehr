@@ -12,7 +12,7 @@ import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { validateRequestParameters } from './validateRequestParameters';
 
-const ZAMBDA_NAME = 'get-fax-packet-status';
+const ZAMBDA_NAME = 'get-document-packet-status';
 
 let m2mToken: string;
 

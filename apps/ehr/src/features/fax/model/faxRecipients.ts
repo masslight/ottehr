@@ -1,4 +1,4 @@
-import { isPhoneNumberValid } from 'utils/lib/helpers/helpers';
+import { isEmailValid, isPhoneNumberValid } from 'utils/lib/helpers/helpers';
 import { FAX_MAX_RECIPIENTS, FaxPacketSource, FaxRecipient, SendFaxPacketInput } from 'utils/lib/types/api/fax.types';
 import { FaxFormValues, FaxRecipientFormValue } from './types';
 
@@ -6,7 +6,9 @@ export const emptyRecipient = (): FaxRecipientFormValue => ({
   name: '',
   credential: '',
   organization: '',
+  channel: 'fax',
   faxNumber: '',
+  email: '',
   phoneNumber: '',
   saveAsPcp: false,
 });
@@ -20,7 +22,9 @@ export const initialRecipients = (pcp: FaxRecipient | undefined, hasSavedPcp: bo
     name: pcp?.name ?? '',
     credential: pcp?.credential ?? '',
     organization: pcp?.organization ?? '',
+    channel: pcp?.email ? 'email' : 'fax',
     faxNumber: pcp?.faxNumber ?? '',
+    email: pcp?.email ?? '',
     phoneNumber: pcp?.phoneNumber ?? '',
     saveAsPcp: !hasSavedPcp,
   },
@@ -42,10 +46,14 @@ export const canAddRecipient = (recipients: FaxRecipientFormValue[]): boolean =>
 export const isRecipientFaxNumberValid = (recipient: FaxRecipientFormValue): boolean =>
   isPhoneNumberValid(recipient.faxNumber);
 
-/** Every recipient needs a valid fax number, and there must be something to send. */
+/** A valid address for the channel the recipient is on. */
+export const isRecipientAddressValid = (recipient: FaxRecipientFormValue): boolean =>
+  recipient.channel === 'email' ? isEmailValid(recipient.email.trim()) : isRecipientFaxNumberValid(recipient);
+
+/** Every recipient needs a valid fax number or email, and there must be something to send. */
 export const canSend = (recipients: FaxRecipientFormValue[], hasDocuments: boolean): boolean => {
   if (!hasDocuments || recipients.length === 0) return false;
-  return recipients.every(isRecipientFaxNumberValid);
+  return recipients.every(isRecipientAddressValid);
 };
 
 const trimmedOrUndefined = (value: string): string | undefined => {
@@ -63,7 +71,9 @@ export const toSendFaxPacketInput = (source: FaxPacketSource, values: FaxFormVal
     name: trimmedOrUndefined(recipient.name),
     credential: trimmedOrUndefined(recipient.credential),
     organization: trimmedOrUndefined(recipient.organization),
-    faxNumber: recipient.faxNumber.trim(),
+    ...(recipient.channel === 'email'
+      ? { email: recipient.email.trim().toLowerCase() }
+      : { faxNumber: recipient.faxNumber.trim() }),
     phoneNumber: trimmedOrUndefined(recipient.phoneNumber),
     // PCP management belongs to the original single-visit flow. Patient-level dialogs do not expose
     // that control, and stale form state must not make those sends mutate generalPractitioner.

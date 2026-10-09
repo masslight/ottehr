@@ -10,6 +10,7 @@ import {
   getOutboundDeliveryChannel,
   getOutboundDeliveryFaxPacketSnapshot,
   getOutboundDeliveryRecipientSnapshot,
+  isDocumentLinkAttempt,
   makeOutboundDeliveryAttempt,
 } from 'utils/lib/fhir/outbound-delivery';
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
@@ -204,6 +205,8 @@ export async function hasRetryChild(attemptId: string, oystehr: Oystehr): Promis
 }
 
 export async function isRetryable(task: Task, channel: 'fax' | 'email', oystehr: Oystehr): Promise<boolean> {
+  // A failed link email is usually a bad address; it is sent again from the Send dialog, not retried.
+  if (isDocumentLinkAttempt(task)) return false;
   if (channel === 'email') return task.status === 'failed';
   const communicationId = getOutboundDeliveryRecipientSnapshot(task).communicationId;
   if (!communicationId) return task.status === 'failed';

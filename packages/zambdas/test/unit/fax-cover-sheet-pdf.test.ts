@@ -1,6 +1,10 @@
 import { PDFDocument } from 'pdf-lib';
 import { describe, expect, test } from 'vitest';
-import { createFaxCoverSheetPdfBytes, getFaxCoverSheetTitle } from '../../src/shared/pdf/fax-cover-sheet-pdf';
+import {
+  buildRecipientLines,
+  createFaxCoverSheetPdfBytes,
+  getFaxCoverSheetTitle,
+} from '../../src/shared/pdf/fax-cover-sheet-pdf';
 import { FaxCoverSheetData } from '../../src/shared/pdf/types';
 
 const fullData: FaxCoverSheetData = {
@@ -83,6 +87,23 @@ describe('createFaxCoverSheetPdfBytes', () => {
     const bytes = await createFaxCoverSheetPdfBytes(fullData);
 
     const doc = await PDFDocument.load(bytes);
+    expect(doc.getPageCount()).toBe(1);
+  });
+
+  test('labels the recipient by delivery channel', async () => {
+    expect(buildRecipientLines(fullData)).toEqual([
+      'Dr. Jane Roe',
+      'Downtown Family Practice',
+      'Fax: +1 (555) 010-2233',
+      'Phone: +1 (555) 010-2234',
+    ]);
+    const emailData: FaxCoverSheetData = {
+      ...fullData,
+      recipient: { name: 'Dr. Jane Roe', email: 'jane.roe@example.com' },
+    };
+    expect(buildRecipientLines(emailData)).toEqual(['Dr. Jane Roe', 'Email: jane.roe@example.com']);
+
+    const doc = await PDFDocument.load(await createFaxCoverSheetPdfBytes(emailData));
     expect(doc.getPageCount()).toBe(1);
   });
 

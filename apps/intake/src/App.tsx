@@ -4,6 +4,7 @@ import { BrowserRouter as Router, Navigate, Route, Routes } from 'react-router-d
 import BookingHome from 'src/pages/BookingHome';
 import GetReadyForVisit from 'src/pages/GetReadyForVisit';
 import NewUser from 'src/pages/NewUser';
+import OpenDocumentLink from 'src/pages/OpenDocumentLink';
 import Reschedule from 'src/pages/Reschedule';
 import Version from 'src/pages/Version';
 import { ProtectedRoute } from 'src/telemed/features/auth/ProtectedRoute';
@@ -188,6 +189,10 @@ export const intakeFlowPageRoute = {
     path: '/invited-call-ended',
     getPage: () => <CallEndedPage />,
   },
+  OpenDocumentLink: {
+    path: '/documents',
+    getPage: () => <OpenDocumentLink />,
+  },
 
   IOSPatientPhotosEdit: {
     path: '/ios-patient-photos',
@@ -310,6 +315,10 @@ function App(): JSX.Element {
                 <Route
                   path={intakeFlowPageRoute.InvitedWaitingRoom.path}
                   element={intakeFlowPageRoute.InvitedWaitingRoom.getPage()}
+                />
+                <Route
+                  path={intakeFlowPageRoute.OpenDocumentLink.path}
+                  element={intakeFlowPageRoute.OpenDocumentLink.getPage()}
                 />
                 <Route
                   path={intakeFlowPageRoute.PrebookVisit.path}

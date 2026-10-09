@@ -41,7 +41,7 @@ const faxSourceFromTaskFocus = (task: Task): FaxPacketSource => {
 };
 
 export const index = wrapTaskHandler(
-  'sub-send-fax-packet',
+  'sub-send-document-packet',
   async (input, oystehr) => {
     const { task, secrets } = input;
 

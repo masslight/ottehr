@@ -30,7 +30,7 @@ vi.mock('../../src/shared/fax/collect-visit-documents', async (importOriginal) =
   resolveFaxDocumentAvailability: (...args: unknown[]) => mockResolveFaxDocumentAvailability(...args),
 }));
 
-import { index } from '../../src/ehr/get-fax-packet-preview';
+import { index } from '../../src/ehr/get-document-packet-preview';
 
 const APPOINTMENT_ID = '650e8400-e29b-41d4-a716-446655440000';
 const ENCOUNTER_ID = 'encounter-1';
@@ -91,7 +91,7 @@ const runPreview = async (patient: Patient): Promise<GetFaxPacketPreviewOutput> 
   return JSON.parse(result.body);
 };
 
-describe('get-fax-packet-preview', () => {
+describe('get-document-packet-preview', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockResolveFaxDocumentAvailability.mockResolvedValue(AVAILABILITY);

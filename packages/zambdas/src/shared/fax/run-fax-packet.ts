@@ -14,8 +14,11 @@ import {
   FaxRecipient,
   FaxRecipientResult,
   formatFaxRecipientName,
+  isEmailRecipient,
 } from 'utils/lib/types/api/fax.types';
+import { getLocationContactPhone } from 'utils/lib/utils/support-dialog';
 import { getPcpPatchOpsFromDetails } from '../../ehr/shared/harvest';
+import { sendDocumentLinkEmailAttempt } from '../document-link-email';
 import { FaxCoverSheetData } from '../pdf/types';
 import { FullAppointmentResourcePackage } from '../pdf/visit-details-pdf/types';
 import { sendFaxAttempt } from '../send-fax-attempt';
@@ -78,6 +81,7 @@ export const deliverFaxPacket = async (args: {
       name: formatFaxRecipientName(recipient),
       organization: recipient.organization,
       faxNumber: recipient.faxNumber,
+      email: recipient.email,
       phoneNumber: recipient.phoneNumber,
       status: 'failed',
     };
@@ -96,29 +100,49 @@ export const deliverFaxPacket = async (args: {
         listResources: plan.listResources,
       });
 
-      await sendFaxAttempt(
-        {
-          appointmentId,
-          faxNumber: recipient.faxNumber,
-          organizationId,
+      if (isEmailRecipient(recipient)) {
+        await sendDocumentLinkEmailAttempt({
+          oystehr,
+          secrets,
           patientId,
-          media: packet.pdfInfo.uploadURL,
-          documentReferenceId: packet.documentReference.id!,
-          userPractitioner: senderPractitioner,
+          appointmentId,
+          email: recipient.email,
           recipientName: formatFaxRecipientName(recipient),
           recipientOrganization: recipient.organization,
           recipientPhone: recipient.phoneNumber,
-          faxPacketPageCount: packet.pageCount,
-          faxPacketParts: body.parts.map((part) => part.title),
+          documentReferenceId: packet.documentReference.id!,
+          organizationId,
+          contactPhone: getLocationContactPhone(plan.location),
+          senderDisplay: getFullestAvailableName(senderPractitioner),
+          requesterReference: senderPractitioner.id ? `Practitioner/${senderPractitioner.id}` : undefined,
           senderId: senderUserId,
-        },
-        oystehr
-      );
+        });
+      } else {
+        await sendFaxAttempt(
+          {
+            appointmentId,
+            faxNumber: recipient.faxNumber,
+            organizationId,
+            patientId,
+            media: packet.pdfInfo.uploadURL,
+            documentReferenceId: packet.documentReference.id!,
+            userPractitioner: senderPractitioner,
+            recipientName: formatFaxRecipientName(recipient),
+            recipientOrganization: recipient.organization,
+            recipientPhone: recipient.phoneNumber,
+            faxPacketPageCount: packet.pageCount,
+            faxPacketParts: body.parts.map((part) => part.title),
+            senderId: senderUserId,
+          },
+          oystehr
+        );
+      }
 
       results.push({ ...base, status: 'sent' });
     } catch (error) {
       // The raw cause stays server-side; the UI only ever learns sent/failed.
-      console.error(`[fax-packet] failed to send to ${recipient.faxNumber}`, error);
+      // An email address identifies a person, so only a fax number goes to the logs.
+      console.error(`[fax-packet] failed to send to ${recipient.faxNumber ?? 'an email recipient'}`, error);
       captureException(error);
       results.push(base);
     }
@@ -247,7 +271,9 @@ export const savePcpIfRequested = async (
 
     await oystehr.fhir.patch<Patient>({ resourceType: 'Patient', id: patient.id!, operations });
 
-    console.log(`[fax-packet] saved recipient ${recipient.faxNumber} as PCP for Patient/${patient.id}`);
+    console.log(
+      `[fax-packet] saved recipient ${recipient.faxNumber ?? recipient.email} as PCP for Patient/${patient.id}`
+    );
   } catch (error) {
     console.error('[fax-packet] failed to save the recipient as the patient PCP', error);
     captureException(error);

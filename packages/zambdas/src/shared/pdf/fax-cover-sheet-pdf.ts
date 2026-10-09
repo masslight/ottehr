@@ -77,12 +77,12 @@ const createFaxCoverSheetStyles: StyleFactory = (assets) => ({
   },
 });
 
-const buildRecipientLines = (data: FaxCoverSheetData): string[] => {
+export const buildRecipientLines = (data: FaxCoverSheetData): string[] => {
   const { recipient } = data;
   const lines: string[] = [];
   if (recipient.name) lines.push(recipient.name);
   if (recipient.organization) lines.push(recipient.organization);
-  lines.push(`Fax: ${recipient.faxNumber}`);
+  lines.push(recipient.email ? `Email: ${recipient.email}` : `Fax: ${recipient.faxNumber ?? ''}`);
   if (recipient.phoneNumber) lines.push(`Phone: ${recipient.phoneNumber}`);
   return lines;
 };
