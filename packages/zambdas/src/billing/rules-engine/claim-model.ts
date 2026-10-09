@@ -29,7 +29,13 @@ import {
   isPayerUrl,
 } from 'utils/lib/helpers/helpers';
 import {
+  CLAIM_ACCIDENT_STATE_EXTENSION_URL,
+  CLAIM_ACCIDENT_TYPE_EXTENSION_URLS,
+  CLAIM_ACCIDENT_TYPES,
   CMS_PLACE_OF_SERVICE_CODE_SET,
+  CODE_SYSTEM_CLAIM_ACCIDENT_DATE,
+  CODE_SYSTEM_CLAIM_ACCIDENT_DATE_CODE,
+  CODE_SYSTEM_CLAIM_INFORMATION_CATEGORY,
   CODE_SYSTEM_CLAIM_TYPE,
   CODE_SYSTEM_CLAIM_TYPE_CODES,
   CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
@@ -40,7 +46,11 @@ import {
 import { STATE_CODES } from 'utils/lib/types/common';
 import { CLAIM_TAG_SYSTEM, PERSON_GENDER_OPTIONS } from 'utils/lib/types/data/billing/billing.constants';
 import { BillingInsuranceType } from 'utils/lib/types/data/billing/billing.schemas';
-import { BILLING_INSURANCE_TYPE_OPTIONS, ClaimCoverageType } from 'utils/lib/types/data/billing/billing.types';
+import {
+  BILLING_INSURANCE_TYPE_OPTIONS,
+  BillingProviderLicense,
+  ClaimCoverageType,
+} from 'utils/lib/types/data/billing/billing.types';
 import {
   CLAIM_STATUS_FIELD_KEYS,
   CLAIM_STATUS_FIELDS_BY_KEY,
@@ -52,7 +62,7 @@ import { CLAIM_NON_INSURANCE_PAYER_EXTENSION_URL } from 'utils/lib/types/data/bi
 import { getServiceLinePropertyDef } from 'utils/lib/types/data/billing/rules-engine.field-catalog';
 import { ServiceLineSetOperation, ServiceLineSetValue } from 'utils/lib/types/data/billing/rules-engine.schemas';
 import { isoDateRegex, taxIdRegex, zipRegex } from 'utils/lib/validation/regex';
-import { updateExtension } from '../../shared/helpers';
+import { removeExtension, updateExtension } from '../../shared/helpers';
 import { getCLIA, getPlaceOfServiceCode } from '../service-facility.helpers';
 import {
   attachCoverageToClaim,
@@ -67,15 +77,20 @@ import {
   EXTENSION_CLAIM_PATIENT_DISCHARGE_STATUS,
   EXTENSION_CLAIM_POINT_OF_ORIGIN_CODE,
   getClaimService,
+  getClaimSupportingInfo,
   getClaimType,
   getClaimTypeCoding,
+  getProviderLicense,
   getTaxonomy,
   prepareWorkingCopy,
+  removeClaimSupportingInfo,
   resourceDisplayName,
   setClaimRenderingProviderCareTeam,
   setClia,
+  setStateLicense,
   setTaxId,
   setTaxonomy,
+  updateClaimSupportingInfo,
 } from '../shared';
 
 // The rules' view of a claim: the working-copy Claim plus the working-copy resources its rules can
@@ -420,6 +435,40 @@ const providerReaders = (
   },
 });
 
+// The license lives only on individual (Practitioner) providers.
+const readLicense = (p: Provider | undefined): BillingProviderLicense | undefined =>
+  p?.resourceType === 'Practitioner' ? getProviderLicense(p) : undefined;
+
+// The accident date is a supportingInfo entry (date type 439), the same one the claim editor writes.
+const ACCIDENT_DATE_INFO = [
+  CODE_SYSTEM_CLAIM_INFORMATION_CATEGORY,
+  'info',
+  CODE_SYSTEM_CLAIM_ACCIDENT_DATE,
+  CODE_SYSTEM_CLAIM_ACCIDENT_DATE_CODE,
+] as const;
+
+// Each accident type is a valueBoolean extension present only when the claim is flagged with it.
+const accidentReaders = (): Record<string, FieldReader> => ({
+  ...Object.fromEntries(
+    CLAIM_ACCIDENT_TYPES.map((type) => [
+      `accident.${type}`,
+      (m: RulesEngineClaimModel): string =>
+        String(getExtension(m.claim, CLAIM_ACCIDENT_TYPE_EXTENSION_URLS[type])?.valueBoolean === true),
+    ])
+  ),
+  'accident.state': (m) => getExtension(m.claim, CLAIM_ACCIDENT_STATE_EXTENSION_URL)?.valueString,
+  'accident.date': (m) => getClaimSupportingInfo(m.claim, ...ACCIDENT_DATE_INFO)?.timingDate,
+});
+
+// The claim's accident details in the claim editor's shape (see claimAccidentProblems).
+export const readAccidentInfo = (
+  model: RulesEngineClaimModel
+): { accidentType: string[]; accidentState?: string; accidentDate?: string } => ({
+  accidentType: CLAIM_ACCIDENT_TYPES.filter((type) => readField(model, `accident.${type}`) === 'true'),
+  accidentState: readField(model, 'accident.state') as string | undefined,
+  accidentDate: readField(model, 'accident.date') as string | undefined,
+});
+
 const statusFieldReaders = (): Record<string, FieldReader> =>
   Object.fromEntries(
     CLAIM_STATUS_FIELD_KEYS.map((key) => [
@@ -458,6 +507,8 @@ const READERS: Record<string, FieldReader> = {
   admissionType: (m) => getExtension(m.claim, EXTENSION_CLAIM_ADMISSION_TYPE_CODE)?.valueString ?? '',
   admissionSource: (m) => getExtension(m.claim, EXTENSION_CLAIM_POINT_OF_ORIGIN_CODE)?.valueString ?? '',
 
+  ...accidentReaders(),
+
   ...statusFieldReaders(),
 
   ...personReaders('patient', (m) => m.patient),
@@ -476,6 +527,8 @@ const READERS: Record<string, FieldReader> = {
 
   'renderingProvider.ref': (m) => copySourceRef(m.renderingProvider),
   ...providerReaders('renderingProvider', (m) => m.renderingProvider),
+  'renderingProvider.licenseNumber': (m) => readLicense(m.renderingProvider)?.number || undefined,
+  'renderingProvider.licenseState': (m) => readLicense(m.renderingProvider)?.state || undefined,
   'billingProvider.ref': (m) => copySourceRef(m.billingProvider),
   ...providerReaders('billingProvider', (m) => m.billingProvider),
   'billingProvider.taxId': (m) => (m.billingProvider ? getTaxID(m.billingProvider) : undefined),
@@ -802,6 +855,33 @@ const setAdmissionSource = (claim: Claim, value: string | null): boolean => {
   return true;
 };
 
+const setAccidentType = (claim: Claim, url: string, value: string | null): boolean => {
+  if (value === 'true') updateExtension(claim, { url, valueBoolean: true });
+  else if (value === 'false') removeExtension(claim, url);
+  else return false;
+  return true;
+};
+
+const setAccidentDate = (claim: Claim, value: string | null): boolean => {
+  if (!value) {
+    removeClaimSupportingInfo(claim, ...ACCIDENT_DATE_INFO);
+    if (!claim.supportingInfo?.length) claim.supportingInfo = undefined;
+    return true;
+  }
+  if (!isoDateRegex.test(value)) return false;
+  updateClaimSupportingInfo(claim, ...ACCIDENT_DATE_INFO, { timingDate: value });
+  return true;
+};
+
+// Edit one part of the rendering provider's license, keeping the others. Individual providers only.
+const setLicensePart = (p: Provider | undefined, part: 'number' | 'state', value: string | null): boolean => {
+  if (p?.resourceType !== 'Practitioner') return false;
+  const license = { ...(getProviderLicense(p) ?? { type: '', number: '', state: '' }), [part]: value ?? '' };
+  if (license.number && !license.state) return false;
+  setStateLicense(p, license.type || license.number || license.state ? license : undefined);
+  return true;
+};
+
 const writeStatusField = (claim: Claim, key: ClaimStatusFieldKey, value: string | null): boolean => {
   const code = value ?? '';
   if (!isValidClaimStatusValue(CLAIM_STATUS_FIELDS_BY_KEY[key], code)) return false;
@@ -996,6 +1076,21 @@ const WRITERS: Record<string, FieldWriter> = {
   admissionType: (m, v) => setAdmissionType(m.claim, v),
   admissionSource: (m, v) => setAdmissionSource(m.claim, v),
 
+  ...Object.fromEntries(
+    CLAIM_ACCIDENT_TYPES.map((type) => [
+      `accident.${type}`,
+      (m: RulesEngineClaimModel, v: string | null): boolean =>
+        setAccidentType(m.claim, CLAIM_ACCIDENT_TYPE_EXTENSION_URLS[type], v),
+    ])
+  ),
+  'accident.state': (m, v) => {
+    if (!validOrEmpty(v, (s) => STATE_CODES.has(s))) return false;
+    if (v) updateExtension(m.claim, { url: CLAIM_ACCIDENT_STATE_EXTENSION_URL, valueString: v });
+    else removeExtension(m.claim, CLAIM_ACCIDENT_STATE_EXTENSION_URL);
+    return true;
+  },
+  'accident.date': (m, v) => setAccidentDate(m.claim, v),
+
   ...statusFieldWriters(),
 
   ...personWriters('patient', (m) => m.patient),
@@ -1014,6 +1109,11 @@ const WRITERS: Record<string, FieldWriter> = {
 
   'renderingProvider.ref': (m, v) => setClaimResourceRef(m, 'renderingProvider', v),
   ...providerWriters('renderingProvider', (m) => m.renderingProvider),
+  'renderingProvider.licenseNumber': (m, v) => setLicensePart(m.renderingProvider, 'number', v?.trim() || null),
+  'renderingProvider.licenseState': (m, v) => {
+    if (!validOrEmpty(v, (s) => STATE_CODES.has(s))) return false;
+    return setLicensePart(m.renderingProvider, 'state', v);
+  },
   'billingProvider.ref': (m, v) => setClaimResourceRef(m, 'billingProvider', v),
   ...providerWriters('billingProvider', (m) => m.billingProvider),
   'billingProvider.taxId': (m, v) => {

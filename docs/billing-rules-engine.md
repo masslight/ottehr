@@ -31,7 +31,7 @@ is performed.
 
 This reference lists every supported condition property, operator, and action. It is generated from
 the same catalog that drives the rule builder and the rule runs, so it always matches what the rules
-actually support (117 properties, 104 of them settable).
+actually support (124 properties, 111 of them settable).
 
 ## Conditions
 
@@ -88,6 +88,16 @@ Which operators a property supports depends on its type (see the property tables
 | Patient Discharge Status Code | `patientDischargeStatusCode` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, matches pattern, does not match pattern, is present, is empty | yes | Patient Discharge Status Code on the claim |
 | Admission Type | `admissionType` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, matches pattern, does not match pattern, is present, is empty | yes | Admission Type code on the claim |
 | Point of Origin / Admission Source | `admissionSource` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, matches pattern, does not match pattern, is present, is empty | yes | Point of Origin / Admission Source code on the claim |
+
+### Accident
+
+| Property | ID | Type | Operators | Settable | Description |
+| --- | --- | --- | --- | --- | --- |
+| Auto Accident | `accident.auto` | one of the listed values | equals, does not equal | yes | Whether the claim carries the "Auto Accident" accident type. Setting "No" removes it. Allowed values: `true` (Yes), `false` (No). Cannot be cleared — setting it requires a value. |
+| Employment Accident | `accident.employment` | one of the listed values | equals, does not equal | yes | Whether the claim carries the "Employment Accident" accident type. Setting "No" removes it. Allowed values: `true` (Yes), `false` (No). Cannot be cleared — setting it requires a value. |
+| Other Accident | `accident.other` | one of the listed values | equals, does not equal | yes | Whether the claim carries the "Other Accident" accident type. Setting "No" removes it. Allowed values: `true` (Yes), `false` (No). Cannot be cleared — setting it requires a value. |
+| Auto accident state | `accident.state` | one of the listed values | equals, does not equal, is one of, is not one of, matches pattern, does not match pattern, is present, is empty | yes | The state the auto accident occurred in (two-letter code, e.g. CA). Required on claims flagged as an auto accident: checked once all rules have run, so it can be set before or after the flag — a run that leaves it missing holds the claim. Allowed values: any two-letter US state/territory code. |
+| Accident date | `accident.date` | date | equals, does not equal, is one of, is not one of, is after, is on or after, is before, is on or before, is present, is empty | yes | The date of the accident (YYYY-MM-DD). Required on claims flagged with any accident type: checked once all rules have run, so it can be set before or after the flag — a run that leaves it missing holds the claim. |
 
 ### Claim status
 
@@ -226,6 +236,8 @@ Which operators a property supports depends on its type (see the property tables
 | First name | `renderingProvider.firstName` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, matches pattern, does not match pattern, is present, is empty | yes | The rendering provider's first name (individual providers only; setting it on an organization provider fails the rule). |
 | Last name / organization name | `renderingProvider.lastName` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, matches pattern, does not match pattern, is present, is empty | yes | The rendering provider's last name, or the organization name for organization providers. |
 | Taxonomy code | `renderingProvider.taxonomy` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, matches pattern, does not match pattern, is present, is empty | yes | The rendering provider's taxonomy code. Format: exactly 10 characters. |
+| License number | `renderingProvider.licenseNumber` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, matches pattern, does not match pattern, is present, is empty | yes | The rendering provider's professional license number (individual providers only; setting it on an organization provider fails the rule). A license number needs a license state: setting a number when the license has no state fails the rule, so set the state first. |
+| License state | `renderingProvider.licenseState` | one of the listed values | equals, does not equal, is one of, is not one of, matches pattern, does not match pattern, is present, is empty | yes | The state that issued the rendering provider's professional license (individual providers only; setting it on an organization provider fails the rule). Clearing it while the license still has a number fails the rule — clear the number first. Allowed values: any two-letter US state/territory code. |
 
 ### Billing provider
 
