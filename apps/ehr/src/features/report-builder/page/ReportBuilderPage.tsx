@@ -147,13 +147,15 @@ export default function ReportBuilderPage(): React.ReactElement {
               </FormControl>
             )}
 
-            <Button
-              variant="contained"
-              onClick={() => void rb.handleFetch()}
-              disabled={rb.loading || !rb.oystehrZambda}
-            >
-              {rb.loading ? <CircularProgress size={20} /> : 'Fetch data'}
-            </Button>
+            {rb.schema && (
+              <Button
+                variant="contained"
+                onClick={() => void rb.handleFetch()}
+                disabled={rb.loading || rb.generating || !rb.oystehrZambda}
+              >
+                {rb.loading ? <CircularProgress size={20} /> : 'Refresh data'}
+              </Button>
+            )}
           </Box>
 
           {rb.error && (

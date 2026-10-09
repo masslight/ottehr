@@ -293,9 +293,6 @@ export function useReportBuilder(): UseReportBuilder {
         needsDataset: result.needsDataset,
         codeLength: result.code.length,
       });
-      activeRequestRef.current = message;
-      setGeneratedCode(result.code);
-      setGeneratedTitle(result.title);
       return result;
     },
     [oystehrZambda, canPickModel, model]

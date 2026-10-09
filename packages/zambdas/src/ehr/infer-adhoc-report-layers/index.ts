@@ -168,38 +168,45 @@ only LAYER ids of that dataset and is an empty array when no optional layer is n
 
 export const parseDatasets = (value: unknown, catalog: CatalogDataset[]): InferAdHocLayersOutput['datasets'] => {
   if (!Array.isArray(value)) return [];
+
   const picked = new Map<string, Set<string>>();
+
   for (const entry of value) {
     const { id, layerIds } = (entry ?? {}) as { id?: unknown; layerIds?: unknown };
     const dataset = catalog.find((d) => d.id === id);
+
     if (!dataset) continue;
+
     const validLayerIds = new Set(dataset.layers.map((l) => l.id));
     const layers = picked.get(dataset.id) ?? new Set<string>();
+
     if (Array.isArray(layerIds)) {
       layerIds.forEach((layerId) => {
         if (typeof layerId === 'string' && validLayerIds.has(layerId)) layers.add(layerId);
       });
     }
+
     picked.set(dataset.id, layers);
   }
+
   return Array.from(picked, ([id, layerIds]) => ({ id, layerIds: Array.from(layerIds) }));
 };
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const { datasetId, datasets, request, secrets } = validateRequestParameters(input);
+  const { datasets, request, feedback, secrets } = validateRequestParameters(input);
 
   await requireUserWithRole(getUserToken(input), secrets, AD_HOC_REPORT_EDIT_ROLES);
 
   const raw = await invokeChatbotVertexAI(
-    [{ text: buildPrompt(datasetId, datasets, request) }],
+    [{ text: buildPrompt(datasets, request, feedback) }],
     secrets,
     'infer-adhoc-report-layers',
-    RESPONSE_SCHEMA,
+    responseSchema(datasets),
     VERTEX_AI_MODEL.id
   );
 
   const parsed = fixAndParseJsonObjectFromString(raw) as {
-    layerIds?: unknown;
+    datasets?: unknown;
     unavailable?: unknown;
     hint?: unknown;
   };
@@ -225,5 +232,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     },
     ZAMBDA_NAME
   );
+
   return { statusCode: 200, body: JSON.stringify(output) };
 });
