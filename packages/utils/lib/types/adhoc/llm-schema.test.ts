@@ -20,6 +20,7 @@ import {
   llmFieldsFromZodObject,
   MAX_DOMAIN_VALUE_LENGTH,
   MAX_DOMAIN_VALUES,
+  NESTED_RECORD_NOTE,
   sampleDomains,
 } from './datasets/llm-schema';
 import {
@@ -50,6 +51,26 @@ describe('llm-schema serialization (Zod → prompt)', () => {
     // Free-text fields carry NO values — nothing sampled from data may reach the prompt.
     const location = fields.find((f) => f.name === 'location');
     expect(location?.values).toBeUndefined();
+  });
+
+  it('tells the model a nested record does not carry its parent row fields', () => {
+    const fields = llmFieldsForLayers(EncounterBaseRowSchema, ENCOUNTER_LAYER_SCHEMAS, { imaging: true });
+    const studies = fields.find((f) => f.name === 'imagingStudies');
+    expect(studies?.type).toBe('object[]');
+    expect(studies?.description.endsWith(NESTED_RECORD_NOTE.trim())).toBe(true);
+    // Flat fields are untouched.
+    expect(fields.find((f) => f.name === 'imagingOrders')?.description).not.toContain('PARENT row');
+  });
+
+  it('imaging records separate "sent out for a final read" from "finalized"', () => {
+    const fields = llmFieldsForLayers(EncounterBaseRowSchema, ENCOUNTER_LAYER_SCHEMAS, { imaging: true });
+    const members = Object.fromEntries(
+      (fields.find((f) => f.name === 'imagingStudies')?.fields ?? []).map((f) => [f.name, f])
+    );
+    expect(members.status.values).toContain('pending final');
+    expect(members.finalReadSource.values).toEqual(['teleradiology', 'in-house']);
+    expect(members.sentForFinalReadAt).toMatchObject({ type: 'string', nullable: true });
+    expect(members.finalAt.description).toContain('EITHER source');
   });
 
   it('excludes internal row-only ids from the prompt schema', () => {

@@ -81,6 +81,14 @@ const enumValues = (s: z.ZodTypeAny): string[] | undefined =>
 //      LLM, gated per field (the whitelist) and capped.
 // `domains` maps a field name to its sampled distinct values; a field absent from it gets none.
 
+// Appended to every object[] field. A model that flattens the records (data.flatMap((r) => r.items)) and
+// then groups by a ROW field (location, provider) reads undefined off the record and buckets everything as
+// "Unknown" — the shape alone does not tell it the record lacks the parent's fields, so the field says so.
+export const NESTED_RECORD_NOTE =
+  ' Each record has ONLY the fields listed under it; the row-level fields (visit date, location, provider, ' +
+  'patient, …) are on the PARENT row, not on the record. To report per record, keep the parent row with it ' +
+  '(data.flatMap((row) => (row.<field> || []).map((item) => ({ row, item })))) and read row.<field> from the parent.';
+
 /** Serialize one field of a Zod row object. Throws on a shape the ad-hoc schemas don't use, so a
  *  new unsupported field type is a loud failure in tests, not a silent schema gap. */
 const toLlmField = (name: string, schema: z.ZodTypeAny, domains: Record<string, string[]>): LlmFieldSchema => {
@@ -101,7 +109,7 @@ const toLlmField = (name: string, schema: z.ZodTypeAny, domains: Record<string, 
         }
         return field as LlmObjectFieldSchema;
       });
-      return { ...base, type: 'object[]', fields };
+      return { ...base, description: `${description}${NESTED_RECORD_NOTE}`.trim(), type: 'object[]', fields };
     }
     const values = enumValues(element) ?? sampled;
     return { ...base, type: 'string[]', ...(values ? { values } : {}) };

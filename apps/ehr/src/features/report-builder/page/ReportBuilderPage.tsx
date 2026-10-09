@@ -26,7 +26,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import React from 'react';
+import React, { useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   AD_HOC_REPORT_LLM_MODELS,
@@ -44,6 +44,13 @@ import { useReportBuilder } from './useReportBuilder';
 export default function ReportBuilderPage(): React.ReactElement {
   const navigate = useNavigate();
   const rb = useReportBuilder();
+
+  // ReportFrame is memoized on code/data/schema only, so hand it callbacks with a stable identity that
+  // always forward to the latest handlers (which close over generating / saved-report state).
+  const handlersRef = useRef({ onError: rb.handleRenderError, onRendered: rb.handleRendered });
+  handlersRef.current = { onError: rb.handleRenderError, onRendered: rb.handleRendered };
+  const onFrameError = useCallback((message: string) => handlersRef.current.onError(message), []);
+  const onFrameRendered = useCallback(() => handlersRef.current.onRendered(), []);
 
   if (!rb.canView) {
     return (
@@ -269,7 +276,7 @@ export default function ReportBuilderPage(): React.ReactElement {
                 </Button>
               </Box>
 
-              <Collapse in={rb.showSchema}>
+              <Collapse in={rb.showSchema} unmountOnExit>
                 <Paper variant="outlined" sx={{ mb: 3, overflow: 'auto' }}>
                   <Table size="small">
                     <TableHead>
@@ -297,7 +304,7 @@ export default function ReportBuilderPage(): React.ReactElement {
                       ))}
                     </TableBody>
                   </Table>
-                  <DatasetLayersInfo datasetId={rb.datasetId} datasetOptions={rb.datasetOptions} />
+                  <DatasetLayersInfo schema={rb.schema} />
                 </Paper>
               </Collapse>
 
@@ -317,7 +324,7 @@ export default function ReportBuilderPage(): React.ReactElement {
                     )}
                   </Box>
 
-                  <Collapse in={rb.showCode}>
+                  <Collapse in={rb.showCode} unmountOnExit>
                     <Paper
                       variant="outlined"
                       sx={{ mb: 2, p: 2, maxHeight: 400, overflow: 'auto', bgcolor: 'grey.50' }}
@@ -390,8 +397,8 @@ export default function ReportBuilderPage(): React.ReactElement {
                     code={rb.generatedCode}
                     data={rb.rows}
                     schema={rb.schema}
-                    onError={rb.handleRenderError}
-                    onRendered={rb.handleRendered}
+                    onError={onFrameError}
+                    onRendered={onFrameRendered}
                   />
                 </>
               )}

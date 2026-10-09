@@ -14,13 +14,17 @@ import {
   Practitioner,
   ServiceRequest,
 } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import { FHIR_EXTENSION, PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { MEDICATION_CPT_CODES_EXTENSION_URL } from 'utils/lib/fhir/medication-administration';
 import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
 import {
   DIAGNOSTIC_REPORT_PRELIMINARY_REVIEW_ON_EXTENSION_URL,
+  ORDER_TYPE_CODE_SYSTEM,
+  SERVICE_REQUEST_NEEDS_TO_BE_SENT_TO_TELERADIOLOGY_EXTENSION_URL,
   SERVICE_REQUEST_PERFORMED_ON_EXTENSION_URL,
   SERVICE_REQUEST_REQUESTED_TIME_EXTENSION_URL,
+  SERVICE_REQUEST_SENT_FOR_FINAL_READ_BY_EXTENSION_URL,
 } from 'utils/lib/fhir/radiology';
 import { CODE_SYSTEM_CPT, CODE_SYSTEM_NDC } from 'utils/lib/helpers/rcm/constants';
 import { AdHocBillingOutputSchema } from 'utils/lib/types/adhoc/datasets/billing';
@@ -336,37 +340,69 @@ const radiologyOrder = (
   id: string,
   name: string,
   status: ServiceRequest['status'],
-  performedAt?: string
+  performedAt?: string,
+  opts: { sentForFinalAt?: string; sentBy?: string; encounterId?: string } = {}
 ): ServiceRequest => ({
   resourceType: 'ServiceRequest' as const,
   id,
   status,
   intent: 'order',
   subject: { reference: 'Patient/pat-1' },
-  encounter: { reference: 'Encounter/enc-1' },
+  encounter: { reference: `Encounter/${opts.encounterId ?? 'enc-1'}` },
   meta: { tag: [{ code: 'radiology' }] },
   code: { coding: [{ system: CODE_SYSTEM_CPT, code: '73030', display: name }] },
   extension: [
     { url: SERVICE_REQUEST_REQUESTED_TIME_EXTENSION_URL, valueDateTime: '2026-07-01T14:12:00.000Z' },
     ...(performedAt ? [{ url: SERVICE_REQUEST_PERFORMED_ON_EXTENSION_URL, valueDateTime: performedAt }] : []),
+    ...(opts.sentForFinalAt
+      ? [{ url: SERVICE_REQUEST_NEEDS_TO_BE_SENT_TO_TELERADIOLOGY_EXTENSION_URL, valueDateTime: opts.sentForFinalAt }]
+      : []),
+    ...(opts.sentBy
+      ? [
+          {
+            url: SERVICE_REQUEST_SENT_FOR_FINAL_READ_BY_EXTENSION_URL,
+            valueReference: { reference: 'Practitioner/prac-2', display: opts.sentBy },
+          },
+        ]
+      : []),
   ],
 });
-const radiologyRead = (id: string, srId: string, status: DiagnosticReport['status'], at: string): DiagnosticReport => ({
+const radiologyRead = (
+  id: string,
+  srId: string,
+  status: DiagnosticReport['status'],
+  at: string,
+  performer?: string
+): DiagnosticReport => ({
   resourceType: 'DiagnosticReport' as const,
   id,
   status,
   code: { text: 'XR shoulder' },
   basedOn: [{ reference: `ServiceRequest/${srId}` }],
+  ...(performer ? { performer: [{ reference: 'Practitioner/prac-1', display: performer }] } : {}),
   ...(status === 'preliminary'
     ? { extension: [{ url: DIAGNOSTIC_REPORT_PRELIMINARY_REVIEW_ON_EXTENSION_URL, valueDateTime: at }] }
     : { issued: at }),
 });
+// sr-1: sent out → teleradiology final (an over-read). sr-4: finalized in-house by the provider. sr-5: sent
+// out, final read not back yet. sr-6: an order on an encounter outside the report — must not leak in.
 const serviceRequests: FhirResource[] = [
-  radiologyOrder('sr-1', 'XR shoulder', 'completed', '2026-07-01T14:30:00.000Z'),
+  radiologyOrder('sr-1', 'XR shoulder', 'completed', '2026-07-01T14:30:00.000Z', {
+    sentForFinalAt: '2026-07-01T14:50:00.000Z',
+    sentBy: 'Jane Sender',
+  }),
   radiologyRead('dr-1', 'sr-1', 'preliminary', '2026-07-01T14:45:00.000Z'),
   radiologyRead('dr-2', 'sr-1', 'final', '2026-07-01T18:00:00.000Z'),
   radiologyOrder('sr-2', 'XR wrist', 'active'),
   radiologyOrder('sr-3', 'XR knee', 'revoked'),
+  radiologyOrder('sr-4', 'XR ankle', 'completed', '2026-07-01T14:31:00.000Z'),
+  radiologyRead('dr-4p', 'sr-4', 'preliminary', '2026-07-01T14:40:00.000Z'),
+  radiologyRead('dr-4f', 'sr-4', 'final', '2026-07-01T14:40:30.000Z', 'Pat Provider'),
+  radiologyOrder('sr-5', 'XR hand', 'completed', '2026-07-01T14:32:00.000Z', {
+    sentForFinalAt: '2026-07-01T14:55:00.000Z',
+  }),
+  radiologyRead('dr-5p', 'sr-5', 'preliminary', '2026-07-01T14:52:00.000Z'),
+  radiologyOrder('sr-6', 'XR foot', 'completed', undefined, { encounterId: 'enc-elsewhere' }),
 ];
 
 // "Ask the patient" screening answers: chart-data Observations keyed by the config field's fhirField,
@@ -472,11 +508,11 @@ afterAll(() => {
 
 const fakeOystehr = {
   fhir: {
-    search: async ({ resourceType }: { resourceType: string }) => ({
+    search: vi.fn(async ({ resourceType }: { resourceType: string; params?: { name: string; value: string }[] }) => ({
       jobId: resourceType,
       contentLocation: '',
       mode: 'bulk',
-    }),
+    })),
     waitForAsyncJob: async (jobId: string) => ({ status: 200, mode: 'bulk', manifest: manifestFor(jobId) }),
   },
   user: { list: async () => [] },
@@ -559,7 +595,8 @@ describe('ad-hoc dataset zambdas: mapped rows parse against their Zod schema (fi
 
     expect(issuesOf(AdHocEncountersOutputSchema.safeParse({ encounters: rows }))).toEqual([]);
     // The flat list keeps excluding cancelled orders; the records carry every order with a status.
-    expect(row.imagingOrders).toEqual(['XR shoulder', 'XR wrist']);
+    expect(row.imagingOrders).toEqual(['XR shoulder', 'XR wrist', 'XR ankle', 'XR hand']);
+    const none = { sentForFinalReadAt: null, sentForFinalReadBy: null, finalReadSource: null, finalReadBy: null };
     expect(row.imagingStudies).toEqual([
       {
         name: 'XR shoulder',
@@ -567,7 +604,11 @@ describe('ad-hoc dataset zambdas: mapped rows parse against their Zod schema (fi
         orderedAt: '2026-07-01T14:12:00.000Z',
         performedAt: '2026-07-01T14:30:00.000Z',
         preliminaryAt: '2026-07-01T14:45:00.000Z',
+        sentForFinalReadAt: '2026-07-01T14:50:00.000Z',
+        sentForFinalReadBy: 'Jane Sender',
         finalAt: '2026-07-01T18:00:00.000Z',
+        finalReadSource: 'teleradiology',
+        finalReadBy: null,
       },
       {
         name: 'XR wrist',
@@ -576,6 +617,7 @@ describe('ad-hoc dataset zambdas: mapped rows parse against their Zod schema (fi
         performedAt: null,
         preliminaryAt: null,
         finalAt: null,
+        ...none,
       },
       {
         name: 'XR knee',
@@ -584,8 +626,52 @@ describe('ad-hoc dataset zambdas: mapped rows parse against their Zod schema (fi
         performedAt: null,
         preliminaryAt: null,
         finalAt: null,
+        ...none,
+      },
+      {
+        name: 'XR ankle',
+        status: 'final',
+        orderedAt: '2026-07-01T14:12:00.000Z',
+        performedAt: '2026-07-01T14:31:00.000Z',
+        preliminaryAt: '2026-07-01T14:40:00.000Z',
+        finalAt: '2026-07-01T14:40:30.000Z',
+        ...none,
+        finalReadSource: 'in-house',
+        finalReadBy: 'Pat Provider',
+      },
+      {
+        name: 'XR hand',
+        status: 'pending final',
+        orderedAt: '2026-07-01T14:12:00.000Z',
+        performedAt: '2026-07-01T14:32:00.000Z',
+        preliminaryAt: '2026-07-01T14:52:00.000Z',
+        finalAt: null,
+        ...none,
+        sentForFinalReadAt: '2026-07-01T14:55:00.000Z',
       },
     ]);
+  });
+
+  it('encounters imaging layer: radiology orders are searched by order date, not one job per encounter batch', async () => {
+    const search = fakeOystehr.fhir.search as unknown as ReturnType<typeof vi.fn>;
+    search.mockClear();
+    await fetchAdHocEncounterRows(fakeOystehr, { dateRange, includeImaging: true });
+
+    const srSearches = search.mock.calls
+      .map(([arg]) => arg as { resourceType: string; params: { name: string; value: string }[] })
+      .filter((arg) => arg.resourceType === 'ServiceRequest');
+    expect(srSearches.length).toBeGreaterThan(0);
+    for (const { params } of srSearches) {
+      expect(params.some((p) => p.name === 'encounter')).toBe(false);
+      expect(params).toContainEqual({ name: '_tag', value: `${ORDER_TYPE_CODE_SYSTEM}|radiology` });
+      expect(params).toContainEqual({ name: '_revinclude', value: 'DiagnosticReport:based-on' });
+    }
+    const authored = srSearches.flatMap(({ params }) =>
+      params.filter((p) => p.name === 'authored').map((p) => p.value)
+    );
+    // Widened around the visit window: a day before its start, a month after its end.
+    expect(authored).toContain(`ge${DateTime.fromISO(dateRange.start).minus({ days: 1 }).toISO()}`);
+    expect(authored).toContain(`le${DateTime.fromISO(dateRange.end).plus({ days: 31 }).toISO()}`);
   });
 
   it('encounters intake layer: screening answers resolved to question text and option label, newest wins', async () => {

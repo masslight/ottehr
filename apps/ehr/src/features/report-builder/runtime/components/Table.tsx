@@ -1,4 +1,4 @@
-import { Box, Button, Paper, Typography } from '@mui/material';
+import { Alert, Box, Button, Paper, Typography } from '@mui/material';
 import {
   DataGridPro,
   GridColDef,
@@ -69,6 +69,13 @@ export interface TableProps {
 // Reserved grid-row key; the underscored name keeps collisions with report fields implausible.
 const ROW_ID_KEY = '__adhocRowId';
 
+// The labels generated code falls back to when a group key is missing. A column holding ONLY these is the
+// footprint of a key read from the wrong object (e.g. a row-level field like location read off a nested
+// record): every row lands in one "Unknown" bucket and the table looks plausible while saying nothing.
+const PLACEHOLDER_LABELS = new Set(['unknown', 'unassigned', 'n/a']);
+const isPlaceholderLabel = (value: unknown): boolean =>
+  typeof value === 'string' && PLACEHOLDER_LABELS.has(value.trim().toLowerCase());
+
 interface GridRow extends Record<string, unknown> {
   [ROW_ID_KEY]: number;
 }
@@ -86,7 +93,7 @@ export function Table({ rows, columns, links, title, pageSize = 25, onRowClick }
     return m;
   }, [links]);
 
-  const { gridColumns, gridRows } = useMemo(() => {
+  const { gridColumns, gridRows, placeholderColumns } = useMemo(() => {
     const fields = columns?.map((c) => c.field) ?? Object.keys(rows[0] ?? {});
     const configByField = new Map((columns ?? []).map((c) => [c.field, c]));
 
@@ -144,7 +151,13 @@ export function Table({ rows, columns, links, title, pageSize = 25, onRowClick }
     });
 
     const gridRows: GridRow[] = rows.map((r, i) => ({ ...r, [ROW_ID_KEY]: i }));
-    return { gridColumns, gridRows };
+    const placeholderColumns =
+      rows.length > 0
+        ? gridColumns
+            .filter((col) => rows.every((r) => isPlaceholderLabel(cellValue(col.field, r))))
+            .map((col) => col.headerName ?? col.field)
+        : [];
+    return { gridColumns, gridRows, placeholderColumns };
   }, [columns, rows, linkByField]);
 
   const handleExport = useCallback((): void => {
@@ -183,6 +196,13 @@ export function Table({ rows, columns, links, title, pageSize = 25, onRowClick }
 
   return (
     <Box sx={{ mb: 1 }}>
+      {placeholderColumns.length > 0 && (
+        <Alert severity="warning" sx={{ mb: 1 }}>
+          {placeholderColumns.map((name) => `“${name}”`).join(', ')} {placeholderColumns.length > 1 ? 'are' : 'is'}{' '}
+          “Unknown” in every row. The report is probably reading a field these records do not carry, so this table may
+          be wrong — regenerate it, naming where that value comes from.
+        </Alert>
+      )}
       {exportTooLarge && (
         <Typography variant="body2" color="error" sx={{ mb: 0.5 }}>
           This report is too large to export.

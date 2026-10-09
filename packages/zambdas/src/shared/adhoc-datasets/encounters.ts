@@ -47,8 +47,10 @@ import {
 } from 'utils/lib/fhir/patient';
 import {
   DIAGNOSTIC_REPORT_PRELIMINARY_REVIEW_ON_EXTENSION_URL,
+  SERVICE_REQUEST_NEEDS_TO_BE_SENT_TO_TELERADIOLOGY_EXTENSION_URL,
   SERVICE_REQUEST_PERFORMED_ON_EXTENSION_URL,
   SERVICE_REQUEST_REQUESTED_TIME_EXTENSION_URL,
+  SERVICE_REQUEST_SENT_FOR_FINAL_READ_BY_EXTENSION_URL,
 } from 'utils/lib/fhir/radiology';
 import { isInHouseLabServiceRequest } from 'utils/lib/helpers/in-house-labs';
 import { CODE_SYSTEM_CPT, CODE_SYSTEM_NDC } from 'utils/lib/helpers/rcm/constants';
@@ -71,6 +73,7 @@ import { getVisitStatusHistory } from 'utils/lib/utils/visitUtils';
 import {
   buildEncounterRowContext,
   fetchAppointmentReportResources,
+  fetchRadiologyOrdersForReport,
   fetchScopedResources,
   resolveEncounterAppointment,
 } from '../adhoc-report';
@@ -249,8 +252,12 @@ const extensionDateTime = (
   url: string
 ): string | null => resource.extension?.find((e) => e.url === url)?.valueDateTime ?? null;
 
-// Mirrors radiology/order-list buildHistory: order time and performed time live on ServiceRequest
+// Mirrors radiology/order-list (status + buildHistory): order time and performed time live on ServiceRequest
 // extensions, the preliminary read time on the preliminary DiagnosticReport, the final read on issued.
+// "Send for Final Read" (send-for-final-read zambda) stamps the needs-to-be-sent extension on the order — it
+// is never removed, so it is the permanent record that the study went out for a teleradiology over-read; the
+// sent-by extension next to it names who pressed the button (written since Aug 2026). An in-house final
+// (save-final-report) never sets it and credits the author as DiagnosticReport.performer.
 type RadiologyStudy = NonNullable<AdHocEncounterRow['imagingStudies']>[number];
 const radiologyStudy = (sr: ServiceRequest, reports: DiagnosticReport[]): RadiologyStudy => {
   const preliminary = takeMostRecentPreliminaryReport(reports);
@@ -261,17 +268,40 @@ const radiologyStudy = (sr: ServiceRequest, reports: DiagnosticReport[]): Radiol
   const finalAt = final ? final.issued ?? final.meta?.lastUpdated ?? null : null;
   const performedAt = extensionDateTime(sr, SERVICE_REQUEST_PERFORMED_ON_EXTENSION_URL);
   const orderedAt = extensionDateTime(sr, SERVICE_REQUEST_REQUESTED_TIME_EXTENSION_URL) ?? sr.authoredOn ?? null;
+  const sentForFinalReadAt = extensionDateTime(sr, SERVICE_REQUEST_NEEDS_TO_BE_SENT_TO_TELERADIOLOGY_EXTENSION_URL);
+  const sentForFinalReadBy =
+    sr.extension?.find((e) => e.url === SERVICE_REQUEST_SENT_FOR_FINAL_READ_BY_EXTENSION_URL)?.valueReference
+      ?.display || null;
+  const finalReadSource: RadiologyStudy['finalReadSource'] = final
+    ? sentForFinalReadAt
+      ? 'teleradiology'
+      : 'in-house'
+    : null;
+  const finalReadBy = finalReadSource === 'in-house' ? final?.performer?.[0]?.display || null : null;
   const status: RadiologyStudy['status'] =
     sr.status === 'revoked'
       ? 'cancelled'
       : final
       ? 'final'
+      : preliminary && sentForFinalReadAt
+      ? 'pending final'
       : preliminary
       ? 'preliminary'
       : performedAt || sr.status === 'completed'
       ? 'performed'
       : 'pending';
-  return { name: orderDisplay(sr), status, orderedAt, performedAt, preliminaryAt, finalAt };
+  return {
+    name: orderDisplay(sr),
+    status,
+    orderedAt,
+    performedAt,
+    preliminaryAt,
+    sentForFinalReadAt,
+    sentForFinalReadBy,
+    finalAt,
+    finalReadSource,
+    finalReadBy,
+  };
 };
 
 export async function fetchAdHocEncounterRows(
@@ -322,6 +352,7 @@ export async function fetchAdHocEncounterRows(
   const statementByMaId = new Map<string, MedicationStatement>();
   const observationsByEncounterId = new Map<string, Observation[]>();
   const serviceRequestsByEncounterId = new Map<string, ServiceRequest[]>();
+  const radiologyOrdersByEncounterId = new Map<string, ServiceRequest[]>();
   const radiologyReportsBySrId = new Map<string, DiagnosticReport[]>();
   const resultsByEncounterId = new Map<string, DiagnosticReport[]>();
   const encounterConditionsByEncounterId = new Map<string, Condition[]>();
@@ -479,7 +510,7 @@ export async function fetchAdHocEncounterRows(
         observationsByEncounterId
       );
     }
-    if (includeLabs || includeImaging || includeDisposition || includeNursing) {
+    if (includeLabs || includeDisposition || includeNursing) {
       indexByEncounter(
         await fetchScoped<ServiceRequest>('ServiceRequest', 'encounter', encRefs),
         (s) => stripEnc(s.encounter?.reference),
@@ -487,22 +518,25 @@ export async function fetchAdHocEncounterRows(
       );
     }
     if (includeImaging) {
-      // Radiology reads are DiagnosticReports linked to the order by basedOn, not by encounter. Scope the
-      // revinclude to radiology orders only — lab reports can carry PDF attachments and are not needed.
-      const radiologyAndReads = await fetchScoped<ServiceRequest | DiagnosticReport>(
-        'ServiceRequest',
-        'encounter',
-        encRefs,
-        [
-          { name: '_tag', value: 'radiology' },
-          { name: '_revinclude', value: 'DiagnosticReport:based-on' },
-        ]
+      // Radiology orders (with their reads — DiagnosticReports linked by basedOn, not by encounter) are
+      // searched by order date rather than scoped by encounter id: a few jobs instead of one per 100
+      // encounters. Orders on encounters outside this report fall away at row-build time (looked up by id).
+      const radiologyAndReads = await fetchRadiologyOrdersForReport<ServiceRequest | DiagnosticReport>(
+        oystehr,
+        dateRange
       );
-      for (const dr of radiologyAndReads) {
-        if (dr.resourceType !== 'DiagnosticReport' || dr.status === 'entered-in-error') continue;
-        for (const ref of dr.basedOn ?? []) {
+      for (const resource of radiologyAndReads) {
+        if (resource.resourceType === 'ServiceRequest') {
+          const encId = stripEnc(resource.encounter?.reference);
+          if (encId && encounterById.has(encId)) {
+            radiologyOrdersByEncounterId.set(encId, [...(radiologyOrdersByEncounterId.get(encId) ?? []), resource]);
+          }
+          continue;
+        }
+        if (resource.status === 'entered-in-error') continue;
+        for (const ref of resource.basedOn ?? []) {
           const srId = ref.reference?.startsWith('ServiceRequest/') ? ref.reference.replace('ServiceRequest/', '') : '';
-          if (srId) radiologyReportsBySrId.set(srId, [...(radiologyReportsBySrId.get(srId) ?? []), dr]);
+          if (srId) radiologyReportsBySrId.set(srId, [...(radiologyReportsBySrId.get(srId) ?? []), resource]);
         }
       }
     }
@@ -909,21 +943,24 @@ export async function fetchAdHocEncounterRows(
         row.weightKg && row.heightCm && row.heightCm > 0 ? round1(row.weightKg / (row.heightCm / 100) ** 2) : null;
     }
 
-    if (includeLabs || includeImaging || includeDisposition || includeNursing) {
+    if (includeImaging) {
+      const radiologyOrders = (encounter.id ? radiologyOrdersByEncounterId.get(encounter.id) ?? [] : []).filter(
+        isImagingOrder
+      );
+      const imagingOrders = radiologyOrders.filter(isActiveOrder).map(orderDisplay).filter(Boolean);
+      row.imagingOrders = imagingOrders;
+      row.imagingOrderCount = imagingOrders.length;
+      row.imagingStudies = radiologyOrders
+        .filter((sr) => sr.status !== 'entered-in-error')
+        .map((sr) => radiologyStudy(sr, sr.id ? radiologyReportsBySrId.get(sr.id) ?? [] : []))
+        .filter((study) => Boolean(study.name));
+    }
+    if (includeLabs || includeDisposition || includeNursing) {
       const srs = (encounter.id ? serviceRequestsByEncounterId.get(encounter.id) ?? [] : []).filter(isActiveOrder);
       if (includeLabs) {
         const labOrders = srs.filter(isLabOrder).map(orderDisplay).filter(Boolean);
         row.labOrders = labOrders;
         row.labOrderCount = labOrders.length;
-      }
-      if (includeImaging) {
-        const imagingOrders = srs.filter(isImagingOrder).map(orderDisplay).filter(Boolean);
-        row.imagingOrders = imagingOrders;
-        row.imagingOrderCount = imagingOrders.length;
-        row.imagingStudies = (encounter.id ? serviceRequestsByEncounterId.get(encounter.id) ?? [] : [])
-          .filter((sr) => isImagingOrder(sr) && sr.status !== 'entered-in-error')
-          .map((sr) => radiologyStudy(sr, sr.id ? radiologyReportsBySrId.get(sr.id) ?? [] : []))
-          .filter((study) => Boolean(study.name));
       }
       if (includeNursing) {
         const nursingOrders = srs

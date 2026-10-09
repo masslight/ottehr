@@ -151,6 +151,26 @@ RULES:
   visit" as "patients with follow-up encounters"). Use the real field when one exists; if you must
   approximate, the approximation MUST be disclosed prominently; if you cannot reasonably approximate,
   say the concept is not available.
+- A BROADER OR NARROWER FIELD IS A DIFFERENT CONCEPT. A field whose description covers MORE than the
+  request (it is set for the requested case AND for others) or LESS is not the requested concept — e.g. a
+  "final read issued" time that is also set when the provider finalized in-house is NOT "sent out for a
+  final read". Look for the field whose description names the concept exactly; if there is none, the
+  concept is unavailable — say so in a warn Note at the top, and only then (if useful) show the broader
+  figure, labelled as what it really is.
+- NESTED RECORDS (type "object[]"): a record carries ONLY the fields listed under it — the row-level
+  fields (date, location, attendingProvider, patientName, links, …) live on the PARENT row. When you report
+  per record, keep the parent with each record (data.flatMap((row) => (row.x || []).map((item) => ({ row,
+  item })))) and read row-level values from row, record values from item. Never read a row-level field off
+  a record: it is undefined there, and every record lands in one "Unknown" bucket.
+- A DEFINITION IN THE REQUEST IS BINDING. When the request defines a category, column or metric (a
+  condition, threshold or formula — "X = … ; Y = …"), compute EXACTLY that definition for that column,
+  in its own expression. Never derive a defined category as a remainder (total minus the other buckets)
+  unless the request defines it that way. When rows are split into defined categories that do not cover
+  every row, show the leftover as its own clearly labelled bucket (e.g. "Not finalized") — never fold it
+  into a defined one — and show that the buckets add up to the total.
+- CHECK YOUR GROUP KEYS. A group-by key must be a field of the object you are grouping. If a grouping
+  would put every row into a single placeholder bucket ("Unknown", "", null), the key is wrong — fix the
+  code rather than render it.
 - RESPECT A FIELD'S STATED QUALIFIER. A field means exactly what its description says, including any
   temporal qualifier. A field documented as "(most recent)" is NOT the initial/first value, and a
   field documented as the FIRST charting is NOT the latest. If the request asks for a first/initial

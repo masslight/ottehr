@@ -344,7 +344,10 @@ export const ENCOUNTER_LAYERS = {
   },
   imaging: {
     label: 'Radiology orders',
-    description: "Radiology studies ordered on the visit: names, counts, and each order's status timeline.",
+    description:
+      "Radiology studies ordered on the visit: names, counts, and each order's status timeline — including " +
+      'whether it was sent to the outside teleradiologist for a final read (an over-read), when and by whom, ' +
+      'and whether the final read came from teleradiology or was written in-house by the provider.',
     schema: z.object({
       imagingOrders: z.array(z.string()).describe('Radiology studies ordered (excl. cancelled).'),
       imagingOrderCount: z.number().describe('Number of radiology studies ordered. 0 when none.'),
@@ -355,15 +358,55 @@ export const ENCOUNTER_LAYERS = {
               .string()
               .describe('Study name, same value as the corresponding radiology order (including cancelled orders).'),
             status: z
-              .enum(['pending', 'performed', 'preliminary', 'final', 'cancelled'])
-              .describe('Current order status: pending → performed → preliminary (read) → final (read).'),
+              .enum(['pending', 'performed', 'preliminary', 'pending final', 'final', 'cancelled'])
+              .describe(
+                'Current order status: pending → performed → preliminary (read) → [pending final = sent to ' +
+                  'teleradiology, awaiting its final read] → final (read). An in-house final skips "pending final".'
+              ),
             orderedAt: z.string().nullable().describe('Full ISO instant the order was placed (status pending).'),
             performedAt: z.string().nullable().describe('Full ISO instant the study was performed. Null until then.'),
             preliminaryAt: z
               .string()
               .nullable()
               .describe('Full ISO instant the preliminary read was saved. Null until then.'),
-            finalAt: z.string().nullable().describe('Full ISO instant the final read was issued. Null until then.'),
+            sentForFinalReadAt: z
+              .string()
+              .nullable()
+              .describe(
+                'Full ISO instant a provider pressed "Send for Final Read", i.e. sent the study to the OUTSIDE ' +
+                  'teleradiologist for a final read (an over-read — the billed teleradiology read). Non-null = ' +
+                  'sent out, whether or not the final read has come back yet. Null = never sent out. THIS is the ' +
+                  'field for "sent for a final read" / "over-reads" / teleradiology volume.'
+              ),
+            sentForFinalReadBy: z
+              .string()
+              .nullable()
+              .describe(
+                'Full name of the user who pressed "Send for Final Read" — may differ from the attending ' +
+                  'provider. Recorded only since Aug 2026: null on older studies even when sentForFinalReadAt is set.'
+              ),
+            finalAt: z
+              .string()
+              .nullable()
+              .describe(
+                'Full ISO instant the final read was issued — by EITHER source: the teleradiologist OR the ' +
+                  'provider finalizing in-house. Non-null does NOT mean the study was sent out; use ' +
+                  'finalReadSource / sentForFinalReadAt for that. Null until finalized.'
+              ),
+            finalReadSource: z
+              .enum(['teleradiology', 'in-house'])
+              .nullable()
+              .describe(
+                'Who issued the final read: "teleradiology" = the outside radiologist (an over-read), ' +
+                  '"in-house" = the provider finalized it themselves without sending it out. Null until finalized.'
+              ),
+            finalReadBy: z
+              .string()
+              .nullable()
+              .describe(
+                'In-house finals: full name of the provider who wrote the final read (recorded since Aug 2026). ' +
+                  'Null for teleradiology finals, not-yet-final studies, and older in-house finals.'
+              ),
           })
         )
         .describe('One record per radiology order with its status timestamps. Empty when no radiology on the visit.'),

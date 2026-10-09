@@ -17,6 +17,7 @@ import { getEncounterVisitType } from 'utils/lib/fhir/encounter';
 import { isInPersonAppointment, isTelemedAppointment, OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
 import { getAddressForIndividual } from 'utils/lib/fhir/patient';
 import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
+import { ORDER_TYPE_CODE_SYSTEM } from 'utils/lib/fhir/radiology';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { getInPersonVisitStatus } from 'utils/lib/utils/visitUtils';
 import { createPresignedUrl } from './z3Utils';
@@ -190,7 +191,10 @@ export const REPORT_ATTENDED_APPOINTMENT_STATUSES = 'proposed,pending,booked,arr
 const REPORT_WINDOW_DAYS = 3;
 const REPORT_WINDOW_CONCURRENCY = 4;
 
-function reportWindows(dateRange: { start: string; end: string }): { start: string; end: string }[] {
+function reportWindows(
+  dateRange: { start: string; end: string },
+  windowDays = REPORT_WINDOW_DAYS
+): { start: string; end: string }[] {
   const start = DateTime.fromISO(dateRange.start);
   const end = DateTime.fromISO(dateRange.end);
   if (!start.isValid || !end.isValid || end <= start) return [dateRange];
@@ -198,7 +202,7 @@ function reportWindows(dateRange: { start: string; end: string }): { start: stri
   const windows: { start: string; end: string }[] = [];
   let cursor = start;
   while (cursor < end) {
-    const next = DateTime.min(cursor.plus({ days: REPORT_WINDOW_DAYS }), end);
+    const next = DateTime.min(cursor.plus({ days: windowDays }), end);
     windows.push({ start: cursor.toISO()!, end: next.toISO()! });
     // `date=ge`/`le` include both bounds, so step off the boundary by a millisecond to keep an appointment out of two windows.
     cursor = next.plus({ milliseconds: 1 });
@@ -247,6 +251,61 @@ export async function fetchAppointmentReportResources<T extends FhirResource>(
   out.push(...(await fetchAttendingPractitioners<T>(oystehr, out)));
   console.log(
     `[adhoc] Appointment search: windows=${windows.length} resources=${out.length} ms=${Date.now() - startedAt}`
+  );
+  return out;
+}
+
+// Radiology orders are few (~1k a month at a 10-clinic practice) next to encounters (~8k), so searching them
+// by ORDER DATE in a handful of windows is far cheaper than scoping them by encounter id — that costs one
+// async-bulk job per 100 encounters (~85 jobs for a month). The order is placed during the visit, so its
+// authored time follows the appointment start; the window is widened on both sides so an order charted
+// late on an open visit is still found, and the caller keeps only orders whose encounter is in the report.
+// Same query shape as the daily-radiology-report cron.
+const RADIOLOGY_AUTHORED_LEAD_DAYS = 1;
+const RADIOLOGY_AUTHORED_LAG_DAYS = 31;
+const RADIOLOGY_WINDOW_DAYS = 7;
+
+export async function fetchRadiologyOrdersForReport<T extends FhirResource>(
+  oystehr: Oystehr,
+  dateRange: { start: string; end: string }
+): Promise<T[]> {
+  const start = DateTime.fromISO(dateRange.start);
+  const end = DateTime.fromISO(dateRange.end);
+  const widened =
+    start.isValid && end.isValid
+      ? {
+          start: start.minus({ days: RADIOLOGY_AUTHORED_LEAD_DAYS }).toISO()!,
+          // No order is authored in the future: for a range ending today the lag would only add empty windows.
+          end: DateTime.max(
+            end,
+            DateTime.min(end.plus({ days: RADIOLOGY_AUTHORED_LAG_DAYS }), DateTime.now())
+          ).toISO()!,
+        }
+      : dateRange;
+
+  const searchWindow = (window: { start: string; end: string }): Promise<T[]> =>
+    searchAsyncBulk<T>(oystehr, 'ServiceRequest', [
+      { name: '_tag', value: `${ORDER_TYPE_CODE_SYSTEM}|radiology` },
+      { name: 'authored', value: `ge${window.start}` },
+      { name: 'authored', value: `le${window.end}` },
+      { name: '_revinclude', value: 'DiagnosticReport:based-on' },
+    ]);
+
+  const windows = reportWindows(widened, RADIOLOGY_WINDOW_DAYS);
+  const out: T[] = [];
+  const seen = new Set<string>();
+  const startedAt = Date.now();
+  for (let i = 0; i < windows.length; i += REPORT_WINDOW_CONCURRENCY) {
+    const group = await Promise.all(windows.slice(i, i + REPORT_WINDOW_CONCURRENCY).map(searchWindow));
+    for (const resource of group.flat()) {
+      const key = `${resource.resourceType}/${resource.id}`;
+      if (resource.id && seen.has(key)) continue;
+      if (resource.id) seen.add(key);
+      out.push(resource);
+    }
+  }
+  console.log(
+    `[adhoc] Radiology order search: windows=${windows.length} resources=${out.length} ms=${Date.now() - startedAt}`
   );
   return out;
 }

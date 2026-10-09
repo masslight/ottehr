@@ -11,7 +11,7 @@ interface ReportFrameProps {
   onRendered?: () => void;
 }
 
-export function ReportFrame({ code, data, schema, onError, onRendered }: ReportFrameProps): React.ReactElement {
+function ReportFrameInner({ code, data, schema, onError, onRendered }: ReportFrameProps): React.ReactElement {
   const { frameProps, rendering } = useSandbox({ code, data, schema, onError, onRendered });
 
   if (!frameProps) {
@@ -47,3 +47,12 @@ export function ReportFrame({ code, data, schema, onError, onRendered }: ReportF
     </Box>
   );
 }
+
+// The page re-renders on every keystroke in its text boxes. Only code/data/schema change what the frame
+// shows, so skip re-rendering the frame (and its multi-MB srcDoc element) for anything else. Callers must
+// therefore pass onError/onRendered with a STABLE identity that forwards to their latest handlers — a
+// callback that changes alone is not picked up.
+export const ReportFrame = React.memo(
+  ReportFrameInner,
+  (prev, next) => prev.code === next.code && prev.data === next.data && prev.schema === next.schema
+);

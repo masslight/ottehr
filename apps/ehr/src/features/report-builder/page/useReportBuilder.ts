@@ -24,6 +24,7 @@ import { AD_HOC_DATASETS, datasetCatalog, getDataset, otherDatasetsFor } from '.
 import { showAdHocDebugLog } from '../debug';
 import { SANDBOX_TIMEOUT_MESSAGE } from '../hooks/useSandbox';
 import { runAdHocReportGeneration } from '../query/generation-query';
+import { loadedLayerIdsFromSchema } from './DatasetLayersInfo';
 
 // How many times to transparently regenerate after a runtime error before surfacing it to the user.
 // 1 initial generation + up to 2 repairs.
@@ -483,7 +484,15 @@ export function useReportBuilder(): UseReportBuilder {
       name: name.trim(),
       description: savedDescription.trim() || undefined,
       datasetId,
-      criteria: { dateRange, customDate, customStartDate, customEndDate, options: datasetOptions },
+      // The layers the report's code actually ran against — read off the schema, the same source as the
+      // layers panel — so a saved report reopens with exactly the data it was built on.
+      criteria: {
+        dateRange,
+        customDate,
+        customStartDate,
+        customEndDate,
+        options: schema && schema.datasetId === datasetId ? loadedLayerIdsFromSchema(schema) : datasetOptions,
+      },
       request: activeRequestRef.current || request,
       code,
       title: generatedTitle,
@@ -497,6 +506,7 @@ export function useReportBuilder(): UseReportBuilder {
       customStartDate,
       customEndDate,
       datasetOptions,
+      schema,
       request,
       generatedTitle,
     ]
