@@ -60,7 +60,7 @@ export class ScreeningPage {
 
   async selectDropdownAnswer(fieldId: string, answer: string): Promise<void> {
     await this.askPatientQuestionLocator(fieldId).getByTestId(dataTestIds.screeningPage.answerDropdown).click();
-    await this.#page.getByText(answer, { exact: true }).click();
+    await this.#page.getByRole('option', { name: answer, exact: true }).click();
   }
 
   async selectDateRange(fieldId: string, startDate: DateTime, endDate: DateTime): Promise<void> {

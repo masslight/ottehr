@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getErxPatientSyncErrorMessage, isErxPermissionDeniedError } from './erxErrors';
+import { getErxPatientSyncErrorMessage, isErxPatientNotSyncedError, isErxPermissionDeniedError } from './erxErrors';
 
 describe('getErxPatientSyncErrorMessage', () => {
   it('returns the generic message for non-4006 errors', () => {
@@ -85,5 +85,29 @@ describe('isErxPermissionDeniedError', () => {
     ['a string', '403'],
   ])('does not report %s as a permission denial', (_label, error) => {
     expect(isErxPermissionDeniedError(error)).toBe(false);
+  });
+});
+
+describe('isErxPatientNotSyncedError', () => {
+  it('detects the missing eRx patient identifier error', () => {
+    expect(
+      isErxPatientNotSyncedError({
+        code: '4006',
+        message: 'eRx patient identifier must be included on patient resource',
+      })
+    ).toBe(true);
+  });
+
+  it('tolerates a numeric code and different capitalisation', () => {
+    expect(isErxPatientNotSyncedError({ code: 4006, message: 'eRx Patient Identifier must be included.' })).toBe(true);
+  });
+
+  it.each([
+    ['other 4006 errors', { code: '4006', message: 'Invalid phone number' }],
+    ['a different code', { code: '5000', message: 'eRx patient identifier must be included on patient resource' }],
+    ['null', null],
+    ['a string', 'eRx patient identifier must be included'],
+  ])('does not match %s', (_label, error) => {
+    expect(isErxPatientNotSyncedError(error)).toBe(false);
   });
 });

@@ -203,7 +203,7 @@ export async function performEffect(
       claimId: claim.id ?? '',
       patientName: fhirName(patient),
       patientDob: patient?.birthDate ?? '',
-      dos: claim.item?.[0]?.servicedPeriod?.start ?? claim.created ?? '',
+      dos: claim.item?.[0]?.servicedPeriod?.start ?? claim.item?.[0]?.servicedDate ?? claim.created ?? '',
       billed,
       allowed: payments.allowed,
       paid: payments.insurancePaid,
