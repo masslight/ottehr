@@ -1,4 +1,4 @@
-import { DocumentReference, Organization, Task } from 'fhir/r4b';
+import { DocumentReference, Location, Task } from 'fhir/r4b';
 import { SignJWT } from 'jose';
 import { OUTBOUND_DELIVERY_OUTPUT_CODES } from 'utils/lib/fhir/constants';
 import { getOutboundDeliveryOutput, makeOutboundDeliveryAttempt } from 'utils/lib/fhir/outbound-delivery';
@@ -73,7 +73,11 @@ const packet: DocumentReference = {
   content: [{ attachment: { url: 'https://z3.example.test/faxes/packet.pdf', title: 'Visit packet.pdf' } }],
 };
 
-const organization: Organization = { resourceType: 'Organization', id: 'org-1', name: 'Ottehr Urgent Care' };
+const location: Location = {
+  resourceType: 'Location',
+  id: 'location-1',
+  telecom: [{ system: 'phone', value: '+12125551111' }],
+};
 
 const expiredToken = (): Promise<string> => {
   const issuedAt = Math.floor(Date.now() / 1000) - 2 * 60 * 60;
@@ -103,11 +107,12 @@ describe('open-document-link', () => {
     mockFhirGet.mockImplementation(async ({ resourceType }: { resourceType: string }) => {
       if (resourceType === 'Task') return emailAttempt();
       if (resourceType === 'DocumentReference') return packet;
-      if (resourceType === 'Organization') return organization;
       throw new Error(`unexpected get ${resourceType}`);
     });
     mockFhirPatch.mockResolvedValue({});
-    mockFhirSearch.mockResolvedValue({ unbundle: () => [] });
+    mockFhirSearch.mockImplementation(async ({ resourceType }: { resourceType: string }) => ({
+      unbundle: () => (resourceType === 'Appointment' ? [location] : []),
+    }));
     mockSendDocumentLinkEmailAttempt.mockResolvedValue({ resourceType: 'Task', id: 'attempt-2' });
     vi.stubGlobal(
       'fetch',
@@ -155,7 +160,7 @@ describe('open-document-link', () => {
         patientId: 'patient-1',
         appointmentId: 'appointment-1',
         organizationId: 'org-1',
-        organizationName: 'Ottehr Urgent Care',
+        contactPhone: '+12125551111',
         senderDisplay: 'Sam Stone',
         senderId: 'user-1',
         requesterReference: 'Practitioner/prac-1',

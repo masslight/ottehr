@@ -1,7 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { captureException } from '@sentry/node-core/light';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { DocumentReference, Organization, Task } from 'fhir/r4b';
+import { Appointment, DocumentReference, Location, Task } from 'fhir/r4b';
 import { decodeJwt, errors, jwtVerify } from 'jose';
 import { DateTime } from 'luxon';
 import { OUTBOUND_DELIVERY_INPUT_CODES, OUTBOUND_DELIVERY_OUTPUT_CODES } from 'utils/lib/fhir/constants';
@@ -22,6 +22,7 @@ import {
   OpenDocumentLinkOutput,
 } from 'utils/lib/types/api/fax.types';
 import { FHIR_RESOURCE_IS_GONE, FHIR_RESOURCE_NOT_FOUND, NOT_AUTHORIZED } from 'utils/lib/types/errors';
+import { getLocationContactPhone } from 'utils/lib/utils/support-dialog';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { sendDocumentLinkEmailAttempt } from '../../shared/document-link-email';
 import { createClinicalOystehrClient } from '../../shared/helpers';
@@ -190,23 +191,37 @@ async function resendDocumentLink(
   const recipient = getOutboundDeliveryRecipientSnapshot(task);
   const organizationId =
     getOutboundDeliverySenderOrganizationId(task) || getSecret(SecretsKeys.ORGANIZATION_ID, secrets);
-  const organization = await oystehr.fhir.get<Organization>({ resourceType: 'Organization', id: organizationId });
+  const appointmentId = removePrefix('Appointment/', task.focus?.reference ?? '') || undefined;
+  const location = appointmentId ? await getVisitLocation(oystehr, appointmentId) : undefined;
 
   await sendDocumentLinkEmailAttempt({
     oystehr,
     secrets,
     patientId: requireOutboundDeliveryValue(removePrefix('Patient/', task.for?.reference ?? ''), 'patient reference'),
-    appointmentId: removePrefix('Appointment/', task.focus?.reference ?? '') || undefined,
+    appointmentId,
     email: requireOutboundDeliveryValue(recipient.address, 'recipient address'),
     recipientName: recipient.name,
     recipientOrganization: recipient.organization,
     recipientPhone: recipient.phone,
     documentReferenceId,
     organizationId,
-    organizationName: organization.name ?? '',
+    contactPhone: getLocationContactPhone(location),
     senderDisplay: getOutboundDeliveryInput(task, OUTBOUND_DELIVERY_INPUT_CODES.senderDisplay)?.valueString,
     requesterReference: task.requester?.reference,
     senderId: getOutboundDeliveryInput(task, OUTBOUND_DELIVERY_INPUT_CODES.senderId)?.valueString,
     parentAttemptId: task.id,
   });
+}
+
+async function getVisitLocation(oystehr: Oystehr, appointmentId: string): Promise<Location | undefined> {
+  const resources = (
+    await oystehr.fhir.search<Appointment | Location>({
+      resourceType: 'Appointment',
+      params: [
+        { name: '_id', value: appointmentId },
+        { name: '_include', value: 'Appointment:location' },
+      ],
+    })
+  ).unbundle();
+  return resources.find((resource): resource is Location => resource.resourceType === 'Location');
 }

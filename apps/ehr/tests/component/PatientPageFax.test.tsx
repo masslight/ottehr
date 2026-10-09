@@ -19,7 +19,7 @@ const mockDownloadMedicalRecord = vi.fn<() => Promise<void>>();
 vi.mock('src/features/fax/hooks/useSendFax', () => ({
   useSendFax: (source: unknown) => {
     mockUseSendFax(source);
-    return { isOpen: false, open: mockOpen, close: vi.fn(), isSending: false, failures: [] };
+    return { isOpen: false, open: mockOpen, close: vi.fn(), isSending: false };
   },
 }));
 vi.mock('src/features/fax/ui/SendFaxDialog', () => ({

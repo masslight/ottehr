@@ -146,11 +146,6 @@ export const dataTestIds = {
     sendButton: 'fax-dialog-send-button',
     cancelButton: 'fax-dialog-cancel-button',
   },
-  faxResultDialog: {
-    root: 'fax-result-dialog',
-    failedRecipient: 'fax-result-failed-recipient',
-    closeButton: 'fax-result-close-button',
-  },
   dialog: {
     closeButton: 'dialog-close-button',
     cancelButton: 'dialog-cancel-button',

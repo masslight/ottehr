@@ -38,5 +38,5 @@ export const faxHistoryQueryKey = (source: FaxPacketSource): readonly unknown[] 
 
 export const faxStatusTimeoutMessage = (source: FaxPacketSource): string =>
   source.type === 'visit'
-    ? "We couldn't confirm whether the fax was sent. Check the visit's fax history before resending."
-    : "We couldn't confirm whether the fax was sent. Check the patient's fax history before resending.";
+    ? "We couldn't confirm whether the documents were sent. Check the visit's fax history before resending."
+    : "We couldn't confirm whether the documents were sent. Check the patient's fax history before resending.";

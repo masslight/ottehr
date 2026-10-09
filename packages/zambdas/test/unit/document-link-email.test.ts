@@ -2,7 +2,7 @@ import { Task } from 'fhir/r4b';
 import { decodeJwt, jwtVerify } from 'jose';
 import { OUTBOUND_DELIVERY_INPUT_CODES } from 'utils/lib/fhir/constants';
 import { getOutboundDeliveryInput } from 'utils/lib/fhir/outbound-delivery';
-import { PROJECT_WEBSITE } from 'utils/lib/ottehr-config/branding';
+import { BRANDING_CONFIG, PROJECT_WEBSITE } from 'utils/lib/ottehr-config/branding';
 import { DOCUMENT_LINK_AUDIENCE } from 'utils/lib/types/api/fax.types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -41,7 +41,6 @@ const baseInput = (): DocumentLinkEmailInput => ({
   recipientPhone: '(212) 555-9999',
   documentReferenceId: 'packet-1',
   organizationId: 'org-1',
-  organizationName: 'Ottehr Urgent Care',
   senderDisplay: 'Sam Stone',
   requesterReference: 'Practitioner/prac-1',
   senderId: 'user-1',
@@ -84,7 +83,7 @@ describe('document link email attempt', () => {
     const [to, templateData, options] = mockSendEmail.mock.calls[0];
     expect(options).toEqual({ disableClickTracking: true });
     expect(to).toBe('olivia@example.com');
-    expect(templateData['subject-text']).toBe('Documents from Ottehr Urgent Care');
+    expect(templateData['subject-text']).toBe(`Documents from ${BRANDING_CONFIG.projectName}`);
     const href = /href="([^"]+)"/.exec(templateData.content)?.[1];
     expect(href?.startsWith('https://patient.example.test/documents#')).toBe(true);
     // The token's subject is the attempt that was just created.
@@ -150,15 +149,39 @@ describe('document link token and email body', () => {
     expect(makeDocumentLinkUrl('abc.def.ghi', secrets)).toBe('https://patient.example.test/documents#abc.def.ghi');
   });
 
-  it('escapes the sender and organization in the HTML body', () => {
+  it('names the sender and practice brand, escaped, and links the documents', () => {
     const { content, 'subject-text': subject } = buildDocumentLinkEmail({
-      organizationName: 'Green & Co <Clinic>',
       senderDisplay: 'Sam "Doc" Stone',
       url: 'https://patient.example.test/documents#t',
     });
 
-    expect(subject).toBe('Documents from Green & Co <Clinic>');
-    expect(content).toContain('Sam &quot;Doc&quot; Stone at Green &amp; Co &lt;Clinic&gt; has sent you documents.');
+    expect(subject).toBe(`Documents from ${BRANDING_CONFIG.projectName}`);
+    expect(content).toContain(
+      `Sam &quot;Doc&quot; Stone at ${BRANDING_CONFIG.projectName} sent you information from their Electronic Health Record system.`
+    );
     expect(content).toContain('<a href="https://patient.example.test/documents#t">Open documents</a>');
+  });
+
+  it('ends with the do-not-share, origin and confidentiality notices, and no portal footer', () => {
+    const templateData = buildDocumentLinkEmail({
+      senderDisplay: 'Sam Stone',
+      contactPhone: '+12125551111',
+      url: 'https://patient.example.test/documents#t',
+    });
+
+    const { content } = templateData;
+    expect(content).toContain('<strong>Do Not Share This Email</strong>');
+    expect(templateData['hide-copyright']).toBe(true);
+    expect(content).toContain(
+      "This is not an automated email. Sam Stone sent you these documents from within the practice's EHR."
+    );
+    expect(content).toContain(`please delete it and contact ${BRANDING_CONFIG.projectName} at (212) 555-1111.`);
+  });
+
+  it('points the recipient at the sender when no contact phone is known', () => {
+    const { content } = buildDocumentLinkEmail({ url: 'https://patient.example.test/documents#t' });
+
+    expect(content).toContain('A staff member sent you these documents');
+    expect(content).toContain('please delete it and contact the sender.');
   });
 });

@@ -16,6 +16,7 @@ import {
   formatFaxRecipientName,
   isEmailRecipient,
 } from 'utils/lib/types/api/fax.types';
+import { getLocationContactPhone } from 'utils/lib/utils/support-dialog';
 import { getPcpPatchOpsFromDetails } from '../../ehr/shared/harvest';
 import { sendDocumentLinkEmailAttempt } from '../document-link-email';
 import { FaxCoverSheetData } from '../pdf/types';
@@ -111,7 +112,7 @@ export const deliverFaxPacket = async (args: {
           recipientPhone: recipient.phoneNumber,
           documentReferenceId: packet.documentReference.id!,
           organizationId,
-          organizationName: organization.name ?? '',
+          contactPhone: getLocationContactPhone(plan.location),
           senderDisplay: getFullestAvailableName(senderPractitioner),
           requesterReference: senderPractitioner.id ? `Practitioner/${senderPractitioner.id}` : undefined,
           senderId: senderUserId,
