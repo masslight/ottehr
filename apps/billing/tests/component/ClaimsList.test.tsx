@@ -215,8 +215,8 @@ describe('ClaimsList — submit claims', () => {
     fireEvent.click(insurable);
     fireEvent.click(selfPay);
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Run rules (2)' }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Run rules' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Run Rules (2)' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Run Rules' }));
 
     await waitFor(() => expect(runBillingRulesEngineMock).toHaveBeenCalledWith({}, { claimIds: ['c-ins', 'c-self'] }));
     expect(enqueueSnackbarMock).toHaveBeenCalledWith(
@@ -235,8 +235,8 @@ describe('ClaimsList — submit claims', () => {
     renderList();
 
     fireEvent.click(await screen.findByLabelText('select Insurable Patient'));
-    fireEvent.click(await screen.findByRole('button', { name: 'Run rules (1)' }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Run rules' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Run Rules (1)' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Run Rules' }));
 
     await waitFor(() =>
       expect(enqueueSnackbarMock).toHaveBeenCalledWith('kickoff failed', {
@@ -253,11 +253,11 @@ describe('ClaimsList — submit claims', () => {
     renderList();
 
     fireEvent.click(await screen.findByLabelText('select Insurable Patient'));
-    expect(await screen.findByRole('button', { name: 'Run rules (1)' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Run Rules (1)' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'next page' }));
 
-    await waitFor(() => expect(screen.queryByRole('button', { name: /^Run rules \(/ })).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByRole('button', { name: /^Run Rules \(/ })).not.toBeInTheDocument());
   });
 });
 

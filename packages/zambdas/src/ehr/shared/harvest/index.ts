@@ -1596,7 +1596,7 @@ function extractValueFromItem(item: QuestionnaireResponseItem): string | boolean
 
   // Handle regular answers
   if (!answer) return undefined;
-  if ('valueString' in answer) return answer.valueString;
+  if ('valueString' in answer) return answer.valueString?.trim();
   if ('valueBoolean' in answer) return answer.valueBoolean;
   if ('valueDateTime' in answer) return answer.valueDateTime;
   if ('valueReference' in answer) return answer.valueReference;

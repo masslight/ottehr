@@ -90,22 +90,20 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<void
     patchRequests.push(patientPatch);
   }
   if (bookingDetails.patientName) {
-    const {
-      first: patientFirstName,
-      middle: patientMiddleName,
-      last: patientLastName,
-      suffix: patientSuffix,
-    } = bookingDetails.patientName;
+    const patientFirstName = bookingDetails.patientName.first?.trim();
+    const patientMiddleName = bookingDetails.patientName.middle?.trim();
+    const patientLastName = bookingDetails.patientName.last?.trim();
+    const patientSuffix = bookingDetails.patientName.suffix?.trim();
     const patientPatchOps: Operation[] = [
       {
         op: 'replace',
         path: '/name/0/given/0',
-        value: patientFirstName?.trim(),
+        value: patientFirstName,
       },
       {
         op: 'replace',
         path: '/name/0/family',
-        value: patientLastName?.trim(),
+        value: patientLastName,
       },
     ];
 
@@ -114,7 +112,7 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<void
       patientPatchOps.push({
         op: 'add',
         path: '/name/0/given/1',
-        value: patientMiddleName?.trim(),
+        value: patientMiddleName,
       });
     } else if (!patientMiddleName && storedMiddleName) {
       patientPatchOps.push({
@@ -125,7 +123,7 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<void
       patientPatchOps.push({
         op: 'replace',
         path: '/name/0/given/1',
-        value: patientMiddleName?.trim(),
+        value: patientMiddleName,
       });
     }
 
