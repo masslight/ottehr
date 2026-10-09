@@ -4,7 +4,6 @@ import ChatOutlineIcon from '@mui/icons-material/ChatOutlined';
 import CheckIcon from '@mui/icons-material/Check';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import MedicalInformationIcon from '@mui/icons-material/MedicalInformationOutlined';
-import PriorityHighRoundedIcon from '@mui/icons-material/PriorityHighRounded';
 import { LoadingButton } from '@mui/lab';
 import {
   Badge,
@@ -73,6 +72,7 @@ import AppointmentNote from './AppointmentNote';
 import AppointmentTablePractitionerSelect from './AppointmentTablePractitionerSelect';
 import AppointmentTableRowMobile from './AppointmentTableRowMobile';
 import { ApptTab } from './AppointmentTabs';
+import { FlaggedReasonIcon } from './FlaggedReasonIcon';
 import GoToButton from './GoToButton';
 import { IN_PERSON_CHIP_STATUS_MAP, InPersonAppointmentStatusChip } from './InPersonAppointmentStatusChip';
 import { PatientDateOfBirth } from './PatientDateOfBirth';
@@ -322,20 +322,6 @@ export default function AppointmentTableRow({
 
   const isLongWaitingTime = getIsLongWaitTime(appointment, recentStatus, now);
 
-  const formattedPriorityHighIcon = (
-    <PriorityHighRoundedIcon
-      style={{
-        height: '14px',
-        width: '14px',
-        padding: '2px',
-        color: theme.palette.primary.contrastText,
-        backgroundColor: otherColors.priorityHighIcon,
-        borderRadius: '4px',
-        marginRight: '4px',
-      }}
-    />
-  );
-
   const longWaitFlag = (
     <Box
       sx={{
@@ -515,7 +501,7 @@ export default function AppointmentTableRow({
         appointmentDate={appointmentDate}
         start={start}
         tab={tab}
-        formattedPriorityHighIcon={formattedPriorityHighIcon}
+        formattedPriorityHighIcon={<FlaggedReasonIcon />}
         statusTime={statusTime}
         statusChip={<InPersonAppointmentStatusChip status={appointment.status} />}
         isLongWaitingTime={isLongWaitingTime}
@@ -948,7 +934,7 @@ export default function AppointmentTableRow({
           <ReasonsForVisit
             reasonsForVisit={appointment.reasonForVisit}
             tab={tab}
-            formattedPriorityHighIcon={formattedPriorityHighIcon}
+            formattedPriorityHighIcon={<FlaggedReasonIcon />}
             lineMax={2}
           ></ReasonsForVisit>
         </Box>

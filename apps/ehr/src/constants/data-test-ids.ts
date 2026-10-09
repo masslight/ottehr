@@ -21,6 +21,8 @@ export const dataTestIds = {
     patientName: 'patient-name',
     appointmentStatus: 'appointment-status',
     switchModeButton: (status: string) => `switch-status-to-${status}`,
+    careTeamButton: 'header-care-team-button',
+    careTeamPopover: 'header-care-team-popover',
     intakePractitionerInput: 'intake-practitioner-input',
     providerPractitionerInput: 'provider-practitioner-input',
     changeStatusDropdown: 'change-status-dropdown-in-header',
@@ -28,6 +30,7 @@ export const dataTestIds = {
     weight: 'header-weight',
     roomSelect: 'header-room-select',
     payment: 'header-payment',
+    reasonForVisit: 'header-reason-for-visit',
   },
   inPersonLayout: {
     selectProviderAlert: 'select-provider-alert',
