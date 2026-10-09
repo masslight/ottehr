@@ -116,10 +116,6 @@ export function shouldDisplayScreeningQuestion(rawValue: any): boolean {
   return rawValue !== null && rawValue !== undefined;
 }
 
-/**
- * The patient's own answer to a screening question in the intake paperwork, formatted for display; null when the
- * paperwork has no answer for it.
- */
 export function getPaperworkScreeningAnswer(
   fhirField: string,
   questionnaireResponse: QuestionnaireResponse | undefined

@@ -4120,11 +4120,6 @@ enum InsuranceCarrierKeys {
   workersComp = 'workers-comp-insurance-name',
 }
 
-/**
- * What the patient-account search includes besides the Patient: its Accounts and their owners, its
- * RelatedPersons, and its Coverages with their subscribers and payors. Shared with the ad-hoc reports,
- * which run the same search for many patients at once (`_id=a,b,…`).
- */
 export const PATIENT_ACCOUNT_AND_COVERAGE_SEARCH_INCLUDES: { name: string; value: string }[] = [
   { name: '_revinclude', value: 'Account:patient' },
   { name: '_include:iterate', value: 'Account:owner' },
@@ -4138,19 +4133,12 @@ const isInsuranceOrganization = (resource: FhirResource): resource is Organizati
   resource.resourceType === 'Organization' &&
   organizationMatchesType(resource, codeableConcept('pay', FHIR_EXTENSION.Organization.organizationType.url));
 
-/** The payor references of the patient's Coverages — the insurance orgs searchInsuranceInformation resolves. */
 export const getCoveragePayorReferences = (resources: FhirResource[]): string[] =>
   resources
     .filter((res): res is Coverage => res.resourceType === 'Coverage')
     .flatMap<string | undefined>((cov) => cov.payor.map((ref) => ref.reference))
     .filter<string>((ref): ref is string => !!ref);
 
-/**
- * The pure half of getAccountAndCoverageResourcesForPatient: one patient's search results (Accounts,
- * RelatedPersons, Coverages, Organizations) plus the resolved insurance orgs, assembled into the patient's
- * account picture. Inactive Accounts are dropped and the FHIR payor Organizations are replaced by the
- * resolved insurance orgs.
- */
 export const assemblePatientAccountAndCoverageResources = (
   patient: Patient,
   searchResults: FhirResource[],

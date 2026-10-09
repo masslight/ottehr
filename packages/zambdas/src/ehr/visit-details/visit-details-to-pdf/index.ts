@@ -190,7 +190,6 @@ export async function resolveOccupationalMedicineEmployerName(params: {
     occupationalMedicineAccount,
   } = params;
 
-  // The pre-op employer selection is read from its Organization, so load that one here.
   const visitEmployerOrganizationId =
     appointmentServiceCategory === 'pre-op' ? getVisitEmployerOrganizationId(encounter) : undefined;
 

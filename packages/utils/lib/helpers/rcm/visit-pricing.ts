@@ -1,20 +1,7 @@
-// Visit pricing as the EHR shows it (patient payments "Services provided"): which fee schedule or charge master
-// applies to a visit, and the line items the visit's CPT / E&M codes price to. Pure functions over already
-// loaded ChargeItemDefinitions, shared by the RCM endpoints (find-applicable-fee-schedule,
-// get-charge-master-entry), the EHR (PatientPaymentsList) and the ad-hoc reports, so every one of them prices
-// a visit the same way.
 import { ChargeItemDefinition } from 'fhir/r4b';
 import { CASE_RATE_CODE, CPT_CODE_SYSTEM, CPT_MODIFIER_EXTENSION_URL, RCM_TAG_SYSTEM } from '../../fhir/constants';
 import { orgIdMatchesReference } from '../helpers';
 
-/**
- * Finds the most applicable fee schedule for a given payer (or employer) and date of service.
- *
- * Among the fee schedules associated with the employer (first) or the payer (via useContext), selects the one
- * whose effective date (ChargeItemDefinition.date) is on or before the date of service, picking the most recent;
- * a location-specific one wins, else one with no location associations. Both active and inactive fee schedules
- * count, so historical lookups work. Null when none applies.
- */
 export const findApplicableFeeSchedule = (
   allFeeSchedules: ChargeItemDefinition[],
   {
@@ -41,14 +28,12 @@ export const findApplicableFeeSchedule = (
       const locationMatch = dateFiltered.find(
         (fs) => fs.useContext?.some((uc) => uc.valueReference?.reference === `Location/${locationId}`)
       );
-
       if (locationMatch) return locationMatch;
 
       // No location match — fall back to fee schedules with no location associations at all
       const noLocationAssociations = dateFiltered.filter(
         (fs) => !fs.useContext?.some((uc) => uc.valueReference?.reference?.startsWith('Location/'))
       );
-
       return noLocationAssociations[0] ?? null;
     }
 
@@ -60,9 +45,7 @@ export const findApplicableFeeSchedule = (
     const employerFeeSchedules = allFeeSchedules.filter(
       (fs) => fs.useContext?.some((uc) => uc.valueReference?.reference === `Organization/${employerOrganizationId}`)
     );
-
     const employerMatch = findBestMatch(employerFeeSchedules);
-
     if (employerMatch) return employerMatch;
   }
 
@@ -73,7 +56,6 @@ export const findApplicableFeeSchedule = (
     );
 
     const payerMatch = findBestMatch(payerFeeSchedules);
-
     if (payerMatch) return payerMatch;
   }
 
@@ -82,20 +64,12 @@ export const findApplicableFeeSchedule = (
 
 export type ChargeMasterDesignation = 'self-pay' | 'default-insurance';
 
-/** True when get-charge-master-entry looks for an org-specific charge master before the designated one. */
 export const chargeMasterEntryNeedsOrgLookup = (
   designation: ChargeMasterDesignation,
   payerOrganizationId: string | undefined,
   employerOrganizationId: string | undefined
 ): boolean => designation === 'default-insurance' && !!(payerOrganizationId || employerOrganizationId);
 
-/**
- * The charge master get-charge-master-entry returns. For default-insurance with a payer / employer, the most
- * recent active org-specific charge master effective on the date (employer first, location-specific first);
- * otherwise the most recent active charge master carrying the designation tag. `orgChargeMasters` are the
- * charge-master-tagged ChargeItemDefinitions (needed only when chargeMasterEntryNeedsOrgLookup), and
- * `designatedChargeMasters` those tagged with the designation.
- */
 export const findChargeMasterEntry = ({
   designation,
   payerOrganizationId,
@@ -109,7 +83,6 @@ export const findChargeMasterEntry = ({
   payerOrganizationId?: string;
   employerOrganizationId?: string;
   locationId?: string;
-  /** The date of service (yyyy-MM-dd); the endpoint defaults it to today. */
   cutoffDate: string;
   orgChargeMasters: ChargeItemDefinition[];
   designatedChargeMasters: ChargeItemDefinition[];
@@ -140,7 +113,6 @@ export const findChargeMasterEntry = ({
         const noLocationAssociations = orgFiltered.filter(
           (cm) => !cm.useContext?.some((uc) => uc.valueReference?.reference?.startsWith('Location/'))
         );
-
         return noLocationAssociations[0];
       }
 
@@ -150,14 +122,12 @@ export const findChargeMasterEntry = ({
     // Try employer first (higher priority)
     if (employerOrganizationId) {
       const employerMatch = findBestOrgMatch(employerOrganizationId);
-
       if (employerMatch) return { chargeMaster: employerMatch, source: 'payer' };
     }
 
     // Then try insurance payer
     if (payerOrganizationId) {
       const payerMatch = findBestOrgMatch(payerOrganizationId);
-
       if (payerMatch) return { chargeMaster: payerMatch, source: 'payer' };
     }
   }
@@ -180,11 +150,6 @@ export interface VisitPricingLineItem {
   feeUnknown?: boolean;
 }
 
-/**
- * Prices the visit's CPT and E&M codes against a fee schedule / charge master: an exact code + first modifier
- * match first, else the code's no-modifier entry, else any entry for the code; amount × units (rounded up, at
- * least 1). A code the schedule does not list is a line with amount 0 and feeUnknown.
- */
 export function buildLineItems(
   feeSchedule: ChargeItemDefinition | null | undefined,
   cptCodes:
@@ -205,12 +170,10 @@ export function buildLineItems(
   for (const cpt of allCodes) {
     const cptModifier = cpt.modifier?.[0]?.code;
     const { billableUnits } = cpt;
-
     const units =
       billableUnits != null && Number.isFinite(billableUnits) && billableUnits > 0
         ? Math.max(1, Math.ceil(billableUnits))
         : 1;
-
     let noModifierFallbackPg: (typeof feeSchedule.propertyGroup)[number] | undefined;
     let anyModifierFallbackPg: (typeof feeSchedule.propertyGroup)[number] | undefined;
     let exactMatched = false;
@@ -230,18 +193,14 @@ export function buildLineItems(
           amount: (pc.amount?.value ?? 0) * units,
           units,
         });
-
         exactMatched = true;
         noModifierFallbackPg = undefined;
         anyModifierFallbackPg = undefined;
         break;
       }
       // Code matches but modifier doesn't — prefer no-modifier entry as fallback
-      if (!fsModifier && !noModifierFallbackPg) {
-        noModifierFallbackPg = pg;
-      } else if (fsModifier && !anyModifierFallbackPg) {
-        anyModifierFallbackPg = pg;
-      }
+      if (!fsModifier && !noModifierFallbackPg) noModifierFallbackPg = pg;
+      else if (fsModifier && !anyModifierFallbackPg) anyModifierFallbackPg = pg;
     }
 
     const fallbackPg = noModifierFallbackPg ?? anyModifierFallbackPg;
@@ -250,7 +209,6 @@ export function buildLineItems(
       // No exact match found — fall back to first entry with matching code
       const pc = fallbackPg.priceComponent![0];
       const fsCoding = pc.code?.coding?.find((c) => c.system === CPT_CODE_SYSTEM);
-
       items.push({
         code: cpt.code,
         modifier: cptModifier,
@@ -274,20 +232,16 @@ export function buildLineItems(
   return items;
 }
 
-/** A case-rate fee schedule prices the visit as one flat amount (its first entry), not per code. */
 export const isCaseRateFeeSchedule = (feeSchedule: ChargeItemDefinition | null | undefined): boolean =>
   feeSchedule?.meta?.tag?.some((t) => t.system === RCM_TAG_SYSTEM && t.code === CASE_RATE_CODE) ?? false;
 
-/** The flat case rate of a case-rate fee schedule; null for any other schedule. */
 export const getCaseRateInfo = (
   feeSchedule: ChargeItemDefinition | null | undefined
 ): { amount: number; comment: string } | null => {
   if (!isCaseRateFeeSchedule(feeSchedule) || !feeSchedule?.propertyGroup) return null;
   const pg = feeSchedule.propertyGroup[0];
   const pc = pg?.priceComponent?.[0];
-
   if (!pc) return null;
-
   return {
     amount: pc.amount?.value ?? 0,
     comment: pc.code?.text ?? '',

@@ -5,19 +5,12 @@ import { flattenItems } from 'utils/lib/helpers/paperwork/validation';
 import { CONSENT_FORMS_CONFIG } from 'utils/lib/ottehr-config/consent-forms';
 
 export interface PaperworkCompleteness {
-  /** Paperwork was submitted (the QR has an `authored` date) or the Patient resource already holds the demographics. */
   demographics: boolean;
-  /** A current Photo ID card front is on file for the patient. */
   photoID: boolean;
-  /** A current insurance card front is on file for the patient. */
   insuranceCard: boolean;
-  /** Consent is complete — signed in paperwork or attested by staff. */
   consent: boolean;
-  /** The consent forms were all accepted and signed in the patient's paperwork. */
   consentByPaperworkSignatures: boolean;
-  /** Staff attested the consent on the encounter. */
   consentByStaffAttestation: boolean;
-  /** The patient answered "Yes…" to the OVRP-interest question. */
   ovrpInterest: boolean;
 }
 

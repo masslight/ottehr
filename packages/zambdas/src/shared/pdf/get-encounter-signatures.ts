@@ -54,7 +54,6 @@ export const resolveEncounterSignatures = (
     const provenance = provenances
       .filter((candidate) => getAgentForRole(candidate, role))
       .sort((a, b) => (b.recorded ?? '').localeCompare(a.recorded ?? ''))[0];
-
     if (!provenance) return undefined;
 
     const practitionerId = getAgentForRole(provenance, role)?.who?.reference?.split('/')[1];
