@@ -58,14 +58,27 @@ vi.mock('src/features/visits/shared/components/patient/docs/PatientDocumentFolde
   PatientDocumentFoldersColumnSkeleton: () => <div />,
 }));
 vi.mock('src/features/visits/shared/components/patient/docs/PatientDocumentsExplorerTable', () => ({
+  DocumentTableActionType: {
+    ActionDownload: 'ActionDownload',
+    ActionFax: 'ActionFax',
+    ActionRename: 'ActionRename',
+    ActionDelete: 'ActionDelete',
+  },
   PatientDocumentsExplorerTable: ({ documentTableActions }: any) => (
-    <button onClick={() => documentTableActions.onDocumentFax(DOCUMENT_ID)}>Fax document row</button>
+    <button
+      onClick={() => documentTableActions.onDocumentFax(DOCUMENT_ID)}
+      data-can-send={String(documentTableActions.isActionAllowed(DOCUMENT_ID, 'ActionFax'))}
+      data-can-rename={String(documentTableActions.isActionAllowed(DOCUMENT_ID, 'ActionRename'))}
+    >
+      Fax document row
+    </button>
   ),
 }));
 vi.mock('../../src/components/CustomBreadcrumbs', () => ({ default: () => <div /> }));
 vi.mock('../../src/components/DateSearch', () => ({ default: () => <div /> }));
 vi.mock('../../src/components/ScannerModal', () => ({ ScannerModal: () => <div /> }));
 
+import { PatientDocumentsExplorer } from '../../src/features/visits/shared/components/patient/docs/PatientDocumentsExplorer';
 import PatientDocumentsExplorerPage from '../../src/pages/PatientDocumentsExplorerPage';
 
 describe('PatientDocumentsExplorerPage fax action', () => {
@@ -103,5 +116,17 @@ describe('PatientDocumentsExplorerPage fax action', () => {
 
     expect(mockUseSendFax).toHaveBeenCalledWith(undefined);
     expect(mockOpen).not.toHaveBeenCalled();
+  });
+
+  it('still offers Send on a signed (read-only) visit, but not editing actions', () => {
+    render(
+      <MemoryRouter>
+        <PatientDocumentsExplorer patientId={PATIENT_ID} visit={{ appointmentId: 'appt-1' }} readOnly />
+      </MemoryRouter>
+    );
+
+    const row = screen.getByRole('button', { name: 'Fax document row' });
+    expect(row).toHaveAttribute('data-can-send', 'true');
+    expect(row).toHaveAttribute('data-can-rename', 'false');
   });
 });
