@@ -56,6 +56,11 @@ const RESPONSE_SCHEMA = {
     title: { type: 'string' },
     code: { type: 'string' },
     needsLayers: { type: 'array', items: { type: 'string' } },
+    needsDataset: {
+      type: 'object',
+      properties: { id: { type: 'string' }, concepts: { type: 'array', items: { type: 'string' } } },
+      required: ['id', 'concepts'],
+    },
   },
   required: ['code'],
 };
@@ -68,8 +73,15 @@ const CLAUDE_REPORT_OPTIONS = {
   maxTokens: 32_000,
   // noCache: prevents caching the initiated model, so other callers won't use it from the cache
   noCache: true,
-  // structured output: the API guarantees valid JSON; Anthropic requires closed objects
-  responseSchema: { ...RESPONSE_SCHEMA, additionalProperties: false },
+  // structured output: the API guarantees valid JSON; Anthropic requires every object to be closed
+  responseSchema: {
+    ...RESPONSE_SCHEMA,
+    properties: {
+      ...RESPONSE_SCHEMA.properties,
+      needsDataset: { ...RESPONSE_SCHEMA.properties.needsDataset, additionalProperties: false },
+    },
+    additionalProperties: false,
+  },
 } as const;
 
 const createVertexReportInvoker =
@@ -175,9 +187,12 @@ RULES:
   the app fetches it and re-runs you with the fuller schema. For THIS render, show a brief
   "Loading <concept> data…" placeholder for the missing part instead of "not
   available". Only when the concept matches NO availableLayer but DOES match an "otherDatasets"
-  entry, say it isn't in this dataset and name the dataset to switch to (quoting its label). If it
-  matches neither, treat it as unavailable per the no-fabrication rule. Use ONLY ids/labels that
-  appear in the schema; never invent one.
+  entry, set the response's "needsDataset" to { "id": <that entry's id>, "concepts": [<the missing
+  concepts>] } — the app picks the dataset again and re-runs you. For THIS render, still build every
+  part you can and put a Report.Note tone="warn" at the top saying which concept is recorded in that
+  other dataset and not in this one. Never tell the user to switch datasets. If it matches neither,
+  treat it as unavailable per the no-fabrication rule. Use ONLY ids/labels that appear in the schema;
+  never invent one.
 - DON'T RECALL CODE SETS FROM MEMORY. A hand-typed list of full codes varies run to run and silently
   misses codes present in the data. Derive the codes instead:
   • When the field provides "values" (the codes/labels actually present), pick the matching entries
@@ -232,6 +247,19 @@ const MAX_ATTEMPTS = 3;
 // but a fenced body still parses as a string and would then fail transpilation confusingly).
 const stripFences = (code: string): string => code.replace(/^\s*```[a-z]*\s*\n?/i, '').replace(/\n?```\s*$/, '');
 
+export const parseNeedsDataset = (
+  value: unknown,
+  schema: LlmDatasetSchema
+): GenerateAdHocReportOutput['needsDataset'] | undefined => {
+  if (!value || typeof value !== 'object') return undefined;
+  const { id, concepts } = value as { id?: unknown; concepts?: unknown };
+  if (typeof id !== 'string' || !schema.otherDatasets?.some((d) => d.id === id)) return undefined;
+  const names = Array.isArray(concepts)
+    ? concepts.filter((c): c is string => typeof c === 'string' && c.trim().length > 0)
+    : [];
+  return { id, concepts: names };
+};
+
 export const generateAdHocReportCode = async (
   { schema, request, previousAttempt }: GenerateAdHocReportInput,
   model: AdHocReportModel,
@@ -254,9 +282,9 @@ export const generateAdHocReportCode = async (
 
     const raw = await invokeReportModel(prompt, secrets);
 
-    let parsed: { code?: unknown; title?: unknown; needsLayers?: unknown };
+    let parsed: { code?: unknown; title?: unknown; needsLayers?: unknown; needsDataset?: unknown };
     try {
-      parsed = fixAndParseJsonObjectFromString(raw) as { code?: unknown; title?: unknown; needsLayers?: unknown };
+      parsed = fixAndParseJsonObjectFromString(raw) as typeof parsed;
     } catch {
       lastError = 'response was not valid JSON';
       continue;
@@ -273,6 +301,7 @@ export const generateAdHocReportCode = async (
     const needsLayers = Array.isArray(parsed.needsLayers)
       ? parsed.needsLayers.filter((id): id is string => typeof id === 'string')
       : undefined;
+    const needsDataset = parseNeedsDataset(parsed.needsDataset, schema);
 
     return validateOutputWithSchema(
       GenerateAdHocReportOutputSchema,
@@ -280,6 +309,7 @@ export const generateAdHocReportCode = async (
         code: source,
         title: typeof parsed.title === 'string' ? parsed.title : undefined,
         ...(needsLayers && needsLayers.length ? { needsLayers } : {}),
+        ...(needsDataset ? { needsDataset } : {}),
       },
       FEATURE_NAME
     );
