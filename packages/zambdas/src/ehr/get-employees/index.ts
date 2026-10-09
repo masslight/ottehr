@@ -80,7 +80,7 @@ export const index = wrapHandler('get-employees', async (input: ZambdaInput): Pr
   // Lite mode skips the organization-wide Encounter queries (used only for `seenPatientRecently`)
   // and trims Practitioner _elements to just what's needed for names.
   const fhirRequests = lite
-    ? [`Practitioner?_id=${practitionerIds.join(',')}&_elements=id,name`]
+    ? [`Practitioner?_id=${practitionerIds.join(',')}&_elements=id,meta,qualification,name,extension,telecom`]
     : (() => {
         const encounterCutDate = DateTime.now().minus({ minutes: 30 }).toFormat("yyyy-MM-dd'T'HH:mm");
         return [
@@ -126,10 +126,10 @@ export const index = wrapHandler('get-employees', async (input: ZambdaInput): Pr
       ? (resources.find((resource) => resource.id === practitionerId) as Practitioner | undefined)
       : undefined;
 
-    const phone = lite ? undefined : practitioner?.telecom?.find((telecom) => telecom.system === 'sms')?.value;
+    const phone = practitioner?.telecom?.find((telecom) => telecom.system === 'sms')?.value;
 
     const licenses: PractitionerLicense[] = [];
-    if (!lite && practitioner?.qualification) {
+    if (practitioner?.qualification) {
       practitioner.qualification.forEach((qualification: PractitionerQualification) => {
         const qualificationStatusCode =
           qualification.extension?.[0].extension?.[1].valueCodeableConcept?.coding?.[0].code;
@@ -145,7 +145,7 @@ export const index = wrapHandler('get-employees', async (input: ZambdaInput): Pr
       });
     }
 
-    const notificationPreferences = lite ? undefined : getProviderNotificationPreferencesV2(practitioner);
+    const notificationPreferences = getProviderNotificationPreferencesV2(practitioner);
     return {
       id: employee.id,
       profile: employee.profile,
@@ -153,7 +153,7 @@ export const index = wrapHandler('get-employees', async (input: ZambdaInput): Pr
       email: employee.email,
       status: status,
       roles: rolesByUserId.get(employee.id) ?? [],
-      lastLogin: lite ? '' : practitioner?.meta?.tag?.find((tag) => tag.system === 'last-login')?.code ?? '',
+      lastLogin: practitioner?.meta?.tag?.find((tag) => tag.system === 'last-login')?.code ?? '',
       firstName: getFirstName(practitioner) ?? '',
       lastName: getLastName(practitioner) ?? '',
       phoneNumber: phone ? standardizePhoneNumber(phone)! : '',
