@@ -30,6 +30,7 @@ import { OrderedCoveragesWithSubscribers } from 'utils/lib/types/data/account';
 import { QuantityDataEntryComponent } from 'utils/lib/types/data/in-house/in-house.types';
 import { SupportedObsImgAttachmentTypes } from 'utils/lib/types/data/labs/labs.constants';
 import { LabType } from 'utils/lib/types/data/labs/labs.types';
+import { StandaloneFormDTO } from 'utils/lib/types/data/practice-managed-questionnaires/practice-managed-questionnaire.types';
 import { testDataForOrderForm } from '../../ehr/lab/external/submit-lab-order/helpers';
 import { UpcomingFollowUp } from './get-upcoming-follow-ups';
 import { Column, PdfInfo } from './pdf-utils';
@@ -504,10 +505,21 @@ export interface ExternalLabs extends PdfData {
   externalLabOrders: string[]; // names of all the tests ordered
 }
 
+/** A filled-out practice form as the note prints it. */
+export interface FormResponseLines {
+  title: string;
+  lines: { question: string; answer: string }[];
+}
+
 export interface AdditionalQuestions extends PdfData {
   additionalQuestions: Record<string, any>;
   currentASQ?: string;
   notes?: string[];
+  forms?: FormResponseLines[];
+}
+
+export interface QuestionnaireForms extends PdfData {
+  forms: FormResponseLines[];
 }
 
 export interface FollowupCompleted extends PdfData {
@@ -1074,6 +1086,8 @@ export interface ProgressNoteInput {
   erxPharmacies?: Record<string, ErxGetPharmacyResponse>;
   signatures?: ProgressNoteSignatures;
   signed?: boolean;
+  /** This visit's responses to practice forms that belong in the note (Screening and Questionnaires). */
+  formResponses?: StandaloneFormDTO[];
 }
 
 export interface ProgressNoteData extends PdfData {
@@ -1095,6 +1109,7 @@ export interface ProgressNoteData extends PdfData {
   externalLabs?: ExternalLabs;
   radiology?: RadiologyData;
   screening: AdditionalQuestions;
+  questionnaires?: QuestionnaireForms;
   intakeNotes: IntakeNotes;
   vitals: Vitals;
   rosObservations: RosObservations;

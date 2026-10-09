@@ -39,6 +39,7 @@ import { Plan } from '../pages/Plan';
 import Procedures from '../pages/Procedures';
 import ProceduresNew from '../pages/ProceduresNew';
 import { ProgressNote } from '../pages/ProgressNote';
+import { Questionnaires } from '../pages/Questionnaires';
 import { Screening } from '../pages/Screening';
 import { SurgicalHistory } from '../pages/SurgicalHistory';
 import { VisitDocuments } from '../pages/VisitDocuments';
@@ -48,6 +49,7 @@ export enum ROUTER_PATH {
   REVIEW_AND_SIGN = 'review-and-sign',
   FOLLOW_UP_NOTE = 'follow-up-note',
   SCREENING = 'screening-questions',
+  QUESTIONNAIRES = 'questionnaires',
   VITALS = 'vitals',
   ALLERGIES = 'allergies',
   MEDICATIONS = 'medications',
@@ -117,6 +119,14 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
     element: <Screening />,
     text: 'Screening Questions',
     iconKey: 'Screening Questions',
+    groupLabel: 'Intake',
+  },
+  [ROUTER_PATH.QUESTIONNAIRES]: {
+    path: ROUTER_PATH.QUESTIONNAIRES,
+    modes: ['main', 'readonly'],
+    element: <Questionnaires />,
+    text: 'Questionnaires',
+    iconKey: 'Questionnaires',
     groupLabel: 'Intake',
   },
   [ROUTER_PATH.VITALS]: {

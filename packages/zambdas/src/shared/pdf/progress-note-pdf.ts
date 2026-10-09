@@ -18,6 +18,7 @@ import { composeEncounterData } from './sections/visit-note/encounterInfo';
 import { composeExamination, createExaminationSection } from './sections/visit-note/examination';
 import { composeExternalLabs, createExternalLabsSection } from './sections/visit-note/externalLabsInfo';
 import { composeFollowupCompleted, createFollowupCompletedSection } from './sections/visit-note/followupCompleted';
+import { composeFormResponses, createQuestionnairesSection } from './sections/visit-note/formResponses';
 import {
   composeHistoryOfPresentIllness,
   createHistoryOfPresentIllnessSection,
@@ -113,7 +114,9 @@ export const composeProgressNoteData: DataComposer<ProgressNoteInput, ProgressNo
     }),
     screening: composeAdditionalQuestions({
       allChartData,
+      formResponses: input.formResponses,
     }),
+    questionnaires: { forms: composeFormResponses(input.formResponses, 'questionnaires') },
     intakeNotes: composeIntakeNotes({
       allChartData,
     }),
@@ -342,6 +345,7 @@ const progressNoteRenderConfig: PdfRenderConfig<ProgressNoteData> = {
     createExternalLabsSection(),
     createRadiologySection(),
     createAdditionalQuestionsSection(),
+    createQuestionnairesSection(),
     createIntakeNotesSection(),
     createVitalsSection(),
     createExaminationSection(),

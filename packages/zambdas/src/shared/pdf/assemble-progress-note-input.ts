@@ -10,6 +10,7 @@ import { getMedicationOrders } from '../../ehr/get-medication-orders';
 import { getImmunizationOrders } from '../../ehr/immunization/get-orders';
 import { buildVisitNote } from '../chart-sections/visit-note';
 import { fetchErxPharmacies } from '../erx';
+import { getEncounterFormResponses } from '../practice-forms';
 import { getEncounterSignatures } from './get-encounter-signatures';
 import { getUpcomingFollowUps } from './get-upcoming-follow-ups';
 import { ProgressNoteInput } from './types';
@@ -52,7 +53,10 @@ export async function assembleProgressNoteInput(
     }),
   ]);
 
-  const immunizationOrders = (await getImmunizationOrders(oystehr, { encounterIds: [encounterId] })).orders;
+  const [immunizationOrders, formResponses] = await Promise.all([
+    getImmunizationOrders(oystehr, { encounterIds: [encounterId] }).then((result) => result.orders),
+    getEncounterFormResponses(oystehr, encounterId, visitResources.questionnaireResponse),
+  ]);
   // The composers read the two whole-chart shapes; the adapter presents the note as both.
   const { chartData, additionalChartData } = visitNoteToLegacyChartData(visitNote, {
     module: isInPersonAppointment ? 'in-person' : 'telemed',
@@ -70,5 +74,6 @@ export async function assembleProgressNoteInput(
     erxPharmacies,
     signatures,
     signed: options?.signed,
+    formResponses,
   };
 }

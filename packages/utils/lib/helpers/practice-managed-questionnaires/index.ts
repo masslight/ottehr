@@ -1,4 +1,5 @@
 import {
+  Coding,
   Extension,
   Questionnaire,
   QuestionnaireItem,
@@ -7,6 +8,7 @@ import {
 } from 'fhir/r4b';
 import { cloneDeep, isEqual } from 'lodash-es';
 import {
+  FORM_PLACEMENT_TAG_SYSTEM,
   OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS,
   PRACTICE_MANAGED_QUESTIONNAIRE_TAG,
   QR_DISTRIBUTION_TAG,
@@ -205,6 +207,27 @@ export function isPracticeManagedQ(q: Questionnaire | undefined): boolean {
   return Boolean(q.meta?.tag?.some((t) => t.code === code && t.system === system));
 }
 
+/** Where a practice-managed form's answers appear. Visit Details is the default (no tag). */
+export const FORM_PLACEMENTS = ['visit-details', 'screening', 'questionnaires'] as const;
+export type FormPlacement = (typeof FORM_PLACEMENTS)[number];
+
+export const FORM_PLACEMENT_LABELS: Record<FormPlacement, string> = {
+  'visit-details': 'Visit details',
+  screening: 'Screening',
+  questionnaires: 'Questionnaires',
+};
+
+export function getFormPlacement(q: Pick<Questionnaire, 'meta'> | undefined): FormPlacement {
+  const code = q?.meta?.tag?.find((t) => t.system === FORM_PLACEMENT_TAG_SYSTEM)?.code;
+  return FORM_PLACEMENTS.find((placement) => placement === code) ?? 'visit-details';
+}
+
+/** Returns the form's tags with its placement replaced; Visit Details is stored as no tag. */
+export function withFormPlacement(tags: Coding[] | undefined, placement: FormPlacement): Coding[] {
+  const others = (tags ?? []).filter((t) => t.system !== FORM_PLACEMENT_TAG_SYSTEM);
+  return placement === 'visit-details' ? others : [...others, { system: FORM_PLACEMENT_TAG_SYSTEM, code: placement }];
+}
+
 export function qrSentManually(qr: QuestionnaireResponse | undefined): boolean {
   if (!qr) return false;
 
@@ -227,6 +250,24 @@ export const formatQuestionnaireItemValueToString = (item: QuestionnaireResponse
   return '';
 };
 
+/** A filled-out form as question/answer lines, in form order; unanswered questions have an empty answer. */
+export const formResponseLines = (form: StandaloneFormDTO): { linkId: string; question: string; answer: string }[] => {
+  const answers = new Map<string, string>();
+  const walk = (items: QuestionnaireResponseItem[]): void =>
+    items.forEach((item) => {
+      if (item.answer?.length) answers.set(item.linkId, formatQuestionnaireItemValueToString(item));
+      if (item.item) walk(item.item);
+    });
+  walk(form.questionnaireResponse.item ?? []);
+  return form.allItems
+    .flatMap((page) => page.item ?? [])
+    .filter((q) => q.type !== 'display')
+    .map((q) => ({ linkId: q.linkId, question: q.text ?? '', answer: answers.get(q.linkId) ?? '' }));
+};
+
+/** True once at least one question has an answer; a sent-but-unopened form has none. */
+export const hasAnyAnswer = (form: StandaloneFormDTO): boolean => formResponseLines(form).some((line) => line.answer);
+
 export const makePracticeManagedUrl = (slug: string): string => {
   return `https://ottehr.com/FHIR/Questionnaire/${slug}`;
 };
@@ -245,5 +286,7 @@ export const makeStandaloneFormDTO = (
     questionnaireResponse,
     questionnaireTitle,
     questionnaireId,
+    placement: getFormPlacement(questionnaire),
+    questionnaireUrl: questionnaire.url,
   };
 };
