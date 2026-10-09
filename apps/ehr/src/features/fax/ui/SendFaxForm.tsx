@@ -17,7 +17,6 @@ import {
 } from '@mui/material';
 import { FC } from 'react';
 import { Controller, FormProvider, useFieldArray, useForm } from 'react-hook-form';
-import { ConfirmationDialog } from 'src/components/ConfirmationDialog';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { formatPhoneNumberDisplay } from 'utils/lib/helpers/helpers';
 import { FAX_MAX_VISITS, GetFaxPacketPreviewOutput } from 'utils/lib/types/api/fax.types';
@@ -59,11 +58,6 @@ export const SendFaxForm: FC<SendFaxFormProps> = ({
   const recipients = watch('recipients');
   const selectedAppointmentIds = watch('selectedAppointmentIds') ?? [];
   // A single visit is sent without asking; the picker only earns its space when there is a choice.
-  // A mistyped address would hand a stranger a live link, so email sends get one look at the addresses first.
-  const emailAddresses = recipients
-    .filter((recipient) => recipient.channel === 'email')
-    .map((recipient) => recipient.email.trim())
-    .filter(Boolean);
   const showVisitPicker = (visits?.length ?? 0) > 1;
   const visitSelectionValid = !visits?.length || selectedAppointmentIds.length > 0;
   const tooManyVisits = selectedAppointmentIds.length > FAX_MAX_VISITS;
@@ -211,29 +205,16 @@ export const SendFaxForm: FC<SendFaxFormProps> = ({
           >
             Cancel
           </Button>
-          <ConfirmationDialog
-            title="Send by email?"
-            description={`Documents will be emailed to: ${emailAddresses.join(
-              ', '
-            )}. Check the addresses before sending.`}
-            response={handleSubmit(onSubmit)}
-            actionButtons={{ proceed: { text: 'Send email' }, back: { text: 'Cancel' }, reverse: true }}
+          <LoadingButton
+            type="submit"
+            variant="contained"
+            loading={isSending}
+            disabled={!sendEnabled || (preview ? hasNothingToSend(preview.documents) : false)}
+            sx={{ borderRadius: '100px', textTransform: 'none', fontWeight: 500 }}
+            data-testid={dataTestIds.faxDialog.sendButton}
           >
-            {(showDialog) => (
-              <LoadingButton
-                type="button"
-                variant="contained"
-                loading={isSending}
-                disabled={!sendEnabled || (preview ? hasNothingToSend(preview.documents) : false)}
-                sx={{ borderRadius: '100px', textTransform: 'none', fontWeight: 500 }}
-                data-testid={dataTestIds.faxDialog.sendButton}
-                // Email recipients get one look at the addresses first; fax-only sends go straight out.
-                onClick={emailAddresses.length > 0 ? showDialog : handleSubmit(onSubmit)}
-              >
-                Send
-              </LoadingButton>
-            )}
-          </ConfirmationDialog>
+            Send
+          </LoadingButton>
         </DialogActions>
       </form>
     </FormProvider>
