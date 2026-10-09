@@ -3,20 +3,28 @@ import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import {
   GeneratePatientEducationInput,
   GeneratePatientEducationOutput,
+  PATIENT_EDUCATION_LANGUAGES,
 } from 'utils/lib/types/data/patient-education.types';
+import { z } from 'zod';
 import { invokeChatbotVertexAI } from '../../shared/ai';
 import { topLevelCatch } from '../../shared/lambda';
 import { fetchMedlineLinks } from '../../shared/medlineplus';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { validateWithSchema } from '../../shared/validation';
 import { buildEducationPrompt } from './helpers';
-import { validateRequestParameters } from './validateRequestParameters';
+
+export const generatePatientEducationInputSchema: z.ZodType<GeneratePatientEducationInput> = z.object({
+  icdCode: z.string().min(1, 'icdCode is required'),
+  icdDescription: z.string().min(1, 'icdDescription is required'),
+  language: z.enum(PATIENT_EDUCATION_LANGUAGES).optional(),
+});
 
 export const index = wrapHandler(
   'generate-patient-education',
   async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
     try {
-      const validatedInput = validateRequestParameters(input);
+      const validatedInput = validateWithSchema(generatePatientEducationInputSchema, input);
       const result = await performEffect(validatedInput);
       return {
         statusCode: 200,
@@ -49,7 +57,7 @@ const performEffect = async (
 
   // Step 2: Ask Gemini to write the education materials grounded in those links, in the language
   const prompt = buildEducationPrompt(icdDescription, links, language);
-  const responseText = await invokeChatbotVertexAI([{ text: prompt }], secrets);
+  const responseText = await invokeChatbotVertexAI([{ text: prompt }], secrets, 'generate-patient-education');
 
   let content: string;
   let patientTitle: string;

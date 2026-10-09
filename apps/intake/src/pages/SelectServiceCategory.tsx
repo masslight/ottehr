@@ -7,6 +7,7 @@ import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { CustomContainer } from 'src/telemed/features/common/CustomContainer';
 import { serviceCategorySupportsContext } from 'utils/lib/config-helpers/booking';
 import { BOOKING_CONFIG } from 'utils/lib/ottehr-config/booking';
+import { WALKIN_SERVICE_MODE_QUERY_PARAM } from 'utils/lib/utils/scheduleUtils';
 import { getWelcomeTitle } from '../branding/welcomeTitle';
 import ServiceCategoryPicker, { ServiceCategoryOption } from '../components/ServiceCategoryPicker';
 import { useServiceCategories } from '../hooks/useServiceCategories';
@@ -34,7 +35,12 @@ const SelectServiceCategoryPage = (): JSX.Element => {
   const isWalkinFlow = currentPath.startsWith('/walkin/') || currentPath.startsWith('/start-virtual/');
   const requiredVisitType = isWalkinFlow ? 'walk-in' : 'prebook';
 
-  const requiredServiceMode = useMemo<string | undefined>(() => deriveServiceModeFromPath(currentPath), [currentPath]);
+  const walkinServiceModeParam = searchParams.get(WALKIN_SERVICE_MODE_QUERY_PARAM);
+
+  const requiredServiceMode = useMemo<string | undefined>(
+    () => deriveServiceModeFromPath(currentPath, walkinServiceModeParam),
+    [currentPath, walkinServiceModeParam]
+  );
 
   const options: ServiceCategoryOption[] = useMemo(() => {
     const serviceCategoryIcons = BOOKING_CONFIG.serviceCategoryIcons ?? {};

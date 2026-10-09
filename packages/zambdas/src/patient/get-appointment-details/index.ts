@@ -7,11 +7,16 @@ import { GetAppointmentDetailsResponse } from 'utils/lib/types/api/appointment.t
 import { AvailableLocationInformation } from 'utils/lib/types/common';
 import { APPOINTMENT_NOT_FOUND_ERROR, SCHEDULE_NOT_FOUND_ERROR } from 'utils/lib/types/errors';
 import { getAvailableSlotsForSchedules } from 'utils/lib/utils/scheduleUtils';
+import { z } from 'zod';
 import { getAuth0Token } from '../../shared/getAuth0Token';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
-import { validateRequestParameters } from './validateRequestParameters';
+import { validateWithSchema } from '../../shared/validation';
+
+export const bodySchema = z.object({
+  appointmentID: z.string().uuid(),
+});
 
 export interface GetAppointmentDetailInput {
   appointmentID: string;
@@ -23,7 +28,7 @@ let oystehrToken: string;
 const ZAMBDA_NAME = 'get-appointment-details';
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.group('validateRequestParameters');
-  const validatedParameters = validateRequestParameters(input);
+  const validatedParameters = validateWithSchema(bodySchema, input);
   const { appointmentID, secrets } = validatedParameters;
   console.groupEnd();
   console.debug('validateRequestParameters success');

@@ -2,20 +2,23 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, Coding, ProvenanceAgent } from 'fhir/r4b';
 import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
+import { TagBillingClaimInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { isSystemManagedTagName } from 'utils/lib/types/data/billing/system-tags';
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { commitClaimMetaTagsWithProvenance, resolveClaimActor } from '../provenance';
 import { createBillingClient, fetchById, fetchDefinedTagNames } from '../shared';
-import { TagBillingClaimParams, validateRequestParameters } from './validateRequestParameters';
+
+export type TagBillingClaimParams = ValidatedZambdaInput<typeof TagBillingClaimInputSchema>;
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'tag-billing-claim';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const params = validateRequestParameters(input);
+  const params = validateWithSchema(TagBillingClaimInputSchema, input);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
   const agent = await resolveClaimActor('caller', oystehr, input.headers?.Authorization, params.secrets);

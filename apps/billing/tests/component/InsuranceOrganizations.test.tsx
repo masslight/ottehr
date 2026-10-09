@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { CustomInsuranceOrgItem } from 'utils/lib/types/data/billing/custom-insurance-org.types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CustomInsuranceOrganizationDetail, InsuranceOrganizationsList } from '../../src/pages/InsuranceOrganizations';
+import { PayerDetail } from '../../src/pages/PayerDetail';
 
 const {
   searchBillingPayersMock,
@@ -50,7 +51,10 @@ const acmeCustomOrg: CustomInsuranceOrgItem = {
 function renderList(): void {
   render(
     <MemoryRouter initialEntries={['/insurance-organizations']}>
-      <InsuranceOrganizationsList />
+      <Routes>
+        <Route path="/insurance-organizations" element={<InsuranceOrganizationsList />} />
+        <Route path="/insurance-organizations/rcm/:payerId" element={<PayerDetail />} />
+      </Routes>
     </MemoryRouter>
   );
 }
@@ -77,6 +81,50 @@ describe('InsuranceOrganizationsList', () => {
     expect(screen.getByText('PAYER1')).toBeInTheDocument();
     expect(screen.queryByText('Insurance Type')).not.toBeInTheDocument();
     expect(screen.queryByText('Submission')).not.toBeInTheDocument();
+  });
+
+  it('opens RCM payer details using the payer ID and returns to the list', async () => {
+    const user = userEvent.setup();
+    searchBillingPayersMock.mockResolvedValue({
+      payers: [
+        {
+          id: 'payer-1',
+          name: 'RCM Payer Co',
+          payerId: 'PAYER1',
+          alternateNames: ['Former Name'],
+          alternatePayerIds: ['OLD1'],
+          addresses: [{ line: ['PO Box 123'], city: 'Hartford', state: 'CT', postalCode: '06101' }],
+        },
+      ],
+    });
+    renderList();
+    await user.click(await screen.findByText('RCM Payer Co'));
+
+    expect(await screen.findByText('Former Name')).toBeInTheDocument();
+    expect(screen.getByText('OLD1')).toBeInTheDocument();
+    expect(screen.getByText('PO Box 123, Hartford, CT 06101')).toBeInTheDocument();
+    expect(searchBillingPayersMock).toHaveBeenLastCalledWith(expect.anything(), { payerId: 'PAYER1' });
+    expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Back to Insurance Organizations' }));
+    expect(await screen.findByRole('button', { name: 'Add Organization' })).toBeInTheDocument();
+  });
+
+  it.each([
+    ['empty', 'Payer not found'],
+    ['error', 'Failed to load payer'],
+    ['missing details', 'Not available'],
+  ])('handles %s on a direct payer detail visit', async (scenario, message) => {
+    if (scenario === 'empty') searchBillingPayersMock.mockResolvedValue({ payers: [] });
+    if (scenario === 'error') searchBillingPayersMock.mockRejectedValueOnce(new Error());
+    render(
+      <MemoryRouter initialEntries={['/insurance-organizations/rcm/PAYER1']}>
+        <Routes>
+          <Route path="/insurance-organizations/rcm/:payerId" element={<PayerDetail />} />
+        </Routes>
+      </MemoryRouter>
+    );
+    expect(await screen.findByText(message)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Back to Insurance Organizations' })).toBeInTheDocument();
   });
 
   it('rejects an org id that does not start with "OTR-"', async () => {

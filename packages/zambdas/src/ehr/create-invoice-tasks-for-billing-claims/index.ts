@@ -8,6 +8,7 @@ import { getInvoiceTaskClaimId, getInvoiceTaskSource } from 'utils/lib/helpers/t
 import {
   BillingInvoiceTaskClaim,
   CREATE_INVOICE_TASKS_FOR_BILLING_CLAIMS_ZAMBDA_KEY,
+  CreateInvoiceTasksForBillingClaimsInputSchema,
   CreateInvoiceTasksForBillingClaimsResponse,
 } from 'utils/lib/types/api/invoicing.types';
 import {
@@ -21,7 +22,7 @@ import { buildInvoiceTask, sendInvoiceTaskDedupeQuery } from '../../shared/invoi
 import { truncateForLog } from '../../shared/logging';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
-import { validateRequestParameters } from './validateRequestParameters';
+import { validateWithSchema } from '../../shared/validation';
 
 let m2mToken: string;
 
@@ -35,7 +36,7 @@ interface BillingInvoicePackage {
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.group('validateRequestParameters');
-  const params = validateRequestParameters(input);
+  const params = validateWithSchema(CreateInvoiceTasksForBillingClaimsInputSchema, input);
   const { secrets, ...restOfParams } = params;
   console.groupEnd();
   console.debug('validateRequestParameters success', { claims: restOfParams.claims.length });

@@ -285,8 +285,10 @@ async function loadNioOrganizations(
 // setField actions, prefetched so the synchronous payerId writer can tell a custom org id apart from an
 // RCM payer id and reference it directly (see payerReferenceForId in claim-model.ts). A collected id
 // that isn't a custom insurance organization (most commonly an ordinary RCM payer id) simply finds no
-// entry, and the writer falls back to the existing RCM payer URL behavior.
-async function loadCustomInsuranceOrganizations(
+// entry, and the writer falls back to the existing RCM payer URL behavior. Inactive (soft-deleted)
+// organizations stay in the map so the writer fails the action and holds the claim, rather than
+// writing the id as an RCM payer URL.
+export async function loadCustomInsuranceOrganizations(
   oystehr: Oystehr,
   rules: BillingRule[]
 ): Promise<RulesEngineClaimModel['customInsuranceOrganizations']> {

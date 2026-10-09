@@ -2,11 +2,12 @@ import { Encounter, Location, Patient, Questionnaire, QuestionnaireResponse } fr
 import { DateTime } from 'luxon';
 import { createFilesDocumentReferences } from 'utils/lib/fhir/helpers';
 import { getQuestionnaireForQR } from 'utils/lib/fhir/questionnaires';
+import { uploadObjectToZ3 } from 'utils/lib/helpers/presigned-file-url/helpers';
 import { EXPORTED_QUESTIONNAIRE_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 import { handleReviewTaskAndPdf, renderQrPdf } from '../../src/patient/paperwork/submit-paperwork/taskPdfHandler';
 import { sendErrors } from '../../src/shared/errors';
-import { createPresignedUrl, uploadObjectToZ3 } from '../../src/shared/z3Utils';
+import { createPresignedUrl } from '../../src/shared/z3Utils';
 
 // This path is NON-FATAL by design — the patient's submission already succeeded, so any
 // failure here is swallowed and reported rather than surfaced.
@@ -23,7 +24,12 @@ vi.mock('utils/lib/fhir/questionnaires', async (importOriginal) => {
 
 vi.mock('../../src/shared/z3Utils', async (importOriginal) => {
   const original = await importOriginal<typeof import('../../src/shared/z3Utils')>();
-  return { ...original, createPresignedUrl: vi.fn(), uploadObjectToZ3: vi.fn() };
+  return { ...original, createPresignedUrl: vi.fn() };
+});
+
+vi.mock('utils/lib/helpers/presigned-file-url/helpers', async (importOriginal) => {
+  const original = await importOriginal<typeof import('utils/lib/helpers/presigned-file-url/helpers')>();
+  return { ...original, uploadObjectToZ3: vi.fn() };
 });
 
 vi.mock('../../src/shared/errors', async (importOriginal) => {

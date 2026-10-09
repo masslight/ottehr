@@ -2,21 +2,24 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Location } from 'fhir/r4b';
 import { FHIR_IDENTIFIER_CLIA, FHIR_IDENTIFIER_NPI } from 'utils/lib/fhir/constants';
+import { SearchServiceFacilitiesInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { SearchServiceFacilitiesResponse } from 'utils/lib/types/data/billing/billing.types';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { truncateForLog } from '../../shared/logging';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { mapServiceFacility } from '../service-facility.helpers';
 import { createBillingClient, EXCLUDE_WORKING_COPIES_PARAMS } from '../shared';
-import { SearchServiceFacilitiesParams, validateRequestParameters } from './validateRequestParameters';
+
+type SearchServiceFacilitiesParams = ValidatedZambdaInput<typeof SearchServiceFacilitiesInputSchema>;
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'search-billing-service-facilities';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.group('validateRequestParameters');
-  const params = validateRequestParameters(input);
+  const params = validateWithSchema(SearchServiceFacilitiesInputSchema, input);
   const { secrets } = params;
   console.groupEnd();
 

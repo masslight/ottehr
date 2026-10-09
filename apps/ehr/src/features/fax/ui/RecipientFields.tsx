@@ -6,9 +6,9 @@ import { PhoneInput } from 'src/components/input/PhoneInput';
 import { TextInput } from 'src/components/input/TextInput';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { AddressBookPicker } from 'src/features/address-book/AddressBookPicker';
-import { formatPhoneNumberDisplay, isEmailValid } from 'utils/lib/helpers/helpers';
+import { useContactFields } from 'src/features/address-book/useContactFields';
+import { isEmailValid } from 'utils/lib/helpers/helpers';
 import { FAX_RECIPIENT_CREDENTIAL_NEEDS_NAME_MESSAGE } from 'utils/lib/types/api/fax.types';
-import { formatAddressBookPersonName } from 'utils/lib/types/data/address-book';
 import { FaxFormValues, FaxRecipientChannel } from '../model/types';
 
 interface RecipientFieldsProps {
@@ -22,12 +22,22 @@ interface RecipientFieldsProps {
 
 /** One recipient row. Text/phone fields bind to the parent react-hook-form context by name. */
 export const RecipientFields: FC<RecipientFieldsProps> = ({ index, isPcp, onSaveAsPcpChange, onRemove }) => {
-  const { control, getValues, setValue } = useFormContext<FaxFormValues>();
+  const { control, getValues } = useFormContext<FaxFormValues>();
   const channel = useWatch({ control, name: `recipients.${index}.channel` });
 
   const field = (
     key: 'name' | 'credential' | 'organization' | 'channel' | 'faxNumber' | 'email' | 'phoneNumber'
   ): `recipients.${number}.${typeof key}` => `recipients.${index}.${key}`;
+
+  // The credential has its own field, so the name stays a plain name; the cover sheet joins them.
+  const { onSelect, toContact } = useContactFields({
+    organizationName: field('organization'),
+    name: field('name'),
+    credential: field('credential'),
+    fax: field('faxNumber'),
+    email: field('email'),
+    phone: field('phoneNumber'),
+  });
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mb: 2 }}>
@@ -47,17 +57,8 @@ export const RecipientFields: FC<RecipientFieldsProps> = ({ index, isPcp, onSave
         name={field('organization')}
         label="Organization"
         dataTestId={`${dataTestIds.faxDialog.organization}-${index}`}
-        onSelect={(contact) => {
-          // The credential has its own field, so the name stays a plain name; the cover sheet joins them.
-          setValue(
-            field('name'),
-            formatAddressBookPersonName({ firstName: contact.firstName, lastName: contact.lastName })
-          );
-          setValue(field('credential'), contact.credential ?? '');
-          setValue(field('faxNumber'), formatPhoneNumberDisplay(contact.fax), { shouldValidate: true });
-          setValue(field('email'), contact.email ?? '', { shouldValidate: true });
-          setValue(field('phoneNumber'), formatPhoneNumberDisplay(contact.phone));
-        }}
+        onSelect={onSelect}
+        toContact={toContact}
       />
       <Box sx={{ display: 'flex', gap: 2 }}>
         <Box sx={{ flex: '2 1 0', minWidth: 0 }}>

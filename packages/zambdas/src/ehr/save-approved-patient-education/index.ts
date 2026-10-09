@@ -9,6 +9,7 @@ import { randomUUID } from 'crypto';
 import { DocumentReference, List } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { BUCKET_NAMES } from 'utils/lib/fhir/constants';
+import { uploadObjectToZ3 } from 'utils/lib/helpers/presigned-file-url/helpers';
 import { CODE_SYSTEM_ICD_10 } from 'utils/lib/helpers/rcm/constants';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import {
@@ -20,16 +21,32 @@ import {
   PATIENT_EDUCATION_APPROVED_ICD_EXTENSION_URL,
   PATIENT_EDUCATION_APPROVED_LIST_IDENTIFIER,
 } from 'utils/lib/types/data/paperwork/paperwork.constants';
-import { normalizePatientEducationLanguage } from 'utils/lib/types/data/patient-education.types';
+import {
+  normalizePatientEducationLanguage,
+  PATIENT_EDUCATION_LANGUAGES,
+} from 'utils/lib/types/data/patient-education.types';
+import { z } from 'zod';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { topLevelCatch } from '../../shared/lambda';
 import { makeZ3FileUrl } from '../../shared/presigned-file-urls/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
-import { createPresignedUrl, deleteZ3Object, uploadObjectToZ3 } from '../../shared/z3Utils';
+import { validateWithSchema } from '../../shared/validation';
+import { createPresignedUrl, deleteZ3Object } from '../../shared/z3Utils';
 import { extractApprovedEducationIcdCodes } from '../shared/approved-patient-education-helpers';
-import { validateRequestParameters } from './validateRequestParameters';
+
+const icdCodeSchema = z.object({
+  code: z.string().min(1, 'Each icdCodes entry must have a code'),
+  display: z.string(),
+});
+
+export const saveApprovedPatientEducationInputSchema: z.ZodType<SaveApprovedPatientEducationInput> = z.object({
+  pdfBase64: z.string().min(1, 'pdfBase64 is required'),
+  title: z.string().min(1, 'title is required'),
+  icdCodes: z.array(icdCodeSchema).min(1, 'icdCodes must be a non-empty array'),
+  language: z.enum(PATIENT_EDUCATION_LANGUAGES).optional(),
+});
 
 let m2mToken: string;
 
@@ -37,7 +54,7 @@ export const index = wrapHandler(
   'save-approved-patient-education',
   async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
     try {
-      const validatedInput = validateRequestParameters(input);
+      const validatedInput = validateWithSchema(saveApprovedPatientEducationInputSchema, input);
       m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedInput.secrets);
       const oystehr = createClinicalOystehrClient(m2mToken, validatedInput.secrets);
 

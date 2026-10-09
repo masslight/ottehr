@@ -8,6 +8,7 @@ const FEATURE_FLAGS_DATA: FeatureFlagsConfig = {
   nursingOrdersEnabled: true,
   supervisorApprovalEnabled: true,
   demoVisitsEnabled: true,
+  easyChartEnabled: true,
   globalTemplatesEnabled: true,
   legacyDataEnabled: true,
   mailingPaperStatementsEnabled: true,
