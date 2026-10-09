@@ -794,7 +794,7 @@ export const Header = (): JSX.Element => {
                 <PatientInfoWrapper>
                   <Grid>
                     <PatientInfoWrapper sx={{ flexWrap: 'wrap' }}>
-                      <GenericToolTip title={pronouns} placement="top">
+                      <GenericToolTip title={pronouns} placement="top" describeChild>
                         <PatientName
                           data-testid={dataTestIds.inPersonHeader.patientName}
                           onClick={() => navigate(`/patient/${userId}`)}
