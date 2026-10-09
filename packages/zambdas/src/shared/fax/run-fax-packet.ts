@@ -76,7 +76,6 @@ export const deliverFaxPacket = async (args: {
 
   const results: FaxRecipientResult[] = [];
   for (const recipient of recipients) {
-    const address = recipient.faxNumber ?? recipient.email;
     const base: FaxRecipientResult = {
       name: formatFaxRecipientName(recipient),
       organization: recipient.organization,
@@ -141,7 +140,8 @@ export const deliverFaxPacket = async (args: {
       results.push({ ...base, status: 'sent' });
     } catch (error) {
       // The raw cause stays server-side; the UI only ever learns sent/failed.
-      console.error(`[fax-packet] failed to send to ${address}`, error);
+      // An email address identifies a person, so only a fax number goes to the logs.
+      console.error(`[fax-packet] failed to send to ${recipient.faxNumber ?? 'an email recipient'}`, error);
       captureException(error);
       results.push(base);
     }

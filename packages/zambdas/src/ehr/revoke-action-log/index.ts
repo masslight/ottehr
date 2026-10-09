@@ -9,14 +9,13 @@ import {
 } from 'utils/lib/types/api/action-logs.types';
 import { checkOrCreateM2MClientToken, requireUserWithRole } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
+import { collectResendChain } from '../../shared/outbound-delivery';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'revoke-action-log';
 let m2mToken = '';
-/** A resend chain is never deep; this only guards against a malformed `partOf` loop. */
-const MAX_CHAIN_SIZE = 50;
 
 /**
  * Revokes an emailed document link: the attempt and every later attempt in its resend chain are cancelled, which
@@ -57,21 +56,4 @@ export async function performEffect(
     )
   );
   return { attemptId: parameters.attemptId, revokedCount: chain.length };
-}
-
-/** The attempt and every descendant linked to it through `partOf`, oldest first. */
-async function collectResendChain(oystehr: Oystehr, start: Task): Promise<Task[]> {
-  const chain: Task[] = [start];
-  for (let index = 0; index < chain.length && chain.length < MAX_CHAIN_SIZE; index++) {
-    const children = (
-      await oystehr.fhir.search<Task>({
-        resourceType: 'Task',
-        params: [{ name: 'part-of', value: `Task/${chain[index].id}` }],
-      })
-    )
-      .unbundle()
-      .filter((resource) => resource.resourceType === 'Task' && !chain.some((seen) => seen.id === resource.id));
-    chain.push(...children);
-  }
-  return chain;
 }

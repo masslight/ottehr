@@ -10,6 +10,7 @@ import {
   getOutboundDeliveryFaxPacketSnapshot,
   getOutboundDeliveryRecipientSnapshot,
   getOutboundDeliverySenderOrganizationId,
+  isDocumentLinkAttempt,
 } from 'utils/lib/fhir/outbound-delivery';
 import { getFormattedPatientFullName } from 'utils/lib/fhir/patient';
 import { removePrefix } from 'utils/lib/helpers/helpers';
@@ -245,8 +246,10 @@ function composeEntry(
       status === 'failed' &&
       Boolean(channel === 'fax' ? recipient.documentReferenceId || appointmentId : appointmentId) &&
       Boolean(recipient.address?.trim()) &&
-      !retriedAttemptIds.has(task.id!),
-    canRevoke: channel === 'email' && status === 'sent' && Boolean(recipient.documentReferenceId),
+      !retriedAttemptIds.has(task.id!) &&
+      // A failed link email is usually a bad address; it is sent again from the Send dialog, not retried.
+      !isDocumentLinkAttempt(task),
+    canRevoke: isDocumentLinkAttempt(task) && status === 'sent',
   };
 }
 

@@ -25,7 +25,7 @@ import { FHIR_RESOURCE_IS_GONE, FHIR_RESOURCE_NOT_FOUND, NOT_AUTHORIZED } from '
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { sendDocumentLinkEmailAttempt } from '../../shared/document-link-email';
 import { createClinicalOystehrClient } from '../../shared/helpers';
-import { requireOutboundDeliveryValue } from '../../shared/outbound-delivery';
+import { collectResendChain, requireOutboundDeliveryValue } from '../../shared/outbound-delivery';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -37,8 +37,6 @@ let m2mToken: string;
 const LINK_NOT_FOUND = { ...FHIR_RESOURCE_NOT_FOUND('Task'), statusCode: 404 };
 /** Extension on a `link-opened` output naming the client that opened it. */
 const LINK_OPENED_CLIENT_EXTENSION_URL = 'https://fhir.ottehr.com/Extension/link-opened-client';
-/** A resend chain is never deep; this only guards against a malformed `partOf` loop. */
-const MAX_CHAIN_HOPS = 20;
 
 export interface LinkClient {
   ip?: string;
@@ -145,26 +143,10 @@ async function loadLinkAttempt(oystehr: Oystehr, attemptId: string): Promise<Tas
   }
 }
 
-/** Follows `partOf` children to the most recent attempt in this send's resend chain. */
+/** The most recent attempt in this send's resend chain, across every branch of it. */
 async function findNewestAttempt(oystehr: Oystehr, start: Task): Promise<Task> {
-  let newest = start;
-  for (let hop = 0; hop < MAX_CHAIN_HOPS; hop++) {
-    const children = (
-      await oystehr.fhir.search<Task>({
-        resourceType: 'Task',
-        params: [
-          { name: 'part-of', value: `Task/${newest.id}` },
-          { name: '_sort', value: '-authored-on' },
-          { name: '_count', value: '1' },
-        ],
-      })
-    )
-      .unbundle()
-      .filter((resource) => resource.resourceType === 'Task');
-    if (!children[0]?.id) return newest;
-    newest = children[0];
-  }
-  return newest;
+  const chain = await collectResendChain(oystehr, start);
+  return chain.reduce((newest, attempt) => ((attempt.authoredOn ?? '') > (newest.authoredOn ?? '') ? attempt : newest));
 }
 
 /** A sent attempt whose token has not reached the link lifetime yet. */

@@ -211,41 +211,29 @@ export const SendFaxForm: FC<SendFaxFormProps> = ({
           >
             Cancel
           </Button>
-          {emailAddresses.length > 0 ? (
-            <ConfirmationDialog
-              title="Send by email?"
-              description={`Documents will be emailed to: ${emailAddresses.join(
-                ', '
-              )}. Check the addresses before sending.`}
-              response={handleSubmit(onSubmit)}
-              actionButtons={{ proceed: { text: 'Send email' }, back: { text: 'Cancel' }, reverse: true }}
-            >
-              {(showDialog) => (
-                <LoadingButton
-                  type="button"
-                  variant="contained"
-                  loading={isSending}
-                  disabled={!sendEnabled || (preview ? hasNothingToSend(preview.documents) : false)}
-                  sx={{ borderRadius: '100px', textTransform: 'none', fontWeight: 500 }}
-                  data-testid={dataTestIds.faxDialog.sendButton}
-                  onClick={showDialog}
-                >
-                  Send
-                </LoadingButton>
-              )}
-            </ConfirmationDialog>
-          ) : (
-            <LoadingButton
-              type="submit"
-              variant="contained"
-              loading={isSending}
-              disabled={!sendEnabled || (preview ? hasNothingToSend(preview.documents) : false)}
-              sx={{ borderRadius: '100px', textTransform: 'none', fontWeight: 500 }}
-              data-testid={dataTestIds.faxDialog.sendButton}
-            >
-              Send
-            </LoadingButton>
-          )}
+          <ConfirmationDialog
+            title="Send by email?"
+            description={`Documents will be emailed to: ${emailAddresses.join(
+              ', '
+            )}. Check the addresses before sending.`}
+            response={handleSubmit(onSubmit)}
+            actionButtons={{ proceed: { text: 'Send email' }, back: { text: 'Cancel' }, reverse: true }}
+          >
+            {(showDialog) => (
+              <LoadingButton
+                type="button"
+                variant="contained"
+                loading={isSending}
+                disabled={!sendEnabled || (preview ? hasNothingToSend(preview.documents) : false)}
+                sx={{ borderRadius: '100px', textTransform: 'none', fontWeight: 500 }}
+                data-testid={dataTestIds.faxDialog.sendButton}
+                // Email recipients get one look at the addresses first; fax-only sends go straight out.
+                onClick={emailAddresses.length > 0 ? showDialog : handleSubmit(onSubmit)}
+              >
+                Send
+              </LoadingButton>
+            )}
+          </ConfirmationDialog>
         </DialogActions>
       </form>
     </FormProvider>

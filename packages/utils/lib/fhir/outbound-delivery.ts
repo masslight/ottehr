@@ -142,6 +142,10 @@ export function getOutboundDeliverySenderOrganizationId(task: Task): string | un
   );
 }
 
+/** An emailed document link, as opposed to a visit-note email: only link emails record the sending organization. */
+export const isDocumentLinkAttempt = (task: Task): boolean =>
+  getOutboundDeliveryChannel(task) === 'email' && Boolean(getOutboundDeliverySenderOrganizationId(task));
+
 export interface OutboundDeliveryFaxPacketSnapshot {
   pageCount?: number;
   parts: string[];

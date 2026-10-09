@@ -61,6 +61,8 @@ const emailAttempt = (over: Partial<Task> = {}): Task => ({
   }),
   id: 'attempt-1',
   status: 'completed',
+  // Sent before any resend in a chain, as a real original always is.
+  authoredOn: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
   ...over,
 });
 
@@ -194,7 +196,7 @@ describe('open-document-link', () => {
   });
 
   it('re-sends from the newest attempt once every link in the chain has expired', async () => {
-    const stale = childAttempt('attempt-2', 'attempt-1', hoursAgo(3));
+    const stale = childAttempt('attempt-2', 'attempt-1', hoursAgo(1.5));
     mockFhirSearch.mockImplementation(async ({ params }: { params: { name: string; value: string }[] }) => ({
       unbundle: () => (params.some((p) => p.value === 'Task/attempt-1') ? [stale] : []),
     }));

@@ -111,17 +111,6 @@ export async function sendDocumentLinkEmailAttempt(
   });
   if (!attempt.id) throw new Error('Outbound email attempt was created without an id');
 
-  return deliverDocumentLinkEmailAttempt(input, attempt, emailClient);
-}
-
-/** Sends and settles a document link email using an attempt that has already been persisted. */
-export async function deliverDocumentLinkEmailAttempt(
-  input: DocumentLinkEmailInput,
-  attempt: Task,
-  emailClient: DocumentLinkEmailClient
-): Promise<Task> {
-  if (!attempt.id) throw new Error('Outbound email attempt is missing an id');
-
   try {
     const token = await mintDocumentLinkToken(attempt.id, input.secrets);
     await emailClient.sendGenericOutreachEmail(
