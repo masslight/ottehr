@@ -46,9 +46,7 @@ async function fetchAdHocBilling({
 export const billingDataset: AdHocDataset = {
   id: 'billing',
   label: 'Billing',
-  description:
-    'One row per encounter, focused on billing & revenue; optional patient-payment, insurance-coverage, ' +
-    'charges/fee-schedule, and billing-code layers.',
+  description: 'One row per encounter, focused on billing & revenue.',
   options: ADHOC_BILLING_OPTIONS,
   layers: BILLING_LAYERS,
   baseSchema: BillingBaseRowSchema,
