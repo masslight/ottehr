@@ -71,6 +71,7 @@ import {
   CreateDischargeSummaryInput,
   CreateDischargeSummaryResponse,
 } from 'utils/lib/types/api/create-discharge-summary/create-discharge-summary.types';
+import { CreatePatientInput, CreatePatientResponse } from 'utils/lib/types/api/create-patient.types';
 import { CreateUserOutput, CreateUserParams } from 'utils/lib/types/api/create-user.types';
 import {
   DailyPaymentsReportZambdaInput,
@@ -267,9 +268,11 @@ import {
 import { UpdateUserParams, UpdateUserZambdaOutput } from 'utils/lib/types/api/update-user/update-user.types';
 import {
   DeleteVisitFilesInput,
+  DeleteVisitFormInput,
   UpdateVisitDetailsInput,
   UpdateVisitFilesInput,
   UpdateVisitFilesOutput,
+  UpdateVisitFormInput,
 } from 'utils/lib/types/api/update-visit-details.types';
 import { UserActivationZambdaInput, UserActivationZambdaOutput } from 'utils/lib/types/api/user-activation.types';
 import {
@@ -437,6 +440,7 @@ const PRACTICE_KPIS_REPORT_ZAMBDA_ID = 'practice-kpis-report';
 const VISITS_OVERVIEW_REPORT_ZAMBDA_ID = 'visits-overview-report';
 const RECENT_PATIENTS_REPORT_ZAMBDA_ID = 'recent-patients-report';
 const CREATE_APPOINTMENT_ZAMBDA_ID = 'create-appointment';
+const CREATE_PATIENT_ZAMBDA_ID = 'create-patient';
 const CANCEL_TELEMED_APPOINTMENT_ZAMBDA_ID = 'telemed-cancel-appointment';
 const INVITE_PARTICIPANT_ZAMBDA_ID = 'video-chat-invites-create';
 const CREATE_USER_ZAMBDA_ID = 'create-user';
@@ -928,6 +932,22 @@ export const createAppointment = async (
 
     const response = await oystehr.zambda.execute({
       id: CREATE_APPOINTMENT_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const createPatient = async (
+  oystehr: Oystehr,
+  parameters: CreatePatientInput
+): Promise<CreatePatientResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: CREATE_PATIENT_ZAMBDA_ID,
       ...parameters,
     });
     return chooseJson(response);
@@ -2437,6 +2457,30 @@ export const deleteVisitFiles = async (oystehr: Oystehr, parameters: DeleteVisit
   } catch (error: unknown) {
     console.log(error);
     throw error;
+  }
+};
+
+export const updateVisitForm = async (oystehr: Oystehr, parameters: UpdateVisitFormInput): Promise<void> => {
+  try {
+    await oystehr.zambda.execute({
+      id: 'update-visit-form',
+      ...parameters,
+    });
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const deleteVisitForm = async (oystehr: Oystehr, parameters: DeleteVisitFormInput): Promise<void> => {
+  try {
+    await oystehr.zambda.execute({
+      id: 'delete-visit-form',
+      ...parameters,
+    });
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
   }
 };
 

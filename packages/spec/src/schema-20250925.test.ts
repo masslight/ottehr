@@ -435,4 +435,45 @@ describe('Schema20250925 generate()', () => {
       expect(offenders).toEqual([]);
     });
   });
+
+  describe('apps', () => {
+    it('exposes resolved app inputs as a local and keeps depends_on on the resource', async () => {
+      const spec = {
+        path: 'apps.json',
+        spec: {
+          'schema-version': '2025-09-25',
+          project: { PROJECT: { name: 'Project' } },
+          apps: {
+            APP: {
+              name: 'App',
+              loginRedirectUri: '#{var/APP_URL}',
+              allowedCallbackUrls: ['#{var/APP_URL}', 'https://extra.example.com'],
+            },
+          },
+        },
+      };
+      await new Schema20250925([spec], { APP_URL: 'https://app.example.com' }, tmpDir, '/zambdas').generate();
+
+      const apps = JSON.parse(await fs.readFile(path.join(tmpDir, 'apps.tf.json'), 'utf8'));
+      const { depends_on, ...resource } = apps.resource.oystehr_application.APP;
+      expect(depends_on).toEqual(['oystehr_project_configuration.PROJECT']);
+      expect(apps.locals.oystehr_application_APP_config).toEqual(resource);
+      expect(resource).toMatchObject({
+        login_redirect_uri: 'https://app.example.com',
+        allowed_callback_urls: ['https://app.example.com', 'https://extra.example.com'],
+      });
+
+      const project = JSON.parse(await fs.readFile(path.join(tmpDir, 'project.tf.json'), 'utf8'));
+      expect(project).not.toHaveProperty('locals');
+    });
+
+    it('removes apps.tf.json and its locals when the apps are removed', async () => {
+      const spec = { path: 'apps.json', spec: { 'schema-version': '2025-09-25', apps: { APP: { name: 'App' } } } };
+      await new Schema20250925([spec], {}, tmpDir, '/zambdas').generate();
+      expect(await fs.readdir(tmpDir)).toContain('apps.tf.json');
+
+      await new Schema20250925([], {}, tmpDir, '/zambdas').generate();
+      expect(await fs.readdir(tmpDir)).not.toContain('apps.tf.json');
+    });
+  });
 });

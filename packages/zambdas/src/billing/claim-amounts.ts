@@ -12,6 +12,7 @@ import { DateTime } from 'luxon';
 import { CLAIM_STATUS_RESPONSE_EVENT_SYSTEM, PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { getContainedReconciliation } from 'utils/lib/fhir/payments';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
+import { extractPayerIdFromUrl } from 'utils/lib/helpers/helpers';
 import { X12_ADJUSTMENT_GROUP_CODE, X12AdjustmentGroupCode } from 'utils/lib/types/data/billing/billing.constants';
 import { ClaimPatientPayment, ClaimRemitAdjustment } from 'utils/lib/types/data/billing/billing.types';
 import { roundNumberToDecimalPlaces } from 'utils/lib/utils/convert';
@@ -29,6 +30,7 @@ export const ADJUDICATION_CODES = {
 export const ADJUSTMENT_GROUP_PATIENT_RESPONSIBILITY = X12_ADJUSTMENT_GROUP_CODE.patientResponsibility;
 
 export interface ClaimResponseAmounts {
+  payerId: string;
   paid: number;
   // undefined = the ClaimResponse carries no allowed data (distinct from an explicit 0)
   allowed: number | undefined;
@@ -78,7 +80,10 @@ export function extractClaimResponseAmounts(claimResponse: ClaimResponse): Claim
       ? sumAmounts(adjudications.filter((adj) => adjudicationCode(adj) === ADJUSTMENT_GROUP_PATIENT_RESPONSIBILITY))
       : undefined;
 
+  const payerId = extractPayerIdFromUrl(claimResponse.insurer.reference) ?? '';
+
   return {
+    payerId,
     paid,
     allowed,
     patientResp,
@@ -167,11 +172,34 @@ export function summarizeClaimPayments(
 
   const insurancePaid = amounts.reduce((sum, a) => sum + a.paid, 0);
   const allowed = amounts.findLast((a) => a.allowed !== undefined)?.allowed ?? 0;
-  const latestPatientResp = amounts[amounts.length - 1].patientResp;
-  // no CAS data on the latest adjudication falls back to what the payer allowed but didn't pay.
-  // Floored either way: a reversal reports what it took back as negative PR, and the patient owes
+
+  // Determine patient responsibility by looking at last response for each payer. If there is no
+  // patient responsibility for any of these responses, `allowed - insurancePaid` is used instead.
+  // In all cases, negative patient responsibilities are set to 0.
+  const amountsByPayer = amounts.reduce(
+    (amts, amount) => {
+      if (!amts[amount.payerId]) {
+        amts[amount.payerId] = [];
+      }
+      amts[amount.payerId].push(amount);
+      return amts;
+    },
+    {} as Record<string, ClaimResponseAmounts[]>
+  );
+  const totalPatientResp = Object.values(amountsByPayer)
+    .map((amts) => amts[amts.length - 1].patientResp)
+    .reduce((sum, a) => {
+      // If no responses specify patient responsibility, we want to fall through at the summed
+      // level to `allowed - insurancePaid`. This check guarantees we will end up with `undefined`
+      // instead of `0` for the total.
+      if (a !== undefined) {
+        return (sum ?? 0) + a;
+      }
+      return sum;
+    }, undefined);
+  // Ceilinged to 0 either way: a reversal reports what it took back as negative PR, and the patient owes
   // nothing rather than less than nothing — otherwise a payment they made counts twice as credit.
-  const patientResp = Math.max(latestPatientResp ?? allowed - insurancePaid, 0);
+  const patientResp = Math.max(totalPatientResp ?? allowed - insurancePaid, 0);
 
   return {
     allowed,

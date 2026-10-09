@@ -3,14 +3,17 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Encounter, Reference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { TIMEZONES } from 'utils/lib/types/constants';
+import { RecordBillingManualPaymentInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { RecordBillingManualPaymentResponse } from 'utils/lib/types/data/billing/billing.types';
 import { checkOrCreateM2MClientToken, getUser } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { MANUAL_PAYMENT_IDEMPOTENCY_KEY_SYSTEM, recordBillingPatientPayment } from '../payments';
 import { createBillingClient, fetchById } from '../shared';
-import { RecordBillingManualPaymentParams, validateRequestParameters } from './validateRequestParameters';
+
+type RecordBillingManualPaymentParams = ValidatedZambdaInput<typeof RecordBillingManualPaymentInputSchema>;
 
 const ZAMBDA_NAME = 'record-billing-manual-payment';
 
@@ -80,7 +83,7 @@ const performEffect = async (
 };
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const params = validateRequestParameters(input);
+  const params = validateWithSchema(RecordBillingManualPaymentInputSchema, input);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const effectInput = await complexValidation(input, params, m2mToken);

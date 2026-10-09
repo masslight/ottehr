@@ -1,35 +1,38 @@
 import type { APIGatewayProxyResult } from 'aws-lambda';
 import { describe, expect, it, vi } from 'vitest';
-import { validateRequestParameters } from '../../src/rcm/payments/get-stripe-account-info/validateRequestParameters';
+import { GetStripeAccountInfoBodySchema } from '../../src/rcm/payments/get-stripe-account-info/index';
 import type { ZambdaInput } from '../../src/shared/types/common';
+import { validateWithSchema } from '../../src/shared/validation';
 
 // ---------------------------------------------------------------------------
 // validateRequestParameters
 // ---------------------------------------------------------------------------
 
 function makeInput(body: Record<string, unknown> | null): ZambdaInput {
-  return { headers: null, body: body ? JSON.stringify(body) : (null as unknown as string), secrets: null };
+  return { headers: null, body: body ? JSON.stringify(body) : (null as unknown as string), secrets: {} };
 }
 
 describe('get-stripe-account-info validateRequestParameters', () => {
   it('returns validated params for valid input', () => {
-    const result = validateRequestParameters(makeInput({ stripeAccountId: 'acct_123abc' }));
+    const result = validateWithSchema(GetStripeAccountInfoBodySchema, makeInput({ stripeAccountId: 'acct_123abc' }));
     expect(result).toMatchObject({ stripeAccountId: 'acct_123abc' });
-    expect(result.secrets).toBeNull();
+    expect(result.secrets).toEqual({});
   });
 
   it('throws when stripeAccountId is missing', () => {
-    expect(() => validateRequestParameters(makeInput({}))).toThrow('Validation error: Required at "stripeAccountId"');
+    expect(() => validateWithSchema(GetStripeAccountInfoBodySchema, makeInput({}))).toThrow(
+      'Validation error: Required at "stripeAccountId"'
+    );
   });
 
   it('throws when stripeAccountId is empty string', () => {
-    expect(() => validateRequestParameters(makeInput({ stripeAccountId: '' }))).toThrow(
+    expect(() => validateWithSchema(GetStripeAccountInfoBodySchema, makeInput({ stripeAccountId: '' }))).toThrow(
       'Validation error: String must contain at least 1 character(s) at "stripeAccountId"'
     );
   });
 
   it('throws when stripeAccountId is not a string', () => {
-    expect(() => validateRequestParameters(makeInput({ stripeAccountId: 99 }))).toThrow(
+    expect(() => validateWithSchema(GetStripeAccountInfoBodySchema, makeInput({ stripeAccountId: 99 }))).toThrow(
       'Validation error: Expected string, received number at "stripeAccountId"'
     );
   });
@@ -38,9 +41,9 @@ describe('get-stripe-account-info validateRequestParameters', () => {
     const input: ZambdaInput = {
       headers: null,
       body: JSON.stringify({ stripeAccountId: 'acct_xyz' }),
-      secrets: null,
+      secrets: {},
     };
-    const result = validateRequestParameters(input);
+    const result = validateWithSchema(GetStripeAccountInfoBodySchema, input);
     expect(result.stripeAccountId).toBe('acct_xyz');
   });
 });

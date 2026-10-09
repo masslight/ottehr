@@ -6,6 +6,7 @@ import { BUCKET_NAMES, FHIR_IDENTIFIER_NPI } from 'utils/lib/fhir/constants';
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
 import { formatPhoneNumberDisplay, formatZipcodeForDisplay } from 'utils/lib/helpers/helpers';
 import { getPatientIdForLabOrder } from 'utils/lib/helpers/labs/helpers';
+import { uploadObjectToZ3 } from 'utils/lib/helpers/presigned-file-url/helpers';
 import { BRANDING_CONFIG } from 'utils/lib/ottehr-config/branding';
 import { Secrets } from 'utils/lib/secrets';
 import {
@@ -18,7 +19,7 @@ import { APIError, EXTERNAL_LAB_ERROR } from 'utils/lib/types/errors';
 import { resourcesForOrderForm } from '../../ehr/lab/external/submit-lab-order/helpers';
 import { formatDateTimeForLabs, LABS_DATE_STRING_FORMAT } from '../../ehr/lab/shared/helpers';
 import { makeZ3Url } from '../presigned-file-urls/helpers';
-import { createPresignedUrl, uploadObjectToZ3 } from '../z3Utils';
+import { createPresignedUrl } from '../z3Utils';
 import { drawFieldLineBoldHeader, getPdfClientForLabsPDFs, LabsPDFTextStyleConfig } from './lab-pdf-utils';
 import { getLabFileName } from './labs-results-form-pdf';
 import { ICON_STYLE, STANDARD_NEW_LINE, SUB_HEADER_FONT_SIZE } from './pdf-consts';

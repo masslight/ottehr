@@ -3,14 +3,14 @@ import { Basic } from 'fhir/r4b';
 import { AUTO_ACCIDENT_TAG_NAME, HOLD_TAG_NAME } from 'utils/lib/types/data/billing/system-tags';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { complexValidation } from '../../../src/billing/save-billing-tag';
-import { SaveBillingTagParams } from '../../../src/billing/save-billing-tag/validateRequestParameters';
+import { SaveBillingTagParams } from '../../../src/billing/save-billing-tag/index';
 import { TAG_CODE_SYSTEM } from '../../../src/billing/shared';
 
 const search = vi.fn();
 const oystehr = { fhir: { search } } as unknown as Oystehr;
 
 const params = (name: string, tagId?: string): SaveBillingTagParams =>
-  ({ name, tagId, secrets: null }) as SaveBillingTagParams;
+  ({ name, tagId, secrets: {} }) as SaveBillingTagParams;
 
 const tagBasic = (id: string, name: string): Basic => ({
   resourceType: 'Basic',

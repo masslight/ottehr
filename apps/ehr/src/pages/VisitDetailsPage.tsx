@@ -37,6 +37,7 @@ import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
+  deleteVisitForm,
   generatePaperworkPdf,
   getOrCreateVisitDetailsPdf,
   getPatientVisitDetails,
@@ -45,15 +46,17 @@ import {
   updatePatientVisitDetails,
 } from 'src/api/api';
 import CardThumbnail from 'src/components/CardThumbnail';
+import { CustomFormCard } from 'src/components/CustomFormCard';
 import ActivityLogDialog from 'src/components/dialogs/ActivityLogDialog';
 import CancellationReasonDialog from 'src/components/dialogs/CancellationReasonDialog';
 import { CustomDialog } from 'src/components/dialogs/CustomDialog';
+import DeleteDialog from 'src/components/dialogs/DeleteDialog';
+import { EditFormResponseDialog } from 'src/components/dialogs/EditFormResponseDialog';
 import EditPatientInfoDialog from 'src/components/dialogs/EditPatientInfoDialog';
 import ReportIssueDialog from 'src/components/dialogs/ReportIssueDialog';
 import { SendFormDialog } from 'src/components/dialogs/SendFormDialog';
 import InsuranceCardOrientationHint from 'src/components/InsuranceCardOrientationHint';
 import PatientBalances from 'src/components/PatientBalances';
-import { QuestionnaireResponseViewer } from 'src/components/QuestionnaireResponseViewer';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { ScannerModal } from 'src/components/ScannerModal';
 import { getInPersonUrlByAppointmentType } from 'src/features/visits/in-person/routing/helpers';
@@ -97,6 +100,7 @@ import {
   PATIENT_INFO_META_DATA_SYSTEM,
 } from 'utils/lib/types/constants';
 import { OrderedCoveragesWithSubscribers } from 'utils/lib/types/data/account';
+import { StandaloneFormDTO } from 'utils/lib/types/data/practice-managed-questionnaires/practice-managed-questionnaire.types';
 import { EHRVisitDetails } from 'utils/lib/types/data/visit-details.types';
 import { isApiError } from 'utils/lib/types/errors';
 import { formatDateForDisplay } from 'utils/lib/utils/dateUtils';
@@ -278,6 +282,9 @@ export default function VisitDetailsPage(): ReactElement {
   const user = useEvolveUser();
 
   const [sendFormDialogOpen, setSendFormDialogOpen] = useState(false);
+  const [formToEdit, setFormToEdit] = useState<StandaloneFormDTO | undefined>(undefined);
+  const [formToDelete, setFormToDelete] = useState<StandaloneFormDTO | undefined>(undefined);
+  const [deletingForm, setDeletingForm] = useState(false);
   const [actionsMenuAnchor, setActionsMenuAnchor] = useState<HTMLElement | null>(null);
   const [docsMenuAnchor, setDocsMenuAnchor] = useState<HTMLElement | null>(null);
 
@@ -307,8 +314,15 @@ export default function VisitDetailsPage(): ReactElement {
   const serverConsentAttested = visitDetailsData?.consentIsAttested ?? false;
   const standAloneForms = visitDetailsData?.standAloneForms;
   const intakePaperworkFlowForms = visitDetailsData?.intakePaperworkFlowForms;
-  // Custom forms bundled in the visit's paperwork flow render alongside manually-sent standalone forms.
-  const allCustomForms = [...(standAloneForms ?? []), ...(intakePaperworkFlowForms ?? [])];
+  // Custom forms bundled in the visit's paperwork flow render alongside manually-sent standalone forms,
+  // but only a manually-sent form owns its QuestionnaireResponse outright, so only it can be deleted.
+  const allCustomForms = useMemo(
+    () => [
+      ...(standAloneForms ?? []).map((form) => ({ form, deletable: true })),
+      ...(intakePaperworkFlowForms ?? []).map((form) => ({ form, deletable: false })),
+    ],
+    [standAloneForms, intakePaperworkFlowForms]
+  );
 
   const {
     imagesLoading,
@@ -889,6 +903,26 @@ export default function VisitDetailsPage(): ReactElement {
     } finally {
       setPaperworkPdfLoading(false);
     }
+  };
+
+  const handleDeleteForm = async (): Promise<void> => {
+    const questionnaireResponseId = formToDelete?.questionnaireResponse.id;
+    if (!oystehrZambda || !questionnaireResponseId || !patientId) return;
+
+    setDeletingForm(true);
+    try {
+      await deleteVisitForm(oystehrZambda, { questionnaireResponseId, patientId });
+    } catch (error) {
+      console.error(error);
+      enqueueSnackbar('Failed to delete form.', { variant: 'error' });
+      return;
+    } finally {
+      setDeletingForm(false);
+    }
+
+    setFormToDelete(undefined);
+    enqueueSnackbar('Form deleted', { variant: 'success' });
+    await refetchVisitDetails();
   };
 
   const downloadVisitDetailsPdf = async (): Promise<void> => {
@@ -1524,14 +1558,14 @@ export default function VisitDetailsPage(): ReactElement {
                       />
                     </Grid>
                     {allCustomForms.length > 0 ? (
-                      allCustomForms.map((form, idx) => (
-                        <Grid item key={`${form.questionnaireId}-${idx}`}>
-                          <Paper sx={{ mt: 2, p: 3 }}>
-                            <Typography variant="subtitle1" sx={{ fontWeight: 700, color: '#0F347C', mb: 1 }}>
-                              {form.questionnaireTitle}
-                            </Typography>
-                            <QuestionnaireResponseViewer form={form} />
-                          </Paper>
+                      allCustomForms.map(({ form, deletable }, idx) => (
+                        <Grid item key={`${form.questionnaireId}-${idx}`} sx={{ mt: 2 }}>
+                          <CustomFormCard
+                            form={form}
+                            deletable={deletable}
+                            onEdit={() => setFormToEdit(form)}
+                            onDelete={() => setFormToDelete(form)}
+                          />
                         </Grid>
                       ))
                     ) : (
@@ -1884,6 +1918,29 @@ export default function VisitDetailsPage(): ReactElement {
             appointmentId={appointmentID}
           />
         )}
+        {formToEdit && (
+          <EditFormResponseDialog
+            form={formToEdit}
+            patientId={patientId}
+            onClose={() => setFormToEdit(undefined)}
+            onSaved={() => {
+              setFormToEdit(undefined);
+              void refetchVisitDetails();
+            }}
+          />
+        )}
+        <DeleteDialog
+          open={Boolean(formToDelete)}
+          title="Delete form?"
+          description={`"${
+            formToDelete?.questionnaireTitle ?? 'This form'
+          }" and the answers submitted on it will no longer show on this visit.`}
+          closeButtonText="Cancel"
+          handleClose={() => setFormToDelete(undefined)}
+          deleteButtonText="Delete"
+          handleDelete={() => void handleDeleteForm()}
+          loadingDelete={deletingForm}
+        />
       </>
     </PageContainer>
   );

@@ -15,6 +15,7 @@ import {
   CODE_SYSTEM_CLAIM_INFORMATION_CATEGORY,
 } from 'utils/lib/helpers/rcm/constants';
 import { asEraClaimStatusCode, CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
+import { GetClaimDetailInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import {
   BillingPolicyHolderSummary,
   ClaimAttachment,
@@ -24,6 +25,7 @@ import { getClaimStatusValues } from 'utils/lib/types/data/billing/claim-status'
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import {
   extractClaimResponseAmounts,
   extractRemitAdjustments,
@@ -61,17 +63,20 @@ import {
   getClaimType,
   getEraCheckNumber,
   getTaxonomy,
+  readClaimItemDrug,
+  readClaimItemOrderingProvider,
   resolvedPayerId,
   resolvePayersByRef,
   toAddressParts,
 } from '../shared';
-import { GetClaimDetailParams, validateRequestParameters } from './validateRequestParameters';
+
+type GetClaimDetailParams = ValidatedZambdaInput<typeof GetClaimDetailInputSchema>;
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'get-billing-claim-detail';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const params = validateRequestParameters(input);
+  const params = validateWithSchema(GetClaimDetailInputSchema, input);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
@@ -166,7 +171,6 @@ export async function performEffect(
       claimResponseId: cr.id ?? '',
       date: cr.created ?? '',
       payerName: payer?.name ?? cr.insurer?.display ?? '',
-      status: cr.outcome ?? '',
       eraStatusCode: asEraClaimStatusCode(
         cr.extension?.find((ext) => ext.url === ERA_STATUS_CODE_EXTENSION)?.valueString
       ),
@@ -199,7 +203,6 @@ export async function performEffect(
         checkDate: paymentReconciliation.paymentDate ?? '',
         paymentAmount: paymentReconciliation.paymentAmount?.value ?? 0,
         payerName: payer?.name ?? paymentReconciliation.paymentIssuer?.display ?? '',
-        status: paymentReconciliation.outcome ?? paymentReconciliation.status ?? '',
       };
     });
   const status = getClaimStatus(claim);
@@ -307,6 +310,8 @@ export async function performEffect(
       placeOfService: item.locationCodeableConcept?.coding?.[0]?.code ?? '',
       diagnosisPointers: item.diagnosisSequence ?? [],
       revenueCode: getCoding(item.revenue, CODE_SYSTEM_NUBC_REVENUE)?.code ?? '',
+      drug: readClaimItemDrug(item),
+      orderingProvider: readClaimItemOrderingProvider(claim, item, graph.orderingProviders),
     })),
     billed,
     allowed: payments.allowed,

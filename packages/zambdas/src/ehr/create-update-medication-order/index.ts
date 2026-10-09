@@ -49,6 +49,7 @@ import { FHIR_RESOURCE_NOT_FOUND_CUSTOM, INVALID_INPUT_ERROR } from 'utils/lib/t
 import { createBillingClient } from '../../billing/shared';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { makeProcedureResource } from '../../shared/chart-data';
+import { fhirValidationErrorToApiError } from '../../shared/errors';
 import { assertDefined, createClinicalOystehrClient } from '../../shared/helpers';
 import { makeOrderDeleteRequests, makePendingRecheckCancelRequests } from '../../shared/medication-order-delete';
 import { makeNursingOrderTransactionRequests } from '../../shared/nursing-orders';
@@ -84,7 +85,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.log('Created zapToken, fhir and clients.');
 
   const billingOystehr = createBillingClient(m2mToken, validatedParameters.secrets);
-  const response = await performEffect(oystehr, billingOystehr, validatedParameters, practitionerId);
+  let response: Awaited<ReturnType<typeof performEffect>>;
+  try {
+    response = await performEffect(oystehr, billingOystehr, validatedParameters, practitionerId);
+  } catch (error) {
+    throw fhirValidationErrorToApiError(error) ?? error;
+  }
   return {
     statusCode: 200,
     body: JSON.stringify(response),
