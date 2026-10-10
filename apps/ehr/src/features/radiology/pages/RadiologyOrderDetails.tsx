@@ -21,17 +21,19 @@ import { dataTestIds } from 'src/constants/data-test-ids';
 import { useCompleteTask } from 'src/features/visits/in-person/hooks/useTasks';
 import { useChartData } from 'src/features/visits/shared/hooks/useChartData';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
-import { useSaveChartData } from 'src/features/visits/shared/stores/appointment/appointment.store';
+import { useAppointmentData, useSaveChartData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { TASK_ASSIGNED_DATE_TIME_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { LATERALITY_SELECTORS } from 'utils/lib/fhir/radiology';
 import { DiagnosisDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { RadiologyOrderStatus } from 'utils/lib/types/api/radiology';
+import { isPediatricOnDate } from 'utils/lib/utils/dateUtils';
 import { PageTitleStyled } from '../../visits/shared/components/PageTitle';
 import { WithRadiologyBreadcrumbs } from '../components/RadiologyBreadcrumbs';
 import { RadiologyDiagnosis, RadiologyDiagnosisField } from '../components/RadiologyDiagnosisField';
 import { RadiologyOrderHistoryCard } from '../components/RadiologyOrderHistoryCard';
 import { RadiologyOrderLoading } from '../components/RadiologyOrderLoading';
+import { RadiologyPreliminaryReadSuggestions } from '../components/RadiologyPreliminaryReadSuggestions';
 import { RadiologyReportSection } from '../components/RadiologyReportSection';
 import { RadiologyTableStatusChip } from '../components/RadiologyTableStatusChip';
 import { RadiologyViewImageBtn } from '../components/RadiologyViewImageBtn';
@@ -80,6 +82,7 @@ export const RadiologyOrderDetailsPage: React.FC<RadiologyOrderDetailsPageProps>
   const { mutateAsync: completeTask, isPending: isMarkingAsReviewed } = useCompleteTask();
   const { mutate: saveChartData } = useSaveChartData();
   const { chartData, setPartialChartData } = useChartData();
+  const { patient } = useAppointmentData();
   const currentUser = useEvolveUser();
 
   const {
@@ -413,6 +416,16 @@ export const RadiologyOrderDetailsPage: React.FC<RadiologyOrderDetailsPageProps>
                       helperText={missingPreliminaryReportDx ? 'Please enter a diagnosis to continue' : undefined}
                     />
                   </Box>
+                  <RadiologyPreliminaryReadSuggestions
+                    cptCode={order.cptCode}
+                    laterality={order.laterality}
+                    isChild={isPediatricOnDate(patient?.birthDate, order.orderAddedDateTime)}
+                    disabled={isReadOnly}
+                    value={preliminaryReport ?? ''}
+                    onAdd={(sentence) =>
+                      setPreliminaryReport((prev) => (prev?.trim() ? `${prev.trim()}\n${sentence}` : sentence))
+                    }
+                  />
                   <Box sx={{ mt: 2 }}>
                     <TextField
                       id="preliminary-report-field"
@@ -423,7 +436,10 @@ export const RadiologyOrderDetailsPage: React.FC<RadiologyOrderDetailsPageProps>
                       minRows={2}
                       maxRows={10}
                       size="small"
-                      value={preliminaryReport}
+                      // Controlled from the first render: while `value` is undefined the input is uncontrolled and
+                      // MUI only learns it is filled from a change event, so a suggested read added with "+"
+                      // would sit under the un-shrunk label until the field was focused.
+                      value={preliminaryReport ?? ''}
                       onChange={(e) => setPreliminaryReport(e.target.value)}
                       disabled={isReadOnly}
                     />
