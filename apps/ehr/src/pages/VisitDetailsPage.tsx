@@ -35,7 +35,7 @@ import { Appointment, Encounter, Flag, Organization } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import {
   deleteVisitForm,
   generatePaperworkPdf,
@@ -43,6 +43,7 @@ import {
   getPatientVisitDetails,
   getVisitFaxHistory,
   listServiceCategories,
+  sendPatientForm,
   updatePatientVisitDetails,
 } from 'src/api/api';
 import CardThumbnail from 'src/components/CardThumbnail';
@@ -89,6 +90,7 @@ import { isInPersonAppointment, isTelemedAppointment } from 'utils/lib/fhir/modu
 import { getFormattedPatientFullName, getFullestAvailableName } from 'utils/lib/fhir/patient';
 import { getPatchOperationForNewMetaTag } from 'utils/lib/fhir/resourcePatch';
 import { resolveServiceCategoryAbbreviation } from 'utils/lib/helpers/helpers';
+import { FormPlacement } from 'utils/lib/helpers/practice-managed-questionnaires';
 import { BOOKING_CONFIG, ServiceCategoryCode } from 'utils/lib/ottehr-config/booking';
 import { VisitStatusLabel } from 'utils/lib/types/api/appointment.types';
 import { PatientAccountResponse } from 'utils/lib/types/api/patient-account';
@@ -118,6 +120,7 @@ import { dataTestIds } from '../constants/data-test-ids';
 import { FEATURE_FLAGS } from '../constants/feature-flags';
 import { PatientNotesButton } from '../features/patient-notes/components/PatientNotesButton';
 import { ConfirmSave } from '../features/visits/shared/components/patient/SaveConfirmationContext';
+import { formPagePath, OpenFormResponseState } from '../features/visits/shared/components/patient-forms/formNavigation';
 import { PencilIconButton } from '../features/visits/telemed/components/patient-visit-details/PencilIconButton';
 import { formatLastModifiedTag } from '../helpers';
 import {
@@ -316,11 +319,22 @@ export default function VisitDetailsPage(): ReactElement {
   const intakePaperworkFlowForms = visitDetailsData?.intakePaperworkFlowForms;
   // Custom forms bundled in the visit's paperwork flow render alongside manually-sent standalone forms,
   // but only a manually-sent form owns its QuestionnaireResponse outright, so only it can be deleted.
+  // A form started from another page's dialog arrives here to be filled out.
+  const location = useLocation();
+  const openFormResponseId = (location.state as OpenFormResponseState | null)?.openFormResponseId;
+  useEffect(() => {
+    const toOpen = standAloneForms?.find((form) => form.questionnaireResponse.id === openFormResponseId);
+    if (!toOpen) return;
+    setFormToEdit(toOpen);
+    navigate(`${location.pathname}${location.search}`, { replace: true, state: null });
+  }, [standAloneForms, openFormResponseId, location.pathname, location.search, navigate]);
+
   const allCustomForms = useMemo(
-    () => [
-      ...(standAloneForms ?? []).map((form) => ({ form, deletable: true })),
-      ...(intakePaperworkFlowForms ?? []).map((form) => ({ form, deletable: false })),
-    ],
+    () =>
+      [
+        ...(standAloneForms ?? []).map((form) => ({ form, deletable: true })),
+        ...(intakePaperworkFlowForms ?? []).map((form) => ({ form, deletable: false })),
+      ].filter(({ form }) => (form.placement ?? 'visit-details') === 'visit-details'),
     [standAloneForms, intakePaperworkFlowForms]
   );
 
@@ -905,6 +919,28 @@ export default function VisitDetailsPage(): ReactElement {
     }
   };
 
+  // Starts (or reuses) this visit's response without texting the patient, then opens it for staff to fill out.
+  const fillOutVisitForm = async (questionnaireId: string, placement: FormPlacement): Promise<void> => {
+    if (!oystehrZambda || !appointmentID) return;
+    try {
+      const { questionnaireResponseId } = await sendPatientForm(oystehrZambda, {
+        appointmentId: appointmentID,
+        questionnaireId,
+        notifyPatient: false,
+      });
+      if (placement !== 'visit-details') {
+        const state: OpenFormResponseState = { openFormResponseId: questionnaireResponseId };
+        navigate(formPagePath(placement, appointmentID), { state });
+        return;
+      }
+      const { data } = await refetchVisitDetails();
+      setFormToEdit(data?.standAloneForms?.find((form) => form.questionnaireResponse.id === questionnaireResponseId));
+    } catch (error) {
+      console.error(error);
+      enqueueSnackbar('Could not start the form. Please try again.', { variant: 'error' });
+    }
+  };
+
   const handleDeleteForm = async (): Promise<void> => {
     const questionnaireResponseId = formToDelete?.questionnaireResponse.id;
     if (!oystehrZambda || !questionnaireResponseId || !patientId) return;
@@ -1251,7 +1287,7 @@ export default function VisitDetailsPage(): ReactElement {
                     <ListItemIcon sx={MENU_ITEM_ICON_SX}>
                       <AssignmentOutlinedIcon fontSize="small" />
                     </ListItemIcon>
-                    Send Form
+                    Add Form
                   </MenuItem>
                   {convertToFollowUpMenuItem}
                   <MenuItem
@@ -1916,6 +1952,9 @@ export default function VisitDetailsPage(): ReactElement {
             open={sendFormDialogOpen}
             onClose={() => setSendFormDialogOpen(false)}
             appointmentId={appointmentID}
+            placement="visit-details"
+            onSent={() => void refetchVisitDetails()}
+            onFillOut={(questionnaireId, placement) => void fillOutVisitForm(questionnaireId, placement)}
           />
         )}
         {formToEdit && (
