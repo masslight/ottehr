@@ -2,11 +2,14 @@ import Oystehr from '@oystehr/sdk';
 import { captureException } from '@sentry/node-core/light';
 import {
   Appointment,
+  ClinicalImpression,
+  Communication,
   Condition,
   DiagnosticReport,
   DocumentReference,
   Encounter,
   FhirResource,
+  HealthcareService,
   Location,
   Medication,
   MedicationAdministration,
@@ -17,26 +20,46 @@ import {
   Patient,
   Practitioner,
   Procedure,
+  Provenance,
+  QuestionnaireResponse,
   Resource,
+  Schedule,
   ServiceRequest,
+  Task,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { appointmentTypeForAppointment } from 'utils/lib/fhir/appointments';
-import { DOCUMENT_REFERENCE_SUMMARY_FROM_AUDIO, DOCUMENT_REFERENCE_SUMMARY_FROM_CHAT } from 'utils/lib/fhir/constants';
-import { dispositionCheckboxOptions } from 'utils/lib/fhir/disposition';
-import { getCoding } from 'utils/lib/fhir/helpers';
 import {
-  getAllCptCodesFromInHouseMedication,
-  getAllHcpcsCodesFromInHouseMedication,
-  getCptCodesFromMA,
-  getCreatedTheOrderProviderId,
+  appointmentTypeForAppointment,
+  getAppointmentRoom,
+  getCancellationReasonDisplay,
+  getReasonForVisitAndAdditionalDetailsFromAppointment,
+  getServiceCategoryCodeFromAppointment,
+} from 'utils/lib/fhir/appointments';
+import {
+  DOCUMENT_REFERENCE_SUMMARY_FROM_AUDIO,
+  DOCUMENT_REFERENCE_SUMMARY_FROM_CHAT,
+  ERX_MEDICATION_META_TAG_CODE,
+} from 'utils/lib/fhir/constants';
+import { dispositionCheckboxOptions, mapDispositionTypeToLabel } from 'utils/lib/fhir/disposition';
+import {
+  formatFhirEncounterToPatientFollowupDetails,
+  getAnnotationFollowupStatusLabel,
+  getPaymentVariantFromEncounter,
+  isAnnotationFollowupEncounter,
+  PaymentVariant,
+} from 'utils/lib/fhir/encounter';
+import {
+  extractExtensionValue,
+  findExtensionIndex,
+  getProviderNameWithProfession,
+  isAppointmentLocked,
+  isEncounterLocked,
+} from 'utils/lib/fhir/helpers';
+import {
   getCurrentOrderedByProviderId,
-  getDosageUnitsAndRouteOfMedication,
-  getMedicationFromMA,
   getMedicationName,
-  getNdcCodeFromMedication,
+  getPractitionerIdThatOrderedMedication,
   getProviderIdAndDateMedicationWasAdministered,
-  mapFhirToOrderStatus,
 } from 'utils/lib/fhir/medication-administration';
 import {
   getEmailForIndividual,
@@ -45,56 +68,114 @@ import {
   getPhoneNumberForIndividual,
   mapGenderToLabel,
 } from 'utils/lib/fhir/patient';
-import {
-  DIAGNOSTIC_REPORT_PRELIMINARY_REVIEW_ON_EXTENSION_URL,
-  SERVICE_REQUEST_PERFORMED_ON_EXTENSION_URL,
-  SERVICE_REQUEST_REQUESTED_TIME_EXTENSION_URL,
-} from 'utils/lib/fhir/radiology';
+import { getAdmitterPractitionerId } from 'utils/lib/fhir/practitioners';
+import { isIntakePaperworkQuestionnaireResponse } from 'utils/lib/fhir/questionnaires';
+import { ORDER_TYPE_CODE_SYSTEM } from 'utils/lib/fhir/radiology';
+import { makeVitalsObservationDTO } from 'utils/lib/fhir/vitals';
+import { getProviderType } from 'utils/lib/helpers/helpers';
 import { isInHouseLabServiceRequest } from 'utils/lib/helpers/in-house-labs';
-import { CODE_SYSTEM_CPT, CODE_SYSTEM_NDC } from 'utils/lib/helpers/rcm/constants';
-import { getVitalDTOCriticalityFromObservation } from 'utils/lib/helpers/vitals/utils';
-import { celsiusToFahrenheit, roundTemperatureValue } from 'utils/lib/helpers/vitals/vitals-temperature.helper';
-import { patientScreeningQuestionsConfig } from 'utils/lib/ottehr-config/screening-questions';
-import { AdHocEncounterRow, AdHocEncountersInput } from 'utils/lib/types/adhoc/datasets/encounters';
-import { VitalAlertCriticality, VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
+import { getQuestionnaireResponseByLinkId } from 'utils/lib/helpers/paperwork/paperwork-response';
 import {
-  CVX_CODE_SYSTEM_URL,
-  MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE,
-  MEDICATION_DISPENSABLE_DRUG_ID,
-  VACCINE_ADMINISTRATION_CODES_EXTENSION_URL,
-  VACCINE_ADMINISTRATION_VIS_DATE_EXTENSION_URL,
-} from 'utils/lib/types/api/medication-administration.constants';
-import { CREATED_BY_SYSTEM } from 'utils/lib/types/common';
+  formatScreeningQuestionValue,
+  getPaperworkScreeningAnswer,
+} from 'utils/lib/helpers/screening-questions/screening-questions-formatting.helper';
+import { getVitalDTOCriticalityFromObservation } from 'utils/lib/helpers/vitals/utils';
+import { HeightMeasurement } from 'utils/lib/helpers/vitals/vitals-height.helper';
+import {
+  celsiusToFahrenheit,
+  fahrenheitToCelsius,
+  roundTemperatureValue,
+} from 'utils/lib/helpers/vitals/vitals-temperature.helper';
+import { isDotVisionScreeningEntry } from 'utils/lib/helpers/vitals/vitals-vision.helper';
+import { kgToLbs } from 'utils/lib/helpers/vitals/vitals-weight.helper';
+import { patientScreeningQuestionsConfig } from 'utils/lib/ottehr-config/screening-questions';
+import {
+  AdHocEncounterRow,
+  AdHocEncountersInput,
+  CHART_NOTE_TYPE_VALUES,
+} from 'utils/lib/types/adhoc/datasets/encounters';
+import {
+  VitalAlertCriticality,
+  VitalBloodPressureObservationMethod,
+  VitalFieldNames,
+  VitalHeartbeatObservationMethod,
+  VitalsOxygenSatObservationMethod,
+  VitalTemperatureObservationMethod,
+} from 'utils/lib/types/api/chart-data/chart-data.constants';
+import {
+  ACCIDENT_TYPE_LABELS,
+  DispositionType,
+  IN_PERSON_NOTE_ID,
+  NOTE_TYPE,
+  NoteDTO,
+  NOTHING_TO_EAT_OR_DRINK_FIELD,
+  REFUSAL_OF_EMS_TRANSPORT_FIELD,
+  VitalsObservationDTO,
+  VitalsVisionObservationDTO,
+} from 'utils/lib/types/api/chart-data/chart-data.types';
+import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
+import { MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE } from 'utils/lib/types/api/medication-administration.constants';
+import { PROVIDER_TYPE_VALUES } from 'utils/lib/types/api/practitioner.types';
+import { ClosureType, CREATED_BY_SYSTEM, OVERRIDE_DATE_FORMAT } from 'utils/lib/types/common';
 import { PATIENT_POINT_OF_DISCOVERY_URL } from 'utils/lib/types/constants';
-import { getTimezone } from 'utils/lib/utils/scheduleUtils';
+import { PatientAccountAndCoverageResources } from 'utils/lib/types/data/account';
+import {
+  DISCHARGE_SUMMARY_CODE,
+  INSURANCE_CARD_CODE,
+  PATIENT_EDUCATION_DOC_TYPE_CODE,
+  PATIENT_PHOTO_CODE,
+  PHOTO_ID_CARD_CODE,
+} from 'utils/lib/types/data/paperwork/paperwork.constants';
+import { applyOverridesToDailySchedule, DOW, getScheduleExtension, getTimezone } from 'utils/lib/utils/scheduleUtils';
 import { getVisitStatusHistory } from 'utils/lib/utils/visitUtils';
 import {
   buildEncounterRowContext,
   fetchAppointmentReportResources,
   fetchScopedResources,
+  presentFullName,
   resolveEncounterAppointment,
 } from '../adhoc-report';
-import { followUpTypeFromPerformerType } from '../chart-data';
-import { takeMostRecentPreliminaryReport, takeTheBestFinalDiagnosticReport } from '../radiology';
-
-let staffNameByEmail: Map<string, string> | undefined;
+import {
+  chartDataResourceHasMetaTagByCode,
+  followUpTypeFromPerformerType,
+  makeAccidentDTOFromFhirResources,
+  makeDispositionDTOFromFhirResources,
+  makeProceduresDTOFromFhirResources,
+  mapResourceToChartDataResponse,
+} from '../chart-data';
+import { mapChartResources } from '../chart-sections/map';
+import { getOccupationalMedicineEmployerName, getVisitEmployerOrganizationId } from '../occupational-medicine-employer';
+import { getPaperworkCompleteness } from '../paperwork-completeness';
+import { resolveEncounterSignatures } from '../pdf/get-encounter-signatures';
+import { parseExamFieldsFromExamObservations } from '../pdf/sections/visit-note/examination';
+import {
+  erxDrugRecord,
+  inHouseDrugRecord,
+  radiologyStudyRecords,
+  vaccineOrderRecord,
+} from './encounter-clinical-orders';
+import { EncounterOrderRecords, fetchEncounterOrders } from './encounter-orders';
+import { fetchPatientAccounts } from './patient-accounts';
 
 async function getStaffNameByEmail(oystehr: Oystehr): Promise<Map<string, string>> {
-  if (staffNameByEmail) return staffNameByEmail;
   const map = new Map<string, string>();
   try {
     const users = await oystehr.user.list();
     const pidByEmail = new Map<string, string>();
     const ids: string[] = [];
+
     for (const u of users) {
       const email = (u.email || '').toLowerCase().trim();
       const pid = u.profile?.startsWith('Practitioner/') ? u.profile.split('/')[1] : undefined;
+
       if (email && pid) {
         pidByEmail.set(email, pid);
         ids.push(pid);
       }
     }
+
     const nameById = new Map<string, string>();
+
     for (let i = 0; i < ids.length; i += 80) {
       const bundle = await oystehr.fhir.search<Practitioner>({
         resourceType: 'Practitioner',
@@ -104,16 +185,17 @@ async function getStaffNameByEmail(oystehr: Oystehr): Promise<Map<string, string
           { name: '_count', value: '1000' },
         ],
       });
+
       for (const p of bundle.unbundle()) {
         const nm = `${p.name?.[0]?.given?.[0] || ''} ${p.name?.[0]?.family || ''}`.trim();
         if (p.id && nm) nameById.set(p.id, nm);
       }
     }
+
     for (const [email, pid] of pidByEmail) {
       const nm = nameById.get(pid);
       if (nm) map.set(email, nm);
     }
-    staffNameByEmail = map;
   } catch (e) {
     console.warn('adhoc-encounters: registrar name resolution failed, falling back to email', e);
     captureException(e);
@@ -123,7 +205,9 @@ async function getStaffNameByEmail(oystehr: Oystehr): Promise<Map<string, string
 
 const minutesBetween = (start?: string, end?: string): number | null => {
   if (!start || !end) return null;
+
   const m = Math.round(DateTime.fromISO(end).diff(DateTime.fromISO(start), 'minutes').minutes);
+
   return Number.isFinite(m) ? m : null;
 };
 
@@ -137,13 +221,10 @@ const normalizeDrugName = (display: string): string => {
 
 const round1 = (n: number): number => Math.round(n * 10) / 10;
 
-// Medication.batch.expirationDate is a FHIR dateTime and the app writes a full instant with the
-// entry device's offset. An expiry is a calendar date, so take the date AS WRITTEN — converting the
-// zone would move "2026-07-29T00:00:00.000+04:00" back to the 28th and report a wrong expiry.
-const expiryDate = (value?: string): string | null => value?.slice(0, 10) ?? null;
-
 const hasChartTag = (resource: Resource, code: string): boolean =>
   Boolean(resource.meta?.tag?.some((tag) => tag.code === code));
+
+type ChartNoteType = NonNullable<AdHocEncounterRow['chartNotes']>[number]['type'];
 
 const practitionerDisplayName = (p?: Practitioner): string | null => {
   const nm = `${p?.name?.[0]?.given?.[0] || ''} ${p?.name?.[0]?.family || ''}`.trim();
@@ -155,56 +236,6 @@ const practitionerIdFromRef = (ref?: string): string | undefined =>
 
 const conditionIdFromRef = (ref?: string): string | undefined =>
   ref?.startsWith('Condition/') ? ref.replace('Condition/', '') : undefined;
-
-const administeredPractitionerId = (ma: MedicationAdministration): string | undefined =>
-  getProviderIdAndDateMedicationWasAdministered(ma)?.administeredProviderId;
-
-const orderedPractitionerId = (ma: MedicationAdministration): string | undefined =>
-  getCurrentOrderedByProviderId(ma) ?? getCreatedTheOrderProviderId(ma);
-
-const icdFromCondition = (condition?: Condition): { icdCode: string | null; icdDisplay: string | null } => {
-  const codings = condition?.code?.coding ?? [];
-  const coding = codings.find((c) => c.system?.toLowerCase().includes('icd-10')) ?? codings[0];
-  if (!coding?.code) return { icdCode: null, icdDisplay: null };
-  return { icdCode: coding.code, icdDisplay: coding.display ?? condition?.code?.text ?? coding.code };
-};
-
-type InHouseDrugStatus = NonNullable<AdHocEncounterRow['drugs']>[number]['status'];
-const inHouseDrugStatus = (ma: MedicationAdministration): InHouseDrugStatus => {
-  switch (mapFhirToOrderStatus(ma)) {
-    case 'administered':
-      return 'administered';
-    case 'administered-partly':
-      return 'partially-administered';
-    case 'administered-not':
-      return 'not-administered';
-    case 'cancelled':
-      return 'cancelled';
-    default:
-      return 'pending';
-  }
-};
-
-// The in-house order's MedicationAdministration.effectiveDateTime is the ORDER CREATION time; the instant
-// the drug was actually given lives on the MedicationStatement created at administration (partOf → MA).
-// Older records carry it as date + time extensions on the administering performer.
-const inHouseAdministeredAt = (
-  ma: MedicationAdministration,
-  statementsByMaId: Map<string, MedicationStatement>
-): string | null => {
-  if (!ma.id) return null;
-
-  const fromStatement = statementsByMaId.get(ma.id)?.effectiveDateTime;
-
-  if (fromStatement) return fromStatement;
-
-  const legacy = getProviderIdAndDateMedicationWasAdministered(ma);
-
-  if (legacy?.dateAdministered && legacy.timeAdministered)
-    return `${legacy.dateAdministered}T${legacy.timeAdministered}`;
-
-  return null;
-};
 
 const SYSTOLIC_CODES = ['271649006', '8480-6'];
 const DIASTOLIC_CODES = ['271650006', '8462-4'];
@@ -221,16 +252,28 @@ const VITAL_ALERT_FIELDS: Record<string, string> = {
 
 // "Ask the patient" screening answers are chart-data Observations (makeObservationResource): code.text
 // is the config field's fhirField; radio/select/text answers are valueString (the option's fhirValue
-// or free text), date answers are valueDateTime.
+// or free text), yes/no answers valueBoolean, date answers valueDateTime, date ranges effectivePeriod.
 const SCREENING_FIELD_BY_CODE = new Map(patientScreeningQuestionsConfig.fields.map((f) => [f.fhirField, f]));
 
 const screeningAnswer = (o: Observation): { question: string; answer: string } | undefined => {
   const field = o.code?.text ? SCREENING_FIELD_BY_CODE.get(o.code.text) : undefined;
+
   if (!field) return undefined;
-  const raw = typeof o.valueBoolean === 'boolean' ? (o.valueBoolean ? 'Yes' : 'No') : o.valueString ?? o.valueDateTime;
-  if (!raw) return undefined;
-  const answer = field.options?.find((opt) => opt.fhirValue === raw)?.label ?? raw;
-  return { question: field.question, answer };
+
+  // A date answer stays the ISO date as charted.
+  if (o.valueDateTime) return { question: field.question, answer: o.valueDateTime };
+
+  const raw =
+    o.valueString ??
+    o.valueBoolean ??
+    (o.effectivePeriod ? [o.effectivePeriod.start ?? '', o.effectivePeriod.end ?? ''] : undefined);
+
+  if (raw === undefined || raw === '') return undefined;
+
+  // The chart's own formatter: option label, Yes / No, date range.
+  const answer = formatScreeningQuestionValue(field.fhirField, raw);
+
+  return answer ? { question: field.question, answer } : undefined;
 };
 
 const isActiveOrder = (sr: ServiceRequest): boolean => sr.status !== 'revoked' && sr.status !== 'entered-in-error';
@@ -244,39 +287,88 @@ const isImagingOrder = (sr: ServiceRequest): boolean => Boolean(sr.meta?.tag?.so
 const orderDisplay = (sr: ServiceRequest): string =>
   sr.code?.text || sr.code?.coding?.find((c) => c.display)?.display || sr.code?.coding?.[0]?.code || '';
 
-const extensionDateTime = (
-  resource: { extension?: { url: string; valueDateTime?: string }[] },
-  url: string
-): string | null => resource.extension?.find((e) => e.url === url)?.valueDateTime ?? null;
+const SIGNED_VISIT_STATUSES = ['completed', 'awaiting supervisor approval'];
 
-// Mirrors radiology/order-list buildHistory: order time and performed time live on ServiceRequest
-// extensions, the preliminary read time on the preliminary DiagnosticReport, the final read on issued.
-type RadiologyStudy = NonNullable<AdHocEncounterRow['imagingStudies']>[number];
-const radiologyStudy = (sr: ServiceRequest, reports: DiagnosticReport[]): RadiologyStudy => {
-  const preliminary = takeMostRecentPreliminaryReport(reports);
-  const final = takeTheBestFinalDiagnosticReport(reports);
-  const preliminaryAt =
-    (preliminary ? extensionDateTime(preliminary, DIAGNOSTIC_REPORT_PRELIMINARY_REVIEW_ON_EXTENSION_URL) : null) ??
-    (final ? extensionDateTime(final, DIAGNOSTIC_REPORT_PRELIMINARY_REVIEW_ON_EXTENSION_URL) : null);
-  const finalAt = final ? final.issued ?? final.meta?.lastUpdated ?? null : null;
-  const performedAt = extensionDateTime(sr, SERVICE_REQUEST_PERFORMED_ON_EXTENSION_URL);
-  const orderedAt = extensionDateTime(sr, SERVICE_REQUEST_REQUESTED_TIME_EXTENSION_URL) ?? sr.authoredOn ?? null;
-  const status: RadiologyStudy['status'] =
-    sr.status === 'revoked'
-      ? 'cancelled'
-      : final
-      ? 'final'
-      : preliminary
-      ? 'preliminary'
-      : performedAt || sr.status === 'completed'
-      ? 'performed'
-      : 'pending';
-  return { name: orderDisplay(sr), status, orderedAt, performedAt, preliminaryAt, finalAt };
+const lastSignedAt = (history: ReturnType<typeof getVisitStatusHistory>): string | null => {
+  let start: string | null = null;
+  for (const entry of history) {
+    if (SIGNED_VISIT_STATUSES.includes(entry.status)) start ??= entry.period.start ?? null;
+    else start = null;
+  }
+  return start;
 };
+
+const knownValueOrNull = <T extends string>(allowed: readonly T[], value: string | undefined): T | null =>
+  value && (allowed as readonly string[]).includes(value) ? (value as T) : null;
+
+/**
+ * Hours the clinic was open on the day `start` falls on, from a Schedule extension (closures and the day's
+ * override applied, as slot generation applies them). 0 on a closed day; null when no schedule is set.
+ */
+const openHoursOnDay = (owner: Schedule | Location, start: string, timezone: string): number | null => {
+  const scheduleExtension = getScheduleExtension(owner);
+
+  if (!scheduleExtension?.schedule) return null;
+
+  const day = DateTime.fromISO(start).setZone(timezone);
+
+  if (!day.isValid) return null;
+
+  const dayKey = day.toFormat(OVERRIDE_DATE_FORMAT);
+
+  for (const closure of scheduleExtension.closures ?? []) {
+    if (closure.type === ClosureType.OneDay && closure.start === dayKey) return 0;
+
+    if (closure.type === ClosureType.Period) {
+      const from = DateTime.fromFormat(closure.start, OVERRIDE_DATE_FORMAT, { zone: timezone }).startOf('day');
+      const to = DateTime.fromFormat(closure.end, OVERRIDE_DATE_FORMAT, { zone: timezone }).endOf('day');
+
+      if (day >= from && day <= to) return 0;
+    }
+  }
+
+  const { dailySchedule } = applyOverridesToDailySchedule({
+    from: day,
+    scheduleOverrides: scheduleExtension.scheduleOverrides ?? {},
+    dailySchedule: scheduleExtension.schedule,
+    timezone,
+  });
+
+  const scheduleDay = dailySchedule[day.toFormat('cccc').toLowerCase() as DOW];
+
+  if (!scheduleDay) return null;
+
+  if (!scheduleDay.workingDay) return 0;
+
+  // As slot generation reads it: a close of 0 after a later opening means midnight.
+  const close = scheduleDay.close === 0 && scheduleDay.open !== 0 ? 24 : scheduleDay.close;
+
+  return Math.max(0, close - scheduleDay.open);
+};
+
+const groupIdOf = (appointment: Appointment): string | undefined =>
+  appointment.participant
+    ?.find((p) => p.actor?.reference?.startsWith('HealthcareService/'))
+    ?.actor?.reference?.replace('HealthcareService/', '');
+
+const hasDocRefTypeCode = (docRef: DocumentReference, code: string): boolean =>
+  docRef.status === 'current' && Boolean(docRef.type?.coding?.some((c) => c.code === code));
+
+// A free-text answer in the intake paperwork, the way the chart reads one (getQuestionnaireResponseByLinkId).
+const paperworkAnswer = (questionnaireResponse: QuestionnaireResponse | undefined, linkId: string): string =>
+  getQuestionnaireResponseByLinkId(linkId, questionnaireResponse)?.answer?.[0]?.valueString?.trim() ?? '';
+
+// The chart's own note DTO builder, for the visit's provider notes and addenda.
+const noteRecordBase = (note: NoteDTO): { text: string; author: string; addedAt: string | null } => ({
+  text: note.text,
+  author: note.authorName,
+  addedAt: note.lastUpdated || null,
+});
 
 export async function fetchAdHocEncounterRows(
   oystehr: Oystehr,
-  params: AdHocEncountersInput
+  params: AdHocEncountersInput,
+  options: { environment?: string } = {}
 ): Promise<AdHocEncounterRow[]> {
   const {
     dateRange,
@@ -292,9 +384,16 @@ export async function fetchAdHocEncounterRows(
     includeExamRos,
     includeResults,
     includeNursing,
+    includeProcedures,
+    includeSigning,
+    includePaperwork,
+    includeCharting,
     includeIntake,
     includeDocuments,
+    includeEmployer,
+    includeFollowUp,
   } = params;
+  const environment = options.environment ?? '';
 
   // The main search stays LIGHT — only the bounded per-appointment resources (patient, location,
   // encounter, practitioner) ride along; every opt-in layer's heavier resources (Observations above
@@ -319,12 +418,30 @@ export async function fetchAdHocEncounterRows(
   const medRequestsByEncounterId = new Map<string, MedicationRequest[]>();
   const medAdminsByEncounterId = new Map<string, MedicationAdministration[]>();
   const medStatementsByEncounterId = new Map<string, MedicationStatement[]>();
-  const statementByMaId = new Map<string, MedicationStatement>();
+  const medicationOrderResources: FhirResource[] = [];
   const observationsByEncounterId = new Map<string, Observation[]>();
   const serviceRequestsByEncounterId = new Map<string, ServiceRequest[]>();
-  const radiologyReportsBySrId = new Map<string, DiagnosticReport[]>();
+  const radiologyRequestsByEncounterId = new Map<string, ServiceRequest[]>();
+
+  const radiologyPool = {
+    tasks: [] as Task[],
+    diagnosticReports: [] as DiagnosticReport[],
+    documentReferences: [] as DocumentReference[],
+  };
+
   const resultsByEncounterId = new Map<string, DiagnosticReport[]>();
   const encounterConditionsByEncounterId = new Map<string, Condition[]>();
+  const clinicalImpressionsByEncounterId = new Map<string, ClinicalImpression[]>();
+  const communicationsByEncounterId = new Map<string, Communication[]>();
+  const surgicalHistoryNotesByEncounterId = new Map<string, Procedure[]>();
+  const conditionPhotoDocRefsByAppointmentId = new Map<string, DocumentReference[]>();
+  const signatureProvenancesByEncounterId = new Map<string, Provenance[]>();
+  const signerById = new Map<string, Practitioner>();
+  const paperworkQrByEncounterId = new Map<string, QuestionnaireResponse>();
+  const identityDocRefsByPatient = new Map<string, DocumentReference[]>();
+  let ordersByEncounterId = new Map<string, EncounterOrderRecords>();
+  let accountsByPatient = new Map<string, PatientAccountAndCoverageResources>();
+  const visitEmployerOrgById = new Map<string, Organization>();
   const encounterById = new Map<string, Encounter>();
 
   for (const r of allResources) {
@@ -369,7 +486,8 @@ export async function fetchAdHocEncounterRows(
   const stripEnc = (ref?: string): string | undefined => ref?.replace('Encounter/', '');
 
   if (encRefs.length) {
-    if (includeCodes) {
+    // Procedures link their CPT codes (Procedure) and diagnoses (Condition) the same way the codes layer does.
+    if (includeCodes || includeProcedures) {
       const dxIds = Array.from(
         new Set(
           encounters.flatMap((e) =>
@@ -385,18 +503,22 @@ export async function fetchAdHocEncounterRows(
         proceduresByEncounterId
       );
     }
-    if (includeAi || includeDocuments) {
+    if (includeAi || includeDocuments || includeCharting) {
       indexByEncounter(
         await fetchScoped<DocumentReference>('DocumentReference', 'encounter', encRefs, [
-          { name: '_elements', value: 'type,description,meta,context' },
+          { name: '_elements', value: 'type,description,meta,context,status' },
         ]),
         (d) => stripEnc(d.context?.encounter?.[0]?.reference),
         docRefsByEncounterId
       );
     }
     if (includeMedications) {
+      // The prescriptions as get-erx-orders / the tracking board search them: only eRx-tagged requests (the
+      // in-house medication orders also carry a MedicationRequest on the encounter, read via their MA below).
       indexByEncounter(
-        await fetchScoped<MedicationRequest>('MedicationRequest', 'encounter', encRefs),
+        await fetchScoped<MedicationRequest>('MedicationRequest', 'encounter', encRefs, [
+          { name: '_tag', value: ERX_MEDICATION_META_TAG_CODE },
+        ]),
         (m) => stripEnc(m.encounter?.reference),
         medRequestsByEncounterId
       );
@@ -404,29 +526,32 @@ export async function fetchAdHocEncounterRows(
     if (includeMedications || includeImmunizations) {
       // The in-house administration MedicationStatement has no encounter context — only partOf → MA —
       // so it rides along the MA search as a revinclude (the same way get-medication-orders reads it).
-      const maAndStatements = await fetchScoped<MedicationAdministration | MedicationStatement>(
+      // As get-medication-orders searches: the order's performers (who ordered / gave it) and its
+      // MedicationRequest (the interactions checked at ordering) ride along.
+      const maAndStatements = await fetchScoped<
+        MedicationAdministration | MedicationStatement | MedicationRequest | Practitioner
+      >(
         'MedicationAdministration',
         'context',
         encRefs,
-        includeMedications ? [{ name: '_revinclude', value: 'MedicationStatement:part-of' }] : []
+        includeMedications
+          ? [
+              { name: '_revinclude', value: 'MedicationStatement:part-of' },
+              { name: '_include', value: 'MedicationAdministration:performer' },
+              { name: '_include', value: 'MedicationAdministration:request' },
+            ]
+          : []
       );
+
+      medicationOrderResources.push(...maAndStatements);
+
+      for (const r of maAndStatements) if (r.resourceType === 'Practitioner' && r.id) practitionerMap.set(r.id, r);
 
       indexByEncounter(
         maAndStatements.filter((r): r is MedicationAdministration => r.resourceType === 'MedicationAdministration'),
         (m) => stripEnc(m.context?.reference),
         medAdminsByEncounterId
       );
-
-      for (const ms of maAndStatements) {
-        if (ms.resourceType !== 'MedicationStatement' || ms.status === 'entered-in-error') continue;
-
-        const maId = ms.partOf
-          ?.map((r) => r.reference)
-          .find((ref) => ref?.startsWith('MedicationAdministration/'))
-          ?.replace('MedicationAdministration/', '');
-
-        if (maId) statementByMaId.set(maId, ms);
-      }
     }
 
     if (includeImmunizations) {
@@ -444,8 +569,16 @@ export async function fetchAdHocEncounterRows(
 
       for (const mas of medAdminsByEncounterId.values()) {
         for (const ma of mas) {
-          for (const id of [administeredPractitionerId(ma), orderedPractitionerId(ma)]) if (id) practitionerIds.add(id);
+          for (const id of [
+            getProviderIdAndDateMedicationWasAdministered(ma)?.administeredProviderId,
+            getCurrentOrderedByProviderId(ma),
+            getPractitionerIdThatOrderedMedication(ma),
+          ]) {
+            if (id) practitionerIds.add(id);
+          }
+
           const dxId = conditionIdFromRef(ma.reasonReference?.[0]?.reference);
+
           if (dxId) drugConditionIds.add(dxId);
         }
       }
@@ -470,6 +603,9 @@ export async function fetchAdHocEncounterRows(
       for (const c of await fetchScoped<Condition>('Condition', '_id', missingConditionIds)) {
         if (c.id) conditionById.set(c.id, c);
       }
+
+      // buildOrderPackage looks the order's patient and practitioners up among these.
+      medicationOrderResources.push(...patientMap.values(), ...practitionerMap.values());
     }
 
     if (includeVitals || includeExamRos || includeIntake) {
@@ -479,7 +615,25 @@ export async function fetchAdHocEncounterRows(
         observationsByEncounterId
       );
     }
-    if (includeLabs || includeImaging || includeDisposition || includeNursing) {
+    if (includeVitals) {
+      // Names of the staff who recorded vitals: each reading's performer.
+      const authorIds = new Set<string>();
+
+      for (const observations of observationsByEncounterId.values()) {
+        for (const o of observations) {
+          if (!o.meta?.tag?.some((t) => t.code?.startsWith('vital-'))) continue;
+          const id = makeVitalsObservationDTO(o)?.authorId;
+          if (id && !practitionerMap.has(id)) authorIds.add(id);
+        }
+      }
+
+      for (const p of await fetchScoped<Practitioner>('Practitioner', '_id', Array.from(authorIds), [
+        { name: '_elements', value: 'id,name' },
+      ])) {
+        if (p.id) practitionerMap.set(p.id, p);
+      }
+    }
+    if (includeLabs || includeImaging || includeDisposition || includeNursing || includeProcedures) {
       indexByEncounter(
         await fetchScoped<ServiceRequest>('ServiceRequest', 'encounter', encRefs),
         (s) => stripEnc(s.encounter?.reference),
@@ -487,25 +641,42 @@ export async function fetchAdHocEncounterRows(
       );
     }
     if (includeImaging) {
-      // Radiology reads are DiagnosticReports linked to the order by basedOn, not by encounter. Scope the
-      // revinclude to radiology orders only — lab reports can carry PDF attachments and are not needed.
-      const radiologyAndReads = await fetchScoped<ServiceRequest | DiagnosticReport>(
+      // The radiology orders page's search (getRadiologyOrders), keyed by encounter. Cancelled (revoked)
+      // orders are kept: the dataset lists them, the page does not.
+      const radiology = await fetchScoped<ServiceRequest | Task | DiagnosticReport | DocumentReference | Practitioner>(
         'ServiceRequest',
         'encounter',
         encRefs,
         [
-          { name: '_tag', value: 'radiology' },
+          { name: '_tag', value: `${ORDER_TYPE_CODE_SYSTEM}|radiology` },
+          { name: '_revinclude', value: 'Task:based-on' },
           { name: '_revinclude', value: 'DiagnosticReport:based-on' },
+          { name: '_revinclude', value: 'DocumentReference:related' },
+          { name: '_include', value: 'ServiceRequest:requester' },
         ]
       );
-      for (const dr of radiologyAndReads) {
-        if (dr.resourceType !== 'DiagnosticReport' || dr.status === 'entered-in-error') continue;
-        for (const ref of dr.basedOn ?? []) {
-          const srId = ref.reference?.startsWith('ServiceRequest/') ? ref.reference.replace('ServiceRequest/', '') : '';
-          if (srId) radiologyReportsBySrId.set(srId, [...(radiologyReportsBySrId.get(srId) ?? []), dr]);
+
+      for (const r of radiology) {
+        switch (r.resourceType) {
+          case 'ServiceRequest':
+            indexByEncounter([r], (sr) => stripEnc(sr.encounter?.reference), radiologyRequestsByEncounterId);
+            break;
+          case 'Task':
+            radiologyPool.tasks.push(r);
+            break;
+          case 'DiagnosticReport':
+            if (r.status !== 'entered-in-error') radiologyPool.diagnosticReports.push(r);
+            break;
+          case 'DocumentReference':
+            radiologyPool.documentReferences.push(r);
+            break;
+          case 'Practitioner':
+            if (r.id && !practitionerMap.has(r.id)) practitionerMap.set(r.id, r);
+            break;
         }
       }
     }
+
     if (includeResults) {
       indexByEncounter(
         await fetchScoped<DiagnosticReport>('DiagnosticReport', 'encounter', encRefs, [
@@ -515,12 +686,145 @@ export async function fetchAdHocEncounterRows(
         resultsByEncounterId
       );
     }
-    if (includeIntake) {
+
+    if (includeIntake || includeCharting) {
       indexByEncounter(
         await fetchScoped<Condition>('Condition', 'encounter', encRefs),
         (c) => stripEnc(c.encounter?.reference),
         encounterConditionsByEncounterId
       );
+    }
+
+    if (includeCharting) {
+      // The visit's Communications: patient instructions and the chart's provider notes (every NOTE_TYPE, addenda
+      // included — the css-note tag), plus the surgical history note Procedure, as the chart sections read them.
+      const [clinicalImpressions, communications, surgicalHistoryNotes] = await Promise.all([
+        fetchScoped<ClinicalImpression>('ClinicalImpression', 'encounter', encRefs),
+        fetchScoped<Communication>('Communication', 'encounter', encRefs, [
+          { name: '_tag', value: `patient-instruction,${IN_PERSON_NOTE_ID}` },
+        ]),
+        fetchScoped<Procedure>('Procedure', 'encounter', encRefs, [{ name: '_tag', value: 'surgical-history-note' }]),
+      ]);
+
+      indexByEncounter(clinicalImpressions, (c) => stripEnc(c.encounter?.reference), clinicalImpressionsByEncounterId);
+      indexByEncounter(communications, (c) => stripEnc(c.encounter?.reference), communicationsByEncounterId);
+
+      indexByEncounter(
+        surgicalHistoryNotes,
+        (p) => stripEnc(p.encounter?.reference),
+        surgicalHistoryNotesByEncounterId
+      );
+    }
+
+    if (includeSigning) {
+      // The author (provider signed) and verifier (supervisor approved) Provenances getEncounterSignatures reads.
+      const provenancesAndAgents = await fetchScoped<Provenance | Practitioner>('Provenance', 'target', encRefs, [
+        { name: 'agent-role', value: 'author,verifier' },
+        { name: '_include', value: 'Provenance:agent' },
+      ]);
+      for (const r of provenancesAndAgents) {
+        if (r.resourceType === 'Practitioner') {
+          if (r.id) signerById.set(r.id, r);
+          continue;
+        }
+        for (const target of r.target ?? []) {
+          const encId = target.reference?.startsWith('Encounter/') ? stripEnc(target.reference) : undefined;
+          if (encId)
+            signatureProvenancesByEncounterId.set(encId, [...(signatureProvenancesByEncounterId.get(encId) ?? []), r]);
+        }
+      }
+    }
+
+    if (includePaperwork || includeIntake) {
+      // The visit's intake paperwork (QuestionnaireResponse): paperwork status, and the patient's own
+      // screening answers in the intake layer.
+      for (const qr of await fetchScoped<QuestionnaireResponse>('QuestionnaireResponse', 'encounter', encRefs)) {
+        const encId = stripEnc(qr.encounter?.reference);
+
+        if (encId && isIntakePaperworkQuestionnaireResponse(qr)) paperworkQrByEncounterId.set(encId, qr);
+      }
+    }
+    if (includeDocuments) {
+      // Patient condition photos hang off the Appointment (upload-patient-condition-photo / the paperwork harvest),
+      // not the Encounter: the visit's current photo DocumentReferences, as the chart's photos card lists them.
+      const photoDocRefs = await fetchScoped<DocumentReference>(
+        'DocumentReference',
+        'related',
+        Array.from(appointmentMap.keys()),
+        [
+          { name: 'status', value: 'current' },
+          { name: 'type', value: PATIENT_PHOTO_CODE },
+          { name: '_elements', value: 'type,status,context,content' },
+        ]
+      );
+
+      for (const docRef of photoDocRefs) {
+        for (const related of docRef.context?.related ?? []) {
+          const appointmentId = related.reference?.startsWith('Appointment/')
+            ? related.reference.replace('Appointment/', '')
+            : undefined;
+
+          if (appointmentId) {
+            conditionPhotoDocRefsByAppointmentId.set(appointmentId, [
+              ...(conditionPhotoDocRefsByAppointmentId.get(appointmentId) ?? []),
+              docRef,
+            ]);
+          }
+        }
+      }
+    }
+
+    if (includePaperwork) {
+      // The tracking board's other paperwork input: the patient's current Photo ID / insurance card DocumentReferences.
+      const docRefs = await fetchScoped<DocumentReference>(
+        'DocumentReference',
+        'related',
+        Array.from(patientMap.keys()),
+        [
+          { name: 'status', value: 'current' },
+          { name: 'type', value: `${INSURANCE_CARD_CODE},${PHOTO_ID_CARD_CODE}` },
+        ]
+      );
+
+      for (const docRef of docRefs) {
+        for (const related of docRef.context?.related ?? []) {
+          const ref = related.reference;
+
+          if (ref?.startsWith('Patient/'))
+            identityDocRefsByPatient.set(ref, [...(identityDocRefsByPatient.get(ref) ?? []), docRef]);
+        }
+      }
+    }
+
+    if (includeEmployer) {
+      // The visit details face sheet's inputs: the patient's account picture and, for pre-op visits, the
+      // Organization the visit's employer selection points at.
+      const visitEmployerOrgIds = Array.from(
+        new Set(
+          Array.from(encounterById.values())
+            .map((encounter) => getVisitEmployerOrganizationId(encounter))
+            .filter((id): id is string => !!id)
+        )
+      );
+
+      const [accounts, visitEmployerOrgs] = await Promise.all([
+        fetchPatientAccounts(oystehr, Array.from(patientMap.values())),
+        fetchScoped<Organization>('Organization', '_id', visitEmployerOrgIds),
+      ]);
+
+      accountsByPatient = accounts;
+
+      for (const org of visitEmployerOrgs) if (org.id) visitEmployerOrgById.set(org.id, org);
+    }
+
+    if (includeLabs || includeNursing) {
+      ordersByEncounterId = await fetchEncounterOrders(oystehr, {
+        encounters: Array.from(encounterById.values()),
+        practitioners: Array.from(practitionerMap.values()),
+        environment,
+        includeLabs: !!includeLabs,
+        includeNursing: !!includeNursing,
+      });
     }
   }
 
@@ -528,6 +832,41 @@ export async function fetchAdHocEncounterRows(
     resolveEncounterAppointment(encounter, appointmentMap, encounterById);
 
   const staffNames = await getStaffNameByEmail(oystehr);
+
+  // Each location's Schedule, for the operating hours on the visit day.
+  const scheduleByLocationId = new Map<string, Schedule>();
+
+  for (const schedule of await fetchScoped<Schedule>(
+    'Schedule',
+    'actor',
+    Array.from(locationMap.values())
+      .filter((loc) => loc.id)
+      .map((loc) => `Location/${loc.id}`)
+  )) {
+    const locationId = schedule.actor?.find((a) => a.reference?.startsWith('Location/'))?.reference?.split('/')[1];
+
+    if (locationId && !scheduleByLocationId.has(locationId) && getScheduleExtension(schedule)) {
+      scheduleByLocationId.set(locationId, schedule);
+    }
+  }
+
+  // Visits booked through a provider group carry the group (HealthcareService) as a participant.
+  const groupIds = Array.from(
+    new Set(
+      Array.from(appointmentMap.values())
+        .map(groupIdOf)
+        .filter((id): id is string => !!id)
+    )
+  );
+
+  const groupNameById = new Map<string, string>();
+
+  for (const group of await fetchScoped<HealthcareService>('HealthcareService', '_id', groupIds, [
+    { name: '_elements', value: 'id,name' },
+  ])) {
+    if (group.id && group.name) groupNameById.set(group.id, group.name);
+  }
+
   const tzByLocationId = new Map<string, string>();
 
   const timezoneForLocation = (loc: Location): string => {
@@ -539,14 +878,56 @@ export async function fetchAdHocEncounterRows(
     }
     return tz;
   };
+
+  // Follow-up notes (annotation follow-ups) per visit they were added to.
+  const followUpNoteCountByParentId = new Map<string, number>();
+  for (const e of encounterById.values()) {
+    const parentId = e.partOf?.reference?.replace('Encounter/', '');
+
+    if (parentId && isAnnotationFollowupEncounter(e)) {
+      followUpNoteCountByParentId.set(parentId, (followUpNoteCountByParentId.get(parentId) ?? 0) + 1);
+    }
+  }
+
+  // Built once: the per-row mappers look related resources up in these.
+  const allPractitioners = Array.from(practitionerMap.values());
+  const allEncounters = Array.from(encounterById.values());
+
+  // Only what buildOrderPackage reads for one order: its patient, its practitioners, its MedicationRequest and
+  // its administration MedicationStatement — so mapping an order never scans every resource of the report.
+  const medicationResourceByRef = new Map(medicationOrderResources.map((r) => [`${r.resourceType}/${r.id}`, r]));
+
+  const statementByMaRef = new Map<string, MedicationStatement>();
+
+  for (const r of medicationOrderResources) {
+    if (r.resourceType !== 'MedicationStatement') continue;
+
+    for (const part of r.partOf ?? []) if (part.reference) statementByMaRef.set(part.reference, r);
+  }
+
+  const orderResourcesOf = (ma: MedicationAdministration): FhirResource[] => {
+    const refs = [
+      ma.subject?.reference,
+      ma.request?.reference,
+      ...(ma.performer ?? []).map((p) => p.actor?.reference),
+    ].filter((ref): ref is string => !!ref);
+    const statement = statementByMaRef.get(`MedicationAdministration/${ma.id}`);
+    return [
+      ...refs.map((ref) => medicationResourceByRef.get(ref)).filter((r): r is FhirResource => !!r),
+      ...(statement ? [statement] : []),
+    ];
+  };
+
   const rows: AdHocEncounterRow[] = [];
 
   for (const encounter of encounterById.values()) {
     const appointment = resolveAppointment(encounter);
+
     if (!appointment) continue;
 
     const {
       encounterType,
+      isFollowUpRow,
       patient,
       locationRef,
       location,
@@ -559,23 +940,20 @@ export async function fetchAdHocEncounterRows(
       start,
     } = buildEncounterRowContext(encounter, appointment, { encounterById, patientMap, locationMap, practitionerMap });
 
-    let clinicOpenHours: number | null = null;
-
-    const weekday =
+    // Operating hours live in the location's Schedule extension (the Schedule tab), not in
+    // Location.hoursOfOperation, which nothing in the app reads.
+    const clinicOpenHours =
       start && location
-        ? DateTime.fromISO(start).setZone(timezoneForLocation(location)).toFormat('ccc').toLowerCase()
-        : '';
-
-    for (const h of location?.hoursOfOperation ?? []) {
-      if (!weekday || !h.daysOfWeek?.includes(weekday as never) || !h.openingTime || !h.closingTime) continue;
-      const hrs = DateTime.fromFormat(h.closingTime, 'HH:mm:ss').diff(
-        DateTime.fromFormat(h.openingTime, 'HH:mm:ss'),
-        'hours'
-      ).hours;
-      if (Number.isFinite(hrs) && hrs > 0) clinicOpenHours = (clinicOpenHours ?? 0) + hrs;
-    }
+        ? openHoursOnDay(
+            (location.id ? scheduleByLocationId.get(location.id) : undefined) ?? location,
+            start,
+            // The clinic's own timezone, as for the visit day everywhere else in the row.
+            timezoneForLocation(location)
+          )
+        : null;
 
     const createdBy = appointment.meta?.tag?.find((t) => t.system === CREATED_BY_SYSTEM)?.display ?? '';
+
     const registrationChannel = createdBy.startsWith('Staff')
       ? 'Staff'
       : createdBy.startsWith('QR - Patient')
@@ -583,18 +961,24 @@ export async function fetchAdHocEncounterRows(
       : createdBy.startsWith('Patient')
       ? 'Self-scheduled'
       : 'Unknown';
+
     const registeredBy = createdBy.startsWith('Staff') ? createdBy.replace(/^Staff\s*/, '').trim() : 'Patient';
+
     const regEmail = registeredBy.includes('@')
       ? registeredBy
           .replace(/ via QRS$/, '')
           .trim()
           .toLowerCase()
       : '';
-    const registeredByName = (regEmail && staffNames.get(regEmail)) || registeredBy;
 
+    const registeredByName = (regEmail && staffNames.get(regEmail)) || registeredBy;
     const locationId = locationRef ? locationRef.replace('Location/', '') : undefined;
     const statusHistory = getVisitStatusHistory(encounter);
     const currentStatusSince = statusHistory.at(-1)?.period.start ?? null;
+    const intakePerformerId = getAdmitterPractitionerId(encounter);
+    const reasonParts = getReasonForVisitAndAdditionalDetailsFromAppointment(appointment);
+    const groupId = groupIdOf(appointment);
+    const attendingPractitioner = attendingId ? practitionerMap.get(attendingId) : undefined;
 
     const row: AdHocEncounterRow = {
       appointmentId: appointment.id || '',
@@ -616,12 +1000,18 @@ export async function fetchAdHocEncounterRows(
       // Reason for visit is the booking's free text (Appointment.description); appointmentType.text
       // is the booking KIND (walk-in / pre-book) and must never stand in for it.
       reason: appointment.description?.trim() || encounter.reasonCode?.[0]?.text || '',
+      reasonForVisit: reasonParts.reasonForVisit ?? '',
+      reasonDetails: reasonParts.additionalDetails ?? '',
+      bookedAt: appointment.created ?? null,
+      room: getAppointmentRoom(appointment) ?? '',
+      group: groupId ? groupNameById.get(groupId) ?? '' : '',
+      trackingBoardNote: appointment.comment ?? '',
       visitStatusSince: currentStatusSince,
       scheduledSlotMinutes: minutesBetween(appointment.start, appointment.end),
       patientId: patient?.id || '',
       firstName: patient ? getPatientFirstName(patient) || '' : '',
       lastName: patient ? getPatientLastName(patient) || '' : '',
-      patientName: patient ? `${getPatientFirstName(patient)} ${getPatientLastName(patient)}`.trim() : '',
+      patientName: patient ? [getPatientFirstName(patient), getPatientLastName(patient)].filter(Boolean).join(' ') : '',
       dateOfBirth: patient?.birthDate || null,
       sex: patient?.gender ? mapGenderToLabel[patient.gender] ?? '' : '',
       city: address?.city || '',
@@ -636,6 +1026,13 @@ export async function fetchAdHocEncounterRows(
       clinicOpenHours,
       attendingProvider,
       attendingProviderId: attendingId,
+      attendingProviderType: knownValueOrNull(PROVIDER_TYPE_VALUES, getProviderType(attendingPractitioner)),
+      intakePerformer:
+        practitionerDisplayName(intakePerformerId ? practitionerMap.get(intakePerformerId) : undefined) ?? '',
+      intakePerformerId,
+      cancellationReason: appointment.cancelationReason?.coding?.[0]?.display ?? '',
+      cancellationReasonDisplay: getCancellationReasonDisplay(appointment) ?? '',
+      paymentVariant: knownValueOrNull(Object.values(PaymentVariant), getPaymentVariantFromEncounter(encounter)),
       registrationChannel,
       registeredBy,
       registeredByName,
@@ -644,6 +1041,8 @@ export async function fetchAdHocEncounterRows(
     if (includeCodes) {
       const icdCodes: string[] = [];
       const icdDisplays: string[] = [];
+      let primaryIcd = '';
+      let primaryIcdDisplay = '';
       const dxEntries = [...(encounter.diagnosis ?? [])].sort((a, b) => (a.rank ?? 99) - (b.rank ?? 99));
       for (const dx of dxEntries) {
         const conditionId = dx.condition?.reference?.replace('Condition/', '');
@@ -651,9 +1050,17 @@ export async function fetchAdHocEncounterRows(
         const codings = condition?.code?.coding ?? [];
         const icdCoding = codings.find((c) => c.system?.toLowerCase().includes('icd-10')) ?? codings[0];
         const code = icdCoding?.code;
+        const display = icdCoding?.display ?? condition?.code?.text ?? code;
+
         if (code && !icdCodes.includes(code)) {
           icdCodes.push(code);
-          icdDisplays.push(icdCoding?.display ?? condition?.code?.text ?? code);
+          icdDisplays.push(display ?? code);
+        }
+
+        // The chart marks the primary diagnosis with rank 1 (DiagnosisDTO.isPrimary).
+        if (code && dx.rank === 1 && !primaryIcd) {
+          primaryIcd = code;
+          primaryIcdDisplay = display ?? code;
         }
       }
       const cptCodes: string[] = [];
@@ -677,29 +1084,33 @@ export async function fetchAdHocEncounterRows(
       }
       row.icdCodes = icdCodes;
       row.icdDisplays = icdDisplays;
-      row.primaryIcd = icdCodes[0];
-      row.primaryIcdDisplay = icdDisplays[0];
+      row.primaryIcd = primaryIcd;
+      row.primaryIcdDisplay = primaryIcdDisplay;
       row.cptCodes = cptCodes;
       row.cptDisplays = cptDisplays;
-      row.emCode = emCode;
-      row.emDisplay = emDisplay;
+      row.emCode = emCode ?? '';
+      row.emDisplay = emDisplay ?? '';
     }
 
     if (includeTiming) {
       const history = getVisitStatusHistory(encounter);
+
       const firstStart = (status: string): string | undefined =>
         history.find((e) => e.status === status)?.period?.start;
+
       const arrived = firstStart('arrived') ?? firstStart('ready');
       const intake = firstStart('intake');
       const provider = firstStart('provider');
       const discharged = firstStart('discharged') ?? firstStart('completed') ?? encounter.period?.end;
 
       let timeWithProviderMinutes: number | null = null;
+
       for (const entry of history) {
         if (entry.status !== 'provider' || !entry.period.start || !entry.period.end) continue;
         const mins = minutesBetween(entry.period.start, entry.period.end);
         if (mins != null && mins >= 0) timeWithProviderMinutes = (timeWithProviderMinutes ?? 0) + mins;
       }
+
       row.timeWithProviderMinutes = timeWithProviderMinutes;
       row.arrivedToProviderMinutes = minutesBetween(arrived, provider);
       row.arrivedToIntakeMinutes = minutesBetween(arrived, intake);
@@ -717,6 +1128,7 @@ export async function fetchAdHocEncounterRows(
       const descriptions = (encounter.id ? docRefsByEncounterId.get(encounter.id) ?? [] : []).map((d) => d.description);
       const hasAudio = descriptions.includes(DOCUMENT_REFERENCE_SUMMARY_FROM_AUDIO);
       const hasChat = descriptions.includes(DOCUMENT_REFERENCE_SUMMARY_FROM_CHAT);
+
       row.aiType =
         hasAudio && hasChat
           ? 'ambient scribe & patient HPI chatbot'
@@ -728,110 +1140,42 @@ export async function fetchAdHocEncounterRows(
     }
 
     if (includeMedications) {
-      const medications: string[] = [];
-      const medicationIngredients: string[] = [];
-      const medicationSources: ('eRx' | 'in-house')[] = [];
+      const drugs: NonNullable<AdHocEncounterRow['drugs']> = [];
       const medicationCodes: string[] = [];
-      type DrugRecord = NonNullable<AdHocEncounterRow['drugs']>[number];
-      const drugs: DrugRecord[] = [];
-      const addMed = (
-        display: string,
-        source: 'eRx' | 'in-house',
-        code: string | undefined,
-        detail: Partial<Omit<DrugRecord, 'name' | 'source'>> & Pick<DrugRecord, 'status'>
-      ): void => {
-        if (!display) return;
-        medications.push(display);
-        medicationIngredients.push(normalizeDrugName(display));
-        medicationSources.push(source);
-        if (code) medicationCodes.push(code);
-        drugs.push({
-          name: display,
-          source,
-          status: detail.status,
-          dose: detail.dose ?? null,
-          units: detail.units ?? null,
-          route: detail.route ?? null,
-          ndc: detail.ndc ?? null,
-          lotNumber: detail.lotNumber ?? null,
-          expirationDate: detail.expirationDate ?? null,
-          manufacturer: detail.manufacturer ?? null,
-          administeredAt: detail.administeredAt ?? null,
-          administeredBy: detail.administeredBy ?? null,
-          orderedBy: detail.orderedBy ?? null,
-          cptCodes: detail.cptCodes ?? [],
-          icdCode: detail.icdCode ?? null,
-          icdDisplay: detail.icdDisplay ?? null,
-        });
-      };
 
       for (const req of encounter.id ? medRequestsByEncounterId.get(encounter.id) ?? [] : []) {
         if (req.status === 'entered-in-error') continue;
 
-        const coding = (req.medicationCodeableConcept?.coding ?? []).find(
-          (c) => c.system === MEDICATION_DISPENSABLE_DRUG_ID
-        );
+        const erx = erxDrugRecord(req, practitionerMap);
 
-        const requesterId = practitionerIdFromRef(req.requester?.reference);
+        if (!erx) continue;
 
-        addMed(coding?.display || req.medicationCodeableConcept?.text || '', 'eRx', coding?.code, {
-          status: 'prescribed',
-          orderedBy: requesterId ? practitionerDisplayName(practitionerMap.get(requesterId)) : null,
-        });
+        drugs.push(erx.record);
+
+        if (erx.code) medicationCodes.push(erx.code);
       }
 
       for (const ma of encounter.id ? medAdminsByEncounterId.get(encounter.id) ?? [] : []) {
         if (ma.status === 'entered-in-error') continue;
+
         if (!hasChartTag(ma, MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE)) continue;
-        const medication = getMedicationFromMA(ma);
-        const name =
-          getMedicationName(medication) ||
-          ma.medicationCodeableConcept?.coding?.[0]?.display ||
-          ma.medicationCodeableConcept?.text ||
-          '';
-        const dosage = getDosageUnitsAndRouteOfMedication(ma);
-        const status = inHouseDrugStatus(ma);
-        const given = status === 'administered' || status === 'partially-administered';
-        const orderCpts = getCptCodesFromMA(ma)?.map((c) => c.code);
 
-        const catalogCpts = medication
-          ? [...getAllCptCodesFromInHouseMedication(medication), ...getAllHcpcsCodesFromInHouseMedication(medication)]
-          : [];
+        const record = inHouseDrugRecord(ma, orderResourcesOf(ma), conditionById);
 
-        const cptCodes = Array.from(new Set((orderCpts ?? catalogCpts).filter((c): c is string => Boolean(c))));
-        const administeredId = administeredPractitionerId(ma);
-        const orderedId = orderedPractitionerId(ma);
-        const dxId = conditionIdFromRef(ma.reasonReference?.[0]?.reference);
-
-        addMed(name, 'in-house', undefined, {
-          status,
-          dose: dosage.dose ?? null,
-          units: dosage.units ?? null,
-          route: dosage.route ?? null,
-          ndc: (medication ? getNdcCodeFromMedication(medication) : undefined) ?? null,
-          // Vial data (lot, expiry) is tied to the patient only when something was given; the contained
-          // copy may still carry a stale batch after an order is flipped to not-administered.
-          lotNumber: given ? medication?.batch?.lotNumber ?? null : null,
-          expirationDate: given ? expiryDate(medication?.batch?.expirationDate) : null,
-          manufacturer: medication?.manufacturer?.display ?? null,
-          administeredAt: given ? inHouseAdministeredAt(ma, statementByMaId) : null,
-          administeredBy: given && administeredId ? practitionerDisplayName(practitionerMap.get(administeredId)) : null,
-          orderedBy: orderedId ? practitionerDisplayName(practitionerMap.get(orderedId)) : null,
-          cptCodes,
-          ...icdFromCondition(dxId ? conditionById.get(dxId) : undefined),
-        });
+        if (record) drugs.push(record);
       }
-      row.medications = medications;
-      row.medicationIngredients = medicationIngredients;
-      row.medicationSources = medicationSources;
+      row.medications = drugs.map((d) => d.name);
+      row.medicationIngredients = drugs.map((d) => normalizeDrugName(d.name));
+      row.medicationSources = drugs.map((d) => d.source);
       row.medicationCodes = medicationCodes;
-      row.medicationCount = medications.length;
+      row.medicationCount = drugs.length;
       row.drugs = drugs;
     }
 
     if (includeVitals) {
       const obs = encounter.id ? observationsByEncounterId.get(encounter.id) ?? [] : [];
       const fieldCode = (o: Observation): string => o.meta?.tag?.find((t) => t.code?.startsWith('vital-'))?.code ?? '';
+
       const effectiveMillis = (o: Observation): number => {
         const ms = o.effectiveDateTime ? DateTime.fromISO(o.effectiveDateTime).toMillis() : NaN;
         return Number.isFinite(ms) ? ms : 0;
@@ -854,6 +1198,22 @@ export async function fetchAdHocEncounterRows(
 
       row.temperatureF = toF(latest('vital-temperature'));
 
+      // The chart stores °C, kg and cm; a reading charted in °F, lbs or inches is normalized first, so every
+      // unit below is the same reading as the field it mirrors. The other units come from the chart's helpers.
+      const celsiusOf = (o?: Observation): number | null => {
+        const val = qty(o);
+        if (val == null) return null;
+        const unit = (o?.valueQuantity?.unit || o?.valueQuantity?.code || '').toUpperCase();
+        return unit.startsWith('F') ? fahrenheitToCelsius(val) : val;
+      };
+
+      const roundedCelsius = (o?: Observation): number | null => {
+        const celsius = celsiusOf(o);
+        return celsius == null ? null : roundTemperatureValue(celsius);
+      };
+
+      row.temperatureC = roundedCelsius(latest('vital-temperature'));
+
       row.heartRate = qty(latest('vital-heartbeat'));
       row.respirationRate = qty(latest('vital-respiration-rate'));
       row.oxygenSaturation = qty(latest('vital-oxygen-sat'));
@@ -862,12 +1222,14 @@ export async function fetchAdHocEncounterRows(
         const c = bpObs?.component?.find((cm) => cm.code?.coding?.some((cd) => cd.code && codes.includes(cd.code)));
         return typeof c?.valueQuantity?.value === 'number' ? c.valueQuantity.value : null;
       };
+
       const bp = latest('vital-blood-pressure');
       row.systolicBP = bpComp(bp, SYSTOLIC_CODES);
       row.diastolicBP = bpComp(bp, DIASTOLIC_CODES);
 
       const numbers = (values: (number | null)[]): number[] => values.filter((v): v is number => v != null);
       row.temperatureFReadings = numbers(chronological('vital-temperature').map(toF));
+      row.temperatureCReadings = numbers(chronological('vital-temperature').map(roundedCelsius));
       row.heartRateReadings = numbers(chronological('vital-heartbeat').map(qty));
       row.respirationRateReadings = numbers(chronological('vital-respiration-rate').map(qty));
       row.oxygenSaturationReadings = numbers(chronological('vital-oxygen-sat').map(qty));
@@ -896,35 +1258,138 @@ export async function fetchAdHocEncounterRows(
       const weightObs = latest('vital-weight');
       const weightVal = qty(weightObs);
       const weightUnit = (weightObs?.valueQuantity?.unit || '').toLowerCase();
-      row.weightKg =
-        weightVal == null ? null : weightUnit.startsWith('lb') ? round1(weightVal * 0.453592) : round1(weightVal);
+
+      const weightInKg = weightVal == null ? null : weightUnit.startsWith('lb') ? weightVal * 0.453592 : weightVal;
+      row.weightKg = weightInKg == null ? null : round1(weightInKg);
+      row.weightLbs = weightInKg == null ? null : kgToLbs(weightInKg);
 
       const heightObs = latest('vital-height');
       const heightVal = qty(heightObs);
       const heightUnit = (heightObs?.valueQuantity?.unit || '').toLowerCase();
-      row.heightCm =
-        heightVal == null ? null : heightUnit.startsWith('in') ? round1(heightVal * 2.54) : round1(heightVal);
+
+      const heightInCm = heightVal == null ? null : heightUnit.startsWith('in') ? heightVal * 2.54 : heightVal;
+      row.heightCm = heightInCm == null ? null : round1(heightInCm);
+      const height = heightInCm == null ? undefined : HeightMeasurement.fromCm(heightInCm);
+      row.heightInches = height ? height.getInches() : null;
+      row.heightFeetInches = height ? height.getFeetInchesLabel() : '';
+
+      // How each reading was taken, vision and LMP — read with the chart's vitals DTO builder.
+      const latestDto = (field: VitalFieldNames): VitalsObservationDTO | undefined => {
+        const o = latest(field);
+        return o ? makeVitalsObservationDTO(o) : undefined;
+      };
+
+      const methodOf = (dto: VitalsObservationDTO | undefined): string | undefined =>
+        dto && 'observationMethod' in dto ? dto.observationMethod : undefined;
+
+      row.temperatureMethod = knownValueOrNull(
+        Object.values(VitalTemperatureObservationMethod),
+        methodOf(latestDto(VitalFieldNames.VitalTemperature))
+      );
+
+      row.heartRateMethod = knownValueOrNull(
+        Object.values(VitalHeartbeatObservationMethod),
+        methodOf(latestDto(VitalFieldNames.VitalHeartbeat))
+      );
+
+      row.bloodPressureMethod = knownValueOrNull(
+        Object.values(VitalBloodPressureObservationMethod),
+        methodOf(latestDto(VitalFieldNames.VitalBloodPressure))
+      );
+
+      row.oxygenSaturationMethod = knownValueOrNull(
+        Object.values(VitalsOxygenSatObservationMethod),
+        methodOf(latestDto(VitalFieldNames.VitalOxygenSaturation))
+      );
+
+      const weightDto = latestDto(VitalFieldNames.VitalWeight);
+
+      row.weightRefused =
+        weightDto?.field === VitalFieldNames.VitalWeight && !!weightDto.extraWeightOptions?.includes('patient_refused');
+
+      // A DOT vision screening is a separate entry on the same vital; the acuity reading is the latest other one.
+      const vision = chronological(VitalFieldNames.VitalVision)
+        .map((o) => makeVitalsObservationDTO(o))
+        .filter(
+          (dto): dto is VitalsVisionObservationDTO =>
+            dto?.field === VitalFieldNames.VitalVision && !isDotVisionScreeningEntry(dto.dotVisionScreening)
+        )
+        .at(-1);
+
+      row.visionLeftEye = vision?.leftEyeVisionText ?? '';
+      row.visionRightEye = vision?.rightEyeVisionText ?? '';
+      row.visionBothEyes = vision?.bothEyesVisionText ?? '';
+      row.visionOptions = vision?.extraVisionOptions ?? [];
+
+      const lmp = latestDto(VitalFieldNames.VitalLastMenstrualPeriod);
+      const lmpDto = lmp?.field === VitalFieldNames.VitalLastMenstrualPeriod ? lmp : undefined;
+      row.lastMenstrualPeriod = lmpDto?.value || null;
+      row.lastMenstrualPeriodUnsure = lmpDto ? !!lmpDto.isUnsure : null;
+
+      const dot = chronological(VitalFieldNames.VitalVision)
+        .map((o) => makeVitalsObservationDTO(o))
+        .filter(
+          (dto): dto is VitalsVisionObservationDTO =>
+            dto?.field === VitalFieldNames.VitalVision && isDotVisionScreeningEntry(dto.dotVisionScreening)
+        )
+        .at(-1)?.dotVisionScreening;
+      row.dotHorizontalFieldLeftDegrees = dot?.horizontalFieldLeftDegrees ?? null;
+      row.dotHorizontalFieldRightDegrees = dot?.horizontalFieldRightDegrees ?? null;
+      row.dotCanRecognizeColors = dot?.canRecognizeColors ?? null;
+      row.dotMonocularVision = dot?.hasMonocularVision ?? null;
+      row.dotReferredToSpecialist = dot?.referredToSpecialist ?? null;
+      row.dotReceivedReferralDocumentation = dot?.receivedDocumentation ?? null;
+
+      // The vitals history names each reading's author as the chart does (getFullName of the performer).
+      const vitalReadings = obs
+        .filter((o) => fieldCode(o).length > 0)
+        .sort((a, b) => effectiveMillis(a) - effectiveMillis(b));
+
+      const recordedBy: string[] = [];
+
+      for (const reading of vitalReadings) {
+        const authorId = makeVitalsObservationDTO(reading)?.authorId;
+        const author = authorId ? practitionerMap.get(authorId) : undefined;
+        const name = presentFullName(author);
+        if (name && !recordedBy.includes(name)) recordedBy.push(name);
+      }
+
+      row.vitalsRecordedBy = recordedBy;
+      row.vitalsFirstRecordedAt = vitalReadings[0]?.effectiveDateTime ?? null;
 
       row.bmi =
         row.weightKg && row.heightCm && row.heightCm > 0 ? round1(row.weightKg / (row.heightCm / 100) ** 2) : null;
     }
 
-    if (includeLabs || includeImaging || includeDisposition || includeNursing) {
+    if (includeLabs || includeImaging || includeDisposition || includeNursing || includeProcedures) {
       const srs = (encounter.id ? serviceRequestsByEncounterId.get(encounter.id) ?? [] : []).filter(isActiveOrder);
+
       if (includeLabs) {
         const labOrders = srs.filter(isLabOrder).map(orderDisplay).filter(Boolean);
         row.labOrders = labOrders;
         row.labOrderCount = labOrders.length;
+        const labTests = (encounter.id ? ordersByEncounterId.get(encounter.id)?.labTests : undefined) ?? [];
+        row.labTests = labTests;
+        row.labTestNames = labTests.map((test) => test.name);
+        row.labNames = Array.from(new Set(labTests.map((test) => test.lab).filter(Boolean)));
+        row.labResultComponents = Array.from(new Set(labTests.flatMap((test) => test.resultComponents)));
       }
+
       if (includeImaging) {
         const imagingOrders = srs.filter(isImagingOrder).map(orderDisplay).filter(Boolean);
         row.imagingOrders = imagingOrders;
         row.imagingOrderCount = imagingOrders.length;
-        row.imagingStudies = (encounter.id ? serviceRequestsByEncounterId.get(encounter.id) ?? [] : [])
-          .filter((sr) => isImagingOrder(sr) && sr.status !== 'entered-in-error')
-          .map((sr) => radiologyStudy(sr, sr.id ? radiologyReportsBySrId.get(sr.id) ?? [] : []))
-          .filter((study) => Boolean(study.name));
+        row.imagingStudies = radiologyStudyRecords({
+          serviceRequests: encounter.id ? radiologyRequestsByEncounterId.get(encounter.id) ?? [] : [],
+          tasks: radiologyPool.tasks,
+          diagnosticReports: radiologyPool.diagnosticReports,
+          documentReferences: radiologyPool.documentReferences,
+          practitioners: allPractitioners,
+          encounters: allEncounters,
+          nameOf: orderDisplay,
+        });
       }
+
       if (includeNursing) {
         const nursingOrders = srs
           .filter((sr) => sr.meta?.tag?.some((t) => t.code?.includes('nursing')))
@@ -932,7 +1397,55 @@ export async function fetchAdHocEncounterRows(
           .filter(Boolean);
         row.nursingOrders = nursingOrders;
         row.nursingOrderCount = nursingOrders.length;
+        row.nursingOrderDetails =
+          (encounter.id ? ordersByEncounterId.get(encounter.id)?.nursingOrders : undefined) ?? [];
       }
+
+      if (includeProcedures) {
+        // As the tracking board and the chart's procedures section: completed procedure ServiceRequests,
+        // mapped with the chart's DTO builder (CPT codes via supportingInfo, diagnoses via reasonReference).
+        const procedureRequests = srs.filter(
+          (sr) => sr.status === 'completed' && chartDataResourceHasMetaTagByCode(sr, 'procedure')
+        );
+
+        const procedures = procedureRequests.length
+          ? makeProceduresDTOFromFhirResources(encounter, [
+              ...procedureRequests,
+              ...(encounter.id ? proceduresByEncounterId.get(encounter.id) ?? [] : []),
+              ...Array.from(conditionById.values()),
+            ]) ?? []
+          : [];
+
+        row.procedures = procedures.map((p) => ({
+          type: p.procedureType ?? '',
+          cptCodes: (p.cptCodes ?? []).map((c) => c.code).filter(Boolean),
+          icdCodes: (p.diagnoses ?? []).map((d) => d.code).filter(Boolean),
+          performedAt: p.procedureDateTime ?? null,
+          performerType: p.performerType ?? '',
+          bodySite: p.bodySite ?? '',
+          bodySide: p.bodySide ?? '',
+          technique: p.technique ?? [],
+          medicationUsed: p.medicationUsed ?? '',
+          suppliesUsed: p.suppliesUsed ?? '',
+          lengthCm: typeof p.lengthCm === 'number' && Number.isFinite(p.lengthCm) ? p.lengthCm : null,
+          repairDepth: p.repairDepth ?? '',
+          infusionStartTime: p.infusionStartTime || null,
+          infusionStopTime: p.infusionStopTime || null,
+          procedureDetails: p.procedureDetails ?? '',
+          timeSpent: p.timeSpent ?? '',
+          complications: p.complications ?? '',
+          patientResponse: p.patientResponse ?? '',
+          postInstructions: p.postInstructions ?? '',
+          consentObtained: p.consentObtained ?? null,
+          specimenSent: p.specimenSent ?? null,
+          documentedBy: p.documentedBy ?? '',
+          documentedAt: p.documentedDateTime || null,
+        }));
+
+        row.procedureTypes = row.procedures.map((p) => p.type);
+        row.procedureCount = row.procedures.length;
+      }
+
       if (includeDisposition) {
         const followUpTypes = srs
           .filter((sr) => hasChartTag(sr, 'sub-follow-up'))
@@ -942,96 +1455,76 @@ export async function fetchAdHocEncounterRows(
             return dispositionCheckboxOptions.find((o) => o.name === type)?.label ?? type;
           })
           .filter(Boolean);
+
         row.followUpTypes = followUpTypes;
         row.followUpCount = followUpTypes.length;
+
         row.dischargeDisposition =
           encounter.hospitalization?.dischargeDisposition?.coding?.[0]?.display ||
           encounter.hospitalization?.dischargeDisposition?.text ||
           '';
+
+        // The chart's disposition, read with the chart's own DTO builder (Encounter.hospitalization + the
+        // disposition-follow-up ServiceRequest).
+        const disposition = makeDispositionDTOFromFhirResources(
+          encounter,
+          encounter.id ? serviceRequestsByEncounterId.get(encounter.id) ?? [] : []
+        );
+
+        const dispositionType = knownValueOrNull(
+          Object.keys(mapDispositionTypeToLabel) as DispositionType[],
+          disposition?.type
+        );
+
+        row.dispositionType = dispositionType;
+        row.dispositionLabel = dispositionType ? mapDispositionTypeToLabel[dispositionType] : '';
+        row.followUpInDays = disposition?.followUpIn ?? null;
+        row.transferReason = disposition?.reason ?? '';
+        row.transferSpecialty = disposition?.specialty ?? '';
+        row.transferSpecialtyOther = disposition?.specialtyOther ?? '';
+        row.dispositionLabServices = disposition?.labService ?? [];
+        row.dispositionVirusTests = disposition?.virusTest ?? [];
+        row.nothingToEatOrDrink = disposition?.[NOTHING_TO_EAT_OR_DRINK_FIELD] ?? false;
+        row.refusalOfEmsTransport = disposition?.[REFUSAL_OF_EMS_TRANSPORT_FIELD] ?? false;
       }
     }
 
     if (includeImmunizations) {
       type VaccineRecord = NonNullable<AdHocEncounterRow['vaccines']>[number];
+
       const emptyVaccineDetail = {
         visDate: null,
         lotNumber: null,
         expirationDate: null,
         ndc: null,
         cvx: null,
+        mvx: null,
         manufacturer: null,
         dose: null,
         units: null,
         route: null,
+        bodySite: null,
+        instructions: null,
         administeredAt: null,
         administeredBy: null,
+        orderedAt: null,
         orderedBy: null,
         cptCodes: [] as string[],
       };
 
       const vaccines: VaccineRecord[] = [];
+      const vaccinesNotGiven: NonNullable<AdHocEncounterRow['vaccinesNotGiven']> = [];
 
       for (const ma of encounter.id ? medAdminsByEncounterId.get(encounter.id) ?? [] : []) {
-        if (!hasChartTag(ma, 'immunization')) continue;
+        if (ma.status === 'entered-in-error' || !hasChartTag(ma, 'immunization')) continue;
 
-        const status =
-          ma.status === 'completed' ? 'administered' : ma.status === 'on-hold' ? 'partially-administered' : undefined;
+        const record = vaccineOrderRecord(ma);
 
-        if (!status) continue;
-
-        const medication = getMedicationFromMA(ma);
-
-        const name =
-          getMedicationName(medication) ||
-          ma.medicationCodeableConcept?.coding?.[0]?.display ||
-          ma.medicationCodeableConcept?.text ||
-          '';
-        if (!name) continue;
-
-        const visDate = medication?.extension?.find((e) => e.url === VACCINE_ADMINISTRATION_VIS_DATE_EXTENSION_URL)
-          ?.valueDate;
-        const codeExtensions = (medication?.extension ?? []).filter(
-          (e) => e.url === VACCINE_ADMINISTRATION_CODES_EXTENSION_URL
-        );
-
-        const codeOf = (system: string): string | null => {
-          for (const ext of codeExtensions) {
-            const code = getCoding(ext.valueCodeableConcept, system)?.code;
-            if (code) return code;
-          }
-
-          return null;
-        };
-
-        const cptCodes = codeExtensions
-          .map((ext) => getCoding(ext.valueCodeableConcept, CODE_SYSTEM_CPT)?.code)
-          .filter((c): c is string => Boolean(c));
-
-        const manufacturerOrg = ma.contained?.find(
-          (r): r is Organization => r.resourceType === 'Organization' && r.id === 'manufacturer-org'
-        );
-
-        const dosage = getDosageUnitsAndRouteOfMedication(ma);
-        const administeredId = administeredPractitionerId(ma);
-        const orderedId = orderedPractitionerId(ma);
-
-        vaccines.push({
-          name,
-          status,
-          visDate: visDate ?? null,
-          lotNumber: medication?.batch?.lotNumber ?? null,
-          expirationDate: expiryDate(medication?.batch?.expirationDate),
-          ndc: codeOf(CODE_SYSTEM_NDC),
-          cvx: codeOf(CVX_CODE_SYSTEM_URL),
-          manufacturer: manufacturerOrg?.name ?? medication?.manufacturer?.display ?? null,
-          dose: dosage.dose ?? null,
-          units: dosage.units ?? null,
-          route: dosage.route ?? null,
-          administeredAt: ma.effectiveDateTime ?? null,
-          administeredBy: administeredId ? practitionerDisplayName(practitionerMap.get(administeredId)) : null,
-          orderedBy: orderedId ? practitionerDisplayName(practitionerMap.get(orderedId)) : null,
-          cptCodes,
-        });
+        if (record && 'given' in record) {
+          vaccines.push(record.given);
+        } else if (record) {
+          vaccinesNotGiven.push(record.notGiven);
+        }
       }
 
       for (const ms of encounter.id ? medStatementsByEncounterId.get(encounter.id) ?? [] : []) {
@@ -1052,15 +1545,20 @@ export async function fetchAdHocEncounterRows(
         if (name) vaccines.push({ name, status: 'recorded', ...emptyVaccineDetail });
       }
       row.vaccines = vaccines;
+      row.vaccinesNotGiven = vaccinesNotGiven;
+      row.vaccineNames = Array.from(new Set([...vaccines, ...vaccinesNotGiven].map((v) => v.name)));
     }
 
     if (includeExamRos) {
       const obs = encounter.id ? observationsByEncounterId.get(encounter.id) ?? [] : [];
+
       const tagOf = (o: Observation, sys: string): string | undefined =>
         o.meta?.tag?.find((t) => t.system?.includes(sys))?.code;
+
       const rosFindings: string[] = [];
       const examSystems: string[] = [];
       const examFindings: string[] = [];
+
       for (const o of obs) {
         const rosTag = tagOf(o, 'ros-observation-field');
         if (rosTag && o.valueBoolean) {
@@ -1075,6 +1573,7 @@ export async function fetchAdHocEncounterRows(
         // a boolean) still pass; their components are already filtered to positives at write time.
         if (tagOf(o, 'exam-observation-field') && o.valueBoolean !== false) {
           if (o.code?.text) examSystems.push(o.code.text);
+
           for (const c of o.component ?? []) {
             const code = c.code?.coding?.[0]?.code || c.code?.text;
             if (code) examFindings.push(code);
@@ -1084,18 +1583,50 @@ export async function fetchAdHocEncounterRows(
       row.rosFindings = rosFindings;
       row.examSystems = Array.from(new Set(examSystems));
       row.examFindings = examFindings;
+
+      // The visit note's examination section: findings per exam section with their abnormal flag, and
+      // the provider's per-section comments.
+      let examChart: GetChartDataResponse = { patientId: '', examObservations: [] };
+
+      for (const o of obs)
+        examChart = mapResourceToChartDataResponse(examChart, o, encounter.id ?? '').chartDataResponse;
+
+      const examSections = Object.values(parseExamFieldsFromExamObservations(examChart).examination);
+
+      row.examFindingDetails = examSections.flatMap((section) =>
+        (section.items ?? []).map((item) => ({
+          system: section.groupLabel,
+          finding: item.label,
+          abnormal: item.abnormal,
+        }))
+      );
+
+      row.examAbnormalSystems = examSections
+        .filter((section) => section.items?.some((item) => item.abnormal))
+        .map((section) => section.groupLabel);
+
+      row.examAbnormalFindingCount = row.examFindingDetails.filter((finding) => finding.abnormal).length;
+
+      row.examComments = examSections
+        .filter((section) => !!section.comment)
+        .map((section) => ({ system: section.groupLabel, comment: section.comment ?? '' }));
     }
 
     if (includeResults) {
       const drs = encounter.id ? resultsByEncounterId.get(encounter.id) ?? [] : [];
       const resultNames: string[] = [];
       let abnormalResultCount = 0;
+
       for (const dr of drs) {
         if (dr.status === 'entered-in-error' || dr.status === 'cancelled') continue;
+
         const name = dr.code?.coding?.find((c) => c.display)?.display || dr.code?.text || '';
+
         if (name) resultNames.push(name);
+
         if (dr.meta?.tag?.some((t) => t.code === 'abnormal' || t.code === 'inconclusive')) abnormalResultCount++;
       }
+
       row.resultNames = resultNames;
       row.resultCount = resultNames.length;
       row.abnormalResultCount = abnormalResultCount;
@@ -1106,19 +1637,23 @@ export async function fetchAdHocEncounterRows(
       const asqObs = obs.find((o) => o.meta?.tag?.some((t) => t.code === 'asq'));
       row.asqScreen = asqObs?.valueString || asqObs?.valueCodeableConcept?.coding?.[0]?.code || '';
       const birthHistory: string[] = [];
+
       for (const o of obs) {
         if (!o.meta?.tag?.some((t) => t.code?.includes('birth'))) continue;
         const label = o.code?.text || o.code?.coding?.[0]?.display;
         if (label) birthHistory.push(label);
       }
+
       row.birthHistory = birthHistory;
       const screeningAnswers: { question: string; answer: string }[] = [];
+
       // Newest first, so a re-answered question keeps its latest answer.
       const byNewest = [...obs].sort((a, b) =>
         (b.effectiveDateTime ?? b.meta?.lastUpdated ?? '').localeCompare(
           a.effectiveDateTime ?? a.meta?.lastUpdated ?? ''
         )
       );
+
       for (const o of byNewest) {
         if (o.status === 'entered-in-error') continue;
         const entry = screeningAnswer(o);
@@ -1126,30 +1661,220 @@ export async function fetchAdHocEncounterRows(
       }
       row.screeningAnswers = screeningAnswers;
       row.screeningQuestions = screeningAnswers.map((e) => e.question);
-      const accidentCond = (encounter.id ? encounterConditionsByEncounterId.get(encounter.id) ?? [] : []).find(
-        (c) => c.meta?.tag?.some((t) => t.code === 'accident')
+
+      // The patient's answers in the intake paperwork, as the chart's patient column reads them.
+      const paperwork = encounter.id ? paperworkQrByEncounterId.get(encounter.id) : undefined;
+
+      const patientScreeningAnswers = paperwork
+        ? patientScreeningQuestionsConfig.fields
+            .filter((field) => field.existsInQuestionnaire)
+            .flatMap((field) => {
+              const answer = getPaperworkScreeningAnswer(field.fhirField, paperwork);
+              return answer ? [{ question: field.question, answer }] : [];
+            })
+        : [];
+
+      row.patientScreeningAnswers = patientScreeningAnswers;
+      row.patientScreeningQuestions = patientScreeningAnswers.map((e) => e.question);
+
+      // The chart's accident record (the latest accident Condition of the visit), labelled as the visit note prints it.
+      const accident = makeAccidentDTOFromFhirResources(
+        encounter.id ? encounterConditionsByEncounterId.get(encounter.id) ?? [] : []
       );
-      row.accidentType = accidentCond
-        ? accidentCond.code?.coding?.[0]?.display ||
-          accidentCond.code?.coding?.[0]?.code ||
-          accidentCond.code?.text ||
-          ''
-        : '';
+
+      row.accidentTypes = (accident?.type ?? []).map((type) => ACCIDENT_TYPE_LABELS[type] ?? type);
+
+      // Kept as it always was: the stored code of the first type ("AA" / "EM" / "OA") — saved reports filter on it.
+      row.accidentType = accident?.type[0] ?? '';
+      row.accidentDate = accident?.date || null;
+      row.accidentState = accident?.state ?? '';
+
+      // Paperwork details the visit shows: the person accompanying a minor (review tab) and the relay phone
+      // (telemed footer), read as those components read them.
+      const accompanyingFirst = paperworkAnswer(paperwork, 'person-accompanying-minor-first-name');
+      const accompanyingLast = paperworkAnswer(paperwork, 'person-accompanying-minor-last-name');
+      row.personAccompanyingMinor = [accompanyingFirst, accompanyingLast].filter(Boolean).join(' ');
+      row.hearingImpairedRelayPhone = paperworkAnswer(paperwork, 'relay-phone');
     }
 
     if (includeDocuments) {
       const docs = encounter.id ? docRefsByEncounterId.get(encounter.id) ?? [] : [];
       const workSchoolNotes: string[] = [];
+
       for (const d of docs) {
         const isSchoolWork =
           d.type?.coding?.some((c) => c.code === '47420-5') ||
           d.meta?.tag?.some((t) => t.system?.includes('school-work-note'));
+
         if (!isSchoolWork) continue;
         const typeTag = d.meta?.tag?.find((t) => t.system?.includes('school-work-note'))?.code;
         workSchoolNotes.push(typeTag || 'note');
       }
+
       row.workSchoolNotes = workSchoolNotes;
       row.workSchoolNoteCount = workSchoolNotes.length;
+
+      // As the chart's photos card counts them: one per attachment of the visit's current photo documents.
+      row.patientConditionPhotoCount = (
+        appointment.id ? conditionPhotoDocRefsByAppointmentId.get(appointment.id) ?? [] : []
+      )
+        .filter((docRef) => hasDocRefTypeCode(docRef, PATIENT_PHOTO_CODE))
+        .reduce((count, docRef) => count + (docRef.content ?? []).filter((c) => c.attachment?.url).length, 0);
+    }
+
+    if (includeEmployer) {
+      const account = patient?.id ? accountsByPatient.get(`Patient/${patient.id}`) : undefined;
+      const visitEmployerOrgId = getVisitEmployerOrganizationId(encounter);
+
+      row.occupationalMedicineEmployer =
+        getOccupationalMedicineEmployerName({
+          encounter,
+          appointmentServiceCategory: getServiceCategoryCodeFromAppointment(appointment),
+          occupationalMedicineEmployerOrganization: account?.occupationalMedicineEmployerOrganization,
+          occupationalMedicineAccount: account?.occupationalMedicineAccount,
+          visitEmployerOrganization: visitEmployerOrgId ? visitEmployerOrgById.get(visitEmployerOrgId) : undefined,
+        }) ?? '';
+    }
+
+    if (includeFollowUp) {
+      if (isFollowUpRow) {
+        // The follow-up note as the follow-up page reads it.
+        const details = formatFhirEncounterToPatientFollowupDetails(encounter, patient?.id ?? '');
+        const status = getAnnotationFollowupStatusLabel(encounter.status);
+        row.followUpNoteCount = 0;
+        row.followUpReason = details.reason ?? '';
+        row.followUpReasonOther = details.otherReason ?? '';
+        row.followUpCaller = details.caller ?? '';
+        row.followUpAnswered = details.answered ?? '';
+        row.followUpProvider = details.provider?.name ?? '';
+        row.followUpMessage = details.message ?? '';
+        row.followUpStatus = status;
+        row.followUpResolvedAt = status === 'RESOLVED' ? encounter.period?.end ?? null : null;
+      } else {
+        row.followUpNoteCount = encounter.id ? followUpNoteCountByParentId.get(encounter.id) ?? 0 : 0;
+        row.followUpReason = '';
+        row.followUpReasonOther = '';
+        row.followUpCaller = '';
+        row.followUpAnswered = '';
+        row.followUpProvider = '';
+        row.followUpMessage = '';
+        row.followUpStatus = null;
+        row.followUpResolvedAt = null;
+      }
+    }
+
+    if (includeSigning) {
+      const signatures = resolveEncounterSignatures(
+        encounter.id ? signatureProvenancesByEncounterId.get(encounter.id) ?? [] : [],
+        signerById
+      );
+
+      const signed = SIGNED_VISIT_STATUSES.includes(visitStatus);
+      const signedAt = signed ? signatures.signedBy?.dateTimeISO ?? lastSignedAt(statusHistory) : null;
+
+      // The visit note prints the author Provenance's signer and falls back to the provider of the visit —
+      // written the same way the Provenance signer is, so one provider is one value.
+      const fallbackSigner = attendingPractitioner
+        ? getProviderNameWithProfession(attendingPractitioner) || null
+        : null;
+
+      const dischargedAt = statusHistory.filter((entry) => entry.status === 'discharged').at(-1)?.period.start;
+      const awaitingIndex = findExtensionIndex(encounter.extension ?? [], 'awaiting-supervisor-approval');
+      row.signed = signed;
+      row.signedAt = signedAt;
+      row.signedBy = signed ? signatures.signedBy?.name || fallbackSigner : null;
+      row.dischargedToSignedMinutes = signedAt ? minutesBetween(dischargedAt, signedAt) : null;
+      row.awaitingSupervisorApproval =
+        awaitingIndex >= 0 && extractExtensionValue(encounter.extension?.[awaitingIndex]) === true;
+      row.supervisorApprovedBy = signatures.approvedBy?.name || null;
+      row.supervisorApprovedAt = signatures.approvedBy?.dateTimeISO ?? null;
+
+      // Follow-up encounters have no Appointment of their own, so their lock lives on the Encounter.
+      row.locked = isFollowUpRow ? isEncounterLocked(encounter) : isAppointmentLocked(appointment);
+    }
+
+    if (includePaperwork) {
+      const questionnaireResponse = encounter.id ? paperworkQrByEncounterId.get(encounter.id) : undefined;
+
+      const paperwork = getPaperworkCompleteness({
+        patient,
+        encounter,
+        questionnaireResponse,
+        docRefs: patient?.id ? identityDocRefsByPatient.get(`Patient/${patient.id}`) ?? [] : [],
+      });
+
+      row.paperworkSubmittedAt = questionnaireResponse?.authored ?? null;
+      row.demographicsComplete = paperwork.demographics;
+      row.photoIdOnFile = paperwork.photoID;
+      row.insuranceCardOnFile = paperwork.insuranceCard;
+      row.consentComplete = paperwork.consent;
+
+      row.consentMethod = paperwork.consentByPaperworkSignatures
+        ? 'paperwork'
+        : paperwork.consentByStaffAttestation
+        ? 'staff attestation'
+        : null;
+
+      // The consent signer as the visit details face sheet prints it (composeConsentFormsData's full name /
+      // relationship answers), only when the forms were signed in the paperwork.
+      row.consentSignerName = paperwork.consentByPaperworkSignatures
+        ? paperworkAnswer(questionnaireResponse, 'full-name')
+        : '';
+
+      row.consentSignerRelationship = paperwork.consentByPaperworkSignatures
+        ? paperworkAnswer(questionnaireResponse, 'consent-form-signer-relationship')
+        : '';
+    }
+
+    if (includeCharting && encounter.id) {
+      const chart = mapChartResources(
+        encounter,
+        [
+          ...(encounterConditionsByEncounterId.get(encounter.id) ?? []),
+          ...(clinicalImpressionsByEncounterId.get(encounter.id) ?? []),
+          ...(communicationsByEncounterId.get(encounter.id) ?? []),
+          ...(surgicalHistoryNotesByEncounterId.get(encounter.id) ?? []),
+        ],
+        encounter.id,
+        { instructions: [], notes: [] }
+      );
+
+      const docs = docRefsByEncounterId.get(encounter.id) ?? [];
+      row.chiefComplaint = chart.chiefComplaint?.text ?? '';
+      row.historyOfPresentIllness = chart.historyOfPresentIllness?.text ?? '';
+
+      // Read as the encounter-notes chart section reads it.
+      row.chartReasonForVisit = encounter.extension?.find((e) => e.url === 'reason-for-visit')?.valueString ?? '';
+
+      row.mechanismOfInjury = chart.mechanismOfInjury?.text ?? '';
+      row.rosNote = chart.ros?.text ?? '';
+      row.medicalDecision = chart.medicalDecision?.text ?? '';
+      row.patientInstructions = (chart.instructions ?? []).map((i) => i.text ?? '').filter(Boolean);
+      row.surgicalHistoryNote = chart.surgicalHistoryNote?.text ?? '';
+      row.patientInfoConfirmed = chart.patientInfoConfirmed?.value === true;
+      row.addendumNote = chart.addendumNote?.text ?? '';
+
+      // Oldest first, as the chart lists notes.
+      const notes = [...(chart.notes ?? [])].sort((a, b) => (a.lastUpdated ?? '').localeCompare(b.lastUpdated ?? ''));
+
+      row.addenda = notes
+        .filter((note) => note.type === NOTE_TYPE.ADDENDUM)
+        .map((note) => ({ ...noteRecordBase(note), edited: !!note.edited, deleted: !!note.deleted }));
+
+      row.addendumCount = row.addenda.filter((note) => !note.deleted).length;
+
+      row.chartNotes = notes
+        .filter(
+          (note) =>
+            !note.deleted &&
+            note.type !== NOTE_TYPE.ADDENDUM &&
+            (CHART_NOTE_TYPE_VALUES as readonly string[]).includes(note.type)
+        )
+        .map((note) => ({ type: note.type as ChartNoteType, ...noteRecordBase(note) }));
+
+      row.chartNoteCount = row.chartNotes.length;
+      row.dischargeSummaryCreated = docs.some((d) => hasDocRefTypeCode(d, DISCHARGE_SUMMARY_CODE));
+      row.patientEducationCount = docs.filter((d) => hasDocRefTypeCode(d, PATIENT_EDUCATION_DOC_TYPE_CODE)).length;
     }
 
     rows.push(row);

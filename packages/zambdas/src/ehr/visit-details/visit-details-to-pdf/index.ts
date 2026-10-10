@@ -3,15 +3,17 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Account, Encounter, Organization, Practitioner } from 'fhir/r4b';
 import { getConsentAndRelatedDocRefsForAppointment } from 'utils/lib/fhir/appointments';
 import { SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
-import { getVisitOccupationalMedicineEmployerFromEncounter } from 'utils/lib/fhir/encounter';
 import { getCoding } from 'utils/lib/fhir/helpers';
-import { isNioReferenceUrl } from 'utils/lib/helpers/helpers';
 import { Secrets } from 'utils/lib/secrets';
 import { PatientPaymentDTO } from 'utils/lib/types/api/patient-payment-types';
 import { VisitDetailsResponse } from 'utils/lib/types/api/visit-details/visit-details.types';
 import { checkForStripeCustomerDeletedError } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
+import {
+  getOccupationalMedicineEmployerName,
+  getVisitEmployerOrganizationId,
+} from '../../../shared/occupational-medicine-employer';
 import { makeVisitDetailsPdfDocumentReference } from '../../../shared/pdf/make-visit-details-document-reference';
 import { createVisitDetailsPdf } from '../../../shared/pdf/visit-details-pdf';
 import { getAppointmentAndRelatedResources } from '../../../shared/pdf/visit-details-pdf/get-video-resources';
@@ -188,26 +190,18 @@ export async function resolveOccupationalMedicineEmployerName(params: {
     occupationalMedicineAccount,
   } = params;
 
-  // For pre-op the visit-level selection is authoritative: when it is absent or cannot be
-  // resolved, nothing renders — never the patient Account's employer, which may belong to a
-  // different visit.
-  if (appointmentServiceCategory === 'pre-op') {
-    const visitEmployerRef = getVisitOccupationalMedicineEmployerFromEncounter(encounter);
-    if (isNioReferenceUrl(visitEmployerRef?.reference)) {
-      return visitEmployerRef?.display;
-    }
-    const organizationId = visitEmployerRef?.reference?.split('/')[1];
-    if (!organizationId) return undefined;
-    const organization = await oystehr.fhir.get<Organization>({ resourceType: 'Organization', id: organizationId });
-    return organization.name;
-  }
+  const visitEmployerOrganizationId =
+    appointmentServiceCategory === 'pre-op' ? getVisitEmployerOrganizationId(encounter) : undefined;
 
-  if (occupationalMedicineEmployerOrganization?.name) {
-    return occupationalMedicineEmployerOrganization.name;
-  }
-  const owner = occupationalMedicineAccount?.owner;
-  if (isNioReferenceUrl(owner?.reference)) {
-    return owner?.display;
-  }
-  return undefined;
+  const visitEmployerOrganization = visitEmployerOrganizationId
+    ? await oystehr.fhir.get<Organization>({ resourceType: 'Organization', id: visitEmployerOrganizationId })
+    : undefined;
+
+  return getOccupationalMedicineEmployerName({
+    encounter,
+    appointmentServiceCategory,
+    occupationalMedicineEmployerOrganization,
+    occupationalMedicineAccount,
+    visitEmployerOrganization,
+  });
 }
