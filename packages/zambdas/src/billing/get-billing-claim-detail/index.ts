@@ -189,20 +189,23 @@ export async function performEffect(
   const insurancePayments = [...paymentReconciliations]
     .sort((a, b) => paymentMillis(b) - paymentMillis(a))
     .map((paymentReconciliation) => {
-      // process-era PaymentReconciliations carry no paymentIssuer; fall back to the payer on one
-      // of this ERA's ClaimResponses
+      // paymentIssuer may be missing (process-era) or carry an unresolvable id (the 835's GS/ISA
+      // sender, e.g. a payer's EDI/TIN id); fall back to the payer on one of this ERA's ClaimResponses
       const linkedCr = claimResponses.find(
         (cr) => paymentReconciliationIdByClaimResponseId.get(cr.id ?? '') === paymentReconciliation.id
       );
-      const payerRef = paymentReconciliation.paymentIssuer?.reference ?? linkedCr?.insurer?.reference;
-      const payer = payerRef ? payersByRef.get(payerRef) : undefined;
+      const issuerRef = paymentReconciliation.paymentIssuer?.reference;
+      const linkedCrRef = linkedCr?.insurer?.reference;
+      const payer =
+        (issuerRef ? payersByRef.get(issuerRef) : undefined) ??
+        (linkedCrRef ? payersByRef.get(linkedCrRef) : undefined);
       return {
         paymentReconciliationId: paymentReconciliation.id ?? '',
         checkNumber: getEraCheckNumber(paymentReconciliation) ?? '',
         remitDate: paymentReconciliation.created ?? '',
         checkDate: paymentReconciliation.paymentDate ?? '',
         paymentAmount: paymentReconciliation.paymentAmount?.value ?? 0,
-        payerName: payer?.name ?? paymentReconciliation.paymentIssuer?.display ?? '',
+        payerName: payer?.name ?? paymentReconciliation.paymentIssuer?.display ?? linkedCr?.insurer?.display ?? '',
       };
     });
   const status = getClaimStatus(claim);

@@ -523,26 +523,29 @@ describe('summarizeClaimPayments', () => {
     expect(summarizeClaimPayments([primary, secondary], 100).allowed).toBe(80);
   });
 
-  it('sums patient responsibility from multiple payers', () => {
-    const primary = claimMdClaimResponse('2026-01-01');
-    const bareSecondary = claimResponse('2026-02-01', {
-      totalCharge: 20,
-      totalPaid: 10,
-      payerId: '54321',
+  it('takes patient responsibility from the final payer on crossover claims instead of summing across payers', () => {
+    // primary applies the full allowed to the deductible; the secondary then pays most of it,
+    // leaving only a copay — the primary's PR must not be double-counted
+    const primary = claimResponse('2026-01-01', {
+      totalPaid: 0,
+      payerId: '00390',
       itemAdjudications: [
-        [
-          adjudication('charge', 20),
-          adjudication(ADJUDICATION_CODES.PAID, 10),
-          adjudication(ADJUDICATION_CODES.ALLOWED, 20),
-          casAdjustment('PR', 10),
-          casAdjustment('CO', 10),
-        ],
+        [adjudication(ADJUDICATION_CODES.ALLOWED, 170), casAdjustment('PR', 170, '1'), casAdjustment('CO', 333, '45')],
       ],
     });
-    const summary = summarizeClaimPayments([primary, bareSecondary], 100);
-    expect(summary.insurancePaid).toBe(70);
-    expect(summary.patientResp).toBe(30);
-    expect(summary.balance).toBe(30);
+    const secondary = claimResponse('2026-02-01', {
+      totalPaid: 110,
+      payerId: '87726',
+      addItemAdjudications: [[casAdjustment('OA', 333, '23')], [casAdjustment('PR', 60, '3')]],
+    });
+    expect(summarizeClaimPayments([primary, secondary], 503)).toEqual({
+      allowed: 170,
+      insurancePaid: 110,
+      patientResp: 60,
+      patientPaid: 0,
+      balance: 60,
+      adjudicated: true,
+    });
   });
 
   it('falls back to allowed minus insurance paid when the latest response has no adjudication data', () => {

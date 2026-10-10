@@ -6,7 +6,7 @@ import {
 } from 'utils/lib/fhir/constants';
 import { EraRemitServiceLine } from 'utils/lib/types/data/billing/billing.types';
 import { describe, expect, it } from 'vitest';
-import { ADJUDICATION_CODES } from '../../../src/billing/claim-amounts';
+import { ADJUDICATION_CODES, X12_ADJUSTMENT_GROUP_SYSTEM } from '../../../src/billing/claim-amounts';
 import {
   buildEraClaimRemit,
   buildEraRemitServiceLines,
@@ -411,6 +411,54 @@ describe('buildEraRemitServiceLines', () => {
       cptCode: '',
       copay: 5,
       serviceDate: '',
+    });
+  });
+
+  it('collapses group-coded claim-level buckets into a single claim-level line carrying the unassigned paid', () => {
+    // the process-era converter writes one addItem per CAS group, coded with the group itself
+    const cr = claimResponse({
+      total: [
+        {
+          category: {
+            coding: [{ system: 'https://terminology.fhir.oystehr.com/CodeSystem/adjudication', code: 'paid' }],
+          },
+          amount: { value: 110 },
+        },
+      ],
+      item: [
+        eraItem({
+          sequence: 2,
+          procedureCode: '87880',
+          adjudication: [adjudication(ADJUDICATION_CODES.PAID, 10), casAdjustment('CO', 50, '45')],
+        }),
+      ],
+      addItem: [
+        {
+          productOrService: { coding: [{ code: 'OA', system: X12_ADJUSTMENT_GROUP_SYSTEM }] },
+          adjudication: [casAdjustment('OA', 333, '23')],
+        },
+        {
+          productOrService: { coding: [{ code: 'PR', system: X12_ADJUSTMENT_GROUP_SYSTEM }] },
+          adjudication: [casAdjustment('PR', 60, '3')],
+        },
+      ],
+    });
+
+    const lines = buildEraRemitServiceLines(cr, submittedClaim());
+
+    expect(lines).toHaveLength(2);
+    expect(lines[1]).toMatchObject({
+      itemSequence: null,
+      claimItemSequence: null,
+      isClaimLevel: true,
+      cptCode: '',
+      copay: 60,
+      // CLP04 paid the lines don't account for lands on the claim-level adjudication
+      paid: 100,
+      adjustments: [
+        { groupCode: 'OA', reasonCode: '23', amount: 333 },
+        { groupCode: 'PR', reasonCode: '3', amount: 60 },
+      ],
     });
   });
 
