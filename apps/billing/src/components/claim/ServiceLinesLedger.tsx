@@ -21,9 +21,9 @@ import {
 import { Fragment, ReactElement, ReactNode, useMemo, useState } from 'react';
 import { commaFormattedName } from 'utils/lib/fhir/billing';
 import { otherColors } from 'utils/lib/theme/billing-palette';
-import { formatNdcForDisplay } from 'utils/lib/types/data/billing/billing.constants';
-import { ClaimDetailResponse } from 'utils/lib/types/data/billing/billing.types';
-import { carcDescription, X12_ADJUSTMENT_GROUP_LABELS } from 'utils/lib/types/data/billing/carc';
+import { formatNdcForDisplay, X12_ADJUSTMENT_GROUP_CODE } from 'utils/lib/types/data/billing/billing.constants';
+import { ClaimDetailResponse, ClaimRemitAdjustment } from 'utils/lib/types/data/billing/billing.types';
+import { carcDescription, PATIENT_RESP_CARC, X12_ADJUSTMENT_GROUP_LABELS } from 'utils/lib/types/data/billing/carc';
 import { formatCurrency } from 'utils/lib/utils/convert';
 import { adjustmentCode, ERA_STATUS_LABELS, isAdverseRemitStatus } from '../../constants/era';
 import {
@@ -274,43 +274,44 @@ export function ServiceLinesTable({
               </Fragment>
             )
           )}
-          {hasRemits && unmatched.length > 0 && (
-            <>
-              <TableRow>
-                <TableCell colSpan={columnCount} sx={{ pt: 2, pb: 0.5 }}>
-                  <Stack direction="row" spacing={1.5} alignItems="baseline">
-                    <Typography variant="body2" sx={{ fontStyle: 'italic', color: 'text.secondary' }}>
-                      Claim-level & unmatched remit lines
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      On the ERA, but not matched to a line on this claim
-                    </Typography>
-                  </Stack>
-                </TableCell>
-              </TableRow>
-              {unmatched.map((eraLine) => {
-                const name = eraLine.isClaimLevel
-                  ? 'claim-level adjustments'
-                  : `${eraLine.cptCode || 'an unknown code'} (not on claim)`;
-                return (
-                  <ExpandableLedgerRows
-                    key={eraLine.key}
-                    toggleLabel={`Toggle remit details for ${name}`}
-                    columnCount={columnCount}
-                    muted
-                    summary={[<TableCell key="indicators" />, ...cells((column) => column.eraLineCell(eraLine))]}
-                    ledger={
-                      <RemitLedger
-                        label={`Remit details for ${name}`}
-                        entries={eraLine.entries}
-                        amountWidth={amountWidth}
+          {hasRemits &&
+            [
+              { label: 'Remit Lines Not On Claim', lines: unmatched.filter((eraLine) => !eraLine.isClaimLevel) },
+              { label: 'Claim Level Remit Lines', lines: unmatched.filter((eraLine) => eraLine.isClaimLevel) },
+            ]
+              .filter((group) => group.lines.length > 0)
+              .map((group) => (
+                <Fragment key={group.label}>
+                  <TableRow>
+                    <TableCell colSpan={columnCount} sx={{ pt: 2, pb: 0.5 }}>
+                      <Typography variant="subtitle2" color="text.secondary">
+                        {group.label}
+                      </Typography>
+                    </TableCell>
+                  </TableRow>
+                  {group.lines.map((eraLine) => {
+                    const name = eraLine.isClaimLevel
+                      ? 'claim-level adjustments'
+                      : `${eraLine.cptCode || 'an unknown code'} (not on claim)`;
+                    return (
+                      <ExpandableLedgerRows
+                        key={eraLine.key}
+                        toggleLabel={`Toggle remit details for ${name}`}
+                        columnCount={columnCount}
+                        muted
+                        summary={[<TableCell key="indicators" />, ...cells((column) => column.eraLineCell(eraLine))]}
+                        ledger={
+                          <RemitLedger
+                            label={`Remit details for ${name}`}
+                            entries={eraLine.entries}
+                            amountWidth={amountWidth}
+                          />
+                        }
                       />
-                    }
-                  />
-                );
-              })}
-            </>
-          )}
+                    );
+                  })}
+                </Fragment>
+              ))}
         </TableBody>
       </Table>
     </TableContainer>
@@ -463,7 +464,17 @@ function PatientRespAmount({ amount }: { amount: number }): ReactElement {
   return amount !== 0 ? <AmountChip label={formatCurrency(amount)} color="warning" /> : <>{formatCurrency(amount)}</>;
 }
 
-// One remit's response to a line and the adjustments behind it.
+// The default CARCs the ledger's columns already name: CO-45 under Ins adj, PR-1/2/3 under their
+// patient-responsibility buckets. Their amounts ride the remit's own row, so they get no row below.
+function isColumnHeaderCarc(adjustment: ClaimRemitAdjustment): boolean {
+  if (adjustment.groupCode === X12_ADJUSTMENT_GROUP_CODE.contractualObligation) return adjustment.reasonCode === '45';
+  if (adjustment.groupCode !== X12_ADJUSTMENT_GROUP_CODE.patientResponsibility) return false;
+  return (Object.values(PATIENT_RESP_CARC) as string[]).includes(adjustment.reasonCode);
+}
+
+// One remit's response to a line, with rows below only for adjustments the columns don't cover.
+// Hovering (or focusing) anywhere on the group highlights its remit and opens the line's card
+// with every adjustment spelled out.
 function LedgerGroup({ entry, claimLineUnits }: { entry: RemitLineEntry; claimLineUnits?: number }): ReactElement {
   const { remit, line } = entry;
   const { highlighted, highlight, clearHighlight } = useRemitHighlightTarget({
@@ -475,90 +486,75 @@ function LedgerGroup({ entry, claimLineUnits }: { entry: RemitLineEntry; claimLi
   const date = formatDate(remit.date) || '-';
 
   return (
-    <TableBody
-      onMouseEnter={highlight}
-      onMouseLeave={clearHighlight}
-      onFocus={highlight}
-      onBlur={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) clearHighlight();
-      }}
-      sx={{ bgcolor: highlighted ? 'action.hover' : undefined }}
-    >
-      <TableRow sx={ledgerRowSx}>
-        <TableCell>{date}</TableCell>
-        <TableCell>
-          <Stack direction="row" spacing={1} alignItems="center">
-            <Typography variant="body2" fontWeight={600} noWrap sx={{ minWidth: 0, maxWidth: 220 }}>
-              {remit.payerName || 'Unknown payer'}
-            </Typography>
-            {remit.eraStatusCode && isAdverseRemitStatus(remit.eraStatusCode) && (
-              <EraStatusChip statusCode={remit.eraStatusCode} />
-            )}
-          </Stack>
-        </TableCell>
-        <TableCell align="right">{line.billed === null ? '-' : formatCurrency(line.billed)}</TableCell>
-        <TableCell align="right">
-          {line.allowed === null ? '-' : <AmountChip label={formatCurrency(line.allowed)} color="success" />}
-        </TableCell>
-        <TableCell align="right">{formatCurrency(amounts.insuranceAdjustment)}</TableCell>
-        <TableCell align="right">
-          <AmountChip label={formatCurrency(line.paid)} color="primary" />
-        </TableCell>
-        {PATIENT_RESP_COLUMNS.map(({ key }) => (
-          <TableCell key={key} align="right">
-            <PatientRespAmount amount={amounts[key]} />
-          </TableCell>
-        ))}
-      </TableRow>
-      {line.adjustments.map((adjustment, index) => {
-        const column = adjustmentColumn(adjustment);
-        const amountIn = (key: LedgerColumn): string => (column === key ? formatCurrency(adjustment.amount) : '');
-        return (
-          <TableRow key={index} sx={ledgerRowSx}>
-            <TableCell>{date}</TableCell>
-            <TableCell>
-              <CarcLabel entry={entry} claimLineUnits={claimLineUnits}>
-                <AdjustmentChip groupCode={adjustment.groupCode} label={adjustmentCode(adjustment)} />
-              </CarcLabel>
-            </TableCell>
-            <TableCell />
-            <TableCell />
-            <TableCell align="right">{amountIn('insuranceAdjustment')}</TableCell>
-            <TableCell />
-            {PATIENT_RESP_COLUMNS.map(({ key }) => (
-              <TableCell key={key} align="right">
-                {amountIn(key)}
-              </TableCell>
-            ))}
-          </TableRow>
-        );
-      })}
-    </TableBody>
-  );
-}
-
-// A CARC label in the ledger; hovering (or focusing) it opens its remit line's card.
-function CarcLabel({
-  entry,
-  claimLineUnits,
-  children,
-}: {
-  entry: RemitLineEntry;
-  claimLineUnits?: number;
-  children: ReactNode;
-}): ReactElement {
-  return (
     <Tooltip
       title={<RemitLineCard entry={entry} claimLineUnits={claimLineUnits} />}
       describeChild
       disableInteractive
       enterDelay={150}
+      followCursor
       placement="bottom-start"
       slotProps={{ tooltip: { sx: remitCardSx } }}
     >
-      <Box component="span" tabIndex={0} sx={{ display: 'inline-flex', borderRadius: 1 }}>
-        {children}
-      </Box>
+      <TableBody
+        tabIndex={0}
+        onMouseEnter={highlight}
+        onMouseLeave={clearHighlight}
+        onFocus={highlight}
+        onBlur={(event) => {
+          if (!event.currentTarget.contains(event.relatedTarget as Node | null)) clearHighlight();
+        }}
+        sx={{ bgcolor: highlighted ? 'action.hover' : undefined }}
+      >
+        <TableRow sx={ledgerRowSx}>
+          <TableCell>{date}</TableCell>
+          <TableCell>
+            <Stack direction="row" spacing={1} alignItems="center">
+              <Typography variant="body2" fontWeight={600} noWrap sx={{ minWidth: 0, maxWidth: 220 }}>
+                {remit.payerName || 'Unknown payer'}
+              </Typography>
+              {remit.eraStatusCode && isAdverseRemitStatus(remit.eraStatusCode) && (
+                <EraStatusChip statusCode={remit.eraStatusCode} />
+              )}
+            </Stack>
+          </TableCell>
+          <TableCell align="right">{line.billed === null ? '-' : formatCurrency(line.billed)}</TableCell>
+          <TableCell align="right">
+            {line.allowed === null ? '-' : <AmountChip label={formatCurrency(line.allowed)} color="success" />}
+          </TableCell>
+          <TableCell align="right">{formatCurrency(amounts.insuranceAdjustment)}</TableCell>
+          <TableCell align="right">
+            <AmountChip label={formatCurrency(line.paid)} color="primary" />
+          </TableCell>
+          {PATIENT_RESP_COLUMNS.map(({ key }) => (
+            <TableCell key={key} align="right">
+              <PatientRespAmount amount={amounts[key]} />
+            </TableCell>
+          ))}
+        </TableRow>
+        {line.adjustments
+          .filter((adjustment) => !isColumnHeaderCarc(adjustment))
+          .map((adjustment, index) => {
+            const column = adjustmentColumn(adjustment);
+            const amountIn = (key: LedgerColumn): string => (column === key ? formatCurrency(adjustment.amount) : '');
+            return (
+              <TableRow key={index} sx={ledgerRowSx}>
+                <TableCell>{date}</TableCell>
+                <TableCell>
+                  <AdjustmentChip groupCode={adjustment.groupCode} label={adjustmentCode(adjustment)} />
+                </TableCell>
+                <TableCell />
+                <TableCell />
+                <TableCell align="right">{amountIn('insuranceAdjustment')}</TableCell>
+                <TableCell />
+                {PATIENT_RESP_COLUMNS.map(({ key }) => (
+                  <TableCell key={key} align="right">
+                    {amountIn(key)}
+                  </TableCell>
+                ))}
+              </TableRow>
+            );
+          })}
+      </TableBody>
     </Tooltip>
   );
 }
@@ -583,9 +579,9 @@ function RemitLineCard({ entry, claimLineUnits }: { entry: RemitLineEntry; claim
       {line.adjustments.length > 0 ? (
         <Stack spacing={1}>
           {line.adjustments.map((adjustment, index) => (
-            <Stack key={index} direction="row" spacing={1.5} alignItems="center">
+            <Stack key={index} direction="row" spacing={1.5} alignItems="flex-start">
               <AdjustmentChip groupCode={adjustment.groupCode} label={adjustmentCode(adjustment)} />
-              <Typography variant="body2" noWrap sx={{ flex: 1, minWidth: 0 }}>
+              <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>
                 {carcDescription(adjustment.reasonCode) ??
                   X12_ADJUSTMENT_GROUP_LABELS[adjustment.groupCode] ??
                   adjustment.groupCode}

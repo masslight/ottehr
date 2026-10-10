@@ -173,33 +173,14 @@ export function summarizeClaimPayments(
   const insurancePaid = amounts.reduce((sum, a) => sum + a.paid, 0);
   const allowed = amounts.findLast((a) => a.allowed !== undefined)?.allowed ?? 0;
 
-  // Determine patient responsibility by looking at last response for each payer. If there is no
-  // patient responsibility for any of these responses, `allowed - insurancePaid` is used instead.
-  // In all cases, negative patient responsibilities are set to 0.
-  const amountsByPayer = amounts.reduce(
-    (amts, amount) => {
-      if (!amts[amount.payerId]) {
-        amts[amount.payerId] = [];
-      }
-      amts[amount.payerId].push(amount);
-      return amts;
-    },
-    {} as Record<string, ClaimResponseAmounts[]>
-  );
-  const totalPatientResp = Object.values(amountsByPayer)
-    .map((amts) => amts[amts.length - 1].patientResp)
-    .reduce((sum, a) => {
-      // If no responses specify patient responsibility, we want to fall through at the summed
-      // level to `allowed - insurancePaid`. This check guarantees we will end up with `undefined`
-      // instead of `0` for the total.
-      if (a !== undefined) {
-        return (sum ?? 0) + a;
-      }
-      return sum;
-    }, undefined);
-  // Ceilinged to 0 either way: a reversal reports what it took back as negative PR, and the patient owes
+  // Patient responsibility is what the final adjudication says the patient owes: after COB the
+  // last payer's PR already accounts for what prior payers paid, so summing PR across payers
+  // would double-count the share of the primary's PR the secondary covered. When the latest
+  // response carries no adjudication data, `allowed - insurancePaid` is used instead. Ceilinged
+  // to 0 either way: a reversal reports what it took back as negative PR, and the patient owes
   // nothing rather than less than nothing — otherwise a payment they made counts twice as credit.
-  const patientResp = Math.max(totalPatientResp ?? allowed - insurancePaid, 0);
+  const latestPatientResp = amounts[amounts.length - 1].patientResp;
+  const patientResp = Math.max(latestPatientResp ?? allowed - insurancePaid, 0);
 
   return {
     allowed,
