@@ -1,4 +1,4 @@
-import { BrowserContext, expect, Page, test } from '@playwright/test';
+import { BrowserContext, Page, test } from '@playwright/test';
 import { Encounter } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { dataTestIds } from 'src/constants/data-test-ids';
@@ -82,7 +82,7 @@ test.describe('In-person header: Payment display', () => {
     await oystehr.fhir.update(patched);
   };
 
-  test('shows "Payment: Not set" in warning style when no payment variant is on the encounter', async () => {
+  test('shows "Payment: Not set" on the payment icon when no payment variant is on the encounter', async () => {
     await setEncounterPaymentVariant(null);
     await navigateToVisit();
 
@@ -90,13 +90,12 @@ test.describe('In-person header: Payment display', () => {
     await header.verifyPaymentIsUnset();
   });
 
-  test('shows "Payment: Self-Pay" and no warning style when encounter payment variant is selfPay', async () => {
+  test('shows "Payment: Self-Pay" on the payment icon when encounter payment variant is selfPay', async () => {
     await setEncounterPaymentVariant(PaymentVariant.selfPay);
     await navigateToVisit();
 
     const header = new InPersonHeader(page);
     await header.verifyPaymentText('Self-Pay');
     await header.verifyPaymentIsSet();
-    await expect(page.getByTestId(dataTestIds.inPersonHeader.payment)).not.toHaveCSS('font-weight', '600');
   });
 });
