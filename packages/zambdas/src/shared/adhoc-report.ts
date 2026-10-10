@@ -10,13 +10,14 @@ import {
   OperationOutcome,
   Patient,
   Practitioner,
+  RelatedPerson,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { BUCKET_NAMES, SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
 import { getEncounterVisitType } from 'utils/lib/fhir/encounter';
 import { isInPersonAppointment, isTelemedAppointment, OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
-import { getAddressForIndividual } from 'utils/lib/fhir/patient';
-import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
+import { getAddressForIndividual, getFirstName, getLastName, getMiddleName } from 'utils/lib/fhir/patient';
+import { getAdmitterPractitionerId, getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { getInPersonVisitStatus } from 'utils/lib/utils/visitUtils';
 import { createPresignedUrl } from './z3Utils';
@@ -252,19 +253,27 @@ export async function fetchAppointmentReportResources<T extends FhirResource>(
 }
 
 // (Temporarily, while async-bulk isn't working as expected): the attending providers used to ride along on the main search as _include:iterate through the
-// Encounter, which made every window carry a fourth resource type in full. Only the attending one is
-// ever read, and only its name, so they are fetched separately: by id, in batches, two fields each —
-// the same shape as every other heavy part of a report.
+// Encounter, which made every window carry a fourth resource type in full. Only the attending and the
+// intake (admitter) participants are ever read — their name and the provider-type extension — so they
+// are fetched separately: by id, in batches, three fields each — the same shape as every other heavy
+// part of a report.
 async function fetchAttendingPractitioners<T extends FhirResource>(oystehr: Oystehr, resources: T[]): Promise<T[]> {
   const ids = new Set<string>();
   for (const resource of resources) {
     if (resource.resourceType !== 'Encounter') continue;
-    const id = getAttendingPractitionerId(resource as Encounter);
-    if (id) ids.add(id);
+
+    for (const id of [
+      getAttendingPractitionerId(resource as Encounter),
+      getAdmitterPractitionerId(resource as Encounter),
+    ]) {
+      if (id) ids.add(id);
+    }
   }
+
   if (ids.size === 0) return [];
+
   return fetchScopedResources<T>(oystehr, 'Practitioner', '_id', Array.from(ids), [
-    { name: '_elements', value: 'id,name' },
+    { name: '_elements', value: 'id,name,extension' },
   ]);
 }
 
@@ -295,10 +304,12 @@ export async function fetchScopedResources<T extends FhirResource>(
     const group = await Promise.all(batches.slice(i, i + SCOPED_BATCH_CONCURRENCY).map(searchBatch));
     for (const resources of group) out.push(...resources);
   }
+
   console.log(
     `[adhoc] ${resourceType} by ${paramName}: values=${values.length} batches=${batches.length} ` +
       `resources=${out.length} ms=${Date.now() - startedAt}`
   );
+
   return out;
 }
 
@@ -309,9 +320,12 @@ export function resolveEncounterAppointment(
 ): Appointment | undefined {
   const ownRef = encounter.appointment?.[0]?.reference;
   const own = ownRef ? appointmentMap.get(ownRef) : undefined;
+
   if (own) return own;
+
   const parentId = encounter.partOf?.reference?.replace('Encounter/', '');
   const parentRef = parentId ? encounterById.get(parentId)?.appointment?.[0]?.reference : undefined;
+
   return parentRef ? appointmentMap.get(parentRef) : undefined;
 }
 
@@ -343,7 +357,10 @@ export function buildEncounterRowContext(
   const { encounterById, patientMap, locationMap, practitionerMap } = lookups;
 
   const encounterType = getEncounterVisitType(encounter) ?? 'main';
-  const isFollowUpRow = encounterType === 'follow-up' || encounterType === 'scheduled-follow-up';
+
+  // Only an annotation follow-up is a note on its parent visit (no Appointment of its own, status and lock on the
+  // Encounter). A scheduled follow-up is a visit converted in place — its own Appointment, status and lock.
+  const isFollowUpRow = encounterType === 'follow-up';
 
   const parentEncounter = encounter.partOf?.reference
     ? encounterById.get(encounter.partOf.reference.replace('Encounter/', ''))
@@ -354,10 +371,12 @@ export function buildEncounterRowContext(
 
   const locationRef = appointment.participant?.find((p) => p.actor?.reference?.startsWith('Location/'))?.actor
     ?.reference;
+
   const location = locationRef ? locationMap.get(locationRef) : undefined;
 
   const attendingId = getAttendingPractitionerId(encounter);
   const attendingPractitioner = attendingId ? practitionerMap.get(attendingId) : undefined;
+
   const attendingProvider = attendingPractitioner
     ? `${attendingPractitioner.name?.[0]?.given?.[0] || ''} ${attendingPractitioner.name?.[0]?.family || ''}`.trim()
     : 'Unknown';
@@ -377,6 +396,7 @@ export function buildEncounterRowContext(
   const svcCoding = (appointment.serviceCategory ?? [])
     .flatMap((sc) => sc.coding ?? [])
     .find((c) => c.system === SERVICE_CATEGORY_SYSTEM);
+
   const serviceCategory = svcCoding?.display || svcCoding?.code || '';
 
   const address = patient ? getAddressForIndividual(patient) : undefined;
@@ -397,3 +417,8 @@ export function buildEncounterRowContext(
     start,
   };
 }
+
+export const presentFullName = (individual: Patient | Practitioner | RelatedPerson | undefined): string =>
+  individual?.name?.[0]
+    ? [getFirstName(individual), getMiddleName(individual), getLastName(individual)].filter(Boolean).join(' ')
+    : '';

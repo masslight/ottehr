@@ -2,7 +2,23 @@
 // response validation, prompt schema, UI checkboxes, and endpoint input flags all derive from the
 // objects below.
 import { z } from 'zod';
+import { MedicationDTO } from '../../api/chart-data/chart-data.types';
+import { RecentPatientRecordSchema } from '../../api/recent-patients-report.types';
 import { AdHocLayerMap, DatasetInput, datasetInputSchema, datasetRowSchema, LayerRowFields } from './dataset';
+
+// The chart medication list's vocabularies (MedicationDTO), required exhaustively.
+const MEDICATION_TYPES = { scheduled: true, 'as-needed': true, 'prescribed-medication': true } satisfies Record<
+  MedicationDTO['type'],
+  true
+>;
+
+const MEDICATION_STATUSES = { active: true, completed: true } satisfies Record<MedicationDTO['status'], true>;
+const MEDICATION_TYPE_VALUES = Object.keys(MEDICATION_TYPES) as [MedicationDTO['type'], ...MedicationDTO['type'][]];
+
+const MEDICATION_STATUS_VALUES = Object.keys(MEDICATION_STATUSES) as [
+  MedicationDTO['status'],
+  ...MedicationDTO['status'][],
+];
 
 export const PatientBaseRowSchema = z.object({
   // --- Patient ---
@@ -19,6 +35,16 @@ export const PatientBaseRowSchema = z.object({
   phone: z.string().describe('Patient phone number.'),
   email: z.string().describe('Patient email address.'),
   source: z.string().describe('Point of discovery / marketing source.'),
+  active: z
+    .boolean()
+    .describe('The patient record is active. False for records deactivated or merged into another patient.'),
+  mergedIntoPatientId: z
+    .string()
+    .nullable()
+    .describe(
+      'Set when this record was merged into another patient: the surviving patient id. Exclude such rows (or count ' +
+        'them under the surviving id) to avoid counting one person twice. Null otherwise.'
+    ),
   // --- Visit summary within range ---
   totalVisits: z.number().describe('Visits this patient had within the range.'),
   firstVisitDate: z.string().nullable().describe('Earliest visit date in range (yyyy-MM-dd).'),
@@ -44,6 +70,26 @@ export const PATIENT_DOMAIN_FIELDS: readonly (keyof AdHocPatientRow)[] = [
   'serviceCategories',
   'source',
   'problemCodes',
+  'preferredLanguage',
+  'race',
+  'ethnicity',
+  'sexualOrientation',
+  'genderIdentity',
+  'pcpPracticeName',
+  'preferredPharmacy',
+  'responsiblePartyRelationship',
+  'emergencyContactRelationship',
+  'primaryInsuranceCarrier',
+  'primaryPlanType',
+  'primaryRelationshipToInsured',
+  'secondaryInsuranceCarrier',
+  'secondaryPlanType',
+  'occupationalMedicineEmployer',
+  'workersCompEmployer',
+  'workersCompCarrier',
+  'preferredCommunicationMethod',
+  'pronouns',
+  'attorneyFirm',
 ];
 
 // Opt-in layers, declared ONCE (metadata + Zod field schema); everything else derives from this map.
@@ -53,7 +99,16 @@ export const PATIENT_LAYERS = {
     description: "The patient's known allergy list.",
     schema: z.object({
       allergies: z.array(z.string()).describe('Known allergens (display names). Tally for top allergens.'),
-      allergyCount: z.number().describe('Number of charted allergies. 0 when none.'),
+      allergyCount: z.number().describe('Number of distinct allergens (length of allergies[]). 0 when none.'),
+      allergyDetails: z
+        .array(
+          z.object({
+            name: z.string().describe('Allergen, same value as in allergies[].'),
+            current: z.boolean().describe('Marked active on the chart (false = no longer current).'),
+            note: z.string().describe('Note on the entry (the chart shows it for inactive allergies). "" when none.'),
+          })
+        )
+        .describe('One record per charted allergy, with whether it is still current. Empty when none.'),
     }),
   },
   problems: {
@@ -62,15 +117,49 @@ export const PATIENT_LAYERS = {
     schema: z.object({
       problems: z.array(z.string()).describe('Problem-list / chronic conditions (display names).'),
       problemCodes: z.array(z.string()).describe('ICD-10 codes for the problem list. HIERARCHICAL — prefix-match.'),
-      problemCount: z.number().describe('Number of problem-list conditions.'),
+      problemCount: z
+        .number()
+        .describe('Number of distinct problem-list conditions (length of problems[]). 0 when none.'),
+      problemDetails: z
+        .array(
+          z.object({
+            display: z.string().describe('Condition, same value as in problems[].'),
+            code: z.string().describe('ICD-10 code. "" when not coded.'),
+            current: z.boolean().describe('Marked active on the chart (false = resolved / history).'),
+            note: z.string().describe('Note on the entry (the chart shows it for inactive conditions). "" when none.'),
+          })
+        )
+        .describe('One record per problem-list condition, with whether it is still current. Empty when none.'),
     }),
   },
   medications: {
     label: 'Current medications',
-    description: "The patient's current/home medication list.",
+    description:
+      "The patient's medication list as the chart shows it: home medications (scheduled / as-needed) and those " +
+      'prescribed by us, with dose and whether still taken.',
     schema: z.object({
-      currentMedications: z.array(z.string()).describe('Current/home medications (display names).'),
-      currentMedicationCount: z.number().describe('Number of current/home medications. 0 when none.'),
+      currentMedications: z
+        .array(z.string())
+        .describe('Medications on the chart medication list (display names) — home and prescribed by us.'),
+      currentMedicationCount: z
+        .number()
+        .describe('Number of distinct medications on the list (length of currentMedications[]). 0 when none.'),
+      currentMedicationDetails: z
+        .array(
+          z.object({
+            name: z.string().describe('Medication, same value as in currentMedications[].'),
+            type: z
+              .enum(MEDICATION_TYPE_VALUES)
+              .describe('scheduled / as-needed home medication, or prescribed-medication (prescribed by us).'),
+            dose: z.string().describe('Dose as charted. "" when not given.'),
+            status: z.enum(MEDICATION_STATUS_VALUES).describe('active = still taking; completed = no longer taking.'),
+            lastTakenAt: z
+              .string()
+              .nullable()
+              .describe('When the patient last took it, as charted (ISO). Null when not charted.'),
+          })
+        )
+        .describe('One record per medication on the chart medication list. Empty when none.'),
     }),
   },
   surgicalHistory: {
@@ -78,7 +167,177 @@ export const PATIENT_LAYERS = {
     description: "The patient's past surgical procedures.",
     schema: z.object({
       surgicalHistory: z.array(z.string()).describe('Past surgical procedures (names).'),
-      surgicalHistoryCount: z.number().describe('Number of past surgeries charted.'),
+      surgicalHistoryCount: z.number().describe('Number of distinct past surgeries (length of surgicalHistory[]).'),
+      surgicalHistoryCodes: z.array(z.string()).describe('CPT codes of the past surgeries. NOT hierarchical.'),
+    }),
+  },
+  visitHistory: {
+    label: 'New vs returning',
+    description:
+      'Whether the patient is new or returning (had any appointment before the date range), as the Recent ' +
+      'Patients report decides it, and when their last appointment before the range was.',
+    schema: z.object({
+      patientStatus: RecentPatientRecordSchema.shape.patientStatus.describe(
+        'new = no appointment of any kind before the date range start; existing = at least one. Same rule as ' +
+          'the Recent Patients report.'
+      ),
+      lastAppointmentBeforeRange: z
+        .string()
+        .nullable()
+        .describe(
+          'Full ISO start of the latest appointment before the date range (any status, cancelled included). ' +
+            'Null for new patients.'
+        ),
+    }),
+  },
+  demographics: {
+    label: 'Demographics & preferences',
+    description:
+      'Full name parts and street address, preferred language, race, ethnicity, sexual orientation, gender identity ' +
+      '(with details), preferred name, pronouns, preferred communication method, Medicaid, marketing opt-in, ' +
+      'authorized non-legal guardians, primary care physician (with contact details) and preferred pharmacy (with ' +
+      'address / phone) — as on the patient record / visit details face sheet.',
+    schema: z.object({
+      middleName: z.string().describe('Middle name. "" when none.'),
+      nameSuffix: z.string().describe('Name suffix (Jr., III, …). "" when none.'),
+      addressLine1: z.string().describe('Street address, line 1. "" when none.'),
+      addressLine2: z.string().describe('Street address, line 2 (apt / unit). "" when none.'),
+      authorizedNonLegalGuardians: z
+        .string()
+        .describe('Authorized non-legal guardians as recorded (free text). "" when none recorded.'),
+      preferredLanguage: z.string().describe('Preferred language. "" when not recorded.'),
+      race: z.string().describe('Race as recorded. "" when not recorded.'),
+      ethnicity: z.string().describe('Ethnicity as recorded. "" when not recorded.'),
+      sexualOrientation: z.string().describe('Sexual orientation as recorded. "" when not recorded.'),
+      genderIdentity: z.string().describe('Gender identity as recorded (separate from sex). "" when not recorded.'),
+      genderIdentityDetails: z
+        .string()
+        .describe('Free-text gender identity details when "Other" was picked. "" when none.'),
+      marketingOptIn: z.boolean().describe('The patient agreed to receive marketing messages.'),
+      commonWellConsent: z.boolean().describe('The patient consented to CommonWell record sharing.'),
+      hasPcp: z.boolean().describe('The patient has an active primary care physician on file.'),
+      pcpName: z.string().describe('Primary care physician name. "" when none.'),
+      pcpPracticeName: z.string().describe('Primary care physician\'s practice. "" when none.'),
+      pcpAddress: z.string().describe('Primary care physician\'s address. "" when none.'),
+      pcpPhone: z.string().describe('Primary care physician\'s phone. "" when none.'),
+      pcpFax: z.string().describe('Primary care physician\'s fax. "" when none.'),
+      preferredPharmacy: z.string().describe('Preferred pharmacy name. "" when none.'),
+      preferredPharmacyAddress: z.string().describe('Preferred pharmacy address. "" when none.'),
+      preferredPharmacyPhone: z.string().describe('Preferred pharmacy phone. "" when none.'),
+      deceased: z.boolean().describe('The patient is marked deceased.'),
+      preferredName: z.string().describe('Preferred name (what the patient wants to be called). "" when none.'),
+      pronouns: z
+        .string()
+        .describe(
+          'Pronouns as recorded; the patient\'s own wording when they picked "My pronouns are not listed". "" when ' +
+            'not recorded.'
+        ),
+      preferredCommunicationMethod: z
+        .string()
+        .describe('Preferred communication method ("Email", "Cell Phone", …). "" when not recorded.'),
+      hasMedicaid: z.boolean().describe('The patient indicated they have Medicaid coverage.'),
+    }),
+  },
+  contacts: {
+    label: 'Responsible party & emergency contact',
+    description:
+      "The patient's responsible party (guarantor: self, parent, …), emergency contact and MVA attorney, as on the " +
+      'patient record.',
+    schema: z.object({
+      responsiblePartyRelationship: z
+        .string()
+        .describe(
+          'Responsible party relationship to the patient ("Self" when the patient is responsible). "" when none.'
+        ),
+      responsiblePartyName: z.string().describe('Responsible party full name. "" when none.'),
+      responsiblePartyDateOfBirth: z
+        .string()
+        .describe('Responsible party date of birth, as the face sheet prints it. "" when none / Self.'),
+      responsiblePartySex: z.string().describe('Responsible party birth sex. "" when none.'),
+      responsiblePartyPhone: z.string().describe('Responsible party phone. "" when none.'),
+      responsiblePartyEmail: z.string().describe('Responsible party email. "" when none.'),
+      responsiblePartyAddress: z
+        .string()
+        .describe('Responsible party address, one line (street, city, state zip). "" when none.'),
+      emergencyContactRelationship: z.string().describe('Emergency contact relationship. "" when none.'),
+      emergencyContactName: z.string().describe('Emergency contact full name. "" when none.'),
+      emergencyContactPhone: z.string().describe('Emergency contact phone. "" when none.'),
+      emergencyContactAddress: z
+        .string()
+        .describe('Emergency contact address, one line (street, city, state zip). "" when none.'),
+      hasAttorney: z.boolean().describe('An MVA attorney is on file for the patient.'),
+      attorneyFirm: z.string().describe('MVA attorney\'s firm. "" when none.'),
+      attorneyName: z.string().describe('MVA attorney full name. "" when none.'),
+      attorneyEmail: z.string().describe('MVA attorney email. "" when none.'),
+      attorneyPhone: z.string().describe('MVA attorney mobile phone. "" when none.'),
+      attorneyFax: z.string().describe('MVA attorney fax. "" when none.'),
+    }),
+  },
+  insurance: {
+    label: 'Insurance',
+    description:
+      "The patient's current insurance as on the patient record: primary and secondary carrier, plan type, member " +
+      'id, relationship to the insured, policy holder (name, date of birth, sex, address) and additional information.',
+    schema: z.object({
+      insured: z.boolean().describe('The patient has a primary insurance on file.'),
+      primaryInsuranceCarrier: z.string().describe('Primary insurance carrier (payer) name. "" when none.'),
+      primaryPlanType: z.string().describe('Primary plan type, e.g. "12 - PPO". "" when not set.'),
+      primaryMemberId: z.string().describe('Member id on the primary insurance. "" when none.'),
+      primaryRelationshipToInsured: z
+        .string()
+        .describe('Patient relationship to the primary policy holder ("Self", "Child", …). "" when none.'),
+      primaryPolicyHolderName: z.string().describe('Primary policy holder full name. "" when none.'),
+      primaryPolicyHolderDateOfBirth: z
+        .string()
+        .describe('Primary policy holder date of birth, as the face sheet prints it. "" when none.'),
+      primaryPolicyHolderSex: z.string().describe('Primary policy holder birth sex. "" when none.'),
+      primaryPolicyHolderAddress: z
+        .string()
+        .describe('Primary policy holder address, one line (street, city, state zip). "" when none.'),
+      primaryInsuranceAdditionalInformation: z
+        .string()
+        .describe('Additional insurance information on the primary coverage (free text). "" when none.'),
+      secondaryInsuranceCarrier: z.string().describe('Secondary insurance carrier name. "" when none.'),
+      secondaryPlanType: z.string().describe('Secondary plan type. "" when none.'),
+      secondaryMemberId: z.string().describe('Member id on the secondary insurance. "" when none.'),
+      secondaryRelationshipToInsured: z
+        .string()
+        .describe('Patient relationship to the secondary policy holder ("Self", "Child", …). "" when none.'),
+      secondaryPolicyHolderName: z.string().describe('Secondary policy holder full name. "" when none.'),
+      secondaryPolicyHolderDateOfBirth: z
+        .string()
+        .describe('Secondary policy holder date of birth, as the face sheet prints it. "" when none.'),
+      secondaryPolicyHolderSex: z.string().describe('Secondary policy holder birth sex. "" when none.'),
+      secondaryPolicyHolderAddress: z
+        .string()
+        .describe('Secondary policy holder address, one line (street, city, state zip). "" when none.'),
+      secondaryInsuranceAdditionalInformation: z
+        .string()
+        .describe('Additional insurance information on the secondary coverage (free text). "" when none.'),
+    }),
+  },
+  employers: {
+    label: 'Employers',
+    description:
+      "The patient's occupational-medicine employer and workers' comp employer (address, contact person) / " +
+      'carrier (member id) on file.',
+    schema: z.object({
+      occupationalMedicineEmployer: z
+        .string()
+        .describe('Occupational-medicine employer on the patient account. "" when none.'),
+      workersCompEmployer: z.string().describe('Workers\' comp employer on file. "" when none.'),
+      workersCompEmployerAddress: z
+        .string()
+        .describe('Workers\' comp employer address, one line (street, city, state zip). "" when none.'),
+      workersCompEmployerContactName: z
+        .string()
+        .describe('Workers\' comp employer contact person full name. "" when none.'),
+      workersCompEmployerContactTitle: z.string().describe('Workers\' comp employer contact title. "" when none.'),
+      workersCompEmployerContactEmail: z.string().describe('Workers\' comp employer contact email. "" when none.'),
+      workersCompEmployerContactPhone: z.string().describe('Workers\' comp employer contact phone. "" when none.'),
+      workersCompEmployerContactFax: z.string().describe('Workers\' comp employer contact fax. "" when none.'),
+      workersCompCarrier: z.string().describe('Workers\' comp insurance carrier. "" when none.'),
+      workersCompMemberId: z.string().describe('Member id on the workers\' comp coverage. "" when none.'),
     }),
   },
   hospitalizations: {
@@ -86,7 +345,26 @@ export const PATIENT_LAYERS = {
     description: "The patient's prior hospitalizations.",
     schema: z.object({
       hospitalizations: z.array(z.string()).describe('Prior hospitalization reasons.'),
-      hospitalizationCount: z.number().describe('Number of prior hospitalizations charted.'),
+      hospitalizationCount: z
+        .number()
+        .describe('Number of distinct prior hospitalization reasons (length of hospitalizations[]).'),
+    }),
+  },
+  notes: {
+    label: 'Patient notes',
+    description: "Staff notes on the patient record (the patient page's Notes), not tied to a visit.",
+    schema: z.object({
+      patientNotes: z
+        .array(
+          z.object({
+            text: z.string().describe('Note text (free text).'),
+            author: z.string().describe('Who wrote it. "" when unknown.'),
+            addedAt: z.string().nullable().describe('Full ISO instant it was last saved. Null when unknown.'),
+            edited: z.boolean().describe('Edited after it was first added.'),
+          })
+        )
+        .describe('Notes on the patient record, newest first, as the patient page lists them. Empty when none.'),
+      patientNoteCount: z.number().describe('Number of patientNotes[] records. 0 when none.'),
     }),
   },
 } as const satisfies AdHocLayerMap;
