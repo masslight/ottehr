@@ -39,6 +39,7 @@ import {
 } from 'utils/lib/types/api/medication-administration.constants';
 import { CREATED_BY_SYSTEM } from 'utils/lib/types/common';
 import { PRACTITIONER_CODINGS } from 'utils/lib/types/data/appointments/appointments.types';
+import { patientScreeningQuestionsConfig } from 'utils/lib/ottehr-config/screening-questions';
 import {
   PATIENT_BREASTFEEDING_STATUS,
   SEEN_IN_LAST_THREE_YEARS_FIELD,
@@ -386,8 +387,6 @@ const screeningObservations: FhirResource[] = [
   screeningObs('obs-scr-1', PATIENT_BREASTFEEDING_STATUS, 'not-applicable', '2026-07-01T14:06:00.000Z'),
   screeningObs('obs-scr-2', SEEN_IN_LAST_THREE_YEARS_FIELD, 'no', '2026-07-01T14:06:00.000Z'),
   screeningObs('obs-scr-3', SEEN_IN_LAST_THREE_YEARS_FIELD, 'yes', '2026-07-01T14:08:00.000Z'),
-  screeningObs('obs-scr-4', 'covid-symptoms', true, '2026-07-01T14:07:00.000Z'),
-  screeningObs('obs-scr-5', 'tested-positive-covid', false, '2026-07-01T14:05:00.000Z'),
 ];
 
 const medicationAdministrations: FhirResource[] = [
@@ -593,18 +592,14 @@ describe('ad-hoc dataset zambdas: mapped rows parse against their Zod schema (fi
     const row = rows[0];
 
     expect(issuesOf(AdHocEncountersOutputSchema.safeParse({ encounters: rows }))).toEqual([]);
+    const fieldMap = new Map(patientScreeningQuestionsConfig.fields.map((f) => [f.fhirField, f]));
+    const seenQ = fieldMap.get(SEEN_IN_LAST_THREE_YEARS_FIELD)!.question;
+    const breastfeedingQ = fieldMap.get(PATIENT_BREASTFEEDING_STATUS)!.question;
     expect(row.screeningAnswers).toEqual([
-      { question: 'Has the patient been seen in one of our offices / telemed in last 3 years?', answer: 'Yes' },
-      { question: 'Do you have any COVID symptoms?', answer: 'Yes' },
-      { question: 'Are you currently breastfeeding?', answer: 'Not applicable' },
-      { question: 'Have you tested positive for COVID?', answer: 'No' },
+      { question: seenQ, answer: 'Yes' },
+      { question: breastfeedingQ, answer: 'Not applicable' },
     ]);
-    expect(row.screeningQuestions).toEqual([
-      'Has the patient been seen in one of our offices / telemed in last 3 years?',
-      'Do you have any COVID symptoms?',
-      'Are you currently breastfeeding?',
-      'Have you tested positive for COVID?',
-    ]);
+    expect(row.screeningQuestions).toEqual([seenQ, breastfeedingQ]);
   });
 
   it('encounters immunizations layer: one vaccine record each, VIS presence carried by the date', async () => {

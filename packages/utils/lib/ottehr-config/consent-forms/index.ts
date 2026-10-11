@@ -11,10 +11,10 @@ const CONSENT_FORMS_DATA: ConsentFormsConfig = {
   forms: [
     {
       id: 'hipaa-acknowledgement',
-      formTitle: 'HIPAA Acknowledgement',
+      formTitle: 'HIPAA Notice of Privacy Practices',
       resourceTitle: 'HIPAA forms',
-      assetPath: './assets/HIPAA.Acknowledgement-S.pdf',
-      publicUrl: '/hipaa_notice_template.pdf',
+      assetPath: './assets/HIPAA.pdf',
+      publicUrl: '/HIPAA.pdf',
       type: {
         coding: [
           {
@@ -29,15 +29,43 @@ const CONSENT_FORMS_DATA: ConsentFormsConfig = {
     },
     {
       id: 'consent-to-treat',
-      formTitle: 'Consent to Treat, Guarantee of Payment & Card on File Agreement',
+      formTitle: 'Authorization for Treatment and Billing',
       resourceTitle: 'Consent forms',
       assetPath: {
-        default: './assets/CTT.and.Guarantee.of.Payment.and.Credit.Card.Agreement-S.pdf',
+        default: './assets/Authorization_for_Treatment_Billing.pdf',
         byState: {
-          IL: './assets/CTT.and.Guarantee.of.Payment.and.Credit.Card.Agreement.Illinois-S.pdf',
+          IL: './assets/Authorization_for_Treatment_Billing_IL.pdf',
         },
       },
-      publicUrl: '/consent_to_treat_template.pdf',
+      publicUrl: {
+        default: '/Authorization_for_Treatment_Billing.pdf',
+        byState: {
+          IL: '/Authorization_for_Treatment_Billing_IL.pdf',
+        },
+      },
+      type: {
+        coding: [
+          {
+            system: 'http://loinc.org',
+            code: '59284-0',
+            display: 'Consent Documents',
+          },
+          {
+            system: 'https://fhir.ottehr.com/CodeSystem/consent-source',
+            code: 'patient-registration',
+            display: 'Patient Registration Consent',
+          },
+        ],
+        text: 'Consent forms',
+      },
+      createsConsentResource: true,
+    },
+    {
+      id: 'credit-card-agreement',
+      formTitle: 'Credit Card/Debit Card Authorization',
+      resourceTitle: 'Consent forms',
+      assetPath: './assets/CCOF.pdf',
+      publicUrl: '/CCOF.pdf',
       type: {
         coding: [
           {
