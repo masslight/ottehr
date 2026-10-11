@@ -60,6 +60,8 @@ export type PatientDocumentAttachment = {
   presignedUrl?: string;
   /** The stored MIME type. Carried so the UI decides what is faxable on the same input the server uses. */
   contentType?: string;
+  /** Base64 content kept inside the record instead of in a file, as the AI scribe does with its transcript. */
+  data?: string;
 };
 
 // http://localhost:4002/patient/104e4c8c-1866-4c96-a436-88080c691614/docs
@@ -438,6 +440,13 @@ export const useGetPatientDocs = (
         }
 
         const openAttachments = async (attachments: PatientDocumentAttachment[]): Promise<void> => {
+          for (const { z3Url, data, contentType } of attachments) {
+            if (z3Url || !data) continue;
+            const bytes = Uint8Array.from(atob(data), (char) => char.charCodeAt(0));
+            const type = contentType?.startsWith('text/') ? `${contentType};charset=utf-8` : contentType;
+            openFile(window.URL.createObjectURL(new Blob([bytes], { type })));
+          }
+
           const urlSigningRequests = attachments.map(async (attachment) => {
             let presignedUrl = undefined;
             if (attachment.z3Url) {
@@ -860,6 +869,7 @@ const extractDocumentAttachments = (docRef: DocumentReference): PatientDocumentA
         fileNameFromUrl: getFileNameFromUrl(docRefAttachment.url),
         z3Url: docRefAttachment.url,
         contentType: docRefAttachment.contentType,
+        data: docRefAttachment.data,
       } as PatientDocumentAttachment;
     });
 };
