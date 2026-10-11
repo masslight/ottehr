@@ -32,6 +32,53 @@ import { createPdfBytes } from '../src/shared/pdf';
 // patches, per-form PDF fan-out, type-code grouping, attachment dedup, creation-time
 // sorting, and reference wiring — runs for real.
 
+// Mock consent forms with a stable 2-form config including state-specific paths,
+// independent of any project overlay that may replace the default forms.
+// All config is defined inside the factory to avoid the vi.mock hoisting TDZ issue.
+vi.mock('utils/lib/ottehr-config/consent-forms', () => {
+  const hipaa = {
+    id: 'hipaa-acknowledgement',
+    formTitle: 'HIPAA Acknowledgement',
+    resourceTitle: 'HIPAA forms',
+    assetPath: './assets/HIPAA.Acknowledgement-S.pdf',
+    publicUrl: '/hipaa_notice_template.pdf',
+    type: {
+      coding: [{ system: 'http://loinc.org', code: '64292-6', display: 'Privacy Policy' }],
+      text: 'HIPAA Acknowledgement forms',
+    },
+    createsConsentResource: false,
+  };
+  const cttDefaultPath = './assets/CTT.and.Guarantee.of.Payment.and.Credit.Card.Agreement-S.pdf';
+  const cttIlPath = './assets/CTT.and.Guarantee.of.Payment.and.Credit.Card.Agreement.Illinois-S.pdf';
+  const cttBase = {
+    id: 'consent-to-treat',
+    formTitle: 'Consent to Treat, Guarantee of Payment & Card on File Agreement',
+    resourceTitle: 'Consent forms',
+    publicUrl: '/consent_to_treat_template.pdf',
+    type: {
+      coding: [
+        { system: 'http://loinc.org', code: '59284-0', display: 'Consent Documents' },
+        {
+          system: 'https://fhir.ottehr.com/CodeSystem/consent-source',
+          code: 'patient-registration',
+          display: 'Patient Registration Consent',
+        },
+      ],
+      text: 'Consent forms',
+    },
+    createsConsentResource: true,
+  };
+  return {
+    CONSENT_FORMS_DATA: { forms: [] },
+    CONSENT_FORMS_CONFIG: Object.freeze({ forms: [] }),
+    resolveConsentFormsPaths: (forms: any[]) => forms,
+    getConsentFormsForLocation: (state?: string) => [
+      { ...hipaa },
+      { ...cttBase, assetPath: state === 'IL' ? cttIlPath : cttDefaultPath },
+    ],
+  };
+});
+
 vi.mock('utils/lib/fhir/helpers', async (importOriginal) => {
   const original = await importOriginal<typeof import('utils/lib/fhir/helpers')>();
   return { ...original, createFilesDocumentReferences: vi.fn(), createConsentResource: vi.fn() };
