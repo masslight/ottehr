@@ -508,6 +508,7 @@ exports[`chart sections — golden fixture > plan section > matches its snapshot
     {
       "added": "2026-01-15T12:00:00.000Z",
       "encounterId": "11111111-1111-4111-8111-111111111111",
+      "events": [],
       "instructions": "Take one tablet daily",
       "isRenewal": undefined,
       "name": "Cetirizine 10 mg tablet",
@@ -1069,6 +1070,7 @@ exports[`chart sections — golden fixture > visit note > matches its snapshot 1
       {
         "added": "2026-01-15T12:00:00.000Z",
         "encounterId": "11111111-1111-4111-8111-111111111111",
+        "events": [],
         "instructions": "Take one tablet daily",
         "isRenewal": undefined,
         "name": "Cetirizine 10 mg tablet",

@@ -169,6 +169,14 @@ export interface MedicationIntakeInfo {
   patientCouldNotConfirmDosage?: boolean;
 }
 
+export interface PrescribedMedicationEventDTO {
+  code: string;
+  description: string;
+  recorded: string;
+  source?: string;
+  practitionerId?: string;
+}
+
 export interface PrescribedMedicationDTO extends SaveableDTO {
   name?: string;
   instructions?: string;
@@ -179,6 +187,7 @@ export interface PrescribedMedicationDTO extends SaveableDTO {
   encounterId?: string;
   isRenewal?: boolean;
   pharmacyId?: string;
+  events?: PrescribedMedicationEventDTO[];
 }
 
 export interface AllergyDTO extends SaveableDTO {

@@ -39,6 +39,7 @@ import {
   ERX_MEDICATION_META_TAG_CODE,
   FHIR_EXTENSION,
   PERFORMER_TYPE_SYSTEM,
+  PRESCRIPTION_ERX_EVENTS_URL,
   PRESCRIPTION_ERX_PHARMACY_ID_URL,
   PRIVATE_EXTENSION_BASE_URL,
   PROCEDURE_TYPE_SYSTEM,
@@ -98,6 +99,7 @@ import {
   ObservationBooleanFieldDTO,
   PATIENT_VITALS_META_SYSTEM,
   PrescribedMedicationDTO,
+  PrescribedMedicationEventDTO,
   ProcedureDTO,
   REFUSAL_OF_EMS_TRANSPORT_FIELD,
   REFUSAL_OF_EMS_TRANSPORT_ID,
@@ -350,7 +352,26 @@ export function makeMedicationDTO(medication: MedicationStatement): MedicationDT
   };
 }
 
+export function makePrescribedMedicationEvents(medicationRequest: MedicationRequest): PrescribedMedicationEventDTO[] {
+  const events = medicationRequest.extension?.find((extension) => extension.url === PRESCRIPTION_ERX_EVENTS_URL)
+    ?.extension;
+  return (events ?? [])
+    .filter((event) => event.url === 'event')
+    .map((event) => {
+      const getValue = (url: string): Extension | undefined => event.extension?.find((value) => value.url === url);
+      const source = getValue('source')?.valueReference;
+      return {
+        code: getValue('code')?.valueString ?? '',
+        description: getValue('description')?.valueString ?? '',
+        recorded: getValue('recorded')?.valueDateTime ?? '',
+        source: source?.display,
+        practitionerId: source?.reference?.startsWith('Practitioner/') ? source.reference.split('/')[1] : undefined,
+      };
+    });
+}
+
 export function makePrescribedMedicationDTO(medRequest: MedicationRequest): PrescribedMedicationDTO {
+  const events = makePrescribedMedicationEvents(medRequest);
   return {
     resourceId: medRequest.id,
     name: (
@@ -368,6 +389,7 @@ export function makePrescribedMedicationDTO(medRequest: MedicationRequest): Pres
     encounterId: medRequest.encounter?.reference?.split('/')?.[1],
     isRenewal: getBooleanExtensionValue(medRequest, FHIR_EXTENSION.MedicationRequest.isRenewal.url),
     pharmacyId: medRequest.extension?.find((e) => e.url === PRESCRIPTION_ERX_PHARMACY_ID_URL)?.valueInteger?.toString(),
+    events,
   };
 }
 
