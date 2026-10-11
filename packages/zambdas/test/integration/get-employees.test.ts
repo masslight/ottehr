@@ -25,5 +25,5 @@ describe('get-employees integration — happy path', () => {
     expect(output).toBeDefined();
     expect(typeof output.message).toBe('string');
     expect(Array.isArray(output.employees)).toBe(true);
-  });
+  }, 360_000); // non-lite path makes 3 parallel FHIR batch requests; allow 6 min on large projects
 });
