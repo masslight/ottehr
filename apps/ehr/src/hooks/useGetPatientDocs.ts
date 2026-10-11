@@ -1,6 +1,6 @@
 import { useAuth0 } from '@auth0/auth0-react';
 import Oystehr, { SearchParam } from '@oystehr/sdk';
-import { useQuery, useQueryClient, UseQueryResult } from '@tanstack/react-query';
+import { QueryClient, useQuery, useQueryClient, UseQueryResult } from '@tanstack/react-query';
 import { DocumentReference, FhirResource, List, QuestionnaireResponse, Reference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { useCallback, useMemo, useState } from 'react';
@@ -671,6 +671,40 @@ export const parsePatientDocsFolders = (
   return Array.from(byInternalName.values());
 };
 
+/** The patient's folders query, shared by useGetPatientDocsFolders and prefetchPatientDocsFolders. */
+const fetchPatientDocsFolders = async (oystehr: Oystehr, patientId: string): Promise<PatientDocsFoldersQueryData> => {
+  const [listsBundle, catalogBundle] = await Promise.all([
+    oystehr.fhir.search<List>({
+      resourceType: 'List',
+      params: [
+        { name: 'subject', value: `Patient/${patientId}` },
+        { name: 'code', value: PATIENT_FOLDERS_CODE },
+      ],
+    }),
+    oystehr.fhir.search<List>({
+      resourceType: 'List',
+      params: [{ name: 'identifier', value: CUSTOM_FOLDERS_CATALOG_IDENTIFIER }],
+    }),
+  ]);
+
+  return {
+    // Include soft-deleted catalog entries: per-patient Lists that reference them
+    // are still shown to users and must resolve display names from the catalog.
+    // Synthetic folders for soft-deleted entries are filtered out below.
+    lists: listsBundle.unbundle() as List[],
+    catalogDefs: parseCustomFoldersCatalogIncludingDeleted(catalogBundle.unbundle()[0]),
+  };
+};
+
+/** Warms the folders query so an upload dialog opened shortly after (e.g. from the command palette) shows them at once. */
+export const prefetchPatientDocsFolders = (queryClient: QueryClient, oystehr: Oystehr, patientId: string): void => {
+  void queryClient.prefetchQuery({
+    queryKey: [QUERY_KEYS.GET_PATIENT_DOCS_FOLDERS, { patientId }],
+    queryFn: () => fetchPatientDocsFolders(oystehr, patientId),
+    staleTime: 60_000,
+  });
+};
+
 // Exported so screens that file documents for an ad-hoc patient (e.g. inbound-fax matching)
 // can reuse the folder loading + synthetic-folder logic instead of re-implementing it.
 export const useGetPatientDocsFolders = (
@@ -697,28 +731,7 @@ export const useGetPatientDocsFolders = (
       }
 
       console.log(`useGetPatientDocsFolders() query triggered`);
-
-      const [listsBundle, catalogBundle] = await Promise.all([
-        oystehr.fhir.search<List>({
-          resourceType: 'List',
-          params: [
-            { name: 'subject', value: `Patient/${patientId}` },
-            { name: 'code', value: PATIENT_FOLDERS_CODE },
-          ],
-        }),
-        oystehr.fhir.search<List>({
-          resourceType: 'List',
-          params: [{ name: 'identifier', value: CUSTOM_FOLDERS_CATALOG_IDENTIFIER }],
-        }),
-      ]);
-
-      return {
-        // Include soft-deleted catalog entries: per-patient Lists that reference them
-        // are still shown to users and must resolve display names from the catalog.
-        // Synthetic folders for soft-deleted entries are filtered out below.
-        lists: listsBundle.unbundle() as List[],
-        catalogDefs: parseCustomFoldersCatalogIncludingDeleted(catalogBundle.unbundle()[0]),
-      };
+      return fetchPatientDocsFolders(oystehr, patientId);
     },
   });
 
@@ -871,7 +884,7 @@ const debug__mimicTextNarrativeDocumentsFilter = (
   });
 };
 
-const usePatientDocsActions = ({
+export const usePatientDocsActions = ({
   patientId,
   encounterId,
 }: {

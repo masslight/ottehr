@@ -42,6 +42,10 @@ vi.mock('../../src/hooks/useGetPatientDocs', () => ({
       isUploading: false,
     },
   }),
+  // Used by the upload dialog, which mounts only when Upload or Scan is clicked.
+  useGetPatientDocsFolders: () => ({ data: undefined, isLoading: false, isError: false }),
+  parsePatientDocsFolders: () => [],
+  usePatientDocsActions: () => ({ uploadDocumentAction: vi.fn(), isUploading: false }),
 }));
 vi.mock('../../src/hooks/usePatientVisitOptions', () => ({
   usePatientVisitOptions: () => ({
@@ -64,7 +68,6 @@ vi.mock('src/features/visits/shared/components/patient/docs/PatientDocumentsExpl
 }));
 vi.mock('../../src/components/CustomBreadcrumbs', () => ({ default: () => <div /> }));
 vi.mock('../../src/components/DateSearch', () => ({ default: () => <div /> }));
-vi.mock('../../src/components/ScannerModal', () => ({ ScannerModal: () => <div /> }));
 
 import PatientDocumentsExplorerPage from '../../src/pages/PatientDocumentsExplorerPage';
 
