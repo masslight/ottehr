@@ -65,7 +65,9 @@ export const getFieldType = (field: keyof MedicationData): InHouseMedicationFiel
 
 export const validateMedicationField = (field: string, value: string | number, type: MedicationOrderType): boolean => {
   const config = fieldsConfig[type][field as keyof (typeof fieldsConfig)[typeof type]];
-  return config?.isRequired ? value.toString().trim() !== '' : true;
+  if (!config?.isRequired) return true;
+  if (field === 'dose') return Number(value) > 0;
+  return value.toString().trim() !== '';
 };
 
 export const validateAllMedicationFields = (
