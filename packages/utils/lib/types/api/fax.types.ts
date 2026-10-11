@@ -50,7 +50,7 @@ export const FAX_PACKET_MAX_PAGES = 100;
 export const FAX_PACKET_MAX_BYTES = 20 * 1024 * 1024;
 
 export const HIPAA_FAX_CONFIDENTIALITY_STATEMENT =
-  'This fax contains protected health information (PHI) intended solely for the named recipient. If you ' +
+  'This document contains protected health information (PHI) intended solely for the named recipient. If you ' +
   'received this in error, please notify us immediately at the phone number provided and destroy all copies. ' +
   'Unauthorized use, disclosure, or copying is strictly prohibited.';
 
