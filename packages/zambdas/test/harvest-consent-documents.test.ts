@@ -52,6 +52,45 @@ vi.mock('../src/shared/pdf', async (importOriginal) => {
   return { ...original, createPdfBytes: vi.fn() };
 });
 
+// Pin a fixed set of 2 consent forms so this test is independent of project-specific overlay config.
+vi.mock('utils/lib/ottehr-config/consent-forms', () => {
+  const hipaa = {
+    id: 'hipaa-test',
+    formTitle: 'HIPAA Acknowledgement',
+    resourceTitle: 'HIPAA forms',
+    assetPath: './assets/HIPAA-test.pdf',
+    publicUrl: '/hipaa-test.pdf',
+    type: {
+      coding: [{ system: 'http://loinc.org', code: '64292-6', display: 'Privacy Policy' }],
+      text: 'HIPAA Acknowledgement forms',
+    },
+    createsConsentResource: false,
+  };
+  const ctt = {
+    id: 'consent-to-treat-test',
+    formTitle: 'Consent to Treat',
+    resourceTitle: 'Consent forms',
+    assetPath: './assets/CTT-test.pdf',
+    publicUrl: '/ctt-test.pdf',
+    type: {
+      coding: [
+        { system: 'http://loinc.org', code: '59284-0', display: 'Consent Documents' },
+        {
+          system: 'https://fhir.ottehr.com/CodeSystem/consent-source',
+          code: 'patient-registration',
+          display: 'Patient Registration Consent',
+        },
+      ],
+      text: 'Consent forms',
+    },
+    createsConsentResource: true,
+  };
+  const cttIl = { ...ctt, assetPath: './assets/CTT-IL-test.pdf' };
+  return {
+    getConsentFormsForLocation: (state?: string) => (state === 'IL' ? [hipaa, cttIl] : [hipaa, ctt]),
+  };
+});
+
 const mockCreateFilesDocumentReferences = vi.mocked(createFilesDocumentReferences);
 const mockCreateConsentResource = vi.mocked(createConsentResource);
 const mockGetConsentAndDocRefs = vi.mocked(getConsentAndRelatedDocRefsForAppointment);
