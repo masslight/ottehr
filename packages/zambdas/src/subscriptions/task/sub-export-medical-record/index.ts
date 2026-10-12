@@ -3,7 +3,11 @@ import { Secrets } from 'utils/lib/secrets';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { isUserFacingExportError } from '../../../shared/medical-record-export/errors';
 import { runMedicalRecordExport } from '../../../shared/medical-record-export/run-export';
-import { createExportTaskWriter, patientIdFromTask } from '../../../shared/medical-record-export/task';
+import {
+  createExportTaskWriter,
+  patientIdFromTask,
+  readExportDateRange,
+} from '../../../shared/medical-record-export/task';
 import { wrapTaskHandler } from '../helpers';
 
 const ZAMBDA_NAME = 'sub-export-medical-record';
@@ -23,6 +27,7 @@ export const index = wrapTaskHandler(
     const { task, secrets } = input;
 
     const patientId = patientIdFromTask(task);
+    const dateRange = readExportDateRange(task);
     const token = await ensureM2MToken(secrets);
     const writer = createExportTaskWriter(oystehr, task);
     const deadlineAt = Date.now() + EXPORT_BUDGET_MS;
@@ -36,6 +41,7 @@ export const index = wrapTaskHandler(
         token,
         secrets,
         patientId,
+        dateRange,
         deadlineAt,
         onProgress: async (processed, total) => {
           await writer.reportProgress({ processed, total });

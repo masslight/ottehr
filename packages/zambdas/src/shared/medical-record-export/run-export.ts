@@ -7,9 +7,10 @@ import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { createFilesDocumentReferences } from 'utils/lib/fhir/helpers';
 import { PATIENT_FOLDERS_CODE } from 'utils/lib/fhir/list';
 import { Secrets } from 'utils/lib/secrets';
+import { MedicalRecordDateRange } from 'utils/lib/types/data/get-patient-medical-record.types';
 import { MEDICAL_RECORD_EXPORT_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
 import { MIME_TYPES } from 'utils/lib/utils/file';
-import { collectPatientRecordAttachments, getAllPatientDocumentReferences } from '../patient-documents';
+import { collectPatientRecordAttachments, getPatientRecordDocuments } from '../patient-documents';
 import { makeZ3Url } from '../presigned-file-urls/helpers';
 import { createPresignedUrl } from '../z3Utils';
 import { openAttachmentStream } from './download';
@@ -27,6 +28,7 @@ export interface RunExportInput {
   token: string;
   secrets: Secrets | null;
   patientId: string;
+  dateRange: MedicalRecordDateRange;
   deadlineAt?: number;
   onProgress?: (processed: number, total: number) => Promise<void> | void;
 }
@@ -44,6 +46,7 @@ export const runMedicalRecordExport = async ({
   token,
   secrets,
   patientId,
+  dateRange,
   deadlineAt,
   onProgress,
 }: RunExportInput): Promise<RunExportResult> => {
@@ -51,7 +54,7 @@ export const runMedicalRecordExport = async ({
 
   const [patient, documentReferences, folderLists] = await Promise.all([
     oystehr.fhir.get<Patient>({ resourceType: 'Patient', id: patientId }).catch(() => undefined),
-    getAllPatientDocumentReferences(oystehr, patientId),
+    getPatientRecordDocuments(oystehr, patientId, dateRange),
     getAllFhirSearchPages<List>(
       {
         resourceType: 'List',
