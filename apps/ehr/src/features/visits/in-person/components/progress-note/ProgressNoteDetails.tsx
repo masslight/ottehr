@@ -48,6 +48,7 @@ import { isEligibleSupervisor } from 'src/helpers';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { INCOMPATIBLE_EXAM_VERSION_MESSAGE } from 'utils/lib/fhir/constants';
 import { examConfig } from 'utils/lib/ottehr-config/examination';
+import { isRosObservationSet } from 'utils/lib/ottehr-config/review-of-systems';
 import { NOTE_TYPE } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { LabType } from 'utils/lib/types/data/labs/labs.types';
 import { getSupervisorApprovalStatus } from 'utils/lib/utils/visitUtils';
@@ -142,7 +143,7 @@ export const ProgressNoteDetails: FC = () => {
   const showMedicalDecisionMaking = !!(medicalDecision && medicalDecision.length > 0);
   const showEmCode = !!emCode;
   const showCptCodes = !!(cptCodes && cptCodes.length > 0);
-  const showRosReviewContainer = Object.values(rosState).filter((rosObs) => rosObs.value).length > 0;
+  const showRosReviewContainer = Object.values(rosState).some(isRosObservationSet);
 
   const externalLabResultsPending = !!(
     externalLabResults?.resultsPending && externalLabResults?.resultsPending.length > 0

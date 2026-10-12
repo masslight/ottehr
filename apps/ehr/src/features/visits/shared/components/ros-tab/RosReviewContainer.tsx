@@ -5,7 +5,7 @@ import {
   SectionHeading,
   useNoteSectionTitleInCardHeader,
 } from 'src/features/visits/shared/components/NoteSectionHeading';
-import { getRosFindingFieldKeys } from 'utils/lib/ottehr-config/review-of-systems';
+import { getRosCommentFieldKey, getRosFindingFieldKeys } from 'utils/lib/ottehr-config/review-of-systems';
 import { InPersonRosConfig } from 'utils/lib/ottehr-config/review-of-systems/in-person.config';
 import { useRosObservationsStore } from '../../stores/appointment/ros-observations.store';
 import { ExamReviewGroup } from '../review-tab/components/ExamReviewGroup';
@@ -16,7 +16,12 @@ export const RosReviewContainer: FC = () => {
   const state = useRosObservationsStore();
   const aiAdded = useAiAddedRecommendations();
 
-  const sections: { key: string; label: string; items: ComponentProps<typeof ExamReviewGroup>['items'] }[] = [];
+  const sections: {
+    key: string;
+    label: string;
+    items: ComponentProps<typeof ExamReviewGroup>['items'];
+    comment?: string;
+  }[] = [];
 
   // gather up / organize the information for stored ros observations to be displayed in inline summaries
   for (const [systemKey, system] of Object.entries(InPersonRosConfig)) {
@@ -47,11 +52,14 @@ export const RosReviewContainer: FC = () => {
       }
     }
 
-    if (items.length > 0) {
+    const comment = state[getRosCommentFieldKey(systemKey)]?.note?.trim();
+
+    if (items.length > 0 || comment) {
       sections.push({
         key: systemKey,
         label: system.label,
         items,
+        comment,
       });
     }
   }
@@ -62,7 +70,7 @@ export const RosReviewContainer: FC = () => {
       {sections.length ? (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           {sections.map((section) => (
-            <ExamReviewGroup key={section.key} label={section.label} items={section.items} />
+            <ExamReviewGroup key={section.key} label={section.label} items={section.items} comment={section.comment} />
           ))}
         </Box>
       ) : (

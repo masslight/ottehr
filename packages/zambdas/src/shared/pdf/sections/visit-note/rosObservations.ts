@@ -1,4 +1,4 @@
-import { getRosFindingFieldKeys } from 'utils/lib/ottehr-config/review-of-systems';
+import { getRosCommentFieldKey, getRosFindingFieldKeys } from 'utils/lib/ottehr-config/review-of-systems';
 import { InPersonRosConfig } from 'utils/lib/ottehr-config/review-of-systems/in-person.config';
 import { createConfiguredSection, DataComposer } from '../../pdf-common';
 import { EncounterInfo, PdfSection, ProgressNoteVisitDataInput, RosObservations } from '../../types';
@@ -6,10 +6,11 @@ import { EncounterInfo, PdfSection, ProgressNoteVisitDataInput, RosObservations 
 export const composeRosObservations: DataComposer<ProgressNoteVisitDataInput, RosObservations> = ({ allChartData }) => {
   const observations = allChartData.chartData.rosObservations || [];
   const obsMap = new Map(observations.filter((o) => o.value).map((o) => [o.field, o]));
+  const commentMap = new Map(observations.filter((o) => o.note?.trim()).map((o) => [o.field, o.note!.trim()]));
 
   const rosObservations: RosObservations['rosObservations'] = {};
 
-  for (const [_systemKey, system] of Object.entries(InPersonRosConfig)) {
+  for (const [systemKey, system] of Object.entries(InPersonRosConfig)) {
     const items: Array<{ field: string; label: string; abnormal: boolean }> = [];
 
     for (const [baseKey, item] of Object.entries(system.items)) {
@@ -22,8 +23,10 @@ export const composeRosObservations: DataComposer<ProgressNoteVisitDataInput, Ro
       }
     }
 
-    if (items.length > 0) {
-      rosObservations[system.label] = { items };
+    const comment = commentMap.get(getRosCommentFieldKey(systemKey));
+
+    if (items.length > 0 || comment) {
+      rosObservations[system.label] = comment ? { items, comment } : { items };
     }
   }
 
@@ -43,7 +46,7 @@ export const createRosObservationsSection = <
 
       if (rosData && Object.keys(rosData).length > 0) {
         Object.entries(rosData).forEach(([sectionLabel, section]) => {
-          if (section.items && section.items.length > 0) {
+          if (section.items.length > 0 || section.comment) {
             client.drawTextSequential(`${sectionLabel}:   `, styles.textStyles.examCardHeader);
             const headerDims = client.getTextDimensions(`${sectionLabel}:   `, styles.textStyles.examCardHeader);
             client.setLeftBound(client.getLeftBound() + headerDims.width);
@@ -76,6 +79,11 @@ export const createRosObservationsSection = <
 
             client.setLeftBound(client.getLeftBound() - headerDims.width);
             client.newLine(client.getTextDimensions('a', styles.textStyles.examRegularField).height + 2);
+
+            if (section.comment) {
+              client.setY(client.getY() - 8);
+              client.drawText(section.comment, styles.textStyles.examProviderComment);
+            }
           }
         });
       }

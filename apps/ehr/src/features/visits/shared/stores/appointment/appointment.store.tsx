@@ -49,6 +49,7 @@ import { getAppointmentValues, getEncounterValues } from './parser/extractors';
 import { parseBundle } from './parser/parser';
 import { VisitMappedData, VisitResources } from './parser/types';
 import { resetExamObservationsStore } from './reset-exam-observations';
+import { resetRosObservationsStore } from './reset-ros-observations';
 
 export type AppointmentTelemedState = {
   appointment: Appointment | undefined;
@@ -661,6 +662,7 @@ export const useDeleteChartData = (): UseMutationResult<
       if ((error as any).code === APIErrorCode.FHIR_RESOURCE_IS_GONE) {
         // Usually this happens due to an attempt to delete an already deleted resource. Thus full state refresh is required.
         resetExamObservationsStore();
+        resetRosObservationsStore();
         await invalidateChart(queryClient, encounter.id);
       }
     },

@@ -120,6 +120,7 @@ const mockTemplateDetail = {
     moiNote: null,
     rosNote: 'Negative except as documented.',
     rosFindings: [],
+    rosComments: [],
     examFindings: [
       { fieldName: 'tender', label: 'Tender', isAbnormal: true, note: 'RLQ' },
       { fieldName: 'soft', label: 'Soft', isAbnormal: false, note: '' },
