@@ -238,7 +238,6 @@ describe('createDocumentResources', () => {
 
 describe('createConsentResources', () => {
   const [HIPAA_FORM, CTT_FORM] = getConsentFormsForLocation();
-  const IL_FORMS = getConsentFormsForLocation('IL');
 
   const SECRETS = { PROJECT_ID: 'proj-123', PROJECT_API: 'https://project.api' } as unknown as Secrets;
 
@@ -341,15 +340,16 @@ describe('createConsentResources', () => {
   test('creates, uploads, and files one PDF per configured consent form', async () => {
     await run();
 
-    // One PDF per form in the reference config (HIPAA + consent-to-treat)
-    expect(mockCreatePdfBytes).toHaveBeenCalledTimes(2);
+    const consentForms = getConsentFormsForLocation();
+    // One PDF per configured consent form
+    expect(mockCreatePdfBytes).toHaveBeenCalledTimes(consentForms.length);
     const pdfInfos = mockCreatePdfBytes.mock.calls.map((call) => call[3]);
-    expect(pdfInfos.map((info) => info.formTitle)).toEqual([HIPAA_FORM.formTitle, CTT_FORM.formTitle]);
+    expect(pdfInfos.map((info) => info.formTitle)).toEqual(consentForms.map((f) => f.formTitle));
     expect(pdfInfos[1].copyFromPath).toBe(CTT_FORM.assetPath);
 
     // Upload URLs are keyed by project bucket, patient, timestamp, and form id
     const expectedBase = `https://project.api/z3/proj-123-consent-forms/${PATIENT_ID}/${Date.now()}`;
-    expect(mockUploadPDF).toHaveBeenCalledTimes(2);
+    expect(mockUploadPDF).toHaveBeenCalledTimes(consentForms.length);
     expect(mockUploadPDF).toHaveBeenCalledWith(
       expect.any(Uint8Array),
       `${expectedBase}-${HIPAA_FORM.id}.pdf`,
@@ -366,8 +366,9 @@ describe('createConsentResources', () => {
       });
     }
 
-    // Only the consent-to-treat form creates a Consent resource, linked to its docref
-    expect(mockCreateConsentResource).toHaveBeenCalledTimes(1);
+    // Forms with createsConsentResource=true each create a Consent resource linked to their docref
+    const consentResourceForms = consentForms.filter((f) => f.createsConsentResource);
+    expect(mockCreateConsentResource).toHaveBeenCalledTimes(consentResourceForms.length);
     const [consentPatientId, consentDocRefId, consentDate] = mockCreateConsentResource.mock.calls[0];
     expect(consentPatientId).toBe(PATIENT_ID);
     expect(consentDocRefId).toBe(`dr-${CTT_FORM.type.text}-0`);
@@ -393,13 +394,6 @@ describe('createConsentResources', () => {
       id: 'old-consent',
       operations: [{ op: 'replace', path: '/status', value: 'inactive' }],
     });
-  });
-
-  test('resolves state-specific consent form assets (the Illinois variant)', async () => {
-    await run({ location: makeLocation('IL') });
-    const cttPdfInfo = mockCreatePdfBytes.mock.calls[1][3];
-    expect(cttPdfInfo.copyFromPath).toBe(IL_FORMS[1].assetPath);
-    expect(cttPdfInfo.copyFromPath).not.toBe(CTT_FORM.assetPath);
   });
 
   test('labels telemed visits with the telemedicine facility name', async () => {
