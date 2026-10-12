@@ -48,6 +48,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const { bytes, mimeType } = await downloadOcrSourceImage({
     attachmentUrl: fileURL,
     token: oystehrToken,
+    secrets,
     fallbackContentType: fileContentType,
   });
 

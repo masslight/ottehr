@@ -8,7 +8,7 @@ import { FileURLInfo, FileURLs } from 'utils/lib/types/common';
 import { LAB_DOC_REF_DETAIL_TAGS, LAB_RESULT_DOC_REF_CODING_CODE } from 'utils/lib/types/data/labs/labs.constants';
 import { PrescribedMedication } from 'utils/lib/types/data/telemed/appointments/appointments.types';
 import { getLabDocRefDescriptionFromMetaTags } from '../../../shared/pdf/lab-pdf-utils';
-import { assertZ3URLInProject } from '../../../shared/presigned-file-urls/helpers';
+import { assertZ3UrlInProject } from '../../../shared/presigned-file-urls/helpers';
 
 async function makePresignedURLFromDocumentReference(
   resource: DocumentReference,
@@ -18,7 +18,7 @@ async function makePresignedURLFromDocumentReference(
   const documentBaseUrl = resource.content?.[0].attachment.url;
   if (!documentBaseUrl) throw new Error("Attached DocumentReference don't have attached base file URL");
 
-  assertZ3URLInProject(documentBaseUrl, secrets);
+  assertZ3UrlInProject(documentBaseUrl, secrets);
   const presignedUrl = await getPresignedURL(documentBaseUrl, oystehrToken);
 
   return presignedUrl;
