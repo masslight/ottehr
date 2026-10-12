@@ -13,19 +13,21 @@ The tab's "Write off balance" button opens a dialog with:
 
 | Field | Behavior |
 | --- | --- |
-| Responsible party | `Patient` / `Insurance` / `Non-insurance` |
-| Insurance | Shown only when party = Insurance. Select which coverage: Primary, Secondary, or Tertiary (only coverages present on the claim are offered). |
-| Non-Insurance Payer | Shown only when party = Non-insurance. Select the claim's non-insurance payer. |
-| Reason | Write-off reason; the list depends on the responsible party (see below). |
-| Select Service Lines | Table of the claim's service lines (CPT Code, Billed, Balance) with a checkbox and a per-line `$` Amount input. Checking a line defaults the amount to the line balance. |
-| Total adjusted amount | Read-only; sum of entered amounts. |
-| Remaining claim balance | Read-only; claim balance minus the total adjusted amount. |
-| Note | Free text. |
-| Date | Defaults to today. |
+| Write-off amount | Single editable total at the top; defaults to the sum of the line balances. Errors when it exceeds the remaining claim balance. |
+| Remaining claim balance | Read-only value next to the amount; claim balance minus the entered total. |
+| Service lines | Read-only table of the claim's service lines: CPT Code, Billed, Adjusted, Ins. Paid, Pt. Paid, Balance, Amount. The Amount column shows the write-off total distributed proportionally to the line balances (display-time distribution; equal split when all balances are zero; last line absorbs rounding drift). |
+| Write-off for | `Insurance` / `Non-insurance` / `Patient`, above the reason row; defaults from the claim's AR stage. Insurance adds a Primary/Secondary/Tertiary coverage picker; Non-insurance adds a payer picker. |
+| Write-off date | Defaults to today. |
+| Reason | Next to the date; the list depends on the write-off party (see below). |
+| Notes | Free text, below date/reason. |
 
-Saving requires: a responsible party, a payer selection when the party is Insurance or
-Non-insurance, a reason, a date, and at least one service line amount (no amount may exceed the
-line's balance).
+Saving requires: a payer selection when the party is Insurance or Non-insurance, a reason, a date,
+and a positive total that does not exceed the remaining claim balance.
+
+Per-line amounts: **Adjusted** is billed minus the remits' non-PR adjustments (CO/OA/PI — e.g.
+contractual adjustments), i.e. what is actually receivable; PR amounts (deductible/coinsurance/
+copay) stay receivable. **Balance** is adjusted minus paid. Insurance paid comes from the claim's
+remits; patient payments are claim-level only, so they are prorated across lines by charges.
 
 ## Reason lists
 

@@ -1,7 +1,6 @@
 import {
   Box,
   Button,
-  Checkbox,
   Dialog,
   DialogActions,
   DialogContent,
@@ -23,14 +22,24 @@ import {
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useMemo, useState } from 'react';
+import { X12_ADJUSTMENT_GROUP_CODE } from 'utils/lib/types/data/billing/billing.constants';
 import { ClaimDetailResponse } from 'utils/lib/types/data/billing/billing.types';
+import { AR_STAGE, ArStageCode } from 'utils/lib/types/data/billing/claim-status';
 import { formatCurrency } from 'utils/lib/utils/convert';
 import { formatDate } from '../../utils/format';
 import { DateInput } from '../DateInput';
 import { ReadOnlySection, thSx } from '../ReadOnlySection';
 
-export const WRITE_OFF_RESPONSIBLE_PARTIES = ['Patient', 'Insurance', 'Non-insurance'] as const;
-export type WriteOffResponsibleParty = (typeof WRITE_OFF_RESPONSIBLE_PARTIES)[number];
+export type WriteOffResponsibleParty = 'Patient' | 'Insurance' | 'Non-insurance';
+
+// Maps the claim's AR stage to the default "Write-off for" party.
+const AR_STAGE_PARTY: Record<ArStageCode, WriteOffResponsibleParty> = {
+  [AR_STAGE.insurancePayer]: 'Insurance',
+  [AR_STAGE.patient]: 'Patient',
+  [AR_STAGE.nonInsurancePayer]: 'Non-insurance',
+};
+
+const round2 = (n: number): number => Math.round(n * 100) / 100;
 
 // Reasons for insurance and non-insurance write-offs ("Other" stays last).
 export const INSURANCE_WRITE_OFF_REASONS = [
@@ -101,63 +110,64 @@ function insuranceOptions(claim: ClaimDetailResponse): InsuranceOption[] {
   return options;
 }
 
-interface LineState {
+// Per-line money snapshot the dialog edits against.
+export interface WriteOffLine {
   cptCode: string;
   billed: number;
+  // billed minus the remits' non-PR adjustments (CO/OA/PI) — what's actually receivable
+  adjusted: number;
+  insurancePaid: number;
+  patientPaid: number;
   balance: number;
-  checked: boolean;
-  amount: string;
 }
 
 function WriteOffDialog({
   claim,
-  lineBalances,
+  lines,
   remainingBalance,
   onClose,
   onSave,
 }: {
   claim: ClaimDetailResponse;
-  lineBalances: Map<string, number>;
+  lines: WriteOffLine[];
   remainingBalance: number;
   onClose: () => void;
   onSave: (writeOff: Omit<ClaimWriteOff, 'id'>) => void;
 }): ReactElement {
-  const [party, setParty] = useState<WriteOffResponsibleParty | ''>('');
-  const [insuranceKey, setInsuranceKey] = useState('');
-  const [nonInsurancePayer, setNonInsurancePayer] = useState('');
+  const insurances = insuranceOptions(claim);
+  const claimArStage = (Object.values(AR_STAGE) as string[]).includes(claim.statuses.arStage)
+    ? (claim.statuses.arStage as ArStageCode)
+    : AR_STAGE.insurancePayer;
+  const [party, setParty] = useState<WriteOffResponsibleParty>(AR_STAGE_PARTY[claimArStage]);
+  const [insuranceKey, setInsuranceKey] = useState(insurances[0]?.key ?? '');
+  const [nonInsurancePayer, setNonInsurancePayer] = useState(claim.nonInsurancePayerName);
   const [reason, setReason] = useState('');
   const [note, setNote] = useState('');
   const [date, setDate] = useState(DateTime.now().toISODate());
-  const [lines, setLines] = useState<LineState[]>(() =>
-    claim.serviceLines.map((sl) => ({
-      cptCode: sl.cptCode,
-      billed: sl.charges,
-      balance: lineBalances.get(sl.cptCode) ?? sl.charges,
-      checked: false,
-      amount: '',
-    }))
-  );
+  // Single write-off amount; defaults to the sum of the line balances.
+  const [total, setTotal] = useState(() => String(round2(lines.reduce((s, l) => s + l.balance, 0))));
 
-  const insurances = insuranceOptions(claim);
   const reasons = party === 'Patient' ? PATIENT_WRITE_OFF_REASONS : INSURANCE_WRITE_OFF_REASONS;
+  const totalAmount = Number(total) || 0;
 
-  const totalAdjusted = useMemo(
-    () => lines.reduce((sum, l) => sum + (l.checked ? Number(l.amount) || 0 : 0), 0),
-    [lines]
-  );
+  // Split proportionally to line balances for display (equal when all balances are zero);
+  // the last line absorbs rounding drift so the shares add up to the total exactly.
+  const anyBalance = lines.some((l) => l.balance > 0);
+  const weights = lines.map((l) => (anyBalance ? l.balance : 1));
+  const weightSum = weights.reduce((s, w) => s + w, 0);
+  let allocated = 0;
+  const shares = lines.map((_, i) => {
+    const share =
+      i === lines.length - 1
+        ? Math.max(0, round2(totalAmount - allocated))
+        : round2((totalAmount * weights[i]) / weightSum);
+    allocated = round2(allocated + share);
+    return share;
+  });
 
-  const setLine = (cptCode: string, patch: Partial<LineState>): void =>
-    setLines((prev) => prev.map((l) => (l.cptCode === cptCode ? { ...l, ...patch } : l)));
-
-  const toggleLine = (line: LineState, checked: boolean): void =>
-    setLine(line.cptCode, { checked, amount: checked ? String(line.balance) : '' });
-
-  const toggleAll = (checked: boolean): void =>
-    setLines((prev) => prev.map((l) => ({ ...l, checked, amount: checked ? String(l.balance) : '' })));
-
-  const overAllocated = lines.some((l) => l.checked && (Number(l.amount) || 0) > l.balance);
+  const overBalance = totalAmount > remainingBalance + 0.005;
   const payerSelected = party === 'Patient' || (party === 'Insurance' ? !!insuranceKey : !!nonInsurancePayer);
-  const canSave = !!party && payerSelected && !!reason && totalAdjusted > 0 && !overAllocated && !!date;
+  const canSave = payerSelected && !!reason && totalAmount > 0 && !overBalance && !!date;
 
   const save = (): void => {
     const payerLabel =
@@ -167,42 +177,100 @@ function WriteOffDialog({
         ? nonInsurancePayer
         : '';
     onSave({
-      responsibleParty: party as WriteOffResponsibleParty,
+      responsibleParty: party,
       payerLabel,
       reason,
-      allocations: lines
-        .filter((l) => l.checked && (Number(l.amount) || 0) > 0)
-        .map((l) => ({ cptCode: l.cptCode, amount: Number(l.amount) })),
+      allocations: lines.map((l, i) => ({ cptCode: l.cptCode, amount: shares[i] })).filter((a) => a.amount > 0),
       note,
       date,
     });
   };
 
-  const allChecked = lines.length > 0 && lines.every((l) => l.checked);
-
   return (
     <Dialog open onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle sx={{ fontWeight: 600 }}>Write-off balance</DialogTitle>
+      <DialogTitle sx={{ fontWeight: 600, pb: 1 }}>Write-off balance</DialogTitle>
       <DialogContent>
-        <Box sx={{ display: 'flex', gap: 2, mt: 1 }}>
+        <Box sx={{ display: 'flex', gap: 2, mt: 1, alignItems: 'center' }}>
+          <TextField
+            label="Write-off amount"
+            size="small"
+            type="number"
+            sx={{ flex: 1 }}
+            value={total}
+            error={overBalance}
+            helperText={overBalance ? 'Exceeds the remaining claim balance' : undefined}
+            onChange={(e) => setTotal(e.target.value)}
+            InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
+            inputProps={{ min: 0, step: 0.01 }}
+            data-testid="write-off-total"
+          />
+          <Box sx={{ flex: 1 }}>
+            <Typography variant="caption" color="text.secondary">
+              Remaining claim balance
+            </Typography>
+            <Typography fontWeight={600}>{formatCurrency(remainingBalance - totalAmount)}</Typography>
+          </Box>
+        </Box>
+
+        <Typography fontWeight={600} variant="body2" sx={{ mt: 2, mb: 0.5 }}>
+          Service lines
+        </Typography>
+        <TableContainer>
+          <Table size="small" sx={{ '& .MuiTableCell-root': { py: 0.25 } }}>
+            <TableHead>
+              <TableRow>
+                <TableCell sx={thSx}>CPT Code</TableCell>
+                <TableCell sx={thSx} align="right">
+                  Billed
+                </TableCell>
+                <TableCell sx={thSx} align="right">
+                  Adjusted
+                </TableCell>
+                <TableCell sx={thSx} align="right">
+                  Ins. Paid
+                </TableCell>
+                <TableCell sx={thSx} align="right">
+                  Pt. Paid
+                </TableCell>
+                <TableCell sx={thSx} align="right">
+                  Balance
+                </TableCell>
+                <TableCell sx={thSx} align="right">
+                  Amount
+                </TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {lines.map((line, i) => (
+                <TableRow key={line.cptCode}>
+                  <TableCell>{line.cptCode}</TableCell>
+                  <TableCell align="right">{formatCurrency(line.billed)}</TableCell>
+                  <TableCell align="right">{formatCurrency(line.adjusted)}</TableCell>
+                  <TableCell align="right">{formatCurrency(line.insurancePaid)}</TableCell>
+                  <TableCell align="right">{formatCurrency(line.patientPaid)}</TableCell>
+                  <TableCell align="right">{formatCurrency(line.balance)}</TableCell>
+                  <TableCell align="right">{formatCurrency(shares[i] ?? 0)}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+
+        <Box sx={{ display: 'flex', gap: 1.5, mt: 2 }}>
           <FormControl fullWidth size="small">
-            <InputLabel>Responsible party</InputLabel>
+            <InputLabel>Write-off for</InputLabel>
             <Select
-              label="Responsible party"
+              label="Write-off for"
               value={party}
               onChange={(e) => {
                 setParty(e.target.value as WriteOffResponsibleParty);
                 setReason('');
-                setInsuranceKey('');
-                setNonInsurancePayer('');
               }}
-              data-testid="write-off-party"
+              data-testid="write-off-for"
             >
-              {WRITE_OFF_RESPONSIBLE_PARTIES.map((p) => (
-                <MenuItem key={p} value={p}>
-                  {p}
-                </MenuItem>
-              ))}
+              <MenuItem value="Insurance">Insurance</MenuItem>
+              <MenuItem value="Non-insurance">Non-insurance</MenuItem>
+              <MenuItem value="Patient">Patient</MenuItem>
             </Select>
           </FormControl>
           {party === 'Insurance' && (
@@ -243,105 +311,29 @@ function WriteOffDialog({
           )}
         </Box>
 
-        <FormControl fullWidth size="small" sx={{ mt: 2 }}>
-          <InputLabel>Reason</InputLabel>
-          <Select
-            label="Reason"
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            data-testid="write-off-reason"
-          >
-            {reasons.map((r) => (
-              <MenuItem key={r} value={r}>
-                {r}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 3, mb: 1 }}>
-          <Typography fontWeight={600}>Select Service Lines</Typography>
-        </Box>
-        <TableContainer>
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell padding="checkbox">
-                  <Checkbox
-                    size="small"
-                    checked={allChecked}
-                    indeterminate={!allChecked && lines.some((l) => l.checked)}
-                    onChange={(e) => toggleAll(e.target.checked)}
-                  />
-                </TableCell>
-                <TableCell sx={thSx}>CPT Code</TableCell>
-                <TableCell sx={thSx} align="right">
-                  Billed
-                </TableCell>
-                <TableCell sx={thSx} align="right">
-                  Balance
-                </TableCell>
-                <TableCell sx={thSx} align="right">
-                  Amount
-                </TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {lines.map((line) => {
-                const over = line.checked && (Number(line.amount) || 0) > line.balance;
-                return (
-                  <TableRow key={line.cptCode}>
-                    <TableCell padding="checkbox">
-                      <Checkbox
-                        size="small"
-                        checked={line.checked}
-                        onChange={(e) => toggleLine(line, e.target.checked)}
-                      />
-                    </TableCell>
-                    <TableCell>{line.cptCode}</TableCell>
-                    <TableCell align="right">{formatCurrency(line.billed)}</TableCell>
-                    <TableCell align="right">{formatCurrency(line.balance)}</TableCell>
-                    <TableCell align="right" sx={{ width: 160 }}>
-                      <TextField
-                        size="small"
-                        type="number"
-                        value={line.amount}
-                        disabled={!line.checked}
-                        error={over}
-                        helperText={over ? 'Exceeds balance' : undefined}
-                        onChange={(e) => setLine(line.cptCode, { amount: e.target.value })}
-                        InputProps={{
-                          startAdornment: <InputAdornment position="start">$</InputAdornment>,
-                        }}
-                        inputProps={{ min: 0, step: 0.01, style: { textAlign: 'right' } }}
-                      />
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </TableContainer>
-
-        <Box sx={{ display: 'flex', gap: 2, mt: 3 }}>
-          <TextField
-            label="Total adjusted amount"
-            size="small"
-            fullWidth
-            value={formatCurrency(totalAdjusted)}
-            InputProps={{ readOnly: true }}
-          />
-          <TextField
-            label="Remaining claim balance"
-            size="small"
-            fullWidth
-            value={formatCurrency(remainingBalance - totalAdjusted)}
-            InputProps={{ readOnly: true }}
-          />
+        <Box sx={{ display: 'flex', gap: 1.5, mt: 2 }}>
+          <Box sx={{ flex: 1 }}>
+            <DateInput label="Write-off date" size="small" fullWidth value={date ?? ''} onChange={setDate} />
+          </Box>
+          <FormControl fullWidth size="small" sx={{ flex: 1.5 }}>
+            <InputLabel>Reason</InputLabel>
+            <Select
+              label="Reason"
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              data-testid="write-off-reason"
+            >
+              {reasons.map((r) => (
+                <MenuItem key={r} value={r}>
+                  {r}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
         </Box>
 
         <TextField
-          label="Note"
+          label="Notes"
           size="small"
           fullWidth
           multiline
@@ -350,10 +342,6 @@ function WriteOffDialog({
           value={note}
           onChange={(e) => setNote(e.target.value)}
         />
-
-        <Box sx={{ mt: 2 }}>
-          <DateInput label="Date" size="small" fullWidth value={date ?? ''} onChange={setDate} />
-        </Box>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
         <Button onClick={onClose}>Cancel</Button>
@@ -380,16 +368,36 @@ export function WriteOffsSection({
 }): ReactElement {
   const [dialogOpen, setDialogOpen] = useState(false);
 
-  // Per-line balance after subtracting this session's write-offs (UI prototype; not persisted).
-  const lineBalances = useMemo(() => {
-    const balances = new Map<string, number>(claim.serviceLines.map((sl) => [sl.cptCode, sl.charges]));
-    for (const wo of writeOffs) {
-      for (const alloc of wo.allocations) {
-        balances.set(alloc.cptCode, Math.max(0, (balances.get(alloc.cptCode) ?? 0) - alloc.amount));
+  // Per-line money for the dialog: insurance paid from remits; patient paid is claim-level only,
+  // so it's prorated by charges. Session write-offs reduce balances (UI prototype; not persisted).
+  const dialogLines = useMemo<WriteOffLine[]>(() => {
+    const insPaid = new Map<string, number>();
+    const nonPrAdjusted = new Map<string, number>();
+    for (const remit of claim.remits) {
+      for (const sl of remit.serviceLines) {
+        if (!sl.cptCode) continue;
+        insPaid.set(sl.cptCode, (insPaid.get(sl.cptCode) ?? 0) + sl.paid);
+        // CO/OA/PI adjustments are no longer receivable; PR stays in the balance (patient owes it)
+        const adj = sl.adjustments.reduce(
+          (s, a) => s + (a.groupCode === X12_ADJUSTMENT_GROUP_CODE.patientResponsibility ? 0 : a.amount),
+          0
+        );
+        nonPrAdjusted.set(sl.cptCode, (nonPrAdjusted.get(sl.cptCode) ?? 0) + adj);
       }
     }
-    return balances;
-  }, [claim.serviceLines, writeOffs]);
+    const writtenOff = new Map<string, number>();
+    for (const wo of writeOffs) {
+      for (const a of wo.allocations) writtenOff.set(a.cptCode, (writtenOff.get(a.cptCode) ?? 0) + a.amount);
+    }
+    const totalCharges = claim.serviceLines.reduce((s, sl) => s + sl.charges, 0);
+    return claim.serviceLines.map((sl) => {
+      const ins = round2(insPaid.get(sl.cptCode) ?? 0);
+      const pt = totalCharges > 0 ? round2((claim.patientPaid * sl.charges) / totalCharges) : 0;
+      const adjusted = round2(sl.charges - (nonPrAdjusted.get(sl.cptCode) ?? 0));
+      const balance = round2(Math.max(0, adjusted - ins - pt - (writtenOff.get(sl.cptCode) ?? 0)));
+      return { cptCode: sl.cptCode, billed: sl.charges, adjusted, insurancePaid: ins, patientPaid: pt, balance };
+    });
+  }, [claim, writeOffs]);
 
   const remainingBalance = claim.balance - writeOffsTotal(writeOffs);
 
@@ -442,7 +450,7 @@ export function WriteOffsSection({
       {dialogOpen && (
         <WriteOffDialog
           claim={claim}
-          lineBalances={lineBalances}
+          lines={dialogLines}
           remainingBalance={remainingBalance}
           onClose={() => setDialogOpen(false)}
           onSave={onSave}
