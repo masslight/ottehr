@@ -1,6 +1,6 @@
-import Oystehr, { BatchInputPatchRequest } from '@oystehr/sdk';
+import Oystehr, { BatchInputJSONPatchRequest } from '@oystehr/sdk';
 import { applyPatch } from 'fast-json-patch';
-import { Account, Appointment, Encounter } from 'fhir/r4b';
+import { Account, Encounter } from 'fhir/r4b';
 import {
   OCCUPATIONAL_MEDICINE_ACCOUNT_TYPE,
   SERVICE_CATEGORY_SYSTEM,
@@ -57,7 +57,7 @@ function makeInput(category: string): Parameters<typeof performEffect>[0] {
 
 async function updateEncounter(input: Parameters<typeof performEffect>[0]): Promise<Encounter> {
   const transaction = vi
-    .fn<(input: { requests: BatchInputPatchRequest<Encounter | Appointment>[] }) => Promise<void>>()
+    .fn<(input: { requests: BatchInputJSONPatchRequest[] }) => Promise<void>>()
     .mockResolvedValue(undefined);
   await performEffect(input, { fhir: { transaction } } as unknown as Oystehr);
   expect(transaction).toHaveBeenCalledTimes(1);
