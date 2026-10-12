@@ -1,10 +1,11 @@
 import Oystehr from '@oystehr/sdk';
 import { DocumentReference } from 'fhir/r4b';
+import { MedicalRecordDateRange } from 'utils/lib/types/data/get-patient-medical-record.types';
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { getFileNameFromUrl, getMimeType, isFaxableAttachment } from 'utils/lib/utils/file';
 import {
   collectPatientRecordAttachments,
-  getAllPatientDocumentReferences,
+  getPatientRecordDocuments,
   isFaxPacket,
   isMedicalRecordExport,
 } from '../patient-documents';
@@ -29,8 +30,12 @@ const byDateAscending = (a: DocumentReference, b: DocumentReference): number =>
   (a.date ?? '').localeCompare(b.date ?? '');
 
 /** Every faxable document on file for the patient — the same set the record archive collects. */
-export const collectMedicalRecordParts = async (oystehr: Oystehr, patientId: string): Promise<FaxPacketPart[]> => {
-  const documents = await getAllPatientDocumentReferences(oystehr, patientId);
+export const collectMedicalRecordParts = async (
+  oystehr: Oystehr,
+  patientId: string,
+  dateRange: MedicalRecordDateRange
+): Promise<FaxPacketPart[]> => {
+  const documents = await getPatientRecordDocuments(oystehr, patientId, dateRange);
   return toParts([...documents].sort(byDateAscending));
 };
 

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { MedicalRecordDateRangeSchema } from '../data/get-patient-medical-record.types';
 
 /**
  * Outbound fax packet contract.
@@ -100,7 +101,11 @@ export const FaxPacketSourceSchema = z.discriminatedUnion('type', [
         message: 'Each visit can only be selected once',
       }),
   }),
-  z.object({ type: z.literal('medical-record'), patientId: z.string().uuid() }),
+  z.object({
+    type: z.literal('medical-record'),
+    patientId: z.string().uuid(),
+    dateRange: MedicalRecordDateRangeSchema,
+  }),
   z.object({ type: z.literal('document'), patientId: z.string().uuid(), documentReferenceId: z.string().uuid() }),
 ]);
 export type FaxPacketSource = z.infer<typeof FaxPacketSourceSchema>;
@@ -168,6 +173,7 @@ export const GetFaxPacketPreviewInputSchema = z.object({
    * preview that are not visit-specific, i.e. the sender's fax number.
    */
   appointmentId: z.string().uuid().optional(),
+  medicalRecord: z.object({ patientId: z.string().uuid(), dateRange: MedicalRecordDateRangeSchema }).optional(),
 });
 
 export type GetFaxPacketPreviewInput = z.infer<typeof GetFaxPacketPreviewInputSchema>;
@@ -191,6 +197,7 @@ export interface GetFaxPacketPreviewOutput {
   /** The number the packet is transmitted from, i.e. the sending organization's fax telecom. Shown to the
    * user so they know which number the recipient will call back. Absent when none is configured. */
   senderFaxNumber?: string;
+  documentCount?: number;
 }
 
 export const FAX_DOCUMENT_UNAVAILABLE_REASONS: Record<FaxDocumentKind, string> = {

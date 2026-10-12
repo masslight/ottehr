@@ -5,10 +5,11 @@ import { getAllPractitionerCredentials, getOrganizationFaxNumber } from 'utils/l
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
 import { toTenDigitPhoneNumber } from 'utils/lib/helpers/helpers';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
-import { FaxRecipient, GetFaxPacketPreviewOutput } from 'utils/lib/types/api/fax.types';
+import { FaxRecipient, GetFaxPacketPreviewInput, GetFaxPacketPreviewOutput } from 'utils/lib/types/api/fax.types';
 import { PRACTICE_NAME_URL } from 'utils/lib/types/constants';
 import { FHIR_RESOURCE_NOT_FOUND_CUSTOM } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken, getUser } from '../../shared/auth';
+import { collectMedicalRecordParts } from '../../shared/fax/collect-patient-documents';
 import { resolveFaxDocumentAvailability } from '../../shared/fax/collect-visit-documents';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
@@ -32,7 +33,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedInput.secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, validatedInput.secrets);
 
-  const output = await performEffect(validatedInput.appointmentId, oystehr, validatedInput.secrets);
+  const output = await performEffect(validatedInput, oystehr, validatedInput.secrets);
   return { statusCode: 200, body: JSON.stringify(output) };
 });
 
@@ -80,13 +81,17 @@ export const resolveSenderFaxNumber = async (
 };
 
 export const performEffect = async (
-  appointmentId: string | undefined,
+  { appointmentId, medicalRecord }: GetFaxPacketPreviewInput,
   oystehr: Oystehr,
   secrets: Secrets | null
 ): Promise<GetFaxPacketPreviewOutput> => {
   // Started up front so it overlaps the visit lookups below. It never rejects, so awaiting it late is safe.
   const senderFaxNumber = resolveSenderFaxNumber(oystehr, secrets);
 
+  if (medicalRecord) {
+    const parts = await collectMedicalRecordParts(oystehr, medicalRecord.patientId, medicalRecord.dateRange);
+    return { documents: [], hasSavedPcp: false, senderFaxNumber: await senderFaxNumber, documentCount: parts.length };
+  }
   // No visit in scope: the patient-level dialogs send a fixed set of documents and do not manage the
   // PCP, so the sender's number is the only part of the preview they need.
   if (!appointmentId) {

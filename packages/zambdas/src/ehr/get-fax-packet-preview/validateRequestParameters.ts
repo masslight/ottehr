@@ -12,7 +12,7 @@ export function validateRequestParameters(input: ZambdaInput): GetFaxPacketPrevi
     throw MISSING_REQUEST_BODY;
   }
 
-  const { appointmentId } = safeValidate(GetFaxPacketPreviewInputSchema, safeJsonParse(input.body));
+  const { appointmentId, medicalRecord } = safeValidate(GetFaxPacketPreviewInputSchema, safeJsonParse(input.body));
 
-  return { appointmentId, secrets: input.secrets };
+  return { appointmentId, medicalRecord, secrets: input.secrets };
 }
