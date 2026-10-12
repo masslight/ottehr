@@ -60,7 +60,7 @@ export const PatientNotesButton: React.FC<PatientNotesButtonProps> = ({ patientI
         </Button>
       </GenericToolTip>
 
-      <PatientNotesDialog patientId={patientId} open={open} onClose={() => setOpen(false)} />
+      <PatientNotesDialog target={{ patientId }} open={open} onClose={() => setOpen(false)} />
     </>
   );
 };

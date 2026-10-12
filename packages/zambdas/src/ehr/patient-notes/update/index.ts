@@ -1,11 +1,17 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Communication, Practitioner } from 'fhir/r4b';
-import { PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
-import { isNoteEdited } from 'utils/lib/helpers/visit-note/note-edit-detection.helper';
 import { SavePatientNoteOutput } from 'utils/lib/types/api/patient-notes/patient-notes.types';
 import { FHIR_RESOURCE_NOT_FOUND, FHIR_RESOURCE_VALIDATION_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
-import { createClinicalOystehrClient, fillMeta } from '../../../shared/helpers';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import {
+  getNoteTaskId,
+  getPractitionerName,
+  isPatientOrTaskNote,
+  isTaskNote,
+  toNoteDto,
+  withEditor,
+} from '../../../shared/notes';
 import { getMyPractitionerId } from '../../../shared/practitioners';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
@@ -13,10 +19,6 @@ import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'update-patient-note';
 let m2mToken: string;
-
-const PATIENT_NOTE_ID = 'patient-note';
-const PATIENT_NOTE_SYSTEM = 'patient';
-const PATIENT_NOTE_TAG = `${PRIVATE_EXTENSION_BASE_URL}/patient|patient-note`;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const { note, userToken, secrets } = validateRequestParameters(input);
@@ -33,12 +35,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     throw error;
   }
 
-  const hasPatientNoteTag = existing.meta?.tag?.some((tag) => `${tag.system}|${tag.code}` === PATIENT_NOTE_TAG);
-  if (!hasPatientNoteTag) throw FHIR_RESOURCE_VALIDATION_ERROR('Resource is not a patient note');
+  if (!isPatientOrTaskNote(existing)) throw FHIR_RESOURCE_VALIDATION_ERROR('Resource is not a patient note');
 
-  const notePatientId = existing.subject?.reference?.split('/')[1];
-  if (notePatientId !== note.patientId)
-    throw FHIR_RESOURCE_VALIDATION_ERROR('Note does not belong to the specified patient');
+  const belongs = note.taskId
+    ? isTaskNote(existing) && getNoteTaskId(existing) === note.taskId
+    : !isTaskNote(existing) && existing.subject?.reference?.split('/')[1] === note.patientId;
+  if (!belongs) {
+    throw FHIR_RESOURCE_VALIDATION_ERROR(`Note does not belong to the specified ${note.taskId ? 'task' : 'patient'}`);
+  }
 
   if (existing.status !== 'completed')
     throw FHIR_RESOURCE_VALIDATION_ERROR('Note has been deleted and cannot be updated');
@@ -46,37 +50,24 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const callerId = await getMyPractitionerId(userToken, secrets);
 
   const callerPractitioner = await oystehr.fhir.get<Practitioner>({ resourceType: 'Practitioner', id: callerId });
-  const callerName = callerPractitioner.name?.[0]
-    ? [callerPractitioner.name[0].given?.join(' '), callerPractitioner.name[0].family].filter(Boolean).join(' ')
-    : '';
 
-  // Preserve original sent timestamp so isNoteEdited() detects drift between sent and meta.lastUpdated
-  const sent = existing.sent ?? new Date().toISOString();
-
-  const resource: Communication = {
-    id: note.resourceId,
+  // A patch, not a whole-resource update: the author, sent time and tags (read markers, the notified marker) that
+  // others may write meanwhile all stay as they are.
+  const editors = withEditor(existing, callerId, getPractitionerName(callerPractitioner));
+  // Appended to an existing list, so two first-time editors at once both stay listed.
+  const addEditor =
+    editors === existing.extension
+      ? []
+      : existing.extension
+      ? [{ op: 'add' as const, path: '/extension/-', value: editors[editors.length - 1] }]
+      : [{ op: 'add' as const, path: '/extension', value: editors }];
+  const saved = await oystehr.fhir.patch<Communication>({
     resourceType: 'Communication',
-    status: 'completed',
-    meta: fillMeta(PATIENT_NOTE_ID, PATIENT_NOTE_SYSTEM),
-    subject: { reference: `Patient/${note.patientId}` },
-    sender: { reference: `Practitioner/${callerId}`, display: callerName },
-    sent,
-    payload: [{ contentString: note.text }],
-  };
+    id: note.resourceId,
+    operations: [{ op: 'replace', path: '/payload', value: [{ contentString: note.text }] }, ...addEditor],
+  });
 
-  const saved = await oystehr.fhir.update<Communication>(resource as Communication & { id: string });
-
-  const output: SavePatientNoteOutput = {
-    note: {
-      resourceId: saved.id,
-      patientId: note.patientId,
-      text: saved.payload?.[0]?.contentString ?? '',
-      authorId: callerId,
-      authorName: callerName,
-      lastUpdated: saved.meta?.lastUpdated ?? '',
-      edited: isNoteEdited(sent, saved.meta?.lastUpdated),
-    },
-  };
+  const output: SavePatientNoteOutput = { note: toNoteDto(saved, callerId) };
 
   return {
     body: JSON.stringify(output),

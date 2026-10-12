@@ -77,6 +77,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     basedOn: taskBasedOn,
   });
 
+  // Who created the task: task notes count the creator as involved in it.
+  taskToCreate.requester = {
+    reference: 'Practitioner/' + userPractitionerId,
+    display: getFullName(currentUserPractitioner),
+  };
+
   if (params.assignee) {
     taskToCreate.owner = {
       reference: 'Practitioner/' + params.assignee.id,

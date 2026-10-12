@@ -128,6 +128,7 @@ import {
   GetPatientNotesCountOutput,
   GetPatientNotesInput,
   GetPatientNotesOutput,
+  MarkTaskNotesReadInput,
   SavePatientNoteOutput,
   UpdatePatientNoteInput,
 } from 'utils/lib/types/api/patient-notes/patient-notes.types';
@@ -3965,6 +3966,15 @@ export const updatePatientNote = async (
 export const deletePatientNote = async (oystehr: Oystehr, parameters: DeletePatientNoteInput): Promise<void> => {
   try {
     await oystehr.zambda.execute({ id: 'delete-patient-note', ...parameters });
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const markTaskNotesRead = async (oystehr: Oystehr, parameters: MarkTaskNotesReadInput): Promise<void> => {
+  try {
+    await oystehr.zambda.execute({ id: 'mark-task-notes-read', ...parameters });
   } catch (error: unknown) {
     console.log(error);
     throw apiErrorToThrow(error);

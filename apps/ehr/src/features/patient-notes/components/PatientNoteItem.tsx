@@ -6,19 +6,27 @@ import { InPersonModal } from 'src/features/visits/in-person/components/InPerson
 import { BoxStyled } from 'src/features/visits/shared/components/generic-notes-list/components/ui/BoxStyled';
 import { PatientNoteDTO } from 'utils/lib/types/api/patient-notes/patient-notes.types';
 import { useDeletePatientNote } from '../hooks/useDeletePatientNote';
+import { noteKind, NoteTarget } from '../hooks/usePatientNotes';
 import { EditPatientNoteModal } from './EditPatientNoteModal';
 
 interface PatientNoteItemProps {
   note: PatientNoteDTO;
+  target: NoteTarget;
 }
 
-export const PatientNoteItem: React.FC<PatientNoteItemProps> = ({ note }) => {
+/** "<time written> by <author>", then who else edited it, or "(edited)" when only the author did. */
+export const formatNoteByline = (note: PatientNoteDTO): string => {
+  const written = note.sent ?? note.lastUpdated;
+  const date = written ? DateTime.fromISO(written).toFormat('MM/dd/yyyy hh:mm a') : '';
+  const editors = note.editorNames?.length ? `, edited by ${note.editorNames.join(', ')}` : '';
+  return `${date} by ${note.authorName || note.authorId}${editors || (note.edited ? ' (edited)' : '')}`;
+};
+
+export const PatientNoteItem: React.FC<PatientNoteItemProps> = ({ note, target }) => {
   const theme = useTheme();
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
-  const { mutateAsync: deleteNote, isPending: isDeleting } = useDeletePatientNote(note.patientId);
-
-  const formattedDate = note.lastUpdated ? DateTime.fromISO(note.lastUpdated).toFormat('MM/dd/yyyy hh:mm a') : '';
+  const { mutateAsync: deleteNote, isPending: isDeleting } = useDeletePatientNote();
 
   const handleDelete = async (entity: PatientNoteDTO): Promise<void> => {
     if (!entity.resourceId) return;
@@ -33,8 +41,7 @@ export const PatientNoteItem: React.FC<PatientNoteItemProps> = ({ note }) => {
             {note.text}
           </Typography>
           <Typography variant="caption" color="textSecondary" sx={{ display: 'block' }}>
-            {formattedDate} by {note.authorName || note.authorId}
-            {note.edited ? ' (edited)' : ''}
+            {formatNoteByline(note)}
           </Typography>
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', py: 1, gap: 0.5 }}>
@@ -59,12 +66,12 @@ export const PatientNoteItem: React.FC<PatientNoteItemProps> = ({ note }) => {
         </Box>
       </BoxStyled>
 
-      {isEditOpen && <EditPatientNoteModal note={note} onClose={() => setIsEditOpen(false)} />}
+      {isEditOpen && <EditPatientNoteModal note={note} target={target} onClose={() => setIsEditOpen(false)} />}
 
       <InPersonModal
         open={isDeleteOpen}
         handleClose={() => setIsDeleteOpen(false)}
-        title="Delete patient note"
+        title={`Delete ${noteKind(target)} note`}
         description="Are you sure you want to delete this note? This action cannot be undone."
         entity={note}
         handleConfirm={handleDelete}

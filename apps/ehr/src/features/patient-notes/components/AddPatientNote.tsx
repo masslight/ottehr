@@ -3,20 +3,23 @@ import { enqueueSnackbar } from 'notistack';
 import React, { useState } from 'react';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { useCreatePatientNote } from '../hooks/useCreatePatientNote';
+import { noteKind, NoteTarget } from '../hooks/usePatientNotes';
 
 interface AddPatientNoteProps {
-  patientId: string;
+  target: NoteTarget;
+  onCreated?: (text: string) => void;
 }
 
-export const AddPatientNote: React.FC<AddPatientNoteProps> = ({ patientId }) => {
+export const AddPatientNote: React.FC<AddPatientNoteProps> = ({ target, onCreated }) => {
   const [text, setText] = useState('');
-  const { mutateAsync: save, isPending } = useCreatePatientNote(patientId);
+  const { mutateAsync: save, isPending } = useCreatePatientNote();
 
   const handleSave = async (): Promise<void> => {
     if (!text.trim()) return;
     try {
-      await save({ patientId, text: text.trim() });
+      await save({ ...target, text: text.trim() });
       setText('');
+      onCreated?.(text.trim());
     } catch {
       enqueueSnackbar('Failed to add note. Please try again.', { variant: 'error' });
     }
@@ -30,7 +33,7 @@ export const AddPatientNote: React.FC<AddPatientNoteProps> = ({ patientId }) => 
           fullWidth
           autoComplete="off"
           multiline
-          label="Enter patient note..."
+          label={`Enter ${noteKind(target)} note...`}
           value={text}
           onChange={(e) => setText(e.target.value)}
           disabled={isPending}
@@ -55,7 +58,7 @@ export const AddPatientNote: React.FC<AddPatientNoteProps> = ({ patientId }) => 
         sx={{ height: '56px', minWidth: '80px', px: 2 }}
         startIcon={isPending ? <CircularProgress size={20} color="inherit" /> : null}
       >
-        {isPending ? 'Saving...' : 'Save Patient Note'}
+        {isPending ? 'Saving...' : `Save ${noteKind(target) === 'task' ? 'Task' : 'Patient'} Note`}
       </RoundedButton>
     </Box>
   );

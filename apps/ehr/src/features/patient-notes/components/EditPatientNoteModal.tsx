@@ -13,23 +13,26 @@ import React, { useState } from 'react';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { TextFieldStyled } from 'src/features/visits/shared/components/generic-notes-list/components/ui/TextFieldStyled';
 import { PatientNoteDTO, UpdatePatientNoteRequest } from 'utils/lib/types/api/patient-notes/patient-notes.types';
+import { noteKind, NoteTarget } from '../hooks/usePatientNotes';
 import { useUpdatePatientNote } from '../hooks/useUpdatePatientNote';
 
 interface EditPatientNoteModalProps {
   note: PatientNoteDTO;
+  target: NoteTarget;
   onClose: () => void;
 }
 
-export const EditPatientNoteModal: React.FC<EditPatientNoteModalProps> = ({ note, onClose }) => {
+export const EditPatientNoteModal: React.FC<EditPatientNoteModalProps> = ({ note, target, onClose }) => {
   const theme = useTheme();
   const [text, setText] = useState(note.text);
-  const { mutateAsync: save, isPending } = useUpdatePatientNote(note.patientId);
+  const { mutateAsync: save, isPending } = useUpdatePatientNote();
+  const label = noteKind(target) === 'task' ? 'Task Note' : 'Patient Note';
 
   const handleSave = async (): Promise<void> => {
     if (!text.trim() || !note.resourceId) return;
     const payload: UpdatePatientNoteRequest = {
       resourceId: note.resourceId,
-      patientId: note.patientId,
+      ...target,
       text: text.trim(),
     };
     try {
@@ -44,7 +47,7 @@ export const EditPatientNoteModal: React.FC<EditPatientNoteModalProps> = ({ note
     <Dialog open onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>
         <Box display="flex" alignItems="center" color={theme.palette.primary.dark}>
-          <Typography variant="h4">Edit Patient Note</Typography>
+          <Typography variant="h4">Edit {label}</Typography>
         </Box>
       </DialogTitle>
       <DialogContent>
@@ -52,7 +55,7 @@ export const EditPatientNoteModal: React.FC<EditPatientNoteModalProps> = ({ note
           autoFocus
           margin="dense"
           id="patient-note-text"
-          label="Patient Note"
+          label={label}
           type="text"
           fullWidth
           multiline

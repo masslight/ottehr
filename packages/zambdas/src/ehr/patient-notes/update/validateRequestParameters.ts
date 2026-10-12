@@ -7,11 +7,14 @@ import { z } from 'zod';
 import { ZambdaInput } from '../../../shared/types/common';
 import { safeJsonParse, safeValidate } from '../../../shared/validation';
 
-const UpdatePatientNoteRequestSchema: z.ZodType<UpdatePatientNoteRequest> = z.object({
-  resourceId: z.string().uuid(),
-  patientId: z.string().uuid(),
-  text: z.string().min(1),
-});
+const UpdatePatientNoteRequestSchema: z.ZodType<UpdatePatientNoteRequest> = z
+  .object({
+    resourceId: z.string().uuid(),
+    patientId: z.string().uuid().optional(),
+    taskId: z.string().uuid().optional(),
+    text: z.string().min(1),
+  })
+  .refine((note) => !!note.patientId !== !!note.taskId, { message: 'Exactly one of patientId or taskId is required' });
 
 const UpdatePatientNoteSchema = z.object({ note: UpdatePatientNoteRequestSchema });
 

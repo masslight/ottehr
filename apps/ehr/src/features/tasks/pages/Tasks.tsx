@@ -13,6 +13,7 @@ import {
   Typography,
 } from '@mui/material';
 import { Stack } from '@mui/system';
+import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useEffect, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -23,6 +24,8 @@ import { SelectInput } from 'src/components/input/SelectInput';
 import Loading from 'src/components/Loading';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { StatusChip } from 'src/components/StatusChip';
+import { PatientNotesDialog } from 'src/features/patient-notes/components/PatientNotesDialog';
+import { useMarkTaskNotesRead, useTaskNotes } from 'src/features/patient-notes/hooks/useTaskNotes';
 import {
   formatDate,
   OPEN_DOSESPOT,
@@ -39,6 +42,7 @@ import { TASK_CATEGORY_LABEL } from '../common';
 import { CategoryChip } from '../components/CategoryChip';
 import { CreateTaskDialog } from '../components/CreateTaskDialog';
 import { MoreTaskActions } from '../components/MoreTaskActions';
+import { TaskTitle } from '../components/TaskTitle';
 
 const LOCAL_STORAGE_FILTERS_KEY = 'tasks.filters';
 const UNKNOWN = 'Unknown';
@@ -206,6 +210,10 @@ export const Tasks: React.FC = () => {
     }
   );
 
+  const { data: taskNotes = [] } = useTaskNotes((tasksData?.tasks ?? []).map((task) => task.id));
+  const { mutate: markTaskNotesRead } = useMarkTaskNotesRead();
+  const [notesTaskId, setNotesTaskId] = useState<string | undefined>();
+
   const [showCreateTaskDialog, setShowCreateTaskDialog] = useState(false);
   const onNewTaskClick = (): void => {
     setShowCreateTaskDialog(true);
@@ -324,17 +332,15 @@ export const Tasks: React.FC = () => {
                         </TableCell>
                         <TableCell>
                           <Box>
-                            <Typography
-                              variant="body1"
-                              display="inline"
-                              style={{
-                                color: '#000000DE',
-                                fontWeight: 500,
-                                textDecoration: task.status === COMPLETED ? 'line-through' : 'none',
+                            <TaskTitle
+                              task={task}
+                              notes={taskNotes.filter((note) => note.taskId === task.id)}
+                              currentUserId={currentUserProviderId}
+                              onOpenNotes={() => {
+                                setNotesTaskId(task.id);
+                                markTaskNotesRead(task.id);
                               }}
-                            >
-                              {task.title}
-                            </Typography>
+                            />
                             {task.alert ? renderAlertIcon(task.alert) : null}
                           </Box>
                           {task.details ? <Typography variant="body2">{task.details}</Typography> : null}
@@ -392,6 +398,19 @@ export const Tasks: React.FC = () => {
             }}
           />
         </Paper>
+        {notesTaskId ? (
+          <PatientNotesDialog
+            target={{ taskId: notesTaskId }}
+            open
+            onClose={() => setNotesTaskId(undefined)}
+            onNoteCreated={(text) => {
+              setNotesTaskId(undefined);
+              enqueueSnackbar(`Note created: ${text.length > 80 ? `${text.slice(0, 80)}…` : text}`, {
+                variant: 'success',
+              });
+            }}
+          />
+        ) : null}
         <CreateTaskDialog
           open={showCreateTaskDialog}
           handleClose={(): void => {
