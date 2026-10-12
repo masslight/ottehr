@@ -2,6 +2,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { DocumentReference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
+import { assertZ3UrlInProject } from '../../shared/presigned-file-urls/helpers';
 import { InPersonReceiptTemplateData } from 'utils/lib/ottehr-config/sendgrid';
 import { MIME_TYPES } from 'utils/lib/utils/file';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
@@ -36,6 +37,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.log(`content: ${JSON.stringify(content)}, url: ${z3Url}`);
 
   if (z3Url) {
+    assertZ3UrlInProject(z3Url, secrets);
     const presignedUrl = await getPresignedURL(z3Url, m2mToken);
     const file = await fetch(presignedUrl, {
       method: 'GET',

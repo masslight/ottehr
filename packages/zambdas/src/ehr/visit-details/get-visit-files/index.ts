@@ -5,6 +5,7 @@ import { getPaymentVariantFromEncounter, PaymentVariant } from 'utils/lib/fhir/e
 import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
 import { LOINC_SYSTEM } from 'utils/lib/fhir/vitals';
 import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
+import { assertZ3UrlInProject } from '../../../shared/presigned-file-urls/helpers';
 import { Secrets } from 'utils/lib/secrets';
 import { DocumentInfo, DocumentType, VisitDocuments } from 'utils/lib/types/data/documents';
 import {
@@ -39,7 +40,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
   const effectInput = await complexValidation(validatedParameters, oystehr);
 
-  const files = await getFileResources(effectInput, oystehr, userToken);
+  const files = await getFileResources(effectInput, oystehr, userToken, secrets);
 
   return {
     statusCode: 200,
@@ -51,7 +52,12 @@ interface GetFilesInput {
   patientId: string;
   appointmentId: string;
 }
-async function getFileResources(input: GetFilesInput, oystehr: Oystehr, userToken: string): Promise<VisitDocuments> {
+async function getFileResources(
+  input: GetFilesInput,
+  oystehr: Oystehr,
+  userToken: string,
+  secrets: Secrets | null
+): Promise<VisitDocuments> {
   const { patientId, appointmentId } = input;
   const documents: VisitDocuments = {
     photoIdCards: [],
@@ -91,7 +97,14 @@ async function getFileResources(input: GetFilesInput, oystehr: Oystehr, userToke
             continue;
           }
 
-          const presignedUrl = await getPresignedURL(z3Url, userToken);
+          let presignedUrl: string | undefined;
+          try {
+            assertZ3UrlInProject(z3Url, secrets);
+            presignedUrl = await getPresignedURL(z3Url, userToken);
+          } catch (error) {
+            console.error(`[${ZAMBDA_NAME}] skipping document with un-presignable url [${z3Url}]:`, error);
+            continue;
+          }
 
           if (presignedUrl) {
             z3Documents.push({

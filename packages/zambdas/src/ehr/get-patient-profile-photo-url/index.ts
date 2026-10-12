@@ -4,6 +4,7 @@ import { GetOrUploadPatientProfilePhotoInputValidated } from 'utils/lib/types/ap
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { assertZ3UrlInProject } from '../../shared/presigned-file-urls/helpers';
 import { createPresignedUrl } from '../../shared/z3Utils';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -48,6 +49,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   }
 
   logIt(`Pre-signing this URL ...`);
+  assertZ3UrlInProject(z3PhotoUrl, secrets);
   const presignedDownloadUrl = await createPresignedUrl(token, z3PhotoUrl, action);
   logIt(`Signed download URL value=[${presignedDownloadUrl}]`);
   const resolvedPresignedUrl = presignedDownloadUrl;
