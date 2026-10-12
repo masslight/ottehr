@@ -953,6 +953,8 @@ describe('ad-hoc Encounters: layers mapped with the app mappers (fixture)', () =
     expect(signed.attendingProviderType).toBe('NP');
     expect(signed.intakePerformer).toBe('Ivy Lee');
     expect(signed.paymentVariant).toBe('selfPay');
+    // A follow-up note has no payment option of its own: it carries its visit's, as the visit's Payments panel shows.
+    expect(rows.find((r) => r.encounterId === 'enc-1-fu')?.paymentVariant).toBe('selfPay');
     expect(signed.cancellationReason).toBe('');
     expect(cancelled.cancellationReason).toBe('Patient improved');
     expect(cancelled.cancellationReasonDisplay).toBe('Patient improved - feeling better');

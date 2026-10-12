@@ -422,3 +422,7 @@ export const presentFullName = (individual: Patient | Practitioner | RelatedPers
   individual?.name?.[0]
     ? [getFirstName(individual), getMiddleName(individual), getLastName(individual)].filter(Boolean).join(' ')
     : '';
+
+/** `value` when it is one of `allowed` (a closed vocabulary the schema enumerates), else null. */
+export const knownValueOrNull = <T extends string>(allowed: readonly T[], value: string | undefined): T | null =>
+  value && (allowed as readonly string[]).includes(value) ? (value as T) : null;
