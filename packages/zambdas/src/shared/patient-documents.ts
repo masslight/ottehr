@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
-import { DocumentReference } from 'fhir/r4b';
+import { Appointment, DocumentReference, Encounter } from 'fhir/r4b';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
+import { MedicalRecordDateRange } from 'utils/lib/types/data/get-patient-medical-record.types';
 import { FAX_PACKET_CODE, MEDICAL_RECORD_EXPORT_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
 
 /** One attachment of a patient document, reduced to what the medical-record exports need. */
@@ -57,3 +58,44 @@ export const collectPatientRecordAttachments = (documentReferences: DocumentRefe
           size: attachment.size,
         }))
     );
+
+const referencedId = (reference: string | undefined, resourceType: string): string | undefined => {
+  const [type, id] = (reference ?? '').split('/');
+  return type === resourceType ? id : undefined;
+};
+
+export const getPatientRecordDocuments = async (
+  oystehr: Oystehr,
+  patientId: string,
+  dateRange: MedicalRecordDateRange
+): Promise<DocumentReference[]> => {
+  const documents = await getAllPatientDocumentReferences(oystehr, patientId);
+
+  const params = [{ name: 'patient', value: `Patient/${patientId}` }];
+  const [appointments, encounters] = await Promise.all([
+    getAllFhirSearchPages<Appointment>({ resourceType: 'Appointment', params }, oystehr),
+    getAllFhirSearchPages<Encounter>({ resourceType: 'Encounter', params }, oystehr),
+  ]);
+  const appointmentStarts = new Map(appointments.map((appointment) => [appointment.id, appointment.start]));
+  const encounterStarts = new Map(
+    encounters.map((encounter) => [
+      encounter.id,
+      appointmentStarts.get(referencedId(encounter.appointment?.[0]?.reference, 'Appointment')) ??
+        encounter.period?.start,
+    ])
+  );
+
+  const from = Date.parse(dateRange.from);
+  const to = Date.parse(dateRange.to);
+  return documents.filter((document) => {
+    const visitStart =
+      document.context?.related
+        ?.map((related) => appointmentStarts.get(referencedId(related.reference, 'Appointment')))
+        .find(Boolean) ??
+      document.context?.encounter
+        ?.map((encounter) => encounterStarts.get(referencedId(encounter.reference, 'Encounter')))
+        .find(Boolean);
+    const date = Date.parse(visitStart ?? document.date ?? '');
+    return date >= from && date <= to;
+  });
+};

@@ -10,7 +10,26 @@ export const MEDICAL_RECORD_EXPORT_PROGRESS_CODE = 'export-medical-record-progre
 export const MEDICAL_RECORD_EXPORT_DEADLINE_CODE = 'export-medical-record-deadline';
 export const MEDICAL_RECORD_EXPORT_FAILURE_CODE = 'export-medical-record-failure';
 
-export const StartMedicalRecordExportInputSchema = z.object({ patientId: z.string().uuid() });
+export const MEDICAL_RECORD_EXPORT_DATE_RANGE_CODE = 'export-medical-record-date-range';
+
+export const NO_MEDICAL_RECORDS_IN_RANGE_MESSAGE = 'No medical records found for the selected date range.';
+
+export const MedicalRecordDateRangeSchema = z
+  .object({
+    from: z.string().datetime({ offset: true }),
+    to: z.string().datetime({ offset: true }),
+  })
+  .refine(({ from, to }) => !from || !to || Date.parse(from) <= Date.parse(to), {
+    message: 'The start date must not be after the end date',
+    path: ['from'],
+  });
+export type MedicalRecordDateRange = z.infer<typeof MedicalRecordDateRangeSchema>;
+
+export const StartMedicalRecordExportInputSchema = z.object({
+  patientId: z.string().uuid(),
+  dateRange: MedicalRecordDateRangeSchema,
+});
+
 export type StartMedicalRecordExportInput = z.infer<typeof StartMedicalRecordExportInputSchema>;
 
 export const GetMedicalRecordExportStatusInputSchema = z.object({
