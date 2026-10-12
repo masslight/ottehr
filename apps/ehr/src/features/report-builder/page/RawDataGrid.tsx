@@ -91,7 +91,7 @@ export function RawDataGrid({ rows, schema, loading, fileName }: RawDataGridProp
             <GridToolbarFilterButton />
             <GridToolbarDensitySelector />
             <GridToolbarExport
-              csvOptions={{ fileName, utf8WithBom: true }}
+              csvOptions={{ fileName, utf8WithBom: true, allColumns: true }}
               printOptions={{ disableToolbarButton: true }}
             />
           </GridToolbarContainer>
