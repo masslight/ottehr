@@ -8,9 +8,9 @@ import { FHIR_RESOURCE_NOT_FOUND, INSURANCE_CARD_IMAGE_ERROR } from 'utils/lib/t
 import { MimeType } from 'utils/lib/utils/file';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
+import { assertZ3UrlInProject } from '../../shared/presigned-file-urls/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
-import { assertZ3UrlInProject } from '../../shared/presigned-file-urls/helpers';
 import { createPresignedUrl, uploadObjectToZ3 } from '../../shared/z3Utils';
 import {
   buildAttachmentMetadataOperations,

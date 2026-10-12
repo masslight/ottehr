@@ -5,7 +5,6 @@ import { getPaymentVariantFromEncounter, PaymentVariant } from 'utils/lib/fhir/e
 import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
 import { LOINC_SYSTEM } from 'utils/lib/fhir/vitals';
 import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
-import { assertZ3UrlInProject } from '../../../shared/presigned-file-urls/helpers';
 import { Secrets } from 'utils/lib/secrets';
 import { DocumentInfo, DocumentType, VisitDocuments } from 'utils/lib/types/data/documents';
 import {
@@ -24,6 +23,7 @@ import {
 import { isValidUUID } from 'utils/lib/validation/helper';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { assertZ3UrlInProject } from '../../../shared/presigned-file-urls/helpers';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
 

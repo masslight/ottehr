@@ -1,8 +1,8 @@
 import Oystehr from '@oystehr/sdk';
 import { DocumentReference, MedicationRequest } from 'fhir/r4b';
 import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
-import { Secrets } from 'utils/lib/secrets';
 import { FEATURE_FLAGS_CONFIG } from 'utils/lib/ottehr-config/feature-flags';
+import { Secrets } from 'utils/lib/secrets';
 import { MEDICATION_DISPENSABLE_DRUG_ID } from 'utils/lib/types/api/medication-administration.constants';
 import { FileURLInfo, FileURLs } from 'utils/lib/types/common';
 import { LAB_DOC_REF_DETAIL_TAGS, LAB_RESULT_DOC_REF_CODING_CODE } from 'utils/lib/types/data/labs/labs.constants';
