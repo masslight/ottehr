@@ -144,6 +144,13 @@ export const dataTestIds = {
     sendButton: 'fax-dialog-send-button',
     cancelButton: 'fax-dialog-cancel-button',
   },
+  medicalRecordDateRangeDialog: {
+    root: 'medical-record-date-range-dialog',
+    fromInput: 'medical-record-date-range-from',
+    toInput: 'medical-record-date-range-to',
+    message: 'medical-record-date-range-message',
+    confirmButton: 'medical-record-date-range-confirm',
+  },
   faxResultDialog: {
     root: 'fax-result-dialog',
     failedRecipient: 'fax-result-failed-recipient',
