@@ -45,13 +45,7 @@ import { useGetPatientAccount } from 'src/hooks/useGetPatient';
 import { useGetChargeMasterEntryQuery } from 'src/rcm/state/charge-masters/charge-master.queries';
 import { useFindApplicableFeeScheduleQuery } from 'src/rcm/state/fee-schedules/fee-schedule.queries';
 import { CreditCardBrandIcon } from 'ui-components/lib/components/CreditCardBrandIcon';
-import {
-  CASE_RATE_CODE,
-  CPT_CODE_SYSTEM,
-  CPT_MODIFIER_EXTENSION_URL,
-  RCM_TAG_SYSTEM,
-  SERVICE_CATEGORY_SYSTEM,
-} from 'utils/lib/fhir/constants';
+import { CPT_CODE_SYSTEM, SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
 import {
   getPaymentVariantFromEncounter,
   PaymentVariant,
@@ -60,6 +54,7 @@ import {
 import { getCoding, getLocationIdFromAppointment } from 'utils/lib/fhir/helpers';
 import { ottehrExtensionUrl } from 'utils/lib/fhir/systemUrls';
 import { extractPayerIdFromUrl, findOrgMatchingReference } from 'utils/lib/helpers/helpers';
+import { buildLineItems, getCaseRateInfo, isCaseRateFeeSchedule } from 'utils/lib/helpers/rcm/visit-pricing';
 import { PATIENT_RECORD_QUESTIONNAIRE } from 'utils/lib/ottehr-config/patient-record';
 import { CoverageCheckWithDetails } from 'utils/lib/types/api/patient-account';
 import {
@@ -127,97 +122,6 @@ const formatUsd = (amount: number | string | undefined | null): string | null =>
   if (!Number.isFinite(numericAmount)) return null;
   return usdFormatter.format(numericAmount);
 };
-
-interface LineItem {
-  code: string;
-  modifier?: string;
-  description: string;
-  amount: number;
-  units: number;
-  feeUnknown?: boolean;
-}
-
-export function buildLineItems(
-  feeSchedule: ChargeItemDefinition | null | undefined,
-  cptCodes:
-    | { code: string; display: string; modifier?: { code: string; display: string }[]; billableUnits?: number }[]
-    | undefined,
-  emCode: { code: string; display: string; modifier?: { code: string; display: string }[] } | undefined
-): LineItem[] {
-  if (!feeSchedule?.propertyGroup || (!cptCodes?.length && !emCode)) return [];
-
-  const allCodes: {
-    code: string;
-    display: string;
-    modifier?: { code: string; display: string }[];
-    billableUnits?: number;
-  }[] = [...(cptCodes ?? []), ...(emCode ? [emCode] : [])];
-  const items: LineItem[] = [];
-
-  for (const cpt of allCodes) {
-    const cptModifier = cpt.modifier?.[0]?.code;
-    const { billableUnits } = cpt;
-    const units =
-      billableUnits != null && Number.isFinite(billableUnits) && billableUnits > 0
-        ? Math.max(1, Math.ceil(billableUnits))
-        : 1;
-    let noModifierFallbackPg: (typeof feeSchedule.propertyGroup)[number] | undefined;
-    let anyModifierFallbackPg: (typeof feeSchedule.propertyGroup)[number] | undefined;
-    let exactMatched = false;
-
-    for (const pg of feeSchedule.propertyGroup) {
-      const pc = pg.priceComponent?.[0];
-      if (!pc) continue;
-      const fsCoding = pc.code?.coding?.find((c) => c.system === CPT_CODE_SYSTEM);
-      if (!fsCoding || fsCoding.code !== cpt.code) continue;
-      const fsModifier = pc.extension?.find((ext) => ext.url === CPT_MODIFIER_EXTENSION_URL)?.valueCode;
-      if ((fsModifier || '') === (cptModifier || '')) {
-        // Exact code + modifier match — use it immediately
-        items.push({
-          code: cpt.code,
-          modifier: cptModifier,
-          description: cpt.display || fsCoding.display || '',
-          amount: (pc.amount?.value ?? 0) * units,
-          units,
-        });
-        exactMatched = true;
-        noModifierFallbackPg = undefined;
-        anyModifierFallbackPg = undefined;
-        break;
-      }
-      // Code matches but modifier doesn't — prefer no-modifier entry as fallback
-      if (!fsModifier && !noModifierFallbackPg) noModifierFallbackPg = pg;
-      else if (fsModifier && !anyModifierFallbackPg) anyModifierFallbackPg = pg;
-    }
-
-    const fallbackPg = noModifierFallbackPg ?? anyModifierFallbackPg;
-
-    if (fallbackPg) {
-      // No exact match found — fall back to first entry with matching code
-      const pc = fallbackPg.priceComponent![0];
-      const fsCoding = pc.code?.coding?.find((c) => c.system === CPT_CODE_SYSTEM);
-      items.push({
-        code: cpt.code,
-        modifier: cptModifier,
-        description: cpt.display || fsCoding?.display || '',
-        amount: (pc.amount?.value ?? 0) * units,
-        units,
-      });
-    } else if (!exactMatched) {
-      // Code not found in fee schedule — include with unknown fee
-      items.push({
-        code: cpt.code,
-        modifier: cptModifier,
-        description: cpt.display || '',
-        amount: 0,
-        units,
-        feeUnknown: true,
-      });
-    }
-  }
-
-  return items;
-}
 
 interface EmPreviewRate {
   code: string;
@@ -508,21 +412,9 @@ export default function PatientPaymentList({
 
   const hasCptCodes = (chartData?.cptCodes?.length ?? 0) > 0 || !!chartData?.emCode;
 
-  const isCaseRate = useMemo(
-    () => activeFeeSchedule?.meta?.tag?.some((t) => t.system === RCM_TAG_SYSTEM && t.code === CASE_RATE_CODE) ?? false,
-    [activeFeeSchedule]
-  );
+  const isCaseRate = useMemo(() => isCaseRateFeeSchedule(activeFeeSchedule), [activeFeeSchedule]);
 
-  const caseRateInfo = useMemo(() => {
-    if (!isCaseRate || !activeFeeSchedule?.propertyGroup) return null;
-    const pg = activeFeeSchedule.propertyGroup[0];
-    const pc = pg?.priceComponent?.[0];
-    if (!pc) return null;
-    return {
-      amount: pc.amount?.value ?? 0,
-      comment: pc.code?.text ?? '',
-    };
-  }, [isCaseRate, activeFeeSchedule]);
+  const caseRateInfo = useMemo(() => getCaseRateInfo(activeFeeSchedule), [activeFeeSchedule]);
 
   // Determine whether the active pricing comes from a fee schedule or charge master
   const activePricingType: 'fee-schedule' | 'payer-cm' | 'default-cm' | 'self-pay-cm' = isPayerVariant
