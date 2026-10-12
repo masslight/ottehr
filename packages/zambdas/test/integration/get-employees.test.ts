@@ -20,7 +20,7 @@ describe('get-employees integration — happy path', () => {
   });
 
   it('returns an employees array', async () => {
-    const response = await oystehrZambdas.zambda.execute({ id: 'get-employees' });
+    const response = await oystehrZambdas.zambda.execute({ id: 'get-employees', lite: true });
     const output = response.output as { message: string; employees: unknown[] };
     expect(output).toBeDefined();
     expect(typeof output.message).toBe('string');
