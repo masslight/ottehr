@@ -22,6 +22,7 @@ import { ZambdaInput } from '../../shared/types/common';
 let oystehrToken: string;
 
 const ZAMBDA_NAME = 'get-answer-options';
+
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const { secrets } = input;
 
@@ -198,6 +199,9 @@ const validateInput = (input: ZambdaInput): EffectInput => {
     const { resourceType, query } = answerSource;
     if (!resourceType) {
       throw MALFORMED_GET_ANSWER_OPTIONS_INPUT('"answerSource" must contain a "resourceType" property');
+    }
+    if (resourceType !== 'Organization') {
+      throw MALFORMED_GET_ANSWER_OPTIONS_INPUT('"answerSource.resourceType" must be "Organization"');
     }
     if (!query) {
       throw MALFORMED_GET_ANSWER_OPTIONS_INPUT('"answerSource" must contain a "query" property');
