@@ -39,12 +39,14 @@ import {
   buildEncounterRowContext,
   fetchAppointmentReportResources,
   fetchScopedResources,
+  knownValueOrNull,
   resolveEncounterAppointment,
 } from '../adhoc-report';
 import { getCptModifierCodeFromProcedure } from '../candid';
 import { mapResourceToChartDataResponse } from '../chart-data';
 import { fetchAllPages } from '../fhir';
 import { composeInsuranceData } from '../pdf/sections/insuranceInfo';
+import { eligibilityCheckFields, EligibilityCheckIndex, indexEligibilityChecks } from './eligibility-checks';
 import { fetchPatientAccounts } from './patient-accounts';
 
 const CPT_SYSTEM = 'http://www.ama-assn.org/go/cpt';
@@ -189,7 +191,7 @@ const refundedAmount = (notice: PaymentNotice): number =>
 const netPaymentAmount = (notice: PaymentNotice): number => (notice.amount?.value ?? 0) - refundedAmount(notice);
 
 export async function fetchAdHocBillingRows(oystehr: Oystehr, params: AdHocBillingInput): Promise<AdHocBillingRow[]> {
-  const { dateRange, includePayments, includeCoverage, includeCharges, includeCodes } = params;
+  const { dateRange, includePayments, includeCoverage, includeEligibility, includeCharges, includeCodes } = params;
 
   // The main search stays LIGHT — only the bounded per-appointment resources ride along; each opt-in
   // billing layer's resources are pulled afterward, scoped to the encounter/patient ids (below).
@@ -270,6 +272,7 @@ export async function fetchAdHocBillingRows(oystehr: Oystehr, params: AdHocBilli
   const paymentsByEncId = new Map<string, PaymentNotice[]>();
   const voidedPaymentsByEncId = new Map<string, PaymentNotice[]>();
   let accountsByPatient = new Map<string, PatientAccountAndCoverageResources>();
+  let eligibility: EligibilityCheckIndex | undefined;
   const proceduresByEncId = new Map<string, Procedure[]>();
   const conditionById = new Map<string, Condition>();
 
@@ -325,11 +328,16 @@ export async function fetchAdHocBillingRows(oystehr: Oystehr, params: AdHocBilli
         if (hasRcmTag(cid, 'default-insurance')) pricing.defaultInsurance.push(cid);
       }
     }
-    if (includeCoverage || includeCharges) {
+    if (includeCoverage || includeEligibility || includeCharges) {
       // The patient-account page's coverage picture: primary / secondary by the Account's coverage priority,
       // workers' comp kept apart on its own Account, payers resolved. Charges price by its payer / employer.
       accountsByPatient = await fetchPatientAccounts(oystehr, Array.from(patientMap.values()));
     }
+
+    if (includeEligibility) {
+      eligibility = await indexEligibilityChecks(oystehr, Array.from(patientMap.keys()));
+    }
+
     if (includeCodes || includeCharges) {
       const dxIds = Array.from(
         new Set(
@@ -361,6 +369,10 @@ export async function fetchAdHocBillingRows(oystehr: Oystehr, params: AdHocBilli
   const SELF_PAY_TYPE_CODES = new Set(['pay', 'PAY', 'SELF', 'self', '81']);
 
   const rows: AdHocBillingRow[] = [];
+
+  // Each row's eligibility checks, loaded in full once every row has picked its own.
+  const rowEligibilityCheckIds: { row: AdHocBillingRow; primary?: string; secondary?: string }[] = [];
+
   // Iterate the deduped map, not the raw filter array — a follow-up encounter revincluded via both
   // Encounter:appointment and Encounter:part-of appears twice in `encounters` and would emit two rows.
   for (const encounter of encounterById.values()) {
@@ -380,6 +392,15 @@ export async function fetchAdHocBillingRows(oystehr: Oystehr, params: AdHocBilli
     } = buildEncounterRowContext(encounter, appointment, { encounterById, patientMap, locationMap, practitionerMap });
     const encId = encounter.id ?? '';
 
+    // An annotation follow-up is a note on its parent visit: the visit's payment option (and the price list it
+    // picks) lives on the parent Encounter, as the payments panel is the visit's.
+    const parentEncounter =
+      encounterType === 'follow-up' && encounter.partOf?.reference
+        ? encounterById.get(encounter.partOf.reference.replace('Encounter/', ''))
+        : undefined;
+
+    const visitEncounter = parentEncounter ?? encounter;
+
     const row: AdHocBillingRow = {
       appointmentId: appointment.id || '',
       encounterId: encounter.id,
@@ -390,6 +411,7 @@ export async function fetchAdHocBillingRows(oystehr: Oystehr, params: AdHocBilli
       serviceCategory,
       visitStatus,
       encounterType,
+      paymentVariant: knownValueOrNull(Object.values(PaymentVariant), getPaymentVariantFromEncounter(visitEncounter)),
       patientId: patient?.id || '',
       patientName: patient ? `${getPatientFirstName(patient) || ''} ${getPatientLastName(patient) || ''}`.trim() : '',
       dateOfBirth: patient?.birthDate || null,
@@ -471,17 +493,22 @@ export async function fetchAdHocBillingRows(oystehr: Oystehr, params: AdHocBilli
       row.secondaryPayer = insurance.secondary.insuranceCarrier || planName(secondary);
     }
 
+    if (eligibility) {
+      const patientRef = patient?.id ? `Patient/${patient.id}` : undefined;
+      const coverages = patientRef ? accountsByPatient.get(patientRef)?.coverages : undefined;
+
+      rowEligibilityCheckIds.push({
+        row,
+        primary: patientRef ? eligibility.latestCheckId(patientRef, coverages?.primary) : undefined,
+        secondary: patientRef ? eligibility.latestCheckId(patientRef, coverages?.secondary) : undefined,
+      });
+    }
+
     let expectedCharge: number | null = null;
 
     if (includeCharges) {
-      // An annotation follow-up is a note on its parent visit: the payment option that prices it lives on the
-      // parent Encounter (the payments panel is the visit's), so the parent decides the schedule.
-      const parentEncounter = encounter.partOf?.reference
-        ? encounterById.get(encounter.partOf.reference.replace('Encounter/', ''))
-        : undefined;
-
       const pricingResult = priceVisit({
-        encounter: encounterType === 'follow-up' && parentEncounter ? parentEncounter : encounter,
+        encounter: visitEncounter,
         appointment,
         account: patient?.id ? accountsByPatient.get(`Patient/${patient.id}`) : undefined,
         procedures: proceduresByEncId.get(encId) ?? [],
@@ -550,6 +577,26 @@ export async function fetchAdHocBillingRows(oystehr: Oystehr, params: AdHocBilli
     }
 
     rows.push(row);
+  }
+
+  if (eligibility) {
+    const checks = await eligibility.load(
+      rowEligibilityCheckIds.flatMap(({ primary, secondary }) =>
+        [primary, secondary].filter((id): id is string => !!id)
+      )
+    );
+
+    for (const { row, primary, secondary } of rowEligibilityCheckIds) {
+      const primaryCheck = eligibilityCheckFields(primary ? checks.get(primary) : undefined);
+      const secondaryCheck = eligibilityCheckFields(secondary ? checks.get(secondary) : undefined);
+      row.eligibilityStatus = primaryCheck.status;
+      row.eligibilityCheckedAt = primaryCheck.checkedAt;
+      row.eligibilityErrors = primaryCheck.errors;
+      row.copayAmount = primaryCheck.copayAmount;
+      row.remainingDeductible = primaryCheck.remainingDeductible;
+      row.secondaryEligibilityStatus = secondaryCheck.status;
+      row.secondaryEligibilityCheckedAt = secondaryCheck.checkedAt;
+    }
   }
 
   return rows;

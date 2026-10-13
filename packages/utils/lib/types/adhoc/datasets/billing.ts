@@ -3,6 +3,8 @@
 // from the objects below.
 import { z } from 'zod';
 import { AdHocLayerMap, DatasetInput, datasetInputSchema, datasetRowSchema, LayerRowFields } from './dataset';
+import { ELIGIBILITY_STATUS_DESCRIPTION, ELIGIBILITY_STATUS_VALUES } from './eligibility';
+import { PAYMENT_VARIANT_VALUES } from './encounters';
 
 export const BillingBaseRowSchema = z.object({
   // --- Visit ---
@@ -13,6 +15,14 @@ export const BillingBaseRowSchema = z.object({
   serviceCategory: z.string().describe('Service line of the visit.'),
   visitStatus: z.string().describe('completed / arrived / cancelled / no-show …'),
   encounterType: z.enum(['main', 'follow-up', 'scheduled-follow-up']).describe('Kind of encounter row.'),
+  paymentVariant: z
+    .enum(PAYMENT_VARIANT_VALUES)
+    .nullable()
+    .describe(
+      "The visit's payment option as chosen in its Payments panel: insurance, selfPay, or employer (occupational " +
+        "medicine). It decides the price list (see pricingSource). Not the patient's coverage on file (payerType). A " +
+        "follow-up row carries its visit's option. Null when not chosen."
+    ),
   // --- Patient ---
   patientId: z.string().describe('Patient id; rows are per-encounter, so count UNIQUE patientId for a patient count.'),
   patientName: z.string().describe('Patient full name.'),
@@ -106,7 +116,12 @@ export const BILLING_LAYERS = {
     label: 'Insurance & coverage',
     description: 'Insurance for the patient: payer/plan, self-pay vs insured, member id, and coverage status.',
     schema: z.object({
-      payerType: z.enum(['Insured', 'Self-pay', 'Unknown']).describe('Primary coverage bucket.'),
+      payerType: z
+        .enum(['Insured', 'Self-pay', 'Unknown'])
+        .describe(
+          "Primary coverage bucket from the patient's insurance on file — not how the visit is paid (that is " +
+            'paymentVariant).'
+        ),
       primaryPayer: z
         .string()
         .describe(
@@ -117,6 +132,55 @@ export const BILLING_LAYERS = {
       subscriberRelationship: z.string().describe('Relationship to subscriber ("self"/"parent"/…).'),
       coverageStatus: z.string().describe('Status of primary coverage (active/cancelled/…).'),
       secondaryPayer: z.string().describe('Secondary insurance payer, as on the patient record. "" when none.'),
+    }),
+  },
+  eligibility: {
+    label: 'Insurance eligibility',
+    description:
+      "Insurance eligibility as the visit's Payments panel shows it: the latest check of the patient's current " +
+      'primary (and secondary) insurance — status, when it ran, why it failed, and the copay / remaining deductible ' +
+      'the payer returned. A check belongs to the insurance, not to the visit, so every visit of a patient shows the ' +
+      'same, current check (and one billed to an insurance the patient no longer has shows the current one).',
+    schema: z.object({
+      eligibilityStatus: z
+        .enum(ELIGIBILITY_STATUS_VALUES)
+        .nullable()
+        .describe(
+          "Result of the latest eligibility check of the patient's current primary insurance, as the Payments panel " +
+            'shows it. ' +
+            ELIGIBILITY_STATUS_DESCRIPTION +
+            ' Null when the app shows no check: never checked, every check failed before the payer answered, or the ' +
+            'patient has no insurance.'
+        ),
+      eligibilityCheckedAt: z.string().nullable().describe('Full ISO instant that check ran. Null when there is none.'),
+      eligibilityErrors: z
+        .array(z.string())
+        .describe('Errors the payer returned on that check (its text, else its code). Empty when none.'),
+      copayAmount: z
+        .number()
+        .nullable()
+        .describe(
+          'In-network urgent-care copay in USD from that check, as the Payments panel shows it. Null when the check ' +
+            'returned none.'
+        ),
+      remainingDeductible: z
+        .number()
+        .nullable()
+        .describe(
+          'In-network individual deductible remaining in USD from that check, as the Payments panel shows it. Null ' +
+            'when the check returned none.'
+        ),
+      secondaryEligibilityStatus: z
+        .enum(ELIGIBILITY_STATUS_VALUES)
+        .nullable()
+        .describe(
+          "Result of the latest check of the patient's current secondary insurance (same values as " +
+            'eligibilityStatus). Null when there is none.'
+        ),
+      secondaryEligibilityCheckedAt: z
+        .string()
+        .nullable()
+        .describe('Full ISO instant that secondary check ran. Null when there is none.'),
     }),
   },
   charges: {

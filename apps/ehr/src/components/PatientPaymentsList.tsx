@@ -45,6 +45,7 @@ import { useGetPatientAccount } from 'src/hooks/useGetPatient';
 import { useGetChargeMasterEntryQuery } from 'src/rcm/state/charge-masters/charge-master.queries';
 import { useFindApplicableFeeScheduleQuery } from 'src/rcm/state/fee-schedules/fee-schedule.queries';
 import { CreditCardBrandIcon } from 'ui-components/lib/components/CreditCardBrandIcon';
+import { getCopayAndRemainingDeductible } from 'utils/lib/fhir/billing';
 import { CPT_CODE_SYSTEM, SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
 import {
   getPaymentVariantFromEncounter,
@@ -68,10 +69,7 @@ import { RoleType } from 'utils/lib/types/api/user.types';
 import { PATIENT_HAS_MEDICAID_URL } from 'utils/lib/types/constants';
 import { OrderedCoveragesWithSubscribers } from 'utils/lib/types/data/account';
 import { findQuestionnaireItemByLinkId } from 'utils/lib/types/data/paperwork/findQuestionnaireItemByLinkId';
-import {
-  mapEligibilityCheckResultToSimpleStatus,
-  PatientPaymentBenefit,
-} from 'utils/lib/types/data/telemed/eligibility.types';
+import { mapEligibilityCheckResultToSimpleStatus } from 'utils/lib/types/data/telemed/eligibility.types';
 import { APIError, APIErrorCode, isApiError } from 'utils/lib/types/errors';
 import { sendReceiptByEmail } from '../api/api';
 import PaymentDetailsDialog, { getRefundState, RefundChip } from './dialogs/PaymentDetailsDialog';
@@ -435,34 +433,6 @@ export default function PatientPaymentList({
     ((!canQueryFeeSchedule && insurancePayFetched) ||
       (canQueryFeeSchedule && feeScheduleFetched && (!!payerFeeSchedule || insurancePayFetched)));
 
-  function getPaymentAmountFromPatientBenefit({
-    coverage,
-    code,
-    coverageCode,
-    levelCode,
-    periodCode,
-  }: {
-    coverage: PatientPaymentBenefit[];
-    code: string;
-    coverageCode: string;
-    levelCode: string;
-    periodCode: string | undefined;
-  }): PatientPaymentBenefit | undefined {
-    if (!periodCode) {
-      return coverage.find(
-        (item) => item.code === code && item.coverageCode === coverageCode && item.levelCode === levelCode
-      );
-    }
-
-    return coverage.find(
-      (item) =>
-        item.code === code &&
-        item.coverageCode === coverageCode &&
-        item.levelCode === levelCode &&
-        item.periodCode === periodCode
-    );
-  }
-
   const payments = paymentData?.payments ?? []; // Replace with actual payments when available
 
   // resolved from the id so a refetch (e.g. after refund/void) refreshes the open dialog
@@ -736,21 +706,7 @@ export default function PatientPaymentList({
     ? mapEligibilityCheckResultToSimpleStatus(coverageCheck).status
     : undefined;
 
-  const copayAmount = getPaymentAmountFromPatientBenefit({
-    coverage: coverageCheck?.copay?.filter((item) => item.inNetwork === true) || [],
-    code: 'UC',
-    coverageCode: 'B',
-    levelCode: 'IND',
-    periodCode: undefined,
-  });
-
-  const remainingDeductibleAmount = getPaymentAmountFromPatientBenefit({
-    coverage: coverageCheck?.deductible?.filter((item) => item.inNetwork === true) || [],
-    code: '30',
-    coverageCode: 'C',
-    levelCode: 'IND',
-    periodCode: '29',
-  });
+  const { copayAmount, remainingDeductibleAmount } = getCopayAndRemainingDeductible(coverageCheck);
 
   const serviceCategory = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code;
 
