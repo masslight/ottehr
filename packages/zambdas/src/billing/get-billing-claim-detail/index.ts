@@ -47,6 +47,7 @@ import {
   copySourceId,
   createBillingClient,
   createEraReadClient,
+  ERA_ICN_EXTENSION,
   ERA_STATUS_CODE_EXTENSION,
   EXTENSION_CLAIM_ADMISSION_TYPE_CODE,
   EXTENSION_CLAIM_FACILITY_TYPE_CODE,
@@ -62,6 +63,7 @@ import {
   getClaimSupportingInfo,
   getClaimType,
   getEraCheckNumber,
+  getEraExtensionString,
   getTaxonomy,
   readClaimItemDrug,
   readClaimItemOrderingProvider,
@@ -191,9 +193,10 @@ export async function performEffect(
     .map((paymentReconciliation) => {
       // paymentIssuer may be missing (process-era) or carry an unresolvable id (the 835's GS/ISA
       // sender, e.g. a payer's EDI/TIN id); fall back to the payer on one of this ERA's ClaimResponses
-      const linkedCr = claimResponses.find(
+      const linkedCrs = claimResponses.filter(
         (cr) => paymentReconciliationIdByClaimResponseId.get(cr.id ?? '') === paymentReconciliation.id
       );
+      const linkedCr = linkedCrs[0];
       const issuerRef = paymentReconciliation.paymentIssuer?.reference;
       const linkedCrRef = linkedCr?.insurer?.reference;
       const payer =
@@ -206,6 +209,10 @@ export async function performEffect(
         checkDate: paymentReconciliation.paymentDate ?? '',
         paymentAmount: paymentReconciliation.paymentAmount?.value ?? 0,
         payerName: payer?.name ?? paymentReconciliation.paymentIssuer?.display ?? linkedCr?.insurer?.display ?? '',
+        payerClaimControlNumber:
+          linkedCrs
+            .map((cr) => getEraExtensionString(cr, ERA_ICN_EXTENSION) ?? cr.identifier?.[0]?.value ?? '')
+            .find(Boolean) ?? '',
       };
     });
   const status = getClaimStatus(claim);

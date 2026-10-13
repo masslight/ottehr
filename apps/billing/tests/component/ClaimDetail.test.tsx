@@ -211,6 +211,7 @@ const makePayment = (overrides: Partial<ClaimInsurancePayment>): ClaimInsuranceP
   checkDate: '2026-07-08',
   paymentAmount: 350,
   payerName: 'CIGNA',
+  payerClaimControlNumber: '',
   ...overrides,
 });
 
@@ -426,7 +427,7 @@ describe('ClaimDetail — insurance payments', () => {
     const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
     getBillingClaimDetailMock.mockResolvedValue({
       ...makeClaim(AR_STAGE.insurancePayer),
-      insurancePayments: [makePayment({})],
+      insurancePayments: [makePayment({ payerClaimControlNumber: 'ICN0012345' })],
     });
     renderDetail();
 
@@ -438,7 +439,7 @@ describe('ClaimDetail — insurance payments', () => {
     expect(checkLink).toHaveAttribute('target', '_blank');
 
     const row = checkLink.closest('tr');
-    expect(cellTexts(row)).toEqual(['07/07/2026', '07/08/2026', 'CIGNA', 'ERA0000000001', '$350.00']);
+    expect(cellTexts(row)).toEqual(['07/07/2026', '07/08/2026', 'CIGNA', 'ERA0000000001', 'ICN0012345', '$350.00']);
 
     fireEvent.click(row as HTMLElement);
     expect(openSpy).toHaveBeenCalledWith('/eras/payment-reconciliation-1', '_blank', 'noopener');

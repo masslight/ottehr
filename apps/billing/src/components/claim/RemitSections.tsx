@@ -181,6 +181,7 @@ export function InsurancePaymentsSection({ payments }: { payments: ClaimInsuranc
                 <TableCell sx={thSx}>Check Date</TableCell>
                 <TableCell sx={thSx}>Payer</TableCell>
                 <TableCell sx={thSx}>Check Number</TableCell>
+                <TableCell sx={thSx}>Payer Claim #</TableCell>
                 <TableCell sx={thSx} align="right">
                   Check Amount
                 </TableCell>
@@ -203,6 +204,7 @@ export function InsurancePaymentsSection({ payments }: { payments: ClaimInsuranc
                     <TableCell>
                       <CheckLink paymentReconciliationId={eraId} checkNumber={payment.checkNumber} />
                     </TableCell>
+                    <TableCell>{payment.payerClaimControlNumber || '-'}</TableCell>
                     <TableCell align="right">
                       <Typography variant="body2" fontWeight={700} component="span">
                         {formatCurrency(payment.paymentAmount)}

@@ -419,6 +419,8 @@ export interface ClaimInsurancePayment {
   // the whole check's amount, not this claim's share (that's the remit's paid)
   paymentAmount: number;
   payerName: string;
+  // CLP07/ICN from this claim's remit on the ERA; '' when the converter stamps none
+  payerClaimControlNumber: string;
 }
 
 // One ERA adjudication (ClaimResponse) posted against a claim.
