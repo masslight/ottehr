@@ -96,6 +96,7 @@ export async function runPhotoIdExtraction(
     ({ bytes, mimeType } = await downloadOcrSourceImage({
       attachmentUrl,
       token: oystehrToken,
+      secrets,
       fallbackContentType: current.content?.[0]?.attachment?.contentType,
     }));
   } catch (error) {
