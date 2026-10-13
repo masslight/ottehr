@@ -1,9 +1,11 @@
 import type { PreliminaryReadChoiceList, PreliminaryReadTemplatesConfig } from './preliminaryReadTypes';
 
 const NONE = '';
-
 const SALTER_HARRIS = ['Salter-Harris I', 'Salter-Harris II'];
-const PEDIATRIC_FRACTURE_TYPES = ['buckle (torus)', 'greenstick', ...SALTER_HARRIS];
+const BUCKLE = 'buckle (torus)';
+const PEDIATRIC_FRACTURE_TYPES = [BUCKLE, 'greenstick', ...SALTER_HARRIS];
+const NOT_TUBULAR_BONES = ['scaphoid', 'patella', 'scapular body', 'base of the 5th metatarsal'];
+const ALIGNMENT_MAINTAINED = 'No dislocation. Alignment maintained.';
 const ADULT_FRACTURE_TYPES = [NONE, 'comminuted', 'avulsion'];
 
 const FX_TYPE_TUBULAR: PreliminaryReadChoiceList = {
@@ -46,9 +48,9 @@ export const PRELIMINARY_READ_TEMPLATES: PreliminaryReadTemplatesConfig = {
     },
     fxType: { title: 'Fracture type', options: ADULT_FRACTURE_TYPES },
     fxTypeTubular: FX_TYPE_TUBULAR,
-    fxTypeBuckle: { ...FX_TYPE_TUBULAR, childDefault: 'buckle (torus)' },
+    fxTypeBuckle: { ...FX_TYPE_TUBULAR, childDefault: BUCKLE },
     fxTypeSalter: { ...FX_TYPE_TUBULAR, childDefault: 'Salter-Harris I' },
-    fxClose: { title: 'Closing line', options: ['No dislocation. Alignment maintained.', 'No dislocation.', NONE] },
+    fxClose: { title: 'Closing line', options: [ALIGNMENT_MAINTAINED, 'No dislocation.', NONE] },
     effusion: { title: 'Joint effusion', options: [NONE, 'Joint effusion present.'] },
     ray: { title: 'Ray', mustPick: true, options: ['5th', '4th', '3rd', '2nd', '1st'] },
     shaftSite: { title: 'Site', mustPick: true, options: ['base', 'shaft', 'neck', 'head'] },
@@ -249,7 +251,7 @@ export const PRELIMINARY_READ_TEMPLATES: PreliminaryReadTemplatesConfig = {
     },
     wristClose: {
       title: 'Closing line',
-      options: ['No dislocation. Alignment maintained.', 'Mild dorsal angulation.', 'No dislocation.', NONE],
+      options: [ALIGNMENT_MAINTAINED, 'Mild dorsal angulation.', 'No dislocation.', NONE],
     },
     finger: {
       title: 'Finger',
@@ -269,16 +271,22 @@ export const PRELIMINARY_READ_TEMPLATES: PreliminaryReadTemplatesConfig = {
     },
   },
   conflicts: [
-    // A Salter-Harris fracture runs through the growth plate by definition; a growth-plate line would contradict
-    // ("not involved") or repeat ("extends to") it.
     ...SALTER_HARRIS.flatMap((type): [string, string][] => [
       [type, GROWTH_PLATE_NOT_INVOLVED],
       [type, GROWTH_PLATE_EXTENDS],
     ]),
-    // The thumb and the great toe (1st ray of the foot) have no middle phalanx.
     ['middle phalanx', 'thumb'],
     ['middle phalanx', 'great toe'],
     ['middle phalanx', '1st'],
+    ['Displaced', ALIGNMENT_MAINTAINED],
+    ['Angulated', ALIGNMENT_MAINTAINED],
+    ['Displaced', BUCKLE],
+    ...PEDIATRIC_FRACTURE_TYPES.flatMap((type): [string, string][] =>
+      NOT_TUBULAR_BONES.map((bone): [string, string] => [type, bone])
+    ),
+    // "Focal" is one spot; it can't be in both lungs.
+    ['Focal airspace opacity', 'both lungs'],
+    ['Focal airspace opacity', 'both lower lobes'],
   ],
   regions: [
     {

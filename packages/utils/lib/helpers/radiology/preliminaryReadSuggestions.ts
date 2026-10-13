@@ -100,26 +100,39 @@ for (const [a, b] of PRELIMINARY_READ_TEMPLATES.conflicts) {
 }
 
 export const findConflictingValue = (
-  segments: PreliminaryReadSegment[],
   values: (string | undefined)[],
   index: number,
   option: string
 ): string | undefined => {
   const conflicts = CONFLICTS.get(option);
   if (!conflicts) return undefined;
-  for (let i = 0; i < segments.length; i++) {
-    const segment = segments[i];
-    if (i === index || typeof segment === 'string') continue;
-    const current = values[i] ?? segment.initial;
-    if (current !== undefined && conflicts.has(current)) return current;
-  }
-  return undefined;
+  return values.find((value, i) => i !== index && value !== undefined && conflicts.has(value));
 };
 
-export const assemblePreliminaryRead = (segments: PreliminaryReadSegment[], values: (string | undefined)[]): string =>
-  segments
-    .map((segment, i) => (typeof segment === 'string' ? segment : values[i] ?? segment.initial ?? ''))
+export const resolvePreliminaryReadValues = (
+  segments: PreliminaryReadSegment[],
+  values: (string | undefined)[]
+): (string | undefined)[] => {
+  const resolved = segments.map((segment, i) =>
+    typeof segment === 'string' ? undefined : values[i] ?? segment.initial
+  );
+  segments.forEach((segment, i) => {
+    const current = resolved[i];
+    if (typeof segment === 'string' || values[i] !== undefined || current === undefined) return;
+    if (!findConflictingValue(resolved, i, current)) return;
+    resolved[i] = segment.options.includes('')
+      ? ''
+      : segment.options.find((option) => !findConflictingValue(resolved, i, option)) ?? current;
+  });
+  return resolved;
+};
+
+export const assemblePreliminaryRead = (segments: PreliminaryReadSegment[], values: (string | undefined)[]): string => {
+  const resolved = resolvePreliminaryReadValues(segments, values);
+  return segments
+    .map((segment, i) => (typeof segment === 'string' ? segment : resolved[i] ?? ''))
     .join('')
     .replace(/\s+/g, ' ')
     .replace(/ \./g, '.')
     .trim();
+};

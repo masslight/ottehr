@@ -10,6 +10,7 @@ import {
   findUnpickedBlank,
   PRELIMINARY_READ_NONE_LABEL,
   PreliminaryReadBlank,
+  resolvePreliminaryReadValues,
 } from 'utils/lib/helpers/radiology/preliminaryReadSuggestions';
 
 interface RadiologyPreliminaryReadSuggestionsProps {
@@ -53,13 +54,13 @@ const SuggestionsBox: React.FC<RadiologyPreliminaryReadSuggestionsProps> = ({
 
   const activeBlank = active && (suggestions[active.blank.row].segments[active.blank.segment] as PreliminaryReadBlank);
 
-  const valueOf = (ref: BlankRef, blank: PreliminaryReadBlank): string | undefined =>
-    values[blankKey(ref)] ?? blank.initial;
-
   const rowValues = (row: number): (string | undefined)[] =>
     suggestions[row].segments.map((segment, i) =>
       typeof segment === 'string' ? undefined : values[blankKey({ row, segment: i })]
     );
+
+  const shownValues = (row: number): (string | undefined)[] =>
+    resolvePreliminaryReadValues(suggestions[row].segments, rowValues(row));
 
   const pick = (option: string): void => {
     if (!active) return;
@@ -75,8 +76,9 @@ const SuggestionsBox: React.FC<RadiologyPreliminaryReadSuggestionsProps> = ({
       {suggestions.map((suggestion, row) => {
         const mustPick = findUnpickedBlank(suggestion.segments, rowValues(row));
         const sentence = assemblePreliminaryRead(suggestion.segments, rowValues(row));
-        // Derived from the field, so deleting the sentence there (or changing a blank) re-arms the "+".
+        const shown = shownValues(row);
         const added = !mustPick && value.includes(sentence);
+
         return (
           <Box key={suggestion.name} sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5, py: 0.5 }}>
             <Typography variant="body2" sx={{ flex: 1, lineHeight: 1.8 }}>
@@ -84,7 +86,7 @@ const SuggestionsBox: React.FC<RadiologyPreliminaryReadSuggestionsProps> = ({
                 if (typeof segment === 'string') return segment;
                 const ref = { row, segment: i };
                 const picked = blankKey(ref) in values;
-                const blankValue = valueOf(ref, segment);
+                const blankValue = shown[i];
                 const unpicked = blankValue === undefined;
                 return (
                   <Box
@@ -99,7 +101,6 @@ const SuggestionsBox: React.FC<RadiologyPreliminaryReadSuggestionsProps> = ({
                     sx={(theme) => {
                       const tint = picked ? theme.palette.success.main : theme.palette.primary.main;
                       return {
-                        // A button, but laid out as a run of text so a long value wraps within the sentence.
                         display: 'inline',
                         textAlign: 'left',
                         font: 'inherit',
@@ -112,7 +113,6 @@ const SuggestionsBox: React.FC<RadiologyPreliminaryReadSuggestionsProps> = ({
                         borderRadius: '3px',
                         padding: '1px 2px',
                         '&:hover': { backgroundColor: alpha(tint, 0.3) },
-                        // Still to be picked: an outlined placeholder rather than a value that could pass for one.
                         ...(unpicked && {
                           border: '1px dashed',
                           borderColor: theme.palette.warning.dark,
@@ -152,8 +152,6 @@ const SuggestionsBox: React.FC<RadiologyPreliminaryReadSuggestionsProps> = ({
           </Box>
         );
       })}
-      {/* A Menu for the keyboard handling (arrows, Enter, Escape back to the blank); listbox roles because
-          the items are the blank's possible values, one of which is current, rather than commands. */}
       <Menu
         open={Boolean(active)}
         anchorEl={active?.anchor}
@@ -171,14 +169,8 @@ const SuggestionsBox: React.FC<RadiologyPreliminaryReadSuggestionsProps> = ({
         {active &&
           activeBlank &&
           activeBlank.options.map((option) => {
-            const current = option === valueOf(active.blank, activeBlank);
-
-            const clash = findConflictingValue(
-              suggestions[active.blank.row].segments,
-              rowValues(active.blank.row),
-              active.blank.segment,
-              option
-            );
+            const current = option === shownValues(active.blank.row)[active.blank.segment];
+            const clash = findConflictingValue(rowValues(active.blank.row), active.blank.segment, option);
 
             return (
               <MenuItem

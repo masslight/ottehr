@@ -7,6 +7,7 @@ import {
   findUnpickedBlank,
   PreliminaryReadBlank,
   PreliminaryReadSegment,
+  resolvePreliminaryReadValues,
 } from './preliminaryReadSuggestions';
 import { PRELIMINARY_READ_TEMPLATES } from './preliminaryReadTemplates';
 
@@ -26,7 +27,7 @@ const pickRequired = (segments: PreliminaryReadSegment[]): (string | undefined)[
   const values: (string | undefined)[] = segments.map(() => undefined);
   segments.forEach((segment, i) => {
     if (typeof segment === 'string' || segment.initial !== undefined) return;
-    values[i] = segment.options.find((option) => !findConflictingValue(segments, values, i, option));
+    values[i] = segment.options.find((option) => !findConflictingValue(values, i, option));
   });
   return values;
 };
@@ -88,9 +89,9 @@ describe('preliminary read templates config', () => {
 
   it('never starts a sentence on two values that conflict', () => {
     for (const { label, segments } of allSuggestions()) {
-      segments.forEach((segment, i) => {
-        if (typeof segment === 'string' || segment.initial === undefined) return;
-        expect(findConflictingValue(segments, [], i, segment.initial), label).toBeUndefined();
+      const defaults = segments.map((segment) => (typeof segment === 'string' ? undefined : segment.initial));
+      defaults.forEach((value, i) => {
+        if (value !== undefined) expect(findConflictingValue(defaults, i, value), label).toBeUndefined();
       });
     }
   });
@@ -163,7 +164,7 @@ describe('buildPreliminaryReadSuggestions', () => {
       Bone: 'distal radius',
     });
     expect(assemblePreliminaryRead(fracture.segments, values)).toBe(
-      'Displaced comminuted fracture of the right distal radius. No dislocation. Alignment maintained.'
+      'Displaced comminuted fracture of the right distal radius.'
     );
   });
 
@@ -240,26 +241,26 @@ describe('buildPreliminaryReadSuggestions', () => {
 });
 
 describe('findConflictingValue', () => {
-  it('never pairs a Salter-Harris fracture with a growth-plate line, in either order', () => {
+  it('blocks a growth-plate line next to a picked Salter-Harris fracture, and the other way round', () => {
     const [, fracture] = buildPreliminaryReadSuggestions({ cptCode: '73610', laterality: 'LT', isChild: true });
     const type = indexOfBlank(fracture.segments, 'Fracture type');
     const plate = indexOfBlank(fracture.segments, 'Growth plate (children only)');
 
-    expect(findConflictingValue(fracture.segments, [], plate, 'Growth plate not involved.')).toBe('Salter-Harris I');
-    expect(findConflictingValue(fracture.segments, [], plate, 'Extends to the growth plate.')).toBe('Salter-Harris I');
-    expect(findConflictingValue(fracture.segments, [], plate, '')).toBeUndefined();
+    const withSalter = valuesFor(fracture.segments, { 'Fracture type': 'Salter-Harris I' });
+    expect(findConflictingValue(withSalter, plate, 'Growth plate not involved.')).toBe('Salter-Harris I');
+    expect(findConflictingValue(withSalter, plate, 'Extends to the growth plate.')).toBe('Salter-Harris I');
+    expect(findConflictingValue(withSalter, plate, '')).toBeUndefined();
 
-    const values = valuesFor(fracture.segments, {
-      'Fracture type': 'buckle (torus)',
-      'Growth plate (children only)': 'Growth plate not involved.',
-    });
+    const withLine = valuesFor(fracture.segments, { 'Growth plate (children only)': 'Growth plate not involved.' });
+    expect(findConflictingValue(withLine, type, 'Salter-Harris II')).toBe('Growth plate not involved.');
+    expect(findConflictingValue(withLine, type, 'greenstick')).toBeUndefined();
+  });
 
-    expect(findConflictingValue(fracture.segments, values, plate, 'Growth plate not involved.')).toBeUndefined();
-
-    expect(findConflictingValue(fracture.segments, values, type, 'Salter-Harris II')).toBe(
-      'Growth plate not involved.'
-    );
-    expect(findConflictingValue(fracture.segments, values, type, 'greenstick')).toBeUndefined();
+  it('does not block anything because of a default: defaults give way instead', () => {
+    // The child ankle starts on Salter-Harris I, but that is only a default.
+    const [, fracture] = buildPreliminaryReadSuggestions({ cptCode: '73610', laterality: 'LT', isChild: true });
+    const plate = indexOfBlank(fracture.segments, 'Growth plate (children only)');
+    expect(findConflictingValue([], plate, 'Growth plate not involved.')).toBeUndefined();
   });
 
   it('does not offer a middle phalanx for the thumb, the great toe or the 1st ray of the foot', () => {
@@ -269,15 +270,102 @@ describe('findConflictingValue', () => {
       const phalanx = indexOfBlank(segments, phalanxTitle);
       const otherIndex = indexOfBlank(segments, otherTitle);
       const withOther = valuesFor(segments, { [otherTitle]: other });
-      expect(findConflictingValue(segments, withOther, phalanx, 'middle phalanx')).toBe(other);
-      expect(findConflictingValue(segments, withOther, phalanx, 'proximal phalanx')).toBeUndefined();
+      expect(findConflictingValue(withOther, phalanx, 'middle phalanx')).toBe(other);
+      expect(findConflictingValue(withOther, phalanx, 'proximal phalanx')).toBeUndefined();
       const withMiddle = valuesFor(segments, { [phalanxTitle]: 'middle phalanx' });
-      expect(findConflictingValue(segments, withMiddle, otherIndex, other)).toBe('middle phalanx');
+      expect(findConflictingValue(withMiddle, otherIndex, other)).toBe('middle phalanx');
     };
     check('73140', 1, 'Finger', 'thumb');
     check('73120', 2, 'Finger', 'thumb');
     check('73660', 1, 'Toe', 'great toe');
     check('73630', 1, 'Ray', '1st');
+  });
+});
+
+describe('resolvePreliminaryReadValues', () => {
+  const sentence = (
+    cptCode: string,
+    row: number,
+    isChild: boolean,
+    picks: Record<string, string>,
+    laterality: 'LT' | 'RT' = 'LT'
+  ): string => {
+    const { segments } = buildPreliminaryReadSuggestions({ cptCode, laterality, isChild })[row];
+    return assemblePreliminaryRead(segments, valuesFor(segments, picks));
+  };
+
+  it('drops the default "Alignment maintained" closing line for a displaced or angulated fracture, without adding another claim', () => {
+    expect(sentence('73100', 1, false, { Bone: 'distal radius' })).toBe(
+      'Nondisplaced fracture of the left distal radius. No dislocation. Alignment maintained.'
+    );
+    expect(sentence('73100', 1, false, { Displacement: 'Displaced', Bone: 'distal radius' })).toBe(
+      'Displaced fracture of the left distal radius.'
+    );
+    expect(sentence('73560', 1, false, { Displacement: 'Angulated', Bone: 'patella' })).toBe(
+      'Angulated fracture of the left patella.'
+    );
+  });
+
+  it('drops a default buckle type when the fracture is displaced', () => {
+    expect(sentence('73100', 1, true, { Displacement: 'Displaced', Bone: 'distal radius' })).toBe(
+      'Displaced fracture of the left distal radius.'
+    );
+  });
+
+  it('drops a default child fracture type on a bone that is not a growing tubular bone', () => {
+    expect(sentence('73100', 1, true, { Bone: 'distal radius' })).toBe(
+      'Nondisplaced buckle (torus) fracture of the left distal radius. No dislocation. Alignment maintained.'
+    );
+    expect(sentence('73100', 1, true, { Bone: 'scaphoid' })).toBe(
+      'Nondisplaced fracture of the left scaphoid. No dislocation. Alignment maintained.'
+    );
+    expect(sentence('73610', 1, true, { Bone: 'base of the 5th metatarsal' })).toBe(
+      'Nondisplaced fracture of the left base of the 5th metatarsal. Ankle mortise intact.'
+    );
+  });
+
+  it('drops a default Salter-Harris type when the provider states the growth plate is not involved', () => {
+    expect(sentence('73610', 1, true, { Bone: 'distal tibia' })).toBe(
+      'Nondisplaced Salter-Harris I fracture of the left distal tibia. Ankle mortise intact.'
+    );
+    expect(
+      sentence('73610', 1, true, { Bone: 'distal tibia', 'Growth plate (children only)': 'Growth plate not involved.' })
+    ).toBe('Nondisplaced fracture of the left distal tibia. Growth plate not involved. Ankle mortise intact.');
+  });
+
+  it('does not call an opacity in both lungs focal', () => {
+    expect(sentence('71046', 1, false, { Location: 'both lungs' })).toBe(
+      'Patchy airspace opacities in both lungs concerning for pneumonia. No pleural effusion or pneumothorax.'
+    );
+  });
+
+  it('never leaves two clashing values in a sentence after any single pick', () => {
+    const clashes: string[] = [];
+    for (const { label, segments } of allSuggestions()) {
+      segments.forEach((segment, i) => {
+        if (typeof segment === 'string') return;
+        for (const option of segment.options) {
+          const picks: (string | undefined)[] = segments.map(() => undefined);
+          picks[i] = option;
+          const resolved = resolvePreliminaryReadValues(segments, picks);
+          resolved.forEach((value, j) => {
+            if (value !== undefined && findConflictingValue(resolved, j, value)) {
+              clashes.push(`${label}: ${segment.title}=${option} -> ${value}`);
+            }
+          });
+        }
+      });
+    }
+    expect(clashes.slice(0, 5)).toEqual([]);
+  });
+
+  it("keeps the provider's picks as they are", () => {
+    const [, fracture] = buildPreliminaryReadSuggestions({ cptCode: '73100', laterality: 'LT', isChild: false });
+    const picks = valuesFor(fracture.segments, { Displacement: 'Displaced', 'Closing line': 'No dislocation.' });
+    const resolved = resolvePreliminaryReadValues(fracture.segments, picks);
+    picks.forEach((pick, i) => {
+      if (pick !== undefined) expect(resolved[i]).toBe(pick);
+    });
   });
 });
 
@@ -314,7 +402,7 @@ describe('assemblePreliminaryRead', () => {
       const walk = (k: number, values: (string | undefined)[]): void => {
         if (k === blankIndexes.length) {
           // Reachable only if no picked value clashes with another (the list doesn't offer clashing ones).
-          if (blankIndexes.some((i) => findConflictingValue(segments, values, i, values[i]!))) return;
+          if (blankIndexes.some((i) => findConflictingValue(values, i, values[i]!))) return;
           sentences++;
           const text = assemblePreliminaryRead(segments, values);
           if (!/^[A-Z][^{}]*\.$/.test(text) || /\s{2}|\s\.|\bthe (the|both|bilateral)\b/.test(text)) {

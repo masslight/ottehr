@@ -170,23 +170,25 @@ describe('RadiologyPreliminaryReadSuggestions', () => {
     await user.click(screen.getAllByRole('button', { name: ADD_BTN_LABEL })[1]);
 
     expect(screen.getByRole('textbox', { name: FIELD_LABEL })).toHaveValue(
-      'Displaced comminuted fracture of the left radial shaft. No dislocation. Alignment maintained.'
+      'Displaced comminuted fracture of the left radial shaft.'
     );
   });
 
-  it('does not offer a growth-plate line that contradicts a Salter-Harris fracture, and the other way round', async () => {
+  it('blocks a growth-plate line next to a Salter-Harris fracture the provider picked, and the other way round', async () => {
     const user = userEvent.setup();
     render(<Harness cptCode="73610" laterality="LT" isChild />);
     const notInvolved = /^Growth plate not involved\./;
 
+    await user.click(screen.getByRole('button', { name: 'Fracture type: Salter-Harris I' }));
+    await user.click(screen.getByRole('option', { name: 'Salter-Harris II' }));
     await user.click(screen.getByRole('button', { name: 'Growth plate (children only): (none)' }));
     let plate = screen.getByRole('listbox', { name: 'Growth plate (children only)' });
     expect(within(plate).getByRole('option', { name: notInvolved })).toHaveAttribute('aria-disabled', 'true');
-    expect(within(plate).getByRole('option', { name: notInvolved })).toHaveTextContent('not with “Salter-Harris I”');
+    expect(within(plate).getByRole('option', { name: notInvolved })).toHaveTextContent('not with “Salter-Harris II”');
     await user.keyboard('{Escape}');
 
     // With a buckle fracture the line can be picked, and then Salter-Harris is the one that can't.
-    await user.click(screen.getByRole('button', { name: 'Fracture type: Salter-Harris I' }));
+    await user.click(screen.getByRole('button', { name: 'Fracture type: Salter-Harris II' }));
     await user.click(screen.getByRole('option', { name: 'buckle (torus)' }));
     await user.click(screen.getByRole('button', { name: 'Growth plate (children only): (none)' }));
     plate = screen.getByRole('listbox', { name: 'Growth plate (children only)' });
@@ -195,6 +197,41 @@ describe('RadiologyPreliminaryReadSuggestions', () => {
     const types = screen.getByRole('listbox', { name: 'Fracture type' });
     expect(within(types).getByRole('option', { name: /^Salter-Harris I\b/ })).toHaveAttribute('aria-disabled', 'true');
     expect(within(types).getByRole('option', { name: 'greenstick' })).not.toHaveAttribute('aria-disabled');
+  });
+
+  it('lets a pick override a default it clashes with: the default steps aside instead of blocking the pick', async () => {
+    const user = userEvent.setup();
+    render(<Harness cptCode="73610" laterality="LT" isChild />);
+
+    // Salter-Harris I is only the child ankle default, so "growth plate not involved" can be picked; the type
+    // then steps back to (none) rather than the sentence contradicting itself.
+    await user.click(screen.getByRole('button', { name: 'Growth plate (children only): (none)' }));
+    await user.click(screen.getByRole('option', { name: 'Growth plate not involved.' }));
+    expect(screen.getByRole('button', { name: 'Fracture type: (none)' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Bone: not picked' }));
+    await user.click(screen.getByRole('option', { name: 'distal tibia' }));
+    await user.click(screen.getAllByRole('button', { name: ADD_BTN_LABEL })[1]);
+
+    expect(screen.getByRole('textbox', { name: FIELD_LABEL })).toHaveValue(
+      'Nondisplaced fracture of the left distal tibia. Growth plate not involved. Ankle mortise intact.'
+    );
+  });
+
+  it('drops the default "Alignment maintained" closing line when the fracture is picked as displaced', async () => {
+    const user = userEvent.setup();
+    render(<Harness cptCode="73560" laterality="RT" />);
+
+    expect(
+      screen.getByRole('button', { name: 'Closing line: No dislocation. Alignment maintained.' })
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Displacement: Nondisplaced' }));
+    await user.click(screen.getByRole('option', { name: 'Displaced' }));
+    expect(screen.getByRole('button', { name: 'Closing line: (none)' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Bone: not picked' }));
+    await user.click(screen.getByRole('option', { name: 'patella' }));
+    await user.click(screen.getAllByRole('button', { name: ADD_BTN_LABEL })[1]);
+
+    expect(screen.getByRole('textbox', { name: FIELD_LABEL })).toHaveValue('Displaced fracture of the right patella.');
   });
 
   it('starts fresh when the study, side or age changes, instead of carrying picks over to other templates', async () => {
