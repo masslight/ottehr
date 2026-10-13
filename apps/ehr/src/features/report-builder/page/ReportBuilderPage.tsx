@@ -28,15 +28,23 @@ import {
 } from '@mui/material';
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import {
+  AD_HOC_REPORT_LLM_MODELS,
+  AD_HOC_REPORT_MODELS,
+  AdHocReportModel,
+} from 'utils/lib/types/adhoc/generation/generate.types';
 import { AdHocDateRangeFilter } from 'utils/lib/types/adhoc/query/date-range';
+import { getLlmModelVariantLabel } from 'utils/lib/types/api/ai-models.constants';
 import PageContainer from '../../../layout/PageContainer';
 import { ReportFrame } from '../sandbox/ReportFrame';
 import { AllDatasetsInfo, DatasetLayersInfo } from './DatasetLayersInfo';
+import { RawDataGrid } from './RawDataGrid';
 import { useReportBuilder } from './useReportBuilder';
 
 export default function ReportBuilderPage(): React.ReactElement {
   const navigate = useNavigate();
   const rb = useReportBuilder();
+  const [showRawData, setShowRawData] = React.useState(false);
 
   if (!rb.canView) {
     return (
@@ -74,8 +82,10 @@ export default function ReportBuilderPage(): React.ReactElement {
 
           <Box sx={{ mb: 3, display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
             <FormControl size="small" sx={{ minWidth: 200 }}>
-              <InputLabel>Date Range</InputLabel>
+              <InputLabel id="adhoc-date-range-label">Date Range</InputLabel>
               <Select
+                labelId="adhoc-date-range-label"
+                id="adhoc-date-range"
                 value={rb.dateRange}
                 label="Date Range"
                 onChange={(e: SelectChangeEvent<AdHocDateRangeFilter>) =>
@@ -122,6 +132,25 @@ export default function ReportBuilderPage(): React.ReactElement {
                   InputLabelProps={{ shrink: true }}
                 />
               </>
+            )}
+
+            {rb.canPickModel && (
+              <FormControl size="small" sx={{ minWidth: 200 }}>
+                <InputLabel id="adhoc-model-label">Model</InputLabel>
+                <Select
+                  labelId="adhoc-model-label"
+                  id="adhoc-model"
+                  value={rb.model}
+                  label="Model"
+                  onChange={(e: SelectChangeEvent<AdHocReportModel>) => rb.setModel(e.target.value as AdHocReportModel)}
+                >
+                  {AD_HOC_REPORT_MODELS.map((m) => (
+                    <MenuItem key={m} value={m}>
+                      {getLlmModelVariantLabel(AD_HOC_REPORT_LLM_MODELS[m])}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
             )}
 
             {rb.schema && (
@@ -249,9 +278,22 @@ export default function ReportBuilderPage(): React.ReactElement {
                   schema: <strong>{rb.schema.fields.length}</strong> fields
                 </Typography>
                 <Button size="small" onClick={() => rb.setShowSchema(!rb.showSchema)}>
-                  {rb.showSchema ? 'Hide fields' : 'Show fields'}
+                  {rb.showSchema ? 'Hide schema' : 'Show schema'}
+                </Button>
+                <Button size="small" onClick={() => setShowRawData(!showRawData)}>
+                  {showRawData ? 'Hide response data' : 'Show response data'}
                 </Button>
               </Box>
+
+              <Collapse in={showRawData} unmountOnExit>
+                <RawDataGrid
+                  key={rb.schema.datasetId}
+                  rows={rb.rows}
+                  schema={rb.schema}
+                  loading={rb.loading}
+                  fileName={`${rb.schema.label.toLowerCase().replace(/[^\w.-]+/g, '-')}-raw-data`}
+                />
+              </Collapse>
 
               <Collapse in={rb.showSchema}>
                 <Paper variant="outlined" sx={{ mb: 3, overflow: 'auto' }}>

@@ -67,7 +67,7 @@ import { formatWeightKg, formatWeightLbs } from 'utils/lib/helpers/vitals/vitals
 import { VisitStatusLabel } from 'utils/lib/types/api/appointment.types';
 import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import type { VitalsWeightObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
-import { VitalsUnitInputOrder } from 'utils/lib/types/api/progress-note-config/progress-note-config.types';
+import { VitalsHeaderUnitSystem } from 'utils/lib/types/api/progress-note-config/progress-note-config.types';
 import { FhirAppointmentType } from 'utils/lib/types/common';
 import { REASON_FOR_VISIT_SEPARATOR } from 'utils/lib/types/constants';
 import { PRACTITIONER_CODINGS } from 'utils/lib/types/data/appointments/appointments.types';
@@ -77,7 +77,7 @@ import { useApiClients } from '../../../../hooks/useAppClients';
 import { PatientNotesButton } from '../../../patient-notes/components/PatientNotesButton';
 import { ProfileAvatar } from '../../shared/components/ProfileAvatar';
 import { useGetHistoricalVitals, useGetVitals } from '../../shared/components/vitals/hooks/useGetVitals';
-import { useVitalsUnitInputOrder } from '../../shared/components/vitals/hooks/useVitalsUnitInputOrder';
+import { useVitalsHeaderUnitSystem } from '../../shared/components/vitals/hooks/useVitalsHeaderUnitSystem';
 import { invalidateChart } from '../../shared/hooks/chartSectionCache';
 import { useChartData } from '../../shared/hooks/useChartData';
 import { useGetAppointmentAccessibility } from '../../shared/hooks/useGetAppointmentAccessibility';
@@ -123,16 +123,16 @@ const PatientInfoWrapper = styled(Box)({
   columnGap: '8px',
 });
 
-const formatHeaderWeight = (weightKg: number, unitInputOrder: VitalsUnitInputOrder): string =>
-  unitInputOrder === 'imperial-metric' ? `${formatWeightLbs(weightKg)}lbs` : `${formatWeightKg(weightKg)}kg`;
+const formatHeaderWeight = (weightKg: number, unitSystem: VitalsHeaderUnitSystem): string =>
+  unitSystem === 'imperial' ? `${formatWeightLbs(weightKg)}lbs` : `${formatWeightKg(weightKg)}kg`;
 
 const getPatientWeightFallback = (
   weight: string | undefined,
-  unitInputOrder: VitalsUnitInputOrder
+  unitSystem: VitalsHeaderUnitSystem
 ): string | undefined => {
   const normalizedWeight = weight?.replace(/\s/g, '');
   const weightKg = normalizedWeight?.match(/^(\d+(?:\.\d+)?)kg/)?.[1];
-  return weightKg ? formatHeaderWeight(Number(weightKg), unitInputOrder) : undefined;
+  return weightKg ? formatHeaderWeight(Number(weightKg), unitSystem) : undefined;
 };
 
 const getWeightRefusedLabel = (): string => 'Weight: Patient Refused';
@@ -144,7 +144,7 @@ const getDisplayWeight = (
   currentObservations: VitalsWeightObservationDTO[],
   historicalObservations: VitalsWeightObservationDTO[],
   patientWeight: string | undefined,
-  unitInputOrder: VitalsUnitInputOrder
+  unitSystem: VitalsHeaderUnitSystem
 ): string | undefined => {
   const latestDisplayableObservation = [...currentObservations, ...historicalObservations].find(
     (observation) => isPatientRefusedWeightObservation(observation) || typeof observation.value === 'number'
@@ -156,12 +156,12 @@ const getDisplayWeight = (
     }
 
     if (typeof latestDisplayableObservation.value === 'number') {
-      return formatHeaderWeight(latestDisplayableObservation.value, unitInputOrder);
+      return formatHeaderWeight(latestDisplayableObservation.value, unitSystem);
     }
   }
 
   if (currentObservations.length === 0 && historicalObservations.length === 0) {
-    return getPatientWeightFallback(patientWeight, unitInputOrder);
+    return getPatientWeightFallback(patientWeight, unitSystem);
   }
 
   return undefined;
@@ -253,7 +253,7 @@ export const Header = (): JSX.Element => {
   const vitalsEncounterId = isFollowup ? followUpOriginEncounter?.id : effectiveEncounterId;
   const { data: encounterVitals } = useGetVitals(vitalsEncounterId);
   const { data: historicalVitals } = useGetHistoricalVitals(vitalsEncounterId);
-  const vitalsUnitInputOrder = useVitalsUnitInputOrder();
+  const vitalsHeaderUnitSystem = useVitalsHeaderUnitSystem();
 
   const start = encounter?.period?.start ?? appointmentValues?.start;
 
@@ -387,7 +387,7 @@ export const Header = (): JSX.Element => {
     encounterVitals?.[VitalFieldNames.VitalWeight] ?? [],
     historicalVitals?.[VitalFieldNames.VitalWeight] ?? [],
     mappedData?.weight,
-    vitalsUnitInputOrder
+    vitalsHeaderUnitSystem
   );
 
   const allergies = formatLabelValue(
