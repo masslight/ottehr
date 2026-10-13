@@ -88,6 +88,8 @@ const SuggestionsBox: React.FC<RadiologyPreliminaryReadSuggestionsProps> = ({
                 const picked = blankKey(ref) in values;
                 const blankValue = shown[i];
                 const unpicked = blankValue === undefined;
+                const empty = blankValue === '';
+                const fieldName = segment.title.replace(/\s*\(.*\)$/, '').toLowerCase();
                 return (
                   <Box
                     component="button"
@@ -120,10 +122,17 @@ const SuggestionsBox: React.FC<RadiologyPreliminaryReadSuggestionsProps> = ({
                           backgroundColor: 'transparent',
                           '&:hover': { backgroundColor: alpha(theme.palette.warning.main, 0.1) },
                         }),
+                        ...(empty && {
+                          border: '1px dotted',
+                          borderColor: theme.palette.divider,
+                          color: theme.palette.text.secondary,
+                          backgroundColor: 'transparent',
+                          '&:hover': { backgroundColor: alpha(theme.palette.primary.main, 0.08) },
+                        }),
                       };
                     }}
                   >
-                    {unpicked ? segment.title.toLowerCase() : blankValue || PRELIMINARY_READ_NONE_LABEL}
+                    {unpicked ? fieldName : empty ? `+ ${fieldName}` : blankValue}
                     {picked && (
                       <CheckCircle sx={{ fontSize: 12, color: 'success.main', ml: 0.25, verticalAlign: 'middle' }} />
                     )}

@@ -101,13 +101,13 @@ describe('RadiologyPreliminaryReadSuggestions', () => {
     expect(screen.getAllByRole('img', { name: ADDED_LABEL })).toHaveLength(1);
   });
 
-  it('shows "(none)" on a blank left out and drops its text from the sentence', async () => {
+  it('shows a blank left out as "+ <field>" and drops its text from the sentence', async () => {
     const user = userEvent.setup();
     render(<Harness cptCode="73610" laterality="LT" />);
 
     await user.click(screen.getByRole('button', { name: 'Closing line: Ankle mortise intact.' }));
     await user.click(screen.getByRole('option', { name: '(none)' }));
-    expect(screen.getByRole('button', { name: 'Closing line: (none)' })).toHaveTextContent('(none)');
+    expect(screen.getByRole('button', { name: 'Closing line: (none)' })).toHaveTextContent('+ closing line');
 
     await user.click(screen.getByRole('button', { name: 'Bone: not picked' }));
     await user.click(screen.getByRole('option', { name: 'distal fibula (lateral malleolus)' }));
@@ -121,6 +121,12 @@ describe('RadiologyPreliminaryReadSuggestions', () => {
     const user = userEvent.setup();
     render(<Harness cptCode="73610" laterality="LT" isChild />);
 
+    // Two empty fields side by side are told apart by their names.
+    expect(screen.getByRole('button', { name: 'Soft tissue: (none)' })).toHaveTextContent('+ soft tissue');
+    expect(screen.getByRole('button', { name: 'Growth plates (children only): (none)' })).toHaveTextContent(
+      '+ growth plates'
+    );
+
     await user.click(screen.getByRole('button', { name: 'Soft tissue: (none)' }));
     const listbox = screen.getByRole('listbox', { name: 'Soft tissue' });
     expect(within(listbox).getByRole('option', { name: '(none)' })).toHaveAttribute('aria-selected', 'true');
@@ -129,24 +135,24 @@ describe('RadiologyPreliminaryReadSuggestions', () => {
     ).toHaveAttribute('aria-selected', 'false');
   });
 
-  it('shows the row text with single spaces where an adult-only gap was dropped, and adds it without the (none) blanks', async () => {
+  it('shows the row text with single spaces where an adult-only gap was dropped, and adds it without the empty blanks', async () => {
     const user = userEvent.setup();
     render(<Harness cptCode="73090" laterality="LT" />);
 
     // Adult forearm: the growth-plate blank between "radius." and the closing line is dropped from the template.
     const fractureRow = screen.getByText(/fracture of the left/);
     expect(fractureRow.textContent).toBe(
-      'Nondisplaced (none) fracture of the left bone. No dislocation. Alignment maintained.'
+      'Nondisplaced + fracture type fracture of the left bone. No dislocation. Alignment maintained.'
     );
     expect(screen.getByText('Alignment maintained.').textContent).toBe(
-      'No acute fracture or dislocation. Alignment maintained. (none)'
+      'No acute fracture or dislocation. Alignment maintained. + incidental finding'
     );
 
     await user.click(screen.getByRole('button', { name: 'Bone: not picked' }));
     await user.click(screen.getByRole('option', { name: 'distal radius' }));
 
     expect(fractureRow.textContent).toBe(
-      'Nondisplaced (none) fracture of the left distal radius. No dislocation. Alignment maintained.'
+      'Nondisplaced + fracture type fracture of the left distal radius. No dislocation. Alignment maintained.'
     );
 
     await user.click(screen.getAllByRole('button', { name: ADD_BTN_LABEL })[1]);
