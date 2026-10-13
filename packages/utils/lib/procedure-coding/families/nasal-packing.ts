@@ -20,6 +20,7 @@ type NasalPackingCode = (typeof NASAL_PACKING_CODES)[keyof typeof NASAL_PACKING_
 const fields: readonly CodingField[] = [
   {
     key: 'leftEffort',
+    neededForCoding: true,
     label: 'Left anterior treatment',
     kind: 'select',
     options: ['none', 'temporary pledget only', 'limited', 'extensive'],
@@ -30,6 +31,7 @@ const fields: readonly CodingField[] = [
   },
   {
     key: 'rightEffort',
+    neededForCoding: true,
     label: 'Right anterior treatment',
     kind: 'select',
     options: ['none', 'temporary pledget only', 'limited', 'extensive'],
@@ -40,6 +42,7 @@ const fields: readonly CodingField[] = [
   },
   {
     key: 'posterior',
+    neededForCoding: true,
     label: 'Posterior treatment',
     kind: 'select',
     options: ['none', 'first', 'repeat'],
@@ -47,6 +50,7 @@ const fields: readonly CodingField[] = [
   },
   {
     key: 'posteriorSide',
+    neededForCoding: true,
     label: 'Posterior side',
     visible: (facts) => facts.posterior !== undefined && facts.posterior !== 'none',
     kind: 'select',

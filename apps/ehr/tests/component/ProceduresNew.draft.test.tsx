@@ -64,7 +64,7 @@ vi.mock('../../src/features/visits/shared/stores/appointment/appointment.store',
 }));
 
 const { mockChartData } = vi.hoisted(() => ({
-  mockChartData: {} as { diagnosis?: { code: string; display: string; isPrimary: boolean; resourceId?: string }[] },
+  mockChartData: {} as Pick<AllChartValues, 'diagnosis' | 'procedures'>,
 }));
 
 vi.mock('../../src/features/visits/shared/hooks/useChartData', () => ({
@@ -96,8 +96,22 @@ vi.mock('../../src/components/RoundedButton', () => ({
   ),
 }));
 
-vi.mock('../../src/components/input/AutocompleteInput', () => ({
-  AutocompleteInput: () => <div />,
+vi.mock('../../src/features/visits/in-person/components/procedures/useProcedureSelectOptions', () => ({
+  useProcedureSelectOptions: () => ({
+    data: {
+      procedureTypes: [{ code: 'test', name: 'Test procedure' }],
+      medicationsUsed: [],
+      bodySites: ['Other'],
+      bodySides: [],
+      techniques: [],
+      supplies: ['Other'],
+      complications: ['Other'],
+      patientResponses: [],
+      postProcedureInstructions: ['Other'],
+      timeSpent: [],
+    },
+    isLoading: false,
+  }),
 }));
 
 vi.mock('../../src/components/WithTooltip', () => ({
@@ -127,6 +141,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ReactNode } from 'react';
 import { BrowserRouter } from 'react-router-dom';
+import { AllChartValues } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { dataTestIds } from '../../src/constants/data-test-ids';
 import { OTHER } from '../../src/features/visits/in-person/pages/procedureOtherFields';
@@ -151,18 +166,18 @@ const createWrapper = (): ((props: { children: ReactNode }) => JSX.Element) => {
 
 const renderComponent = (): ReturnType<typeof render> => render(<ProceduresNew />, { wrapper: createWrapper() });
 
+beforeEach(() => {
+  vi.clearAllMocks();
+  delete mockChartData.diagnosis;
+  delete mockChartData.procedures;
+  useProcedureStore.getState().clearDraft(ENCOUNTER_ID);
+  // Stub the consent-PDF request; all API hooks are mocked above.
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, headers: { get: () => '' } }));
+});
+
+afterEach(() => vi.unstubAllGlobals());
+
 describe('ProceduresNew — draft store', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    useProcedureStore.getState().clearDraft(ENCOUNTER_ID);
-    // Stub fetch so the PDF-check useEffect does not trigger the no-network guard.
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, headers: { get: () => '' } }));
-  });
-
-  afterEach(() => {
-    vi.unstubAllGlobals();
-  });
-
   // --- Banner (UnsavedDraftWarning) tests ---
 
   it('shows the draft banner when a draft exists for the encounter', async () => {
@@ -263,20 +278,9 @@ describe('ProceduresNew — draft store', () => {
 });
 
 describe('ProceduresNew — Other field fallback on save', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    useProcedureStore.getState().clearDraft(ENCOUNTER_ID);
-    // Stub fetch so the PDF-check useEffect does not trigger the no-network guard.
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, headers: { get: () => '' } }));
-  });
-
-  afterEach(() => {
-    vi.unstubAllGlobals();
-  });
-
   const saveDraftAndSubmit = async (draft: Record<string, unknown>): Promise<void> => {
     const user = userEvent.setup();
-    useProcedureStore.getState().setDraft(ENCOUNTER_ID, draft);
+    useProcedureStore.getState().setDraft(ENCOUNTER_ID, { procedureType: 'Test procedure', ...draft });
     renderComponent();
     await user.click(screen.getByTestId(dataTestIds.documentProcedurePage.saveButton));
     await waitFor(() => {
@@ -316,19 +320,9 @@ describe('ProceduresNew — Other field fallback on save', () => {
 });
 
 describe('ProceduresNew — sentence layout', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    useProcedureStore.getState().clearDraft(ENCOUNTER_ID);
-    delete mockChartData.diagnosis;
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, headers: { get: () => '' } }));
-  });
-
-  afterEach(() => {
-    vi.unstubAllGlobals();
-  });
-
   it('offers the visit diagnoses as one-click picks and links the charted Condition on save', async () => {
     const user = userEvent.setup();
+    useProcedureStore.getState().setDraft(ENCOUNTER_ID, { procedureType: 'Test procedure' });
     mockChartData.diagnosis = [
       { code: 'S61.411A', display: 'Laceration of right hand', isPrimary: true, resourceId: 'cond-1' },
       { code: 'J06.9', display: 'Acute URI', isPrimary: false, resourceId: 'cond-2' },
@@ -362,7 +356,7 @@ describe('ProceduresNew — sentence layout', () => {
     ]);
   });
 
-  it('starts every blank empty and saves picks as their stored values', async () => {
+  it('starts optional blanks empty and saves picks as their stored values', async () => {
     const user = userEvent.setup();
     renderComponent();
     const consent = screen.getByTestId(dataTestIds.documentProcedurePage.consentForProcedure);
@@ -370,6 +364,8 @@ describe('ProceduresNew — sentence layout', () => {
     expect(screen.getByTestId(dataTestIds.documentProcedurePage.specimenSent)).toHaveTextContent('specimen');
     expect(screen.getByTestId(dataTestIds.documentProcedurePage.performedBy)).toHaveTextContent('performed by');
 
+    await user.click(screen.getByTestId(dataTestIds.documentProcedurePage.procedureType));
+    await user.click(screen.getByRole('option', { name: 'Test procedure' }));
     await user.click(consent);
     await user.click(screen.getByRole('option', { name: 'obtained' }));
     expect(consent).toHaveTextContent('obtained');
@@ -388,5 +384,89 @@ describe('ProceduresNew — sentence layout', () => {
     });
     const procedurePayload = mockSaveChartData.mock.calls[1][0].procedures[0];
     expect(procedurePayload).toMatchObject({ consentObtained: true, specimenSent: false, performerType: 'Both' });
+  });
+});
+
+describe('ProceduresNew — save validation and shared diagnoses', () => {
+  it('rejects a missing type without opening its blank', async () => {
+    const user = userEvent.setup();
+    renderComponent();
+    await user.click(screen.getByTestId(dataTestIds.documentProcedurePage.saveButton));
+    expect(await screen.findByText('This field is required')).toBeInTheDocument();
+    expect(mockSaveChartData).not.toHaveBeenCalled();
+  });
+
+  it('rejects an invalid type restored from a draft without opening its blank', async () => {
+    const user = userEvent.setup();
+    useProcedureStore.getState().setDraft(ENCOUNTER_ID, { procedureType: 'Invalid  type' });
+    renderComponent();
+    await user.click(screen.getByTestId(dataTestIds.documentProcedurePage.saveButton));
+    expect(await screen.findByText('No leading, trailing, or consecutive spaces allowed')).toBeInTheDocument();
+    expect(mockSaveChartData).not.toHaveBeenCalled();
+  });
+
+  it('rejects typed invalid text when the outside click also presses Save', async () => {
+    const user = userEvent.setup();
+    renderComponent();
+    await user.click(screen.getByTestId(dataTestIds.documentProcedurePage.procedureType));
+    await user.type(screen.getByRole('combobox', { name: 'Procedure type*' }), 'Invalid  type');
+    await user.click(screen.getByTestId(dataTestIds.documentProcedurePage.saveButton));
+    expect(screen.queryByRole('dialog', { name: 'Procedure type' })).not.toBeInTheDocument();
+    expect(await screen.findByText('No leading, trailing, or consecutive spaces allowed')).toBeInTheDocument();
+    expect(mockSaveChartData).not.toHaveBeenCalled();
+  });
+
+  it('unlinks a shared diagnosis on edit without deleting it from the visit', async () => {
+    const user = userEvent.setup();
+    const diagnosis = { code: 'J06.9', display: 'Acute URI', isPrimary: false, resourceId: 'shared-condition' };
+    mockChartData.diagnosis = [diagnosis];
+    mockChartData.procedures = [
+      { resourceId: 'existing-procedure', procedureType: 'Test procedure', diagnoses: [diagnosis] },
+    ];
+    render(<ProceduresNew procedureId="existing-procedure" />, { wrapper: createWrapper() });
+    await user.click(await screen.findByRole('button', { name: 'Remove J06.9' }));
+    await user.click(screen.getByTestId(dataTestIds.documentProcedurePage.saveButton));
+    await waitFor(() => expect(mockSaveChartData).toHaveBeenCalledTimes(2));
+    expect(mockSaveChartData.mock.calls[1][0].procedures[0]).toMatchObject({
+      resourceId: 'existing-procedure',
+      diagnoses: [],
+    });
+    expect(mockDeleteChartData).not.toHaveBeenCalled();
+    expect(mockChartData.diagnosis).toEqual([diagnosis]);
+  });
+
+  it('renders custom answers in their blanks, edits Other inside the popover, and saves the same values', async () => {
+    const user = userEvent.setup();
+    useProcedureStore.getState().setDraft(ENCOUNTER_ID, {
+      procedureType: 'Test procedure',
+      bodySite: OTHER,
+      otherBodySite: 'Left elbow',
+      suppliesUsed: [OTHER],
+      otherSuppliesUsed: 'Custom dressing',
+      complications: OTHER,
+      otherComplications: 'Minor bleeding',
+      postInstructions: [OTHER],
+      otherPostInstructions: 'Return tomorrow',
+    });
+    renderComponent();
+    expect(screen.getByTestId(dataTestIds.documentProcedurePage.site)).toHaveTextContent('Left elbow');
+    expect(screen.getByTestId(dataTestIds.documentProcedurePage.instruments)).toHaveTextContent('Custom dressing');
+    expect(screen.getByTestId(dataTestIds.documentProcedurePage.complications)).toHaveTextContent('Minor bleeding');
+    expect(screen.getByTestId(dataTestIds.documentProcedurePage.postProcedureInstructions)).toHaveTextContent(
+      'Return tomorrow'
+    );
+    expect(screen.queryByRole('textbox', { name: 'Other site/location' })).not.toBeInTheDocument();
+    await user.click(screen.getByTestId(dataTestIds.documentProcedurePage.site));
+    const other = screen.getByRole('textbox', { name: 'Other site/location' });
+    await user.clear(other);
+    await user.type(other, 'Right elbow');
+    await user.click(screen.getByTestId(dataTestIds.documentProcedurePage.saveButton));
+    await waitFor(() => expect(mockSaveChartData).toHaveBeenCalledTimes(2));
+    expect(mockSaveChartData.mock.calls[1][0].procedures[0]).toMatchObject({
+      bodySite: 'Right elbow',
+      suppliesUsed: 'Other: Custom dressing',
+      complications: 'Minor bleeding',
+      postInstructions: 'Other: Return tomorrow',
+    });
   });
 });

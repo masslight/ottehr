@@ -144,7 +144,10 @@ const woundFields: ScalarCodingField[] = [
   { key: 'irrigation', label: 'Irrigation performed', kind: 'checkbox', defaultValue: false },
 ];
 
-for (const field of woundFields) if (!['site', 'side', 'length', 'closure'].includes(field.key)) field.details = true;
+for (const field of woundFields) {
+  if (!['site', 'side', 'length', 'closure'].includes(field.key)) field.details = true;
+  field.neededForCoding = ['site', 'length', 'closure'].includes(field.key);
+}
 
 const fields: CodingField[] = [
   { key: 'wounds', label: 'Wounds', rowLabel: 'Wound', kind: 'rows', fields: woundFields },

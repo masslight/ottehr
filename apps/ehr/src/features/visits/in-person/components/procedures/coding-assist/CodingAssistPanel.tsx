@@ -8,13 +8,8 @@ import { CodeSuggestionRow } from './CodeSuggestionRow';
 import { CodingFindingList, collectPayerNotes, PayerNoteList } from './CodingFindingList';
 
 interface CodingAssistPanelProps {
-  /** Print the best-practice reminders inside the panel (default) or leave them for the caller. */
-  bestPracticesInline?: boolean;
-  /** Show the "Checks current as of …" caption under the heading (default). */
-  showRulesVintage?: boolean;
   evaluation: EvaluationResult | undefined;
   isEvaluating: boolean;
-  rulesVintage: string;
   procedureTypeSelected: boolean;
   isReadOnly: boolean;
   selectedCodes: CPTCodeDTO[];
@@ -25,19 +20,14 @@ interface CodingAssistPanelProps {
 export const CodingAssistPanel: FC<CodingAssistPanelProps> = ({
   evaluation,
   isEvaluating,
-  rulesVintage,
   procedureTypeSelected,
   isReadOnly,
   selectedCodes,
   onAddCodes,
   onRetrySuggestions,
-  bestPracticesInline = true,
-  showRulesVintage = true,
 }) => {
   // The page can print the best-practice reminders further down (after the CPT codes) instead.
-  const findings = (evaluation?.findings ?? []).filter(
-    (finding) => bestPracticesInline || finding.level !== 'bestPractice'
-  );
+  const findings = (evaluation?.findings ?? []).filter((finding) => finding.level !== 'bestPractice');
   const payerNotes = collectPayerNotes(evaluation);
   const outcomeHasContent =
     evaluation != null &&
@@ -163,7 +153,7 @@ export const CodingAssistPanel: FC<CodingAssistPanelProps> = ({
         display: 'flex',
         flexDirection: 'column',
         gap: 1,
-        background: '#F4F6F8',
+        backgroundColor: 'action.hover',
         borderRadius: '8px',
         padding: '8px',
       }}
@@ -173,13 +163,13 @@ export const CodingAssistPanel: FC<CodingAssistPanelProps> = ({
         <Typography sx={{ fontWeight: 700, fontSize: '17px' }}>
           {evaluation?.source === 'ai' ? 'Possible CPT codes — AI suggestions' : 'CPT code — from your documentation'}
         </Typography>
-        {(evaluation?.source === 'ai' || showRulesVintage) && (
+        {evaluation?.source === 'ai' && (
           <Typography
             variant="caption"
             color="text.secondary"
             data-testid={dataTestIds.documentProcedurePage.codingRulesVintage}
           >
-            {evaluation?.source === 'ai' ? 'Clinician review required' : `Checks current as of ${rulesVintage}`}
+            Clinician review required
           </Typography>
         )}
       </Box>

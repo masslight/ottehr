@@ -18,7 +18,6 @@ import {
   Theme,
   Typography,
 } from '@mui/material';
-import { blue, orange } from '@mui/material/colors';
 import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
 import { DatePicker, LocalizationProvider, TimePicker } from '@mui/x-date-pickers-pro';
 import { DateTime } from 'luxon';
@@ -31,13 +30,16 @@ import {
   ReactNode,
   useCallback,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
 } from 'react';
+import { dataTestIds } from 'src/constants/data-test-ids';
+import { OTHER } from '../../../pages/procedureOtherFields';
 import { sentenceValue } from './sentenceValue';
 
-/** Sentence-style form pieces ("E · Blue text"): a filled blank is blue medium-weight text, an empty blank
+/** Sentence-style form pieces: a filled blank is blue medium-weight text, an empty blank
  * is a dashed outline showing its label, and the whole sentence reads as note text at body size. */
 
 export interface BlankOption {
@@ -47,10 +49,7 @@ export interface BlankOption {
 
 const SEARCH_THRESHOLD = 8;
 
-/** Playwright locates an open blank popover by this id (see tests/e2e/page/DocumentProcedurePage.ts). */
-export const BLANK_POPOVER_TEST_ID = 'blank-popover';
-
-export const SENTENCE_SX: SxProps<Theme> = {
+const SENTENCE_SX: SxProps<Theme> = {
   fontSize: '16px',
   lineHeight: 1.6,
   color: 'text.primary',
@@ -58,24 +57,16 @@ export const SENTENCE_SX: SxProps<Theme> = {
   maxWidth: '75ch',
 };
 
-/** Values read in MUI blue[800] (5.8:1 on white) rather than the lighter primary; the tint and hover are
- * the mockup's rgba(25,118,210,…), i.e. blue[700]. */
-const VALUE_COLOR = blue[800];
-const TINT_COLOR = blue[700];
-
-const filledSx = (): Record<string, unknown> => ({
-  color: VALUE_COLOR,
+const filledSx = (theme: Theme): Record<string, unknown> => ({
+  color: theme.palette.primary.dark,
   fontWeight: 500,
   backgroundColor: 'transparent',
-  '&:hover': { backgroundColor: alpha(TINT_COLOR, 0.08) },
+  '&:hover': { backgroundColor: alpha(theme.palette.primary.main, 0.08) },
 });
 
-/** The mockup's warning orange (#F57C00) for blanks that billing or validation still needs. */
-const NEED_COLOR = orange[700];
-
 const emptySx = (theme: Theme, need: boolean): Record<string, unknown> => ({
-  color: need ? NEED_COLOR : theme.palette.text.secondary,
-  border: `1px dashed ${need ? NEED_COLOR : theme.palette.text.secondary}`,
+  color: need ? theme.palette.warning.dark : theme.palette.text.secondary,
+  border: `1px dashed ${need ? theme.palette.warning.dark : theme.palette.text.secondary}`,
   padding: '0 4px',
   backgroundColor: 'transparent',
 });
@@ -90,6 +81,12 @@ const ghostSx = (theme: Theme): Record<string, unknown> => ({
 export const listText = (values: readonly string[]): string =>
   values.length <= 1 ? values[0] ?? '' : `${values.slice(0, -1).join(', ')} and ${values[values.length - 1]}`;
 
+const ReadOnlyBlank: FC<{ label: string; value?: string }> = ({ label, value }) => (
+  <Box component="span" sx={(theme) => (value ? { ...filledSx(theme), '&:hover': {} } : { color: 'text.secondary' })}>
+    {value || `[${label}]`}
+  </Box>
+);
+
 interface BlankButtonProps {
   label: string;
   value?: string;
@@ -100,6 +97,8 @@ interface BlankButtonProps {
   dataTestId?: string;
   /** Native tooltip, used for a coding field's helper text. */
   hint?: string;
+  expanded?: boolean;
+  popupId?: string;
 }
 
 /** The clickable value inside a sentence. Read-only surfaces get the same words as plain text. */
@@ -112,23 +111,23 @@ export const BlankButton: FC<BlankButtonProps> = ({
   onClick,
   dataTestId,
   hint,
+  expanded,
+  popupId,
 }) => {
-  if (readOnly) {
-    return (
-      <Box component="span" sx={value ? { ...filledSx(), '&:hover': {} } : { color: 'text.secondary' }}>
-        {value ?? `[${label}]`}
-      </Box>
-    );
-  }
+  if (readOnly) return <ReadOnlyBlank label={label} value={value} />;
   // An inline span rather than <button>: a long value then wraps across lines like the surrounding text.
   return (
     <Box
       component="span"
       role="button"
       tabIndex={0}
+      aria-expanded={expanded}
+      aria-controls={expanded ? popupId : undefined}
+      aria-haspopup={popupId ? 'dialog' : undefined}
       title={hint}
       aria-label={`${label}${value ? `: ${value}` : ' (empty)'}`}
       data-testid={dataTestId}
+      data-needed={!value && need ? true : undefined}
       onClick={(event: MouseEvent<HTMLElement>) => onClick(event.currentTarget)}
       onKeyDown={(event: KeyboardEvent<HTMLElement>) => {
         if (event.key === 'Enter' || event.key === ' ') {
@@ -145,7 +144,7 @@ export const BlankButton: FC<BlankButtonProps> = ({
         backgroundColor: 'transparent',
         boxDecorationBreak: 'clone',
         WebkitBoxDecorationBreak: 'clone',
-        ...(value ? filledSx() : ghost ? ghostSx(theme) : emptySx(theme, need ?? false)),
+        ...(value ? filledSx(theme) : ghost ? ghostSx(theme) : emptySx(theme, need ?? false)),
         '&:focus-visible': { outline: `2px solid ${theme.palette.primary.main}`, outlineOffset: 2 },
       })}
     >
@@ -161,7 +160,7 @@ interface PopoverBlankProps extends Omit<BlankButtonProps, 'onClick'> {
   onClose?: () => void;
 }
 
-/** The focus trap lands on the paper; typing should reach the search box (or the current pick) instead. */
+/** Start with the search input or selected option when the popover has been positioned. */
 const focusPopoverContent = (paper: HTMLElement): void => {
   const target =
     paper.querySelector<HTMLElement>('input:not([type="checkbox"])') ??
@@ -170,17 +169,31 @@ const focusPopoverContent = (paper: HTMLElement): void => {
   target?.focus();
 };
 
-/** A blank whose click opens a popover; the caller supplies the popover body. */
-/** The Autocomplete inside the procedure-type and diagnosis popovers portals its own listbox to the
- * body; a click on one of its options must not count as a click away from the popover. */
-const inPortaledListbox = (target: EventTarget | null): boolean =>
-  target instanceof Element && target.closest('.MuiAutocomplete-popper') != null;
+/** Arrow/Home/End navigation for the blank's own choices. Autocomplete manages its own keys. */
+const navigateChoices = (event: KeyboardEvent<HTMLElement>): void => {
+  if ((event.target as HTMLElement).getAttribute('role') === 'combobox') return;
+  if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
+  const choices = Array.from(event.currentTarget.querySelectorAll<HTMLElement>('[role="option"], [data-blank-choice]'));
+  if (!choices.length) return;
+  const current = choices.indexOf(document.activeElement as HTMLElement);
+  const next =
+    event.key === 'Home'
+      ? 0
+      : event.key === 'End'
+      ? choices.length - 1
+      : event.key === 'ArrowDown'
+      ? (current + 1) % choices.length
+      : (current - 1 + choices.length) % choices.length;
+  event.preventDefault();
+  choices[next].focus();
+};
 
 const POPOVER_MODIFIERS = [{ name: 'preventOverflow', options: { padding: 8 } }];
 
 /** Non-modal on purpose: a modal popover's backdrop swallowed the first click on Save / Clear Form /
  * another blank. Here the click away closes the popover and still reaches its target. */
 export const PopoverBlank: FC<PopoverBlankProps> = ({ title, children, onClose, ...blank }) => {
+  const popupId = useId();
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   // Focus moves into the paper only after Popper has placed it: focusing earlier opens an autocomplete
   // list (openOnFocus) while the paper still sits at the top-left corner, and that list stays there.
@@ -194,10 +207,14 @@ export const PopoverBlank: FC<PopoverBlankProps> = ({ title, children, onClose, 
   // Stable props: MUI's Popper rebuilds itself (back at 0,0) whenever `modifiers` or `popperOptions`
   // change identity, and an autocomplete list measured during that rebuild stays in the top-left corner.
   const popperOptions = useMemo(() => ({ onFirstUpdate: onPlaced }), [onPlaced]);
-  const close = (): void => {
-    setAnchor(null);
-    onClose?.();
-  };
+  const close = useCallback(
+    (restoreFocus = true): void => {
+      if (restoreFocus) anchor?.focus();
+      setAnchor(null);
+      onClose?.();
+    },
+    [anchor, onClose]
+  );
   useEffect(() => {
     if (!anchor) return;
     // Document-level, capture phase (as MUI's modal did): one Escape closes the popover wherever focus
@@ -210,11 +227,10 @@ export const PopoverBlank: FC<PopoverBlankProps> = ({ title, children, onClose, 
     };
     document.addEventListener('keydown', onKeyDown, true);
     return () => document.removeEventListener('keydown', onKeyDown, true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [anchor]);
+  }, [anchor, close]);
   return (
     <>
-      <BlankButton {...blank} onClick={setAnchor} />
+      <BlankButton {...blank} onClick={setAnchor} expanded={Boolean(anchor)} popupId={popupId} />
       {anchor && (
         <Popper
           open
@@ -227,15 +243,26 @@ export const PopoverBlank: FC<PopoverBlankProps> = ({ title, children, onClose, 
           <ClickAwayListener
             mouseEvent="onMouseDown"
             touchEvent="onTouchStart"
-            onClickAway={(event) => {
-              if (!inPortaledListbox(event.target)) close();
+            onClickAway={() => {
+              close(false);
             }}
           >
             <Paper
               ref={paperRef}
+              id={popupId}
+              role="dialog"
+              aria-label={title ?? blank.label}
+              onKeyDown={navigateChoices}
               elevation={8}
-              data-testid={BLANK_POPOVER_TEST_ID}
-              sx={{ minWidth: 280, maxWidth: 400, maxHeight: 360, overflow: 'auto', p: 1 }}
+              data-testid={dataTestIds.documentProcedurePage.blankPopover}
+              sx={{
+                width: 'max-content',
+                minWidth: 'min(280px, calc(100vw - 32px))',
+                maxWidth: 'min(400px, calc(100vw - 32px))',
+                maxHeight: 'min(360px, calc(100dvh - 32px))',
+                overflow: 'auto',
+                p: 1,
+              }}
             >
               <Typography sx={{ fontSize: '12px', fontWeight: 700, px: 1, py: 0.5 }}>{title ?? blank.label}</Typography>
               {children(close)}
@@ -250,7 +277,25 @@ export const PopoverBlank: FC<PopoverBlankProps> = ({ title, children, onClose, 
 const toOptions = (options: readonly string[] | readonly BlankOption[] | undefined): BlankOption[] =>
   (options ?? []).map((option) => (typeof option === 'string' ? { value: option, label: option } : option));
 
+const OtherAnswer: FC<{ label: string; value?: string; onChange: (value: string) => void }> = ({
+  label,
+  value,
+  onChange,
+}) => (
+  <TextField
+    label={`Other ${label.toLowerCase()}`}
+    size="small"
+    fullWidth
+    autoFocus
+    value={value ?? ''}
+    onChange={(event) => onChange(event.target.value)}
+    sx={{ mt: 1 }}
+  />
+);
+
 interface SelectBlankProps {
+  otherValue?: string;
+  onOtherChange?: (value: string) => void;
   label: string;
   title?: string;
   options: readonly string[] | readonly BlankOption[] | undefined;
@@ -275,6 +320,8 @@ export const SelectBlank: FC<SelectBlankProps> = ({
   clearable,
   dataTestId,
   helperText,
+  otherValue,
+  onOtherChange,
 }) => {
   const [filter, setFilter] = useState('');
   const known = toOptions(options);
@@ -290,7 +337,13 @@ export const SelectBlank: FC<SelectBlankProps> = ({
     <PopoverBlank
       label={label}
       title={title}
-      value={display === undefined ? undefined : sentenceValue(display)}
+      value={
+        value === OTHER && onOtherChange
+          ? otherValue?.trim() || display
+          : display === undefined
+          ? undefined
+          : sentenceValue(display)
+      }
       need={need}
       readOnly={readOnly}
       dataTestId={dataTestId}
@@ -310,7 +363,7 @@ export const SelectBlank: FC<SelectBlankProps> = ({
               onKeyDown={(event) => {
                 if (event.key === 'Enter' && shown[0]) {
                   onChange(shown[0].value);
-                  close();
+                  if (shown[0].value !== OTHER || !onOtherChange) close();
                 }
               }}
               sx={{ mb: 0.5 }}
@@ -325,7 +378,7 @@ export const SelectBlank: FC<SelectBlankProps> = ({
                 aria-selected={option.value === value}
                 onClick={() => {
                   onChange(option.value);
-                  close();
+                  if (option.value !== OTHER || !onOtherChange) close();
                 }}
               >
                 <ListItemText primary={option.label} />
@@ -334,6 +387,7 @@ export const SelectBlank: FC<SelectBlankProps> = ({
             {clearable && value !== undefined && (
               <ListItemButton
                 role="option"
+                aria-selected={false}
                 onClick={() => {
                   onChange(undefined);
                   close();
@@ -343,6 +397,9 @@ export const SelectBlank: FC<SelectBlankProps> = ({
               </ListItemButton>
             )}
           </List>
+          {value === OTHER && onOtherChange && (
+            <OtherAnswer label={title ?? label} value={otherValue} onChange={onOtherChange} />
+          )}
         </>
       )}
     </PopoverBlank>
@@ -350,6 +407,8 @@ export const SelectBlank: FC<SelectBlankProps> = ({
 };
 
 interface MultiBlankProps {
+  otherValue?: string;
+  onOtherChange?: (value: string) => void;
   label: string;
   title?: string;
   options: readonly string[] | readonly BlankOption[] | undefined;
@@ -368,13 +427,21 @@ export const MultiBlank: FC<MultiBlankProps> = ({
   onChange,
   readOnly,
   dataTestId,
+  otherValue,
+  onOtherChange,
 }) => {
   const known = toOptions(options);
   const all = [
     ...values.filter((v) => !known.some((option) => option.value === v)).map((v) => ({ value: v, label: v })),
     ...known,
   ];
-  const display = listText(values.map((v) => sentenceValue(all.find((option) => option.value === v)?.label ?? v)));
+  const display = listText(
+    values.map((v) =>
+      v === OTHER && onOtherChange
+        ? otherValue?.trim() || v
+        : sentenceValue(all.find((option) => option.value === v)?.label ?? v)
+    )
+  );
   return (
     <PopoverBlank
       label={`+ ${label}`}
@@ -392,6 +459,7 @@ export const MultiBlank: FC<MultiBlankProps> = ({
               return (
                 <ListItemButton
                   key={option.value}
+                  data-blank-choice
                   dense
                   onClick={() =>
                     onChange(checked ? values.filter((v) => v !== option.value) : [...values, option.value])
@@ -412,6 +480,9 @@ export const MultiBlank: FC<MultiBlankProps> = ({
               );
             })}
           </List>
+          {values.includes(OTHER) && onOtherChange && (
+            <OtherAnswer label={title ?? label} value={otherValue} onChange={onOtherChange} />
+          )}
           <Box sx={{ display: 'flex', justifyContent: 'flex-end', pt: 0.5 }}>
             <Button size="small" onClick={close}>
               Done
@@ -432,10 +503,14 @@ const inlineInputSx = (theme: Theme, empty: boolean, need: boolean): Record<stri
     padding: '1px 4px',
     height: 'auto',
     font: 'inherit',
-    color: VALUE_COLOR,
+    color: theme.palette.primary.dark,
     fontWeight: 500,
-    ...(empty ? emptySx(theme, need) : { backgroundColor: alpha(TINT_COLOR, 0.06) }),
-    '&::placeholder': { color: need ? NEED_COLOR : theme.palette.text.secondary, opacity: 1, fontWeight: 400 },
+    ...(empty ? emptySx(theme, need) : { backgroundColor: alpha(theme.palette.primary.main, 0.06) }),
+    '&::placeholder': {
+      color: need ? theme.palette.warning.dark : theme.palette.text.secondary,
+      opacity: 1,
+      fontWeight: 400,
+    },
     '&:focus-visible': { outline: `2px solid ${theme.palette.primary.main}`, outlineOffset: 2 },
   },
 });
@@ -446,10 +521,6 @@ const numberInputSx: Record<string, unknown> = {
   MozAppearance: 'textfield',
   '&::-webkit-outer-spin-button, &::-webkit-inner-spin-button': { WebkitAppearance: 'none', margin: 0 },
 };
-
-/** "Length (cm)" → "cm", otherwise "#": a number box is too narrow for its full label, which stays as
- * the accessible name and tooltip. */
-const numberPlaceholder = (label: string): string => /\(([^)]+)\)/.exec(label)?.[1] ?? '#';
 
 interface TextBlankProps {
   label: string;
@@ -481,14 +552,8 @@ export const TextBlank: FC<TextBlankProps> = ({
   dataTestId,
 }) => {
   const text = value === undefined ? '' : String(value);
-  if (readOnly) {
-    return (
-      <Box component="span" sx={text ? { ...filledSx(), '&:hover': {} } : { color: 'text.secondary' }}>
-        {text || `[${label}]`}
-      </Box>
-    );
-  }
-  const placeholder = placeholderProp ?? (kind === 'number' ? numberPlaceholder(label) : label);
+  if (readOnly) return <ReadOnlyBlank label={label} value={text} />;
+  const placeholder = placeholderProp ?? label;
   return (
     <InputBase
       type={kind}
@@ -498,6 +563,7 @@ export const TextBlank: FC<TextBlankProps> = ({
       inputProps={{
         'aria-label': label,
         'data-testid': dataTestId,
+        'data-needed': !text && need ? true : undefined,
         title: placeholder === label ? undefined : label,
         // Chrome's form-history dropdown would look like an app popover inside a sentence.
         autoComplete: 'off',
@@ -534,13 +600,7 @@ export const DateTimeBlank: FC<DateTimeBlankProps> = ({ kind, label, value, onCh
       ? value.toLocaleString(DateTime.DATE_MED)
       : value.toLocaleString(DateTime.TIME_SIMPLE)
     : undefined;
-  if (readOnly) {
-    return (
-      <Box component="span" sx={display ? { ...filledSx(), '&:hover': {} } : { color: 'text.secondary' }}>
-        {display ?? `[${label}]`}
-      </Box>
-    );
-  }
+  if (readOnly) return <ReadOnlyBlank label={label} value={display} />;
   const Picker = kind === 'date' ? DatePicker : TimePicker;
   return (
     <LocalizationProvider dateAdapter={AdapterLuxon}>
@@ -681,7 +741,7 @@ export const SectionLabel: FC<{ children: ReactNode }> = ({ children }) => (
       fontWeight: 500,
       letterSpacing: '0.03em',
       textTransform: 'uppercase',
-      color: '#0F347C',
+      color: 'primary.dark',
       // The card stacks children 12px apart; padding adds 18px above a label (30px from the previous
       // sentence) and the negative margin pulls its first sentence up to 6px.
       pt: '18px',

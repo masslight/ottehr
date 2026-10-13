@@ -29,6 +29,7 @@ type ForeignBodyCode = (typeof FOREIGN_BODY_CODES)[keyof typeof FOREIGN_BODY_COD
 const fields: CodingField[] = [
   {
     key: 'site',
+    neededForCoding: true,
     label: 'Foreign body location',
     kind: 'select',
     options: [
@@ -83,9 +84,17 @@ const fields: CodingField[] = [
     defaultValue: false,
     visible: (facts) => facts.site === 'cornea',
   },
-  { key: 'side', label: 'Side', kind: 'select', options: ['left', 'right', 'both'], defaultValue: undefined },
+  {
+    key: 'side',
+    neededForCoding: (facts) => !['skin/subcutaneous', 'nose', 'deeper tissue'].includes(String(facts.site)),
+    label: 'Side',
+    kind: 'select',
+    options: ['left', 'right', 'both'],
+    defaultValue: undefined,
+  },
   {
     key: 'count',
+    neededForCoding: true,
     label: 'Distinct removals',
     kind: 'number',
     defaultValue: 1,

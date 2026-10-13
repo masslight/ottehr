@@ -44,12 +44,14 @@ type SplintingCode = (typeof SPLINTING_CODES)[keyof typeof SPLINTING_CODES];
 const fields: readonly CodingField[] = [
   {
     key: 'device',
+    neededForCoding: true,
     label: 'Device',
     kind: 'select',
     options: ['splint', 'strap', 'cast', 'prefabricated orthotic'],
   },
   {
     key: 'region',
+    neededForCoding: true,
     label: 'Body region',
     kind: 'select',
     options: [
@@ -91,9 +93,17 @@ const fields: readonly CodingField[] = [
     visible: (facts) => facts.device === 'splint',
   },
   { key: 'sameAreaSurgery', label: 'Same-area surgery', kind: 'checkbox', defaultValue: false },
-  { key: 'side', label: 'Side', kind: 'select', options: ['left', 'right', 'both'], defaultValue: undefined },
+  {
+    key: 'side',
+    neededForCoding: (facts) => facts.region !== 'thorax',
+    label: 'Side',
+    kind: 'select',
+    options: ['left', 'right', 'both'],
+    defaultValue: undefined,
+  },
   {
     key: 'count',
+    neededForCoding: true,
     label: 'Fingers treated',
     kind: 'number',
     defaultValue: 1,

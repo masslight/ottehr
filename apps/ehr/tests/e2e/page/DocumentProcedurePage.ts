@@ -1,9 +1,20 @@
 import { expect, Locator, Page } from '@playwright/test';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { BLANK_POPOVER_TEST_ID } from 'src/features/visits/in-person/components/procedures/narrative/InlineBlanks';
-import { sentenceValue } from 'src/features/visits/in-person/components/procedures/narrative/sentenceValue';
-import { performerDisplay } from 'src/features/visits/in-person/pages/procedurePerformerOptions';
 import { expectProceduresPage, ProceduresPage } from './ProceduresPage';
+
+// Expectations are independent of the UI's formatting implementation.
+const expectedPerformer = (value: string): string =>
+  (
+    ({ Provider: 'provider', 'Healthcare staff': 'healthcare staff', Both: 'provider and healthcare staff' }) as Record<
+      string,
+      string
+    >
+  )[value] ?? value;
+const expectedSentenceValue = (value: string): string =>
+  value
+    .split(/(\b)/)
+    .map((word) => (/^[A-Z][a-z]+$/.test(word) ? word.toLowerCase() : word))
+    .join('');
 
 export class DocumentProcedurePage {
   #page: Page;
@@ -75,13 +86,13 @@ export class DocumentProcedurePage {
 
   async selectPerformedBy(performedBy: string): Promise<void> {
     // Arguments are the stored values ("Provider", "Both"); the sentence shows their display wording.
-    await this.#pick(dataTestIds.documentProcedurePage.performedBy, performerDisplay(performedBy) ?? performedBy);
+    await this.#pick(dataTestIds.documentProcedurePage.performedBy, expectedPerformer(performedBy) ?? performedBy);
   }
 
   async verifyPerformedBy(performedBy: string): Promise<void> {
     await this.#verifyBlank(
       dataTestIds.documentProcedurePage.performedBy,
-      performerDisplay(performedBy) ?? performedBy
+      expectedPerformer(performedBy) ?? performedBy
     );
   }
 
@@ -191,13 +202,13 @@ export class DocumentProcedurePage {
 
   async selectDocumentedBy(documentedBy: string): Promise<void> {
     // Arguments are the stored values ("Provider", "Both"); the sentence shows their display wording.
-    await this.#pick(dataTestIds.documentProcedurePage.documentedBy, performerDisplay(documentedBy) ?? documentedBy);
+    await this.#pick(dataTestIds.documentProcedurePage.documentedBy, expectedPerformer(documentedBy) ?? documentedBy);
   }
 
   async verifyDocumentedBy(documentedBy: string): Promise<void> {
     await this.#verifyBlank(
       dataTestIds.documentProcedurePage.documentedBy,
-      performerDisplay(documentedBy) ?? documentedBy
+      expectedPerformer(documentedBy) ?? documentedBy
     );
   }
 
@@ -214,11 +225,11 @@ export class DocumentProcedurePage {
 
   /** Arguments are stored values; the sentence shows them in prose case ("Local" reads "local"). */
   async #verifyBlank(testId: string, value: string): Promise<void> {
-    await expect(this.#page.getByTestId(testId)).toHaveText(sentenceValue(value));
+    await expect(this.#page.getByTestId(testId)).toHaveText(expectedSentenceValue(value));
   }
 
   #popover(): Locator {
-    return this.#page.getByTestId(BLANK_POPOVER_TEST_ID);
+    return this.#page.getByTestId(dataTestIds.documentProcedurePage.blankPopover);
   }
 
   async #selectFromMultiselect(testId: string, values: string[]): Promise<void> {
@@ -243,9 +254,10 @@ export class DocumentProcedurePage {
       await expect(blank).toHaveText(/^\+ /);
       return;
     }
-    for (const expectedValue of expectedValues) {
-      await expect(blank).toContainText(sentenceValue(expectedValue));
-    }
+    const values = expectedValues.map(expectedSentenceValue);
+    const expected =
+      values.length === 1 ? values[0] : `${values.slice(0, -1).join(', ')} and ${values[values.length - 1]}`;
+    await expect(blank).toHaveText(expected);
   }
 }
 

@@ -16,7 +16,7 @@ import { MultiBlank, SelectBlank, Sentence, TextBlank } from './InlineBlanks';
 const YES_NO = ['yes', 'no'];
 
 /** One coding field as an inline blank. Checkboxes become a yes/no pick so the sentence stays readable.
- * Main answers are flagged while empty; `details` answers are optional by definition. */
+ * Needed cues come from display metadata, independently of whether the answer is a detail. */
 export interface FieldBlankOptions {
   /** Flag a details field as required when the sentence treats it as part of the main answer. */
   need?: boolean;
@@ -33,7 +33,7 @@ export function fieldBlank(
   readOnly: boolean,
   options: FieldBlankOptions = {}
 ): ReactNode {
-  const need = options.need ?? !field.details;
+  const need = options.need ?? field.neededForCoding === true;
   const label = options.label ?? field.label;
   if (field.kind === 'checkbox')
     return (
@@ -45,6 +45,7 @@ export function fieldBlank(
         onChange={(value) => change(value === undefined ? undefined : value === 'yes')}
         readOnly={readOnly}
         helperText={field.helperText}
+        need={need}
       />
     );
   if (field.kind === 'select')
@@ -69,12 +70,15 @@ export function fieldBlank(
       value={typeof current === 'string' || typeof current === 'number' ? current : undefined}
       onChange={(raw) => change(raw === '' ? undefined : field.kind === 'number' ? Number(raw) : raw)}
       readOnly={readOnly}
-      need={need && field.kind !== 'text'}
+      need={need}
       min={field.kind === 'number' ? field.min : undefined}
       step={field.kind === 'number' ? field.step : undefined}
     />
   );
 }
+
+const codingNeed = (field: ScalarCodingField, answers: StructuredFacts | StructuredRow): boolean =>
+  typeof field.neededForCoding === 'function' ? field.neededForCoding(answers) : field.neededForCoding === true;
 
 export interface RowRenderArgs {
   row: StructuredRow;
@@ -112,7 +116,8 @@ export const CodingFieldSentences: FC<Props> = ({ family, value, onChange, readO
           field,
           answers[field.key] as StructuredValue,
           (next) => update({ ...answers, [field.key]: next }),
-          readOnly
+          readOnly,
+          { need: codingNeed(field, answers) }
         )}
       </Fragment>
     ));
@@ -123,6 +128,7 @@ export const CodingFieldSentences: FC<Props> = ({ family, value, onChange, readO
     update: (next: StructuredFacts | StructuredRow) => void
   ): ReactNode => {
     if (!fields.length) return null;
+    if (!renderRow) return <>{pieces(fields, answers, update)}.</>;
     const checkboxes = fields.filter((field) => field.kind === 'checkbox');
     const others = fields.filter((field) => field.kind !== 'checkbox');
     const chosen = checkboxes.filter((field) => answers[field.key] === true).map((field) => field.key);
@@ -199,7 +205,10 @@ export const CodingFieldSentences: FC<Props> = ({ family, value, onChange, readO
           const blank = (key: string, options?: FieldBlankOptions): ReactNode => {
             const child = visible.find((item) => item.key === key);
             return child
-              ? fieldBlank(child, displayed[key], (next) => rowUpdate({ ...displayed, [key]: next }), readOnly, options)
+              ? fieldBlank(child, displayed[key], (next) => rowUpdate({ ...displayed, [key]: next }), readOnly, {
+                  need: codingNeed(child, displayed),
+                  ...options,
+                })
               : null;
           };
           const details = (placedKeys: readonly string[] = []): ReactNode =>

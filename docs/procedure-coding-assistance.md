@@ -35,8 +35,15 @@ They are separate entry points and separate panels. Do not mix them up when debu
 
 Both run from one hook, `apps/ehr/src/features/visits/in-person/hooks/useProcedureCoding.ts`: local
 rules settle ~0.5 s after the last edit; an AI request waits 5 s and is cached. The form fields
-themselves are generated per family by `components/procedures/StructuredCodingFields.tsx` from the
+themselves are generated per family by `components/procedures/narrative/CodingFieldSentences.tsx` from the
 family's field list, and the answers are saved as `structuredFacts` on the ServiceRequest.
+
+Providers fill sentence blanks using the existing lists and text inputs. “Other” text is edited inside
+its blank and displayed in the sentence. On wide chart areas, suggestions, code search and guidance
+share a sticky column with its own scrolling when the content exceeds the available chart height;
+on narrow areas the column follows the sentences. The layout does not add defaults or change coding
+rules. A diagnosis already on the visit is linked by its Condition ID; removing that link from a
+procedure preserves the visit diagnosis.
 
 The AI path (`recommend-billing-codes` zambda, parsing in `packages/utils/lib/procedure-coding/ai/`)
 only ever suggests. It marks every selected code "not assessed" — AI may flag, never bless.

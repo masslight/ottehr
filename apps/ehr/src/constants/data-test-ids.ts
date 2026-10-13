@@ -573,6 +573,8 @@ export const dataTestIds = {
     addInsuranceButton: 'add-insurance-dialog-add-insurance-button',
   },
   documentProcedurePage: {
+    blankPopover: 'blank-popover',
+    codingColumn: 'procedure-coding-column',
     title: 'document-procedure-title',
     consentForProcedure: 'consent-for-procedure-checkbox',
     procedureType: 'procedure-type',

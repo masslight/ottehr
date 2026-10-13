@@ -5,7 +5,3 @@ export const PERFORMED_BY_OPTIONS = [
   { value: 'Both', label: 'provider and healthcare staff' },
 ];
 export const DOCUMENTED_BY_OPTIONS = PERFORMED_BY_OPTIONS.filter((option) => option.value !== 'Both');
-
-/** Display only: the stored value stays "Both" / "Provider" / "Healthcare staff". */
-export const performerDisplay = (value: string | undefined): string | undefined =>
-  PERFORMED_BY_OPTIONS.find((option) => option.value === value)?.label ?? value;

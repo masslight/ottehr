@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ReactElement, useState } from 'react';
 import { ekgFamily } from 'utils/lib/procedure-coding/families/ekg';
+import { foreignBodyFamily } from 'utils/lib/procedure-coding/families/foreign-body';
 import { lacerationFamily } from 'utils/lib/procedure-coding/families/laceration';
 import { nebulizerFamily } from 'utils/lib/procedure-coding/families/nebulizer';
 import { resolveFamilyFacts } from 'utils/lib/procedure-coding/family-support';
@@ -29,8 +30,13 @@ describe('coding field sentences', () => {
     expect(screen.getAllByRole('spinbutton', { name: 'length (cm)' })).toHaveLength(1);
     expect(screen.getByText(/repair of a/)).toBeInTheDocument();
     expect(screen.getByText(/sutures\/staples\)/)).toBeInTheDocument();
-    expect(screen.getByRole('spinbutton', { name: 'suture/staple count' })).toHaveAttribute('placeholder', '#');
+    expect(screen.getByRole('spinbutton', { name: 'suture/staple count' })).toHaveAttribute(
+      'placeholder',
+      'suture/staple count'
+    );
     expect(screen.getByRole('textbox', { name: 'closure material' })).toHaveAttribute('placeholder', 'material');
+    expect(screen.getByRole('textbox', { name: 'closure material' })).not.toHaveAttribute('data-needed');
+    expect(screen.getByRole('spinbutton', { name: 'suture/staple count' })).not.toHaveAttribute('data-needed');
 
     await user.click(screen.getByRole('button', { name: 'Add another wound' }));
     expect(screen.getAllByRole('spinbutton', { name: 'length (cm)' })).toHaveLength(2);
@@ -65,14 +71,25 @@ describe('coding field sentences', () => {
     expect(screen.getByText(/Component furnished:/)).toBeInTheDocument();
     // "Repeat clinician" only applies to a second same-day recording.
     expect(screen.queryByText(/Repeat clinician/)).not.toBeInTheDocument();
-    // Details-flagged checkboxes sit behind the "+ details" popover rather than in the sentence.
-    expect(screen.getByRole('button', { name: '+ details (empty)' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '+ details (empty)' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /ecg integral.*: no/i })).toBeInTheDocument();
     unmount();
 
     render(<Form family={nebulizerFamily} />);
     await user.click(screen.getByRole('button', { name: /continuous treatment over one hour: no/i }));
     await user.click(screen.getByRole('option', { name: 'yes' }));
     expect(latest.facts?.overHour).toBe(true);
+  });
+
+  it('marks laterality only for locations that need it for coding', async () => {
+    const user = userEvent.setup();
+    render(<Form family={foreignBodyFamily} />);
+    await user.click(screen.getByRole('button', { name: 'foreign body location (empty)' }));
+    await user.click(screen.getByRole('option', { name: 'nose' }));
+    expect(screen.getByRole('button', { name: 'side (empty)' })).not.toHaveAttribute('data-needed');
+    await user.click(screen.getByRole('button', { name: 'foreign body location: nose' }));
+    await user.click(screen.getByRole('option', { name: 'cornea' }));
+    expect(screen.getByRole('button', { name: 'side (empty)' })).toHaveAttribute('data-needed', 'true');
   });
 
   it('drops the count wording for an adhesive closure without clearing the stored count', async () => {
