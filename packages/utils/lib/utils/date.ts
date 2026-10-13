@@ -153,6 +153,14 @@ export function removeTimeFromDate(date: string): string {
   return date.split('T')[0];
 }
 
+// FHIR `date`: YYYY, YYYY-MM or YYYY-MM-DD — https://hl7.org/fhir/R4B/datatypes.html#date
+const FHIR_DATE_REGEX =
+  /^([0-9]([0-9]([0-9][1-9]|[1-9]0)|[1-9]00)|[1-9]000)(-(0[1-9]|1[0-2])(-(0[1-9]|[12][0-9]|3[01]))?)?$/;
+
+export function isFhirDateString(date: string): boolean {
+  return FHIR_DATE_REGEX.test(date) && DateTime.fromISO(date).isValid;
+}
+
 export function createDateTimeInET(date: string): DateTime {
   return DateTime.fromISO(date, { zone: 'America/New_York' });
 }

@@ -1,5 +1,7 @@
 import { captureException, captureMessage } from '@sentry/aws-serverless';
+import { OperationOutcome, OperationOutcomeIssue } from 'fhir/r4b';
 import { handleUnknownError } from 'utils/lib/fhir/helpers';
+import { APIError, APIErrorCode } from 'utils/lib/types/errors';
 
 export const sendErrors = async (error: any, env: string, tags?: Record<string, string>): Promise<void> => {
   if (process.env.PLAYWRIGHT_SUITE_ID != null || ['local'].includes(env)) {
@@ -67,4 +69,50 @@ export const isFhirNotFoundError = (error: unknown): boolean => {
     outcome?.resourceType === 'OperationOutcome' &&
     (outcome.issue ?? []).some((issue) => issue.severity === 'error' && issue.code === 'not-found')
   );
+};
+
+/**
+ * Statuses that mean "the content we sent is invalid". Other client errors are deliberately left
+ * alone: a 401/403 is our M2M client's problem rather than the caller's, and relabelling it would
+ * tell a patient they are unauthorized when the service is misconfigured.
+ */
+const FHIR_REJECTION_STATUSES = [400, 422];
+
+const describeOperationOutcome = (issues: OperationOutcomeIssue[]): string | undefined => {
+  const described = issues
+    .filter((issue) => issue.severity === 'error' || issue.severity === 'fatal')
+    .map((issue) => {
+      const text = issue.details?.text ?? issue.diagnostics;
+      const where = issue.expression?.join(', ');
+      if (!text) return where;
+      return where ? `${text} (${where})` : text;
+    })
+    .filter((described): described is string => Boolean(described));
+
+  return described.length > 0 ? described.join('; ') : undefined;
+};
+
+/**
+ * Translates a FHIR API rejection of a resource we wrote into an `APIError`, so `topLevelCatch`
+ * returns the status the FHIR server gave instead of a blanket 500. Returns undefined for anything
+ * else, which the caller should rethrow unchanged.
+ */
+export const fhirRejectionToApiError = (error: unknown): APIError | undefined => {
+  if (error == null || typeof error !== 'object') return undefined;
+
+  const { code, cause, message } = error as { code?: unknown; cause?: unknown; message?: unknown };
+  if (typeof code !== 'number' || !FHIR_REJECTION_STATUSES.includes(code)) return undefined;
+
+  const outcome = cause as OperationOutcome | undefined;
+  if (outcome?.resourceType !== 'OperationOutcome') return undefined;
+
+  const detail = describeOperationOutcome(outcome.issue ?? []) ?? (typeof message === 'string' ? message : undefined);
+
+  return {
+    code: APIErrorCode.FHIR_RESOURCE_VALIDATION_ERROR,
+    statusCode: code,
+    message: detail
+      ? `The request was rejected as invalid by the FHIR API: ${detail}`
+      : 'The request was rejected as invalid by the FHIR API',
+  };
 };
