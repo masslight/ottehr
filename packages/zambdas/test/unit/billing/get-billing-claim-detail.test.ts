@@ -432,8 +432,41 @@ describe('get-billing-claim-detail performEffect: remits and insurance payments'
         checkDate: '2026-07-16',
         paymentAmount: 500,
         payerName: 'Acme Health',
+        payerClaimControlNumber: '',
       },
     ]);
+  });
+
+  it("resolves the payer from the linked remit when the ERA's paymentIssuer is an unresolvable EDI sender", async () => {
+    (fetchClaimEraLinks as Mock<typeof fetchClaimEraLinks>).mockResolvedValue({
+      paymentReconciliations: [
+        { ...era, paymentIssuer: { reference: 'Organization/edi-sender', display: 'EDI 123456789' } },
+      ],
+      paymentReconciliationIdByClaimResponseId: new Map([['cr-linked', 'payment-reconciliation-1']]),
+    });
+
+    const response = await run();
+
+    expect(response.insurancePayments[0].payerName).toBe('Acme Health');
+  });
+
+  it("prefers the linked remit's insurer display over the EDI sender's when neither payer resolves", async () => {
+    (resolvePayersByRef as Mock<typeof resolvePayersByRef>).mockResolvedValue(new Map());
+    (fetchClaimResponsesByClaimIds as Mock<typeof fetchClaimResponsesByClaimIds>).mockResolvedValue(
+      new Map([
+        ['claim-1', [unlinkedRemit, { ...linkedRemit, insurer: { reference: PAYER_REF, display: 'Acme (ERA)' } }]],
+      ])
+    );
+    (fetchClaimEraLinks as Mock<typeof fetchClaimEraLinks>).mockResolvedValue({
+      paymentReconciliations: [
+        { ...era, paymentIssuer: { reference: 'Organization/edi-sender', display: 'EDI 123456789' } },
+      ],
+      paymentReconciliationIdByClaimResponseId: new Map([['cr-linked', 'payment-reconciliation-1']]),
+    });
+
+    const response = await run();
+
+    expect(response.insurancePayments[0].payerName).toBe('Acme (ERA)');
   });
 
   it('reports when the claim was first submitted', async () => {
