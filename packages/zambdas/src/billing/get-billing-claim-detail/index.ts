@@ -208,7 +208,7 @@ export async function performEffect(
         remitDate: paymentReconciliation.created ?? '',
         checkDate: paymentReconciliation.paymentDate ?? '',
         paymentAmount: paymentReconciliation.paymentAmount?.value ?? 0,
-        payerName: payer?.name ?? paymentReconciliation.paymentIssuer?.display ?? linkedCr?.insurer?.display ?? '',
+        payerName: payer?.name ?? linkedCr?.insurer?.display ?? paymentReconciliation.paymentIssuer?.display ?? '',
         payerClaimControlNumber:
           linkedCrs
             .map((cr) => getEraExtensionString(cr, ERA_ICN_EXTENSION) ?? cr.identifier?.[0]?.value ?? '')
