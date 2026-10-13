@@ -41,14 +41,14 @@ vi.mock('utils/lib/helpers/presigned-file-url/helpers', async (importOriginal) =
   };
 });
 
-const Z3_URL = 'https://project-api.example.com/z3/test-project-photo-id-cards/patient-1/photo-id-front.jpg';
+const Z3_URL = 'https://project-api.zapehr.com/v1/z3/test-project-photo-id-cards/patient-1/photo-id-front.jpg';
 const PRESIGNED_URL = 'https://signed.example.com/photo-id-front.jpg';
 // no image normalization on this pipeline, so the bytes are never decoded — plain fake bytes suffice
 const IMAGE_BYTES = Buffer.from('fake-photo-id-image-bytes');
 
 const SECRETS = {
   FHIR_API: 'https://fhir-api.example.com',
-  PROJECT_API: 'https://project-api.example.com',
+  PROJECT_API: 'https://project-api.zapehr.com/v1',
   PROJECT_ID: 'test-project',
   ENVIRONMENT: 'local',
 };
