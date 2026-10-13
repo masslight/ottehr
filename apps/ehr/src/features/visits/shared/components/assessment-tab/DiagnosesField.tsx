@@ -32,6 +32,12 @@ export const DiagnosesField: FC<DiagnosesFieldProps> = (props) => {
   clearRef.current = clear;
   useEffect(() => () => clearRef.current(), []);
 
+  const resetSearch = (): void => {
+    clear();
+    setInputText('');
+    setDebouncedSearchTerm('');
+  };
+
   const debouncedHandleInputChange = (data: string): void => {
     setInputText(data);
     debounce(() => {
@@ -42,9 +48,7 @@ export const DiagnosesField: FC<DiagnosesFieldProps> = (props) => {
   const onInternalChange = (_e: unknown, data: IcdSearchResponse['codes'][number] | null): void => {
     if (data) {
       onChange(data);
-      clear();
-      setInputText('');
-      setDebouncedSearchTerm('');
+      resetSearch();
     }
   };
 
@@ -68,13 +72,16 @@ export const DiagnosesField: FC<DiagnosesFieldProps> = (props) => {
       isOptionEqualToValue={(option, value) => value.code === option.code}
       loading={Boolean(inputText) && waitingForSearch}
       onChange={onInternalChange}
+      onInputChange={(_event, text, reason) => {
+        if (reason === 'input') debouncedHandleInputChange(text);
+        else resetSearch();
+      }}
       getOptionLabel={(option) => (typeof option === 'string' ? option : `${option.code} ${option.display}`)}
       getOptionDisabled={(option) => disableForPrimary && option.code.startsWith('W')}
       renderInput={(params) => (
         <TextField
           {...params}
           data-testid={dataTestIds.diagnosisContainer.diagnosisDropdown}
-          onChange={(e) => debouncedHandleInputChange(e.target.value)}
           size="small"
           label={label || 'Search'}
           placeholder={placeholder || 'Diagnoses'}

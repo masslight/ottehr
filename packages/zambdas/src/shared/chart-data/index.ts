@@ -1146,15 +1146,15 @@ export function updateEncounterReasonForVisit(encounter: Encounter, data: FreeTe
   return resultOperations;
 }
 
-export function deleteEncounterDiagnosis(encounter: Encounter, conditionId: string): Operation[] {
-  const resultOperations: Operation[] = [];
-  if (encounter.diagnosis) {
-    encounter.diagnosis.find((diagnosis, index) => {
-      if (diagnosis.condition.reference === `Condition/${conditionId}`)
-        resultOperations.push(removeOperation(`/diagnosis/${index}`));
-    });
-  }
-  return resultOperations;
+export function deleteEncounterDiagnoses(encounter: Encounter, conditionIds: readonly string[]): Operation[] {
+  const references = new Set(conditionIds.map((id) => `Condition/${id}`));
+  return (encounter.diagnosis ?? [])
+    .flatMap((diagnosis, index) =>
+      diagnosis.condition.reference && references.has(diagnosis.condition.reference)
+        ? [removeOperation(`/diagnosis/${index}`)]
+        : []
+    )
+    .reverse();
 }
 
 export function deleteEncounterAddendumNote(encounter: Encounter): Operation[] {

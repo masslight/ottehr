@@ -497,6 +497,15 @@ describe('procedure diagnosis search and cleanup', () => {
     });
   });
 
+  it('shows a diagnosis placeholder on a locked procedure with no diagnoses', async () => {
+    visitAccess.readOnly = true;
+    mockChartData.procedures = [{ resourceId: 'procedure', procedureType: 'Test procedure', diagnoses: [] }];
+    render(<ProceduresNew procedureId="procedure" />, { wrapper: createWrapper() });
+    expect(await screen.findByText('[diagnosis]')).toBeInTheDocument();
+    expect(screen.getByText('[diagnosis]').closest('.MuiTypography-root')).toHaveTextContent('Diagnosis: [diagnosis]');
+    expect(screen.queryByRole('button', { name: 'diagnosis (empty)' })).not.toBeInTheDocument();
+  });
+
   it('shows a locked procedure without literal add-action labels', async () => {
     visitAccess.readOnly = true;
     mockChartData.procedures = [

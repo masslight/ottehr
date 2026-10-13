@@ -26,12 +26,8 @@ import {
 import { useApiClients } from 'src/hooks/useAppClients';
 import { isLocationInPerson, isLocationVirtual } from 'utils/lib/fhir/location';
 import { useSuccessQuery } from 'utils/lib/frontend/hooks/useSuccessQuery';
-import {
-  AllChartValues,
-  NOTE_TYPE,
-  RequestedFields,
-  SchoolWorkNoteExcuseDocFileDTO,
-} from 'utils/lib/types/api/chart-data/chart-data.types';
+import { AllChartValues, NOTE_TYPE, RequestedFields } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { DeleteChartDataRequest } from 'utils/lib/types/api/chart-data/delete-chart-data.types';
 import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
 import { SaveChartDataRequest } from 'utils/lib/types/api/chart-data/save-chart-data.types';
 import { PromiseReturnType } from 'utils/lib/types/common';
@@ -641,14 +637,14 @@ export const useSaveChartData = (): UseMutationResult<
 export const useDeleteChartData = (): UseMutationResult<
   PromiseReturnType<ReturnType<OystehrTelemedAPIClient['deleteChartData']>>,
   Error,
-  AllChartValues & { schoolWorkNotes?: SchoolWorkNoteExcuseDocFileDTO[] }
+  Omit<DeleteChartDataRequest, 'encounterId'>
 > => {
   const apiClient = useOystehrAPIClient();
   const { encounter } = useAppointmentData();
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (chartDataFields: AllChartValues & { schoolWorkNotes?: SchoolWorkNoteExcuseDocFileDTO[] }) => {
+    mutationFn: (chartDataFields: Omit<DeleteChartDataRequest, 'encounterId'>) => {
       if (apiClient && encounter?.id) {
         return apiClient.deleteChartData({
           encounterId: encounter.id,

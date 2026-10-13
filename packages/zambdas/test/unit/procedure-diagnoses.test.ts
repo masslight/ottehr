@@ -2,12 +2,12 @@ import { Condition, Encounter, FhirResource, ServiceRequest } from 'fhir/r4b';
 import { ADDED_VIA_PROCEDURE_EXTENSION } from 'utils/lib/types/api/procedures.constants';
 import { ADDED_VIA_LAB_ORDER_SYSTEM } from 'utils/lib/types/data/labs/labs.constants';
 import { describe, expect, it } from 'vitest';
-import { orphanedProcedureDiagnoses } from '../../src/ehr/save-chart-data/procedure-diagnoses';
 import {
   createProcedureServiceRequest,
   makeDiagnosisConditionResource,
   makeDiagnosisDTO,
 } from '../../src/shared/chart-data/index';
+import { orphanedProcedureDiagnoses } from '../../src/shared/chart-data/procedure-diagnoses';
 
 const encounter: Encounter = {
   resourceType: 'Encounter',
@@ -88,6 +88,20 @@ describe('procedure diagnosis lifecycle', () => {
         ]
       )
     ).toEqual([]);
+  });
+  it.each(['entered-in-error', 'revoked'] as const)(
+    'ignores %s procedure links when the last active link is removed',
+    (status) => {
+      expect(remove([{ ...procedure('cancelled'), status }]).map((resource) => resource.id)).toEqual(['first']);
+    }
+  );
+  it('still protects a diagnosis referenced by a non-procedure order that is entered in error', () => {
+    const order = {
+      ...procedure('lab'),
+      status: 'entered-in-error' as const,
+      meta: { tag: [{ code: 'external-lab' }] },
+    };
+    expect(remove([order])).toEqual([]);
   });
   it('protects order references, including nested absolute and versioned references', () => {
     expect(

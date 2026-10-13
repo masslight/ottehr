@@ -52,7 +52,7 @@ export const ProcedureDiagnosesSentence: FC<Props> = ({ diagnoses, visitDiagnose
           </Box>
         </Fragment>
       ))}{' '}
-      {!readOnly && (
+      {(!readOnly || diagnoses.length === 0) && (
         <PopoverBlank
           label={diagnoses.length ? '+ another' : 'diagnosis'}
           title="Diagnosis"
@@ -72,9 +72,6 @@ export const ProcedureDiagnosesSentence: FC<Props> = ({ diagnoses, visitDiagnose
                   }
                   close();
                 }}
-                // The visit's diagnoses as one-click choices; a charted one keeps its resourceId, so
-                // the procedure links the existing Condition instead of saving a copy. A visit can hold the
-                // same code twice (e.g. one from an earlier procedure), so each code is offered once.
                 quickPickOptions={diagnosisChoices}
                 disableForPrimary={false}
                 disabled={readOnly}

@@ -30,8 +30,8 @@ vi.mock('../../src/shared/practitioners', async (importOriginal) => ({
   getMyPractitionerId: vi.fn().mockResolvedValue('practitioner'),
 }));
 vi.mock('../../src/shared/chart-data/post-change-tasks', () => ({ runChartDataPostChangeTasks: vi.fn() }));
-vi.mock('../../src/ehr/save-chart-data/helpers', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../src/ehr/save-chart-data/helpers')>()),
+vi.mock('../../src/shared/chart-data/encounter-resources', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../src/shared/chart-data/encounter-resources')>()),
   getEncounterAndRelatedResources: async (...args: unknown[]) => {
     dependencies(...args);
     return resources;

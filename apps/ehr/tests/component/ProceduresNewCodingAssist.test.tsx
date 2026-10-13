@@ -113,7 +113,12 @@ describe('procedure coding assistance presentation', () => {
     const bestMatch = screen.getByTestId('best-match-cpt-code');
     expect(bestMatch).toHaveTextContent('12042');
     expect(bestMatch).toHaveTextContent('Layered closure documented; hand; 3.2 cm.');
-    expect(screen.queryByTestId('coding-rules-vintage')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('coding-clinician-review')).not.toBeInTheDocument();
+  });
+
+  it('identifies the clinician review caption for AI suggestions', () => {
+    renderAssistance({ ...evaluation({ kind: CodeOutcomeKind.NoCode }), source: 'ai' });
+    expect(screen.getByTestId('coding-clinician-review')).toHaveTextContent('Clinician review required');
   });
 
   it('renders loading and not-assessed states', () => {

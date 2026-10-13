@@ -592,7 +592,7 @@ export const dataTestIds = {
     codingAssistFindings: 'coding-assist-findings',
     codingGuidance: 'coding-guidance',
     codingAssistNotAssessed: 'coding-assist-not-assessed',
-    codingRulesVintage: 'coding-rules-vintage',
+    codingClinicianReview: 'coding-clinician-review',
     lengthCmInput: 'length-cm-input',
     repairDepthSelect: 'repair-depth-select',
     infusionStartTimeInput: 'infusion-start-time-input',

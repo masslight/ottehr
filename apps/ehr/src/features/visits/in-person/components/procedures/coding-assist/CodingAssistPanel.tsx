@@ -167,7 +167,7 @@ export const CodingAssistPanel: FC<CodingAssistPanelProps> = ({
           <Typography
             variant="caption"
             color="text.secondary"
-            data-testid={dataTestIds.documentProcedurePage.codingRulesVintage}
+            data-testid={dataTestIds.documentProcedurePage.codingClinicianReview}
           >
             Clinician review required
           </Typography>

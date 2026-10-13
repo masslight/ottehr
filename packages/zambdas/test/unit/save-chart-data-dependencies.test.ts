@@ -1,7 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { Encounter, FhirResource, MedicationRequest } from 'fhir/r4b';
 import { expect, it, vi } from 'vitest';
-import { getEncounterAndRelatedResources } from '../../src/ehr/save-chart-data/helpers';
+import { getEncounterAndRelatedResources } from '../../src/shared/chart-data/encounter-resources';
 
 it('loads prescription and administration dependencies with the encounter before procedure cleanup', async () => {
   const encounter: Encounter = {

@@ -6,6 +6,7 @@ import { safeJsonParse, safeValidate } from '../../shared/validation';
 const DeleteChartDataBodySchema = z
   .object({
     encounterId: z.string(),
+    cleanupProcedureDiagnoses: z.boolean().optional(),
   })
   .passthrough();
 

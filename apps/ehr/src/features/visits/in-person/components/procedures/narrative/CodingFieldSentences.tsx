@@ -305,7 +305,7 @@ export const LacerationSentences: FC<Omit<Props, 'renderRow'>> = (props) => (
         {!NON_SUTURED_CLOSURES.includes(String(row.closure)) && !(readOnly && row.sutureCount === undefined) && (
           <> ({blank('sutureCount')} sutures/staples)</>
         )}
-        . {details(['sutureCount', 'material'])}
+        . {details(row.closure === 'open' ? ['sutureCount'] : ['sutureCount', 'material'])}
       </>
     )}
   />

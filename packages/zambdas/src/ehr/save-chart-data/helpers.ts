@@ -1,7 +1,5 @@
-import Oystehr from '@oystehr/sdk';
 import { Bundle, CodeableConcept, Coding, Encounter, FhirResource, Location, Resource, ServiceRequest } from 'fhir/r4b';
 import { getEncounterLocationId } from 'utils/lib/fhir/encounter';
-import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { getAddressString } from 'utils/lib/fhir/helpers';
 import { isLocationVirtual } from 'utils/lib/fhir/location';
 import { DispositionMetaFieldsNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
@@ -57,70 +55,6 @@ export const validateBundleAndExtractSavedChartData = (
     chartResources: chartDataResources,
   };
 };
-
-export async function getEncounterAndRelatedResources(
-  oystehr: Oystehr,
-  encounterId?: string,
-  includeProcedureDependencies = false
-): Promise<FhirResource[]> {
-  if (!encounterId) {
-    throw new Error('Encounter ID is required');
-  }
-  return getAllFhirSearchPages<FhirResource>(
-    {
-      resourceType: 'Encounter',
-      params: [
-        ...(includeProcedureDependencies
-          ? [
-              { name: '_revinclude:iterate', value: 'MedicationRequest:encounter' },
-              { name: '_revinclude:iterate', value: 'MedicationAdministration:context' },
-            ]
-          : []),
-        {
-          name: '_id',
-          value: encounterId,
-        },
-        {
-          name: '_include',
-          value: 'Encounter:subject',
-        },
-        {
-          name: '_revinclude:iterate',
-          value: 'ServiceRequest:encounter',
-        },
-        {
-          name: '_revinclude:iterate',
-          value: 'DocumentReference:encounter',
-        },
-        {
-          name: '_include',
-          value: 'Encounter:appointment',
-        },
-        {
-          name: '_include',
-          value: 'Encounter:location',
-        },
-        {
-          name: '_revinclude:iterate',
-          value: 'List:patient',
-        },
-        {
-          name: '_revinclude:iterate',
-          value: 'Condition:encounter',
-        },
-        {
-          name: '_revinclude:iterate',
-          value: 'Observation:encounter',
-        },
-        {
-          name: '_revinclude:iterate',
-          value: 'ClinicalImpression:encounter',
-        },
-      ],
-    },
-    oystehr
-  );
-}
 
 /**
  * Address of the clinic the visit took place at, printed under the logo on the school/work note.

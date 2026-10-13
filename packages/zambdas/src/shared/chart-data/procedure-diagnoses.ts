@@ -2,9 +2,8 @@ import { Condition, Encounter, FhirResource } from 'fhir/r4b';
 import { ProcedureDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { ADDED_VIA_PROCEDURE_EXTENSION } from 'utils/lib/types/api/procedures.constants';
 import { ADDED_VIA_LAB_ORDER_SYSTEM } from 'utils/lib/types/data/labs/labs.constants';
-import { chartDataResourceHasMetaTagByCode } from '../../shared/chart-data/index';
+import { chartDataResourceHasMetaTagByCode } from './index';
 
-/** Normalize relative, absolute and versioned Condition references. */
 const conditionReference = (reference: string): string | undefined => {
   const match = /(?:^|\/)Condition\/([^/]+)(?:\/_history\/[^/]+)?$/.exec(reference);
   return match ? `Condition/${match[1]}` : undefined;
@@ -24,8 +23,6 @@ function collectReferences(value: unknown, references: Set<string>): void {
   Object.values(object).forEach((item) => collectReferences(item, references));
 }
 
-/** Delete only known procedure-origin diagnoses after their final link is removed.
- * Unknown/legacy origins, lab-origin and primary visit diagnoses are preserved. */
 export function orphanedProcedureDiagnoses(
   encounter: Encounter,
   resources: FhirResource[],
@@ -55,7 +52,13 @@ export function orphanedProcedureDiagnoses(
   collectReferences({ ...encounter, diagnosis: undefined }, retained);
   for (const resource of resources) {
     if (resource.resourceType === 'Encounter' && resource.id === encounter.id) continue;
-    if (resource.resourceType === 'ServiceRequest' && resource.id && replacedIds.has(resource.id)) continue;
+    if (
+      resource.resourceType === 'ServiceRequest' &&
+      ((resource.id && replacedIds.has(resource.id)) ||
+        (chartDataResourceHasMetaTagByCode(resource, 'procedure') &&
+          (resource.status === 'entered-in-error' || resource.status === 'revoked')))
+    )
+      continue;
     collectReferences(resource, retained);
   }
   const primary = new Set(

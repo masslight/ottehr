@@ -31,7 +31,7 @@ import {
   createAccidentCondition,
   createDispositionServiceRequest,
   createProcedureServiceRequest,
-  deleteEncounterDiagnosis,
+  deleteEncounterDiagnoses,
   findAccidentConditions,
   followUpToPerformerMap,
   followUpTypeFromPerformerType,
@@ -58,7 +58,9 @@ import {
   updateEncounterPatientInfoConfirmed,
   updateEncounterReasonForVisit,
 } from '../../shared/chart-data';
+import { getEncounterAndRelatedResources } from '../../shared/chart-data/encounter-resources';
 import { runChartDataPostChangeTasks } from '../../shared/chart-data/post-change-tasks';
+import { orphanedProcedureDiagnoses } from '../../shared/chart-data/procedure-diagnoses';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { PdfDocumentReferencePublishedStatuses } from '../../shared/pdf/pdf-utils';
 import { createSchoolWorkNotePDF } from '../../shared/pdf/school-work-note-pdf';
@@ -74,11 +76,9 @@ import {
 import { deleteResourceRequest } from '../delete-chart-data/helpers';
 import {
   filterServiceRequestsFromFhir,
-  getEncounterAndRelatedResources,
   getEncounterClinicAddress,
   validateBundleAndExtractSavedChartData,
 } from './helpers';
-import { orphanedProcedureDiagnoses } from './procedure-diagnoses';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'save-chart-data';
@@ -490,12 +490,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   for (const condition of deletedDiagnoses) {
     saveOrUpdateRequests.push(deleteResourceRequest('Condition', condition.id!));
   }
-  // Each remove uses the pre-update Encounter indices; descending order prevents index shifts.
-  updateEncounterOperations.push(
-    ...deletedDiagnoses
-      .flatMap((condition) => deleteEncounterDiagnosis(encounter, condition.id!))
-      .sort((a, b) => Number(b.path.split('/').pop()) - Number(a.path.split('/').pop()))
-  );
+  updateEncounterOperations.push(...deleteEncounterDiagnoses(encounter, deletedDiagnosisIds));
 
   if (updateEncounterOperations.length > 0) {
     saveOrUpdateRequests.push(

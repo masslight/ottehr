@@ -41,6 +41,55 @@ describe('diagnosis search choices', () => {
     await user.click(await screen.findByRole('option', { name: 'J06.9 URI' }));
     expect(onChange).toHaveBeenCalledWith({ code: 'J06.9', display: 'URI' });
   });
+  it.each([false, true])(
+    'restores visit choices after blurring an abandoned search (query finished: %s)',
+    async (queryFinished) => {
+      const user = userEvent.setup();
+      const onChange = vi.fn();
+      render(
+        <>
+          <DiagnosesField
+            onChange={onChange}
+            disableForPrimary={false}
+            quickPickOptions={[{ code: 'S61.4', display: 'Laceration' }]}
+          />
+          <button>Outside</button>
+        </>
+      );
+      const input = screen.getByRole('combobox');
+      await user.type(input, 'URI');
+      if (queryFinished) await screen.findByRole('option', { name: 'J06.9 URI' });
+      await user.click(screen.getByRole('button', { name: 'Outside' }));
+      expect(input).toHaveValue('');
+      await user.click(input);
+      expect(screen.getByRole('option', { name: 'S61.4 Laceration' })).toBeInTheDocument();
+      expect(screen.queryByRole('option', { name: 'J06.9 URI' })).not.toBeInTheDocument();
+      await waitFor(() => expect(search).toHaveBeenLastCalledWith({ search: '' }));
+      await user.click(screen.getByRole('option', { name: 'S61.4 Laceration' }));
+      expect(onChange).toHaveBeenCalledWith({ code: 'S61.4', display: 'Laceration' });
+    }
+  );
+
+  it('keeps an existing selection visible when an abandoned search resets on blur', async () => {
+    const user = userEvent.setup();
+    const selected = { code: 'S61.4', display: 'Laceration' };
+    const onChange = vi.fn();
+    render(
+      <>
+        <DiagnosesField value={selected} onChange={onChange} disableForPrimary={false} />
+        <button>Outside</button>
+      </>
+    );
+    const input = screen.getByRole('combobox');
+    expect(input).toHaveValue('S61.4 Laceration');
+    await user.clear(input);
+    await user.type(input, 'URI');
+    await user.click(screen.getByRole('button', { name: 'Outside' }));
+    expect(input).toHaveValue('S61.4 Laceration');
+    expect(onChange).not.toHaveBeenCalled();
+    expect(search).toHaveBeenLastCalledWith({ search: '' });
+  });
+
   it('does not expose previous-query results while the new query is loading', async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();

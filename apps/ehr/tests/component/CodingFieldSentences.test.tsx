@@ -8,7 +8,7 @@ import { nebulizerFamily } from 'utils/lib/procedure-coding/families/nebulizer';
 import { resolveFamilyFacts } from 'utils/lib/procedure-coding/family-support';
 import { ProcedureFamilyModel } from 'utils/lib/procedure-coding/model.types';
 import { readRows, StructuredFacts } from 'utils/lib/procedure-coding/structured-fields';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   CodingFieldSentences,
   LacerationSentences,
@@ -120,7 +120,10 @@ describe('coding field sentences', () => {
       material: 'Retained material',
     });
     if (closure === 'open') {
-      expect(screen.queryByRole('textbox', { name: 'closure material' })).not.toBeInTheDocument();
+      expect(screen.getByRole('textbox', { name: 'closure material' })).toHaveValue('Retained material');
+      expect(
+        screen.getByRole('textbox', { name: 'closure material' }).closest('.MuiTypography-root')
+      ).toHaveTextContent('Closure material:');
       expect(screen.queryByText(/closed with/)).not.toBeInTheDocument();
       expect(screen.getByText(/Wound left/)).toBeInTheDocument();
     }
@@ -128,6 +131,30 @@ describe('coding field sentences', () => {
     await user.click(screen.getByRole('option', { name: 'layered' }));
     expect(screen.getByRole('spinbutton', { name: 'suture/staple count' })).toHaveValue(4);
     expect(screen.getByRole('textbox', { name: 'closure material' })).toHaveValue('Retained material');
+  });
+
+  it('lets an open wound material be edited and cleared without losing other wound answers', async () => {
+    const user = userEvent.setup();
+    render(<Form family={lacerationFamily} />);
+    await user.type(screen.getByRole('textbox', { name: 'closure material' }), 'Nylon');
+    await user.type(screen.getByRole('spinbutton', { name: 'length (cm)' }), '3.5');
+    await user.click(screen.getByRole('button', { name: 'repair type (empty)' }));
+    await user.click(screen.getByRole('option', { name: 'open' }));
+    await user.clear(screen.getByRole('textbox', { name: 'closure material' }));
+    const wound = readRows(latest.facts ?? {}, 'wounds')[0];
+    expect(wound).toMatchObject({ closure: 'open', length: 3.5 });
+    expect(wound.material).toBeUndefined();
+  });
+
+  it('shows a saved open wound material in read-only details', () => {
+    const value = resolveFamilyFacts(lacerationFamily, {
+      structuredFacts: { wounds: [{ closure: 'open', material: 'Nylon' }] },
+    });
+    render(<LacerationSentences family={lacerationFamily} value={value} onChange={vi.fn()} readOnly />);
+    expect(screen.getByText('Nylon')).toBeInTheDocument();
+    expect(screen.getByText('Nylon').closest('.MuiTypography-root')).toHaveTextContent('Closure material: Nylon');
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+    expect(screen.queryByText(/closed with/)).not.toBeInTheDocument();
   });
 
   it('shows sentences as plain text on read-only surfaces, without an empty count', () => {

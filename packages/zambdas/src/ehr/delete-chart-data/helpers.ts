@@ -1,5 +1,6 @@
 import Oystehr, { BatchInputDeleteRequest, BatchInputPutRequest } from '@oystehr/sdk';
 import { Appointment, DocumentReference, Encounter, FhirResource, Patient, ServiceRequest } from 'fhir/r4b';
+import { getEncounterAndRelatedResources as getEncounterWithProcedureDependencies } from '../../shared/chart-data/encounter-resources';
 
 export function deleteResourceRequest(resourceType: string, resourceId: string): BatchInputDeleteRequest {
   return { method: 'DELETE', url: `/${resourceType}/${resourceId}` };
@@ -14,7 +15,12 @@ export function updateResourceRequest<F extends FhirResource>(resource: F): Batc
   };
 }
 
-export async function getEncounterAndRelatedResources(oystehr: Oystehr, encounterId?: string): Promise<FhirResource[]> {
+export async function getEncounterAndRelatedResources(
+  oystehr: Oystehr,
+  encounterId?: string,
+  includeProcedureDependencies = false
+): Promise<FhirResource[]> {
+  if (includeProcedureDependencies) return getEncounterWithProcedureDependencies(oystehr, encounterId, true);
   if (!encounterId) {
     throw new Error('Encounter ID is required');
   }
