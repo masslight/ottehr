@@ -19,7 +19,7 @@ export const MedicalRecordDateRangeSchema = z
     from: z.string().datetime({ offset: true }),
     to: z.string().datetime({ offset: true }),
   })
-  .refine(({ from, to }) => !from || !to || Date.parse(from) <= Date.parse(to), {
+  .refine(({ from, to }) => Date.parse(from) <= Date.parse(to), {
     message: 'The start date must not be after the end date',
     path: ['from'],
   });
