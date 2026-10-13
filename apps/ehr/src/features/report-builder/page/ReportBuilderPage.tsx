@@ -38,11 +38,13 @@ import { getLlmModelVariantLabel } from 'utils/lib/types/api/ai-models.constants
 import PageContainer from '../../../layout/PageContainer';
 import { ReportFrame } from '../sandbox/ReportFrame';
 import { AllDatasetsInfo, DatasetLayersInfo } from './DatasetLayersInfo';
+import { RawDataGrid } from './RawDataGrid';
 import { useReportBuilder } from './useReportBuilder';
 
 export default function ReportBuilderPage(): React.ReactElement {
   const navigate = useNavigate();
   const rb = useReportBuilder();
+  const [showRawData, setShowRawData] = React.useState(false);
 
   if (!rb.canView) {
     return (
@@ -276,9 +278,22 @@ export default function ReportBuilderPage(): React.ReactElement {
                   schema: <strong>{rb.schema.fields.length}</strong> fields
                 </Typography>
                 <Button size="small" onClick={() => rb.setShowSchema(!rb.showSchema)}>
-                  {rb.showSchema ? 'Hide fields' : 'Show fields'}
+                  {rb.showSchema ? 'Hide schema' : 'Show schema'}
+                </Button>
+                <Button size="small" onClick={() => setShowRawData(!showRawData)}>
+                  {showRawData ? 'Hide response data' : 'Show response data'}
                 </Button>
               </Box>
+
+              <Collapse in={showRawData} unmountOnExit>
+                <RawDataGrid
+                  key={rb.schema.datasetId}
+                  rows={rb.rows}
+                  schema={rb.schema}
+                  loading={rb.loading}
+                  fileName={`${rb.schema.label.toLowerCase().replace(/[^\w.-]+/g, '-')}-raw-data`}
+                />
+              </Collapse>
 
               <Collapse in={rb.showSchema}>
                 <Paper variant="outlined" sx={{ mb: 3, overflow: 'auto' }}>
