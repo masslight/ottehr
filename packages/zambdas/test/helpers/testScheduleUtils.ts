@@ -1430,6 +1430,10 @@ export const cleanupTestScheduleResources = async (processId: string, oystehr: O
         },
         {
           name: '_revinclude',
+          value: 'Appointment:patient',
+        },
+        {
+          name: '_revinclude:iterate',
           value: 'Encounter:appointment',
         },
         {
