@@ -43,7 +43,10 @@ its blank and displayed in the sentence. On wide chart areas, suggestions, code 
 share a sticky column with its own scrolling when the content exceeds the available chart height;
 on narrow areas the column follows the sentences. The layout does not add defaults or change coding
 rules. A diagnosis already on the visit is linked by its Condition ID; removing that link from a
-procedure preserves the visit diagnosis.
+procedure preserves shared and primary visit diagnoses. Newly created procedure diagnoses record
+an origin marker. When their final procedure link is removed, the procedure page requests cleanup and the save endpoint deletes them only
+if no other fetched chart resource references them, in the same transaction as the procedure update.
+Older diagnoses with unknown origin are preserved; their origin is not inferred from code or dates.
 
 The AI path (`recommend-billing-codes` zambda, parsing in `packages/utils/lib/procedure-coding/ai/`)
 only ever suggests. It marks every selected code "not assessed" — AI may flag, never bless.

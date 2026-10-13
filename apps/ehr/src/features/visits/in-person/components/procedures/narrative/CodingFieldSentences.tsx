@@ -98,11 +98,21 @@ interface Props {
   medicationUsed?: string;
   /** Hand-written sentence for a repeating group; the generic "label: [blank]" wording is the default. */
   renderRow?: (args: RowRenderArgs) => ReactNode;
+  /** Laceration details use a compact optional picker; other families spell out each answer. */
+  compactDetails?: boolean;
 }
 
 /** Turns a coding family's field definitions into sentences with inline blanks. The visibility, defaults and
  * answer normalisation are the same calls the old structured form made, so the engine sees identical facts. */
-export const CodingFieldSentences: FC<Props> = ({ family, value, onChange, readOnly, medicationUsed, renderRow }) => {
+export const CodingFieldSentences: FC<Props> = ({
+  family,
+  value,
+  onChange,
+  readOnly,
+  medicationUsed,
+  renderRow,
+  compactDetails = false,
+}) => {
   const pieces = (
     fields: readonly ScalarCodingField[],
     answers: StructuredFacts | StructuredRow,
@@ -128,10 +138,11 @@ export const CodingFieldSentences: FC<Props> = ({ family, value, onChange, readO
     update: (next: StructuredFacts | StructuredRow) => void
   ): ReactNode => {
     if (!fields.length) return null;
-    if (!renderRow) return <>{pieces(fields, answers, update)}.</>;
+    if (!compactDetails) return <>{pieces(fields, answers, update)}.</>;
     const checkboxes = fields.filter((field) => field.kind === 'checkbox');
     const others = fields.filter((field) => field.kind !== 'checkbox');
     const chosen = checkboxes.filter((field) => answers[field.key] === true).map((field) => field.key);
+    if (readOnly && !chosen.length && !others.some((field) => answers[field.key] !== undefined)) return null;
     return (
       <>
         {checkboxes.length > 0 && (
@@ -274,20 +285,24 @@ export const CodingFieldSentences: FC<Props> = ({ family, value, onChange, readO
 };
 
 /** Laceration wounds read as a repair sentence; the blanks are the family's real field keys. */
-/** The laceration closure option that needs no suture/staple count. */
-const ADHESIVE_ONLY = 'adhesive only';
+/** These closure methods do not use sutures or staples. */
+const NON_SUTURED_CLOSURES = ['adhesive only', 'strips only', 'open'];
 
 /** Material and count are `details` answers in the family (optional), so they keep the grey empty style. */
 export const LacerationSentences: FC<Omit<Props, 'renderRow'>> = (props) => (
   <CodingFieldSentences
     {...props}
+    compactDetails
     renderRow={({ row, readOnly, blank, details }) => (
       <>
         {/* The family calls this "Closure"; in the sentence that read as the closure material. */}
-        {blank('closure', { label: 'Repair type' })} repair of a {blank('length')} cm laceration of the {blank('site')}{' '}
-        ({blank('side')}), closed with {blank('material', { placeholder: 'material' })}
-        {/* Display only: an adhesive closure has no count to show, but a stored count is left as it is. */}
-        {row.closure !== ADHESIVE_ONLY && !(readOnly && row.sutureCount === undefined) && (
+        {row.closure === 'open' && 'Wound left '}
+        {blank('closure', { label: 'Repair type' })}
+        {row.closure === 'open' ? ': a ' : ' repair of a '}
+        {blank('length')} cm laceration of the {blank('site')} ({blank('side')})
+        {row.closure !== 'open' && <>, closed with {blank('material', { placeholder: 'material' })}</>}
+        {/* Display only: non-sutured closures hide the count without changing saved answers. */}
+        {!NON_SUTURED_CLOSURES.includes(String(row.closure)) && !(readOnly && row.sutureCount === undefined) && (
           <> ({blank('sutureCount')} sutures/staples)</>
         )}
         . {details(['sutureCount', 'material'])}

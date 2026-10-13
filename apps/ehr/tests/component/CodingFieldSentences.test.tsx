@@ -106,6 +106,30 @@ describe('coding field sentences', () => {
     expect(screen.getByRole('spinbutton', { name: 'suture/staple count' })).toHaveValue(4);
   });
 
+  it.each(['open', 'strips only'])('hides suture counts for %s and preserves their saved values', async (closure) => {
+    const user = userEvent.setup();
+    render(<Form family={lacerationFamily} />);
+    await user.type(screen.getByRole('spinbutton', { name: 'suture/staple count' }), '4');
+    await user.type(screen.getByRole('textbox', { name: 'closure material' }), 'Retained material');
+    await user.click(screen.getByRole('button', { name: 'repair type (empty)' }));
+    await user.click(screen.getByRole('option', { name: closure }));
+    expect(screen.queryByRole('spinbutton', { name: 'suture/staple count' })).not.toBeInTheDocument();
+    expect(readRows(latest.facts ?? {}, 'wounds')[0]).toMatchObject({
+      closure,
+      sutureCount: 4,
+      material: 'Retained material',
+    });
+    if (closure === 'open') {
+      expect(screen.queryByRole('textbox', { name: 'closure material' })).not.toBeInTheDocument();
+      expect(screen.queryByText(/closed with/)).not.toBeInTheDocument();
+      expect(screen.getByText(/Wound left/)).toBeInTheDocument();
+    }
+    await user.click(screen.getByRole('button', { name: `repair type: ${closure}` }));
+    await user.click(screen.getByRole('option', { name: 'layered' }));
+    expect(screen.getByRole('spinbutton', { name: 'suture/staple count' })).toHaveValue(4);
+    expect(screen.getByRole('textbox', { name: 'closure material' })).toHaveValue('Retained material');
+  });
+
   it('shows sentences as plain text on read-only surfaces, without an empty count', () => {
     render(<Form family={lacerationFamily} readOnly />);
     expect(screen.queryByRole('button')).not.toBeInTheDocument();

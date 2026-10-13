@@ -31,6 +31,7 @@ const SaveChartDataBodySchema = z
   .object({
     encounterId: z.string().uuid(),
     procedures: z.array(procedureSchema).optional(),
+    cleanupProcedureDiagnoses: z.boolean().optional(),
   })
   .passthrough();
 

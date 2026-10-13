@@ -45,14 +45,16 @@ vi.mock('../../src/hooks/useMergedQuickPicks', () => ({
 }));
 
 vi.mock('../../src/shared/hooks/useDebounce', () => ({
-  useDebounce: () => ({ debounce: (cb: () => void) => cb() }),
+  useDebounce: () => ({ debounce: (cb: () => void) => cb(), clear: vi.fn() }),
 }));
 
+const { visitAccess } = vi.hoisted(() => ({ visitAccess: { readOnly: false } }));
 vi.mock('../../src/features/visits/shared/hooks/useGetAppointmentAccessibility', () => ({
-  useGetAppointmentAccessibility: () => ({ isAppointmentReadOnly: false }),
+  useGetAppointmentAccessibility: () => ({ isAppointmentReadOnly: visitAccess.readOnly }),
 }));
 
-const { mockSaveChartData, mockDeleteChartData } = vi.hoisted(() => ({
+const { mockSaveChartData, mockDeleteChartData, mockSetPartialChartData } = vi.hoisted(() => ({
+  mockSetPartialChartData: vi.fn(),
   mockSaveChartData: vi.fn().mockResolvedValue({ chartData: { procedures: [{ resourceId: 'saved-proc-1' }] } }),
   mockDeleteChartData: vi.fn().mockResolvedValue({}),
 }));
@@ -63,17 +65,21 @@ vi.mock('../../src/features/visits/shared/stores/appointment/appointment.store',
   useDeleteChartData: () => ({ mutateAsync: mockDeleteChartData }),
 }));
 
-const { mockChartData } = vi.hoisted(() => ({
+const { mockChartData, mockSearchCodes } = vi.hoisted(() => ({
+  mockSearchCodes: { codes: [] as { code: string; display: string }[] },
   mockChartData: {} as Pick<AllChartValues, 'diagnosis' | 'procedures'>,
 }));
 
 vi.mock('../../src/features/visits/shared/hooks/useChartData', () => ({
-  useChartData: () => ({ chartData: mockChartData, setPartialChartData: vi.fn() }),
+  useChartData: () => ({ chartData: mockChartData, setPartialChartData: mockSetPartialChartData }),
 }));
 
 vi.mock('../../src/features/visits/shared/stores/appointment/appointment.queries', () => ({
   useGetCPTHCPCSSearch: () => ({ isFetching: false, data: { codes: [] } }),
-  useICD10SearchNew: () => ({ isFetching: false, data: { codes: [] } }),
+  useICD10SearchNew: ({ search }: { search: string }) => ({
+    isFetching: false,
+    data: { codes: search ? mockSearchCodes.codes : [] },
+  }),
 }));
 
 vi.mock('../../src/components/AccordionCard', () => ({
@@ -168,6 +174,8 @@ const renderComponent = (): ReturnType<typeof render> => render(<ProceduresNew /
 
 beforeEach(() => {
   vi.clearAllMocks();
+  visitAccess.readOnly = false;
+  mockSearchCodes.codes = [];
   delete mockChartData.diagnosis;
   delete mockChartData.procedures;
   useProcedureStore.getState().clearDraft(ENCOUNTER_ID);
@@ -468,5 +476,86 @@ describe('ProceduresNew — save validation and shared diagnoses', () => {
       complications: 'Minor bleeding',
       postInstructions: 'Other: Return tomorrow',
     });
+  });
+});
+
+describe('procedure diagnosis search and cleanup', () => {
+  it('reuses a code-only diagnosis from a restored draft if that code is already charted', async () => {
+    const user = userEvent.setup();
+    mockChartData.diagnosis = [{ code: 'J06.9', display: 'URI', resourceId: 'charted', isPrimary: false }];
+    useProcedureStore.getState().setDraft(ENCOUNTER_ID, {
+      procedureType: 'Test procedure',
+      diagnoses: [{ code: 'J06.9', display: 'URI', isPrimary: false }],
+    });
+    renderComponent();
+    await user.click(screen.getByTestId(dataTestIds.documentProcedurePage.saveButton));
+    await waitFor(() => expect(mockSaveChartData).toHaveBeenCalledTimes(2));
+    expect(mockSaveChartData.mock.calls[0][0].diagnosis).toEqual([]);
+    expect(mockSaveChartData.mock.calls[1][0]).toMatchObject({
+      cleanupProcedureDiagnoses: true,
+      procedures: [{ diagnoses: [expect.objectContaining({ resourceId: 'charted' })] }],
+    });
+  });
+
+  it('shows a locked procedure without literal add-action labels', async () => {
+    visitAccess.readOnly = true;
+    mockChartData.procedures = [
+      {
+        resourceId: 'procedure',
+        procedureType: 'Test procedure',
+        diagnoses: [{ resourceId: 'condition', code: 'J06.9', display: 'URI', isPrimary: false }],
+      },
+    ];
+    render(<ProceduresNew procedureId="procedure" />, { wrapper: createWrapper() });
+    expect(await screen.findByText(/URI J06.9/)).toBeInTheDocument();
+    expect(screen.queryByTestId(dataTestIds.documentProcedurePage.addDiagnosis)).not.toBeInTheDocument();
+    expect(screen.queryByText('[+ another]')).not.toBeInTheDocument();
+    expect(screen.queryByText('[+ technique]')).not.toBeInTheDocument();
+  });
+
+  it('links an existing visit Condition selected through search instead of creating a copy', async () => {
+    const user = userEvent.setup();
+    mockChartData.diagnosis = [{ code: 'J06.9', display: 'URI', resourceId: 'existing-condition', isPrimary: true }];
+    mockSearchCodes.codes = [{ code: 'J06.9', display: 'URI' }];
+    useProcedureStore.getState().setDraft(ENCOUNTER_ID, { procedureType: 'Test procedure' });
+    renderComponent();
+    await user.click(screen.getByTestId(dataTestIds.documentProcedurePage.addDiagnosis));
+    await user.type(screen.getByRole('combobox', { name: 'Dx' }), 'URI');
+    await user.click(await screen.findByRole('option', { name: 'J06.9 URI' }));
+    await user.click(screen.getByTestId(dataTestIds.documentProcedurePage.saveButton));
+    await waitFor(() => expect(mockSaveChartData).toHaveBeenCalledTimes(2));
+    expect(mockSaveChartData.mock.calls[0][0].diagnosis).toEqual([]);
+    expect(mockSaveChartData.mock.calls[1][0].procedures[0].diagnoses).toEqual([
+      expect.objectContaining({ resourceId: 'existing-condition', code: 'J06.9' }),
+    ]);
+  });
+  it('records origin for a genuinely new diagnosis and preserves newly saved diagnoses when old ones are cleaned up', async () => {
+    const user = userEvent.setup();
+    const previous = { code: 'OLD', display: 'Previous', isPrimary: false, resourceId: 'previous' };
+    mockChartData.diagnosis = [previous];
+    mockChartData.procedures = [{ resourceId: 'procedure', procedureType: 'Test procedure', diagnoses: [previous] }];
+    mockSearchCodes.codes = [{ code: 'J06.9', display: 'URI' }];
+    mockSaveChartData
+      .mockResolvedValueOnce({
+        chartData: {
+          diagnosis: [{ code: 'J06.9', display: 'URI', isPrimary: false, resourceId: 'new', addedViaProcedure: true }],
+        },
+      })
+      .mockResolvedValueOnce({
+        chartData: { procedures: [{ resourceId: 'procedure' }] },
+        deletedDiagnosisIds: ['previous'],
+      });
+    render(<ProceduresNew procedureId="procedure" />, { wrapper: createWrapper() });
+    await user.click(await screen.findByRole('button', { name: 'Remove OLD' }));
+    await user.click(screen.getByTestId(dataTestIds.documentProcedurePage.addDiagnosis));
+    await user.type(screen.getByRole('combobox', { name: 'Dx' }), 'URI');
+    await user.click(await screen.findByRole('option', { name: 'J06.9 URI' }));
+    await user.click(screen.getByTestId(dataTestIds.documentProcedurePage.saveButton));
+    await waitFor(() => expect(mockSaveChartData).toHaveBeenCalledTimes(2));
+    expect(mockSaveChartData.mock.calls[0][0].diagnosis[0]).toMatchObject({ code: 'J06.9', addedViaProcedure: true });
+    expect(mockSetPartialChartData).toHaveBeenCalledWith({
+      diagnosis: [expect.objectContaining({ resourceId: 'new' })],
+    });
+    expect(mockDeleteChartData).not.toHaveBeenCalled();
   });
 });

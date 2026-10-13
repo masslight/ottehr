@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { Bundle, CodeableConcept, Coding, Encounter, FhirResource, Location, Resource, ServiceRequest } from 'fhir/r4b';
 import { getEncounterLocationId } from 'utils/lib/fhir/encounter';
+import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { getAddressString } from 'utils/lib/fhir/helpers';
 import { isLocationVirtual } from 'utils/lib/fhir/location';
 import { DispositionMetaFieldsNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
@@ -57,14 +58,24 @@ export const validateBundleAndExtractSavedChartData = (
   };
 };
 
-export async function getEncounterAndRelatedResources(oystehr: Oystehr, encounterId?: string): Promise<Resource[]> {
+export async function getEncounterAndRelatedResources(
+  oystehr: Oystehr,
+  encounterId?: string,
+  includeProcedureDependencies = false
+): Promise<FhirResource[]> {
   if (!encounterId) {
     throw new Error('Encounter ID is required');
   }
-  return (
-    await oystehr.fhir.search<Encounter>({
+  return getAllFhirSearchPages<FhirResource>(
+    {
       resourceType: 'Encounter',
       params: [
+        ...(includeProcedureDependencies
+          ? [
+              { name: '_revinclude:iterate', value: 'MedicationRequest:encounter' },
+              { name: '_revinclude:iterate', value: 'MedicationAdministration:context' },
+            ]
+          : []),
         {
           name: '_id',
           value: encounterId,
@@ -106,8 +117,9 @@ export async function getEncounterAndRelatedResources(oystehr: Oystehr, encounte
           value: 'ClinicalImpression:encounter',
         },
       ],
-    })
-  ).unbundle();
+    },
+    oystehr
+  );
 }
 
 /**

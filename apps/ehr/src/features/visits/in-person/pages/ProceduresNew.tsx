@@ -251,6 +251,10 @@ export default function ProceduresNew({
   ]);
 
   const codingFamily = detectProcedureFamily(procedureFacts);
+  const resolvedStructuredFacts = useMemo(
+    () => (codingFamily ? resolveFamilyFacts(codingFamily, procedureFacts) : state.structuredFacts),
+    [codingFamily, procedureFacts, state.structuredFacts]
+  );
   const codingAssist = useProcedureCoding(procedureFacts);
 
   const codingEvaluations =
@@ -331,9 +335,19 @@ export default function ProceduresNew({
           return original == null || original.billableUnits !== cptCode.billableUnits;
         }) ?? [];
 
+      // Drafts and retries may still carry code-only diagnoses that have since been charted.
+      const visitDiagnosesByCode = new Map<string, (typeof chartDiagnoses)[number]>();
+      for (const diagnosis of chartDiagnoses) {
+        if (!visitDiagnosesByCode.has(diagnosis.code)) visitDiagnosesByCode.set(diagnosis.code, diagnosis);
+      }
+      const selectedDiagnoses = (state.diagnoses ?? []).map((diagnosis) =>
+        diagnosis.resourceId ? diagnosis : visitDiagnosesByCode.get(diagnosis.code) ?? diagnosis
+      );
       const saveCptAndDiagnosesResponse = await saveChartData({
         cptCodes: cptCodesToSave,
-        diagnosis: state.diagnoses?.filter((diagnosis) => diagnosis.resourceId == null) ?? [],
+        diagnosis: selectedDiagnoses
+          .filter((diagnosis) => diagnosis.resourceId == null)
+          .map((diagnosis) => ({ ...diagnosis, addedViaProcedure: true })),
       });
 
       const savedCptCodes = saveCptAndDiagnosesResponse.chartData?.cptCodes;
@@ -367,10 +381,11 @@ export default function ProceduresNew({
 
       const diagnosesToUse = [
         ...(savedDiagnoses ?? []),
-        ...(state.diagnoses?.filter((diagnosis) => diagnosis.resourceId != null) ?? []),
+        ...selectedDiagnoses.filter((diagnosis) => diagnosis.resourceId != null),
       ];
 
       const saveProcedureResponse = await saveChartData({
+        cleanupProcedureDiagnoses: true,
         procedures: [
           {
             resourceId: procedureId,
@@ -389,7 +404,7 @@ export default function ProceduresNew({
             technique: state.technique,
             suppliesUsed: combineMultipleValuesForSave(state.suppliesUsed, state.otherSuppliesUsed),
             procedureDetails: state.procedureDetails,
-            structuredFacts: codingFamily ? resolveFamilyFacts(codingFamily, procedureFacts) : state.structuredFacts,
+            structuredFacts: resolvedStructuredFacts,
             lengthCm: state.lengthCm,
             repairDepth: state.repairDepth,
             infusionStartTime: state.infusionStartTime,
@@ -406,12 +421,20 @@ export default function ProceduresNew({
         ],
       });
 
+      if (saveProcedureResponse.deletedDiagnosisIds?.length) {
+        const deleted = new Set(saveProcedureResponse.deletedDiagnosisIds);
+        setPartialChartData({
+          diagnosis: [...chartDiagnoses, ...(savedDiagnoses ?? [])].filter(
+            (diagnosis) => !deleted.has(diagnosis.resourceId ?? '')
+          ),
+        });
+      }
+
       const oldProcedure = chartData?.procedures?.find((procedure) => procedure.resourceId === procedureId);
       const removedCptCodes = oldProcedure?.cptCodes?.filter(
         (cptCode) => !cptCodesToUse.some((selected) => selected.resourceId === cptCode.resourceId)
       );
-      // Diagnoses belong to the visit and may be shared with other procedures. Saving the
-      // new associations above unlinks removed diagnoses without deleting their Conditions.
+      // The save endpoint handles origin-aware diagnosis cleanup atomically with the procedure update.
       if (removedCptCodes?.length) await deleteChartData({ cptCodes: removedCptCodes });
 
       const savedProcedure = saveProcedureResponse.chartData?.procedures?.[0];
@@ -481,7 +504,7 @@ export default function ProceduresNew({
     return buildProcedureQuickPick(
       {
         ...state,
-        structuredFacts: codingFamily ? resolveFamilyFacts(codingFamily, procedureFacts) : state.structuredFacts,
+        structuredFacts: resolvedStructuredFacts,
       },
       quickPickName,
       formValues.procedureType,
@@ -661,10 +684,6 @@ export default function ProceduresNew({
       cancelled = true;
     };
   }, []);
-
-  const resolvedStructuredFacts = codingFamily
-    ? resolveFamilyFacts(codingFamily, procedureFacts)
-    : state.structuredFacts;
 
   return (
     <FormProvider {...methods}>

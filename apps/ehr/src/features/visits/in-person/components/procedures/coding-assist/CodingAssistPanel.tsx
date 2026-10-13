@@ -5,7 +5,7 @@ import { CodeOutcome, CodeOutcomeKind, EvaluationResult } from 'utils/lib/proced
 import { CPTCodeDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { CodeCandidateList } from './CodeCandidateList';
 import { CodeSuggestionRow } from './CodeSuggestionRow';
-import { CodingFindingList, collectPayerNotes, PayerNoteList } from './CodingFindingList';
+import { actionableFindings, CodingFindingList, collectPayerNotes, PayerNoteList } from './CodingFindingList';
 
 interface CodingAssistPanelProps {
   evaluation: EvaluationResult | undefined;
@@ -27,7 +27,7 @@ export const CodingAssistPanel: FC<CodingAssistPanelProps> = ({
   onRetrySuggestions,
 }) => {
   // The page can print the best-practice reminders further down (after the CPT codes) instead.
-  const findings = (evaluation?.findings ?? []).filter((finding) => finding.level !== 'bestPractice');
+  const findings = actionableFindings(evaluation?.findings ?? []);
   const payerNotes = collectPayerNotes(evaluation);
   const outcomeHasContent =
     evaluation != null &&

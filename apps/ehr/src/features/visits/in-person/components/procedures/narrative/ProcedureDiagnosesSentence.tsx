@@ -52,34 +52,37 @@ export const ProcedureDiagnosesSentence: FC<Props> = ({ diagnoses, visitDiagnose
           </Box>
         </Fragment>
       ))}{' '}
-      <PopoverBlank
-        label={diagnoses.length ? '+ another' : 'diagnosis'}
-        title="Diagnosis"
-        ghost={diagnoses.length > 0}
-        need={diagnoses.length === 0}
-        readOnly={readOnly}
-        dataTestId={dataTestIds.documentProcedurePage.addDiagnosis}
-      >
-        {(close) => (
-          <Box sx={{ width: 360, maxWidth: '100%', pt: 0.5 }}>
-            <DiagnosesField
-              label="Dx"
-              onChange={(value: IcdSearchResponse['codes'][number]) => {
-                if (!diagnoses.some((diagnosis) => diagnosis.code === value.code)) {
-                  onChange([...diagnoses, { ...value, isPrimary: false }]);
-                }
-                close();
-              }}
-              // The visit's diagnoses as one-click choices; a charted one keeps its resourceId, so
-              // the procedure links the existing Condition instead of saving a copy. A visit can hold the
-              // same code twice (e.g. one from an earlier procedure), so each code is offered once.
-              quickPickOptions={diagnosisChoices}
-              disableForPrimary={false}
-              disabled={readOnly}
-            />
-          </Box>
-        )}
-      </PopoverBlank>
+      {!readOnly && (
+        <PopoverBlank
+          label={diagnoses.length ? '+ another' : 'diagnosis'}
+          title="Diagnosis"
+          ghost={diagnoses.length > 0}
+          need={diagnoses.length === 0}
+          readOnly={readOnly}
+          dataTestId={dataTestIds.documentProcedurePage.addDiagnosis}
+        >
+          {(close) => (
+            <Box sx={{ width: 360, maxWidth: '100%', pt: 0.5 }}>
+              <DiagnosesField
+                label="Dx"
+                onChange={(value: IcdSearchResponse['codes'][number]) => {
+                  if (!diagnoses.some((diagnosis) => diagnosis.code === value.code)) {
+                    const existing = visitDiagnoses.find((diagnosis) => diagnosis.code === value.code);
+                    onChange([...diagnoses, { ...(existing ?? value), isPrimary: false }]);
+                  }
+                  close();
+                }}
+                // The visit's diagnoses as one-click choices; a charted one keeps its resourceId, so
+                // the procedure links the existing Condition instead of saving a copy. A visit can hold the
+                // same code twice (e.g. one from an earlier procedure), so each code is offered once.
+                quickPickOptions={diagnosisChoices}
+                disableForPrimary={false}
+                disabled={readOnly}
+              />
+            </Box>
+          )}
+        </PopoverBlank>
+      )}
     </Sentence>
   );
 };

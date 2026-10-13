@@ -4,6 +4,7 @@ import { Operation } from 'fast-json-patch';
 import {
   CodeableConcept,
   Communication,
+  Condition,
   DocumentReference,
   Encounter,
   FhirResource,
@@ -15,6 +16,7 @@ import { getProviderNameWithProfession } from 'utils/lib/fhir/helpers';
 import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
 import { isVitalObservation } from 'utils/lib/fhir/vitals';
 import { addEmptyArrOperation } from 'utils/lib/helpers/operations';
+import { CODE_SYSTEM_ICD_10 } from 'utils/lib/helpers/rcm/constants';
 import { Secrets } from 'utils/lib/secrets';
 import {
   ADDITIONAL_QUESTIONS_META_SYSTEM,
@@ -29,6 +31,7 @@ import {
   createAccidentCondition,
   createDispositionServiceRequest,
   createProcedureServiceRequest,
+  deleteEncounterDiagnosis,
   findAccidentConditions,
   followUpToPerformerMap,
   followUpTypeFromPerformerType,
@@ -75,6 +78,7 @@ import {
   getEncounterClinicAddress,
   validateBundleAndExtractSavedChartData,
 } from './helpers';
+import { orphanedProcedureDiagnoses } from './procedure-diagnoses';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'save-chart-data';
@@ -86,6 +90,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.log('Validating input');
   const {
     encounterId,
+    cleanupProcedureDiagnoses,
     chiefComplaint,
     historyOfPresentIllness,
     mechanismOfInjury,
@@ -130,14 +135,18 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.log(`Getting encounter ${encounterId}`);
   // ----- !!!DON'T DELETE!!! this is in #2129 scope -----
   // const [allResources, currentPractitioner, chartDataBeforeUpdate] = await Promise.all([
-  //   getEncounterAndRelatedResources(oystehr, encounterId),
+  //   getEncounterAndRelatedResources(oystehr, encounterId, cleanupProcedureDiagnoses && procedures?.some((procedure) => Boolean(procedure.resourceId))),
   //   getUserPractitioner(oystehr, userToken, secrets),
   // ]);
 
   const hasVitalObservations = [...(vitalsObservations ?? []), ...(observations ?? [])].some(isVitalObservation);
 
   const [allResources, currentPractitioner, vitalsAlertConfig] = await Promise.all([
-    getEncounterAndRelatedResources(oystehr, encounterId),
+    getEncounterAndRelatedResources(
+      oystehr,
+      encounterId,
+      cleanupProcedureDiagnoses && procedures?.some((procedure) => Boolean(procedure.resourceId))
+    ),
     getUserPractitioner(oystehr, userToken, secrets),
     hasVitalObservations ? getVitalsEngineConfig(oystehr) : undefined,
   ]);
@@ -391,6 +400,25 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       updateEncounterOperations.push(addEmptyArrOperation('/diagnosis'));
     }
     for (const element of diagnosis) {
+      // A procedure request can race another chart edit or retry after creating a Condition.
+      // Reuse the visit's matching Condition without changing its origin or primary rank.
+      const existing =
+        !element.resourceId && element.addedViaProcedure === true
+          ? allResources.find(
+              (resource): resource is Condition =>
+                resource.resourceType === 'Condition' &&
+                resource.code?.coding?.some(
+                  (coding) => coding.system === CODE_SYSTEM_ICD_10 && coding.code === element.code
+                ) === true &&
+                encounter.diagnosis?.some((entry) => entry.condition.reference === `Condition/${resource.id}`) === true
+            )
+          : undefined;
+      if (existing) {
+        additionalResourcesForResponse.push(existing);
+        if (!additionalResourcesForResponse.includes(encounter)) additionalResourcesForResponse.push(encounter);
+        continue;
+      }
+
       const conditionResource = makeDiagnosisConditionResource(encounterId, patient.id!, element, 'diagnosis');
       const condition = element.resourceId
         ? await oystehr.fhir.update(conditionResource)
@@ -453,6 +481,22 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     });
   }
 
+  const deletedDiagnoses = orphanedProcedureDiagnoses(
+    encounter,
+    allResources,
+    cleanupProcedureDiagnoses ? procedures ?? [] : []
+  ).filter((condition) => !diagnosis?.some((edited) => edited.resourceId === condition.id));
+  const deletedDiagnosisIds = deletedDiagnoses.map((condition) => condition.id!);
+  for (const condition of deletedDiagnoses) {
+    saveOrUpdateRequests.push(deleteResourceRequest('Condition', condition.id!));
+  }
+  // Each remove uses the pre-update Encounter indices; descending order prevents index shifts.
+  updateEncounterOperations.push(
+    ...deletedDiagnoses
+      .flatMap((condition) => deleteEncounterDiagnosis(encounter, condition.id!))
+      .sort((a, b) => Number(b.path.split('/').pop()) - Number(a.path.split('/').pop()))
+  );
+
   if (updateEncounterOperations.length > 0) {
     saveOrUpdateRequests.push(
       getPatchBinary({
@@ -503,7 +547,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           });
       }
     });
-    additionalResourcesForResponse.push(encounter);
+    if (!additionalResourcesForResponse.includes(encounter)) additionalResourcesForResponse.push(encounter);
   }
 
   if (accident) {
@@ -549,7 +593,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   console.timeEnd('time');
   return {
-    body: JSON.stringify(output),
+    body: JSON.stringify({ ...output, ...(deletedDiagnosisIds.length ? { deletedDiagnosisIds } : {}) }),
     statusCode: 200,
   };
 });

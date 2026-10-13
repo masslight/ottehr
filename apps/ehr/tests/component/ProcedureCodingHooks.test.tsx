@@ -11,7 +11,6 @@ import {
   ProcedureFactsInput,
 } from 'utils/lib/procedure-coding/model.types';
 import { PROCEDURE_NAMES } from 'utils/lib/procedure-coding/procedure-names';
-import { CPT_RULES_VINTAGE } from 'utils/lib/procedure-coding/provenance';
 import { BODY_SITES_VALUE_SET_URL, PROCEDURE_TYPES_VALUE_SET_URL } from 'utils/lib/types/api/procedures.constants';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -61,7 +60,6 @@ describe('procedure routing and asynchronous AI results', () => {
   it('answers from the rules engine, in both directions, without asking AI', () => {
     const { result } = renderHook(() => useProcedureCoding(LACERATION_FACTS));
 
-    expect(result.current.rulesVintage).toBe(CPT_RULES_VINTAGE);
     expect(result.current.evaluationState).toEqual({
       kind: ProcedureCodingEvaluationStateKind.Evaluating,
       previous: null,

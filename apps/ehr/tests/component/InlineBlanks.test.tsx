@@ -220,6 +220,45 @@ describe('inline blanks', () => {
     expect(screen.getByTestId('other-supplies')).toHaveTextContent('gauze and Custom dressing');
   });
 
+  it('uses field names rather than add labels for empty read-only values', () => {
+    render(<MultiBlank label="technique" options={[]} values={[]} onChange={vi.fn()} readOnly />);
+    expect(screen.getByText('[technique]')).toBeInTheDocument();
+    expect(screen.queryByText('[+ technique]')).not.toBeInTheDocument();
+  });
+  it('keeps the Escape handler stable while filtering and restores focus on Escape', async () => {
+    const user = userEvent.setup();
+    const add = vi.spyOn(document, 'addEventListener');
+    const remove = vi.spyOn(document, 'removeEventListener');
+    render(
+      <SelectBlank
+        label="long choice"
+        options={['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon', 'Zeta', 'Eta', 'Theta', 'Iota']}
+        value={undefined}
+        onChange={vi.fn()}
+        readOnly={false}
+      />
+    );
+    await user.click(screen.getByRole('button', { name: 'long choice (empty)' }));
+    const additions = (): number =>
+      add.mock.calls.filter(
+        ([type, listener, options]) =>
+          type === 'keydown' && options === true && typeof listener === 'function' && listener.name === 'onKeyDown'
+      ).length;
+    const before = additions();
+    await user.type(screen.getByRole('textbox', { name: 'Filter long choice' }), 'abc');
+    expect(additions()).toBe(before);
+    await user.keyboard('{Escape}');
+    expect(screen.getByRole('button', { name: 'long choice (empty)' })).toHaveFocus();
+    expect(
+      remove.mock.calls.filter(
+        ([type, listener, options]) =>
+          type === 'keydown' && options === true && typeof listener === 'function' && listener.name === 'onKeyDown'
+      )
+    ).toHaveLength(1);
+    add.mockRestore();
+    remove.mockRestore();
+  });
+
   it('keeps punctuation joined to its blank without making the value unbreakable', () => {
     render(
       <Sentence>

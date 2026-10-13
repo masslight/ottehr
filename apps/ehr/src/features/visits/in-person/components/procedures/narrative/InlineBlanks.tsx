@@ -207,13 +207,15 @@ export const PopoverBlank: FC<PopoverBlankProps> = ({ title, children, onClose, 
   // Stable props: MUI's Popper rebuilds itself (back at 0,0) whenever `modifiers` or `popperOptions`
   // change identity, and an autocomplete list measured during that rebuild stays in the top-left corner.
   const popperOptions = useMemo(() => ({ onFirstUpdate: onPlaced }), [onPlaced]);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
   const close = useCallback(
     (restoreFocus = true): void => {
       if (restoreFocus) anchor?.focus();
       setAnchor(null);
-      onClose?.();
+      onCloseRef.current?.();
     },
-    [anchor, onClose]
+    [anchor]
   );
   useEffect(() => {
     if (!anchor) return;
@@ -442,6 +444,7 @@ export const MultiBlank: FC<MultiBlankProps> = ({
         : sentenceValue(all.find((option) => option.value === v)?.label ?? v)
     )
   );
+  if (readOnly) return <ReadOnlyBlank label={label} value={display || undefined} />;
   return (
     <PopoverBlank
       label={`+ ${label}`}
