@@ -134,7 +134,7 @@ async function downloadNdjson<T extends FhirResource>(url: string): Promise<T[]>
   }
 }
 
-async function searchAsyncBulk<T extends FhirResource>(
+export async function searchAsyncBulk<T extends FhirResource>(
   oystehr: Oystehr,
   resourceType: T['resourceType'],
   params: { name: string; value: string }[]

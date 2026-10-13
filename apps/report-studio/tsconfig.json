@@ -1,0 +1,20 @@
+{
+  "extends": "tsconfig/react.json",
+  "compilerOptions": {
+    "target": "es2022",
+    "lib": ["dom", "dom.iterable", "es2023"],
+    "module": "esnext",
+    "moduleResolution": "Bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "baseUrl": ".",
+    "paths": {
+      "ehr-src/*": ["../ehr/src/*"]
+    }
+  },
+  "include": ["src", "runtime", "vite.config.ts", "runtime-plugin.ts"]
+}
