@@ -151,9 +151,6 @@ export const EditFormResponseDialog: FC<EditFormResponseDialogProps> = ({ form, 
       setSaveError(undefined);
 
       try {
-        // Save sits in the dialog's own actions rather than in PagedQuestionnaire, so the calculated values (the
-        // questionnaire's javascript only ever runs in the browser) are worked out here, from the stored response
-        // overlaid with the edited answers. They cover every page of the form, a hidden results page included.
         const flatItems = flattenIntakeQuestionnaireItems(allItems ?? []);
         const storedValues = convertQRItemToLinkIdMap(
           (questionnaireResponse.item ?? []).flatMap((page) => page.item ?? [])

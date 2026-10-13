@@ -14,7 +14,6 @@ interface QuestionnaireTestDialogProps {
 export const QuestionnaireTestDialog: FC<QuestionnaireTestDialogProps> = ({ open, onClose, questionnaire }) => {
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
   const [completed, setCompleted] = useState(false);
-  // counted the same way the preview lists its pages, so hidden pages are not shown as steps
   const totalPages = useMemo(() => countPreviewPages(questionnaire), [questionnaire]);
 
   const handleClose = useCallback(() => {

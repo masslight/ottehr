@@ -24,7 +24,7 @@ const findResponseItem = (
   return undefined;
 };
 
-// the value a calculated item was recorded with
+// the value a calculated item was recorded with, what is on the questionnaire response
 const storedCalculatedValue = (item: QuestionnaireResponseItem | undefined): CalculatedValue => {
   const answer = item?.answer?.[0];
   return answer?.valueBoolean ?? answer?.valueInteger ?? answer?.valueDecimal ?? answer?.valueString;
@@ -54,19 +54,14 @@ export const QuestionnaireResponseViewer = ({ form }: { form: StandaloneFormDTO 
     return map;
   }, [questionnaireResponse.item]);
 
-  // The values of calculated items are recorded on the response when each page is saved. They are worked out here as
-  // well, from the answers that were recorded, so a response that never had them recorded (it predates the form having
-  // scoring, or was not filled in through the patient app) still shows them, and so a recorded value that no longer
-  // agrees with the answers can be pointed out. The EHR shows them even when the form hides them from the patient.
+  // lets us validate the recorded answer is correct; we will show a flag if it differs or is missing
+  // we will always use the live / most correct value
   const recalculated = useMemo(
     () => evaluateCalculatedItems(allItems, questionnaireResponse.item),
     [allItems, questionnaireResponse.item]
   );
-  const isFinished = questionnaireResponse.status === 'completed' || questionnaireResponse.status === 'amended';
 
-  // a calculated value being recorded does not mean the form was started: it may be a partial score
-  const hasAnswers = questions.some((q) => !q.calculatedExpression && answerMap.has(q.linkId));
-  if (!hasAnswers) {
+  if (answerMap.size === 0) {
     return (
       <Typography variant="body2" color="text.secondary">
         Not Started
@@ -83,11 +78,17 @@ export const QuestionnaireResponseViewer = ({ form }: { form: StandaloneFormDTO 
         if (q.calculatedExpression) {
           const stored = storedCalculatedValue(findResponseItem(questionnaireResponse.item, q.linkId));
           const live = recalculated[q.linkId];
-          // a form still being filled in only has partial scores recorded, so only a finished one is trusted
-          const shown = isFinished && stored !== undefined ? stored : live;
-          answer = formatCalculatedValue(shown);
-          if (isFinished && stored !== undefined && live !== undefined && formatCalculatedValue(live) !== answer) {
-            note = `differs from the recorded answers (recalculated: ${formatCalculatedValue(live)})`;
+          answer = formatCalculatedValue(live);
+
+          // flag if there are any discrepancies between live and stored
+          if (live !== undefined) {
+            if (stored === undefined) {
+              note = 'differs from the recorded answers (no value was recorded on the response)';
+            } else if (formatCalculatedValue(live) !== answer) {
+              note = `differs from the recorded answers (recalculated: ${formatCalculatedValue(live)})`;
+            }
+          } else if (stored !== undefined) {
+            note = `differs from the recorded answers (${stored})`;
           }
         } else {
           answer = answerMap.get(q.linkId);

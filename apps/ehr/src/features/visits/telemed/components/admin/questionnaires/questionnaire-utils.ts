@@ -12,7 +12,7 @@ import {
   QAndQRResponse,
 } from 'utils/lib/types/data/paperwork/paperwork.types';
 
-// the pages a patient is taken through: hidden pages (readOnly + disabled-display hidden) are skipped, though their
+// the pages a patient app user is taken through: hidden pages are skipped, though their
 // items still feed calculated values, which read from the full item list
 export const getPreviewPages = (allItems: IntakeQuestionnaireItem[] | undefined): IntakeQuestionnaireItem[] =>
   (allItems ?? []).filter((item) => item.linkId && !isPageHidden(item));

@@ -202,10 +202,9 @@ const locateCalculatedItems = (
 };
 
 /**
- * Works out every calculated item in the whole questionnaire (on rendered and hidden pages alike) from the saved
- * response overlaid with the values just entered, and returns the ones whose recorded value needs to change, as the
- * `calculatedAnswers` to send with a save: page-shaped items, group nesting preserved, values typed by the item's
- * declared type. An entry without an `answer` clears a value that is no longer calculable. Empty when nothing changed.
+ * Works out every calculated item in a questionnaire from the saved response overlaid with the values just entered,
+ * and returns the ones whose recorded value needs to change.
+ * An entry without an `answer` clears a value that is no longer calculable. Empty when nothing changed.
  */
 export const buildCalculatedAnswers = (input: BuildCalculatedAnswersInput): QuestionnaireResponseItem[] => {
   const { pageItems, formValues, savedPages, isPageEnabled } = input;
@@ -213,7 +212,6 @@ export const buildCalculatedAnswers = (input: BuildCalculatedAnswersInput): Ques
   const located = pageItems.flatMap((page) => locateCalculatedItems(page.item, page));
   if (located.length === 0) return [];
 
-  // each child of a page takes the form's value if the form has one, otherwise the stored one
   const overlay: QuestionnaireResponseItem[] = pageItems.map((page) => {
     const savedChildren = savedPages.find((saved) => saved.linkId === page.linkId)?.item ?? [];
     const item = (page.item ?? []).flatMap((child) => {
