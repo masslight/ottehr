@@ -209,8 +209,10 @@ export async function performEffect(
         checkDate: paymentReconciliation.paymentDate ?? '',
         paymentAmount: paymentReconciliation.paymentAmount?.value ?? 0,
         payerName: payer?.name ?? linkedCr?.insurer?.display ?? paymentReconciliation.paymentIssuer?.display ?? '',
+        // newest first: one ERA can carry a reversal + correction, and the final adjudication's ICN wins
         payerClaimControlNumber:
-          linkedCrs
+          [...linkedCrs]
+            .reverse()
             .map((cr) => getEraExtensionString(cr, ERA_ICN_EXTENSION) ?? cr.identifier?.[0]?.value ?? '')
             .find(Boolean) ?? '',
       };

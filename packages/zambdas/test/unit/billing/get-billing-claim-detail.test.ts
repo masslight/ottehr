@@ -469,6 +469,35 @@ describe('get-billing-claim-detail performEffect: remits and insurance payments'
     expect(response.insurancePayments[0].payerName).toBe('Acme (ERA)');
   });
 
+  it("shows the newest linked remit's ICN when one ERA carries a reversal and a correction", async () => {
+    const reversal = claimResponse({
+      ...linkedRemit,
+      id: 'cr-reversal',
+      created: '2026-07-15',
+      identifier: [{ value: 'ICN-OLD' }],
+    });
+    const correction = claimResponse({
+      ...linkedRemit,
+      id: 'cr-correction',
+      created: '2026-07-18',
+      identifier: [{ value: 'ICN-NEW' }],
+    });
+    (fetchClaimResponsesByClaimIds as Mock<typeof fetchClaimResponsesByClaimIds>).mockResolvedValue(
+      new Map([['claim-1', [reversal, correction]]])
+    );
+    (fetchClaimEraLinks as Mock<typeof fetchClaimEraLinks>).mockResolvedValue({
+      paymentReconciliations: [era],
+      paymentReconciliationIdByClaimResponseId: new Map([
+        ['cr-reversal', 'payment-reconciliation-1'],
+        ['cr-correction', 'payment-reconciliation-1'],
+      ]),
+    });
+
+    const response = await run();
+
+    expect(response.insurancePayments[0].payerClaimControlNumber).toBe('ICN-NEW');
+  });
+
   it('reports when the claim was first submitted', async () => {
     const response = await run();
 

@@ -497,7 +497,6 @@ function LedgerGroup({ entry, claimLineUnits }: { entry: RemitLineEntry; claimLi
       describeChild
       disableInteractive
       enterDelay={150}
-      followCursor
       placement="bottom-start"
       slotProps={{ tooltip: { sx: remitCardSx } }}
     >
