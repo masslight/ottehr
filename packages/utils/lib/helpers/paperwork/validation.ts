@@ -994,7 +994,7 @@ export const recursiveGroupTransform = (items: IntakeQuestionnaireItem[], values
   // Use rootContext for filter-when evaluation (to access parent-level values like payment-option)
   // Use values for finding matching items at the current nesting level
   const context = rootContext ?? values;
-  // calculated items are derived from other answers and never recorded
+  // calculated items are not answered by the patient: their values arrive separately as `calculatedAnswers`
   const filteredItems = items.filter(
     (item) => item && item?.type !== 'display' && !item?.readOnly && !item?.calculatedExpression
   );

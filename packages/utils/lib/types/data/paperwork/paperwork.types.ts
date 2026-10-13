@@ -88,7 +88,8 @@ export interface QuestionnaireItemExtension {
   attachmentText?: string;
   autofillFromWhenDisabled?: string;
   /**
-   * The item's value is derived from other answers and is never stored on the QuestionnaireResponse.
+   * The item's value is derived from other answers. The expression is only ever evaluated in the browser, which
+   * records the result on the QuestionnaireResponse (see `PatchPaperworkParameters.calculatedAnswers`).
    * See `helpers/paperwork/calculated-expressions.ts`.
    */
   calculatedExpression?: CalculatedExpression;
@@ -225,6 +226,13 @@ export interface SubmitPaperworkParameters {
 }
 export interface PatchPaperworkParameters {
   answers: QuestionnaireResponseItem;
+  /**
+   * The values of the form's calculated items, worked out in the browser (the server never runs the questionnaire's
+   * javascript), as page-shaped items with group nesting preserved. Covers every page, including hidden ones that are
+   * never saved themselves, and the page in `answers`. An entry without an `answer` clears the stored value.
+   * See `helpers/paperwork/calculated-answers.ts`.
+   */
+  calculatedAnswers?: QuestionnaireResponseItem[];
   questionnaireResponseId: string;
   appointmentId?: string;
 }

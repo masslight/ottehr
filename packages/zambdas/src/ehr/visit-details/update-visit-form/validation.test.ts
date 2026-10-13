@@ -1,5 +1,5 @@
 import Oystehr from '@oystehr/sdk';
-import { Questionnaire, QuestionnaireResponse } from 'fhir/r4b';
+import { Questionnaire, QuestionnaireResponse, QuestionnaireResponseItem } from 'fhir/r4b';
 import { PRACTICE_MANAGED_QUESTIONNAIRE_TAG } from 'utils/lib/fhir/constants';
 import { getCanonicalQuestionnaire, getQuestionnaireForQR } from 'utils/lib/fhir/questionnaires';
 import { Secrets } from 'utils/lib/secrets';
@@ -190,6 +190,70 @@ describe('update-visit-form with an unresolvable flow member', () => {
 
     await expect(validate([{ linkId: CUSTOM_FORM_PAGE }])).rejects.toMatchObject({
       message: expect.stringContaining(CUSTOM_FORM_PAGE),
+    });
+  });
+});
+
+// The browser works out the values of calculated items (the questionnaire's javascript is never run on the server)
+// and sends them with the edit. The server can only check what each value claims to be.
+describe('update-visit-form calculatedAnswers', () => {
+  const CALCULATED_EXTENSION = [
+    {
+      url: 'http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-calculatedExpression',
+      valueExpression: { language: 'text/javascript', expression: '1 + 1' },
+    },
+  ];
+  const scoredForm = questionnaire({
+    id: FORM_ID,
+    meta: { tag: [PRACTICE_MANAGED_QUESTIONNAIRE_TAG] },
+    item: [
+      { linkId: 'answers-page', type: 'group', item: [{ linkId: 'q1', type: 'string' }] },
+      {
+        linkId: 'results',
+        type: 'group',
+        readOnly: true,
+        item: [{ linkId: 'total', type: 'string', extension: CALCULATED_EXTENSION }],
+      },
+    ],
+  });
+
+  const validateWith = (calculatedAnswers: QuestionnaireResponseItem[]): Promise<unknown> =>
+    complexValidation(
+      {
+        ...input([{ linkId: 'answers-page' }]),
+        body: { ...input([{ linkId: 'answers-page' }]).body, calculatedAnswers },
+      },
+      {} as Secrets,
+      oystehr
+    );
+
+  beforeEach(() => {
+    mockQuestionnaireForQR.mockResolvedValue(scoredForm);
+  });
+
+  it('accepts a typed value for a calculated item on a page that was not edited, and hands back the page definitions', async () => {
+    const result = await validateWith([
+      { linkId: 'results', item: [{ linkId: 'total', answer: [{ valueString: '2' }] }] },
+    ]);
+    expect(result).toMatchObject({ editablePages: expect.any(Map) });
+    expect([...(result as { editablePages: Map<string, unknown> }).editablePages.keys()]).toEqual([
+      'answers-page',
+      'results',
+    ]);
+  });
+
+  it('rejects a value for an item that is not calculated, and one of the wrong type', async () => {
+    await expect(
+      validateWith([{ linkId: 'answers-page', item: [{ linkId: 'q1', answer: [{ valueString: 'x' }] }] }])
+    ).rejects.toMatchObject({ message: expect.stringContaining('"q1" is not a calculated item') });
+    await expect(
+      validateWith([{ linkId: 'results', item: [{ linkId: 'total', answer: [{ valueBoolean: true }] }] }])
+    ).rejects.toMatchObject({ message: expect.stringContaining('does not match its item type "string"') });
+  });
+
+  it('rejects calculated values for a page that does not belong to the form', async () => {
+    await expect(validateWith([{ linkId: CONSENT_PAGE, item: [] }])).rejects.toMatchObject({
+      message: expect.stringContaining(CONSENT_PAGE),
     });
   });
 });

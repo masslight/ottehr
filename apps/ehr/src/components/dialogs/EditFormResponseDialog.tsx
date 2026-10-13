@@ -20,7 +20,9 @@ import { dataTestIds } from 'src/constants/data-test-ids';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { PaperworkContext, PaperworkProvider } from 'ui-components/lib/components/paperwork/context';
 import PagedQuestionnaire from 'ui-components/lib/components/paperwork/PagedQuestionnaire';
+import { buildCalculatedAnswers } from 'utils/lib/helpers/paperwork/calculated-expressions';
 import { convertQRItemToLinkIdMap, convertQuestionnaireItemToQRLinkIdMap } from 'utils/lib/helpers/paperwork/paperwork';
+import { evalEnableWhen } from 'utils/lib/helpers/paperwork/validation';
 import {
   findQuestionnaireResponseItemLinkId,
   flattenIntakeQuestionnaireItems,
@@ -149,6 +151,25 @@ export const EditFormResponseDialog: FC<EditFormResponseDialogProps> = ({ form, 
       setSaveError(undefined);
 
       try {
+        // Save sits in the dialog's own actions rather than in PagedQuestionnaire, so the calculated values (the
+        // questionnaire's javascript only ever runs in the browser) are worked out here, from the stored response
+        // overlaid with the edited answers. They cover every page of the form, a hidden results page included.
+        const flatItems = flattenIntakeQuestionnaireItems(allItems ?? []);
+        const storedValues = convertQRItemToLinkIdMap(
+          (questionnaireResponse.item ?? []).flatMap((page) => page.item ?? [])
+        );
+        const calculatedAnswers = buildCalculatedAnswers({
+          pageItems: allItems ?? [],
+          formValues: data as Record<string, QuestionnaireResponseItem | undefined>,
+          savedPages: questionnaireResponse.item ?? [],
+          isPageEnabled: (page) => {
+            const definition = (allItems ?? []).find((item) => item.linkId === page.linkId);
+            return definition
+              ? evalEnableWhen(definition, flatItems, { ...storedValues, ...data }, questionnaireResponse)
+              : true;
+          },
+        });
+
         await updateVisitForm(oystehrZambda, {
           questionnaireResponseId,
           questionnaireId,
@@ -160,6 +181,7 @@ export const EditFormResponseDialog: FC<EditFormResponseDialogProps> = ({ form, 
               new Set(flattenIntakeQuestionnaireItems(page.item ?? []).map((item) => item.linkId))
             ),
           })),
+          calculatedAnswers: calculatedAnswers.length > 0 ? calculatedAnswers : undefined,
         });
       } catch (error) {
         console.error('Failed to save form response:', error);
@@ -173,7 +195,7 @@ export const EditFormResponseDialog: FC<EditFormResponseDialogProps> = ({ form, 
       enqueueSnackbar('Form updated', { variant: 'success' });
       onSaved();
     },
-    [oystehrZambda, patientId, pages, questionnaireId, questionnaireResponse.id, onSaved]
+    [oystehrZambda, patientId, pages, allItems, questionnaireId, questionnaireResponse, onSaved]
   );
 
   const submitFromActions = useCallback((): void => {

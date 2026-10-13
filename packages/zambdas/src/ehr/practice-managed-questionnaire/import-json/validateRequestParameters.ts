@@ -1,6 +1,6 @@
 import { Questionnaire, QuestionnaireItem } from 'fhir/r4b';
 import { JSON_IMPORT_QUESTIONNAIRE_TAG, PRACTICE_MANAGED_QUESTIONNAIRE_TAG } from 'utils/lib/fhir/constants';
-import { collectCalculatedExpressionIssues } from 'utils/lib/helpers/paperwork/calculated-expressions';
+import { collectCalculatedExpressionIssues } from 'utils/lib/helpers/paperwork/calculated-expression-validation';
 import { slugify } from 'utils/lib/helpers/slugify';
 import { Secrets } from 'utils/lib/secrets';
 import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY } from 'utils/lib/types/errors';

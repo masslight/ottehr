@@ -1,5 +1,10 @@
 import Oystehr from '@oystehr/sdk';
 import { QuestionnaireResponse, QuestionnaireResponseItem } from 'fhir/r4b';
+import {
+  applyCalculatedAnswers,
+  extractCalculatedItems,
+  validateCalculatedAnswers,
+} from 'utils/lib/helpers/paperwork/calculated-answers';
 import { getQuestionnaireItemsAndProgress } from 'utils/lib/helpers/paperwork/paperwork';
 import {
   filterDisabledPages,
@@ -9,6 +14,7 @@ import {
 import { qrSentManually } from 'utils/lib/helpers/practice-managed-questionnaires';
 import { PatchPaperworkParameters } from 'utils/lib/types/data/paperwork/paperwork.types';
 import {
+  INVALID_INPUT_ERROR,
   QUESTIONNAIRE_RESPONSE_INVALID_CUSTOM_ERROR,
   QUESTIONNAIRE_RESPONSE_INVALID_ERROR,
 } from 'utils/lib/types/errors';
@@ -28,9 +34,18 @@ interface SubmitPaperworkZambdaInput extends Omit<BasicInput, 'answers'>, Zambda
   answers: QuestionnaireResponseItem[];
 }
 
+// the new items of a page other than the one being patched, whose calculated values changed
+export interface CalculatedPageUpdate {
+  linkId: string;
+  // where the page sits in the stored response; undefined when the response has no item for it yet
+  qrIndex: number | undefined;
+  items: QuestionnaireResponseItem[];
+}
+
 export interface PatchPaperworkEffectInput {
   submittedAnswer: QuestionnaireResponseItem;
   updatedAnswers: QuestionnaireResponseItem[];
+  calculatedPageUpdates: CalculatedPageUpdate[];
   patchIndex: number;
   questionnaireResponseId: string;
   currentQRStatus: QuestionnaireResponse['status'];
@@ -47,6 +62,7 @@ export interface SubmitPaperworkEffectInput extends Omit<BasicInput, 'answers'>,
 
 const PaperworkBodySchema = z.object({
   answers: z.unknown(),
+  calculatedAnswers: z.array(z.object({ linkId: z.string() }).passthrough()).optional(),
   questionnaireResponseId: z.string().uuid(),
   appointmentId: z.string().uuid().optional(),
 });
@@ -56,13 +72,21 @@ const basicValidation = (input: ZambdaInput): BasicInput => {
     throw new Error('No request body provided');
   }
   const inputJSON = safeJsonParse(input.body);
-  const { answers, questionnaireResponseId, appointmentId } = safeValidate(PaperworkBodySchema, inputJSON);
+  const { answers, calculatedAnswers, questionnaireResponseId, appointmentId } = safeValidate(
+    PaperworkBodySchema,
+    inputJSON
+  );
 
   if (!answers) {
     throw new Error(`"answers" is a required param`);
   }
 
-  return { answers: answers as QuestionnaireResponseItem, questionnaireResponseId, appointmentId };
+  return {
+    answers: answers as QuestionnaireResponseItem,
+    calculatedAnswers: calculatedAnswers as QuestionnaireResponseItem[] | undefined,
+    questionnaireResponseId,
+    appointmentId,
+  };
 };
 
 const itemAnswerHasValue = (item: QuestionnaireResponseItem): boolean => {
@@ -115,7 +139,8 @@ const complexSubmitValidation = async (
     }
     // because it may be more convenient to keep readOnly items in form state for purposes of front-end validation of dependent fields,
     // we merely filter them out here so there inclusion is a no-op rather than an error
-    // calculated items are derived from other answers and never recorded, so a submitted value is ignored too
+    // calculated values only get onto the response through `calculatedAnswers` on a page save (validated there), so one
+    // arriving in a submit is ignored
     if (item.readOnly || item.calculatedExpression) {
       return false;
     }
@@ -216,7 +241,7 @@ const complexPatchValidation = async (
   oystehr: Oystehr
 ): Promise<PatchPaperworkEffectInput> => {
   // we should return QR id and use it to get both appointment Id and Questionnaire
-  const { answers: itemToPatch, questionnaireResponseId, appointmentId } = input;
+  const { answers: itemToPatch, calculatedAnswers = [], questionnaireResponseId, appointmentId } = input;
   const qrAndQItems = await getQuestionnaireItemsAndProgress(questionnaireResponseId, oystehr);
 
   if (!qrAndQItems) {
@@ -252,12 +277,50 @@ const complexPatchValidation = async (
 
   console.log('submittedAnswers', JSON.stringify(submittedAnswers));
 
+  // The values of calculated items were worked out in the browser (the questionnaire's javascript is never run on the
+  // server), so all that can be checked is that each one is a calculated item on the page it names, typed as declared.
+  const calculatedIssues = validateCalculatedAnswers(items, calculatedAnswers);
+  if (calculatedIssues.length > 0) {
+    console.log('invalid calculatedAnswers', JSON.stringify(calculatedAnswers));
+    throw INVALID_INPUT_ERROR(`"calculatedAnswers" is not valid. ${calculatedIssues.join(' ')}`);
+  }
+
+  // The page's items are replaced by what the browser sent, which never includes calculated items. The calculated
+  // values already stored on the page are carried over, and the values sent now are folded in, so it is still a
+  // single operation and a save never loses a calculated value it did not mention.
+  const calculatedForThisPage = calculatedAnswers.find((page) => page.linkId === itemToPatch.linkId)?.item ?? [];
+  const carriedOver = extractCalculatedItems(currentAnswersForPage, itemsForThisPage);
+  const updatedAnswers = applyCalculatedAnswers(
+    applyCalculatedAnswers([...currentAnswersToKeep, ...submittedAnswers], carriedOver, itemsForThisPage),
+    calculatedForThisPage,
+    itemsForThisPage
+  );
+
+  // every other page (the hidden results page of a scored form, for one) is never patched by itself, so its calculated
+  // values are merged into whatever it currently holds. its real answers are left untouched.
+  const calculatedPageUpdates: CalculatedPageUpdate[] = calculatedAnswers
+    .filter((page) => page.linkId !== itemToPatch.linkId)
+    .flatMap((page) => {
+      const currentItems = fullQRResource.item?.find((i) => i.linkId === page.linkId)?.item;
+      const pageItems = applyCalculatedAnswers(
+        currentItems,
+        page.item ?? [],
+        items.find((i) => i.linkId === page.linkId)?.item ?? []
+      );
+      if (JSON.stringify(pageItems) === JSON.stringify(currentItems ?? [])) {
+        return [];
+      }
+      const qrIndex = (fullQRResource.item ?? []).findIndex((i) => i.linkId === page.linkId);
+      return [{ linkId: page.linkId, qrIndex: qrIndex === -1 ? undefined : qrIndex, items: pageItems }];
+    });
+
   console.log('validation succeeded');
 
   return {
     questionnaireResponseId,
     submittedAnswer: itemToPatch,
-    updatedAnswers: [...currentAnswersToKeep, ...submittedAnswers],
+    updatedAnswers,
+    calculatedPageUpdates,
     patchIndex: updatedAnswerIndex,
     currentQRStatus: fullQRResource.status,
     appointmentId,

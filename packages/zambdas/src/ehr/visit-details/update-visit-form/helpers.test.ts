@@ -1,7 +1,7 @@
 import { Operation } from 'fast-json-patch';
-import { QuestionnaireResponse } from 'fhir/r4b';
+import { QuestionnaireItem, QuestionnaireResponse } from 'fhir/r4b';
 import { describe, expect, it } from 'vitest';
-import { buildFormAnswerPatchOperations } from './helpers';
+import { buildFormAnswerPatchOperations, mergeCalculatedAnswersIntoPages } from './helpers';
 
 const qr = (overrides: Partial<QuestionnaireResponse> = {}): QuestionnaireResponse => ({
   resourceType: 'QuestionnaireResponse',
@@ -117,5 +117,108 @@ describe('buildFormAnswerPatchOperations', () => {
     expect(operations.filter((op) => op.path.startsWith('/item'))).toEqual([
       { op: 'add', path: '/item/0/item', value: [{ linkId: 'q1', answer: [{ valueString: 'kept' }] }] },
     ]);
+  });
+});
+
+describe('mergeCalculatedAnswersIntoPages', () => {
+  const calculatedExtension = [
+    {
+      url: 'http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-calculatedExpression',
+      valueExpression: { language: 'text/javascript', expression: '1' },
+    },
+  ];
+  const definitions = new Map<string, QuestionnaireItem>([
+    [
+      'answers-page',
+      {
+        linkId: 'answers-page',
+        type: 'group',
+        item: [
+          { linkId: 'q1', type: 'string' },
+          { linkId: 'subtotal', type: 'integer', extension: calculatedExtension },
+        ],
+      },
+    ],
+    [
+      'results',
+      { linkId: 'results', type: 'group', item: [{ linkId: 'total', type: 'string', extension: calculatedExtension }] },
+    ],
+  ]);
+
+  it('returns the pages as they are when nothing was calculated and nothing is stored', () => {
+    const pages = [{ linkId: 'answers-page', item: [{ linkId: 'q1', answer: [{ valueString: 'a' }] }] }];
+    expect(mergeCalculatedAnswersIntoPages(qr(), pages, [], definitions)).toEqual(pages);
+  });
+
+  it('carries over the calculated values a page already stores, which the answers sent never include', () => {
+    const response = qr({
+      item: [
+        {
+          linkId: 'answers-page',
+          item: [
+            { linkId: 'q1', answer: [{ valueString: 'old' }] },
+            { linkId: 'subtotal', answer: [{ valueInteger: 3 }] },
+          ],
+        },
+      ],
+    });
+    const result = mergeCalculatedAnswersIntoPages(
+      response,
+      [{ linkId: 'answers-page', item: [{ linkId: 'q1', answer: [{ valueString: 'new' }] }] }],
+      [],
+      definitions
+    );
+    expect(result).toEqual([
+      {
+        linkId: 'answers-page',
+        item: [
+          { linkId: 'q1', answer: [{ valueString: 'new' }] },
+          { linkId: 'subtotal', answer: [{ valueInteger: 3 }] },
+        ],
+      },
+    ]);
+  });
+
+  it('adds a calculated item to a page being written without touching its answers', () => {
+    const result = mergeCalculatedAnswersIntoPages(
+      qr(),
+      [{ linkId: 'answers-page', item: [{ linkId: 'q1', answer: [{ valueString: 'a' }] }] }],
+      [{ linkId: 'answers-page', item: [{ linkId: 'subtotal', answer: [{ valueInteger: 3 }] }] }],
+      definitions
+    );
+    expect(result).toEqual([
+      {
+        linkId: 'answers-page',
+        item: [
+          { linkId: 'q1', answer: [{ valueString: 'a' }] },
+          { linkId: 'subtotal', answer: [{ valueInteger: 3 }] },
+        ],
+      },
+    ]);
+  });
+
+  it('adds a page that was not edited, built from what the response already holds for it', () => {
+    const response = qr({ item: [{ linkId: 'results', item: [{ linkId: 'total', answer: [{ valueString: '1' }] }] }] });
+    const result = mergeCalculatedAnswersIntoPages(
+      response,
+      [{ linkId: 'answers-page', item: [] }],
+      [{ linkId: 'results', item: [{ linkId: 'total', answer: [{ valueString: '2' }] }] }],
+      definitions
+    );
+    expect(result).toEqual([
+      { linkId: 'answers-page', item: [] },
+      { linkId: 'results', item: [{ linkId: 'total', answer: [{ valueString: '2' }] }] },
+    ]);
+  });
+
+  it('clears a stored value when the entry has no answer', () => {
+    const response = qr({ item: [{ linkId: 'results', item: [{ linkId: 'total', answer: [{ valueString: '1' }] }] }] });
+    const result = mergeCalculatedAnswersIntoPages(
+      response,
+      [{ linkId: 'answers-page', item: [] }],
+      [{ linkId: 'results', item: [{ linkId: 'total' }] }],
+      definitions
+    );
+    expect(result[1]).toEqual({ linkId: 'results', item: [] });
   });
 });

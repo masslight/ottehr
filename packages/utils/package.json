@@ -19,6 +19,7 @@
     "coverage": "vitest run --coverage"
   },
   "dependencies": {
+    "acorn": "^8.18.0",
     "config-types": "*",
     "lodash-es": "^4.17.21",
     "sucrase": "^3.35.0"

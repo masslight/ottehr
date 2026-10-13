@@ -11,7 +11,8 @@ interface CalculatedFieldProps {
   item: StyledQuestionnaireItem;
 }
 
-// a formula field: its value is derived from the other answers in the form on every render and is never stored
+// a formula field: its value is derived from the other answers in the form on every render. it is not a form field,
+// so it never enters form state; PagedQuestionnaire records it by handing it to the host as `calculatedAnswers`
 export const CalculatedField: FC<CalculatedFieldProps> = ({ item }) => {
   const { allItems } = usePaperworkContext();
   const { allFields } = useQRState();

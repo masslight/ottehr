@@ -61,6 +61,7 @@ const makeOystehr = (existingTasks: Task[] = [], appointment?: Appointment): Oys
 const effectInput = (overrides: Partial<PatchPaperworkEffectInput> = {}): PatchPaperworkEffectInput => ({
   submittedAnswer: { linkId: 'contact-information-page', item: [] },
   updatedAnswers: [{ linkId: 'patient-first-name', answer: [{ valueString: 'Pat' }] }],
+  calculatedPageUpdates: [],
   patchIndex: 2,
   questionnaireResponseId: 'qr-1',
   currentQRStatus: 'in-progress',
@@ -129,6 +130,27 @@ describe('patch-paperwork effect', () => {
         ],
       })
     );
+  });
+
+  test('writes the calculated values of other pages in the same patch, without harvesting those pages', async () => {
+    const oystehr = makeOystehr();
+    const resultsItems = [{ linkId: 'total', answer: [{ valueString: '2' }] }];
+    await invoke(
+      oystehr,
+      effectInput({
+        calculatedPageUpdates: [
+          { linkId: 'results', qrIndex: 1, items: resultsItems },
+          { linkId: 'summary', qrIndex: undefined, items: resultsItems },
+        ],
+      })
+    );
+
+    expect(oystehr.fhir.patch).toHaveBeenCalledTimes(1);
+    expect(oystehr.fhir.patch.mock.calls[0][0].operations).toEqual([
+      { op: 'add', path: '/item/2/item', value: [{ linkId: 'patient-first-name', answer: [{ valueString: 'Pat' }] }] },
+      { op: 'add', path: '/item/1/item', value: resultsItems },
+      { op: 'add', path: '/item/-', value: { linkId: 'summary', item: resultsItems } },
+    ]);
   });
 
   test('skips task creation when an active task already covers the same page index', async () => {

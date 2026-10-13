@@ -21,14 +21,16 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
+import { QuestionnaireResponseItem } from 'fhir/r4b';
 import _ from 'lodash';
 import { FC, ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { Controller, FormProvider, useForm, useFormContext } from 'react-hook-form';
 import Markdown from 'react-markdown';
 import { useBeforeUnload } from 'react-router-dom';
 import { formatZipcodeForDisplay, stripMarkdownLink } from 'utils/lib/helpers/helpers';
+import { buildCalculatedAnswers } from 'utils/lib/helpers/paperwork/calculated-expressions';
 import { pickFirstValueFromAnswerItem } from 'utils/lib/helpers/paperwork/paperwork';
-import { makeValidationSchema, SIGNATURE_FIELDS } from 'utils/lib/helpers/paperwork/validation';
+import { evalEnableWhen, makeValidationSchema, SIGNATURE_FIELDS } from 'utils/lib/helpers/paperwork/validation';
 import { qrSentManually } from 'utils/lib/helpers/practice-managed-questionnaires';
 import {
   IntakeQuestionnaireItem,
@@ -84,9 +86,18 @@ interface PagedQuestionnaireInput {
   defaultValues?: QuestionnaireFormFields;
   options?: PagedQuestionnaireOptions;
   isSaving?: boolean;
-  onSubmit: (data: QuestionnaireFormFields) => void;
+  onSubmit: (data: QuestionnaireFormFields, extras: PagedQuestionnaireSubmitExtras) => void;
   saveProgress: (data: QuestionnaireFormFields) => void;
   skipValidation: boolean;
+}
+
+export interface PagedQuestionnaireSubmitExtras {
+  /**
+   * The values of the form's calculated items, worked out in the browser from the saved response and the values
+   * just entered. They cover every page (including hidden ones that are never saved themselves) and only the values
+   * that need to change. The host sends them along with the page it saves, as `calculatedAnswers`.
+   */
+  calculatedAnswers: QuestionnaireResponseItem[];
 }
 
 type FormInputProps = {
@@ -283,7 +294,7 @@ const PaperworkPageTitle: FC<PaperworkPageTitleProps> = ({ pageItem, pageSubtitl
 interface PaperworkRootInput {
   pageItem?: IntakeQuestionnaireItem;
   items: IntakeQuestionnaireItem[];
-  onSubmit: (data: QuestionnaireFormFields) => void;
+  onSubmit: (data: QuestionnaireFormFields, extras: PagedQuestionnaireSubmitExtras) => void;
   saveProgress: (data: QuestionnaireFormFields) => void;
   options?: PagedQuestionnaireOptions;
   parentIsSaving?: boolean;
@@ -298,7 +309,8 @@ const PaperworkFormRoot: FC<PaperworkRootInput> = ({
 }) => {
   const [isSavingProgress, setIsSavingProgress] = useState(false);
 
-  const { questionnaireResponse, saveButtonDisabled, continueLabel } = usePaperworkContext();
+  const { questionnaireResponse, saveButtonDisabled, continueLabel, pageItems, allItems, paperwork } =
+    usePaperworkContext();
 
   const { handleSubmit, formState } = useFormContext();
 
@@ -310,7 +322,23 @@ const PaperworkFormRoot: FC<PaperworkRootInput> = ({
 
   const visibleItems = useStyledItems({ formItems: items });
   const errorMessage = makeFormErrorMessage(visibleItems, errors);
-  const { formValues } = useQRState();
+  const { formValues, allFields } = useQRState();
+
+  // Works out the form's calculated items, hidden pages included, from the saved response overlaid with the values
+  // just entered. The values are sent with this page's save, because a hidden page is never saved by itself.
+  const makeCalculatedAnswers = useCallback(
+    (data: QuestionnaireFormFields): QuestionnaireResponseItem[] =>
+      buildCalculatedAnswers({
+        pageItems,
+        formValues: data as Record<string, QuestionnaireResponseItem | undefined>,
+        savedPages: paperwork,
+        isPageEnabled: (page) => {
+          const definition = pageItems.find((item) => item.linkId === page.linkId);
+          return definition ? evalEnableWhen(definition, allItems, allFields, questionnaireResponse) : true;
+        },
+      }),
+    [pageItems, paperwork, allItems, allFields, questionnaireResponse]
+  );
 
   // Only run credit-card auto-save when the current page actually contains a Credit Card input.
   // The credit card store is module-scoped and survives across navigations, so without this guard
@@ -337,10 +365,10 @@ const PaperworkFormRoot: FC<PaperworkRootInput> = ({
       }
 
       setIsSavingProgress(true);
-      await handleSubmit(onSubmit)();
+      await handleSubmit((data) => onSubmit(data, { calculatedAnswers: makeCalculatedAnswers(data) }))();
       setIsSavingProgress(false);
     },
-    [handleSubmit, onSubmit, handleCardSave, hasCreditCardField]
+    [handleSubmit, onSubmit, handleCardSave, hasCreditCardField, makeCalculatedAnswers]
   );
 
   const { bottomComponent, hideControls, controlButtons } = options;
