@@ -20,7 +20,8 @@ export async function downloadReportData<T>(downloadUrl: string): Promise<T> {
 }
 
 const ADHOC_POLL_INTERVAL_MS = 2000;
-const ADHOC_POLL_TIMEOUT_MS = 15 * 60 * 1000;
+const ADHOC_TASK_WORKER_TIMEOUT_MS = 900 * 1000;
+const ADHOC_POLL_TIMEOUT_MS = ADHOC_TASK_WORKER_TIMEOUT_MS + 2 * 60 * 1000;
 
 /** Polls an ad-hoc Task (data fetch or report generation) until it completes; throws when it fails or times out. */
 export async function pollAdHocTask<S extends { status: string; error?: string }>(

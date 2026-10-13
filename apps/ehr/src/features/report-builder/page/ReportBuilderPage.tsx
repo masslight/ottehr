@@ -80,8 +80,10 @@ export default function ReportBuilderPage(): React.ReactElement {
 
           <Box sx={{ mb: 3, display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
             <FormControl size="small" sx={{ minWidth: 200 }}>
-              <InputLabel>Date Range</InputLabel>
+              <InputLabel id="adhoc-date-range-label">Date Range</InputLabel>
               <Select
+                labelId="adhoc-date-range-label"
+                id="adhoc-date-range"
                 value={rb.dateRange}
                 label="Date Range"
                 onChange={(e: SelectChangeEvent<AdHocDateRangeFilter>) =>
@@ -132,8 +134,10 @@ export default function ReportBuilderPage(): React.ReactElement {
 
             {rb.canPickModel && (
               <FormControl size="small" sx={{ minWidth: 200 }}>
-                <InputLabel>Model</InputLabel>
+                <InputLabel id="adhoc-model-label">Model</InputLabel>
                 <Select
+                  labelId="adhoc-model-label"
+                  id="adhoc-model"
                   value={rb.model}
                   label="Model"
                   onChange={(e: SelectChangeEvent<AdHocReportModel>) => rb.setModel(e.target.value as AdHocReportModel)}
