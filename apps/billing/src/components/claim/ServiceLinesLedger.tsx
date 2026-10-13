@@ -153,8 +153,9 @@ const SERVICE_LINE_COLUMNS: ServiceLineColumn[] = [
   },
 ];
 
-const ledgerThSx = { ...thSx, fontSize: 12, borderBottom: 'none', whiteSpace: 'nowrap' };
-const ledgerRowSx = { '& > td': { borderBottom: 'none', py: 0.5 } };
+const ledgerBorder = `1px solid ${otherColors.lightDivider}`;
+const ledgerThSx = { ...thSx, fontSize: 12, borderBottom: ledgerBorder, whiteSpace: 'nowrap' };
+const ledgerRowSx = { '& > td': { borderBottom: ledgerBorder, py: 0.5 } };
 const indicatorsCellSx = { width: '1%', whiteSpace: 'nowrap', px: 0.5 };
 
 const remitCardSx = {
@@ -410,7 +411,12 @@ function RemitLedger({
           tableLayout: 'fixed',
           typography: 'body2',
           minWidth: `calc(${LEDGER_DATE_WIDTH} + ${LEDGER_TYPE_MIN_WIDTH}px + ${LEDGER_AMOUNT_COLUMN_COUNT} * ${amountWidth})`,
-          '& .MuiTableCell-root': { px: `${LEDGER_CELL_PX}px` },
+          '& .MuiTableCell-root': {
+            px: `${LEDGER_CELL_PX}px`,
+            borderRight: ledgerBorder,
+            '&:last-child': { borderRight: 'none' },
+          },
+          '& tbody:last-of-type tr:last-child > td': { borderBottom: 'none' },
         }}
       >
         <colgroup>
