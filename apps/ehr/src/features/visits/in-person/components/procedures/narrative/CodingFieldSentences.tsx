@@ -1,6 +1,7 @@
 import { Add } from '@mui/icons-material';
 import { Box, Button } from '@mui/material';
 import { FC, Fragment, ReactNode } from 'react';
+import { LACERATION_CLOSURE } from 'utils/lib/procedure-coding/families/laceration';
 import { ProcedureFamilyModel } from 'utils/lib/procedure-coding/model.types';
 import {
   CodingField,
@@ -284,11 +285,13 @@ export const CodingFieldSentences: FC<Props> = ({
   );
 };
 
-/** Laceration wounds read as a repair sentence; the blanks are the family's real field keys. */
-/** These closure methods do not use sutures or staples. */
-const NON_SUTURED_CLOSURES = ['adhesive only', 'strips only', 'open'];
+const NON_SUTURED_CLOSURES = new Set<string>([
+  LACERATION_CLOSURE.AdhesiveOnly,
+  LACERATION_CLOSURE.StripsOnly,
+  LACERATION_CLOSURE.Open,
+]);
 
-/** Material and count are `details` answers in the family (optional), so they keep the grey empty style. */
+/** Wounds use family field keys; closure material and count remain optional. */
 export const LacerationSentences: FC<Omit<Props, 'renderRow'>> = (props) => (
   <CodingFieldSentences
     {...props}
@@ -296,16 +299,16 @@ export const LacerationSentences: FC<Omit<Props, 'renderRow'>> = (props) => (
     renderRow={({ row, readOnly, blank, details }) => (
       <>
         {/* The family calls this "Closure"; in the sentence that read as the closure material. */}
-        {row.closure === 'open' && 'Wound left '}
+        {row.closure === LACERATION_CLOSURE.Open && 'Wound left '}
         {blank('closure', { label: 'Repair type' })}
-        {row.closure === 'open' ? ': a ' : ' repair of a '}
+        {row.closure === LACERATION_CLOSURE.Open ? ': a ' : ' repair of a '}
         {blank('length')} cm laceration of the {blank('site')} ({blank('side')})
-        {row.closure !== 'open' && <>, closed with {blank('material', { placeholder: 'material' })}</>}
+        {row.closure !== LACERATION_CLOSURE.Open && <>, closed with {blank('material', { placeholder: 'material' })}</>}
         {/* Display only: non-sutured closures hide the count without changing saved answers. */}
-        {!NON_SUTURED_CLOSURES.includes(String(row.closure)) && !(readOnly && row.sutureCount === undefined) && (
+        {!NON_SUTURED_CLOSURES.has(String(row.closure)) && !(readOnly && row.sutureCount === undefined) && (
           <> ({blank('sutureCount')} sutures/staples)</>
         )}
-        . {details(row.closure === 'open' ? ['sutureCount'] : ['sutureCount', 'material'])}
+        . {details(row.closure === LACERATION_CLOSURE.Open ? ['sutureCount'] : ['sutureCount', 'material'])}
       </>
     )}
   />

@@ -36,6 +36,7 @@ import {
   useState,
 } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
+import { formatList } from 'src/shared/utils/formatList';
 import { OTHER } from '../../../pages/procedureOtherFields';
 import { sentenceValue } from './sentenceValue';
 
@@ -77,9 +78,6 @@ const ghostSx = (theme: Theme): Record<string, unknown> => ({
   whiteSpace: 'nowrap',
   '&:hover': { backgroundColor: theme.palette.action.hover, color: theme.palette.text.primary },
 });
-
-export const listText = (values: readonly string[]): string =>
-  values.length <= 1 ? values[0] ?? '' : `${values.slice(0, -1).join(', ')} and ${values[values.length - 1]}`;
 
 const ReadOnlyBlank: FC<{ label: string; value?: string }> = ({ label, value }) => (
   <Box component="span" sx={(theme) => (value ? { ...filledSx(theme), '&:hover': {} } : { color: 'text.secondary' })}>
@@ -437,7 +435,7 @@ export const MultiBlank: FC<MultiBlankProps> = ({
     ...values.filter((v) => !known.some((option) => option.value === v)).map((v) => ({ value: v, label: v })),
     ...known,
   ];
-  const display = listText(
+  const display = formatList(
     values.map((v) =>
       v === OTHER && onOtherChange
         ? otherValue?.trim() || v

@@ -12,6 +12,16 @@ import { LegacyProcedureFields, ProcedureFamilyModel } from '../model.types';
 import { PROCEDURE_NAMES } from '../procedure-names';
 import { CodingField, readNumber, selectedSide } from '../structured-fields';
 
+const FOREIGN_BODY_SITE = {
+  Skin: 'skin/subcutaneous',
+  Nose: 'nose',
+  Ear: 'ear',
+  Cornea: 'cornea',
+  SuperficialConjunctiva: 'superficial conjunctiva',
+  EmbeddedConjunctiva: 'embedded conjunctiva',
+  DeeperTissue: 'deeper tissue',
+} as const;
+
 const FOREIGN_BODY_CODES = {
   SimpleSubcutaneousRemoval: '10120',
   ComplicatedSubcutaneousRemoval: '10121',
@@ -24,6 +34,12 @@ const FOREIGN_BODY_CODES = {
   CornealRemovalWithSlitLamp: '65222',
 } as const;
 
+const NON_LATERAL_SITES: readonly string[] = [
+  FOREIGN_BODY_SITE.Skin,
+  FOREIGN_BODY_SITE.Nose,
+  FOREIGN_BODY_SITE.DeeperTissue,
+];
+
 type ForeignBodyCode = (typeof FOREIGN_BODY_CODES)[keyof typeof FOREIGN_BODY_CODES];
 
 const fields: CodingField[] = [
@@ -32,61 +48,53 @@ const fields: CodingField[] = [
     neededForCoding: true,
     label: 'Foreign body location',
     kind: 'select',
-    options: [
-      'skin/subcutaneous',
-      'nose',
-      'ear',
-      'cornea',
-      'superficial conjunctiva',
-      'embedded conjunctiva',
-      'deeper tissue',
-    ],
+    options: Object.values(FOREIGN_BODY_SITE),
   },
   {
     key: 'incision',
     label: 'Incision required',
     kind: 'checkbox',
     defaultValue: false,
-    visible: (facts) => facts.site === 'skin/subcutaneous',
+    visible: (facts) => facts.site === FOREIGN_BODY_SITE.Skin,
   },
   {
     key: 'infected',
     label: 'Infected wound',
     kind: 'checkbox',
     defaultValue: false,
-    visible: (facts) => facts.site === 'skin/subcutaneous',
+    visible: (facts) => facts.site === FOREIGN_BODY_SITE.Skin,
   },
   {
     key: 'scarring',
     label: 'Delayed presentation with scarring/dissection',
     kind: 'checkbox',
     defaultValue: false,
-    visible: (facts) => facts.site === 'skin/subcutaneous',
+    visible: (facts) => facts.site === FOREIGN_BODY_SITE.Skin,
   },
   {
     key: 'exploration',
     label: 'Extended exploration or tissue removal',
     kind: 'checkbox',
     defaultValue: false,
-    visible: (facts) => facts.site === 'skin/subcutaneous',
+    visible: (facts) => facts.site === FOREIGN_BODY_SITE.Skin,
   },
   {
     key: 'generalAnesthesia',
     label: 'General anesthesia',
     kind: 'checkbox',
     defaultValue: false,
-    visible: (facts) => facts.site === 'ear',
+    visible: (facts) => facts.site === FOREIGN_BODY_SITE.Ear,
   },
   {
     key: 'slitLamp',
     label: 'Slit lamp used',
     kind: 'checkbox',
     defaultValue: false,
-    visible: (facts) => facts.site === 'cornea',
+    visible: (facts) => facts.site === FOREIGN_BODY_SITE.Cornea,
   },
   {
     key: 'side',
-    neededForCoding: (facts) => !['skin/subcutaneous', 'nose', 'deeper tissue'].includes(String(facts.site)),
+    neededForCoding: (facts) => !NON_LATERAL_SITES.includes(String(facts.site)),
     label: 'Side',
     kind: 'select',
     options: ['left', 'right', 'both'],
@@ -100,7 +108,7 @@ const fields: CodingField[] = [
     defaultValue: 1,
     min: 0,
     step: 1,
-    visible: (facts) => facts.site === 'skin/subcutaneous',
+    visible: (facts) => facts.site === FOREIGN_BODY_SITE.Skin,
   },
 ];
 
@@ -115,11 +123,12 @@ export const foreignBodyFamily: ProcedureFamilyModel<ForeignBodyCode> = {
   codes: Object.values(FOREIGN_BODY_CODES),
   suggest: (facts) => {
     if (!facts.site) return missing('Foreign body location');
-    if (facts.site === 'deeper tissue') return coder('Removal from deeper tissues uses a different code family.');
+    if (facts.site === FOREIGN_BODY_SITE.DeeperTissue)
+      return coder('Removal from deeper tissues uses a different code family.');
 
     let cpt: ForeignBodyCode;
 
-    if (facts.site === 'skin/subcutaneous') {
+    if (facts.site === FOREIGN_BODY_SITE.Skin) {
       if (!facts.incision)
         return noCode('Non-incisional skin foreign-body removal has no separate code in this family.');
 
@@ -128,27 +137,26 @@ export const foreignBodyFamily: ProcedureFamilyModel<ForeignBodyCode> = {
         facts.infected || facts.scarring || facts.exploration
           ? FOREIGN_BODY_CODES.ComplicatedSubcutaneousRemoval
           : FOREIGN_BODY_CODES.SimpleSubcutaneousRemoval;
-    } else if (facts.site === 'nose') cpt = FOREIGN_BODY_CODES.IntranasalRemoval;
+    } else if (facts.site === FOREIGN_BODY_SITE.Nose) cpt = FOREIGN_BODY_CODES.IntranasalRemoval;
     // CPT 69205 describes removal from the external auditory canal with general anesthesia.
-    else if (facts.site === 'ear')
+    else if (facts.site === FOREIGN_BODY_SITE.Ear)
       cpt = facts.generalAnesthesia
         ? FOREIGN_BODY_CODES.EarCanalRemovalUnderGeneralAnesthesia
         : FOREIGN_BODY_CODES.EarCanalRemoval;
-    else if (facts.site === 'cornea')
+    else if (facts.site === FOREIGN_BODY_SITE.Cornea)
       cpt = facts.slitLamp
         ? FOREIGN_BODY_CODES.CornealRemovalWithSlitLamp
         : FOREIGN_BODY_CODES.CornealRemovalWithoutSlitLamp;
     else
       cpt =
-        facts.site === 'superficial conjunctiva'
+        facts.site === FOREIGN_BODY_SITE.SuperficialConjunctiva
           ? FOREIGN_BODY_CODES.SuperficialConjunctivalRemoval
           : FOREIGN_BODY_CODES.EmbeddedConjunctivalRemoval;
 
     // CPT site codes count the treated organ, not objects within it; skin codes count separate incisions.
-    const count = facts.site === 'skin/subcutaneous' ? readNumber(facts, 'count') : 1;
+    const count = facts.site === FOREIGN_BODY_SITE.Skin ? readNumber(facts, 'count') : 1;
     if (!count || !Number.isInteger(count)) return missing('Distinct removals');
-    if (!['skin/subcutaneous', 'nose', 'deeper tissue'].includes(String(facts.site)) && !facts.side)
-      return missing('Side');
+    if (!NON_LATERAL_SITES.includes(String(facts.site)) && !facts.side) return missing('Side');
 
     return buildEvaluation({
       suggestions: [
@@ -157,7 +165,9 @@ export const foreignBodyFamily: ProcedureFamilyModel<ForeignBodyCode> = {
           display: 'Removal of foreign body',
           justification: 'Location, approach and complexity documented.',
           units: count,
-          modifiers: ['skin/subcutaneous', 'nose'].includes(String(facts.site)) ? [] : lateralityModifiers(facts.side),
+          modifiers: [FOREIGN_BODY_SITE.Skin, FOREIGN_BODY_SITE.Nose].some((site) => site === String(facts.site))
+            ? []
+            : lateralityModifiers(facts.side),
         },
       ],
     });
@@ -201,21 +211,27 @@ export const foreignBodyFamily: ProcedureFamilyModel<ForeignBodyCode> = {
     const checklist = [
       'Record object, site/side, visualization, instruments, anesthesia, removal result and post-removal examination.',
     ];
-    if (facts.site === 'skin/subcutaneous')
+    if (facts.site === FOREIGN_BODY_SITE.Skin)
       checklist.push(
         'Describe the incision and subcutaneous depth, retrieval and wound disposition; document each separate incision when billing multiple removals.',
         'Describe infection, scar-related difficulty or extended exploration/tissue removal when present.'
       );
-    if (facts.site === 'cornea' || facts.site === 'superficial conjunctiva' || facts.site === 'embedded conjunctiva')
+    if (
+      facts.site === FOREIGN_BODY_SITE.Cornea ||
+      facts.site === FOREIGN_BODY_SITE.SuperficialConjunctiva ||
+      facts.site === FOREIGN_BODY_SITE.EmbeddedConjunctiva
+    )
       checklist.push(
         'Record visual acuity, anterior-segment findings and post-removal examination; name slit-lamp use when applicable.'
       );
-    if (facts.site === 'ear') checklist.push('Record the post-removal ear-canal and tympanic-membrane examination.');
+    if (facts.site === FOREIGN_BODY_SITE.Ear)
+      checklist.push('Record the post-removal ear-canal and tympanic-membrane examination.');
     checklist.push('Review tetanus status in the immunization record when relevant to the wound.');
     return checklist;
   },
   readLegacyFacts: (input: LegacyProcedureFields) => ({
-    site: input.bodySite === 'Ear' ? 'ear' : input.bodySite === 'Nose' ? 'nose' : undefined,
+    site:
+      input.bodySite === 'Ear' ? FOREIGN_BODY_SITE.Ear : input.bodySite === 'Nose' ? FOREIGN_BODY_SITE.Nose : undefined,
     side: selectedSide(input),
     slitLamp: input.technique?.includes('Slit Lamp') ?? false,
   }),

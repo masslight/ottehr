@@ -752,7 +752,6 @@ export default function ProceduresNew({
                         // Clearing the text reports a null option; only a real pick closes the popover.
                         onOptionSelected={(option) => option != null && close()}
                         openOnFocus
-                        required
                       />
                     )}
                   </PopoverBlank>

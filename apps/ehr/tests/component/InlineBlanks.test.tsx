@@ -1,9 +1,11 @@
 import { Autocomplete, TextField } from '@mui/material';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { DateTime } from 'luxon';
 import { ReactElement, useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import {
+  DateTimeBlank,
   MultiBlank,
   PopoverBlank,
   SelectBlank,
@@ -314,5 +316,55 @@ describe('inline blanks', () => {
     await user.type(input, '3.5');
     expect(onChange).toHaveBeenLastCalledWith('3.5');
     expect(input).not.toHaveStyle({ borderStyle: 'dashed' });
+  });
+});
+
+describe('date and time blanks', () => {
+  const saved = DateTime.fromISO('2026-10-14T14:05:00Z', { setZone: true }).setLocale('en-US');
+
+  it.each([
+    { kind: 'date' as const, expected: 'Oct 14, 2026' },
+    { kind: 'time' as const, expected: '2:05 PM' },
+  ])('shows a saved $kind as plain text when read-only', ({ kind, expected }) => {
+    render(<DateTimeBlank kind={kind} label={kind} value={saved} onChange={vi.fn()} readOnly />);
+    expect(screen.getByText(expected)).toBeInTheDocument();
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+  });
+
+  it.each(['date', 'time'] as const)('shows a placeholder for an empty or invalid %s', (kind) => {
+    const { rerender } = render(<DateTimeBlank kind={kind} label={kind} value={null} onChange={vi.fn()} readOnly />);
+    expect(screen.getByText(`[${kind}]`)).toBeInTheDocument();
+    rerender(
+      <DateTimeBlank kind={kind} label={kind} value={DateTime.invalid('Invalid')} onChange={vi.fn()} readOnly />
+    );
+    expect(screen.getByText(`[${kind}]`)).toBeInTheDocument();
+  });
+
+  it.each([
+    { kind: 'date' as const, raw: '10/20/2026', expected: '2026-10-20', format: 'yyyy-MM-dd' },
+    { kind: 'time' as const, raw: '03:10 PM', expected: '15:10', format: 'HH:mm' },
+  ])('edits a $kind using the real picker and preserves its timezone', ({ kind, raw, expected, format }) => {
+    const onChange = vi.fn();
+    function PickerForm(): ReactElement {
+      const [value, setValue] = useState<DateTime | null>(saved);
+      return (
+        <DateTimeBlank
+          kind={kind}
+          label={`procedure ${kind}`}
+          value={value}
+          onChange={(next) => {
+            onChange(next);
+            setValue(next);
+          }}
+          readOnly={false}
+        />
+      );
+    }
+    render(<PickerForm />);
+    fireEvent.change(screen.getByLabelText(`procedure ${kind}`), { target: { value: raw } });
+    const next: DateTime = onChange.mock.calls.at(-1)?.[0];
+    expect(next?.isValid).toBe(true);
+    expect(next?.toFormat(format)).toBe(expected);
+    expect(next?.zoneName).toBe(saved.zoneName);
   });
 });

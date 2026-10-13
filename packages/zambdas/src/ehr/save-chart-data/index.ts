@@ -135,18 +135,18 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.log(`Getting encounter ${encounterId}`);
   // ----- !!!DON'T DELETE!!! this is in #2129 scope -----
   // const [allResources, currentPractitioner, chartDataBeforeUpdate] = await Promise.all([
-  //   getEncounterAndRelatedResources(oystehr, encounterId, cleanupProcedureDiagnoses && procedures?.some((procedure) => Boolean(procedure.resourceId))),
+  //   getEncounterAndRelatedResources(oystehr, encounterId),
   //   getUserPractitioner(oystehr, userToken, secrets),
   // ]);
 
   const hasVitalObservations = [...(vitalsObservations ?? []), ...(observations ?? [])].some(isVitalObservation);
 
   const [allResources, currentPractitioner, vitalsAlertConfig] = await Promise.all([
-    getEncounterAndRelatedResources(
-      oystehr,
-      encounterId,
-      cleanupProcedureDiagnoses && procedures?.some((procedure) => Boolean(procedure.resourceId))
-    ),
+    getEncounterAndRelatedResources(oystehr, encounterId, {
+      includeChartData: true,
+      includeProcedureDependencies:
+        cleanupProcedureDiagnoses && procedures?.some((procedure) => Boolean(procedure.resourceId)),
+    }),
     getUserPractitioner(oystehr, userToken, secrets),
     hasVitalObservations ? getVitalsEngineConfig(oystehr) : undefined,
   ]);

@@ -417,7 +417,7 @@ describe('ProceduresNew — save validation and shared diagnoses', () => {
     const user = userEvent.setup();
     renderComponent();
     await user.click(screen.getByTestId(dataTestIds.documentProcedurePage.procedureType));
-    await user.type(screen.getByRole('combobox', { name: 'Procedure type*' }), 'Invalid  type');
+    await user.type(screen.getByRole('combobox', { name: 'Procedure type' }), 'Invalid  type');
     await user.click(screen.getByTestId(dataTestIds.documentProcedurePage.saveButton));
     expect(screen.queryByRole('dialog', { name: 'Procedure type' })).not.toBeInTheDocument();
     expect(await screen.findByText('No leading, trailing, or consecutive spaces allowed')).toBeInTheDocument();

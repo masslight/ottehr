@@ -86,14 +86,11 @@ export class DocumentProcedurePage {
 
   async selectPerformedBy(performedBy: string): Promise<void> {
     // Arguments are the stored values ("Provider", "Both"); the sentence shows their display wording.
-    await this.#pick(dataTestIds.documentProcedurePage.performedBy, expectedPerformer(performedBy) ?? performedBy);
+    await this.#pick(dataTestIds.documentProcedurePage.performedBy, expectedPerformer(performedBy));
   }
 
   async verifyPerformedBy(performedBy: string): Promise<void> {
-    await this.#verifyBlank(
-      dataTestIds.documentProcedurePage.performedBy,
-      expectedPerformer(performedBy) ?? performedBy
-    );
+    await this.#verifyBlank(dataTestIds.documentProcedurePage.performedBy, expectedPerformer(performedBy));
   }
 
   async selectAnaesthesia(anaesthesia: string): Promise<void> {
@@ -202,14 +199,11 @@ export class DocumentProcedurePage {
 
   async selectDocumentedBy(documentedBy: string): Promise<void> {
     // Arguments are the stored values ("Provider", "Both"); the sentence shows their display wording.
-    await this.#pick(dataTestIds.documentProcedurePage.documentedBy, expectedPerformer(documentedBy) ?? documentedBy);
+    await this.#pick(dataTestIds.documentProcedurePage.documentedBy, expectedPerformer(documentedBy));
   }
 
   async verifyDocumentedBy(documentedBy: string): Promise<void> {
-    await this.#verifyBlank(
-      dataTestIds.documentProcedurePage.documentedBy,
-      expectedPerformer(documentedBy) ?? documentedBy
-    );
+    await this.#verifyBlank(dataTestIds.documentProcedurePage.documentedBy, expectedPerformer(documentedBy));
   }
 
   async clickSaveButton(): Promise<ProceduresPage> {

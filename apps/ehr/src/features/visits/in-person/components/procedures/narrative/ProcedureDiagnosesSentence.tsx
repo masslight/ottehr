@@ -14,7 +14,7 @@ interface Props {
   onChange: (diagnoses: DiagnosisDTO[]) => void;
 }
 
-/** Visit choices retain their Condition IDs, so documenting a procedure never creates copies. */
+/** Visit quick picks offer each unselected code once and link its existing Condition ID. */
 export const ProcedureDiagnosesSentence: FC<Props> = ({ diagnoses, visitDiagnoses, readOnly, onChange }) => {
   const diagnosisChoices = useMemo(() => {
     const seenCodes = new Set(diagnoses.map((diagnosis) => diagnosis.code));

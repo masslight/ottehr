@@ -166,7 +166,10 @@ describe('procedure diagnosis cleanup transaction', () => {
     const result = await submit();
     expect(result.statusCode).toBe(200);
     expect(JSON.parse(result.body).deletedDiagnosisIds).toEqual(['first', 'second']);
-    expect(dependencies).toHaveBeenCalledWith(expect.anything(), encounterId, true);
+    expect(dependencies).toHaveBeenCalledWith(expect.anything(), encounterId, {
+      includeChartData: true,
+      includeProcedureDependencies: true,
+    });
     const requests: BatchInputRequest<FhirResource>[] = transaction.mock.calls[0][0].requests;
     expect(requests.filter((request) => request.method === 'DELETE').map((request) => request.url)).toEqual([
       '/Condition/first',

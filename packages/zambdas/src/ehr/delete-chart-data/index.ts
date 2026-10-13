@@ -38,6 +38,7 @@ import {
   findAccidentConditions,
   updateEncounterDischargeDisposition,
 } from '../../shared/chart-data';
+import { getEncounterAndRelatedResources } from '../../shared/chart-data/encounter-resources';
 import { runChartDataPostChangeTasks } from '../../shared/chart-data/post-change-tasks';
 import { orphanedProcedureDiagnoses } from '../../shared/chart-data/procedure-diagnoses';
 import { createFindResourceRequestByPatientField } from '../../shared/chart-data/search-requests';
@@ -46,7 +47,7 @@ import { parseCreatedResourcesBundle } from '../../shared/resources.helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { deleteZ3Object } from '../../shared/z3Utils';
-import { deleteResourceRequest, getEncounterAndRelatedResources } from './helpers';
+import { deleteResourceRequest } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
@@ -104,11 +105,9 @@ export const index = wrapHandler('delete-chart-data', async (input: ZambdaInput)
 
     // 0. get encounter
     console.log(`Getting encounter ${encounterId}`);
-    const allResources = await getEncounterAndRelatedResources(
-      oystehr,
-      encounterId,
-      cleanupProcedureDiagnoses && Boolean(procedures?.length)
-    );
+    const allResources = await getEncounterAndRelatedResources(oystehr, encounterId, {
+      includeProcedureDependencies: cleanupProcedureDiagnoses && Boolean(procedures?.length),
+    });
     const encounter = allResources.filter((resource) => resource.resourceType === 'Encounter')[0] as Encounter;
     if (encounter === undefined) throw new Error(`Encounter with ID ${encounterId} must exist... `);
     console.log(`Got encounter with id ${encounter.id}`);

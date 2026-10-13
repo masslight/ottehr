@@ -4,6 +4,7 @@ import { ADDED_VIA_PROCEDURE_EXTENSION } from 'utils/lib/types/api/procedures.co
 import { ADDED_VIA_LAB_ORDER_SYSTEM } from 'utils/lib/types/data/labs/labs.constants';
 import { chartDataResourceHasMetaTagByCode } from './index';
 
+/** Normalize relative, absolute and versioned Condition references. */
 const conditionReference = (reference: string): string | undefined => {
   const match = /(?:^|\/)Condition\/([^/]+)(?:\/_history\/[^/]+)?$/.exec(reference);
   return match ? `Condition/${match[1]}` : undefined;
@@ -23,6 +24,8 @@ function collectReferences(value: unknown, references: Set<string>): void {
   Object.values(object).forEach((item) => collectReferences(item, references));
 }
 
+/** Delete recorded procedure-origin diagnoses after their final active link is removed.
+ * Preserve primary, lab-origin, legacy/unmarked, other-visit and otherwise referenced diagnoses. */
 export function orphanedProcedureDiagnoses(
   encounter: Encounter,
   resources: FhirResource[],

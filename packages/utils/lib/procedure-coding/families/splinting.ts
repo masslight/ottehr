@@ -12,6 +12,22 @@ import { LegacyProcedureFields, ProcedureFamilyModel } from '../model.types';
 import { PROCEDURE_NAMES } from '../procedure-names';
 import { CodingField, readNumber, selectedSide } from '../structured-fields';
 
+const SPLINT_REGION = {
+  LongArm: 'long arm',
+  Forearm: 'forearm',
+  Finger: 'finger',
+  LongLeg: 'long leg',
+  ShortLeg: 'short leg',
+  Thorax: 'thorax',
+  Shoulder: 'shoulder',
+  ElbowWrist: 'elbow/wrist',
+  Hip: 'hip',
+  Knee: 'knee',
+  AnkleFoot: 'ankle/foot',
+  UnnaBoot: 'Unna boot',
+  LowBack: 'low back',
+} as const;
+
 const SPLINTING_CODES = {
   LongArmSplint: '29105',
   StaticForearmSplint: '29125',
@@ -54,21 +70,7 @@ const fields: readonly CodingField[] = [
     neededForCoding: true,
     label: 'Body region',
     kind: 'select',
-    options: [
-      'long arm',
-      'forearm',
-      'finger',
-      'long leg',
-      'short leg',
-      'thorax',
-      'shoulder',
-      'elbow/wrist',
-      'hip',
-      'knee',
-      'ankle/foot',
-      'Unna boot',
-      'low back',
-    ],
+    options: Object.values(SPLINT_REGION),
   },
   {
     key: 'mobility',
@@ -95,7 +97,7 @@ const fields: readonly CodingField[] = [
   { key: 'sameAreaSurgery', label: 'Same-area surgery', kind: 'checkbox', defaultValue: false },
   {
     key: 'side',
-    neededForCoding: (facts) => facts.region !== 'thorax',
+    neededForCoding: (facts) => facts.region !== SPLINT_REGION.Thorax,
     label: 'Side',
     kind: 'select',
     options: ['left', 'right', 'both'],
@@ -109,27 +111,27 @@ const fields: readonly CodingField[] = [
     defaultValue: 1,
     min: 0,
     step: 1,
-    visible: (facts) => facts.region === 'finger',
+    visible: (facts) => facts.region === SPLINT_REGION.Finger,
   },
 ];
 
 // Code inventories are constants local to this family; they are not an interpreted rule language.
 const splints: Partial<Record<string, SplintingCode>> = {
-  'long arm': SPLINTING_CODES.LongArmSplint,
-  forearm: SPLINTING_CODES.StaticForearmSplint,
-  finger: SPLINTING_CODES.StaticFingerSplint,
-  'long leg': SPLINTING_CODES.LongLegSplint,
-  'short leg': SPLINTING_CODES.ShortLegSplint,
+  [SPLINT_REGION.LongArm]: SPLINTING_CODES.LongArmSplint,
+  [SPLINT_REGION.Forearm]: SPLINTING_CODES.StaticForearmSplint,
+  [SPLINT_REGION.Finger]: SPLINTING_CODES.StaticFingerSplint,
+  [SPLINT_REGION.LongLeg]: SPLINTING_CODES.LongLegSplint,
+  [SPLINT_REGION.ShortLeg]: SPLINTING_CODES.ShortLegSplint,
 };
 
 const straps: Partial<Record<string, SplintingCode>> = {
-  thorax: SPLINTING_CODES.ThoraxStrapping,
-  shoulder: SPLINTING_CODES.ShoulderStrapping,
-  'elbow/wrist': SPLINTING_CODES.ElbowOrWristStrapping,
-  hip: SPLINTING_CODES.HipStrapping,
-  knee: SPLINTING_CODES.KneeStrapping,
-  'ankle/foot': SPLINTING_CODES.AnkleOrFootStrapping,
-  'Unna boot': SPLINTING_CODES.UnnaBoot,
+  [SPLINT_REGION.Thorax]: SPLINTING_CODES.ThoraxStrapping,
+  [SPLINT_REGION.Shoulder]: SPLINTING_CODES.ShoulderStrapping,
+  [SPLINT_REGION.ElbowWrist]: SPLINTING_CODES.ElbowOrWristStrapping,
+  [SPLINT_REGION.Hip]: SPLINTING_CODES.HipStrapping,
+  [SPLINT_REGION.Knee]: SPLINTING_CODES.KneeStrapping,
+  [SPLINT_REGION.AnkleFoot]: SPLINTING_CODES.AnkleOrFootStrapping,
+  [SPLINT_REGION.UnnaBoot]: SPLINTING_CODES.UnnaBoot,
 };
 
 export const splintingFamily: ProcedureFamilyModel<SplintingCode> = {
@@ -162,24 +164,24 @@ export const splintingFamily: ProcedureFamilyModel<SplintingCode> = {
 
     const region = String(facts.region);
 
-    if (facts.device === 'strap' && region === 'low back')
+    if (facts.device === 'strap' && region === SPLINT_REGION.LowBack)
       return noCode('Low-back strapping is not a covered application code.');
 
     let cpt: SplintingCode | undefined = (facts.device === 'splint' ? splints : straps)[region];
 
     if (facts.device === 'splint' && facts.mobility === 'dynamic') {
-      if (region === 'forearm') cpt = SPLINTING_CODES.DynamicForearmSplint;
-      else if (region === 'finger') cpt = SPLINTING_CODES.DynamicFingerSplint;
+      if (region === SPLINT_REGION.Forearm) cpt = SPLINTING_CODES.DynamicForearmSplint;
+      else if (region === SPLINT_REGION.Finger) cpt = SPLINTING_CODES.DynamicFingerSplint;
       else return coder('Dynamic application outside forearm/finger codes.');
     }
 
     if (!cpt) return coder('This device and body region require another code.');
 
-    const count = region === 'finger' ? readNumber(facts, 'count') : 1;
+    const count = region === SPLINT_REGION.Finger ? readNumber(facts, 'count') : 1;
 
     if (!count || !Number.isInteger(count)) return missing('Fingers treated');
 
-    if (!facts.side && region !== 'thorax') return missing('Side');
+    if (!facts.side && region !== SPLINT_REGION.Thorax) return missing('Side');
 
     return buildEvaluation({
       suggestions: [
@@ -219,16 +221,18 @@ export const splintingFamily: ProcedureFamilyModel<SplintingCode> = {
     'Record condition, region/side, device, materials and static/dynamic construction when applicable.',
     'Record initial stabilization/referral or replacement context, who applied the device and applicable order/supervision.',
     'Record post-application neurovascular findings, supplies and follow-up instructions.',
-    ...(facts.region === 'finger' ? ['Identify each finger treated and the applicable digit modifier.'] : []),
-    ...(facts.region === 'Unna boot' ? ['State the indication for compression.'] : []),
+    ...(facts.region === SPLINT_REGION.Finger
+      ? ['Identify each finger treated and the applicable digit modifier.']
+      : []),
+    ...(facts.region === SPLINT_REGION.UnnaBoot ? ['State the indication for compression.'] : []),
   ],
   readLegacyFacts: (input: LegacyProcedureFields) => {
     const regions: Partial<Record<string, string>> = {
-      'Short Arm Splint': 'forearm',
-      'Long Arm Splint': 'long arm',
-      'Finger Splint': 'finger',
-      'Short Leg Splint': 'short leg',
-      'Long Leg Splint': 'long leg',
+      'Short Arm Splint': SPLINT_REGION.Forearm,
+      'Long Arm Splint': SPLINT_REGION.LongArm,
+      'Finger Splint': SPLINT_REGION.Finger,
+      'Short Leg Splint': SPLINT_REGION.ShortLeg,
+      'Long Leg Splint': SPLINT_REGION.LongLeg,
     };
     const matched = (input.technique ?? []).filter((option) => regions[option]);
 
