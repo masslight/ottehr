@@ -366,11 +366,11 @@ describe('createConsentResources', () => {
       });
     }
 
-    // Only the consent-to-treat form creates a Consent resource, linked to its docref
-    expect(mockCreateConsentResource).toHaveBeenCalledTimes(1);
+    // Both forms create a Consent resource; HIPAA form is first in the array
+    expect(mockCreateConsentResource).toHaveBeenCalledTimes(2);
     const [consentPatientId, consentDocRefId, consentDate] = mockCreateConsentResource.mock.calls[0];
     expect(consentPatientId).toBe(PATIENT_ID);
-    expect(consentDocRefId).toBe(`dr-${CTT_FORM.type.text}-0`);
+    expect(consentDocRefId).toBe(`dr-${HIPAA_FORM.type.text}-0`);
     expect(consentDate).toContain('2026-08-20T15:00:00');
   });
 
@@ -395,11 +395,12 @@ describe('createConsentResources', () => {
     });
   });
 
-  test('resolves state-specific consent form assets (the Illinois variant)', async () => {
+  test('resolves state-specific consent form assets (Illinois falls back to default when no variant exists)', async () => {
     await run({ location: makeLocation('IL') });
     const cttPdfInfo = mockCreatePdfBytes.mock.calls[1][3];
+    // Authorization form has no IL-specific asset; IL resolves to the default path
     expect(cttPdfInfo.copyFromPath).toBe(IL_FORMS[1].assetPath);
-    expect(cttPdfInfo.copyFromPath).not.toBe(CTT_FORM.assetPath);
+    expect(cttPdfInfo.copyFromPath).toBe(CTT_FORM.assetPath);
   });
 
   test('labels telemed visits with the telemedicine facility name', async () => {
@@ -437,6 +438,6 @@ describe('createConsentResources', () => {
         content: [{ attachment: { url: file.url, title: 'some other title' } }],
       })),
     }));
-    await expect(run()).rejects.toThrow(`DocumentReference for "${CTT_FORM.formTitle}" not found`);
+    await expect(run()).rejects.toThrow(`DocumentReference for "${HIPAA_FORM.formTitle}" not found`);
   });
 });
