@@ -294,10 +294,11 @@ An item carrying the standard `sdc-questionnaire-calculatedExpression` extension
   a score as recorded only once the response is completed, and flags a recorded value that no longer agrees with
   the answers.
 - Add `disabled-display` set to `hidden` to keep an item off the patient's form. The EHR still shows it.
-- **Use linkIds that are unique across the forms of a paperwork flow** (for example `cage-items`, `cage-q1`). A flow
-  puts its forms' pages in one response and keeps only the last of any repeated top-level page linkId, and the
-  `answers` map is shared by the whole response, so two scored forms that both use `items`, `results` or `q1` would
-  overwrite each other.
+- **linkIds must be unique across the forms of a paperwork flow.** A flow puts its forms in one response (and keeps
+  only the last of any repeated top-level page linkId), and the `answers` map is shared by the whole response. A flow
+  that contains a custom form sharing any page or question linkId with another form is **rejected when it is saved**,
+  with a message naming the forms and the ids. Prefix a form's ids with its name (`cage-items`, `cage-q1`) and
+  re-import it. The base intake and consent-only forms may keep sharing the consent page.
 
 The import validates every calculated item up front and reports all problems at once (missing or unsupported
 language, syntax errors, references to linkIds that don't exist with a suggestion, an item reading itself, circular
