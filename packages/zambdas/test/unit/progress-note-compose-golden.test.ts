@@ -16,6 +16,11 @@ import {
 } from './fixtures/chart-data-golden.fixture';
 import { createGoldenFhirServer } from './fixtures/golden-fhir-server';
 
+vi.mock('utils/lib/ottehr-config/screening-questions', async () => {
+  const { baseScreeningQuestionsConfig } = await import('utils/lib/types/data/screening-questions/config');
+  return { patientScreeningQuestionsConfig: baseScreeningQuestionsConfig };
+});
+
 describe('composeProgressNoteData — golden chart data', () => {
   let fixture: GoldenChartResources;
   let goldenChartData: ReturnType<typeof visitNoteToLegacyChartData>;

@@ -32,6 +32,47 @@ import { createPdfBytes } from '../src/shared/pdf';
 // patches, per-form PDF fan-out, type-code grouping, attachment dedup, creation-time
 // sorting, and reference wiring — runs for real.
 
+vi.mock('utils/lib/ottehr-config/consent-forms', () => {
+  const hipaa = {
+    id: 'hipaa-acknowledgement',
+    formTitle: 'HIPAA Acknowledgement',
+    resourceTitle: 'HIPAA forms',
+    assetPath: './assets/HIPAA.Acknowledgement-S.pdf',
+    publicUrl: '/hipaa.pdf',
+    type: {
+      coding: [{ system: 'http://loinc.org', code: '64292-6', display: 'Privacy Policy' }],
+      text: 'HIPAA Acknowledgement forms',
+    },
+    createsConsentResource: false,
+  };
+  const cttDefault = {
+    id: 'consent-to-treat',
+    formTitle: 'Consent to Treat',
+    resourceTitle: 'Consent forms',
+    assetPath: './assets/CTT.pdf',
+    publicUrl: '/ctt.pdf',
+    type: {
+      coding: [
+        { system: 'http://loinc.org', code: '59284-0', display: 'Consent Documents' },
+        {
+          system: 'https://fhir.ottehr.com/CodeSystem/consent-source',
+          code: 'patient-registration',
+          display: 'Patient Registration Consent',
+        },
+      ],
+      text: 'Consent forms',
+    },
+    createsConsentResource: true,
+  };
+  const cttIl = { ...cttDefault, assetPath: './assets/CTT-IL.pdf' };
+  return {
+    getConsentFormsForLocation: (state?: string) => [hipaa, state === 'IL' ? cttIl : cttDefault],
+    resolveConsentFormsPaths: (forms: unknown[]) => forms,
+    CONSENT_FORMS_CONFIG: { forms: [hipaa, cttDefault] },
+    CONSENT_FORMS_DATA: { forms: [hipaa, cttDefault] },
+  };
+});
+
 vi.mock('utils/lib/fhir/helpers', async (importOriginal) => {
   const original = await importOriginal<typeof import('utils/lib/fhir/helpers')>();
   return { ...original, createFilesDocumentReferences: vi.fn(), createConsentResource: vi.fn() };
