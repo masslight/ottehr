@@ -77,7 +77,7 @@ export const createFaxPacketByteBudget = (
     consume: (byteCount) => {
       used += byteCount;
       if (used > maxBytes) {
-        throw new FaxPacketError(
+        throw new FaxPacketTooLargeError(
           `Fax packet source documents are over ${(used / (1024 * 1024)).toFixed(1)} MB, which exceeds the ` +
             `${MAX_BYTES_MB} MB limit. ${faxPacketLimitGuidance(sourceType)}`
         );
@@ -148,6 +148,13 @@ class FaxPacketError extends Error {
   constructor(message: string, cause?: unknown) {
     super(message, cause === undefined ? undefined : { cause });
     this.name = 'FaxPacketError';
+  }
+}
+
+export class FaxPacketTooLargeError extends FaxPacketError {
+  constructor(message: string) {
+    super(message);
+    this.name = 'FaxPacketTooLargeError';
   }
 }
 

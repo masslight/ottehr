@@ -44,6 +44,7 @@ import {
   buildFaxPacketSection,
   createFaxPacketByteBudget,
   faxPacketLimitGuidance,
+  FaxPacketTooLargeError,
   interleaveFaxPacketSections,
 } from '../../src/shared/fax/build-fax-packet';
 import { collectFaxParts, resolveFaxDocumentAvailability } from '../../src/shared/fax/collect-visit-documents';
@@ -473,6 +474,12 @@ describe('buildFaxPacketSection', () => {
     await expect(buildFaxPacketSection(section('first'))).resolves.toBeDefined();
     // The second visit draws down the same budget, so it is the one that reports the limit.
     await expect(buildFaxPacketSection(section('second'))).rejects.toThrow(/exceeds the 20 MB limit/);
+  });
+
+  it('reports an exceeded budget as a too-large error', () => {
+    const budget = createFaxPacketByteBudget('document');
+
+    expect(() => budget.consume(FAX_PACKET_MAX_BYTES + 1)).toThrow(FaxPacketTooLargeError);
   });
 });
 
