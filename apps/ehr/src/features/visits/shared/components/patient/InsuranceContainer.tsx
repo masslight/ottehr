@@ -47,6 +47,11 @@ import {
 type InsuranceContainerProps = {
   ordinal: number;
   patientId: string;
+  /**
+   * Set when shown for a visit, so eligibility re-checks use the visit's date of service rather
+   * than today.
+   */
+  appointmentId?: string;
   initialEligibilityCheck?: CoverageCheckWithDetails;
   removeInProgress?: boolean;
   handleRemoveClick?: () => void;
@@ -132,6 +137,7 @@ const insuranceSection = PATIENT_RECORD_CONFIG.FormFields.insurance;
 export const InsuranceContainer: FC<InsuranceContainerProps> = ({
   ordinal,
   patientId,
+  appointmentId,
   removeInProgress,
   initialEligibilityCheck,
   handleRemoveClick,
@@ -221,6 +227,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
           .execute({
             id: 'get-eligibility',
             patientId,
+            appointmentId,
             coverageToCheck: coverageToCheck,
           })
           .then((res) => {

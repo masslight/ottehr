@@ -52,6 +52,7 @@ export const prevalidationHandler = async (input: Input, oystehrClient: Oystehr)
     secondaryPolicyHolder,
     apiUrl,
     accessToken,
+    servicedDate,
   } = input;
 
   console.log('primary policy holder', JSON.stringify(primaryPolicyHolder), null, 2);
@@ -179,6 +180,7 @@ export const prevalidationHandler = async (input: Input, oystehrClient: Oystehr)
       providerReference,
       patientReference,
       contained,
+      servicedDate,
     });
     console.log('CER', JSON.stringify(CER, null, 2));
     console.log('END CER');

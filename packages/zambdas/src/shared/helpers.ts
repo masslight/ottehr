@@ -305,6 +305,12 @@ export function resolveTimezone(schedule?: Schedule, location?: Location, fallba
   return fallback;
 }
 
+// The visit's calendar date where it takes place, so an evening visit isn't dated the next day in UTC.
+export function getLocalDateOfService(appointmentStart: string, location: Location | undefined): string {
+  const timezone = location ? getTimezone(location) : TIMEZONES[0];
+  return DateTime.fromISO(appointmentStart).setZone(timezone).toISODate()!;
+}
+
 export function updateExtension(resource: DomainResource, extension: Extension): void {
   resource.extension = [...(resource.extension ?? []).filter((ext) => ext.url !== extension.url), extension];
 }

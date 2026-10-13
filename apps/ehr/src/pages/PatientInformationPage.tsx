@@ -630,6 +630,7 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
       onCloseAddInsurance={handleCloseAddInsurance}
       newInsuranceOrdinal={newInsuranceOrdinal}
       encounterId={appointmentContext?.encounterId}
+      appointmentId={appointmentId}
       renderInsuranceCardThumbnail={renderInsuranceCardThumbnail}
     />
   );

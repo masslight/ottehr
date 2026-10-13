@@ -1,6 +1,6 @@
 // cSpell:ignore olicy
 import Oystehr from '@oystehr/sdk';
-import { Appointment, QuestionnaireResponseItem } from 'fhir/r4b';
+import { Appointment, Location, QuestionnaireResponseItem } from 'fhir/r4b';
 import { BillingProviderDataObject, getBillingProviderData, GetBillingProviderInput } from 'utils/lib/fhir/billing';
 import { flattenItems } from 'utils/lib/helpers/paperwork/validation';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
@@ -13,6 +13,7 @@ import {
 import { InsurancePlanDTO } from 'utils/lib/types/data/telemed/insurances.types';
 import {
   APIErrorCode,
+  APPOINTMENT_NOT_FOUND_ERROR,
   BILLING_PROVIDER_RESOURCE_NOT_FOUND,
   INVALID_INPUT_ERROR,
   MISSING_REQUEST_BODY,
@@ -20,6 +21,7 @@ import {
 } from 'utils/lib/types/errors';
 import { isValidUUID } from 'utils/lib/validation/helper';
 import { getAccountAndCoverageResourcesForPatient } from '../../ehr/shared/harvest';
+import { getLocalDateOfService } from '../../shared/helpers';
 import { ZambdaInput } from '../../shared/types/common';
 
 interface GetEligibilityStandardInput {
@@ -114,6 +116,7 @@ export interface EligibilityCheckPrevalidationStructuredInput {
   primaryPolicyHolder: GetEligibilityPolicyHolder;
   appointmentId?: string;
   appointment?: Appointment;
+  servicedDate?: string;
   secondaryInsuranceData?: GetEligibilityInsuranceData;
   secondaryPolicyHolder?: GetEligibilityPolicyHolder;
 }
@@ -126,6 +129,7 @@ export interface EligibilityCheckStandardStructuredInput {
   coverageToCheck: 'primary' | 'secondary';
   appointmentId?: string;
   appointment?: Appointment;
+  servicedDate?: string;
 }
 
 type EligibilityCheckStructuredInput =
@@ -138,17 +142,25 @@ export const complexInsuranceValidation = async (
 ): Promise<EligibilityCheckStructuredInput> => {
   const { appointmentId, patientId } = input;
   let appointment: Appointment | undefined;
+  let servicedDate: string | undefined;
 
   if (appointmentId) {
-    const appointmentResource = await oystehr.fhir.get<Appointment>({
-      resourceType: 'Appointment',
-      id: appointmentId,
-    });
-    if (appointmentResource) {
-      appointment = appointmentResource;
-    } else {
-      throw APIErrorCode.APPOINTMENT_NOT_FOUND;
+    const appointmentAndLocation = (
+      await oystehr.fhir.search<Appointment | Location>({
+        resourceType: 'Appointment',
+        params: [
+          { name: '_id', value: appointmentId },
+          { name: '_include', value: 'Appointment:location' },
+        ],
+      })
+    ).unbundle();
+    appointment = appointmentAndLocation.find((res): res is Appointment => res.resourceType === 'Appointment');
+    if (!appointment) {
+      throw APPOINTMENT_NOT_FOUND_ERROR;
     }
+    // A check run for a visit asks about coverage on the visit's date of service, not the day it runs.
+    const location = appointmentAndLocation.find((res): res is Location => res.resourceType === 'Location');
+    servicedDate = appointment.start ? getLocalDateOfService(appointment.start, location) : undefined;
   }
   if (input.type === 'prevalidation') {
     const { responseItems } = input;
@@ -178,6 +190,7 @@ export const complexInsuranceValidation = async (
       secondaryInsuranceData,
       secondaryPolicyHolder,
       appointment,
+      servicedDate,
     };
   } else {
     const { billingProvider: maybeBillingProvider, coverageToCheck } = input;
@@ -191,6 +204,7 @@ export const complexInsuranceValidation = async (
       billingProvider,
       coverageResources,
       appointment,
+      servicedDate,
       coverageToCheck,
     };
   }

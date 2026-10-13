@@ -1,5 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { Operation } from 'fast-json-patch';
 import { Appointment, CoverageEligibilityRequest } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
@@ -71,7 +72,8 @@ export const index = wrapHandler('get-eligibility', async (input: ZambdaInput): 
     primary = result.primary;
     secondary = result.secondary;
   } else {
-    const { appointmentId, appointment, patientId, billingProvider, coverageResources, coverageToCheck } = complexInput;
+    const { appointmentId, appointment, patientId, billingProvider, coverageResources, coverageToCheck, servicedDate } =
+      complexInput;
     const { coverages, insuranceOrgs } = coverageResources;
 
     // coverages is an object with keys "primary" and "secondary", which are the same values coverageToCheck can take on
@@ -102,6 +104,7 @@ export const index = wrapHandler('get-eligibility', async (input: ZambdaInput): 
       payorReference: payorReference,
       providerReference: billingProvider,
       patientReference: `Patient/${patientId}`,
+      servicedDate,
     });
 
     const coverageEligibilityRequest = await oystehr.fhir.create<CoverageEligibilityRequest>(CER);
@@ -213,21 +216,23 @@ const tagAppointmentWithEligibilityFailureReason = async ({
   reason,
 }: TagAppointmentWithEligibilityFailureReasonParameters): Promise<void> => {
   const system = `${PRIVATE_EXTENSION_BASE_URL}/${ELIGIBILITY_FAILED_REASON_META_TAG}`;
-  const index = appointment.meta?.tag?.findIndex((tag) => tag.system === system);
+  const tags = appointment.meta?.tag;
+  const index = tags?.findIndex((tag) => tag.system === system) ?? -1;
+  const tag = { system, code: reason, display: reason };
+
+  // Replace an earlier reason rather than stacking another tag each time a check is re-run.
+  let operation: Operation;
+  if (index !== -1) {
+    operation = { op: 'replace', path: `/meta/tag/${index}`, value: tag };
+  } else if (tags) {
+    operation = { op: 'add', path: '/meta/tag/-', value: tag };
+  } else {
+    operation = { op: 'add', path: '/meta/tag', value: [tag] };
+  }
 
   await oystehr.fhir.patch<Appointment>({
     resourceType: 'Appointment',
     id: appointmentId,
-    operations: [
-      {
-        op: 'add',
-        path: `/meta/tag/${index === -1 ? 0 : index}`,
-        value: {
-          system,
-          code: reason,
-          display: reason,
-        },
-      },
-    ],
+    operations: [operation],
   });
 };

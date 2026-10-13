@@ -40,6 +40,7 @@ export const InsuranceSection: FC<{
   onCloseAddInsurance: () => void;
   newInsuranceOrdinal: number;
   encounterId?: string;
+  appointmentId?: string;
   /**
    * Visit-page-only: renders a coverage's compact card thumbnail inside its insurance block.
    * Called with the 0-based card ordinal (0 = primary, 1 = secondary).
@@ -57,6 +58,7 @@ export const InsuranceSection: FC<{
   onCloseAddInsurance,
   newInsuranceOrdinal,
   encounterId,
+  appointmentId,
   renderInsuranceCardThumbnail,
 }) => {
   const primary = getInsuranceSectionDefinition(0);
@@ -92,6 +94,7 @@ export const InsuranceSection: FC<{
         <InsuranceContainer
           key={coverage.resource.id}
           patientId={patient.id ?? ''}
+          appointmentId={appointmentId}
           ordinal={coverage.startingPriority}
           initialEligibilityCheck={getEligibilityCheckDetailsForCoverage(
             coverage.resource,
@@ -108,6 +111,7 @@ export const InsuranceSection: FC<{
       {isAddingInsurance && (
         <InsuranceContainer
           patientId={patient.id ?? ''}
+          appointmentId={appointmentId}
           ordinal={newInsuranceOrdinal}
           isNew
           onCancelAdd={onCancelAddInsurance}
