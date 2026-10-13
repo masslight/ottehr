@@ -174,14 +174,20 @@ const navigateChoices = (event: KeyboardEvent<HTMLElement>): void => {
   const choices = Array.from(event.currentTarget.querySelectorAll<HTMLElement>('[role="option"], [data-blank-choice]'));
   if (!choices.length) return;
   const current = choices.indexOf(document.activeElement as HTMLElement);
-  const next =
-    event.key === 'Home'
-      ? 0
-      : event.key === 'End'
-      ? choices.length - 1
-      : event.key === 'ArrowDown'
-      ? (current + 1) % choices.length
-      : (current - 1 + choices.length) % choices.length;
+  let next: number;
+  switch (event.key) {
+    case 'Home':
+      next = 0;
+      break;
+    case 'End':
+      next = choices.length - 1;
+      break;
+    case 'ArrowDown':
+      next = (current + 1) % choices.length;
+      break;
+    default:
+      next = current <= 0 ? choices.length - 1 : current - 1;
+  }
   event.preventDefault();
   choices[next].focus();
 };
@@ -196,9 +202,6 @@ export const PopoverBlank: FC<PopoverBlankProps> = ({ title, children, onClose, 
   // Focus moves into the paper only after Popper has placed it: focusing earlier opens an autocomplete
   // list (openOnFocus) while the paper still sits at the top-left corner, and that list stays there.
   const paperEl = useRef<HTMLDivElement | null>(null);
-  const paperRef = useCallback((paper: HTMLDivElement | null) => {
-    paperEl.current = paper;
-  }, []);
   const onPlaced = useCallback(() => {
     if (paperEl.current) focusPopoverContent(paperEl.current);
   }, []);
@@ -248,7 +251,7 @@ export const PopoverBlank: FC<PopoverBlankProps> = ({ title, children, onClose, 
             }}
           >
             <Paper
-              ref={paperRef}
+              ref={paperEl}
               id={popupId}
               role="dialog"
               aria-label={title ?? blank.label}

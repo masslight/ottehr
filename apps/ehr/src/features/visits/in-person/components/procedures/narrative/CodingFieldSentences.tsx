@@ -285,11 +285,11 @@ export const CodingFieldSentences: FC<Props> = ({
   );
 };
 
-const NON_SUTURED_CLOSURES = new Set<string>([
+const NON_SUTURED_CLOSURES: readonly string[] = [
   LACERATION_CLOSURE.AdhesiveOnly,
   LACERATION_CLOSURE.StripsOnly,
   LACERATION_CLOSURE.Open,
-]);
+];
 
 /** Wounds use family field keys; closure material and count remain optional. */
 export const LacerationSentences: FC<Omit<Props, 'renderRow'>> = (props) => (
@@ -305,7 +305,7 @@ export const LacerationSentences: FC<Omit<Props, 'renderRow'>> = (props) => (
         {blank('length')} cm laceration of the {blank('site')} ({blank('side')})
         {row.closure !== LACERATION_CLOSURE.Open && <>, closed with {blank('material', { placeholder: 'material' })}</>}
         {/* Display only: non-sutured closures hide the count without changing saved answers. */}
-        {!NON_SUTURED_CLOSURES.has(String(row.closure)) && !(readOnly && row.sutureCount === undefined) && (
+        {!NON_SUTURED_CLOSURES.includes(String(row.closure)) && !(readOnly && row.sutureCount === undefined) && (
           <> ({blank('sutureCount')} sutures/staples)</>
         )}
         . {details(row.closure === LACERATION_CLOSURE.Open ? ['sutureCount'] : ['sutureCount', 'material'])}

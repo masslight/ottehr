@@ -53,7 +53,7 @@ export const DiagnosesField: FC<DiagnosesFieldProps> = (props) => {
   };
 
   return (
-    <Autocomplete
+    <Autocomplete<IcdSearchResponse['codes'][number], false, boolean, false>
       fullWidth
       blurOnSelect
       disabled={disabled}
@@ -68,7 +68,7 @@ export const DiagnosesField: FC<DiagnosesFieldProps> = (props) => {
       includeInputInList
       disableClearable
       filterOptions={(x) => x}
-      value={value || (null as unknown as undefined)}
+      value={value ?? null}
       isOptionEqualToValue={(option, value) => value.code === option.code}
       loading={Boolean(inputText) && waitingForSearch}
       onChange={onInternalChange}

@@ -131,9 +131,7 @@ export default function ProceduresNew({
   useMarkDraftNavigatedAway({ encounterId: encounter.id ?? '', setDraft, hasDraft });
   const draft = !procedureId && encounter.id ? getDraft(encounter.id) : {};
 
-  const isReadOnly = useMemo(() => {
-    return appointmentAccessibility.isAppointmentReadOnly;
-  }, [appointmentAccessibility.isAppointmentReadOnly]);
+  const isReadOnly = appointmentAccessibility.isAppointmentReadOnly;
 
   const chartCptCodes = chartData?.cptCodes || [];
   const chartDiagnoses = useMemo(() => chartData?.diagnosis ?? [], [chartData?.diagnosis]);

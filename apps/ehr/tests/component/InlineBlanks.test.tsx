@@ -227,6 +227,26 @@ describe('inline blanks', () => {
     expect(screen.getByText('[technique]')).toBeInTheDocument();
     expect(screen.queryByText('[+ technique]')).not.toBeInTheDocument();
   });
+  it('moves from the filter input to the final option on Arrow Up', async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(
+      <SelectBlank
+        label="long choice"
+        options={['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon', 'Zeta', 'Eta', 'Theta', 'Iota']}
+        value={undefined}
+        onChange={onChange}
+        readOnly={false}
+      />
+    );
+    await user.click(screen.getByRole('button', { name: 'long choice (empty)' }));
+    await user.click(screen.getByRole('textbox', { name: 'Filter long choice' }));
+    await user.keyboard('{ArrowUp}');
+    expect(screen.getByRole('option', { name: 'Iota' })).toHaveFocus();
+    await user.keyboard('{Enter}');
+    expect(onChange).toHaveBeenCalledWith('Iota');
+  });
+
   it('keeps the Escape handler stable while filtering and restores focus on Escape', async () => {
     const user = userEvent.setup();
     const add = vi.spyOn(document, 'addEventListener');

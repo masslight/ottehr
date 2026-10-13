@@ -1,5 +1,5 @@
 import { Box } from '@mui/material';
-import { FC, ReactNode, useLayoutEffect, useRef } from 'react';
+import { CSSProperties, FC, ReactNode, useLayoutEffect, useRef, useState } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
 
 interface Props {
@@ -10,6 +10,7 @@ interface Props {
 /** Keep long guidance reachable inside the chart's scroll area, including inline procedure views. */
 export const ProcedureCodingColumn: FC<Props> = ({ children, containerQuery }) => {
   const column = useRef<HTMLDivElement>(null);
+  const [availableHeight, setAvailableHeight] = useState<number>();
 
   useLayoutEffect(() => {
     const element = column.current;
@@ -21,9 +22,7 @@ export const ProcedureCodingColumn: FC<Props> = ({ children, containerQuery }) =
     const measure = (): void => {
       const bottom = Math.min(window.innerHeight, scrollArea?.getBoundingClientRect().bottom ?? window.innerHeight);
       const height = bottom - Math.max(0, element.getBoundingClientRect().top) - 16;
-      const value = `${height}px`;
-      if (height > 0 && element.style.getPropertyValue('--procedure-coding-max-height') !== value)
-        element.style.setProperty('--procedure-coding-max-height', value);
+      if (height > 0) setAvailableHeight(height);
     };
     let frame: number | undefined;
     const scheduleMeasure = (): void => {
@@ -47,6 +46,7 @@ export const ProcedureCodingColumn: FC<Props> = ({ children, containerQuery }) =
   return (
     <Box
       ref={column}
+      style={{ '--procedure-coding-max-height': availableHeight ? `${availableHeight}px` : undefined } as CSSProperties}
       data-testid={dataTestIds.documentProcedurePage.codingColumn}
       sx={{
         [containerQuery]: {
