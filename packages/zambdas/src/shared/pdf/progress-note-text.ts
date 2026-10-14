@@ -56,18 +56,21 @@ const serializeVitals = (data: ProgressNoteData): Section => {
 };
 
 const serializeRos = (data: ProgressNoteData): Section => {
-  // The composer only emits a group once it has at least one checked item, so every entry counts.
   const groups = Object.entries(data.rosObservations?.rosObservations ?? {});
+  const documented = groups.filter(([, group]) => group.items.length > 0);
 
   return {
     heading: 'REVIEW OF SYSTEMS',
     lines: [
-      `Systems documented with at least one item: ${groups.length}`,
-      ...groups.map(([label, group]) =>
-        bullet(
-          `${label}: ${group.items.map((item) => `${item.label} (${item.abnormal ? 'reports' : 'denies'})`).join(', ')}`
-        )
-      ),
+      `Systems documented with at least one item: ${documented.length}`,
+      ...groups.map(([label, group]) => {
+        const parts: string[] = [];
+        if (group.items.length > 0) {
+          parts.push(group.items.map((item) => `${item.label} (${item.abnormal ? 'reports' : 'denies'})`).join(', '));
+        }
+        if (group.comment) parts.push(`comment: ${group.comment}`);
+        return bullet(`${label}: ${parts.join(' | ')}`);
+      }),
     ],
   };
 };

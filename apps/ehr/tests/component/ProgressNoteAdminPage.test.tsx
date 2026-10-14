@@ -232,6 +232,37 @@ describe('ProgressNoteAdminPage', () => {
     });
   });
 
+  it('saves the selected header unit system without changing the input order', async () => {
+    vi.mocked(getProgressNoteConfig).mockResolvedValue({
+      ...requiredProgressNoteConfig,
+      vitalsUnitInputOrder: 'imperial-metric',
+      vitalsHeaderUnitSystem: 'imperial',
+    });
+    vi.mocked(adminUpdateProgressNoteConfig).mockResolvedValue(undefined);
+
+    render(<ProgressNoteAdminPage />, { wrapper: createWrapper() });
+
+    await waitFor(() =>
+      expect(screen.getByRole('combobox', { name: 'Vitals display units in visit header' })).toBeInTheDocument()
+    );
+    const headerUnitsSelect = screen.getByRole('combobox', { name: 'Vitals display units in visit header' });
+    expect(headerUnitsSelect).toHaveTextContent('Imperial');
+
+    fireEvent.mouseDown(headerUnitsSelect);
+    fireEvent.click(await screen.findByRole('option', { name: 'Metric' }));
+    expect(headerUnitsSelect).toHaveTextContent('Metric');
+
+    fireEvent.click(getSaveButton());
+
+    await waitFor(() => {
+      expect(adminUpdateProgressNoteConfig).toHaveBeenCalledWith(mockOystehrZambda, {
+        ...requiredConfigWithoutPrompt,
+        vitalsUnitInputOrder: 'imperial-metric',
+        vitalsHeaderUnitSystem: 'metric',
+      });
+    });
+  });
+
   it('does not offer the note review prompt to a non-customer-support user', async () => {
     vi.mocked(getProgressNoteConfig).mockResolvedValue({
       ...requiredProgressNoteConfig,

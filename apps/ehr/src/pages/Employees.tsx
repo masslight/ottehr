@@ -153,7 +153,7 @@ export default function EmployeesPage(): ReactElement {
 
   const queryResult = useQuery({
     queryKey: ['get-employees'],
-    queryFn: () => (oystehrZambda ? getEmployees(oystehrZambda) : Promise.resolve(null)),
+    queryFn: () => (oystehrZambda ? getEmployees(oystehrZambda, { lite: true }) : Promise.resolve(null)),
 
     enabled: !!oystehrZambda,
   });

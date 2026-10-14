@@ -60,7 +60,7 @@ interface EffectInput extends UpdateVisitDetailsValidatedInput {
   occupationalMedicineAccount?: Account;
 }
 
-const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<void> => {
+export const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<void> => {
   const { patient, appointment, bookingDetails, user, encounter, workersCompAccount, occupationalMedicineAccount } =
     input;
 
@@ -297,8 +297,8 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<void
 
   if (bookingDetails.serviceCategory) {
     const newEncounterAccounts = (encounter.account ?? [])
-      .filter((reference) => reference.reference === 'Account/' + occupationalMedicineAccount?.id)
-      .filter((reference) => reference.reference === 'Account/' + workersCompAccount?.id);
+      .filter((reference) => reference.reference !== 'Account/' + occupationalMedicineAccount?.id)
+      .filter((reference) => reference.reference !== 'Account/' + workersCompAccount?.id);
 
     if (bookingDetails.serviceCategory.code === 'workers-comp' && workersCompAccount) {
       newEncounterAccounts.push({

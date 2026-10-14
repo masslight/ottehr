@@ -4,7 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { setupIntegrationTest } from '../helpers/integration-test-seed-data-setup';
 
 // Happy path for get-answer-options: resolve paperwork answer options from a
-// FHIR query (here: active Locations). Returns a (possibly empty) list of
+// FHIR query (here: active Organizations). Returns a (possibly empty) list of
 // options; FHIR-backed, no third-party calls.
 describe('get-answer-options integration — happy path', () => {
   let oystehrZambdas: Oystehr;
@@ -25,8 +25,8 @@ describe('get-answer-options integration — happy path', () => {
       id: 'get-answer-options',
       answerSource: {
         zambdaId: 'get-answer-options',
-        resourceType: 'Location',
-        query: 'status=active&_count=5',
+        resourceType: 'Organization',
+        query: 'active=true&_count=5',
       },
     });
     expect(response.output).toBeDefined();

@@ -14,6 +14,7 @@ import {
 import { invalidateChart } from '../../shared/hooks/chartSectionCache';
 import { useAppointmentData } from '../../shared/stores/appointment/appointment.store';
 import { resetExamObservationsStore } from '../../shared/stores/appointment/reset-exam-observations';
+import { resetRosObservationsStore } from '../../shared/stores/appointment/reset-ros-observations';
 import { useInPersonNavigationContext } from '../context/InPersonNavigationContext';
 
 type EncounterSwitcherProps = {
@@ -42,6 +43,7 @@ export const EncounterSwitcher: FC<EncounterSwitcherProps> = ({ open }) => {
     // Reset exam observations and invalidate chart data cache so it refetches
     // and repopulates the exam store for the new encounter
     resetExamObservationsStore();
+    resetRosObservationsStore();
     void invalidateChart(queryClient, encounterId);
     setSelectedEncounter(encounterId);
     const selectedEnc = allEncounters.find((e) => e.id === encounterId);

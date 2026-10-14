@@ -54,7 +54,12 @@ import { useGetActiveMergeTask } from 'src/hooks/useGetPatient';
 import { useMedicalRecordDateSpan } from 'src/hooks/useMedicalRecordDateSpan';
 import { formatPatientTabTitle } from 'src/shared/utils/patientTabTitle';
 import { otherColors } from 'src/themes/ottehr/colors';
-import { getFirstName, getFullestAvailableName, getLastName } from 'utils/lib/fhir/patient';
+import {
+  getFirstName,
+  getFullestAvailableName,
+  getLastName,
+  getMergedIntoPatientReference,
+} from 'utils/lib/fhir/patient';
 import { GetMergePatientsTaskResponse, MergePatientsResponse } from 'utils/lib/types/api/patient-account';
 import { RoleType } from 'utils/lib/types/api/user.types';
 import {
@@ -105,7 +110,7 @@ export default function PatientPage(): JSX.Element {
   const activeMergeTask = mergeTaskData?.task ?? null;
   const mergeFailed = activeMergeTask?.status === 'failed';
   // This patient is a merged-away record (it was absorbed into another patient).
-  const isMergedPatient = patient?.active === false && patient?.link?.some((l) => l.type === 'replaced-by');
+  const isMergedPatient = !!patient && !!getMergedIntoPatientReference(patient);
   // Once this patient is a merged-away record the merge is done, so don't keep
   // showing the in-progress banner even if the task poll lags behind.
   const mergeInProgress = !!activeMergeTask && !mergeFailed && !isMergedPatient;

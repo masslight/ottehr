@@ -1,10 +1,10 @@
 import Oystehr from '@oystehr/sdk';
 import { Condition, Encounter, List, Resource } from 'fhir/r4b';
 import { collectKnownExamFields } from 'utils/lib/config-helpers/exam-observations';
+import { collectKnownRosFieldsWithComments } from 'utils/lib/config-helpers/review-of-systems';
 import { chunkThings } from 'utils/lib/fhir/chat';
 import { chartDataTagSystem, GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM } from 'utils/lib/fhir/constants';
 import { examConfig } from 'utils/lib/ottehr-config/examination';
-import { collectKnownRosFields } from 'utils/lib/ottehr-config/review-of-systems';
 import {
   ListTemplatesZambdaInput,
   ListTemplatesZambdaOutput,
@@ -66,7 +66,7 @@ export const listTemplates = async (
   const codeSystem = GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM;
   const examTypeConfig = examConfig.default;
   const knownExamFields = collectKnownExamFields(examTypeConfig.components);
-  const knownRosFields = collectKnownRosFields();
+  const knownRosFields = collectKnownRosFieldsWithComments();
 
   // Filter to templates matching the requested exam type code system
   const examTypeTemplates = filteredTemplates.filter(

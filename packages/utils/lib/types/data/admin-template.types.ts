@@ -50,6 +50,11 @@ export interface TemplateRosFinding {
   findingState: RosFindingState | undefined;
   stale: boolean;
 }
+export interface TemplateRosComment {
+  fieldName: string;
+  systemLabel: string;
+  note: string;
+}
 export interface TemplateExamFinding {
   fieldName: string;
   label: string;
@@ -203,6 +208,7 @@ export interface AdminGetTemplateDetailOutput {
     moiNote: string | null;
     rosNote: string | null;
     rosFindings: TemplateRosFinding[];
+    rosComments: TemplateRosComment[];
     examFindings: TemplateExamFinding[];
     mdm: string | null;
     diagnoses: TemplateCodeInfo[];

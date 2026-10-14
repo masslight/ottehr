@@ -52,6 +52,10 @@ import {
   EXTENSION_CLAIM_INSURANCE_TYPE,
   EXTENSION_URL_CPT_MODIFIER,
 } from 'utils/lib/helpers/rcm/constants';
+import {
+  MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE,
+  MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_SYSTEM,
+} from 'utils/lib/types/api/medication-administration.constants';
 import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
 import { CreateBillingClaimFromEncounterInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { AR_STAGE, CLAIM_STATUS_TAG_SYSTEMS } from 'utils/lib/types/data/billing/claim-status';
@@ -3685,6 +3689,14 @@ describe('create-billing-claim-from-encounter', () => {
             {
               resourceType: 'MedicationAdministration',
               id: 'ma-1',
+              meta: {
+                tag: [
+                  {
+                    system: MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_SYSTEM,
+                    code: MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE,
+                  },
+                ],
+              },
               status: 'completed',
               subject: { reference: 'Patient/patient-123' },
               effectiveDateTime: '2026-10-01T10:00:00Z',
