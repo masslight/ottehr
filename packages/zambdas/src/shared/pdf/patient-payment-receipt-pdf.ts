@@ -23,13 +23,14 @@ import { createFilesDocumentReferences, getStripeCustomerIdFromAccount } from 'u
 import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
 import { getFullName, getPatientAddress, getPhoneNumberForIndividual } from 'utils/lib/fhir/patient';
 import { formatZipcodeForDisplay, removePrefix } from 'utils/lib/helpers/helpers';
+import { uploadObjectToZ3 } from 'utils/lib/helpers/presigned-file-url/helpers';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { CashOrCardPayment } from 'utils/lib/types/api/patient-payment-types';
 import { FhirAppointmentType } from 'utils/lib/types/common';
 import { RECEIPT_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
 import { getAccountAndCoverageResourcesForPatient } from '../../ehr/shared/harvest';
 import { STRIPE_PAYMENT_ID_SYSTEM, stripeEncounterMetadataQuery } from '../stripeIntegration';
-import { createPresignedUrl, uploadObjectToZ3 } from '../z3Utils';
+import { createPresignedUrl } from '../z3Utils';
 import { STANDARD_NEW_LINE } from './pdf-consts';
 import { createPdfClient, getPdfLogo, PdfInfo, SEPARATED_LINE_STYLE as GREY_LINE_STYLE } from './pdf-utils';
 import { ImageStyle, PdfClientStyles, TextStyle } from './types';

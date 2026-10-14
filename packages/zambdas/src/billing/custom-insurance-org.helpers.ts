@@ -1,6 +1,10 @@
 import Oystehr from '@oystehr/sdk';
 import { Address, ContactPoint, Extension, Organization } from 'fhir/r4b';
-import { getCustomInsuranceOrgReferenceUrl, getPayerUrl } from 'utils/lib/helpers/helpers';
+import {
+  getCustomInsuranceOrgReferenceUrl,
+  getPayerUrl,
+  isCustomInsuranceOrgBusinessId,
+} from 'utils/lib/helpers/helpers';
 import {
   CreateCustomInsuranceOrgInput,
   CUSTOM_INSURANCE_ORG_TYPES,
@@ -12,7 +16,6 @@ import {
 import {
   ClinicalCustomInsuranceOrgOption,
   CUSTOM_INSURANCE_ORG_ACCEPTED_CLAIM_FORM_EXTENSION_URL,
-  CUSTOM_INSURANCE_ORG_ID_PREFIX,
   CUSTOM_INSURANCE_ORG_ID_SYSTEM,
   CUSTOM_INSURANCE_ORG_KIND_CODE,
   CUSTOM_INSURANCE_ORG_NOTE_EXTENSION_URL,
@@ -220,12 +223,6 @@ export async function findCustomInsuranceOrgByBusinessId(
     ],
   });
   return bundle.unbundle().find((org) => org.id !== excludeId);
-}
-
-// Every business id starts with this prefix — a "payer id" search/filter value shaped like one names
-// a custom insurance organization rather than an RCM payer.
-export function isCustomInsuranceOrgBusinessId(value: string): boolean {
-  return value.trim().toUpperCase().startsWith(CUSTOM_INSURANCE_ORG_ID_PREFIX);
 }
 
 // The Claim.insurer / PaymentReconciliation payment-issuer filter value for a chosen "payer id" —

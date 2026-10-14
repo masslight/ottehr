@@ -79,6 +79,28 @@ describe('admin-update-progress-note-config - validateRequestParameters', () => 
     expect(() => validateRequestParameters(input)).toThrow('vitalsUnitInputOrder');
   });
 
+  test('should return the provided vitalsHeaderUnitSystem', () => {
+    const input = createMockZambdaInput({
+      ...DEFAULT_PROGRESS_NOTE_CONFIG,
+      vitalsHeaderUnitSystem: 'imperial',
+    });
+    expect(validateRequestParameters(input).vitalsHeaderUnitSystem).toBe('imperial');
+  });
+
+  test('should leave vitalsHeaderUnitSystem undefined when omitted, so the stored setting is left alone', () => {
+    const { vitalsHeaderUnitSystem: _vitalsHeaderUnitSystem, ...bodyWithoutHeaderUnits } = DEFAULT_PROGRESS_NOTE_CONFIG;
+    const input = createMockZambdaInput(bodyWithoutHeaderUnits);
+    expect(validateRequestParameters(input).vitalsHeaderUnitSystem).toBeUndefined();
+  });
+
+  test('should throw when vitalsHeaderUnitSystem is not a valid option', () => {
+    const input = createMockZambdaInput({
+      ...DEFAULT_PROGRESS_NOTE_CONFIG,
+      vitalsHeaderUnitSystem: 'cubits',
+    });
+    expect(() => validateRequestParameters(input)).toThrow('vitalsHeaderUnitSystem');
+  });
+
   test('should leave signReviewPrompt undefined when omitted, so the stored prompt is left alone', () => {
     const { signReviewPrompt: _signReviewPrompt, ...bodyWithoutPrompt } = DEFAULT_PROGRESS_NOTE_CONFIG;
     const input = createMockZambdaInput(bodyWithoutPrompt);

@@ -22,6 +22,7 @@ import { extractClaimResponseAmounts, extractLineAmounts, extractRemitAdjustment
 import {
   ERA_ICN_EXTENSION,
   ERA_ITEM_PROCEDURE_CODE_EXTENSION,
+  ERA_ITEM_REMARK_CODE_EXTENSION,
   ERA_ITEM_UNITS_EXTENSION,
   ERA_PCN_EXTENSION,
   ERA_STATUS_CODE_EXTENSION,
@@ -87,6 +88,13 @@ function itemUnits(item: ClaimResponseItem): number | null {
   return units ? units : null;
 }
 
+// LQ remark codes, one extension each.
+function itemRemarkCodes(item: ClaimResponseItem): string[] {
+  return (item.extension ?? [])
+    .filter((ext) => ext.url === ERA_ITEM_REMARK_CODE_EXTENSION && ext.valueString)
+    .map((ext) => ext.valueString as string);
+}
+
 // Assign each adjudicated line the submitted claim line it describes, used only to enrich what
 // the remit omits (modifiers, date of service, submitted charge).
 //
@@ -150,7 +158,8 @@ function buildServiceLine(
     modifiers: (submitted?.modifier ?? []).map((modifier) => modifier.coding?.[0]?.code ?? '').filter(Boolean),
     units: itemUnits(item) ?? submitted?.quantity?.value ?? null,
     // Neither converter preserves the SVC loop's DTM 472 line service date, so this is the
-    // submitted line's date where we can identify it, and the claim's date otherwise.
+    // submitted line's date where we can identify it, and the claim's date otherwise. A remit keyed
+    // in by hand does carry its lines' dates, which buildEraRemitServiceLines puts first.
     serviceDate: submitted?.servicedPeriod?.start ?? submitted?.servicedDate ?? claimLevelDate,
     billed: amounts.billed ?? submitted?.net?.value ?? null,
     allowed: amounts.allowed ?? null,
@@ -159,7 +168,15 @@ function buildServiceLine(
     coinsurance: buckets.coinsurance,
     copay: buckets.copay,
     adjustments: amounts.adjustments,
+    remarkCodes: itemRemarkCodes(item),
   };
+}
+
+// A remit keyed in by hand keeps each line's service date, as printed on the remit, on its contained
+// claim's line of the same sequence. The converters' contained claims have no lines.
+function keyedLineDate(contained: Claim | undefined, item: ClaimResponseItem): string | undefined {
+  const line = contained?.item?.find((claimItem) => claimItem.sequence === item.itemSequence);
+  return line?.servicedPeriod?.start ?? line?.servicedDate;
 }
 
 export function buildEraRemitServiceLines(
@@ -193,7 +210,10 @@ export function buildEraRemitServiceLines(
   const addItemAssigned = new Map(assignableAddItems.map((entry, index) => [entry, assigned[items.length + index]]));
 
   return [
-    ...items.map((item, index) => buildServiceLine(item, assigned[index], claimLevelDate, false)),
+    ...items.map((item, index) => {
+      const line = buildServiceLine(item, assigned[index], claimLevelDate, false);
+      return { ...line, serviceDate: keyedLineDate(contained, item) ?? line.serviceDate };
+    }),
     ...addItems.map((entry) => {
       const { addItem, asItem, code, claimLevel } = entry;
       const line = buildServiceLine(asItem, addItemAssigned.get(entry), claimLevel ? '' : claimLevelDate, claimLevel);
@@ -229,7 +249,6 @@ export function buildEraClaimRemit(claimResponse: ClaimResponse, claim: Claim | 
   return {
     claimResponseId: claimResponse.id ?? '',
     created: claimResponse.created ?? '',
-    outcome: claimResponse.outcome ?? '',
     disposition: claimResponse.disposition ?? '',
     eraStatusCode: asEraClaimStatusCode(getEraExtensionString(claimResponse, ERA_STATUS_CODE_EXTENSION)),
     payerClaimControlNumber:

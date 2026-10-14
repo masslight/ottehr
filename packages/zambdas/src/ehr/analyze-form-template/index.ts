@@ -8,7 +8,7 @@ import {
   FORM_TEMPLATE_FILLABILITY_SYSTEM,
   FormTemplateFillability,
 } from 'utils/lib/fhir/constants';
-import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
+import { getPresignedURL, uploadObjectToZ3 } from 'utils/lib/helpers/presigned-file-url/helpers';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import { AnalyzeFormTemplateInput, AnalyzeFormTemplateOutput } from 'utils/lib/types/api/form-template.types';
 import { FORM_TEMPLATE_REJECTED_ERRORS, MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils/lib/types/errors';
@@ -19,7 +19,7 @@ import { topLevelCatch } from '../../shared/lambda';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { safeJsonParse, safeValidate } from '../../shared/validation';
-import { createPresignedUrl, deleteZ3Object, uploadObjectToZ3 } from '../../shared/z3Utils';
+import { createPresignedUrl, deleteZ3Object } from '../../shared/z3Utils';
 import { getFormTemplateOrThrow, isRejectedAnalysis } from '../shared/form-template-helpers';
 import { analyzeFormTemplatePdf } from '../shared/form-template-pdf';
 

@@ -25,9 +25,12 @@ interface PayerSelectProps {
   error?: boolean;
   helperText?: ReactNode;
   inputRef?: Ref<HTMLInputElement>;
+  fullWidth?: boolean;
 }
 
-const optionLabel = (o: BillingPayerOption): string => (o.name ? `${o.name} (${o.payerId})` : o.id);
+// a known payer whose clearinghouse id isn't loaded yet shows by name alone
+const optionLabel = (o: BillingPayerOption): string =>
+  o.name ? (o.payerId ? `${o.name} (${o.payerId})` : o.name) : o.id;
 
 // Debounced server-side search (RCM payers + custom insurance organizations, merged) plus a memory of
 // payers we've seen, so a selected payer keeps its label even after the option list changes (or on
@@ -96,6 +99,7 @@ export function PayerSelect({
   error,
   helperText,
   inputRef,
+  fullWidth,
 }: PayerSelectProps): ReactElement {
   const { options, known, search } = usePayerSearch(initialOptions);
 
@@ -103,6 +107,7 @@ export function PayerSelect({
   // (narrower) signatures so the object is assignable to both Autocomplete generic instantiations.
   const shared = {
     size: 'small' as const,
+    fullWidth,
     filterOptions: (x: BillingPayerOption[]): BillingPayerOption[] => x,
     isOptionEqualToValue: (o: BillingPayerOption, v: BillingPayerOption): boolean => o.id === v.id,
     getOptionLabel: optionLabel,

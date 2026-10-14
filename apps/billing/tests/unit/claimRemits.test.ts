@@ -35,6 +35,7 @@ const serviceLine = (overrides: Partial<EraRemitServiceLine> = {}): EraRemitServ
   coinsurance: 0,
   copay: 0,
   adjustments: [],
+  remarkCodes: [],
   ...overrides,
 });
 
@@ -42,7 +43,6 @@ const remit = (overrides: Partial<ClaimRemit> = {}): ClaimRemit => ({
   claimResponseId: 'cr-1',
   date: '2026-07-15',
   payerName: 'Acme Health',
-  status: 'complete',
   eraStatusCode: '1',
   allowed: 100,
   paid: 80,

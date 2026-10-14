@@ -1,5 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { Operation } from 'fast-json-patch';
 import { Claim, ClaimResponse } from 'fhir/r4b';
 import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
 import {
@@ -55,11 +56,15 @@ async function performEffect(oystehr: Oystehr, params: Params): Promise<ClaimRes
               reference: 'Claim/' + claim.id,
             },
           },
-          {
-            op: 'replace',
-            path: '/insurer',
-            value: claim.insurer,
-          },
+          ...(!claimResponse.insurer?.reference
+            ? [
+                {
+                  op: 'replace',
+                  path: '/insurer',
+                  value: claim.insurer,
+                } as Operation,
+              ]
+            : []),
           {
             op: 'replace',
             path: '/patient',

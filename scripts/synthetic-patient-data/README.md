@@ -173,7 +173,7 @@ For every zambda we describe:
 - **Zambda id** — the name passed to `oystehr.zambda.execute({ id: ... })`
 - **Source** — file path under `packages/zambdas/src/` for cross-reference
 - **Auth context** — what identity the zambda assumes (M2M is the default for synthesis)
-- **Input** — the body keys (full schema in the source's `validateRequestParameters.ts`)
+- **Input** — the body keys (full schema in the source's `validateRequestParameters.ts`, or the Zod schema its `index.ts` passes to `validateWithSchema`)
 - **What it produces** — the FHIR resources written and any side effects
 - **When to call** — synthesis-specific guidance
 

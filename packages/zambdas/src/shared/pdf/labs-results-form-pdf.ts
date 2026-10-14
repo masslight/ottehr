@@ -33,6 +33,7 @@ import {
   getTestItemCodeFromDr,
   isPSCOrder,
 } from 'utils/lib/helpers/labs/helpers';
+import { uploadObjectToZ3 } from 'utils/lib/helpers/presigned-file-url/helpers';
 import { BRANDING_CONFIG } from 'utils/lib/ottehr-config/branding';
 import { Secrets } from 'utils/lib/secrets';
 import {
@@ -80,7 +81,7 @@ import {
   isLabDrTypeTagCode,
 } from '../../ehr/lab/shared/labs';
 import { makeZ3Url } from '../presigned-file-urls/helpers';
-import { createPresignedUrl, uploadObjectToZ3 } from '../z3Utils';
+import { createPresignedUrl } from '../z3Utils';
 import {
   drawFieldLine,
   drawFieldLineRight,

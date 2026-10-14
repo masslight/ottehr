@@ -428,6 +428,13 @@ describe('generate-oystehr-resources', () => {
         expect(billingApp.login_redirect_uri).toBe('https://billing-local.ottehr.com');
         expect(billingApp.allowed_callback_urls).toEqual(['https://billing-local.ottehr.com']);
         expect(billingApp.name).toBe('Ottehr Billing');
+        expect(writtenJson('billing-output/apps.tf.json').locals.oystehr_application_OTTEHR_BILLING_config).toEqual(
+          billingApp
+        );
+        const coreApps = writtenJson('/output/apps.tf.json');
+        expect(coreApps.locals.oystehr_application_OTTEHR_CORE_config).toEqual(
+          coreApps.resource.oystehr_application.OTTEHR_CORE
+        );
         const billingSecret = writtenJson('secrets.tf.json').resource.oystehr_secret.BILLING_INTEGRATION_FEATURE_FLAG;
         expect(billingSecret.value).toBe('');
         const balanceSourceSecret = writtenJson('secrets.tf.json').resource.oystehr_secret.PATIENT_BALANCE_SOURCE;
@@ -455,6 +462,13 @@ describe('generate-oystehr-resources', () => {
         const billingApp = writtenJson('billing-output/apps.tf.json').resource.oystehr_application.OTTEHR_BILLING;
         expect(billingApp.login_redirect_uri).toBe('https://billing.example.com/');
         expect(billingApp.name).toBe('Ottehr Billing');
+        expect(writtenJson('billing-output/apps.tf.json').locals.oystehr_application_OTTEHR_BILLING_config).toEqual(
+          billingApp
+        );
+        const coreApps = writtenJson('/output/apps.tf.json');
+        expect(coreApps.locals.oystehr_application_OTTEHR_CORE_config).toEqual(
+          coreApps.resource.oystehr_application.OTTEHR_CORE
+        );
         const billingSecret = writtenJson('secrets.tf.json').resource.oystehr_secret.BILLING_INTEGRATION_FEATURE_FLAG;
         expect(billingSecret.value).toBe('all');
         const balanceSourceSecret = writtenJson('secrets.tf.json').resource.oystehr_secret.PATIENT_BALANCE_SOURCE;

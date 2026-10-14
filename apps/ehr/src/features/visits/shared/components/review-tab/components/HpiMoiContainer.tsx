@@ -7,14 +7,10 @@ import {
   useNoteSectionTitleInCardHeader,
 } from 'src/features/visits/shared/components/NoteSectionHeading';
 import { formatISODateToLocaleDate } from 'src/helpers/formatDateTime';
+import { ACCIDENT_TYPE_LABELS } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { useVisitNote } from '../../../hooks/useVisitNote';
-
-// Matches the checkbox labels on the HPI screen's "Patient's condition related to" card.
-const ACCIDENT_TYPE_LABELS: Record<string, string> = {
-  AA: 'Auto Accident',
-  EM: 'Employment',
-  OA: 'Other Accident',
-};
+import { AiAddedMark } from '../../scribe-recommendations/AiAddedMark';
+import { findAiAddedFor, useAiAddedRecommendations } from '../../scribe-recommendations/aiAddedMarks';
 
 export const HpiMoiContainer: FC = () => {
   const titleInCardHeader = useNoteSectionTitleInCardHeader();
@@ -26,6 +22,8 @@ export const HpiMoiContainer: FC = () => {
   // chief-complaint tag.
   const historyOfPresentIllness = note?.encounterNotes.chiefComplaint?.text;
   const mechanismOfInjury = note?.encounterNotes.mechanismOfInjury?.text;
+  const hpiFromAi = findAiAddedFor(useAiAddedRecommendations(), { kind: 'hpi', text: historyOfPresentIllness });
+  const hpiText = <Typography sx={{ whiteSpace: 'pre-line' }}>{historyOfPresentIllness}</Typography>;
 
   const accident = note?.encounterNotes.accident;
   const accidentTypes = (accident?.type ?? []).map((type) => ACCIDENT_TYPE_LABELS[type] ?? type);
@@ -41,7 +39,11 @@ export const HpiMoiContainer: FC = () => {
     >
       <AssessmentTitle>History of Present Illness</AssessmentTitle>
       {historyOfPresentIllness ? (
-        <Typography sx={{ whiteSpace: 'pre-line' }}>{historyOfPresentIllness}</Typography>
+        hpiFromAi ? (
+          <AiAddedMark recommendation={hpiFromAi}>{hpiText}</AiAddedMark>
+        ) : (
+          hpiText
+        )
       ) : (
         <Typography color={theme.palette.text.secondary}>No history of present illness</Typography>
       )}

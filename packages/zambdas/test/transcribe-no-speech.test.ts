@@ -20,6 +20,7 @@ const secrets = {
   ENVIRONMENT: 'local',
   GOOGLE_CLOUD_PROJECT_ID: 'gcp-project',
   GOOGLE_CLOUD_API_KEY: 'gcp-key',
+  PROJECT_ID: 'test-project-id',
 } as any;
 
 const pendingDocumentReference = (): DocumentReference => ({

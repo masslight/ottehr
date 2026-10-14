@@ -2,12 +2,13 @@ import { TextField } from '@mui/material';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
+import { appendToPreliminaryRead } from 'utils/lib/helpers/radiology/preliminaryReadSuggestions';
 import { describe, expect, it } from 'vitest';
 import { RadiologyPreliminaryReadSuggestions } from '../../src/features/radiology/components/RadiologyPreliminaryReadSuggestions';
 
 const FIELD_LABEL = 'Preliminary Read';
-const ADD_BTN_LABEL = 'Add to read';
-const ADDED_LABEL = 'Added to read';
+const ADD_BTN_LABEL = /^Add to read: /;
+const ADDED_LABEL = /^Added to read: /;
 
 // The box only hands a sentence up; the page appends it to its own field state and passes the field back down.
 // Mirror that here so the tests cover the append rule (newline-separated after existing text) end to end.
@@ -31,7 +32,7 @@ const Harness = ({
         isChild={isChild}
         disabled={disabled}
         value={read}
-        onAdd={(sentence) => setRead((prev) => (prev.trim() ? `${prev.trim()}\n${sentence}` : sentence))}
+        onAdd={(sentence) => setRead((prev) => appendToPreliminaryRead(prev, sentence))}
       />
       <TextField label={FIELD_LABEL} multiline value={read} onChange={(e) => setRead(e.target.value)} />
     </>
@@ -42,7 +43,11 @@ describe('RadiologyPreliminaryReadSuggestions', () => {
   it('renders the region templates for a mapped CPT and nothing for an unmapped one or when disabled', () => {
     const { unmount } = render(<Harness cptCode="73610" laterality="LT" />);
     expect(screen.getByText('Suggested reads')).toBeInTheDocument();
-    expect(screen.getAllByRole('button', { name: ADD_BTN_LABEL })).toHaveLength(2);
+    // Screen readers can tell the rows' buttons apart by the sentence each one adds.
+    expect(screen.getAllByRole('button', { name: ADD_BTN_LABEL }).map((button) => button.ariaLabel)).toEqual([
+      'Add to read: Negative',
+      'Add to read: Fracture',
+    ]);
     unmount();
 
     const unmapped = render(<Harness cptCode="99999" />);
@@ -57,7 +62,7 @@ describe('RadiologyPreliminaryReadSuggestions', () => {
     const user = userEvent.setup();
     render(<Harness cptCode="73610" laterality="LT" isChild />);
 
-    // Child: the ankle fracture type defaults to Salter-Harris I; swap the bone via the list.
+    // Child ankle: the fracture starts on Salter-Harris I and the most common bone; the bone is swapped via the list.
     await user.click(screen.getByRole('button', { name: 'Bone: distal fibula (lateral malleolus)' }));
     const listbox = screen.getByRole('listbox', { name: 'Bone' });
     expect(within(listbox).getByText('Bone')).toBeInTheDocument();
@@ -68,10 +73,12 @@ describe('RadiologyPreliminaryReadSuggestions', () => {
     await user.click(addButtons[0]);
     await user.click(addButtons[1]);
 
+    // The growth-plate line next to Salter-Harris starts empty; the negative read keeps its pre-filled one.
     expect(screen.getByRole('textbox', { name: FIELD_LABEL })).toHaveValue(
       'No acute fracture or dislocation. Ankle mortise intact. Growth plates appear normal.\n' +
-        'Salter-Harris I fracture of the left medial malleolus. Growth plate not involved. Ankle mortise intact.'
+        'Salter-Harris I fracture of the left medial malleolus. Ankle mortise intact.'
     );
+
     // Both rows now show the added check, announced in place of the "+"; changing a blank re-arms its row.
     expect(screen.queryAllByRole('button', { name: ADD_BTN_LABEL })).toHaveLength(0);
     expect(screen.getAllByRole('img', { name: ADDED_LABEL })).toHaveLength(2);
@@ -99,13 +106,23 @@ describe('RadiologyPreliminaryReadSuggestions', () => {
     expect(screen.getAllByRole('img', { name: ADDED_LABEL })).toHaveLength(1);
   });
 
-  it('shows "(none)" on a blank left out and drops its text from the sentence', async () => {
+  it('shows a blank left out as "+ <field>" and drops its text from the sentence', async () => {
     const user = userEvent.setup();
     render(<Harness cptCode="73610" laterality="LT" />);
 
     await user.click(screen.getByRole('button', { name: 'Closing line: Ankle mortise intact.' }));
     await user.click(screen.getByRole('option', { name: '(none)' }));
-    expect(screen.getByRole('button', { name: 'Closing line: (none)' })).toHaveTextContent('(none)');
+    const closingLine = screen.getByRole('button', { name: 'Closing line: (none)' });
+    expect(closingLine).toHaveTextContent('+ closing line');
+    // A picked value gets a check mark; a field left empty does not, even when the provider emptied it.
+    expect(within(closingLine).queryByTestId('CheckCircleIcon')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Opening: No acute fracture or dislocation.' }));
+    await user.click(screen.getByRole('option', { name: 'No acute osseous abnormality.' }));
+    expect(
+      within(screen.getByRole('button', { name: 'Opening: No acute osseous abnormality.' })).getByTestId(
+        'CheckCircleIcon'
+      )
+    ).toBeInTheDocument();
 
     await user.click(screen.getAllByRole('button', { name: ADD_BTN_LABEL })[1]);
     expect(screen.getByRole('textbox', { name: FIELD_LABEL })).toHaveValue(
@@ -113,33 +130,191 @@ describe('RadiologyPreliminaryReadSuggestions', () => {
     );
   });
 
-  it('opens the list from a blank whose current value is (none), with (none) marked as current', async () => {
+  it('lets a field that starts empty be filled and then set back to (none)', async () => {
     const user = userEvent.setup();
-    render(<Harness cptCode="73610" laterality="LT" isChild />);
+    render(<Harness cptCode="73100" laterality="LT" />);
+    const fractureRow = screen.getByText(/fracture of the left/);
 
-    await user.click(screen.getByRole('button', { name: 'Soft tissue: (none)' }));
-    const listbox = screen.getByRole('listbox', { name: 'Soft tissue' });
-    expect(within(listbox).getByRole('option', { name: '(none)' })).toHaveAttribute('aria-selected', 'true');
-    expect(
-      within(listbox).getByRole('option', { name: 'Soft-tissue swelling over the lateral malleolus.' })
-    ).toHaveAttribute('aria-selected', 'false');
+    // Optional field that starts empty.
+    await user.click(screen.getAllByRole('button', { name: 'Fracture type: (none)' })[0]);
+    await user.click(screen.getByRole('option', { name: 'avulsion' }));
+    // Displacement went empty on its own because a type is set; pick one, then set it back to (none).
+    await user.click(screen.getAllByRole('button', { name: 'Displacement: (none)' })[0]);
+    await user.click(screen.getByRole('option', { name: 'Displaced' }));
+    expect(fractureRow.textContent).toMatch(/^Displaced avulsion fracture/);
+    await user.click(screen.getAllByRole('button', { name: 'Displacement: Displaced' })[0]);
+    await user.click(screen.getByRole('option', { name: '(none)' }));
+    await user.click(screen.getAllByRole('button', { name: 'Fracture type: avulsion' })[0]);
+    await user.click(screen.getByRole('option', { name: '(none)' }));
+
+    expect(screen.getAllByRole('button', { name: 'Fracture type: (none)' })[0]).toHaveTextContent('+ fracture type');
+    expect(screen.getAllByRole('button', { name: 'Displacement: (none)' })[0]).toHaveTextContent('+ displacement');
+    await user.click(screen.getAllByRole('button', { name: ADD_BTN_LABEL })[1]);
+    expect(screen.getByRole('textbox', { name: FIELD_LABEL })).toHaveValue(
+      'Fracture of the left distal radius. No dislocation. Alignment maintained.'
+    );
   });
 
-  it('shows the row text with single spaces where an adult-only gap was dropped, matching the added sentence', async () => {
+  it('opens the list from a blank whose current value is (none), with (none) marked as current', async () => {
+    const user = userEvent.setup();
+    render(<Harness cptCode="73560" laterality="LT" />);
+
+    // Two empty fields side by side (knee negative read) are told apart by their names.
+    // Rows: negative, fracture; both have a joint effusion blank, the first is the negative read's.
+    expect(screen.getAllByRole('button', { name: 'Joint effusion: (none)' })[0]).toHaveTextContent('+ joint effusion');
+    expect(screen.getByRole('button', { name: 'Incidental finding: (none)' })).toHaveTextContent(
+      '+ incidental finding'
+    );
+
+    await user.click(screen.getAllByRole('button', { name: 'Joint effusion: (none)' })[0]);
+    const listbox = screen.getByRole('listbox', { name: 'Joint effusion' });
+    expect(within(listbox).getByRole('option', { name: '(none)' })).toHaveAttribute('aria-selected', 'true');
+    expect(within(listbox).getByRole('option', { name: 'Joint effusion present.' })).toHaveAttribute(
+      'aria-selected',
+      'false'
+    );
+  });
+
+  it('shows the row text with single spaces where an adult-only gap was dropped, and adds it without the empty blanks', async () => {
     const user = userEvent.setup();
     render(<Harness cptCode="73090" laterality="LT" />);
 
     // Adult forearm: the growth-plate blank between "radius." and the closing line is dropped from the template.
     const fractureRow = screen.getByText(/fracture of the left/);
     expect(fractureRow.textContent).toBe(
-      'Nondisplaced fracture of the left distal radius. No dislocation. Alignment maintained.'
+      'Nondisplaced + fracture type fracture of the left distal radius. No dislocation. Alignment maintained.'
     );
     expect(screen.getByText('Alignment maintained.').textContent).toBe(
-      'No acute fracture or dislocation. Alignment maintained. (none)'
+      'No acute fracture or dislocation. Alignment maintained. + incidental finding'
     );
 
     await user.click(screen.getAllByRole('button', { name: ADD_BTN_LABEL })[1]);
-    expect(screen.getByRole('textbox', { name: FIELD_LABEL })).toHaveValue(fractureRow.textContent);
+
+    expect(screen.getByRole('textbox', { name: FIELD_LABEL })).toHaveValue(
+      'Nondisplaced fracture of the left distal radius. No dislocation. Alignment maintained.'
+    );
+  });
+
+  it('separates displacement from fracture type, so both can be stated', async () => {
+    const user = userEvent.setup();
+    render(<Harness cptCode="73090" laterality="LT" />);
+    // Rows: negative, fracture, both-bone fracture; the first displacement / type blanks are the fracture row's.
+    await user.click(screen.getAllByRole('button', { name: 'Displacement: Nondisplaced' })[0]);
+    await user.click(screen.getByRole('option', { name: 'Displaced' }));
+    await user.click(screen.getAllByRole('button', { name: 'Fracture type: (none)' })[0]);
+    const types = screen.getByRole('listbox', { name: 'Fracture type' });
+    // Adult: no pediatric fracture types.
+    expect(within(types).queryByRole('option', { name: 'buckle (torus)' })).not.toBeInTheDocument();
+    await user.click(within(types).getByRole('option', { name: 'comminuted' }));
+    await user.click(screen.getByRole('button', { name: 'Bone: distal radius' }));
+    await user.click(screen.getByRole('option', { name: 'radial shaft' }));
+    await user.click(screen.getAllByRole('button', { name: ADD_BTN_LABEL })[1]);
+
+    // "Alignment maintained" can't follow "Displaced"; the closing line takes the next option in its list.
+    expect(screen.getByRole('textbox', { name: FIELD_LABEL })).toHaveValue(
+      'Displaced comminuted fracture of the left radial shaft. Mild dorsal angulation.'
+    );
+  });
+
+  it('leaves the pre-filled displacement empty once a fracture type is set', async () => {
+    const user = userEvent.setup();
+    render(<Harness cptCode="73100" laterality="LT" />);
+
+    await user.click(screen.getAllByRole('button', { name: 'Fracture type: (none)' })[0]);
+    await user.click(screen.getByRole('option', { name: 'avulsion' }));
+    expect(screen.getAllByRole('button', { name: 'Displacement: (none)' })[0]).toHaveTextContent('+ displacement');
+    await user.click(screen.getAllByRole('button', { name: ADD_BTN_LABEL })[1]);
+
+    expect(screen.getByRole('textbox', { name: FIELD_LABEL })).toHaveValue(
+      'Avulsion fracture of the left distal radius. No dislocation. Alignment maintained.'
+    );
+  });
+
+  it('blocks a growth-plate line next to a Salter-Harris fracture the provider picked, and the other way round', async () => {
+    const user = userEvent.setup();
+    render(<Harness cptCode="73610" laterality="LT" isChild />);
+    const notInvolved = /^Growth plate not involved\./;
+
+    await user.click(screen.getByRole('button', { name: 'Fracture type: Salter-Harris I' }));
+    await user.click(screen.getByRole('option', { name: 'Salter-Harris II' }));
+    await user.click(screen.getByRole('button', { name: 'Growth plate (children only): (none)' }));
+    const plate = screen.getByRole('listbox', { name: 'Growth plate (children only)' });
+    expect(within(plate).getByRole('option', { name: notInvolved })).toHaveAttribute('aria-disabled', 'true');
+    expect(within(plate).getByRole('option', { name: notInvolved })).toHaveTextContent('not with “Salter-Harris II”');
+    await user.keyboard('{Escape}');
+
+    // With a buckle fracture the pre-filled line comes back; once picked, Salter-Harris is the one that can't be.
+    await user.click(screen.getByRole('button', { name: 'Fracture type: Salter-Harris II' }));
+    await user.click(screen.getByRole('option', { name: 'buckle (torus)' }));
+    await user.click(screen.getByRole('button', { name: 'Growth plate (children only): Growth plate not involved.' }));
+    await user.click(screen.getByRole('option', { name: 'Growth plate not involved.' }));
+    await user.click(screen.getByRole('button', { name: 'Fracture type: buckle (torus)' }));
+    const types = screen.getByRole('listbox', { name: 'Fracture type' });
+    expect(within(types).getByRole('option', { name: /^Salter-Harris I\b/ })).toHaveAttribute('aria-disabled', 'true');
+    expect(within(types).getByRole('option', { name: 'greenstick' })).not.toHaveAttribute('aria-disabled');
+  });
+
+  it('lets a pick override a default it clashes with: the default steps aside instead of blocking the pick', async () => {
+    const user = userEvent.setup();
+    render(<Harness cptCode="73610" laterality="LT" isChild />);
+
+    // Salter-Harris I is only the child ankle default, so "growth plate not involved" can be picked; the type
+    // then steps back to (none) rather than the sentence contradicting itself.
+    await user.click(screen.getByRole('button', { name: 'Growth plate (children only): (none)' }));
+    await user.click(screen.getByRole('option', { name: 'Growth plate not involved.' }));
+    expect(screen.getByRole('button', { name: 'Fracture type: (none)' })).toBeInTheDocument();
+    await user.click(screen.getAllByRole('button', { name: ADD_BTN_LABEL })[1]);
+
+    expect(screen.getByRole('textbox', { name: FIELD_LABEL })).toHaveValue(
+      'Nondisplaced fracture of the left distal fibula (lateral malleolus). Growth plate not involved. Ankle mortise intact.'
+    );
+  });
+
+  it('moves the default "Alignment maintained" closing line to the next option when the fracture is picked as displaced', async () => {
+    const user = userEvent.setup();
+    render(<Harness cptCode="73560" laterality="RT" />);
+
+    expect(
+      screen.getByRole('button', { name: 'Closing line: No dislocation. Alignment maintained.' })
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Displacement: Nondisplaced' }));
+    await user.click(screen.getByRole('option', { name: 'Displaced' }));
+    expect(screen.getByRole('button', { name: 'Closing line: No dislocation.' })).toBeInTheDocument();
+    await user.click(screen.getAllByRole('button', { name: ADD_BTN_LABEL })[1]);
+
+    expect(screen.getByRole('textbox', { name: FIELD_LABEL })).toHaveValue(
+      'Displaced fracture of the right patella. No dislocation.'
+    );
+  });
+
+  it('starts fresh when the study, side or age changes, instead of carrying picks over to other templates', async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(<Harness cptCode="73610" laterality="LT" />);
+
+    await user.click(screen.getByRole('button', { name: 'Opening: No acute fracture or dislocation.' }));
+    await user.click(screen.getByRole('option', { name: 'No acute osseous abnormality.' }));
+    expect(screen.getByRole('button', { name: 'Opening: No acute osseous abnormality.' })).toBeInTheDocument();
+
+    rerender(<Harness cptCode="73610" laterality="RT" />);
+    expect(screen.getByRole('button', { name: 'Opening: No acute fracture or dislocation.' })).toBeInTheDocument();
+    expect(screen.getByText(/fracture of the right/)).toBeInTheDocument();
+  });
+
+  it('does not offer a middle phalanx for the thumb', async () => {
+    const user = userEvent.setup();
+    render(<Harness cptCode="73140" laterality="RT" />);
+
+    await user.click(screen.getByRole('button', { name: 'Finger: 5th (small) finger' }));
+    await user.click(screen.getByRole('option', { name: 'thumb' }));
+    await user.click(screen.getByRole('button', { name: 'Phalanx: proximal phalanx' }));
+    const phalanx = screen.getByRole('listbox', { name: 'Phalanx' });
+    expect(within(phalanx).getByRole('option', { name: /^middle phalanx/ })).toHaveAttribute('aria-disabled', 'true');
+    await user.click(within(phalanx).getByRole('option', { name: 'distal phalanx (tuft)' }));
+    await user.click(screen.getAllByRole('button', { name: ADD_BTN_LABEL })[1]);
+
+    expect(screen.getByRole('textbox', { name: FIELD_LABEL })).toHaveValue(
+      'Nondisplaced fracture of the distal phalanx (tuft) of the right thumb. No dislocation. Alignment maintained.'
+    );
   });
 
   it('can be driven from the keyboard: Enter opens on the current value, arrows move, Enter picks, Escape returns', async () => {
@@ -149,7 +324,9 @@ describe('RadiologyPreliminaryReadSuggestions', () => {
     await user.tab();
     const blank = screen.getByRole('button', { name: 'Opening: No acute fracture or dislocation.' });
     expect(blank).toHaveFocus();
+    expect(blank).toHaveAttribute('aria-expanded', 'false');
     await user.keyboard('{Enter}');
+    expect(blank).toHaveAttribute('aria-expanded', 'true');
     const listbox = screen.getByRole('listbox', { name: 'Opening' });
     const [current, next] = within(listbox).getAllByRole('option');
     expect(current).toHaveAttribute('aria-selected', 'true');
@@ -168,6 +345,7 @@ describe('RadiologyPreliminaryReadSuggestions', () => {
     await user.keyboard('{Escape}');
     expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
     expect(picked).toHaveFocus();
+    expect(picked).toHaveAttribute('aria-expanded', 'false');
   });
 
   it.each([{ laterality: '50' as const }, { laterality: undefined }])(
@@ -185,7 +363,12 @@ describe('RadiologyPreliminaryReadSuggestions', () => {
 
       await user.click(placeholder);
       const listbox = screen.getByRole('listbox', { name: 'Side' });
-      expect(within(listbox).getByRole('option', { name: 'bilateral' })).toBeInTheDocument();
+      // One side per sentence: a finding on both sides is the row added twice.
+      expect(
+        within(listbox)
+          .getAllByRole('option')
+          .map((o) => o.textContent)
+      ).toEqual(['left', 'right']);
       await user.click(within(listbox).getByRole('option', { name: 'right' }));
 
       expect(screen.getByRole('button', { name: 'Side: right' })).toBeInTheDocument();

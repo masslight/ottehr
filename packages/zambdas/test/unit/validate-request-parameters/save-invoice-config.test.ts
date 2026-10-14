@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest';
-import { validateRequestParameters } from '../../../src/rcm/invoice-config/save-invoice-config/validateRequestParameters';
+import { SaveInvoiceConfigBodySchema } from '../../../src/rcm/invoice-config/save-invoice-config/index';
+import { validateWithSchema } from '../../../src/shared/validation';
 import { createMockSecrets, createMockZambdaInput } from './helpers';
 
 describe('save-invoice-config - validateRequestParameters', () => {
@@ -14,7 +15,7 @@ describe('save-invoice-config - validateRequestParameters', () => {
       },
       { secrets }
     );
-    const result = validateRequestParameters(input);
+    const result = validateWithSchema(SaveInvoiceConfigBodySchema, input);
 
     expect(result).toEqual({
       dueDaysFromGeneration: 30,
@@ -26,7 +27,7 @@ describe('save-invoice-config - validateRequestParameters', () => {
 
   test('should throw when body is missing', () => {
     const input = createMockZambdaInput(null, { secrets });
-    expect(() => validateRequestParameters(input)).toThrow();
+    expect(() => validateWithSchema(SaveInvoiceConfigBodySchema, input)).toThrow();
   });
 
   test('should throw when secrets are missing', () => {
@@ -34,12 +35,12 @@ describe('save-invoice-config - validateRequestParameters', () => {
       { dueDaysFromGeneration: 30, defaultSmsTemplate: 'msg', defaultInvoiceMemo: 'memo' },
       { secrets: null }
     );
-    expect(() => validateRequestParameters(input)).toThrow();
+    expect(() => validateWithSchema(SaveInvoiceConfigBodySchema, input)).toThrow();
   });
 
   test('should throw when dueDaysFromGeneration is missing', () => {
     const input = createMockZambdaInput({ defaultSmsTemplate: 'msg', defaultInvoiceMemo: 'memo' }, { secrets });
-    expect(() => validateRequestParameters(input)).toThrow();
+    expect(() => validateWithSchema(SaveInvoiceConfigBodySchema, input)).toThrow();
   });
 
   test('should throw when dueDaysFromGeneration is 0', () => {
@@ -47,7 +48,7 @@ describe('save-invoice-config - validateRequestParameters', () => {
       { dueDaysFromGeneration: 0, defaultSmsTemplate: 'msg', defaultInvoiceMemo: 'memo' },
       { secrets }
     );
-    expect(() => validateRequestParameters(input)).toThrow();
+    expect(() => validateWithSchema(SaveInvoiceConfigBodySchema, input)).toThrow();
   });
 
   test('should throw when dueDaysFromGeneration is 366 (out of range)', () => {
@@ -55,7 +56,7 @@ describe('save-invoice-config - validateRequestParameters', () => {
       { dueDaysFromGeneration: 366, defaultSmsTemplate: 'msg', defaultInvoiceMemo: 'memo' },
       { secrets }
     );
-    expect(() => validateRequestParameters(input)).toThrow();
+    expect(() => validateWithSchema(SaveInvoiceConfigBodySchema, input)).toThrow();
   });
 
   test('should throw when dueDaysFromGeneration is not an integer', () => {
@@ -63,12 +64,12 @@ describe('save-invoice-config - validateRequestParameters', () => {
       { dueDaysFromGeneration: 30.5, defaultSmsTemplate: 'msg', defaultInvoiceMemo: 'memo' },
       { secrets }
     );
-    expect(() => validateRequestParameters(input)).toThrow();
+    expect(() => validateWithSchema(SaveInvoiceConfigBodySchema, input)).toThrow();
   });
 
   test('should throw when defaultSmsTemplate is missing', () => {
     const input = createMockZambdaInput({ dueDaysFromGeneration: 30, defaultInvoiceMemo: 'memo' }, { secrets });
-    expect(() => validateRequestParameters(input)).toThrow();
+    expect(() => validateWithSchema(SaveInvoiceConfigBodySchema, input)).toThrow();
   });
 
   test('should throw when defaultSmsTemplate is empty', () => {
@@ -76,12 +77,12 @@ describe('save-invoice-config - validateRequestParameters', () => {
       { dueDaysFromGeneration: 30, defaultSmsTemplate: '', defaultInvoiceMemo: 'memo' },
       { secrets }
     );
-    expect(() => validateRequestParameters(input)).toThrow();
+    expect(() => validateWithSchema(SaveInvoiceConfigBodySchema, input)).toThrow();
   });
 
   test('should throw when defaultInvoiceMemo is missing', () => {
     const input = createMockZambdaInput({ dueDaysFromGeneration: 30, defaultSmsTemplate: 'msg' }, { secrets });
-    expect(() => validateRequestParameters(input)).toThrow();
+    expect(() => validateWithSchema(SaveInvoiceConfigBodySchema, input)).toThrow();
   });
 
   test('should throw when defaultInvoiceMemo is empty', () => {
@@ -89,6 +90,6 @@ describe('save-invoice-config - validateRequestParameters', () => {
       { dueDaysFromGeneration: 30, defaultSmsTemplate: 'msg', defaultInvoiceMemo: '' },
       { secrets }
     );
-    expect(() => validateRequestParameters(input)).toThrow();
+    expect(() => validateWithSchema(SaveInvoiceConfigBodySchema, input)).toThrow();
   });
 });

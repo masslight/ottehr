@@ -55,7 +55,24 @@ describe('LocationBookingLinks', () => {
     // every link already shared. The schedule-keyed form survives a rename.
     renderWidget(makeLocation({ slug: 'test-clinic' }));
 
-    expect(screen.getByText(/\/walkin\/schedule\/sched-1$/)).toBeTruthy();
+    expect(screen.getByText(/\/walkin\/schedule\/sched-1\?serviceMode=in-person$/)).toBeTruthy();
+  });
+
+  it('emits one walk-in link per enabled service mode, each pinning its mode', () => {
+    // A link without a mode is ambiguous for a dual-mode location, so each mode gets its own.
+    renderWidget(makeLocation({ slug: 'test-clinic', modes: ['vi', 'in-person'] }));
+
+    expect(screen.getByText('Walk-in (In person)')).toBeTruthy();
+    expect(screen.getByText('Walk-in (Virtual)')).toBeTruthy();
+    expect(screen.getByText(/\/walkin\/schedule\/sched-1\?serviceMode=in-person$/)).toBeTruthy();
+    expect(screen.getByText(/\/walkin\/schedule\/sched-1\?serviceMode=virtual$/)).toBeTruthy();
+  });
+
+  it('offers only the virtual walk-in link for a virtual-only location', () => {
+    renderWidget(makeLocation({ slug: 'test-clinic', modes: ['vi'] }));
+
+    expect(screen.getByText(/\/walkin\/schedule\/sched-1\?serviceMode=virtual$/)).toBeTruthy();
+    expect(screen.queryByText(/serviceMode=in-person/)).toBeNull();
   });
 
   it('names each walk-in link when the location owns more than one schedule', () => {
@@ -123,10 +140,11 @@ describe('LocationBookingLinks', () => {
       renderWidget(makeLocation({ slug: 'test-clinic', modes: ['vi', 'in-person'] }));
 
       // Icon-only buttons have no accessible name from their content, so the label is the only thing
-      // a screen reader can announce — and three identical "Copy" buttons would be useless anyway.
+      // a screen reader can announce — and four identical "Copy" buttons would be useless anyway.
       expect(screen.getByRole('button', { name: 'Copy Prebook (In person) link' })).toBeTruthy();
       expect(screen.getByRole('button', { name: 'Copy Prebook (Virtual) link' })).toBeTruthy();
-      expect(screen.getByRole('button', { name: 'Copy Walk-in link' })).toBeTruthy();
+      expect(screen.getByRole('button', { name: 'Copy Walk-in (In person) link' })).toBeTruthy();
+      expect(screen.getByRole('button', { name: 'Copy Walk-in (Virtual) link' })).toBeTruthy();
     });
 
     it('writes the link to the clipboard and confirms', async () => {

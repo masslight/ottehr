@@ -663,6 +663,7 @@ export function makeRosObservationResource(
     encounter: { reference: `Encounter/${encounterId}` },
     status: 'final',
     valueBoolean: typeof data.value === 'boolean' ? Boolean(data.value) : undefined,
+    note: data.note ? [{ text: data.note }] : undefined,
     code: { text: data.label || data.field },
     meta: fillMeta(data.field, ROS_OBSERVATION_META_SYSTEM),
   };

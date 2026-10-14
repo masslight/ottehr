@@ -78,7 +78,7 @@ describe('get-billing-claim-history performEffect', () => {
     };
     const oystehr = makeOystehr({ Provenance: () => pagedBundle([provenance], [practitionerU1]) });
 
-    const { entries } = await performEffect(oystehr, { claimId: 'c1', secrets: null });
+    const { entries } = await performEffect(oystehr, { claimId: 'c1', secrets: {} });
 
     expect(entries).toHaveLength(1);
     expect(entries[0]).toMatchObject({
@@ -105,7 +105,7 @@ describe('get-billing-claim-history performEffect', () => {
     };
     const oystehr = makeOystehr({ Provenance: () => pagedBundle([provenance], [practitionerU1]) });
 
-    const { entries } = await performEffect(oystehr, { claimId: 'c1', secrets: null });
+    const { entries } = await performEffect(oystehr, { claimId: 'c1', secrets: {} });
 
     expect(entries).toHaveLength(1);
     expect(entries[0]).toMatchObject({
@@ -137,7 +137,7 @@ describe('get-billing-claim-history performEffect', () => {
     };
     const oystehr = makeOystehr({ Provenance: () => pagedBundle([provenance], [practitionerU1]) });
 
-    const { entries } = await performEffect(oystehr, { claimId: 'c1', secrets: null });
+    const { entries } = await performEffect(oystehr, { claimId: 'c1', secrets: {} });
 
     expect(entries[0].message).toBeUndefined();
   });
@@ -156,7 +156,7 @@ describe('get-billing-claim-history performEffect', () => {
     };
     const oystehr = makeOystehr({ Provenance: () => pagedBundle([provenance], []) });
 
-    const { entries } = await performEffect(oystehr, { claimId: 'c1', secrets: null });
+    const { entries } = await performEffect(oystehr, { claimId: 'c1', secrets: {} });
 
     expect(entries[0].changes).toEqual([
       { field: 'memberId', label: 'Member ID', previousValue: 'A', newValue: 'B', rule },
@@ -180,7 +180,7 @@ describe('get-billing-claim-history performEffect', () => {
     };
     const oystehr = makeOystehr({ Provenance: () => pagedBundle([older, newer], [practitionerU1]) });
 
-    const { entries } = await performEffect(oystehr, { claimId: 'c1', secrets: null });
+    const { entries } = await performEffect(oystehr, { claimId: 'c1', secrets: {} });
 
     expect(entries.map((e) => e.id)).toEqual(['new', 'old']);
     expect(entries[0].activity).toBe('Status change');
@@ -214,7 +214,7 @@ describe('get-billing-claim-history performEffect', () => {
       Practitioner: () => ({ unbundle: () => [providerWorkingCopy] }),
     });
 
-    const { entries } = await performEffect(oystehr, { claimId: 'c1', secrets: null });
+    const { entries } = await performEffect(oystehr, { claimId: 'c1', secrets: {} });
 
     const change = entries[0].changes[0];
     expect(change.newValue).toBe('John Smith');
@@ -233,7 +233,7 @@ describe('get-billing-claim-history performEffect', () => {
     };
     const oystehr = makeOystehr({ Provenance: () => pagedBundle([provenance], [practitionerU1]) });
 
-    const { entries } = await performEffect(oystehr, { claimId: 'c1', secrets: null });
+    const { entries } = await performEffect(oystehr, { claimId: 'c1', secrets: {} });
 
     expect(entries[0].changes[0].newValue).toBe('Acme Health');
     expect(entries[0].changes[0].newLink).toBeNull();
@@ -292,7 +292,7 @@ describe('get-billing-claim-history performEffect', () => {
     };
     const oystehr = makeOystehr({ Provenance: () => pagedBundle([provenance], [practitionerU1]) });
 
-    const { entries } = await performEffect(oystehr, { claimId: 'c1', secrets: null });
+    const { entries } = await performEffect(oystehr, { claimId: 'c1', secrets: {} });
     expect(entries[0].actor.display).toContain('Doe');
   });
 
@@ -341,7 +341,7 @@ describe('get-billing-claim-history performEffect', () => {
 
     const { entries } = await performEffect(oystehr, {
       claimId: 'c1',
-      secrets: null,
+      secrets: {},
     });
 
     expect(entries).toHaveLength(1);
@@ -388,7 +388,7 @@ describe('get-billing-claim-history performEffect', () => {
 
     const { entries } = await performEffect(oystehr, {
       claimId: 'c1',
-      secrets: null,
+      secrets: {},
     });
 
     expect(entries[0].acknowledgment).toBeUndefined();
@@ -442,7 +442,7 @@ describe('get-billing-claim-history entity-linked references', () => {
       Practitioner: () => ({ unbundle: () => [providerWorkingCopy] }),
     });
 
-    const { entries } = await performEffect(oystehr, { claimId: 'c1', secrets: null });
+    const { entries } = await performEffect(oystehr, { claimId: 'c1', secrets: {} });
 
     const change = entries[0].changes[0];
     expect(change.previousRef).toBe('Practitioner/old1');
@@ -466,7 +466,7 @@ describe('get-billing-claim-history entity-linked references', () => {
     };
     const oystehr = makeOystehr({ Provenance: () => pagedBundle([provenance], [practitionerU1]) });
 
-    const { entries } = await performEffect(oystehr, { claimId: 'c1', secrets: null });
+    const { entries } = await performEffect(oystehr, { claimId: 'c1', secrets: {} });
 
     expect(entries[0].changes[0].newRef).toBe('Coverage/a, Coverage/b');
     expect(entries[0].changes[0].previousRef).toBeUndefined();
@@ -493,7 +493,7 @@ describe('get-billing-claim-history entity-linked references', () => {
       Practitioner: () => ({ unbundle: () => [providerWorkingCopy] }),
     });
 
-    const { entries } = await performEffect(oystehr, { claimId: 'c1', secrets: null });
+    const { entries } = await performEffect(oystehr, { claimId: 'c1', secrets: {} });
 
     const providerChange = entries[0].changes.find((c) => c.field === 'billingProvider');
     expect(providerChange?.newValue).toBe('Smith, John');
@@ -524,7 +524,7 @@ describe('get-billing-claim-history entity-linked references', () => {
       Practitioner: () => ({ unbundle: () => [providerWorkingCopy] }),
     });
 
-    const { entries } = await performEffect(oystehr, { claimId: 'c1', secrets: null });
+    const { entries } = await performEffect(oystehr, { claimId: 'c1', secrets: {} });
 
     expect(entries[0].changes[0].newRef).toBe('Practitioner/wc1');
     expect(entries[0].changes[0].newValue).toBe('John Smith');

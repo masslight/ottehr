@@ -23,7 +23,6 @@ import { userMe } from 'utils/lib/auth/user-me.helper';
 import { formatBillingProviderLicense, getClaimNonInsurancePayer } from 'utils/lib/fhir/billing';
 import { convertFhirNameToDisplayName } from 'utils/lib/fhir/convertFhirNameToDisplayName';
 import { getNPI, getTaxID, makeOptimisticLockIfMatchHeader } from 'utils/lib/fhir/helpers';
-import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
 import { getCandidPlanTypeCodeFromCoverage } from 'utils/lib/helpers/helpers';
 import { Secrets } from 'utils/lib/secrets';
 import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
@@ -704,12 +703,12 @@ export function claimMetaTagsWithProvenanceRequests(
       value: dateExtensions,
     });
   }
-  const patch = getPatchBinary({
-    resourceType: 'Claim',
-    resourceId: claim.id!,
-    patchOperations,
+  const patch: BatchInputPatchRequest<Claim> = {
+    method: 'PATCH',
+    url: `/Claim/${claim.id}`,
+    operations: patchOperations,
     ifMatch: makeOptimisticLockIfMatchHeader(claim),
-  });
+  };
   return [patch, ...(provenance ? [provenance] : [])];
 }
 

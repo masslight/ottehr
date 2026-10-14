@@ -51,23 +51,27 @@ describe('ProviderFields', () => {
     expect(onSubmit).toHaveBeenCalledTimes(1);
   });
 
-  it('requires license number and state', async () => {
+  it('allows rendering providers without license information', async () => {
     const onSubmit = vi.fn();
-    render(<TestForm onSubmit={onSubmit} overrides={{ licenseNumber: '', licenseState: '' }} />);
+    render(<TestForm onSubmit={onSubmit} overrides={{ licenseType: '', licenseNumber: '', licenseState: '' }} />);
+
+    expect(screen.getByLabelText('License Type')).toBeInTheDocument();
+    expect(screen.getByLabelText('License Number')).toBeInTheDocument();
+    expect(screen.getByLabelText('License State')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
-    expect(await screen.findAllByText('This field is required')).toHaveLength(2);
-    expect(onSubmit).not.toHaveBeenCalled();
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+    expect(screen.queryByText('This field is required')).not.toBeInTheDocument();
   });
 
   it('shows license fields only for providers that render', () => {
     render(<TestForm onSubmit={vi.fn()} />);
-    expect(screen.getByLabelText('License Number *')).toBeInTheDocument();
+    expect(screen.getByLabelText('License Number')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('checkbox', { name: 'Renders medical services' }));
 
-    expect(screen.queryByLabelText('License Number *')).not.toBeInTheDocument();
-    expect(screen.queryByLabelText('License State *')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('License Number')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('License State')).not.toBeInTheDocument();
   });
 });

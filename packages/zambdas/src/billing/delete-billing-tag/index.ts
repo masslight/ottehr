@@ -1,18 +1,21 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Basic } from 'fhir/r4b';
+import { DeleteBillingTagInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { countClaimsByTag, createBillingClient, isSystemTag, TAG_CODE_SYSTEM } from '../shared';
-import { DeleteBillingTagParams, validateRequestParameters } from './validateRequestParameters';
+
+export type DeleteBillingTagParams = ValidatedZambdaInput<typeof DeleteBillingTagInputSchema>;
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'delete-billing-tag';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const params = validateRequestParameters(input);
+  const params = validateWithSchema(DeleteBillingTagInputSchema, input);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
 

@@ -9,3 +9,7 @@ output "billing_domain" {
 output "billing_cdn_distribution_id" {
   value = aws_cloudfront_distribution.billing_cf.id
 }
+
+output "billing_cdn_domain" {
+  value = aws_cloudfront_distribution.billing_cf.domain_name
+}

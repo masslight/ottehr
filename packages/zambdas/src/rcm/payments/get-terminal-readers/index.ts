@@ -1,8 +1,14 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { z } from 'zod';
 import { wrapHandler } from '../../../shared/sentry';
 import { getStripeClient } from '../../../shared/stripeIntegration';
 import { ZambdaInput } from '../../../shared/types/common';
-import { validateRequestParameters } from './validateRequestParameters';
+import { validateWithSchema } from '../../../shared/validation';
+
+export const GetTerminalReadersBodySchema = z.object({
+  stripeAccountId: z.string().min(1),
+  terminalLocationId: z.string().min(1),
+});
 
 export interface TerminalReaderInfo {
   id: string;
@@ -22,7 +28,7 @@ export interface GetTerminalReadersResponse {
 const ZAMBDA_NAME = 'get-terminal-readers';
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
-    const { stripeAccountId, terminalLocationId, secrets } = validateRequestParameters(input);
+    const { stripeAccountId, terminalLocationId, secrets } = validateWithSchema(GetTerminalReadersBodySchema, input);
 
     const stripeClient = getStripeClient(secrets);
 

@@ -16,6 +16,7 @@ import {
   ChargeItemDefinitionPropertyGroup,
   Claim,
   ClaimItem,
+  ClaimItemDetail,
   ClaimResponse,
   ClaimResponseItem,
   ClaimSupportingInfo,
@@ -25,6 +26,7 @@ import {
   DomainResource,
   Encounter,
   FhirResource,
+  HumanName,
   Identifier,
   List,
   Location,
@@ -66,10 +68,13 @@ import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import {
   buildCoverageSubscriberRelatedPerson,
   createCoverageMemberIdentifier,
+  getCoding,
+  getExtensionValue,
   getNPI,
   getResourcesFromBatchInlineRequests,
   getSubscriberRelationshipCodeableConcept,
   getTaxID,
+  setNpi,
 } from 'utils/lib/fhir/helpers';
 import { getPatchBinary, getPatchOperationForNewMetaTag } from 'utils/lib/fhir/resourcePatch';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
@@ -79,6 +84,7 @@ import {
   CODE_SYSTEM_CLAIM_TYPE,
   CODE_SYSTEM_CLAIM_TYPE_CODES,
   CODE_SYSTEM_COVERAGE_CLASS,
+  CODE_SYSTEM_NDC,
   CODE_SYSTEM_OYSTEHR_CLAIM_REFERRING_PROVIDER_TYPE,
   CODE_SYSTEM_SERVICE_CATEGORY_CODES,
   CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
@@ -86,7 +92,7 @@ import {
 } from 'utils/lib/helpers/rcm/constants';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { STATE_CODES } from 'utils/lib/types/common';
-import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
+import { CLAIM_TAG_SYSTEM, ERA_SOURCE, EraSource, ndcToDigits } from 'utils/lib/types/data/billing/billing.constants';
 import {
   BillingInsuranceType,
   BillingPolicyHolderInput,
@@ -97,6 +103,7 @@ import {
   BillingChargeItemDefinitionProcedureCode,
   BillingProviderLicense,
   BillingProviderOption,
+  CHARGE_ITEM_DEFINITION_DEFAULTS,
   ChargeItemDefinitionDefault,
   ChargeItemDefinitionType,
   ClaimCoverageType,
@@ -113,6 +120,7 @@ import {
   isValidClaimStatusValue,
   withArStageInitialization,
 } from 'utils/lib/types/data/billing/claim-status';
+import { CLAIM_NON_INSURANCE_PAYER_EXTENSION_URL } from 'utils/lib/types/data/billing/non-insurance-org.types';
 import { RulesEngineType } from 'utils/lib/types/data/billing/rules-engine.constants';
 import { BillingRule } from 'utils/lib/types/data/billing/rules-engine.schemas';
 import { isSystemManagedTagName } from 'utils/lib/types/data/billing/system-tags';
@@ -211,6 +219,16 @@ export function isNoCoverageStub(entry: ClaimInsurance): boolean {
   return entry.coverage?.identifier?.system === NO_COVERAGE_SYSTEM;
 }
 
+export function getChargeItemDefinitionDefault(claim: Claim): ChargeItemDefinitionDefault {
+  if (getExtensionValue(claim, CLAIM_NON_INSURANCE_PAYER_EXTENSION_URL, 'valueReference')?.reference) {
+    return 'non-insurance';
+  }
+  if (claimHasRealCoverage(claim.insurance)) {
+    return 'insurance';
+  }
+  return 'self-pay';
+}
+
 // True when the claim carries at least one real (non-stub) coverage.
 export function claimHasRealCoverage(insurance?: Claim['insurance']): boolean {
   return (insurance ?? []).some((entry) => !isNoCoverageStub(entry));
@@ -299,6 +317,26 @@ export const ERA_ICN_EXTENSION = 'https://extensions.fhir.oystehr.com/era-icn';
 // remit itself carries.
 export const ERA_ITEM_PROCEDURE_CODE_EXTENSION = 'https://extensions.fhir.oystehr.com/era-item-procedure-code';
 export const ERA_ITEM_UNITS_EXTENSION = 'https://extensions.fhir.oystehr.com/era-item-units';
+// LQ remark codes (RARC) on each ClaimResponse.item; one extension per code.
+export const ERA_ITEM_REMARK_CODE_EXTENSION = 'https://extensions.fhir.oystehr.com/era-item-remark-code';
+// Our own PaymentReconciliation extensions: where the ERA came from (ERA_SOURCE; absent on
+// clearing-house ERAs), the paper remit's own dates, and a stamp every manual save rewrites so the
+// resource version moves even when only claims changed.
+export const ERA_SOURCE_EXTENSION = 'https://extensions.fhir.ottehr.com/billing/era-source';
+export const ERA_REMIT_DATE_EXTENSION = 'https://extensions.fhir.ottehr.com/billing/era-remit-date';
+export const ERA_DEPOSIT_DATE_EXTENSION = 'https://extensions.fhir.ottehr.com/billing/era-deposit-date';
+export const ERA_LAST_EDITED_EXTENSION = 'https://extensions.fhir.ottehr.com/billing/era-last-edited';
+// On a manually keyed ClaimResponse: points at the contained claim holding what the biller keyed
+// (patient, lines, payee, member id). It keeps those contained resources referenced from the
+// response even once `request` and `patient` point at a matched Claim, as FHIR requires of contained
+// resources, so unmatching and editing can still read them back.
+export const ERA_KEYED_CLAIM_EXTENSION = 'https://extensions.fhir.ottehr.com/billing/era-keyed-claim';
+// X12 835 BPR04 payment method, on PaymentReconciliation.paymentIdentifier.type
+export const X12_PAYMENT_METHOD_SYSTEM = 'https://x12.org/codes/payment-method-codes';
+// Oystehr RCM tags each ClaimResponse it writes with its kind, and the claim-update subscription
+// listens for `era`, so a remit keyed in by hand is tagged the same way.
+export const RCM_CLAIM_RESPONSE_TYPE_TAG_SYSTEM = 'https://tags.fhir.oystehr.com/rcm-claim-response-type';
+export const ERA_CLAIM_RESPONSE_TYPE_TAG: Coding = { system: RCM_CLAIM_RESPONSE_TYPE_TAG_SYSTEM, code: 'era' };
 export const EXTENSION_CLAIM_ADMISSION_TYPE_CODE = 'https://extensions.fhir.oystehr.com/rcm-claim-admission-type-code';
 export const EXTENSION_CLAIM_POINT_OF_ORIGIN_CODE =
   'https://extensions.fhir.oystehr.com/rcm-claim-point-of-origin-code';
@@ -311,6 +349,159 @@ export const CODE_SYSTEM_NUBC_REVENUE = 'https://www.nubc.org/CodeSystem/Revenue
 export const CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM = ottehrIdentifierSystem(
   'claim-payer-claim-control-number'
 );
+
+export interface ClaimLineDrug {
+  ndc: string;
+  quantity: number;
+  units: string;
+}
+
+// A line's medication (NDC + drug quantity/unit) is stored as its single item.detail entry; the NDC as 11 plain digits.
+export const buildClaimItemDrugDetail = (drug: ClaimLineDrug | undefined): ClaimItemDetail[] | undefined =>
+  drug
+    ? [
+        {
+          sequence: 1,
+          productOrService: { coding: [{ system: CODE_SYSTEM_NDC, code: ndcToDigits(drug.ndc) }] },
+          quantity: { value: drug.quantity, unit: drug.units },
+        },
+      ]
+    : undefined;
+
+export const readClaimItemDrug = (item: ClaimItem): ClaimLineDrug | undefined => {
+  const detail = item.detail?.find((d) => getCoding(d.productOrService, CODE_SYSTEM_NDC));
+  const ndc = getCoding(detail?.productOrService, CODE_SYSTEM_NDC)?.code;
+  if (!detail || !ndc) return undefined;
+  return { ndc, quantity: detail.quantity?.value ?? 0, units: detail.quantity?.unit ?? 'UN' };
+};
+
+export const EXTENSION_CLAIM_ITEM_ORDERING_PROVIDER =
+  'https://extensions.fhir.oystehr.com/rcm-claim-item-ordering-provider';
+// Manually entered ordering providers live in Claim.contained under ids with this prefix.
+const CONTAINED_ORDERING_PROVIDER_ID_PREFIX = 'ordering-provider-';
+
+export interface ClaimLineOrderingProvider {
+  firstName: string;
+  lastName: string;
+  npi?: string;
+  // FHIR id of an existing Practitioner
+  providerId?: string;
+}
+
+const orderingProviderName = (provider: ClaimLineOrderingProvider): HumanName => ({
+  family: provider.lastName,
+  given: [provider.firstName],
+});
+
+// Points each claim item at its line's ordering provider (providers[i] belongs to claim.item[i])
+// through an extension's valueReference. Only a Practitioner can be one: an existing Practitioner
+// by reference, a manually entered one as a Practitioner contained in the claim (identical entries
+// share one). Replaces the claim's previously contained ordering providers.
+export function setClaimItemOrderingProviders(
+  claim: Claim,
+  providers: (ClaimLineOrderingProvider | undefined)[]
+): void {
+  const contained = (claim.contained ?? []).filter(
+    (resource) => !resource.id?.startsWith(CONTAINED_ORDERING_PROVIDER_ID_PREFIX)
+  );
+  const containedIdByKey = new Map<string, string>();
+
+  const reference = (provider: ClaimLineOrderingProvider): Reference => {
+    const display = convertFhirNameToDisplayName(orderingProviderName(provider));
+    if (provider.providerId) return { reference: `Practitioner/${provider.providerId}`, display };
+    const key = JSON.stringify([provider.firstName, provider.lastName, provider.npi ?? '']);
+    let id = containedIdByKey.get(key);
+    if (!id) {
+      id = `${CONTAINED_ORDERING_PROVIDER_ID_PREFIX}${containedIdByKey.size + 1}`;
+      containedIdByKey.set(key, id);
+      const practitioner: Practitioner = {
+        resourceType: 'Practitioner',
+        id,
+        name: [orderingProviderName(provider)],
+      };
+      if (provider.npi) setNpi(practitioner, provider.npi);
+      contained.push(practitioner);
+    }
+    return { reference: `#${id}`, display };
+  };
+
+  claim.item = claim.item?.map((item, i) => {
+    const extension = (item.extension ?? []).filter((ext) => ext.url !== EXTENSION_CLAIM_ITEM_ORDERING_PROVIDER);
+    const provider = providers[i];
+    if (provider) extension.push({ url: EXTENSION_CLAIM_ITEM_ORDERING_PROVIDER, valueReference: reference(provider) });
+    return { ...item, extension: extension.length ? extension : undefined };
+  });
+  claim.contained = contained.length ? contained : undefined;
+}
+
+// Drops the contained ordering providers no claim item references any more (e.g. after lines were
+// removed), keeping everything else contained in the claim.
+export function pruneUnreferencedOrderingProviders(claim: Claim): void {
+  if (!claim.contained) return;
+  const referenced = new Set(
+    (claim.item ?? []).map(
+      (item) =>
+        item.extension?.find((ext) => ext.url === EXTENSION_CLAIM_ITEM_ORDERING_PROVIDER)?.valueReference?.reference
+    )
+  );
+  const contained = claim.contained.filter(
+    (resource) => !resource.id?.startsWith(CONTAINED_ORDERING_PROVIDER_ID_PREFIX) || referenced.has(`#${resource.id}`)
+  );
+  claim.contained = contained.length ? contained : undefined;
+}
+
+// Existing Practitioners referenced as ordering providers must be there, so no item points at nothing.
+export async function assertOrderingProvidersExist(
+  oystehr: Oystehr,
+  providers: (ClaimLineOrderingProvider | undefined)[]
+): Promise<void> {
+  const ids = [...new Set(providers.map((provider) => provider?.providerId).filter((id): id is string => !!id))];
+  if (!ids.length) return;
+  const found = await getResourcesFromBatchInlineRequests(oystehr, [`/Practitioner?_id=${ids.join(',')}`]);
+  const missing = ids.filter((id) => !findRef(found, `Practitioner/${id}`));
+  if (missing.length) throw INVALID_INPUT_ERROR(`Ordering provider Practitioner not found: ${missing.join(', ')}`);
+}
+
+// Ids of the existing Practitioners the claim's items reference as their ordering providers.
+const orderingProviderIds = (claim: Claim): string[] => [
+  ...new Set(
+    (claim.item ?? [])
+      .map(
+        (item) =>
+          item.extension?.find((ext) => ext.url === EXTENSION_CLAIM_ITEM_ORDERING_PROVIDER)?.valueReference?.reference
+      )
+      .filter((ref): ref is string => !!ref?.startsWith('Practitioner/'))
+      .map((ref) => ref.replace('Practitioner/', ''))
+  ),
+];
+
+// The item's ordering provider, resolved from the claim's contained resources or, for an existing
+// Practitioner, from `practitioners` (the ones fetchClaimGraph loads).
+export function readClaimItemOrderingProvider(
+  claim: Claim,
+  item: ClaimItem,
+  practitioners: Practitioner[]
+): ClaimLineOrderingProvider | undefined {
+  const valueReference = item.extension?.find((ext) => ext.url === EXTENSION_CLAIM_ITEM_ORDERING_PROVIDER)
+    ?.valueReference;
+  const ref = valueReference?.reference;
+  if (!ref) return undefined;
+
+  const isContained = ref.startsWith('#');
+  const practitioner = isContained
+    ? claim.contained?.find((r): r is Practitioner => r.id === ref.slice(1) && r.resourceType === 'Practitioner')
+    : findRef<Practitioner>(practitioners, ref);
+  if (!practitioner) return undefined;
+
+  const npi = getNPI(practitioner);
+  return {
+    firstName: practitioner.name?.[0]?.given?.join(' ') ?? '',
+    lastName: practitioner.name?.[0]?.family ?? '',
+    ...(npi ? { npi } : {}),
+    // contained providers were entered by hand, so they carry no provider id
+    ...(isContained ? {} : { providerId: practitioner.id }),
+  };
+}
 
 export function getEraExtensionString(
   resource: Pick<ClaimResponse, 'extension'> | Pick<ClaimResponseItem, 'extension'>,
@@ -536,6 +727,15 @@ export function getEraCheckNumber(
   pr: Pick<PaymentReconciliation, 'identifier' | 'paymentIdentifier'>
 ): string | undefined {
   return pr.identifier?.find((id) => id.system === ERA_CHECK_SYSTEM)?.value ?? pr.paymentIdentifier?.value;
+}
+
+// Where an ERA came from. Manual and (since the marker was added) imported ERAs carry the
+// era-source extension. Unmarked ones are clearing-house deliveries, except legacy X12 imports:
+// Claim.MD stamps the check number as a searchable identifier and process-era never does.
+export function getEraSource(pr: Pick<PaymentReconciliation, 'extension' | 'identifier'>): EraSource {
+  const marked = pr.extension?.find((ext) => ext.url === ERA_SOURCE_EXTENSION)?.valueCode;
+  if (marked === ERA_SOURCE.manual || marked === ERA_SOURCE.x12Import) return marked;
+  return pr.identifier?.some((id) => id.system === ERA_CHECK_SYSTEM) ? ERA_SOURCE.clearingHouse : ERA_SOURCE.x12Import;
 }
 
 export function eraCheckNumberMatches(
@@ -817,6 +1017,8 @@ export interface ClaimGraph {
   serviceFacility?: Location;
   coverages: Coverage[];
   renderingProvider?: Practitioner | Organization;
+  // Existing Practitioners the service lines reference as their ordering providers.
+  orderingProviders: Practitioner[];
   // Working-copy subscriber RelatedPersons of the fetched coverages.
   subscribers: RelatedPerson[];
   // Attachments
@@ -856,6 +1058,8 @@ export async function fetchClaimGraph(oystehr: Oystehr, claimId: string): Promis
     const [type, id] = renderingRef.split('/');
     queries.push(`/${type}?_id=${id}`);
   }
+  const orderingIds = orderingProviderIds(claim);
+  if (orderingIds.length) queries.push(`/Practitioner?_id=${orderingIds.join(',')}`);
 
   // Any DocumentReference resources referenced in supportingInfo entries cannot be _include'd
   queries.push(
@@ -887,6 +1091,9 @@ export async function fetchClaimGraph(oystehr: Oystehr, claimId: string): Promis
     : undefined;
   const subscribers = followUp.filter((r): r is RelatedPerson => r.resourceType === 'RelatedPerson');
   const documentReferences = followUp.filter((r): r is DocumentReference => r.resourceType === 'DocumentReference');
+  const orderingProviders = orderingIds
+    .map((ordId) => findRef<Practitioner>(followUp, `Practitioner/${ordId}`))
+    .filter((practitioner): practitioner is Practitioner => !!practitioner);
 
   return {
     claim,
@@ -895,6 +1102,7 @@ export async function fetchClaimGraph(oystehr: Oystehr, claimId: string): Promis
     serviceFacility,
     coverages,
     renderingProvider,
+    orderingProviders,
     subscribers,
     documentReferences,
   };
@@ -1070,7 +1278,10 @@ export function setStripeAccountId(resource: Practitioner | Organization, stripe
 
 export function fhirName(resource?: Patient | Practitioner): string {
   const name = resource?.name?.[0];
-  return name ? convertFhirNameToDisplayName(name) : '';
+  if (!name) return '';
+  if (name.family && name.given?.length) return convertFhirNameToDisplayName(name);
+  // a partial name (e.g. a remit that only reported a last name) must not render "undefined"
+  return name.family || name.given?.join(' ') || name.text || '';
 }
 
 // Friendly display name for any resource that can be referenced from a claim (undefined when the
@@ -1445,17 +1656,12 @@ export function selectClaimCoverages(
   coverages: Coverage[],
   sourceReference: (coverage: Coverage) => string | undefined
 ): Coverage[] {
-  const workersComp = service === CODE_SYSTEM_SERVICE_CATEGORY_CODES['workers-comp'];
-  const account =
-    service === CODE_SYSTEM_SERVICE_CATEGORY_CODES['urgent-care']
-      ? findPatientBillingAccount(accounts)
-      : workersComp
-      ? findPatientWorkersCompAccount(accounts)
-      : undefined;
+  const isWorkersComp = service === CODE_SYSTEM_SERVICE_CATEGORY_CODES['workers-comp'];
+  const account = isWorkersComp ? findPatientWorkersCompAccount(accounts) : findPatientBillingAccount(accounts);
   const selected = new Map<number, Coverage | undefined>();
   for (const entry of account?.coverage ?? []) {
     const coverage = coverages.find((c) => sourceReference(c) === entry.coverage.reference);
-    if (workersComp) {
+    if (isWorkersComp) {
       if (coverage) selected.set(1, coverage);
     } else if (entry.priority && [1, 2, 3, 4].includes(entry.priority)) {
       selected.set(entry.priority, coverage);
@@ -1670,11 +1876,10 @@ export function getTypeForChargeItemDefinition(cid: ChargeItemDefinition): Charg
 export function getDefaultSettingForChargeItemDefinition(
   cid: ChargeItemDefinition
 ): ChargeItemDefinitionDefault | undefined {
-  const defaultCode = cid.meta?.tag?.find((t) => t.system === CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM)?.code;
+  const defaultCode = cid.meta?.tag?.find((t) => t.system === CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM)
+    ?.code as ChargeItemDefinitionDefault;
   const defaultValue: ChargeItemDefinitionDefault | undefined =
-    defaultCode && ['insurance', 'self-pay'].includes(defaultCode)
-      ? (defaultCode as 'insurance' | 'self-pay')
-      : undefined;
+    defaultCode && CHARGE_ITEM_DEFINITION_DEFAULTS.includes(defaultCode) ? defaultCode : undefined;
   return defaultValue;
 }
 
@@ -1828,22 +2033,9 @@ export const CLAIM_ATTACHMENT_REPORT_TYPE_CODE_SYSTEM =
 export const BILLING_APP_BUCKET = (projectId: string): string => {
   return `${projectId}-billing-app`;
 };
-export const CLAIM_ATTACHMENT_OBJECT_PATH = (claimId: string, fileName: string): string => {
-  return `claim-attachments/${claimId}/${fileName}`;
-};
-
 export function getClaimAttachmentBucketAndPathFromZ3Url(projectApi: string, z3Url: string): [string, string] {
   const [bucket, ...pathParts] = z3Url.replace(`${projectApi}/z3/`, '').split('/');
   return [bucket, pathParts.join('/')];
-}
-
-export function getClaimAttachmentUrl(
-  projectApi: string,
-  projectId: string,
-  claimId: string,
-  fileName: string
-): string {
-  return `${projectApi}/z3/${BILLING_APP_BUCKET(projectId)}/${CLAIM_ATTACHMENT_OBJECT_PATH(claimId, fileName)}`;
 }
 
 function getClaimSupportingInfoIndex(

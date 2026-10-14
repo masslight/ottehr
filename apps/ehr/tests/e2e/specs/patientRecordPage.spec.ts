@@ -31,6 +31,7 @@ import {
   DEMO_VISIT_ZIP,
 } from 'utils/lib/helpers/helpers';
 import { BOOKING_CONFIG } from 'utils/lib/ottehr-config/booking';
+import { INTAKE_PAPERWORK_CONFIG } from 'utils/lib/ottehr-config/intake-paperwork';
 import { PATIENT_RECORD_CONFIG } from 'utils/lib/ottehr-config/patient-record';
 import { CreateAppointmentResponse } from 'utils/lib/types/api/prebook-create-appointment/prebook-create-appointment.types';
 import { ENV_LOCATION_NAME } from '../../e2e-utils/resource/constants';
@@ -285,6 +286,7 @@ test.describe('Patient Record Page tests', { tag: '@smoke' }, () => {
 
   // Section visibility flags - initialized after resources are set
   let PCPHidden: boolean;
+  let PCPNotCollectedInIntake: boolean;
   let PatientSummaryHidden: boolean;
   let ContactInformationHidden: boolean;
   let PatientDetailsHidden: boolean;
@@ -304,6 +306,10 @@ test.describe('Patient Record Page tests', { tag: '@smoke' }, () => {
 
     // Section visibility checks - these check both static hiding and dynamic hiding based on triggers
     PCPHidden = isSectionHidden(SECTIONS.primaryCarePhysician, formValues);
+    // The demo PCP answers only reach the patient if the in-person intake paperwork has the PCP page.
+    PCPNotCollectedInIntake = INTAKE_PAPERWORK_CONFIG.hiddenFormSections.includes(
+      INTAKE_PAPERWORK_CONFIG.FormFields.primaryCarePhysician.linkId
+    );
     PatientSummaryHidden = isSectionHidden(SECTIONS.patientSummary, formValues);
     ContactInformationHidden = isSectionHidden(SECTIONS.patientContactInformation, formValues);
     PatientDetailsHidden = isSectionHidden(SECTIONS.patientDetails, formValues);
@@ -411,6 +417,7 @@ test.describe('Patient Record Page tests', { tag: '@smoke' }, () => {
 
   test('Verify PCP Section behavior', async () => {
     test.skip(PCPHidden, 'PCP section is hidden');
+    test.skip(PCPNotCollectedInIntake, 'PCP page is hidden in intake paperwork, so there is no harvested PCP data');
     await test.step('Verify data from Primary Care Physician block is displayed correctly', async () => {
       await patientInformationPage.verifyTextFieldValue(
         primaryCarePhysician.firstName.key,
@@ -1199,7 +1206,9 @@ test.describe('Patient Record Page tests', { tag: '@smoke' }, () => {
       await test.step('Updating values from Patient Information page sections', async () => {
         test.skip(PatientSummaryHidden, 'patient summary section is hidden');
         await patientInformationPage.enterTextFieldValue(patientSummary.middleName.key, NEW_PATIENT_MIDDLE_NAME);
-        await patientInformationPage.enterTextFieldValue(patientSummary.suffix.key, NEW_PATIENT_SUFFIX);
+        if (!isFieldHidden(patientSummary.suffix.key, PATIENT_RECORD_CONFIG.FormFields.patientSummary, formValues)) {
+          await patientInformationPage.enterTextFieldValue(patientSummary.suffix.key, NEW_PATIENT_SUFFIX);
+        }
         await patientInformationPage.enterTextFieldValue(patientSummary.preferredName.key, NEW_PATIENT_PREFERRED_NAME);
         await patientInformationPage.enterDateFieldValue(patientSummary.birthDate.key, NEW_PATIENT_DATE_OF_BIRTH);
         if (!isFieldHidden(patientSummary.pronouns.key, PATIENT_RECORD_CONFIG.FormFields.patientSummary, formValues)) {
@@ -1400,7 +1409,9 @@ test.describe('Patient Record Page tests', { tag: '@smoke' }, () => {
         await patientInformationPage.verifyTextFieldValue(patientSummary.lastName.key, NEW_PATIENT_LAST_NAME);
         await patientInformationPage.verifyTextFieldValue(patientSummary.firstName.key, NEW_PATIENT_FIRST_NAME);
         await patientInformationPage.verifyTextFieldValue(patientSummary.middleName.key, NEW_PATIENT_MIDDLE_NAME);
-        await patientInformationPage.verifyTextFieldValue(patientSummary.suffix.key, NEW_PATIENT_SUFFIX);
+        if (!isFieldHidden(patientSummary.suffix.key, PATIENT_RECORD_CONFIG.FormFields.patientSummary, formValues)) {
+          await patientInformationPage.verifyTextFieldValue(patientSummary.suffix.key, NEW_PATIENT_SUFFIX);
+        }
         await patientInformationPage.verifyTextFieldValue(patientSummary.preferredName.key, NEW_PATIENT_PREFERRED_NAME);
         await patientInformationPage.verifyDateFieldValue(patientSummary.birthDate.key, NEW_PATIENT_DATE_OF_BIRTH);
         if (!isFieldHidden(patientSummary.pronouns.key, PATIENT_RECORD_CONFIG.FormFields.patientSummary, formValues)) {

@@ -1,7 +1,8 @@
 import Oystehr from '@oystehr/sdk';
-import { Appointment } from 'fhir/r4b';
+import { Appointment, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { M2MClientMockType } from 'utils/lib/auth/user-me.helper';
+import { FRIENDLY_PATIENT_ID_SYSTEM_BASE } from 'utils/lib/fhir/constants';
 import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
 import { GetAppointmentsZambdaOutput } from 'utils/lib/types/api/get-appointments.types';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -18,6 +19,7 @@ describe('get-appointments integration — happy path', () => {
   let base: InsertFullAppointmentDataBaseResult;
   let locationId: string;
   let cleanup: () => Promise<void>;
+  const friendlyPatientId = `it-${DateTime.now().toMillis()}`;
 
   // The seed's Appointment.start is "now" in UTC, so the search day is today in UTC as well.
   const boardParams = (): Record<string, unknown> => {
@@ -42,6 +44,25 @@ describe('get-appointments integration — happy path', () => {
         { op: 'add', path: '/meta/tag/-', value: { code: OTTEHR_MODULE.IP } },
       ],
     });
+    // Give the patient a known friendly PID, replacing any the platform assigned, so the board's patient.friendlyId
+    // is deterministic. It reaches the zambda only while Patient.identifier stays in APPOINTMENT_SEARCH_ELEMENTS.
+    const patient = await setup.oystehr.fhir.get<Patient>({ resourceType: 'Patient', id: base.patient.id! });
+    await setup.oystehr.fhir.patch<Patient>({
+      resourceType: 'Patient',
+      id: base.patient.id!,
+      operations: [
+        {
+          op: patient.identifier ? 'replace' : 'add',
+          path: '/identifier',
+          value: [
+            ...(patient.identifier ?? []).filter(
+              (identifier) => !identifier.system?.startsWith(FRIENDLY_PATIENT_ID_SYSTEM_BASE)
+            ),
+            { system: `${FRIENDLY_PATIENT_ID_SYSTEM_BASE}/integration-test`, value: friendlyPatientId },
+          ],
+        },
+      ],
+    });
   }, 60_000);
 
   afterAll(async () => {
@@ -56,6 +77,17 @@ describe('get-appointments integration — happy path', () => {
     });
     const output = response.output as GetAppointmentsZambdaOutput;
     expect(output.inOffice.map((appointment) => appointment.id)).toContain(base.appointment.id);
+  });
+
+  it("returns the patient's friendly PID on the seeded visit", async () => {
+    const response = await oystehrZambdas.zambda.execute({
+      id: 'get-appointments',
+      ...boardParams(),
+      visitType: ['in-person-pre-booked'],
+    });
+    const output = response.output as GetAppointmentsZambdaOutput;
+    const appointment = output.inOffice.find((appointment) => appointment.id === base.appointment.id);
+    expect(appointment?.patient.friendlyId).toBe(friendlyPatientId);
   });
 
   it('always returns the grouped order table and abnormal vitals', async () => {

@@ -2,21 +2,24 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Location, ProvenanceAgent } from 'fhir/r4b';
 import { makeOptimisticLockIfMatchHeader } from 'utils/lib/fhir/helpers';
+import { SaveServiceFacilityInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { truncateForLog } from '../../shared/logging';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { commitClaimResourceChange, resolveClaimActor } from '../provenance';
 import { applyServiceFacilityInput } from '../service-facility.helpers';
 import { createBillingClient, fetchById } from '../shared';
-import { SaveServiceFacilityParams, validateRequestParameters } from './validateRequestParameters';
+
+type SaveServiceFacilityParams = ValidatedZambdaInput<typeof SaveServiceFacilityInputSchema>;
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'save-billing-service-facility';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.group('validateRequestParameters');
-  const params = validateRequestParameters(input);
+  const params = validateWithSchema(SaveServiceFacilityInputSchema, input);
   const { secrets } = params;
   console.groupEnd();
 

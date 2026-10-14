@@ -72,7 +72,12 @@ export const index = wrapHandler('ai-suggestion-notes', async (input: ZambdaInpu
   };
 
   if (type === 'missing-hpi' || type === 'note-review') {
-    const aiResponseString = await invokeChatbotVertexAI([{ text: prompt }], secrets, suggestionSchema);
+    const aiResponseString = await invokeChatbotVertexAI(
+      [{ text: prompt }],
+      secrets,
+      'ai-suggestion-notes',
+      suggestionSchema
+    );
     // Same reason: a note-review response can quote the note back. A malformed payload is logged
     // as its structure below, which is what makes the failure diagnosable.
     if (type === 'note-review') {

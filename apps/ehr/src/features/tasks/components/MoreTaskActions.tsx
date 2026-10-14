@@ -91,22 +91,19 @@ export const MoreTaskActions: React.FC<MoreTaskActionsProps> = ({ task, currentU
                 </ListItemButton>
               </ListItem>
             )}
-            {!moreActionsPopoverData.task?.assignee?.id ||
-            moreActionsPopoverData.task.assignee.id === currentUserProviderId ? (
-              <ListItem disablePadding>
-                <ListItemButton
-                  onClick={() => {
-                    setTaskToAssign(moreActionsPopoverData.task);
-                    closeMoreActionsPopover();
-                  }}
-                >
-                  <ListItemIcon>
-                    <PersonAddIcon color="primary" style={{ transform: 'scaleX(-1)' }} />
-                  </ListItemIcon>
-                  <ListItemText primary="Assign to someone else" />
-                </ListItemButton>
-              </ListItem>
-            ) : null}
+            <ListItem disablePadding>
+              <ListItemButton
+                onClick={() => {
+                  setTaskToAssign(moreActionsPopoverData.task);
+                  closeMoreActionsPopover();
+                }}
+              >
+                <ListItemIcon>
+                  <PersonAddIcon color="primary" style={{ transform: 'scaleX(-1)' }} />
+                </ListItemIcon>
+                <ListItemText primary="Assign to someone else" />
+              </ListItemButton>
+            </ListItem>
           </List>
         </Popover>
       ) : null}

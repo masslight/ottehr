@@ -36,7 +36,10 @@ export function formatChargeItemDefinitionDefault(def?: ChargeItemDefinitionDefa
     return '';
   }
   if (def === 'insurance') {
-    return 'Insurance';
+    return 'Insurance Payers';
+  }
+  if (def === 'non-insurance') {
+    return 'Non-Insurance Payers';
   }
   return 'Self-Pay';
 }

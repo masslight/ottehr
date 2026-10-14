@@ -1,5 +1,5 @@
 import { Box, Typography } from '@mui/material';
-import { ReactElement } from 'react';
+import { ReactElement, ReactNode } from 'react';
 import { otherColors } from 'utils/lib/theme/billing-palette';
 
 export function Row({
@@ -8,7 +8,7 @@ export function Row({
   hideBorder,
 }: {
   label: string;
-  value: string;
+  value: ReactNode;
   hideBorder?: boolean;
 }): ReactElement {
   return (

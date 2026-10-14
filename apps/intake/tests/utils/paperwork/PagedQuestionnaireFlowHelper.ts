@@ -908,13 +908,45 @@ export class PagedQuestionnaireFlowHelper {
     for (const [linkId, value] of dependentFields) {
       // Check if field is enabled based on current trigger values
       if (!this.isFieldEnabled(linkId, currentValues)) {
-        console.log(`Skipping disabled field: ${linkId} (will be auto-filled by app)`);
-        continue;
+        // The enableWhen may hinge on a value the app filled itself (e.g. the hidden
+        // appointment-service-category that gates the photo ID fields), which the test never
+        // fills — trust what the page actually renders in that case.
+        const dependsOnUnknownValue = this.enableWhenDependsOnUnknownValue(linkId, currentValues);
+        if (!dependsOnUnknownValue || !(await this.isFieldRenderedAndEditable(linkId))) {
+          console.log(`Skipping disabled field: ${linkId} (will be auto-filled by app)`);
+          continue;
+        }
       }
 
       await this.fillFieldWithSpecialHandling(linkId, value);
       currentValues[linkId] = this.buildResponseItem(linkId, value);
     }
+  }
+
+  /**
+   * Whether the field's enableWhen references a question the test has no value for — neither filled
+   * on this page nor collected from earlier pages — so evaluating it here can't be trusted.
+   */
+  private enableWhenDependsOnUnknownValue(
+    linkId: string,
+    currentValues: Record<string, QuestionnaireResponseItem>
+  ): boolean {
+    const known = { ...buildEnableWhenContext(this.collectedResponses), ...currentValues };
+    return (this.findItem(linkId)?.enableWhen ?? []).some((condition) => {
+      const questionLinkId = condition.question.split('.').pop() ?? condition.question;
+      return !(condition.question in known) && !(questionLinkId in known);
+    });
+  }
+
+  /**
+   * Whether the page currently renders the field and lets the user edit it.
+   */
+  private async isFieldRenderedAndEditable(linkId: string): Promise<boolean> {
+    const element = this.page.locator(`[id="${linkId}"]`).first();
+    if ((await element.count()) === 0) {
+      return false;
+    }
+    return !(await element.isDisabled());
   }
 
   /**

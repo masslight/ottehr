@@ -327,6 +327,27 @@ describe('InboundFaxMatch page', () => {
     expect(screen.queryByText('This fax has already been filed.')).toBeNull();
   });
 
+  it('shows the full match form when the task is assigned (in-progress)', async () => {
+    mockFhirSearch.mockImplementation(({ resourceType }: { resourceType: string }) => {
+      if (resourceType === 'Task') return Promise.resolve({ unbundle: () => [makeFaxTask('in-progress')] });
+      return Promise.resolve({ unbundle: () => [] });
+    });
+
+    const Wrapper = createWrapper();
+    render(
+      <Wrapper>
+        <InboundFaxMatch />
+      </Wrapper>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('patient-search')).toBeDefined();
+    });
+    expect(screen.getByText('Save')).toBeDefined();
+    expect(screen.queryByText('No matching task found for this fax')).toBeNull();
+    expect(screen.queryByText('This fax has already been filed.')).toBeNull();
+  });
+
   it('shows a deleted message when the only matching task is cancelled', async () => {
     mockFhirSearch.mockImplementation(({ resourceType }: { resourceType: string }) => {
       if (resourceType === 'Task') return Promise.resolve({ unbundle: () => [makeFaxTask('cancelled')] });

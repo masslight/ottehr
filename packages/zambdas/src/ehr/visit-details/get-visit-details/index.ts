@@ -342,7 +342,7 @@ const getStandaloneFormsForAppointment = async (
 
   const questionnaireResponses = resources
     .filter((r) => r.resourceType === 'QuestionnaireResponse')
-    .filter((qr) => qrSentManually(qr));
+    .filter((qr) => qrSentManually(qr) && qr.status !== 'entered-in-error');
 
   if (!questionnaireResponses || questionnaireResponses.length === 0) return;
 

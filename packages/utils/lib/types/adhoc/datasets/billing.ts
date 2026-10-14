@@ -3,6 +3,8 @@
 // from the objects below.
 import { z } from 'zod';
 import { AdHocLayerMap, DatasetInput, datasetInputSchema, datasetRowSchema, LayerRowFields } from './dataset';
+import { ELIGIBILITY_STATUS_DESCRIPTION, ELIGIBILITY_STATUS_VALUES } from './eligibility';
+import { PAYMENT_VARIANT_VALUES } from './encounters';
 
 export const BillingBaseRowSchema = z.object({
   // --- Visit ---
@@ -13,6 +15,14 @@ export const BillingBaseRowSchema = z.object({
   serviceCategory: z.string().describe('Service line of the visit.'),
   visitStatus: z.string().describe('completed / arrived / cancelled / no-show …'),
   encounterType: z.enum(['main', 'follow-up', 'scheduled-follow-up']).describe('Kind of encounter row.'),
+  paymentVariant: z
+    .enum(PAYMENT_VARIANT_VALUES)
+    .nullable()
+    .describe(
+      "The visit's payment option as chosen in its Payments panel: insurance, selfPay, or employer (occupational " +
+        "medicine). It decides the price list (see pricingSource). Not the patient's coverage on file (payerType). A " +
+        "follow-up row carries its visit's option. Null when not chosen."
+    ),
   // --- Patient ---
   patientId: z.string().describe('Patient id; rows are per-encounter, so count UNIQUE patientId for a patient count.'),
   patientName: z.string().describe('Patient full name.'),
@@ -50,6 +60,8 @@ export const BILLING_DOMAIN_FIELDS: readonly (keyof AdHocBillingRow)[] = [
   'paymentMethods',
   // codes
   'chargeCpts',
+  'pricingScheduleName',
+  'unpricedCpts',
   'cptCodes',
   'emCode',
   'icdCodes',
@@ -59,11 +71,25 @@ export const BILLING_DOMAIN_FIELDS: readonly (keyof AdHocBillingRow)[] = [
 export const BILLING_LAYERS = {
   payments: {
     label: 'Patient payments',
-    description: 'Money collected from the patient for the visit — amounts, method (card/cash/check), and dates.',
+    description:
+      'Money collected from the patient for the visit — amounts, method (card/cash/check), dates, refunds and ' +
+      'voided payments.',
     schema: z.object({
-      paymentsCollected: z.number().nullable().describe('Total USD collected from the patient. Null when none.'),
-      paymentCount: z.number().describe('Number of payments collected.'),
-      paymentMethods: z.array(z.string()).describe('Distinct methods: "card"/"card-reader"/"cash"/"check".'),
+      paymentsCollected: z
+        .number()
+        .nullable()
+        .describe('Total USD collected from the patient, net of refunds; voided payments excluded. Null when none.'),
+      paymentCount: z.number().describe('Number of payments collected (voided payments excluded).'),
+      paymentMethods: z
+        .array(z.string())
+        .describe('Distinct methods: "card"/"card-reader"/"external-card-reader"/"cash"/"check".'),
+      refundedTotal: z
+        .number()
+        .describe("Total USD refunded to the patient across the visit's payments (settled refunds). 0 when none."),
+      voidedPaymentCount: z
+        .number()
+        .describe('Number of payments that were voided (the EHR lists them struck out). 0 when none.'),
+      voidedPaymentsTotal: z.number().describe('Total USD of the voided payments (never collected). 0 when none.'),
       lastPaymentDate: z.string().nullable().describe('Date of the most recent payment (yyyy-MM-dd).'),
       payments: z
         .array(
@@ -74,7 +100,8 @@ export const BILLING_LAYERS = {
                 "Full ISO instant the payment was taken. Format in the viewer's LOCAL timezone via " +
                   'new Date(date); do NOT slice the ISO string (shows UTC).'
               ),
-            amount: z.number().describe('Amount of THIS payment in USD.'),
+            amount: z.number().describe('Amount of THIS payment in USD, net of its refunds.'),
+            refundedAmount: z.number().describe('USD refunded from THIS payment (settled refunds). 0 when none.'),
             method: z.string().describe('Method of THIS payment; "" when not recorded.'),
           })
         )
@@ -89,32 +116,139 @@ export const BILLING_LAYERS = {
     label: 'Insurance & coverage',
     description: 'Insurance for the patient: payer/plan, self-pay vs insured, member id, and coverage status.',
     schema: z.object({
-      payerType: z.enum(['Insured', 'Self-pay', 'Unknown']).describe('Primary coverage bucket.'),
-      primaryPayer: z.string().describe('Primary insurance plan/payer name.'),
+      payerType: z
+        .enum(['Insured', 'Self-pay', 'Unknown'])
+        .describe(
+          "Primary coverage bucket from the patient's insurance on file — not how the visit is paid (that is " +
+            'paymentVariant).'
+        ),
+      primaryPayer: z
+        .string()
+        .describe(
+          'Primary insurance payer name, as on the patient record (the account\'s primary coverage). "" when none.'
+        ),
       insuranceType: z.string().describe('Primary coverage type label/code.'),
       memberId: z.string().describe('Subscriber/member id on primary coverage.'),
       subscriberRelationship: z.string().describe('Relationship to subscriber ("self"/"parent"/…).'),
       coverageStatus: z.string().describe('Status of primary coverage (active/cancelled/…).'),
-      secondaryPayer: z.string().describe('Secondary insurance plan/payer, when present.'),
+      secondaryPayer: z.string().describe('Secondary insurance payer, as on the patient record. "" when none.'),
+    }),
+  },
+  eligibility: {
+    label: 'Insurance eligibility',
+    description:
+      "Insurance eligibility as the visit's Payments panel shows it: the latest check of the patient's current " +
+      'primary (and secondary) insurance — status, when it ran, why it failed, and the copay / remaining deductible ' +
+      'the payer returned. A check belongs to the insurance, not to the visit, so every visit of a patient shows the ' +
+      'same, current check (and one billed to an insurance the patient no longer has shows the current one).',
+    schema: z.object({
+      eligibilityStatus: z
+        .enum(ELIGIBILITY_STATUS_VALUES)
+        .nullable()
+        .describe(
+          "Result of the latest eligibility check of the patient's current primary insurance, as the Payments panel " +
+            'shows it. ' +
+            ELIGIBILITY_STATUS_DESCRIPTION +
+            ' Null when the app shows no check: never checked, every check failed before the payer answered, or the ' +
+            'patient has no insurance.'
+        ),
+      eligibilityCheckedAt: z.string().nullable().describe('Full ISO instant that check ran. Null when there is none.'),
+      eligibilityErrors: z
+        .array(z.string())
+        .describe('Errors the payer returned on that check (its text, else its code). Empty when none.'),
+      copayAmount: z
+        .number()
+        .nullable()
+        .describe(
+          'In-network urgent-care copay in USD from that check, as the Payments panel shows it. Null when the check ' +
+            'returned none.'
+        ),
+      remainingDeductible: z
+        .number()
+        .nullable()
+        .describe(
+          'In-network individual deductible remaining in USD from that check, as the Payments panel shows it. Null ' +
+            'when the check returned none.'
+        ),
+      secondaryEligibilityStatus: z
+        .enum(ELIGIBILITY_STATUS_VALUES)
+        .nullable()
+        .describe(
+          "Result of the latest check of the patient's current secondary insurance (same values as " +
+            'eligibilityStatus). Null when there is none.'
+        ),
+      secondaryEligibilityCheckedAt: z
+        .string()
+        .nullable()
+        .describe('Full ISO instant that secondary check ran. Null when there is none.'),
     }),
   },
   charges: {
     label: 'Charges & fee schedule',
-    description: 'CPT codes billed on the visit and the expected charge from the fee schedule (charge master).',
+    description:
+      "The visit's expected charge as the EHR's patient payments shows it: the charted CPT / E&M codes priced by " +
+      'the applicable fee schedule (payer or employer, location, date of service) or else the charge master ' +
+      '(self-pay, payer-specific or default-insurance), plus case rates and codes the schedule does not price.',
     schema: z.object({
-      chargeCpts: z.array(z.string()).describe('CPT codes billed (charge line items).'),
+      chargeCpts: z
+        .array(z.string())
+        .describe('CPT / E&M codes of the charge line items (the charted codes, as priced). Empty when none.'),
       chargeCount: z.number().describe('Number of charge line items.'),
-      expectedCharge: z.number().nullable().describe('Sum of fee-schedule prices for billed CPTs, USD.'),
-      outstandingBalance: z.number().nullable().describe('expectedCharge − paymentsCollected (needs both layers).'),
+      expectedCharge: z
+        .number()
+        .nullable()
+        .describe(
+          'The visit price in USD: the flat caseRate when the schedule is a case rate, else the sum of the line ' +
+            'items (fee × units; a code the schedule does not list counts 0, see unpricedCpts). Null when no fee ' +
+            'schedule / charge master applies, or no codes are charted on a non-case-rate schedule.'
+        ),
+      outstandingBalance: z
+        .number()
+        .nullable()
+        .describe(
+          'expectedCharge − paymentsCollected (needs both layers) — the charted codes priced less what was ' +
+            'collected, NOT the claim balance the Visit Details page shows. Null when no charge could be priced.'
+        ),
+      pricingSource: z
+        .enum(['fee-schedule', 'payer-charge-master', 'default-charge-master', 'self-pay-charge-master'])
+        .nullable()
+        .describe(
+          'What priced the visit: the payer / employer fee schedule, a payer-specific charge master, the default ' +
+            "(insurance) charge master, or the self-pay charge master — chosen by the visit's payment option. " +
+            'Null when nothing applies.'
+        ),
+      pricingScheduleName: z.string().describe('Title of the fee schedule / charge master used. "" when none.'),
+      caseRate: z
+        .number()
+        .nullable()
+        .describe('Flat case rate in USD when the applicable fee schedule is a case rate. Null otherwise.'),
+      unpricedCpts: z
+        .array(z.string())
+        .describe(
+          'Charted codes the applicable schedule does not list (their fee is unknown, counted as 0). Empty under a ' +
+            'case rate, which prices the visit as a whole.'
+        ),
     }),
   },
   codes: {
     label: 'Billing codes (CPT / E&M / ICD-10)',
     description: 'Diagnosis and procedure codes from the chart used for billing.',
     schema: z.object({
-      cptCodes: z.array(z.string()).describe('Procedure CPT codes charted on the visit.'),
-      emCode: z.string().describe('E&M level code (e.g. "99213").'),
-      icdCodes: z.array(z.string()).describe('ICD-10 diagnosis codes. HIERARCHICAL — prefix-match.'),
+      cptCodes: z.array(z.string()).describe('Procedure CPT codes charted on the visit (distinct).'),
+      cptLines: z
+        .array(
+          z.object({
+            code: z.string().describe('CPT code.'),
+            modifiers: z.array(z.string()).describe('CPT modifiers on this line (e.g. "25"). Empty when none.'),
+            units: z.number().describe('Billable units on this line (1 when not set).'),
+          })
+        )
+        .describe(
+          'One record per charted CPT line, as the chart lists them — the same code can be charted twice with ' +
+            'different modifiers / units. Use for modifiers and units; count codes with cptCodes.'
+        ),
+      emCode: z.string().describe('E&M level code (e.g. "99213"). "" when unset.'),
+      icdCodes: z.array(z.string()).describe('ICD-10 diagnosis codes, primary first. HIERARCHICAL — prefix-match.'),
     }),
   },
 } as const satisfies AdHocLayerMap;

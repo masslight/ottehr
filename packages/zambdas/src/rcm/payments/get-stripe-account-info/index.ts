@@ -1,8 +1,13 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { z } from 'zod';
 import { wrapHandler } from '../../../shared/sentry';
 import { getStripeClient } from '../../../shared/stripeIntegration';
 import { ZambdaInput } from '../../../shared/types/common';
-import { validateRequestParameters } from './validateRequestParameters';
+import { validateWithSchema } from '../../../shared/validation';
+
+export const GetStripeAccountInfoBodySchema = z.object({
+  stripeAccountId: z.string().min(1),
+});
 
 export interface StripeAccountInfo {
   businessName: string | null;
@@ -40,7 +45,7 @@ export interface GetStripeAccountInfoResponse {
 const ZAMBDA_NAME = 'get-stripe-account-info';
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
-    const { stripeAccountId, secrets } = validateRequestParameters(input);
+    const { stripeAccountId, secrets } = validateWithSchema(GetStripeAccountInfoBodySchema, input);
 
     const stripeClient = getStripeClient(secrets);
 

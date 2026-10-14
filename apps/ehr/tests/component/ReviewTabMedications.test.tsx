@@ -9,6 +9,11 @@ vi.mock('../../src/features/visits/shared/hooks/useVisitNote', () => ({
   useVisitNote: () => ({ data: { history: { medications: mockChartData.medications ?? [] } } }),
 }));
 
+// The AI-added marks are scoped to the open visit.
+vi.mock('../../src/features/visits/shared/stores/appointment/appointment.store', () => ({
+  useAppointmentData: () => ({ encounter: { id: 'encounter-1' } }),
+}));
+
 const medication = (name: string, status: MedicationDTO['status']): MedicationDTO => ({
   resourceId: `${name}-id`,
   id: name,

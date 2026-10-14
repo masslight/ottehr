@@ -9,6 +9,7 @@ import pdfmakeModule from 'pdfmake';
 import { BUCKET_NAMES } from 'utils/lib/fhir/constants';
 import { createFilesDocumentReferences } from 'utils/lib/fhir/helpers';
 import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
+import { uploadObjectToZ3 } from 'utils/lib/helpers/presigned-file-url/helpers';
 import { Secrets } from 'utils/lib/secrets';
 import { STATEMENT_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
@@ -19,7 +20,7 @@ import { wrapHandler } from '../../../shared/sentry';
 import { getStatementDetails, resolveStatementAmountsSource } from '../../../shared/statements/get-statement-details';
 import { getJSONStatementTemplate } from '../../../shared/statements/get-statement-template';
 import { ZambdaInput } from '../../../shared/types/common';
-import { createPresignedUrl, uploadObjectToZ3 } from '../../../shared/z3Utils';
+import { createPresignedUrl } from '../../../shared/z3Utils';
 
 const pdfmake = pdfmakeModule as unknown as {
   setFonts: (fonts: Record<string, unknown>) => void;

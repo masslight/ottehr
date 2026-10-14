@@ -4,6 +4,10 @@ import { ChargeItemDefinition } from 'fhir/r4b';
 import { CPT_CODE_SYSTEM } from 'utils/lib/fhir/constants';
 import { EXTENSION_URL_CPT_MODIFIER } from 'utils/lib/helpers/rcm/constants';
 import {
+  GetChargeItemDefinitionInput,
+  GetChargeItemDefinitionInputSchema,
+} from 'utils/lib/types/data/billing/billing.schemas';
+import {
   BillingChargeItemDefinition,
   BillingChargeItemDefinitionProcedureCode,
 } from 'utils/lib/types/data/billing/billing.types';
@@ -11,19 +15,21 @@ import { FHIR_RESOURCE_NOT_FOUND_CUSTOM } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import {
   CHARGE_ITEM_DEFINITION_TYPE_SYSTEM,
   createBillingClient,
   getDefaultSettingForChargeItemDefinition,
   getTypeForChargeItemDefinition,
 } from '../shared';
-import { GetChargeItemDefinitionParams, validateRequestParameters } from './validateRequestParameters';
+
+export type GetChargeItemDefinitionParams = ValidatedZambdaInput<typeof GetChargeItemDefinitionInputSchema>;
 
 let m2mToken: string;
 export const index = wrapHandler(
   'get-charge-item-definition',
   async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-    const params = validateRequestParameters(input);
+    const params = validateWithSchema(GetChargeItemDefinitionInputSchema, input);
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
     const oystehr = createBillingClient(m2mToken, params.secrets);
@@ -47,7 +53,7 @@ export async function performEffect(
 
 export async function getChargeItemDefinition(
   oystehr: Oystehr,
-  params: GetChargeItemDefinitionParams
+  params: GetChargeItemDefinitionInput
 ): Promise<ChargeItemDefinition> {
   const definitions = (
     await oystehr.fhir.search<ChargeItemDefinition>({

@@ -21,6 +21,7 @@ import {
   getClaimServiceDate,
   mapClaimToItem,
 } from '../../../src/billing/claim-search';
+import { getClaimTypeCoding } from '../../../src/billing/shared';
 
 type Lookups = Parameters<typeof mapClaimToItem>[1];
 
@@ -239,14 +240,27 @@ describe('mapClaimToItem: patient payments', () => {
 });
 
 describe('mapClaimToItem: adjudicated flag', () => {
-  const claimResponse = {
+  const claimResponse: ClaimResponse = {
     resourceType: 'ClaimResponse',
     id: 'cr-1',
     status: 'active',
     request: {
       reference: 'Claim/claim-1',
     },
-  } as unknown as ClaimResponse;
+    created: '2026-01-01',
+    insurer: {
+      display: 'Unknown',
+    },
+    outcome: 'complete',
+    patient: {
+      reference: 'Patient/12345',
+    },
+    type: {
+      coding: [getClaimTypeCoding('professional')],
+      text: 'Unknown',
+    },
+    use: 'claim',
+  };
 
   it('marks a claim with no remittance as un-adjudicated, so the list can flag its balance', () => {
     const item = mapClaimToItem(makeClaim('claim-1', 100), makeLookups(new Map()));

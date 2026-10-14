@@ -1,6 +1,7 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Task } from 'fhir/r4b';
 import {
+  FAX_PACKET_FAILURE_TASK_OUTPUT,
   FAX_PACKET_RESULTS_TASK_OUTPUT,
   FaxJobStatus,
   FaxRecipientResult,
@@ -33,17 +34,20 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   const task = await oystehr.fhir.get<Task>({ resourceType: 'Task', id: taskId });
 
-  const resultsJson = task.output?.find(
-    (entry) =>
-      entry.type?.coding?.some(
-        (coding) =>
-          coding.system === FAX_PACKET_RESULTS_TASK_OUTPUT.system && coding.code === FAX_PACKET_RESULTS_TASK_OUTPUT.code
-      )
-  )?.valueString;
+  const findOutput = (target: { system: string; code: string }): string | undefined =>
+    task.output?.find(
+      (entry) => entry.type?.coding?.some((coding) => coding.system === target.system && coding.code === target.code)
+    )?.valueString;
+
+  const resultsJson = findOutput(FAX_PACKET_RESULTS_TASK_OUTPUT);
 
   const recipients: FaxRecipientResult[] = resultsJson ? (JSON.parse(resultsJson) as FaxRecipientResult[]) : [];
 
-  const output: GetFaxPacketStatusOutput = { jobStatus: toJobStatus(task.status), recipients };
+  const jobStatus = toJobStatus(task.status);
+  const rawFailureReason = jobStatus === 'failed' ? findOutput(FAX_PACKET_FAILURE_TASK_OUTPUT) : undefined;
+  const failureReason = rawFailureReason === 'too-large' ? rawFailureReason : undefined;
+
+  const output: GetFaxPacketStatusOutput = { jobStatus, recipients, failureReason };
 
   return { statusCode: 200, body: JSON.stringify(output) };
 });

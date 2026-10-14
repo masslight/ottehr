@@ -1,5 +1,17 @@
 import { Refresh as RefreshIcon } from '@mui/icons-material';
-import { Alert, Box, Button, Chip, Link, MenuItem, Stack, TextField, Tooltip, Typography } from '@mui/material';
+import {
+  Alert,
+  Box,
+  Button,
+  Chip,
+  CircularProgress,
+  Link,
+  MenuItem,
+  Stack,
+  TextField,
+  Tooltip,
+  Typography,
+} from '@mui/material';
 import { DataGridPro, GridColDef, GridPaginationModel } from '@mui/x-data-grid-pro';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
@@ -9,7 +21,7 @@ import { BILLING_CLAIM_TASK_FILTER_STATUSES } from 'utils/lib/types/data/billing
 import { BillingClaimTaskItem, SearchBillingClaimTasksResponse } from 'utils/lib/types/data/billing/billing.types';
 import { formatAntCaseString } from 'utils/lib/types/data/billing/claim-status';
 import { isValidUUID } from 'utils/lib/validation/helper';
-import { retryBillingClaimTask, searchBillingClaimTasks } from '../api/api';
+import { cancelBillingClaimTask, retryBillingClaimTask, searchBillingClaimTasks } from '../api/api';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
 import { CopyButton } from '../components/CopyButton';
 import { DateRangeInput } from '../components/DateInput';
@@ -36,13 +48,48 @@ export function RetryTaskButton({ taskId, onRetried }: { taskId: string; onRetri
     }
   };
   return (
-    <Button size="small" disabled={!oystehrZambda || retrying} onClick={() => void retry()}>
+    <Button
+      size="small"
+      variant="contained"
+      disabled={!oystehrZambda || retrying}
+      onClick={() => void retry()}
+      sx={{ marginTop: '5px' }}
+    >
       {retrying ? 'Retrying…' : 'Retry'}
     </Button>
   );
 }
 
-const getColumns = (onRetried: () => void): GridColDef<BillingClaimTaskItem>[] =>
+export function CancelTaskButton({ taskId, onCanceled }: { taskId: string; onCanceled: () => void }): ReactElement {
+  const { oystehrZambda } = useApiClients();
+  const [canceling, setCanceling] = useState(false);
+  const retry = async (): Promise<void> => {
+    if (!oystehrZambda || canceling) return;
+    setCanceling(true);
+    try {
+      await cancelBillingClaimTask(oystehrZambda, { taskId });
+      enqueueSnackbar('Claim creation canceled', { variant: 'success' });
+      onCanceled();
+    } catch (error) {
+      enqueueSnackbar(getApiError({ error, defaultError: 'Failed to cancel claim creation' }), { variant: 'error' });
+    } finally {
+      setCanceling(false);
+    }
+  };
+  return (
+    <Button
+      size="small"
+      variant="outlined"
+      disabled={!oystehrZambda || canceling}
+      onClick={() => void retry()}
+      sx={{ marginBottom: '5px' }}
+    >
+      {canceling ? <CircularProgress size="1.4em" aria-label="Canceling..." /> : 'Cancel'}
+    </Button>
+  );
+}
+
+const getColumns = (onRetried: () => void, onCanceled: () => void): GridColDef<BillingClaimTaskItem>[] =>
   (
     [
       {
@@ -115,7 +162,12 @@ const getColumns = (onRetried: () => void): GridColDef<BillingClaimTaskItem>[] =
         headerName: '',
         width: 95,
         renderCell: ({ row }) =>
-          row.status === 'failed' ? <RetryTaskButton taskId={row.id} onRetried={onRetried} /> : null,
+          row.status === 'failed' ? (
+            <Stack spacing={1} alignItems="center" useFlexGap>
+              <RetryTaskButton taskId={row.id} onRetried={onRetried} />
+              <CancelTaskButton taskId={row.id} onCanceled={onCanceled} />
+            </Stack>
+          ) : null,
       },
     ] satisfies GridColDef<BillingClaimTaskItem>[]
   ).map((column) => ({ ...column, sortable: false, filterable: false }));
@@ -135,7 +187,7 @@ export default function ClaimCreationQueue(): ReactElement {
   const [refreshCount, setRefreshCount] = useState(0);
   const generation = useRef(0);
   const refresh = useCallback(() => setRefreshCount((count) => count + 1), []);
-  const columns = useMemo(() => getColumns(refresh), [refresh]);
+  const columns = useMemo(() => getColumns(refresh, refresh), [refresh]);
 
   const fetchTasks = useCallback(async (): Promise<void> => {
     if (!oystehrZambda) return;
@@ -187,7 +239,9 @@ export default function ClaimCreationQueue(): ReactElement {
   return (
     <Stack spacing={3}>
       <Stack direction="row" justifyContent="space-between" alignItems="center">
-        <Typography variant="h4">Claim Creation Queue</Typography>
+        <Typography variant="h4" color="primary.dark" fontWeight={600}>
+          Claim Creation Queue
+        </Typography>
         <Button startIcon={<RefreshIcon />} disabled={!oystehrZambda || loading} onClick={refresh}>
           Refresh
         </Button>

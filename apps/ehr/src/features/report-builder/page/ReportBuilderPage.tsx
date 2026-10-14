@@ -28,16 +28,23 @@ import {
 } from '@mui/material';
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import {
+  AD_HOC_REPORT_LLM_MODELS,
+  AD_HOC_REPORT_MODELS,
+  AdHocReportModel,
+} from 'utils/lib/types/adhoc/generation/generate.types';
 import { AdHocDateRangeFilter } from 'utils/lib/types/adhoc/query/date-range';
+import { getLlmModelVariantLabel } from 'utils/lib/types/api/ai-models.constants';
 import PageContainer from '../../../layout/PageContainer';
-import { AD_HOC_DATASETS } from '../datasets/registry';
 import { ReportFrame } from '../sandbox/ReportFrame';
 import { AllDatasetsInfo, DatasetLayersInfo } from './DatasetLayersInfo';
+import { RawDataGrid } from './RawDataGrid';
 import { useReportBuilder } from './useReportBuilder';
 
 export default function ReportBuilderPage(): React.ReactElement {
   const navigate = useNavigate();
   const rb = useReportBuilder();
+  const [showRawData, setShowRawData] = React.useState(false);
 
   if (!rb.canView) {
     return (
@@ -74,24 +81,11 @@ export default function ReportBuilderPage(): React.ReactElement {
           </Box>
 
           <Box sx={{ mb: 3, display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
-            <FormControl size="small" sx={{ minWidth: 180 }}>
-              <InputLabel>Dataset</InputLabel>
-              <Select
-                value={rb.datasetId}
-                label="Dataset"
-                onChange={(e: SelectChangeEvent) => rb.onDatasetChange(e.target.value)}
-              >
-                {AD_HOC_DATASETS.map((d) => (
-                  <MenuItem key={d.id} value={d.id}>
-                    {d.label}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-
             <FormControl size="small" sx={{ minWidth: 200 }}>
-              <InputLabel>Date Range</InputLabel>
+              <InputLabel id="adhoc-date-range-label">Date Range</InputLabel>
               <Select
+                labelId="adhoc-date-range-label"
+                id="adhoc-date-range"
                 value={rb.dateRange}
                 label="Date Range"
                 onChange={(e: SelectChangeEvent<AdHocDateRangeFilter>) =>
@@ -140,13 +134,34 @@ export default function ReportBuilderPage(): React.ReactElement {
               </>
             )}
 
-            <Button
-              variant="contained"
-              onClick={() => void rb.handleFetch()}
-              disabled={rb.loading || !rb.oystehrZambda}
-            >
-              {rb.loading ? <CircularProgress size={20} /> : 'Fetch data'}
-            </Button>
+            {rb.canPickModel && (
+              <FormControl size="small" sx={{ minWidth: 200 }}>
+                <InputLabel id="adhoc-model-label">Model</InputLabel>
+                <Select
+                  labelId="adhoc-model-label"
+                  id="adhoc-model"
+                  value={rb.model}
+                  label="Model"
+                  onChange={(e: SelectChangeEvent<AdHocReportModel>) => rb.setModel(e.target.value as AdHocReportModel)}
+                >
+                  {AD_HOC_REPORT_MODELS.map((m) => (
+                    <MenuItem key={m} value={m}>
+                      {getLlmModelVariantLabel(AD_HOC_REPORT_LLM_MODELS[m])}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            )}
+
+            {rb.schema && (
+              <Button
+                variant="contained"
+                onClick={() => void rb.handleFetch()}
+                disabled={rb.loading || rb.generating || !rb.oystehrZambda}
+              >
+                {rb.loading ? <CircularProgress size={20} /> : 'Refresh data'}
+              </Button>
+            )}
           </Box>
 
           {rb.error && (
@@ -223,12 +238,33 @@ export default function ReportBuilderPage(): React.ReactElement {
                 <Typography component="li" variant="body2">
                   If you meant a different field, use its exact name from the list below.
                 </Typography>
-                <Typography component="li" variant="body2">
-                  Another dataset may hold what you need — check the list below.
-                </Typography>
               </Box>
               <Typography variant="subtitle2" sx={{ mb: 1 }}>
                 What the datasets do contain
+              </Typography>
+              <AllDatasetsInfo />
+            </Paper>
+          )}
+
+          {rb.multiDatasetRequest && (
+            <Paper variant="outlined" sx={{ mb: 3, p: 2, borderColor: 'warning.main' }}>
+              <Typography color="warning.dark" variant="subtitle1" fontWeight={600} sx={{ mb: 1 }}>
+                This request combines data from separate datasets
+              </Typography>
+              <Typography variant="body2" sx={{ mb: 1 }}>
+                Reports are currently built from one dataset at a time. Your request needs:{' '}
+                <strong>{rb.multiDatasetRequest.datasets.join(', ')}</strong>
+              </Typography>
+              {rb.multiDatasetRequest.hint && (
+                <Typography variant="body2" sx={{ mb: 1, fontStyle: 'italic' }}>
+                  {rb.multiDatasetRequest.hint}
+                </Typography>
+              )}
+              <Typography variant="body2" sx={{ mb: 2 }}>
+                Split it into separate reports, one per dataset.
+              </Typography>
+              <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                What the datasets contain
               </Typography>
               <AllDatasetsInfo />
             </Paper>
@@ -238,13 +274,26 @@ export default function ReportBuilderPage(): React.ReactElement {
             <>
               <Box sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
                 <Typography variant="subtitle1">
-                  Fetched <strong>{rb.rows.length.toLocaleString()}</strong> rows · schema:{' '}
-                  <strong>{rb.schema.fields.length}</strong> fields
+                  Data: <strong>{rb.schema.label}</strong> · <strong>{rb.rows.length.toLocaleString()}</strong> rows ·
+                  schema: <strong>{rb.schema.fields.length}</strong> fields
                 </Typography>
                 <Button size="small" onClick={() => rb.setShowSchema(!rb.showSchema)}>
-                  {rb.showSchema ? 'Hide fields' : 'Show fields'}
+                  {rb.showSchema ? 'Hide schema' : 'Show schema'}
+                </Button>
+                <Button size="small" onClick={() => setShowRawData(!showRawData)}>
+                  {showRawData ? 'Hide response data' : 'Show response data'}
                 </Button>
               </Box>
+
+              <Collapse in={showRawData} unmountOnExit>
+                <RawDataGrid
+                  key={rb.schema.datasetId}
+                  rows={rb.rows}
+                  schema={rb.schema}
+                  loading={rb.loading}
+                  fileName={`${rb.schema.label.toLowerCase().replace(/[^\w.-]+/g, '-')}-raw-data`}
+                />
+              </Collapse>
 
               <Collapse in={rb.showSchema}>
                 <Paper variant="outlined" sx={{ mb: 3, overflow: 'auto' }}>
@@ -274,7 +323,7 @@ export default function ReportBuilderPage(): React.ReactElement {
                       ))}
                     </TableBody>
                   </Table>
-                  <DatasetLayersInfo datasetId={rb.datasetId} datasetOptions={rb.datasetOptions} />
+                  <DatasetLayersInfo datasetId={rb.schema.datasetId} datasetOptions={rb.datasetOptions} />
                 </Paper>
               </Collapse>
 

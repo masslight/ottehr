@@ -1,18 +1,21 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Patient, ProvenanceAgent } from 'fhir/r4b';
+import { UpdateBillingPatientInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { commitClaimResourceChange, resolveClaimActor } from '../provenance';
 import { buildAddress, createBillingClient, fetchById } from '../shared';
-import { UpdateBillingPatientParams, validateRequestParameters } from './validateRequestParameters';
+
+type UpdateBillingPatientParams = ValidatedZambdaInput<typeof UpdateBillingPatientInputSchema>;
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'update-billing-patient';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const params = validateRequestParameters(input);
+  const params = validateWithSchema(UpdateBillingPatientInputSchema, input);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
 

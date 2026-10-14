@@ -39,7 +39,7 @@ export const buildAddressBookOrganization = (input: AddressBookContactInput, exi
   const personName = formatAddressBookPersonName(input);
   const foreignTags = (existing?.meta?.tag ?? []).filter((tag) => !ADDRESS_BOOK_TAG_SYSTEMS.includes(tag.system));
   const userTags: Coding[] = (input.tags ?? []).map((code) => ({ system: ADDRESS_BOOK_USER_TAG_SYSTEM, code }));
-  const { firstName, lastName, credential, address } = input;
+  const { firstName, lastName, credential, title, address } = input;
 
   return {
     resourceType: 'Organization',
@@ -50,15 +50,20 @@ export const buildAddressBookOrganization = (input: AddressBookContactInput, exi
     },
     name: input.organizationName || personName,
     ...(input.organizationName && personName ? { alias: [personName] } : {}),
-    ...(personName
+    ...(personName || title
       ? {
           contact: [
             {
-              name: {
-                ...(firstName ? { given: [firstName] } : {}),
-                ...(lastName ? { family: lastName } : {}),
-                ...(credential ? { suffix: [credential] } : {}),
-              },
+              ...(personName
+                ? {
+                    name: {
+                      ...(firstName ? { given: [firstName] } : {}),
+                      ...(lastName ? { family: lastName } : {}),
+                      ...(credential ? { suffix: [credential] } : {}),
+                    },
+                  }
+                : {}),
+              ...(title ? { purpose: { text: title } } : {}),
             },
           ],
         }
@@ -90,6 +95,7 @@ export const mapAddressBookContact = (organization: Organization): AddressBookCo
   return {
     id: organization.id ?? '',
     ...person,
+    title: organization.contact?.[0]?.purpose?.text,
     // A person-only contact stores the person display as the name; an org is present otherwise.
     organizationName: hasPerson && !organization.alias?.length ? undefined : organization.name,
     address: address

@@ -6,8 +6,9 @@ import { getPatientsForUser } from 'utils/lib/auth/user-auth.helper';
 import { TEST_USER_ID, userMe } from 'utils/lib/auth/user-me.helper';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { ADMIN_TIER_ROLES, RoleType } from 'utils/lib/types/api/user.types';
-import { MISSING_AUTH_TOKEN, NOT_AUTHORIZED } from 'utils/lib/types/errors';
+import { NOT_AUTHORIZED } from 'utils/lib/types/errors';
 import { getAuth0Token } from './getAuth0Token';
+import { ZambdaInput } from './types/common';
 
 /**
  * Authorization gate for role-restricted endpoints. Resolves the caller from a
@@ -33,11 +34,18 @@ export async function callerHasRole(
     return false;
   }
 }
-export const getUserToken = (input: { headers?: { Authorization?: string } }): string => {
-  const token = input.headers?.Authorization?.replace('Bearer ', '');
-  if (!token) throw MISSING_AUTH_TOKEN;
+/** The caller's bearer token; a missing or blank Authorization header is NOT_AUTHORIZED (401). */
+export function getUserToken(input: Pick<ZambdaInput, 'headers'>): string {
+  const authorization = input.headers?.Authorization ?? input.headers?.authorization;
+  if (typeof authorization !== 'string') {
+    throw NOT_AUTHORIZED;
+  }
+  const token = authorization.replace(/^Bearer\s+/i, '').trim();
+  if (!token) {
+    throw NOT_AUTHORIZED;
+  }
   return token;
-};
+}
 
 export async function getUser(token: string, secrets: Secrets | null): Promise<User> {
   let user: User;

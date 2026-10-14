@@ -1,9 +1,12 @@
+import { otherColors } from '@ehrTheme/colors';
 import AddOutlinedIcon from '@mui/icons-material/AddOutlined';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CalendarMonthOutlinedIcon from '@mui/icons-material/CalendarMonthOutlined';
 import CloseIcon from '@mui/icons-material/Close';
 import FaxOutlinedIcon from '@mui/icons-material/FaxOutlined';
+import GroupsOutlinedIcon from '@mui/icons-material/GroupsOutlined';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
+import PaidOutlinedIcon from '@mui/icons-material/PaidOutlined';
 import {
   Box,
   Chip,
@@ -14,6 +17,7 @@ import {
   ListItemIcon,
   Menu,
   MenuItem,
+  Popover,
   Skeleton,
   Stack,
   Switch,
@@ -30,6 +34,9 @@ import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useEffect, useMemo, useState } from 'react';
 import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom';
 import { CommandPaletteSearchButton } from 'src/components/CommandPaletteSearchButton';
+import { FlaggedReasonIcon } from 'src/components/FlaggedReasonIcon';
+import { GenericToolTip } from 'src/components/GenericToolTip';
+import { FLAGGED_REASON_FOR_VISIT_TOOLTIP, FLAGGED_REASONS_FOR_VISIT } from 'src/constants';
 import { useSendFax } from 'src/features/fax/hooks/useSendFax';
 import { SendFaxDialog } from 'src/features/fax/ui/SendFaxDialog';
 import { CreateTaskDialog } from 'src/features/tasks/components/CreateTaskDialog';
@@ -56,11 +63,13 @@ import { isInPersonAppointment } from 'utils/lib/fhir/moduleIdentification';
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
 import { getAdmitterPractitionerId, getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
 import { extractPayerIdFromUrl, findOrgMatchingReference } from 'utils/lib/helpers/helpers';
-import { formatWeightKg } from 'utils/lib/helpers/vitals/vitals-weight.helper';
+import { formatWeightKg, formatWeightLbs } from 'utils/lib/helpers/vitals/vitals-weight.helper';
 import { VisitStatusLabel } from 'utils/lib/types/api/appointment.types';
 import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import type { VitalsWeightObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { VitalsHeaderUnitSystem } from 'utils/lib/types/api/progress-note-config/progress-note-config.types';
 import { FhirAppointmentType } from 'utils/lib/types/common';
+import { REASON_FOR_VISIT_SEPARATOR } from 'utils/lib/types/constants';
 import { PRACTITIONER_CODINGS } from 'utils/lib/types/data/appointments/appointments.types';
 import { formatDateToMDYWithTime } from 'utils/lib/utils/date';
 import { dataTestIds } from '../../../../constants/data-test-ids';
@@ -68,6 +77,7 @@ import { useApiClients } from '../../../../hooks/useAppClients';
 import { PatientNotesButton } from '../../../patient-notes/components/PatientNotesButton';
 import { ProfileAvatar } from '../../shared/components/ProfileAvatar';
 import { useGetHistoricalVitals, useGetVitals } from '../../shared/components/vitals/hooks/useGetVitals';
+import { useVitalsHeaderUnitSystem } from '../../shared/components/vitals/hooks/useVitalsHeaderUnitSystem';
 import { invalidateChart } from '../../shared/hooks/chartSectionCache';
 import { useChartData } from '../../shared/hooks/useChartData';
 import { useGetAppointmentAccessibility } from '../../shared/hooks/useGetAppointmentAccessibility';
@@ -105,15 +115,24 @@ const PatientMetadata = styled(Typography)(({ theme }) => ({
   color: theme.palette.text.secondary,
 }));
 
+const SMALL_SCREEN_MEDIA_QUERY = '@media (max-width: 1179px)';
+
 const PatientInfoWrapper = styled(Box)({
   display: 'flex',
-  alignItems: 'baseline',
-  gap: '8px',
+  alignItems: 'center',
+  columnGap: '8px',
 });
 
-const getPatientWeightFallback = (weight: string | undefined): string | undefined => {
+const formatHeaderWeight = (weightKg: number, unitSystem: VitalsHeaderUnitSystem): string =>
+  unitSystem === 'imperial' ? `${formatWeightLbs(weightKg)}lbs` : `${formatWeightKg(weightKg)}kg`;
+
+const getPatientWeightFallback = (
+  weight: string | undefined,
+  unitSystem: VitalsHeaderUnitSystem
+): string | undefined => {
   const normalizedWeight = weight?.replace(/\s/g, '');
-  return normalizedWeight?.match(/^\d+(?:\.\d+)?kg/)?.[0];
+  const weightKg = normalizedWeight?.match(/^(\d+(?:\.\d+)?)kg/)?.[1];
+  return weightKg ? formatHeaderWeight(Number(weightKg), unitSystem) : undefined;
 };
 
 const getWeightRefusedLabel = (): string => 'Weight: Patient Refused';
@@ -124,7 +143,8 @@ const isPatientRefusedWeightObservation = (observation: VitalsWeightObservationD
 const getDisplayWeight = (
   currentObservations: VitalsWeightObservationDTO[],
   historicalObservations: VitalsWeightObservationDTO[],
-  patientWeight: string | undefined
+  patientWeight: string | undefined,
+  unitSystem: VitalsHeaderUnitSystem
 ): string | undefined => {
   const latestDisplayableObservation = [...currentObservations, ...historicalObservations].find(
     (observation) => isPatientRefusedWeightObservation(observation) || typeof observation.value === 'number'
@@ -136,12 +156,12 @@ const getDisplayWeight = (
     }
 
     if (typeof latestDisplayableObservation.value === 'number') {
-      return `${formatWeightKg(latestDisplayableObservation.value)}kg`;
+      return formatHeaderWeight(latestDisplayableObservation.value, unitSystem);
     }
   }
 
   if (currentObservations.length === 0 && historicalObservations.length === 0) {
-    return getPatientWeightFallback(patientWeight);
+    return getPatientWeightFallback(patientWeight, unitSystem);
   }
 
   return undefined;
@@ -233,6 +253,7 @@ export const Header = (): JSX.Element => {
   const vitalsEncounterId = isFollowup ? followUpOriginEncounter?.id : effectiveEncounterId;
   const { data: encounterVitals } = useGetVitals(vitalsEncounterId);
   const { data: historicalVitals } = useGetHistoricalVitals(vitalsEncounterId);
+  const vitalsHeaderUnitSystem = useVitalsHeaderUnitSystem();
 
   const start = encounter?.period?.start ?? appointmentValues?.start;
 
@@ -365,7 +386,8 @@ export const Header = (): JSX.Element => {
   const weight = getDisplayWeight(
     encounterVitals?.[VitalFieldNames.VitalWeight] ?? [],
     historicalVitals?.[VitalFieldNames.VitalWeight] ?? [],
-    mappedData?.weight
+    mappedData?.weight,
+    vitalsHeaderUnitSystem
   );
 
   const allergies = formatLabelValue(
@@ -391,8 +413,15 @@ export const Header = (): JSX.Element => {
 
   const reasonForVisit = formatLabelValue(appointmentValues?.description, "Reason for today's Visit");
   const userId = formatLabelValue(patient?.id);
-  const [_status, setStatus] = useState<VisitStatusLabel | undefined>(undefined);
+  const [status, setStatus] = useState<VisitStatusLabel | undefined>(undefined);
+  const [primaryReasonForVisit, additionalReasonForVisit] = reasonForVisit.split(REASON_FOR_VISIT_SEPARATOR);
+  const isReasonForVisitFlagged =
+    FLAGGED_REASONS_FOR_VISIT.includes(primaryReasonForVisit) &&
+    (isFollowup
+      ? getAnnotationFollowupStatusLabel(encounter?.status) === 'OPEN'
+      : !(['cancelled', 'no show', 'completed', 'discharged'] as (VisitStatusLabel | undefined)[]).includes(status));
   const [headerMenuAnchorEl, setHeaderMenuAnchorEl] = useState<null | HTMLElement>(null);
+  const [careTeamAnchorEl, setCareTeamAnchorEl] = useState<null | HTMLElement>(null);
   const [showCreateTaskDialog, setShowCreateTaskDialog] = useState(false);
   const sendFaxDialog = useSendFax(appointmentID ? { type: 'visit', appointmentId: appointmentID } : undefined);
   const {
@@ -420,6 +449,19 @@ export const Header = (): JSX.Element => {
       ? employees?.providers?.filter((p) => groupMemberPractitionerIds.includes(p.practitionerId))
       : employees?.providers;
   const [roomSaving, setRoomSaving] = useState(false);
+
+  const findEmployeeName = (practitionerId: string | undefined): string =>
+    [...(employees?.nonProviders ?? []), ...(employees?.providers ?? [])].find(
+      (employee) => employee.practitionerId === practitionerId
+    )?.name ?? 'Not assigned';
+  const careTeamTooltip = isFollowup ? (
+    `Follow-up provider: ${findEmployeeName(assignedProviderId)}`
+  ) : (
+    <Box>
+      <div>Intake: {findEmployeeName(assignedIntakePerformerId)}</div>
+      <div>Provider: {findEmployeeName(assignedProviderId)}</div>
+    </Box>
+  );
 
   if (!employeesIsLoading && oystehrZambda && !employees) {
     return <Box sx={{ padding: '16px' }}>There must be some employees registered to use charting.</Box>;
@@ -518,183 +560,219 @@ export const Header = (): JSX.Element => {
                       <PatientMetadata sx={{ whiteSpace: 'nowrap' }}>{visitBookingType}</PatientMetadata>
                     </Grid>
                   )}
-                  <Grid item>
-                    {isFollowup ? (
-                      <Stack direction="row" spacing={1} alignItems="center">
-                        <PatientMetadata sx={{ whiteSpace: 'nowrap' }}>Follow-up provider: </PatientMetadata>
-                        {employees ? (
-                          <TextField
-                            select
-                            fullWidth
-                            data-testid={dataTestIds.inPersonHeader.providerPractitionerInput}
-                            sx={{ minWidth: 120 }}
-                            variant="standard"
-                            value={assignedProviderId ?? ''}
-                            disabled={isUpdatingPractitionerForProvider}
-                            onChange={(e) => {
-                              void handleUpdateProviderAssignment(e.target.value);
-                            }}
-                          >
-                            {employees.providers
-                              ?.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()))
-                              ?.map((provider) => (
-                                <MenuItem key={provider.practitionerId} value={provider.practitionerId}>
-                                  {provider.name}
-                                </MenuItem>
-                              ))}
-                          </TextField>
-                        ) : (
-                          <Skeleton sx={{ width: 120, minWidth: 120 }} animation="wave" />
-                        )}
-                      </Stack>
-                    ) : (
-                      <Stack direction="row" spacing={2}>
-                        <Stack direction="row" spacing={1} alignItems="center">
-                          <PatientMetadata>Intake: </PatientMetadata>
-                          {employees ? (
-                            <TextField
-                              select
-                              fullWidth
-                              data-testid={dataTestIds.inPersonHeader.intakePractitionerInput}
-                              sx={{ minWidth: 120 }}
-                              variant="standard"
-                              value={assignedIntakePerformerId ?? ''}
-                              disabled={isUpdatingPractitionerForIntake}
-                              onChange={(e) => {
-                                void handleUpdateIntakeAssignment(e.target.value);
-                              }}
-                            >
-                              {employees.nonProviders
-                                ?.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()))
-                                ?.map((nonProvider) => (
-                                  <MenuItem key={nonProvider.practitionerId} value={nonProvider.practitionerId}>
-                                    {nonProvider.name}
-                                  </MenuItem>
-                                ))}
-                            </TextField>
-                          ) : (
-                            <Skeleton sx={{ width: 120, minWidth: 120 }} animation="wave" />
-                          )}
-                        </Stack>
-
-                        <Stack direction="row" spacing={1} alignItems="center">
-                          <PatientMetadata>Provider: </PatientMetadata>
-                          {employees ? (
-                            <TextField
-                              select
-                              fullWidth
-                              data-testid={dataTestIds.inPersonHeader.providerPractitionerInput}
-                              sx={{ minWidth: 120 }}
-                              variant="standard"
-                              value={assignedProviderId ?? ''}
-                              disabled={isUpdatingPractitionerForProvider}
-                              onChange={(e) => {
-                                void handleUpdateProviderAssignment(e.target.value);
-                              }}
-                            >
-                              {group && (
-                                <MenuItem
-                                  // Embedding a non-option control inside a MUI Select
-                                  // menu requires defending against several behaviors that
-                                  // would otherwise close the dropdown on every toggle:
-                                  //   - `disabled` makes Select's selection logic skip
-                                  //     this child instead of treating clicks as option
-                                  //     picks. The sx overrides undo `disabled`'s visual
-                                  //     dimming and pointer-events blocking so the Switch
-                                  //     stays interactive.
-                                  //   - Stops on mousedown/click/keydown at the MenuItem
-                                  //     level catch Select's event delegation before it
-                                  //     can read the toggle interaction as an option pick.
-                                  //   - Stops on the Switch's own change/click prevent the
-                                  //     events from bubbling to any parent input listener.
-                                  //   - `inputProps.tabIndex: -1` keeps focus on the
-                                  //     MenuList — without it the hidden checkbox grabs
-                                  //     focus on click and the Menu closes thinking focus
-                                  //     left the option list.
-                                  // We don't know which single piece is sufficient (each
-                                  // trim attempt regressed). Treat this as a load-bearing
-                                  // bundle and edit only when MUI behavior changes.
-                                  disabled
-                                  disableRipple
-                                  sx={{
-                                    px: 2,
-                                    py: 1,
-                                    borderBottom: '1px solid',
-                                    borderColor: 'divider',
-                                    cursor: 'default',
-                                    '&.Mui-disabled': {
-                                      opacity: 1,
-                                      pointerEvents: 'auto',
-                                    },
-                                    '&:hover': { backgroundColor: 'transparent' },
-                                  }}
-                                  onMouseDown={(e) => e.stopPropagation()}
-                                  onClick={(e) => e.stopPropagation()}
-                                  onKeyDown={(e) => e.stopPropagation()}
-                                >
-                                  <FormControlLabel
-                                    onClick={(e) => e.stopPropagation()}
-                                    control={
-                                      <Switch
-                                        size="small"
-                                        checked={restrictProvidersToGroup}
-                                        onChange={(e) => {
-                                          e.stopPropagation();
-                                          setRestrictProvidersToGroup(e.target.checked);
-                                        }}
-                                        onClick={(e) => e.stopPropagation()}
-                                        inputProps={{ tabIndex: -1 }}
-                                      />
-                                    }
-                                    label={
-                                      <Typography variant="caption">Members of {group.name ?? 'group'} only</Typography>
-                                    }
-                                  />
-                                </MenuItem>
-                              )}
-                              {filteredProviders
-                                ?.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()))
-                                ?.map((provider) => (
-                                  <MenuItem key={provider.practitionerId} value={provider.practitionerId}>
-                                    {provider.name}
-                                  </MenuItem>
-                                ))}
-                            </TextField>
-                          ) : (
-                            <Skeleton sx={{ width: 120, minWidth: 120 }} animation="wave" />
-                          )}
-                        </Stack>
-
-                        {rooms && rooms.length > 0 && (
-                          <Stack direction="row" spacing={1} alignItems="center">
-                            <PatientMetadata>Room: </PatientMetadata>
-                            <TextField
-                              select
-                              fullWidth
-                              data-testid={dataTestIds.inPersonHeader.roomSelect}
-                              sx={{ minWidth: 120 }}
-                              variant="standard"
-                              value={room ?? ''}
-                              disabled={roomSaving}
-                              onChange={(e) => {
-                                void handleRoomChange(e.target.value);
-                              }}
-                            >
-                              <MenuItem value={''}>None</MenuItem>
-                              {rooms.map(
-                                (roomOption) =>
-                                  roomOption && (
-                                    <MenuItem key={roomOption} value={roomOption}>
-                                      {roomOption}
-                                    </MenuItem>
-                                  )
-                              )}
-                            </TextField>
-                          </Stack>
-                        )}
-                      </Stack>
-                    )}
+                  <Grid item sx={{ display: 'flex' }}>
+                    <GenericToolTip title={`Payment: ${paymentDisplayValue}`} placement="top" customWidth={400}>
+                      <PaidOutlinedIcon
+                        data-testid={dataTestIds.inPersonHeader.payment}
+                        aria-label={`Payment: ${paymentDisplayValue}`}
+                        titleAccess={`Payment: ${paymentDisplayValue}`}
+                        fontSize="small"
+                        sx={{ color: isPaymentUnset ? theme.palette.error.main : theme.palette.text.secondary }}
+                      />
+                    </GenericToolTip>
                   </Grid>
+                  <Grid item sx={{ display: 'flex' }}>
+                    <GenericToolTip title={careTeamTooltip} placement="top" customWidth={400}>
+                      <IconButton
+                        size="small"
+                        aria-label="Care team"
+                        data-testid={dataTestIds.inPersonHeader.careTeamButton}
+                        onClick={(e) => setCareTeamAnchorEl(e.currentTarget)}
+                      >
+                        <GroupsOutlinedIcon fontSize="small" />
+                      </IconButton>
+                    </GenericToolTip>
+                    <Popover
+                      open={Boolean(careTeamAnchorEl)}
+                      anchorEl={careTeamAnchorEl}
+                      onClose={() => setCareTeamAnchorEl(null)}
+                      anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+                    >
+                      <Stack
+                        spacing={2}
+                        sx={{ p: 2, minWidth: 300 }}
+                        data-testid={dataTestIds.inPersonHeader.careTeamPopover}
+                      >
+                        {isFollowup ? (
+                          <Stack direction="row" spacing={1} alignItems="center">
+                            <PatientMetadata sx={{ whiteSpace: 'nowrap' }}>Follow-up provider:</PatientMetadata>
+                            {employees ? (
+                              <TextField
+                                select
+                                fullWidth
+                                data-testid={dataTestIds.inPersonHeader.providerPractitionerInput}
+                                sx={{ minWidth: 120 }}
+                                variant="standard"
+                                value={assignedProviderId ?? ''}
+                                disabled={isUpdatingPractitionerForProvider}
+                                onChange={(e) => {
+                                  void handleUpdateProviderAssignment(e.target.value);
+                                }}
+                              >
+                                {employees.providers
+                                  ?.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()))
+                                  ?.map((provider) => (
+                                    <MenuItem key={provider.practitionerId} value={provider.practitionerId}>
+                                      {provider.name}
+                                    </MenuItem>
+                                  ))}
+                              </TextField>
+                            ) : (
+                              <Skeleton sx={{ width: 120, minWidth: 120 }} animation="wave" />
+                            )}
+                          </Stack>
+                        ) : (
+                          <>
+                            <Stack direction="row" spacing={1} alignItems="center">
+                              <PatientMetadata sx={{ minWidth: 70 }}>Intake:</PatientMetadata>
+                              {employees ? (
+                                <TextField
+                                  select
+                                  fullWidth
+                                  data-testid={dataTestIds.inPersonHeader.intakePractitionerInput}
+                                  sx={{ minWidth: 120 }}
+                                  variant="standard"
+                                  value={assignedIntakePerformerId ?? ''}
+                                  disabled={isUpdatingPractitionerForIntake}
+                                  onChange={(e) => {
+                                    void handleUpdateIntakeAssignment(e.target.value);
+                                  }}
+                                >
+                                  {employees.nonProviders
+                                    ?.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()))
+                                    ?.map((nonProvider) => (
+                                      <MenuItem key={nonProvider.practitionerId} value={nonProvider.practitionerId}>
+                                        {nonProvider.name}
+                                      </MenuItem>
+                                    ))}
+                                </TextField>
+                              ) : (
+                                <Skeleton sx={{ width: 120, minWidth: 120 }} animation="wave" />
+                              )}
+                            </Stack>
+                            <Stack direction="row" spacing={1} alignItems="center">
+                              <PatientMetadata sx={{ minWidth: 70 }}>Provider:</PatientMetadata>
+                              {employees ? (
+                                <TextField
+                                  select
+                                  fullWidth
+                                  data-testid={dataTestIds.inPersonHeader.providerPractitionerInput}
+                                  sx={{ minWidth: 120 }}
+                                  variant="standard"
+                                  value={assignedProviderId ?? ''}
+                                  disabled={isUpdatingPractitionerForProvider}
+                                  onChange={(e) => {
+                                    void handleUpdateProviderAssignment(e.target.value);
+                                  }}
+                                >
+                                  {group && (
+                                    <MenuItem
+                                      // Embedding a non-option control inside a MUI Select
+                                      // menu requires defending against several behaviors that
+                                      // would otherwise close the dropdown on every toggle:
+                                      //   - `disabled` makes Select's selection logic skip
+                                      //     this child instead of treating clicks as option
+                                      //     picks. The sx overrides undo `disabled`'s visual
+                                      //     dimming and pointer-events blocking so the Switch
+                                      //     stays interactive.
+                                      //   - Stops on mousedown/click/keydown at the MenuItem
+                                      //     level catch Select's event delegation before it
+                                      //     can read the toggle interaction as an option pick.
+                                      //   - Stops on the Switch's own change/click prevent the
+                                      //     events from bubbling to any parent input listener.
+                                      //   - `inputProps.tabIndex: -1` keeps focus on the
+                                      //     MenuList — without it the hidden checkbox grabs
+                                      //     focus on click and the Menu closes thinking focus
+                                      //     left the option list.
+                                      // We don't know which single piece is sufficient (each
+                                      // trim attempt regressed). Treat this as a load-bearing
+                                      // bundle and edit only when MUI behavior changes.
+                                      disabled
+                                      disableRipple
+                                      sx={{
+                                        px: 2,
+                                        py: 1,
+                                        borderBottom: '1px solid',
+                                        borderColor: 'divider',
+                                        cursor: 'default',
+                                        '&.Mui-disabled': {
+                                          opacity: 1,
+                                          pointerEvents: 'auto',
+                                        },
+                                        '&:hover': { backgroundColor: 'transparent' },
+                                      }}
+                                      onMouseDown={(e) => e.stopPropagation()}
+                                      onClick={(e) => e.stopPropagation()}
+                                      onKeyDown={(e) => e.stopPropagation()}
+                                    >
+                                      <FormControlLabel
+                                        onClick={(e) => e.stopPropagation()}
+                                        control={
+                                          <Switch
+                                            size="small"
+                                            checked={restrictProvidersToGroup}
+                                            onChange={(e) => {
+                                              e.stopPropagation();
+                                              setRestrictProvidersToGroup(e.target.checked);
+                                            }}
+                                            onClick={(e) => e.stopPropagation()}
+                                            inputProps={{ tabIndex: -1 }}
+                                          />
+                                        }
+                                        label={
+                                          <Typography variant="caption">
+                                            Members of {group.name ?? 'group'} only
+                                          </Typography>
+                                        }
+                                      />
+                                    </MenuItem>
+                                  )}
+                                  {filteredProviders
+                                    ?.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()))
+                                    ?.map((provider) => (
+                                      <MenuItem key={provider.practitionerId} value={provider.practitionerId}>
+                                        {provider.name}
+                                      </MenuItem>
+                                    ))}
+                                </TextField>
+                              ) : (
+                                <Skeleton sx={{ width: 120, minWidth: 120 }} animation="wave" />
+                              )}
+                            </Stack>
+                          </>
+                        )}
+                      </Stack>
+                    </Popover>
+                  </Grid>
+                  {!isFollowup && rooms && rooms.length > 0 && (
+                    <Grid item>
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        <PatientMetadata>Room: </PatientMetadata>
+                        <TextField
+                          select
+                          fullWidth
+                          data-testid={dataTestIds.inPersonHeader.roomSelect}
+                          sx={{ minWidth: 120 }}
+                          variant="standard"
+                          value={room ?? ''}
+                          disabled={roomSaving}
+                          onChange={(e) => {
+                            void handleRoomChange(e.target.value);
+                          }}
+                        >
+                          <MenuItem value={''}>None</MenuItem>
+                          {rooms.map(
+                            (roomOption) =>
+                              roomOption && (
+                                <MenuItem key={roomOption} value={roomOption}>
+                                  {roomOption}
+                                </MenuItem>
+                              )
+                          )}
+                        </TextField>
+                      </Stack>
+                    </Grid>
+                  )}
                 </Grid>
               </Grid>
               <Grid item sx={{ flexShrink: 0 }}>
@@ -715,53 +793,62 @@ export const Header = (): JSX.Element => {
               <Grid item xs>
                 <PatientInfoWrapper>
                   <Grid>
-                    <PatientInfoWrapper>
-                      <PatientName
-                        data-testid={dataTestIds.inPersonHeader.patientName}
-                        onClick={() => navigate(`/patient/${userId}`)}
-                      >
-                        {patientName}
-                      </PatientName>
+                    <PatientInfoWrapper sx={{ flexWrap: 'wrap' }}>
+                      <GenericToolTip title={pronouns} placement="top" describeChild>
+                        <PatientName
+                          data-testid={dataTestIds.inPersonHeader.patientName}
+                          onClick={() => navigate(`/patient/${userId}`)}
+                        >
+                          {patientName}
+                        </PatientName>
+                      </GenericToolTip>
                       <PatientNotesButton patientId={userId} />
                       <PrintVisitLabelButton encounterId={effectiveEncounterId} />
-                      <PatientMetadata sx={{ fontWeight: 500 }}>{dob}</PatientMetadata> |
+                      <PatientMetadata sx={{ fontWeight: 500 }}>{dob}</PatientMetadata>
+                      <Box component="span">|</Box>
+                      <PatientMetadata
+                        data-testid={dataTestIds.inPersonHeader.allergies}
+                        sx={{
+                          fontWeight: chartData?.allergies?.length ? 700 : 400,
+                          maxWidth: '60%',
+                          // On small screens allergies drop to their own line below the patient name
+                          [SMALL_SCREEN_MEDIA_QUERY]: { flexBasis: '100%', maxWidth: '100%' },
+                        }}
+                      >
+                        {allergies}
+                      </PatientMetadata>
                     </PatientInfoWrapper>
                     <PatientInfoWrapper>
-                      <PatientMetadata>{pronouns}</PatientMetadata> | <PatientMetadata>{gender}</PatientMetadata> |
+                      <PatientMetadata>{gender}</PatientMetadata> |
                       {weight ? (
                         <>
                           <PatientMetadata data-testid={dataTestIds.inPersonHeader.weight}>{weight}</PatientMetadata> |
                         </>
                       ) : null}
-                      <PatientMetadata>{language}</PatientMetadata> |<PatientMetadata>{reasonForVisit}</PatientMetadata>
-                      <PatientMetadata
-                        data-testid={dataTestIds.inPersonHeader.payment}
-                        sx={{
-                          marginLeft: 6,
-                          maxWidth: 400,
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
-                          color: isPaymentUnset ? theme.palette.warning.dark : undefined,
-                          fontWeight: isPaymentUnset ? 600 : undefined,
-                        }}
-                      >
-                        Payment: {paymentDisplayValue}
-                      </PatientMetadata>
+                      <PatientMetadata>{language}</PatientMetadata> |
+                      {isReasonForVisitFlagged ? (
+                        <GenericToolTip title={FLAGGED_REASON_FOR_VISIT_TOOLTIP} placement="top">
+                          <Stack direction="row" alignItems="center">
+                            <FlaggedReasonIcon style={{ verticalAlign: 'middle' }} />
+                            <PatientMetadata data-testid={dataTestIds.inPersonHeader.reasonForVisit}>
+                              <span style={{ color: otherColors.priorityHighText }}>{primaryReasonForVisit}</span>
+                              {additionalReasonForVisit && `${REASON_FOR_VISIT_SEPARATOR}${additionalReasonForVisit}`}
+                            </PatientMetadata>
+                          </Stack>
+                        </GenericToolTip>
+                      ) : (
+                        <PatientMetadata data-testid={dataTestIds.inPersonHeader.reasonForVisit}>
+                          {reasonForVisit}
+                        </PatientMetadata>
+                      )}
                     </PatientInfoWrapper>
                   </Grid>
-                  <PatientMetadata
-                    data-testid={dataTestIds.inPersonHeader.allergies}
-                    sx={{ fontWeight: chartData?.allergies?.length ? 700 : 400, maxWidth: '60%' }}
-                  >
-                    {allergies}
-                  </PatientMetadata>
                 </PatientInfoWrapper>
               </Grid>
               <Grid
                 item
                 sx={{
-                  '@media (max-width: 1179px)': {
+                  [SMALL_SCREEN_MEDIA_QUERY]: {
                     display: 'flex',
                     flexDirection: 'column',
                     gap: 0.5,

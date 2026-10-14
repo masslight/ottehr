@@ -1,6 +1,7 @@
 import { useMutation, UseMutationResult, useQuery, UseQueryResult } from '@tanstack/react-query';
 import { ChargeItemDefinition } from 'fhir/r4b';
 import { useApiClients } from 'src/hooks/useAppClients';
+import { APIErrorCode } from 'utils/lib/types/errors';
 import {
   addProcedureCode,
   AddProcedureCodeInput,
@@ -15,6 +16,7 @@ import {
   disassociatePayer,
   findApplicableFeeSchedule,
   FindApplicableFeeScheduleResponse,
+  getChargeItemDefinitionVersion,
   getVersionHistory,
   GetVersionHistoryResponse,
   listFeeSchedules,
@@ -220,5 +222,31 @@ export const useGetVersionHistoryQuery = (
     },
 
     enabled: !!oystehrZambda && !!resourceId && enabled,
+    retry: (failureCount, error) =>
+      (error as { code?: unknown })?.code === APIErrorCode.VERSION_HISTORY_UNAVAILABLE && failureCount < 4,
+    retryDelay: 4_000,
+  });
+};
+
+export const useGetChargeItemDefinitionVersionQuery = (
+  resourceId: string | undefined,
+  versionId: string | undefined,
+  enabled: boolean
+): UseQueryResult<ChargeItemDefinition, Error> => {
+  const { oystehrZambda } = useApiClients();
+
+  return useQuery({
+    queryKey: ['charge-item-definition-version', resourceId, versionId],
+
+    queryFn: async () => {
+      if (!oystehrZambda) throw new Error('OystehrZambda is not defined');
+      if (!resourceId || !versionId) throw new Error('resourceId and versionId are required');
+
+      return getChargeItemDefinitionVersion(oystehrZambda, { resourceId, versionId });
+    },
+
+    enabled: !!oystehrZambda && !!resourceId && !!versionId && enabled,
+    staleTime: Infinity,
+    retry: false,
   });
 };

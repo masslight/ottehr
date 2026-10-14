@@ -1,4 +1,5 @@
-import { DocumentReference } from 'fhir/r4b';
+import { DocumentReference, QuestionnaireResponseItem } from 'fhir/r4b';
+import { INTAKE_PAPERWORK_CONFIG } from 'utils/lib/ottehr-config/intake-paperwork';
 import { MIME_TYPES } from 'utils/lib/utils/file';
 // import { INSURANCE_CARD_CODE, OTTEHR_MODULE } from 'utils';
 
@@ -89,4 +90,38 @@ export function createDocumentReference({
       ],
     },
   };
+}
+
+const TEST_INSURANCE_CARD_URLS: Record<string, string> = {
+  'insurance-card-front':
+    'https://testing.project-api.zapehr.com/v1/z3/local-insurance-cards/2bc5ab8d-c1c2-4ca3-804b-c61066a62cb4/1721330510132-insurance-card-front.jpeg',
+  'insurance-card-back':
+    'https://testing.project-api.zapehr.com/v1/z3/local-insurance-cards/2bc5ab8d-c1c2-4ca3-804b-c61066a62cb4/1721330518576-insurance-card-back.jpeg',
+};
+
+export function addRequiredInsuranceCardAnswers(page: QuestionnaireResponseItem): QuestionnaireResponseItem {
+  const items = Object.values(INTAKE_PAPERWORK_CONFIG.FormFields.paymentOption.items) as {
+    key: string;
+    triggers?: { effect: string[] }[];
+  }[];
+  const cardItems = Object.keys(TEST_INSURANCE_CARD_URLS)
+    .filter(
+      (key) => items.find((item) => item.key === key)?.triggers?.some((trigger) => trigger.effect.includes('require'))
+    )
+    .map((key) => ({
+      linkId: key,
+      answer: [
+        {
+          // `creation` becomes the harvested DocumentReference.date — FHIR rejects it when missing.
+          valueAttachment: {
+            url: TEST_INSURANCE_CARD_URLS[key],
+            contentType: MIME_TYPES.JPEG,
+            title: key,
+            creation: new Date().toISOString(),
+          },
+        },
+      ],
+    }));
+  if (cardItems.length === 0) return page;
+  return { ...page, item: [...(page.item ?? []), ...cardItems] };
 }

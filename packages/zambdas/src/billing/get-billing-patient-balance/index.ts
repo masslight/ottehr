@@ -1,5 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { GetBillingPatientBalanceInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import {
   GetBillingPatientBalanceResponse,
   PatientArClaimItem,
@@ -8,15 +9,17 @@ import {
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { fetchAllActivePatientArClaims } from '../search-billing-patient-ar-claims/handler';
 import { createBillingClient } from '../shared';
-import { GetBillingPatientBalanceParams, validateRequestParameters } from './validateRequestParameters';
+
+type GetBillingPatientBalanceParams = ValidatedZambdaInput<typeof GetBillingPatientBalanceInputSchema>;
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'get-billing-patient-balance';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const params = validateRequestParameters(input);
+  const params = validateWithSchema(GetBillingPatientBalanceInputSchema, input);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
 

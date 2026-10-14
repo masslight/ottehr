@@ -1280,6 +1280,27 @@
       "src": "src/ehr/em-codes/delete/index",
       "zip": ".dist/zips/delete-em-code.zip"
     },
+    "EASY-CHART-PLAN": {
+      "name": "easy-chart-plan",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/easy-chart-plan/index",
+      "zip": ".dist/zips/easy-chart-plan.zip"
+    },
+    "EASY-CHART-NARRATIVE": {
+      "name": "easy-chart-narrative",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/easy-chart-narrative/index",
+      "zip": ".dist/zips/easy-chart-narrative.zip"
+    },
+    "EASY-CHART-SAVE-TRANSCRIPT": {
+      "name": "easy-chart-save-transcript",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/easy-chart-save-transcript/index",
+      "zip": ".dist/zips/easy-chart-save-transcript.zip"
+    },
     "RECOMMEND-BILLING-SUGGESTIONS": {
       "name": "recommend-billing-suggestions",
       "type": "http_auth",
@@ -1323,6 +1344,14 @@
       "memorySize": "3008",
       "src": "src/subscriptions/sub-adhoc-report/index",
       "zip": ".dist/zips/sub-adhoc-report.zip"
+    },
+    "SUB-GENERATE-ADHOC-REPORT": {
+      "name": "sub-generate-adhoc-report",
+      "type": "subscription",
+      "runtime": "nodejs22.x",
+      "timeout": "900",
+      "src": "src/subscriptions/sub-generate-adhoc-report/index",
+      "zip": ".dist/zips/sub-generate-adhoc-report.zip"
     },
     "SAVE-ADHOC-REPORT": {
       "name": "save-adhoc-report",
@@ -1748,6 +1777,20 @@
       "src": "src/ehr/visit-details/delete-visit-files/index",
       "zip": ".dist/zips/delete-visit-files.zip"
     },
+    "UPDATE-VISIT-FORM": {
+      "name": "update-visit-form",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/visit-details/update-visit-form/index",
+      "zip": ".dist/zips/update-visit-form.zip"
+    },
+    "DELETE-VISIT-FORM": {
+      "name": "delete-visit-form",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/visit-details/delete-visit-form/index",
+      "zip": ".dist/zips/delete-visit-form.zip"
+    },
     "EHR-GET-VISIT-DETAILS": {
       "name": "ehr-get-visit-details",
       "type": "http_auth",
@@ -1981,6 +2024,13 @@
       "src": "src/ehr/search-patients/index",
       "zip": ".dist/zips/search-patients.zip"
     },
+    "CREATE-PATIENT": {
+      "name": "create-patient",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/create-patient/index",
+      "zip": ".dist/zips/create-patient.zip"
+    },
     "CREATE-FEE-SCHEDULE": {
       "name": "create-fee-schedule",
       "type": "http_auth",
@@ -2015,6 +2065,13 @@
       "runtime": "nodejs22.x",
       "src": "src/rcm/fee-schedules/get-version-history/index",
       "zip": ".dist/zips/get-version-history.zip"
+    },
+    "GET-CHARGE-ITEM-DEFINITION-VERSION": {
+      "name": "get-charge-item-definition-version",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/fee-schedules/get-charge-item-definition-version/index",
+      "zip": ".dist/zips/get-charge-item-definition-version.zip"
     },
     "ASSOCIATE-PAYER": {
       "name": "associate-payer",
@@ -3097,6 +3154,24 @@
         "channel": {
           "type": "rest-hook",
           "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-ADHOC-REPORT/id}"
+        },
+        "extension": [
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "create"
+          }
+        ]
+      }
+    },
+    "GENERATE_ADHOC_REPORT_SUBSCRIPTION": {
+      "resource": {
+        "resourceType": "Subscription",
+        "status": "active",
+        "reason": "Generate ad-hoc report code asynchronously",
+        "criteria": "Task?code=https://fhir.ottehr.com/CodeSystem/adhoc-report-task|adhoc-generate&status=requested",
+        "channel": {
+          "type": "rest-hook",
+          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-GENERATE-ADHOC-REPORT/id}"
         },
         "extension": [
           {

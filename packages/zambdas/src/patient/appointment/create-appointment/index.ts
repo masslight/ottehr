@@ -29,7 +29,6 @@ import {
   FHIR_APPOINTMENT_READY_FOR_PREPROCESSING_TAG,
   FHIR_EXTENSION,
   INTAKE_PAPERWORK_QR_TAG,
-  PATIENT_BILLING_ACCOUNT_TYPE,
   PRIVATE_EXTENSION_BASE_URL,
   SERVICE_CATEGORY_SYSTEM,
 } from 'utils/lib/fhir/constants';
@@ -37,7 +36,7 @@ import { buildFollowupEncounterType } from 'utils/lib/fhir/encounter';
 import { getGroupAssignmentMode } from 'utils/lib/fhir/healthcareService';
 import { getCoding, getTaskResource } from 'utils/lib/fhir/helpers';
 import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
-import { createUserResourcesForPatient, getFullestAvailableName } from 'utils/lib/fhir/patient';
+import { getFullestAvailableName } from 'utils/lib/fhir/patient';
 import { getCanonicalQuestionnaire } from 'utils/lib/fhir/questionnaires';
 import { resolveEffectiveQuestionnaire } from 'utils/lib/fhir/questionnaires';
 import { formatPhoneNumber, formatPhoneNumberDisplay } from 'utils/lib/helpers/helpers';
@@ -55,7 +54,11 @@ import { E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM, RETURNING_PATIENT_META_TAG } from 
 import { PatientInfo, VisitType } from 'utils/lib/types/data/telemed/appointments/create-appointment.types';
 import { getAppointmentDurationFromSlot, getSlotBookedViaGroupId } from 'utils/lib/utils/scheduleUtils';
 import { isValidUUID } from 'utils/lib/validation/helper';
-import { generatePatientRelatedRequests } from '../../../shared/appointment/helpers';
+import {
+  generatePatientRelatedRequests,
+  linkNewPatientToAccountHolder,
+  makePatientBillingAccountRequest,
+} from '../../../shared/appointment/helpers';
 import { getM2MClientId, getUser, isM2MClient, isTestUser } from '../../../shared/auth';
 import { getAuth0Token } from '../../../shared/getAuth0Token';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
@@ -352,23 +355,20 @@ export async function createAppointment(
     // If it is a new patient, create a RelatedPerson resource for the Patient
     // and create a Person resource if there is not one for the account
     // todo: this needs to happen via a transactional with the other must-happen-for-this-request-to-succeed items
-    const [userResource, patientWithFriendlyId] = await Promise.all([
-      createUserResourcesForPatient(oystehr, fhirPatient.id, verifiedFormattedPhoneNumber),
-      oystehr.fhir.generateFriendlyPatientId({ id: fhirPatient.id }).catch((error) => {
-        console.error(`Failed to generate friendly patient ID for Patient/${fhirPatient.id}:`, error);
-        return undefined;
-      }),
-    ]);
+    const {
+      relatedPerson,
+      person,
+      patient: patientWithFriendlyId,
+    } = await linkNewPatientToAccountHolder(oystehr, fhirPatient.id, verifiedFormattedPhoneNumber);
 
-    relatedPersonId = userResource?.relatedPerson?.id || '';
-    const person = userResource.person;
+    relatedPersonId = relatedPerson?.id || '';
 
     if (!person.id) {
       throw new Error('Person resource does not have an ID');
     }
 
     if (patientWithFriendlyId) {
-      patientToReturn = patientWithFriendlyId as Patient;
+      patientToReturn = patientWithFriendlyId;
     }
   }
 
@@ -883,31 +883,9 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
 
   const postAccountRequests: BatchInputPostRequest<Account>[] = [];
   if (createPatientRequest?.fullUrl) {
-    const accountResource: Account = {
-      resourceType: 'Account',
-      status: 'active',
-      type: { ...PATIENT_BILLING_ACCOUNT_TYPE },
-      subject: [{ reference: createPatientRequest.fullUrl }],
-    };
-
-    postAccountRequests.push({
-      method: 'POST',
-      url: '/Account',
-      resource: accountResource,
-    });
+    postAccountRequests.push(makePatientBillingAccountRequest(createPatientRequest.fullUrl));
   } else if (patient && currentPatientAccount === undefined) {
-    const accountResource: Account = {
-      resourceType: 'Account',
-      status: 'active',
-      type: { ...PATIENT_BILLING_ACCOUNT_TYPE },
-      subject: [{ reference: `Patient/${patient.id}` }],
-    };
-
-    postAccountRequests.push({
-      method: 'POST',
-      url: '/Account',
-      resource: accountResource,
-    });
+    postAccountRequests.push(makePatientBillingAccountRequest(`Patient/${patient.id}`));
   }
 
   const postAccidentConditionRequests: BatchInputPostRequest<Condition>[] = [];

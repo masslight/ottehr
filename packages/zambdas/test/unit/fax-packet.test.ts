@@ -1,5 +1,5 @@
 import Oystehr from '@oystehr/sdk';
-import { DocumentReference, ServiceRequest } from 'fhir/r4b';
+import { DocumentReference, List, ServiceRequest } from 'fhir/r4b';
 import { PDFDocument } from 'pdf-lib';
 import {
   FAX_DOCUMENT_ORDER,
@@ -20,6 +20,9 @@ const mockCreatePresignedUrl = vi.fn();
 const mockUploadObjectToZ3 = vi.fn();
 vi.mock('../../src/shared/z3Utils', () => ({
   createPresignedUrl: (...args: unknown[]) => mockCreatePresignedUrl(...args),
+}));
+vi.mock('utils/lib/helpers/presigned-file-url/helpers', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('utils/lib/helpers/presigned-file-url/helpers')>()),
   uploadObjectToZ3: (...args: unknown[]) => mockUploadObjectToZ3(...args),
 }));
 
@@ -36,12 +39,19 @@ vi.mock('../../src/shared/pdf/merge-pdfs', async (importOriginal) => {
   };
 });
 
+const mockMakeFaxPacketDocumentReference = vi.fn();
+vi.mock('../../src/shared/pdf/make-fax-packet-document-reference', () => ({
+  makeFaxPacketDocumentReference: (...args: unknown[]) => mockMakeFaxPacketDocumentReference(...args),
+}));
+
 import {
-  buildAndUploadPacketForRecipient,
   buildFaxPacketSection,
+  buildPacketForRecipient,
   createFaxPacketByteBudget,
   faxPacketLimitGuidance,
+  FaxPacketTooLargeError,
   interleaveFaxPacketSections,
+  uploadFaxPacket,
 } from '../../src/shared/fax/build-fax-packet';
 import { collectFaxParts, resolveFaxDocumentAvailability } from '../../src/shared/fax/collect-visit-documents';
 import { FullAppointmentResourcePackage } from '../../src/shared/pdf/visit-details-pdf/types';
@@ -471,25 +481,24 @@ describe('buildFaxPacketSection', () => {
     // The second visit draws down the same budget, so it is the one that reports the limit.
     await expect(buildFaxPacketSection(section('second'))).rejects.toThrow(/exceeds the 20 MB limit/);
   });
+
+  it('reports an exceeded budget as a too-large error', () => {
+    const budget = createFaxPacketByteBudget('document');
+
+    expect(() => budget.consume(FAX_PACKET_MAX_BYTES + 1)).toThrow(FaxPacketTooLargeError);
+  });
 });
 
-describe('buildAndUploadPacketForRecipient', () => {
+describe('buildPacketForRecipient', () => {
   const runWithBody = async (
     body: { bytes: Uint8Array; pageCount: number },
     sourceType: 'visits' | 'medical-record' = 'visits'
   ): Promise<unknown> =>
-    buildAndUploadPacketForRecipient({
-      oystehr,
-      token: 'token',
-      secrets: null,
+    buildPacketForRecipient({
       body: { sections: [{ ...body, subject, parts: [] }], pageCount: body.pageCount, parts: [] },
       recipient: { faxNumber: '+12125551234' },
       coverSheet,
-      patientId: 'patient-1',
-      appointmentId: APPOINTMENT_ID,
-      encounterId: ENCOUNTER_ID,
       sourceType,
-      listResources: [],
     });
 
   it('throws before uploading when the packet exceeds the page limit', async () => {
@@ -507,9 +516,63 @@ describe('buildAndUploadPacketForRecipient', () => {
     mergeOverride.bytes = new Uint8Array(FAX_PACKET_MAX_BYTES + 1);
     const bytes = await makePdfBytes(2);
 
-    await expect(runWithBody({ bytes, pageCount: 2 }, 'medical-record')).rejects.toThrow(
-      /exceeds the 20 MB limit\. Fax the needed documents individually instead\./
-    );
+    const failure = runWithBody({ bytes, pageCount: 2 }, 'medical-record');
+
+    await expect(failure).rejects.toBeInstanceOf(FaxPacketTooLargeError);
+    await expect(failure).rejects.toThrow(/exceeds the 20 MB limit\. Fax the needed documents individually instead\./);
+    expect(mockCreatePresignedUrl).not.toHaveBeenCalled();
     expect(mockUploadObjectToZ3).not.toHaveBeenCalled();
+  });
+});
+
+describe('uploadFaxPacket', () => {
+  const secrets = { PROJECT_ID: 'project-1', PROJECT_API: 'https://project.api' };
+  const listResources: List[] = [{ resourceType: 'List', status: 'current', mode: 'working' }];
+  const packet = { bytes: new Uint8Array([1, 2, 3]), pageCount: 7 };
+  const documentReference: DocumentReference = docRef({ id: 'fax-packet-docref' });
+
+  const upload = (): ReturnType<typeof uploadFaxPacket> =>
+    uploadFaxPacket({
+      oystehr,
+      token: 'token',
+      secrets,
+      packet,
+      patientId: 'patient-1',
+      appointmentId: APPOINTMENT_ID,
+      encounterId: ENCOUNTER_ID,
+      listResources,
+    });
+
+  beforeEach(() => {
+    mockCreatePresignedUrl.mockResolvedValue('https://z3.example/presigned-upload');
+    mockMakeFaxPacketDocumentReference.mockResolvedValue(documentReference);
+  });
+
+  it('uploads the packet to the patient faxes folder and files it as a DocumentReference', async () => {
+    const result = await upload();
+    const { pdfInfo } = result;
+
+    expect(pdfInfo.title).toMatch(/^FaxPacket-\d{4}-\d{2}-\d{2}-\d{6}-[0-9a-f-]{36}\.pdf$/);
+    expect(pdfInfo.uploadURL).toMatch(/^https:\/\/project\.api\/z3\/project-1-faxes\/patient-1\//);
+    expect(pdfInfo.uploadURL.endsWith(`-${pdfInfo.title}`)).toBe(true);
+    expect(mockCreatePresignedUrl).toHaveBeenCalledWith('token', pdfInfo.uploadURL, 'upload');
+    expect(mockUploadObjectToZ3).toHaveBeenCalledWith(packet.bytes, 'https://z3.example/presigned-upload');
+    expect(mockMakeFaxPacketDocumentReference).toHaveBeenCalledWith({
+      oystehr,
+      pdfInfo,
+      patientId: 'patient-1',
+      appointmentId: APPOINTMENT_ID,
+      encounterId: ENCOUNTER_ID,
+      listResources,
+    });
+    expect(result).toEqual({ pdfInfo, documentReference, pageCount: 7 });
+  });
+
+  it('stores every packet under its own file so a retry re-sends the original bytes', async () => {
+    const first = await upload();
+    const second = await upload();
+
+    expect(first.pdfInfo.title).not.toBe(second.pdfInfo.title);
+    expect(first.pdfInfo.uploadURL).not.toBe(second.pdfInfo.uploadURL);
   });
 });

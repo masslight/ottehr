@@ -1,6 +1,5 @@
 import { resourceHasTag } from 'utils/lib/fhir/helpers';
 import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
-import { ChargeItemDefinitionDefault } from 'utils/lib/types/data/billing/billing.types';
 import { getRuleFieldDef, getServiceLinePropertyDef } from 'utils/lib/types/data/billing/rules-engine.field-catalog';
 import {
   BillingRule,
@@ -20,7 +19,7 @@ import {
 } from 'utils/lib/types/data/billing/rules-engine.schemas';
 import { HOLD_TAG_NAME } from 'utils/lib/types/data/billing/system-tags';
 import { getChargeMasterPrice, selectBestChargeMaster } from '../charge-master.helpers';
-import { claimHasRealCoverage } from '../shared';
+import { getChargeItemDefinitionDefault, pruneUnreferencedOrderingProviders } from '../shared';
 import {
   ClaimServiceLine,
   readField,
@@ -385,7 +384,7 @@ const applyChargeMasterPricing = (
 
   const dateOfService = asScalar(readField(model, 'serviceDate'));
   if (!dateOfService) return undefined;
-  const kind: ChargeItemDefinitionDefault = claimHasRealCoverage(claim.insurance) ? 'insurance' : 'self-pay';
+  const kind = getChargeItemDefinitionDefault(claim);
   const chargeMaster = selectBestChargeMaster(model.chargeMasters ?? [], kind, dateOfService);
   if (!chargeMaster) return undefined;
 
@@ -415,7 +414,8 @@ const applyChargeMasterPricing = (
 };
 
 // Remove every line matching the predicate (all lines when the match is "all"). Survivors are
-// re-sequenced 1..n and the billed total is recomputed. Zero matching lines is a no-op.
+// re-sequenced 1..n, the billed total is recomputed, and contained ordering providers only the
+// removed lines referenced are dropped. Zero matching lines is a no-op.
 const applyServiceLineRemoval = (
   action: Extract<RuleAction, { type: 'removeServiceLines' }>,
   model: RulesEngineClaimModel
@@ -424,6 +424,7 @@ const applyServiceLineRemoval = (
   const remaining = lines.filter((line) => !serviceLineMatches(line, action.match));
   if (remaining.length === lines.length) return undefined;
   model.claim.item = remaining.length ? remaining.map((line, index) => ({ ...line, sequence: index + 1 })) : undefined;
+  pruneUnreferencedOrderingProviders(model.claim);
   recomputeClaimTotal(model.claim);
   return undefined;
 };

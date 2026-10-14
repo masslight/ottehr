@@ -8,7 +8,10 @@ import {
 } from 'utils/lib/helpers/paperwork/validation';
 import { qrSentManually } from 'utils/lib/helpers/practice-managed-questionnaires';
 import { PatchPaperworkParameters } from 'utils/lib/types/data/paperwork/paperwork.types';
-import { QUESTIONNAIRE_RESPONSE_INVALID_ERROR } from 'utils/lib/types/errors';
+import {
+  QUESTIONNAIRE_RESPONSE_INVALID_CUSTOM_ERROR,
+  QUESTIONNAIRE_RESPONSE_INVALID_ERROR,
+} from 'utils/lib/types/errors';
 import { ValidationError } from 'yup';
 import { z } from 'zod';
 import { ZambdaInput } from '../../shared/types/common';
@@ -93,6 +96,10 @@ const complexSubmitValidation = async (
   }
 
   const { items, fullQRResource } = qrAndQItems;
+
+  if (fullQRResource.status === 'entered-in-error') {
+    throw QUESTIONNAIRE_RESPONSE_INVALID_CUSTOM_ERROR('This form has been deleted and can no longer be submitted.');
+  }
 
   const currentAnswers = fullQRResource.item ?? [];
 
@@ -216,6 +223,10 @@ const complexPatchValidation = async (
   }
 
   const { items, fullQRResource } = qrAndQItems;
+
+  if (fullQRResource.status === 'entered-in-error') {
+    throw QUESTIONNAIRE_RESPONSE_INVALID_CUSTOM_ERROR('This form has been deleted and can no longer be updated.');
+  }
 
   console.log('validating updates for questionnaire response', questionnaireResponseId);
 
