@@ -67,11 +67,22 @@ vi.mock('../../src/features/visits/shared/stores/appointment/appointment.store',
 
 const { mockChartData, mockSearchCodes } = vi.hoisted(() => ({
   mockSearchCodes: { codes: [] as { code: string; display: string }[] },
-  mockChartData: {} as Pick<AllChartValues, 'diagnosis' | 'procedures'>,
+  mockChartData: { patientId: 'patient-1' } as Pick<AllChartValues, 'diagnosis' | 'procedures'> & { patientId: string },
 }));
 
 vi.mock('../../src/features/visits/shared/hooks/useChartData', () => ({
-  useChartData: () => ({ chartData: mockChartData, setPartialChartData: mockSetPartialChartData }),
+  useChartData: () => ({
+    chartData: mockChartData,
+    setPartialChartData: (data: Parameters<UseChartDataResult['setPartialChartData']>[0]) => {
+      mockSetPartialChartData(data);
+      Object.assign(mockChartData, data);
+    },
+    chartDataSetState: (updater: Parameters<UseChartDataResult['chartDataSetState']>[0]) => {
+      const next =
+        typeof updater === 'function' ? updater({ chartData: mockChartData, isChartDataLoading: false }) : updater;
+      if (next.chartData) Object.assign(mockChartData, next.chartData);
+    },
+  }),
 }));
 
 vi.mock('../../src/features/visits/shared/stores/appointment/appointment.queries', () => ({
@@ -152,6 +163,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { dataTestIds } from '../../src/constants/data-test-ids';
 import { OTHER } from '../../src/features/visits/in-person/pages/procedureOtherFields';
 import ProceduresNew from '../../src/features/visits/in-person/pages/ProceduresNew';
+import type { UseChartDataResult } from '../../src/features/visits/shared/hooks/useChartData';
 import { useProcedureStore } from '../../src/state/draft-data.store';
 
 const ENCOUNTER_ID = 'enc-procedure-test';
@@ -286,6 +298,30 @@ describe('ProceduresNew — draft store', () => {
 });
 
 describe('ProceduresNew — Other field fallback on save', () => {
+  it.each([
+    { testId: dataTestIds.documentProcedurePage.site, field: 'bodySite', textField: 'otherBodySite' },
+    {
+      testId: dataTestIds.documentProcedurePage.complications,
+      field: 'complications',
+      textField: 'otherComplications',
+    },
+  ])('preserves custom $field text when Other is selected again', async ({ testId, field, textField }) => {
+    const user = userEvent.setup();
+    useProcedureStore.getState().setDraft(ENCOUNTER_ID, {
+      procedureType: 'Test procedure',
+      [field]: OTHER,
+      [textField]: 'Custom answer',
+    });
+    renderComponent();
+    await user.click(screen.getByTestId(testId));
+    await user.click(screen.getByRole('option', { name: OTHER }));
+    await user.keyboard('{Escape}');
+    expect(screen.getByTestId(testId)).toHaveTextContent('Custom answer');
+    await user.click(screen.getByTestId(dataTestIds.documentProcedurePage.saveButton));
+    await waitFor(() => expect(mockSaveChartData).toHaveBeenCalledTimes(2));
+    expect(mockSaveChartData.mock.calls[1][0].procedures[0][field]).toBe('Custom answer');
+  });
+
   const saveDraftAndSubmit = async (draft: Record<string, unknown>): Promise<void> => {
     const user = userEvent.setup();
     useProcedureStore.getState().setDraft(ENCOUNTER_ID, { procedureType: 'Test procedure', ...draft });
@@ -480,6 +516,56 @@ describe('ProceduresNew — save validation and shared diagnoses', () => {
 });
 
 describe('procedure diagnosis search and cleanup', () => {
+  it.each([true, false])('removes only the clicked duplicate-code diagnosis (has IDs: %s)', async (hasIds) => {
+    const user = userEvent.setup();
+    const first = { code: 'J06.9', display: 'First URI', isPrimary: false, resourceId: hasIds ? 'first' : undefined };
+    const second = {
+      code: 'J06.9',
+      display: 'Second URI',
+      isPrimary: false,
+      resourceId: hasIds ? 'second' : undefined,
+    };
+    useProcedureStore.getState().setDraft(ENCOUNTER_ID, {
+      procedureType: 'Test procedure',
+      diagnoses: [first, second],
+    });
+    renderComponent();
+    await user.click(screen.getAllByRole('button', { name: 'Remove J06.9' })[1]);
+    expect(screen.getByTestId(dataTestIds.documentProcedurePage.diagnosis)).toHaveTextContent('First URI');
+    expect(screen.queryByText('Second URI J06.9')).not.toBeInTheDocument();
+    expect(useProcedureStore.getState().getDraft(ENCOUNTER_ID).diagnoses).toEqual([first]);
+  });
+
+  it.each([false, true])('merges reused Conditions into the latest chart by ID (cleanup: %s)', async (cleanup) => {
+    const user = userEvent.setup();
+    const previous = { code: 'OLD', display: 'Previous', isPrimary: false, resourceId: 'previous' };
+    const existing = { code: 'NEW', display: 'Old display', isPrimary: false, resourceId: 'reused' };
+    const saved = { ...existing, display: 'Updated display', isPrimary: true };
+    const concurrent = { code: 'NEW', display: 'Different Condition', isPrimary: false, resourceId: 'concurrent' };
+    const later = { code: 'LATER', display: 'Later diagnosis', isPrimary: false, resourceId: 'later' };
+    mockChartData.diagnosis = [previous];
+    useProcedureStore.getState().setDraft(ENCOUNTER_ID, {
+      procedureType: 'Test procedure',
+      diagnoses: [{ code: 'NEW', display: 'New diagnosis', isPrimary: false }],
+    });
+    mockSaveChartData
+      .mockImplementationOnce(async () => {
+        mockChartData.diagnosis = [previous, existing, concurrent];
+        return { chartData: { diagnosis: [saved] } };
+      })
+      .mockImplementationOnce(async () => {
+        mockChartData.diagnosis = [...(mockChartData.diagnosis ?? []), later];
+        return {
+          chartData: { procedures: [{ resourceId: 'procedure' }] },
+          deletedDiagnosisIds: cleanup ? ['previous'] : [],
+        };
+      });
+    renderComponent();
+    await user.click(screen.getByTestId(dataTestIds.documentProcedurePage.saveButton));
+    await waitFor(() => expect(mockSaveChartData).toHaveBeenCalledTimes(2));
+    expect(mockChartData.diagnosis).toEqual([...(cleanup ? [] : [previous]), saved, concurrent, later]);
+  });
+
   it('reuses a code-only diagnosis from a restored draft if that code is already charted', async () => {
     const user = userEvent.setup();
     mockChartData.diagnosis = [{ code: 'J06.9', display: 'URI', resourceId: 'charted', isPrimary: false }];
@@ -562,9 +648,7 @@ describe('procedure diagnosis search and cleanup', () => {
     await user.click(screen.getByTestId(dataTestIds.documentProcedurePage.saveButton));
     await waitFor(() => expect(mockSaveChartData).toHaveBeenCalledTimes(2));
     expect(mockSaveChartData.mock.calls[0][0].diagnosis[0]).toMatchObject({ code: 'J06.9', addedViaProcedure: true });
-    expect(mockSetPartialChartData).toHaveBeenCalledWith({
-      diagnosis: [expect.objectContaining({ resourceId: 'new' })],
-    });
+    expect(mockChartData.diagnosis).toEqual([expect.objectContaining({ resourceId: 'new' })]);
     expect(mockDeleteChartData).not.toHaveBeenCalled();
   });
 });

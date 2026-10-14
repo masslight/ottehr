@@ -365,7 +365,7 @@ export const SelectBlank: FC<SelectBlankProps> = ({
               onChange={(event) => setFilter(event.target.value)}
               onKeyDown={(event) => {
                 if (event.key === 'Enter' && shown[0]) {
-                  onChange(shown[0].value);
+                  if (shown[0].value !== value) onChange(shown[0].value);
                   if (shown[0].value !== OTHER || !onOtherChange) close();
                 }
               }}
@@ -380,7 +380,7 @@ export const SelectBlank: FC<SelectBlankProps> = ({
                 selected={option.value === value}
                 aria-selected={option.value === value}
                 onClick={() => {
-                  onChange(option.value);
+                  if (option.value !== value) onChange(option.value);
                   if (option.value !== OTHER || !onOtherChange) close();
                 }}
               >

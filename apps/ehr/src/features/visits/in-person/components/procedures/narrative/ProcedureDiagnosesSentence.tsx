@@ -28,7 +28,7 @@ export const ProcedureDiagnosesSentence: FC<Props> = ({ diagnoses, visitDiagnose
     <Sentence>
       Diagnosis:{' '}
       {diagnoses.map((diagnosis, index) => (
-        <Fragment key={diagnosis.resourceId ?? diagnosis.code}>
+        <Fragment key={diagnosis.resourceId ?? `${diagnosis.code}-${index}`}>
           {index > 0 && '; '}
           <Box component="span" data-testid={dataTestIds.documentProcedurePage.diagnosisItem}>
             <Box
@@ -43,7 +43,7 @@ export const ProcedureDiagnosesSentence: FC<Props> = ({ diagnoses, visitDiagnose
                 size="small"
                 aria-label={`Remove ${diagnosis.code}`}
                 data-testid={dataTestIds.documentProcedurePage.diagnosisDeleteButton}
-                onClick={() => onChange(diagnoses.filter((item) => item.code !== diagnosis.code))}
+                onClick={() => onChange(diagnoses.filter((_, itemIndex) => itemIndex !== index))}
                 sx={{ p: '2px', ml: '2px' }}
               >
                 <Close sx={{ fontSize: 16 }} />

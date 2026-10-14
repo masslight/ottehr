@@ -28,7 +28,7 @@ import { detectProcedureFamily } from 'utils/lib/procedure-coding/evaluate';
 import { lacerationFamily } from 'utils/lib/procedure-coding/families/laceration';
 import { resolveFamilyFacts } from 'utils/lib/procedure-coding/family-support';
 import { CodeOutcomeKind } from 'utils/lib/procedure-coding/model.types';
-import { CPTCodeDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { CPTCodeDTO, DiagnosisDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { ProcedureQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import { RoleType } from 'utils/lib/types/api/user.types';
 import { PageTitle } from '../../shared/components/PageTitle';
@@ -122,7 +122,7 @@ export default function ProceduresNew({
   const currentUser = useEvolveUser();
   const isAdmin = currentUser?.hasRole([RoleType.Administrator, RoleType.CustomerSupport]) ?? false;
   const { data: selectOptions, isLoading: isSelectOptionsLoading } = useProcedureSelectOptions(oystehr);
-  const { chartData, setPartialChartData } = useChartData();
+  const { chartData, setPartialChartData, chartDataSetState } = useChartData();
   const appointmentAccessibility = useGetAppointmentAccessibility();
   const queryClient = useQueryClient();
 
@@ -361,11 +361,28 @@ export default function ProceduresNew({
       }
 
       const savedDiagnoses = saveCptAndDiagnosesResponse.chartData?.diagnosis;
+      const updateChartDiagnoses = (deletedIds: readonly string[] = []): void => {
+        const deleted = new Set(deletedIds);
+        chartDataSetState(({ chartData }) => {
+          if (!chartData) return {};
+          const diagnosis: DiagnosisDTO[] = [];
+          const indices = new Map<string, number>();
+          for (const entry of [...(chartData?.diagnosis ?? []), ...(savedDiagnoses ?? [])]) {
+            if (entry.resourceId && deleted.has(entry.resourceId)) continue;
+            const index = entry.resourceId ? indices.get(entry.resourceId) : undefined;
+            if (index === undefined) {
+              if (entry.resourceId) indices.set(entry.resourceId, diagnosis.length);
+              diagnosis.push(entry);
+            } else {
+              diagnosis[index] = entry;
+            }
+          }
+          return { chartData: { ...chartData, diagnosis } };
+        });
+      };
 
       if (savedDiagnoses) {
-        setPartialChartData({
-          diagnosis: [...chartDiagnoses, ...savedDiagnoses],
-        });
+        updateChartDiagnoses();
       }
 
       const savedCptCodeIds = new Set(savedCptCodes?.flatMap((code) => (code.resourceId ? [code.resourceId] : [])));
@@ -420,12 +437,7 @@ export default function ProceduresNew({
       });
 
       if (saveProcedureResponse.deletedDiagnosisIds?.length) {
-        const deleted = new Set(saveProcedureResponse.deletedDiagnosisIds);
-        setPartialChartData({
-          diagnosis: [...chartDiagnoses, ...(savedDiagnoses ?? [])].filter(
-            (diagnosis) => !deleted.has(diagnosis.resourceId ?? '')
-          ),
-        });
+        updateChartDiagnoses(saveProcedureResponse.deletedDiagnosisIds);
       }
 
       const oldProcedure = chartData?.procedures?.find((procedure) => procedure.resourceId === procedureId);

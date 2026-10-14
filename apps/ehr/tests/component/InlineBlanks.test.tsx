@@ -31,6 +31,31 @@ function Select({ readOnly = false, initial }: { readOnly?: boolean; initial?: s
 }
 
 describe('inline blanks', () => {
+  it.each(['click', 'Enter'])('does not change an already-selected Other option via %s', async (action) => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(
+      <SelectBlank
+        label="site"
+        options={['Other', 'Hand', 'Foot', 'Arm', 'Leg', 'Head', 'Neck', 'Chest', 'Back']}
+        value="Other"
+        onChange={onChange}
+        otherValue="Left elbow"
+        onOtherChange={vi.fn()}
+        readOnly={false}
+        dataTestId="site"
+      />
+    );
+    await user.click(screen.getByTestId('site'));
+    if (action === 'Enter') {
+      await user.type(screen.getByRole('textbox', { name: 'Filter site' }), 'Other{Enter}');
+    } else {
+      await user.click(screen.getByRole('option', { name: 'Other' }));
+    }
+    expect(onChange).not.toHaveBeenCalled();
+    expect(screen.getByRole('textbox', { name: 'Other site' })).toHaveValue('Left elbow');
+  });
+
   it('opens a list on click, picks a value, and clears it again', async () => {
     const user = userEvent.setup();
     render(<Select />);
