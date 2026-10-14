@@ -25,11 +25,13 @@ import {
   dateWindows,
   DAY_MS,
   dedupeResources,
-  fetchScopedResources,
+  halveList,
   halveWindow,
+  isSearchTooHeavyError,
   REPORT_WINDOW_CONCURRENCY,
   searchAsyncBulk,
   searchSplittingOnCap,
+  SplitRetryOptions,
 } from './adhoc-report';
 import { fetchAllPages } from './fhir';
 
@@ -116,12 +118,21 @@ async function runStep(
     return resolved;
   };
   const params = resolveParams();
+  const dated = dateRange !== undefined && stepIsDateBounded(step);
+  const halveDated = (w: DateRange | undefined): [DateRange, DateRange] | undefined =>
+    dated ? halveWindow(w!) : undefined;
+  // A window (or an id batch) the server cannot finish is halved and retried, a few times; one day (one id) is the floor.
+  const splitOptions = (floor: string | undefined): SplitRetryOptions => ({
+    splitOn: isSearchTooHeavyError,
+    label: step.resourceType,
+    floor,
+  });
+  const windowSplit = splitOptions(dated ? 'a single day' : undefined);
   // Bulk jobs over the run's date range: as many windows as the density hint of an earlier run calls for (one
   // without it), each halved whenever its job fills the async-bulk cap. A step whose params do not bound both ends
   // of the range runs as one job that cannot be halved.
   let bulkJobs = 0;
   const searchBulk = async (): Promise<FhirResource[]> => {
-    const dated = dateRange && stepIsDateBounded(step);
     const rangeMs = dated ? Date.parse(dateRange.end) - Date.parse(dateRange.start) : 0;
     const windows = dated
       ? dateWindows(dateRange, Math.ceil(rangeMs / bulkWindowCount(hint?.recordsPerDay, rangeMs / DAY_MS)))
@@ -135,7 +146,7 @@ async function runStep(
       const group = await Promise.all(
         windows
           .slice(i, i + REPORT_WINDOW_CONCURRENCY)
-          .map((window) => searchSplittingOnCap(window, searchWindow, (w) => (dated ? halveWindow(w!) : undefined)))
+          .map((window) => searchSplittingOnCap(window, searchWindow, halveDated, windowSplit))
       );
       for (const resources of group) out.push(...resources);
     }
@@ -173,7 +184,7 @@ async function runStep(
       const source = resourcesByStep.get(step.from.step) ?? [];
       const values = scopedStepValues(source, step.from);
       if (values.length === 0) return finish([], { mode: 'normal', requests: 0, scopedValues: 0 });
-      const [scoped, partial] = await runScoped(oystehr, step, params, values, hint);
+      const [scoped, partial] = await runScoped(oystehr, step, params, values, splitOptions('a single id'), hint);
       return finish(scoped, { ...partial, scopedValues: values.length });
     }
 
@@ -183,17 +194,25 @@ async function runStep(
     }
 
     const cap = step.mode === 'normal' ? FETCH_PLAN_LIMITS.maxResourcesPerStep : FETCH_PLAN_LIMITS.autoBulkThreshold;
-    const paged = await searchPaged(oystehr, step.resourceType, params, cap);
-    if (paged.hitCap) {
+    let pages = 0;
+    let hitCap = false;
+    const searchWindow = async (window: DateRange | undefined): Promise<FhirResource[]> => {
+      const paged = await searchPaged(oystehr, step.resourceType, resolveParams(window), cap);
+      pages += paged.requests;
+      hitCap ||= paged.hitCap;
+      return paged.resources;
+    };
+    const resources = await searchSplittingOnCap(dateRange, searchWindow, halveDated, windowSplit);
+    if (hitCap) {
       if (step.mode === 'normal') {
         throw new Error(
           `more than ${cap} resources; narrow the search or set mode "bulk" (the paged search stopped at the cap)`
         );
       }
       // auto: the paged attempt counts toward the timing — that is the real cost of not knowing the volume.
-      return finish(await searchBulk(), { mode: 'bulk', requests: paged.requests + bulkJobs });
+      return finish(await searchBulk(), { mode: 'bulk', requests: pages + bulkJobs });
     }
-    return finish(paged.resources, { mode: 'normal', requests: paged.requests });
+    return finish(resources, { mode: 'normal', requests: pages });
   } catch (error) {
     captureException(error, { extra: { stepId: step.id, resourceType: step.resourceType, params } });
     const message = error instanceof Error ? error.message : String(error);
@@ -237,51 +256,52 @@ async function searchPaged(
   return { resources, requests, hitCap: lastHadNext && resources.length >= maxItems };
 }
 
+// Batches of ids, paged or as bulk jobs; a batch that fills the bulk cap or that the server cannot finish is
+// halved (halveList) and retried, so `requests` counts what actually ran.
 async function runScoped(
   oystehr: Oystehr,
   step: FetchStep,
   params: FetchStepParam[],
   values: string[],
+  splitOptions: SplitRetryOptions,
   hint?: FetchStepDensity
 ): Promise<[FhirResource[], Pick<FetchStepStats, 'mode' | 'requests'>]> {
   const paramName = step.from!.param;
+  const bulk = step.mode === 'bulk' || values.length > FETCH_PLAN_LIMITS.scopedBulkThreshold;
+  const batchSize = bulk ? scopedBulkBatchSize(hint?.recordsPerId) : FETCH_PLAN_LIMITS.scopedBatchSize;
   const batches: string[][] = [];
-  for (let i = 0; i < values.length; i += FETCH_PLAN_LIMITS.scopedBatchSize) {
-    batches.push(values.slice(i, i + FETCH_PLAN_LIMITS.scopedBatchSize));
+  for (let i = 0; i < values.length; i += batchSize) batches.push(values.slice(i, i + batchSize));
+  const batchParams = (batch: string[]): FetchStepParam[] => [{ name: paramName, value: batch.join(',') }, ...params];
+
+  let requests = 0;
+  if (bulk) {
+    await probeSearch(oystehr, step.resourceType, batchParams(batches[0]));
+    requests += 1;
   }
-  if (step.mode === 'bulk' || values.length > FETCH_PLAN_LIMITS.scopedBulkThreshold) {
-    await probeSearch(oystehr, step.resourceType, [{ name: paramName, value: batches[0].join(',') }, ...params]);
-    const batchSize = scopedBulkBatchSize(hint?.recordsPerId);
-    const resources = await fetchScopedResources<FhirResource>(
+  const searchBatch = async (batch: string[]): Promise<FhirResource[]> => {
+    if (bulk) {
+      requests += 1;
+      return searchAsyncBulk(oystehr, step.resourceType as FhirResource['resourceType'], batchParams(batch));
+    }
+    const paged = await searchPaged(
       oystehr,
-      step.resourceType as FhirResource['resourceType'],
-      paramName,
-      values,
-      params,
-      batchSize
+      step.resourceType,
+      batchParams(batch),
+      FETCH_PLAN_LIMITS.maxResourcesPerStep
     );
-    return [resources, { mode: 'bulk', requests: Math.ceil(values.length / batchSize) + 1 }];
-  }
+    requests += paged.requests;
+    return paged.resources;
+  };
 
   const resources: FhirResource[] = [];
-  let requests = 0;
-  for (let i = 0; i < batches.length; i += FETCH_PLAN_LIMITS.scopedBatchConcurrency) {
+  const concurrency = bulk ? REPORT_WINDOW_CONCURRENCY : FETCH_PLAN_LIMITS.scopedBatchConcurrency;
+  for (let i = 0; i < batches.length; i += concurrency) {
     const group = await Promise.all(
       batches
-        .slice(i, i + FETCH_PLAN_LIMITS.scopedBatchConcurrency)
-        .map((batch) =>
-          searchPaged(
-            oystehr,
-            step.resourceType,
-            [{ name: paramName, value: batch.join(',') }, ...params],
-            FETCH_PLAN_LIMITS.maxResourcesPerStep
-          )
-        )
+        .slice(i, i + concurrency)
+        .map((batch) => searchSplittingOnCap(batch, searchBatch, halveList, splitOptions))
     );
-    for (const page of group) {
-      resources.push(...page.resources);
-      requests += page.requests;
-    }
+    for (const list of group) resources.push(...list);
   }
-  return [resources, { mode: 'normal', requests }];
+  return [resources, { mode: bulk ? 'bulk' : 'normal', requests }];
 }

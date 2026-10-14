@@ -18,6 +18,7 @@ import { getEncounterVisitType } from 'utils/lib/fhir/encounter';
 import { isInPersonAppointment, isTelemedAppointment, OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
 import { getAddressForIndividual, getFirstName, getLastName, getMiddleName } from 'utils/lib/fhir/patient';
 import { getAdmitterPractitionerId, getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
+import { isResponseSizeExceededError } from 'utils/lib/fhir/responseSize';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { DateRange } from 'utils/lib/types/adhoc/query/date-range';
 import { getInPersonVisitStatus } from 'utils/lib/utils/visitUtils';
@@ -197,31 +198,78 @@ export async function searchAsyncBulk<T extends FhirResource>(
 
     captureException(error, { extra: { resourceType, jobId, params } });
 
-    throw new Error(
-      `Could not load ${resourceType} for the report (job ${jobId || 'not started'}): ${
-        error instanceof Error ? error.message : String(error)
-      }`
+    // The server's code rides along so a caller can tell a search too heavy for the server from a bad one.
+    throw Object.assign(
+      new Error(
+        `Could not load ${resourceType} for the report (job ${jobId || 'not started'}): ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      ),
+      { code: (error as { code?: unknown })?.code }
     );
   }
 }
 
 /**
+ * A search the server could not finish: cut off at 14 s (HTTP 504) or answering more than 6 MiB (HTTP 413, code
+ * 4130). The SDK puts the body's code, else the HTTP status, on the error's `code`.
+ */
+export const isSearchTooHeavyError = (error: unknown): boolean => {
+  const code = Number((error as { code?: unknown })?.code);
+  return code === 504 || code === 413 || isResponseSizeExceededError(error);
+};
+
+/** The most times a unit is halved after a too-heavy failure (the bulk cap keeps its own floor: one day, one id). */
+export const MAX_ERROR_SPLITS = 3;
+
+export interface SplitRetryOptions {
+  /** Besides the bulk cap, split the unit on these errors too (isSearchTooHeavyError), at most MAX_ERROR_SPLITS times. */
+  splitOn?: (error: unknown) => boolean;
+  /** For the failure message: the resource type, and the smallest unit the search can be cut to ("a single day", "a single id"). */
+  label?: string;
+  floor?: string;
+}
+
+/**
  * Runs `search` for one unit of work (a date window, a batch of ids). A job that fills the bulk cap may have
  * dropped matches, so its result is discarded and both halves are searched instead — down to a unit `split`
- * cannot halve (one day, one id), which fails rather than hand back a partial result.
+ * cannot halve (one day, one id), which fails rather than hand back a partial result. A failure `splitOn`
+ * accepts is halved the same way, a bounded number of times.
  */
 export async function searchSplittingOnCap<U, T extends FhirResource>(
   unit: U,
   search: (unit: U) => Promise<T[]>,
-  split: (unit: U) => [U, U] | undefined
+  split: (unit: U) => [U, U] | undefined,
+  options: SplitRetryOptions = {},
+  errorSplits = 0
 ): Promise<T[]> {
   try {
     return await search(unit);
   } catch (error) {
-    if (!(error instanceof AsyncBulkCapError)) throw error;
+    const onCap = error instanceof AsyncBulkCapError;
+    if (!onCap && !options.splitOn?.(error)) throw error;
+    const reason = error instanceof Error ? error.message : String(error);
     const halves = split(unit);
-    if (!halves) throw new Error(`${error.message}; the search cannot be split any further`);
-    const [a, b] = await Promise.all(halves.map((half) => searchSplittingOnCap(half, search, split)));
+    if (onCap) {
+      if (!halves) throw new Error(`${reason}; the search cannot be split any further`);
+    } else {
+      const what = options.label ?? 'the search';
+      const advice = 'the search is probably too broad — check its filters and _include';
+      if (!halves) {
+        throw new Error(
+          options.floor
+            ? `${options.floor} of ${what} still fails (${reason}); ${advice}`
+            : `${what} still fails and cannot be split (${reason}); ${advice}`
+        );
+      }
+      if (errorSplits >= MAX_ERROR_SPLITS) {
+        throw new Error(`${what} still fails after splitting ${errorSplits} times (${reason}); ${advice}`);
+      }
+      errorSplits += 1;
+    }
+    const [a, b] = await Promise.all(
+      halves.map((half) => searchSplittingOnCap(half, search, split, options, errorSplits))
+    );
     return dedupeResources([...a, ...b]);
   }
 }
