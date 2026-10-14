@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  appendToPreliminaryRead,
   assemblePreliminaryRead,
   buildPreliminaryReadSuggestions,
   findConflictingValue,
@@ -12,7 +13,6 @@ import {
 import { PRELIMINARY_READ_TEMPLATES } from './preliminaryReadTemplates';
 
 const PEDIATRIC_TYPES = ['buckle (torus)', 'greenstick', 'Salter-Harris I', 'Salter-Harris II'];
-const LOCATION_TITLES = ['Side', 'Bone', 'Site', 'Rib', 'Level', 'Location', 'Ray', 'Phalanx', 'Finger', 'Toe'];
 
 const blanks = (segments: PreliminaryReadSegment[]): PreliminaryReadBlank[] =>
   segments.filter((segment): segment is PreliminaryReadBlank => typeof segment !== 'string');
@@ -80,18 +80,22 @@ describe('preliminary read templates config', () => {
     }
   });
 
-  it('only names real options in conflicts, so a typo cannot silently disable a rule', () => {
+  it('only names real options in conflicts and emptyWhen, so a renamed option cannot silently disable a rule', () => {
     const options = new Set(Object.values(PRELIMINARY_READ_TEMPLATES.choices).flatMap((list) => list.options));
     for (const pair of PRELIMINARY_READ_TEMPLATES.conflicts) {
       for (const value of pair) expect(options, value).toContain(value);
+    }
+    for (const list of Object.values(PRELIMINARY_READ_TEMPLATES.choices)) {
+      for (const value of list.emptyWhen ?? []) expect(options, `${list.title}: ${value}`).toContain(value);
+      if (list.emptyWhen) expect(list.options, list.title).toContain('');
     }
   });
 
   it('never starts a sentence on two values that conflict', () => {
     for (const { label, segments } of allSuggestions()) {
-      const defaults = segments.map((segment) => (typeof segment === 'string' ? undefined : segment.initial));
-      defaults.forEach((value, i) => {
-        if (value !== undefined) expect(findConflictingValue(defaults, i, value), label).toBeUndefined();
+      const resolved = resolvePreliminaryReadValues(segments, []);
+      resolved.forEach((value, i) => {
+        if (value !== undefined) expect(findConflictingValue(resolved, i, value), label).toBeUndefined();
       });
     }
   });
@@ -130,7 +134,7 @@ describe('buildPreliminaryReadSuggestions', () => {
       const side = blanks(unfixed.segments).find((b) => b.title === 'Side');
       expect(side).toEqual({ title: 'Side', options: ['left', 'right'], initial: undefined });
       expect(findUnpickedBlank(unfixed.segments, [])).toBe(side);
-      const values = valuesFor(unfixed.segments, { Side: 'right', Bone: 'distal fibula (lateral malleolus)' });
+      const values = valuesFor(unfixed.segments, { Side: 'right' });
       expect(findUnpickedBlank(unfixed.segments, values)).toBeUndefined();
       expect(assemblePreliminaryRead(unfixed.segments, values)).toBe(
         'Nondisplaced fracture of the right distal fibula (lateral malleolus). Ankle mortise intact.'
@@ -138,10 +142,10 @@ describe('buildPreliminaryReadSuggestions', () => {
     }
   });
 
-  it('makes every blank that says where the finding is a must-pick, and nothing else', () => {
+  it('pre-fills every blank except a side the order does not fix', () => {
     for (const { label, segments } of allSuggestions()) {
       for (const blank of blanks(segments)) {
-        expect(blank.initial === undefined, `${label} / ${blank.title}`).toBe(LOCATION_TITLES.includes(blank.title));
+        expect(blank.initial === undefined, `${label} / ${blank.title}`).toBe(blank.title === 'Side');
       }
     }
 
@@ -164,26 +168,48 @@ describe('buildPreliminaryReadSuggestions', () => {
       Bone: 'distal radius',
     });
     expect(assemblePreliminaryRead(fracture.segments, values)).toBe(
-      'Displaced comminuted fracture of the right distal radius.'
+      'Displaced comminuted fracture of the right distal radius. Mild dorsal angulation.'
     );
   });
 
-  it('drops child-only blanks for adults; for children the growth-plate lines are offered but start empty', () => {
+  it('leaves the pre-filled displacement empty while a fracture type is set', () => {
+    const sentence = (isChild: boolean, picks: Record<string, string>): string => {
+      const [, fracture] = buildPreliminaryReadSuggestions({ cptCode: '73100', laterality: 'RT', isChild });
+      return assemblePreliminaryRead(fracture.segments, valuesFor(fracture.segments, picks));
+    };
+    expect(sentence(false, {})).toBe(
+      'Nondisplaced fracture of the right distal radius. No dislocation. Alignment maintained.'
+    );
+    expect(sentence(false, { 'Fracture type': 'avulsion' })).toBe(
+      'Avulsion fracture of the right distal radius. No dislocation. Alignment maintained.'
+    );
+    expect(sentence(true, {})).toBe(
+      'Buckle (torus) fracture of the right distal radius. Growth plate not involved. No dislocation. Alignment maintained.'
+    );
+    // A displacement the provider picks stays, together with the type.
+    expect(sentence(false, { Displacement: 'Nondisplaced', 'Fracture type': 'comminuted' })).toBe(
+      'Nondisplaced comminuted fracture of the right distal radius. No dislocation. Alignment maintained.'
+    );
+  });
+
+  it('drops child-only blanks for adults and pre-fills the growth-plate lines for children', () => {
     const adult = buildPreliminaryReadSuggestions({ cptCode: '73100', laterality: 'RT', isChild: false });
     expect(blanks(adult[0].segments).map((b) => b.title)).toEqual(['Opening', 'Incidental finding']);
     expect(blanks(adult[1].segments).map((b) => [b.title, b.initial])).toEqual([
       ['Displacement', 'Nondisplaced'],
       ['Fracture type', ''],
-      ['Bone', undefined],
+      ['Bone', 'distal radius'],
       ['Closing line', 'No dislocation. Alignment maintained.'],
     ]);
 
     const child = buildPreliminaryReadSuggestions({ cptCode: '73100', laterality: 'RT', isChild: true });
     const physes = blanks(child[0].segments).find((b) => b.title === 'Growth plates (children only)');
-    expect(physes?.initial).toBe('');
+    expect(physes?.initial).toBe('Growth plates appear normal.');
     const fracture = blanks(child[1].segments);
     expect(fracture.find((b) => b.title === 'Fracture type')?.initial).toBe('buckle (torus)');
-    expect(fracture.find((b) => b.title === 'Growth plate (children only)')?.initial).toBe('');
+    expect(fracture.find((b) => b.title === 'Growth plate (children only)')?.initial).toBe(
+      'Growth plate not involved.'
+    );
   });
 
   it('offers the pediatric fracture types to children only, and only for growing tubular bones', () => {
@@ -294,39 +320,43 @@ describe('resolvePreliminaryReadValues', () => {
     return assemblePreliminaryRead(segments, valuesFor(segments, picks));
   };
 
-  it('drops the default "Alignment maintained" closing line for a displaced or angulated fracture, without adding another claim', () => {
-    expect(sentence('73100', 1, false, { Bone: 'distal radius' })).toBe(
+  it('moves the default closing line off "Alignment maintained" to the next option in list order for a displaced or angulated fracture', () => {
+    expect(sentence('73100', 1, false, {})).toBe(
       'Nondisplaced fracture of the left distal radius. No dislocation. Alignment maintained.'
     );
-    expect(sentence('73100', 1, false, { Displacement: 'Displaced', Bone: 'distal radius' })).toBe(
-      'Displaced fracture of the left distal radius.'
+    expect(sentence('73560', 1, false, { Displacement: 'Displaced' })).toBe(
+      'Displaced fracture of the left patella. No dislocation.'
     );
-    expect(sentence('73560', 1, false, { Displacement: 'Angulated', Bone: 'patella' })).toBe(
-      'Angulated fracture of the left patella.'
+    expect(sentence('73560', 1, false, { Displacement: 'Angulated' })).toBe(
+      'Angulated fracture of the left patella. No dislocation.'
+    );
+    // The wrist and forearm list has "Mild dorsal angulation." second.
+    expect(sentence('73100', 1, false, { Displacement: 'Displaced' })).toBe(
+      'Displaced fracture of the left distal radius. Mild dorsal angulation.'
     );
   });
 
   it('drops a default buckle type when the fracture is displaced', () => {
-    expect(sentence('73100', 1, true, { Displacement: 'Displaced', Bone: 'distal radius' })).toBe(
-      'Displaced fracture of the left distal radius.'
+    expect(sentence('73100', 1, true, { Displacement: 'Displaced' })).toBe(
+      'Displaced fracture of the left distal radius. Growth plate not involved. Mild dorsal angulation.'
     );
   });
 
   it('drops a default child fracture type on a bone that is not a growing tubular bone', () => {
-    expect(sentence('73100', 1, true, { Bone: 'distal radius' })).toBe(
-      'Nondisplaced buckle (torus) fracture of the left distal radius. No dislocation. Alignment maintained.'
+    expect(sentence('73100', 1, true, {})).toBe(
+      'Buckle (torus) fracture of the left distal radius. Growth plate not involved. No dislocation. Alignment maintained.'
     );
     expect(sentence('73100', 1, true, { Bone: 'scaphoid' })).toBe(
-      'Nondisplaced fracture of the left scaphoid. No dislocation. Alignment maintained.'
+      'Nondisplaced fracture of the left scaphoid. Growth plate not involved. No dislocation. Alignment maintained.'
     );
     expect(sentence('73610', 1, true, { Bone: 'base of the 5th metatarsal' })).toBe(
-      'Nondisplaced fracture of the left base of the 5th metatarsal. Ankle mortise intact.'
+      'Nondisplaced fracture of the left base of the 5th metatarsal. Growth plate not involved. Ankle mortise intact.'
     );
   });
 
-  it('drops a default Salter-Harris type when the provider states the growth plate is not involved', () => {
+  it('leaves the growth-plate line empty next to a Salter-Harris fracture, and drops a default Salter-Harris type when the provider states the growth plate is not involved', () => {
     expect(sentence('73610', 1, true, { Bone: 'distal tibia' })).toBe(
-      'Nondisplaced Salter-Harris I fracture of the left distal tibia. Ankle mortise intact.'
+      'Salter-Harris I fracture of the left distal tibia. Ankle mortise intact.'
     );
     expect(
       sentence('73610', 1, true, { Bone: 'distal tibia', 'Growth plate (children only)': 'Growth plate not involved.' })
@@ -430,7 +460,24 @@ describe('assemblePreliminaryRead', () => {
     const [, fracture] = buildPreliminaryReadSuggestions({ cptCode: '73610', laterality: 'RT', isChild: true });
     const values = valuesFor(fracture.segments, { Bone: 'medial malleolus', 'Closing line': '' });
     expect(assemblePreliminaryRead(fracture.segments, values)).toBe(
-      'Nondisplaced Salter-Harris I fracture of the right medial malleolus.'
+      'Salter-Harris I fracture of the right medial malleolus.'
     );
+  });
+});
+
+describe('appendToPreliminaryRead', () => {
+  const sentence = 'No acute fracture or dislocation.';
+
+  it('puts the sentence alone into an empty or blank field', () => {
+    expect(appendToPreliminaryRead(undefined, sentence)).toBe(sentence);
+    expect(appendToPreliminaryRead('', sentence)).toBe(sentence);
+    expect(appendToPreliminaryRead('  \n ', sentence)).toBe(sentence);
+  });
+
+  it("adds the sentence on a new line and keeps the provider's text exactly as typed", () => {
+    expect(appendToPreliminaryRead('Limited study.', sentence)).toBe(`Limited study.\n${sentence}`);
+    expect(appendToPreliminaryRead('  Limited study.', sentence)).toBe(`  Limited study.\n${sentence}`);
+    expect(appendToPreliminaryRead('Limited study.\n', sentence)).toBe(`Limited study.\n${sentence}`);
+    expect(appendToPreliminaryRead('Limited study.\n\n', sentence)).toBe(`Limited study.\n\n${sentence}`);
   });
 });

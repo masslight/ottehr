@@ -7,6 +7,7 @@ const PEDIATRIC_FRACTURE_TYPES = [BUCKLE, 'greenstick', ...SALTER_HARRIS];
 const NOT_TUBULAR_BONES = ['scaphoid', 'patella', 'scapular body', 'base of the 5th metatarsal'];
 const ALIGNMENT_MAINTAINED = 'No dislocation. Alignment maintained.';
 const ADULT_FRACTURE_TYPES = [NONE, 'comminuted', 'avulsion'];
+const FRACTURE_TYPES_SET = [...ADULT_FRACTURE_TYPES.filter(Boolean), ...PEDIATRIC_FRACTURE_TYPES];
 
 const FX_TYPE_TUBULAR: PreliminaryReadChoiceList = {
   title: 'Fracture type',
@@ -31,20 +32,20 @@ export const PRELIMINARY_READ_TEMPLATES: PreliminaryReadTemplatesConfig = {
         'Radiopaque foreign body in the soft tissues at the site of concern.',
       ],
     },
-    // Off by default: a statement about the growth plates is the provider's to make, not the template's.
     physes: {
       title: 'Growth plates (children only)',
       childOnly: true,
-      options: [NONE, 'Growth plates appear normal.'],
+      options: ['Growth plates appear normal.', NONE],
     },
     growthPlate: {
       title: 'Growth plate (children only)',
       childOnly: true,
-      options: [NONE, GROWTH_PLATE_NOT_INVOLVED, GROWTH_PLATE_EXTENDS],
+      options: [GROWTH_PLATE_NOT_INVOLVED, GROWTH_PLATE_EXTENDS, NONE],
     },
     fxDisplacement: {
       title: 'Displacement',
-      options: ['Nondisplaced', 'Minimally displaced', 'Displaced', 'Angulated'],
+      options: ['Nondisplaced', 'Minimally displaced', 'Displaced', 'Angulated', NONE],
+      emptyWhen: FRACTURE_TYPES_SET,
     },
     fxType: { title: 'Fracture type', options: ADULT_FRACTURE_TYPES },
     fxTypeTubular: FX_TYPE_TUBULAR,
@@ -52,11 +53,10 @@ export const PRELIMINARY_READ_TEMPLATES: PreliminaryReadTemplatesConfig = {
     fxTypeSalter: { ...FX_TYPE_TUBULAR, childDefault: 'Salter-Harris I' },
     fxClose: { title: 'Closing line', options: [ALIGNMENT_MAINTAINED, 'No dislocation.', NONE] },
     effusion: { title: 'Joint effusion', options: [NONE, 'Joint effusion present.'] },
-    ray: { title: 'Ray', mustPick: true, options: ['5th', '4th', '3rd', '2nd', '1st'] },
-    shaftSite: { title: 'Site', mustPick: true, options: ['base', 'shaft', 'neck', 'head'] },
+    ray: { title: 'Ray', options: ['5th', '4th', '3rd', '2nd', '1st'] },
+    shaftSite: { title: 'Site', options: ['base', 'shaft', 'neck', 'head'] },
     phalanx: {
       title: 'Phalanx',
-      mustPick: true,
       options: ['proximal phalanx', 'middle phalanx', 'distal phalanx (tuft)'],
     },
     // ---- chest ----
@@ -89,7 +89,6 @@ export const PRELIMINARY_READ_TEMPLATES: PreliminaryReadTemplatesConfig = {
     // The article is part of the option so "both lungs" reads right ("in both lungs", not "in the both lungs").
     lobe: {
       title: 'Location',
-      mustPick: true,
       options: [
         'the right lower lobe',
         'the left lower lobe',
@@ -114,7 +113,6 @@ export const PRELIMINARY_READ_TEMPLATES: PreliminaryReadTemplatesConfig = {
     // ---- ribs ----
     rib: {
       title: 'Rib',
-      mustPick: true,
       options: ['5th', '6th', '7th', '8th', '9th', '10th', '4th', '3rd', '2nd', '11th', '12th', '1st'],
     },
     ribPleura: {
@@ -141,13 +139,12 @@ export const PRELIMINARY_READ_TEMPLATES: PreliminaryReadTemplatesConfig = {
         'Transitional lumbosacral anatomy.',
       ],
     },
-    cervicalLevel: { title: 'Level', mustPick: true, options: ['C2', 'C5', 'C6', 'C7', 'C1', 'C3', 'C4'] },
+    cervicalLevel: { title: 'Level', options: ['C2', 'C5', 'C6', 'C7', 'C1', 'C3', 'C4'] },
     thoracicLevel: {
       title: 'Level',
-      mustPick: true,
       options: ['T12', 'T11', 'T10', 'T9', 'T8', 'T7', 'T6', 'T5', 'T4', 'T3', 'T2', 'T1'],
     },
-    lumbarLevel: { title: 'Level', mustPick: true, options: ['L1', 'L2', 'L3', 'L4', 'L5'] },
+    lumbarLevel: { title: 'Level', options: ['L1', 'L2', 'L3', 'L4', 'L5'] },
     compression: {
       title: 'Fracture',
       options: [
@@ -165,22 +162,19 @@ export const PRELIMINARY_READ_TEMPLATES: PreliminaryReadTemplatesConfig = {
         NONE,
       ],
     },
-    sacrumSite: { title: 'Site', mustPick: true, options: ['coccyx', 'distal sacrum', 'sacral ala'] },
+    sacrumSite: { title: 'Site', options: ['coccyx', 'distal sacrum', 'sacral ala'] },
     // ---- pelvis / lower extremity ----
     hipBone: {
       title: 'Bone',
-      mustPick: true,
       options: ['femoral neck', 'intertrochanteric femur', 'pubic ramus', 'acetabulum', 'greater trochanter'],
     },
-    femurSite: { title: 'Site', mustPick: true, options: ['mid-shaft', 'distal', 'proximal'] },
+    femurSite: { title: 'Site', options: ['mid-shaft', 'distal', 'proximal'] },
     kneeBone: {
       title: 'Bone',
-      mustPick: true,
       options: ['patella', 'tibial plateau', 'fibular head', 'fibular neck', 'distal femur', 'tibial tuberosity'],
     },
     legBone: {
       title: 'Bone',
-      mustPick: true,
       options: ['tibial shaft', 'fibular shaft', 'proximal fibula', 'distal tibia', 'distal fibula'],
     },
     ankleIncidental: {
@@ -194,7 +188,6 @@ export const PRELIMINARY_READ_TEMPLATES: PreliminaryReadTemplatesConfig = {
     },
     ankleBone: {
       title: 'Bone',
-      mustPick: true,
       options: [
         'distal fibula (lateral malleolus)',
         'medial malleolus',
@@ -206,15 +199,13 @@ export const PRELIMINARY_READ_TEMPLATES: PreliminaryReadTemplatesConfig = {
     ankleClose: { title: 'Closing line', options: ['Ankle mortise intact.', 'Widening of the ankle mortise.', NONE] },
     footBone: {
       title: 'Bone',
-      mustPick: true,
       options: ['metatarsal', 'proximal phalanx', 'middle phalanx', 'distal phalanx'],
     },
-    calcaneusSite: { title: 'Site', mustPick: true, options: ['tuberosity', 'body', 'anterior process'] },
-    toe: { title: 'Toe', mustPick: true, options: ['5th toe', '4th toe', '3rd toe', '2nd toe', 'great toe'] },
+    calcaneusSite: { title: 'Site', options: ['tuberosity', 'body', 'anterior process'] },
+    toe: { title: 'Toe', options: ['5th toe', '4th toe', '3rd toe', '2nd toe', 'great toe'] },
     // ---- upper extremity ----
     shoulderBone: {
       title: 'Bone',
-      mustPick: true,
       options: [
         'mid-shaft clavicle',
         'distal (lateral) clavicle',
@@ -225,10 +216,9 @@ export const PRELIMINARY_READ_TEMPLATES: PreliminaryReadTemplatesConfig = {
     },
     dislocation: { title: 'Direction', options: ['Anterior', 'Posterior', 'Inferior'] },
     dislocationFx: { title: 'Associated fracture', options: ['No associated fracture identified.', NONE] },
-    humerusSite: { title: 'Site', mustPick: true, options: ['proximal', 'mid-shaft', 'distal'] },
+    humerusSite: { title: 'Site', options: ['proximal', 'mid-shaft', 'distal'] },
     elbowBone: {
       title: 'Bone',
-      mustPick: true,
       options: [
         'radial head',
         'radial neck',
@@ -241,12 +231,10 @@ export const PRELIMINARY_READ_TEMPLATES: PreliminaryReadTemplatesConfig = {
     fatPads: { title: 'Fat pads', options: ['Elevated fat pads consistent with joint effusion.', NONE] },
     forearmBone: {
       title: 'Bone',
-      mustPick: true,
       options: ['distal radius', 'ulnar shaft', 'radial shaft', 'radial head', 'radial neck', 'distal ulna'],
     },
     wristBone: {
       title: 'Bone',
-      mustPick: true,
       options: ['distal radius', 'radial styloid', 'ulnar styloid', 'scaphoid', 'distal ulna'],
     },
     wristClose: {
@@ -255,18 +243,16 @@ export const PRELIMINARY_READ_TEMPLATES: PreliminaryReadTemplatesConfig = {
     },
     finger: {
       title: 'Finger',
-      mustPick: true,
       options: ['5th (small) finger', '4th (ring) finger', '3rd (long) finger', '2nd (index) finger', 'thumb'],
     },
     // ---- abdomen ----
     kubIncidental: { title: 'Incidental finding', options: [NONE, 'Mild stool burden.', 'Phleboliths in the pelvis.'] },
     // No "Mild": a mild stool burden is the negative read's incidental finding, not an increased one.
     stoolBurden: { title: 'Stool burden', options: ['Moderate', 'Moderate-to-large', 'Large'] },
-    fbLocation: { title: 'Location', mustPick: true, options: ['stomach', 'small bowel', 'colon', 'pelvis'] },
+    fbLocation: { title: 'Location', options: ['stomach', 'small bowel', 'colon', 'pelvis'] },
     // ---- face ----
     facialSite: {
       title: 'Site',
-      mustPick: true,
       options: ['nasal bones', 'zygomatic arch', 'orbital floor', 'lateral wall of the maxillary sinus'],
     },
   },

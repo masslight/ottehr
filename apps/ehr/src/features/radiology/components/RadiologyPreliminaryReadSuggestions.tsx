@@ -99,6 +99,7 @@ const SuggestionsBox: React.FC<RadiologyPreliminaryReadSuggestionsProps> = ({
                       unpicked ? 'not picked' : blankValue || PRELIMINARY_READ_NONE_LABEL
                     }`}
                     aria-haspopup="listbox"
+                    aria-expanded={active?.blank.row === row && active.blank.segment === i}
                     onClick={(e: React.MouseEvent<HTMLElement>) => setActive({ blank: ref, anchor: e.currentTarget })}
                     sx={(theme) => {
                       const tint = picked ? theme.palette.success.main : theme.palette.primary.main;

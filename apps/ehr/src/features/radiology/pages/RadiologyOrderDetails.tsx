@@ -25,6 +25,7 @@ import { useAppointmentData, useSaveChartData } from 'src/features/visits/shared
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { TASK_ASSIGNED_DATE_TIME_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { LATERALITY_SELECTORS } from 'utils/lib/fhir/radiology';
+import { appendToPreliminaryRead } from 'utils/lib/helpers/radiology/preliminaryReadSuggestions';
 import { DiagnosisDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { RadiologyOrderStatus } from 'utils/lib/types/api/radiology';
 import { isPediatricOnDate } from 'utils/lib/utils/dateUtils';
@@ -422,9 +423,7 @@ export const RadiologyOrderDetailsPage: React.FC<RadiologyOrderDetailsPageProps>
                     isChild={isPediatricOnDate(patient?.birthDate, order.orderAddedDateTime)}
                     disabled={isReadOnly}
                     value={preliminaryReport ?? ''}
-                    onAdd={(sentence) =>
-                      setPreliminaryReport((prev) => (prev?.trim() ? `${prev.trim()}\n${sentence}` : sentence))
-                    }
+                    onAdd={(sentence) => setPreliminaryReport((prev) => appendToPreliminaryRead(prev, sentence))}
                   />
                   <Box sx={{ mt: 2 }}>
                     <TextField

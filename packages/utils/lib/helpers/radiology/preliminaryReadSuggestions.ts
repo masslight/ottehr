@@ -5,8 +5,8 @@ import type { PreliminaryReadChoiceList, PreliminaryReadRegion } from './prelimi
 export interface PreliminaryReadBlank {
   title: string;
   options: string[];
-  /** The value the blank starts on; `undefined` means it must be picked before the sentence can be added */
   initial: string | undefined;
+  emptyWhen?: string[];
 }
 
 /** A template split into literal text and the blanks the provider can change */
@@ -57,6 +57,7 @@ export const buildPreliminaryReadSuggestions = (input: {
         title: list.title,
         options,
         initial: list.mustPick ? undefined : (input.isChild && list.childDefault) || options[0],
+        ...(list.emptyWhen && { emptyWhen: list.emptyWhen }),
       });
     }
     segments.push(template.text.slice(cursor));
@@ -113,26 +114,35 @@ export const resolvePreliminaryReadValues = (
   segments: PreliminaryReadSegment[],
   values: (string | undefined)[]
 ): (string | undefined)[] => {
-  const resolved = segments.map((segment, i) =>
-    typeof segment === 'string' ? undefined : values[i] ?? segment.initial
-  );
+  const resolved = segments.map((segment, i) => (typeof segment === 'string' ? undefined : values[i]));
+
   segments.forEach((segment, i) => {
-    const current = resolved[i];
-    if (typeof segment === 'string' || values[i] !== undefined || current === undefined) return;
-    if (!findConflictingValue(resolved, i, current)) return;
-    resolved[i] = segment.options.includes('')
-      ? ''
-      : segment.options.find((option) => !findConflictingValue(resolved, i, option)) ?? current;
+    if (typeof segment === 'string' || values[i] !== undefined || segment.initial === undefined) return;
+    const fits = (option: string): boolean => !findConflictingValue(resolved, i, option);
+    resolved[i] = fits(segment.initial) ? segment.initial : segment.options.find(fits) ?? segment.initial;
+  });
+
+  segments.forEach((segment, i) => {
+    if (typeof segment === 'string' || values[i] !== undefined || !segment.emptyWhen) return;
+    const waitsOn = segment.emptyWhen;
+    if (resolved.some((value, j) => j !== i && value !== undefined && waitsOn.includes(value))) resolved[i] = '';
   });
   return resolved;
 };
 
 export const assemblePreliminaryRead = (segments: PreliminaryReadSegment[], values: (string | undefined)[]): string => {
   const resolved = resolvePreliminaryReadValues(segments, values);
-  return segments
+  const text = segments
     .map((segment, i) => (typeof segment === 'string' ? segment : resolved[i] ?? ''))
     .join('')
     .replace(/\s+/g, ' ')
     .replace(/ \./g, '.')
     .trim();
+
+  return text.charAt(0).toUpperCase() + text.slice(1);
+};
+
+export const appendToPreliminaryRead = (existing: string | undefined, sentence: string): string => {
+  if (!existing?.trim()) return sentence;
+  return existing.endsWith('\n') ? `${existing}${sentence}` : `${existing}\n${sentence}`;
 };

@@ -5,6 +5,7 @@ export interface PreliminaryReadChoiceList {
   childOnly?: boolean;
   childOnlyOptions?: string[];
   mustPick?: boolean;
+  emptyWhen?: string[];
 }
 
 export interface PreliminaryReadTemplate {
