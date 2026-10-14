@@ -266,7 +266,7 @@ can match a coded answer with `answerCoding` (on the code) or `answerString` (on
 
 ### Calculated items
 
-An item carrying the standard `sdc-questionnaire-calculatedExpression` extension is a formula field.
+An item carrying the standard `sdc-questionnaire-calculatedExpression` extension is a calculated value.
 
 ```json
 { "linkId": "total", "type": "string", "text": "Total",
@@ -277,22 +277,26 @@ An item carrying the standard `sdc-questionnaire-calculatedExpression` extension
 
 - **The javascript only ever runs in the browser, never on the server.** The browser works the value out whenever a
   page is saved and sends it to the server, which records it on the QuestionnaireResponse. The server cannot
-  recompute or verify it; it only checks that the value belongs to a calculated item and has the item's type.
+  recompute or verify it; it only checks that the value belongs to a calculated item and has the item's type. A value
+  that fails that check is left out (and reported to Sentry) rather than failing the patient's save.
 - The expression's one argument, `answers`, is keyed by `linkId`, across every page and group.
 - A coded answer is exposed as its code, **as a number when the code is numeric**, so scores can be summed. Strings,
   booleans, numbers and dates pass through unchanged. An unanswered item is `undefined`, hence the `|| 0` above.
 - A calculated item can read another calculated item (`answers["total"]`), wherever it sits in the form.
 - Reference linkIds as literals (`answers["q1"]` or `answers.q1`). A reference built dynamically
-  (`answers[someVariable]`) can't be seen by the dependency ordering or by the import check.
-- If an expression throws, or doesn't produce a string, number or boolean, the item has no value. It never breaks the form.
+  (`answers[someVariable]`) can't be seen by the dependency ordering or by the import check, so only build a key
+  dynamically to read real answers, never another calculated item.
+- If an expression throws, doesn't produce a string, number or boolean, or produces a value that doesn't fit the
+  item's declared type (a `boolean` item needs a boolean, an `integer` item a whole number), the item has no value.
+  It never breaks the form.
 - Allowed on `string`, `text`, `boolean`, `integer`, `decimal` and `date` items. **The value is recorded as the type
   the item declares**: `string`/`text`/`date` as `valueString`, `boolean` as `valueBoolean`, `integer` as `valueInteger`,
   `decimal` as `valueDecimal`. Declare a numeric score as `integer` or `decimal` so it can be used as a number later;
   declaring it `string` stores `"2"`.
 - Values are recorded on **every page save** (only the ones that changed), including values on pages the patient
-  never sees, so a score reflects the answers given so far and is complete once the last page is saved. The EHR shows
-  a score as recorded only once the response is completed, and flags a recorded value that no longer agrees with
-  the answers.
+  never sees, so a score reflects the answers given so far and is complete once the last page is saved. The EHR
+  always shows the value calculated from the recorded answers, and flags a calculated value that was not recorded or
+  whose recorded value no longer agrees with the answers.
 - Add `disabled-display` set to `hidden` to keep an item off the patient's form. The EHR still shows it.
 - **linkIds must be unique across the forms of a paperwork flow.** A flow puts its forms in one response (and keeps
   only the last of any repeated top-level page linkId), and the `answers` map is shared by the whole response. A flow
