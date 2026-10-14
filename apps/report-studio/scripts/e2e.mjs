@@ -1,18 +1,21 @@
 // Headless end-to-end check of the built app against a running zambda server (and optionally the Claude
 // relay). Settings come from the environment, never from the repo:
-//   STUDIO_TOKEN_FILE=path  (bearer token for the zambdas)   STUDIO_ZAMBDA_URL=http://localhost:3005/local
+//   STUDIO_TOKEN_FILE=path  (bearer token for the zambdas; or STUDIO_ACCESS_TOKEN)   STUDIO_ZAMBDA_URL=http://localhost:3005/local
 //   STUDIO_RELAY_URL=http://127.0.0.1:8788  STUDIO_CHAT="a request"  (optional: a real Claude turn)
+//   STUDIO_CONNECTION=login  (the relay's "Through my Claude login" mode instead of the API-key relay)
 //   STUDIO_SHOTS=dir  (screenshots)  STUDIO_RANGE=last365days
 import { chromium } from 'playwright';
 import { readFileSync } from 'fs';
 import path from 'path';
 
 const shots = process.env.STUDIO_SHOTS ?? '.';
-const token = process.env.STUDIO_TOKEN_FILE ? readFileSync(process.env.STUDIO_TOKEN_FILE, 'utf8').trim() : '';
+const token = process.env.STUDIO_TOKEN_FILE
+  ? readFileSync(process.env.STUDIO_TOKEN_FILE, 'utf8').trim()
+  : (process.env.STUDIO_ACCESS_TOKEN ?? '');
 const settings = {
   zambdaBaseUrl: process.env.STUDIO_ZAMBDA_URL ?? 'http://localhost:3005/local',
   accessToken: token,
-  connection: 'relay',
+  connection: process.env.STUDIO_CONNECTION ?? 'relay',
   relayUrl: process.env.STUDIO_RELAY_URL ?? 'http://127.0.0.1:8788',
   model: process.env.STUDIO_MODEL ?? 'claude-opus-5-5',
   effort: process.env.STUDIO_EFFORT ?? 'medium',

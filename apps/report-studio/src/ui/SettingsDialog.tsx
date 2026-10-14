@@ -16,8 +16,8 @@ import {
   Typography,
 } from '@mui/material';
 import React, { useState } from 'react';
-import { EFFORTS, Effort, MODEL_IDS, MODEL_LABELS, ModelId } from '../llm/models';
-import { useStudio } from '../state/store';
+import { Effort, EFFORTS, MODEL_IDS, MODEL_LABELS, ModelId } from '../llm/models';
+import { Settings, useStudio } from '../state/store';
 
 export function SettingsDialog(): React.ReactElement {
   const open = useStudio((s) => s.settingsOpen);
@@ -32,15 +32,30 @@ export function SettingsDialog(): React.ReactElement {
     try {
       const res = await fetch(`${settings.relayUrl.replace(/\/+$/, '')}/health`);
       // Form Studio's relay answers the same way (keyFromRelay); either relay serves both studios.
-      const body = (await res.json()) as { ok?: boolean; keyFromEnv?: boolean; keyFromRelay?: boolean };
+      const body = (await res.json()) as {
+        ok?: boolean;
+        keyFromEnv?: boolean;
+        keyFromRelay?: boolean;
+        login?: boolean;
+      };
       const hasKey = body.keyFromEnv || body.keyFromRelay;
-      setRelayStatus(
-        body.ok
-          ? `relay is up${hasKey ? ' and holds a key (no key needed here)' : ' — it forwards the key you enter here'}`
-          : 'unexpected answer'
-      );
+      if (!body.ok) setRelayStatus('unexpected answer');
+      else if (settings.connection === 'login')
+        setRelayStatus(
+          body.login
+            ? 'relay is up and can use your Claude login'
+            : 'relay is up, but the Claude Agent SDK is not installed next to it — start it with start-relay-login.sh'
+        );
+      else
+        setRelayStatus(
+          `relay is up${hasKey ? ' and holds a key (no key needed here)' : ' — it forwards the key you enter here'}`
+        );
     } catch {
-      setRelayStatus('not reachable — start it with: node apps/report-studio/scripts/claude-relay.mjs');
+      setRelayStatus(
+        settings.connection === 'login'
+          ? 'not reachable — start it with: sh ~/development/documents/form-studio/start-relay-login.sh'
+          : 'not reachable — start it with: node apps/report-studio/scripts/claude-relay.mjs'
+      );
     }
   };
 
@@ -103,19 +118,30 @@ export function SettingsDialog(): React.ReactElement {
                 exclusive
                 size="small"
                 value={settings.connection}
-                onChange={(_, v) => v && setSettings({ connection: v as 'relay' | 'direct' })}
+                onChange={(_, v) => v && setSettings({ connection: v as Settings['connection'] })}
               >
                 <ToggleButton value="relay">Through local relay</ToggleButton>
                 <ToggleButton value="direct">Direct from browser</ToggleButton>
+                <ToggleButton value="login">Through my Claude login (this Mac)</ToggleButton>
               </ToggleButtonGroup>
-              {settings.connection === 'relay' ? (
+              {settings.connection !== 'direct' ? (
                 <>
-                  <Alert severity="info" sx={{ py: 0 }}>
-                    Masslight's Anthropic org rejects browser (CORS) requests, so calls go through a tiny local relay:{' '}
-                    <code>node apps/report-studio/scripts/claude-relay.mjs</code>. Give it{' '}
-                    <code>ANTHROPIC_API_KEY</code> in its environment and leave the key below empty, or enter the key
-                    here and the relay forwards it.
-                  </Alert>
+                  {settings.connection === 'login' ? (
+                    <Alert severity="info" sx={{ py: 0 }}>
+                      No API key: the relay runs each turn with the Claude Agent SDK, signed in as the Claude Code login
+                      on this Mac (the one <code>claude</code> uses), so usage counts against that subscription. Start
+                      it with <code>sh ~/development/documents/form-studio/start-relay-login.sh</code> (one relay serves
+                      both studios). Only works on a Mac where Claude Code is logged in; the chat history lives in that
+                      login's session files, so switching connection starts a fresh conversation.
+                    </Alert>
+                  ) : (
+                    <Alert severity="info" sx={{ py: 0 }}>
+                      Masslight's Anthropic org rejects browser (CORS) requests, so calls go through a tiny local relay:{' '}
+                      <code>node apps/report-studio/scripts/claude-relay.mjs</code>. Give it{' '}
+                      <code>ANTHROPIC_API_KEY</code> in its environment and leave the key below empty, or enter the key
+                      here and the relay forwards it.
+                    </Alert>
+                  )}
                   <Stack direction="row" spacing={1} alignItems="center">
                     <TextField
                       label="Relay URL"
@@ -135,18 +161,20 @@ export function SettingsDialog(): React.ReactElement {
                   switch to the relay.
                 </Alert>
               )}
-              <TextField
-                label={
-                  settings.connection === 'relay'
-                    ? 'Anthropic API key (optional if the relay has one)'
-                    : 'Anthropic API key'
-                }
-                type="password"
-                value={settings.apiKey}
-                onChange={(e) => setSettings({ apiKey: e.target.value })}
-                helperText="Stored in this browser's localStorage only; never written into a report file."
-                fullWidth
-              />
+              {settings.connection !== 'login' && (
+                <TextField
+                  label={
+                    settings.connection === 'relay'
+                      ? 'Anthropic API key (optional if the relay has one)'
+                      : 'Anthropic API key'
+                  }
+                  type="password"
+                  value={settings.apiKey}
+                  onChange={(e) => setSettings({ apiKey: e.target.value })}
+                  helperText="Stored in this browser's localStorage only; never written into a report file."
+                  fullWidth
+                />
+              )}
               <Stack direction="row" spacing={1.5}>
                 <TextField
                   select

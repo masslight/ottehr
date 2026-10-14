@@ -29,6 +29,12 @@ Data access is **zambdas only** (never FHIR from the browser). The studio needs:
    ```
    Form Studio's relay speaks the same protocol; one relay serves both studios. "Direct from browser" remains available in Settings for orgs that allow it.
 
+   **No API key — "Through my Claude login (this Mac)".** The third connection uses the Claude Code login on your own Mac: the relay runs each turn with the Claude Agent SDK (`scripts/claude-login.mjs`, imported lazily so the API-key modes stay dependency-free), the studio's tools are exposed to it as an in-process MCP server, and each call is forwarded to the page and executed there. Usage counts against that Claude subscription. Start the shared relay with
+   ```bash
+   sh ~/development/documents/form-studio/start-relay-login.sh        # installs the SDK next to the relay the first time
+   ```
+   (or, from this checkout, `npm install --no-save @anthropic-ai/claude-agent-sdk zod` in `apps/report-studio` and run `claude-relay.mjs` as above), then pick the mode in Settings and press **Test relay**. Works: streaming text and thinking, tool cards, model and effort, undo per turn, attachments; the conversation is resumed by SDK session id ("New conversation" forgets it). Limits: your own Mac only — anyone else still needs an API key (Anthropic's SDK docs say third-party products may not offer claude.ai login to their users without approval; this is for personal use with your own login); history lives in the SDK's session files, so switching connection mid-conversation starts a fresh context; there is no Stop in Report Studio in any mode. `scripts/e2e.mjs` runs this mode with `STUDIO_CONNECTION=login`.
+
 Then open `dist/index.html`, press **Set up**, fill in the zambda base URL (`http://localhost:3005/local`), the token, the relay URL, pick a model and effort, and use **Test instance** / **Test relay**.
 
 ## What is real

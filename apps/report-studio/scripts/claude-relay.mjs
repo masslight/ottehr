@@ -7,8 +7,13 @@
 // Listens on 127.0.0.1 only, answers CORS preflight (file:// pages have origin "null"), strips the
 // browser-access headers, forwards /v1/* to api.anthropic.com and streams the response back. Never logs
 // headers or bodies.
+//
+// Settings → "Through my Claude login (this Mac)" needs no API key: /login/* runs the turn with the Claude Agent
+// SDK and the Claude Code login on this Mac (claude-login.mjs next to this file; it needs
+// `npm install @anthropic-ai/claude-agent-sdk zod` next to the relay — the API-key modes stay dependency-free).
 import http from 'node:http';
 import https from 'node:https';
+import { handleLoginRequest, loginAvailable } from './claude-login.mjs';
 
 const port = Number(process.argv[2] ?? process.env.PORT ?? 8787);
 const upstream = new URL(process.env.ANTHROPIC_BASE_URL ?? 'https://api.anthropic.com');
@@ -32,7 +37,7 @@ const cors = (res, req) => {
   res.setHeader('Access-Control-Max-Age', '600');
 };
 
-const server = http.createServer((req, res) => {
+const server = http.createServer(async (req, res) => {
   cors(res, req);
   if (req.method === 'OPTIONS') {
     res.writeHead(204).end();
@@ -41,9 +46,11 @@ const server = http.createServer((req, res) => {
   if (req.url === '/health') {
     res
       .writeHead(200, { 'content-type': 'application/json' })
-      .end(JSON.stringify({ ok: true, keyFromEnv: Boolean(envKey) }));
+      .end(JSON.stringify({ ok: true, keyFromEnv: Boolean(envKey), login: await loginAvailable() }));
     return;
   }
+  // The CORS headers are already on res, so the login routes add none of their own.
+  if (await handleLoginRequest(req, res, {})) return;
   if (!req.url?.startsWith('/v1/')) {
     res.writeHead(404).end('relay: only /v1/* is forwarded');
     return;

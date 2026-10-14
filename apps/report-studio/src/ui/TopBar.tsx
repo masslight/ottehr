@@ -53,7 +53,7 @@ export function TopBar(): React.ReactElement {
   const running = run.status === 'fetching' || run.status === 'rendering';
   const instance = settings.zambdaBaseUrl.replace(/^https?:\/\//, '').replace(/\/local$/, '');
   const configured = Boolean(
-    settings.zambdaBaseUrl && settings.accessToken && (settings.connection === 'relay' || settings.apiKey)
+    settings.zambdaBaseUrl && settings.accessToken && (settings.connection !== 'direct' || settings.apiKey)
   );
 
   return (

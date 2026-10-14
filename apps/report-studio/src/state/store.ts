@@ -12,8 +12,11 @@ export interface Settings {
   apiKey: string;
   model: ModelId;
   effort: Effort;
-  /** relay: SDK baseURL points at scripts/claude-relay.mjs (needed for this org); direct: api.anthropic.com. */
-  connection: 'relay' | 'direct';
+  /**
+   * relay: SDK baseURL points at scripts/claude-relay.mjs (needed for this org); direct: api.anthropic.com;
+   * login: the relay runs the turn with the Claude Agent SDK and the Claude Code login on this Mac (no API key).
+   */
+  connection: 'relay' | 'direct' | 'login';
   relayUrl: string;
   /** e.g. http://localhost:3005/local — zambdas are called at {base}/zambda/{name}/execute. */
   zambdaBaseUrl: string;
