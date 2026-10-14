@@ -326,25 +326,25 @@ describe('QuestionnaireResponseViewer with recorded calculated values', () => {
     expect(screen.queryByTestId('calculated-mismatch-total')).not.toBeInTheDocument();
   });
 
-  it('shows the recorded value and points out that it no longer agrees with the answers', () => {
+  it('shows the recalculated value and points out that the recorded one no longer agrees with the answers', () => {
     render(<QuestionnaireResponseViewer form={formWithResults('amended', '5')} />);
 
-    expect(screen.getByText('Total:').parentElement).toHaveTextContent('Total: 5');
+    expect(screen.getByText('Total:').parentElement).toHaveTextContent('Total: 2');
     expect(screen.getByTestId('calculated-mismatch-total')).toHaveTextContent('recalculated: 2');
   });
 
-  it('calculates a value that was never recorded', () => {
+  it('calculates a value that was never recorded and flags that nothing was recorded', () => {
     render(<QuestionnaireResponseViewer form={formWithResults('completed', undefined)} />);
 
     expect(screen.getByText('Total:').parentElement).toHaveTextContent('Total: 2');
-    expect(screen.queryByTestId('calculated-mismatch-total')).not.toBeInTheDocument();
+    expect(screen.getByTestId('calculated-mismatch-total')).toHaveTextContent('no value was recorded');
   });
 
-  it('does not trust a partial score recorded while the form is still being filled in', () => {
+  it('shows the live value over a stale partial score recorded while the form was being filled in', () => {
     render(<QuestionnaireResponseViewer form={formWithResults('in-progress', '1')} />);
 
     expect(screen.getByText('Total:').parentElement).toHaveTextContent('Total: 2');
-    expect(screen.queryByTestId('calculated-mismatch-total')).not.toBeInTheDocument();
+    expect(screen.getByTestId('calculated-mismatch-total')).toHaveTextContent('recalculated: 2');
   });
 
   it('says Not Started when only calculated values are recorded', () => {

@@ -61,7 +61,9 @@ export const QuestionnaireResponseViewer = ({ form }: { form: StandaloneFormDTO 
     [allItems, questionnaireResponse.item]
   );
 
-  if (answerMap.size === 0) {
+  // a calculated value being recorded does not mean the form was started: it may be a partial score
+  const hasAnswers = questions.some((q) => !q.calculatedExpression && answerMap.has(q.linkId));
+  if (!hasAnswers) {
     return (
       <Typography variant="body2" color="text.secondary">
         Not Started
@@ -84,7 +86,7 @@ export const QuestionnaireResponseViewer = ({ form }: { form: StandaloneFormDTO 
           if (live !== undefined) {
             if (stored === undefined) {
               note = 'differs from the recorded answers (no value was recorded on the response)';
-            } else if (formatCalculatedValue(live) !== answer) {
+            } else if (formatCalculatedValue(stored) !== answer) {
               note = `differs from the recorded answers (recalculated: ${formatCalculatedValue(live)})`;
             }
           } else if (stored !== undefined) {
