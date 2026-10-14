@@ -459,7 +459,7 @@ export const getOystehrTelemedAPI = (
 
   const createUpdateMedicationOrder = async (
     parameters: UpdateMedicationOrderInput
-  ): Promise<{ id: string; message: string }> => {
+  ): Promise<{ id: string; message: string; retainedCptCodes?: string[]; billingReviewRequired?: boolean }> => {
     return await makeZapRequest('create update medication order', parameters);
   };
 

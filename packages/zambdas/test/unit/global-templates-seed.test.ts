@@ -1,8 +1,8 @@
 import { List, Resource } from 'fhir/r4b';
 import { collectKnownExamFields } from 'utils/lib/config-helpers/exam-observations';
+import { collectKnownRosFieldsWithComments } from 'utils/lib/config-helpers/review-of-systems';
 import { chartDataTagSystem, GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM } from 'utils/lib/fhir/constants';
 import { examConfig } from 'utils/lib/ottehr-config/examination';
-import { collectKnownRosFields } from 'utils/lib/ottehr-config/review-of-systems';
 import { describe, expect, test } from 'vitest';
 import { analyzeTemplateVersionData } from '../../src/ehr/shared/template-helpers';
 import seed from '../../src/scripts/data/global-templates-seed.json';
@@ -26,7 +26,7 @@ const KNOWN_LEGACY_ROS_TEMPLATES = new Set(['Pharyngitis', 'Headache', 'Bac sinu
 
 // Mirror list-templates/index.ts exactly so this test tracks the same notion of "current" the EHR uses.
 const knownExamFields = collectKnownExamFields(examConfig.default.components);
-const knownRosFields = collectKnownRosFields();
+const knownRosFields = collectKnownRosFieldsWithComments();
 const examTagSystem = chartDataTagSystem('exam-observation-field');
 const rosTagSystem = chartDataTagSystem('ros-observation-field');
 const legacyRosTagSystem = chartDataTagSystem('ros');

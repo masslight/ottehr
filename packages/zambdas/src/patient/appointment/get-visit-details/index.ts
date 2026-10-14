@@ -78,6 +78,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const { presignedUrls, reviewedLabResultsUrls } = await getPatientPortalPresignedURLs(
       oystehr,
       oystehrToken,
+      secrets,
       encounter?.id
     );
     documents = presignedUrls;
@@ -117,6 +118,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
               const { presignedUrls } = await getPatientPortalPresignedURLs(
                 oystehr,
                 oystehrToken,
+                secrets,
                 followupEncounter.id
               );
               followupDocuments = presignedUrls;

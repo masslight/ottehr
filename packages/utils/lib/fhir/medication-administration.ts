@@ -10,6 +10,8 @@ import {
   INTERACTION_OVERRIDE_REASON_CODE_SYSTEM,
   INTERACTIONS_UNAVAILABLE,
   ISSUE_TYPE_CODE_SYSTEM,
+  MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE,
+  MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_SYSTEM,
   MEDICATION_ADMINISTRATION_OTHER_REASON_CODE,
   MEDICATION_ADMINISTRATION_REASON_CODE,
   MEDICATION_ADMINISTRATION_ROUTES_CODES_SYSTEM,
@@ -394,6 +396,28 @@ export const createMedicationString = (medication: ExtendedMedicationDataForResp
 
 export function getMedicationFromMA(medicationAdministration: MedicationAdministration): Medication | undefined {
   return medicationAdministration.contained?.find((res) => res.resourceType === 'Medication') as Medication;
+}
+
+export function isInHouseMedicationOrder(ma: MedicationAdministration): boolean {
+  return (
+    ma.meta?.tag?.some(
+      (tag) =>
+        tag.system === MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_SYSTEM &&
+        tag.code === MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE
+    ) ?? false
+  );
+}
+
+export const IMMUNIZATION_ORDER_TAG_SYSTEM = 'https://fhir.zapehr.com/r4/StructureDefinitions/immunization';
+
+export const IMMUNIZATION_ORDER_TAG_CODE = 'immunization';
+
+export function isImmunizationOrder(ma: MedicationAdministration): boolean {
+  return (
+    ma.meta?.tag?.some(
+      (tag) => tag.system === IMMUNIZATION_ORDER_TAG_SYSTEM && tag.code === IMMUNIZATION_ORDER_TAG_CODE
+    ) ?? false
+  );
 }
 
 export const MEDICATION_CPT_CODES_EXTENSION_URL = 'https://fhir.ottehr.com/Extension/medication-cpt-codes';
