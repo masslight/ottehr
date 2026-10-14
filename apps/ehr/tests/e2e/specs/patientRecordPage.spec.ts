@@ -31,6 +31,7 @@ import {
   DEMO_VISIT_ZIP,
 } from 'utils/lib/helpers/helpers';
 import { BOOKING_CONFIG } from 'utils/lib/ottehr-config/booking';
+import { INTAKE_PAPERWORK_CONFIG } from 'utils/lib/ottehr-config/intake-paperwork';
 import { PATIENT_RECORD_CONFIG } from 'utils/lib/ottehr-config/patient-record';
 import { CreateAppointmentResponse } from 'utils/lib/types/api/prebook-create-appointment/prebook-create-appointment.types';
 import { ENV_LOCATION_NAME } from '../../e2e-utils/resource/constants';
@@ -288,6 +289,7 @@ test.describe('Patient Record Page tests', { tag: '@smoke' }, () => {
   let PatientSummaryHidden: boolean;
   let ContactInformationHidden: boolean;
   let PatientDetailsHidden: boolean;
+  let PatientDetailsNotCollectedInIntake: boolean;
   let ResponsiblePartyHidden: boolean;
   let EmergencyContactHidden: boolean;
   let PharmacyHidden: boolean;
@@ -307,6 +309,12 @@ test.describe('Patient Record Page tests', { tag: '@smoke' }, () => {
     PatientSummaryHidden = isSectionHidden(SECTIONS.patientSummary, formValues);
     ContactInformationHidden = isSectionHidden(SECTIONS.patientContactInformation, formValues);
     PatientDetailsHidden = isSectionHidden(SECTIONS.patientDetails, formValues);
+
+    // The demo patient details answers only reach the patient if the in-person intake paperwork has the patient details page.
+    PatientDetailsNotCollectedInIntake = INTAKE_PAPERWORK_CONFIG.hiddenFormSections.includes(
+      INTAKE_PAPERWORK_CONFIG.FormFields.patientDetails.linkId
+    );
+
     ResponsiblePartyHidden = isSectionHidden(SECTIONS.responsibleParty, formValues);
     EmergencyContactHidden = isSectionHidden(SECTIONS.emergencyContact, formValues);
     PharmacyHidden = isSectionHidden(SECTIONS.preferredPharmacy, formValues);
@@ -383,6 +391,10 @@ test.describe('Patient Record Page tests', { tag: '@smoke' }, () => {
 
   test('Verify entered by patient data from Patient details block is displayed correctly', async () => {
     test.skip(PatientDetailsHidden, 'patient details section is hidden');
+    test.skip(
+      PatientDetailsNotCollectedInIntake,
+      'patient details page is hidden in intake paperwork, so there is no harvested patient details data'
+    );
     if (!isFieldHidden(patientDetails.ethnicity.key, PATIENT_RECORD_CONFIG.FormFields.patientDetails, formValues)) {
       await patientInformationPage.verifySelectFieldValue(patientDetails.ethnicity.key, DEMO_VISIT_PATIENT_ETHNICITY);
     }
@@ -2029,8 +2041,12 @@ test.describe('Patient Record Page tests with zero patient data filled in', { ta
     });
     await test.step('Verify race and ethnicity required in Patient Details section', async () => {
       test.skip(PatientDetailsHidden, 'patient details section is hidden');
-      await patientInformationPage.verifyRequiredFieldValidationErrorShown(patientDetails.ethnicity.key);
-      await patientInformationPage.verifyRequiredFieldValidationErrorShown(patientDetails.race.key);
+      const patientDetailsRequiredFields = PATIENT_RECORD_CONFIG.FormFields.patientDetails.requiredFields ?? [];
+      for (const fieldKey of [patientDetails.ethnicity.key, patientDetails.race.key]) {
+        if (patientDetailsRequiredFields.includes(fieldKey)) {
+          await patientInformationPage.verifyRequiredFieldValidationErrorShown(fieldKey);
+        }
+      }
     });
     await test.step('Verify relationship to patient required in Responsible Party section', async () => {
       test.skip(ResponsiblePartyHidden, 'responsible party section is hidden');
