@@ -319,8 +319,10 @@ import {
   VisitDocuments,
 } from 'utils/lib/types/data/documents';
 import {
+  GetMedicalRecordDateSpanInput,
   GetMedicalRecordExportStatusInput,
   GetPatientMedicalRecordOutput,
+  MedicalRecordDateSpan,
   StartMedicalRecordExportInput,
 } from 'utils/lib/types/data/get-patient-medical-record.types';
 import { GetScheduleRequestParams, GetScheduleResponse } from 'utils/lib/types/data/get-schedule.types';
@@ -2207,6 +2209,23 @@ export const getMedicalRecordExportStatus = async (
     const response = await oystehr.zambda.execute({
       id: GET_PATIENT_MEDICAL_RECORD_ZAMBDA_ID,
       ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const getMedicalRecordDateSpan = async (
+  oystehr: Oystehr,
+  parameters: Omit<GetMedicalRecordDateSpanInput, 'dateSpan'>
+): Promise<MedicalRecordDateSpan> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: GET_PATIENT_MEDICAL_RECORD_ZAMBDA_ID,
+      ...parameters,
+      dateSpan: true,
     });
     return chooseJson(response);
   } catch (error: unknown) {

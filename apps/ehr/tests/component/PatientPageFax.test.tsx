@@ -14,9 +14,13 @@ const VISITS = [
   { appointmentId: 'appointment-2', dateTime: '2026-07-02T11:30:00.000-04:00', timezone: 'America/New_York' },
   { appointmentId: 'appointment-1', dateTime: '2026-04-11T09:30:00.000-04:00', timezone: 'America/New_York' },
 ];
-const PREDEFINED_RANGE = { from: DateTime.local(2026, 4, 11).toISO(), to: DateTime.now().endOf('day').toISO() };
+const RECORD_DATES = {
+  earliest: DateTime.local(2026, 2, 20, 10).toUTC().toISO(),
+  latest: DateTime.local(2026, 7, 2, 11).toUTC().toISO(),
+};
+const PREDEFINED_RANGE = { from: DateTime.local(2026, 2, 20).toISO(), to: DateTime.now().endOf('day').toISO() };
 
-let mockVisits: { appointmentId: string; dateTime: string; timezone: string }[] = VISITS;
+const mockUseMedicalRecordDateSpan = vi.fn();
 const mockUseSendFax = vi.fn();
 const mockOpen = vi.fn();
 const mockDownloadMedicalRecord = vi.fn<(dateRange: unknown) => Promise<void>>();
@@ -39,10 +43,14 @@ vi.mock('src/features/fax/ui/SendFaxDialog', () => ({
 vi.mock('src/hooks/useDownloadMedicalRecord', () => ({
   useDownloadMedicalRecord: () => ({ downloadMedicalRecord: mockDownloadMedicalRecord, isDownloading: false }),
 }));
+vi.mock('src/hooks/useMedicalRecordDateSpan', () => ({
+  useMedicalRecordDateSpan: (patientId: string | undefined, enabled: boolean) => {
+    mockUseMedicalRecordDateSpan(patientId, enabled);
+    return { data: RECORD_DATES, isFetching: false, isError: false };
+  },
+}));
 vi.mock('src/hooks/useGetPatientVisitHistory', () => ({
-  useGetPatientVisitHistory: () => ({
-    data: { visits: mockVisits, metadata: { totalCount: mockVisits.length, sortDirection: 'desc' } },
-  }),
+  useGetPatientVisitHistory: () => ({ data: { visits: VISITS, metadata: { totalCount: 2, sortDirection: 'desc' } } }),
 }));
 vi.mock('../../src/hooks/useGetPatient', () => ({
   useGetPatient: () => ({
@@ -87,7 +95,6 @@ const rangeIds = dataTestIds.medicalRecordDateRangeDialog;
 describe('PatientPage fax actions', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockVisits = VISITS;
     mockDownloadMedicalRecord.mockResolvedValue();
     mockGetFaxPacketPreview.mockResolvedValue({ documents: [], hasSavedPcp: false, documentCount: 3 });
   });
@@ -109,7 +116,7 @@ describe('PatientPage fax actions', () => {
     expect(screen.getByText('04/11/2026 09:30 AM ET')).toBeInTheDocument();
   });
 
-  it('asks for a date range before downloading the archive, predefined from the first visit to today', async () => {
+  it('asks for a date range before downloading the archive, predefined from the earliest record to today', async () => {
     const user = userEvent.setup();
     renderPage();
 
@@ -117,7 +124,7 @@ describe('PatientPage fax actions', () => {
     await user.click(screen.getByRole('menuitem', { name: 'Download Archive' }));
 
     expect(mockDownloadMedicalRecord).not.toHaveBeenCalled();
-    expect(screen.getByTestId(rangeIds.fromInput)).toHaveValue('04/11/2026');
+    expect(screen.getByTestId(rangeIds.fromInput)).toHaveValue('02/20/2026');
     expect(screen.getByTestId(rangeIds.toInput)).toHaveValue(DateTime.now().toFormat('MM/dd/yyyy'));
     expect(screen.getByTestId(rangeIds.confirmButton)).toHaveTextContent('Download Archive');
 
@@ -128,30 +135,16 @@ describe('PatientPage fax actions', () => {
     await waitFor(() => expect(screen.queryByTestId(rangeIds.root)).not.toBeInTheDocument());
   });
 
-  it("predefines From as the first visit's day in its office timezone", async () => {
+  it('asks for the record dates only while the range dialog is open', async () => {
     const user = userEvent.setup();
-    mockVisits = [
-      { appointmentId: 'appointment-late', dateTime: '2026-04-10T23:30:00.000-04:00', timezone: 'America/New_York' },
-    ];
     renderPage();
 
-    await user.click(screen.getByRole('button', { name: /Medical Record/i }));
-    await user.click(screen.getByRole('menuitem', { name: 'Download Archive' }));
-
-    expect(screen.getByTestId(rangeIds.fromInput)).toHaveValue('04/10/2026');
-  });
-
-  it('leaves From empty for a patient with no visits, so nothing is requested until one is chosen', async () => {
-    const user = userEvent.setup();
-    mockVisits = [];
-    renderPage();
+    expect(mockUseMedicalRecordDateSpan).toHaveBeenLastCalledWith(PATIENT_ID, false);
 
     await user.click(screen.getByRole('button', { name: /Medical Record/i }));
-    await user.click(screen.getByRole('menuitem', { name: 'Download Archive' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Send as Fax' }));
 
-    expect(screen.getByTestId(rangeIds.fromInput)).toHaveValue('');
-    expect(screen.getByTestId(rangeIds.confirmButton)).toBeDisabled();
-    expect(mockDownloadMedicalRecord).not.toHaveBeenCalled();
+    expect(mockUseMedicalRecordDateSpan).toHaveBeenLastCalledWith(PATIENT_ID, true);
   });
 
   it('keeps the date range open with the reason when the archive would be empty', async () => {

@@ -8,24 +8,37 @@ import { MedicalRecordDateRangeDialog } from '../../src/features/medical-record-
 
 const ids = dataTestIds.medicalRecordDateRangeDialog;
 const FIRST_VISIT = DateTime.local(2026, 1, 15);
+const RECORD_DATES = {
+  earliest: FIRST_VISIT.set({ hour: 10 }).toUTC().toISO()!,
+  latest: DateTime.local(2026, 3, 1, 9).toUTC().toISO()!,
+};
 const TODAY = DateTime.now().toFormat('MM/dd/yyyy');
 
+type DialogProps = Partial<Parameters<typeof MedicalRecordDateRangeDialog>[0]>;
+
 const renderDialog = (
-  overrides: Partial<Parameters<typeof MedicalRecordDateRangeDialog>[0]> = {}
-): { onConfirm: ReturnType<typeof vi.fn>; onClose: ReturnType<typeof vi.fn> } => {
+  overrides: DialogProps = {}
+): {
+  onConfirm: ReturnType<typeof vi.fn>;
+  onClose: ReturnType<typeof vi.fn>;
+  rerender: (next: DialogProps) => void;
+} => {
   const onConfirm = vi.fn(() => Promise.resolve());
   const onClose = vi.fn();
-  render(
+  const dialog = (props: DialogProps): JSX.Element => (
     <MedicalRecordDateRangeDialog
       open
       confirmText="Download Archive"
-      defaultFrom={FIRST_VISIT}
+      recordDates={RECORD_DATES}
+      loading={false}
+      loadFailed={false}
       onClose={onClose}
       onConfirm={onConfirm}
-      {...overrides}
+      {...props}
     />
   );
-  return { onConfirm, onClose };
+  const { rerender } = render(dialog(overrides));
+  return { onConfirm, onClose, rerender: (next) => rerender(dialog(next)) };
 };
 
 const typeDate = async (
@@ -44,7 +57,7 @@ const clearDate = async (user: ReturnType<typeof userEvent.setup>, input: HTMLEl
 };
 
 describe('MedicalRecordDateRangeDialog', () => {
-  it('predefines the range from the first visit to today', () => {
+  it('predefines the range from the earliest record to today', () => {
     renderDialog();
 
     expect(screen.getByText('Medical Record')).toBeInTheDocument();
@@ -59,7 +72,7 @@ describe('MedicalRecordDateRangeDialog', () => {
     expect(screen.getByTestId(ids.confirmButton)).toHaveTextContent('Send as Fax');
   });
 
-  it('requests the predefined range, from the start of the first visit day to the end of today', async () => {
+  it('requests the predefined range, from the start of the earliest record day to the end of today', async () => {
     const user = userEvent.setup();
     const { onConfirm, onClose } = renderDialog();
 
@@ -138,20 +151,115 @@ describe('MedicalRecordDateRangeDialog', () => {
     expect(screen.queryByTestId(ids.message)).not.toBeInTheDocument();
   });
 
-  it('starts with an empty From for a patient with no visits and waits for one to be chosen', async () => {
-    const user = userEvent.setup();
-    const { onConfirm } = renderDialog({ defaultFrom: null });
+  it('extends To past today to a record dated by an upcoming visit', () => {
+    const upcomingVisit = DateTime.now().plus({ days: 7 }).set({ hour: 10 });
+    renderDialog({ recordDates: { ...RECORD_DATES, latest: upcomingVisit.toUTC().toISO()! } });
 
-    expect(screen.getByTestId(ids.fromInput)).toHaveValue('');
+    expect(screen.getByTestId(ids.fromInput)).toHaveValue('01/15/2026');
+    expect(screen.getByTestId(ids.toInput)).toHaveValue(upcomingVisit.toFormat('MM/dd/yyyy'));
+  });
+
+  it('predefines today for a patient with no records', () => {
+    renderDialog({ recordDates: {} });
+
+    expect(screen.getByTestId(ids.fromInput)).toHaveValue(TODAY);
     expect(screen.getByTestId(ids.toInput)).toHaveValue(TODAY);
+    expect(screen.getByTestId(ids.confirmButton)).toBeEnabled();
+  });
+
+  it('cannot be confirmed or edited while the record dates load', () => {
+    renderDialog({ recordDates: undefined, loading: true });
+
+    expect(screen.getByTestId(ids.fromInput)).toBeDisabled();
+    expect(screen.getByTestId(ids.toInput)).toBeDisabled();
     expect(screen.getByTestId(ids.confirmButton)).toBeDisabled();
+  });
 
-    await typeDate(user, screen.getByTestId(ids.fromInput), '02012026');
-    await user.click(screen.getByTestId(ids.confirmButton));
+  it('says so and cannot be confirmed when the record dates fail to load', () => {
+    renderDialog({ recordDates: undefined, loadFailed: true });
 
-    expect(onConfirm).toHaveBeenCalledWith({
-      from: DateTime.local(2026, 2, 1).toISO(),
-      to: DateTime.now().endOf('day').toISO(),
+    expect(screen.getByTestId(ids.loadError)).toHaveTextContent("Couldn't load the record dates");
+    expect(screen.getByTestId(ids.confirmButton)).toBeDisabled();
+  });
+
+  describe('refetching record dates', () => {
+    const FRESH_RECORD_DATES = {
+      earliest: DateTime.local(2025, 11, 3, 10).toUTC().toISO()!,
+      latest: DateTime.local(2026, 3, 1, 9).toUTC().toISO()!,
+    };
+
+    it('keeps the dates the user edited when the record dates refetch in the background', async () => {
+      const user = userEvent.setup();
+      const { rerender } = renderDialog();
+
+      await typeDate(user, screen.getByTestId(ids.toInput), '03312026');
+      rerender({ loading: true });
+      rerender({ recordDates: FRESH_RECORD_DATES });
+
+      expect(screen.getByTestId(ids.fromInput)).toHaveValue('01/15/2026');
+      expect(screen.getByTestId(ids.toInput)).toHaveValue('03/31/2026');
+      expect(screen.getByTestId(ids.confirmButton)).toBeEnabled();
+    });
+
+    it('waits for fresh record dates when reopened with cached ones', () => {
+      const { rerender } = renderDialog();
+
+      rerender({ open: false });
+      rerender({ loading: true });
+
+      expect(screen.getByTestId(ids.fromInput)).toHaveValue('');
+      expect(screen.getByTestId(ids.fromInput)).toBeDisabled();
+      expect(screen.getByTestId(ids.confirmButton)).toBeDisabled();
+
+      rerender({ recordDates: FRESH_RECORD_DATES });
+
+      expect(screen.getByTestId(ids.fromInput)).toHaveValue('11/03/2025');
+      expect(screen.getByTestId(ids.confirmButton)).toBeEnabled();
+    });
+
+    it('does not fall back to cached record dates when the fresh request fails', () => {
+      const { rerender } = renderDialog();
+
+      rerender({ open: false });
+      rerender({ loading: true, loadFailed: true });
+      expect(screen.queryByTestId(ids.loadError)).not.toBeInTheDocument();
+
+      rerender({ loadFailed: true });
+
+      expect(screen.getByTestId(ids.loadError)).toBeInTheDocument();
+      expect(screen.getByTestId(ids.fromInput)).toHaveValue('');
+      expect(screen.getByTestId(ids.confirmButton)).toBeDisabled();
+    });
+
+    it('starts each opening from the current record dates, not the previous edits', async () => {
+      const user = userEvent.setup();
+      const { rerender } = renderDialog();
+
+      await typeDate(user, screen.getByTestId(ids.toInput), '03312026');
+      rerender({ open: false });
+      rerender({ loading: true });
+      rerender({});
+
+      expect(screen.getByTestId(ids.fromInput)).toHaveValue('01/15/2026');
+      expect(screen.getByTestId(ids.toInput)).toHaveValue(TODAY);
+    });
+
+    it('clears an earlier export or fax error when reopened, even if the record dates then fail to load', async () => {
+      const user = userEvent.setup();
+      const { rerender } = renderDialog({
+        onConfirm: vi.fn(() => Promise.reject(new Error(NO_MEDICAL_RECORDS_IN_RANGE_MESSAGE))),
+      });
+
+      await user.click(screen.getByTestId(ids.confirmButton));
+      expect(await screen.findByTestId(ids.message)).toHaveTextContent(NO_MEDICAL_RECORDS_IN_RANGE_MESSAGE);
+
+      rerender({ open: false });
+      rerender({ loading: true });
+      expect(screen.queryByTestId(ids.message)).not.toBeInTheDocument();
+
+      rerender({ loadFailed: true });
+      expect(screen.queryByTestId(ids.message)).not.toBeInTheDocument();
+      expect(screen.getByTestId(ids.loadError)).toBeInTheDocument();
     });
   });
 });

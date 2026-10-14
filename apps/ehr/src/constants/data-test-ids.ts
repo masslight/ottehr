@@ -149,6 +149,7 @@ export const dataTestIds = {
     fromInput: 'medical-record-date-range-from',
     toInput: 'medical-record-date-range-to',
     message: 'medical-record-date-range-message',
+    loadError: 'medical-record-date-range-load-error',
     confirmButton: 'medical-record-date-range-confirm',
   },
   faxResultDialog: {

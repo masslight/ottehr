@@ -18,12 +18,14 @@ import { DateTime } from 'luxon';
 import { FC, useEffect, useState } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
-import { MedicalRecordDateRange } from 'utils/lib/types/data/get-patient-medical-record.types';
+import { MedicalRecordDateRange, MedicalRecordDateSpan } from 'utils/lib/types/data/get-patient-medical-record.types';
 
 interface MedicalRecordDateRangeDialogProps {
   open: boolean;
   confirmText: string;
-  defaultFrom: DateTime | null;
+  recordDates?: MedicalRecordDateSpan;
+  loading: boolean;
+  loadFailed: boolean;
   onClose: () => void;
   onConfirm: (dateRange: MedicalRecordDateRange) => Promise<void>;
 }
@@ -31,25 +33,37 @@ interface MedicalRecordDateRangeDialogProps {
 export const MedicalRecordDateRangeDialog: FC<MedicalRecordDateRangeDialogProps> = ({
   open,
   confirmText,
-  defaultFrom,
+  recordDates,
+  loading,
+  loadFailed,
   onClose,
   onConfirm,
 }) => {
   const theme = useTheme();
-  const [today, setToday] = useState(() => DateTime.now().startOf('day'));
-  const [from, setFrom] = useState<DateTime | null>(defaultFrom);
-  const [to, setTo] = useState<DateTime | null>(today);
+  const [from, setFrom] = useState<DateTime | null>(null);
+  const [to, setTo] = useState<DateTime | null>(null);
   const [message, setMessage] = useState<string>();
   const [submitting, setSubmitting] = useState(false);
+  const [initialized, setInitialized] = useState(false);
 
   useEffect(() => {
-    if (!open) return;
-    const now = DateTime.now().startOf('day');
-    setToday(now);
-    setFrom(defaultFrom);
-    setTo(now);
+    if (!open) {
+      setInitialized(false);
+      return;
+    }
+    if (initialized) return;
     setMessage(undefined);
-  }, [open, defaultFrom]);
+    if (loading || loadFailed || !recordDates) {
+      setFrom(null);
+      setTo(null);
+      return;
+    }
+    const today = DateTime.now().startOf('day');
+    const latestDay = recordDates.latest ? DateTime.fromISO(recordDates.latest).startOf('day') : today;
+    setFrom(recordDates.earliest ? DateTime.fromISO(recordDates.earliest).startOf('day') : today);
+    setTo(latestDay > today ? latestDay : today);
+    setInitialized(true);
+  }, [open, initialized, loading, loadFailed, recordDates]);
 
   const isValid = !!from?.isValid && !!to?.isValid && from.startOf('day') <= to.startOf('day');
   const confirm = async (): Promise<void> => {
@@ -90,6 +104,7 @@ export const MedicalRecordDateRangeDialog: FC<MedicalRecordDateRangeDialogProps>
         setMessage(undefined);
       }}
       format="MM/dd/yyyy"
+      disabled={!initialized}
       slotProps={{ textField: { fullWidth: true, inputProps: { 'data-testid': testId } } }}
     />
   );
@@ -122,6 +137,11 @@ export const MedicalRecordDateRangeDialog: FC<MedicalRecordDateRangeDialogProps>
             {datePicker('To', to, setTo, dataTestIds.medicalRecordDateRangeDialog.toInput)}
           </Box>
         </LocalizationProvider>
+        {!initialized && loadFailed && !loading && (
+          <Alert severity="error" sx={{ mt: 2 }} data-testid={dataTestIds.medicalRecordDateRangeDialog.loadError}>
+            Couldn't load the record dates. Close the dialog and try again.
+          </Alert>
+        )}
         {message && (
           <Alert severity="warning" sx={{ mt: 2 }} data-testid={dataTestIds.medicalRecordDateRangeDialog.message}>
             {message}
@@ -140,8 +160,8 @@ export const MedicalRecordDateRangeDialog: FC<MedicalRecordDateRangeDialogProps>
         </Button>
         <LoadingButton
           variant="contained"
-          loading={submitting}
-          disabled={!isValid}
+          loading={submitting || (!initialized && !loadFailed)}
+          disabled={!initialized || !isValid}
           onClick={() => void confirm()}
           sx={{ borderRadius: '100px', textTransform: 'none', fontWeight: 500 }}
           data-testid={dataTestIds.medicalRecordDateRangeDialog.confirmButton}

@@ -26,7 +26,6 @@ import {
   Typography,
 } from '@mui/material';
 import { useQueryClient } from '@tanstack/react-query';
-import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
@@ -52,6 +51,7 @@ import { getLegacyDataUrl } from 'src/helpers/legacyData';
 import { useDownloadMedicalRecord } from 'src/hooks/useDownloadMedicalRecord';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { useGetActiveMergeTask } from 'src/hooks/useGetPatient';
+import { useMedicalRecordDateSpan } from 'src/hooks/useMedicalRecordDateSpan';
 import { formatPatientTabTitle } from 'src/shared/utils/patientTabTitle';
 import { otherColors } from 'src/themes/ottehr/colors';
 import { getFirstName, getFullestAvailableName, getLastName } from 'utils/lib/fhir/patient';
@@ -216,15 +216,7 @@ export default function PatientPage(): JSX.Element {
 
   const appointments = useMemo(() => visitHistory?.visits ?? [], [visitHistory?.visits]);
   const latestAppointment = appointments?.[0];
-  const firstVisit = appointments.at(-1);
-  const firstVisitDay = useMemo(() => {
-    if (!firstVisit?.dateTime) return null;
-    const visit = DateTime.fromISO(
-      firstVisit.dateTime,
-      firstVisit.timezone ? { zone: firstVisit.timezone } : { setZone: true }
-    );
-    return visit.isValid ? DateTime.local(visit.year, visit.month, visit.day) : null;
-  }, [firstVisit?.dateTime, firstVisit?.timezone]);
+  const recordDateSpan = useMedicalRecordDateSpan(id, isMedicalRecordRangeOpen);
 
   const faxableVisits: FaxVisitOption[] = useMemo(
     () =>
@@ -451,7 +443,9 @@ export default function PatientPage(): JSX.Element {
           <MedicalRecordDateRangeDialog
             open={isMedicalRecordRangeOpen}
             confirmText={medicalRecordAction === 'fax' ? 'Send as Fax' : 'Download Archive'}
-            defaultFrom={firstVisitDay}
+            recordDates={recordDateSpan.data}
+            loading={recordDateSpan.isFetching}
+            loadFailed={recordDateSpan.isError}
             onClose={() => setIsMedicalRecordRangeOpen(false)}
             onConfirm={confirmMedicalRecordRange}
           />
