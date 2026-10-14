@@ -1,7 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { getDocument } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { M2MClientMockType } from 'utils/lib/auth/user-me.helper';
-import { getRosCommentFieldKey } from 'utils/lib/ottehr-config/review-of-systems';
+import { getRosCommentFieldKey } from 'utils/lib/config-helpers/review-of-systems';
 import { PrintablePdfZambdaOutput } from 'utils/lib/types/api/print-chart-data/print-chart-data.types';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {

@@ -1,6 +1,6 @@
 import { enqueueSnackbar } from 'notistack';
 import { useCallback } from 'react';
-import { isRosObservationSet, ROS_COMMENT_FIELD_KEYS } from 'utils/lib/ottehr-config/review-of-systems';
+import { isRosObservationSet, ROS_COMMENT_FIELD_KEYS } from 'utils/lib/config-helpers/review-of-systems';
 import { ExamObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { useDeleteChartData, useSaveChartData } from '../stores/appointment/appointment.store';
 import {

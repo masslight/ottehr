@@ -11,6 +11,11 @@ import {
   ServiceRequest,
 } from 'fhir/r4b';
 import { collectKnownExamFields } from 'utils/lib/config-helpers/exam-observations';
+import {
+  collectKnownRosFieldsWithComments,
+  getRosSystemKeyForCommentField,
+  ROS_COMMENT_FIELD_KEYS,
+} from 'utils/lib/config-helpers/review-of-systems';
 import { extractCptCodeModifiersFromCoding, getCptBillableUnitsFromCoding } from 'utils/lib/fhir/billing';
 import {
   ACCIDENT_STATE_EXTENSION,
@@ -26,12 +31,7 @@ import {
 } from 'utils/lib/fhir/medication-administration';
 import { CODE_SYSTEM_ICD_10 } from 'utils/lib/helpers/rcm/constants';
 import { examConfig } from 'utils/lib/ottehr-config/examination';
-import {
-  collectKnownRosFields,
-  getRosFindingStateFromKey,
-  getRosSystemKeyForCommentField,
-  ROS_COMMENT_FIELD_KEYS,
-} from 'utils/lib/ottehr-config/review-of-systems';
+import { getRosFindingStateFromKey } from 'utils/lib/ottehr-config/review-of-systems';
 import { InPersonRosConfig } from 'utils/lib/ottehr-config/review-of-systems/in-person.config';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import { inHouseMedicationsMedicationApplianceRoutes } from 'utils/lib/types/api/medication-administration.types';
@@ -220,7 +220,7 @@ const performEffect = async (
   const legacyRosTagSystem = chartDataTagSystem('ros');
 
   const knownExamFields = collectKnownExamFields(examConfig.default.components);
-  const knownRosFields = collectKnownRosFields();
+  const knownRosFields = collectKnownRosFieldsWithComments();
 
   const { isCurrentVersion, unmatchedRosFields, examObservations, rosObservations, rosNote } =
     analyzeTemplateVersionData({

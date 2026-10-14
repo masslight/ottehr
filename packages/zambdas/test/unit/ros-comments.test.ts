@@ -1,8 +1,8 @@
 import { Observation, Resource } from 'fhir/r4b';
 import { collectKnownExamFields } from 'utils/lib/config-helpers/exam-observations';
+import { collectKnownRosFieldsWithComments } from 'utils/lib/config-helpers/review-of-systems';
 import { chartDataTagSystem } from 'utils/lib/fhir/constants';
 import { examConfig } from 'utils/lib/ottehr-config/examination';
-import { collectKnownRosFields } from 'utils/lib/ottehr-config/review-of-systems';
 import { ExamObservationDTO, ROS_OBSERVATION_META_SYSTEM } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { describe, expect, test, vi } from 'vitest';
 import { analyzeTemplateVersionData } from '../../src/ehr/shared/template-helpers';
@@ -224,7 +224,7 @@ describe('analyzeTemplateVersionData — ROS comments', () => {
       rosTagSystem,
       legacyRosTagSystem: chartDataTagSystem('ros'),
       knownExamFields: collectKnownExamFields(examConfig.default.components),
-      knownRosFields: collectKnownRosFields(),
+      knownRosFields: collectKnownRosFieldsWithComments(),
     });
 
   test('a template with a ROS comment stays current', () => {

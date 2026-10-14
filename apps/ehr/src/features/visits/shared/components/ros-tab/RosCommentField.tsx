@@ -1,7 +1,7 @@
 import { Box, CircularProgress, TextField } from '@mui/material';
 import { FC, useEffect, useRef, useState } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { getRosCommentFieldKey } from 'utils/lib/ottehr-config/review-of-systems';
+import { getRosCommentFieldKey } from 'utils/lib/config-helpers/review-of-systems';
 import { useRosObservations } from '../../hooks/useRosObservations';
 import { holdPendingObservationFields } from '../../stores/appointment/pending-observation-fields.store';
 import { getRosStoreGeneration } from '../../stores/appointment/ros-observations.store';

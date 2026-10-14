@@ -1,6 +1,6 @@
 import { FC } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { isRosObservationSet, ROS_COMMENT_FIELD_KEYS } from 'utils/lib/ottehr-config/review-of-systems';
+import { isRosObservationSet, ROS_COMMENT_FIELD_KEYS } from 'utils/lib/config-helpers/review-of-systems';
 import { useRosObservations } from '../../hooks/useRosObservations';
 import { ClearChartSectionButton } from '../ClearChartSectionButton';
 

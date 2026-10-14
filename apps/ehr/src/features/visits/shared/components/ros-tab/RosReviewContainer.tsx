@@ -5,7 +5,8 @@ import {
   SectionHeading,
   useNoteSectionTitleInCardHeader,
 } from 'src/features/visits/shared/components/NoteSectionHeading';
-import { getRosCommentFieldKey, getRosFindingFieldKeys } from 'utils/lib/ottehr-config/review-of-systems';
+import { getRosCommentFieldKey } from 'utils/lib/config-helpers/review-of-systems';
+import { getRosFindingFieldKeys } from 'utils/lib/ottehr-config/review-of-systems';
 import { InPersonRosConfig } from 'utils/lib/ottehr-config/review-of-systems/in-person.config';
 import { useRosObservationsStore } from '../../stores/appointment/ros-observations.store';
 import { ExamReviewGroup } from '../review-tab/components/ExamReviewGroup';
