@@ -1,6 +1,7 @@
 // Which way a report fetches: one http_auth call (fast, but cut at 27 s when deployed) or the
 // background Task (no ceiling, ~2 s of create + poll overhead). Chosen per saved report from the
 // server fetch time measured when it was built, and only for a date range no wider than that one.
+import { FetchStepDensity, FetchStepStats, stepIsDateBounded } from 'utils/lib/types/adhoc/plan/fetch-plan';
 import type { DateRange } from 'utils/lib/types/adhoc/query/date-range';
 import type { StudioReport } from './types';
 
@@ -33,3 +34,25 @@ export function measuredFetch(totalMs: number, dateRange: DateRange, fellBack = 
 export const isDirectTimeout = (error: unknown, elapsedMs: number): boolean =>
   elapsedMs >= DIRECT_FETCH_CEILING_MS * 0.75 ||
   (typeof (error as { status?: unknown })?.status === 'number' && (error as { status: number }).status >= 502);
+
+/**
+ * What a run teaches about each step's volume, for the zambda to pre-size the next run's bulk jobs: primary
+ * resources per scoped id, or per day of the range for a date-bounded step. Only steps that ran bulk measure
+ * anything; a step that failed teaches nothing.
+ */
+export function stepDensity(
+  plan: { steps: { id: string; params?: { name: string; value: string }[] }[] },
+  stats: FetchStepStats[],
+  dateRange: DateRange
+): Record<string, FetchStepDensity> {
+  const days = Math.max(1, rangeDays(dateRange));
+  const out: Record<string, FetchStepDensity> = {};
+  for (const s of stats) {
+    if (s.mode !== 'bulk' || s.error) continue;
+    const primary = s.byType[s.resourceType] ?? 0;
+    const step = plan.steps.find((p) => p.id === s.id);
+    if (s.scopedValues) out[s.id] = { recordsPerId: primary / s.scopedValues };
+    else if (step && stepIsDateBounded(step)) out[s.id] = { recordsPerDay: primary / days };
+  }
+  return out;
+}

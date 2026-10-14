@@ -2,7 +2,7 @@
 // Claude Code at the same files. Mirrors what the redesign saves (plan + code + prompt), not today's
 // dataset-based SavedAdHocReportDefinition.
 import { DateTime } from 'luxon';
-import type { FetchPlanInput, FetchPlanParameters } from 'utils/lib/types/adhoc/plan/fetch-plan';
+import type { FetchPlanInput, FetchPlanParameters, FetchStepDensity } from 'utils/lib/types/adhoc/plan/fetch-plan';
 import type { DateRange } from 'utils/lib/types/adhoc/query/date-range';
 
 export const STUDIO_REPORT_FORMAT = 'ottehr-report-studio/1';
@@ -65,6 +65,8 @@ export interface StudioReport {
   /** Server fetch time of the last run while building, and the date-range span (days) it was measured on. */
   measuredFetchSeconds?: number;
   measuredRangeDays?: number;
+  /** Per step id, the bulk density the last run measured (see fetchMode.ts); the next run pre-sizes its bulk jobs from it. */
+  stepDensity?: Record<string, FetchStepDensity>;
 }
 
 /** The part of a report a Claude turn can change — one undo step. */

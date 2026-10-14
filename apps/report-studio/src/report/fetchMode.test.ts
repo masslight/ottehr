@@ -1,5 +1,13 @@
+import type { FetchStepStats } from 'utils/lib/types/adhoc/plan/fetch-plan';
 import { describe, expect, it } from 'vitest';
-import { chooseFetchMode, DIRECT_FETCH_MAX_SECONDS, isDirectTimeout, measuredFetch, rangeDays } from './fetchMode';
+import {
+  chooseFetchMode,
+  DIRECT_FETCH_MAX_SECONDS,
+  isDirectTimeout,
+  measuredFetch,
+  rangeDays,
+  stepDensity,
+} from './fetchMode';
 
 const days = (n: number): { start: string; end: string } => ({
   start: '2026-09-01T04:00:00.000Z',
@@ -57,5 +65,63 @@ describe('isDirectTimeout', () => {
     expect(isDirectTimeout({ status: 400 }, 1000)).toBe(false);
     expect(isDirectTimeout({ status: 500 }, 1000)).toBe(false);
     expect(isDirectTimeout({ status: 0 }, 1000)).toBe(false);
+  });
+});
+
+describe('stepDensity', () => {
+  const plan = {
+    steps: [
+      {
+        id: 'visits',
+        params: [
+          { name: 'date', value: 'ge{{start}}' },
+          { name: 'date', value: 'le{{end}}' },
+        ],
+      },
+      { id: 'vitals', params: [] },
+      { id: 'open', params: [{ name: 'date', value: 'ge{{start}}' }] },
+      {
+        id: 'small',
+        params: [
+          { name: 'date', value: 'ge{{start}}' },
+          { name: 'date', value: 'le{{end}}' },
+        ],
+      },
+    ],
+  };
+  const stat = (partial: Partial<FetchStepStats> & Pick<FetchStepStats, 'id' | 'resourceType'>): FetchStepStats => ({
+    ms: 1,
+    count: 0,
+    byType: {},
+    bytes: 0,
+    mode: 'bulk',
+    requests: 1,
+    params: [],
+    ...partial,
+  });
+
+  it('measures primary resources per day for a date-bounded bulk step and per id for a scoped one', () => {
+    const stats = [
+      stat({ id: 'visits', resourceType: 'Appointment', byType: { Appointment: 3000, Patient: 2500 } }),
+      stat({ id: 'vitals', resourceType: 'Observation', byType: { Observation: 19_500 }, scopedValues: 3000 }),
+    ];
+    expect(stepDensity(plan, stats, days(30))).toEqual({
+      visits: { recordsPerDay: 100 },
+      vitals: { recordsPerId: 6.5 },
+    });
+  });
+
+  it('learns nothing from a paged, failed or half-bounded step', () => {
+    const stats = [
+      stat({ id: 'small', resourceType: 'Appointment', byType: { Appointment: 300 }, mode: 'normal' }),
+      stat({ id: 'visits', resourceType: 'Appointment', byType: { Appointment: 3000 }, error: 'boom' }),
+      stat({ id: 'open', resourceType: 'Appointment', byType: { Appointment: 3000 } }),
+    ];
+    expect(stepDensity(plan, stats, days(30))).toEqual({});
+  });
+
+  it('treats a range under a day as one day', () => {
+    const stats = [stat({ id: 'visits', resourceType: 'Appointment', byType: { Appointment: 40 } })];
+    expect(stepDensity(plan, stats, days(1))).toEqual({ visits: { recordsPerDay: 40 } });
   });
 });

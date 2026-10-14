@@ -20,7 +20,29 @@ export const FETCH_PLAN_LIMITS = {
   // Above this many scoped values the batches go through the async-bulk path instead of paged searches.
   // Measured on synth (2,700 Encounter ids → 17,724 vitals, 27 batches): paged 3.5–4.6 s, bulk jobs 18.7 s.
   scopedBulkThreshold: 5_000,
+  // The most ids one pre-sized bulk batch may carry (the search is a POST, so the limit is the server's, not the url's).
+  scopedBulkBatchMax: 1_000,
 } as const;
+
+/** Primary resources a pre-sized bulk job aims for: under the server's 30,000 cap, with room for the density to drift. */
+export const ASYNC_BULK_TARGET = 20_000;
+
+/** The bulk density a step showed on an earlier run: primary resources per day of range, or per scoped id. */
+export const FetchStepDensitySchema = z.object({
+  recordsPerDay: z.number().nonnegative().optional(),
+  recordsPerId: z.number().nonnegative().optional(),
+});
+export type FetchStepDensity = z.infer<typeof FetchStepDensitySchema>;
+
+/** How many date windows a bulk step runs in, so each job lands near the target; one without a hint. */
+export const bulkWindowCount = (recordsPerDay: number | undefined, days: number): number =>
+  recordsPerDay ? Math.max(1, Math.ceil((recordsPerDay * days) / ASYNC_BULK_TARGET)) : 1;
+
+/** How many ids a scoped bulk batch carries, so each job lands near the target; today's batch size without a hint. */
+export const scopedBulkBatchSize = (recordsPerId: number | undefined): number =>
+  recordsPerId
+    ? Math.min(FETCH_PLAN_LIMITS.scopedBulkBatchMax, Math.max(1, Math.floor(ASYNC_BULK_TARGET / recordsPerId)))
+    : FETCH_PLAN_LIMITS.scopedBatchSize;
 
 export const FetchStepParamSchema = z.object({
   name: z.string().min(1),
@@ -120,6 +142,8 @@ export const RunFetchPlanInputSchema = z.object({
   inline: z.boolean().optional(),
   /** Gzip the Z3 file; the client decompresses it (DecompressionStream in the browser). */
   gzip: z.boolean().optional(),
+  /** Step id → density an earlier run measured, to pre-size that step's bulk jobs (Report Studio saves it). */
+  hints: z.record(FetchStepDensitySchema).optional(),
 });
 export type RunFetchPlanInput = z.infer<typeof RunFetchPlanInputSchema>;
 

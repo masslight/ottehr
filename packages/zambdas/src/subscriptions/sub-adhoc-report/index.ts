@@ -48,7 +48,13 @@ async function buildOutputJson(
   environment: string
 ): Promise<{ json: string; rowCount: number }> {
   if ('plan' in params) {
-    const { resources, stats, totalMs } = await runFetchPlan(oystehr, params.plan, params.dateRange, params.parameters);
+    const { resources, stats, totalMs } = await runFetchPlan(
+      oystehr,
+      params.plan,
+      params.dateRange,
+      params.parameters,
+      params.hints
+    );
     // One file holds the stats and the resources (RunFetchPlanOutput); the 17–30 MB of resources are
     // serialized once, and the stats head is spliced in front of them.
     const resourcesJson = JSON.stringify(resources);

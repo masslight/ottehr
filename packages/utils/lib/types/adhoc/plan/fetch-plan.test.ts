@@ -1,8 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
+  ASYNC_BULK_TARGET,
+  bulkWindowCount,
+  FETCH_PLAN_LIMITS,
   planNeedsPatient,
   resolveParamTemplates,
   RunFetchPlanInputSchema,
+  scopedBulkBatchSize,
   scopedStepValues,
   stepIsDateBounded,
   toElementName,
@@ -124,5 +128,31 @@ describe('planNeedsPatient and the run input', () => {
     const parsed = RunFetchPlanInputSchema.parse({ plan, parameters: { patientId: 'p1' } });
     expect(parsed.parameters?.patientId).toBe('p1');
     expect(() => RunFetchPlanInputSchema.parse({ plan, parameters: { patientId: '' } })).toThrow();
+  });
+
+  it('accepts density hints per step, and none at all', () => {
+    const hints = { visits: { recordsPerDay: 441.4 }, vitals: { recordsPerId: 6.5 } };
+    expect(RunFetchPlanInputSchema.parse({ plan, hints }).hints).toEqual(hints);
+    expect(RunFetchPlanInputSchema.parse({ plan }).hints).toBeUndefined();
+    expect(() => RunFetchPlanInputSchema.parse({ plan, hints: { visits: { recordsPerDay: -1 } } })).toThrow();
+  });
+});
+
+describe('bulk job sizing', () => {
+  it('cuts a date range into windows of about the target, one without a hint', () => {
+    // 161,116 observations over a year of synth: 441 a day → 9 jobs of ~18,000 instead of one cut at 30,000.
+    expect(bulkWindowCount(441.4, 365)).toBe(Math.ceil((441.4 * 365) / ASYNC_BULK_TARGET));
+    expect(bulkWindowCount(441.4, 365)).toBe(9);
+    expect(bulkWindowCount(441.4, 7)).toBe(1);
+    expect(bulkWindowCount(undefined, 365)).toBe(1);
+    expect(bulkWindowCount(0, 365)).toBe(1);
+  });
+
+  it("fits as many ids in a scoped batch as the target allows, within bounds; today's size without a hint", () => {
+    expect(scopedBulkBatchSize(300)).toBe(66);
+    expect(scopedBulkBatchSize(6.5)).toBe(FETCH_PLAN_LIMITS.scopedBulkBatchMax);
+    expect(scopedBulkBatchSize(50_000)).toBe(1);
+    expect(scopedBulkBatchSize(undefined)).toBe(FETCH_PLAN_LIMITS.scopedBatchSize);
+    expect(scopedBulkBatchSize(0)).toBe(FETCH_PLAN_LIMITS.scopedBatchSize);
   });
 });

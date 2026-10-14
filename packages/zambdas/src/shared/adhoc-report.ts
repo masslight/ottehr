@@ -13,7 +13,6 @@ import {
   Practitioner,
   RelatedPerson,
 } from 'fhir/r4b';
-import { DateTime } from 'luxon';
 import { BUCKET_NAMES, SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
 import { getEncounterVisitType } from 'utils/lib/fhir/encounter';
 import { isInPersonAppointment, isTelemedAppointment, OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
@@ -227,7 +226,7 @@ export async function searchSplittingOnCap<U, T extends FhirResource>(
   }
 }
 
-const DAY_MS = 24 * 60 * 60 * 1000;
+export const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** The two halves of a date window; none for a window of a day or less. */
 export function halveWindow(window: { start: string; end: string }): [DateRange, DateRange] | undefined {
@@ -264,19 +263,21 @@ export const REPORT_ATTENDED_APPOINTMENT_STATUSES = 'proposed,pending,booked,arr
 const REPORT_WINDOW_DAYS = 3;
 export const REPORT_WINDOW_CONCURRENCY = 4;
 
-/** The range cut into windows of `windowMs` (the last one shorter); the range itself when it cannot be cut. */
+/** The range cut into windows of `windowMs` (the last one shorter), keeping the caller's own strings at its two ends; the range itself when it needs no cut. */
 export function dateWindows(dateRange: DateRange, windowMs = REPORT_WINDOW_DAYS * DAY_MS): DateRange[] {
-  const start = DateTime.fromISO(dateRange.start);
-  const end = DateTime.fromISO(dateRange.end);
-  if (!start.isValid || !end.isValid || end <= start || !(windowMs > 0)) return [dateRange];
+  const start = Date.parse(dateRange.start);
+  const end = Date.parse(dateRange.end);
+  if (!(end > start) || !(windowMs > 0) || windowMs >= end - start) return [dateRange];
 
-  const windows: { start: string; end: string }[] = [];
-  let cursor = start;
-  while (cursor < end) {
-    const next = DateTime.min(cursor.plus({ milliseconds: windowMs }), end);
-    windows.push({ start: cursor.toISO()!, end: next.toISO()! });
+  const windows: DateRange[] = [];
+  for (let cursor = start; cursor < end; ) {
+    const next = Math.min(cursor + windowMs, end);
+    windows.push({
+      start: cursor === start ? dateRange.start : new Date(cursor).toISOString(),
+      end: next === end ? dateRange.end : new Date(next).toISOString(),
+    });
     // `date=ge`/`le` include both bounds, so step off the boundary by a millisecond to keep an appointment out of two windows.
-    cursor = next.plus({ milliseconds: 1 });
+    cursor = next + 1;
   }
   return windows;
 }
@@ -363,14 +364,15 @@ export async function fetchScopedResources<T extends FhirResource>(
   resourceType: T['resourceType'],
   paramName: string,
   values: string[],
-  extraParams: { name: string; value: string }[] = []
+  extraParams: { name: string; value: string }[] = [],
+  batchSize = SCOPED_BATCH_SIZE
 ): Promise<T[]> {
   if (values.length === 0) return [];
 
   const batches: string[][] = [];
 
-  for (let i = 0; i < values.length; i += SCOPED_BATCH_SIZE) {
-    batches.push(values.slice(i, i + SCOPED_BATCH_SIZE));
+  for (let i = 0; i < values.length; i += batchSize) {
+    batches.push(values.slice(i, i + batchSize));
   }
 
   const searchBatch = (batch: string[]): Promise<T[]> =>

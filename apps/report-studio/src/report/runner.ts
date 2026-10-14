@@ -16,7 +16,7 @@ import { sandbox } from '../sandbox/controller';
 import { RenderResult, useStudio } from '../state/store';
 import { bareTagHints } from './codeCheck';
 import { dependencyChainLength, elementsIgnoredFor } from './comparePlans';
-import { chooseFetchMode, isDirectTimeout, measuredFetch } from './fetchMode';
+import { chooseFetchMode, isDirectTimeout, measuredFetch, stepDensity } from './fetchMode';
 import { suggestElements } from './trim';
 import { resolveDateRange } from './types';
 
@@ -145,7 +145,7 @@ export async function runReport(opts: { dateRange?: DateRange; reuseData?: boole
     try {
       let output: Awaited<ReturnType<typeof runFetchPlan>>;
       try {
-        output = await runFetchPlan(report.plan, dateRange, parameters, mode);
+        output = await runFetchPlan(report.plan, dateRange, parameters, mode, report.stepDensity);
       } catch (error) {
         if (mode !== 'direct' || !isDirectTimeout(error, Date.now() - startedAt)) throw error;
         fellBack = true;
@@ -153,16 +153,21 @@ export async function runReport(opts: { dateRange?: DateRange; reuseData?: boole
           'warn',
           `Direct fetch timed out after ${Date.now() - startedAt} ms; retrying through the background Task`
         );
-        output = await runFetchPlan(report.plan, dateRange, parameters, 'task');
+        output = await runFetchPlan(report.plan, dateRange, parameters, 'task', report.stepDensity);
       }
       const { resources: fetched, ...rest } = output;
       resources = fetched;
       fetchOutput = rest;
       setRun({ fetch: rest, resources: fetched });
-      // The measurement is metadata, not an edit — unless the fallback pinned the Task path, which a save should keep.
-      setReport(measuredFetch(rest.totalMs, dateRange, fellBack), {
-        dirty: fellBack || useStudio.getState().file.dirty,
-      });
+      // The measurements are metadata, not an edit — unless the fallback pinned the Task path, which a save should keep.
+      // A step's density is replaced by what this run measured; steps that did not run bulk keep their last one.
+      setReport(
+        {
+          ...measuredFetch(rest.totalMs, dateRange, fellBack),
+          stepDensity: { ...report.stepDensity, ...stepDensity(report.plan, rest.stats, dateRange) },
+        },
+        { dirty: fellBack || useStudio.getState().file.dirty }
+      );
       addEvent('fetch', `Fetched (${mode}) in ${rest.totalMs} ms, ${fmtBytes(rest.totalBytes)}`, stepLines(rest.stats));
       for (const s of rest.stats) {
         if (s.error) {

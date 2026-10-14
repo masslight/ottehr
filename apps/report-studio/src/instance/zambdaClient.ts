@@ -3,7 +3,12 @@
 // user pastes. The local server wraps a zambda's response as { status, output }, as Oystehr does.
 import type { FhirResource } from 'fhir/r4b';
 import type { AdHocReportStatus, StartAdHocReportResponse } from 'utils/lib/types/adhoc/generation/report-task';
-import type { FetchPlanInput, FetchPlanParameters, RunFetchPlanOutput } from 'utils/lib/types/adhoc/plan/fetch-plan';
+import type {
+  FetchPlanInput,
+  FetchPlanParameters,
+  FetchStepDensity,
+  RunFetchPlanOutput,
+} from 'utils/lib/types/adhoc/plan/fetch-plan';
 import type { DateRange } from 'utils/lib/types/adhoc/query/date-range';
 import type { ListAdHocReportsOutput } from 'utils/lib/types/adhoc/saved/saved.types';
 import type { FetchMode } from '../report/fetchMode';
@@ -91,22 +96,19 @@ export async function runFetchPlan(
   plan: FetchPlanInput,
   dateRange: DateRange,
   parameters?: FetchPlanParameters,
-  mode: FetchMode = 'task'
+  mode: FetchMode = 'task',
+  hints?: Record<string, FetchStepDensity>
 ): Promise<FetchedPlan> {
   const gzip = FETCH_PLAN_GZIP;
+  const body = { plan, dateRange, parameters, gzip, hints };
   if (mode === 'direct') {
-    const output = await executeZambda<RunFetchPlanOutput>('adhoc-fetch-plan', { plan, dateRange, parameters, gzip });
+    const output = await executeZambda<RunFetchPlanOutput>('adhoc-fetch-plan', body);
     if (output.resources) return output as FetchedPlan;
     if (!output.downloadUrl)
       throw new ZambdaError('adhoc-fetch-plan', 200, 'The fetch returned neither resources nor a download url');
     return { ...output, resources: await downloadJson('adhoc-fetch-plan', output.downloadUrl, gzip) };
   }
-  const { taskId } = await executeZambda<StartAdHocReportResponse>('adhoc-report', {
-    plan,
-    dateRange,
-    parameters,
-    gzip,
-  });
+  const { taskId } = await executeZambda<StartAdHocReportResponse>('adhoc-report', body);
   const deadline = Date.now() + ADHOC_POLL_TIMEOUT_MS;
   let status: AdHocReportStatus | undefined;
   while (Date.now() < deadline) {

@@ -22,14 +22,14 @@ const INLINE_RESPONSE_LIMIT_BYTES = 5 * 1024 * 1024;
 let m2mToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const { plan, dateRange, parameters, inline, gzip, secrets } = validateRequestParameters(input);
+  const { plan, dateRange, parameters, inline, gzip, hints, secrets } = validateRequestParameters(input);
 
   await requireUserWithRole(getUserToken(input), secrets, AD_HOC_REPORT_VIEW_ROLES);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
-  const { resources, stats, totalMs } = await runFetchPlan(oystehr, plan, dateRange, parameters);
+  const { resources, stats, totalMs } = await runFetchPlan(oystehr, plan, dateRange, parameters, hints);
   const json = JSON.stringify(resources);
 
   const base = { stats, totalMs, totalBytes: json.length, dateRange };

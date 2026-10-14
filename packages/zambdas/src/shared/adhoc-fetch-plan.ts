@@ -6,22 +6,28 @@ import Oystehr from '@oystehr/sdk';
 import { captureException } from '@sentry/node-core/light';
 import { FhirResource } from 'fhir/r4b';
 import {
+  bulkWindowCount,
   FETCH_PLAN_LIMITS,
   FetchPlan,
   FetchPlanParameters,
   FetchStep,
+  FetchStepDensity,
   FetchStepParam,
   FetchStepStats,
   resolveParamTemplates,
+  scopedBulkBatchSize,
   scopedStepValues,
   stepIsDateBounded,
   toElementName,
 } from 'utils/lib/types/adhoc/plan/fetch-plan';
 import { DateRange } from 'utils/lib/types/adhoc/query/date-range';
 import {
+  dateWindows,
+  DAY_MS,
   dedupeResources,
   fetchScopedResources,
   halveWindow,
+  REPORT_WINDOW_CONCURRENCY,
   searchAsyncBulk,
   searchSplittingOnCap,
 } from './adhoc-report';
@@ -37,7 +43,8 @@ export async function runFetchPlan(
   oystehr: Oystehr,
   plan: FetchPlan,
   dateRange: DateRange | undefined,
-  parameters: FetchPlanParameters | undefined
+  parameters: FetchPlanParameters | undefined,
+  hints?: Record<string, FetchStepDensity>
 ): Promise<FetchPlanResult> {
   const startedAt = Date.now();
   const resourcesByStep = new Map<string, FhirResource[]>();
@@ -47,7 +54,15 @@ export async function runFetchPlan(
   for (const level of planLevels(plan)) {
     await Promise.all(
       level.map(async (step) => {
-        const { resources, stats } = await runStep(oystehr, step, dateRange, parameters, resourcesByStep, statsByStep);
+        const { resources, stats } = await runStep(
+          oystehr,
+          step,
+          dateRange,
+          parameters,
+          resourcesByStep,
+          statsByStep,
+          hints?.[step.id]
+        );
         resourcesByStep.set(step.id, resources);
         statsByStep.set(step.id, stats);
       })
@@ -85,7 +100,8 @@ async function runStep(
   dateRange: DateRange | undefined,
   parameters: FetchPlanParameters | undefined,
   resourcesByStep: Map<string, FhirResource[]>,
-  statsByStep: Map<string, FetchStepStats>
+  statsByStep: Map<string, FetchStepStats>,
+  hint?: FetchStepDensity
 ): Promise<{ resources: FhirResource[]; stats: FetchStepStats }> {
   const startedAt = Date.now();
   const resolveParams = (window = dateRange): FetchStepParam[] => {
@@ -100,14 +116,31 @@ async function runStep(
     return resolved;
   };
   const params = resolveParams();
-  // One bulk job over the run's date range, halved whenever a job fills the async-bulk cap; a step whose params
-  // do not bound both ends of the range has nothing to halve.
-  const searchBulk = (): Promise<FhirResource[]> =>
-    searchSplittingOnCap(
-      dateRange,
-      (window) => searchAsyncBulk(oystehr, step.resourceType as FhirResource['resourceType'], resolveParams(window)),
-      (window) => (window && stepIsDateBounded(step) ? halveWindow(window) : undefined)
-    );
+  // Bulk jobs over the run's date range: as many windows as the density hint of an earlier run calls for (one
+  // without it), each halved whenever its job fills the async-bulk cap. A step whose params do not bound both ends
+  // of the range runs as one job that cannot be halved.
+  let bulkJobs = 0;
+  const searchBulk = async (): Promise<FhirResource[]> => {
+    const dated = dateRange && stepIsDateBounded(step);
+    const rangeMs = dated ? Date.parse(dateRange.end) - Date.parse(dateRange.start) : 0;
+    const windows = dated
+      ? dateWindows(dateRange, Math.ceil(rangeMs / bulkWindowCount(hint?.recordsPerDay, rangeMs / DAY_MS)))
+      : [dateRange];
+    const searchWindow = (window: DateRange | undefined): Promise<FhirResource[]> => {
+      bulkJobs += 1;
+      return searchAsyncBulk(oystehr, step.resourceType as FhirResource['resourceType'], resolveParams(window));
+    };
+    const out: FhirResource[] = [];
+    for (let i = 0; i < windows.length; i += REPORT_WINDOW_CONCURRENCY) {
+      const group = await Promise.all(
+        windows
+          .slice(i, i + REPORT_WINDOW_CONCURRENCY)
+          .map((window) => searchSplittingOnCap(window, searchWindow, (w) => (dated ? halveWindow(w!) : undefined)))
+      );
+      for (const resources of group) out.push(...resources);
+    }
+    return out;
+  };
 
   const finish = (
     resources: FhirResource[],
@@ -140,13 +173,13 @@ async function runStep(
       const source = resourcesByStep.get(step.from.step) ?? [];
       const values = scopedStepValues(source, step.from);
       if (values.length === 0) return finish([], { mode: 'normal', requests: 0, scopedValues: 0 });
-      const [scoped, partial] = await runScoped(oystehr, step, params, values);
+      const [scoped, partial] = await runScoped(oystehr, step, params, values, hint);
       return finish(scoped, { ...partial, scopedValues: values.length });
     }
 
     if (step.mode === 'bulk') {
       await probeSearch(oystehr, step.resourceType, params);
-      return finish(await searchBulk(), { mode: 'bulk', requests: 2 });
+      return finish(await searchBulk(), { mode: 'bulk', requests: 1 + bulkJobs });
     }
 
     const cap = step.mode === 'normal' ? FETCH_PLAN_LIMITS.maxResourcesPerStep : FETCH_PLAN_LIMITS.autoBulkThreshold;
@@ -158,7 +191,7 @@ async function runStep(
         );
       }
       // auto: the paged attempt counts toward the timing — that is the real cost of not knowing the volume.
-      return finish(await searchBulk(), { mode: 'bulk', requests: paged.requests + 1 });
+      return finish(await searchBulk(), { mode: 'bulk', requests: paged.requests + bulkJobs });
     }
     return finish(paged.resources, { mode: 'normal', requests: paged.requests });
   } catch (error) {
@@ -208,7 +241,8 @@ async function runScoped(
   oystehr: Oystehr,
   step: FetchStep,
   params: FetchStepParam[],
-  values: string[]
+  values: string[],
+  hint?: FetchStepDensity
 ): Promise<[FhirResource[], Pick<FetchStepStats, 'mode' | 'requests'>]> {
   const paramName = step.from!.param;
   const batches: string[][] = [];
@@ -217,14 +251,16 @@ async function runScoped(
   }
   if (step.mode === 'bulk' || values.length > FETCH_PLAN_LIMITS.scopedBulkThreshold) {
     await probeSearch(oystehr, step.resourceType, [{ name: paramName, value: batches[0].join(',') }, ...params]);
+    const batchSize = scopedBulkBatchSize(hint?.recordsPerId);
     const resources = await fetchScopedResources<FhirResource>(
       oystehr,
       step.resourceType as FhirResource['resourceType'],
       paramName,
       values,
-      params
+      params,
+      batchSize
     );
-    return [resources, { mode: 'bulk', requests: batches.length + 1 }];
+    return [resources, { mode: 'bulk', requests: Math.ceil(values.length / batchSize) + 1 }];
   }
 
   const resources: FhirResource[] = [];

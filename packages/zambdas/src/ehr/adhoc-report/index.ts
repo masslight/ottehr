@@ -44,7 +44,13 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         type: { coding: [{ system: ADHOC_REPORT_TASK_SYSTEM, code: ADHOC_REPORT_PARAMS_CODE }] },
         valueString: JSON.stringify(
           'plan' in params
-            ? { plan: params.plan, dateRange: params.dateRange, parameters: params.parameters, gzip: params.gzip }
+            ? {
+                plan: params.plan,
+                dateRange: params.dateRange,
+                parameters: params.parameters,
+                gzip: params.gzip,
+                hints: params.hints,
+              }
             : { datasetId: params.datasetId, dateRange: params.dateRange, options: params.options ?? {} }
         ),
       },
