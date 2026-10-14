@@ -17,6 +17,7 @@ import {
   pagedWindowCount,
   resolveParamTemplates,
   scopedBulkBatchSize,
+  scopedPagedBatchSize,
   scopedStepValues,
   stepIsDateBounded,
   toElementName,
@@ -349,7 +350,7 @@ async function runScoped(
 ): Promise<[FhirResource[], Pick<FetchStepStats, 'mode' | 'requests'>]> {
   const paramName = step.from!.param;
   const bulk = step.mode === 'bulk' || values.length > FETCH_PLAN_LIMITS.scopedBulkThreshold;
-  const batchSize = bulk ? scopedBulkBatchSize(hint?.recordsPerId) : FETCH_PLAN_LIMITS.scopedBatchSize;
+  const batchSize = bulk ? scopedBulkBatchSize(hint?.recordsPerId) : scopedPagedBatchSize(hint?.recordsPerId);
   const batches: string[][] = [];
   for (let i = 0; i < values.length; i += batchSize) batches.push(values.slice(i, i + batchSize));
   const batchParams = (batch: string[]): FetchStepParam[] => [{ name: paramName, value: batch.join(',') }, ...params];

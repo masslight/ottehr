@@ -15,7 +15,12 @@ export const FETCH_PLAN_LIMITS = {
   // A normal (paged) search gives up and falls back to bulk past this many resources in `auto` mode.
   autoBulkThreshold: 5_000,
   pageSize: 1_000,
+  // Ids per scoped bulk job without a density hint.
   scopedBatchSize: 100,
+  // Ids per paged scoped search (a POST, so no url limit). Measured on synth 2026-10-14: 2,697 Encounters by
+  // appointment id in batches of 100 / 250 / 500 / 1,000 took 5.2 / 3.3 / 2.4 / 1.7 s, all complete; 1,000 Patients
+  // by _id likewise. The server's 1,000-row page is the natural ceiling.
+  scopedPagedBatchSize: 1_000,
   // Searches in flight at once across a whole plan run — its steps, date windows and scoped batches together.
   maxConcurrentRequests: 8,
   // Above this many scoped values the batches go through the async-bulk path instead of paged searches.
@@ -54,6 +59,15 @@ export const scopedBulkBatchSize = (recordsPerId: number | undefined): number =>
   recordsPerId
     ? Math.min(FETCH_PLAN_LIMITS.scopedBulkBatchMax, Math.max(1, Math.floor(ASYNC_BULK_TARGET / recordsPerId)))
     : FETCH_PLAN_LIMITS.scopedBatchSize;
+
+/** How many ids a paged scoped batch carries, so each batch is about one page (batches run side by side, pages do not). */
+export const scopedPagedBatchSize = (recordsPerId: number | undefined): number =>
+  recordsPerId
+    ? Math.min(
+        FETCH_PLAN_LIMITS.scopedPagedBatchSize,
+        Math.max(1, Math.floor(FETCH_PLAN_LIMITS.pageSize / recordsPerId))
+      )
+    : FETCH_PLAN_LIMITS.scopedPagedBatchSize;
 
 export const FetchStepParamSchema = z.object({
   name: z.string().min(1),

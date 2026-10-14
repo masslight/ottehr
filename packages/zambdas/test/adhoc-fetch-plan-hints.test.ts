@@ -30,6 +30,7 @@ const encounters = (n: number): Encounter[] =>
 let data: FhirResource[] = [];
 const jobs = new Map<string, Params>();
 const bulkCalls: Params[] = [];
+const pagedCalls: Params[] = [];
 
 const matches = (params: Params): FhirResource[] => {
   const count = Number(params.find((p) => p.name === '_count')?.value);
@@ -63,7 +64,10 @@ afterAll(() => {
 const fakeOystehr = {
   fhir: {
     search: async ({ params }: { resourceType: string; params?: Params }, request?: { mode?: string }) => {
-      if (request?.mode !== 'async-bulk') return { unbundle: () => [], link: [] }; // the probe / paged search
+      if (request?.mode !== 'async-bulk') {
+        pagedCalls.push(params ?? []); // the probe / count / paged search
+        return { unbundle: () => [], link: [] };
+      }
       const jobId = `job-${jobs.size}`;
       jobs.set(jobId, params ?? []);
       bulkCalls.push(params ?? []);
@@ -108,8 +112,8 @@ const windowBounds = (params: Params): string =>
     .filter((p) => p.name === 'date')
     .map((p) => p.value)
     .join(' ');
-const batchSizes = (): number[] =>
-  bulkCalls
+const batchSizes = (calls = bulkCalls): number[] =>
+  calls
     .map((params) => params.find((p) => p.name === 'encounter')?.value.split(',').length)
     .filter((n): n is number => n !== undefined);
 
@@ -117,6 +121,7 @@ describe('the plan runner sizes bulk jobs from density hints', () => {
   beforeEach(() => {
     jobs.clear();
     bulkCalls.length = 0;
+    pagedCalls.length = 0;
     data = [];
   });
 
@@ -177,5 +182,21 @@ describe('the plan runner sizes bulk jobs from density hints', () => {
     await runFetchPlan(fakeOystehr, scopedPlan, undefined, undefined);
     // Today's 100 without a hint.
     expect(batchSizes()).toEqual([100, 100, 100, 100, 50]);
+  });
+
+  it('sizes paged scoped batches to about a page from records per id, a full batch without a hint', async () => {
+    data = encounters(2500);
+    const pagedPlan = FetchPlanSchema.parse({
+      ...scopedPlan,
+      steps: [scopedPlan.steps[0], { ...scopedPlan.steps[1], mode: 'auto' }],
+    });
+    await runFetchPlan(fakeOystehr, pagedPlan, undefined, undefined, { vitals: { recordsPerId: 6.5 } });
+    // 1,000 / 6.5 = 153 ids a batch.
+    expect(batchSizes(pagedCalls)).toHaveLength(Math.ceil(2500 / 153));
+    expect(batchSizes(pagedCalls)[0]).toBe(153);
+
+    pagedCalls.length = 0;
+    await runFetchPlan(fakeOystehr, pagedPlan, undefined, undefined);
+    expect(batchSizes(pagedCalls)).toEqual([1000, 1000, 500]);
   });
 });
