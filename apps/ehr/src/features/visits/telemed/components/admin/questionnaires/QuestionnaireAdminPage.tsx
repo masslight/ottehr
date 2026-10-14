@@ -173,8 +173,6 @@ export const QuestionnaireAdminPage: FC = () => {
                 const deleted = q.status === 'retired';
                 const canChangeStatus = !q.readOnly || isCustomerSupport;
 
-                console.log('check!', q);
-
                 return (
                   <TableRow
                     key={q.id}

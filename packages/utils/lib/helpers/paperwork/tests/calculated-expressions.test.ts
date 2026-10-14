@@ -205,7 +205,7 @@ describe('collectCalculatedExpressionIssues', () => {
       { linkId: 'total', type: 'string', text: 'Total', extension: calculated('1', 'text/fhirpath') },
     ]);
     expect(wrongLanguage).toEqual([
-      '"total" (Total): expression language "text/fhirpath" is not supported. Set valueExpression.language to "text/javascript".',
+      '"total" (Total): expression language "text/fhirpath" is not supported. valueExpression.language "text/javascript" is supported.',
     ]);
     const noLanguage = collectCalculatedExpressionIssues([
       {
