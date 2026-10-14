@@ -65,7 +65,7 @@ const fakeOystehr = {
   fhir: {
     search: async ({ params }: { resourceType: string; params?: Params }, request?: { mode?: string }) => {
       if (request?.mode !== 'async-bulk') {
-        pagedCalls.push(params ?? []); // the probe / count / paged search
+        pagedCalls.push(params ?? []); // the probe / paged search
         return { unbundle: () => [], link: [] };
       }
       const jobId = `job-${jobs.size}`;

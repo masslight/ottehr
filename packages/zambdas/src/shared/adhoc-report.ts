@@ -150,6 +150,16 @@ export const ASYNC_BULK_MAX = 30_000;
 /** A bulk job returned as many primary resources as its `_count` allows, so the server may have dropped matches. */
 export class AsyncBulkCapError extends Error {}
 
+// TEMPORARY WORKAROUND: the async-bulk output drops the Bundle's next link and total, so a job that returns exactly
+// its `_count` of primary resources is the only sign the server cut the result. Reported to Oystehr; a next link on
+// bulk results is expected. When it arrives, replace this check (the one place the cap is detected — the split in
+// searchSplittingOnCap only reacts to the error it throws) with following the next link.
+function assertBulkJobUnderCap(label: string, resourceType: string, primary: number, cap: number): void {
+  if (primary >= cap) {
+    throw new AsyncBulkCapError(`${label}: ${primary} ${resourceType} matched, the most one bulk job returns`);
+  }
+}
+
 export async function searchAsyncBulk<T extends FhirResource>(
   oystehr: Oystehr,
   resourceType: T['resourceType'],
@@ -180,10 +190,7 @@ export async function searchAsyncBulk<T extends FhirResource>(
         `resources=${resources.length} ` +
         `perFile=${JSON.stringify(files.map((file) => ({ type: file.type, count: file.resources.length })))}`
     );
-    const primary = resources.filter((r) => r.resourceType === resourceType).length;
-    if (primary >= cap) {
-      throw new AsyncBulkCapError(`${label}: ${primary} ${resourceType} matched, the most one bulk job returns`);
-    }
+    assertBulkJobUnderCap(label, resourceType, resources.filter((r) => r.resourceType === resourceType).length, cap);
     return resources;
   } catch (error) {
     if (error instanceof AsyncBulkCapError) throw error;
