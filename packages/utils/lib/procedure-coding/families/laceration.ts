@@ -7,7 +7,14 @@ import { buildEvaluation, coder, CPT_MODIFIERS, missing, MueAdjudication, noCode
 import { LACERATION_PTP_EDITS } from '../medicare-ptp';
 import { CodeSuggestion, LegacyProcedureFields, ProcedureFamilyModel } from '../model.types';
 import { PROCEDURE_NAMES } from '../procedure-names';
-import { CodingField, readNumber, readRows, ScalarCodingField, StructuredRow } from '../structured-fields';
+import {
+  CodingField,
+  readNumber,
+  readRows,
+  ScalarCodingField,
+  StructuredFacts,
+  StructuredRow,
+} from '../structured-fields';
 
 export const LACERATION_CLOSURE = {
   SingleLayer: 'single layer',
@@ -16,6 +23,10 @@ export const LACERATION_CLOSURE = {
   StripsOnly: 'strips only',
   Open: 'open',
 } as const;
+
+const UNCODED_CLOSURES: readonly unknown[] = [LACERATION_CLOSURE.StripsOnly, LACERATION_CLOSURE.Open];
+const NON_SUTURED_CLOSURES: readonly unknown[] = [LACERATION_CLOSURE.AdhesiveOnly, ...UNCODED_CLOSURES];
+const isCodedClosure = (wound: StructuredFacts): boolean => !UNCODED_CLOSURES.includes(wound.closure);
 
 const LACERATION_CODES = {
   SimpleBodyUpTo2Point5Cm: '12001',
@@ -105,7 +116,15 @@ const sites = [
 const woundFields: ScalarCodingField[] = [
   { key: 'site', label: 'Site', kind: 'select', options: sites, defaultValue: undefined },
   { key: 'side', label: 'Side', kind: 'select', options: ['left', 'right', 'midline'], defaultValue: undefined },
-  { key: 'length', label: 'Length (cm)', kind: 'number', defaultValue: undefined, min: 0, step: LENGTH_STEP_CM },
+  {
+    key: 'length',
+    label: 'Length (cm)',
+    kind: 'number',
+    defaultValue: undefined,
+    min: 0,
+    step: LENGTH_STEP_CM,
+    neededForCoding: isCodedClosure,
+  },
   {
     key: 'closure',
     label: 'Closure',
@@ -148,13 +167,21 @@ const woundFields: ScalarCodingField[] = [
     defaultValue: false,
   },
   { key: 'material', label: 'Closure material', kind: 'text' },
-  { key: 'sutureCount', label: 'Suture/staple count', kind: 'number', defaultValue: undefined, min: 0, step: 1 },
+  {
+    key: 'sutureCount',
+    label: 'Suture/staple count',
+    kind: 'number',
+    defaultValue: undefined,
+    min: 0,
+    step: 1,
+    visible: (wound) => !NON_SUTURED_CLOSURES.includes(wound.closure),
+  },
   { key: 'irrigation', label: 'Irrigation performed', kind: 'checkbox', defaultValue: false },
 ];
 
 for (const field of woundFields) {
   if (!['site', 'side', 'length', 'closure'].includes(field.key)) field.details = true;
-  field.neededForCoding = ['site', 'length', 'closure'].includes(field.key);
+  field.neededForCoding ??= ['site', 'closure'].includes(field.key);
 }
 
 const fields: CodingField[] = [
@@ -301,12 +328,7 @@ export const lacerationFamily: ProcedureFamilyModel<LacerationCode> = {
       // NCCI distinguishes deliberately developed tissue transfer from incidental Z-plasty-shaped closure.
       if (wound.plannedTransfer) return coder('Use reconstructive tissue-transfer codes.');
 
-      if (
-        wound.surgicalIncision ||
-        wound.closure === LACERATION_CLOSURE.StripsOnly ||
-        wound.closure === LACERATION_CLOSURE.Open
-      )
-        continue;
+      if (wound.surgicalIncision || !isCodedClosure(wound)) continue;
 
       const cm = readNumber(wound, 'length');
 

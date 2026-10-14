@@ -4,7 +4,6 @@ import { Operation } from 'fast-json-patch';
 import {
   CodeableConcept,
   Communication,
-  Condition,
   DocumentReference,
   Encounter,
   FhirResource,
@@ -16,7 +15,6 @@ import { getProviderNameWithProfession } from 'utils/lib/fhir/helpers';
 import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
 import { isVitalObservation } from 'utils/lib/fhir/vitals';
 import { addEmptyArrOperation } from 'utils/lib/helpers/operations';
-import { CODE_SYSTEM_ICD_10 } from 'utils/lib/helpers/rcm/constants';
 import { Secrets } from 'utils/lib/secrets';
 import {
   ADDITIONAL_QUESTIONS_META_SYSTEM,
@@ -400,25 +398,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       updateEncounterOperations.push(addEmptyArrOperation('/diagnosis'));
     }
     for (const element of diagnosis) {
-      // A procedure request can race another chart edit or retry after creating a Condition.
-      // Reuse the visit's matching Condition without changing its origin or primary rank.
-      const existing =
-        !element.resourceId && element.addedViaProcedure === true
-          ? allResources.find(
-              (resource): resource is Condition =>
-                resource.resourceType === 'Condition' &&
-                resource.code?.coding?.some(
-                  (coding) => coding.system === CODE_SYSTEM_ICD_10 && coding.code === element.code
-                ) === true &&
-                encounter.diagnosis?.some((entry) => entry.condition.reference === `Condition/${resource.id}`) === true
-            )
-          : undefined;
-      if (existing) {
-        additionalResourcesForResponse.push(existing);
-        if (!additionalResourcesForResponse.includes(encounter)) additionalResourcesForResponse.push(encounter);
-        continue;
-      }
-
       const conditionResource = makeDiagnosisConditionResource(encounterId, patient.id!, element, 'diagnosis');
       const condition = element.resourceId
         ? await oystehr.fhir.update(conditionResource)
@@ -542,7 +521,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           });
       }
     });
-    if (!additionalResourcesForResponse.includes(encounter)) additionalResourcesForResponse.push(encounter);
+    additionalResourcesForResponse.push(encounter);
   }
 
   if (accident) {

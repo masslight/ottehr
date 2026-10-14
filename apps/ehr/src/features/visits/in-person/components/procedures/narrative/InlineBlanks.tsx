@@ -233,7 +233,12 @@ export const PopoverBlank: FC<PopoverBlankProps> = ({ title, children, onClose, 
   }, [anchor, close]);
   return (
     <>
-      <BlankButton {...blank} onClick={setAnchor} expanded={Boolean(anchor)} popupId={popupId} />
+      <BlankButton
+        {...blank}
+        onClick={anchor ? () => close() : setAnchor}
+        expanded={Boolean(anchor)}
+        popupId={popupId}
+      />
       {anchor && (
         <Popper
           open
@@ -246,8 +251,8 @@ export const PopoverBlank: FC<PopoverBlankProps> = ({ title, children, onClose, 
           <ClickAwayListener
             mouseEvent="onMouseDown"
             touchEvent="onTouchStart"
-            onClickAway={() => {
-              close(false);
+            onClickAway={(event) => {
+              if (!anchor.contains(event.target as Node)) close(false);
             }}
           >
             <Paper
@@ -277,8 +282,16 @@ export const PopoverBlank: FC<PopoverBlankProps> = ({ title, children, onClose, 
   );
 };
 
-const toOptions = (options: readonly string[] | readonly BlankOption[] | undefined): BlankOption[] =>
-  (options ?? []).map((option) => (typeof option === 'string' ? { value: option, label: option } : option));
+const toOption = (value: string): BlankOption => ({ value, label: value });
+
+/** Saved values missing from today's list (older config, a quick pick) stay selectable. */
+const withSavedValues = (
+  options: readonly string[] | readonly BlankOption[] | undefined,
+  values: readonly string[]
+): BlankOption[] => {
+  const known = (options ?? []).map((option) => (typeof option === 'string' ? toOption(option) : option));
+  return [...values.filter((value) => !known.some((option) => option.value === value)).map(toOption), ...known];
+};
 
 const OtherAnswer: FC<{ label: string; value?: string; onChange: (value: string) => void }> = ({
   label,
@@ -327,12 +340,7 @@ export const SelectBlank: FC<SelectBlankProps> = ({
   onOtherChange,
 }) => {
   const [filter, setFilter] = useState('');
-  const known = toOptions(options);
-  // A saved value outside today's list (older config, a quick pick) stays selectable rather than vanishing.
-  const all =
-    value !== undefined && !known.some((option) => option.value === value)
-      ? [{ value, label: value }, ...known]
-      : known;
+  const all = withSavedValues(options, value === undefined ? [] : [value]);
   const searchable = all.length > SEARCH_THRESHOLD;
   const shown = filter ? all.filter((option) => option.label.toLowerCase().includes(filter.toLowerCase())) : all;
   const display = all.find((option) => option.value === value)?.label;
@@ -433,11 +441,7 @@ export const MultiBlank: FC<MultiBlankProps> = ({
   otherValue,
   onOtherChange,
 }) => {
-  const known = toOptions(options);
-  const all = [
-    ...values.filter((v) => !known.some((option) => option.value === v)).map((v) => ({ value: v, label: v })),
-    ...known,
-  ];
+  const all = withSavedValues(options, values);
   const display = formatList(
     values.map((v) =>
       v === OTHER && onOtherChange

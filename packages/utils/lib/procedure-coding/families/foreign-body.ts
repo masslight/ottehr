@@ -34,11 +34,8 @@ const FOREIGN_BODY_CODES = {
   CornealRemovalWithSlitLamp: '65222',
 } as const;
 
-const NON_LATERAL_SITES: readonly string[] = [
-  FOREIGN_BODY_SITE.Skin,
-  FOREIGN_BODY_SITE.Nose,
-  FOREIGN_BODY_SITE.DeeperTissue,
-];
+const NO_LATERALITY_MODIFIER_SITES: readonly string[] = [FOREIGN_BODY_SITE.Skin, FOREIGN_BODY_SITE.Nose];
+const NON_LATERAL_SITES: readonly string[] = [...NO_LATERALITY_MODIFIER_SITES, FOREIGN_BODY_SITE.DeeperTissue];
 
 type ForeignBodyCode = (typeof FOREIGN_BODY_CODES)[keyof typeof FOREIGN_BODY_CODES];
 
@@ -165,9 +162,7 @@ export const foreignBodyFamily: ProcedureFamilyModel<ForeignBodyCode> = {
           display: 'Removal of foreign body',
           justification: 'Location, approach and complexity documented.',
           units: count,
-          modifiers: [FOREIGN_BODY_SITE.Skin, FOREIGN_BODY_SITE.Nose].some((site) => site === String(facts.site))
-            ? []
-            : lateralityModifiers(facts.side),
+          modifiers: NO_LATERALITY_MODIFIER_SITES.includes(String(facts.site)) ? [] : lateralityModifiers(facts.side),
         },
       ],
     });

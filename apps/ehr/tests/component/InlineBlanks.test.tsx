@@ -103,6 +103,17 @@ describe('inline blanks', () => {
     expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
   });
 
+  it('closes the popover when its own blank is clicked again', async () => {
+    const user = userEvent.setup();
+    render(<Select />);
+    await user.click(screen.getByTestId('site'));
+    expect(screen.getByRole('listbox')).toBeInTheDocument();
+    await user.click(screen.getByTestId('site'));
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+    expect(screen.getByTestId('site')).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByTestId('site')).toHaveFocus();
+  });
+
   it('navigates choices with arrows, Home and End, then returns focus after a keyboard pick', async () => {
     const user = userEvent.setup();
     render(<Select />);

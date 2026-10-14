@@ -36,7 +36,10 @@ import {
 } from 'utils/lib/procedure-coding/model.types';
 import { describe, expect, it, vi } from 'vitest';
 import { CodingAssistPanel } from '../../src/features/visits/in-person/components/procedures/coding-assist/CodingAssistPanel';
-import { CodingFindingList } from '../../src/features/visits/in-person/components/procedures/coding-assist/CodingFindingList';
+import {
+  bestPracticeFindings,
+  CodingFindingList,
+} from '../../src/features/visits/in-person/components/procedures/coding-assist/CodingFindingList';
 import { DocumentationCheck } from '../../src/features/visits/in-person/components/procedures/coding-assist/DocumentationCheck';
 import { ConditionalCodingFields } from '../../src/features/visits/in-person/components/procedures/ConditionalCodingFields';
 import { ProcedureCptCodesField } from '../../src/features/visits/in-person/components/procedures/ProcedureCptCodesField';
@@ -88,10 +91,7 @@ function renderAssistance(
         onAddCodes={onAddCodes}
       />
       <DocumentationCheck evaluation={defense} suggestionVisible={suggestionVisible(suggestion.outcome.kind)} />
-      <CodingFindingList
-        findings={suggestion.findings.filter((finding) => finding.level === 'bestPractice')}
-        dataTestId="coding-guidance"
-      />
+      <CodingFindingList findings={bestPracticeFindings(suggestion.findings)} dataTestId="coding-guidance" />
     </>
   );
   return { onAddCodes };
@@ -114,6 +114,7 @@ describe('procedure coding assistance presentation', () => {
     expect(bestMatch).toHaveTextContent('12042');
     expect(bestMatch).toHaveTextContent('Layered closure documented; hand; 3.2 cm.');
     expect(screen.queryByTestId('coding-clinician-review')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Checks current as of/)).not.toBeInTheDocument();
   });
 
   it('identifies the clinician review caption for AI suggestions', () => {

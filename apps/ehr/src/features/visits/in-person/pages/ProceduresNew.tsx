@@ -25,7 +25,6 @@ import { useDebounce } from 'src/shared/hooks/useDebounce';
 import { useMarkDraftNavigatedAway, useProcedureStore } from 'src/state/draft-data.store';
 import { PROCEDURES_CONFIG } from 'utils/lib/ottehr-config/procedures';
 import { detectProcedureFamily } from 'utils/lib/procedure-coding/evaluate';
-import { lacerationFamily } from 'utils/lib/procedure-coding/families/laceration';
 import { resolveFamilyFacts } from 'utils/lib/procedure-coding/family-support';
 import { CodeOutcomeKind } from 'utils/lib/procedure-coding/model.types';
 import { CPTCodeDTO, DiagnosisDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
@@ -42,10 +41,10 @@ import {
   useSaveChartData,
 } from '../../shared/stores/appointment/appointment.store';
 import { CodingAssistPanel } from '../components/procedures/coding-assist/CodingAssistPanel';
-import { CodingFindingList } from '../components/procedures/coding-assist/CodingFindingList';
+import { bestPracticeFindings, CodingFindingList } from '../components/procedures/coding-assist/CodingFindingList';
 import { DocumentationCheck } from '../components/procedures/coding-assist/DocumentationCheck';
 import { ConditionalCodingFields } from '../components/procedures/ConditionalCodingFields';
-import { CodingFieldSentences, LacerationSentences } from '../components/procedures/narrative/CodingFieldSentences';
+import { ProcedureFamilySentences } from '../components/procedures/narrative/CodingFieldSentences';
 import {
   DateTimeBlank,
   MultiBlank,
@@ -367,7 +366,7 @@ export default function ProceduresNew({
           if (!chartData) return {};
           const diagnosis: DiagnosisDTO[] = [];
           const indices = new Map<string, number>();
-          for (const entry of [...(chartData?.diagnosis ?? []), ...(savedDiagnoses ?? [])]) {
+          for (const entry of [...(chartData.diagnosis ?? []), ...(savedDiagnoses ?? [])]) {
             if (entry.resourceId && deleted.has(entry.resourceId)) continue;
             const index = entry.resourceId ? indices.get(entry.resourceId) : undefined;
             if (index === undefined) {
@@ -399,8 +398,13 @@ export default function ProceduresNew({
         ...selectedDiagnoses.filter((diagnosis) => diagnosis.resourceId != null),
       ];
 
+      const oldProcedure = chartData?.procedures?.find((procedure) => procedure.resourceId === procedureId);
       const saveProcedureResponse = await saveChartData({
-        cleanupProcedureDiagnoses: true,
+        cleanupProcedureDiagnoses: Boolean(
+          oldProcedure?.diagnoses?.some(
+            (diagnosis) => !diagnosesToUse.some((selected) => selected.resourceId === diagnosis.resourceId)
+          )
+        ),
         procedures: [
           {
             resourceId: procedureId,
@@ -440,11 +444,9 @@ export default function ProceduresNew({
         updateChartDiagnoses(saveProcedureResponse.deletedDiagnosisIds);
       }
 
-      const oldProcedure = chartData?.procedures?.find((procedure) => procedure.resourceId === procedureId);
       const removedCptCodes = oldProcedure?.cptCodes?.filter(
         (cptCode) => !cptCodesToUse.some((selected) => selected.resourceId === cptCode.resourceId)
       );
-      // The save endpoint handles origin-aware diagnosis cleanup atomically with the procedure update.
       if (removedCptCodes?.length) await deleteChartData({ cptCodes: removedCptCodes });
 
       const savedProcedure = saveProcedureResponse.chartData?.procedures?.[0];
@@ -573,8 +575,7 @@ export default function ProceduresNew({
 
   const forwardEvaluation = codingEvaluations?.suggestion;
 
-  // Documentation reminders for the suggested code, shown below the CPT codes rather than in the panel.
-  const codingGuidance = (forwardEvaluation?.findings ?? []).filter((finding) => finding.level === 'bestPractice');
+  const codingGuidance = bestPracticeFindings(forwardEvaluation?.findings ?? []);
 
   const suggestionVisible =
     forwardEvaluation?.outcome?.kind === CodeOutcomeKind.Suggestions ||
@@ -896,22 +897,13 @@ export default function ProceduresNew({
                 {codingFamily && (
                   <>
                     <SectionLabel>{codingFamily.displayName}</SectionLabel>
-                    {codingFamily.id === lacerationFamily.id ? (
-                      <LacerationSentences
-                        family={codingFamily}
-                        value={resolvedStructuredFacts ?? {}}
-                        onChange={(value) => updateState((state) => (state.structuredFacts = value))}
-                        readOnly={isReadOnly}
-                      />
-                    ) : (
-                      <CodingFieldSentences
-                        family={codingFamily}
-                        value={resolvedStructuredFacts ?? {}}
-                        onChange={(value) => updateState((state) => (state.structuredFacts = value))}
-                        readOnly={isReadOnly}
-                        medicationUsed={state.medicationUsed}
-                      />
-                    )}
+                    <ProcedureFamilySentences
+                      family={codingFamily}
+                      value={resolvedStructuredFacts ?? {}}
+                      onChange={(value) => updateState((state) => (state.structuredFacts = value))}
+                      readOnly={isReadOnly}
+                      medicationUsed={state.medicationUsed}
+                    />
                   </>
                 )}
                 <ConditionalCodingFields

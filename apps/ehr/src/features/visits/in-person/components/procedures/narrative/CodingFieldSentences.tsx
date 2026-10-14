@@ -1,7 +1,7 @@
 import { Add } from '@mui/icons-material';
 import { Box, Button } from '@mui/material';
 import { FC, Fragment, ReactNode } from 'react';
-import { LACERATION_CLOSURE } from 'utils/lib/procedure-coding/families/laceration';
+import { LACERATION_CLOSURE, lacerationFamily } from 'utils/lib/procedure-coding/families/laceration';
 import { ProcedureFamilyModel } from 'utils/lib/procedure-coding/model.types';
 import {
   CodingField,
@@ -18,7 +18,7 @@ const YES_NO = ['yes', 'no'];
 
 /** One coding field as an inline blank. Checkboxes become a yes/no pick so the sentence stays readable.
  * Needed cues come from display metadata, independently of whether the answer is a detail. */
-export interface FieldBlankOptions {
+interface FieldBlankOptions {
   /** Flag a details field as required when the sentence treats it as part of the main answer. */
   need?: boolean;
   /** Shorter placeholder for an input blank; the field label stays its accessible name. */
@@ -27,7 +27,7 @@ export interface FieldBlankOptions {
   label?: string;
 }
 
-export function fieldBlank(
+function fieldBlank(
   field: ScalarCodingField,
   current: StructuredValue,
   change: (next: StructuredValue) => void,
@@ -81,7 +81,7 @@ export function fieldBlank(
 const codingNeed = (field: ScalarCodingField, answers: StructuredFacts | StructuredRow): boolean =>
   typeof field.neededForCoding === 'function' ? field.neededForCoding(answers) : field.neededForCoding === true;
 
-export interface RowRenderArgs {
+interface RowRenderArgs {
   row: StructuredRow;
   readOnly: boolean;
   /** Blank for one of the row's fields, or null when its `visible` condition hides it. */
@@ -105,7 +105,7 @@ interface Props {
 
 /** Turns a coding family's field definitions into sentences with inline blanks. The visibility, defaults and
  * answer normalisation are the same calls the old structured form made, so the engine sees identical facts. */
-export const CodingFieldSentences: FC<Props> = ({
+const CodingFieldSentences: FC<Props> = ({
   family,
   value,
   onChange,
@@ -285,31 +285,29 @@ export const CodingFieldSentences: FC<Props> = ({
   );
 };
 
-const NON_SUTURED_CLOSURES: readonly string[] = [
-  LACERATION_CLOSURE.AdhesiveOnly,
-  LACERATION_CLOSURE.StripsOnly,
-  LACERATION_CLOSURE.Open,
-];
-
 /** Wounds use family field keys; closure material and count remain optional. */
-export const LacerationSentences: FC<Omit<Props, 'renderRow'>> = (props) => (
+const LacerationSentences: FC<Omit<Props, 'renderRow'>> = (props) => (
   <CodingFieldSentences
     {...props}
     compactDetails
-    renderRow={({ row, readOnly, blank, details }) => (
-      <>
-        {/* The family calls this "Closure"; in the sentence that read as the closure material. */}
-        {row.closure === LACERATION_CLOSURE.Open && 'Wound left '}
-        {blank('closure', { label: 'Repair type' })}
-        {row.closure === LACERATION_CLOSURE.Open ? ': a ' : ' repair of a '}
-        {blank('length')} cm laceration of the {blank('site')} ({blank('side')})
-        {row.closure !== LACERATION_CLOSURE.Open && <>, closed with {blank('material', { placeholder: 'material' })}</>}
-        {/* Display only: non-sutured closures hide the count without changing saved answers. */}
-        {!NON_SUTURED_CLOSURES.includes(String(row.closure)) && !(readOnly && row.sutureCount === undefined) && (
-          <> ({blank('sutureCount')} sutures/staples)</>
-        )}
-        . {details(row.closure === LACERATION_CLOSURE.Open ? ['sutureCount'] : ['sutureCount', 'material'])}
-      </>
-    )}
+    renderRow={({ row, readOnly, blank, details }) => {
+      const open = row.closure === LACERATION_CLOSURE.Open;
+      const count = blank('sutureCount');
+      return (
+        <>
+          {/* The family calls this "Closure"; in the sentence that read as the closure material. */}
+          {open && 'Wound left '}
+          {blank('closure', { label: 'Repair type' })}
+          {open ? ': a ' : ' repair of a '}
+          {blank('length')} cm laceration of the {blank('site')} ({blank('side')})
+          {!open && <>, closed with {blank('material', { placeholder: 'material' })}</>}
+          {count && !(readOnly && row.sutureCount === undefined) && <> ({count} sutures/staples)</>}.{' '}
+          {details(open ? [] : ['sutureCount', 'material'])}
+        </>
+      );
+    }}
   />
 );
+
+export const ProcedureFamilySentences: FC<Omit<Props, 'renderRow' | 'compactDetails'>> = (props) =>
+  props.family.id === lacerationFamily.id ? <LacerationSentences {...props} /> : <CodingFieldSentences {...props} />;

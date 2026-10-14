@@ -4,12 +4,11 @@ import { Condition, Encounter, FhirResource, Patient } from 'fhir/r4b';
 import { ADDED_VIA_PROCEDURE_EXTENSION } from 'utils/lib/types/api/procedures.constants';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { index } from '../../src/ehr/save-chart-data/index';
-import { createProcedureServiceRequest, makeDiagnosisConditionResource } from '../../src/shared/chart-data/index';
+import { createProcedureServiceRequest } from '../../src/shared/chart-data/index';
 
-const { transaction, resources, dependencies, create, update } = vi.hoisted(() => ({
+const { transaction, resources, dependencies, create } = vi.hoisted(() => ({
   transaction: vi.fn().mockResolvedValue({ resourceType: 'Bundle', type: 'transaction-response', entry: [] }),
   create: vi.fn().mockImplementation(async (resource: FhirResource) => ({ ...resource, id: 'created' })),
-  update: vi.fn(),
   resources: [] as FhirResource[],
   dependencies: vi.fn(),
 }));
@@ -20,7 +19,6 @@ vi.mock('../../src/shared/helpers', async (importOriginal) => ({
     fhir: {
       transaction,
       create,
-      update,
       get: vi.fn().mockResolvedValue({ resourceType: 'Practitioner', id: 'practitioner' }),
     },
   }),
@@ -101,37 +99,6 @@ beforeEach(() => {
 });
 
 describe('procedure diagnosis cleanup transaction', () => {
-  it('reuses a matching visit diagnosis at the API boundary without changing primary status or origin', async () => {
-    resources.push(
-      makeDiagnosisConditionResource(
-        encounterId,
-        'patient',
-        { resourceId: 'primary', code: 'J06.9', display: 'URI', isPrimary: true },
-        'diagnosis'
-      )
-    );
-    const result = await index(
-      {
-        headers: { Authorization: 'Bearer token' },
-        secrets: { ENVIRONMENT: 'local' },
-        body: JSON.stringify({
-          encounterId,
-          diagnosis: [{ code: 'J06.9', display: 'URI', isPrimary: false, addedViaProcedure: true }],
-        }),
-      },
-      {} as Context,
-      vi.fn()
-    );
-    if (!result) throw new Error('Missing handler response');
-    expect(result.statusCode).toBe(200);
-    expect(create).not.toHaveBeenCalled();
-    expect(update).not.toHaveBeenCalled();
-    expect(JSON.parse(result.body).chartData.diagnosis).toEqual([
-      expect.objectContaining({ resourceId: 'primary', code: 'J06.9', isPrimary: true }),
-    ]);
-    expect(JSON.parse(result.body).chartData.diagnosis[0]).not.toHaveProperty('addedViaProcedure');
-    expect(transaction.mock.calls[0][0].requests).toEqual([]);
-  });
   it('records origin on the actual new Condition sent to FHIR', async () => {
     const result = await index(
       {

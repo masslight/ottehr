@@ -14,7 +14,7 @@ interface Props {
   onChange: (diagnoses: DiagnosisDTO[]) => void;
 }
 
-/** Visit quick picks offer each unselected code once and link its existing Condition ID. */
+/** Visit quick picks offer each unselected code once. */
 export const ProcedureDiagnosesSentence: FC<Props> = ({ diagnoses, visitDiagnoses, readOnly, onChange }) => {
   const diagnosisChoices = useMemo(() => {
     const seenCodes = new Set(diagnoses.map((diagnosis) => diagnosis.code));
@@ -67,8 +67,7 @@ export const ProcedureDiagnosesSentence: FC<Props> = ({ diagnoses, visitDiagnose
                 label="Dx"
                 onChange={(value: IcdSearchResponse['codes'][number]) => {
                   if (!diagnoses.some((diagnosis) => diagnosis.code === value.code)) {
-                    const existing = visitDiagnoses.find((diagnosis) => diagnosis.code === value.code);
-                    onChange([...diagnoses, { ...(existing ?? value), isPrimary: false }]);
+                    onChange([...diagnoses, { ...value, isPrimary: false }]);
                   }
                   close();
                 }}

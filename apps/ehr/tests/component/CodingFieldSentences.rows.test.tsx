@@ -9,10 +9,7 @@ import { resolveFamilyFacts } from 'utils/lib/procedure-coding/family-support';
 import { ProcedureFamilyModel } from 'utils/lib/procedure-coding/model.types';
 import { readRows, StructuredFacts } from 'utils/lib/procedure-coding/structured-fields';
 import { describe, expect, it } from 'vitest';
-import {
-  CodingFieldSentences,
-  LacerationSentences,
-} from '../../src/features/visits/in-person/components/procedures/narrative/CodingFieldSentences';
+import { ProcedureFamilySentences } from '../../src/features/visits/in-person/components/procedures/narrative/CodingFieldSentences';
 
 /** Rows the sentence UI writes must reach the coding engine in on-screen order, so the engine's
  * "Wound 2: …" / "Administration 3: …" wording names the row the provider is looking at. */
@@ -21,8 +18,7 @@ const latest: { facts?: StructuredFacts } = {};
 function Form({ family }: { family: ProcedureFamilyModel }): ReactElement {
   const [value, setValue] = useState<StructuredFacts>(resolveFamilyFacts(family, {}));
   latest.facts = value;
-  const Component = family.id === lacerationFamily.id ? LacerationSentences : CodingFieldSentences;
-  return <Component family={family} value={value} onChange={setValue} readOnly={false} />;
+  return <ProcedureFamilySentences family={family} value={value} onChange={setValue} readOnly={false} />;
 }
 
 /** The engine's "still needed" messages (its best-practice reminders are left out). */

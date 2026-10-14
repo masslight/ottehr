@@ -403,6 +403,8 @@ describe('ProceduresNew — sentence layout', () => {
   it('starts optional blanks empty and saves picks as their stored values', async () => {
     const user = userEvent.setup();
     renderComponent();
+    expect(screen.queryByText(/Please include body part/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Checks current as of/)).not.toBeInTheDocument();
     const consent = screen.getByTestId(dataTestIds.documentProcedurePage.consentForProcedure);
     expect(consent).toHaveTextContent('consent');
     expect(screen.getByTestId(dataTestIds.documentProcedurePage.specimenSent)).toHaveTextContent('specimen');
@@ -471,9 +473,9 @@ describe('ProceduresNew — save validation and shared diagnoses', () => {
     await user.click(await screen.findByRole('button', { name: 'Remove J06.9' }));
     await user.click(screen.getByTestId(dataTestIds.documentProcedurePage.saveButton));
     await waitFor(() => expect(mockSaveChartData).toHaveBeenCalledTimes(2));
-    expect(mockSaveChartData.mock.calls[1][0].procedures[0]).toMatchObject({
-      resourceId: 'existing-procedure',
-      diagnoses: [],
+    expect(mockSaveChartData.mock.calls[1][0]).toMatchObject({
+      cleanupProcedureDiagnoses: true,
+      procedures: [{ resourceId: 'existing-procedure', diagnoses: [] }],
     });
     expect(mockDeleteChartData).not.toHaveBeenCalled();
     expect(mockChartData.diagnosis).toEqual([diagnosis]);
@@ -578,7 +580,7 @@ describe('procedure diagnosis search and cleanup', () => {
     await waitFor(() => expect(mockSaveChartData).toHaveBeenCalledTimes(2));
     expect(mockSaveChartData.mock.calls[0][0].diagnosis).toEqual([]);
     expect(mockSaveChartData.mock.calls[1][0]).toMatchObject({
-      cleanupProcedureDiagnoses: true,
+      cleanupProcedureDiagnoses: false,
       procedures: [{ diagnoses: [expect.objectContaining({ resourceId: 'charted' })] }],
     });
   });
