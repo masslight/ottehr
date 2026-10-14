@@ -196,6 +196,6 @@ describe('the plan runner sizes bulk jobs from density hints', () => {
 
     pagedCalls.length = 0;
     await runFetchPlan(fakeOystehr, pagedPlan, undefined, undefined);
-    expect(batchSizes(pagedCalls)).toEqual([1000, 1000, 500]);
+    expect(batchSizes(pagedCalls)).toEqual(Array(10).fill(250));
   });
 });

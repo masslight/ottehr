@@ -19,8 +19,10 @@ export const FETCH_PLAN_LIMITS = {
   scopedBatchSize: 100,
   // Ids per paged scoped search (a POST, so no url limit). Measured on synth 2026-10-14: 2,697 Encounters by
   // appointment id in batches of 100 / 250 / 500 / 1,000 took 5.2 / 3.3 / 2.4 / 1.7 s, all complete; 1,000 Patients
-  // by _id likewise. The server's 1,000-row page is the natural ceiling.
-  scopedPagedBatchSize: 1_000,
+  // by _id likewise. But on a busy production practice (2026-10-14, read-only) an Observation search for 1,000
+  // encounter ids hit Oystehr's 14 s request timeout (504) on its first page, while 250 and 500 ids answered each
+  // page in under 2 s; 250 leaves headroom for busier practices.
+  scopedPagedBatchSize: 250,
   // Searches in flight at once across a whole plan run — its steps, date windows and scoped batches together.
   maxConcurrentRequests: 8,
   // Above this many scoped values the batches go through the async-bulk path instead of paged searches.
