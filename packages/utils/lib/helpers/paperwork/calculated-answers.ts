@@ -4,9 +4,9 @@ import { CalculatedExpression } from '../../types/data/paperwork/paperwork.types
 
 /*
   Calculated items (sdc-questionnaire-calculatedExpression) are formula fields whose value is derived from the other
-  answers in the form. The javascript expression is only ever run in the browser (see calculated-expressions.ts); the
-  browser then sends the computed values to the server as `calculatedAnswers`, which are recorded on the
-  QuestionnaireResponse.
+  answers in the form. Currently, the engine is configured to expect and handle javascript expressions; 
+  these are only ever run in the browser (see calculated-expressions.ts). The browser then sends the computed values 
+  to the server as `calculatedAnswers`, which are recorded on the QuestionnaireResponse.
 
   This module is the part that is safe to use anywhere, the server included: it only reads the shape of the
   questionnaire and the computed values. It never compiles or evaluates an expression, so it must not import
@@ -21,7 +21,7 @@ export const CALCULATED_EXPRESSION_LANGUAGE = 'text/javascript';
 
 export type CalculatedValue = string | number | boolean | undefined;
 
-// satisfied by both raw FHIR QuestionnaireItems (extension) and our IntakeQuestionnaireItems (calculatedExpression)
+// satisfied by both raw FHIR QuestionnaireItems and our IntakeQuestionnaireItems
 export interface CalculableItem {
   linkId: string;
   type: string;
@@ -43,10 +43,13 @@ export const getCalculatedExpression = (item: CalculableItem): CalculatedExpress
 
 export const isCalculatedItem = (item: CalculableItem): boolean => getCalculatedExpression(item) !== undefined;
 
-export const flattenItems = (items: CalculableItem[] | undefined, accum: CalculableItem[] = []): CalculableItem[] => {
+export const flattenCalculableItems = (
+  items: CalculableItem[] | undefined,
+  accum: CalculableItem[] = []
+): CalculableItem[] => {
   for (const item of items ?? []) {
     accum.push(item);
-    flattenItems(item.item, accum);
+    flattenCalculableItems(item.item, accum);
   }
   return accum;
 };
@@ -70,10 +73,11 @@ export interface CalculatedItemDef {
   references: string[];
 }
 
-// callers may pass an already flattened list, so a linkId can be seen more than once
+// the paperwork context passes a flattened list whose items still carry their nested children, so a nested
+// calculated item is seen twice: once as a child of its group and once as a list entry
 export const getCalculatedItemDefs = (items: CalculableItem[]): CalculatedItemDef[] => {
   const seen = new Set<string>();
-  return flattenItems(items).flatMap((item) => {
+  return flattenCalculableItems(items).flatMap((item) => {
     const expression = getCalculatedExpression(item)?.expression;
     if (!expression || seen.has(item.linkId)) return [];
     seen.add(item.linkId);

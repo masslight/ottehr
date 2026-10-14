@@ -9,8 +9,9 @@ import {
 } from './calculated-answers';
 
 /*
-  Calculated items (sdc-questionnaire-calculatedExpression) are formula fields: their value is derived from the other
-  answers in the form. The expression is javascript with a single `answers` argument, keyed by linkId, e.g.
+  Calculated items (sdc-questionnaire-calculatedExpression) are formula fields whose value is derived from the other
+  answers in the form. Currently, the engine is configured to expect and handle javascript expressions; 
+  these are only ever run in the browser. Theses expressions expect a single `answers` argument, keyed by linkId, e.g.
     (answers["q1"]||0)+(answers["q2"]||0)
 
   THIS IS BROWSER-ONLY CODE. The javascript in a questionnaire is only ever evaluated in a browser, never on the
@@ -42,7 +43,7 @@ const compileExpression = (expression: string): CompiledExpression => {
 
 const NUMERIC_CODE_REGEX = /^-?\d+(\.\d+)?$/;
 
-// a coded answer is exposed to expressions as its code, as a number when the code is numeric (so scores can be summed)
+// when the code is a number, return as such so it can be summed, else just return the code
 const codingToValue = (code: string | undefined): string | number | undefined => {
   if (code === undefined) return undefined;
   return NUMERIC_CODE_REGEX.test(code) ? Number(code) : code;
@@ -60,6 +61,7 @@ const answerToValue = (answer: NonNullable<QuestionnaireResponseItem['answer']>[
 };
 
 // flat map of linkId -> answer value across every (nested) item of a QuestionnaireResponse
+// exported for test
 export const buildAnswersMap = (
   qrItems: QuestionnaireResponseItem[] | undefined,
   accum: Record<string, unknown> = {}
@@ -78,7 +80,9 @@ export const buildAnswersMap = (
 };
 
 // dependencies first, so an expression can read another calculated value wherever the author placed it in the form.
-// items caught in a circular reference are left out
+// items caught in a circular reference are left out. This really shouldn't happen since we validate circular dependency at import;
+// however, it depends how the form is authored. I've seen examples where the keys are built dynamically,
+// for example: Array.from({length:9},(_,i)=>answers["q"+(i+1)]||0)
 const orderByDependency = (defs: CalculatedItemDef[]): CalculatedItemDef[] => {
   const byLinkId = new Map(defs.map((def) => [def.linkId, def]));
   const ordered: CalculatedItemDef[] = [];
@@ -117,10 +121,10 @@ const normalizeResult = (result: unknown): CalculatedValue => {
  * An expression that fails to compile or throws yields `undefined`; it never throws.
  */
 export const evaluateCalculatedItems = (
-  items: CalculableItem[],
+  calculableItems: CalculableItem[],
   qrItems: QuestionnaireResponseItem[] | undefined
 ): Record<string, CalculatedValue> => {
-  const defs = getCalculatedItemDefs(items);
+  const defs = getCalculatedItemDefs(calculableItems);
   if (defs.length === 0) return {};
 
   const answers = buildAnswersMap(qrItems);
@@ -166,7 +170,7 @@ export interface BuildCalculatedAnswersInput {
   formValues: Record<string, QuestionnaireResponseItem | undefined>;
   // the response as stored so far, one item per page
   savedPages: QuestionnaireResponseItem[];
-  // a calculated item on a page that is not enabled is not worked out, and any stored value is cleared
+  // a calculated item on a page that is not enabled is not worked out, and any stored value is cleared (enabled does not equate to visible)
   isPageEnabled?: (page: CalculableItem) => boolean;
 }
 
@@ -210,7 +214,7 @@ export const buildCalculatedAnswers = (input: BuildCalculatedAnswersInput): Ques
   const { pageItems, formValues, savedPages, isPageEnabled } = input;
 
   const located = pageItems.flatMap((page) => locateCalculatedItems(page.item, page));
-  if (located.length === 0) return [];
+  if (located.length === 0) return []; // no calculated items to assess, just return
 
   const overlay: QuestionnaireResponseItem[] = pageItems.map((page) => {
     const savedChildren = savedPages.find((saved) => saved.linkId === page.linkId)?.item ?? [];
@@ -224,16 +228,23 @@ export const buildCalculatedAnswers = (input: BuildCalculatedAnswersInput): Ques
   const results = evaluateCalculatedItems(pageItems, overlay);
 
   const calculatedPages: QuestionnaireResponseItem[] = [];
+
+  // loop over array of items with calculated expressions
+  // for each item, find its freshly calculated value
+  // skip it if the stored value already matches; otherwise it needs setting, updating, or clearing
   for (const { item, page, groupPath } of located) {
+    // can be enabled and hidden, enabled does not equate to visible
     const enabled = isPageEnabled ? isPageEnabled(page) : true;
     const answer = enabled ? coerceCalculatedValue(item, results[item.linkId]) : undefined;
 
+    // unchanged: the one stored answer equals the new value, or there is no new value and nothing is stored
     const savedAnswers = findSavedItem(savedPages, item.linkId)?.answer ?? [];
     const unchanged = answer
       ? savedAnswers.length === 1 && JSON.stringify(savedAnswers[0]) === JSON.stringify(answer)
       : savedAnswers.length === 0;
     if (unchanged) continue;
 
+    // nest the entry under its page and groups, the shape the server merges into the response; no answer means clear
     let pageEntry = calculatedPages.find((entry) => entry.linkId === page.linkId);
     if (!pageEntry) {
       pageEntry = { linkId: page.linkId, item: [] };

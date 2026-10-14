@@ -317,9 +317,8 @@ const complexPatchValidation = async (
     }
   }
 
-  // The page's items are replaced by what the browser sent, which never includes calculated items. The calculated
-  // values already stored on the page are carried over, and the values sent now are folded in, so it is still a
-  // single operation and a save never loses a calculated value it did not mention.
+  // The page's items are replaced wholesale, and `submittedAnswers` never holds calculated items. Copy the stored
+  // calculated values back in, then apply the changed ones from `calculatedAnswers`, so a save doesn't erase them.
   const calculatedForThisPage = calculatedAnswers.find((page) => page.linkId === itemToPatch.linkId)?.item ?? [];
   const carriedOver = extractCalculatedItems(currentAnswersForPage, itemsForThisPage);
   const updatedAnswers = applyCalculatedAnswers(

@@ -357,7 +357,7 @@ describe('makeAdditionalFlowQuestionnairePatches', () => {
 });
 
 // A flow stores all of its forms in one QuestionnaireResponse, so a custom (practice-managed) form must not share a
-// page or question id with another form in the flow. Ottehr-managed forms may (the consent page).
+// page or question id with another form in the flow. Ottehr-managed forms may (this is a temporary solution to handle the consent page).
 describe('getFormCanonicals linkId conflicts', () => {
   const form = (
     name: string,

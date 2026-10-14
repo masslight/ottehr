@@ -5,7 +5,7 @@ import {
   CALCULATED_EXPRESSION_LANGUAGE,
   CalculatedItemDef,
   extractAnswerReferences,
-  flattenItems,
+  flattenCalculableItems,
   getCalculatedExpression,
   getCalculatedItemDefs,
   isCalculatedItem,
@@ -64,7 +64,7 @@ const MAX_LISTED_LINK_IDS = 10;
  */
 export const collectCalculatedExpressionIssues = (items: CalculableItem[]): string[] => {
   const issues: string[] = [];
-  const allItems = flattenItems(items);
+  const allItems = flattenCalculableItems(items);
   const allLinkIds = allItems.map((item) => item.linkId);
   const calculated = allItems.filter(isCalculatedItem);
 
@@ -89,7 +89,7 @@ export const collectCalculatedExpressionIssues = (items: CalculableItem[]): stri
       issues.push(
         `${label}: expression language ${
           language ? `"${language}" is not supported` : 'is missing'
-        }. Set valueExpression.language to "${CALCULATED_EXPRESSION_LANGUAGE}".`
+        }. valueExpression.language "${CALCULATED_EXPRESSION_LANGUAGE}" is supported.`
       );
     }
 

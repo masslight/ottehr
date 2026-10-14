@@ -199,6 +199,7 @@ export const EditFormResponseDialog: FC<EditFormResponseDialogProps> = ({ form, 
     void formRef.current?.handleSubmit(handleValidSubmit)();
   }, [handleValidSubmit]);
 
+  // seems like maybe theres a refactor that could happen to consolidate the submit handlers (not sure though)
   const handleFormSubmit = useCallback(
     (data: QuestionnaireFormFields): void => {
       void handleValidSubmit(data);
