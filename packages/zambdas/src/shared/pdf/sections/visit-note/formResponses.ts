@@ -30,7 +30,7 @@ export const createQuestionnairesSection = <TData extends { questionnaires?: Que
   QuestionnaireForms
 > =>
   createConfiguredSection(null, () => ({
-    title: 'Questionnaires',
+    title: 'Clinical Forms',
     dataSelector: (data) => data.questionnaires,
     shouldRender: (sectionData) => sectionData.forms.length > 0,
     render: (client, data, styles) => {

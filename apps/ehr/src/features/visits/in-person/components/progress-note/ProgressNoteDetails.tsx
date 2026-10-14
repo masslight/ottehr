@@ -356,12 +356,12 @@ export const ProgressNoteDetails: FC = () => {
       <InlineEditSection
         key="questionnaires"
         sectionName="questionnaires"
-        title="Questionnaires"
+        title="Clinical Forms"
         iconKey="Questionnaires"
-        editLabel="Edit questionnaires"
+        editLabel="Edit clinical forms"
         editContent={<PatientFormResponses placement="questionnaires" scope="this-visit" />}
       >
-        <FormResponsesSummary responses={visitForms.questionnaires} emptyMessage="No questionnaires" />
+        <FormResponsesSummary responses={visitForms.questionnaires} emptyMessage="No clinical forms" />
       </InlineEditSection>
     ),
     (showVitalsObservations || inlineEditEnabled) && (

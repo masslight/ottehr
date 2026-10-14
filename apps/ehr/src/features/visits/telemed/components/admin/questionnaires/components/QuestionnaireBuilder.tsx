@@ -104,7 +104,7 @@ function ensureUniqueLinkIds(
 const FORM_PLACEMENT_HELP: Record<FormPlacement, string> = {
   'visit-details': "Shown on the visit's Visit Details page.",
   screening: 'Staff fill it out on the Screening Questions page, below the built-in screening questions.',
-  questionnaires: "Shown on the chart's Questionnaires page, together with the patient's earlier responses.",
+  questionnaires: "Shown on the chart's Clinical Forms page, together with the patient's earlier responses.",
 };
 
 export const QuestionnaireBuilder: FC<QuestionnaireBuilderProps> = ({ initial, onSave, isSaving }) => {

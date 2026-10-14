@@ -212,9 +212,9 @@ export const FORM_PLACEMENTS = ['visit-details', 'screening', 'questionnaires'] 
 export type FormPlacement = (typeof FORM_PLACEMENTS)[number];
 
 export const FORM_PLACEMENT_LABELS: Record<FormPlacement, string> = {
-  'visit-details': 'Visit details',
+  'visit-details': 'Visit Details',
   screening: 'Screening',
-  questionnaires: 'Questionnaires',
+  questionnaires: 'Clinical Forms',
 };
 
 export function getFormPlacement(q: Pick<Questionnaire, 'meta'> | undefined): FormPlacement {

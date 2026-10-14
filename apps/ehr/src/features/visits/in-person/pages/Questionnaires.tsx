@@ -14,7 +14,7 @@ export const Questionnaires: React.FC = () => {
 
   return (
     <Stack spacing={1}>
-      <PageTitle label="Questionnaires" showIntakeNotesButton={false} />
+      <PageTitle label="Clinical Forms" showIntakeNotesButton={false} />
       <PatientFormResponses placement="questionnaires" scope="all-visits" />
     </Stack>
   );

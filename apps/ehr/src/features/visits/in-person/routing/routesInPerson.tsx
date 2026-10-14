@@ -125,7 +125,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
     path: ROUTER_PATH.QUESTIONNAIRES,
     modes: ['main', 'readonly'],
     element: <Questionnaires />,
-    text: 'Questionnaires',
+    text: 'Clinical Forms',
     iconKey: 'Questionnaires',
     groupLabel: 'Intake',
   },
