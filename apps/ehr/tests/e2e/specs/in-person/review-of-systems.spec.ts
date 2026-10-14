@@ -1,6 +1,7 @@
 import { BrowserContext, Page, test } from '@playwright/test';
 import { DateTime } from 'luxon';
 import { InPersonProgressNotePage } from 'tests/e2e/page/in-person/InPersonProgressNotePage';
+import { expectReviewOfSystemsPage } from 'tests/e2e/page/in-person/ReviewOfSystemsPage';
 import { InPersonHeader } from 'tests/e2e/page/InPersonHeader';
 import { SideMenu } from 'tests/e2e/page/SideMenu';
 import { ResourceHandler } from 'tests/e2e-utils/resource-handler';
@@ -39,9 +40,10 @@ test.afterAll(async () => {
 test.describe.configure({ mode: 'serial' });
 
 const ROS_SYSTEM_KEYS = Object.keys(InPersonRosConfig);
-const firstSystem = Object.values(InPersonRosConfig)[0];
+const [FIRST_SYSTEM_KEY, firstSystem] = Object.entries(InPersonRosConfig)[0];
 const SYSTEM_LABEL = firstSystem.label;
 const [FINDING_A, FINDING_B] = Object.values(firstSystem.items).map((item) => item.label);
+const SYSTEM_COMMENT = `ROS e2e comment ${DateTime.now().toMillis()}`;
 
 test.describe('Review of Systems page', () => {
   test('ROS-1 Tab is present, can be clicked, and the Review of Systems page loads', async () => {
@@ -108,6 +110,28 @@ test.describe('Review of Systems page', () => {
 
     await test.step('ROS-3.4 Reports finding appears with bold text', async () => {
       await progressNotePage.verifyRosFinding(FINDING_B, true);
+    });
+  });
+
+  test('ROS-4 System comment is saved, persists after reload, and appears on the progress note', async () => {
+    const rosPage = await sideMenu.clickReviewOfSystems();
+
+    await test.step('ROS-4.1 Type a comment for the system and wait for it to save', async () => {
+      await rosPage.fillComment(FIRST_SYSTEM_KEY, SYSTEM_COMMENT);
+      await rosPage.assertCommentValue(FIRST_SYSTEM_KEY, SYSTEM_COMMENT);
+    });
+
+    await test.step('ROS-4.2 Comment persists after page reload', async () => {
+      await page.reload();
+      const reloadedRosPage = await expectReviewOfSystemsPage(page);
+      await reloadedRosPage.assertCommentValue(FIRST_SYSTEM_KEY, SYSTEM_COMMENT);
+    });
+
+    await test.step('ROS-4.3 Comment appears in the ROS section of the progress note', async () => {
+      const progressNotePage = await sideMenu.clickReviewAndSign();
+      await progressNotePage.expectLoaded();
+      await progressNotePage.verifyRosReviewSectionVisible();
+      await progressNotePage.verifyRosComment(SYSTEM_LABEL, SYSTEM_COMMENT);
     });
   });
 });

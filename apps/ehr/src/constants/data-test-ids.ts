@@ -970,6 +970,7 @@ export const dataTestIds = {
     reportsCheckboxCell: 'ros-reports-checkbox-cell',
     selectAllDeniesCell: 'ros-select-all-denies-cell',
     clearRosButton: 'clear-ros-button',
+    rosCommentField: (systemKey: string): string => `ros-comment-${systemKey}`,
   },
 
   examPage: {

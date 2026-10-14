@@ -392,6 +392,51 @@ describe('chart-data integration tests', () => {
       });
     });
 
+    it('should validate save + get + update + delete cycle for a ROS system comment -- success', async () => {
+      const encounterId = baseResources.encounter.id!;
+      const comment = {
+        field: 'ros-constitutional-comment',
+        label: 'Constitutional comment',
+        note: 'Fever since Tuesday',
+      };
+      const finding = { field: 'ros-constitutional-fever-reports', label: 'Fever', value: true };
+
+      const save = async (rosObservations: SaveChartDataRequest['rosObservations']): Promise<SaveChartDataResponse> =>
+        (await oystehrLocalZambdas.zambda.execute({ id: 'SAVE-CHART-DATA', encounterId, rosObservations }))
+          .output as SaveChartDataResponse;
+      const getRos = async (): Promise<GetChartDataResponse['rosObservations']> =>
+        legacyChart(
+          (await oystehrLocalZambdas.zambda.execute({ id: 'GET-VISIT-NOTE', encounterId })).output as VisitNoteResponse
+        ).rosObservations;
+
+      const saved = await save([finding, comment]);
+      const savedComment = saved.chartData.rosObservations?.find((obs) => obs.field === comment.field);
+      expect(savedComment).toMatchObject({ resourceId: expect.any(String), ...comment });
+      expect(savedComment?.value).toBeUndefined();
+
+      let ros = await getRos();
+      expect(ros?.find((obs) => obs.field === comment.field)).toMatchObject({
+        resourceId: savedComment!.resourceId,
+        note: comment.note,
+      });
+      expect(ros?.find((obs) => obs.field === finding.field)).toMatchObject({ value: true });
+
+      await save([{ ...comment, note: 'Fever resolved', resourceId: savedComment!.resourceId }]);
+      ros = await getRos();
+      const updatedComments = ros?.filter((obs) => obs.field === comment.field);
+      expect(updatedComments).toHaveLength(1);
+      expect(updatedComments?.[0]).toMatchObject({ resourceId: savedComment!.resourceId, note: 'Fever resolved' });
+
+      const deleteInput: DeleteChartDataRequest = {
+        encounterId,
+        rosObservations: [{ ...comment, resourceId: savedComment!.resourceId }],
+      };
+      await oystehrLocalZambdas.zambda.execute({ id: 'DELETE-CHART-DATA', ...deleteInput });
+      ros = await getRos();
+      expect(ros?.find((obs) => obs.field === comment.field)).toBeUndefined();
+      expect(ros?.find((obs) => obs.field === finding.field)).toMatchObject({ value: true });
+    });
+
     it('should validate save + get cycle for instructions -- success', async () => {
       const instructionDTO = {
         text: 'Take medication with food twice daily',
