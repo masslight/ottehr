@@ -114,8 +114,10 @@ export const index = wrapTaskHandler(
         statusReason: `fax packet sent to ${sent}/${results.length} recipient(s)`,
       };
     } catch (error) {
-      if (error instanceof FaxPacketTooLargeError) await recordFailureReason(oystehr, task.id!, 'too-large');
-      throw error;
+      if (!(error instanceof FaxPacketTooLargeError)) throw error;
+      console.log(`[fax-packet] ${error.message}`);
+      await recordFailureReason(oystehr, task.id!, 'too-large');
+      return { taskStatus: 'failed' as const, statusReason: error.message };
     }
   },
   { retry: false }

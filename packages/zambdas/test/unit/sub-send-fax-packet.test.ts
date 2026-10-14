@@ -25,9 +25,10 @@ vi.mock('../../src/shared/sentry', async (importOriginal) => ({
   wrapHandler: (_name: string, fn: (...args: unknown[]) => unknown) => fn,
 }));
 
+const mockSendErrors = vi.fn();
 vi.mock('../../src/shared/errors', async (importOriginal) => ({
   ...((await importOriginal()) as Record<string, unknown>),
-  sendErrors: vi.fn().mockResolvedValue(undefined),
+  sendErrors: (...args: unknown[]) => mockSendErrors(...args),
 }));
 
 const mockResolveFaxPacketPlan = vi.fn();
@@ -96,7 +97,7 @@ describe('sub-send-fax-packet', () => {
     mockFhirPatch.mockResolvedValue({});
   });
 
-  it('saves the too-large reason before the task is marked failed', async () => {
+  it('saves the too-large reason before the task is marked failed, without reporting an error', async () => {
     const events: string[] = [];
     mockFhirPatch.mockImplementation(async ({ operations }: { operations: Operation[] }) => {
       const label = describePatch(operations);
@@ -107,8 +108,10 @@ describe('sub-send-fax-packet', () => {
     });
     mockResolveFaxPacketPlan.mockRejectedValue(SIZE_ERROR);
 
-    await runHandler();
+    const result = await runHandler();
 
+    expect(result.statusCode).toBe(200);
+    expect(mockSendErrors).not.toHaveBeenCalled();
     expect(events).toEqual([
       'status:in-progress started',
       'status:in-progress saved',
@@ -135,6 +138,7 @@ describe('sub-send-fax-packet', () => {
 
     expect(patchedLabels()).toEqual(['status:in-progress', 'status:failed']);
     expect(failedStatusReason()).toBe('Organization lookup failed');
+    expect(mockSendErrors).toHaveBeenCalledTimes(1);
   });
 
   it('keeps the size error as the failure when saving the reason fails', async () => {
@@ -148,6 +152,7 @@ describe('sub-send-fax-packet', () => {
 
     expect(patchedLabels()).toEqual(['status:in-progress', 'output:failure-reason', 'status:failed']);
     expect(failedStatusReason()).toBe(SIZE_ERROR.message);
+    expect(mockSendErrors).not.toHaveBeenCalled();
   });
 
   it('records too-large when the final packet exceeds the limit during delivery', async () => {
@@ -162,5 +167,6 @@ describe('sub-send-fax-packet', () => {
     expect(mockDeliverFaxPacket).toHaveBeenCalled();
     expect(patchedLabels()).toEqual(['status:in-progress', 'output:failure-reason', 'status:failed']);
     expect(failedStatusReason()).toBe(finalSizeError.message);
+    expect(mockSendErrors).not.toHaveBeenCalled();
   });
 });
