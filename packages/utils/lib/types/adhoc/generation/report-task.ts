@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { ottehrCodeSystemUrl } from '../../../fhir/systemUrls';
+import { RunFetchPlanInputSchema } from '../plan/fetch-plan';
 import { DateRangeSchema } from '../query/date-range';
 
 export const ADHOC_REPORT_TASK_SYSTEM = ottehrCodeSystemUrl('adhoc-report-task');
@@ -7,11 +8,15 @@ export const ADHOC_REPORT_TASK_CODE = 'adhoc-report';
 export const ADHOC_REPORT_PARAMS_CODE = 'adhoc-report-params';
 export const ADHOC_REPORT_OUTPUT_URL_CODE = 'adhoc-report-output-url';
 
-export const StartAdHocReportInputSchema = z.object({
+export const StartAdHocDatasetReportInputSchema = z.object({
   datasetId: z.string().min(1),
   dateRange: DateRangeSchema,
   options: z.record(z.boolean()).optional(),
 });
+export type StartAdHocDatasetReportInput = z.infer<typeof StartAdHocDatasetReportInputSchema>;
+
+/** A dataset report (EHR builder) or a fetch plan (Report Studio); both run in the background Task. */
+export const StartAdHocReportInputSchema = z.union([StartAdHocDatasetReportInputSchema, RunFetchPlanInputSchema]);
 export type StartAdHocReportInput = z.infer<typeof StartAdHocReportInputSchema>;
 
 export const StartAdHocReportResponseSchema = z.object({ taskId: z.string().min(1) });

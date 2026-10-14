@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { Task } from 'fhir/r4b';
-import { getSecret, SecretsKeys } from 'utils/lib/secrets';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import {
   AdHocBillingInputSchema,
   AdHocBillingOutputSchema,
@@ -21,21 +21,20 @@ import {
   ADHOC_REPORT_OUTPUT_URL_CODE,
   ADHOC_REPORT_PARAMS_CODE,
   ADHOC_REPORT_TASK_SYSTEM,
+  StartAdHocReportInput,
 } from 'utils/lib/types/adhoc/generation/report-task';
 import { fetchAdHocBillingRows } from '../../shared/adhoc-datasets/billing';
 import { fetchAdHocEncounterRows } from '../../shared/adhoc-datasets/encounters';
 import { fetchAdHocPatientRows } from '../../shared/adhoc-datasets/patients';
-import { beginReportBudget, uploadAdHocReportJsonToZ3 } from '../../shared/adhoc-report';
+import { runFetchPlan } from '../../shared/adhoc-fetch-plan';
+import { runWithReportBudget, uploadAdHocReportJsonToZ3 } from '../../shared/adhoc-report';
 import { validateOutputWithSchema } from '../../shared/validate-zod';
 import { wrapTaskHandler } from '../task/helpers';
 
 const ZAMBDA_NAME = 'sub-adhoc-report';
 
-interface ReportParams {
-  datasetId: string;
-  dateRange: { start: string; end: string };
-  options: Record<string, boolean>;
-}
+// The same shape `adhoc-report` validated and wrote on the Task: a dataset report or a fetch plan.
+type ReportParams = StartAdHocReportInput;
 
 function readParams(task: Task): ReportParams {
   const raw = task.input?.find((i) => i.type?.coding?.some((c) => c.code === ADHOC_REPORT_PARAMS_CODE))?.valueString;
@@ -48,6 +47,18 @@ async function buildOutputJson(
   params: ReportParams,
   environment: string
 ): Promise<{ json: string; rowCount: number }> {
+  if ('plan' in params) {
+    const { resources, stats, totalMs } = await runFetchPlan(oystehr, params.plan, params.dateRange, params.parameters);
+    // One file holds the stats and the resources (RunFetchPlanOutput); the 17–30 MB of resources are
+    // serialized once, and the stats head is spliced in front of them.
+    const resourcesJson = JSON.stringify(resources);
+    const head = JSON.stringify({ stats, totalMs, totalBytes: resourcesJson.length, dateRange: params.dateRange });
+    return {
+      json: `${head.slice(0, -1)},"resources":${resourcesJson}}`,
+      rowCount: stats.reduce((sum, step) => sum + step.count, 0),
+    };
+  }
+
   const { datasetId, dateRange, options } = params;
   switch (datasetId) {
     case 'encounters-comprehensive': {
@@ -98,17 +109,25 @@ async function stage<T>(
   }
 }
 
-export const index = wrapTaskHandler(ZAMBDA_NAME, async (input, oystehr) => {
+export const index = wrapTaskHandler(ZAMBDA_NAME, (input, oystehr) => runWithReportBudget(() => run(input, oystehr)));
+
+async function run(
+  input: { task: Task; secrets: Secrets },
+  oystehr: Oystehr
+): Promise<{ taskStatus: Task['status']; statusReason: string }> {
   const { task, secrets } = input;
   const startedAt = Date.now();
 
-  beginReportBudget();
   const params = await stage('read params', task.id, startedAt, async () => readParams(task));
 
   console.log(
-    `[adhoc] start task=${task.id} dataset=${params.datasetId} ` +
-      `range=${params.dateRange.start}..${params.dateRange.end} ` +
-      `layers=${JSON.stringify(Object.keys(params.options ?? {}).filter((id) => params.options[id]))}`
+    `[adhoc] start task=${task.id} ` +
+      ('plan' in params
+        ? `plan steps=${params.plan.steps.length} gzip=${!!params.gzip}`
+        : `dataset=${params.datasetId} layers=${JSON.stringify(
+            Object.keys(params.options ?? {}).filter((id) => params.options?.[id])
+          )}`) +
+      ` range=${params.dateRange?.start}..${params.dateRange?.end}`
   );
 
   const { json, rowCount } = await stage('build data', task.id, startedAt, () =>
@@ -116,7 +135,9 @@ export const index = wrapTaskHandler(ZAMBDA_NAME, async (input, oystehr) => {
   );
   console.log(`[adhoc] data ready task=${task.id} ms=${Date.now() - startedAt} rows=${rowCount} bytes=${json.length}`);
 
-  const z3Url = await stage('upload', task.id, startedAt, () => uploadAdHocReportJsonToZ3(oystehr, secrets, json));
+  const z3Url = await stage('upload', task.id, startedAt, () =>
+    uploadAdHocReportJsonToZ3(oystehr, secrets, json, 'gzip' in params && params.gzip)
+  );
   console.log(`[adhoc] uploaded task=${task.id} ms=${Date.now() - startedAt}`);
 
   await stage('record output on task', task.id, startedAt, () =>
@@ -141,4 +162,4 @@ export const index = wrapTaskHandler(ZAMBDA_NAME, async (input, oystehr) => {
   console.log(`[adhoc] done task=${task.id} ms=${Date.now() - startedAt}`);
 
   return { taskStatus: 'completed' as const, statusReason: 'Ad-hoc report data generated' };
-});
+}

@@ -1,5 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { captureException } from '@sentry/node-core/light';
+import { AsyncLocalStorage } from 'async_hooks';
 import { randomUUID } from 'crypto';
 import {
   Address,
@@ -20,21 +21,25 @@ import { getAddressForIndividual, getFirstName, getLastName, getMiddleName } fro
 import { getAdmitterPractitionerId, getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { getInPersonVisitStatus } from 'utils/lib/utils/visitUtils';
+import { gzipSync } from 'zlib';
 import { createPresignedUrl } from './z3Utils';
 
 export async function uploadAdHocReportJsonToZ3(
   oystehr: Oystehr,
   secrets: Secrets | null,
-  json: string
+  json: string,
+  gzip = false
 ): Promise<string> {
   const projectId = getSecret(SecretsKeys.PROJECT_ID, secrets);
   const projectApi = getSecret(SecretsKeys.PROJECT_API, secrets);
   const bucketName = `${projectId}-${BUCKET_NAMES.REPORTS}`;
-  const objectPath = `adhoc-report-${randomUUID()}.json`;
+  const objectPath = `adhoc-report-${randomUUID()}.json${gzip ? '.gz' : ''}`;
   await oystehr.z3.uploadFile({
     bucketName,
     'objectPath+': objectPath,
-    file: new Blob([json], { type: 'application/json' }),
+    file: gzip
+      ? new Blob([gzipSync(json)], { type: 'application/gzip' })
+      : new Blob([json], { type: 'application/json' }),
   });
   return `${projectApi}/z3/${bucketName}/${objectPath}`;
 }
@@ -43,9 +48,10 @@ export async function uploadAdHocReportDataToZ3(
   oystehr: Oystehr,
   secrets: Secrets | null,
   token: string,
-  json: string
+  json: string,
+  gzip = false
 ): Promise<string> {
-  const z3Url = await uploadAdHocReportJsonToZ3(oystehr, secrets, json);
+  const z3Url = await uploadAdHocReportJsonToZ3(oystehr, secrets, json, gzip);
   return createPresignedUrl(token, z3Url, 'download');
 }
 
@@ -53,14 +59,15 @@ const REPORT_BUDGET_MS = 13 * 60 * 1000;
 
 const DEFAULT_JOB_TIMEOUT_MS = 10 * 60 * 1000;
 
-let reportDeadlineMs = 0;
+// Request-scoped so one zambda's deadline never leaks into another on the shared local server.
+const reportDeadline = new AsyncLocalStorage<number>();
 
-export function beginReportBudget(): void {
-  reportDeadlineMs = Date.now() + REPORT_BUDGET_MS;
-}
+export const runWithReportBudget = <T>(fn: () => Promise<T>): Promise<T> =>
+  reportDeadline.run(Date.now() + REPORT_BUDGET_MS, fn);
 
 function jobWait(): { pollIntervalMs: number; timeoutMs: number } {
-  if (reportDeadlineMs === 0) return { pollIntervalMs: 2000, timeoutMs: DEFAULT_JOB_TIMEOUT_MS };
+  const reportDeadlineMs = reportDeadline.getStore();
+  if (reportDeadlineMs === undefined) return { pollIntervalMs: 2000, timeoutMs: DEFAULT_JOB_TIMEOUT_MS };
   const remaining = reportDeadlineMs - Date.now();
   if (remaining <= 0) throw new Error('Ad-hoc report exceeded its time budget before all data was fetched');
   return { pollIntervalMs: 2000, timeoutMs: remaining };

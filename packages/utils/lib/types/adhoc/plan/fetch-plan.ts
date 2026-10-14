@@ -118,6 +118,8 @@ export const RunFetchPlanInputSchema = z.object({
   parameters: FetchPlanParametersSchema.optional(),
   /** Always answer inline, never through a Z3 file (the local server has no response-size limit). */
   inline: z.boolean().optional(),
+  /** Gzip the Z3 file; the client decompresses it (DecompressionStream in the browser). */
+  gzip: z.boolean().optional(),
 });
 export type RunFetchPlanInput = z.infer<typeof RunFetchPlanInputSchema>;
 
