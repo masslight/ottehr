@@ -38,7 +38,13 @@ FETCH PLAN FORMAT (JSON; the "plan" field of update_report / run_fetch):
   earlier step's resources (arrays flattened, deduped, references filtered to keepType) are fed to "param" in
   batches of ${FETCH_PLAN_LIMITS.scopedBatchSize}. For "_id" the "Type/" prefix is stripped; for reference params
   ("encounter", "patient", "request", "context") the full "Type/id" is kept (a bare id gets "keepType/" prefixed).
+  For a bare-value path such as "id", keepType picks WHICH source resources contribute: { path: "id", param:
+  "encounter", keepType: "Encounter" } over a mixed visits step feeds only the Encounter ids.
 - Included resources (_include / _revinclude) land in the SAME step array; use helpers.index(resources.visits).byType.
+- "elements" takes FHIR base names for choice types: "value" not "valueQuantity", "effective" not "effectiveDateTime".
+- {{patientId}} in a param value is the run's patient parameter (the Patient box in the top bar, or update_report
+  patientId) — for per-patient reports such as flowsheets, e.g. { "name": "patient", "value": "Patient/{{patientId}}" }.
+  A plan that uses it cannot run until a patient id is set.
 - At most ${FETCH_PLAN_LIMITS.maxSteps} steps. Independent steps run in parallel; a scoped step waits for its source.
 - The run result reports per step: ms, count, byType, bytes, mode, requests, error. A server error for a bad
   search parameter shows up there — read it and change the plan.
@@ -51,7 +57,8 @@ REPORT CODE CONTRACT (the "code" field): a JavaScript/JSX FUNCTION BODY. In scop
 - Report — the report components listed under COMPONENTS.
 - resources — { [stepId]: FhirResource[] } exactly as fetched (raw FHIR R4B JSON).
 - helpers — the data map's computed fields and lookups (HELPERS below).
-- params — { dateRange: { start, end } (ISO instants of the run), timeZone (the viewer's IANA zone) }.
+- params — { dateRange: { start, end } (ISO instants of the run), timeZone (the viewer's IANA zone),
+  patientId (the run's patient parameter, when one is set) }.
 Rules:
 - Define a root component and END with:  return ReportRoot;   The runtime renders <ReportRoot /> with NO props —
   read resources/helpers/params from the enclosing scope. Prepare data at the top level with plain JS (no hooks
@@ -78,11 +85,22 @@ HELPERS (helpers.*):
 - minutesBetween(startIso, endIso); ageAt(birthDate, atIso?) → years.
 - fullName(patientOrPractitioner) → "First Middle Last".
 - codings(concept, system?) → Coding[]; codeOf(concept, system?) → code; displayOf(concept, system?) → display|text|code.
-  Systems: ICD-10 "http://hl7.org/fhir/sid/icd-10-cm", CPT "http://www.ama-assn.org/go/cpt".
+  Systems: ICD-10 "http://hl7.org/fhir/sid/icd-10" (a few icd-10-cm), CPT "http://www.ama-assn.org/go/cpt".
 - hasTag(resource, code) → meta.tag code present.
+- icd10Code(condition) → the ICD-10 code; procedureKind(procedure) → "em" | "cpt" | "surgical-history" | undefined.
+- diagnosesOf(encounter, idx) → [{ code, display, primary, condition }] in rank order, one per code, missing Conditions skipped.
+- proceduresOf(encounter, idx) → [{ code, display, kind, procedure }] one per code, the E&M ("em") first; idx must hold the
+  Procedures (fetched with the visits step via _revinclude:iterate=Procedure:encounter).
+- labResultsOf(encounter, idx) → { orders: [{ name, status, serviceRequest }], results: [{ name, abnormal, status, report }],
+  abnormal } from the ServiceRequests coded as lab tests and the DiagnosticReports of the visit.
+- vitalsOf(observations) → { temperatureF, heartRate, respirationRate, oxygenSaturation, systolicBP, diastolicBP, weightKg,
+  heightCm, hasBloodPressure, count } — the latest reading per vital out of ONE visit's vital-* Observations: group first with
+  helpers.groupBy(resources.vitals, (o) => o.encounter && o.encounter.reference), then vitalsOf(byEnc[helpers.ref(e)] || []).
 - visitStatus(appointment, encounter) → pending | arrived | intake | ready | ready for provider | provider | discharged |
   completed | cancelled | no show | awaiting supervisor approval | unknown.
 - visitStatusHistory(encounter, appointment) → [{ status, period: { start, end } }];
+  visitTiming(appointment, encounter) → { arrived, intake, provider, discharged, completed (ISO), arrivedToIntake,
+  intakeToProvider, arrivedToProvider, providerToDischarge, total, withProvider (minutes; undefined when an end is missing) };
   visitTotalMinutes(appointment, encounter) → length of stay; waitMinutes(encounter, appointment) → minutes in arrived+ready.
 - attendingId(encounter) / admitterId(encounter) → Practitioner id; encounterVisitType(encounter) → main | follow-up | scheduled-follow-up.
 - isTelemed(appointment) / isInPerson(appointment); appointmentType(appointment) → walk-in | pre-booked | post-telemed.
@@ -108,8 +126,20 @@ HOW TO WORK:
 4. Optimize when the report works: fetch only what the code reads (set "elements" per step from suggestedElements for
    single-type steps), scope secondary steps to ids instead of fetching whole tables, keep timings low. Re-run to
    confirm the output is unchanged after a trim.
-5. Report back BRIEFLY: what the report shows, the calls you made (statuses counted, codes matched), timings, and any
-   limitation — 3 to 8 short lines. Never paste the code or plan into chat; the user sees them in the panel.
+5. SPEED PASS — once the report is correct, if any step took more than ~10 s or the plan more than ~20 s in total,
+   try the known alternatives for the slow part with compare_plans (same date range, both variants back to back,
+   per-step ms and whether the resources are equivalent):
+   - sub-resources of visits (Procedure, Condition, ServiceRequest, DiagnosticReport, MedicationRequest,
+     MedicationAdministration): _revinclude:iterate on the Appointment step vs a scoped step per type;
+   - a small table (PaymentNotice, ChargeItemDefinition, Organization, Location, Schedule): fetched whole vs scoped;
+   - splitting a step that brings several types vs merging scoped steps into their source;
+   - "elements" trimming of single-type steps; mode "normal" vs "bulk" for a large plain search.
+   Keep the fastest variant whose resources are equivalent (same ids per type; for a trimmed variant, the fields the
+   code reads) and re-run the report to confirm the rendered output is identical. Skip the pass when every step is
+   already fast, and never trade correctness for time.
+6. Report back BRIEFLY: what the report shows, the calls you made (statuses counted, codes matched), timings, any
+   limitation, and — when you ran the speed pass — what you tried with the before/after times — 3 to 8 short lines.
+   Never paste the code or plan into chat; the user sees them in the panel.
 Set a short "title" (the report heading) and "name" (file name) with update_report when creating a report.
 Legacy saved reports (list_saved_reports / get_saved_report) are dataset-based: use their request text and code as a
 SPEC for what to rebuild, not as code to copy — their row fields do not exist here.

@@ -2,7 +2,7 @@
 // Claude Code at the same files. Mirrors what the redesign saves (plan + code + prompt), not today's
 // dataset-based SavedAdHocReportDefinition.
 import { DateTime } from 'luxon';
-import type { FetchPlanInput } from 'utils/lib/types/adhoc/plan/fetch-plan';
+import type { FetchPlanInput, FetchPlanParameters } from 'utils/lib/types/adhoc/plan/fetch-plan';
 import type { DateRange } from 'utils/lib/types/adhoc/query/date-range';
 
 export const STUDIO_REPORT_FORMAT = 'ottehr-report-studio/1';
@@ -53,6 +53,8 @@ export interface StudioReport {
   /** The heading the model gave the report. */
   title?: string;
   dateRange: DateRangeSpec;
+  /** Run parameters the plan may template ({{patientId}}); the patient box in the top bar. */
+  parameters?: FetchPlanParameters;
   plan: FetchPlanInput;
   /** JSX function body over (React, MUI, Report, resources, helpers, params) ending with `return ReportRoot;`. */
   code: string;
@@ -63,7 +65,7 @@ export interface StudioReport {
 /** The part of a report a Claude turn can change — one undo step. */
 export type ReportSnapshot = Pick<
   StudioReport,
-  'name' | 'description' | 'prompt' | 'title' | 'dateRange' | 'plan' | 'code'
+  'name' | 'description' | 'prompt' | 'title' | 'dateRange' | 'parameters' | 'plan' | 'code'
 >;
 
 export const DEFAULT_PLAN: FetchPlanInput = {
@@ -129,8 +131,8 @@ export function emptyReport(): StudioReport {
 }
 
 export function snapshotOf(report: StudioReport): ReportSnapshot {
-  const { name, description, prompt, title, dateRange, plan, code } = report;
-  return structuredClone({ name, description, prompt, title, dateRange, plan, code });
+  const { name, description, prompt, title, dateRange, parameters, plan, code } = report;
+  return structuredClone({ name, description, prompt, title, dateRange, parameters, plan, code });
 }
 
 /** The ISO instant window for a spec, in the viewer's local zone (what the EHR's pickers do). */

@@ -62,6 +62,8 @@ export interface RunState {
   status: 'idle' | 'fetching' | 'rendering' | 'done' | 'error';
   startedAt?: number;
   dateRange?: DateRange;
+  /** The patient parameter the last fetch ran with (a code-only re-render reuses the data only for the same one). */
+  patientId?: string;
   fetch?: Omit<RunFetchPlanOutput, 'resources'>;
   resources?: Record<string, FhirResource[]>;
   render?: RenderResult;

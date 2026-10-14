@@ -4,14 +4,17 @@
 import type { FhirResource } from 'fhir/r4b';
 import {
   FetchPlanInput,
+  FetchPlanParameters,
   FetchPlanSchema,
   FetchStepStats,
+  planNeedsPatient,
   RunFetchPlanOutput,
 } from 'utils/lib/types/adhoc/plan/fetch-plan';
 import type { DateRange } from 'utils/lib/types/adhoc/query/date-range';
 import { runFetchPlan } from '../instance/zambdaClient';
 import { sandbox } from '../sandbox/controller';
 import { RenderResult, useStudio } from '../state/store';
+import { bareTagHints } from './codeCheck';
 import { resolveDateRange } from './types';
 import { suggestElements } from './trim';
 
@@ -39,16 +42,26 @@ export function validatePlan(plan: unknown): { ok: true; plan: FetchPlanInput } 
   return { ok: false, errors: parsed.error.issues.map((i) => `${i.path.join('.') || 'plan'}: ${i.message}`) };
 }
 
-/** Fetch only (used by the exploratory run_fetch tool); does not touch the open report's run state. */
+/** The patient box in the top bar, when a plan asks for {{patientId}}; an error message otherwise. */
+function patientParameters(plan: FetchPlanInput): FetchPlanParameters | string {
+  const patientId = useStudio.getState().report.parameters?.patientId?.trim();
+  if (planNeedsPatient(plan) && !patientId)
+    return 'This plan uses {{patientId}} but no patient id is set — enter one in the Patient box of the top bar (or update_report patientId).';
+  return patientId ? { patientId } : {};
+}
+
+/** Fetch only (used by the exploratory run_fetch / compare_plans tools); does not touch the open report's run state. */
 export async function fetchOnly(
   plan: FetchPlanInput,
   dateRange: DateRange
 ): Promise<RunFetchPlanOutput & { resources: Record<string, FhirResource[]> }> {
   const { addEvent } = useStudio.getState();
   const started = Date.now();
+  const parameters = patientParameters(plan);
+  if (typeof parameters === 'string') throw new Error(parameters);
   addEvent('fetch', `Exploratory fetch: ${plan.steps.length} step(s)…`);
   try {
-    const output = await runFetchPlan(plan, dateRange);
+    const output = await runFetchPlan(plan, dateRange, parameters);
     addEvent(
       'fetch',
       `Exploratory fetch done in ${output.totalMs} ms, ${fmtBytes(output.totalBytes)}`,
@@ -90,8 +103,9 @@ export async function runReport(opts: { dateRange?: DateRange; reuseData?: boole
   const startedAt = Date.now();
 
   const validated = validatePlan(report.plan);
-  if (!validated.ok) {
-    const message = `The plan is invalid: ${validated.errors.join('; ')}`;
+  const parameters = validated.ok ? patientParameters(report.plan) : {};
+  if (!validated.ok || typeof parameters === 'string') {
+    const message = validated.ok ? (parameters as string) : `The plan is invalid: ${validated.errors.join('; ')}`;
     setRun({ status: 'error', error: message, startedAt, dateRange });
     addEvent('error', message);
     return { ok: false, dateRange, fetchError: message, warnings };
@@ -104,19 +118,27 @@ export async function runReport(opts: { dateRange?: DateRange; reuseData?: boole
     resources &&
     fetchOutput &&
     state.run.dateRange?.start === dateRange.start &&
-    state.run.dateRange?.end === dateRange.end;
+    state.run.dateRange?.end === dateRange.end &&
+    state.run.patientId === parameters.patientId;
 
   if (!canReuse) {
-    setRun({ status: 'fetching', startedAt, dateRange, error: undefined, render: undefined });
+    setRun({
+      status: 'fetching',
+      startedAt,
+      dateRange,
+      patientId: parameters.patientId,
+      error: undefined,
+      render: undefined,
+    });
     addEvent(
       'fetch',
       `Fetching ${report.plan.steps.length} step(s) for ${dateRange.start.slice(0, 10)} → ${dateRange.end.slice(
         0,
         10
-      )}…`
+      )}${parameters.patientId ? `, patient ${parameters.patientId}` : ''}…`
     );
     try {
-      const output = await runFetchPlan(report.plan, dateRange);
+      const output = await runFetchPlan(report.plan, dateRange, parameters);
       const { resources: fetched, ...rest } = output;
       resources = fetched;
       fetchOutput = rest;
@@ -143,13 +165,21 @@ export async function runReport(opts: { dateRange?: DateRange; reuseData?: boole
 
   setRun({ status: 'rendering' });
   useStudio.getState().setTab('report');
+  const hints = bareTagHints(report.code);
   const render: RenderResult = await sandbox.render({
     code: report.code,
     resources: resources ?? {},
-    params: { dateRange, timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone },
+    params: {
+      dateRange,
+      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      patientId: parameters.patientId,
+    },
     profile: true,
     muiLicenseKey: settings.muiLicenseKey || undefined,
   });
+  if (!render.ok && render.error?.includes('did not transpile') && hints.length) {
+    render.error = `${render.error}. Hint — ${hints.join('; ')}`;
+  }
   setRun({ status: render.ok ? 'done' : 'error', render, error: render.ok ? undefined : render.error });
   if (render.ok) addEvent('render', `Rendered in ${render.ms} ms`, render.text?.split('\n')[0]);
   else addEvent('error', `Render failed: ${render.error}`);

@@ -7,16 +7,17 @@ import { captureException } from '@sentry/node-core/light';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { FhirResource } from 'fhir/r4b';
 import {
-  extractPathValues,
   FETCH_PLAN_LIMITS,
   FetchPlan,
+  FetchPlanParameters,
   FetchStep,
   FetchStepParam,
   FetchStepStats,
   resolveParamTemplates,
   RunFetchPlanOutput,
   RunFetchPlanOutputSchema,
-  scopedSearchValues,
+  scopedStepValues,
+  toElementName,
 } from 'utils/lib/types/adhoc/plan/fetch-plan';
 import { DateRange } from 'utils/lib/types/adhoc/query/date-range';
 import { AD_HOC_REPORT_VIEW_ROLES } from 'utils/lib/types/api/adhoc-report-access';
@@ -37,7 +38,7 @@ const INLINE_RESPONSE_LIMIT_BYTES = 5 * 1024 * 1024;
 let m2mToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const { plan, dateRange, inline, secrets } = validateRequestParameters(input);
+  const { plan, dateRange, parameters, inline, secrets } = validateRequestParameters(input);
 
   await requireUserWithRole(getUserToken(input), secrets, AD_HOC_REPORT_VIEW_ROLES);
 
@@ -52,7 +53,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   for (const level of planLevels(plan)) {
     await Promise.all(
       level.map(async (step) => {
-        const { resources, stats } = await runStep(oystehr, step, dateRange, resourcesByStep, statsByStep);
+        const { resources, stats } = await runStep(oystehr, step, dateRange, parameters, resourcesByStep, statsByStep);
         resourcesByStep.set(step.id, resources);
         statsByStep.set(step.id, stats);
       })
@@ -98,16 +99,18 @@ async function runStep(
   oystehr: Oystehr,
   step: FetchStep,
   dateRange: DateRange | undefined,
+  parameters: FetchPlanParameters | undefined,
   resourcesByStep: Map<string, FhirResource[]>,
   statsByStep: Map<string, FetchStepStats>
 ): Promise<{ resources: FhirResource[]; stats: FetchStepStats }> {
   const startedAt = Date.now();
   const params: FetchStepParam[] = step.params.map((p) => ({
     name: p.name,
-    value: resolveParamTemplates(p.value, dateRange),
+    value: resolveParamTemplates(p.value, dateRange, parameters),
   }));
   if (step.elements?.length) {
-    params.push({ name: '_elements', value: Array.from(new Set(['id', ...step.elements])).join(',') });
+    const elements = new Set(['id', ...step.elements.map(toElementName)]);
+    params.push({ name: '_elements', value: Array.from(elements).join(',') });
   }
 
   const finish = (
@@ -139,16 +142,17 @@ async function runStep(
         return finish([], { mode: 'skipped', requests: 0, error: `source step "${step.from.step}" failed` });
       }
       const source = resourcesByStep.get(step.from.step) ?? [];
-      const values = scopedSearchValues(extractPathValues(source, step.from.path), step.from);
+      const values = scopedStepValues(source, step.from);
       if (values.length === 0) return finish([], { mode: 'normal', requests: 0, scopedValues: 0 });
       const [scoped, partial] = await runScoped(oystehr, step, params, values);
       return finish(scoped, { ...partial, scopedValues: values.length });
     }
 
     if (step.mode === 'bulk') {
+      await probeSearch(oystehr, step.resourceType, params);
       return finish(await searchAsyncBulk(oystehr, step.resourceType as FhirResource['resourceType'], params), {
         mode: 'bulk',
-        requests: 1,
+        requests: 2,
       });
     }
 
@@ -173,6 +177,15 @@ async function runStep(
     console.error(`[adhoc-fetch-plan] step ${step.id} FAILED ms=${Date.now() - startedAt} message=${message}`);
     return finish([], { mode: step.mode === 'bulk' ? 'bulk' : 'normal', requests: 0, error: message });
   }
+}
+
+// A bulk job reports a bad search only as "job answered status 400"; the same search as a one-row
+// normal search fails with the server's own message (e.g. which _include is invalid), so run that first.
+async function probeSearch(oystehr: Oystehr, resourceType: string, params: FetchStepParam[]): Promise<void> {
+  await oystehr.fhir.search<FhirResource>({
+    resourceType: resourceType as FhirResource['resourceType'],
+    params: [...params, { name: '_count', value: '1' }],
+  });
 }
 
 async function searchPaged(
@@ -208,8 +221,12 @@ async function runScoped(
   values: string[]
 ): Promise<[FhirResource[], Pick<FetchStepStats, 'mode' | 'requests'>]> {
   const paramName = step.from!.param;
+  const batches: string[][] = [];
+  for (let i = 0; i < values.length; i += FETCH_PLAN_LIMITS.scopedBatchSize) {
+    batches.push(values.slice(i, i + FETCH_PLAN_LIMITS.scopedBatchSize));
+  }
   if (step.mode === 'bulk' || values.length > FETCH_PLAN_LIMITS.scopedBulkThreshold) {
-    const batches = Math.ceil(values.length / 100);
+    await probeSearch(oystehr, step.resourceType, [{ name: paramName, value: batches[0].join(',') }, ...params]);
     const resources = await fetchScopedResources<FhirResource>(
       oystehr,
       step.resourceType as FhirResource['resourceType'],
@@ -217,13 +234,9 @@ async function runScoped(
       values,
       params
     );
-    return [resources, { mode: 'bulk', requests: batches }];
+    return [resources, { mode: 'bulk', requests: batches.length + 1 }];
   }
 
-  const batches: string[][] = [];
-  for (let i = 0; i < values.length; i += FETCH_PLAN_LIMITS.scopedBatchSize) {
-    batches.push(values.slice(i, i + FETCH_PLAN_LIMITS.scopedBatchSize));
-  }
   const resources: FhirResource[] = [];
   let requests = 0;
   for (let i = 0; i < batches.length; i += FETCH_PLAN_LIMITS.scopedBatchConcurrency) {

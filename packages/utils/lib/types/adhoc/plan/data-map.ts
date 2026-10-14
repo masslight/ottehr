@@ -37,19 +37,27 @@ export const ADHOC_DATA_MAP: readonly DataMapEntry[] = [
         'Practitioner/<id> (telemed assignment). Use helpers.participantRef(appointment, "Location").',
       'cancelationReason.coding[0].display: why a cancelled visit was cancelled.',
       'created: when it was booked (walk-ins are created at arrival).',
+      'description: the reason for visit (free text the patient or staff entered). reasonCode is rarely set.',
+      'meta.tag with system "created-by": who registered the visit, in display only (no code): "QR - Patient …" = walk-in ' +
+        'at the kiosk, "Patient …" = self-scheduled, "Staff <email>" = staff, "M2M Client …" = automated. A visit can carry two.',
     ],
     links: [
       'Encounter.appointment[0].reference → this Appointment (use _revinclude=Encounter:appointment).',
       '_include=Appointment:patient brings the Patient; _include=Appointment:location the Location.',
+      'FAST PATH for visit-level clinical data: add _revinclude:iterate=<Type>:encounter to the SAME step for Procedure, ' +
+        'Condition, ServiceRequest, DiagnosticReport, MedicationRequest (and MedicationAdministration:context). A year of ' +
+        'visits with all six took 15–23 s; the same as scoped steps took 46 s.',
     ],
     search: [
       'date=ge{{start}}&date=le{{end}} bounds the scheduled start (both bounds inclusive).',
       'status=booked,arrived,... (comma list). _tag=OTTEHR-IP,OTTEHR-TM.',
       'Typical visit search: Appointment with date range + _tag + _include patient + _include location + ' +
         '_revinclude Encounter:appointment (+ _revinclude:iterate=Encounter:part-of for follow-up encounters).',
+      'Per-patient reports: Appointment?patient=Patient/{{patientId}} (no date range needed) with the same includes.',
     ],
     gaps: [
-      'Long ranges are slow: the server limits the query run time, so prefer mode "bulk" (or let auto decide) for more than ~2 weeks of visits.',
+      'Do NOT use mode "bulk" for the visits search: a bulk job returns at most 1,000 Appointments (a year of synth visits came back ' +
+        'as 1,000 of 2,700). Paged "auto" fetches a year of visits with encounters, patients and locations in ~10 s.',
     ],
   },
   {
@@ -58,13 +66,18 @@ export const ADHOC_DATA_MAP: readonly DataMapEntry[] = [
       'The clinical side of a visit: who saw the patient, the status timeline, the diagnoses. One per Appointment; ' +
       'a follow-up note is an extra Encounter with partOf → the visit Encounter (type coding SNOMED 390906007).',
     fields: [
-      'status: planned | arrived | in-progress | finished | cancelled. period.start/end: actual visit times.',
-      'statusHistory[]: {status, period} — the timeline the visit went through; helpers.visitStatusHistory(encounter, appointment) ' +
+      'status: planned | arrived | in-progress | finished | cancelled. period is NOT populated by Ottehr (blank on nearly ' +
+        'every encounter) — all visit times come from statusHistory.',
+      'statusHistory[]: {status, period, extension visit-status} — the timeline the visit went through; helpers.visitStatusHistory(encounter, appointment) ' +
         'turns it into Ottehr visit statuses (pending, arrived, intake, ready for provider, provider, discharged, completed…) ' +
-        'with periods. Wait = minutes in "arrived" + "ready" before intake; length of stay = helpers.visitTotalMinutes.',
+        'with periods; helpers.visitTiming(appointment, encounter) gives the key instants and interval minutes. ' +
+        'Wait = minutes in "arrived" + "ready" before intake; length of stay = helpers.visitTotalMinutes.',
       'participant[]: type coding ATND = attending provider, ADM = admitter (intake staff); individual.reference = ' +
         'Practitioner/<id>; period.start/end = when they started / finished with the patient. helpers.attendingId(encounter).',
-      'diagnosis[].condition.reference → Condition/<id> (the visit diagnoses; rank 1 = primary).',
+      'diagnosis[].condition.reference → Condition/<id> (the visit diagnoses; rank 1 = primary). Some references point to ' +
+        'Conditions that no longer exist — resolve and skip the misses. helpers.diagnosesOf(encounter, idx).',
+      'hospitalization.dischargeDisposition: coding[0].code ∈ pcp | pcp-no-type (follow up with PCP), specialty, ed (ED transfer), ' +
+        'another (another location), ip | ip-oth (in-person office transfer); text = the discharge instructions.',
       'subject.reference → Patient/<id>. appointment[0].reference → Appointment/<id>. partOf → parent Encounter (follow-ups).',
       'helpers.encounterVisitType(encounter): "main" | "follow-up" | "scheduled-follow-up".',
     ],
@@ -72,7 +85,8 @@ export const ADHOC_DATA_MAP: readonly DataMapEntry[] = [
       'Condition by _id from diagnosis[].condition.reference (scoped step, keepType Condition).',
       'Practitioner by _id from participant.individual.reference (scoped step, keepType Practitioner).',
       'Procedure?encounter=Encounter/<id>, DocumentReference?encounter=…, ServiceRequest?encounter=…, ' +
-        'Observation?encounter=…, QuestionnaireResponse?encounter=…, PaymentNotice?request=Encounter/<id>.',
+        'Observation?encounter=…, QuestionnaireResponse?encounter=…, PaymentNotice?request=Encounter/<id> ' +
+        '(scoped step: from { step: "visits", path: "id", param: "encounter", keepType: "Encounter" }).',
     ],
   },
   {
@@ -95,7 +109,10 @@ export const ADHOC_DATA_MAP: readonly DataMapEntry[] = [
   {
     resourceType: 'Location',
     meaning: 'A practice location (in-person) or the virtual location of a telemed state.',
-    fields: ['name, address.state/city, identifier (slug), extension (timezone, hours).'],
+    fields: [
+      'name, address.state/city (region), identifier (slug), extension url …/StructureDefinition/timezone (valueString IANA zone). ' +
+        'Opening hours are NOT here — they are on the Schedule whose actor is this Location.',
+    ],
   },
   {
     resourceType: 'Practitioner',
@@ -108,22 +125,27 @@ export const ADHOC_DATA_MAP: readonly DataMapEntry[] = [
   {
     resourceType: 'Condition',
     meaning:
-      'A diagnosis (ICD-10-CM) — of a visit when referenced from Encounter.diagnosis; a problem-list entry when tagged medical-condition.',
+      'A diagnosis (ICD-10) — of a visit when tagged diagnosis and referenced from Encounter.diagnosis; a problem-list entry when tagged medical-condition.',
     fields: [
-      'code.coding[] with system http://hl7.org/fhir/sid/icd-10-cm: code + display. ICD-10 is hierarchical — match families by prefix.',
+      'code.coding[]: system is http://hl7.org/fhir/sid/icd-10 on almost all (a few icd-10-cm) — match the system by "icd-10" or use ' +
+        'helpers.icd10Code(condition). code + display. ICD-10 is hierarchical — match families by prefix.',
       'encounter.reference, subject.reference, clinicalStatus, onsetDateTime.',
     ],
   },
   {
     resourceType: 'Procedure',
     meaning:
-      'A CPT-coded service of a visit (E&M and procedure codes), or surgical history when tagged surgical-history.',
+      'A billing code of a visit — an E&M level (tag em-code) or a CPT procedure code (tag cpt-code) — or surgical history (tag surgical-history).',
     fields: [
-      'code.coding[] with system http://www.ama-assn.org/go/cpt: code + display. CPT is NOT hierarchical — never prefix-match.',
-      'encounter.reference, subject.reference, performedDateTime, status.',
+      'code.coding[0].code + display. E&M codes (99202–99215) carry NO system; CPT codes carry system http://www.ama-assn.org/go/cpt. ' +
+        'The kind is the meta tag: helpers.procedureKind(procedure) → "em" | "cpt" | "surgical-history". CPT is NOT hierarchical — never prefix-match.',
+      'encounter.reference, subject.reference, status. performedDateTime is usually absent — use the visit date.',
+      'The cpt-code tag does not say where a code came from: codes a provider added and codes created by radiology, in-house lab ' +
+        'and medication orders share it. basedOn → ServiceRequest names the order when the code was order-created (rare on synth).',
     ],
     search: [
-      'Procedure?encounter=Encounter/<id>,Encounter/<id>,… (scoped step from an Encounter step, path "id", keepType Encounter).',
+      'Best fetched with the visits step via _revinclude:iterate=Procedure:encounter; or Procedure?encounter=Encounter/<id>,… ' +
+        '(scoped step, path "id", keepType Encounter). helpers.proceduresOf(encounter, idx).',
     ],
   },
   {
@@ -131,15 +153,24 @@ export const ADHOC_DATA_MAP: readonly DataMapEntry[] = [
     meaning:
       "An insurance coverage of a patient. Primary / secondary is the Account's coverage order, not Coverage.order alone.",
     fields: [
-      'beneficiary → Patient; payor[0] → Organization (the payer); class[] type "plan" name = plan name; type.coding (self-pay codes: pay, SELF, 81).',
+      'beneficiary → Patient; payor[0] → Organization (the payer); class[] type "plan" name = plan name. type.coding is BLANK on ' +
+        'every synth coverage (the self-pay coding coverage-selfpay|pay occurs 0 times) — the usable rule is: a patient with no ' +
+        'active Coverage is self-pay.',
       'status active | cancelled; period; subscriberId.',
     ],
-    links: ['Organization by _id from payor.reference (keepType Organization) for payer names.'],
+    links: [
+      'Coverage?beneficiary=Patient/<id>,…&_include=Coverage:payor brings the payer Organizations along (scoped step from the ' +
+        'visits step: path participant.actor.reference, keepType Patient).',
+    ],
   },
   {
     resourceType: 'Account',
     meaning: "A patient's billing account: which coverages apply and in which order.",
     fields: ['subject[0] → Patient; coverage[]: {coverage → Coverage, priority 1 = primary}; status; type.'],
+    search: ['Account?subject=Patient/<id>,… (scoped step from the visits step, keepType Patient).'],
+    gaps: [
+      '_include=Account:coverage is NOT a valid include (the server rejects it) — fetch Coverage by beneficiary instead.',
+    ],
   },
   {
     resourceType: 'Organization',
@@ -171,7 +202,9 @@ export const ADHOC_DATA_MAP: readonly DataMapEntry[] = [
   },
   {
     resourceType: 'Invoice',
-    meaning: 'A patient invoice (self-pay balance).',
+    meaning:
+      'A patient invoice (self-pay balance) — Ottehr itself writes NO Invoice resources (synth has none); patient invoicing goes ' +
+      'through Stripe and is tracked by Tasks coded rcm-task|send-invoice-to-patient. Expect this table to be empty.',
     fields: [
       'subject → Patient, status (draft | issued | balanced | cancelled), date, totalGross.value, totalNet.value.',
     ],
@@ -185,57 +218,101 @@ export const ADHOC_DATA_MAP: readonly DataMapEntry[] = [
   },
   {
     resourceType: 'Task',
-    meaning: 'Work items (follow-ups, lab/radiology review, billing, messages). Code tells the kind.',
+    meaning:
+      'Work items (follow-ups, lab/radiology review, billing, messages). The kind is code.coding for system tasks and ' +
+      'groupIdentifier (system …/Identifier/task-category) for the staff worklist — manual staff tasks have an EMPTY code and ' +
+      'a task-category value of manual-* (manual-external-lab, manual-in-house-lab, …).',
     fields: [
-      'code.coding (system/code = kind of task), status (requested | in-progress | completed | cancelled | failed), ' +
-        'businessStatus.text, authoredOn (created), lastModified, executionPeriod.end (completed at), owner → Practitioner, ' +
-        'for → Patient, focus → the resource it is about, intent.',
+      'code.coding: system …/CodeSystem/ottehr-system-task (harvest-paperwork, send-document-packet, …), in-house-lab-task ' +
+        '(IRT, CST, RFRT), external-lab-task; groupIdentifier.value: in-house-lab | external-lab | radiology | manual-… (the worklist category).',
+      'status (requested | in-progress | completed | cancelled | failed), businessStatus.text, authoredOn (created), lastModified, ' +
+        'executionPeriod.end (completed at), owner → Practitioner, for → Patient, focus → the resource it is about, intent.',
     ],
-    search: ['Task?authored-on=ge{{start}}&authored-on=le{{end}}; status=…; code=<system>|<code>.'],
+    search: [
+      'Task?authored-on=ge{{start}}&authored-on=le{{end}}; status=…; code=<system>|<code>; group-identifier=<system>|<value>.',
+    ],
     gaps: [
-      'Code systems vary by feature; discover them with inspect_data on code.coding.system / code before filtering.',
+      'Most Tasks are automated harvest-paperwork tasks (one per visit); filter by code or category before counting "work".',
     ],
   },
   {
     resourceType: 'ServiceRequest',
-    meaning: 'An order: lab (in-house or external), radiology, or a referral.',
+    meaning:
+      'An order or plan of a visit: a lab test, a radiology study, an in-office procedure, a referral, or the disposition follow-up. ' +
+      'The kind is the meta tag or the code system, not category.',
     fields: [
-      'code.coding (test / study), category (lab vs radiology), status, authoredOn, requester → Practitioner, encounter, subject, ' +
-        'performer → Organization (lab). orderDetail / extensions carry Ottehr order details.',
+      'Lab orders: code.coding[] with system …/in-house-lab-test-code (code = the test name, e.g. "Rapid Strep A", plus a CPT coding) ' +
+        'or …/oystehr-lab-local-codes (external labs); no tag. helpers.labResultsOf(encounter, idx) pairs them with results.',
+      'Tags: radiology (imaging orders, category SNOMED 363679005), procedure (in-office procedures; category = procedure type), ' +
+        'disposition-follow-up (the generic "follow up in N days" plan), sub-follow-up (a named follow-up: performerType = the ' +
+        'specialist / service, SNOMED coded). Count follow-ups with sub-follow-up, status != revoked.',
+      'status active | completed | revoked, authoredOn, requester → Practitioner, encounter, subject, reasonCode (ICD-10).',
     ],
-    search: ['ServiceRequest?encounter=… (scoped) or ServiceRequest?authored=ge{{start}}&authored=le{{end}}.'],
+    search: [
+      'With the visits step via _revinclude:iterate=ServiceRequest:encounter (fast), or ServiceRequest?encounter=… (scoped), ' +
+        'or ServiceRequest?authored=ge{{start}}&authored=le{{end}}.',
+    ],
   },
   {
     resourceType: 'DiagnosticReport',
-    meaning: 'Lab or radiology results for an order.',
+    meaning: 'Lab or radiology results for an order (one per resulted test).',
     fields: [
-      'basedOn → ServiceRequest, status (preliminary | final | corrected), code, issued, result[] → Observation, conclusion.',
+      'code.coding[]: the test name is the coding with system …/in-house-lab-test-code (code = name) or …/oystehr-lab-local-codes ' +
+        '(display = name); a CPT coding sits beside it. code.text is usually blank on in-house results.',
+      'Abnormal / inconclusive results are META TAGS (code abnormal | inconclusive), not interpretation. ' +
+        'basedOn → ServiceRequest, encounter, status (final), issued, result[] → Observation, category LAB | OSL.',
+    ],
+    search: [
+      'With the visits step via _revinclude:iterate=DiagnosticReport:encounter, or DiagnosticReport?encounter=… (scoped).',
     ],
   },
   {
     resourceType: 'Observation',
-    meaning: 'Vitals (category vital-signs), lab result values, exam/ROS findings and other structured chart data.',
+    meaning:
+      'Vitals, exam/ROS findings, screening answers, AI observations and in-house lab result values. There is NO category: chart ' +
+      'Observations are told apart by the meta tag SYSTEM (…/StructureDefinitions/patient-vitals-field, exam-observation-field, ' +
+      'ros-observation-field, additional-questions-field, ai-observation); in-house lab RESULT values carry no tag at all — their ' +
+      'code.coding system is …/in-house-lab-test-code (plus a CPT coding), with basedOn → ServiceRequest, specimen and interpretation.',
     fields: [
-      'code.coding (LOINC or Ottehr codes), valueQuantity.value/unit | valueString | valueCodeableConcept, ' +
-        'effectiveDateTime, encounter, subject, category[].coding.code (vital-signs …), interpretation.',
+      'Vitals: meta.tag code vital-temperature | vital-heartbeat | vital-respiration-rate | vital-oxygen-sat | vital-blood-pressure | ' +
+        'vital-weight | vital-height (search with _tag=vital-temperature,…). valueQuantity.value/unit: temperature in °C (unit "C"), ' +
+        'heart rate beats/min, SpO2 % (unit label may be wrong), weight kg, height cm. Blood pressure is in component[] coded ' +
+        'LOINC 8480-6 / 8462-4 or SNOMED 271649006 / 271650006 (systolic / diastolic) — many BP observations have no components.',
+      'effectiveDateTime, encounter, subject, performer → Practitioner. code.text repeats the tag on most vitals. helpers.vitalsOf(observations).',
+      'Exam / ROS findings: tags like normal-mental-status with valueBoolean; most Observations of a visit are these.',
     ],
-    gaps: ['Never search Observation without an encounter, patient or date filter — the table is huge.'],
+    search: [
+      'Observation?encounter=… (scoped, keepType Encounter) with _tag=vital-… — fetching all Observations of a visit brings the exam too.',
+    ],
+    gaps: [
+      'Never search Observation without an encounter, patient or date filter — the table is huge.',
+      '_elements must name "value" and "effective" (FHIR base names), not valueQuantity / effectiveDateTime.',
+    ],
   },
   {
     resourceType: 'MedicationRequest',
-    meaning: 'A prescription (eRx, tagged erx-medication) or an in-house medication order.',
+    meaning: 'A prescription (eRx, tagged erx-medication).',
     fields: [
-      'medicationCodeableConcept, status, authoredOn, requester → Practitioner, encounter, subject, dosageInstruction.',
+      'medicationCodeableConcept.text = drug name with strength and form; status, authoredOn, requester → Practitioner, encounter, subject, dosageInstruction.',
     ],
-    search: ['MedicationRequest?encounter=…&_tag=erx-medication for prescriptions.'],
+    search: [
+      'MedicationRequest?encounter=…&_tag=erx-medication, or with the visits step via _revinclude:iterate=MedicationRequest:encounter.',
+    ],
   },
   {
     resourceType: 'MedicationAdministration',
-    meaning: 'An in-house medication given (or ordered to be given) during a visit.',
+    meaning:
+      'An in-house medication order / dose (tag in-house-medication-administration-order) or a vaccine given (tag immunization).',
     fields: [
-      'medicationCodeableConcept, status, effectiveDateTime, context → Encounter, performer → Practitioner, request → MedicationRequest, reasonReference → Condition.',
+      'The drug is a CONTAINED Medication (medicationReference "#…"): contained[0].code.text (or coding display) for medications, ' +
+        'contained[0].identifier[].value for vaccines (the inventory name). medicationCodeableConcept is not set.',
+      'status: in-progress = pending, completed = administered, on-hold = partly administered, not-done = not administered, ' +
+        'stopped = cancelled (synth only has the first two). effectiveDateTime, context → Encounter, performer[] → Practitioner ' +
+        '(function codes), reasonReference → Condition.',
     ],
-    search: ['MedicationAdministration?context=Encounter/<id>,… (+ _include=MedicationAdministration:performer).'],
+    search: [
+      'MedicationAdministration?context=Encounter/<id>,… (scoped), or with the visits step via _revinclude:iterate=MedicationAdministration:context.',
+    ],
   },
   {
     resourceType: 'MedicationStatement',
@@ -277,6 +354,11 @@ export const ADHOC_DATA_MAP: readonly DataMapEntry[] = [
     search: [
       'QuestionnaireResponse?encounter=… (scoped) or ?authored=ge{{start}}&authored=le{{end}}&status=completed.',
     ],
+    gaps: [
+      'Intake paperwork: the tag questionnaire-response-type|intake-paperwork is on only recent rows (45 of 3,587 on synth); match ' +
+        'paperwork by the canonical instead — questionnaire starts with https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson ' +
+        'or …/intake-paperwork-virtual (a |version follows). Screening forms use their own canonicals (phq-9-…, gad-7-…, vanderbilt-…).',
+    ],
   },
   {
     resourceType: 'Questionnaire',
@@ -300,7 +382,13 @@ export const ADHOC_DATA_MAP: readonly DataMapEntry[] = [
   {
     resourceType: 'Schedule',
     meaning: 'Bookable schedule of a Location or Practitioner (hours, capacity live in extensions).',
-    fields: ['actor[] → Location | Practitioner, active, extension (schedule JSON).'],
+    fields: [
+      'actor[] → Location | Practitioner, active. Opening hours: extension url https://fhir.zapehr.com/r4/StructureDefinitions/schedule, ' +
+        'valueString = JSON {"schedule": {"monday": {"open": 8, "close": 20, "workingDay": true, "hours": [{"hour", "capacity"}]}, …}} — JSON.parse it.',
+    ],
+    search: [
+      'Schedule?actor=Location/<id>,… (scoped step from the visits step, path participant.actor.reference, keepType Location).',
+    ],
   },
   {
     resourceType: 'Slot',
@@ -322,12 +410,17 @@ export const ADHOC_DATA_MAP_NOTES: readonly string[] = [
   'Providers: fetch Practitioners by id from Encounter.participant.individual.reference (scoped step) and keep only name fields; ' +
     'the attending is the participant typed ATND.',
   'Payer mix: Account (by patient) → coverage priority → Coverage → payor Organization name. Self-pay = Coverage.type code in ' +
-    '{pay, SELF, 81} or a patient with no active Coverage.',
-  'Codes: diagnoses are Conditions referenced from Encounter.diagnosis; CPT codes are Procedures of the Encounter; ' +
-    'claims carry both again (Claim.item / Claim.diagnosis).',
+    '{pay, SELF, 81} or a patient with no active Coverage (type is often blank).',
+  'Codes: diagnoses are Conditions referenced from Encounter.diagnosis (helpers.diagnosesOf); E&M and CPT codes are Procedures of the ' +
+    'Encounter told apart by meta tag em-code / cpt-code (helpers.proceduresOf); claims carry both again (Claim.item / Claim.diagnosis).',
   'Dates come back as ISO instants in UTC; group by day with helpers.localDay(iso) so days match what the viewer sees in the EHR.',
-  '_elements trims what the server returns: id, resourceType and meta always come back; name the top-level elements the code reads.',
+  '_elements trims what the server returns: id, resourceType and meta always come back; name the top-level elements the code reads. ' +
+    'Choice-type fields go by their FHIR base name — value (not valueQuantity), effective (not effectiveDateTime), onset, performed, ' +
+    'medication; the typed JSON key is accepted and converted, but the base name is what the server understands.',
   'The server rejects unknown search parameters with an error; the run_report / run_fetch result shows the error per step — read it and re-plan.',
+  'Token searches take system|code written plainly ("code": "http://hl7.org/fhir/sid/icd-10|J02.9"); the plan runner URL-encodes the ' +
+    'value. Never ask for _summary=count — a count-only bundle brings no resources back; the step count in the run result is the count.',
+  'Mode "bulk" returns at most 1,000 primary resources per job on this server; use "auto" (paged) and narrow by date or scope instead.',
 ];
 
 /** The data map rendered for the planner prompt. */

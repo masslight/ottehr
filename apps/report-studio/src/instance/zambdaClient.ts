@@ -2,7 +2,7 @@
 // zambda base url (the local zambda server, e.g. http://localhost:3005/local) and a bearer token the
 // user pastes. The local server wraps a zambda's response as { status, output }, as Oystehr does.
 import type { FhirResource } from 'fhir/r4b';
-import type { FetchPlanInput, RunFetchPlanOutput } from 'utils/lib/types/adhoc/plan/fetch-plan';
+import type { FetchPlanInput, FetchPlanParameters, RunFetchPlanOutput } from 'utils/lib/types/adhoc/plan/fetch-plan';
 import type { DateRange } from 'utils/lib/types/adhoc/query/date-range';
 import type { ListAdHocReportsOutput } from 'utils/lib/types/adhoc/saved/saved.types';
 import { useStudio } from '../state/store';
@@ -66,9 +66,15 @@ export async function executeZambda<T>(name: string, body: unknown): Promise<T> 
 
 export async function runFetchPlan(
   plan: FetchPlanInput,
-  dateRange: DateRange
+  dateRange: DateRange,
+  parameters?: FetchPlanParameters
 ): Promise<RunFetchPlanOutput & { resources: Record<string, FhirResource[]> }> {
-  const output = await executeZambda<RunFetchPlanOutput>('adhoc-fetch-plan', { plan, dateRange, inline: true });
+  const output = await executeZambda<RunFetchPlanOutput>('adhoc-fetch-plan', {
+    plan,
+    dateRange,
+    parameters,
+    inline: true,
+  });
   if (output.resources) return { ...output, resources: output.resources as Record<string, FhirResource[]> };
   if (!output.downloadUrl)
     throw new ZambdaError('adhoc-fetch-plan', 200, 'The fetch returned neither resources nor a download url');

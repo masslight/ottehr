@@ -5,6 +5,7 @@ import type { FhirResource } from 'fhir/r4b';
 import type { FetchPlanInput } from 'utils/lib/types/adhoc/plan/fetch-plan';
 import type { DateRange } from 'utils/lib/types/adhoc/query/date-range';
 import { listSavedReports } from '../instance/zambdaClient';
+import { comparePlanRuns } from '../report/comparePlans';
 import { fetchOnly, runReport, validatePlan } from '../report/runner';
 import { DATE_RANGE_PRESETS, DateRangeSpec, describeDateRange, resolveDateRange } from '../report/types';
 import { useStudio } from '../state/store';
@@ -38,6 +39,10 @@ export const TOOLS: BetaTool[] = [
         description: { type: 'string' },
         plan: { type: 'object', description: 'The full fetch plan (see FETCH PLAN FORMAT).' },
         code: { type: 'string', description: 'The full report code (function body ending with `return ReportRoot;`).' },
+        patientId: {
+          type: 'string',
+          description: 'The patient id a {{patientId}} plan runs for (the Patient box in the top bar); "" clears it.',
+        },
         dateRange: {
           type: 'object',
           properties: {
@@ -87,6 +92,23 @@ export const TOOLS: BetaTool[] = [
         },
       },
       required: ['plan'],
+    },
+  },
+  {
+    name: 'compare_plans',
+    description:
+      'The speed pass: fetch two plan variants back to back over the same date range (neither is saved) and return per-step ' +
+      'and total ms, bytes, requests, counts by type, which was faster, and whether the resources are equivalent — same ids ' +
+      'per type, and for a trimmed variant the same values in the fields the code read in the last render. Keep the faster ' +
+      'equivalent variant with update_report, then run_report to confirm the output is unchanged.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        a: { type: 'object', description: 'Plan variant A (usually the current plan).' },
+        b: { type: 'object', description: 'Plan variant B.' },
+        dateRange: dateRangeSchema,
+      },
+      required: ['a', 'b'],
     },
   },
   {
@@ -145,6 +167,8 @@ export async function executeTool(name: string, rawInput: unknown): Promise<stri
     }
     case 'run_fetch':
       return clip(await runFetchTool(input));
+    case 'compare_plans':
+      return clip(await comparePlansTool(input));
     case 'inspect_data':
       return clip(inspectData(input));
     case 'list_saved_reports': {
@@ -191,6 +215,7 @@ function reportState(): unknown {
       label: describeDateRange(report.dateRange),
       resolved: resolveDateRange(report.dateRange),
     },
+    patientId: report.parameters?.patientId || undefined,
     plan: report.plan,
     code: report.code,
     lastRun:
@@ -245,6 +270,10 @@ function updateReport(input: Record<string, unknown>): { ok: boolean; changed: s
       changed.push('code');
     }
   }
+  if (typeof input.patientId === 'string') {
+    patch.parameters = { ...report.parameters, patientId: input.patientId.trim() || undefined };
+    changed.push('patientId');
+  }
   if (input.dateRange && typeof input.dateRange === 'object') {
     const spec = input.dateRange as DateRangeSpec;
     if (!DATE_RANGE_PRESETS.includes(spec.preset))
@@ -296,6 +325,34 @@ async function runFetchTool(input: Record<string, unknown>): Promise<string> {
     null,
     1
   );
+}
+
+async function comparePlansTool(input: Record<string, unknown>): Promise<string> {
+  const a = validatePlan(input.a);
+  const b = validatePlan(input.b);
+  if (!a.ok || !b.ok) {
+    return JSON.stringify({
+      ok: false,
+      errors: [...(a.ok ? [] : a.errors.map((e) => `a ${e}`)), ...(b.ok ? [] : b.errors.map((e) => `b ${e}`))],
+    });
+  }
+  const { report, run, addEvent } = useStudio.getState();
+  const dateRange = parseDateRange(input.dateRange) ?? resolveDateRange(report.dateRange);
+  // Back to back, never in parallel: the two must not compete for the server.
+  const outputA = await fetchOnly(a.plan, dateRange);
+  const outputB = await fetchOnly(b.plan, dateRange);
+  const fieldsRead = run.render?.profile
+    ? Object.fromEntries(Object.entries(run.render.profile.byType).map(([type, p]) => [type, p.fields]))
+    : undefined;
+  const comparison = comparePlanRuns(outputA, outputB, fieldsRead);
+  addEvent(
+    'fetch',
+    `Compared plans: A ${comparison.a.totalMs} ms, B ${comparison.b.totalMs} ms, ${
+      comparison.equivalent ? 'equivalent' : 'DIFFERENT'
+    }`,
+    comparison.differences.join('\n') || undefined
+  );
+  return JSON.stringify({ dateRange, fieldsCompared: Boolean(fieldsRead), ...comparison }, null, 1);
 }
 
 function inspectData(input: Record<string, unknown>): string {

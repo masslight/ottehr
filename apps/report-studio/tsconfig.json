@@ -16,5 +16,5 @@
       "ehr-src/*": ["../ehr/src/*"]
     }
   },
-  "include": ["src", "runtime", "vite.config.ts", "runtime-plugin.ts"]
+  "include": ["src", "runtime", "vite.config.ts", "vitest.config.ts", "runtime-plugin.ts"]
 }

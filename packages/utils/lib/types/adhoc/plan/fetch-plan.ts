@@ -18,16 +18,23 @@ export const FETCH_PLAN_LIMITS = {
   scopedBatchSize: 100,
   scopedBatchConcurrency: 4,
   // Above this many scoped values the batches go through the async-bulk path instead of paged searches.
-  scopedBulkThreshold: 2_000,
+  // Measured on synth (2,700 Encounter ids → 17,724 vitals, 27 batches): paged 3.5–4.6 s, bulk jobs 18.7 s.
+  scopedBulkThreshold: 5_000,
 } as const;
 
 export const FetchStepParamSchema = z.object({
   name: z.string().min(1),
-  // May contain {{start}} / {{end}} (ISO instants of the run's date range) and {{startDate}} /
-  // {{endDate}} (their yyyy-MM-dd days).
+  // May contain {{start}} / {{end}} (ISO instants of the run's date range), {{startDate}} /
+  // {{endDate}} (their yyyy-MM-dd days) and {{patientId}} (the run's patient parameter).
   value: z.string(),
 });
 export type FetchStepParam = z.infer<typeof FetchStepParamSchema>;
+
+/** Run parameters a plan may reference as templates besides the date range. */
+export const FetchPlanParametersSchema = z.object({
+  patientId: z.string().min(1).optional(),
+});
+export type FetchPlanParameters = z.infer<typeof FetchPlanParametersSchema>;
 
 /** A scoped step: its search values come from resources an earlier step fetched. */
 export const FetchStepFromSchema = z.object({
@@ -108,6 +115,7 @@ export type FetchPlanInput = z.input<typeof FetchPlanSchema>;
 export const RunFetchPlanInputSchema = z.object({
   plan: FetchPlanSchema,
   dateRange: DateRangeSchema.optional(),
+  parameters: FetchPlanParametersSchema.optional(),
   /** Always answer inline, never through a Z3 file (the local server has no response-size limit). */
   inline: z.boolean().optional(),
 });
@@ -149,15 +157,54 @@ export type RunFetchPlanOutput = z.infer<typeof RunFetchPlanOutputSchema>;
 // Pure helpers shared by the zambda (executing) and the studio (previewing / validating).
 // ---------------------------------------------------------------------------------------------
 
-/** Resolve {{start}} / {{end}} / {{startDate}} / {{endDate}} in a param value. */
-export function resolveParamTemplates(value: string, dateRange?: { start: string; end: string }): string {
+const PATIENT_ID_TEMPLATE = /\{\{\s*patientId\s*\}\}/;
+
+/** Resolve {{start}} / {{end}} / {{startDate}} / {{endDate}} / {{patientId}} in a param value. */
+export function resolveParamTemplates(
+  value: string,
+  dateRange?: { start: string; end: string },
+  parameters?: FetchPlanParameters
+): string {
   if (!value.includes('{{')) return value;
+  if (PATIENT_ID_TEMPLATE.test(value)) {
+    if (!parameters?.patientId) throw new Error(`"${value}" needs a patient id, but the run has none`);
+    value = value.replace(new RegExp(PATIENT_ID_TEMPLATE, 'g'), parameters.patientId);
+    if (!value.includes('{{')) return value;
+  }
   if (!dateRange) throw new Error(`"${value}" needs a date range, but the run has none`);
   return value
     .replace(/\{\{\s*start\s*\}\}/g, dateRange.start)
     .replace(/\{\{\s*end\s*\}\}/g, dateRange.end)
     .replace(/\{\{\s*startDate\s*\}\}/g, dateRange.start.slice(0, 10))
     .replace(/\{\{\s*endDate\s*\}\}/g, dateRange.end.slice(0, 10));
+}
+
+/** Whether any step of the plan uses the {{patientId}} template (a per-patient report). */
+export const planNeedsPatient = (plan: { steps: { params?: FetchStepParam[] }[] }): boolean =>
+  plan.steps.some((step) => (step.params ?? []).some((p) => PATIENT_ID_TEMPLATE.test(p.value)));
+
+// FHIR choice-type elements of the data-map resources: the JSON key carries the type (valueQuantity,
+// effectiveDateTime) but `_elements` wants the base name (value, effective) — the typed key silently
+// drops the field. Top-level only; nested choices (dosage.dose[x]) never appear in `_elements`.
+const CHOICE_TYPE_ELEMENTS = [
+  'value',
+  'effective',
+  'onset',
+  'abatement',
+  'performed',
+  'occurrence',
+  'medication',
+  'deceased',
+  'multipleBirth',
+  'reported',
+];
+
+/** The `_elements` name of a top-level field as the report code reads it: valueQuantity → value. */
+export function toElementName(key: string): string {
+  const base = CHOICE_TYPE_ELEMENTS.find(
+    (b) => key.length > b.length && key.startsWith(b) && /[A-Z]/.test(key[b.length])
+  );
+  return base ?? key;
 }
 
 /** Values at a dot path across resources, arrays flattened, undefined/null dropped, deduped. */
@@ -191,6 +238,22 @@ export function scopedSearchValues(values: string[], from: FetchStepFrom): strin
     // A bare id fed to a reference parameter ("encounter") is made a full reference when the type is known.
     else if (!isReference && from.keepType) out.add(`${from.keepType}/${value}`);
     else out.add(value);
+  }
+  return Array.from(out);
+}
+
+/**
+ * The search values a scoped step feeds its param, from the source step's resources. `keepType` filters
+ * references by their type; for a bare-value path such as "id" it filters the SOURCE RESOURCES by type
+ * instead, so `path "id", keepType "Encounter"` over a mixed visits step yields the Encounter ids only.
+ */
+export function scopedStepValues(source: { resourceType?: string }[], from: FetchStepFrom): string[] {
+  const out = new Set<string>();
+  for (const resource of source) {
+    const values = extractPathValues([resource], from.path);
+    const bare = values.filter((v) => !/^[A-Za-z]+\/[^/]+$/.test(v));
+    if (bare.length && from.keepType && resource.resourceType !== from.keepType) continue;
+    for (const value of scopedSearchValues(values, from)) out.add(value);
   }
   return Array.from(out);
 }

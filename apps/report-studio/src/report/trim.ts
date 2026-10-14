@@ -2,7 +2,7 @@
 // for each fetch step so the server only sends the top-level fields the report code read. Only steps
 // whose results are a single resource type are trimmed — `_elements` applies to every resource a
 // search returns, so a step that also _includes Patients would lose their fields.
-import type { FetchPlanInput } from 'utils/lib/types/adhoc/plan/fetch-plan';
+import { FetchPlanInput, toElementName } from 'utils/lib/types/adhoc/plan/fetch-plan';
 import type { RenderProfile } from '../../runtime/profiler';
 import type { RunState } from '../state/store';
 
@@ -19,7 +19,8 @@ export function suggestElements(plan: FetchPlanInput, run: RunState): Record<str
     if (!stat || stat.count === 0 || types.length !== 1 || types[0] !== step.resourceType) continue;
     const read = profile.byStep[step.id]?.[step.resourceType] ?? [];
     if (read.length === 0) continue;
-    const elements = Array.from(new Set([...ALWAYS, ...read]))
+    // The code reads valueQuantity / effectiveDateTime; the server wants the base names value / effective.
+    const elements = Array.from(new Set([...ALWAYS, ...read.map(toElementName)]))
       .filter((f) => f !== 'resourceType')
       .sort();
     const current = step.elements ? [...step.elements].sort() : undefined;

@@ -15,6 +15,7 @@ import {
   Typography,
 } from '@mui/material';
 import React, { useState } from 'react';
+import { planNeedsPatient } from 'utils/lib/types/adhoc/plan/fetch-plan';
 import { fileNameFor, fileStore } from '../files/fileStore';
 import { runReport } from '../report/runner';
 import { DATE_RANGE_LABELS, DATE_RANGE_PRESETS, DateRangePreset } from '../report/types';
@@ -82,6 +83,16 @@ export function TopBar(): React.ReactElement {
         </Tooltip>
       )}
       <Box sx={{ flex: 1 }} />
+      {planNeedsPatient(report.plan) && (
+        <Tooltip title="The plan uses {{patientId}}: the Patient this report runs for">
+          <TextField
+            value={report.parameters?.patientId ?? ''}
+            onChange={(e) => setReport({ parameters: { ...report.parameters, patientId: e.target.value } })}
+            placeholder="Patient id"
+            sx={{ ...dateSx, width: 300, '& input::placeholder': { color: 'rgba(255,255,255,0.7)', opacity: 1 } }}
+          />
+        </Tooltip>
+      )}
       <Select
         value={report.dateRange.preset}
         onChange={(e) => setReport({ dateRange: { ...report.dateRange, preset: e.target.value as DateRangePreset } })}
