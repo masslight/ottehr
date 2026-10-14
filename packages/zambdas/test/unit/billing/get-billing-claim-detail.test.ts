@@ -20,7 +20,6 @@ import { performEffect } from '../../../src/billing/get-billing-claim-detail';
 import {
   CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM,
   ERA_CHECK_SYSTEM,
-  ERA_ICN_EXTENSION,
   fetchClaimGraph,
   resolvePayersByRef,
 } from '../../../src/billing/shared';
@@ -433,7 +432,7 @@ describe('get-billing-claim-detail performEffect: remits and insurance payments'
         checkDate: '2026-07-16',
         paymentAmount: 500,
         payerName: 'Acme Health',
-        payerClaimControlNumber: '',
+        payerClaimControlNumber: 'PCCN-12345',
       },
     ]);
   });
@@ -468,35 +467,6 @@ describe('get-billing-claim-detail performEffect: remits and insurance payments'
     const response = await run();
 
     expect(response.insurancePayments[0].payerName).toBe('Acme (ERA)');
-  });
-
-  it("shows the newest linked remit's ICN when one ERA carries a reversal and a correction", async () => {
-    const reversal = claimResponse({
-      ...linkedRemit,
-      id: 'cr-reversal',
-      created: '2026-07-15',
-      extension: [{ url: ERA_ICN_EXTENSION, valueString: 'ICN-OLD' }],
-    });
-    const correction = claimResponse({
-      ...linkedRemit,
-      id: 'cr-correction',
-      created: '2026-07-18',
-      extension: [{ url: ERA_ICN_EXTENSION, valueString: 'ICN-NEW' }],
-    });
-    (fetchClaimResponsesByClaimIds as Mock<typeof fetchClaimResponsesByClaimIds>).mockResolvedValue(
-      new Map([['claim-1', [reversal, correction]]])
-    );
-    (fetchClaimEraLinks as Mock<typeof fetchClaimEraLinks>).mockResolvedValue({
-      paymentReconciliations: [era],
-      paymentReconciliationIdByClaimResponseId: new Map([
-        ['cr-reversal', 'payment-reconciliation-1'],
-        ['cr-correction', 'payment-reconciliation-1'],
-      ]),
-    });
-
-    const response = await run();
-
-    expect(response.insurancePayments[0].payerClaimControlNumber).toBe('ICN-NEW');
   });
 
   it('reports when the claim was first submitted', async () => {

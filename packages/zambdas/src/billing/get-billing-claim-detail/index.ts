@@ -47,7 +47,6 @@ import {
   copySourceId,
   createBillingClient,
   createEraReadClient,
-  ERA_ICN_EXTENSION,
   ERA_STATUS_CODE_EXTENSION,
   EXTENSION_CLAIM_ADMISSION_TYPE_CODE,
   EXTENSION_CLAIM_FACILITY_TYPE_CODE,
@@ -63,7 +62,6 @@ import {
   getClaimSupportingInfo,
   getClaimType,
   getEraCheckNumber,
-  getEraExtensionString,
   getTaxonomy,
   readClaimItemDrug,
   readClaimItemOrderingProvider,
@@ -188,15 +186,16 @@ export async function performEffect(
   });
   const paymentMillis = (paymentReconciliation: PaymentReconciliation): number =>
     DateTime.fromISO(paymentReconciliation.paymentDate ?? paymentReconciliation.created ?? '').toMillis() || 0;
+  const payerClaimControlNumber =
+    claim.identifier?.find((i) => i.system === CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM)?.value ?? '';
   const insurancePayments = [...paymentReconciliations]
     .sort((a, b) => paymentMillis(b) - paymentMillis(a))
     .map((paymentReconciliation) => {
       // paymentIssuer may be missing (process-era) or carry an unresolvable id (the 835's GS/ISA
       // sender, e.g. a payer's EDI/TIN id); fall back to the payer on one of this ERA's ClaimResponses
-      const linkedCrs = claimResponses.filter(
+      const linkedCr = claimResponses.find(
         (cr) => paymentReconciliationIdByClaimResponseId.get(cr.id ?? '') === paymentReconciliation.id
       );
-      const linkedCr = linkedCrs[0];
       const issuerRef = paymentReconciliation.paymentIssuer?.reference;
       const linkedCrRef = linkedCr?.insurer?.reference;
       const payer =
@@ -209,12 +208,7 @@ export async function performEffect(
         checkDate: paymentReconciliation.paymentDate ?? '',
         paymentAmount: paymentReconciliation.paymentAmount?.value ?? 0,
         payerName: payer?.name ?? linkedCr?.insurer?.display ?? paymentReconciliation.paymentIssuer?.display ?? '',
-        // newest first: one ERA can carry a reversal + correction, and the final adjudication's ICN wins
-        payerClaimControlNumber:
-          [...linkedCrs]
-            .reverse()
-            .map((cr) => getEraExtensionString(cr, ERA_ICN_EXTENSION))
-            .find(Boolean) ?? '',
+        payerClaimControlNumber,
       };
     });
   const status = getClaimStatus(claim);
