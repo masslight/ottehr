@@ -29,7 +29,15 @@ export const nebulizerFamily: ProcedureFamilyModel<NebulizerCode> = {
       defaultValue: 'acute obstruction',
     },
     { key: 'overHour', label: 'Continuous treatment over one hour', kind: 'checkbox', defaultValue: false },
-    { key: 'count', label: 'Episodes of care', kind: 'number', defaultValue: 1, min: 0, step: 1 },
+    {
+      key: 'count',
+      neededForCoding: true,
+      label: 'Episodes of care',
+      kind: 'number',
+      defaultValue: 1,
+      min: 0,
+      step: 1,
+    },
   ],
   codes: Object.values(NEBULIZER_CODES),
   suggest: (facts) => {

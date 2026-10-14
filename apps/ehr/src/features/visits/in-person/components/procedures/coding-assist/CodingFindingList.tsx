@@ -12,6 +12,10 @@ export function actionableFindings(findings: Finding[]): Finding[] {
   return findings.filter((finding) => finding.level !== 'bestPractice');
 }
 
+export function bestPracticeFindings(findings: Finding[]): Finding[] {
+  return findings.filter((finding) => finding.level === 'bestPractice');
+}
+
 export function collectPayerNotes(evaluation: EvaluationResult | undefined): string[] {
   const notes = [
     ...(evaluation?.payerNotes ?? []),
@@ -70,7 +74,7 @@ export const CodingFindingList: FC<CodingFindingListProps> = ({ findings, dataTe
       actionable.flatMap((finding) => (finding.scope.kind === FindingScopeKind.Code ? [finding.scope.cptCode] : []))
     ),
   ];
-  const bestPractices = findings.filter((finding) => finding.level === 'bestPractice');
+  const bestPractices = bestPracticeFindings(findings);
 
   if (actionable.length === 0 && bestPractices.length === 0) {
     return null;
