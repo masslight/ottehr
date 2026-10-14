@@ -38,7 +38,21 @@ export const GetMedicalRecordExportStatusInputSchema = z.object({
 });
 export type GetMedicalRecordExportStatusInput = z.infer<typeof GetMedicalRecordExportStatusInputSchema>;
 
-export type GetPatientMedicalRecordInput = StartMedicalRecordExportInput | GetMedicalRecordExportStatusInput;
+export const GetMedicalRecordDateSpanInputSchema = z.object({
+  patientId: z.string().uuid(),
+  dateSpan: z.literal(true),
+});
+export type GetMedicalRecordDateSpanInput = z.infer<typeof GetMedicalRecordDateSpanInputSchema>;
+
+export interface MedicalRecordDateSpan {
+  earliest?: string;
+  latest?: string;
+}
+
+export type GetPatientMedicalRecordInput =
+  | StartMedicalRecordExportInput
+  | GetMedicalRecordExportStatusInput
+  | GetMedicalRecordDateSpanInput;
 
 export const MEDICAL_RECORD_EXPORT_STATUSES = ['requested', 'in-progress', 'completed', 'failed'] as const;
 export type MedicalRecordExportStatus = (typeof MEDICAL_RECORD_EXPORT_STATUSES)[number];

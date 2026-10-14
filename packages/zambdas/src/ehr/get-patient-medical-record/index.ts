@@ -22,7 +22,11 @@ import {
   readUserFacingFailure,
   toExportStatus,
 } from '../../shared/medical-record-export/task';
-import { collectPatientRecordAttachments, getPatientRecordDocuments } from '../../shared/patient-documents';
+import {
+  collectPatientRecordAttachments,
+  getPatientRecordDateSpan,
+  getPatientRecordDocuments,
+} from '../../shared/patient-documents';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { createPresignedUrl } from '../../shared/z3Utils';
@@ -73,6 +77,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     const response = await buildExportStatusResponse(task, presign);
     return { statusCode: 200, body: JSON.stringify(response) };
+  }
+
+  if ('dateSpan' in params) {
+    const span = await getPatientRecordDateSpan(oystehr, params.patientId);
+    return { statusCode: 200, body: JSON.stringify(span) };
   }
 
   const { active, abandoned } = await findActiveExportTask(oystehr, params.patientId);

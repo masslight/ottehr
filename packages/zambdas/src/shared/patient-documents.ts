@@ -1,7 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { Appointment, DocumentReference, Encounter } from 'fhir/r4b';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
-import { MedicalRecordDateRange } from 'utils/lib/types/data/get-patient-medical-record.types';
+import { MedicalRecordDateRange, MedicalRecordDateSpan } from 'utils/lib/types/data/get-patient-medical-record.types';
 import { FAX_PACKET_CODE, MEDICAL_RECORD_EXPORT_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
 
 /** One attachment of a patient document, reduced to what the medical-record exports need. */
@@ -64,15 +64,13 @@ const referencedId = (reference: string | undefined, resourceType: string): stri
   return type === resourceType ? id : undefined;
 };
 
-export const getPatientRecordDocuments = async (
+const getDatedPatientDocuments = async (
   oystehr: Oystehr,
-  patientId: string,
-  dateRange: MedicalRecordDateRange
-): Promise<DocumentReference[]> => {
-  const documents = await getAllPatientDocumentReferences(oystehr, patientId);
-
+  patientId: string
+): Promise<{ document: DocumentReference; date: number }[]> => {
   const params = [{ name: 'patient', value: `Patient/${patientId}` }];
-  const [appointments, encounters] = await Promise.all([
+  const [documents, appointments, encounters] = await Promise.all([
+    getAllPatientDocumentReferences(oystehr, patientId),
     getAllFhirSearchPages<Appointment>({ resourceType: 'Appointment', params }, oystehr),
     getAllFhirSearchPages<Encounter>({ resourceType: 'Encounter', params }, oystehr),
   ]);
@@ -85,9 +83,7 @@ export const getPatientRecordDocuments = async (
     ])
   );
 
-  const from = Date.parse(dateRange.from);
-  const to = Date.parse(dateRange.to);
-  return documents.filter((document) => {
+  return documents.map((document) => {
     const visitStart =
       document.context?.related
         ?.map((related) => appointmentStarts.get(referencedId(related.reference, 'Appointment')))
@@ -95,7 +91,29 @@ export const getPatientRecordDocuments = async (
       document.context?.encounter
         ?.map((encounter) => encounterStarts.get(referencedId(encounter.reference, 'Encounter')))
         .find(Boolean);
-    const date = Date.parse(visitStart ?? document.date ?? '');
-    return date >= from && date <= to;
+    return { document, date: Date.parse(visitStart ?? document.date ?? '') };
   });
+};
+
+export const getPatientRecordDocuments = async (
+  oystehr: Oystehr,
+  patientId: string,
+  dateRange: MedicalRecordDateRange
+): Promise<DocumentReference[]> => {
+  const from = Date.parse(dateRange.from);
+  const to = Date.parse(dateRange.to);
+  return (await getDatedPatientDocuments(oystehr, patientId))
+    .filter(({ date }) => date >= from && date <= to)
+    .map(({ document }) => document);
+};
+
+export const getPatientRecordDateSpan = async (oystehr: Oystehr, patientId: string): Promise<MedicalRecordDateSpan> => {
+  const dates = (await getDatedPatientDocuments(oystehr, patientId))
+    .filter(({ document, date }) => !Number.isNaN(date) && collectPatientRecordAttachments([document]).length > 0)
+    .map(({ date }) => date);
+  if (dates.length === 0) return {};
+  return {
+    earliest: new Date(dates.reduce((a, b) => Math.min(a, b))).toISOString(),
+    latest: new Date(dates.reduce((a, b) => Math.max(a, b))).toISOString(),
+  };
 };

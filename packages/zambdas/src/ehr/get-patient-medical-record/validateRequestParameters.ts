@@ -1,5 +1,6 @@
 import { Secrets } from 'utils/lib/secrets';
 import {
+  GetMedicalRecordDateSpanInputSchema,
   GetMedicalRecordExportStatusInputSchema,
   StartMedicalRecordExportInputSchema,
 } from 'utils/lib/types/data/get-patient-medical-record.types';
@@ -10,6 +11,7 @@ import { safeValidate } from '../../shared/validation';
 
 const GetPatientMedicalRecordSchema = z.union([
   GetMedicalRecordExportStatusInputSchema,
+  GetMedicalRecordDateSpanInputSchema,
   StartMedicalRecordExportInputSchema,
 ]);
 

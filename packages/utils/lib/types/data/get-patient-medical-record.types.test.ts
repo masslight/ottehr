@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { MedicalRecordDateRangeSchema, StartMedicalRecordExportInputSchema } from './get-patient-medical-record.types';
+import {
+  GetMedicalRecordDateSpanInputSchema,
+  MedicalRecordDateRangeSchema,
+  StartMedicalRecordExportInputSchema,
+} from './get-patient-medical-record.types';
 
 const FROM = '2026-03-01T00:00:00.000-05:00';
 const TO = '2026-03-31T23:59:59.999-04:00';
@@ -47,5 +51,17 @@ describe('StartMedicalRecordExportInputSchema', () => {
       StartMedicalRecordExportInputSchema.safeParse({ patientId: PATIENT_ID, dateRange: { from: FROM, to: TO } })
         .success
     ).toBe(true);
+  });
+});
+
+describe('GetMedicalRecordDateSpanInputSchema', () => {
+  const PATIENT_ID = '11111111-1111-4111-8111-111111111111';
+
+  it('accepts only an explicit date-span request', () => {
+    expect(GetMedicalRecordDateSpanInputSchema.safeParse({ patientId: PATIENT_ID, dateSpan: true }).success).toBe(true);
+    expect(GetMedicalRecordDateSpanInputSchema.safeParse({ patientId: PATIENT_ID }).success).toBe(false);
+    expect(GetMedicalRecordDateSpanInputSchema.safeParse({ patientId: PATIENT_ID, dateSpan: false }).success).toBe(
+      false
+    );
   });
 });
