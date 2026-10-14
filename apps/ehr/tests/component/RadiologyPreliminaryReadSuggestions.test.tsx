@@ -7,8 +7,8 @@ import { describe, expect, it } from 'vitest';
 import { RadiologyPreliminaryReadSuggestions } from '../../src/features/radiology/components/RadiologyPreliminaryReadSuggestions';
 
 const FIELD_LABEL = 'Preliminary Read';
-const ADD_BTN_LABEL = 'Add to read';
-const ADDED_LABEL = 'Added to read';
+const ADD_BTN_LABEL = /^Add to read: /;
+const ADDED_LABEL = /^Added to read: /;
 
 // The box only hands a sentence up; the page appends it to its own field state and passes the field back down.
 // Mirror that here so the tests cover the append rule (newline-separated after existing text) end to end.
@@ -43,7 +43,11 @@ describe('RadiologyPreliminaryReadSuggestions', () => {
   it('renders the region templates for a mapped CPT and nothing for an unmapped one or when disabled', () => {
     const { unmount } = render(<Harness cptCode="73610" laterality="LT" />);
     expect(screen.getByText('Suggested reads')).toBeInTheDocument();
-    expect(screen.getAllByRole('button', { name: ADD_BTN_LABEL })).toHaveLength(2);
+    // Screen readers can tell the rows' buttons apart by the sentence each one adds.
+    expect(screen.getAllByRole('button', { name: ADD_BTN_LABEL }).map((button) => button.ariaLabel)).toEqual([
+      'Add to read: Negative',
+      'Add to read: Fracture',
+    ]);
     unmount();
 
     const unmapped = render(<Harness cptCode="99999" />);

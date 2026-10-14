@@ -142,13 +142,16 @@ const SuggestionsBox: React.FC<RadiologyPreliminaryReadSuggestionsProps> = ({
               })}
             </Typography>
             {added ? (
-              <CheckCircle sx={{ fontSize: 16, color: 'success.main', m: '2px' }} titleAccess="Added to read" />
+              <CheckCircle
+                sx={{ fontSize: 16, color: 'success.main', m: '2px' }}
+                titleAccess={`Added to read: ${suggestion.name}`}
+              />
             ) : (
               <Tooltip title={mustPick ? `Pick the ${mustPick.title.toLowerCase()} first` : 'Add to read'}>
                 <span>
                   <IconButton
                     size="small"
-                    aria-label="Add to read"
+                    aria-label={`Add to read: ${suggestion.name}`}
                     disabled={Boolean(mustPick)}
                     onClick={() => onAdd(sentence)}
                     sx={{ padding: '2px' }}

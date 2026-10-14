@@ -389,7 +389,7 @@ describe('RadiologyOrderDetailsPage - final report', () => {
 
       renderPage();
       expect(screen.getByText('Suggested reads')).toBeInTheDocument();
-      await user.click(screen.getAllByRole('button', { name: 'Add to read' })[0]);
+      await user.click(screen.getByRole('button', { name: 'Add to read: Negative' }));
 
       expect(screen.getByRole('textbox', { name: PRELIMINARY_REPORT_TEXTBOX_LABEL })).toHaveValue(
         'No acute fracture or dislocation. Ankle mortise intact.'
@@ -470,7 +470,7 @@ describe('RadiologyOrderDetailsPage - final report', () => {
       renderPage();
       const field = screen.getByRole('textbox', { name: PRELIMINARY_REPORT_TEXTBOX_LABEL });
       await user.type(field, 'Limited study.');
-      await user.click(screen.getAllByRole('button', { name: 'Add to read' })[0]);
+      await user.click(screen.getByRole('button', { name: 'Add to read: Negative' }));
       const expected = 'Limited study.\nNo acute fracture or dislocation. Ankle mortise intact.';
       expect(field).toHaveValue(expected);
 
