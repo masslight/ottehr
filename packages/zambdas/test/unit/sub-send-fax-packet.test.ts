@@ -53,7 +53,11 @@ const SIZE_ERROR = new FaxPacketTooLargeError(
 );
 
 const payload: FaxPacketTaskPayload = {
-  source: { type: 'medical-record', patientId: 'patient-1' },
+  source: {
+    type: 'medical-record',
+    patientId: 'patient-1',
+    dateRange: { from: '2026-01-01T00:00:00.000Z', to: '2026-10-14T23:59:59.999Z' },
+  },
   recipients: [{ faxNumber: '+12125551234' }],
   senderPractitionerId: 'practitioner-1',
   senderUserId: 'user-1',
