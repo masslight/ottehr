@@ -16,6 +16,7 @@ import { sandbox } from '../sandbox/controller';
 import { RenderResult, useStudio } from '../state/store';
 import { bareTagHints } from './codeCheck';
 import { dependencyChainLength, elementsIgnoredFor } from './comparePlans';
+import { chooseFetchMode, isDirectTimeout, measuredFetch } from './fetchMode';
 import { suggestElements } from './trim';
 import { resolveDateRange } from './types';
 
@@ -99,7 +100,7 @@ const stepLines = (stats: FetchStepStats[]): string =>
  */
 export async function runReport(opts: { dateRange?: DateRange; reuseData?: boolean } = {}): Promise<RunSummary> {
   const state = useStudio.getState();
-  const { report, settings, addEvent, setRun } = state;
+  const { report, settings, addEvent, setRun, setReport } = state;
   const dateRange = opts.dateRange ?? resolveDateRange(report.dateRange);
   const warnings: string[] = [];
   const startedAt = Date.now();
@@ -139,13 +140,30 @@ export async function runReport(opts: { dateRange?: DateRange; reuseData?: boole
         10
       )}${parameters.patientId ? `, patient ${parameters.patientId}` : ''}…`
     );
+    const mode = chooseFetchMode(report, dateRange);
+    let fellBack = false;
     try {
-      const output = await runFetchPlan(report.plan, dateRange, parameters);
+      let output: Awaited<ReturnType<typeof runFetchPlan>>;
+      try {
+        output = await runFetchPlan(report.plan, dateRange, parameters, mode);
+      } catch (error) {
+        if (mode !== 'direct' || !isDirectTimeout(error, Date.now() - startedAt)) throw error;
+        fellBack = true;
+        addEvent(
+          'warn',
+          `Direct fetch timed out after ${Date.now() - startedAt} ms; retrying through the background Task`
+        );
+        output = await runFetchPlan(report.plan, dateRange, parameters, 'task');
+      }
       const { resources: fetched, ...rest } = output;
       resources = fetched;
       fetchOutput = rest;
       setRun({ fetch: rest, resources: fetched });
-      addEvent('fetch', `Fetched in ${rest.totalMs} ms, ${fmtBytes(rest.totalBytes)}`, stepLines(rest.stats));
+      // The measurement is metadata, not an edit — unless the fallback pinned the Task path, which a save should keep.
+      setReport(measuredFetch(rest.totalMs, dateRange, fellBack), {
+        dirty: fellBack || useStudio.getState().file.dirty,
+      });
+      addEvent('fetch', `Fetched (${mode}) in ${rest.totalMs} ms, ${fmtBytes(rest.totalBytes)}`, stepLines(rest.stats));
       for (const s of rest.stats) {
         if (s.error) {
           warnings.push(`step "${s.id}" failed: ${s.error}`);

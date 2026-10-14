@@ -60,6 +60,11 @@ export interface StudioReport {
   code: string;
   runtimeVersion: number;
   updatedAt?: string;
+  /** How runs fetch (see fetchMode.ts): direct http_auth call when the measured fetch was fast, else the background Task. */
+  fetchMode?: 'direct' | 'task';
+  /** Server fetch time of the last run while building, and the date-range span (days) it was measured on. */
+  measuredFetchSeconds?: number;
+  measuredRangeDays?: number;
 }
 
 /** The part of a report a Claude turn can change — one undo step. */
