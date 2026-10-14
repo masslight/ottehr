@@ -344,7 +344,7 @@ async function comparePlansTool(input: Record<string, unknown>): Promise<string>
   const fieldsRead = run.render?.profile
     ? Object.fromEntries(Object.entries(run.render.profile.byType).map(([type, p]) => [type, p.fields]))
     : undefined;
-  const comparison = comparePlanRuns(outputA, outputB, fieldsRead);
+  const comparison = comparePlanRuns(outputA, outputB, fieldsRead, { a: a.plan, b: b.plan });
   addEvent(
     'fetch',
     `Compared plans: A ${comparison.a.totalMs} ms, B ${comparison.b.totalMs} ms, ${

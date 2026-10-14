@@ -42,8 +42,8 @@ export const ADHOC_DATA_MAP: readonly DataMapEntry[] = [
         'at the kiosk, "Patient …" = self-scheduled, "Staff <email>" = staff, "M2M Client …" = automated. A visit can carry two.',
     ],
     links: [
-      'Encounter.appointment[0].reference → this Appointment (use _revinclude=Encounter:appointment).',
-      '_include=Appointment:patient brings the Patient; _include=Appointment:location the Location.',
+      'Encounter.appointment[0].reference → this Appointment (_revinclude=Encounter:appointment, small result sets only — see gaps).',
+      '_include=Appointment:patient brings the Patient; _include=Appointment:location the Location (small result sets only).',
       'FAST PATH for visit-level clinical data: add _revinclude:iterate=<Type>:encounter to the SAME step for Procedure, ' +
         'Condition, ServiceRequest, DiagnosticReport, MedicationRequest (and MedicationAdministration:context). A year of ' +
         'visits with all six took 15–23 s; the same as scoped steps took 46 s.',
@@ -51,13 +51,19 @@ export const ADHOC_DATA_MAP: readonly DataMapEntry[] = [
     search: [
       'date=ge{{start}}&date=le{{end}} bounds the scheduled start (both bounds inclusive).',
       'status=booked,arrived,... (comma list). _tag=OTTEHR-IP,OTTEHR-TM.',
-      'Typical visit search: Appointment with date range + _tag + _include patient + _include location + ' +
-        '_revinclude Encounter:appointment (+ _revinclude:iterate=Encounter:part-of for follow-up encounters).',
-      'Per-patient reports: Appointment?patient=Patient/{{patientId}} (no date range needed) with the same includes.',
+      'Typical visit search (more than a few hundred visits): Appointment with date range + _tag + "elements", THEN as scoped ' +
+        'steps with "elements", which run in parallel: Encounter from { step: "visits", path: "id", param: "appointment", ' +
+        'keepType: "Appointment" } (+ _revinclude=Encounter:part-of for follow-up encounters), Patient and Location from ' +
+        '{ step: "visits", path: "participant.actor.reference", param: "_id", keepType: "Patient" | "Location" }.',
+      'Per-patient reports: Appointment?patient=Patient/{{patientId}} (no date range needed) with _include patient / location ' +
+        'and _revinclude Encounter:appointment on the same step (a small result set).',
     ],
     gaps: [
+      'For more than a few hundred visits do NOT _include Patient/Location or _revinclude Encounter on the Appointment step: ' +
+        'included resources ignore _elements, so the step is 17+ MB and 8–10 s for a year of synth visits (2,700). The split ' +
+        'shape above with "elements" on every step fetched the same resources in 4–5 s (12 MB).',
       'Do NOT use mode "bulk" for the visits search: a bulk job returns at most 1,000 Appointments (a year of synth visits came back ' +
-        'as 1,000 of 2,700). Paged "auto" fetches a year of visits with encounters, patients and locations in ~10 s.',
+        'as 1,000 of 2,700). Paged "auto" fetches a year of visits with encounters, patients and locations in 4–5 s split, ~10 s as one step.',
     ],
   },
   {
@@ -404,7 +410,8 @@ export const ADHOC_DATA_MAP_RESOURCE_TYPES: readonly string[] = ADHOC_DATA_MAP.m
 /** Cross-cutting notes the planner needs that belong to no single resource. */
 export const ADHOC_DATA_MAP_NOTES: readonly string[] = [
   'A "visit" = Appointment (tag OTTEHR-IP or OTTEHR-TM) + its Encounter. Start every visit report from an Appointment ' +
-    'step over the date range with _revinclude=Encounter:appointment, _include=Appointment:patient and _include=Appointment:location.',
+    'step over the date range with "elements", then Encounter, Patient and Location as scoped steps with "elements" (see Appointment); ' +
+    '_include / _revinclude on the Appointment step only for small result sets.',
   'Visit status for reports is helpers.visitStatus(appointment, encounter): pending | arrived | intake | ready | ready for provider | ' +
     'provider | discharged | completed | cancelled | no show | awaiting supervisor approval | unknown.',
   'Providers: fetch Practitioners by id from Encounter.participant.individual.reference (scoped step) and keep only name fields; ' +

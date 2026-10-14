@@ -45,6 +45,37 @@ describe('comparePlanRuns', () => {
     expect(c.faster).toBe('same');
   });
 
+  it('flags included types as untrimmable and measures the dependency chain', () => {
+    const a = run({ visits: [obs('o1')] }, 1);
+    a.stats[0].byType = { Observation: 1, Patient: 3, Encounter: 1 };
+    const plans = {
+      a: { version: 1 as const, steps: [{ id: 'visits', resourceType: 'Observation', params: [] }] },
+      b: {
+        version: 1 as const,
+        steps: [
+          { id: 'visits', resourceType: 'Appointment', params: [] },
+          {
+            id: 'encs',
+            resourceType: 'Encounter',
+            params: [],
+            from: { step: 'visits', path: 'id', param: 'appointment' },
+          },
+          {
+            id: 'obs',
+            resourceType: 'Observation',
+            params: [],
+            from: { step: 'encs', path: 'id', param: 'encounter' },
+          },
+        ],
+      },
+    };
+    const c = comparePlanRuns(a, run({ obs: [obs('o1')] }, 1), undefined, plans);
+    expect(c.a.steps[0].elementsIgnoredFor).toEqual(['Patient', 'Encounter']);
+    expect(c.b.steps[0].elementsIgnoredFor).toBeUndefined();
+    expect(c.a.dependencyChain).toBe(1);
+    expect(c.b.dependencyChain).toBe(3);
+  });
+
   it('compares the fields the code reads when asked (a trimmed variant)', () => {
     const a = run({ v: [obs('o1', 1)] }, 1);
     const b = run({ v: [obs('o1')] }, 1);

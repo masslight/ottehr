@@ -2,12 +2,14 @@
 // compared on timings and on whether they brought back the same resources — the same ids per type, and
 // for trimmed variants the same values in the fields the report code read in the last render.
 import type { FhirResource } from 'fhir/r4b';
-import type { FetchStepStats, RunFetchPlanOutput } from 'utils/lib/types/adhoc/plan/fetch-plan';
+import type { FetchPlanInput, FetchStepStats, RunFetchPlanOutput } from 'utils/lib/types/adhoc/plan/fetch-plan';
 
 export interface PlanRunSummary {
   totalMs: number;
   totalBytes: number;
   requests: number;
+  /** Longest chain of steps that wait on each other (a scoped step waits for its source); 1 = all in parallel. */
+  dependencyChain?: number;
   countsByType: Record<string, number>;
   steps: {
     id: string;
@@ -17,9 +19,22 @@ export interface PlanRunSummary {
     count: number;
     mode: string;
     requests: number;
+    elementsIgnoredFor?: string[];
     error?: string;
   }[];
 }
+
+/** Types an _include / _revinclude brought along: _elements does not trim them, so their bytes stay in the step. */
+export const elementsIgnoredFor = (stat: Pick<FetchStepStats, 'resourceType' | 'byType'>): string[] | undefined => {
+  const types = Object.keys(stat.byType).filter((type) => type !== stat.resourceType);
+  return types.length ? types : undefined;
+};
+
+export const dependencyChainLength = (plan: FetchPlanInput): number => {
+  const depth = new Map<string, number>();
+  for (const step of plan.steps) depth.set(step.id, step.from ? (depth.get(step.from.step) ?? 0) + 1 : 1);
+  return Math.max(0, ...depth.values());
+};
 
 export interface PlanComparison {
   a: PlanRunSummary;
@@ -32,7 +47,7 @@ export interface PlanComparison {
 
 type Fetched = RunFetchPlanOutput & { resources: Record<string, FhirResource[]> };
 
-export function summarizeRun(output: Fetched): PlanRunSummary {
+export function summarizeRun(output: Fetched, plan?: FetchPlanInput): PlanRunSummary {
   const countsByType: Record<string, number> = {};
   for (const stat of output.stats) {
     for (const [type, n] of Object.entries(stat.byType)) countsByType[type] = (countsByType[type] ?? 0) + n;
@@ -41,17 +56,21 @@ export function summarizeRun(output: Fetched): PlanRunSummary {
     totalMs: output.totalMs,
     totalBytes: output.totalBytes,
     requests: output.stats.reduce((n, s) => n + s.requests, 0),
+    dependencyChain: plan ? dependencyChainLength(plan) : undefined,
     countsByType,
-    steps: output.stats.map(({ id, resourceType, ms, bytes, count, mode, requests, error }: FetchStepStats) => ({
-      id,
-      resourceType,
-      ms,
-      bytes,
-      count,
-      mode,
-      requests,
-      error,
-    })),
+    steps: output.stats.map(
+      ({ id, resourceType, byType, ms, bytes, count, mode, requests, error }: FetchStepStats) => ({
+        id,
+        resourceType,
+        ms,
+        bytes,
+        count,
+        mode,
+        requests,
+        elementsIgnoredFor: elementsIgnoredFor({ resourceType, byType }),
+        error,
+      })
+    ),
   };
 }
 
@@ -67,7 +86,12 @@ const byRef = (output: Fetched): Map<string, FhirResource> => {
  * Compare two runs. `fieldsRead` (resourceType → top-level fields the code read) turns on the field check:
  * a trimmed variant is equivalent when those fields carry the same values on every shared resource.
  */
-export function comparePlanRuns(a: Fetched, b: Fetched, fieldsRead?: Record<string, string[]>): PlanComparison {
+export function comparePlanRuns(
+  a: Fetched,
+  b: Fetched,
+  fieldsRead?: Record<string, string[]>,
+  plans?: { a: FetchPlanInput; b: FetchPlanInput }
+): PlanComparison {
   const differences: string[] = [];
   const refsA = byRef(a);
   const refsB = byRef(b);
@@ -97,8 +121,8 @@ export function comparePlanRuns(a: Fetched, b: Fetched, fieldsRead?: Record<stri
       differences.push(`${field} differs on ${n} resource(s) the code reads`);
   }
 
-  const sa = summarizeRun(a);
-  const sb = summarizeRun(b);
+  const sa = summarizeRun(a, plans?.a);
+  const sb = summarizeRun(b, plans?.b);
   return {
     a: sa,
     b: sb,

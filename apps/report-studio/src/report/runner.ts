@@ -15,8 +15,9 @@ import { runFetchPlan } from '../instance/zambdaClient';
 import { sandbox } from '../sandbox/controller';
 import { RenderResult, useStudio } from '../state/store';
 import { bareTagHints } from './codeCheck';
-import { resolveDateRange } from './types';
+import { dependencyChainLength, elementsIgnoredFor } from './comparePlans';
 import { suggestElements } from './trim';
+import { resolveDateRange } from './types';
 
 export interface RunSummary {
   ok: boolean;
@@ -24,7 +25,8 @@ export interface RunSummary {
   fetch?: {
     totalMs: number;
     totalBytes: number;
-    steps: (Omit<FetchStepStats, 'params'> & { params: string })[];
+    dependencyChain: number;
+    steps: (Omit<FetchStepStats, 'params'> & { params: string; elementsIgnoredFor?: string[] })[];
   };
   fetchError?: string;
   render?: { ok: boolean; error?: string; ms: number; text?: string };
@@ -204,9 +206,11 @@ export async function runReport(opts: { dateRange?: DateRange; reuseData?: boole
       ? {
           totalMs: fetchOutput.totalMs,
           totalBytes: fetchOutput.totalBytes,
+          dependencyChain: dependencyChainLength(report.plan),
           steps: fetchOutput.stats.map(({ params, ...s }) => ({
             ...s,
             params: params.map((p) => `${p.name}=${p.value}`).join('&'),
+            elementsIgnoredFor: elementsIgnoredFor(s),
           })),
         }
       : undefined,
