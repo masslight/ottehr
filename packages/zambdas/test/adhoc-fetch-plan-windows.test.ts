@@ -50,7 +50,6 @@ const fakeOystehr = {
         const start = Date.parse((r as Appointment).start!);
         return start >= Date.parse(ge) && start <= Date.parse(le);
       });
-      if (count === 0) return { total: matched.length, unbundle: () => [], link: [] };
       const page = matched.slice(offset, offset + count);
       return {
         unbundle: () => [...page, sharedPatient],
@@ -91,12 +90,12 @@ describe('a paged date-bounded step runs in windows sized from the density hint'
     delayMs = 0;
   });
 
-  it('searches the whole range once without a hint (after counting it: 40 is one window)', async () => {
+  it('searches the whole range once without a hint', async () => {
     const { resources, stats } = await runFetchPlan(fakeOystehr, datedPlan, tenDays, undefined);
-    expect(calls).toHaveLength(2);
-    expect(windowBounds(calls[1])).toEqual([Date.parse(tenDays.start), Date.parse(tenDays.end)]);
+    expect(calls).toHaveLength(1);
+    expect(windowBounds(calls[0])).toEqual([Date.parse(tenDays.start), Date.parse(tenDays.end)]);
     expect(resources.visits).toHaveLength(41);
-    expect(stats[0]).toMatchObject({ mode: 'normal', requests: 2, byType: { Appointment: 40, Patient: 1 } });
+    expect(stats[0]).toMatchObject({ mode: 'normal', requests: 1, byType: { Appointment: 40, Patient: 1 } });
   });
 
   it('cuts the range into tiled windows and returns the same resources, each once', async () => {

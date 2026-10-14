@@ -152,23 +152,6 @@ async function runStep(
   });
   const windowSplit = splitOptions(dated ? 'a single day' : undefined);
   const rangeMs = dated ? Date.parse(dateRange.end) - Date.parse(dateRange.start) : 0;
-  const days = Math.max(1, rangeMs / DAY_MS);
-  // The step's density: what an earlier run saved, else counted now with one row-less request (a report's first run).
-  let recordsPerDay = hint?.recordsPerDay;
-  let counts = 0;
-  const density = async (): Promise<number | undefined> => {
-    if (dated && recordsPerDay === undefined) {
-      counts += 1;
-      try {
-        recordsPerDay = (await countMatches(oystehr, limit, step.resourceType, params)) / days;
-      } catch (error) {
-        // Only a sizing aid: without it the step runs as one window, and the search itself reports a real failure.
-        captureException(error, { extra: { stepId: step.id, resourceType: step.resourceType, params } });
-        console.warn(`[adhoc-fetch-plan] step ${step.id}: count failed, running unsized: ${String(error)}`);
-      }
-    }
-    return recordsPerDay;
-  };
   // The run's date range in as many windows as the density hint of an earlier run calls for (one without it), searched
   // side by side under the run's limit, each halved whenever the server cannot finish it (or its bulk job fills the cap).
   // A step whose params do not bound both ends of the range runs as one window that cannot be halved.
@@ -183,8 +166,8 @@ async function runStep(
     return parts.flat();
   };
   let bulkJobs = 0;
-  const searchBulk = async (): Promise<FhirResource[]> =>
-    searchWindows(bulkWindowCount(await density(), days), (window) => {
+  const searchBulk = (): Promise<FhirResource[]> =>
+    searchWindows(bulkWindowCount(hint?.recordsPerDay, rangeMs / DAY_MS), (window) => {
       bulkJobs += 1;
       return limit(() =>
         searchAsyncBulk(oystehr, step.resourceType as FhirResource['resourceType'], resolveParams(window))
@@ -236,14 +219,14 @@ async function runStep(
 
     if (step.mode === 'bulk') {
       await probeSearch(oystehr, limit, step.resourceType, params);
-      return finish(await searchBulk(), { mode: 'bulk', requests: 1 + counts + bulkJobs });
+      return finish(await searchBulk(), { mode: 'bulk', requests: 1 + bulkJobs });
     }
 
     // The cap is per window: a window past it means the density is not what the hint said, or there was no hint.
     const cap = step.mode === 'normal' ? FETCH_PLAN_LIMITS.maxResourcesPerStep : FETCH_PLAN_LIMITS.autoBulkThreshold;
     let pages = 0;
     let hitCap = false;
-    const resources = await searchWindows(pagedWindowCount(await density(), days), async (window) => {
+    const resources = await searchWindows(pagedWindowCount(hint?.recordsPerDay, rangeMs / DAY_MS), async (window) => {
       const paged = await searchPaged(oystehr, limit, step.resourceType, resolveParams(window), cap);
       pages += paged.requests;
       hitCap ||= paged.hitCap;
@@ -256,36 +239,15 @@ async function runStep(
         );
       }
       // auto: the paged attempt counts toward the timing — that is the real cost of not knowing the volume.
-      return finish(await searchBulk(), { mode: 'bulk', requests: counts + pages + bulkJobs });
+      return finish(await searchBulk(), { mode: 'bulk', requests: pages + bulkJobs });
     }
-    return finish(resources, { mode: 'normal', requests: counts + pages });
+    return finish(resources, { mode: 'normal', requests: pages });
   } catch (error) {
     captureException(error, { extra: { stepId: step.id, resourceType: step.resourceType, params } });
     const message = error instanceof Error ? error.message : String(error);
     console.error(`[adhoc-fetch-plan] step ${step.id} FAILED ms=${Date.now() - startedAt} message=${message}`);
     return finish([], { mode: step.mode === 'bulk' ? 'bulk' : 'normal', requests: 0, error: message });
   }
-}
-
-// How many resources the step's own search matches, without rows: `_count=0&_total=accurate` (never `_summary=count`,
-// which Oystehr answers 1 for an empty type). Includes are left out — they are not what the windows are sized on.
-async function countMatches(
-  oystehr: Oystehr,
-  limit: Limiter,
-  resourceType: string,
-  params: FetchStepParam[]
-): Promise<number> {
-  const bundle = await limit(() =>
-    oystehr.fhir.search<FhirResource>({
-      resourceType: resourceType as FhirResource['resourceType'],
-      params: [
-        ...params.filter((p) => !/^_(rev)?include|^_elements$/.test(p.name)),
-        { name: '_count', value: '0' },
-        { name: '_total', value: 'accurate' },
-      ],
-    })
-  );
-  return bundle.total ?? 0;
 }
 
 // A bulk job reports a bad search only as "job answered status 400"; the same search as a one-row

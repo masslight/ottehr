@@ -52,6 +52,11 @@ const fakeOystehr = {
       const ge = params.find((p) => p.name === 'date' && p.value.startsWith('ge'))?.value.slice(2);
       const le = params.find((p) => p.name === 'date' && p.value.startsWith('le'))?.value.slice(2);
       const ids = params.find((p) => p.name === 'encounter')?.value.split(',');
+      if (ge && le && Date.parse(le) - Date.parse(ge) > maxWindowDays * DAY_MS) {
+        throw serverError(504, 'Gateway timeout');
+      }
+      // 413 rather than 4130: the paged search's own page-size retry (withResponseSizeRetry) handles 4130 first.
+      if (ids && ids.length > maxIds) throw serverError(413, 'Response too large');
       const matched = data.filter((r) => {
         if (ids) return r.resourceType === 'Observation' && ids.includes((r as Observation).encounter!.reference!);
         if (ge && le) {
@@ -61,15 +66,6 @@ const fakeOystehr = {
         }
         return r.resourceType === 'Encounter';
       });
-      // The row-less count a first run starts with is cheap and answers.
-      if (params.some((p) => p.name === '_count' && p.value === '0')) {
-        return { total: matched.length, unbundle: () => [], link: [] };
-      }
-      if (ge && le && Date.parse(le) - Date.parse(ge) > maxWindowDays * DAY_MS) {
-        throw serverError(504, 'Gateway timeout');
-      }
-      // 413 rather than 4130: the paged search's own page-size retry (withResponseSizeRetry) handles 4130 first.
-      if (ids && ids.length > maxIds) throw serverError(413, 'Response too large');
       return { unbundle: () => matched, link: [] };
     },
   },
@@ -121,9 +117,9 @@ describe('a paged date-range search the server cannot finish is halved and retri
     const { resources, stats } = await runFetchPlan(fakeOystehr, datedPlan, range(10), undefined);
     expect(resources.visits).toHaveLength(20);
     expect(new Set(resources.visits.map((r) => r.id)).size).toBe(20);
-    // The count, then 10 days (fails) → 5 + 5 (fail) → four windows of 2.5 days (fit).
-    expect(calls.map(windowDays).map((d) => Math.round(d * 10) / 10)).toEqual([10, 10, 5, 5, 2.5, 2.5, 2.5, 2.5]);
-    expect(stats[0]).toMatchObject({ mode: 'normal', count: 20, requests: 5 });
+    // 10 days (fails) → 5 + 5 (fail) → four windows of 2.5 days (fit).
+    expect(calls.map(windowDays).map((d) => Math.round(d * 10) / 10)).toEqual([10, 5, 5, 2.5, 2.5, 2.5, 2.5]);
+    expect(stats[0]).toMatchObject({ mode: 'normal', count: 20, requests: 4 });
     expect(stats[0].error).toBeUndefined();
   });
 
@@ -133,7 +129,7 @@ describe('a paged date-range search the server cannot finish is halved and retri
     expect(stats[0].error).toBe(
       'a single day of Appointment still fails (Gateway timeout); the search is probably too broad — check its filters and _include'
     );
-    expect(calls).toHaveLength(2);
+    expect(calls).toHaveLength(1);
   });
 
   it(`gives up after ${MAX_ERROR_SPLITS} levels of splitting`, async () => {
@@ -142,8 +138,8 @@ describe('a paged date-range search the server cannot finish is halved and retri
     expect(stats[0].error).toBe(
       `Appointment still fails after splitting ${MAX_ERROR_SPLITS} times (Gateway timeout); the search is probably too broad — check its filters and _include`
     );
-    // The count, then 64 → 32 + 32 → 4 × 16 → 8 × 8: the eighths fail and are not split again.
-    expect(calls).toHaveLength(1 + 1 + 2 + 4 + 8);
+    // 64 → 32 + 32 → 4 × 16 → 8 × 8: the eighths fail and are not split again.
+    expect(calls).toHaveLength(1 + 2 + 4 + 8);
   });
 
   it('leaves another error alone', async () => {

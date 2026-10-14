@@ -129,8 +129,7 @@ describe('the plan runner sizes bulk jobs from density hints', () => {
     const { stats } = await runFetchPlan(fakeOystehr, datedPlan(), tenDays, undefined);
     expect(bulkCalls).toHaveLength(1);
     expect(windowBounds(bulkCalls[0])).toBe(`ge${tenDays.start} le${tenDays.end}`);
-    // The probe, the count (this fake answers no total) and the one job.
-    expect(stats[0]).toMatchObject({ mode: 'bulk', requests: 3 });
+    expect(stats[0]).toMatchObject({ mode: 'bulk', requests: 2 });
   });
 
   it('cuts the range into as many windows as the density calls for, tiling it', async () => {
@@ -167,7 +166,7 @@ describe('the plan runner sizes bulk jobs from density hints', () => {
     expect(resources.visits).toHaveLength(20);
     expect(new Set(resources.visits.map((r) => r.id)).size).toBe(20);
     expect(bulkCalls.length).toBeGreaterThanOrEqual(1 + 2 + 4);
-    expect(stats[0]).toMatchObject({ count: 20, requests: 2 + bulkCalls.length });
+    expect(stats[0]).toMatchObject({ count: 20, requests: 1 + bulkCalls.length });
     expect(stats[0].error).toBeUndefined();
   });
 
