@@ -35,8 +35,9 @@ vi.mock('../../src/shared/fax/resolve-fax-source', () => ({
   resolveFaxPacketPlan: (...args: unknown[]) => mockResolveFaxPacketPlan(...args),
 }));
 
+const mockDeliverFaxPacket = vi.fn();
 vi.mock('../../src/shared/fax/run-fax-packet', () => ({
-  deliverFaxPacket: vi.fn(),
+  deliverFaxPacket: (...args: unknown[]) => mockDeliverFaxPacket(...args),
   savePcpIfRequested: vi.fn(),
 }));
 
@@ -147,5 +148,19 @@ describe('sub-send-fax-packet', () => {
 
     expect(patchedLabels()).toEqual(['status:in-progress', 'output:failure-reason', 'status:failed']);
     expect(failedStatusReason()).toBe(SIZE_ERROR.message);
+  });
+
+  it('records too-large when the final packet exceeds the limit during delivery', async () => {
+    const finalSizeError = new FaxPacketTooLargeError(
+      'Fax packet is 20.1 MB, which exceeds the 20 MB limit. Fax the needed documents individually instead.'
+    );
+    mockResolveFaxPacketPlan.mockResolvedValue({ patient: { resourceType: 'Patient', id: 'patient-1' } });
+    mockDeliverFaxPacket.mockRejectedValue(finalSizeError);
+
+    await runHandler();
+
+    expect(mockDeliverFaxPacket).toHaveBeenCalled();
+    expect(patchedLabels()).toEqual(['status:in-progress', 'output:failure-reason', 'status:failed']);
+    expect(failedStatusReason()).toBe(finalSizeError.message);
   });
 });
