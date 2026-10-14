@@ -26,11 +26,13 @@ const legacyChart = (note: VisitNoteResponse): GetChartDataResponse => {
 };
 
 describe('chart-data integration tests', () => {
+  let oystehrAdmin: Oystehr;
   let oystehrLocalZambdas: Oystehr;
   let cleanup: () => Promise<void>;
 
   beforeAll(async () => {
     const setup = await setupIntegrationTest('chart-data.test.ts', M2MClientMockType.provider);
+    oystehrAdmin = setup.oystehr;
     oystehrLocalZambdas = setup.oystehrTestUserM2M;
     baseResources = await insertInPersonAppointmentBase(setup.oystehr, setup.processId);
     cleanup = setup.cleanup;
@@ -1079,8 +1081,7 @@ describe('chart-data integration tests', () => {
           await expect
             .poll(
               async () =>
-                (await oystehrLocalZambdas.fhir.get<Encounter>({ resourceType: 'Encounter', id: encounterId }))
-                  .diagnosis
+                (await oystehrAdmin.fhir.get<Encounter>({ resourceType: 'Encounter', id: encounterId })).diagnosis
             )
             .toEqual(
               expect.arrayContaining([
@@ -1107,7 +1108,7 @@ describe('chart-data integration tests', () => {
           await expect
             .poll(async () =>
               (
-                await oystehrLocalZambdas.fhir.search<Condition>({
+                await oystehrAdmin.fhir.search<Condition>({
                   resourceType: 'Condition',
                   params: [{ name: '_id', value: diagnosis.resourceId! }],
                 })
@@ -1118,11 +1119,11 @@ describe('chart-data integration tests', () => {
             .poll(
               async () =>
                 (
-                  await oystehrLocalZambdas.fhir.get<Encounter>({ resourceType: 'Encounter', id: encounterId })
+                  await oystehrAdmin.fhir.get<Encounter>({ resourceType: 'Encounter', id: encounterId })
                 ).diagnosis?.some((entry) => entry.condition.reference === `Condition/${diagnosis.resourceId}`) ?? false
             )
             .toBe(false);
-          const saved = await oystehrLocalZambdas.fhir.get<ServiceRequest>({
+          const saved = await oystehrAdmin.fhir.get<ServiceRequest>({
             resourceType: 'ServiceRequest',
             id: procedureId,
           });
