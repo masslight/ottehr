@@ -68,8 +68,8 @@ export async function executeZambda<T>(name: string, body: unknown): Promise<T> 
 // Same cadence as the EHR builder (ADHOC_POLL_INTERVAL_MS in report-builder/query/dataset-query.ts).
 const ADHOC_POLL_INTERVAL_MS = 2000;
 const ADHOC_POLL_TIMEOUT_MS = 15 * 60 * 1000;
-/** Gzip the Z3 file (measured 2026-10-14; see report-studio-task-path-2026-10-14.md). */
-const FETCH_PLAN_GZIP = false;
+/** Gzip the Z3 file: 17–30 MB plans shrink to 11–14 % and arrive 4.5–13 s sooner (synth, 2026-10-14). */
+const FETCH_PLAN_GZIP = true;
 
 /**
  * Every fetch runs as a background Task like the EHR builder's reports: `adhoc-report` creates the Task,
