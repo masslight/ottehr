@@ -43,12 +43,14 @@ import {
   TemplateRosFinding,
 } from 'utils/lib/types/data/admin-template.types';
 import { IN_HOUSE_TEST_CODE_SYSTEM } from 'utils/lib/types/data/in-house/in-house.constants';
+import { z } from 'zod';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { readProcedureFormFieldsFromServiceRequest } from '../../shared/chart-data';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { topLevelCatch } from '../../shared/lambda';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { validateWithSchema } from '../../shared/validation';
 import {
   fetchPlanItemsByLabGuid,
   findExternalLabPlans,
@@ -67,7 +69,10 @@ import {
 } from '../apply-template/apply-in-house-medications';
 import { findProcedurePlans } from '../apply-template/apply-procedures';
 import { analyzeTemplateVersionData, isDiagnosisCondition, verifyIsTemplate } from '../shared/template-helpers';
-import { validateRequestParameters } from './validateRequestParameters';
+
+const AdminGetTemplateDetailSchema = z.object({
+  templateId: z.string().uuid(),
+});
 
 // Local const so that DEPRECATED system doesn't get imported from utils
 const ICD_10_CODE_SYSTEM = 'http://hl7.org/fhir/sid/icd-10';
@@ -79,7 +84,7 @@ export const index = wrapHandler(
   'admin-get-template-detail',
   async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
     try {
-      const validatedInput = validateRequestParameters(input);
+      const validatedInput = validateWithSchema(AdminGetTemplateDetailSchema, input);
 
       const { secrets } = validatedInput;
       m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);

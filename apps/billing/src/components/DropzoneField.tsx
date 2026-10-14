@@ -12,9 +12,22 @@ import {
   Typography,
 } from '@mui/material';
 import { ReactElement } from 'react';
-import Dropzone, { DropzoneProps } from 'react-dropzone';
+import Dropzone, { DropzoneProps, ErrorCode, FileRejection } from 'react-dropzone';
 import { Controller, useFormContext } from 'react-hook-form';
 import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils/lib/validation/constants';
+
+const formatFileSize = (bytes: number): string =>
+  bytes >= 1024 * 1024 ? `${Math.round(bytes / (1024 * 1024))} MB` : `${Math.round(bytes / 1024)} KB`;
+
+// Why dropped files were turned away: too large (when there is a size limit), else not an allowed type.
+const rejectionMessage = (rejections: readonly FileRejection[], multiple: boolean, maxSize?: number): string => {
+  const tooLarge = rejections.some(({ errors }) => errors.some(({ code }) => code === ErrorCode.FileTooLarge));
+  const request =
+    tooLarge && maxSize !== undefined
+      ? `${multiple ? 'files' : 'a file'} smaller than ${formatFileSize(maxSize)}`
+      : `${multiple ? 'files' : 'a file'} with an allowed type`;
+  return `File${multiple ? 's' : ''} could not be uploaded. Please select ${request}.`;
+};
 
 export const DropzoneField = ({
   name,
@@ -23,6 +36,7 @@ export const DropzoneField = ({
   required,
   error,
   ariaLabel = 'Upload file',
+  maxSize,
   ...rest
 }: {
   name: string;
@@ -59,6 +73,7 @@ export const DropzoneField = ({
             <Dropzone
               multiple={multiple}
               accept={accept}
+              maxSize={maxSize}
               onDrop={(acceptedFiles) => {
                 onChange(multiple ? acceptedFiles : acceptedFiles[0]);
               }}
@@ -111,8 +126,7 @@ export const DropzoneField = ({
                             )}
                             {fileRejections.length ? (
                               <FormHelperText error={true}>
-                                File{multiple ? 's' : ''} could not be uploaded. Please select{' '}
-                                {multiple ? 'files' : 'a file'} with an allowed type.
+                                {rejectionMessage(fileRejections, multiple, maxSize)}
                               </FormHelperText>
                             ) : (
                               <></>

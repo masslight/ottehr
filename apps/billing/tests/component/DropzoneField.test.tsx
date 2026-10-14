@@ -14,9 +14,10 @@ interface HarnessProps {
   multiple?: boolean;
   required?: boolean;
   ariaLabel?: string;
+  maxSize?: number;
 }
 
-function Harness({ multiple = false, required = false, ariaLabel }: HarnessProps): ReactElement {
+function Harness({ multiple = false, required = false, ariaLabel, maxSize }: HarnessProps): ReactElement {
   const methods = useForm<{ file: File | File[] | null }>({
     defaultValues: {
       file: null,
@@ -25,7 +26,14 @@ function Harness({ multiple = false, required = false, ariaLabel }: HarnessProps
   return (
     <FormProvider {...methods}>
       <form onSubmit={methods.handleSubmit(() => {})}>
-        <DropzoneField name="file" multiple={multiple} required={required} accept={ACCEPT} ariaLabel={ariaLabel} />
+        <DropzoneField
+          name="file"
+          multiple={multiple}
+          required={required}
+          accept={ACCEPT}
+          ariaLabel={ariaLabel}
+          maxSize={maxSize}
+        />
         <button type="submit">Submit</button>
       </form>
     </FormProvider>
@@ -101,6 +109,17 @@ describe('DropzoneField', () => {
 
     expect(await screen.findByText(SINGULAR_REJECTION)).toBeVisible();
     expect(screen.queryByText('scan.pdf')).not.toBeInTheDocument();
+  });
+
+  it('says when a file is over the size limit', async () => {
+    render(<Harness maxSize={1024} />);
+
+    dropFiles([new File(['x'.repeat(2048)], 'remit.835', { type: 'text/plain' })]);
+
+    expect(
+      await screen.findByText('File could not be uploaded. Please select a file smaller than 1 KB.')
+    ).toBeVisible();
+    expect(screen.queryByText('remit.835')).not.toBeInTheDocument();
   });
 
   it('pluralizes the rejection message when multiple files are allowed', async () => {

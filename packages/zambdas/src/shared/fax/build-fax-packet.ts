@@ -3,6 +3,7 @@ import { randomUUID } from 'crypto';
 import { DocumentReference, List } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { BUCKET_NAMES } from 'utils/lib/fhir/constants';
+import { uploadObjectToZ3 } from 'utils/lib/helpers/presigned-file-url/helpers';
 import { Secrets } from 'utils/lib/secrets';
 import {
   FAX_PACKET_MAX_BYTES,
@@ -24,7 +25,7 @@ import {
 import { PdfInfo } from '../pdf/pdf-utils';
 import { FaxCoverSheetData, FaxCoverSheetSubject } from '../pdf/types';
 import { makeZ3Url } from '../presigned-file-urls/helpers';
-import { createPresignedUrl, uploadObjectToZ3 } from '../z3Utils';
+import { createPresignedUrl } from '../z3Utils';
 import { FaxPacketPart } from './collect-visit-documents';
 
 /**

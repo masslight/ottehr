@@ -12,8 +12,15 @@ export function getDataset(id: string): AdHocDataset | undefined {
   return AD_HOC_DATASETS.find((d) => d.id === id);
 }
 
-export function otherDatasetsFor(id: string): { label: string; description: string }[] {
-  return AD_HOC_DATASETS.filter((d) => d.id !== id).map((d) => ({ label: d.label, description: d.description }));
+export function otherDatasetsFor(id: string): { id: string; label: string; description: string }[] {
+  return AD_HOC_DATASETS.filter((d) => d.id !== id).map((d) => ({
+    id: d.id,
+    label: d.label,
+    description: [
+      d.description,
+      ...(d.options ?? []).map((layer) => `${layer.label}${layer.description ? `: ${layer.description}` : ''}`),
+    ].join('; '),
+  }));
 }
 
 export function datasetCatalog(): CatalogDataset[] {

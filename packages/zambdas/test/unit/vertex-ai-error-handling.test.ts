@@ -7,14 +7,18 @@ import { wrapHandler } from '../../src/shared/sentry';
 import { ZambdaInput } from '../../src/shared/types/common';
 
 const captureException = vi.fn();
-vi.mock('@sentry/aws-serverless', () => ({
+vi.mock('@sentry/node-core/light', () => ({
   captureException: (...args: unknown[]) => captureException(...args),
   captureMessage: vi.fn(),
   init: vi.fn(),
   isInitialized: vi.fn(() => true),
   setTag: vi.fn(),
   setTags: vi.fn(),
-  wrapHandler: (handler: unknown) => handler, // the real one only adds tracing
+  setContext: vi.fn(),
+  flush: vi.fn(async () => true),
+  withIsolationScope: (cb: () => unknown) => cb(),
+  continueTrace: (_traceHeaders: unknown, cb: () => unknown) => cb(),
+  startSpan: (_options: unknown, cb: () => unknown) => cb(),
 }));
 
 const secrets: Secrets = {

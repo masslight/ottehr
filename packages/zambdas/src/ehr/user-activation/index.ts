@@ -1,18 +1,19 @@
 import Oystehr, { User } from '@oystehr/sdk';
-import { captureException, captureMessage } from '@sentry/aws-serverless';
+import { captureException, captureMessage } from '@sentry/node-core/light';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { createFetchClientWithOystehrAuth, FetchClientWithOysterAuth } from 'utils/lib/helpers/helpers';
 import { getSecret, Secrets } from 'utils/lib/secrets';
 import {
   ErxUnenrollmentOutcome,
   UserActivationZambdaInput,
+  UserActivationZambdaInputSchema,
   UserActivationZambdaOutput,
 } from 'utils/lib/types/api/user-activation.types';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
-import { validateRequestParameters } from './validateRequestParameters';
+import { validateWithSchema } from '../../shared/validation';
 
 export interface UserActivationZambdaInputValidated extends UserActivationZambdaInput {
   secrets: Secrets;
@@ -22,7 +23,7 @@ let oystehrToken: string;
 
 export const index = wrapHandler('user-activation', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.group('validateRequestParameters');
-  const validatedParameters = validateRequestParameters(input);
+  const validatedParameters = validateWithSchema(UserActivationZambdaInputSchema, input);
   const { userId, userActivationMode, secrets } = validatedParameters;
   console.groupEnd();
   console.debug('validateRequestParameters success');

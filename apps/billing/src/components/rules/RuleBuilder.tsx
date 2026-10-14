@@ -65,6 +65,7 @@ import {
   ServiceLineSetValue,
 } from 'utils/lib/types/data/billing/rules-engine.schemas';
 import { HOLD_TAG_NAME } from 'utils/lib/types/data/billing/system-tags';
+import { valueToText } from '../../utils/format';
 import { DateInput } from '../DateInput';
 import { FacilitySelect } from '../FacilitySelect';
 import { NioSelect } from '../NioSelect';
@@ -137,9 +138,6 @@ function fieldMenuItems(fields: RuleFieldDef[]): ReactElement[] {
   }
   return items;
 }
-
-const valueToText = (value: string | string[] | null | undefined): string =>
-  Array.isArray(value) ? value.join(', ') : value ?? '';
 
 const textToList = (text: string): string[] =>
   text

@@ -87,6 +87,7 @@ import {
   ndcToDigits,
   normalizeNdcTo11Digits,
 } from 'utils/lib/types/data/billing/billing.constants';
+import { CreateBillingClaimFromEncounterInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import {
   AR_STAGE,
   claimStatusValuesToTags,
@@ -100,6 +101,7 @@ import { chartDataResourceHasMetaTagByCode, makeAccidentDTOFromFhirResources } f
 import { sendErrors } from '../../shared/errors';
 import { assertDefined, createClinicalOystehrClient } from '../../shared/helpers';
 import { ZambdaInput } from '../../shared/types/common';
+import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { claimProvenanceRequest, recordedNow, resolveClaimActor } from '../provenance';
 import {
   billingCopyMatches,
@@ -132,7 +134,8 @@ import {
   selectClaimCoverages,
   SOURCE_IDENTIFIER_SYSTEM,
 } from '../shared';
-import { CreateClaimFromEncounterParams, validateRequestParameters } from './validateRequestParameters';
+
+type CreateClaimFromEncounterParams = ValidatedZambdaInput<typeof CreateBillingClaimFromEncounterInputSchema>;
 
 // Local const so that DEPRECATED system doesn't get imported from utils
 const CODE_SYSTEM_HCPCS = 'http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets'; // used by Ottehr clinical in-house meds
@@ -204,7 +207,7 @@ export type CreateClaimFromEncounterRequests = Array<
 let m2mToken: string;
 
 export async function handler(input: ZambdaInput): Promise<APIGatewayProxyResult> {
-  const params = validateRequestParameters(input);
+  const params = validateWithSchema(CreateBillingClaimFromEncounterInputSchema, input);
   const response = await createClaimFromEncounter(params);
   return { statusCode: 200, body: JSON.stringify(response) };
 }

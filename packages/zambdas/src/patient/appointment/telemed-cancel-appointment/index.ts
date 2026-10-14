@@ -1,5 +1,5 @@
 import { BatchInputGetRequest } from '@oystehr/sdk';
-import { captureException } from '@sentry/aws-serverless';
+import { captureException } from '@sentry/node-core/light';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import { Appointment, Coding, Encounter, Location } from 'fhir/r4b';

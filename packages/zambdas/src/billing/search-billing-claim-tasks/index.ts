@@ -8,6 +8,7 @@ import {
   BILLING_CLAIM_TASK_CODING,
   BILLING_CLAIM_TASK_PAYER_SCAN_LIMIT,
 } from 'utils/lib/types/data/billing/billing.constants';
+import { SearchBillingClaimTasksInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { BillingClaimTaskItem, SearchBillingClaimTasksResponse } from 'utils/lib/types/data/billing/billing.types';
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
@@ -15,15 +16,17 @@ import { fetchAllPages } from '../../shared/fhir';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { createBillingClient, fhirName } from '../shared';
 import { getClaimTaskPayerNames } from './payers';
-import { SearchBillingClaimTasksParams, validateRequestParameters } from './validateRequestParameters';
+
+type SearchBillingClaimTasksParams = ValidatedZambdaInput<typeof SearchBillingClaimTasksInputSchema>;
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'search-billing-claim-tasks';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const params = validateRequestParameters(input);
+  const params = validateWithSchema(SearchBillingClaimTasksInputSchema, input);
   complexValidation(params);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);

@@ -1,4 +1,4 @@
-import { captureMessage, withScope } from '@sentry/aws-serverless';
+import { captureMessage, withScope } from '@sentry/node-core/light';
 
 /**
  * Reports a violation of the invariant "every Patient has at least one user-relatedperson RelatedPerson"

@@ -69,6 +69,7 @@ const claimResponse = (
     itemAdjudications?: ClaimResponseItemAdjudication[][];
     addItemAdjudications?: ClaimResponseItemAdjudication[][];
     lastUpdated?: string;
+    payerId?: string;
   }
 ): ClaimResponse => ({
   resourceType: 'ClaimResponse',
@@ -86,6 +87,7 @@ const claimResponse = (
   },
   created,
   insurer: {
+    reference: `https://rcm-api.zapehr.com/v1/payer/${parts.payerId ?? '12345'}`,
     display: 'Test Payer',
   },
   outcome: 'complete',
@@ -345,6 +347,7 @@ describe('extractReportedCharge', () => {
 describe('extractClaimResponseAmounts', () => {
   it('reads paid from the total, allowed and PR from item adjudications (Claim.MD shape)', () => {
     expect(extractClaimResponseAmounts(claimMdClaimResponse())).toEqual({
+      payerId: '12345',
       paid: 60,
       allowed: 80,
       patientResp: 20,
@@ -353,6 +356,7 @@ describe('extractClaimResponseAmounts', () => {
 
   it('reads allowed from B6 and sums PR across item and addItem (process-era shape)', () => {
     expect(extractClaimResponseAmounts(processEraClaimResponse())).toEqual({
+      payerId: '12345',
       paid: 60,
       allowed: 80,
       patientResp: 20,
@@ -375,6 +379,7 @@ describe('extractClaimResponseAmounts', () => {
       ],
     });
     expect(extractClaimResponseAmounts(cr)).toEqual({
+      payerId: '12345',
       paid: 60,
       allowed: 80,
       patientResp: 20,
@@ -401,6 +406,7 @@ describe('extractClaimResponseAmounts', () => {
       itemAdjudications: [[adjudication(ADJUDICATION_CODES.PAID, 60), casAdjustment('CO', 40)]],
     });
     expect(extractClaimResponseAmounts(cr)).toEqual({
+      payerId: '12345',
       paid: 60,
       allowed: undefined,
       patientResp: 0,
@@ -410,6 +416,7 @@ describe('extractClaimResponseAmounts', () => {
   it('returns undefined allowed and patientResp when the response carries no adjudications at all', () => {
     const cr = claimResponse('2026-01-01', { totalPaid: 60 });
     expect(extractClaimResponseAmounts(cr)).toEqual({
+      payerId: '12345',
       paid: 60,
       allowed: undefined,
       patientResp: undefined,
@@ -514,6 +521,28 @@ describe('summarizeClaimPayments', () => {
       itemAdjudications: [[adjudication(ADJUDICATION_CODES.PAID, 15), casAdjustment('PR', 5)]],
     });
     expect(summarizeClaimPayments([primary, secondary], 100).allowed).toBe(80);
+  });
+
+  it('sums patient responsibility from multiple payers', () => {
+    const primary = claimMdClaimResponse('2026-01-01');
+    const bareSecondary = claimResponse('2026-02-01', {
+      totalCharge: 20,
+      totalPaid: 10,
+      payerId: '54321',
+      itemAdjudications: [
+        [
+          adjudication('charge', 20),
+          adjudication(ADJUDICATION_CODES.PAID, 10),
+          adjudication(ADJUDICATION_CODES.ALLOWED, 20),
+          casAdjustment('PR', 10),
+          casAdjustment('CO', 10),
+        ],
+      ],
+    });
+    const summary = summarizeClaimPayments([primary, bareSecondary], 100);
+    expect(summary.insurancePaid).toBe(70);
+    expect(summary.patientResp).toBe(30);
+    expect(summary.balance).toBe(30);
   });
 
   it('falls back to allowed minus insurance paid when the latest response has no adjudication data', () => {

@@ -22,6 +22,12 @@ export function cellText(value: unknown): string {
   return String(value);
 }
 
+// A number exactly as the report computed it, for CSV export. The grid's default number formatter
+// (toLocaleString) rounds to 3 decimals and adds thousands separators.
+export function exactNumberText(value: unknown): string {
+  return typeof value === 'number' && !Number.isNaN(value) ? String(value) : '';
+}
+
 export function formatValue(value: unknown, format?: ValueFormat): string {
   if (value == null) return '';
   const cleaned = typeof value === 'string' ? value.trim().replace(/^"(.*)"$/, '$1') : value;

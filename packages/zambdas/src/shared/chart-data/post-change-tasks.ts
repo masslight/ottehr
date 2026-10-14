@@ -1,5 +1,5 @@
 import Oystehr from '@oystehr/sdk';
-import { captureException } from '@sentry/aws-serverless';
+import { captureException } from '@sentry/node-core/light';
 import { Encounter, Task } from 'fhir/r4b';
 import { getSkipEmailTaskInput, getTaskResource } from 'utils/lib/fhir/helpers';
 import { FreeTextNoteDTO, NOTE_TYPE, NoteDTO } from 'utils/lib/types/api/chart-data/chart-data.types';

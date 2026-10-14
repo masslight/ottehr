@@ -8,9 +8,9 @@ import { getUser, userHasAccessToPatient } from '../../src/shared/auth';
 import { createClinicalOystehrClient } from '../../src/shared/helpers';
 import { ZambdaInput } from '../../src/shared/types/common';
 
-vi.mock('@sentry/aws-serverless', async (importOriginal) => {
-  const original = await importOriginal<typeof import('@sentry/aws-serverless')>();
-  return { ...original, wrapHandler: (handler: unknown) => handler, captureException: vi.fn() };
+vi.mock('@sentry/node-core/light', async (importOriginal) => {
+  const original = await importOriginal<typeof import('@sentry/node-core/light')>();
+  return { ...original, captureException: vi.fn() };
 });
 
 vi.mock('../../src/shared/getAuth0Token', () => ({ getAuth0Token: vi.fn().mockResolvedValue('m2m-token') }));

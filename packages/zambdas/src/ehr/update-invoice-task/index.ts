@@ -6,18 +6,19 @@ import {
   mapInvoiceTaskStatusToDisplay,
   parseInvoiceTaskInput,
 } from 'utils/lib/helpers/tasks/invoices-tasks';
+import { UpdateInvoiceTaskZambdaInputSchema } from 'utils/lib/types/api/invoicing.types';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
-import { validateRequestParameters } from './validateRequestParameters';
+import { validateWithSchema } from '../../shared/validation';
 
 let m2mToken: string;
 
 const ZAMBDA_NAME = 'update-invoice-task';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const validatedParams = validateRequestParameters(input);
+  const validatedParams = validateWithSchema(UpdateInvoiceTaskZambdaInputSchema, input);
   const { secrets, taskId, status, invoiceTaskInput } = validatedParams;
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);

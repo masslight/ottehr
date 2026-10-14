@@ -65,7 +65,7 @@ vi.mock('../../src/shared/z3Utils', async (importOriginal) => {
   };
 });
 
-vi.mock('@sentry/aws-serverless', async (importOriginal) => {
+vi.mock('@sentry/node-core/light', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
   return {
     ...actual,

@@ -157,6 +157,46 @@ describe('Patient Master Record Tests', () => {
     });
   });
 
+  test('should trim leading and trailing whitespace from patient name answers', () => {
+    const padNameAnswers = (items: QuestionnaireResponseItem[]): QuestionnaireResponseItem[] =>
+      items.map((item) => ({
+        ...item,
+        item: item.item ? padNameAnswers(item.item) : undefined,
+        answer: ['patient-first-name', 'patient-last-name'].includes(item.linkId)
+          ? item.answer?.map((answer) => ({ ...answer, valueString: `  ${answer.valueString} ` }))
+          : item.answer,
+      }));
+    const paddedItems = padNameAnswers((QR1 as QuestionnaireResponse).item ?? []);
+
+    // same answers as already stored, so padding alone must not produce changes
+    expect(
+      createMasterRecordPatchOperations(
+        {
+          questionnaireResponseItems: paddedItems,
+          sourceQuestionnaire: questionnaire,
+          options: { filterByEnableWhen: true },
+        },
+        patient2 as Patient
+      ).patient.patchOpsForDirectUpdate
+    ).toEqual([]);
+
+    // a name stored with a trailing space gets corrected on the next save
+    const patientWithPaddedName = {
+      ...patient2,
+      name: [{ ...patient2.name[0], family: `${patient2.name[0].family} ` }],
+    } as Patient;
+    expect(
+      createMasterRecordPatchOperations(
+        {
+          questionnaireResponseItems: paddedItems,
+          sourceQuestionnaire: questionnaire,
+          options: { filterByEnableWhen: true },
+        },
+        patientWithPaddedName
+      ).patient.patchOpsForDirectUpdate
+    ).toEqual([{ op: 'replace', path: '/name/0/family', value: patient2.name[0].family }]);
+  });
+
   test('should generate correct JSON patch operations for an old patient with a paperwork, different answers', () => {
     const patientPatchOperations = [
       {

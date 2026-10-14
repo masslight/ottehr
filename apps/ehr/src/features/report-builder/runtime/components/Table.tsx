@@ -7,6 +7,7 @@ import {
   GridToolbarContainer,
   GridToolbarDensitySelector,
   GridToolbarFilterButton,
+  GridValueFormatterParams,
   GridValueGetterParams,
   useGridApiRef,
 } from '@mui/x-data-grid-pro';
@@ -15,7 +16,7 @@ import { ValueFormat } from 'utils/lib/types/adhoc/generation/runtime-scope.cata
 import type { AdHocLinkRoute } from 'utils/lib/types/adhoc/sandbox/events';
 import { MAX_EXPORT_CSV_LENGTH } from 'utils/lib/types/adhoc/sandbox/limits';
 import { sendFrameEvent } from '../messaging';
-import { cellText, formatValue } from './format';
+import { cellText, exactNumberText, formatValue } from './format';
 import { Link } from './Link';
 
 export interface TableColumn {
@@ -122,7 +123,12 @@ export function Table({ rows, columns, links, title, pageSize = 25, onRowClick }
         sortable: true,
         type: numeric ? 'number' : 'string',
         ...(numeric ? { headerAlign: 'right' as const, align: 'right' as const } : {}),
-        ...(numeric ? {} : { valueGetter: (params: GridValueGetterParams) => cellText(cellValue(field, params.row)) }),
+        ...(numeric
+          ? {
+              valueGetter: (params: GridValueGetterParams) => cellValue(field, params.row),
+              valueFormatter: ({ value }: GridValueFormatterParams) => exactNumberText(value),
+            }
+          : { valueGetter: (params: GridValueGetterParams) => cellText(cellValue(field, params.row)) }),
         renderCell: (params: GridRenderCellParams) => {
           const raw = cellValue(field, params.row);
           const display = namedFormat ? formatValue(raw, namedFormat) : cellText(raw);

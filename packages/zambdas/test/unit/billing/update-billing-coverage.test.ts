@@ -41,7 +41,7 @@ describe('update-billing-coverage', () => {
 
     const result = await performEffect(
       oystehr,
-      { coverageId: 'cov-1', claimId: CLAIM_ID, memberId: 'NEW-456', secrets: null },
+      { coverageId: 'cov-1', claimId: CLAIM_ID, memberId: 'NEW-456', secrets: {} },
       { patientId: 'pat-1', coverage: structuredClone(coverage), agent }
     );
 
@@ -71,7 +71,7 @@ describe('update-billing-coverage', () => {
         claimId: CLAIM_ID,
         relationship: 'Spouse',
         policyHolder: { firstName: 'Pat', lastName: 'Holder', dob: '1980-01-01', gender: 'female' },
-        secrets: null,
+        secrets: {},
       },
       { patientId: 'pat-1', coverage: structuredClone(coverage), agent }
     );
@@ -122,7 +122,7 @@ describe('update-billing-coverage', () => {
         claimId: CLAIM_ID,
         relationship: 'Spouse',
         policyHolder: { firstName: 'Pat', lastName: 'Holder', dob: '1980-01-01', gender: 'female' },
-        secrets: null,
+        secrets: {},
       },
       { patientId: 'pat-1', coverage: withSubscriber, agent }
     );
@@ -153,7 +153,7 @@ describe('update-billing-coverage', () => {
 
     await performEffect(
       oystehr,
-      { coverageId: 'cov-1', memberId: 'NEW-456', secrets: null },
+      { coverageId: 'cov-1', memberId: 'NEW-456', secrets: {} },
       { patientId: 'pat-1', coverage: structuredClone(coverage) }
     );
 

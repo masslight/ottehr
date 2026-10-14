@@ -7,12 +7,13 @@ import {
 import { PatientEducationLanguage } from 'utils/lib/types/data/patient-education.types';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { buildEducationPrompt } from '../../src/ehr/generate-patient-education/helpers';
-import { validateRequestParameters as validateGeneratePatientEducation } from '../../src/ehr/generate-patient-education/validateRequestParameters';
-import { validateRequestParameters as validateSaveApprovedPatientEducation } from '../../src/ehr/save-approved-patient-education/validateRequestParameters';
-import { validateRequestParameters as validateSavePatientEducationPdf } from '../../src/ehr/save-patient-education-pdf/validateRequestParameters';
+import { generatePatientEducationInputSchema } from '../../src/ehr/generate-patient-education/index';
+import { saveApprovedPatientEducationInputSchema } from '../../src/ehr/save-approved-patient-education/index';
+import { savePatientEducationPdfInputSchema } from '../../src/ehr/save-patient-education-pdf/index';
 import { findConflictingApprovedEducationIcdCodes } from '../../src/ehr/shared/approved-patient-education-helpers';
 import { fetchMedlineLinks } from '../../src/shared/medlineplus';
 import type { ZambdaInput } from '../../src/shared/types/common';
+import { validateWithSchema } from '../../src/shared/validation';
 
 // These cover the two load-bearing, easy-to-get-wrong-silently bits of Spanish patient education
 // (OTR-2624): the MedlinePlus language query param, and the Spanish instruction in the AI prompt.
@@ -57,13 +58,15 @@ describe('fetchMedlineLinks — language param', () => {
 describe('patient education language validation', () => {
   it('accepts supported languages for generation and rejects unsupported ones', () => {
     expect(
-      validateGeneratePatientEducation(
+      validateWithSchema(
+        generatePatientEducationInputSchema,
         makeZambdaInput({ icdCode: 'H66.001', icdDescription: 'Acute otitis media', language: 'es' })
       ).language
     ).toBe('es');
 
     expect(() =>
-      validateGeneratePatientEducation(
+      validateWithSchema(
+        generatePatientEducationInputSchema,
         makeZambdaInput({ icdCode: 'H66.001', icdDescription: 'Acute otitis media', language: 'fr' })
       )
     ).toThrow();
@@ -77,12 +80,15 @@ describe('patient education language validation', () => {
       language: 'en',
     };
 
-    expect(validateSaveApprovedPatientEducation(makeZambdaInput(validBody)).language).toBe('en');
-    expect(() => validateSaveApprovedPatientEducation(makeZambdaInput({ ...validBody, language: 'fr' }))).toThrow();
+    expect(validateWithSchema(saveApprovedPatientEducationInputSchema, makeZambdaInput(validBody)).language).toBe('en');
+    expect(() =>
+      validateWithSchema(saveApprovedPatientEducationInputSchema, makeZambdaInput({ ...validBody, language: 'fr' }))
+    ).toThrow();
   });
 
   it('accepts supported languages for visit PDFs and strips the removed relatedDocumentReferenceId field', () => {
-    const result = validateSavePatientEducationPdf(
+    const result = validateWithSchema(
+      savePatientEducationPdfInputSchema,
       makeZambdaInput({
         encounterId: 'encounter-1',
         patientId: 'patient-1',
@@ -103,7 +109,8 @@ describe('patient education language validation', () => {
     expect(result.language).toBe('es');
     expect(result).not.toHaveProperty('relatedDocumentReferenceId');
     expect(() =>
-      validateSavePatientEducationPdf(
+      validateWithSchema(
+        savePatientEducationPdfInputSchema,
         makeZambdaInput({
           encounterId: 'encounter-1',
           patientId: 'patient-1',

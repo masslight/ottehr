@@ -4,7 +4,7 @@
 // PHI: never logs the narrative, the chart or the model's answer. Envelope only.
 
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { ChartPlanResponse, PlannedAction } from 'utils/lib/easy-chart/api';
+import { ChartPlanRequestSchema, ChartPlanResponse, PlannedAction } from 'utils/lib/easy-chart/api';
 import {
   buildChartStateSummary,
   buildNoteContextFromChart,
@@ -16,6 +16,7 @@ import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { validateWithSchema } from '../../shared/validation';
 import { authorizeEasyChartRequest } from '../easy-chart-shared/authorize';
 import { applyGuards } from '../easy-chart-shared/guards';
 import { callModelForJson } from '../easy-chart-shared/model';
@@ -29,14 +30,16 @@ import {
   readVisitContext,
 } from '../easy-chart-shared/visit-context';
 import { resolveSuggestedTemplate } from './helpers';
-import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'easy-chart-plan';
 
 let m2mToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const { secrets, narrative, encounterId, providerEdits, dictation, patientStatus } = validateRequestParameters(input);
+  const { secrets, narrative, encounterId, providerEdits, dictation, patientStatus } = validateWithSchema(
+    ChartPlanRequestSchema,
+    input
+  );
 
   await authorizeEasyChartRequest(input, encounterId, secrets, ZAMBDA_NAME);
 

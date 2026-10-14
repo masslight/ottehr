@@ -1,6 +1,7 @@
 import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
 import { Claim, Coverage, FhirResource, Organization, ProvenanceAgent } from 'fhir/r4b';
 import { getClaimNonInsurancePayer } from 'utils/lib/fhir/billing';
+import { UpdateBillingResourceInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import {
   CLAIM_NON_INSURANCE_PAYER_TAG_SYSTEM,
   NIO_KIND_CODE,
@@ -8,7 +9,7 @@ import {
 } from 'utils/lib/types/data/billing/non-insurance-org.types';
 import { describe, expect, it, vi } from 'vitest';
 import { performEffect } from '../../../src/billing/update-billing-claim/index';
-import { validateRequestParameters } from '../../../src/billing/update-billing-claim/validateRequestParameters';
+import { validateWithSchema } from '../../../src/shared/validation';
 
 const CLAIM_ID = '5f2b8c9e-1a3d-4e6f-8a7b-9c0d1e2f3a4b';
 const agent: ProvenanceAgent = { who: { reference: 'Practitioner/test-user' } };
@@ -91,7 +92,7 @@ const createdResources = (create: ReturnType<typeof vi.fn>): FhirResource[] =>
 
 describe('update-billing-claim validateRequestParameters', () => {
   it('accepts a valid candid plan type', () => {
-    const result = validateRequestParameters({
+    const result = validateWithSchema(UpdateBillingResourceInputSchema, {
       headers: null,
       body: body({
         planType: '12',
@@ -107,7 +108,7 @@ describe('update-billing-claim validateRequestParameters', () => {
 
   it('rejects an unknown plan type', () => {
     expect(() =>
-      validateRequestParameters({
+      validateWithSchema(UpdateBillingResourceInputSchema, {
         headers: null,
         body: body({
           planType: 'ZZZ',
@@ -118,7 +119,7 @@ describe('update-billing-claim validateRequestParameters', () => {
   });
 
   it('accepts an admission date and discharge date set together', () => {
-    const result = validateRequestParameters({
+    const result = validateWithSchema(UpdateBillingResourceInputSchema, {
       headers: null,
       body: body({
         admissionDate: '2026-01-01',
@@ -136,7 +137,7 @@ describe('update-billing-claim validateRequestParameters', () => {
 
   it('rejects both admission date and discharge date submitted blank', () => {
     expect(() =>
-      validateRequestParameters({
+      validateWithSchema(UpdateBillingResourceInputSchema, {
         headers: null,
         body: body({
           admissionDate: '',
@@ -149,7 +150,7 @@ describe('update-billing-claim validateRequestParameters', () => {
 
   it('rejects an admission date without a discharge date', () => {
     expect(() =>
-      validateRequestParameters({
+      validateWithSchema(UpdateBillingResourceInputSchema, {
         headers: null,
         body: body({
           admissionDate: '2026-01-01',
@@ -162,7 +163,7 @@ describe('update-billing-claim validateRequestParameters', () => {
 
   it('rejects a discharge date without an admission date', () => {
     expect(() =>
-      validateRequestParameters({
+      validateWithSchema(UpdateBillingResourceInputSchema, {
         headers: null,
         body: body({
           admissionDate: '',
@@ -175,7 +176,7 @@ describe('update-billing-claim validateRequestParameters', () => {
 
   it('rejects an unknown accident type', () => {
     expect(() =>
-      validateRequestParameters({
+      validateWithSchema(UpdateBillingResourceInputSchema, {
         headers: null,
         body: body({
           accidentType: ['trapeze'],
@@ -187,7 +188,7 @@ describe('update-billing-claim validateRequestParameters', () => {
 
   it('rejects an accident without date', () => {
     expect(() =>
-      validateRequestParameters({
+      validateWithSchema(UpdateBillingResourceInputSchema, {
         headers: null,
         body: body({
           accidentType: ['other'],
@@ -199,7 +200,7 @@ describe('update-billing-claim validateRequestParameters', () => {
 
   it('rejects an auto accident without state', () => {
     expect(() =>
-      validateRequestParameters({
+      validateWithSchema(UpdateBillingResourceInputSchema, {
         headers: null,
         body: body({
           accidentType: ['auto'],
@@ -211,7 +212,7 @@ describe('update-billing-claim validateRequestParameters', () => {
   });
 
   it('accepts accident info with multiple types', () => {
-    const result = validateRequestParameters({
+    const result = validateWithSchema(UpdateBillingResourceInputSchema, {
       headers: null,
       body: body({
         accidentType: ['employment', 'other'],
@@ -228,7 +229,7 @@ describe('update-billing-claim validateRequestParameters', () => {
   });
 
   it('accepts auto accident info', () => {
-    const result = validateRequestParameters({
+    const result = validateWithSchema(UpdateBillingResourceInputSchema, {
       headers: null,
       body: body({
         accidentType: ['auto'],
@@ -247,7 +248,7 @@ describe('update-billing-claim validateRequestParameters', () => {
   });
 
   it('accepts unsetting accident info', () => {
-    const result = validateRequestParameters({
+    const result = validateWithSchema(UpdateBillingResourceInputSchema, {
       headers: null,
       body: body({
         accidentType: [],
@@ -513,13 +514,25 @@ describe('update-billing-claim non-insurance payer', () => {
 
   it('validateRequestParameters accepts set and clear payloads and rejects a non-uuid id', () => {
     expect(
-      validateRequestParameters({ headers: null, body: body({ nonInsurancePayer: { id: NIO_ID } }), secrets: {} })
+      validateWithSchema(UpdateBillingResourceInputSchema, {
+        headers: null,
+        body: body({ nonInsurancePayer: { id: NIO_ID } }),
+        secrets: {},
+      })
     ).toMatchObject({ fields: { nonInsurancePayer: { id: NIO_ID } } });
     expect(
-      validateRequestParameters({ headers: null, body: body({ nonInsurancePayer: null }), secrets: {} })
+      validateWithSchema(UpdateBillingResourceInputSchema, {
+        headers: null,
+        body: body({ nonInsurancePayer: null }),
+        secrets: {},
+      })
     ).toMatchObject({ fields: { nonInsurancePayer: null } });
     expect(() =>
-      validateRequestParameters({ headers: null, body: body({ nonInsurancePayer: { id: 'not-a-uuid' } }), secrets: {} })
+      validateWithSchema(UpdateBillingResourceInputSchema, {
+        headers: null,
+        body: body({ nonInsurancePayer: { id: 'not-a-uuid' } }),
+        secrets: {},
+      })
     ).toThrow();
   });
 });

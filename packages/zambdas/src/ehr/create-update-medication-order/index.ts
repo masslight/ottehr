@@ -1,5 +1,5 @@
 import Oystehr, { BatchInput, BatchInputRequest } from '@oystehr/sdk';
-import { captureException } from '@sentry/aws-serverless';
+import { captureException } from '@sentry/node-core/light';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
 import { Operation } from 'fast-json-patch';
@@ -48,6 +48,7 @@ import { VITALS_RECHECK_NURSING_ORDER_NOTE } from 'utils/lib/types/data/orders/c
 import { FHIR_RESOURCE_NOT_FOUND_CUSTOM, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { makeProcedureResource } from '../../shared/chart-data';
+import { fhirValidationErrorToApiError } from '../../shared/errors';
 import { assertDefined, createClinicalOystehrClient } from '../../shared/helpers';
 import { makeNursingOrderTransactionRequests } from '../../shared/nursing-orders';
 import { getMyPractitionerId } from '../../shared/practitioners';
@@ -81,7 +82,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const practitionerId = await getMyPractitionerId(userToken, validatedParameters.secrets);
   console.log('Created zapToken, fhir and clients.');
 
-  const response = await performEffect(oystehr, validatedParameters, practitionerId);
+  let response: Awaited<ReturnType<typeof performEffect>>;
+  try {
+    response = await performEffect(oystehr, validatedParameters, practitionerId);
+  } catch (error) {
+    throw fhirValidationErrorToApiError(error) ?? error;
+  }
   return {
     statusCode: 200,
     body: JSON.stringify(response),

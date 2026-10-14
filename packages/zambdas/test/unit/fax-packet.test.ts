@@ -20,6 +20,9 @@ const mockCreatePresignedUrl = vi.fn();
 const mockUploadObjectToZ3 = vi.fn();
 vi.mock('../../src/shared/z3Utils', () => ({
   createPresignedUrl: (...args: unknown[]) => mockCreatePresignedUrl(...args),
+}));
+vi.mock('utils/lib/helpers/presigned-file-url/helpers', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('utils/lib/helpers/presigned-file-url/helpers')>()),
   uploadObjectToZ3: (...args: unknown[]) => mockUploadObjectToZ3(...args),
 }));
 

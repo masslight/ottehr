@@ -46,9 +46,7 @@ async function fetchAdHocPatients({
 export const patientsDataset: AdHocDataset = {
   id: 'patients',
   label: 'Patients',
-  description:
-    'One row per patient seen in the date range, with demographics and a summary of their visits; ' +
-    'optional allergy, problem-list, and current-medication layers.',
+  description: 'One row per patient seen in the date range, with demographics and a summary of their visits.',
   options: ADHOC_PATIENTS_OPTIONS,
   layers: PATIENT_LAYERS,
   baseSchema: PatientBaseRowSchema,

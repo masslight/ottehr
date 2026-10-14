@@ -50,7 +50,7 @@ vi.mock('../../src/rcm/invoice-config/helpers', () => ({
   }),
 }));
 
-vi.mock('@sentry/aws-serverless', () => ({
+vi.mock('@sentry/node-core/light', () => ({
   captureException: (...args: unknown[]) => mockCaptureException(...args),
 }));
 

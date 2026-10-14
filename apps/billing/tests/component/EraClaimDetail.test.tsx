@@ -23,13 +23,11 @@ vi.mock('../../src/hooks/useAppClients', () => ({
   }),
 }));
 
-const CO_45_DESCRIPTION =
-  'Contractual Obligation — Charge exceeds fee schedule/maximum allowable or contracted/legislated fee arrangement.';
+const CO_45_DESCRIPTION = "Contractual Obligation — Paid less: billed amount is above the payer's allowed rate";
 
 const mainRemit: EraClaimRemit = {
   claimResponseId: 'cr-1',
   created: '2026-08-03',
-  outcome: 'complete',
   disposition: '',
   eraStatusCode: '1',
   payerClaimControlNumber: 'PC0000123400',
@@ -62,6 +60,7 @@ const mainRemit: EraClaimRemit = {
           amount: 310.95,
         },
       ],
+      remarkCodes: [],
     },
     {
       itemSequence: 2,
@@ -84,6 +83,7 @@ const mainRemit: EraClaimRemit = {
           amount: 275.62,
         },
       ],
+      remarkCodes: [],
     },
     {
       itemSequence: 3,
@@ -116,6 +116,7 @@ const mainRemit: EraClaimRemit = {
           amount: 230.02,
         },
       ],
+      remarkCodes: [],
     },
   ],
   notes: ['Alert: processed under network agreement'],
@@ -133,7 +134,6 @@ const matchedClaim: EraClaimListItem = {
   patientResp: 43,
   patientAccountNumber: 'ACCT-000123456',
   memberId: '999000111',
-  status: 'complete',
   matched: true,
   claimResponseIds: ['cr-1'],
   remits: [mainRemit],
@@ -151,14 +151,12 @@ const unmatchedClaim: EraClaimListItem = {
   patientResp: 25,
   patientAccountNumber: 'ACC-7',
   memberId: '',
-  status: 'queued',
   matched: false,
   claimResponseIds: ['cr-9'],
   remits: [
     {
       claimResponseId: 'cr-9',
       created: '2026-08-03',
-      outcome: 'queued',
       disposition: '',
       eraStatusCode: '4',
       payerClaimControlNumber: '',
@@ -194,6 +192,7 @@ const unmatchedClaim: EraClaimListItem = {
               amount: 25,
             },
           ],
+          remarkCodes: [],
         },
       ],
       notes: [],
@@ -220,6 +219,9 @@ const reversedClaim: EraClaimListItem = {
 
 const makeEra = (): EraDetailResponse => ({
   id: 'era-1',
+  source: 'clearing-house',
+  versionId: '1',
+  attachments: [],
   checkNumber: '26TRACE0001234567',
   checkDate: '2026-08-07',
   createdDate: '2026-08-03',
@@ -227,7 +229,6 @@ const makeEra = (): EraDetailResponse => ({
   payerName: 'Acme Health Plan of Tennessee',
   payerFhirId: 'org-9',
   payee: { name: 'Sunrise Pediatric Urgent Care', npi: '1234567893', taxId: '' },
-  status: 'complete',
   paymentMethod: '',
   totalClaims: 3,
   matchedClaims: 2,
@@ -295,7 +296,7 @@ describe('EraClaimDetail', () => {
     expect(screen.getAllByText('08/03/2026').length).toBeGreaterThan(0);
     expect(screen.getByText('Sunrise Pediatric Urgent Care (NPI 1234567893)')).toBeInTheDocument();
     expect(
-      screen.getByText('PR-27 — Expenses incurred after coverage terminated.; PR-3 — Co-payment amount.')
+      screen.getByText("PR-27 — Coverage had ended before the visit; PR-3 — Patient's copay for the visit")
     ).toBeInTheDocument();
   });
 
@@ -330,9 +331,7 @@ describe('EraClaimDetail', () => {
     expect(screen.getAllByText('45')).toHaveLength(3);
     expect(screen.getAllByText(CO_45_DESCRIPTION)).toHaveLength(3);
     expect(screen.getByText('$310.95')).toBeInTheDocument();
-    expect(
-      screen.getByText('Patient Responsibility — Expenses incurred after coverage terminated.')
-    ).toBeInTheDocument();
+    expect(screen.getByText('Patient Responsibility — Coverage had ended before the visit')).toBeInTheDocument();
 
     // PR bucket footer renders only on the line with PR adjustments; $23.00 is both the PR-3
     // adjustment row amount and the footer's copay value
@@ -351,6 +350,24 @@ describe('EraClaimDetail', () => {
 
     expect(await screen.findByText('10060')).toBeInTheDocument();
     expect(screen.getByText('99203:25')).toBeInTheDocument();
+  });
+
+  it('lists a line’s remark codes with what they mean', async () => {
+    const era = makeEra();
+    const [firstLine, ...otherLines] = era.claims[0].remits[0].serviceLines;
+    era.claims[0].remits[0].serviceLines = [{ ...firstLine, remarkCodes: ['N130', 'ZZ99'] }, ...otherLines];
+    getBillingEraDetailMock.mockResolvedValue(era);
+    renderPage();
+
+    expect(await screen.findByText('Remark codes')).toBeInTheDocument();
+    // the RARC table loads on demand, then the description joins the code
+    expect(
+      await screen.findByText(
+        (_, element) => element?.textContent?.startsWith('N130 — See plan benefit documents for limits') ?? false
+      )
+    ).toBeInTheDocument();
+    // unknown codes still show
+    expect(screen.getByText('ZZ99')).toBeInTheDocument();
   });
 
   it('collapses a line’s adjustments with the chevron', async () => {
@@ -379,6 +396,8 @@ describe('EraClaimDetail', () => {
     expect(await screen.findByText('Reversal')).toBeInTheDocument();
     expect(screen.getByText('Primary')).toBeInTheDocument();
     expect(screen.getAllByText('Service Line Details & Adjustments')).toHaveLength(2);
+    // the remits' FHIR outcome means nothing to billers
+    expect(screen.queryByText(/\b(complete|queued)\b/)).not.toBeInTheDocument();
   });
 
   it('closes back to the ERA detail page', async () => {

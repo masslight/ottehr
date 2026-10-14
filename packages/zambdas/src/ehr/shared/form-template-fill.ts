@@ -1,5 +1,5 @@
 import fontkit from '@pdf-lib/fontkit';
-import { captureException } from '@sentry/aws-serverless';
+import { captureException } from '@sentry/node-core/light';
 import fs from 'fs';
 import { DateTime } from 'luxon';
 import {

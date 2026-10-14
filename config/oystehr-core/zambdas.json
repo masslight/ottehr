@@ -1345,6 +1345,14 @@
       "src": "src/subscriptions/sub-adhoc-report/index",
       "zip": ".dist/zips/sub-adhoc-report.zip"
     },
+    "SUB-GENERATE-ADHOC-REPORT": {
+      "name": "sub-generate-adhoc-report",
+      "type": "subscription",
+      "runtime": "nodejs22.x",
+      "timeout": "900",
+      "src": "src/subscriptions/sub-generate-adhoc-report/index",
+      "zip": ".dist/zips/sub-generate-adhoc-report.zip"
+    },
     "SAVE-ADHOC-REPORT": {
       "name": "save-adhoc-report",
       "type": "http_auth",
@@ -3139,6 +3147,24 @@
         "channel": {
           "type": "rest-hook",
           "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-ADHOC-REPORT/id}"
+        },
+        "extension": [
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "create"
+          }
+        ]
+      }
+    },
+    "GENERATE_ADHOC_REPORT_SUBSCRIPTION": {
+      "resource": {
+        "resourceType": "Subscription",
+        "status": "active",
+        "reason": "Generate ad-hoc report code asynchronously",
+        "criteria": "Task?code=https://fhir.ottehr.com/CodeSystem/adhoc-report-task|adhoc-generate&status=requested",
+        "channel": {
+          "type": "rest-hook",
+          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-GENERATE-ADHOC-REPORT/id}"
         },
         "extension": [
           {

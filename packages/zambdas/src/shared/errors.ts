@@ -1,5 +1,7 @@
-import { captureException, captureMessage } from '@sentry/aws-serverless';
+import Oystehr from '@oystehr/sdk';
+import { captureException, captureMessage } from '@sentry/node-core/light';
 import { handleUnknownError } from 'utils/lib/fhir/helpers';
+import { APIError, FHIR_RESOURCE_VALIDATION_ERROR } from 'utils/lib/types/errors';
 
 export const sendErrors = async (error: any, env: string, tags?: Record<string, string>): Promise<void> => {
   if (process.env.PLAYWRIGHT_SUITE_ID != null || ['local'].includes(env)) {
@@ -67,4 +69,25 @@ export const isFhirNotFoundError = (error: unknown): boolean => {
     outcome?.resourceType === 'OperationOutcome' &&
     (outcome.issue ?? []).some((issue) => issue.severity === 'error' && issue.code === 'not-found')
   );
+};
+
+// FHIR statuses whose OperationOutcome describes a problem with the submitted resources, which the
+// user can fix. Anything else (auth, not found, server failures) stays an internal error.
+const FHIR_VALIDATION_STATUS_CODES = [400, 422];
+
+/**
+ * Turns a FHIR validation failure into an APIError carrying the OperationOutcome's issues, so the
+ * caller sees why the server rejected the resources instead of a bare "Internal error". Returns
+ * undefined for any other error, which the caller should rethrow unchanged.
+ */
+export const fhirValidationErrorToApiError = (error: unknown): APIError | undefined => {
+  if (!(error instanceof Oystehr.OystehrFHIRError) || !FHIR_VALIDATION_STATUS_CODES.includes(error.code)) {
+    return undefined;
+  }
+  const issueMessages = (error.cause?.issue ?? [])
+    .filter((issue) => issue.severity === 'error' || issue.severity === 'fatal')
+    .map((issue) => issue.details?.text ?? issue.diagnostics)
+    .filter((message): message is string => Boolean(message));
+  const details = issueMessages.length > 0 ? issueMessages.join('; ') : error.message;
+  return FHIR_RESOURCE_VALIDATION_ERROR(`FHIR validation failed: ${details}`);
 };

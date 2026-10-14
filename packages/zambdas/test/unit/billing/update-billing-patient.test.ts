@@ -32,7 +32,7 @@ describe('update-billing-patient', () => {
 
     const result = await performEffect(
       oystehr,
-      { patientId: 'pat-1', claimId: CLAIM_ID, firstName: 'Jane', lastName: 'Smith', phone: '555-0199', secrets: null },
+      { patientId: 'pat-1', claimId: CLAIM_ID, firstName: 'Jane', lastName: 'Smith', phone: '555-0199', secrets: {} },
       agent
     );
 
@@ -62,7 +62,7 @@ describe('update-billing-patient', () => {
 
     const result = await performEffect(
       oystehr,
-      { patientId: 'pat-1', firstName: 'Jane', lastName: 'Smith', secrets: null },
+      { patientId: 'pat-1', firstName: 'Jane', lastName: 'Smith', secrets: {} },
       undefined
     );
 

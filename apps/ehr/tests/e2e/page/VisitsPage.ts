@@ -96,7 +96,11 @@ export class VisitsPage {
 
   async selectLocation(locationName: string): Promise<void> {
     await this.#page.getByTestId(dataTestIds.dashboard.locationSelect).click();
-    await this.#page.locator(`li[role="option"]:has-text("${locationName}")`).first().click();
+    const escaped = locationName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    await this.#page
+      .getByRole('option', { name: new RegExp(`^(?:[A-Z]{2} - )?${escaped}$`) })
+      .first()
+      .click();
     await this.#page.keyboard.press('Escape');
   }
 

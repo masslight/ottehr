@@ -10,7 +10,7 @@ const makeInput = (body: string | null): ZambdaInput =>
     secrets: { ENVIRONMENT: 'local', AUTH0_SECRET: 'super-secret' },
   }) as unknown as ZambdaInput;
 
-// @sentry/aws-serverless is mocked as a pass-through in vitest.setup.ts, so the wrapper body runs directly.
+// vitest.setup.ts stubs the Sentry SDK with pass-through scope and span helpers, so the wrapper body runs directly.
 const invoke = async (input: ZambdaInput, handler?: () => Promise<APIGatewayProxyResult>): Promise<void> => {
   const wrapped = wrapHandler('test-zambda', handler ?? (async () => ({ statusCode: 200, body: '' }))) as unknown as (
     input: ZambdaInput

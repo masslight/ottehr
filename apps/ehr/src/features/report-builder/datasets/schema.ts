@@ -22,7 +22,7 @@ export function buildLlmDatasetSchema(params: {
   internalFields: readonly string[];
   // Whitelisted code/label fields whose distinct present values may be disclosed to the LLM.
   domainFields: readonly string[];
-  otherDatasets?: { label: string; description: string }[];
+  otherDatasets?: { id: string; label: string; description: string }[];
 }): LlmDatasetSchema {
   const { datasetId, label, description, rows, base, layers, selected, internalFields, domainFields } = params;
   const availableLayers = unloadedLayers(layers, selected);

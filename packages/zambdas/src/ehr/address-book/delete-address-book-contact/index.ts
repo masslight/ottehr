@@ -1,19 +1,20 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
+import { DeleteAddressBookContactInputSchema } from 'utils/lib/types/data/address-book';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { topLevelCatch } from '../../../shared/lambda';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
+import { validateWithSchema } from '../../../shared/validation';
 import { getAddressBookOrganizationOrThrow } from '../helpers';
-import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
 export const index = wrapHandler(
   'delete-address-book-contact',
   async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
     try {
-      const { contactId, secrets } = validateRequestParameters(input);
+      const { contactId, secrets } = validateWithSchema(DeleteAddressBookContactInputSchema, input);
 
       m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
       const oystehr = createClinicalOystehrClient(m2mToken, secrets);

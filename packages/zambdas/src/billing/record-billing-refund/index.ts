@@ -8,16 +8,20 @@ import {
   parsePaymentRefundsFromNotice,
   staleReservationIds,
 } from 'utils/lib/fhir/paymentRefunds';
+import { getOrCreateCandidApiClient } from 'utils/lib/helpers/candidApi';
+import { RecordBillingRefundInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { RecordBillingRefundResponse } from 'utils/lib/types/data/billing/billing.types';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
-import { shouldUseOttehrBilling } from '../../shared/candid';
+import { shouldUseCandid, shouldUseOttehrBilling, syncCandidPatientRefunds } from '../../shared/candid';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { applyRefundsToPaymentNotice, STRIPE_PAYMENT_ID_SYSTEM } from '../../shared/stripeIntegration';
 import { ZambdaInput } from '../../shared/types/common';
+import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { CLINICAL_PAYMENT_NOTICE_ID_SYSTEM, recordBillingManualRefund } from '../payments';
 import { createBillingClient } from '../shared';
-import { RecordBillingRefundParams, validateRequestParameters } from './validateRequestParameters';
+
+type RecordBillingRefundParams = ValidatedZambdaInput<typeof RecordBillingRefundInputSchema>;
 
 const ZAMBDA_NAME = 'record-billing-refund';
 
@@ -29,7 +33,7 @@ let m2mToken: string;
 // EHR roles hold wildcard Zambda:InvokeFunction, so a direct caller must only be able to trigger
 // an idempotent re-sync of clinical truth, never fabricate refunds or offsets.
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const params = validateRequestParameters(input);
+  const params = validateWithSchema(RecordBillingRefundInputSchema, input);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const clinicalOystehr = createClinicalOystehrClient(m2mToken, params.secrets);
   const billingOystehr = createBillingClient(m2mToken, params.secrets);
@@ -82,8 +86,8 @@ async function performEffect(
   // Gate on the billing flag, not on billing copies existing: the positive copy is bridged
   // asynchronously, and a FHIR-only refund has no later Stripe event to repair a missed offset.
   // recordBillingManualRefund dedups by refund id, so re-syncing every entry is idempotent.
+  const manualRefunds = refunds.filter((refund) => isLocallyRecordedRefund(refund) && !isPendingReservation(refund));
   if (encounterId && shouldUseOttehrBilling(secrets)) {
-    const manualRefunds = refunds.filter((refund) => isLocallyRecordedRefund(refund) && !isPendingReservation(refund));
     for (const entry of manualRefunds) {
       // external refunds carry the return medium; manual refunds use the payment's own method
       const paymentMethod = entry.medium ?? clinicalPaymentMethod;
@@ -100,5 +104,18 @@ async function performEffect(
     }
   }
 
-  return { billingNoticesStamped: billingNotices.length };
+  // Candid imports Stripe refunds on its own, but FHIR-only refunds never produce a Stripe
+  // event, so they must be pushed explicitly (note-marker dedup keeps re-syncs idempotent).
+  let candidRefundsRecorded = 0;
+  if (encounterId && shouldUseCandid(secrets) && manualRefunds.length > 0) {
+    const candidApiClient = await getOrCreateCandidApiClient(clinicalOystehr, secrets);
+    candidRefundsRecorded = await syncCandidPatientRefunds({
+      encounterId,
+      refunds: manualRefunds,
+      oystehr: clinicalOystehr,
+      candidApiClient,
+    });
+  }
+
+  return { billingNoticesStamped: billingNotices.length, candidRefundsRecorded };
 }

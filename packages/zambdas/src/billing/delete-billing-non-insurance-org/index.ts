@@ -3,21 +3,24 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { FhirResource, Organization } from 'fhir/r4b';
 import { makeOptimisticLockIfMatchHeader } from 'utils/lib/fhir/helpers';
 import { DeletedResponse } from 'utils/lib/types/data/billing/billing.types';
+import { DeleteNonInsuranceOrgInputSchema } from 'utils/lib/types/data/billing/non-insurance-org.schemas';
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { truncateForLog } from '../../shared/logging';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { fetchNioCoveragePairs, isNonInsuranceOrganization, NioCoveragePair } from '../non-insurance-org.helpers';
 import { createBillingClient, fetchById } from '../shared';
-import { DeleteNonInsuranceOrgParams, validateRequestParameters } from './validateRequestParameters';
+
+type DeleteNonInsuranceOrgParams = ValidatedZambdaInput<typeof DeleteNonInsuranceOrgInputSchema>;
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'delete-billing-non-insurance-org';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.group('validateRequestParameters');
-  const params = validateRequestParameters(input);
+  const params = validateWithSchema(DeleteNonInsuranceOrgInputSchema, input);
   const { secrets } = params;
   console.groupEnd();
 
