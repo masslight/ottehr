@@ -65,7 +65,7 @@ export interface StudioReport {
   /** Server fetch time of the last run while building, and the date-range span (days) it was measured on. */
   measuredFetchSeconds?: number;
   measuredRangeDays?: number;
-  /** Per step id, the bulk density the last run measured (see fetchMode.ts); the next run pre-sizes its bulk jobs from it. */
+  /** Per step id, the density the last run measured (see fetchMode.ts); the next run pre-sizes its date windows and batches from it. */
   stepDensity?: Record<string, FetchStepDensity>;
 }
 

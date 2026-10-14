@@ -36,9 +36,9 @@ export const isDirectTimeout = (error: unknown, elapsedMs: number): boolean =>
   (typeof (error as { status?: unknown })?.status === 'number' && (error as { status: number }).status >= 502);
 
 /**
- * What a run teaches about each step's volume, for the zambda to pre-size the next run's bulk jobs: primary
- * resources per scoped id, or per day of the range for a date-bounded step. Only steps that ran bulk measure
- * anything; a step that failed teaches nothing.
+ * What a run teaches about each step's volume, for the zambda to pre-size the next run's date windows and
+ * batches: primary resources per scoped id, or per day of the range for a date-bounded step. A step that
+ * failed or was skipped teaches nothing.
  */
 export function stepDensity(
   plan: { steps: { id: string; params?: { name: string; value: string }[] }[] },
@@ -48,7 +48,7 @@ export function stepDensity(
   const days = Math.max(1, rangeDays(dateRange));
   const out: Record<string, FetchStepDensity> = {};
   for (const s of stats) {
-    if (s.mode !== 'bulk' || s.error) continue;
+    if (s.mode === 'skipped' || s.error) continue;
     const primary = s.byType[s.resourceType] ?? 0;
     const step = plan.steps.find((p) => p.id === s.id);
     if (s.scopedValues) out[s.id] = { recordsPerId: primary / s.scopedValues };

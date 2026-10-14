@@ -16,7 +16,8 @@ export const FETCH_PLAN_LIMITS = {
   autoBulkThreshold: 5_000,
   pageSize: 1_000,
   scopedBatchSize: 100,
-  scopedBatchConcurrency: 4,
+  // Searches in flight at once across a whole plan run — its steps, date windows and scoped batches together.
+  maxConcurrentRequests: 8,
   // Above this many scoped values the batches go through the async-bulk path instead of paged searches.
   // Measured on synth (2,700 Encounter ids → 17,724 vitals, 27 batches): paged 3.5–4.6 s, bulk jobs 18.7 s.
   scopedBulkThreshold: 5_000,
@@ -27,16 +28,26 @@ export const FETCH_PLAN_LIMITS = {
 /** Primary resources a pre-sized bulk job aims for: under the server's 30,000 cap, with room for the density to drift. */
 export const ASYNC_BULK_TARGET = 20_000;
 
-/** The bulk density a step showed on an earlier run: primary resources per day of range, or per scoped id. */
+/** Primary resources a paged date window aims for: a few pages each, run side by side, and still paged when the density doubles. */
+export const PAGED_WINDOW_TARGET = FETCH_PLAN_LIMITS.autoBulkThreshold / 2;
+
+/** The density a step showed on an earlier run: primary resources per day of range, or per scoped id. */
 export const FetchStepDensitySchema = z.object({
   recordsPerDay: z.number().nonnegative().optional(),
   recordsPerId: z.number().nonnegative().optional(),
 });
 export type FetchStepDensity = z.infer<typeof FetchStepDensitySchema>;
 
+const windowCount = (recordsPerDay: number | undefined, days: number, target: number): number =>
+  recordsPerDay ? Math.max(1, Math.ceil((recordsPerDay * days) / target)) : 1;
+
 /** How many date windows a bulk step runs in, so each job lands near the target; one without a hint. */
 export const bulkWindowCount = (recordsPerDay: number | undefined, days: number): number =>
-  recordsPerDay ? Math.max(1, Math.ceil((recordsPerDay * days) / ASYNC_BULK_TARGET)) : 1;
+  windowCount(recordsPerDay, days, ASYNC_BULK_TARGET);
+
+/** How many date windows a paged step runs in, so each stays a short paged search; one without a hint. */
+export const pagedWindowCount = (recordsPerDay: number | undefined, days: number): number =>
+  windowCount(recordsPerDay, days, PAGED_WINDOW_TARGET);
 
 /** How many ids a scoped bulk batch carries, so each job lands near the target; today's batch size without a hint. */
 export const scopedBulkBatchSize = (recordsPerId: number | undefined): number =>
@@ -142,7 +153,7 @@ export const RunFetchPlanInputSchema = z.object({
   inline: z.boolean().optional(),
   /** Gzip the Z3 file; the client decompresses it (DecompressionStream in the browser). */
   gzip: z.boolean().optional(),
-  /** Step id → density an earlier run measured, to pre-size that step's bulk jobs (Report Studio saves it). */
+  /** Step id → density an earlier run measured, to pre-size that step's windows and batches (Report Studio saves it). */
   hints: z.record(FetchStepDensitySchema).optional(),
 });
 export type RunFetchPlanInput = z.infer<typeof RunFetchPlanInputSchema>;

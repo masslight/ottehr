@@ -165,7 +165,7 @@ export async function runReport(opts: { dateRange?: DateRange; reuseData?: boole
       fetchOutput = rest;
       setRun({ fetch: rest, resources: fetched });
       // The measurements are metadata, not an edit — unless the fallback pinned the Task path, which a save should keep.
-      // A step's density is replaced by what this run measured; steps that did not run bulk keep their last one.
+      // A step's density is replaced by what this run measured; steps that measured nothing (failed, skipped) keep their last one.
       setReport(
         {
           ...measuredFetch(rest.totalMs, dateRange, fellBack),

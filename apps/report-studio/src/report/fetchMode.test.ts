@@ -100,20 +100,22 @@ describe('stepDensity', () => {
     ...partial,
   });
 
-  it('measures primary resources per day for a date-bounded bulk step and per id for a scoped one', () => {
+  it('measures primary resources per day for a date-bounded step and per id for a scoped one, bulk or paged', () => {
     const stats = [
       stat({ id: 'visits', resourceType: 'Appointment', byType: { Appointment: 3000, Patient: 2500 } }),
       stat({ id: 'vitals', resourceType: 'Observation', byType: { Observation: 19_500 }, scopedValues: 3000 }),
+      stat({ id: 'small', resourceType: 'Appointment', byType: { Appointment: 300 }, mode: 'normal' }),
     ];
     expect(stepDensity(plan, stats, days(30))).toEqual({
       visits: { recordsPerDay: 100 },
       vitals: { recordsPerId: 6.5 },
+      small: { recordsPerDay: 10 },
     });
   });
 
-  it('learns nothing from a paged, failed or half-bounded step', () => {
+  it('learns nothing from a failed, skipped or half-bounded step', () => {
     const stats = [
-      stat({ id: 'small', resourceType: 'Appointment', byType: { Appointment: 300 }, mode: 'normal' }),
+      stat({ id: 'small', resourceType: 'Appointment', byType: {}, mode: 'skipped' }),
       stat({ id: 'visits', resourceType: 'Appointment', byType: { Appointment: 3000 }, error: 'boom' }),
       stat({ id: 'open', resourceType: 'Appointment', byType: { Appointment: 3000 } }),
     ];

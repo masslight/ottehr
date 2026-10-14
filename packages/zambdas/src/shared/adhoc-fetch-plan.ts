@@ -14,6 +14,7 @@ import {
   FetchStepDensity,
   FetchStepParam,
   FetchStepStats,
+  pagedWindowCount,
   resolveParamTemplates,
   scopedBulkBatchSize,
   scopedStepValues,
@@ -28,7 +29,6 @@ import {
   halveList,
   halveWindow,
   isSearchTooHeavyError,
-  REPORT_WINDOW_CONCURRENCY,
   searchAsyncBulk,
   searchSplittingOnCap,
   SplitRetryOptions,
@@ -41,6 +41,24 @@ export interface FetchPlanResult {
   totalMs: number;
 }
 
+export type Limiter = <T>(fn: () => Promise<T>) => Promise<T>;
+
+/** Runs at most `max` of the functions given to it at once; the rest wait their turn in order. */
+export function createLimiter(max: number): Limiter {
+  let active = 0;
+  const waiting: (() => void)[] = [];
+  return async (fn) => {
+    if (active >= max) await new Promise<void>((resolve) => waiting.push(resolve));
+    active += 1;
+    try {
+      return await fn();
+    } finally {
+      active -= 1;
+      waiting.shift()?.();
+    }
+  };
+}
+
 export async function runFetchPlan(
   oystehr: Oystehr,
   plan: FetchPlan,
@@ -51,6 +69,8 @@ export async function runFetchPlan(
   const startedAt = Date.now();
   const resourcesByStep = new Map<string, FhirResource[]>();
   const statsByStep = new Map<string, FetchStepStats>();
+  // One ceiling on searches in flight for the whole run: steps, date windows and scoped batches share it.
+  const limit = createLimiter(FETCH_PLAN_LIMITS.maxConcurrentRequests);
 
   // Steps that depend on nothing run together; a scoped step runs once its source step has finished.
   for (const level of planLevels(plan)) {
@@ -58,6 +78,7 @@ export async function runFetchPlan(
       level.map(async (step) => {
         const { resources, stats } = await runStep(
           oystehr,
+          limit,
           step,
           dateRange,
           parameters,
@@ -98,6 +119,7 @@ function planLevels(plan: FetchPlan): FetchStep[][] {
 
 async function runStep(
   oystehr: Oystehr,
+  limit: Limiter,
   step: FetchStep,
   dateRange: DateRange | undefined,
   parameters: FetchPlanParameters | undefined,
@@ -128,30 +150,28 @@ async function runStep(
     floor,
   });
   const windowSplit = splitOptions(dated ? 'a single day' : undefined);
-  // Bulk jobs over the run's date range: as many windows as the density hint of an earlier run calls for (one
-  // without it), each halved whenever its job fills the async-bulk cap. A step whose params do not bound both ends
-  // of the range runs as one job that cannot be halved.
-  let bulkJobs = 0;
-  const searchBulk = async (): Promise<FhirResource[]> => {
-    const rangeMs = dated ? Date.parse(dateRange.end) - Date.parse(dateRange.start) : 0;
-    const windows = dated
-      ? dateWindows(dateRange, Math.ceil(rangeMs / bulkWindowCount(hint?.recordsPerDay, rangeMs / DAY_MS)))
-      : [dateRange];
-    const searchWindow = (window: DateRange | undefined): Promise<FhirResource[]> => {
-      bulkJobs += 1;
-      return searchAsyncBulk(oystehr, step.resourceType as FhirResource['resourceType'], resolveParams(window));
-    };
-    const out: FhirResource[] = [];
-    for (let i = 0; i < windows.length; i += REPORT_WINDOW_CONCURRENCY) {
-      const group = await Promise.all(
-        windows
-          .slice(i, i + REPORT_WINDOW_CONCURRENCY)
-          .map((window) => searchSplittingOnCap(window, searchWindow, halveDated, windowSplit))
-      );
-      for (const resources of group) out.push(...resources);
-    }
-    return out;
+  const rangeMs = dated ? Date.parse(dateRange.end) - Date.parse(dateRange.start) : 0;
+  // The run's date range in as many windows as the density hint of an earlier run calls for (one without it), searched
+  // side by side under the run's limit, each halved whenever the server cannot finish it (or its bulk job fills the cap).
+  // A step whose params do not bound both ends of the range runs as one window that cannot be halved.
+  const searchWindows = async (
+    count: number,
+    searchWindow: (window: DateRange | undefined) => Promise<FhirResource[]>
+  ): Promise<FhirResource[]> => {
+    const windows = dated ? dateWindows(dateRange, Math.ceil(rangeMs / count)) : [dateRange];
+    const parts = await Promise.all(
+      windows.map((window) => searchSplittingOnCap(window, searchWindow, halveDated, windowSplit))
+    );
+    return parts.flat();
   };
+  let bulkJobs = 0;
+  const searchBulk = (): Promise<FhirResource[]> =>
+    searchWindows(bulkWindowCount(hint?.recordsPerDay, rangeMs / DAY_MS), (window) => {
+      bulkJobs += 1;
+      return limit(() =>
+        searchAsyncBulk(oystehr, step.resourceType as FhirResource['resourceType'], resolveParams(window))
+      );
+    });
 
   const finish = (
     resources: FhirResource[],
@@ -184,25 +204,33 @@ async function runStep(
       const source = resourcesByStep.get(step.from.step) ?? [];
       const values = scopedStepValues(source, step.from);
       if (values.length === 0) return finish([], { mode: 'normal', requests: 0, scopedValues: 0 });
-      const [scoped, partial] = await runScoped(oystehr, step, params, values, splitOptions('a single id'), hint);
+      const [scoped, partial] = await runScoped(
+        oystehr,
+        limit,
+        step,
+        params,
+        values,
+        splitOptions('a single id'),
+        hint
+      );
       return finish(scoped, { ...partial, scopedValues: values.length });
     }
 
     if (step.mode === 'bulk') {
-      await probeSearch(oystehr, step.resourceType, params);
+      await probeSearch(oystehr, limit, step.resourceType, params);
       return finish(await searchBulk(), { mode: 'bulk', requests: 1 + bulkJobs });
     }
 
+    // The cap is per window: a window past it means the density is not what the hint said, or there was no hint.
     const cap = step.mode === 'normal' ? FETCH_PLAN_LIMITS.maxResourcesPerStep : FETCH_PLAN_LIMITS.autoBulkThreshold;
     let pages = 0;
     let hitCap = false;
-    const searchWindow = async (window: DateRange | undefined): Promise<FhirResource[]> => {
-      const paged = await searchPaged(oystehr, step.resourceType, resolveParams(window), cap);
+    const resources = await searchWindows(pagedWindowCount(hint?.recordsPerDay, rangeMs / DAY_MS), async (window) => {
+      const paged = await searchPaged(oystehr, limit, step.resourceType, resolveParams(window), cap);
       pages += paged.requests;
       hitCap ||= paged.hitCap;
       return paged.resources;
-    };
-    const resources = await searchSplittingOnCap(dateRange, searchWindow, halveDated, windowSplit);
+    });
     if (hitCap) {
       if (step.mode === 'normal') {
         throw new Error(
@@ -223,15 +251,23 @@ async function runStep(
 
 // A bulk job reports a bad search only as "job answered status 400"; the same search as a one-row
 // normal search fails with the server's own message (e.g. which _include is invalid), so run that first.
-async function probeSearch(oystehr: Oystehr, resourceType: string, params: FetchStepParam[]): Promise<void> {
-  await oystehr.fhir.search<FhirResource>({
-    resourceType: resourceType as FhirResource['resourceType'],
-    params: [...params, { name: '_count', value: '1' }],
-  });
+async function probeSearch(
+  oystehr: Oystehr,
+  limit: Limiter,
+  resourceType: string,
+  params: FetchStepParam[]
+): Promise<void> {
+  await limit(() =>
+    oystehr.fhir.search<FhirResource>({
+      resourceType: resourceType as FhirResource['resourceType'],
+      params: [...params, { name: '_count', value: '1' }],
+    })
+  );
 }
 
 async function searchPaged(
   oystehr: Oystehr,
+  limit: Limiter,
   resourceType: string,
   params: FetchStepParam[],
   maxItems: number
@@ -242,10 +278,16 @@ async function searchPaged(
   await fetchAllPages(
     async (offset, count) => {
       requests += 1;
-      const bundle = await oystehr.fhir.search<FhirResource>({
-        resourceType: resourceType as FhirResource['resourceType'],
-        params: [...params, { name: '_count', value: count.toString() }, { name: '_offset', value: offset.toString() }],
-      });
+      const bundle = await limit(() =>
+        oystehr.fhir.search<FhirResource>({
+          resourceType: resourceType as FhirResource['resourceType'],
+          params: [
+            ...params,
+            { name: '_count', value: count.toString() },
+            { name: '_offset', value: offset.toString() },
+          ],
+        })
+      );
       resources.push(...bundle.unbundle());
       lastHadNext = bundle.link?.some((link) => link.relation === 'next') ?? false;
       return bundle;
@@ -256,10 +298,11 @@ async function searchPaged(
   return { resources, requests, hitCap: lastHadNext && resources.length >= maxItems };
 }
 
-// Batches of ids, paged or as bulk jobs; a batch that fills the bulk cap or that the server cannot finish is
-// halved (halveList) and retried, so `requests` counts what actually ran.
+// Batches of ids, paged or as bulk jobs, searched side by side under the run's limit; a batch that fills the bulk
+// cap or that the server cannot finish is halved (halveList) and retried, so `requests` counts what actually ran.
 async function runScoped(
   oystehr: Oystehr,
+  limit: Limiter,
   step: FetchStep,
   params: FetchStepParam[],
   values: string[],
@@ -275,16 +318,19 @@ async function runScoped(
 
   let requests = 0;
   if (bulk) {
-    await probeSearch(oystehr, step.resourceType, batchParams(batches[0]));
+    await probeSearch(oystehr, limit, step.resourceType, batchParams(batches[0]));
     requests += 1;
   }
   const searchBatch = async (batch: string[]): Promise<FhirResource[]> => {
     if (bulk) {
       requests += 1;
-      return searchAsyncBulk(oystehr, step.resourceType as FhirResource['resourceType'], batchParams(batch));
+      return limit(() =>
+        searchAsyncBulk(oystehr, step.resourceType as FhirResource['resourceType'], batchParams(batch))
+      );
     }
     const paged = await searchPaged(
       oystehr,
+      limit,
       step.resourceType,
       batchParams(batch),
       FETCH_PLAN_LIMITS.maxResourcesPerStep
@@ -293,15 +339,8 @@ async function runScoped(
     return paged.resources;
   };
 
-  const resources: FhirResource[] = [];
-  const concurrency = bulk ? REPORT_WINDOW_CONCURRENCY : FETCH_PLAN_LIMITS.scopedBatchConcurrency;
-  for (let i = 0; i < batches.length; i += concurrency) {
-    const group = await Promise.all(
-      batches
-        .slice(i, i + concurrency)
-        .map((batch) => searchSplittingOnCap(batch, searchBatch, halveList, splitOptions))
-    );
-    for (const list of group) resources.push(...list);
-  }
-  return [resources, { mode: bulk ? 'bulk' : 'normal', requests }];
+  const parts = await Promise.all(
+    batches.map((batch) => searchSplittingOnCap(batch, searchBatch, halveList, splitOptions))
+  );
+  return [parts.flat(), { mode: bulk ? 'bulk' : 'normal', requests }];
 }

@@ -3,6 +3,8 @@ import {
   ASYNC_BULK_TARGET,
   bulkWindowCount,
   FETCH_PLAN_LIMITS,
+  PAGED_WINDOW_TARGET,
+  pagedWindowCount,
   planNeedsPatient,
   resolveParamTemplates,
   RunFetchPlanInputSchema,
@@ -146,6 +148,16 @@ describe('bulk job sizing', () => {
     expect(bulkWindowCount(441.4, 7)).toBe(1);
     expect(bulkWindowCount(undefined, 365)).toBe(1);
     expect(bulkWindowCount(0, 365)).toBe(1);
+  });
+
+  it('cuts a paged step into windows of a few pages each', () => {
+    // A year of synth visits (7.4 a day, 2,697) → 2 windows; 2,500 a day → 365.
+    expect(pagedWindowCount(7.4, 365)).toBe(2);
+    expect(pagedWindowCount(2500, 365)).toBe(Math.ceil((2500 * 365) / PAGED_WINDOW_TARGET));
+    expect(pagedWindowCount(7.4, 7)).toBe(1);
+    expect(pagedWindowCount(undefined, 365)).toBe(1);
+    expect(pagedWindowCount(0, 365)).toBe(1);
+    expect(PAGED_WINDOW_TARGET).toBeLessThan(FETCH_PLAN_LIMITS.autoBulkThreshold);
   });
 
   it("fits as many ids in a scoped batch as the target allows, within bounds; today's size without a hint", () => {
