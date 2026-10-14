@@ -11,7 +11,12 @@ import {
 } from 'fhir/r4b';
 import { CPT_CODE_SYSTEM, FHIR_IDENTIFIER_NPI } from 'utils/lib/fhir/constants';
 import { getPayerUrl } from 'utils/lib/helpers/helpers';
-import { CODE_SYSTEM_CMS_PLACE_OF_SERVICE, EXTENSION_URL_CPT_MODIFIER } from 'utils/lib/helpers/rcm/constants';
+import {
+  CLAIM_ACCIDENT_STATE_EXTENSION_URL,
+  CLAIM_ACCIDENT_TYPE_EXTENSION_URLS,
+  CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
+  EXTENSION_URL_CPT_MODIFIER,
+} from 'utils/lib/helpers/rcm/constants';
 import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
 import { BillingInsuranceType } from 'utils/lib/types/data/billing/billing.schemas';
 import { ChargeItemDefinitionDefault } from 'utils/lib/types/data/billing/billing.types';
@@ -73,6 +78,7 @@ import {
   EXTENSION_CLAIM_FREQUENCY_CODE,
   EXTENSION_CLAIM_PATIENT_DISCHARGE_STATUS,
   EXTENSION_CLAIM_POINT_OF_ORIGIN_CODE,
+  LICENSE_TAG,
   PROVIDER_ROLE_TAG,
   setClaimItemOrderingProviders,
   SOURCE_IDENTIFIER_SYSTEM,
@@ -533,6 +539,89 @@ describe('rules-engine evaluator', () => {
     expect(writeField(m, 'serviceFacility.zip', '94123')).toBe(true);
     expect(readField(m, 'serviceFacility.addressLine1')).toBe('500 Care Way');
     expect(readField(m, 'serviceFacility.zip')).toBe('94123');
+  });
+
+  it('reads and writes accident details, removing them when cleared', () => {
+    const m = makeModel();
+    expect(readField(m, 'accident.auto')).toBe('false');
+    expect(readField(m, 'accident.state')).toBeUndefined();
+    expect(readField(m, 'accident.date')).toBeUndefined();
+
+    expect(writeField(m, 'accident.auto', 'true')).toBe(true);
+    expect(writeField(m, 'accident.other', 'true')).toBe(true);
+    expect(writeField(m, 'accident.state', 'TX')).toBe(true);
+    expect(writeField(m, 'accident.date', '2025-12-30')).toBe(true);
+    expect(readField(m, 'accident.auto')).toBe('true');
+    expect(readField(m, 'accident.employment')).toBe('false');
+    expect(readField(m, 'accident.other')).toBe('true');
+    expect(readField(m, 'accident.state')).toBe('TX');
+    expect(readField(m, 'accident.date')).toBe('2025-12-30');
+    expect(m.claim.extension?.find((ext) => ext.url === CLAIM_ACCIDENT_TYPE_EXTENSION_URLS.auto)?.valueBoolean).toBe(
+      true
+    );
+
+    // Rewriting the date updates the one supportingInfo entry instead of adding another.
+    expect(writeField(m, 'accident.date', '2025-12-31')).toBe(true);
+    expect(m.claim.supportingInfo).toHaveLength(1);
+    expect(readField(m, 'accident.date')).toBe('2025-12-31');
+
+    expect(writeField(m, 'accident.auto', 'false')).toBe(true);
+    expect(writeField(m, 'accident.state', '')).toBe(true);
+    expect(writeField(m, 'accident.date', null)).toBe(true);
+    expect(readField(m, 'accident.auto')).toBe('false');
+    expect(m.claim.extension?.some((ext) => ext.url === CLAIM_ACCIDENT_TYPE_EXTENSION_URLS.auto)).toBe(false);
+    expect(m.claim.extension?.some((ext) => ext.url === CLAIM_ACCIDENT_STATE_EXTENSION_URL)).toBe(false);
+    expect(m.claim.supportingInfo).toBeUndefined();
+
+    expect(writeField(m, 'accident.auto', 'yes')).toBe(false);
+    expect(writeField(m, 'accident.auto', null)).toBe(false);
+    expect(writeField(m, 'accident.state', 'XX')).toBe(false);
+    expect(writeField(m, 'accident.date', '12/31/2025')).toBe(false);
+  });
+
+  it('reads and writes the rendering provider license, keeping its other parts', () => {
+    const m = makeModel();
+    const practitioner = m.renderingProvider as Practitioner;
+    expect(readField(m, 'renderingProvider.licenseNumber')).toBeUndefined();
+
+    // A number without a state can't be stored unambiguously, so it needs the state first.
+    expect(writeField(m, 'renderingProvider.licenseNumber', 'A12345')).toBe(false);
+    expect(practitioner.identifier).toEqual([{ system: FHIR_IDENTIFIER_NPI, value: '1234567890' }]);
+    expect(writeField(m, 'renderingProvider.licenseState', 'TX')).toBe(true);
+    expect(readField(m, 'renderingProvider.licenseNumber')).toBeUndefined();
+    expect(readField(m, 'renderingProvider.licenseState')).toBe('TX');
+    expect(writeField(m, 'renderingProvider.licenseNumber', 'A12345')).toBe(true);
+    expect(readField(m, 'renderingProvider.licenseNumber')).toBe('A12345');
+    expect(readField(m, 'renderingProvider.licenseState')).toBe('TX');
+
+    // The license type (a meta tag) is preserved and still prefixes the identifier value.
+    practitioner.meta = { tag: [{ system: LICENSE_TAG, code: 'MD' }] };
+    expect(writeField(m, 'renderingProvider.licenseNumber', 'B999')).toBe(true);
+    expect(practitioner.identifier?.find((id) => id.value?.startsWith('MD'))?.value).toBe('MDB999TX');
+    expect(readField(m, 'renderingProvider.licenseState')).toBe('TX');
+
+    expect(writeField(m, 'renderingProvider.licenseState', 'ZZ')).toBe(false);
+
+    // A number ending in a state code keeps its explicit state boundary.
+    practitioner.meta = undefined;
+    expect(writeField(m, 'renderingProvider.licenseNumber', 'ABCAL')).toBe(true);
+    expect(readField(m, 'renderingProvider.licenseNumber')).toBe('ABCAL');
+    expect(readField(m, 'renderingProvider.licenseState')).toBe('TX');
+
+    // Clearing the state while a number remains would make "AL" read back as the state.
+    expect(writeField(m, 'renderingProvider.licenseState', '')).toBe(false);
+    expect(readField(m, 'renderingProvider.licenseNumber')).toBe('ABCAL');
+    expect(readField(m, 'renderingProvider.licenseState')).toBe('TX');
+
+    // Clearing number then state removes the license identifier; the NPI stays.
+    expect(writeField(m, 'renderingProvider.licenseNumber', '')).toBe(true);
+    expect(writeField(m, 'renderingProvider.licenseState', '')).toBe(true);
+    expect(practitioner.identifier).toEqual([{ system: FHIR_IDENTIFIER_NPI, value: '1234567890' }]);
+
+    // Organizations carry no license.
+    m.renderingProvider = m.billingProvider;
+    expect(readField(m, 'renderingProvider.licenseNumber')).toBeUndefined();
+    expect(writeField(m, 'renderingProvider.licenseNumber', 'A12345')).toBe(false);
   });
 
   it('preserves the middle name when writing the first name, and vice versa', () => {
