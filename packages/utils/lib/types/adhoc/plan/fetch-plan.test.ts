@@ -4,6 +4,7 @@ import {
   resolveParamTemplates,
   RunFetchPlanInputSchema,
   scopedStepValues,
+  stepIsDateBounded,
   toElementName,
 } from './fetch-plan';
 
@@ -79,6 +80,30 @@ describe('resolveParamTemplates', () => {
   it('names what is missing', () => {
     expect(() => resolveParamTemplates('Patient/{{patientId}}', range)).toThrow(/needs a patient id/);
     expect(() => resolveParamTemplates('ge{{start}}')).toThrow(/needs a date range/);
+  });
+});
+
+describe('stepIsDateBounded', () => {
+  it('needs both ends of the range, as instants or days', () => {
+    expect(
+      stepIsDateBounded({
+        params: [
+          { name: 'date', value: 'ge{{start}}' },
+          { name: 'date', value: 'le{{end}}' },
+        ],
+      })
+    ).toBe(true);
+    expect(
+      stepIsDateBounded({
+        params: [
+          { name: 'date', value: 'ge{{ startDate }}' },
+          { name: 'date', value: 'le{{endDate}}' },
+        ],
+      })
+    ).toBe(true);
+    expect(stepIsDateBounded({ params: [{ name: 'date', value: 'ge{{start}}' }] })).toBe(false);
+    expect(stepIsDateBounded({ params: [{ name: 'patient', value: 'Patient/{{patientId}}' }] })).toBe(false);
+    expect(stepIsDateBounded({})).toBe(false);
   });
 });
 

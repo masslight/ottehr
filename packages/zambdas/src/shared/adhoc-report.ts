@@ -20,6 +20,7 @@ import { isInPersonAppointment, isTelemedAppointment, OTTEHR_MODULE } from 'util
 import { getAddressForIndividual, getFirstName, getLastName, getMiddleName } from 'utils/lib/fhir/patient';
 import { getAdmitterPractitionerId, getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { DateRange } from 'utils/lib/types/adhoc/query/date-range';
 import { getInPersonVisitStatus } from 'utils/lib/utils/visitUtils';
 import { gzipSync } from 'zlib';
 import { createPresignedUrl } from './z3Utils';
@@ -141,6 +142,14 @@ async function downloadNdjson<T extends FhirResource>(url: string): Promise<T[]>
   }
 }
 
+// Oystehr's SearchEngine caps an async-bulk job at this many PRIMARY resources (maxAsyncSearchResults) — without
+// `_count` at 1,000 — and drops the matches past it silently (no error, no next link). Included resources are not
+// counted. Measured on synth 2026-10-14: 161,116 Observations, `_count=100000` → 30,000, `_count=29999` → 29,999.
+export const ASYNC_BULK_MAX = 30_000;
+
+/** A bulk job returned as many primary resources as its `_count` allows, so the server may have dropped matches. */
+export class AsyncBulkCapError extends Error {}
+
 export async function searchAsyncBulk<T extends FhirResource>(
   oystehr: Oystehr,
   resourceType: T['resourceType'],
@@ -148,6 +157,8 @@ export async function searchAsyncBulk<T extends FhirResource>(
 ): Promise<T[]> {
   const label = `${resourceType} by ${params.map((p) => p.name).join(',')}`;
   const startedAt = Date.now();
+  const cap = Number(params.find((p) => p.name === '_count')?.value ?? ASYNC_BULK_MAX);
+  if (!params.some((p) => p.name === '_count')) params = [...params, { name: '_count', value: String(cap) }];
   let jobId = '';
   try {
     const handle = await oystehr.fhir.search<T>({ resourceType, params }, { mode: 'async-bulk' });
@@ -169,8 +180,13 @@ export async function searchAsyncBulk<T extends FhirResource>(
         `resources=${resources.length} ` +
         `perFile=${JSON.stringify(files.map((file) => ({ type: file.type, count: file.resources.length })))}`
     );
+    const primary = resources.filter((r) => r.resourceType === resourceType).length;
+    if (primary >= cap) {
+      throw new AsyncBulkCapError(`${label}: ${primary} ${resourceType} matched, the most one bulk job returns`);
+    }
     return resources;
   } catch (error) {
+    if (error instanceof AsyncBulkCapError) throw error;
     console.error(
       `[adhoc] ${label}: FAILED job=${jobId || 'not started'} ms=${Date.now() - startedAt} ` +
         `code=${(error as { code?: unknown })?.code ?? 'none'} message=${
@@ -190,23 +206,74 @@ export async function searchAsyncBulk<T extends FhirResource>(
   }
 }
 
+/**
+ * Runs `search` for one unit of work (a date window, a batch of ids). A job that fills the bulk cap may have
+ * dropped matches, so its result is discarded and both halves are searched instead — down to a unit `split`
+ * cannot halve (one day, one id), which fails rather than hand back a partial result.
+ */
+export async function searchSplittingOnCap<U, T extends FhirResource>(
+  unit: U,
+  search: (unit: U) => Promise<T[]>,
+  split: (unit: U) => [U, U] | undefined
+): Promise<T[]> {
+  try {
+    return await search(unit);
+  } catch (error) {
+    if (!(error instanceof AsyncBulkCapError)) throw error;
+    const halves = split(unit);
+    if (!halves) throw new Error(`${error.message}; the search cannot be split any further`);
+    const [a, b] = await Promise.all(halves.map((half) => searchSplittingOnCap(half, search, split)));
+    return dedupeResources([...a, ...b]);
+  }
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** The two halves of a date window; none for a window of a day or less. */
+export function halveWindow(window: { start: string; end: string }): [DateRange, DateRange] | undefined {
+  const start = Date.parse(window.start);
+  const end = Date.parse(window.end);
+  if (!(end - start > DAY_MS)) return undefined;
+  const mid = start + Math.floor((end - start) / 2);
+  return [
+    { start: window.start, end: new Date(mid).toISOString() },
+    { start: new Date(mid + 1).toISOString(), end: window.end },
+  ];
+}
+
+export const halveList = <V>(list: V[]): [V[], V[]] | undefined =>
+  list.length > 1 ? [list.slice(0, Math.ceil(list.length / 2)), list.slice(Math.ceil(list.length / 2))] : undefined;
+
+export function dedupeResources<T extends FhirResource>(resources: T[]): T[] {
+  const seen = new Set<string>();
+  const out: T[] = [];
+  for (const resource of resources) {
+    const key = `${resource.resourceType}/${resource.id}`;
+    if (resource.id && seen.has(key)) continue;
+    if (resource.id) seen.add(key);
+    out.push(resource);
+  }
+  return out;
+}
+
 const REPORT_APPOINTMENT_STATUSES = 'proposed,pending,booked,arrived,fulfilled,checked-in,waitlist,cancelled,noshow';
 
 export const REPORT_ATTENDED_APPOINTMENT_STATUSES = 'proposed,pending,booked,arrived,fulfilled,checked-in,waitlist';
 
 // currently async bulk removes the limit on how much the server may SEND, not the limit on the query it has to RUN:
 const REPORT_WINDOW_DAYS = 3;
-const REPORT_WINDOW_CONCURRENCY = 4;
+export const REPORT_WINDOW_CONCURRENCY = 4;
 
-function reportWindows(dateRange: { start: string; end: string }): { start: string; end: string }[] {
+/** The range cut into windows of `windowMs` (the last one shorter); the range itself when it cannot be cut. */
+export function dateWindows(dateRange: DateRange, windowMs = REPORT_WINDOW_DAYS * DAY_MS): DateRange[] {
   const start = DateTime.fromISO(dateRange.start);
   const end = DateTime.fromISO(dateRange.end);
-  if (!start.isValid || !end.isValid || end <= start) return [dateRange];
+  if (!start.isValid || !end.isValid || end <= start || !(windowMs > 0)) return [dateRange];
 
   const windows: { start: string; end: string }[] = [];
   let cursor = start;
   while (cursor < end) {
-    const next = DateTime.min(cursor.plus({ days: REPORT_WINDOW_DAYS }), end);
+    const next = DateTime.min(cursor.plus({ milliseconds: windowMs }), end);
     windows.push({ start: cursor.toISO()!, end: next.toISO()! });
     // `date=ge`/`le` include both bounds, so step off the boundary by a millisecond to keep an appointment out of two windows.
     cursor = next.plus({ milliseconds: 1 });
@@ -234,13 +301,17 @@ export async function fetchAppointmentReportResources<T extends FhirResource>(
       ...(opts.extraParams ?? []),
     ]);
 
-  const windows = reportWindows(opts.dateRange);
+  const windows = dateWindows(opts.dateRange);
   const out: T[] = [];
   const seen = new Set<string>();
   const startedAt = Date.now();
 
   for (let i = 0; i < windows.length; i += REPORT_WINDOW_CONCURRENCY) {
-    const group = await Promise.all(windows.slice(i, i + REPORT_WINDOW_CONCURRENCY).map(searchWindow));
+    const group = await Promise.all(
+      windows
+        .slice(i, i + REPORT_WINDOW_CONCURRENCY)
+        .map((window) => searchSplittingOnCap(window, searchWindow, halveWindow))
+    );
     for (const resources of group) {
       for (const resource of resources) {
         // An included Patient or Location is shared between appointments in different windows.
@@ -308,7 +379,9 @@ export async function fetchScopedResources<T extends FhirResource>(
   const startedAt = Date.now();
   const out: T[] = [];
   for (let i = 0; i < batches.length; i += SCOPED_BATCH_CONCURRENCY) {
-    const group = await Promise.all(batches.slice(i, i + SCOPED_BATCH_CONCURRENCY).map(searchBatch));
+    const group = await Promise.all(
+      batches.slice(i, i + SCOPED_BATCH_CONCURRENCY).map((batch) => searchSplittingOnCap(batch, searchBatch, halveList))
+    );
     for (const resources of group) out.push(...resources);
   }
 

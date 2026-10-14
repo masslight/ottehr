@@ -181,6 +181,12 @@ export function resolveParamTemplates(
     .replace(/\{\{\s*endDate\s*\}\}/g, dateRange.end.slice(0, 10));
 }
 
+/** Whether a step's params bound both ends of the run's date range ({{start}}/{{startDate}} and {{end}}/{{endDate}}), so it can be searched window by window. */
+export const stepIsDateBounded = (step: { params?: FetchStepParam[] }): boolean =>
+  ['start', 'end'].every((bound) =>
+    (step.params ?? []).some((p) => new RegExp(`\\{\\{\\s*${bound}(Date)?\\s*\\}\\}`).test(p.value))
+  );
+
 /** Whether any step of the plan uses the {{patientId}} template (a per-patient report). */
 export const planNeedsPatient = (plan: { steps: { params?: FetchStepParam[] }[] }): boolean =>
   plan.steps.some((step) => (step.params ?? []).some((p) => PATIENT_ID_TEMPLATE.test(p.value)));
