@@ -139,19 +139,21 @@ const hasAnswer = (item: QuestionnaireResponseItem): boolean => (item.answer?.le
 /**
  * Checks `calculatedAnswers` received from a client against the questionnaire, without evaluating anything:
  * every entry must be a calculated item on the page it names, and its answer must have the item's declared type.
- * Returns one human-readable message per problem; empty when everything is acceptable.
+ * Returns the entries that are acceptable, with every problem entry left out (a group is kept with whatever of its
+ * children are acceptable), and one human-readable message per problem; no messages when everything is acceptable.
  */
-export const validateCalculatedAnswers = (
+export const sanitizeCalculatedAnswers = (
   questionnaireItems: CalculableItem[],
   calculatedAnswers: QuestionnaireResponseItem[]
-): string[] => {
+): { calculatedAnswers: QuestionnaireResponseItem[]; issues: string[] } => {
   const issues: string[] = [];
 
-  const validateEntries = (
+  const sanitizeEntries = (
     definitions: CalculableItem[],
     entries: QuestionnaireResponseItem[],
     location: string
-  ): void => {
+  ): QuestionnaireResponseItem[] => {
+    const kept: QuestionnaireResponseItem[] = [];
     for (const entry of entries) {
       const definition = definitions.find((def) => def.linkId === entry.linkId);
       if (!definition) {
@@ -160,7 +162,8 @@ export const validateCalculatedAnswers = (
         if (hasAnswer(entry)) {
           issues.push(`"${entry.linkId}" is a group and cannot have an answer.`);
         }
-        validateEntries(definition.item ?? [], entry.item ?? [], `group "${entry.linkId}"`);
+        const children = sanitizeEntries(definition.item ?? [], entry.item ?? [], `group "${entry.linkId}"`);
+        if (children.length > 0) kept.push({ linkId: entry.linkId, item: children });
       } else if (!isCalculatedItem(definition)) {
         issues.push(`"${entry.linkId}" is not a calculated item, so its value cannot be set this way.`);
       } else if (entry.item?.length) {
@@ -169,11 +172,17 @@ export const validateCalculatedAnswers = (
         const answers = entry.answer ?? [];
         if (answers.length !== 1 || !answers[0] || !answerMatchesItemType(definition, answers[0])) {
           issues.push(`The value of "${entry.linkId}" does not match its item type "${definition.type}".`);
+        } else {
+          kept.push(entry);
         }
+      } else {
+        kept.push(entry);
       }
     }
+    return kept;
   };
 
+  const keptPages: QuestionnaireResponseItem[] = [];
   for (const page of calculatedAnswers) {
     const definition = questionnaireItems.find((item) => item.linkId === page.linkId);
     if (!definition) {
@@ -183,10 +192,19 @@ export const validateCalculatedAnswers = (
     if (hasAnswer(page)) {
       issues.push(`"${page.linkId}" is a page and cannot have an answer.`);
     }
-    validateEntries(definition.item ?? [], page.item ?? [], `page "${page.linkId}"`);
+    const items = sanitizeEntries(definition.item ?? [], page.item ?? [], `page "${page.linkId}"`);
+    if (items.length > 0) keptPages.push({ linkId: page.linkId, item: items });
   }
-  return issues;
+  return { calculatedAnswers: keptPages, issues };
 };
+
+/**
+ * Returns one human-readable message per problem with `calculatedAnswers`; empty when everything is acceptable.
+ */
+export const validateCalculatedAnswers = (
+  questionnaireItems: CalculableItem[],
+  calculatedAnswers: QuestionnaireResponseItem[]
+): string[] => sanitizeCalculatedAnswers(questionnaireItems, calculatedAnswers).issues;
 
 const orderLike = (items: QuestionnaireResponseItem[], definitions: CalculableItem[]): QuestionnaireResponseItem[] => {
   const position = (linkId: string): number => {

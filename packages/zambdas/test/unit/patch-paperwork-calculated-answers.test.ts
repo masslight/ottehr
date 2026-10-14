@@ -16,7 +16,10 @@ vi.mock('utils/lib/helpers/paperwork/paperwork', async (importOriginal) => {
   return { ...original, getQuestionnaireItemsAndProgress: vi.fn() };
 });
 
+vi.mock('../../src/shared/errors', () => ({ sendErrors: vi.fn().mockResolvedValue(undefined) }));
+
 import { getQuestionnaireItemsAndProgress } from 'utils/lib/helpers/paperwork/paperwork';
+import { sendErrors } from '../../src/shared/errors';
 
 const mockGetItemsAndProgress = vi.mocked(getQuestionnaireItemsAndProgress);
 
@@ -96,6 +99,7 @@ const validate = (body: Record<string, unknown>): ReturnType<typeof validatePatc
 const PAGE_SAVE = { answers: { linkId: 'items', item: [yes('q1'), yes('q2')] } };
 
 beforeEach(() => {
+  vi.mocked(sendErrors).mockClear();
   mockGetItemsAndProgress.mockReset();
   setUp(
     storedResponse([
@@ -229,37 +233,68 @@ describe('patch-paperwork calculatedAnswers', () => {
     ]);
   });
 
-  describe('rejects', () => {
-    const rejects = async (calculatedAnswers: unknown, message: RegExp): Promise<void> => {
-      await expect(validate({ ...PAGE_SAVE, calculatedAnswers })).rejects.toThrow(message);
+  // a calculated value that cannot be recorded must never stop the patient's page from saving: it is left out, sentry
+  // is alerted, and the EHR's form viewer points out the value that is missing
+  describe('leaves out, alerts sentry about, and still saves the page for', () => {
+    const leavesOut = async (calculatedAnswers: unknown, message: RegExp): Promise<void> => {
+      const result = await validate({ ...PAGE_SAVE, calculatedAnswers });
+      expect(result.updatedAnswers.map((i) => i.linkId)).toEqual(['q1', 'q2']);
+      expect(result.calculatedPageUpdates).toEqual([]);
+      expect(sendErrors).toHaveBeenCalledOnce();
+      expect(vi.mocked(sendErrors).mock.calls[0][0]).toMatch(message);
     };
 
     test('a value for an item that is not calculated', async () => {
-      await rejects(
+      await leavesOut(
         [{ linkId: 'items', item: [{ linkId: 'q1', answer: [{ valueCoding: { code: '0' } }] }] }],
         /"q1" is not a calculated item/
       );
     });
 
     test('a value of the wrong type', async () => {
-      await rejects(
+      await leavesOut(
         [{ linkId: 'results', item: [{ linkId: 'positive-screen', answer: [{ valueString: 'true' }] }] }],
         /does not match its item type "boolean"/
-      );
-      await rejects(
-        [{ linkId: 'items', item: [{ linkId: 'subtotal', answer: [{ valueDecimal: 1.5 }] }] }],
-        /does not match its item type "integer"/
       );
     });
 
     test('a page or item the questionnaire does not have', async () => {
-      await rejects([{ linkId: 'nope', item: [] }], /"nope" is not a page of this questionnaire/);
-      await rejects([{ linkId: 'results', item: [{ linkId: 'q1' }] }], /"q1" is not an item of page "results"/);
+      await leavesOut([{ linkId: 'nope', item: [] }], /"nope" is not a page of this questionnaire/);
+      vi.mocked(sendErrors).mockClear();
+      await leavesOut([{ linkId: 'results', item: [{ linkId: 'q1' }] }], /"q1" is not an item of page "results"/);
     });
 
     test('a malformed calculatedAnswers', async () => {
-      await rejects('results', /./);
-      await rejects([{ item: [] }], /./);
+      await leavesOut('results', /is not a list of questionnaire response items/);
+      vi.mocked(sendErrors).mockClear();
+      await leavesOut([{ item: [] }], /is not a list of questionnaire response items/);
+    });
+
+    test('a bad value, while the good values sent with it are still recorded', async () => {
+      const result = await validate({
+        ...PAGE_SAVE,
+        calculatedAnswers: [
+          {
+            linkId: 'results',
+            item: [
+              { linkId: 'total', answer: [{ valueString: '2' }] },
+              { linkId: 'positive-screen', answer: [{ valueString: 'true' }] },
+            ],
+          },
+        ],
+      });
+
+      expect(result.updatedAnswers.map((i) => i.linkId)).toEqual(['q1', 'q2']);
+      expect(result.calculatedPageUpdates).toEqual([
+        { linkId: 'results', qrIndex: 1, items: [{ linkId: 'total', answer: [{ valueString: '2' }] }] },
+      ]);
+      expect(sendErrors).toHaveBeenCalledOnce();
+    });
+
+    test('and does not fail the save when sentry cannot be reached', async () => {
+      vi.mocked(sendErrors).mockRejectedValueOnce(new Error('sentry down'));
+      const result = await validate({ ...PAGE_SAVE, calculatedAnswers: [{ linkId: 'nope' }] });
+      expect(result.updatedAnswers.map((i) => i.linkId)).toEqual(['q1', 'q2']);
     });
   });
 });

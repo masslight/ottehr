@@ -3,7 +3,7 @@ import { QuestionnaireResponse, QuestionnaireResponseItem } from 'fhir/r4b';
 import {
   applyCalculatedAnswers,
   extractCalculatedItems,
-  validateCalculatedAnswers,
+  sanitizeCalculatedAnswers,
 } from 'utils/lib/helpers/paperwork/calculated-answers';
 import { getQuestionnaireItemsAndProgress } from 'utils/lib/helpers/paperwork/paperwork';
 import {
@@ -12,19 +12,22 @@ import {
   recursiveGroupTransform,
 } from 'utils/lib/helpers/paperwork/validation';
 import { qrSentManually } from 'utils/lib/helpers/practice-managed-questionnaires';
+import { getOptionalSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { PatchPaperworkParameters } from 'utils/lib/types/data/paperwork/paperwork.types';
 import {
-  INVALID_INPUT_ERROR,
   QUESTIONNAIRE_RESPONSE_INVALID_CUSTOM_ERROR,
   QUESTIONNAIRE_RESPONSE_INVALID_ERROR,
 } from 'utils/lib/types/errors';
 import { ValidationError } from 'yup';
 import { z } from 'zod';
+import { sendErrors } from '../../shared/errors';
 import { ZambdaInput } from '../../shared/types/common';
 import { safeJsonParse, safeValidate } from '../../shared/validation';
 
 interface BasicInput extends PatchPaperworkParameters {
   appointmentId?: string;
+  // set when `calculatedAnswers` could not be read at all; the calculated values are then left out of the save
+  calculatedAnswersProblem?: string;
 }
 interface PatchPaperworkZambdaInput extends Omit<BasicInput, 'answers'> {
   answers: QuestionnaireResponseItem;
@@ -62,7 +65,8 @@ export interface SubmitPaperworkEffectInput extends Omit<BasicInput, 'answers'>,
 
 const PaperworkBodySchema = z.object({
   answers: z.unknown(),
-  calculatedAnswers: z.array(z.object({ linkId: z.string() }).passthrough()).optional(),
+  // read leniently: a calculated value that cannot be recorded must never stop the patient's page from saving
+  calculatedAnswers: z.unknown().optional(),
   questionnaireResponseId: z.string().uuid(),
   appointmentId: z.string().uuid().optional(),
 });
@@ -81,9 +85,18 @@ const basicValidation = (input: ZambdaInput): BasicInput => {
     throw new Error(`"answers" is a required param`);
   }
 
+  const parsedCalculatedAnswers = z.array(z.object({ linkId: z.string() }).passthrough()).safeParse(calculatedAnswers);
+  const calculatedAnswersProblem =
+    calculatedAnswers !== undefined && !parsedCalculatedAnswers.success
+      ? '"calculatedAnswers" is not a list of questionnaire response items'
+      : undefined;
+
   return {
     answers: answers as QuestionnaireResponseItem,
-    calculatedAnswers: calculatedAnswers as QuestionnaireResponseItem[] | undefined,
+    calculatedAnswers: parsedCalculatedAnswers.success
+      ? (parsedCalculatedAnswers.data as QuestionnaireResponseItem[] | undefined)
+      : undefined,
+    calculatedAnswersProblem,
     questionnaireResponseId,
     appointmentId,
   };
@@ -238,10 +251,17 @@ const complexSubmitValidation = async (
 };
 const complexPatchValidation = async (
   input: PatchPaperworkZambdaInput,
-  oystehr: Oystehr
+  oystehr: Oystehr,
+  secrets: Secrets | null
 ): Promise<PatchPaperworkEffectInput> => {
   // we should return QR id and use it to get both appointment Id and Questionnaire
-  const { answers: itemToPatch, calculatedAnswers = [], questionnaireResponseId, appointmentId } = input;
+  const {
+    answers: itemToPatch,
+    calculatedAnswers: submittedCalculatedAnswers = [],
+    calculatedAnswersProblem,
+    questionnaireResponseId,
+    appointmentId,
+  } = input;
   const qrAndQItems = await getQuestionnaireItemsAndProgress(questionnaireResponseId, oystehr);
 
   if (!qrAndQItems) {
@@ -279,10 +299,22 @@ const complexPatchValidation = async (
 
   // The values of calculated items were worked out in the browser (the questionnaire's javascript is never run on the
   // server), so all that can be checked is that each one is a calculated item on the page it names, typed as declared.
-  const calculatedIssues = validateCalculatedAnswers(items, calculatedAnswers);
+  // A value that fails the check is left out and sentry is alerted, but the patient's page is always saved: it
+  // simply has no value recorded, which the EHR's form viewer points out.
+  const { calculatedAnswers, issues: calculatedIssues } = sanitizeCalculatedAnswers(items, submittedCalculatedAnswers);
+  if (calculatedAnswersProblem) calculatedIssues.unshift(calculatedAnswersProblem);
   if (calculatedIssues.length > 0) {
-    console.log('invalid calculatedAnswers', JSON.stringify(calculatedAnswers));
-    throw INVALID_INPUT_ERROR(`"calculatedAnswers" is not valid. ${calculatedIssues.join(' ')}`);
+    console.error('invalid calculatedAnswers', JSON.stringify(submittedCalculatedAnswers));
+    try {
+      await sendErrors(
+        `Could not record calculated values for QuestionnaireResponse/${questionnaireResponseId}, so they were left out of the save: ${calculatedIssues.join(
+          ' '
+        )}`,
+        getOptionalSecret(SecretsKeys.ENVIRONMENT, secrets) ?? ''
+      );
+    } catch (e) {
+      console.error('failed to alert sentry about invalid calculatedAnswers', e);
+    }
   }
 
   // The page's items are replaced by what the browser sent, which never includes calculated items. The calculated
@@ -335,7 +367,7 @@ export const validatePatchInputs = async (input: ZambdaInput, oystehr: Oystehr):
     throw new Error(`"answers" must be a questionnaire response item with defined "item" field`);
   }
   console.log('answer object from body: ', JSON.stringify(ansObj), basic.questionnaireResponseId);
-  return complexPatchValidation({ ...basic, answers: ansObj }, oystehr);
+  return complexPatchValidation({ ...basic, answers: ansObj }, oystehr, input.secrets);
 };
 
 export const validateSubmitInputs = async (
