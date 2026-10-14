@@ -134,7 +134,7 @@ const SuggestionsBox: React.FC<RadiologyPreliminaryReadSuggestionsProps> = ({
                     }}
                   >
                     {unpicked ? fieldName : empty ? `+ ${fieldName}` : blankValue}
-                    {picked && (
+                    {picked && !empty && (
                       <CheckCircle sx={{ fontSize: 12, color: 'success.main', ml: 0.25, verticalAlign: 'middle' }} />
                     )}
                   </Box>

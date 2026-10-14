@@ -108,11 +108,46 @@ describe('RadiologyPreliminaryReadSuggestions', () => {
 
     await user.click(screen.getByRole('button', { name: 'Closing line: Ankle mortise intact.' }));
     await user.click(screen.getByRole('option', { name: '(none)' }));
-    expect(screen.getByRole('button', { name: 'Closing line: (none)' })).toHaveTextContent('+ closing line');
+    const closingLine = screen.getByRole('button', { name: 'Closing line: (none)' });
+    expect(closingLine).toHaveTextContent('+ closing line');
+    // A picked value gets a check mark; a field left empty does not, even when the provider emptied it.
+    expect(within(closingLine).queryByTestId('CheckCircleIcon')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Opening: No acute fracture or dislocation.' }));
+    await user.click(screen.getByRole('option', { name: 'No acute osseous abnormality.' }));
+    expect(
+      within(screen.getByRole('button', { name: 'Opening: No acute osseous abnormality.' })).getByTestId(
+        'CheckCircleIcon'
+      )
+    ).toBeInTheDocument();
 
     await user.click(screen.getAllByRole('button', { name: ADD_BTN_LABEL })[1]);
     expect(screen.getByRole('textbox', { name: FIELD_LABEL })).toHaveValue(
       'Nondisplaced fracture of the left distal fibula (lateral malleolus).'
+    );
+  });
+
+  it('lets a field that starts empty be filled and then set back to (none)', async () => {
+    const user = userEvent.setup();
+    render(<Harness cptCode="73100" laterality="LT" />);
+    const fractureRow = screen.getByText(/fracture of the left/);
+
+    // Optional field that starts empty.
+    await user.click(screen.getAllByRole('button', { name: 'Fracture type: (none)' })[0]);
+    await user.click(screen.getByRole('option', { name: 'avulsion' }));
+    // Displacement went empty on its own because a type is set; pick one, then set it back to (none).
+    await user.click(screen.getAllByRole('button', { name: 'Displacement: (none)' })[0]);
+    await user.click(screen.getByRole('option', { name: 'Displaced' }));
+    expect(fractureRow.textContent).toMatch(/^Displaced avulsion fracture/);
+    await user.click(screen.getAllByRole('button', { name: 'Displacement: Displaced' })[0]);
+    await user.click(screen.getByRole('option', { name: '(none)' }));
+    await user.click(screen.getAllByRole('button', { name: 'Fracture type: avulsion' })[0]);
+    await user.click(screen.getByRole('option', { name: '(none)' }));
+
+    expect(screen.getAllByRole('button', { name: 'Fracture type: (none)' })[0]).toHaveTextContent('+ fracture type');
+    expect(screen.getAllByRole('button', { name: 'Displacement: (none)' })[0]).toHaveTextContent('+ displacement');
+    await user.click(screen.getAllByRole('button', { name: ADD_BTN_LABEL })[1]);
+    expect(screen.getByRole('textbox', { name: FIELD_LABEL })).toHaveValue(
+      'Fracture of the left distal radius. No dislocation. Alignment maintained.'
     );
   });
 
