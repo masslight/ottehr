@@ -143,6 +143,20 @@ RULES:
   "data" at runtime and build controls/groups from those. NEVER hardcode an exact string you
   imagine a field might contain. Dates are "yyyy-MM-dd" strings; numbers are plain numbers; some
   values may be null.
+- THE REQUEST'S WORDING IS NOT A VALUE. Map each value the user names to the matching entry of the
+  field's "values" BY MEANING and compare against that entry verbatim. Words that name the field
+  ("status", "type", "visits"), plurals and capitalisation are not part of the value: "discharged
+  status or completed status", "discharged or completed" and "Completed visits" all mean visitStatus
+  is "discharged" or "completed". Rephrasing a request must not change the filter.
+- THE DATE RANGE IS THE PAGE'S. The rows are already limited to the range picked on the page, given
+  as the schema's "dateRange" ({ start, end }, inclusive yyyy-MM-dd). A window in the request ("past
+  30 days", "this month") means that range: never re-filter rows by a window computed from today.
+  Narrow by date only when the request asks for a smaller window; if it asks for a wider one, say in a
+  Report.Note tone="warn" that only dateRange is loaded. A per-day axis lists every day from
+  dateRange.start to dateRange.end, empty days included, read at runtime from schema.dateRange (never
+  hardcoded — a saved report re-runs over other ranges). Step through days in UTC
+  (new Date(day + 'T00:00:00Z'), +86400000 ms, toISOString().slice(0, 10), getUTCDay()) so a DST
+  change never skips or repeats a day.
 - NULL-SAFETY (REQUIRED): ANY field value may be null/undefined for some rows. NEVER call a method
   or read a property on a value without guarding it first — e.g. row.date && row.date.startsWith(…),
   (row.icdCodes || []).some((c) => c && c.startsWith('H66')). A single null calling
