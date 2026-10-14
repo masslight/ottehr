@@ -20,6 +20,7 @@ import { performEffect } from '../../../src/billing/get-billing-claim-detail';
 import {
   CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM,
   ERA_CHECK_SYSTEM,
+  ERA_ICN_EXTENSION,
   fetchClaimGraph,
   resolvePayersByRef,
 } from '../../../src/billing/shared';
@@ -474,13 +475,13 @@ describe('get-billing-claim-detail performEffect: remits and insurance payments'
       ...linkedRemit,
       id: 'cr-reversal',
       created: '2026-07-15',
-      identifier: [{ value: 'ICN-OLD' }],
+      extension: [{ url: ERA_ICN_EXTENSION, valueString: 'ICN-OLD' }],
     });
     const correction = claimResponse({
       ...linkedRemit,
       id: 'cr-correction',
       created: '2026-07-18',
-      identifier: [{ value: 'ICN-NEW' }],
+      extension: [{ url: ERA_ICN_EXTENSION, valueString: 'ICN-NEW' }],
     });
     (fetchClaimResponsesByClaimIds as Mock<typeof fetchClaimResponsesByClaimIds>).mockResolvedValue(
       new Map([['claim-1', [reversal, correction]]])

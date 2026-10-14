@@ -213,7 +213,7 @@ export async function performEffect(
         payerClaimControlNumber:
           [...linkedCrs]
             .reverse()
-            .map((cr) => getEraExtensionString(cr, ERA_ICN_EXTENSION) ?? cr.identifier?.[0]?.value ?? '')
+            .map((cr) => getEraExtensionString(cr, ERA_ICN_EXTENSION))
             .find(Boolean) ?? '',
       };
     });
