@@ -6,6 +6,7 @@ import type { FetchPlanInput } from 'utils/lib/types/adhoc/plan/fetch-plan';
 import type { DateRange } from 'utils/lib/types/adhoc/query/date-range';
 import { listSavedReports } from '../instance/zambdaClient';
 import { comparePlanRuns } from '../report/comparePlans';
+import { heavySearchWarnings } from '../report/planWarnings';
 import { fetchOnly, runReport, validatePlan } from '../report/runner';
 import { DATE_RANGE_PRESETS, DateRangeSpec, describeDateRange, resolveDateRange } from '../report/types';
 import { useStudio } from '../state/store';
@@ -238,11 +239,17 @@ function reportState(): unknown {
   };
 }
 
-function updateReport(input: Record<string, unknown>): { ok: boolean; changed: string[]; errors?: string[] } {
+function updateReport(input: Record<string, unknown>): {
+  ok: boolean;
+  changed: string[];
+  errors?: string[];
+  warnings?: string[];
+} {
   const { report, setReport, addEvent } = useStudio.getState();
   const patch: Partial<typeof report> = {};
   const changed: string[] = [];
   const errors: string[] = [];
+  const warnings: string[] = [];
 
   if (typeof input.name === 'string' && input.name.trim()) {
     patch.name = input.name.trim();
@@ -261,6 +268,7 @@ function updateReport(input: Record<string, unknown>): { ok: boolean; changed: s
     if (validated.ok) {
       patch.plan = validated.plan as FetchPlanInput;
       changed.push('plan');
+      warnings.push(...heavySearchWarnings(validated.plan));
     } else errors.push(...validated.errors.map((e) => `plan ${e}`));
   }
   if (typeof input.code === 'string') {
@@ -288,7 +296,11 @@ function updateReport(input: Record<string, unknown>): { ok: boolean; changed: s
     setReport(patch);
     addEvent('llm', `Claude changed: ${changed.join(', ')}`);
   }
-  return errors.length ? { ok: false, changed, errors } : { ok: true, changed };
+  for (const warning of warnings) addEvent('warn', warning);
+  return {
+    ...(errors.length ? { ok: false, changed, errors } : { ok: true, changed }),
+    ...(warnings.length ? { warnings } : {}),
+  };
 }
 
 async function runFetchTool(input: Record<string, unknown>): Promise<string> {

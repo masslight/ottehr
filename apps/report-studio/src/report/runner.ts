@@ -17,6 +17,7 @@ import { RenderResult, useStudio } from '../state/store';
 import { bareTagHints } from './codeCheck';
 import { dependencyChainLength, elementsIgnoredFor } from './comparePlans';
 import { chooseFetchMode, isDirectTimeout, measuredFetch, stepDensity } from './fetchMode';
+import { heavySearchWarnings } from './planWarnings';
 import { suggestElements } from './trim';
 import { resolveDateRange } from './types';
 
@@ -125,6 +126,10 @@ export async function runReport(opts: { dateRange?: DateRange; reuseData?: boole
     state.run.patientId === parameters.patientId;
 
   if (!canReuse) {
+    for (const warning of heavySearchWarnings(report.plan)) {
+      warnings.push(warning);
+      addEvent('warn', warning);
+    }
     setRun({
       status: 'fetching',
       startedAt,
