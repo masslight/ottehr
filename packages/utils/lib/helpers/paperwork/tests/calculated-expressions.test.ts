@@ -220,7 +220,7 @@ describe('collectCalculatedExpressionIssues', () => {
       },
     ]);
     expect(noLanguage).toEqual([
-      '"total": expression language is missing. Set valueExpression.language to "text/javascript".',
+      '"total": expression language is missing. valueExpression.language "text/javascript" is supported.',
     ]);
   });
 
