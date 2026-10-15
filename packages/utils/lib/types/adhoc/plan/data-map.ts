@@ -51,15 +51,20 @@ export const ADHOC_DATA_MAP: readonly DataMapEntry[] = [
     search: [
       'date=ge{{start}}&date=le{{end}} bounds the scheduled start (both bounds inclusive).',
       'status=booked,arrived,... (comma list). _tag=OTTEHR-IP,OTTEHR-TM.',
-      'Typical visit search (more than a few hundred visits): Appointment with date range + _tag + "elements", and Encounter ' +
-        'as a date-bounded step of its OWN beside it — Encounter?appointment.date=ge{{start}}&appointment.date=le{{end}} with ' +
-        '"elements" — which runs at the same time instead of waiting for the Appointment step (it returned exactly the ' +
-        'encounters of the scoped search by appointment id on a year of synth, 2,697 of 2,697, in 1.6 s against 5.2 s scoped). ' +
-        'THEN Patient and Location as scoped steps with "elements" from { step: "visits", path: "participant.actor.reference", ' +
-        'param: "_id", keepType: "Patient" | "Location" }. Join Encounter to Appointment in code by appointment[0].reference. ' +
-        'Follow-up encounters have no appointment of their own: when the report needs them, add Encounter from { step: ' +
-        '"encounters", path: "id", param: "part-of", keepType: "Encounter" } (the server accepts part-of; not checked against ' +
-        'real follow-ups, synth has none in range).',
+      'THE STANDARD VISIT SEARCH — three date-bounded steps side by side, each with "elements": Appointment?date=ge{{start}}' +
+        '&date=le{{end}}&_tag=OTTEHR-IP,OTTEHR-TM; Encounter?appointment.date=ge{{start}}&appointment.date=le{{end}}; ' +
+        'Patient?_has:Appointment:patient:date=ge{{start}}&_has:Appointment:patient:date=le{{end}}. Then Location (and ' +
+        'Practitioner) as SMALL scoped id lists with "elements" from { step: "visits", path: "participant.actor.reference", ' +
+        'param: "_id", keepType: "Location" }. Join in code by id: Encounter.appointment[0].reference → Appointment, ' +
+        'Appointment.participant Patient/<id> → Patient. Never fetch the Encounters or Patients of a date range by lists of ' +
+        'ids: a year at a busy practice is 19,700–32,300 visits, each id-list step was 168–198 requests and the plan took ' +
+        '143–196 s on its first run (25–38 s with saved densities); the by-date steps ran as one bulk job each — 6.7 s / ' +
+        '11.5 s for all four steps. On a year of synth the by-date steps returned exactly the id-list sets (2,697 Encounters, ' +
+        '2,427 Patients, no differences). The Encounter step also brings encounters of appointments outside the Ottehr tags, ' +
+        'and the Patient step every patient with an appointment in the range (in principle also one with a visit at or after ' +
+        'the start and another at or before the end, a superset) — the joins by id ignore both. Follow-up encounters have no ' +
+        'appointment of their own: when the report needs them, add Encounter from { step: "encounters", path: "id", param: ' +
+        '"part-of", keepType: "Encounter" } (the server accepts part-of; not checked against real follow-ups, synth has none in range).',
       'Per-patient reports: Appointment?patient=Patient/{{patientId}} (no date range needed) with _include patient / location ' +
         'and _revinclude Encounter:appointment on the same step (a small result set).',
     ],
@@ -67,8 +72,10 @@ export const ADHOC_DATA_MAP: readonly DataMapEntry[] = [
       'For more than a few hundred visits do NOT _include Patient/Location or _revinclude Encounter on the Appointment step: ' +
         'included resources ignore _elements, so the step is 17+ MB and 8–10 s for a year of synth visits (2,700). The split ' +
         'shape above with "elements" on every step fetched the same resources in 4–5 s (12 MB).',
-      'Do NOT use mode "bulk" for the visits search: a bulk job returns at most 1,000 Appointments (a year of synth visits came back ' +
-        'as 1,000 of 2,700). Paged "auto" fetches a year of visits with encounters, patients and locations in 4–5 s split, ~10 s as one step.',
+      'Leave mode on "auto": the runner reads one page and finishes a step with more as one async-bulk job (up to 30,000 ' +
+        'primary resources a job; a step past that is split into date halves), and with saved densities a large step goes ' +
+        'straight to bulk — a year of visits at a busy practice (19,697 / 32,279) is one or two jobs. A year of synth (2,697) ' +
+        'is three pages or one job, 1.3–3.2 s either way.',
     ],
   },
   {
@@ -100,10 +107,11 @@ export const ADHOC_DATA_MAP: readonly DataMapEntry[] = [
         '(scoped step: from { step: "visits", path: "id", param: "encounter", keepType: "Encounter" }).',
     ],
     search: [
-      'Encounter?appointment.date=ge{{start}}&appointment.date=le{{end}} (chained through the appointment): the encounters of ' +
-        'the visits in the range as a step of its own, run beside the Appointment step rather than scoped after it — the same ' +
-        'encounters as Encounter?appointment=<ids> (verified on synth, see Appointment). Encounter.period is blank, so ' +
-        'Encounter?date= finds almost nothing (3 of 2,697 on synth).',
+      'Encounter?appointment.date=ge{{start}}&appointment.date=le{{end}} (chained through the appointment) is THE way to fetch ' +
+        'the encounters of the visits in a range: a step of its own beside the Appointment step, never scoped to appointment ' +
+        'ids after it — the same encounters as Encounter?appointment=<ids> (2,697 of 2,697 on a year of synth), one bulk job ' +
+        'for a year at a busy practice against 168–198 id-list requests. Encounter.period is blank, so Encounter?date= finds ' +
+        'almost nothing (3 of 2,697 on synth).',
     ],
   },
   {
@@ -112,6 +120,14 @@ export const ADHOC_DATA_MAP: readonly DataMapEntry[] = [
     fields: [
       'name[0].given/family (helpers.fullName), birthDate (yyyy-MM-dd; helpers.ageAt), gender.',
       'address[0].city/state/postalCode, telecom (phone/email). Extensions carry race, ethnicity, preferred language.',
+    ],
+    search: [
+      'Patient?_has:Appointment:patient:date=ge{{start}}&_has:Appointment:patient:date=le{{end}} with elements ["name", …]: the ' +
+        'patients of the visits in a range as a date-bounded step beside the Appointment step (the standard shape, see ' +
+        'Appointment) — the same 2,427 patients as the id list on a year of synth, one bulk job for a year at a busy practice. ' +
+        'It can also include a patient with one appointment at or after the start and another at or before the end; the join ' +
+        'by id ignores them. A scoped id list from { step: "visits", path: "participant.actor.reference", param: "_id", ' +
+        'keepType: "Patient" } is for small sets only.',
     ],
     links: [
       'Appointment?patient=Patient/<id>; Coverage?beneficiary=…; Account?subject=…; RelatedPerson?patient=… (contacts).',
@@ -420,10 +436,11 @@ export const ADHOC_DATA_MAP_RESOURCE_TYPES: readonly string[] = ADHOC_DATA_MAP.m
 
 /** Cross-cutting notes the planner needs that belong to no single resource. */
 export const ADHOC_DATA_MAP_NOTES: readonly string[] = [
-  'A "visit" = Appointment (tag OTTEHR-IP or OTTEHR-TM) + its Encounter. Start every visit report from an Appointment ' +
-    'step over the date range with "elements", an Encounter step by appointment.date over the same range beside it, then ' +
-    'Patient and Location as scoped steps with "elements" (see Appointment); _include / _revinclude on the Appointment step ' +
-    'only for small result sets.',
+  'A "visit" = Appointment (tag OTTEHR-IP or OTTEHR-TM) + its Encounter. Start every visit report from three date-bounded ' +
+    'steps side by side, each with "elements": Appointment by date, Encounter by appointment.date, Patient by ' +
+    '_has:Appointment:patient:date over the same range; then Location / Practitioner as small scoped id lists (see ' +
+    'Appointment). Never a list of thousands of ids for a date range; _include / _revinclude on the Appointment step only ' +
+    'for small result sets.',
   'Visit status for reports is helpers.visitStatus(appointment, encounter): pending | arrived | intake | ready | ready for provider | ' +
     'provider | discharged | completed | cancelled | no show | awaiting supervisor approval | unknown.',
   'Providers: fetch Practitioners by id from Encounter.participant.individual.reference (scoped step) and keep only name fields; ' +
@@ -433,13 +450,17 @@ export const ADHOC_DATA_MAP_NOTES: readonly string[] = [
   'Codes: diagnoses are Conditions referenced from Encounter.diagnosis (helpers.diagnosesOf); E&M and CPT codes are Procedures of the ' +
     'Encounter told apart by meta tag em-code / cpt-code (helpers.proceduresOf); claims carry both again (Claim.item / Claim.diagnosis).',
   'Dates come back as ISO instants in UTC; group by day with helpers.localDay(iso) so days match what the viewer sees in the EHR.',
-  '_elements trims what the server returns: id, resourceType and meta always come back; name the top-level elements the code reads. ' +
-    'Choice-type fields go by their FHIR base name — value (not valueQuantity), effective (not effectiveDateTime), onset, performed, ' +
-    'medication; the typed JSON key is accepted and converted, but the base name is what the server understands.',
+  '_elements trims what the server returns; name the top-level elements the code reads in "elements". The runner always adds id ' +
+    'to that list — a hand-written _elements param must include id itself, or the resources come back without ids and nothing ' +
+    'joins. Choice-type fields go by their FHIR base name — value (not valueQuantity), effective (not effectiveDateTime), onset, ' +
+    'performed, medication; the typed JSON key is accepted and converted, but the base name is what the server understands.',
   'The server rejects unknown search parameters with an error; the run_report / run_fetch result shows the error per step — read it and re-plan.',
   'Token searches take system|code written plainly ("code": "http://hl7.org/fhir/sid/icd-10|J02.9"); the plan runner URL-encodes the ' +
     'value. Never ask for _summary=count — a count-only bundle brings no resources back; the step count in the run result is the count.',
-  'Mode "bulk" returns at most 1,000 primary resources per job on this server; use "auto" (paged) and narrow by date or scope instead.',
+  'A report should take about 20 requests at most. A date-bounded step is 1–4 requests (one page, or a probe and one bulk job ' +
+    'per 20,000 records); a scoped step is one request per 250 ids — so a scoped step over thousands of ids is the thing to ' +
+    'replace with the by-date search of its type. The run result reports requests per step, and the studio warns when the ' +
+    'saved densities put a plan over the budget.',
 ];
 
 /** The data map rendered for the planner prompt. */

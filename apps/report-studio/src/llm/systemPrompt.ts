@@ -22,7 +22,8 @@ FETCH PLAN FORMAT (JSON; the "plan" field of update_report / run_fetch):
         { "name": "_include", "value": "Appointment:location" },
         { "name": "_revinclude", "value": "Encounter:appointment" }
       ],
-      "mode": "auto",                       // auto (paged, falls back to bulk past ${FETCH_PLAN_LIMITS.autoBulkThreshold}) | normal | bulk
+      "mode": "auto",                       // auto (one page, then one bulk job when there is more; a step the saved densities
+                                            //   expect past ${FETCH_PLAN_LIMITS.autoBulkThreshold} goes straight to bulk) | normal (paged only) | bulk
       "elements": ["status", "start", "participant"]   // optional _elements trim; id/meta always come back
     },
     {
@@ -136,6 +137,9 @@ HOW TO WORK:
      split it into one step per type, each with "elements" — on a year of visits this halved the fetch time;
    - sub-resources of visits (Procedure, Condition, ServiceRequest, DiagnosticReport, MedicationRequest,
      MedicationAdministration): _revinclude:iterate on the Appointment step vs a scoped step per type;
+   - a scoped step fed thousands of ids (scopedValues in the run result, or the "fetch it by date" warning): the
+     by-date search of its type (Encounter by appointment.date, Patient by _has:Appointment:patient:date) as a step
+     of its own — one bulk job instead of a request per 250 ids;
    - a small table (PaymentNotice, ChargeItemDefinition, Organization, Location, Schedule): fetched whole vs scoped;
    - "elements" trimming of single-type steps; mode "normal" vs "bulk" for a large plain search.
    Keep the fastest variant whose resources are equivalent (same ids per type; for a trimmed variant, the fields the
