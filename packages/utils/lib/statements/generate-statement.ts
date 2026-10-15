@@ -4,6 +4,7 @@ export interface StatementServiceLine {
   charged: string;
   insurancePaid: string;
   patientPaid: string;
+  writeOffs: string;
   patientOwes: string;
 }
 
@@ -67,6 +68,7 @@ export interface StatementDetails {
     charged: string;
     insurancePaid: string;
     patientPaid: string;
+    writeOffs: string;
     balanceDue: string;
     deductible: string;
   };

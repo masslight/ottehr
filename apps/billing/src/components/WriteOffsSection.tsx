@@ -51,7 +51,7 @@ import { DeleteDialog } from './DeleteDialog';
 import { ReadOnlySection, thSx } from './ReadOnlySection';
 
 interface WriteOffForm {
-  amount: number;
+  amount: string;
   party: string;
   payer: string;
   date: string;
@@ -93,7 +93,7 @@ export function WriteOffsSection({
   const [voiding, setVoiding] = useState<ClaimWriteOff | null>(null);
   const methods = useForm<WriteOffForm>({
     defaultValues: {
-      amount: 0,
+      amount: '',
       party: '',
       payer: '',
       date: '',
@@ -122,12 +122,12 @@ export function WriteOffsSection({
       try {
         await addClaimWriteOff(oystehrZambda, {
           claimId,
-          amount: form.amount,
+          amount: Number(form.amount),
           date: form.date,
           party: form.party as z.input<typeof AddClaimWriteOffInputSchema>['party'],
           reason: form.reason,
-          note: form.note,
-          payer: form.payer,
+          note: form.note || undefined,
+          payer: form.payer || undefined,
         });
         void refetchClaim();
         setAddModalOpen(false);
@@ -188,9 +188,15 @@ export function WriteOffsSection({
                 {writeOffs.map((writeOff) => (
                   <TableRow key={writeOff.id}>
                     <TableCell sx={tcSx(writeOff)}>{formatDate(writeOff.date) || '-'}</TableCell>
-                    <TableCell sx={tcSx(writeOff)}>{writeOff.party || '-'}</TableCell>
+                    <TableCell sx={tcSx(writeOff)}>{PartyOptions[writeOff.party] || '-'}</TableCell>
                     <TableCell sx={tcSx(writeOff)}>{writeOff.payer || '-'}</TableCell>
-                    <TableCell sx={tcSx(writeOff)}>{writeOff.reason || '-'}</TableCell>
+                    <TableCell sx={tcSx(writeOff)}>
+                      {writeOff.reason
+                        ? writeOff.party === 'patient'
+                          ? PatientWriteOffReasons[writeOff.reason]
+                          : NonPatientWriteOffReasons[writeOff.reason]
+                        : '-'}
+                    </TableCell>
                     <TableCell sx={tcSx(writeOff)}>{writeOff.note || '-'}</TableCell>
                     <TableCell sx={tcSx(writeOff)}>{writeOff.status || '-'}</TableCell>
                     <TableCell sx={tcSx(writeOff)}>{formatCurrency(writeOff.amount)}</TableCell>
@@ -265,7 +271,7 @@ export function WriteOffsSection({
                         startAdornment: <InputAdornment position="start">$</InputAdornment>,
                       }}
                       value={field.value}
-                      onChange={(e) => field.onChange(Number(e.target.value))}
+                      onChange={(e) => field.onChange(e.target.value)}
                       error={!!fieldError}
                       helperText={fieldError?.message}
                     />
@@ -273,7 +279,7 @@ export function WriteOffsSection({
                 />
                 <Amount
                   label="Remaining Claim Balance"
-                  value={balance - amount}
+                  value={balance - Number(amount)}
                   sx={{ justifyContent: '', minWidth: '50%', minHeight: '' }}
                 />
               </Box>
@@ -296,15 +302,13 @@ export function WriteOffsSection({
                         onChange={(e) => field.onChange(e.target.value)}
                         error={!!fieldError}
                       >
-                        <MenuItem key="insurance" value="insurance">
-                          Insurance
-                        </MenuItem>
-                        <MenuItem key="nio" value="nio">
-                          Non-Insurance Organization
-                        </MenuItem>
-                        <MenuItem key="patient" value="patient">
-                          Patient
-                        </MenuItem>
+                        {Object.keys(PartyOptions)
+                          .sort()
+                          .map((key) => (
+                            <MenuItem key={key} value={key}>
+                              {PartyOptions[key]}
+                            </MenuItem>
+                          ))}
                       </Select>
                       {fieldError && <FormHelperText error>{fieldError.message}</FormHelperText>}
                     </FormControl>
@@ -492,6 +496,12 @@ export const PatientWriteOffReasons: Record<string, string> = {
   small: 'Small Balance',
   uncollectible: 'Uncollectible or Non Billable',
   other: 'Other',
+};
+
+export const PartyOptions: Record<string, string> = {
+  insurance: 'Insurance',
+  nio: 'Non-Insurance Organization',
+  patient: 'Patient',
 };
 
 function tcSx(writeOff: ClaimWriteOff): SxProps {

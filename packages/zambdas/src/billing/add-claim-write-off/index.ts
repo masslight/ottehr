@@ -67,18 +67,26 @@ export async function performEffect(oystehr: Oystehr, params: AddClaimWriteOffPa
         url: WRITE_OFF_PARTY_EXT_URL,
         valueString: params.party,
       },
-      {
-        url: WRITE_OFF_PAYER_EXT_URL,
-        valueString: params.payer,
-      },
+      ...(params.payer
+        ? [
+            {
+              url: WRITE_OFF_PAYER_EXT_URL,
+              valueString: params.payer,
+            },
+          ]
+        : []),
       {
         url: WRITE_OFF_REASON_EXT_URL,
         valueString: params.reason,
       },
-      {
-        url: WRITE_OFF_NOTE_EXT_URL,
-        valueString: params.note,
-      },
+      ...(params.note
+        ? [
+            {
+              url: WRITE_OFF_NOTE_EXT_URL,
+              valueString: params.note,
+            },
+          ]
+        : []),
     ],
   };
 

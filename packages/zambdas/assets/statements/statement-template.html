@@ -168,7 +168,7 @@
       <thead>
         <tr>
           <th>Code</th><th>Procedure Description</th>
-          <th>Amount<br/>Charged</th><th>Insurance<br/>Paid</th><th>Patient<br/>Paid</th><th>Patient<br/>Owes</th>
+          <th>Amount<br/>Charged</th><th>Insurance<br/>Paid</th><th>Patient<br/>Paid</th><th>Write-offs</th><th>Patient<br/>Owes</th>
         </tr>
       </thead>
       <tbody id="services-tbody">
@@ -182,6 +182,7 @@
       <span>Charged:&nbsp;<span class="val">{{totals.charged}}</span></span>
       <span>Ins.&nbsp;Paid:&nbsp;<span class="val">{{totals.insurancePaid}}</span></span>
       <span>Pt.&nbsp;Paid:&nbsp;<span class="val">{{totals.patientPaid}}</span></span>
+      <span>Write-offs&nbsp;<span class="val">{{totals.writeOffs}}</span></span>
       <span id="deductible-item" style="display:none">Applied to Deductible:&nbsp;<span class="val" id="deductible-val">{{totals.deductible}}</span></span>
     </div>
     <div style="display:flex;align-items:baseline;">
@@ -238,6 +239,7 @@
         '<td>' + l.charged + '</td>' +
         '<td>' + l.insurancePaid + '</td>' +
         '<td>' + l.patientPaid + '</td>' +
+        '<td>' + l.writeOffs + '</td>' +
         '<td>' + l.patientOwes + '</td>' +
         '</tr>';
     }

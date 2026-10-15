@@ -345,6 +345,7 @@ export interface BillingClaimItem {
   insurancePaid: number;
   patientResp: number;
   patientPaid: number;
+  writeOffsTotal: number;
   claimBalance: number;
   adjudicated: boolean;
   responsibleParty: string;
@@ -387,6 +388,8 @@ export interface PatientDetailResponse {
     | 'insurancePaid'
     | 'patientResp'
     | 'patientPaid'
+    | 'writeOffsTotal'
+    | 'claimBalance'
   >[];
 }
 

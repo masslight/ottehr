@@ -70,7 +70,7 @@ import {
   resolvePayersByRef,
   toAddressParts,
 } from '../shared';
-import { fetchWriteOffsByClaimId, sumWriteOffs, writeOffFromPaymentNotice } from '../write-offs';
+import { fetchWriteOffs, sumWriteOffs, writeOffFromPaymentNotice } from '../write-offs';
 
 type GetClaimDetailParams = ValidatedZambdaInput<typeof GetClaimDetailInputSchema>;
 
@@ -133,7 +133,7 @@ export async function performEffect(
       ? fetchPatientPaymentsByEncounterIds(oystehr, [encounterId])
       : Promise.resolve(new Map<string, PaymentNotice[]>()),
     resolveNonInsurancePayerDetail(oystehr, claim),
-    fetchWriteOffsByClaimId(oystehr, claimId),
+    fetchWriteOffs(oystehr, claimId),
   ]);
   const claimResponses = sortClaimResponsesByRecency(claimResponsesByClaimId.get(claimId) ?? []);
   const { paymentReconciliations, paymentReconciliationIdByClaimResponseId } = await fetchClaimEraLinks(

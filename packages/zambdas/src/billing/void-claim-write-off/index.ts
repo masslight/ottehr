@@ -7,7 +7,7 @@ import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { createBillingClient, fetchById } from '../shared';
-import { buildWriteOffVoidExtension, WRITE_OFF_VOID_EXT_URL } from '../write-offs';
+import { buildWriteOffVoidExtension, WRITE_OFF_SYSTEM, WRITE_OFF_VOID_EXT_URL } from '../write-offs';
 
 type VoidClaimWriteOffParams = ValidatedZambdaInput<typeof VoidClaimWriteOffInputSchema>;
 
@@ -24,6 +24,12 @@ export const index = wrapHandler('void-claim-write-off', async (input: ZambdaInp
 
 export async function performEffect(oystehr: Oystehr, params: VoidClaimWriteOffParams): Promise<void> {
   const notice = await fetchById<PaymentNotice>(oystehr, 'PaymentNotice', params.writeOffId);
+  if (
+    notice.status !== 'active' ||
+    !(notice.identifier ?? []).some((identifier) => identifier.system === WRITE_OFF_SYSTEM)
+  ) {
+    return;
+  }
   const extension = [
     ...(notice.extension ?? []).filter((ext) => ext.url !== WRITE_OFF_VOID_EXT_URL),
     buildWriteOffVoidExtension({ date: new Date().toISOString() }),
