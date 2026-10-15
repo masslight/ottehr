@@ -889,6 +889,26 @@ export const RecordBillingVoidInputSchema = z.object({
   clinicalPaymentNoticeId: nonEmptyString.uuid(),
 });
 
+export const AddClaimWriteOffInputSchema = z
+  .object({
+    claimId: nonEmptyString,
+    amount: z.number().nonnegative(),
+    date: z.string().date(),
+    party: z.enum(['insurance', 'nio', 'patient']),
+    payer: nonEmptyString.optional(),
+    reason: nonEmptyString,
+    note: nonEmptyString.optional(),
+  })
+  .superRefine((args, ctx) => {
+    if (args.party === 'insurance' && !args.payer) {
+      ctx.addIssue({ code: 'custom', path: ['payer'], message: '"payer" is required when "party" is "insurance"' });
+    }
+  });
+
+export const VoidClaimWriteOffInputSchema = z.object({
+  writeOffId: nonEmptyString,
+});
+
 export const AddClaimAttachmentInputSchema = z.object({
   claimId: nonEmptyString,
   name: nonEmptyString,
@@ -1141,6 +1161,8 @@ export type MatchClaimResponseToClaimInput = z.output<typeof MatchClaimResponseT
 export type UnmatchClaimResponseInput = z.output<typeof UnmatchClaimResponseInputSchema>;
 export type RecordBillingManualPaymentInput = z.output<typeof RecordBillingManualPaymentInputSchema>;
 export type AddClaimAttachmentInput = z.output<typeof AddClaimAttachmentInputSchema>;
+export type AddClaimWriteOffInput = z.output<typeof AddClaimWriteOffInputSchema>;
+export type VoidClaimWriteOffInput = z.output<typeof VoidClaimWriteOffInputSchema>;
 export type RenameClaimAttachmentInput = z.output<typeof RenameClaimAttachmentInputSchema>;
 export type DeleteClaimAttachmentInput = z.output<typeof DeleteClaimAttachmentInputSchema>;
 export type DownloadClaimAttachmentInput = z.output<typeof DownloadClaimAttachmentInputSchema>;

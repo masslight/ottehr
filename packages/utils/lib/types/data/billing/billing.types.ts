@@ -345,6 +345,7 @@ export interface BillingClaimItem {
   insurancePaid: number;
   patientResp: number;
   patientPaid: number;
+  writeOffsTotal: number;
   claimBalance: number;
   adjudicated: boolean;
   responsibleParty: string;
@@ -387,6 +388,8 @@ export interface PatientDetailResponse {
     | 'insurancePaid'
     | 'patientResp'
     | 'patientPaid'
+    | 'writeOffsTotal'
+    | 'claimBalance'
   >[];
 }
 
@@ -406,6 +409,21 @@ export interface ClaimPatientPayment {
   description: string;
   checkNumber?: string;
   status: string;
+}
+
+export interface ClaimWriteOff {
+  id: string;
+  date: string;
+  amount: number;
+  party: string;
+  payer?: string;
+  reason: string;
+  note: string;
+  status: string;
+  voidDate?: string;
+  voidReason?: string;
+  voidNote?: string;
+  voidActor?: string;
 }
 
 // One ERA payment (PaymentReconciliation) behind a claim's remits.
@@ -546,6 +564,7 @@ export interface ClaimDetailResponse {
   insurancePaid: number;
   patientResp: number;
   patientPaid: number;
+  writeOffsTotal: number;
   balance: number;
   adjudicated: boolean;
   // when Oystehr first sent the claim to the payer; '' when it was never submitted from Ottehr
@@ -575,6 +594,7 @@ export interface ClaimDetailResponse {
   accidentDate: string;
   attachments: ClaimAttachment[];
   payerClaimControlNumber?: string;
+  writeOffs: ClaimWriteOff[];
 }
 
 interface Paginated {

@@ -1,5 +1,15 @@
 import Oystehr, { FhirResourceReturnValue } from '@oystehr/sdk';
-import { Claim, ClaimResponse, Coverage, Location, Organization, Patient, Practitioner, Resource } from 'fhir/r4b';
+import {
+  Claim,
+  ClaimResponse,
+  Coverage,
+  Location,
+  Organization,
+  Patient,
+  PaymentNotice,
+  Practitioner,
+  Resource,
+} from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { getClaimNonInsurancePayer } from 'utils/lib/fhir/billing';
 import { deduplicateUnbundledResources } from 'utils/lib/fhir/deduplicateUnbundledResources';
@@ -38,6 +48,7 @@ import {
   SOURCE_FRIENDLY_PATIENT_ID_SYSTEM,
   SOURCE_IDENTIFIER_SYSTEM,
 } from './shared';
+import { fetchWriteOffsByClaimIds, sumWriteOffs } from './write-offs';
 
 export const CLAIM_LIST_INCLUDE_PARAMS: ClaimSearchParam[] = [
   {
@@ -563,7 +574,7 @@ export async function enrichAndMapClaims({
     );
   }
 
-  const [payersByRef, claimResponsesByClaimId, patientPaidByClaimId] = await Promise.all([
+  const [payersByRef, claimResponsesByClaimId, patientPaidByClaimId, writeOffs] = await Promise.all([
     resolvePayersByRef(
       oystehr,
       claims.map((c) => c.insurer?.reference)
@@ -573,6 +584,7 @@ export async function enrichAndMapClaims({
       oystehr,
       claims,
     }),
+    fetchWriteOffsByClaimIds(oystehr, claims.map((c) => c.id).filter(Boolean) as string[]),
   ]);
 
   const lookups: ClaimLookups = {
@@ -583,6 +595,7 @@ export async function enrichAndMapClaims({
     coverages,
     claimResponsesByClaimId,
     patientPaidByClaimId,
+    writeOffs,
   };
   return claims.map((claim) => mapClaimToItem(claim, lookups));
 }
@@ -595,6 +608,7 @@ export interface ClaimLookups {
   coverages: Coverage[];
   claimResponsesByClaimId: Map<string, ClaimResponse[]>;
   patientPaidByClaimId: Map<string, number>;
+  writeOffs: Map<string, PaymentNotice[]>;
 }
 
 export function mapClaimToItem(claim: Claim, lookups: ClaimLookups): BillingClaimItem {
@@ -611,10 +625,12 @@ export function mapClaimToItem(claim: Claim, lookups: ClaimLookups): BillingClai
 
   const serviceDate = getClaimServiceDate(claim);
   const patientPaid = lookups.patientPaidByClaimId.get(claim.id ?? '') ?? 0;
+  const writeOffsTotal = sumWriteOffs(lookups.writeOffs.get(claim.id ?? '') ?? []);
   const payments = summarizeClaimPayments(
     lookups.claimResponsesByClaimId.get(claim.id ?? '') ?? [],
     billed,
-    patientPaid
+    patientPaid,
+    writeOffsTotal
   );
 
   return {
@@ -638,6 +654,7 @@ export function mapClaimToItem(claim: Claim, lookups: ClaimLookups): BillingClai
     insurancePaid: payments.insurancePaid,
     patientResp: payments.patientResp,
     patientPaid: payments.patientPaid,
+    writeOffsTotal: payments.writeOffsTotal,
     claimBalance: payments.balance,
     adjudicated: payments.adjudicated,
     responsibleParty: 'Primary',

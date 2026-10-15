@@ -148,12 +148,14 @@ const makeClaim = (arStage: string): ClaimDetailResponse => ({
   insurancePaid: 0,
   patientResp: 0,
   patientPaid: 0,
+  writeOffsTotal: 0,
   balance: 0,
   adjudicated: false,
   firstSubmittedDate: '',
   remits: [],
   insurancePayments: [],
   patientPayments: [],
+  writeOffs: [],
   otherClaims: [],
   tags: [],
   pcn: '',
@@ -999,7 +1001,7 @@ describe('ClaimDetail — patient payments', () => {
     });
     renderDetail();
 
-    const paymentsTab = await screen.findByRole('tab', { name: 'Write offs & Patient payments' });
+    const paymentsTab = await screen.findByRole('tab', { name: 'Patient Payments & Write-offs' });
     fireEvent.click(paymentsTab);
 
     const paymentRow = (await screen.findByText('check collected at front desk')).closest('tr');
@@ -1020,7 +1022,7 @@ describe('ClaimDetail — patient payments', () => {
     getBillingClaimDetailMock.mockResolvedValue(makeClaim(AR_STAGE.patient));
     renderDetail();
 
-    const paymentsTab = await screen.findByRole('tab', { name: 'Write offs & Patient payments' });
+    const paymentsTab = await screen.findByRole('tab', { name: 'Patient Payments & Write-offs' });
     fireEvent.click(paymentsTab);
 
     expect(await screen.findByText('No patient payments yet')).toBeInTheDocument();
@@ -1154,7 +1156,7 @@ describe('ClaimDetail: notes drawer', () => {
     fireEvent.change(draft, { target: { value: 'draft for the first claim' } });
     await user.click(screen.getByRole('button', { name: 'Close' }));
 
-    await user.click(screen.getByRole('tab', { name: 'Other claims' }));
+    await user.click(screen.getByRole('tab', { name: 'Other Claims' }));
     await user.click(await screen.findByText('claim-2'));
 
     await user.click(await screen.findByRole('button', { name: 'Notes' }));
