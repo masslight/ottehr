@@ -5,7 +5,7 @@ import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
-import { validateQuestionnaireUniqueness, validateRequestParameters } from './validateRequestParameters';
+import { ensureUniqueQuestionnaire, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'practice-managed-questionnaire-create';
@@ -21,10 +21,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
-  // confirm there is no existing questionnaire with url|version
-  await validateQuestionnaireUniqueness(questionnaire, oystehr);
+  // if a questionnaire with url|version already exists, the url is made unique with a random suffix
+  const questionnaireToCreate = await ensureUniqueQuestionnaire(questionnaire, oystehr);
 
-  const created = await oystehr.fhir.create<Questionnaire>(questionnaire);
+  const created = await oystehr.fhir.create<Questionnaire>(questionnaireToCreate);
 
   const response: PracticeManagedQuestionnaireCreateOutput = {
     questionnaireId: created.id,

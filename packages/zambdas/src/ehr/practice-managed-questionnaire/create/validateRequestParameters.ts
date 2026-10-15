@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import Oystehr from '@oystehr/sdk';
 import { Questionnaire } from 'fhir/r4b';
 import { practiceManagedQuestionnaireToFhir } from 'utils/lib/helpers/practice-managed-questionnaires';
@@ -39,10 +40,10 @@ export function validateRequestParameters(input: ZambdaInput): ValidatedRequest 
   };
 }
 
-export const validateQuestionnaireUniqueness = async (
+export const ensureUniqueQuestionnaire = async (
   questionnaire: Questionnaire,
   oystehr: Oystehr
-): Promise<void> => {
+): Promise<Questionnaire> => {
   const url = questionnaire.url;
   const version = questionnaire.version;
 
@@ -67,11 +68,13 @@ export const validateQuestionnaireUniqueness = async (
     })
   ).unbundle();
 
-  if (questionnaireSearch.length !== 0) {
-    throw INVALID_INPUT_ERROR(
-      `Questionnaire url|version must be unique. Duplicate questionnaire found: ${questionnaireSearch.map(
-        (q) => `Questionnaire/${q.id}`
-      )}`
-    );
-  }
+  if (questionnaireSearch.length === 0) return questionnaire;
+
+  // url|version is taken: append a random suffix to the url so the canonical is unique
+  console.log(
+    `Duplicate questionnaire found: ${questionnaireSearch.map((q) => `Questionnaire/${q.id}`)}. Appending suffix to url`
+  );
+  const suffix = randomBytes(3).toString('hex'); // e.g. "a3f9c1"
+
+  return { ...questionnaire, url: `${url}-${suffix}` };
 };
