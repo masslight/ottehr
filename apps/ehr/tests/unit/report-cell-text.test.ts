@@ -8,6 +8,11 @@ describe('cellText', () => {
     expect(cellText(createElement('span', null, 'Visit ', createElement('b', null, 42), false))).toBe('Visit 42');
   });
 
+  it('falls back to the label of a label-only element (e.g. MUI Chip)', () => {
+    const Chip = (): null => null;
+    expect(cellText(createElement(Chip, { label: 'Final' }))).toBe('Final');
+  });
+
   it('keeps plain objects readable', () => {
     expect(cellText({ a: 1, b: null })).toBe('a: 1');
   });

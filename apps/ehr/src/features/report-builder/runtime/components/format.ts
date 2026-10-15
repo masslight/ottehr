@@ -6,7 +6,10 @@ import { isValidElement } from 'react';
 import type { ValueFormat } from 'utils/lib/types/adhoc/generation/runtime-scope.catalog';
 
 const elementText = (node: unknown): string => {
-  if (isValidElement(node)) return elementText((node.props as { children?: unknown }).children);
+  if (isValidElement(node)) {
+    const { children, label } = node.props as { children?: unknown; label?: unknown };
+    return elementText(children ?? label);
+  }
   if (Array.isArray(node)) return node.map(elementText).join('');
   return node == null || typeof node === 'boolean' ? '' : String(node);
 };
