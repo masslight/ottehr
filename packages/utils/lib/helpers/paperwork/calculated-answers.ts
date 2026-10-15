@@ -85,6 +85,12 @@ export const getCalculatedItemDefs = (items: CalculableItem[]): CalculatedItemDe
   });
 };
 
+export const formatCalculatedValue = (value: CalculatedValue): string => {
+  if (value === undefined) return '';
+  if (typeof value === 'boolean') return value ? 'Yes' : 'No';
+  return String(value);
+};
+
 // the answer a calculated value is recorded as, typed by the item's declared type. undefined when there is nothing to
 // record: no value, or one that doesn't fit the type (e.g. a fraction for an integer item)
 export const coerceCalculatedValue = (

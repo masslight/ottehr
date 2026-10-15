@@ -1,9 +1,9 @@
 import { Questionnaire, QuestionnaireItem, QuestionnaireResponseItem } from 'fhir/r4b';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS } from '../../../fhir/constants';
-import { extractAnswerReferences } from '../calculated-answers';
+import { extractAnswerReferences, formatCalculatedValue } from '../calculated-answers';
 import { collectCalculatedExpressionIssues } from '../calculated-expression-validation';
-import { buildAnswersMap, evaluateCalculatedItems, formatCalculatedValue } from '../calculated-expressions';
+import { buildAnswersMap, evaluateCalculatedItems } from '../calculated-expressions';
 import { mapQuestionnaireAndValueSetsToItemsList } from '../paperwork';
 import { evalEnableWhen, isPageHidden } from '../validation';
 

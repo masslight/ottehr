@@ -23,6 +23,7 @@ import {
   PracticeManagedQuestionnaireItem,
   StandaloneFormDTO,
 } from '../../types/data/practice-managed-questionnaires/practice-managed-questionnaire.types';
+import { CalculableItem, formatCalculatedValue, isCalculatedItem } from '../paperwork/calculated-answers';
 import { mapQuestionnaireAndValueSetsToItemsList } from '../paperwork/paperwork';
 import { slugify } from '../slugify';
 
@@ -220,11 +221,20 @@ export function qrSentManually(qr: QuestionnaireResponse | undefined): boolean {
   return Boolean(qr.meta?.tag?.some((t) => t.code === code && t.system === system));
 }
 
-export const formatQuestionnaireItemValueToString = (item: QuestionnaireResponseItem | undefined): string => {
+export const formatQuestionnaireItemValueToString = (
+  item: QuestionnaireResponseItem | undefined,
+  questions: Map<string, CalculableItem>
+): string => {
   if (!item) return '';
 
   const a = item.answer?.[0];
   if (!a) return '';
+
+  const question = questions.get(item.linkId);
+  if (question && isCalculatedItem(question)) {
+    return formatCalculatedValue(a.valueBoolean ?? a.valueInteger ?? a.valueDecimal ?? a.valueString);
+  }
+
   if (a.valueCoding?.display) return a.valueCoding.display;
   if (a.valueString !== undefined) return a.valueString;
   if (a.valueBoolean !== undefined) return a.valueBoolean ? 'Positive' : 'Negative';

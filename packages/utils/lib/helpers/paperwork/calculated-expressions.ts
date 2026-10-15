@@ -157,12 +157,6 @@ export const evaluateCalculatedItems = (
   return results;
 };
 
-export const formatCalculatedValue = (value: CalculatedValue): string => {
-  if (value === undefined) return '';
-  if (typeof value === 'boolean') return value ? 'Yes' : 'No';
-  return String(value);
-};
-
 export interface BuildCalculatedAnswersInput {
   // the questionnaire's top-level items (its pages), hidden ones included
   pageItems: CalculableItem[];

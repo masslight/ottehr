@@ -1,7 +1,8 @@
 import { Grid, Typography } from '@mui/material';
 import { QuestionnaireResponseItem } from 'fhir/r4b';
 import { FC, useMemo } from 'react';
-import { evaluateCalculatedItems, formatCalculatedValue } from 'utils/lib/helpers/paperwork/calculated-expressions';
+import { formatCalculatedValue } from 'utils/lib/helpers/paperwork/calculated-answers';
+import { evaluateCalculatedItems } from 'utils/lib/helpers/paperwork/calculated-expressions';
 import { usePaperworkContext } from '../context';
 import { useQRState } from '../hooks/useFormHelpers';
 import { StyledQuestionnaireItem } from '../hooks/useStyleItems';
