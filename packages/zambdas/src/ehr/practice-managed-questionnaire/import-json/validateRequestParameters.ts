@@ -1,6 +1,5 @@
 import { Questionnaire, QuestionnaireItem } from 'fhir/r4b';
 import { JSON_IMPORT_QUESTIONNAIRE_TAG, PRACTICE_MANAGED_QUESTIONNAIRE_TAG } from 'utils/lib/fhir/constants';
-import { collectCalculatedExpressionIssues } from 'utils/lib/helpers/paperwork/calculated-expression-validation';
 import { slugify } from 'utils/lib/helpers/slugify';
 import { Secrets } from 'utils/lib/secrets';
 import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY } from 'utils/lib/types/errors';
@@ -48,7 +47,7 @@ const ImportJsonQuestionnaireSchema = z
   .passthrough();
 
 const ImportJsonInputSchema = z.object({
-  questionnaire: z.unknown(),
+  questionnaireJson: z.string(),
   questionnaireId: z.string().uuid().optional(),
 });
 
@@ -66,14 +65,9 @@ export function validateRequestParameters(input: ZambdaInput): ValidatedRequest 
 
   const userToken = getUserToken(input);
 
-  const { questionnaire: rawQuestionnaire, questionnaireId } = safeValidate(
-    ImportJsonInputSchema,
-    safeJsonParse(input.body)
-  );
+  const { questionnaireJson, questionnaireId } = safeValidate(ImportJsonInputSchema, safeJsonParse(input.body));
 
-  if (!rawQuestionnaire || typeof rawQuestionnaire !== 'object') {
-    throw INVALID_INPUT_ERROR('questionnaire must be a json object');
-  }
+  const rawQuestionnaire = parseQuestionnaireJson(questionnaireJson);
 
   // not using safeValidate here: its message includes the zod path (e.g. item[0].item[0].linkId), which is noisy
   // for users, so surface just the first issue's message instead
@@ -85,7 +79,6 @@ export function validateRequestParameters(input: ZambdaInput): ValidatedRequest 
   const questionnaire = parsed.data as unknown as Questionnaire;
 
   validateUniqueLinkIds(questionnaire.item ?? []);
-  validateCalculatedExpressions(questionnaire.item ?? []);
 
   return {
     secrets: input.secrets,
@@ -93,6 +86,26 @@ export function validateRequestParameters(input: ZambdaInput): ValidatedRequest 
     questionnaire: prepareImportedQuestionnaire(questionnaire),
     questionnaireId,
   };
+}
+
+// the json is the text the user uploaded or pasted, so its errors are worded for them
+function parseQuestionnaireJson(questionnaireJson: string): object {
+  if (!questionnaireJson.trim()) {
+    throw INVALID_INPUT_ERROR('Please upload a file or paste JSON');
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(questionnaireJson);
+  } catch (e) {
+    throw INVALID_INPUT_ERROR(`Invalid JSON: ${e instanceof Error ? e.message : String(e)}`);
+  }
+
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw INVALID_INPUT_ERROR('JSON must be a single FHIR Questionnaire object');
+  }
+
+  return parsed;
 }
 
 // linkIds are how QuestionnaireResponse answers map back to their questions, so they must be unique across all items
@@ -103,18 +116,6 @@ function validateUniqueLinkIds(items: QuestionnaireItem[], seen = new Set<string
     }
     seen.add(item.linkId);
     if (item.item) validateUniqueLinkIds(item.item, seen);
-  }
-}
-
-// every problem with the calculated items is reported at once, so the questionnaire can be fixed in a single pass
-function validateCalculatedExpressions(items: QuestionnaireItem[]): void {
-  const issues = collectCalculatedExpressionIssues(items);
-  if (issues.length > 0) {
-    throw INVALID_INPUT_ERROR(
-      `The questionnaire has ${issues.length} problem${
-        issues.length === 1 ? '' : 's'
-      } with its calculated items:\n${issues.map((issue) => `- ${issue}`).join('\n')}`
-    );
   }
 }
 

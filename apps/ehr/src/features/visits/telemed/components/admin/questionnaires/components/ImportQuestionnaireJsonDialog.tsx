@@ -10,7 +10,6 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import { Questionnaire } from 'fhir/r4b';
 import { ChangeEvent, FC, useRef, useState } from 'react';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { PracticeManagedQuestionnaireImportJsonOutput } from 'utils/lib/types/data/practice-managed-questionnaires/practice-managed-questionnaire.types';
@@ -23,40 +22,6 @@ interface ImportQuestionnaireJsonDialogProps {
   // passed when opened from the detail page
   existingQuestionnaire?: { id: string; url: string; version?: string };
 }
-
-// light client side checks so obvious mistakes don't need a round trip, the zambda does the full validation
-const parseQuestionnaireJson = (
-  text: string,
-  expectedUrl: string | undefined
-): { questionnaire: Questionnaire; error?: undefined } | { questionnaire?: undefined; error: string } => {
-  if (!text.trim()) return { error: 'Please upload a file or paste JSON' };
-
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(text);
-  } catch (e) {
-    return { error: `Invalid JSON: ${e instanceof Error ? e.message : String(e)}` };
-  }
-
-  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-    return { error: 'JSON must be a single FHIR Questionnaire object' };
-  }
-
-  const questionnaire = parsed as Questionnaire;
-  if (questionnaire.resourceType !== 'Questionnaire') {
-    return { error: `resourceType must be "Questionnaire", received "${questionnaire.resourceType}"` };
-  }
-
-  if (expectedUrl && questionnaire.url !== expectedUrl) {
-    return {
-      error: `The url in the JSON (${
-        questionnaire.url ?? 'missing'
-      }) must match this questionnaire's url (${expectedUrl})`,
-    };
-  }
-
-  return { questionnaire };
-};
 
 export const ImportQuestionnaireJsonDialog: FC<ImportQuestionnaireJsonDialogProps> = ({
   open,
@@ -103,22 +68,17 @@ export const ImportQuestionnaireJsonDialog: FC<ImportQuestionnaireJsonDialogProp
   };
 
   const handleSubmit = async (): Promise<void> => {
-    const result = parseQuestionnaireJson(jsonText, existingQuestionnaire?.url);
-    if (result.error !== undefined) {
-      setError(result.error);
-      return;
-    }
-
     setError(undefined);
     try {
+      // the zambda validates the json, and its errors are surfaced via snackbar by the mutation
       const output = await importJson({
-        questionnaire: result.questionnaire,
+        questionnaireJson: jsonText,
         ...(existingQuestionnaire && { questionnaireId: existingQuestionnaire.id }),
       });
       reset();
       onImported(output);
     } catch {
-      // errors are surfaced via snackbar by the mutation
+      // already surfaced by the mutation
     }
   };
 

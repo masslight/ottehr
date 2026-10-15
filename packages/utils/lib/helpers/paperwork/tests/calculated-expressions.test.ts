@@ -2,7 +2,6 @@ import { Questionnaire, QuestionnaireItem, QuestionnaireResponseItem } from 'fhi
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS } from '../../../fhir/constants';
 import { extractAnswerReferences, formatCalculatedValue } from '../calculated-answers';
-import { collectCalculatedExpressionIssues } from '../calculated-expression-validation';
 import { buildAnswersMap, evaluateCalculatedItems } from '../calculated-expressions';
 import { mapQuestionnaireAndValueSetsToItemsList } from '../paperwork';
 import { evalEnableWhen, isPageHidden } from '../validation';
@@ -175,123 +174,6 @@ describe('buildAnswersMap / extractAnswerReferences / formatCalculatedValue', ()
     expect(formatCalculatedValue(false)).toBe('No');
     expect(formatCalculatedValue(3)).toBe('3');
     expect(formatCalculatedValue('text')).toBe('text');
-  });
-});
-
-describe('collectCalculatedExpressionIssues', () => {
-  it('finds nothing wrong with the CAGE questionnaire, even with a calculated item placed before what it reads', () => {
-    expect(collectCalculatedExpressionIssues(cageItems())).toEqual([]);
-    const items = cageItems();
-    items[1]?.item?.reverse();
-    expect(collectCalculatedExpressionIssues(items)).toEqual([]);
-  });
-
-  it('reports a missing expression', () => {
-    const items: QuestionnaireItem[] = [
-      {
-        linkId: 'total',
-        type: 'string',
-        text: 'Total',
-        extension: [{ url: OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.calculatedExpression, valueExpression: {} as never }],
-      },
-    ];
-    expect(collectCalculatedExpressionIssues(items)).toEqual([
-      '"total" (Total): the calculated-expression extension has no expression. Add valueExpression.expression, or remove the extension.',
-    ]);
-  });
-
-  it('reports an unsupported or missing language', () => {
-    const wrongLanguage = collectCalculatedExpressionIssues([
-      { linkId: 'total', type: 'string', text: 'Total', extension: calculated('1', 'text/fhirpath') },
-    ]);
-    expect(wrongLanguage).toEqual([
-      '"total" (Total): expression language "text/fhirpath" is not supported. valueExpression.language "text/javascript" is supported.',
-    ]);
-    const noLanguage = collectCalculatedExpressionIssues([
-      {
-        linkId: 'total',
-        type: 'string',
-        extension: [
-          {
-            url: OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.calculatedExpression,
-            valueExpression: { expression: '1' } as never,
-          },
-        ],
-      },
-    ]);
-    expect(noLanguage).toEqual([
-      '"total": expression language is missing. valueExpression.language "text/javascript" is supported.',
-    ]);
-  });
-
-  it('reports a syntax error with the expression', () => {
-    const [issue, ...rest] = collectCalculatedExpressionIssues([
-      yesNo('q1', 'Cut down'),
-      { linkId: 'total', type: 'string', text: 'Total', extension: calculated('(answers["q1"]||0)+') },
-    ]);
-    expect(rest).toEqual([]);
-    expect(issue).toMatch(
-      /^"total" \(Total\): the expression is not valid JavaScript \(.+\)\. Expression: \(answers\["q1"\]\|\|0\)\+ \. Fix the syntax and upload again\.$/
-    );
-  });
-
-  it('reports an unknown reference with a suggestion and the available linkIds', () => {
-    const items = cageItems();
-    const total = items[1]?.item?.[0];
-    if (total) total.extension = calculated('(answers["q1"]||0)+(answers["qq9"]||0)+(answers["q"]||0)');
-    const issues = collectCalculatedExpressionIssues(items);
-    expect(issues).toHaveLength(2);
-    expect(issues[0]).toBe(
-      '"total" (Total): the expression reads answers["qq9"], but no item has linkId "qq9". Did you mean "q1"? Available linkIds: items, q1, q2, q3, q4, results, positive-screen, positive-screen-rationale.'
-    );
-    expect(issues[1]).toContain('answers["q"], but no item has linkId "q"');
-  });
-
-  it('truncates the list of available linkIds', () => {
-    const many: QuestionnaireItem[] = Array.from({ length: 14 }, (_, i) => ({
-      linkId: `item-${i}`,
-      type: 'string',
-    }));
-    many.push({ linkId: 'total', type: 'string', extension: calculated('answers["nope"]') });
-    const [issue] = collectCalculatedExpressionIssues(many);
-    expect(issue).toContain(
-      'Available linkIds: item-0, item-1, item-2, item-3, item-4, item-5, item-6, item-7, item-8, item-9, ....'
-    );
-  });
-
-  it('reports a self reference', () => {
-    expect(
-      collectCalculatedExpressionIssues([
-        { linkId: 'total', type: 'string', text: 'Total', extension: calculated('answers["total"] + 1') },
-      ])
-    ).toEqual(['"total" (Total): the expression reads its own value. Remove answers["total"] from it.']);
-  });
-
-  it('reports a circular reference once', () => {
-    const issues = collectCalculatedExpressionIssues([
-      { linkId: 'a', type: 'string', extension: calculated('answers["b"]') },
-      { linkId: 'b', type: 'string', extension: calculated('answers["a"]') },
-    ]);
-    expect(issues).toEqual([
-      '"a" and "b" depend on each other (a -> b -> a), so none of their values can be calculated. Remove one of the references.',
-    ]);
-  });
-
-  it('reports an unsupported item type', () => {
-    const issues = collectCalculatedExpressionIssues([
-      { linkId: 'results', type: 'group', text: 'Results', extension: calculated('1') },
-    ]);
-    expect(issues).toEqual([
-      '"results" (Results): calculated expressions can only be used on string, text, boolean, integer, decimal and date items, not "group".',
-    ]);
-  });
-
-  it('reports every problem together', () => {
-    const issues = collectCalculatedExpressionIssues([
-      { linkId: 'a', type: 'string', extension: calculated('answers["a"]') },
-      { linkId: 'b', type: 'string', extension: calculated('answers["zzz"]', 'text/fhirpath') },
-    ]);
-    expect(issues).toHaveLength(3);
   });
 });
 

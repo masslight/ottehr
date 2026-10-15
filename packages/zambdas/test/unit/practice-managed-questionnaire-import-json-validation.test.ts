@@ -46,7 +46,7 @@ const cage = (): Record<string, unknown> => ({
 });
 
 const inputFor = (questionnaire: Record<string, unknown>): ZambdaInput => ({
-  body: JSON.stringify({ questionnaire }),
+  body: JSON.stringify({ questionnaireJson: JSON.stringify(questionnaire) }),
   headers: { Authorization: 'Bearer test-token' },
   secrets: null,
 });
@@ -103,5 +103,34 @@ describe('practice managed questionnaire import-json: calculated expressions', (
     results.item[0].extension = calculated('(answers["q1"]||0)+');
     results.item[1].extension = undefined;
     expect(errorMessageFor(questionnaire)).toContain('the expression is not valid JavaScript');
+  });
+});
+
+describe('practice managed questionnaire import-json: the uploaded json', () => {
+  const errorMessageForJson = (questionnaireJson: string): string => {
+    try {
+      validateRequestParameters({ ...inputFor(cage()), body: JSON.stringify({ questionnaireJson }) });
+    } catch (error) {
+      return (error as { message?: string }).message ?? String(error);
+    }
+    throw new Error('expected the import to be rejected');
+  };
+
+  test('rejects empty json', () => {
+    expect(errorMessageForJson('  ')).toBe('Please upload a file or paste JSON');
+  });
+
+  test('rejects json that does not parse', () => {
+    expect(errorMessageForJson('{ "resourceType": ')).toMatch(/^Invalid JSON: /);
+  });
+
+  test('rejects json that is not a single object', () => {
+    expect(errorMessageForJson(JSON.stringify([cage()]))).toBe('JSON must be a single FHIR Questionnaire object');
+  });
+
+  test('rejects a resource that is not a Questionnaire', () => {
+    expect(errorMessageForJson(JSON.stringify({ ...cage(), resourceType: 'Patient' }))).toBe(
+      'resourceType must be "Questionnaire"'
+    );
   });
 });

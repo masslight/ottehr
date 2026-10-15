@@ -119,9 +119,9 @@ export type PracticeManagedQuestionnaireCreateOutput = {
   questionnaireId: string;
 };
 
-// import a raw fhir questionnaire json
+// import a raw fhir questionnaire json, sent as the uploaded / pasted text so the zambda does all the validation
 export type PracticeManagedQuestionnaireImportJsonInput = {
-  questionnaire: Questionnaire;
+  questionnaireJson: string;
   questionnaireId?: string; // when questionnaireId is passed, the json is validated against that specific questionnaire
 };
 export type PracticeManagedQuestionnaireImportJsonOutput = {
