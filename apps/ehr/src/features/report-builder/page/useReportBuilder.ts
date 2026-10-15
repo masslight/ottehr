@@ -25,6 +25,7 @@ import useEvolveUser from '../../../hooks/useEvolveUser';
 import { datasetCatalog, getDataset, otherDatasetsFor } from '../datasets/registry';
 import { showAdHocDebugLog } from '../debug';
 import { SANDBOX_TIMEOUT_MESSAGE } from '../hooks/useSandbox';
+import { toLocalYmd } from '../query/dataset-query';
 import { runAdHocReportGeneration } from '../query/generation-query';
 
 // How many times to transparently regenerate after a runtime error before surfacing it to the user.
@@ -83,13 +84,8 @@ function rangeFromControls(
 }
 
 function schemaDateRange(range: { start: string; end: string }): LlmDatasetSchema['dateRange'] {
-  const day = (iso: string): string | null => {
-    const dt = DateTime.fromISO(iso, { setZone: true });
-    return dt.isValid ? dt.toFormat('yyyy-MM-dd') : null;
-  };
-
-  const start = day(range.start);
-  const end = day(range.end);
+  const start = toLocalYmd(range.start);
+  const end = toLocalYmd(range.end);
 
   return start && end ? { start, end } : undefined;
 }

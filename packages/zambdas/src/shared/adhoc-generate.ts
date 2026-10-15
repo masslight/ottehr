@@ -146,8 +146,9 @@ RULES:
 - THE REQUEST'S WORDING IS NOT A VALUE. Map each value the user names to the matching entry of the
   field's "values" BY MEANING and compare against that entry verbatim. Words that name the field
   ("status", "type", "visits"), plurals and capitalisation are not part of the value: "discharged
-  status or completed status", "discharged or completed" and "Completed visits" all mean visitStatus
-  is "discharged" or "completed". Rephrasing a request must not change the filter.
+  status or completed status" and "discharged or completed" both mean visitStatus is "discharged" or
+  "completed"; "Completed visits" means only "completed". Rephrasing a request must not change the
+  filter or add values the user did not ask for.
 - THE DATE RANGE IS THE PAGE'S. The rows are already limited to the range picked on the page, given
   as the schema's "dateRange" ({ start, end }, inclusive yyyy-MM-dd). A window in the request ("past
   30 days", "this month") means that range: never re-filter rows by a window computed from today.
