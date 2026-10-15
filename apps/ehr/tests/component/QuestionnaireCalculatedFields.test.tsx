@@ -542,3 +542,57 @@ describe('PagedQuestionnaire handing the calculated values to its host', () => {
     });
   });
 });
+
+describe('QuestionnaireResponseViewer with a recorded coded result', () => {
+  const BAND = { system: 'https://example.org/cage-band', code: 'positive', display: 'Positive screen' };
+  const bandForm = (recorded: { system: string; code: string; display: string } | undefined): StandaloneFormDTO => ({
+    questionnaireId: 'cage-band',
+    questionnaireTitle: 'CAGE',
+    allItems: mapQuestionnaireAndValueSetsToItemsList(
+      [
+        { linkId: 'items', type: 'group', text: 'Items', item: [yesNo('q1', 'Cut down'), yesNo('q2', 'Annoyed')] },
+        {
+          linkId: 'results',
+          type: 'group',
+          text: 'Results',
+          readOnly: true,
+          item: [
+            {
+              linkId: 'band',
+              type: 'choice',
+              text: 'Band',
+              answerOption: [
+                { valueCoding: { system: BAND.system, code: 'negative', display: 'Negative screen' } },
+                { valueCoding: BAND },
+              ],
+              extension: calculated(`(${TOTAL_EXPRESSION}) >= 2 ? "positive" : "negative"`),
+            },
+          ],
+        },
+      ],
+      []
+    ),
+    questionnaireResponse: {
+      resourceType: 'QuestionnaireResponse',
+      id: 'qr-band',
+      status: 'completed',
+      item: [
+        { linkId: 'items', item: [answeredYes('q1'), answeredYes('q2')] },
+        { linkId: 'results', item: recorded ? [{ linkId: 'band', answer: [{ valueCoding: recorded }] }] : [] },
+      ],
+    },
+  });
+
+  it("shows the option's display, with no note when the recorded coding agrees", () => {
+    render(<QuestionnaireResponseViewer form={bandForm(BAND)} />);
+
+    expect(screen.getByText('Band:').parentElement).toHaveTextContent('Band: Positive screen');
+    expect(screen.queryByTestId('calculated-mismatch-band')).not.toBeInTheDocument();
+  });
+
+  it('flags a recorded coding that no longer agrees with the answers', () => {
+    render(<QuestionnaireResponseViewer form={bandForm({ ...BAND, code: 'negative', display: 'Negative screen' })} />);
+
+    expect(screen.getByTestId('calculated-mismatch-band')).toHaveTextContent('recalculated: Positive screen');
+  });
+});

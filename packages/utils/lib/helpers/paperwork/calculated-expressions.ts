@@ -2,8 +2,9 @@ import { QuestionnaireResponseItem } from 'fhir/r4b';
 import {
   CalculableItem,
   CalculatedItemDef,
+  CalculatedScalar,
   CalculatedValue,
-  coerceCalculatedValue,
+  coerceCalculatedAnswers,
   getCalculatedItemDefs,
   isCalculatedItem,
 } from './calculated-answers';
@@ -110,10 +111,18 @@ const orderByDependency = (defs: CalculatedItemDef[]): CalculatedItemDef[] => {
   return ordered;
 };
 
-const normalizeResult = (result: unknown): CalculatedValue => {
+const normalizeScalar = (result: unknown): CalculatedScalar | undefined => {
   if (typeof result === 'number') return Number.isFinite(result) ? result : undefined;
   if (typeof result === 'string' || typeof result === 'boolean') return result;
   return undefined;
+};
+
+// a list is a value only on an item that repeats (one answer per element), and only when every element is a value
+const normalizeResult = (result: unknown, item: CalculableItem): CalculatedValue => {
+  if (!Array.isArray(result)) return normalizeScalar(result);
+  if (!item.repeats || result.length === 0) return undefined;
+  const values = result.map(normalizeScalar);
+  return values.every((value) => value !== undefined) ? (values as CalculatedScalar[]) : undefined;
 };
 
 /**
@@ -140,7 +149,7 @@ export const evaluateCalculatedItems = (
       console.warn(`calculated item "${def.linkId}" has an invalid expression: ${compiled.error}`);
     } else {
       try {
-        value = normalizeResult(compiled.fn(answers));
+        value = normalizeResult(compiled.fn(answers), def.item);
       } catch (error) {
         console.warn(`calculated item "${def.linkId}" could not be evaluated: ${String(error)}`);
       }
@@ -157,9 +166,20 @@ export const evaluateCalculatedItems = (
   return results;
 };
 
-export const formatCalculatedValue = (value: CalculatedValue): string => {
+// `item` lets a calculated choice item show its option's display instead of the code
+export const formatCalculatedValue = (
+  value: CalculatedValue,
+  item?: Pick<CalculableItem, 'type' | 'answerOption'>
+): string => {
   if (value === undefined) return '';
+  if (Array.isArray(value)) return value.map((element) => formatCalculatedValue(element, item)).join(', ');
   if (typeof value === 'boolean') return value ? 'Yes' : 'No';
+  if (item?.type === 'choice') {
+    const option = item.answerOption?.find((o) =>
+      o.valueCoding ? o.valueCoding.code === String(value) : o.valueString === String(value)
+    );
+    return option?.valueCoding?.display ?? option?.valueString ?? String(value);
+  }
   return String(value);
 };
 
@@ -235,13 +255,11 @@ export const buildCalculatedAnswers = (input: BuildCalculatedAnswersInput): Ques
   for (const { item, page, groupPath } of located) {
     // can be enabled and hidden, enabled does not equate to visible
     const enabled = isPageEnabled ? isPageEnabled(page) : true;
-    const answer = enabled ? coerceCalculatedValue(item, results[item.linkId]) : undefined;
+    const answers = enabled ? coerceCalculatedAnswers(item, results[item.linkId]) : undefined;
 
-    // unchanged: the one stored answer equals the new value, or there is no new value and nothing is stored
+    // unchanged: the stored answers equal the new ones, or there is no new value and nothing is stored
     const savedAnswers = findSavedItem(savedPages, item.linkId)?.answer ?? [];
-    const unchanged = answer
-      ? savedAnswers.length === 1 && JSON.stringify(savedAnswers[0]) === JSON.stringify(answer)
-      : savedAnswers.length === 0;
+    const unchanged = answers ? JSON.stringify(savedAnswers) === JSON.stringify(answers) : savedAnswers.length === 0;
     if (unchanged) continue;
 
     // nest the entry under its page and groups, the shape the server merges into the response; no answer means clear
@@ -259,7 +277,7 @@ export const buildCalculatedAnswers = (input: BuildCalculatedAnswersInput): Ques
       }
       container = group.item ?? [];
     }
-    container.push(answer ? { linkId: item.linkId, answer: [answer] } : { linkId: item.linkId });
+    container.push(answers ? { linkId: item.linkId, answer: answers } : { linkId: item.linkId });
   }
 
   return pageItems.flatMap((page) => calculatedPages.filter((entry) => entry.linkId === page.linkId));

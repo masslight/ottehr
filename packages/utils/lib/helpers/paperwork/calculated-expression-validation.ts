@@ -79,6 +79,11 @@ export const collectCalculatedExpressionIssues = (items: CalculableItem[]): stri
         } items, not "${item.type}".`
       );
     }
+    if (item.type === 'choice' && !(item.answerOption ?? []).length) {
+      issues.push(
+        `${label}: a calculated choice item records one of its answer options, so it needs answerOption listing the codes the expression can return.`
+      );
+    }
     if (!expression || expression.trim() === '') {
       issues.push(
         `${label}: the calculated-expression extension has no expression. Add valueExpression.expression, or remove the extension.`

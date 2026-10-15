@@ -289,10 +289,15 @@ An item carrying the standard `sdc-questionnaire-calculatedExpression` extension
 - If an expression throws, doesn't produce a string, number or boolean, or produces a value that doesn't fit the
   item's declared type (a `boolean` item needs a boolean, an `integer` item a whole number), the item has no value.
   It never breaks the form.
-- Allowed on `string`, `text`, `boolean`, `integer`, `decimal` and `date` items. **The value is recorded as the type
-  the item declares**: `string`/`text`/`date` as `valueString`, `boolean` as `valueBoolean`, `integer` as `valueInteger`,
-  `decimal` as `valueDecimal`. Declare a numeric score as `integer` or `decimal` so it can be used as a number later;
-  declaring it `string` stores `"2"`.
+- Allowed on `string`, `text`, `boolean`, `integer`, `decimal`, `date` and `choice` items. **The value is recorded as
+  the type the item declares**: `string`/`text`/`date` as `valueString`, `boolean` as `valueBoolean`, `integer` as
+  `valueInteger`, `decimal` as `valueDecimal`. Declare a numeric score as `integer` or `decimal` so it can be used as a
+  number later; declaring it `string` stores `"2"`.
+- **A coded result** (a severity band, a risk zone) goes on a `choice` item with `answerOption`s: the expression returns
+  an option's code and the option's `valueCoding` is recorded, so reports and rules can match the code rather than
+  the wording. A code that is not one of the options records nothing. The patient and the EHR see the option's display.
+- **A list result** goes on an item with `repeats: true`: the expression returns an array and each element is recorded
+  as its own answer, typed as above. On an item that does not repeat, a list has no value.
 - Values are recorded on **every page save** (only the ones that changed), including values on pages the patient
   never sees, so a score reflects the answers given so far and is complete once the last page is saved. The EHR
   always shows the value calculated from the recorded answers, and flags a calculated value that was not recorded or
@@ -306,7 +311,9 @@ An item carrying the standard `sdc-questionnaire-calculatedExpression` extension
 
 The import validates every calculated item up front and reports all problems at once (missing or unsupported
 language, syntax errors, references to linkIds that don't exist with a suggestion, an item reading itself, circular
-references, unsupported item types), so the questionnaire can be fixed in one pass.
+references, unsupported item types, a calculated choice item without answer options), so the questionnaire can be
+fixed in one pass. It also warns, without rejecting the import, when the form shares ids with another custom form:
+the two can't be in the same flow until one is renamed.
 
 ### Hiding a whole page
 

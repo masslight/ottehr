@@ -22,8 +22,8 @@ export const CalculatedField: FC<CalculatedFieldProps> = ({ item }) => {
       (field): field is QuestionnaireResponseItem =>
         typeof field === 'object' && field !== null && typeof field.linkId === 'string'
     );
-    return formatCalculatedValue(evaluateCalculatedItems(allItems, qrItems)[item.linkId]);
-  }, [allFields, allItems, item.linkId]);
+    return formatCalculatedValue(evaluateCalculatedItems(allItems, qrItems)[item.linkId], item);
+  }, [allFields, allItems, item]);
 
   return (
     <Grid item xs={12} md={item.width} sx={{ maxWidth: '100%' }}>

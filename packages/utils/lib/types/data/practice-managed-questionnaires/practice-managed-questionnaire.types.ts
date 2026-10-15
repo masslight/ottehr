@@ -127,6 +127,8 @@ export type PracticeManagedQuestionnaireImportJsonInput = {
 export type PracticeManagedQuestionnaireImportJsonOutput = {
   questionnaireId: string;
   version: string;
+  // the import succeeded, but these other practice-managed forms share ids with it and can't join it in a flow
+  warnings?: string[];
 };
 
 // used for patient app rendering custom, standalone forms

@@ -1,6 +1,7 @@
 import Oystehr, { BatchInputPatchRequest, BatchInputPostRequest, BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Questionnaire } from 'fhir/r4b';
+import { PRACTICE_MANAGED_QUESTIONNAIRE_TAG } from 'utils/lib/fhir/constants';
 import {
   isJsonImportedQ,
   PRACTICE_MANAGED_QUESTIONNAIRE_BASE_VERSION,
@@ -13,7 +14,8 @@ import { compareVersions } from '../../../shared/fhir';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
-import { handleFormInFlows, patchQuestionnaireVersion } from '../helpers';
+import { searchActiveQuestionnairesByTag } from '../../paperwork-flow/shared';
+import { findLinkIdClashes, handleFormInFlows, patchQuestionnaireVersion } from '../helpers';
 import { ValidatedRequest, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -31,7 +33,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const oystehr = createClinicalOystehrClient(m2mToken, validatedInput.secrets);
 
   const effectInput = await complexValidation(validatedInput, oystehr);
-  const response = await performEffect(effectInput, oystehr);
+  const otherForms = await searchActiveQuestionnairesByTag(oystehr, PRACTICE_MANAGED_QUESTIONNAIRE_TAG);
+  const warnings = findLinkIdClashes(effectInput.questionnaire, otherForms);
+  const response = { ...(await performEffect(effectInput, oystehr)), ...(warnings.length > 0 && { warnings }) };
 
   return {
     statusCode: 200,

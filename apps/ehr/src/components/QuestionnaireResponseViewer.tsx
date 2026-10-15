@@ -2,7 +2,7 @@ import { Typography } from '@mui/material';
 import { Box } from '@mui/system';
 import { QuestionnaireResponseItem } from 'fhir/r4b';
 import { ReactElement, useMemo } from 'react';
-import { CalculatedValue } from 'utils/lib/helpers/paperwork/calculated-answers';
+import { coerceCalculatedAnswers } from 'utils/lib/helpers/paperwork/calculated-answers';
 import { evaluateCalculatedItems, formatCalculatedValue } from 'utils/lib/helpers/paperwork/calculated-expressions';
 import { formatQuestionnaireItemValueToString } from 'utils/lib/helpers/practice-managed-questionnaires';
 import { IntakeQuestionnaireItem } from 'utils/lib/types/data/paperwork/paperwork.types';
@@ -22,12 +22,6 @@ const findResponseItem = (
     if (nested) return nested;
   }
   return undefined;
-};
-
-// the value a calculated item was recorded with, what is on the questionnaire response
-const storedCalculatedValue = (item: QuestionnaireResponseItem | undefined): CalculatedValue => {
-  const answer = item?.answer?.[0];
-  return answer?.valueBoolean ?? answer?.valueInteger ?? answer?.valueDecimal ?? answer?.valueString;
 };
 
 export const QuestionnaireResponseViewer = ({ form }: { form: StandaloneFormDTO }): ReactElement => {
@@ -78,19 +72,21 @@ export const QuestionnaireResponseViewer = ({ form }: { form: StandaloneFormDTO 
         let note: string | undefined;
 
         if (q.calculatedExpression) {
-          const stored = storedCalculatedValue(findResponseItem(questionnaireResponse.item, q.linkId));
+          const recorded = findResponseItem(questionnaireResponse.item, q.linkId);
+          const recordedAnswers = recorded?.answer ?? [];
           const live = recalculated[q.linkId];
-          answer = formatCalculatedValue(live);
+          answer = formatCalculatedValue(live, q);
 
-          // flag if there are any discrepancies between live and stored
+          // flag if there are any discrepancies between live and stored: compared as recorded, so a coded or
+          // repeating value is checked answer by answer
           if (live !== undefined) {
-            if (stored === undefined) {
+            if (recordedAnswers.length === 0) {
               note = 'differs from the recorded answers (no value was recorded on the response)';
-            } else if (formatCalculatedValue(stored) !== answer) {
-              note = `differs from the recorded answers (recalculated: ${formatCalculatedValue(live)})`;
+            } else if (JSON.stringify(recordedAnswers) !== JSON.stringify(coerceCalculatedAnswers(q, live) ?? [])) {
+              note = `differs from the recorded answers (recalculated: ${answer})`;
             }
-          } else if (stored !== undefined) {
-            note = `differs from the recorded answers (${stored})`;
+          } else if (recorded && recordedAnswers.length > 0) {
+            note = `differs from the recorded answers (${formatQuestionnaireItemValueToString(recorded)})`;
           }
         } else {
           answer = answerMap.get(q.linkId);
