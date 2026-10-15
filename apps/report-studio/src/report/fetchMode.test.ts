@@ -78,7 +78,8 @@ describe('stepDensity', () => {
           { name: 'date', value: 'le{{end}}' },
         ],
       },
-      { id: 'vitals', params: [] },
+      { id: 'vitals', params: [], from: { step: 'visits' } },
+      { id: 'locations', params: [], from: { step: 'visits' } },
       { id: 'open', params: [{ name: 'date', value: 'ge{{start}}' }] },
       {
         id: 'small',
@@ -104,13 +105,23 @@ describe('stepDensity', () => {
     const stats = [
       stat({ id: 'visits', resourceType: 'Appointment', byType: { Appointment: 3000, Patient: 2500 } }),
       stat({ id: 'vitals', resourceType: 'Observation', byType: { Observation: 19_500 }, scopedValues: 3000 }),
+      // Ten locations across the 3,000 visits: the ids a scoped step is fed are not one per source record.
+      stat({ id: 'locations', resourceType: 'Location', byType: { Location: 10 }, scopedValues: 10 }),
       stat({ id: 'small', resourceType: 'Appointment', byType: { Appointment: 300 }, mode: 'normal' }),
     ];
     expect(stepDensity(plan, stats, days(30))).toEqual({
       visits: { recordsPerDay: 100 },
-      vitals: { recordsPerId: 6.5 },
+      vitals: { recordsPerId: 6.5, idsPerSourceRecord: 1 },
+      locations: { recordsPerId: 1, idsPerSourceRecord: 10 / 3000 },
       small: { recordsPerDay: 10 },
     });
+  });
+
+  it('leaves the ids per source record out when the source step measured nothing', () => {
+    const stats = [
+      stat({ id: 'vitals', resourceType: 'Observation', byType: { Observation: 19_500 }, scopedValues: 3000 }),
+    ];
+    expect(stepDensity(plan, stats, days(30))).toEqual({ vitals: { recordsPerId: 6.5 } });
   });
 
   it('learns nothing from a failed, skipped or half-bounded step', () => {

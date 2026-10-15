@@ -37,22 +37,29 @@ export const isDirectTimeout = (error: unknown, elapsedMs: number): boolean =>
 
 /**
  * What a run teaches about each step's volume, for the zambda to pre-size the next run's date windows and
- * batches: primary resources per scoped id, or per day of the range for a date-bounded step. A step that
- * failed or was skipped teaches nothing.
+ * batches: primary resources per scoped id (and the ids its source step's records yielded, for the request
+ * estimate), or per day of the range for a date-bounded step. A step that failed or was skipped teaches nothing.
  */
 export function stepDensity(
-  plan: { steps: { id: string; params?: { name: string; value: string }[] }[] },
+  plan: { steps: { id: string; params?: { name: string; value: string }[]; from?: { step: string } }[] },
   stats: FetchStepStats[],
   dateRange: DateRange
 ): Record<string, FetchStepDensity> {
   const days = Math.max(1, rangeDays(dateRange));
   const out: Record<string, FetchStepDensity> = {};
+  const primaryOf = (s: FetchStepStats): number => s.byType[s.resourceType] ?? 0;
   for (const s of stats) {
     if (s.mode === 'skipped' || s.error) continue;
-    const primary = s.byType[s.resourceType] ?? 0;
+    const primary = primaryOf(s);
     const step = plan.steps.find((p) => p.id === s.id);
-    if (s.scopedValues) out[s.id] = { recordsPerId: primary / s.scopedValues };
-    else if (step && stepIsDateBounded(step)) out[s.id] = { recordsPerDay: primary / days };
+    if (s.scopedValues) {
+      const source = stats.find((other) => other.id === step?.from?.step);
+      const sourcePrimary = source ? primaryOf(source) : 0;
+      out[s.id] = {
+        recordsPerId: primary / s.scopedValues,
+        ...(sourcePrimary ? { idsPerSourceRecord: s.scopedValues / sourcePrimary } : {}),
+      };
+    } else if (step && stepIsDateBounded(step)) out[s.id] = { recordsPerDay: primary / days };
   }
   return out;
 }

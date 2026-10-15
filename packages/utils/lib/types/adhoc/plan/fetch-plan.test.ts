@@ -2,10 +2,12 @@ import { describe, expect, it } from 'vitest';
 import {
   ASYNC_BULK_TARGET,
   bulkWindowCount,
+  estimatePlanRequests,
   FETCH_PLAN_LIMITS,
   PAGED_WINDOW_TARGET,
   pagedWindowCount,
   planNeedsPatient,
+  REQUEST_BUDGET,
   resolveParamTemplates,
   RunFetchPlanInputSchema,
   scopedBulkBatchSize,
@@ -177,5 +179,137 @@ describe('bulk job sizing', () => {
     expect(scopedBulkBatchSize(50_000)).toBe(1);
     expect(scopedBulkBatchSize(undefined)).toBe(FETCH_PLAN_LIMITS.scopedBatchSize);
     expect(scopedBulkBatchSize(0)).toBe(FETCH_PLAN_LIMITS.scopedBatchSize);
+  });
+});
+
+describe('estimatePlanRequests', () => {
+  const dated = [
+    { name: 'date', value: 'ge{{start}}' },
+    { name: 'date', value: 'le{{end}}' },
+  ];
+  const scoped = (
+    id: string,
+    resourceType: string,
+    from: { step: string; path: string; param: string; keepType: string },
+    mode?: 'bulk'
+  ): { id: string; resourceType: string; from: typeof from; params: never[]; mode?: 'bulk' } => ({
+    id,
+    resourceType,
+    from,
+    params: [],
+    ...(mode ? { mode } : {}),
+  });
+  const visitReport = {
+    steps: [
+      { id: 'visits', resourceType: 'Appointment', params: dated },
+      scoped('encounters', 'Encounter', { step: 'visits', path: 'id', param: 'appointment', keepType: 'Appointment' }),
+      scoped('patients', 'Patient', {
+        step: 'visits',
+        path: 'participant.actor.reference',
+        param: '_id',
+        keepType: 'Patient',
+      }),
+      scoped('locations', 'Location', {
+        step: 'visits',
+        path: 'participant.actor.reference',
+        param: '_id',
+        keepType: 'Location',
+      }),
+    ],
+  };
+  const byId = (
+    estimates: ReturnType<typeof estimatePlanRequests>
+  ): Record<string, ReturnType<typeof estimatePlanRequests>[number]> =>
+    Object.fromEntries(estimates.map((e) => [e.id, e]));
+
+  it('sizes a year at a busy practice as the runner would: bulk jobs for the visits, a paged batch per 250 ids after', () => {
+    // 32,279 visits a year: two bulk jobs. One Encounter per visit; a patient every 1.33 visits; ten locations in all.
+    const estimates = byId(
+      estimatePlanRequests(
+        visitReport,
+        {
+          visits: { recordsPerDay: 32_279 / 365 },
+          encounters: { recordsPerId: 1, idsPerSourceRecord: 1 },
+          patients: { recordsPerId: 1, idsPerSourceRecord: 0.75 },
+          locations: { recordsPerId: 1, idsPerSourceRecord: 10 / 32_279 },
+        },
+        365
+      )
+    );
+    expect(estimates.visits.requests).toBe(3);
+    expect(estimates.visits.records).toBeCloseTo(32_279);
+    expect(estimates.visits.how).toBe('32,279 records in 2 bulk job(s)');
+    expect(estimates.encounters).toMatchObject({ requests: 130, how: '32,279 ids in 130 paged batch(es) of 250' });
+    expect(estimates.patients.requests).toBe(97);
+    expect(estimates.locations.requests).toBe(1);
+    expect(Object.values(estimates).reduce((sum, e) => sum + (e.requests ?? 0), 0)).toBeGreaterThan(REQUEST_BUDGET);
+  });
+
+  it('pages a small practice in hint-sized windows, and counts a page per 1,000 records of a batch', () => {
+    // 7.4 a day (synth): 2,701 visits in two windows of two pages; 6.5 vitals an encounter → 153 ids a batch, one page each.
+    const plan = {
+      steps: [
+        ...visitReport.steps.slice(0, 2),
+        scoped('vitals', 'Observation', { step: 'encounters', path: 'id', param: 'encounter', keepType: 'Encounter' }),
+      ],
+    };
+    const estimates = byId(
+      estimatePlanRequests(
+        plan,
+        {
+          visits: { recordsPerDay: 7.4 },
+          encounters: { recordsPerId: 1, idsPerSourceRecord: 1 },
+          vitals: { recordsPerId: 6.5, idsPerSourceRecord: 1 },
+        },
+        365
+      )
+    );
+    expect(estimates.visits).toMatchObject({ requests: 4, how: '2,701 records in 4 page(s)' });
+    expect(estimates.encounters.requests).toBe(11);
+    expect(estimates.vitals).toMatchObject({ requests: 18, how: '2,701 ids in 18 paged batch(es) of 153' });
+
+    // 5,000 records an id: one id a batch, five pages each.
+    const heavy = byId(
+      estimatePlanRequests(
+        plan,
+        { visits: { recordsPerDay: 3 }, encounters: { recordsPerId: 1 }, vitals: { recordsPerId: 5000 } },
+        1
+      )
+    );
+    expect(heavy.vitals.requests).toBe(15);
+  });
+
+  it('counts a probe and a job for mode bulk, with ids per job from the bulk target', () => {
+    const plan = {
+      steps: [
+        { id: 'visits', resourceType: 'Appointment', mode: 'bulk' as const, params: dated },
+        scoped(
+          'encounters',
+          'Encounter',
+          { step: 'visits', path: 'id', param: 'appointment', keepType: 'Appointment' },
+          'bulk'
+        ),
+      ],
+    };
+    const unsized = byId(estimatePlanRequests(plan, undefined, 365));
+    expect(unsized.visits).toEqual({ id: 'visits', requests: 2, how: 'one bulk job' });
+    expect(unsized.encounters).toEqual({ id: 'encounters', how: 'fed by "visits", whose size is unknown' });
+
+    const sized = byId(
+      estimatePlanRequests(plan, { visits: { recordsPerDay: 32_279 / 365 }, encounters: { recordsPerId: 1 } }, 365)
+    );
+    expect(sized.encounters).toMatchObject({ requests: 34, how: '32,279 ids in 33 bulk job(s)' });
+  });
+
+  it('estimates nothing without a measurement, and says why', () => {
+    const none = byId(estimatePlanRequests(visitReport, undefined, 365));
+    expect(none.visits).toEqual({ id: 'visits', how: 'no measurement yet' });
+    expect(none.encounters.how).toBe('fed by "visits", whose size is unknown');
+
+    const sourceOnly = byId(estimatePlanRequests(visitReport, { visits: { recordsPerDay: 7.4 } }, 365));
+    expect(sourceOnly.encounters).toEqual({ id: 'encounters', how: 'no measurement yet' });
+
+    const tasks = { steps: [{ id: 'tasks', resourceType: 'Task', params: [{ name: 'status', value: 'requested' }] }] };
+    expect(estimatePlanRequests(tasks, {}, 365)[0].how).toBe('not bounded by the date range, size unknown');
   });
 });

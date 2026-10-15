@@ -40,6 +40,8 @@ export const PAGED_WINDOW_TARGET = FETCH_PLAN_LIMITS.autoBulkThreshold / 2;
 export const FetchStepDensitySchema = z.object({
   recordsPerDay: z.number().nonnegative().optional(),
   recordsPerId: z.number().nonnegative().optional(),
+  /** For a scoped step: ids fed in per primary resource of its source step (one per visit for Encounters, a few in all for Locations). */
+  idsPerSourceRecord: z.number().nonnegative().optional(),
 });
 export type FetchStepDensity = z.infer<typeof FetchStepDensitySchema>;
 
@@ -76,6 +78,87 @@ export const expectedStepRecords = (hint: FetchStepDensity | undefined, days: nu
  */
 export const stepRunsBulk = (mode: 'auto' | 'normal' | 'bulk', expected: number | undefined): boolean =>
   mode === 'bulk' || (mode === 'auto' && expected !== undefined && expected > FETCH_PLAN_LIMITS.autoBulkThreshold);
+
+/**
+ * HTTP round trips a report should stay under. A year of visits at a busy practice (32,000 Appointments, 52,000
+ * Encounters) is 4 bulk jobs fetched by date, while the same records by lists of ids were 168–198 jobs a step.
+ */
+export const REQUEST_BUDGET = 20;
+
+export interface StepRequestEstimate {
+  id: string;
+  /** Round trips the next run should take; none when there is nothing to go on. */
+  requests?: number;
+  /** Primary resources expected, which size the scoped steps fed from this one. */
+  records?: number;
+  /** How the number came about, or why there is none. */
+  how: string;
+}
+
+/**
+ * The requests each step should take on a run over `days`, from the densities an earlier run saved, sized the way the
+ * runner sizes them: a date-bounded step as paged windows or pre-sized bulk jobs (each under the cap, so no split is
+ * expected), a scoped step as id batches — its ids being its source step's expected records times the ids each
+ * yielded last time (one each when that was not measured). A step with no hint, or fed by one, estimates nothing.
+ */
+export function estimatePlanRequests(
+  plan: { steps: FetchStepInput[] },
+  hints: Record<string, FetchStepDensity> | undefined,
+  days: number
+): StepRequestEstimate[] {
+  const byId = new Map<string, StepRequestEstimate>();
+  const fmt = (n: number): string => Math.round(n).toLocaleString('en-US');
+  for (const step of plan.steps) {
+    const { id } = step;
+    const mode = step.mode ?? 'auto';
+    const hint = hints?.[id];
+    let estimate: StepRequestEstimate;
+    if (step.from) {
+      const source = byId.get(step.from.step)?.records;
+      const perId = hint?.recordsPerId;
+      if (source === undefined) estimate = { id, how: `fed by "${step.from.step}", whose size is unknown` };
+      else if (perId === undefined) estimate = { id, how: 'no measurement yet' };
+      else {
+        const ids = source * (hint?.idsPerSourceRecord ?? 1);
+        const records = perId * ids;
+        if (mode === 'bulk') {
+          const jobs = Math.ceil(ids / scopedBulkBatchSize(perId));
+          estimate = { id, requests: 1 + jobs, records, how: `${fmt(ids)} ids in ${jobs} bulk job(s)` };
+        } else {
+          const batch = scopedPagedBatchSize(perId);
+          const batches = Math.ceil(ids / batch);
+          const pages = Math.max(1, Math.ceil((perId * batch) / FETCH_PLAN_LIMITS.pageSize));
+          estimate = {
+            id,
+            requests: batches * pages,
+            records,
+            how: `${fmt(ids)} ids in ${batches} paged batch(es) of ${batch}`,
+          };
+        }
+      }
+    } else if (stepIsDateBounded(step)) {
+      const perDay = hint?.recordsPerDay;
+      const records = expectedStepRecords(hint, days);
+      if (perDay === undefined || records === undefined) {
+        estimate = mode === 'bulk' ? { id, requests: 2, how: 'one bulk job' } : { id, how: 'no measurement yet' };
+      } else if (stepRunsBulk(mode, records)) {
+        const jobs = bulkWindowCount(perDay, days);
+        estimate = { id, requests: 1 + jobs, records, how: `${fmt(records)} records in ${jobs} bulk job(s)` };
+      } else {
+        const windows = pagedWindowCount(perDay, days);
+        const pages = windows * Math.max(1, Math.ceil(records / windows / FETCH_PLAN_LIMITS.pageSize));
+        estimate = { id, requests: pages, records, how: `${fmt(records)} records in ${pages} page(s)` };
+      }
+    } else {
+      estimate =
+        mode === 'bulk'
+          ? { id, requests: 2, how: 'one bulk job' }
+          : { id, how: 'not bounded by the date range, size unknown' };
+    }
+    byId.set(id, estimate);
+  }
+  return Array.from(byId.values());
+}
 
 export const FetchStepParamSchema = z.object({
   name: z.string().min(1),

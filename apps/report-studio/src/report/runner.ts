@@ -17,7 +17,7 @@ import { RenderResult, useStudio } from '../state/store';
 import { bareTagHints } from './codeCheck';
 import { dependencyChainLength, elementsIgnoredFor } from './comparePlans';
 import { chooseFetchMode, isDirectTimeout, measuredFetch, stepDensity } from './fetchMode';
-import { heavySearchWarnings } from './planWarnings';
+import { heavySearchWarnings, idListWarnings, requestBudgetWarnings } from './planWarnings';
 import { suggestElements } from './trim';
 import { resolveDateRange } from './types';
 
@@ -126,7 +126,10 @@ export async function runReport(opts: { dateRange?: DateRange; reuseData?: boole
     state.run.patientId === parameters.patientId;
 
   if (!canReuse) {
-    for (const warning of heavySearchWarnings(report.plan)) {
+    for (const warning of [
+      ...heavySearchWarnings(report.plan),
+      ...requestBudgetWarnings(report.plan, report.stepDensity, dateRange),
+    ]) {
       warnings.push(warning);
       addEvent('warn', warning);
     }
@@ -182,6 +185,10 @@ export async function runReport(opts: { dateRange?: DateRange; reuseData?: boole
           warnings.push(`step "${s.id}" returned no resources`);
           addEvent('warn', `Step ${s.id} returned no resources`);
         }
+      }
+      for (const warning of idListWarnings(rest.stats)) {
+        warnings.push(warning);
+        addEvent('warn', warning);
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
