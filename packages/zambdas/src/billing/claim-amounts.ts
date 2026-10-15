@@ -13,7 +13,11 @@ import { CLAIM_STATUS_RESPONSE_EVENT_SYSTEM, PAYMENT_METHOD_EXTENSION_URL } from
 import { getContainedReconciliation } from 'utils/lib/fhir/payments';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { extractPayerIdFromUrl } from 'utils/lib/helpers/helpers';
-import { X12_ADJUSTMENT_GROUP_CODE, X12AdjustmentGroupCode } from 'utils/lib/types/data/billing/billing.constants';
+import {
+  ERA_VOID_STATUS,
+  X12_ADJUSTMENT_GROUP_CODE,
+  X12AdjustmentGroupCode,
+} from 'utils/lib/types/data/billing/billing.constants';
 import { ClaimPatientPayment, ClaimRemitAdjustment } from 'utils/lib/types/data/billing/billing.types';
 import { roundNumberToDecimalPlaces } from 'utils/lib/utils/convert';
 import { fetchAllPages } from '../shared/fhir';
@@ -321,14 +325,12 @@ function hasEraStatusCode(claimResponse: ClaimResponse): boolean {
   return !!claimResponse.extension?.some((extension) => extension.url === ERA_STATUS_CODE_EXTENSION);
 }
 
-// Fetch every matched ClaimResponse for the given claims, grouped by claim id. Unmatched ERA
-// ClaimResponses never carry a Claim/{id} request reference, so this returns matched ones only.
-// Filters out non-ERA ClaimResponses created by claim submission.
+// Matched remits grouped by claim, excluding submission responses and voided ERAs.
 export async function fetchClaimResponsesByClaimIds(
   oystehr: Oystehr,
   claimIds: string[]
 ): Promise<Map<string, ClaimResponse[]>> {
-  return fetchResourcesGrouped<ClaimResponse>({
+  const grouped = await fetchResourcesGrouped<ClaimResponse>({
     oystehr,
     resourceType: 'ClaimResponse',
     ids: claimIds,
@@ -347,6 +349,26 @@ export async function fetchClaimResponsesByClaimIds(
     // Queued CRs come from claim submission too, but an ERA can also be queued
     keep: (claimResponse) => claimResponse.outcome !== 'queued' || hasEraStatusCode(claimResponse),
   });
+  const { paymentReconciliations, paymentReconciliationIdByClaimResponseId } = await fetchClaimEraLinks(
+    oystehr,
+    [...grouped.values()].flat()
+  );
+  const voidedEraIds = new Set(
+    paymentReconciliations.flatMap((era) => (era.status === ERA_VOID_STATUS && era.id ? [era.id] : []))
+  );
+  if (voidedEraIds.size === 0) return grouped;
+
+  for (const [claimId, responses] of grouped) {
+    const remainingResponses = responses.filter((response) => {
+      if (!response.id) return true;
+      const eraId = paymentReconciliationIdByClaimResponseId.get(response.id);
+      if (!eraId) return true;
+      return !voidedEraIds.has(eraId);
+    });
+    if (remainingResponses.length > 0) grouped.set(claimId, remainingResponses);
+    else grouped.delete(claimId);
+  }
+  return grouped;
 }
 
 export async function fetchPatientPaymentsByEncounterIds(
