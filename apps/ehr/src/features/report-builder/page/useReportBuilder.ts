@@ -82,6 +82,18 @@ function rangeFromControls(
   }
 }
 
+function schemaDateRange(range: { start: string; end: string }): LlmDatasetSchema['dateRange'] {
+  const day = (iso: string): string | null => {
+    const dt = DateTime.fromISO(iso, { setZone: true });
+    return dt.isValid ? dt.toFormat('yyyy-MM-dd') : null;
+  };
+
+  const start = day(range.start);
+  const end = day(range.end);
+
+  return start && end ? { start, end } : undefined;
+}
+
 function toMultiDatasetRequest({ datasetIds, hint }: Pick<InferResult, 'datasetIds' | 'hint'>): MultiDatasetRequest {
   return { datasets: datasetIds.map((id) => getDataset(id)?.label ?? id), ...(hint ? { hint } : {}) };
 }
@@ -214,6 +226,7 @@ export function useReportBuilder(): UseReportBuilder {
         const fetched = await dataset.fetch({ oystehrZambda, queryClient, dateRange: range, options: opts });
         const builtSchema: LlmDatasetSchema = {
           ...dataset.buildSchema(fetched, opts),
+          dateRange: schemaDateRange(range),
           otherDatasets: otherDatasetsFor(datasetId),
         };
         showAdHocDebugLog('fetch', `fetched ${fetched.length} rows`, {
@@ -528,6 +541,7 @@ export function useReportBuilder(): UseReportBuilder {
         const fetched = await dataset.fetch({ oystehrZambda, dateRange: range, options: savedOptions, queryClient });
         const builtSchema: LlmDatasetSchema = {
           ...dataset.buildSchema(fetched, savedOptions),
+          dateRange: schemaDateRange(range),
           otherDatasets: otherDatasetsFor(saved.datasetId),
         };
         setRows(fetched);
