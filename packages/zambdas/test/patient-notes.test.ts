@@ -45,6 +45,7 @@ const mockFhirClient = {
     search: vi.fn(),
     create: vi.fn(),
     update: vi.fn(),
+    patch: vi.fn(),
     delete: vi.fn(),
   },
 };
@@ -384,7 +385,7 @@ describe('get-patient-notes handler', () => {
         { name: 'subject', value: `Patient/${VALID_PATIENT_ID}` },
         { name: '_tag', value: PATIENT_NOTE_TAG },
         { name: 'status', value: 'completed' },
-        { name: '_sort', value: '-_lastUpdated' },
+        { name: '_sort', value: '-sent' },
         { name: '_count', value: '10' },
         { name: '_offset', value: '20' },
       ])
@@ -553,14 +554,14 @@ describe('update-patient-note handler', () => {
     const existing = fakeNote();
     const updated = fakeNote({ payload: [{ contentString: 'updated text' }] });
     mockFhirClient.fhir.get.mockResolvedValueOnce(existing);
-    mockFhirClient.fhir.update.mockResolvedValue(updated);
+    mockFhirClient.fhir.patch.mockResolvedValue(updated);
 
     const result = await updateHandler(
       makeInput({ note: { ...baseNotePayload, resourceId: VALID_NOTE_ID, text: 'updated text' } }, 'user-token')
     );
 
     expect(result.statusCode).toBe(200);
-    expect(mockFhirClient.fhir.update).toHaveBeenCalledWith(expect.objectContaining({ id: VALID_NOTE_ID }));
+    expect(mockFhirClient.fhir.patch).toHaveBeenCalledWith(expect.objectContaining({ id: VALID_NOTE_ID }));
     expect(mockFhirClient.fhir.create).not.toHaveBeenCalled();
   });
 
@@ -609,34 +610,28 @@ describe('update-patient-note handler', () => {
     const existing = fakeNote();
     const updated = fakeNote({ payload: [{ contentString: 'updated text' }] });
     mockFhirClient.fhir.get.mockResolvedValueOnce(existing);
-    mockFhirClient.fhir.update.mockResolvedValue(updated);
+    mockFhirClient.fhir.patch.mockResolvedValue(updated);
 
     const result = await updateHandler(
       makeInput({ note: { ...baseNotePayload, resourceId: VALID_NOTE_ID, text: 'updated text' } }, 'other-token')
     );
 
     expect(result.statusCode).toBe(200);
-    expect(mockFhirClient.fhir.update).toHaveBeenCalledWith(expect.objectContaining({ id: VALID_NOTE_ID }));
+    expect(mockFhirClient.fhir.patch).toHaveBeenCalledWith(expect.objectContaining({ id: VALID_NOTE_ID }));
   });
 
-  it('preserves the original sent timestamp so edit detection works correctly', async () => {
-    const originalSent = '2026-01-01T10:00:00.000Z';
-    const existing = fakeNote({ sent: originalSent });
-    mockFhirClient.fhir.get.mockResolvedValueOnce(existing); // second fhir.get falls back to fakePractitioner from beforeEach
-    mockFhirClient.fhir.update.mockResolvedValue(fakeNote({ sent: originalSent }));
+  it('keeps the author and sent time: only the text and editor list change', async () => {
+    mockFhirClient.fhir.get.mockResolvedValueOnce(fakeNote()); // second fhir.get falls back to fakePractitioner from beforeEach
+    mockFhirClient.fhir.patch.mockResolvedValue(fakeNote());
 
     await updateHandler(
       makeInput({ note: { ...baseNotePayload, resourceId: VALID_NOTE_ID, text: 'new text' } }, 'user-token')
     );
 
-    const resourcePassed = mockFhirClient.fhir.update.mock.calls[0][0] as Communication;
-    expect(resourcePassed.sent).toBe(originalSent);
+    const { operations } = mockFhirClient.fhir.patch.mock.calls[0][0];
+    expect(operations.map((operation: { path: string }) => operation.path)).toEqual(['/payload', '/extension']);
   });
 });
-
-// ---------------------------------------------------------------------------
-// delete-patient-note handler
-// ---------------------------------------------------------------------------
 
 describe('delete-patient-note handler', () => {
   beforeEach(() => {

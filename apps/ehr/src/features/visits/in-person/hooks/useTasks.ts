@@ -594,6 +594,7 @@ function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encounter>):
               date: getExtension(task.owner, TASK_ASSIGNED_DATE_TIME_EXTENSION_URL)?.valueDateTime ?? '',
             }
           : undefined,
+        createdById: task.requester?.reference?.split('/')[1],
         completable,
       };
     }
@@ -716,6 +717,7 @@ function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encounter>):
           date: getExtension(task.owner, TASK_ASSIGNED_DATE_TIME_EXTENSION_URL)?.valueDateTime ?? '',
         }
       : undefined,
+    createdById: task.requester?.reference?.split('/')[1],
     alert: getAlertCode(task),
     completable: completable,
   };

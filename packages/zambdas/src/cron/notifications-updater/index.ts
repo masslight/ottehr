@@ -42,6 +42,8 @@ import {
   PROVIDER_NOTIFICATION_TYPE_SYSTEM,
   ProviderNotificationMethod,
   ProviderNotificationSettings,
+  TASK_NOTE_NOTIFIED_TAG_CODE,
+  TASK_NOTE_NOTIFIED_TAG_SYSTEM,
   VIRTUAL_VISIT_SCHEDULED_TAG_CODE,
   VIRTUAL_VISIT_SCHEDULED_TAG_SYSTEM,
   WAITING_ROOM_NOTIFIED_TAG_CODE,
@@ -62,6 +64,7 @@ import { ERX_TASK, FAX_TASK, getTaskInputValue } from 'utils/lib/types/data/task
 import { getInPersonVisitStatus } from 'utils/lib/utils/visitUtils';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
+import { getNoteTaskId, isTaskNote, TASK_NOTE_TAG } from '../../shared/notes';
 import { wrapHandler } from '../../shared/sentry';
 import { getTaskLocation } from '../../shared/tasks';
 import { ZambdaInput } from '../../shared/types/common';
@@ -501,6 +504,62 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
     }
   });
 
+  // New task notes: tell the other people involved in the task, per their settings for its category. A tag on
+  // each note makes this happen once per note.
+  try {
+    const { newNotes, notesByTaskId, tasksById } = await getRecentTaskNotes(oystehr, notificationWindowStart);
+    const notifiedThisRun = new Set<string>();
+    for (const note of newNotes) {
+      const task = tasksById.get(getNoteTaskId(note) ?? '');
+      if (task) {
+        const uiCategory = getUiTaskCategoryForCode(task.groupIdentifier?.value);
+        for (const recipientId of resolveTaskNoteRecipientIds(task, notesByTaskId.get(task.id!) ?? [], note)) {
+          const recipient = activeStaffMap[recipientId];
+          const key = categoryNotifiedKey(task.id!, recipientId);
+          if (!recipient || notifiedThisRun.has(key)) continue;
+          const delivery = resolveTaskNoteDelivery(
+            recipient,
+            getPrefsCached(recipient),
+            uiCategory,
+            getTaskLocation(task)?.id
+          );
+          if (!delivery.notify) continue;
+          notifiedThisRun.add(key);
+          const status = communicationStatusForMethod(delivery.method);
+          const type = {
+            system: PROVIDER_NOTIFICATION_TYPE_SYSTEM,
+            code: AppointmentProviderNotificationTypes.task_note_added,
+          };
+          const resource: Communication = {
+            resourceType: 'Communication',
+            category: [{ coding: [type, ...(uiCategory ? [taskCategoryCoding(uiCategory)] : [])] }],
+            sent: DateTime.utc().toISO()!,
+            status,
+            basedOn: [{ reference: `Task/${task.id}` }],
+            about: buildTaskNotificationAbout(task),
+            recipient: [{ reference: `Practitioner/${recipient.id}` }],
+            // Not the note's text: this may go out by text message.
+            payload: [{ contentString: 'New note on task: ' + (task.description ?? `task ID ${task.id}`) }],
+          };
+          enqueueNotification(recipient, { method: 'POST', url: '/Communication', resource }, status, delivery.method);
+        }
+      }
+      // Marked notified only once everyone on it was handled, so a failure leaves the note for the next run.
+      const notifiedTag = { system: TASK_NOTE_NOTIFIED_TAG_SYSTEM, code: TASK_NOTE_NOTIFIED_TAG_CODE };
+      updateCommunicationRequests.push(
+        getPatchBinary({
+          resourceId: note.id!,
+          resourceType: 'Communication',
+          patchOperations: [getPatchOperationForNewMetaTag(note, notifiedTag)],
+        })
+      );
+    }
+  } catch (error) {
+    // A failure here must not cost the run's other notifications.
+    console.error('Error trying to process task note notifications', error);
+    captureException(error);
+  }
+
   // Flush accumulated tags as one patch per task, computing per-tag APPEND ops against a working copy.
   // Not getPatchOperationsForNewMetaTags: its wholesale /meta/tag replace would clobber tags a concurrent
   // writer added after our read.
@@ -772,6 +831,69 @@ export async function getRecentTaskResources(oystehr: Oystehr, fromDate: DateTim
     },
     oystehr
   );
+}
+
+/** Task notes written in the window and not yet notified, every note on their tasks, and the tasks. */
+export async function getRecentTaskNotes(
+  oystehr: Oystehr,
+  fromDate: DateTime
+): Promise<{ newNotes: Communication[]; notesByTaskId: Map<string, Communication[]>; tasksById: Map<string, Task> }> {
+  const resources = await getAllFhirSearchPages<Communication | Task>(
+    {
+      resourceType: 'Communication',
+      params: [
+        { name: '_tag', value: TASK_NOTE_TAG },
+        { name: 'status', value: 'completed' },
+        { name: 'sent', value: `ge${fromDate.toISO()}` },
+        { name: '_include', value: 'Communication:based-on' },
+        // Earlier notes on the same tasks: their authors are involved too.
+        { name: '_revinclude:iterate', value: 'Communication:based-on' },
+      ],
+    },
+    oystehr
+  );
+  const tasksById = new Map<string, Task>();
+  const notesById = new Map<string, Communication>();
+  for (const resource of resources) {
+    if (resource.resourceType === 'Task') tasksById.set(resource.id!, resource);
+    else if (isTaskNote(resource) && resource.status === 'completed') notesById.set(resource.id!, resource);
+  }
+  const notesByTaskId = new Map<string, Communication[]>();
+  for (const note of notesById.values()) {
+    const taskId = getNoteTaskId(note) ?? '';
+    notesByTaskId.set(taskId, [...(notesByTaskId.get(taskId) ?? []), note]);
+  }
+  const newNotes = [...notesById.values()].filter(
+    (note) =>
+      DateTime.fromISO(note.sent ?? '') >= fromDate &&
+      !note.meta?.tag?.some((tag) => tag.system === TASK_NOTE_NOTIFIED_TAG_SYSTEM)
+  );
+  return { newNotes, notesByTaskId, tasksById };
+}
+
+/** Who hears about a new task note: the task's assignee, its creator and every note author, minus the note's author. */
+export function resolveTaskNoteRecipientIds(task: Task, notesOnTask: Communication[], note: Communication): string[] {
+  const practitionerId = (reference?: string): string | undefined => removePrefix('Practitioner/', reference ?? '');
+  const involved = [task.owner, task.requester, ...notesOnTask.map((other) => other.sender)].map((reference) =>
+    practitionerId(reference?.reference)
+  );
+  const authorId = practitionerId(note.sender?.reference);
+  return [...new Set(involved)].filter((id): id is string => !!id && id !== authorId);
+}
+
+/** Being involved in the task counts as "assigned to me", so only the category row's on/off and locations apply. */
+export function resolveTaskNoteDelivery(
+  recipient: Practitioner,
+  prefs: ProviderNotificationPreferencesV2 | undefined,
+  uiCategory: UiTaskCategoryId | undefined,
+  locationId: string | undefined
+): { notify: false } | { notify: true; method: ProviderNotificationMethod | undefined } {
+  if (uiCategory && hasExplicitProviderNotificationPreferencesV2(recipient)) {
+    const row = prefs?.taskCategories[uiCategory];
+    return row && rowMatchesFilters(row, locationId, true) ? { notify: true, method: row.method } : { notify: false };
+  }
+  const legacySettings = getProviderNotificationSettingsForPractitioner(recipient);
+  return legacySettings?.taskNotificationsEnabled ? { notify: true, method: legacySettings.method } : { notify: false };
 }
 
 /** Whether the task was actually CREATED within the window, as opposed to merely edited inside it. */

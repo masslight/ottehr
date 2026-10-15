@@ -3,22 +3,24 @@ import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import { Box, Dialog, DialogContent, DialogTitle, IconButton, Typography } from '@mui/material';
 import React from 'react';
 import { PaperStyled } from 'src/features/visits/shared/components/generic-notes-list/components/ui/PaperStyled';
+import { noteKind, NoteTarget } from '../hooks/usePatientNotes';
 import { AddPatientNote } from './AddPatientNote';
 import { PatientNotesList } from './PatientNotesList';
 
 interface PatientNotesDialogProps {
-  patientId: string;
+  target: NoteTarget;
   open: boolean;
   onClose: () => void;
+  onNoteCreated?: (text: string) => void;
 }
 
-export const PatientNotesDialog: React.FC<PatientNotesDialogProps> = ({ patientId, open, onClose }) => {
+export const PatientNotesDialog: React.FC<PatientNotesDialogProps> = ({ target, open, onClose, onNoteCreated }) => {
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="lg">
       <DialogTitle>
         <Box px={3} display="flex" alignItems="center" justifyContent="space-between">
           <Typography variant="h4" component="div">
-            Patient Notes
+            {noteKind(target) === 'task' ? 'Task Notes' : 'Patient Notes'}
           </Typography>
           <IconButton sx={{ color: 'grey.500' }} edge="end" color="inherit" onClick={onClose} aria-label="close">
             <CloseIcon />
@@ -33,8 +35,8 @@ export const PatientNotesDialog: React.FC<PatientNotesDialogProps> = ({ patientI
       </DialogTitle>
       <DialogContent>
         <PaperStyled>
-          <AddPatientNote patientId={patientId} />
-          <PatientNotesList patientId={patientId} />
+          <AddPatientNote target={target} onCreated={onNoteCreated} />
+          <PatientNotesList target={target} />
         </PaperStyled>
       </DialogContent>
     </Dialog>
