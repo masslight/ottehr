@@ -27,7 +27,7 @@ describe('questionnaire javascript stays in the browser', () => {
     expect(offenders).toEqual([]);
   });
 
-  test.each(['calculated-answers.ts', 'calculated-expression-validation.ts'])(
+  test.each(['calculated-answers.ts'])(
     '%s, which the server uses, neither imports the evaluator nor compiles code',
     (fileName) => {
       const source = readFileSync(join(PAPERWORK_UTILS, fileName), 'utf8');

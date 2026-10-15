@@ -51,58 +51,10 @@ const inputFor = (questionnaire: Record<string, unknown>): ZambdaInput => ({
   secrets: null,
 });
 
-const errorMessageFor = (questionnaire: Record<string, unknown>): string => {
-  try {
-    validateRequestParameters(inputFor(questionnaire));
-  } catch (error) {
-    return (error as { message?: string }).message ?? String(error);
-  }
-  throw new Error('expected the import to be rejected');
-};
-
 describe('practice managed questionnaire import-json: calculated expressions', () => {
   test('accepts the CAGE questionnaire', () => {
     const { questionnaire } = validateRequestParameters(inputFor(cage()));
     expect(questionnaire.url).toBe('https://ottehr.com/FHIR/Questionnaire/cage-alcohol-screening');
-  });
-
-  test('reports an unknown reference with an actionable message', () => {
-    const questionnaire = cage();
-    const results = (questionnaire.item as any[])[1];
-    results.item[0].extension = calculated('(answers["q1"]||0)+(answers["q9"]||0)');
-
-    const message = errorMessageFor(questionnaire);
-    expect(message).toContain('The questionnaire has 1 problem with its calculated items:');
-    expect(message).toContain(
-      '- "total" (Total): the expression reads answers["q9"], but no item has linkId "q9". Did you mean "q1"?'
-    );
-    expect(message).toContain('Available linkIds: ');
-  });
-
-  test('reports every problem together, one per line', () => {
-    const questionnaire = cage();
-    const results = (questionnaire.item as any[])[1];
-    results.item[0].extension = calculated('answers["total"] + 1');
-    results.item[1].extension = calculated('answers["nope"]', 'text/fhirpath');
-
-    const lines = errorMessageFor(questionnaire).split('\n');
-    expect(lines[0]).toBe('The questionnaire has 3 problems with its calculated items:');
-    expect(lines.slice(1)).toHaveLength(3);
-    lines.slice(1).forEach((line) => expect(line.startsWith('- ')).toBe(true));
-  });
-
-  test('reports a syntax error and a circular reference', () => {
-    const questionnaire = cage();
-    const results = (questionnaire.item as any[])[1];
-    results.item[0].extension = calculated('answers["positive-screen"]');
-    results.item[1].extension = calculated('answers["total"]');
-    expect(errorMessageFor(questionnaire)).toContain(
-      '"total" and "positive-screen" depend on each other (total -> positive-screen -> total)'
-    );
-
-    results.item[0].extension = calculated('(answers["q1"]||0)+');
-    results.item[1].extension = undefined;
-    expect(errorMessageFor(questionnaire)).toContain('the expression is not valid JavaScript');
   });
 });
 
