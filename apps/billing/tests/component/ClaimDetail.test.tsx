@@ -213,6 +213,7 @@ const makePayment = (overrides: Partial<ClaimInsurancePayment>): ClaimInsuranceP
   checkDate: '2026-07-08',
   paymentAmount: 350,
   payerName: 'CIGNA',
+  payerClaimControlNumber: '',
   ...overrides,
 });
 
@@ -428,7 +429,7 @@ describe('ClaimDetail — insurance payments', () => {
     const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
     getBillingClaimDetailMock.mockResolvedValue({
       ...makeClaim(AR_STAGE.insurancePayer),
-      insurancePayments: [makePayment({})],
+      insurancePayments: [makePayment({ payerClaimControlNumber: 'ICN0012345' })],
     });
     renderDetail();
 
@@ -440,7 +441,7 @@ describe('ClaimDetail — insurance payments', () => {
     expect(checkLink).toHaveAttribute('target', '_blank');
 
     const row = checkLink.closest('tr');
-    expect(cellTexts(row)).toEqual(['07/07/2026', '07/08/2026', 'CIGNA', 'ERA0000000001', '$350.00']);
+    expect(cellTexts(row)).toEqual(['07/07/2026', '07/08/2026', 'CIGNA', 'ERA0000000001', 'ICN0012345', '$350.00']);
 
     fireEvent.click(row as HTMLElement);
     expect(openSpy).toHaveBeenCalledWith('/eras/payment-reconciliation-1', '_blank', 'noopener');
@@ -598,43 +599,17 @@ describe('ClaimDetail — service line remit details', () => {
       '$25.00',
       '$25.00',
     ]);
-    expect(cellTexts(within(line1).getByText('CO-45').closest('tr'))).toEqual([
-      '08/18/2026',
-      'CO-45',
-      '',
-      '',
-      '$40.21',
-      '',
-      '',
-      '',
-      '',
-      '',
-    ]);
-    expect(cellTexts(within(line1).getByText('PR-3').closest('tr'))).toEqual([
-      '08/18/2026',
-      'PR-3',
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      '$25.00',
-      '',
-    ]);
+    // the default CARCs (CO-45, PR-1/2/3) live in the columns; they get no rows of their own
+    expect(within(line1).queryByText('CO-45')).not.toBeInTheDocument();
+    expect(within(line1).queryByText('PR-3')).not.toBeInTheDocument();
 
     const line2 = screen.getByRole('table', { name: 'Remit details for line 2' });
-    expect(cellTexts(within(line2).getByText('PR-1').closest('tr'))).toEqual([
-      '08/18/2026',
-      'PR-1',
-      '',
-      '',
-      '',
-      '',
+    expect(within(line2).queryByText('PR-1')).not.toBeInTheDocument();
+    expect(cellTexts(within(line2).getByText('Employers Mutual').closest('tr')).slice(6)).toEqual([
       '$15.00',
-      '',
-      '',
-      '',
+      '$0.00',
+      '$0.00',
+      '$15.00',
     ]);
   });
 
@@ -669,7 +644,8 @@ describe('ClaimDetail — service line remit details', () => {
     const line1 = await screen.findByRole('table', { name: 'Remit details for line 1' });
     const cells = cellTexts(within(line1).getByText('Employers Mutual').closest('tr'));
     expect(cells.slice(6)).toEqual(['$10.00', '$0.00', '$0.00', '$17.00']);
-    expect(cellTexts(within(line1).getByText('PR-1').closest('tr')).slice(6)).toEqual(['$10.00', '', '', '']);
+    // PR-1 is a column, so no row; PR-96 has no column of its own and keeps one
+    expect(within(line1).queryByText('PR-1')).not.toBeInTheDocument();
     expect(cellTexts(within(line1).getByText('PR-96').closest('tr')).slice(6)).toEqual(['', '', '', '$7.00']);
   });
 
@@ -760,7 +736,10 @@ describe('ClaimDetail — service line remit details', () => {
     renderDetail();
     await openRemitsTab();
 
-    expect(await screen.findByText('Claim-level & unmatched remit lines')).toBeInTheDocument();
+    // each unmatched group is labeled by a chip, not a prose header
+    expect(await screen.findByText('Remit Lines Not On Claim')).toBeInTheDocument();
+    expect(screen.getByText('Claim Level Remit Lines')).toBeInTheDocument();
+    expect(screen.queryByText('Claim-level & unmatched remit lines')).not.toBeInTheDocument();
 
     const codedRow = screen
       .getByRole('button', { name: 'Toggle remit details for 99214 (not on claim)' })
@@ -768,7 +747,9 @@ describe('ClaimDetail — service line remit details', () => {
     expect(cellTexts(codedRow)).toEqual(['', '', 'ERA', '2026-08-14', '99214', '-', '-', '-', '1 UN', '$150.00']);
     const codedLedger = screen.getByRole('table', { name: 'Remit details for 99214 (not on claim)' });
     expect(within(codedLedger).queryByText('Charge')).not.toBeInTheDocument();
-    expect(cellTexts(within(codedLedger).getByText('CO-45').closest('tr'))[4]).toBe('$60.00');
+    // its CO-45 shows under Ins adj on the remit's row rather than a row of its own
+    expect(within(codedLedger).queryByText('CO-45')).not.toBeInTheDocument();
+    expect(cellTexts(within(codedLedger).getByText('Employers Mutual').closest('tr'))[4]).toBe('$60.00');
 
     const claimLevelRow = screen
       .getByRole('button', { name: 'Toggle remit details for claim-level adjustments' })
@@ -781,7 +762,7 @@ describe('ClaimDetail — service line remit details', () => {
     expect(codedRow?.compareDocumentPosition(claimLevelRow) ?? 0).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
   });
 
-  it('highlights a remit line with its remit and check on hover, and opens its card only from a CARC label', async () => {
+  it('highlights a remit line with its remit and check on hover, and opens its card from anywhere on the line', async () => {
     const user = userEvent.setup();
     getBillingClaimDetailMock.mockResolvedValue(claimWithRemits());
     renderDetail();
@@ -795,18 +776,13 @@ describe('ClaimDetail — service line remit details', () => {
     const checkRow = within(payments).getByRole('link', { name: 'CHK00012347' }).closest('tr');
     const otherCheckRow = within(payments).getByRole('link', { name: 'CHK00012345' }).closest('tr');
 
-    // anywhere on the remit's rows lights up its remit and check, but opens no card, even past the
-    // card's enter delay
-    await user.hover(within(line1).getByText('Employers Mutual'));
+    // anywhere on the remit's rows lights up its remit and check and opens the card
+    await user.hover(within(line1).getByText('$40.21'));
     expect(remitRow).toHaveClass('Mui-selected');
     expect(checkRow).toHaveClass('Mui-selected');
     expect(otherCheckRow).not.toHaveClass('Mui-selected');
-    await act(() => new Promise((resolve) => setTimeout(resolve, 300)));
-    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
 
-    const co45 = within(line1).getByText('CO-45');
-    await user.hover(co45);
-
+    // the card spells out every adjustment, the columned defaults included
     const card = await screen.findByRole('tooltip');
     expect(within(card).getByText('Employers Mutual')).toBeInTheDocument();
     expect(within(card).getByText('Primary')).toBeInTheDocument();
@@ -820,26 +796,29 @@ describe('ClaimDetail — service line remit details', () => {
     expect(checkRow).toHaveClass('Mui-selected');
     expect(otherCheckRow).not.toHaveClass('Mui-selected');
 
-    // moving to the line's other CARC label keeps its card and highlight up
-    const copayLabel = within(line1).getByText('PR-3');
-    await user.hover(copayLabel);
-    // the previous label's card finishes closing while this one opens
+    // moving onto another line keeps a single card and the highlight up
+    const line2 = screen.getByRole('table', { name: 'Remit details for line 2' });
+    const line2Label = within(line2).getByText('Employers Mutual');
+    await user.hover(line2Label);
+    // the previous line's card finishes closing while this one opens
     await waitFor(() => {
       expect(screen.getAllByRole('tooltip')).toHaveLength(1);
       expect(remitRow).toHaveClass('Mui-selected');
     });
-    expect(within(screen.getByRole('tooltip')).getByText("Patient's copay for the visit")).toBeInTheDocument();
+    expect(
+      within(screen.getByRole('tooltip')).getByText("Counted toward the patient's deductible")
+    ).toBeInTheDocument();
     expect(checkRow).toHaveClass('Mui-selected');
 
     // leaving the remit's rows clears both
-    await user.unhover(copayLabel);
+    await user.unhover(line2Label);
 
     await waitFor(() => expect(screen.queryByRole('tooltip')).not.toBeInTheDocument());
     expect(remitRow).not.toHaveClass('Mui-selected');
     expect(checkRow).not.toHaveClass('Mui-selected');
   });
 
-  it('highlights a remit line with its remit and check while one of its CARC labels has focus', async () => {
+  it('highlights a remit line with its remit and check while it has focus', async () => {
     getBillingClaimDetailMock.mockResolvedValue(claimWithRemits());
     renderDetail();
     await openRemitsTab();
@@ -848,7 +827,7 @@ describe('ClaimDetail — service line remit details', () => {
     const remitRow = within(screen.getByRole('table', { name: 'Remits' }))
       .getByRole('link', { name: 'CHK00012347' })
       .closest('tr');
-    const label = within(line1).getByText('CO-45').closest('[tabindex="0"]') as HTMLElement;
+    const label = within(line1).getByText('Employers Mutual').closest('[tabindex="0"]') as HTMLElement;
 
     act(() => label.focus());
     expect(remitRow).toHaveClass('Mui-selected');

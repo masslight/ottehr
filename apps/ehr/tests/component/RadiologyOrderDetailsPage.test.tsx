@@ -79,8 +79,14 @@ const { mockSaveChartData, mockSetPartialChartData } = vi.hoisted(() => ({
   mockSetPartialChartData: vi.fn(),
 }));
 
+// The visit's patient; tests that need a child set `birthDate` (reset to an adult before each test).
+const { mockPatient } = vi.hoisted(() => ({
+  mockPatient: { resourceType: 'Patient', birthDate: '1980-01-01' as string | undefined },
+}));
+
 vi.mock('src/features/visits/shared/stores/appointment/appointment.store', () => ({
   useSaveChartData: () => ({ mutate: mockSaveChartData }),
+  useAppointmentData: () => ({ patient: mockPatient }),
 }));
 
 vi.mock('src/features/visits/shared/hooks/useChartData', () => ({
@@ -184,6 +190,7 @@ const makeHookResult = (overrides = {}): ReturnType<typeof usePatientRadiologyOr
 describe('RadiologyOrderDetailsPage - final report', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockPatient.birthDate = '1980-01-01';
     mockUseParams.mockReturnValue({ serviceRequestID: SERVICE_REQUEST_ID, id: 'appt-001' } as any);
     mockUseNavigate.mockReturnValue(vi.fn());
     mockUseRadiologyConsentExists.mockReturnValue(false);
@@ -367,6 +374,114 @@ describe('RadiologyOrderDetailsPage - final report', () => {
           'preliminary',
           ['A00'],
           // The performer select defaults to the current user, so a save always carries one.
+          CURRENT_USER_ID
+        )
+      );
+    });
+
+    it('offers suggested reads for a mapped study and appends the chosen one to the preliminary read', async () => {
+      const user = userEvent.setup();
+      mockUsePatientRadiologyOrders.mockReturnValue(
+        makeHookResult({
+          orders: [makeMockOrder({ status: RadiologyOrderStatus.performed, cptCode: '73610', laterality: 'LT' })],
+        })
+      );
+
+      renderPage();
+      expect(screen.getByText('Suggested reads')).toBeInTheDocument();
+      await user.click(screen.getByRole('button', { name: 'Add to read: Negative' }));
+
+      expect(screen.getByRole('textbox', { name: PRELIMINARY_REPORT_TEXTBOX_LABEL })).toHaveValue(
+        'No acute fracture or dislocation. Ankle mortise intact.'
+      );
+      // The label must float even though the text arrived without the field ever being focused.
+      expect(document.querySelector('label[for="preliminary-report-field"]')).toHaveAttribute('data-shrink', 'true');
+    });
+
+    it.each([
+      { why: 'a preliminary read is already saved', status: RadiologyOrderStatus.performed, preliminaryReport: 'x' },
+      { why: 'the study is not yet performed', status: RadiologyOrderStatus.ordered, preliminaryReport: undefined },
+    ])('does not offer suggested reads when $why', ({ status, preliminaryReport }) => {
+      mockUsePatientRadiologyOrders.mockReturnValue(
+        makeHookResult({
+          orders: [
+            makeMockOrder({
+              status,
+              cptCode: '73610',
+              laterality: 'LT',
+              preliminaryReport: preliminaryReport && btoa(preliminaryReport),
+            }),
+          ],
+        })
+      );
+
+      renderPage();
+      expect(screen.queryByText('Suggested reads')).not.toBeInTheDocument();
+    });
+
+    it('does not offer suggested reads while the visit is read-only', () => {
+      mockUseGetAppointmentAccessibility.mockReturnValue({
+        isAppointmentReadOnly: true,
+        isPractitionerLicensedInState: true,
+        isEncounterAssignedToCurrentPractitioner: true,
+        visitType: 'main',
+      });
+      mockUsePatientRadiologyOrders.mockReturnValue(
+        makeHookResult({
+          orders: [makeMockOrder({ status: RadiologyOrderStatus.performed, cptCode: '73610', laterality: 'LT' })],
+        })
+      );
+
+      renderPage();
+      expect(screen.queryByText('Suggested reads')).not.toBeInTheDocument();
+    });
+
+    it.each([
+      // 17 when the study was ordered (2024-12-20), though an adult today: the order date decides.
+      { who: 'a patient under 18 on the order date', birthDate: '2007-06-01', child: true },
+      { who: 'an adult', birthDate: '1980-01-01', child: false },
+      { who: 'a patient with no birth date', birthDate: undefined, child: false },
+    ])('offers the child suggestions only to $who', ({ birthDate, child }) => {
+      mockPatient.birthDate = birthDate;
+      mockUsePatientRadiologyOrders.mockReturnValue(
+        makeHookResult({
+          orders: [makeMockOrder({ status: RadiologyOrderStatus.performed, cptCode: '73610', laterality: 'LT' })],
+        })
+      );
+
+      renderPage();
+      const childBlanks = screen.queryAllByRole('button', { name: /^Growth plates? \(children only\)/ });
+      expect(childBlanks).toHaveLength(child ? 2 : 0);
+      expect(
+        screen.getByRole('button', { name: child ? 'Fracture type: Salter-Harris I' : 'Fracture type: (none)' })
+      ).toBeInTheDocument();
+    });
+
+    it('adds a suggestion on a new line after text already typed, and saves exactly the text in the field', async () => {
+      const user = userEvent.setup();
+      const mockHandleSaveReport = vi.fn();
+      mockUsePatientRadiologyOrders.mockReturnValue(
+        makeHookResult({
+          orders: [makeMockOrder({ status: RadiologyOrderStatus.performed, cptCode: '73610', laterality: 'LT' })],
+          handleSaveReport: mockHandleSaveReport,
+        })
+      );
+
+      renderPage();
+      const field = screen.getByRole('textbox', { name: PRELIMINARY_REPORT_TEXTBOX_LABEL });
+      await user.type(field, 'Limited study.');
+      await user.click(screen.getByRole('button', { name: 'Add to read: Negative' }));
+      const expected = 'Limited study.\nNo acute fracture or dislocation. Ankle mortise intact.';
+      expect(field).toHaveValue(expected);
+
+      await user.click(screen.getByRole('button', { name: ADD_DX_BTN_LABEL }));
+      await user.click(screen.getByRole('button', { name: SAVE_PRELIMINARY_REPORT_BTN_LABEL }));
+      await waitFor(() =>
+        expect(mockHandleSaveReport).toHaveBeenCalledWith(
+          SERVICE_REQUEST_ID,
+          expected,
+          'preliminary',
+          ['A00'],
           CURRENT_USER_ID
         )
       );

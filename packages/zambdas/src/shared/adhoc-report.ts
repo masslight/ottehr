@@ -14,7 +14,7 @@ import {
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { BUCKET_NAMES, SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
-import { getEncounterVisitType } from 'utils/lib/fhir/encounter';
+import { getEncounterVisitType, isScheduledFollowupEncounter } from 'utils/lib/fhir/encounter';
 import { isInPersonAppointment, isTelemedAppointment, OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
 import { getAddressForIndividual, getFirstName, getLastName, getMiddleName } from 'utils/lib/fhir/patient';
 import { getAdmitterPractitionerId, getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
@@ -323,6 +323,9 @@ export function resolveEncounterAppointment(
 
   if (own) return own;
 
+  // A scheduled follow-up is a visit of its own: not loaded means outside the range, never the parent's visit.
+  if (isScheduledFollowupEncounter(encounter)) return undefined;
+
   const parentId = encounter.partOf?.reference?.replace('Encounter/', '');
   const parentRef = parentId ? encounterById.get(parentId)?.appointment?.[0]?.reference : undefined;
 
@@ -422,3 +425,7 @@ export const presentFullName = (individual: Patient | Practitioner | RelatedPers
   individual?.name?.[0]
     ? [getFirstName(individual), getMiddleName(individual), getLastName(individual)].filter(Boolean).join(' ')
     : '';
+
+/** `value` when it is one of `allowed` (a closed vocabulary the schema enumerates), else null. */
+export const knownValueOrNull = <T extends string>(allowed: readonly T[], value: string | undefined): T | null =>
+  value && (allowed as readonly string[]).includes(value) ? (value as T) : null;

@@ -28,7 +28,7 @@ import { AdHocLayerMap, DatasetInput, datasetInputSchema, datasetRowSchema, Laye
 // changes the schema the report is generated against instead of failing validation at runtime.
 const enumValues = <T extends string>(values: T[]): [T, ...T[]] => values as [T, ...T[]];
 
-const PAYMENT_VARIANT_VALUES = enumValues(Object.values(PaymentVariant));
+export const PAYMENT_VARIANT_VALUES = enumValues(Object.values(PaymentVariant));
 const EXTERNAL_LAB_STATUS_VALUES = Object.values(ExternalLabsStatus);
 
 // Record<TestStatus, true> requires every TestStatus as a key — a new status fails to compile here.
@@ -224,7 +224,8 @@ export const EncounterBaseRowSchema = z.object({
     .nullable()
     .describe(
       'How the patient said this visit will be paid: insurance, selfPay, or employer (occupational medicine). ' +
-        "Chosen per visit in paperwork — may differ from the patient's current coverage. Null when not chosen."
+        "Chosen per visit in paperwork — may differ from the patient's current coverage. Follow-up rows carry their " +
+        "parent visit's. Null when not chosen."
     ),
   // --- Registration ---
   registrationChannel: z

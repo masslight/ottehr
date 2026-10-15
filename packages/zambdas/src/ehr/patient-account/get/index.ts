@@ -5,7 +5,11 @@ import { pullCoverageIdentifyingDetails } from 'utils/lib/fhir/billing';
 import { parseCoverageEligibilityResponse } from 'utils/lib/fhir/billing';
 import { getPreferredPharmacyFromPatient } from 'utils/lib/fhir/patient';
 import { Secrets } from 'utils/lib/secrets';
-import { CoverageCheckWithDetails, PatientAccountResponse } from 'utils/lib/types/api/patient-account';
+import {
+  CoverageCheckWithDetails,
+  PATIENT_ACCOUNT_ELIGIBILITY_CHECK_COUNT,
+  PatientAccountResponse,
+} from 'utils/lib/types/api/patient-account';
 import { INVALID_RESOURCE_ID_ERROR, MISSING_REQUEST_BODY, MISSING_REQUIRED_PARAMETERS } from 'utils/lib/types/errors';
 import { isValidUUID } from 'utils/lib/validation/helper';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
@@ -64,7 +68,7 @@ const performEffect = async (input: Input, oystehr: Oystehr): Promise<PatientAcc
         },
         {
           name: '_count', // we shouldn't need more than the most recent 10 eligibility checks
-          value: '10',
+          value: String(PATIENT_ACCOUNT_ELIGIBILITY_CHECK_COUNT),
         },
       ],
     })

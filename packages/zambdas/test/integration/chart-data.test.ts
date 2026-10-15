@@ -1,5 +1,5 @@
 import Oystehr from '@oystehr/sdk';
-import { MedicationStatement } from 'fhir/r4b';
+import { Condition, Encounter, MedicationStatement, ServiceRequest } from 'fhir/r4b';
 import { M2MClientMockType } from 'utils/lib/auth/user-me.helper';
 import { visitNoteToLegacyChartData } from 'utils/lib/helpers/visit-note/visit-note-to-chart-data.helper';
 import { SchoolWorkNoteExcuseDocDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
@@ -26,11 +26,13 @@ const legacyChart = (note: VisitNoteResponse): GetChartDataResponse => {
 };
 
 describe('chart-data integration tests', () => {
+  let oystehrAdmin: Oystehr;
   let oystehrLocalZambdas: Oystehr;
   let cleanup: () => Promise<void>;
 
   beforeAll(async () => {
     const setup = await setupIntegrationTest('chart-data.test.ts', M2MClientMockType.provider);
+    oystehrAdmin = setup.oystehr;
     oystehrLocalZambdas = setup.oystehrTestUserM2M;
     baseResources = await insertInPersonAppointmentBase(setup.oystehr, setup.processId);
     cleanup = setup.cleanup;
@@ -390,6 +392,51 @@ describe('chart-data integration tests', () => {
         field: examObservationDTO.field,
         value: examObservationDTO.value,
       });
+    });
+
+    it('should validate save + get + update + delete cycle for a ROS system comment -- success', async () => {
+      const encounterId = baseResources.encounter.id!;
+      const comment = {
+        field: 'ros-constitutional-comment',
+        label: 'Constitutional comment',
+        note: 'Fever since Tuesday',
+      };
+      const finding = { field: 'ros-constitutional-fever-reports', label: 'Fever', value: true };
+
+      const save = async (rosObservations: SaveChartDataRequest['rosObservations']): Promise<SaveChartDataResponse> =>
+        (await oystehrLocalZambdas.zambda.execute({ id: 'SAVE-CHART-DATA', encounterId, rosObservations }))
+          .output as SaveChartDataResponse;
+      const getRos = async (): Promise<GetChartDataResponse['rosObservations']> =>
+        legacyChart(
+          (await oystehrLocalZambdas.zambda.execute({ id: 'GET-VISIT-NOTE', encounterId })).output as VisitNoteResponse
+        ).rosObservations;
+
+      const saved = await save([finding, comment]);
+      const savedComment = saved.chartData.rosObservations?.find((obs) => obs.field === comment.field);
+      expect(savedComment).toMatchObject({ resourceId: expect.any(String), ...comment });
+      expect(savedComment?.value).toBeUndefined();
+
+      let ros = await getRos();
+      expect(ros?.find((obs) => obs.field === comment.field)).toMatchObject({
+        resourceId: savedComment!.resourceId,
+        note: comment.note,
+      });
+      expect(ros?.find((obs) => obs.field === finding.field)).toMatchObject({ value: true });
+
+      await save([{ ...comment, note: 'Fever resolved', resourceId: savedComment!.resourceId }]);
+      ros = await getRos();
+      const updatedComments = ros?.filter((obs) => obs.field === comment.field);
+      expect(updatedComments).toHaveLength(1);
+      expect(updatedComments?.[0]).toMatchObject({ resourceId: savedComment!.resourceId, note: 'Fever resolved' });
+
+      const deleteInput: DeleteChartDataRequest = {
+        encounterId,
+        rosObservations: [{ ...comment, resourceId: savedComment!.resourceId }],
+      };
+      await oystehrLocalZambdas.zambda.execute({ id: 'DELETE-CHART-DATA', ...deleteInput });
+      ros = await getRos();
+      expect(ros?.find((obs) => obs.field === comment.field)).toBeUndefined();
+      expect(ros?.find((obs) => obs.field === finding.field)).toMatchObject({ value: true });
     });
 
     it('should validate save + get cycle for instructions -- success', async () => {
@@ -1004,5 +1051,93 @@ describe('chart-data integration tests', () => {
       expect(typedGetChartOutput.schoolWorkNotes).toBeInstanceOf(Array);
       expect(typedGetChartOutput.schoolWorkNotes).toStrictEqual([]);
     });
+  });
+  describe('procedure diagnosis cleanup transactions', () => {
+    it.each(['save', 'delete'] as const)(
+      'removes the owned Condition and encounter link on procedure %s',
+      async (action) => {
+        const encounterId = baseResources.encounter.id!;
+        const diagnosisInput: SaveChartDataRequest = {
+          encounterId,
+          diagnosis: [
+            { code: 'S61.411A', display: 'Laceration of right hand', isPrimary: false, addedViaProcedure: true },
+          ],
+        };
+        const diagnosisResponse = (
+          await oystehrLocalZambdas.zambda.execute({ id: 'SAVE-CHART-DATA', ...diagnosisInput })
+        ).output as SaveChartDataResponse;
+        const diagnosis = diagnosisResponse.chartData.diagnosis?.[0];
+        if (!diagnosis?.resourceId) throw new Error('Missing saved diagnosis');
+        const procedureInput: SaveChartDataRequest = {
+          encounterId,
+          procedures: [{ procedureType: 'Laceration Repair', diagnoses: [diagnosis] }],
+        };
+        const procedureResponse = (
+          await oystehrLocalZambdas.zambda.execute({ id: 'SAVE-CHART-DATA', ...procedureInput })
+        ).output as SaveChartDataResponse;
+        const procedureId = procedureResponse.chartData.procedures?.[0]?.resourceId;
+        if (!procedureId) throw new Error('Missing saved procedure');
+        try {
+          await expect
+            .poll(
+              async () =>
+                (await oystehrAdmin.fhir.get<Encounter>({ resourceType: 'Encounter', id: encounterId })).diagnosis
+            )
+            .toEqual(
+              expect.arrayContaining([
+                expect.objectContaining({ condition: { reference: `Condition/${diagnosis.resourceId}` } }),
+              ])
+            );
+          if (action === 'save') {
+            const input: SaveChartDataRequest = {
+              encounterId,
+              cleanupProcedureDiagnoses: true,
+              procedures: [{ resourceId: procedureId, procedureType: 'Laceration Repair', diagnoses: [] }],
+            };
+            const response = (await oystehrLocalZambdas.zambda.execute({ id: 'SAVE-CHART-DATA', ...input }))
+              .output as SaveChartDataResponse;
+            expect(response.deletedDiagnosisIds).toContain(diagnosis.resourceId);
+          } else {
+            const input: DeleteChartDataRequest = {
+              encounterId,
+              cleanupProcedureDiagnoses: true,
+              procedures: [{ resourceId: procedureId }],
+            };
+            await oystehrLocalZambdas.zambda.execute({ id: 'DELETE-CHART-DATA', ...input });
+          }
+          await expect
+            .poll(async () =>
+              (
+                await oystehrAdmin.fhir.search<Condition>({
+                  resourceType: 'Condition',
+                  params: [{ name: '_id', value: diagnosis.resourceId! }],
+                })
+              ).unbundle()
+            )
+            .toEqual([]);
+          await expect
+            .poll(
+              async () =>
+                (
+                  await oystehrAdmin.fhir.get<Encounter>({ resourceType: 'Encounter', id: encounterId })
+                ).diagnosis?.some((entry) => entry.condition.reference === `Condition/${diagnosis.resourceId}`) ?? false
+            )
+            .toBe(false);
+          const saved = await oystehrAdmin.fhir.get<ServiceRequest>({
+            resourceType: 'ServiceRequest',
+            id: procedureId,
+          });
+          if (action === 'delete') expect(saved.status).toBe('entered-in-error');
+          else expect(saved.reasonReference ?? []).toEqual([]);
+        } finally {
+          const cleanupInput: DeleteChartDataRequest = {
+            encounterId,
+            cleanupProcedureDiagnoses: true,
+            procedures: [{ resourceId: procedureId }],
+          };
+          await oystehrLocalZambdas.zambda.execute({ id: 'DELETE-CHART-DATA', ...cleanupInput });
+        }
+      }
+    );
   });
 });

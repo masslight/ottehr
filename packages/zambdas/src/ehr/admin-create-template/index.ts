@@ -21,6 +21,7 @@ import {
   transactionWasSuccessful,
   withVersionConflictRetries,
 } from 'utils/lib/fhir/helpers';
+import { isInHouseMedicationOrder } from 'utils/lib/fhir/medication-administration';
 import { isExternalLabServiceRequest, isPSCOrder } from 'utils/lib/helpers/labs/helpers';
 import { CODE_SYSTEM_ICD_10 } from 'utils/lib/helpers/rcm/constants';
 import { examConfig } from 'utils/lib/ottehr-config/examination';
@@ -112,6 +113,15 @@ const performEffect = async (
   if (!oldEncounter) {
     throw new Error('Unexpectedly found no Encounter when preparing template');
   }
+
+  const inHouseMedicationOrderReferences = new Set(
+    encounterBundle
+      .filter(
+        (resource): resource is MedicationAdministration =>
+          resource.resourceType === 'MedicationAdministration' && isInHouseMedicationOrder(resource)
+      )
+      .map((ma) => `MedicationAdministration/${ma.id}`)
+  );
 
   // Determine code system and version based on exam type
   const codeSystem = GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM;
@@ -241,12 +251,7 @@ const performEffect = async (
     // Skip the Encounter — we create a stub encounter separately
     if (resource.resourceType === 'Encounter') continue;
     // we won't grab any cpt codes that were added to the assessment because of an administered in house med
-    if (
-      resource.resourceType === 'Procedure' &&
-      resourceHasTagSystem(resource, chartDataTagSystem('cpt-code')) &&
-      resource.partOf?.some((part) => part.reference?.startsWith('MedicationAdministration/'))
-    )
-      continue;
+    if (isInHouseMedicationCptLine(resource, inHouseMedicationOrderReferences)) continue;
 
     const anonymizedResource: any = { ...resource };
     delete anonymizedResource.meta?.versionId;
@@ -720,6 +725,15 @@ const TEMPLATE_INCLUDABLE_MA_STATUSES = new Set<MedicationAdministration['status
   'completed',
   'not-done',
 ]);
+
+export const isInHouseMedicationCptLine = (
+  resource: TemplateEncounterResource,
+  inHouseMedicationOrderReferences: ReadonlySet<string>
+): boolean =>
+  resource.resourceType === 'Procedure' &&
+  resourceHasTagSystem(resource, chartDataTagSystem('cpt-code')) &&
+  (resource.partOf?.some((part) => (part.reference ? inHouseMedicationOrderReferences.has(part.reference) : false)) ??
+    false);
 
 export const isValidMedicationAdministrationForTemplate = (resource: TemplateEncounterResource): boolean => {
   if (resource.resourceType !== 'MedicationAdministration') return false;

@@ -5,8 +5,8 @@ import { DocumentReference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { createOystehrClient } from 'utils/lib/helpers/helpers';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { VERTEX_AI_MODEL } from 'utils/lib/types/api/ai-models.constants';
 import { DocumentType, PhotoIdExtraction } from 'utils/lib/types/data/documents';
-import { VERTEX_AI_MODEL } from '../../shared/ai';
 import { getAuth0Token } from '../../shared/getAuth0Token';
 import { topLevelCatch } from '../../shared/lambda';
 import { wrapHandler } from '../../shared/sentry';
@@ -96,6 +96,7 @@ export async function runPhotoIdExtraction(
     ({ bytes, mimeType } = await downloadOcrSourceImage({
       attachmentUrl,
       token: oystehrToken,
+      secrets,
       fallbackContentType: current.content?.[0]?.attachment?.contentType,
     }));
   } catch (error) {
@@ -141,7 +142,7 @@ export async function runPhotoIdExtraction(
     ...(notAPhotoId ? { notAPhotoId: true } : {}),
     sourceDocRefId: docRefId,
     sourceAttachmentUrl: attachmentUrl,
-    model: VERTEX_AI_MODEL,
+    model: VERTEX_AI_MODEL.id,
     extractedAt: DateTime.now().toISO()!,
   };
 

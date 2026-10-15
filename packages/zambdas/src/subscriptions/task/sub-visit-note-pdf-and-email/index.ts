@@ -143,7 +143,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           const emailClient = skipVisitNoteInPatientPortal ? undefined : getEmailClient(secrets, oystehr);
           if (emailClient?.getFeatureFlag()) {
             const patientEmail = getPatientContactEmail(patient);
-            const { presignedUrls } = await getPresignedURLs(oystehr, oystehrToken, visitResources.encounter.id!);
+            const { presignedUrls } = await getPresignedURLs(
+              oystehr,
+              oystehrToken,
+              secrets,
+              visitResources.encounter.id!
+            );
             const visitNoteUrl = presignedUrls['visit-note']?.presignedUrl;
             if (!patientEmail) throw new Error('Patient email is required');
             if (!visitNoteDocument.id) throw new Error('Visit note DocumentReference ID is required');

@@ -1,10 +1,12 @@
 import { Patient } from 'fhir/r4b';
+import { FRIENDLY_PATIENT_ID_SYSTEM_BASE } from 'utils/lib/fhir/constants';
 import { describe, expect, it, vi } from 'vitest';
 import { performEffect } from '../../src/ehr/search-patients';
 
 const patient: Patient = {
   resourceType: 'Patient',
   id: 'patient-1',
+  identifier: [{ system: FRIENDLY_PATIENT_ID_SYSTEM_BASE, value: '1234' }],
   name: [{ given: ['Example'], family: 'Patient' }],
   birthDate: '1990-01-01',
   gender: 'female',
@@ -72,6 +74,7 @@ describe('search-patients performEffect', () => {
     expect(result.patients).toHaveLength(1);
     expect(result.patients[0]).toMatchObject({
       id: 'patient-1',
+      patientFriendlyId: '1234',
       firstName: 'Example',
       lastName: 'Patient',
       dateOfBirth: '1990-01-01',

@@ -3,6 +3,7 @@ import {
   Appointment,
   ChargeItemDefinition,
   Communication,
+  CoverageEligibilityResponse,
   Encounter,
   FhirResource,
   Location,
@@ -230,6 +231,7 @@ const accountResources: FhirResource[] = [
     id: 'cov-1',
     status: 'active',
     order: 1,
+    subscriberId: 'MEM-123',
     beneficiary: { reference: 'Patient/pat-1' },
     // The policy holder is the parent — a patient of the practice herself, not a RelatedPerson.
     subscriber: { reference: 'Patient/pat-parent' },
@@ -369,7 +371,85 @@ const patientNotes: Communication[] = [
   patientNote('pn-2', 'Mother handles scheduling', '2026-06-20T10:00:00.000Z', '2026-06-10T10:00:00.000Z'),
 ];
 
+// pat-1's eligibility checks of cov-1, as get-eligibility stores them: two older rejected ones and the latest (eligible,
+// with the payer's copay and deductible lines in the raw reply).
+const eligibilityCheck = (id: string, created: string): CoverageEligibilityResponse => ({
+  resourceType: 'CoverageEligibilityResponse',
+  id,
+  status: 'active',
+  purpose: ['benefits'],
+  created,
+  outcome: 'complete',
+  patient: { reference: 'Patient/pat-1' },
+  request: { reference: 'CoverageEligibilityRequest/cer-request' },
+  insurer: { reference: 'Organization/payer-1' },
+  insurance: [{ coverage: { reference: 'Coverage/cov-1' } }],
+});
+
+const rejected = { error: [{ code: { coding: [{ code: '72' }], text: 'Invalid/Missing Subscriber/Insured ID' } }] };
+
+const eligibilityChecks: CoverageEligibilityResponse[] = [
+  { ...eligibilityCheck('cer-older', '2026-06-20T10:00:00.000Z'), ...rejected },
+  { ...eligibilityCheck('cer-visit-day', '2026-07-01T09:00:00.000Z'), ...rejected },
+  {
+    // Shaped like a stored response: cancelled (get-patient-account does not filter by status, so it still counts),
+    // with the payer's in- and out-of-network copay lines and the deductible by period and level.
+    ...eligibilityCheck('cer-latest', '2026-07-05T10:00:00.000Z'),
+    status: 'cancelled',
+    insurance: [
+      {
+        coverage: { reference: 'Coverage/cov-1' },
+        item: [
+          {
+            category: { coding: [{ code: 'UC', display: 'Urgent Care' }] },
+            benefit: [{ type: { text: 'Active Coverage' } }],
+          },
+        ],
+      },
+    ],
+    extension: [
+      {
+        url: 'https://extensions.fhir.oystehr.com/raw-response',
+        valueString: JSON.stringify({
+          elig: {
+            benefit: [
+              ...[
+                ['Y', 25],
+                ['N', 50],
+              ].map(([network, amount]) => ({
+                benefit_coverage_code: 'B',
+                benefit_code: 'UC',
+                benefit_amount: amount,
+                benefit_description: 'Copay',
+                benefit_period_code: '27',
+                benefit_level_code: 'IND',
+                inplan_network: network,
+              })),
+              ...[
+                ['IND', '23', 1500],
+                ['IND', '24', 1100],
+                ['IND', '29', 400],
+                ['FAM', '29', 900],
+              ].map(([level, period, amount]) => ({
+                benefit_coverage_code: 'C',
+                benefit_code: '30',
+                benefit_amount: amount,
+                benefit_description: 'Deductible',
+                benefit_period_code: period,
+                benefit_level_code: level,
+                inplan_network: 'Y',
+              })),
+            ],
+          },
+        }),
+      },
+    ],
+  },
+];
+
 const resourcesByJob: Record<string, FhirResource[]> = {
+  CoverageEligibilityResponse: eligibilityChecks,
+  Coverage: accountResources.filter((resource) => resource.resourceType === 'Coverage'),
   ChargeItemDefinition: pricingDefinitions,
   Communication: patientNotes,
   'Procedure:encounter': [
@@ -460,6 +540,14 @@ const issuesOf = (result: { success: boolean; error?: { issues: unknown[] } }): 
   result.success ? [] : result.error?.issues ?? ['unknown'];
 
 describe('ad-hoc Billing: coverage and codes as the patient record and the chart have them (fixture)', () => {
+  it("base: the visit's payment option, a follow-up note carrying its visit's", async () => {
+    const rows = await fetchAdHocBillingRows(fakeOystehr, { dateRange });
+    expect(issuesOf(AdHocBillingOutputSchema.safeParse({ rows }))).toEqual([]);
+    expect(rows.find((r) => r.encounterId === 'enc-1')?.paymentVariant).toBe('insurance');
+    expect(rows.find((r) => r.encounterId === 'enc-1-fu')?.paymentVariant).toBe('insurance');
+    expect(rows.find((r) => r.encounterId === 'enc-2')?.paymentVariant).toBeNull();
+  });
+
   it("coverage: the account's primary coverage, resolved payer, MB member id", async () => {
     const rows = await fetchAdHocBillingRows(fakeOystehr, { dateRange, includeCoverage: true });
     expect(issuesOf(AdHocBillingOutputSchema.safeParse({ rows }))).toEqual([]);
@@ -523,6 +611,49 @@ describe('ad-hoc Billing: coverage and codes as the patient record and the chart
     }
   });
 
+  it("eligibility: the latest check of the patient's insurance, as the visit's Payments panel shows it", async () => {
+    const rows = await fetchAdHocBillingRows(fakeOystehr, { dateRange, includeEligibility: true });
+    expect(issuesOf(AdHocBillingOutputSchema.safeParse({ rows }))).toEqual([]);
+    // The latest check, even one after the visit: the panel shows the insurance's current check on every visit.
+    expect(rows.find((r) => r.appointmentId === 'appt-1')).toMatchObject({
+      eligibilityStatus: 'eligibility-confirmed',
+      eligibilityCheckedAt: '2026-07-05T10:00:00.000Z',
+      eligibilityErrors: [],
+      copayAmount: 25,
+      remainingDeductible: 400,
+      secondaryEligibilityStatus: null,
+      secondaryEligibilityCheckedAt: null,
+    });
+    // No insurance, no check.
+    expect(rows.find((r) => r.appointmentId === 'appt-2')).toMatchObject({
+      eligibilityStatus: null,
+      eligibilityCheckedAt: null,
+      copayAmount: null,
+    });
+  });
+
+  it("eligibility: only the patient's 10 most recent checks count, as get-patient-account reads them", async () => {
+    const checks = resourcesByJob.CoverageEligibilityResponse;
+
+    resourcesByJob.CoverageEligibilityResponse = [
+      ...checks,
+      ...Array.from({ length: 10 }, (_, i) => ({
+        ...eligibilityCheck(`cer-old-insurance-${i}`, `2026-07-${String(10 + i)}T10:00:00.000Z`),
+        insurance: [{ coverage: { reference: 'Coverage/cov-gone' } }],
+      })),
+    ];
+
+    try {
+      const billing = await fetchAdHocBillingRows(fakeOystehr, { dateRange, includeEligibility: true });
+      expect(billing.find((r) => r.appointmentId === 'appt-1')).toMatchObject({ eligibilityStatus: null });
+
+      const patients = await fetchAdHocPatientRows(fakeOystehr, { dateRange, includeEligibility: true });
+      expect(patients.find((r) => r.patientId === 'pat-1')).toMatchObject({ primaryEligibilityStatus: null });
+    } finally {
+      resourcesByJob.CoverageEligibilityResponse = checks;
+    }
+  });
+
   it('codes: CPT modifiers and units, primary diagnosis first', async () => {
     const rows = await fetchAdHocBillingRows(fakeOystehr, { dateRange, includeCodes: true });
     expect(issuesOf(AdHocBillingOutputSchema.safeParse({ rows }))).toEqual([]);
@@ -544,6 +675,7 @@ describe('ad-hoc Patients: layers mapped with the app logic (fixture)', () => {
       dateRange,
       includeContacts: true,
       includeInsurance: true,
+      includeEligibility: true,
       includeEmployers: true,
     });
     expect(issuesOf(AdHocPatientsOutputSchema.safeParse({ patients: rows }))).toEqual([]);
@@ -573,6 +705,10 @@ describe('ad-hoc Patients: layers mapped with the app logic (fixture)', () => {
       primaryPolicyHolderAddress: '12 Elm St, Hoboken, NJ 07030',
       secondaryInsuranceCarrier: '',
       secondaryPolicyHolderName: '',
+      // The latest check, as the Patient Record shows it.
+      primaryEligibilityStatus: 'eligibility-confirmed',
+      primaryEligibilityCheckedAt: '2026-07-05T10:00:00.000Z',
+      secondaryEligibilityStatus: null,
       occupationalMedicineEmployer: 'Acme Corp',
       workersCompEmployer: '',
       workersCompEmployerAddress: '',
@@ -586,6 +722,8 @@ describe('ad-hoc Patients: layers mapped with the app logic (fixture)', () => {
       attorneyFirm: '',
       insured: false,
       primaryInsuranceCarrier: '',
+      primaryEligibilityStatus: null,
+      primaryEligibilityCheckedAt: null,
       occupationalMedicineEmployer: '',
     });
   });

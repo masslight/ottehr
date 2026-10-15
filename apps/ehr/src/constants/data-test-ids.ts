@@ -639,6 +639,8 @@ export const dataTestIds = {
     addInsuranceButton: 'add-insurance-dialog-add-insurance-button',
   },
   documentProcedurePage: {
+    blankPopover: 'blank-popover',
+    codingColumn: 'procedure-coding-column',
     title: 'document-procedure-title',
     consentForProcedure: 'consent-for-procedure-checkbox',
     procedureType: 'procedure-type',
@@ -654,8 +656,9 @@ export const dataTestIds = {
     codingAssistLoading: 'coding-assist-loading',
     codingAssistEmpty: 'coding-assist-empty',
     codingAssistFindings: 'coding-assist-findings',
+    codingGuidance: 'coding-guidance',
     codingAssistNotAssessed: 'coding-assist-not-assessed',
-    codingRulesVintage: 'coding-rules-vintage',
+    codingClinicianReview: 'coding-clinician-review',
     lengthCmInput: 'length-cm-input',
     repairDepthSelect: 'repair-depth-select',
     infusionStartTimeInput: 'infusion-start-time-input',
@@ -681,6 +684,10 @@ export const dataTestIds = {
     timeSpent: 'time-spent',
     documentedBy: 'documented-by',
     saveButton: 'save-button',
+    procedureTypeInput: 'procedure-type-input',
+    procedureDate: 'procedure-date',
+    procedureTime: 'procedure-time',
+    addDiagnosis: 'add-diagnosis',
   },
   proceduresPage: {
     title: 'procedures-title',
@@ -970,6 +977,7 @@ export const dataTestIds = {
     reportsCheckboxCell: 'ros-reports-checkbox-cell',
     selectAllDeniesCell: 'ros-select-all-denies-cell',
     clearRosButton: 'clear-ros-button',
+    rosCommentField: (systemKey: string): string => `ros-comment-${systemKey}`,
   },
 
   examPage: {

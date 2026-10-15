@@ -82,6 +82,7 @@ import {
   getMedicationCptEntryFromMA,
   getMedicationFromMA,
   getNdcCodeFromMedication,
+  isInHouseMedicationOrder,
   MedicationUnitOptions,
 } from 'utils/lib/fhir/medication-administration';
 import { isTelemedAppointment } from 'utils/lib/fhir/moduleIdentification';
@@ -1719,7 +1720,7 @@ export function buildDrugIdentification(
 
   const maId = maRef.reference.replace('MedicationAdministration/', '');
   const ma = medicationAdministrations.find((m) => m.id === maId);
-  if (!ma) return undefined;
+  if (!ma || !isInHouseMedicationOrder(ma)) return undefined;
 
   // The NDC belongs only to the drug's own code — supporting/admin CPT codes on the same MA get no drug identification
   const medicationEntry = getMedicationCptEntryFromMA(ma);

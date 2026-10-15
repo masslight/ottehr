@@ -8,7 +8,8 @@ import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import { ELIGIBILITY_FAILED_REASON_META_TAG, ELIGIBILITY_FAILED_REASONS } from 'utils/lib/telemed/constants';
 import { InsuranceEligibilityCheckStatus } from 'utils/lib/types/data/paperwork/paperwork.types';
 import { InsuranceCheckStatusWithDate } from 'utils/lib/types/data/telemed/eligibility.types';
-import { FHIR_RESOURCE_NOT_FOUND } from 'utils/lib/types/errors';
+import { FHIR_RESOURCE_NOT_FOUND, NO_READ_ACCESS_TO_PATIENT_ERROR } from 'utils/lib/types/errors';
+import { getUser, userHasAccessToPatient } from '../../shared/auth';
 import { getAuth0Token } from '../../shared/getAuth0Token';
 import { lambdaResponse } from '../../shared/lambda';
 import { wrapHandler } from '../../shared/sentry';
@@ -57,6 +58,15 @@ export const index = wrapHandler('get-eligibility', async (input: ZambdaInput): 
   );
   console.groupEnd();
   console.debug('createOystehrClient success');
+
+  const authorization = input.headers?.Authorization;
+  if (!authorization) {
+    throw NO_READ_ACCESS_TO_PATIENT_ERROR;
+  }
+  const user = await getUser(authorization.replace('Bearer ', ''), secrets);
+  if (!(await userHasAccessToPatient(user, validatedParams.patientId, oystehr))) {
+    throw NO_READ_ACCESS_TO_PATIENT_ERROR;
+  }
 
   const complexInput = await complexInsuranceValidation(validatedParams, oystehr);
 
