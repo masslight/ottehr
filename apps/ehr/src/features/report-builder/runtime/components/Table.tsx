@@ -72,8 +72,7 @@ const ROW_ID_KEY = '__adhocRowId';
 
 const PLACEHOLDER_LABELS = new Set(['unknown', 'unassigned', 'n/a']);
 
-const isPlaceholderLabel = (value: unknown): boolean =>
-  typeof value === 'string' && PLACEHOLDER_LABELS.has(value.trim().toLowerCase());
+const isPlaceholderLabel = (text: string): boolean => PLACEHOLDER_LABELS.has(text.trim().toLowerCase());
 
 interface GridRow extends Record<string, unknown> {
   [ROW_ID_KEY]: number;
@@ -160,7 +159,7 @@ export function Table({ rows, columns, links, title, pageSize = 25, onRowClick }
     const placeholderColumns =
       rows.length > 0
         ? gridColumns
-            .filter((col) => rows.every((r) => isPlaceholderLabel(cellValue(col.field, r))))
+            .filter((col) => rows.every((r) => isPlaceholderLabel(cellText(cellValue(col.field, r)))))
             .map((col) => col.headerName ?? col.field)
         : [];
 

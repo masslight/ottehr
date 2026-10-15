@@ -425,7 +425,10 @@ const radiologyRead = (
     ? { extension: [{ url: DIAGNOSTIC_REPORT_PRELIMINARY_REVIEW_ON_EXTENSION_URL, valueDateTime: at }] }
     : { issued: at }),
   presentedForm: [
-    { contentType: 'text/html', data: encodeRadiologyReport(`${status} read\nNo fracture & no effusion.`) },
+    {
+      contentType: 'text/html',
+      data: encodeRadiologyReport(`${status} read\nNodule <5 mm; no lesion >10 mm & no effusion.`),
+    },
   ],
 });
 const serviceRequests: FhirResource[] = [
@@ -681,7 +684,7 @@ describe('ad-hoc dataset zambdas: mapped rows parse against their Zod schema (fi
         finalAt: '2026-07-01T18:00:00.000Z',
         finalReadSource: 'teleradiology',
         finalReadBy: null,
-        preliminaryReport: 'preliminary read\nNo fracture & no effusion.',
+        preliminaryReport: 'preliminary read\nNodule <5 mm; no lesion >10 mm & no effusion.',
         finalReport: 'Findings: none\nImpression \u2014 normal & stable',
         orderStatus: 'final',
         reviewedAt: null,

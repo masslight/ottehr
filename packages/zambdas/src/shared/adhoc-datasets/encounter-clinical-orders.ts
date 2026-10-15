@@ -15,6 +15,7 @@ import {
   ServiceRequest,
   Task,
 } from 'fhir/r4b';
+import { convert } from 'html-to-text';
 import {
   getAllCptCodesFromInHouseMedication,
   getAllHcpcsCodesFromInHouseMedication,
@@ -88,22 +89,9 @@ const historyRow = (
 const historyAt = (history: RadiologyOrderHistoryRow[], status: RadiologyOrderStatus): string | null =>
   historyRow(history, status)?.date || null;
 
-// Not decodeRadiologyReportText: it needs DOMParser, which zambdas don't have.
+// Same conversion as the visit note PDF (discharge-summary/radiology.ts).
 const radiologyReportText = (stored: string | undefined): string =>
-  stored
-    ? decodeRadiologyReportHtml(stored)
-        .replace(/<br\s*\/?>|<\/(p|div|li|tr|h[1-6])\s*>/gi, '\n')
-        .replace(/<[^>]*>/g, '')
-        .replace(/&#(\d+);/g, (_, code: string) => String.fromCodePoint(Number(code)))
-        .replace(/&#x([0-9a-f]+);/gi, (_, code: string) => String.fromCodePoint(parseInt(code, 16)))
-        .replace(/&nbsp;/g, ' ')
-        .replace(/&lt;/g, '<')
-        .replace(/&gt;/g, '>')
-        .replace(/&quot;/g, '"')
-        .replace(/&#39;/g, "'")
-        .replace(/&amp;/g, '&')
-        .trim()
-    : '';
+  stored ? convert(decodeRadiologyReportHtml(stored), { wordwrap: false }) : '';
 
 const radiologyRecord = (
   name: string,
