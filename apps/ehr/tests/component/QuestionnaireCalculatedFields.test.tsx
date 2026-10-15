@@ -138,6 +138,13 @@ const hiddenResultsForm = (): StandaloneFormDTO => ({
           { linkId: 'q2', answer: [{ valueCoding: { code: '1', display: 'Yes' } }] },
         ],
       },
+      {
+        linkId: 'results',
+        item: [
+          { linkId: 'total', answer: [{ valueString: '2' }] },
+          { linkId: 'positive-screen', answer: [{ valueBoolean: true }] },
+        ],
+      },
     ],
   } satisfies QuestionnaireResponse,
 });
@@ -186,7 +193,7 @@ describe('coded choices and calculated fields in the paperwork form', () => {
 });
 
 describe('QuestionnaireResponseViewer', () => {
-  it('shows calculated results that the patient form hides, worked out from the recorded answers', () => {
+  it('shows the recorded calculated results that the patient form hides', () => {
     render(<QuestionnaireResponseViewer form={hiddenResultsForm()} />);
 
     expect(screen.getByText('Cut down:').parentElement).toHaveTextContent('Cut down: Yes');
@@ -194,9 +201,31 @@ describe('QuestionnaireResponseViewer', () => {
     expect(screen.getByText('Positive screen:').parentElement).toHaveTextContent('Positive screen: Yes');
   });
 
+  it('shows the recorded value as is, without recalculating it from the answers', () => {
+    const form = hiddenResultsForm();
+    form.questionnaireResponse.item = [
+      ...(form.questionnaireResponse.item ?? []).filter((item) => item.linkId !== 'results'),
+      { linkId: 'results', item: [{ linkId: 'total', answer: [{ valueString: '5' }] }] },
+    ];
+    render(<QuestionnaireResponseViewer form={form} />);
+
+    expect(screen.getByText('Total:').parentElement).toHaveTextContent('Total: 5');
+  });
+
   it('still says Not Started when nothing has been answered', () => {
     const form = hiddenResultsForm();
     form.questionnaireResponse.item = [];
+    render(<QuestionnaireResponseViewer form={form} />);
+
+    expect(screen.getByText('Not Started')).toBeInTheDocument();
+  });
+
+  it('says Not Started when only calculated values are recorded', () => {
+    const form = hiddenResultsForm();
+    form.questionnaireResponse.item = [
+      { linkId: 'items', item: [] },
+      { linkId: 'results', item: [{ linkId: 'total', answer: [{ valueString: '0' }] }] },
+    ];
     render(<QuestionnaireResponseViewer form={form} />);
 
     expect(screen.getByText('Not Started')).toBeInTheDocument();
@@ -296,67 +325,6 @@ const answeredNo = (
 ): { linkId: string; answer: { valueCoding: { code: string; display: string } }[] } => ({
   linkId,
   answer: [{ valueCoding: { code: '0', display: 'No' } }],
-});
-
-describe('QuestionnaireResponseViewer with recorded calculated values', () => {
-  const formWithResults = (
-    status: QuestionnaireResponse['status'],
-    recordedTotal: string | undefined
-  ): StandaloneFormDTO => {
-    const form = hiddenResultsForm();
-    form.questionnaireResponse = {
-      resourceType: 'QuestionnaireResponse',
-      id: 'qr-3',
-      status,
-      item: [
-        { linkId: 'items', item: [answeredYes('q1'), answeredYes('q2')] },
-        {
-          linkId: 'results',
-          item: recordedTotal === undefined ? [] : [{ linkId: 'total', answer: [{ valueString: recordedTotal }] }],
-        },
-      ],
-    };
-    return form;
-  };
-
-  it('shows the recorded value of a finished form, with no note when it agrees with the answers', () => {
-    render(<QuestionnaireResponseViewer form={formWithResults('completed', '2')} />);
-
-    expect(screen.getByText('Total:').parentElement).toHaveTextContent('Total: 2');
-    expect(screen.queryByTestId('calculated-mismatch-total')).not.toBeInTheDocument();
-  });
-
-  it('shows the recalculated value and points out that the recorded one no longer agrees with the answers', () => {
-    render(<QuestionnaireResponseViewer form={formWithResults('amended', '5')} />);
-
-    expect(screen.getByText('Total:').parentElement).toHaveTextContent('Total: 2');
-    expect(screen.getByTestId('calculated-mismatch-total')).toHaveTextContent('recalculated: 2');
-  });
-
-  it('calculates a value that was never recorded and flags that nothing was recorded', () => {
-    render(<QuestionnaireResponseViewer form={formWithResults('completed', undefined)} />);
-
-    expect(screen.getByText('Total:').parentElement).toHaveTextContent('Total: 2');
-    expect(screen.getByTestId('calculated-mismatch-total')).toHaveTextContent('no value was recorded');
-  });
-
-  it('shows the live value over a stale partial score recorded while the form was being filled in', () => {
-    render(<QuestionnaireResponseViewer form={formWithResults('in-progress', '1')} />);
-
-    expect(screen.getByText('Total:').parentElement).toHaveTextContent('Total: 2');
-    expect(screen.getByTestId('calculated-mismatch-total')).toHaveTextContent('recalculated: 2');
-  });
-
-  it('says Not Started when only calculated values are recorded', () => {
-    const form = formWithResults('in-progress', '0');
-    form.questionnaireResponse.item = [
-      { linkId: 'items', item: [] },
-      { linkId: 'results', item: [{ linkId: 'total', answer: [{ valueString: '0' }] }] },
-    ];
-    render(<QuestionnaireResponseViewer form={form} />);
-
-    expect(screen.getByText('Not Started')).toBeInTheDocument();
-  });
 });
 
 describe('EditFormResponseDialog recording calculated values', () => {
