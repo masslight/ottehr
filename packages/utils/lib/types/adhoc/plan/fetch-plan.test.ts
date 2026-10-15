@@ -164,11 +164,11 @@ describe('bulk job sizing', () => {
   it('fits as many ids in a paged scoped batch as one page holds; a full batch without a hint', () => {
     // 6.5 vitals an encounter → 153 ids a batch; one encounter an appointment → 1,000.
     expect(scopedPagedBatchSize(6.5)).toBe(153);
-    expect(scopedPagedBatchSize(1)).toBe(FETCH_PLAN_LIMITS.scopedPagedBatchSize);
-    expect(scopedPagedBatchSize(0.9)).toBe(FETCH_PLAN_LIMITS.scopedPagedBatchSize);
+    expect(scopedPagedBatchSize(1)).toBe(FETCH_PLAN_LIMITS.scopedBatchSize);
+    expect(scopedPagedBatchSize(0.9)).toBe(FETCH_PLAN_LIMITS.scopedBatchSize);
     expect(scopedPagedBatchSize(5000)).toBe(1);
-    expect(scopedPagedBatchSize(undefined)).toBe(FETCH_PLAN_LIMITS.scopedPagedBatchSize);
-    expect(scopedPagedBatchSize(0)).toBe(FETCH_PLAN_LIMITS.scopedPagedBatchSize);
+    expect(scopedPagedBatchSize(undefined)).toBe(FETCH_PLAN_LIMITS.scopedBatchSize);
+    expect(scopedPagedBatchSize(0)).toBe(FETCH_PLAN_LIMITS.scopedBatchSize);
   });
 
   it("fits as many ids in a scoped batch as the target allows, within bounds; today's size without a hint", () => {

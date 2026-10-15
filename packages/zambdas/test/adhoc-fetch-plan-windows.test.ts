@@ -73,9 +73,12 @@ const datedPlan = FetchPlanSchema.parse({
   ],
 });
 
+// Mode normal: an auto step whose hint expects more than autoBulkThreshold would go bulk instead of paging windows.
+const normalPlan = FetchPlanSchema.parse({ ...datedPlan, steps: [{ ...datedPlan.steps[0], mode: 'normal' }] });
+
 const twoDatedSteps = FetchPlanSchema.parse({
   version: 1,
-  steps: [datedPlan.steps[0], { ...datedPlan.steps[0], id: 'visits2' }],
+  steps: [normalPlan.steps[0], { ...normalPlan.steps[0], id: 'visits2' }],
 });
 
 const windowBounds = (params: Params): number[] =>
@@ -100,7 +103,7 @@ describe('a paged date-bounded step runs in windows sized from the density hint'
 
   it('cuts the range into tiled windows and returns the same resources, each once', async () => {
     // 1,000 a day over ten days = 10,000 → four windows of 2,500.
-    const { resources, stats } = await runFetchPlan(fakeOystehr, datedPlan, tenDays, undefined, {
+    const { resources, stats } = await runFetchPlan(fakeOystehr, normalPlan, tenDays, undefined, {
       visits: { recordsPerDay: 1000 },
     });
     expect(calls).toHaveLength(4);

@@ -7,6 +7,7 @@ import { captureException } from '@sentry/node-core/light';
 import { FhirResource } from 'fhir/r4b';
 import {
   bulkWindowCount,
+  expectedStepRecords,
   FETCH_PLAN_LIMITS,
   FetchPlan,
   FetchPlanParameters,
@@ -20,6 +21,7 @@ import {
   scopedPagedBatchSize,
   scopedStepValues,
   stepIsDateBounded,
+  stepRunsBulk,
   toElementName,
 } from 'utils/lib/types/adhoc/plan/fetch-plan';
 import { DateRange } from 'utils/lib/types/adhoc/query/date-range';
@@ -152,6 +154,7 @@ async function runStep(
   });
   const windowSplit = splitOptions(dated ? 'a single day' : undefined);
   const rangeMs = dated ? Date.parse(dateRange.end) - Date.parse(dateRange.start) : 0;
+  const expected = dated ? expectedStepRecords(hint, rangeMs / DAY_MS) : undefined;
   // The run's date range in as many windows as the density hint of an earlier run calls for (one without it), searched
   // side by side under the run's limit, each halved whenever the server cannot finish it (or its bulk job fills the cap).
   // A step whose params do not bound both ends of the range runs as one window that cannot be halved.
@@ -217,13 +220,23 @@ async function runStep(
       return finish(scoped, { ...partial, scopedValues: values.length });
     }
 
-    if (step.mode === 'bulk') {
+    // Mode "bulk", or "auto" when the hint expects a large step: one job per bulk window, nothing paged first.
+    if (stepRunsBulk(step.mode, expected)) {
       await probeSearch(oystehr, limit, step.resourceType, params);
       return finish(await searchBulk(), { mode: 'bulk', requests: 1 + bulkJobs });
     }
 
-    // The cap is per window: a window past it means the density is not what the hint said, or there was no hint.
-    const cap = step.mode === 'normal' ? FETCH_PLAN_LIMITS.maxResourcesPerStep : FETCH_PLAN_LIMITS.autoBulkThreshold;
+    // The cap is per window. "normal" pages to the step maximum and fails past it. "auto" with a hint pages windows
+    // sized to a few pages each and goes bulk only when one passes the threshold (the density drifted). "auto" with no
+    // hint reads ONE page: a next link means the volume is unknown, and finishing in bulk costs less than paging on
+    // (a page is 1–8 s on a busy practice, a bulk job ~2.7 s fixed) — the old cap of autoBulkThreshold paged five
+    // times before giving up on a year of production visits.
+    const cap =
+      step.mode === 'normal'
+        ? FETCH_PLAN_LIMITS.maxResourcesPerStep
+        : expected === undefined
+        ? FETCH_PLAN_LIMITS.pageSize
+        : FETCH_PLAN_LIMITS.autoBulkThreshold;
     let pages = 0;
     let hitCap = false;
     const resources = await searchWindows(pagedWindowCount(hint?.recordsPerDay, rangeMs / DAY_MS), async (window) => {
@@ -299,8 +312,11 @@ async function searchPaged(
   return { resources, requests, hitCap: lastHadNext && resources.length >= maxItems };
 }
 
-// Batches of ids, paged or as bulk jobs, searched side by side under the run's limit; a batch that fills the bulk
-// cap or that the server cannot finish is halved (halveList) and retried, so `requests` counts what actually ran.
+// Batches of ids, paged (mode auto / normal) or as bulk jobs (mode bulk), searched side by side under the run's limit;
+// a batch that fills the bulk cap or that the server cannot finish is halved (halveList) and retried, so `requests`
+// counts what actually ran. A long id list is never bulk on its own: 27 batches of 100 took 3.5–4.6 s paged against
+// 18.7 s as jobs on synth, and a year of production visits by id was 168–198 jobs — such a step should be fetched by
+// date instead (the studio warns), not fanned out faster.
 async function runScoped(
   oystehr: Oystehr,
   limit: Limiter,
@@ -311,7 +327,7 @@ async function runScoped(
   hint?: FetchStepDensity
 ): Promise<[FhirResource[], Pick<FetchStepStats, 'mode' | 'requests'>]> {
   const paramName = step.from!.param;
-  const bulk = step.mode === 'bulk' || values.length > FETCH_PLAN_LIMITS.scopedBulkThreshold;
+  const bulk = step.mode === 'bulk';
   const batchSize = bulk ? scopedBulkBatchSize(hint?.recordsPerId) : scopedPagedBatchSize(hint?.recordsPerId);
   const batches: string[][] = [];
   for (let i = 0; i < values.length; i += batchSize) batches.push(values.slice(i, i + batchSize));

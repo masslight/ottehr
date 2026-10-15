@@ -12,22 +12,20 @@ export const FETCH_PLAN_LIMITS = {
   maxSteps: 12,
   maxResourcesPerStep: 50_000,
   maxTotalBytes: 60 * 1024 * 1024,
-  // A normal (paged) search gives up and falls back to bulk past this many resources in `auto` mode.
+  // The paged / bulk boundary of an `auto` step: a date-bounded step whose density hint expects more primary resources
+  // than this runs as bulk jobs from the start; a paged window that passes it (no hint, or the density drifted) is
+  // redone as bulk. Measured 2026-10-14: a page costs 0.1–1 s on synth and 1–8 s on a busy practice, a bulk job
+  // ~2.7 s fixed plus the download — so bulk pays off from a handful of pages up.
   autoBulkThreshold: 5_000,
   pageSize: 1_000,
-  // Ids per scoped bulk job without a density hint.
-  scopedBatchSize: 100,
-  // Ids per paged scoped search (a POST, so no url limit). Measured on synth 2026-10-14: 2,697 Encounters by
-  // appointment id in batches of 100 / 250 / 500 / 1,000 took 5.2 / 3.3 / 2.4 / 1.7 s, all complete; 1,000 Patients
-  // by _id likewise. But on a busy production practice (2026-10-14, read-only) an Observation search for 1,000
-  // encounter ids hit Oystehr's 14 s request timeout (504) on its first page, while 250 and 500 ids answered each
-  // page in under 2 s; 250 leaves headroom for busier practices.
-  scopedPagedBatchSize: 250,
+  // Ids per scoped batch (paged or bulk) without a density hint — the search is a POST, so no url limit. Measured on
+  // synth 2026-10-14: 2,697 Encounters by appointment id in batches of 100 / 250 / 500 / 1,000 took 5.2 / 3.3 / 2.4 /
+  // 1.7 s, all complete; 1,000 Patients by _id likewise. But on a busy production practice (2026-10-14, read-only) an
+  // Observation search for 1,000 encounter ids hit Oystehr's 14 s request timeout (504) on its first page, while 250
+  // and 500 ids answered each page in under 2 s; 250 leaves headroom for busier practices.
+  scopedBatchSize: 250,
   // Searches in flight at once across a whole plan run — its steps, date windows and scoped batches together.
   maxConcurrentRequests: 8,
-  // Above this many scoped values the batches go through the async-bulk path instead of paged searches.
-  // Measured on synth (2,700 Encounter ids → 17,724 vitals, 27 batches): paged 3.5–4.6 s, bulk jobs 18.7 s.
-  scopedBulkThreshold: 5_000,
   // The most ids one pre-sized bulk batch may carry (the search is a POST, so the limit is the server's, not the url's).
   scopedBulkBatchMax: 1_000,
 } as const;
@@ -56,7 +54,7 @@ export const bulkWindowCount = (recordsPerDay: number | undefined, days: number)
 export const pagedWindowCount = (recordsPerDay: number | undefined, days: number): number =>
   windowCount(recordsPerDay, days, PAGED_WINDOW_TARGET);
 
-/** How many ids a scoped bulk batch carries, so each job lands near the target; today's batch size without a hint. */
+/** How many ids a scoped bulk batch carries, so each job lands near the target; the plain batch size without a hint. */
 export const scopedBulkBatchSize = (recordsPerId: number | undefined): number =>
   recordsPerId
     ? Math.min(FETCH_PLAN_LIMITS.scopedBulkBatchMax, Math.max(1, Math.floor(ASYNC_BULK_TARGET / recordsPerId)))
@@ -65,11 +63,19 @@ export const scopedBulkBatchSize = (recordsPerId: number | undefined): number =>
 /** How many ids a paged scoped batch carries, so each batch is about one page (batches run side by side, pages do not). */
 export const scopedPagedBatchSize = (recordsPerId: number | undefined): number =>
   recordsPerId
-    ? Math.min(
-        FETCH_PLAN_LIMITS.scopedPagedBatchSize,
-        Math.max(1, Math.floor(FETCH_PLAN_LIMITS.pageSize / recordsPerId))
-      )
-    : FETCH_PLAN_LIMITS.scopedPagedBatchSize;
+    ? Math.min(FETCH_PLAN_LIMITS.scopedBatchSize, Math.max(1, Math.floor(FETCH_PLAN_LIMITS.pageSize / recordsPerId)))
+    : FETCH_PLAN_LIMITS.scopedBatchSize;
+
+/** Primary resources a date-bounded step is expected to return over `days` of range, from its density hint; unknown without one. */
+export const expectedStepRecords = (hint: FetchStepDensity | undefined, days: number): number | undefined =>
+  hint?.recordsPerDay === undefined ? undefined : hint.recordsPerDay * days;
+
+/**
+ * Whether a plain (unscoped) step runs as bulk jobs from the start: mode "bulk", or "auto" when its hint expects more
+ * than the paged threshold. An "auto" step with no hint pages first — one page — and goes bulk only on a next link.
+ */
+export const stepRunsBulk = (mode: 'auto' | 'normal' | 'bulk', expected: number | undefined): boolean =>
+  mode === 'bulk' || (mode === 'auto' && expected !== undefined && expected > FETCH_PLAN_LIMITS.autoBulkThreshold);
 
 export const FetchStepParamSchema = z.object({
   name: z.string().min(1),

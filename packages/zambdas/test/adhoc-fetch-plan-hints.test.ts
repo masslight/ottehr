@@ -179,8 +179,8 @@ describe('the plan runner sizes bulk jobs from density hints', () => {
     jobs.clear();
     bulkCalls.length = 0;
     await runFetchPlan(fakeOystehr, scopedPlan, undefined, undefined);
-    // Today's 100 without a hint.
-    expect(batchSizes()).toEqual([100, 100, 100, 100, 50]);
+    // The plain batch size without a hint.
+    expect(batchSizes()).toEqual([250, 200]);
   });
 
   it('sizes paged scoped batches to about a page from records per id, a full batch without a hint', async () => {

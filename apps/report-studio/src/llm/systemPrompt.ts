@@ -36,7 +36,7 @@ FETCH PLAN FORMAT (JSON; the "plan" field of update_report / run_fetch):
 }
 - A step WITHOUT "from" is a plain search. A step WITH "from" is scoped: the values found at "path" in the
   earlier step's resources (arrays flattened, deduped, references filtered to keepType) are fed to "param" in
-  batches of up to ${FETCH_PLAN_LIMITS.scopedPagedBatchSize}, searched side by side. For "_id" the "Type/" prefix is stripped; for reference params
+  batches of up to ${FETCH_PLAN_LIMITS.scopedBatchSize}, searched side by side. For "_id" the "Type/" prefix is stripped; for reference params
   ("encounter", "patient", "request", "context") the full "Type/id" is kept (a bare id gets "keepType/" prefixed).
   For a bare-value path such as "id", keepType picks WHICH source resources contribute: { path: "id", param:
   "encounter", keepType: "Encounter" } over a mixed visits step feeds only the Encounter ids.
