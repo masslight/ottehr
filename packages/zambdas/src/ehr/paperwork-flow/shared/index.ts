@@ -190,7 +190,7 @@ export interface FlowFormQuestionnaire {
   questionnaire: Questionnaire;
 }
 
-const collectLinkIds = (items: QuestionnaireItem[] | undefined, accum = new Set<string>()): Set<string> => {
+export const collectLinkIds = (items: QuestionnaireItem[] | undefined, accum = new Set<string>()): Set<string> => {
   for (const item of items ?? []) {
     accum.add(item.linkId);
     collectLinkIds(item.item, accum);

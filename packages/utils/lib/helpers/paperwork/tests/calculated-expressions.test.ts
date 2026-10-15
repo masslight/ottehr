@@ -282,7 +282,7 @@ describe('collectCalculatedExpressionIssues', () => {
       { linkId: 'results', type: 'group', text: 'Results', extension: calculated('1') },
     ]);
     expect(issues).toEqual([
-      '"results" (Results): calculated expressions can only be used on string, text, boolean, integer, decimal and date items, not "group".',
+      '"results" (Results): calculated expressions can only be used on string, text, boolean, integer, decimal, date and choice items, not "group".',
     ]);
   });
 
@@ -341,5 +341,62 @@ describe('coded answers in enableWhen', () => {
     expect(evalEnableWhen(followUp, items, no)).toBe(false);
     expect(evalEnableWhen(byDisplay, items, yes)).toBe(true);
     expect(evalEnableWhen(byDisplay, items, no)).toBe(false);
+  });
+});
+
+describe('coded and list results', () => {
+  const severity: QuestionnaireItem = {
+    linkId: 'severity',
+    type: 'choice',
+    text: 'Severity',
+    answerOption: [
+      { valueCoding: { code: 'mild', display: 'Mild' } },
+      { valueCoding: { code: 'severe', display: 'Severe' } },
+    ],
+    extension: calculated('(answers["q1"]||0) + (answers["q2"]||0) >= 2 ? "severe" : "mild"'),
+  };
+  const endorsed = (repeats: boolean): QuestionnaireItem => ({
+    linkId: 'endorsed',
+    type: 'string',
+    text: 'Endorsed',
+    repeats,
+    extension: calculated('["q1","q2"].filter((id) => answers[id] === 1)'),
+  });
+  const answers: QuestionnaireResponseItem[] = [
+    { linkId: 'q1', answer: [{ valueCoding: { code: '1' } }] },
+    { linkId: 'q2', answer: [{ valueCoding: { code: '1' } }] },
+  ];
+  const items = (repeats: boolean): QuestionnaireItem[] => [
+    yesNo('q1', 'One'),
+    yesNo('q2', 'Two'),
+    severity,
+    endorsed(repeats),
+  ];
+
+  it('works out a code for a choice item and a list for a repeating item', () => {
+    const results = evaluateCalculatedItems(mapQuestionnaireAndValueSetsToItemsList(items(true), []), answers);
+    expect(results['severity']).toBe('severe');
+    expect(results['endorsed']).toEqual(['q1', 'q2']);
+  });
+
+  it('gives a list no value on an item that does not repeat', () => {
+    const results = evaluateCalculatedItems(mapQuestionnaireAndValueSetsToItemsList(items(false), []), answers);
+    expect(results['endorsed']).toBeUndefined();
+  });
+
+  it("shows a choice item's option display and a list as one line", () => {
+    expect(formatCalculatedValue('severe', severity)).toBe('Severe');
+    expect(formatCalculatedValue('unknown', severity)).toBe('unknown');
+    expect(formatCalculatedValue(['q1', 'q2'])).toBe('q1, q2');
+  });
+
+  it('reports a calculated choice item without answer options', () => {
+    const issues = collectCalculatedExpressionIssues([
+      { linkId: 'q1', type: 'string', text: 'One' },
+      { linkId: 'band', type: 'choice', text: 'Band', extension: calculated('answers["q1"]') },
+    ]);
+    expect(issues).toEqual([
+      '"band" (Band): a calculated choice item records one of its answer options, so it needs answerOption listing the codes the expression can return.',
+    ]);
   });
 });

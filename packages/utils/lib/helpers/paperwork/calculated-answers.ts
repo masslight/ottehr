@@ -1,4 +1,4 @@
-import { QuestionnaireResponseItem, QuestionnaireResponseItemAnswer } from 'fhir/r4b';
+import { Coding, QuestionnaireResponseItem, QuestionnaireResponseItemAnswer } from 'fhir/r4b';
 import { OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS } from '../../fhir/constants';
 import { CalculatedExpression } from '../../types/data/paperwork/paperwork.types';
 
@@ -15,11 +15,16 @@ import { CalculatedExpression } from '../../types/data/paperwork/paperwork.types
   calculatedAnswers are an array of page-shaped QuestionnaireResponseItems (nesting preserved), e.g.
     [{ linkId: 'results', item: [{ linkId: 'total', answer: [{ valueString: '2' }] }] }]
   An entry without an `answer` means "clear the stored value".
+
+  A calculated `choice` item records the answer option whose code (or string) the expression returned, so a result
+  such as a severity band is stored as a coding. A calculated item with `repeats: true` may return a list, recorded as
+  one answer per element.
 */
 
 export const CALCULATED_EXPRESSION_LANGUAGE = 'text/javascript';
 
-export type CalculatedValue = string | number | boolean | undefined;
+export type CalculatedScalar = string | number | boolean;
+export type CalculatedValue = CalculatedScalar | CalculatedScalar[] | undefined;
 
 // satisfied by both raw FHIR QuestionnaireItems and our IntakeQuestionnaireItems
 export interface CalculableItem {
@@ -27,11 +32,13 @@ export interface CalculableItem {
   type: string;
   text?: string;
   item?: CalculableItem[];
+  repeats?: boolean;
+  answerOption?: { valueCoding?: { system?: string; code?: string; display?: string }; valueString?: string }[];
   extension?: { url: string; valueExpression?: { language?: string; expression?: string } }[];
   calculatedExpression?: CalculatedExpression;
 }
 
-export const CALCULABLE_ITEM_TYPES = ['string', 'text', 'boolean', 'integer', 'decimal', 'date'];
+export const CALCULABLE_ITEM_TYPES = ['string', 'text', 'boolean', 'integer', 'decimal', 'date', 'choice'];
 
 export const getCalculatedExpression = (item: CalculableItem): CalculatedExpression | undefined => {
   if (item.calculatedExpression) return item.calculatedExpression;
@@ -85,13 +92,23 @@ export const getCalculatedItemDefs = (items: CalculableItem[]): CalculatedItemDe
   });
 };
 
+// the answer option of a calculated choice item that a value picks: a coding by its code, or a string option by its text
+const findAnswerOption = (
+  item: Pick<CalculableItem, 'answerOption'>,
+  value: CalculatedScalar
+): NonNullable<CalculableItem['answerOption']>[number] | undefined =>
+  (item.answerOption ?? []).find((option) =>
+    option.valueCoding ? option.valueCoding.code === String(value) : option.valueString === String(value)
+  );
+
 // the answer a calculated value is recorded as, typed by the item's declared type. undefined when there is nothing to
-// record: no value, or one that doesn't fit the type (e.g. a fraction for an integer item)
+// record: no value, or one that doesn't fit the type (e.g. a fraction for an integer item, or a code that is not one
+// of a choice item's options). A list is never one answer: see coerceCalculatedAnswers
 export const coerceCalculatedValue = (
-  item: Pick<CalculableItem, 'type'>,
+  item: Pick<CalculableItem, 'type' | 'answerOption'>,
   value: CalculatedValue
 ): QuestionnaireResponseItemAnswer | undefined => {
-  if (value === undefined) return undefined;
+  if (value === undefined || Array.isArray(value)) return undefined;
   switch (item.type) {
     case 'boolean':
       return typeof value === 'boolean' ? { valueBoolean: value } : undefined;
@@ -108,14 +125,35 @@ export const coerceCalculatedValue = (
     case 'date':
       // dates are recorded as strings, like every other date answer
       return typeof value === 'boolean' ? undefined : { valueString: String(value) };
+    case 'choice': {
+      const option = typeof value === 'boolean' ? undefined : findAnswerOption(item, value);
+      if (option?.valueCoding) return { valueCoding: option.valueCoding };
+      return option?.valueString !== undefined ? { valueString: option.valueString } : undefined;
+    }
     default:
       return undefined;
   }
 };
 
+// every answer a calculated value is recorded as: one for a single value, one per element of a list on a repeating
+// item. undefined when there is nothing to record, including a list on an item that does not repeat or with any
+// element that doesn't fit the item's type
+export const coerceCalculatedAnswers = (
+  item: Pick<CalculableItem, 'type' | 'answerOption' | 'repeats'>,
+  value: CalculatedValue
+): QuestionnaireResponseItemAnswer[] | undefined => {
+  if (!Array.isArray(value)) {
+    const answer = coerceCalculatedValue(item, value);
+    return answer ? [answer] : undefined;
+  }
+  if (!item.repeats || value.length === 0) return undefined;
+  const answers = value.map((element) => coerceCalculatedValue(item, element));
+  return answers.every((answer) => answer !== undefined) ? (answers as QuestionnaireResponseItemAnswer[]) : undefined;
+};
+
 // does the answer have the one value[x] that the item's declared type calls for
 const answerMatchesItemType = (
-  item: Pick<CalculableItem, 'type'>,
+  item: Pick<CalculableItem, 'type' | 'answerOption'>,
   answer: QuestionnaireResponseItemAnswer
 ): boolean => {
   const keys = Object.keys(answer).filter((key) => (answer as Record<string, unknown>)[key] !== undefined);
@@ -133,6 +171,15 @@ const answerMatchesItemType = (
     case 'text':
     case 'date':
       return key === 'valueString' && typeof value === 'string';
+    case 'choice':
+      // one of the item's own options, never a code the questionnaire doesn't list
+      return (item.answerOption ?? []).some((option) =>
+        option.valueCoding
+          ? key === 'valueCoding' &&
+            (value as Coding | undefined)?.code === option.valueCoding.code &&
+            (value as Coding | undefined)?.system === option.valueCoding.system
+          : key === 'valueString' && value === option.valueString
+      );
     default:
       return false;
   }
@@ -174,7 +221,8 @@ export const sanitizeCalculatedAnswers = (
         issues.push(`"${entry.linkId}" is not a group and cannot have child items.`);
       } else if (hasAnswer(entry)) {
         const answers = entry.answer ?? [];
-        if (answers.length !== 1 || !answers[0] || !answerMatchesItemType(definition, answers[0])) {
+        const countFits = answers.length === 1 || (definition.repeats === true && answers.length > 1);
+        if (!countFits || !answers.every((answer) => !!answer && answerMatchesItemType(definition, answer))) {
           issues.push(`The value of "${entry.linkId}" does not match its item type "${definition.type}".`);
         } else {
           kept.push(entry);

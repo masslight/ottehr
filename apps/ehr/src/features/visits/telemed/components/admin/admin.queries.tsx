@@ -711,7 +711,9 @@ export const usePracticeManagedQuestionnaireImportJson = (): UseMutationResult<
       }
       return practiceManagedQuestionnaireImportJson(oystehrZambda!, input);
     },
-    onSuccess: async () => {
+    onSuccess: async (output) => {
+      // imported, but some ids clash with other forms: the author needs to know before adding both to a flow
+      output.warnings?.forEach((warning) => enqueueSnackbar(warning, { variant: 'warning', autoHideDuration: 15000 }));
       await queryClient.invalidateQueries({
         queryKey: ['practice-managed-questionnaire-list'],
       });

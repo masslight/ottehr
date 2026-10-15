@@ -5,6 +5,7 @@ import { PRACTICE_MANAGED_QUESTIONNAIRE_BASE_VERSION } from 'utils/lib/helpers/p
 import { MANAGED_QUESTIONNAIRE_ERROR } from 'utils/lib/types/errors';
 import { compareVersions } from '../../../shared/fhir';
 import {
+  collectLinkIds,
   getCanonicalUrlFromQ,
   PAPERWORK_FLOW_BASE_VERSION,
   searchActiveQuestionnairesByTag,
@@ -133,3 +134,30 @@ export const evaluateFlowsForUrl = (targetFormQ: Questionnaire, flowQuestionnair
   }
   console.log('safe to retire');
 };
+
+const MAX_LISTED_LINK_IDS = 5;
+
+/**
+ * One warning per other practice-managed form that shares a page or question id with the imported one. Both forms
+ * import fine, but a paperwork flow containing both is rejected when it is saved (findFlowLinkIdConflicts), so the
+ * author hears about it now, while still working on the form, rather than when building the flow.
+ */
+export function findLinkIdClashes(questionnaire: Questionnaire, others: Questionnaire[]): string[] {
+  const linkIds = collectLinkIds(questionnaire.item);
+  return others
+    .filter((other) => other.url !== questionnaire.url)
+    .flatMap((other) => {
+      const shared = [...collectLinkIds(other.item)].filter((linkId) => linkIds.has(linkId));
+      if (shared.length === 0) return [];
+      const listed = shared
+        .slice(0, MAX_LISTED_LINK_IDS)
+        .map((linkId) => `"${linkId}"`)
+        .join(', ');
+      const more = shared.length > MAX_LISTED_LINK_IDS ? ` and ${shared.length - MAX_LISTED_LINK_IDS} more` : '';
+      return [
+        `"${
+          other.title ?? other.name ?? other.url
+        }" also uses ${listed}${more}, so the two forms can't be in the same paperwork flow until one is re-imported with different ids (for example prefixed with the form's name, like "cage-q1").`,
+      ];
+    });
+}

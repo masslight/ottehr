@@ -4,6 +4,7 @@ import { PAPERWORK_FLOW_BASE_VERSION } from '../../paperwork-flow/shared';
 import {
   bumpFlowFormVersionRequests,
   FhirQuestionnaireSubset,
+  findLinkIdClashes,
   isLatestVersion,
   patchQuestionnaireVersion,
 } from './index';
@@ -257,5 +258,29 @@ describe('bumpFlowFormVersionRequests', () => {
     expect(createPost.resource.meta).toEqual({
       tag: [{ system: 'https://ottehr.com/paperwork-flow', code: 'paperwork-flow' }],
     });
+  });
+});
+
+describe('findLinkIdClashes', () => {
+  const form = (title: string, url: string, linkIds: string[]): Questionnaire => ({
+    resourceType: 'Questionnaire',
+    status: 'active',
+    title,
+    url,
+    item: [{ linkId: `${title}-page`, type: 'group', item: linkIds.map((linkId) => ({ linkId, type: 'string' })) }],
+  });
+  const phq9 = form('PHQ-9', 'https://example.org/phq9', ['q1', 'q2', 'q3', 'q4', 'q5', 'q6', 'q7', 'total']);
+
+  it('warns once per other form that shares ids, listing at most five of them', () => {
+    const gad7 = form('GAD-7', 'https://example.org/gad7', ['q1', 'q2', 'q3', 'q4', 'q5', 'q6', 'q7', 'total']);
+    expect(findLinkIdClashes(phq9, [gad7])).toEqual([
+      '"GAD-7" also uses "q1", "q2", "q3", "q4", "q5" and 3 more, so the two forms can\'t be in the same paperwork flow until one is re-imported with different ids (for example prefixed with the form\'s name, like "cage-q1").',
+    ]);
+  });
+
+  it('ignores forms without shared ids and earlier versions of the same form', () => {
+    const cage = form('CAGE', 'https://example.org/cage', ['cage-q1', 'cage-total']);
+    const olderPhq9 = form('PHQ-9', 'https://example.org/phq9', ['q1', 'total']);
+    expect(findLinkIdClashes(phq9, [cage, olderPhq9])).toEqual([]);
   });
 });

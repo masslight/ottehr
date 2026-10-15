@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS } from '../../../fhir/constants';
 import {
   applyCalculatedAnswers,
+  coerceCalculatedAnswers,
   coerceCalculatedValue,
   extractCalculatedItems,
   validateCalculatedAnswers,
@@ -445,5 +446,131 @@ describe('extractCalculatedItems', () => {
   it('returns nothing for a page that stores no calculated values', () => {
     expect(extractCalculatedItems(undefined, pageDefinitions ?? [])).toEqual([]);
     expect(extractCalculatedItems([coded('a', '1')], pageDefinitions ?? [])).toEqual([]);
+  });
+});
+
+// a result recorded as a coding (a severity band) and one recorded as a list (the endorsed items)
+const codedAndListItems = (): QuestionnaireItem[] => [
+  { linkId: 'items', type: 'group', text: 'Items', item: [yesNo('q1'), yesNo('q2'), yesNo('q3')] },
+  {
+    linkId: 'results',
+    type: 'group',
+    text: 'Results',
+    readOnly: true,
+    item: [
+      {
+        linkId: 'band',
+        type: 'choice',
+        text: 'Band',
+        answerOption: [
+          { valueCoding: { system: 'https://example.org/bands', code: 'low', display: 'Low' } },
+          { valueCoding: { system: 'https://example.org/bands', code: 'high', display: 'High' } },
+        ],
+        extension: calculated('((answers["q1"]||0)+(answers["q2"]||0)+(answers["q3"]||0)) >= 2 ? "high" : "low"'),
+      },
+      {
+        linkId: 'endorsed',
+        type: 'string',
+        text: 'Endorsed items',
+        repeats: true,
+        extension: calculated('["q1","q2","q3"].filter((id) => answers[id] === 1)'),
+      },
+    ],
+  },
+];
+
+describe('coded and list results', () => {
+  const band = codedAndListItems()[1]!.item![0]!;
+
+  it('records a choice item as the coding of the option its code names', () => {
+    expect(coerceCalculatedValue(band, 'high')).toEqual({
+      valueCoding: { system: 'https://example.org/bands', code: 'high', display: 'High' },
+    });
+    expect(coerceCalculatedValue({ type: 'choice', answerOption: [{ valueString: 'Zone II' }] }, 'Zone II')).toEqual({
+      valueString: 'Zone II',
+    });
+  });
+
+  it('matches a numeric code to a numeric value', () => {
+    const numeric = { type: 'choice', answerOption: [{ valueCoding: { code: '2', display: 'Moderate' } }] };
+    expect(coerceCalculatedValue(numeric, 2)).toEqual({ valueCoding: { code: '2', display: 'Moderate' } });
+  });
+
+  it('records nothing for a code that is not one of the options', () => {
+    expect(coerceCalculatedValue(band, 'medium')).toBeUndefined();
+    expect(coerceCalculatedValue(band, true)).toBeUndefined();
+  });
+
+  it('records a list on a repeating item as one answer per element, and nothing on an item that does not repeat', () => {
+    expect(coerceCalculatedAnswers({ type: 'string', repeats: true }, ['q1', 'q3'])).toEqual([
+      { valueString: 'q1' },
+      { valueString: 'q3' },
+    ]);
+    expect(coerceCalculatedAnswers({ type: 'string' }, ['q1', 'q3'])).toBeUndefined();
+    expect(coerceCalculatedAnswers({ type: 'string', repeats: true }, [])).toBeUndefined();
+    expect(coerceCalculatedAnswers({ type: 'integer', repeats: true }, [1, 2.5])).toBeUndefined();
+    expect(coerceCalculatedAnswers({ type: 'integer' }, 3)).toEqual([{ valueInteger: 3 }]);
+    expect(coerceCalculatedValue({ type: 'string' }, ['q1'])).toBeUndefined();
+  });
+
+  it('records both from the answers on the page being saved', () => {
+    const result = buildCalculatedAnswers({
+      pageItems: intake(codedAndListItems()),
+      formValues: { q1: coded('q1', '1'), q2: coded('q2', '0'), q3: coded('q3', '1') },
+      savedPages: stubPages(),
+    });
+    expect(result).toEqual([
+      {
+        linkId: 'results',
+        item: [
+          {
+            linkId: 'band',
+            answer: [{ valueCoding: { system: 'https://example.org/bands', code: 'high', display: 'High' } }],
+          },
+          { linkId: 'endorsed', answer: [{ valueString: 'q1' }, { valueString: 'q3' }] },
+        ],
+      },
+    ]);
+  });
+
+  it('leaves a recorded list alone when it has not changed', () => {
+    const saved = [
+      { linkId: 'items', item: [coded('q1', '1'), coded('q2', '0'), coded('q3', '1')] },
+      {
+        linkId: 'results',
+        item: [
+          {
+            linkId: 'band',
+            answer: [{ valueCoding: { system: 'https://example.org/bands', code: 'high', display: 'High' } }],
+          },
+          { linkId: 'endorsed', answer: [{ valueString: 'q1' }, { valueString: 'q3' }] },
+        ],
+      },
+    ];
+    expect(
+      buildCalculatedAnswers({ pageItems: intake(codedAndListItems()), formValues: {}, savedPages: saved })
+    ).toEqual([]);
+  });
+
+  it('accepts only an option of the item, and several answers only on a repeating item', () => {
+    const items = intake(codedAndListItems());
+    const send = (linkId: string, answer: QuestionnaireResponseItem['answer']): string[] =>
+      validateCalculatedAnswers(items, [{ linkId: 'results', item: [{ linkId, answer }] }]);
+
+    expect(
+      send('band', [{ valueCoding: { system: 'https://example.org/bands', code: 'low', display: 'Low' } }])
+    ).toEqual([]);
+    expect(send('band', [{ valueCoding: { system: 'https://example.org/bands', code: 'medium' } }])).toEqual([
+      'The value of "band" does not match its item type "choice".',
+    ]);
+    expect(send('band', [{ valueCoding: { system: 'https://other.org', code: 'low' } }])).toHaveLength(1);
+    expect(send('endorsed', [{ valueString: 'q1' }, { valueString: 'q3' }])).toEqual([]);
+    expect(send('endorsed', [{ valueString: 'q1' }, { valueBoolean: true }])).toHaveLength(1);
+    expect(
+      send('band', [
+        { valueCoding: { system: 'https://example.org/bands', code: 'low' } },
+        { valueCoding: { system: 'https://example.org/bands', code: 'high' } },
+      ])
+    ).toHaveLength(1);
   });
 });
