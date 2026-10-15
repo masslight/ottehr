@@ -563,6 +563,7 @@ describe('summarizeClaimPayments', () => {
       insurancePaid: 110,
       patientResp: 60,
       patientPaid: 0,
+      writeOffsTotal: 0,
       balance: 60,
       adjudicated: true,
     });
