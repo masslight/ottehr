@@ -681,6 +681,7 @@ export const makeEncounterLabResults = async (
   const documentReferences: DocumentReference[] = [];
   const activeExternalLabServiceRequestIds = new Set<string>();
   const activeInHouseLabServiceRequestIds = new Set<string>();
+  const orderedInHouseLabServiceRequestIds = new Set<string>();
   const reflexTestsPending: string[] = []; // array of test names pending;
   const serviceRequestMap: Record<string, { resource: ServiceRequest; type: LabType }> = {};
   const diagnosticReportMap: Record<string, DiagnosticReport> = {};
@@ -709,6 +710,9 @@ export const makeEncounterLabResults = async (
             if (!isManual && resource.id) activeExternalLabServiceRequestIds.add(resource.id);
           }
           if (isInHouseLabSR && resource.id) activeInHouseLabServiceRequestIds.add(resource.id);
+        }
+        if (resource.status === 'draft' && isInHouseLabSR && resource.id) {
+          orderedInHouseLabServiceRequestIds.add(resource.id);
         }
 
         const reflexTestTriggered = resource.meta?.tag?.find(
@@ -742,7 +746,7 @@ export const makeEncounterLabResults = async (
 
   // Fetch ActivityDefinitions for in-house labs to get component names for observations
   const inHouseServiceRequests = Object.values(serviceRequestMap)
-    .filter((detail) => detail.type === LabType.inHouse)
+    .filter((detail) => detail.type === LabType.inHouse && detail.resource.status !== 'draft')
     .map((detail) => detail.resource);
   const activityDefinitionMap =
     oystehr && inHouseServiceRequests.length > 0
@@ -845,6 +849,10 @@ export const makeEncounterLabResults = async (
     return serviceRequest?.code?.text || 'name missing';
   });
 
+  const inHouseTestsOrdered = Array.from(orderedInHouseLabServiceRequestIds).map(
+    (srId) => serviceRequestMap[`ServiceRequest/${srId}`].resource.code?.text || 'name missing'
+  );
+
   const externalLabResultConfig: EncounterExternalLabResult = {
     resultsPending: externalResultsPending.length > 0 ? externalResultsPending : undefined,
     labOrderResults: externalLabOrderResults,
@@ -853,6 +861,7 @@ export const makeEncounterLabResults = async (
   const inHouseLabResultConfig: EncounterInHouseLabResult = {
     resultsPending: inHouseResultsPending.length > 0 ? inHouseResultsPending : undefined,
     reflexTestsPending: reflexTestsPending.length > 0 ? reflexTestsPending : undefined,
+    testsOrdered: inHouseTestsOrdered.length > 0 ? inHouseTestsOrdered : undefined,
     labOrderResults: inHouseLabOrderResults,
   };
   return { externalLabResultConfig, inHouseLabResultConfig };
@@ -940,10 +949,11 @@ export const configLabRequestsForGetChartData = (encounterId: string): BatchInpu
     url: `/DocumentReference?status=current&type=${LAB_RESULT_DOC_REF_CODING_CODE.code}&encounter=${encounterId}&_include:iterate=DocumentReference:related&_include:iterate=DiagnosticReport:based-on&_include:iterate=DiagnosticReport:result`,
   };
   // Grabbing active lab service requests separately since they might not have results
-  // but we validate against actually signing the progress note if there are any pending
+  // but we validate against actually signing the progress note if there are any pending.
+  // Draft ones are in-house tests ordered but not yet collected, so the note can show them too
   const activeLabServiceRequestSearch: BatchInputGetRequest = {
     method: 'GET',
-    url: `/ServiceRequest?encounter=Encounter/${encounterId}&status=active&code=${OYSTEHR_LAB_OI_CODE_SYSTEM}|,${IN_HOUSE_TEST_CODE_SYSTEM}|`,
+    url: `/ServiceRequest?encounter=Encounter/${encounterId}&status=active,draft&code=${OYSTEHR_LAB_OI_CODE_SYSTEM}|,${IN_HOUSE_TEST_CODE_SYSTEM}|`,
   };
   return [docRefSearch, activeLabServiceRequestSearch];
 };
