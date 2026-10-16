@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { getAdmitterPractitionerId, getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
+import { FEATURE_FLAGS } from '../constants/feature-flags';
 import { useListTemplates } from '../features/visits/shared/components/templates/useListTemplates';
 import { useGetAppointmentAccessibility } from '../features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { useAppointmentData } from '../features/visits/shared/stores/appointment/appointment.store';
@@ -8,6 +9,7 @@ import { CommandPaletteItem, useCommandPaletteStore } from '../state/command-pal
 import { useCommandPaletteSource } from './useCommandPaletteSource';
 import {
   useMergedAllergyQuickPicks,
+  useMergedDmeQuickPicks,
   useMergedImmunizationQuickPicks,
   useMergedInHouseMedicationQuickPicks,
   useMergedMedicalConditionQuickPicks,
@@ -58,6 +60,9 @@ export function useGlobalQuickPicks(): void {
   const { quickPicks: radiologyQuickPicks } = useMergedRadiologyQuickPicks({
     enabled: isChartingAvailable,
   });
+  const { quickPicks: dmeQuickPicks } = useMergedDmeQuickPicks({
+    enabled: isChartingAvailable && FEATURE_FLAGS.DME_ORDERS_ENABLED,
+  });
 
   const currentSubPath = useMemo(() => {
     if (!inPersonBasePath) {
@@ -92,6 +97,7 @@ export function useGlobalQuickPicks(): void {
   const isOnInHouseMedicationPage = currentSubPath === 'in-house-medication/order/new';
   const isOnImmunizationsPage = currentSubPath === 'immunization/order';
   const isOnRadiologyPage = currentSubPath === 'radiology/create';
+  const isOnDmePage = currentSubPath === 'dme/create';
   const isOnTemplatesPage = currentSubPath === 'history-of-present-illness-and-templates';
 
   const items = useMemo<CommandPaletteItem[]>(() => {
@@ -204,6 +210,18 @@ export function useGlobalQuickPicks(): void {
       });
     }
 
+    if (FEATURE_FLAGS.DME_ORDERS_ENABLED && !isOnDmePage) {
+      dmeQuickPicks.forEach((quickPick) => {
+        commandPaletteItems.push({
+          id: `global-dme-${quickPick.id ?? quickPick.name}`,
+          label: quickPick.name,
+          category: 'Order DME',
+          keywords: [quickPick.itemName].filter(Boolean) as string[],
+          onSelect: () => navigateAndDefer('dme/create', 'dme', quickPick.id ?? quickPick.name, quickPick),
+        });
+      });
+    }
+
     if (!isOnTemplatesPage) {
       templates.forEach((template) => {
         commandPaletteItems.push({
@@ -221,11 +239,13 @@ export function useGlobalQuickPicks(): void {
   }, [
     allergyQuickPicks,
     conditionQuickPicks,
+    dmeQuickPicks,
     inHouseMedicationQuickPicks,
     inPersonBasePath,
     immunizationQuickPicks,
     isChartingAvailable,
     isOnAllergiesPage,
+    isOnDmePage,
     isOnImmunizationsPage,
     isOnInHouseMedicationPage,
     isOnMedicalConditionsPage,
