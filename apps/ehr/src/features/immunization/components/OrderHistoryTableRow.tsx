@@ -69,6 +69,7 @@ export const OrderHistoryTableRow: React.FC<Props> = ({
   };
 
   const isPending = order.status === 'pending';
+  const isCancelled = order.status === 'cancelled';
 
   const navigateToDetails = (): void => {
     if (onShowDetails) {
@@ -141,7 +142,7 @@ export const OrderHistoryTableRow: React.FC<Props> = ({
           <Stack>
             <OrderStatusChip status={order.status} dataTestId={dataTestIds.immunizationPage.marTableStatusCell} />
             <span data-testid={dataTestIds.immunizationPage.marTableReasonCell}>
-              {reasonListValues[order.reason as ReasonListCodes] ?? order.reason}
+              {!isCancelled && (reasonListValues[order.reason as ReasonListCodes] ?? order.reason)}
             </span>
           </Stack>
           {showActions ? (
@@ -149,7 +150,7 @@ export const OrderHistoryTableRow: React.FC<Props> = ({
               <IconButton size="small" aria-label="edit" onClick={isPending ? navigateToEditOrder : navigateToDetails}>
                 <EditIcon sx={{ color: theme.palette.primary.dark }} />
               </IconButton>
-              {order.status !== 'cancelled' && (
+              {!isCancelled && (
                 <>
                   <IconButton size="small" aria-label="delete" onClick={() => setIsDeleteDialogOpened(true)}>
                     <DeleteIcon sx={{ color: theme.palette.error.main }} />

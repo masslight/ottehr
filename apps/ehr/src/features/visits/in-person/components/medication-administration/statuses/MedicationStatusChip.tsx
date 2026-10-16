@@ -86,7 +86,8 @@ export const MedicationStatusChip: React.FC<MedicationStatusChipProps> = ({
   };
 
   const availableStatuses = onClick ? getAvailableStatuses(medication?.status) : [];
-  const reasonText = formatMedicationAdministrationReason(medication?.reason, medication?.otherReason);
+  const reasonText =
+    status === 'cancelled' ? '' : formatMedicationAdministrationReason(medication?.reason, medication?.otherReason);
 
   return (
     <>
