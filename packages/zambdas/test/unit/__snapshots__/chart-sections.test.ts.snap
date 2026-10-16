@@ -904,6 +904,7 @@ exports[`chart sections — golden fixture > visit note > matches its snapshot 1
     "labOrderResults": [],
     "reflexTestsPending": undefined,
     "resultsPending": undefined,
+    "testsOrdered": undefined,
   },
   "notes": {
     "notes": [
