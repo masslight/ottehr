@@ -122,16 +122,22 @@ const isUserRelatedPerson = (rp: RelatedPerson): boolean =>
 // issues searches as POST bodies.
 const PROVENANCE_SEARCH_CHUNK_SIZE = 100;
 
-/** Visit type and service category are appointment-level filters, so they need nothing beyond the Appointment itself. */
+/** Visit type and service category filters. The encounter map is needed to detect scheduled follow-ups. */
 const filterAppointmentsForBoard = (
   appointments: Appointment[],
   visitType: string[],
-  serviceCategories: string[] | undefined
+  serviceCategories: string[] | undefined,
+  apptRefToEncounterMap: Record<string, Encounter>
 ): Appointment[] => {
   let filtered = appointments;
 
   if (visitType?.length > 0) {
+    const includeScheduledFollowUps = visitType.includes('in-person-scheduled-follow-up');
     filtered = filtered.filter((appointment) => {
+      const encounter = apptRefToEncounterMap[`Appointment/${appointment.id}`];
+      if (encounter?.partOf) {
+        return includeScheduledFollowUps;
+      }
       return visitType.includes(
         (isInPersonAppointment(appointment) ? 'in-person-' : 'virtual-') + appointmentTypeForAppointment(appointment)
       );
@@ -401,7 +407,7 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
 
   // The queues only need the appointment and its encounter, so they are built here, ahead of the related-resource
   // searches, and reused when the response is assembled below.
-  const appointments = filterAppointmentsForBoard(allAppointments, visitType, serviceCategories);
+  const appointments = filterAppointmentsForBoard(allAppointments, visitType, serviceCategories, apptRefToEncounterMap);
   const appointmentQueues = appointments.length > 0 ? sortAppointments(appointments, apptRefToEncounterMap) : undefined;
 
   // Tracking board Step B: order icons and vitals badges are keyed on the encounters in these queues, so their
