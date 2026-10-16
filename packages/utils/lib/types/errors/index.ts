@@ -58,6 +58,7 @@ export enum APIErrorCode {
   PRACTITIONER_SCHEDULE_CONFLICT = 4342,
   APPOINTMENT_SEARCH_TOO_BROAD = 4343,
   CLAIM_SEARCH_TOO_BROAD = 4344,
+  VERSION_HISTORY_UNAVAILABLE = 4345,
   // 44xx
   EXTERNAL_LAB_GENERAL = 4400,
   MISSING_NLM_API_KEY_ERROR = 4401,
@@ -352,6 +353,12 @@ export const CLAIM_SEARCH_TOO_BROAD_ERROR: APIError = {
   code: APIErrorCode.CLAIM_SEARCH_TOO_BROAD,
   message:
     'This search returned too much data to load. Please lower the rows per page, or narrow the date range or other filters, and try again.',
+};
+
+export const VERSION_HISTORY_UNAVAILABLE_ERROR: APIError = {
+  code: APIErrorCode.VERSION_HISTORY_UNAVAILABLE,
+  statusCode: 503,
+  message: 'The version history is temporarily unavailable. Please try again in a few seconds.',
 };
 
 export const APPOINTMENT_CANT_BE_IN_PAST_ERROR = {

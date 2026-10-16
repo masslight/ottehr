@@ -41,6 +41,7 @@ import {
   PREFERRED_COMMUNICATION_METHOD_EXTENSION_URL,
 } from 'utils/lib/types/constants';
 import { PatientAccountAndCoverageResources } from 'utils/lib/types/data/account';
+import { InsuranceCheckStatusWithDate } from 'utils/lib/types/data/telemed/eligibility.types';
 import { getInPersonVisitStatus } from 'utils/lib/utils/visitUtils';
 import { PATIENT_CONTAINED_PHARMACY_ID } from '../../ehr/shared/harvest';
 import {
@@ -59,6 +60,7 @@ import { composePatientDetailsData } from '../pdf/sections/patientDetails';
 import { composePharmacyData } from '../pdf/sections/pharmacyInfo';
 import { composePrimaryCarePhysicianData } from '../pdf/sections/primaryCarePhysician';
 import { composeResponsiblePartyData } from '../pdf/sections/responsiblePartyInfo';
+import { eligibilityCheckFields, indexEligibilityChecks } from './eligibility-checks';
 import { fetchPatientAccounts } from './patient-accounts';
 
 // Both spellings the app has written for the "not listed" pronoun choice.
@@ -112,6 +114,7 @@ export async function fetchAdHocPatientRows(oystehr: Oystehr, params: AdHocPatie
     includeDemographics,
     includeContacts,
     includeInsurance,
+    includeEligibility,
     includeEmployers,
     includeNotes,
   } = params;
@@ -327,12 +330,34 @@ export async function fetchAdHocPatientRows(oystehr: Oystehr, params: AdHocPatie
 
   // The patient-account page's account / coverage picture, for the contacts, insurance and employer layers.
   const accountsByPatient =
-    includeContacts || includeInsurance || includeEmployers
+    includeContacts || includeInsurance || includeEligibility || includeEmployers
       ? await fetchPatientAccounts(
           oystehr,
           Array.from(aggByPatient.values()).map((agg) => agg.patient)
         )
       : new Map<string, PatientAccountAndCoverageResources>();
+
+  const latestEligibilityCheckIds = new Map<string, { primary?: string; secondary?: string }>();
+  let eligibilityChecks = new Map<string, InsuranceCheckStatusWithDate>();
+
+  if (includeEligibility && aggByPatient.size) {
+    const eligibility = await indexEligibilityChecks(oystehr, Array.from(aggByPatient.keys()));
+
+    for (const patientRef of aggByPatient.keys()) {
+      const coverages = accountsByPatient.get(patientRef)?.coverages;
+
+      latestEligibilityCheckIds.set(patientRef, {
+        primary: eligibility.latestCheckId(patientRef, coverages?.primary),
+        secondary: eligibility.latestCheckId(patientRef, coverages?.secondary),
+      });
+    }
+
+    eligibilityChecks = await eligibility.load(
+      Array.from(latestEligibilityCheckIds.values()).flatMap(({ primary, secondary }) =>
+        [primary, secondary].filter((id): id is string => !!id)
+      )
+    );
+  }
 
   // The patient page's notes (get-patient-notes): completed patient-note Communications, newest first.
   const patientNotesByPatient = new Map<string, Communication[]>();
@@ -586,6 +611,23 @@ export async function fetchAdHocPatientRows(oystehr: Oystehr, params: AdHocPatie
       row.secondaryPolicyHolderSex = insurance.secondary.policyHoldersSex;
       row.secondaryPolicyHolderAddress = oneLineAddress(insurance.secondary);
       row.secondaryInsuranceAdditionalInformation = insurance.secondary.additionalInformation;
+    }
+
+    if (includeEligibility) {
+      const checkIds = latestEligibilityCheckIds.get(patientRef);
+
+      const primaryCheck = eligibilityCheckFields(
+        checkIds?.primary ? eligibilityChecks.get(checkIds.primary) : undefined
+      );
+
+      const secondaryCheck = eligibilityCheckFields(
+        checkIds?.secondary ? eligibilityChecks.get(checkIds.secondary) : undefined
+      );
+
+      row.primaryEligibilityStatus = primaryCheck.status;
+      row.primaryEligibilityCheckedAt = primaryCheck.checkedAt;
+      row.secondaryEligibilityStatus = secondaryCheck.status;
+      row.secondaryEligibilityCheckedAt = secondaryCheck.checkedAt;
     }
 
     if (includeEmployers) {

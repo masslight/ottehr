@@ -25,6 +25,7 @@ const QUICK_PICK_APPLY_KEYS = [
   'postInstructions',
   'otherPostInstructions',
   'timeSpent',
+  'performerType',
   'documentedBy',
 ] as const satisfies readonly (keyof ProcedureQuickPickData)[];
 
@@ -142,6 +143,7 @@ export function buildProcedureQuickPick(
     postInstructions: postInstructions.values,
     otherPostInstructions: postInstructions.other,
     timeSpent: source.timeSpent,
+    performerType: source.performerType,
     documentedBy: source.documentedBy,
   };
 }

@@ -46,6 +46,7 @@ import { useRosObservationsStore } from 'src/features/visits/shared/stores/appoi
 import { useSignAppointmentMutation } from 'src/features/visits/shared/stores/tracking-board/tracking-board.queries';
 import { isEligibleSupervisor } from 'src/helpers';
 import useEvolveUser from 'src/hooks/useEvolveUser';
+import { isRosObservationSet } from 'utils/lib/config-helpers/review-of-systems';
 import { INCOMPATIBLE_EXAM_VERSION_MESSAGE } from 'utils/lib/fhir/constants';
 import { examConfig } from 'utils/lib/ottehr-config/examination';
 import { NOTE_TYPE } from 'utils/lib/types/api/chart-data/chart-data.types';
@@ -142,7 +143,7 @@ export const ProgressNoteDetails: FC = () => {
   const showMedicalDecisionMaking = !!(medicalDecision && medicalDecision.length > 0);
   const showEmCode = !!emCode;
   const showCptCodes = !!(cptCodes && cptCodes.length > 0);
-  const showRosReviewContainer = Object.values(rosState).filter((rosObs) => rosObs.value).length > 0;
+  const showRosReviewContainer = Object.values(rosState).some(isRosObservationSet);
 
   const externalLabResultsPending = !!(
     externalLabResults?.resultsPending && externalLabResults?.resultsPending.length > 0

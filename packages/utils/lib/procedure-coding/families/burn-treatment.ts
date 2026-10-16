@@ -37,12 +37,14 @@ const DECIMAL_ROUNDING_TOLERANCE = 1e-8;
 const BURN_FIELDS: readonly CodingField[] = [
   {
     key: 'degree',
+    neededForCoding: true,
     label: 'Deepest burn degree treated',
     kind: 'select',
     options: Object.values(BURN_DEGREE),
   },
   {
     key: 'tbsa',
+    neededForCoding: true,
     visible: (facts) => facts.degree === BURN_DEGREE.PartialThickness,
     label: 'Treated partial-thickness body surface (%)',
     kind: 'number',

@@ -180,5 +180,6 @@ export async function createSchoolWorkNotePDF(
   // for testing
   // savePdfLocally(pdfBytes);
 
-  return { title: fileName, uploadURL: baseFileUrl };
+  // unique title: createFilesDocumentReferences supersedes any current DocumentReference with the same title
+  return { title: baseFileUrl.split('/').pop() ?? fileName, uploadURL: baseFileUrl };
 }

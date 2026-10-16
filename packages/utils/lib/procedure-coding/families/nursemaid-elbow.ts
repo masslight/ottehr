@@ -23,6 +23,7 @@ export const nursemaidElbowFamily: ProcedureFamilyModel<NursemaidElbowCode> = {
   fields: [
     {
       key: 'condition',
+      neededForCoding: true,
       label: 'Condition',
       kind: 'select',
       options: ['subluxation', 'true dislocation/fracture', 'other/unconfirmed'],

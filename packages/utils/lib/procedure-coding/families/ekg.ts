@@ -20,13 +20,23 @@ type EkgCode = (typeof EKG_CODES)[keyof typeof EKG_CODES];
 const fields: readonly CodingField[] = [
   {
     key: 'component',
+    neededForCoding: true,
     label: 'Component furnished',
     kind: 'select',
     options: ['tracing and report', 'tracing only', 'interpretation/report only'],
   },
-  { key: 'count', label: 'Same-day recordings', kind: 'number', defaultValue: 1, min: 0, step: 1 },
+  {
+    key: 'count',
+    neededForCoding: true,
+    label: 'Same-day recordings',
+    kind: 'number',
+    defaultValue: 1,
+    min: 0,
+    step: 1,
+  },
   {
     key: 'repeatClinician',
+    neededForCoding: true,
     label: 'Repeat clinician',
     kind: 'select',
     options: ['same', 'different'],

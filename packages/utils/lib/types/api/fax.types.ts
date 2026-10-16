@@ -148,6 +148,8 @@ export interface FaxRecipientResult {
 
 export type FaxJobStatus = 'pending' | 'completed' | 'failed';
 
+export type FaxJobFailureReason = 'too-large';
+
 export const GetFaxPacketStatusInputSchema = z.object({
   taskId: z.string().uuid(),
 });
@@ -159,6 +161,7 @@ export interface GetFaxPacketStatusOutput {
   jobStatus: FaxJobStatus;
   /** Per-recipient outcomes once the job has run. Empty while pending or on a hard failure. */
   recipients: FaxRecipientResult[];
+  failureReason?: FaxJobFailureReason;
 }
 
 export const GetFaxPacketPreviewInputSchema = z.object({
@@ -226,4 +229,9 @@ export const FAX_PACKET_REQUEST_TASK_INPUT = {
 export const FAX_PACKET_RESULTS_TASK_OUTPUT = {
   system: 'https://fhir.ottehr.com/CodeSystem/fax-packet-task-output',
   code: 'results',
+} as const;
+
+export const FAX_PACKET_FAILURE_TASK_OUTPUT = {
+  system: 'https://fhir.ottehr.com/CodeSystem/fax-packet-task-output',
+  code: 'failure-reason',
 } as const;

@@ -132,6 +132,7 @@ import {
   buildEncounterRowContext,
   fetchAppointmentReportResources,
   fetchScopedResources,
+  knownValueOrNull,
   presentFullName,
   resolveEncounterAppointment,
 } from '../adhoc-report';
@@ -297,9 +298,6 @@ const lastSignedAt = (history: ReturnType<typeof getVisitStatusHistory>): string
   }
   return start;
 };
-
-const knownValueOrNull = <T extends string>(allowed: readonly T[], value: string | undefined): T | null =>
-  value && (allowed as readonly string[]).includes(value) ? (value as T) : null;
 
 /**
  * Hours the clinic was open on the day `start` falls on, from a Schedule extension (closures and the day's
@@ -1032,7 +1030,16 @@ export async function fetchAdHocEncounterRows(
       intakePerformerId,
       cancellationReason: appointment.cancelationReason?.coding?.[0]?.display ?? '',
       cancellationReasonDisplay: getCancellationReasonDisplay(appointment) ?? '',
-      paymentVariant: knownValueOrNull(Object.values(PaymentVariant), getPaymentVariantFromEncounter(encounter)),
+      // The visit's payment option, as its Payments panel reads it from the visit's Encounter — for a follow-up note,
+      // its parent visit's (the note has no payment option of its own).
+      paymentVariant: knownValueOrNull(
+        Object.values(PaymentVariant),
+        getPaymentVariantFromEncounter(
+          (isFollowUpRow && encounter.partOf?.reference
+            ? encounterById.get(encounter.partOf.reference.replace('Encounter/', ''))
+            : undefined) ?? encounter
+        )
+      ),
       registrationChannel,
       registeredBy,
       registeredByName,
