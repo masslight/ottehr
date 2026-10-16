@@ -8,6 +8,10 @@ import { ApptTab } from 'src/components/AppointmentTabs';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { FEATURE_FLAGS } from 'src/constants/feature-flags';
+import { DME_SECTION_TITLE } from 'src/features/dme/components/DmeBreadcrumbs';
+import { DmeOrdersInlineFlow } from 'src/features/dme/components/DmeOrdersInlineFlow';
+import { DmeOrdersReviewContainer } from 'src/features/dme/components/DmeOrdersReviewContainer';
+import { useDmeOrders } from 'src/features/dme/dme.queries';
 import { ImmunizationContainer } from 'src/features/visits/in-person/components/ImmunizationContainer';
 import { LabResultsReviewContainer } from 'src/features/visits/in-person/components/LabResultsReviewContainer';
 import { AssessmentBody } from 'src/features/visits/shared/components/assessment-tab/AssessmentBody';
@@ -107,6 +111,8 @@ export const ProgressNoteDetails: FC = () => {
     ['administered', 'administered-partly'].includes(order.status)
   );
 
+  const { data: dmeOrders } = useDmeOrders(encounter?.id);
+
   const screeningNotes = note?.notes.notes?.filter((note) => note.type === NOTE_TYPE.SCREENING);
   const vitalsNotes = note?.notes.notes?.filter((note) => note.type === NOTE_TYPE.VITALS);
   const allergyNotes = note?.notes.notes?.filter((note) => note.type === NOTE_TYPE.ALLERGY);
@@ -165,6 +171,7 @@ export const ProgressNoteDetails: FC = () => {
   const showRadiologyContainer = !!(radiologyOrders && radiologyOrders?.length > 0);
 
   const showProceduresContainer = (note?.assessment.procedures?.length ?? 0) > 0;
+  const showDmeOrders = (dmeOrders?.length ?? 0) > 0;
   const showPrescribedMedications = !!(prescriptions && prescriptions.length > 0);
   const { showPatientInstructions } = usePatientInstructionsVisibility();
   const showInHouseMedications =
@@ -434,6 +441,18 @@ export const ProgressNoteDetails: FC = () => {
         editContent={<ProceduresInlineFlow />}
       >
         {showProceduresContainer ? <ProceduresContainer /> : <BlankSection message="No procedures" />}
+      </InlineEditSection>
+    ),
+    (showDmeOrders || (inlineEditEnabled && FEATURE_FLAGS.DME_ORDERS_ENABLED)) && (
+      <InlineEditSection
+        key="dme-orders"
+        sectionName="dme-orders"
+        title={DME_SECTION_TITLE}
+        iconKey="DME"
+        editLabel="Edit DME orders"
+        editContent={<DmeOrdersInlineFlow />}
+      >
+        <DmeOrdersReviewContainer encounterId={encounter?.id} />
       </InlineEditSection>
     ),
     // Staff-facing only: nursing orders are shown here for the signing provider but are

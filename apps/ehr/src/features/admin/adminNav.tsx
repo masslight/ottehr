@@ -1,3 +1,4 @@
+import AccessibleOutlinedIcon from '@mui/icons-material/AccessibleOutlined';
 import AccountCircleOutlinedIcon from '@mui/icons-material/AccountCircleOutlined';
 import AccountTreeOutlinedIcon from '@mui/icons-material/AccountTreeOutlined';
 import ApartmentOutlinedIcon from '@mui/icons-material/ApartmentOutlined';
@@ -30,6 +31,7 @@ import { InsuranceIcon } from 'src/features/admin/icons/InsuranceIcon';
 import { ProgressNoteIcon } from 'src/features/admin/icons/ProgressNoteIcon';
 import { PatientEducationAdminPage } from 'src/features/admin/patient-education/PatientEducationAdminPage';
 import ProgressNoteAdminPage from 'src/features/admin/ProgressNoteAdminPage';
+import { DmeMenuAdminPage } from 'src/features/dme/admin/DmeMenuAdminPage';
 import { FormTemplatesAdminPage } from 'src/features/form-templates/FormTemplatesAdminPage';
 import LocationsListPage from 'src/features/locations/LocationsListPage';
 import ChargeItemList from 'src/features/visits/telemed/components/admin/ChargeItemList';
@@ -163,6 +165,16 @@ export const adminNavGroups: AdminNavGroup[] = [
         icon: <MedicationOutlinedIcon />,
         render: () => <MedicationsConfigurationPage />,
       },
+      ...(FEATURE_FLAGS.DME_ORDERS_ENABLED
+        ? [
+            {
+              label: 'DME Menu',
+              path: '/admin/dme-menu',
+              icon: <AccessibleOutlinedIcon />,
+              render: () => <DmeMenuAdminPage />,
+            },
+          ]
+        : []),
     ],
   },
   {

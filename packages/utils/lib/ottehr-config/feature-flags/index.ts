@@ -6,6 +6,7 @@ const FEATURE_FLAGS_DATA: FeatureFlagsConfig = {
   inHouseLabsEnabled: true,
   radiologyEnabled: true,
   nursingOrdersEnabled: true,
+  dmeOrdersEnabled: true,
   supervisorApprovalEnabled: true,
   demoVisitsEnabled: true,
   easyChartEnabled: true,
