@@ -2,7 +2,7 @@ import { BatchInputRequest } from '@oystehr/sdk';
 import { DeviceRequest, FhirResource, Procedure, Task } from 'fhir/r4b';
 import { DME_DISPENSED_EXTENSION_URL, DME_TASK, DmeOrderFieldsSchema } from 'utils/lib/types/api/dme.types';
 import { describe, expect, it } from 'vitest';
-import { getDmeDispensed, makeDmeDeviceRequest } from '../../../shared/dme';
+import { DME_BILLED_ORDER_EXTENSION_URL, getDmeDispensed, makeDmeDeviceRequest } from '../../../shared/dme';
 import { createTask } from '../../../shared/tasks';
 import {
   DmeOrderResources,
@@ -83,8 +83,10 @@ describe('update-dme-order request builders', () => {
       resourceType: 'Procedure',
       code: { coding: [{ code: 'L1820' }] },
     });
-    expect((posts[0] as any).resource.basedOn).toBeUndefined();
-    expect((putDr as any).resource.supportingInfo).toEqual([{ reference: (posts[0] as any).fullUrl }]);
+    expect((posts[0] as any).resource.extension).toEqual([
+      { url: DME_BILLED_ORDER_EXTENSION_URL, valueReference: { reference: `DeviceRequest/${DR_ID}` } },
+    ]);
+    expect((putDr as any).resource.supportingInfo).toBeUndefined();
 
     const taskPut = rest.find((r) => r.url === '/Task/task-open') as any;
     expect(taskPut.method).toBe('PUT');
@@ -107,7 +109,6 @@ describe('update-dme-order request builders', () => {
     });
     expect(byMethod(requests, 'POST')).toHaveLength(0);
     expect(byMethod(requests, 'DELETE')).toHaveLength(1);
-    expect((requests[0] as any).resource.supportingInfo).toBeUndefined();
     const patches = byMethod(requests, 'PATCH');
     expect(patches.map((p) => p.url)).toEqual(['/Task/task-open']);
     expect(decodePatch(patches[0])).toEqual([{ op: 'replace', path: '/status', value: 'cancelled' }]);
@@ -164,7 +165,7 @@ describe('update-dme-order request builders', () => {
 
   it('delete revokes the order, removes billing and cancels open tasks', () => {
     const requests = makeDeleteRequests(resources());
-    expect((requests[0] as any).resource).toMatchObject({ status: 'revoked', supportingInfo: undefined });
+    expect((requests[0] as any).resource).toMatchObject({ status: 'revoked' });
     expect(byMethod(requests, 'DELETE')).toEqual([{ method: 'DELETE', url: '/Procedure/proc-1' }]);
     const patches = byMethod(requests, 'PATCH');
     expect(patches.map((p) => p.url)).toEqual(['/Task/task-open']);

@@ -168,8 +168,8 @@ export const adminNavGroups: AdminNavGroup[] = [
       ...(FEATURE_FLAGS.DME_ORDERS_ENABLED
         ? [
             {
-              label: 'DME Menu',
-              path: '/admin/dme-menu',
+              label: 'DME',
+              path: '/admin/dme',
               icon: <AccessibleOutlinedIcon />,
               render: () => <DmeMenuAdminPage />,
             },

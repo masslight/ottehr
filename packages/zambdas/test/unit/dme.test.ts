@@ -1,15 +1,22 @@
+import Oystehr from '@oystehr/sdk';
 import { ActivityDefinition, DeviceRequest, Organization, Procedure } from 'fhir/r4b';
+import { CODE_SYSTEM_CPT_MODIFIER } from 'utils/lib/helpers/rcm/constants';
 import {
+  DME_ORDER_PARAMETER_SYSTEM,
   DmeOrderFields,
   DmeOrderFieldsSchema,
   DmeOrderStatus,
   ParsedDmeOrderFields,
 } from 'utils/lib/types/api/dme.types';
-import { describe, expect, it } from 'vitest';
-import { makeCPTCodeDTO } from '../../src/shared/chart-data/index';
+import { describe, expect, it, vi } from 'vitest';
+import { fetchDmeBillingProcedures } from '../../src/ehr/dme/shared/order-helpers';
+import { makeCPTCodeDTO, makeProcedureResource } from '../../src/shared/chart-data/index';
 import {
+  DME_BILLED_ORDER_EXTENSION_URL,
   getDmeOrderStatus,
   getDmePractitionerIds,
+  isDmeBillingProcedure,
+  isDmeBillingProcedureOf,
   isDmeMenuItem,
   isDmeOrderDeleted,
   isDmeOrderExternal,
@@ -17,6 +24,7 @@ import {
   makeDmeDeviceRequest,
   makeDmeDispensedExtension,
   makeDmeMenuItemActivityDefinition,
+  makeDmeProvenance,
   parseDmeMenuItem,
   parseDmeOrder,
 } from '../../src/shared/dme';
@@ -54,14 +62,22 @@ describe('DME menu item mapping', () => {
       'ad-1'
     );
 
-    expect(resource).toMatchObject({ id: 'ad-1', status: 'active', kind: 'DeviceRequest', title: 'Ankle Brace' });
+    expect(resource).toMatchObject({
+      id: 'ad-1',
+      status: 'active',
+      kind: 'DeviceRequest',
+      name: 'Ankle_Brace',
+      title: 'Ankle Brace',
+    });
+    expect(resource.productCodeableConcept?.coding?.map((c) => c.code)).toEqual(['L1906', 'L4361']);
+    expect(resource.code).toBeUndefined();
     expect(isDmeMenuItem(resource)).toBe(true);
     expect(parseDmeMenuItem(resource)).toEqual({ id: 'ad-1', name: 'Ankle Brace', hcpcsCodes: ANKLE_BRACE_CODES });
   });
 
   it('handles an item without codes and rejects resources that are not DME menu items', () => {
     const resource = makeDmeMenuItemActivityDefinition({ name: 'Crutches', hcpcsCodes: [] }, 'ad-2');
-    expect(resource.code).toBeUndefined();
+    expect(resource.productCodeableConcept).toBeUndefined();
     expect(parseDmeMenuItem(resource)).toEqual({ id: 'ad-2', name: 'Crutches', hcpcsCodes: [] });
 
     expect(makeDmeMenuItemActivityDefinition({ name: 'New', hcpcsCodes: [] }).id).toBeUndefined();
@@ -107,6 +123,76 @@ describe('DME order mapping', () => {
     });
   });
 
+  it('stores laterality, modifier and duration of use in their R4 places', () => {
+    const dr = build(fields({ laterality: 'BI', modifier: 'NU', duration: { value: 10, unit: 'days' } }));
+
+    expect(dr.occurrenceTiming).toEqual({
+      repeat: { boundsDuration: { value: 10, unit: 'day', system: 'http://unitsofmeasure.org', code: 'd' } },
+    });
+    expect(dr.parameter).toEqual(
+      expect.arrayContaining([
+        {
+          code: { coding: [{ system: 'http://snomed.info/sct', code: '272741003', display: 'Laterality' }] },
+          valueCodeableConcept: {
+            coding: [{ system: 'http://snomed.info/sct', code: '51440002', display: 'Right and left' }],
+          },
+        },
+        expect.objectContaining({
+          valueCodeableConcept: {
+            coding: [{ system: CODE_SYSTEM_CPT_MODIFIER, code: 'NU', display: 'NU (New Purchase)' }],
+          },
+        }),
+      ])
+    );
+    expect(dr.supportingInfo).toBeUndefined();
+  });
+
+  it.each([
+    ['LT', 'http://snomed.info/sct', '7771000'],
+    ['RT', 'http://snomed.info/sct', '24028007'],
+    ['BI', 'http://snomed.info/sct', '51440002'],
+    ['NA', 'http://terminology.hl7.org/CodeSystem/v3-NullFlavor', 'NA'],
+  ] as const)('maps laterality %s to %s|%s and back', (laterality, system, code) => {
+    const dr = build(fields({ laterality }));
+    const param = dr.parameter?.find((p) => p.code?.coding?.[0]?.code === '272741003');
+    expect(param?.valueCodeableConcept?.coding).toEqual([expect.objectContaining({ system, code })]);
+    expect(parseDmeOrder(dr, NAMES).laterality).toBe(laterality);
+  });
+
+  it('writes no laterality parameter when none is chosen', () => {
+    const dr = build(fields({ laterality: undefined }));
+    expect(dr.parameter?.map((p) => p.code?.coding?.[0]?.code)).toEqual(['quantity']);
+    expect(parseDmeOrder(dr, NAMES).laterality).toBeUndefined();
+  });
+
+  it('reads an order saved in the earlier parameter-only shape without crashing', () => {
+    const legacy: DeviceRequest = {
+      ...build(fields()),
+      parameter: [
+        { code: { coding: [{ system: DME_ORDER_PARAMETER_SYSTEM, code: 'quantity' }] }, valueQuantity: { value: 4 } },
+        {
+          code: { coding: [{ system: DME_ORDER_PARAMETER_SYSTEM, code: 'laterality' }] },
+          valueCodeableConcept: { coding: [{ system: DME_ORDER_PARAMETER_SYSTEM, code: 'LT' }] },
+        },
+        {
+          code: { coding: [{ system: DME_ORDER_PARAMETER_SYSTEM, code: 'modifier' }] },
+          valueCodeableConcept: { coding: [{ system: DME_ORDER_PARAMETER_SYSTEM, code: 'RR' }] },
+        },
+        {
+          code: { coding: [{ system: DME_ORDER_PARAMETER_SYSTEM, code: 'duration' }] },
+          valueQuantity: { value: 2, unit: 'weeks' },
+        },
+      ],
+      supportingInfo: [{ reference: 'Procedure/old' }],
+    };
+    expect(parseDmeOrder(legacy, NAMES)).toMatchObject({
+      quantity: 4,
+      laterality: undefined,
+      modifier: undefined,
+      duration: undefined,
+    });
+  });
+
   it('round-trips a minimal free-text "Other" in-house order and drops third party details', () => {
     const dr = build(
       fields({ menuItemId: undefined, itemName: 'Custom splint', billingCodes: [], thirdParty: { name: 'Ignored' } })
@@ -135,7 +221,7 @@ describe('DME order mapping', () => {
     'builds a contained third party that satisfies org-1 for %o',
     (thirdParty) => {
       const org = build(fields({ external: true, thirdParty })).contained?.[0] as Organization;
-      expect((org.identifier?.length ?? 0) + (org.name ? 1 : 0)).toBeGreaterThan(0);
+      expect((org.identifier?.length ?? 0) + (org.name ? 1 : 0)).toBe(1);
       expect(org.telecom?.length ?? 1).toBeGreaterThan(0);
     }
   );
@@ -199,7 +285,12 @@ describe('getDmeOrderStatus', () => {
 
 describe('makeDmeBillingProcedures', () => {
   const procedures = (f: ParsedDmeOrderFields): Procedure[] =>
-    makeDmeBillingProcedures({ fields: f, encounterId: ENCOUNTER_ID, patientId: PATIENT_ID });
+    makeDmeBillingProcedures({
+      fields: f,
+      encounterId: ENCOUNTER_ID,
+      patientId: PATIENT_ID,
+      deviceRequestReference: 'DeviceRequest/dr-1',
+    });
 
   it('bills nothing for external orders', () => {
     expect(procedures(fields({ external: true, laterality: 'BI', modifier: 'NU' }))).toEqual([]);
@@ -211,6 +302,13 @@ describe('makeDmeBillingProcedures', () => {
     expect(result).toHaveLength(2);
     result.forEach((procedure, i) => {
       expect(procedure.basedOn).toBeUndefined();
+      expect(procedure.extension).toEqual([
+        { url: DME_BILLED_ORDER_EXTENSION_URL, valueReference: { reference: 'DeviceRequest/dr-1' } },
+      ]);
+      expect(isDmeBillingProcedureOf(procedure, 'dr-1')).toBe(true);
+      expect(isDmeBillingProcedureOf(procedure, 'dr-2')).toBe(false);
+      expect(isDmeBillingProcedure(procedure)).toBe(true);
+      expect(isDmeBillingProcedure({ ...procedure, extension: undefined })).toBe(false);
       expect(procedure.encounter).toEqual({ reference: `Encounter/${ENCOUNTER_ID}` });
       expect(procedure.subject).toEqual({ reference: `Patient/${PATIENT_ID}` });
       expect(procedure.meta?.tag).toEqual(expect.arrayContaining([expect.objectContaining({ code: 'cpt-code' })]));
@@ -229,5 +327,57 @@ describe('makeDmeBillingProcedures', () => {
     const na = makeCPTCodeDTO(procedures(fields({ laterality: 'NA' }))[0]);
     expect(na?.modifier ?? []).toEqual([]);
     expect(na?.billableUnits).toBe(2);
+  });
+});
+
+describe('fetchDmeBillingProcedures', () => {
+  it("returns only this order's billing lines, not another order's or a manually added CPT line", async () => {
+    const line = (id: string, deviceRequestReference: string): Procedure => ({
+      ...makeDmeBillingProcedures({
+        fields: fields(),
+        encounterId: ENCOUNTER_ID,
+        patientId: PATIENT_ID,
+        deviceRequestReference,
+      })[0],
+      id,
+    });
+    const manual: Procedure = {
+      ...makeProcedureResource(ENCOUNTER_ID, PATIENT_ID, { code: 'L1906', display: 'Ankle brace' }, 'cpt-code'),
+      id: 'manual',
+    };
+    const lines = [line('own', 'DeviceRequest/dr-1'), line('other', 'DeviceRequest/dr-2'), manual];
+    const search = vi.fn(async () => ({
+      total: lines.length,
+      entry: lines.map((resource) => ({ resource, search: { mode: 'match' } })),
+      unbundle: () => lines,
+    }));
+
+    const result = await fetchDmeBillingProcedures(build(fields()), { fhir: { search } } as unknown as Oystehr);
+
+    expect(result.map((p) => p.id)).toEqual(['own']);
+    expect((search.mock.calls[0] as any)[0].params).toEqual(
+      expect.arrayContaining([
+        { name: 'encounter', value: `Encounter/${ENCOUNTER_ID}` },
+        { name: '_tag', value: 'cpt-code' },
+      ])
+    );
+  });
+});
+
+describe('makeDmeProvenance', () => {
+  const provenance = (callerPractitionerId: string | undefined): ReturnType<typeof makeDmeProvenance> =>
+    makeDmeProvenance({
+      target: 'DeviceRequest/dr-1',
+      activity: 'update',
+      callerPractitionerId,
+      requesterReference: `Practitioner/${ORDERED_BY}`,
+    });
+
+  it('records the caller as agent, acting on behalf of a different requester', () => {
+    expect(provenance(DISPENSED_BY)?.agent).toEqual([
+      { who: { reference: `Practitioner/${DISPENSED_BY}` }, onBehalfOf: { reference: `Practitioner/${ORDERED_BY}` } },
+    ]);
+    expect(provenance(ORDERED_BY)?.agent).toEqual([{ who: { reference: `Practitioner/${ORDERED_BY}` } }]);
+    expect(provenance(undefined)).toBeUndefined();
   });
 });

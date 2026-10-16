@@ -1,10 +1,10 @@
 import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { DeviceRequest, FhirResource, Practitioner, Procedure, Reference, Task } from 'fhir/r4b';
+import { DeviceRequest, FhirResource, Practitioner, Reference, Task } from 'fhir/r4b';
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
 import { UpdateDmeOrderInputSchema, UpdateDmeOrderResponse } from 'utils/lib/types/api/dme.types';
 import { FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
-import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { checkOrCreateM2MClientToken, getUserToken } from '../../../shared/auth';
 import { DME_ORDER_SEARCH_TAG, isDmeOrderDeleted, makeDmeProvenance } from '../../../shared/dme';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { wrapHandler } from '../../../shared/sentry';
@@ -12,10 +12,9 @@ import { createOwnerReference } from '../../../shared/tasks';
 import { ZambdaInput } from '../../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../../shared/validation';
 import {
+  fetchDmeBillingProcedures,
   fetchDmeEncounterContext,
   fetchOrderingPractitioner,
-  getBillingProcedureIds,
-  getCallerToken,
   getDeviceRequestEncounterId,
   getEncounterCptCodes,
   makeDmeDispenseTask,
@@ -36,7 +35,7 @@ const ZAMBDA_NAME = 'update-dme-order';
 type UpdateDmeOrderParams = ValidatedZambdaInput<typeof UpdateDmeOrderInputSchema>;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const userToken = getCallerToken(input);
+  const userToken = getUserToken(input);
   const params = validateWithSchema(UpdateDmeOrderInputSchema, input);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
@@ -67,22 +66,9 @@ const fetchDmeOrderResources = async (deviceRequestId: string, oystehr: Oystehr)
   if (!deviceRequest) throw { ...FHIR_RESOURCE_NOT_FOUND('DeviceRequest'), statusCode: 404 };
   if (isDmeOrderDeleted(deviceRequest)) throw INVALID_INPUT_ERROR('This DME order has been deleted');
 
-  const procedureIds = getBillingProcedureIds(deviceRequest);
-  const procedures = procedureIds.length
-    ? (
-        await oystehr.fhir.search<Procedure>({
-          resourceType: 'Procedure',
-          params: [
-            { name: '_id', value: procedureIds.join(',') },
-            { name: '_count', value: `${procedureIds.length}` },
-          ],
-        })
-      ).unbundle()
-    : [];
-
   return {
     deviceRequest,
-    procedures,
+    procedures: await fetchDmeBillingProcedures(deviceRequest, oystehr),
     tasks: resources.filter((r): r is Task => r.resourceType === 'Task'),
   };
 };
