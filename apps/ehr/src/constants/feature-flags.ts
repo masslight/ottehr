@@ -2,7 +2,8 @@ import { FEATURE_FLAGS_CONFIG } from 'utils/lib/ottehr-config/feature-flags';
 
 // Where claims are routed, from the BILLING_INTEGRATION secret. Mirrors shouldUseCandid /
 // shouldUseOttehrBilling in packages/zambdas, including the unset → Candid default.
-const BILLING_INTEGRATION = import.meta.env.VITE_APP_BILLING_INTEGRATION || 'candid';
+// import.meta.env is undefined when e2e specs import this module under plain Node (no Vite).
+const BILLING_INTEGRATION = import.meta.env?.VITE_APP_BILLING_INTEGRATION || 'candid';
 
 // todo: use FEATURE_FLAGS_CONFIG directly instead of re-exporting it
 export const FEATURE_FLAGS = {
