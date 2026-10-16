@@ -5,6 +5,7 @@ export const FeatureFlagsConfigSchema = z.object({
   inHouseLabsEnabled: z.boolean(),
   radiologyEnabled: z.boolean(),
   nursingOrdersEnabled: z.boolean(),
+  dmeOrdersEnabled: z.boolean().optional(),
   supervisorApprovalEnabled: z.boolean(),
   demoVisitsEnabled: z.boolean(),
   easyChartEnabled: z.boolean().optional(),

@@ -2,6 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import {
   Appointment,
   Bundle,
+  DeviceRequest,
   DiagnosticReport,
   Encounter,
   FhirResource,
@@ -18,6 +19,7 @@ import { ORDER_TYPE_CODE_SYSTEM } from 'utils/lib/fhir/radiology';
 import { VitalsSchema } from 'utils/lib/helpers/vitals/config-schema';
 import { VitalAlertCriticality, VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import { PATIENT_VITALS_META_SYSTEM } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { DmeOrderFieldsSchema, DmeOrderStatus } from 'utils/lib/types/api/dme.types';
 import { VitalsAlertConfig } from 'utils/lib/types/api/vitals-alert-config/vitals-alert-config.types';
 import { IN_HOUSE_TEST_CODE_SYSTEM } from 'utils/lib/types/data/in-house/in-house.constants';
 import { OYSTEHR_LAB_OI_CODE_SYSTEM } from 'utils/lib/types/data/labs/labs.constants';
@@ -42,6 +44,7 @@ import {
   selectVitalsPatientsByEncounterId,
   VitalsPatientsByEncounterId,
 } from '../../src/ehr/get-appointments/tracking-board';
+import { DME_ORDER_SEARCH_TAG, makeDmeDeviceRequest } from '../../src/shared/dme';
 import { SortedAppointmentQueues } from '../../src/shared/queueingUtils';
 
 const encounterIds = (count: number): string[] => Array.from({ length: count }, (_, index) => `enc-${index}`);
@@ -147,14 +150,15 @@ describe('batch-search', () => {
 
 describe('tracking board search plan', () => {
   test('one entry per resource family per encounter chunk, with only the includes the mappers read', () => {
-    const urls = buildTrackingBoardSearchUrls(encounterIds(120));
+    const urls = buildTrackingBoardSearchUrls(encounterIds(120), undefined, true);
 
     const byType = (prefix: string): string[] => urls.filter((url) => url.startsWith(`${prefix}?`));
     expect(byType('ServiceRequest')).toHaveLength(3);
     expect(byType('MedicationAdministration')).toHaveLength(3);
     expect(byType('MedicationRequest')).toHaveLength(3);
+    expect(byType('DeviceRequest')).toHaveLength(3);
     expect(byType('Observation')).toHaveLength(5);
-    expect(urls).toHaveLength(14);
+    expect(urls).toHaveLength(17);
 
     const serviceRequestUrl = byType('ServiceRequest')[0];
     expect(serviceRequestUrl).toContain('_revinclude=Task:based-on');
@@ -171,11 +175,25 @@ describe('tracking board search plan', () => {
       '_tag=in-house-medication-administration-order,immunization'
     );
     expect(byType('MedicationRequest')[0]).toContain(`_tag=${ERX_MEDICATION_META_TAG_CODE}`);
+
+    const dmeUrl = byType('DeviceRequest')[0];
+    expect(dmeUrl).toContain(`_tag=${DME_ORDER_SEARCH_TAG}`);
+    expect(dmeUrl).toContain('status=active');
+    expect(dmeUrl).toContain('_include=DeviceRequest:requester');
+  });
+
+  test('DME orders get no entry when the feature is off', () => {
+    expect(
+      buildTrackingBoardSearchUrls(encounterIds(120), undefined, false).filter((url) =>
+        url.startsWith('DeviceRequest?')
+      )
+    ).toHaveLength(0);
   });
 
   test('no encounters means no entries', () => {
     expect(buildTrackingBoardSearchUrls([])).toHaveLength(0);
-    expect(buildTrackingBoardSearchUrls(encounterIds(10))).toHaveLength(4);
+    expect(buildTrackingBoardSearchUrls(encounterIds(10), undefined, false)).toHaveLength(4);
+    expect(buildTrackingBoardSearchUrls(encounterIds(10), undefined, true)).toHaveLength(5);
   });
 
   test('selectTrackingBoardEncounterIds takes every in-office and discharged row, once', () => {
@@ -205,7 +223,7 @@ describe('tracking board search plan', () => {
 
   test('emptyTrackingBoardExtras carries both maps, empty', () => {
     const extras = emptyTrackingBoardExtras();
-    expect(Object.keys(extras.orders)).toHaveLength(8);
+    expect(Object.keys(extras.orders)).toHaveLength(9);
     expect(Object.values(extras.orders).every((group) => Object.keys(group).length === 0)).toBe(true);
     expect(extras.vitals).toEqual({});
   });
@@ -306,6 +324,56 @@ describe('buildOrdersForTrackingBoard', () => {
     expect(table.inHouseLabOrdersByAppointmentId).toEqual({});
     expect(table.radiologyOrdersByAppointmentId).toEqual({});
     expect(table.inHouseMedicationsByEncounterId).toEqual({});
+    expect(table.dmeOrdersByEncounterId).toEqual({});
+  });
+
+  test('shows only in-house DME orders still waiting to be dispensed', () => {
+    const requesterId = '6c3d2e1a-7b8f-4c5d-9e0a-1b2c3d4e5f60';
+    const requester: Practitioner = {
+      resourceType: 'Practitioner',
+      id: requesterId,
+      name: [{ given: ['Dana'], family: 'Doc' }],
+    };
+    const dmeOrder = (
+      id: string,
+      overrides: { external?: boolean; status?: DeviceRequest['status'] } = {}
+    ): DeviceRequest => ({
+      ...makeDmeDeviceRequest({
+        fields: DmeOrderFieldsSchema.parse({
+          itemName: `Item ${id}`,
+          quantity: 1,
+          orderedByPractitionerId: requesterId,
+          external: overrides.external ?? false,
+        }),
+        encounterId: 'enc-1',
+        patientId: 'p1',
+      }),
+      id,
+      ...(overrides.status ? { status: overrides.status } : {}),
+    });
+
+    const table = buildOrdersForTrackingBoard({
+      encounterIds: ['enc-1'],
+      pools: poolTrackingBoardResources([
+        dmeOrder('dme-pending'),
+        dmeOrder('dme-external', { external: true }),
+        dmeOrder('dme-dispensed', { status: 'completed' }),
+        dmeOrder('dme-deleted', { status: 'revoked' }),
+        requester,
+      ]),
+      encounters: [enc1],
+      appointments: [appt1],
+      practitioners: [],
+      environment: 'local',
+    });
+
+    expect(Object.keys(table.dmeOrdersByEncounterId)).toEqual(['enc-1']);
+    const [order] = table.dmeOrdersByEncounterId['enc-1'];
+    expect(table.dmeOrdersByEncounterId['enc-1']).toHaveLength(1);
+    expect(order.id).toBe('dme-pending');
+    expect(order.itemName).toBe('Item dme-pending');
+    expect(order.status).toBe(DmeOrderStatus.pending);
+    expect(order.orderedBy).toEqual({ practitionerId: requesterId, name: 'Dana Doc' });
   });
 });
 
@@ -508,7 +576,11 @@ describe('fetchTrackingBoardResources', () => {
     const search = vi.fn();
     const oystehr = { fhir: { batch, search } } as unknown as Oystehr;
 
-    const result = await fetchTrackingBoardResources({ oystehr, encounterIds: encounterIds(100) });
+    const result = await fetchTrackingBoardResources({
+      oystehr,
+      encounterIds: encounterIds(100),
+      includeDmeOrders: false,
+    });
 
     expect(result).toEqual({ resources: [], failedUrls: [] });
     // 100 encounters: 10 entries in one bundle, too large; then 20 entries as two bundles of 10, still too large;

@@ -180,6 +180,9 @@ export function progressNoteDataToText(data: ProgressNoteData): string {
     ]),
     listSection('IMMUNIZATIONS', [data.immunizationOrders?.immunizationOrders]),
     serializeProcedures(data),
+    listSection('DURABLE MEDICAL EQUIPMENT', [
+      data.dmeOrders?.dmeOrders?.map((order) => [order.itemName, ...order.lines].join(' | ')),
+    ]),
     serializeAssessment(data),
     textSection('MDM', data.medicalDecision?.medicalDecision),
     textSection('E&M CODE', data.emCode?.emCode),
