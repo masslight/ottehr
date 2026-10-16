@@ -11,7 +11,7 @@ import {
 } from 'utils/lib/types/data/billing/billing.types';
 import { PATIENT_RESP_CARC } from 'utils/lib/types/data/billing/carc';
 import { formatCurrency, roundNumberToDecimalPlaces } from 'utils/lib/utils/convert';
-import { ERA_STATUS_LABELS } from '../constants/era';
+import { ERA_STATUS_LABELS, isAdverseRemitStatus } from '../constants/era';
 
 // The claim ledger's money columns: what the payer adjusted off (Ins adj), the deductible /
 // coinsurance / copay patient-responsibility buckets, and Patient, the line's whole patient
@@ -169,7 +169,20 @@ export function aggregateAdjustments(adjustments: ClaimRemitAdjustment[]): Claim
   return [...byCode.values()];
 }
 
-const PAYER_RANKS = ['Primary', 'Secondary', 'Tertiary'];
+const PAYER_RANKS = ['Primary', 'Secondary', 'Tertiary', 'Quaternary'];
+
+// The claim's payer names in coverage order, for ranking remits by the coverage they paid under.
+export function claimPayerNames(
+  claim: Pick<ClaimDetailResponse, 'payerName' | 'secondaryPayerName' | 'tertiaryPayerName' | 'quaternaryPayerName'>
+): string[] {
+  return [claim.payerName, claim.secondaryPayerName, claim.tertiaryPayerName, claim.quaternaryPayerName];
+}
+
+const coverageRankOf = (payerName: string, claimPayers: string[]): string | undefined => {
+  if (!payerName) return undefined;
+  const index = claimPayers.findIndex((name) => name && name.toLowerCase() === payerName.toLowerCase());
+  return index === -1 ? undefined : PAYER_RANKS[index];
+};
 
 const RANK_BY_STATUS: Partial<Record<EraClaimStatusCode, string>> = {
   [ERA_CLAIM_STATUS_CODE.primary]: 'Primary',
@@ -183,17 +196,17 @@ const RANK_BY_STATUS: Partial<Record<EraClaimStatusCode, string>> = {
 const rankOf = (remit: ClaimRemit): string | undefined =>
   remit.eraStatusCode ? RANK_BY_STATUS[remit.eraStatusCode] : undefined;
 
-// The payer rank a remit's money counts toward. CLP02 says so for most remits; a reversal or denial
-// doesn't, so it takes the rank of another remit on the same ERA (a reversal travels with its
-// correction), then of one from the same payer. ClaimResponse.insurer can't settle this: a manual
-// match used to overwrite it with the claim's primary payer, and that data persists.
-export function remitDesignation(remit: ClaimRemit, remits: ClaimRemit[]): string {
+// The payer rank a remit's money counts toward: the matching claim coverage's rank (payers send
+// CLP02 "processed as primary" on secondary remits, so coverage outranks it), else CLP02, else a
+// peer remit's rank (a reversal travels with its correction).
+export function remitDesignation(remit: ClaimRemit, remits: ClaimRemit[], claimPayers: string[]): string {
   const peerRank = (isPeer: (other: ClaimRemit) => boolean): string | undefined =>
     remits
       .filter((other) => other !== remit && isPeer(other))
       .map(rankOf)
       .find(Boolean);
   return (
+    coverageRankOf(remit.payerName, claimPayers) ??
     rankOf(remit) ??
     (remit.paymentReconciliationId
       ? peerRank((other) => other.paymentReconciliationId === remit.paymentReconciliationId)
@@ -203,16 +216,22 @@ export function remitDesignation(remit: ClaimRemit, remits: ClaimRemit[]): strin
   );
 }
 
+// A denial or reversal by its CLP02 label, anything else by its payer rank; 'Other' when unknown.
+export function remitLabel(remit: ClaimRemit, remits: ClaimRemit[], claimPayers: string[]): string {
+  if (remit.eraStatusCode && isAdverseRemitStatus(remit.eraStatusCode)) return ERA_STATUS_LABELS[remit.eraStatusCode];
+  return remitDesignation(remit, remits, claimPayers);
+}
+
 export interface InsurancePaidByDesignation {
   designation: string;
   amount: number;
 }
 
 // Insurance paid split by payer rank: Primary, Secondary, Tertiary, then anything unranked.
-export function insurancePaidByDesignation(remits: ClaimRemit[]): InsurancePaidByDesignation[] {
+export function insurancePaidByDesignation(remits: ClaimRemit[], claimPayers: string[]): InsurancePaidByDesignation[] {
   const totals = new Map<string, number>();
   for (const remit of remits) {
-    const designation = remitDesignation(remit, remits);
+    const designation = remitDesignation(remit, remits, claimPayers);
     totals.set(designation, (totals.get(designation) ?? 0) + remit.paid);
   }
   const order = (designation: string): number => {

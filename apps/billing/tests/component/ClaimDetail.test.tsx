@@ -810,8 +810,15 @@ describe('ClaimDetail — service line remit details', () => {
     ).toBeInTheDocument();
     expect(checkRow).toHaveClass('Mui-selected');
 
-    // leaving the remit's rows clears both
+    // leaving the remit's rows keeps the card pinned, and clicking inside it keeps it too
     await user.unhover(line2Label);
+    expect(screen.getByRole('tooltip')).toBeInTheDocument();
+    expect(remitRow).toHaveClass('Mui-selected');
+    await user.click(within(screen.getByRole('tooltip')).getByText('Check'));
+    expect(screen.getByRole('tooltip')).toBeInTheDocument();
+
+    // a click outside the line and its card closes it and clears the highlight
+    await user.click(document.body);
 
     await waitFor(() => expect(screen.queryByRole('tooltip')).not.toBeInTheDocument());
     expect(remitRow).not.toHaveClass('Mui-selected');

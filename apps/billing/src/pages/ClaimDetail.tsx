@@ -149,6 +149,7 @@ import { useFacilityOptionsSearch, useProviderOptionsSearch } from '../hooks/use
 import { usePatient } from '../hooks/usePatient';
 import { useProvider } from '../hooks/useProvider';
 import { useServiceFacility } from '../hooks/useServiceFacility';
+import { claimPayerNames } from '../utils/claimRemits';
 import { downloadBase64File } from '../utils/downloadFile';
 import { formatDate, formatDateTime } from '../utils/format';
 import { PatientDemographicsSection } from './PatientDetail';
@@ -705,7 +706,7 @@ export default function ClaimDetail(): ReactElement {
             <RemitHighlightProvider>
               <DiagnosesSection claim={claim} updateResource={updateResource} />
               <ServiceLinesSection claim={claim} updateResource={updateResource} />
-              <RemitsSection remits={claim.remits} />
+              <RemitsSection remits={claim.remits} claimPayers={claimPayerNames(claim)} />
               <InsurancePaymentsSection payments={claim.insurancePayments} />
             </RemitHighlightProvider>
           </TabPanel>

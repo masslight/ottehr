@@ -266,7 +266,7 @@ describe('remitDesignation', () => {
       remit({ eraStatusCode: '21' }),
     ];
 
-    expect(remits.map((candidate) => remitDesignation(candidate, remits))).toEqual([
+    expect(remits.map((candidate) => remitDesignation(candidate, remits, []))).toEqual([
       'Primary',
       'Primary',
       'Secondary',
@@ -274,6 +274,21 @@ describe('remitDesignation', () => {
       'Tertiary',
       'Tertiary',
     ]);
+  });
+
+  it("ranks a remit by the claim coverage its payer is on, over the payer's own CLP02 status", () => {
+    // payers send CLP02 "processed as primary" on secondary remits
+    const secondary = remit({ claimResponseId: 'cr-cigna', eraStatusCode: '1', payerName: 'CIGNA' });
+    const primary = remit({
+      claimResponseId: 'cr-bcbs',
+      eraStatusCode: '1',
+      payerName: 'TN BCBS',
+      paymentReconciliationId: 'payment-reconciliation-other',
+    });
+    const claimPayers = ['TN BCBS', 'Cigna', '', ''];
+
+    expect(remitDesignation(secondary, [primary, secondary], claimPayers)).toBe('Secondary');
+    expect(remitDesignation(primary, [primary, secondary], claimPayers)).toBe('Primary');
   });
 
   it('ranks a reversal like the correction on its ERA, even under another payer name', () => {
@@ -286,7 +301,7 @@ describe('remitDesignation', () => {
       paymentReconciliationId: 'payment-reconciliation-other',
     });
 
-    expect(remitDesignation(reversal, [correction, reversal, primary])).toBe('Secondary');
+    expect(remitDesignation(reversal, [correction, reversal, primary], [])).toBe('Secondary');
   });
 
   it("ranks a denial like the same payer's other remit when no ERA peer has a rank", () => {
@@ -301,15 +316,15 @@ describe('remitDesignation', () => {
       paymentReconciliationId: 'payment-reconciliation-1',
     });
 
-    expect(remitDesignation(denial, [paid, denial])).toBe('Primary');
+    expect(remitDesignation(denial, [paid, denial], [])).toBe('Primary');
   });
 
   it('falls back to the ERA status label, then Other', () => {
     const denial = remit({ eraStatusCode: '4' });
     const unknown = remit({ eraStatusCode: '' });
 
-    expect(remitDesignation(denial, [denial])).toBe('Denied');
-    expect(remitDesignation(unknown, [unknown])).toBe('Other');
+    expect(remitDesignation(denial, [denial], [])).toBe('Denied');
+    expect(remitDesignation(unknown, [unknown], [])).toBe('Other');
   });
 });
 
@@ -327,7 +342,7 @@ describe('insurancePaidByDesignation', () => {
       remit({ claimResponseId: 'cr-original', eraStatusCode: '1', paid: 60 }),
     ];
 
-    const split = insurancePaidByDesignation(remits);
+    const split = insurancePaidByDesignation(remits, []);
 
     expect(split).toEqual([
       { designation: 'Primary', amount: 70 },
@@ -338,21 +353,24 @@ describe('insurancePaidByDesignation', () => {
 
   it('lists unranked money after the ranks', () => {
     expect(
-      insurancePaidByDesignation([
-        remit({ claimResponseId: 'cr-unknown', eraStatusCode: '', payerName: 'Other Payer', paid: 5 }),
-        remit({
-          claimResponseId: 'cr-primary',
-          eraStatusCode: '1',
-          paid: 0.1,
-          paymentReconciliationId: 'payment-reconciliation-2',
-        }),
-        remit({
-          claimResponseId: 'cr-primary-2',
-          eraStatusCode: '1',
-          paid: 0.2,
-          paymentReconciliationId: 'payment-reconciliation-3',
-        }),
-      ])
+      insurancePaidByDesignation(
+        [
+          remit({ claimResponseId: 'cr-unknown', eraStatusCode: '', payerName: 'Other Payer', paid: 5 }),
+          remit({
+            claimResponseId: 'cr-primary',
+            eraStatusCode: '1',
+            paid: 0.1,
+            paymentReconciliationId: 'payment-reconciliation-2',
+          }),
+          remit({
+            claimResponseId: 'cr-primary-2',
+            eraStatusCode: '1',
+            paid: 0.2,
+            paymentReconciliationId: 'payment-reconciliation-3',
+          }),
+        ],
+        []
+      )
     ).toEqual([
       { designation: 'Primary', amount: 0.3 },
       { designation: 'Other', amount: 5 },
