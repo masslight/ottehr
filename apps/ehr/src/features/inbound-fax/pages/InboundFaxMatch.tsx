@@ -39,7 +39,7 @@ import {
 } from 'src/hooks/useGetPatientDocs';
 import PageContainer from 'src/layout/PageContainer';
 import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
-import { FAX_TASK } from 'utils/lib/types/data/tasks/types';
+import { FAX_TASK, isInboundFaxFiled } from 'utils/lib/types/data/tasks/types';
 import { UnsolicitedPatientMatchSearchCard } from '../../external-labs/components/unsolicited-results/UnsolicitedPatientMatchSearchCard';
 
 export const InboundFaxMatch: React.FC = () => {
@@ -53,8 +53,10 @@ export const InboundFaxMatch: React.FC = () => {
   const [isFiling, setIsFiling] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<string>();
-  // True when the fax task is already completed (filed): show the PDF read-only, no match form.
-  const [readOnly, setReadOnly] = useState(false);
+  // Set when the fax is already filed or its task completed: show the PDF read-only with this notice,
+  // no match form.
+  const [readOnlyNotice, setReadOnlyNotice] = useState<string>();
+  const readOnly = !!readOnlyNotice;
 
   const [taskId, setTaskId] = useState<string>();
   const [pdfUrl, setPdfUrl] = useState<string>();
@@ -105,12 +107,16 @@ export const InboundFaxMatch: React.FC = () => {
           })
         ).unbundle();
 
-        // Assigning a task moves it from ready to in-progress; both are still open for matching.
-        const openTask = tasks.find((t) => t.status === 'ready' || t.status === 'in-progress');
-        // Filing completes the task but the Communication + PDF still exist, so a completed fax
-        // can be viewed read-only. (Enhancement: the completed Task doesn't record the
-        // patient/DocumentReference it was filed to, so we can't deep-link to the filed chart doc.)
-        const completedTask = tasks.find((t) => t.status === 'completed');
+        // Assigning a task moves it from ready to in-progress; both are still open for matching
+        // until the fax is filed.
+        const openTask = tasks.find(
+          (t) => (t.status === 'ready' || t.status === 'in-progress') && !isInboundFaxFiled(t)
+        );
+        // Filing marks the task filed (it stays open until staff press Complete) and the Communication
+        // + PDF still exist, so a filed or completed fax can be viewed read-only. (Enhancement: the Task
+        // doesn't record the patient/DocumentReference it was filed to, so we can't deep-link to the
+        // filed chart doc.)
+        const completedTask = tasks.find((t) => t.status === 'completed' || isInboundFaxFiled(t));
         const task = openTask ?? completedTask;
         if (!task?.id) {
           // Deleting cancels the task and removes the Communication + PDF — nothing left to show.
@@ -123,7 +129,13 @@ export const InboundFaxMatch: React.FC = () => {
           return;
         }
         if (!openTask) {
-          setReadOnly(true);
+          // A completed task without the filed marker is ambiguous: tasks completed before filing stopped
+          // auto-completing were all filed, but carry no marker, so this can't claim either way.
+          setReadOnlyNotice(
+            tasks.some(isInboundFaxFiled)
+              ? 'This fax has already been filed.'
+              : "This fax's task was completed. It may not have been filed to a patient's chart."
+          );
         }
         setTaskId(task.id);
 
@@ -336,7 +348,7 @@ export const InboundFaxMatch: React.FC = () => {
             {/* Right side: matching form, or a read-only notice once the fax has been filed */}
             <Grid item xs={12} md={5}>
               {readOnly ? (
-                <Alert severity="info">This fax has already been filed.</Alert>
+                <Alert severity="info">{readOnlyNotice}</Alert>
               ) : (
                 <Paper sx={{ p: 3 }}>
                   <Stack spacing={3}>

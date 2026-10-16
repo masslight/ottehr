@@ -23,6 +23,7 @@ import {
   CreateManualTaskRequest,
   ERX_TASK,
   FAX_TASK,
+  isInboundFaxFiled,
   MANUAL_TASK,
   RADIOLOGY_TASK,
   Task,
@@ -688,10 +689,13 @@ function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encounter>):
       // subscription: a generic label beats a blank row in the queue, and it stays a single wording.
       title = task.description || 'Inbound fax';
       subtitle = `Received on ${receivedDate ? formatDate(receivedDate) : ''}`;
+      // Fax tasks are never completed automatically (not even by filing); like manual tasks, a person
+      // presses Complete.
+      completable = true;
       if (communicationId) {
-        // Once the fax is actioned (filed = completed, deleted = cancelled), the match page
+        // Once the fax is actioned (filed, completed, or deleted = cancelled), the match page
         // renders read-only, so the action label flips from "Match" to "View".
-        const isActioned = task.status === 'completed' || task.status === 'cancelled';
+        const isActioned = isInboundFaxFiled(task) || task.status === 'completed' || task.status === 'cancelled';
         action = {
           name: isActioned ? VIEW_FAX : 'Match',
           link: inboundFaxMatchPath(communicationId),

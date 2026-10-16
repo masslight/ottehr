@@ -208,7 +208,7 @@ describe('file-inbound-fax handler', () => {
     expect(JSON.stringify(requests)).not.toContain(CLIENT_SUPPLIED_PDF_URL);
   });
 
-  it('files the DocumentReference, List update, and Task completion as a single transaction', async () => {
+  it('files the DocumentReference, List update, and Task filed-marker as a single transaction', async () => {
     mockHappyPathReads();
 
     await fileInboundFax(makeInput(fileBody));
@@ -227,6 +227,17 @@ describe('file-inbound-fax handler', () => {
     expect(docRefPost.fullUrl).toMatch(/^urn:uuid:/);
     expect(listPut.resource.entry).toHaveLength(1);
     expect(listPut.resource.entry[0].item.reference).toBe(docRefPost.fullUrl);
+
+    // Filing marks the Task filed but leaves it open: fax tasks are completed by a person pressing Complete
+    const taskPatchOps = JSON.parse(decodeURIComponent(escape(atob(taskPatch.resource.data))));
+    expect(taskPatchOps).toEqual([
+      {
+        op: 'add',
+        path: '/businessStatus',
+        value: { coding: [{ system: 'inbound-fax-task', code: 'filed' }], text: 'Filed' },
+      },
+    ]);
+    expect(taskPatchOps.some((op: any) => op.path === '/status')).toBe(false);
 
     // No non-transactional writes
     expect(mockOystehr.fhir.create).not.toHaveBeenCalled();
@@ -275,6 +286,23 @@ describe('file-inbound-fax handler', () => {
     expect(result.statusCode).toBe(400);
     const body = JSON.parse(result.body);
     expect(body.code).toBe(APIErrorCode.PRECONDITION_FAILED);
+    expect(mockOystehr.fhir.transaction).not.toHaveBeenCalled();
+  });
+
+  it('rejects an already-filed task that is still open (awaiting manual Complete)', async () => {
+    mockHappyPathReads(
+      makeFaxTask({
+        status: 'in-progress',
+        businessStatus: { coding: [{ system: 'inbound-fax-task', code: 'filed' }] },
+      })
+    );
+
+    const result = await fileInboundFax(makeInput(fileBody));
+
+    expect(result.statusCode).toBe(400);
+    const body = JSON.parse(result.body);
+    expect(body.code).toBe(APIErrorCode.PRECONDITION_FAILED);
+    expect(body.message).toContain('has already been filed');
     expect(mockOystehr.fhir.transaction).not.toHaveBeenCalled();
   });
 
@@ -419,6 +447,22 @@ describe('delete-inbound-fax handler', () => {
 
   it.each(['completed', 'cancelled'] as const)('rejects an already-%s task', async (status) => {
     mockTaskRead(makeFaxTask({ status }));
+
+    const result = await deleteInboundFax(makeInput(deleteBody));
+
+    expect(result.statusCode).toBe(400);
+    expect(JSON.parse(result.body).code).toBe(APIErrorCode.PRECONDITION_FAILED);
+    expect(mockDeleteZ3Object).not.toHaveBeenCalled();
+    expect(mockOystehr.fhir.transaction).not.toHaveBeenCalled();
+  });
+
+  it('rejects a filed task that is still open, so the PDF backing the filed document is not deleted', async () => {
+    mockTaskRead(
+      makeFaxTask({
+        status: 'in-progress',
+        businessStatus: { coding: [{ system: 'inbound-fax-task', code: 'filed' }] },
+      })
+    );
 
     const result = await deleteInboundFax(makeInput(deleteBody));
 

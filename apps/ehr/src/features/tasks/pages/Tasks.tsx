@@ -70,7 +70,7 @@ export const Tasks: React.FC = () => {
   const { oystehr } = useApiClients();
 
   const renderActionButton = (task: Task): ReactElement | null => {
-    // Completed tasks normally have no action, except read-only "View" actions (e.g. a filed
+    // Completed tasks normally have no action, except read-only "View" actions (e.g. a completed
     // inbound fax, where the PDF can still be opened) which fall through to the generic button.
     if (task.status === COMPLETED && task.action?.name !== VIEW_FAX) {
       return null;

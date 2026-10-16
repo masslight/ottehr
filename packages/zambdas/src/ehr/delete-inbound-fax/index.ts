@@ -6,7 +6,7 @@ import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
 import { createOystehrClient } from 'utils/lib/helpers/helpers';
 import { replaceOperation } from 'utils/lib/helpers/operations';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
-import { FAX_TASK, getTaskInputValue } from 'utils/lib/types/data/tasks/types';
+import { FAX_TASK, getTaskInputValue, isInboundFaxFiled } from 'utils/lib/types/data/tasks/types';
 import { FHIR_RESOURCE_NOT_FOUND_CUSTOM, INVALID_INPUT_ERROR, PRECONDITION_FAILED } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { topLevelCatch } from '../../shared/lambda';
@@ -52,10 +52,17 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       throw INVALID_INPUT_ERROR(`Task/${taskId} is not associated with Communication/${communicationId}`);
     }
 
-    // Reject already-finalized tasks: prevents delete-after-file (and double-delete) races.
+    // Reject already-finalized tasks: prevents delete-after-file (and double-delete) races. A filed
+    // fax's Task stays open until staff complete it, but its PDF now backs a chart DocumentReference,
+    // so deleting it here would break the filed document.
+    if (isInboundFaxFiled(task)) {
+      throw PRECONDITION_FAILED(`Task/${taskId} has already been filed`);
+    }
     if (task.status === 'completed' || task.status === 'cancelled') {
       throw PRECONDITION_FAILED(
-        `Task/${taskId} has already been ${task.status === 'completed' ? 'filed' : 'deleted'} (status: ${task.status})`
+        `Task/${taskId} has already been ${task.status === 'completed' ? 'completed' : 'deleted'} (status: ${
+          task.status
+        })`
       );
     }
 
