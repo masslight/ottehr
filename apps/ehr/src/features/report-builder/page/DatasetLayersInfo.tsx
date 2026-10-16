@@ -14,7 +14,7 @@ import {
 } from '@mui/material';
 import { Fragment, ReactElement, useState } from 'react';
 import { layerSchemas } from 'utils/lib/types/adhoc/datasets/dataset';
-import { llmFieldsFromZodObject } from 'utils/lib/types/adhoc/datasets/llm-schema';
+import { LlmDatasetSchema, llmFieldsFromZodObject } from 'utils/lib/types/adhoc/datasets/llm-schema';
 import { AD_HOC_DATASETS, getDataset } from '../datasets/registry';
 import { AdHocDataset } from '../datasets/types';
 
@@ -137,14 +137,21 @@ function LayersTable({ layers, showStatus }: { layers: LayerRow[]; showStatus: b
   );
 }
 
+export function loadedLayerIdsFromSchema(
+  schema: Pick<LlmDatasetSchema, 'datasetId' | 'availableLayers'>
+): Record<string, boolean> {
+  const unloaded = new Set((schema.availableLayers ?? []).map((layer) => layer.id));
+  return Object.fromEntries(
+    (getDataset(schema.datasetId)?.options ?? []).map((layer) => [layer.id, !unloaded.has(layer.id)])
+  );
+}
+
 export function DatasetLayersInfo({
-  datasetId,
-  datasetOptions,
+  schema,
 }: {
-  datasetId: string;
-  datasetOptions: Record<string, boolean>;
+  schema: Pick<LlmDatasetSchema, 'datasetId' | 'availableLayers'>;
 }): ReactElement | null {
-  const layers = layerRowsFor(getDataset(datasetId), datasetOptions);
+  const layers = layerRowsFor(getDataset(schema.datasetId), loadedLayerIdsFromSchema(schema));
   if (layers.length === 0) return null;
 
   const loadedCount = layers.filter((layer) => layer.loaded).length;
