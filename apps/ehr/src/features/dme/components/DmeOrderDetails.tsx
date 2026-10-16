@@ -15,8 +15,8 @@ import {
   formatDmeBillingCode,
   formatDmeDuration,
 } from 'utils/lib/types/api/dme.types';
+import { formatDate } from 'utils/lib/utils/date';
 import { useDmeOrderPdf } from '../dme.queries';
-import { formatDmeDateTime } from './dmeFormat';
 import { DmeOrderAction, DmeOrderActionDialog } from './DmeOrderActionDialog';
 import { DmeStatusChip } from './DmeStatusChip';
 
@@ -72,9 +72,11 @@ export const DmeOrderDetails: React.FC<DmeOrderDetailsProps> = ({ order, readOnl
     }
   };
 
-  const orderedBy = [formatDmeDateTime(order.orderedAt), order.orderedBy.name].filter(Boolean).join(' by ');
+  const orderedBy = [formatDate(order.orderedAt, 'MM/dd/yyyy hh:mm a'), order.orderedBy.name]
+    .filter(Boolean)
+    .join(' by ');
   const dispensed = order.dispensed
-    ? [formatDmeDateTime(order.dispensed.at), order.dispensed.name].filter(Boolean).join(' by ')
+    ? [formatDate(order.dispensed.at, 'MM/dd/yyyy hh:mm a'), order.dispensed.name].filter(Boolean).join(' by ')
     : undefined;
 
   return (

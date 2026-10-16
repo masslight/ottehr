@@ -1,5 +1,6 @@
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { ReactNode, useState } from 'react';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { DmeMenuItem } from 'utils/lib/types/api/dme.types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -21,7 +22,6 @@ vi.mock('notistack', () => ({
 
 import { AdminHeaderSlotProvider } from 'src/features/admin/AdminPageHeader';
 import { DmeMenuAdminPage } from 'src/features/dme/admin/DmeMenuAdminPage';
-import { dmeMenuTestIds } from 'src/features/dme/admin/dmeMenuTestIds';
 import {
   useCreateDmeMenuItem,
   useDeleteDmeMenuItem,
@@ -83,7 +83,7 @@ const AdminHeaderWrapper = ({ children }: { children: ReactNode }): JSX.Element 
 const renderPage = (): ReturnType<typeof render> => render(<DmeMenuAdminPage />, { wrapper: AdminHeaderWrapper });
 
 const dataRowNames = (): string[] =>
-  within(screen.getByTestId(dmeMenuTestIds.table))
+  within(screen.getByTestId(dataTestIds.dmeMenu.table))
     .getAllByRole('row')
     .slice(1)
     .map((row) => within(row).getAllByRole('cell')[0].textContent ?? '');
@@ -104,14 +104,16 @@ describe('DmeMenuAdminPage', () => {
     renderPage();
 
     expect(dataRowNames()).toEqual(['Ankle Brace', 'Arm Sling', 'Crutches']);
-    const ankleRow = screen.getByTestId(dmeMenuTestIds.itemRow('item-ankle'));
+    const ankleRow = screen.getByTestId(dataTestIds.dmeMenu.itemRow('item-ankle'));
     expect(within(ankleRow).getByText('L1906 - Ankle foot orthosis, multiligamentous ankle support')).toBeVisible();
-    expect(within(screen.getByTestId(dmeMenuTestIds.itemRow('item-sling'))).getByText('No HCPCS code')).toBeVisible();
+    expect(
+      within(screen.getByTestId(dataTestIds.dmeMenu.itemRow('item-sling'))).getByText('No HCPCS code')
+    ).toBeVisible();
   });
 
   it('filters by name or HCPCS code', () => {
     renderPage();
-    const search = screen.getByTestId(dmeMenuTestIds.searchField);
+    const search = screen.getByTestId(dataTestIds.dmeMenu.searchField);
 
     fireEvent.change(search, { target: { value: 'ankle' } });
     expect(dataRowNames()).toEqual(['Ankle Brace']);
@@ -120,14 +122,14 @@ describe('DmeMenuAdminPage', () => {
     expect(dataRowNames()).toEqual(['Crutches']);
 
     fireEvent.change(search, { target: { value: 'wheelchair' } });
-    expect(screen.queryByTestId(dmeMenuTestIds.table)).not.toBeInTheDocument();
-    expect(screen.getByTestId(dmeMenuTestIds.emptyState)).toHaveTextContent('No DME items match "wheelchair"');
+    expect(screen.queryByTestId(dataTestIds.dmeMenu.table)).not.toBeInTheDocument();
+    expect(screen.getByTestId(dataTestIds.dmeMenu.emptyState)).toHaveTextContent('No DME items match "wheelchair"');
   });
 
   it('shows the empty, loading and error states', () => {
     mockMenu({ data: { items: [] } });
     const { rerender } = renderPage();
-    expect(screen.getByTestId(dmeMenuTestIds.emptyState)).toHaveTextContent('No DME items configured yet');
+    expect(screen.getByTestId(dataTestIds.dmeMenu.emptyState)).toHaveTextContent('No DME items configured yet');
 
     mockMenu({ data: undefined, isPending: true });
     rerender(<DmeMenuAdminPage />);
@@ -141,14 +143,14 @@ describe('DmeMenuAdminPage', () => {
   it('creates an item with its name and the HCPCS codes picked from search', async () => {
     renderPage();
 
-    fireEvent.click(screen.getByTestId(dmeMenuTestIds.addButton));
-    const dialog = await screen.findByTestId(dmeMenuTestIds.dialog);
-    const save = within(dialog).getByTestId(dmeMenuTestIds.saveButton);
+    fireEvent.click(screen.getByTestId(dataTestIds.dmeMenu.addButton));
+    const dialog = await screen.findByTestId(dataTestIds.dmeMenu.dialog);
+    const save = within(dialog).getByTestId(dataTestIds.dmeMenu.saveButton);
     expect(save).toBeDisabled();
 
-    fireEvent.change(within(dialog).getByTestId(dmeMenuTestIds.nameField), { target: { value: '  Knee Brace ' } });
+    fireEvent.change(within(dialog).getByTestId(dataTestIds.dmeMenu.nameField), { target: { value: '  Knee Brace ' } });
 
-    const hcpcsInput = within(within(dialog).getByTestId(dmeMenuTestIds.hcpcsField)).getByRole('combobox');
+    const hcpcsInput = within(within(dialog).getByTestId(dataTestIds.dmeMenu.hcpcsField)).getByRole('combobox');
     act(() => hcpcsInput.focus());
     fireEvent.change(hcpcsInput, { target: { value: 'L18' } });
     fireEvent.click(await screen.findByText('L1810 - Knee orthosis, elastic with joints', {}, { timeout: 3000 }));
@@ -170,9 +172,9 @@ describe('DmeMenuAdminPage', () => {
     });
     renderPage();
 
-    fireEvent.click(screen.getByTestId(dmeMenuTestIds.addButton));
-    const dialog = await screen.findByTestId(dmeMenuTestIds.dialog);
-    expect(within(dialog).getByTestId(dmeMenuTestIds.dialogError)).toHaveTextContent(
+    fireEvent.click(screen.getByTestId(dataTestIds.dmeMenu.addButton));
+    const dialog = await screen.findByTestId(dataTestIds.dmeMenu.dialog);
+    expect(within(dialog).getByTestId(dataTestIds.dmeMenu.dialogError)).toHaveTextContent(
       'A DME item named "Crutches" already exists'
     );
   });
@@ -180,13 +182,13 @@ describe('DmeMenuAdminPage', () => {
   it('edits an existing item through the update mutation', async () => {
     renderPage();
 
-    fireEvent.click(screen.getByTestId(dmeMenuTestIds.editButton('item-ankle')));
-    const dialog = await screen.findByTestId(dmeMenuTestIds.dialog);
-    const name = within(dialog).getByTestId(dmeMenuTestIds.nameField);
+    fireEvent.click(screen.getByTestId(dataTestIds.dmeMenu.editButton('item-ankle')));
+    const dialog = await screen.findByTestId(dataTestIds.dmeMenu.dialog);
+    const name = within(dialog).getByTestId(dataTestIds.dmeMenu.nameField);
     expect(name).toHaveValue('Ankle Brace');
 
     fireEvent.change(name, { target: { value: 'Ankle Brace, lace-up' } });
-    fireEvent.click(within(dialog).getByTestId(dmeMenuTestIds.saveButton));
+    fireEvent.click(within(dialog).getByTestId(dataTestIds.dmeMenu.saveButton));
 
     expect(updateMutate).toHaveBeenCalledWith(
       {
@@ -202,17 +204,17 @@ describe('DmeMenuAdminPage', () => {
   it('asks for confirmation before deleting', async () => {
     renderPage();
 
-    fireEvent.click(screen.getByTestId(dmeMenuTestIds.deleteButton('item-crutches')));
-    const dialog = await screen.findByTestId(dmeMenuTestIds.confirmDeleteDialog);
+    fireEvent.click(screen.getByTestId(dataTestIds.dmeMenu.deleteButton('item-crutches')));
+    const dialog = await screen.findByTestId(dataTestIds.dmeMenu.confirmDeleteDialog);
     expect(dialog).toHaveTextContent('Crutches');
     expect(deleteMutate).not.toHaveBeenCalled();
 
-    fireEvent.click(within(dialog).getByTestId(dmeMenuTestIds.confirmDeleteButton));
+    fireEvent.click(within(dialog).getByTestId(dataTestIds.dmeMenu.confirmDeleteButton));
     expect(deleteMutate).toHaveBeenCalledWith({ menuItemId: 'item-crutches' }, expect.any(Object));
   });
 });
 
-describe('DME Menu admin nav item', () => {
+describe('DME admin nav item', () => {
   const loadClinicalPaths = async (dmeOrdersEnabled: boolean): Promise<string[]> => {
     vi.resetModules();
     vi.doMock('src/constants/feature-flags', () => ({
@@ -228,7 +230,7 @@ describe('DME Menu admin nav item', () => {
   });
 
   it('is listed under Clinical only when DME orders are enabled', async () => {
-    expect(await loadClinicalPaths(true)).toContain('/admin/dme-menu');
-    expect(await loadClinicalPaths(false)).not.toContain('/admin/dme-menu');
+    expect(await loadClinicalPaths(true)).toContain('/admin/dme');
+    expect(await loadClinicalPaths(false)).not.toContain('/admin/dme');
   });
 });

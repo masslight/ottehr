@@ -136,7 +136,7 @@ const NURSING_ORDER_TAG_SYSTEM = `${PRIVATE_EXTENSION_BASE_URL}/order-type-tag`;
 const NURSING_ORDER_TAG_CODE = 'nursing order';
 const RADIOLOGY_ORDER_TAG_CODE = 'radiology';
 
-const DME_ORDERS_ON_BOARD = FEATURE_FLAGS_CONFIG.dmeOrdersEnabled ?? false;
+const DME_ORDERS_ON_BOARD = FEATURE_FLAGS_CONFIG.dmeOrdersEnabled;
 
 export interface TrackingBoardChunkSizes {
   orders: number;

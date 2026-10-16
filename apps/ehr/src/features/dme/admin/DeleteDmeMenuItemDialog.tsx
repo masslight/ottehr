@@ -2,9 +2,9 @@ import { LoadingButton } from '@mui/lab';
 import { Alert, Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useEffect } from 'react';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { DmeMenuItem } from 'utils/lib/types/api/dme.types';
 import { useDeleteDmeMenuItem } from '../dme.queries';
-import { dmeMenuTestIds } from './dmeMenuTestIds';
 
 interface DeleteDmeMenuItemDialogProps {
   item: DmeMenuItem | null;
@@ -37,7 +37,7 @@ export function DeleteDmeMenuItemDialog({ item, onClose }: DeleteDmeMenuItemDial
   };
 
   return (
-    <Dialog open={item !== null} onClose={handleClose} data-testid={dmeMenuTestIds.confirmDeleteDialog}>
+    <Dialog open={item !== null} onClose={handleClose} data-testid={dataTestIds.dmeMenu.confirmDeleteDialog}>
       <DialogTitle>Delete DME item</DialogTitle>
       <DialogContent>
         <DialogContentText>
@@ -54,7 +54,7 @@ export function DeleteDmeMenuItemDialog({ item, onClose }: DeleteDmeMenuItemDial
         <Button
           onClick={handleClose}
           disabled={deleteMutation.isPending}
-          data-testid={dmeMenuTestIds.cancelDeleteButton}
+          data-testid={dataTestIds.dmeMenu.cancelDeleteButton}
         >
           Cancel
         </Button>
@@ -63,7 +63,7 @@ export function DeleteDmeMenuItemDialog({ item, onClose }: DeleteDmeMenuItemDial
           onClick={handleConfirm}
           color="error"
           variant="contained"
-          data-testid={dmeMenuTestIds.confirmDeleteButton}
+          data-testid={dataTestIds.dmeMenu.confirmDeleteButton}
         >
           Delete
         </LoadingButton>

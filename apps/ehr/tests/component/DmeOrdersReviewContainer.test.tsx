@@ -78,11 +78,9 @@ vi.mock('../../src/features/dme/pages/DmeOrderEditPage', () => ({
   ),
 }));
 
+import { dataTestIds } from '../../src/constants/data-test-ids';
 import { DmeOrdersInlineFlow } from '../../src/features/dme/components/DmeOrdersInlineFlow';
-import {
-  DmeOrdersReviewContainer,
-  dmeOrdersReviewTestIds,
-} from '../../src/features/dme/components/DmeOrdersReviewContainer';
+import { DmeOrdersReviewContainer } from '../../src/features/dme/components/DmeOrdersReviewContainer';
 
 const makeOrder = (overrides: Partial<DmeOrderDTO>): DmeOrderDTO => ({
   id: 'order-1',
@@ -133,7 +131,7 @@ describe('DmeOrdersReviewContainer', () => {
 
     render(<DmeOrdersReviewContainer encounterId={ENCOUNTER_ID} />);
 
-    const inHouse = within(screen.getByTestId(dmeOrdersReviewTestIds.item('in-house')));
+    const inHouse = within(screen.getByTestId(dataTestIds.dmeOrders.reviewItem('in-house')));
     expect(inHouse.getByText('Knee brace')).toBeInTheDocument();
     expect(inHouse.getByText('Qty 2 · LT · NU · 2 weeks')).toBeInTheDocument();
     expect(inHouse.getByText('HCPCS: L1830, L1810')).toBeInTheDocument();
@@ -141,7 +139,7 @@ describe('DmeOrdersReviewContainer', () => {
     expect(inHouse.getByText('DISPENSED')).toBeInTheDocument();
     expect(inHouse.queryByText(/Third party/)).not.toBeInTheDocument();
 
-    const external = within(screen.getByTestId(dmeOrdersReviewTestIds.item('external')));
+    const external = within(screen.getByTestId(dataTestIds.dmeOrders.reviewItem('external')));
     expect(external.getByText('Qty 1')).toBeInTheDocument();
     expect(external.getByText('Third party: Acme Medical Supply')).toBeInTheDocument();
     expect(external.getByText('PRINT ONLY')).toBeInTheDocument();
