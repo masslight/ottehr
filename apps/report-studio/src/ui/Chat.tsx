@@ -490,7 +490,7 @@ function ChangesView({ block }: { block: ChangesBlock }): React.ReactElement {
 }
 
 function Expandable({ label, body, tone }: { label: string; body: string; tone: 'muted' }): React.ReactElement {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(true);
   return (
     <Box sx={{ color: tone === 'muted' ? 'text.secondary' : undefined }}>
       <Button

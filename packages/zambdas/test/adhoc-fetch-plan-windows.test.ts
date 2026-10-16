@@ -36,7 +36,8 @@ let delayMs = 0;
 const fakeOystehr = {
   fhir: {
     search: async ({ params = [] }: { resourceType: string; params?: Params }) => {
-      calls.push(params);
+      const counting = params.some((p) => p.name === '_summary' && p.value === 'count');
+      if (!counting) calls.push(params);
       inFlight += 1;
       maxInFlight = Math.max(maxInFlight, inFlight);
       if (delayMs) await new Promise((resolve) => setTimeout(resolve, delayMs));
@@ -50,6 +51,7 @@ const fakeOystehr = {
         const start = Date.parse((r as Appointment).start!);
         return start >= Date.parse(ge) && start <= Date.parse(le);
       });
+      if (counting) return { total: matched.length, unbundle: () => [], link: [] };
       const page = matched.slice(offset, offset + count);
       return {
         unbundle: () => [...page, sharedPatient],
@@ -93,7 +95,7 @@ describe('a paged date-bounded step runs in windows sized from the density hint'
     delayMs = 0;
   });
 
-  it('searches the whole range once without a hint', async () => {
+  it('without a hint, searches a short range once by its first page (no count)', async () => {
     const { resources, stats } = await runFetchPlan(fakeOystehr, datedPlan, tenDays, undefined);
     expect(calls).toHaveLength(1);
     expect(windowBounds(calls[0])).toEqual([Date.parse(tenDays.start), Date.parse(tenDays.end)]);

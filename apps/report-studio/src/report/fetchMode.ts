@@ -59,7 +59,11 @@ export function stepDensity(
         recordsPerId: primary / s.scopedValues,
         ...(sourcePrimary ? { idsPerSourceRecord: s.scopedValues / sourcePrimary } : {}),
       };
-    } else if (step && stepIsDateBounded(step)) out[s.id] = { recordsPerDay: primary / days };
+    } else if (step && stepIsDateBounded(step)) {
+      // rows per record: what the step's includes bring along, which sizes its bulk jobs (BULK_JOB_ROWS)
+      const rows = Object.values(s.byType).reduce((sum, n) => sum + n, 0);
+      out[s.id] = { recordsPerDay: primary / days, ...(primary ? { rowsPerRecord: rows / primary } : {}) };
+    }
   }
   return out;
 }

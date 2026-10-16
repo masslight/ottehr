@@ -46,7 +46,8 @@ export const ADHOC_DATA_MAP: readonly DataMapEntry[] = [
       '_include=Appointment:patient brings the Patient; _include=Appointment:location the Location (small result sets only).',
       'FAST PATH for visit-level clinical data: add _revinclude:iterate=<Type>:encounter to the SAME step for Procedure, ' +
         'Condition, ServiceRequest, DiagnosticReport, MedicationRequest (and MedicationAdministration:context). A year of ' +
-        'visits with all six took 15–23 s; the same as scoped steps took 46 s.',
+        'visits with all six took 15–23 s; the same as scoped steps took 46 s. On practice B (production, 2026-10-16, 60 days) ' +
+        'the fast path for Procedure (6.9 s) and a scoped Procedure step after the encounters (6.5 s) were the same.',
     ],
     search: [
       'date=ge{{start}}&date=le{{end}} bounds the scheduled start (both bounds inclusive).',
@@ -56,15 +57,21 @@ export const ADHOC_DATA_MAP: readonly DataMapEntry[] = [
         'Patient?_has:Appointment:patient:date=ge{{start}}&_has:Appointment:patient:date=le{{end}}. Then Location (and ' +
         'Practitioner) as SMALL scoped id lists with "elements" from { step: "visits", path: "participant.actor.reference", ' +
         'param: "_id", keepType: "Location" }. Join in code by id: Encounter.appointment[0].reference → Appointment, ' +
-        'Appointment.participant Patient/<id> → Patient. Never fetch the Encounters or Patients of a date range by lists of ' +
-        'ids: a year at a busy practice is 19,700–32,300 visits, each id-list step was 168–198 requests and the plan took ' +
-        '143–196 s on its first run (25–38 s with saved densities); the by-date steps ran as one bulk job each — 6.7 s / ' +
-        '11.5 s for all four steps. On a year of synth the by-date steps returned exactly the id-list sets (2,697 Encounters, ' +
+        'Appointment.participant Patient/<id> → Patient. ALTERNATIVE, faster at a year on practice B (production, 2026-10-16): ' +
+        "Encounters and Patients scoped to the visits' ids as PAGED batches (mode auto) — a year (32,285 visits, 52,638 " +
+        'encounters, 20,353 patients): encounters 5.4 s by id vs 14.3 s by appointment.date, patients 2.4 s by id vs 15.3 s by ' +
+        '_has, after a 6 s visits step; 60 days: 5.4 s scoped vs 4.6 s for the three by-date steps — the same sets. An earlier ' +
+        'measurement had id lists at 168–198 requests and 143–196 s for a year; those ran as bulk jobs per batch, not pages. On a year of synth the by-date steps returned exactly the id-list sets (2,697 Encounters, ' +
         '2,427 Patients, no differences). The Encounter step also brings encounters of appointments outside the Ottehr tags, ' +
         'and the Patient step every patient with an appointment in the range (in principle also one with a visit at or after ' +
-        'the start and another at or before the end, a superset) — the joins by id ignore both. Follow-up encounters have no ' +
-        'appointment of their own: when the report needs them, add Encounter from { step: "encounters", path: "id", param: ' +
-        '"part-of", keepType: "Encounter" } (the server accepts part-of; not checked against real follow-ups, synth has none in range).',
+        'the start and another at or before the end, a superset) — the joins by id ignore both. Follow-up encounters (partOf ' +
+        "→ the visit Encounter, class VR, type SNOMED 390906007) carry their visit's appointment too: on practice B (production) " +
+        'all 4,058 follow-ups of 60 days of visits came back with the visit encounters by appointment (a part-of step found ' +
+        'none more), so _revinclude:iterate Encounter:part-of adds nothing there (warm, it cost nothing measurable either: ' +
+        '5.9 s with it vs 6.1–7.6 s without, runs alternated). Follow-ups are ~1 per visit, 1–7 days after it, and their ' +
+        'period has NO end: Encounter?date=ge{{start}}&date=le{{end}}&part-of:missing=false matches every follow-up since ' +
+        'go-live (20,358 on practice B for a 60-day range); "started in the range" is date=sa{{start}}&date=le{{end}} ' +
+        '(starts after: exactly 4,150).',
       'Per-patient reports: Appointment?patient=Patient/{{patientId}} (no date range needed) with _include patient / location ' +
         'and _revinclude Encounter:appointment on the same step (a small result set).',
     ],
@@ -74,8 +81,12 @@ export const ADHOC_DATA_MAP: readonly DataMapEntry[] = [
         'shape above with "elements" on every step fetched the same resources in 4–5 s (12 MB).',
       'Leave mode on "auto": the runner reads one page and finishes a step with more as one async-bulk job (up to 30,000 ' +
         'primary resources a job; a step past that is split into date halves), and with saved densities a large step goes ' +
-        'straight to bulk — a year of visits at a busy practice (19,697 / 32,279) is one or two jobs. A year of synth (2,697) ' +
-        'is three pages or one job, 1.3–3.2 s either way.',
+        'straight to bulk jobs of ~10,000 records side by side — a year of visits at a busy practice (19,697 / 32,279) is ' +
+        'two to four jobs. A year of synth (2,697) is three pages or one job, 1.3–3.2 s either way.',
+      'Never put _revinclude on a date-bounded Encounter step at volume: Encounter + Condition:encounter for a year ran as ' +
+        'one job of 102–131 s (19,800 encounters, 67,000 conditions) and 532 s (52,600 / 144,000); the same Conditions as ' +
+        'their own step — Condition?encounter:Encounter.appointment.date=ge{{start}}&encounter:Encounter.appointment.date=le{{end}} ' +
+        '— took 36 s unsized and 10 s in 8 windows, beside a 9 s Encounter step.',
     ],
   },
   {
@@ -107,11 +118,13 @@ export const ADHOC_DATA_MAP: readonly DataMapEntry[] = [
         '(scoped step: from { step: "visits", path: "id", param: "encounter", keepType: "Encounter" }).',
     ],
     search: [
-      'Encounter?appointment.date=ge{{start}}&appointment.date=le{{end}} (chained through the appointment) is THE way to fetch ' +
-        'the encounters of the visits in a range: a step of its own beside the Appointment step, never scoped to appointment ' +
-        'ids after it — the same encounters as Encounter?appointment=<ids> (2,697 of 2,697 on a year of synth), one bulk job ' +
-        'for a year at a busy practice against 168–198 id-list requests. Encounter.period is blank, so Encounter?date= finds ' +
-        'almost nothing (3 of 2,697 on synth).',
+      "The encounters of the visits in a range: Encounter?appointment=<the visits' ids> as a scoped step after the " +
+        'Appointment step (paged batches; a year on practice B (production): 52,638 encounters in 5.4 s), or ' +
+        'Encounter?appointment.date=ge{{start}}&appointment.date=le{{end}} (chained) beside it — the same set; the chain ran ' +
+        '4.6 s with the other by-date steps for 60 days but 14.3 s for a year. Encounter.period is blank on the visit ' +
+        "encounters on synth (Encounter?date= found 3 of 2,697) and set but open-ended on practice B's follow-ups — a period " +
+        'with no end matches any date=ge…&le… range after its start, so for "started in the range" use date=sa{{start}}&' +
+        'date=le{{end}} (practice B, 60 days: 4,150 follow-ups vs 20,358 with ge/le). Visits through their appointments.',
     ],
   },
   {
@@ -164,6 +177,14 @@ export const ADHOC_DATA_MAP: readonly DataMapEntry[] = [
         'helpers.icd10Code(condition). code + display. ICD-10 is hierarchical — match families by prefix.',
       'encounter.reference, subject.reference, clinicalStatus, onsetDateTime.',
     ],
+    search: [
+      'The diagnoses of the visits in a range: Condition?encounter:Encounter.appointment.date=ge{{start}}&encounter:Encounter.' +
+        'appointment.date=le{{end}} as a step of its own with elements ["code", "encounter"] (the typed chain; see Encounter ' +
+        'for why not _revinclude), or a scoped step Condition?encounter=<the visit encounters> — the same set (17,677 in 60 ' +
+        "days on practice B (production)); warm, the chain was 3.6–3.9 s and the scoped plan 6.2–6.6 s, but the chain's first " +
+        'cold run took 19.3 s. At a year (143,806) the scoped plan was steady at 20.8–21.6 s while the chain ran 66.7 s cold and 15.9 s warm — prefer scoped when the first run matters. Never Condition?recorded-date: Ottehr leaves it empty (0 found). Join to the Encounter by ' +
+        'encounter.reference or Encounter.diagnosis in code.',
+    ],
   },
   {
     resourceType: 'Procedure',
@@ -193,14 +214,24 @@ export const ADHOC_DATA_MAP: readonly DataMapEntry[] = [
     ],
     links: [
       'Coverage?beneficiary=Patient/<id>,…&_include=Coverage:payor brings the payer Organizations along (scoped step from the ' +
-        'visits step: path participant.actor.reference, keepType Patient).',
+        'visits step: path participant.actor.reference, keepType Patient) — small sets only.',
+    ],
+    search: [
+      'The coverages of the patients with a visit in a range: Coverage?beneficiary:Patient._has:Appointment:patient:date=ge{{start}}' +
+        '&beneficiary:Patient._has:Appointment:patient:date=le{{end}} as a step of its own (the same 2,919 coverages as the id list ' +
+        'on a year of synth; 15–23 s for 23,000–28,000 at a busy practice). Then Organization by _id from payor.reference (small).',
     ],
   },
   {
     resourceType: 'Account',
     meaning: "A patient's billing account: which coverages apply and in which order.",
     fields: ['subject[0] → Patient; coverage[]: {coverage → Coverage, priority 1 = primary}; status; type.'],
-    search: ['Account?subject=Patient/<id>,… (scoped step from the visits step, keepType Patient).'],
+    search: [
+      'The accounts of the patients with a visit in a range: Account?subject:Patient._has:Appointment:patient:date=ge{{start}}' +
+        '&subject:Patient._has:Appointment:patient:date=le{{end}} as a step of its own — the type in the chain is required ' +
+        '(subject._has:… is rejected: "set type explicitly"); the same 2,427 accounts as the id list on a year of synth. ' +
+        'Account?subject=Patient/<id>,… (scoped from the visits step, keepType Patient) for small sets only.',
+    ],
     gaps: [
       '_include=Account:coverage is NOT a valid include (the server rejects it) — fetch Coverage by beneficiary instead.',
     ],
@@ -316,6 +347,10 @@ export const ADHOC_DATA_MAP: readonly DataMapEntry[] = [
     ],
     search: [
       'Observation?encounter=… (scoped, keepType Encounter) with _tag=vital-… — fetching all Observations of a visit brings the exam too.',
+      'Practice-wide vitals by date: _tag=vital-…&date=ge{{start}}&date=le{{end}} (the tag makes the date search fast; Observation ' +
+        'by date alone took 57 s to count on a busy practice and failed). A threshold goes to the server: value-quantity=gt38 with ' +
+        '_tag=vital-temperature returned exactly the 436 fevers that filtering 4,537 temperatures in code found, in 1.1 s against ' +
+        '3.7 s (practice B (production), 60 days); add _summary=count when only the number is needed (0.8 s).',
     ],
     gaps: [
       'Never search Observation without an encounter, patient or date filter — the table is huge.',
@@ -385,7 +420,14 @@ export const ADHOC_DATA_MAP: readonly DataMapEntry[] = [
         'item[] tree: {linkId, text, answer[].value*, item[]} — helpers.qrAnswers(response) flattens to {linkId: value}.',
     ],
     search: [
-      'QuestionnaireResponse?encounter=… (scoped) or ?authored=ge{{start}}&authored=le{{end}}&status=completed.',
+      'The paperwork of the visits in a range: QuestionnaireResponse?encounter:Encounter.appointment.date=ge{{start}}&encounter:' +
+        'Encounter.appointment.date=le{{end}} as a step of its own, or scoped to the visit encounters — the same 9,316 ' +
+        "responses in 60 days on practice B (production), both ~6–7 s warm (the chain's first cold run 18.2 s); at a year (53,381) scoped 21.3–21.8 s vs the chain 37.2 s cold / 26.0 s warm — prefer scoped. Always trim: " +
+        'paged, 14 days took 0.5 s with "elements" against 6.0 s without. Never QuestionnaireResponse?authored=: it found ' +
+        '2,922 of the 9,316. ' +
+        'It is the heaviest visit table — 33,000 responses / 176 MB a year at a busy practice, 53,000 / 265 MB at another — so ' +
+        'always set "elements" and expect 15–50 s. QuestionnaireResponse?encounter=… (scoped) for small sets; ' +
+        '?authored=ge{{start}}&authored=le{{end}}&status=completed when the authored date is what matters.',
     ],
     gaps: [
       'Intake paperwork: the tag questionnaire-response-type|intake-paperwork is on only recent rows (45 of 3,587 on synth); match ' +
@@ -458,7 +500,7 @@ export const ADHOC_DATA_MAP_NOTES: readonly string[] = [
   'Token searches take system|code written plainly ("code": "http://hl7.org/fhir/sid/icd-10|J02.9"); the plan runner URL-encodes the ' +
     'value. Never ask for _summary=count — a count-only bundle brings no resources back; the step count in the run result is the count.',
   'A report should take about 20 requests at most. A date-bounded step is 1–4 requests (one page, or a probe and one bulk job ' +
-    'per 20,000 records); a scoped step is one request per 250 ids — so a scoped step over thousands of ids is the thing to ' +
+    'per 10,000 records); a scoped step is one request per 250 ids — so a scoped step over thousands of ids is the thing to ' +
     'replace with the by-date search of its type. The run result reports requests per step, and the studio warns when the ' +
     'saved densities put a plan over the budget.',
 ];

@@ -2,6 +2,7 @@ import { Alert, Box, CircularProgress, Typography } from '@mui/material';
 import React, { useEffect, useRef, useState } from 'react';
 import { sandbox } from '../../sandbox/controller';
 import { useStudio } from '../../state/store';
+import { isTestWindow } from '../TestWindow';
 
 const MIN_HEIGHT = 240;
 
@@ -45,7 +46,9 @@ export function ReportPanel(): React.ReactElement {
       )}
       {run.status === 'idle' && (
         <Alert severity="info" sx={{ mb: 1.5 }}>
-          Press Run (or ask Claude) to fetch the plan and render this report.
+          {isTestWindow()
+            ? 'Press Run to fetch the plan from the chosen environment and render this report.'
+            : 'Press Run (or ask Claude) to fetch the plan and render this report.'}
         </Alert>
       )}
       {run.status === 'error' && run.error && (

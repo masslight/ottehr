@@ -6,7 +6,7 @@ import type { FetchPlanInput } from 'utils/lib/types/adhoc/plan/fetch-plan';
 import type { DateRange } from 'utils/lib/types/adhoc/query/date-range';
 import { listSavedReports } from '../instance/zambdaClient';
 import { comparePlanRuns } from '../report/comparePlans';
-import { heavySearchWarnings, requestBudgetWarnings } from '../report/planWarnings';
+import { dateFieldWarnings, heavySearchWarnings, requestBudgetWarnings } from '../report/planWarnings';
 import { fetchOnly, runReport, validatePlan } from '../report/runner';
 import { DATE_RANGE_PRESETS, DateRangeSpec, describeDateRange, resolveDateRange } from '../report/types';
 import { useStudio } from '../state/store';
@@ -270,6 +270,7 @@ function updateReport(input: Record<string, unknown>): {
       changed.push('plan');
       warnings.push(
         ...heavySearchWarnings(validated.plan),
+        ...dateFieldWarnings(validated.plan),
         ...requestBudgetWarnings(validated.plan, report.stepDensity, resolveDateRange(report.dateRange))
       );
     } else errors.push(...validated.errors.map((e) => `plan ${e}`));

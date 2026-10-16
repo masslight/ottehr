@@ -6,6 +6,7 @@ import Oystehr from '@oystehr/sdk';
 import { captureException } from '@sentry/node-core/light';
 import { FhirResource } from 'fhir/r4b';
 import {
+  ASYNC_BULK_TARGET,
   bulkWindowCount,
   expectedStepRecords,
   FETCH_PLAN_LIMITS,
@@ -15,6 +16,7 @@ import {
   FetchStepDensity,
   FetchStepParam,
   FetchStepStats,
+  includeRowsEstimate,
   pagedWindowCount,
   resolveParamTemplates,
   scopedBulkBatchSize,
@@ -154,7 +156,10 @@ async function runStep(
   });
   const windowSplit = splitOptions(dated ? 'a single day' : undefined);
   const rangeMs = dated ? Date.parse(dateRange.end) - Date.parse(dateRange.start) : 0;
-  const expected = dated ? expectedStepRecords(hint, rangeMs / DAY_MS) : undefined;
+  // The step's density: the hint of an earlier run, or (auto, date-bounded, no hint) a count taken before fetching.
+  let density = hint;
+  let expected = dated ? expectedStepRecords(density, rangeMs / DAY_MS) : undefined;
+  let counts = 0;
   // The run's date range in as many windows as the density hint of an earlier run calls for (one without it), searched
   // side by side under the run's limit, each halved whenever the server cannot finish it (or its bulk job fills the cap).
   // A step whose params do not bound both ends of the range runs as one window that cannot be halved.
@@ -169,13 +174,72 @@ async function runStep(
     return parts.flat();
   };
   let bulkJobs = 0;
+  const bulkJob = (jobParams: FetchStepParam[]): Promise<FhirResource[]> => {
+    bulkJobs += 1;
+    return limit(() => searchAsyncBulk(oystehr, step.resourceType as FhirResource['resourceType'], jobParams));
+  };
+  // A step with no date range of its own (all patients, all coverages…) is one job that cannot be halved, so past the
+  // 30,000 a job returns it failed (37,507 Patients on practice B (production)). In bulk it is cut by _lastUpdated
+  // instead: every resource has exactly one, so the windows partition the set, and a window that fills the cap is
+  // halved like a date window. The floor predates any Oystehr project.
+  const unbounded = !dated && !step.from && !params.some((p) => p.name === '_lastUpdated');
+  let unboundedTotal: number | undefined;
+  // the sizing count, while it has not answered yet (see below)
+  let pendingCount: Promise<number | undefined> | undefined;
+  const applyTotal = (total: number): void => {
+    if (dated) {
+      density = { recordsPerDay: total / (rangeMs / DAY_MS) };
+      expected = expectedStepRecords(density, rangeMs / DAY_MS);
+    } else {
+      // no range to spread it over: the total decides paged vs bulk, and the bulk cut reuses it
+      expected = total;
+      unboundedTotal = total;
+    }
+  };
+  const searchBulkByLastUpdated = async (): Promise<FhirResource[]> => {
+    const total =
+      unboundedTotal ?? (await countMatches(oystehr, limit, step.resourceType, params).catch(() => undefined));
+    const updated = { start: LAST_UPDATED_FLOOR, end: new Date().toISOString() };
+    const span = Date.parse(updated.end) - Date.parse(updated.start);
+    // Many starting windows: the count fitting below skips the empty years and halves the busy months in fewer rounds
+    // (on practice B most of 37,507 Patients sit in a few recent months).
+    const windows = dateWindows(
+      updated,
+      Math.ceil(span / Math.max(UNBOUNDED_START_WINDOWS, Math.ceil((total ?? 0) / ASYNC_BULK_TARGET)))
+    );
+    const withUpdated = (w: DateRange): FetchStepParam[] => [
+      ...params,
+      { name: '_lastUpdated', value: `ge${w.start}` },
+      { name: '_lastUpdated', value: `le${w.end}` },
+    ];
+    // Matches pile up in recent months, so even windows are lopsided: count each and halve the ones over the target
+    // before any job runs (a count is 0.5–2 s; a job that fills the cap is 5–11 s thrown away).
+    const fitTarget = Math.min(ASYNC_BULK_TARGET, Number(params.find((p) => p.name === '_count')?.value) || Infinity);
+    const fitted = async (w: DateRange, depth = 0): Promise<DateRange[]> => {
+      const n = await countMatches(oystehr, limit, step.resourceType, withUpdated(w)).catch(() => undefined);
+      if (n === undefined) return [w];
+      if (n === 0) return [];
+      const halves = n > fitTarget && depth < 6 ? halveWindow(w) : undefined;
+      if (!halves) return [w];
+      return (await Promise.all(halves.map((h) => fitted(h, depth + 1)))).flat();
+    };
+    const sized = (await Promise.all(windows.map((w) => fitted(w)))).flat();
+    const parts = await Promise.all(
+      sized.map((w) => searchSplittingOnCap(w, (x) => bulkJob(withUpdated(x)), halveWindow, windowSplit))
+    );
+    return parts.flat();
+  };
   const searchBulk = (): Promise<FhirResource[]> =>
-    searchWindows(bulkWindowCount(hint?.recordsPerDay, rangeMs / DAY_MS), (window) => {
-      bulkJobs += 1;
-      return limit(() =>
-        searchAsyncBulk(oystehr, step.resourceType as FhirResource['resourceType'], resolveParams(window))
-      );
-    });
+    unbounded
+      ? searchBulkByLastUpdated()
+      : searchWindows(
+          bulkWindowCount(
+            density?.recordsPerDay,
+            rangeMs / DAY_MS,
+            density?.rowsPerRecord ?? includeRowsEstimate(step.params)
+          ),
+          (window) => bulkJob(resolveParams(window))
+        );
 
   const finish = (
     resources: FhirResource[],
@@ -220,9 +284,41 @@ async function runStep(
       return finish(scoped, { ...partial, scopedValues: values.length });
     }
 
-    // Mode "bulk", or "auto" when the hint expects a large step: one job per bulk window, nothing paged first.
+    // A count-only step (_summary=count): one search, the server's total, no resources — for a report that counts.
+    if (params.some((p) => p.name === '_summary' && p.value === 'count')) {
+      return finish([], {
+        mode: 'normal',
+        requests: 1,
+        total: (await countMatches(oystehr, limit, step.resourceType, params)) ?? 0,
+      });
+    }
+
+    // "auto", date-bounded, no hint: count the matches first (1–2 s for 60 days of a busy practice's visits or vitals)
+    // and size the step from that, instead of reading a first page to find out (8 s for visits with their includes).
+    // A count the server refuses leaves the step to the first page as before.
+    // Not for a short range: there the count cost more than it saved (practice B, a day of visits 0.2–0.3 s by page vs
+    // 0.5–0.7 s count first; 7 days 0.3–0.5 s vs 1.0–1.2 s) — the first page tells enough.
+    // nor for one patient's records (flowsheets): small, and the count added ~0.3 s to each step (a patient's vitals
+    // 0.7 s → 1.0 s on practice B)
+    const forOnePatient = step.params.some((p) => /\{\{\s*patientId\s*\}\}/.test(p.value));
+    const worthCounting =
+      (unbounded && !forOnePatient) || (dated && !forOnePatient && rangeMs > COUNT_MIN_RANGE_DAYS * DAY_MS);
+    if (step.mode === 'auto' && worthCounting && expected === undefined) {
+      // A cold count can be slow (Task by authored-on 37 s, Communication by sent 33 s on practice B, then under 3 s
+      // once cached), so sizing waits SIZING_COUNT_WAIT_MS at most and otherwise goes on unsized (weekly windows).
+      pendingCount = countMatches(oystehr, limit, step.resourceType, params).catch(() => undefined);
+      const total = await Promise.race([pendingCount, waitMs(SIZING_COUNT_WAIT_MS)]);
+      if (total !== undefined) {
+        pendingCount = undefined;
+        counts = 1;
+        applyTotal(total);
+      }
+    }
+
+    // Mode "bulk", or "auto" when the density expects a large step: one job per bulk window, nothing paged first.
     if (stepRunsBulk(step.mode, expected)) {
-      await probeSearch(oystehr, limit, step.resourceType, params);
+      // the count already tried the search on the server; otherwise a one-row probe does
+      if (!counts) await probeSearch(oystehr, limit, step.resourceType, params);
       return finish(await searchBulk(), { mode: 'bulk', requests: 1 + bulkJobs });
     }
 
@@ -231,36 +327,83 @@ async function runStep(
     // hint reads ONE page: a next link means the volume is unknown, and finishing in bulk costs less than paging on
     // (a page is 1–8 s on a busy practice, a bulk job ~2.7 s fixed) — the old cap of autoBulkThreshold paged five
     // times before giving up on a year of production visits.
+    // One patient's records are paged on to the bulk threshold before going bulk: they are rarely past it, and a
+    // patient's 1,457 documents took 1.5 s paged against 6.4 s as bulk jobs after one page (practice B).
     const cap =
       step.mode === 'normal'
         ? FETCH_PLAN_LIMITS.maxResourcesPerStep
-        : expected === undefined
+        : expected === undefined && !forOnePatient
         ? FETCH_PLAN_LIMITS.pageSize
         : FETCH_PLAN_LIMITS.autoBulkThreshold;
     let pages = 0;
     let hitCap = false;
-    const resources = await searchWindows(pagedWindowCount(hint?.recordsPerDay, rangeMs / DAY_MS), async (window) => {
-      const paged = await searchPaged(oystehr, limit, step.resourceType, resolveParams(window), cap);
-      pages += paged.requests;
-      hitCap ||= paged.hitCap;
-      return paged.resources;
-    });
+    const resources = await searchWindows(
+      pagedWindowCount(density?.recordsPerDay, rangeMs / DAY_MS),
+      async (window) => {
+        const paged = await searchPaged(oystehr, limit, step.resourceType, resolveParams(window), cap);
+        pages += paged.requests;
+        hitCap ||= paged.hitCap;
+        return paged.resources;
+      }
+    );
     if (hitCap) {
       if (step.mode === 'normal') {
         throw new Error(
           `more than ${cap} resources; narrow the search or set mode "bulk" (the paged search stopped at the cap)`
         );
       }
+      // A count that missed its wait has had the first page's time since: size the bulk jobs from it if it is in now
+      // (a cold year of diagnoses ran 54 weekly jobs in 66.7 s, the same search sized from a count 30 jobs in 15.9 s).
+      if (pendingCount) {
+        const late = await Promise.race([pendingCount, waitMs(SIZING_COUNT_WAIT_MS)]);
+        if (late !== undefined) {
+          counts = 1;
+          applyTotal(late);
+        }
+      }
       // auto: the paged attempt counts toward the timing — that is the real cost of not knowing the volume.
-      return finish(await searchBulk(), { mode: 'bulk', requests: pages + bulkJobs });
+      return finish(await searchBulk(), { mode: 'bulk', requests: counts + pages + bulkJobs });
     }
-    return finish(resources, { mode: 'normal', requests: pages });
+    return finish(resources, { mode: 'normal', requests: counts + pages });
   } catch (error) {
     captureException(error, { extra: { stepId: step.id, resourceType: step.resourceType, params } });
     const message = error instanceof Error ? error.message : String(error);
     console.error(`[adhoc-fetch-plan] step ${step.id} FAILED ms=${Date.now() - startedAt} message=${message}`);
     return finish([], { mode: step.mode === 'bulk' ? 'bulk' : 'normal', requests: 0, error: message });
   }
+}
+
+const waitMs = (ms: number): Promise<undefined> => new Promise((resolve) => setTimeout(() => resolve(undefined), ms));
+
+/** Date ranges this short are sized by their first page, not a count. */
+const COUNT_MIN_RANGE_DAYS = 14;
+
+/** How long a step waits for the count that sizes it before going on unsized. */
+const SIZING_COUNT_WAIT_MS = 5_000;
+
+/** The earliest _lastUpdated an unbounded step is cut from (before any Oystehr project existed). */
+const LAST_UPDATED_FLOOR = '2020-01-01T00:00:00.000Z';
+const UNBOUNDED_START_WINDOWS = 16;
+
+// The step's primary matches, counted by the server: its filters only (no _include / _revinclude / _elements / paging),
+// with an accurate total — without it Oystehr stops counting at 1,001.
+async function countMatches(
+  oystehr: Oystehr,
+  limit: Limiter,
+  resourceType: string,
+  params: FetchStepParam[]
+): Promise<number | undefined> {
+  const filters = params.filter(
+    (p) => !/^_(include|revinclude|elements|sort|count|offset|summary|total)(:|$)/.test(p.name)
+  );
+  const bundle = await limit(() =>
+    oystehr.fhir.search<FhirResource>({
+      resourceType: resourceType as FhirResource['resourceType'],
+      params: [...filters, { name: '_summary', value: 'count' }, { name: '_total', value: 'accurate' }],
+    })
+  );
+  // undefined when the server gives no total: unknown, never "none" (callers then fetch rather than skip)
+  return bundle.total;
 }
 
 // A bulk job reports a bad search only as "job answered status 400"; the same search as a one-row

@@ -30,8 +30,15 @@ export const FETCH_PLAN_LIMITS = {
   scopedBulkBatchMax: 1_000,
 } as const;
 
-/** Primary resources a pre-sized bulk job aims for: under the server's 30,000 cap, with room for the density to drift. */
-export const ASYNC_BULK_TARGET = 20_000;
+/**
+ * Primary resources a pre-sized bulk job aims for. Jobs run side by side (up to maxConcurrentRequests), so smaller
+ * windows finish sooner: on a busy practice (2026-10-14, read-only) 67,000 Conditions took 36 s as one job, 19 s in
+ * 4 windows and 10 s in 8; 33,000 QuestionnaireResponses (176 MB) 88 s in 2 windows, 47 s in 6, 16 s in 12. A year
+ * there is also skewed — one half-year window held 394 records and the other 30,000 — so a window a third of the
+ * 30,000 cap also keeps most windows under it. 10,000 keeps the standard visit plan at the busiest practice (32,000
+ * visits, 52,000 encounters, 20,000 patients) at 13 jobs, inside REQUEST_BUDGET; smaller is faster still.
+ */
+export const ASYNC_BULK_TARGET = 10_000;
 
 /** Primary resources a paged date window aims for: a few pages each, run side by side, and still paged when the density doubles. */
 export const PAGED_WINDOW_TARGET = FETCH_PLAN_LIMITS.autoBulkThreshold / 2;
@@ -42,15 +49,36 @@ export const FetchStepDensitySchema = z.object({
   recordsPerId: z.number().nonnegative().optional(),
   /** For a scoped step: ids fed in per primary resource of its source step (one per visit for Encounters, a few in all for Locations). */
   idsPerSourceRecord: z.number().nonnegative().optional(),
+  /** Resources returned per primary resource, the _include / _revinclude rows counted (3.6 for visits with their patient, location and encounters). */
+  rowsPerRecord: z.number().positive().optional(),
 });
 export type FetchStepDensity = z.infer<typeof FetchStepDensitySchema>;
 
 const windowCount = (recordsPerDay: number | undefined, days: number, target: number): number =>
   recordsPerDay ? Math.max(1, Math.ceil((recordsPerDay * days) / target)) : 1;
 
-/** How many date windows a bulk step runs in, so each job lands near the target; one without a hint. */
-export const bulkWindowCount = (recordsPerDay: number | undefined, days: number): number =>
-  windowCount(recordsPerDay, days, ASYNC_BULK_TARGET);
+/**
+ * Rows (the step's own resources plus what its _include / _revinclude bring) one date-window bulk job aims for. A job
+ * costs ~2.7 s fixed plus its rows, and up to 8 run side by side, so windows that are too short pay the fixed cost
+ * over and over and windows that are too long run slow single jobs toward Oystehr's 30 s query limit. Measured on
+ * practice B (production) 2026-10-16, a year of visits: trimmed Appointments (32,285 rows) 18.1 s in weekly windows,
+ * 6.6 s monthly, 4.2 s quarterly (~5,400 rows a job); with patient + encounters (105,276 rows) 22.7 s weekly, 15.9 s
+ * in 14-day windows (~3,800 a job), 21–24 s in 30–91-day windows (one job 23 s).
+ */
+export const BULK_JOB_ROWS = 5_000;
+
+/** With nothing measured yet (no hint and no count), the longest window one job covers. */
+export const BULK_WINDOW_FALLBACK_DAYS = 7;
+
+/** A first guess at rowsPerRecord before a run has measured it: one row for the resource and one per include. */
+export const includeRowsEstimate = (params: { name: string }[]): number =>
+  1 + params.filter((p) => /^_(rev)?include(:|$)/.test(p.name)).length;
+
+/** How many date windows a bulk step runs in: each job near BULK_JOB_ROWS rows; weekly when nothing is known. */
+export const bulkWindowCount = (recordsPerDay: number | undefined, days: number, rowsPerRecord = 1): number =>
+  recordsPerDay === undefined
+    ? Math.max(1, Math.ceil(days / BULK_WINDOW_FALLBACK_DAYS))
+    : Math.max(1, Math.ceil((recordsPerDay * days * rowsPerRecord) / BULK_JOB_ROWS));
 
 /** How many date windows a paged step runs in, so each stays a short paged search; one without a hint. */
 export const pagedWindowCount = (recordsPerDay: number | undefined, days: number): number =>
@@ -81,9 +109,10 @@ export const stepRunsBulk = (mode: 'auto' | 'normal' | 'bulk', expected: number 
 
 /**
  * HTTP round trips a report should stay under. A year of visits at a busy practice (32,000 Appointments, 52,000
- * Encounters) is 4 bulk jobs fetched by date, while the same records by lists of ids were 168–198 jobs a step.
+ * Encounters) by date is 53 weekly bulk jobs (BULK_WINDOW_MAX_DAYS), 8 at a time, while the same records by lists of
+ * ids were 168–198 jobs a step.
  */
-export const REQUEST_BUDGET = 20;
+export const REQUEST_BUDGET = 60;
 
 export interface StepRequestEstimate {
   id: string;
@@ -93,6 +122,8 @@ export interface StepRequestEstimate {
   records?: number;
   /** How the number came about, or why there is none. */
   how: string;
+  /** Paged batches of a scoped id list: many round trips but cheap ones (~0.3 s each, 8 at a time on practice B). */
+  scopedPaged?: boolean;
 }
 
 /**
@@ -133,6 +164,7 @@ export function estimatePlanRequests(
             requests: batches * pages,
             records,
             how: `${fmt(ids)} ids in ${batches} paged batch(es) of ${batch}`,
+            scopedPaged: true,
           };
         }
       }
@@ -140,9 +172,11 @@ export function estimatePlanRequests(
       const perDay = hint?.recordsPerDay;
       const records = expectedStepRecords(hint, days);
       if (perDay === undefined || records === undefined) {
-        estimate = mode === 'bulk' ? { id, requests: 2, how: 'one bulk job' } : { id, how: 'no measurement yet' };
+        const jobs = bulkWindowCount(undefined, days);
+        estimate =
+          mode === 'bulk' ? { id, requests: 1 + jobs, how: `${jobs} bulk job(s)` } : { id, how: 'no measurement yet' };
       } else if (stepRunsBulk(mode, records)) {
-        const jobs = bulkWindowCount(perDay, days);
+        const jobs = bulkWindowCount(perDay, days, hint?.rowsPerRecord ?? includeRowsEstimate(step.params ?? []));
         estimate = { id, requests: 1 + jobs, records, how: `${fmt(records)} records in ${jobs} bulk job(s)` };
       } else {
         const windows = pagedWindowCount(perDay, days);
@@ -277,6 +311,8 @@ export const FetchStepStatsSchema = z.object({
   requests: z.number(),
   /** For a scoped step: how many distinct values were fed in. */
   scopedValues: z.number().optional(),
+  /** For a count-only step (`_summary=count`): the server's total; the step returns no resources. */
+  total: z.number().optional(),
   /** The search parameters as actually sent (templates resolved), for the Plan tab. */
   params: z.array(FetchStepParamSchema),
   error: z.string().optional(),
@@ -401,7 +437,13 @@ export function scopedStepValues(source: { resourceType?: string }[], from: Fetc
     const values = extractPathValues([resource], from.path);
     const bare = values.filter((v) => !/^[A-Za-z]+\/[^/]+$/.test(v));
     if (bare.length && from.keepType && resource.resourceType !== from.keepType) continue;
-    for (const value of scopedSearchValues(values, from)) out.add(value);
+    // A bare id fed to a reference parameter without keepType takes the source resource's own type: "based-on" can
+    // point to several types, and the server rejects a bare id there ("Logical Id may refer to more than one type").
+    const typed =
+      bare.length && !from.keepType && from.param !== '_id' && resource.resourceType
+        ? { ...from, keepType: resource.resourceType }
+        : from;
+    for (const value of scopedSearchValues(values, typed)) out.add(value);
   }
   return Array.from(out);
 }

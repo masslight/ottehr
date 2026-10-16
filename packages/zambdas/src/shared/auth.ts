@@ -167,6 +167,8 @@ const getTokenExpiryStatus = (token: string): M2MTokenExpiryStatus => {
 };
 
 export async function checkOrCreateM2MClientToken(token: string, secrets: Secrets | null): Promise<string> {
+  // The local server's LOCAL_CALLER_TOKEN mode (local-server/utils.ts) only; never set when deployed.
+  if (process.env.LOCAL_CALLER_TOKEN === '1' && secrets?.LOCAL_CALLER_TOKEN) return secrets.LOCAL_CALLER_TOKEN;
   if (!token) {
     console.log('getting token');
     return await getAuth0Token(secrets);

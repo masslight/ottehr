@@ -17,7 +17,7 @@ import { RenderResult, useStudio } from '../state/store';
 import { bareTagHints } from './codeCheck';
 import { dependencyChainLength, elementsIgnoredFor } from './comparePlans';
 import { chooseFetchMode, isDirectTimeout, measuredFetch, stepDensity } from './fetchMode';
-import { heavySearchWarnings, idListWarnings, requestBudgetWarnings } from './planWarnings';
+import { dateFieldWarnings, heavySearchWarnings, idListWarnings, requestBudgetWarnings } from './planWarnings';
 import { suggestElements } from './trim';
 import { resolveDateRange } from './types';
 
@@ -125,10 +125,15 @@ export async function runReport(opts: { dateRange?: DateRange; reuseData?: boole
     state.run.dateRange?.end === dateRange.end &&
     state.run.patientId === parameters.patientId;
 
+  // Densities belong to the instance they were measured on: a report built on synth and tested on a practice ~12×
+  // busier was slower with synth's (uc20 on practice B: 19.5 s vs 12.8 s without), so another environment gets none
+  // (the runner counts each step first instead) and its measurements are not saved into the report.
+  const densities = state.testTarget ? undefined : report.stepDensity;
   if (!canReuse) {
     for (const warning of [
       ...heavySearchWarnings(report.plan),
-      ...requestBudgetWarnings(report.plan, report.stepDensity, dateRange),
+      ...dateFieldWarnings(report.plan),
+      ...requestBudgetWarnings(report.plan, densities, dateRange),
     ]) {
       warnings.push(warning);
       addEvent('warn', warning);
@@ -148,20 +153,22 @@ export async function runReport(opts: { dateRange?: DateRange; reuseData?: boole
         10
       )}${parameters.patientId ? `, patient ${parameters.patientId}` : ''}…`
     );
-    const mode = chooseFetchMode(report, dateRange);
+    // Another environment may run the old executor on its own subscription, which would take the Task; a local
+    // zambda server has no time ceiling, so direct is safe there.
+    const mode = state.testTarget ? 'direct' : chooseFetchMode(report, dateRange);
     let fellBack = false;
     try {
       let output: Awaited<ReturnType<typeof runFetchPlan>>;
       try {
-        output = await runFetchPlan(report.plan, dateRange, parameters, mode, report.stepDensity);
+        output = await runFetchPlan(report.plan, dateRange, parameters, mode, densities);
       } catch (error) {
-        if (mode !== 'direct' || !isDirectTimeout(error, Date.now() - startedAt)) throw error;
+        if (mode !== 'direct' || state.testTarget || !isDirectTimeout(error, Date.now() - startedAt)) throw error;
         fellBack = true;
         addEvent(
           'warn',
           `Direct fetch timed out after ${Date.now() - startedAt} ms; retrying through the background Task`
         );
-        output = await runFetchPlan(report.plan, dateRange, parameters, 'task', report.stepDensity);
+        output = await runFetchPlan(report.plan, dateRange, parameters, 'task', densities);
       }
       const { resources: fetched, ...rest } = output;
       resources = fetched;
@@ -169,13 +176,15 @@ export async function runReport(opts: { dateRange?: DateRange; reuseData?: boole
       setRun({ fetch: rest, resources: fetched });
       // The measurements are metadata, not an edit — unless the fallback pinned the Task path, which a save should keep.
       // A step's density is replaced by what this run measured; steps that measured nothing (failed, skipped) keep their last one.
-      setReport(
-        {
-          ...measuredFetch(rest.totalMs, dateRange, fellBack),
-          stepDensity: { ...report.stepDensity, ...stepDensity(report.plan, rest.stats, dateRange) },
-        },
-        { dirty: fellBack || useStudio.getState().file.dirty }
-      );
+      if (!state.testTarget) {
+        setReport(
+          {
+            ...measuredFetch(rest.totalMs, dateRange, fellBack),
+            stepDensity: { ...report.stepDensity, ...stepDensity(report.plan, rest.stats, dateRange) },
+          },
+          { dirty: fellBack || useStudio.getState().file.dirty }
+        );
+      }
       addEvent('fetch', `Fetched (${mode}) in ${rest.totalMs} ms, ${fmtBytes(rest.totalBytes)}`, stepLines(rest.stats));
       for (const s of rest.stats) {
         if (s.error) {
@@ -210,6 +219,9 @@ export async function runReport(opts: { dateRange?: DateRange; reuseData?: boole
       dateRange,
       timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       patientId: parameters.patientId,
+      totals: Object.fromEntries(
+        (fetchOutput?.stats ?? []).flatMap((s) => (s.total === undefined ? [] : [[s.id, s.total]]))
+      ),
     },
     profile: true,
     muiLicenseKey: settings.muiLicenseKey || undefined,

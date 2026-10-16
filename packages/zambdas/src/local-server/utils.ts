@@ -80,12 +80,21 @@ console.log('Loading secrets from', pathToSecretsFile);
 populateSecrets({ pathToSecretsFile });
 const populateSecretsPromise = Promise.resolve();
 
+// Local server only, LOCAL_CALLER_TOKEN=1: zambdas use the caller's own token where they would mint the M2M one
+// (checkOrCreateM2MClientToken), so a local server against another project needs no service-account credentials
+// and reads only what the signed-in user may read.
+const callerToken = (req: Request): string | undefined =>
+  process.env.LOCAL_CALLER_TOKEN === '1'
+    ? req.headers.authorization?.replace(/^Bearer\s+/i, '') || undefined
+    : undefined;
+
 async function buildLambdaInput(req: Request): Promise<ZambdaInput> {
   console.log('build lambda body,', JSON.stringify(req.body));
   await populateSecretsPromise;
+  const token = callerToken(req);
   return {
     body: !_.isEmpty(req.body) ? req.body : null,
     headers: singleValueHeaders(req.headers),
-    secrets,
+    secrets: token ? { ...secrets, LOCAL_CALLER_TOKEN: token } : secrets,
   };
 }

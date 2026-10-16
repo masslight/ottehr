@@ -14,12 +14,22 @@ const COLORS: Record<InspectorKind, string> = {
   file: '#5a6578',
 };
 
+const KIND_HELP: Record<InspectorKind, string> = {
+  info: 'General information',
+  fetch: "The fetch: the plan's FHIR searches, run by the fetch zambda",
+  render: 'The sandbox running the report code and drawing the report',
+  warn: 'Something worth checking: a heavy search, the request budget, a field blank on most rows',
+  error: 'Something failed: a search, the report code, a tool, or a file',
+  llm: 'Claude: a tool it called, or the turn itself',
+  file: 'Opening, saving or testing a report file',
+};
+
 /** The strip under the live panel: what is happening behind the scenes (fetch timings, renders, warnings, tools). */
 export function Inspector(): React.ReactElement {
   const events = useStudio((s) => s.events);
   const run = useStudio((s) => s.run);
   const clearEvents = useStudio((s) => s.clearEvents);
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -40,31 +50,51 @@ export function Inspector(): React.ReactElement {
         </Typography>
         {run.fetch && (
           <>
-            <Chip size="small" variant="outlined" label={`fetch ${run.fetch.totalMs} ms`} />
-            <Chip
-              size="small"
-              variant="outlined"
-              label={`${total.toLocaleString()} resources · ${(run.fetch.totalBytes / 1024 / 1024).toFixed(1)} MB`}
-            />
+            <Tooltip title="Time the server took to run the plan's searches, not counting the download to the browser or the render">
+              <Chip size="small" variant="outlined" label={`fetch ${run.fetch.totalMs} ms`} />
+            </Tooltip>
+            <Tooltip title="FHIR resources the plan returned, all steps together, and their size">
+              <Chip
+                size="small"
+                variant="outlined"
+                label={`${total.toLocaleString()} resources · ${(run.fetch.totalBytes / 1024 / 1024).toFixed(1)} MB`}
+              />
+            </Tooltip>
           </>
         )}
         {run.render && (
-          <Chip
-            size="small"
-            variant="outlined"
-            color={run.render.ok ? 'success' : 'error'}
-            label={run.render.ok ? `render ${run.render.ms} ms` : 'render failed'}
-          />
+          <Tooltip
+            title={
+              run.render.ok
+                ? 'Time the sandbox took to run the report code and draw the report'
+                : 'The report code failed; the Report tab shows the error'
+            }
+          >
+            <Chip
+              size="small"
+              variant="outlined"
+              color={run.render.ok ? 'success' : 'error'}
+              label={run.render.ok ? `render ${run.render.ms} ms` : 'render failed'}
+            />
+          </Tooltip>
         )}
-        {errors > 0 && <Chip size="small" color="error" label={`${errors} step error(s)`} />}
-        {warnings > 0 && <Chip size="small" color="warning" variant="outlined" label={`${warnings} warning(s)`} />}
+        {errors > 0 && (
+          <Tooltip title="Plan steps whose search failed; the Plan tab shows each error">
+            <Chip size="small" color="error" label={`${errors} step error(s)`} />
+          </Tooltip>
+        )}
+        {warnings > 0 && (
+          <Tooltip title="Warnings in the log below (expand the inspector to read them)">
+            <Chip size="small" color="warning" variant="outlined" label={`${warnings} warning(s)`} />
+          </Tooltip>
+        )}
         <Box sx={{ flex: 1 }} />
         <Tooltip title="Clear">
           <IconButton size="small" onClick={clearEvents}>
             <Typography variant="caption">clear</Typography>
           </IconButton>
         </Tooltip>
-        <IconButton size="small" onClick={() => setOpen((o) => !o)}>
+        <IconButton size="small" onClick={() => setOpen((o) => !o)} title={open ? 'Hide the log' : 'Show the log'}>
           {open ? <ExpandMoreIcon fontSize="small" /> : <ExpandLessIcon fontSize="small" />}
         </IconButton>
       </Box>
@@ -90,7 +120,11 @@ export function Inspector(): React.ReactElement {
               <Box component="span" sx={{ color: 'text.secondary', flexShrink: 0 }}>
                 {new Date(e.time).toLocaleTimeString([], { hour12: false })}
               </Box>
-              <Box component="span" sx={{ color: COLORS[e.kind], fontWeight: 600, width: 46, flexShrink: 0 }}>
+              <Box
+                component="span"
+                title={KIND_HELP[e.kind]}
+                sx={{ color: COLORS[e.kind], fontWeight: 600, width: 46, flexShrink: 0, cursor: 'help' }}
+              >
                 {e.kind}
               </Box>
               <Box component="span" sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>

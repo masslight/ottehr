@@ -17,6 +17,11 @@ const tenDays = {
   start: new Date(RANGE_START).toISOString(),
   end: new Date(RANGE_START + 10 * DAY_MS - 1).toISOString(),
 };
+// past COUNT_MIN_RANGE_DAYS, so a step with no hint is counted first
+const thirtyDays = {
+  start: new Date(RANGE_START).toISOString(),
+  end: new Date(RANGE_START + 30 * DAY_MS - 1).toISOString(),
+};
 
 const appointments = (days: number, perDay: number): Appointment[] =>
   Array.from({ length: days * perDay }, (_, i) => ({
@@ -40,6 +45,8 @@ let data: FhirResource[] = [];
 const jobs = new Map<string, { resourceType: string; params: Params }>();
 const bulkCalls: Params[] = [];
 const pagedCalls: Params[] = [];
+const countCalls: Params[] = [];
+let countDelayMs = 0;
 
 const matches = (resourceType: string, params: Params): FhirResource[] => {
   const ge = params.find((p) => p.name === 'date' && p.value.startsWith('ge'))?.value.slice(2);
@@ -87,6 +94,11 @@ const fakeOystehr = {
         bulkCalls.push(params);
         return { jobId, contentLocation: '', mode: 'bulk' };
       }
+      if (params.some((p) => p.name === '_summary' && p.value === 'count')) {
+        countCalls.push(params);
+        if (countDelayMs) await new Promise((resolve) => setTimeout(resolve, countDelayMs));
+        return { total: matches(resourceType, params).length, unbundle: () => [], link: [] };
+      }
       pagedCalls.push(params);
       const count = Number(params.find((p) => p.name === '_count')?.value ?? FETCH_PLAN_LIMITS.pageSize);
       const offset = Number(params.find((p) => p.name === '_offset')?.value ?? 0);
@@ -133,30 +145,64 @@ const batchSizes = (calls: Params[]): number[] =>
     .map((params) => params.find((p) => p.name === 'appointment')?.value.split(',').length)
     .filter((n): n is number => n !== undefined);
 
-describe('a plain auto step without a hint reads one page before going bulk', () => {
+describe('a plain auto step without a hint is sized by a count first', () => {
   beforeEach(() => {
     jobs.clear();
     bulkCalls.length = 0;
     pagedCalls.length = 0;
+    countCalls.length = 0;
   });
 
-  it('finishes in bulk when the first page has a next link, and returns every resource once', async () => {
-    data = appointments(10, 250);
-    const { resources, stats } = await runFetchPlan(fakeOystehr, visitsPlan('auto'), tenDays, undefined);
-    expect(pagedCalls).toHaveLength(1);
-    expect(countParam(pagedCalls[0])).toBe(String(FETCH_PLAN_LIMITS.pageSize));
-    expect(bulkCalls).toHaveLength(1);
-    expect(resources.visits).toHaveLength(2500);
-    expect(new Set(resources.visits.map((r) => r.id)).size).toBe(2500);
-    expect(stats[0]).toMatchObject({ mode: 'bulk', requests: 2, count: 2500 });
+  it('goes bulk when the count passes the threshold — no first page, no probe', async () => {
+    data = appointments(30, 200);
+    const { resources, stats } = await runFetchPlan(fakeOystehr, visitsPlan('auto'), thirtyDays, undefined);
+    expect(countCalls).toHaveLength(1);
+    expect(countCalls[0]).toContainEqual({ name: '_total', value: 'accurate' });
+    expect(pagedCalls).toHaveLength(0);
+    expect(bulkCalls).toHaveLength(2); // 6,000 rows → two jobs of ~5,000 (BULK_JOB_ROWS)
+    expect(resources.visits).toHaveLength(6000);
+    expect(new Set(resources.visits.map((r) => r.id)).size).toBe(6000);
+    expect(stats[0]).toMatchObject({ mode: 'bulk', requests: 3, count: 6000 });
   });
 
-  it('stays paged when everything fits in that page', async () => {
-    data = appointments(10, 50);
-    const { stats } = await runFetchPlan(fakeOystehr, visitsPlan('auto'), tenDays, undefined);
-    expect(pagedCalls).toHaveLength(1);
+  it('pages when the count is under the threshold, and never goes bulk', async () => {
+    data = appointments(30, 80);
+    const { stats } = await runFetchPlan(fakeOystehr, visitsPlan('auto'), thirtyDays, undefined);
+    expect(countCalls).toHaveLength(1);
+    expect(pagedCalls).toHaveLength(3);
     expect(bulkCalls).toHaveLength(0);
+    expect(stats[0]).toMatchObject({ mode: 'normal', requests: 4, count: 2400 });
+  });
+
+  it('sizes the bulk jobs from a count that answers after its wait, once the first page overflows', async () => {
+    // the count takes 6 s, past the 5 s wait: the step reads its first page, then gets the count in time
+    countDelayMs = 6000;
+    try {
+      data = appointments(30, 200);
+      const { resources, stats } = await runFetchPlan(fakeOystehr, visitsPlan('auto'), thirtyDays, undefined);
+      expect(pagedCalls).toHaveLength(1);
+      expect(bulkCalls).toHaveLength(2); // sized from 6,000 — not 5 weekly windows
+      expect(resources.visits).toHaveLength(6000);
+      expect(stats[0]).toMatchObject({ mode: 'bulk', count: 6000 });
+    } finally {
+      countDelayMs = 0;
+    }
+  }, 20_000);
+
+  it('skips the count on a short range: one page, or weekly jobs when it overflows', async () => {
+    data = appointments(10, 50);
+    let { stats } = await runFetchPlan(fakeOystehr, visitsPlan('auto'), tenDays, undefined);
+    expect(countCalls).toHaveLength(0);
+    expect(pagedCalls).toHaveLength(1);
     expect(stats[0]).toMatchObject({ mode: 'normal', requests: 1, count: 500 });
+
+    data = appointments(10, 250);
+    pagedCalls.length = 0;
+    ({ stats } = await runFetchPlan(fakeOystehr, visitsPlan('auto'), tenDays, undefined));
+    expect(countCalls).toHaveLength(0);
+    expect(pagedCalls).toHaveLength(1);
+    expect(bulkCalls).toHaveLength(2); // ten days, nothing measured: weekly
+    expect(stats[0]).toMatchObject({ mode: 'bulk', count: 2500 });
   });
 
   it('pages to the step maximum in mode normal', async () => {
@@ -176,14 +222,14 @@ describe('a plain auto step with a hint is sized before it runs', () => {
     data = appointments(10, 250);
   });
 
-  it('goes bulk from the start when the hint expects more than the threshold — a probe and one job, no pages', async () => {
+  it('goes bulk from the start when the hint expects more than the threshold — a probe and weekly jobs, no pages', async () => {
     // 600 a day over ten days = 6,000 expected, past autoBulkThreshold (5,000).
     const { stats } = await runFetchPlan(fakeOystehr, visitsPlan('auto'), tenDays, undefined, {
       visits: { recordsPerDay: 600 },
     });
     expect(pagedCalls.map(countParam)).toEqual(['1']);
-    expect(bulkCalls).toHaveLength(1);
-    expect(stats[0]).toMatchObject({ mode: 'bulk', requests: 2, count: 2500 });
+    expect(bulkCalls).toHaveLength(2);
+    expect(stats[0]).toMatchObject({ mode: 'bulk', requests: 3, count: 2500 });
   });
 
   it('pages its windows when the hint expects less, and never goes bulk', async () => {
@@ -208,8 +254,8 @@ describe('a scoped step pages its id list however long it is', () => {
     const visits = appointments(10, 600);
     data = [...visits, ...encountersOf(visits)];
     const { resources, stats } = await runFetchPlan(fakeOystehr, scopedPlan('auto'), tenDays, undefined);
-    // The visits step: one bulk job (and its probe). The encounters step: 24 paged batches, no job.
-    expect(bulkCalls).toHaveLength(1);
+    // The visits step: two weekly bulk jobs (and its probe). The encounters step: 24 paged batches, no job.
+    expect(bulkCalls).toHaveLength(2);
     expect(batchSizes(pagedCalls)).toEqual(Array(24).fill(FETCH_PLAN_LIMITS.scopedBatchSize));
     expect(resources.encounters).toHaveLength(6000);
     expect(stats[1]).toMatchObject({ mode: 'normal', requests: 24, count: 6000, scopedValues: 6000 });

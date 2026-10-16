@@ -13,6 +13,7 @@ import type { DateRange } from 'utils/lib/types/adhoc/query/date-range';
 import type { ListAdHocReportsOutput } from 'utils/lib/types/adhoc/saved/saved.types';
 import type { FetchMode } from '../report/fetchMode';
 import { useStudio } from '../state/store';
+import { canSignIn, storedToken } from './login';
 
 export class ZambdaError extends Error {
   constructor(
@@ -28,9 +29,21 @@ export class ZambdaError extends Error {
 export const zambdaUrl = (base: string, name: string): string => `${base.replace(/\/+$/, '')}/zambda/${name}/execute`;
 
 export async function executeZambda<T>(name: string, body: unknown): Promise<T> {
-  const { zambdaBaseUrl, accessToken } = useStudio.getState().settings;
+  const { settings, testTarget } = useStudio.getState();
+  const { zambdaBaseUrl } = testTarget ?? settings;
+  const accessToken =
+    testTarget && canSignIn(testTarget)
+      ? storedToken(testTarget) ?? testTarget.accessToken
+      : (testTarget ?? settings).accessToken;
   if (!zambdaBaseUrl) throw new ZambdaError(name, 0, 'No zambda base URL is set (Settings → Instance).');
-  if (!accessToken) throw new ZambdaError(name, 0, 'No access token is set (Settings → Instance).');
+  if (!accessToken)
+    throw new ZambdaError(
+      name,
+      0,
+      testTarget && canSignIn(testTarget)
+        ? `Not signed in to ${testTarget.name}, or the sign-in expired: press Sign in.`
+        : 'No access token is set (Settings → Instance).'
+    );
 
   let response: Response;
   try {

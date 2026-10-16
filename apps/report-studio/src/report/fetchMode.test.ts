@@ -110,10 +110,11 @@ describe('stepDensity', () => {
       stat({ id: 'small', resourceType: 'Appointment', byType: { Appointment: 300 }, mode: 'normal' }),
     ];
     expect(stepDensity(plan, stats, days(30))).toEqual({
-      visits: { recordsPerDay: 100 },
+      // 3,000 visits brought 2,500 patients along: 5,500 rows for 3,000 records
+      visits: { recordsPerDay: 100, rowsPerRecord: 5500 / 3000 },
       vitals: { recordsPerId: 6.5, idsPerSourceRecord: 1 },
       locations: { recordsPerId: 1, idsPerSourceRecord: 10 / 3000 },
-      small: { recordsPerDay: 10 },
+      small: { recordsPerDay: 10, rowsPerRecord: 1 },
     });
   });
 
@@ -135,6 +136,6 @@ describe('stepDensity', () => {
 
   it('treats a range under a day as one day', () => {
     const stats = [stat({ id: 'visits', resourceType: 'Appointment', byType: { Appointment: 40 } })];
-    expect(stepDensity(plan, stats, days(1))).toEqual({ visits: { recordsPerDay: 40 } });
+    expect(stepDensity(plan, stats, days(1))).toEqual({ visits: { recordsPerDay: 40, rowsPerRecord: 1 } });
   });
 });

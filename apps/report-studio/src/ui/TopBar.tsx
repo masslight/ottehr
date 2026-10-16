@@ -1,8 +1,10 @@
 import FolderOpenOutlinedIcon from '@mui/icons-material/FolderOpenOutlined';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import PlayArrowRoundedIcon from '@mui/icons-material/PlayArrowRounded';
 import SaveOutlinedIcon from '@mui/icons-material/SaveOutlined';
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
 import {
+  Alert,
   Box,
   Button,
   Chip,
@@ -10,6 +12,7 @@ import {
   InputBase,
   MenuItem,
   Select,
+  Snackbar,
   TextField,
   Tooltip,
   Typography,
@@ -20,21 +23,40 @@ import { fileNameFor, fileStore } from '../files/fileStore';
 import { runReport } from '../report/runner';
 import { DATE_RANGE_LABELS, DATE_RANGE_PRESETS, DateRangePreset } from '../report/types';
 import { useStudio } from '../state/store';
+import { openTestWindow } from './TestWindow';
 
-export async function saveReport(): Promise<void> {
+/**
+ * Save, or with `asNew` Save as… (always asks for a name and place). Resolves what to tell the user
+ * ("Saved x.report.json"), or undefined when they cancelled the save dialog.
+ */
+export async function saveReport(asNew = false): Promise<string | undefined> {
   const { report, file, setFile, setReport, addEvent } = useStudio.getState();
   const stamped = { ...report, updatedAt: new Date().toISOString() };
-  const fileName = file.fileName ?? fileNameFor(report.name);
+  let fileName: string | undefined = file.fileName ?? fileNameFor(report.name);
   try {
-    if (file.mode === 'folder') {
+    if (asNew) {
+      const saved = await fileStore.saveAs(fileName, stamped);
+      if (!saved) return undefined;
+      fileName = saved.fileName;
+      if (saved.inFolder)
+        setFile({ fileName, dirty: false, changedOnDisk: false, files: await fileStore.listReports() });
+      else setFile({ mode: 'file', fileName, dirty: false });
+    } else if (file.mode === 'folder') {
       await fileStore.writeReport(fileName, stamped);
       setFile({ fileName, dirty: false, changedOnDisk: false, files: await fileStore.listReports() });
-    } else if (!(await fileStore.saveToPickedFile(stamped))) {
-      fileStore.download(fileName, stamped);
+    } else if (file.fileName && file.fileName === fileStore.pickedFileName) {
+      // a new report (no file name yet) never overwrites the file the last one was saved to
+      await fileStore.saveToPickedFile(stamped);
       setFile({ fileName, dirty: false });
-    } else setFile({ fileName, dirty: false });
+    } else {
+      const saved = await fileStore.saveAs(fileName, stamped);
+      if (!saved) return undefined;
+      fileName = saved.fileName;
+      setFile({ mode: 'file', fileName, dirty: false });
+    }
     setReport({ updatedAt: stamped.updatedAt }, { dirty: false });
     addEvent('file', `Saved ${fileName}`);
+    return `Saved ${fileName}`;
   } catch (error) {
     addEvent('error', `Save failed: ${error instanceof Error ? error.message : String(error)}`);
     throw error;
@@ -50,6 +72,14 @@ export function TopBar(): React.ReactElement {
   const setSettingsOpen = useStudio((s) => s.setSettingsOpen);
   const setOpenDialog = useStudio((s) => s.setOpenDialog);
   const [saving, setSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<{ text: string; error?: boolean }>();
+  const save = (asNew: boolean): void => {
+    setSaving(true);
+    void saveReport(asNew)
+      .then((text) => text && setSaveMessage({ text }))
+      .catch((e) => setSaveMessage({ text: `Save failed: ${e instanceof Error ? e.message : String(e)}`, error: true }))
+      .finally(() => setSaving(false));
+  };
 
   const running = run.status === 'fetching' || run.status === 'rendering';
   const instance = settings.zambdaBaseUrl.replace(/^https?:\/\//, '').replace(/\/local$/, '');
@@ -144,15 +174,48 @@ export function TopBar(): React.ReactElement {
         color="inherit"
         startIcon={saving ? <CircularProgress size={14} color="inherit" /> : <SaveOutlinedIcon />}
         disabled={saving}
-        onClick={() => {
-          setSaving(true);
-          void saveReport()
-            .catch(() => undefined)
-            .finally(() => setSaving(false));
-        }}
+        onClick={() => save(false)}
       >
         Save
       </Button>
+      <Tooltip title="Save under another name or in another place; later saves go to the new file">
+        <span>
+          <Button color="inherit" disabled={saving} onClick={() => save(true)}>
+            Save as…
+          </Button>
+        </span>
+      </Tooltip>
+      <Snackbar
+        open={!!saveMessage}
+        autoHideDuration={saveMessage?.error ? null : 3000}
+        onClose={(_e, reason) => reason !== 'clickaway' && setSaveMessage(undefined)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert
+          severity={saveMessage?.error ? 'error' : 'success'}
+          variant="filled"
+          onClose={() => setSaveMessage(undefined)}
+        >
+          {saveMessage?.text}
+        </Alert>
+      </Snackbar>
+      <Tooltip title="Open this report in a new window and run it as a saved report would be opened, with no Claude">
+        <span>
+          <Button
+            color="inherit"
+            startIcon={<OpenInNewIcon />}
+            onClick={() =>
+              void openTestWindow().catch((e) =>
+                useStudio
+                  .getState()
+                  .addEvent('error', `Test report failed: ${e instanceof Error ? e.message : String(e)}`)
+              )
+            }
+          >
+            Test report
+          </Button>
+        </span>
+      </Tooltip>
       <Tooltip
         title={configured ? `Instance: ${instance} · ${settings.model}` : 'Set up the instance and Claude connection'}
       >

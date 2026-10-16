@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
-  ASYNC_BULK_TARGET,
+  BULK_JOB_ROWS,
   bulkWindowCount,
   estimatePlanRequests,
   FETCH_PLAN_LIMITS,
+  includeRowsEstimate,
   PAGED_WINDOW_TARGET,
   pagedWindowCount,
   planNeedsPatient,
@@ -38,6 +39,20 @@ describe('toElementName', () => {
 });
 
 describe('scopedStepValues', () => {
+  it('makes bare ids full references of the source type for a reference param without keepType', () => {
+    // DiagnosticReport?based-on=<bare id> is rejected: based-on can point to several types.
+    const orders = [
+      { resourceType: 'ServiceRequest', id: 's1' },
+      { resourceType: 'ServiceRequest', id: 's2' },
+    ];
+    expect(scopedStepValues(orders, { step: 's', path: 'id', param: 'based-on' })).toEqual([
+      'ServiceRequest/s1',
+      'ServiceRequest/s2',
+    ]);
+    // _id keeps bare ids
+    expect(scopedStepValues(orders, { step: 's', path: 'id', param: '_id' })).toEqual(['s1', 's2']);
+  });
+
   const visits = [
     { resourceType: 'Appointment', id: 'a1', participant: [{ actor: { reference: 'Patient/p1' } }] },
     { resourceType: 'Encounter', id: 'e1', participant: [{ individual: { reference: 'Practitioner/d1' } }] },
@@ -144,13 +159,24 @@ describe('planNeedsPatient and the run input', () => {
 });
 
 describe('bulk job sizing', () => {
-  it('cuts a date range into windows of about the target, one without a hint', () => {
-    // 161,116 observations over a year of synth: 441 a day → 9 jobs of ~18,000 instead of one cut at 30,000.
-    expect(bulkWindowCount(441.4, 365)).toBe(Math.ceil((441.4 * 365) / ASYNC_BULK_TARGET));
-    expect(bulkWindowCount(441.4, 365)).toBe(9);
-    expect(bulkWindowCount(441.4, 7)).toBe(1);
-    expect(bulkWindowCount(undefined, 365)).toBe(1);
+  it('cuts a date range into bulk jobs of about BULK_JOB_ROWS rows, includes counted; weekly when nothing is known', () => {
+    // 2,500 records a day for 30 days: 75,000 rows → 15 jobs of 5,000.
+    expect(bulkWindowCount(2500, 30)).toBe(Math.ceil((2500 * 30) / BULK_JOB_ROWS));
+    expect(bulkWindowCount(2500, 30)).toBe(15);
+    // a year of practice B visits trimmed (88/day, 32,285): 7 jobs; with patient + encounters (3.26 rows each): 22
+    expect(bulkWindowCount(88.45, 365)).toBe(7);
+    expect(bulkWindowCount(88.45, 365, 3.26)).toBe(22);
+    // nothing measured: a job a week
+    expect(bulkWindowCount(undefined, 365)).toBe(53);
+    expect(bulkWindowCount(undefined, 60)).toBe(9);
     expect(bulkWindowCount(0, 365)).toBe(1);
+  });
+
+  it('guesses rows per record from the includes before a run has measured them', () => {
+    expect(includeRowsEstimate([{ name: 'date' }, { name: '_tag' }])).toBe(1);
+    expect(includeRowsEstimate([{ name: '_include' }, { name: '_revinclude' }, { name: '_revinclude:iterate' }])).toBe(
+      4
+    );
   });
 
   it('cuts a paged step into windows of a few pages each', () => {
@@ -174,7 +200,7 @@ describe('bulk job sizing', () => {
   });
 
   it("fits as many ids in a scoped batch as the target allows, within bounds; today's size without a hint", () => {
-    expect(scopedBulkBatchSize(300)).toBe(66);
+    expect(scopedBulkBatchSize(300)).toBe(33);
     expect(scopedBulkBatchSize(6.5)).toBe(FETCH_PLAN_LIMITS.scopedBulkBatchMax);
     expect(scopedBulkBatchSize(50_000)).toBe(1);
     expect(scopedBulkBatchSize(undefined)).toBe(FETCH_PLAN_LIMITS.scopedBatchSize);
@@ -223,7 +249,7 @@ describe('estimatePlanRequests', () => {
     Object.fromEntries(estimates.map((e) => [e.id, e]));
 
   it('sizes a year at a busy practice as the runner would: bulk jobs for the visits, a paged batch per 250 ids after', () => {
-    // 32,279 visits a year: two bulk jobs. One Encounter per visit; a patient every 1.33 visits; ten locations in all.
+    // 32,279 visits a year: four bulk jobs. One Encounter per visit; a patient every 1.33 visits; ten locations in all.
     const estimates = byId(
       estimatePlanRequests(
         visitReport,
@@ -236,9 +262,10 @@ describe('estimatePlanRequests', () => {
         365
       )
     );
-    expect(estimates.visits.requests).toBe(3);
+    // jobs of ~BULK_JOB_ROWS rows: 32,279 / 5,000 → 7
+    expect(estimates.visits.requests).toBe(8);
     expect(estimates.visits.records).toBeCloseTo(32_279);
-    expect(estimates.visits.how).toBe('32,279 records in 2 bulk job(s)');
+    expect(estimates.visits.how).toBe('32,279 records in 7 bulk job(s)');
     expect(estimates.encounters).toMatchObject({ requests: 130, how: '32,279 ids in 130 paged batch(es) of 250' });
     expect(estimates.patients.requests).toBe(97);
     expect(estimates.locations.requests).toBe(1);
@@ -292,7 +319,7 @@ describe('estimatePlanRequests', () => {
       ],
     };
     const unsized = byId(estimatePlanRequests(plan, undefined, 365));
-    expect(unsized.visits).toEqual({ id: 'visits', requests: 2, how: 'one bulk job' });
+    expect(unsized.visits).toEqual({ id: 'visits', requests: 54, how: '53 bulk job(s)' });
     expect(unsized.encounters).toEqual({ id: 'encounters', how: 'fed by "visits", whose size is unknown' });
 
     const sized = byId(

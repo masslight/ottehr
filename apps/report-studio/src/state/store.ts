@@ -25,20 +25,44 @@ export interface Settings {
   muiLicenseKey: string;
   /** Send unredacted sample resources to Claude (synthetic data only). */
   allowUnredactedSamples: boolean;
+  /** Other instances the Test report window can run against (each a local zambda server for that project). */
+  environments: Environment[];
+}
+
+export interface Environment {
+  name: string;
+  zambdaBaseUrl: string;
+  accessToken: string;
+  /** Real patient data: the Test report window says so. */
+  production: boolean;
+  /** Client id of the project's "Report Studio" app: set, the Test report window signs in instead of using accessToken. */
+  loginClientId?: string;
+  /** Login domain and audience; empty = Oystehr's defaults (instance/login.ts). */
+  loginDomain?: string;
+  loginAudience?: string;
+  /** The project's login connection, when its EHR uses one (VITE_APP_OYSTEHR_CONNECTION_NAME). */
+  loginConnection?: string;
+  /** Desktop app: the EHR's own sign-in return address (e.g. https://ehr.example.com); with it, loginClientId is
+   *  the EHR app's client id and the app catches the code there. */
+  loginRedirectUri?: string;
 }
 
 const SETTINGS_KEY = 'reportStudio.settings.v1';
+
+// Inside the desktop app, Claude calls go through its built-in relay (desktop/main.cjs).
+const desktopRelay = (globalThis as { reportStudioDesktop?: { relayUrl: string } }).reportStudioDesktop?.relayUrl;
 
 export const DEFAULT_SETTINGS: Settings = {
   apiKey: '',
   model: DEFAULT_MODEL,
   effort: 'high',
   connection: 'relay',
-  relayUrl: 'http://127.0.0.1:8787',
+  relayUrl: desktopRelay ?? 'http://127.0.0.1:8787',
   zambdaBaseUrl: 'http://localhost:3005/local',
   accessToken: '',
   muiLicenseKey: '',
   allowUnredactedSamples: false,
+  environments: [],
 };
 
 function loadSettings(): Settings {
@@ -134,6 +158,9 @@ export type RightTab = 'report' | 'plan' | 'code' | 'data';
 interface StudioState {
   settings: Settings;
   setSettings: (patch: Partial<Settings>) => void;
+  /** Test report window only, never persisted: the instance zambdas go to instead of settings'. */
+  testTarget?: Environment;
+  setTestTarget: (target: Environment | undefined) => void;
 
   report: StudioReport;
   setReport: (patch: Partial<StudioReport>, opts?: { dirty?: boolean }) => void;
@@ -183,6 +210,7 @@ export const useStudio = create<StudioState>((set) => ({
       }
       return { settings };
     }),
+  setTestTarget: (testTarget) => set({ testTarget }),
 
   report: emptyReport(),
   setReport: (patch, opts) =>
@@ -196,7 +224,8 @@ export const useStudio = create<StudioState>((set) => ({
       run: { status: 'idle' },
       file: {
         ...state.file,
-        fileName: opts?.fileName ?? state.file.fileName,
+        // the report's own file; none for a new report, so its Save never writes over the previous report's file
+        fileName: opts ? opts.fileName : state.file.fileName,
         dirty: opts?.dirty ?? false,
         changedOnDisk: false,
       },

@@ -22,7 +22,7 @@ FETCH PLAN FORMAT (JSON; the "plan" field of update_report / run_fetch):
         { "name": "_include", "value": "Appointment:location" },
         { "name": "_revinclude", "value": "Encounter:appointment" }
       ],
-      "mode": "auto",                       // auto (one page, then one bulk job when there is more; a step the saved densities
+      "mode": "auto",                       // auto (counted first, then paged or bulk jobs of ~5,000 rows; a step the saved densities
                                             //   expect past ${FETCH_PLAN_LIMITS.autoBulkThreshold} goes straight to bulk) | normal (paged only) | bulk
       "elements": ["status", "start", "participant"]   // optional _elements trim; id/meta always come back
     },
@@ -45,6 +45,17 @@ FETCH PLAN FORMAT (JSON; the "plan" field of update_report / run_fetch):
   "elements" does NOT trim included resources. _revinclude:iterate is for small per-visit tables (Procedure, Condition,
   ServiceRequest, DiagnosticReport); for Observation, QuestionnaireResponse, Coverage use a scoped step with "elements".
 - "elements" takes FHIR base names for choice types: "value" not "valueQuantity", "effective" not "effectiveDateTime".
+- COUNT-ONLY steps: a step whose params include { "name": "_summary", "value": "count" } fetches no records and gives
+  the server's exact total in params.totals[stepId]. When the report shows only counts (visits per month, per
+  location, per status), use one count step per bucket — each with its own literal date or filter params, up to
+  ${FETCH_PLAN_LIMITS.maxSteps} steps a plan — instead of fetching the records: a year of monthly visit counts took 5.7 s
+  on a busy practice against 23.6 s to fetch its 32,285 visits. Not for QuestionnaireResponse (the server fails the count).
+- Clinical records of visits — Condition, MedicationRequest, Procedure, QuestionnaireResponse — have no reliable date of
+  their own in Ottehr data (recorded-date / authoredon / authored were empty or partial on a busy practice: 0, 0 and
+  2,922 of 9,316 found by date). Fetch them through the visits' encounters, as the data map says, never by their own date.
+- A date search on a Period that has no end (follow-up encounters, active coverages) matches everything started before
+  the range end: date=ge{{start}}&date=le{{end}} found 20,358 follow-ups for 60 days where 4,150 started in it. For
+  "started in the range" use date=sa{{start}}&date=le{{end}} (sa = starts after).
 - {{patientId}} in a param value is the run's patient parameter (the Patient box in the top bar, or update_report
   patientId) — for per-patient reports such as flowsheets, e.g. { "name": "patient", "value": "Patient/{{patientId}}" }.
   A plan that uses it cannot run until a patient id is set.
@@ -62,7 +73,7 @@ REPORT CODE CONTRACT (the "code" field): a JavaScript/JSX FUNCTION BODY. In scop
 - resources — { [stepId]: FhirResource[] } exactly as fetched (raw FHIR R4B JSON).
 - helpers — the data map's computed fields and lookups (HELPERS below).
 - params — { dateRange: { start, end } (ISO instants of the run), timeZone (the viewer's IANA zone),
-  patientId (the run's patient parameter, when one is set) }.
+  patientId (the run's patient parameter, when one is set), totals: { [stepId]: number } for count-only steps }.
 Rules:
 - Define a root component and END with:  return ReportRoot;   The runtime renders <ReportRoot /> with NO props —
   read resources/helpers/params from the enclosing scope. Prepare data at the top level with plain JS (no hooks
@@ -121,7 +132,13 @@ live panel (Report / Plan / Code / Data tabs and an inspector of timings and war
 
 HOW TO WORK:
 1. Understand the request. If it is ambiguous in a way that changes the data (e.g. which statuses count as a visit),
-   make a sensible call, state it in one line, and keep going — do not stall on questions.
+   make a sensible call, state it in one line, and keep going — do not stall on questions. STOP AND ASK instead (end
+   the turn with one short question, after checking the data so the question is concrete) only when:
+   a. no reasonable default exists and the choice changes the numbers a lot (e.g. half the visits are telemed and the
+      request does not say whether to include them);
+   b. the data the request needs does not exist and any substitute would mislead (e.g. a PHQ-9 trend with no PHQ-9);
+   c. the request contradicts itself or the data (e.g. "per provider" when the attending is blank on most visits).
+   Anything else (chart type, layout, grouping, labels) you decide and state.
 2. Write or change the plan with update_report, then run_report. Read the result: per-step errors, counts, bytes,
    timings, the rendered text, fieldUsage and warnings (mostly-blank fields). Use inspect_data / run_fetch to look at
    real field shapes and distinct values BEFORE hardcoding any status, code or category string.
@@ -137,9 +154,10 @@ HOW TO WORK:
      split it into one step per type, each with "elements" — on a year of visits this halved the fetch time;
    - sub-resources of visits (Procedure, Condition, ServiceRequest, DiagnosticReport, MedicationRequest,
      MedicationAdministration): _revinclude:iterate on the Appointment step vs a scoped step per type;
-   - a scoped step fed thousands of ids (scopedValues in the run result, or the "fetch it by date" warning): the
-     by-date search of its type (Encounter by appointment.date, Patient by _has:Appointment:patient:date) as a step
-     of its own — one bulk job instead of a request per 250 ids;
+   - a scoped step fed thousands of ids (scopedValues in the run result): keep it paged (mode "auto") — on a busy
+     practice a year of encounters by 130 paged id batches took 5.4 s against 14.3 s by appointment.date, patients
+     2.4 s against 15.3 s by _has; as bulk jobs (mode "bulk") the same id lists were slower — and compare the by-date
+     search of its type only as an alternative;
    - a small table (PaymentNotice, ChargeItemDefinition, Organization, Location, Schedule): fetched whole vs scoped;
    - "elements" trimming of single-type steps; mode "normal" vs "bulk" for a large plain search.
    Keep the fastest variant whose resources are equivalent (same ids per type; for a trimmed variant, the fields the

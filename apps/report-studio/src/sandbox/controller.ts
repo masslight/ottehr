@@ -25,7 +25,13 @@ export const SANDBOX_TIMEOUT_MS = 20000;
 export interface RenderRequest {
   code: string;
   resources: Record<string, FhirResource[]>;
-  params: { dateRange?: { start: string; end: string }; timeZone: string; patientId?: string };
+  params: {
+    dateRange?: { start: string; end: string };
+    timeZone: string;
+    patientId?: string;
+    /** Per count-only step (`_summary=count`), the server's total: such a step returns no resources. */
+    totals?: Record<string, number>;
+  };
   profile?: boolean;
   muiLicenseKey?: string;
 }

@@ -44,17 +44,49 @@ export function heavySearchWarnings(plan: FetchPlanInput): string[] {
   return warnings;
 }
 
-/** The by-date search that replaces a list of ids, for the types a visit report fetches that way. */
-const BY_DATE_SEARCH: Record<string, string> = {
-  Encounter: 'Encounter?appointment.date=ge{{start}}&appointment.date=le{{end}}',
-  Patient: 'Patient?_has:Appointment:patient:date=ge{{start}}&_has:Appointment:patient:date=le{{end}}',
+/**
+ * Searches that return the wrong set on Ottehr data, found on practice B (production, 2026-10-16, 60 days): a clinical
+ * record's own date is empty or partial (Condition recorded-date 0 found, MedicationRequest authoredon 0, Procedure date
+ * 57 of ~11,700, QuestionnaireResponse authored 2,922 of 9,316), and a follow-up Encounter's period has no end, so
+ * date=ge…&le… matches every follow-up since go-live (20,358 vs 4,150 started in the range).
+ */
+const UNRELIABLE_DATE: Record<string, string[]> = {
+  Condition: ['recorded-date', 'onset-date'],
+  MedicationRequest: ['authoredon'],
+  Procedure: ['date'],
+  QuestionnaireResponse: ['authored'],
 };
-const byDateSearch = (type: string): string =>
-  BY_DATE_SEARCH[type] ?? `${type} by a date parameter of its own over {{start}}..{{end}} (see the data map)`;
+export function dateFieldWarnings(plan: FetchPlanInput): string[] {
+  const warnings: string[] = [];
+  for (const step of plan.steps) {
+    const names = (step.params ?? []).map((p) => p.name);
+    const bad = (UNRELIABLE_DATE[step.resourceType] ?? []).filter((n) => names.includes(n));
+    if (bad.length) {
+      warnings.push(
+        `step "${step.id}" searches ${step.resourceType} by ${bad.join(
+          ', '
+        )}, which Ottehr leaves empty or partial — ` +
+          "it returns too few records. Fetch them through the visits' encounters instead (see the data map)."
+      );
+    }
+    const encounterDate = (step.params ?? []).filter((p) => p.name === 'date').map((p) => p.value);
+    const followUps = (step.params ?? []).some((p) => p.name === 'part-of:missing' && p.value === 'false');
+    if (step.resourceType === 'Encounter' && followUps && encounterDate.some((v) => v.startsWith('ge'))) {
+      warnings.push(
+        `step "${step.id}" searches follow-up Encounters with date=ge…: their period has no end, so that matches every ` +
+          'follow-up since go-live. For "started in the range" use date=sa{{start}}&date=le{{end}}.'
+      );
+    }
+  }
+  return warnings;
+}
 
 /**
  * Before a run: the requests the plan should take on this date range, from the densities its last run saved,
- * against the budget. Nothing to say without measurements (a first run) or under the budget.
+ * against the budget. Paged batches of a scoped id list are left out: on practice B (production, 2026-10-16) a year of
+ * encounters by 130 such batches took 5.4 s and patients by 82 took 2.4 s, against 14.3 s and 15.3 s for the same
+ * records searched by visit date (appointment.date / _has) — many cheap requests, not a cost to steer away from.
+ * Nothing to say without measurements (a first run) or under the budget.
  */
 export function requestBudgetWarnings(
   plan: FetchPlanInput,
@@ -63,7 +95,7 @@ export function requestBudgetWarnings(
 ): string[] {
   if (!hints) return [];
   const estimates = estimatePlanRequests(plan, hints, Math.max(1, rangeDays(dateRange)));
-  const counted = estimates.filter((e) => e.requests !== undefined);
+  const counted = estimates.filter((e) => e.requests !== undefined && !e.scopedPaged);
   const total = counted.reduce((sum, e) => sum + (e.requests ?? 0), 0);
   if (total <= REQUEST_BUDGET) return [];
   const steps = counted
@@ -73,23 +105,27 @@ export function requestBudgetWarnings(
   const unknown = estimates.filter((e) => e.requests === undefined).map((e) => `"${e.id}" (${e.how})`);
   return [
     `the plan should take ~${total} requests on this date range, over the budget of ${REQUEST_BUDGET}: ` +
-      `${steps.join('; ')}. Fetch a large step by date instead of by a list of ids — ${BY_DATE_SEARCH.Encounter}, ` +
-      `${BY_DATE_SEARCH.Patient} — a large date-bounded step is one bulk job.` +
+      `${steps.join('; ')}. Trim what each step returns (elements; no _revinclude:iterate Encounter:part-of — the ` +
+      'visit encounters already include the follow-ups), count instead of fetching when the report only counts ' +
+      '(_summary=count), and fetch clinical data through the visits.' +
       (unknown.length ? ` Not counted: ${unknown.join(', ')}.` : ''),
   ];
 }
 
-/** Ids a scoped step may be fed before the studio says to fetch it by date: four paged batches. */
+/** Ids a scoped step may be fed as bulk jobs before the studio suggests paged batches: four batches' worth. */
 export const ID_LIST_WARNING_VALUES = 4 * FETCH_PLAN_LIMITS.scopedBatchSize;
 
-/** After a run: a scoped step fed a long list of ids, with the by-date search that replaces it. */
+/**
+ * After a run: a scoped step that ran a long id list as bulk jobs. Paged batches did the same faster on practice B
+ * production (a year of vitals for 52,638 encounters: 28.1 s paged vs 39.7 s as bulk jobs of 1,000 ids).
+ */
 export function idListWarnings(stats: FetchStepStats[]): string[] {
   return stats
-    .filter((s) => !s.error && (s.scopedValues ?? 0) > ID_LIST_WARNING_VALUES)
+    .filter((s) => !s.error && s.mode === 'bulk' && (s.scopedValues ?? 0) > ID_LIST_WARNING_VALUES)
     .map(
       (s) =>
-        `step "${s.id}" fetches ${(s.byType[s.resourceType] ?? 0).toLocaleString('en-US')} ${s.resourceType} by a ` +
-        `list of ${(s.scopedValues ?? 0).toLocaleString('en-US')} ids (${s.requests} requests); fetch it by date ` +
-        `instead, e.g. ${byDateSearch(s.resourceType)}`
+        `step "${s.id}" fetched ${(s.byType[s.resourceType] ?? 0).toLocaleString('en-US')} ${s.resourceType} by a ` +
+        `list of ${(s.scopedValues ?? 0).toLocaleString('en-US')} ids as bulk jobs (${s.requests} requests); ` +
+        'paged batches are faster for a scoped step — set its mode to "auto"'
     );
 }

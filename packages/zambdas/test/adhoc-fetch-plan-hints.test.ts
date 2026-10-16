@@ -125,33 +125,34 @@ describe('the plan runner sizes bulk jobs from density hints', () => {
     data = [];
   });
 
-  it('runs a date-bounded step as one job without a hint', async () => {
+  it('runs a date-bounded step in windows of at most a week without a hint', async () => {
+    // ten days → two jobs (BULK_WINDOW_MAX_DAYS), tiling the range
     const { stats } = await runFetchPlan(fakeOystehr, datedPlan(), tenDays, undefined);
-    expect(bulkCalls).toHaveLength(1);
-    expect(windowBounds(bulkCalls[0])).toBe(`ge${tenDays.start} le${tenDays.end}`);
-    expect(stats[0]).toMatchObject({ mode: 'bulk', requests: 2 });
+    expect(bulkCalls).toHaveLength(2);
+    expect(windowBounds(bulkCalls[0]).startsWith(`ge${tenDays.start} `)).toBe(true);
+    expect(windowBounds(bulkCalls[1]).endsWith(` le${tenDays.end}`)).toBe(true);
+    expect(stats[0]).toMatchObject({ mode: 'bulk', requests: 3 });
   });
 
   it('cuts the range into as many windows as the density calls for, tiling it', async () => {
-    // 6,000 a day over ten days = 60,000, three jobs of 20,000.
+    // 6,000 a day over ten days = 60,000 rows, twelve jobs of 5,000 (BULK_JOB_ROWS).
     const { stats } = await runFetchPlan(fakeOystehr, datedPlan(), tenDays, undefined, {
       visits: { recordsPerDay: 6000 },
     });
-    expect(bulkCalls).toHaveLength(3);
+    expect(bulkCalls).toHaveLength(12);
     const bounds = bulkCalls.map((params) =>
       params.filter((p) => p.name === 'date').map((p) => Date.parse(p.value.slice(2)))
     );
     expect(bounds[0][0]).toBe(Date.parse(tenDays.start));
-    expect(bounds[2][1]).toBe(Date.parse(tenDays.end));
+    expect(bounds[11][1]).toBe(Date.parse(tenDays.end));
     // Each window starts a millisecond after the previous one ended.
-    expect(bounds[1][0]).toBe(bounds[0][1] + 1);
-    expect(bounds[2][0]).toBe(bounds[1][1] + 1);
-    expect(stats[0]).toMatchObject({ mode: 'bulk', requests: 4 });
+    for (let i = 1; i < bounds.length; i++) expect(bounds[i][0]).toBe(bounds[i - 1][1] + 1);
+    expect(stats[0]).toMatchObject({ mode: 'bulk', requests: 13 });
   });
 
   it('ignores a hint for another step', async () => {
     await runFetchPlan(fakeOystehr, datedPlan(), tenDays, undefined, { other: { recordsPerDay: 6000 } });
-    expect(bulkCalls).toHaveLength(1);
+    expect(bulkCalls).toHaveLength(2); // the weekly windows of a step with no hint
   });
 
   it('halves a window whose job fills the cap and still returns every resource once', async () => {
@@ -173,8 +174,8 @@ describe('the plan runner sizes bulk jobs from density hints', () => {
   it('sizes scoped batches from records per id, within the batch maximum', async () => {
     data = encounters(450);
     await runFetchPlan(fakeOystehr, scopedPlan, undefined, undefined, { vitals: { recordsPerId: 100 } });
-    // 20,000 / 100 = 200 ids a batch.
-    expect(batchSizes()).toEqual([200, 200, 50]);
+    // 10,000 / 100 = 100 ids a batch.
+    expect(batchSizes()).toEqual([100, 100, 100, 100, 50]);
 
     jobs.clear();
     bulkCalls.length = 0;

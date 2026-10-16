@@ -17,7 +17,203 @@ import {
 } from '@mui/material';
 import React, { useState } from 'react';
 import { Effort, EFFORTS, MODEL_IDS, MODEL_LABELS, ModelId } from '../llm/models';
-import { Settings, useStudio } from '../state/store';
+import {
+  canSignIn,
+  desktop,
+  servedFromStudioOrigin,
+  signIn,
+  signOut,
+  STUDIO_ORIGIN,
+  storedToken,
+} from '../instance/login';
+import { Environment, Settings, useStudio } from '../state/store';
+
+async function checkInstance(zambdaBaseUrl: string, accessToken: string): Promise<string> {
+  try {
+    const res = await fetch(`${zambdaBaseUrl.replace(/\/+$/, '')}/zambda/list-adhoc-reports/execute`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${accessToken}` },
+      body: '{}',
+    });
+    const body = (await res.json().catch(() => ({}))) as { output?: { reports?: unknown[]; message?: string } };
+    if (res.ok) return `connected — ${body.output?.reports?.length ?? 0} saved report(s) on the instance`;
+    return `answered ${res.status}: ${body.output?.message ?? 'check the token'}`;
+  } catch {
+    return 'not reachable — is the zambda server running on that port?';
+  }
+}
+
+const NEW_ENVIRONMENT: Environment = {
+  name: '',
+  zambdaBaseUrl: 'http://localhost:3006/local',
+  accessToken: '',
+  production: false,
+};
+
+function EnvironmentsSection(): React.ReactElement {
+  const environments = useStudio((s) => s.settings.environments);
+  const setSettings = useStudio((s) => s.setSettings);
+  const [status, setStatus] = useState<Record<number, string>>({});
+  const update = (index: number, patch: Partial<Environment>): void =>
+    setSettings({ environments: environments.map((env, i) => (i === index ? { ...env, ...patch } : env)) });
+  const say = (i: number, message: string): void => setStatus((s) => ({ ...s, [i]: message }));
+
+  const test = async (i: number, env: Environment): Promise<void> => {
+    const token = canSignIn(env) ? storedToken(env) : env.accessToken;
+    if (!token) return say(i, canSignIn(env) ? 'not signed in — press Sign in' : 'no access token');
+    say(i, 'checking…');
+    say(i, await checkInstance(env.zambdaBaseUrl, token));
+  };
+
+  return (
+    <Box>
+      <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 0.5 }}>
+        Test environments
+      </Typography>
+      <Typography variant="caption" color="text.secondary" component="div" sx={{ mb: 1 }}>
+        Instances the Test report window can run against; the builder and Claude always use the instance above. Each is
+        a local zambda server from this worktree started for that project:{' '}
+        <code>
+          sh ~/development/documents/report-studio/start-env-server.sh &lt;project&gt; &lt;env&gt; &lt;port&gt;
+        </code>
+        . With the project's Report Studio client id set, you sign in with your own login in a popup (needs the studio
+        opened from {STUDIO_ORIGIN}); otherwise paste an access token. Tokens stay in this browser.
+      </Typography>
+      {!servedFromStudioOrigin() && (
+        <Alert severity="info" sx={{ py: 0, mb: 1 }}>
+          Sign-in needs the studio at {STUDIO_ORIGIN}:{' '}
+          <code>node ~/development/documents/report-studio/serve-studio.mjs</code>
+        </Alert>
+      )}
+      <Stack spacing={1.5}>
+        {environments.map((env, i) => (
+          <Stack key={i} spacing={1} sx={{ p: 1.5, border: 1, borderColor: 'divider', borderRadius: 1 }}>
+            <Stack direction="row" spacing={1}>
+              <TextField
+                label="Name"
+                size="small"
+                value={env.name}
+                onChange={(e) => update(i, { name: e.target.value })}
+                sx={{ width: 170 }}
+              />
+              <TextField
+                label="Zambda base URL"
+                size="small"
+                value={env.zambdaBaseUrl}
+                onChange={(e) => update(i, { zambdaBaseUrl: e.target.value })}
+                sx={{ flex: 1 }}
+              />
+            </Stack>
+            <Stack direction="row" spacing={1}>
+              <TextField
+                label={desktop() ? 'EHR client id' : 'Report Studio client id'}
+                size="small"
+                value={env.loginClientId ?? ''}
+                onChange={(e) => update(i, { loginClientId: e.target.value.trim() || undefined })}
+                helperText={
+                  desktop()
+                    ? "The EHR's VITE_APP_OYSTEHR_APPLICATION_CLIENT_ID (not a secret)"
+                    : "The project's Report Studio app (not a secret)"
+                }
+                sx={{ flex: 1 }}
+              />
+              <TextField
+                label="Login connection (optional)"
+                size="small"
+                value={env.loginConnection ?? ''}
+                onChange={(e) => update(i, { loginConnection: e.target.value.trim() || undefined })}
+                helperText="Only if the EHR uses one"
+                sx={{ width: 190 }}
+              />
+            </Stack>
+            {desktop() && (
+              <TextField
+                label="EHR address"
+                size="small"
+                value={env.loginRedirectUri ?? ''}
+                onChange={(e) => update(i, { loginRedirectUri: e.target.value.trim() || undefined })}
+                helperText="Where the EHR's login returns, e.g. https://ehr.example.com (VITE_APP_OYSTEHR_APPLICATION_REDIRECT_URL)"
+                fullWidth
+              />
+            )}
+            {!canSignIn(env) && (
+              <TextField
+                label="Access token"
+                type="password"
+                size="small"
+                value={env.accessToken}
+                onChange={(e) => update(i, { accessToken: e.target.value })}
+                fullWidth
+              />
+            )}
+            <Stack direction="row" spacing={1} alignItems="center">
+              <FormControlLabel
+                control={
+                  <Switch checked={env.production} onChange={(e) => update(i, { production: e.target.checked })} />
+                }
+                label={<Typography variant="body2">Production (real patient data)</Typography>}
+              />
+              <Box sx={{ flex: 1 }} />
+              {canSignIn(env) &&
+                (storedToken(env) ? (
+                  <Button
+                    size="small"
+                    onClick={() => {
+                      signOut(env);
+                      say(i, 'signed out');
+                    }}
+                  >
+                    Sign out
+                  </Button>
+                ) : (
+                  <Button
+                    size="small"
+                    variant="contained"
+                    disabled={!servedFromStudioOrigin()}
+                    onClick={() =>
+                      void signIn(env).then(
+                        () => say(i, 'signed in'),
+                        (e: unknown) => say(i, e instanceof Error ? e.message : String(e))
+                      )
+                    }
+                  >
+                    Sign in
+                  </Button>
+                ))}
+              <Button size="small" variant="outlined" onClick={() => void test(i, env)}>
+                Test
+              </Button>
+              <Button
+                size="small"
+                color="error"
+                onClick={() => {
+                  setStatus({});
+                  signOut(env);
+                  setSettings({ environments: environments.filter((_, j) => j !== i) });
+                }}
+              >
+                Remove
+              </Button>
+            </Stack>
+            {status[i] && <Typography variant="caption">{status[i]}</Typography>}
+          </Stack>
+        ))}
+        <Box>
+          <Button
+            size="small"
+            onClick={() =>
+              setSettings({
+                environments: [...environments, { ...NEW_ENVIRONMENT, name: `environment ${environments.length + 1}` }],
+              })
+            }
+          >
+            Add environment
+          </Button>
+        </Box>
+      </Stack>
+    </Box>
+  );
+}
 
 export function SettingsDialog(): React.ReactElement {
   const open = useStudio((s) => s.settingsOpen);
@@ -61,18 +257,7 @@ export function SettingsDialog(): React.ReactElement {
 
   const testInstance = async (): Promise<void> => {
     setInstanceStatus('checking…');
-    try {
-      const res = await fetch(`${settings.zambdaBaseUrl.replace(/\/+$/, '')}/zambda/list-adhoc-reports/execute`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json', authorization: `Bearer ${settings.accessToken}` },
-        body: '{}',
-      });
-      const body = (await res.json().catch(() => ({}))) as { output?: { reports?: unknown[]; message?: string } };
-      if (res.ok) setInstanceStatus(`connected — ${body.output?.reports?.length ?? 0} saved report(s) on the instance`);
-      else setInstanceStatus(`answered ${res.status}: ${body.output?.message ?? 'check the token'}`);
-    } catch {
-      setInstanceStatus('not reachable — is the zambda server running on that port?');
-    }
+    setInstanceStatus(await checkInstance(settings.zambdaBaseUrl, settings.accessToken));
   };
 
   return (
@@ -108,6 +293,8 @@ export function SettingsDialog(): React.ReactElement {
               </Stack>
             </Stack>
           </Box>
+
+          <EnvironmentsSection />
 
           <Box>
             <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>

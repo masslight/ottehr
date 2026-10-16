@@ -18,6 +18,7 @@ declare global {
   interface Window {
     showDirectoryPicker?: (opts?: { id?: string; mode?: 'read' | 'readwrite' }) => Promise<FileSystemDirectoryHandle>;
     showOpenFilePicker?: (opts?: unknown) => Promise<FileSystemFileHandle[]>;
+    showSaveFilePicker?: (opts?: unknown) => Promise<FileSystemFileHandle>;
   }
 }
 
@@ -65,6 +66,11 @@ export class FileStore {
 
   get folderName(): string | undefined {
     return this.folder?.name;
+  }
+
+  /** The file opened or saved-as outside a folder, which Save writes in place. */
+  get pickedFileName(): string | undefined {
+    return this.fileHandle?.name;
   }
 
   /** Re-open the folder the user picked last time (permission may need a click to re-grant). */
@@ -176,6 +182,33 @@ export class FileStore {
     return true;
   }
 
+  /**
+   * Ask where to save (first save outside a folder, or Save as…) and keep the file so later saves write it in place.
+   * Opens in the open folder, else beside the current file. Resolves the chosen name and whether it is directly in the
+   * open folder, or undefined when the user cancels. Browsers without the picker download.
+   */
+  async saveAs(fileName: string, report: StudioReport): Promise<{ fileName: string; inFolder: boolean } | undefined> {
+    if (!window.showSaveFilePicker) {
+      this.download(fileName, report);
+      return { fileName, inFolder: false };
+    }
+    const startIn = this.folder ?? this.fileHandle;
+    try {
+      this.fileHandle = await window.showSaveFilePicker({
+        suggestedName: fileName,
+        ...(startIn ? { startIn } : {}),
+        types: [{ description: 'Report Studio report', accept: { 'application/json': ['.json'] } }],
+      });
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') return undefined;
+      throw error;
+    }
+    const inFolder = (await this.folder?.resolve(this.fileHandle))?.length === 1;
+    if (inFolder) await this.writeReport(this.fileHandle.name, report);
+    else await this.saveToPickedFile(report);
+    return { fileName: this.fileHandle.name, inFolder };
+  }
+
   download(fileName: string, report: StudioReport): void {
     const url = URL.createObjectURL(new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' }));
     const a = document.createElement('a');
@@ -184,7 +217,7 @@ export class FileStore {
     document.body.appendChild(a);
     a.click();
     a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 0);
+    setTimeout(() => URL.revokeObjectURL(url), 60_000); // a save dialog may still be reading it
   }
 }
 

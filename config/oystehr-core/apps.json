@@ -31,6 +31,16 @@
       "allowedCORSOriginsUrls": ["#{var/PROVIDER_ALLOWED_URL_1}"],
       "shouldSendInviteEmail": true,
       "logoUri": "#{var/PROVIDER_APP_LOGO_URI}"
+    },
+    "REPORT_STUDIO": {
+      "name": "Report Studio",
+      "description": "Sign-in for Report Studio, running locally on a developer machine",
+      "allowedCallbackUrls": ["http://localhost:5199/callback"],
+      "allowedLogoutUrls": ["http://localhost:5199"],
+      "allowedWebOriginsUrls": ["http://localhost:5199"],
+      "allowedCORSOriginsUrls": ["http://localhost:5199"],
+      "shouldSendInviteEmail": false,
+      "logoUri": "#{var/PROVIDER_APP_LOGO_URI}"
     }
   }
 }

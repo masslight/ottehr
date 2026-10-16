@@ -1,0 +1,48 @@
+{
+  "name": "report-studio-desktop",
+  "productName": "Report Studio",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Report Studio as a desktop app: practice sign-in and Claude calls the browser page can't make.",
+  "main": "main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "dist": "node pack.mjs"
+  },
+  "build": {
+    "appId": "com.masslight.report-studio",
+    "files": [
+      "main.cjs",
+      "preload.cjs",
+      "studio.html"
+    ],
+    "mac": {
+      "target": [
+        {
+          "target": "zip",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ],
+      "identity": "-",
+      "category": "public.app-category.developer-tools",
+      "hardenedRuntime": false
+    },
+    "win": {
+      "target": [
+        {
+          "target": "zip",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    }
+  },
+  "devDependencies": {
+    "electron": "44.7.2",
+    "electron-builder": "26.15.3"
+  }
+}

@@ -151,9 +151,9 @@ export const ASYNC_BULK_MAX = 30_000;
 export class AsyncBulkCapError extends Error {}
 
 // TEMPORARY WORKAROUND: the async-bulk output drops the Bundle's next link and total, so a job that returns exactly
-// its `_count` of primary resources is the only sign the server cut the result. Reported to Oystehr; a next link on
-// bulk results is expected. When it arrives, replace this check (the one place the cap is detected — the split in
-// searchSplittingOnCap only reacts to the error it throws) with following the next link.
+// its `_count` of primary resources is the only sign the server cut the result. Oystehr is adding a next link to
+// bulk results (OYST-3505, in progress 2026-10-15). When it ships, replace this check (the one place the cap is
+// detected — the split in searchSplittingOnCap only reacts to the error it throws) with following the next link.
 function assertBulkJobUnderCap(label: string, resourceType: string, primary: number, cap: number): void {
   if (primary >= cap) {
     throw new AsyncBulkCapError(`${label}: ${primary} ${resourceType} matched, the most one bulk job returns`);
@@ -175,7 +175,9 @@ export async function searchAsyncBulk<T extends FhirResource>(
     jobId = handle.jobId;
     const status = await oystehr.fhir.waitForAsyncJob<T>(jobId, jobWait());
     if (status.status !== 200 || !('mode' in status) || status.mode !== 'bulk') {
-      throw new Error(`job answered status ${status.status}, mode ${'mode' in status ? status.mode : 'none'}`);
+      throw new AsyncBulkJobFailedError(
+        `job answered status ${status.status}, mode ${'mode' in status ? status.mode : 'none'}`
+      );
     }
 
     const files = await Promise.all(
@@ -212,7 +214,7 @@ export async function searchAsyncBulk<T extends FhirResource>(
           error instanceof Error ? error.message : String(error)
         }`
       ),
-      { code: (error as { code?: unknown })?.code }
+      { code: (error as { code?: unknown })?.code, jobFailed: error instanceof AsyncBulkJobFailedError }
     );
   }
 }
@@ -223,8 +225,19 @@ export async function searchAsyncBulk<T extends FhirResource>(
  */
 export const isSearchTooHeavyError = (error: unknown): boolean => {
   const code = Number((error as { code?: unknown })?.code);
-  return code === 504 || code === 413 || isResponseSizeExceededError(error);
+  return (
+    code === 504 ||
+    code === 413 ||
+    isResponseSizeExceededError(error) ||
+    !!(error as { jobFailed?: boolean })?.jobFailed
+  );
 };
+
+// TEMPORARY WORKAROUND: Oystehr cuts every database query off at 30 s (postgres role zapehr_api, statement_timeout) and
+// a bulk job whose query runs over answers only "status 400, Internal Error", indistinguishable from a bad search. Bad
+// searches are caught before the job by the one-row probe (probeSearch), so a failed job is taken as too heavy and
+// halved like a 504. Remove when Oystehr reports the timeout as a timeout (requested 2026-10-15).
+class AsyncBulkJobFailedError extends Error {}
 
 /** The most times a unit is halved after a too-heavy failure (the bulk cap keeps its own floor: one day, one id). */
 export const MAX_ERROR_SPLITS = 3;
@@ -314,9 +327,14 @@ const REPORT_APPOINTMENT_STATUSES = 'proposed,pending,booked,arrived,fulfilled,c
 
 export const REPORT_ATTENDED_APPOINTMENT_STATUSES = 'proposed,pending,booked,arrived,fulfilled,checked-in,waitlist';
 
-// currently async bulk removes the limit on how much the server may SEND, not the limit on the query it has to RUN:
-const REPORT_WINDOW_DAYS = 3;
-export const REPORT_WINDOW_CONCURRENCY = 4;
+// currently async bulk removes the limit on how much the server may SEND, not the limit on the query it has to RUN
+// (Oystehr cuts any query off at 30 s). Measured on practice B (production) 2026-10-16, 60 days (5,449 visits with their
+// patients, locations and 9,501 encounters; then 213,592 Observations of those encounters), runs alternated so cache
+// warmth favours neither: 3-day windows / 4 at a time / batches of 100 took 17.2–17.5 s + 78.7–80.9 s; 15-day windows /
+// 8 at a time / batches of 250 took 7.4–9.6 s + 24.6–27.3 s — the same records. A 15-day window of that visit search is
+// ~5,000 rows, a job well inside the limit.
+const REPORT_WINDOW_DAYS = 15;
+export const REPORT_WINDOW_CONCURRENCY = 8;
 
 /** The range cut into windows of `windowMs` (the last one shorter), keeping the caller's own strings at its two ends; the range itself when it needs no cut. */
 export function dateWindows(dateRange: DateRange, windowMs = REPORT_WINDOW_DAYS * DAY_MS): DateRange[] {
@@ -411,8 +429,9 @@ async function fetchAttendingPractitioners<T extends FhirResource>(oystehr: Oyst
   ]);
 }
 
-const SCOPED_BATCH_SIZE = 100;
-const SCOPED_BATCH_CONCURRENCY = 4;
+// See REPORT_WINDOW_DAYS: 250 encounters' Observations is ~5,500 per job on a busy practice.
+const SCOPED_BATCH_SIZE = 250;
+const SCOPED_BATCH_CONCURRENCY = 8;
 
 export async function fetchScopedResources<T extends FhirResource>(
   oystehr: Oystehr,

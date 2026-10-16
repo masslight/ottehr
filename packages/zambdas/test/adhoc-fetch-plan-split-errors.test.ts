@@ -214,4 +214,27 @@ describe('isSearchTooHeavyError', () => {
     expect(error.message).toContain('Gateway timeout');
     expect(isSearchTooHeavyError(error)).toBe(true);
   });
+
+  it("takes a bulk job that answers 400 (Oystehr's 30 s query limit) as too heavy, but not a 400 before the job", async () => {
+    const timedOut = {
+      fhir: {
+        search: async () => ({ jobId: 'job-1' }),
+        waitForAsyncJob: async () => ({ status: 400 }),
+        getAsyncJob: async () => ({}),
+      },
+    } as unknown as Oystehr;
+    const error = await searchAsyncBulk(timedOut, 'Observation', []).catch((e) => e);
+    expect(error.message).toContain('job answered status 400');
+    expect(isSearchTooHeavyError(error)).toBe(true);
+
+    const badSearch = {
+      fhir: {
+        search: async () => {
+          throw serverError(400, 'Invalid search parameter');
+        },
+        getAsyncJob: async () => ({}),
+      },
+    } as unknown as Oystehr;
+    expect(isSearchTooHeavyError(await searchAsyncBulk(badSearch, 'Observation', []).catch((e) => e))).toBe(false);
+  });
 });
