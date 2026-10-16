@@ -15,6 +15,7 @@ import { isFollowupEncounter } from 'utils/lib/fhir/encounter';
 import { getCoding, getExtension } from 'utils/lib/fhir/helpers';
 import { safelyCaptureException, safelyCaptureMessage } from 'utils/lib/frontend/sentry';
 import { chooseJson } from 'utils/lib/helpers/oystehrApi';
+import { DME_TASK } from 'utils/lib/types/api/dme.types';
 import { PROVIDER_NOTIFICATION_TAG_SYSTEM } from 'utils/lib/types/api/practitioner.types';
 import { IN_HOUSE_LAB_TASK } from 'utils/lib/types/data/in-house/in-house.constants';
 import { LAB_ORDER_TASK } from 'utils/lib/types/data/labs/labs.constants';
@@ -29,7 +30,7 @@ import {
   TaskAlertCode,
 } from 'utils/lib/types/data/tasks/types';
 import { inboundFaxMatchPath } from '../../../inbound-fax/routes';
-import { getRadiologyOrderEditUrl } from '../routing/helpers';
+import { getDmeOrderDetailsUrl, getRadiologyOrderEditUrl } from '../routing/helpers';
 
 export const GET_TASKS_KEY = 'get-tasks';
 export const OPEN_DOSESPOT = 'Open DoseSpot';
@@ -668,6 +669,26 @@ function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encounter>):
 
     if (code === RADIOLOGY_TASK.code.reviewFinalResultTask) {
       title = `Review Radiology Final Results ${studyTypeForTitle} for ${patientName}`;
+    }
+  }
+  if (category === DME_TASK.category) {
+    const code = getCoding(task.code, DME_TASK.system)?.code ?? '';
+    const patientName = getInputString(DME_TASK.input.patientName, task);
+    const itemName = getInputString(DME_TASK.input.itemName, task);
+    const appointmentId = getInputString(DME_TASK.input.appointmentId, task) ?? '';
+    const orderId =
+      task.basedOn
+        ?.find((ref) => ref.reference?.startsWith('DeviceRequest/'))
+        ?.reference?.replace('DeviceRequest/', '') ?? '';
+    action = { name: GO_TO_ORDER, link: addEncounterIdToLink(getDmeOrderDetailsUrl(appointmentId, orderId)) };
+
+    const orderDate = getInputString(DME_TASK.input.orderDate, task);
+    const providerName = getInputString(DME_TASK.input.providerName, task);
+    const locationDisplay = task.location?.display ? ` | ${task.location?.display}` : '';
+    subtitle = `Ordered by ${providerName} on ${orderDate ? formatDate(orderDate) : ''}${locationDisplay}`;
+
+    if (code === DME_TASK.code.dispense) {
+      title = `Dispense ${itemName} for ${patientName}`;
     }
   }
   if (category === ERX_TASK.category) {

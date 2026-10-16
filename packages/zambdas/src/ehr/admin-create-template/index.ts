@@ -44,6 +44,7 @@ import {
 import { v4 as uuidV4 } from 'uuid';
 import { z } from 'zod';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { isDmeBillingProcedure } from '../../shared/dme';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { topLevelCatch } from '../../shared/lambda';
 import { wrapHandler } from '../../shared/sentry';
@@ -252,6 +253,8 @@ const performEffect = async (
     if (resource.resourceType === 'Encounter') continue;
     // we won't grab any cpt codes that were added to the assessment because of an administered in house med
     if (isInHouseMedicationCptLine(resource, inHouseMedicationOrderReferences)) continue;
+    // DME billing lines belong to that patient's order, which a template must not reference
+    if (resource.resourceType === 'Procedure' && isDmeBillingProcedure(resource)) continue;
 
     const anonymizedResource: any = { ...resource };
     delete anonymizedResource.meta?.versionId;
