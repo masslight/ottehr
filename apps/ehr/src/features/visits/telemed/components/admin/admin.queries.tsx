@@ -15,6 +15,7 @@ import {
   bulkUpdateInsuranceStatus,
   createEmCode,
   deleteEmCode,
+  getDmeQuickPicks,
   getImmunizationQuickPicks,
   getInHouseMedicationQuickPicks,
   getLabelPrintingConfig,
@@ -25,6 +26,7 @@ import {
   practiceManagedQuestionnaireGet,
   practiceManagedQuestionnaireUpdate,
   removeQuickPick,
+  updateDmeQuickPick,
   updateEmCode,
   updateImmunizationQuickPick,
   updateInHouseMedicationQuickPick,
@@ -42,6 +44,7 @@ import {
   UpdateEmCodeInput,
 } from 'utils/lib/types/api/config/em-codes';
 import {
+  DmeQuickPickData,
   ImmunizationQuickPickData,
   InHouseMedicationQuickPickData,
   ProcedureQuickPickData,
@@ -288,6 +291,13 @@ export const useRenameProcedureQuickPickMutation = makeRenameQuickPickMutation<P
   updateProcedureQuickPick
 );
 export const useRemoveProcedureQuickPickMutation = makeRemoveQuickPickMutation('procedure-quick-picks');
+
+export const useDmeQuickPicksQuery = makeQuickPicksQuery('dme-quick-picks', getDmeQuickPicks);
+export const useRenameDmeQuickPickMutation = makeRenameQuickPickMutation<DmeQuickPickData>(
+  'dme-quick-picks',
+  updateDmeQuickPick
+);
+export const useRemoveDmeQuickPickMutation = makeRemoveQuickPickMutation('dme-quick-picks');
 
 export const useRadiologyQuickPicksQuery = makeQuickPicksQuery('radiology-quick-picks', getRadiologyQuickPicks);
 export const useRenameRadiologyQuickPickMutation = makeRenameQuickPickMutation<RadiologyQuickPickData>(

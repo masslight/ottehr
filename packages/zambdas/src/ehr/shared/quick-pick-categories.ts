@@ -1,5 +1,6 @@
 import {
   AllergyQuickPickData,
+  DmeQuickPickData,
   ImmunizationQuickPickData,
   InHouseMedicationQuickPickData,
   InsuranceQuickPickData,
@@ -20,6 +21,17 @@ export const PROCEDURE_QUICK_PICK_CATEGORY: QuickPickCategory<ProcedureQuickPick
     id,
     name: title,
     ...(config as Omit<ProcedureQuickPickData, 'id' | 'name'>),
+  }),
+};
+
+export const DME_QUICK_PICK_CATEGORY: QuickPickCategory<DmeQuickPickData> = {
+  tagCode: 'dme-quick-pick',
+  displayNameKey: 'name',
+  getDisplayName: (data) => data.name,
+  fromParsed: (id, title, config) => ({
+    id,
+    name: title,
+    ...(config as Omit<DmeQuickPickData, 'id' | 'name'>),
   }),
 };
 

@@ -1,4 +1,5 @@
 import type { StructuredFacts } from '../../procedure-coding/structured-fields';
+import type { DmeDurationUnit, DmeLaterality, DmeModifier, DmeThirdParty } from './dme.types';
 // ── Generic CRUD types for all quick pick categories ──
 
 export interface QuickPickCreateInput<T> {
@@ -82,6 +83,30 @@ export type CreateProcedureQuickPickResponse = QuickPickCreateResponse<Procedure
 export type UpdateProcedureQuickPickInput = QuickPickUpdateInput<ProcedureQuickPickData>;
 export type UpdateProcedureQuickPickResponse = QuickPickUpdateResponse<ProcedureQuickPickData>;
 export type GetProcedureQuickPicksResponse = QuickPickListResponse<ProcedureQuickPickData>;
+
+// ── DME Quick Picks ──
+
+export interface DmeQuickPickData {
+  id?: string;
+  name: string;
+  /** DME menu item the pick orders; `itemName` is kept so a pick survives the item being renamed or removed */
+  menuItemId?: string;
+  itemName?: string;
+  quantity?: number;
+  billingCodes?: { code: string; display: string }[];
+  laterality?: DmeLaterality;
+  modifier?: DmeModifier;
+  duration?: { value: number; unit: DmeDurationUnit };
+  instructions?: string;
+  external?: boolean;
+  thirdParty?: DmeThirdParty;
+}
+
+export type CreateDmeQuickPickInput = QuickPickCreateInput<DmeQuickPickData>;
+export type CreateDmeQuickPickResponse = QuickPickCreateResponse<DmeQuickPickData>;
+export type UpdateDmeQuickPickInput = QuickPickUpdateInput<DmeQuickPickData>;
+export type UpdateDmeQuickPickResponse = QuickPickUpdateResponse<DmeQuickPickData>;
+export type GetDmeQuickPicksResponse = QuickPickListResponse<DmeQuickPickData>;
 
 // ── Allergy Quick Picks ──
 
