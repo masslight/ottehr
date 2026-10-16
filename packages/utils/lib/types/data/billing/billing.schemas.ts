@@ -79,6 +79,11 @@ export const GetEraDetailInputSchema = z.object({
   eraId: nonEmptyString,
 });
 
+export const VoidEraInputSchema = z.object({
+  eraId: nonEmptyString,
+  expectedVersionId: nonEmptyString,
+});
+
 export const SearchErasInputSchema = z.object({
   // ERA-level filters (work for matched + unmatched)
   checkNumber: nonEmptyString.optional(),
@@ -1077,6 +1082,7 @@ export type AddClaimNoteInput = z.output<typeof AddClaimNoteInputSchema>;
 export type ExportClaimX12Input = z.output<typeof ExportClaimX12InputSchema>;
 export type GetClaimCms1500Input = z.output<typeof GetClaimCms1500InputSchema>;
 export type GetEraDetailInput = z.output<typeof GetEraDetailInputSchema>;
+export type VoidEraInput = z.output<typeof VoidEraInputSchema>;
 export type SearchErasInput = z.output<typeof SearchErasInputSchema>;
 export type SaveBillingTagInput = z.output<typeof SaveBillingTagInputSchema>;
 export type DeleteBillingTagInput = z.output<typeof DeleteBillingTagInputSchema>;

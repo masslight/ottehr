@@ -307,6 +307,118 @@ describe('ManualRemit', () => {
     expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
   });
 
+  it.each(['unchanged', 'header edited elsewhere', 'claim edited elsewhere'])(
+    'saves after unmatching without losing local edits: %s',
+    async (change) => {
+      const initial = savedRemit();
+      initial.manualEntry!.claims[0].matchedClaimId = 'claim-1';
+      const refreshed = savedRemit();
+      refreshed.versionId = '4';
+      if (change === 'header edited elsewhere') refreshed.manualEntry!.header.notes = 'Other biller';
+      if (change === 'claim edited elsewhere') refreshed.manualEntry!.claims[0].serviceLines[0].paidCents = 7000;
+      api.getBillingEraDetail.mockResolvedValueOnce(initial).mockResolvedValue(refreshed);
+      api.saveBillingManualEra.mockResolvedValue({ eraId: 'era-1', versionId: '5', claims: [] });
+      renderAt('/eras/era-1/edit');
+      await screen.findByText('Joe Schmoe');
+      type('Notes', 'My unsaved note');
+      fireEvent.click(screen.getByRole('button', { name: 'Expand claim' }));
+      type('Ins Paid', '60');
+      fireEvent.click(screen.getByRole('button', { name: 'Claim actions' }));
+      fireEvent.click(screen.getByText('Unmatch'));
+      fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Unmatch' }));
+      await waitFor(() => expect(screen.getByText('Unmatched')).toBeInTheDocument());
+      expect(screen.getByLabelText('Notes')).toHaveValue('My unsaved note');
+      expect(screen.getByLabelText('Ins Paid')).toHaveValue('60');
+      fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+      await waitFor(() => expect(api.saveBillingManualEra).toHaveBeenCalledTimes(1));
+      expect(api.saveBillingManualEra.mock.calls[0][1]).toMatchObject({
+        expectedVersionId: change === 'unchanged' ? '4' : '3',
+        header: { notes: 'My unsaved note' },
+        claims: [{ claimResponseId: 'cr-1', serviceLines: [{ paidCents: 6000 }] }],
+      });
+    }
+  );
+
+  it('accepts a later ERA version after removing a saved claim', async () => {
+    const initial = savedRemit();
+    initial.manualEntry!.claims.push({
+      ...initial.manualEntry!.claims[0],
+      claimResponseId: 'cr-2',
+      matchedClaimId: 'claim-2',
+    });
+    const afterRemoval = savedRemit();
+    afterRemoval.versionId = '4';
+    afterRemoval.manualEntry!.claims = [initial.manualEntry!.claims[1]];
+    const afterUnmatch = structuredClone(afterRemoval);
+    afterUnmatch.versionId = '5';
+    afterUnmatch.manualEntry!.claims[0].matchedClaimId = null;
+    api.getBillingEraDetail
+      .mockResolvedValueOnce(initial)
+      .mockResolvedValueOnce(afterRemoval)
+      .mockResolvedValue(afterUnmatch);
+    api.saveBillingManualEra.mockResolvedValue({ eraId: 'era-1', versionId: '4', claims: [] });
+    renderAt('/eras/era-1/edit');
+    const card = await screen.findByTestId('claim-card-cr-1');
+    fireEvent.click(within(card).getByRole('button', { name: 'Claim actions' }));
+    fireEvent.click(screen.getByText('Remove from remit'));
+    fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Remove' }));
+    await waitFor(() => expect(screen.queryByTestId('claim-card-cr-1')).not.toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: 'Claim actions' }));
+    fireEvent.click(screen.getByText('Unmatch'));
+    fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Unmatch' }));
+    await waitFor(() => expect(screen.getByText('Unmatched')).toBeInTheDocument());
+    type('Notes', 'After removing and unmatching');
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(api.saveBillingManualEra).toHaveBeenCalledTimes(2));
+    expect(api.saveBillingManualEra.mock.calls[1][1].expectedVersionId).toBe('5');
+  });
+
+  it('accepts a later ERA version after saving a line assigned a sequence by the server', async () => {
+    const initial = savedRemit();
+    initial.manualEntry!.claims[0].matchedClaimId = 'claim-1';
+    const afterSave = structuredClone(initial);
+    afterSave.versionId = '4';
+    afterSave.manualEntry!.claims[0].serviceLines.push({
+      itemSequence: 2,
+      serviceDate: '2026-08-15',
+      procedureCode: '87880',
+      billedCents: 4000,
+      allowedCents: null,
+      paidCents: 4000,
+      adjustments: [],
+      remarkCodes: [],
+    });
+    const afterUnmatch = structuredClone(afterSave);
+    afterUnmatch.versionId = '5';
+    afterUnmatch.manualEntry!.claims[0].matchedClaimId = null;
+    api.getBillingEraDetail
+      .mockResolvedValueOnce(initial)
+      .mockResolvedValueOnce(afterSave)
+      .mockResolvedValue(afterUnmatch);
+    api.saveBillingManualEra.mockResolvedValue({
+      eraId: 'era-1',
+      versionId: '4',
+      claims: [{ claimResponseId: 'cr-1' }],
+    });
+    renderAt('/eras/era-1/edit');
+    await screen.findByText('Joe Schmoe');
+    fireEvent.click(screen.getByRole('button', { name: 'Expand claim' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add Line' }));
+    type('CPT/HCPCS', '87880', 1);
+    type('Billed', '40', 1);
+    type('Ins Paid', '40', 1);
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled());
+    fireEvent.click(screen.getByRole('button', { name: 'Claim actions' }));
+    fireEvent.click(screen.getByText('Unmatch'));
+    fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Unmatch' }));
+    await waitFor(() => expect(screen.getByText('Unmatched')).toBeInTheDocument());
+    type('Notes', 'After adding a line and unmatching');
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(api.saveBillingManualEra).toHaveBeenCalledTimes(2));
+    expect(api.saveBillingManualEra.mock.calls[1][1].expectedVersionId).toBe('5');
+  });
+
   it('shows why a save failed in the header, in view however far down the biller saved from', async () => {
     api.getBillingEraDetail.mockResolvedValue(savedRemit());
     api.saveBillingManualEra.mockRejectedValue({ output: { code: APIErrorCode.MANUAL_ERA_VERSION_CONFLICT } });

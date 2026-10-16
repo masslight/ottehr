@@ -1,7 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ClaimResponse } from 'fhir/r4b';
-import { codeableConcept } from 'utils/lib/fhir/helpers';
+import { codeableConcept, makeOptimisticLockIfMatchHeader } from 'utils/lib/fhir/helpers';
 import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
 import { CODE_SYSTEM_CLAIM_TYPE } from 'utils/lib/helpers/rcm/constants';
 import {
@@ -10,11 +10,12 @@ import {
 } from 'utils/lib/types/data/billing/billing.schemas';
 import { MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
-import { validateJsonBody } from '../../shared/helpers';
+import { assertDefined, validateJsonBody } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { safeValidate } from '../../shared/validation';
-import { createBillingClient } from '../shared';
+import { claimResponseEraEditGuards } from '../era-write';
+import { createBillingClient, createEraReadClient } from '../shared';
 
 const UNKNOWN_REFERENCE = {
   display: 'Unknown',
@@ -28,7 +29,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
 
-  const response = await performEffect(oystehr, params);
+  const eraReadClient = createEraReadClient(m2mToken, params.secrets);
+  const response = await performEffect(oystehr, eraReadClient, params);
 
   return {
     statusCode: 200,
@@ -36,11 +38,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   };
 });
 
-async function performEffect(oystehr: Oystehr, params: Params): Promise<ClaimResponse> {
+export async function performEffect(oystehr: Oystehr, eraReadClient: Oystehr, params: Params): Promise<ClaimResponse> {
   const claimResponse = await oystehr.fhir.get<ClaimResponse>({
     resourceType: 'ClaimResponse',
     id: params.claimResponseId,
   });
+  const eraGuards = await claimResponseEraEditGuards(eraReadClient, claimResponse);
   const containedClaim = claimResponse.contained?.find((resource) => resource.resourceType === 'Claim');
   const containedPatient = claimResponse.contained?.find((resource) => resource.resourceType === 'Patient');
 
@@ -49,6 +52,7 @@ async function performEffect(oystehr: Oystehr, params: Params): Promise<ClaimRes
       getPatchBinary({
         resourceType: 'ClaimResponse',
         resourceId: claimResponse.id!,
+        ifMatch: makeOptimisticLockIfMatchHeader(assertDefined(claimResponse.meta?.versionId, 'ClaimResponse version')),
         patchOperations: [
           {
             op: 'replace',
@@ -80,6 +84,7 @@ async function performEffect(oystehr: Oystehr, params: Params): Promise<ClaimRes
           },
         ],
       }),
+      ...eraGuards,
     ],
   });
   return bundle.unbundle()[0] as ClaimResponse;

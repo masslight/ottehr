@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { DocumentReference } from 'fhir/r4b';
+import { DocumentReference, PaymentReconciliation } from 'fhir/r4b';
 import { RenameEraAttachmentInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { OkResponse } from 'utils/lib/types/data/billing/billing.types';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
@@ -8,6 +8,7 @@ import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { eraAttachmentOwner, ownedAttachmentLocation, renamedAttachmentContent } from '../attachments';
+import { eraEditGuard } from '../era-write';
 import { createBillingClient, fetchById } from '../shared';
 
 type RenameEraAttachmentParams = ValidatedZambdaInput<typeof RenameEraAttachmentInputSchema>;
@@ -31,10 +32,18 @@ export async function performEffect(oystehr: Oystehr, params: RenameEraAttachmen
     params.documentReferenceId
   );
   ownedAttachmentLocation(documentReference, eraAttachmentOwner(params.eraId, params.secrets));
-  await oystehr.fhir.patch<DocumentReference>({
-    resourceType: 'DocumentReference',
-    id: params.documentReferenceId,
-    operations: [{ op: 'replace', path: '/content', value: renamedAttachmentContent(documentReference, params.name) }],
+  const era = await fetchById<PaymentReconciliation>(oystehr, 'PaymentReconciliation', params.eraId);
+  await oystehr.fhir.transaction({
+    requests: [
+      {
+        method: 'PATCH',
+        url: `/DocumentReference/${params.documentReferenceId}`,
+        operations: [
+          { op: 'replace', path: '/content', value: renamedAttachmentContent(documentReference, params.name) },
+        ],
+      },
+      eraEditGuard(era),
+    ],
   });
   return { ok: true };
 }

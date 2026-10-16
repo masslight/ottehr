@@ -15,6 +15,7 @@ import {
   presignAttachment,
   resolveAttachmentContentType,
 } from '../attachments';
+import { eraEditGuard } from '../era-write';
 import { createBillingClient, fetchById } from '../shared';
 
 type AddEraAttachmentParams = ValidatedZambdaInput<typeof AddEraAttachmentInputSchema>;
@@ -39,6 +40,7 @@ export async function performEffect(
   params: AddEraAttachmentParams
 ): Promise<AddEraAttachmentResponse> {
   const era = await fetchById<PaymentReconciliation>(oystehr, 'PaymentReconciliation', params.eraId);
+  const guard = eraEditGuard(era);
   const contentType = resolveAttachmentContentType(params.fileName, params.mimeType, ERA_ATTACHMENT_CONTENT_TYPES);
   const location = newAttachmentLocation(
     params.secrets['PROJECT_ID'],
@@ -47,15 +49,23 @@ export async function performEffect(
     params.fileName
   );
   const uploadUrl = await presignAttachment(oystehr, location, 'upload');
-  const documentReference = await oystehr.fhir.create<DocumentReference>(
-    buildAttachmentDocumentReference({
-      location,
-      projectApi: params.secrets['PROJECT_API'],
-      title: params.name,
-      contentType,
-      relatedReference: `PaymentReconciliation/${era.id}`,
-    })
-  );
-  if (!documentReference.id) throw new Error('The remit attachment was created without an id');
+  const bundle = await oystehr.fhir.transaction<DocumentReference | PaymentReconciliation>({
+    requests: [
+      {
+        method: 'POST',
+        url: '/DocumentReference',
+        resource: buildAttachmentDocumentReference({
+          location,
+          projectApi: params.secrets['PROJECT_API'],
+          title: params.name,
+          contentType,
+          relatedReference: `PaymentReconciliation/${era.id}`,
+        }),
+      },
+      guard,
+    ],
+  });
+  const documentReference = bundle.unbundle().find((resource) => resource.resourceType === 'DocumentReference');
+  if (!documentReference?.id) throw new Error('The remit attachment was created without an id');
   return { documentReferenceId: documentReference.id, uploadUrl };
 }

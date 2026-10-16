@@ -27,6 +27,7 @@ import {
   isMatchedToClaim,
 } from '../claim-amounts';
 import { isCustomInsuranceOrganization, resolvePayerOrganization } from '../custom-insurance-org.helpers';
+import { assertEraNotVoided } from '../era-write';
 import {
   buildManualClaimResponse,
   buildManualEraProvenance,
@@ -250,6 +251,7 @@ export async function performEffect(
 
 async function loadManualEra(oystehr: Oystehr, eraId: string, expectedVersionId?: string): Promise<StoredManualEra> {
   const pr = await fetchById<PaymentReconciliation>(oystehr, 'PaymentReconciliation', eraId);
+  assertEraNotVoided(pr);
   if (getEraSource(pr) !== ERA_SOURCE.manual) {
     throw INVALID_INPUT_ERROR('Only manually entered remits can be edited');
   }

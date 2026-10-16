@@ -217,8 +217,32 @@ export default function ManualRemit(): ReactElement {
     if (!oystehrZambda || !eraId) return null;
     const data = await getBillingEraDetail(oystehrZambda, { eraId });
     setDetail(data);
+    const entry = data.manualEntry;
+    // Match and attachment writes advance the ERA version without changing the keyed remit.
+    // Keep the old version if another biller edited it, so Save still reports a conflict.
+    if (
+      entry &&
+      JSON.stringify(headerFormToInput(headerFormFromEntry(entry.header))) ===
+        JSON.stringify(headerFormToInput(savedHeader)) &&
+      entry.claims.length === savedClaims.size &&
+      entry.claims.every((claim) => {
+        const saved = savedClaims.get(claim.claimResponseId);
+        if (!saved) return false;
+        const storedInput = claimFormToInput({ ...claimFormFromEntry(claim), key: saved.key });
+        const savedInput = claimFormToInput(saved);
+        // The server fills missing line sequences and derives an omitted claim date.
+        savedInput.serviceDate ??= savedInput.serviceLines.map((line) => line.serviceDate).sort()[0];
+        savedInput.serviceLines = savedInput.serviceLines.map((line, index) => ({
+          itemSequence: line.itemSequence ?? storedInput.serviceLines[index]?.itemSequence,
+          ...line,
+        }));
+        return JSON.stringify(storedInput) === JSON.stringify(savedInput);
+      })
+    ) {
+      setVersionId((current) => (current === versionId ? data.versionId : current));
+    }
     return data;
-  }, [oystehrZambda, eraId]);
+  }, [oystehrZambda, eraId, savedHeader, savedClaims, versionId]);
 
   const isHeaderDirty = (candidate: HeaderForm): boolean => JSON.stringify(candidate) !== JSON.stringify(savedHeader);
   const headerDirty = isHeaderDirty(header);
@@ -362,6 +386,11 @@ export default function ManualRemit(): ReactElement {
         deleteClaimResponseIds: [claim.claimResponseId],
       });
       setVersionId(saved.versionId);
+      setSavedClaims((current) => {
+        const next = new Map(current);
+        next.delete(claim.claimResponseId!);
+        return next;
+      });
       dropClaim(claim);
       void refreshDetail();
     } catch (err) {
