@@ -186,7 +186,7 @@ const rankOf = (remit: ClaimRemit): string | undefined =>
 // The payer rank a remit's money counts toward. CLP02 says so for most remits; a reversal or denial
 // doesn't, so it takes the rank of another remit on the same ERA (a reversal travels with its
 // correction), then of one from the same payer. ClaimResponse.insurer can't settle this: a manual
-// match overwrites it with the claim's primary payer.
+// match used to overwrite it with the claim's primary payer, and that data persists.
 export function remitDesignation(remit: ClaimRemit, remits: ClaimRemit[]): string {
   const peerRank = (isPeer: (other: ClaimRemit) => boolean): string | undefined =>
     remits
