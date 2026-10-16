@@ -5,7 +5,8 @@ export const FeatureFlagsConfigSchema = z.object({
   inHouseLabsEnabled: z.boolean(),
   radiologyEnabled: z.boolean(),
   nursingOrdersEnabled: z.boolean(),
-  dmeOrdersEnabled: z.boolean().optional(),
+  // on unless a customer config turns it off explicitly
+  dmeOrdersEnabled: z.boolean().default(true),
   supervisorApprovalEnabled: z.boolean(),
   demoVisitsEnabled: z.boolean(),
   easyChartEnabled: z.boolean().optional(),
@@ -38,4 +39,4 @@ export const FeatureFlagsConfigSchema = z.object({
   customOrganizationsEnabled: z.boolean().optional(),
 });
 
-export type FeatureFlagsConfig = z.infer<typeof FeatureFlagsConfigSchema>;
+export type FeatureFlagsConfig = z.input<typeof FeatureFlagsConfigSchema>;

@@ -67,10 +67,35 @@ export const DME_ORDER_STATUS_LABELS: Record<DmeOrderStatus, string> = {
 const uuid = (field: string): z.ZodEffects<z.ZodString> =>
   z.string({ required_error: `${field} is required` }).refine((v) => isValidUUID(v), `${field} must be a uuid`);
 
-const CodeDisplaySchema = z.object({
-  code: z.string().min(1),
-  display: z.string(),
+const MAX_NAME_LENGTH = 200;
+const MAX_ADDRESS_LENGTH = 500;
+const MAX_INSTRUCTIONS_LENGTH = 2000;
+const MAX_DISPLAY_LENGTH = 1000;
+const MAX_CODES = 50;
+const MAX_QUANTITY = 999;
+const MAX_DURATION = 999;
+
+const text = (max: number): z.ZodString => z.string().trim().max(max);
+
+const BillingCodeSchema = z.object({
+  code: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .regex(/^[A-Z0-9]{5}$/, 'Expected a 5-character CPT/HCPCS code'),
+  display: text(MAX_DISPLAY_LENGTH),
 });
+
+const DiagnosisCodeSchema = z.object({
+  code: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .regex(/^[A-Z]\d[A-Z0-9](\.?[A-Z0-9]{1,4})?$/, 'Expected an ICD-10 code'),
+  display: text(MAX_DISPLAY_LENGTH),
+});
+
+const phone = text(30).regex(/^[\d\s()+.-]*$/, 'Expected a phone number');
 
 // ---- DME menu (admin catalog) ----
 
@@ -80,9 +105,11 @@ export interface DmeMenuItem {
   hcpcsCodes: CPTCodeDTO[];
 }
 
+export const GetDmeMenuItemsInputSchema = z.object({});
+
 export const DmeMenuItemInputSchema = z.object({
-  name: z.string().trim().min(1, 'name is required'),
-  hcpcsCodes: z.array(CodeDisplaySchema).default([]),
+  name: text(MAX_NAME_LENGTH).min(1, 'name is required'),
+  hcpcsCodes: z.array(BillingCodeSchema).max(MAX_CODES).default([]),
 });
 export type DmeMenuItemInput = z.input<typeof DmeMenuItemInputSchema>;
 
@@ -103,30 +130,40 @@ export interface SaveDmeMenuItemResponse {
 // ---- DME orders ----
 
 export const DmeThirdPartySchema = z.object({
-  name: z.string().optional(),
-  address: z.string().optional(),
-  phone: z.string().optional(),
-  fax: z.string().optional(),
+  name: text(MAX_NAME_LENGTH).optional(),
+  address: text(MAX_ADDRESS_LENGTH).optional(),
+  phone: phone.optional(),
+  fax: phone.optional(),
 });
 export type DmeThirdParty = z.infer<typeof DmeThirdPartySchema>;
 
 export const DmeOrderFieldsSchema = z.object({
   /** set when the item was picked from the DME menu; omitted for a free-text "Other" item */
-  menuItemId: z.string().optional(),
-  itemName: z.string().trim().min(1, 'DME item is required'),
-  diagnoses: z.array(CodeDisplaySchema).default([]),
-  quantity: z.number().int().positive('Quantity dispensed must be a positive number'),
-  billingCodes: z.array(CodeDisplaySchema).default([]),
+  menuItemId: z
+    .string()
+    .regex(/^[A-Za-z0-9\-.]{1,64}$/, 'menuItemId must be a FHIR resource id')
+    .optional(),
+  itemName: text(MAX_NAME_LENGTH).min(1, 'DME item is required'),
+  diagnoses: z.array(DiagnosisCodeSchema).max(MAX_CODES).default([]),
+  quantity: z
+    .number()
+    .int('Quantity dispensed must be a whole number')
+    .positive('Quantity dispensed must be a positive number')
+    .max(MAX_QUANTITY, `Quantity dispensed must be at most ${MAX_QUANTITY}`),
+  billingCodes: z.array(BillingCodeSchema).max(MAX_CODES).default([]),
   laterality: z.enum(DME_LATERALITY_OPTIONS).optional(),
   modifier: z.enum(DME_MODIFIER_OPTIONS).optional(),
   duration: z
     .object({
-      value: z.number().positive(),
+      value: z
+        .number()
+        .positive('Duration must be a positive number')
+        .max(MAX_DURATION, `Duration must be at most ${MAX_DURATION}`),
       unit: z.enum(DME_DURATION_UNITS),
     })
     .optional(),
   orderedByPractitionerId: uuid('orderedByPractitionerId'),
-  instructions: z.string().optional(),
+  instructions: text(MAX_INSTRUCTIONS_LENGTH).optional(),
   external: z.boolean().default(false),
   thirdParty: DmeThirdPartySchema.optional(),
 });

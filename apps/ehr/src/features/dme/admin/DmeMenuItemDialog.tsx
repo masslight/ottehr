@@ -2,9 +2,9 @@ import { LoadingButton } from '@mui/lab';
 import { Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, TextField } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useEffect, useState } from 'react';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { DmeMenuItem } from 'utils/lib/types/api/dme.types';
 import { useCreateDmeMenuItem, useUpdateDmeMenuItem } from '../dme.queries';
-import { dmeMenuTestIds } from './dmeMenuTestIds';
 import { HcpcsCode, HcpcsCodesInput } from './HcpcsCodesInput';
 
 interface DmeMenuItemDialogProps {
@@ -63,7 +63,7 @@ export function DmeMenuItemDialog({ open, item, onClose }: DmeMenuItemDialogProp
   };
 
   return (
-    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth data-testid={dmeMenuTestIds.dialog}>
+    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth data-testid={dataTestIds.dmeMenu.dialog}>
       <DialogTitle>{isEditing ? 'Edit DME item' : 'Add DME item'}</DialogTitle>
       <DialogContent>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
@@ -76,16 +76,16 @@ export function DmeMenuItemDialog({ open, item, onClose }: DmeMenuItemDialogProp
             autoFocus
             fullWidth
             disabled={isSaving}
-            inputProps={{ 'data-testid': dmeMenuTestIds.nameField }}
+            inputProps={{ 'data-testid': dataTestIds.dmeMenu.nameField }}
           />
           <HcpcsCodesInput
             value={hcpcsCodes}
             onChange={setHcpcsCodes}
             disabled={isSaving}
-            dataTestId={dmeMenuTestIds.hcpcsField}
+            dataTestId={dataTestIds.dmeMenu.hcpcsField}
           />
           {saveError && (
-            <Alert severity="error" data-testid={dmeMenuTestIds.dialogError}>
+            <Alert severity="error" data-testid={dataTestIds.dmeMenu.dialogError}>
               {saveError.message || 'Failed to save the DME item'}
             </Alert>
           )}
@@ -100,7 +100,7 @@ export function DmeMenuItemDialog({ open, item, onClose }: DmeMenuItemDialogProp
           onClick={handleSave}
           disabled={!name.trim()}
           variant="contained"
-          data-testid={dmeMenuTestIds.saveButton}
+          data-testid={dataTestIds.dmeMenu.saveButton}
         >
           Save
         </LoadingButton>

@@ -1,16 +1,5 @@
 import Oystehr, { BatchInputPostRequest, BatchInputRequest } from '@oystehr/sdk';
-import { randomUUID } from 'crypto';
-import {
-  DeviceRequest,
-  Encounter,
-  FhirResource,
-  Location,
-  Patient,
-  Practitioner,
-  Procedure,
-  Reference,
-  Task,
-} from 'fhir/r4b';
+import { DeviceRequest, Encounter, FhirResource, Location, Patient, Practitioner, Procedure, Task } from 'fhir/r4b';
 import { userMe } from 'utils/lib/auth/user-me.helper';
 import { TASK_INPUT_SYSTEM } from 'utils/lib/fhir/constants';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
@@ -19,19 +8,13 @@ import { removePrefix } from 'utils/lib/helpers/helpers';
 import { Secrets } from 'utils/lib/secrets';
 import { CPTCodeDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { DME_TASK } from 'utils/lib/types/api/dme.types';
-import { FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR, MISSING_AUTH_TOKEN } from 'utils/lib/types/errors';
+import { FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { makeCPTCodeDTO } from '../../../shared/chart-data';
+import { isDmeBillingProcedureOf } from '../../../shared/dme';
 import { createTask } from '../../../shared/tasks';
-import { ZambdaInput } from '../../../shared/types/common';
 
 export const resolveCallerPractitionerId = async (userToken: string, secrets: Secrets): Promise<string | undefined> =>
   removePrefix('Practitioner/', (await userMe(userToken, secrets)).profile ?? '') || undefined;
-
-export const getCallerToken = (input: ZambdaInput): string => {
-  const token = input.headers?.Authorization?.replace('Bearer ', '');
-  if (!token) throw { ...MISSING_AUTH_TOKEN, statusCode: 401 };
-  return token;
-};
 
 export interface DmeEncounterContext {
   encounter: Encounter;
@@ -137,27 +120,11 @@ export const setTaskInputValue = (task: Task, type: string, valueString: string 
   };
 };
 
-export const makeBillingProcedureRequests = (
-  procedures: Procedure[]
-): { requests: BatchInputPostRequest<FhirResource>[]; references: Reference[] | undefined } => {
-  const entries = procedures.map((resource) => ({
-    fullUrl: `urn:uuid:${randomUUID()}`,
-    resource,
-  }));
-  return {
-    requests: entries.map(({ fullUrl, resource }) => ({ method: 'POST', url: '/Procedure', resource, fullUrl })),
-    references: entries.length ? entries.map(({ fullUrl }) => ({ reference: fullUrl })) : undefined,
-  };
-};
+export const makeBillingProcedureRequests = (procedures: Procedure[]): BatchInputPostRequest<FhirResource>[] =>
+  procedures.map((resource) => ({ method: 'POST', url: '/Procedure', resource }));
 
-export const getBillingProcedureIds = (deviceRequest: DeviceRequest): string[] =>
-  (deviceRequest.supportingInfo ?? [])
-    .map((ref) => ref.reference)
-    .filter((ref): ref is string => !!ref?.startsWith('Procedure/'))
-    .map((ref) => ref.replace('Procedure/', ''));
-
-export const getEncounterCptCodes = async (encounterId: string, oystehr: Oystehr): Promise<CPTCodeDTO[]> => {
-  const procedures = await getAllFhirSearchPages<Procedure>(
+const searchEncounterCptProcedures = (encounterId: string, oystehr: Oystehr): Promise<Procedure[]> =>
+  getAllFhirSearchPages<Procedure>(
     {
       resourceType: 'Procedure',
       params: [
@@ -167,8 +134,16 @@ export const getEncounterCptCodes = async (encounterId: string, oystehr: Oystehr
     },
     oystehr
   );
-  return procedures.map(makeCPTCodeDTO).filter((dto): dto is CPTCodeDTO => !!dto);
-};
+
+export const fetchDmeBillingProcedures = async (deviceRequest: DeviceRequest, oystehr: Oystehr): Promise<Procedure[]> =>
+  (await searchEncounterCptProcedures(getDeviceRequestEncounterId(deviceRequest), oystehr)).filter((procedure) =>
+    isDmeBillingProcedureOf(procedure, deviceRequest.id!)
+  );
+
+export const getEncounterCptCodes = async (encounterId: string, oystehr: Oystehr): Promise<CPTCodeDTO[]> =>
+  (await searchEncounterCptProcedures(encounterId, oystehr))
+    .map(makeCPTCodeDTO)
+    .filter((dto): dto is CPTCodeDTO => !!dto);
 
 export const runDmeTransaction = async (
   requests: BatchInputRequest<FhirResource>[],

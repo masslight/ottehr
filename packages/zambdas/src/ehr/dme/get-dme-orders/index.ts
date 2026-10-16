@@ -3,19 +3,19 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { DeviceRequest, Practitioner } from 'fhir/r4b';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { GetDmeOrdersInput, GetDmeOrdersInputSchema, GetDmeOrdersResponse } from 'utils/lib/types/api/dme.types';
-import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { checkOrCreateM2MClientToken, getUserToken } from '../../../shared/auth';
 import { DME_ORDER_SEARCH_TAG, getDmePractitionerIds, isDmeOrderDeleted, parseDmeOrder } from '../../../shared/dme';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
 import { validateWithSchema } from '../../../shared/validation';
-import { fetchPractitionerNames, getCallerToken } from '../shared/order-helpers';
+import { fetchPractitionerNames } from '../shared/order-helpers';
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'get-dme-orders';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  getCallerToken(input);
+  getUserToken(input);
   const { secrets, ...params } = validateWithSchema(GetDmeOrdersInputSchema, input);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);

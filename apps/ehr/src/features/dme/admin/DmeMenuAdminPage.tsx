@@ -19,12 +19,12 @@ import {
   Typography,
 } from '@mui/material';
 import { ReactElement, useMemo, useState } from 'react';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { AdminHeaderActionSlot } from 'src/features/admin/AdminPageHeader';
 import { DmeMenuItem, formatDmeBillingCode } from 'utils/lib/types/api/dme.types';
 import { useDmeMenuItems } from '../dme.queries';
 import { DeleteDmeMenuItemDialog } from './DeleteDmeMenuItemDialog';
 import { DmeMenuItemDialog } from './DmeMenuItemDialog';
-import { dmeMenuTestIds } from './dmeMenuTestIds';
 
 const DEFAULT_ROWS_PER_PAGE = 25;
 
@@ -73,7 +73,7 @@ export function DmeMenuAdminPage(): ReactElement {
     }
     if (filteredItems.length === 0) {
       return (
-        <Typography color="text.secondary" sx={{ py: 2 }} data-testid={dmeMenuTestIds.emptyState}>
+        <Typography color="text.secondary" sx={{ py: 2 }} data-testid={dataTestIds.dmeMenu.emptyState}>
           {items.length === 0
             ? 'No DME items configured yet. Use "Add DME item" to build the DME menu.'
             : `No DME items match "${search.trim()}".`}
@@ -82,7 +82,7 @@ export function DmeMenuAdminPage(): ReactElement {
     }
     return (
       <TableContainer>
-        <Table data-testid={dmeMenuTestIds.table}>
+        <Table data-testid={dataTestIds.dmeMenu.table}>
           <TableHead>
             <TableRow>
               <TableCell sx={{ fontWeight: 'bold', width: '30%' }}>DME</TableCell>
@@ -92,7 +92,7 @@ export function DmeMenuAdminPage(): ReactElement {
           </TableHead>
           <TableBody>
             {pageItems.map((item) => (
-              <TableRow key={item.id} hover data-testid={dmeMenuTestIds.itemRow(item.id)}>
+              <TableRow key={item.id} hover data-testid={dataTestIds.dmeMenu.itemRow(item.id)}>
                 <TableCell>{item.name}</TableCell>
                 <TableCell>
                   {item.hcpcsCodes.length > 0 ? (
@@ -114,7 +114,7 @@ export function DmeMenuAdminPage(): ReactElement {
                         size="small"
                         onClick={() => setDialog({ open: true, item })}
                         aria-label={`Edit ${item.name}`}
-                        data-testid={dmeMenuTestIds.editButton(item.id)}
+                        data-testid={dataTestIds.dmeMenu.editButton(item.id)}
                       >
                         <EditOutlinedIcon fontSize="small" />
                       </IconButton>
@@ -125,7 +125,7 @@ export function DmeMenuAdminPage(): ReactElement {
                         color="error"
                         onClick={() => setDeleteTarget(item)}
                         aria-label={`Delete ${item.name}`}
-                        data-testid={dmeMenuTestIds.deleteButton(item.id)}
+                        data-testid={dataTestIds.dmeMenu.deleteButton(item.id)}
                       >
                         <DeleteOutlineIcon fontSize="small" />
                       </IconButton>
@@ -159,7 +159,7 @@ export function DmeMenuAdminPage(): ReactElement {
           variant="contained"
           startIcon={<AddIcon />}
           onClick={() => setDialog({ open: true })}
-          data-testid={dmeMenuTestIds.addButton}
+          data-testid={dataTestIds.dmeMenu.addButton}
         >
           Add DME item
         </Button>
@@ -178,7 +178,7 @@ export function DmeMenuAdminPage(): ReactElement {
           setPageNumber(0);
         }}
         InputProps={{ endAdornment: <SearchIcon /> }}
-        inputProps={{ 'data-testid': dmeMenuTestIds.searchField }}
+        inputProps={{ 'data-testid': dataTestIds.dmeMenu.searchField }}
         sx={{ width: { xs: '100%', md: '50%' }, mb: 2 }}
       />
 
