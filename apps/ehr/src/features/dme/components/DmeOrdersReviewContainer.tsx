@@ -1,5 +1,6 @@
 import { Box, Typography, useTheme } from '@mui/material';
 import { FC } from 'react';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import {
   SectionHeading,
   useNoteSectionTitleInCardHeader,
@@ -8,11 +9,6 @@ import { DmeOrderDTO, formatDmeDuration } from 'utils/lib/types/api/dme.types';
 import { useDmeOrders } from '../dme.queries';
 import { DME_SECTION_TITLE } from './DmeBreadcrumbs';
 import { DmeStatusChip } from './DmeStatusChip';
-
-export const dmeOrdersReviewTestIds = {
-  container: 'dme-orders-review-container',
-  item: (orderId: string) => `dme-orders-review-item-${orderId}`,
-};
 
 const orderSummaryLines = (order: DmeOrderDTO): string[] => {
   const details = [
@@ -45,7 +41,7 @@ export const DmeOrdersReviewContainer: FC<DmeOrdersReviewContainerProps> = ({ en
   return (
     <Box
       sx={{ display: 'flex', flexDirection: 'column', gap: 1, width: '100%' }}
-      data-testid={dmeOrdersReviewTestIds.container}
+      data-testid={dataTestIds.dmeOrders.reviewContainer}
     >
       {!titleInCardHeader && <SectionHeading>{DME_SECTION_TITLE}</SectionHeading>}
       {isLoading && <Typography color={theme.palette.text.secondary}>Loading DME orders...</Typography>}
@@ -57,7 +53,7 @@ export const DmeOrdersReviewContainer: FC<DmeOrdersReviewContainerProps> = ({ en
         <Box
           key={order.id}
           sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1 }}
-          data-testid={dmeOrdersReviewTestIds.item(order.id)}
+          data-testid={dataTestIds.dmeOrders.reviewItem(order.id)}
         >
           <Box sx={{ minWidth: 0 }}>
             <Typography fontWeight={500}>{order.itemName}</Typography>

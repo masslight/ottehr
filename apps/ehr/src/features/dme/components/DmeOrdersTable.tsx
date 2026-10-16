@@ -19,8 +19,8 @@ import { useNavigate } from 'react-router-dom';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { getDmeOrderDetailsUrl } from 'src/features/visits/in-person/routing/helpers';
 import { DmeOrderDTO } from 'utils/lib/types/api/dme.types';
+import { formatDate } from 'utils/lib/utils/date';
 import { useDmeOrders } from '../dme.queries';
-import { formatDmeDateTime } from './dmeFormat';
 import { DmeOrderActionDialog } from './DmeOrderActionDialog';
 import { DmeStatusChip } from './DmeStatusChip';
 
@@ -128,7 +128,7 @@ export const DmeOrdersTable = ({
       case 'ordered':
         return (
           <Box>
-            <Typography variant="body2">{formatDmeDateTime(order.orderedAt)}</Typography>
+            <Typography variant="body2">{formatDate(order.orderedAt, 'MM/dd/yyyy hh:mm a')}</Typography>
             <Typography variant="body2" color="text.secondary">
               {order.orderedBy.name}
             </Typography>
@@ -137,7 +137,7 @@ export const DmeOrdersTable = ({
       case 'dispensed':
         return order.dispensed ? (
           <Box>
-            <Typography variant="body2">{formatDmeDateTime(order.dispensed.at)}</Typography>
+            <Typography variant="body2">{formatDate(order.dispensed.at, 'MM/dd/yyyy hh:mm a')}</Typography>
             <Typography variant="body2" color="text.secondary">
               {order.dispensed.name}
             </Typography>

@@ -66,16 +66,18 @@ export const makeEditRequests = (input: {
 
   const encounterId = getDeviceRequestEncounterId(deviceRequest);
   const patientId = getDeviceRequestPatientId(deviceRequest);
-  const billing = makeBillingProcedureRequests(makeDmeBillingProcedures({ fields, encounterId, patientId }));
-  const updated: DeviceRequest = {
-    ...makeDmeDeviceRequest({ fields, encounterId, patientId, existing: deviceRequest }),
-    supportingInfo: billing.references,
-  };
+  const updated = makeDmeDeviceRequest({ fields, encounterId, patientId, existing: deviceRequest });
+  const billing = makeDmeBillingProcedures({
+    fields,
+    encounterId,
+    patientId,
+    deviceRequestReference: `DeviceRequest/${deviceRequest.id}`,
+  });
 
   const requests: Request[] = [
     putDeviceRequest(deviceRequest, updated),
     ...deleteProcedures(procedures),
-    ...billing.requests,
+    ...makeBillingProcedureRequests(billing),
   ];
 
   const openTasks = tasks.filter(isOpenDmeDispenseTask);
@@ -136,7 +138,7 @@ export const makeDispenseRequests = (input: {
 export const makeDeleteRequests = (resources: DmeOrderResources): Request[] => {
   const { deviceRequest, procedures, tasks } = resources;
   return [
-    putDeviceRequest(deviceRequest, { ...deviceRequest, status: 'revoked', supportingInfo: undefined }),
+    putDeviceRequest(deviceRequest, { ...deviceRequest, status: 'revoked' }),
     ...deleteProcedures(procedures),
     ...tasks.filter(isOpenDmeDispenseTask).map((task) => setTaskStatus(task, 'cancelled')),
   ];

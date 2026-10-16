@@ -5,7 +5,7 @@ import { DeviceRequest, FhirResource, Procedure } from 'fhir/r4b';
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
 import { CPTCodeDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { CreateDmeOrderInputSchema, CreateDmeOrderResponse } from 'utils/lib/types/api/dme.types';
-import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { checkOrCreateM2MClientToken, getUserToken } from '../../../shared/auth';
 import { makeCPTCodeDTO } from '../../../shared/chart-data';
 import { makeDmeBillingProcedures, makeDmeDeviceRequest, makeDmeProvenance } from '../../../shared/dme';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
@@ -15,7 +15,6 @@ import { ValidatedZambdaInput, validateWithSchema } from '../../../shared/valida
 import {
   fetchDmeEncounterContext,
   fetchOrderingPractitioner,
-  getCallerToken,
   makeBillingProcedureRequests,
   makeDmeDispenseTask,
   resolveCallerPractitionerId,
@@ -26,7 +25,7 @@ let m2mToken: string;
 const ZAMBDA_NAME = 'create-dme-order';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const userToken = getCallerToken(input);
+  const userToken = getUserToken(input);
   const params = validateWithSchema(CreateDmeOrderInputSchema, input);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
@@ -54,14 +53,12 @@ const createDmeOrder = async (
   const patientId = context.patient.id!;
 
   const deviceRequestFullUrl = `urn:uuid:${randomUUID()}`;
-  const billing = makeBillingProcedureRequests(makeDmeBillingProcedures({ fields, encounterId, patientId }));
-  const deviceRequest: DeviceRequest = {
-    ...makeDmeDeviceRequest({ fields, encounterId, patientId }),
-    supportingInfo: billing.references,
-  };
+  const deviceRequest = makeDmeDeviceRequest({ fields, encounterId, patientId });
   const requests: BatchInputPostRequest<FhirResource>[] = [
     { method: 'POST', url: '/DeviceRequest', resource: deviceRequest, fullUrl: deviceRequestFullUrl },
-    ...billing.requests,
+    ...makeBillingProcedureRequests(
+      makeDmeBillingProcedures({ fields, encounterId, patientId, deviceRequestReference: deviceRequestFullUrl })
+    ),
   ];
   const provenance = makeDmeProvenance({
     target: deviceRequestFullUrl,
