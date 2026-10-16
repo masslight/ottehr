@@ -287,10 +287,13 @@ describe('InboundFaxMatch page', () => {
       </Wrapper>
     );
 
-    // Read-only notice replaces the match panel
+    // Read-only notice replaces the match panel. Without the filed marker it can't claim the fax was filed.
     await waitFor(() => {
-      expect(screen.getByText('This fax has already been filed.')).toBeDefined();
+      expect(
+        screen.getByText("This fax's task was completed. It may not have been filed to a patient's chart.")
+      ).toBeDefined();
     });
+    expect(screen.queryByText('This fax has already been filed.')).toBeNull();
 
     // The PDF preview still loads (Communication + PDF survive filing)
     expect(mockGetPresignedURL).toHaveBeenCalledWith('https://z3.example.com/bucket/fax.pdf', 'test-token');
@@ -304,6 +307,63 @@ describe('InboundFaxMatch page', () => {
     expect(screen.queryByText('Save')).toBeNull();
     expect(screen.queryByText('Delete')).toBeNull();
     expect(screen.queryByText('Match to patient:')).toBeNull();
+  });
+
+  it('says the fax was filed when a completed task carries the filed marker', async () => {
+    mockFhirSearch.mockImplementation(({ resourceType }: { resourceType: string }) => {
+      if (resourceType === 'Task')
+        return Promise.resolve({
+          unbundle: () => [
+            {
+              ...makeFaxTask('completed'),
+              businessStatus: { coding: [{ system: 'inbound-fax-task', code: 'filed' }], text: 'Filed' },
+            },
+          ],
+        });
+      return Promise.resolve({ unbundle: () => [] });
+    });
+
+    const Wrapper = createWrapper();
+    render(
+      <Wrapper>
+        <InboundFaxMatch />
+      </Wrapper>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('This fax has already been filed.')).toBeDefined();
+    });
+    expect(screen.queryByText(/may not have been filed/)).toBeNull();
+    expect(screen.queryByText('Save')).toBeNull();
+  });
+
+  it('renders read-only when the fax was filed but its task is still open awaiting a manual Complete', async () => {
+    mockFhirSearch.mockImplementation(({ resourceType }: { resourceType: string }) => {
+      if (resourceType === 'Task')
+        return Promise.resolve({
+          unbundle: () => [
+            {
+              ...makeFaxTask('in-progress'),
+              businessStatus: { coding: [{ system: 'inbound-fax-task', code: 'filed' }], text: 'Filed' },
+            },
+          ],
+        });
+      return Promise.resolve({ unbundle: () => [] });
+    });
+
+    const Wrapper = createWrapper();
+    render(
+      <Wrapper>
+        <InboundFaxMatch />
+      </Wrapper>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('This fax has already been filed.')).toBeDefined();
+    });
+    expect(screen.queryByTestId('patient-search')).toBeNull();
+    expect(screen.queryByText('Save')).toBeNull();
+    expect(screen.queryByText('Delete')).toBeNull();
   });
 
   it('prefers the ready task (full match form) when both ready and completed tasks exist', async () => {

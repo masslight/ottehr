@@ -6,9 +6,8 @@ import { DateTime } from 'luxon';
 import { makeOptimisticLockIfMatchHeader } from 'utils/lib/fhir/helpers';
 import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
 import { createOystehrClient } from 'utils/lib/helpers/helpers';
-import { replaceOperation } from 'utils/lib/helpers/operations';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
-import { FAX_TASK, getTaskInputValue } from 'utils/lib/types/data/tasks/types';
+import { FAX_TASK, getTaskInputValue, isInboundFaxFiled } from 'utils/lib/types/data/tasks/types';
 import {
   FHIR_RESOURCE_NOT_FOUND_CUSTOM,
   INVALID_INPUT_ERROR,
@@ -60,10 +59,16 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       throw INVALID_INPUT_ERROR(`Task/${taskId} is not associated with Communication/${communicationId}`);
     }
 
-    // Reject already-finalized tasks: prevents double-filing and file-vs-delete races.
+    // Reject already-finalized tasks: prevents double-filing and file-vs-delete races. Filing leaves
+    // the Task open (staff complete it by hand), so a filed fax is recognized by its businessStatus.
+    if (isInboundFaxFiled(task)) {
+      throw PRECONDITION_FAILED(`Task/${taskId} has already been filed`);
+    }
     if (task.status === 'completed' || task.status === 'cancelled') {
       throw PRECONDITION_FAILED(
-        `Task/${taskId} has already been ${task.status === 'completed' ? 'filed' : 'deleted'} (status: ${task.status})`
+        `Task/${taskId} has already been ${task.status === 'completed' ? 'completed' : 'deleted'} (status: ${
+          task.status
+        })`
       );
     }
 
@@ -94,9 +99,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     const now = DateTime.now().setZone('UTC').toISO() ?? '';
 
-    // Single FHIR transaction: DocumentReference create + folder List update + Task complete.
+    // Single FHIR transaction: DocumentReference create + folder List update + Task marked filed.
     // A partial failure rolls everything back, so the folder can never be left half-updated
-    // and the task can never be completed without the document actually being filed.
+    // and the task can never be marked filed without the document actually being filed.
+    // The Task is deliberately NOT completed here: fax tasks stay open until a person presses
+    // Complete in the Tasks queue, the same as manual tasks.
     const docRefFullUrl = `urn:uuid:${randomUUID()}`;
     const createDocRefRequest: BatchInputPostRequest<DocumentReference> = {
       method: 'POST',
@@ -148,13 +155,19 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       ifMatch: makeOptimisticLockIfMatchHeader(folderList),
     };
 
-    const completeTaskRequest = getPatchBinary({
+    const markTaskFiledRequest = getPatchBinary({
       resourceType: 'Task',
       resourceId: taskId,
-      patchOperations: [replaceOperation('/status', 'completed')],
+      patchOperations: [
+        {
+          op: 'add',
+          path: '/businessStatus',
+          value: { coding: [{ system: FAX_TASK.system, code: FAX_TASK.businessStatus.filed }], text: 'Filed' },
+        },
+      ],
     });
 
-    const requests: BatchInputRequest<FhirResource>[] = [createDocRefRequest, updateListRequest, completeTaskRequest];
+    const requests: BatchInputRequest<FhirResource>[] = [createDocRefRequest, updateListRequest, markTaskFiledRequest];
     const transactionResult = await oystehr.fhir.transaction<FhirResource>({ requests });
 
     const documentRefId = transactionResult.entry
@@ -166,7 +179,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     }
 
     console.log(
-      `[${ZAMBDA_NAME}] filed DocumentReference/${documentRefId} into List/${resolvedFolderId} and completed Task/${taskId}`
+      `[${ZAMBDA_NAME}] filed DocumentReference/${documentRefId} into List/${resolvedFolderId} and marked Task/${taskId} filed`
     );
 
     return {
