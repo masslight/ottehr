@@ -177,8 +177,12 @@ export async function performEffect(
   const payments = summarizeClaimPayments(claimResponses, billed, patientPaid, writeOffsTotal);
   const remits = [...claimResponses].reverse().map((cr) => {
     const amounts = extractClaimResponseAmounts(cr);
-    const payer = cr.insurer?.reference ? payersByRef.get(cr.insurer.reference) : undefined;
     const era = paymentReconciliationById.get(paymentReconciliationIdByClaimResponseId.get(cr.id ?? '') ?? '');
+    // the ERA's paymentIssuer outranks ClaimResponse.insurer, which a manual match may have corrupted
+    const issuerRef = era?.paymentIssuer?.reference;
+    const payer =
+      (issuerRef ? payersByRef.get(issuerRef) : undefined) ??
+      (cr.insurer?.reference ? payersByRef.get(cr.insurer.reference) : undefined);
     return {
       claimResponseId: cr.id ?? '',
       date: cr.created ?? '',
