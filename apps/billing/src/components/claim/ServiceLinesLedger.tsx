@@ -1,13 +1,17 @@
 import {
+  Close as CloseIcon,
   InfoOutlined as InfoOutlinedIcon,
   KeyboardArrowDown as KeyboardArrowDownIcon,
   KeyboardArrowRight as KeyboardArrowRightIcon,
 } from '@mui/icons-material';
 import {
   Box,
+  ClickAwayListener,
   Collapse,
   Divider,
   IconButton,
+  Paper,
+  Popper,
   Stack,
   Table,
   TableBody,
@@ -26,7 +30,6 @@ import {
   ReactNode,
   SetStateAction,
   useContext,
-  useEffect,
   useMemo,
   useRef,
   useState,
@@ -52,6 +55,7 @@ import {
   UnmatchedRemitLine,
 } from '../../utils/claimRemits';
 import { formatDate } from '../../utils/format';
+import { CopyButton } from '../CopyButton';
 import { AdjustmentChip, AmountChip, EraStatusChip } from '../EraChips';
 import { thSx } from '../ReadOnlySection';
 import { useRemitHighlightTarget } from './RemitHighlight';
@@ -66,7 +70,8 @@ const PATIENT_RESP_COLUMNS: { key: Exclude<LedgerColumn, 'insuranceAdjustment'>;
   { key: 'patientResp', label: 'Patient' },
 ];
 
-const LEDGER_COLUMNS: { label: string; kind: 'date' | 'type' | 'amount' }[] = [
+const LEDGER_COLUMNS: { label: string; kind: 'info' | 'date' | 'type' | 'amount' }[] = [
+  { label: '', kind: 'info' },
   { label: 'Date', kind: 'date' },
   { label: 'Type', kind: 'type' },
   { label: 'Billed', kind: 'amount' },
@@ -83,6 +88,7 @@ const LEDGER_AMOUNT_COLUMN_COUNT = LEDGER_COLUMNS.filter((column) => column.kind
 // they line up and fit its longest amount; the type column takes the rest. Past their minimum, the
 // service lines scroll sideways rather than cut amounts off.
 const LEDGER_CELL_PX = 8;
+const LEDGER_INFO_WIDTH = 36;
 // MM/DD/YYYY fits in 9ch
 const LEDGER_DATE_WIDTH = `calc(9ch + ${2 * LEDGER_CELL_PX + 4}px)`;
 const LEDGER_TYPE_MIN_WIDTH = 150;
@@ -182,18 +188,19 @@ const remitCardSx = {
   p: 2,
   minWidth: 320,
   maxWidth: 440,
+  position: 'relative',
 };
 
-// The one remit line whose card is pinned open until a click lands outside it.
-const PinnedRemitCardContext = createContext<{
-  pinnedKey: string | null;
-  setPinnedKey: Dispatch<SetStateAction<string | null>>;
-}>({ pinnedKey: null, setPinnedKey: () => {} });
+// The one remit line whose card is open; it stays until closed or a click lands outside it.
+const OpenRemitCardContext = createContext<{
+  openKey: string | null;
+  setOpenKey: Dispatch<SetStateAction<string | null>>;
+}>({ openKey: null, setOpenKey: () => {} });
 
-function PinnedRemitCardProvider({ children }: { children: ReactNode }): ReactElement {
-  const [pinnedKey, setPinnedKey] = useState<string | null>(null);
-  const value = useMemo(() => ({ pinnedKey, setPinnedKey }), [pinnedKey]);
-  return <PinnedRemitCardContext.Provider value={value}>{children}</PinnedRemitCardContext.Provider>;
+function OpenRemitCardProvider({ children }: { children: ReactNode }): ReactElement {
+  const [openKey, setOpenKey] = useState<string | null>(null);
+  const value = useMemo(() => ({ openKey, setOpenKey }), [openKey]);
+  return <OpenRemitCardContext.Provider value={value}>{children}</OpenRemitCardContext.Provider>;
 }
 
 // The claim's service lines. Once an ERA is matched, each line also lists its transactions: the
@@ -251,7 +258,7 @@ export function ServiceLinesTable({
     line.drug || line.orderingProvider ? <ServiceLineExtras line={line} /> : null;
 
   return (
-    <PinnedRemitCardProvider>
+    <OpenRemitCardProvider>
       <TableContainer>
         <Table size="small">
           <TableHead>
@@ -348,7 +355,7 @@ export function ServiceLinesTable({
           </TableBody>
         </Table>
       </TableContainer>
-    </PinnedRemitCardProvider>
+    </OpenRemitCardProvider>
   );
 }
 
@@ -447,7 +454,7 @@ function RemitLedger({
         sx={{
           tableLayout: 'fixed',
           typography: 'body2',
-          minWidth: `calc(${LEDGER_DATE_WIDTH} + ${LEDGER_TYPE_MIN_WIDTH}px + ${LEDGER_AMOUNT_COLUMN_COUNT} * ${amountWidth})`,
+          minWidth: `calc(${LEDGER_INFO_WIDTH}px + ${LEDGER_DATE_WIDTH} + ${LEDGER_TYPE_MIN_WIDTH}px + ${LEDGER_AMOUNT_COLUMN_COUNT} * ${amountWidth})`,
           '& .MuiTableCell-root': {
             px: `${LEDGER_CELL_PX}px`,
             borderRight: ledgerBorder,
@@ -460,7 +467,16 @@ function RemitLedger({
           {LEDGER_COLUMNS.map(({ label: columnLabel, kind }) => (
             <col
               key={columnLabel}
-              style={{ width: kind === 'date' ? LEDGER_DATE_WIDTH : kind === 'amount' ? amountWidth : undefined }}
+              style={{
+                width:
+                  kind === 'info'
+                    ? LEDGER_INFO_WIDTH
+                    : kind === 'date'
+                    ? LEDGER_DATE_WIDTH
+                    : kind === 'amount'
+                    ? amountWidth
+                    : undefined,
+              }}
             />
           ))}
         </colgroup>
@@ -476,10 +492,11 @@ function RemitLedger({
         {charge && (
           <TableBody>
             <TableRow sx={ledgerRowSx}>
+              <TableCell />
               <TableCell>{formatDate(charge.date) || '-'}</TableCell>
               <TableCell>Charge</TableCell>
               <TableCell align="right">{formatCurrency(charge.amount)}</TableCell>
-              <TableCell colSpan={LEDGER_COLUMN_COUNT - 3} />
+              <TableCell colSpan={LEDGER_COLUMN_COUNT - 4} />
             </TableRow>
           </TableBody>
         )}
@@ -522,7 +539,7 @@ function isColumnHeaderCarc(adjustment: ClaimRemitAdjustment): boolean {
 }
 
 // One remit's response to a line, with rows below only for adjustments the columns don't cover.
-// Hover or focus highlights its remit and pins the line's card open until a click lands outside.
+// Hover or focus highlights its remit; the info icon opens the line's card.
 function LedgerGroup({
   entry,
   claimLineUnits,
@@ -540,109 +557,112 @@ function LedgerGroup({
     claimResponseId: remit.claimResponseId,
     paymentReconciliationId: remit.paymentReconciliationId,
   });
-  const { pinnedKey, setPinnedKey } = useContext(PinnedRemitCardContext);
-  const pinned = pinnedKey === entry.key;
-  const groupRef = useRef<HTMLTableSectionElement>(null);
-  const unpin = (): void => {
-    setPinnedKey((latest) => (latest === entry.key ? null : latest));
+  const { openKey, setOpenKey } = useContext(OpenRemitCardContext);
+  const open = openKey === entry.key;
+  const anchorRef = useRef<HTMLButtonElement>(null);
+  const close = (): void => {
+    setOpenKey((latest) => (latest === entry.key ? null : latest));
     clearHighlight();
   };
-  const pin = (): void => {
-    setPinnedKey(entry.key);
-    highlight();
-  };
-
-  useEffect(() => {
-    if (!pinned) return;
-    const onMouseDown = (event: MouseEvent): void => {
-      const target = event.target as Element;
-      if (groupRef.current?.contains(target) || target.closest('.MuiTooltip-popper')) return;
-      setPinnedKey(null);
-      clearHighlight();
-    };
-    document.addEventListener('mousedown', onMouseDown);
-    return () => document.removeEventListener('mousedown', onMouseDown);
-  }, [pinned, setPinnedKey, clearHighlight]);
 
   const amounts = ledgerAmounts(line.adjustments);
   const date = formatDate(remit.date) || '-';
 
   return (
-    <Tooltip
-      title={
-        <RemitLineCard entry={entry} claimLineUnits={claimLineUnits} label={remitLabel(remit, remits, claimPayers)} />
-      }
-      describeChild
-      open={pinned}
-      disableHoverListener
-      disableFocusListener
-      disableTouchListener
-      placement="bottom-start"
-      slotProps={{ tooltip: { sx: remitCardSx } }}
+    <TableBody
+      tabIndex={0}
+      onMouseEnter={highlight}
+      onMouseLeave={() => !open && clearHighlight()}
+      onFocus={highlight}
+      onBlur={(event) => {
+        if (!open && !event.currentTarget.contains(event.relatedTarget as Node | null)) clearHighlight();
+      }}
+      sx={{ bgcolor: highlighted ? 'action.hover' : undefined }}
     >
-      <TableBody
-        ref={groupRef}
-        tabIndex={0}
-        onMouseEnter={pin}
-        onFocus={pin}
-        onBlur={(event) => {
-          const next = event.relatedTarget as Element | null;
-          if (event.currentTarget.contains(next) || next?.closest('.MuiTooltip-popper')) return;
-          unpin();
-        }}
-        sx={{ bgcolor: highlighted ? 'action.hover' : undefined }}
-      >
-        <TableRow sx={ledgerRowSx}>
-          <TableCell>{date}</TableCell>
-          <TableCell>
-            <Stack direction="row" spacing={1} alignItems="center">
-              <Typography variant="body2" fontWeight={600} noWrap sx={{ minWidth: 0, maxWidth: 220 }}>
-                {remit.payerName || 'Unknown payer'}
-              </Typography>
-              {remit.eraStatusCode && isAdverseRemitStatus(remit.eraStatusCode) && (
-                <EraStatusChip statusCode={remit.eraStatusCode} />
-              )}
-            </Stack>
+      <TableRow sx={ledgerRowSx}>
+        <TableCell align="center" sx={{ px: 0 }}>
+          <IconButton
+            ref={anchorRef}
+            size="small"
+            aria-label="Show remit details"
+            aria-expanded={open}
+            onClick={() => {
+              setOpenKey(open ? null : entry.key);
+              highlight();
+            }}
+          >
+            <InfoOutlinedIcon sx={{ fontSize: 18 }} />
+          </IconButton>
+          <Popper open={open} anchorEl={anchorRef.current} placement="bottom-start" sx={{ zIndex: 'modal' }}>
+            <ClickAwayListener onClickAway={close}>
+              <Paper role="dialog" aria-label="Remit line details" sx={remitCardSx}>
+                <IconButton
+                  size="small"
+                  aria-label="Close remit details"
+                  onClick={close}
+                  sx={{ position: 'absolute', top: 8, right: 8 }}
+                >
+                  <CloseIcon fontSize="small" />
+                </IconButton>
+                <RemitLineCard
+                  entry={entry}
+                  claimLineUnits={claimLineUnits}
+                  label={remitLabel(remit, remits, claimPayers)}
+                />
+              </Paper>
+            </ClickAwayListener>
+          </Popper>
+        </TableCell>
+        <TableCell>{date}</TableCell>
+        <TableCell>
+          <Stack direction="row" spacing={1} alignItems="center">
+            <Typography variant="body2" fontWeight={600} noWrap sx={{ minWidth: 0, maxWidth: 220 }}>
+              {remit.payerName || 'Unknown payer'}
+            </Typography>
+            {remit.eraStatusCode && isAdverseRemitStatus(remit.eraStatusCode) && (
+              <EraStatusChip statusCode={remit.eraStatusCode} />
+            )}
+          </Stack>
+        </TableCell>
+        <TableCell align="right">{line.billed === null ? '-' : formatCurrency(line.billed)}</TableCell>
+        <TableCell align="right">
+          {line.allowed === null ? '-' : <AmountChip label={formatCurrency(line.allowed)} color="success" />}
+        </TableCell>
+        <TableCell align="right">{formatCurrency(amounts.insuranceAdjustment)}</TableCell>
+        <TableCell align="right">
+          <AmountChip label={formatCurrency(line.paid)} color="primary" />
+        </TableCell>
+        {PATIENT_RESP_COLUMNS.map(({ key }) => (
+          <TableCell key={key} align="right">
+            <PatientRespAmount amount={amounts[key]} />
           </TableCell>
-          <TableCell align="right">{line.billed === null ? '-' : formatCurrency(line.billed)}</TableCell>
-          <TableCell align="right">
-            {line.allowed === null ? '-' : <AmountChip label={formatCurrency(line.allowed)} color="success" />}
-          </TableCell>
-          <TableCell align="right">{formatCurrency(amounts.insuranceAdjustment)}</TableCell>
-          <TableCell align="right">
-            <AmountChip label={formatCurrency(line.paid)} color="primary" />
-          </TableCell>
-          {PATIENT_RESP_COLUMNS.map(({ key }) => (
-            <TableCell key={key} align="right">
-              <PatientRespAmount amount={amounts[key]} />
-            </TableCell>
-          ))}
-        </TableRow>
-        {line.adjustments
-          .filter((adjustment) => !isColumnHeaderCarc(adjustment))
-          .map((adjustment, index) => {
-            const column = adjustmentColumn(adjustment);
-            const amountIn = (key: LedgerColumn): string => (column === key ? formatCurrency(adjustment.amount) : '');
-            return (
-              <TableRow key={index} sx={ledgerRowSx}>
-                <TableCell>{date}</TableCell>
-                <TableCell>
-                  <AdjustmentChip groupCode={adjustment.groupCode} label={adjustmentCode(adjustment)} />
+        ))}
+      </TableRow>
+      {line.adjustments
+        .filter((adjustment) => !isColumnHeaderCarc(adjustment))
+        .map((adjustment, index) => {
+          const column = adjustmentColumn(adjustment);
+          const amountIn = (key: LedgerColumn): string => (column === key ? formatCurrency(adjustment.amount) : '');
+          return (
+            <TableRow key={index} sx={ledgerRowSx}>
+              <TableCell />
+              <TableCell>{date}</TableCell>
+              <TableCell>
+                <AdjustmentChip groupCode={adjustment.groupCode} label={adjustmentCode(adjustment)} />
+              </TableCell>
+              <TableCell />
+              <TableCell />
+              <TableCell align="right">{amountIn('insuranceAdjustment')}</TableCell>
+              <TableCell />
+              {PATIENT_RESP_COLUMNS.map(({ key }) => (
+                <TableCell key={key} align="right">
+                  {amountIn(key)}
                 </TableCell>
-                <TableCell />
-                <TableCell />
-                <TableCell align="right">{amountIn('insuranceAdjustment')}</TableCell>
-                <TableCell />
-                {PATIENT_RESP_COLUMNS.map(({ key }) => (
-                  <TableCell key={key} align="right">
-                    {amountIn(key)}
-                  </TableCell>
-                ))}
-              </TableRow>
-            );
-          })}
-      </TableBody>
-    </Tooltip>
+              ))}
+            </TableRow>
+          );
+        })}
+    </TableBody>
   );
 }
 
@@ -661,7 +681,7 @@ function RemitLineCard({
 
   return (
     <Stack spacing={1.25} divider={<Divider flexItem />}>
-      <Box>
+      <Box sx={{ pr: 4 }}>
         <Typography variant="subtitle1" fontWeight={700} lineHeight={1.3}>
           {remit.payerName || 'Unknown payer'}
         </Typography>
@@ -696,9 +716,15 @@ function RemitLineCard({
         <Typography variant="body2" fontWeight={700}>
           Check
         </Typography>
-        <Typography variant="body2" sx={{ flex: 1 }}>
-          {remit.checkNumber || '-'}
-        </Typography>
+        <Box sx={{ flex: 1 }}>
+          {remit.checkNumber ? (
+            <CopyButton value={remit.checkNumber} label="check number">
+              <Typography variant="body2">{remit.checkNumber}</Typography>
+            </CopyButton>
+          ) : (
+            <Typography variant="body2">-</Typography>
+          )}
+        </Box>
         <Typography variant="body2" color="text.secondary">
           {formatDate(remit.checkDate)}
         </Typography>
