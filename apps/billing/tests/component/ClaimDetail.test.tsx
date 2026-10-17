@@ -844,6 +844,27 @@ describe('ClaimDetail — service line remit details', () => {
     expect(checkRow).not.toHaveClass('Mui-selected');
   });
 
+  it('opens a remit card from the keyboard, focuses into it, and returns focus on Escape', async () => {
+    const user = userEvent.setup();
+    getBillingClaimDetailMock.mockResolvedValue(claimWithRemits());
+    renderDetail();
+    await openRemitsTab();
+
+    const line1 = await screen.findByRole('table', { name: 'Remit details for line 1' });
+    const trigger = within(line1).getByRole('button', { name: 'Show remit details' });
+    act(() => trigger.focus());
+    await user.keyboard('{Enter}');
+
+    const card = await screen.findByRole('dialog', { name: 'Remit line details' });
+    await waitFor(() => expect(within(card).getByRole('button', { name: 'Close remit details' })).toHaveFocus());
+    await user.tab();
+    expect(within(card).getByRole('button', { name: 'Copy check number' })).toHaveFocus();
+
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Remit line details' })).not.toBeInTheDocument());
+    expect(trigger).toHaveFocus();
+  });
+
   it('highlights a remit line with its remit and check while it has focus', async () => {
     getBillingClaimDetailMock.mockResolvedValue(claimWithRemits());
     renderDetail();

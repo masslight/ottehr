@@ -291,6 +291,23 @@ describe('remitDesignation', () => {
     expect(remitDesignation(primary, [primary, secondary], claimPayers)).toBe('Primary');
   });
 
+  it('keeps the CLP02 rank when the payer is on more than one of the claim coverages', () => {
+    const secondary = remit({ claimResponseId: 'cr-secondary', eraStatusCode: '2', payerName: 'BCBS' });
+
+    expect(remitDesignation(secondary, [secondary], ['BCBS', 'BCBS', '', ''])).toBe('Secondary');
+  });
+
+  it("ranks a reversal like its ERA peer's claim coverage, not the peer's CLP02", () => {
+    const correction = remit({ claimResponseId: 'cr-correction', eraStatusCode: '1', payerName: 'CIGNA', paid: 60 });
+    const reversal = remit({ claimResponseId: 'cr-reversal', eraStatusCode: '22', payerName: 'Cigna Corp', paid: -60 });
+    const remits = [correction, reversal];
+
+    expect(remitDesignation(reversal, remits, ['TN BCBS', 'Cigna', '', ''])).toBe('Secondary');
+    expect(insurancePaidByDesignation(remits, ['TN BCBS', 'Cigna', '', ''])).toEqual([
+      { designation: 'Secondary', amount: 0 },
+    ]);
+  });
+
   it('ranks a reversal like the correction on its ERA, even under another payer name', () => {
     const reversal = remit({ claimResponseId: 'cr-reversal', eraStatusCode: '22', payerName: 'Acme' });
     const correction = remit({ claimResponseId: 'cr-correction', eraStatusCode: '2', payerName: 'Acme Health' });

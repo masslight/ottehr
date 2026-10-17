@@ -564,6 +564,10 @@ function LedgerGroup({
     setOpenKey((latest) => (latest === entry.key ? null : latest));
     clearHighlight();
   };
+  const closeToTrigger = (): void => {
+    close();
+    anchorRef.current?.focus();
+  };
 
   const amounts = ledgerAmounts(line.adjustments);
   const date = formatDate(remit.date) || '-';
@@ -595,11 +599,21 @@ function LedgerGroup({
           </IconButton>
           <Popper open={open} anchorEl={anchorRef.current} placement="bottom-start" sx={{ zIndex: 'modal' }}>
             <ClickAwayListener onClickAway={close}>
-              <Paper role="dialog" aria-label="Remit line details" sx={remitCardSx}>
+              <Paper
+                role="dialog"
+                aria-label="Remit line details"
+                sx={remitCardSx}
+                onKeyDown={(event) => {
+                  if (event.key !== 'Escape') return;
+                  event.stopPropagation();
+                  closeToTrigger();
+                }}
+              >
                 <IconButton
+                  autoFocus
                   size="small"
                   aria-label="Close remit details"
-                  onClick={close}
+                  onClick={closeToTrigger}
                   sx={{ position: 'absolute', top: 8, right: 8 }}
                 >
                   <CloseIcon fontSize="small" />

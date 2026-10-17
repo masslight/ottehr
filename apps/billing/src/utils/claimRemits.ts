@@ -178,10 +178,13 @@ export function claimPayerNames(
   return [claim.payerName, claim.secondaryPayerName, claim.tertiaryPayerName, claim.quaternaryPayerName];
 }
 
+// Only a payer on exactly one coverage says which one it paid under.
 const coverageRankOf = (payerName: string, claimPayers: string[]): string | undefined => {
   if (!payerName) return undefined;
-  const index = claimPayers.findIndex((name) => name && name.toLowerCase() === payerName.toLowerCase());
-  return index === -1 ? undefined : PAYER_RANKS[index];
+  const indexes = claimPayers.flatMap((name, index) =>
+    name && name.toLowerCase() === payerName.toLowerCase() ? [index] : []
+  );
+  return indexes.length === 1 ? PAYER_RANKS[indexes[0]] : undefined;
 };
 
 const RANK_BY_STATUS: Partial<Record<EraClaimStatusCode, string>> = {
@@ -200,14 +203,15 @@ const rankOf = (remit: ClaimRemit): string | undefined =>
 // CLP02 "processed as primary" on secondary remits, so coverage outranks it), else CLP02, else a
 // peer remit's rank (a reversal travels with its correction).
 export function remitDesignation(remit: ClaimRemit, remits: ClaimRemit[], claimPayers: string[]): string {
+  const ownRank = (candidate: ClaimRemit): string | undefined =>
+    coverageRankOf(candidate.payerName, claimPayers) ?? rankOf(candidate);
   const peerRank = (isPeer: (other: ClaimRemit) => boolean): string | undefined =>
     remits
       .filter((other) => other !== remit && isPeer(other))
-      .map(rankOf)
+      .map(ownRank)
       .find(Boolean);
   return (
-    coverageRankOf(remit.payerName, claimPayers) ??
-    rankOf(remit) ??
+    ownRank(remit) ??
     (remit.paymentReconciliationId
       ? peerRank((other) => other.paymentReconciliationId === remit.paymentReconciliationId)
       : undefined) ??
