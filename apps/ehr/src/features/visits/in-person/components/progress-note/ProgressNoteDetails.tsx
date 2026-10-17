@@ -52,6 +52,11 @@ import { examConfig } from 'utils/lib/ottehr-config/examination';
 import { NOTE_TYPE } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { LabType } from 'utils/lib/types/data/labs/labs.types';
 import { getSupervisorApprovalStatus } from 'utils/lib/utils/visitUtils';
+import {
+  FormResponsesSummary,
+  PatientFormResponses,
+  useThisVisitFormResponses,
+} from '../../../shared/components/patient-forms/PatientFormResponses';
 import { useVisitNote } from '../../../shared/hooks/useVisitNote';
 import { useGetImmunizationOrders } from '../../hooks/useImmunization';
 import { useMedicationAPI } from '../../hooks/useMedicationOperations';
@@ -137,8 +142,11 @@ export const ProgressNoteDetails: FC = () => {
   const showMechanismOfInjury = !!(mechanismOfInjury && mechanismOfInjury.length > 0);
   const showHpi = !!(hpi && hpi.length > 0);
   const showLegacyReviewOfSystems = !!(rosLegacyText && rosLegacyText.length > 0);
+  const visitForms = useThisVisitFormResponses();
   const showAdditionalQuestions =
-    !!(observations && observations.length > 0) || !!(screeningNotes && screeningNotes.length > 0);
+    !!(observations && observations.length > 0) ||
+    !!(screeningNotes && screeningNotes.length > 0) ||
+    visitForms.screening.length > 0;
   const showAssessment = !!(diagnoses && diagnoses.length > 0);
   const showMedicalDecisionMaking = !!(medicalDecision && medicalDecision.length > 0);
   const showEmCode = !!emCode;
@@ -338,7 +346,23 @@ export const ProgressNoteDetails: FC = () => {
         editLabel="Edit screening questions"
         editContent={<ScreeningBody />}
       >
-        <AdditionalQuestionsContainer notes={screeningNotes} emptyMessage="No screening information" />
+        <AdditionalQuestionsContainer
+          notes={screeningNotes}
+          emptyMessage={visitForms.screening.length ? undefined : 'No screening information'}
+        />
+        <FormResponsesSummary responses={visitForms.screening} />
+      </InlineEditSection>
+    ),
+    (visitForms.questionnaires.length > 0 || inlineEditEnabled) && (
+      <InlineEditSection
+        key="questionnaires"
+        sectionName="questionnaires"
+        title="Clinical Forms"
+        iconKey="Questionnaires"
+        editLabel="Edit clinical forms"
+        editContent={<PatientFormResponses placement="questionnaires" scope="this-visit" />}
+      >
+        <FormResponsesSummary responses={visitForms.questionnaires} emptyMessage="No clinical forms" />
       </InlineEditSection>
     ),
     (showVitalsObservations || inlineEditEnabled) && (

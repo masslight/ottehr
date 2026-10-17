@@ -511,6 +511,9 @@ export const PRACTICE_MANAGED_QUESTIONNAIRE_TAG = {
   code: 'practice-managed',
 };
 
+/** meta.tag system naming where a practice-managed form's answers appear; no tag means Visit Details. */
+export const FORM_PLACEMENT_TAG_SYSTEM = ottehrCodeSystemUrl('form-placement');
+
 /** meta.tag identifying a paperwork flow Questionnaire. */
 export const PAPERWORK_FLOW_TAG = {
   system: `${PRIVATE_EXTENSION_BASE_URL}/flow-type`,

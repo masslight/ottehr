@@ -319,6 +319,9 @@ exports[`composeProgressNoteData — golden chart data > matches the golden snap
       },
     ],
   },
+  "questionnaires": {
+    "forms": [],
+  },
   "radiology": {
     "pendingRadiologyOrders": [],
     "radiology": [
@@ -351,6 +354,7 @@ exports[`composeProgressNoteData — golden chart data > matches the golden snap
       },
     },
     "currentASQ": "",
+    "forms": [],
     "notes": [
       "screening note text",
     ],
