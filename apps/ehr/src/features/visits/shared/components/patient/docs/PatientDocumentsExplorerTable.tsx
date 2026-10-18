@@ -7,6 +7,7 @@ import MoreVertIcon from '@mui/icons-material/MoreVert';
 import {
   Box,
   IconButton,
+  Link,
   ListItemIcon,
   ListItemText,
   Menu,
@@ -25,7 +26,7 @@ import { RoundedButton } from 'src/components/RoundedButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { stripFileExtension } from 'src/helpers/files.helper';
 import { formatISOStringToDateAndTime } from 'src/helpers/formatDateTime';
-import { PatientDocumentInfo } from 'src/hooks/useGetPatientDocs';
+import { DownloadDocumentOptions, PatientDocumentInfo } from 'src/hooks/useGetPatientDocs';
 import { PatientVisitOption, usePatientVisitOptions } from 'src/hooks/usePatientVisitOptions';
 import { FAX_PACKET_CODE, MEDICAL_RECORD_EXPORT_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
 import { isFaxableAttachment } from 'utils/lib/utils/file';
@@ -39,7 +40,7 @@ export enum DocumentTableActionType {
 
 export type DocumentTableActions = {
   isActionAllowed: (documentId: string, actionType: DocumentTableActionType) => boolean;
-  onDocumentDownload: (documentId: string) => Promise<void>;
+  onDocumentDownload: (documentId: string, options?: DownloadDocumentOptions) => Promise<void>;
   /** Opens the fax dialog for this document; faxing is a single-document action by design. */
   onDocumentFax: (documentId: string) => void;
   onDocumentRename: (documentId: string, newName: string) => Promise<void>;
@@ -302,6 +303,14 @@ const resolveDocumentVisit = (
   (doc.encounterId ? visitsByEncounterId.get(doc.encounterId) : undefined) ??
   (doc.appointmentId ? visitsByAppointmentId.get(doc.appointmentId) : undefined);
 
+/**
+ * Opens a document in a new tab. The tab is reserved inside the click, because a tab opened after the
+ * download's awaits would be blocked as a pop-up; the download closes it if the file never arrives.
+ */
+const openInNewTab = (documentId: string, download: DocumentTableActions['onDocumentDownload']): void => {
+  void download(documentId, { targetTab: window.open('', '_blank'), skipRelated: true });
+};
+
 const configureTableColumns = (
   actions: DocumentTableActions,
   visitsByEncounterId: Map<string, PatientVisitOption>,
@@ -313,7 +322,14 @@ const configureTableColumns = (
       field: 'docName',
       headerName: 'Doc Name',
       width: 400,
-      renderCell: ({ row: { docName } }) => docName,
+      renderCell: ({ row: { id, docName } }) =>
+        actions.isActionAllowed(id, DocumentTableActionType.ActionDownload) ? (
+          <Link component="button" underline="hover" onClick={() => openInNewTab(id, actions.onDocumentDownload)}>
+            {docName}
+          </Link>
+        ) : (
+          docName
+        ),
     },
     {
       sortable: true,

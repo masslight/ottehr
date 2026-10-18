@@ -1,6 +1,6 @@
 import { useAuth0 } from '@auth0/auth0-react';
 import Oystehr, { SearchParam } from '@oystehr/sdk';
-import { useQuery, useQueryClient, UseQueryResult } from '@tanstack/react-query';
+import { QueryClient, useQuery, useQueryClient, UseQueryResult } from '@tanstack/react-query';
 import { DocumentReference, FhirResource, List, QuestionnaireResponse, Reference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { useCallback, useMemo, useState } from 'react';
@@ -60,6 +60,8 @@ export type PatientDocumentAttachment = {
   presignedUrl?: string;
   /** The stored MIME type. Carried so the UI decides what is faxable on the same input the server uses. */
   contentType?: string;
+  /** Base64 content kept inside the record instead of in a file, as the AI scribe does with its transcript. */
+  data?: string;
 };
 
 // http://localhost:4002/patient/104e4c8c-1866-4c96-a436-88080c691614/docs
@@ -438,6 +440,13 @@ export const useGetPatientDocs = (
         }
 
         const openAttachments = async (attachments: PatientDocumentAttachment[]): Promise<void> => {
+          for (const { z3Url, data, contentType } of attachments) {
+            if (z3Url || !data) continue;
+            const bytes = Uint8Array.from(atob(data), (char) => char.charCodeAt(0));
+            const type = contentType?.startsWith('text/') ? `${contentType};charset=utf-8` : contentType;
+            openFile(window.URL.createObjectURL(new Blob([bytes], { type })));
+          }
+
           const urlSigningRequests = attachments.map(async (attachment) => {
             let presignedUrl = undefined;
             if (attachment.z3Url) {
@@ -671,6 +680,40 @@ export const parsePatientDocsFolders = (
   return Array.from(byInternalName.values());
 };
 
+/** The patient's folders query, shared by useGetPatientDocsFolders and prefetchPatientDocsFolders. */
+const fetchPatientDocsFolders = async (oystehr: Oystehr, patientId: string): Promise<PatientDocsFoldersQueryData> => {
+  const [listsBundle, catalogBundle] = await Promise.all([
+    oystehr.fhir.search<List>({
+      resourceType: 'List',
+      params: [
+        { name: 'subject', value: `Patient/${patientId}` },
+        { name: 'code', value: PATIENT_FOLDERS_CODE },
+      ],
+    }),
+    oystehr.fhir.search<List>({
+      resourceType: 'List',
+      params: [{ name: 'identifier', value: CUSTOM_FOLDERS_CATALOG_IDENTIFIER }],
+    }),
+  ]);
+
+  return {
+    // Include soft-deleted catalog entries: per-patient Lists that reference them
+    // are still shown to users and must resolve display names from the catalog.
+    // Synthetic folders for soft-deleted entries are filtered out below.
+    lists: listsBundle.unbundle() as List[],
+    catalogDefs: parseCustomFoldersCatalogIncludingDeleted(catalogBundle.unbundle()[0]),
+  };
+};
+
+/** Warms the folders query so an upload dialog opened shortly after (e.g. from the command palette) shows them at once. */
+export const prefetchPatientDocsFolders = (queryClient: QueryClient, oystehr: Oystehr, patientId: string): void => {
+  void queryClient.prefetchQuery({
+    queryKey: [QUERY_KEYS.GET_PATIENT_DOCS_FOLDERS, { patientId }],
+    queryFn: () => fetchPatientDocsFolders(oystehr, patientId),
+    staleTime: 60_000,
+  });
+};
+
 // Exported so screens that file documents for an ad-hoc patient (e.g. inbound-fax matching)
 // can reuse the folder loading + synthetic-folder logic instead of re-implementing it.
 export const useGetPatientDocsFolders = (
@@ -697,28 +740,7 @@ export const useGetPatientDocsFolders = (
       }
 
       console.log(`useGetPatientDocsFolders() query triggered`);
-
-      const [listsBundle, catalogBundle] = await Promise.all([
-        oystehr.fhir.search<List>({
-          resourceType: 'List',
-          params: [
-            { name: 'subject', value: `Patient/${patientId}` },
-            { name: 'code', value: PATIENT_FOLDERS_CODE },
-          ],
-        }),
-        oystehr.fhir.search<List>({
-          resourceType: 'List',
-          params: [{ name: 'identifier', value: CUSTOM_FOLDERS_CATALOG_IDENTIFIER }],
-        }),
-      ]);
-
-      return {
-        // Include soft-deleted catalog entries: per-patient Lists that reference them
-        // are still shown to users and must resolve display names from the catalog.
-        // Synthetic folders for soft-deleted entries are filtered out below.
-        lists: listsBundle.unbundle() as List[],
-        catalogDefs: parseCustomFoldersCatalogIncludingDeleted(catalogBundle.unbundle()[0]),
-      };
+      return fetchPatientDocsFolders(oystehr, patientId);
     },
   });
 
@@ -847,6 +869,7 @@ const extractDocumentAttachments = (docRef: DocumentReference): PatientDocumentA
         fileNameFromUrl: getFileNameFromUrl(docRefAttachment.url),
         z3Url: docRefAttachment.url,
         contentType: docRefAttachment.contentType,
+        data: docRefAttachment.data,
       } as PatientDocumentAttachment;
     });
 };
@@ -871,7 +894,7 @@ const debug__mimicTextNarrativeDocumentsFilter = (
   });
 };
 
-const usePatientDocsActions = ({
+export const usePatientDocsActions = ({
   patientId,
   encounterId,
 }: {

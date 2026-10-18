@@ -115,4 +115,28 @@ describe('PatientDocumentsExplorerTable', () => {
 
     expect(screen.queryByRole('button', { name: 'Send Fax' })).not.toBeInTheDocument();
   });
+
+  it('opens a document in a new tab from its name, reserving the tab inside the click', async () => {
+    const reservedTab = { close: vi.fn() };
+    const openSpy = vi.spyOn(window, 'open').mockReturnValue(reservedTab as unknown as Window);
+    const onDocumentDownload = vi.fn().mockResolvedValue(undefined);
+    const user = userEvent.setup();
+    renderTable([makeDocument('doc-1', 'cbc results.pdf')], makeActions({ onDocumentDownload }));
+
+    await user.click(screen.getByRole('button', { name: 'cbc results.pdf' }));
+
+    expect(openSpy).toHaveBeenCalledWith('', '_blank');
+    expect(onDocumentDownload).toHaveBeenCalledWith('doc-1', { targetTab: reservedTab, skipRelated: true });
+    // The table hands the tab over and never closes it: the download fills it or closes it if nothing arrives.
+    await Promise.resolve();
+    expect(reservedTab.close).not.toHaveBeenCalled();
+    openSpy.mockRestore();
+  });
+
+  it('shows the name as plain text when the document cannot be opened', () => {
+    renderTable([makeDocument('doc-1', 'cbc results.pdf')], makeActions({ isActionAllowed: () => false }));
+
+    expect(screen.queryByRole('button', { name: 'cbc results.pdf' })).toBeNull();
+    expect(screen.getByText('cbc results.pdf')).toBeInTheDocument();
+  });
 });

@@ -246,8 +246,8 @@ export const CommandPalette: FC = () => {
     const handleKeyDown = (event: KeyboardEvent): void => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
         event.preventDefault();
-        const { phraseDialog, createTaskDialogOpen } = useCommandPaletteStore.getState();
-        if (phraseDialog || createTaskDialogOpen) {
+        const { phraseDialog, createTaskDialogOpen, uploadDocumentMode } = useCommandPaletteStore.getState();
+        if (phraseDialog || createTaskDialogOpen || uploadDocumentMode) {
           return;
         }
         if (isOpen) {

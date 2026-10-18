@@ -8,6 +8,7 @@ const navigate = vi.fn();
 let appointmentData: { patient?: Patient; encounter?: Encounter } = {};
 const useAppointmentData = vi.fn((_appointmentId?: string) => appointmentData);
 let hasStaffRole = true;
+let visitIsLocked = false;
 
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
@@ -16,6 +17,10 @@ vi.mock('react-router-dom', async () => {
 
 vi.mock('../../src/features/visits/shared/stores/appointment/appointment.store', () => ({
   useAppointmentData: (appointmentId?: string) => useAppointmentData(appointmentId),
+}));
+
+vi.mock('../../src/features/visits/shared/utils/appointment-accessibility.helper', () => ({
+  getAppointmentAccessibilityData: () => ({ isAppointmentReadOnly: visitIsLocked }),
 }));
 
 vi.mock('../../src/hooks/useEvolveUser', () => ({
@@ -121,5 +126,43 @@ describe('useActionQuickPicks — Add Follow-up Visit', () => {
   it('is hidden for users without primary EHR staff roles', () => {
     hasStaffRole = false;
     expect(renderAt('/visits')).toBeUndefined();
+  });
+});
+
+describe('useActionQuickPicks — Upload and Scan', () => {
+  const documentItems = (pathname: string): string[] => {
+    renderAt(pathname);
+    return (useCommandPaletteStore.getState().sources.actions?.items ?? [])
+      .map((item) => item.id)
+      .filter((id) => id === 'action-upload-document' || id === 'action-scan-document');
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    useCommandPaletteStore.setState({ sources: {}, uploadDocumentMode: null });
+    appointmentData = { patient: { resourceType: 'Patient', id: 'patient-1' } };
+    hasStaffRole = true;
+    visitIsLocked = false;
+  });
+
+  it.each(['/in-person/appt-1/progress-note', '/visit/appt-1', '/patient/patient-1/docs'])(
+    'offers Upload and Scan with a visit or patient on screen (%s), opening the matching dialog',
+    (pathname) => {
+      expect(documentItems(pathname)).toEqual(['action-upload-document', 'action-scan-document']);
+
+      const items = useCommandPaletteStore.getState().sources.actions!.items;
+      items.find((item) => item.id === 'action-scan-document')!.onSelect();
+      expect(useCommandPaletteStore.getState().uploadDocumentMode).toBe('scan');
+    }
+  );
+
+  it('hides them on a locked visit, like the visit Documents page', () => {
+    visitIsLocked = true;
+    expect(documentItems('/in-person/appt-1/progress-note')).toEqual([]);
+  });
+
+  it('hides them with no patient in context', () => {
+    appointmentData = {};
+    expect(documentItems('/tasks')).toEqual([]);
   });
 });

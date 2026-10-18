@@ -1,13 +1,11 @@
 import ScannerIcon from '@mui/icons-material/Scanner';
 import SearchOutlinedIcon from '@mui/icons-material/SearchOutlined';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
-import { Box, debounce, Grid, IconButton, Stack, styled, TextField, Typography, useTheme } from '@mui/material';
+import { Box, debounce, Grid, IconButton, Stack, TextField, Typography, useTheme } from '@mui/material';
 import { DateTime } from 'luxon';
-import { enqueueSnackbar } from 'notistack';
 import { ChangeEvent, FC, useCallback, useEffect, useMemo, useState } from 'react';
 import DateSearch, { CustomFormEventHandler } from 'src/components/DateSearch';
 import { RoundedButton } from 'src/components/RoundedButton';
-import { ScannerModal } from 'src/components/ScannerModal';
 import { useSendFax } from 'src/features/fax/hooks/useSendFax';
 import { SendFaxDialog } from 'src/features/fax/ui/SendFaxDialog';
 import {
@@ -18,28 +16,14 @@ import {
   useGetPatientDocs,
 } from 'src/hooks/useGetPatientDocs';
 import { PatientVisitOption, usePatientVisitOptions } from 'src/hooks/usePatientVisitOptions';
-import { isSyntheticFolderId } from 'utils/lib/types/data/custom-folder.types';
 import { PatientDocumentFoldersColumn, PatientDocumentFoldersColumnSkeleton } from './PatientDocumentFoldersColumn';
 import {
   DocumentTableActions,
   DocumentTableActionType,
   PatientDocumentsExplorerTable,
 } from './PatientDocumentsExplorerTable';
+import { UploadDocumentDialog, UploadDocumentMode } from './UploadDocumentDialog';
 import { VisitFilterAutocomplete } from './VisitFilterAutocomplete';
-
-const FileAttachmentHiddenInput = styled('input')({
-  clip: 'rect(0 0 0 0)',
-  clipPath: 'inset(50%)',
-  height: 1,
-  overflow: 'hidden',
-  position: 'absolute',
-  bottom: 0,
-  left: 0,
-  whiteSpace: 'nowrap',
-  width: 1,
-});
-
-const VALID_FILE_NAME_PATTERN = /^[a-zA-Z0-9+!\-_'()\\.@$ ]+$/;
 
 export type PatientDocumentsExplorerProps = {
   patientId: string;
@@ -93,7 +77,7 @@ export const PatientDocumentsExplorer: FC<PatientDocumentsExplorerProps> = ({
   const [searchDocAddedDate, setSearchDocAddedDate] = useState<DateTime | null>(null);
   const [selectedVisit, setSelectedVisit] = useState<PatientVisitOption | null>(null);
   const [selectedFolder, setSelectedFolder] = useState<PatientDocumentsFolder | undefined>(undefined);
-  const [isScanModalOpen, setIsScanModalOpen] = useState<boolean>(false);
+  const [uploadMode, setUploadMode] = useState<UploadDocumentMode | null>(null);
   const [pendingSelectInternalName, setPendingSelectInternalName] = useState<string | null>(null);
   const [documentIdToFax, setDocumentIdToFax] = useState<string | null>(null);
 
@@ -207,105 +191,11 @@ export const PatientDocumentsExplorer: FC<PatientDocumentsExplorerProps> = ({
     setSearchDocNameFieldValue('');
   }, []);
 
-  const handleOpenScanModal = useCallback(() => setIsScanModalOpen(true), []);
-  const handleCloseScanModal = useCallback(() => setIsScanModalOpen(false), []);
-
-  // First upload to a synthetic folder creates the real per-patient List; re-select by internalName
-  // so the doc search re-keys off the real id (the synthetic id short-circuits to an empty result set).
-  const reselectFolderIfSynthetic = useCallback(
-    (wasSynthetic: boolean) => {
-      if (wasSynthetic && selectedFolder?.internalName) {
-        setPendingSelectInternalName(selectedFolder.internalName);
-      }
-    },
-    [selectedFolder?.internalName]
-  );
-
-  const handleScanComplete = useCallback(
-    async (fileBlob: Blob | Blob[], fileName: string): Promise<void> => {
-      const folderId = selectedFolder?.id;
-      if (!folderId) {
-        enqueueSnackbar('No folder selected', { variant: 'error' });
-        return;
-      }
-
-      try {
-        // This explorer uses PDF format (default), so fileBlob should be a single Blob.
-        if (Array.isArray(fileBlob)) {
-          console.error('Unexpected array of blobs for PDF output format');
-          enqueueSnackbar('Failed to upload scanned document', { variant: 'error' });
-          return;
-        }
-
-        const finalFileName = fileName.endsWith('.pdf') ? fileName : `${fileName}.pdf`;
-        const file = new File([fileBlob], finalFileName, { type: 'application/pdf' });
-
-        const wasSynthetic = isSyntheticFolderId(folderId);
-        await documentActions.uploadDocumentAction({
-          docFile: file,
-          fileName: finalFileName,
-          fileFolderId: folderId,
-          internalName: selectedFolder?.internalName,
-        });
-        reselectFolderIfSynthetic(wasSynthetic);
-
-        enqueueSnackbar('Successfully uploaded scanned document', { variant: 'success' });
-      } catch (error) {
-        console.error('Error uploading scanned document:', error);
-        enqueueSnackbar('Failed to upload scanned document', { variant: 'error' });
-      }
-    },
-    [documentActions, reselectFolderIfSynthetic, selectedFolder?.id, selectedFolder?.internalName]
-  );
-
-  const handleDocumentUploadInputChange = useCallback(
-    async (event: ChangeEvent<HTMLInputElement>): Promise<void> => {
-      const { files } = event.target;
-
-      const selectedFile = ((files && Array.from(files)) ?? []).at(0);
-
-      if (!selectedFile) {
-        console.warn('No file selected/available - earlier skip!');
-        return;
-      }
-
-      const fileName = selectedFile.name;
-
-      if (!VALID_FILE_NAME_PATTERN.test(fileName)) {
-        enqueueSnackbar(
-          "Invalid file name. Only letters, numbers, spaces, and these characters are allowed: + ! - _ ' ( ) . @ $",
-          { variant: 'error' }
-        );
-        event.target.value = '';
-        return;
-      }
-
-      const folderId = selectedFolder?.id;
-      if (!folderId) {
-        console.warn('No folder selected - earlier skip!');
-        return;
-      }
-
-      const wasSynthetic = isSyntheticFolderId(folderId);
-      try {
-        await documentActions.uploadDocumentAction({
-          docFile: selectedFile,
-          fileName: fileName,
-          fileFolderId: folderId,
-          internalName: selectedFolder?.internalName,
-        });
-        reselectFolderIfSynthetic(wasSynthetic);
-      } catch (error) {
-        console.error('Error uploading document:', error);
-        enqueueSnackbar('Failed to upload document', { variant: 'error' });
-      } finally {
-        // Always clear the input, or picking the same file again fires no change event and the
-        // retry silently does nothing.
-        event.target.value = '';
-      }
-    },
-    [documentActions, reselectFolderIfSynthetic, selectedFolder?.id, selectedFolder?.internalName]
-  );
+  // After an upload, show the folder it went into; selecting by internalName (every listed folder has one)
+  // also picks up the real List that the first upload into a synthetic catalog-only folder creates.
+  const handleUploaded = useCallback((folder: PatientDocumentsFolder) => {
+    setPendingSelectInternalName(folder.internalName ?? null);
+  }, []);
 
   const documentTableActions: DocumentTableActions = useMemo(() => {
     return {
@@ -413,33 +303,17 @@ export const PatientDocumentsExplorer: FC<PatientDocumentsExplorerProps> = ({
             {!readOnly && (
               <>
                 <RoundedButton
-                  disabled={documentActions.isUploading}
-                  loading={documentActions.isUploading}
-                  component="label"
                   variant="outlined"
                   startIcon={<UploadFileIcon fontSize="small" />}
-                  onClick={(event) => {
-                    if (!selectedFolder) {
-                      event.preventDefault();
-                      enqueueSnackbar('Please select a folder where you want to upload the doc', {
-                        variant: 'warning',
-                      });
-                    }
-                  }}
+                  onClick={() => setUploadMode('upload')}
                 >
                   Upload
-                  <FileAttachmentHiddenInput
-                    onChange={handleDocumentUploadInputChange}
-                    type="file"
-                    capture="environment"
-                  />
                 </RoundedButton>
 
                 <RoundedButton
-                  disabled={!selectedFolder}
                   variant="outlined"
                   startIcon={<ScannerIcon fontSize="small" />}
-                  onClick={handleOpenScanModal}
+                  onClick={() => setUploadMode('scan')}
                 >
                   Scan
                 </RoundedButton>
@@ -456,7 +330,17 @@ export const PatientDocumentsExplorer: FC<PatientDocumentsExplorerProps> = ({
         </Grid>
       </Grid>
 
-      <ScannerModal open={isScanModalOpen} onClose={handleCloseScanModal} onScanComplete={handleScanComplete} />
+      {uploadMode && (
+        <UploadDocumentDialog
+          open
+          mode={uploadMode}
+          onClose={() => setUploadMode(null)}
+          patientId={patientId}
+          encounterId={visit?.encounterId}
+          defaultFolderId={selectedFolder?.id}
+          onUploaded={handleUploaded}
+        />
+      )}
       <SendFaxDialog controller={faxController} title="Fax Document" />
     </Stack>
   );
