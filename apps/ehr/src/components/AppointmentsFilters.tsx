@@ -279,6 +279,8 @@ export default function AppointmentsFilters(): ReactElement {
                 size="medium"
                 dataTestId={dataTestIds.dashboard.locationSelect}
                 multiple
+                withSelectAll
+                limitTags={2}
               />
             </Box>
             <Box sx={{ flex: 1, width: '100%' }}>
