@@ -134,14 +134,20 @@ async function downloadNdjson<T extends FhirResource>(url: string): Promise<T[]>
   }
 }
 
+// Without _count a job returns at most 1,000 resources; 30,000 is the most it returns.
+const ASYNC_BULK_MAX_RESULTS = 30000;
+
 async function searchAsyncBulk<T extends FhirResource>(
   oystehr: Oystehr,
   resourceType: T['resourceType'],
-  params: { name: string; value: string }[]
+  requestParams: { name: string; value: string }[]
 ): Promise<T[]> {
+  const params = [...requestParams, { name: '_count', value: `${ASYNC_BULK_MAX_RESULTS}` }];
   const label = `${resourceType} by ${params.map((p) => p.name).join(',')}`;
   const startedAt = Date.now();
   let jobId = '';
+  let resources: T[];
+  let nextUrl: string | undefined;
   try {
     const handle = await oystehr.fhir.search<T>({ resourceType, params }, { mode: 'async-bulk' });
     jobId = handle.jobId;
@@ -156,13 +162,18 @@ async function searchAsyncBulk<T extends FhirResource>(
         resources: await downloadNdjson<T>(file.url),
       }))
     );
-    const resources = files.flatMap((file) => file.resources);
+    resources = files.flatMap((file) => file.resources);
+
     console.log(
       `[adhoc] ${label}: job=${jobId} ms=${Date.now() - startedAt} files=${files.length} ` +
         `resources=${resources.length} ` +
         `perFile=${JSON.stringify(files.map((file) => ({ type: file.type, count: file.resources.length })))}`
     );
-    return resources;
+
+    // OYST-3505
+    nextUrl = (status.manifest as { link?: { relation?: string; url?: string }[] }).link?.find(
+      (link) => link.relation === 'next'
+    )?.url;
   } catch (error) {
     console.error(
       `[adhoc] ${label}: FAILED job=${jobId || 'not started'} ms=${Date.now() - startedAt} ` +
@@ -181,6 +192,15 @@ async function searchAsyncBulk<T extends FhirResource>(
       }`
     );
   }
+
+  if (!nextUrl) return resources;
+
+  const nextParams = Array.from(new URLSearchParams(nextUrl.split('?')[1]), ([name, value]) => ({
+    name,
+    value,
+  })).filter((p) => p.name !== '_count');
+
+  return [...resources, ...(await searchAsyncBulk<T>(oystehr, resourceType, nextParams))];
 }
 
 const REPORT_APPOINTMENT_STATUSES = 'proposed,pending,booked,arrived,fulfilled,checked-in,waitlist,cancelled,noshow';
