@@ -189,6 +189,13 @@ describe('DME order form PDF', () => {
     expect(data.orderingProvider).toEqual({ name: 'Jane Doe', npi: '1234567890', signatureName: 'Jane Doe' });
   });
 
+  it('does not claim a pending in-house order was dispensed', () => {
+    const data = composeDmeOrderFormData(makeInput(makeDeviceRequest(inHouseFields)));
+    expect(data.inHouse).toBe(true);
+    expect(data.order.fulfillment).toBe('To be dispensed from in-house inventory');
+    expect(data.order.dispensed).toBeUndefined();
+  });
+
   it('composes an external order with the third party and no proof of delivery', () => {
     const data = composeDmeOrderFormData(makeInput(makeDeviceRequest(externalFields)));
     expect(data.inHouse).toBe(false);
@@ -204,6 +211,7 @@ describe('DME order form PDF', () => {
 
   it.each([
     ['in-house', makeDeviceRequest(inHouseFields, true)],
+    ['pending in-house', makeDeviceRequest(inHouseFields)],
     ['external', makeDeviceRequest(externalFields)],
   ])('renders the %s order form onto one page', async (_label, deviceRequest) => {
     const doc = await PDFDocument.load(await createDmeOrderFormPdfBytes(makeInput(deviceRequest), ''));

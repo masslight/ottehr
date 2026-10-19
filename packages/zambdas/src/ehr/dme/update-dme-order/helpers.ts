@@ -66,18 +66,26 @@ export const makeEditRequests = (input: {
 
   const encounterId = getDeviceRequestEncounterId(deviceRequest);
   const patientId = getDeviceRequestPatientId(deviceRequest);
-  const updated = makeDmeDeviceRequest({ fields, encounterId, patientId, existing: deviceRequest });
-  const billing = makeDmeBillingProcedures({
+  const billingRequests = makeBillingProcedureRequests(
+    makeDmeBillingProcedures({
+      fields,
+      encounterId,
+      patientId,
+      deviceRequestReference: `DeviceRequest/${deviceRequest.id}`,
+    })
+  );
+  const updated = makeDmeDeviceRequest({
     fields,
     encounterId,
     patientId,
-    deviceRequestReference: `DeviceRequest/${deviceRequest.id}`,
+    existing: deviceRequest,
+    billingProcedureReferences: billingRequests.map((request) => request.fullUrl),
   });
 
   const requests: Request[] = [
     putDeviceRequest(deviceRequest, updated),
     ...deleteProcedures(procedures),
-    ...makeBillingProcedureRequests(billing),
+    ...billingRequests,
   ];
 
   const openTasks = tasks.filter(isOpenDmeDispenseTask);

@@ -11,6 +11,7 @@ import {
   Timing,
 } from 'fhir/r4b';
 import { ottehrExtensionUrl } from 'utils/lib/fhir/systemUrls';
+import { removePrefix } from 'utils/lib/helpers/helpers';
 import { CODE_SYSTEM_CPT, CODE_SYSTEM_CPT_MODIFIER, CODE_SYSTEM_ICD_10 } from 'utils/lib/helpers/rcm/constants';
 import { CPTCodeDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import {
@@ -45,6 +46,8 @@ export const DME_MENU_ITEM_SEARCH_TAG = `${DME_MENU_ITEM_TAG_SYSTEM}|${DME_MENU_
 export const DME_ORDER_SEARCH_TAG = `${DME_ORDER_TAG_SYSTEM}|${DME_ORDER_TAG_CODE}`;
 /** On a billing Procedure: the DeviceRequest it bills for (Procedure.basedOn can't target a DeviceRequest). */
 export const DME_BILLED_ORDER_EXTENSION_URL = ottehrExtensionUrl('dme-order');
+/** On the DeviceRequest, one per billing Procedure: the authoritative link, as a chart edit can drop the Procedure's own. */
+export const DME_BILLING_PROCEDURE_EXTENSION_URL = ottehrExtensionUrl('dme-billing-procedure');
 
 const QUANTITY_PARAMETER: Coding = { system: DME_ORDER_PARAMETER_SYSTEM, code: 'quantity' };
 const MODIFIER_PARAMETER: Coding = { system: DME_ORDER_PARAMETER_SYSTEM, code: 'modifier' };
@@ -87,14 +90,21 @@ export const makeDmeMenuItemActivityDefinition = (
   };
 };
 
+// A billing line needs a description; codes saved without one fall back to the item name, as in-house labs do.
+const toBillingCode = (coding: Coding, fallbackDisplay: string): CPTCodeDTO => ({
+  code: coding.code!,
+  display: coding.display?.trim() || fallbackDisplay,
+});
+
 export const parseDmeMenuItem = (resource: ActivityDefinition): DmeMenuItem | undefined => {
-  if (!resource.id || !resource.title) return undefined;
+  const { id, title } = resource;
+  if (!id || !title) return undefined;
   return {
-    id: resource.id,
-    name: resource.title,
+    id,
+    name: title,
     hcpcsCodes: (resource.productCodeableConcept?.coding ?? [])
       .filter((c) => c.code)
-      .map((c) => ({ code: c.code!, display: c.display ?? '' })),
+      .map((c) => toBillingCode(c, title)),
   };
 };
 
@@ -164,8 +174,10 @@ export const makeDmeDeviceRequest = (input: {
   encounterId: string;
   patientId: string;
   existing?: DeviceRequest;
+  /** `Procedure/<id>` or the urn:uuid fullUrl of each billing Procedure written with this version of the order */
+  billingProcedureReferences?: string[];
 }): DeviceRequest => {
-  const { fields, encounterId, patientId, existing } = input;
+  const { fields, encounterId, patientId, existing, billingProcedureReferences = [] } = input;
   const external = fields.external;
   const thirdParty = external && hasThirdPartyDetails(fields.thirdParty) ? fields.thirdParty : undefined;
 
@@ -174,6 +186,10 @@ export const makeDmeDeviceRequest = (input: {
     ...fields.billingCodes.map((c) => ({
       url: DME_BILLING_CODE_EXTENSION_URL,
       valueCoding: { system: CODE_SYSTEM_CPT, code: c.code, display: c.display },
+    })),
+    ...billingProcedureReferences.map((reference) => ({
+      url: DME_BILLING_PROCEDURE_EXTENSION_URL,
+      valueReference: { reference },
     })),
     ...(existing?.extension?.filter((e) => e.url === DME_DISPENSED_EXTENSION_URL) ?? []),
   ];
@@ -247,10 +263,17 @@ export const makeDmeBillingProcedures = (input: {
 export const isDmeBillingProcedure = (resource: { extension?: Extension[] }): boolean =>
   !!resource.extension?.some((e) => e.url === DME_BILLED_ORDER_EXTENSION_URL);
 
-export const isDmeBillingProcedureOf = (procedure: Procedure, deviceRequestId: string): boolean =>
+export const getDmeBillingProcedureIds = (deviceRequest: DeviceRequest): string[] =>
+  (deviceRequest.extension ?? [])
+    .filter((e) => e.url === DME_BILLING_PROCEDURE_EXTENSION_URL)
+    .map((e) => removePrefix('Procedure/', e.valueReference?.reference ?? ''))
+    .filter((id): id is string => !!id);
+
+export const isDmeBillingProcedureOf = (procedure: Procedure, deviceRequest: DeviceRequest): boolean =>
+  (!!procedure.id && getDmeBillingProcedureIds(deviceRequest).includes(procedure.id)) ||
   !!procedure.extension?.some(
     (e) =>
-      e.url === DME_BILLED_ORDER_EXTENSION_URL && e.valueReference?.reference === `DeviceRequest/${deviceRequestId}`
+      e.url === DME_BILLED_ORDER_EXTENSION_URL && e.valueReference?.reference === `DeviceRequest/${deviceRequest.id}`
   );
 
 const DME_PROVENANCE_ACTIVITY = {
@@ -334,15 +357,16 @@ export const parseDmeOrder = (dr: DeviceRequest, practitionerNames: Record<strin
     (r): r is Organization => r.resourceType === 'Organization' && r.id === DME_THIRD_PARTY_CONTAINED_ID
   );
   const dispensed = getDmeDispensed(dr);
+  const itemName = dr.codeCodeableConcept?.text ?? dr.codeCodeableConcept?.coding?.[0]?.display ?? '';
   const billingCodes: CPTCodeDTO[] = (dr.extension ?? [])
     .filter((e) => e.url === DME_BILLING_CODE_EXTENSION_URL && e.valueCoding?.code)
-    .map((e) => ({ code: e.valueCoding!.code!, display: e.valueCoding!.display ?? '' }));
+    .map((e) => toBillingCode(e.valueCoding!, itemName));
 
   return {
     id: dr.id ?? '',
     encounterId: dr.encounter?.reference?.replace('Encounter/', '') ?? '',
     menuItemId: dr.codeCodeableConcept?.coding?.find((c) => c.system === DME_ITEM_CODE_SYSTEM)?.code,
-    itemName: dr.codeCodeableConcept?.text ?? dr.codeCodeableConcept?.coding?.[0]?.display ?? '',
+    itemName,
     diagnoses: (dr.reasonCode ?? [])
       .map((rc) => rc.coding?.[0])
       .filter((c) => c?.code)

@@ -1,8 +1,14 @@
-import { BatchInputRequest } from '@oystehr/sdk';
+import { BatchInputPostRequest, BatchInputRequest } from '@oystehr/sdk';
 import { DeviceRequest, FhirResource, Procedure, Task } from 'fhir/r4b';
 import { DME_DISPENSED_EXTENSION_URL, DME_TASK, DmeOrderFieldsSchema } from 'utils/lib/types/api/dme.types';
 import { describe, expect, it } from 'vitest';
-import { DME_BILLED_ORDER_EXTENSION_URL, getDmeDispensed, makeDmeDeviceRequest } from '../../../shared/dme';
+import {
+  DME_BILLED_ORDER_EXTENSION_URL,
+  DME_BILLING_PROCEDURE_EXTENSION_URL,
+  getDmeBillingProcedureIds,
+  getDmeDispensed,
+  makeDmeDeviceRequest,
+} from '../../../shared/dme';
 import { createTask } from '../../../shared/tasks';
 import {
   DmeOrderResources,
@@ -87,6 +93,10 @@ describe('update-dme-order request builders', () => {
       { url: DME_BILLED_ORDER_EXTENSION_URL, valueReference: { reference: `DeviceRequest/${DR_ID}` } },
     ]);
     expect((putDr as any).resource.supportingInfo).toBeUndefined();
+    const { fullUrl } = posts[0] as BatchInputPostRequest<FhirResource>;
+    expect(fullUrl).toMatch(/^urn:uuid:/);
+    const links = (putDr as any).resource.extension.filter((e: any) => e.url === DME_BILLING_PROCEDURE_EXTENSION_URL);
+    expect(links).toEqual([{ url: DME_BILLING_PROCEDURE_EXTENSION_URL, valueReference: { reference: fullUrl } }]);
 
     const taskPut = rest.find((r) => r.url === '/Task/task-open') as any;
     expect(taskPut.method).toBe('PUT');
@@ -109,6 +119,7 @@ describe('update-dme-order request builders', () => {
     });
     expect(byMethod(requests, 'POST')).toHaveLength(0);
     expect(byMethod(requests, 'DELETE')).toHaveLength(1);
+    expect(getDmeBillingProcedureIds((requests[0] as any).resource)).toEqual([]);
     const patches = byMethod(requests, 'PATCH');
     expect(patches.map((p) => p.url)).toEqual(['/Task/task-open']);
     expect(decodePatch(patches[0])).toEqual([{ op: 'replace', path: '/status', value: 'cancelled' }]);
