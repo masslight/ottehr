@@ -80,6 +80,7 @@ import {
 import {
   RULES_ENGINES,
   RulesEngineDef,
+  RulesEngineSubmissionInsurance,
   RulesEngineSubmissionType,
 } from 'utils/lib/types/data/billing/rules-engine.constants';
 import { formatCurrency } from 'utils/lib/utils/convert';
@@ -196,6 +197,7 @@ export default function ClaimDetail(): ReactElement {
   const [service, setService] = useState('');
   const [skipRules, setSkipRules] = useState(false);
   const [submissionType, setSubmissionType] = useState<RulesEngineSubmissionType>('new');
+  const [submissionInsurance, setSubmissionInsurance] = useState<RulesEngineSubmissionInsurance>('primary');
   const [showCoverageMap, setShowCoverageMap] = useState<Record<string, boolean>>({
     primary: true,
     secondary: !!claim?.secondaryCoverageFhirId,
@@ -329,7 +331,8 @@ export default function ClaimDetail(): ReactElement {
       await runBillingRulesEngine(oystehrZambda, {
         claimIds: [id],
         skipRules,
-        submissionType: skipRules ? submissionType : undefined,
+        submissionType: submissionType,
+        submissionInsurance: submissionInsurance,
         payerClaimControlNumber: skipRules && submissionType !== 'new' ? claim?.payerClaimControlNumber : undefined,
       });
       const messageSegment = skipRules
@@ -349,7 +352,7 @@ export default function ClaimDetail(): ReactElement {
       setConfirmingSubmit(false);
       await fetchDetail();
     }
-  }, [oystehrZambda, id, claim, skipRules, submissionType, fetchDetail]);
+  }, [oystehrZambda, id, claim, skipRules, submissionType, submissionInsurance, fetchDetail]);
 
   if (loading && !claim) {
     return (
@@ -742,6 +745,76 @@ export default function ClaimDetail(): ReactElement {
               Run the {runEngine.label} on this claim? They apply the configured rules; when every rule passes,{' '}
               {runEngine.onPass} — or the claim is held if a rule applies the Hold tag.
             </Typography>
+            {claim.secondaryCoverageFhirId ? (
+              <FormControl>
+                <FormLabel id="submission-type-label">Select Insurance</FormLabel>
+
+                <RadioGroup
+                  aria-labelledby="submission-type-label"
+                  name="submission-type-group"
+                  value={submissionInsurance}
+                  onChange={(event) => setSubmissionInsurance(event.target.value as RulesEngineSubmissionInsurance)}
+                >
+                  <FormControlLabel
+                    value="primary"
+                    control={<Radio />}
+                    label={`Primary — ${claim.payerName} (${claim.payerId})`}
+                  />
+                  {claim.secondaryCoverageFhirId ? (
+                    <FormControlLabel
+                      value="secondary"
+                      control={<Radio />}
+                      label={`Secondary — ${claim.secondaryPayerName} (${claim.secondaryPayerId})`}
+                    />
+                  ) : (
+                    <></>
+                  )}
+                  {claim.tertiaryCoverageFhirId ? (
+                    <FormControlLabel
+                      value="tertiary"
+                      control={<Radio />}
+                      label={`Tertiary — ${claim.tertiaryPayerName} (${claim.tertiaryPayerId})`}
+                    />
+                  ) : (
+                    <></>
+                  )}
+                  {claim.quaternaryCoverageFhirId ? (
+                    <FormControlLabel
+                      value="quaternary"
+                      control={<Radio />}
+                      label={`Quaternary — ${claim.quaternaryPayerName} (${claim.quaternaryPayerId})`}
+                    />
+                  ) : (
+                    <></>
+                  )}
+                </RadioGroup>
+              </FormControl>
+            ) : (
+              <></>
+            )}
+            <FormControl>
+              <FormLabel id="submission-type-label">Select Submission Type</FormLabel>
+              <RadioGroup
+                aria-labelledby="submission-type-label"
+                name="submission-type-group"
+                value={submissionType}
+                onChange={(event) => setSubmissionType(event.target.value as RulesEngineSubmissionType)}
+              >
+                <FormControlLabel value="new" control={<Radio />} label="New Submission" />
+                <FormControlLabel
+                  disabled={!claim.payerClaimControlNumber}
+                  value="correction"
+                  control={<Radio />}
+                  label="Correction"
+                />
+                <FormControlLabel
+                  disabled={!claim.payerClaimControlNumber}
+                  value="void"
+                  control={<Radio />}
+                  label="Void Claim"
+                />
+              </RadioGroup>
+            </FormControl>
             <FormControlLabel
               control={<Switch checked={skipRules} onChange={(_event, checked) => setSkipRules(checked)} />}
               label="Skip rules"
@@ -751,33 +824,6 @@ export default function ClaimDetail(): ReactElement {
                 },
               }}
             />
-            {skipRules ? (
-              <FormControl>
-                <FormLabel id="submission-type-label">Submission Type</FormLabel>
-                <RadioGroup
-                  aria-labelledby="submission-type-label"
-                  name="submission-type-group"
-                  value={submissionType}
-                  onChange={(event) => setSubmissionType(event.target.value as RulesEngineSubmissionType)}
-                >
-                  <FormControlLabel value="new" control={<Radio />} label="New Submission" />
-                  <FormControlLabel
-                    disabled={!claim.payerClaimControlNumber}
-                    value="correction"
-                    control={<Radio />}
-                    label="Correction"
-                  />
-                  <FormControlLabel
-                    disabled={!claim.payerClaimControlNumber}
-                    value="void"
-                    control={<Radio />}
-                    label="Void Claim"
-                  />
-                </RadioGroup>
-              </FormControl>
-            ) : (
-              <></>
-            )}
           </Box>
         </ConfirmDialog>
       )}

@@ -2287,7 +2287,15 @@ describe('rules-engine kickoff task', () => {
       reference: 'Practitioner/practitioner',
     };
     for (const engine of RULES_ENGINE_TYPES) {
-      const task = buildRulesEngineKickoffTask(engine, 'claim-123', true, requester, 'correction', 'PCCN-12345');
+      const task = buildRulesEngineKickoffTask(
+        engine,
+        'claim-123',
+        true,
+        requester,
+        'correction',
+        'primary',
+        'PCCN-12345'
+      );
       expect(task.status).toBe('requested');
       expect(task.focus?.reference).toBe('Claim/claim-123');
       expect(task.code?.coding?.[0]).toEqual({
@@ -2339,7 +2347,7 @@ describe('rules-engine kickoff task', () => {
       reference: 'Practitioner/practitioner',
     };
     for (const engine of RULES_ENGINE_TYPES) {
-      const task = buildRulesEngineKickoffTask(engine, 'claim-123', true, requester, 'void', 'PCCN-12345');
+      const task = buildRulesEngineKickoffTask(engine, 'claim-123', true, requester, 'void', 'primary', 'PCCN-12345');
       expect(task.status).toBe('requested');
       expect(task.focus?.reference).toBe('Claim/claim-123');
       expect(task.code?.coding?.[0]).toEqual({

@@ -26,7 +26,7 @@ export class ClaimSubmissionRejectedError extends Error {
 // with the Hold tag lifted in the same commit — recorded in the claim history with the rules-engine
 // agent.
 export async function submitClaim(input: FinalizeRunInput): Promise<FinalizeRunResult> {
-  const { oystehr, model, agent, submissionType, payerClaimControlNumber } = input;
+  const { oystehr, model, agent, submissionType, submissionInsurance, payerClaimControlNumber } = input;
   const claimId = model.claim.id;
   if (!claimId) throw new Error('Claim id missing from the rules-engine model');
 
@@ -38,7 +38,10 @@ export async function submitClaim(input: FinalizeRunInput): Promise<FinalizeRunR
   try {
     claimResponse = await oystehr.rcm.submitClaim({
       claimId,
-      action: submissionType ?? undefined,
+      action: submissionType,
+      // CWO TODO: update sdk
+      // @ts-expect-error this isn't implemented yet
+      insurance: submissionInsurance,
       payerClaimControlNumber: payerClaimControlNumber ?? undefined,
     });
   } catch (error) {

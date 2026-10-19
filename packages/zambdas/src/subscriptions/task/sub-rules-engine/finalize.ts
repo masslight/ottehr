@@ -7,7 +7,11 @@ import {
   ClaimStatusFieldKey,
   getClaimStatusFieldValue,
 } from 'utils/lib/types/data/billing/claim-status';
-import { RulesEngineSubmissionType, RulesEngineType } from 'utils/lib/types/data/billing/rules-engine.constants';
+import {
+  RulesEngineSubmissionInsurance,
+  RulesEngineSubmissionType,
+  RulesEngineType,
+} from 'utils/lib/types/data/billing/rules-engine.constants';
 import { applyClaimStatusFieldClearingHold } from '../../../billing/provenance';
 import { RulesEngineClaimModel } from '../../../billing/rules-engine/claim-model';
 import { assertValidClaimStatusField, fetchById } from '../../../billing/shared';
@@ -22,7 +26,8 @@ export interface FinalizeRunInput {
   oystehr: Oystehr;
   model: RulesEngineClaimModel;
   agent: ProvenanceAgent[];
-  submissionType: RulesEngineSubmissionType | null;
+  submissionType: RulesEngineSubmissionType;
+  submissionInsurance: RulesEngineSubmissionInsurance;
   payerClaimControlNumber: string | null;
 }
 
