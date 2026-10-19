@@ -237,8 +237,15 @@ describe('createDocumentResources', () => {
 });
 
 describe('createConsentResources', () => {
-  const [HIPAA_FORM, CTT_FORM] = getConsentFormsForLocation();
+  const forms = getConsentFormsForLocation();
   const IL_FORMS = getConsentFormsForLocation('IL');
+  // Index of the first form that creates a Consent resource (varies by project overlay)
+  const FIRST_CONSENT_FORM_IDX = forms.findIndex((f) => f.createsConsentResource);
+  const FIRST_CONSENT_FORM = forms[FIRST_CONSENT_FORM_IDX]!;
+  // Number of forms that create a Consent resource
+  const CONSENT_CREATING_COUNT = forms.filter((f) => f.createsConsentResource).length;
+  // Index of the first form with a state-specific IL asset path (-1 when none exist)
+  const IL_VARIANT_IDX = forms.findIndex((f, i) => IL_FORMS[i].assetPath !== f.assetPath);
 
   const SECRETS = { PROJECT_ID: 'proj-123', PROJECT_API: 'https://project.api' } as unknown as Secrets;
 
@@ -341,24 +348,24 @@ describe('createConsentResources', () => {
   test('creates, uploads, and files one PDF per configured consent form', async () => {
     await run();
 
-    // One PDF per form in the reference config (HIPAA + consent-to-treat)
-    expect(mockCreatePdfBytes).toHaveBeenCalledTimes(2);
+    // One PDF per configured form
+    expect(mockCreatePdfBytes).toHaveBeenCalledTimes(forms.length);
     const pdfInfos = mockCreatePdfBytes.mock.calls.map((call) => call[3]);
-    expect(pdfInfos.map((info) => info.formTitle)).toEqual([HIPAA_FORM.formTitle, CTT_FORM.formTitle]);
-    expect(pdfInfos[1].copyFromPath).toBe(CTT_FORM.assetPath);
+    expect(pdfInfos.map((info) => info.formTitle)).toEqual(forms.map((f) => f.formTitle));
+    expect(pdfInfos[FIRST_CONSENT_FORM_IDX].copyFromPath).toBe(FIRST_CONSENT_FORM.assetPath);
 
     // Upload URLs are keyed by project bucket, patient, timestamp, and form id
     const expectedBase = `https://project.api/z3/proj-123-consent-forms/${PATIENT_ID}/${Date.now()}`;
-    expect(mockUploadPDF).toHaveBeenCalledTimes(2);
+    expect(mockUploadPDF).toHaveBeenCalledTimes(forms.length);
     expect(mockUploadPDF).toHaveBeenCalledWith(
       expect.any(Uint8Array),
-      `${expectedBase}-${HIPAA_FORM.id}.pdf`,
+      `${expectedBase}-${forms[0].id}.pdf`,
       'test-token',
       PATIENT_ID
     );
 
     // One DocumentReference group per type code, appointment-scoped
-    expect(mockCreateFilesDocumentReferences).toHaveBeenCalledTimes(2);
+    expect(mockCreateFilesDocumentReferences).toHaveBeenCalledTimes(forms.length);
     for (const call of mockCreateFilesDocumentReferences.mock.calls) {
       expect(call[0].references).toEqual({
         subject: { reference: `Patient/${PATIENT_ID}` },
@@ -366,11 +373,11 @@ describe('createConsentResources', () => {
       });
     }
 
-    // Only the consent-to-treat form creates a Consent resource, linked to its docref
-    expect(mockCreateConsentResource).toHaveBeenCalledTimes(1);
+    // One Consent resource per form that declares createsConsentResource
+    expect(mockCreateConsentResource).toHaveBeenCalledTimes(CONSENT_CREATING_COUNT);
     const [consentPatientId, consentDocRefId, consentDate] = mockCreateConsentResource.mock.calls[0];
     expect(consentPatientId).toBe(PATIENT_ID);
-    expect(consentDocRefId).toBe(`dr-${CTT_FORM.type.text}-0`);
+    expect(consentDocRefId).toBe(`dr-${FIRST_CONSENT_FORM.type.text}-0`);
     expect(consentDate).toContain('2026-08-20T15:00:00');
   });
 
@@ -396,10 +403,11 @@ describe('createConsentResources', () => {
   });
 
   test('resolves state-specific consent form assets (the Illinois variant)', async () => {
+    if (IL_VARIANT_IDX === -1) return; // no IL-specific variants in this project's config
     await run({ location: makeLocation('IL') });
-    const cttPdfInfo = mockCreatePdfBytes.mock.calls[1][3];
-    expect(cttPdfInfo.copyFromPath).toBe(IL_FORMS[1].assetPath);
-    expect(cttPdfInfo.copyFromPath).not.toBe(CTT_FORM.assetPath);
+    const variantPdfInfo = mockCreatePdfBytes.mock.calls[IL_VARIANT_IDX][3];
+    expect(variantPdfInfo.copyFromPath).toBe(IL_FORMS[IL_VARIANT_IDX].assetPath);
+    expect(variantPdfInfo.copyFromPath).not.toBe(forms[IL_VARIANT_IDX].assetPath);
   });
 
   test('labels telemed visits with the telemedicine facility name', async () => {
@@ -424,7 +432,7 @@ describe('createConsentResources', () => {
 
   test('wraps upload failures with the form title', async () => {
     mockUploadPDF.mockRejectedValueOnce(new Error('z3 unavailable'));
-    await expect(run()).rejects.toThrow(`Failed to upload ${HIPAA_FORM.formTitle} PDF. z3 unavailable`);
+    await expect(run()).rejects.toThrow(`Failed to upload ${forms[0].formTitle} PDF. z3 unavailable`);
   });
 
   test('throws when no DocumentReference matches the consent form title', async () => {
@@ -437,6 +445,6 @@ describe('createConsentResources', () => {
         content: [{ attachment: { url: file.url, title: 'some other title' } }],
       })),
     }));
-    await expect(run()).rejects.toThrow(`DocumentReference for "${CTT_FORM.formTitle}" not found`);
+    await expect(run()).rejects.toThrow(`DocumentReference for "${FIRST_CONSENT_FORM.formTitle}" not found`);
   });
 });
