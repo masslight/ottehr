@@ -21,6 +21,7 @@ const era: PaymentReconciliation = {
 const response: ClaimResponse = {
   resourceType: 'ClaimResponse',
   id: 'cr-1',
+  meta: { versionId: '5' },
   status: 'active',
   use: 'claim',
   type: {},
@@ -61,12 +62,19 @@ describe.each([
   { name: 'match', perform: match },
   { name: 'unmatch', perform: unmatch },
 ])('$name on a voided ERA', ({ perform }) => {
-  it('patches the response of an active ERA', async () => {
+  it('patches the response of an active ERA at the version it checked', async () => {
     await expect(perform(client, readClient, params)).resolves.toEqual(response);
     expect(fetchClaimEraLinks).toHaveBeenCalledWith(readClient, [response]);
     expect(transaction).toHaveBeenCalledWith({
-      requests: [expect.objectContaining({ method: 'PATCH', url: '/ClaimResponse/cr-1' })],
+      requests: [expect.objectContaining({ method: 'PATCH', url: '/ClaimResponse/cr-1', ifMatch: 'W/"5"' })],
     });
+  });
+
+  it('fails without retrying when a void cancels the response after the check', async () => {
+    const conflict = new Oystehr.OystehrSdkError({ message: 'precondition failed', code: 412 });
+    transaction.mockRejectedValueOnce(conflict);
+    await expect(perform(client, readClient, params)).rejects.toBe(conflict);
+    expect(transaction).toHaveBeenCalledTimes(1);
   });
 
   it('rejects a voided ERA before writing', async () => {

@@ -1,7 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ClaimResponse } from 'fhir/r4b';
-import { codeableConcept } from 'utils/lib/fhir/helpers';
+import { codeableConcept, makeOptimisticLockIfMatchHeader } from 'utils/lib/fhir/helpers';
 import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
 import { CODE_SYSTEM_CLAIM_TYPE } from 'utils/lib/helpers/rcm/constants';
 import {
@@ -52,6 +52,8 @@ export async function performEffect(oystehr: Oystehr, eraReadClient: Oystehr, pa
       getPatchBinary({
         resourceType: 'ClaimResponse',
         resourceId: claimResponse.id!,
+        // Fails if a void cancelled the response after the check above.
+        ifMatch: makeOptimisticLockIfMatchHeader(claimResponse),
         patchOperations: [
           {
             op: 'replace',
