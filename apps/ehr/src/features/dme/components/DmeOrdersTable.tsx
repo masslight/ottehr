@@ -5,6 +5,7 @@ import {
   Button,
   CircularProgress,
   IconButton,
+  Link,
   Paper,
   Table,
   TableBody,
@@ -15,9 +16,9 @@ import {
   Typography,
 } from '@mui/material';
 import { ReactElement, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { getDmeOrderDetailsUrl } from 'src/features/visits/in-person/routing/helpers';
+import { getDmeOrderDetailsUrl, withEncounterIdParam } from 'src/features/visits/in-person/routing/helpers';
 import { DmeOrderDTO } from 'utils/lib/types/api/dme.types';
 import { formatDate } from 'utils/lib/utils/date';
 import { useDmeOrders } from '../dme.queries';
@@ -71,13 +72,15 @@ export const DmeOrdersTable = ({
   onCreateOrder,
 }: DmeOrdersTableProps): ReactElement => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { data: orders, isLoading, error } = useDmeOrders(encounterId);
   const [orderToDelete, setOrderToDelete] = useState<DmeOrderDTO | undefined>();
   const visibleColumns = allowDelete ? columns : columns.filter((column) => column !== 'actions');
 
   const openOrder = (order: DmeOrderDTO): void => {
     if (onRowClick) onRowClick(order);
-    else navigate(getDmeOrderDetailsUrl(appointmentId, order.id));
+    else
+      navigate(withEncounterIdParam(getDmeOrderDetailsUrl(appointmentId, order.id), searchParams.get('encounterId')));
   };
 
   if (isLoading) {
@@ -118,7 +121,22 @@ export const DmeOrdersTable = ({
   const renderCell = (order: DmeOrderDTO, column: DmeOrdersTableColumn): React.ReactNode => {
     switch (column) {
       case 'item':
-        return <Typography variant="body2">{order.itemName}</Typography>;
+        return (
+          <Link
+            component="button"
+            type="button"
+            variant="body2"
+            color="inherit"
+            underline="hover"
+            sx={{ textAlign: 'left' }}
+            onClick={(event) => {
+              event.stopPropagation();
+              openOrder(order);
+            }}
+          >
+            {order.itemName}
+          </Link>
+        );
       case 'dx':
         return order.diagnoses.map((dx) => (
           <Typography key={dx.code} variant="body2">

@@ -63,10 +63,14 @@ export const DmeOrderDetails: React.FC<DmeOrderDetailsProps> = ({ order, readOnl
   const canDispense = !readOnly && !order.external && order.status === DmeOrderStatus.pending;
 
   const handlePrint = async (): Promise<void> => {
+    // opened before the await so popup blockers still count it as user-initiated
+    const newTab = window.open('', '_blank');
     try {
       const { presignedURL } = await getPdf(order.id);
-      window.open(presignedURL, '_blank');
+      if (newTab) newTab.location.href = presignedURL;
+      else window.open(presignedURL, '_blank');
     } catch (error) {
+      newTab?.close();
       console.error('Error generating DME order PDF:', error);
       enqueueSnackbar('Failed to generate the DME order PDF', { variant: 'error' });
     }

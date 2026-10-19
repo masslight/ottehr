@@ -36,8 +36,18 @@ vi.mock('../../src/features/visits/shared/hooks/useGetAppointmentAccessibility',
 
 // Only the DME section renders its summary, so the test needs no data for the others.
 vi.mock('../../src/features/visits/in-person/components/progress-note/InlineEditSection', () => ({
-  InlineEditSection: ({ sectionName, children }: { sectionName: string; children: ReactNode }) => (
-    <div data-testid={`section-${sectionName}`}>{sectionName === 'dme-orders' && children}</div>
+  InlineEditSection: ({
+    sectionName,
+    disabled,
+    children,
+  }: {
+    sectionName: string;
+    disabled?: boolean;
+    children: ReactNode;
+  }) => (
+    <div data-testid={`section-${sectionName}`} data-editable={String(!disabled)}>
+      {sectionName === 'dme-orders' && children}
+    </div>
   ),
 }));
 
@@ -131,10 +141,17 @@ describe('ProgressNoteDetails DME section', () => {
     expect(screen.queryByTestId('section-dme-orders')).not.toBeInTheDocument();
   });
 
-  it('still shows existing orders when DME orders are disabled', () => {
+  it('still shows existing orders when DME orders are disabled, without the editor', () => {
     state.flagEnabled = false;
     state.orders = [order];
     renderNote();
     expect(screen.getByTestId('section-dme-orders')).toHaveTextContent('Knee brace');
+    expect(screen.getByTestId('section-dme-orders')).toHaveAttribute('data-editable', 'false');
+  });
+
+  it('keeps the editor when DME orders are enabled', () => {
+    state.orders = [order];
+    renderNote();
+    expect(screen.getByTestId('section-dme-orders')).toHaveAttribute('data-editable', 'true');
   });
 });

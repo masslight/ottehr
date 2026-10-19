@@ -1,15 +1,20 @@
 import Oystehr from '@oystehr/sdk';
-import { ActivityDefinition, DeviceRequest, Organization, Procedure } from 'fhir/r4b';
+import { ActivityDefinition, DeviceRequest, Encounter, Location, Organization, Patient, Procedure } from 'fhir/r4b';
 import { CODE_SYSTEM_CPT_MODIFIER } from 'utils/lib/helpers/rcm/constants';
 import {
   DME_ORDER_PARAMETER_SYSTEM,
+  DME_TASK,
   DmeOrderFields,
   DmeOrderFieldsSchema,
   DmeOrderStatus,
   ParsedDmeOrderFields,
 } from 'utils/lib/types/api/dme.types';
 import { describe, expect, it, vi } from 'vitest';
-import { fetchDmeBillingProcedures } from '../../src/ehr/dme/shared/order-helpers';
+import {
+  fetchDmeBillingProcedures,
+  fetchDmeEncounterContext,
+  makeDmeDispenseTask,
+} from '../../src/ehr/dme/shared/order-helpers';
 import { makeCPTCodeDTO, makeProcedureResource } from '../../src/shared/chart-data/index';
 import {
   DME_BILLED_ORDER_EXTENSION_URL,
@@ -361,6 +366,65 @@ describe('fetchDmeBillingProcedures', () => {
         { name: '_tag', value: 'cpt-code' },
       ])
     );
+  });
+});
+
+describe('DME dispense task', () => {
+  const patient: Patient = { resourceType: 'Patient', id: PATIENT_ID, name: [{ given: ['Jane'], family: 'Doe' }] };
+  const visitLocation: Location = { resourceType: 'Location', id: 'visit-location', name: 'Main St' };
+  const followUpLocation: Location = { resourceType: 'Location', id: 'follow-up-location', name: 'Annex' };
+  const parent: Encounter = {
+    resourceType: 'Encounter',
+    id: 'parent-encounter',
+    status: 'finished',
+    class: { code: 'AMB' },
+    appointment: [{ reference: 'Appointment/parent-appointment' }],
+    location: [{ location: { reference: `Location/${visitLocation.id}` } }],
+  };
+  const followUp: Encounter = {
+    resourceType: 'Encounter',
+    id: ENCOUNTER_ID,
+    status: 'in-progress',
+    class: { code: 'VR' },
+    subject: { reference: `Patient/${PATIENT_ID}` },
+    partOf: { reference: `Encounter/${parent.id}` },
+    location: [{ location: { reference: `Location/${followUpLocation.id}` } }],
+  };
+
+  const dispenseTaskFor = async (
+    resources: (Encounter | Patient | Location)[]
+  ): Promise<ReturnType<typeof makeDmeDispenseTask>> => {
+    const search = vi.fn(async () => ({ unbundle: () => resources }));
+    const context = await fetchDmeEncounterContext(ENCOUNTER_ID, { fhir: { search } } as unknown as Oystehr);
+    expect((search.mock.calls[0] as any)[0].params).toContainEqual({ name: '_include', value: 'Encounter:part-of' });
+    return makeDmeDispenseTask({
+      deviceRequestReference: 'DeviceRequest/dr-1',
+      itemName: 'Ankle Brace',
+      orderDate: undefined,
+      providerName: 'Dr. Order',
+      context,
+    });
+  };
+  const appointmentInput = (task: ReturnType<typeof makeDmeDispenseTask>): string | undefined =>
+    task.input?.find((i) => i.type.coding?.some((c) => c.code === DME_TASK.input.appointmentId))?.valueString;
+
+  it("opens a follow-up without its own appointment through the parent's appointment", async () => {
+    const task = await dispenseTaskFor([followUp, patient, followUpLocation, parent, visitLocation]);
+
+    expect(appointmentInput(task)).toBe('parent-appointment');
+    expect(task.encounter).toEqual({ reference: `Encounter/${ENCOUNTER_ID}` });
+    expect(task.location).toEqual({ reference: `Location/${followUpLocation.id}`, display: followUpLocation.name });
+  });
+
+  it("prefers the encounter's own appointment", async () => {
+    const task = await dispenseTaskFor([
+      { ...followUp, appointment: [{ reference: 'Appointment/own-appointment' }] },
+      patient,
+      followUpLocation,
+      parent,
+    ]);
+
+    expect(appointmentInput(task)).toBe('own-appointment');
   });
 });
 

@@ -1,5 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { DeviceRequest } from 'fhir/r4b';
+import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
 import { removePrefix } from 'utils/lib/helpers/helpers';
 import {
@@ -18,17 +19,19 @@ import { getUpcomingFollowUps } from './get-upcoming-follow-ups';
 import { ProgressNoteInput } from './types';
 import { FullAppointmentResourcePackage } from './visit-details-pdf/types';
 
-const getEncounterDmeOrders = async (oystehr: Oystehr, encounterId: string): Promise<DmeOrderDTO[]> =>
+export const getEncounterDmeOrders = async (oystehr: Oystehr, encounterId: string): Promise<DmeOrderDTO[]> =>
   (
-    await oystehr.fhir.search<DeviceRequest>({
-      resourceType: 'DeviceRequest',
-      params: [
-        { name: 'encounter', value: `Encounter/${encounterId}` },
-        { name: '_tag', value: DME_ORDER_SEARCH_TAG },
-      ],
-    })
+    await getAllFhirSearchPages<DeviceRequest>(
+      {
+        resourceType: 'DeviceRequest',
+        params: [
+          { name: 'encounter', value: `Encounter/${encounterId}` },
+          { name: '_tag', value: DME_ORDER_SEARCH_TAG },
+        ],
+      },
+      oystehr
+    )
   )
-    .unbundle()
     .filter((deviceRequest) => !isDmeOrderDeleted(deviceRequest))
     .map((deviceRequest) => parseDmeOrder(deviceRequest, {}))
     .sort((a, b) => a.orderedAt.localeCompare(b.orderedAt));
