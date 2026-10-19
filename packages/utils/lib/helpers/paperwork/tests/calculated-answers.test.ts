@@ -253,6 +253,99 @@ describe('buildCalculatedAnswers', () => {
     expect(result).toEqual([{ linkId: 'results', item: [{ linkId: 'total' }] }]);
   });
 
+  describe('a page that is not enabled feeds nothing into an enabled one', () => {
+    // two answer pages, each with a calculated subtotal, and a results page that totals the answers and subtotals
+    const splitItems = intake([
+      {
+        linkId: 'part-a',
+        type: 'group',
+        item: [
+          yesNo('a1'),
+          { linkId: 'subtotal-a', type: 'integer', extension: calculated('(answers["a1"]||0) * 10') },
+        ],
+      },
+      {
+        linkId: 'part-b',
+        type: 'group',
+        item: [
+          yesNo('b1'),
+          { linkId: 'subtotal-b', type: 'integer', extension: calculated('(answers["b1"]||0) * 10') },
+        ],
+      },
+      {
+        linkId: 'results',
+        type: 'group',
+        item: [
+          {
+            linkId: 'answer-total',
+            type: 'integer',
+            extension: calculated('(answers["a1"]||0)+(answers["b1"]||0)'),
+          },
+          {
+            linkId: 'subtotal-total',
+            type: 'integer',
+            extension: calculated('(answers["subtotal-a"]||0)+(answers["subtotal-b"]||0)'),
+          },
+        ],
+      },
+    ]);
+    const isPageEnabled = (page: { linkId: string }): boolean => page.linkId !== 'part-b';
+    const resultsOf = (result: QuestionnaireResponseItem[]): QuestionnaireResponseItem[] | undefined =>
+      result.find((page) => page.linkId === 'results')?.item;
+
+    it('leaves out answers stored on a page that is not enabled', () => {
+      const result = buildCalculatedAnswers({
+        pageItems: splitItems,
+        formValues: {},
+        savedPages: [
+          { linkId: 'part-a', item: [coded('a1', '1')] },
+          { linkId: 'part-b', item: [coded('b1', '1')] },
+          { linkId: 'results', item: [] },
+        ],
+        isPageEnabled,
+      });
+      expect(answerOf(resultsOf(result)?.find((i) => i.linkId === 'answer-total'))).toEqual({ valueInteger: 1 });
+    });
+
+    it('leaves out answers just entered on a page that is not enabled', () => {
+      const result = buildCalculatedAnswers({
+        pageItems: splitItems,
+        formValues: formValues(coded('a1', '1'), coded('b1', '1')),
+        savedPages: [
+          { linkId: 'part-a', item: [] },
+          { linkId: 'part-b', item: [] },
+          { linkId: 'results', item: [] },
+        ],
+        isPageEnabled,
+      });
+      expect(answerOf(resultsOf(result)?.find((i) => i.linkId === 'answer-total'))).toEqual({ valueInteger: 1 });
+    });
+
+    it('leaves out a calculated subtotal on a page that is not enabled, and clears the stored one', () => {
+      const result = buildCalculatedAnswers({
+        pageItems: splitItems,
+        formValues: {},
+        savedPages: [
+          { linkId: 'part-a', item: [coded('a1', '1')] },
+          { linkId: 'part-b', item: [coded('b1', '1'), { linkId: 'subtotal-b', answer: [{ valueInteger: 10 }] }] },
+          { linkId: 'results', item: [] },
+        ],
+        isPageEnabled,
+      });
+      expect(result).toEqual([
+        { linkId: 'part-a', item: [{ linkId: 'subtotal-a', answer: [{ valueInteger: 10 }] }] },
+        { linkId: 'part-b', item: [{ linkId: 'subtotal-b' }] },
+        {
+          linkId: 'results',
+          item: [
+            { linkId: 'answer-total', answer: [{ valueInteger: 1 }] },
+            { linkId: 'subtotal-total', answer: [{ valueInteger: 10 }] },
+          ],
+        },
+      ]);
+    });
+  });
+
   it('does nothing for a questionnaire without calculated items', () => {
     expect(
       buildCalculatedAnswers({

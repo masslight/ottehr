@@ -164,7 +164,8 @@ export interface BuildCalculatedAnswersInput {
   formValues: Record<string, QuestionnaireResponseItem | undefined>;
   // the response as stored so far, one item per page
   savedPages: QuestionnaireResponseItem[];
-  // a calculated item on a page that is not enabled is not worked out, and any stored value is cleared (enabled does not equate to visible)
+  // a page that is not enabled is left out entirely: its answers and calculated values feed no expression, its own
+  // calculated items are not worked out, and any stored value is cleared (enabled does not equate to visible)
   isPageEnabled?: (page: CalculableItem) => boolean;
 }
 
@@ -210,7 +211,11 @@ export const buildCalculatedAnswers = (input: BuildCalculatedAnswersInput): Ques
   const located = pageItems.flatMap((page) => locateCalculatedItems(page.item, page));
   if (located.length === 0) return []; // no calculated items to assess, just return
 
-  const overlay: QuestionnaireResponseItem[] = pageItems.map((page) => {
+  // a page that is not enabled supplies neither answers nor calculated values, so nothing on it feeds a score
+  // can be enabled and hidden, enabled does not equate to visible
+  const enabledPages = isPageEnabled ? pageItems.filter(isPageEnabled) : pageItems;
+
+  const overlay: QuestionnaireResponseItem[] = enabledPages.map((page) => {
     const savedChildren = savedPages.find((saved) => saved.linkId === page.linkId)?.item ?? [];
     const item = (page.item ?? []).flatMap((child) => {
       const value = formValues[child.linkId] ?? savedChildren.find((saved) => saved.linkId === child.linkId);
@@ -219,17 +224,15 @@ export const buildCalculatedAnswers = (input: BuildCalculatedAnswersInput): Ques
     return { linkId: page.linkId, item };
   });
 
-  const results = evaluateCalculatedItems(pageItems, overlay);
+  const results = evaluateCalculatedItems(enabledPages, overlay);
 
   const calculatedPages: QuestionnaireResponseItem[] = [];
 
   // loop over array of items with calculated expressions
-  // for each item, find its freshly calculated value
+  // for each item, find its freshly calculated value (none for an item on a page that is not enabled)
   // skip it if the stored value already matches; otherwise it needs setting, updating, or clearing
   for (const { item, page, groupPath } of located) {
-    // can be enabled and hidden, enabled does not equate to visible
-    const enabled = isPageEnabled ? isPageEnabled(page) : true;
-    const answer = enabled ? coerceCalculatedValue(item, results[item.linkId]) : undefined;
+    const answer = coerceCalculatedValue(item, results[item.linkId]);
 
     // unchanged: the one stored answer equals the new value, or there is no new value and nothing is stored
     const savedAnswers = findSavedItem(savedPages, item.linkId)?.answer ?? [];
