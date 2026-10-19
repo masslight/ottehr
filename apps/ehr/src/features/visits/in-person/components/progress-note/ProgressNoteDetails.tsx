@@ -450,6 +450,7 @@ export const ProgressNoteDetails: FC = () => {
         iconKey="DME"
         editLabel="Edit DME orders"
         editContent={<DmeOrdersInlineFlow />}
+        disabled={!FEATURE_FLAGS.DME_ORDERS_ENABLED}
       >
         <DmeOrdersReviewContainer encounterId={encounter?.id} />
       </InlineEditSection>

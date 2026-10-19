@@ -20,7 +20,11 @@ export interface DmeEncounterContext {
   encounter: Encounter;
   patient: Patient;
   location: Location | undefined;
+  appointmentId: string | undefined;
 }
+
+const getEncounterAppointmentId = (encounter: Encounter | undefined): string | undefined =>
+  removePrefix('Appointment/', encounter?.appointment?.[0]?.reference ?? '') || undefined;
 
 export const fetchDmeEncounterContext = async (encounterId: string, oystehr: Oystehr): Promise<DmeEncounterContext> => {
   const resources = (
@@ -30,6 +34,7 @@ export const fetchDmeEncounterContext = async (encounterId: string, oystehr: Oys
         { name: '_id', value: encounterId },
         { name: '_include', value: 'Encounter:patient' },
         { name: '_include', value: 'Encounter:location' },
+        { name: '_include', value: 'Encounter:part-of' },
       ],
     })
   ).unbundle();
@@ -41,8 +46,16 @@ export const fetchDmeEncounterContext = async (encounterId: string, oystehr: Oys
   const patient = resources.find((r): r is Patient => r.resourceType === 'Patient' && r.id === patientId);
   if (!patient) throw { ...FHIR_RESOURCE_NOT_FOUND('Patient'), statusCode: 404 };
 
-  const location = resources.find((r): r is Location => r.resourceType === 'Location');
-  return { encounter, patient, location };
+  const location = resources.find(
+    (r): r is Location =>
+      r.resourceType === 'Location' && !!encounter.location?.some((l) => l.location.reference === `Location/${r.id}`)
+  );
+  const parentEncounter = resources.find(
+    (r): r is Encounter => r.resourceType === 'Encounter' && `Encounter/${r.id}` === encounter.partOf?.reference
+  );
+  // A follow-up may reference only its parent encounter; the parent's appointment is the chart that opens it.
+  const appointmentId = getEncounterAppointmentId(encounter) ?? getEncounterAppointmentId(parentEncounter);
+  return { encounter, patient, location, appointmentId };
 };
 
 export const fetchOrderingPractitioner = async (id: string, oystehr: Oystehr): Promise<Practitioner> => {
@@ -85,7 +98,7 @@ export const makeDmeDispenseTask = (input: {
   context: DmeEncounterContext;
 }): Task => {
   const { deviceRequestReference, itemName, orderDate, providerName, context } = input;
-  const { encounter, patient, location } = context;
+  const { encounter, patient, location, appointmentId } = context;
   return createTask({
     category: DME_TASK.category,
     title: dispenseTaskTitle(itemName),
@@ -95,7 +108,7 @@ export const makeDmeDispenseTask = (input: {
     basedOn: [deviceRequestReference],
     input: [
       { type: DME_TASK.input.patientName, valueString: getFullestAvailableName(patient) },
-      { type: DME_TASK.input.appointmentId, valueString: encounter.appointment?.[0]?.reference?.split('/')[1] },
+      { type: DME_TASK.input.appointmentId, valueString: appointmentId },
       { type: DME_TASK.input.itemName, valueString: itemName },
       { type: DME_TASK.input.orderDate, valueString: orderDate },
       { type: DME_TASK.input.providerName, valueString: providerName },

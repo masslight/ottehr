@@ -1,10 +1,10 @@
 import { Typography } from '@mui/material';
 import React from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useIsInlineFlow } from 'src/components/InlineFlow';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import DetailPageContainer from 'src/features/common/DetailPageContainer';
-import { getDmeOrdersUrl } from 'src/features/visits/in-person/routing/helpers';
+import { getDmeOrdersUrl, withEncounterIdParam } from 'src/features/visits/in-person/routing/helpers';
 import { DmeBreadcrumbs } from '../components/DmeBreadcrumbs';
 import { DmeOrderForm } from '../components/DmeOrderForm';
 
@@ -17,7 +17,10 @@ export const DmeOrderCreatePage: React.FC<DmeOrderCreatePageProps> = ({ onFinish
   const navigate = useNavigate();
   const isInlineFlow = useIsInlineFlow();
   const { id: appointmentId } = useParams();
-  const exit = onFinished ?? ((): void => navigate(getDmeOrdersUrl(appointmentId ?? '')));
+  const [searchParams] = useSearchParams();
+  const exit =
+    onFinished ??
+    ((): void => navigate(withEncounterIdParam(getDmeOrdersUrl(appointmentId ?? ''), searchParams.get('encounterId'))));
 
   const form = <DmeOrderForm onFinished={() => exit()} onCancel={onCancel ?? exit} />;
 

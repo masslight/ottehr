@@ -1,10 +1,10 @@
 import { Typography } from '@mui/material';
 import React from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useIsInlineFlow } from 'src/components/InlineFlow';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import DetailPageContainer from 'src/features/common/DetailPageContainer';
-import { getDmeOrderDetailsUrl } from 'src/features/visits/in-person/routing/helpers';
+import { getDmeOrderDetailsUrl, withEncounterIdParam } from 'src/features/visits/in-person/routing/helpers';
 import { DmeBreadcrumbs } from '../components/DmeBreadcrumbs';
 import { DmeOrderForm } from '../components/DmeOrderForm';
 import { DmeOrderLoading, DmeOrderNotFound } from '../components/DmeOrderNotFound';
@@ -20,9 +20,15 @@ export const DmeOrderEditPage: React.FC<DmeOrderEditPageProps> = ({ deviceReques
   const navigate = useNavigate();
   const isInlineFlow = useIsInlineFlow();
   const { id: appointmentId, dmeOrderId } = useParams();
+  const [searchParams] = useSearchParams();
   const orderId = deviceRequestId ?? dmeOrderId;
   const { data: order, isLoading, error } = useDmeOrder(orderId);
-  const exit = onFinished ?? ((): void => navigate(getDmeOrderDetailsUrl(appointmentId ?? '', orderId ?? '')));
+  const exit =
+    onFinished ??
+    ((): void =>
+      navigate(
+        withEncounterIdParam(getDmeOrderDetailsUrl(appointmentId ?? '', orderId ?? ''), searchParams.get('encounterId'))
+      ));
 
   if (isLoading) return <DmeOrderLoading />;
   if (!order) return <DmeOrderNotFound failed={!!error} onBack={onCancel ?? exit} />;
