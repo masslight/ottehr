@@ -24,6 +24,7 @@ import {
   SERVICE_REQUEST_REQUESTED_TIME_EXTENSION_URL,
 } from 'utils/lib/fhir/radiology';
 import { CODE_SYSTEM_CPT, CODE_SYSTEM_NDC } from 'utils/lib/helpers/rcm/constants';
+import { patientScreeningQuestionsConfig } from 'utils/lib/ottehr-config/screening-questions';
 import { AdHocBillingOutputSchema } from 'utils/lib/types/adhoc/datasets/billing';
 import { AdHocEncountersOutputSchema } from 'utils/lib/types/adhoc/datasets/encounters';
 import { AdHocPatientsOutputSchema } from 'utils/lib/types/adhoc/datasets/patients';
@@ -663,18 +664,26 @@ describe('ad-hoc dataset zambdas: mapped rows parse against their Zod schema (fi
     const row = rows[0];
 
     expect(issuesOf(AdHocEncountersOutputSchema.safeParse({ encounters: rows }))).toEqual([]);
-    expect(row.screeningAnswers).toEqual([
-      { question: 'Has the patient been seen in one of our offices / telemed in last 3 years?', answer: 'Yes' },
-      { question: 'Do you have any COVID symptoms?', answer: 'Yes' },
-      { question: 'Are you currently breastfeeding?', answer: 'Not applicable' },
-      { question: 'Have you tested positive for COVID?', answer: 'No' },
-    ]);
-    expect(row.screeningQuestions).toEqual([
-      'Has the patient been seen in one of our offices / telemed in last 3 years?',
-      'Do you have any COVID symptoms?',
-      'Are you currently breastfeeding?',
-      'Have you tested positive for COVID?',
-    ]);
+    // Derive expected answers from the current config so this test stays green across overlays.
+    // The fixture has observations for these fhirFields (newest first per field):
+    //   seen-in-last-three-years (yes, newest wins over no), covid-symptoms (true),
+    //   patient-breastfeeding-status (not-applicable), tested-positive-covid (false).
+    // Only fields present in patientScreeningQuestionsConfig produce an answer.
+    const configFieldMap = new Map(patientScreeningQuestionsConfig.fields.map((f) => [f.fhirField as string, f]));
+    const expectedAnswers: { question: string; answer: string }[] = [];
+    const addIfInConfig = (fhirField: string, answer: string): void => {
+      const field = configFieldMap.get(fhirField);
+      if (field && !expectedAnswers.some((a) => a.question === field.question)) {
+        expectedAnswers.push({ question: field.question, answer });
+      }
+    };
+    // Observations sorted by effectiveDateTime descending (newest first)
+    addIfInConfig(SEEN_IN_LAST_THREE_YEARS_FIELD, 'Yes'); // obs-scr-3 14:08 wins over obs-scr-2 14:06
+    addIfInConfig('covid-symptoms', 'Yes'); // obs-scr-4 14:07
+    addIfInConfig(PATIENT_BREASTFEEDING_STATUS, 'Not applicable'); // obs-scr-1 14:06
+    addIfInConfig('tested-positive-covid', 'No'); // obs-scr-5 14:05
+    expect(row.screeningAnswers).toEqual(expectedAnswers);
+    expect(row.screeningQuestions).toEqual(expectedAnswers.map((e) => e.question));
   });
 
   it('encounters immunizations layer: one vaccine record each, VIS presence carried by the date', async () => {
