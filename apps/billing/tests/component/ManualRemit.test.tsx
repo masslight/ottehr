@@ -92,6 +92,7 @@ const keyClaim = (index = 0): void => {
 
 const savedRemit = (): EraDetailResponse => ({
   id: 'era-1',
+  status: 'active',
   source: 'manual',
   versionId: '3',
   checkNumber: '557801',
@@ -598,6 +599,16 @@ describe('ManualRemit', () => {
     await waitFor(() => expect(screen.getAllByText('Required')).toHaveLength(3));
     await waitFor(() => expect(screen.getByRole('combobox', { name: /^Group/ })).toHaveFocus());
     expect(api.saveBillingManualEra).not.toHaveBeenCalled();
+  });
+
+  it('redirects a voided remit edit URL to its read-only detail page', async () => {
+    api.getBillingEraDetail.mockResolvedValue({ ...savedRemit(), status: 'voided' });
+    renderAt('/eras/era-1/edit');
+    await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent(/^\/eras\/era-1$/));
+    expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Add' })).not.toBeInTheDocument();
+    expect(api.saveBillingManualEra).not.toHaveBeenCalled();
+    expect(api.addEraAttachment).not.toHaveBeenCalled();
   });
 
   it('refuses to edit an ERA that was not keyed in', async () => {

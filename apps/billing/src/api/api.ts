@@ -66,6 +66,7 @@ import {
   UpdateBillingProviderInputSchema,
   UpdateBillingResourceInputSchema,
   UpdateChargeItemDefinitionInputSchema,
+  VoidEraInputSchema,
 } from 'utils/lib/types/data/billing/billing.schemas';
 import {
   AddClaimAttachmentResponse,
@@ -610,6 +611,9 @@ export const getBillingEraDetail = (
   oystehr: Oystehr,
   parameters: z.input<typeof GetEraDetailInputSchema>
 ): Promise<EraDetailResponse> => executeBillingZambda(oystehr, 'get-billing-era-detail', parameters);
+
+export const voidBillingEra = (oystehr: Oystehr, parameters: z.input<typeof VoidEraInputSchema>): Promise<OkResponse> =>
+  executeBillingZambda(oystehr, 'void-billing-era', parameters);
 
 export const importEra = (oystehr: Oystehr, parameters: z.input<typeof ImportEraInputSchema>): Promise<any> =>
   executeBillingZambda(oystehr, 'import-era', parameters);

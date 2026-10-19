@@ -14,7 +14,7 @@ import { RAW_X12_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { codeableConcept, getExtension, getNPI, getTaxID } from 'utils/lib/fhir/helpers';
 import { removePrefix } from 'utils/lib/helpers/helpers';
 import { CODE_SYSTEM_CLAIM_TYPE, CODE_SYSTEM_PROCESS_PRIORITY } from 'utils/lib/helpers/rcm/constants';
-import { ERA_SOURCE } from 'utils/lib/types/data/billing/billing.constants';
+import { ERA_SOURCE, ERA_VOID_STATUS } from 'utils/lib/types/data/billing/billing.constants';
 import { GetEraDetailInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { EraAttachment, EraDetailResponse, EraPayee } from 'utils/lib/types/data/billing/billing.types';
 import { FHIR_RESOURCE_NOT_FOUND } from 'utils/lib/types/errors';
@@ -236,6 +236,7 @@ export async function performEffect(
   return {
     id: params.eraId,
     source,
+    status: pr.status === ERA_VOID_STATUS ? 'voided' : 'active',
     // every ERA has these: the server versions each write, and FHIR requires the rest
     versionId: assertDefined(pr.meta?.versionId, `PaymentReconciliation/${params.eraId} version`),
     checkNumber,

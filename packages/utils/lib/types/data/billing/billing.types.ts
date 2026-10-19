@@ -2,7 +2,7 @@ import { Address, Task } from 'fhir/r4b';
 import { SubscriberRelationship } from '../../../fhir/constants';
 import { CLAIM_ACCIDENT_TYPE, CODE_SYSTEM_CLAIM_TYPE_CODES } from '../../../helpers/rcm/constants';
 import type { EraClaimStatusCode, EraSource, X12AdjustmentGroupCode } from './billing.constants';
-import type { BillingInsuranceType, ManualEraClaim, ManualEraHeader } from './billing.schemas';
+import type { BillingInsuranceType, ManualEraClaim, ManualEraHeader, SearchErasInput } from './billing.schemas';
 import { ClaimStatusValues } from './claim-status';
 import type { RulesEngineType } from './rules-engine.constants';
 
@@ -298,7 +298,8 @@ export interface SaveManualEraResponse {
 export interface EraDetailResponse {
   id: string;
   source: EraSource;
-  // PaymentReconciliation version, sent back when saving a manual ERA so stale edits are refused
+  status: NonNullable<SearchErasInput['status']>;
+  // PaymentReconciliation version, sent back when saving or voiding an ERA
   versionId: string;
   checkNumber: string;
   checkDate: string;

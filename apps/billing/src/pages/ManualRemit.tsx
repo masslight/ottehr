@@ -26,7 +26,7 @@ import {
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { uploadObjectToZ3 } from 'utils/lib/helpers/presigned-file-url/helpers';
 import {
@@ -434,6 +434,10 @@ export default function ManualRemit(): ReactElement {
         <CircularProgress />
       </Box>
     );
+  }
+
+  if (detail?.status === 'voided') {
+    return <Navigate to={`/eras/${detail.id}`} replace />;
   }
 
   if (loadError) {
