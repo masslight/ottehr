@@ -39,6 +39,8 @@ export interface CreateManualTaskRequest {
     id: string;
     name: string;
   };
+  // Name the task is credited to. Required for M2M callers; ignored for user callers, who are credited by their Practitioner name.
+  createdBy?: string;
 }
 
 export const MANUAL_TASK = {

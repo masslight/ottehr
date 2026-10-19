@@ -1,7 +1,8 @@
 import Oystehr from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
-import { Location } from 'fhir/r4b';
+import { Location, Task } from 'fhir/r4b';
 import { M2MClientMockType } from 'utils/lib/auth/user-me.helper';
+import { MANUAL_TASK } from 'utils/lib/types/data/tasks/types';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { addProcessIdMetaTagToResource, setupIntegrationTest } from '../helpers/integration-test-seed-data-setup';
 
@@ -50,9 +51,25 @@ describe('create-manual-task integration — happy path', () => {
       category: 'manual-patient-follow-up',
       taskTitle: 'Integration test manual task',
       location: { id: locationId, name: locationName },
+      createdBy: 'Integration Test Service',
     });
-    const output = response.output as { id?: string };
+    const output = response.output as Task;
     expect(output).toBeDefined();
     taskId = output.id;
+    const providerName = output.input?.find((i) =>
+      i.type.coding?.some((c) => c.code === MANUAL_TASK.input.providerName)
+    );
+    expect(providerName?.valueString).toBe('Integration Test Service');
+  });
+
+  it('rejects an M2M caller that does not send createdBy', async () => {
+    await expect(
+      oystehrZambdas.zambda.execute({
+        id: 'create-manual-task',
+        category: 'manual-patient-follow-up',
+        taskTitle: 'Integration test manual task without createdBy',
+        location: { id: locationId, name: locationName },
+      })
+    ).rejects.toThrow();
   });
 });
