@@ -2956,6 +2956,17 @@ describe('Harvest Module', () => {
       const address = buildEmergencyContactAddress(contact, patientWithAddress);
       expect(address).toEqual(fieldAddress);
     });
+
+    it('trims leading and trailing whitespace from emergency contact names', () => {
+      const items = buildEmergencyContactItems(false).map((item) =>
+        item.linkId.endsWith('-name')
+          ? { ...item, answer: [{ valueString: ` ${item.answer?.[0]?.valueString}  ` }] }
+          : item
+      );
+      items.push({ linkId: 'emergency-contact-middle-name', answer: [{ valueString: ' Mid ' }] });
+      const contact = extractEmergencyContact(items);
+      expect(contact).toMatchObject({ firstName: 'Em', middleName: 'Mid', lastName: 'Contact' });
+    });
   });
 });
 
