@@ -212,17 +212,14 @@ describe('ERADetail', () => {
   });
 
   it.each(['manual', 'x12-import', 'clearing-house'] as const)(
-    'voids a %s ERA with the displayed version and keeps its details',
+    'voids a %s ERA and keeps its details',
     async (source) => {
       getBillingEraDetailMock.mockResolvedValue({ ...makeEra(), source });
       renderDetail();
       const dialog = await openVoidDialog();
       fireEvent.click(within(dialog).getByRole('button', { name: 'Void ERA' }));
       expect(await screen.findByText('Voided')).toBeInTheDocument();
-      expect(voidBillingEraMock).toHaveBeenCalledExactlyOnceWith(oystehrZambdaStub, {
-        eraId: 'era-1',
-        expectedVersionId: '1',
-      });
+      expect(voidBillingEraMock).toHaveBeenCalledExactlyOnceWith(oystehrZambdaStub, { eraId: 'era-1' });
       expect(screen.getByText('CHK-100')).toBeInTheDocument();
       expect(screen.getByText('Doe, Jane')).toBeInTheDocument();
       expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument();
@@ -262,11 +259,10 @@ describe('ERADetail', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(message);
     expect(screen.queryByText('Voided')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Match' })).toBeInTheDocument();
-    getBillingEraDetailMock.mockResolvedValue({ ...makeEra(), versionId: '2' });
     fireEvent.click(screen.getByRole('button', { name: 'Reload ERA' }));
     fireEvent.click(within(await openVoidDialog()).getByRole('button', { name: 'Void ERA' }));
     expect(await screen.findByText('Voided')).toBeInTheDocument();
-    expect(voidBillingEraMock).toHaveBeenLastCalledWith(oystehrZambdaStub, { eraId: 'era-1', expectedVersionId: '2' });
+    expect(voidBillingEraMock).toHaveBeenCalledTimes(2);
   });
 
   it('opens an already voided ERA read-only and still downloads its attachments', async () => {

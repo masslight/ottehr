@@ -46,7 +46,6 @@ export async function performEffect(
 ): Promise<OkResponse> {
   const era = await fetchById<PaymentReconciliation>(eraReadClient, 'PaymentReconciliation', params.eraId);
   if (era.status === ERA_VOID_STATUS) return { ok: true };
-  if (era.meta?.versionId !== params.expectedVersionId) throw ERA_CHANGED_ERROR;
 
   try {
     await oystehr.fhir.transaction<PaymentReconciliation | Provenance>({
@@ -54,7 +53,7 @@ export async function performEffect(
         getPatchBinary({
           resourceType: 'PaymentReconciliation',
           resourceId: params.eraId,
-          ifMatch: makeOptimisticLockIfMatchHeader(params.expectedVersionId),
+          ifMatch: makeOptimisticLockIfMatchHeader(era),
           patchOperations: [{ op: 'replace', path: '/status', value: ERA_VOID_STATUS }],
         }),
         {

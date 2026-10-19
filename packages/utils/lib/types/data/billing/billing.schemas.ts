@@ -81,7 +81,6 @@ export const GetEraDetailInputSchema = z.object({
 
 export const VoidEraInputSchema = z.object({
   eraId: nonEmptyString,
-  expectedVersionId: nonEmptyString,
 });
 
 export const SearchErasInputSchema = z.object({

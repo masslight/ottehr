@@ -8,7 +8,7 @@ import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { eraAttachmentOwner, ownedAttachmentLocation, renamedAttachmentContent } from '../attachments';
-import { eraEditGuard } from '../era-write';
+import { assertEraNotVoided } from '../era-write';
 import { createBillingClient, fetchById } from '../shared';
 
 type RenameEraAttachmentParams = ValidatedZambdaInput<typeof RenameEraAttachmentInputSchema>;
@@ -32,18 +32,11 @@ export async function performEffect(oystehr: Oystehr, params: RenameEraAttachmen
     params.documentReferenceId
   );
   ownedAttachmentLocation(documentReference, eraAttachmentOwner(params.eraId, params.secrets));
-  const era = await fetchById<PaymentReconciliation>(oystehr, 'PaymentReconciliation', params.eraId);
-  await oystehr.fhir.transaction({
-    requests: [
-      {
-        method: 'PATCH',
-        url: `/DocumentReference/${params.documentReferenceId}`,
-        operations: [
-          { op: 'replace', path: '/content', value: renamedAttachmentContent(documentReference, params.name) },
-        ],
-      },
-      eraEditGuard(era),
-    ],
+  assertEraNotVoided(await fetchById<PaymentReconciliation>(oystehr, 'PaymentReconciliation', params.eraId));
+  await oystehr.fhir.patch<DocumentReference>({
+    resourceType: 'DocumentReference',
+    id: params.documentReferenceId,
+    operations: [{ op: 'replace', path: '/content', value: renamedAttachmentContent(documentReference, params.name) }],
   });
   return { ok: true };
 }

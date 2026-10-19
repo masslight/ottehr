@@ -13,7 +13,7 @@ vi.mock('../../../src/billing/shared', async (importOriginal) => ({
 
 const actor = { reference: 'Practitioner/biller-1', display: 'biller@example.com' };
 const now = '2026-10-15T12:00:00.000Z';
-const params = { eraId: 'era-1', expectedVersionId: '3', secrets: {} };
+const params = { eraId: 'era-1', secrets: {} };
 const era = {
   resourceType: 'PaymentReconciliation',
   id: 'era-1',
@@ -95,18 +95,12 @@ describe('void-billing-era', () => {
     expect(transaction).not.toHaveBeenCalled();
   });
 
-  it('rejects a stale version before writing', async () => {
-    vi.mocked(fetchById).mockResolvedValue({ ...era, meta: { versionId: '4' } });
-    await expect(voidEra()).rejects.toMatchObject({ statusCode: 409, message: expect.stringContaining('Reload') });
-    expect(transaction).not.toHaveBeenCalled();
-  });
-
   it('reports an edit that wins the race with void', async () => {
     transaction.mockRejectedValueOnce(conflict());
     vi.mocked(fetchById)
       .mockResolvedValueOnce(era)
       .mockResolvedValueOnce({ ...era, meta: { versionId: '4' } });
-    await expect(voidEra()).rejects.toMatchObject({ statusCode: 409 });
+    await expect(voidEra()).rejects.toMatchObject({ statusCode: 409, message: expect.stringContaining('Reload') });
     expect(transaction).toHaveBeenCalledTimes(1);
   });
 
@@ -130,8 +124,7 @@ describe('void-billing-era', () => {
     expect(transaction).not.toHaveBeenCalled();
   });
 
-  it.each([{ eraId: 'era-1' }, { eraId: '', expectedVersionId: '3' }, { eraId: 'era-1', expectedVersionId: '' }])(
-    'requires an ERA id and expected version: %j',
-    (input) => expect(VoidEraInputSchema.safeParse(input).success).toBe(false)
+  it.each([{}, { eraId: '' }])('requires an ERA id: %j', (input) =>
+    expect(VoidEraInputSchema.safeParse(input).success).toBe(false)
   );
 });

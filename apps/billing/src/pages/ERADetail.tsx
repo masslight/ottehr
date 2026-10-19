@@ -388,7 +388,7 @@ export default function ERADetail(): ReactElement {
             if (!oystehrZambda || voiding) return;
             setVoiding(true);
             try {
-              await voidBillingEra(oystehrZambda, { eraId: era.id, expectedVersionId: era.versionId });
+              await voidBillingEra(oystehrZambda, { eraId: era.id });
               setEra((current) => (current?.id === era.id ? { ...current, status: 'voided' } : current));
             } catch (err) {
               setVoidError(getApiError({ error: err, defaultError: 'Failed to void ERA' }));

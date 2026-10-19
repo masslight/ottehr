@@ -299,7 +299,7 @@ export interface EraDetailResponse {
   id: string;
   source: EraSource;
   status: NonNullable<SearchErasInput['status']>;
-  // PaymentReconciliation version, sent back when saving or voiding an ERA
+  // PaymentReconciliation version, sent back when saving a manual ERA so stale edits are refused
   versionId: string;
   checkNumber: string;
   checkDate: string;

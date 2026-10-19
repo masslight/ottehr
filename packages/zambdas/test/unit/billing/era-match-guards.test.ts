@@ -14,7 +14,6 @@ const era: PaymentReconciliation = {
   resourceType: 'PaymentReconciliation',
   id: 'era-1',
   status: 'active',
-  meta: { versionId: '3' },
   created: '2026-09-01',
   paymentDate: '2026-09-01',
   paymentAmount: { value: 100 },
@@ -22,7 +21,6 @@ const era: PaymentReconciliation = {
 const response: ClaimResponse = {
   resourceType: 'ClaimResponse',
   id: 'cr-1',
-  meta: { versionId: '5' },
   status: 'active',
   use: 'claim',
   type: {},
@@ -55,26 +53,23 @@ beforeEach(() => {
         }
       : response
   );
-  transaction.mockResolvedValue({ unbundle: () => [response, era] });
+  transaction.mockResolvedValue({ unbundle: () => [response] });
   vi.mocked(fetchClaimEraLinks).mockResolvedValue(links([era]));
 });
 
 describe.each([
   { name: 'match', perform: match },
   { name: 'unmatch', perform: unmatch },
-])('$name ERA guards', ({ perform }) => {
-  it('locks the ERA and response in the same transaction and returns the response', async () => {
+])('$name on a voided ERA', ({ perform }) => {
+  it('patches the response of an active ERA', async () => {
     await expect(perform(client, readClient, params)).resolves.toEqual(response);
     expect(fetchClaimEraLinks).toHaveBeenCalledWith(readClient, [response]);
     expect(transaction).toHaveBeenCalledWith({
-      requests: [
-        expect.objectContaining({ method: 'PATCH', url: '/ClaimResponse/cr-1', ifMatch: 'W/"5"' }),
-        { method: 'PUT', url: '/PaymentReconciliation/era-1', resource: era, ifMatch: 'W/"3"' },
-      ],
+      requests: [expect.objectContaining({ method: 'PATCH', url: '/ClaimResponse/cr-1' })],
     });
   });
 
-  it('rejects a voided parent before writing', async () => {
+  it('rejects a voided ERA before writing', async () => {
     vi.mocked(fetchClaimEraLinks).mockResolvedValue(links([{ ...era, status: 'cancelled' }]));
     await expect(perform(client, readClient, params)).rejects.toMatchObject({
       message: 'Voided ERAs cannot be changed',
@@ -82,18 +77,9 @@ describe.each([
     expect(transaction).not.toHaveBeenCalled();
   });
 
-  it('does not write if the parent cannot be resolved', async () => {
+  it('still patches a response no ERA links to', async () => {
     vi.mocked(fetchClaimEraLinks).mockResolvedValue(links([]));
-    await expect(perform(client, readClient, params)).rejects.toMatchObject({
-      message: 'The ERA for this claim response could not be found',
-    });
-    expect(transaction).not.toHaveBeenCalled();
-  });
-
-  it('propagates a concurrent void or edit conflict without retrying', async () => {
-    const error = new Oystehr.OystehrSdkError({ message: 'precondition failed', code: 412 });
-    transaction.mockRejectedValueOnce(error);
-    await expect(perform(client, readClient, params)).rejects.toBe(error);
+    await expect(perform(client, readClient, params)).resolves.toEqual(response);
     expect(transaction).toHaveBeenCalledTimes(1);
   });
 });

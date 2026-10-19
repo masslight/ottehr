@@ -2,7 +2,6 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import { Claim, ClaimResponse } from 'fhir/r4b';
-import { makeOptimisticLockIfMatchHeader } from 'utils/lib/fhir/helpers';
 import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
 import {
   MatchClaimResponseToClaimInput,
@@ -10,11 +9,11 @@ import {
 } from 'utils/lib/types/data/billing/billing.schemas';
 import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
-import { assertDefined, validateJsonBody } from '../../shared/helpers';
+import { validateJsonBody } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { safeValidate } from '../../shared/validation';
-import { claimResponseEraEditGuards } from '../era-write';
+import { assertClaimResponseEraNotVoided } from '../era-write';
 import { createBillingClient, createEraReadClient } from '../shared';
 
 let m2mToken: string;
@@ -46,13 +45,12 @@ export async function performEffect(oystehr: Oystehr, eraReadClient: Oystehr, pa
     resourceType: 'ClaimResponse',
     id: params.claimResponseId,
   });
-  const eraGuards = await claimResponseEraEditGuards(eraReadClient, claimResponse);
+  await assertClaimResponseEraNotVoided(eraReadClient, claimResponse);
   const bundle = await oystehr.fhir.transaction({
     requests: [
       getPatchBinary({
         resourceType: 'ClaimResponse',
         resourceId: claimResponse.id!,
-        ifMatch: makeOptimisticLockIfMatchHeader(assertDefined(claimResponse.meta?.versionId, 'ClaimResponse version')),
         patchOperations: [
           {
             op: 'replace',
@@ -82,7 +80,6 @@ export async function performEffect(oystehr: Oystehr, eraReadClient: Oystehr, pa
           },
         ],
       }),
-      ...eraGuards,
     ],
   });
   return bundle.unbundle()[0] as ClaimResponse;
