@@ -83,10 +83,13 @@ type FileBehavior =
   | { kind: 'network-error' }
   | { kind: 'http-error'; status: number }
   | { kind: 'body-error'; error: unknown; gate?: Promise<void> }
-  | { kind: 'hang' };
+  | { kind: 'hang' }
+  | { kind: 'presign-hang'; started: () => void }
+  | { kind: 'presign-body-hang'; started: () => void };
 
 let behaviors: Map<string, FileBehavior>;
 let presignedFiles: string[];
+let presignSignals: Map<string, AbortSignal | undefined>;
 let requestSignals: AbortSignal[];
 let activeRequests: number;
 let maxActiveRequests: number;
@@ -97,10 +100,12 @@ const fileOf = (url: string): string => url.split('/').pop() ?? '';
 
 const waitForAbort = (signal: AbortSignal, file: string): Promise<never> =>
   new Promise((_resolve, reject) => {
-    signal.addEventListener('abort', () => {
+    const abort = (): void => {
       events.push(`aborted:${file}`);
       reject(new DOMException('This operation was aborted', 'AbortError'));
-    });
+    };
+    if (signal.aborted) abort();
+    else signal.addEventListener('abort', abort);
   });
 
 const fetchStub = async (input: RequestInfo | URL, init?: RequestInit): Promise<unknown> => {
@@ -109,7 +114,28 @@ const fetchStub = async (input: RequestInfo | URL, init?: RequestInit): Promise<
 
   if (init?.method === 'POST') {
     presignedFiles.push(file);
+    presignSignals.set(file, init.signal ?? undefined);
     if (behavior.kind === 'presign-forbidden') return { ok: false, status: 403, json: async () => ({}) };
+    if (behavior.kind === 'presign-hang' || behavior.kind === 'presign-body-hang') {
+      const { started } = behavior;
+      if (!init.signal) {
+        started();
+        throw new Error(`presign request for ${file} was sent without an abort signal`);
+      }
+      const presignSignal = init.signal;
+      if (behavior.kind === 'presign-hang') {
+        started();
+        await waitForAbort(presignSignal, `presign:${file}`);
+      }
+      return {
+        ok: true,
+        status: 200,
+        json: () => {
+          started();
+          return waitForAbort(presignSignal, `presign-body:${file}`);
+        },
+      };
+    }
     return { ok: true, status: 200, json: async () => ({ signedUrl: `https://s3.test/${file}` }) };
   }
 
@@ -196,6 +222,7 @@ describe('useDownloadDocumentsZip', () => {
     writerFactory.created = 0;
     writerFactory.failNextWith = undefined;
     behaviors = new Map();
+    presignSignals = new Map();
     presignedFiles = [];
     requestSignals = [];
     activeRequests = 0;
@@ -441,6 +468,59 @@ describe('useDownloadDocumentsZip', () => {
       'discard',
     ]);
     expect(mockDownloadBlob).not.toHaveBeenCalled();
+  });
+
+  it.each<[string, 'presign-hang' | 'presign-body-hang', string]>([
+    ['the presign request is pending', 'presign-hang', 'aborted:presign:slow.pdf'],
+    ['the presign response is being read', 'presign-body-hang', 'aborted:presign-body:slow.pdf'],
+  ])('aborts the presign and cleans up when a fatal error happens while %s', async (_label, kind, abortedPresign) => {
+    const consoleError = vi.spyOn(console, 'error');
+    const slowPresignStarted = createGate();
+    const releaseBoom = createGate();
+    behaviors.set('slow.pdf', { kind, started: slowPresignStarted.open });
+    behaviors.set('boom.pdf', {
+      kind: 'body-error',
+      error: new RangeError('Array buffer allocation failed'),
+      gate: releaseBoom.promise,
+    });
+
+    const { hook, pending } = startDownload([makeDocument('boom.pdf'), makeDocument('slow.pdf')]);
+    await act(async () => {
+      await slowPresignStarted.promise;
+    });
+    releaseBoom.open();
+
+    expect(await settle(pending)).toEqual({ status: 'too-large' });
+    expect(presignSignals.get('slow.pdf')?.aborted).toBe(true);
+    expect(events).toEqual([abortedPresign, 'discard']);
+    expect(consoleError).not.toHaveBeenCalledWith(expect.stringContaining('Failed to download'), expect.anything());
+    expect(mockDownloadBlob).not.toHaveBeenCalled();
+    expect(URL.createObjectURL).not.toHaveBeenCalled();
+    expect(hook.result.current.isDownloading).toBe(false);
+  });
+
+  it.each<[string, 'presign-hang' | 'presign-body-hang', string]>([
+    ['the presign request is pending', 'presign-hang', 'aborted:presign:slow.pdf'],
+    ['the presign response is being read', 'presign-body-hang', 'aborted:presign-body:slow.pdf'],
+  ])('aborts the presign and cleans up when the explorer unmounts while %s', async (_label, kind, abortedPresign) => {
+    const consoleError = vi.spyOn(console, 'error');
+    const slowPresignStarted = createGate();
+    behaviors.set('slow.pdf', { kind, started: slowPresignStarted.open });
+    behaviors.set('other.pdf', { kind: 'hang' });
+
+    const { hook, pending } = startDownload([makeDocument('other.pdf'), makeDocument('slow.pdf')]);
+    await act(async () => {
+      await slowPresignStarted.promise;
+    });
+    hook.unmount();
+
+    expect(await settle(pending)).toEqual({ status: 'cancelled' });
+    expect(presignSignals.get('slow.pdf')?.aborted).toBe(true);
+    expect(events).toContain(abortedPresign);
+    expect(events.at(-1)).toBe('discard');
+    expect(consoleError).not.toHaveBeenCalledWith(expect.stringContaining('Failed to download'), expect.anything());
+    expect(mockDownloadBlob).not.toHaveBeenCalled();
+    expect(URL.createObjectURL).not.toHaveBeenCalled();
   });
 
   it('downloads at most four files at a time', async () => {

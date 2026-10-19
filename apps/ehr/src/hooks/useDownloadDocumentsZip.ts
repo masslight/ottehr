@@ -105,7 +105,7 @@ export const useDownloadDocumentsZip = (): UseDownloadDocumentsZipReturn => {
         const addFile = async (file: ArchiveFile): Promise<void> => {
           let response: Response;
           try {
-            const presignedUrl = await getPresignedURL(file.z3Url, token);
+            const presignedUrl = await getPresignedURL(file.z3Url, token, 'download', controller.signal);
             response = await fetch(presignedUrl, {
               headers: { 'Cache-Control': 'no-cache' },
               signal: controller.signal,
