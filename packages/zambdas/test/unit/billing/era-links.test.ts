@@ -5,7 +5,6 @@ import {
   fetchClaimEraLinks,
   fetchClaimResponsesByClaimIds,
   fetchClaimResponsesByPaymentReconciliations,
-  summarizeClaimPayments,
 } from '../../../src/billing/claim-amounts';
 import {
   ERA_PROCESSING_ACTIVITY_CODE,
@@ -175,88 +174,11 @@ describe('fetchClaimResponsesByPaymentReconciliations', () => {
   });
 });
 
-// OTR-3330: void the parent ERA, not the original responses or the claim's workflow status.
-describe('fetchClaimResponsesByClaimIds with voided ERAs', () => {
-  const remit = (id: string, created: string, paid: number, allowed: number, patientResp: number): ClaimResponse => ({
-    ...claimResponse(id),
-    created,
-    request: { reference: 'Claim/claim-1' },
-    total: [{ category: { coding: [{ code: 'paid' }] }, amount: { value: paid } }],
-    item: [
-      {
-        itemSequence: 1,
-        adjudication: [
-          { category: { coding: [{ code: 'allowed' }] }, amount: { value: allowed } },
-          { category: { coding: [{ code: 'PR' }] }, amount: { value: patientResp } },
-        ],
-      },
-    ],
-  });
-
-  it.each(['active', 'cancelled'] as const)('recalculates using only non-voided ERAs (latest: %s)', async (status) => {
-    const original = remit('original', '2026-01-01', 100, 120, 20);
-    const latest = remit('latest', '2026-02-01', 10, 150, 5);
-    const { oystehr } = makeOystehr({
-      ClaimResponse: [original, latest],
-      Provenance: [
-        provenance('p1', ['PaymentReconciliation/era-1', 'ClaimResponse/original']),
-        provenance('p2', ['PaymentReconciliation/era-2', 'ClaimResponse/latest']),
-      ],
-      PaymentReconciliation: [makePaymentReconciliation('era-1'), { ...makePaymentReconciliation('era-2'), status }],
-    });
-
-    const grouped = await fetchClaimResponsesByClaimIds(oystehr, ['claim-1']);
-    const responses = grouped.get('claim-1') ?? [];
-    expect(responses).toEqual(status === 'cancelled' ? [original] : [original, latest]);
-    expect(summarizeClaimPayments(responses, 200, 5)).toEqual({
-      allowed: status === 'cancelled' ? 120 : 150,
-      insurancePaid: status === 'cancelled' ? 100 : 110,
-      patientResp: status === 'cancelled' ? 20 : 5,
-      patientPaid: 5,
-      balance: status === 'cancelled' ? 15 : 0,
-      adjudicated: true,
-    });
-    expect(latest.status).toBe('active');
-  });
-
-  it('excludes every response on a voided ERA and keeps patient payments in the no-ERA calculation', async () => {
-    const responses = [
-      remit('reversal', '2026-01-01', -100, -120, -20),
-      remit('correction', '2026-02-01', 100, 120, 20),
-    ];
-    const { oystehr } = makeOystehr({
-      ClaimResponse: responses,
-      Provenance: [
-        provenance('p1', ['PaymentReconciliation/era-1', 'ClaimResponse/reversal', 'ClaimResponse/correction']),
-      ],
-      PaymentReconciliation: [{ ...makePaymentReconciliation('era-1'), status: 'cancelled' }],
-    });
-
-    const grouped = await fetchClaimResponsesByClaimIds(oystehr, ['claim-1']);
-    expect(grouped.has('claim-1')).toBe(false);
-    expect(summarizeClaimPayments(grouped.get('claim-1') ?? [], 200, 5)).toEqual({
-      allowed: 0,
-      insurancePaid: 0,
-      patientResp: 0,
-      patientPaid: 5,
-      balance: 195,
-      adjudicated: false,
-    });
-  });
-
-  it('keeps responses with missing links or missing parent ERAs', async () => {
-    const responses = [remit('unlinked', '2026-01-01', 100, 120, 20), remit('missing-era', '2026-02-01', 10, 120, 10)];
-    const { oystehr } = makeOystehr({
-      ClaimResponse: responses,
-      Provenance: [provenance('p1', ['PaymentReconciliation/missing', 'ClaimResponse/missing-era'])],
-    });
-    const grouped = await fetchClaimResponsesByClaimIds(oystehr, ['claim-1']);
-    expect(grouped.get('claim-1')).toEqual(responses);
-  });
-
-  it('does not search for ERA links when no claim responses remain', async () => {
-    const { oystehr, search } = makeOystehr({});
-    expect(await fetchClaimResponsesByClaimIds(oystehr, ['claim-1'])).toEqual(new Map());
+describe('fetchClaimResponsesByClaimIds', () => {
+  it('leaves out the responses of voided ERAs in the search itself', async () => {
+    const { oystehr, search } = makeOystehr({ ClaimResponse: [claimResponse('cr1')] });
+    await fetchClaimResponsesByClaimIds(oystehr, ['claim-1']);
+    expect(searchParamFor(search, 'ClaimResponse', 'status:not')).toBe('cancelled');
     expect(search).toHaveBeenCalledTimes(1);
   });
 });

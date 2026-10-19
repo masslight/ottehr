@@ -23,7 +23,7 @@ import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { ClaimsQueueItemStatuses } from 'utils/lib/types/api/rcm-claims/claim.types';
-import { ERA_SOURCE } from 'utils/lib/types/data/billing/billing.constants';
+import { ERA_SOURCE, EraStatus } from 'utils/lib/types/data/billing/billing.constants';
 import { SearchErasInput } from 'utils/lib/types/data/billing/billing.schemas';
 import { BillingPatientOption, BillingPayerOption, EraListItem } from 'utils/lib/types/data/billing/billing.types';
 import { formatAntCaseString } from 'utils/lib/types/data/billing/claim-status';
@@ -39,7 +39,6 @@ import { useApiClients } from '../hooks/useAppClients';
 import { useDebounce } from '../hooks/useDebounce';
 
 type Filters = Omit<SearchErasInput, 'offset' | 'pageSize'>;
-type EraStatus = NonNullable<SearchErasInput['status']>;
 
 const claimsMatchedLabel = (row: EraListItem): string =>
   row.claimCount === 0 ? 'No claims' : `${row.matchedCount}/${row.claimCount} matched`;
@@ -222,7 +221,6 @@ export default function ERAList(): ReactElement {
 
   const clearFilters = (): void => {
     setStatus('active');
-    setMatchingStatus('');
     setCheckNumber('');
     setEraDateFrom('');
     setEraDateTo('');

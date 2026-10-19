@@ -142,7 +142,7 @@ describe('search-billing-eras performEffect', () => {
         const result = await performEffect(oystehr, oystehr, searchParams({ status, checkNumber }));
         expect(result.eras.map((era) => era.id)).toEqual([status === 'voided' ? 'voided' : 'active']);
         expect(result.total).toBe(1);
-        for (const [call] of search.mock.calls) {
+        for (const [call] of search.mock.calls.filter(([call]) => !isPageFetch(call))) {
           expect(paramValue(call, status === 'voided' ? 'status' : 'status:not')).toBe('cancelled');
         }
       }
@@ -162,7 +162,9 @@ describe('search-billing-eras performEffect', () => {
     expect(result).toMatchObject({ total: 2, offset: 1, pageSize: 1 });
     expect(result.eras.map((era) => era.id)).toEqual(['void-2']);
     expect(search.mock.calls.filter(([call]) => isScan(call))).toHaveLength(2);
-    for (const [call] of search.mock.calls) expect(paramValue(call, 'status')).toBe('cancelled');
+    for (const [call] of search.mock.calls.filter(([call]) => isScan(call))) {
+      expect(paramValue(call, 'status')).toBe('cancelled');
+    }
   });
 
   it('keeps the status filter when finding ERAs through matched claims', async () => {

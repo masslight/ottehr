@@ -16,6 +16,7 @@ import {
   DRUG_UNIT_CODE_VALUES,
   ERA_CLAIM_STATUS_CODES,
   ERA_PAYMENT_METHOD_CODES,
+  ERA_STATUSES,
   MANUAL_ERA_LIMITS,
   NDC_REGEX,
   REFRESH_REPORT_KINDS,
@@ -85,7 +86,7 @@ export const VoidEraInputSchema = z.object({
 
 export const SearchErasInputSchema = z.object({
   // ERA-level filters (work for matched + unmatched)
-  status: z.enum(['active', 'voided']).optional(),
+  status: z.enum(ERA_STATUSES).optional(),
   checkNumber: nonEmptyString.optional(),
   eraDateFrom: nonEmptyString.optional(),
   eraDateTo: nonEmptyString.optional(),

@@ -191,7 +191,6 @@ async function findErasByCheckNumber(
   const bundle = await eraReadClient.fhir.search<PaymentReconciliation>({
     resourceType: 'PaymentReconciliation',
     params: [
-      ...filterParams,
       {
         name: '_id',
         value: pageIds.join(','),

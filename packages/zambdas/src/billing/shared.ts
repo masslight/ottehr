@@ -514,6 +514,7 @@ export function getEraExtensionString(
 // ERA's resources are linked to each other.
 export const PROVENANCE_ACTIVITY_TYPE_SYSTEM = 'http://hl7.org/fhir/ValueSet/provenance-activity-type';
 export const ERA_PROCESSING_ACTIVITY_CODE = 'era-processing';
+export const ERA_VOID_ACTIVITY_CODE = 'era-void';
 
 export function isEraProcessingProvenance(provenance: Pick<Provenance, 'activity'>): boolean {
   return provenance.activity?.coding?.some((coding) => coding.code === ERA_PROCESSING_ACTIVITY_CODE) ?? false;

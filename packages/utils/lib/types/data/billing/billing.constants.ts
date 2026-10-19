@@ -1,4 +1,4 @@
-import { Patient, PaymentReconciliation, Task } from 'fhir/r4b';
+import { ClaimResponse, Patient, PaymentReconciliation, Task } from 'fhir/r4b';
 
 // An applied claim tag is `{ system: CLAIM_TAG_SYSTEM, code: <tag name> }`; the tag's definition
 // (description, system flag) is a separate Basic resource (see save-billing-tag).
@@ -184,8 +184,12 @@ export const ERA_SOURCE = {
 
 export type EraSource = (typeof ERA_SOURCE)[keyof typeof ERA_SOURCE];
 
-// Voided ERAs use PaymentReconciliation.status = 'cancelled'.
-export const ERA_VOID_STATUS = 'cancelled' satisfies PaymentReconciliation['status'];
+// A voided ERA and its ClaimResponses are stored with status 'cancelled'.
+export const ERA_VOID_STATUS = 'cancelled' satisfies PaymentReconciliation['status'] & ClaimResponse['status'];
+
+export const ERA_STATUSES = ['active', 'voided'] as const;
+
+export type EraStatus = (typeof ERA_STATUSES)[number];
 
 // X12 835 BPR04 payment method codes a manual remit can record, with the labels billers see.
 export const ERA_PAYMENT_METHODS = [
