@@ -42,6 +42,13 @@ export const getEncounterSignatures = async (
       .map((practitioner) => [practitioner.id!, practitioner])
   );
 
+  return resolveEncounterSignatures(provenances, practitionerById);
+};
+
+export const resolveEncounterSignatures = (
+  provenances: Provenance[],
+  practitionerById: Map<string, Practitioner>
+): ProgressNoteSignatures => {
   const resolve = (role: SignatureRole): SignatureProvenanceInfo | undefined => {
     // Use the most recently recorded Provenance carrying this role.
     const provenance = provenances

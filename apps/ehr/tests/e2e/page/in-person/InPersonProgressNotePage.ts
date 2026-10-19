@@ -52,6 +52,15 @@ export class InPersonProgressNotePage extends BaseProgressNotePage {
     }
   }
 
+  async verifyRosComment(systemLabel: string, comment: string): Promise<void> {
+    const rosContainer = this.#page.getByTestId(dataTestIds.progressNotePage.rosReviewContainer);
+    await expect(rosContainer, `ROS section should list the "${systemLabel}" system`).toContainText(systemLabel);
+    await expect(
+      rosContainer.getByText(comment, { exact: true }),
+      `Comment for "${systemLabel}" should be visible in ROS section`
+    ).toBeVisible();
+  }
+
   async expectLoaded(): Promise<void> {
     await this.#page.waitForURL(new RegExp('/in-person/.*/review-and-sign'));
     // Ensure no error occurred

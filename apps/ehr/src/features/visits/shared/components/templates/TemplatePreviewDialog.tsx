@@ -82,7 +82,8 @@ const SECTION_ACTION_TOOLTIP_OVERRIDES: Partial<
   Record<TemplateSectionKey, Partial<Record<TemplateSectionAction, string>>>
 > = {
   ros: {
-    append: 'Add the template note to your existing note. Structured ROS findings will be replaced by the template.',
+    append:
+      'Add the template note to your existing note. Structured ROS findings and comments will be replaced by the template.',
   },
 };
 
@@ -118,6 +119,7 @@ const getSectionSummary = (sections: AdminGetTemplateDetailOutput['sections'], k
       const parts: string[] = [];
       if (sections.rosNote) parts.push(`note: "${truncate(sections.rosNote, 40)}"`);
       if (sections.rosFindings.length > 0) parts.push(pluralize(sections.rosFindings.length, 'finding'));
+      if (sections.rosComments.length > 0) parts.push(pluralize(sections.rosComments.length, 'comment'));
       return parts.join(' · ');
     }
     case 'examFindings': {
@@ -183,7 +185,7 @@ const sectionHasContent = (sections: AdminGetTemplateDetailOutput['sections'], k
     case 'moi':
       return Boolean(sections.moiNote);
     case 'ros':
-      return Boolean(sections.rosNote) || sections.rosFindings.length > 0;
+      return Boolean(sections.rosNote) || sections.rosFindings.length > 0 || sections.rosComments.length > 0;
     case 'examFindings':
       return sections.examFindings.length > 0;
     case 'mdm':
@@ -279,6 +281,20 @@ const SectionPreview: React.FC<{
               <Stack direction="row" flexWrap="wrap" gap={0.5} sx={{ mt: 0.5 }}>
                 {denied.map((f) => (
                   <Chip key={f.fieldName} label={f.label} size="small" variant="outlined" />
+                ))}
+              </Stack>
+            </Box>
+          ) : null}
+          {sections.rosComments.length > 0 ? (
+            <Box>
+              <Typography variant="caption" sx={{ color: 'text.secondary', textTransform: 'uppercase' }}>
+                Comments
+              </Typography>
+              <Stack spacing={0.5} sx={{ mt: 0.5 }}>
+                {sections.rosComments.map((c) => (
+                  <Typography key={c.fieldName} variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+                    <b>{c.systemLabel}:</b> {c.note}
+                  </Typography>
                 ))}
               </Stack>
             </Box>

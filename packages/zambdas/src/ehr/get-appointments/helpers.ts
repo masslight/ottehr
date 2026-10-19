@@ -33,6 +33,7 @@ export const APPOINTMENT_SEARCH_ELEMENTS = [
   'Appointment.extension',
   'Appointment.serviceCategory',
   'Patient.id',
+  'Patient.identifier',
   'Patient.name',
   'Patient.gender',
   'Patient.birthDate',

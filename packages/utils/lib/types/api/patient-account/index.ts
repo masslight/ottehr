@@ -23,6 +23,8 @@ export interface CoverageCheckCoverageDetails {
 
 export type CoverageCheckWithDetails = InsuranceCheckStatusWithDate & CoverageCheckCoverageDetails;
 
+export const PATIENT_ACCOUNT_ELIGIBILITY_CHECK_COUNT = 10;
+
 export interface PatientAccountResponse extends PatientAccountAndCoverageResources {
   primaryCarePhysician?: Practitioner;
   coverageChecks: CoverageCheckWithDetails[];

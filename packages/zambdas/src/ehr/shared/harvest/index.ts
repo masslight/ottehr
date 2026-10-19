@@ -4120,6 +4120,44 @@ enum InsuranceCarrierKeys {
   workersComp = 'workers-comp-insurance-name',
 }
 
+export const PATIENT_ACCOUNT_AND_COVERAGE_SEARCH_INCLUDES: { name: string; value: string }[] = [
+  { name: '_revinclude', value: 'Account:patient' },
+  { name: '_include:iterate', value: 'Account:owner' },
+  { name: '_revinclude', value: 'RelatedPerson:patient' },
+  { name: '_revinclude', value: 'Coverage:patient' },
+  { name: '_include:iterate', value: 'Coverage:subscriber' },
+  { name: '_include:iterate', value: 'Coverage:payor' },
+];
+
+const isInsuranceOrganization = (resource: FhirResource): resource is Organization =>
+  resource.resourceType === 'Organization' &&
+  organizationMatchesType(resource, codeableConcept('pay', FHIR_EXTENSION.Organization.organizationType.url));
+
+export const getCoveragePayorReferences = (resources: FhirResource[]): string[] =>
+  resources
+    .filter((res): res is Coverage => res.resourceType === 'Coverage')
+    .flatMap<string | undefined>((cov) => cov.payor.map((ref) => ref.reference))
+    .filter<string>((ref): ref is string => !!ref);
+
+export const assemblePatientAccountAndCoverageResources = (
+  patient: Patient,
+  searchResults: FhirResource[],
+  insuranceOrgs: Organization[]
+): PatientAccountAndCoverageResources => {
+  const resources = searchResults.filter((resource) => {
+    if (resource.resourceType === 'Account') {
+      return resource.status === 'active';
+    }
+
+    return !isInsuranceOrganization(resource);
+  }) as UnbundledAccountResources;
+
+  return getCoverageUpdateResourcesFromUnbundled({
+    patient,
+    resources: [...resources, ...insuranceOrgs],
+  });
+};
+
 export const getAccountAndCoverageResourcesForPatient = async (
   patientId: string,
   oystehr: Oystehr
@@ -4133,30 +4171,7 @@ export const getAccountAndCoverageResourcesForPatient = async (
           name: '_id',
           value: patientId,
         },
-        {
-          name: '_revinclude',
-          value: 'Account:patient',
-        },
-        {
-          name: '_include:iterate',
-          value: 'Account:owner',
-        },
-        {
-          name: '_revinclude',
-          value: 'RelatedPerson:patient',
-        },
-        {
-          name: '_revinclude',
-          value: 'Coverage:patient',
-        },
-        {
-          name: '_include:iterate',
-          value: 'Coverage:subscriber',
-        },
-        {
-          name: '_include:iterate',
-          value: 'Coverage:payor',
-        },
+        ...PATIENT_ACCOUNT_AND_COVERAGE_SEARCH_INCLUDES,
       ],
     })
   ).unbundle();
@@ -4168,36 +4183,15 @@ export const getAccountAndCoverageResourcesForPatient = async (
     (r) => r.resourceType === 'Patient' && r.id === patientId
   ) as Patient;
 
-  const resources = accountAndCoverageResources.filter((resource) => {
-    if (resource.resourceType === 'Account') {
-      return resource.status === 'active';
-    }
-    return true;
-  });
-
   if (!patientResource) {
     throw PATIENT_NOT_FOUND_ERROR;
   }
 
-  const coverageResources = resources.filter((res): res is Coverage => res.resourceType === 'Coverage');
-  const insuranceOrgsFromFhir = resources.filter(
-    (res): res is Organization =>
-      res.resourceType === 'Organization' &&
-      organizationMatchesType(res, codeableConcept('pay', FHIR_EXTENSION.Organization.organizationType.url))
-  );
-  const resourcesWithoutInsuranceOrgsFromFhir = resources.filter(
-    (res) =>
-      res.resourceType !== 'Organization' ||
-      !organizationMatchesType(res, codeableConcept('pay', FHIR_EXTENSION.Organization.organizationType.url))
-  );
-
   // Get payer info for coverages
   const insuranceOrgs = await searchInsuranceInformation(
     oystehr,
-    coverageResources
-      .flatMap<string | undefined>((cov) => cov.payor.map((ref) => ref.reference))
-      .filter<string>((ref): ref is string => !!ref),
-    insuranceOrgsFromFhir
+    getCoveragePayorReferences(accountAndCoverageResources),
+    accountAndCoverageResources.filter(isInsuranceOrganization)
   );
 
   // Get EHR-facing payer notes
@@ -4210,10 +4204,7 @@ export const getAccountAndCoverageResourcesForPatient = async (
     }
   }
 
-  return getCoverageUpdateResourcesFromUnbundled({
-    patient: patientResource,
-    resources: [...resourcesWithoutInsuranceOrgsFromFhir, ...insuranceOrgs],
-  });
+  return assemblePatientAccountAndCoverageResources(patientResource, accountAndCoverageResources, insuranceOrgs);
 };
 
 export interface UpdatePatientAccountInput {

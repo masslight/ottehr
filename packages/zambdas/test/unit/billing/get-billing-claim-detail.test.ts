@@ -1,4 +1,4 @@
-import Oystehr from '@oystehr/sdk';
+import Oystehr, { SearchParam } from '@oystehr/sdk';
 import { Claim, Organization, Patient, PaymentNotice, PaymentReconciliation } from 'fhir/r4b';
 import { PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
@@ -23,6 +23,7 @@ import {
   fetchClaimGraph,
   resolvePayersByRef,
 } from '../../../src/billing/shared';
+import { WRITE_OFF_SYSTEM } from '../../../src/billing/write-offs';
 import { adjudication, casAdjustment, claimResponse, eraItem } from './era-fixtures';
 
 vi.mock('../../../src/billing/shared', async (importOriginal) => ({
@@ -128,12 +129,17 @@ const paymentNotice = (opts: {
 };
 
 const makeBillingClient = (notices: PaymentNotice[]): Oystehr => {
-  const search = vi.fn().mockImplementation(({ resourceType }: { resourceType: string }) =>
-    Promise.resolve({
-      unbundle: () => (resourceType === 'PaymentNotice' ? notices : []),
-      link: [],
-    })
-  );
+  const search = vi
+    .fn()
+    .mockImplementation(({ resourceType, params }: { resourceType: string; params: SearchParam[] }) => {
+      const isPatientPaymentNoticeSearch =
+        resourceType === 'PaymentNotice' &&
+        !params.some((p) => p.name === 'identifier' && String(p.value).startsWith(WRITE_OFF_SYSTEM));
+      return Promise.resolve({
+        unbundle: () => (isPatientPaymentNoticeSearch ? notices : []),
+        link: [],
+      });
+    });
   const batch = vi.fn().mockResolvedValue({
     resourceType: 'Bundle',
     entry: [],
@@ -432,8 +438,41 @@ describe('get-billing-claim-detail performEffect: remits and insurance payments'
         checkDate: '2026-07-16',
         paymentAmount: 500,
         payerName: 'Acme Health',
+        payerClaimControlNumber: 'PCCN-12345',
       },
     ]);
+  });
+
+  it("resolves the payer from the linked remit when the ERA's paymentIssuer is an unresolvable EDI sender", async () => {
+    (fetchClaimEraLinks as Mock<typeof fetchClaimEraLinks>).mockResolvedValue({
+      paymentReconciliations: [
+        { ...era, paymentIssuer: { reference: 'Organization/edi-sender', display: 'EDI 123456789' } },
+      ],
+      paymentReconciliationIdByClaimResponseId: new Map([['cr-linked', 'payment-reconciliation-1']]),
+    });
+
+    const response = await run();
+
+    expect(response.insurancePayments[0].payerName).toBe('Acme Health');
+  });
+
+  it("prefers the linked remit's insurer display over the EDI sender's when neither payer resolves", async () => {
+    (resolvePayersByRef as Mock<typeof resolvePayersByRef>).mockResolvedValue(new Map());
+    (fetchClaimResponsesByClaimIds as Mock<typeof fetchClaimResponsesByClaimIds>).mockResolvedValue(
+      new Map([
+        ['claim-1', [unlinkedRemit, { ...linkedRemit, insurer: { reference: PAYER_REF, display: 'Acme (ERA)' } }]],
+      ])
+    );
+    (fetchClaimEraLinks as Mock<typeof fetchClaimEraLinks>).mockResolvedValue({
+      paymentReconciliations: [
+        { ...era, paymentIssuer: { reference: 'Organization/edi-sender', display: 'EDI 123456789' } },
+      ],
+      paymentReconciliationIdByClaimResponseId: new Map([['cr-linked', 'payment-reconciliation-1']]),
+    });
+
+    const response = await run();
+
+    expect(response.insurancePayments[0].payerName).toBe('Acme (ERA)');
   });
 
   it('reports when the claim was first submitted', async () => {

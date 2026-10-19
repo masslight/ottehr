@@ -57,6 +57,7 @@ export function ProceduresBody({ onNewProcedure, onProcedureClick, pageTitle }: 
         await deleteChartData(
           {
             procedures: [procedureToDelete],
+            cleanupProcedureDiagnoses: true,
           },
           {
             onSuccess: async () => {

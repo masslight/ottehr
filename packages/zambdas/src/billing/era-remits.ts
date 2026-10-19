@@ -18,7 +18,12 @@ import {
 } from 'utils/lib/types/data/billing/billing.types';
 import { patientRespBuckets } from 'utils/lib/types/data/billing/carc';
 import { roundNumberToDecimalPlaces } from 'utils/lib/utils/convert';
-import { extractClaimResponseAmounts, extractLineAmounts, extractRemitAdjustments } from './claim-amounts';
+import {
+  extractClaimResponseAmounts,
+  extractLineAmounts,
+  extractRemitAdjustments,
+  X12_ADJUSTMENT_GROUP_SYSTEM,
+} from './claim-amounts';
 import {
   ERA_ICN_EXTENSION,
   ERA_ITEM_PROCEDURE_CODE_EXTENSION,
@@ -191,40 +196,70 @@ export function buildEraRemitServiceLines(
     contained?.created ??
     '';
 
-  // The process-era converter parks claim-level CAS adjustments in an addItem bucket coded
-  // 'unknown'; a real procedure code there means it is a genuine payer-added line.
+  // The process-era converter parks claim-level CAS adjustments in addItem buckets coded
+  // 'unknown' or with the CAS group code itself (one bucket per group, in the X12 adjustment-group
+  // system); a real procedure code there means it is a genuine payer-added line.
   const addItems = (claimResponse.addItem ?? []).map((addItem) => {
-    const code = addItem.productOrService?.coding?.[0]?.code;
+    const coding = addItem.productOrService?.coding?.[0];
+    const code = coding?.code;
     const asItem: ClaimResponseItem = {
       itemSequence: addItem.itemSequence?.[0] ?? 0,
       adjudication: addItem.adjudication,
       extension: addItem.extension,
     };
-    return { addItem, asItem, code, claimLevel: !code || code === 'unknown' };
+    const claimLevel = !code || code === 'unknown' || coding?.system === X12_ADJUSTMENT_GROUP_SYSTEM;
+    return { addItem, asItem, code, claimLevel };
   });
 
   // claim-level buckets never describe a submitted line, so they sit out the assignment
   const items = claimResponse.item ?? [];
-  const assignableAddItems = addItems.filter((entry) => !entry.claimLevel);
-  const assigned = assignSubmittedLines([...items, ...assignableAddItems.map((entry) => entry.asItem)], claim);
-  const addItemAssigned = new Map(assignableAddItems.map((entry, index) => [entry, assigned[items.length + index]]));
+  const claimLevelBuckets = addItems.filter((entry) => entry.claimLevel);
+  const payerAddedLines = addItems.filter((entry) => !entry.claimLevel);
+  const assigned = assignSubmittedLines([...items, ...payerAddedLines.map((entry) => entry.asItem)], claim);
+  const addItemAssigned = new Map(payerAddedLines.map((entry, index) => [entry, assigned[items.length + index]]));
 
-  return [
-    ...items.map((item, index) => {
-      const line = buildServiceLine(item, assigned[index], claimLevelDate, false);
-      return { ...line, serviceDate: keyedLineDate(contained, item) ?? line.serviceDate };
-    }),
-    ...addItems.map((entry) => {
-      const { addItem, asItem, code, claimLevel } = entry;
-      const line = buildServiceLine(asItem, addItemAssigned.get(entry), claimLevel ? '' : claimLevelDate, claimLevel);
-      return {
+  const itemLines = items.map((item, index) => {
+    const line = buildServiceLine(item, assigned[index], claimLevelDate, false);
+    return { ...line, serviceDate: keyedLineDate(contained, item) ?? line.serviceDate };
+  });
+  const payerAddedBuilt = payerAddedLines.map((entry) => {
+    const { addItem, asItem, code } = entry;
+    const line = buildServiceLine(asItem, addItemAssigned.get(entry), claimLevelDate, false);
+    return {
+      ...line,
+      itemSequence: addItem.itemSequence?.[0] ?? null,
+      cptCode: line.cptCode || code || '',
+      serviceDate: addItem.servicedPeriod?.start ?? addItem.servicedDate ?? line.serviceDate,
+    };
+  });
+
+  // The remit has one claim-level adjudication, however many buckets the converter split it into,
+  // so they collapse into a single claim-level line. A payment made at claim level rides CLP04
+  // (the remit's paid total) rather than any line adjudication, so the line carries whatever the
+  // service lines don't account for.
+  const claimLevelLines = ((): EraRemitServiceLine[] => {
+    if (claimLevelBuckets.length === 0) return [];
+    const first = claimLevelBuckets[0].addItem;
+    const merged: ClaimResponseItem = {
+      itemSequence: first.itemSequence?.[0] ?? 0,
+      adjudication: claimLevelBuckets.flatMap((entry) => entry.addItem.adjudication ?? []),
+      extension: claimLevelBuckets.flatMap((entry) => entry.addItem.extension ?? []),
+    };
+    const line = buildServiceLine(merged, undefined, '', true);
+    const linesPaid = [...itemLines, ...payerAddedBuilt].reduce((sum, built) => sum + built.paid, 0);
+    const claimLevelPaid = roundNumberToDecimalPlaces(extractClaimResponseAmounts(claimResponse).paid - linesPaid, 2);
+    return [
+      {
         ...line,
-        itemSequence: addItem.itemSequence?.[0] ?? null,
-        cptCode: claimLevel ? '' : line.cptCode || code || '',
-        serviceDate: addItem.servicedPeriod?.start ?? addItem.servicedDate ?? line.serviceDate,
-      };
-    }),
-  ];
+        itemSequence: first.itemSequence?.[0] ?? null,
+        cptCode: '',
+        paid: line.paid || claimLevelPaid,
+        serviceDate: first.servicedPeriod?.start ?? first.servicedDate ?? line.serviceDate,
+      },
+    ];
+  })();
+
+  return [...itemLines, ...payerAddedBuilt, ...claimLevelLines];
 }
 
 // PR-group adjustments aggregated across the whole remit, amounts summed per CARC reason code —

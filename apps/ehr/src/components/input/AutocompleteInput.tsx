@@ -20,6 +20,10 @@ export type AutocompleteInputProps<Value> = {
   selectOnly?: boolean;
   freeSolo?: boolean;
   onInputTextChanged?: (text: string) => void;
+  /** Fires when an option is chosen (not on each freeSolo keystroke). */
+  onOptionSelected?: (option: Value | null) => void;
+  /** Open the full list as soon as the input is focused (MUI shows every option until the user types). */
+  openOnFocus?: boolean;
   noOptionsText?: string;
   getOptionKey?: (option: Value) => string;
   getOptionLabel?: (option: Value) => string;
@@ -45,6 +49,8 @@ export function AutocompleteInput<Value>({
   selectOnly,
   freeSolo,
   onInputTextChanged,
+  onOptionSelected,
+  openOnFocus,
   noOptionsText,
   getOptionKey,
   getOptionLabel,
@@ -140,6 +146,7 @@ export function AutocompleteInput<Value>({
             return;
           }
           field.onChange(option ?? null);
+          onOptionSelected?.(option ?? null);
         };
         return (
           <Box sx={{ width: '100%' }}>
@@ -154,6 +161,7 @@ export function AutocompleteInput<Value>({
               getOptionLabel={getOptionLabel as any}
               isOptionEqualToValue={isOptionEqualToValue as any}
               freeSolo={freeSolo}
+              openOnFocus={openOnFocus}
               onChange={handleChange}
               {...(freeSolo
                 ? {

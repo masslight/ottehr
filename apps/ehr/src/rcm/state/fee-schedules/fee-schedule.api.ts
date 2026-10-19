@@ -13,6 +13,7 @@ const UPDATE_PROCEDURE_CODE_ZAMBDA_ID = 'update-procedure-code';
 const DELETE_PROCEDURE_CODE_ZAMBDA_ID = 'delete-procedure-code';
 const BULK_ADD_PROCEDURE_CODES_ZAMBDA_ID = 'bulk-add-procedure-codes';
 const GET_VERSION_HISTORY_ZAMBDA_ID = 'get-version-history';
+const GET_CHARGE_ITEM_DEFINITION_VERSION_ZAMBDA_ID = 'get-charge-item-definition-version';
 
 export interface CreateFeeScheduleInput {
   name: string;
@@ -218,12 +219,11 @@ export interface GetVersionHistoryInput {
 
 export interface VersionHistoryEntry {
   versionId: string;
-  lastUpdated: string;
-  resource: ChargeItemDefinition;
+  timestamp: string;
 }
 
 export interface GetVersionHistoryResponse {
-  entries: VersionHistoryEntry[];
+  versions: VersionHistoryEntry[];
 }
 
 export const getVersionHistory = async (
@@ -233,6 +233,27 @@ export const getVersionHistory = async (
   try {
     const response = await oystehr.zambda.execute({
       id: GET_VERSION_HISTORY_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export interface GetChargeItemDefinitionVersionInput {
+  resourceId: string;
+  versionId: string;
+}
+
+export const getChargeItemDefinitionVersion = async (
+  oystehr: Oystehr,
+  parameters: GetChargeItemDefinitionVersionInput
+): Promise<ChargeItemDefinition> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: GET_CHARGE_ITEM_DEFINITION_VERSION_ZAMBDA_ID,
       ...parameters,
     });
     return chooseJson(response);

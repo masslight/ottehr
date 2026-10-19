@@ -17,6 +17,12 @@ import { X12_ADJUSTMENT_GROUP_CODE, X12AdjustmentGroupCode } from 'utils/lib/typ
 import { ClaimPatientPayment, ClaimRemitAdjustment } from 'utils/lib/types/data/billing/billing.types';
 import { roundNumberToDecimalPlaces } from 'utils/lib/utils/convert';
 import { fetchAllPages } from '../shared/fhir';
+import { STRIPE_PAYMENT_ID_SYSTEM } from '../shared/stripeIntegration';
+import {
+  CLINICAL_PAYMENT_NOTICE_ID_SYSTEM,
+  MANUAL_PAYMENT_IDEMPOTENCY_KEY_SYSTEM,
+  MANUAL_REFUND_ID_SYSTEM,
+} from './payments';
 import { ERA_STATUS_CODE_EXTENSION, isEraProcessingProvenance } from './shared';
 
 export const OYSTEHR_ADJUDICATION_SYSTEM = 'https://terminology.fhir.oystehr.com/CodeSystem/adjudication';
@@ -43,6 +49,7 @@ export interface ClaimPaymentSummary {
   insurancePaid: number;
   patientResp: number;
   patientPaid: number;
+  writeOffsTotal: number;
   balance: number;
   adjudicated: boolean;
 }
@@ -155,7 +162,8 @@ export function sortClaimResponsesByRecency(claimResponses: ClaimResponse[]): Cl
 export function summarizeClaimPayments(
   claimResponses: ClaimResponse[],
   billed: number,
-  patientPaid = 0
+  patientPaid = 0,
+  writeOffsTotal = 0
 ): ClaimPaymentSummary {
   if (claimResponses.length === 0) {
     return {
@@ -163,7 +171,8 @@ export function summarizeClaimPayments(
       insurancePaid: 0,
       patientResp: 0,
       patientPaid,
-      balance: billed - patientPaid,
+      writeOffsTotal,
+      balance: billed - patientPaid - writeOffsTotal,
       adjudicated: false,
     };
   }
@@ -173,40 +182,22 @@ export function summarizeClaimPayments(
   const insurancePaid = amounts.reduce((sum, a) => sum + a.paid, 0);
   const allowed = amounts.findLast((a) => a.allowed !== undefined)?.allowed ?? 0;
 
-  // Determine patient responsibility by looking at last response for each payer. If there is no
-  // patient responsibility for any of these responses, `allowed - insurancePaid` is used instead.
-  // In all cases, negative patient responsibilities are set to 0.
-  const amountsByPayer = amounts.reduce(
-    (amts, amount) => {
-      if (!amts[amount.payerId]) {
-        amts[amount.payerId] = [];
-      }
-      amts[amount.payerId].push(amount);
-      return amts;
-    },
-    {} as Record<string, ClaimResponseAmounts[]>
-  );
-  const totalPatientResp = Object.values(amountsByPayer)
-    .map((amts) => amts[amts.length - 1].patientResp)
-    .reduce((sum, a) => {
-      // If no responses specify patient responsibility, we want to fall through at the summed
-      // level to `allowed - insurancePaid`. This check guarantees we will end up with `undefined`
-      // instead of `0` for the total.
-      if (a !== undefined) {
-        return (sum ?? 0) + a;
-      }
-      return sum;
-    }, undefined);
-  // Ceilinged to 0 either way: a reversal reports what it took back as negative PR, and the patient owes
+  // Patient responsibility is what the final adjudication says the patient owes: after COB the
+  // last payer's PR already accounts for what prior payers paid, so summing PR across payers
+  // would double-count the share of the primary's PR the secondary covered. When the latest
+  // response carries no adjudication data, `allowed - insurancePaid` is used instead. Ceilinged
+  // to 0 either way: a reversal reports what it took back as negative PR, and the patient owes
   // nothing rather than less than nothing — otherwise a payment they made counts twice as credit.
-  const patientResp = Math.max(totalPatientResp ?? allowed - insurancePaid, 0);
+  const latestPatientResp = amounts[amounts.length - 1].patientResp;
+  const patientResp = Math.max(latestPatientResp ?? allowed - insurancePaid, 0);
 
   return {
     allowed,
     insurancePaid,
     patientResp,
     patientPaid,
-    balance: patientResp - patientPaid,
+    writeOffsTotal,
+    balance: patientResp - patientPaid - writeOffsTotal,
     adjudicated: true,
   };
 }
@@ -236,12 +227,20 @@ export function summarizePatientBalance(
   };
 }
 
-function movesPatientAr(notice: PaymentNotice): boolean {
-  return notice.status === 'active';
-}
-
+/**
+ * Sums the amounts from patient payments. There are 4 possible resource layouts here:
+ *  - normal patient payment -- positive value
+ *  - voided patient payment -- positive value, status is 'cancelled'
+ *  - refunded patient payment -- positive value
+ *  - refund -- negative value
+ * Voided are filtered out, normal and refunded payment notices add positive amounts,
+ * "refund notice" adds negative amount.
+ *
+ * @param notices PaymentNotice resources that are expected to be for patient payments
+ * @returns total
+ */
 export function sumPatientPayments(notices: PaymentNotice[]): number {
-  return notices.filter(movesPatientAr).reduce((sum, notice) => sum + (notice.amount?.value ?? 0), 0);
+  return notices.filter((n) => n.status === 'active').reduce((sum, notice) => sum + (notice.amount?.value ?? 0), 0);
 }
 
 export function toClaimPatientPayment(notice: PaymentNotice): ClaimPatientPayment {
@@ -381,6 +380,10 @@ export async function fetchPatientPaymentsByEncounterIds(
       {
         name: 'request:identifier',
         value: batch.map((id) => `${system}|${id}`).join(','),
+      },
+      {
+        name: 'identifier',
+        value: `${MANUAL_REFUND_ID_SYSTEM}|,${STRIPE_PAYMENT_ID_SYSTEM}|,${MANUAL_PAYMENT_IDEMPOTENCY_KEY_SYSTEM}|,${CLINICAL_PAYMENT_NOTICE_ID_SYSTEM}|`,
       },
     ],
     groupKeyOf: (notice) => notice.request?.identifier?.value,
