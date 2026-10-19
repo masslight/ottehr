@@ -5,6 +5,7 @@ import { DateTime } from 'luxon';
 import { phone } from 'phone';
 import { getStripeCustomerIdFromAccount, getTaskResource } from 'utils/lib/fhir/helpers';
 import { getFullestAvailableName, getPatientContactEmail, getPhoneNumberForIndividual } from 'utils/lib/fhir/patient';
+import { getStripeAccountForAppointmentOrEncounter } from 'utils/lib/fhir/payments';
 import { convertOutreachTextToHtml, isEmailValid, maskEmail, maskPhoneNumber } from 'utils/lib/helpers/helpers';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { TaskIndicator } from 'utils/lib/types/common';
@@ -325,6 +326,7 @@ interface ChargeResult {
   error?: string;
   amountCents?: number;
   invoiceLink?: string;
+  stripeAccount?: string;
 }
 
 /**
@@ -345,44 +347,65 @@ async function chargeCard(
   const patientId = patientRef.replace('Patient/', '');
   const stripe = getStripeClient(secrets);
 
+  const encounterId = focusRef.startsWith('Encounter/') ? focusRef.replace('Encounter/', '') : undefined;
+  if (!encounterId) {
+    return { success: false, error: `Unsupported focus reference format: ${focusRef}. Expected Encounter/<id>` };
+  }
+
+  // The invoice was created on the clinic Location's connected Stripe account (when configured),
+  // so every Stripe call below must target the same account. Falls back to the platform account.
+  let stripeAccount: string | undefined;
+  try {
+    stripeAccount = await getStripeAccountForAppointmentOrEncounter({ encounterId }, oystehr);
+  } catch (err) {
+    console.warn(`Could not resolve Stripe account for encounter ${encounterId}, using platform account:`, err);
+  }
+
   // 1. Find the patient's billing account and Stripe customer
   const { account } = await getAccountAndCoverageResourcesForPatient(patientId, oystehr);
   if (!account) {
     return { success: false, error: `No billing account found for patient ${patientId}` };
   }
 
-  const stripeCustomerId = getStripeCustomerIdFromAccount(account, undefined);
+  const stripeCustomerId = getStripeCustomerIdFromAccount(account, stripeAccount);
   if (!stripeCustomerId) {
-    return { success: false, error: `No Stripe customer ID on billing account for patient ${patientId}` };
+    return {
+      success: false,
+      error: `No Stripe customer ID on billing account for patient ${patientId} (Stripe account: ${
+        stripeAccount ?? 'platform'
+      })`,
+    };
   }
 
   // 2. Find the Stripe invoice from the focus reference (Encounter-based lookup)
-  const encounterId = focusRef.startsWith('Encounter/') ? focusRef.replace('Encounter/', '') : undefined;
-  if (!encounterId) {
-    return { success: false, error: `Unsupported focus reference format: ${focusRef}. Expected Encounter/<id>` };
-  }
-
-  const stripeInvoice = await findStripeInvoiceByEncounterId(stripe, encounterId);
+  const stripeInvoice = await findStripeInvoiceByEncounterId(stripe, encounterId, stripeAccount);
   if (!stripeInvoice) {
-    return { success: false, error: `No open Stripe invoice found for encounter ${encounterId}` };
+    return { success: false, error: `No open Stripe invoice found for encounter ${encounterId}`, stripeAccount };
   }
 
   if (stripeInvoice.status !== 'open') {
     return {
       success: false,
       error: `Stripe invoice ${stripeInvoice.id} is not open (status: ${stripeInvoice.status})`,
+      stripeAccount,
     };
   }
 
   // 3. Verify the customer has a default payment method
-  const customer = await stripe.customers.retrieve(stripeCustomerId, {
-    expand: ['invoice_settings.default_payment_method'],
-  });
+  const customer = await stripe.customers.retrieve(
+    stripeCustomerId,
+    { expand: ['invoice_settings.default_payment_method'] },
+    { stripeAccount }
+  );
   if (customer.deleted) {
-    return { success: false, error: `Stripe customer ${stripeCustomerId} has been deleted` };
+    return { success: false, error: `Stripe customer ${stripeCustomerId} has been deleted`, stripeAccount };
   }
   if (!customer.invoice_settings?.default_payment_method) {
-    return { success: false, error: `No default payment method on file for Stripe customer ${stripeCustomerId}` };
+    return {
+      success: false,
+      error: `No default payment method on file for Stripe customer ${stripeCustomerId}`,
+      stripeAccount,
+    };
   }
 
   // 4. Attempt to pay the invoice
@@ -390,7 +413,7 @@ async function chargeCard(
     `Charging Stripe invoice ${stripeInvoice.id} (amount_due=${stripeInvoice.amount_due}) for customer ${stripeCustomerId}`
   );
   try {
-    const paidInvoice = await stripe.invoices.pay(stripeInvoice.id);
+    const paidInvoice = await stripe.invoices.pay(stripeInvoice.id, { stripeAccount });
 
     if (paidInvoice.status === 'paid') {
       console.log(`Successfully charged invoice ${stripeInvoice.id}`);
@@ -399,6 +422,7 @@ async function chargeCard(
         transactionId: typeof paidInvoice.charge === 'string' ? paidInvoice.charge : paidInvoice.charge?.id,
         amountCents: stripeInvoice.amount_due,
         invoiceLink: stripeInvoice.hosted_invoice_url ?? undefined,
+        stripeAccount,
       };
     } else {
       return {
@@ -406,6 +430,7 @@ async function chargeCard(
         error: `Invoice payment returned status: ${paidInvoice.status}`,
         amountCents: stripeInvoice.amount_due,
         invoiceLink: stripeInvoice.hosted_invoice_url ?? undefined,
+        stripeAccount,
       };
     }
   } catch (err: any) {
@@ -415,6 +440,7 @@ async function chargeCard(
       error: err.message || 'Unknown Stripe error',
       amountCents: stripeInvoice.amount_due,
       invoiceLink: stripeInvoice.hosted_invoice_url ?? undefined,
+      stripeAccount,
     };
   }
 }
@@ -443,6 +469,7 @@ async function sendNotificationForMedium(
   const placeholderInput = await resolveTemplatePlaceholders({
     patient,
     encounterRef: task.focus?.reference,
+    stripeAccount: chargeResult.stripeAccount,
     oystehr,
     secrets,
     overrides: {

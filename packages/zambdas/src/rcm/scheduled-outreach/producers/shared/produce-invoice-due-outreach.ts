@@ -3,6 +3,7 @@ import { Encounter, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import Stripe from 'stripe';
 import { Secrets } from 'utils/lib/secrets';
+import { listStripeAccounts } from '../../../../billing/reports/shared';
 import { getStripeClient, STRIPE_METADATA_KEYS } from '../../../../shared/stripeIntegration';
 import {
   getOrCreateOutreachConfig,
@@ -46,9 +47,21 @@ export async function produceInvoiceDueOutreach(
     );
   }
 
-  const pastDueInvoices = await findPastDueStripeInvoices(stripe, todayUnix, earliestDueDateUnix);
+  // Invoices are created on the clinic Location's connected Stripe account when one is
+  // configured, so past-due invoices must be collected across every account, not just the platform.
+  const stripeAccounts = await listStripeAccounts(oystehr, oystehr, stripe);
 
-  console.log(`produceInvoiceDueOutreach: Found ${pastDueInvoices.length} past-due Stripe invoices to evaluate`);
+  const pastDueInvoices = (
+    await Promise.all(
+      stripeAccounts.map((stripeAccount) =>
+        findPastDueStripeInvoices(stripe, todayUnix, earliestDueDateUnix, stripeAccount)
+      )
+    )
+  ).flat();
+
+  console.log(
+    `produceInvoiceDueOutreach: Found ${pastDueInvoices.length} past-due Stripe invoices to evaluate across ${stripeAccounts.length} Stripe account(s)`
+  );
 
   // Load the configured invoice-due actions once. send-notification actions are edge-triggered
   // (fire only on the exact milestone day); other types (e.g. charge-card) keep the single
@@ -220,14 +233,16 @@ async function calculateEarliestEligibleDueDate(oystehr: Oystehr): Promise<numbe
 }
 
 /**
- * Find Stripe invoices that are open and past their due date.
+ * Find Stripe invoices that are open and past their due date on one Stripe account
+ * (the platform account when `stripeAccount` is undefined).
  * Paginates through all results using auto-pagination.
  * @param dueDateGteUnix - Optional minimum due date to filter out old invoices
  */
 async function findPastDueStripeInvoices(
   stripe: Stripe,
   dueDateLteUnix: number,
-  dueDateGteUnix?: number
+  dueDateGteUnix: number | undefined,
+  stripeAccount: string | undefined
 ): Promise<Stripe.Invoice[]> {
   const invoices: Stripe.Invoice[] = [];
   let hasMore = true;
@@ -239,12 +254,15 @@ async function findPastDueStripeInvoices(
   }
 
   while (hasMore) {
-    const response = await stripe.invoices.list({
-      status: 'open',
-      due_date: dueDateFilter,
-      limit: 100,
-      starting_after: startingAfter,
-    });
+    const response = await stripe.invoices.list(
+      {
+        status: 'open',
+        due_date: dueDateFilter,
+        limit: 100,
+        starting_after: startingAfter,
+      },
+      { stripeAccount }
+    );
 
     invoices.push(...response.data);
     hasMore = response.has_more;
