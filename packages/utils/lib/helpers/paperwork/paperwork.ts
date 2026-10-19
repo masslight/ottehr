@@ -627,6 +627,14 @@ export const getComponentKeysFromDateGroup = (item: QuestionnaireItem): DateKeys
   return keys;
 };
 
+// the first answer's value, whichever value[x] it is stored in (valueString, valueCoding, valueReference, ...)
+export const pickAnyValueFromAnswerItem = (item: QuestionnaireResponseItem | undefined): unknown => {
+  const answer = item?.answer?.[0];
+  if (!answer) return undefined;
+  const key = (Object.keys(answer) as (keyof QuestionnaireResponseItemAnswer)[]).find((k) => k.startsWith('value'));
+  return key ? answer[key] : undefined;
+};
+
 export const pickFirstValueFromAnswerItem = (
   item: QuestionnaireResponseItem | undefined,
   type: 'string' | 'boolean' | 'attachment' | 'reference' | 'decimal' = 'string'

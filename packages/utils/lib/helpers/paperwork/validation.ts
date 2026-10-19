@@ -14,7 +14,7 @@ import {
 import { DOB_DATE_FORMAT } from '../../utils/date';
 import { DATE_ERROR_MESSAGE, REQUIRED_FIELD_ERROR_MESSAGE } from '../../validation/constants';
 import { emailRegex, emojiRegex, isoDateRegex, phoneRegex, ssnRegex, zipRegex } from '../../validation/regex';
-import { pickFirstValueFromAnswerItem } from './paperwork';
+import { pickAnyValueFromAnswerItem, pickFirstValueFromAnswerItem } from './paperwork';
 
 interface ValidatableQuestionnaireItem extends IntakeQuestionnaireItem {
   regex?: RegExp;
@@ -747,11 +747,7 @@ const evalEnableWhenItem = (
   }
 
   if (operator === 'exists' && answerBoolean !== undefined) {
-    return evalBoolean(
-      operator,
-      answerBoolean,
-      pickFirstValueFromAnswerItem(valueDef, itemDef.type === 'boolean' ? 'boolean' : undefined)
-    );
+    return evalBoolean(operator, answerBoolean, pickAnyValueFromAnswerItem(valueDef));
   } else if (itemDef.type === 'boolean' && answerBoolean !== undefined) {
     return evalBoolean(operator, answerBoolean, pickFirstValueFromAnswerItem(valueDef, 'boolean'));
   } else if (itemDef.type === 'choice' && answerCoding?.code !== undefined) {
@@ -760,7 +756,6 @@ const evalEnableWhenItem = (
     (itemDef.type === 'string' || itemDef.type === 'choice' || itemDef.type === 'open-choice') &&
     answerString
   ) {
-    // a coded answer is matched on its display, which is what the patient chose
     const answered = pickFirstValueFromAnswerItem(valueDef) ?? valueDef?.answer?.[0]?.valueCoding?.display;
     const verdict = evalString(operator, answerString, answered);
     return verdict;
