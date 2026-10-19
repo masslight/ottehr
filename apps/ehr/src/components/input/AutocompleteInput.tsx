@@ -118,12 +118,14 @@ export function AutocompleteInput<Value>({
                 if (isSelectAllOption(option)) {
                   const visible = visibleOptionsRef.current;
                   const selectedCount = visible.filter(isSelected).length;
+                  const allVisibleSelected = visible.length > 0 && selectedCount === visible.length;
+                  // MUI derives aria-selected from the field value, which never holds the sentinel; mirror the checkbox.
                   return (
-                    <li key={key} {...optionProps}>
+                    <li key={key} {...optionProps} aria-selected={allVisibleSelected}>
                       <Checkbox
                         size="small"
                         sx={{ mr: 1 }}
-                        checked={visible.length > 0 && selectedCount === visible.length}
+                        checked={allVisibleSelected}
                         indeterminate={selectedCount > 0 && selectedCount < visible.length}
                       />
                       {SELECT_ALL_LABEL}
