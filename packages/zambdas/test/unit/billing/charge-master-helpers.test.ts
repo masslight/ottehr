@@ -135,6 +135,16 @@ describe('selectBestChargeMaster', () => {
     });
     expect(selectBestChargeMaster([sameDay], 'insurance', '2026-01-05')?.title).toBe('same-day');
   });
+
+  it('handles non-insurance payers', () => {
+    const cm = makeChargeMaster({
+      kind: 'non-insurance',
+      date: '2026-01-05',
+      prices: [],
+      title: 'non-insurance payer',
+    });
+    expect(selectBestChargeMaster([cm], 'non-insurance', '2026-01-05')?.title).toBe('non-insurance payer');
+  });
 });
 
 describe('charge master search params', () => {

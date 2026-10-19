@@ -4,6 +4,8 @@ import { Controller, useFormContext } from 'react-hook-form';
 import { PERSON_GENDER_OPTIONS } from 'utils/lib/types/data/billing/billing.constants';
 import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils/lib/validation/constants';
 import { DateInput } from './DateInput';
+import { EmailInput } from './input/EmailInput';
+import { PhoneInput } from './input/PhoneInput';
 
 interface DemographicForm {
   firstName: string | null;
@@ -127,37 +129,8 @@ export function DemographicFields({ showMiddle }: { showMiddle?: boolean }): Rea
       </Box>
 
       <Box sx={{ display: 'flex', gap: 2 }}>
-        <Controller
-          name="phone"
-          control={control}
-          render={({ field, fieldState: { error: fieldError } }) => (
-            <TextField
-              label="Phone number"
-              size="small"
-              fullWidth
-              placeholder="(555) 000-0000"
-              value={field.value}
-              onChange={(e) => field.onChange(e.target.value)}
-              error={!!fieldError}
-              helperText={fieldError?.message}
-            />
-          )}
-        />
-        <Controller
-          name="email"
-          control={control}
-          render={({ field, fieldState: { error: fieldError } }) => (
-            <TextField
-              label="Email"
-              size="small"
-              fullWidth
-              value={field.value}
-              onChange={(e) => field.onChange(e.target.value)}
-              error={!!fieldError}
-              helperText={fieldError?.message}
-            />
-          )}
-        />
+        <PhoneInput name="phone" label="Phone number" />
+        <EmailInput name="email" label="Email" />
       </Box>
     </Box>
   );

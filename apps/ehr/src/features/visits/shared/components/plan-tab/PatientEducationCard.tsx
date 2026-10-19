@@ -24,6 +24,7 @@ import { AccordionCard } from '../../../../../components/AccordionCard';
 import { ActionsList } from '../../../../../components/ActionsList';
 import { DeleteIconButton } from '../../../../../components/DeleteIconButton';
 import { RoundedButton } from '../../../../../components/RoundedButton';
+import { useChartData } from '../../hooks/useChartData';
 import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAccessibility';
 import {
   clearEducationPdfUrl,
@@ -31,7 +32,7 @@ import {
   getEducationPdfUrl,
   usePatientEducation,
 } from '../../hooks/usePatientEducation';
-import { useChartData, useDeleteChartData } from '../../stores/appointment/appointment.store';
+import { useDeleteChartData } from '../../stores/appointment/appointment.store';
 import { PatientEducationLanguageSelector } from '../PatientEducationLanguageSelector';
 import { PatientEducationSectionsEditor } from '../PatientEducationSectionsEditor';
 

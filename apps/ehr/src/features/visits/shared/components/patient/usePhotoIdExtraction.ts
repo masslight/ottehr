@@ -69,11 +69,13 @@ export const readConsentSignerRelationship = (
 export const photoIdBelongsToPatient = (relationship: string | undefined): boolean =>
   !relationship || normalizeForComparison(relationship) === SELF_RELATIONSHIP;
 
-export const withoutPhotoIdName = (fields: PhotoIdExtractionFields | null): PhotoIdExtractionFields | null =>
-  fields ? { ...fields, firstName: null, middleName: null, lastName: null, suffix: null } : null;
+const IDENTITY_FIELDS = ['firstName', 'middleName', 'lastName', 'suffix', 'dateOfBirth', 'sex'] as const;
 
-const hasName = (fields: PhotoIdExtractionFields | null): boolean =>
-  Boolean(fields && (fields.firstName || fields.middleName || fields.lastName || fields.suffix));
+export const withoutPhotoIdIdentity = (fields: PhotoIdExtractionFields | null): PhotoIdExtractionFields | null =>
+  fields ? { ...fields, ...Object.fromEntries(IDENTITY_FIELDS.map((field) => [field, null])) } : null;
+
+const hasIdentity = (fields: PhotoIdExtractionFields | null): boolean =>
+  Boolean(fields && IDENTITY_FIELDS.some((field) => fields[field]));
 
 const searchNewestResponses = async (
   oystehr: Oystehr,
@@ -134,13 +136,10 @@ export const usePhotoIdExtraction = (patientId: string | undefined): UsePhotoIdE
         (docRef) => docRef.content?.[0]?.attachment?.title === DocumentType.PhotoIdFront
       );
       const fields = readNewestFrontExtractionFields(docRefsNewestFirst);
-      // Only the name is gated on who signed consent, so an ID that read no name needs no paperwork
-      // lookup at all. Resolved inside this query rather than as a second hook so the fields land
-      // already gated — a name chip must never render and then disappear once paperwork comes back.
-      if (!hasName(fields) || (await resolvePhotoIdBelongsToPatient(oystehr!, patientId!))) {
+      if (!hasIdentity(fields) || (await resolvePhotoIdBelongsToPatient(oystehr!, patientId!))) {
         return { front, fields };
       }
-      return { front, fields: withoutPhotoIdName(fields) };
+      return { front, fields: withoutPhotoIdIdentity(fields) };
     },
     enabled,
   });

@@ -10,6 +10,8 @@ import {
   INTERACTION_OVERRIDE_REASON_CODE_SYSTEM,
   INTERACTIONS_UNAVAILABLE,
   ISSUE_TYPE_CODE_SYSTEM,
+  MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE,
+  MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_SYSTEM,
   MEDICATION_ADMINISTRATION_OTHER_REASON_CODE,
   MEDICATION_ADMINISTRATION_REASON_CODE,
   MEDICATION_ADMINISTRATION_ROUTES_CODES_SYSTEM,
@@ -27,9 +29,11 @@ import {
   AllergyInteraction,
   DrugInteraction,
   ExtendedMedicationDataForResponse,
+  inHouseMedicationsMedicationApplianceRoutes,
   MedicationApplianceLocation,
   medicationApplianceLocations,
   MedicationApplianceRoute,
+  MedicationApplianceRoutes,
   medicationApplianceRoutes,
   MedicationData,
   MedicationInteractions,
@@ -41,14 +45,20 @@ import { getCoding } from './helpers';
 // Local const so that DEPRECATED system doesn't get imported from utils
 const CODE_SYSTEM_HCPCS = 'http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets'; // formerly used by Ottehr clinical in-house meds
 
-export type MedicationUnitOptions = 'mg' | 'ml' | 'g' | 'cc' | 'unit' | 'application';
-export const UNIT_OPTIONS: { value: MedicationUnitOptions; label: string }[] = [
+export type MedicationUnitOptions = 'mg' | 'ml' | 'g' | 'cc' | 'unit' | 'application' | 'Puff(s)';
+
+export const BASE_UNIT_OPTIONS: { value: MedicationUnitOptions; label: string }[] = [
   { value: 'mg', label: 'mg' },
   { value: 'ml', label: 'mL' },
   { value: 'g', label: 'g' },
   { value: 'cc', label: 'cc' },
   { value: 'unit', label: 'unit' },
   { value: 'application', label: 'application' },
+];
+
+export const IN_HOUSE_MEDICATION_UNIT_OPTIONS: { value: MedicationUnitOptions; label: string }[] = [
+  ...BASE_UNIT_OPTIONS,
+  { value: 'Puff(s)', label: 'Puff(s)' },
 ];
 
 export function mapFhirToOrderStatus(
@@ -205,9 +215,10 @@ export function getCurrentOrderedByProviderId(medicationAdministration: Medicati
 }
 
 export const searchRouteByCode = (
-  code: keyof typeof medicationApplianceRoutes | undefined
+  code: string | undefined,
+  routes: MedicationApplianceRoutes = medicationApplianceRoutes
 ): MedicationApplianceRoute | undefined => {
-  return Object.values(medicationApplianceRoutes).find((route) => route.code === code);
+  return Object.values(routes).find((route) => route.code === code);
 };
 
 export function searchMedicationLocation(
@@ -374,7 +385,7 @@ export const medicationStatusDisplayLabelMap: Record<MedicationOrderStatusesType
 export const createMedicationString = (medication: ExtendedMedicationDataForResponse): string => {
   const name = medication.medicationName;
   const dose = medication.dose && `${medication.dose} ${medication.units}`;
-  const route = searchRouteByCode(medication.route)?.display;
+  const route = searchRouteByCode(medication.route, inHouseMedicationsMedicationApplianceRoutes)?.display;
   const location = medication.location?.name;
   const givenBy = medication.administeredProvider && `given by ${medication.administeredProvider}`;
   const instructions = medication.instructions && `instructions: ${medication.instructions}`;
@@ -385,6 +396,28 @@ export const createMedicationString = (medication: ExtendedMedicationDataForResp
 
 export function getMedicationFromMA(medicationAdministration: MedicationAdministration): Medication | undefined {
   return medicationAdministration.contained?.find((res) => res.resourceType === 'Medication') as Medication;
+}
+
+export function isInHouseMedicationOrder(ma: MedicationAdministration): boolean {
+  return (
+    ma.meta?.tag?.some(
+      (tag) =>
+        tag.system === MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_SYSTEM &&
+        tag.code === MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE
+    ) ?? false
+  );
+}
+
+export const IMMUNIZATION_ORDER_TAG_SYSTEM = 'https://fhir.zapehr.com/r4/StructureDefinitions/immunization';
+
+export const IMMUNIZATION_ORDER_TAG_CODE = 'immunization';
+
+export function isImmunizationOrder(ma: MedicationAdministration): boolean {
+  return (
+    ma.meta?.tag?.some(
+      (tag) => tag.system === IMMUNIZATION_ORDER_TAG_SYSTEM && tag.code === IMMUNIZATION_ORDER_TAG_CODE
+    ) ?? false
+  );
 }
 
 export const MEDICATION_CPT_CODES_EXTENSION_URL = 'https://fhir.ottehr.com/Extension/medication-cpt-codes';
@@ -404,10 +437,20 @@ export function getCptCodesFromMA(
   const ext = medicationAdministration.extension?.find((e) => e.url === MEDICATION_CPT_CODES_EXTENSION_URL);
   if (!ext?.valueString) return undefined;
   try {
-    return JSON.parse(ext.valueString) as MedicationCptCodeEntry[];
+    const parsed = JSON.parse(ext.valueString);
+    return Array.isArray(parsed) ? (parsed as MedicationCptCodeEntry[]) : undefined;
   } catch {
     return undefined;
   }
+}
+
+/** Returns the CPT entry designated as the drug itself; falls back to the first entry, matching UI behavior. */
+export function getMedicationCptEntryFromMA(
+  medicationAdministration: MedicationAdministration
+): MedicationCptCodeEntry | undefined {
+  const entries = getCptCodesFromMA(medicationAdministration);
+  if (!entries || entries.length === 0) return undefined;
+  return entries.find((entry) => entry.isMedication) ?? entries[0];
 }
 
 export function getNdcCodeFromMedication(medication: Medication): string | undefined {

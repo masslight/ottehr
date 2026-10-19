@@ -10,6 +10,7 @@ import {
   getEncounterDateTime,
   getEncounterVisitType,
   getFollowupSubtype,
+  getInitialEncounterIdForFollowUp,
   isAnnotationFollowupEncounter,
   isEncounterErxSynced,
   isFollowupEncounter,
@@ -220,6 +221,35 @@ describe('Encounter follow-up helpers', () => {
     it('matches the hand-built follow-up type used across the codebase', () => {
       expect(buildFollowupEncounterType('scheduled')).toEqual(makeFollowupType('scheduled'));
       expect(buildFollowupEncounterType('annotation')).toEqual(makeFollowupType('annotation'));
+    });
+  });
+
+  describe('getInitialEncounterIdForFollowUp', () => {
+    it('returns undefined without an encounter', () => {
+      expect(getInitialEncounterIdForFollowUp(undefined)).toBeUndefined();
+    });
+
+    it('returns the encounter itself for a main visit', () => {
+      expect(getInitialEncounterIdForFollowUp(makeEncounter({ id: 'main-1' }))).toBe('main-1');
+    });
+
+    it('returns the parent encounter for an annotation follow-up', () => {
+      const encounter = makeEncounter({
+        id: 'annotation-1',
+        type: makeFollowupType('annotation'),
+        partOf: { reference: 'Encounter/main-1' },
+      });
+      expect(getInitialEncounterIdForFollowUp(encounter)).toBe('main-1');
+    });
+
+    it('returns the parent encounter for a scheduled follow-up', () => {
+      const encounter = makeEncounter({
+        id: 'scheduled-1',
+        type: makeFollowupType('scheduled'),
+        partOf: { reference: 'Encounter/main-1' },
+        appointment: [{ reference: 'Appointment/followup-appt' }],
+      });
+      expect(getInitialEncounterIdForFollowUp(encounter)).toBe('main-1');
     });
   });
 });

@@ -2,10 +2,12 @@ import Oystehr, { ErxSearchPharmaciesResponse } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import { PlacesResult, SearchPlacesInput, SearchPlacesOutput } from 'utils/lib/types/data/search-places';
+import { z } from 'zod';
 import { getAuth0Token } from '../../shared/getAuth0Token';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { validateWithSchema } from '../../shared/validation';
 import {
   addressComponentsFromPlacesDetailRes,
   findMatchingErxPharmacy,
@@ -15,7 +17,24 @@ import {
   searchErxPharmacy,
   validateIsString,
 } from './helpers';
-import { validateRequestParameters } from './validateRequestParameters';
+
+export const bodySchema = z
+  .object({
+    searchTerm: z.string().optional(),
+    locationBias: z
+      .object({
+        latitude: z.number(),
+        longitude: z.number(),
+      })
+      .optional(),
+    placesId: z.string().optional(),
+  })
+  .refine((data) => data.searchTerm || data.placesId, {
+    message: 'searchTerm or placesId must be sent',
+  })
+  .refine((data) => !(data.searchTerm && data.placesId), {
+    message: 'Please send either searchTerm or placesId, only one param should be sent.',
+  });
 
 const ZAMBDA_NAME = 'search-places';
 
@@ -23,7 +42,7 @@ const ZAMBDA_NAME = 'search-places';
 let oystehrToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const validatedInput = validateRequestParameters(input);
+  const validatedInput = validateWithSchema(bodySchema, input);
   const { searchTerm, locationBias, placesId, secrets } = validatedInput;
 
   console.log('locationBias: ', JSON.stringify(locationBias));

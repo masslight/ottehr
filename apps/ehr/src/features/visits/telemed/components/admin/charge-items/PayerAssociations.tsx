@@ -104,9 +104,9 @@ export default function PayerAssociations({
 
   const queryClient = useQueryClient();
   const { data: allInsuranceOrgs, isPending: insuranceOrgsLoading } = useInsurancesQuery(undefined, true);
-  // In NIO mode employers never associate with fee schedules or charge masters, so they aren't
-  // loaded or offered here at all.
-  const employersEnabled = !FEATURE_FLAGS.NON_INSURANCE_ORGANIZATIONS_ENABLED;
+  // In custom-organizations mode employers never associate with fee schedules or charge masters,
+  // so they aren't loaded or offered here at all.
+  const employersEnabled = !FEATURE_FLAGS.CUSTOM_ORGANIZATIONS_ENABLED;
   const { data: allEmployerOrgs, isPending: employerOrgsLoading } = useEmployersQuery({ enabled: employersEnabled });
   const orgsLoading = insuranceOrgsLoading || (employersEnabled && employerOrgsLoading);
 

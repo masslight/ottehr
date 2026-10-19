@@ -1,5 +1,5 @@
 import { BatchInputGetRequest } from '@oystehr/sdk';
-import { captureException } from '@sentry/aws-serverless';
+import { captureException } from '@sentry/node-core/light';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import { Appointment, Coding, Encounter, Location } from 'fhir/r4b';
@@ -39,8 +39,6 @@ export interface CancelTelemedAppointmentInputValidated extends CancelTelemedApp
 let oystehrToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  console.log(`Telemed Cancelation Input: ${JSON.stringify(input)}`);
-
   const validatedParameters = validateRequestParameters(input);
 
   oystehrToken = await checkOrCreateM2MClientToken(oystehrToken, validatedParameters.secrets);

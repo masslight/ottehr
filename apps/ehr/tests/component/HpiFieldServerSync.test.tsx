@@ -1,24 +1,24 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HistoryOfPresentIllnessField } from 'src/features/visits/HpiField';
-import { useChartFields } from 'src/features/visits/shared/hooks/useChartFields';
+import { useChartSection } from 'src/features/visits/shared/hooks/useChartSection';
 import { useDebounceNotesField } from 'src/features/visits/shared/hooks/useDebounceNotesField';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('src/features/visits/shared/hooks/useChartFields', () => ({
-  useChartFields: vi.fn(),
+vi.mock('src/features/visits/shared/hooks/useChartSection', () => ({
+  useChartSection: vi.fn(),
 }));
 
 vi.mock('src/features/visits/shared/hooks/useDebounceNotesField', () => ({
   useDebounceNotesField: vi.fn(),
 }));
 
-const mockUseChartFields = vi.mocked(useChartFields);
+const mockUseChartSection = vi.mocked(useChartSection);
 const mockUseDebounceNotesField = vi.mocked(useDebounceNotesField);
 
-// the HPI box reads the stored note out of the chart-fields cache; this stands in for that cache
+// the HPI box reads the stored note out of the encounter-notes section cache; this stands in for that cache
 const setStoredHpi = (text: string | undefined): void => {
-  mockUseChartFields.mockReturnValue({
+  mockUseChartSection.mockReturnValue({
     data: text === undefined ? {} : { chiefComplaint: { text } },
     isFetched: true,
   } as any);

@@ -1,12 +1,14 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, Patient } from 'fhir/r4b';
+import { GetPatientDetailInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { PatientDetailResponse } from 'utils/lib/types/data/billing/billing.types';
 import { hasReachedPatientAr } from 'utils/lib/types/data/billing/claim-status';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { fetchAllPages } from '../../shared/fhir';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import {
   fetchClaimResponsesByClaimIds,
   fetchPatientPaidByClaimId,
@@ -24,13 +26,14 @@ import {
   resolvePayersByRef,
   toAddressParts,
 } from '../shared';
-import { GetPatientDetailParams, validateRequestParameters } from './validateRequestParameters';
+
+type GetPatientDetailParams = ValidatedZambdaInput<typeof GetPatientDetailInputSchema>;
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'get-billing-patient-detail';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const params = validateRequestParameters(input);
+  const params = validateWithSchema(GetPatientDetailInputSchema, input);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
 

@@ -5,6 +5,7 @@ import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { getCoding } from 'utils/lib/fhir/helpers';
 import { isPayerUrl } from 'utils/lib/helpers/helpers';
 import { getOptionalSecret, SecretsKeys } from 'utils/lib/secrets';
+import { GetClaimHistoryInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import {
   CLAIM_HISTORY_RESOURCE_LABELS,
   CLAIM_PROVENANCE_ACTIVITY_CODES,
@@ -14,6 +15,7 @@ import {
   CLAIM_PROVENANCE_DIFF_EXTENSION_URL,
   CLAIM_PROVENANCE_NOTE_EXTENSION_URL,
   CLAIM_RULES_ENGINE_DEVICE_NAME,
+  ClaimAcknowledgmentEvent,
   ClaimFieldChange,
   ClaimHistoryEntry,
   ClaimHistoryLink,
@@ -23,6 +25,8 @@ import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { sendErrors } from '../../shared/errors';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
+import { parseStoredAcknowledgment } from '../claim-acknowledgments';
 import {
   copySourceId,
   createBillingClient,
@@ -31,7 +35,8 @@ import {
   resolvePayersByRef,
   resourceDisplayName,
 } from '../shared';
-import { GetClaimHistoryParams, validateRequestParameters } from './validateRequestParameters';
+
+type GetClaimHistoryParams = ValidatedZambdaInput<typeof GetClaimHistoryInputSchema>;
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'get-billing-claim-history';
@@ -45,7 +50,7 @@ const FIELD_SCREEN: Record<string, ClaimHistoryLink['screen']> = {
 };
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const params = validateRequestParameters(input);
+  const params = validateWithSchema(GetClaimHistoryInputSchema, input);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
 
@@ -113,6 +118,14 @@ function parseChanges(provenance: Provenance, environment: string): ClaimFieldCh
     reportAnomaly(`Malformed change set on Provenance/${provenance.id}`, environment, err);
     return [];
   }
+}
+
+function parseAcknowledgment(provenance: Provenance, environment: string): ClaimAcknowledgmentEvent | undefined {
+  const stored = parseStoredAcknowledgment(provenance);
+  if (stored.kind === 'invalid') {
+    reportAnomaly(`Malformed acknowledgment on Provenance/${provenance.id}`, environment, stored.error);
+  }
+  return stored.kind === 'parsed' ? stored.event : undefined;
 }
 
 // The raw references behind reference-typed changes are stored as Provenance.entity entries tagged
@@ -187,6 +200,7 @@ function toHistoryEntry(
 
   const resourceType = targetRef?.split('/')[0] ?? '';
   const message = provenance.extension?.find((e) => e.url === CLAIM_PROVENANCE_NOTE_EXTENSION_URL)?.valueString;
+  const acknowledgment = parseAcknowledgment(provenance, environment);
   return {
     id: provenance.id ?? '',
     recorded: provenance.recorded ?? '',
@@ -197,6 +211,7 @@ function toHistoryEntry(
     },
     changes: parseChanges(provenance, environment),
     ...(message ? { message } : {}),
+    ...(acknowledgment ? { acknowledgment } : {}),
   };
 }
 
@@ -297,6 +312,8 @@ function activityDisplay(code: string, resourceType: string): string {
       return `Submit ${label}`;
     case CLAIM_PROVENANCE_ACTIVITY_CODES.note:
       return 'Note';
+    case CLAIM_PROVENANCE_ACTIVITY_CODES.acknowledgment:
+      return 'Acknowledgment';
     default:
       return label;
   }

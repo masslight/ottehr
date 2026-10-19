@@ -5,7 +5,6 @@ import { DateTime } from 'luxon';
 import {
   CRITICAL_CHANGE_SYSTEM,
   FOLLOWUP_CONVERSION_TAG_SYSTEM,
-  getCriticalUpdateTagOp,
   STATUS_UPDATE_TAG_SYSTEM,
 } from 'utils/lib/fhir/helpers';
 import { getFullName } from 'utils/lib/fhir/patient';
@@ -343,5 +342,3 @@ export const formatNotesHistory = (timezone: string, appointmentHistory: Appoint
   }
   return notes;
 };
-
-export { CRITICAL_CHANGE_SYSTEM, getCriticalUpdateTagOp };

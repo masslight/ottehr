@@ -13,6 +13,7 @@ import {
 } from 'fhir/r4b';
 import { getProviderNameWithProfession } from 'utils/lib/fhir/helpers';
 import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
+import { isVitalObservation } from 'utils/lib/fhir/vitals';
 import { addEmptyArrOperation } from 'utils/lib/helpers/operations';
 import { Secrets } from 'utils/lib/secrets';
 import {
@@ -28,6 +29,8 @@ import {
   createAccidentCondition,
   createDispositionServiceRequest,
   createProcedureServiceRequest,
+  deleteEncounterDiagnoses,
+  findAccidentConditions,
   followUpToPerformerMap,
   followUpTypeFromPerformerType,
   makeAllergyResource,
@@ -53,7 +56,9 @@ import {
   updateEncounterPatientInfoConfirmed,
   updateEncounterReasonForVisit,
 } from '../../shared/chart-data';
+import { getEncounterAndRelatedResources } from '../../shared/chart-data/encounter-resources';
 import { runChartDataPostChangeTasks } from '../../shared/chart-data/post-change-tasks';
+import { orphanedProcedureDiagnoses } from '../../shared/chart-data/procedure-diagnoses';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { PdfDocumentReferencePublishedStatuses } from '../../shared/pdf/pdf-utils';
 import { createSchoolWorkNotePDF } from '../../shared/pdf/school-work-note-pdf';
@@ -61,6 +66,7 @@ import { getMyPractitionerId } from '../../shared/practitioners';
 import { saveOrUpdateResourceRequest } from '../../shared/resources.helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { getVitalsEngineConfig } from '../../shared/vitals-alert-config';
 import {
   createExamObservationComments,
   getAllExamFieldsMetadata,
@@ -68,7 +74,6 @@ import {
 import { deleteResourceRequest } from '../delete-chart-data/helpers';
 import {
   filterServiceRequestsFromFhir,
-  getEncounterAndRelatedResources,
   getEncounterClinicAddress,
   validateBundleAndExtractSavedChartData,
 } from './helpers';
@@ -80,10 +85,10 @@ const ZAMBDA_NAME = 'save-chart-data';
 let m2mToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  console.log(`Input: ${JSON.stringify(input)}`);
   console.log('Validating input');
   const {
     encounterId,
+    cleanupProcedureDiagnoses,
     chiefComplaint,
     historyOfPresentIllness,
     mechanismOfInjury,
@@ -130,12 +135,18 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   // const [allResources, currentPractitioner, chartDataBeforeUpdate] = await Promise.all([
   //   getEncounterAndRelatedResources(oystehr, encounterId),
   //   getUserPractitioner(oystehr, userToken, secrets),
-  //   getChartData(oystehr, encounterId),
   // ]);
 
-  const [allResources, currentPractitioner] = await Promise.all([
-    getEncounterAndRelatedResources(oystehr, encounterId),
+  const hasVitalObservations = [...(vitalsObservations ?? []), ...(observations ?? [])].some(isVitalObservation);
+
+  const [allResources, currentPractitioner, vitalsAlertConfig] = await Promise.all([
+    getEncounterAndRelatedResources(oystehr, encounterId, {
+      includeChartData: true,
+      includeProcedureDependencies:
+        cleanupProcedureDiagnoses && procedures?.some((procedure) => Boolean(procedure.resourceId)),
+    }),
     getUserPractitioner(oystehr, userToken, secrets),
+    hasVitalObservations ? getVitalsEngineConfig(oystehr) : undefined,
   ]);
 
   const encounter = allResources.filter((resource) => resource.resourceType === 'Encounter')[0] as Encounter;
@@ -234,7 +245,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           element,
           ADDITIONAL_QUESTIONS_META_SYSTEM,
           patient.birthDate,
-          patient.gender
+          patient.gender,
+          vitalsAlertConfig
         )
       )
     );
@@ -251,7 +263,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           element,
           PATIENT_VITALS_META_SYSTEM,
           patient.birthDate,
-          patient.gender
+          patient.gender,
+          vitalsAlertConfig
         )
       )
     );
@@ -447,6 +460,17 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     });
   }
 
+  const deletedDiagnoses = orphanedProcedureDiagnoses(
+    encounter,
+    allResources,
+    cleanupProcedureDiagnoses ? procedures ?? [] : []
+  ).filter((condition) => !diagnosis?.some((edited) => edited.resourceId === condition.id));
+  const deletedDiagnosisIds = deletedDiagnoses.map((condition) => condition.id!);
+  for (const condition of deletedDiagnoses) {
+    saveOrUpdateRequests.push(deleteResourceRequest('Condition', condition.id!));
+  }
+  updateEncounterOperations.push(...deleteEncounterDiagnoses(encounter, deletedDiagnosisIds));
+
   if (updateEncounterOperations.length > 0) {
     saveOrUpdateRequests.push(
       getPatchBinary({
@@ -479,12 +503,39 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   if (procedures) {
     procedures?.forEach((procedure) => {
       saveOrUpdateRequests.push(createProcedureServiceRequest(procedure, encounterId, patient.id!));
+      // Stamp the procedure's own date onto its CPT-code Procedure resources so billing can use
+      // it as a claim service line's date of service, instead of falling back to the encounter
+      // date. Only existing (already-saved) CPT Procedures can be patched here; ones still being
+      // created in this same transaction (referenced by a urn:uuid) get their date some other way.
+      if (procedure.procedureDateTime) {
+        procedure.cptCodes
+          ?.filter((cptCode) => cptCode.resourceId && !cptCode.resourceId.startsWith('urn:uuid:'))
+          .forEach((cptCode) => {
+            saveOrUpdateRequests.push(
+              getPatchBinary({
+                resourceId: cptCode.resourceId!,
+                resourceType: 'Procedure',
+                patchOperations: [{ op: 'add', path: '/performedDateTime', value: procedure.procedureDateTime }],
+              })
+            );
+          });
+      }
     });
     additionalResourcesForResponse.push(encounter);
   }
 
   if (accident) {
-    saveOrUpdateRequests.push(createAccidentCondition(accident, encounterId, patient.id!));
+    const existingAccidentConditions = findAccidentConditions(allResources);
+    const accidentId = accident.resourceId ?? existingAccidentConditions[0]?.id;
+    saveOrUpdateRequests.push(
+      createAccidentCondition({ ...accident, resourceId: accidentId }, encounterId, patient.id!)
+    );
+    existingAccidentConditions
+      .filter((condition) => condition.id != null && condition.id !== accidentId)
+      .forEach((condition) => saveOrUpdateRequests.push(deleteResourceRequest('Condition', condition.id!)));
+    if (!additionalResourcesForResponse.includes(encounter)) {
+      additionalResourcesForResponse.push(encounter);
+    }
   }
 
   console.log('Starting a transaction update of chart data...');
@@ -516,7 +567,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   console.timeEnd('time');
   return {
-    body: JSON.stringify(output),
+    body: JSON.stringify({ ...output, ...(deletedDiagnosisIds.length ? { deletedDiagnosisIds } : {}) }),
     statusCode: 200,
   };
 });

@@ -25,10 +25,16 @@ import {
   NIO_PREFERRED_SUBMISSION_EXTENSION_URL,
   NIO_WC_BILLING_MODE_EXTENSION_URL,
   NIO_WC_PAYER_EXTENSION_URL,
+  NIO_WC_SAME_AS_ORG_ADDRESS_EXTENSION_URL,
   NioCoverageDetail,
   NonInsuranceOrganizationItem,
 } from 'utils/lib/types/data/billing/non-insurance-org.types';
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
+import {
+  getCustomInsuranceOrgBusinessId,
+  isCustomInsuranceOrganization,
+  resolvePayerOrganization,
+} from './custom-insurance-org.helpers';
 import { buildPayorReference, payerDisplay } from './shared';
 
 export type OrganizationContact = NonNullable<Organization['contact']>[number];
@@ -182,6 +188,9 @@ export function buildCoverageOrganization(params: {
         valueReference: { reference: payerRef.reference, ...(payerRef.display ? { display: payerRef.display } : {}) },
       });
     }
+    if (coverage.billingMode === 'direct' && coverage.sameAsOrgAddress) {
+      extension.push({ url: NIO_WC_SAME_AS_ORG_ADDRESS_EXTENSION_URL, valueBoolean: true });
+    }
   }
   const submission = coverage.submission;
   if (submission?.preferredMechanism) {
@@ -262,7 +271,17 @@ function mapCoverageDetail(
     const payer = payerRef?.reference
       ? payerOptionsByRef?.get(payerRef.reference) ?? fallbackPayerOption(payerRef)
       : undefined;
-    return { category, billingMode, ...(payer ? { payer } : {}), ...(submission ? { submission } : {}) };
+    const sameAsOrgAddress =
+      billingMode === 'direct' &&
+      !!coverageOrg &&
+      getExtension(coverageOrg, NIO_WC_SAME_AS_ORG_ADDRESS_EXTENSION_URL)?.valueBoolean === true;
+    return {
+      category,
+      billingMode,
+      ...(payer ? { payer } : {}),
+      ...(submission ? { submission } : {}),
+      ...(sameAsOrgAddress ? { sameAsOrgAddress } : {}),
+    };
   }
   if (category === 'other') {
     return {
@@ -404,7 +423,7 @@ export async function resolveWcPayerReference(
   if (!workersComp || workersComp.category !== 'workers-comp' || !workersComp.payerId) return undefined;
   let payerOrg: Organization | undefined;
   try {
-    payerOrg = await oystehr.rcm.getPayer({ id: workersComp.payerId });
+    payerOrg = await resolvePayerOrganization(oystehr, workersComp.payerId);
   } catch (error) {
     console.error(`Failed to look up payer ${workersComp.payerId}:`, error);
   }
@@ -432,10 +451,15 @@ export async function resolvePayerOptionsByRef(
         if (isPayerUrl(ref)) {
           payerOrg = await oystehr.rcm.getPayerByUrl({ url: ref });
         } else if (ref.startsWith('Organization/')) {
-          payerOrg = await oystehr.rcm.getPayer({ id: ref.slice('Organization/'.length) });
+          payerOrg = await resolvePayerOrganization(oystehr, ref.slice('Organization/'.length));
         }
         if (payerOrg) {
-          byRef.set(ref, { id: payerOrg.id ?? '', name: payerOrg.name ?? '', payerId: getPayerId(payerOrg) ?? '' });
+          // Custom insurance orgs have no RCM payer id; fall back to their "OTR-" business id, the
+          // same value PayerSelect's option list shows in its place.
+          const payerId = isCustomInsuranceOrganization(payerOrg)
+            ? getCustomInsuranceOrgBusinessId(payerOrg)
+            : getPayerId(payerOrg) ?? '';
+          byRef.set(ref, { id: payerOrg.id ?? '', name: payerOrg.name ?? '', payerId });
         }
       } catch (error) {
         console.error(`Failed to resolve NIO payer ${ref}:`, error);

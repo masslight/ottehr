@@ -2,7 +2,8 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Encounter, Practitioner } from 'fhir/r4b';
 import { GenerateExcuseDialog } from 'src/features/visits/shared/components/plan-tab/components/GenerateExcuseDialog';
-import { useAppointmentData, useChartData } from 'src/features/visits/shared/stores/appointment/appointment.store';
+import { useChartData } from 'src/features/visits/shared/hooks/useChartData';
+import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { SchoolWorkNoteExcuseDocDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { PRACTITIONER_CODINGS } from 'utils/lib/types/data/appointments/appointments.types';
@@ -10,8 +11,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('src/features/visits/shared/stores/appointment/appointment.store', () => ({
   useAppointmentData: vi.fn(),
-  useChartData: vi.fn(),
   useSaveChartData: vi.fn(),
+}));
+
+vi.mock('src/features/visits/shared/hooks/useChartData', () => ({
+  useChartData: vi.fn(),
 }));
 
 vi.mock('src/hooks/useEvolveUser', () => ({ default: vi.fn() }));

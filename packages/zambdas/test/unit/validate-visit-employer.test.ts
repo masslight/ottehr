@@ -10,7 +10,7 @@ const LEGACY_ORG_ID = '22222222-2222-4222-8222-222222222222';
 
 // FEATURE_FLAGS_CONFIG is a frozen compile-time constant; tests toggle it by mocking the module
 // with a mutable object.
-const flags = vi.hoisted(() => ({ nonInsuranceOrganizationsEnabled: true }));
+const flags = vi.hoisted(() => ({ customOrganizationsEnabled: true }));
 vi.mock('utils/lib/ottehr-config/feature-flags', () => ({ FEATURE_FLAGS_CONFIG: flags }));
 
 const nioOption: ClinicalNioOption = {
@@ -49,7 +49,7 @@ function makeOystehr(options: { directoryOptions?: ClinicalNioOption[]; legacyOr
 
 describe('validateVisitEmployerSelection', () => {
   beforeEach(() => {
-    flags.nonInsuranceOrganizationsEnabled = true;
+    flags.customOrganizationsEnabled = true;
   });
 
   describe('NIO mode (flag on)', () => {
@@ -86,7 +86,7 @@ describe('validateVisitEmployerSelection', () => {
 
   describe('legacy mode (flag off)', () => {
     beforeEach(() => {
-      flags.nonInsuranceOrganizationsEnabled = false;
+      flags.customOrganizationsEnabled = false;
     });
 
     it('accepts an active occ-med employer organization via FHIR', async () => {

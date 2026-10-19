@@ -1,12 +1,35 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import React, { type InputHTMLAttributes } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { PATIENT_RECORD_CONFIG } from 'utils/lib/ottehr-config/patient-record';
+import { AddressBookContact } from 'utils/lib/types/data/address-book';
 import { describe, expect, it, vi } from 'vitest';
 import { createDynamicValidationResolver } from './patientRecordValidation';
 import { PrimaryCareContainer } from './PrimaryCareContainer';
+
+// The practice-name picker reads the directory; keep it offline.
+const directoryContact: AddressBookContact = vi.hoisted(() => ({
+  id: 'c1',
+  firstName: 'Jane',
+  lastName: 'Doe',
+  credential: 'MD',
+  organizationName: 'Springfield Cardiology',
+  address: { line1: '1 Main St', line2: 'Suite 2', city: 'Springfield', state: 'IL', zip: '62701' },
+  phone: '+12125551234',
+  fax: '+12125554321',
+  tags: ['pcp'],
+}));
+vi.mock('src/features/address-book/addressBook.api', () => ({
+  searchAddressBook: vi.fn().mockResolvedValue({
+    contacts: [directoryContact, { id: 'c2', firstName: 'Sam', lastName: 'Lee', tags: ['pcp'] }],
+  }),
+  createAddressBookContact: vi.fn(),
+  updateAddressBookContact: vi.fn(),
+  deleteAddressBookContact: vi.fn(),
+}));
+vi.mock('src/hooks/useAppClients', () => ({ useApiClients: () => ({ oystehrZambda: {} }) }));
 
 vi.mock('../InputMask', async () => {
   const React = await import('react');
@@ -217,6 +240,56 @@ describe('PrimaryCareContainer', () => {
       const refreshedInput = getFieldInput(field.key);
       expect(refreshedInput).toHaveValue(testFieldValues[field.key]);
     });
+  });
+
+  it('fills the PCP fields from a directory contact and marks them dirty', async () => {
+    let formMethods: ReturnType<typeof useForm> | null = null;
+    render(
+      <TestWrapper onFormReady={(methods) => (formMethods = methods)}>
+        <PrimaryCareContainer isLoading={false} />
+      </TestWrapper>
+    );
+
+    await user.click(within(getFieldById(pcp.practiceName.key)).getByRole('combobox'));
+    await user.click(await screen.findByRole('option', { name: /Jane Doe, MD/ }));
+
+    expect(getFieldInput(pcp.practiceName.key)).toHaveValue('Springfield Cardiology');
+    expect(getFieldInput(pcp.firstName.key)).toHaveValue('Jane');
+    expect(getFieldInput(pcp.lastName.key)).toHaveValue('Doe');
+    expect(getFieldInput(pcp.address.key)).toHaveValue('1 Main St, Suite 2, Springfield, IL 62701');
+    expect(getFieldInput(pcp.phone.key)).toHaveValue('(212) 555-1234');
+    expect(getFieldInput(pcp.fax.key)).toHaveValue('(212) 555-4321');
+    expect(getFieldInput(pcp.active.key)).not.toBeChecked();
+    expect(formMethods!.formState.dirtyFields).toMatchObject({ [pcp.firstName.key]: true, [pcp.fax.key]: true });
+  });
+
+  it('leaves the practice name empty for a contact with no organization', async () => {
+    render(
+      <TestWrapper>
+        <PrimaryCareContainer isLoading={false} />
+      </TestWrapper>
+    );
+
+    await user.type(within(getFieldById(pcp.practiceName.key)).getByRole('combobox'), 'lee');
+    await user.click(await screen.findByRole('option', { name: /Sam Lee/ }));
+
+    // The person goes to the doctor's name fields only, not also into the practice name.
+    expect(getFieldInput(pcp.practiceName.key)).toHaveValue('');
+    expect(getFieldInput(pcp.firstName.key)).toHaveValue('Sam');
+    expect(getFieldInput(pcp.lastName.key)).toHaveValue('Lee');
+  });
+
+  it('still takes a free-text practice name', async () => {
+    render(
+      <TestWrapper>
+        <PrimaryCareContainer isLoading={false} />
+      </TestWrapper>
+    );
+
+    await user.type(within(getFieldById(pcp.practiceName.key)).getByRole('combobox'), 'Some Clinic');
+
+    await waitFor(() => expect(getFieldInput(pcp.practiceName.key)).toHaveValue('Some Clinic'));
+    expect(getFieldInput(pcp.firstName.key)).toHaveValue('');
   });
 
   it('should validate required fields based on config triggers', async () => {

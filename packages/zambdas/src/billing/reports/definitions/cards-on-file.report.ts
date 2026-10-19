@@ -59,7 +59,7 @@ const stripState = (state: CardsOnFilePayload): CardsOnFilePayload => {
 
 export const cardsOnFileReport: ReportDefinition<Record<string, never>, CardsOnFilePayload> = {
   kind: 'cards-on-file',
-  cacheVersion: 'v2',
+  cacheVersion: 'v3',
   paramsSchema: EmptyReportParamsSchema,
   cacheKeyOf: () => '',
   emptyPayload: () => ({

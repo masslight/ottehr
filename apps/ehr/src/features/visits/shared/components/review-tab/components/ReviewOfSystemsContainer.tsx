@@ -5,15 +5,15 @@ import {
   SectionHeading,
   useNoteSectionTitleInCardHeader,
 } from 'src/features/visits/shared/components/NoteSectionHeading';
-import { useProgressNoteChartFields } from '../../../hooks/useProgressNoteChartFields';
+import { useVisitNote } from '../../../hooks/useVisitNote';
 
 /**
  * Legacy container for charts with ros data saved via the free text field.
  */
 export const ReviewOfSystemsContainer: FC = () => {
   const titleInCardHeader = useNoteSectionTitleInCardHeader();
-  const { data: chartFields } = useProgressNoteChartFields();
-  const ros = chartFields?.ros?.text;
+  const { data: note } = useVisitNote();
+  const ros = note?.encounterNotes.ros?.text;
 
   if (!ros) return null;
 

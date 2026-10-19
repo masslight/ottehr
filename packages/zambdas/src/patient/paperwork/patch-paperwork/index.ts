@@ -1,5 +1,5 @@
 import Oystehr from '@oystehr/sdk';
-import { captureException } from '@sentry/aws-serverless';
+import { captureException } from '@sentry/node-core/light';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import { Appointment, QuestionnaireResponse, Task } from 'fhir/r4b';
@@ -28,8 +28,6 @@ export const index = wrapHandler('patch-paperwork', async (input: ZambdaInput): 
   const oystehr = createClinicalOystehrClient(token, secrets);
 
   const effectInput = await validatePatchInputs(input, oystehr);
-
-  console.log('effect input', JSON.stringify(effectInput));
 
   const qr = await performEffect(effectInput, oystehr);
 

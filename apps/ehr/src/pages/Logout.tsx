@@ -2,11 +2,11 @@ import { useAuth0 } from '@auth0/auth0-react';
 import { ReactElement, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
 import { SESSION_STORAGE_DATE_RANGE_KEY } from 'src/components/AppointmentsFilters';
+import { clearPersistedExports } from 'src/features/medical-record-export/store/medicalRecordExport.store';
 
-// sessionStorage survives the same-tab logout -> Auth0 round-trip, so the date range has to be
-// cleared explicitly here for it to default back to today on the next login.
-function clearPersistedDate(): void {
+function clearPersistedSessionState(): void {
   sessionStorage.removeItem(SESSION_STORAGE_DATE_RANGE_KEY);
+  clearPersistedExports();
 }
 
 export default function Logout(): ReactElement {
@@ -18,7 +18,7 @@ export default function Logout(): ReactElement {
     if (isLoading || !isAuthenticated) {
       return;
     }
-    clearPersistedDate();
+    clearPersistedSessionState();
     void logout({
       logoutParams: { returnTo: import.meta.env.VITE_APP_OYSTEHR_APPLICATION_REDIRECT_URL, federated: true },
     });

@@ -4,8 +4,6 @@
 // type-only deep import ⇒ nothing is added to the iframe bundle.
 import type { ValueFormat } from 'utils/lib/types/adhoc/generation/runtime-scope.catalog';
 
-export type { ValueFormat };
-
 export function cellText(value: unknown): string {
   if (value == null) return '';
   if (Array.isArray(value)) {
@@ -22,6 +20,12 @@ export function cellText(value: unknown): string {
       .join(', ');
   }
   return String(value);
+}
+
+// A number exactly as the report computed it, for CSV export. The grid's default number formatter
+// (toLocaleString) rounds to 3 decimals and adds thousands separators.
+export function exactNumberText(value: unknown): string {
+  return typeof value === 'number' && !Number.isNaN(value) ? String(value) : '';
 }
 
 export function formatValue(value: unknown, format?: ValueFormat): string {

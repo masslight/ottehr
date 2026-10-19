@@ -5,7 +5,7 @@ import {
   CLAIM_STATUS_FIELDS_BY_KEY,
   getClaimStatusFieldValue,
 } from 'utils/lib/types/data/billing/claim-status';
-import { applyClaimStatusFieldClearingHold } from '../../../billing/provenance';
+import { applyClaimStatusFieldClearingHold, recordClaimTransmit } from '../../../billing/provenance';
 import { assertValidClaimStatusField, fetchById } from '../../../billing/shared';
 import { FinalizeRunInput, FinalizeRunResult } from './finalize';
 
@@ -26,7 +26,7 @@ export class ClaimSubmissionRejectedError extends Error {
 // with the Hold tag lifted in the same commit — recorded in the claim history with the rules-engine
 // agent.
 export async function submitClaim(input: FinalizeRunInput): Promise<FinalizeRunResult> {
-  const { oystehr, model, agent } = input;
+  const { oystehr, model, agent, submissionType, payerClaimControlNumber } = input;
   const claimId = model.claim.id;
   if (!claimId) throw new Error('Claim id missing from the rules-engine model');
 
@@ -36,7 +36,11 @@ export async function submitClaim(input: FinalizeRunInput): Promise<FinalizeRunR
 
   let claimResponse;
   try {
-    claimResponse = await oystehr.rcm.submitClaim({ claimId });
+    claimResponse = await oystehr.rcm.submitClaim({
+      claimId,
+      action: submissionType ?? undefined,
+      payerClaimControlNumber: payerClaimControlNumber ?? undefined,
+    });
   } catch (error) {
     // The submit-claim endpoint rejects some claims outright (HTTP 400) instead of returning a 200
     // with outcome: 'error' — a duplicate diagnosis code is one example. Same category of expected
@@ -56,6 +60,13 @@ export async function submitClaim(input: FinalizeRunInput): Promise<FinalizeRunR
         .join(', ') ?? 'An unknown error occurred'
     );
   }
+
+  await recordClaimTransmit({
+    oystehr,
+    claimId,
+    claimResponse,
+    agent,
+  });
 
   const value = assertValidClaimStatusField('insuranceArStatus', 'submitted');
   // Re-fetch so the status patch locks against the version the engine just wrote.

@@ -1,4 +1,6 @@
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { TAG_NAME_FORBIDDEN_CHARACTERS_ERROR } from 'utils/lib/types/data/billing/billing.constants';
 import { BillingTag } from 'utils/lib/types/data/billing/billing.types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import Tags from '../../src/pages/Tags';
@@ -63,5 +65,42 @@ describe('Tags page', () => {
     expect(screen.getByRole('button', { name: 'Delete tag VIP' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Edit tag Hold' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Delete tag Hold' })).not.toBeInTheDocument();
+  });
+
+  it.each(['&', '=', ':', ',', '|'])('refuses to save a name containing %s', async (character) => {
+    const user = userEvent.setup();
+    render(<Tags />);
+
+    const addTag = await screen.findByRole('button', { name: 'Add Tag' });
+    await user.click(addTag);
+
+    const nameField = screen.getByLabelText('Name *');
+    await user.type(nameField, `Medicare ${character} Medicaid`);
+
+    const save = screen.getByRole('button', { name: 'Save' });
+    await user.click(save);
+
+    expect(await screen.findByText(TAG_NAME_FORBIDDEN_CHARACTERS_ERROR)).toBeInTheDocument();
+    expect(saveBillingTagMock).not.toHaveBeenCalled();
+  });
+
+  it('saves a name once the disallowed character is removed', async () => {
+    const user = userEvent.setup();
+    saveBillingTagMock.mockResolvedValue({ id: 'tag-2' });
+    render(<Tags />);
+
+    const addTag = await screen.findByRole('button', { name: 'Add Tag' });
+    await user.click(addTag);
+
+    const nameField = screen.getByLabelText('Name *');
+    await user.type(nameField, 'Medicare and Medicaid');
+
+    const save = screen.getByRole('button', { name: 'Save' });
+    await user.click(save);
+
+    expect(saveBillingTagMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ name: 'Medicare and Medicaid' })
+    );
   });
 });

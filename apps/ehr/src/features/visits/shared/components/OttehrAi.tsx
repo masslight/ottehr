@@ -15,8 +15,9 @@ import { AiObservationField } from 'utils/lib/types/api/chart-data/chart-data.co
 import { ObservationTextFieldDTO } from 'utils/lib/types/data/screening-questions/types';
 import AiSuggestion from '../../in-person/components/AiSuggestion';
 import { PlayRecord } from '../../in-person/components/progress-note/PlayRecord';
+import { useChartData } from '../hooks/useChartData';
 import { useAiResourcesPollingStore } from '../stores/aiResourcesPolling.store';
-import { useAppointmentData, useChartData } from '../stores/appointment/appointment.store';
+import { useAppointmentData } from '../stores/appointment/appointment.store';
 import { Loader } from './Loader';
 
 const AI_OBSERVATION_FIELDS = {

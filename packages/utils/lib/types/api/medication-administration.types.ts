@@ -1163,6 +1163,15 @@ export const medicationApplianceRoutes: MedicationApplianceRoutes = {
   },
 } as const;
 
+export const inHouseMedicationsMedicationApplianceRoutes: MedicationApplianceRoutes = {
+  ...medicationApplianceRoutes,
+  INHALATION: {
+    code: '999000051000001100',
+    system: 'http://snomed.info/sct',
+    display: 'Inhalation route',
+  },
+} as const;
+
 /**
  * Routes that mean IV medication entered the patient, and therefore warrant a vitals re-check once the
  * order is administered. Administering an order on one of these routes auto-generates a nursing order

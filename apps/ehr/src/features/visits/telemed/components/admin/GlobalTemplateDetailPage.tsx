@@ -32,6 +32,7 @@ import { RosFindingState, RosFindingStateLabel } from 'utils/lib/ottehr-config/r
 import {
   AdminGetTemplateDetailOutput,
   TemplateExamFinding,
+  TemplateRosComment,
   TemplateRosFinding,
 } from 'utils/lib/types/data/admin-template.types';
 
@@ -159,6 +160,29 @@ function ExamFindingsTable({ findings }: { findings: TemplateExamFinding[] }): R
         </Box>
       ))}
     </Stack>
+  );
+}
+
+function RosCommentsTable({ comments }: { comments: TemplateRosComment[] }): ReactElement {
+  return (
+    <TableContainer>
+      <Table size="small" sx={{ tableLayout: 'fixed' }}>
+        <TableHead>
+          <TableRow>
+            <TableCell sx={{ fontWeight: 'bold', width: '30%' }}>System</TableCell>
+            <TableCell sx={{ fontWeight: 'bold', width: '70%' }}>Comment</TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {comments.map(({ fieldName, systemLabel, note }) => (
+            <TableRow key={fieldName}>
+              <TableCell>{systemLabel}</TableCell>
+              <TableCell sx={{ whiteSpace: 'pre-wrap' }}>{note}</TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </TableContainer>
   );
 }
 
@@ -304,7 +328,14 @@ export default function GlobalTemplateDetailPage(): ReactElement {
 
           {/* Review of Systems */}
           <SectionCard title="Review of Systems (ROS)">
-            {sections.rosFindings.length ? <RosFindingsTable findings={sections.rosFindings} /> : <NotIncluded />}
+            {sections.rosFindings.length || sections.rosComments.length ? (
+              <Stack spacing={2}>
+                {sections.rosFindings.length ? <RosFindingsTable findings={sections.rosFindings} /> : null}
+                {sections.rosComments.length ? <RosCommentsTable comments={sections.rosComments} /> : null}
+              </Stack>
+            ) : (
+              <NotIncluded />
+            )}
           </SectionCard>
 
           {/* Exam Findings */}

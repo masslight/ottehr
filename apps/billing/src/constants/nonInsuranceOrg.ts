@@ -1,3 +1,4 @@
+import { standardizePhoneNumber } from 'utils/lib/helpers/helpers';
 import { BillingPayerOption } from 'utils/lib/types/data/billing/billing.types';
 import {
   CreateNonInsuranceOrgInput,
@@ -119,7 +120,7 @@ function submissionToForm(submission?: NioSubmission): NioSubmissionForm {
   return {
     preferredMechanism: submission?.preferredMechanism ?? '',
     email: submission?.email ?? '',
-    fax: submission?.fax ?? '',
+    fax: standardizePhoneNumber(submission?.fax) ?? submission?.fax ?? '',
     portalNotes: submission?.portalNotes ?? '',
     mailAddress: addressToForm(submission?.mailAddress),
   };
@@ -146,7 +147,7 @@ export function nioItemToFormValues(item?: NonInsuranceOrganizationItem | null):
   form.contacts = item.contacts.map((contact) => ({
     name: contact.name,
     title: contact.title ?? '',
-    phone: contact.phone ?? '',
+    phone: standardizePhoneNumber(contact.phone) ?? contact.phone ?? '',
     email: contact.email ?? '',
   }));
   for (const coverage of item.covers) {
@@ -157,6 +158,7 @@ export function nioItemToFormValues(item?: NonInsuranceOrganizationItem | null):
       entry.billingMode = coverage.billingMode;
       entry.payerId = coverage.payer?.id ?? '';
       entry.payerOption = coverage.payer ?? null;
+      entry.sameAsOrgAddress = coverage.sameAsOrgAddress ?? false;
     } else if (coverage.category === 'other') {
       entry.name = coverage.name ?? '';
     }
@@ -185,7 +187,12 @@ export function nioFormToInput(form: NonInsuranceOrgForm): CreateNonInsuranceOrg
         covers.push({ category, billingMode: 'insurance', ...(entry.payerId ? { payerId: entry.payerId } : {}) });
       } else {
         const submission = submissionToInput(entry.submission, entry.sameAsOrgAddress ? orgAddress : undefined);
-        covers.push({ category, billingMode: 'direct', ...(submission ? { submission } : {}) });
+        covers.push({
+          category,
+          billingMode: 'direct',
+          ...(submission ? { submission } : {}),
+          ...(entry.sameAsOrgAddress ? { sameAsOrgAddress: true } : {}),
+        });
       }
     } else {
       const submission = submissionToInput(entry.submission);

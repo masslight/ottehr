@@ -1,14 +1,15 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { visitNoteToLegacyChartData } from 'utils/lib/helpers/visit-note/visit-note-to-chart-data.helper';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import { MigrateExamDataInput, MigrateExamDataOutput } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { runExamMigrations } from '../../shared/chart-data/migrations';
+import { buildVisitNote } from '../../shared/chart-sections/visit-note';
 import { getPatientEncounter } from '../../shared/encounter';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { topLevelCatch } from '../../shared/lambda';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
-import { getChartData } from '../get-chart-data';
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'migrate-exam-data';
@@ -19,8 +20,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
     const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
-    // Load current chart data
-    const { response: chartData } = await getChartData(oystehr, m2mToken, encounterId);
+    // Load current chart data; the response echoes the whole chart in the legacy whole-chart shape.
+    const { chartData } = visitNoteToLegacyChartData(await buildVisitNote({ oystehr, m2mToken }, encounterId), {
+      module: 'in-person',
+    });
     const examObservations = chartData.examObservations ?? [];
 
     // Get encounter for migration version check

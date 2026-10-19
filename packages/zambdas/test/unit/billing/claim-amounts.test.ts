@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { Claim, ClaimResponse, ClaimResponseItemAdjudication, PaymentNotice } from 'fhir/r4b';
-import { PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import { CLAIM_STATUS_RESPONSE_EVENT_SYSTEM, PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { describe, expect, it, Mock, vi } from 'vitest';
 import {
@@ -10,8 +10,11 @@ import {
   extractClaimResponseAmounts,
   extractRemitAdjustments,
   extractReportedCharge,
+  fetchClaimFirstSubmittedDate,
+  fetchClaimResponsesByClaimIds,
   fetchPatientPaidByClaimId,
   fetchPatientPaymentsByEncounterIds,
+  firstSubmittedDate,
   isMatchedToClaim,
   OYSTEHR_ADJUDICATION_SYSTEM,
   sortClaimResponsesByRecency,
@@ -21,6 +24,7 @@ import {
   toClaimPatientPayment,
   X12_ADJUSTMENT_GROUP_SYSTEM,
 } from '../../../src/billing/claim-amounts';
+import { ERA_STATUS_CODE_EXTENSION } from '../../../src/billing/shared';
 
 const adjudication = (
   code: string,
@@ -65,6 +69,7 @@ const claimResponse = (
     itemAdjudications?: ClaimResponseItemAdjudication[][];
     addItemAdjudications?: ClaimResponseItemAdjudication[][];
     lastUpdated?: string;
+    payerId?: string;
   }
 ): ClaimResponse => ({
   resourceType: 'ClaimResponse',
@@ -82,6 +87,7 @@ const claimResponse = (
   },
   created,
   insurer: {
+    reference: `https://rcm-api.zapehr.com/v1/payer/${parts.payerId ?? '12345'}`,
     display: 'Test Payer',
   },
   outcome: 'complete',
@@ -341,6 +347,7 @@ describe('extractReportedCharge', () => {
 describe('extractClaimResponseAmounts', () => {
   it('reads paid from the total, allowed and PR from item adjudications (Claim.MD shape)', () => {
     expect(extractClaimResponseAmounts(claimMdClaimResponse())).toEqual({
+      payerId: '12345',
       paid: 60,
       allowed: 80,
       patientResp: 20,
@@ -349,6 +356,7 @@ describe('extractClaimResponseAmounts', () => {
 
   it('reads allowed from B6 and sums PR across item and addItem (process-era shape)', () => {
     expect(extractClaimResponseAmounts(processEraClaimResponse())).toEqual({
+      payerId: '12345',
       paid: 60,
       allowed: 80,
       patientResp: 20,
@@ -371,6 +379,7 @@ describe('extractClaimResponseAmounts', () => {
       ],
     });
     expect(extractClaimResponseAmounts(cr)).toEqual({
+      payerId: '12345',
       paid: 60,
       allowed: 80,
       patientResp: 20,
@@ -397,6 +406,7 @@ describe('extractClaimResponseAmounts', () => {
       itemAdjudications: [[adjudication(ADJUDICATION_CODES.PAID, 60), casAdjustment('CO', 40)]],
     });
     expect(extractClaimResponseAmounts(cr)).toEqual({
+      payerId: '12345',
       paid: 60,
       allowed: undefined,
       patientResp: 0,
@@ -406,6 +416,7 @@ describe('extractClaimResponseAmounts', () => {
   it('returns undefined allowed and patientResp when the response carries no adjudications at all', () => {
     const cr = claimResponse('2026-01-01', { totalPaid: 60 });
     expect(extractClaimResponseAmounts(cr)).toEqual({
+      payerId: '12345',
       paid: 60,
       allowed: undefined,
       patientResp: undefined,
@@ -510,6 +521,31 @@ describe('summarizeClaimPayments', () => {
       itemAdjudications: [[adjudication(ADJUDICATION_CODES.PAID, 15), casAdjustment('PR', 5)]],
     });
     expect(summarizeClaimPayments([primary, secondary], 100).allowed).toBe(80);
+  });
+
+  it('takes patient responsibility from the final payer on crossover claims instead of summing across payers', () => {
+    // primary applies the full allowed to the deductible; the secondary then pays most of it,
+    // leaving only a copay — the primary's PR must not be double-counted
+    const primary = claimResponse('2026-01-01', {
+      totalPaid: 0,
+      payerId: '00390',
+      itemAdjudications: [
+        [adjudication(ADJUDICATION_CODES.ALLOWED, 170), casAdjustment('PR', 170, '1'), casAdjustment('CO', 333, '45')],
+      ],
+    });
+    const secondary = claimResponse('2026-02-01', {
+      totalPaid: 110,
+      payerId: '87726',
+      addItemAdjudications: [[casAdjustment('OA', 333, '23')], [casAdjustment('PR', 60, '3')]],
+    });
+    expect(summarizeClaimPayments([primary, secondary], 503)).toEqual({
+      allowed: 170,
+      insurancePaid: 110,
+      patientResp: 60,
+      patientPaid: 0,
+      balance: 60,
+      adjudicated: true,
+    });
   });
 
   it('falls back to allowed minus insurance paid when the latest response has no adjudication data', () => {
@@ -1035,5 +1071,123 @@ describe('sortClaimResponsesByRecency', () => {
     const input = [a, b];
     sortClaimResponsesByRecency(input);
     expect(input).toEqual([a, b]);
+  });
+});
+
+describe('firstSubmittedDate', () => {
+  // the ClaimResponse Oystehr records when it sends the claim to the payer
+  const submission = (created: string, overrides: Partial<ClaimResponse> = {}): ClaimResponse => ({
+    ...claimResponse(created, {}),
+    outcome: 'queued',
+    ...overrides,
+  });
+
+  it('is the earliest submission, comparing instants rather than strings', () => {
+    const resubmitted = submission('2026-07-04T09:00:00Z');
+    // sorts before `first` as a string, but is the later instant (2026-07-03T00:00:00Z)
+    const offsetLater = submission('2026-07-02T20:00:00-04:00');
+    const first = submission('2026-07-02T23:00:00Z');
+
+    expect(firstSubmittedDate([resubmitted, offsetLater, first])).toBe('2026-07-02T23:00:00Z');
+  });
+
+  it('ignores 277 claim-status responses, ERA remits, and other outcomes', () => {
+    const statusResponse = submission('2026-07-01T00:00:00Z', {
+      identifier: [{ system: CLAIM_STATUS_RESPONSE_EVENT_SYSTEM, value: 'acct:event-1' }],
+    });
+    const eraStamped = submission('2026-07-01T01:00:00Z', {
+      extension: [{ url: ERA_STATUS_CODE_EXTENSION, valueString: '1' }],
+    });
+    const adjudicated = {
+      ...claimResponse('2026-07-01T02:00:00Z', { itemAdjudications: [[adjudication(ADJUDICATION_CODES.PAID, 10)]] }),
+      outcome: 'queued' as const,
+    };
+    const rejected = submission('2026-07-01T03:00:00Z', { outcome: 'error' });
+    const sent = submission('2026-07-05T12:00:00Z');
+
+    expect(firstSubmittedDate([statusResponse, eraStamped, adjudicated, rejected, sent])).toBe('2026-07-05T12:00:00Z');
+  });
+
+  it("is '' when the claim was never submitted", () => {
+    expect(firstSubmittedDate([])).toBe('');
+    expect(firstSubmittedDate([claimResponse('2026-07-01', {})])).toBe('');
+  });
+});
+
+describe('fetchClaimFirstSubmittedDate', () => {
+  it("searches the claim's queued ClaimResponses and returns the first submission", async () => {
+    const responses: ClaimResponse[] = [
+      { ...claimResponse('2026-07-04T00:00:00Z', {}), outcome: 'queued', request: { reference: 'Claim/claim-1' } },
+      { ...claimResponse('2026-07-02T00:00:00Z', {}), outcome: 'queued', request: { reference: 'Claim/claim-1' } },
+    ];
+    const search = vi.fn().mockResolvedValue({
+      unbundle: () => responses,
+      link: [],
+    });
+    const oystehr = {
+      fhir: {
+        search,
+      },
+    } as unknown as Oystehr;
+
+    const result = await fetchClaimFirstSubmittedDate(oystehr, 'claim-1');
+
+    expect(result).toBe('2026-07-02T00:00:00Z');
+    expect(search).toHaveBeenCalledTimes(1);
+    expect(search.mock.calls[0][0].resourceType).toBe('ClaimResponse');
+    expect(search.mock.calls[0][0].params).toEqual(
+      expect.arrayContaining([
+        { name: 'request', value: 'Claim/claim-1' },
+        { name: 'outcome', value: 'queued' },
+      ])
+    );
+  });
+});
+
+describe('fetchClaimResponsesByClaimIds', () => {
+  it('keeps queued ERA remits but drops submission and 277 claim-status responses', async () => {
+    const onClaim = (claimId: string, id: string, cr: ClaimResponse): ClaimResponse => ({
+      ...cr,
+      id,
+      request: { reference: `Claim/${claimId}` },
+    });
+    const responses: ClaimResponse[] = [
+      onClaim('claim-1', 'remit', claimResponse('2026-07-10', { totalPaid: 50 })),
+      // a manually matched ERA keeps the outcome Oystehr gave it while unmatched
+      onClaim('claim-1', 'queued-era', {
+        ...claimResponse('2026-07-11', {}),
+        outcome: 'queued',
+        extension: [{ url: ERA_STATUS_CODE_EXTENSION, valueString: '4' }],
+      }),
+      onClaim('claim-1', 'submission', { ...claimResponse('2026-07-01', {}), outcome: 'queued' }),
+      onClaim('claim-1', 'status-response', {
+        ...claimResponse('2026-07-02', {}),
+        outcome: 'queued',
+        identifier: [{ system: CLAIM_STATUS_RESPONSE_EVENT_SYSTEM, value: 'acct:event-1' }],
+      }),
+      onClaim('claim-2', 'other-submission', { ...claimResponse('2026-07-01', {}), outcome: 'queued' }),
+    ];
+    const search = vi.fn().mockResolvedValue({
+      unbundle: () => responses,
+      link: [],
+    });
+    const oystehr = {
+      fhir: {
+        search,
+      },
+    } as unknown as Oystehr;
+
+    const result = await fetchClaimResponsesByClaimIds(oystehr, ['claim-1', 'claim-2']);
+
+    expect(result.get('claim-1')?.map((cr) => cr.id)).toEqual(['remit', 'queued-era']);
+    expect(result.has('claim-2')).toBe(false);
+    const params = search.mock.calls[0][0].params;
+    expect(params).toEqual(
+      expect.arrayContaining([
+        { name: 'request', value: 'Claim/claim-1,Claim/claim-2' },
+        { name: 'outcome:not', value: 'error' },
+      ])
+    );
+    expect(params).not.toContainEqual({ name: 'outcome:not', value: 'queued' });
   });
 });

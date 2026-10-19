@@ -41,7 +41,7 @@ vi.mock('../../src/shared/candid', async (importOriginal) => {
 // These tests describe legacy Candid claims routing, which only exists with non-insurance
 // organizations off — flag-on, shouldUseCandid throws on candid-routing configs by design.
 vi.mock('utils/lib/ottehr-config/feature-flags', () => ({
-  FEATURE_FLAGS_CONFIG: { nonInsuranceOrganizationsEnabled: false },
+  FEATURE_FLAGS_CONFIG: { customOrganizationsEnabled: false },
 }));
 
 vi.mock('../../src/shared/pdf/patient-payment-receipt-pdf', async (importOriginal) => {
@@ -120,7 +120,7 @@ vi.mock('../../src/subscriptions/task/validateRequestParameters', () => ({
   validateRequestParameters: vi.fn(),
 }));
 
-vi.mock('@sentry/aws-serverless', () => ({
+vi.mock('@sentry/node-core/light', () => ({
   captureException: vi.fn(),
 }));
 

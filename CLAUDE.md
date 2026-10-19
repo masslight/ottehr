@@ -113,8 +113,10 @@ npm run bump-canonical-version config/oystehr/<file>.json [minor|major|patch]  #
 
 Each endpoint in `packages/zambdas/src/ehr/` or `packages/zambdas/src/patient/` follows the same pattern:
 - `index.ts` — Lambda handler, exports `index` function using `wrapHandler()`
-- `validateRequestParameters.ts` — Input validation
+- `validateRequestParameters.ts` — Input validation, only when it needs more than the endpoint's Zod schema (auth headers, specific secrets, cross-field rules)
 - `helpers.ts` — Business logic helpers
+
+Validate a request body with `validateWithSchema(schema, input)` from `packages/zambdas/src/shared/validation.ts`: it rejects a missing body or secrets and malformed JSON, applies the endpoint's Zod schema, and returns the parsed body plus `secrets`. Call it straight from the handler rather than wrapping it in a new `validateRequestParameters.ts`; name the result's type with `ValidatedZambdaInput<typeof Schema>`.
 
 Zambdas use `wrapHandler` from `../../shared/lambda` for consistent error handling. They authenticate via machine-to-machine (M2M) tokens cached in module scope across warm invocations.
 
@@ -136,8 +138,14 @@ Both apps are Vite + React + TypeScript + MUI. State management uses Zustand sto
 
 ### Shared Packages
 
-- `utils` is imported by both frontend apps and zambdas. It exports FHIR helpers, types, secrets utilities, and constants from `packages/utils/lib/main.ts`.
+- `utils` is imported by both frontend apps and zambdas: FHIR helpers, types, secrets utilities, and constants under `packages/utils/lib/`.
 - `ui-components` is imported by EHR and intake for shared MUI-based components.
+
+### Imports: no barrel files
+
+Import every symbol from the module that declares it, never through a file that re-exports (`export * from`, `export { x } from`). The workspace packages have no entry module, so `utils`, `ui-components`, `test-utils` and `config-types` are always imported by subpath, e.g. `import { APIErrorCode } from 'utils/lib/types/errors'`. Barrels make vitest load whole packages into every test file and are how most import cycles formed.
+
+ESLint rejects re-exports; `npm run lint:barrels` is the full check (it also catches `import { x } from './x'; export { x }`), and `npx tsx scripts/debarrel.ts --apply` rewrites importers mechanically. When mocking in tests, `vi.mock` the declaring module too — a mock of any other path intercepts nothing. The one exception is `apps/*/src/themes/`: a theme's index modules are its contract, swapped via `THEME_PATH`.
 
 ### IaC & Config
 

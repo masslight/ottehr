@@ -29,7 +29,6 @@ let m2mToken: string;
 const ZAMBDA_NAME = 'generate-label-xml';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  console.log(`Input: ${JSON.stringify(input)}`);
   console.log('Validating input');
   const validatedRequestParams = validateRequestParameters(input);
   const { type, secrets } = validatedRequestParams;

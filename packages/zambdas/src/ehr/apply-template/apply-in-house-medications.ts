@@ -24,7 +24,11 @@ import {
   MEDICATION_ADMINISTRATION_OTHER_REASON_CODE,
   MEDICATION_ADMINISTRATION_REASON_CODE,
 } from 'utils/lib/types/api/medication-administration.constants';
-import { MedicationApplianceLocation, MedicationData } from 'utils/lib/types/api/medication-administration.types';
+import {
+  inHouseMedicationsMedicationApplianceRoutes,
+  MedicationApplianceLocation,
+  MedicationData,
+} from 'utils/lib/types/api/medication-administration.types';
 import {
   ResolvedSectionActions,
   TemplateSectionAction,
@@ -129,7 +133,7 @@ export async function applyInHouseMedicationPlans(
       }
 
       const { route, dose, units } = getDosageUnitsAndRouteOfMedication(templateMA);
-      const routeAppliance = searchRouteByCode(route);
+      const routeAppliance = searchRouteByCode(route, inHouseMedicationsMedicationApplianceRoutes);
 
       if (dose === undefined) {
         warnings.push({

@@ -21,6 +21,7 @@ import {
 } from '../helpers/rcm/constants';
 import { ELIGIBILITY_BENEFIT_CODES, INSURANCE_PLAN_ID_CODING } from '../telemed/constants';
 import { CoverageCheckCoverageDetails } from '../types/api/patient-account';
+import { BillingProviderLicense } from '../types/data/billing/billing.types';
 import {
   CLAIM_NON_INSURANCE_PAYER_EXTENSION_URL,
   CLAIM_NON_INSURANCE_PAYER_TAG_SYSTEM,
@@ -392,6 +393,56 @@ export const parseObjectsToCopayBenefits = (input: any[]): PatientPaymentBenefit
     .filter((benefit) => !!benefit.description && !!benefit.code);
 };
 
+export function getPaymentAmountFromPatientBenefit({
+  coverage,
+  code,
+  coverageCode,
+  levelCode,
+  periodCode,
+}: {
+  coverage: PatientPaymentBenefit[];
+  code: string;
+  coverageCode: string;
+  levelCode: string;
+  periodCode: string | undefined;
+}): PatientPaymentBenefit | undefined {
+  if (!periodCode) {
+    return coverage.find(
+      (item) => item.code === code && item.coverageCode === coverageCode && item.levelCode === levelCode
+    );
+  }
+
+  return coverage.find(
+    (item) =>
+      item.code === code &&
+      item.coverageCode === coverageCode &&
+      item.levelCode === levelCode &&
+      item.periodCode === periodCode
+  );
+}
+
+export const getCopayAndRemainingDeductible = (
+  coverageCheck: { copay?: PatientPaymentBenefit[]; deductible?: PatientPaymentBenefit[] } | undefined
+): { copayAmount: PatientPaymentBenefit | undefined; remainingDeductibleAmount: PatientPaymentBenefit | undefined } => {
+  const copayAmount = getPaymentAmountFromPatientBenefit({
+    coverage: coverageCheck?.copay?.filter((item) => item.inNetwork === true) || [],
+    code: 'UC',
+    coverageCode: 'B',
+    levelCode: 'IND',
+    periodCode: undefined,
+  });
+
+  const remainingDeductibleAmount = getPaymentAmountFromPatientBenefit({
+    coverage: coverageCheck?.deductible?.filter((item) => item.inNetwork === true) || [],
+    code: '30',
+    coverageCode: 'C',
+    levelCode: 'IND',
+    periodCode: '29',
+  });
+
+  return { copayAmount, remainingDeductibleAmount };
+};
+
 export const pullCoverageIdentifyingDetails = (coverage: Coverage): CoverageCheckCoverageDetails | undefined => {
   const subscriberId = coverage.subscriberId;
   const payorRef = coverage.payor?.[0]?.reference;
@@ -464,7 +515,7 @@ export const INSURANCE_TYPE_CODE_TO_CANDID_CODE: Record<string, string> = {
   CP: 'MA',
   D: 'DS',
   DB: 'DS',
-  EP: '12',
+  EP: '14',
   FF: '11',
   GP: '12',
   HM: 'HM',
@@ -483,6 +534,9 @@ export const INSURANCE_TYPE_CODE_TO_CANDID_CODE: Record<string, string> = {
   MI: '11',
   MP: 'MA',
   OT: 'ZZ',
+  PP: '09',
+  PR: '12',
+  PS: '13',
 };
 
 /**
@@ -492,7 +546,7 @@ export const INSURANCE_TYPE_CODE_TO_CANDID_CODE: Record<string, string> = {
  */
 export const mapInsuranceTypeCodeToCandidCode = (insuranceTypeCode: string | undefined): string | undefined => {
   if (!insuranceTypeCode) return undefined;
-  return INSURANCE_TYPE_CODE_TO_CANDID_CODE[insuranceTypeCode];
+  return INSURANCE_TYPE_CODE_TO_CANDID_CODE[insuranceTypeCode.trim().toUpperCase()];
 };
 
 // The claim's non-insurance payer (e.g. the visit's occupational-medicine employer): a reference to
@@ -562,8 +616,11 @@ export function commaFormattedName(resource?: { firstName: string; lastName: str
   return `${resource.lastName}, ${resource.firstName}`.trim();
 }
 
+// Claim.MD's "no specific type" attachment report code, used when the caller names nothing better.
+export const DEFAULT_CLAIM_ATTACHMENT_REPORT_TYPE_CODE = 'OZ';
+
 export const CLAIM_ATTACHMENT_REPORT_TYPE_CODES = [
-  { code: 'OZ', label: 'Support Data for Claim' },
+  { code: DEFAULT_CLAIM_ATTACHMENT_REPORT_TYPE_CODE, label: 'Support Data for Claim' },
   { code: '03', label: 'Report Justifying Treatment Beyond Utilization Guidelines' },
   { code: '04', label: 'Drugs Administered' },
   { code: '05', label: 'Treatment Diagnosis' },
@@ -625,3 +682,9 @@ export const CLAIM_ATTACHMENT_REPORT_TYPE_CODES = [
   { code: 'V5', label: 'Death Notification' },
   { code: 'XP', label: 'Photographs' },
 ];
+
+export function formatBillingProviderLicense(license: BillingProviderLicense | undefined): string {
+  if (!license) return '';
+  const { type, number, state } = license;
+  return [type, number && `#${number}`, state && `(${state})`].filter(Boolean).join(' ');
+}

@@ -2,12 +2,27 @@ import { DateTime } from 'luxon';
 import { SAFE_FOLDER_PATH_SEGMENT_REGEX } from 'utils/lib/fhir/list';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 
+export const assertZ3UrlInProject = (url: string, secrets: Secrets | null): void => {
+  const base = `${getSecret(SecretsKeys.PROJECT_API, secrets)}/z3/${getSecret(SecretsKeys.PROJECT_ID, secrets)}-`;
+  let normalized: string;
+  try {
+    const parsed = new URL(url);
+    normalized = `${parsed.origin}${parsed.pathname}`;
+  } catch {
+    throw new Error('Refusing to presign malformed URL');
+  }
+  if (!normalized.startsWith(base)) {
+    throw new Error('Refusing to presign URL not from this project');
+  }
+};
+
 type Z3UrlAudioInput = {
   secrets: Secrets | null;
   bucketName: string;
   fileName: string;
 };
 
+/** `stableKey` drops the date prefix, giving the caller one reusable slot per object name. */
 type Z3UrlInput =
   | {
       secrets: Secrets | null;
@@ -16,6 +31,7 @@ type Z3UrlInput =
       fileType: string;
       fileFormat: string;
       folderName?: string;
+      stableKey?: boolean;
     }
   | {
       secrets: Secrets | null;
@@ -23,6 +39,7 @@ type Z3UrlInput =
       patientID: string;
       fileName: string;
       folderName?: string;
+      stableKey?: boolean;
     };
 
 /**
@@ -91,7 +108,7 @@ export const makeZ3Url = (input: Z3UrlInput): string => {
     throw new Error(`Invalid folderName for Z3 path: ${JSON.stringify(folderName)}`);
   }
   const projectId = getSecret(SecretsKeys.PROJECT_ID, secrets);
-  const dateTimeNow = DateTime.now().toUTC().toFormat('yyyy-MM-dd-x');
+  const keyPrefix = input.stableKey ? '' : `${z3ObjectNameDatePrefix()}-`;
   let resolvedFileName: string;
   if ('fileName' in input) {
     resolvedFileName = input.fileName;
@@ -102,7 +119,7 @@ export const makeZ3Url = (input: Z3UrlInput): string => {
   const fileURL = `${getSecret(
     SecretsKeys.PROJECT_API,
     secrets
-  )}/z3/${projectId}-${bucketName}/${folderSegment}${patientID}/${dateTimeNow}-${resolvedFileName}`;
+  )}/z3/${projectId}-${bucketName}/${folderSegment}${patientID}/${keyPrefix}${resolvedFileName}`;
   console.log('created z3 url: ', fileURL);
   return fileURL;
 };

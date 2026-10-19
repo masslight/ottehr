@@ -1,10 +1,12 @@
 import React, { createContext, ReactNode, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { useLocation, useMatch, useNavigate, useParams } from 'react-router-dom';
 import { filterActiveMedications } from 'utils/lib/helpers/medications/current-medications.helper';
-import { sidebarMenuIcons } from '../../shared/components/Sidebar';
-import { useChartFields } from '../../shared/hooks/useChartFields';
+import { sidebarMenuIcons } from '../../shared/components/sidebarMenuIcons';
+import { useChartData } from '../../shared/hooks/useChartData';
+import { useChartSection } from '../../shared/hooks/useChartSection';
 import { useGetAppointmentAccessibility } from '../../shared/hooks/useGetAppointmentAccessibility';
-import { useAppointmentData, useChartData } from '../../shared/stores/appointment/appointment.store';
+import { useMarkChartStaleOnNavigate } from '../../shared/hooks/useMarkChartStaleOnNavigate';
+import { useAppointmentData } from '../../shared/stores/appointment/appointment.store';
 import { InPersonModal } from '../components/InPersonModal';
 import { ROUTER_PATH, routesInPerson } from '../routing/routesInPerson';
 
@@ -70,11 +72,10 @@ export const InPersonNavigationProvider: React.FC<{ children: ReactNode }> = ({ 
   const { visitType } = useGetAppointmentAccessibility();
   const { encounter } = visitState;
 
+  useMarkChartStaleOnNavigate();
   const { chartData, isLoading } = useChartData();
 
-  const { data: chartFields, isLoading: isFieldsLoading } = useChartFields({
-    requestedFields: { episodeOfCare: {} },
-  });
+  const { data: chartFields, isLoading: isFieldsLoading } = useChartSection('history');
 
   const isChartDataLoading = isLoading || isFieldsLoading;
 

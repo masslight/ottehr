@@ -30,13 +30,13 @@ import { buildPreliminaryReportSnapshot } from '../../../shared/radiology';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
 import {
-  advaPacsFetch,
   AllRadTaskResources,
   configReviewResultTask,
   parseRadiologyResourcesForTask,
   ResourcesForTask,
   validateResourcesAgainstDR,
 } from '../shared';
+import { advaPacsFetch } from '../shared/advapacs';
 import { validateInput, validateSecrets } from './validation';
 
 // Types
@@ -54,8 +54,6 @@ let m2mToken: string;
 const ZAMBDA_NAME = 'radiology-pacs-webhook';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  console.log('Received input body: ', JSON.stringify(unsafeInput.body, null, 2));
-
   const secrets = validateSecrets(unsafeInput.secrets);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);

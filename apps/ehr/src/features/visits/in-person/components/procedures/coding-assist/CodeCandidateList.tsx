@@ -1,7 +1,7 @@
 import { Box, Typography } from '@mui/material';
 import { FC } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { CodeCandidate } from 'utils';
+import { CodeCandidate } from 'utils/lib/procedure-coding/model.types';
 import { stripCodePrefix } from './CodeSuggestionRow';
 
 interface CodeCandidateListProps {

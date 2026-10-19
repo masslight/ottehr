@@ -91,6 +91,10 @@ export default (env: any): Record<string, any> => {
             find: /^ui-components(\/|$)/,
             replacement: path.resolve(__dirname, '../../packages/ui-components') + '/',
           },
+          {
+            find: /^config-types(\/|$)/,
+            replacement: path.resolve(__dirname, '../../packages/config-types') + '/',
+          },
           { find: '@theme', replacement: path.resolve(__dirname, appEnv.THEME_PATH || '/src/themes/ottehr') },
           { find: '@defaultTheme', replacement: path.resolve(__dirname, '/src/themes/ottehr') },
         ],

@@ -1,4 +1,4 @@
-import { FormFieldsDisplayItem, FormFieldSection, FormFieldsInputItem } from 'config-types';
+import { FormFieldsDisplayItem, FormFieldSection, FormFieldsInputItem } from 'config-types/config/form-fields';
 import { evaluateFieldTriggers } from 'utils/lib/config-helpers/patient-record';
 import { PATIENT_RECORD_CONFIG } from 'utils/lib/ottehr-config/patient-record';
 

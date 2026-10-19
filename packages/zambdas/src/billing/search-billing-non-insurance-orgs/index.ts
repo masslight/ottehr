@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Organization, OrganizationAffiliation } from 'fhir/r4b';
+import { SearchNonInsuranceOrgsInputSchema } from 'utils/lib/types/data/billing/non-insurance-org.schemas';
 import { SearchNonInsuranceOrgsResponse } from 'utils/lib/types/data/billing/non-insurance-org.types';
 import {
   NIO_EMPLOYER_KIND_CODE,
@@ -8,8 +9,10 @@ import {
   NIO_ORGANIZATION_KIND_SYSTEM,
 } from 'utils/lib/types/data/billing/non-insurance-org.types';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { truncateForLog } from '../../shared/logging';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import {
   isNonInsuranceOrganization,
   mapNonInsuranceOrganization,
@@ -17,17 +20,17 @@ import {
   resolvePayerOptionsByRef,
 } from '../non-insurance-org.helpers';
 import { createBillingClient } from '../shared';
-import { SearchNonInsuranceOrgsParams, validateRequestParameters } from './validateRequestParameters';
+
+type SearchNonInsuranceOrgsParams = ValidatedZambdaInput<typeof SearchNonInsuranceOrgsInputSchema>;
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'search-billing-non-insurance-orgs';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.group('validateRequestParameters');
-  const params = validateRequestParameters(input);
-  const { secrets, ...restOfParams } = params;
+  const params = validateWithSchema(SearchNonInsuranceOrgsInputSchema, input);
+  const { secrets } = params;
   console.groupEnd();
-  console.debug('validateRequestParameters success', restOfParams);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createBillingClient(m2mToken, secrets);
@@ -35,7 +38,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.group('performEffect');
   const response = await performEffect(oystehr, params);
   console.groupEnd();
-  console.debug('performEffect success', response);
+  console.debug('performEffect success', truncateForLog(response));
 
   return {
     statusCode: 200,

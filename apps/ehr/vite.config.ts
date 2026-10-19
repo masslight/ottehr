@@ -94,6 +94,7 @@ export default ({ mode }: { mode: string }): UserConfig => {
         // for CJS ones like `prop-types` (reached via react-imask) that have no named exports.
         { find: /^utils(\/|$)/, replacement: path.resolve(coreRoot, 'packages/utils') + '/' },
         { find: /^ui-components(\/|$)/, replacement: path.resolve(coreRoot, 'packages/ui-components') + '/' },
+        { find: /^config-types(\/|$)/, replacement: path.resolve(coreRoot, 'packages/config-types') + '/' },
         { find: '@ehrTheme', replacement: path.resolve(__dirname, env.THEME_PATH || 'src/themes/ottehr') },
         { find: '@ehrDefaultTheme', replacement: path.resolve(__dirname, 'src/themes/ottehr') },
       ],

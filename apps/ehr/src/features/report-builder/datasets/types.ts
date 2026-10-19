@@ -5,8 +5,6 @@ import { AdHocRow, LlmDatasetSchema } from 'utils/lib/types/adhoc/datasets/llm-s
 import { AdHocLayer } from 'utils/lib/types/adhoc/query/layers';
 import { z } from 'zod';
 
-export type { AdHocRow };
-
 export interface FetchContext {
   oystehrZambda: Oystehr;
   queryClient: QueryClient;

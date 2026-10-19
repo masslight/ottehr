@@ -3,19 +3,27 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { RelatedPerson } from 'fhir/r4b';
 import { getCoveragePlanType } from 'utils/lib/fhir/billing';
 import { getMemberIdFromCoverage } from 'utils/lib/fhir/helpers';
-import { getPayerId } from 'utils/lib/helpers/helpers';
+import { GetPatientCoveragesInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { BillingCoverageOption } from 'utils/lib/types/data/billing/billing.types';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
-import { createBillingClient, fetchPatientCoverages, resolvePayersByRef, toAddressParts } from '../shared';
-import { GetPatientCoveragesParams, validateRequestParameters } from './validateRequestParameters';
+import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
+import {
+  createBillingClient,
+  fetchPatientCoverages,
+  resolvedPayerId,
+  resolvePayersByRef,
+  toAddressParts,
+} from '../shared';
+
+type GetPatientCoveragesParams = ValidatedZambdaInput<typeof GetPatientCoveragesInputSchema>;
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'get-patient-coverages';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const params = validateRequestParameters(input);
+  const params = validateWithSchema(GetPatientCoveragesInputSchema, input);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
 
@@ -58,7 +66,7 @@ async function performEffect(
       status: coverage.status,
       subscriberId: coverage.subscriberId ?? '',
       payorName: payorOrg?.name ?? '',
-      payorId: getPayerId(payorOrg) ?? '',
+      payorId: resolvedPayerId(payorOrg) ?? '',
       payorFhirId: payorOrg?.id ?? '',
       insuranceType,
       planType: getCoveragePlanType(coverage),

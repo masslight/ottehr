@@ -1,5 +1,4 @@
 import {
-  Autocomplete,
   Divider,
   FormControl,
   FormHelperText,
@@ -10,17 +9,16 @@ import {
   Typography,
 } from '@mui/material';
 import { Box } from '@mui/system';
-import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
+import { ReactElement } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
 import { VALUE_SETS } from 'utils/lib/ottehr-config/value-sets';
 import { BillingInsuranceType } from 'utils/lib/types/data/billing/billing.schemas';
-import { BILLING_INSURANCE_TYPE_OPTIONS, BillingPayerOption } from 'utils/lib/types/data/billing/billing.types';
+import { BILLING_INSURANCE_TYPE_OPTIONS } from 'utils/lib/types/data/billing/billing.types';
 import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils/lib/validation/constants';
-import { searchBillingPayers } from '../api/api';
 import { CoverageForm } from '../constants/coverage';
-import { useApiClients } from '../hooks/useAppClients';
 import { AddressFields } from './AddressFields';
 import { DemographicFields } from './DemographicFields';
+import { PayerSelect } from './PayerSelect';
 
 interface CoverageFormFieldsProps {
   // Insurance types already held by other active coverages (disabled in the Insurance Type dropdown).
@@ -32,41 +30,9 @@ export function CoverageFields({
   unavailableTypes = [],
   hideInsuranceType = false,
 }: CoverageFormFieldsProps): ReactElement {
-  const { oystehrZambda } = useApiClients();
   const { control, watch } = useFormContext<CoverageForm>();
-  const [payerOptions, setPayerOptions] = useState<BillingPayerOption[]>([]);
-  const searchTimer = useRef<ReturnType<typeof setTimeout>>();
 
   const selectedRelationship = watch('relationship');
-  const selectedPayer = watch('payerId');
-
-  useEffect(() => {
-    return () => {
-      if (searchTimer.current) clearTimeout(searchTimer.current);
-    };
-  }, []);
-
-  const searchPayers = useCallback(
-    (query?: string): void => {
-      if (!oystehrZambda) return;
-      if (searchTimer.current) clearTimeout(searchTimer.current);
-      searchTimer.current = setTimeout(async () => {
-        const queries = [searchBillingPayers(oystehrZambda, query ? { name: query } : {})];
-        if (selectedPayer && !payerOptions.some((p) => p.id === selectedPayer)) {
-          queries.push(searchBillingPayers(oystehrZambda, { payerId: selectedPayer }));
-        }
-        const [searchRes, getRes] = await Promise.all(queries);
-        setPayerOptions([...(getRes?.payers ?? []), ...(searchRes?.payers ?? [])]);
-      }, 300);
-    },
-    // payerOptions loop
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [oystehrZambda, selectedPayer]
-  );
-
-  useEffect(() => {
-    void searchPayers();
-  }, [searchPayers]);
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.25 }}>
@@ -76,38 +42,14 @@ export function CoverageFields({
           control={control}
           rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
           render={({ field, fieldState: { error: fieldError } }) => (
-            <Autocomplete
-              size="small"
-              options={payerOptions}
-              value={payerOptions.find((o) => o.id === field.value) ?? null}
-              onChange={(_, v) => field.onChange(v?.id ?? '')}
-              onInputChange={(_, val, reason) => {
-                if (reason === 'input') searchPayers(val || undefined);
-              }}
-              onOpen={() => searchPayers()}
-              getOptionLabel={(o) => o.name}
-              renderOption={(props, o) => (
-                <Box component="li" {...props} key={o.id}>
-                  <Box>
-                    <Typography variant="body2" fontWeight={500}>
-                      {o.name}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      Payer ID: {o.payerId}
-                    </Typography>
-                  </Box>
-                </Box>
-              )}
-              renderInput={(params) => (
-                <TextField
-                  {...params}
-                  size="small"
-                  label="Payer *"
-                  error={!!fieldError}
-                  helperText={fieldError?.message}
-                />
-              )}
-              isOptionEqualToValue={(o, v) => o.id === v.id}
+            <PayerSelect
+              multiple={false}
+              value={field.value}
+              onChange={field.onChange}
+              label="Payer *"
+              required
+              error={!!fieldError}
+              helperText={fieldError?.message}
             />
           )}
         />

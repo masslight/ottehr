@@ -1,11 +1,9 @@
 import { input } from '@inquirer/prompts';
 import { Appointment } from 'fhir/r4b';
+import { createOystehrClient } from 'utils/lib/helpers/helpers';
+import { E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM } from 'utils/lib/types/constants';
+import { cleanAppointmentGraph } from 'utils/lib/utils/e2eCleanup';
 import { getAllFhirSearchPages } from '../../packages/utils/lib/fhir/getAllFhirSearchPages';
-import {
-  cleanAppointmentGraph,
-  createOystehrClient,
-  E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM,
-} from '../../packages/utils/lib/main';
 
 /*
  This is a temporary solution; the current resource deletion script 'packages/zambdas/src/scripts/clean-up-e2e.ts' needs to be improved.

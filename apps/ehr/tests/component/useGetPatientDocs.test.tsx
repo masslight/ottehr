@@ -626,3 +626,74 @@ describe('useGetPatientDocs — intake documents linked by appointment', () => {
     expect(result.current.documents?.[0].appointmentId).toBeUndefined();
   });
 });
+
+describe('useGetPatientDocs — downloadDocument target tab', () => {
+  const DOC_ID = 'doc-1';
+  let downloadOk = true;
+
+  const docRefBundle = (): any =>
+    stubBundle([
+      {
+        resourceType: 'DocumentReference',
+        id: DOC_ID,
+        status: 'current',
+        subject: { reference: `Patient/${PATIENT_ID}` },
+        content: [
+          { attachment: { url: 'z3://bucket/summary.pdf', title: 'summary.pdf', contentType: 'application/pdf' } },
+        ],
+      } as any,
+    ]);
+
+  const makeTab = (): { location: { href: string }; close: ReturnType<typeof vi.fn> } => ({
+    location: { href: '' },
+    close: vi.fn(),
+  });
+
+  const renderDownload = (): ((id: string, options?: any) => Promise<void>) =>
+    renderHook(() => useGetPatientDocs(PATIENT_ID), { wrapper }).result.current.downloadDocument;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    downloadOk = true;
+    mockFhirSearch.mockImplementation(async (req: any) => {
+      const params: { name: string; value: string }[] = req?.params ?? [];
+      return params.some((p) => p.name === '_id') ? docRefBundle() : stubBundle([]);
+    });
+    vi.stubGlobal('open', vi.fn());
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (_url: any, init?: any) =>
+        init?.method === 'POST'
+          ? { ok: true, json: async () => ({ signedUrl: 'https://presigned.test/summary.pdf' }) }
+          : { ok: downloadOk, blob: async () => new Blob(['pdf'], { type: 'application/pdf' }) }
+      )
+    );
+    window.URL.createObjectURL = vi.fn().mockReturnValue('blob:summary');
+  });
+
+  it('navigates the reserved tab instead of opening a popup', async () => {
+    const targetTab = makeTab();
+
+    await renderDownload()(DOC_ID, { skipRelated: true, targetTab });
+
+    expect(targetTab.location.href).toBe('blob:summary');
+    expect(targetTab.close).not.toHaveBeenCalled();
+    expect(window.open).not.toHaveBeenCalled();
+  });
+
+  it('closes the reserved tab when nothing could be opened into it', async () => {
+    downloadOk = false;
+    const targetTab = makeTab();
+
+    await renderDownload()(DOC_ID, { skipRelated: true, targetTab });
+
+    expect(targetTab.location.href).toBe('');
+    expect(targetTab.close).toHaveBeenCalledTimes(1);
+  });
+
+  it('still opens a popup when no tab was reserved', async () => {
+    await renderDownload()(DOC_ID, { skipRelated: true });
+
+    expect(window.open).toHaveBeenCalledWith('blob:summary', '_blank');
+  });
+});

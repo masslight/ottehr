@@ -1,9 +1,10 @@
 import Oystehr from '@oystehr/sdk';
+import { GetBillingPatientBalanceInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { PatientArClaimItem } from 'utils/lib/types/data/billing/billing.types';
 import { describe, expect, it, vi } from 'vitest';
 import { performEffect, summarizePatientBalance } from '../../../src/billing/get-billing-patient-balance/index';
-import { validateRequestParameters } from '../../../src/billing/get-billing-patient-balance/validateRequestParameters';
 import { fetchAllActivePatientArClaims } from '../../../src/billing/search-billing-patient-ar-claims/handler';
+import { validateWithSchema } from '../../../src/shared/validation';
 import { createMockSecrets, createMockZambdaInput } from '../validate-request-parameters/helpers';
 
 vi.mock('../../../src/billing/search-billing-patient-ar-claims/handler', () => ({
@@ -37,31 +38,48 @@ describe('get-billing-patient-balance', () => {
 
     it('returns validated params for a valid request', () => {
       const secrets = createMockSecrets();
-      const result = validateRequestParameters(createMockZambdaInput({ encounterIds: [validUUID] }, { secrets }));
+      const result = validateWithSchema(
+        GetBillingPatientBalanceInputSchema,
+        createMockZambdaInput({ encounterIds: [validUUID] }, { secrets })
+      );
       expect(result).toEqual({ encounterIds: [validUUID], secrets });
     });
 
     it('throws when body is missing', () => {
-      expect(() => validateRequestParameters(createMockZambdaInput(null))).toThrow();
+      expect(() => validateWithSchema(GetBillingPatientBalanceInputSchema, createMockZambdaInput(null))).toThrow();
     });
 
     it('throws when secrets are missing', () => {
-      expect(() => validateRequestParameters(createMockZambdaInput({ encounterIds: [validUUID] }))).toThrow();
+      expect(() =>
+        validateWithSchema(GetBillingPatientBalanceInputSchema, createMockZambdaInput({ encounterIds: [validUUID] }))
+      ).toThrow();
     });
 
     it('throws when encounterIds is missing, empty, or not uuids', () => {
       const secrets = createMockSecrets();
-      expect(() => validateRequestParameters(createMockZambdaInput({}, { secrets }))).toThrow();
-      expect(() => validateRequestParameters(createMockZambdaInput({ encounterIds: [] }, { secrets }))).toThrow();
       expect(() =>
-        validateRequestParameters(createMockZambdaInput({ encounterIds: ['not-a-uuid'] }, { secrets }))
+        validateWithSchema(GetBillingPatientBalanceInputSchema, createMockZambdaInput({}, { secrets }))
+      ).toThrow();
+      expect(() =>
+        validateWithSchema(
+          GetBillingPatientBalanceInputSchema,
+          createMockZambdaInput({ encounterIds: [] }, { secrets })
+        )
+      ).toThrow();
+      expect(() =>
+        validateWithSchema(
+          GetBillingPatientBalanceInputSchema,
+          createMockZambdaInput({ encounterIds: ['not-a-uuid'] }, { secrets })
+        )
       ).toThrow();
     });
 
     it('throws when encounterIds exceeds the request cap', () => {
       const secrets = createMockSecrets();
       const encounterIds = Array.from({ length: 1001 }, () => validUUID);
-      expect(() => validateRequestParameters(createMockZambdaInput({ encounterIds }, { secrets }))).toThrow();
+      expect(() =>
+        validateWithSchema(GetBillingPatientBalanceInputSchema, createMockZambdaInput({ encounterIds }, { secrets }))
+      ).toThrow();
     });
   });
 

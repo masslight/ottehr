@@ -8,6 +8,8 @@ import { fetchAllPages } from '../../shared/fhir';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { countEraClaims, fetchClaimEraLinks, fetchClaimResponsesByPaymentReconciliations } from '../claim-amounts';
+import { resolvePayerIssuerFilter } from '../custom-insurance-org.helpers';
+import { resolveEraPayee } from '../era-remits';
 import {
   CLAIM_PCN_IDENTIFIER_SYSTEM,
   createBillingClient,
@@ -15,6 +17,7 @@ import {
   CURRENT_STATUS_TAG_SYSTEM,
   eraCheckNumberMatches,
   getEraCheckNumber,
+  getEraSource,
   resolvePayersByRef,
 } from '../shared';
 import { SearchErasParams, validateRequestParameters } from './validateRequestParameters';
@@ -44,7 +47,9 @@ export async function performEffect(
   // Resolve the payer filter to Oystehr payer list URLs
   let payerIssuerFilter: string | undefined;
   if (params.payerId) {
-    payerIssuerFilter = getPayerUrl(params.payerId);
+    // A business-id-shaped payerId ("OTR-...") names a custom insurance organization rather than an
+    // RCM payer (see resolvePayerIssuerFilter). Only remits keyed in by hand can come from one.
+    payerIssuerFilter = await resolvePayerIssuerFilter(oystehr, params.payerId);
   } else if (params.payerName) {
     const result = await oystehr.rcm.listPayers({ name: params.payerName, limit: 50 });
     const payerIds = result.data.map((p) => getPayerId(p)).filter(Boolean) as string[];
@@ -56,7 +61,6 @@ export async function performEffect(
   const filterParams: SearchParam[] = [];
   if (params.eraDateFrom) filterParams.push({ name: 'created', value: `ge${params.eraDateFrom}` });
   if (params.eraDateTo) filterParams.push({ name: 'created', value: `le${params.eraDateTo}` });
-  if (params.eraStatus) filterParams.push({ name: 'outcome', value: params.eraStatus });
   if (payerIssuerFilter) filterParams.push({ name: 'payment-issuer', value: payerIssuerFilter });
 
   if (hasClaimFilters) {
@@ -73,9 +77,11 @@ export async function performEffect(
   }
 
   if (params.matchingStatus === 'anyUnmatched') {
+    // unmatched remits point at their contained claim, '#request' (what Oystehr's converters and
+    // manual entry both write) rather than a Claim/{id}
     filterParams.push({
       name: '_has:Provenance:target:target:ClaimResponse.request',
-      value: '#claim',
+      value: '#request',
     });
   }
 
@@ -276,9 +282,10 @@ function mapEra(
     id: pr.id ?? '',
     checkNumber,
     payerName: payerOrg?.name ?? pr.paymentIssuer?.display ?? '',
+    billingProviderName: pr.requestor?.display ?? resolveEraPayee(claimResponses)?.name ?? '',
+    source: getEraSource(pr),
     paymentDate: pr.paymentDate ?? pr.created ?? '',
     paymentAmount: pr.paymentAmount?.value ?? 0,
-    status: pr.outcome ?? pr.status ?? '',
     claimCount: counts.total,
     matchedCount: counts.matched,
     unmatchedCount: counts.unmatched,

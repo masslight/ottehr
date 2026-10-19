@@ -16,7 +16,8 @@ import {
   mapExcuseTypeToFields,
   mapValuesToExcuse,
 } from '../../../../telemed/utils/school-work-excuse.helper';
-import { useAppointmentData, useChartData, useSaveChartData } from '../../../stores/appointment/appointment.store';
+import { useChartData } from '../../../hooks/useChartData';
+import { useAppointmentData, useSaveChartData } from '../../../stores/appointment/appointment.store';
 import { ControlledExcuseCheckbox } from './ControlledExcuseCheckbox';
 import { ControlledExcuseDatePicker } from './ControlledExcuseDatePicker';
 import { ControlledExcuseDropdown } from './ControlledExcuseDropdown';

@@ -28,8 +28,9 @@ export const DischargeSummaryButton: FC<DischargeSummaryButtonProps> = ({ appoin
     }
     setStatusLoading(true);
     try {
-      await createAndOpenDischargeSummary(oystehrZambda, appointmentId, downloadDocument);
-      enqueueSnackbar('Discharge Summary saved.', { variant: 'success' });
+      if (await createAndOpenDischargeSummary(oystehrZambda, appointmentId, downloadDocument)) {
+        enqueueSnackbar('Discharge Summary saved.', { variant: 'success' });
+      }
     } finally {
       setStatusLoading(false);
     }

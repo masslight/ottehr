@@ -16,15 +16,15 @@ import {
   isWeightVitalObservation,
 } from 'utils/lib/fhir/vitals';
 import { FormTokenKey } from 'utils/lib/form-tokens/token-catalog';
-import { celsiusToFahrenheit, HeightMeasurement, kgToLbs } from 'utils/lib/helpers/vitals';
+import { HeightMeasurement } from 'utils/lib/helpers/vitals/vitals-height.helper';
+import { celsiusToFahrenheit } from 'utils/lib/helpers/vitals/vitals-temperature.helper';
+import { kgToLbs } from 'utils/lib/helpers/vitals/vitals-weight.helper';
 import {
   AllergyDTO,
   VitalsBloodPressureObservationDTO,
   VitalsObservationDTO,
 } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { FormFillContext } from './form-fill-context';
-
-export type { FormFillContext };
 
 /**
  * Resolves one token against a real encounter.
@@ -120,7 +120,7 @@ const latestVital = <T extends VitalsObservationDTO>(
   ctx: FormFillContext,
   isMatch: (observation: VitalsObservationDTO) => observation is T
 ): T | undefined =>
-  (ctx.allChartData?.chartData?.vitalsObservations ?? [])
+  (ctx.allChartData?.additionalChartData?.vitalsObservations ?? [])
     .filter(isMatch)
     .reduce<T | undefined>(
       (latest, o) => (!latest || (o.lastUpdated ?? '') > (latest.lastUpdated ?? '') ? o : latest),

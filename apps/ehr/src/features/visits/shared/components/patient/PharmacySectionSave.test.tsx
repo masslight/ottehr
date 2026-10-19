@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { FormFieldItemRecord } from 'config-types';
+import { FormFieldItemRecord } from 'config-types/config/form-fields';
 import React from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { FormGroupPharmacyCollection } from 'src/components/form/FormGroupPharmacyCollection';

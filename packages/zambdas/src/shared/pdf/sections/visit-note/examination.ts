@@ -107,7 +107,7 @@ export const createExaminationSection = <
   }));
 };
 
-function parseExamFieldsFromExamObservations(chartData: GetChartDataResponse): {
+export function parseExamFieldsFromExamObservations(chartData: GetChartDataResponse): {
   examination: Examination['examination'];
 } {
   const examObservations: {

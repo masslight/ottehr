@@ -1,7 +1,10 @@
 import { Medication, PrescribedMedication } from '../../../../zambdas/src/shared/pdf/types';
 import { searchRouteByCode } from '../../fhir/medication-administration';
 import { PrescribedMedicationDTO } from '../../types/api/chart-data/chart-data.types';
-import { ExtendedMedicationDataForResponse } from '../../types/api/medication-administration.types';
+import {
+  ExtendedMedicationDataForResponse,
+  inHouseMedicationsMedicationApplianceRoutes,
+} from '../../types/api/medication-administration.types';
 import { formatDateTimeToZone } from '../../utils/date';
 
 export const mapMedicationsToDisplay = (
@@ -11,7 +14,7 @@ export const mapMedicationsToDisplay = (
   return medications.map((med): Medication => {
     const { medicationName: name, dose, units, route: routeCode, location, dateTimeCreated } = med;
     const date = formatDateTimeToZone(dateTimeCreated, timezone ?? 'America/New_York');
-    const route = searchRouteByCode(routeCode)?.display;
+    const route = searchRouteByCode(routeCode, inHouseMedicationsMedicationApplianceRoutes)?.display;
 
     return {
       name,

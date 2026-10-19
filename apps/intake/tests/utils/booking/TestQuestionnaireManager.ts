@@ -1,4 +1,4 @@
-import type { QuestionnaireConfigType } from 'config-types';
+import type { QuestionnaireConfigType } from 'config-types/config/form-fields';
 import { Questionnaire } from 'fhir/r4b';
 import { createQuestionnaireFromConfig } from 'utils/lib/config-helpers/shared-questionnaire';
 import { INTAKE_PAPERWORK_CONFIG } from 'utils/lib/ottehr-config/intake-paperwork';

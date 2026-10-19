@@ -136,7 +136,7 @@ test.describe('Procedure Quick Picks E2E', () => {
     });
 
     await test.step('Open Quick Picks menu and click Add or Update Quick Pick', async () => {
-      const quickPicksButton = page.getByRole('button', { name: /Quick Picks/i });
+      const quickPicksButton = page.getByRole('textbox', { name: /Quick Picks/i });
       await expect(quickPicksButton).toBeVisible(DEFAULT_TIMEOUT);
       await quickPicksButton.click();
 

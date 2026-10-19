@@ -1,5 +1,5 @@
 import fs from 'node:fs';
-import { FormFieldsDisplayItem, FormFieldSection } from 'config-types';
+import { FormFieldsDisplayItem, FormFieldSection } from 'config-types/config/form-fields';
 import { PDFImage } from 'pdf-lib';
 import { AppointmentContext, evaluateFieldTriggers } from 'utils/lib/config-helpers/patient-record';
 import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
@@ -493,13 +493,14 @@ export const uploadPdfToStorage = async (
   secrets: Secrets | null,
   token: string
 ): Promise<PdfInfo> => {
-  const { patientId, fileName, bucketName } = metadata;
+  const { patientId, fileName, bucketName, stableKey } = metadata;
 
   const baseFileUrl = makeZ3Url({
     secrets,
     fileName,
     bucketName,
     patientID: patientId,
+    stableKey,
   });
 
   await uploadPDF(pdfBytes, baseFileUrl, token, patientId);

@@ -16,13 +16,18 @@ import { CheckInInput, CheckInZambdaOutput } from 'utils/lib/types/api/check-in.
 import { TaskIndicator } from 'utils/lib/types/common';
 import { VisitType } from 'utils/lib/types/data/telemed/appointments/create-appointment.types';
 import { APPOINTMENT_NOT_FOUND_ERROR } from 'utils/lib/types/errors';
+import { z } from 'zod';
 import { getUser } from '../../shared/auth';
 import { getAuth0Token } from '../../shared/getAuth0Token';
 import { checkPaperworkComplete, createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { AuditableZambdaEndpoints, createAuditEvent } from '../../shared/userAuditLog';
-import { validateRequestParameters } from './validateRequestParameters';
+import { validateWithSchema } from '../../shared/validation';
+
+export const CheckInBodySchema = z.object({
+  appointmentId: z.string().uuid(),
+});
 
 export interface CheckInInputValidated extends CheckInInput {
   secrets: Secrets;
@@ -40,7 +45,7 @@ export const index = wrapHandler('check-in', async (input: ZambdaInput): Promise
   const user = userToken && (await getUser(userToken, input.secrets));
   const formattedUserNumber = formatPhoneNumberDisplay(user?.name?.replace('+1', ''));
   const checkedInBy = `Patient${formattedUserNumber ? ` ${formattedUserNumber}` : ''}`;
-  const validatedParameters = validateRequestParameters(input);
+  const validatedParameters = validateWithSchema(CheckInBodySchema, input);
   const { appointmentId: appointmentID, secrets } = validatedParameters;
   console.groupEnd();
   console.debug('validateRequestParameters success');

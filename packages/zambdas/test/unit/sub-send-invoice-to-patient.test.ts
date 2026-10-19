@@ -94,7 +94,7 @@ vi.mock('utils/lib/fhir/payments', async (importOriginal) => {
   };
 });
 
-vi.mock('../../src/rcm/scheduled-outreach/producers/shared', () => ({
+vi.mock('../../src/rcm/scheduled-outreach/producers/shared/produce-outreach-tasks', () => ({
   produceOutreachTasks: vi.fn().mockResolvedValue(undefined),
 }));
 

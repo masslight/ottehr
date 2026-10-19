@@ -8,6 +8,7 @@ import { createFilesDocumentReferences } from 'utils/lib/fhir/helpers';
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
 import { getQuestionnaireForQR } from 'utils/lib/fhir/questionnaires';
 import { formatQuestionnaireItemValueToString } from 'utils/lib/helpers/practice-managed-questionnaires';
+import { uploadObjectToZ3 } from 'utils/lib/helpers/presigned-file-url/helpers';
 import { slugify } from 'utils/lib/helpers/slugify';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { EXPORTED_QUESTIONNAIRE_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
@@ -19,7 +20,7 @@ import { createPdfClient } from '../../../shared/pdf/pdf-utils';
 import { TextStyle } from '../../../shared/pdf/types';
 import { makeZ3Url } from '../../../shared/presigned-file-urls/helpers';
 import { createTask } from '../../../shared/tasks';
-import { createPresignedUrl, uploadObjectToZ3 } from '../../../shared/z3Utils';
+import { createPresignedUrl } from '../../../shared/z3Utils';
 
 type HandleReviewTaskAndPdfInput = {
   questionnaireResponse: QuestionnaireResponse;

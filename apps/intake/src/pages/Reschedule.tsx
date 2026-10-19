@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { PageContainer } from 'src/components/CustomContainer';
 import Schedule from 'src/components/Schedule';
-import { i18n } from 'utils/lib/frontend';
+import i18n from 'utils/lib/frontend/i18n-lib/i18n';
 import { BRANDING_CONFIG, PROJECT_WEBSITE } from 'utils/lib/ottehr-config/branding';
 import { GetAppointmentResponseAppointmentDetails } from 'utils/lib/types/api/appointment.types';
 import { AvailableLocationInformation } from 'utils/lib/types/common';

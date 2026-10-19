@@ -1,4 +1,9 @@
-import { FormFieldItemRecord, FormFieldItemRecordSchema, FormFieldsDisplayItem, FormFieldSection } from 'config-types';
+import {
+  FormFieldItemRecord,
+  FormFieldItemRecordSchema,
+  FormFieldsDisplayItem,
+  FormFieldSection,
+} from 'config-types/config/form-fields';
 import { FC, ReactElement } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { Section } from 'src/components/layout/Section';

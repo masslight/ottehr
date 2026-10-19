@@ -1,3 +1,4 @@
+import { ScreeningQuestionsConfig } from 'config-types/config/screening-questions';
 import {
   HISTORY_OBTAINED_FROM_FIELD,
   HistorySourceKeys,
@@ -10,7 +11,6 @@ import {
   RecentVisitKeys,
   SEEN_IN_LAST_THREE_YEARS_FIELD,
 } from './constants';
-import { ScreeningQuestionsConfig } from './types';
 
 export const baseScreeningQuestionsConfig: ScreeningQuestionsConfig = {
   title: 'ASK THE PATIENT',

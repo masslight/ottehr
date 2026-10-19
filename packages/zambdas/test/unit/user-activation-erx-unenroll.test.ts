@@ -1,4 +1,4 @@
-import { captureException } from '@sentry/aws-serverless';
+import { captureException } from '@sentry/node-core/light';
 import type { APIGatewayProxyResult } from 'aws-lambda';
 import { UserActivationZambdaOutput } from 'utils/lib/types/api/user-activation.types';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';

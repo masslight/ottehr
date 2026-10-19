@@ -7,18 +7,15 @@ import {
 } from 'src/features/visits/shared/components/NoteSectionHeading';
 import { NoteDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { AssessmentTitle } from '../../../../../../components/AssessmentTitle';
-import { useProgressNoteChartFields } from '../../../hooks/useProgressNoteChartFields';
-import { useChartData } from '../../../stores/appointment/appointment.store';
+import { useVisitNote } from '../../../hooks/useVisitNote';
 
 export const SurgicalHistoryContainer: FC<{ notes?: NoteDTO[] }> = ({ notes }) => {
   const titleInCardHeader = useNoteSectionTitleInCardHeader();
-  const { data: chartFields } = useProgressNoteChartFields();
-
-  const { chartData } = useChartData();
+  const { data: note } = useVisitNote();
 
   const theme = useTheme();
-  const procedures = chartData?.surgicalHistory;
-  const surgicalHistoryNote = chartFields?.surgicalHistoryNote?.text;
+  const procedures = note?.history.surgicalHistory;
+  const surgicalHistoryNote = note?.encounterNotes.surgicalHistoryNote?.text;
 
   return (
     <Box

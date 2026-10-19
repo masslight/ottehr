@@ -1,4 +1,4 @@
-import type { TextingConfig } from 'config-types';
+import type { TextingConfig } from 'config-types/config/texting';
 import { deepFreezeObject } from '../../utils/objects';
 
 const TEXTING_DATA: TextingConfig = {

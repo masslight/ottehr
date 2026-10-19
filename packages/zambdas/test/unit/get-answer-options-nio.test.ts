@@ -11,7 +11,7 @@ const LEGACY_ORG_ID = '33333333-3333-4333-8333-333333333333';
 const OCC_MED_QUERY =
   'active:not=false&type=http://terminology.hl7.org/CodeSystem/organization-type|occupational-medicine-employer';
 
-const flags = vi.hoisted(() => ({ nonInsuranceOrganizationsEnabled: true }));
+const flags = vi.hoisted(() => ({ customOrganizationsEnabled: true }));
 vi.mock('utils/lib/ottehr-config/feature-flags', () => ({ FEATURE_FLAGS_CONFIG: flags }));
 
 const nioOptions: ClinicalNioOption[] = [
@@ -56,7 +56,7 @@ const occMedInput = (extra: Record<string, unknown> = {}): Parameters<typeof per
 
 describe('get-answer-options NIO reroute', () => {
   beforeEach(() => {
-    flags.nonInsuranceOrganizationsEnabled = true;
+    flags.customOrganizationsEnabled = true;
   });
 
   it('reroutes the occ-med employer query to the NIO directory and returns token options sorted by name', async () => {
@@ -92,7 +92,7 @@ describe('get-answer-options NIO reroute', () => {
   });
 
   it('keeps the legacy FHIR path when the flag is off', async () => {
-    flags.nonInsuranceOrganizationsEnabled = false;
+    flags.customOrganizationsEnabled = false;
     const { oystehr, execute, search } = makeOystehr();
 
     const options = await performEffect(occMedInput(), oystehr);

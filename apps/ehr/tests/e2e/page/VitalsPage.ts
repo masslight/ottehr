@@ -4,7 +4,7 @@ import {
   clickAndWaitForChartDataDeletion,
   clickAndWaitForSaveChartData,
   waitForSaveChartDataResponse,
-} from 'test-utils';
+} from 'test-utils/lib/e2e/response-utils';
 import { PROVIDER_CONFIG } from 'utils/lib/ottehr-config/provider';
 import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import { EditNoteDialog, expectEditNoteDialog } from './in-person/EditNoteDialog';

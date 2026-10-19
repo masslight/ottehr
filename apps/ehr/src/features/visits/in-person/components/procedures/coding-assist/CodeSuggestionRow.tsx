@@ -4,7 +4,8 @@ import { useQuery } from '@tanstack/react-query';
 import { FC } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { CodeSuggestion, CPTCodeDTO } from 'utils';
+import { CodeSuggestion } from 'utils/lib/procedure-coding/model.types';
+import { CPTCodeDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 
 export const stripCodePrefix = (display: string, code: string): string =>
   display.startsWith(code) ? display.slice(code.length).replace(/^\s*[—–-]\s*/, '') : display;
@@ -99,15 +100,18 @@ export const CodeSuggestionRow: FC<CodeSuggestionRowProps> = ({
               </IconButton>
             ) : (
               <Tooltip title={isLoadingDescriptions ? 'Loading the description…' : 'Add CPT code'}>
-                <IconButton
-                  size="small"
-                  disabled={isLoadingDescriptions}
-                  aria-label={`Add CPT code ${suggestion.code}`}
-                  onClick={() => onAddCodes(entries)}
-                  data-testid={dataTestIds.documentProcedurePage.cptCodeQuickAddButton(suggestion.code)}
-                >
-                  <AddCircleOutline sx={{ fontSize: '26px', color: 'primary.main' }} />
-                </IconButton>
+                {/* A disabled button fires no events, so the tooltip listens on the wrapping span. */}
+                <span>
+                  <IconButton
+                    size="small"
+                    disabled={isLoadingDescriptions}
+                    aria-label={`Add CPT code ${suggestion.code}`}
+                    onClick={() => onAddCodes(entries)}
+                    data-testid={dataTestIds.documentProcedurePage.cptCodeQuickAddButton(suggestion.code)}
+                  >
+                    <AddCircleOutline sx={{ fontSize: '26px', color: 'primary.main' }} />
+                  </IconButton>
+                </span>
               </Tooltip>
             )}
           </Box>

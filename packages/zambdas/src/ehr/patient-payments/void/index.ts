@@ -2,29 +2,29 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { PaymentNotice } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { PAYMENT_METHOD_EXTENSION_URL, PAYMENT_VOID_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import { PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import {
-  buildPaymentVoidExtension,
   parsePaymentRefundsFromNotice,
+  parsePaymentVoidFromNotice,
   PaymentVoidInfo,
   settledRefundTotalInCents,
 } from 'utils/lib/fhir/paymentRefunds';
+import { chooseJson } from 'utils/lib/helpers/oystehrApi';
 import {
   PAYMENT_REFUND_VOID_REASONS,
   VoidPatientPaymentInput,
   VoidPatientPaymentResponse,
 } from 'utils/lib/types/api/patient-payment-types';
+import { RecordBillingVoidResponse } from 'utils/lib/types/data/billing/billing.types';
 import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY, MISSING_REQUIRED_PARAMETERS } from 'utils/lib/types/errors';
 import { isValidUUID } from 'utils/lib/validation/helper';
-import { CLINICAL_PAYMENT_NOTICE_ID_SYSTEM } from '../../../billing/payments';
-import { createBillingClient } from '../../../billing/shared';
 import { getUserToken, requireUserWithRole } from '../../../shared/auth';
 import { getAuth0Token } from '../../../shared/getAuth0Token';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { lambdaResponse } from '../../../shared/lambda';
 import { practitionerRefForUser } from '../../../shared/practitioners';
 import { wrapHandler } from '../../../shared/sentry';
-import { STRIPE_PAYMENT_ID_SYSTEM } from '../../../shared/stripeIntegration';
+import { STRIPE_PAYMENT_ID_SYSTEM, voidPaymentNotice } from '../../../shared/stripeIntegration';
 import { ZambdaInput } from '../../../shared/types/common';
 import { safeJsonParse } from '../../../shared/validation';
 import { PAYMENT_MANAGEMENT_ROLES } from '../refund';
@@ -57,8 +57,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   const voidedBy = (await practitionerRefForUser(user, oystehrClient)).display;
 
-  const billingClient = createBillingClient(oystehrM2MClientToken, secrets);
-  const response = await performEffect({ ...effectInput, voidedBy }, oystehrClient, billingClient);
+  const response = await performEffect({ ...effectInput, voidedBy }, oystehrClient);
   return lambdaResponse(200, response);
 });
 
@@ -68,6 +67,8 @@ interface VoidEffectInput {
   reason: VoidPatientPaymentInput['reason'];
   notes?: string;
   voidedBy?: string;
+  // set when the clinical notice is already voided; effects re-run billing-side voiding idempotently
+  resumeVoidInfo?: PaymentVoidInfo;
 }
 
 const complexValidation = async (params: VoidPatientPaymentInput, oystehrClient: Oystehr): Promise<VoidEffectInput> => {
@@ -85,7 +86,13 @@ const complexValidation = async (params: VoidPatientPaymentInput, oystehrClient:
     throw INVALID_INPUT_ERROR('Only cash, check, and external card reader payments can be voided.');
   }
   if (notice.status === 'cancelled') {
-    throw INVALID_INPUT_ERROR('This payment has already been voided.');
+    // A retry after the billing-side call failed finds the notice already voided: finish voiding
+    // the billing copies with the originally recorded info instead of rejecting.
+    const storedVoidInfo = parsePaymentVoidFromNotice(notice);
+    if (!storedVoidInfo) {
+      throw INVALID_INPUT_ERROR('This payment has already been voided.');
+    }
+    return { notice, paymentNoticeId, reason, notes, resumeVoidInfo: storedVoidInfo };
   }
   if (settledRefundTotalInCents(parsePaymentRefundsFromNotice(notice)) > 0) {
     throw INVALID_INPUT_ERROR('This payment has refunds recorded and can no longer be voided.');
@@ -94,54 +101,33 @@ const complexValidation = async (params: VoidPatientPaymentInput, oystehrClient:
   return { notice, paymentNoticeId, reason, notes };
 };
 
-const performEffect = async (
-  input: VoidEffectInput,
-  oystehrClient: Oystehr,
-  billingClient: Oystehr
-): Promise<VoidPatientPaymentResponse> => {
-  const { notice, paymentNoticeId, reason, notes, voidedBy } = input;
+const performEffect = async (input: VoidEffectInput, oystehrClient: Oystehr): Promise<VoidPatientPaymentResponse> => {
+  const { notice, paymentNoticeId, reason, notes, voidedBy, resumeVoidInfo } = input;
 
-  const voidInfo: PaymentVoidInfo = {
+  // on resume, keep the originally recorded void info so clinical and billing audit records match
+  const voidInfo: PaymentVoidInfo = resumeVoidInfo ?? {
     reason,
     notes,
     voidedAtISO: DateTime.now().toUTC().toISO() ?? new Date().toISOString(),
     voidedBy,
   };
 
-  await voidNotice(oystehrClient, notice, voidInfo);
+  // no-op when the notice is already cancelled (resume)
+  await voidPaymentNotice(oystehrClient, notice, voidInfo);
 
-  // billing copies carry the clinical notice id as their dedup identifier
-  const billingNotices = (
-    await billingClient.fhir.search<PaymentNotice>({
-      resourceType: 'PaymentNotice',
-      params: [{ name: 'identifier', value: `${CLINICAL_PAYMENT_NOTICE_ID_SYSTEM}|${paymentNoticeId}` }],
+  // Billing FHIR resources are owned by the billing app; EHR zambdas must not write them directly.
+  // The billing zambda derives the void state from the just-cancelled clinical notice.
+  const { billingNoticesVoided } = chooseJson<RecordBillingVoidResponse>(
+    await oystehrClient.zambda.execute({
+      id: 'record-billing-void',
+      clinicalPaymentNoticeId: paymentNoticeId,
     })
-  ).unbundle();
-
-  for (const billingNotice of billingNotices) {
-    await voidNotice(billingClient, billingNotice, voidInfo);
-  }
+  );
 
   return {
     paymentNoticeId,
-    voidedBillingNoticeCount: billingNotices.length,
+    voidedBillingNoticeCount: billingNoticesVoided,
   };
-};
-
-const voidNotice = async (oystehr: Oystehr, notice: PaymentNotice, voidInfo: PaymentVoidInfo): Promise<void> => {
-  if (!notice.id || notice.status === 'cancelled') return;
-  const extension = [
-    ...(notice.extension ?? []).filter((ext) => ext.url !== PAYMENT_VOID_EXTENSION_URL),
-    buildPaymentVoidExtension(voidInfo),
-  ];
-  await oystehr.fhir.patch<PaymentNotice>({
-    resourceType: 'PaymentNotice',
-    id: notice.id,
-    operations: [
-      { op: 'replace', path: '/status', value: 'cancelled' },
-      { op: notice.extension !== undefined ? 'replace' : 'add', path: '/extension', value: extension },
-    ],
-  });
 };
 
 const validateRequestParameters = (input: ZambdaInput): VoidPatientPaymentInput => {

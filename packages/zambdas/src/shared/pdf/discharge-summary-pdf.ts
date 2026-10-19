@@ -1,8 +1,8 @@
 import { BUCKET_NAMES } from 'utils/lib/fhir/constants';
 import { Secrets } from 'utils/lib/secrets';
 import { createClinicalOystehrClient } from '../helpers';
-import { DataComposer, generatePdf, PdfRenderConfig, StyleFactory } from './pdf-common';
-import { rgbNormalized } from './pdf-utils';
+import { clinicalDocumentAssetPaths, createClinicalDocumentStyles } from './clinical-document-theme';
+import { DataComposer, generatePdf, PdfRenderConfig } from './pdf-common';
 import { createAllergiesSectionForDischargeSummary } from './sections/discharge-summary/allergies';
 import { createMedicationsSectionForDischargeSummary } from './sections/discharge-summary/currentMedications';
 import { composeDiagnoses, createDiagnosesSection } from './sections/discharge-summary/diagnoses';
@@ -43,7 +43,7 @@ import { composeMedications } from './sections/visit-note/medicationsInfo';
 import { composeProcedures, createProceduresSection } from './sections/visit-note/procedures';
 import { composeVisitData, createVisitInfoSection } from './sections/visitInfo';
 import { fetchServiceCategoryCatalog } from './service-category-catalog';
-import { AssetPaths, DischargeSummaryData, DischargeSummaryInput, PdfResult } from './types';
+import { DischargeSummaryData, DischargeSummaryInput, PdfResult } from './types';
 
 const composeDischargeSummaryData: DataComposer<DischargeSummaryInput, DischargeSummaryData> = (input) => {
   const { allChartData, appointmentPackage, upcomingFollowUps } = input;
@@ -73,82 +73,6 @@ const composeDischargeSummaryData: DataComposer<DischargeSummaryInput, Discharge
   };
 };
 
-const dischargeSummaryAssetPaths: AssetPaths = {
-  fonts: {
-    regular: './assets/Rubik-Regular.otf',
-    bold: './assets/Rubik-Medium.ttf',
-  },
-  icons: {
-    call: './assets/call.png',
-    inconclusive: './assets/inconclusive.png',
-    abnormal: './assets/abnormal.png',
-    normal: './assets/normal.png',
-  },
-};
-
-const createDischargeSummaryStyles: StyleFactory = (assets) => ({
-  textStyles: {
-    header: {
-      fontSize: 16,
-      font: assets.fonts.bold,
-      side: 'right',
-      spacing: 5,
-      newLineAfter: true,
-    },
-    patientName: {
-      fontSize: 16,
-      font: assets.fonts.bold,
-      spacing: 5,
-      newLineAfter: true,
-    },
-    subHeader: {
-      fontSize: 14,
-      font: assets.fonts.bold,
-      spacing: 5,
-      newLineAfter: true,
-    },
-    attachmentTitle: {
-      fontSize: 12,
-      font: assets.fonts.regular,
-      color: rgbNormalized(102, 102, 102),
-      spacing: 2,
-      newLineAfter: true,
-    },
-    regular: {
-      fontSize: 12,
-      font: assets.fonts.regular,
-      spacing: 2,
-      newLineAfter: true,
-    },
-    regularText: {
-      fontSize: 12,
-      font: assets.fonts.regular,
-      spacing: 2,
-      newLineAfter: true,
-    },
-    muted: {
-      fontSize: 12,
-      font: assets.fonts.regular,
-      color: rgbNormalized(102, 102, 102),
-      spacing: 2,
-      newLineAfter: true,
-    },
-    bold: {
-      fontSize: 12,
-      font: assets.fonts.bold,
-      spacing: 2,
-      newLineAfter: true,
-    },
-  },
-  lineStyles: {
-    separator: {
-      thickness: 1,
-      color: rgbNormalized(227, 230, 239),
-      margin: { top: 8, bottom: 8 },
-    },
-  },
-});
-
 const dischargeSummaryRenderConfig: PdfRenderConfig<DischargeSummaryData> = {
   header: {
     title: 'DISCHARGE SUMMARY',
@@ -156,8 +80,8 @@ const dischargeSummaryRenderConfig: PdfRenderConfig<DischargeSummaryData> = {
     rightSection: createVisitInfoSection(),
   },
   headerBodySeparator: true,
-  assetPaths: dischargeSummaryAssetPaths,
-  styleFactory: createDischargeSummaryStyles,
+  assetPaths: clinicalDocumentAssetPaths,
+  styleFactory: createClinicalDocumentStyles,
   sections: [
     createReasonForVisitSection(),
     createMedicationsSectionForDischargeSummary(),

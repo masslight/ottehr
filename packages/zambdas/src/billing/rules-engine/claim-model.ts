@@ -21,9 +21,21 @@ import {
 import { SUBSCRIBER_RELATIONSHIP_CODE_MAP } from 'utils/lib/fhir/constants';
 import { codeableConcept, getCoding, getExtension, getNPI, getTaxID, setNpi } from 'utils/lib/fhir/helpers';
 import { INSURANCE_CANDID_PLAN_TYPE_CODES } from 'utils/lib/fhir/insurance';
-import { extractPayerIdFromUrl, getPayerUrl, isCLIAValid, isNPIValidWithChecksum } from 'utils/lib/helpers/helpers';
 import {
+  extractPayerIdFromUrl,
+  getPayerUrl,
+  isCLIAValid,
+  isNPIValidWithChecksum,
+  isPayerUrl,
+} from 'utils/lib/helpers/helpers';
+import {
+  CLAIM_ACCIDENT_STATE_EXTENSION_URL,
+  CLAIM_ACCIDENT_TYPE_EXTENSION_URLS,
+  CLAIM_ACCIDENT_TYPES,
   CMS_PLACE_OF_SERVICE_CODE_SET,
+  CODE_SYSTEM_CLAIM_ACCIDENT_DATE,
+  CODE_SYSTEM_CLAIM_ACCIDENT_DATE_CODE,
+  CODE_SYSTEM_CLAIM_INFORMATION_CATEGORY,
   CODE_SYSTEM_CLAIM_TYPE,
   CODE_SYSTEM_CLAIM_TYPE_CODES,
   CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
@@ -34,7 +46,11 @@ import {
 import { STATE_CODES } from 'utils/lib/types/common';
 import { CLAIM_TAG_SYSTEM, PERSON_GENDER_OPTIONS } from 'utils/lib/types/data/billing/billing.constants';
 import { BillingInsuranceType } from 'utils/lib/types/data/billing/billing.schemas';
-import { BILLING_INSURANCE_TYPE_OPTIONS, ClaimCoverageType } from 'utils/lib/types/data/billing/billing.types';
+import {
+  BILLING_INSURANCE_TYPE_OPTIONS,
+  BillingProviderLicense,
+  ClaimCoverageType,
+} from 'utils/lib/types/data/billing/billing.types';
 import {
   CLAIM_STATUS_FIELD_KEYS,
   CLAIM_STATUS_FIELDS_BY_KEY,
@@ -46,7 +62,7 @@ import { CLAIM_NON_INSURANCE_PAYER_EXTENSION_URL } from 'utils/lib/types/data/bi
 import { getServiceLinePropertyDef } from 'utils/lib/types/data/billing/rules-engine.field-catalog';
 import { ServiceLineSetOperation, ServiceLineSetValue } from 'utils/lib/types/data/billing/rules-engine.schemas';
 import { isoDateRegex, taxIdRegex, zipRegex } from 'utils/lib/validation/regex';
-import { updateExtension } from '../../shared/helpers';
+import { removeExtension, updateExtension } from '../../shared/helpers';
 import { getCLIA, getPlaceOfServiceCode } from '../service-facility.helpers';
 import {
   attachCoverageToClaim,
@@ -61,15 +77,20 @@ import {
   EXTENSION_CLAIM_PATIENT_DISCHARGE_STATUS,
   EXTENSION_CLAIM_POINT_OF_ORIGIN_CODE,
   getClaimService,
+  getClaimSupportingInfo,
   getClaimType,
   getClaimTypeCoding,
+  getProviderLicense,
   getTaxonomy,
   prepareWorkingCopy,
+  removeClaimSupportingInfo,
   resourceDisplayName,
   setClaimRenderingProviderCareTeam,
   setClia,
+  setStateLicense,
   setTaxId,
   setTaxonomy,
+  updateClaimSupportingInfo,
 } from '../shared';
 
 // The rules' view of a claim: the working-copy Claim plus the working-copy resources its rules can
@@ -106,6 +127,13 @@ export interface RulesEngineClaimModel {
   // with the payer's name. Read-only reference data like referenceResources — claims reference
   // these masters directly, so no working copy is made.
   nioOrganizations?: Map<string, Organization>;
+  // The billing-app custom insurance organizations (plain FHIR Organizations, not RCM payers) named
+  // as a literal value by the rule set's payer-field setField actions, keyed by id, prefetched by the
+  // engine so the synchronous payerId writer can tell them apart from an RCM payer id and stamp the
+  // claim's coverage with the right reference form (Organization/{id} rather than an RCM payer URL).
+  // Inactive (soft-deleted) organizations are kept, so the writer can fail the action instead of
+  // mistaking the id for an RCM payer.
+  customInsuranceOrganizations?: Map<string, Organization>;
   // Local placeholder ids of working copies minted by writers during this run. persistModel
   // POSTs them (fullUrl urn:uuid:<id>) in the same transaction as the claim's update; the
   // server resolves the claim's temporary urn references to the created ids, and the model
@@ -347,6 +375,12 @@ const readRelationship = (coverage?: Coverage): string | undefined => {
 
 type FieldReader = (m: RulesEngineClaimModel) => string | string[] | undefined;
 
+// A coverage's payor reference is either an RCM payer URL or, for a billing-app custom insurance
+// organization, a direct Organization/{id} reference (same convention as
+// getClaimNonInsurancePayer's reference and buildPayorReference in shared.ts).
+const extractPayerIdFromCoverageRef = (reference?: string): string | undefined =>
+  isPayerUrl(reference) ? extractPayerIdFromUrl(reference) : reference?.replace('Organization/', '');
+
 // Readers for the name / birth date / gender / address fields a person-shaped resource (patient or
 // policy holder) contributes; ids mirror the personFields entries in RULE_FIELD_CATALOG.
 const personReaders = (
@@ -374,7 +408,7 @@ const coverageReaders = (
     const source = copySourceRef(resolve(m));
     return source ? m.patientCoverageContext?.typeByCoverageRef.get(source) : undefined;
   },
-  [`${prefix}.payerId`]: (m) => extractPayerIdFromUrl(resolve(m)?.payor?.[0]?.reference),
+  [`${prefix}.payerId`]: (m) => extractPayerIdFromCoverageRef(resolve(m)?.payor?.[0]?.reference),
   [`${prefix}.memberId`]: (m) => resolve(m)?.subscriberId,
   [`${prefix}.planType`]: (m) => getCoveragePlanType(resolve(m)),
   [`${prefix}.relationship`]: (m) => readRelationship(resolve(m)),
@@ -401,6 +435,40 @@ const providerReaders = (
   },
 });
 
+// The license lives only on individual (Practitioner) providers.
+const readLicense = (p: Provider | undefined): BillingProviderLicense | undefined =>
+  p?.resourceType === 'Practitioner' ? getProviderLicense(p) : undefined;
+
+// The accident date is a supportingInfo entry (date type 439), the same one the claim editor writes.
+const ACCIDENT_DATE_INFO = [
+  CODE_SYSTEM_CLAIM_INFORMATION_CATEGORY,
+  'info',
+  CODE_SYSTEM_CLAIM_ACCIDENT_DATE,
+  CODE_SYSTEM_CLAIM_ACCIDENT_DATE_CODE,
+] as const;
+
+// Each accident type is a valueBoolean extension present only when the claim is flagged with it.
+const accidentReaders = (): Record<string, FieldReader> => ({
+  ...Object.fromEntries(
+    CLAIM_ACCIDENT_TYPES.map((type) => [
+      `accident.${type}`,
+      (m: RulesEngineClaimModel): string =>
+        String(getExtension(m.claim, CLAIM_ACCIDENT_TYPE_EXTENSION_URLS[type])?.valueBoolean === true),
+    ])
+  ),
+  'accident.state': (m) => getExtension(m.claim, CLAIM_ACCIDENT_STATE_EXTENSION_URL)?.valueString,
+  'accident.date': (m) => getClaimSupportingInfo(m.claim, ...ACCIDENT_DATE_INFO)?.timingDate,
+});
+
+// The claim's accident details in the claim editor's shape (see claimAccidentProblems).
+export const readAccidentInfo = (
+  model: RulesEngineClaimModel
+): { accidentType: string[]; accidentState?: string; accidentDate?: string } => ({
+  accidentType: CLAIM_ACCIDENT_TYPES.filter((type) => readField(model, `accident.${type}`) === 'true'),
+  accidentState: readField(model, 'accident.state') as string | undefined,
+  accidentDate: readField(model, 'accident.date') as string | undefined,
+});
+
 const statusFieldReaders = (): Record<string, FieldReader> =>
   Object.fromEntries(
     CLAIM_STATUS_FIELD_KEYS.map((key) => [
@@ -411,9 +479,9 @@ const statusFieldReaders = (): Record<string, FieldReader> =>
   );
 
 const READERS: Record<string, FieldReader> = {
-  // The payer is the payor reference on the working-copy Coverage — always an Oystehr payer URL
-  // encoding the id in the billing workspace.
-  payerId: (m) => extractPayerIdFromUrl(primaryCoverage(m)?.payor?.[0]?.reference),
+  // The payer is the payor reference on the working-copy Coverage — either an Oystehr payer URL, or
+  // for a custom insurance organization, a direct Organization/{id} reference.
+  payerId: (m) => extractPayerIdFromCoverageRef(primaryCoverage(m)?.payor?.[0]?.reference),
   nonInsurancePayerId: (m) => getClaimNonInsurancePayer(m.claim)?.reference?.replace('Organization/', ''),
   type: (m) => getClaimType(m.claim),
   service: (m) => getClaimService(m.claim),
@@ -439,6 +507,8 @@ const READERS: Record<string, FieldReader> = {
   admissionType: (m) => getExtension(m.claim, EXTENSION_CLAIM_ADMISSION_TYPE_CODE)?.valueString ?? '',
   admissionSource: (m) => getExtension(m.claim, EXTENSION_CLAIM_POINT_OF_ORIGIN_CODE)?.valueString ?? '',
 
+  ...accidentReaders(),
+
   ...statusFieldReaders(),
 
   ...personReaders('patient', (m) => m.patient),
@@ -457,6 +527,8 @@ const READERS: Record<string, FieldReader> = {
 
   'renderingProvider.ref': (m) => copySourceRef(m.renderingProvider),
   ...providerReaders('renderingProvider', (m) => m.renderingProvider),
+  'renderingProvider.licenseNumber': (m) => readLicense(m.renderingProvider)?.number || undefined,
+  'renderingProvider.licenseState': (m) => readLicense(m.renderingProvider)?.state || undefined,
   'billingProvider.ref': (m) => copySourceRef(m.billingProvider),
   ...providerReaders('billingProvider', (m) => m.billingProvider),
   'billingProvider.taxId': (m) => (m.billingProvider ? getTaxID(m.billingProvider) : undefined),
@@ -548,15 +620,26 @@ const setPersonGender = (person: Patient | RelatedPerson | undefined, value: str
   return true;
 };
 
-// Re-point the primary coverage's payor and the claim's insurer. No RCM lookup is needed —
-// getPayerUrl builds the payer reference directly from the id.
+// The payor/insurer reference for a chosen payer id: Organization/{id} when it names one of the
+// engine's prefetched custom insurance organizations (see loadCustomInsuranceOrganizations), else the
+// existing RCM payer URL form — no RCM lookup is needed there, getPayerUrl builds it from the id alone.
+// Undefined when the id is blank or names a deleted (inactive) custom insurance organization, which
+// fails the rule and holds the claim.
+const payerReferenceForId = (model: RulesEngineClaimModel, value: string | null): string | undefined => {
+  const id = value?.trim();
+  if (!id) return undefined;
+  const customOrg = model.customInsuranceOrganizations?.get(id);
+  if (!customOrg) return getPayerUrl(id);
+  return customOrg.active === false ? undefined : `Organization/${customOrg.id}`;
+};
+
+// Re-point the primary coverage's payor and the claim's insurer.
 const setPayerId = (model: RulesEngineClaimModel, value: string | null): boolean => {
-  if (!value) return false;
   const coverage = primaryCoverage(model);
-  if (!coverage) return false;
-  const payerUrl = getPayerUrl(value);
-  coverage.payor = [{ reference: payerUrl }];
-  model.claim.insurer = { reference: payerUrl };
+  const payerRef = payerReferenceForId(model, value);
+  if (!coverage || !payerRef) return false;
+  coverage.payor = [{ reference: payerRef }];
+  model.claim.insurer = { reference: payerRef };
   return true;
 };
 
@@ -772,6 +855,33 @@ const setAdmissionSource = (claim: Claim, value: string | null): boolean => {
   return true;
 };
 
+const setAccidentType = (claim: Claim, url: string, value: string | null): boolean => {
+  if (value === 'true') updateExtension(claim, { url, valueBoolean: true });
+  else if (value === 'false') removeExtension(claim, url);
+  else return false;
+  return true;
+};
+
+const setAccidentDate = (claim: Claim, value: string | null): boolean => {
+  if (!value) {
+    removeClaimSupportingInfo(claim, ...ACCIDENT_DATE_INFO);
+    if (!claim.supportingInfo?.length) claim.supportingInfo = undefined;
+    return true;
+  }
+  if (!isoDateRegex.test(value)) return false;
+  updateClaimSupportingInfo(claim, ...ACCIDENT_DATE_INFO, { timingDate: value });
+  return true;
+};
+
+// Edit one part of the rendering provider's license, keeping the others. Individual providers only.
+const setLicensePart = (p: Provider | undefined, part: 'number' | 'state', value: string | null): boolean => {
+  if (p?.resourceType !== 'Practitioner') return false;
+  const license = { ...(getProviderLicense(p) ?? { type: '', number: '', state: '' }), [part]: value ?? '' };
+  if (license.number && !license.state) return false;
+  setStateLicense(p, license.type || license.number || license.state ? license : undefined);
+  return true;
+};
+
 const writeStatusField = (claim: Claim, key: ClaimStatusFieldKey, value: string | null): boolean => {
   const code = value ?? '';
   if (!isValidClaimStatusValue(CLAIM_STATUS_FIELDS_BY_KEY[key], code)) return false;
@@ -850,13 +960,12 @@ const coverageWriters = (
 ): Record<string, FieldWriter> => ({
   [`${prefix}.coverageFromPatient`]: (m, v) => setCoverageFromPatient(m, v, coverageType, resolve),
   [`${prefix}.payerId`]: (m, v) => {
-    if (!v) return false;
     const coverage = resolve(m);
-    if (!coverage) return false;
-    const payerUrl = getPayerUrl(v);
-    coverage.payor = [{ reference: payerUrl }];
+    const payerRef = payerReferenceForId(m, v);
+    if (!coverage || !payerRef) return false;
+    coverage.payor = [{ reference: payerRef }];
     if (m.claim.insurance.find((ins) => ins.coverage.reference?.replace('Coverage/', '') === coverage.id)?.focal) {
-      m.claim.insurer = { reference: payerUrl };
+      m.claim.insurer = { reference: payerRef };
     }
     return true;
   },
@@ -967,6 +1076,21 @@ const WRITERS: Record<string, FieldWriter> = {
   admissionType: (m, v) => setAdmissionType(m.claim, v),
   admissionSource: (m, v) => setAdmissionSource(m.claim, v),
 
+  ...Object.fromEntries(
+    CLAIM_ACCIDENT_TYPES.map((type) => [
+      `accident.${type}`,
+      (m: RulesEngineClaimModel, v: string | null): boolean =>
+        setAccidentType(m.claim, CLAIM_ACCIDENT_TYPE_EXTENSION_URLS[type], v),
+    ])
+  ),
+  'accident.state': (m, v) => {
+    if (!validOrEmpty(v, (s) => STATE_CODES.has(s))) return false;
+    if (v) updateExtension(m.claim, { url: CLAIM_ACCIDENT_STATE_EXTENSION_URL, valueString: v });
+    else removeExtension(m.claim, CLAIM_ACCIDENT_STATE_EXTENSION_URL);
+    return true;
+  },
+  'accident.date': (m, v) => setAccidentDate(m.claim, v),
+
   ...statusFieldWriters(),
 
   ...personWriters('patient', (m) => m.patient),
@@ -977,7 +1101,7 @@ const WRITERS: Record<string, FieldWriter> = {
   ...coverageWriters('secondaryInsurance', 'secondary', secondaryCoverage),
   ...personWriters('secondaryPolicyHolder', policyHolder(secondaryCoverage)),
 
-  ...coverageWriters('tertiaryInsurance', 'tertiary', secondaryCoverage),
+  ...coverageWriters('tertiaryInsurance', 'tertiary', tertiaryCoverage),
   ...personWriters('tertiaryPolicyHolder', policyHolder(tertiaryCoverage)),
 
   ...coverageWriters('quaternaryInsurance', 'quaternary', quaternaryCoverage),
@@ -985,6 +1109,11 @@ const WRITERS: Record<string, FieldWriter> = {
 
   'renderingProvider.ref': (m, v) => setClaimResourceRef(m, 'renderingProvider', v),
   ...providerWriters('renderingProvider', (m) => m.renderingProvider),
+  'renderingProvider.licenseNumber': (m, v) => setLicensePart(m.renderingProvider, 'number', v?.trim() || null),
+  'renderingProvider.licenseState': (m, v) => {
+    if (!validOrEmpty(v, (s) => STATE_CODES.has(s))) return false;
+    return setLicensePart(m.renderingProvider, 'state', v);
+  },
   'billingProvider.ref': (m, v) => setClaimResourceRef(m, 'billingProvider', v),
   ...providerWriters('billingProvider', (m) => m.billingProvider),
   'billingProvider.taxId': (m, v) => {

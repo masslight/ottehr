@@ -32,8 +32,10 @@ import { useApiClients } from 'src/hooks/useAppClients';
 import { CreditCardBrandIcon } from 'ui-components/lib/components/CreditCardBrandIcon';
 import {
   PatientPaymentDTO,
+  PAYMENT_REFUND_MEDIUMS,
   PAYMENT_REFUND_VOID_REASONS,
   PaymentRefundDTO,
+  PaymentRefundMedium,
   PaymentRefundVoidReason,
 } from 'utils/lib/types/api/patient-payment-types';
 import { APIError, isApiError } from 'utils/lib/types/errors';
@@ -112,6 +114,16 @@ const MANUAL_REFUND_METHODS = ['cash', 'check', 'external-card-reader'];
 const isManualRefundPayment = (payment: PatientPaymentDTO): boolean =>
   MANUAL_REFUND_METHODS.includes(payment.paymentMethod);
 
+// stripe-linked payments can additionally record a refund that was issued outside Stripe
+const STRIPE_LINKED_METHODS = ['card', 'card-reader'];
+
+const REFUND_MEDIUM_LABELS: Record<PaymentRefundMedium, string> = {
+  'external-card-reader': 'External card reader',
+  cash: 'Cash',
+  check: 'Check',
+  other: 'Other',
+};
+
 function PaymentActionDialog({
   action,
   payment,
@@ -119,26 +131,29 @@ function PaymentActionDialog({
   onClose,
   onDone,
 }: {
-  action: 'refund' | 'void';
+  action: 'refund' | 'external-refund' | 'void';
   payment: PatientPaymentDTO;
   encounterId: string;
   onClose: () => void;
   onDone: () => Promise<void>;
 }): ReactElement {
   const { oystehrZambda } = useApiClients();
+  const isRefund = action === 'refund' || action === 'external-refund';
   const [reason, setReason] = useState<PaymentRefundVoidReason | ''>('');
+  const [medium, setMedium] = useState<PaymentRefundMedium | ''>('');
   const [notes, setNotes] = useState('');
 
   // frozen at open so a mid-processing list refetch can't shift validation under the user
   const [remainingCents] = useState(() => payment.amountInCents - (payment.refundedAmountInCents ?? 0));
   const [amountText, setAmountText] = useState((remainingCents / 100).toFixed(2));
+  // stable per dialog open so a retry resumes the same refund instead of recording a second one
+  const [idempotencyKey] = useState(() => crypto.randomUUID());
 
   const parsedAmountCents = Math.round(Number(amountText) * 100);
   const amountValid =
-    action !== 'refund' ||
-    (Number.isFinite(parsedAmountCents) && parsedAmountCents > 0 && parsedAmountCents <= remainingCents);
+    !isRefund || (Number.isFinite(parsedAmountCents) && parsedAmountCents > 0 && parsedAmountCents <= remainingCents);
   const amountError =
-    action === 'refund' && amountText.trim() !== '' && !amountValid
+    isRefund && amountText.trim() !== '' && !amountValid
       ? `Enter an amount between $0.01 and ${formatCents(remainingCents)}`
       : undefined;
 
@@ -146,25 +161,33 @@ function PaymentActionDialog({
     mutationFn: async () => {
       if (!oystehrZambda) throw new Error('Oystehr client is not available');
       await oystehrZambda.zambda.execute({
-        id: action === 'refund' ? 'patient-payments-refund' : 'patient-payments-void',
+        id: isRefund ? 'patient-payments-refund' : 'patient-payments-void',
         encounterId,
         paymentNoticeId: payment.fhirPaymentNotificationId,
         reason,
-        ...(action === 'refund' ? { amountInCents: parsedAmountCents } : {}),
+        ...(isRefund ? { amountInCents: parsedAmountCents, idempotencyKey } : {}),
+        ...(action === 'external-refund' ? { external: true, medium } : {}),
         ...(notes.trim() ? { notes: notes.trim() } : {}),
       });
     },
     onSuccess: async () => {
-      enqueueSnackbar(action === 'refund' ? 'Refund issued successfully' : 'Payment voided successfully', {
-        variant: 'success',
-      });
+      enqueueSnackbar(
+        action === 'external-refund'
+          ? 'External refund recorded successfully'
+          : action === 'refund'
+          ? 'Refund issued successfully'
+          : 'Payment voided successfully',
+        {
+          variant: 'success',
+        }
+      );
       await onDone();
       onClose();
     },
     onError: (error) => {
       const message = isApiError(error)
         ? (error as APIError).message
-        : `Something went wrong. Payment was not ${action === 'refund' ? 'refunded' : 'voided'}.`;
+        : `Something went wrong. Payment was not ${isRefund ? 'refunded' : 'voided'}.`;
       enqueueSnackbar(message, { variant: 'error' });
     },
     retry: 0,
@@ -191,11 +214,19 @@ function PaymentActionDialog({
         <CloseIcon fontSize="medium" sx={{ color: '#938B7D' }} />
       </IconButton>
       <DialogTitle variant="h4" color="primary.dark">
-        {action === 'refund' ? 'Refund Payment' : 'Void Payment'}
+        {action === 'external-refund'
+          ? 'Record External Refund'
+          : action === 'refund'
+          ? 'Refund Payment'
+          : 'Void Payment'}
       </DialogTitle>
       <DialogContent>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          {action === 'refund'
+          {action === 'external-refund'
+            ? `Up to ${formatCents(
+                remainingCents
+              )} can be recorded as refunded. No money will move through Stripe — issue the refund to the patient separately; this only documents it.`
+            : action === 'refund'
             ? isManualRefundPayment(payment)
               ? `Up to ${formatCents(
                   remainingCents
@@ -203,7 +234,7 @@ function PaymentActionDialog({
               : `Up to ${formatCents(remainingCents)} can be refunded to the original credit card.`
             : 'The payment will be voided and no longer counted toward the total collected.'}
         </Typography>
-        {action === 'refund' && (
+        {isRefund && (
           <TextField
             fullWidth
             required
@@ -218,6 +249,24 @@ function PaymentActionDialog({
             InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
             sx={{ mb: 2, mt: 0.5 }}
           />
+        )}
+        {action === 'external-refund' && (
+          <TextField
+            select
+            fullWidth
+            required
+            label="Refunded via"
+            value={medium}
+            onChange={(e) => setMedium(e.target.value as PaymentRefundMedium)}
+            disabled={processing}
+            sx={{ mb: 2, mt: 0.5 }}
+          >
+            {PAYMENT_REFUND_MEDIUMS.map((option) => (
+              <MenuItem key={option} value={option}>
+                {REFUND_MEDIUM_LABELS[option]}
+              </MenuItem>
+            ))}
+          </TextField>
         )}
         <TextField
           select
@@ -254,11 +303,11 @@ function PaymentActionDialog({
           variant="contained"
           color="error"
           sx={buttonSx}
-          disabled={!reason || !amountValid}
+          disabled={!reason || !amountValid || (action === 'external-refund' && !medium)}
           loading={processing}
           onClick={() => mutation.mutate()}
         >
-          {action === 'refund' ? 'Issue Refund' : 'Void Payment'}
+          {action === 'external-refund' ? 'Record Refund' : action === 'refund' ? 'Issue Refund' : 'Void Payment'}
         </LoadingButton>
       </DialogActions>
     </Dialog>
@@ -277,13 +326,14 @@ export default function PaymentDetailsDialog({
   const refundedCents = payment.refundedAmountInCents ?? 0;
   const netCents = payment.amountInCents - refundedCents;
   const refunds = payment.refunds ?? [];
-  const [action, setAction] = useState<'refund' | 'void' | null>(null);
+  const [action, setAction] = useState<'refund' | 'external-refund' | 'void' | null>(null);
 
   const refundApplies =
     REFUNDABLE_METHODS.includes(payment.paymentMethod) &&
     !payment.voided &&
     netCents > 0 &&
     !!payment.fhirPaymentNotificationId;
+  const externalRefundApplies = refundApplies && STRIPE_LINKED_METHODS.includes(payment.paymentMethod);
   const voidApplies =
     VOIDABLE_METHODS.includes(payment.paymentMethod) &&
     !payment.voided &&
@@ -361,10 +411,10 @@ export default function PaymentDetailsDialog({
                 } and is not counted toward the total collected.`
               : refundState === 'full'
               ? `This payment has been fully refunded${
-                  isManualRefundPayment(payment) ? '' : ' to the credit card'
+                  isManualRefundPayment(payment) || refunds.some((r) => r.medium) ? '' : ' to the credit card'
                 } and is not counted toward the total collected.`
               : `${formatCents(refundedCents)} of this payment has been refunded${
-                  isManualRefundPayment(payment) ? '' : ' to the credit card'
+                  isManualRefundPayment(payment) || refunds.some((r) => r.medium) ? '' : ' to the credit card'
                 }. Only the remaining ${formatCents(netCents)} counts toward the total collected.`}
           </Alert>
         )}
@@ -409,6 +459,11 @@ export default function PaymentDetailsDialog({
                       {!refund.stripeRefundId.startsWith('manual_') && (
                         <Typography variant="caption" color="text.secondary" sx={{ wordBreak: 'break-all' }}>
                           {refund.stripeRefundId}
+                        </Typography>
+                      )}
+                      {refund.medium && (
+                        <Typography variant="caption" color="text.secondary" display="block">
+                          via {REFUND_MEDIUM_LABELS[refund.medium].toLowerCase()}
                         </Typography>
                       )}
                       {refund.reason && (
@@ -477,6 +532,21 @@ export default function PaymentDetailsDialog({
                 onClick={() => setAction('refund')}
               >
                 {isManualRefundPayment(payment) ? 'Record Refund' : 'Refund Payment'}
+              </Button>
+            </span>
+          </Tooltip>
+        )}
+        {externalRefundApplies && (
+          <Tooltip title={canManagePayments ? '' : 'Only users with the Billing Admin role can refund payments'}>
+            <span>
+              <Button
+                variant="outlined"
+                color="error"
+                sx={buttonSx}
+                disabled={!canManagePayments}
+                onClick={() => setAction('external-refund')}
+              >
+                Record External Refund
               </Button>
             </span>
           </Tooltip>

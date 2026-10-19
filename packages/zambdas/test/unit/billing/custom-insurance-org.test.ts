@@ -12,9 +12,11 @@ import {
   buildCustomInsuranceOrganization,
   findCustomInsuranceOrgByBusinessId,
   isCustomInsuranceOrganization,
+  mapClinicalCustomInsuranceOrgOption,
   mapCustomInsuranceOrganization,
 } from '../../../src/billing/custom-insurance-org.helpers';
 import { performEffect as deleteInsuranceOrg } from '../../../src/billing/delete-billing-custom-insurance-org';
+import { performEffect as listCustomInsuranceOrgs } from '../../../src/billing/list-custom-insurance-organizations';
 import { performEffect as searchInsuranceOrgs } from '../../../src/billing/search-billing-custom-insurance-orgs';
 import { performEffect as updateInsuranceOrg } from '../../../src/billing/update-billing-custom-insurance-org';
 
@@ -213,7 +215,7 @@ describe('create-billing-custom-insurance-org', () => {
     const { oystehr, create } = makeOystehr();
     create.mockResolvedValue({ ...orgResource });
 
-    const result = await createInsuranceOrg(oystehr, { ...fullInput, secrets: null });
+    const result = await createInsuranceOrg(oystehr, { ...fullInput, secrets: {} });
 
     expect(result).toEqual({ id: ORG_ID });
     expect(create).toHaveBeenCalledTimes(1);
@@ -227,7 +229,7 @@ describe('update-billing-custom-insurance-org', () => {
 
     const result = await updateInsuranceOrg(
       oystehr,
-      { ...fullInput, name: 'Acme Insurance Co', insuranceOrgId: ORG_ID, secrets: null },
+      { ...fullInput, name: 'Acme Insurance Co', insuranceOrgId: ORG_ID, secrets: {} },
       orgResource
     );
 
@@ -258,7 +260,7 @@ describe('search-billing-custom-insurance-orgs', () => {
     const { oystehr, search } = makeOystehr();
     search.mockResolvedValue({ unbundle: () => [orgResource], total: 1 });
 
-    const result = await searchInsuranceOrgs(oystehr, { secrets: null });
+    const result = await searchInsuranceOrgs(oystehr, { secrets: {} });
 
     expect(result.total).toBe(1);
     expect(result.organizations).toEqual([mapCustomInsuranceOrganization(orgResource)]);
@@ -274,11 +276,106 @@ describe('search-billing-custom-insurance-orgs', () => {
     const { oystehr, search } = makeOystehr();
     search.mockResolvedValue({ unbundle: () => [{ ...orgResource, active: false }], total: 1 });
 
-    const result = await searchInsuranceOrgs(oystehr, { insuranceOrgId: ORG_ID, secrets: null });
+    const result = await searchInsuranceOrgs(oystehr, { insuranceOrgId: ORG_ID, secrets: {} });
 
     expect(result.organizations[0].active).toBe(false);
     const params = search.mock.calls[0][0].params;
     expect(params).toContainEqual({ name: '_id', value: ORG_ID });
     expect(params.some((p: { name: string }) => p.name === 'active')).toBe(false);
+  });
+
+  it('searches by name when the query is not shaped like a business id', async () => {
+    const { oystehr, search } = makeOystehr();
+    search.mockResolvedValue({ unbundle: () => [], total: 0 });
+
+    await searchInsuranceOrgs(oystehr, { name: 'Acme', secrets: {} });
+
+    const params = search.mock.calls[0][0].params;
+    expect(params).toContainEqual({ name: 'name', value: 'Acme' });
+    expect(params.some((p: { name: string }) => p.name === 'identifier')).toBe(false);
+  });
+
+  it('searches by the business-id identifier instead of name when the query looks like one', async () => {
+    const { oystehr, search } = makeOystehr();
+    search.mockResolvedValue({ unbundle: () => [orgResource], total: 1 });
+
+    await searchInsuranceOrgs(oystehr, { name: 'OTR-ACME', secrets: {} });
+
+    const params = search.mock.calls[0][0].params;
+    expect(params).toContainEqual({ name: 'identifier', value: `${CUSTOM_INSURANCE_ORG_ID_SYSTEM}|OTR-ACME` });
+    expect(params.some((p: { name: string }) => p.name === 'name')).toBe(false);
+  });
+
+  it('normalizes a lowercase-typed business-id prefix without touching the suffix case', async () => {
+    const { oystehr, search } = makeOystehr();
+    search.mockResolvedValue({ unbundle: () => [orgResource], total: 1 });
+
+    await searchInsuranceOrgs(oystehr, { name: 'otr-AcMe', secrets: {} });
+
+    const params = search.mock.calls[0][0].params;
+    expect(params).toContainEqual({ name: 'identifier', value: `${CUSTOM_INSURANCE_ORG_ID_SYSTEM}|OTR-AcMe` });
+  });
+});
+
+describe('mapClinicalCustomInsuranceOrgOption', () => {
+  it('maps to a minimal clinical option carrying a reference token, not a direct Organization reference', () => {
+    expect(mapClinicalCustomInsuranceOrgOption(orgResource)).toEqual({
+      id: ORG_ID,
+      reference: `https://fhir.ottehr.com/billing/custom-insurance-organization/${ORG_ID}`,
+      orgId: 'OTR-ACME',
+      name: 'Acme Insurance',
+      active: true,
+    });
+  });
+
+  it('carries active: false for a soft-deleted org', () => {
+    expect(mapClinicalCustomInsuranceOrgOption({ ...orgResource, active: false }).active).toBe(false);
+  });
+});
+
+describe('list-custom-insurance-organizations', () => {
+  it('returns minimal clinical options carrying a reference token', async () => {
+    const { oystehr, search } = makeOystehr();
+    search.mockResolvedValue({ unbundle: () => [orgResource] });
+
+    const result = await listCustomInsuranceOrgs(oystehr, { secrets: {} });
+
+    expect(result.organizations).toEqual([mapClinicalCustomInsuranceOrgOption(orgResource)]);
+    const params = search.mock.calls[0][0].params;
+    expect(params).toContainEqual({
+      name: 'type',
+      value: `${NIO_ORGANIZATION_KIND_SYSTEM}|insurance-organization`,
+    });
+    expect(params).toContainEqual({ name: 'active', value: 'true' });
+  });
+
+  it('resolves a deleted org by id with active=false', async () => {
+    const { oystehr, search } = makeOystehr();
+    search.mockResolvedValue({ unbundle: () => [{ ...orgResource, active: false }] });
+
+    const result = await listCustomInsuranceOrgs(oystehr, { insuranceOrgId: ORG_ID, secrets: {} });
+
+    expect(result.organizations[0].active).toBe(false);
+    const params = search.mock.calls[0][0].params;
+    expect(params).toContainEqual({ name: '_id', value: ORG_ID });
+    expect(params.some((p: { name: string }) => p.name === 'active')).toBe(false);
+  });
+
+  it('follows next links so more than one page comes back complete', async () => {
+    const secondOrgId = '33333333-3333-4333-8333-333333333333';
+    const { oystehr, search } = makeOystehr();
+    let orgPage = 0;
+    search.mockImplementation(() => {
+      orgPage += 1;
+      return orgPage === 1
+        ? Promise.resolve({ unbundle: () => [orgResource], link: [{ relation: 'next', url: 'next-page' }] })
+        : Promise.resolve({ unbundle: () => [{ ...orgResource, id: secondOrgId, name: 'Other Insurance' }] });
+    });
+
+    const result = await listCustomInsuranceOrgs(oystehr, { secrets: {} });
+
+    expect(result.organizations.map((org) => org.id)).toEqual([ORG_ID, secondOrgId]);
+    const secondPageParams = search.mock.calls[1][0].params;
+    expect(secondPageParams).toContainEqual({ name: '_offset', value: '1000' });
   });
 });

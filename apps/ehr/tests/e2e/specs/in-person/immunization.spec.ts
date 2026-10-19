@@ -1,6 +1,6 @@
 import { Browser, BrowserContext, Page, test } from '@playwright/test';
 import { DateTime } from 'luxon';
-import { waitForSaveChartDataResponse } from 'test-utils';
+import { waitForSaveChartDataResponse } from 'test-utils/lib/e2e/response-utils';
 import {
   expectEditVaccineOrderPage,
   openCreateVaccineOrderPage,

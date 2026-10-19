@@ -1,26 +1,22 @@
 import Oystehr from '@oystehr/sdk';
 import { Basic, Bundle, List, Organization, Resource } from 'fhir/r4b';
+import { CUSTOM_INSURANCE_ORG_KIND_CODE } from 'utils/lib/types/data/billing/custom-insurance-org.types';
 import { NIO_KIND_CODE, NIO_ORGANIZATION_KIND_SYSTEM } from 'utils/lib/types/data/billing/non-insurance-org.types';
 import { DEFAULT_RULES_ENGINE, RulesEngineType } from 'utils/lib/types/data/billing/rules-engine.constants';
 import { BillingRuleInput } from 'utils/lib/types/data/billing/rules-engine.schemas';
-import {
-  AUTO_ACCIDENT_TAG_NAME,
-  HOLD_TAG_NAME,
-  SECONDARY_SUBMISSION_CROSSOVER_TAG_NAME,
-  SECONDARY_SUBMISSION_TAG_NAME,
-  SYSTEM_MANAGED_TAGS,
-} from 'utils/lib/types/data/billing/system-tags';
+import { AUTO_ACCIDENT_TAG_NAME, HOLD_TAG_NAME } from 'utils/lib/types/data/billing/system-tags';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { RULES_ENGINE_FHIR, RULES_ENGINE_TAG_SYSTEM } from '../../../src/billing/rules-engine/constants';
 import { complexValidation, performEffect } from '../../../src/billing/save-billing-rules';
 import { SaveBillingRulesParams } from '../../../src/billing/save-billing-rules/validateRequestParameters';
-import { BILLING_WORKING_COPY_TAG, PROVIDER_ROLE_TAG, TAG_IS_SYSTEM_TAG_URL } from '../../../src/billing/shared';
+import { BILLING_WORKING_COPY_TAG, PROVIDER_ROLE_TAG } from '../../../src/billing/shared';
 
 const search = vi.fn();
 const create = vi.fn();
 const update = vi.fn();
 const batch = vi.fn();
-const oystehr = { fhir: { search, create, update, batch } } as unknown as Oystehr;
+const getPayer = vi.fn();
+const oystehr = { fhir: { search, create, update, batch }, rcm: { getPayer } } as unknown as Oystehr;
 
 const rule = (name: string, id?: string): BillingRuleInput => ({
   ...(id ? { id } : {}),
@@ -42,8 +38,6 @@ describe('save-billing-rules performEffect', () => {
     // Echo the written List back (as the server would), stamping a versionId.
     create.mockImplementation(async (resource: List | Basic) => ({ ...resource, meta: { versionId: '1' } }));
     update.mockImplementation(async (resource: List) => ({ ...resource, meta: { versionId: '2' } }));
-    // ensureSystemManagedTags' tag lookup: no tags exist yet.
-    search.mockResolvedValue({ unbundle: () => [] });
   });
 
   it('assigns server-side ids to rules that arrive without one', async () => {
@@ -64,41 +58,13 @@ describe('save-billing-rules performEffect', () => {
     expect(savedList.entry?.map((e) => e.item?.reference)).toEqual([`#${created.id}`, '#rule-1']);
   });
 
-  it('creates the List and seeds every system-managed tag when no rules List exists yet', async () => {
+  // Regression: system tags are reported from the code list, so nothing is written for them.
+  it('creates the List and no tag definitions when no rules List exists yet', async () => {
     const response = await performEffect(oystehr, params([rule('First rule')]), undefined, 'test');
 
     expect(update).not.toHaveBeenCalled();
-    const createdTypes = create.mock.calls.map(([r]) => r.resourceType);
-    expect(createdTypes).toContain('List');
-    const seededTags = create.mock.calls.map(([r]) => r).filter((r): r is Basic => r.resourceType === 'Basic');
-    expect(seededTags.map((tag) => tag.code?.text)).toEqual(SYSTEM_MANAGED_TAGS.map((def) => def.name));
-    seededTags.forEach((tag) => {
-      expect(tag.extension).toContainEqual({ url: TAG_IS_SYSTEM_TAG_URL, valueBoolean: true });
-    });
-    expect(response.versionId).toBe('1');
-  });
-
-  it('seeds only the system-managed tags that are missing', async () => {
-    search.mockResolvedValue({ unbundle: () => [{ resourceType: 'Basic', code: { text: HOLD_TAG_NAME } }] });
-
-    await performEffect(oystehr, params([rule('First rule')]), undefined, 'test');
-
-    const seededTags = create.mock.calls.map(([r]) => r).filter((r): r is Basic => r.resourceType === 'Basic');
-    expect(seededTags.map((tag) => tag.code?.text)).toEqual([
-      AUTO_ACCIDENT_TAG_NAME,
-      SECONDARY_SUBMISSION_TAG_NAME,
-      SECONDARY_SUBMISSION_CROSSOVER_TAG_NAME,
-    ]);
-  });
-
-  it('does not re-seed system-managed tags that already exist', async () => {
-    search.mockResolvedValue({
-      unbundle: () => SYSTEM_MANAGED_TAGS.map((def) => ({ resourceType: 'Basic', code: { text: def.name } })),
-    });
-
-    await performEffect(oystehr, params([rule('First rule')]), undefined, 'test');
-
     expect(create.mock.calls.map(([r]) => r.resourceType)).toEqual(['List']);
+    expect(response.versionId).toBe('1');
   });
 
   it('updates the existing List with optimistic locking from expectedVersionId', async () => {
@@ -143,6 +109,7 @@ describe('save-billing-rules complexValidation (applied tags must exist)', () =>
 
   const tagBasic = (name: string): Basic => ({
     resourceType: 'Basic',
+    id: `tag-${name.toLowerCase()}`,
     code: { text: name, coding: [{ system: 'https://fhir.ottehr.com/billing/tag', code: 'tag' }] },
   });
 
@@ -322,5 +289,133 @@ describe('save-billing-rules complexValidation (non-insurance organizations must
   it('skips the lookup for clearing actions and rules that set nothing', async () => {
     await expect(complexValidation(oystehr, params([nioRule('Clear it', ''), rule('Plain')]))).resolves.toBeUndefined();
     expect(batch).not.toHaveBeenCalled();
+  });
+});
+
+describe('save-billing-rules complexValidation (payers must exist)', () => {
+  const CUSTOM_ORG_ID = '7c9e6679-7425-40de-944b-e07fc1f90ae7';
+  const RCM_PAYER_ID = '0f8fad5b-d9cb-469f-a165-70867728950e';
+
+  const payerRule = (name: string, field: string, value: string): BillingRuleInput => ({
+    name,
+    description: '',
+    enabled: true,
+    conditional: {
+      branches: [
+        {
+          condition: { type: 'all' },
+          outcome: { type: 'actions', actions: [{ type: 'setField', field, value }] },
+        },
+      ],
+    },
+  });
+
+  // The shape getResourcesFromBatchInlineRequests parses: a batch-response of searchset bundles.
+  const batchResponse = (resources: Resource[]): Bundle => ({
+    resourceType: 'Bundle',
+    type: 'batch-response',
+    entry: resources.map((resource) => ({
+      response: { status: '200', outcome: { resourceType: 'OperationOutcome' as const, id: 'ok', issue: [] } },
+      resource: { resourceType: 'Bundle', type: 'searchset', entry: [{ resource }] } as Bundle,
+    })),
+  });
+
+  const customOrg = (id: string, active = true): Organization => ({
+    resourceType: 'Organization',
+    id,
+    active,
+    name: 'Local Health Plan',
+    type: [{ coding: [{ system: NIO_ORGANIZATION_KIND_SYSTEM, code: CUSTOM_INSURANCE_ORG_KIND_CODE }] }],
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    search.mockResolvedValue({ unbundle: () => [] });
+    getPayer.mockRejectedValue(Object.assign(new Error('not found'), { statusCode: 404 }));
+  });
+
+  it('passes for a custom insurance organization without consulting RCM', async () => {
+    batch.mockResolvedValue(batchResponse([customOrg(CUSTOM_ORG_ID)]));
+    await expect(
+      complexValidation(oystehr, params([payerRule('To custom', 'payerId', CUSTOM_ORG_ID)]))
+    ).resolves.toBeUndefined();
+    expect(batch).toHaveBeenCalledTimes(1);
+    expect(getPayer).not.toHaveBeenCalled();
+  });
+
+  it('passes for an RCM payer', async () => {
+    batch.mockResolvedValue(batchResponse([]));
+    getPayer.mockResolvedValue({ resourceType: 'Organization', id: RCM_PAYER_ID });
+    await expect(
+      complexValidation(oystehr, params([payerRule('To RCM', 'secondaryInsurance.payerId', RCM_PAYER_ID)]))
+    ).resolves.toBeUndefined();
+    expect(getPayer).toHaveBeenCalledWith({ id: RCM_PAYER_ID });
+  });
+
+  it('looks non-UUID payer ids up in RCM only', async () => {
+    getPayer.mockResolvedValue({ resourceType: 'Organization', id: '123456' });
+    await expect(
+      complexValidation(oystehr, params([payerRule('To RCM', 'payerId', '123456')]))
+    ).resolves.toBeUndefined();
+    expect(batch).not.toHaveBeenCalled();
+  });
+
+  it('rejects an id that is neither a custom insurance organization nor an RCM payer', async () => {
+    batch.mockResolvedValue(batchResponse([]));
+    await expect(complexValidation(oystehr, params([payerRule('Typo', 'payerId', CUSTOM_ORG_ID)]))).rejects.toThrow(
+      new RegExp(`rule "Typo" sets a payer to ${CUSTOM_ORG_ID} — no such payer or custom insurance organization exists`)
+    );
+  });
+
+  it('does not treat a non-insurance organization as a custom insurance organization', async () => {
+    const nio: Organization = {
+      resourceType: 'Organization',
+      id: CUSTOM_ORG_ID,
+      type: [{ coding: [{ system: NIO_ORGANIZATION_KIND_SYSTEM, code: NIO_KIND_CODE }] }],
+    };
+    batch.mockResolvedValue(batchResponse([nio]));
+    await expect(
+      complexValidation(oystehr, params([payerRule('Wrong kind', 'payerId', CUSTOM_ORG_ID)]))
+    ).rejects.toThrow(/no such payer or custom insurance organization exists/);
+  });
+
+  it('propagates RCM failures other than not-found instead of reporting the payer as missing', async () => {
+    batch.mockResolvedValue(batchResponse([]));
+    getPayer.mockRejectedValue(Object.assign(new Error('RCM unavailable'), { statusCode: 503 }));
+    await expect(complexValidation(oystehr, params([payerRule('Outage', 'payerId', CUSTOM_ORG_ID)]))).rejects.toThrow(
+      'RCM unavailable'
+    );
+  });
+
+  it('bounds concurrent RCM lookups for a large rule set', async () => {
+    const ids = Array.from({ length: 40 }, (_, i) => `payer-${i}`);
+    let inFlight = 0;
+    let maxInFlight = 0;
+    getPayer.mockImplementation(async ({ id }: { id: string }) => {
+      inFlight++;
+      maxInFlight = Math.max(maxInFlight, inFlight);
+      await new Promise((resolve) => setTimeout(resolve, 1));
+      inFlight--;
+      return { resourceType: 'Organization', id };
+    });
+    await expect(
+      complexValidation(oystehr, params(ids.map((id) => payerRule(`To ${id}`, 'payerId', id))))
+    ).resolves.toBeUndefined();
+    expect(getPayer).toHaveBeenCalledTimes(ids.length);
+    expect(maxInFlight).toBeGreaterThan(1);
+    expect(maxInFlight).toBeLessThanOrEqual(5);
+  });
+
+  it('rejects a deleted (inactive) custom insurance organization', async () => {
+    batch.mockResolvedValue(batchResponse([customOrg(CUSTOM_ORG_ID, false)]));
+    await expect(complexValidation(oystehr, params([payerRule('Stale', 'payerId', CUSTOM_ORG_ID)]))).rejects.toThrow(
+      /the custom insurance organization was deleted/
+    );
+  });
+
+  it('skips the lookup when no rule sets a payer', async () => {
+    await expect(complexValidation(oystehr, params([rule('Plain')]))).resolves.toBeUndefined();
+    expect(batch).not.toHaveBeenCalled();
+    expect(getPayer).not.toHaveBeenCalled();
   });
 });

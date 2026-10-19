@@ -1,22 +1,25 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { ExportClaimX12InputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { ExportClaimX12Response } from 'utils/lib/types/data/billing/billing.types';
 import { CLAIM_NOT_READY_FOR_X12_EXPORT, RESOURCE_INCOMPLETE_FOR_OPERATION_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { truncateForLog } from '../../shared/logging';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { createBillingClient } from '../shared';
-import { ExportClaimX12Params, validateRequestParameters } from './validateRequestParameters';
+
+type ExportClaimX12Params = ValidatedZambdaInput<typeof ExportClaimX12InputSchema>;
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'export-billing-claim-x12';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.group('validateRequestParameters');
-  const params = validateRequestParameters(input);
-  const { secrets, ...paramsToLog } = params;
+  const params = validateWithSchema(ExportClaimX12InputSchema, input);
+  const { secrets } = params;
   console.groupEnd();
-  console.debug('validateRequestParameters success', paramsToLog);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createBillingClient(m2mToken, secrets);
@@ -24,7 +27,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.group('performEffect');
   const response = await performEffect(params, oystehr);
   console.groupEnd();
-  console.debug('performEffect success', response);
+  console.debug('performEffect success', truncateForLog(response));
 
   return {
     statusCode: 200,

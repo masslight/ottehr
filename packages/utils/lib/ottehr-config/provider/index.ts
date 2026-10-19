@@ -1,4 +1,4 @@
-import type { ProviderConfig } from 'config-types';
+import type { ProviderConfig } from 'config-types/config/provider';
 
 const PROVIDER_DATA: ProviderConfig = {
   assessment: {

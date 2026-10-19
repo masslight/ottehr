@@ -75,8 +75,8 @@ vi.mock('notistack', () => ({
 }));
 
 vi.mock('src/constants', () => ({
-  CHART_DATA_QUERY_KEY: 'chart-data',
-  CHART_FIELDS_QUERY_KEY: 'chart-fields',
+  VISIT_NOTE_QUERY_KEY: 'visit-note',
+  CHART_SECTION_QUERY_KEY: 'chart-section',
   QUERY_STALE_TIME: 5 * 60 * 1000,
 }));
 
@@ -120,6 +120,7 @@ const mockTemplateDetail = {
     moiNote: null,
     rosNote: 'Negative except as documented.',
     rosFindings: [],
+    rosComments: [],
     examFindings: [
       { fieldName: 'tender', label: 'Tender', isAbnormal: true, note: 'RLQ' },
       { fieldName: 'soft', label: 'Soft', isAbnormal: false, note: '' },

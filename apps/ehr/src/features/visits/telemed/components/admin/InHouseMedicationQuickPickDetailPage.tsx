@@ -7,6 +7,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { Row } from 'src/components/layout/Row';
 import { Section } from 'src/components/layout/Section';
 import { searchRouteByCode } from 'utils/lib/fhir/medication-administration';
+import { inHouseMedicationsMedicationApplianceRoutes } from 'utils/lib/types/api/medication-administration.types';
 import { useInHouseMedicationQuickPicksQuery } from './admin.queries';
 
 function ValueDisplay({ value }: { value: string | number | undefined | null }): ReactElement {
@@ -64,7 +65,12 @@ export default function InHouseMedicationQuickPickDetailPage(): ReactElement {
             <ValueDisplay value={quickPick.units} />
           </Row>
           <Row label="Route">
-            <ValueDisplay value={searchRouteByCode(quickPick.route)?.display ?? quickPick.route} />
+            <ValueDisplay
+              value={
+                searchRouteByCode(quickPick.route, inHouseMedicationsMedicationApplianceRoutes)?.display ??
+                quickPick.route
+              }
+            />
           </Row>
           <Row label="Location">
             <ValueDisplay value={quickPick.location?.name} />

@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest';
-import { validateRequestParameters } from '../../../src/rcm/payments/get-terminal-readers/validateRequestParameters';
+import { GetTerminalReadersBodySchema } from '../../../src/rcm/payments/get-terminal-readers/index';
+import { validateWithSchema } from '../../../src/shared/validation';
 import { createMockSecrets, createMockZambdaInput } from './helpers';
 
 describe('get-terminal-readers - validateRequestParameters', () => {
@@ -10,7 +11,7 @@ describe('get-terminal-readers - validateRequestParameters', () => {
       { stripeAccountId: 'acct_1234567890abcdef', terminalLocationId: 'tml_abc123' },
       { secrets }
     );
-    const result = validateRequestParameters(input);
+    const result = validateWithSchema(GetTerminalReadersBodySchema, input);
 
     expect(result).toEqual({
       stripeAccountId: 'acct_1234567890abcdef',
@@ -21,22 +22,22 @@ describe('get-terminal-readers - validateRequestParameters', () => {
 
   test('should throw when body is missing', () => {
     const input = createMockZambdaInput(null, { secrets });
-    expect(() => validateRequestParameters(input)).toThrow();
+    expect(() => validateWithSchema(GetTerminalReadersBodySchema, input)).toThrow();
   });
 
   test('should throw when stripeAccountId is missing', () => {
     const input = createMockZambdaInput({ terminalLocationId: 'tml_abc123' }, { secrets });
-    expect(() => validateRequestParameters(input)).toThrow();
+    expect(() => validateWithSchema(GetTerminalReadersBodySchema, input)).toThrow();
   });
 
   test('should throw when stripeAccountId is empty', () => {
     const input = createMockZambdaInput({ stripeAccountId: '', terminalLocationId: 'tml_abc123' }, { secrets });
-    expect(() => validateRequestParameters(input)).toThrow();
+    expect(() => validateWithSchema(GetTerminalReadersBodySchema, input)).toThrow();
   });
 
   test('should throw when terminalLocationId is missing', () => {
     const input = createMockZambdaInput({ stripeAccountId: 'acct_1234567890abcdef' }, { secrets });
-    expect(() => validateRequestParameters(input)).toThrow();
+    expect(() => validateWithSchema(GetTerminalReadersBodySchema, input)).toThrow();
   });
 
   test('should throw when terminalLocationId is empty', () => {
@@ -44,11 +45,11 @@ describe('get-terminal-readers - validateRequestParameters', () => {
       { stripeAccountId: 'acct_1234567890abcdef', terminalLocationId: '' },
       { secrets }
     );
-    expect(() => validateRequestParameters(input)).toThrow();
+    expect(() => validateWithSchema(GetTerminalReadersBodySchema, input)).toThrow();
   });
 
   test('should throw when both fields are missing', () => {
     const input = createMockZambdaInput({}, { secrets });
-    expect(() => validateRequestParameters(input)).toThrow();
+    expect(() => validateWithSchema(GetTerminalReadersBodySchema, input)).toThrow();
   });
 });

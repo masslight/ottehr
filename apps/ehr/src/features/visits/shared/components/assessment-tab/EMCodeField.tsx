@@ -3,8 +3,9 @@ import { enqueueSnackbar } from 'notistack';
 import { FC } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { CPTCodeOption } from 'utils/lib/types/common';
+import { useChartData } from '../../hooks/useChartData';
 import { useEMCodes } from '../../hooks/useEMCodes';
-import { useChartData, useDeleteChartData, useSaveChartData } from '../../stores/appointment/appointment.store';
+import { useDeleteChartData, useSaveChartData } from '../../stores/appointment/appointment.store';
 
 export const EMCodeField: FC = () => {
   const { emCodes, isLoading: emCodesLoading } = useEMCodes();

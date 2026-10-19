@@ -26,7 +26,9 @@ import { FC } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { createPaperworkFlow, updatePaperworkFlow } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { APIError, FlowForm, FlowService, isApiError, SERVICE_MODE_LABEL, ServiceMode } from 'utils';
+import { SERVICE_MODE_LABEL, ServiceMode } from 'utils/lib/types/common';
+import { FlowForm, FlowService } from 'utils/lib/types/data/paperwork-flows/paperwork-flows.types';
+import { APIError, isApiError } from 'utils/lib/types/errors';
 import { OrderedFormEditor } from './OrderedFormEditor';
 
 const ALL_MODES: ServiceMode[] = Object.values(ServiceMode);

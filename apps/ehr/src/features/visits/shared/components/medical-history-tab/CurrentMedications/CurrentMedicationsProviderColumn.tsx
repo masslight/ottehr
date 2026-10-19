@@ -25,9 +25,9 @@ import { useMergedMedicationHistoryQuickPicks } from 'src/hooks/useMergedQuickPi
 import { usePendingQuickPick } from 'src/hooks/usePendingQuickPick';
 import { MedicationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { MedicationHistoryQuickPickData } from 'utils/lib/types/api/quick-picks.types';
+import { useChartData } from '../../../hooks/useChartData';
 import { useGetAppointmentAccessibility } from '../../../hooks/useGetAppointmentAccessibility';
 import { ExtractObjectType, useGetMedicationsSearch } from '../../../stores/appointment/appointment.queries';
-import { useChartData } from '../../../stores/appointment/appointment.store';
 import { ProviderSideListSkeleton } from '../../ProviderSideListSkeleton';
 import { QuickPicksButton } from '../../QuickPicksButton';
 import { CurrentMedicationGroup } from './CurrentMedicationGroup';

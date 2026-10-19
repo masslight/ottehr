@@ -7,12 +7,48 @@ import {
   FormLabel,
   Radio,
   RadioGroup,
+  SxProps,
   TextField,
+  Theme,
   Typography,
 } from '@mui/material';
-import { ReactElement } from 'react';
-import { Controller, useFormContext } from 'react-hook-form';
+import { ReactElement, ReactNode, useEffect, useState } from 'react';
+import { Controller, get, useFormContext, useFormState } from 'react-hook-form';
+import { EmailInput } from '../input/EmailInput';
+import { PhoneInput } from '../input/PhoneInput';
 import { NioAddressFields } from './NioAddressFields';
+
+// Accordion that expands itself when a field under `errorPath` fails validation, so a submit
+// blocked by a collapsed section still shows the user what to fix.
+function SubmissionAccordion({
+  title,
+  errorPath,
+  detailsSx,
+  children,
+}: {
+  title: string;
+  errorPath: string;
+  detailsSx?: SxProps<Theme>;
+  children: ReactNode;
+}): ReactElement {
+  const { errors } = useFormState({ name: errorPath });
+  const hasError = !!get(errors, errorPath);
+  const [expanded, setExpanded] = useState(false);
+  useEffect(() => {
+    if (hasError) setExpanded(true);
+  }, [hasError]);
+  return (
+    <Accordion
+      disableGutters
+      variant="outlined"
+      expanded={expanded}
+      onChange={(_, isExpanded) => setExpanded(isExpanded)}
+    >
+      <AccordionSummary expandIcon={<ExpandMoreIcon />}>{title}</AccordionSummary>
+      <AccordionDetails sx={detailsSx}>{children}</AccordionDetails>
+    </Accordion>
+  );
+}
 
 // Manual bill/invoice submission block shared by workers-comp (direct billing), occupational
 // medicine, and other coverage: a preferred-mechanism radio plus one accordion of details per
@@ -43,80 +79,42 @@ export function SubmissionMechanismFields({
           </RadioGroup>
         )}
       />
-      <Accordion disableGutters variant="outlined">
-        <AccordionSummary expandIcon={<ExpandMoreIcon />}>Mail</AccordionSummary>
-        <AccordionDetails sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          {hideMailAddress ? (
-            <Typography variant="body2" color="text.secondary">
-              Uses the organization address.
-            </Typography>
-          ) : (
-            <NioAddressFields prefix={`${prefix}.mailAddress`} />
+      <SubmissionAccordion
+        title="Mail"
+        errorPath={`${prefix}.mailAddress`}
+        detailsSx={{ display: 'flex', flexDirection: 'column', gap: 2 }}
+      >
+        {hideMailAddress ? (
+          <Typography variant="body2" color="text.secondary">
+            Uses the organization address.
+          </Typography>
+        ) : (
+          <NioAddressFields prefix={`${prefix}.mailAddress`} />
+        )}
+      </SubmissionAccordion>
+      <SubmissionAccordion title="Fax" errorPath={`${prefix}.fax`}>
+        <PhoneInput name={`${prefix}.fax`} label="Fax Number" fieldLabel="Fax number" />
+      </SubmissionAccordion>
+      <SubmissionAccordion title="Online Portal" errorPath={`${prefix}.portalNotes`}>
+        <Controller
+          name={`${prefix}.portalNotes`}
+          control={control}
+          render={({ field }) => (
+            <TextField
+              label="Portal Notes"
+              size="small"
+              fullWidth
+              multiline
+              minRows={2}
+              value={field.value}
+              onChange={(e) => field.onChange(e.target.value)}
+            />
           )}
-        </AccordionDetails>
-      </Accordion>
-      <Accordion disableGutters variant="outlined">
-        <AccordionSummary expandIcon={<ExpandMoreIcon />}>Fax</AccordionSummary>
-        <AccordionDetails>
-          <Controller
-            name={`${prefix}.fax`}
-            control={control}
-            render={({ field }) => (
-              <TextField
-                label="Fax Number"
-                size="small"
-                fullWidth
-                value={field.value}
-                onChange={(e) => field.onChange(e.target.value)}
-              />
-            )}
-          />
-        </AccordionDetails>
-      </Accordion>
-      <Accordion disableGutters variant="outlined">
-        <AccordionSummary expandIcon={<ExpandMoreIcon />}>Online Portal</AccordionSummary>
-        <AccordionDetails>
-          <Controller
-            name={`${prefix}.portalNotes`}
-            control={control}
-            render={({ field }) => (
-              <TextField
-                label="Portal Notes"
-                size="small"
-                fullWidth
-                multiline
-                minRows={2}
-                value={field.value}
-                onChange={(e) => field.onChange(e.target.value)}
-              />
-            )}
-          />
-        </AccordionDetails>
-      </Accordion>
-      <Accordion disableGutters variant="outlined">
-        <AccordionSummary expandIcon={<ExpandMoreIcon />}>Email</AccordionSummary>
-        <AccordionDetails>
-          <Controller
-            name={`${prefix}.email`}
-            control={control}
-            rules={{
-              validate: (value: string) =>
-                !value || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim()) || 'Invalid email address',
-            }}
-            render={({ field, fieldState: { error } }) => (
-              <TextField
-                label="Email Address"
-                size="small"
-                fullWidth
-                value={field.value}
-                onChange={(e) => field.onChange(e.target.value)}
-                error={!!error}
-                helperText={error?.message}
-              />
-            )}
-          />
-        </AccordionDetails>
-      </Accordion>
+        />
+      </SubmissionAccordion>
+      <SubmissionAccordion title="Email" errorPath={`${prefix}.email`}>
+        <EmailInput name={`${prefix}.email`} label="Email Address" />
+      </SubmissionAccordion>
     </>
   );
 }

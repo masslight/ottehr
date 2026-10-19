@@ -11,18 +11,15 @@ import {
 import { expectAssessmentPage } from 'tests/e2e/page/in-person/InPersonAssessmentPage';
 import { openInPersonProgressNotePage } from 'tests/e2e/page/in-person/InPersonProgressNotePage';
 import { InPersonHeader } from 'tests/e2e/page/InPersonHeader';
-import {
-  FinalResultPage,
-  InHouseLabsPage,
-  MockReflexTestConfig,
-  OrderInHouseLabPage,
-  PerformTestPage,
-  RadioSelectionResult,
-} from 'tests/e2e/page/lab';
 import { ExternalLabDetailPage } from 'tests/e2e/page/lab/external/ExternalLabDetailPage';
 import { ExternalLabsPage } from 'tests/e2e/page/lab/external/ExternalLabsPage';
 import { MOCK_LAB_RESULTS } from 'tests/e2e/page/lab/external/mock-data';
+import { FinalResultPage } from 'tests/e2e/page/lab/in-house/FinalResultPage';
+import { InHouseLabsPage } from 'tests/e2e/page/lab/in-house/InHouseLabsPage';
 import { buildRunScopedInhouseLabData, MOCK_E2E_AD_TAG } from 'tests/e2e/page/lab/in-house/mock-data';
+import { OrderInHouseLabPage } from 'tests/e2e/page/lab/in-house/OrderInHouseLabPage';
+import { PerformTestPage } from 'tests/e2e/page/lab/in-house/PerformTestPage';
+import { MockReflexTestConfig, RadioSelectionResult } from 'tests/e2e/page/lab/in-house/types';
 import { LabelPrintingConfigAdminPage } from 'tests/e2e/page/LabelPrintingConfigAdminPage';
 import { expectNursingOrderCreatePage } from 'tests/e2e/page/NursingOrderCreatePage';
 import { expectNursingOrderDetailsPage } from 'tests/e2e/page/NursingOrderDetailsPage';
@@ -54,6 +51,16 @@ import procedureSupplies from '../../../../../../config/oystehr/procedure-suppli
 import procedureTechniques from '../../../../../../config/oystehr/procedure-techniques.json';
 import procedureTimeSpent from '../../../../../../config/oystehr/procedure-time-spent.json';
 import procedureType from '../../../../../../config/oystehr/procedure-type.json';
+
+interface ProcedureTypeCodingEntry {
+  system: string;
+  code: string;
+  display: string;
+  extension?: Array<{
+    url: string;
+    valueCodeableConcept: { coding: Array<{ system: string; code: string; display: string }> };
+  }>;
+}
 interface ProcedureInfo {
   consentChecked: boolean;
   procedureType: string;
@@ -76,8 +83,7 @@ interface ProcedureInfo {
 }
 const PROCEDURE_TYPE_CODINGS = Object.entries(procedureType.fhirResources).find(([key]) =>
   key.startsWith('value-set-procedure-type')
-)?.[1].resource.expansion.contains;
-
+)?.[1].resource.expansion.contains as ProcedureTypeCodingEntry[] | undefined;
 const PROCEDURE_MEDICATIONS_USED_CODINGS =
   procedureMedicationsUsed.fhirResources['value-set-procedure-medications-used'].resource.expansion.contains;
 

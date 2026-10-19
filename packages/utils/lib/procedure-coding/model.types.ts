@@ -348,10 +348,24 @@ export type LegacyProcedureFields = Pick<
 
 export type ProcedureFamilyId = keyof typeof PROCEDURE_NAMES;
 
+/**
+ * A component code selected while the answers support the global code that contains it — for
+ * example the ECG technical component (93005) or professional component (93010) against the
+ * global 93000 (MPFS PC/TC indicator 4). The provider keeps the selection; the message explains
+ * what the documentation would support. Each family states its own wording next to the source
+ * that defines its components.
+ */
+export interface ComponentCodeNotice<TCode extends string = string> {
+  selected: readonly TCode[];
+  global: TCode;
+  message: string;
+}
+
 export interface ProcedureFamilyModel<TCode extends string = string> {
   capturesSite?: boolean;
   capturesSide?: boolean;
   codePairEdits?: readonly CptPairEdit[];
+  componentCodeNotices?: readonly ComponentCodeNotice<TCode>[];
   procedureNames: readonly string[];
   fields: readonly CodingField[];
   codes: readonly TCode[];

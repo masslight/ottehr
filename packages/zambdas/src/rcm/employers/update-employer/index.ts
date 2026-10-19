@@ -4,6 +4,7 @@ import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { topLevelCatch } from '../../../shared/lambda';
+import { normalizeAddress, normalizeTelecom } from '../../../shared/organization';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
 import { createCandidClientIfConfigured, toggleCandidEmployerPayer, updateCandidEmployerPayer } from '../candid-sync';
@@ -11,10 +12,8 @@ import {
   buildEmployerType,
   getCandidPayerIdFromOrganization,
   isEmployerOrganization,
-  normalizeAddress,
   normalizeEmployerNotesExtension,
   normalizeIdentifier,
-  normalizeTelecom,
 } from '../helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 

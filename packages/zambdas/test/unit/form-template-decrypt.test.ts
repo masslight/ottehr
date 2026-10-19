@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'fs';
+import { readFileSync } from 'fs';
 import { join } from 'path';
 import { PDFDocument } from 'pdf-lib';
 import { describe, expect, it } from 'vitest';
@@ -6,13 +6,14 @@ import { decryptTemplatePdf } from '../../src/ehr/shared/form-template-decrypt';
 import { analyzeFormTemplatePdf } from '../../src/ehr/shared/form-template-pdf';
 
 /**
- * The one encrypted PDF available to the suite: the form this feature exists to replace, still checked in
- * as the hardcoded entry the old Forms card serves.
+ * The one encrypted PDF available to the suite: the form this feature exists to replace. pdf-lib cannot produce
+ * an encrypted PDF, so there is no synthesizable substitute — without this fixture `decryptTemplatePdf` has no
+ * real-world coverage, which is why its absence fails the suite rather than skipping it.
  *
  * Permissions-only encryption with an empty user password — `/V 4 /R 4 /CFM AESV2`, `/P -1084`, which
  * denies modification and text extraction while explicitly allowing form filling.
  */
-const DWC073 = join(__dirname, '../../../../apps/ehr/public/dwc073.pdf');
+const DWC073 = join(__dirname, '../fixtures/dwc073.pdf');
 
 describe('decryptTemplatePdf', () => {
   it('leaves an unencrypted document alone', async () => {
@@ -26,7 +27,7 @@ describe('decryptTemplatePdf', () => {
     expect((await decryptTemplatePdf(new Uint8Array([1, 2, 3]))).kind).toBe('notEncrypted');
   });
 
-  it.runIf(existsSync(DWC073))('decrypts a permissions-only encrypted form', async () => {
+  it('decrypts a permissions-only encrypted form', async () => {
     const outcome = await decryptTemplatePdf(new Uint8Array(readFileSync(DWC073)));
     expect(outcome.kind).toBe('decrypted');
 
@@ -38,7 +39,7 @@ describe('decryptTemplatePdf', () => {
     expect(doc.getForm().getFields().length).toBeGreaterThan(100);
   });
 
-  it.runIf(existsSync(DWC073))('carries the decrypted copy through analysis for storage', async () => {
+  it('carries the decrypted copy through analysis for storage', async () => {
     const analysis = await analyzeFormTemplatePdf(new Uint8Array(readFileSync(DWC073)));
 
     // Previously this file was rejected outright.

@@ -1,9 +1,19 @@
 import { Box, Typography } from '@mui/material';
 import { FC, ReactElement } from 'react';
-import { EvaluationResult, EvidenceSource, Finding, FindingEvidence, FindingScopeKind } from 'utils';
+import {
+  EvaluationResult,
+  EvidenceSource,
+  Finding,
+  FindingEvidence,
+  FindingScopeKind,
+} from 'utils/lib/procedure-coding/model.types';
 
 export function actionableFindings(findings: Finding[]): Finding[] {
   return findings.filter((finding) => finding.level !== 'bestPractice');
+}
+
+export function bestPracticeFindings(findings: Finding[]): Finding[] {
+  return findings.filter((finding) => finding.level === 'bestPractice');
 }
 
 export function collectPayerNotes(evaluation: EvaluationResult | undefined): string[] {
@@ -64,7 +74,7 @@ export const CodingFindingList: FC<CodingFindingListProps> = ({ findings, dataTe
       actionable.flatMap((finding) => (finding.scope.kind === FindingScopeKind.Code ? [finding.scope.cptCode] : []))
     ),
   ];
-  const bestPractices = findings.filter((finding) => finding.level === 'bestPractice');
+  const bestPractices = bestPracticeFindings(findings);
 
   if (actionable.length === 0 && bestPractices.length === 0) {
     return null;

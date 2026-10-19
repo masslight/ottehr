@@ -171,9 +171,7 @@
           <th>Amount<br/>Charged</th><th>Insurance<br/>Paid</th><th>Patient<br/>Paid</th><th>Patient<br/>Owes</th>
         </tr>
       </thead>
-      <tbody id="services-tbody">
-        <!-- rows injected by JS below -->
-      </tbody>
+      <tbody id="services-tbody">{{serviceRows}}</tbody>
     </table>
 
   <!-- BALANCE LINE -->
@@ -217,32 +215,9 @@
   if (!el) return;
   var val = el.getAttribute('data-val') || '';
   if (val && val.charAt(0) !== '{' && val.trim() !== '') {
-    el.innerHTML = val + '<br />';
+    el.textContent = val;
+    el.appendChild(document.createElement('br'));
   }
-})();
-
-// Render service lines from JSON merge variable
-(function() {
-  var raw = '{{service}}';
-  // If PostGrid hasn't substituted yet, bail out
-  if (!raw || raw.charAt(0) === '{') return;
-  try {
-    var lines = JSON.parse(raw);
-    var tbody = document.getElementById('services-tbody');
-    var html = '';
-    for (var i = 0; i < lines.length; i++) {
-      var l = lines[i];
-      html += '<tr>' +
-        '<td>' + l.cpt + '</td>' +
-        '<td>' + l.description + '</td>' +
-        '<td>' + l.charged + '</td>' +
-        '<td>' + l.insurancePaid + '</td>' +
-        '<td>' + l.patientPaid + '</td>' +
-        '<td>' + l.patientOwes + '</td>' +
-        '</tr>';
-    }
-    tbody.innerHTML = html;
-  } catch(e) {}
 })();
 
 // Show PAST DUE / PAST DUE - FINAL NOTICE badge
@@ -302,7 +277,7 @@
   if (!el) return;
   var val = '{{biller.addressLine2}}';
   if (val && val.charAt(0) !== '{' && val.trim() !== '') {
-    el.innerHTML = ', ' + val;
+    el.textContent = ', ' + val;
   }
 })();
 </script>

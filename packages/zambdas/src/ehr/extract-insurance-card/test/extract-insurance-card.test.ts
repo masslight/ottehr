@@ -1,4 +1,4 @@
-import { captureException } from '@sentry/aws-serverless';
+import { captureException } from '@sentry/node-core/light';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DocumentReference } from 'fhir/r4b';
 import { createOystehrClient } from 'utils/lib/helpers/helpers';
@@ -15,7 +15,6 @@ import { makePlainJpeg } from './image-fixtures';
 
 vi.mock('../../../shared/ai', () => ({
   invokeChatbotVertexAI: vi.fn(),
-  VERTEX_AI_MODEL: 'gemini-3.1-flash-lite',
 }));
 
 vi.mock('../../../shared/getAuth0Token', async (importOriginal) => {
@@ -42,13 +41,14 @@ vi.mock('utils/lib/helpers/presigned-file-url/helpers', async (importOriginal) =
   };
 });
 
-const Z3_URL = 'https://project-api.zapehr.com/v1/z3/insurance-cards-bucket/patient-1/insurance-card-front.jpg';
+const Z3_URL = 'https://project-api.zapehr.com/v1/z3/test-project-insurance-cards/patient-1/insurance-card-front.jpg';
 const PRESIGNED_URL = 'https://signed.example.com/insurance-card-front.jpg';
 const IMAGE_BYTES = await makePlainJpeg(40, 24);
 
 const SECRETS = {
   FHIR_API: 'https://fhir-api.example.com',
-  PROJECT_API: 'https://project-api.example.com',
+  PROJECT_API: 'https://project-api.zapehr.com/v1',
+  PROJECT_ID: 'test-project',
   ENVIRONMENT: 'local',
 };
 
@@ -204,7 +204,7 @@ describe('extract-insurance-card handler', () => {
 
     // model call: prompt + inline image + schema
     expect(invokeChatbotVertexAI).toHaveBeenCalledTimes(1);
-    const [parts, , schema] = vi.mocked(invokeChatbotVertexAI).mock.calls[0];
+    const [parts, , , schema] = vi.mocked(invokeChatbotVertexAI).mock.calls[0];
     expect(parts[0]).toEqual({ text: EXTRACTION_PROMPT });
     expect((parts[1] as any).inlineData.mimeType).toBe('image/jpeg');
     expect((parts[1] as any).inlineData.data).toBe(IMAGE_BYTES.toString('base64'));

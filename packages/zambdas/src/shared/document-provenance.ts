@@ -1,8 +1,6 @@
 import { PDFDict, PDFDocument, PDFName, PDFNumber, PDFString } from 'pdf-lib';
 import { DocumentProvenance } from 'utils/lib/types/api/document-provenance.types';
 
-export type { DocumentProvenance };
-
 /** Info-dictionary key. Survives on documents with no AcroForm, which the field carrier cannot. */
 const INFO_KEY = 'OttehrFormProvenance';
 

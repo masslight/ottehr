@@ -17,7 +17,7 @@ import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useCallback, useMemo, useState } from 'react';
 import { AccordionCard } from 'src/components/AccordionCard';
-import { useChartFields } from 'src/features/visits/shared/hooks/useChartFields';
+import { useChartSection } from 'src/features/visits/shared/hooks/useChartSection';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { useAppointmentData, useSaveChartData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { BirthHistoryDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
@@ -35,33 +35,19 @@ export const BirthHistory: FC<BirthHistoryProps> = ({ appointmentID }) => {
 
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
-  const {
-    isLoading: isChartDataLoading,
-    data: chartData,
-    setQueryCache,
-  } = useChartFields({
-    requestedFields: {
-      birthHistory: {
-        _search_by: 'patient',
-        _sort: '-_lastUpdated',
-      },
-    },
-  });
+  const { isLoading: isChartDataLoading, data: chartData, setSectionData } = useChartSection('history');
 
   const setUpdatedField = useCallback(
     (updated?: BirthHistoryDTO): void => {
       if (updated) {
-        setQueryCache((prevState: any) => ({
-          ...prevState.chartData!,
-          birthHistory: prevState.chartData?.birthHistory?.find((item: any) => item.resourceId === updated.resourceId)
-            ? prevState.chartData?.birthHistory?.map((item: any) =>
-                item.resourceId === updated.resourceId ? updated : item
-              )
-            : [...(prevState.chartData?.birthHistory || []), updated],
+        setSectionData((previous) => ({
+          birthHistory: previous.birthHistory.some((item) => item.resourceId === updated.resourceId)
+            ? previous.birthHistory.map((item) => (item.resourceId === updated.resourceId ? updated : item))
+            : [...previous.birthHistory, updated],
         }));
       }
     },
-    [setQueryCache]
+    [setSectionData]
   );
 
   const age = chartData?.birthHistory?.find((item) => item.field === 'age');

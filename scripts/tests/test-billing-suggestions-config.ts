@@ -1,4 +1,4 @@
-import { BillingSuggestionInput } from 'utils';
+import { BillingSuggestionInput } from 'utils/lib/types/api/chart-data/chart-data.types';
 
 export interface ScenarioChecks {
   /** Expected ICD-10 codes; score = % of expected codes found in suggestions. */

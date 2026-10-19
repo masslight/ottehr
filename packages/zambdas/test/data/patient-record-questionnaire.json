@@ -2025,6 +2025,42 @@
         "required": false
       },
       {
+        "linkId": "pcp-practice",
+        "type": "string",
+        "text": "Practice name",
+        "required": false,
+        "enableWhen": [
+          {
+            "question": "pcp-active",
+            "operator": "=",
+            "answerBoolean": true
+          }
+        ],
+        "extension": [
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+            "valueString": "hidden"
+          },
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-question",
+                "valueString": "pcp-active"
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-operator",
+                "valueString": "="
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-answer",
+                "valueBoolean": true
+              }
+            ]
+          }
+        ]
+      },
+      {
         "linkId": "pcp-first",
         "type": "string",
         "text": "First name",
@@ -2059,42 +2095,6 @@
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
             "valueString": "hidden"
-          }
-        ]
-      },
-      {
-        "linkId": "pcp-practice",
-        "type": "string",
-        "text": "Practice name",
-        "required": false,
-        "enableWhen": [
-          {
-            "question": "pcp-active",
-            "operator": "=",
-            "answerBoolean": true
-          }
-        ],
-        "extension": [
-          {
-            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-            "valueString": "hidden"
-          },
-          {
-            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
-            "extension": [
-              {
-                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-question",
-                "valueString": "pcp-active"
-              },
-              {
-                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-operator",
-                "valueString": "="
-              },
-              {
-                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-answer",
-                "valueBoolean": true
-              }
-            ]
           }
         ]
       },

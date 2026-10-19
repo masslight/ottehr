@@ -10,16 +10,11 @@ import { InventoryRecord } from 'candidhealth/api/resources/patientAr/resources/
 import { Operation } from 'fast-json-patch';
 import { Appointment, Encounter, Encounter as FhirEncounter, Resource, Task as FhirTask, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import {
-  createInvoiceTaskInput,
-  findClaimsBy,
-  getStartTimeFromEncounterStatusHistory,
-  parseInvoiceTaskInput,
-  RCM_TASK_SYSTEM,
-  RcmTaskCode,
-  ZERO_BALANCE_BUSINESS_STATUS,
-  ZERO_BALANCE_BUSINESS_STATUS_CODE,
-} from 'utils';
+import { RCM_TASK_SYSTEM, RcmTaskCode } from 'utils/lib/fhir/constants';
+import { getStartTimeFromEncounterStatusHistory } from 'utils/lib/fhir/helpers';
+import { findClaimsBy } from 'utils/lib/helpers/candidApi';
+import { createInvoiceTaskInput, parseInvoiceTaskInput } from 'utils/lib/helpers/tasks/invoices-tasks';
+import { ZERO_BALANCE_BUSINESS_STATUS, ZERO_BALANCE_BUSINESS_STATUS_CODE } from 'utils/lib/types/api/invoicing.types';
 import { getCandidEncounterIdFromEncounter } from 'zambdas/src/shared/candid';
 import { createClinicalOystehrClient } from 'zambdas/src/shared/helpers';
 

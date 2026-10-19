@@ -1,4 +1,4 @@
-import { AISuggestionNotesInput } from 'utils';
+import { AISuggestionNotesInput } from 'utils/lib/types/api/ai-suggestions-notes';
 
 export interface TestScenario {
   label: string;

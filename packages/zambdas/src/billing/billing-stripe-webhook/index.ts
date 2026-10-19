@@ -3,23 +3,24 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, Identifier, Money, Organization, PaymentNotice, PaymentReconciliation, Reference } from 'fhir/r4b';
 import Stripe from 'stripe';
 import { BILLING_RESOURCE_TAG, PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import { parsePaymentRefundsFromNotice, staleReservationIds } from 'utils/lib/fhir/paymentRefunds';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import { PaymentRefundDTO } from 'utils/lib/types/api/patient-payment-types';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { shouldUseOttehrBilling } from '../../shared/candid';
-import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import {
-  applyRefundsToPaymentNotice,
+  applyRefundsToPaymentNoticeWithRetry,
   encounterIdFromStripeMetadata,
   getStripeClient,
   STRIPE_PAYMENT_ID_SYSTEM,
   stripeRefundToDTO,
 } from '../../shared/stripeIntegration';
+import { StripeWebhookParams } from '../../shared/stripeWebhook';
 import { ZambdaInput } from '../../shared/types/common';
 import { claimRequestFor, findBillingClaimForEncounter } from '../payments';
 import { createBillingClient, reconcilePaymentNoticesForClaim, STRIPE_ACCOUNT_IDENTIFIER_SYSTEM } from '../shared';
-import { BillingStripeWebhookParams, validateRequestParameters } from './validateRequestParameters';
+import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'billing-stripe-webhook';
 
@@ -30,7 +31,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const { event, stripeAccount } = params;
   console.log('Verified Stripe event:', event.id, event.type, 'connected account:', stripeAccount ?? 'none');
 
-  // Acknowledge with 200 so Stripe doesn't retry or disable the endpoint.
   if (!shouldUseOttehrBilling(params.secrets)) {
     console.log('BILLING_INTEGRATION does not include ottehr; acknowledging event without processing');
     return {
@@ -50,7 +50,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   };
 });
 
-export const performEffect = async (oystehr: Oystehr, params: BillingStripeWebhookParams): Promise<void> => {
+export const performEffect = async (oystehr: Oystehr, params: StripeWebhookParams): Promise<void> => {
   const { event, secrets, stripeAccount = event.account } = params;
   switch (event.type) {
     case 'charge.succeeded':
@@ -330,11 +330,10 @@ const upsertPaymentNoticeForRefund = async (
 
   await persistPaymentNoticeUpsert(oystehr, desiredNotice, refund.id, claim, encounterId);
 
-  // stamp refund state on the original payment notices (clinical + billing) so consumers don't go back to stripe
-  await markSourceNoticesForRefundedCharge(oystehr, charge, stripeAccount, secrets);
+  await markBillingNoticesForRefundedCharge(oystehr, charge, stripeAccount, secrets);
 };
 
-const markSourceNoticesForRefundedCharge = async (
+const markBillingNoticesForRefundedCharge = async (
   oystehr: Oystehr,
   charge: Stripe.Charge,
   stripeAccount: string | undefined,
@@ -354,41 +353,32 @@ const markSourceNoticesForRefundedCharge = async (
 
   const paymentIntentId = typeof charge.payment_intent === 'string' ? charge.payment_intent : charge.payment_intent?.id;
 
-  // the original notices live in two projects: billing copies carry charge id + payment intent id,
-  // the clinical notice carries the payment intent id only
-  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const clinicalOystehr = createClinicalOystehrClient(m2mToken, secrets);
-  const projectSearches: { client: Oystehr; stripeIds: (string | undefined)[] }[] = [
-    { client: oystehr, stripeIds: [charge.id, paymentIntentId] },
-    { client: clinicalOystehr, stripeIds: [paymentIntentId] },
-  ];
+  const identifierValues = [charge.id, paymentIntentId]
+    .filter((id): id is string => Boolean(id))
+    .map((id) => `${STRIPE_PAYMENT_ID_SYSTEM}|${id}`)
+    .join(',');
 
-  for (const { client, stripeIds } of projectSearches) {
-    const identifierValues = stripeIds
-      .filter((id): id is string => Boolean(id))
-      .map((id) => `${STRIPE_PAYMENT_ID_SYSTEM}|${id}`)
-      .join(',');
-    if (!identifierValues) continue;
+  let notices: PaymentNotice[];
+  try {
+    notices = (
+      await oystehr.fhir.search<PaymentNotice>({
+        resourceType: 'PaymentNotice',
+        params: [{ name: 'identifier', value: identifierValues }],
+      })
+    ).unbundle();
+  } catch (error) {
+    console.error(`Error searching source PaymentNotices for charge ${charge.id}`, error);
+    return;
+  }
 
-    let notices: PaymentNotice[];
+  for (const notice of notices) {
     try {
-      notices = (
-        await client.fhir.search<PaymentNotice>({
-          resourceType: 'PaymentNotice',
-          params: [{ name: 'identifier', value: identifierValues }],
-        })
-      ).unbundle();
+      // retry variant: a version conflict from an unrelated concurrent update must not
+      // discard the webhook's only stamping attempt; stale reservations are cleaned here too
+      const staleIds = staleReservationIds([...(parsePaymentRefundsFromNotice(notice) ?? []), ...refunds]);
+      await applyRefundsToPaymentNoticeWithRetry(oystehr, notice, refunds, staleIds);
     } catch (error) {
-      console.error(`Error searching source PaymentNotices for charge ${charge.id}`, error);
-      continue;
-    }
-
-    for (const notice of notices) {
-      try {
-        await applyRefundsToPaymentNotice(client, notice, refunds);
-      } catch (error) {
-        console.error(`Error stamping refunds on PaymentNotice/${notice.id}`, error);
-      }
+      console.error(`Error stamping refunds on PaymentNotice/${notice.id}`, error);
     }
   }
 };

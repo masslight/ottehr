@@ -14,6 +14,7 @@ import {
   INVALID_INPUT_ERROR,
   MISSING_REQUEST_BODY,
   MISSING_SCHEDULE_EXTENSION_ERROR,
+  SERVICE_MODE_NOT_AVAILABLE_ERROR,
 } from 'utils/lib/types/errors';
 import {
   getScheduleExtension,
@@ -33,8 +34,6 @@ export const index = wrapHandler('check-availability', async (input: ZambdaInput
   const fhirAPI = getSecret(SecretsKeys.FHIR_API, input.secrets);
   const projectAPI = getSecret(SecretsKeys.PROJECT_API, input.secrets);
   const basicInput = validateRequestParameters(input);
-
-  console.log('basicInput', JSON.stringify(basicInput));
 
   if (!oystehrToken) {
     console.log('getting m2m token for service calls');
@@ -111,7 +110,7 @@ const validateRequestParameters = (input: ZambdaInput): BasicInput => {
     throw MISSING_REQUEST_BODY;
   }
 
-  const { scheduleId, locationName } = safeJsonParse(input.body);
+  const { scheduleId, locationName, serviceMode } = safeJsonParse(input.body);
 
   if (!scheduleId && !locationName) {
     throw INVALID_INPUT_ERROR('Either "scheduleId" or "scheduleName" must be provided');
@@ -125,7 +124,11 @@ const validateRequestParameters = (input: ZambdaInput): BasicInput => {
     throw INVALID_INPUT_ERROR('"scheduleName" must be a string');
   }
 
-  return { scheduleId, locationName };
+  if (serviceMode !== undefined && !Object.values(ServiceMode).includes(serviceMode)) {
+    throw INVALID_INPUT_ERROR(`"serviceMode" must be one of: ${Object.values(ServiceMode).join(', ')}`);
+  }
+
+  return { scheduleId, locationName, serviceMode };
 };
 
 interface EffectInput {
@@ -136,7 +139,7 @@ interface EffectInput {
   serviceMode?: ServiceMode;
 }
 const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<EffectInput> => {
-  const { scheduleId, locationName } = input;
+  const { scheduleId, locationName, serviceMode: requestedServiceMode } = input;
 
   const params: SearchParam[] = [];
 
@@ -212,10 +215,22 @@ const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<E
     }) as ScheduleOwnerFhirResource;
   }
 
-  let serviceMode: ServiceMode | undefined = undefined;
+  let serviceMode: ServiceMode | undefined = requestedServiceMode;
 
   if (scheduleOwner) {
-    serviceMode = getServiceModeFromScheduleOwner(scheduleOwner);
+    serviceMode = getServiceModeFromScheduleOwner(
+      scheduleOwner,
+      undefined,
+      requestedServiceMode ?? ServiceMode['in-person'] // walk-in links without an explicit mode prefer in-person to keep the In-Person Check-In home screen link working
+    );
+
+    if (requestedServiceMode && serviceMode !== requestedServiceMode) {
+      throw SERVICE_MODE_NOT_AVAILABLE_ERROR(
+        `${
+          requestedServiceMode === ServiceMode.virtual ? 'Virtual' : 'In-person'
+        } walk-in visits are not available at this location.`
+      );
+    }
   }
 
   const scheduleExtension = getScheduleExtension(schedule);

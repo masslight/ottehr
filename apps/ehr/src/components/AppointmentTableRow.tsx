@@ -4,7 +4,6 @@ import ChatOutlineIcon from '@mui/icons-material/ChatOutlined';
 import CheckIcon from '@mui/icons-material/Check';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import MedicalInformationIcon from '@mui/icons-material/MedicalInformationOutlined';
-import PriorityHighRoundedIcon from '@mui/icons-material/PriorityHighRounded';
 import { LoadingButton } from '@mui/lab';
 import {
   Badge,
@@ -52,6 +51,7 @@ import { OrdersForTrackingBoardRow } from 'utils/lib/types/data/orders/types';
 import { mdyStringFromISOString } from 'utils/lib/utils/date';
 import { getSupportPhoneFor } from 'utils/lib/utils/support-dialog';
 import { formatMinutes, getDurationOfStatus, getVisitTotalTime, NON_LOS_STATUSES } from 'utils/lib/utils/visitUtils';
+import { NOTES_WIDTH_MIN } from '../constants';
 import { dataTestIds } from '../constants/data-test-ids';
 import ChatModal from '../features/chat/ChatModal';
 import { InfoIconsToolTip } from '../features/visits/shared/components/InfoIconsToolTip';
@@ -72,6 +72,7 @@ import AppointmentNote from './AppointmentNote';
 import AppointmentTablePractitionerSelect from './AppointmentTablePractitionerSelect';
 import AppointmentTableRowMobile from './AppointmentTableRowMobile';
 import { ApptTab } from './AppointmentTabs';
+import { FlaggedReasonIcon } from './FlaggedReasonIcon';
 import GoToButton from './GoToButton';
 import { IN_PERSON_CHIP_STATUS_MAP, InPersonAppointmentStatusChip } from './InPersonAppointmentStatusChip';
 import { PatientDateOfBirth } from './PatientDateOfBirth';
@@ -321,20 +322,6 @@ export default function AppointmentTableRow({
 
   const isLongWaitingTime = getIsLongWaitTime(appointment, recentStatus, now);
 
-  const formattedPriorityHighIcon = (
-    <PriorityHighRoundedIcon
-      style={{
-        height: '14px',
-        width: '14px',
-        padding: '2px',
-        color: theme.palette.primary.contrastText,
-        backgroundColor: otherColors.priorityHighIcon,
-        borderRadius: '4px',
-        marginRight: '4px',
-      }}
-    />
-  );
-
   const longWaitFlag = (
     <Box
       sx={{
@@ -511,10 +498,11 @@ export default function AppointmentTableRow({
       <AppointmentTableRowMobile
         appointment={appointment}
         patientName={patientName}
+        patientFriendlyId={appointment.patient.friendlyId}
         appointmentDate={appointmentDate}
         start={start}
         tab={tab}
-        formattedPriorityHighIcon={formattedPriorityHighIcon}
+        formattedPriorityHighIcon={<FlaggedReasonIcon />}
         statusTime={statusTime}
         statusChip={<InPersonAppointmentStatusChip status={appointment.status} />}
         isLongWaitingTime={isLongWaitingTime}
@@ -932,6 +920,15 @@ export default function AppointmentTableRow({
                 {patientName}
               </Typography>
             </Link>
+            {appointment.patient.friendlyId && (
+              <Typography
+                variant="body2"
+                sx={{ color: theme.palette.text.secondary, whiteSpace: 'nowrap' }}
+                data-testid={dataTestIds.dashboard.patientFriendlyId}
+              >
+                {appointment.patient.friendlyId}
+              </Typography>
+            )}
             {appointment.isFollowUp && (
               <Tooltip title="Follow-up visit">
                 <CallSplitIcon sx={{ fontSize: 16, color: 'text.secondary', transform: 'rotate(180deg)' }} />
@@ -947,7 +944,7 @@ export default function AppointmentTableRow({
           <ReasonsForVisit
             reasonsForVisit={appointment.reasonForVisit}
             tab={tab}
-            formattedPriorityHighIcon={formattedPriorityHighIcon}
+            formattedPriorityHighIcon={<FlaggedReasonIcon />}
             lineMax={2}
           ></ReasonsForVisit>
         </Box>
@@ -1033,7 +1030,7 @@ export default function AppointmentTableRow({
       >
         <InfoIconsToolTip appointment={appointment} tab={tab} orders={orders} />
       </TableCell>
-      <TableCell sx={{ verticalAlign: 'center' }}>
+      <TableCell sx={{ verticalAlign: 'center', minWidth: NOTES_WIDTH_MIN }}>
         <AppointmentNote
           appointment={appointment}
           oystehr={oystehr}

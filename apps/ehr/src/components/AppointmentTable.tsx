@@ -4,11 +4,13 @@ import {
   Box,
   IconButton,
   Paper,
+  SxProps,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TableRow,
+  Theme,
   Typography,
   useTheme,
 } from '@mui/material';
@@ -20,12 +22,19 @@ import {
 } from 'utils/lib/types/api/chart-data/get-vitals.types';
 import { InPersonAppointmentInformation } from 'utils/lib/types/data/appointments/appointments.types';
 import { OrdersForTrackingBoardRow, OrdersForTrackingBoardTable } from 'utils/lib/types/data/orders/types';
+import { TRACKING_BOARD_TABLE_WIDTH_MIN } from '../constants';
 import { dataTestIds } from '../constants/data-test-ids';
 import { useGetEmployees } from '../features/visits/shared/hooks/useGetEmployees';
 import { AppointmentsStatusChipsCount } from './AppointmentStatusChipsCount';
 import AppointmentTableHeader from './AppointmentTableHeader';
 import AppointmentTableRow from './AppointmentTableRow';
 import { ApptTab } from './AppointmentTabs';
+
+const TRACKING_BOARD_TABLE_SX: SxProps<Theme> = {
+  tableLayout: 'auto',
+  width: '100%',
+  minWidth: { xs: '100%', md: TRACKING_BOARD_TABLE_WIDTH_MIN },
+};
 
 interface AppointmentTableProps {
   appointments: InPersonAppointmentInformation[];
@@ -105,7 +114,7 @@ export default function AppointmentTable({
       <AppointmentsStatusChipsCount appointments={appointments} />
       <Paper>
         <TableContainer sx={{ overflow: 'auto' }} data-testid={dataTestIds.dashboard.appointmentsTable(tab)}>
-          <Table style={{ tableLayout: 'auto', width: '100%', maxWidth: '100%' }}>
+          <Table sx={TRACKING_BOARD_TABLE_SX}>
             <AppointmentTableHeader tab={tab} table="waiting-room" />
             <TableBody>
               {tab === ApptTab['in-office'] ? (
@@ -186,7 +195,7 @@ export default function AppointmentTable({
       {tab === ApptTab['in-office'] && (
         <Paper sx={{ marginTop: '16px' }}>
           <TableContainer sx={{ overflow: 'auto' }}>
-            <Table style={{ tableLayout: 'auto', width: '100%', maxWidth: '100%' }}>
+            <Table sx={TRACKING_BOARD_TABLE_SX}>
               <AppointmentTableHeader tab={tab} table="in-exam" />
               <TableBody>
                 <TableRow>

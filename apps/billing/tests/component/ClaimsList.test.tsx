@@ -15,6 +15,7 @@ const {
   pollExportTaskMock,
   downloadTextFileMock,
   searchBillingPatientsMock,
+  mockOystehrZambda,
 } = vi.hoisted(() => ({
   searchBillingClaimsMock: vi.fn(),
   runBillingRulesEngineMock: vi.fn(),
@@ -24,6 +25,7 @@ const {
   pollExportTaskMock: vi.fn(),
   downloadTextFileMock: vi.fn(),
   searchBillingPatientsMock: vi.fn().mockResolvedValue({ patients: [] }),
+  mockOystehrZambda: {},
 }));
 
 vi.mock('../../src/api/api', () => ({
@@ -34,15 +36,19 @@ vi.mock('../../src/api/api', () => ({
   searchBillingNonInsuranceOrgs: searchBillingNonInsuranceOrgsMock,
   searchBillingPatients: searchBillingPatientsMock,
   searchBillingPayers: vi.fn().mockResolvedValue({ payers: [] }),
+  searchBillingCustomInsuranceOrgs: vi.fn().mockResolvedValue({ organizations: [] }),
   // Preloaded on mount behind a debounce timer — without this export the timer explodes on slow
   // (CI) runners after the test body has already finished.
   searchBillingServices: vi.fn().mockResolvedValue({ services: [] }),
   searchBillingTags: vi.fn().mockResolvedValue({ tags: [] }),
 }));
 
+// mockOystehrZambda is a stable reference, like the real store-backed hook returns — a fresh object on
+// every call would change identity on every render, making every oystehrZambda-dependent useCallback
+// (and therefore every "search on mount" useEffect keyed on it) re-fire on every render, forever.
 vi.mock('../../src/hooks/useAppClients', () => ({
   useApiClients: () => ({
-    oystehrZambda: {},
+    oystehrZambda: mockOystehrZambda,
   }),
 }));
 
@@ -62,7 +68,7 @@ vi.mock('../../src/utils/pollExportTask', () => ({
   pollExportTask: pollExportTaskMock,
 }));
 
-vi.mock('../../src/utils/downloadTextFile', () => ({
+vi.mock('../../src/utils/downloadFile', () => ({
   downloadTextFile: downloadTextFileMock,
 }));
 
@@ -209,8 +215,8 @@ describe('ClaimsList — submit claims', () => {
     fireEvent.click(insurable);
     fireEvent.click(selfPay);
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Run rules (2)' }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Run rules' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Run Rules (2)' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Run Rules' }));
 
     await waitFor(() => expect(runBillingRulesEngineMock).toHaveBeenCalledWith({}, { claimIds: ['c-ins', 'c-self'] }));
     expect(enqueueSnackbarMock).toHaveBeenCalledWith(
@@ -229,8 +235,8 @@ describe('ClaimsList — submit claims', () => {
     renderList();
 
     fireEvent.click(await screen.findByLabelText('select Insurable Patient'));
-    fireEvent.click(await screen.findByRole('button', { name: 'Run rules (1)' }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Run rules' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Run Rules (1)' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Run Rules' }));
 
     await waitFor(() =>
       expect(enqueueSnackbarMock).toHaveBeenCalledWith('kickoff failed', {
@@ -247,11 +253,11 @@ describe('ClaimsList — submit claims', () => {
     renderList();
 
     fireEvent.click(await screen.findByLabelText('select Insurable Patient'));
-    expect(await screen.findByRole('button', { name: 'Run rules (1)' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Run Rules (1)' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'next page' }));
 
-    await waitFor(() => expect(screen.queryByRole('button', { name: /^Run rules \(/ })).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByRole('button', { name: /^Run Rules \(/ })).not.toBeInTheDocument());
   });
 });
 
@@ -474,17 +480,17 @@ describe('ClaimsList — persisted filters', () => {
       FILTERS_STORAGE_KEY,
       JSON.stringify({
         searchText: 'Jones',
-        arStageFilter: AR_STAGE.insurancePayer,
-        statusFilter: 'submitted',
-        tagFilter: '',
+        arStageFilter: [AR_STAGE.insurancePayer],
+        statusFilter: ['submitted'],
+        tagFilter: [],
         createdFrom: '2026-01-01',
         createdTo: '2026-01-31',
         serviceDateFrom: '2026-02-01',
         serviceDateTo: '2026-02-15',
-        selectedPayer: { id: 'payer-rcm-1', name: 'Acme Payer', payerId: 'PAY1' },
-        selectedPatient: { id: 'patient-1', name: 'Jones, Alex' },
-        typeFilter: 'professional',
-        selectedService: { name: 'Office Visit' },
+        selectedPayers: [{ id: 'payer-rcm-1', name: 'Acme Payer', payerId: 'PAY1' }],
+        selectedPatients: [{ id: 'patient-1', name: 'Jones, Alex' }],
+        typeFilter: ['professional'],
+        selectedServices: [{ name: 'Office Visit' }],
         paginationModel: { page: 2, pageSize: 50 },
       })
     );
@@ -496,16 +502,16 @@ describe('ClaimsList — persisted filters', () => {
         {},
         expect.objectContaining({
           searchText: 'Jones',
-          arStage: AR_STAGE.insurancePayer,
-          status: 'submitted',
+          arStage: [AR_STAGE.insurancePayer],
+          status: ['submitted'],
           createdFrom: '2026-01-01',
           createdTo: '2026-01-31',
           serviceDateFrom: '2026-02-01',
           serviceDateTo: '2026-02-15',
-          payerId: 'PAY1',
-          patientId: 'patient-1',
-          type: 'professional',
-          service: 'Office Visit',
+          payerId: ['PAY1'],
+          patientId: ['patient-1'],
+          type: ['professional'],
+          service: ['Office Visit'],
           pageSize: 50,
           offset: 100,
         })
@@ -521,17 +527,17 @@ describe('ClaimsList — persisted filters', () => {
       FILTERS_STORAGE_KEY,
       JSON.stringify({
         searchText: '',
-        arStageFilter: '',
-        statusFilter: '',
-        tagFilter: '',
+        arStageFilter: [],
+        statusFilter: [],
+        tagFilter: [],
         createdFrom: '',
         createdTo: '',
         serviceDateFrom: '',
         serviceDateTo: '',
-        selectedPayer: null,
-        selectedPatient: { id: 'patient-1', name: 'Jones, Alex' },
-        typeFilter: '',
-        selectedService: null,
+        selectedPayers: [],
+        selectedPatients: [{ id: 'patient-1', name: 'Jones, Alex' }],
+        typeFilter: [],
+        selectedServices: [],
         paginationModel: { page: 0, pageSize: 25 },
       })
     );
@@ -539,11 +545,37 @@ describe('ClaimsList — persisted filters', () => {
     renderList();
 
     await waitFor(() =>
-      expect(searchBillingClaimsMock).toHaveBeenCalledWith({}, expect.objectContaining({ patientId: 'patient-1' }))
+      expect(searchBillingClaimsMock).toHaveBeenCalledWith({}, expect.objectContaining({ patientId: ['patient-1'] }))
     );
     // Only id/name are ever written for the patient filter — dob, address, gender, and clinical
     // IDs never round-trip through sessionStorage even though the live selection carries them.
-    expect(screen.getByDisplayValue('Jones, Alex')).toBeInTheDocument();
+    expect(screen.getByText('Jones, Alex')).toBeInTheDocument();
+  });
+
+  it('ignores filters saved in the old single-value shape', async () => {
+    sessionStorage.setItem(
+      FILTERS_STORAGE_KEY,
+      JSON.stringify({
+        searchText: 'Jones',
+        arStageFilter: AR_STAGE.insurancePayer,
+        statusFilter: 'submitted',
+        tagFilter: '',
+        createdFrom: '',
+        createdTo: '',
+        serviceDateFrom: '',
+        serviceDateTo: '',
+        selectedPayer: null,
+        selectedPatient: { id: 'patient-1', name: 'Jones, Alex' },
+        typeFilter: 'professional',
+        selectedService: null,
+        paginationModel: { page: 2, pageSize: 50 },
+      })
+    );
+
+    renderList();
+
+    await waitFor(() => expect(searchBillingClaimsMock).toHaveBeenCalledWith({}, { pageSize: 25, offset: 0 }));
+    expect(await screen.findByPlaceholderText(/Search by patient name/)).toHaveValue('');
   });
 
   it("saves the current filters to sessionStorage as they're changed, so a later visit can restore them", async () => {
@@ -587,7 +619,7 @@ describe('ClaimsList — persisted filters', () => {
       const stored = JSON.parse(sessionStorage.getItem(FILTERS_STORAGE_KEY) ?? '{}');
       // Only id/name round-trip through sessionStorage — dob, address, gender, and clinical IDs
       // from the selected option never get written.
-      expect(stored.selectedPatient).toEqual({ id: 'patient-1', name: 'Jones, Alex' });
+      expect(stored.selectedPatients).toEqual([{ id: 'patient-1', name: 'Jones, Alex' }]);
     });
   });
 });
@@ -615,7 +647,33 @@ describe('ClaimsList — non-insurance organization filter', () => {
     await waitFor(() =>
       expect(searchBillingClaimsMock).toHaveBeenCalledWith(
         expect.anything(),
-        expect.objectContaining({ nonInsurancePayerId: NIO_ID })
+        expect.objectContaining({ nonInsurancePayerId: [NIO_ID] })
+      )
+    );
+  });
+
+  it('filters claims by several non-insurance organizations at once', async () => {
+    const FEDEX_ID = '5b0261af-71c6-4f7e-9a51-e0d16a468980';
+    const UPS_ID = '7c1372b0-82d7-4a8f-8b62-f1e27b579a91';
+    searchBillingClaimsMock.mockResolvedValue({ claims: [], total: 0 });
+    searchBillingNonInsuranceOrgsMock.mockResolvedValue({
+      organizations: [
+        { id: FEDEX_ID, name: 'FedEx', employer: true, active: true, contacts: [], covers: [] },
+        { id: UPS_ID, name: 'UPS', employer: true, active: true, contacts: [], covers: [] },
+      ],
+    });
+    renderList();
+
+    const input = await screen.findByLabelText('Non-insurance Organization');
+    fireEvent.mouseDown(input);
+    fireEvent.click(await screen.findByRole('option', { name: 'FedEx' }, { timeout: 5000 }));
+    // The list stays open after a pick, so a second option can be chosen right away.
+    fireEvent.click(await screen.findByRole('option', { name: 'UPS' }, { timeout: 5000 }));
+
+    await waitFor(() =>
+      expect(searchBillingClaimsMock).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ nonInsurancePayerId: [FEDEX_ID, UPS_ID] })
       )
     );
   });

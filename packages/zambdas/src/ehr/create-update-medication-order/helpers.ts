@@ -11,6 +11,7 @@ import {
 import { CODE_SYSTEM_NDC } from 'utils/lib/helpers/rcm/constants';
 import { INVENTORY_MEDICATION_TYPE_CODE } from 'utils/lib/types/api/medication-administration.constants';
 import {
+  inHouseMedicationsMedicationApplianceRoutes,
   IV_ROUTE_CODES_REQUIRING_VITALS_RECHECK,
   MedicationData,
   MedicationOrderStatuses,
@@ -97,7 +98,7 @@ export function updateMedicationAdministrationData(data: {
   const routeCode = orderData.route
     ? orderData.route
     : getDosageUnitsAndRouteOfMedication(orderResources.medicationAdministration).route;
-  const routeCoding = searchRouteByCode(routeCode!);
+  const routeCoding = searchRouteByCode(routeCode!, inHouseMedicationsMedicationApplianceRoutes);
   if (orderData.route && !routeCoding)
     throw INVALID_INPUT_ERROR(`No route found with code provided: ${orderData.route}`);
   const locationCoding = orderData.location

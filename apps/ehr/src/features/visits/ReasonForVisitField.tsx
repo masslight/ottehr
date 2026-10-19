@@ -20,7 +20,7 @@ import {
   SCHEDULED_FOLLOWUP_REASONS,
 } from 'utils/lib/fhir/encounter';
 import { getCoding } from 'utils/lib/fhir/helpers';
-import { useChartFields } from './shared/hooks/useChartFields';
+import { useChartSection } from './shared/hooks/useChartSection';
 import { useDebounceNotesField } from './shared/hooks/useDebounceNotesField';
 import { useReasonForVisitOptions } from './shared/hooks/useReasonForVisitOptions';
 import { useAppointmentData, useSaveChartData } from './shared/stores/appointment/appointment.store';
@@ -33,9 +33,7 @@ export const ReasonForVisitField: FC = () => {
   const [reasonForVisit, setReasonForVisit] = useState<string>('');
   // Scheduled follow-ups pick from a fixed list; "Other" is stored as this free text.
   const [otherReason, setOtherReason] = useState<string>('');
-  const { data: chartFields, isFetched: isChartFieldsFetched } = useChartFields({
-    requestedFields: { reasonForVisit: {} },
-  });
+  const { data: chartFields, isFetched: isChartFieldsFetched } = useChartSection('encounterNotes');
 
   // Service-category options resolve via the shared hook (covers admin-managed FHIR categories);
   // scheduled follow-ups use the fixed reason list instead.

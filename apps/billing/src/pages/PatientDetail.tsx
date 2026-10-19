@@ -18,6 +18,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { commaFormattedName } from 'utils/lib/fhir/billing';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { VALUE_SETS } from 'utils/lib/ottehr-config/value-sets';
+import { otherColors } from 'utils/lib/theme/billing-palette';
 import { BillingInsuranceType, UpdateBillingPatientInput } from 'utils/lib/types/data/billing/billing.schemas';
 import {
   BILLING_INSURANCE_TYPE_OPTIONS,
@@ -40,7 +41,6 @@ import { CoverageForm, coverageToUpdateInput, defaultCoverageFormValues } from '
 import { defaultPatientFormValues, PatientForm, patientToUpdateInput } from '../constants/patient';
 import { useApiClients } from '../hooks/useAppClients';
 import { usePatient } from '../hooks/usePatient';
-import { otherColors } from '../themes/ottehr/colors';
 
 const INSURANCE_TYPE_ORDER: BillingInsuranceType[] = BILLING_INSURANCE_TYPE_OPTIONS.map((o) => o.value);
 const insuranceTypeRank = (type: BillingInsuranceType | undefined): number => {

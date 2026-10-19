@@ -172,6 +172,18 @@
         },
         {
           "action": [
+            "Messaging:CreateConversation",
+            "Messaging:ConversationAddParticipant",
+            "Messaging:ConversationRemoveParticipant"
+          ],
+          "effect": "Allow",
+          "resource": [
+            "Messaging:Conversation",
+            "Messaging:Conversation:*"
+          ]
+        },
+        {
+          "action": [
             "RCM:CheckInsuranceEligibility"
           ],
           "effect": "Allow",

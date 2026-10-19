@@ -12,7 +12,7 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Patient, Person } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import { useState } from 'react';
@@ -25,6 +25,7 @@ import {
   CopyableFollowupField,
   FollowUpOptions,
 } from 'utils/lib/types/api/prebook-create-appointment/prebook-create-appointment.types';
+import { markChartStale } from '../../hooks/chartSectionCache';
 import { useOystehrAPIClient } from '../../hooks/useOystehrAPIClient';
 import type { ConvertFromVisit } from './AddPatientFollowup';
 import { COPYABLE_FOLLOWUP_FIELDS, fetchCopySourceChartData } from './copyFollowupFields';
@@ -55,6 +56,7 @@ export default function ScheduledFollowupParentSelector({
   const patientId = patient?.id;
   const apiClient = useOystehrAPIClient();
   const { oystehrZambda } = useApiClients();
+  const queryClient = useQueryClient();
   const copyChartDataToFollowup = useCopyChartDataToFollowup();
 
   const { previousEncounters, selectedParentEncounter, setSelectedParentEncounter } = useParentEncounters(
@@ -135,6 +137,7 @@ export default function ScheduledFollowupParentSelector({
             sourceEncounterId: parentEncounterId,
             targetEncounterId: convertFrom.encounterId,
             fields,
+            overwriteExisting: true,
           });
         } catch (e) {
           console.error('Failed to copy chart data to the converted visit:', e);
@@ -142,12 +145,14 @@ export default function ScheduledFollowupParentSelector({
         }
       }
 
+      await markChartStale(queryClient, convertFrom.encounterId);
+
       return { copyFailed };
     },
     onSuccess: ({ copyFailed }) => {
       enqueueSnackbar(
         copyFailed
-          ? 'Visit converted to a follow-up, but some information could not be copied from the initial visit'
+          ? 'Visit converted to a follow-up, but copying information from the initial visit did not fully complete'
           : 'Visit converted to a scheduled follow-up',
         { variant: copyFailed ? 'warning' : 'success' }
       );
@@ -271,7 +276,8 @@ export default function ScheduledFollowupParentSelector({
                         <>
                           {field.label}{' '}
                           <Typography component="span" variant="body2" color="text.secondary">
-                            (this visit already has {field.label})
+                            (this visit already has {field.label}
+                            {field.extract ? '; copying replaces it' : '; only new codes are added'})
                           </Typography>
                         </>
                       ) : (

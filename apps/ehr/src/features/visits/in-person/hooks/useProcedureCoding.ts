@@ -2,6 +2,7 @@ import { hashKey } from '@tanstack/react-query';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { aiDefense, aiProcedureInput } from 'utils/lib/procedure-coding/ai';
 import { defendCodes, detectProcedureFamily, suggestCode } from 'utils/lib/procedure-coding/evaluate';
+import { ProcedureFieldVisibility, procedureFieldVisibility } from 'utils/lib/procedure-coding/fields';
 import {
   CodeAssessmentKind,
   EvaluationFamilyMatchKind,
@@ -11,7 +12,6 @@ import {
 import { CodeOutcomeKind } from 'utils/lib/procedure-coding/model.types';
 import { CPT_RULES_VINTAGE } from 'utils/lib/procedure-coding/provenance';
 import { useOystehrAPIClient } from '../../shared/hooks/useOystehrAPIClient';
-import { ProcedureFieldVisibility, procedureFieldVisibility } from '../components/procedures/procedureFieldVisibility';
 
 const ENGINE_DEBOUNCE_MS = 500;
 const AI_DEBOUNCE_MS = 5000; // common debounce time for AI to return a response (keystrokes and form changes).
@@ -47,7 +47,6 @@ export type ProcedureCodingEvaluationState = EvaluatingProcedureCodingState | Re
 
 export interface UseProcedureCodingResult {
   evaluationState: ProcedureCodingEvaluationState;
-  rulesVintage: string;
   fieldVisibility: ProcedureFieldVisibility;
   retrySuggestions: () => void;
 }
@@ -163,7 +162,6 @@ export function useProcedureCoding(facts: ProcedureFactsInput): UseProcedureCodi
 
   return {
     evaluationState,
-    rulesVintage: CPT_RULES_VINTAGE,
     fieldVisibility: procedureFieldVisibility(family, facts),
     retrySuggestions: () => {
       aiCache.current.delete(hashKey([aiProcedureInput(factsRef.current)]));

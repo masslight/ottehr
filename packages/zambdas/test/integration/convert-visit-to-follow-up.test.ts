@@ -318,5 +318,81 @@ describe('convert-visit-to-follow-up integration', () => {
       expect(updated.diagnosis).toHaveLength(1);
       expect(updated.diagnosis?.[0]?.condition?.reference).toBe(`Condition/${existingDx.id}`);
     }, 90_000);
+
+    it('carries the parent primary over as a secondary when the visit already has one', async () => {
+      const visit = await insertInPersonAppointmentBase(oystehrAdmin, processId);
+      const dxTag = { tag: [{ code: 'diagnosis', system: `${PRIVATE_EXTENSION_BASE_URL}/diagnosis` }] };
+
+      const existingDx = await oystehrAdmin.fhir.create<Condition>(
+        addProcessIdMetaTagToResource(
+          {
+            resourceType: 'Condition',
+            subject: { reference: `Patient/${visit.patient.id}` },
+            encounter: { reference: `Encounter/${visit.encounter.id}` },
+            code: { coding: [{ system: 'http://hl7.org/fhir/sid/icd-10-cm', code: 'J02.9' }], text: 'Pharyngitis' },
+            meta: dxTag,
+          } as Condition,
+          processId
+        ) as Condition
+      );
+      await oystehrAdmin.fhir.patch<Encounter>({
+        resourceType: 'Encounter',
+        id: visit.encounter.id!,
+        operations: [
+          {
+            op: 'add',
+            path: '/diagnosis',
+            value: [{ condition: { reference: `Condition/${existingDx.id}` }, rank: 1 }],
+          },
+        ],
+      });
+
+      const parentDx = await oystehrAdmin.fhir.create<Condition>(
+        addProcessIdMetaTagToResource(
+          {
+            resourceType: 'Condition',
+            subject: { reference: `Patient/${visit.patient.id}` },
+            code: { coding: [{ system: 'http://hl7.org/fhir/sid/icd-10-cm', code: 'R05.9' }], text: 'Cough' },
+            meta: dxTag,
+          } as Condition,
+          processId
+        ) as Condition
+      );
+      const parent = await oystehrAdmin.fhir.create<Encounter>(
+        addProcessIdMetaTagToResource(
+          {
+            resourceType: 'Encounter',
+            status: 'finished',
+            class: { system: 'http://hl7.org/fhir/R4/v3/ActEncounterCode/vs.html', code: 'ACUTE' },
+            subject: { reference: `Patient/${visit.patient.id}` },
+            diagnosis: [{ condition: { reference: `Condition/${parentDx.id}` }, rank: 1 }],
+          } as Encounter,
+          processId
+        ) as Encounter
+      );
+
+      await convert({ encounterId: visit.encounter.id, parentEncounterId: parent.id });
+
+      const updated = await oystehrAdmin.fhir.get<Encounter>({
+        resourceType: 'Encounter',
+        id: visit.encounter.id!,
+      });
+      expect(updated.diagnosis).toHaveLength(2);
+      // Only one entry may carry rank 1: get-chart-data reads it as `isPrimary`, and the assessment
+      // tab renders `find(isPrimary)` next to `filter(!isPrimary)`, so a second primary is shown
+      // nowhere at all — the carried code would look like it was never copied.
+      expect(updated.diagnosis?.filter((entry) => entry.rank === 1)).toHaveLength(1);
+      expect(updated.diagnosis?.find((entry) => entry.rank === 1)?.condition?.reference).toBe(
+        `Condition/${existingDx.id}`
+      );
+
+      const carried = updated.diagnosis?.find((entry) => entry.condition?.reference !== `Condition/${existingDx.id}`);
+      expect(carried?.rank).toBeUndefined();
+      const cloned = await oystehrAdmin.fhir.get<Condition>({
+        resourceType: 'Condition',
+        id: carried!.condition!.reference!.split('/')[1],
+      });
+      expect(cloned.code?.coding?.[0]?.code).toBe('R05.9');
+    }, 90_000);
   });
 });

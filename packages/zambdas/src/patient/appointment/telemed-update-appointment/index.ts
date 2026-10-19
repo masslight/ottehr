@@ -13,6 +13,7 @@ import {
 import { RequiredProps } from 'utils/lib/types/typescript-helpers';
 import { createUpdateUserRelatedResources, creatingPatientUpdateRequest } from '../../../shared/appointment/helpers';
 import { checkOrCreateM2MClientToken, getUser, userHasAccessToPatient } from '../../../shared/auth';
+import { truncateForLog } from '../../../shared/logging';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
 import { validateUpdateAppointmentParams } from './validateRequestParameters';
@@ -23,7 +24,6 @@ const ZAMBDA_NAME = 'telemed-update-appointment';
 let oystehrToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  console.log(`Input: ${JSON.stringify(input)}`);
   const validatedParameters = validateUpdateAppointmentParams(input);
 
   oystehrToken = await checkOrCreateM2MClientToken(oystehrToken, input.secrets);
@@ -65,7 +65,7 @@ async function performEffect(props: PerformEffectInputProps): Promise<APIGateway
   const { appointmentId } = await updateAppointment(params, oystehr, user);
 
   const response = { appointmentId };
-  console.log(`fhirAppointment = ${JSON.stringify(response)}`, 'Telemed visit');
+  console.log(`fhirAppointment = ${truncateForLog(response)}`, 'Telemed visit');
   return {
     statusCode: 200,
     body: JSON.stringify(response),

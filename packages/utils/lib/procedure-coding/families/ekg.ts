@@ -20,13 +20,23 @@ type EkgCode = (typeof EKG_CODES)[keyof typeof EKG_CODES];
 const fields: readonly CodingField[] = [
   {
     key: 'component',
+    neededForCoding: true,
     label: 'Component furnished',
     kind: 'select',
     options: ['tracing and report', 'tracing only', 'interpretation/report only'],
   },
-  { key: 'count', label: 'Same-day recordings', kind: 'number', defaultValue: 1, min: 0, step: 1 },
+  {
+    key: 'count',
+    neededForCoding: true,
+    label: 'Same-day recordings',
+    kind: 'number',
+    defaultValue: 1,
+    min: 0,
+    step: 1,
+  },
   {
     key: 'repeatClinician',
+    neededForCoding: true,
     label: 'Repeat clinician',
     kind: 'select',
     options: ['same', 'different'],
@@ -46,6 +56,19 @@ const fields: readonly CodingField[] = [
 
 export const ekgFamily: ProcedureFamilyModel<EkgCode> = {
   codePairEdits: EKG_PTP_EDITS,
+  // MPFS PC/TC indicator 4 on 93000: it is the global service, with 93005 the technical component
+  // (indicator 3) and 93010 the professional component (indicator 2). Neither component takes
+  // modifier 26 or TC, because each descriptor already names its component.
+  // CMS Claims Processing Manual Ch.13 §100.1 defines what the professional component must contain.
+  // Adopted policy: choosing a component is flagged, never blocked — the provider keeps the selection.
+  componentCodeNotices: [
+    {
+      selected: [EKG_CODES.TracingOnly, EKG_CODES.InterpretationAndReportOnly],
+      global: EKG_CODES.TracingAndReport,
+      message:
+        'Documentation supports the full recording with interpretation and report; a component-only code is selected.',
+    },
+  ],
   id: 'ekg',
   procedureNames: PROCEDURE_NAMES['ekg'],
   displayName: 'EKG',

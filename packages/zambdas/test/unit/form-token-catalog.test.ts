@@ -1,7 +1,8 @@
 import { Patient } from 'fhir/r4b';
 import { TOKEN_CATALOG } from 'utils/lib/form-tokens/token-catalog';
 import { describe, expect, it } from 'vitest';
-import { FormFillContext, resolveToken, TOKEN_RESOLVERS } from '../../src/ehr/shared/form-token-resolvers';
+import { FormFillContext } from '../../src/ehr/shared/form-fill-context';
+import { resolveToken, TOKEN_RESOLVERS } from '../../src/ehr/shared/form-token-resolvers';
 
 describe('form token catalog', () => {
   it('has a resolver for every descriptor, and a descriptor for every resolver', () => {

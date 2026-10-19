@@ -34,6 +34,50 @@ describe('createProcedureServiceRequest code sanitization', () => {
     expect(sr.bodySite).toBeUndefined();
   });
 
+  // FHIR invariant ext-1: an extension carries either a value or nested extensions. An extension
+  // holding an empty string reaches the server as neither, and every later PATCH of the resource —
+  // cancelling the procedure, for one — fails whole-resource validation with a 400.
+  test('omits extensions whose text is blank or whitespace-only', () => {
+    const sr = buildServiceRequest({
+      medicationUsed: '',
+      bodySide: '   ',
+      technique: ['', ' '],
+      suppliesUsed: '',
+      procedureDetails: '  ',
+      complications: '',
+      patientResponse: '',
+      postInstructions: '',
+      timeSpent: '',
+      documentedBy: '',
+      repairDepth: '',
+      infusionStartTime: '',
+      infusionStopTime: '',
+    });
+
+    expect(sr.extension).toBeUndefined();
+  });
+
+  test('keeps every emitted extension carrying a value', () => {
+    const sr = buildServiceRequest({
+      medicationUsed: 'lidocaine',
+      procedureDetails: '',
+      lengthCm: 3.2,
+      specimenSent: false,
+      documentedBy: 'Dr. House',
+    });
+
+    expect(sr.extension).toHaveLength(4);
+    expect(
+      sr.extension?.every(
+        (extension) =>
+          extension.valueString != null ||
+          extension.valueBoolean != null ||
+          extension.valueDecimal != null ||
+          extension.extension != null
+      )
+    ).toBe(true);
+  });
+
   test('leaves already-valid codes untouched', () => {
     const sr = buildServiceRequest({
       procedureType: 'splint-application',

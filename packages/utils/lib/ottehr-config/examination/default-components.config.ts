@@ -5,7 +5,7 @@ import {
   ExamModalOptionColumn,
   ExamModalOptionGroup,
   ExamModalWithColumnsSection,
-} from 'config-types';
+} from 'config-types/config/examination';
 
 type ColumnConfig = { key: string; header?: string; headerAbbreviation?: string };
 

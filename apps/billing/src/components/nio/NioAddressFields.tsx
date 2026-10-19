@@ -1,8 +1,8 @@
 import { Box, FormControl, InputLabel, MenuItem, Select, TextField } from '@mui/material';
 import { ReactElement } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
-import { InputMask } from 'ui-components/lib/components/InputMask';
 import { AllStates, stateCodeToFullName } from 'utils/lib/types/common';
+import { ZipInput } from '../input/ZipInput';
 
 // Optional address block for NIO forms. Unlike AddressFields, every field is optional (partial
 // addresses are allowed by design) and the field names are prefixed, so multiple address groups —
@@ -77,23 +77,7 @@ export function NioAddressFields({ prefix }: { prefix: string }): ReactElement {
             </FormControl>
           )}
         />
-        <Controller
-          name={`${prefix}.zip`}
-          control={control}
-          render={({ field }) => (
-            <TextField
-              label="ZIP"
-              size="small"
-              fullWidth
-              value={field.value}
-              onChange={(e) => field.onChange(e.target.value)}
-              InputProps={{
-                inputComponent: InputMask as any,
-                inputProps: { mask: '00000-0000' },
-              }}
-            />
-          )}
-        />
+        <ZipInput name={`${prefix}.zip`} label="ZIP" />
       </Box>
     </>
   );

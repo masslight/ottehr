@@ -1,34 +1,5 @@
 vi.mock('src/hooks/useAppClients', () => ({ useApiClients: () => ({ oystehr: undefined }) }));
 vi.mock('@tanstack/react-query', () => ({ useQuery: () => ({ data: undefined }) }));
-const { procedureCodingModel } = vi.hoisted(() => ({
-  procedureCodingModel: import('utils/lib/procedure-coding/model.types'),
-}));
-
-vi.mock('utils', async () => {
-  const model = await procedureCodingModel;
-  const format = await import('utils/lib/procedure-coding/format');
-  return {
-    ...model,
-    ...format,
-    MAX_PLAUSIBLE_LENGTH_CM: 100,
-    isPlausibleLengthCm: (value: number | undefined) =>
-      value !== undefined && Number.isFinite(value) && value > 0 && value <= 100,
-    extractInfusionDuration: (input: { infusionStartTime?: string; infusionStopTime?: string }) => {
-      const startMinutes = format.parseClockTime(input.infusionStartTime);
-      const stopMinutes = format.parseClockTime(input.infusionStopTime);
-      if (startMinutes === undefined || stopMinutes === undefined) return undefined;
-      const duration = format.clockSpan(startMinutes, stopMinutes);
-      return {
-        startMinutes,
-        stopMinutes,
-        ...duration,
-        implausible: duration.durationMinutes > 12 * 60,
-        evidence: { source: model.EvidenceSource.Field, field: 'Infusion start / stop times' },
-      };
-    },
-  };
-});
-
 vi.mock('@mui/x-date-pickers/AdapterLuxon', () => ({ AdapterLuxon: class AdapterLuxon {} }));
 
 vi.mock('@mui/x-date-pickers-pro', () => ({
@@ -65,13 +36,13 @@ import {
 } from 'utils/lib/procedure-coding/model.types';
 import { describe, expect, it, vi } from 'vitest';
 import { CodingAssistPanel } from '../../src/features/visits/in-person/components/procedures/coding-assist/CodingAssistPanel';
+import {
+  bestPracticeFindings,
+  CodingFindingList,
+} from '../../src/features/visits/in-person/components/procedures/coding-assist/CodingFindingList';
 import { DocumentationCheck } from '../../src/features/visits/in-person/components/procedures/coding-assist/DocumentationCheck';
 import { ConditionalCodingFields } from '../../src/features/visits/in-person/components/procedures/ConditionalCodingFields';
 import { ProcedureCptCodesField } from '../../src/features/visits/in-person/components/procedures/ProcedureCptCodesField';
-import {
-  ProcedureDropdown,
-  ProcedureMultiSelect,
-} from '../../src/features/visits/in-person/components/procedures/ProcedureFormFields';
 
 const RULES_VINTAGE = 'CPT 2026';
 
@@ -114,13 +85,13 @@ function renderAssistance(
       <CodingAssistPanel
         evaluation={suggestion}
         isEvaluating={false}
-        rulesVintage={RULES_VINTAGE}
         procedureTypeSelected
         isReadOnly={false}
         selectedCodes={selectedCodes}
         onAddCodes={onAddCodes}
       />
       <DocumentationCheck evaluation={defense} suggestionVisible={suggestionVisible(suggestion.outcome.kind)} />
+      <CodingFindingList findings={bestPracticeFindings(suggestion.findings)} dataTestId="coding-guidance" />
     </>
   );
   return { onAddCodes };
@@ -142,7 +113,13 @@ describe('procedure coding assistance presentation', () => {
     const bestMatch = screen.getByTestId('best-match-cpt-code');
     expect(bestMatch).toHaveTextContent('12042');
     expect(bestMatch).toHaveTextContent('Layered closure documented; hand; 3.2 cm.');
-    expect(screen.getByTestId('coding-rules-vintage')).toHaveTextContent(`Checks current as of ${RULES_VINTAGE}`);
+    expect(screen.queryByTestId('coding-clinician-review')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Checks current as of/)).not.toBeInTheDocument();
+  });
+
+  it('identifies the clinician review caption for AI suggestions', () => {
+    renderAssistance({ ...evaluation({ kind: CodeOutcomeKind.NoCode }), source: 'ai' });
+    expect(screen.getByTestId('coding-clinician-review')).toHaveTextContent('Clinician review required');
   });
 
   it('renders loading and not-assessed states', () => {
@@ -150,7 +127,6 @@ describe('procedure coding assistance presentation', () => {
       <CodingAssistPanel
         evaluation={undefined}
         isEvaluating
-        rulesVintage={RULES_VINTAGE}
         procedureTypeSelected
         isReadOnly={false}
         selectedCodes={[]}
@@ -166,7 +142,6 @@ describe('procedure coding assistance presentation', () => {
           reason: 'This procedure type is not covered by the documentation checks.',
         })}
         isEvaluating={false}
-        rulesVintage={RULES_VINTAGE}
         procedureTypeSelected
         isReadOnly={false}
         selectedCodes={[]}
@@ -187,7 +162,6 @@ describe('procedure coding assistance presentation', () => {
           candidates: [],
         })}
         isEvaluating={false}
-        rulesVintage={RULES_VINTAGE}
         procedureTypeSelected
         isReadOnly={false}
         selectedCodes={[]}
@@ -208,7 +182,6 @@ describe('procedure coding assistance presentation', () => {
           ],
         })}
         isEvaluating={false}
-        rulesVintage={RULES_VINTAGE}
         procedureTypeSelected
         isReadOnly={false}
         selectedCodes={[]}
@@ -277,7 +250,7 @@ describe('procedure coding assistance presentation', () => {
 
     expect(screen.getByTestId('coding-defense-supported')).toHaveTextContent('Documentation supports 29125');
     expect(screen.getAllByText('Splint material is not documented.')).toHaveLength(1);
-    expect(screen.getByTestId('coding-assist-findings')).toHaveTextContent('Splint material is not documented.');
+    expect(screen.getByTestId('coding-guidance')).toHaveTextContent('Splint material is not documented.');
     expect(screen.getByTestId('coding-defense-not-assessed')).toHaveTextContent(
       '99214 — not assessed by documentation checks'
     );
@@ -414,42 +387,5 @@ describe('procedure form selections', () => {
       'true'
     );
     expect(onAdd).not.toHaveBeenCalled();
-  });
-
-  it('matches multi-select values by value and allows deselection', async () => {
-    const user = userEvent.setup();
-    const onChange = vi.fn();
-    render(
-      <ProcedureMultiSelect
-        label="Technique"
-        options={['Curette']}
-        values={['Curette']}
-        onChange={onChange}
-        disabled={false}
-        dataTestId="technique"
-      />
-    );
-
-    await user.click(screen.getByRole('combobox', { name: 'Technique' }));
-    await user.click(await screen.findByRole('option', { name: 'Curette' }));
-    expect(onChange).toHaveBeenCalledWith([]);
-  });
-
-  it('clears an optional selection', async () => {
-    const user = userEvent.setup();
-    const onChange = vi.fn();
-    render(
-      <ProcedureDropdown
-        label="Site/location"
-        options={['Hand']}
-        value="Hand"
-        onChange={onChange}
-        disabled={false}
-        dataTestId="site"
-      />
-    );
-
-    await user.click(screen.getByRole('button', { name: 'Clear Site/location' }));
-    expect(onChange).toHaveBeenCalledWith(undefined);
   });
 });

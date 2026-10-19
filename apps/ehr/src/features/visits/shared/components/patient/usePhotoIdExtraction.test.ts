@@ -5,7 +5,7 @@
 import { QuestionnaireResponse } from 'fhir/r4b';
 import { PhotoIdExtractionFields } from 'utils/lib/types/data/documents';
 import { describe, expect, it } from 'vitest';
-import { photoIdBelongsToPatient, readConsentSignerRelationship, withoutPhotoIdName } from './usePhotoIdExtraction';
+import { photoIdBelongsToPatient, readConsentSignerRelationship, withoutPhotoIdIdentity } from './usePhotoIdExtraction';
 
 const makeFields = (overrides: Partial<PhotoIdExtractionFields> = {}): PhotoIdExtractionFields => ({
   firstName: 'Jane',
@@ -99,14 +99,21 @@ describe('photoIdBelongsToPatient', () => {
   });
 });
 
-describe('withoutPhotoIdName', () => {
-  it('drops the whole name, suffix included, leaving address and the rest suggestible', () => {
-    expect(withoutPhotoIdName(makeFields())).toEqual(
-      makeFields({ firstName: null, middleName: null, lastName: null, suffix: null })
+describe('withoutPhotoIdIdentity', () => {
+  it('drops everything that identifies the holder, leaving address and the rest suggestible', () => {
+    expect(withoutPhotoIdIdentity(makeFields())).toEqual(
+      makeFields({
+        firstName: null,
+        middleName: null,
+        lastName: null,
+        suffix: null,
+        dateOfBirth: null,
+        sex: null,
+      })
     );
   });
 
   it('passes null through', () => {
-    expect(withoutPhotoIdName(null)).toBeNull();
+    expect(withoutPhotoIdIdentity(null)).toBeNull();
   });
 });

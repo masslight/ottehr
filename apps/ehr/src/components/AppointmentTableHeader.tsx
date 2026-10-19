@@ -4,6 +4,7 @@ import {
   ACTION_WIDTH_MIN,
   CHAT_WIDTH_MIN,
   INTAKE_AND_PROVIDER_WIDTH_MIN,
+  NOTES_WIDTH,
   NOTES_WIDTH_MIN,
   PATIENT_AND_REASON_WIDTH_MIN,
   PROVIDER_WIDTH_MIN,
@@ -66,7 +67,7 @@ export default function AppointmentTableHeader({ tab, table }: AppointmentTableH
               : 'Visit Comp.'}
           </Typography>
         </TableCell>
-        <TableCell sx={{ width: NOTES_WIDTH_MIN }}>
+        <TableCell sx={{ width: NOTES_WIDTH, minWidth: NOTES_WIDTH_MIN }}>
           <Typography variant="subtitle2" sx={{ fontSize: '14px', fontWeight: 600 }}>
             Notes
           </Typography>

@@ -1,5 +1,5 @@
 import Oystehr from '@oystehr/sdk';
-import { captureException } from '@sentry/aws-serverless';
+import { captureException } from '@sentry/node-core/light';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, QuestionnaireResponse } from 'fhir/r4b';
 import { DateTime } from 'luxon';
@@ -27,8 +27,6 @@ export const index = wrapHandler('submit-paperwork', async (input: ZambdaInput):
   const oystehr = createClinicalOystehrClient(token, secrets);
 
   const effectInput = await validateSubmitInputs(input, oystehr);
-
-  console.log('effect input', JSON.stringify(effectInput));
 
   const qr = await performEffect(effectInput, oystehr, token);
 

@@ -16,6 +16,7 @@ import {
   Specimen,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { isCustomInsuranceOrgReferenceUrl } from 'utils/lib/helpers/helpers';
 import {
   externalLabOrderUsesFriendlyPatientId,
   getOrderNumber,
@@ -38,6 +39,7 @@ import {
 } from 'utils/lib/types/data/labs/labs.types';
 import { EXTERNAL_LAB_ERROR } from 'utils/lib/types/errors';
 import { validate } from 'uuid';
+import { resolveCustomInsuranceOrgReference } from '../../../../shared/custom-insurance-org-directory';
 import {
   createExternalLabsOrderFormPDF,
   getOrderFormDataConfig,
@@ -332,7 +334,7 @@ function makeLocationPromise(
     .then((location) => ({ serviceRequestID, location }));
 }
 
-async function makeCoveragePromise(
+export async function makeCoveragePromise(
   oystehr: Oystehr,
   serviceRequestID: string,
   patientIDToValidate: string | undefined,
@@ -376,7 +378,18 @@ async function makeCoveragePromise(
       const payorReference = coverage.payor[0]?.reference;
       if (!payorReference) throw EXTERNAL_LAB_ERROR(`No payor reference found for Coverage/${coverage.id}`);
       const payorReferenceMaybeUuid = payorReference.replace('Organization/', '');
-      if (validate(payorReferenceMaybeUuid)) {
+      if (isCustomInsuranceOrgReferenceUrl(payorReference)) {
+        // A billing-app-owned custom insurance org: resolved through the billing zambda door, never
+        // RCM (it isn't in RCM's payer directory) and never a direct FHIR read.
+        try {
+          payorOrg = await resolveCustomInsuranceOrgReference(oystehr, payorReference);
+        } catch (error) {
+          console.error(`Unable to resolve custom insurance org at ${payorReference}. Error: `, error);
+          throw EXTERNAL_LAB_ERROR(
+            `Unable to resolve custom insurance organization ${payorReference} for Coverage/${coverageId}. Ensure the organization exists in billing`
+          );
+        }
+      } else if (validate(payorReferenceMaybeUuid)) {
         payorOrg = unbundledResults.find(
           (res): res is Organization => res.resourceType === 'Organization' && res.id === payorReferenceMaybeUuid
         );

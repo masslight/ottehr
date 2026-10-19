@@ -14,6 +14,10 @@ export const CUSTOM_INSURANCE_ORG_KIND_CODE = 'insurance-organization';
 // Organization.identifier.system for the user-entered "OTR-" business id.
 export const CUSTOM_INSURANCE_ORG_ID_SYSTEM = 'https://fhir.ottehr.com/billing/insurance-organization-id';
 
+// Every business id starts with this — a payer search matching it is an id lookup, not a name search
+// (see search-billing-custom-insurance-orgs).
+export const CUSTOM_INSURANCE_ORG_ID_PREFIX = 'OTR-';
+
 // Organization.type coding system for the zero-or-more insurance-type checkboxes.
 export const CUSTOM_INSURANCE_ORG_TYPE_SYSTEM = 'https://fhir.ottehr.com/billing/insurance-organization-type';
 
@@ -78,4 +82,27 @@ export interface SearchCustomInsuranceOrgsResponse {
   total: number;
   offset: number;
   pageSize: number;
+}
+
+// --- Clinical interface DTOs ---
+// The stable contract the clinical app consumes; deliberately minimal (no submission mechanism, no
+// contacts) so billing internals can evolve freely. Mirrors ClinicalNioOption in
+// non-insurance-org.types.ts.
+
+export interface ClinicalCustomInsuranceOrgOption {
+  id: string;
+  // A reference token (see getCustomInsuranceOrgReferenceUrl) — what clinical code stores in
+  // Reference.reference, never a direct "Organization/{id}" FHIR reference. Clinical code holds
+  // only this token plus name/orgId and resolves the org through the billing zambda interface, the
+  // same way an NIO reference works (see ClinicalNioOption).
+  reference: string;
+  orgId: string;
+  name: string;
+  // A stored reference can point at a since-deleted org; lookups by id still resolve it, with
+  // active=false, so clinical validation and display both work.
+  active: boolean;
+}
+
+export interface ListCustomInsuranceOrganizationsResponse {
+  organizations: ClinicalCustomInsuranceOrgOption[];
 }

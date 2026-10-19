@@ -22,11 +22,11 @@ import { ZambdaInput } from '../../shared/types/common';
 let oystehrToken: string;
 
 const ZAMBDA_NAME = 'get-answer-options';
+
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const { secrets } = input;
 
   const getOptionsInput = validateInput(input);
-  console.log('get options input:', getOptionsInput);
 
   console.group('getAuth0Token');
   if (!oystehrToken) {
@@ -58,11 +58,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 export const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<QuestionnaireItemAnswerOption[]> => {
   const { type } = input;
   if (type === 'query' && input.answerSource.zambdaId === 'get-answer-options') {
-    // In NIO mode the legacy occ-med employer query — recognized by its type token, since intake,
-    // archived questionnaire versions, and the EHR patient record all send it verbatim — is
-    // rerouted to the billing app's NIO directory. Options carry the NIO reference token, so
-    // every downstream save stores tokens with no Questionnaire or config change.
-    if (FEATURE_FLAGS_CONFIG.nonInsuranceOrganizationsEnabled && isOccMedEmployerQuery(input.answerSource)) {
+    // In custom-organizations mode the legacy occ-med employer query — recognized by its type
+    // token, since intake, archived questionnaire versions, and the EHR patient record all send
+    // it verbatim — is rerouted to the billing app's NIO directory. Options carry the NIO
+    // reference token, so every downstream save stores tokens with no Questionnaire or config
+    // change.
+    if (FEATURE_FLAGS_CONFIG.customOrganizationsEnabled && isOccMedEmployerQuery(input.answerSource)) {
       return listNioEmployerAnswerOptions(oystehr);
     }
     const { resourceType, query, prependedIdentifier } = input.answerSource;
@@ -198,6 +199,9 @@ const validateInput = (input: ZambdaInput): EffectInput => {
     const { resourceType, query } = answerSource;
     if (!resourceType) {
       throw MALFORMED_GET_ANSWER_OPTIONS_INPUT('"answerSource" must contain a "resourceType" property');
+    }
+    if (resourceType !== 'Organization') {
+      throw MALFORMED_GET_ANSWER_OPTIONS_INPUT('"answerSource.resourceType" must be "Organization"');
     }
     if (!query) {
       throw MALFORMED_GET_ANSWER_OPTIONS_INPUT('"answerSource" must contain a "query" property');

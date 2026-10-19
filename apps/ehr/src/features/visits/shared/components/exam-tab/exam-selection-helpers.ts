@@ -1,4 +1,4 @@
-import type { ExamCardComponent } from 'config-types';
+import type { ExamCardComponent } from 'config-types/config/examination';
 import type { Delete } from 'src/features/visits/telemed/hooks/useExamObservations';
 import { ExamObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 

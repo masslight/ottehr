@@ -90,7 +90,7 @@ test.describe('Admin-added quick picks are visible and usable on appointment tab
     await page.goto(`/in-person/${resourceHandler.appointment.id}/allergies`);
     await page.waitForURL(new RegExp('/in-person/.*/allergies'));
 
-    const quickPicksButton = page.getByRole('button', { name: 'Quick Picks' });
+    const quickPicksButton = page.getByRole('textbox', { name: 'Quick Picks' });
     await expect(quickPicksButton).toBeVisible(DEFAULT_TIMEOUT);
   });
 
@@ -157,7 +157,7 @@ test.describe('Admin-added quick picks are visible and usable on appointment tab
     await page.goto(`/in-person/${resourceHandler.appointment.id}/allergies`);
     await page.waitForURL(new RegExp('/in-person/.*/allergies'));
 
-    const quickPicksButton = page.getByRole('button', { name: 'Quick Picks' });
+    const quickPicksButton = page.getByRole('textbox', { name: 'Quick Picks' });
     await expect(quickPicksButton).toBeVisible(DEFAULT_TIMEOUT);
     await quickPicksButton.click();
 
@@ -173,7 +173,7 @@ test.describe('Admin-added quick picks are visible and usable on appointment tab
     await page.goto(`/in-person/${resourceHandler.appointment.id}/allergies`);
     await page.waitForURL(new RegExp('/in-person/.*/allergies'));
 
-    const quickPicksButton = page.getByRole('button', { name: 'Quick Picks' });
+    const quickPicksButton = page.getByRole('textbox', { name: 'Quick Picks' });
     await expect(quickPicksButton).toBeVisible(DEFAULT_TIMEOUT);
     await quickPicksButton.click();
 
@@ -260,7 +260,7 @@ test.describe('Admin-added quick picks are visible and usable on appointment tab
     await page.goto(`/in-person/${resourceHandler.appointment.id}/medical-conditions`);
     await page.waitForURL(new RegExp('/in-person/.*/medical-conditions'));
 
-    const quickPicksButton = page.getByRole('button', { name: 'Quick Picks' });
+    const quickPicksButton = page.getByRole('textbox', { name: 'Quick Picks' });
     await expect(quickPicksButton).toBeVisible(DEFAULT_TIMEOUT);
     await quickPicksButton.click();
 
@@ -278,7 +278,7 @@ test.describe('Admin-added quick picks are visible and usable on appointment tab
     await page.goto(`/in-person/${resourceHandler.appointment.id}/medical-conditions`);
     await page.waitForURL(new RegExp('/in-person/.*/medical-conditions'));
 
-    const quickPicksButton = page.getByRole('button', { name: 'Quick Picks' });
+    const quickPicksButton = page.getByRole('textbox', { name: 'Quick Picks' });
     await expect(quickPicksButton).toBeVisible(DEFAULT_TIMEOUT);
     await quickPicksButton.click();
 

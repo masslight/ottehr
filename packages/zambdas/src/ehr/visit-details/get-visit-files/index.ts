@@ -23,6 +23,7 @@ import {
 import { isValidUUID } from 'utils/lib/validation/helper';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { assertZ3UrlInProject } from '../../../shared/presigned-file-urls/helpers';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
 
@@ -34,13 +35,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.group('validateRequestParameters');
   const validatedParameters = validateRequestParameters(input);
   console.groupEnd();
-  console.debug('validateRequestParameters success', JSON.stringify(validatedParameters));
   const { secrets, userToken } = validatedParameters;
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
   const effectInput = await complexValidation(validatedParameters, oystehr);
 
-  const files = await getFileResources(effectInput, oystehr, userToken);
+  const files = await getFileResources(effectInput, oystehr, userToken, secrets);
 
   return {
     statusCode: 200,
@@ -52,7 +52,12 @@ interface GetFilesInput {
   patientId: string;
   appointmentId: string;
 }
-async function getFileResources(input: GetFilesInput, oystehr: Oystehr, userToken: string): Promise<VisitDocuments> {
+async function getFileResources(
+  input: GetFilesInput,
+  oystehr: Oystehr,
+  userToken: string,
+  secrets: Secrets | null
+): Promise<VisitDocuments> {
   const { patientId, appointmentId } = input;
   const documents: VisitDocuments = {
     photoIdCards: [],
@@ -92,7 +97,14 @@ async function getFileResources(input: GetFilesInput, oystehr: Oystehr, userToke
             continue;
           }
 
-          const presignedUrl = await getPresignedURL(z3Url, userToken);
+          let presignedUrl: string | undefined;
+          try {
+            assertZ3UrlInProject(z3Url, secrets);
+            presignedUrl = await getPresignedURL(z3Url, userToken);
+          } catch (error) {
+            console.error(`[${ZAMBDA_NAME}] skipping document with un-presignable url [${z3Url}]:`, error);
+            continue;
+          }
 
           if (presignedUrl) {
             z3Documents.push({
@@ -283,7 +295,6 @@ const validateRequestParameters = (input: ZambdaInput): Input => {
     throw new Error('user token unexpectedly missing');
   }
 
-  console.log('input', JSON.stringify(input, null, 2));
   const { secrets } = input;
   const { appointmentId } = JSON.parse(input.body);
 

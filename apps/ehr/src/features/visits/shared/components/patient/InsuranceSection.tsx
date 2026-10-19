@@ -1,5 +1,5 @@
 import { Button } from '@mui/material';
-import { FormFieldItemRecord } from 'config-types';
+import { FormFieldItemRecord } from 'config-types/config/form-fields';
 import { Coverage, Patient } from 'fhir/r4b';
 import { FC, ReactNode, useMemo } from 'react';
 import { Section } from 'src/components/layout/Section';

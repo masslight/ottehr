@@ -1,5 +1,5 @@
 import { NoteDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
-import { useChartFields } from '../../../hooks/useChartFields';
+import { useChartSection } from '../../../hooks/useChartSection';
 import { EditableNote, UseNoteHandlers } from '../types';
 import { useDeleteNote } from './useDeleteNote';
 import { useEditNote } from './useEditNote';
@@ -14,11 +14,9 @@ export const useNoteHandlers: UseNoteHandlers = ({
   locales,
   softDeleteWithTombstone,
 }) => {
-  const { data: chartData, isLoading } = useChartFields({
-    requestedFields: { [apiConfig.fieldName]: apiConfig.searchParams },
-  });
+  const { data, isLoading } = useChartSection('notes', { params: { types: [apiConfig.type] } });
 
-  const entities = ((chartData?.[apiConfig.fieldName] || []) as NoteDTO[]).map((note: NoteDTO) => ({
+  const entities = (data?.notes ?? []).map((note: NoteDTO) => ({
     resourceId: note.resourceId,
     text: note.text,
     authorId: note.authorId,

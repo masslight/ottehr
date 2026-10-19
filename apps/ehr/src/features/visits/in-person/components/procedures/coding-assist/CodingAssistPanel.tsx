@@ -1,15 +1,15 @@
 import { Box, Button, CircularProgress, Typography } from '@mui/material';
 import { FC, ReactNode } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { CodeOutcome, CodeOutcomeKind, CPTCodeDTO, EvaluationResult } from 'utils';
+import { CodeOutcome, CodeOutcomeKind, EvaluationResult } from 'utils/lib/procedure-coding/model.types';
+import { CPTCodeDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { CodeCandidateList } from './CodeCandidateList';
 import { CodeSuggestionRow } from './CodeSuggestionRow';
-import { CodingFindingList, collectPayerNotes, PayerNoteList } from './CodingFindingList';
+import { actionableFindings, CodingFindingList, collectPayerNotes, PayerNoteList } from './CodingFindingList';
 
 interface CodingAssistPanelProps {
   evaluation: EvaluationResult | undefined;
   isEvaluating: boolean;
-  rulesVintage: string;
   procedureTypeSelected: boolean;
   isReadOnly: boolean;
   selectedCodes: CPTCodeDTO[];
@@ -20,14 +20,14 @@ interface CodingAssistPanelProps {
 export const CodingAssistPanel: FC<CodingAssistPanelProps> = ({
   evaluation,
   isEvaluating,
-  rulesVintage,
   procedureTypeSelected,
   isReadOnly,
   selectedCodes,
   onAddCodes,
   onRetrySuggestions,
 }) => {
-  const findings = evaluation?.findings ?? [];
+  // The page can print the best-practice reminders further down (after the CPT codes) instead.
+  const findings = actionableFindings(evaluation?.findings ?? []);
   const payerNotes = collectPayerNotes(evaluation);
   const outcomeHasContent =
     evaluation != null &&
@@ -153,7 +153,7 @@ export const CodingAssistPanel: FC<CodingAssistPanelProps> = ({
         display: 'flex',
         flexDirection: 'column',
         gap: 1,
-        background: '#F4F6F8',
+        backgroundColor: 'action.hover',
         borderRadius: '8px',
         padding: '8px',
       }}
@@ -163,13 +163,15 @@ export const CodingAssistPanel: FC<CodingAssistPanelProps> = ({
         <Typography sx={{ fontWeight: 700, fontSize: '17px' }}>
           {evaluation?.source === 'ai' ? 'Possible CPT codes — AI suggestions' : 'CPT code — from your documentation'}
         </Typography>
-        <Typography
-          variant="caption"
-          color="text.secondary"
-          data-testid={dataTestIds.documentProcedurePage.codingRulesVintage}
-        >
-          {evaluation?.source === 'ai' ? 'Clinician review required' : `Checks current as of ${rulesVintage}`}
-        </Typography>
+        {evaluation?.source === 'ai' && (
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            data-testid={dataTestIds.documentProcedurePage.codingClinicianReview}
+          >
+            Clinician review required
+          </Typography>
+        )}
       </Box>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }} aria-live="polite">
         {body()}

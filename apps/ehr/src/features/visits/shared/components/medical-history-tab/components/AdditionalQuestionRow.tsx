@@ -5,7 +5,8 @@ import { dataTestIds } from 'src/constants/data-test-ids';
 import { setNavigationDisable } from 'src/features/visits/in-person/context/InPersonNavigationContext';
 import { ObservationBooleanFieldDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { convertToBoolean } from 'utils/lib/utils/convert';
-import { useChartData, useSaveChartData } from '../../../stores/appointment/appointment.store';
+import { useChartData } from '../../../hooks/useChartData';
+import { useSaveChartData } from '../../../stores/appointment/appointment.store';
 
 export const AdditionalQuestionEdit = ({
   label,

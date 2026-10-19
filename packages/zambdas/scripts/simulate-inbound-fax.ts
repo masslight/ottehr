@@ -8,8 +8,9 @@ import Oystehr from '@oystehr/sdk';
 import { Communication } from 'fhir/r4b';
 import { readFileSync } from 'fs';
 import { DateTime } from 'luxon';
+import { uploadObjectToZ3 } from 'utils/lib/helpers/presigned-file-url/helpers';
 import { getAuth0Token } from '../src/shared/getAuth0Token';
-import { createPresignedUrl, uploadObjectToZ3 } from '../src/shared/z3Utils';
+import { createPresignedUrl } from '../src/shared/z3Utils';
 
 const SENDER_FAX = '+15035551234';
 const LOCAL_ZAMBDA = 'http://localhost:3000/local/zambda/handle-inbound-fax/execute-public';

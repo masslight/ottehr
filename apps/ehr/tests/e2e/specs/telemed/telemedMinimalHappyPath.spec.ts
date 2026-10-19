@@ -1,6 +1,6 @@
 import { expect, Page, test } from '@playwright/test';
 import { DateTime } from 'luxon';
-import { isTelemedEnabled } from 'test-utils';
+import { isTelemedEnabled } from 'test-utils/lib/telemed-config';
 import { InPersonHeader } from 'tests/e2e/page/InPersonHeader';
 import { openVisitsPage } from 'tests/e2e/page/VisitsPage';
 import { dataTestIds } from '../../../../src/constants/data-test-ids';

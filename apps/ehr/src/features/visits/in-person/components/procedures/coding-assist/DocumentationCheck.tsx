@@ -1,7 +1,12 @@
 import { Box, Typography } from '@mui/material';
 import { FC } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { CodeAssessmentKind, codesWithAssessment, EvaluationResult, FindingScopeKind } from 'utils';
+import {
+  CodeAssessmentKind,
+  codesWithAssessment,
+  EvaluationResult,
+  FindingScopeKind,
+} from 'utils/lib/procedure-coding/model.types';
 import { actionableFindings, CodingFindingList, collectPayerNotes, PayerNoteList } from './CodingFindingList';
 
 interface DocumentationCheckProps {

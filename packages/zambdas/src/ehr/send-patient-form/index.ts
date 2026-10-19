@@ -18,7 +18,6 @@ let m2mToken: string;
 const ZAMBDA_NAME = 'send-patient-form';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  console.log(`${ZAMBDA_NAME} started, input: ${JSON.stringify(input)}`);
   const { appointmentId, questionnaireId, secrets, userToken } = validateRequestParameters(input);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);

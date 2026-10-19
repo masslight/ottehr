@@ -6,7 +6,7 @@ import { mapOccupationalMedicineEmployerToQuestionnaireResponseItems } from './p
 const NIO_ID = '11111111-1111-4111-8111-111111111111';
 const LEGACY_ORG_ID = '22222222-2222-4222-8222-222222222222';
 
-const flags = vi.hoisted(() => ({ nonInsuranceOrganizationsEnabled: true }));
+const flags = vi.hoisted(() => ({ customOrganizationsEnabled: true }));
 vi.mock('../../ottehr-config/feature-flags', () => ({ FEATURE_FLAGS_CONFIG: flags }));
 
 const items: QuestionnaireItem[] = [{ linkId: 'occupational-medicine-employer', type: 'reference' }];
@@ -30,7 +30,7 @@ const answerOf = (result: ReturnType<typeof mapOccupationalMedicineEmployerToQue
 
 describe('occ-med employer prepopulation in NIO mode', () => {
   beforeEach(() => {
-    flags.nonInsuranceOrganizationsEnabled = true;
+    flags.customOrganizationsEnabled = true;
   });
 
   it('prefills from an NIO token owner using the stored display — no FHIR-derived data', () => {
@@ -62,7 +62,7 @@ describe('occ-med employer prepopulation in NIO mode', () => {
   });
 
   it('prefills from the legacy employer org when the flag is off', () => {
-    flags.nonInsuranceOrganizationsEnabled = false;
+    flags.customOrganizationsEnabled = false;
     const result = mapOccupationalMedicineEmployerToQuestionnaireResponseItems({
       items,
       occupationalMedicineAccount: legacyOwnerAccount,

@@ -9,6 +9,8 @@ import {
 
 export interface SaveChartDataRequest extends AllChartValues {
   encounterId: string;
+  /** Opt in to origin-aware cleanup when removing procedure diagnosis links. */
+  cleanupProcedureDiagnoses?: boolean;
   /**
    * for the examObservations property
    * chained checkboxes must be provided all at once
@@ -20,7 +22,10 @@ export interface SaveChartDataRequest extends AllChartValues {
   schoolWorkNotes?: Pick<SchoolWorkNoteExcuseDocFileDTO, 'id' | 'published'>[];
 }
 
-export type SaveChartDataResponse = ChartDataWithResources;
+export type SaveChartDataResponse = ChartDataWithResources & {
+  /** Procedure-origin diagnoses removed after their final procedure link was removed. */
+  deletedDiagnosisIds?: string[];
+};
 
 export type SNOMEDCodeInterface = CodeableConcept;
 export interface SNOMEDCodeConceptInterface {

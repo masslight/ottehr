@@ -37,6 +37,7 @@ import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
+  deleteVisitForm,
   generatePaperworkPdf,
   getOrCreateVisitDetailsPdf,
   getPatientVisitDetails,
@@ -45,15 +46,17 @@ import {
   updatePatientVisitDetails,
 } from 'src/api/api';
 import CardThumbnail from 'src/components/CardThumbnail';
+import { CustomFormCard } from 'src/components/CustomFormCard';
 import ActivityLogDialog from 'src/components/dialogs/ActivityLogDialog';
 import CancellationReasonDialog from 'src/components/dialogs/CancellationReasonDialog';
 import { CustomDialog } from 'src/components/dialogs/CustomDialog';
+import DeleteDialog from 'src/components/dialogs/DeleteDialog';
+import { EditFormResponseDialog } from 'src/components/dialogs/EditFormResponseDialog';
 import EditPatientInfoDialog from 'src/components/dialogs/EditPatientInfoDialog';
 import ReportIssueDialog from 'src/components/dialogs/ReportIssueDialog';
 import { SendFormDialog } from 'src/components/dialogs/SendFormDialog';
 import InsuranceCardOrientationHint from 'src/components/InsuranceCardOrientationHint';
 import PatientBalances from 'src/components/PatientBalances';
-import { QuestionnaireResponseViewer } from 'src/components/QuestionnaireResponseViewer';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { ScannerModal } from 'src/components/ScannerModal';
 import { getInPersonUrlByAppointmentType } from 'src/features/visits/in-person/routing/helpers';
@@ -65,7 +68,7 @@ import { useGetPatientAccount, useGetPatientCoverages } from 'src/hooks/useGetPa
 import { useGetPatientBalances } from 'src/hooks/useGetPatientBalances';
 import { useGetPatientDocs } from 'src/hooks/useGetPatientDocs';
 import { useGetPatientPaymentsList } from 'src/hooks/useGetPatientPaymentsList';
-import { DEFAULT_TAB_TITLE, formatPatientTabTitle } from 'src/shared/utils';
+import { DEFAULT_TAB_TITLE, formatPatientTabTitle } from 'src/shared/utils/patientTabTitle';
 import { getReasonForVisitOptionsForServiceCategory } from 'utils/lib/config-helpers/booking';
 import {
   getCancellationReasonDisplay,
@@ -81,7 +84,7 @@ import {
   SCHEDULED_FOLLOWUP_OTHER_REASON,
   SCHEDULED_FOLLOWUP_REASONS,
 } from 'utils/lib/fhir/encounter';
-import { getCoding } from 'utils/lib/fhir/helpers';
+import { getCoding, getCriticalUpdateTagOp } from 'utils/lib/fhir/helpers';
 import { isInPersonAppointment, isTelemedAppointment } from 'utils/lib/fhir/moduleIdentification';
 import { getFormattedPatientFullName, getFullestAvailableName } from 'utils/lib/fhir/patient';
 import { getPatchOperationForNewMetaTag } from 'utils/lib/fhir/resourcePatch';
@@ -97,6 +100,7 @@ import {
   PATIENT_INFO_META_DATA_SYSTEM,
 } from 'utils/lib/types/constants';
 import { OrderedCoveragesWithSubscribers } from 'utils/lib/types/data/account';
+import { StandaloneFormDTO } from 'utils/lib/types/data/practice-managed-questionnaires/practice-managed-questionnaire.types';
 import { EHRVisitDetails } from 'utils/lib/types/data/visit-details.types';
 import { isApiError } from 'utils/lib/types/errors';
 import { formatDateForDisplay } from 'utils/lib/utils/dateUtils';
@@ -122,9 +126,9 @@ import {
   formatActivityLogs,
   formatNotesHistory,
   getAppointmentAndPatientHistory,
-  getCriticalUpdateTagOp,
   NoteHistory,
 } from '../helpers/activityLogsUtils';
+import { getLegacyDataUrl } from '../helpers/legacyData';
 import { useApiClients } from '../hooks/useAppClients';
 import useEvolveUser from '../hooks/useEvolveUser';
 import { useVisitCards } from '../hooks/useVisitCards';
@@ -278,6 +282,9 @@ export default function VisitDetailsPage(): ReactElement {
   const user = useEvolveUser();
 
   const [sendFormDialogOpen, setSendFormDialogOpen] = useState(false);
+  const [formToEdit, setFormToEdit] = useState<StandaloneFormDTO | undefined>(undefined);
+  const [formToDelete, setFormToDelete] = useState<StandaloneFormDTO | undefined>(undefined);
+  const [deletingForm, setDeletingForm] = useState(false);
   const [actionsMenuAnchor, setActionsMenuAnchor] = useState<HTMLElement | null>(null);
   const [docsMenuAnchor, setDocsMenuAnchor] = useState<HTMLElement | null>(null);
 
@@ -307,8 +314,15 @@ export default function VisitDetailsPage(): ReactElement {
   const serverConsentAttested = visitDetailsData?.consentIsAttested ?? false;
   const standAloneForms = visitDetailsData?.standAloneForms;
   const intakePaperworkFlowForms = visitDetailsData?.intakePaperworkFlowForms;
-  // Custom forms bundled in the visit's paperwork flow render alongside manually-sent standalone forms.
-  const allCustomForms = [...(standAloneForms ?? []), ...(intakePaperworkFlowForms ?? [])];
+  // Custom forms bundled in the visit's paperwork flow render alongside manually-sent standalone forms,
+  // but only a manually-sent form owns its QuestionnaireResponse outright, so only it can be deleted.
+  const allCustomForms = useMemo(
+    () => [
+      ...(standAloneForms ?? []).map((form) => ({ form, deletable: true })),
+      ...(intakePaperworkFlowForms ?? []).map((form) => ({ form, deletable: false })),
+    ],
+    [standAloneForms, intakePaperworkFlowForms]
+  );
 
   const {
     imagesLoading,
@@ -492,6 +506,18 @@ export default function VisitDetailsPage(): ReactElement {
   });
   const hasOwnFollowUps = (ownFollowUpCount ?? 0) > 0;
   const isOwnFollowUpsUnresolved = ownFollowUpsQueryEnabled && isOwnFollowUpCountPending;
+
+  const parentEncounterId = encounter?.partOf?.reference?.replace('Encounter/', '');
+  const parentAppointmentQueryEnabled = Boolean(oystehr) && Boolean(parentEncounterId);
+  const { data: parentAppointmentId, isPending: isParentAppointmentPending } = useQuery({
+    queryKey: ['visit-details-parent-appointment', parentEncounterId],
+    queryFn: async (): Promise<string | undefined> =>
+      (
+        await oystehr!.fhir.get<Encounter>({ resourceType: 'Encounter', id: parentEncounterId! })
+      ).appointment?.[0]?.reference?.replace('Appointment/', ''),
+    enabled: parentAppointmentQueryEnabled,
+  });
+  const isParentAppointmentUnresolved = parentAppointmentQueryEnabled && isParentAppointmentPending;
 
   const {
     data: paymentData,
@@ -832,9 +858,9 @@ export default function VisitDetailsPage(): ReactElement {
   const docsMenuOpen = Boolean(docsMenuAnchor);
 
   const progressNoteUrl =
-    appointment?.id && encounter?.id
+    appointment?.id && encounter?.id && !isParentAppointmentUnresolved
       ? getInPersonUrlByAppointmentType(
-          { id: appointment.id, encounterId: encounter.id, isFollowUp: !!encounter.partOf },
+          { id: appointment.id, parentAppointmentId, encounterId: encounter.id, isFollowUp: !!encounter.partOf },
           isFollowupEncounter(encounter)
             ? getFollowUpProgressNotePathSegment(getFollowupSubtype(encounter))
             : ROUTER_PATH.REVIEW_AND_SIGN
@@ -877,6 +903,26 @@ export default function VisitDetailsPage(): ReactElement {
     } finally {
       setPaperworkPdfLoading(false);
     }
+  };
+
+  const handleDeleteForm = async (): Promise<void> => {
+    const questionnaireResponseId = formToDelete?.questionnaireResponse.id;
+    if (!oystehrZambda || !questionnaireResponseId || !patientId) return;
+
+    setDeletingForm(true);
+    try {
+      await deleteVisitForm(oystehrZambda, { questionnaireResponseId, patientId });
+    } catch (error) {
+      console.error(error);
+      enqueueSnackbar('Failed to delete form.', { variant: 'error' });
+      return;
+    } finally {
+      setDeletingForm(false);
+    }
+
+    setFormToDelete(undefined);
+    enqueueSnackbar('Form deleted', { variant: 'success' });
+    await refetchVisitDetails();
   };
 
   const downloadVisitDetailsPdf = async (): Promise<void> => {
@@ -1147,17 +1193,7 @@ export default function VisitDetailsPage(): ReactElement {
                       disabled={!patient}
                       onClick={() => {
                         setDocsMenuAnchor(null);
-                        const patientLastName = patient?.name?.[0]?.family ?? '';
-                        const patientFirstName = patient?.name?.[0]?.given?.[0] ?? '';
-                        const rawDob = patient?.birthDate ?? '';
-                        // Convert YYYY-MM-DD to MM-DD-YYYY to match Z3 key format
-                        const dob = rawDob ? rawDob.split('-').slice(1).concat(rawDob.split('-')[0]).join('-') : '';
-                        const params = new URLSearchParams({
-                          lastName: patientLastName,
-                          firstName: patientFirstName,
-                          dob,
-                        });
-                        navigate(`/legacy-data?${params.toString()}`);
+                        if (patient) navigate(getLegacyDataUrl(patient));
                       }}
                       sx={MENU_ITEM_SX}
                     >
@@ -1522,14 +1558,14 @@ export default function VisitDetailsPage(): ReactElement {
                       />
                     </Grid>
                     {allCustomForms.length > 0 ? (
-                      allCustomForms.map((form, idx) => (
-                        <Grid item key={`${form.questionnaireId}-${idx}`}>
-                          <Paper sx={{ mt: 2, p: 3 }}>
-                            <Typography variant="subtitle1" sx={{ fontWeight: 700, color: '#0F347C', mb: 1 }}>
-                              {form.questionnaireTitle}
-                            </Typography>
-                            <QuestionnaireResponseViewer form={form} />
-                          </Paper>
+                      allCustomForms.map(({ form, deletable }, idx) => (
+                        <Grid item key={`${form.questionnaireId}-${idx}`} sx={{ mt: 2 }}>
+                          <CustomFormCard
+                            form={form}
+                            deletable={deletable}
+                            onEdit={() => setFormToEdit(form)}
+                            onDelete={() => setFormToDelete(form)}
+                          />
                         </Grid>
                       ))
                     ) : (
@@ -1882,6 +1918,29 @@ export default function VisitDetailsPage(): ReactElement {
             appointmentId={appointmentID}
           />
         )}
+        {formToEdit && (
+          <EditFormResponseDialog
+            form={formToEdit}
+            patientId={patientId}
+            onClose={() => setFormToEdit(undefined)}
+            onSaved={() => {
+              setFormToEdit(undefined);
+              void refetchVisitDetails();
+            }}
+          />
+        )}
+        <DeleteDialog
+          open={Boolean(formToDelete)}
+          title="Delete form?"
+          description={`"${
+            formToDelete?.questionnaireTitle ?? 'This form'
+          }" and the answers submitted on it will no longer show on this visit.`}
+          closeButtonText="Cancel"
+          handleClose={() => setFormToDelete(undefined)}
+          deleteButtonText="Delete"
+          handleDelete={() => void handleDeleteForm()}
+          loadingDelete={deletingForm}
+        />
       </>
     </PageContainer>
   );

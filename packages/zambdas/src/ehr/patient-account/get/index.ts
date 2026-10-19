@@ -5,7 +5,11 @@ import { pullCoverageIdentifyingDetails } from 'utils/lib/fhir/billing';
 import { parseCoverageEligibilityResponse } from 'utils/lib/fhir/billing';
 import { getPreferredPharmacyFromPatient } from 'utils/lib/fhir/patient';
 import { Secrets } from 'utils/lib/secrets';
-import { CoverageCheckWithDetails, PatientAccountResponse } from 'utils/lib/types/api/patient-account';
+import {
+  CoverageCheckWithDetails,
+  PATIENT_ACCOUNT_ELIGIBILITY_CHECK_COUNT,
+  PatientAccountResponse,
+} from 'utils/lib/types/api/patient-account';
 import { INVALID_RESOURCE_ID_ERROR, MISSING_REQUEST_BODY, MISSING_REQUIRED_PARAMETERS } from 'utils/lib/types/errors';
 import { isValidUUID } from 'utils/lib/validation/helper';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
@@ -22,7 +26,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.group('validateRequestParameters');
   const validatedParameters = validateRequestParameters(input);
   console.groupEnd();
-  console.debug('validateRequestParameters success', JSON.stringify(validatedParameters));
   const { secrets } = validatedParameters;
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
@@ -65,7 +68,7 @@ const performEffect = async (input: Input, oystehr: Oystehr): Promise<PatientAcc
         },
         {
           name: '_count', // we shouldn't need more than the most recent 10 eligibility checks
-          value: '10',
+          value: String(PATIENT_ACCOUNT_ELIGIBILITY_CHECK_COUNT),
         },
       ],
     })
@@ -148,7 +151,6 @@ const validateRequestParameters = (input: ZambdaInput): Input => {
     throw new Error('user token unexpectedly missing');
   }
 
-  console.log('input', JSON.stringify(input, null, 2));
   const { secrets } = input;
   const { patientId } = JSON.parse(input.body);
 

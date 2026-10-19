@@ -28,7 +28,6 @@ export function formatFacilityAddress(facility: ServiceFacilityItem | null): str
   return [facility.addressLine1, facility.addressLine2, facility.city, facility.state, zip].filter(Boolean).join(', ');
 }
 
-// Display names are "Last, First".
 export function splitDisplayName(name: string): { firstName: string; lastName: string } {
   const parts = name.split(', ');
   return { firstName: parts[1] ?? '', lastName: parts[0] ?? '' };
@@ -52,9 +51,5 @@ export function buildAddressInput(
   return Object.keys(address).length ? address : undefined;
 }
 
-export function formatTaxId(taxId: string): string {
-  if (taxId.length < 3) {
-    return taxId;
-  }
-  return taxId.substring(0, 2) + '-' + taxId.substring(2);
-}
+export const valueToText = (value: string | string[] | null | undefined): string =>
+  Array.isArray(value) ? value.join(', ') : value ?? '';

@@ -64,3 +64,7 @@ export const RULES_ENGINES: Record<RulesEngineType, RulesEngineDef> = {
     runButtonLabel: 'Prepare for invoice',
   },
 };
+
+export const RULES_ENGINE_SUBMISSION_TYPES = ['new', 'correction', 'void'] as const;
+
+export type RulesEngineSubmissionType = (typeof RULES_ENGINE_SUBMISSION_TYPES)[number];

@@ -16,6 +16,7 @@ import { useEvolveUser } from './hooks/useEvolveUser';
 import { BillingProviderDetail, BillingProvidersList } from './pages/BillingProviders';
 import CardsOnFileReport from './pages/CardsOnFileReport';
 import { ChargeItemDefinitionDetail, ChargeItemDefinitionList } from './pages/ChargeItemDefinitionsList';
+import ClaimCreationQueue from './pages/ClaimCreationQueue';
 import ClaimDetail from './pages/ClaimDetail';
 import ClaimsList from './pages/ClaimsList';
 import CreateClaim from './pages/CreateClaim';
@@ -24,9 +25,12 @@ import ERADetail from './pages/ERADetail';
 import ERAList from './pages/ERAList';
 import { CustomInsuranceOrganizationDetail, InsuranceOrganizationsList } from './pages/InsuranceOrganizations';
 import InvoiceReport from './pages/InvoiceReport';
+import ManualRemit from './pages/ManualRemit';
+import NetCollectionsReport from './pages/NetCollectionsReport';
 import { NonInsuranceOrganizationDetail, NonInsuranceOrganizationsList } from './pages/NonInsuranceOrganizations';
 import PatientDetail from './pages/PatientDetail';
 import PatientsList from './pages/PatientsList';
+import { PayerDetail } from './pages/PayerDetail';
 import PaymentsReport from './pages/PaymentsReport';
 import PipelineReport from './pages/PipelineReport';
 import ProductivityReport from './pages/ProductivityReport';
@@ -79,11 +83,13 @@ export default function App(): ReactElement {
               {/* <Route path="/" element={<Dashboard />} /> */}
               <Route path="/" element={<Navigate to="/claims" replace />} />
               <Route path="/claims" element={<ClaimsList />} />
+              <Route path="/claim-creation-queue" element={<ClaimCreationQueue />} />
               <Route path="/claims/new" element={<CreateClaim />} />
               <Route path="/claims/:id" element={<ClaimDetail />} />
               <Route path="/patients" element={<PatientsList />} />
               <Route path="/patients/:id" element={<PatientDetail />} />
               <Route path="/insurance-organizations" element={<InsuranceOrganizationsList />} />
+              <Route path="/insurance-organizations/rcm/:payerId" element={<PayerDetail />} />
               <Route path="/insurance-organizations/:id" element={<CustomInsuranceOrganizationDetail />} />
               <Route path="/billing-providers" element={<BillingProvidersList />} />
               <Route path="/billing-providers/:id" element={<BillingProviderDetail />} />
@@ -102,7 +108,9 @@ export default function App(): ReactElement {
                 element={<ChargeItemDefinitionDetail type="charge-master" />}
               />
               <Route path="/eras" element={<ERAList />} />
+              <Route path="/eras/new" element={<ManualRemit />} />
               <Route path="/eras/:id" element={<ERADetail />} />
+              <Route path="/eras/:id/edit" element={<ManualRemit />} />
               <Route path="/eras/:eraId/claims/:claimId" element={<EraClaimDetail />} />
               <Route path="/tags" element={<Tags />} />
               <Route path="/reports" element={<Reports />} />
@@ -111,6 +119,7 @@ export default function App(): ReactElement {
               <Route path="/reports/invoices" element={<InvoiceReport />} />
               <Route path="/reports/pipeline" element={<PipelineReport />} />
               <Route path="/reports/productivity" element={<ProductivityReport />} />
+              <Route path="/reports/net-collections" element={<NetCollectionsReport />} />
               {/* Rules routes are per engine; bare /rules lands on the Claim Submission engine. */}
               <Route path="/rules" element={<Navigate to={`/rules/${DEFAULT_RULES_ENGINE}`} replace />} />
               <Route path="/rules/:engine" element={<Rules />} />

@@ -1,5 +1,5 @@
 import fontkit from '@pdf-lib/fontkit';
-import { captureException } from '@sentry/aws-serverless';
+import { captureException } from '@sentry/node-core/light';
 import fs from 'fs';
 import { DateTime } from 'luxon';
 import {
@@ -14,7 +14,8 @@ import {
   PDFTextField,
 } from 'pdf-lib';
 import { FormFieldBinding, FormTransform } from 'utils/lib/form-tokens/mapping';
-import { DocumentProvenance, hasAcroForm, stampDocumentProvenance } from '../../shared/document-provenance';
+import { DocumentProvenance } from 'utils/lib/types/api/document-provenance.types';
+import { hasAcroForm, stampDocumentProvenance } from '../../shared/document-provenance';
 
 export type ResolvedTokenValue = string | number | boolean | undefined;
 

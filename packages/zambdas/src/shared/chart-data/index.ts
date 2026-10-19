@@ -1,5 +1,5 @@
 import Oystehr, { BatchInputPostRequest, BatchInputPutRequest } from '@oystehr/sdk';
-import { captureException } from '@sentry/aws-serverless';
+import { captureException } from '@sentry/node-core/light';
 import { randomUUID } from 'crypto';
 import { Operation } from 'fast-json-patch';
 import {
@@ -50,6 +50,7 @@ import {
   sanitizeStringForFhirCode,
 } from 'utils/lib/fhir/helpers';
 import { fillVitalObservationAttributes, isVitalObservation, makeVitalsObservationDTO } from 'utils/lib/fhir/vitals';
+import { removePrefix } from 'utils/lib/helpers/helpers';
 import {
   addEmptyArrOperation,
   addOperation,
@@ -58,6 +59,7 @@ import {
 } from 'utils/lib/helpers/operations';
 import { CODE_SYSTEM_ICD_10 } from 'utils/lib/helpers/rcm/constants';
 import { isNoteEdited } from 'utils/lib/helpers/visit-note/note-edit-detection.helper';
+import { VitalsSchema } from 'utils/lib/helpers/vitals/config-schema';
 import { getVitalObservationFhirInterpretations } from 'utils/lib/helpers/vitals/utils';
 import { patientScreeningQuestionsConfig } from 'utils/lib/ottehr-config/screening-questions';
 import { parseStructuredFacts } from 'utils/lib/procedure-coding/structured-fields';
@@ -107,6 +109,7 @@ import { createCodeableConcept } from 'utils/lib/types/api/chart-data/exam-field
 import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
 import { SNOMEDCodeConceptInterface } from 'utils/lib/types/api/chart-data/save-chart-data.types';
 import { MEDICATION_DISPENSABLE_DRUG_ID } from 'utils/lib/types/api/medication-administration.constants';
+import { ADDED_VIA_PROCEDURE_EXTENSION } from 'utils/lib/types/api/procedures.constants';
 import { TaskCoding } from 'utils/lib/types/common';
 import { ADDED_VIA_LAB_ORDER_SYSTEM } from 'utils/lib/types/data/labs/labs.constants';
 import { SCHOOL_WORK_NOTE, SCHOOL_WORK_NOTE_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
@@ -116,7 +119,6 @@ import {
   ObservationDTO,
   ObservationTextFieldDTO,
 } from 'utils/lib/types/data/screening-questions/types';
-import { removePrefix } from '../appointment/helpers';
 import { getCptModifierCodeFromProcedure, makeCptModifierExtension } from '../candid';
 import { fillMeta } from '../helpers';
 import { isDocumentPublished, PdfDocumentReferencePublishedStatuses, PdfInfo } from '../pdf/pdf-utils';
@@ -422,8 +424,9 @@ export function makeObservationResource(
   documentReferenceCreateUrl: string | undefined,
   data: ObservationDTO,
   metaSystem: string,
-  patientDOB?: string,
-  patientSex?: string
+  patientDOB: string | undefined,
+  patientSex: string | undefined,
+  vitalsAlertConfig: VitalsSchema | undefined
 ): Observation {
   const base: Observation = {
     id: data.resourceId,
@@ -452,14 +455,15 @@ export function makeObservationResource(
 
   if (isVitalObservation(data)) {
     let interpretation: Observation['interpretation'];
-    if (patientDOB) {
+    if (patientDOB && vitalsAlertConfig) {
       interpretation = getVitalObservationFhirInterpretations({
         patientDOB,
         vitalsObservation: data,
         patientSex,
+        config: vitalsAlertConfig,
       });
     }
-    return fillVitalObservationAttributes({ ...base, interpretation }, data, patientDOB);
+    return fillVitalObservationAttributes({ ...base, interpretation }, data, patientDOB, vitalsAlertConfig);
   }
 
   if (isObservationBooleanFieldDTO(data)) {
@@ -659,6 +663,7 @@ export function makeRosObservationResource(
     encounter: { reference: `Encounter/${encounterId}` },
     status: 'final',
     valueBoolean: typeof data.value === 'boolean' ? Boolean(data.value) : undefined,
+    note: data.note ? [{ text: data.note }] : undefined,
     code: { text: data.label || data.field },
     meta: fillMeta(data.field, ROS_OBSERVATION_META_SYSTEM),
   };
@@ -1142,15 +1147,15 @@ export function updateEncounterReasonForVisit(encounter: Encounter, data: FreeTe
   return resultOperations;
 }
 
-export function deleteEncounterDiagnosis(encounter: Encounter, conditionId: string): Operation[] {
-  const resultOperations: Operation[] = [];
-  if (encounter.diagnosis) {
-    encounter.diagnosis.find((diagnosis, index) => {
-      if (diagnosis.condition.reference === `Condition/${conditionId}`)
-        resultOperations.push(removeOperation(`/diagnosis/${index}`));
-    });
-  }
-  return resultOperations;
+export function deleteEncounterDiagnoses(encounter: Encounter, conditionIds: readonly string[]): Operation[] {
+  const references = new Set(conditionIds.map((id) => `Condition/${id}`));
+  return (encounter.diagnosis ?? [])
+    .flatMap((diagnosis, index) =>
+      diagnosis.condition.reference && references.has(diagnosis.condition.reference)
+        ? [removeOperation(`/diagnosis/${index}`)]
+        : []
+    )
+    .reverse();
 }
 
 export function deleteEncounterAddendumNote(encounter: Encounter): Operation[] {
@@ -1192,6 +1197,15 @@ export function makeDiagnosisConditionResource(
       },
     ];
   }
+  if (data.addedViaProcedure === true) {
+    conditionConfig.extension = [
+      ...(conditionConfig.extension ?? []),
+      {
+        url: ADDED_VIA_PROCEDURE_EXTENSION,
+        valueBoolean: true,
+      },
+    ];
+  }
   return conditionConfig;
 }
 
@@ -1204,6 +1218,11 @@ export function makeDiagnosisDTO(resource: Condition, isPrimary: boolean): Diagn
     display: resource.code?.coding?.[0].display || '',
     isPrimary: isPrimary,
     addedViaLabOrder,
+    ...(resource.extension?.some(
+      (extension) => extension.url === ADDED_VIA_PROCEDURE_EXTENSION && extension.valueBoolean === true
+    )
+      ? { addedViaProcedure: true }
+      : {}),
   };
 }
 
@@ -2035,6 +2054,22 @@ export const readProcedureFormFieldsFromServiceRequest = (sr: ServiceRequest): P
   consentObtained: getExtension(sr, FHIR_EXTENSION.ServiceRequest.consentObtained.url)?.valueBoolean,
 });
 
+/** An extension that states its content as a value[x], with no nested extensions. */
+type ValueOnlyExtension = Extension & { extension?: never };
+
+/**
+ * FHIR invariant ext-1: an extension carries either a value or nested extensions. Our array is flat
+ * today, so only the value half is checked here. The parameter type is what keeps that safe: adding
+ * a nested extension to the array fails to compile, and this function can be updated to handle it.
+ */
+const extensionCarriesValue = (extension: ValueOnlyExtension): boolean =>
+  Object.entries(extension).some(([key, value]) => {
+    if (!key.startsWith('value')) return false;
+    if (typeof value === 'string') return value.trim().length > 0;
+    if (typeof value === 'number') return Number.isFinite(value);
+    return value != null;
+  });
+
 const toFhirCode = (value: string | undefined): string | undefined => {
   if (value == null) {
     return undefined;
@@ -2050,7 +2085,7 @@ export const createProcedureServiceRequest = (
   const procedureTypeCode = toFhirCode(procedure.procedureType);
   const performerTypeCode = toFhirCode(procedure.performerType);
   const bodySiteCode = toFhirCode(procedure.bodySite);
-  const extensions: Extension[] = [
+  const extensions: ValueOnlyExtension[] = [
     {
       url: FHIR_EXTENSION.ServiceRequest.medicationUsed.url,
       valueString: procedure.medicationUsed,
@@ -2121,9 +2156,7 @@ export const createProcedureServiceRequest = (
       url: FHIR_EXTENSION.ServiceRequest.consentObtained.url,
       valueBoolean: procedure.consentObtained,
     },
-  ].filter(
-    (extension) => extension.valueString != null || extension.valueBoolean != null || extension.valueDecimal != null
-  );
+  ].filter(extensionCarriesValue);
   // Linked Condition/Procedure references are usually plain ids that get the
   // FHIR resource-type prefix. Callers building requests for a FHIR transaction
   // can also pass a urn:uuid pre-formatted reference (e.g. the apply-template
@@ -2235,10 +2268,16 @@ export function makeEncounterTaskResource(encounterId: string, coding: TaskCodin
   };
 }
 
+export function findAccidentConditions(resources: Resource[]): Condition[] {
+  return (
+    resources.filter(
+      (resource) => resource?.resourceType === 'Condition' && chartDataResourceHasMetaTagByCode(resource, 'accident')
+    ) as Condition[]
+  ).sort((a, b) => (b.meta?.lastUpdated ?? '').localeCompare(a.meta?.lastUpdated ?? ''));
+}
+
 export function makeAccidentDTOFromFhirResources(resources: FhirResource[]): AccidentDTO | undefined {
-  const accidentCondition = resources.find(
-    (resource) => resource?.resourceType === 'Condition' && chartDataResourceHasMetaTagByCode(resource, 'accident')
-  ) as Condition;
+  const accidentCondition = findAccidentConditions(resources)[0];
   if (accidentCondition == null) {
     return undefined;
   }

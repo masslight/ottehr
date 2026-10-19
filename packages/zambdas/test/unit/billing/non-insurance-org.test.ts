@@ -9,6 +9,7 @@ import {
   NIO_PREFERRED_SUBMISSION_EXTENSION_URL,
   NIO_WC_BILLING_MODE_EXTENSION_URL,
   NIO_WC_PAYER_EXTENSION_URL,
+  NIO_WC_SAME_AS_ORG_ADDRESS_EXTENSION_URL,
   NioWorkersCompCoverage,
 } from 'utils/lib/types/data/billing/non-insurance-org.types';
 import { describe, expect, it, vi } from 'vitest';
@@ -169,6 +170,38 @@ describe('non-insurance-org FHIR mapping', () => {
     expect(unnamedOther.identifier).toEqual([{ system: NIO_ORGANIZATION_KIND_SYSTEM, value: 'nio-coverage' }]);
   });
 
+  it('round-trips the workers-comp "same as organization address" flag in direct mode only', () => {
+    const direct = buildCoverageOrganization({
+      nioName: 'FedEx',
+      coverage: {
+        category: 'workers-comp',
+        billingMode: 'direct',
+        sameAsOrgAddress: true,
+        submission: { mailAddress: fullInput.address },
+      },
+    });
+    expect(direct.extension).toContainEqual({ url: NIO_WC_SAME_AS_ORG_ADDRESS_EXTENSION_URL, valueBoolean: true });
+
+    const item = mapNonInsuranceOrganization({
+      org: nioOrg,
+      affiliations: [wcAffiliation],
+      coverageOrgsById: new Map([['cov-wc', { ...direct, id: 'cov-wc' }]]),
+    });
+    expect((item.covers[0] as NioWorkersCompCoverage).sameAsOrgAddress).toBe(true);
+
+    const unchecked = buildCoverageOrganization({
+      nioName: 'FedEx',
+      coverage: { category: 'workers-comp', billingMode: 'direct' },
+    });
+    expect(unchecked.extension?.some((ext) => ext.url === NIO_WC_SAME_AS_ORG_ADDRESS_EXTENSION_URL)).toBe(false);
+    const uncheckedItem = mapNonInsuranceOrganization({
+      org: nioOrg,
+      affiliations: [wcAffiliation],
+      coverageOrgsById: new Map([['cov-wc', { ...unchecked, id: 'cov-wc' }]]),
+    });
+    expect((uncheckedItem.covers[0] as NioWorkersCompCoverage).sameAsOrgAddress).toBeUndefined();
+  });
+
   it('writes submission details to telecom, address, and extensions', () => {
     const org = buildCoverageOrganization({ nioName: 'FedEx', coverage: fullInput.covers![1] });
     expect(org.telecom).toEqual([
@@ -270,7 +303,7 @@ describe('create-billing-non-insurance-org', () => {
   it('writes the NIO, coverage orgs, and affiliations in one urn-linked transaction', async () => {
     const { oystehr, transaction } = makeOystehr();
 
-    const result = await createNio(oystehr, { ...fullInput, secrets: null }, { reference: PAYER_URL });
+    const result = await createNio(oystehr, { ...fullInput, secrets: {} }, { reference: PAYER_URL });
 
     expect(result).toEqual({ id: 'created-0' });
     expect(transaction).toHaveBeenCalledTimes(1);
@@ -303,7 +336,7 @@ describe('create-billing-non-insurance-org', () => {
 });
 
 describe('update-billing-non-insurance-org', () => {
-  const params = { ...fullInput, nioId: NIO_ID, secrets: null };
+  const params = { ...fullInput, nioId: NIO_ID, secrets: {} };
 
   it('rewrites the org, updates kept coverage, creates new pairs, all with optimistic locks', async () => {
     const { oystehr, transaction } = makeOystehr();
@@ -403,7 +436,7 @@ describe('search-billing-non-insurance-orgs', () => {
       identifier: [{ system: 'https://identifiers.fhir.oystehr.com/rcm-payer-id', value: 'PAYER123' }],
     });
 
-    const result = await searchNios(oystehr, { secrets: null });
+    const result = await searchNios(oystehr, { secrets: {} });
 
     expect(result.total).toBe(1);
     expect(result.organizations).toHaveLength(1);
@@ -436,7 +469,7 @@ describe('search-billing-non-insurance-orgs', () => {
       total: 1,
     });
 
-    const result = await searchNios(oystehr, { secrets: null });
+    const result = await searchNios(oystehr, { secrets: {} });
 
     expect(result.organizations[0].covers).toEqual([]);
   });
@@ -446,7 +479,7 @@ describe('search-billing-non-insurance-orgs', () => {
     search.mockResolvedValue({ unbundle: () => [nioOrg, wcAffiliation, wcCoverageOrg], total: 1 });
     getPayerByUrl.mockRejectedValue(new Error('rcm down'));
 
-    const result = await searchNios(oystehr, { secrets: null });
+    const result = await searchNios(oystehr, { secrets: {} });
     const wc = result.organizations[0].covers.find((c) => c.category === 'workers-comp') as NioWorkersCompCoverage;
     expect(wc.payer).toEqual({ id: '', name: 'Acme Insurance (PAYER123)', payerId: 'PAYER123' });
   });
@@ -458,7 +491,7 @@ describe('list-non-insurance-organizations', () => {
     // Affiliations ride along in the one Organization search via _revinclude.
     search.mockResolvedValue({ unbundle: () => [nioOrg, wcAffiliation] });
 
-    const result = await listNios(oystehr, { employerOnly: true, secrets: null });
+    const result = await listNios(oystehr, { employerOnly: true, secrets: {} });
 
     expect(result.organizations).toEqual([
       {
@@ -485,7 +518,7 @@ describe('list-non-insurance-organizations', () => {
     const { oystehr, search } = makeOystehr();
     search.mockResolvedValue({ unbundle: () => [{ ...nioOrg, active: false }] });
 
-    const result = await listNios(oystehr, { nioId: NIO_ID, secrets: null });
+    const result = await listNios(oystehr, { nioId: NIO_ID, secrets: {} });
 
     expect(result.organizations[0].active).toBe(false);
     const orgParams = search.mock.calls[0][0].params;
@@ -504,7 +537,7 @@ describe('list-non-insurance-organizations', () => {
         : Promise.resolve({ unbundle: () => [{ ...nioOrg, id: secondNioId, name: 'UPS' }] });
     });
 
-    const result = await listNios(oystehr, { secrets: null });
+    const result = await listNios(oystehr, { secrets: {} });
 
     expect(result.organizations.map((org) => org.id)).toEqual([NIO_ID, secondNioId]);
     const secondPageParams = search.mock.calls[1][0].params;

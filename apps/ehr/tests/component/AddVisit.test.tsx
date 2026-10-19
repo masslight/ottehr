@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor, waitForElementToBeRemoved, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { VisitType } from 'config-types';
+import { VisitType } from 'config-types/config/booking';
 import { ReactNode } from 'react';
 import { BrowserRouter, MemoryRouter, useNavigate } from 'react-router-dom';
 import {

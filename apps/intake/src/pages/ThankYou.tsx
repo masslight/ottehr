@@ -10,7 +10,7 @@ import { Link, Outlet, useLocation, useOutletContext, useParams } from 'react-ro
 import { AiChatBanner } from 'src/components/AiChatBanner';
 import { PageContainer } from 'src/components/CustomContainer';
 import { breakpoints } from 'src/providers/IntakeThemeProviderBase';
-import { i18n } from 'utils/lib/frontend';
+import i18n from 'utils/lib/frontend/i18n-lib/i18n';
 import { formatPhoneNumberDisplay } from 'utils/lib/helpers/helpers';
 import { BRANDING_CONFIG } from 'utils/lib/ottehr-config/branding';
 import { FEATURE_FLAGS_CONFIG } from 'utils/lib/ottehr-config/feature-flags';

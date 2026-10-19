@@ -216,7 +216,7 @@ export const CustomContainer: FC<ContainerProps> = ({
                       <Grid item xs={12} md={gridWidths.title}>
                         <Typography
                           sx={{
-                            width: { xs: '100%', md: isFirstPage ? '350px' : '100%' },
+                            width: { xs: '100%', md: isFirstPage && img ? '350px' : '100%' },
                           }}
                           variant={isFirstPage ? 'h1' : 'h2'}
                           color="primary.main"

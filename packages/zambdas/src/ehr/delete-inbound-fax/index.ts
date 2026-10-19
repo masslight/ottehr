@@ -1,5 +1,5 @@
 import { BatchInputDeleteRequest, BatchInputRequest } from '@oystehr/sdk';
-import { captureException } from '@sentry/aws-serverless';
+import { captureException } from '@sentry/node-core/light';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { FhirResource, Task } from 'fhir/r4b';
 import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';

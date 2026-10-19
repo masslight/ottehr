@@ -1,4 +1,4 @@
-import { QuestionnaireDataTypes } from 'config-types';
+import { QuestionnaireDataTypes } from 'config-types/config/questionnaire';
 import { Questionnaire, QuestionnaireItem } from 'fhir/r4b';
 import z from 'zod';
 import { QAndQRResponse } from '../paperwork/paperwork.types';

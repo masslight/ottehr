@@ -1,7 +1,8 @@
+import { Address, Task } from 'fhir/r4b';
 import { SubscriberRelationship } from '../../../fhir/constants';
-import { CODE_SYSTEM_CLAIM_TYPE_CODES } from '../../../helpers/rcm/constants';
-import type { EraClaimStatusCode, X12AdjustmentGroupCode } from './billing.constants';
-import type { BillingInsuranceType } from './billing.schemas';
+import { CLAIM_ACCIDENT_TYPE, CODE_SYSTEM_CLAIM_TYPE_CODES } from '../../../helpers/rcm/constants';
+import type { EraClaimStatusCode, EraSource, X12AdjustmentGroupCode } from './billing.constants';
+import type { BillingInsuranceType, ManualEraClaim, ManualEraHeader } from './billing.schemas';
 import { ClaimStatusValues } from './claim-status';
 import type { RulesEngineType } from './rules-engine.constants';
 
@@ -119,6 +120,13 @@ export interface SearchServiceFacilitiesResponse {
   pageSize: number;
 }
 
+// A rendering provider's professional license; type is a PractitionerQualificationCode, state a state code.
+export interface BillingProviderLicense {
+  type: string;
+  number: string;
+  state: string;
+}
+
 // Unified provider option (Practitioner or Organization)
 export interface BillingProviderOption {
   id: string;
@@ -128,7 +136,7 @@ export interface BillingProviderOption {
   lastName?: string;
   npi: string;
   taxonomyCode?: string;
-  licenseType?: string;
+  license?: BillingProviderLicense;
   taxId?: string;
   stripeAccountId?: string;
   address?: string;
@@ -151,6 +159,9 @@ export interface BillingPayerOption {
   id: string;
   name: string;
   payerId: string;
+  alternateNames?: string[];
+  alternatePayerIds?: string[];
+  addresses?: Address[];
 }
 
 // A diagnosis (ICD-10) or procedure (CPT/HCPCS) code option from terminology search.
@@ -163,9 +174,12 @@ export interface EraListItem {
   id: string;
   checkNumber: string;
   payerName: string;
+  // the payee the check pays: a manual remit's billing provider, else the N1*PE payee the converter
+  // replicated onto the unmatched remits; '' when the ERA carries neither
+  billingProviderName: string;
+  source: EraSource;
   paymentDate: string;
   paymentAmount: number;
-  status: string;
   claimCount: number;
   matchedCount: number;
   unmatchedCount: number;
@@ -199,6 +213,8 @@ export interface EraRemitServiceLine {
   copay: number;
   // every CAS adjustment on the line, the PR buckets above included
   adjustments: ClaimRemitAdjustment[];
+  // LQ remark codes (RARC) the payer attached to the line
+  remarkCodes: string[];
 }
 
 // One ClaimResponse (835 CLP loop) of an ERA in full detail. An ERA can carry several per claim
@@ -206,7 +222,6 @@ export interface EraRemitServiceLine {
 export interface EraClaimRemit {
   claimResponseId: string;
   created: string;
-  outcome: string;
   disposition: string;
   // CLP02 claim status code
   eraStatusCode: EraClaimStatusCode | '';
@@ -244,15 +259,47 @@ export interface EraClaimListItem {
   // the focal coverage's subscriber id (the same field the claim detail screen shows); '' when the
   // claim is unmatched or self-pay
   memberId: string;
-  status: string;
   matched: boolean;
   claimResponseIds: string[];
   // ordered oldest -> newest
   remits: EraClaimRemit[];
 }
 
+// A remit scan (or other file) attached to an ERA.
+export interface EraAttachment {
+  id: string;
+  fileName: string;
+  contentType: string;
+  dateAdded: string;
+}
+
+// One claim of a manually keyed ERA, as its editor loads it back.
+export type ManualEraEntryClaim = Omit<ManualEraClaim, 'clientKey' | 'claimResponseId' | 'matchedClaimId'> & {
+  claimResponseId: string;
+  // the Claim the remit claim is matched to (Claim/<id> request), null while unmatched
+  matchedClaimId: string | null;
+};
+
+// A manually keyed ERA in the shape its editor saves (see SaveManualEraInputSchema).
+export interface ManualEraEntry {
+  header: ManualEraHeader;
+  claims: ManualEraEntryClaim[];
+  // who keyed the remit in, and when
+  enteredBy: string;
+  enteredAt: string;
+}
+
+export interface SaveManualEraResponse {
+  eraId: string;
+  versionId: string;
+  claims: { clientKey?: string; claimResponseId: string }[];
+}
+
 export interface EraDetailResponse {
   id: string;
+  source: EraSource;
+  // PaymentReconciliation version, sent back when saving a manual ERA so stale edits are refused
+  versionId: string;
   checkNumber: string;
   checkDate: string;
   // when the ERA itself was produced/imported (PaymentReconciliation.created)
@@ -261,7 +308,6 @@ export interface EraDetailResponse {
   payerName: string;
   payerFhirId: string;
   payee: EraPayee | null;
-  status: string;
   paymentMethod: string;
   totalClaims: number;
   matchedClaims: number;
@@ -269,6 +315,9 @@ export interface EraDetailResponse {
   // the raw 835 as received, from the PaymentReconciliation's rcm-raw-x12 extension
   x12: string;
   claims: EraClaimListItem[];
+  attachments: EraAttachment[];
+  // manual remits only: the remit as keyed in, and who keyed it
+  manualEntry?: ManualEraEntry;
 }
 
 export interface BillingClaimItem {
@@ -363,25 +412,36 @@ export interface ClaimPatientPayment {
 export interface ClaimInsurancePayment {
   paymentReconciliationId: string;
   checkNumber: string;
-  paymentDate: string;
+  // when the ERA was produced/imported (PaymentReconciliation.created)
+  remitDate: string;
+  // the check/EFT date (PaymentReconciliation.paymentDate); '' when the ERA carries none
+  checkDate: string;
   // the whole check's amount, not this claim's share (that's the remit's paid)
   paymentAmount: number;
   payerName: string;
-  status: string;
+  // CLP07/ICN from this claim's remit on the ERA; '' when the converter stamps none
+  payerClaimControlNumber: string;
 }
 
 // One ERA adjudication (ClaimResponse) posted against a claim.
 export interface ClaimRemit {
   claimResponseId: string;
+  // ClaimResponse.created, when the remit was posted
   date: string;
   payerName: string;
-  status: string;
   // CLP02 claim status code from the ERA (ERA_CLAIM_STATUS_CODE)
   eraStatusCode: EraClaimStatusCode | '';
   allowed: number | null;
   paid: number;
   patientResp: number | null;
   adjustments: ClaimRemitAdjustment[];
+  // the ERA (PaymentReconciliation) that carried this remit, via its era-processing Provenance; ''
+  // when that link or the ERA itself couldn't be read, and then checkNumber/checkDate are '' too
+  paymentReconciliationId: string;
+  checkNumber: string;
+  checkDate: string;
+  // the adjudicated lines, each joined to the Claim.item it describes when possible
+  serviceLines: EraRemitServiceLine[];
 }
 
 export interface ClaimAttachment {
@@ -478,6 +538,8 @@ export interface ClaimDetailResponse {
     placeOfService: string;
     diagnosisPointers: number[];
     revenueCode: string;
+    drug?: { ndc: string; quantity: number; units: string };
+    orderingProvider?: { firstName: string; lastName: string; npi?: string; providerId?: string };
   }[];
   billed: number;
   allowed: number;
@@ -486,6 +548,8 @@ export interface ClaimDetailResponse {
   patientPaid: number;
   balance: number;
   adjudicated: boolean;
+  // when Oystehr first sent the claim to the payer; '' when it was never submitted from Ottehr
+  firstSubmittedDate: string;
   remits: ClaimRemit[];
   insurancePayments: ClaimInsurancePayment[];
   patientPayments: ClaimPatientPayment[];
@@ -506,7 +570,11 @@ export interface ClaimDetailResponse {
   admissionSource: string;
   admissionDate: string;
   dischargeDate: string;
+  accidentType: CLAIM_ACCIDENT_TYPE[];
+  accidentState: string;
+  accidentDate: string;
   attachments: ClaimAttachment[];
+  payerClaimControlNumber?: string;
 }
 
 interface Paginated {
@@ -521,6 +589,25 @@ export interface SearchBillingPatientsResponse extends Paginated {
 
 export interface SearchBillingClaimsResponse extends Paginated {
   claims: BillingClaimItem[];
+  incomplete?: boolean;
+}
+
+export interface BillingClaimTaskItem {
+  id: string;
+  status: Task['status'];
+  encounterId?: string;
+  encounterDate?: string;
+  appointmentId?: string;
+  patientId?: string;
+  patientName?: string;
+  payerNames: string[];
+  createdAt?: string;
+  updatedAt?: string;
+  error?: string;
+}
+
+export interface SearchBillingClaimTasksResponse extends Paginated {
+  tasks: BillingClaimTaskItem[];
   incomplete?: boolean;
 }
 
@@ -588,7 +675,7 @@ export interface SearchBillingServicesResponse {
 
 export interface SearchBillingPayersResponse {
   payers: BillingPayerOption[];
-  // Present when listing (no name/payerId filter) — pass back as `cursor` to fetch the next page.
+  // Pass back as `cursor` with the same search query to fetch the next page.
   nextCursor?: string | null;
 }
 
@@ -618,6 +705,93 @@ export interface PaymentsReportWaterfallCell {
   // 'YYYY-MM' of the ERA check date
   checkMonth: string;
   paid: number;
+}
+
+// One cached run of a report kind; params re-request that run (dateFrom/dateTo for windowed kinds)
+export interface BillingReportHistoryEntry {
+  params: Record<string, unknown>;
+  generatedAt: string;
+  sizeBytes: number;
+}
+
+export interface GetBillingReportHistoryResponse {
+  entries: BillingReportHistoryEntry[];
+}
+
+// collected vs. what was collectible; the rate is derived client-side (collected / expected)
+export interface NetCollectionsBucket {
+  collected: number;
+  expected: number;
+}
+
+export interface NetCollectionsPayerRow {
+  payerId: string;
+  payerName: string;
+  // stable drilldown identity: the ERA-carried payer id + name the rollup grouped by
+  payerKey: string;
+  claimCount: number;
+  allowed: number;
+  patientResp: number;
+  // allowed − patient responsibility: the insurance-collectible amount
+  expected: number;
+  paid: number;
+}
+
+// 'YYYY-MM' cash-basis buckets: insurance by ERA check month, patient by payment month
+export interface NetCollectionsMonthlyPoint {
+  month: string;
+  insurance: NetCollectionsBucket;
+  patient: NetCollectionsBucket;
+}
+
+export interface GetBillingNetCollectionsReportResponse {
+  // collected = insurance paid + patient net; expected = allowed
+  overall: NetCollectionsBucket;
+  // collected = insurance paid; expected = allowed − patient responsibility
+  insurance: NetCollectionsBucket;
+  // collected = patient payments net of refunds; expected = patient responsibility
+  patient: NetCollectionsBucket;
+  payerRows: NetCollectionsPayerRow[];
+  monthly: NetCollectionsMonthlyPoint[];
+  generatedAt: string;
+  fromCache: boolean;
+  status?: ReportRefreshStatus;
+}
+
+// net-collections drilldown dataset: the window's ERAs with their matched claims only
+export interface NetCollectionsDetailClaim {
+  patientName: string;
+  pcn: string;
+  dos: string;
+  allowed: number;
+  patientResp: number;
+  paid: number;
+}
+
+export interface NetCollectionsDetailEra {
+  id: string;
+  checkNumber: string;
+  checkDate: string;
+  // the payer row's payerKey
+  payerKey: string;
+  payerName: string;
+  checkAmount: number;
+  // matched-claim rollups — the same amounts the payer row aggregates
+  allowed: number;
+  patientResp: number;
+  paid: number;
+  claims: NetCollectionsDetailClaim[];
+}
+
+export interface NetCollectionsReportDetail {
+  eras: NetCollectionsDetailEra[];
+}
+
+export interface GetBillingNetCollectionsDrilldownResponse {
+  eras: NetCollectionsDetailEra[];
+  // when the drilldown detail snapshot was computed
+  generatedAt?: string;
+  status?: ReportRefreshStatus;
 }
 
 // Refresh state of a cached billing report.
@@ -900,7 +1074,8 @@ export interface CreatedClaimResponse {
 
 export type ChargeItemDefinitionType = 'charge-master' | 'fee-schedule';
 
-export type ChargeItemDefinitionDefault = 'insurance' | 'self-pay';
+export const CHARGE_ITEM_DEFINITION_DEFAULTS = ['insurance', 'non-insurance', 'self-pay'] as const;
+export type ChargeItemDefinitionDefault = (typeof CHARGE_ITEM_DEFINITION_DEFAULTS)[number];
 
 export interface SearchChargeItemDefinitionItem {
   id: string;
@@ -947,10 +1122,34 @@ export interface RecordBillingManualPaymentResponse {
   claimId?: string;
 }
 
+export interface RecordBillingRefundResponse {
+  billingNoticesStamped: number;
+  candidRefundsRecorded: number;
+}
+
+export interface RecordBillingVoidResponse {
+  billingNoticesVoided: number;
+}
+
 export interface AddClaimAttachmentResponse {
+  documentReferenceId: string;
   uploadUrl: string;
 }
 
 export interface DownloadClaimAttachmentResponse {
+  downloadUrl: string;
+}
+
+export interface CreateTimelyFilingReportResponse {
+  fileName: string;
+  pdfBase64: string;
+}
+
+export interface AddEraAttachmentResponse {
+  documentReferenceId: string;
+  uploadUrl: string;
+}
+
+export interface DownloadEraAttachmentResponse {
   downloadUrl: string;
 }

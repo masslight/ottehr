@@ -5,7 +5,7 @@ import { enqueueSnackbar } from 'notistack';
 import { useEffect, useState } from 'react';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
 import { getFirstName, getLastName } from 'utils/lib/fhir/patient';
-import { useSuccessQuery } from 'utils/lib/frontend';
+import { useSuccessQuery } from 'utils/lib/frontend/hooks/useSuccessQuery';
 import { RemoveCoverageZambdaInput } from 'utils/lib/types/api/patient-account';
 import { PromiseReturnType } from 'utils/lib/types/common';
 import { isValidUUID } from 'utils/lib/validation/helper';

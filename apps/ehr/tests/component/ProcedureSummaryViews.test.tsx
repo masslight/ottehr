@@ -1,9 +1,9 @@
-const { chartDataMock } = vi.hoisted(() => ({
-  chartDataMock: { current: {} as Record<string, unknown> },
+const { assessmentMock } = vi.hoisted(() => ({
+  assessmentMock: { current: {} as Record<string, unknown> },
 }));
 
-vi.mock('../../src/features/visits/shared/stores/appointment/appointment.store', () => ({
-  useChartData: () => ({ chartData: chartDataMock.current }),
+vi.mock('../../src/features/visits/shared/hooks/useVisitNote', () => ({
+  useVisitNote: () => ({ data: { assessment: assessmentMock.current } }),
 }));
 
 vi.mock('src/hooks/useAppClients', () => ({ useApiClients: () => ({ oystehr: undefined }) }));
@@ -36,11 +36,11 @@ import ProcedureQuickPickDetailPage from '../../src/features/visits/telemed/comp
 
 describe('structured fields in the procedure summary', () => {
   beforeEach(() => {
-    chartDataMock.current = {};
+    assessmentMock.current = {};
   });
 
   it('renders persisted structured values using provider-facing labels', () => {
-    chartDataMock.current = {
+    assessmentMock.current = {
       procedures: [
         {
           resourceId: 'proc-1',
@@ -62,7 +62,7 @@ describe('structured fields in the procedure summary', () => {
   });
 
   it('renders the family labels, explicit false answers, modifiers and units', () => {
-    chartDataMock.current = {
+    assessmentMock.current = {
       procedures: [
         {
           resourceId: 'proc-1',
@@ -83,7 +83,7 @@ describe('structured fields in the procedure summary', () => {
   });
 
   it('shows only the structured labels that have a value, and keeps an unknown saved value visible', () => {
-    chartDataMock.current = {
+    assessmentMock.current = {
       procedures: [
         { resourceId: 'proc-1', procedureType: 'EKG', bodySite: 'Chest' },
         { resourceId: 'proc-2', procedureType: 'Laceration Repair', repairDepth: 'legacy-unknown-depth' },

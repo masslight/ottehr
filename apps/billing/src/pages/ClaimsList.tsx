@@ -1,18 +1,20 @@
-import { Add as AddIcon, Clear as ClearIcon, Search as SearchIcon } from '@mui/icons-material';
+import {
+  Add as AddIcon,
+  Clear as ClearIcon,
+  KeyboardArrowDown as KeyboardArrowDownIcon,
+  Search as SearchIcon,
+} from '@mui/icons-material';
 import {
   Alert,
   Autocomplete,
   Box,
   Button,
   Chip,
-  FormControl,
   InputAdornment,
-  InputLabel,
+  Menu,
   MenuItem,
-  Select,
   Stack,
   TextField,
-  Tooltip,
   Typography,
 } from '@mui/material';
 import { DataGridPro, GridColDef, GridPaginationModel, GridRowSelectionModel } from '@mui/x-data-grid-pro';
@@ -23,12 +25,18 @@ import { useNavigate } from 'react-router-dom';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { CODE_SYSTEM_CLAIM_TYPE_CODES } from 'utils/lib/helpers/rcm/constants';
 import { EXPORT_CLAIMS_MATCH_LIMIT } from 'utils/lib/types/data/billing/billing.constants';
-import { ExportBillingClaimsInput, SearchBillingClaimsInput } from 'utils/lib/types/data/billing/billing.schemas';
+import {
+  ExportBillingClaimsInput,
+  SearchBillingClaimsInput,
+  UpdateBillingResourceInput,
+} from 'utils/lib/types/data/billing/billing.schemas';
 import {
   BillingClaimItem,
   BillingPatientOption,
   BillingPayerOption,
+  BillingProviderOption,
   BillingService,
+  ServiceFacilityItem,
 } from 'utils/lib/types/data/billing/billing.types';
 import {
   ALL_CLAIM_STATUS_OPTIONS_2,
@@ -36,6 +44,9 @@ import {
   CLAIM_STATUS_FIELDS,
   CLAIM_STATUS_FIELDS_BY_KEY,
   CLAIM_STATUS_GROUPS,
+  ClaimStatusFieldKey,
+  ClaimStatusOption,
+  ClaimStatusValues,
   formatAntCaseString,
   formatClaimStatusValue,
 } from 'utils/lib/types/data/billing/claim-status';
@@ -49,51 +60,78 @@ import {
   searchBillingClaims,
   searchBillingNonInsuranceOrgs,
   searchBillingPatients,
-  searchBillingPayers,
   searchBillingServices,
   searchBillingTags,
+  tagBillingClaim,
+  updateBillingResource,
 } from '../api/api';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
+import { ClaimStatusFields } from '../components/claim/ClaimStatusFields';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { DateRangeInput } from '../components/DateInput';
+import { usePayerSearch } from '../components/PayerSelect';
+import { TagSelect } from '../components/TagSelect';
 import { WarningIconWithTooltip } from '../components/WarningIconWithTooltip';
 import { claimStatusValueColor, PROVISIONAL_BALANCE_HINT } from '../constants/claimStatus';
 import { useApiClients } from '../hooks/useAppClients';
-import { downloadTextFile } from '../utils/downloadTextFile';
+import { useFacilityOptionsSearch, useProviderOptionsSearch } from '../hooks/useOptionSearch';
+import { downloadTextFile } from '../utils/downloadFile';
+import { formatFacilityAddress, valueToText } from '../utils/format';
 import { pollExportTask } from '../utils/pollExportTask';
+
+type ClaimTypeCode = keyof typeof CODE_SYSTEM_CLAIM_TYPE_CODES;
+
+const CLAIM_TYPE_OPTIONS: { value: ClaimTypeCode; label: string }[] = [
+  { value: 'professional', label: 'Professional' },
+  { value: 'institutional', label: 'Institutional' },
+];
 
 interface Filters {
   searchText?: string;
-  arStage?: string;
-  status?: string;
-  tag?: string;
+  arStage?: string[];
+  status?: string[];
+  tag?: string[];
   createdFrom?: string;
   createdTo?: string;
   serviceDateFrom?: string;
   serviceDateTo?: string;
-  payerId?: string;
-  nonInsurancePayerId?: string;
-  patientId?: string;
-  type?: keyof typeof CODE_SYSTEM_CLAIM_TYPE_CODES | '';
-  service?: string;
+  payerId?: string[];
+  nonInsurancePayerId?: string[];
+  patientId?: string[];
+  type?: ClaimTypeCode[];
+  service?: string[];
 }
 
 function toSearchParams(filters: Filters): ExportBillingClaimsInput {
   const params: ExportBillingClaimsInput = {};
   if (filters.searchText) params.searchText = filters.searchText;
-  if (filters.arStage) params.arStage = filters.arStage;
-  if (filters.status) params.status = filters.status;
-  if (filters.tag) params.tag = filters.tag;
+  if (filters.arStage?.length) params.arStage = filters.arStage;
+  if (filters.status?.length) params.status = filters.status;
+  if (filters.tag?.length) params.tag = filters.tag;
   if (filters.createdFrom) params.createdFrom = filters.createdFrom;
   if (filters.createdTo) params.createdTo = filters.createdTo;
   if (filters.serviceDateFrom) params.serviceDateFrom = filters.serviceDateFrom;
   if (filters.serviceDateTo) params.serviceDateTo = filters.serviceDateTo;
-  if (filters.payerId) params.payerId = filters.payerId;
-  if (filters.nonInsurancePayerId) params.nonInsurancePayerId = filters.nonInsurancePayerId;
-  if (filters.patientId) params.patientId = filters.patientId;
-  if (filters.type) params.type = filters.type;
-  if (filters.service) params.service = filters.service;
+  if (filters.payerId?.length) params.payerId = filters.payerId;
+  if (filters.nonInsurancePayerId?.length) params.nonInsurancePayerId = filters.nonInsurancePayerId;
+  if (filters.patientId?.length) params.patientId = filters.patientId;
+  if (filters.type?.length) params.type = filters.type;
+  if (filters.service?.length) params.service = filters.service;
   return params;
+}
+
+// Status options in play for the chosen AR stages: the union of their groups' statuses, or every
+// status when no stage (or a stage without a group, such as "none") is chosen.
+function statusOptionsForArStages(arStages: string[]): ClaimStatusOption[] {
+  const groupKeys = arStages.map((stage) => CLAIM_STATUS_GROUPS.find((g) => g.arStageCode === stage)?.key);
+  if (groupKeys.length === 0 || groupKeys.some((key) => !key)) {
+    return ALL_CLAIM_STATUS_OPTIONS_2;
+  }
+  return groupKeys.reduce((acc, key) => {
+    if (!key) return acc;
+    acc.push(...ALL_CLAIM_STATUS_OPTIONS_BY_GROUP[key].filter((o) => !acc.some((ao) => ao.code === o.code)));
+    return acc;
+  }, [] as ClaimStatusOption[]);
 }
 
 const CLAIMS_LIST_FILTERS_STORAGE_KEY = 'billing.claimsListFilters';
@@ -108,24 +146,38 @@ interface StoredPatientOption {
 
 interface StoredClaimsListFilters {
   searchText: string;
-  arStageFilter: string;
-  statusFilter: string;
-  tagFilter: string;
+  arStageFilter: string[];
+  statusFilter: string[];
+  tagFilter: string[];
   createdFrom: string;
   createdTo: string;
   serviceDateFrom: string;
   serviceDateTo: string;
-  selectedPayer: BillingPayerOption | null;
-  selectedPatient: StoredPatientOption | null;
-  typeFilter: keyof typeof CODE_SYSTEM_CLAIM_TYPE_CODES | '';
-  selectedService: BillingService | null;
+  selectedPayers: BillingPayerOption[];
+  selectedPatients: StoredPatientOption[];
+  typeFilter: ClaimTypeCode[];
+  selectedServices: BillingService[];
   paginationModel: GridPaginationModel;
 }
+
+const STORED_LIST_FILTER_KEYS: (keyof StoredClaimsListFilters)[] = [
+  'arStageFilter',
+  'statusFilter',
+  'tagFilter',
+  'selectedPayers',
+  'selectedPatients',
+  'typeFilter',
+  'selectedServices',
+];
 
 function loadStoredClaimsListFilters(): StoredClaimsListFilters | null {
   try {
     const raw = sessionStorage.getItem(CLAIMS_LIST_FILTERS_STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as StoredClaimsListFilters) : null;
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<Record<keyof StoredClaimsListFilters, unknown>> | null;
+    // Filters saved before they became lists (single values) have the wrong shape — ignore them.
+    if (!parsed || STORED_LIST_FILTER_KEYS.some((key) => !Array.isArray(parsed[key]))) return null;
+    return parsed as StoredClaimsListFilters;
   } catch {
     return null;
   }
@@ -144,6 +196,48 @@ function toBillingPatientOption(stored: StoredPatientOption): BillingPatientOpti
     clinicalFriendlyId: '',
   };
 }
+
+interface MultiSelectFilterProps<T extends string> {
+  label: string;
+  options: { value: T; label: string }[];
+  value: T[];
+  onChange: (value: T[]) => void;
+  minWidth: number;
+  disabled?: boolean;
+}
+
+// An empty selection means "All". Styled like the searchable filters (Service, Payer, ...).
+function MultiSelectFilter<T extends string>({
+  label,
+  options,
+  value,
+  onChange,
+  minWidth,
+  disabled,
+}: MultiSelectFilterProps<T>): ReactElement {
+  // A chosen value can be missing from the options (e.g. a restored tag before the tags load), so
+  // fall back to showing the raw value rather than dropping it.
+  const selected = value.map((v) => options.find((o) => o.value === v) ?? { value: v, label: v });
+  return (
+    <Autocomplete
+      multiple
+      disableCloseOnSelect
+      limitTags={1}
+      size="small"
+      options={options}
+      getOptionLabel={(o) => o.label}
+      value={selected}
+      onChange={(_, v) => onChange(v.map((o) => o.value))}
+      renderInput={(params) => <TextField {...params} label={label} />}
+      isOptionEqualToValue={(o, v) => o.value === v.value}
+      disabled={disabled}
+      sx={{ minWidth, maxWidth: 300 }}
+    />
+  );
+}
+
+const patientIds = (patients: BillingPatientOption[]): string[] =>
+  patients.map((p) => p.id).filter((id): id is string => !!id);
 
 const currencyCol = (field: string, headerName: string, width: number): GridColDef => ({
   field,
@@ -230,55 +324,50 @@ export default function ClaimsList(): ReactElement {
   const [serviceOptions, setServiceOptions] = useState<BillingService[]>([]);
 
   const [selected, setSelected] = useState<GridRowSelectionModel>([]);
-  const [confirmingSubmit, setConfirmingSubmit] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
+  const [runRulesModalOpen, setRunRulesModalOpen] = useState(false);
+  const [submittingRunRules, setSubmittingRunRules] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [claimActionMenuAnchorEl, setClaimActionMenuAnchorEl] = useState<HTMLElement | null>(null);
+  const [claimActionMenuOpen, setClaimActionMenuOpen] = useState(false);
+  const [bulkAddTagModalOpen, setBulkAddTagModalOpen] = useState(false);
+  const [bulkRemoveTagModalOpen, setBulkRemoveTagModalOpen] = useState(false);
+  const [bulkUpdateStatusModalOpen, setBulkUpdateStatusModalOpen] = useState(false);
+  const [bulkSetRPModalOpen, setBulkSetRPModalOpen] = useState(false);
+  const [bulkSetBPModalOpen, setBulkSetBPModalOpen] = useState(false);
+  const [bulkSetSFModalOpen, setBulkSetSFModalOpen] = useState(false);
 
-  const [payerOptions, setPayerOptions] = useState<BillingPayerOption[]>([]);
+  const { options: payerOptions, search: searchPayers } = usePayerSearch();
   const [nioOptions, setNioOptions] = useState<NonInsuranceOrganizationItem[]>([]);
   const [patientOptions, setPatientOptions] = useState<BillingPatientOption[]>([]);
 
   const [searchText, setSearchText] = useState(storedFilters?.searchText ?? '');
-  const [arStageFilter, setArStageFilter] = useState(storedFilters?.arStageFilter ?? '');
-  const [statusFilter, setStatusFilter] = useState(storedFilters?.statusFilter ?? '');
-  const [tagFilter, setTagFilter] = useState(storedFilters?.tagFilter ?? '');
+  const [arStageFilter, setArStageFilter] = useState<string[]>(storedFilters?.arStageFilter ?? []);
+  const [statusFilter, setStatusFilter] = useState<string[]>(storedFilters?.statusFilter ?? []);
+  const [tagFilter, setTagFilter] = useState<string[]>(storedFilters?.tagFilter ?? []);
   const [tagOptions, setTagOptions] = useState<{ id: string; name: string }[]>([]);
   const [createdFrom, setCreatedFrom] = useState(storedFilters?.createdFrom ?? '');
   const [createdTo, setCreatedTo] = useState(storedFilters?.createdTo ?? '');
   const [serviceDateFrom, setServiceDateFrom] = useState(storedFilters?.serviceDateFrom ?? '');
   const [serviceDateTo, setServiceDateTo] = useState(storedFilters?.serviceDateTo ?? '');
-  const [selectedPayer, setSelectedPayer] = useState<BillingPayerOption | null>(storedFilters?.selectedPayer ?? null);
-  const [selectedNio, setSelectedNio] = useState<NonInsuranceOrganizationItem | null>(null);
-  const [selectedPatient, setSelectedPatient] = useState<BillingPatientOption | null>(
-    storedFilters?.selectedPatient?.id ? toBillingPatientOption(storedFilters.selectedPatient) : null
+  const [selectedPayers, setSelectedPayers] = useState<BillingPayerOption[]>(storedFilters?.selectedPayers ?? []);
+  const [selectedNios, setSelectedNios] = useState<NonInsuranceOrganizationItem[]>([]);
+  const [selectedPatients, setSelectedPatients] = useState<BillingPatientOption[]>(
+    (storedFilters?.selectedPatients ?? []).filter((p) => p.id).map(toBillingPatientOption)
   );
-  const [typeFilter, setTypeFilter] = useState<keyof typeof CODE_SYSTEM_CLAIM_TYPE_CODES | ''>(
-    storedFilters?.typeFilter ?? ''
-  );
-  const [selectedService, setSelectedService] = useState<BillingService | null>(storedFilters?.selectedService ?? null);
+  const [typeFilter, setTypeFilter] = useState<ClaimTypeCode[]>(storedFilters?.typeFilter ?? []);
+  const [selectedServices, setSelectedServices] = useState<BillingService[]>(storedFilters?.selectedServices ?? []);
 
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const serviceDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const payerDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const nioDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const patientDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const statusOptions = useMemo(() => {
-    if (!arStageFilter) {
-      return ALL_CLAIM_STATUS_OPTIONS_2;
-    }
-    const groupKey = CLAIM_STATUS_GROUPS.find((g) => g.arStageCode === arStageFilter)?.key;
-    if (!groupKey) {
-      return ALL_CLAIM_STATUS_OPTIONS_2;
-    }
-    return ALL_CLAIM_STATUS_OPTIONS_BY_GROUP[groupKey];
-  }, [arStageFilter]);
+  const statusOptions = useMemo(() => statusOptionsForArStages(arStageFilter), [arStageFilter]);
 
   useEffect(() => {
     return (): void => {
       if (debounceTimer.current) clearTimeout(debounceTimer.current);
       if (serviceDebounce.current) clearTimeout(serviceDebounce.current);
-      if (payerDebounce.current) clearTimeout(payerDebounce.current);
       if (patientDebounce.current) clearTimeout(patientDebounce.current);
     };
   }, []);
@@ -325,17 +414,6 @@ export default function ClaimsList(): ReactElement {
   );
   useEffect(() => searchServices(''), [searchServices]);
 
-  const searchPayers = useCallback(
-    (query: string): void => {
-      if (!oystehrZambda) return;
-      if (payerDebounce.current) clearTimeout(payerDebounce.current);
-      payerDebounce.current = setTimeout(async () => {
-        const res = await searchBillingPayers(oystehrZambda, query ? { name: query } : {});
-        setPayerOptions(res.payers ?? []);
-      }, 300);
-    },
-    [oystehrZambda]
-  );
   useEffect(() => searchPayers(''), [searchPayers]);
 
   const searchNios = useCallback(
@@ -374,11 +452,11 @@ export default function ClaimsList(): ReactElement {
       createdTo: overrides?.createdTo ?? createdTo,
       serviceDateFrom: overrides?.serviceDateFrom ?? serviceDateFrom,
       serviceDateTo: overrides?.serviceDateTo ?? serviceDateTo,
-      payerId: overrides?.payerId ?? selectedPayer?.payerId,
-      nonInsurancePayerId: overrides?.nonInsurancePayerId ?? selectedNio?.id,
-      patientId: overrides?.patientId ?? selectedPatient?.id,
+      payerId: overrides?.payerId ?? selectedPayers.map((p) => p.payerId),
+      nonInsurancePayerId: overrides?.nonInsurancePayerId ?? selectedNios.map((n) => n.id),
+      patientId: overrides?.patientId ?? patientIds(selectedPatients),
       type: overrides?.type ?? typeFilter,
-      service: overrides?.service ?? selectedService?.name,
+      service: overrides?.service ?? selectedServices.map((sv) => sv.name),
     }),
     [
       searchText,
@@ -389,11 +467,11 @@ export default function ClaimsList(): ReactElement {
       createdTo,
       serviceDateFrom,
       serviceDateTo,
-      selectedPayer,
-      selectedNio,
-      selectedPatient,
+      selectedPayers,
+      selectedNios,
+      selectedPatients,
       typeFilter,
-      selectedService,
+      selectedServices,
     ]
   );
 
@@ -424,10 +502,10 @@ export default function ClaimsList(): ReactElement {
       createdTo,
       serviceDateFrom,
       serviceDateTo,
-      selectedPayer,
-      selectedPatient: selectedPatient?.id ? { id: selectedPatient.id, name: selectedPatient.name } : null,
+      selectedPayers,
+      selectedPatients: selectedPatients.filter((p) => p.id).map((p) => ({ id: p.id, name: p.name })),
       typeFilter,
-      selectedService,
+      selectedServices,
       paginationModel,
     };
 
@@ -449,10 +527,10 @@ export default function ClaimsList(): ReactElement {
     createdTo,
     serviceDateFrom,
     serviceDateTo,
-    selectedPayer,
-    selectedPatient,
+    selectedPayers,
+    selectedPatients,
     typeFilter,
-    selectedService,
+    selectedServices,
     paginationModel,
   ]);
 
@@ -477,45 +555,49 @@ export default function ClaimsList(): ReactElement {
 
   const clearFilters = (): void => {
     setSearchText('');
-    setArStageFilter('');
-    setStatusFilter('');
-    setTagFilter('');
+    setArStageFilter([]);
+    setStatusFilter([]);
+    setTagFilter([]);
     setCreatedFrom('');
     setCreatedTo('');
     setServiceDateFrom('');
     setServiceDateTo('');
-    setSelectedPayer(null);
-    setSelectedNio(null);
-    setSelectedPatient(null);
-    setTypeFilter('');
-    setSelectedService(null);
+    setSelectedPayers([]);
+    setSelectedNios([]);
+    setSelectedPatients([]);
+    setTypeFilter([]);
+    setSelectedServices([]);
     const resetPage = { ...paginationModel, page: 0 };
     setPaginationModel(resetPage);
     void fetchClaims({}, resetPage);
   };
 
+  const fetchClaimsWithCurrentFilters = useCallback(async () => {
+    return fetchClaims(currentFilters(), paginationModel);
+  }, [currentFilters, fetchClaims, paginationModel]);
+
   const hasFilters =
     searchText ||
-    arStageFilter ||
-    statusFilter ||
-    tagFilter ||
+    arStageFilter.length ||
+    statusFilter.length ||
+    tagFilter.length ||
     createdFrom ||
     createdTo ||
     serviceDateFrom ||
     serviceDateTo ||
-    selectedPayer ||
-    selectedNio ||
-    selectedPatient ||
-    typeFilter ||
-    selectedService;
+    selectedPayers.length ||
+    selectedNios.length ||
+    selectedPatients.length ||
+    typeFilter.length ||
+    selectedServices.length;
 
   // Selection is limited to rows a rules engine applies to (any AR stage), and the backend picks
   // each claim's engine from its AR stage: one engine run is kicked off per claim, and each run
   // applies the configured rules, then performs its engine's success effect — submit to the payer
   // or make ready to invoice — or holds its claim, in the background.
-  const handleSubmit = useCallback(async (): Promise<void> => {
+  const handleRunRulesSubmit = useCallback(async (): Promise<void> => {
     if (!oystehrZambda || selected.length === 0) return;
-    setSubmitting(true);
+    setSubmittingRunRules(true);
     try {
       await runBillingRulesEngine(oystehrZambda, { claimIds: selected.map(String) });
       enqueueSnackbar(
@@ -533,8 +615,8 @@ export default function ClaimsList(): ReactElement {
         { variant: 'error' }
       );
     } finally {
-      setSubmitting(false);
-      setConfirmingSubmit(false);
+      setSubmittingRunRules(false);
+      setRunRulesModalOpen(false);
       void fetchClaims(currentFilters(), paginationModel);
     }
   }, [oystehrZambda, selected, fetchClaims, currentFilters, paginationModel]);
@@ -584,24 +666,87 @@ export default function ClaimsList(): ReactElement {
         </Typography>
         <Box sx={{ display: 'flex', gap: 1 }}>
           {selected.length > 0 && (
-            <Tooltip
-              title={
-                selected.length > MAX_RUN_RULES_ENGINE_CLAIMS
-                  ? `Select up to ${MAX_RUN_RULES_ENGINE_CLAIMS} claims to run rules on at once`
-                  : ''
-              }
-            >
-              <span>
-                <Button
-                  variant="outlined"
-                  size="small"
-                  disabled={selected.length > MAX_RUN_RULES_ENGINE_CLAIMS}
-                  onClick={() => setConfirmingSubmit(true)}
+            <>
+              <Button
+                variant="outlined"
+                disabled={selected.length > MAX_RUN_RULES_ENGINE_CLAIMS}
+                onClick={(event) => {
+                  setClaimActionMenuAnchorEl(event.currentTarget);
+                  setClaimActionMenuOpen(true);
+                }}
+                endIcon={<KeyboardArrowDownIcon />}
+              >
+                Actions
+              </Button>
+              <Menu
+                id="claim-actions-menu"
+                anchorEl={claimActionMenuAnchorEl}
+                open={claimActionMenuOpen}
+                onClose={() => setClaimActionMenuOpen(false)}
+              >
+                <MenuItem
+                  onClick={() => {
+                    setBulkAddTagModalOpen(true);
+                    setClaimActionMenuOpen(false);
+                  }}
+                  disableRipple
                 >
-                  Run rules ({selected.length})
-                </Button>
-              </span>
-            </Tooltip>
+                  Add tag
+                </MenuItem>
+                <MenuItem
+                  onClick={() => {
+                    setBulkRemoveTagModalOpen(true);
+                    setClaimActionMenuOpen(false);
+                  }}
+                  disableRipple
+                >
+                  Remove tag
+                </MenuItem>
+                <MenuItem
+                  onClick={() => {
+                    setBulkUpdateStatusModalOpen(true);
+                    setClaimActionMenuOpen(false);
+                  }}
+                  disableRipple
+                >
+                  Update Status
+                </MenuItem>
+                <MenuItem
+                  onClick={() => {
+                    setBulkSetRPModalOpen(true);
+                    setClaimActionMenuOpen(false);
+                  }}
+                  disableRipple
+                >
+                  Set Rendering Provider
+                </MenuItem>
+                <MenuItem
+                  onClick={() => {
+                    setBulkSetBPModalOpen(true);
+                    setClaimActionMenuOpen(false);
+                  }}
+                  disableRipple
+                >
+                  Set Billing Provider
+                </MenuItem>
+                <MenuItem
+                  onClick={() => {
+                    setBulkSetSFModalOpen(true);
+                    setClaimActionMenuOpen(false);
+                  }}
+                  disableRipple
+                >
+                  Set Service Facility
+                </MenuItem>
+              </Menu>
+              <Button
+                variant="outlined"
+                disabled={selected.length > MAX_RUN_RULES_ENGINE_CLAIMS}
+                onClick={() => setRunRulesModalOpen(true)}
+              >
+                Run Rules ({selected.length})
+              </Button>
+            </>
           )}
           <Button variant="contained" startIcon={<AddIcon />} onClick={() => navigate('/claims/new')}>
             Add Claim
@@ -627,66 +772,47 @@ export default function ClaimsList(): ReactElement {
       />
 
       <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap', alignItems: 'center' }}>
-        <FormControl size="small" sx={{ minWidth: 180 }}>
-          <InputLabel>AR Stage</InputLabel>
-          <Select
-            value={arStageFilter}
-            label="AR Stage"
-            onChange={(e) => {
-              setArStageFilter(e.target.value);
-              applyFilters({ arStage: e.target.value });
-            }}
-          >
-            <MenuItem value="">All</MenuItem>
-            {CLAIM_STATUS_FIELDS_BY_KEY.arStage.options.map((o) => (
-              <MenuItem key={o.code} value={o.code}>
-                {o.label}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+        <MultiSelectFilter
+          label="AR Stage"
+          options={CLAIM_STATUS_FIELDS_BY_KEY.arStage.options.map((o) => ({ value: o.code, label: o.label }))}
+          value={arStageFilter}
+          minWidth={180}
+          onChange={(value) => {
+            // Drop chosen statuses the new stages no longer offer, so no hidden filter lingers.
+            const nextStatusCodes = statusOptionsForArStages(value).map((o) => o.code);
+            const nextStatus = statusFilter.filter((code) => nextStatusCodes.includes(code));
+            setArStageFilter(value);
+            setStatusFilter(nextStatus);
+            applyFilters({ arStage: value, status: nextStatus });
+          }}
+        />
 
-        <FormControl size="small" sx={{ minWidth: 180 }}>
-          <InputLabel>Status</InputLabel>
-          <Select
-            value={statusFilter}
-            label="Status"
-            onChange={(e) => {
-              setStatusFilter(e.target.value);
-              applyFilters({ status: e.target.value });
-            }}
-          >
-            <MenuItem value="">All</MenuItem>
-            {statusOptions.map((o) => (
-              <MenuItem key={o.code} value={o.code}>
-                {o.label}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+        <MultiSelectFilter
+          label="Status"
+          options={statusOptions.map((o) => ({ value: o.code, label: o.label }))}
+          value={statusFilter}
+          minWidth={180}
+          onChange={(value) => {
+            setStatusFilter(value);
+            applyFilters({ status: value });
+          }}
+        />
 
-        <FormControl size="small" sx={{ minWidth: 160 }}>
-          <InputLabel>Claim Type</InputLabel>
-          <Select
-            value={typeFilter}
-            label="Claim Type"
-            onChange={(e) => {
-              const value = e.target.value as '' | keyof typeof CODE_SYSTEM_CLAIM_TYPE_CODES;
-              setTypeFilter(value);
-              applyFilters({ type: value });
-            }}
-          >
-            <MenuItem value="">All</MenuItem>
-            <MenuItem key={'professional'} value={'professional'}>
-              Professional
-            </MenuItem>
-            <MenuItem key={'institutional'} value={'institutional'}>
-              Institutional
-            </MenuItem>
-          </Select>
-        </FormControl>
+        <MultiSelectFilter
+          label="Claim Type"
+          options={CLAIM_TYPE_OPTIONS}
+          value={typeFilter}
+          minWidth={160}
+          onChange={(value) => {
+            setTypeFilter(value);
+            applyFilters({ type: value });
+          }}
+        />
 
         <Autocomplete
+          multiple
+          disableCloseOnSelect
+          limitTags={1}
           size="small"
           options={serviceOptions}
           getOptionLabel={(o) => `${formatAntCaseString(o.name)}`}
@@ -695,36 +821,32 @@ export default function ClaimsList(): ReactElement {
           }}
           onOpen={() => searchServices('')}
           filterOptions={(x) => x}
-          value={selectedService}
+          value={selectedServices}
           onChange={(_, v) => {
-            setSelectedService(v);
-            applyFilters({ service: v?.name ?? '' });
+            setSelectedServices(v);
+            applyFilters({ service: v.map((sv) => sv.name) });
           }}
           renderInput={(params) => <TextField {...params} label="Service" />}
           isOptionEqualToValue={(o, v) => o.name === v.name}
-          sx={{ minWidth: 150 }}
+          sx={{ minWidth: 180, maxWidth: 300 }}
         />
 
-        <FormControl size="small" sx={{ minWidth: 140 }} disabled={tagOptions.length === 0}>
-          <InputLabel>Tag</InputLabel>
-          <Select
-            value={tagFilter}
-            label="Tag"
-            onChange={(e) => {
-              setTagFilter(e.target.value);
-              applyFilters({ tag: e.target.value });
-            }}
-          >
-            <MenuItem value="">All</MenuItem>
-            {tagOptions.map((t) => (
-              <MenuItem key={t.id || t.name} value={t.name}>
-                {t.name}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+        <MultiSelectFilter
+          label="Tag"
+          options={tagOptions.map((t) => ({ value: t.name, label: t.name }))}
+          value={tagFilter}
+          minWidth={140}
+          disabled={tagOptions.length === 0}
+          onChange={(value) => {
+            setTagFilter(value);
+            applyFilters({ tag: value });
+          }}
+        />
 
         <Autocomplete
+          multiple
+          disableCloseOnSelect
+          limitTags={1}
           size="small"
           options={payerOptions}
           getOptionLabel={(o) => `${o.name} (${o.payerId})`}
@@ -733,17 +855,20 @@ export default function ClaimsList(): ReactElement {
           }}
           onOpen={() => searchPayers('')}
           filterOptions={(x) => x}
-          value={selectedPayer}
+          value={selectedPayers}
           onChange={(_, v) => {
-            setSelectedPayer(v);
-            applyFilters({ payerId: v?.payerId ?? '' });
+            setSelectedPayers(v);
+            applyFilters({ payerId: v.map((p) => p.payerId) });
           }}
           renderInput={(params) => <TextField {...params} label="Payer" />}
-          isOptionEqualToValue={(o, v) => o.payerId === v.payerId}
-          sx={{ minWidth: 200 }}
+          isOptionEqualToValue={(o, v) => o.id === v.id}
+          sx={{ minWidth: 200, maxWidth: 320 }}
         />
 
         <Autocomplete
+          multiple
+          disableCloseOnSelect
+          limitTags={1}
           size="small"
           options={nioOptions}
           getOptionLabel={(o) => o.name}
@@ -752,17 +877,20 @@ export default function ClaimsList(): ReactElement {
           }}
           onOpen={() => searchNios('')}
           filterOptions={(x) => x}
-          value={selectedNio}
+          value={selectedNios}
           onChange={(_, v) => {
-            setSelectedNio(v);
-            applyFilters({ nonInsurancePayerId: v?.id ?? '' });
+            setSelectedNios(v);
+            applyFilters({ nonInsurancePayerId: v.map((n) => n.id) });
           }}
           renderInput={(params) => <TextField {...params} label="Non-insurance Organization" />}
           isOptionEqualToValue={(o, v) => o.id === v.id}
-          sx={{ minWidth: 230 }}
+          sx={{ minWidth: 230, maxWidth: 340 }}
         />
 
         <Autocomplete
+          multiple
+          disableCloseOnSelect
+          limitTags={1}
           size="small"
           options={patientOptions}
           getOptionLabel={(o) => o.name || `${o.firstName} ${o.lastName}`}
@@ -771,14 +899,14 @@ export default function ClaimsList(): ReactElement {
           }}
           onOpen={() => searchPatients('')}
           filterOptions={(x) => x}
-          value={selectedPatient}
+          value={selectedPatients}
           onChange={(_, v) => {
-            setSelectedPatient(v);
-            applyFilters({ patientId: v?.id ?? '' });
+            setSelectedPatients(v);
+            applyFilters({ patientId: patientIds(v) });
           }}
           renderInput={(params) => <TextField {...params} label="Patient" />}
           isOptionEqualToValue={(o, v) => o.id === v.id}
-          sx={{ minWidth: 200 }}
+          sx={{ minWidth: 200, maxWidth: 320 }}
         />
 
         <DateRangeInput
@@ -809,10 +937,12 @@ export default function ClaimsList(): ReactElement {
           }}
         />
 
-        {hasFilters && (
+        {hasFilters ? (
           <Button variant="text" size="small" startIcon={<ClearIcon />} onClick={clearFilters}>
             Clear filters
           </Button>
+        ) : (
+          <></>
         )}
       </Box>
 
@@ -849,6 +979,7 @@ export default function ClaimsList(): ReactElement {
         disableRowSelectionOnClick
         disableColumnMenu
         checkboxSelection
+        checkboxSelectionVisibleOnly
         isRowSelectable={(params) => !!(params.row as BillingClaimItem).rulesEngine}
         rowSelectionModel={selected}
         onRowSelectionModelChange={setSelected}
@@ -860,18 +991,566 @@ export default function ClaimsList(): ReactElement {
         sx={{ ...dataGridSx, height: 'calc(100vh - 310px)' }}
       />
 
+      {/* Run Rules Modal */}
       <ConfirmDialog
-        open={confirmingSubmit}
+        open={runRulesModalOpen}
         title="Run claim rules"
-        confirmLabel="Run rules"
-        loading={submitting}
-        onConfirm={() => void handleSubmit()}
-        onCancel={() => setConfirmingSubmit(false)}
+        confirmLabel="Run Rules"
+        loading={submittingRunRules}
+        onConfirm={() => void handleRunRulesSubmit()}
+        onCancel={() => setRunRulesModalOpen(false)}
       >
         Run rules for {selected.length} claim(s)? Each claim runs its AR stage's rules engine — when every rule passes,
         Insurance Payer AR claims are submitted to the payer and pre-invoice claims are made ready to invoice; a Hold
         keeps a claim for review.
       </ConfirmDialog>
+
+      <BulkAddTagModal
+        open={bulkAddTagModalOpen}
+        setOpen={setBulkAddTagModalOpen}
+        selected={selected}
+        refetch={fetchClaimsWithCurrentFilters}
+      />
+      <BulkRemoveTagModal
+        open={bulkRemoveTagModalOpen}
+        setOpen={setBulkRemoveTagModalOpen}
+        selected={selected}
+        refetch={fetchClaimsWithCurrentFilters}
+      />
+      <BulkUpdateStatusModal
+        open={bulkUpdateStatusModalOpen}
+        setOpen={setBulkUpdateStatusModalOpen}
+        selected={selected}
+        refetch={fetchClaimsWithCurrentFilters}
+      />
+      <BulkSetRPModal
+        open={bulkSetRPModalOpen}
+        setOpen={setBulkSetRPModalOpen}
+        selected={selected}
+        refetch={fetchClaimsWithCurrentFilters}
+      />
+      <BulkSetBPModal
+        open={bulkSetBPModalOpen}
+        setOpen={setBulkSetBPModalOpen}
+        selected={selected}
+        refetch={fetchClaimsWithCurrentFilters}
+      />
+      <BulkSetSFModal
+        open={bulkSetSFModalOpen}
+        setOpen={setBulkSetSFModalOpen}
+        selected={selected}
+        refetch={fetchClaimsWithCurrentFilters}
+      />
     </Box>
+  );
+}
+
+function BulkAddTagModal({
+  open,
+  setOpen,
+  selected,
+  refetch,
+}: {
+  open: boolean;
+  setOpen: (open: boolean) => void;
+  selected: GridRowSelectionModel;
+  refetch: () => Promise<void>;
+}): ReactElement {
+  const { oystehrZambda } = useApiClients();
+  const [value, setValue] = useState('');
+  const [error, setError] = useState<string | undefined>();
+  const [submitting, setSubmitting] = useState(false);
+  useEffect(() => {
+    setValue('');
+  }, [open]);
+  const handleSubmit = useCallback(async (): Promise<void> => {
+    if (!oystehrZambda || selected.length === 0) return;
+    setSubmitting(true);
+    try {
+      await Promise.all(
+        selected.map((selectedClaimId) => {
+          return tagBillingClaim(oystehrZambda, {
+            claimId: String(selectedClaimId),
+            action: 'add',
+            tagName: value as string,
+          });
+        })
+      );
+      void refetch();
+      enqueueSnackbar(`Tag ${value} added to selected claims.`, { variant: 'success' });
+      setOpen(false);
+    } catch (err) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError(JSON.stringify(err));
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  }, [oystehrZambda, selected, refetch, value, setOpen]);
+  return (
+    <ConfirmDialog
+      open={open}
+      title="Add tag to claims"
+      confirmLabel="Add tag"
+      loading={submitting}
+      onConfirm={() => void handleSubmit()}
+      onCancel={() => setOpen(false)}
+    >
+      <Box sx={{ display: 'grid', gridTemplateColumns: '1fr', gap: 2.25, maxWidth: 680 }}>
+        Pick a tag to add to {selected.length} selected claims.
+        <TagSelect
+          value={valueToText(value)}
+          onChange={(tag) => {
+            setValue(tag);
+          }}
+          label={'Tag'}
+          required={true}
+          error={!!error}
+          helperText={error}
+        />
+      </Box>
+    </ConfirmDialog>
+  );
+}
+
+function BulkRemoveTagModal({
+  open,
+  setOpen,
+  selected,
+  refetch,
+}: {
+  open: boolean;
+  setOpen: (open: boolean) => void;
+  selected: GridRowSelectionModel;
+  refetch: () => Promise<void>;
+}): ReactElement {
+  const { oystehrZambda } = useApiClients();
+  const [value, setValue] = useState('');
+  const [error, setError] = useState<string | undefined>();
+  const [submitting, setSubmitting] = useState(false);
+  useEffect(() => {
+    setValue('');
+  }, [open]);
+  const handleSubmit = useCallback(async (): Promise<void> => {
+    if (!oystehrZambda || selected.length === 0) return;
+    setSubmitting(true);
+    try {
+      await Promise.all(
+        selected.map((selectedClaimId) => {
+          return tagBillingClaim(oystehrZambda, {
+            claimId: String(selectedClaimId),
+            action: 'remove',
+            tagName: value as string,
+          });
+        })
+      );
+      void refetch();
+      enqueueSnackbar(`Tag ${value} removed from selected claims.`, { variant: 'success' });
+      setOpen(false);
+    } catch (err) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError(JSON.stringify(err));
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  }, [oystehrZambda, selected, refetch, value, setOpen]);
+  return (
+    <ConfirmDialog
+      open={open}
+      title="Remove tag from claims"
+      confirmLabel="Remove tag"
+      loading={submitting}
+      onConfirm={() => void handleSubmit()}
+      onCancel={() => setOpen(false)}
+    >
+      <Box sx={{ display: 'grid', gridTemplateColumns: '1fr', gap: 2.25, maxWidth: 680 }}>
+        Pick a tag to remove from {selected.length} selected claims.
+        <TagSelect
+          value={valueToText(value)}
+          onChange={(tag) => {
+            setValue(tag);
+          }}
+          label={'Tag'}
+          required={true}
+          error={!!error}
+          helperText={error}
+        />
+      </Box>
+    </ConfirmDialog>
+  );
+}
+
+const defaultClaimStatusValues = {
+  arStage: '',
+  adjudicationStatus: '',
+  insuranceArStatus: '',
+  insurancePaidStatus: '',
+  patientArStatus: '',
+  patientPaidStatus: '',
+  nonInsuranceArStatus: '',
+  nonInsurancePaidStatus: '',
+};
+
+function BulkUpdateStatusModal({
+  open,
+  setOpen,
+  selected,
+  refetch,
+}: {
+  open: boolean;
+  setOpen: (open: boolean) => void;
+  selected: GridRowSelectionModel;
+  refetch: () => Promise<void>;
+}): ReactElement {
+  const { oystehrZambda } = useApiClients();
+  const [value, setValue] = useState<ClaimStatusValues>(defaultClaimStatusValues);
+  const [submitting, setSubmitting] = useState(false);
+  useEffect(() => {
+    setValue(defaultClaimStatusValues);
+  }, [open]);
+  const onChange = useCallback(
+    (changedField: ClaimStatusFieldKey, changedValue: string) => {
+      console.log(changedField, changedValue);
+      setValue({ ...value, [changedField]: changedValue });
+    },
+    [value]
+  );
+  const handleSubmit = useCallback(async (): Promise<void> => {
+    if (!oystehrZambda || selected.length === 0) return;
+    setSubmitting(true);
+    try {
+      await Promise.all(
+        selected.map(async (selectedClaimId) => {
+          for (const [field, fieldValue] of Object.entries(value)) {
+            if (fieldValue) {
+              await oystehrZambda.zambda.execute({
+                id: 'set-billing-claim-status',
+                claimId: String(selectedClaimId),
+                field,
+                value: fieldValue || null,
+              });
+            }
+          }
+        })
+      );
+      void refetch();
+      enqueueSnackbar(`Status updated for selected claims.`, { variant: 'success' });
+      setOpen(false);
+    } catch (err) {
+      if (err instanceof Error) {
+        enqueueSnackbar(`Failed to update status for selected claims: ${err.message}.`, { variant: 'error' });
+      } else {
+        enqueueSnackbar(`Failed to update status for selected claims: ${JSON.stringify(err)}.`, { variant: 'error' });
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  }, [oystehrZambda, selected, refetch, setOpen, value]);
+  return (
+    <ConfirmDialog
+      open={open}
+      title="Update status for claims"
+      confirmLabel="Update status"
+      loading={submitting}
+      onConfirm={() => void handleSubmit()}
+      onCancel={() => setOpen(false)}
+    >
+      <Box sx={{ display: 'grid', gridTemplateColumns: '1fr', gap: 2.25, maxWidth: 680 }}>
+        <ClaimStatusFields values={value} onChange={onChange} title="Claim Status" />
+      </Box>
+    </ConfirmDialog>
+  );
+}
+
+function BulkSetRPModal({
+  open,
+  setOpen,
+  selected,
+  refetch,
+}: {
+  open: boolean;
+  setOpen: (open: boolean) => void;
+  selected: GridRowSelectionModel;
+  refetch: () => Promise<void>;
+}): ReactElement {
+  const { oystehrZambda } = useApiClients();
+  const [value, setValue] = useState<BillingProviderOption | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  useEffect(() => {
+    setValue(null);
+  }, [open]);
+  const { options, search: searchProviders } = useProviderOptionsSearch('rendering');
+  const handleSubmit = useCallback(async (): Promise<void> => {
+    if (!oystehrZambda || selected.length === 0 || !value) return;
+    setSubmitting(true);
+    try {
+      await Promise.all(
+        selected.map((selectedClaimId) => {
+          return updateBillingResource(oystehrZambda, {
+            resourceType: 'Claim',
+            resourceId: String(selectedClaimId),
+            claimId: String(selectedClaimId),
+            fields: {
+              renderingProvider: {
+                id: value.id,
+                type: value.kind === 'organization' ? 'Organization' : 'Practitioner',
+              },
+            },
+          } as UpdateBillingResourceInput);
+        })
+      );
+      void refetch();
+      enqueueSnackbar(`Rendering provider set to ${value.name} for selected claims.`, { variant: 'success' });
+      setOpen(false);
+    } catch (err) {
+      if (err instanceof Error) {
+        enqueueSnackbar(`Failed to update rendering provider for selected claims: ${err.message}.`, {
+          variant: 'error',
+        });
+      } else {
+        enqueueSnackbar(`Failed to update rendering provider for selected claims: ${JSON.stringify(err)}.`, {
+          variant: 'error',
+        });
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  }, [oystehrZambda, selected, value, refetch, setOpen]);
+  return (
+    <ConfirmDialog
+      open={open}
+      title="Set rendering provider for claims"
+      confirmLabel="Set rendering provider"
+      loading={submitting}
+      onConfirm={() => void handleSubmit()}
+      onCancel={() => setOpen(false)}
+    >
+      <Box sx={{ display: 'grid', gridTemplateColumns: '1fr', gap: 2.25, maxWidth: 680 }}>
+        Select a rendering provider for {selected.length} selected claims.
+        <Autocomplete
+          size="small"
+          options={options}
+          value={value}
+          onChange={(_, v) => setValue(v)}
+          onInputChange={(_, val, reason) => {
+            if (reason === 'input') searchProviders(val || undefined);
+          }}
+          onOpen={() => searchProviders()}
+          filterOptions={(x) => x}
+          getOptionLabel={(o) => o.name}
+          renderOption={(props, o) => (
+            <Box component="li" {...props} key={o.id}>
+              <Box>
+                <Typography variant="body2" fontWeight={500}>
+                  {o.name}
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  NPI: {o.npi} | TIN: {o.taxId}
+                </Typography>
+              </Box>
+            </Box>
+          )}
+          renderInput={(p) => <TextField {...p} size="small" label={'Choose rendering provider'} />}
+          isOptionEqualToValue={(o, v) => o.id === v.id}
+          sx={{ maxWidth: 480 }}
+        />
+      </Box>
+    </ConfirmDialog>
+  );
+}
+
+function BulkSetBPModal({
+  open,
+  setOpen,
+  selected,
+  refetch,
+}: {
+  open: boolean;
+  setOpen: (open: boolean) => void;
+  selected: GridRowSelectionModel;
+  refetch: () => Promise<void>;
+}): ReactElement {
+  const { oystehrZambda } = useApiClients();
+  const [value, setValue] = useState<BillingProviderOption | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  useEffect(() => {
+    setValue(null);
+  }, [open]);
+  const { options, search: searchProviders } = useProviderOptionsSearch('billing');
+  const handleSubmit = useCallback(async (): Promise<void> => {
+    if (!oystehrZambda || selected.length === 0 || !value) return;
+    setSubmitting(true);
+    try {
+      await Promise.all(
+        selected.map((selectedClaimId) => {
+          return updateBillingResource(oystehrZambda, {
+            resourceType: 'Claim',
+            resourceId: String(selectedClaimId),
+            claimId: String(selectedClaimId),
+            fields: {
+              billingProvider: {
+                id: value.id,
+                type: value.kind === 'organization' ? 'Organization' : 'Practitioner',
+              },
+            },
+          } as UpdateBillingResourceInput);
+        })
+      );
+      void refetch();
+      enqueueSnackbar(`Billing provider set to ${value.name} for selected claims.`, { variant: 'success' });
+      setOpen(false);
+    } catch (err) {
+      if (err instanceof Error) {
+        enqueueSnackbar(`Failed to update billing provider for selected claims: ${err.message}.`, {
+          variant: 'error',
+        });
+      } else {
+        enqueueSnackbar(`Failed to update billing provider for selected claims: ${JSON.stringify(err)}.`, {
+          variant: 'error',
+        });
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  }, [oystehrZambda, selected, value, refetch, setOpen]);
+  return (
+    <ConfirmDialog
+      open={open}
+      title="Set billing provider for claims"
+      confirmLabel="Set billing provider"
+      loading={submitting}
+      onConfirm={() => void handleSubmit()}
+      onCancel={() => setOpen(false)}
+    >
+      <Box sx={{ display: 'grid', gridTemplateColumns: '1fr', gap: 2.25, maxWidth: 680 }}>
+        Select a billing provider for {selected.length} selected claims.
+        <Autocomplete
+          size="small"
+          options={options}
+          value={value}
+          onChange={(_, v) => setValue(v)}
+          onInputChange={(_, val, reason) => {
+            if (reason === 'input') searchProviders(val || undefined);
+          }}
+          onOpen={() => searchProviders()}
+          filterOptions={(x) => x}
+          getOptionLabel={(o) => o.name}
+          renderOption={(props, o) => (
+            <Box component="li" {...props} key={o.id}>
+              <Box>
+                <Typography variant="body2" fontWeight={500}>
+                  {o.name}
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  NPI: {o.npi} | TIN: {o.taxId}
+                </Typography>
+              </Box>
+            </Box>
+          )}
+          renderInput={(p) => <TextField {...p} size="small" label={'Choose billing provider'} />}
+          isOptionEqualToValue={(o, v) => o.id === v.id}
+          sx={{ maxWidth: 480 }}
+        />
+      </Box>
+    </ConfirmDialog>
+  );
+}
+
+function BulkSetSFModal({
+  open,
+  setOpen,
+  selected,
+  refetch,
+}: {
+  open: boolean;
+  setOpen: (open: boolean) => void;
+  selected: GridRowSelectionModel;
+  refetch: () => Promise<void>;
+}): ReactElement {
+  const { oystehrZambda } = useApiClients();
+  const [value, setValue] = useState<ServiceFacilityItem | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  useEffect(() => {
+    setValue(null);
+  }, [open]);
+  const { options, search: searchServiceFacilities } = useFacilityOptionsSearch();
+  const handleSubmit = useCallback(async (): Promise<void> => {
+    if (!oystehrZambda || selected.length === 0 || !value) return;
+    setSubmitting(true);
+    try {
+      await Promise.all(
+        selected.map((selectedClaimId) => {
+          return updateBillingResource(oystehrZambda, {
+            resourceType: 'Claim',
+            resourceId: String(selectedClaimId),
+            claimId: String(selectedClaimId),
+            fields: {
+              facilityId: value.id,
+            },
+          } as UpdateBillingResourceInput);
+        })
+      );
+      void refetch();
+      enqueueSnackbar(`Service facility set to ${value.name} for selected claims.`, { variant: 'success' });
+      setOpen(false);
+    } catch (err) {
+      if (err instanceof Error) {
+        enqueueSnackbar(`Failed to update service facility for selected claims: ${err.message}.`, {
+          variant: 'error',
+        });
+      } else {
+        enqueueSnackbar(`Failed to update service facility for selected claims: ${JSON.stringify(err)}.`, {
+          variant: 'error',
+        });
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  }, [oystehrZambda, selected, value, refetch, setOpen]);
+  return (
+    <ConfirmDialog
+      open={open}
+      title="Set service facility for claims"
+      confirmLabel="Set service facility"
+      loading={submitting}
+      onConfirm={() => void handleSubmit()}
+      onCancel={() => setOpen(false)}
+    >
+      <Box sx={{ display: 'grid', gridTemplateColumns: '1fr', gap: 2.25, maxWidth: 680 }}>
+        Select a service facility for {selected.length} selected claims.
+        <Autocomplete
+          size="small"
+          options={options}
+          value={value}
+          onChange={(_, v) => setValue(v)}
+          onInputChange={(_, val, reason) => {
+            if (reason === 'input') searchServiceFacilities(val || undefined);
+          }}
+          onOpen={() => searchServiceFacilities()}
+          filterOptions={(x) => x}
+          getOptionLabel={(o) => o.name}
+          renderOption={(props, o) => (
+            <Box component="li" {...props} key={o.id}>
+              <Box>
+                <Typography variant="body2" fontWeight={500}>
+                  {o.name}
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  NPI: {o.npi} | {formatFacilityAddress(o)}
+                </Typography>
+              </Box>
+            </Box>
+          )}
+          renderInput={(p) => <TextField {...p} size="small" label={'Choose facility'} />}
+          isOptionEqualToValue={(o, v) => o.id === v.id}
+          sx={{ maxWidth: 480 }}
+        />
+      </Box>
+    </ConfirmDialog>
   );
 }

@@ -2,6 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import {
   Appointment,
   Condition,
+  DiagnosticReport,
   Encounter,
   FhirResource,
   Location,
@@ -11,10 +12,17 @@ import {
   Patient,
   PaymentNotice,
   Practitioner,
+  ServiceRequest,
 } from 'fhir/r4b';
-import { FHIR_EXTENSION, PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import { FHIR_EXTENSION, PAYMENT_METHOD_EXTENSION_URL, SCHEDULE_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { MEDICATION_CPT_CODES_EXTENSION_URL } from 'utils/lib/fhir/medication-administration';
 import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
+import { buildPaymentVoidExtension, upsertPaymentRefundsExtension } from 'utils/lib/fhir/paymentRefunds';
+import {
+  DIAGNOSTIC_REPORT_PRELIMINARY_REVIEW_ON_EXTENSION_URL,
+  SERVICE_REQUEST_PERFORMED_ON_EXTENSION_URL,
+  SERVICE_REQUEST_REQUESTED_TIME_EXTENSION_URL,
+} from 'utils/lib/fhir/radiology';
 import { CODE_SYSTEM_CPT, CODE_SYSTEM_NDC } from 'utils/lib/helpers/rcm/constants';
 import { AdHocBillingOutputSchema } from 'utils/lib/types/adhoc/datasets/billing';
 import { AdHocEncountersOutputSchema } from 'utils/lib/types/adhoc/datasets/encounters';
@@ -27,12 +35,18 @@ import {
   MEDICATION_IDENTIFIER_NAME_SYSTEM,
   PRACTITIONER_ADMINISTERED_MEDICATION_CODE,
   PRACTITIONER_ORDERED_BY_MEDICATION_CODE,
+  PRACTITIONER_ORDERED_MEDICATION_CODE,
   VACCINE_ADMINISTRATION_CODES_EXTENSION_URL,
   VACCINE_ADMINISTRATION_VIS_DATE_EXTENSION_URL,
 } from 'utils/lib/types/api/medication-administration.constants';
 import { CREATED_BY_SYSTEM } from 'utils/lib/types/common';
 import { PRACTITIONER_CODINGS } from 'utils/lib/types/data/appointments/appointments.types';
+import {
+  PATIENT_BREASTFEEDING_STATUS,
+  SEEN_IN_LAST_THREE_YEARS_FIELD,
+} from 'utils/lib/types/data/screening-questions/constants';
 import { afterAll, describe, expect, it, vi } from 'vitest';
+import { CONTAINED_MEDICATION_ID } from '../src/ehr/immunization/common';
 import { fetchAdHocBillingRows } from '../src/shared/adhoc-datasets/billing';
 import { fetchAdHocEncounterRows } from '../src/shared/adhoc-datasets/encounters';
 import { fetchAdHocPatientRows } from '../src/shared/adhoc-datasets/patients';
@@ -51,6 +65,8 @@ const appointment: Appointment = {
   status: 'fulfilled',
   start: '2026-07-01T14:00:00.000Z', // a Wednesday
   end: '2026-07-01T14:30:00.000Z',
+  description: 'Ear pain',
+  appointmentType: { text: 'walk-in' },
   meta: {
     tag: [{ code: OTTEHR_MODULE.IP }, { system: CREATED_BY_SYSTEM, display: 'Staff admin@clinic.com' }],
   },
@@ -114,7 +130,40 @@ const location: Location = {
   id: 'loc-1',
   name: 'Midtown Clinic',
   address: { state: 'NY' },
-  hoursOfOperation: [{ daysOfWeek: ['wed'], openingTime: '08:00:00', closingTime: '18:00:00' }],
+};
+
+// Operating hours are the Schedule extension of the location's Schedule (the Schedule tab), 08–18 on Wednesday.
+const scheduleDay = (workingDay: boolean, open = 8, close = 18): Record<string, unknown> => ({
+  open,
+  close,
+  openingBuffer: 0,
+  closingBuffer: 0,
+  workingDay,
+  hours: [],
+});
+
+const locationSchedule: FhirResource = {
+  resourceType: 'Schedule',
+  id: 'sched-1',
+  actor: [{ reference: 'Location/loc-1' }],
+  extension: [
+    {
+      url: SCHEDULE_EXTENSION_URL,
+      valueString: JSON.stringify({
+        schedule: {
+          monday: scheduleDay(true),
+          tuesday: scheduleDay(true),
+          wednesday: scheduleDay(true),
+          thursday: scheduleDay(true),
+          friday: scheduleDay(true),
+          saturday: scheduleDay(false),
+          sunday: scheduleDay(false),
+        },
+        scheduleOverrides: {},
+        closures: [],
+      }),
+    },
+  ],
 };
 
 const practitioner: Practitioner = {
@@ -199,7 +248,7 @@ const observations: Observation[] = [
 ];
 
 const performer = (code: string): NonNullable<MedicationAdministration['performer']>[number] => ({
-  actor: { reference: 'Practitioner/prac-1' },
+  actor: { reference: 'Practitioner/prac-1', display: 'Greg House' },
   function: { coding: [{ system: MEDICATION_ADMINISTRATION_PERFORMER_TYPE_SYSTEM, code }] },
 });
 // One vaccine with a VIS date, a vial (lot + expiry) and the full administration detail (codes,
@@ -234,7 +283,8 @@ const vaccineAdmin = (
   contained: [
     {
       resourceType: 'Medication' as const,
-      id: `med-${id}`,
+      // The immunization order writes its Medication copy under this contained id.
+      id: CONTAINED_MEDICATION_ID,
       identifier: [{ system: MEDICATION_IDENTIFIER_NAME_SYSTEM, value: name }],
       ...(batch ? { batch } : {}),
       ...(withDetail ? { manufacturer: { reference: '#manufacturer-org' } } : {}),
@@ -281,7 +331,9 @@ const inHouseAdmin = (
       valueString: JSON.stringify([{ code: 'J0696', display: 'Ceftriaxone' }]),
     },
   ],
+  // Every in-house order carries the practitioner who created it (create-update-medication-order).
   performer: [
+    performer(PRACTITIONER_ORDERED_MEDICATION_CODE),
     performer(PRACTITIONER_ORDERED_BY_MEDICATION_CODE),
     ...(withVial ? [performer(PRACTITIONER_ADMINISTERED_MEDICATION_CODE)] : []),
   ],
@@ -317,6 +369,67 @@ const administeredStatement: MedicationStatement = {
   effectiveDateTime: '2026-07-01T15:30:00.000Z',
 };
 
+// Radiology: an order with its timeline on extensions, a preliminary read and a final read (linked by
+// basedOn, not by encounter), plus a still-pending order and a cancelled one.
+const radiologyOrder = (
+  id: string,
+  name: string,
+  status: ServiceRequest['status'],
+  performedAt?: string
+): ServiceRequest => ({
+  resourceType: 'ServiceRequest' as const,
+  id,
+  status,
+  intent: 'order',
+  subject: { reference: 'Patient/pat-1' },
+  encounter: { reference: 'Encounter/enc-1' },
+  authoredOn: '2026-07-01T14:12:00.000Z',
+  meta: { tag: [{ code: 'radiology' }] },
+  code: { coding: [{ system: CODE_SYSTEM_CPT, code: '73030', display: name }] },
+  extension: [
+    { url: SERVICE_REQUEST_REQUESTED_TIME_EXTENSION_URL, valueDateTime: '2026-07-01T14:12:00.000Z' },
+    ...(performedAt ? [{ url: SERVICE_REQUEST_PERFORMED_ON_EXTENSION_URL, valueDateTime: performedAt }] : []),
+  ],
+});
+const radiologyRead = (id: string, srId: string, status: DiagnosticReport['status'], at: string): DiagnosticReport => ({
+  resourceType: 'DiagnosticReport' as const,
+  id,
+  status,
+  code: { text: 'XR shoulder' },
+  basedOn: [{ reference: `ServiceRequest/${srId}` }],
+  ...(status === 'preliminary'
+    ? { extension: [{ url: DIAGNOSTIC_REPORT_PRELIMINARY_REVIEW_ON_EXTENSION_URL, valueDateTime: at }] }
+    : { issued: at }),
+});
+const serviceRequests: FhirResource[] = [
+  radiologyOrder('sr-1', 'XR shoulder', 'completed', '2026-07-01T14:30:00.000Z'),
+  radiologyRead('dr-1', 'sr-1', 'preliminary', '2026-07-01T14:45:00.000Z'),
+  radiologyRead('dr-2', 'sr-1', 'final', '2026-07-01T18:00:00.000Z'),
+  radiologyOrder('sr-2', 'XR wrist', 'active'),
+  radiologyOrder('sr-3', 'XR knee', 'revoked'),
+];
+
+// "Ask the patient" screening answers: chart-data Observations keyed by the config field's fhirField,
+// value = the option's fhirValue. Two answers for the same question keep the newest.
+const screeningObs = (id: string, field: string, value: string | boolean, at: string): Observation => ({
+  resourceType: 'Observation' as const,
+  id,
+  status: 'final',
+  code: { text: field },
+  meta: { tag: [{ code: field }] },
+  subject: { reference: 'Patient/pat-1' },
+  encounter: { reference: 'Encounter/enc-1' },
+  effectiveDateTime: at,
+  ...(typeof value === 'boolean' ? { valueBoolean: value } : { valueString: value }),
+});
+const screeningObservations: FhirResource[] = [
+  screeningObs('obs-scr-1', PATIENT_BREASTFEEDING_STATUS, 'not-applicable', '2026-07-01T14:06:00.000Z'),
+  screeningObs('obs-scr-2', SEEN_IN_LAST_THREE_YEARS_FIELD, 'no', '2026-07-01T14:06:00.000Z'),
+  screeningObs('obs-scr-3', SEEN_IN_LAST_THREE_YEARS_FIELD, 'yes', '2026-07-01T14:08:00.000Z'),
+  screeningObs('obs-scr-4', 'covid-symptoms', true, '2026-07-01T14:07:00.000Z'),
+  screeningObs('obs-scr-5', 'tested-positive-covid', false, '2026-07-01T14:05:00.000Z'),
+];
+
 const medicationAdministrations: FhirResource[] = [
   vaccineAdmin(
     'ma-1',
@@ -345,10 +458,29 @@ const paymentNotice = (id: string, amount: number, created: string, method?: str
   ...(method ? { extension: [{ url: PAYMENT_METHOD_EXTENSION_URL, valueString: method }] } : {}),
 });
 
+// pay-3 was partly refunded (one settled refund, one failed); pay-4 was voided (patient-payments/void
+// marks the notice cancelled) — neither the void nor the failed refund changes what was collected.
+const refundedNotice = paymentNotice('pay-3', 10, '2026-07-01T19:00:00.000Z');
+refundedNotice.extension = upsertPaymentRefundsExtension(refundedNotice.extension, [
+  { stripeRefundId: 're_1', amountInCents: 400, dateISO: '2026-07-02T10:00:00.000Z', status: 'succeeded' },
+  { stripeRefundId: 're_2', amountInCents: 600, dateISO: '2026-07-02T11:00:00.000Z', status: 'failed' },
+]);
 const paymentNotices: FhirResource[] = [
   paymentNotice('pay-2', 25.5, '2026-07-01T18:00:00.000Z', 'cash'),
   paymentNotice('pay-1', 40, '2026-07-01T15:00:00.000Z', 'card'),
-  paymentNotice('pay-3', 10, '2026-07-01T19:00:00.000Z'),
+  refundedNotice,
+  { ...paymentNotice('pay-4', 99, '2026-07-01T20:00:00.000Z', 'card'), status: 'cancelled' },
+  // Voided but still active (the billing-side step of the void failed): the void record makes it voided, as the
+  // payments list reads it.
+  {
+    ...paymentNotice('pay-5', 12, '2026-07-01T21:00:00.000Z', 'cash'),
+    extension: [
+      { url: PAYMENT_METHOD_EXTENSION_URL, valueString: 'cash' },
+      buildPaymentVoidExtension({ reason: 'Entered twice', voidedAtISO: '2026-07-01T21:05:00.000Z' }),
+    ],
+  },
+  // A draft notice is not a payment at all.
+  { ...paymentNotice('pay-6', 7, '2026-07-01T22:00:00.000Z', 'cash'), status: 'draft' },
 ];
 
 // The attending provider is not an _include on the main search: it is fetched by id afterwards, so
@@ -356,8 +488,10 @@ const paymentNotices: FhirResource[] = [
 const rootResources: FhirResource[] = [appointment, encounter, patient, location];
 const scopedByType: Record<string, FhirResource[]> = {
   Practitioner: [practitioner],
+  Schedule: [locationSchedule],
   Condition: [condition],
-  Observation: observations,
+  Observation: [...observations, ...screeningObservations],
+  ServiceRequest: serviceRequests,
   // The administration statement arrives as a revinclude of the MA search, never by its own context.
   MedicationAdministration: [...medicationAdministrations, administeredStatement],
   PaymentNotice: paymentNotices,
@@ -441,6 +575,10 @@ describe('ad-hoc dataset zambdas: mapped rows parse against their Zod schema (fi
     expect(row.statusHistory.map((e) => e.status)).toEqual(['arrived', 'intake', 'provider', 'intake', 'completed']);
     expect(row.statusHistory[0].start).toBe('2026-07-01T14:00:00.000Z');
     expect(row.statusHistory.at(-1)?.end).toBeNull();
+    // The current status began when the last history entry started.
+    expect(row.visitStatusSince).toBe('2026-07-01T14:25:00.000Z');
+    // Reason for visit is the booking's free text, never the booking kind (walk-in / pre-book).
+    expect(row.reason).toBe('Ear pain');
   });
 
   it('encounters vitals layer: readings are chronological, °C converted to °F, BP pairs aligned', async () => {
@@ -475,6 +613,70 @@ describe('ad-hoc dataset zambdas: mapped rows parse against their Zod schema (fi
     expect(row.abnormalVitals).toContain('bloodPressure');
   });
 
+  it('encounters imaging layer: one study record per radiology order with its status timeline', async () => {
+    const rows = await fetchAdHocEncounterRows(fakeOystehr, { dateRange, includeImaging: true });
+    const row = rows[0];
+
+    expect(issuesOf(AdHocEncountersOutputSchema.safeParse({ encounters: rows }))).toEqual([]);
+    // The flat list keeps excluding cancelled orders; the records carry every order with a status.
+    expect(row.imagingOrders).toEqual(['XR shoulder', 'XR wrist']);
+    // The coarse fields keep their meaning (saved reports read them); the page's own status is orderStatus.
+    expect(row.imagingStudies).toMatchObject([
+      {
+        name: 'XR shoulder',
+        status: 'final',
+        orderedAt: '2026-07-01T14:12:00.000Z',
+        performedAt: '2026-07-01T14:30:00.000Z',
+        preliminaryAt: '2026-07-01T14:45:00.000Z',
+        finalAt: '2026-07-01T18:00:00.000Z',
+        orderStatus: 'final',
+        reviewedAt: null,
+        cptCode: '73030',
+        laterality: null,
+        stat: false,
+        orderedBy: 'Greg House',
+      },
+      {
+        name: 'XR wrist',
+        status: 'pending',
+        orderStatus: 'pending',
+        orderedAt: '2026-07-01T14:12:00.000Z',
+        performedAt: null,
+        preliminaryAt: null,
+        finalAt: null,
+      },
+      {
+        name: 'XR knee',
+        status: 'cancelled',
+        orderStatus: null,
+        stat: null,
+        orderedAt: '2026-07-01T14:12:00.000Z',
+        performedAt: null,
+        preliminaryAt: null,
+        finalAt: null,
+      },
+    ]);
+  });
+
+  it('encounters intake layer: screening answers resolved to question text and option label, newest wins', async () => {
+    const rows = await fetchAdHocEncounterRows(fakeOystehr, { dateRange, includeIntake: true });
+    const row = rows[0];
+
+    expect(issuesOf(AdHocEncountersOutputSchema.safeParse({ encounters: rows }))).toEqual([]);
+    expect(row.screeningAnswers).toEqual([
+      { question: 'Has the patient been seen in one of our offices / telemed in last 3 years?', answer: 'Yes' },
+      { question: 'Do you have any COVID symptoms?', answer: 'Yes' },
+      { question: 'Are you currently breastfeeding?', answer: 'Not applicable' },
+      { question: 'Have you tested positive for COVID?', answer: 'No' },
+    ]);
+    expect(row.screeningQuestions).toEqual([
+      'Has the patient been seen in one of our offices / telemed in last 3 years?',
+      'Do you have any COVID symptoms?',
+      'Are you currently breastfeeding?',
+      'Have you tested positive for COVID?',
+    ]);
+  });
+
   it('encounters immunizations layer: one vaccine record each, VIS presence carried by the date', async () => {
     const rows = await fetchAdHocEncounterRows(fakeOystehr, { dateRange, includeImmunizations: true });
     const row = rows[0];
@@ -492,7 +694,10 @@ describe('ad-hoc dataset zambdas: mapped rows parse against their Zod schema (fi
       orderedBy: null,
       cptCodes: [],
     };
-    expect(row.vaccines).toEqual([
+    // The recall fields keep their values; the order-page extras (mvx, site, …) come on top.
+    expect(row.vaccinesNotGiven).toEqual([]);
+    expect(row.vaccineNames).toEqual(['Influenza', 'MMR']);
+    expect(row.vaccines).toMatchObject([
       {
         name: 'Influenza',
         status: 'administered',
@@ -530,7 +735,8 @@ describe('ad-hoc dataset zambdas: mapped rows parse against their Zod schema (fi
     expect(row.drugs?.map((d) => d.name)).toEqual(['Ceftriaxone 1 g', 'Ceftriaxone 500 mg']);
 
     const given = row.drugs?.find((d) => d.name === 'Ceftriaxone 1 g');
-    expect(given).toEqual({
+    // The recall fields keep their values; the medication-orders page extras come on top.
+    expect(given).toMatchObject({
       name: 'Ceftriaxone 1 g',
       source: 'in-house',
       status: 'administered',
@@ -549,6 +755,11 @@ describe('ad-hoc dataset zambdas: mapped rows parse against their Zod schema (fi
       cptCodes: ['J0696'],
       icdCode: 'H66.90',
       icdDisplay: 'Otitis media, unspecified',
+      // The order creation time on the MA.
+      orderedAt: '2026-07-01T15:00:00.000Z',
+      notGivenReason: null,
+      drugInteractionSeverities: [],
+      erxStatus: null,
     });
 
     // Marked as not administered: no vial is tied to the patient, so no lot, expiry or manufacturer.
@@ -590,13 +801,18 @@ describe('ad-hoc dataset zambdas: mapped rows parse against their Zod schema (fi
     expect(issuesOf(AdHocBillingOutputSchema.safeParse({ rows }))).toEqual([]);
     // Charted out of order in the fixture; the records come back oldest first.
     expect(row.payments).toEqual([
-      { date: '2026-07-01T15:00:00.000Z', amount: 40, method: 'card' },
-      { date: '2026-07-01T18:00:00.000Z', amount: 25.5, method: 'cash' },
-      { date: '2026-07-01T19:00:00.000Z', amount: 10, method: '' },
+      { date: '2026-07-01T15:00:00.000Z', amount: 40, refundedAmount: 0, method: 'card' },
+      { date: '2026-07-01T18:00:00.000Z', amount: 25.5, refundedAmount: 0, method: 'cash' },
+      // net of its settled refund (the failed one does not count); the voided pay-4 is not money collected
+      { date: '2026-07-01T19:00:00.000Z', amount: 6, refundedAmount: 4, method: '' },
     ]);
     // The aggregates must agree with the records, or a report mixing both contradicts itself.
-    expect(row.paymentsCollected).toBe(75.5);
+    expect(row.paymentsCollected).toBe(71.5);
     expect(row.paymentCount).toBe(3);
+    expect(row.refundedTotal).toBe(4);
+    // The voided payment is listed apart, as the EHR strikes it out rather than hiding it.
+    expect(row.voidedPaymentCount).toBe(2);
+    expect(row.voidedPaymentsTotal).toBe(111);
     expect(row.lastPaymentDate).toBe('2026-07-01T19:00:00.000Z');
     expect(row.payments?.reduce((sum, p) => sum + p.amount, 0)).toBe(row.paymentsCollected);
   });

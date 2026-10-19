@@ -20,18 +20,26 @@ import {
 } from 'utils/lib/fhir/helpers';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
+import { claimAccidentProblems } from 'utils/lib/types/data/billing/billing.schemas';
 import { CLAIM_PROVENANCE_AGENT_TYPE } from 'utils/lib/types/data/billing/claim-history';
 import { ClaimHistoryRuleRef } from 'utils/lib/types/data/billing/claim-history';
-import { RULES_ENGINES, RulesEngineType } from 'utils/lib/types/data/billing/rules-engine.constants';
+import {
+  RULES_ENGINES,
+  RulesEngineSubmissionType,
+  RulesEngineType,
+} from 'utils/lib/types/data/billing/rules-engine.constants';
 import {
   collectSetNioIds,
+  collectSetPayerIds,
   collectSetResourceRefs,
   ruleReferencesPatientCoverage,
   ruleUsesChargeMasterPrices,
 } from 'utils/lib/types/data/billing/rules-engine.field-catalog';
 import { BillingRule, RULE_ACTION_TYPE } from 'utils/lib/types/data/billing/rules-engine.schemas';
 import { HOLD_TAG_NAME } from 'utils/lib/types/data/billing/system-tags';
+import { isValidUUID } from 'utils/lib/validation/helper';
 import { activeDefaultChargeMasterSearchParams } from '../../../billing/charge-master.helpers';
+import { isCustomInsuranceOrganization } from '../../../billing/custom-insurance-org.helpers';
 import { isNonInsuranceOrganization } from '../../../billing/non-insurance-org.helpers';
 import {
   addErrorProvenanceForClaimSubmission,
@@ -42,11 +50,13 @@ import {
   recordedNow,
   resolveClaimActor,
 } from '../../../billing/provenance';
-import { RulesEngineClaimModel } from '../../../billing/rules-engine/claim-model';
+import { readAccidentInfo, RulesEngineClaimModel } from '../../../billing/rules-engine/claim-model';
 import { RULES_ENGINE_TASK_SYSTEM, rulesEngineForTaskCode } from '../../../billing/rules-engine/constants';
 import { applyAction, executeRule } from '../../../billing/rules-engine/evaluator';
 import {
+  RULES_ENGINE_INPUT_PAYER_CLAIM_CONTROL_NUMBER_CODE,
   RULES_ENGINE_INPUT_SKIP_RULES_CODE,
+  RULES_ENGINE_INPUT_SUBMISSION_TYPE_CODE,
   RULES_ENGINE_INPUT_SYSTEM,
 } from '../../../billing/rules-engine/serialization';
 import {
@@ -89,6 +99,18 @@ export const index = wrapTaskHandler('sub-rules-engine', async (input, _oystehr)
     RULES_ENGINE_INPUT_SKIP_RULES_CODE,
     'valueBoolean'
   );
+  const submissionType = extractInput<string>(
+    task,
+    RULES_ENGINE_INPUT_SYSTEM,
+    RULES_ENGINE_INPUT_SUBMISSION_TYPE_CODE,
+    'valueString'
+  );
+  const payerClaimControlNumber = extractInput<string>(
+    task,
+    RULES_ENGINE_INPUT_SYSTEM,
+    RULES_ENGINE_INPUT_PAYER_CLAIM_CONTROL_NUMBER_CODE,
+    'valueString'
+  );
 
   // Use the billing client (same as every other billing zambda) so reads/writes are scoped to the
   // billing workspace where the claim, its working copies, and the rules Lists live.
@@ -109,7 +131,15 @@ export const index = wrapTaskHandler('sub-rules-engine', async (input, _oystehr)
   const env = getSecret(SecretsKeys.ENVIRONMENT, secrets);
 
   try {
-    const validated = await complexValidation(oystehr, engine, claimId, env, skipRules);
+    const validated = await complexValidation(
+      oystehr,
+      engine,
+      claimId,
+      env,
+      skipRules,
+      submissionType,
+      payerClaimControlNumber
+    );
     return await performEffect(oystehr, validated, agent);
   } catch (error) {
     try {
@@ -144,6 +174,8 @@ export interface ValidatedRulesRun {
   rules: BillingRule[];
   model: RulesEngineClaimModel;
   skipRules: boolean;
+  submissionType: RulesEngineSubmissionType | null;
+  payerClaimControlNumber: string | null;
 }
 
 export async function complexValidation(
@@ -151,20 +183,25 @@ export async function complexValidation(
   engine: RulesEngineType,
   claimId: string,
   env: string,
-  skipRules: boolean | null
+  skipRules: boolean | null,
+  submissionType: string | null,
+  payerClaimControlNumber: string | null
 ): Promise<ValidatedRulesRun> {
   console.log(`[rules-engine] ${engine} starting for Claim/${claimId}`);
   const [rules, model] = await Promise.all([loadRules(oystehr, engine, env), loadClaimModel(oystehr, claimId)]);
-  const [referenceResources, chargeMasters, patientCoverageContext, nioOrganizations] = await Promise.all([
-    loadReferenceResources(oystehr, rules),
-    loadChargeMasters(oystehr, rules),
-    loadPatientCoverageContext(oystehr, rules, model.patient),
-    loadNioOrganizations(oystehr, rules),
-  ]);
+  const [referenceResources, chargeMasters, patientCoverageContext, nioOrganizations, customInsuranceOrganizations] =
+    await Promise.all([
+      loadReferenceResources(oystehr, rules),
+      loadChargeMasters(oystehr, rules),
+      loadPatientCoverageContext(oystehr, rules, model.patient),
+      loadNioOrganizations(oystehr, rules),
+      loadCustomInsuranceOrganizations(oystehr, rules),
+    ]);
   model.referenceResources = referenceResources;
   model.chargeMasters = chargeMasters;
   model.patientCoverageContext = patientCoverageContext;
   model.nioOrganizations = nioOrganizations;
+  model.customInsuranceOrganizations = customInsuranceOrganizations;
   console.log(
     `[rules-engine] loaded ${rules.length} rule(s); patient=${model.patient?.id ?? 'none'}, ` +
       `coverages=${model.coverages.length}, renderingProvider=${model.renderingProvider?.id ?? 'none'}, ` +
@@ -175,9 +212,20 @@ export async function complexValidation(
       (model.patientCoverageContext
         ? `, patientCoverages=${model.patientCoverageContext.typeByCoverageRef.size}`
         : '') +
-      (model.nioOrganizations ? `, nioOrganizations=${model.nioOrganizations.size}` : '')
+      (model.nioOrganizations ? `, nioOrganizations=${model.nioOrganizations.size}` : '') +
+      (model.customInsuranceOrganizations
+        ? `, customInsuranceOrganizations=${model.customInsuranceOrganizations.size}`
+        : '')
   );
-  return { engine, claimId, rules, model, skipRules: skipRules ?? false };
+  return {
+    engine,
+    claimId,
+    rules,
+    model,
+    skipRules: skipRules ?? false,
+    submissionType: submissionType as RulesEngineSubmissionType,
+    payerClaimControlNumber,
+  };
 }
 
 // The reference resources (provider/facility page originals) named by the rule set's "set
@@ -230,6 +278,37 @@ async function loadNioOrganizations(
     if (resource.resourceType !== 'Organization') continue;
     const org = resource as Organization;
     if (org.id && isNonInsuranceOrganization(org)) map.set(org.id, org);
+  }
+  return map;
+}
+
+// The billing-app custom insurance organizations named as a literal value by the rule set's payer-field
+// setField actions, prefetched so the synchronous payerId writer can tell a custom org id apart from an
+// RCM payer id and reference it directly (see payerReferenceForId in claim-model.ts). A collected id
+// that isn't a custom insurance organization (most commonly an ordinary RCM payer id) simply finds no
+// entry, and the writer falls back to the existing RCM payer URL behavior. Inactive (soft-deleted)
+// organizations stay in the map so the writer fails the action and holds the claim, rather than
+// writing the id as an RCM payer URL.
+export async function loadCustomInsuranceOrganizations(
+  oystehr: Oystehr,
+  rules: BillingRule[]
+): Promise<RulesEngineClaimModel['customInsuranceOrganizations']> {
+  const ids = new Set(
+    rules
+      .filter((rule) => rule.enabled)
+      .flatMap((rule) => collectSetPayerIds(rule))
+      .filter((payerId) => isValidUUID(payerId))
+  );
+  if (!ids.size) return undefined;
+  const resources = await getResourcesFromBatchInlineRequests(
+    oystehr,
+    [...ids].map((id) => `/Organization?_id=${id}`)
+  );
+  const map: NonNullable<RulesEngineClaimModel['customInsuranceOrganizations']> = new Map();
+  for (const resource of resources) {
+    if (resource.resourceType !== 'Organization') continue;
+    const org = resource as Organization;
+    if (org.id && isCustomInsuranceOrganization(org)) map.set(org.id, org);
   }
   return map;
 }
@@ -325,7 +404,7 @@ export class RuleFailureError extends Error {
 
 export async function performEffect(
   oystehr: Oystehr,
-  { engine, claimId, rules, model, skipRules }: ValidatedRulesRun,
+  { engine, claimId, rules, model, skipRules, submissionType, payerClaimControlNumber }: ValidatedRulesRun,
   agent: ProvenanceAgent[]
 ): Promise<{ taskStatus: Task['status']; statusReason: string }> {
   const unchanged = snapshotModel(model);
@@ -370,6 +449,17 @@ export async function performEffect(
     attribution.get(`Claim/${model.claim.id}`)?.delete('tags');
   }
 
+  // Accident details are checked once all rules have run, so rules may set the type, date and state
+  // in any order. The check covers the claim as it stands, not just what the rules changed: a claim
+  // that arrived incomplete (e.g. created from an encounter without an accident state) is held too.
+  // Same invariants (claimAccidentProblems) the claim editor enforces on its own saves.
+  const accidentProblems =
+    failure || heldBy || unwritable.length > 0 ? [] : claimAccidentProblems(readAccidentInfo(model));
+  if (accidentProblems.length > 0) {
+    applyAction({ type: RULE_ACTION_TYPE.applyTag, tag: HOLD_TAG_NAME }, model);
+    attribution.get(`Claim/${model.claim.id}`)?.delete('tags');
+  }
+
   // Persist whatever the rules changed — including the Hold tag — so the claim reflects the run.
   const written = await persistModel(oystehr, model, unchanged, agent, attribution);
   console.log(`[rules-engine] persisted ${written} changed resource(s) for Claim/${claimId}`);
@@ -381,6 +471,16 @@ export async function performEffect(
       statusReason:
         `Rules changed ${unwritable.join(', ')}, which the engine cannot write (shared resources, ` +
         `not per-claim working copies). The claim was held for review.`,
+    };
+  }
+
+  if (accidentProblems.length > 0) {
+    console.log(`[rules-engine] Claim/${claimId} held: incomplete accident details`);
+    return {
+      taskStatus: 'failed',
+      statusReason: `The claim's accident details are incomplete: ${accidentProblems.join(
+        '; '
+      )}. The claim was held for review.`,
     };
   }
 
@@ -400,7 +500,7 @@ export async function performEffect(
     };
   }
 
-  const finalized = await finalizeEngineRun(engine, { oystehr, model, agent });
+  const finalized = await finalizeEngineRun(engine, { oystehr, model, agent, submissionType, payerClaimControlNumber });
   console.log(`[rules-engine] ${engine} completed for Claim/${claimId}: ${finalized.statusReason}`);
   return { taskStatus: 'completed', statusReason: finalized.statusReason };
 }

@@ -3,6 +3,7 @@ import {
   CodeOutcomeKind,
   codeScope,
   CodeSuggestion,
+  ComponentCodeNotice,
   CptCodeRef,
   ENTRY_SCOPE,
   FamilyEvaluation,
@@ -124,11 +125,60 @@ function lineKey(code: string, modifiers: readonly string[]): string {
   return `${code}|${[...new Set(modifiers)].sort().join(',')}`;
 }
 
+function modifierPhrase(modifiers: readonly string[]): string {
+  const list = [...new Set(modifiers)].sort();
+  return list.length > 0 ? `modifier ${list.join(', ')}` : 'no modifier';
+}
+
+function unitPhrase(units: number): string {
+  return units === 1 ? '1 unit' : `${units} units`;
+}
+
+/** Names the one thing that differs, in the wording the provider sees on the form. */
+function unsupportedReason(
+  suggestion: FamilyEvaluation,
+  code: string,
+  modifiers: readonly string[],
+  selectedUnits: number,
+  componentCodeNotices: readonly ComponentCodeNotice[]
+): string {
+  const lines = suggestedCodes(suggestion);
+
+  const component = componentCodeNotices.find(
+    (notice) => notice.selected.includes(code) && lines.some((item) => item.code === notice.global)
+  );
+
+  if (component) return component.message;
+
+  const sameCode = lines.filter((item) => item.code === code);
+
+  if (sameCode.length === 0) {
+    const supported = [...new Set(lines.map((item) => item.code))];
+    return supported.length > 0
+      ? `The answers support ${supported.join(' + ')} instead.`
+      : 'The answers support no code for this service.';
+  }
+
+  const sameLine = sameCode.filter((item) => lineKey(item.code, item.modifiers ?? []) === lineKey(code, modifiers));
+
+  if (sameLine.length === 0) {
+    // A family can suggest the same code more than once with different modifiers (a repeat service,
+    // each side); name every supported form rather than only the first.
+    const forms = [...new Set(sameCode.map((item) => modifierPhrase(item.modifiers ?? [])))];
+    return `The answers support ${code} with ${forms.join(' and with ')}.`;
+  }
+
+  const supportedUnits = sameLine.reduce((total, item) => Math.max(total, item.units ?? 1), 0);
+
+  return `The answers support ${unitPhrase(supportedUnits)} of ${code}; ${unitPhrase(selectedUnits)} selected.`;
+}
+
 /** Compare quantities as well as codes; CPT descriptions are never clinical evidence. */
 export function defendAgainst(
   input: ProcedureFactsInput,
   suggestion: FamilyEvaluation,
-  inventory: readonly string[]
+  inventory: readonly string[],
+  componentCodeNotices: readonly ComponentCodeNotice[]
 ): FamilyEvaluation {
   const evaluation = buildEvaluation({
     suggestions: [],
@@ -173,10 +223,13 @@ export function defendAgainst(
           level: 'contradiction',
           scope: codeScope(line.code),
           evidence: NOTHING_TO_CITE,
-          message:
-            ['93005', '93010'].includes(line.code) && suggestedCodes(suggestion).some((item) => item.code === '93000')
-              ? 'Documentation supports the full recording with interpretation and report; a component-only code is selected.'
-              : 'Selected code, quantity or modifiers do not match the structured answers.',
+          message: unsupportedReason(
+            suggestion,
+            line.code,
+            (line.modifier ?? []).map((m) => m.code),
+            selected.get(key) ?? 0,
+            componentCodeNotices
+          ),
         });
     }
 

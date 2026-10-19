@@ -54,7 +54,7 @@ export function validateRequestParameters(
     if (missedFields.length > 0) throw INVALID_INPUT_ERROR(`Missing fields in orderData: ${missedFields.join(', ')}`);
   }
 
-  validateInteractions(interactions);
+  const normalizedInteractions = normalizeInteractions(interactions);
 
   console.groupEnd();
   console.debug('validateRequestParameters success');
@@ -64,18 +64,35 @@ export function validateRequestParameters(
     newStatus,
     orderData,
     secrets: input.secrets,
-    interactions: interactions,
+    interactions: normalizedInteractions,
   };
 }
 
-function validateInteractions(interactions?: MedicationInteractions): void {
+const normalizeOverrideReason = (reason?: string): string | undefined =>
+  reason?.trim().replace(/\s+/g, ' ') || undefined;
+
+function normalizeInteractions(interactions?: MedicationInteractions): MedicationInteractions | undefined {
+  if (!interactions) {
+    return interactions;
+  }
+  const normalized: MedicationInteractions = {
+    ...interactions,
+    drugInteractions: interactions.drugInteractions?.map((interaction) => ({
+      ...interaction,
+      overrideReason: normalizeOverrideReason(interaction.overrideReason),
+    })),
+    allergyInteractions: interactions.allergyInteractions?.map((interaction) => ({
+      ...interaction,
+      overrideReason: normalizeOverrideReason(interaction.overrideReason),
+    })),
+  };
   const missingOverrideReason: string[] = [];
-  interactions?.drugInteractions?.forEach((interaction, index) => {
+  normalized.drugInteractions?.forEach((interaction, index) => {
     if (!interaction.overrideReason) {
       missingOverrideReason.push(`interactions.drugInteractions[${index}]`);
     }
   });
-  interactions?.allergyInteractions?.forEach((interaction, index) => {
+  normalized.allergyInteractions?.forEach((interaction, index) => {
     if (!interaction.overrideReason) {
       missingOverrideReason.push(`interactions.allergyInteractions[${index}]`);
     }
@@ -83,4 +100,5 @@ function validateInteractions(interactions?: MedicationInteractions): void {
   if (missingOverrideReason.length > 0) {
     throw INVALID_INPUT_ERROR(`overrideReason is missing for ${missingOverrideReason.join(', ')}`);
   }
+  return normalized;
 }

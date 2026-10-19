@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { makeFormTemplateObjectName } from '../../src/ehr/shared/form-template-helpers';
-import { makeZ3ObjectUrl, z3ObjectNameDatePrefix } from '../../src/shared/presigned-file-urls/helpers';
+import { makeZ3ObjectUrl, makeZ3Url, z3ObjectNameDatePrefix } from '../../src/shared/presigned-file-urls/helpers';
 
 const SECRETS = {
   PROJECT_API: 'https://project-api.zapehr.com/v1',
@@ -99,5 +99,23 @@ describe('names this server generates', () => {
       const objectName = `${z3ObjectNameDatePrefix()}-${sanitize(fileName)}`;
       expect(() => url(objectName, 'patient-1'), fileName).not.toThrow();
     }
+  });
+});
+
+describe('makeZ3Url stableKey', () => {
+  const base = { secrets: SECRETS as never, bucketName: 'visit-notes', patientID: 'patient-1' };
+
+  it('timestamps the object name by default, so filed versions never collide', () => {
+    const url = makeZ3Url({ ...base, fileName: 'DischargeSummary.pdf' });
+
+    expect(url).toMatch(/\/patient-1\/\d{4}-\d{2}-\d{2}-\d+-DischargeSummary\.pdf$/);
+  });
+
+  it('reuses one slot per patient when the key is stable', () => {
+    const first = makeZ3Url({ ...base, fileName: 'ProgressNote.pdf', stableKey: true });
+    const second = makeZ3Url({ ...base, fileName: 'ProgressNote.pdf', stableKey: true });
+
+    expect(first).toMatch(/\/patient-1\/ProgressNote\.pdf$/);
+    expect(first).toBe(second);
   });
 });

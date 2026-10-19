@@ -5,13 +5,13 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { Row } from 'src/components/layout/Row';
 import { Section } from 'src/components/layout/Section';
 import { useApiClients } from 'src/hooks/useAppClients';
+import { procedureFieldVisibility } from 'utils/lib/procedure-coding/fields';
 import {
   formatInfusionTimeRange,
   formatProcedureCptCode,
   formatStructuredFacts,
-  procedureFieldVisibility,
   repairDepthDisplayLabel,
-} from 'utils';
+} from 'utils/lib/procedure-coding/format';
 import { useProcedureSelectOptions } from '../../../in-person/components/procedures/useProcedureSelectOptions';
 import { useProcedureQuickPicksQuery } from './admin.queries';
 

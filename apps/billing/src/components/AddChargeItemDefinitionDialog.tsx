@@ -21,11 +21,15 @@ import { ReactElement, useEffect, useState } from 'react';
 import { Controller, FormProvider, useForm } from 'react-hook-form';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { CreateChargeItemDefinitionInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
-import { ChargeItemDefinitionDefault, ChargeItemDefinitionType } from 'utils/lib/types/data/billing/billing.types';
+import {
+  CHARGE_ITEM_DEFINITION_DEFAULTS,
+  ChargeItemDefinitionDefault,
+  ChargeItemDefinitionType,
+} from 'utils/lib/types/data/billing/billing.types';
 import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils/lib/validation/constants';
 import z from 'zod';
 import { createChargeItemDefinition } from '../api/api';
-import { ChargeItemDefinitionLabels } from '../constants/chargeItemDefinition';
+import { ChargeItemDefinitionLabels, formatChargeItemDefinitionDefault } from '../constants/chargeItemDefinition';
 import { useApiClients } from '../hooks/useAppClients';
 import { DateInput } from './DateInput';
 
@@ -176,8 +180,9 @@ export function AddChargeItemDefinitionDialog({
                       onChange={(e) => field.onChange(e.target.value)}
                     >
                       <MenuItem value="">None</MenuItem>
-                      <MenuItem value="insurance">Insurance</MenuItem>
-                      <MenuItem value="self-pay">Self-Pay</MenuItem>
+                      {CHARGE_ITEM_DEFINITION_DEFAULTS.map((val) => (
+                        <MenuItem value={val}>{formatChargeItemDefinitionDefault(val)}</MenuItem>
+                      ))}
                     </Select>
                     {fieldError ? (
                       <FormHelperText id={`default-helper-text`} error={true}>

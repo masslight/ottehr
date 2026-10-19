@@ -1,7 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
 import { Task, TaskOutput } from 'fhir/r4b';
-import { RcmTaskCodings } from 'utils/lib/fhir';
+import { RcmTaskCodings } from 'utils/lib/fhir/constants';
 import { patchWithOptimisticLock, sanitizeStringForFhirCode } from 'utils/lib/fhir/helpers';
 import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY } from 'utils/lib/types/errors';
 import { ZambdaInput } from '../shared/types/common';
@@ -75,17 +75,19 @@ export function getTaskAndSecretsFromInput(
  *   (a) overwriting newer output entries written by a concurrent update, and
  *   (b) a 422 "bad path" if the payload's idea of whether /output exists is wrong.
  */
-export async function updateTaskStatusAndOutput(
-  oystehr: Oystehr,
-  task: Pick<Task, 'id'>,
-  status: Task['status'],
-  outputToAppend?: TaskOutput[]
-): Promise<void> {
+export async function updateTaskStatusAndOutput(input: {
+  oystehr: Oystehr;
+  task: Pick<Task, 'id'>;
+  status?: Task['status'];
+  outputToAppend?: TaskOutput[];
+}): Promise<void> {
+  const { oystehr, task, status, outputToAppend } = input;
   const currentTask = (await oystehr.fhir.get<Task>({ resourceType: 'Task', id: task.id! })) as Task & { id: string };
 
   await patchWithOptimisticLock(oystehr, currentTask, (freshTask): Operation[] => {
-    const patchOperations: Operation[] = [{ op: 'replace', path: '/status', value: status }];
+    const patchOperations: Operation[] = [];
 
+    if (status) patchOperations.push({ op: 'replace', path: '/status', value: status });
     if (outputToAppend?.length) {
       const merged = [...(freshTask.output ?? []), ...outputToAppend];
       patchOperations.push({ op: freshTask.output ? 'replace' : 'add', path: '/output', value: merged });

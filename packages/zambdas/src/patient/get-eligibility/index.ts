@@ -1,18 +1,25 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, CoverageEligibilityRequest } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import { PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
 import { createOystehrClient } from 'utils/lib/helpers/helpers';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import { ELIGIBILITY_FAILED_REASON_META_TAG, ELIGIBILITY_FAILED_REASONS } from 'utils/lib/telemed/constants';
 import { InsuranceEligibilityCheckStatus } from 'utils/lib/types/data/paperwork/paperwork.types';
 import { InsuranceCheckStatusWithDate } from 'utils/lib/types/data/telemed/eligibility.types';
-import { FHIR_RESOURCE_NOT_FOUND } from 'utils/lib/types/errors';
+import { FHIR_RESOURCE_NOT_FOUND, NO_READ_ACCESS_TO_PATIENT_ERROR } from 'utils/lib/types/errors';
+import { getUser, userHasAccessToPatient } from '../../shared/auth';
 import { getAuth0Token } from '../../shared/getAuth0Token';
 import { lambdaResponse } from '../../shared/lambda';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
-import { getPayorRef, makeCoverageEligibilityRequest, parseEligibilityCheckResponsePromiseResult } from './helpers';
+import {
+  coverageHasCustomInsuranceOrgPayor,
+  getPayorRef,
+  makeCoverageEligibilityRequest,
+  parseEligibilityCheckResponsePromiseResult,
+} from './helpers';
 import { prevalidationHandler } from './prevalidation-handler';
 import { complexInsuranceValidation, validateRequestParameters } from './validation';
 
@@ -34,7 +41,6 @@ export const index = wrapHandler('get-eligibility', async (input: ZambdaInput): 
   const { secrets } = validatedParams;
   console.groupEnd();
   console.debug('validateRequestParameters success');
-  console.log('validatedParameters', JSON.stringify(validatedParameters));
 
   if (!oystehrToken) {
     console.log('getting token');
@@ -52,6 +58,15 @@ export const index = wrapHandler('get-eligibility', async (input: ZambdaInput): 
   );
   console.groupEnd();
   console.debug('createOystehrClient success');
+
+  const authorization = input.headers?.Authorization;
+  if (!authorization) {
+    throw NO_READ_ACCESS_TO_PATIENT_ERROR;
+  }
+  const user = await getUser(authorization.replace('Bearer ', ''), secrets);
+  if (!(await userHasAccessToPatient(user, validatedParams.patientId, oystehr))) {
+    throw NO_READ_ACCESS_TO_PATIENT_ERROR;
+  }
 
   const complexInput = await complexInsuranceValidation(validatedParams, oystehr);
 
@@ -74,6 +89,15 @@ export const index = wrapHandler('get-eligibility', async (input: ZambdaInput): 
 
     if (!coverageToUse) {
       throw FHIR_RESOURCE_NOT_FOUND('Coverage');
+    }
+
+    if (coverageHasCustomInsuranceOrgPayor(coverageToUse)) {
+      const notChecked = {
+        status: InsuranceEligibilityCheckStatus.eligibilityNotChecked,
+        dateISO: DateTime.now().toISO(),
+      };
+      console.log(`Coverage/${coverageToUse.id} is paid by a custom insurance organization; eligibility not checked`);
+      return lambdaResponse(200, coverageToCheck === 'primary' ? { primary: notChecked } : { secondary: notChecked });
     }
 
     const payorReference = getPayorRef(coverageToUse, insuranceOrgs);

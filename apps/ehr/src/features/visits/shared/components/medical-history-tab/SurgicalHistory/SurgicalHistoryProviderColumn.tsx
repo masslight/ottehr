@@ -2,8 +2,8 @@ import { Box, Typography } from '@mui/material';
 import { FC } from 'react';
 import { ActionsList } from 'src/components/ActionsList';
 import { dataTestIds } from 'src/constants/data-test-ids';
+import { useChartData } from '../../../hooks/useChartData';
 import { useGetAppointmentAccessibility } from '../../../hooks/useGetAppointmentAccessibility';
-import { useChartData } from '../../../stores/appointment/appointment.store';
 import { ProceduresForm } from './ProceduresForm';
 
 export const SurgicalHistoryProviderColumn: FC = () => {

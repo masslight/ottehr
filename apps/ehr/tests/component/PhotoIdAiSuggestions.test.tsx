@@ -48,7 +48,7 @@ vi.mock('../../src/features/visits/shared/components/patient/usePhotoIdExtractio
 import { AboutPatientContainer } from '../../src/features/visits/shared/components/patient/AboutPatientContainer';
 import { ContactContainer } from '../../src/features/visits/shared/components/patient/ContactContainer';
 // Real helper (the mock above spreads the actual module) — the consent-signer gate the hook applies.
-import { withoutPhotoIdName } from '../../src/features/visits/shared/components/patient/usePhotoIdExtraction';
+import { withoutPhotoIdIdentity } from '../../src/features/visits/shared/components/patient/usePhotoIdExtraction';
 
 // ============================================================================
 // FIXTURES & HARNESS
@@ -197,9 +197,9 @@ describe('AboutPatientContainer photo-ID suggestions', () => {
     expect(screen.queryByTestId(/insurance-card-ai-suggestion-/)).not.toBeInTheDocument();
   });
 
-  it('offers no name when consent was signed by someone other than the patient', () => {
+  it('offers no name, birth date or birth sex when consent was signed by someone other than the patient', () => {
     mockedPhotoId = {
-      fields: withoutPhotoIdName(
+      fields: withoutPhotoIdIdentity(
         makePhotoIdFields({
           firstName: 'JOHN',
           middleName: 'Q',
@@ -217,8 +217,8 @@ describe('AboutPatientContainer photo-ID suggestions', () => {
     expect(screen.queryByTestId(rowTestId('patient-middle-name'))).not.toBeInTheDocument();
     expect(screen.queryByTestId(rowTestId('patient-last-name'))).not.toBeInTheDocument();
     expect(screen.queryByTestId(rowTestId('patient-name-suffix'))).not.toBeInTheDocument();
-    expect(screen.getByTestId(rowTestId('patient-birthdate'))).toBeInTheDocument();
-    expect(screen.getByTestId(rowTestId('patient-birth-sex'))).toBeInTheDocument();
+    expect(screen.queryByTestId(rowTestId('patient-birthdate'))).not.toBeInTheDocument();
+    expect(screen.queryByTestId(rowTestId('patient-birth-sex'))).not.toBeInTheDocument();
   });
 });
 
@@ -304,7 +304,7 @@ describe('ContactContainer photo-ID suggestions', () => {
 
   it('still suggests the address when consent was signed by someone other than the patient', () => {
     mockedPhotoId = {
-      fields: withoutPhotoIdName(
+      fields: withoutPhotoIdIdentity(
         makePhotoIdFields({ firstName: 'JOHN', lastName: 'PUBLIC', addressLine1: '123 MAIN ST', addressZip: '02134' })
       ),
       isLoading: false,

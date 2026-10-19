@@ -37,10 +37,8 @@ vi.mock('../../src/api/api', () => ({
   updateInvoiceTask: vi.fn(),
 }));
 
-vi.mock('src/components/dialogs', () => ({
-  SendInvoiceToPatientDialog: () => null,
-  SendStatementToPatientDialog: () => null,
-}));
+vi.mock('src/components/dialogs/SendInvoiceToPatientDialog', () => ({ default: () => null }));
+vi.mock('src/components/dialogs/SendStatementToPatientDialog', () => ({ default: () => null }));
 
 vi.mock('src/features/chat/ChatModal', () => ({
   default: () => null,

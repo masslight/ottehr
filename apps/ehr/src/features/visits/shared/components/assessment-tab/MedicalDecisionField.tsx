@@ -3,7 +3,7 @@ import { FC, useEffect } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useProgressNoteConfig } from 'src/hooks/useProgressNoteConfig';
-import { useChartFields } from '../../hooks/useChartFields';
+import { useChartSection } from '../../hooks/useChartSection';
 import { useDebounceNotesField } from '../../hooks/useDebounceNotesField';
 import { useSyncServerNoteToField } from '../../hooks/useSyncServerNoteToField';
 
@@ -13,13 +13,7 @@ type MedicalDecisionFieldProps = {
 };
 
 export const MedicalDecisionField: FC<MedicalDecisionFieldProps> = ({ loading, setIsUpdating }) => {
-  const { data: chartData } = useChartFields({
-    requestedFields: {
-      medicalDecision: {
-        _tag: 'medical-decision',
-      },
-    },
-  });
+  const { data: chartData } = useChartSection('encounterNotes');
 
   const methods = useForm({
     defaultValues: {
@@ -54,9 +48,7 @@ export const MedicalDecisionField: FC<MedicalDecisionFieldProps> = ({ loading, s
           value={value}
           onChange={(e) => {
             onChange(e);
-            onValueChange(e.target.value, {
-              refetchChartDataOnSave: true,
-            });
+            onValueChange(e.target.value);
           }}
           size="small"
           label={`Medical Decision Making${mdmRequired ? ' *' : ''}`}

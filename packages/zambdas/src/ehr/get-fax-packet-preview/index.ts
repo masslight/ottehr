@@ -1,7 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Encounter, Organization, Patient, Practitioner } from 'fhir/r4b';
-import { getOrganizationFaxNumber } from 'utils/lib/fhir/helpers';
+import { getAllPractitionerCredentials, getOrganizationFaxNumber } from 'utils/lib/fhir/helpers';
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
 import { toTenDigitPhoneNumber } from 'utils/lib/helpers/helpers';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
@@ -48,8 +48,12 @@ export const mapPcpToRecipient = (pcp: Practitioner | undefined): FaxRecipient |
 
   if (!faxNumber) return undefined;
 
+  const nameWithoutCredential = pcp.name?.map((name) => ({ ...name, suffix: undefined }));
+  const credential = getAllPractitionerCredentials(pcp).join(', ');
+
   return {
-    name: pcp.name?.length ? getFullestAvailableName(pcp) : undefined,
+    name: pcp.name?.length ? getFullestAvailableName({ ...pcp, name: nameWithoutCredential }) : undefined,
+    ...(credential ? { credential } : {}),
     organization: pcp.extension?.find((extension) => extension.url === PRACTICE_NAME_URL)?.valueString?.trim(),
     faxNumber,
     phoneNumber: toTenDigitPhoneNumber(pcp.telecom?.find((telecom) => telecom.system === 'phone')?.value),

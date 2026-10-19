@@ -1,5 +1,6 @@
-import { ProcedurePageState, ProcedureQuickPickData } from 'utils';
 import { detectProcedureFamily } from 'utils/lib/procedure-coding/evaluate';
+import { ProcedurePageState } from 'utils/lib/types/api/procedures.types';
+import { ProcedureQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import { mergeOtherFromQuickPick, OTHER, splitOtherForQuickPick } from './procedureOtherFields';
 
 const QUICK_PICK_APPLY_KEYS = [
@@ -24,6 +25,7 @@ const QUICK_PICK_APPLY_KEYS = [
   'postInstructions',
   'otherPostInstructions',
   'timeSpent',
+  'performerType',
   'documentedBy',
 ] as const satisfies readonly (keyof ProcedureQuickPickData)[];
 
@@ -141,6 +143,7 @@ export function buildProcedureQuickPick(
     postInstructions: postInstructions.values,
     otherPostInstructions: postInstructions.other,
     timeSpent: source.timeSpent,
+    performerType: source.performerType,
     documentedBy: source.documentedBy,
   };
 }

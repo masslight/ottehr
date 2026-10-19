@@ -155,9 +155,13 @@ export function InsuranceOrganizationsList(): ReactElement {
         disableColumnMenu
         hideFooter
         onRowClick={(params) => {
-          if (params.row.source === 'custom') navigate(`/insurance-organizations/${params.row.id}`);
+          navigate(
+            params.row.source === 'custom'
+              ? `/insurance-organizations/${params.row.id}`
+              : `/insurance-organizations/rcm/${encodeURIComponent(params.row.payerId)}`
+          );
         }}
-        getRowClassName={(params) => (params.row.source === 'custom' ? 'clickable-row' : '')}
+        getRowClassName={() => 'clickable-row'}
         sx={{
           ...dataGridSx,
           height: 'calc(100vh - 360px)',

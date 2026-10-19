@@ -31,7 +31,6 @@ import {
   EXTENSION_CLAIM_CONDITION_CODE,
   EXTENSION_OUTSIDE_CHARGES,
   EXTENSION_PATIENT_ACCOUNT_NUMBER,
-  EXTENSION_PATIENT_PAID,
   EXTENSION_PATIENT_SIGNED_DATE,
   EXTENSION_PRACTITIONER_SIGNED_DATE,
 } from '../constants';
@@ -129,12 +128,6 @@ export function cms1500ToFhir(cms1500: Cms1500): Claim {
           ? {
               url: EXTENSION_PATIENT_ACCOUNT_NUMBER,
               valueString: cms1500.patientAccountNumber,
-            }
-          : undefined,
-        cms1500.amountPaid
-          ? {
-              url: EXTENSION_PATIENT_PAID,
-              valueMoney: money(cms1500.amountPaid),
             }
           : undefined,
         ...(cms1500.claimCodes ?? []).map((claimCode) => {

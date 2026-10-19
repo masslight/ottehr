@@ -7,8 +7,6 @@
 // - save-billing-tag / delete-billing-tag refuse to edit or delete them, and refuse to create or
 //   rename another tag onto their names,
 // - tag validations (save-billing-rules, tag-billing-claim) always accept them,
-// - the zambdas seed their Basic definitions from these entries (see systemTagBasic in
-//   packages/zambdas/src/billing/shared.ts),
 // - the billing app's TagSelect offers them even while the tag list is unavailable.
 // It lives in utils because both the billing app and the zambdas consume it.
 
