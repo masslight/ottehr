@@ -160,6 +160,7 @@ async function importNewVersion(
     resource: {
       ...questionnaire,
       version: nextVersion,
+      status: 'active',
     },
   };
 
