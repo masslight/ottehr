@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { ActivityDefinition, DeviceRequest, Encounter, Location, Organization, Patient, Procedure } from 'fhir/r4b';
-import { CODE_SYSTEM_CPT_MODIFIER } from 'utils/lib/helpers/rcm/constants';
+import { CODE_SYSTEM_CPT, CODE_SYSTEM_CPT_MODIFIER } from 'utils/lib/helpers/rcm/constants';
 import {
   DME_ORDER_PARAMETER_SYSTEM,
   DME_TASK,
@@ -18,6 +18,8 @@ import {
 import { makeCPTCodeDTO, makeProcedureResource } from '../../src/shared/chart-data/index';
 import {
   DME_BILLED_ORDER_EXTENSION_URL,
+  DME_BILLING_PROCEDURE_EXTENSION_URL,
+  getDmeBillingProcedureIds,
   getDmeOrderStatus,
   getDmePractitionerIds,
   isDmeBillingProcedure,
@@ -90,6 +92,21 @@ describe('DME menu item mapping', () => {
 
     const other: ActivityDefinition = { resourceType: 'ActivityDefinition', id: 'qp', status: 'active', title: 'x' };
     expect(isDmeMenuItem(other)).toBe(false);
+  });
+
+  it('describes a stored code without a display by the item name, so an order copying it stays valid', () => {
+    const resource = makeDmeMenuItemActivityDefinition({ name: 'Ankle Brace', hcpcsCodes: ANKLE_BRACE_CODES }, 'ad-3');
+    resource.productCodeableConcept!.coding = [
+      { system: CODE_SYSTEM_CPT, code: 'L1906' },
+      { system: CODE_SYSTEM_CPT, code: 'L4361', display: ' ' },
+    ];
+
+    const item = parseDmeMenuItem(resource)!;
+    expect(item.hcpcsCodes).toEqual([
+      { code: 'L1906', display: 'Ankle Brace' },
+      { code: 'L4361', display: 'Ankle Brace' },
+    ]);
+    expect(DmeOrderFieldsSchema.safeParse({ ...fields(), billingCodes: item.hcpcsCodes }).success).toBe(true);
   });
 });
 
@@ -231,6 +248,40 @@ describe('DME order mapping', () => {
     }
   );
 
+  it('lists the billing Procedures of this version of the order, replacing the previous list on edit', () => {
+    const make = (references: string[], existing?: DeviceRequest): DeviceRequest => ({
+      ...makeDmeDeviceRequest({
+        fields: fields(),
+        encounterId: ENCOUNTER_ID,
+        patientId: PATIENT_ID,
+        existing,
+        billingProcedureReferences: references,
+      }),
+      id: 'dr-1',
+    });
+    const stored = make(['Procedure/old-1', 'Procedure/old-2']);
+
+    expect(stored.extension).toContainEqual({
+      url: DME_BILLING_PROCEDURE_EXTENSION_URL,
+      valueReference: { reference: 'Procedure/old-1' },
+    });
+    expect(getDmeBillingProcedureIds(stored)).toEqual(['old-1', 'old-2']);
+    expect(getDmeBillingProcedureIds(make(['Procedure/new'], stored))).toEqual(['new']);
+    expect(getDmeBillingProcedureIds(make([], stored))).toEqual([]);
+    expect(parseDmeOrder(stored, NAMES).billingCodes).toEqual(ANKLE_BRACE_CODES);
+  });
+
+  it('describes a billing code stored without a display by the item name', () => {
+    const dr = build(fields());
+    dr.extension = dr.extension?.map((e) =>
+      e.valueCoding?.code === 'L4361' ? { ...e, valueCoding: { ...e.valueCoding, display: '' } } : e
+    );
+    expect(parseDmeOrder(dr, NAMES).billingCodes).toEqual([
+      ANKLE_BRACE_CODES[0],
+      { code: 'L4361', display: 'Ankle Brace' },
+    ]);
+  });
+
   it('keeps status, dispensed info, id and authoredOn from the existing order on edit', () => {
     const original = build(fields());
     const dispensedAt = '2026-10-01T12:00:00.000Z';
@@ -310,8 +361,8 @@ describe('makeDmeBillingProcedures', () => {
       expect(procedure.extension).toEqual([
         { url: DME_BILLED_ORDER_EXTENSION_URL, valueReference: { reference: 'DeviceRequest/dr-1' } },
       ]);
-      expect(isDmeBillingProcedureOf(procedure, 'dr-1')).toBe(true);
-      expect(isDmeBillingProcedureOf(procedure, 'dr-2')).toBe(false);
+      expect(isDmeBillingProcedureOf(procedure, build(fields()))).toBe(true);
+      expect(isDmeBillingProcedureOf(procedure, { ...build(fields()), id: 'dr-2' })).toBe(false);
       expect(isDmeBillingProcedure(procedure)).toBe(true);
       expect(isDmeBillingProcedure({ ...procedure, extension: undefined })).toBe(false);
       expect(procedure.encounter).toEqual({ reference: `Encounter/${ENCOUNTER_ID}` });
@@ -336,28 +387,45 @@ describe('makeDmeBillingProcedures', () => {
 });
 
 describe('fetchDmeBillingProcedures', () => {
-  it("returns only this order's billing lines, not another order's or a manually added CPT line", async () => {
-    const line = (id: string, deviceRequestReference: string): Procedure => ({
-      ...makeDmeBillingProcedures({
-        fields: fields(),
-        encounterId: ENCOUNTER_ID,
-        patientId: PATIENT_ID,
-        deviceRequestReference,
-      })[0],
-      id,
-    });
-    const manual: Procedure = {
-      ...makeProcedureResource(ENCOUNTER_ID, PATIENT_ID, { code: 'L1906', display: 'Ankle brace' }, 'cpt-code'),
-      id: 'manual',
-    };
-    const lines = [line('own', 'DeviceRequest/dr-1'), line('other', 'DeviceRequest/dr-2'), manual];
+  const line = (id: string, deviceRequestReference: string): Procedure => ({
+    ...makeDmeBillingProcedures({
+      fields: fields(),
+      encounterId: ENCOUNTER_ID,
+      patientId: PATIENT_ID,
+      deviceRequestReference,
+    })[0],
+    id,
+  });
+  const fhirSearching = (lines: Procedure[]): { oystehr: Oystehr; search: ReturnType<typeof vi.fn> } => {
     const search = vi.fn(async () => ({
       total: lines.length,
       entry: lines.map((resource) => ({ resource, search: { mode: 'match' } })),
       unbundle: () => lines,
     }));
+    return { oystehr: { fhir: { search } } as unknown as Oystehr, search };
+  };
+  const order = (billingProcedureIds: string[]): DeviceRequest => ({
+    ...makeDmeDeviceRequest({
+      fields: fields(),
+      encounterId: ENCOUNTER_ID,
+      patientId: PATIENT_ID,
+      billingProcedureReferences: billingProcedureIds.map((id) => `Procedure/${id}`),
+    }),
+    id: 'dr-1',
+  });
 
-    const result = await fetchDmeBillingProcedures(build(fields()), { fhir: { search } } as unknown as Oystehr);
+  it("returns only this order's billing lines, not another order's or a manually added CPT line", async () => {
+    const manual: Procedure = {
+      ...makeProcedureResource(ENCOUNTER_ID, PATIENT_ID, { code: 'L1906', display: 'Ankle brace' }, 'cpt-code'),
+      id: 'manual',
+    };
+    const { oystehr, search } = fhirSearching([
+      line('own', 'DeviceRequest/dr-1'),
+      line('other', 'DeviceRequest/dr-2'),
+      manual,
+    ]);
+
+    const result = await fetchDmeBillingProcedures(build(fields()), oystehr);
 
     expect(result.map((p) => p.id)).toEqual(['own']);
     expect((search.mock.calls[0] as any)[0].params).toEqual(
@@ -366,6 +434,22 @@ describe('fetchDmeBillingProcedures', () => {
         { name: '_tag', value: 'cpt-code' },
       ])
     );
+  });
+
+  it('finds a billing line the chart rewrote without its order extension, and skips one deleted by hand', async () => {
+    const own = line('own', 'DeviceRequest/dr-1');
+    // save-chart-data rebuilds an edited CPT line from its DTO, which carries no root extensions
+    const rewritten: Procedure = {
+      ...makeProcedureResource(ENCOUNTER_ID, PATIENT_ID, { ...makeCPTCodeDTO(own)!, billableUnits: 4 }, 'cpt-code'),
+      id: 'own',
+    };
+    expect(isDmeBillingProcedure(rewritten)).toBe(false);
+    const { oystehr } = fhirSearching([rewritten, line('other', 'DeviceRequest/dr-2')]);
+
+    const result = await fetchDmeBillingProcedures(order(['own', 'deleted-by-hand']), oystehr);
+
+    expect(result.map((p) => p.id)).toEqual(['own']);
+    expect(getDmeBillingProcedureIds(order(['own', 'deleted-by-hand']))).toEqual(['own', 'deleted-by-hand']);
   });
 });
 

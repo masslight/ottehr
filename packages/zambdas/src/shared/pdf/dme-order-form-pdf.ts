@@ -12,6 +12,8 @@ import { Secrets } from 'utils/lib/secrets';
 import {
   DME_LATERALITY_LABELS,
   DME_MODIFIER_LABELS,
+  DmeOrderDTO,
+  DmeOrderStatus,
   formatDmeBillingCode,
   formatDmeDuration,
 } from 'utils/lib/types/api/dme.types';
@@ -73,6 +75,13 @@ export interface DmeOrderFormData extends PdfData {
   inHouse: boolean;
 }
 
+const dmeFulfillmentText = (order: DmeOrderDTO): string => {
+  if (order.external) return 'Fulfilled by external site / third party';
+  return order.status === DmeOrderStatus.dispensed
+    ? 'Dispensed from in-house inventory'
+    : 'To be dispensed from in-house inventory';
+};
+
 export const composeDmeOrderFormData: DataComposer<DmeOrderFormInput, DmeOrderFormData> = (input) => {
   const { deviceRequest, patient, practitioners, location, timezone, oystehr } = input;
   const practitionerNames = Object.fromEntries(
@@ -117,7 +126,7 @@ export const composeDmeOrderFormData: DataComposer<DmeOrderFormInput, DmeOrderFo
       modifier: order.modifier ? DME_MODIFIER_LABELS[order.modifier] : undefined,
       duration: formatDmeDuration(order.duration),
       instructions: order.instructions,
-      fulfillment: order.external ? 'Fulfilled by external site / third party' : 'Dispensed from in-house inventory',
+      fulfillment: dmeFulfillmentText(order),
       dispensed: order.dispensed
         ? [dispensedAt, order.dispensed.name && `by ${order.dispensed.name}`].filter(Boolean).join(' ')
         : undefined,

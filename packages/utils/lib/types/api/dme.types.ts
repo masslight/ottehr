@@ -83,7 +83,7 @@ const BillingCodeSchema = z.object({
     .trim()
     .toUpperCase()
     .regex(/^[A-Z0-9]{5}$/, 'Expected a 5-character CPT/HCPCS code'),
-  display: text(MAX_DISPLAY_LENGTH),
+  display: text(MAX_DISPLAY_LENGTH).min(1, 'CPT/HCPCS code description is required'),
 });
 
 const DiagnosisCodeSchema = z.object({

@@ -6,6 +6,7 @@ import { Alert, Box, Button, Paper, Stack, Typography, useTheme } from '@mui/mat
 import { enqueueSnackbar } from 'notistack';
 import React, { ReactNode, useState } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
+import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import { FormsCard } from 'src/features/visits/shared/components/FormsCard';
 import {
   DME_LATERALITY_LABELS,
@@ -60,6 +61,8 @@ export const DmeOrderDetails: React.FC<DmeOrderDetailsProps> = ({ order, readOnl
   const { mutateAsync: getPdf, isPending: isPrinting } = useDmeOrderPdf();
   const [pendingAction, setPendingAction] = useState<DmeOrderAction | undefined>();
   const ids = dataTestIds.dmeOrders.details;
+  // with DME disabled, existing orders can still be dispensed but not changed
+  const canModify = !readOnly && FEATURE_FLAGS.DME_ORDERS_ENABLED;
   const canDispense = !readOnly && !order.external && order.status === DmeOrderStatus.pending;
 
   const handlePrint = async (): Promise<void> => {
@@ -127,7 +130,7 @@ export const DmeOrderDetails: React.FC<DmeOrderDetailsProps> = ({ order, readOnl
         )}
 
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mt: 3 }}>
-          {!readOnly && onEdit && (
+          {canModify && onEdit && (
             <Button
               variant="outlined"
               startIcon={<EditOutlinedIcon />}
@@ -148,7 +151,7 @@ export const DmeOrderDetails: React.FC<DmeOrderDetailsProps> = ({ order, readOnl
           >
             Print
           </LoadingButton>
-          {!readOnly && (
+          {canModify && (
             <Button
               variant="outlined"
               color="error"
