@@ -50,6 +50,7 @@ import { topLevelCatch } from '../../shared/lambda';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { validateWithSchema } from '../../shared/validation';
+import { fetchEncounterDmeBillingProcedureIds } from '../dme/shared/order-helpers';
 import { labOrderCommunicationType } from '../lab/external/get-lab-orders/helpers';
 import { AD_CANONICAL_URL_BASE } from '../lab/shared/in-house-labs';
 import {
@@ -104,7 +105,11 @@ const performEffect = async (
   const warnings: TemplateWarning[] = [];
 
   // Fetch encounter with all related clinical resources
-  let encounterBundle = await getTemplateEncounterBundle(oystehr, encounterId);
+  const [initialEncounterBundle, dmeBillingProcedureIds] = await Promise.all([
+    getTemplateEncounterBundle(oystehr, encounterId),
+    fetchEncounterDmeBillingProcedureIds(encounterId, oystehr),
+  ]);
+  let encounterBundle = initialEncounterBundle;
 
   if (!encounterBundle.length) {
     throw new Error('No entries found in encounter bundle, cannot make a template');
@@ -254,7 +259,7 @@ const performEffect = async (
     // we won't grab any cpt codes that were added to the assessment because of an administered in house med
     if (isInHouseMedicationCptLine(resource, inHouseMedicationOrderReferences)) continue;
     // DME billing lines belong to that patient's order, which a template must not reference
-    if (resource.resourceType === 'Procedure' && isDmeBillingProcedure(resource)) continue;
+    if (isDmeBillingCptLine(resource, dmeBillingProcedureIds)) continue;
 
     const anonymizedResource: any = { ...resource };
     delete anonymizedResource.meta?.versionId;
@@ -737,6 +742,13 @@ export const isInHouseMedicationCptLine = (
   resourceHasTagSystem(resource, chartDataTagSystem('cpt-code')) &&
   (resource.partOf?.some((part) => (part.reference ? inHouseMedicationOrderReferences.has(part.reference) : false)) ??
     false);
+
+export const isDmeBillingCptLine = (
+  resource: TemplateEncounterResource,
+  dmeBillingProcedureIds: ReadonlySet<string>
+): boolean =>
+  resource.resourceType === 'Procedure' &&
+  (isDmeBillingProcedure(resource) || (!!resource.id && dmeBillingProcedureIds.has(resource.id)));
 
 export const isValidMedicationAdministrationForTemplate = (resource: TemplateEncounterResource): boolean => {
   if (resource.resourceType !== 'MedicationAdministration') return false;

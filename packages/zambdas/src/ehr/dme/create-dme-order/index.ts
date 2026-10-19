@@ -53,12 +53,18 @@ const createDmeOrder = async (
   const patientId = context.patient.id!;
 
   const deviceRequestFullUrl = `urn:uuid:${randomUUID()}`;
-  const deviceRequest = makeDmeDeviceRequest({ fields, encounterId, patientId });
+  const billingRequests = makeBillingProcedureRequests(
+    makeDmeBillingProcedures({ fields, encounterId, patientId, deviceRequestReference: deviceRequestFullUrl })
+  );
+  const deviceRequest = makeDmeDeviceRequest({
+    fields,
+    encounterId,
+    patientId,
+    billingProcedureReferences: billingRequests.map((request) => request.fullUrl),
+  });
   const requests: BatchInputPostRequest<FhirResource>[] = [
     { method: 'POST', url: '/DeviceRequest', resource: deviceRequest, fullUrl: deviceRequestFullUrl },
-    ...makeBillingProcedureRequests(
-      makeDmeBillingProcedures({ fields, encounterId, patientId, deviceRequestReference: deviceRequestFullUrl })
-    ),
+    ...billingRequests,
   ];
   const provenance = makeDmeProvenance({
     target: deviceRequestFullUrl,

@@ -330,9 +330,9 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
   },
   [ROUTER_PATH.DME_DETAILS]: {
     path: ROUTER_PATH.DME_DETAILS,
-    modes: FEATURE_FLAGS.DME_ORDERS_ENABLED ? ['main', 'follow-up'] : [],
+    modes: ['main', 'follow-up'],
     isSkippedInNavigation: true,
-    element: FEATURE_FLAGS.DME_ORDERS_ENABLED ? <DmeOrderDetailsPage /> : null,
+    element: <DmeOrderDetailsPage />,
     text: 'DME',
     iconKey: 'DME',
     groupLabel: 'Actions',
