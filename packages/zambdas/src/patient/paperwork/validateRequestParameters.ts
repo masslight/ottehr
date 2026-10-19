@@ -71,6 +71,16 @@ const PaperworkBodySchema = z.object({
   appointmentId: z.string().uuid().optional(),
 });
 
+const CalculatedAnswerItemSchema: z.ZodType<QuestionnaireResponseItem> = z.lazy(() =>
+  z
+    .object({
+      linkId: z.string(),
+      answer: z.array(z.object({}).passthrough()).optional(),
+      item: z.array(CalculatedAnswerItemSchema).optional(),
+    })
+    .passthrough()
+);
+
 const basicValidation = (input: ZambdaInput): BasicInput => {
   if (!input.body) {
     throw new Error('No request body provided');
@@ -85,7 +95,7 @@ const basicValidation = (input: ZambdaInput): BasicInput => {
     throw new Error(`"answers" is a required param`);
   }
 
-  const parsedCalculatedAnswers = z.array(z.object({ linkId: z.string() }).passthrough()).safeParse(calculatedAnswers);
+  const parsedCalculatedAnswers = z.array(CalculatedAnswerItemSchema).safeParse(calculatedAnswers);
   const calculatedAnswersProblem =
     calculatedAnswers !== undefined && !parsedCalculatedAnswers.success
       ? '"calculatedAnswers" is not a list of questionnaire response items'
