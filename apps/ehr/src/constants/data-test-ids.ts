@@ -617,6 +617,7 @@ export const dataTestIds = {
   },
   patientDocsPage: {
     faxDocumentButton: (documentId: string) => `fax-document-button-${documentId}`,
+    downloadSelectedDocumentsButton: 'download-selected-documents-button',
   },
   addInsuranceDialog: {
     id: 'add-insurance-dialog',
