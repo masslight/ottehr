@@ -1,10 +1,10 @@
 import AddIcon from '@mui/icons-material/Add';
 import { Box } from '@mui/material';
 import React from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { ButtonRounded } from 'src/features/visits/in-person/components/RoundedButton';
-import { getDmeOrderCreateUrl } from 'src/features/visits/in-person/routing/helpers';
+import { getDmeOrderCreateUrl, withEncounterIdParam } from 'src/features/visits/in-person/routing/helpers';
 import { PageTitle } from 'src/features/visits/shared/components/PageTitle';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
@@ -14,6 +14,7 @@ import { DmeOrdersTable } from '../components/DmeOrdersTable';
 export const DmeOrdersPage: React.FC = () => {
   const navigate = useNavigate();
   const { id: appointmentId } = useParams();
+  const [searchParams] = useSearchParams();
   const { encounter } = useAppointmentData();
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
@@ -21,7 +22,8 @@ export const DmeOrdersPage: React.FC = () => {
     return null;
   }
 
-  const handleCreateOrder = (): void => navigate(getDmeOrderCreateUrl(appointmentId));
+  const handleCreateOrder = (): void =>
+    navigate(withEncounterIdParam(getDmeOrderCreateUrl(appointmentId), searchParams.get('encounterId')));
 
   return (
     <Box>

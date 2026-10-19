@@ -1,9 +1,11 @@
+import Oystehr from '@oystehr/sdk';
 import { Address, DeviceRequest, Patient, Practitioner } from 'fhir/r4b';
 import { PDFDocument } from 'pdf-lib';
 import { FHIR_IDENTIFIER_NPI } from 'utils/lib/fhir/constants';
 import { DmeOrderFields, DmeOrderFieldsSchema } from 'utils/lib/types/api/dme.types';
 import { describe, expect, it, vi } from 'vitest';
 import { makeDmeDeviceRequest, makeDmeDispensedExtension, parseDmeOrder } from '../../src/shared/dme';
+import { getEncounterDmeOrders } from '../../src/shared/pdf/assemble-progress-note-input';
 import {
   composeDmeOrderFormData,
   createDmeOrderFormPdfBytes,
@@ -99,6 +101,32 @@ describe('visit note DME section', () => {
     expect(drawText.mock.calls.map((call) => call[0])).toEqual(['Wrist brace', 'Status: Pending', 'Qty: 1']);
     expect(section.shouldRender?.(data)).toBe(true);
     expect(section.shouldRender?.({ dmeOrders: [] })).toBe(false);
+  });
+
+  it('reads every page of the encounter orders, drops deleted ones and lists the oldest first', async () => {
+    const order = (id: string, authoredOn: string, status: DeviceRequest['status'] = 'active'): DeviceRequest => ({
+      ...makeDeviceRequest(inHouseFields),
+      id,
+      authoredOn,
+      status,
+    });
+    const pages = [
+      [order('newer', '2026-10-15T16:00:00.000Z')],
+      [order('older', '2026-10-15T14:00:00.000Z'), order('deleted', '2026-10-15T15:00:00.000Z', 'revoked')],
+    ];
+    const search = vi.fn(async () => {
+      const page = pages[search.mock.calls.length - 1];
+      return {
+        total: 3,
+        entry: page.map((resource) => ({ resource, search: { mode: 'match' } })),
+        unbundle: () => page,
+      };
+    });
+
+    const orders = await getEncounterDmeOrders({ fhir: { search } } as unknown as Oystehr, 'encounter-1');
+
+    expect(search).toHaveBeenCalledTimes(2);
+    expect(orders.map((o) => o.id)).toEqual(['older', 'newer']);
   });
 
   it('is part of the note text', () => {
