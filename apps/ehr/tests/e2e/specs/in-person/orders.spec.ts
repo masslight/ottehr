@@ -35,7 +35,7 @@ import {
   repeatTestErrorMessage,
 } from 'utils/lib/helpers/in-house-labs';
 import { detectProcedureFamily } from 'utils/lib/procedure-coding/evaluate';
-import { formatProcedureCptCode } from 'utils/lib/procedure-coding/format';
+import { formatProcedureCptCode, performerTypeDisplayLabel } from 'utils/lib/procedure-coding/format';
 import { CPTCodeDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { REPEAT_TEST_CPT_CODE_MODIFIER } from 'utils/lib/types/data/in-house/in-house.constants';
 import { DataEntryTestItem } from 'utils/lib/types/data/in-house/in-house.types';
@@ -1152,7 +1152,7 @@ function progressNoteProcedureDetails(procedureInfo: ProcedureInfo): string[] {
   return [
     'CPT:' + cptInfo.join('; '),
     'Dx: ' + procedureInfo.diagnosisCode + ' ' + procedureInfo.diagnosisName,
-    'Performed by: ' + procedureInfo.performedBy,
+    'Performed by: ' + performerTypeDisplayLabel(procedureInfo.performedBy),
     'Anaesthesia / medication used: ' + procedureInfo.anaesthesia,
     'Site/location: ' + procedureInfo.bodySite,
     'Side of body: ' + procedureInfo.bodySide,

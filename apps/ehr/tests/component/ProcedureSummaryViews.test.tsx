@@ -98,6 +98,12 @@ describe('structured fields in the procedure summary', () => {
     expect(ekg).not.toHaveTextContent('Infusion time');
     expect(laceration).toHaveTextContent('Repair depth: legacy-unknown-depth');
   });
+
+  it('shows "Both" performers with the same wording as the procedure form', () => {
+    assessmentMock.current = { procedures: [{ resourceId: 'proc-1', procedureType: 'EKG', performerType: 'Both' }] };
+    render(<ProceduresContainer />);
+    expect(screen.getByTestId('procedure-item')).toHaveTextContent('Performed by: Provider and healthcare staff');
+  });
 });
 
 describe('quick-pick detail', () => {

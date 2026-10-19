@@ -6,7 +6,11 @@ import {
   SectionHeading,
   useNoteSectionTitleInCardHeader,
 } from 'src/features/visits/shared/components/NoteSectionHeading';
-import { formatInfusionTimeRange, repairDepthDisplayLabel } from 'utils/lib/procedure-coding/format';
+import {
+  formatInfusionTimeRange,
+  performerTypeDisplayLabel,
+  repairDepthDisplayLabel,
+} from 'utils/lib/procedure-coding/format';
 import { formatProcedureCptCode, formatStructuredFacts } from 'utils/lib/procedure-coding/format';
 import { useVisitNote } from '../../../hooks/useVisitNote';
 
@@ -55,7 +59,10 @@ export const ProceduresContainer: FC = () => {
                 ? DateTime.fromISO(procedure.procedureDateTime).toFormat('MM/dd/yyyy, HH:mm a')
                 : undefined
             )}
-            {renderProperty('Performed by', procedure.performerType)}
+            {renderProperty(
+              'Performed by',
+              procedure.performerType != null ? performerTypeDisplayLabel(procedure.performerType) : undefined
+            )}
             {renderProperty('Anaesthesia / medication used', procedure.medicationUsed)}
             {renderProperty('Site/location', procedure.bodySite)}
             {renderProperty('Side of body', procedure.bodySide)}

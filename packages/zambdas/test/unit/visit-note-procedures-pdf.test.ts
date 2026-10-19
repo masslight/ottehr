@@ -51,6 +51,11 @@ describe('composeProcedures — structured fields', () => {
     expect(composed.procedures?.[0].repairDepth).toBe('legacy-unknown-depth');
   });
 
+  it('writes "Both" performers with their display wording', () => {
+    const composed = composeFor({ performerType: 'Both' });
+    expect(composed.procedures?.[0].performerType).toBe('Provider and healthcare staff');
+  });
+
   it('applies the cross-midnight rule to the infusion duration', () => {
     const composed = composeFor({ infusionStartTime: '23:50', infusionStopTime: '00:20' });
     expect(composed.procedures?.[0].infusionTime).toBe('23:50–00:20 (30 min)');
