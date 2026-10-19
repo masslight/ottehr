@@ -106,10 +106,10 @@ export function AutocompleteInput<Value>({
                 isSelectAllOption(option)
                   ? SELECT_ALL_LABEL
                   : getOptionKey
-                    ? getOptionKey(option)
-                    : getOptionLabel
-                      ? getOptionLabel(option)
-                      : String(option),
+                  ? getOptionKey(option)
+                  : getOptionLabel
+                  ? getOptionLabel(option)
+                  : String(option),
               getOptionLabel: (option: any) =>
                 isSelectAllOption(option) ? SELECT_ALL_LABEL : getOptionLabel ? getOptionLabel(option) : String(option),
               isOptionEqualToValue: (option: any, value: any) => !isSelectAllOption(option) && isEqual(option, value),
