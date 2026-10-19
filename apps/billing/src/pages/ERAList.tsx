@@ -38,20 +38,8 @@ import { ERA_SOURCE_LABELS } from '../constants/era';
 import { useApiClients } from '../hooks/useAppClients';
 import { useDebounce } from '../hooks/useDebounce';
 
-interface Filters {
-  // ERA-level
-  checkNumber?: string;
-  eraDateFrom?: string;
-  eraDateTo?: string;
-  payerId?: string;
-  matchingStatus?: string;
-  // Claim-level
-  searchText?: string;
-  claimStatus?: string;
-  dosFrom?: string;
-  dosTo?: string;
-  patientId?: string;
-}
+type Filters = Omit<SearchErasInput, 'offset' | 'pageSize'>;
+type EraStatus = NonNullable<SearchErasInput['status']>;
 
 const claimsMatchedLabel = (row: EraListItem): string =>
   row.claimCount === 0 ? 'No claims' : `${row.matchedCount}/${row.claimCount} matched`;
@@ -120,6 +108,7 @@ export default function ERAList(): ReactElement {
   const [showImportDialog, setShowImportDialog] = useState(false);
 
   // ERA-level filters
+  const [status, setStatus] = useState<EraStatus>('active');
   const [checkNumber, setCheckNumber] = useState('');
   const [eraDateFrom, setEraDateFrom] = useState('');
   const [eraDateTo, setEraDateTo] = useState('');
@@ -134,15 +123,19 @@ export default function ERAList(): ReactElement {
   const [dosTo, setDosTo] = useState('');
   const [selectedPatient, setSelectedPatient] = useState<BillingPatientOption | null>(null);
 
-  const { debounce } = useDebounce();
+  const { debounce, clear } = useDebounce();
+  const latestRequest = useRef(0);
 
   const fetchEras = useCallback(
     async (filters: Filters, pagination: GridPaginationModel): Promise<void> => {
       if (!oystehrZambda) return;
+      clear();
+      const requestId = ++latestRequest.current;
       setLoading(true);
       setError(null);
       try {
         const params: SearchErasInput = {
+          status: filters.status ?? 'active',
           pageSize: pagination.pageSize,
           offset: pagination.page * pagination.pageSize,
         };
@@ -157,15 +150,18 @@ export default function ERAList(): ReactElement {
         if (filters.dosTo) params.dosTo = filters.dosTo;
         if (filters.patientId) params.patientId = filters.patientId;
         const data = await searchBillingEras(oystehrZambda, params);
+        if (requestId !== latestRequest.current) return;
         setEras(data.eras ?? []);
         setTotalRows(data.total ?? 0);
       } catch (err) {
-        setError(getApiError({ error: err, defaultError: 'Failed to load ERAs' }));
+        if (requestId === latestRequest.current) {
+          setError(getApiError({ error: err, defaultError: 'Failed to load ERAs' }));
+        }
       } finally {
-        setLoading(false);
+        if (requestId === latestRequest.current) setLoading(false);
       }
     },
-    [oystehrZambda]
+    [oystehrZambda, clear]
   );
 
   const initialLoadDone = useRef(false);
@@ -177,6 +173,7 @@ export default function ERAList(): ReactElement {
 
   const currentFilters = useCallback(
     (overrides?: Filters): Filters => ({
+      status: overrides?.status ?? status,
       checkNumber: overrides?.checkNumber ?? checkNumber,
       eraDateFrom: overrides?.eraDateFrom ?? eraDateFrom,
       eraDateTo: overrides?.eraDateTo ?? eraDateTo,
@@ -189,6 +186,7 @@ export default function ERAList(): ReactElement {
       patientId: overrides?.patientId ?? selectedPatient?.id,
     }),
     [
+      status,
       checkNumber,
       eraDateFrom,
       eraDateTo,
@@ -219,10 +217,12 @@ export default function ERAList(): ReactElement {
     (setter: (v: string) => void, key: keyof Filters) =>
     (value: string): void => {
       setter(value);
-      debounce(() => applyFilters({ [key]: value }), key);
+      debounce(() => applyFilters({ [key]: value }));
     };
 
   const clearFilters = (): void => {
+    setStatus('active');
+    setMatchingStatus('');
     setCheckNumber('');
     setEraDateFrom('');
     setEraDateTo('');
@@ -238,6 +238,7 @@ export default function ERAList(): ReactElement {
   };
 
   const hasFilters =
+    status !== 'active' ||
     checkNumber ||
     eraDateFrom ||
     eraDateTo ||
@@ -293,6 +294,22 @@ export default function ERAList(): ReactElement {
         ERA Filters
       </Typography>
       <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+        <FormControl size="small" sx={{ minWidth: 140 }}>
+          <InputLabel id="era-status-label">ERA Status</InputLabel>
+          <Select
+            labelId="era-status-label"
+            value={status}
+            label="ERA Status"
+            onChange={(e) => {
+              const value = e.target.value as EraStatus;
+              setStatus(value);
+              applyFilters({ status: value });
+            }}
+          >
+            <MenuItem value="active">Active</MenuItem>
+            <MenuItem value="voided">Voided</MenuItem>
+          </Select>
+        </FormControl>
         <TextField
           size="small"
           label="Check Number"
@@ -416,7 +433,7 @@ export default function ERAList(): ReactElement {
         <ImportEraDialog
           onClose={() => {
             setShowImportDialog(false);
-            void fetchEras({}, paginationModel);
+            void fetchEras(currentFilters(), paginationModel);
           }}
         />
       )}

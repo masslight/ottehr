@@ -86,6 +86,7 @@ export const VoidEraInputSchema = z.object({
 
 export const SearchErasInputSchema = z.object({
   // ERA-level filters (work for matched + unmatched)
+  status: z.enum(['active', 'voided']).optional(),
   checkNumber: nonEmptyString.optional(),
   eraDateFrom: nonEmptyString.optional(),
   eraDateTo: nonEmptyString.optional(),

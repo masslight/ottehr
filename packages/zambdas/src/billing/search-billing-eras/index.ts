@@ -2,6 +2,7 @@ import Oystehr, { SearchParam } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, ClaimResponse, Organization, PaymentReconciliation } from 'fhir/r4b';
 import { getPayerId, getPayerUrl } from 'utils/lib/helpers/helpers';
+import { ERA_VOID_STATUS } from 'utils/lib/types/data/billing/billing.constants';
 import { EraListItem } from 'utils/lib/types/data/billing/billing.types';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { fetchAllPages } from '../../shared/fhir';
@@ -58,7 +59,9 @@ export async function performEffect(
   }
 
   // ERA-level FHIR search, without the paging the server can only apply to the filters it runs
-  const filterParams: SearchParam[] = [];
+  const filterParams: SearchParam[] = [
+    { name: params.status === 'voided' ? 'status' : 'status:not', value: ERA_VOID_STATUS },
+  ];
   if (params.eraDateFrom) filterParams.push({ name: 'created', value: `ge${params.eraDateFrom}` });
   if (params.eraDateTo) filterParams.push({ name: 'created', value: `le${params.eraDateTo}` });
   if (payerIssuerFilter) filterParams.push({ name: 'payment-issuer', value: payerIssuerFilter });
@@ -188,6 +191,7 @@ async function findErasByCheckNumber(
   const bundle = await eraReadClient.fhir.search<PaymentReconciliation>({
     resourceType: 'PaymentReconciliation',
     params: [
+      ...filterParams,
       {
         name: '_id',
         value: pageIds.join(','),
