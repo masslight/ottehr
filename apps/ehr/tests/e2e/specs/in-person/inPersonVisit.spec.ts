@@ -1,5 +1,5 @@
 import { BrowserContext, expect, Page, test } from '@playwright/test';
-import { Appointment, QuestionnaireItemAnswerOption } from 'fhir/r4b';
+import { Appointment, InsurancePlan, QuestionnaireItemAnswerOption } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { InPersonHeader } from 'tests/e2e/page/InPersonHeader';
@@ -16,7 +16,6 @@ import {
   getResponsiblePartyStepAnswers,
   isoToDateObject,
 } from 'utils/lib/helpers/helpers';
-import { chooseJson } from 'utils/lib/helpers/oystehrApi';
 import { INSURANCE_PLAN_PAYER_META_TAG_CODE } from 'utils/lib/types/api/insurances.constants';
 import { getTimezone } from 'utils/lib/utils/scheduleUtils';
 import { ENV_LOCATION_NAME } from '../../../e2e-utils/resource/constants';
@@ -129,14 +128,17 @@ test.describe('In-person visit', async () => {
 
     test.beforeAll(async ({ browser }) => {
       const oystehr = await ResourceHandler.getOystehr();
-      const insuranceCarriersOptionsResponse = await oystehr.zambda.execute({
-        id: 'get-answer-options',
-        answerSource: {
-          resourceType: 'InsurancePlan',
-          query: `status=active&_tag=${INSURANCE_PLAN_PAYER_META_TAG_CODE}`,
-        },
+      const insurancePlansResponse = await oystehr.fhir.search<InsurancePlan>({
+        resourceType: 'InsurancePlan',
+        params: [
+          { name: 'status', value: 'active' },
+          { name: '_tag', value: INSURANCE_PLAN_PAYER_META_TAG_CODE },
+        ],
       });
-      const insuranceCarriersOptions = chooseJson(insuranceCarriersOptionsResponse) as QuestionnaireItemAnswerOption[];
+      const insuranceCarriersOptions: QuestionnaireItemAnswerOption[] = insurancePlansResponse
+        .unbundle()
+        .map((plan) => ({ valueReference: { reference: `InsurancePlan/${plan.id}`, display: plan.name } }))
+        .sort((a, b) => (a.valueReference?.display ?? '').localeCompare(b.valueReference?.display ?? ''));
 
       insuranceCarrier1 = insuranceCarriersOptions.at(0);
       insuranceCarrier2 = insuranceCarriersOptions.at(1);
@@ -305,14 +307,17 @@ test.describe('In-person visit', async () => {
 
     test.beforeAll(async ({ browser }) => {
       const oystehr = await ResourceHandler.getOystehr();
-      const insuranceCarriersOptionsResponse = await oystehr.zambda.execute({
-        id: 'get-answer-options',
-        answerSource: {
-          resourceType: 'InsurancePlan',
-          query: `status=active&_tag=${INSURANCE_PLAN_PAYER_META_TAG_CODE}`,
-        },
+      const insurancePlansResponse = await oystehr.fhir.search<InsurancePlan>({
+        resourceType: 'InsurancePlan',
+        params: [
+          { name: 'status', value: 'active' },
+          { name: '_tag', value: INSURANCE_PLAN_PAYER_META_TAG_CODE },
+        ],
       });
-      const insuranceCarriersOptions = chooseJson(insuranceCarriersOptionsResponse) as QuestionnaireItemAnswerOption[];
+      const insuranceCarriersOptions: QuestionnaireItemAnswerOption[] = insurancePlansResponse
+        .unbundle()
+        .map((plan) => ({ valueReference: { reference: `InsurancePlan/${plan.id}`, display: plan.name } }))
+        .sort((a, b) => (a.valueReference?.display ?? '').localeCompare(b.valueReference?.display ?? ''));
 
       insuranceCarrier1 = insuranceCarriersOptions.at(0);
       insuranceCarrier2 = insuranceCarriersOptions.at(1);

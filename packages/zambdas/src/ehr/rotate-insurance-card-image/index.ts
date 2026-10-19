@@ -8,6 +8,7 @@ import { FHIR_RESOURCE_NOT_FOUND, INSURANCE_CARD_IMAGE_ERROR } from 'utils/lib/t
 import { MimeType } from 'utils/lib/utils/file';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
+import { assertZ3UrlInProject } from '../../shared/presigned-file-urls/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { createPresignedUrl, uploadObjectToZ3 } from '../../shared/z3Utils';
@@ -49,6 +50,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   // throws structured INVALID_INPUT_ERRORs for anything that is not a current card image
   const attachment = assertRotatableCardImage(documentReference);
   const attachmentUrl = attachment.url;
+  assertZ3UrlInProject(attachmentUrl, secrets);
 
   let bytes: Buffer;
   try {
