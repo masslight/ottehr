@@ -7,7 +7,10 @@ import React, { useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { searchRouteByCode } from 'utils/lib/fhir/medication-administration';
-import { ExtendedMedicationDataForResponse } from 'utils/lib/types/api/medication-administration.types';
+import {
+  ExtendedMedicationDataForResponse,
+  inHouseMedicationsMedicationApplianceRoutes,
+} from 'utils/lib/types/api/medication-administration.types';
 import { dataTestIds } from '../../../../../../constants/data-test-ids';
 import { getEditOrderUrl, getInHouseMedicationDetailsUrl } from '../../../routing/helpers';
 import { MedicationStatusChip } from '../statuses/MedicationStatusChip';
@@ -129,7 +132,7 @@ export const MarTableRow: React.FC<MarTableRowProps> = ({
         {medication.dose || ''} {medication.units || ''}
       </TableCell>
       <TableCell data-testid={dataTestIds.inHouseMedicationsPage.marTable.routeCell} sx={columnStyles.route}>
-        {searchRouteByCode(medication.route)?.display || '-'}
+        {searchRouteByCode(medication.route, inHouseMedicationsMedicationApplianceRoutes)?.display || '-'}
       </TableCell>
       <TableCell sx={columnStyles.orderDateTime}>{formatOrderDateTime}</TableCell>
       <TableCell

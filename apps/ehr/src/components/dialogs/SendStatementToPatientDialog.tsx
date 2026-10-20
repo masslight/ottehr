@@ -412,7 +412,7 @@ export default function SendStatementToPatientDialog({
                     <Box
                       component="iframe"
                       title="Statement Preview"
-                      sandbox="allow-same-origin allow-scripts"
+                      sandbox="allow-scripts"
                       srcDoc={generatedHtml}
                       sx={{
                         width: '100%',

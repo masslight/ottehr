@@ -67,6 +67,33 @@ export const FOLLOWUP_SYSTEMS = {
   },
 };
 
+/**
+ * Builds the `Encounter.type` that marks an encounter as a follow-up of the given subtype.
+ * Shared by every writer so the SNOMED + subtype coding pair stays in one place: annotation
+ * creation (save-followup-encounter), scheduled creation (create-appointment) and in-place
+ * conversion (convert-visit-to-follow-up).
+ */
+export const buildFollowupEncounterType = (
+  subtype: FollowupSubtype,
+  type: FollowupType = FOLLOWUP_TYPES[0]
+): Encounter['type'] => [
+  {
+    coding: [
+      {
+        system: FOLLOWUP_SYSTEMS.type.url,
+        code: FOLLOWUP_SYSTEMS.type.code,
+        display: type,
+      },
+      {
+        system: FOLLOWUP_SUBTYPE_SYSTEM,
+        code: subtype,
+        display: subtype,
+      },
+    ],
+    text: type,
+  },
+];
+
 export const isFollowupEncounter = (encounter: Encounter): boolean => {
   return (
     encounter.type?.some(
@@ -352,13 +379,10 @@ export const getAnnotationFollowupStatusLabel = (encounterStatus: string | undef
  * Determines which encounter should be pre-selected as the "initial visit"
  * when creating a new follow-up from the current visit context.
  * If the current encounter is itself a follow-up child (has partOf), the parent
- * (followUpOriginEncounter) is the initial visit; otherwise the current encounter is.
+ * it is part of is the initial visit; otherwise the current encounter is.
  */
-export const getInitialEncounterIdForFollowUp = (
-  encounter: Encounter | undefined,
-  followUpOriginEncounter: Encounter | undefined
-): string | undefined => {
-  return encounter?.partOf ? followUpOriginEncounter?.id : encounter?.id;
+export const getInitialEncounterIdForFollowUp = (encounter: Encounter | undefined): string | undefined => {
+  return encounter?.partOf ? encounter.partOf.reference?.replace('Encounter/', '') : encounter?.id;
 };
 
 export const getFollowUpProgressNotePathSegment = (

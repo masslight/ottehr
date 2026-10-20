@@ -1,5 +1,5 @@
 import Oystehr from '@oystehr/sdk';
-import { Device, PaymentNotice, PaymentReconciliation } from 'fhir/r4b';
+import { Device, PaymentNotice, PaymentReconciliation, Reference } from 'fhir/r4b';
 import {
   SCHEDULE_OWNER_STRIPE_ACCOUNT_EXTENSION_URL,
   STRIPE_TERMINAL_LOCATION_DEVICE_TYPE_CODE,
@@ -17,6 +17,14 @@ export const getStripeAccountForAppointmentOrEncounter = async (
   return scheduleOwner.extension?.find((ext) => {
     return ext.url === SCHEDULE_OWNER_STRIPE_ACCOUNT_EXTENSION_URL;
   })?.valueString;
+};
+
+// The staff member who recorded the payment, as stamped on the contained PaymentReconciliation
+export const getPaymentNoticeSubmitterRef = (notice: PaymentNotice): Reference | undefined => {
+  const reconciliation = notice.contained?.find(
+    (resource): resource is PaymentReconciliation => resource.resourceType === 'PaymentReconciliation'
+  );
+  return reconciliation?.detail?.find((detail) => detail.submitter)?.submitter;
 };
 
 // Returns undefined if there is no stripe terminal location id registered on the schedule owner.

@@ -7,6 +7,7 @@ import {
   ClaimStatusValues,
   claimStatusValuesToTags,
   emptyClaimStatusValues,
+  hasReachedClaimStatus,
 } from './claim-status';
 
 const RECORDED = '2026-07-24T12:00:00.000Z';
@@ -150,5 +151,24 @@ describe('buildClaimStatusDateExtensions', () => {
         valueDateTime: RECORDED,
       },
     ]);
+  });
+});
+
+describe('hasReachedClaimStatus', () => {
+  it('is true at the target and at every later option', () => {
+    expect(hasReachedClaimStatus('patientArStatus', 'ready-to-invoice', 'ready-to-invoice')).toBe(true);
+    expect(hasReachedClaimStatus('patientArStatus', 'invoiced', 'ready-to-invoice')).toBe(true);
+    expect(hasReachedClaimStatus('patientArStatus', 'finalized', 'ready-to-invoice')).toBe(true);
+  });
+
+  it('is false before the target', () => {
+    expect(hasReachedClaimStatus('patientArStatus', 'not-invoiced', 'ready-to-invoice')).toBe(false);
+    expect(hasReachedClaimStatus('insuranceArStatus', 'submitted', 'finalized')).toBe(false);
+  });
+
+  it('is false for blank or unknown codes', () => {
+    expect(hasReachedClaimStatus('patientArStatus', '', 'ready-to-invoice')).toBe(false);
+    expect(hasReachedClaimStatus('patientArStatus', 'made-up', 'ready-to-invoice')).toBe(false);
+    expect(hasReachedClaimStatus('patientArStatus', 'invoiced', 'made-up')).toBe(false);
   });
 });

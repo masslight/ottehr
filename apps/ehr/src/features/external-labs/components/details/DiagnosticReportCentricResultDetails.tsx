@@ -1,7 +1,8 @@
 import { FC, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { updateLabOrderResources } from 'src/api/api';
 import DetailPageContainer from 'src/features/common/DetailPageContainer';
+import { getExternalLabOrdersUrl, withEncounterIdParam } from 'src/features/visits/in-person/routing/helpers';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { ReflexLabDTO, TaskReviewedParameters } from 'utils/lib/types/data/labs/labs.types';
 import { LabBreadcrumbs } from '../labs-orders/LabBreadcrumbs';
@@ -20,6 +21,8 @@ export const DiagnosticReportCentricResultDetails: FC<DiagnosticReportCentricRes
 }) => {
   const [markingAsReviewed, setMarkingAsReviewed] = useState<boolean>(false);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const encounterIdParam = searchParams.get('encounterId');
   const { oystehrZambda } = useApiClients();
 
   const markAsReviewed = async (input: TaskReviewedParameters): Promise<void> => {
@@ -33,7 +36,7 @@ export const DiagnosticReportCentricResultDetails: FC<DiagnosticReportCentricRes
           diagnosticReportId,
           event: 'reviewed',
         });
-        navigate(`/in-person/${appointmentId}/external-lab-orders`);
+        navigate(withEncounterIdParam(getExternalLabOrdersUrl(appointmentId), encounterIdParam));
       } catch (e) {
         console.log('error: ', e);
       } finally {

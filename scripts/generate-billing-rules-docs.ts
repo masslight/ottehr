@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { generateRulesEngineDocumentation } from 'utils';
+import { generateRulesEngineDocumentation } from 'utils/lib/types/data/billing/rules-engine.docs';
 
 // Renders the billing rules-engine reference (supported conditions and actions) from the field
 // catalog and rule schemas in packages/utils/lib/types/data/billing/. Run via

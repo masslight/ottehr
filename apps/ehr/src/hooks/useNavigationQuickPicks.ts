@@ -34,7 +34,8 @@ interface NavigationDestination {
 }
 
 const ADMIN_ROLES = [RoleType.Administrator, RoleType.Manager, RoleType.CustomerSupport];
-const VISIT_CREATION_ROLES = [
+// Mirrors the /tasks and visit-creation route gating in App.tsx (union of both staff role blocks).
+export const PRIMARY_EHR_STAFF_ROLES = [
   RoleType.Administrator,
   RoleType.Manager,
   RoleType.CustomerSupport,
@@ -98,7 +99,7 @@ const NAVIGATION_DESTINATIONS: NavigationDestination[] = [
     label: 'Add New Visit',
     to: '/visits/add',
     icon: LocalHospitalIcon,
-    roles: VISIT_CREATION_ROLES,
+    roles: PRIMARY_EHR_STAFF_ROLES,
     keywords: ['create appointment', 'new patient visit', 'walk-in'],
   },
   {

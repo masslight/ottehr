@@ -1,7 +1,9 @@
 import { Box, Typography, useTheme } from '@mui/material';
 import { FC } from 'react';
 import { Row } from 'src/components/layout/Row';
+import { useContactFields } from 'src/features/address-book/useContactFields';
 import { PATIENT_RECORD_CONFIG } from 'utils/lib/ottehr-config/patient-record';
+import { PatientRecordAddressBookField } from './PatientRecordAddressBookField';
 import PatientRecordFormField from './PatientRecordFormField';
 import PatientRecordFormSection, { usePatientRecordFormSection } from './PatientRecordFormSection';
 import { SectionSaveButton } from './SectionSaveButton';
@@ -22,6 +24,21 @@ export const EmployerInformationContainer: FC<EmployerInformationContainerProps>
 }) => {
   const { items, hiddenFields, requiredFields } = usePatientRecordFormSection({ formSection: employerInformation });
   const theme = useTheme();
+  const { onSelect, toContact } = useContactFields({
+    organizationName: items.employerName.key,
+    line1: items.addressLine1.key,
+    line2: items.addressLine2.key,
+    city: items.city.key,
+    state: items.state.key,
+    zip: items.zip.key,
+    firstName: items.contactFirstName.key,
+    lastName: items.contactLastName.key,
+    title: items.contactTitle.key,
+    email: items.contactEmail.key,
+    phone: items.contactPhone.key,
+    fax: items.contactFax.key,
+  });
+
   return (
     <PatientRecordFormSection
       formSection={employerInformation}
@@ -41,11 +58,14 @@ export const EmployerInformationContainer: FC<EmployerInformationContainerProps>
         requiredFormFields={requiredFields}
       />
       <Typography sx={{ color: theme.palette.primary.dark, fontWeight: 600 }}>Employer Information</Typography>
-      <PatientRecordFormField
+      <PatientRecordAddressBookField
         item={items.employerName}
         isLoading={isLoading}
         hiddenFormFields={hiddenFields}
         requiredFormFields={requiredFields}
+        tag="employer"
+        onSelect={onSelect}
+        toContact={toContact}
       />
       <PatientRecordFormField
         item={items.addressLine1}

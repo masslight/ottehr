@@ -61,7 +61,7 @@ export class HospitalizationPage {
   async addHospitalizationNote(note: string): Promise<void> {
     await this.#page
       .getByTestId(dataTestIds.screeningPage.screeningNoteField)
-      .locator('input')
+      .locator('textarea')
       .locator('visible=true')
       .fill(note);
     await this.#page.getByTestId(dataTestIds.hospitalizationPage.addNoteButton).click();

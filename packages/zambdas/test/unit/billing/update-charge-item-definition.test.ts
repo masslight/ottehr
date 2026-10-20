@@ -294,7 +294,7 @@ describe('update-charge-item-definition', () => {
         chargeItemDefinitionId: '565e1b1a-a48f-4c0b-9192-60f5b0cec59c',
         name: 'Fun ny T3s! n4me __',
         description: 'fun D3scription',
-        default: 'insurance',
+        default: 'non-insurance',
         effectiveDate: '2027-01-01',
         status: 'retired',
         procedureCodes: [
@@ -409,7 +409,7 @@ describe('update-charge-item-definition', () => {
               system: CHARGE_ITEM_DEFINITION_TYPE_SYSTEM,
               code: 'charge-master',
             },
-            { system: CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM, code: 'insurance' },
+            { system: CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM, code: 'non-insurance' },
           ],
         },
       };
@@ -426,7 +426,7 @@ describe('update-charge-item-definition', () => {
         description: 'fun D3scription',
         effectiveDate: '2027-01-01',
         status: 'retired',
-        default: 'insurance',
+        default: 'non-insurance',
         procedureCodes: [
           { code: '90101', amount: 25.15 },
           { code: '10109', modifier: '22', amount: 5 },

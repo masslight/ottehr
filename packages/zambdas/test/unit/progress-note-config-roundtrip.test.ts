@@ -3,6 +3,8 @@ import { Basic } from 'fhir/r4b';
 import { ProgressNoteConfig } from 'utils/lib/types/api/progress-note-config/progress-note-config.types';
 import {
   DEFAULT_PROGRESS_NOTE_CONFIG,
+  PROGRESS_NOTE_CONFIG_SIGN_REVIEW_PROMPT_EXTENSION_URL,
+  PROGRESS_NOTE_CONFIG_VITALS_HEADER_UNIT_SYSTEM_EXTENSION_URL,
   PROGRESS_NOTE_CONFIG_VITALS_UNIT_INPUT_ORDER_EXTENSION_URL,
 } from 'utils/lib/utils/progress-note-config';
 import { describe, expect, test, vi } from 'vitest';
@@ -32,6 +34,9 @@ const customConfig: ProgressNoteConfig = {
   anotherDispositionDefaultText: 'Custom transfer text.',
   edDispositionDefaultText: 'Custom ED text.',
   vitalsUnitInputOrder: 'imperial-metric',
+  // Deliberately not what the input order implies, so the round trip proves the two are stored apart.
+  vitalsHeaderUnitSystem: 'metric',
+  signReviewPrompt: 'ROS and Exam must each have at least 4 systems documented.',
 };
 
 describe('progress-note-config shared read/write', () => {
@@ -63,6 +68,43 @@ describe('progress-note-config shared read/write', () => {
     const { oystehr } = makeOystehr({ search: [basic] });
     const result = await getProgressNoteConfigPayload(oystehr);
     expect(result.vitalsUnitInputOrder).toBe(DEFAULT_PROGRESS_NOTE_CONFIG.vitalsUnitInputOrder);
+  });
+
+  test('read derives the header unit system from the input order for a config saved before the setting existed', async () => {
+    const basic: Basic = {
+      resourceType: 'Basic',
+      code: {},
+      extension: [{ url: PROGRESS_NOTE_CONFIG_VITALS_UNIT_INPUT_ORDER_EXTENSION_URL, valueString: 'imperial-metric' }],
+    };
+    const { oystehr } = makeOystehr({ search: [basic] });
+    expect((await getProgressNoteConfigPayload(oystehr)).vitalsHeaderUnitSystem).toBe('imperial');
+  });
+
+  test('read derives the header unit system from the input order when the stored value is not a valid option', async () => {
+    const basic: Basic = {
+      resourceType: 'Basic',
+      code: {},
+      extension: [
+        { url: PROGRESS_NOTE_CONFIG_VITALS_UNIT_INPUT_ORDER_EXTENSION_URL, valueString: 'metric-imperial' },
+        { url: PROGRESS_NOTE_CONFIG_VITALS_HEADER_UNIT_SYSTEM_EXTENSION_URL, valueString: 'cubits' },
+      ],
+    };
+    const { oystehr } = makeOystehr({ search: [basic] });
+    expect((await getProgressNoteConfigPayload(oystehr)).vitalsHeaderUnitSystem).toBe('metric');
+  });
+
+  test('save omits the sign review prompt extension when the prompt is blank, and reads back as blank', async () => {
+    const { oystehr: saveClient, create } = makeOystehr({ search: [] });
+    await saveProgressNoteConfig(saveClient, { ...customConfig, signReviewPrompt: '' });
+
+    // FHIR forbids empty-string extension values, so a cleared prompt drops the extension entirely.
+    const persisted = create.mock.calls[0][0] as Basic;
+    expect(persisted.extension).not.toContainEqual(
+      expect.objectContaining({ url: PROGRESS_NOTE_CONFIG_SIGN_REVIEW_PROMPT_EXTENSION_URL })
+    );
+
+    const { oystehr: readClient } = makeOystehr({ search: [persisted] });
+    expect((await getProgressNoteConfigPayload(readClient)).signReviewPrompt).toBe('');
   });
 
   test('save creates a new Basic with the vitals extension when none exists', async () => {

@@ -1,6 +1,5 @@
 import { resourceHasTag } from 'utils/lib/fhir/helpers';
 import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
-import { ChargeItemDefinitionDefault } from 'utils/lib/types/data/billing/billing.types';
 import { getRuleFieldDef, getServiceLinePropertyDef } from 'utils/lib/types/data/billing/rules-engine.field-catalog';
 import {
   BillingRule,
@@ -20,13 +19,14 @@ import {
 } from 'utils/lib/types/data/billing/rules-engine.schemas';
 import { HOLD_TAG_NAME } from 'utils/lib/types/data/billing/system-tags';
 import { getChargeMasterPrice, selectBestChargeMaster } from '../charge-master.helpers';
-import { claimHasRealCoverage } from '../shared';
+import { getChargeItemDefinitionDefault, pruneUnreferencedOrderingProviders } from '../shared';
 import {
   ClaimServiceLine,
   readField,
   readServiceLineProperty,
   recomputeClaimTotal,
   resolveDateValue,
+  resolveFacilityPlaceOfService,
   RulesEngineClaimModel,
   writeField,
   writeServiceLineProperty,
@@ -330,12 +330,22 @@ const applyServiceLineUpdate = (
       }
       literalValue = resolution.value;
     }
+  } else if (def?.id === 'placeOfService' && action.set.value != null && typeof action.set.value === 'object') {
+    if (action.set.value.source !== 'facilityPlaceOfService') {
+      return `could not update service line property "${action.set.property}" — unknown place of service source "${action.set.value.source}"`;
+    }
+    // Resolve once, before mutating any line, mirroring resolveDateValue above.
+    const resolution = resolveFacilityPlaceOfService(model);
+    if ('error' in resolution) {
+      return `could not update service line property "${action.set.property}" — ${resolution.error}`;
+    }
+    literalValue = resolution.value;
   } else if (typeof action.set.value === 'string') {
     literalValue = action.set.value;
   } else {
-    // Save-time validation rejects a derived-source value on a non-date property; fail safe rather
+    // Save-time validation rejects a derived-source value on any other property; fail safe rather
     // than crash if one reaches here anyway (e.g. a rule created directly through the API).
-    return `could not update service line property "${action.set.property}" — this property does not accept a derived date value`;
+    return `could not update service line property "${action.set.property}" — this property does not accept a derived value`;
   }
 
   const matching = (model.claim.item ?? []).filter((line) => serviceLineMatches(line, action.match));
@@ -374,7 +384,7 @@ const applyChargeMasterPricing = (
 
   const dateOfService = asScalar(readField(model, 'serviceDate'));
   if (!dateOfService) return undefined;
-  const kind: ChargeItemDefinitionDefault = claimHasRealCoverage(claim.insurance) ? 'insurance' : 'self-pay';
+  const kind = getChargeItemDefinitionDefault(claim);
   const chargeMaster = selectBestChargeMaster(model.chargeMasters ?? [], kind, dateOfService);
   if (!chargeMaster) return undefined;
 
@@ -384,8 +394,17 @@ const applyChargeMasterPricing = (
     if (!cptCode) continue;
     const modifiers = readServiceLineProperty(line, 'modifiers');
     const modifierList = Array.isArray(modifiers) ? modifiers : [];
-    const price = getChargeMasterPrice(chargeMaster, cptCode, modifierList);
-    if (price == null || !Number.isFinite(price) || price < 0) continue;
+    let price = getChargeMasterPrice(chargeMaster, cptCode, modifierList);
+    if (price == null || !Number.isFinite(price) || price < 0) {
+      if (modifierList.length) {
+        // Retry without modifiers; see OTR-3547 for details
+        price = getChargeMasterPrice(chargeMaster, cptCode, []);
+      }
+      if (price == null || !Number.isFinite(price) || price < 0) {
+        // Still no price or we didn't retry without modifiers
+        continue;
+      }
+    }
     // The charges writer cannot fail for a validated non-negative finite price.
     writeServiceLineProperty(line, 'charges', String(price), 'set');
     changed = true;
@@ -395,7 +414,8 @@ const applyChargeMasterPricing = (
 };
 
 // Remove every line matching the predicate (all lines when the match is "all"). Survivors are
-// re-sequenced 1..n and the billed total is recomputed. Zero matching lines is a no-op.
+// re-sequenced 1..n, the billed total is recomputed, and contained ordering providers only the
+// removed lines referenced are dropped. Zero matching lines is a no-op.
 const applyServiceLineRemoval = (
   action: Extract<RuleAction, { type: 'removeServiceLines' }>,
   model: RulesEngineClaimModel
@@ -404,6 +424,7 @@ const applyServiceLineRemoval = (
   const remaining = lines.filter((line) => !serviceLineMatches(line, action.match));
   if (remaining.length === lines.length) return undefined;
   model.claim.item = remaining.length ? remaining.map((line, index) => ({ ...line, sequence: index + 1 })) : undefined;
+  pruneUnreferencedOrderingProviders(model.claim);
   recomputeClaimTotal(model.claim);
   return undefined;
 };

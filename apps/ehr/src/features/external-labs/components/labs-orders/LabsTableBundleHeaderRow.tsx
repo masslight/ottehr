@@ -2,8 +2,7 @@ import { otherColors } from '@ehrTheme/colors';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import { LoadingButton } from '@mui/lab';
 import { Box, Button, TableCell, TableRow, TextField, Typography } from '@mui/material';
-import Oystehr from '@oystehr/sdk';
-import { OystehrSdkError } from '@oystehr/sdk/dist/cjs/errors';
+import type Oystehr from '@oystehr/sdk';
 import { ReactElement, useState } from 'react';
 import { updateLabOrderResources } from 'src/api/api';
 import { CustomDialog } from 'src/components/dialogs/CustomDialog';
@@ -12,6 +11,8 @@ import { openPdf } from 'utils/lib/helpers/labs/helpers';
 import { HL7_NOTE_CHAR_LIMIT } from 'utils/lib/types/data/labs/labs.constants';
 import { LabOrderListPageDTO } from 'utils/lib/types/data/labs/labs.types';
 import { configBundleHeaderRowTitleTestId } from '../../utils/test-ids';
+
+type OystehrSdkError = Oystehr.OystehrSdkError;
 
 interface LabsTableBundleHeaderRowProps {
   columnsLen: number;

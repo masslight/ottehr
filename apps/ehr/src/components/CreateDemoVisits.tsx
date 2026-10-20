@@ -7,7 +7,7 @@ import { Box } from '@mui/system';
 import { Location } from 'fhir/r4b';
 import React, { ReactElement, useState } from 'react';
 import { isLocationVirtual } from 'utils/lib/fhir/location';
-import { createSampleAppointments } from 'utils/lib/helpers';
+import { createSampleAppointments } from 'utils/lib/helpers/create-demo-visits';
 import { ServiceMode } from 'utils/lib/types/common';
 import { useApiClients } from '../hooks/useAppClients';
 

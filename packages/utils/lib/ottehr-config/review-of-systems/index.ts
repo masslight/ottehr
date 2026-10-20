@@ -1,6 +1,4 @@
 import { InPersonRosConfig, RosFindingState, RosItemSuffixes } from './in-person.config';
-export { InPersonRosConfig, RosFindingState, RosFindingStateLabel } from './in-person.config';
-export type { RosCard, RosCardItem, RosItemConfig } from './in-person.config';
 
 export const rosField = (base: string, finding: RosFindingState): string => `${base}${RosItemSuffixes[finding]}`;
 

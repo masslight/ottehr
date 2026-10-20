@@ -1,7 +1,6 @@
 import React from 'react';
-import { PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
-import { IN_PERSON_NOTE_ID, NOTE_TYPE } from 'utils/lib/types/api/chart-data/chart-data.types';
-import { useChartFields } from '../../shared/hooks/useChartFields';
+import { NOTE_TYPE } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { useChartSection } from '../../shared/hooks/useChartSection';
 import { useInternalNotesModal } from '../hooks/useInternalNotes';
 import { ButtonRounded } from './RoundedButton';
 
@@ -17,16 +16,7 @@ const icon = (
 export const InternalNotes = (): React.ReactElement => {
   const { isOpen, openModal, InternalNotesModal, closeModal } = useInternalNotesModal();
 
-  const { data: chartFields } = useChartFields({
-    requestedFields: {
-      notes: {
-        _search_by: 'encounter',
-        _sort: '-_lastUpdated',
-        _count: 1000,
-        _tag: `${PRIVATE_EXTENSION_BASE_URL}/${NOTE_TYPE.INTERNAL}|${IN_PERSON_NOTE_ID}`,
-      },
-    },
-  });
+  const { data: chartFields } = useChartSection('notes', { params: { types: [NOTE_TYPE.INTERNAL] } });
 
   const notesCount = chartFields?.notes?.length ?? 0;
 

@@ -1,217 +1,107 @@
-import { AddCircleOutline, CheckCircle, InfoOutlined } from '@mui/icons-material';
-import {
-  Autocomplete,
-  Backdrop,
-  Button,
-  Checkbox,
-  CircularProgress,
-  Container,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  Divider,
-  FormControl,
-  FormControlLabel,
-  FormHelperText,
-  FormLabel,
-  IconButton,
-  InputLabel,
-  MenuItem,
-  Radio,
-  RadioGroup,
-  Select,
-  TextField,
-  Tooltip,
-  Typography,
-} from '@mui/material';
-import { Box, Stack, useTheme } from '@mui/system';
-import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
-import { DatePicker, LocalizationProvider, TimePicker } from '@mui/x-date-pickers-pro';
-import Oystehr from '@oystehr/sdk';
-import { keepPreviousData, useQuery, useQueryClient, UseQueryResult } from '@tanstack/react-query';
-import { ValueSet } from 'fhir/r4b';
+import { OpenInNew } from '@mui/icons-material';
+import { Backdrop, CircularProgress, Divider, FormHelperText, TextField, Typography, useTheme } from '@mui/material';
+import { Box, Stack } from '@mui/system';
+import { useQueryClient } from '@tanstack/react-query';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
-import { ReactElement, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ReactElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { createProcedureQuickPick, getProcedureQuickPicks, updateProcedureQuickPick } from 'src/api/api';
 import { AccordionCard } from 'src/components/AccordionCard';
-import { ActionsList } from 'src/components/ActionsList';
-import { DeleteIconButton } from 'src/components/DeleteIconButton';
 import { useIsInlineFlow } from 'src/components/InlineFlow';
 import { AutocompleteInput } from 'src/components/input/AutocompleteInput';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { UnsavedDraftWarning } from 'src/components/UnsavedDraftWarning';
 import { CPT_TOOLTIP_PROPS, TooltipWrapper } from 'src/components/WithTooltip';
-import { QUERY_STALE_TIME } from 'src/constants';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { useCommandPaletteSource } from 'src/hooks/useCommandPaletteSource';
 import useEvolveUser from 'src/hooks/useEvolveUser';
+import { TRACKING_BOARD_QUERY_KEY } from 'src/hooks/useGetTrackingBoard';
 import { sortQuickPicks, useMergedProcedureQuickPicks } from 'src/hooks/useMergedQuickPicks';
 import { usePendingQuickPick } from 'src/hooks/usePendingQuickPick';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
 import { useMarkDraftNavigatedAway, useProcedureStore } from 'src/state/draft-data.store';
 import { PROCEDURES_CONFIG } from 'utils/lib/ottehr-config/procedures';
-import { AISuggestionNotes } from 'utils/lib/types/api/ai-suggestions-notes';
-import { CPTCodeDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
-import { IcdSearchResponse } from 'utils/lib/types/api/icd-search/icd-search.types';
-import {
-  BODY_SIDES_VALUE_SET_URL,
-  BODY_SITES_VALUE_SET_URL,
-  COMPLICATIONS_VALUE_SET_URL,
-  MEDICATIONS_USED_VALUE_SET_URL,
-  PATIENT_RESPONSES_VALUE_SET_URL,
-  POST_PROCEDURE_INSTRUCTIONS_VALUE_SET_URL,
-  PROCEDURE_TYPES_VALUE_SET_URL,
-  SUPPLIES_VALUE_SET_URL,
-  TECHNIQUES_VALUE_SET_URL,
-  TIME_SPENT_VALUE_SET_URL,
-} from 'utils/lib/types/api/procedures.constants';
-import { ProcedurePageState, ProcedureSuggestion } from 'utils/lib/types/api/procedures.types';
+import { detectProcedureFamily } from 'utils/lib/procedure-coding/evaluate';
+import { resolveFamilyFacts } from 'utils/lib/procedure-coding/family-support';
+import { CodeOutcomeKind } from 'utils/lib/procedure-coding/model.types';
+import { CPTCodeDTO, DiagnosisDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { ProcedureQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import { RoleType } from 'utils/lib/types/api/user.types';
-import { FHIR_CODE_REGEX } from 'utils/lib/types/constants';
-import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils/lib/validation/constants';
-import { AiSectionContainer } from '../../shared/components/AiSection';
-import { DiagnosesField } from '../../shared/components/assessment-tab/DiagnosesField';
 import { PageTitle } from '../../shared/components/PageTitle';
 import { QuickPicksButton } from '../../shared/components/QuickPicksButton';
+import { useChartData } from '../../shared/hooks/useChartData';
 import { useGetAppointmentAccessibility } from '../../shared/hooks/useGetAppointmentAccessibility';
-import {
-  useAiSuggestionNotes,
-  useGetCPTHCPCSSearch,
-  useRecommendBillingCodes,
-} from '../../shared/stores/appointment/appointment.queries';
+import { useGetCPTHCPCSSearch } from '../../shared/stores/appointment/appointment.queries';
 import {
   useAppointmentData,
-  useChartData,
   useDeleteChartData,
   useSaveChartData,
 } from '../../shared/stores/appointment/appointment.store';
-import { InfoAlert } from '../components/InfoAlert';
+import { CodingAssistPanel } from '../components/procedures/coding-assist/CodingAssistPanel';
+import { bestPracticeFindings, CodingFindingList } from '../components/procedures/coding-assist/CodingFindingList';
+import { DocumentationCheck } from '../components/procedures/coding-assist/DocumentationCheck';
+import { ConditionalCodingFields } from '../components/procedures/ConditionalCodingFields';
+import { ProcedureFamilySentences } from '../components/procedures/narrative/CodingFieldSentences';
+import {
+  DateTimeBlank,
+  MultiBlank,
+  PopoverBlank,
+  SectionLabel,
+  SelectBlank,
+  Sentence,
+} from '../components/procedures/narrative/InlineBlanks';
+import { ProcedureDiagnosesSentence } from '../components/procedures/narrative/ProcedureDiagnosesSentence';
+import {
+  DOCUMENTED_BY_OPTIONS,
+  PERFORMED_BY_OPTIONS,
+} from '../components/procedures/narrative/procedurePerformerOptions';
+import { ProcedureCodingColumn } from '../components/procedures/ProcedureCodingColumn';
+import { ProcedureCptCodesField } from '../components/procedures/ProcedureCptCodesField';
+import { ProcedureQuickPickDialogs } from '../components/procedures/ProcedureQuickPickDialogs';
+import { useProcedureSelectOptions } from '../components/procedures/useProcedureSelectOptions';
+import { ProcedureCodingEvaluationStateKind, useProcedureCoding } from '../hooks/useProcedureCoding';
 import { ROUTER_PATH } from '../routing/routesInPerson';
+import { procedureFormResolver, ProcedureFormValues } from './procedureFormValidation';
 import {
   combineMultipleValuesForSave,
   getPredefinedValueIfOther,
   getPredefinedValueOrOther,
-  mergeOtherFromQuickPick,
   OTHER,
   parseWithOther,
-  splitOtherForQuickPick,
 } from './procedureOtherFields';
+import {
+  applyProcedurePrepopulation,
+  initialProcedurePageState,
+  LocalProcedurePageState,
+  procedureFactsFromPageState,
+  procedurePageStateToDraft,
+} from './procedurePageState';
+import {
+  applyProcedureQuickPick,
+  buildProcedureQuickPick,
+  mergeProcedureCptCodes,
+  sameCptLine,
+} from './procedureQuickPick';
 
-const PERFORMED_BY = ['Healthcare staff', 'Provider', 'Both'];
-const SPECIMEN_SENT = ['Yes', 'No'];
-const DOCUMENTED_BY = ['Provider', 'Healthcare staff'];
-
-// Keys from ProcedureQuickPickData that should be applied to page state when a quick pick is selected.
-// Encounter-specific fields (diagnoses, performerType, consentObtained) and metadata (id, name, procedureType)
-// are intentionally excluded.
-const QUICK_PICK_APPLY_KEYS: (keyof ProcedureQuickPickData)[] = [
-  'cptCodes',
-  'medicationUsed',
-  'bodySite',
-  'otherBodySite',
-  'bodySide',
-  'technique',
-  'suppliesUsed',
-  'otherSuppliesUsed',
-  'procedureDetails',
-  'specimenSent',
-  'complications',
-  'otherComplications',
-  'patientResponse',
-  'postInstructions',
-  'otherPostInstructions',
-  'timeSpent',
-  'documentedBy',
-];
-
-const mergeCptCodes = (
-  existingCodes: ProcedureQuickPickData['cptCodes'],
-  incomingCodes: ProcedureQuickPickData['cptCodes']
-): ProcedureQuickPickData['cptCodes'] => {
-  if (!existingCodes?.length) {
-    return incomingCodes;
-  }
-
-  if (!incomingCodes?.length) {
-    return existingCodes;
-  }
-
-  const mergedCodes = [...existingCodes];
-
-  incomingCodes.forEach((incomingCode) => {
-    if (!mergedCodes.some((existingCode) => existingCode.code === incomingCode.code)) {
-      mergedCodes.push(incomingCode);
-    }
-  });
-
-  return mergedCodes;
-};
-
-interface LocalPageState extends Omit<ProcedurePageState, 'procedureDate' | 'procedureTime'> {
-  procedureDate?: DateTime | null;
-  procedureTime?: DateTime | null;
-}
-
-interface ProcedureType {
-  name: string;
-  code: string;
-  cpt?: {
-    code: string;
-    display: string;
-    system?: string;
-  };
-  hcpcs?: {
-    code: string;
-    display: string;
-    system?: string;
-  };
-}
-
-interface SelectOptions {
-  procedureTypes: ProcedureType[];
-  medicationsUsed: string[];
-  bodySites: string[];
-  bodySides: string[];
-  techniques: string[];
-  supplies: string[];
-  complications: string[];
-  patientResponses: string[];
-  postProcedureInstructions: string[];
-  timeSpent: string[];
-}
-
-function pageStateToDraft(pageState: LocalPageState): ProcedurePageState {
-  return {
-    consentObtained: pageState.consentObtained,
-    cptCodes: pageState.cptCodes,
-    diagnoses: pageState.diagnoses,
-    procedureDate: pageState.procedureDate?.toISO() || undefined,
-    procedureTime: pageState.procedureTime?.toISO() || undefined,
-    performerType: pageState.performerType,
-    medicationUsed: pageState.medicationUsed,
-    bodySite: pageState.bodySite,
-    otherBodySite: pageState.otherBodySite,
-    bodySide: pageState.bodySide,
-    technique: pageState.technique,
-    suppliesUsed: pageState.suppliesUsed,
-    otherSuppliesUsed: pageState.otherSuppliesUsed,
-    procedureDetails: pageState.procedureDetails,
-    specimenSent: pageState.specimenSent,
-    complications: pageState.complications,
-    otherComplications: pageState.otherComplications,
-    patientResponse: pageState.patientResponse,
-    postInstructions: pageState.postInstructions,
-    otherPostInstructions: pageState.otherPostInstructions,
-    timeSpent: pageState.timeSpent,
-    documentedBy: pageState.documentedBy,
-  };
-}
+const SPECIMEN_SENT = ['sent', 'not sent'];
+/** The coding column keeps its full width while the page has room, then gives up to 60px before the
+ * two columns stack. 280px still fits the suggestion rows and the code search; the sentence form needs
+ * about 420px (its button row is the widest piece) so it never gets squeezed below that. */
+const CODING_COLUMN_WIDTH = 340;
+const CODING_COLUMN_MIN_WIDTH = 280;
+const FORM_COLUMN_MIN_WIDTH = 420;
+const COLUMN_GAP_PX = 16;
+/** Coding column beside the sentences once the page itself is wide enough, measured on the page rather
+ * than the viewport so the visit sidebar (244px open, 56px collapsed), the scribe panel (440px by
+ * default) and the progress-note inline flow are accounted for: the 716px threshold is about a 1000px
+ * viewport with the sidebar open, and still holds on a 1440px laptop with the sidebar and panel open. */
+const CODING_COLUMN_QUERY = `@container (min-width: ${
+  FORM_COLUMN_MIN_WIDTH + COLUMN_GAP_PX + CODING_COLUMN_MIN_WIDTH
+}px)`;
+const CONSENT = ['obtained', 'not obtained'];
 
 interface ProceduresNewProps {
   procedureId?: string;
@@ -230,99 +120,73 @@ export default function ProceduresNew({
   const { oystehr, oystehrZambda } = useApiClients();
   const currentUser = useEvolveUser();
   const isAdmin = currentUser?.hasRole([RoleType.Administrator, RoleType.CustomerSupport]) ?? false;
-  const { data: selectOptions, isLoading: isSelectOptionsLoading } = useSelectOptions(oystehr);
-  const { chartData, setPartialChartData } = useChartData();
+  const { data: selectOptions, isLoading: isSelectOptionsLoading } = useProcedureSelectOptions(oystehr);
+  const { chartData, setPartialChartData, chartDataSetState } = useChartData();
   const appointmentAccessibility = useGetAppointmentAccessibility();
-  const { mutateAsync: recommendBillingCodes } = useRecommendBillingCodes();
-  const { mutateAsync: aiSuggestionNotes } = useAiSuggestionNotes();
   const queryClient = useQueryClient();
-  const [loadingSuggestions, setLoadingSuggestions] = useState<boolean>(false);
-  const [loadingSuggestionNote, setLoadingSuggestionNote] = useState<boolean>(false);
 
   const { encounter } = useAppointmentData();
   const { setDraft, getDraft, clearDraft, hasDraft } = useProcedureStore();
   useMarkDraftNavigatedAway({ encounterId: encounter.id ?? '', setDraft, hasDraft });
   const draft = !procedureId && encounter.id ? getDraft(encounter.id) : {};
 
-  const isReadOnly = useMemo(() => {
-    return appointmentAccessibility.isAppointmentReadOnly;
-  }, [appointmentAccessibility.isAppointmentReadOnly]);
+  const isReadOnly = appointmentAccessibility.isAppointmentReadOnly;
 
   const chartCptCodes = chartData?.cptCodes || [];
-  const chartDiagnoses = chartData?.diagnosis || [];
+  const chartDiagnoses = useMemo(() => chartData?.diagnosis ?? [], [chartData?.diagnosis]);
   const chartProcedures = chartData?.procedures || [];
   const { mutateAsync: saveChartData } = useSaveChartData();
   const { mutateAsync: deleteChartData } = useDeleteChartData();
 
-  const methods = useForm({
+  const methods = useForm<ProcedureFormValues>({
     defaultValues: draft.procedureType ? { procedureType: draft.procedureType } : undefined,
+    resolver: procedureFormResolver,
   });
   const formValues = methods.watch();
   const {
     formState: { errors },
   } = methods;
 
-  const [state, setState] = useState<LocalPageState>({
-    procedureDate: draft.procedureDate ? DateTime.fromISO(draft.procedureDate) : DateTime.now(),
-    procedureTime: draft.procedureTime ? DateTime.fromISO(draft.procedureTime) : DateTime.now(),
-    consentObtained: draft.consentObtained,
-    cptCodes: draft.cptCodes,
-    diagnoses: draft.diagnoses,
-    performerType: draft.performerType,
-    medicationUsed: draft.medicationUsed,
-    bodySite: draft.bodySite,
-    otherBodySite: draft.otherBodySite,
-    bodySide: draft.bodySide,
-    technique: draft.technique,
-    suppliesUsed: draft.suppliesUsed,
-    otherSuppliesUsed: draft.otherSuppliesUsed,
-    procedureDetails: draft.procedureDetails,
-    specimenSent: draft.specimenSent,
-    complications: draft.complications,
-    otherComplications: draft.otherComplications,
-    patientResponse: draft.patientResponse,
-    postInstructions: draft.postInstructions,
-    otherPostInstructions: draft.otherPostInstructions,
-    timeSpent: draft.timeSpent,
-    documentedBy: draft.documentedBy,
-  });
+  const [state, setState] = useState<LocalProcedurePageState>(() => initialProcedurePageState(draft));
   const [saveInProgress, setSaveInProgress] = useState<boolean>(false);
-  const [recommendedBillingCodes, setRecommendedBillingCodes] = useState<ProcedureSuggestion[] | null>(null);
-  const [suggestionNote, setSuggestionNote] = useState<AISuggestionNotes | null>(null);
-  const [confirmOverwriteOpen, setConfirmOverwriteOpen] = useState(false);
-  const [overwriteTarget, setOverwriteTarget] = useState<ProcedureQuickPickData | null>(null);
   const [quickPickDialogOpen, setQuickPickDialogOpen] = useState(false);
   const [quickPickName, setQuickPickName] = useState('');
   const [existingQuickPicks, setExistingQuickPicks] = useState<ProcedureQuickPickData[]>([]);
   const [quickPickSaving, setQuickPickSaving] = useState(false);
-  // The quick-picks fetch is triggered by mounting this page (useMergedProcedureQuickPicks
-  // calls the zambda from a useEffect on mount), so picks start loading as soon as the
-  // user navigates to /procedures/new — not when they open the Quick Picks menu. We
-  // surface the loading flag below so the menu shows a "Loading…" item while in-flight,
-  // instead of appearing empty on a fast first click.
   const { quickPicks: mergedQuickPicks, loading: mergedQuickPicksLoading } = useMergedProcedureQuickPicks();
+
   const sortedMergedQuickPicks = useMemo(
     () => [...mergedQuickPicks].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })),
     [mergedQuickPicks]
   );
 
-  const updateState = useCallback(
-    (stateMutator: (draft: LocalPageState) => void): void => {
-      setState((prev) => {
-        const next = { ...prev };
-        stateMutator(next);
-        if (!procedureId && encounter.id) {
-          setDraft(encounter.id, pageStateToDraft(next));
-        }
-        return next;
-      });
-    },
-    [setDraft, encounter.id, procedureId]
-  );
+  const previousProcedureType = useRef<string | undefined>(draft.procedureType);
+  const persistDraftAfterStateChangeRef = useRef(false);
+
+  const updateState = useCallback((stateMutator: (draft: LocalProcedurePageState) => void): void => {
+    persistDraftAfterStateChangeRef.current = true;
+    setState((prev) => {
+      const next = { ...prev };
+      stateMutator(next);
+      return next;
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!persistDraftAfterStateChangeRef.current) return;
+
+    persistDraftAfterStateChangeRef.current = false;
+
+    if (!procedureId && encounter.id) {
+      setDraft(encounter.id, procedurePageStateToDraft(state));
+    }
+  }, [encounter.id, procedureId, setDraft, state]);
 
   const handleClearForm = (): void => {
+    persistDraftAfterStateChangeRef.current = false;
     if (encounter.id) clearDraft(encounter.id);
     setState({ procedureDate: DateTime.now(), procedureTime: DateTime.now() });
+    previousProcedureType.current = undefined;
     methods.reset({ procedureType: '' });
   };
 
@@ -342,67 +206,80 @@ export default function ProceduresNew({
     return { postInstructions: values, otherPostInstructions: other };
   };
 
-  useEffect(() => {
-    const fetchRecommendedBillingCodes = async (): Promise<void> => {
-      if (!formValues.procedureType) {
-        return;
-      }
-      setLoadingSuggestions(true);
-      const codes = await recommendBillingCodes({
-        procedureType: formValues.procedureType,
-        diagnoses: state.diagnoses,
-        medicationUsed: state.medicationUsed,
-        bodySite: state.bodySite,
-        bodySide: state.bodySide,
-        technique: state.technique,
-        suppliesUsed: combineMultipleValuesForSave(state.suppliesUsed, state.otherSuppliesUsed),
-        procedureDetails: state.procedureDetails,
-        timeSpent: state.timeSpent,
+  const procedureFacts = useMemo(() => {
+    const procedures = chartData?.procedures ?? [];
+    const assignedIds = new Set(
+      [...procedures.flatMap((other) => other.cptCodes ?? []), ...(state.cptCodes ?? [])]
+        .map((line) => line.resourceId)
+        .filter(Boolean)
+    );
+    const otherProcedures = procedures
+      .filter(
+        (other) =>
+          other.procedureDateTime &&
+          state.procedureDate &&
+          DateTime.fromISO(other.procedureDateTime).hasSame(state.procedureDate, 'day')
+      )
+      .map((other) => ({ procedureId: other.resourceId ?? '', codes: other.cptCodes ?? [] }));
+    // Include visit-level codes (for example E/M), counting each linked billing resource once.
+    if (
+      encounter.period?.start &&
+      state.procedureDate &&
+      DateTime.fromISO(encounter.period.start).hasSame(state.procedureDate, 'day')
+    ) {
+      otherProcedures.push({
+        procedureId: 'unassigned-visit-codes',
+        codes: (chartData?.cptCodes ?? []).filter((line) => line.resourceId && !assignedIds.has(line.resourceId)),
       });
-      setLoadingSuggestions(false);
-      setRecommendedBillingCodes(codes);
-      if (formValues.procedureType.toLowerCase().includes('laceration')) {
-        setLoadingSuggestionNote(true);
-        const suggestions = await aiSuggestionNotes({
-          type: 'procedure',
-          details: { procedureDetails: state.procedureDetails || '' },
-        });
-        setLoadingSuggestionNote(false);
-        setSuggestionNote(suggestions);
-      }
+    }
+    return {
+      ...procedureFactsFromPageState(state, formValues.procedureType),
+      procedureId,
+      // The chart API contains this visit only. Never assert complete patient-day coverage.
+      context: { completeDay: false, otherProcedures },
     };
-
-    fetchRecommendedBillingCodes().catch((error) => console.log(error));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     formValues.procedureType,
-    state.diagnoses,
-    state.medicationUsed,
-    state.bodySite,
-    state.bodySide,
-    state.technique,
-    state.suppliesUsed,
-    // state.procedureDetails,
-    state.timeSpent,
-    aiSuggestionNotes,
-    recommendBillingCodes,
+    state,
+    procedureId,
+    chartData?.procedures,
+    chartData?.cptCodes,
+    encounter.period?.start,
   ]);
+
+  const codingFamily = detectProcedureFamily(procedureFacts);
+  const resolvedStructuredFacts = useMemo(
+    () => (codingFamily ? resolveFamilyFacts(codingFamily, procedureFacts) : state.structuredFacts),
+    [codingFamily, procedureFacts, state.structuredFacts]
+  );
+  const codingAssist = useProcedureCoding(procedureFacts);
+
+  const codingEvaluations =
+    codingAssist.evaluationState.kind === ProcedureCodingEvaluationStateKind.Ready
+      ? codingAssist.evaluationState.current
+      : codingAssist.evaluationState.previous;
+
+  const codingAssistIsEvaluating = codingAssist.evaluationState.kind === ProcedureCodingEvaluationStateKind.Evaluating;
 
   const [initialValuesSet, setInitialValuesSet] = useState<boolean>(false);
   const [initialFormStateSet, setInitialFormStateSet] = useState<boolean>(false);
   const procedure = chartData?.procedures?.find((procedure) => procedure.resourceId === procedureId);
 
   useEffect(() => {
-    if (procedure == null || initialValuesSet || isSelectOptionsLoading) {
+    if (procedure == null || initialValuesSet || selectOptions == null) {
       return;
     }
+
     const procedureDateTime =
       procedure.procedureDateTime != null ? DateTime.fromISO(procedure.procedureDateTime) : undefined;
+
     const parsedSupplies = parseSuppliesUsed(procedure.suppliesUsed, selectOptions?.supplies);
+
     const parsedPostInstructions = parsePostInstructions(
       procedure.postInstructions,
       selectOptions?.postProcedureInstructions
     );
+
     setState({
       cptCodes: procedure.cptCodes,
       diagnoses: procedure.diagnoses,
@@ -417,6 +294,11 @@ export default function ProceduresNew({
       suppliesUsed: parsedSupplies.suppliesUsed,
       otherSuppliesUsed: parsedSupplies.otherSuppliesUsed,
       procedureDetails: procedure.procedureDetails,
+      structuredFacts: procedure.structuredFacts,
+      lengthCm: procedure.lengthCm,
+      repairDepth: procedure.repairDepth,
+      infusionStartTime: procedure.infusionStartTime,
+      infusionStopTime: procedure.infusionStopTime,
       specimenSent: procedure.specimenSent,
       complications: getPredefinedValueOrOther(procedure.complications, selectOptions?.complications),
       otherComplications: getPredefinedValueIfOther(procedure.complications, selectOptions?.complications),
@@ -427,43 +309,102 @@ export default function ProceduresNew({
       documentedBy: procedure.documentedBy,
       consentObtained: procedure.consentObtained,
     });
+
+    previousProcedureType.current = procedure.procedureType;
     setInitialValuesSet(true);
-  }, [procedure, setState, initialValuesSet, isSelectOptionsLoading, selectOptions]);
+  }, [procedure, setState, initialValuesSet, selectOptions]);
 
   const onCancel = (): void => {
     if (!procedureId && encounter.id) clearDraft(encounter.id);
+
     if (onFinished) onFinished();
     else navigate(`/in-person/${appointmentId}/${ROUTER_PATH.PROCEDURES}`);
   };
 
   const onSave = async (): Promise<void> => {
     setSaveInProgress(true);
+
     try {
+      const cptCodesToSave =
+        state.cptCodes?.filter((cptCode) => {
+          if (cptCode.resourceId == null) return true;
+          const original = chartCptCodes.find((chartCode) => chartCode.resourceId === cptCode.resourceId);
+          return original == null || original.billableUnits !== cptCode.billableUnits;
+        }) ?? [];
+
+      // Drafts and retries may still carry code-only diagnoses that have since been charted.
+      const visitDiagnosesByCode = new Map<string, (typeof chartDiagnoses)[number]>();
+      for (const diagnosis of chartDiagnoses) {
+        if (!visitDiagnosesByCode.has(diagnosis.code)) visitDiagnosesByCode.set(diagnosis.code, diagnosis);
+      }
+      const selectedDiagnoses = (state.diagnoses ?? []).map((diagnosis) =>
+        diagnosis.resourceId ? diagnosis : visitDiagnosesByCode.get(diagnosis.code) ?? diagnosis
+      );
       const saveCptAndDiagnosesResponse = await saveChartData({
-        cptCodes: state.cptCodes?.filter((cptCode) => cptCode.resourceId == null) ?? [],
-        diagnosis: state.diagnoses?.filter((diagnosis) => diagnosis.resourceId == null) ?? [],
+        cptCodes: cptCodesToSave,
+        diagnosis: selectedDiagnoses
+          .filter((diagnosis) => diagnosis.resourceId == null)
+          .map((diagnosis) => ({ ...diagnosis, addedViaProcedure: true })),
       });
+
       const savedCptCodes = saveCptAndDiagnosesResponse.chartData?.cptCodes;
+
       if (savedCptCodes) {
+        const savedCptCodeIds = new Set(savedCptCodes.flatMap((code) => (code.resourceId ? [code.resourceId] : [])));
         setPartialChartData({
-          cptCodes: [...chartCptCodes, ...savedCptCodes],
+          cptCodes: [
+            ...chartCptCodes.filter((code) => !code.resourceId || !savedCptCodeIds.has(code.resourceId)),
+            ...savedCptCodes,
+          ],
         });
       }
+
       const savedDiagnoses = saveCptAndDiagnosesResponse.chartData?.diagnosis;
-      if (savedDiagnoses) {
-        setPartialChartData({
-          diagnosis: [...chartDiagnoses, ...savedDiagnoses],
+      const updateChartDiagnoses = (deletedIds: readonly string[] = []): void => {
+        const deleted = new Set(deletedIds);
+        chartDataSetState(({ chartData }) => {
+          if (!chartData) return {};
+          const diagnosis: DiagnosisDTO[] = [];
+          const indices = new Map<string, number>();
+          for (const entry of [...(chartData.diagnosis ?? []), ...(savedDiagnoses ?? [])]) {
+            if (entry.resourceId && deleted.has(entry.resourceId)) continue;
+            const index = entry.resourceId ? indices.get(entry.resourceId) : undefined;
+            if (index === undefined) {
+              if (entry.resourceId) indices.set(entry.resourceId, diagnosis.length);
+              diagnosis.push(entry);
+            } else {
+              diagnosis[index] = entry;
+            }
+          }
+          return { chartData: { ...chartData, diagnosis } };
         });
+      };
+
+      if (savedDiagnoses) {
+        updateChartDiagnoses();
       }
+
+      const savedCptCodeIds = new Set(savedCptCodes?.flatMap((code) => (code.resourceId ? [code.resourceId] : [])));
+
       const cptCodesToUse = [
         ...(savedCptCodes ?? []),
-        ...(state.cptCodes?.filter((cptCode) => cptCode.resourceId != null) ?? []),
+        ...(state.cptCodes?.filter(
+          (cptCode) => cptCode.resourceId != null && !savedCptCodeIds.has(cptCode.resourceId)
+        ) ?? []),
       ];
+
       const diagnosesToUse = [
         ...(savedDiagnoses ?? []),
-        ...(state.diagnoses?.filter((diagnosis) => diagnosis.resourceId != null) ?? []),
+        ...selectedDiagnoses.filter((diagnosis) => diagnosis.resourceId != null),
       ];
+
+      const oldProcedure = chartData?.procedures?.find((procedure) => procedure.resourceId === procedureId);
       const saveProcedureResponse = await saveChartData({
+        cleanupProcedureDiagnoses: Boolean(
+          oldProcedure?.diagnoses?.some(
+            (diagnosis) => !diagnosesToUse.some((selected) => selected.resourceId === diagnosis.resourceId)
+          )
+        ),
         procedures: [
           {
             resourceId: procedureId,
@@ -477,13 +418,19 @@ export default function ProceduresNew({
             documentedDateTime: DateTime.now().toUTC().toString(),
             performerType: state.performerType,
             medicationUsed: state.medicationUsed,
-            bodySite: state.bodySite !== OTHER ? state.bodySite : state.otherBodySite?.trim(),
+            bodySite: state.bodySite !== OTHER ? state.bodySite : state.otherBodySite?.trim() || OTHER,
             bodySide: state.bodySide,
             technique: state.technique,
             suppliesUsed: combineMultipleValuesForSave(state.suppliesUsed, state.otherSuppliesUsed),
             procedureDetails: state.procedureDetails,
+            structuredFacts: resolvedStructuredFacts,
+            lengthCm: state.lengthCm,
+            repairDepth: state.repairDepth,
+            infusionStartTime: state.infusionStartTime,
+            infusionStopTime: state.infusionStopTime,
             specimenSent: state.specimenSent,
-            complications: state.complications !== OTHER ? state.complications : state.otherComplications?.trim(),
+            complications:
+              state.complications !== OTHER ? state.complications : state.otherComplications?.trim() || OTHER,
             patientResponse: state.patientResponse,
             postInstructions: combineMultipleValuesForSave(state.postInstructions, state.otherPostInstructions),
             timeSpent: state.timeSpent,
@@ -492,19 +439,18 @@ export default function ProceduresNew({
           },
         ],
       });
-      const oldProcedure = chartData?.procedures?.find((procedure) => procedure.resourceId === procedureId);
-      if (oldProcedure != null) {
-        await deleteChartData({
-          cptCodes: oldProcedure.cptCodes?.filter(
-            (cptCode) => cptCodesToUse.find((cptCodeToUse) => cptCodeToUse.resourceId == cptCode.resourceId) == null
-          ),
-          diagnosis: oldProcedure.diagnoses?.filter(
-            (diagnosis) =>
-              diagnosesToUse.find((diagnosisToUse) => diagnosisToUse.resourceId == diagnosis.resourceId) == null
-          ),
-        });
+
+      if (saveProcedureResponse.deletedDiagnosisIds?.length) {
+        updateChartDiagnoses(saveProcedureResponse.deletedDiagnosisIds);
       }
+
+      const removedCptCodes = oldProcedure?.cptCodes?.filter(
+        (cptCode) => !cptCodesToUse.some((selected) => selected.resourceId === cptCode.resourceId)
+      );
+      if (removedCptCodes?.length) await deleteChartData({ cptCodes: removedCptCodes });
+
       const savedProcedure = saveProcedureResponse.chartData?.procedures?.[0];
+
       if (savedProcedure) {
         setPartialChartData({
           procedures: [
@@ -519,15 +465,20 @@ export default function ProceduresNew({
       }
 
       void queryClient.invalidateQueries({
-        queryKey: ['procedures-for-tracking-board'],
+        queryKey: [TRACKING_BOARD_QUERY_KEY],
         refetchType: 'active',
       });
 
       setSaveInProgress(false);
       enqueueSnackbar('Procedure saved!', { variant: 'success' });
+
       if (!procedureId && encounter.id) clearDraft(encounter.id);
-      if (onFinished) onFinished();
-      else navigate(`/in-person/${appointmentId}/${ROUTER_PATH.PROCEDURES}`);
+
+      if (onFinished) {
+        onFinished();
+      } else {
+        navigate(`/in-person/${appointmentId}/${ROUTER_PATH.PROCEDURES}`);
+      }
     } catch {
       setSaveInProgress(false);
       enqueueSnackbar('An error has occurred while saving procedure. Please try again.', { variant: 'error' });
@@ -536,6 +487,7 @@ export default function ProceduresNew({
 
   const openQuickPickDialog = async (): Promise<void> => {
     if (!oystehrZambda) return;
+
     try {
       const response = await getProcedureQuickPicks(oystehrZambda);
       setExistingQuickPicks([...response.quickPicks].sort(sortQuickPicks));
@@ -543,56 +495,48 @@ export default function ProceduresNew({
       console.error('Failed to load existing quick picks:', error);
       setExistingQuickPicks(sortedMergedQuickPicks);
     }
-    // Suggest name: procedure name | site location | side of body | complications | cpt codes
+
     const parts: string[] = [];
+
     if (formValues.procedureType) parts.push(formValues.procedureType);
+
     if (state.bodySite) parts.push(state.bodySite);
+
     if (state.bodySide) parts.push(state.bodySide);
+
     if (state.complications) parts.push(state.complications);
+
     if (state.cptCodes?.length) parts.push(state.cptCodes.map((c) => c.code).join(', '));
+
     setQuickPickName(parts.join(' | '));
     setQuickPickDialogOpen(true);
   };
 
   const buildQuickPickFromCurrentState = (): Omit<ProcedureQuickPickData, 'id'> => {
-    const supplies = splitOtherForQuickPick(state.suppliesUsed, state.otherSuppliesUsed);
-    const postInstructions = splitOtherForQuickPick(state.postInstructions, state.otherPostInstructions);
-    return {
-      name: quickPickName.trim(),
-      procedureType:
-        selectOptions?.procedureTypes?.find((pt) => pt.name === formValues.procedureType)?.code ??
-        formValues.procedureType,
-      cptCodes: state.cptCodes?.map((c) => ({ code: c.code, display: c.display })),
-      // diagnoses, consentObtained, and performerType excluded — encounter-specific
-      medicationUsed: state.medicationUsed,
-      bodySite: state.bodySite,
-      otherBodySite: state.bodySite === OTHER ? state.otherBodySite?.trim() : undefined,
-      bodySide: state.bodySide,
-      technique: state.technique,
-      suppliesUsed: supplies.values,
-      otherSuppliesUsed: supplies.other,
-      procedureDetails: state.procedureDetails,
-      specimenSent: state.specimenSent,
-      complications: state.complications,
-      otherComplications: state.complications === OTHER ? state.otherComplications?.trim() : undefined,
-      patientResponse: state.patientResponse,
-      postInstructions: postInstructions.values,
-      otherPostInstructions: postInstructions.other,
-      timeSpent: state.timeSpent,
-      documentedBy: state.documentedBy,
-    };
+    return buildProcedureQuickPick(
+      {
+        ...state,
+        structuredFacts: resolvedStructuredFacts,
+      },
+      quickPickName,
+      formValues.procedureType,
+      selectOptions?.procedureTypes
+    );
   };
 
   const onSaveAsQuickPick = async (overwriteId?: string): Promise<void> => {
     if (!quickPickName.trim()) {
       enqueueSnackbar('Quick pick name is required', { variant: 'error' });
+
       return;
     }
+
     if (!oystehrZambda) {
       throw new Error('oystehrZambda was null');
     }
 
     setQuickPickSaving(true);
+
     try {
       const quickPickData = buildQuickPickFromCurrentState();
 
@@ -617,348 +561,71 @@ export default function ProceduresNew({
   const { isFetching: isSearching, data } = useGetCPTHCPCSSearch({ search: debouncedSearchTerm, type: 'both' });
   const cptSearchOptions = (data as { codes?: CPTCodeDTO[] })?.codes || [];
   const { debounce } = useDebounce(800);
+
   const debouncedHandleInputChange = (data: string): void => {
     debounce(() => {
       setDebouncedSearchTerm(data);
     });
   };
 
-  const existingCptCodeSet = useMemo(() => new Set(state.cptCodes?.map((cptCode) => cptCode.code)), [state.cptCodes]);
-
-  const addRecommendedCptCode = (suggestion: ProcedureSuggestion): void =>
+  const addRecommendedCptCodes = (entries: CPTCodeDTO[]): void =>
     updateState((state) => {
-      if (!state.cptCodes?.some((cptCode) => cptCode.code === suggestion.code)) {
-        state.cptCodes = [...(state.cptCodes ?? []), { code: suggestion.code, display: suggestion.description }];
-      }
+      state.cptCodes = mergeProcedureCptCodes(state.cptCodes, entries);
     });
 
-  const renderRecommendedCptActions = (value: ProcedureSuggestion): ReactElement => (
-    <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-      <Tooltip title={value.useWhen}>
-        <IconButton size="small" aria-label={`When to use CPT code ${value.code}`}>
-          <InfoOutlined sx={{ fontSize: '17px' }} />
-        </IconButton>
-      </Tooltip>
-      {existingCptCodeSet.has(value.code) ? (
-        <IconButton size="small" disabled aria-label={`CPT code ${value.code} already added`}>
-          <CheckCircle sx={{ fontSize: '17px', color: 'success.main' }} />
-        </IconButton>
-      ) : (
-        <Tooltip title="Add CPT code">
-          <IconButton
-            size="small"
-            aria-label={`Add CPT code ${value.code}`}
-            onClick={() => addRecommendedCptCode(value)}
-            data-testid={dataTestIds.documentProcedurePage.cptCodeQuickAddButton(value.code)}
-          >
-            <AddCircleOutline sx={{ fontSize: '17px' }} />
-          </IconButton>
-        </Tooltip>
-      )}
-    </Box>
-  );
+  const forwardEvaluation = codingEvaluations?.suggestion;
 
-  const recommendedCptCodesContent = (): ReactNode => {
-    if (loadingSuggestions) {
-      return null;
-    }
+  const codingGuidance = bestPracticeFindings(forwardEvaluation?.findings ?? []);
 
-    if (!formValues.procedureType) {
-      return <Typography color="secondary.light">Select a procedure type to see recommended CPT codes</Typography>;
-    }
-
-    // Suggestions not fetched yet.
-    if (!recommendedBillingCodes) {
-      return null;
-    }
-
-    if (recommendedBillingCodes.length === 0) {
-      return <Typography color="secondary.light">No suggestions</Typography>;
-    }
-
-    return (
-      <ActionsList
-        data={recommendedBillingCodes}
-        getKey={(value) => value.code}
-        renderItem={(value) => (
-          <Typography data-testid={dataTestIds.documentProcedurePage.recommendedCptCode(value.code)}>
-            <strong>{value.code}</strong> &ndash; {value.description}
-          </Typography>
-        )}
-        renderActions={isReadOnly ? undefined : renderRecommendedCptActions}
-        divider
-      />
-    );
-  };
-
-  const cptWidget = (): ReactElement => {
-    return (
-      <>
-        <Autocomplete
-          fullWidth
-          blurOnSelect
-          options={cptSearchOptions}
-          filterOptions={(x) => x}
-          noOptionsText={
-            debouncedSearchTerm && cptSearchOptions.length === 0
-              ? 'Nothing found for this search criteria'
-              : 'Start typing to load results'
-          }
-          autoComplete
-          includeInputInList
-          disableClearable
-          value={null as unknown as undefined}
-          isOptionEqualToValue={(option, value) => value.code === option.code}
-          loading={isSearching}
-          onChange={(_e: unknown, data: CPTCodeDTO | null) => {
-            updateState((state) => {
-              if (data != null) {
-                state.cptCodes = [...(state.cptCodes ?? []), data];
-              }
-            });
-          }}
-          getOptionLabel={(option) => (typeof option === 'string' ? option : `${option.code} ${option.display}`)}
-          renderInput={(params) => (
-            <TextField
-              {...params}
-              size="small"
-              label="CPT code"
-              placeholder="Search CPT code"
-              onChange={(e) => debouncedHandleInputChange(e.target.value)}
-              data-testid={dataTestIds.documentProcedurePage.cptCodeInput}
-            />
-          )}
-          disabled={isReadOnly}
-        />
-        <ActionsList
-          data={state.cptCodes ?? []}
-          getKey={(value, index) => value.resourceId || index}
-          renderItem={(value) => (
-            <Typography data-testid={dataTestIds.documentProcedurePage.cptCode}>
-              {value.code} {value.display}
-            </Typography>
-          )}
-          renderActions={(value) =>
-            !isReadOnly ? (
-              <DeleteIconButton
-                onClick={() =>
-                  updateState(
-                    (state) => (state.cptCodes = state.cptCodes?.filter((cptCode) => cptCode.code != value.code))
-                  )
-                }
-              />
-            ) : undefined
-          }
-          divider
-        />
-      </>
-    );
-  };
-
-  const diagnosesWidget = (): ReactElement => {
-    return (
-      <>
-        <DiagnosesField
-          label="Dx"
-          onChange={(value: IcdSearchResponse['codes'][number]): void => {
-            const preparedValue = { ...value, isPrimary: false };
-            updateState((state) => {
-              state.diagnoses = [...(state.diagnoses ?? []), preparedValue];
-            });
-          }}
-          disableForPrimary={false}
-          disabled={isReadOnly}
-        />
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-          <ActionsList
-            data={state.diagnoses ?? []}
-            getKey={(value, index) => value.resourceId || index}
-            renderItem={(value) => (
-              <Typography data-testid={dataTestIds.documentProcedurePage.diagnosis}>
-                {value.display} {value.code}
-              </Typography>
-            )}
-            renderActions={(value) =>
-              !isReadOnly ? (
-                <DeleteIconButton
-                  onClick={() =>
-                    updateState(
-                      (state) =>
-                        (state.diagnoses = state.diagnoses?.filter((diagnosis) => diagnosis.code != value.code))
-                    )
-                  }
-                  dataTestId={dataTestIds.documentProcedurePage.diagnosisDeleteButton}
-                />
-              ) : undefined
-            }
-            itemDataTestId={dataTestIds.documentProcedurePage.diagnosisItem}
-            divider
-          />
-        </Box>
-      </>
-    );
-  };
-
-  const dropdown = (
-    label: string,
-    options: string[] | undefined,
-    value: string | undefined,
-    stateMutator: (value: string, state: LocalPageState) => void,
-    dataTestId: string
-  ): ReactElement => {
-    return (
-      <FormControl fullWidth sx={{ backgroundColor: 'white' }} size="small" disabled={isReadOnly}>
-        <InputLabel id={label}>{label}</InputLabel>
-        <Select
-          label={label}
-          labelId={label}
-          variant="outlined"
-          value={value ?? ''}
-          onChange={(e) => updateState((state) => stateMutator(e.target.value, state))}
-          data-testid={dataTestId}
-        >
-          {(options ?? []).map((option) => {
-            return (
-              <MenuItem key={option} value={option}>
-                <Typography color="textPrimary" sx={{ fontSize: '16px' }}>
-                  {option}
-                </Typography>
-              </MenuItem>
-            );
-          })}
-        </Select>
-      </FormControl>
-    );
-  };
-
-  const otherTextInput = (
-    parentLabel: string,
-    parentValue: string | string[] | undefined,
-    value: string | undefined,
-    stateMutator: (value: string, state: LocalPageState) => void
-  ): ReactElement => {
-    const shouldShow = (Array.isArray(parentValue) && parentValue.includes(OTHER)) || parentValue === OTHER;
-
-    if (!shouldShow) {
-      return <></>;
-    }
-
-    return (
-      <TextField
-        label={'Other ' + parentLabel.toLocaleLowerCase()}
-        size="small"
-        value={value ?? ''}
-        onChange={(e: any) => updateState((state) => stateMutator(e.target.value, state))}
-        disabled={isReadOnly}
-      />
-    );
-  };
-
-  const radio = (
-    label: string,
-    options: string[],
-    value: string | undefined,
-    stateMutator: (value: string, state: LocalPageState) => void,
-    dataTestId: string,
-    error = false
-  ): ReactElement => {
-    return (
-      <FormControl error={error} disabled={isReadOnly}>
-        <FormLabel id={label}>{label}</FormLabel>
-        <RadioGroup
-          row
-          aria-labelledby={label}
-          onChange={(e) => updateState((state) => stateMutator(e.target.value, state))}
-          value={value ?? ''}
-        >
-          {options.map((option) => {
-            return (
-              <FormControlLabel
-                key={option}
-                value={option}
-                control={<Radio />}
-                label={option}
-                data-testid={dataTestId}
-              />
-            );
-          })}
-        </RadioGroup>
-        {error ? <FormHelperText>{REQUIRED_FIELD_ERROR_MESSAGE}</FormHelperText> : undefined}
-      </FormControl>
-    );
-  };
-
-  const multiSelect = (
-    label: string,
-    options: string[] | undefined,
-    values: string[] | undefined,
-    stateMutator: (values: string[], state: LocalPageState) => void,
-    dataTestId: string
-  ): ReactElement => {
-    return (
-      <Autocomplete
-        multiple
-        disableCloseOnSelect
-        options={(options ?? []).map((opt) => ({ value: opt, label: opt }))}
-        value={(values ?? []).map((v) => ({ value: v, label: v }))}
-        onChange={(_e, newValues) =>
-          updateState((state) =>
-            stateMutator(
-              newValues.map((v) => v.value),
-              state
-            )
-          )
-        }
-        renderOption={(props, option) => (
-          <li {...props} key={option.value}>
-            {option.label}
-          </li>
-        )}
-        renderInput={(params) => <TextField {...params} label={label} data-testid={dataTestId} />}
-        disabled={isReadOnly}
-      />
-    );
-  };
+  const suggestionVisible =
+    forwardEvaluation?.outcome?.kind === CodeOutcomeKind.Suggestions ||
+    forwardEvaluation?.outcome?.kind === CodeOutcomeKind.Determined ||
+    forwardEvaluation?.outcome?.kind === CodeOutcomeKind.DeterminedWithAlternates ||
+    forwardEvaluation?.outcome?.kind === CodeOutcomeKind.Open;
 
   useEffect(() => {
     if (procedureId && !initialFormStateSet) {
       return;
     }
+
     const callback = methods.subscribe({
       name: 'procedureType',
       formState: {
         values: true,
       },
       callback: ({ values }) => {
+        // Empty procedure type (e.g. "Clear Form" reset) must not touch page state
         if (!values.procedureType) return;
+
+        const previousName = previousProcedureType.current;
+        previousProcedureType.current = values.procedureType;
+
+        if (
+          previousName !== undefined &&
+          detectProcedureFamily({ procedureType: previousName })?.id !==
+            detectProcedureFamily({ procedureType: values.procedureType })?.id
+        ) {
+          updateState((state) => {
+            state.structuredFacts = undefined;
+          });
+        }
+
         if (!procedureId && encounter.id) {
           setDraft(encounter.id, { procedureType: values.procedureType });
         }
+
         updateState((state) => {
           const selected = selectOptions?.procedureTypes.find(
             (procedureType) => procedureType.name === values.procedureType
           );
-          // don't remove applied codes on changes
-          const appliedCodes = [...(state.cptCodes ?? [])];
-          if (selected?.cpt && !appliedCodes.some((c) => c.code === selected.cpt!.code)) {
-            appliedCodes.push({ code: selected.cpt.code, display: selected.cpt.display });
-          }
-          if (selected?.hcpcs && !appliedCodes.some((c) => c.code === selected.hcpcs!.code)) {
-            appliedCodes.push({ code: selected.hcpcs.code, display: selected.hcpcs.display });
-          }
-          state.cptCodes = appliedCodes;
 
           if (selected) {
-            Object.entries(PROCEDURES_CONFIG.prepopulation[selected.code] ?? []).forEach(([field, value]) => {
-              const currentValue = (state as any)[field];
-              if (currentValue == null || currentValue === '') {
-                (state as any)[field] = value;
-              }
-            });
+            applyProcedurePrepopulation(state, PROCEDURES_CONFIG.prepopulation[selected.code] ?? {});
           }
         });
       },
     });
+
     return () => callback();
   }, [methods, selectOptions, procedureId, initialFormStateSet, encounter.id, setDraft, updateState]);
 
@@ -966,46 +633,26 @@ export default function ProceduresNew({
     if (procedure == null) {
       return;
     }
+
     methods.reset({
       procedureType: procedure.procedureType,
     });
+
     setInitialFormStateSet(true);
   }, [methods, procedure]);
 
   const onQuickPickSelect = (quickPick: ProcedureQuickPickData): void => {
-    if (quickPick.procedureType) {
-      const resolvedProcedureType =
-        selectOptions?.procedureTypes.find((procedureType) => procedureType.code === quickPick.procedureType)?.name ??
-        quickPick.procedureType;
-      methods.reset({
-        ...formValues,
-        procedureType: resolvedProcedureType,
-      });
-      // methods.reset() above doesn't reliably notify the procedureType draft-sync subscription,
-      // so persist it directly here — same as every other quick-pick field going through updateState.
-      if (!procedureId && encounter.id) {
-        setDraft(encounter.id, { procedureType: resolvedProcedureType });
-      }
+    const procedureTypeName = quickPick.procedureType
+      ? selectOptions?.procedureTypes.find((procedureType) => procedureType.code === quickPick.procedureType)?.name ??
+        quickPick.procedureType
+      : undefined;
+
+    if (procedureTypeName) {
+      methods.reset({ ...formValues, procedureType: procedureTypeName });
     }
+
     updateState((state) => {
-      QUICK_PICK_APPLY_KEYS.forEach((key) => {
-        if (key === 'cptCodes') {
-          state.cptCodes = mergeCptCodes(state.cptCodes, quickPick.cptCodes);
-          return;
-        }
-
-        // Arrays hold only real options; re-add the "Other" chip so its text input renders.
-        if (key === 'suppliesUsed') {
-          state.suppliesUsed = mergeOtherFromQuickPick(quickPick.suppliesUsed, quickPick.otherSuppliesUsed);
-          return;
-        }
-        if (key === 'postInstructions') {
-          state.postInstructions = mergeOtherFromQuickPick(quickPick.postInstructions, quickPick.otherPostInstructions);
-          return;
-        }
-
-        (state as Record<string, unknown>)[key] = quickPick[key];
-      });
+      applyProcedureQuickPick(state, quickPick, procedureTypeName ?? formValues.procedureType);
     });
   };
 
@@ -1014,7 +661,7 @@ export default function ProceduresNew({
 
   const commandPaletteItems = useMemo(
     () =>
-      procedureId || isReadOnly
+      procedureId || isReadOnly || selectOptions == null
         ? []
         : mergedQuickPicks.map((quickPick) => ({
             id: `procedure-${quickPick.id ?? quickPick.name}`,
@@ -1022,16 +669,18 @@ export default function ProceduresNew({
             category: 'Add Procedure',
             onSelect: () => onQuickPickSelectRef.current(quickPick),
           })),
-    [isReadOnly, mergedQuickPicks, procedureId]
+    [isReadOnly, mergedQuickPicks, procedureId, selectOptions]
   );
   useCommandPaletteSource('procedure-quick-picks', commandPaletteItems);
 
   const handlePendingQuickPick = useCallback((payload: ProcedureQuickPickData) => {
     onQuickPickSelectRef.current(payload);
   }, []);
-  usePendingQuickPick('procedures', handlePendingQuickPick, !isSelectOptionsLoading);
+
+  usePendingQuickPick('procedures', handlePendingQuickPick, selectOptions != null);
 
   const [consentPdfExists, setConsentPdfExists] = useState(false);
+
   useEffect(() => {
     let cancelled = false;
     fetch('/consent_procedure.pdf', { method: 'HEAD' })
@@ -1066,448 +715,438 @@ export default function ProceduresNew({
             }
           />
         )}
-        <AccordionCard>
-          <Stack spacing={2} style={{ padding: '24px' }}>
-            <Box style={{ display: 'flex', alignItems: 'center' }}>
-              <Checkbox
-                checked={state.consentObtained ?? false}
-                onChange={(_e: any, checked: boolean) => updateState((state) => (state.consentObtained = checked))}
-                disabled={isReadOnly}
-                data-testid={dataTestIds.documentProcedurePage.consentForProcedure}
-              />
-              <Typography>
-                I have obtained the{' '}
-                {consentPdfExists ? (
-                  <Link target="_blank" to={`/consent_procedure.pdf`} style={{ color: theme.palette.primary.main }}>
-                    Consent for Procedure
-                  </Link>
-                ) : (
-                  'Consent for Procedure'
+        <Box sx={{ containerType: 'inline-size' }}>
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: 'minmax(0, 1fr)',
+              gap: `${COLUMN_GAP_PX}px`,
+              alignItems: 'start',
+              [CODING_COLUMN_QUERY]: {
+                gridTemplateColumns: `minmax(${FORM_COLUMN_MIN_WIDTH}px, 1fr) minmax(${CODING_COLUMN_MIN_WIDTH}px, ${CODING_COLUMN_WIDTH}px)`,
+              },
+            }}
+          >
+            <AccordionCard>
+              <Stack spacing={1.5} style={{ padding: '24px' }}>
+                <QuickPicksButton
+                  quickPicks={sortedMergedQuickPicks}
+                  loading={mergedQuickPicksLoading}
+                  disabled={selectOptions == null}
+                  getLabel={(quickPick) => quickPick.name}
+                  onSelect={onQuickPickSelect}
+                  showAddOption
+                  isAdmin={isAdmin}
+                  onAddOrUpdate={() => void openQuickPickDialog()}
+                  searchable
+                />
+
+                <SectionLabel>Procedure</SectionLabel>
+                <Sentence>
+                  <PopoverBlank
+                    label="procedure type"
+                    title="Procedure type"
+                    value={formValues.procedureType || undefined}
+                    need
+                    readOnly={isReadOnly}
+                    dataTestId={dataTestIds.documentProcedurePage.procedureType}
+                  >
+                    {(close) => (
+                      <AutocompleteInput
+                        name="procedureType"
+                        label="Procedure type"
+                        options={selectOptions?.procedureTypes.map((procedureType) => procedureType.name)}
+                        disabled={isReadOnly}
+                        loading={isSelectOptionsLoading}
+                        freeSolo
+                        dataTestId={dataTestIds.documentProcedurePage.procedureTypeInput}
+                        // Clearing the text reports a null option; only a real pick closes the popover.
+                        onOptionSelected={(option) => option != null && close()}
+                        openOnFocus
+                      />
+                    )}
+                  </PopoverBlank>
+                  {' on '}
+                  <DateTimeBlank
+                    kind="date"
+                    label="date of the procedure"
+                    value={state.procedureDate}
+                    onChange={(date) => updateState((state) => (state.procedureDate = date))}
+                    readOnly={isReadOnly}
+                    dataTestId={dataTestIds.documentProcedurePage.procedureDate}
+                  />
+                  {' at '}
+                  <DateTimeBlank
+                    kind="time"
+                    label="time of the procedure"
+                    value={state.procedureTime}
+                    onChange={(time) => updateState((state) => (state.procedureTime = time))}
+                    readOnly={isReadOnly}
+                    dataTestId={dataTestIds.documentProcedurePage.procedureTime}
+                  />
+                  {', performed by the '}
+                  <SelectBlank
+                    label="performed by"
+                    title="Performed by"
+                    options={PERFORMED_BY_OPTIONS}
+                    value={state.performerType}
+                    onChange={(value) => updateState((state) => (state.performerType = value))}
+                    readOnly={isReadOnly}
+                    dataTestId={dataTestIds.documentProcedurePage.performedBy}
+                  />
+                  {' and documented by the '}
+                  <SelectBlank
+                    label="documented by"
+                    title="Documented by"
+                    options={DOCUMENTED_BY_OPTIONS}
+                    value={state.documentedBy}
+                    onChange={(value) => updateState((state) => (state.documentedBy = value))}
+                    readOnly={isReadOnly}
+                    dataTestId={dataTestIds.documentProcedurePage.documentedBy}
+                  />
+                  .
+                </Sentence>
+                {errors.procedureType && (
+                  <FormHelperText error sx={{ mt: '-8px' }}>
+                    {String(errors.procedureType.message)}
+                  </FormHelperText>
                 )}
-              </Typography>
-            </Box>
-
-            <QuickPicksButton
-              quickPicks={sortedMergedQuickPicks}
-              loading={mergedQuickPicksLoading}
-              getLabel={(quickPick) => quickPick.name}
-              onSelect={onQuickPickSelect}
-              showAddOption
-              isAdmin={isAdmin}
-              onAddOrUpdate={() => void openQuickPickDialog()}
-              searchable
-            />
-
-            <Box sx={{ marginTop: '16px', color: '#0F347C' }}>
-              <Typography style={{ color: '#0F347C', fontSize: '16px', fontWeight: '500' }}>Procedure Type</Typography>
-            </Box>
-
-            <AutocompleteInput
-              name="procedureType"
-              label="Procedure type"
-              options={selectOptions?.procedureTypes.map((procedureType) => procedureType.name)}
-              disabled={isReadOnly}
-              loading={isSelectOptionsLoading}
-              freeSolo
-              dataTestId={dataTestIds.documentProcedurePage.procedureType}
-              required
-              // regex is from fhir spec for code (which is where this value is mapped)
-              // https://hl7.org/fhir/R4B/datatypes.html#code
-              validate={(value) =>
-                !value || FHIR_CODE_REGEX.test(value) || 'No leading, trailing, or consecutive spaces allowed'
-              }
-            />
-
-            <Typography style={{ marginTop: '8px', color: '#0F347C', fontSize: '16px', fontWeight: '500' }}>
-              Dx
-            </Typography>
-            {diagnosesWidget()}
-            <Typography style={{ marginTop: '8px', color: '#0F347C', fontSize: '16px', fontWeight: '500' }}>
-              Procedure Details
-            </Typography>
-            <Stack direction="row" spacing={2}>
-              <LocalizationProvider dateAdapter={AdapterLuxon}>
-                <DatePicker
-                  label="Date of the procedure"
-                  slotProps={{
-                    textField: {
-                      InputLabelProps: { shrink: true },
-                      InputProps: { size: 'small', placeholder: 'MM/DD/YYYY' },
-                    },
-                  }}
-                  value={state.procedureDate}
-                  onChange={(date: DateTime | null, _e: any) => updateState((state) => (state.procedureDate = date))}
-                  disabled={isReadOnly}
+                <ProcedureDiagnosesSentence
+                  diagnoses={state.diagnoses ?? []}
+                  visitDiagnoses={chartDiagnoses}
+                  readOnly={isReadOnly}
+                  onChange={(diagnoses) => updateState((state) => (state.diagnoses = diagnoses))}
                 />
-              </LocalizationProvider>
-              <LocalizationProvider dateAdapter={AdapterLuxon}>
-                <TimePicker
-                  label="Time of the procedure"
-                  slotProps={{
-                    textField: {
-                      InputLabelProps: { shrink: true },
-                      InputProps: { size: 'small' },
-                    },
-                  }}
-                  value={state.procedureTime}
-                  onChange={(time: DateTime | null, _e: any) => updateState((state) => (state.procedureTime = time))}
-                  disabled={isReadOnly}
+                <Sentence>
+                  Consent for Procedure{' '}
+                  {consentPdfExists && (
+                    <Link
+                      target="_blank"
+                      to={`/consent_procedure.pdf`}
+                      aria-label="Open the Consent for Procedure form"
+                      title="Open the Consent for Procedure form"
+                      style={{ color: theme.palette.text.secondary, lineHeight: 0 }}
+                    >
+                      <OpenInNew sx={{ fontSize: 16, verticalAlign: 'text-bottom' }} />
+                    </Link>
+                  )}{' '}
+                  <SelectBlank
+                    label="consent"
+                    title="Consent for Procedure"
+                    options={CONSENT}
+                    value={state.consentObtained == null ? undefined : state.consentObtained ? CONSENT[0] : CONSENT[1]}
+                    onChange={(value) =>
+                      updateState(
+                        (state) => (state.consentObtained = value === undefined ? undefined : value === CONSENT[0])
+                      )
+                    }
+                    readOnly={isReadOnly}
+                    need
+                    dataTestId={dataTestIds.documentProcedurePage.consentForProcedure}
+                  />
+                  .
+                </Sentence>
+
+                {(!codingFamily?.capturesSite || !codingFamily?.capturesSide) && (
+                  <>
+                    <SectionLabel>Site</SectionLabel>
+                    <Sentence>
+                      {!codingFamily?.capturesSite && (
+                        <>
+                          Site:{' '}
+                          <SelectBlank
+                            label="site/location"
+                            title="Site/location"
+                            options={selectOptions?.bodySites}
+                            value={state.bodySite}
+                            otherValue={state.otherBodySite}
+                            onOtherChange={(value) => updateState((state) => (state.otherBodySite = value))}
+                            onChange={(value) =>
+                              updateState((state) => {
+                                state.bodySite = value;
+                                state.otherBodySite = undefined;
+                              })
+                            }
+                            readOnly={isReadOnly}
+                            clearable
+                            dataTestId={dataTestIds.documentProcedurePage.site}
+                          />
+                        </>
+                      )}
+                      {!codingFamily?.capturesSite && !codingFamily?.capturesSide && ', '}
+                      {!codingFamily?.capturesSide && (
+                        <>
+                          <SelectBlank
+                            label="side"
+                            title="Side of body"
+                            options={selectOptions?.bodySides}
+                            value={state.bodySide}
+                            onChange={(value) => updateState((state) => (state.bodySide = value))}
+                            readOnly={isReadOnly}
+                            clearable
+                            dataTestId={dataTestIds.documentProcedurePage.sideOfBody}
+                          />{' '}
+                          side
+                        </>
+                      )}
+                      .
+                    </Sentence>
+                  </>
+                )}
+
+                {codingFamily && (
+                  <>
+                    <SectionLabel>{codingFamily.displayName}</SectionLabel>
+                    <ProcedureFamilySentences
+                      family={codingFamily}
+                      value={resolvedStructuredFacts ?? {}}
+                      onChange={(value) => updateState((state) => (state.structuredFacts = value))}
+                      readOnly={isReadOnly}
+                      medicationUsed={state.medicationUsed}
+                    />
+                  </>
+                )}
+                <ConditionalCodingFields
+                  visibility={
+                    codingFamily
+                      ? { length: false, repairDepth: false, infusionTimes: false }
+                      : codingAssist.fieldVisibility
+                  }
+                  isReadOnly={isReadOnly}
+                  lengthCm={state.lengthCm}
+                  repairDepth={state.repairDepth}
+                  infusionStartTime={state.infusionStartTime}
+                  infusionStopTime={state.infusionStopTime}
+                  onLengthChange={(value) => updateState((state) => (state.lengthCm = value))}
+                  onRepairDepthChange={(value) => updateState((state) => (state.repairDepth = value))}
+                  onInfusionStartChange={(value) => updateState((state) => (state.infusionStartTime = value))}
+                  onInfusionStopChange={(value) => updateState((state) => (state.infusionStopTime = value))}
                 />
-              </LocalizationProvider>
-            </Stack>
-            {radio(
-              'Performed by',
-              PERFORMED_BY,
-              state.performerType,
-              (value, state) => (state.performerType = value),
-              dataTestIds.documentProcedurePage.performedBy
-            )}
-            <InfoAlert text="Please include body part including laterality, type and quantity anesthesia used, specific materials (type and quantity) used, technique, findings, complications, specimen sent, and after-procedure status." />
-            {dropdown(
-              'Anaesthesia / medication used',
-              selectOptions?.medicationsUsed,
-              state.medicationUsed,
-              (value, state) => (state.medicationUsed = value),
-              dataTestIds.documentProcedurePage.anaesthesia
-            )}
-            {dropdown(
-              'Site/location',
-              selectOptions?.bodySites,
-              state.bodySite,
-              (value, state) => {
-                state.bodySite = value;
-                state.otherBodySite = undefined;
-              },
-              dataTestIds.documentProcedurePage.site
-            )}
-            {otherTextInput(
-              'Site/location',
-              state.bodySite,
-              state.otherBodySite,
-              (value, state) => (state.otherBodySite = value)
-            )}
-            {dropdown(
-              'Side of body',
-              selectOptions?.bodySides,
-              state.bodySide,
-              (value, state) => (state.bodySide = value),
-              dataTestIds.documentProcedurePage.sideOfBody
-            )}
-            {multiSelect(
-              'Technique',
-              selectOptions?.techniques,
-              state.technique,
-              (value, state) => (state.technique = value),
-              dataTestIds.documentProcedurePage.technique
-            )}
-            {multiSelect(
-              'Instruments / supplies used',
-              selectOptions?.supplies,
-              state.suppliesUsed,
-              (values, state) => {
-                state.suppliesUsed = values;
-              },
-              dataTestIds.documentProcedurePage.instruments
-            )}
-            {otherTextInput(
-              'Instruments / supplies used',
-              state.suppliesUsed,
-              state.otherSuppliesUsed,
-              (value, state) => (state.otherSuppliesUsed = value)
-            )}
-            <TextField
-              label="Procedure details"
-              multiline
-              rows={4}
-              value={state.procedureDetails ?? ''}
-              onChange={(e: any) => updateState((state) => (state.procedureDetails = e.target.value))}
-              disabled={isReadOnly}
-              data-testid={dataTestIds.documentProcedurePage.procedureDetails}
-            />
-            {radio(
-              'Specimen sent',
-              SPECIMEN_SENT,
-              state.specimenSent != null ? (state.specimenSent ? 'Yes' : 'No') : undefined,
-              (value, state) => (state.specimenSent = value === 'Yes'),
-              dataTestIds.documentProcedurePage.specimenSent
-            )}
-            {dropdown(
-              'Complications',
-              selectOptions?.complications,
-              state.complications,
-              (value, state) => {
-                state.complications = value;
-                state.otherComplications = undefined;
-              },
-              dataTestIds.documentProcedurePage.complications
-            )}
-            {otherTextInput(
-              'Complications',
-              state.complications,
-              state.otherComplications,
-              (value, state) => (state.otherComplications = value)
-            )}
-            {dropdown(
-              'Patient response',
-              selectOptions?.patientResponses,
-              state.patientResponse,
-              (value, state) => (state.patientResponse = value),
-              dataTestIds.documentProcedurePage.patientResponse
-            )}
-            {multiSelect(
-              'Post-procedure Instructions',
-              selectOptions?.postProcedureInstructions,
-              state.postInstructions,
-              (values, state) => {
-                state.postInstructions = values;
-              },
-              dataTestIds.documentProcedurePage.postProcedureInstructions
-            )}
-            {otherTextInput(
-              'Post-procedure Instructions',
-              state.postInstructions,
-              state.otherPostInstructions,
-              (value, state) => (state.otherPostInstructions = value)
-            )}
-            {dropdown(
-              'Time spent',
-              selectOptions?.timeSpent,
-              state.timeSpent,
-              (value, state) => (state.timeSpent = value),
-              dataTestIds.documentProcedurePage.timeSpent
-            )}
-            {radio(
-              'Documented by',
-              DOCUMENTED_BY,
-              state.documentedBy,
-              (value, state) => (state.documentedBy = value),
-              dataTestIds.documentProcedurePage.documentedBy
-            )}
-            <TooltipWrapper tooltipProps={CPT_TOOLTIP_PROPS}>
-              <Typography style={{ color: '#0F347C', fontSize: '16px', fontWeight: '500' }}>CPT Code</Typography>
-            </TooltipWrapper>
-            <AiSectionContainer isLoading={loadingSuggestions}>{recommendedCptCodesContent()}</AiSectionContainer>
-            {suggestionNote && suggestionNote.suggestions?.[0] !== 'Procedure details are included' && (
-              <Container
-                style={{
-                  background: '#FFF3E0',
-                  borderRadius: '8px',
-                  padding: '4px 8px 4px 8px',
-                }}
-              >
-                <Container style={{ display: 'flex', alignItems: 'center', padding: 0 }}>
-                  <Typography variant="body1" style={{ fontWeight: 700 }}>
-                    Procedure Details AI Suggestions
-                  </Typography>
-                  {loadingSuggestionNote && <CircularProgress size={17} style={{ marginLeft: '7px' }} />}
-                </Container>
-                <Typography variant="body1">{suggestionNote?.suggestions?.join(', ')}</Typography>
-              </Container>
-            )}
-            {cptWidget()}
-            <Divider orientation="horizontal" />
-            <Box style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <Stack direction="row" spacing={2}>
-                <RoundedButton color="primary" onClick={onCancel}>
-                  Cancel
-                </RoundedButton>
-                {!procedureId && (
-                  <RoundedButton color="primary" onClick={handleClearForm}>
-                    Clear Form
+
+                <SectionLabel>Technique</SectionLabel>
+                <Sentence>
+                  Anesthesia:{' '}
+                  <SelectBlank
+                    label="anesthesia"
+                    title="Anaesthesia / medication used"
+                    options={selectOptions?.medicationsUsed}
+                    value={state.medicationUsed}
+                    onChange={(value) => updateState((state) => (state.medicationUsed = value))}
+                    readOnly={isReadOnly}
+                    clearable
+                    dataTestId={dataTestIds.documentProcedurePage.anaesthesia}
+                  />
+                  . Technique:{' '}
+                  <MultiBlank
+                    label="technique"
+                    title="Technique"
+                    options={selectOptions?.techniques}
+                    values={state.technique}
+                    onChange={(values) => updateState((state) => (state.technique = values))}
+                    readOnly={isReadOnly}
+                    dataTestId={dataTestIds.documentProcedurePage.technique}
+                  />
+                  . Supplies:{' '}
+                  <MultiBlank
+                    label="supplies"
+                    title="Instruments / supplies used"
+                    options={selectOptions?.supplies}
+                    values={state.suppliesUsed}
+                    otherValue={state.otherSuppliesUsed}
+                    onOtherChange={(value) => updateState((state) => (state.otherSuppliesUsed = value))}
+                    onChange={(values) => updateState((state) => (state.suppliesUsed = values))}
+                    readOnly={isReadOnly}
+                    dataTestId={dataTestIds.documentProcedurePage.instruments}
+                  />
+                  .
+                </Sentence>
+
+                <SectionLabel>Outcome</SectionLabel>
+                <Sentence>
+                  Specimen{' '}
+                  <SelectBlank
+                    label="specimen"
+                    title="Specimen sent"
+                    options={SPECIMEN_SENT}
+                    value={
+                      state.specimenSent == null ? undefined : state.specimenSent ? SPECIMEN_SENT[0] : SPECIMEN_SENT[1]
+                    }
+                    onChange={(value) =>
+                      updateState(
+                        (state) => (state.specimenSent = value === undefined ? undefined : value === SPECIMEN_SENT[0])
+                      )
+                    }
+                    readOnly={isReadOnly}
+                    dataTestId={dataTestIds.documentProcedurePage.specimenSent}
+                  />
+                  . Complications:{' '}
+                  <SelectBlank
+                    label="complications"
+                    title="Complications"
+                    options={selectOptions?.complications}
+                    value={state.complications}
+                    otherValue={state.otherComplications}
+                    onOtherChange={(value) => updateState((state) => (state.otherComplications = value))}
+                    onChange={(value) =>
+                      updateState((state) => {
+                        state.complications = value;
+                        state.otherComplications = undefined;
+                      })
+                    }
+                    readOnly={isReadOnly}
+                    clearable
+                    dataTestId={dataTestIds.documentProcedurePage.complications}
+                  />
+                  . Patient{' '}
+                  <SelectBlank
+                    label="response"
+                    title="Patient response"
+                    options={selectOptions?.patientResponses}
+                    value={state.patientResponse}
+                    onChange={(value) => updateState((state) => (state.patientResponse = value))}
+                    readOnly={isReadOnly}
+                    clearable
+                    dataTestId={dataTestIds.documentProcedurePage.patientResponse}
+                  />
+                  . Time spent:{' '}
+                  <SelectBlank
+                    label="time spent"
+                    title="Time spent"
+                    options={selectOptions?.timeSpent}
+                    value={state.timeSpent}
+                    onChange={(value) => updateState((state) => (state.timeSpent = value))}
+                    readOnly={isReadOnly}
+                    clearable
+                    dataTestId={dataTestIds.documentProcedurePage.timeSpent}
+                  />
+                  .
+                </Sentence>
+                <Sentence>
+                  Instructions given:{' '}
+                  <MultiBlank
+                    label="instructions"
+                    title="Post-procedure Instructions"
+                    options={selectOptions?.postProcedureInstructions}
+                    values={state.postInstructions}
+                    otherValue={state.otherPostInstructions}
+                    onOtherChange={(value) => updateState((state) => (state.otherPostInstructions = value))}
+                    onChange={(values) => updateState((state) => (state.postInstructions = values))}
+                    readOnly={isReadOnly}
+                    dataTestId={dataTestIds.documentProcedurePage.postProcedureInstructions}
+                  />
+                  .
+                </Sentence>
+
+                <SectionLabel>Procedure details</SectionLabel>
+                <TextField
+                  placeholder="Anything the sentences above don't cover"
+                  inputProps={{ 'aria-label': 'Procedure details' }}
+                  multiline
+                  rows={4}
+                  value={state.procedureDetails ?? ''}
+                  onChange={(e: any) => updateState((state) => (state.procedureDetails = e.target.value))}
+                  disabled={isReadOnly}
+                  data-testid={dataTestIds.documentProcedurePage.procedureDetails}
+                />
+
+                <Divider orientation="horizontal" />
+
+                <Box style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <Stack direction="row" spacing={2}>
+                    <RoundedButton color="primary" onClick={onCancel}>
+                      Cancel
+                    </RoundedButton>
+                    {!procedureId && (
+                      <RoundedButton color="primary" onClick={handleClearForm}>
+                        Clear Form
+                      </RoundedButton>
+                    )}
+                  </Stack>
+                  <RoundedButton
+                    color="primary"
+                    variant="contained"
+                    disabled={isReadOnly}
+                    onClick={methods.handleSubmit(onSave)}
+                    data-testid={dataTestIds.documentProcedurePage.saveButton}
+                  >
+                    Save
                   </RoundedButton>
+                </Box>
+
+                {Object.entries(errors).length > 0 && (
+                  <FormHelperText sx={{ textAlign: 'right' }} error={true}>
+                    Please fix all errors
+                  </FormHelperText>
                 )}
               </Stack>
-              <RoundedButton
-                color="primary"
-                variant="contained"
-                disabled={isReadOnly}
-                onClick={methods.handleSubmit(onSave)}
-                data-testid={dataTestIds.documentProcedurePage.saveButton}
-              >
-                Save
-              </RoundedButton>
-            </Box>
-            {Object.entries(errors).length > 0 && (
-              <FormHelperText sx={{ textAlign: 'right' }} error={true}>
-                Please fix all errors
-              </FormHelperText>
-            )}
-          </Stack>
-        </AccordionCard>
+            </AccordionCard>
+            <ProcedureCodingColumn containerQuery={CODING_COLUMN_QUERY}>
+              <AccordionCard>
+                <Stack spacing={1.5} style={{ padding: '24px' }}>
+                  <TooltipWrapper tooltipProps={CPT_TOOLTIP_PROPS}>
+                    <Typography style={{ color: theme.palette.primary.dark, fontSize: '16px', fontWeight: '500' }}>
+                      CPT Code
+                    </Typography>
+                  </TooltipWrapper>
+
+                  <CodingAssistPanel
+                    onRetrySuggestions={codingAssist.retrySuggestions}
+                    evaluation={forwardEvaluation}
+                    isEvaluating={codingAssistIsEvaluating}
+                    procedureTypeSelected={Boolean(formValues.procedureType)}
+                    isReadOnly={isReadOnly}
+                    selectedCodes={state.cptCodes ?? []}
+                    onAddCodes={addRecommendedCptCodes}
+                  />
+
+                  <DocumentationCheck evaluation={codingEvaluations?.defense} suggestionVisible={suggestionVisible} />
+
+                  <ProcedureCptCodesField
+                    codes={state.cptCodes ?? []}
+                    searchOptions={cptSearchOptions}
+                    isSearching={isSearching}
+                    searchTerm={debouncedSearchTerm}
+                    onSearchTermChange={debouncedHandleInputChange}
+                    onAdd={(code) => updateState((state) => (state.cptCodes = [...(state.cptCodes ?? []), code]))}
+                    onDelete={(code) =>
+                      updateState((state) => {
+                        // The same code can appear twice with different modifiers (a repeat recording, a payer
+                        // alternative). Delete the line the user clicked, not every line sharing its code.
+                        const index = state.cptCodes?.findIndex((cptCode) => sameCptLine(cptCode, code)) ?? -1;
+                        if (index >= 0) state.cptCodes = state.cptCodes?.filter((_, i) => i !== index);
+                      })
+                    }
+                    disabled={isReadOnly}
+                  />
+
+                  {codingGuidance.length > 0 && !codingAssistIsEvaluating && (
+                    <Box sx={{ background: theme.palette.action.hover, borderRadius: '8px', padding: '8px' }}>
+                      <CodingFindingList
+                        findings={codingGuidance}
+                        dataTestId={dataTestIds.documentProcedurePage.codingGuidance}
+                      />
+                    </Box>
+                  )}
+                </Stack>
+              </AccordionCard>
+            </ProcedureCodingColumn>
+          </Box>
+        </Box>
       </Stack>
+
       <Backdrop sx={(theme) => ({ color: '#fff', zIndex: theme.zIndex.drawer + 1 })} open={saveInProgress}>
         <CircularProgress color="inherit" />
       </Backdrop>
 
-      {/* Add to Quick Picks Dialog */}
-      <Dialog open={quickPickDialogOpen} onClose={() => setQuickPickDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Add to Quick Picks</DialogTitle>
-        <DialogContent>
-          <Autocomplete
-            freeSolo
-            options={existingQuickPicks.map((qp) => qp.name)}
-            value={quickPickName}
-            onChange={(_e, newValue) => setQuickPickName(newValue ?? '')}
-            onInputChange={(_e, newInputValue) => setQuickPickName(newInputValue)}
-            renderInput={(params) => (
-              <TextField
-                {...params}
-                label="Quick Pick Name"
-                fullWidth
-                sx={{ mt: 1 }}
-                autoFocus
-                placeholder="Enter a name or select an existing quick pick"
-              />
-            )}
-          />
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setQuickPickDialogOpen(false)} disabled={quickPickSaving}>
-            Cancel
-          </Button>
-          <Button
-            variant="contained"
-            disabled={!quickPickName.trim() || quickPickSaving}
-            onClick={() => {
-              const existing = existingQuickPicks.find(
-                (qp) => qp.name.toLowerCase() === quickPickName.trim().toLowerCase()
-              );
-              if (existing?.id) {
-                setOverwriteTarget(existing);
-                setConfirmOverwriteOpen(true);
-              } else {
-                void onSaveAsQuickPick();
-              }
-            }}
-          >
-            {quickPickSaving ? <CircularProgress size={20} /> : 'Save Quick Pick'}
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Overwrite Confirmation Dialog */}
-      <Dialog open={confirmOverwriteOpen} onClose={() => setConfirmOverwriteOpen(false)} maxWidth="xs" fullWidth>
-        <DialogTitle>Update Existing Quick Pick?</DialogTitle>
-        <DialogContent>
-          <Typography>
-            A quick pick named &ldquo;{overwriteTarget?.name}&rdquo; already exists. Do you want to replace it with the
-            current procedure data?
-          </Typography>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setConfirmOverwriteOpen(false)}>Back</Button>
-          <Button
-            variant="contained"
-            onClick={() => {
-              setConfirmOverwriteOpen(false);
-              if (overwriteTarget?.id) {
-                void onSaveAsQuickPick(overwriteTarget.id);
-              }
-            }}
-          >
-            Replace
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <ProcedureQuickPickDialogs
+        open={quickPickDialogOpen}
+        name={quickPickName}
+        onNameChange={setQuickPickName}
+        existingQuickPicks={existingQuickPicks}
+        saving={quickPickSaving}
+        onClose={() => setQuickPickDialogOpen(false)}
+        onSave={(overwriteId) => void onSaveAsQuickPick(overwriteId)}
+      />
     </FormProvider>
   );
-}
-
-const emptySelectOptions: SelectOptions = {
-  procedureTypes: [],
-  medicationsUsed: [],
-  bodySites: [],
-  bodySides: [],
-  techniques: [],
-  supplies: [],
-  complications: [],
-  patientResponses: [],
-  postProcedureInstructions: [],
-  timeSpent: [],
-};
-
-function useSelectOptions(oystehr: Oystehr | undefined): UseQueryResult<SelectOptions, Error> {
-  return useQuery({
-    queryKey: ['procedures-new-dropdown-options'],
-
-    queryFn: async (): Promise<SelectOptions> => {
-      if (oystehr == null) {
-        return emptySelectOptions;
-      }
-      const valueSets = (
-        await oystehr.fhir.search<ValueSet>({
-          resourceType: 'ValueSet',
-          params: [
-            {
-              name: 'url',
-              value: [
-                PROCEDURE_TYPES_VALUE_SET_URL,
-                MEDICATIONS_USED_VALUE_SET_URL,
-                BODY_SITES_VALUE_SET_URL,
-                BODY_SIDES_VALUE_SET_URL,
-                TECHNIQUES_VALUE_SET_URL,
-                SUPPLIES_VALUE_SET_URL,
-                COMPLICATIONS_VALUE_SET_URL,
-                PATIENT_RESPONSES_VALUE_SET_URL,
-                POST_PROCEDURE_INSTRUCTIONS_VALUE_SET_URL,
-                TIME_SPENT_VALUE_SET_URL,
-              ].join(','),
-            },
-          ],
-        })
-      ).unbundle();
-      return {
-        procedureTypes: getProcedureTypes(valueSets),
-        medicationsUsed: getValueSetValues(MEDICATIONS_USED_VALUE_SET_URL, valueSets),
-        bodySites: getValueSetValues(BODY_SITES_VALUE_SET_URL, valueSets),
-        bodySides: getValueSetValues(BODY_SIDES_VALUE_SET_URL, valueSets),
-        techniques: getValueSetValues(TECHNIQUES_VALUE_SET_URL, valueSets),
-        supplies: getValueSetValues(SUPPLIES_VALUE_SET_URL, valueSets),
-        complications: getValueSetValues(COMPLICATIONS_VALUE_SET_URL, valueSets),
-        patientResponses: getValueSetValues(PATIENT_RESPONSES_VALUE_SET_URL, valueSets),
-        postProcedureInstructions: getValueSetValues(POST_PROCEDURE_INSTRUCTIONS_VALUE_SET_URL, valueSets),
-        timeSpent: getValueSetValues(TIME_SPENT_VALUE_SET_URL, valueSets),
-      };
-    },
-    placeholderData: keepPreviousData,
-    staleTime: QUERY_STALE_TIME,
-  });
-}
-
-function getValueSetValues(valueSetUrl: string, valueSets: ValueSet[] | undefined): string[] {
-  const valueSet = valueSets?.find((valueSet) => valueSet.url === valueSetUrl);
-  return valueSet?.expansion?.contains?.flatMap((item) => (item.display != null ? [item.display] : [])) ?? [];
-}
-
-function getProcedureTypes(valueSets: ValueSet[] | undefined): ProcedureType[] {
-  if (!valueSets) return [];
-
-  const latest = valueSets
-    .filter((vs) => vs.url === PROCEDURE_TYPES_VALUE_SET_URL)
-    .sort((a, b) => (a.version ?? '').localeCompare(b.version ?? ''))
-    .at(-1);
-
-  if (!latest?.expansion?.contains) return [];
-
-  return latest.expansion.contains
-    .map((item): ProcedureType | null => {
-      if (!item.display || !item.code) return null;
-
-      const getCode = (urlPart: string): { code: string; display: string; system?: string } | undefined => {
-        const coding = item.extension?.find((ext) => ext.url?.includes(urlPart))?.valueCodeableConcept?.coding?.[0];
-
-        return coding?.code && coding?.display
-          ? { code: coding.code, display: coding.display, system: coding.system }
-          : undefined;
-      };
-
-      return {
-        name: item.display,
-        code: item.code,
-        cpt: getCode('procedure-type-cpt'),
-        hcpcs: getCode('procedure-type-hcpcs'),
-      };
-    })
-    .filter((p): p is ProcedureType => p !== null)
-    .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
 }

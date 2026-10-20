@@ -1,12 +1,12 @@
 import Oystehr from '@oystehr/sdk';
 import { QuestionnaireResponse } from 'fhir/r4b';
+import { isResponseSizeExceededError } from 'utils/lib/fhir/responseSize';
 import { isNonPaperworkQuestionnaireResponse } from 'utils/lib/helpers/paperwork/paperwork';
 import { describe, expect, test } from 'vitest';
 import {
   APPOINTMENT_SEARCH_ELEMENTS,
   APPOINTMENT_SEARCH_PAGE_SIZE,
   getAppointmentQueryInput,
-  isResponseSizeExceededError,
 } from '../../src/ehr/get-appointments/helpers';
 
 describe('get-appointments helpers', () => {

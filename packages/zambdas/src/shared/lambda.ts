@@ -2,13 +2,14 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { APIError, isApiError } from 'utils/lib/types/errors';
 import { sendErrors } from './errors';
+import { truncateForLog } from './logging';
 
 export const lambdaResponse = (statusCode: number, body: any): APIGatewayProxyResult => {
   const response = {
     statusCode,
     body: body ? JSON.stringify(body) : '',
   };
-  console.log('Response:', response);
+  console.log(`Response: ${statusCode} ${truncateForLog(response.body)}`);
   return response;
 };
 

@@ -10,7 +10,15 @@ import { ButtonRounded } from '../../visits/in-person/components/RoundedButton';
 import { PageTitle } from '../../visits/shared/components/PageTitle';
 import { InHouseLabsTable, InHouseLabsTableColumn } from '../components/orders/InHouseLabsTable';
 
-const inHouseLabsColumns: InHouseLabsTableColumn[] = ['testType', 'orderAdded', 'provider', 'dx', 'status', 'actions'];
+const inHouseLabsColumns: InHouseLabsTableColumn[] = [
+  'testType',
+  'orderAdded',
+  'provider',
+  'dx',
+  'results',
+  'status',
+  'actions',
+];
 
 export const InHouseLabsPage: React.FC = () => {
   const navigate = useNavigate();

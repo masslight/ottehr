@@ -1,8 +1,15 @@
 import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
-import { Claim, Coverage, FhirResource, ProvenanceAgent } from 'fhir/r4b';
+import { Claim, Coverage, FhirResource, Organization, ProvenanceAgent } from 'fhir/r4b';
+import { getClaimNonInsurancePayer } from 'utils/lib/fhir/billing';
+import { UpdateBillingResourceInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
+import {
+  CLAIM_NON_INSURANCE_PAYER_TAG_SYSTEM,
+  NIO_KIND_CODE,
+  NIO_ORGANIZATION_KIND_SYSTEM,
+} from 'utils/lib/types/data/billing/non-insurance-org.types';
 import { describe, expect, it, vi } from 'vitest';
 import { performEffect } from '../../../src/billing/update-billing-claim/index';
-import { validateRequestParameters } from '../../../src/billing/update-billing-claim/validateRequestParameters';
+import { validateWithSchema } from '../../../src/shared/validation';
 
 const CLAIM_ID = '5f2b8c9e-1a3d-4e6f-8a7b-9c0d1e2f3a4b';
 const agent: ProvenanceAgent = { who: { reference: 'Practitioner/test-user' } };
@@ -56,6 +63,12 @@ const coverage: Coverage = {
       reference: 'Organization/o',
     },
   ],
+  extension: [
+    {
+      url: 'https://extensions.fhir.oystehr.com/rcm-claim-insurance-type',
+      valueString: 'WC',
+    },
+  ],
 };
 
 const body = (fields: Record<string, unknown>): string =>
@@ -74,9 +87,12 @@ const writtenResources = (transaction: ReturnType<typeof vi.fn>): FhirResource[]
     .filter((r) => r.method === 'PUT')
     .map((r) => (r as { resource: FhirResource }).resource);
 
+const createdResources = (create: ReturnType<typeof vi.fn>): FhirResource[] =>
+  create.mock.calls.flatMap((call): FhirResource => call[0]);
+
 describe('update-billing-claim validateRequestParameters', () => {
   it('accepts a valid candid plan type', () => {
-    const result = validateRequestParameters({
+    const result = validateWithSchema(UpdateBillingResourceInputSchema, {
       headers: null,
       body: body({
         planType: '12',
@@ -92,7 +108,7 @@ describe('update-billing-claim validateRequestParameters', () => {
 
   it('rejects an unknown plan type', () => {
     expect(() =>
-      validateRequestParameters({
+      validateWithSchema(UpdateBillingResourceInputSchema, {
         headers: null,
         body: body({
           planType: 'ZZZ',
@@ -101,23 +117,181 @@ describe('update-billing-claim validateRequestParameters', () => {
       })
     ).toThrow(/plan type/i);
   });
+
+  it('accepts an admission date and discharge date set together', () => {
+    const result = validateWithSchema(UpdateBillingResourceInputSchema, {
+      headers: null,
+      body: body({
+        admissionDate: '2026-01-01',
+        dischargeDate: '2026-01-31',
+      }),
+      secrets: {},
+    });
+    expect(result).toMatchObject({
+      fields: {
+        admissionDate: '2026-01-01',
+        dischargeDate: '2026-01-31',
+      },
+    });
+  });
+
+  it('rejects both admission date and discharge date submitted blank', () => {
+    expect(() =>
+      validateWithSchema(UpdateBillingResourceInputSchema, {
+        headers: null,
+        body: body({
+          admissionDate: '',
+          dischargeDate: '',
+        }),
+        secrets: {},
+      })
+    ).toThrow(/date is required/i);
+  });
+
+  it('rejects an admission date without a discharge date', () => {
+    expect(() =>
+      validateWithSchema(UpdateBillingResourceInputSchema, {
+        headers: null,
+        body: body({
+          admissionDate: '2026-01-01',
+          dischargeDate: '',
+        }),
+        secrets: {},
+      })
+    ).toThrow(/discharge date is required/i);
+  });
+
+  it('rejects a discharge date without an admission date', () => {
+    expect(() =>
+      validateWithSchema(UpdateBillingResourceInputSchema, {
+        headers: null,
+        body: body({
+          admissionDate: '',
+          dischargeDate: '2026-01-31',
+        }),
+        secrets: {},
+      })
+    ).toThrow(/admission date is required/i);
+  });
+
+  it('rejects an unknown accident type', () => {
+    expect(() =>
+      validateWithSchema(UpdateBillingResourceInputSchema, {
+        headers: null,
+        body: body({
+          accidentType: ['trapeze'],
+        }),
+        secrets: {},
+      })
+    ).toThrow(/accidentType/i);
+  });
+
+  it('rejects an accident without date', () => {
+    expect(() =>
+      validateWithSchema(UpdateBillingResourceInputSchema, {
+        headers: null,
+        body: body({
+          accidentType: ['other'],
+        }),
+        secrets: {},
+      })
+    ).toThrow(/accident date/i);
+  });
+
+  it('rejects an auto accident without state', () => {
+    expect(() =>
+      validateWithSchema(UpdateBillingResourceInputSchema, {
+        headers: null,
+        body: body({
+          accidentType: ['auto'],
+          accidentDate: '2026-01-01',
+        }),
+        secrets: {},
+      })
+    ).toThrow(/accident state/i);
+  });
+
+  it('accepts accident info with multiple types', () => {
+    const result = validateWithSchema(UpdateBillingResourceInputSchema, {
+      headers: null,
+      body: body({
+        accidentType: ['employment', 'other'],
+        accidentDate: '2026-01-01',
+      }),
+      secrets: {},
+    });
+    expect(result).toMatchObject({
+      fields: {
+        accidentType: ['employment', 'other'],
+        accidentDate: '2026-01-01',
+      },
+    });
+  });
+
+  it('accepts auto accident info', () => {
+    const result = validateWithSchema(UpdateBillingResourceInputSchema, {
+      headers: null,
+      body: body({
+        accidentType: ['auto'],
+        accidentState: 'KS',
+        accidentDate: '2026-01-01',
+      }),
+      secrets: {},
+    });
+    expect(result).toMatchObject({
+      fields: {
+        accidentType: ['auto'],
+        accidentState: 'KS',
+        accidentDate: '2026-01-01',
+      },
+    });
+  });
+
+  it('accepts unsetting accident info', () => {
+    const result = validateWithSchema(UpdateBillingResourceInputSchema, {
+      headers: null,
+      body: body({
+        accidentType: [],
+        accidentState: '',
+        accidentDate: '',
+      }),
+      secrets: {},
+    });
+    expect(result).toMatchObject({
+      fields: {
+        accidentType: [],
+        accidentState: '',
+        accidentDate: '',
+      },
+    });
+  });
 });
 
 describe('update-billing-claim performEffect', () => {
-  const makeOystehr = (): {
+  const makeOystehr = (
+    claimOverride: Claim = claim
+  ): {
     oystehr: Oystehr;
+    create: ReturnType<typeof vi.fn>;
     search: ReturnType<typeof vi.fn>;
     transaction: ReturnType<typeof vi.fn>;
   } => {
     const search = vi.fn().mockImplementation(({ resourceType }: { resourceType: string }) => {
-      if (resourceType === 'Claim') return Promise.resolve({ unbundle: () => [structuredClone(claim)] });
+      if (resourceType === 'Claim') return Promise.resolve({ unbundle: () => [structuredClone(claimOverride)] });
       if (resourceType === 'Coverage') return Promise.resolve({ unbundle: () => [structuredClone(coverage)] });
       return Promise.resolve({ unbundle: () => [] });
     });
+    const create = vi.fn().mockImplementation((res) => res);
     const transaction = vi.fn().mockResolvedValue({ entry: [] });
-    const getPayer = vi.fn().mockResolvedValue({ resourceType: 'Organization', id: 'payer-1', name: 'Payer One' });
+    const getPayer = vi.fn().mockResolvedValue({
+      resourceType: 'Organization',
+      id: 'payer-1',
+      name: 'Payer One',
+      identifier: [{ system: 'https://identifiers.fhir.oystehr.com/rcm-payer-id', value: 'PAYER1' }],
+    });
     return {
-      oystehr: { fhir: { search, transaction }, rcm: { getPayer } } as unknown as Oystehr,
+      oystehr: { fhir: { create, search, transaction }, rcm: { getPayer } } as unknown as Oystehr,
+      create,
       search,
       transaction,
     };
@@ -166,5 +340,199 @@ describe('update-billing-claim performEffect', () => {
     const written = writtenResources(transaction);
     expect(written.some((r) => r.resourceType === 'Claim')).toBe(true);
     expect(written.some((r) => r.resourceType === 'Coverage')).toBe(false);
+  });
+
+  it('does not remove coverage insurance type extension', async () => {
+    const { oystehr, create, transaction } = makeOystehr();
+
+    await performEffect(
+      oystehr,
+      {
+        resourceType: 'Claim',
+        resourceId: CLAIM_ID,
+        claimId: CLAIM_ID,
+        fields: {
+          coverageId: '123456',
+        },
+        secrets: {},
+      },
+      agent
+    );
+
+    const written = writtenResources(transaction);
+    expect(written.some((r) => r.resourceType === 'Claim')).toBe(true);
+    expect(written.some((r) => r.resourceType === 'Coverage')).toBe(false);
+    const created = createdResources(create);
+    expect(created.some((r) => r.resourceType === 'Coverage')).toBe(true);
+    const createdCoverage = created.find((r): r is Coverage => r.resourceType === 'Coverage');
+    expect(
+      createdCoverage?.extension?.find((e) => e.url === 'https://extensions.fhir.oystehr.com/rcm-claim-insurance-type')
+        ?.valueString
+    ).toBe('WC');
+  });
+
+  it('writes the admission/discharge period to Claim.billablePeriod', async () => {
+    const { oystehr, transaction } = makeOystehr();
+
+    await performEffect(
+      oystehr,
+      {
+        resourceType: 'Claim',
+        resourceId: CLAIM_ID,
+        claimId: CLAIM_ID,
+        fields: {
+          admissionDate: '2026-01-01',
+          dischargeDate: '2026-01-31',
+        },
+        secrets: {},
+      },
+      agent
+    );
+
+    const claimWrite = writtenResources(transaction).find((r) => r.resourceType === 'Claim') as Claim;
+    expect(claimWrite.billablePeriod).toEqual({ start: '2026-01-01', end: '2026-01-31' });
+  });
+
+  it('does not clear an existing Claim.billablePeriod when both dates are submitted blank', async () => {
+    const claimWithPeriod: Claim = { ...claim, billablePeriod: { start: '2026-01-01', end: '2026-01-31' } };
+    const { oystehr, transaction } = makeOystehr(claimWithPeriod);
+
+    await performEffect(
+      oystehr,
+      {
+        resourceType: 'Claim',
+        resourceId: CLAIM_ID,
+        claimId: CLAIM_ID,
+        fields: {
+          admissionDate: '',
+          dischargeDate: '',
+        },
+        secrets: {},
+      },
+      agent
+    );
+
+    const claimWrite = writtenResources(transaction).find((r) => r.resourceType === 'Claim') as Claim;
+    expect(claimWrite.billablePeriod).toEqual({ start: '2026-01-01', end: '2026-01-31' });
+  });
+
+  it('stays unset when both dates are submitted blank on a claim with no billablePeriod', async () => {
+    const { oystehr, transaction } = makeOystehr();
+
+    await performEffect(
+      oystehr,
+      {
+        resourceType: 'Claim',
+        resourceId: CLAIM_ID,
+        claimId: CLAIM_ID,
+        fields: {
+          admissionDate: '',
+          dischargeDate: '',
+        },
+        secrets: {},
+      },
+      agent
+    );
+
+    const claimWrite = writtenResources(transaction).find((r) => r.resourceType === 'Claim') as Claim;
+    expect(claimWrite.billablePeriod).toBeUndefined();
+  });
+});
+
+describe('update-billing-claim non-insurance payer', () => {
+  const NIO_ID = '5b0261af-71c6-4f7e-9a51-e0d16a468980';
+  const nioOrganization: Organization = {
+    resourceType: 'Organization',
+    id: NIO_ID,
+    name: 'FedEx',
+    type: [{ coding: [{ system: NIO_ORGANIZATION_KIND_SYSTEM, code: NIO_KIND_CODE }] }],
+  };
+
+  const makeOystehr = (
+    organization: Organization | undefined,
+    existingClaim: Claim = claim
+  ): { oystehr: Oystehr; transaction: ReturnType<typeof vi.fn> } => {
+    const search = vi.fn().mockImplementation(({ resourceType }: { resourceType: string }) => {
+      if (resourceType === 'Claim') return Promise.resolve({ unbundle: () => [structuredClone(existingClaim)] });
+      if (resourceType === 'Organization')
+        return Promise.resolve({ unbundle: () => (organization ? [structuredClone(organization)] : []) });
+      return Promise.resolve({ unbundle: () => [] });
+    });
+    const transaction = vi.fn().mockResolvedValue({ entry: [] });
+    return { oystehr: { fhir: { search, transaction } } as unknown as Oystehr, transaction };
+  };
+
+  const fieldsUpdate = (fields: Record<string, unknown>): Parameters<typeof performEffect>[1] =>
+    ({
+      resourceType: 'Claim',
+      resourceId: CLAIM_ID,
+      claimId: CLAIM_ID,
+      fields,
+      secrets: {},
+    }) as Parameters<typeof performEffect>[1];
+
+  it('sets the non-insurance payer with the NIO name as display', async () => {
+    const { oystehr, transaction } = makeOystehr(nioOrganization);
+
+    await performEffect(oystehr, fieldsUpdate({ nonInsurancePayer: { id: NIO_ID } }), agent);
+
+    const writtenClaim = writtenResources(transaction).find((r): r is Claim => r.resourceType === 'Claim');
+    expect(getClaimNonInsurancePayer(writtenClaim)).toEqual({
+      reference: `Organization/${NIO_ID}`,
+      display: 'FedEx',
+    });
+    expect(writtenClaim?.meta?.tag).toContainEqual({ system: CLAIM_NON_INSURANCE_PAYER_TAG_SYSTEM, code: NIO_ID });
+  });
+
+  it('clears the non-insurance payer when null is sent', async () => {
+    const claimWithPayer: Claim = {
+      ...claim,
+      meta: { tag: [{ system: CLAIM_NON_INSURANCE_PAYER_TAG_SYSTEM, code: NIO_ID }] },
+      extension: [
+        {
+          url: 'https://fhir.ottehr.com/billing/non-insurance-payer',
+          valueReference: { reference: `Organization/${NIO_ID}`, display: 'FedEx' },
+        },
+      ],
+    };
+    const { oystehr, transaction } = makeOystehr(nioOrganization, claimWithPayer);
+
+    await performEffect(oystehr, fieldsUpdate({ nonInsurancePayer: null }), agent);
+
+    const writtenClaim = writtenResources(transaction).find((r): r is Claim => r.resourceType === 'Claim');
+    expect(getClaimNonInsurancePayer(writtenClaim)).toBeUndefined();
+    expect(writtenClaim?.meta?.tag?.some((tag) => tag.system === CLAIM_NON_INSURANCE_PAYER_TAG_SYSTEM)).toBe(false);
+  });
+
+  it('rejects an Organization that is not a non-insurance organization', async () => {
+    const { oystehr } = makeOystehr({ resourceType: 'Organization', id: NIO_ID, name: 'Not an NIO' });
+
+    await expect(performEffect(oystehr, fieldsUpdate({ nonInsurancePayer: { id: NIO_ID } }), agent)).rejects.toThrow(
+      'nonInsurancePayer must reference a non-insurance organization'
+    );
+  });
+
+  it('validateRequestParameters accepts set and clear payloads and rejects a non-uuid id', () => {
+    expect(
+      validateWithSchema(UpdateBillingResourceInputSchema, {
+        headers: null,
+        body: body({ nonInsurancePayer: { id: NIO_ID } }),
+        secrets: {},
+      })
+    ).toMatchObject({ fields: { nonInsurancePayer: { id: NIO_ID } } });
+    expect(
+      validateWithSchema(UpdateBillingResourceInputSchema, {
+        headers: null,
+        body: body({ nonInsurancePayer: null }),
+        secrets: {},
+      })
+    ).toMatchObject({ fields: { nonInsurancePayer: null } });
+    expect(() =>
+      validateWithSchema(UpdateBillingResourceInputSchema, {
+        headers: null,
+        body: body({ nonInsurancePayer: { id: 'not-a-uuid' } }),
+        secrets: {},
+      })
+    ).toThrow();
   });
 });

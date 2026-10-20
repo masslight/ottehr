@@ -40,7 +40,7 @@ export function ServiceFacilityDetailSection({
     return null;
   };
 
-  return <ServiceFacilityDetailForm facility={facility} onSave={handleSave} />;
+  return <ServiceFacilityDetailForm facility={facility} onSave={handleSave} warnOnDuplicates />;
 }
 
 export function ServiceFacilityDetailForm({
@@ -49,6 +49,7 @@ export function ServiceFacilityDetailForm({
   onCancel,
   selector,
   showSourceLink,
+  warnOnDuplicates,
 }: {
   facility: ServiceFacilityItem | null;
   onSave: (payload: SaveServiceFacilityInput) => Promise<string | null>;
@@ -60,6 +61,8 @@ export function ServiceFacilityDetailForm({
     fetchOptions: (value?: string) => void;
   };
   showSourceLink?: boolean;
+  // Master-facility screens only; see ServiceFacilityFields' `duplicateCheck`.
+  warnOnDuplicates?: boolean;
 }): ReactElement {
   const defaultValues = defaultServiceFacilityFormValues(facility);
   const handleSave = async (data: ServiceFacilityForm): Promise<string | null> => {
@@ -113,7 +116,7 @@ export function ServiceFacilityDetailForm({
             <></>
           )}
           <Box sx={{ display: 'grid', gridTemplateColumns: '1fr', gap: 2.25, maxWidth: 680 }}>
-            <ServiceFacilityFields />
+            <ServiceFacilityFields duplicateCheck={warnOnDuplicates ? { facilityId: facility?.id } : undefined} />
             <AddressFields requireFullZip />
           </Box>
         </Box>

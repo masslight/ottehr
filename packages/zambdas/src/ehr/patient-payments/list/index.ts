@@ -26,13 +26,13 @@ import { getPaymentsForPatient } from '../helpers';
 let oystehrM2MClientToken: string;
 
 const ZAMBDA_NAME = 'patient-payments-list';
+const STRIPE_REQUEST_TIMEOUT_MS = 10_000;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.group('validateRequestParameters');
   let validatedParameters: ReturnType<typeof validateRequestParameters>;
   try {
     validatedParameters = validateRequestParameters(input);
-    console.log(JSON.stringify(validatedParameters, null, 4));
   } catch (error: any) {
     console.log(error);
     return lambdaResponse(400, { message: error.message });
@@ -106,7 +106,7 @@ const complexValidation = async (
     throw FHIR_RESOURCE_NOT_FOUND('Account');
   }
 
-  const stripeClient = getStripeClient(secrets);
+  const stripeClient = getStripeClient(secrets, { timeoutMs: STRIPE_REQUEST_TIMEOUT_MS });
 
   const params: SearchParam[] = [];
 

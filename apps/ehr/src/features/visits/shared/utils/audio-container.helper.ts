@@ -4,10 +4,11 @@ const CONTAINER_HEADER_BYTES = 12;
 const ascii = (head: Uint8Array, offset: number, length: number): string =>
   String.fromCharCode(...head.subarray(offset, offset + length));
 
-// One entry per container MediaRecorder may produce (see MIME_TYPES in audioRecording.store), mapping magic
-// bytes to the MIME type those bytes *are*. MP4 carries `ftyp` in the second word; the others lead with theirs.
+// Every audio format opens with a short fixed marker identifying it — the same trick `file(1)` uses. One entry
+// per container MediaRecorder may produce (see MIME_TYPES in audioRecording.store), mapping that marker to the
+// MIME type those bytes *are*. MP4 puts its marker (`ftyp`) in bytes 4-8; the others lead with theirs.
 // `aliases` are other spellings MIME_TYPES uses for the same container: a recording declared one of those is
-// still a recording we have a signature for, so a missing header has to fail rather than pass through.
+// still a recording we have a signature for, so a missing marker has to fail rather than pass through.
 const CONTAINERS: { mimeType: string; aliases?: string[]; matches: (head: Uint8Array) => boolean }[] = [
   { mimeType: 'audio/mp4', matches: (head) => ascii(head, 4, 4) === 'ftyp' }, // iOS Safari
   {
@@ -27,9 +28,9 @@ const CONTAINERS: { mimeType: string; aliases?: string[]; matches: (head: Uint8A
  *
  * The bytes decide rather than `MediaRecorder.mimeType`, because the stored Content-Type is what the backend
  * forwards to Vertex as `inlineData.mimeType`, and a type disagreeing with the actual container earns the
- * same opaque 400 INVALID_ARGUMENT as an unparseable one. Throws when the buffer doesn't start at the
- * declared container's boundary — the production failure, where the init segment ended up mid-file — so the
- * caller can tell the provider instead of losing the note to a backend error.
+ * same opaque 400 INVALID_ARGUMENT as an unparseable one. Throws when the recording doesn't begin with the
+ * marker its declared container should start with — the production failure, where the file began partway
+ * through the audio — so the caller can tell the provider instead of losing the note to a backend error.
  */
 export const detectAudioContainerType = async (blob: Blob, declaredType: string): Promise<string> => {
   if (blob.size === 0) {

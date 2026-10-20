@@ -13,6 +13,7 @@ import {
   PreEncounterAppointmentId,
   PreEncounterPatientId,
   ProcedureModifier,
+  RefundReason,
   ServiceLineUnits,
   State,
   TagId,
@@ -71,14 +72,17 @@ import {
   isAppointmentPreOp,
   isAppointmentWorkersComp,
 } from 'utils/lib/fhir/appointments';
+import { getCptBillableUnitsFromCoding } from 'utils/lib/fhir/billing';
 import { ACCIDENT_STATE_EXTENSION, ACCIDENT_TYPE_SYSTEM, FHIR_IDENTIFIER_NPI } from 'utils/lib/fhir/constants';
 import { getPaymentVariantFromEncounter, PaymentVariant } from 'utils/lib/fhir/encounter';
 import { createReference } from 'utils/lib/fhir/helpers';
 import {
   getCptCodesFromMA,
   getDosageFromMA,
+  getMedicationCptEntryFromMA,
   getMedicationFromMA,
   getNdcCodeFromMedication,
+  isInHouseMedicationOrder,
   MedicationUnitOptions,
 } from 'utils/lib/fhir/medication-administration';
 import { isTelemedAppointment } from 'utils/lib/fhir/moduleIdentification';
@@ -89,15 +93,19 @@ import {
   getCandidPlanTypeCodeFromCoverage,
   getPayerId,
   getPayerUrl,
+  isCustomInsuranceOrgReferenceUrl,
+  isNioReferenceUrl,
 } from 'utils/lib/helpers/helpers';
 import {
   CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
   CODE_SYSTEM_CPT,
   CODE_SYSTEM_CPT_MODIFIER,
   EXTENSION_URL_CPT_MODIFIER,
-} from 'utils/lib/helpers/rcm';
+} from 'utils/lib/helpers/rcm/constants';
+import { FEATURE_FLAGS_CONFIG } from 'utils/lib/ottehr-config/feature-flags';
 import { Secrets } from 'utils/lib/secrets';
 import { EmCodeOption } from 'utils/lib/types/api/config/em-codes';
+import { PaymentRefundDTO } from 'utils/lib/types/api/patient-payment-types';
 import { TIMEZONES } from 'utils/lib/types/constants';
 import { OrderedCoveragesWithSubscribers } from 'utils/lib/types/data/account';
 import {
@@ -681,7 +689,13 @@ export const performCandidPreEncounterSync = async (input: PerformCandidPreEncou
   );
 
   let nonInsurancePayerId: string | undefined = undefined;
-  if (occupationalMedicineAccount) {
+  if (occupationalMedicineAccount && isNioReferenceUrl(occupationalMedicineAccount.owner?.reference)) {
+    // Billing-app NIO employers are never synced to Candid, so comparison claims go out without a
+    // non-insurance payer; the Ottehr billing claim is the one that carries the employer.
+    console.log(
+      `Occupational Medicine employer is a billing-app NIO (${occupationalMedicineAccount.owner?.reference}); sending the Candid claim without a non-insurance payer.`
+    );
+  } else if (occupationalMedicineAccount) {
     const ownerOrganizationId = occupationalMedicineAccount.owner?.reference?.split('/')[1];
     if (ownerOrganizationId) {
       const occupationalMedicineEmployerOrganization = await oystehr.fhir.get<Organization>({
@@ -783,6 +797,135 @@ const createPreEncounterPatientPayment = async (
   });
 };
 
+export interface SyncCandidPatientRefundsInput {
+  encounterId: string;
+  refunds: PaymentRefundDTO[];
+  oystehr: Oystehr;
+  candidApiClient: CandidApiClient;
+}
+
+const CANDID_REFUND_REASON_BY_OTTEHR_REASON: Record<string, RefundReason | undefined> = {
+  'Entered in error': RefundReason.EnteredInError,
+  'Duplicate charge': RefundReason.Overcharged,
+  Overcharge: RefundReason.Overcharged,
+};
+
+// stamped into the Candid refund note so re-syncs can recognize already-recorded refunds
+// (Candid patient refunds have no external-id field to dedup on)
+const candidRefundNoteMarker = (refundId: string): string => `[ottehr-refund:${refundId}]`;
+
+// Candid imports processor refunds from Stripe on its own, but refunds that exist only in
+// Ottehr FHIR (cash/check/external-reader refunds and record-only external refunds of Stripe
+// payments) must be pushed explicitly. Idempotent: re-syncing already-recorded refunds is a no-op.
+//
+// Candid has no conditional create, so concurrent syncs can both pass the note-marker check and
+// double-record a refund. Each sync that creates therefore re-lists and trims every marker to one
+// deterministic winner (lowest id): the sync whose create lands last re-lists after all duplicates
+// exist, so the set always converges to exactly one record per marker. No sync ever deletes the
+// lowest id it can see, so the globally first-created record always survives.
+export const syncCandidPatientRefunds = async (input: SyncCandidPatientRefundsInput): Promise<number> => {
+  const { encounterId, refunds, oystehr, candidApiClient } = input;
+  if (refunds.length === 0) {
+    return 0;
+  }
+
+  const { patient, appointment } = await fetchFHIRPatientAndAppointmentFromEncounter(encounterId, oystehr);
+  if (!patient.id) {
+    throw new Error(`Patient ID is not defined for encounter ${encounterId}`);
+  }
+  const patientExternalId = PatientExternalId(patient.id);
+  const markers = refunds.map((refund) => candidRefundNoteMarker(refund.stripeRefundId));
+
+  const listRefundIdsByMarker = async (): Promise<Map<string, string[]>> => {
+    const byMarker = new Map<string, string[]>();
+    let pageToken: CandidApi.PageToken | undefined;
+    do {
+      const page = await candidApiClient.patientRefunds.v1.getMulti({ patientExternalId, limit: 100, pageToken });
+      if (!page.ok) {
+        throw new Error(`Error listing Candid patient refunds. Response body: ${JSON.stringify(page.error)}`);
+      }
+      page.body.items.forEach((item) => {
+        if (!item.refundNote) {
+          return;
+        }
+        // marker is always written at the start of the note; startsWith avoids matching
+        // marker-like text inside a user-written note
+        const marker = markers.find((m) => item.refundNote?.startsWith(m));
+        if (marker) {
+          byMarker.set(marker, [...(byMarker.get(marker) ?? []), item.patientRefundId]);
+        }
+      });
+      pageToken = page.body.nextPageToken;
+    } while (pageToken);
+    return byMarker;
+  };
+
+  let refundIdsByMarker = await listRefundIdsByMarker();
+
+  const candidAppointmentId = appointment.identifier?.find(
+    (identifier) => identifier.system === CANDID_PRE_ENCOUNTER_APPOINTMENT_ID_IDENTIFIER_SYSTEM
+  )?.value;
+
+  let recorded = 0;
+  for (const refund of refunds) {
+    const marker = candidRefundNoteMarker(refund.stripeRefundId);
+    if (refundIdsByMarker.has(marker)) {
+      continue;
+    }
+
+    const refundNote = [marker, refund.reason, refund.medium ? `via ${refund.medium}` : undefined, refund.notes]
+      .filter(Boolean)
+      .join(' — ');
+    const response = await candidApiClient.patientRefunds.v1.create({
+      amountCents: refund.amountInCents,
+      patientExternalId,
+      refundTimestamp: refund.dateISO ? new Date(refund.dateISO) : undefined,
+      refundNote,
+      refundReason: refund.reason ? CANDID_REFUND_REASON_BY_OTTEHR_REASON[refund.reason] : undefined,
+      allocations: [
+        {
+          amountCents: refund.amountInCents,
+          // mirror the payment sync: allocate to the pre-encounter appointment when it's known
+          target: candidAppointmentId
+            ? {
+                type: 'appointment_by_id_and_patient_external_id',
+                appointmentId: CandidAppointmentId(candidAppointmentId),
+                patientExternalId,
+              }
+            : { type: 'unattributed' },
+        },
+      ],
+    });
+    if (!response.ok) {
+      throw new Error(`Error creating Candid patient refund. Response body: ${JSON.stringify(response.error)}`);
+    }
+    recorded += 1;
+  }
+
+  if (recorded > 0) {
+    refundIdsByMarker = await listRefundIdsByMarker();
+  }
+  for (const [marker, ids] of refundIdsByMarker) {
+    if (ids.length <= 1) {
+      continue;
+    }
+    const [winner, ...duplicates] = [...ids].sort();
+    console.warn(`Found ${ids.length} Candid refunds for ${marker}; keeping ${winner}, deleting duplicates`);
+    for (const duplicate of duplicates) {
+      const response = await candidApiClient.patientRefunds.v1.delete(
+        CandidApi.patientRefunds.v1.PatientRefundId(duplicate)
+      );
+      // a concurrent sync may have already deleted this duplicate
+      if (!response.ok && response.error.errorName !== 'EntityNotFoundError') {
+        throw new Error(
+          `Error deleting duplicate Candid patient refund. Response body: ${JSON.stringify(response.error)}`
+        );
+      }
+    }
+  }
+  return recorded;
+};
+
 const createPreEncounterAppointment = async (
   candidPatient: CandidPreEncounterPatient,
   appointment: Appointment,
@@ -868,6 +1011,26 @@ const updateCandidPatientWithCoverages = async (
   return patientResponse.body;
 };
 
+// The payer Organization a Coverage is sent to Candid under. A custom insurance organization
+// (billing-app-owned, referenced by token) has no RCM payer id, which Candid requires, so its coverage
+// is deliberately left out of the Candid sync rather than failing it; Ottehr billing, the system of
+// record in custom-organizations mode, still bills it.
+export function findCandidCoveragePayer(
+  coverage: Coverage | undefined,
+  insuranceOrgs: Organization[]
+): Organization | undefined {
+  const payorRef = coverage?.payor?.[0]?.reference;
+  if (!payorRef) return undefined;
+  if (isCustomInsuranceOrgReferenceUrl(payorRef)) {
+    console.log(`Skipping Candid coverage for Coverage/${coverage?.id}: custom insurance organization ${payorRef}`);
+    return undefined;
+  }
+  return insuranceOrgs.find((org) => {
+    const payerId = getPayerId(org);
+    return createReference(org).reference === payorRef || (payerId !== undefined && getPayerUrl(payerId) === payorRef);
+  });
+}
+
 const createCandidCoverages = async (
   patient: Patient,
   appointment: Appointment,
@@ -900,27 +1063,9 @@ const createCandidCoverages = async (
   if (coverages === undefined) {
     return candidCoverages;
   }
-  const primaryInsuranceOrg = insuranceOrgs.find((org) => {
-    const payerId = getPayerId(org);
-    return (
-      createReference(org).reference === coverages.primary?.payor?.[0].reference ||
-      (payerId !== undefined && getPayerUrl(payerId) === coverages.primary?.payor?.[0].reference)
-    );
-  });
-  const secondaryInsuranceOrg = insuranceOrgs.find((org) => {
-    const payerId = getPayerId(org);
-    return (
-      createReference(org).reference === coverages.secondary?.payor?.[0].reference ||
-      (payerId !== undefined && getPayerUrl(payerId) === coverages.secondary?.payor?.[0].reference)
-    );
-  });
-  const workersCompInsuranceOrg = insuranceOrgs.find((org) => {
-    const payerId = getPayerId(org);
-    return (
-      createReference(org).reference === coverages.workersComp?.payor?.[0].reference ||
-      (payerId !== undefined && getPayerUrl(payerId) === coverages.workersComp?.payor?.[0].reference)
-    );
-  });
+  const primaryInsuranceOrg = findCandidCoveragePayer(coverages.primary, insuranceOrgs);
+  const secondaryInsuranceOrg = findCandidCoveragePayer(coverages.secondary, insuranceOrgs);
+  const workersCompInsuranceOrg = findCandidCoveragePayer(coverages.workersComp, insuranceOrgs);
 
   if (coverages.primary && coverages.primarySubscriber && primaryInsuranceOrg) {
     const candidCoverage = buildCandidCoverageCreateInput(
@@ -1575,7 +1720,11 @@ export function buildDrugIdentification(
 
   const maId = maRef.reference.replace('MedicationAdministration/', '');
   const ma = medicationAdministrations.find((m) => m.id === maId);
-  if (!ma) return undefined;
+  if (!ma || !isInHouseMedicationOrder(ma)) return undefined;
+
+  // The NDC belongs only to the drug's own code — supporting/admin CPT codes on the same MA get no drug identification
+  const medicationEntry = getMedicationCptEntryFromMA(ma);
+  if (medicationEntry && medicationEntry.code !== procedure.code?.coding?.[0]?.code) return undefined;
 
   const medication = getMedicationFromMA(ma);
   const ndc = medication ? getNdcCodeFromMedication(medication) : undefined;
@@ -1596,6 +1745,11 @@ export function getBillableUnitsForProcedure(
   procedure: Procedure,
   medicationAdministrations: MedicationAdministration[]
 ): number | undefined {
+  const procedureCoding = procedure.code?.coding?.[0];
+  const storedBillableUnits = getCptBillableUnitsFromCoding(procedureCoding);
+
+  if (storedBillableUnits != null) return storedBillableUnits;
+
   const maRef = procedure.partOf?.find((ref) => ref.reference?.startsWith('MedicationAdministration/'));
   if (!maRef?.reference) return undefined;
 
@@ -1660,11 +1814,24 @@ export const getCptModifierCodeFromProcedure = (
 };
 
 export function shouldUseCandid(secrets: Secrets): boolean {
-  return (
+  const useCandid =
     ['candid', 'all'].includes(secrets.BILLING_INTEGRATION) ||
     // TODO: remove this once secrets migrated
-    !secrets.BILLING_INTEGRATION
-  );
+    !secrets.BILLING_INTEGRATION;
+  // Custom-organizations mode needs Ottehr billing as the system of record: Candid can't see
+  // billing-app NIOs, so candid-only routing would silently drop employer billing. 'all' is
+  // fine — Candid runs alongside for claim comparison. Terraform generation rejects the bad
+  // combination; this backstop catches secrets edited outside IaC.
+  if (useCandid && !shouldUseOttehrBilling(secrets) && FEATURE_FLAGS_CONFIG.customOrganizationsEnabled) {
+    throw new Error(
+      `BILLING_INTEGRATION is '${
+        secrets.BILLING_INTEGRATION || '(unset)'
+      }', which routes claims through Candid only, but the customOrganizationsEnabled feature flag is on. ` +
+        `Non-insurance organizations need Ottehr billing as the system of record: set BILLING_INTEGRATION to ` +
+        `'ottehr' (or 'all' to also send comparison claims to Candid), or turn off customOrganizationsEnabled.`
+    );
+  }
+  return useCandid;
 }
 
 export function shouldUseOttehrBilling(secrets: Secrets): boolean {

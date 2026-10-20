@@ -195,3 +195,59 @@ export const notificationRowMatchesLocation = (row: NotificationRowPref, locatio
   if (row.allLocations) return true;
   return locationId != null && row.locationIds.includes(locationId);
 };
+
+/* -------------------------------------------------------------------------------------------------
+ * Zambda API contract for the notification bell and its settings page.
+ *
+ * The bell reads and writes exclusively through these endpoints, so no notification `Communication`
+ * (or the `Encounter` behind its link) is ever handed to the browser. Each endpoint derives the
+ * practitioner it acts for from the caller's token, which is also what authorizes it: there is no
+ * recipient or practitioner id in any request shape below, so a caller cannot name someone else's
+ * notifications or profile.
+ * ------------------------------------------------------------------------------------------------- */
+
+/**
+ * Where a notification navigates. Names the destination rather than spelling a URL: routes belong to
+ * the app that owns them, so a path change stays a frontend edit instead of a backend deploy.
+ */
+export type ProviderNotificationTarget =
+  | { type: 'visit'; appointmentId: string }
+  | { type: 'inboundFax'; faxCommunicationId: string };
+
+/** One notification as the bell needs it — the whole of what the read endpoint discloses. */
+export interface ProviderNotificationDto {
+  id: string;
+  message: string;
+  isUnread: boolean;
+  /** ISO instant the notification was sent; the bell renders it relative to now. */
+  sentAt?: string;
+  /** Absent when the notification has nowhere to go — the bell then renders it unclickable. */
+  target?: ProviderNotificationTarget;
+}
+
+export interface GetProviderNotificationsOutput {
+  /** Newest first, so the bell can render in order without sorting. */
+  notifications: ProviderNotificationDto[];
+}
+
+export interface MarkProviderNotificationsReadInput {
+  notificationIds: string[];
+}
+
+export interface MarkProviderNotificationsReadOutput {
+  /**
+   * The subset actually marked read: ids the caller doesn't own, and ids already read, are dropped
+   * rather than reported as errors — an id that isn't yours must not be distinguishable from one
+   * that doesn't exist.
+   */
+  markedReadIds: string[];
+}
+
+export interface UpdateProviderNotificationSettingsInput {
+  preferences: ProviderNotificationPreferencesV2;
+  /** Any format `isPhoneNumberValid` accepts; stored normalized. Omitted/invalid leaves the stored number alone. */
+  phoneNumber?: string;
+}
+
+/** The normalized values actually stored, so the settings form can reseed from server truth. */
+export type UpdateProviderNotificationSettingsOutput = UpdateProviderNotificationSettingsInput;

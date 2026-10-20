@@ -1,8 +1,8 @@
-import { OystehrSdkError } from '@oystehr/sdk/dist/cjs/errors';
+import type Oystehr from '@oystehr/sdk';
 import { DateTime } from 'luxon';
 import { ReactElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { getExternalLabOrdersUrl } from 'src/features/visits/in-person/routing/helpers';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { getExternalLabOrdersUrl, withEncounterIdParam } from 'src/features/visits/in-person/routing/helpers';
 import { DEFAULT_LABS_ITEMS_PER_PAGE, EMPTY_PAGINATION } from 'utils/lib/types/data/labs/labs.constants';
 import {
   DeleteLabOrderZambdaInput,
@@ -22,6 +22,8 @@ import { tryFormatDateToISO } from 'utils/lib/utils/date';
 import { deleteLabOrder, getExternalLabOrders, updateLabOrderResources } from '../../../../api/api';
 import { useApiClients } from '../../../../hooks/useAppClients';
 import { useDeleteCommonLabOrderDialog } from '../../../common/useDeleteCommonLabOrderDialog';
+
+type OystehrSdkError = Oystehr.OystehrSdkError;
 
 interface UsePatientLabOrdersResult<SearchBy extends LabOrdersSearchBy> {
   labOrders: LabOrderDTO<SearchBy>[];
@@ -63,6 +65,9 @@ export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
 ): UsePatientLabOrdersResult<SearchBy> => {
   const { oystehrZambda } = useApiClients();
   const navigate = useNavigate();
+  const { id: appointmentIdFromUrl } = useParams();
+  const [urlSearchParams] = useSearchParams();
+  const encounterIdParam = urlSearchParams.get('encounterId');
   const [labOrders, setLabOrders] = useState<LabOrderDTO<SearchBy>[]>([]);
   const [groupedLabOrdersForChartTable, setGroupedLabOrdersForChartTable] = useState<
     LabOrderListPageDTOGrouped | undefined
@@ -273,9 +278,13 @@ export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
 
       await updateLabOrderResources(oystehrZambda, { taskId, serviceRequestId, diagnosticReportId, event: 'reviewed' });
       setSearchParams({ pageNumber: 1 });
-      if (appointmentId) navigate(getExternalLabOrdersUrl(appointmentId));
+
+      const targetAppointmentId = appointmentIdFromUrl || appointmentId;
+      if (targetAppointmentId) {
+        navigate(withEncounterIdParam(getExternalLabOrdersUrl(targetAppointmentId), encounterIdParam));
+      }
     },
-    [oystehrZambda, setSearchParams, navigate]
+    [oystehrZambda, setSearchParams, navigate, appointmentIdFromUrl, encounterIdParam]
   );
 
   const saveSpecimenDate = useCallback(

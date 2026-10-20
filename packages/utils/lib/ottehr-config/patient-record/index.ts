@@ -1,9 +1,5 @@
-import {
-  type FormFieldTrigger,
-  type PatientRecordConfig,
-  type PatientRecordFormFields,
-  type QuestionnaireBase,
-} from 'config-types';
+import type { PatientRecordConfig, PatientRecordFormFields } from 'config-types/config/patient-record';
+import type { FormFieldTrigger, QuestionnaireBase } from 'config-types/config/questionnaire';
 import { Questionnaire } from 'fhir/r4b';
 import { createQuestionnaireFromConfig } from '../../config-helpers/shared-questionnaire';
 import { VALUE_SETS as formValueSets } from '../value-sets';
@@ -572,6 +568,15 @@ const FormFields: PatientRecordFormFields = {
     title: 'Primary care physician',
     items: {
       active: { key: 'pcp-active', type: 'boolean', label: "Patient doesn't have a PCP at this time" },
+      practiceName: {
+        key: 'pcp-practice',
+        type: 'string',
+        label: 'Practice name',
+        triggers: [
+          { targetQuestionLinkId: 'pcp-active', effect: ['require', 'enable'], operator: '=', answerBoolean: true },
+        ],
+        disabledDisplay: 'hidden',
+      },
       firstName: {
         key: 'pcp-first',
         type: 'string',
@@ -584,15 +589,6 @@ const FormFields: PatientRecordFormFields = {
         type: 'string',
         label: 'Last name',
         triggers: [{ targetQuestionLinkId: 'pcp-active', effect: ['enable'], operator: '=', answerBoolean: true }],
-        disabledDisplay: 'hidden',
-      },
-      practiceName: {
-        key: 'pcp-practice',
-        type: 'string',
-        label: 'Practice name',
-        triggers: [
-          { targetQuestionLinkId: 'pcp-active', effect: ['require', 'enable'], operator: '=', answerBoolean: true },
-        ],
         disabledDisplay: 'hidden',
       },
       address: {

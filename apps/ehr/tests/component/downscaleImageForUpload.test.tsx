@@ -1,4 +1,8 @@
-import { downscaleImageForUpload, UPLOAD_IMAGE_JPEG_QUALITY, UPLOAD_IMAGE_MAX_DIMENSION } from 'utils/lib/frontend';
+import {
+  downscaleImageForUpload,
+  UPLOAD_IMAGE_JPEG_QUALITY,
+  UPLOAD_IMAGE_MAX_DIMENSION,
+} from 'utils/lib/frontend/downscaleImageForUpload';
 import { afterEach, beforeEach, describe, expect, it, MockInstance, vi } from 'vitest';
 
 /**

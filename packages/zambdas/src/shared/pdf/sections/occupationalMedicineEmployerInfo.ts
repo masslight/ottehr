@@ -4,9 +4,8 @@ import { OccupationalMedicineEmployerDataInput, OccupationalMedicineEmployerInfo
 export const composeOccupationalMedicineEmployerData: DataComposer<
   OccupationalMedicineEmployerDataInput,
   OccupationalMedicineEmployerInfo
-> = ({ employer }) => {
-  const employerName = employer?.name ?? '';
-  return { employerName };
+> = ({ employerName }) => {
+  return { employerName: employerName ?? '' };
 };
 
 export const createOccupationalMedicineEmployerSection = <

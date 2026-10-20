@@ -1,7 +1,6 @@
 import react from '@vitejs/plugin-react';
 import dotenv from 'dotenv';
 import path from 'path';
-import tsconfigPaths from 'vite-tsconfig-paths';
 import { defineConfig } from 'vitest/config';
 
 const envName = process.env.ENV || 'local';
@@ -30,5 +29,8 @@ export default defineConfig({
       ],
     },
   },
-  plugins: [tsconfigPaths(), react()],
+  plugins: [react()],
+  resolve: {
+    tsconfigPaths: true,
+  },
 });

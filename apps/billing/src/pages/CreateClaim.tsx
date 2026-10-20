@@ -213,9 +213,11 @@ export default function CreateClaim(): ReactElement {
             units: Number(l.units),
             charges: Number(l.charges),
             serviceDate: l.serviceDate,
-            ...(l.placeOfService.trim() ? { placeOfService: l.placeOfService.trim() } : {}),
+            placeOfService: l.placeOfService.trim(),
             ...(modifiers.length ? { modifiers } : {}),
             ...(pointers.length ? { diagnosisPointers: pointers } : {}),
+            ...(l.drug ? { drug: { ndc: l.drug.ndc, quantity: Number(l.drug.quantity), units: l.drug.units } } : {}),
+            ...(l.orderingProvider ? { orderingProvider: l.orderingProvider } : {}),
           };
         });
       }
@@ -554,6 +556,7 @@ export default function CreateClaim(): ReactElement {
                 const withCpt = rows.filter((l) => l.cptCode.trim());
                 if (!withCpt.length) return 'At least one service line with a CPT code is required';
                 if (withCpt.some((l) => !l.serviceDate)) return 'Each service line needs a date of service';
+                if (withCpt.some((l) => !l.placeOfService.trim())) return 'Each service line needs a place of service';
                 if (withCpt.some((l) => !(Number(l.units) > 0))) return 'Units must be a positive number';
                 if (withCpt.some((l) => l.charges.trim() === '' || !Number.isFinite(Number(l.charges))))
                   return 'Charges must be a number';

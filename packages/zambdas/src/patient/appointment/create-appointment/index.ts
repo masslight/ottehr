@@ -1,5 +1,5 @@
 import Oystehr, { BatchInput, BatchInputPostRequest, BatchInputRequest } from '@oystehr/sdk';
-import { captureException } from '@sentry/aws-serverless';
+import { captureException } from '@sentry/node-core/light';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {
   Account,
@@ -29,15 +29,14 @@ import {
   FHIR_APPOINTMENT_READY_FOR_PREPROCESSING_TAG,
   FHIR_EXTENSION,
   INTAKE_PAPERWORK_QR_TAG,
-  PATIENT_BILLING_ACCOUNT_TYPE,
   PRIVATE_EXTENSION_BASE_URL,
   SERVICE_CATEGORY_SYSTEM,
 } from 'utils/lib/fhir/constants';
-import { FOLLOWUP_SUBTYPE_SYSTEM, FOLLOWUP_SYSTEMS } from 'utils/lib/fhir/encounter';
+import { buildFollowupEncounterType } from 'utils/lib/fhir/encounter';
 import { getGroupAssignmentMode } from 'utils/lib/fhir/healthcareService';
 import { getCoding, getTaskResource } from 'utils/lib/fhir/helpers';
 import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
-import { createUserResourcesForPatient, getFullestAvailableName } from 'utils/lib/fhir/patient';
+import { getFullestAvailableName } from 'utils/lib/fhir/patient';
 import { getCanonicalQuestionnaire } from 'utils/lib/fhir/questionnaires';
 import { resolveEffectiveQuestionnaire } from 'utils/lib/fhir/questionnaires';
 import { formatPhoneNumber, formatPhoneNumberDisplay } from 'utils/lib/helpers/helpers';
@@ -55,10 +54,15 @@ import { E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM, RETURNING_PATIENT_META_TAG } from 
 import { PatientInfo, VisitType } from 'utils/lib/types/data/telemed/appointments/create-appointment.types';
 import { getAppointmentDurationFromSlot, getSlotBookedViaGroupId } from 'utils/lib/utils/scheduleUtils';
 import { isValidUUID } from 'utils/lib/validation/helper';
-import { generatePatientRelatedRequests } from '../../../shared/appointment/helpers';
+import {
+  generatePatientRelatedRequests,
+  linkNewPatientToAccountHolder,
+  makePatientBillingAccountRequest,
+} from '../../../shared/appointment/helpers';
 import { getM2MClientId, getUser, isM2MClient, isTestUser } from '../../../shared/auth';
 import { getAuth0Token } from '../../../shared/getAuth0Token';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { truncateForLog } from '../../../shared/logging';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
 import { AuditableZambdaEndpoints, createAuditEvent } from '../../../shared/userAuditLog';
@@ -111,7 +115,6 @@ export const index = wrapHandler('create-appointment', async (input: ZambdaInput
   const { secrets, language } = validatedParameters;
 
   console.groupEnd();
-  console.debug('validateRequestParameters success', JSON.stringify(validatedParameters));
 
   if (!oystehrToken) {
     console.log('getting token');
@@ -137,7 +140,6 @@ export const index = wrapHandler('create-appointment', async (input: ZambdaInput
     attendingPractitioner,
   } = effectInput;
 
-  console.log('effectInput', effectInput);
   console.timeEnd('performing-complex-validation');
 
   let appointmentMetadata = injectMetadataIfNeeded(maybeMetadata);
@@ -212,7 +214,7 @@ export const index = wrapHandler('create-appointment', async (input: ZambdaInput
     relatedPersonId,
   };
 
-  console.log(`fhirAppointment = ${JSON.stringify(response)}`, visitType);
+  console.log(`fhirAppointment = ${truncateForLog(response)}`, visitType);
 
   return {
     statusCode: 200,
@@ -353,23 +355,20 @@ export async function createAppointment(
     // If it is a new patient, create a RelatedPerson resource for the Patient
     // and create a Person resource if there is not one for the account
     // todo: this needs to happen via a transactional with the other must-happen-for-this-request-to-succeed items
-    const [userResource, patientWithFriendlyId] = await Promise.all([
-      createUserResourcesForPatient(oystehr, fhirPatient.id, verifiedFormattedPhoneNumber),
-      oystehr.fhir.generateFriendlyPatientId({ id: fhirPatient.id }).catch((error) => {
-        console.error(`Failed to generate friendly patient ID for Patient/${fhirPatient.id}:`, error);
-        return undefined;
-      }),
-    ]);
+    const {
+      relatedPerson,
+      person,
+      patient: patientWithFriendlyId,
+    } = await linkNewPatientToAccountHolder(oystehr, fhirPatient.id, verifiedFormattedPhoneNumber);
 
-    relatedPersonId = userResource?.relatedPerson?.id || '';
-    const person = userResource.person;
+    relatedPersonId = relatedPerson?.id || '';
 
     if (!person.id) {
       throw new Error('Person resource does not have an ID');
     }
 
     if (patientWithFriendlyId) {
-      patientToReturn = patientWithFriendlyId as Patient;
+      patientToReturn = patientWithFriendlyId;
     }
   }
 
@@ -798,23 +797,7 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     ...(followUpDiagnosisEntries.length > 0 && { diagnosis: followUpDiagnosisEntries }),
     ...(parentEncounterId && {
       partOf: { reference: `Encounter/${parentEncounterId}` },
-      type: [
-        {
-          coding: [
-            {
-              system: FOLLOWUP_SYSTEMS.type.url,
-              code: FOLLOWUP_SYSTEMS.type.code,
-              display: 'Follow-up Encounter',
-            },
-            {
-              system: FOLLOWUP_SUBTYPE_SYSTEM,
-              code: 'scheduled',
-              display: 'scheduled',
-            },
-          ],
-          text: 'Follow-up Encounter',
-        },
-      ],
+      type: buildFollowupEncounterType('scheduled'),
     }),
   };
 
@@ -900,31 +883,9 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
 
   const postAccountRequests: BatchInputPostRequest<Account>[] = [];
   if (createPatientRequest?.fullUrl) {
-    const accountResource: Account = {
-      resourceType: 'Account',
-      status: 'active',
-      type: { ...PATIENT_BILLING_ACCOUNT_TYPE },
-      subject: [{ reference: createPatientRequest.fullUrl }],
-    };
-
-    postAccountRequests.push({
-      method: 'POST',
-      url: '/Account',
-      resource: accountResource,
-    });
+    postAccountRequests.push(makePatientBillingAccountRequest(createPatientRequest.fullUrl));
   } else if (patient && currentPatientAccount === undefined) {
-    const accountResource: Account = {
-      resourceType: 'Account',
-      status: 'active',
-      type: { ...PATIENT_BILLING_ACCOUNT_TYPE },
-      subject: [{ reference: `Patient/${patient.id}` }],
-    };
-
-    postAccountRequests.push({
-      method: 'POST',
-      url: '/Account',
-      resource: accountResource,
-    });
+    postAccountRequests.push(makePatientBillingAccountRequest(`Patient/${patient.id}`));
   }
 
   const postAccidentConditionRequests: BatchInputPostRequest<Condition>[] = [];

@@ -132,7 +132,7 @@ export function validateCreateAppointmentParams(
   }`;
 
   if (patient.reasonForVisit && (patient.reasonForVisit as string).length > REASON_MAXIMUM_CHAR_LIMIT) {
-    throw CHARACTER_LIMIT_EXCEEDED_ERROR('Reason for visit', REASON_MAXIMUM_CHAR_LIMIT);
+    throw CHARACTER_LIMIT_EXCEEDED_ERROR("Reason for today's visit", REASON_MAXIMUM_CHAR_LIMIT);
   }
 
   if (language && ['en', 'es'].includes(language) === false) {

@@ -31,7 +31,7 @@ import { DateTime } from 'luxon';
 import { default as React, ReactElement, useCallback, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { AdminHeaderActionSlot } from 'src/features/admin/AdminPageHeader';
-import { useSuccessQuery } from 'utils/lib/frontend';
+import { useSuccessQuery } from 'utils/lib/frontend/hooks/useSuccessQuery';
 import { State } from 'utils/lib/helpers/states';
 import {
   EmployeeDetails,
@@ -153,7 +153,7 @@ export default function EmployeesPage(): ReactElement {
 
   const queryResult = useQuery({
     queryKey: ['get-employees'],
-    queryFn: () => (oystehrZambda ? getEmployees(oystehrZambda) : Promise.resolve(null)),
+    queryFn: () => (oystehrZambda ? getEmployees(oystehrZambda, { lite: true }) : Promise.resolve(null)),
 
     enabled: !!oystehrZambda,
   });

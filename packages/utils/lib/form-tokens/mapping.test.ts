@@ -1,0 +1,75 @@
+import { describe, expect, it } from 'vitest';
+import { FormFieldType } from '../types/api/form-template.types';
+import { checkCompatibility, isBindingComplete, requiredTransformKind } from './mapping';
+import { TOKEN_CATALOG } from './token-catalog';
+
+describe('binding compatibility', () => {
+  it('never allows a binding to a signature or button field', () => {
+    // These hold no value we could supply, so no token should be offerable for them at all.
+    for (const token of TOKEN_CATALOG) {
+      expect(checkCompatibility(token.type, 'signature')).toBe('incompatible');
+      expect(checkCompatibility(token.type, 'button')).toBe('incompatible');
+    }
+  });
+
+  it('requires a format for the pairings that are meaningful but incomplete', () => {
+    // A date is not a string — something has to decide how it reads on the page — and a boolean in a
+    // text box could be "Yes", "X" or anything else. Both are accepted only with a transform.
+    expect(checkCompatibility('date', 'text')).toBe('needsTransform');
+    expect(requiredTransformKind('date', 'text')).toBe('dateFormat');
+
+    expect(checkCompatibility('boolean', 'text')).toBe('needsTransform');
+    expect(requiredTransformKind('boolean', 'text')).toBe('booleanText');
+  });
+
+  it('lets a boolean drive a checkbox directly, because the export value comes from the field', () => {
+    expect(checkCompatibility('boolean', 'checkbox')).toBe('direct');
+    expect(requiredTransformKind('boolean', 'checkbox')).toBeUndefined();
+  });
+
+  it('makes a boolean on a radio group declare what yes and no are called', () => {
+    // A radio group writes a value, and a raw boolean formats as "true"/"false" — which no real form
+    // spells as its export values. Treated as direct, the pairing looked valid in the editor and then
+    // produced `noMatchingOption` and a blank field at fill time.
+    expect(checkCompatibility('boolean', 'radio')).toBe('needsTransform');
+    expect(requiredTransformKind('boolean', 'radio')).toBe('booleanText');
+
+    const binding = { fieldName: 'consent', tokenKey: 'x' };
+    expect(isBindingComplete(binding, 'boolean', 'radio')).toBe(false);
+    expect(
+      isBindingComplete(
+        { ...binding, transform: { kind: 'booleanText', trueText: 'Yes', falseText: 'No' } },
+        'boolean',
+        'radio'
+      )
+    ).toBe(true);
+  });
+
+  it('rejects a date bound to anything other than a text field', () => {
+    const nonText: FormFieldType[] = ['checkbox', 'radio', 'dropdown', 'optionList'];
+    for (const fieldType of nonText) {
+      expect(checkCompatibility('date', fieldType)).toBe('incompatible');
+    }
+  });
+
+  it('treats a binding as incomplete until its required transform is supplied', () => {
+    const binding = { fieldName: 'f1', tokenKey: 'patient.dateOfBirth' };
+    expect(isBindingComplete(binding, 'date', 'text')).toBe(false);
+
+    const withFormat = { ...binding, transform: { kind: 'dateFormat' as const, format: 'MM/DD/YYYY' as const } };
+    expect(isBindingComplete(withFormat, 'date', 'text')).toBe(true);
+
+    // The wrong kind of transform does not satisfy the requirement.
+    const wrongKind = { ...binding, transform: { kind: 'booleanText' as const, trueText: 'Y', falseText: 'N' } };
+    expect(isBindingComplete(wrongKind, 'date', 'text')).toBe(false);
+  });
+
+  it('leaves every catalog token bindable to at least one field type', () => {
+    // A token no field can accept would sit in the picker permanently unusable.
+    const fieldTypes: FormFieldType[] = ['text', 'checkbox', 'radio', 'dropdown', 'optionList'];
+    for (const token of TOKEN_CATALOG) {
+      const usable = fieldTypes.some((fieldType) => checkCompatibility(token.type, fieldType) !== 'incompatible');
+      expect(usable, `token ${token.key} cannot bind to any field type`).toBe(true);
+    }
+  });
+});

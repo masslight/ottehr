@@ -3,20 +3,23 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Basic, Claim } from 'fhir/r4b';
 import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
 import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
+import { SaveBillingTagInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { collidingSystemManagedTagName } from 'utils/lib/types/data/billing/system-tags';
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { fetchAllPages } from '../../shared/fhir';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { createBillingClient, fetchById, isSystemTag, TAG_CODE_SYSTEM, TAG_DESCRIPTION_URL } from '../shared';
-import { SaveBillingTagParams, validateRequestParameters } from './validateRequestParameters';
+
+export type SaveBillingTagParams = ValidatedZambdaInput<typeof SaveBillingTagInputSchema>;
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'save-billing-tag';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const params = validateRequestParameters(input);
+  const params = validateWithSchema(SaveBillingTagInputSchema, input);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
 

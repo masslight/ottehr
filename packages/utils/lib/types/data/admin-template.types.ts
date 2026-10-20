@@ -1,4 +1,5 @@
 import { RosFindingState } from '../../ottehr-config/review-of-systems/in-person.config';
+import type { StructuredFacts } from '../../procedure-coding/structured-fields';
 import { TemplateWarning } from './apply-template.types';
 
 // ── admin-create-template ──
@@ -49,6 +50,11 @@ export interface TemplateRosFinding {
   findingState: RosFindingState | undefined;
   stale: boolean;
 }
+export interface TemplateRosComment {
+  fieldName: string;
+  systemLabel: string;
+  note: string;
+}
 export interface TemplateExamFinding {
   fieldName: string;
   label: string;
@@ -67,6 +73,7 @@ export interface TemplateCptModifier {
 }
 export interface TemplateCptCodeInfo extends TemplateCodeInfo {
   modifiers: TemplateCptModifier[];
+  billableUnits?: number;
 }
 
 export function isTemplateCptCodeInfo(input: TemplateCodeInfo | TemplateCptCodeInfo): input is TemplateCptCodeInfo {
@@ -153,6 +160,11 @@ export interface TemplateProcedurePlan {
   medicationUsed: string | undefined;
   suppliesUsed: string | undefined;
   procedureDetails: string | undefined;
+  structuredFacts?: StructuredFacts;
+  lengthCm: number | undefined;
+  repairDepth: string | undefined;
+  infusionStartTime: string | undefined;
+  infusionStopTime: string | undefined;
   specimenSent: boolean | undefined;
   complications: string | undefined;
   patientResponse: string | undefined;
@@ -196,6 +208,7 @@ export interface AdminGetTemplateDetailOutput {
     moiNote: string | null;
     rosNote: string | null;
     rosFindings: TemplateRosFinding[];
+    rosComments: TemplateRosComment[];
     examFindings: TemplateExamFinding[];
     mdm: string | null;
     diagnoses: TemplateCodeInfo[];

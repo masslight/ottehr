@@ -37,7 +37,16 @@ export const roundNumberToDecimalPlaces = (value: number, decimalPlaces = 1): nu
   return Math.round(value * factor) / factor;
 };
 
-export const formatCurrency = (dollars: number): string =>
-  dollars < 0 ? `-$${Math.abs(dollars).toFixed(2)}` : `$${dollars.toFixed(2)}`;
+export const formatCurrency = (dollars: number): string => {
+  const formatted = Math.abs(dollars).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return dollars < 0 ? `-$${formatted}` : `$${formatted}`;
+};
 
 export const formatCurrencyFromCents = (cents: number | undefined): string => formatCurrency((cents ?? 0) / 100);
+
+export function formatTaxId(taxId: string): string {
+  if (taxId.length < 3) {
+    return taxId;
+  }
+  return taxId.substring(0, 2) + '-' + taxId.substring(2);
+}

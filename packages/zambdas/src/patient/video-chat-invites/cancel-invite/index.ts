@@ -28,7 +28,6 @@ export const index = wrapHandler('cancel-invite', async (input: ZambdaInput): Pr
   let validatedParameters: CancelInviteParticipantRequestInput;
   try {
     validatedParameters = validateRequestParameters(input);
-    console.log(JSON.stringify(validatedParameters, null, 4));
   } catch (error: any) {
     console.log(error);
     return lambdaResponse(400, { message: error.message });

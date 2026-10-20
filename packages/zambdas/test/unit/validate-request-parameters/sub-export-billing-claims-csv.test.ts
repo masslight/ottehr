@@ -49,8 +49,8 @@ describe('sub-export-billing-claims-csv - validateRequestParameters', () => {
   it('reads back the filters the kick-off zambda wrote', () => {
     const filters = {
       searchText: 'Smith',
-      status: 'denied',
-      payerId: 'P1',
+      status: ['denied', 'paid'],
+      payerId: ['P1'],
     };
 
     expect(validateRequestParameters(inputFor(carrying(JSON.stringify(filters))))).toEqual({
@@ -81,7 +81,7 @@ describe('sub-export-billing-claims-csv - validateRequestParameters', () => {
         )
       )
     ).toEqual({
-      status: 'denied',
+      status: ['denied'],
       taskId: 'task-1',
       secrets,
     });

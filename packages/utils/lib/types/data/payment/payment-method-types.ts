@@ -10,6 +10,7 @@ interface PaymentMethodParameters {
 
 export type PaymentMethodSetupParameters = PaymentMethodPatientParameters;
 export type PaymentMethodSetDefaultParameters = PaymentMethodPatientParameters & PaymentMethodParameters;
+export type PaymentMethodUnsetDefaultParameters = PaymentMethodPatientParameters;
 export type PaymentMethodListParameters = PaymentMethodPatientParameters;
 export type PaymentMethodDeleteParameters = PaymentMethodPatientParameters & PaymentMethodParameters;
 

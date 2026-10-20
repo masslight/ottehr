@@ -2,7 +2,11 @@ import { BrowserContext, expect, Locator, Page, test } from '@playwright/test';
 import { DateTime } from 'luxon';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { HospitalizationOptions } from 'src/features/visits/in-person/components/hospitalization/hospitalizationOptions';
-import { clickAndWaitForChartDataDeletion, waitForChartDataDeletion, waitForSaveChartDataResponse } from 'test-utils';
+import {
+  clickAndWaitForChartDataDeletion,
+  waitForChartDataDeletion,
+  waitForSaveChartDataResponse,
+} from 'test-utils/lib/e2e/response-utils';
 import { HospitalizationPage } from 'tests/e2e/page/HospitalizationPage';
 import { InPersonAssessmentPage } from 'tests/e2e/page/in-person/InPersonAssessmentPage';
 import { expectExamPage } from 'tests/e2e/page/in-person/InPersonExamsPage';
@@ -553,11 +557,11 @@ test.describe('In-Person Visit Chart Data', async () => {
       await mdmDeleted;
 
       // MDM is stored as a ClinicalImpression and read back through an eventually-consistent FHIR
-      // search. The delete request has returned, but get-chart-data can still surface the old value
+      // search. The delete request has returned, but the chart read can still surface the old value
       // for a short window. The Review & Sign page does a single chart-fields fetch with no retry,
       // so navigating too early reads the stale MDM and the "Medical decision making" missing-field
       // link never renders. Wait until the deletion is actually reflected by reloading the
-      // assessment page until the MDM field reads back empty (i.e. get-chart-data is consistent).
+      // assessment page until the MDM field reads back empty (i.e. the chart read is consistent).
       await expect(async () => {
         await page.reload();
         const mdmTextarea = page

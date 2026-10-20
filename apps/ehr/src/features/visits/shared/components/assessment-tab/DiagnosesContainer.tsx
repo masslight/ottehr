@@ -14,9 +14,10 @@ import { DiagnosisDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { IcdSearchResponse } from 'utils/lib/types/api/icd-search/icd-search.types';
 import { DIAGNOSIS_MAKE_PRIMARY_BUTTON } from 'utils/lib/types/data/appointments/appointments.constants';
 import { APIErrorCode } from 'utils/lib/types/errors';
+import { useChartData } from '../../hooks/useChartData';
 import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAccessibility';
 import { useICD10SearchNew } from '../../stores/appointment/appointment.queries';
-import { useChartData, useDeleteChartData, useSaveChartData } from '../../stores/appointment/appointment.store';
+import { useDeleteChartData, useSaveChartData } from '../../stores/appointment/appointment.store';
 import { AiSectionContainer } from '../AiSection';
 import { DiagnosesField } from './DiagnosesField';
 

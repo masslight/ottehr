@@ -20,7 +20,7 @@ import {
   SCHEDULED_FOLLOWUP_REASONS,
 } from 'utils/lib/fhir/encounter';
 import { getCoding } from 'utils/lib/fhir/helpers';
-import { useChartFields } from './shared/hooks/useChartFields';
+import { useChartSection } from './shared/hooks/useChartSection';
 import { useDebounceNotesField } from './shared/hooks/useDebounceNotesField';
 import { useReasonForVisitOptions } from './shared/hooks/useReasonForVisitOptions';
 import { useAppointmentData, useSaveChartData } from './shared/stores/appointment/appointment.store';
@@ -33,9 +33,7 @@ export const ReasonForVisitField: FC = () => {
   const [reasonForVisit, setReasonForVisit] = useState<string>('');
   // Scheduled follow-ups pick from a fixed list; "Other" is stored as this free text.
   const [otherReason, setOtherReason] = useState<string>('');
-  const { data: chartFields, isFetched: isChartFieldsFetched } = useChartFields({
-    requestedFields: { reasonForVisit: {} },
-  });
+  const { data: chartFields, isFetched: isChartFieldsFetched } = useChartSection('encounterNotes');
 
   // Service-category options resolve via the shared hook (covers admin-managed FHIR categories);
   // scheduled follow-ups use the fixed reason list instead.
@@ -77,13 +75,13 @@ export const ReasonForVisitField: FC = () => {
   return (
     <Stack spacing={2}>
       <FormControl fullWidth>
-        <InputLabel id="reason-for-visit-label">Reason for visit</InputLabel>
+        <InputLabel id="reason-for-visit-label">Reason for today's visit</InputLabel>
         <Select
           data-testid={dataTestIds.addPatientPage.reasonForVisitDropdown}
           labelId="reason-for-visit-label"
           id="reason-for-visit-select"
           value={safeValue}
-          label="Reason for visit"
+          label="Reason for today's visit"
           onChange={(event) => {
             const value = event.target.value as string;
             setReasonForVisit(value);
@@ -126,8 +124,8 @@ export const ReasonForVisitField: FC = () => {
 type ReasonForVisitSource = 'patient' | 'intake';
 
 const LABEL_BY_SOURCE: Record<ReasonForVisitSource, string> = {
-  patient: 'Reason for visit selected by patient',
-  intake: 'Reason for visit verified on intake',
+  patient: "Reason for today's visit selected by patient",
+  intake: "Reason for today's visit verified on intake",
 };
 
 interface ReasonForVisitFieldReadOnlyProps {

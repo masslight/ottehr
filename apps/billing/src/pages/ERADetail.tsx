@@ -1,5 +1,6 @@
 import {
   ArrowBack as ArrowBackIcon,
+  EditOutlined as EditOutlinedIcon,
   FileDownloadOutlined as FileDownloadIcon,
   MoreVert as MoreVertIcon,
   Search as SearchIcon,
@@ -11,17 +12,13 @@ import {
   Button,
   Chip,
   CircularProgress,
-  FormControl,
   IconButton,
   InputAdornment,
-  InputLabel,
   List,
   ListItem,
   ListItemButton,
   ListItemText,
-  MenuItem,
   Popover,
-  Select,
   Stack,
   Tab,
   TextField,
@@ -31,18 +28,21 @@ import { DataGridPro, GridColDef } from '@mui/x-data-grid-pro';
 import { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
-import { EraDetailResponse, EraPayee } from 'utils/lib/types/data/billing/billing.types';
-import { formatCurrency } from 'utils/lib/utils/convert';
-import { getBillingEraDetail, unmatchClaimResponse } from '../api/api';
+import { otherColors } from 'utils/lib/theme/billing-palette';
+import { ERA_SOURCE } from 'utils/lib/types/data/billing/billing.constants';
+import { EraClaimListItem, EraDetailResponse, EraPayee } from 'utils/lib/types/data/billing/billing.types';
+import { formatCurrency, formatTaxId } from 'utils/lib/utils/convert';
+import { downloadEraAttachment, getBillingEraDetail, unmatchClaimResponse } from '../api/api';
+import { AttachmentsSection } from '../components/attachments/AttachmentsSection';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { ExportX12Dialog } from '../components/ExportX12Dialog';
 import { MatchClaimDialog } from '../components/MatchClaimDialog';
 import { ReadOnlySection } from '../components/ReadOnlySection';
 import { Row } from '../components/Row';
+import { ERA_SOURCE_LABELS, paymentMethodLabel } from '../constants/era';
 import { useApiClients } from '../hooks/useAppClients';
-import { otherColors } from '../themes/ottehr/colors';
-import { formatDate, formatTaxId } from '../utils/format';
+import { formatDate } from '../utils/format';
 
 const payeeRows = (payee: EraPayee): { label: string; value: string }[] =>
   [
@@ -70,8 +70,9 @@ export default function ERADetail(): ReactElement {
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState('1');
   const [claimSearch, setClaimSearch] = useState('');
-  const [claimStatusFilter, setClaimStatusFilter] = useState('');
-  const [claimResponseToMatch, setClaimResponseToMatch] = useState<string | null>(null);
+  const [claimToMatch, setClaimToMatch] = useState<{ claimResponseId: string; eraClaim: EraClaimListItem } | null>(
+    null
+  );
   const [claimResponsesToUnmatch, setClaimResponsesToUnmatch] = useState<string[] | null>(null);
   const [unmatching, setUnmatching] = useState(false);
   const [moreActionsPopoverData, setMoreActionsPopoverData] = useState<{
@@ -91,7 +92,7 @@ export default function ERADetail(): ReactElement {
             <Button
               onClick={(e) => {
                 e.stopPropagation();
-                setClaimResponseToMatch(row.claimResponseIds[0]);
+                setClaimToMatch({ claimResponseId: row.claimResponseIds[0], eraClaim: row });
               }}
             >
               Match
@@ -110,33 +111,33 @@ export default function ERADetail(): ReactElement {
     currencyCol('posted', 'Posted', 100),
     currencyCol('patientResp', 'Patient Resp', 110),
     {
-      field: 'status',
+      // whether the remit claim is matched to a claim in the system; the FHIR outcome every ERA
+      // carries ("complete") means nothing to billers
+      field: 'matched',
       headerName: 'Status',
       width: 140,
-      renderCell: ({ value, row }) =>
-        value ? (
-          <Stack direction="row" justifyContent="space-between" alignItems="center">
-            <Chip
-              label={!row.matched ? 'unmatched' : String(value)}
-              color={value === 'complete' && row.matched ? 'success' : 'warning'}
-              variant="outlined"
-              size="small"
-              sx={{ borderRadius: '4px', fontSize: 12 }}
-            />
-            {row.matched && (
-              <IconButton
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setMoreActionsPopoverData({ element: e.currentTarget, claimResponseIds: row.claimResponseIds });
-                }}
-              >
-                <MoreVertIcon fontSize="medium" />
-              </IconButton>
-            )}
-          </Stack>
-        ) : (
-          '—'
-        ),
+      valueGetter: (params: { row: EraClaimListItem }) => (params.row.matched ? 'Matched' : 'Unmatched'),
+      renderCell: ({ row }) => (
+        <Stack direction="row" justifyContent="space-between" alignItems="center">
+          <Chip
+            label={row.matched ? 'Matched' : 'Unmatched'}
+            color={row.matched ? 'success' : 'warning'}
+            variant="outlined"
+            size="small"
+            sx={{ borderRadius: '4px', fontSize: 12 }}
+          />
+          {row.matched && (
+            <IconButton
+              onClick={(e) => {
+                e.stopPropagation();
+                setMoreActionsPopoverData({ element: e.currentTarget, claimResponseIds: row.claimResponseIds });
+              }}
+            >
+              <MoreVertIcon fontSize="medium" />
+            </IconButton>
+          )}
+        </Stack>
+      ),
     },
   ];
 
@@ -165,11 +166,8 @@ export default function ERADetail(): ReactElement {
       const q = claimSearch.toLowerCase();
       claims = claims.filter((c) => c.patientName.toLowerCase().includes(q) || c.claimId.toLowerCase().includes(q));
     }
-    if (claimStatusFilter) {
-      claims = claims.filter((c) => c.status === claimStatusFilter);
-    }
     return claims;
-  }, [era, claimSearch, claimStatusFilter]);
+  }, [era, claimSearch]);
 
   if (loading) {
     return (
@@ -190,6 +188,10 @@ export default function ERADetail(): ReactElement {
     );
   }
 
+  const manual = era.source === ERA_SOURCE.manual;
+  // a manual remit's details as keyed in, and who keyed it
+  const entry = era.manualEntry;
+
   return (
     <Box sx={{ p: 0 }}>
       <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, mb: 2 }}>
@@ -205,21 +207,34 @@ export default function ERADetail(): ReactElement {
             <HeaderField label="Payer" value={era.payerName} />
           </Box>
         </Box>
-        <Button
-          size="small"
-          variant="outlined"
-          startIcon={<FileDownloadIcon />}
-          sx={{ mt: 0.5 }}
-          onClick={() => setExportOpen(true)}
-        >
-          Export X12
-        </Button>
         <Chip
-          label={era.status}
-          color={era.status === 'complete' ? 'success' : 'warning'}
+          label={ERA_SOURCE_LABELS[era.source] ?? era.source}
+          color={era.source === ERA_SOURCE.clearingHouse ? 'default' : 'primary'}
           variant="outlined"
-          sx={{ borderRadius: '4px' }}
+          sx={{ borderRadius: '4px', mt: 0.5 }}
         />
+        {manual && (
+          <Button
+            size="small"
+            variant="contained"
+            startIcon={<EditOutlinedIcon />}
+            sx={{ mt: 0.5 }}
+            onClick={() => navigate(`/eras/${era.id}/edit`)}
+          >
+            Edit
+          </Button>
+        )}
+        {era.x12 && (
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={<FileDownloadIcon />}
+            sx={{ mt: 0.5 }}
+            onClick={() => setExportOpen(true)}
+          >
+            Export X12
+          </Button>
+        )}
       </Box>
 
       <Box sx={{ ml: 5 }}>
@@ -236,8 +251,34 @@ export default function ERADetail(): ReactElement {
 
           <TabPanel value="1" sx={{ px: 0, pt: 2 }}>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, mb: 3 }}>
-              {era.paymentMethod && <Row label="Payment method" value={era.paymentMethod} hideBorder />}
+              {era.paymentMethod && (
+                <Row label="Payment method" value={paymentMethodLabel(era.paymentMethod)} hideBorder />
+              )}
+              {entry && (
+                <>
+                  <Row label="Remit date" value={formatDate(entry.header.remitDate)} hideBorder />
+                  {entry.header.depositDate && (
+                    <Row label="Deposit date" value={formatDate(entry.header.depositDate)} hideBorder />
+                  )}
+                  <Row
+                    label="Entered by"
+                    value={`${entry.enteredBy} on ${formatDate(entry.enteredAt.slice(0, 10))}`}
+                    hideBorder
+                  />
+                  {entry.header.notes && <Row label="Notes" value={entry.header.notes} hideBorder />}
+                </>
+              )}
             </Box>
+
+            {era.attachments.length > 0 && oystehrZambda && (
+              <AttachmentsSection
+                readOnly
+                attachments={era.attachments}
+                getDownloadUrl={async (documentReferenceId) =>
+                  (await downloadEraAttachment(oystehrZambda, { eraId: era.id, documentReferenceId })).downloadUrl
+                }
+              />
+            )}
 
             {era.payee && (
               <ReadOnlySection title="Payee">
@@ -267,28 +308,14 @@ export default function ERADetail(): ReactElement {
                     </InputAdornment>
                   ),
                 }}
-                sx={{ minWidth: 280 }}
+                sx={{ flex: 1, minWidth: 280, maxWidth: 480 }}
               />
-              <FormControl size="small" sx={{ minWidth: 160 }}>
-                <InputLabel>Claim Status</InputLabel>
-                <Select
-                  value={claimStatusFilter}
-                  label="Claim Status"
-                  onChange={(e) => setClaimStatusFilter(e.target.value)}
-                >
-                  <MenuItem value="">All</MenuItem>
-                  <MenuItem value="complete">Complete</MenuItem>
-                  <MenuItem value="queued">Queued</MenuItem>
-                  <MenuItem value="error">Error</MenuItem>
-                </Select>
-              </FormControl>
-              {(claimSearch || claimStatusFilter) && (
+              {claimSearch && (
                 <Button
                   variant="text"
                   size="small"
                   onClick={() => {
                     setClaimSearch('');
-                    setClaimStatusFilter('');
                   }}
                 >
                   Clear filters
@@ -312,11 +339,12 @@ export default function ERADetail(): ReactElement {
           </TabPanel>
         </TabContext>
       </Box>
-      {claimResponseToMatch && (
+      {claimToMatch && (
         <MatchClaimDialog
-          claimResponseId={claimResponseToMatch}
+          claimResponseId={claimToMatch.claimResponseId}
+          eraClaim={claimToMatch.eraClaim}
           onMatched={() => fetchDetail()}
-          onClose={() => setClaimResponseToMatch(null)}
+          onClose={() => setClaimToMatch(null)}
         />
       )}
       {claimResponsesToUnmatch && (

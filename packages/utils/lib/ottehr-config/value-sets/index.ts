@@ -1,6 +1,6 @@
 // cSpell:ignore AUTOPOL, Champus, LIAB, MCPOL, medib, PUBLICPOL, WCBPOL
 import { NetworkType } from 'candidhealth/api/index.js';
-import { type InsurancePlanType as BaseInsurancePlanType, type ValueSetsConfig } from 'config-types';
+import type { InsurancePlanType as BaseInsurancePlanType, ValueSetsConfig } from 'config-types/config/value-sets';
 import { deepFreezeObject } from '../../utils/objects';
 
 // Extend InsurancePlanType to use the specific Candid NetworkType
@@ -339,6 +339,7 @@ export const formValueSetsData = {
     { label: 'Spouse', value: 'Spouse' },
     { label: 'Common Law Spouse', value: 'Common Law Spouse' },
     { label: 'Injured Party', value: 'Injured Party' },
+    { label: 'Employee', value: 'Employee' },
     { label: 'Other', value: 'Other' },
   ],
   rxHistoryConsentOptions: [

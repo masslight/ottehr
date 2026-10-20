@@ -1,9 +1,10 @@
 import { Box, CircularProgress, TextField, Typography } from '@mui/material';
-import { FC, useEffect } from 'react';
+import { FC } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { useChartFields } from './shared/hooks/useChartFields';
+import { useChartSection } from './shared/hooks/useChartSection';
 import { useDebounceNotesField } from './shared/hooks/useDebounceNotesField';
+import { useSyncServerNoteToField } from './shared/hooks/useSyncServerNoteToField';
 
 type HistoryOfPresentIllnessFieldProps = {
   label?: string;
@@ -12,13 +13,7 @@ type HistoryOfPresentIllnessFieldProps = {
 export const HistoryOfPresentIllnessField: FC<HistoryOfPresentIllnessFieldProps> = ({
   label = 'History of Present Illness',
 }) => {
-  const { data: chartDataFields } = useChartFields({
-    requestedFields: {
-      chiefComplaint: {
-        _tag: 'chief-complaint',
-      },
-    },
-  });
+  const { data: chartDataFields } = useChartSection('encounterNotes');
 
   const methods = useForm({
     defaultValues: {
@@ -26,11 +21,11 @@ export const HistoryOfPresentIllnessField: FC<HistoryOfPresentIllnessFieldProps>
     },
   });
 
-  useEffect(() => {
-    if (chartDataFields?.chiefComplaint?.text !== undefined) {
-      methods.setValue('historyOfPresentIllness', chartDataFields.chiefComplaint.text);
-    }
-  }, [chartDataFields?.chiefComplaint?.text, methods]);
+  useSyncServerNoteToField({
+    serverValue: chartDataFields?.chiefComplaint?.text,
+    getFieldValue: () => methods.getValues('historyOfPresentIllness'),
+    setFieldValue: (value) => methods.setValue('historyOfPresentIllness', value),
+  });
 
   const { control } = methods;
 
@@ -45,9 +40,7 @@ export const HistoryOfPresentIllnessField: FC<HistoryOfPresentIllnessFieldProps>
           value={value}
           onChange={(e) => {
             onChange(e);
-            onValueChange(e.target.value, {
-              refetchChartDataOnSave: true,
-            });
+            onValueChange(e.target.value);
           }}
           disabled={isChartDataLoading}
           label={label}
@@ -70,11 +63,7 @@ export const HistoryOfPresentIllnessField: FC<HistoryOfPresentIllnessFieldProps>
 export const HistoryOfPresentIllnessFieldReadOnly: FC<HistoryOfPresentIllnessFieldProps> = ({
   label = 'History of Present Illness',
 }) => {
-  const { data: chartFields } = useChartFields({
-    requestedFields: {
-      chiefComplaint: { _tag: 'chief-complaint' },
-    },
-  });
+  const { data: chartFields } = useChartSection('encounterNotes');
 
   const historyOfPresentIllness = chartFields?.chiefComplaint?.text;
 

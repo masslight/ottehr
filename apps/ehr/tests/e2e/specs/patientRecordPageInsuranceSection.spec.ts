@@ -10,12 +10,14 @@ import {
   getEmployerInformationStepAnswers,
   getPatientDetailsStepAnswers,
   getPayerId,
+  getPayerName,
   getPaymentOptionInsuranceAnswers,
   getPrimaryCarePhysicianStepAnswers,
   getResponsiblePartyStepAnswers,
   isoToDateObject,
 } from 'utils/lib/helpers/helpers';
 import { PATIENT_RECORD_CONFIG } from 'utils/lib/ottehr-config/patient-record';
+import { addRequiredInsuranceCardAnswers } from '../../e2e-utils/resource/insurance-document';
 import {
   PATIENT_INSURANCE_MEMBER_ID,
   PATIENT_INSURANCE_MEMBER_ID_2,
@@ -675,38 +677,40 @@ async function buildResourceHandler(): Promise<[ResourceHandler, string, string]
         birthSex: patientInfo.sex,
       }),
       getPatientDetailsStepAnswers({}),
-      getPaymentOptionInsuranceAnswers({
-        insuranceCarrier: insuranceCarrier1!,
-        insurancePlanType: PATIENT_INSURANCE_PLAN_TYPE,
-        insuranceMemberId: PATIENT_INSURANCE_MEMBER_ID,
-        insurancePolicyHolderFirstName: PATIENT_INSURANCE_POLICY_HOLDER_FIRST_NAME,
-        insurancePolicyHolderLastName: PATIENT_INSURANCE_POLICY_HOLDER_LAST_NAME,
-        insurancePolicyHolderMiddleName: PATIENT_INSURANCE_POLICY_HOLDER_MIDDLE_NAME,
-        insurancePolicyHolderDateOfBirth: PATIENT_INSURANCE_POLICY_HOLDER_DATE_OF_BIRTH,
-        insurancePolicyHolderBirthSex: PATIENT_INSURANCE_POLICY_HOLDER_BIRTH_SEX,
-        insurancePolicyHolderAddressAsPatient: PATIENT_INSURANCE_POLICY_HOLDER_ADDRESS_AS_PATIENT,
-        insurancePolicyHolderAddress: PATIENT_INSURANCE_POLICY_HOLDER_ADDRESS,
-        insurancePolicyHolderAddressAdditionalLine: PATIENT_INSURANCE_POLICY_HOLDER_ADDRESS_ADDITIONAL_LINE,
-        insurancePolicyHolderCity: PATIENT_INSURANCE_POLICY_HOLDER_CITY,
-        insurancePolicyHolderState: PATIENT_INSURANCE_POLICY_HOLDER_STATE,
-        insurancePolicyHolderZip: PATIENT_INSURANCE_POLICY_HOLDER_ZIP,
-        insurancePolicyHolderRelationshipToInsured: PATIENT_INSURANCE_POLICY_HOLDER_RELATIONSHIP_TO_INSURED,
-        insuranceCarrier2: insuranceCarrier2!,
-        insurancePlanType2: PATIENT_INSURANCE_PLAN_TYPE_2,
-        insuranceMemberId2: PATIENT_INSURANCE_MEMBER_ID_2,
-        insurancePolicyHolderFirstName2: PATIENT_INSURANCE_POLICY_HOLDER_2_FIRST_NAME,
-        insurancePolicyHolderLastName2: PATIENT_INSURANCE_POLICY_HOLDER_2_LAST_NAME,
-        insurancePolicyHolderMiddleName2: PATIENT_INSURANCE_POLICY_HOLDER_2_MIDDLE_NAME,
-        insurancePolicyHolderDateOfBirth2: PATIENT_INSURANCE_POLICY_HOLDER_2_DATE_OF_BIRTH,
-        insurancePolicyHolderBirthSex2: PATIENT_INSURANCE_POLICY_HOLDER_2_BIRTH_SEX,
-        insurancePolicyHolderAddressAsPatient2: PATIENT_INSURANCE_POLICY_HOLDER_2_ADDRESS_AS_PATIENT,
-        insurancePolicyHolderAddress2: PATIENT_INSURANCE_POLICY_HOLDER_2_ADDRESS,
-        insurancePolicyHolderAddressAdditionalLine2: PATIENT_INSURANCE_POLICY_HOLDER_2_ADDRESS_ADDITIONAL_LINE,
-        insurancePolicyHolderCity2: PATIENT_INSURANCE_POLICY_HOLDER_2_CITY,
-        insurancePolicyHolderState2: PATIENT_INSURANCE_POLICY_HOLDER_2_STATE,
-        insurancePolicyHolderZip2: PATIENT_INSURANCE_POLICY_HOLDER_2_ZIP,
-        insurancePolicyHolderRelationshipToInsured2: PATIENT_INSURANCE_POLICY_HOLDER_2_RELATIONSHIP_TO_INSURED,
-      }),
+      addRequiredInsuranceCardAnswers(
+        getPaymentOptionInsuranceAnswers({
+          insuranceCarrier: insuranceCarrier1!,
+          insurancePlanType: PATIENT_INSURANCE_PLAN_TYPE,
+          insuranceMemberId: PATIENT_INSURANCE_MEMBER_ID,
+          insurancePolicyHolderFirstName: PATIENT_INSURANCE_POLICY_HOLDER_FIRST_NAME,
+          insurancePolicyHolderLastName: PATIENT_INSURANCE_POLICY_HOLDER_LAST_NAME,
+          insurancePolicyHolderMiddleName: PATIENT_INSURANCE_POLICY_HOLDER_MIDDLE_NAME,
+          insurancePolicyHolderDateOfBirth: PATIENT_INSURANCE_POLICY_HOLDER_DATE_OF_BIRTH,
+          insurancePolicyHolderBirthSex: PATIENT_INSURANCE_POLICY_HOLDER_BIRTH_SEX,
+          insurancePolicyHolderAddressAsPatient: PATIENT_INSURANCE_POLICY_HOLDER_ADDRESS_AS_PATIENT,
+          insurancePolicyHolderAddress: PATIENT_INSURANCE_POLICY_HOLDER_ADDRESS,
+          insurancePolicyHolderAddressAdditionalLine: PATIENT_INSURANCE_POLICY_HOLDER_ADDRESS_ADDITIONAL_LINE,
+          insurancePolicyHolderCity: PATIENT_INSURANCE_POLICY_HOLDER_CITY,
+          insurancePolicyHolderState: PATIENT_INSURANCE_POLICY_HOLDER_STATE,
+          insurancePolicyHolderZip: PATIENT_INSURANCE_POLICY_HOLDER_ZIP,
+          insurancePolicyHolderRelationshipToInsured: PATIENT_INSURANCE_POLICY_HOLDER_RELATIONSHIP_TO_INSURED,
+          insuranceCarrier2: insuranceCarrier2!,
+          insurancePlanType2: PATIENT_INSURANCE_PLAN_TYPE_2,
+          insuranceMemberId2: PATIENT_INSURANCE_MEMBER_ID_2,
+          insurancePolicyHolderFirstName2: PATIENT_INSURANCE_POLICY_HOLDER_2_FIRST_NAME,
+          insurancePolicyHolderLastName2: PATIENT_INSURANCE_POLICY_HOLDER_2_LAST_NAME,
+          insurancePolicyHolderMiddleName2: PATIENT_INSURANCE_POLICY_HOLDER_2_MIDDLE_NAME,
+          insurancePolicyHolderDateOfBirth2: PATIENT_INSURANCE_POLICY_HOLDER_2_DATE_OF_BIRTH,
+          insurancePolicyHolderBirthSex2: PATIENT_INSURANCE_POLICY_HOLDER_2_BIRTH_SEX,
+          insurancePolicyHolderAddressAsPatient2: PATIENT_INSURANCE_POLICY_HOLDER_2_ADDRESS_AS_PATIENT,
+          insurancePolicyHolderAddress2: PATIENT_INSURANCE_POLICY_HOLDER_2_ADDRESS,
+          insurancePolicyHolderAddressAdditionalLine2: PATIENT_INSURANCE_POLICY_HOLDER_2_ADDRESS_ADDITIONAL_LINE,
+          insurancePolicyHolderCity2: PATIENT_INSURANCE_POLICY_HOLDER_2_CITY,
+          insurancePolicyHolderState2: PATIENT_INSURANCE_POLICY_HOLDER_2_STATE,
+          insurancePolicyHolderZip2: PATIENT_INSURANCE_POLICY_HOLDER_2_ZIP,
+          insurancePolicyHolderRelationshipToInsured2: PATIENT_INSURANCE_POLICY_HOLDER_2_RELATIONSHIP_TO_INSURED,
+        })
+      ),
       getResponsiblePartyStepAnswers({}),
       getEmergencyContactStepAnswers({}),
       getPrimaryCarePhysicianStepAnswers({})
@@ -730,7 +734,7 @@ async function buildResourceHandler(): Promise<[ResourceHandler, string, string]
   const payersById = new Map<string, Organization>();
   for (const payer of payersPage.data) {
     const payerId = getPayerId(payer);
-    const payerName = payer.alias?.[0] ?? payer.name;
+    const payerName = getPayerName(payer);
     if (typeof payerId === 'string' && typeof payerName === 'string' && !payersById.has(payerId)) {
       payersById.set(payerId, payer);
     }
@@ -746,15 +750,15 @@ async function buildResourceHandler(): Promise<[ResourceHandler, string, string]
   const toCarrierAnswer = (payer: Organization): QuestionnaireItemAnswerOption => ({
     valueReference: {
       reference: oystehr.rcm.constructPayerUrl({ id: getPayerId(payer)! }),
-      display: `${payer.alias?.[0] ?? payer.name}`,
+      display: `${getPayerName(payer)}`,
     },
   });
   insuranceCarrier1 = toCarrierAnswer(payer1);
   insuranceCarrier2 = toCarrierAnswer(payer2);
   // The EHR patient-record field labels its options "<payerId> - <name>" (prependIdentifier), and
   // because these payers are in the current list the value renders without a "(historical)" suffix.
-  const insuranceCarrier1ForResult = `${getPayerId(payer1)} - ${payer1.alias?.[0] ?? payer1.name}`;
-  const insuranceCarrier2ForResult = `${getPayerId(payer2)} - ${payer2.alias?.[0] ?? payer2.name}`;
+  const insuranceCarrier1ForResult = `${getPayerId(payer1)} - ${getPayerName(payer1)}`;
+  const insuranceCarrier2ForResult = `${getPayerId(payer2)} - ${getPayerName(payer2)}`;
   console.log('carriers: ', JSON.stringify([insuranceCarrier1ForResult, insuranceCarrier2ForResult]));
 
   return [resourceHandler, insuranceCarrier1ForResult ?? '', insuranceCarrier2ForResult ?? ''];

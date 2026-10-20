@@ -108,24 +108,31 @@ export function mapDisplayToInvoiceTaskStatus(status: InvoiceTaskDisplayStatus):
 }
 
 export function getLatestTaskOutput(task: Task): { type: 'error' | 'success'; message?: string } | undefined {
-  const lastTaskOutput = task.output?.at(-1);
-  if (lastTaskOutput?.type?.coding?.find((coding) => coding.code === RcmTaskCode.sendInvoiceOutputInvoiceId)) {
-    return { type: 'success', message: lastTaskOutput.valueString };
-  } else if (lastTaskOutput?.type?.coding?.find((coding) => coding.code === RcmTaskCode.sendInvoiceOutputError)) {
-    return { type: 'error', message: lastTaskOutput.valueString };
+  const outputs = [...(task.output ?? [])].reverse();
+  for (const output of outputs) {
+    if (output.type?.coding?.find((c) => c.code === RcmTaskCode.sendInvoiceOutputInvoiceId)) {
+      return { type: 'success', message: output.valueString };
+    }
+    if (output.type?.coding?.find((c) => c.code === RcmTaskCode.sendInvoiceOutputError)) {
+      return { type: 'error', message: output.valueString };
+    }
   }
   return undefined;
 }
 
-export function getInvoiceTaskOutputs(task: Task): { invoiceId?: string; error?: string } {
+export function getInvoiceTaskOutputs(task: Task): {
+  invoiceId?: string;
+  error?: string;
+  stripeInvoiceStatus?: string;
+} {
   const outputs = task.output ?? [];
-  const invoiceId = outputs
-    .slice()
-    .reverse()
-    .find((o) => o.type?.coding?.find((c) => c.code === RcmTaskCode.sendInvoiceOutputInvoiceId))?.valueString;
-  const error = outputs
-    .slice()
-    .reverse()
-    .find((o) => o.type?.coding?.find((c) => c.code === RcmTaskCode.sendInvoiceOutputError))?.valueString;
-  return { invoiceId, error };
+  const reversed = outputs.slice().reverse();
+  const invoiceId = reversed.find((o) => o.type?.coding?.find((c) => c.code === RcmTaskCode.sendInvoiceOutputInvoiceId))
+    ?.valueString;
+  const error = reversed.find((o) => o.type?.coding?.find((c) => c.code === RcmTaskCode.sendInvoiceOutputError))
+    ?.valueString;
+  const stripeInvoiceStatus = reversed.find(
+    (o) => o.type?.coding?.find((c) => c.code === RcmTaskCode.stripeInvoiceStatus)
+  )?.valueString;
+  return { invoiceId, error, stripeInvoiceStatus };
 }

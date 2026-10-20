@@ -1,10 +1,11 @@
+import { captureException } from '@sentry/react';
 import { useMutation, UseMutationResult, useQuery, UseQueryOptions, UseQueryResult } from '@tanstack/react-query';
 import { FhirResource, Patient, Person, QuestionnaireResponse, RelatedPerson } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import { useEffect, useState } from 'react';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
 import { getFirstName, getLastName } from 'utils/lib/fhir/patient';
-import { useSuccessQuery } from 'utils/lib/frontend';
+import { useSuccessQuery } from 'utils/lib/frontend/hooks/useSuccessQuery';
 import { RemoveCoverageZambdaInput } from 'utils/lib/types/api/patient-account';
 import { PromiseReturnType } from 'utils/lib/types/common';
 import { isValidUUID } from 'utils/lib/validation/helper';
@@ -88,7 +89,8 @@ export const useGetPatient = (
   useEffect(() => {
     async function getPatient(): Promise<void> {
       if (!oystehr) {
-        throw new Error('oystehr is not defined');
+        // Client not ready yet (or id undefined, so the queries stay disabled); the effect re-runs once oystehr exists.
+        return;
       }
 
       if (!patientResources || !otherPatientsWithSameNameResources) {
@@ -120,7 +122,10 @@ export const useGetPatient = (
       setLoading(false);
     }
 
-    getPatient().catch((error) => console.log(error));
+    getPatient().catch((error) => {
+      console.error(error);
+      captureException(error);
+    });
   }, [id, oystehr, patientResources, otherPatientsWithSameNameResources]);
 
   return {

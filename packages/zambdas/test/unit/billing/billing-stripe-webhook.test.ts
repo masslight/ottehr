@@ -4,7 +4,7 @@ import { Claim, Organization, PaymentNotice } from 'fhir/r4b';
 import Stripe from 'stripe';
 import { BILLING_RESOURCE_TAG } from 'utils/lib/fhir/constants';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
-import { Secrets } from 'utils/lib/secrets';
+import { Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { INVALID_INPUT_ERROR, MISCONFIGURED_ENVIRONMENT_ERROR } from 'utils/lib/types/errors';
 import { afterEach, describe, expect, it, Mock, vi } from 'vitest';
 
@@ -28,11 +28,18 @@ vi.mock('../../../src/billing/shared', async (importOriginal) => ({
   createBillingClient: vi.fn(),
 }));
 
+vi.mock('../../../src/shared/helpers', async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  createClinicalOystehrClient: vi.fn(),
+}));
+
 import { index, performEffect } from '../../../src/billing/billing-stripe-webhook';
 import { validateRequestParameters } from '../../../src/billing/billing-stripe-webhook/validateRequestParameters';
-import { createBillingClient } from '../../../src/billing/shared';
+import { createBillingClient, STRIPE_ACCOUNT_IDENTIFIER_SYSTEM } from '../../../src/billing/shared';
 import { checkOrCreateM2MClientToken } from '../../../src/shared/auth';
+import { createClinicalOystehrClient } from '../../../src/shared/helpers';
 import { getStripeClient, STRIPE_PAYMENT_ID_SYSTEM } from '../../../src/shared/stripeIntegration';
+import { validateStripeWebhook } from '../../../src/shared/stripeWebhook';
 import { ZambdaInput } from '../../../src/shared/types/common';
 
 const WEBHOOK_SECRET = 'whsec_test_secret';
@@ -97,16 +104,20 @@ const claim = {
 
 const makeOystehr = (
   claimResults: Claim[][],
-  orgResults: Organization[][] = []
-): { oystehr: Oystehr; create: Mock; update: Mock } => {
+  orgResults: Organization[][] = [],
+  noticeResults: PaymentNotice[][] = []
+): { oystehr: Oystehr; create: Mock; update: Mock; patch: Mock } => {
   const claimQueue = [...claimResults];
   const orgQueue = [...orgResults];
+  const noticeQueue = [...noticeResults];
   const search = vi.fn().mockImplementation(({ resourceType }: { resourceType: string }) => {
     const results =
       resourceType === 'Claim'
         ? claimQueue.shift() ?? []
         : resourceType === 'Organization'
         ? orgQueue.shift() ?? []
+        : resourceType === 'PaymentNotice'
+        ? noticeQueue.shift() ?? []
         : [];
     return Promise.resolve({ unbundle: () => results });
   });
@@ -114,18 +125,96 @@ const makeOystehr = (
     .fn()
     .mockImplementation((resource: PaymentNotice) => Promise.resolve({ ...resource, id: 'pn-new' }));
   const update = vi.fn().mockResolvedValue({});
+  const patch = vi.fn().mockResolvedValue({});
   const batch = vi.fn().mockResolvedValue({ entry: [] });
-  return { oystehr: { fhir: { search, create, update, batch } } as unknown as Oystehr, create, update };
+  return { oystehr: { fhir: { search, create, update, patch, batch } } as unknown as Oystehr, create, update, patch };
 };
 
-const signedInput = (event: Stripe.Event, webhookSecret = WEBHOOK_SECRET): ZambdaInput => {
+const signedInput = (event: Stripe.Event, webhookSecret = WEBHOOK_SECRET, overrides?: Secrets): ZambdaInput => {
   const payload = JSON.stringify(event);
   const signature = stripe.webhooks.generateTestHeaderString({ payload, secret: webhookSecret });
-  return { body: payload, headers: { 'Stripe-Signature': signature }, secrets };
+  return { body: payload, headers: { 'Stripe-Signature': signature }, secrets: { ...secrets, ...overrides } };
 };
 
 afterEach(() => {
   vi.clearAllMocks();
+});
+
+describe('billing-stripe-webhook signing secrets', () => {
+  const accountSecrets = Array.from({ length: 12 }, (_, i) => ({
+    accountId: `acct_${i + 1}`,
+    signingSecret: `whsec_${i + 1}`,
+  }));
+  const webhookSecrets = { STRIPE_WEBHOOK_SECRET: JSON.stringify(accountSecrets) };
+
+  it('verifies only the signing-secret settings selected by the caller', () => {
+    (getStripeClient as Mock).mockReturnValue(stripe);
+    const event = makeEvent('charge.succeeded', makeCharge());
+    const secretKeys = [SecretsKeys.STRIPE_PLATFORM_WEBHOOK_SECRET];
+    const missingSecretsMessage = 'Missing platform webhook secret';
+
+    const params = validateStripeWebhook(
+      signedInput(event, PLATFORM_WEBHOOK_SECRET),
+      secretKeys,
+      missingSecretsMessage
+    );
+    expect(params.event).toEqual(event);
+    expect(() => validateStripeWebhook(signedInput(event), secretKeys, missingSecretsMessage)).toThrow(
+      expect.objectContaining(INVALID_INPUT_ERROR('Invalid Stripe webhook signature'))
+    );
+  });
+
+  it('verifies the last of 12 accounts and uses it for billing and Stripe API calls', async () => {
+    (getStripeClient as Mock).mockReturnValue(stripe);
+    const event = makeEvent('charge.succeeded', makeCharge({ metadata: {}, invoice: 'in_1' }));
+    const params = validateRequestParameters(signedInput(event, 'whsec_12', webhookSecrets));
+    const retrieve = vi.fn().mockResolvedValue(makeInvoice());
+    (getStripeClient as Mock).mockReturnValue({ invoices: { retrieve } });
+    const bp = { resourceType: 'Organization', id: 'bp-12' } as Organization;
+    const { oystehr, create } = makeOystehr([[claim]], [[bp]]);
+
+    await performEffect(oystehr, params);
+
+    expect(params.stripeAccount).toBe('acct_12');
+    expect(retrieve).toHaveBeenCalledWith('in_1', undefined, { stripeAccount: 'acct_12' });
+    expect(oystehr.fhir.search).toHaveBeenCalledWith({
+      resourceType: 'Organization',
+      params: [{ name: 'identifier', value: `${STRIPE_ACCOUNT_IDENTIFIER_SYSTEM}|acct_12` }],
+    });
+    expect(create.mock.calls[0][0].payee).toEqual({ reference: 'Organization/bp-12' });
+  });
+
+  it('rejects an event from a different account', () => {
+    (getStripeClient as Mock).mockReturnValue(stripe);
+    const input = signedInput(makeEvent('charge.succeeded', makeCharge(), 'acct_2'), 'whsec_12', webhookSecrets);
+
+    expect(() => validateRequestParameters(input)).toThrow(
+      expect.objectContaining(INVALID_INPUT_ERROR('Stripe webhook account does not match the configured account.'))
+    );
+  });
+
+  it.each(['acct_2', undefined])('rejects conflicting mappings across secret settings: %s', (accountId) => {
+    const input = signedInput(makeEvent('charge.succeeded', makeCharge()), 'whsec_12', {
+      ...webhookSecrets,
+      STRIPE_PLATFORM_WEBHOOK_SECRET: JSON.stringify([{ signingSecret: 'whsec_12', accountId }]),
+    });
+
+    expect(() => validateRequestParameters(input)).toThrow(
+      expect.objectContaining(
+        MISCONFIGURED_ENVIRONMENT_ERROR('A Stripe webhook signing secret is mapped to different accounts.')
+      )
+    );
+  });
+
+  it.each(['[', '[{}]'])('rejects invalid signing secret configuration: %s', (value) => {
+    const input = signedInput(makeEvent('charge.succeeded', makeCharge()), WEBHOOK_SECRET, {
+      STRIPE_WEBHOOK_SECRET: value,
+    });
+
+    expect(() => validateRequestParameters(input)).toThrow(
+      expect.objectContaining({ code: MISCONFIGURED_ENVIRONMENT_ERROR('').code })
+    );
+  });
 });
 
 describe('billing-stripe-webhook', () => {
@@ -201,7 +290,7 @@ describe('billing-stripe-webhook', () => {
     const { oystehr, create } = makeOystehr([]);
     (createBillingClient as Mock).mockReturnValue(oystehr);
     const input = {
-      ...signedInput(makeEvent('charge.succeeded', makeCharge())),
+      ...signedInput(makeEvent('invoice.paid', makeInvoice())),
       secrets: { ...secrets, BILLING_INTEGRATION: 'candid' },
     };
 
@@ -209,6 +298,7 @@ describe('billing-stripe-webhook', () => {
 
     expect(result.statusCode).toBe(200);
     expect(checkOrCreateM2MClientToken).not.toHaveBeenCalled();
+    expect(createClinicalOystehrClient).not.toHaveBeenCalled();
     expect(create).not.toHaveBeenCalled();
   });
 
@@ -336,6 +426,48 @@ describe('billing-stripe-webhook', () => {
     const notice = create.mock.calls[1][0];
     expect(notice.status).toBe('cancelled');
     expect(notice.contained[0].outcome).toBe('error');
+  });
+
+  it('updates refund state only on billing payment notices', async () => {
+    const retrieve = vi.fn().mockResolvedValue(makeCharge());
+    const refundsList = vi.fn().mockResolvedValue({
+      data: [{ id: 're_1', amount: 400, currency: 'usd', created: 1751990000, status: 'succeeded' }],
+    });
+    (getStripeClient as Mock).mockReturnValue({
+      charges: { retrieve },
+      refunds: { list: refundsList },
+    } as unknown as Stripe);
+    const billingNotice = {
+      resourceType: 'PaymentNotice',
+      id: 'pn-billing',
+      status: 'active',
+      identifier: [{ system: STRIPE_PAYMENT_ID_SYSTEM, value: 'ch_1' }],
+    } as PaymentNotice;
+    const { oystehr, patch } = makeOystehr([[claim], [claim]], [], [[billingNotice]]);
+    const refund = {
+      id: 're_1',
+      charge: 'ch_1',
+      amount: 400,
+      currency: 'usd',
+      created: 1751990000,
+      status: 'succeeded',
+    };
+
+    await performEffect(oystehr, { event: makeEvent('refund.created', refund), secrets });
+
+    expect(refundsList).toHaveBeenCalledWith({ charge: 'ch_1', limit: 100 }, { stripeAccount: undefined });
+    expect(patch).toHaveBeenCalledTimes(1);
+    expect(patch.mock.calls[0][0].id).toBe('pn-billing');
+    expect(createClinicalOystehrClient).not.toHaveBeenCalled();
+    expect(oystehr.fhir.search).toHaveBeenCalledWith({
+      resourceType: 'PaymentNotice',
+      params: [{ name: 'identifier', value: `${STRIPE_PAYMENT_ID_SYSTEM}|ch_1,${STRIPE_PAYMENT_ID_SYSTEM}|pi_1` }],
+    });
+    const extension = patch.mock.calls[0][0].operations[0].value.find((ext: { url: string }) =>
+      ext.url.endsWith('/payment-refunds')
+    );
+    expect(extension.extension[0].extension).toContainEqual({ url: 'refundId', valueString: 're_1' });
+    expect(extension.extension[0].extension).toContainEqual({ url: 'amountInCents', valueInteger: 400 });
   });
 });
 

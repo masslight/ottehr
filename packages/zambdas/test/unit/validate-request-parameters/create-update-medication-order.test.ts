@@ -145,6 +145,35 @@ describe('create-update-medication-order - validateRequestParameters', () => {
     expect(result.interactions?.allergyInteractions).toHaveLength(1);
   });
 
+  test('should normalize whitespace in overrideReason so it is a valid FHIR code', () => {
+    const input = createMockZambdaInput({
+      orderId: 'order-123',
+      newStatus: 'administered',
+      orderData: { ...fullOrderData, effectiveDateTime: '2024-01-01T10:00:00Z' },
+      interactions: {
+        drugInteractions: [{ drugs: [{ id: 'd1', name: 'Drug1' }], severity: 'high', overrideReason: 'reason ' }],
+        allergyInteractions: [{ message: 'Allergic', overrideReason: '  low \n  risk\t' }],
+      },
+    });
+    const result = validateRequestParameters(input);
+
+    expect(result.interactions?.drugInteractions[0].overrideReason).toBe('reason');
+    expect(result.interactions?.allergyInteractions[0].overrideReason).toBe('low risk');
+  });
+
+  test('should throw when overrideReason is whitespace only', () => {
+    const input = createMockZambdaInput({
+      orderId: 'order-123',
+      newStatus: 'administered',
+      orderData: { ...fullOrderData, effectiveDateTime: '2024-01-01T10:00:00Z' },
+      interactions: {
+        drugInteractions: [{ drugs: [{ id: 'd1', name: 'Drug1' }], severity: 'high', overrideReason: '   ' }],
+        allergyInteractions: [],
+      },
+    });
+    expect(() => validateRequestParameters(input)).toThrow('overrideReason');
+  });
+
   test('should allow body with no newStatus (passthrough)', () => {
     const input = createMockZambdaInput({
       orderId: 'order-123',

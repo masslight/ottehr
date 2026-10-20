@@ -1,10 +1,9 @@
 import { Box, FormControl, FormHelperText, InputLabel, MenuItem, Select, TextField } from '@mui/material';
 import { ReactElement } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
-import { InputMask } from 'ui-components/lib/components/InputMask';
-import { isPostalCodeValid } from 'utils/lib/helpers/helpers';
 import { AllStates, stateCodeToFullName } from 'utils/lib/types/common';
 import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils/lib/validation/constants';
+import { ZipInput } from './input/ZipInput';
 
 export function AddressFields({
   requireFullZip,
@@ -106,33 +105,11 @@ export function AddressFields({
             </FormControl>
           )}
         />
-        <Controller
+        <ZipInput
           name="zip"
-          control={control}
-          rules={{
-            required: required ? REQUIRED_FIELD_ERROR_MESSAGE : false,
-            validate: (value) =>
-              !value ||
-              isPostalCodeValid(value, requireFullZip) ||
-              `ZIP code must be 5 digits,${!requireFullZip ? ' optionally' : ''} with a 4-digit extension`,
-          }}
-          render={({ field, fieldState: { error: fieldError } }) => (
-            <TextField
-              label={required ? 'ZIP Code *' : 'ZIP Code'}
-              size="small"
-              fullWidth
-              value={field.value}
-              onChange={(e) => field.onChange(e.target.value)}
-              error={!!fieldError}
-              helperText={fieldError?.message}
-              InputProps={{
-                inputComponent: InputMask as any,
-                inputProps: {
-                  mask: '00000-0000',
-                },
-              }}
-            />
-          )}
+          label={required ? 'ZIP Code *' : 'ZIP Code'}
+          required={required}
+          requireFullZip={requireFullZip}
         />
       </Box>
     </>

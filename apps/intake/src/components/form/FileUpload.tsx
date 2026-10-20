@@ -2,7 +2,7 @@ import { Box, CircularProgress, Typography, useTheme } from '@mui/material';
 import { ChangeEvent, FC, useEffect, useState } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { FileUploadOptions } from 'src/types/file-upload-options';
-import { BoldPurpleInputLabel } from 'ui-components/lib/components/paperwork/form-components';
+import { BoldPurpleInputLabel } from 'ui-components/lib/components/paperwork/form-components/BoldPurpleInputLabel';
 import { safelyCaptureException } from 'utils/lib/frontend/sentry';
 import { MIME_TYPES, MimeType } from 'utils/lib/utils/file';
 import CardComponent from './CardComponent';

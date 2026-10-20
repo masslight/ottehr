@@ -210,16 +210,7 @@ const getPatientAndResourcesById = async (
   try {
     allResources = await getAllFhirSearchPages(fhirSearchParams, oystehr, 10);
   } catch (error: unknown) {
-    console.log(`Error fetching resources: ${error}`, JSON.stringify(error));
-    if (error instanceof Oystehr.OystehrSdkError && error.code === 4130) {
-      // if it fails because of the 6Mb limit, try splitting the request into more pages
-      try {
-        allResources = await getAllFhirSearchPages(fhirSearchParams, oystehr, 5);
-      } catch (error: unknown) {
-        console.log(`Error fetching resources: ${error}`, JSON.stringify(error));
-        return [];
-      }
-    }
+    console.log(`Error fetching resources, skipping patient ${patientId}: ${error}`, JSON.stringify(error));
     return [];
   }
 

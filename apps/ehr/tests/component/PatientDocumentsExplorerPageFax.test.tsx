@@ -10,11 +10,13 @@ const mockOpen = vi.fn();
 const mockSearchDocuments = vi.fn();
 
 // The fax slice owns sending; this page's job is to hand it the row the user picked.
-vi.mock('src/features/fax', () => ({
+vi.mock('src/features/fax/hooks/useSendFax', () => ({
   useSendFax: (source: unknown) => {
     mockUseSendFax(source);
     return { isOpen: false, open: mockOpen, close: vi.fn(), isSending: false, failures: [] };
   },
+}));
+vi.mock('src/features/fax/ui/SendFaxDialog', () => ({
   SendFaxDialog: ({ title }: { title?: string }) => <div data-testid="fax-dialog" data-title={title} />,
 }));
 vi.mock('../../src/hooks/useGetPatient', () => ({
@@ -24,6 +26,8 @@ vi.mock('../../src/hooks/useGetPatient', () => ({
   }),
 }));
 vi.mock('../../src/hooks/useGetPatientDocs', () => ({
+  hasVisitRef: (visit?: { encounterId?: string; appointmentId?: string }) =>
+    !!visit && (!!visit.encounterId || !!visit.appointmentId),
   useGetPatientDocs: () => ({
     documents: [],
     isLoadingDocuments: false,
@@ -40,7 +44,12 @@ vi.mock('../../src/hooks/useGetPatientDocs', () => ({
   }),
 }));
 vi.mock('../../src/hooks/usePatientVisitOptions', () => ({
-  usePatientVisitOptions: () => ({ visitOptions: [], isLoading: false, visitsByEncounterId: new Map() }),
+  usePatientVisitOptions: () => ({
+    visitOptions: [],
+    isLoading: false,
+    visitsByEncounterId: new Map(),
+    visitsByAppointmentId: new Map(),
+  }),
 }));
 vi.mock('../../src/state/patient.store', () => ({ usePatientStore: { setState: vi.fn() } }));
 vi.mock('src/features/visits/shared/components/patient/Header', () => ({ Header: () => <div /> }));

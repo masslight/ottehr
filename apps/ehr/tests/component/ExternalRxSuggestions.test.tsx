@@ -3,8 +3,10 @@ import { ReactNode } from 'react';
 import { BrowserRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-// Mock the hook
-vi.mock('src/features/visits/shared/hooks/useExternalMedicationHistory', () => ({
+// Mock the hook, but keep the module's real exports — the message constants live alongside it and the
+// component renders them, so a wholesale mock would render `undefined` for every empty/error state.
+vi.mock('src/features/visits/shared/hooks/useExternalMedicationHistory', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('src/features/visits/shared/hooks/useExternalMedicationHistory')>()),
   useExternalMedicationHistory: vi.fn(),
 }));
 
@@ -68,30 +70,37 @@ describe('ExternalRxSuggestions', () => {
     expect(screen.getByText(/loading external medication history/i)).toBeInTheDocument();
   });
 
-  it('shows not available state', () => {
+  // A failed request must never be reported as "no medications found" — that tells the user something
+  // false about their patient. This is the regression guard for the Clinician empty-state bug, where a
+  // swallowed 403 resolved to [] and rendered the empty state.
+  it('reports a failed request as unavailable, not as an empty medication list', () => {
     vi.mocked(useExternalMedicationHistory).mockReturnValue({
       isLoading: false,
       isAvailable: false,
       externalMedications: [],
-      error: null,
+      error: new Error('Internal server error'),
       isPermissionDenied: false,
     });
 
     render(<ExternalRxSuggestions chartedMedications={[]} />, { wrapper });
-    expect(screen.getByText(/not available/i)).toBeInTheDocument();
+    expect(screen.getByText(/couldn't load external medication history/i)).toBeInTheDocument();
+    expect(screen.queryByText(/no external medications found/i)).not.toBeInTheDocument();
   });
 
+  // The error carries an eRx-style internal code rather than 403, documenting that the component does
+  // not derive the flag itself — the hook does, and it may miss (see utils/erxErrors.ts).
   it('says why the history is unavailable when the role lacks access', () => {
     vi.mocked(useExternalMedicationHistory).mockReturnValue({
       isLoading: false,
       isAvailable: false,
       externalMedications: [],
-      error: Object.assign(new Error('Forbidden'), { code: 403 }),
+      error: Object.assign(new Error('Forbidden'), { name: 'OystehrSdkError', code: 4006 }),
       isPermissionDenied: true,
     });
 
     render(<ExternalRxSuggestions chartedMedications={[]} />, { wrapper });
     expect(screen.getByText(/your role does not have access to external medication history/i)).toBeInTheDocument();
+    expect(screen.queryByText(/no external medications found/i)).not.toBeInTheDocument();
   });
 
   it('shows empty state when all meds reconciled', () => {

@@ -1,16 +1,25 @@
 import Oystehr, { FhirResourceReturnValue } from '@oystehr/sdk';
 import { Claim, ClaimResponse, Coverage, Location, Organization, Patient, Practitioner, Resource } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { getClaimNonInsurancePayer } from 'utils/lib/fhir/billing';
 import { deduplicateUnbundledResources } from 'utils/lib/fhir/deduplicateUnbundledResources';
+import { getAllFhirSearchPages, searchPageWithSizeRetry } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { getPayerId, getPayerUrl } from 'utils/lib/helpers/helpers';
 import { CODE_SYSTEM_CLAIM_TYPE, CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM } from 'utils/lib/helpers/rcm/constants';
 import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
 import { SearchBillingClaimsInput } from 'utils/lib/types/data/billing/billing.schemas';
 import { BillingClaimItem } from 'utils/lib/types/data/billing/billing.types';
-import { CLAIM_STATUS_TAG_SYSTEMS, getClaimStatusValues } from 'utils/lib/types/data/billing/claim-status';
+import {
+  AR_STAGE,
+  AR_STAGE_NONE,
+  CLAIM_STATUS_TAG_SYSTEMS,
+  getClaimStatusValues,
+} from 'utils/lib/types/data/billing/claim-status';
+import { CLAIM_NON_INSURANCE_PAYER_TAG_SYSTEM } from 'utils/lib/types/data/billing/non-insurance-org.types';
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { isValidUUID } from 'utils/lib/validation/helper';
 import { fetchClaimResponsesByClaimIds, fetchPatientPaidByClaimId, summarizeClaimPayments } from './claim-amounts';
+import { resolvePayerIssuerFilter } from './custom-insurance-org.helpers';
 import {
   CLAIM_PCN_IDENTIFIER_SYSTEM,
   ClaimSearchParam,
@@ -21,6 +30,7 @@ import {
   getClaimStatus,
   getClaimType,
   patientSearchParam,
+  resolvedPayerId,
   resolveLinkedPatientIds,
   resolvePayersByRef,
   resourceDisplayName,
@@ -48,6 +58,61 @@ export const CLAIM_LIST_INCLUDE_PARAMS: ClaimSearchParam[] = [
   },
 ];
 
+// WARNING: this list must cover every field read from resources returned by the claim list search
+// bundle. If you access a new field on any of these resource types downstream (including via
+// mapClaimToItem's helpers or enrichAndMapClaims' follow-up fetches), you MUST add it here —
+// otherwise the server strips it via _elements and it arrives as undefined.
+export const CLAIM_LIST_ELEMENTS = [
+  'Claim.id',
+  'Claim.meta',
+  'Claim.status',
+  'Claim.type',
+  // fetchPatientPaidByClaimId keys the patient payment total off the claim-encounter-id identifier.
+  'Claim.identifier',
+  'Claim.created',
+  'Claim.total',
+  'Claim.patient',
+  'Claim.insurer',
+  'Claim.facility',
+  // Not mapped, but kept so the server can still resolve _include Claim:provider.
+  'Claim.provider',
+  'Claim.careTeam',
+  'Claim.insurance',
+  'Claim.item',
+  'Patient.id',
+  'Patient.name',
+  'Patient.birthDate',
+  'Location.id',
+  'Location.name',
+  'Practitioner.id',
+  'Practitioner.name',
+  'Organization.id',
+  'Organization.name',
+].join(',');
+
+export const COVERAGE_LIST_ELEMENTS = 'id,subscriberId';
+
+// The include + _elements pair every claim list read uses. Paired in one constant so a new list
+// query cannot pick up the includes and forget to narrow the fields they drag in.
+export const CLAIM_LIST_PARAMS: ClaimSearchParam[] = [
+  ...CLAIM_LIST_INCLUDE_PARAMS,
+  {
+    name: '_elements',
+    value: CLAIM_LIST_ELEMENTS,
+  },
+];
+
+// The status systems a status filter value can match in.
+const STATUS_FILTER_TAG_SYSTEMS = [
+  CLAIM_STATUS_TAG_SYSTEMS.insuranceArStatus,
+  CLAIM_STATUS_TAG_SYSTEMS.insurancePaidStatus,
+  CLAIM_STATUS_TAG_SYSTEMS.adjudicationStatus,
+  CLAIM_STATUS_TAG_SYSTEMS.patientArStatus,
+  CLAIM_STATUS_TAG_SYSTEMS.patientPaidStatus,
+  CLAIM_STATUS_TAG_SYSTEMS.nonInsuranceArStatus,
+  CLAIM_STATUS_TAG_SYSTEMS.nonInsurancePaidStatus,
+];
+
 export type ClaimFilterInput = Pick<
   SearchBillingClaimsInput,
   | 'type'
@@ -55,10 +120,12 @@ export type ClaimFilterInput = Pick<
   | 'arStage'
   | 'createdFrom'
   | 'createdTo'
+  | 'updatedBefore'
   | 'patientId'
   | 'service'
   | 'payerId'
   | 'payerName'
+  | 'nonInsurancePayerId'
   | 'tag'
 >;
 
@@ -72,8 +139,11 @@ export async function buildClaimFilterParams({
   sort?: string;
 }): Promise<ClaimSearchParam[]> {
   let insurerFilter: string | undefined;
-  if (params.payerId) {
-    insurerFilter = getPayerUrl(params.payerId);
+  if (params.payerId?.length) {
+    // A business-id-shaped payerId ("OTR-...") names a custom insurance organization rather than an
+    // RCM payer — see resolvePayerIssuerFilter.
+    const issuers = await Promise.all(params.payerId.map((payerId) => resolvePayerIssuerFilter(oystehr, payerId)));
+    insurerFilter = [...new Set(issuers)].join(',');
   } else if (params.payerName) {
     const result = await oystehr.rcm.listPayers({
       name: params.payerName,
@@ -91,22 +161,41 @@ export async function buildClaimFilterParams({
     },
   ];
 
-  if (params.type)
+  // Values within one _tag param are ORed; separate _tag params AND together.
+  const pushTagFilter = (system: string, codes: string[] | undefined): void => {
+    if (!codes?.length) return;
     filterParams.push({
       name: '_tag',
-      value: `${CODE_SYSTEM_CLAIM_TYPE}|${params.type}`,
+      value: codes.map((code) => `${system}|${code}`).join(','),
     });
-  if (params.status) {
+  };
+
+  pushTagFilter(CODE_SYSTEM_CLAIM_TYPE, params.type);
+  if (params.status?.length) {
+    const statuses = params.status;
     filterParams.push({
       name: '_tag',
-      value: `${CLAIM_STATUS_TAG_SYSTEMS.insuranceArStatus}|${params.status},${CLAIM_STATUS_TAG_SYSTEMS.insurancePaidStatus}|${params.status},${CLAIM_STATUS_TAG_SYSTEMS.adjudicationStatus}|${params.status},${CLAIM_STATUS_TAG_SYSTEMS.patientArStatus}|${params.status},${CLAIM_STATUS_TAG_SYSTEMS.patientPaidStatus}|${params.status},${CLAIM_STATUS_TAG_SYSTEMS.nonInsuranceArStatus}|${params.status},${CLAIM_STATUS_TAG_SYSTEMS.nonInsurancePaidStatus}|${params.status}`,
+      value: STATUS_FILTER_TAG_SYSTEMS.flatMap((system) => statuses.map((status) => `${system}|${status}`)).join(','),
     });
   }
-  if (params.arStage)
-    filterParams.push({
-      name: '_tag',
-      value: `${CLAIM_STATUS_TAG_SYSTEMS.arStage}|${params.arStage}`,
-    });
+  if (params.arStage?.length) {
+    const stages = params.arStage.filter((stage) => stage !== AR_STAGE_NONE);
+    if (params.arStage.includes(AR_STAGE_NONE)) {
+      // "no AR stage" = no stage tag at all, which can't be ORed with a stage tag. A claim carries at
+      // most one stage, so "none or any of the chosen stages" is "none of the other stages"; :not
+      // params AND together.
+      Object.values(AR_STAGE)
+        .filter((code) => !stages.includes(code))
+        .forEach((code) =>
+          filterParams.push({
+            name: '_tag:not',
+            value: `${CLAIM_STATUS_TAG_SYSTEMS.arStage}|${code}`,
+          })
+        );
+    } else {
+      pushTagFilter(CLAIM_STATUS_TAG_SYSTEMS.arStage, stages);
+    }
+  }
   if (params.createdFrom)
     filterParams.push({
       name: 'created',
@@ -117,30 +206,30 @@ export async function buildClaimFilterParams({
       name: 'created',
       value: `le${params.createdTo}`,
     });
-  if (params.patientId)
-    filterParams.push(
-      patientSearchParam(
-        await resolveLinkedPatientIds({
+  if (params.updatedBefore)
+    filterParams.push({
+      name: '_lastUpdated',
+      value: `le${params.updatedBefore}`,
+    });
+  if (params.patientId?.length) {
+    const linkedPatientIds = await Promise.all(
+      params.patientId.map((patientId) =>
+        resolveLinkedPatientIds({
           oystehr,
-          patientId: params.patientId,
+          patientId,
         })
       )
     );
-  if (params.service)
-    filterParams.push({
-      name: '_tag',
-      value: `${CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM}|${params.service}`,
-    });
+    filterParams.push(patientSearchParam([...new Set(linkedPatientIds.flat())]));
+  }
+  pushTagFilter(CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM, params.service);
   if (insurerFilter)
     filterParams.push({
       name: 'insurer',
       value: insurerFilter,
     });
-  if (params.tag)
-    filterParams.push({
-      name: '_tag',
-      value: `${CLAIM_TAG_SYSTEM}|${params.tag}`,
-    });
+  pushTagFilter(CLAIM_TAG_SYSTEM, params.tag);
+  pushTagFilter(CLAIM_NON_INSURANCE_PAYER_TAG_SYSTEM, params.nonInsurancePayerId);
 
   return filterParams;
 }
@@ -163,6 +252,11 @@ export const claimMatchesServiceDateRange = (claim: Claim, from?: string, to?: s
 
 export const CLAIM_SEARCH_TEXT_MATCH_LIMIT = 1000;
 export const CLAIM_SEARCH_TEXT_CONCURRENCY = 4;
+
+export const claimScanElements = (withServiceDate: boolean): ClaimSearchParam => ({
+  name: '_elements',
+  value: withServiceDate ? 'id,meta,created,item' : 'id,meta',
+});
 
 export function buildClaimSearchTextQueries({
   searchText,
@@ -250,6 +344,65 @@ const claimLastUpdated = (claim: Claim): number => {
 const unionClaimsNewestFirst = (claims: FhirResourceReturnValue<Claim>[]): FhirResourceReturnValue<Claim>[] =>
   deduplicateUnbundledResources(claims).sort((a, b) => claimLastUpdated(b) - claimLastUpdated(a));
 
+export const CLAIM_SCAN_PAGE_SIZE = 1000;
+
+/**
+ * Resolve the claims one query matches, as ids and the few fields an in-memory filter needs — never
+ * the full resource and never the includes, both of which belong to the page hydration. Pages until
+ * the query is drained or `maxMatches` is reached, shrinking the page when the server refuses the
+ * response size, and reports whether the server had more matches than it collected.
+ */
+export async function scanClaimIds({
+  oystehr,
+  params,
+  maxMatches,
+  withServiceDate,
+}: {
+  oystehr: Oystehr;
+  params: ClaimSearchParam[];
+  maxMatches: number;
+  withServiceDate: boolean;
+}): Promise<{ claims: FhirResourceReturnValue<Claim>[]; incomplete: boolean }> {
+  const searchParams = {
+    resourceType: 'Claim' as const,
+    params: [...params, claimScanElements(withServiceDate)],
+  };
+
+  const claims: FhirResourceReturnValue<Claim>[] = [];
+  const scanned = new Set<string>();
+  let pageSize = CLAIM_SCAN_PAGE_SIZE;
+  let serverTotal: number | undefined;
+
+  while (scanned.size < maxMatches) {
+    const requested = Math.min(pageSize, maxMatches - scanned.size);
+    const page = await searchPageWithSizeRetry<Claim>(oystehr, searchParams, {
+      offset: claims.length,
+      count: requested,
+    });
+    if (page.count < requested) pageSize = page.count;
+
+    serverTotal = page.bundle.total ?? serverTotal;
+    const matched = page.bundle
+      .unbundle()
+      .filter((claim): claim is FhirResourceReturnValue<Claim> => claim.resourceType === 'Claim' && !!claim.id);
+    const newlyScanned = matched.filter((claim) => !scanned.has(claim.id));
+    claims.push(...matched);
+    matched.forEach((claim) => scanned.add(claim.id));
+
+    if (matched.length === 0 || newlyScanned.length === 0) break;
+    if (serverTotal === undefined) {
+      if (matched.length < requested) break;
+    } else if (scanned.size >= serverTotal) {
+      break;
+    }
+  }
+
+  return {
+    claims: deduplicateUnbundledResources(claims),
+    incomplete: serverTotal === undefined ? scanned.size >= maxMatches : serverTotal > scanned.size,
+  };
+}
+
 export const describeClaimSearchClause = (clause: ClaimSearchParam[]): string =>
   clause
     .map(({ name, value }) => {
@@ -271,23 +424,6 @@ export async function searchClaimsBySearchText({
   withServiceDateElements: boolean;
   patientNameOnly?: boolean;
 }): Promise<{ claims: FhirResourceReturnValue<Claim>[]; incomplete: boolean }> {
-  const pageParams: ClaimSearchParam[] = [
-    {
-      name: '_elements',
-      // getClaimServiceDate reads item and created, and Claim has no service-date search parameter,
-      // so that filter has to run in memory over these ids.
-      value: withServiceDateElements ? 'id,meta,created,item' : 'id,meta',
-    },
-    {
-      name: '_count',
-      value: String(CLAIM_SEARCH_TEXT_MATCH_LIMIT),
-    },
-    {
-      name: '_total',
-      value: 'accurate',
-    },
-  ];
-
   const clauses = buildClaimSearchTextQueries({ searchText, patientNameOnly });
 
   const claims: FhirResourceReturnValue<Claim>[] = [];
@@ -296,12 +432,14 @@ export async function searchClaimsBySearchText({
   let lastFailure: unknown;
   for (let start = 0; start < clauses.length; start += CLAIM_SEARCH_TEXT_CONCURRENCY) {
     const chunk = clauses.slice(start, start + CLAIM_SEARCH_TEXT_CONCURRENCY);
-    const bundles = await Promise.all(
+    const scans = await Promise.all(
       chunk.map(async (clause) => {
         try {
-          return await oystehr.fhir.search<Claim>({
-            resourceType: 'Claim',
-            params: [...filterParams, ...clause, ...pageParams],
+          return await scanClaimIds({
+            oystehr,
+            params: [...filterParams, ...clause],
+            maxMatches: CLAIM_SEARCH_TEXT_MATCH_LIMIT,
+            withServiceDate: withServiceDateElements,
           });
         } catch (error) {
           // One clause the server won't accept shouldn't empty the search, but it must be loud.
@@ -313,12 +451,12 @@ export async function searchClaimsBySearchText({
       })
     );
 
-    bundles.forEach((bundle, index) => {
-      if (!bundle) return;
+    scans.forEach((scan, index) => {
+      if (!scan) return;
       const clause = describeClaimSearchClause(chunk[index]);
-      console.debug(`claim search clause matched ${bundle.total ?? 'unknown'}: ${clause}`);
-      if ((bundle.total ?? 0) > CLAIM_SEARCH_TEXT_MATCH_LIMIT) truncatedClauses.push(clause);
-      claims.push(...bundle.unbundle().filter((claim): claim is FhirResourceReturnValue<Claim> => !!claim.id));
+      console.debug(`claim search clause matched ${scan.claims.length}: ${clause}`);
+      if (scan.incomplete) truncatedClauses.push(clause);
+      claims.push(...scan.claims);
     });
   }
 
@@ -358,7 +496,7 @@ export async function fetchClaimsPageByIds({
         name: '_id',
         value: claimIds.join(','),
       },
-      ...CLAIM_LIST_INCLUDE_PARAMS,
+      ...CLAIM_LIST_PARAMS,
       {
         name: '_count',
         value: String(claimIds.length),
@@ -406,16 +544,23 @@ export async function enrichAndMapClaims({
 
   let coverages: Coverage[] = [];
   if (uniqueCoverageIds.length > 0) {
-    const covResult = await oystehr.fhir.search<Coverage>({
-      resourceType: 'Coverage',
-      params: [
-        {
-          name: '_id',
-          value: uniqueCoverageIds.join(','),
-        },
-      ],
-    });
-    coverages = covResult.unbundle();
+    coverages = await getAllFhirSearchPages<Coverage>(
+      {
+        resourceType: 'Coverage',
+        params: [
+          {
+            name: '_id',
+            value: uniqueCoverageIds.join(','),
+          },
+          {
+            name: '_elements',
+            value: COVERAGE_LIST_ELEMENTS,
+          },
+        ],
+      },
+      oystehr,
+      uniqueCoverageIds.length
+    );
   }
 
   const [payersByRef, claimResponsesByClaimId, patientPaidByClaimId] = await Promise.all([
@@ -481,7 +626,8 @@ export function mapClaimToItem(claim: Claim, lookups: ClaimLookups): BillingClai
     patientName,
     patientDob: patient?.birthDate ?? '',
     payerName: insurer?.name ?? '',
-    payerId: getPayerId(insurer) ?? '',
+    nonInsurancePayerName: getClaimNonInsurancePayer(claim)?.display ?? '',
+    payerId: resolvedPayerId(insurer) ?? '',
     memberId: coverage?.subscriberId ?? '',
     service: getClaimService(claim),
     serviceDate,

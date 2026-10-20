@@ -70,7 +70,7 @@ const composeVisitDetailsData: DataComposer<VisitDetailsInput, VisitDetailsData>
     emergencyContactResource,
     attorneyRelatedPerson,
     employerOrganization,
-    occupationalMedicineEmployerOrganization,
+    occupationalMedicineEmployerName,
     appointment,
     encounter,
     location,
@@ -105,7 +105,7 @@ const composeVisitDetailsData: DataComposer<VisitDetailsInput, VisitDetailsData>
       workersCompCoverage: coverages.workersComp,
       insuranceOrgs,
     }),
-    omEmployer: composeOccupationalMedicineEmployerData({ employer: occupationalMedicineEmployerOrganization }),
+    omEmployer: composeOccupationalMedicineEmployerData({ employerName: occupationalMedicineEmployerName }),
     paymentHistory: composePatientPaymentsData({ payments }),
   };
 };

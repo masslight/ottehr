@@ -2,7 +2,11 @@ import Oystehr from '@oystehr/sdk';
 import { Appointment, Bundle, Coding, Flag, Patient, Resource } from 'fhir/r4b';
 import { diff, IChange } from 'json-diff-ts';
 import { DateTime } from 'luxon';
-import { CRITICAL_CHANGE_SYSTEM, getCriticalUpdateTagOp, STATUS_UPDATE_TAG_SYSTEM } from 'utils/lib/fhir/helpers';
+import {
+  CRITICAL_CHANGE_SYSTEM,
+  FOLLOWUP_CONVERSION_TAG_SYSTEM,
+  STATUS_UPDATE_TAG_SYSTEM,
+} from 'utils/lib/fhir/helpers';
 import { getFullName } from 'utils/lib/fhir/patient';
 import { formatPhoneNumberDisplay } from 'utils/lib/helpers/helpers';
 import { GetVisitFaxHistoryOutput } from 'utils/lib/types/api/visit-details/visit-details.types';
@@ -21,6 +25,7 @@ export enum ActivityName {
   paperworkStarted = 'Paperwork started',
   statusChange = 'Status Update',
   faxSent = 'Fax Sent',
+  convertedToFollowUp = 'Converted to Follow-up',
 }
 export interface ActivityLogData {
   activityDateTimeISO: string | undefined;
@@ -185,6 +190,15 @@ export const formatActivityLogs = ({
             };
             logs.push(movedToNextLog);
           }
+          const convertedToFollowUp = tagChanges.find((change) => change.key === FOLLOWUP_CONVERSION_TAG_SYSTEM);
+          if (convertedToFollowUp) {
+            logs.push({
+              activityName: ActivityName.convertedToFollowUp,
+              activityDateTimeISO: curApptHistory.meta?.lastUpdated,
+              activityDateTime: formatActivityDateTime(curApptHistory.meta?.lastUpdated || '', timezone),
+              activityBy: activityBy ? activityBy : 'n/a',
+            });
+          }
           const statusUpdate = tagChanges.find((change) => change.key === STATUS_UPDATE_TAG_SYSTEM); // todo update to const
           if (statusUpdate) {
             const statusUpdateLog: ActivityLogData = {
@@ -328,5 +342,3 @@ export const formatNotesHistory = (timezone: string, appointmentHistory: Appoint
   }
   return notes;
 };
-
-export { CRITICAL_CHANGE_SYSTEM, getCriticalUpdateTagOp };

@@ -393,4 +393,87 @@ describe('Schema20250925 generate()', () => {
       );
     });
   });
+
+  describe('committed config', () => {
+    const CONFIG_DIRS = ['config/oystehr', 'config/oystehr-core'];
+
+    const repoRoot = path.resolve(__dirname, '..', '..', '..');
+
+    async function readSpecFiles(dir: string): Promise<{ path: string; spec: any }[]> {
+      const absDir = path.join(repoRoot, dir);
+      const entries = await fs.readdir(absDir);
+      const specs: { path: string; spec: any }[] = [];
+      for (const entry of entries.filter((e) => e.endsWith('.json')).sort()) {
+        const abs = path.join(absDir, entry);
+        specs.push({ path: path.join(dir, entry), spec: JSON.parse(await fs.readFile(abs, 'utf-8')) });
+      }
+      return specs;
+    }
+
+    it.each(CONFIG_DIRS)('loads %s without duplicate resource keys', async (dir) => {
+      const specs = await readSpecFiles(dir);
+      expect(specs.length).toBeGreaterThan(0);
+      expect(() => new Schema20250925(specs, {}, tmpDir, '/zambdas')).not.toThrow();
+    });
+
+    it('loads all config dirs together without duplicate resource keys', async () => {
+      const specs = (await Promise.all(CONFIG_DIRS.map(readSpecFiles))).flat();
+      expect(() => new Schema20250925(specs, {}, tmpDir, '/zambdas')).not.toThrow();
+    });
+
+    it('suffixes every archived canonical resource key with a version', async () => {
+      const specs = await readSpecFiles('config/oystehr');
+      const offenders: string[] = [];
+      for (const { path: specPath, spec } of specs.filter((s) => s.path.includes('-archive.'))) {
+        for (const [key, entry] of Object.entries<any>(spec.fhirResources ?? {})) {
+          if (!entry?.resource?.version) continue;
+          if (!/-\d+_\d+_\d+$/.test(key)) {
+            offenders.push(`${specPath}: archived key "${key}" has no -<major>_<minor>_<patch> suffix`);
+          }
+        }
+      }
+      expect(offenders).toEqual([]);
+    });
+  });
+
+  describe('apps', () => {
+    it('exposes resolved app inputs as a local and keeps depends_on on the resource', async () => {
+      const spec = {
+        path: 'apps.json',
+        spec: {
+          'schema-version': '2025-09-25',
+          project: { PROJECT: { name: 'Project' } },
+          apps: {
+            APP: {
+              name: 'App',
+              loginRedirectUri: '#{var/APP_URL}',
+              allowedCallbackUrls: ['#{var/APP_URL}', 'https://extra.example.com'],
+            },
+          },
+        },
+      };
+      await new Schema20250925([spec], { APP_URL: 'https://app.example.com' }, tmpDir, '/zambdas').generate();
+
+      const apps = JSON.parse(await fs.readFile(path.join(tmpDir, 'apps.tf.json'), 'utf8'));
+      const { depends_on, ...resource } = apps.resource.oystehr_application.APP;
+      expect(depends_on).toEqual(['oystehr_project_configuration.PROJECT']);
+      expect(apps.locals.oystehr_application_APP_config).toEqual(resource);
+      expect(resource).toMatchObject({
+        login_redirect_uri: 'https://app.example.com',
+        allowed_callback_urls: ['https://app.example.com', 'https://extra.example.com'],
+      });
+
+      const project = JSON.parse(await fs.readFile(path.join(tmpDir, 'project.tf.json'), 'utf8'));
+      expect(project).not.toHaveProperty('locals');
+    });
+
+    it('removes apps.tf.json and its locals when the apps are removed', async () => {
+      const spec = { path: 'apps.json', spec: { 'schema-version': '2025-09-25', apps: { APP: { name: 'App' } } } };
+      await new Schema20250925([spec], {}, tmpDir, '/zambdas').generate();
+      expect(await fs.readdir(tmpDir)).toContain('apps.tf.json');
+
+      await new Schema20250925([], {}, tmpDir, '/zambdas').generate();
+      expect(await fs.readdir(tmpDir)).not.toContain('apps.tf.json');
+    });
+  });
 });

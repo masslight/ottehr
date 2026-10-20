@@ -2,6 +2,7 @@ import Oystehr, { User } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {
   Appointment,
+  DocumentReference,
   Encounter,
   HealthcareService,
   Location,
@@ -21,7 +22,12 @@ import {
 } from 'utils/lib/helpers/paperwork/paperwork';
 import { Secrets } from 'utils/lib/secrets';
 import { HealthcareServiceWithLocationContext } from 'utils/lib/types/data/paperwork.types';
-import { PaperworkSupportingInfo, UCGetPaperworkResponse } from 'utils/lib/types/data/paperwork/paperwork.types';
+import { PATIENT_PHOTO_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
+import {
+  PaperworkSupportingInfo,
+  PatientConditionPhoto,
+  UCGetPaperworkResponse,
+} from 'utils/lib/types/data/paperwork/paperwork.types';
 import {
   APPOINTMENT_NOT_FOUND_ERROR,
   DOB_UNCONFIRMED_ERROR,
@@ -34,6 +40,38 @@ import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
 import { formatPatientSexForPaperwork, getPaperworkSupportingInfoForUserWithAccess } from '../sharedHelpers';
 import { validateRequestParameters } from './validateRequestParameters';
+
+const getPatientConditionPhotos = async (
+  oystehr: Oystehr,
+  patientID: string,
+  appointmentID: string
+): Promise<PatientConditionPhoto[]> => {
+  try {
+    const docRefs = (
+      await oystehr.fhir.search<DocumentReference>({
+        resourceType: 'DocumentReference',
+        params: [
+          { name: 'status', value: 'current' },
+          { name: 'subject', value: `Patient/${patientID}` },
+          { name: 'type', value: PATIENT_PHOTO_CODE },
+          { name: 'related', value: `Appointment/${appointmentID}` },
+        ],
+      })
+    ).unbundle();
+
+    return docRefs.flatMap(
+      (docRef) =>
+        docRef.content?.flatMap((content) => {
+          const url = content.attachment?.url;
+          if (!url) return [];
+          return [{ documentReferenceId: docRef.id, url, title: content.attachment?.title }];
+        }) ?? []
+    );
+  } catch (e) {
+    console.error('error fetching patient condition photos', JSON.stringify(e));
+    return [];
+  }
+};
 
 export interface GetPaperworkInput {
   appointmentID: string;
@@ -255,6 +293,8 @@ export const index = wrapHandler('get-paperwork', async (input: ZambdaInput): Pr
     console.log('building get paperwork response');
     const updateTimestamp = getLastUpdateTimestampForResource(questionnaireResponseResource);
 
+    const patientConditionPhotos = await getPatientConditionPhotos(oystehr, fhirPatient.id, appointment.id ?? '');
+
     // console.log('qrResponse item', JSON.stringify(questionnaireResponseResource.item));
 
     const response: UCGetPaperworkResponse = {
@@ -270,6 +310,7 @@ export const index = wrapHandler('get-paperwork', async (input: ZambdaInput): Pr
       },
       allItems,
       questionnaireResponse: questionnaireResponseResource,
+      patientConditionPhotos,
     };
     // console.log('returning response: ', JSON.stringify(response));
     return {

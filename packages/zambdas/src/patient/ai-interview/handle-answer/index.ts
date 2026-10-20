@@ -22,13 +22,20 @@ interface Input extends HandleAnswerInput {
 }
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  console.log(`Input: ${JSON.stringify(input)}`);
+  const startedAt = Date.now();
+  const logStep = (step: string): void => console.log(`[${ZAMBDA_NAME}] ${step} done at ${Date.now() - startedAt}ms`);
+
   const { questionnaireResponseId, linkId, answer, secrets } = validateInput(input);
+  console.log(`[${ZAMBDA_NAME}] start questionnaireResponseId=${questionnaireResponseId} linkId=${linkId}`);
+
   const oystehr = await createOystehr(secrets);
+  logStep('oystehr client setup');
+
   const questionnaireResponse = await oystehr.fhir.get<QuestionnaireResponse>({
     resourceType: 'QuestionnaireResponse',
     id: questionnaireResponseId,
   });
+  logStep('QuestionnaireResponse fetch');
   if (questionnaireResponse.status === 'completed') {
     throw QUESTIONNAIRE_RESPONSE_INVALID_CUSTOM_ERROR('QuestionnaireResponse is already completed.');
   }
@@ -44,8 +51,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   if (chatbotInput == null || chatbotInput.length === 0) {
     throw new Error(`Invalid chatbot input "${chatbotInput}"`);
   }
-  console.log(`chatbotInput: ${JSON.stringify(chatbotInput)}`);
+
   const chatbotResponse = (await invokeChatbot(chatbotInput, secrets)).content.toString();
+  logStep('chatbot call');
+
   (questionnaireResponse.contained?.[0] as Questionnaire).item?.push({
     linkId: (parseInt(linkId) + 1).toString(),
     text: chatbotResponse,
@@ -54,9 +63,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   if (chatbotResponse.includes(INTERVIEW_COMPLETED)) {
     questionnaireResponse.status = 'completed';
   }
+  const updated = await oystehr.fhir.update(questionnaireResponse);
+  logStep('QuestionnaireResponse update');
+
   return {
     statusCode: 200,
-    body: JSON.stringify(await oystehr.fhir.update(questionnaireResponse)),
+    body: JSON.stringify(updated),
   };
 });
 

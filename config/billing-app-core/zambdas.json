@@ -190,6 +190,13 @@
       "src": "src/billing/export-billing-claim-x12/index",
       "zip": ".dist/zips/export-billing-claim-x12.zip"
     },
+    "GET-BILLING-CLAIM-CMS1500": {
+      "name": "get-billing-claim-cms1500",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/get-billing-claim-cms1500/index",
+      "zip": ".dist/zips/get-billing-claim-cms1500.zip"
+    },
     "GET-BILLING-PATIENT-DETAIL": {
       "name": "get-billing-patient-detail",
       "type": "http_auth",
@@ -274,6 +281,13 @@
       "src": "src/billing/run-billing-rules-engine/index",
       "zip": ".dist/zips/run-billing-rules-engine.zip"
     },
+    "GET-BILLING-REPORT": {
+      "name": "get-billing-report",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/reports/get-billing-report/index",
+      "zip": ".dist/zips/get-billing-report.zip"
+    },
     "TAG-BILLING-CLAIM": {
       "name": "tag-billing-claim",
       "type": "http_auth",
@@ -315,6 +329,34 @@
       "runtime": "nodejs22.x",
       "src": "src/billing/delete-billing-provider/index",
       "zip": ".dist/zips/delete-billing-provider.zip"
+    },
+    "CREATE-BILLING-CLAIM-TASK": {
+      "name": "create-billing-claim-task",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/create-billing-claim-task/index",
+      "zip": ".dist/zips/create-billing-claim-task.zip"
+    },
+    "SEARCH-BILLING-CLAIM-TASKS": {
+      "name": "search-billing-claim-tasks",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/search-billing-claim-tasks/index",
+      "zip": ".dist/zips/search-billing-claim-tasks.zip"
+    },
+    "UPDATE-BILLING-CLAIM-TASK": {
+      "name": "update-billing-claim-task",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/update-billing-claim-task/index",
+      "zip": ".dist/zips/update-billing-claim-task.zip"
+    },
+    "SUB-BILLING-CLAIM-TASK": {
+      "name": "sub-billing-claim-task",
+      "type": "subscription",
+      "runtime": "nodejs22.x",
+      "src": "src/subscriptions/task/sub-billing-claim-task/index",
+      "zip": ".dist/zips/sub-billing-claim-task.zip"
     },
     "CREATE-BILLING-CLAIM-FROM-ENCOUNTER": {
       "name": "create-billing-claim-from-encounter",
@@ -390,6 +432,90 @@
       "src": "src/billing/record-billing-manual-payment/index",
       "zip": ".dist/zips/record-billing-manual-payment.zip"
     },
+    "RECORD-BILLING-REFUND": {
+      "name": "record-billing-refund",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/record-billing-refund/index",
+      "zip": ".dist/zips/record-billing-refund.zip"
+    },
+    "RECORD-BILLING-VOID": {
+      "name": "record-billing-void",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/record-billing-void/index",
+      "zip": ".dist/zips/record-billing-void.zip"
+    },
+    "CREATE-BILLING-NON-INSURANCE-ORG": {
+      "name": "create-billing-non-insurance-org",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/create-billing-non-insurance-org/index",
+      "zip": ".dist/zips/create-billing-non-insurance-org.zip"
+    },
+    "UPDATE-BILLING-NON-INSURANCE-ORG": {
+      "name": "update-billing-non-insurance-org",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/update-billing-non-insurance-org/index",
+      "zip": ".dist/zips/update-billing-non-insurance-org.zip"
+    },
+    "SEARCH-BILLING-NON-INSURANCE-ORGS": {
+      "name": "search-billing-non-insurance-orgs",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/search-billing-non-insurance-orgs/index",
+      "zip": ".dist/zips/search-billing-non-insurance-orgs.zip"
+    },
+    "DELETE-BILLING-NON-INSURANCE-ORG": {
+      "name": "delete-billing-non-insurance-org",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/delete-billing-non-insurance-org/index",
+      "zip": ".dist/zips/delete-billing-non-insurance-org.zip"
+    },
+    "LIST-NON-INSURANCE-ORGANIZATIONS": {
+      "name": "list-non-insurance-organizations",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/list-non-insurance-organizations/index",
+      "zip": ".dist/zips/list-non-insurance-organizations.zip"
+    },
+    "CREATE-BILLING-CUSTOM-INSURANCE-ORG": {
+      "name": "create-billing-custom-insurance-org",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/create-billing-custom-insurance-org/index",
+      "zip": ".dist/zips/create-billing-custom-insurance-org.zip"
+    },
+    "UPDATE-BILLING-CUSTOM-INSURANCE-ORG": {
+      "name": "update-billing-custom-insurance-org",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/update-billing-custom-insurance-org/index",
+      "zip": ".dist/zips/update-billing-custom-insurance-org.zip"
+    },
+    "SEARCH-BILLING-CUSTOM-INSURANCE-ORGS": {
+      "name": "search-billing-custom-insurance-orgs",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/search-billing-custom-insurance-orgs/index",
+      "zip": ".dist/zips/search-billing-custom-insurance-orgs.zip"
+    },
+    "DELETE-BILLING-CUSTOM-INSURANCE-ORG": {
+      "name": "delete-billing-custom-insurance-org",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/delete-billing-custom-insurance-org/index",
+      "zip": ".dist/zips/delete-billing-custom-insurance-org.zip"
+    },
+    "LIST-CUSTOM-INSURANCE-ORGANIZATIONS": {
+      "name": "list-custom-insurance-organizations",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/list-custom-insurance-organizations/index",
+      "zip": ".dist/zips/list-custom-insurance-organizations.zip"
+    },
     "SUB-RULES-ENGINE": {
       "name": "sub-rules-engine",
       "type": "subscription",
@@ -413,6 +539,14 @@
       "src": "src/subscriptions/task/sub-export-billing-claims-csv/index",
       "zip": ".dist/zips/sub-export-billing-claims-csv.zip"
     },
+    "SUB-REFRESH-BILLING-REPORT": {
+      "name": "sub-refresh-billing-report",
+      "type": "subscription",
+      "timeout": "870",
+      "runtime": "nodejs22.x",
+      "src": "src/subscriptions/task/sub-refresh-billing-report/index",
+      "zip": ".dist/zips/sub-refresh-billing-report.zip"
+    },
     "CLEANUP-BILLING-CLAIM-EXPORTS": {
       "name": "cleanup-billing-claim-exports",
       "type": "cron",
@@ -423,15 +557,114 @@
         "expression": "cron(*/30 * * * ? *)"
       }
     },
-    "SUB-CLAIM-RESPONSE-ADJUST-STATUS": {
-      "name": "sub-claim-response-adjust-status",
+    "SUB-CLAIM-STATUS-RESPONSE": {
+      "name": "sub-claim-status-response",
       "type": "subscription",
       "runtime": "nodejs22.x",
-      "src": "src/subscriptions/claim-response/sub-claim-response-adjust-status/index",
-      "zip": ".dist/zips/sub-claim-response-adjust-status.zip"
+      "src": "src/subscriptions/claim-response/sub-claim-status-response/index",
+      "zip": ".dist/zips/sub-claim-status-response.zip"
+    },
+    "SUB-CLAIM-RESPONSE-UPDATE-CLAIM-FROM-ERA": {
+      "name": "sub-claim-response-update-claim-from-era",
+      "type": "subscription",
+      "runtime": "nodejs22.x",
+      "src": "src/subscriptions/claim-response/sub-claim-response-update-claim-from-era/index",
+      "zip": ".dist/zips/sub-claim-response-update-claim-from-era.zip"
+    },
+    "ADD-CLAIM-ATTACHMENT": {
+      "name": "add-claim-attachment",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/add-claim-attachment/index",
+      "zip": ".dist/zips/add-claim-attachment.zip"
+    },
+    "RENAME-CLAIM-ATTACHMENT": {
+      "name": "rename-claim-attachment",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/rename-claim-attachment/index",
+      "zip": ".dist/zips/rename-claim-attachment.zip"
+    },
+    "DELETE-CLAIM-ATTACHMENT": {
+      "name": "delete-claim-attachment",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/delete-claim-attachment/index",
+      "zip": ".dist/zips/delete-claim-attachment.zip"
+    },
+    "DOWNLOAD-CLAIM-ATTACHMENT": {
+      "name": "download-claim-attachment",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/download-claim-attachment/index",
+      "zip": ".dist/zips/download-claim-attachment.zip"
+    },
+    "CREATE-TIMELY-FILING-REPORT": {
+      "name": "create-timely-filing-report",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/create-timely-filing-report/index",
+      "zip": ".dist/zips/create-timely-filing-report.zip"
+    },
+    "SAVE-BILLING-MANUAL-ERA": {
+      "name": "save-billing-manual-era",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/save-billing-manual-era/index",
+      "zip": ".dist/zips/save-billing-manual-era.zip"
+    },
+    "ADD-ERA-ATTACHMENT": {
+      "name": "add-era-attachment",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/add-era-attachment/index",
+      "zip": ".dist/zips/add-era-attachment.zip"
+    },
+    "RENAME-ERA-ATTACHMENT": {
+      "name": "rename-era-attachment",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/rename-era-attachment/index",
+      "zip": ".dist/zips/rename-era-attachment.zip"
+    },
+    "DELETE-ERA-ATTACHMENT": {
+      "name": "delete-era-attachment",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/delete-era-attachment/index",
+      "zip": ".dist/zips/delete-era-attachment.zip"
+    },
+    "DOWNLOAD-ERA-ATTACHMENT": {
+      "name": "download-era-attachment",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/download-era-attachment/index",
+      "zip": ".dist/zips/download-era-attachment.zip"
     }
   },
   "fhirResources": {
+    "SUB_BILLING_CLAIM_TASK_SUBSCRIPTION": {
+      "resource": {
+        "resourceType": "Subscription",
+        "status": "active",
+        "reason": "Create billing claims from signed encounters, including retried tasks",
+        "criteria": "Task?code=https://fhir.ottehr.com/billing/task|billing-claim&status=requested",
+        "channel": {
+          "type": "rest-hook",
+          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-BILLING-CLAIM-TASK/id}"
+        },
+        "extension": [
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "create"
+          },
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "update"
+          }
+        ]
+      }
+    },
     "SUB_EXPORT_BILLING_CLAIMS_CSV_SUBSCRIPTION": {
       "resource": {
         "resourceType": "Subscription",
@@ -441,6 +674,24 @@
         "channel": {
           "type": "rest-hook",
           "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-EXPORT-BILLING-CLAIMS-CSV/id}"
+        },
+        "extension": [
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "create"
+          }
+        ]
+      }
+    },
+    "SUB_REFRESH_BILLING_REPORT_SUBSCRIPTION": {
+      "resource": {
+        "resourceType": "Subscription",
+        "status": "active",
+        "reason": "Recompute a heavy billing report cache asynchronously",
+        "criteria": "Task?code=https://fhir.ottehr.com/CodeSystem/export-task|refresh-billing-report&status=requested",
+        "channel": {
+          "type": "rest-hook",
+          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-REFRESH-BILLING-REPORT/id}"
         },
         "extension": [
           {
@@ -522,15 +773,33 @@
         ]
       }
     },
-    "SUB_CLAIM_RESPONSE_ADJUST_STATUS": {
+    "SUB_CLAIM_STATUS_RESPONSE": {
       "resource": {
         "resourceType": "Subscription",
         "status": "active",
-        "reason": "Adjust Claim status on ERA match",
-        "criteria": "ClaimResponse?_tag=https://fhir.ottehr.com/billing/resource-type|billing-resource&outcome=complete&request.status=active",
+        "reason": "Process claim-status responses for billing",
+        "criteria": "ClaimResponse?_tag=https://tags.fhir.oystehr.com/rcm-claim-response-type|status-update",
         "channel": {
           "type": "rest-hook",
-          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-CLAIM-RESPONSE-ADJUST-STATUS/id}"
+          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-CLAIM-STATUS-RESPONSE/id}"
+        },
+        "extension": [
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "create"
+          }
+        ]
+      }
+    },
+    "SUB_CLAIM_RESPONSE_UPDATE_CLAIM_FROM_ERA": {
+      "resource": {
+        "resourceType": "Subscription",
+        "status": "active",
+        "reason": "Adjust Claim properties on ERA match",
+        "criteria": "ClaimResponse?_tag=https://fhir.ottehr.com/billing/resource-type|billing-resource&_tag=https://tags.fhir.oystehr.com/rcm-claim-response-type|era&request.status=active",
+        "channel": {
+          "type": "rest-hook",
+          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-CLAIM-RESPONSE-UPDATE-CLAIM-FROM-ERA/id}"
         },
         "extension": [
           {

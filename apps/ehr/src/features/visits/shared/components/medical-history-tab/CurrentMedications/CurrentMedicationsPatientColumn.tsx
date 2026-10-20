@@ -7,7 +7,8 @@ import { getQuestionnaireResponseByLinkId } from 'utils/lib/helpers/paperwork/pa
 import { AiObservationField } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import { MedicationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { ObservationTextFieldDTO } from 'utils/lib/types/data/screening-questions/types';
-import { useAppointmentData, useChartData } from '../../../stores/appointment/appointment.store';
+import { useChartData } from '../../../hooks/useChartData';
+import { useAppointmentData } from '../../../stores/appointment/appointment.store';
 import { ExternalMedicationSelection, ExternalRxSuggestions } from './ExternalRxSuggestions';
 
 interface CurrentMedicationsPatientColumnProps {

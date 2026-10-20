@@ -25,6 +25,7 @@ import { useIsInlineFlow } from 'src/components/InlineFlow';
 import { UnsavedDraftWarning } from 'src/components/UnsavedDraftWarning';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import DetailPageContainer from 'src/features/common/DetailPageContainer';
+import { useChartData } from 'src/features/visits/shared/hooks/useChartData';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { useMainEncounterChartData } from 'src/features/visits/shared/hooks/useMainEncounterChartData';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
@@ -32,15 +33,11 @@ import {
   useGetCreateExternalLabResources,
   useICD10SearchNew,
 } from 'src/features/visits/shared/stores/appointment/appointment.queries';
-import {
-  useAppointmentData,
-  useChartData,
-  useSaveChartData,
-} from 'src/features/visits/shared/stores/appointment/appointment.store';
+import { useAppointmentData, useSaveChartData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
-import { CPTCodeOption } from 'utils';
 import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
 import { DiagnosisDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { CPTCodeOption } from 'utils/lib/types/common';
 import {
   HL7_NOTE_CHAR_LIMIT,
   LAB_PAYMENT_METHOD_DISPLAY,

@@ -1,8 +1,10 @@
-import Oystehr, { BatchInputDeleteRequest, FhirSearchParams } from '@oystehr/sdk';
+import Oystehr, { BatchInputDeleteRequest, BatchInputGetRequest, FhirSearchParams } from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
 import {
   Appointment,
   Coding,
+  DocumentReference,
+  Encounter,
   FhirResource,
   HealthcareService,
   Observation,
@@ -13,7 +15,7 @@ import {
 } from 'fhir/r4b';
 import { chunkThings } from '../fhir/chat';
 import { getAllFhirSearchPages } from '../fhir/getAllFhirSearchPages';
-import { sleep } from '../helpers/helpers';
+import { removePrefix, sleep } from '../helpers/helpers';
 
 export const cleanAppointmentGraph = async (tag: Coding, oystehr: Oystehr): Promise<boolean> => {
   const allResources = await getAppointmentGraphByTag(oystehr, tag);
@@ -467,6 +469,83 @@ export const cleanupIntegrationTestLocations = async (oystehr: Oystehr): Promise
  */
 export const INTEGRATION_TEST_TAG_SYSTEM = 'OTTEHR_AUTOMATED_TEST';
 
+/**
+ * Removes DocumentReferences left behind by integration tests, and the objects they point at.
+ *
+ * Anchored on the tag rather than on a patient, which the appointment sweep above cannot be. Two kinds of
+ * document need collecting and only one of them has a subject: a prefilled or returned form belongs to a
+ * patient, but a form *template* is project-level, so nothing reachable from an appointment graph leads to
+ * it. Both are written by zambdas rather than by the test, so the test stamps the tag on afterwards.
+ *
+ * The age filter is what makes this safe to run against a shared environment: a document a test is still
+ * working with is minutes old, so only abandoned ones are in range.
+ */
+export const cleanupIntegrationTestDocumentReferences = async (
+  oystehr: Oystehr,
+  /** Used to delete the stored bytes. Only ever sent to a URL under `z3BaseUrl`. */
+  token: string,
+  /** `{PROJECT_API}/z3/{PROJECT_ID}-`. Anything not under it is left alone — see below. */
+  z3BaseUrl: string
+): Promise<void> => {
+  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+
+  const documents = await getAllFhirSearchPages<DocumentReference>(
+    {
+      resourceType: 'DocumentReference',
+      params: [
+        { name: '_tag', value: `${INTEGRATION_TEST_TAG_SYSTEM}|` },
+        { name: '_lastUpdated', value: `lt${oneHourAgo}` },
+      ],
+    },
+    oystehr
+  );
+
+  if (documents.length === 0) {
+    console.log('No integration test DocumentReferences found to clean up');
+    return;
+  }
+
+  console.log(`Found ${documents.length} integration test DocumentReferences to clean up`);
+
+  // The stored bytes go first: once the reference is gone, nothing records where they were, and an
+  // orphaned object in a PHI bucket is the thing this sweep exists to prevent.
+  //
+  // Only objects belonging to this project. A test can legitimately record a DocumentReference pointing
+  // somewhere else entirely — one existing test uses `https://example.com/...` — and a DELETE carries the
+  // M2M token, so an unchecked URL here would hand that token to whatever host a test happened to name.
+  for (const doc of documents) {
+    for (const attachmentUrl of (doc.content ?? []).map((entry) => entry.attachment?.url)) {
+      if (!attachmentUrl || !attachmentUrl.startsWith(z3BaseUrl)) continue;
+      try {
+        const response = await fetch(attachmentUrl, {
+          method: 'DELETE',
+          headers: { authorization: `Bearer ${token}` },
+        });
+        // 404 means someone already removed it, which is the outcome this wanted.
+        if (!response.ok && response.status !== 404) {
+          console.log(`Could not delete ${attachmentUrl}: ${response.status} ${response.statusText}`);
+        }
+      } catch (e) {
+        console.log(`Could not delete ${attachmentUrl}: ${e}`);
+      }
+    }
+  }
+
+  const deleteRequests: BatchInputDeleteRequest[] = documents
+    .filter((doc) => doc.id)
+    .map((doc) => ({ method: 'DELETE', url: `DocumentReference/${doc.id}` }));
+
+  for (const chunk of chunkThings(deleteRequests, 100)) {
+    try {
+      await oystehr.fhir.transaction({ requests: [...chunk] });
+    } catch (e) {
+      // One bad chunk should not stop the rest; the next run will retry whatever survived.
+      console.log(`Error deleting integration test DocumentReferences: ${e}`);
+    }
+    await sleep(250);
+  }
+};
+
 export const cleanupIntegrationTestAppointments = async (oystehr: Oystehr): Promise<void> => {
   const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
 
@@ -728,4 +807,111 @@ export const cleanupIntegrationTestQuestionnaires = async (oystehr: Oystehr): Pr
   } catch (e) {
     console.log(`Error deleting integration test Questionnaires: ${e}`, JSON.stringify(e));
   }
+};
+
+const ORPHANED_ENCOUNTER_PAGE_SIZE = 500;
+const ORPHANED_ENCOUNTER_BATCH_SIZE = 100;
+const ORPHANED_ENCOUNTER_CONCURRENT_BATCHES = 5;
+
+const findDeletedPatientIds = async (oystehr: Oystehr, patientIds: string[]): Promise<Set<string>> => {
+  const deletedPatientIds = new Set<string>();
+  const chunks = chunkThings(patientIds, ORPHANED_ENCOUNTER_BATCH_SIZE);
+  for (const group of chunkThings(chunks, ORPHANED_ENCOUNTER_CONCURRENT_BATCHES)) {
+    await Promise.all(
+      group.map(async (chunk) => {
+        try {
+          const requests: BatchInputGetRequest[] = chunk.map((id) => ({ method: 'GET', url: `Patient/${id}` }));
+          const result = await oystehr.fhir.batch<Patient>({ requests });
+          result.entry?.forEach((entry, index) => {
+            if (entry.response?.status?.startsWith('410')) deletedPatientIds.add(chunk[index]);
+          });
+        } catch (e) {
+          console.log(`Error checking whether Patients were deleted: ${e}`, JSON.stringify(e));
+        }
+      })
+    );
+  }
+  return deletedPatientIds;
+};
+
+export const cleanupOrphanedInProgressEncounters = async (oystehr: Oystehr, deadline: number): Promise<void> => {
+  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+  let offset = 0;
+  let scannedEncounters = 0;
+  let deletedEncounters = 0;
+  let slowestPageMs = 0;
+  let finished = false;
+
+  while (Date.now() + slowestPageMs < deadline) {
+    const pageStartedAt = Date.now();
+    const resources = (
+      await oystehr.fhir.search<Encounter | Patient>({
+        resourceType: 'Encounter',
+        params: [
+          { name: 'status', value: 'in-progress' },
+          { name: '_lastUpdated', value: `lt${oneHourAgo}` },
+          { name: '_sort', value: '_lastUpdated,_id' },
+          { name: '_count', value: `${ORPHANED_ENCOUNTER_PAGE_SIZE}` },
+          { name: '_offset', value: `${offset}` },
+          { name: '_include', value: 'Encounter:patient' },
+        ],
+      })
+    ).unbundle();
+
+    const encounters = resources.filter((resource): resource is Encounter => resource.resourceType === 'Encounter');
+    if (encounters.length === 0) {
+      finished = true;
+      break;
+    }
+    scannedEncounters += encounters.length;
+
+    const livePatientIds = new Set(
+      resources.filter((resource) => resource.resourceType === 'Patient').map((resource) => resource.id)
+    );
+    const candidatePatientIds = [
+      ...new Set(
+        encounters
+          .map((encounter) => removePrefix('Patient/', encounter.subject?.reference ?? ''))
+          .filter((id): id is string => id !== undefined && !livePatientIds.has(id))
+      ),
+    ];
+    const deletedPatientIds = await findDeletedPatientIds(oystehr, candidatePatientIds);
+
+    const orphanedEncounterUrls = encounters
+      .filter((encounter) => deletedPatientIds.has(removePrefix('Patient/', encounter.subject?.reference ?? '') ?? ''))
+      .map((encounter) => `Encounter/${encounter.id}`);
+
+    let pageDeletedEncounters = 0;
+    const chunks = chunkThings(orphanedEncounterUrls, ORPHANED_ENCOUNTER_BATCH_SIZE);
+    for (const group of chunkThings(chunks, ORPHANED_ENCOUNTER_CONCURRENT_BATCHES)) {
+      if (Date.now() >= deadline) break;
+      await Promise.all(
+        group.map(async (chunk) => {
+          try {
+            const requests: BatchInputDeleteRequest[] = chunk.map((url) => ({ method: 'DELETE', url }));
+            const result = await oystehr.fhir.batch({ requests });
+            pageDeletedEncounters +=
+              result.entry?.filter((entry) => entry.response?.status?.startsWith('2')).length ?? 0;
+          } catch (e) {
+            console.log(`Error deleting orphaned Encounters: ${e}`, JSON.stringify(e));
+          }
+        })
+      );
+      await sleep(250);
+    }
+
+    deletedEncounters += pageDeletedEncounters;
+    offset += encounters.length - pageDeletedEncounters;
+    slowestPageMs = Math.max(slowestPageMs, Date.now() - pageStartedAt);
+    if (encounters.length < ORPHANED_ENCOUNTER_PAGE_SIZE) {
+      finished = true;
+      break;
+    }
+  }
+
+  console.log(
+    `Orphaned in-progress Encounter cleanup: scanned ${scannedEncounters} Encounters, deleted ${deletedEncounters}${
+      finished ? '' : ', stopped at the time budget'
+    }`
+  );
 };

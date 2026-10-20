@@ -21,8 +21,12 @@ resource "terraform_data" "ehr_upload" {
   triggers_replace = [
     var.ehr_hash,
   ]
+  # The sync leaves index.html with no Cache-Control, so browsers apply heuristic freshness and
+  # keep serving a stale copy after a deploy — one that names hashed chunks `--delete` just
+  # removed. Re-upload index.html alone with an explicit header. It must be a separate `cp`:
+  # putting --cache-control on the sync would mark the content-hashed assets no-cache too.
   provisioner "local-exec" {
-    command = "aws s3 sync ${path.module}/../../../apps/ehr/build s3://${var.ehr_bucket_id} --profile ${var.aws_profile} --delete --exact-timestamps"
+    command = "aws s3 sync ${path.module}/../../../apps/ehr/build s3://${var.ehr_bucket_id} --profile ${var.aws_profile} --delete --exact-timestamps && aws s3 cp ${path.module}/../../../apps/ehr/build/index.html s3://${var.ehr_bucket_id}/index.html --profile ${var.aws_profile} --cache-control 'no-cache, must-revalidate' --content-type 'text/html'"
   }
 
   # TODO: Uncomment when upgraded to TF 1.14
@@ -58,8 +62,9 @@ resource "terraform_data" "patient_portal_upload" {
   triggers_replace = [
     var.patient_portal_hash,
   ]
+  # See the note on ehr_upload: index.html must not be cached, the hashed assets must stay cached.
   provisioner "local-exec" {
-    command = "aws s3 sync ${path.module}/../../../apps/intake/build s3://${var.patient_portal_bucket_id} --profile ${var.aws_profile} --delete --exact-timestamps"
+    command = "aws s3 sync ${path.module}/../../../apps/intake/build s3://${var.patient_portal_bucket_id} --profile ${var.aws_profile} --delete --exact-timestamps && aws s3 cp ${path.module}/../../../apps/intake/build/index.html s3://${var.patient_portal_bucket_id}/index.html --profile ${var.aws_profile} --cache-control 'no-cache, must-revalidate' --content-type 'text/html'"
   }
 
   # TODO: Uncomment when upgraded to TF 1.14

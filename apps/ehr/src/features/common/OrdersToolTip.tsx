@@ -1,11 +1,13 @@
-import { Box, Divider, Stack, Typography } from '@mui/material';
+import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
+import { Box, Divider, IconButton, Stack, Typography } from '@mui/material';
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { OrderToolTipConfig } from 'utils/lib/types/data/orders/types';
 
 export const OrdersToolTip: React.FC<{
   orderConfigs: OrderToolTipConfig[];
 }> = ({ orderConfigs }) => {
+  const navigate = useNavigate();
   return (
     <Stack
       sx={{
@@ -27,30 +29,37 @@ export const OrdersToolTip: React.FC<{
     >
       {orderConfigs.map((config) => (
         <Stack spacing={1} key={`tooltip-orders-container-${config.title}`}>
-          <Box display="flex" alignItems="center">
-            <Box
-              sx={{
-                width: '32px',
-                height: '32px',
-                backgroundColor: '#E3F2FD',
-                borderRadius: '50%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                marginRight: '8px',
-              }}
-            >
-              {config.icon}
+          <Stack direction="row" alignItems="center" justifyContent="space-between">
+            <Box display="flex" alignItems="center">
+              <Box
+                sx={{
+                  width: '32px',
+                  height: '32px',
+                  backgroundColor: '#E3F2FD',
+                  borderRadius: '50%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginRight: '8px',
+                }}
+              >
+                {config.icon}
+              </Box>
+              <Box>
+                <Typography variant="body2" sx={{ fontWeight: '500 !important' }}>
+                  {config.title}
+                </Typography>
+                <Typography variant="caption">
+                  {config.orders.length} order{config.orders.length > 1 ? 's' : ''}
+                </Typography>
+              </Box>
             </Box>
-            <Box>
-              <Typography variant="body2" sx={{ fontWeight: '500 !important' }}>
-                {config.title}
-              </Typography>
-              <Typography variant="caption">
-                {config.orders.length} order{config.orders.length > 1 ? 's' : ''}
-              </Typography>
-            </Box>
-          </Box>
+            {config.includeTableNavButton && (
+              <IconButton size="small" onClick={() => navigate(config.tableUrl)} aria-label="Close">
+                <ArrowForwardIcon color="primary" fontSize="small" />
+              </IconButton>
+            )}
+          </Stack>
           {config.orders.map((order) => (
             <Link
               key={`tooltip-test-item${order.fhirResourceId}`}

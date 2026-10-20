@@ -3,12 +3,14 @@ import { Encounter } from 'fhir/r4b';
 import { describe, expect, it, vi } from 'vitest';
 import { FHIR_ENCOUNTER_ERX_PATIENT_SYNC_TAG } from './constants';
 import {
+  buildFollowupEncounterType,
   EncounterVisitType,
   FOLLOWUP_SUBTYPE_SYSTEM,
   FOLLOWUP_SYSTEMS,
   getEncounterDateTime,
   getEncounterVisitType,
   getFollowupSubtype,
+  getInitialEncounterIdForFollowUp,
   isAnnotationFollowupEncounter,
   isEncounterErxSynced,
   isFollowupEncounter,
@@ -182,6 +184,72 @@ describe('Encounter follow-up helpers', () => {
       expect(getEncounterVisitType(makeEncounter({ type: makeFollowupType() }))).toBe(
         'follow-up' as EncounterVisitType
       );
+    });
+  });
+
+  describe('buildFollowupEncounterType', () => {
+    it('produces a type the follow-up predicates recognize as scheduled', () => {
+      const encounter = makeEncounter({ type: buildFollowupEncounterType('scheduled') });
+      expect(isFollowupEncounter(encounter)).toBe(true);
+      expect(isScheduledFollowupEncounter(encounter)).toBe(true);
+      expect(isAnnotationFollowupEncounter(encounter)).toBe(false);
+      expect(getEncounterVisitType(encounter)).toBe('scheduled-follow-up' as EncounterVisitType);
+    });
+
+    it('produces a type the follow-up predicates recognize as annotation', () => {
+      const encounter = makeEncounter({ type: buildFollowupEncounterType('annotation') });
+      expect(isFollowupEncounter(encounter)).toBe(true);
+      expect(isScheduledFollowupEncounter(encounter)).toBe(false);
+      expect(isAnnotationFollowupEncounter(encounter)).toBe(true);
+    });
+
+    it('carries the SNOMED follow-up coding and the subtype coding, with text defaulted', () => {
+      const [type] = buildFollowupEncounterType('scheduled')!;
+      expect(type.text).toBe('Follow-up Encounter');
+      expect(type.coding).toEqual([
+        {
+          system: FOLLOWUP_SYSTEMS.type.url,
+          code: FOLLOWUP_SYSTEMS.type.code,
+          display: 'Follow-up Encounter',
+        },
+        { system: FOLLOWUP_SUBTYPE_SYSTEM, code: 'scheduled', display: 'scheduled' },
+      ]);
+    });
+
+    // The shape written by an in-place conversion must be indistinguishable from the one
+    // create-appointment writes when a scheduled follow-up is booked outright.
+    it('matches the hand-built follow-up type used across the codebase', () => {
+      expect(buildFollowupEncounterType('scheduled')).toEqual(makeFollowupType('scheduled'));
+      expect(buildFollowupEncounterType('annotation')).toEqual(makeFollowupType('annotation'));
+    });
+  });
+
+  describe('getInitialEncounterIdForFollowUp', () => {
+    it('returns undefined without an encounter', () => {
+      expect(getInitialEncounterIdForFollowUp(undefined)).toBeUndefined();
+    });
+
+    it('returns the encounter itself for a main visit', () => {
+      expect(getInitialEncounterIdForFollowUp(makeEncounter({ id: 'main-1' }))).toBe('main-1');
+    });
+
+    it('returns the parent encounter for an annotation follow-up', () => {
+      const encounter = makeEncounter({
+        id: 'annotation-1',
+        type: makeFollowupType('annotation'),
+        partOf: { reference: 'Encounter/main-1' },
+      });
+      expect(getInitialEncounterIdForFollowUp(encounter)).toBe('main-1');
+    });
+
+    it('returns the parent encounter for a scheduled follow-up', () => {
+      const encounter = makeEncounter({
+        id: 'scheduled-1',
+        type: makeFollowupType('scheduled'),
+        partOf: { reference: 'Encounter/main-1' },
+        appointment: [{ reference: 'Appointment/followup-appt' }],
+      });
+      expect(getInitialEncounterIdForFollowUp(encounter)).toBe('main-1');
     });
   });
 });

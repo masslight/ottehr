@@ -1,4 +1,4 @@
-import { BillingClaimsExportStatusResponse } from 'utils';
+import { BillingClaimsExportStatusResponse } from 'utils/lib/types/data/billing/billing.types';
 import { describe, expect, it, vi } from 'vitest';
 import { pollExportTask } from '../../src/utils/pollExportTask';
 

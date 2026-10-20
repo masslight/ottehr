@@ -1,17 +1,17 @@
 import { Box, Typography } from '@mui/material';
 import { Appointment } from 'fhir/r4b';
 import { FC } from 'react';
-import { getQuestionnaireResponseByLinkId } from 'utils/lib/helpers/paperwork/paperwork-response';
 import {
   formatScreeningQuestionValue,
-  shouldDisplayScreeningQuestion,
+  getPaperworkScreeningAnswer,
 } from 'utils/lib/helpers/screening-questions/screening-questions-formatting.helper';
 import { patientScreeningQuestionsConfig } from 'utils/lib/ottehr-config/screening-questions';
 import {
   PATIENT_INFO_META_DATA_RETURNING_PATIENT_CODE,
   PATIENT_INFO_META_DATA_SYSTEM,
 } from 'utils/lib/types/constants';
-import { ChartDataResponse, useAppointmentData, useChartData } from '../../stores/appointment/appointment.store';
+import { useChartData } from '../../hooks/useChartData';
+import { ChartDataResponse, useAppointmentData } from '../../stores/appointment/appointment.store';
 import { AdditionalQuestionView } from '../medical-history-tab/components/AdditionalQuestionRow';
 
 export function getReturningPatient(
@@ -38,22 +38,16 @@ export const AdditionalQuestionsPatientColumn: FC = () => {
     fhirField === 'seen-in-last-three-years' || fhirField === 'seen-in-last-3-years';
 
   const getQuestionnaireAnswer = (fhirField: string): string | null => {
-    const response = getQuestionnaireResponseByLinkId(fhirField, questionnaireResponse);
-    const stringAnswer = response?.answer?.[0]?.valueString;
+    const paperworkAnswer = getPaperworkScreeningAnswer(fhirField, questionnaireResponse);
 
     // special case for "Have you been seen" question: use booking form answer if present,
     // otherwise derive from returning-patient tag or previous visits
-    if (isSeenInLastThreeYearsField(fhirField)) {
-      if (shouldDisplayScreeningQuestion(stringAnswer)) {
-        return formatScreeningQuestionValue(fhirField, stringAnswer);
-      }
+    if (isSeenInLastThreeYearsField(fhirField) && paperworkAnswer === null) {
       const answer = getReturningPatient(chartData, appointment);
       return formatScreeningQuestionValue(fhirField, answer);
     }
 
-    if (!shouldDisplayScreeningQuestion(stringAnswer)) return null;
-
-    return formatScreeningQuestionValue(fhirField, stringAnswer);
+    return paperworkAnswer;
   };
 
   const renderQuestionAnswer = (field: any): React.ReactElement => {

@@ -6,6 +6,7 @@ import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils/lib/validation/constants';
 type Props = {
   name: string;
   label: string;
+  placeholder?: string;
   type?: 'text' | 'number';
   loading?: boolean;
   required?: boolean;
@@ -19,6 +20,7 @@ type Props = {
 export const TextInput: React.FC<Props> = ({
   name,
   label,
+  placeholder,
   type,
   loading,
   required,
@@ -43,7 +45,7 @@ export const TextInput: React.FC<Props> = ({
           <TextField
             value={field.value}
             label={label + (required ? '*' : '')}
-            placeholder={label}
+            placeholder={placeholder ?? label}
             type={type ?? 'text'}
             error={error != null}
             onChange={(data) => field.onChange(data)}

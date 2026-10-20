@@ -58,6 +58,25 @@ const changeEntry: ClaimHistoryEntry = {
   ],
 };
 
+const acknowledgmentEntry: ClaimHistoryEntry = {
+  id: 'prov-ack',
+  recorded: '2026-08-06T12:47:00.000Z',
+  activity: 'Acknowledgment',
+  actor: {
+    display: 'Ottehr System',
+    type: 'system',
+  },
+  changes: [],
+  acknowledgment: {
+    source: 'claimmd',
+    entityName: 'CIGNA',
+    entityKind: 'payer',
+    message: 'Code 20 - Accepted for processing.',
+    responseId: 'id:9001',
+    eventTime: '2026-08-06T12:47:00.000Z',
+  },
+};
+
 function renderDrawer(onNoteAdded = vi.fn()): { onNoteAdded: ReturnType<typeof vi.fn> } {
   render(<ClaimNotesDrawer open onClose={() => {}} claimId="claim-1" onNoteAdded={onNoteAdded} />);
   return { onNoteAdded };
@@ -73,12 +92,14 @@ describe('ClaimNotesDrawer', () => {
   });
 
   it('lists only the note entries from the claim history', async () => {
-    getBillingClaimHistoryMock.mockResolvedValue({ entries: [noteEntry, changeEntry] });
+    getBillingClaimHistoryMock.mockResolvedValue({ entries: [noteEntry, changeEntry, acknowledgmentEntry] });
     renderDrawer();
 
     expect(await screen.findByText(noteEntry.message!)).toBeInTheDocument();
     expect(screen.getByText('Jane Doe')).toBeInTheDocument();
     expect(screen.queryByText('Member ID:')).not.toBeInTheDocument();
+    // Acknowledgments are reported by the payer, not authored by a biller, so they stay out of notes.
+    expect(screen.queryByText(acknowledgmentEntry.acknowledgment!.message)).not.toBeInTheDocument();
   });
 
   it('tells the user when the claim has no notes', async () => {

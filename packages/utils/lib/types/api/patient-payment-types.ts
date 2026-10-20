@@ -1,3 +1,56 @@
+export interface PaymentRefundDTO {
+  stripeRefundId: string;
+  amountInCents: number;
+  dateISO: string;
+  status?: string;
+  reason?: string;
+  notes?: string;
+  refundedBy?: string; // display name of the logged-in user who issued the refund
+  medium?: PaymentRefundMedium; // how the money was returned when the refund happened outside Stripe
+  operationKey?: string; // EHR operation key stamped in Stripe refund metadata; ties refunds to reservations
+}
+
+// how an externally issued refund was returned to the patient
+export const PAYMENT_REFUND_MEDIUMS = ['external-card-reader', 'cash', 'check', 'other'] as const;
+export type PaymentRefundMedium = (typeof PAYMENT_REFUND_MEDIUMS)[number];
+
+export const PAYMENT_REFUND_VOID_REASONS = [
+  'Entered in error',
+  'Service not provided',
+  'Duplicate charge',
+  'Overcharge',
+  'Other',
+] as const;
+export type PaymentRefundVoidReason = (typeof PAYMENT_REFUND_VOID_REASONS)[number];
+
+export interface RefundPatientPaymentInput {
+  encounterId: string;
+  paymentNoticeId: string;
+  reason: PaymentRefundVoidReason;
+  notes?: string;
+  amountInCents?: number; // defaults to the full remaining (un-refunded) amount
+  external?: boolean; // record a refund issued outside Stripe instead of creating a Stripe refund
+  medium?: PaymentRefundMedium; // required when external
+  idempotencyKey?: string; // UUID stable across retries of the same refund attempt
+}
+
+export interface RefundPatientPaymentResponse {
+  refundId: string;
+  amountInCents: number;
+}
+
+export interface VoidPatientPaymentInput {
+  encounterId: string;
+  paymentNoticeId: string;
+  reason: PaymentRefundVoidReason;
+  notes?: string;
+}
+
+export interface VoidPatientPaymentResponse {
+  paymentNoticeId: string;
+  voidedBillingNoticeCount: number;
+}
+
 export interface CardPaymentDTO {
   paymentMethod: 'card';
   amountInCents: number;
@@ -8,6 +61,13 @@ export interface CardPaymentDTO {
   stripePaymentMethodId: string | undefined; // this can be undefined for a brief period while it is being processed, but we have all we need to render the payment in FHIR
   stripePaymentId: string | undefined; // this can be undefined for a brief period while it is being processed, but we have all we need to render the payment in FHIR
   description?: string;
+  takenBy?: string; // display name of the logged-in user who took the payment
+  refundedAmountInCents?: number; // settled (non-failed) refund total
+  refunds?: PaymentRefundDTO[];
+  voided?: boolean;
+  voidReason?: string;
+  voidNotes?: string;
+  voidedBy?: string; // display name of the logged-in user who voided the payment
 }
 
 export interface CashPaymentDTO {
@@ -18,6 +78,13 @@ export interface CashPaymentDTO {
   cardBrand?: string;
   cardLast4?: string;
   description?: string;
+  takenBy?: string; // display name of the logged-in user who took the payment
+  refundedAmountInCents?: number; // settled (non-failed) refund total
+  refunds?: PaymentRefundDTO[];
+  voided?: boolean;
+  voidReason?: string;
+  voidNotes?: string;
+  voidedBy?: string; // display name of the logged-in user who voided the payment
 }
 
 export type PatientPaymentDTO = CardPaymentDTO | CashPaymentDTO;

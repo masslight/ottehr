@@ -1,123 +1,105 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { ReactNode } from 'react';
-import { BrowserRouter } from 'react-router-dom';
+import { Patient } from 'fhir/r4b';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import AddPatientFollowup from '../../src/features/visits/shared/components/patient/AddPatientFollowup';
+
+let locationState: unknown = undefined;
 
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual('react-router-dom');
   return {
     ...actual,
-    useParams: vi.fn().mockReturnValue({ id: 'test-patient-123' }),
-    useNavigate: vi.fn().mockReturnValue(vi.fn()),
-    useLocation: vi.fn().mockReturnValue({ state: null, pathname: '', search: '', hash: '', key: '' }),
+    useParams: () => ({ id: 'pat-1' }),
+    useLocation: () => ({ state: locationState }),
   };
 });
 
+const patient: Patient = {
+  resourceType: 'Patient',
+  id: 'pat-1',
+  name: [{ given: ['Test'], family: 'Patient' }],
+};
+
 vi.mock('../../src/hooks/useGetPatient', () => ({
-  useGetPatient: () => ({
-    patient: {
-      resourceType: 'Patient',
-      id: 'test-patient-123',
-      name: [{ given: ['Test'], family: 'Patient' }],
-      birthDate: '1990-01-01',
-      gender: 'male',
-    },
-  }),
-}));
-
-// Mock the child form components to avoid deep dependency issues
-vi.mock('../../src/features/visits/shared/components/patient/PatientFollowupForm', () => ({
-  default: () => <div data-testid="annotation-form">Annotation Form</div>,
-}));
-
-vi.mock('../../src/features/visits/shared/components/patient/ScheduledFollowupParentSelector', () => ({
-  default: () => <div data-testid="scheduled-form">Scheduled Form</div>,
+  useGetPatient: () => ({ patient, person: undefined }),
 }));
 
 vi.mock('../../src/layout/PageContainer', () => ({
-  default: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  default: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
 
 vi.mock('../../src/components/CustomBreadcrumbs', () => ({
-  default: () => <div data-testid="breadcrumbs">Breadcrumbs</div>,
+  default: () => <nav data-testid="breadcrumbs" />,
+}));
+
+vi.mock('../../src/features/visits/shared/components/patient/PatientFollowupForm', () => ({
+  default: () => <div data-testid="annotation-form" />,
+}));
+
+vi.mock('../../src/features/visits/shared/components/patient/ScheduledFollowupParentSelector', () => ({
+  default: ({ convertFrom }: { convertFrom?: { encounterId: string } }) => (
+    <div data-testid="scheduled-selector" data-convert-from={convertFrom?.encounterId ?? ''} />
+  ),
 }));
 
 describe('AddPatientFollowup', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    locationState = undefined;
   });
 
-  it('renders the page title', () => {
-    render(
-      <BrowserRouter>
-        <AddPatientFollowup />
-      </BrowserRouter>
-    );
-    expect(screen.getByText('Add Follow-up Visit')).toBeVisible();
+  describe('creating a new follow-up', () => {
+    it('starts on the annotation branch with both subtypes selectable', () => {
+      render(<AddPatientFollowup />);
+
+      expect(screen.getByText('Add Follow-up Visit')).toBeVisible();
+      expect(screen.getByRole('radio', { name: 'Annotation' })).toBeEnabled();
+      expect(screen.getByRole('radio', { name: 'Annotation' })).toBeChecked();
+      expect(screen.getByTestId('annotation-form')).toBeInTheDocument();
+    });
+
+    it('switches to the scheduled branch when picked', async () => {
+      const user = userEvent.setup();
+      render(<AddPatientFollowup />);
+
+      await user.click(screen.getByRole('radio', { name: 'Scheduled Visit' }));
+
+      expect(screen.getByTestId('scheduled-selector')).toBeInTheDocument();
+      expect(screen.queryByTestId('annotation-form')).not.toBeInTheDocument();
+    });
   });
 
-  it('renders Annotation and Scheduled Visit radio buttons', () => {
-    render(
-      <BrowserRouter>
-        <AddPatientFollowup />
-      </BrowserRouter>
-    );
-    expect(screen.getByLabelText('Annotation')).toBeInTheDocument();
-    expect(screen.getByLabelText('Scheduled Visit')).toBeInTheDocument();
-    // Labels should be visible even though the radio input itself is visually hidden by MUI
-    expect(screen.getByText('Annotation')).toBeVisible();
-    expect(screen.getByText('Scheduled Visit')).toBeVisible();
-  });
+  describe('converting an existing visit', () => {
+    beforeEach(() => {
+      locationState = { convertFrom: { appointmentId: 'appt-9', encounterId: 'enc-target' } };
+    });
 
-  it('defaults to Annotation mode and shows annotation form', () => {
-    render(
-      <BrowserRouter>
-        <AddPatientFollowup />
-      </BrowserRouter>
-    );
-    expect(screen.getByLabelText('Annotation')).toBeChecked();
-    expect(screen.getByTestId('annotation-form')).toBeVisible();
-    expect(screen.queryByTestId('scheduled-form')).not.toBeInTheDocument();
-  });
+    it('forces the scheduled branch and disables the annotation option', () => {
+      render(<AddPatientFollowup />);
 
-  it('switches to Scheduled form when Scheduled Visit is selected', async () => {
-    const user = userEvent.setup();
-    render(
-      <BrowserRouter>
-        <AddPatientFollowup />
-      </BrowserRouter>
-    );
+      expect(screen.getByText('Convert to Follow-up Visit')).toBeVisible();
+      // Only scheduled follow-ups can be converted to, so annotation is closed off entirely.
+      expect(screen.getByRole('radio', { name: 'Annotation' })).toBeDisabled();
+      expect(screen.getByRole('radio', { name: 'Scheduled Visit' })).toBeChecked();
+      expect(screen.getByTestId('scheduled-selector')).toBeInTheDocument();
+      expect(screen.queryByTestId('annotation-form')).not.toBeInTheDocument();
+    });
 
-    await user.click(screen.getByLabelText('Scheduled Visit'));
+    it('cannot be switched onto the annotation branch by clicking', async () => {
+      // The disabled radio sets pointer-events: none, so a real click can't land at all; skip
+      // that guard to prove a forced click still doesn't flip the branch.
+      const user = userEvent.setup({ pointerEventsCheck: 0 });
+      render(<AddPatientFollowup />);
 
-    expect(screen.getByTestId('scheduled-form')).toBeVisible();
-    expect(screen.queryByTestId('annotation-form')).not.toBeInTheDocument();
-  });
+      await user.click(screen.getByRole('radio', { name: 'Annotation' }));
 
-  it('switches back to Annotation form when Annotation is re-selected', async () => {
-    const user = userEvent.setup();
-    render(
-      <BrowserRouter>
-        <AddPatientFollowup />
-      </BrowserRouter>
-    );
+      expect(screen.getByTestId('scheduled-selector')).toBeInTheDocument();
+      expect(screen.queryByTestId('annotation-form')).not.toBeInTheDocument();
+    });
 
-    await user.click(screen.getByLabelText('Scheduled Visit'));
-    expect(screen.getByTestId('scheduled-form')).toBeVisible();
-
-    await user.click(screen.getByLabelText('Annotation'));
-    expect(screen.getByTestId('annotation-form')).toBeVisible();
-    expect(screen.queryByTestId('scheduled-form')).not.toBeInTheDocument();
-  });
-
-  it('renders breadcrumbs', () => {
-    render(
-      <BrowserRouter>
-        <AddPatientFollowup />
-      </BrowserRouter>
-    );
-    expect(screen.getByTestId('breadcrumbs')).toBeVisible();
+    it('hands the visit being converted to the scheduled selector', () => {
+      render(<AddPatientFollowup />);
+      expect(screen.getByTestId('scheduled-selector')).toHaveAttribute('data-convert-from', 'enc-target');
+    });
   });
 });

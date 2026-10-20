@@ -352,6 +352,10 @@ export const SR_REVOKED_REASON_EXT = {
   valueCode: 'rejected-abn',
 };
 
+// for OBX-5s (value) of type OBX-2 = SN which get parsed as valueRatio like 1:180 for titer or 7/8
+export const OYSTEHR_LABS_OBSERVATION_RATIO_SEPARATOR_EXT_URL =
+  'https://extensions.fhir.oystehr.com/obx-5-sn-separator';
+
 export const LAB_CLIENT_BILL_COVERAGE_TYPE_CODING = {
   system: 'https://terminology.fhir.oystehr.com/CodeSystem/labs-financial-class',
   code: 'client-bill',

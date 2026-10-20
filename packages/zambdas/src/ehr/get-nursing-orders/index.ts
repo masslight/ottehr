@@ -10,8 +10,6 @@ import { validateRequestParameters } from './validateRequestParameters';
 let m2mToken: string;
 
 export const index = wrapHandler('get-nursing-orders', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  console.log(`get-nursing-orders started, input: ${JSON.stringify(input)}`);
-
   let validatedParameters: GetNursingOrdersInputValidated;
 
   try {

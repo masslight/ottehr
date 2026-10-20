@@ -10,13 +10,12 @@ import { PrescribedMedicationsContainer } from 'src/features/visits/shared/compo
 import { ProceduresContainer } from 'src/features/visits/shared/components/review-tab/components/ProceduresContainer';
 import { SurgicalHistoryContainer } from 'src/features/visits/shared/components/review-tab/components/SurgicalHistoryContainer';
 import { SectionList } from 'src/features/visits/shared/components/SectionList';
-import { useChartFields } from 'src/features/visits/shared/hooks/useChartFields';
 import { usePatientInstructionsVisibility } from 'src/features/visits/shared/hooks/usePatientInstructionsVisibility';
-import { useAppointmentData, useChartData } from 'src/features/visits/shared/stores/appointment/appointment.store';
-import { progressNoteChartDataRequestedFields } from 'utils/lib/helpers/visit-note/progress-note-chart-data-requested-fields.helper';
+import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { NOTE_TYPE } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { LabType } from 'utils/lib/types/data/labs/labs.types';
 import { dataTestIds } from '../../../../../constants/data-test-ids';
+import { useVisitNote } from '../../../shared/hooks/useVisitNote';
 import { useGetImmunizationOrders } from '../../hooks/useImmunization';
 import { useMedicationAPI } from '../../hooks/useMedicationOperations';
 import { HospitalizationContainer } from '../progress-note/HospitalizationContainer';
@@ -24,8 +23,7 @@ import { InHouseMedicationsContainer } from '../progress-note/InHouseMedications
 
 export const FollowUpNoteDetails: FC = () => {
   const { encounter } = useAppointmentData();
-  const { data: chartFields } = useChartFields({ requestedFields: progressNoteChartDataRequestedFields });
-  const { chartData } = useChartData();
+  const { data: note } = useVisitNote();
   const { medications: inHouseMedications } = useMedicationAPI();
 
   const { data: immunizationOrdersResponse } = useGetImmunizationOrders({
@@ -37,17 +35,17 @@ export const FollowUpNoteDetails: FC = () => {
   );
 
   // Filter notes by type
-  const allergyNotes = chartFields?.notes?.filter((note) => note.type === NOTE_TYPE.ALLERGY);
-  const intakeMedicationNotes = chartFields?.notes?.filter((note) => note.type === NOTE_TYPE.INTAKE_MEDICATION);
-  const hospitalizationNotes = chartFields?.notes?.filter((note) => note.type === NOTE_TYPE.HOSPITALIZATION);
-  const medicalConditionNotes = chartFields?.notes?.filter((note) => note.type === NOTE_TYPE.MEDICAL_CONDITION);
-  const surgicalHistoryNotes = chartFields?.notes?.filter((note) => note.type === NOTE_TYPE.SURGICAL_HISTORY);
-  const inHouseMedicationNotes = chartFields?.notes?.filter((note) => note.type === NOTE_TYPE.MEDICATION);
+  const allergyNotes = note?.notes.notes?.filter((note) => note.type === NOTE_TYPE.ALLERGY);
+  const intakeMedicationNotes = note?.notes.notes?.filter((note) => note.type === NOTE_TYPE.INTAKE_MEDICATION);
+  const hospitalizationNotes = note?.notes.notes?.filter((note) => note.type === NOTE_TYPE.HOSPITALIZATION);
+  const medicalConditionNotes = note?.notes.notes?.filter((note) => note.type === NOTE_TYPE.MEDICAL_CONDITION);
+  const surgicalHistoryNotes = note?.notes.notes?.filter((note) => note.type === NOTE_TYPE.SURGICAL_HISTORY);
+  const inHouseMedicationNotes = note?.notes.notes?.filter((note) => note.type === NOTE_TYPE.MEDICATION);
 
   // Get data from chart fields
-  const prescriptions = chartFields?.prescribedMedications;
-  const externalLabResults = chartFields?.externalLabResults;
-  const inHouseLabResults = chartFields?.inHouseLabResults;
+  const prescriptions = note?.plan.prescribedMedications;
+  const externalLabResults = note?.externalLabResults;
+  const inHouseLabResults = note?.inHouseLabResults;
 
   // Show conditions
   const showInHouseMedications =
@@ -71,7 +69,7 @@ export const FollowUpNoteDetails: FC = () => {
   );
   const showInHouseLabsResultsContainer = !!(inHouseLabResultsPending || inHouseLabResultsEntered);
 
-  const showProceduresContainer = (chartData?.procedures?.length ?? 0) > 0;
+  const showProceduresContainer = (note?.assessment.procedures?.length ?? 0) > 0;
   const showPrescribedMedications = !!(prescriptions && prescriptions.length > 0);
 
   const { showPatientInstructions } = usePatientInstructionsVisibility();

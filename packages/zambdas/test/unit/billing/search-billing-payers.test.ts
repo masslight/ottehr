@@ -1,0 +1,229 @@
+import { APIGatewayProxyResult } from 'aws-lambda';
+import { Organization } from 'fhir/r4b';
+import { FHIR_IDENTIFIER_NPI, OYSTEHR_RCM_PAYER_ID_SYSTEM } from 'utils/lib/fhir/constants';
+import { SearchBillingPayersInput } from 'utils/lib/types/data/billing/billing.schemas';
+import { SearchBillingPayersResponse } from 'utils/lib/types/data/billing/billing.types';
+import { APIErrorCode } from 'utils/lib/types/errors';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { ZambdaInput } from '../../../src/shared/types/common';
+
+const mockOystehrClient = {
+  rcm: {
+    listPayers: vi.fn(),
+    getPayer: vi.fn(),
+  },
+};
+
+vi.mock('../../../src/shared/auth', async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  checkOrCreateM2MClientToken: vi.fn().mockResolvedValue('mock-token'),
+}));
+
+vi.mock('../../../src/shared/sentry', async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  wrapHandler: (_name: string, fn: (...args: unknown[]) => unknown) => fn,
+}));
+
+vi.mock('../../../src/billing/shared', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  return {
+    ...actual,
+    createBillingClient: vi.fn(() => mockOystehrClient),
+  };
+});
+
+type ZambdaHandler = (input: ZambdaInput) => Promise<APIGatewayProxyResult>;
+
+const makeInput = (body: SearchBillingPayersInput): ZambdaInput => ({
+  headers: null,
+  body: JSON.stringify(body),
+  secrets: {
+    PROJECT_ID: 'test-project',
+  },
+});
+
+const payerOrg = (id: string, name: string, payerId: string): Organization => ({
+  resourceType: 'Organization',
+  id,
+  name,
+  identifier: [{ system: OYSTEHR_RCM_PAYER_ID_SYSTEM, value: payerId }],
+});
+
+describe('search-billing-payers', () => {
+  let handler!: ZambdaHandler;
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    vi.resetModules();
+    ({ index: handler } = (await import('../../../src/billing/search-billing-payers/index')) as {
+      index: ZambdaHandler;
+    });
+  });
+
+  const search = async (input: SearchBillingPayersInput): Promise<SearchBillingPayersResponse> => {
+    const result = await handler(makeInput(input));
+    expect(result.statusCode).toBe(200);
+    return JSON.parse(result.body) as SearchBillingPayersResponse;
+  };
+
+  describe('plain listing (no name/payerId filter)', () => {
+    it('pages through the RCM directory via listPayers, sorted by name, and surfaces nextCursor', async () => {
+      mockOystehrClient.rcm.listPayers.mockResolvedValue({
+        data: [payerOrg('org-1', 'Aetna', 'AET01'), payerOrg('org-2', 'Cigna', 'CIG01')],
+        metadata: { nextCursor: 'cursor-2' },
+      });
+
+      const response = await search({});
+
+      expect(mockOystehrClient.rcm.listPayers).toHaveBeenCalledExactlyOnceWith({
+        limit: 50,
+        sort: 'name',
+        sortOrder: 'asc',
+      });
+      expect(response.payers.map((p) => p.id)).toEqual(['org-1', 'org-2']);
+      expect(response.nextCursor).toBe('cursor-2');
+    });
+
+    it('forwards the caller-supplied cursor and limit to listPayers', async () => {
+      mockOystehrClient.rcm.listPayers.mockResolvedValue({
+        data: [payerOrg('org-3', 'Humana', 'HUM01')],
+        metadata: { nextCursor: null },
+      });
+
+      const response = await search({ cursor: 'cursor-2', limit: 10 });
+
+      expect(mockOystehrClient.rcm.listPayers).toHaveBeenCalledExactlyOnceWith({
+        cursor: 'cursor-2',
+        limit: 10,
+        sort: 'name',
+        sortOrder: 'asc',
+      });
+      expect(response.payers.map((p) => p.id)).toEqual(['org-3']);
+      expect(response.nextCursor).toBeNull();
+    });
+
+    it('reports no further pages once listPayers returns a null cursor', async () => {
+      mockOystehrClient.rcm.listPayers.mockResolvedValue({
+        data: [],
+        metadata: { nextCursor: null },
+      });
+
+      const response = await search({ cursor: 'cursor-last' });
+
+      expect(response.payers).toEqual([]);
+      expect(response.nextCursor).toBeNull();
+    });
+  });
+
+  describe('payerId lookup', () => {
+    it('resolves a single payer and does not touch the directory listing', async () => {
+      mockOystehrClient.rcm.getPayer.mockResolvedValue(payerOrg('org-1', 'Aetna', 'AET01'));
+
+      const response = await search({ payerId: 'org-1' });
+
+      expect(mockOystehrClient.rcm.getPayer).toHaveBeenCalledExactlyOnceWith({ id: 'org-1' });
+      expect(mockOystehrClient.rcm.listPayers).not.toHaveBeenCalled();
+      expect(response.payers).toEqual([
+        { id: 'org-1', name: 'Aetna', payerId: 'AET01', alternateNames: [], alternatePayerIds: [], addresses: [] },
+      ]);
+    });
+
+    it('returns alternate names, former payer IDs, and mailing addresses', async () => {
+      const payer = payerOrg('AET01', 'Aetna', 'AET01');
+      payer.alias = ['Former Aetna Name'];
+      payer.identifier?.push(
+        { system: OYSTEHR_RCM_PAYER_ID_SYSTEM, use: 'old', value: 'OLD01' },
+        { system: OYSTEHR_RCM_PAYER_ID_SYSTEM, use: 'old' },
+        { system: FHIR_IDENTIFIER_NPI, use: 'old', value: '1234567890' }
+      );
+      payer.address = [
+        {
+          use: 'billing',
+          type: 'postal',
+          line: ['PO Box 123', 'Claims Department'],
+          city: 'Hartford',
+          state: 'CT',
+          postalCode: '06101',
+        },
+      ];
+      mockOystehrClient.rcm.getPayer.mockResolvedValue(payer);
+
+      const response = await search({ payerId: 'AET01' });
+
+      expect(response.payers).toEqual([
+        {
+          id: 'AET01',
+          name: 'Aetna',
+          payerId: 'AET01',
+          alternateNames: ['Former Aetna Name'],
+          alternatePayerIds: ['OLD01'],
+          addresses: payer.address,
+        },
+      ]);
+    });
+
+    it('returns an empty list, not the unrelated directory, when the id misses', async () => {
+      mockOystehrClient.rcm.getPayer.mockResolvedValue(undefined);
+
+      const response = await search({ payerId: 'unknown-id' });
+
+      expect(response.payers).toEqual([]);
+      expect(mockOystehrClient.rcm.listPayers).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('name search (typeahead)', () => {
+    it.each(['name', 'id'] as const)('continues %s matches without restarting the exhausted search', async (field) => {
+      mockOystehrClient.rcm.listPayers.mockImplementation(
+        async (params: { name?: string; id?: string; cursor?: string }) => ({
+          data: [params.cursor ? payerOrg('AET02', 'Aetna Two', 'AET02') : payerOrg('AET01', 'Aetna One', 'AET01')],
+          metadata: { nextCursor: !params.cursor && params[field] ? `${field}-2` : null },
+        })
+      );
+      const firstPage = await search({ name: 'Aetna', limit: 1 });
+      expect(firstPage.nextCursor).toBeTruthy();
+      expect(firstPage.payers.map((payer) => payer.id)).toEqual(['AET01']);
+      mockOystehrClient.rcm.listPayers.mockClear();
+
+      const nextPage = await search({ name: 'Aetna', limit: 1, cursor: firstPage.nextCursor ?? undefined });
+
+      expect(mockOystehrClient.rcm.listPayers).toHaveBeenCalledExactlyOnceWith({
+        [field]: 'Aetna',
+        limit: 1,
+        cursor: `${field}-2`,
+      });
+      expect(nextPage.payers.map((payer) => payer.id)).toEqual(['AET02']);
+      expect(nextPage.nextCursor).toBeNull();
+    });
+
+    it.each(['invalid-json', '{}', JSON.stringify({ query: 'Cigna', nameCursor: 'name-2', idCursor: null })])(
+      'rejects invalid or mismatched search cursor %s',
+      async (cursor) => {
+        await expect(search({ name: 'Aetna', cursor })).rejects.toMatchObject({ code: APIErrorCode.INVALID_INPUT });
+        expect(mockOystehrClient.rcm.listPayers).not.toHaveBeenCalled();
+      }
+    );
+
+    it('merges name and id matches, de-duplicated by payer id', async () => {
+      mockOystehrClient.rcm.listPayers.mockImplementation(async ({ name, id }: { name?: string; id?: string }) => {
+        if (name) {
+          return { data: [payerOrg('org-1', 'Aetna', 'AET01')], metadata: { nextCursor: null } };
+        }
+        if (id) {
+          return {
+            data: [payerOrg('org-1', 'Aetna', 'AET01'), payerOrg('org-2', 'Aetna Better Health', 'AET02')],
+            metadata: { nextCursor: null },
+          };
+        }
+        throw new Error('expected name or id');
+      });
+
+      const response = await search({ name: 'Aetna' });
+
+      expect(mockOystehrClient.rcm.listPayers).toHaveBeenCalledWith({ name: 'Aetna', limit: 50 });
+      expect(mockOystehrClient.rcm.listPayers).toHaveBeenCalledWith({ id: 'Aetna', limit: 50 });
+      expect(response.payers.map((p) => p.id).sort()).toEqual(['org-1', 'org-2']);
+      expect(response.nextCursor).toBeNull();
+    });
+  });
+});

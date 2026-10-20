@@ -1,4 +1,9 @@
 import { MedicationAdministration, Procedure } from 'fhir/r4b';
+import { IMMUNIZATION_ORDER_TAG_CODE, IMMUNIZATION_ORDER_TAG_SYSTEM } from 'utils/lib/fhir/medication-administration';
+import {
+  MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE,
+  MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_SYSTEM,
+} from 'utils/lib/types/api/medication-administration.constants';
 import { describe, expect, it } from 'vitest';
 import { buildDrugIdentification, mapMedicationUnitToCandid } from '../../src/shared/candid';
 
@@ -6,13 +11,13 @@ const CODE_SYSTEM_NDC = 'http://hl7.org/fhir/sid/ndc';
 
 // ── Fixtures ───────────────────────────────────────────────────────────────────
 
-function makeProcedure(partOfMaId?: string): Procedure {
+function makeProcedure(partOfMaId?: string, cptCode = '90471'): Procedure {
   return {
     resourceType: 'Procedure',
     status: 'completed',
     subject: { reference: 'Patient/patient-1' },
     ...(partOfMaId != null ? { partOf: [{ reference: `MedicationAdministration/${partOfMaId}` }] } : {}),
-    code: { coding: [{ system: 'http://www.ama-assn.org/go/cpt', code: '90471' }] },
+    code: { coding: [{ system: 'http://www.ama-assn.org/go/cpt', code: cptCode }] },
   };
 }
 
@@ -21,14 +26,33 @@ function makeMedicationAdministration(opts: {
   ndcCode?: string;
   dose?: number;
   doseUnit?: string;
+  cptCodes?: { code: string; display: string; isMedication?: boolean }[];
 }): MedicationAdministration {
   return {
     resourceType: 'MedicationAdministration',
     id: opts.id,
+    meta: {
+      tag: [
+        {
+          system: MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_SYSTEM,
+          code: MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE,
+        },
+      ],
+    },
     status: 'completed',
     subject: { reference: 'Patient/patient-1' },
     medicationReference: { reference: 'Medication/med-1' },
     effectiveDateTime: '2026-05-01T10:00:00Z',
+    ...(opts.cptCodes != null
+      ? {
+          extension: [
+            {
+              url: 'https://fhir.ottehr.com/Extension/medication-cpt-codes',
+              valueString: JSON.stringify(opts.cptCodes),
+            },
+          ],
+        }
+      : {}),
     contained: opts.ndcCode
       ? [
           {
@@ -89,6 +113,15 @@ describe('buildDrugIdentification', () => {
     const procedure = makeProcedure('ma-999'); // different ID
 
     expect(buildDrugIdentification(procedure, [ma])).toBeUndefined();
+  });
+
+  it('returns undefined for a line written by an immunization order, even when its Medication has an NDC', () => {
+    const ma: MedicationAdministration = {
+      ...makeMedicationAdministration({ id: 'ma-1', ndcCode: '12345-6789-01', dose: 0.5, doseUnit: 'ml' }),
+      meta: { tag: [{ system: IMMUNIZATION_ORDER_TAG_SYSTEM, code: IMMUNIZATION_ORDER_TAG_CODE }] },
+    };
+
+    expect(buildDrugIdentification(makeProcedure('ma-1'), [ma])).toBeUndefined();
   });
 
   it('returns undefined when medicationAdministrations array is empty', () => {
@@ -161,6 +194,51 @@ describe('buildDrugIdentification', () => {
     const result = buildDrugIdentification(procedure, [ma1, ma2]);
 
     expect(result?.nationalDrugCode).toBe('11111-1111-11');
+  });
+
+  it('attaches the NDC only to the designated medication code, not the supporting CPT codes', () => {
+    const ma = makeMedicationAdministration({
+      id: 'ma-1',
+      ndcCode: '12345-6789-01',
+      dose: 2,
+      doseUnit: 'ml',
+      cptCodes: [
+        { code: 'J1200', display: 'Drug code', isMedication: true },
+        { code: '96372', display: 'Injection admin' },
+      ],
+    });
+
+    const drugResult = buildDrugIdentification(makeProcedure('ma-1', 'J1200'), [ma]);
+    expect(drugResult?.nationalDrugCode).toBe('12345-6789-01');
+
+    const supportingResult = buildDrugIdentification(makeProcedure('ma-1', '96372'), [ma]);
+    expect(supportingResult).toBeUndefined();
+  });
+
+  it('falls back to the first CPT entry as the drug code when none is designated', () => {
+    const ma = makeMedicationAdministration({
+      id: 'ma-1',
+      ndcCode: '12345-6789-01',
+      cptCodes: [
+        { code: 'J1200', display: 'Drug code' },
+        { code: '96372', display: 'Injection admin' },
+      ],
+    });
+
+    expect(buildDrugIdentification(makeProcedure('ma-1', 'J1200'), [ma])?.nationalDrugCode).toBe('12345-6789-01');
+    expect(buildDrugIdentification(makeProcedure('ma-1', '96372'), [ma])).toBeUndefined();
+  });
+
+  it('does not throw when the CPT codes extension holds valid JSON that is not an array', () => {
+    const ma: MedicationAdministration = {
+      ...makeMedicationAdministration({ id: 'ma-1', ndcCode: '12345-6789-01', dose: 2, doseUnit: 'ml' }),
+      extension: [{ url: 'https://fhir.ottehr.com/Extension/medication-cpt-codes', valueString: '{}' }],
+    };
+
+    const result = buildDrugIdentification(makeProcedure('ma-1'), [ma]);
+
+    // Malformed extension is ignored → legacy behavior: NDC attaches to the MA-linked line
+    expect(result?.nationalDrugCode).toBe('12345-6789-01');
   });
 });
 

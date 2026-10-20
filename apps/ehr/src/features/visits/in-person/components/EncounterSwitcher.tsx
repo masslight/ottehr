@@ -4,7 +4,6 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Encounter } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { FC, useMemo, useState } from 'react';
-import { CHART_DATA_QUERY_KEY } from 'src/constants';
 import { formatISOStringToDateAndTime } from 'src/helpers/formatDateTime';
 import {
   buildAppointmentStartMap,
@@ -12,8 +11,10 @@ import {
   getEncounterDisplayName,
   getInteractionModeForEncounter,
 } from 'utils/lib/fhir/encounter';
+import { invalidateChart } from '../../shared/hooks/chartSectionCache';
 import { useAppointmentData } from '../../shared/stores/appointment/appointment.store';
 import { resetExamObservationsStore } from '../../shared/stores/appointment/reset-exam-observations';
+import { resetRosObservationsStore } from '../../shared/stores/appointment/reset-ros-observations';
 import { useInPersonNavigationContext } from '../context/InPersonNavigationContext';
 
 type EncounterSwitcherProps = {
@@ -42,10 +43,8 @@ export const EncounterSwitcher: FC<EncounterSwitcherProps> = ({ open }) => {
     // Reset exam observations and invalidate chart data cache so it refetches
     // and repopulates the exam store for the new encounter
     resetExamObservationsStore();
-    void queryClient.invalidateQueries({
-      queryKey: [CHART_DATA_QUERY_KEY, encounterId],
-      exact: false,
-    });
+    resetRosObservationsStore();
+    void invalidateChart(queryClient, encounterId);
     setSelectedEncounter(encounterId);
     const selectedEnc = allEncounters.find((e) => e.id === encounterId);
     if (selectedEnc) {

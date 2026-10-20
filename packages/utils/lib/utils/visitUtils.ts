@@ -1,6 +1,8 @@
 import { Appointment, Encounter, EncounterParticipant, EncounterStatusHistory } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { appointmentTypeForAppointment } from '../fhir/appointments';
 import { FHIR_EXTENSION } from '../fhir/constants';
+import { isTelemedAppointment } from '../fhir/moduleIdentification';
 import {
   SupervisorApprovalStatus,
   VisitStatusHistoryEntry,
@@ -127,6 +129,9 @@ export const FINISHED_VISIT_STATUSES: readonly VisitStatusLabel[] = [
   'no show',
 ];
 
+export const isOnDemandVirtualAppointment = (appointment?: Appointment): boolean =>
+  appointment != null && isTelemedAppointment(appointment) && appointmentTypeForAppointment(appointment) === 'walk-in';
+
 /** True when the visit has reached a status past charting. See {@link FINISHED_VISIT_STATUSES}. */
 export const isVisitFinished = (appointment?: Appointment, encounter?: Encounter): boolean => {
   if (!appointment || !encounter) {
@@ -137,13 +142,64 @@ export const isVisitFinished = (appointment?: Appointment, encounter?: Encounter
   return FINISHED_VISIT_STATUSES.includes(getInPersonVisitStatus(appointment, encounter, true));
 };
 
-export const getVisitStatusHistory = (encounter: Encounter): VisitStatusHistoryEntry[] => {
+const getOttehrVisitStatus = (statusHist: EncounterStatusHistory): string | undefined =>
+  statusHist.extension?.find((ext) => ext.url === FHIR_EXTENSION.EncounterStatusHistory.ottehrVisitStatus.url)
+    ?.valueCode;
+
+/**
+ * Mainly supports legacy appointments.
+ * However create-appointment's seed entry and cancel zambdas still write entries without the extension,
+ * probably we need to use extension for these cases too.
+ */
+const getVisitHistoryForLegacyEntry = (
+  statusHist: EncounterStatusHistory,
+  encounter: Encounter,
+  appointment?: Appointment
+): VisitStatusHistoryEntry[] => {
+  if (statusHist.status === 'in-progress') {
+    return encounter?.participant ? getInProgressVisitHistories(statusHist, encounter.participant) : [];
+  }
+
+  if (statusHist.status === 'planned' && isOnDemandVirtualAppointment(appointment)) {
+    // An on-demand patient waits during the planned window, so it counts as the visit's arrival.
+    // If the encounter has its own arrival entry, that entry is more precise and already reports
+    // the arrival, so this window adds nothing.
+    const hasRecordedArrival = encounter?.statusHistory?.some((entry) => {
+      const ottehrStatus = getOttehrVisitStatus(entry);
+      return ottehrStatus ? ottehrStatus === 'arrived' : entry.status === 'arrived';
+    });
+
+    return hasRecordedArrival ? [] : [{ status: 'arrived', period: { ...statusHist.period } }];
+  }
+
+  const status = ((): VisitStatusHistoryLabel | undefined => {
+    if (statusHist.status === 'planned') {
+      return 'pending';
+    }
+
+    if (statusHist.status === 'arrived') {
+      return 'arrived';
+    }
+
+    if (statusHist.status === 'cancelled') {
+      return 'cancelled';
+    }
+
+    if (statusHist.status === 'finished') {
+      return 'completed';
+    }
+
+    return undefined;
+  })();
+
+  return status ? [{ status, period: { ...statusHist.period } }] : [];
+};
+
+export const getVisitStatusHistory = (encounter: Encounter, appointment?: Appointment): VisitStatusHistoryEntry[] => {
   const visitHistory: VisitStatusHistoryEntry[] = [];
 
   encounter?.statusHistory?.forEach((statusHist: EncounterStatusHistory) => {
-    const ottehrStatusFromExtension = statusHist.extension?.find(
-      (ext) => ext.url === FHIR_EXTENSION.EncounterStatusHistory.ottehrVisitStatus.url
-    )?.valueCode;
+    const ottehrStatusFromExtension = getOttehrVisitStatus(statusHist);
 
     if (ottehrStatusFromExtension) {
       visitHistory.push({
@@ -153,29 +209,11 @@ export const getVisitStatusHistory = (encounter: Encounter): VisitStatusHistoryE
           ...(statusHist.period.end && { end: statusHist.period.end }),
         },
       });
-    } else if (statusHist.status === 'in-progress' && encounter?.participant) {
-      // fallback: that's old logic, but that's wrong, because we need to compare with history participants, not with current ones
-      const inProgressHistories = getInProgressVisitHistories(statusHist, encounter.participant);
-      visitHistory.push(...inProgressHistories);
     } else {
-      // fallback to old logic
-      const curVisitHistory: any = {};
-      if (statusHist.status === 'planned') {
-        curVisitHistory.status = 'pending';
-      } else if (statusHist.status === 'arrived') {
-        curVisitHistory.status = 'arrived';
-      } else if (statusHist.status === 'cancelled') {
-        curVisitHistory.status = 'cancelled';
-      } else if (statusHist.status === 'finished') {
-        curVisitHistory.status = 'completed';
-      }
-
-      if (curVisitHistory.status) {
-        curVisitHistory.period = statusHist.period;
-        visitHistory.push(curVisitHistory);
-      }
+      visitHistory.push(...getVisitHistoryForLegacyEntry(statusHist, encounter, appointment));
     }
   });
+
   return visitHistory;
 };
 

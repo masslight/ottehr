@@ -2,7 +2,7 @@ import { alpha, Box, Checkbox, FormControlLabel, lighten, Paper, Typography, use
 import { enqueueSnackbar } from 'notistack';
 import { FC, useCallback, useEffect, useState } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { useChartFields } from '../../hooks/useChartFields';
+import { useChartSection } from '../../hooks/useChartSection';
 import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAccessibility';
 import { useSaveChartData } from '../../stores/appointment/appointment.store';
 
@@ -10,9 +10,7 @@ export const VerifiedPatientInfo: FC = () => {
   const theme = useTheme();
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
-  const { data: chartData, isLoading: isLoadingChartData } = useChartFields({
-    requestedFields: { patientInfoConfirmed: {} },
-  });
+  const { data: chartData, isLoading: isLoadingChartData } = useChartSection('encounterNotes');
 
   useEffect(() => {
     if (!chartData) {

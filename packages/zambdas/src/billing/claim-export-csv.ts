@@ -39,6 +39,10 @@ export const CLAIM_EXPORT_COLUMNS: ClaimExportColumn[] = [
     value: (claim) => claim.payerId,
   },
   {
+    header: 'Non-insurance Organization',
+    value: (claim) => claim.nonInsurancePayerName,
+  },
+  {
     header: 'Member ID',
     value: (claim) => claim.memberId,
   },

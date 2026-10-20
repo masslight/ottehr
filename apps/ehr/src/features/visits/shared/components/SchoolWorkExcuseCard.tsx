@@ -7,17 +7,13 @@ import { getSupportPhoneFor } from 'utils/lib/utils/support-dialog';
 import { AccordionCard } from '../../../../components/AccordionCard';
 import { DoubleColumnContainer } from '../../../../components/DoubleColumnContainer';
 import { useSupportPhonesMap } from '../../../../hooks/useLocationSupportPhones';
+import { useChartData } from '../hooks/useChartData';
 import { useGetAppointmentAccessibility } from '../hooks/useGetAppointmentAccessibility';
 import { usePatientProvidedExcusePresignedFiles } from '../hooks/usePatientProvidedExcusePresignedFiles';
-import {
-  useAppointmentData,
-  useChartData,
-  useDeleteChartData,
-  useSaveChartData,
-} from '../stores/appointment/appointment.store';
+import { useAppointmentData, useDeleteChartData, useSaveChartData } from '../stores/appointment/appointment.store';
 import { getStringAnswer } from '../stores/appointment/parser/extractors';
+import { DocumentRow } from './DocumentRow';
 import { ExcuseCard } from './plan-tab/components/ExcuseCard';
-import { ExcuseLink } from './plan-tab/components/ExcuseLink';
 import { GenerateExcuseDialog } from './plan-tab/components/GenerateExcuseDialog';
 
 export type SchoolWorkExcuseCardProps = {
@@ -123,13 +119,13 @@ export const SchoolWorkExcuseCard: FC<SchoolWorkExcuseCardProps> = ({ locationNa
                 {patientSchoolPresignedUrl && (
                   <Grid item xs={6}>
                     {/* TODO extension should match extension uploaded */}
-                    <ExcuseLink label={`School excuse note template${'.pdf'}`} to={patientSchoolPresignedUrl} />
+                    <DocumentRow label={`School excuse note template${'.pdf'}`} to={patientSchoolPresignedUrl} />
                   </Grid>
                 )}
                 {patientWorkPresignedUrl && (
                   <Grid item xs={6}>
                     {/* TODO extension should match extension uploaded */}
-                    <ExcuseLink label={`Work excuse note template${'.pdf'}`} to={patientWorkPresignedUrl} />
+                    <DocumentRow label={`Work excuse note template${'.pdf'}`} to={patientWorkPresignedUrl} />
                   </Grid>
                 )}
               </Grid>

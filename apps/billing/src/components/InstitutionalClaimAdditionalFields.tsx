@@ -1,18 +1,22 @@
-import { Stack, TextField } from '@mui/material';
+import { Box, TextField } from '@mui/material';
 import { ReactElement } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
+import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils/lib/validation/constants';
+import { DateTimeInput } from './DateInput';
 
 export interface InstitutionalClaimAdditionalFieldsData {
   billType: string;
   patientDischargeStatusCode: string;
   admissionType: string;
   admissionSource: string;
+  admissionDate: string;
+  dischargeDate: string;
 }
 
 export function InstitutionalClaimAdditionalFields(): ReactElement {
   const { control } = useFormContext();
   return (
-    <Stack spacing={2}>
+    <Box sx={{ display: 'grid', gridTemplateColumns: '1fr', gap: 2.25, maxWidth: 680 }}>
       <Controller
         name="billType"
         control={control}
@@ -83,6 +87,38 @@ export function InstitutionalClaimAdditionalFields(): ReactElement {
           />
         )}
       />
-    </Stack>
+      <Controller
+        name="admissionDate"
+        control={control}
+        rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
+        render={({ field, fieldState: { error: fieldError } }) => (
+          <DateTimeInput
+            label="Admission Date"
+            size="small"
+            fullWidth
+            value={field.value ?? ''}
+            onChange={(value) => field.onChange(value)}
+            error={!!fieldError}
+            helperText={fieldError?.message}
+          />
+        )}
+      />
+      <Controller
+        name="dischargeDate"
+        control={control}
+        rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
+        render={({ field, fieldState: { error: fieldError } }) => (
+          <DateTimeInput
+            label="Discharge Date"
+            size="small"
+            fullWidth
+            value={field.value ?? ''}
+            onChange={(value) => field.onChange(value)}
+            error={!!fieldError}
+            helperText={fieldError?.message}
+          />
+        )}
+      />
+    </Box>
   );
 }

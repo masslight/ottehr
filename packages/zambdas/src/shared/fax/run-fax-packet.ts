@@ -1,5 +1,5 @@
 import Oystehr from '@oystehr/sdk';
-import { captureException } from '@sentry/aws-serverless';
+import { captureException } from '@sentry/node-core/light';
 import { Location, Organization, Patient, Practitioner } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
@@ -9,12 +9,23 @@ import { getAddressString, getCoding, getNPI, getOrganizationFaxNumber } from 'u
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
 import { standardizePhoneNumber } from 'utils/lib/helpers/helpers';
 import { Secrets } from 'utils/lib/secrets';
-import { FAX_PACKET_MAX_PAGES, FaxRecipient, FaxRecipientResult } from 'utils/lib/types/api/fax.types';
+import {
+  FAX_PACKET_MAX_PAGES,
+  FaxRecipient,
+  FaxRecipientResult,
+  formatFaxRecipientName,
+} from 'utils/lib/types/api/fax.types';
 import { getPcpPatchOpsFromDetails } from '../../ehr/shared/harvest';
 import { FaxCoverSheetData } from '../pdf/types';
 import { FullAppointmentResourcePackage } from '../pdf/visit-details-pdf/types';
 import { sendFaxAttempt } from '../send-fax-attempt';
-import { buildAndUploadPacketForRecipient, faxPacketLimitGuidance, toFaxPacketBody } from './build-fax-packet';
+import {
+  buildPacketForRecipient,
+  faxPacketLimitGuidance,
+  FaxPacketTooLargeError,
+  toFaxPacketBody,
+  uploadFaxPacket,
+} from './build-fax-packet';
 import { FaxPacketPlan } from './resolve-fax-source';
 
 const DEFAULT_TIMEZONE = 'America/New_York';
@@ -22,7 +33,8 @@ const DEFAULT_VISIT_TYPE_LABEL = 'Visit';
 
 /**
  * Builds the packet body once and sends it to every recipient. One recipient's failure never blocks the
- * others; the raw cause is logged/captured server-side while the returned result only carries sent/failed.
+ * others, except a packet over the size limit, which fails the whole send before anything is uploaded or
+ * sent; the raw cause is logged/captured server-side while the returned result only carries sent/failed.
  */
 export const deliverFaxPacket = async (args: {
   oystehr: Oystehr;
@@ -67,27 +79,41 @@ export const deliverFaxPacket = async (args: {
     timezone,
   });
 
-  const results: FaxRecipientResult[] = [];
+  const packets: (Awaited<ReturnType<typeof buildPacketForRecipient>> | undefined)[] = [];
   for (const recipient of recipients) {
+    try {
+      packets.push(await buildPacketForRecipient({ body, recipient, coverSheet, sourceType: plan.sourceType }));
+    } catch (error) {
+      if (error instanceof FaxPacketTooLargeError) throw error;
+      console.log(`[fax-packet] failed to send to ${recipient.faxNumber}`, error);
+      captureException(error);
+      packets.push(undefined);
+    }
+  }
+
+  const results: FaxRecipientResult[] = [];
+  for (const [index, recipient] of recipients.entries()) {
     const base: FaxRecipientResult = {
-      name: recipient.name,
+      name: formatFaxRecipientName(recipient),
       organization: recipient.organization,
       faxNumber: recipient.faxNumber,
       phoneNumber: recipient.phoneNumber,
       status: 'failed',
     };
+    const packet = packets[index];
+    if (!packet) {
+      results.push(base);
+      continue;
+    }
     try {
-      const packet = await buildAndUploadPacketForRecipient({
+      const uploaded = await uploadFaxPacket({
         oystehr,
         token,
         secrets,
-        body,
-        recipient,
-        coverSheet,
+        packet,
         patientId,
         appointmentId,
         encounterId,
-        sourceType: plan.sourceType,
         listResources: plan.listResources,
       });
 
@@ -97,13 +123,13 @@ export const deliverFaxPacket = async (args: {
           faxNumber: recipient.faxNumber,
           organizationId,
           patientId,
-          media: packet.pdfInfo.uploadURL,
-          documentReferenceId: packet.documentReference.id!,
+          media: uploaded.pdfInfo.uploadURL,
+          documentReferenceId: uploaded.documentReference.id!,
           userPractitioner: senderPractitioner,
-          recipientName: recipient.name,
+          recipientName: formatFaxRecipientName(recipient),
           recipientOrganization: recipient.organization,
           recipientPhone: recipient.phoneNumber,
-          faxPacketPageCount: packet.pageCount,
+          faxPacketPageCount: uploaded.pageCount,
           faxPacketParts: body.parts.map((part) => part.title),
           senderId: senderUserId,
         },

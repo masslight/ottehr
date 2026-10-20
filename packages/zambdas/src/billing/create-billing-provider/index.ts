@@ -9,9 +9,11 @@ import {
   FHIR_IDENTIFIER_SYSTEM,
 } from 'utils/lib/fhir/constants';
 import { CODE_SYSTEM_CLAIM_SECONDARY_IDENTIFIER_TYPE } from 'utils/lib/helpers/rcm/constants';
+import { CreateBillingProviderInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import {
   buildAddress,
   createBillingClient,
@@ -19,15 +21,17 @@ import {
   PROVIDER_ROLE_BILLING,
   PROVIDER_ROLE_RENDERING,
   PROVIDER_ROLE_TAG,
+  setStateLicense,
   STRIPE_ACCOUNT_IDENTIFIER_SYSTEM,
 } from '../shared';
-import { CreateBillingProviderParams, validateRequestParameters } from './validateRequestParameters';
+
+type CreateBillingProviderParams = ValidatedZambdaInput<typeof CreateBillingProviderInputSchema>;
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'create-billing-provider';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const params = validateRequestParameters(input);
+  const params = validateWithSchema(CreateBillingProviderInputSchema, input);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
 
@@ -70,7 +74,7 @@ function buildProvider(params: CreateBillingProviderParams): Practitioner | Orga
   const address = params.address ? [buildAddress(params.address)] : undefined;
 
   if (params.kind === 'individual') {
-    if (params.licenseType) tag.push({ system: LICENSE_TAG, code: params.licenseType });
+    if (params.license) tag.push({ system: LICENSE_TAG, code: params.license.type });
     const practitioner: Practitioner = {
       resourceType: 'Practitioner',
       active: true,
@@ -79,6 +83,7 @@ function buildProvider(params: CreateBillingProviderParams): Practitioner | Orga
     };
     if (identifier.length) practitioner.identifier = identifier;
     if (address) practitioner.address = address;
+    setStateLicense(practitioner, params.license);
     return practitioner;
   }
 

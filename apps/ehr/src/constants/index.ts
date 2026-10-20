@@ -16,8 +16,8 @@ export enum LANGUAGES {
 
 export const QUERY_STALE_TIME = 5 * 60 * 1000;
 
-export const CHART_DATA_QUERY_KEY = 'chart-data-query-key'; // useChartData uses this key
-export const CHART_FIELDS_QUERY_KEY = 'chart-fields-query-key'; // useChartField uses this key
+export const VISIT_NOTE_QUERY_KEY = 'visit-note'; // useVisitNote: the one read behind a visit's chart
+export const CHART_SECTION_QUERY_KEY = 'chart-section'; // useChartSection: one entry per encounter, section and params
 
 export const FLAGGED_REASONS_FOR_VISIT: string[] = [
   'Breathing problem',
@@ -25,6 +25,8 @@ export const FLAGGED_REASONS_FOR_VISIT: string[] = [
   'Choked or swallowed something',
   'Allergic reaction to medication or food',
 ];
+
+export const FLAGGED_REASON_FOR_VISIT_TOOLTIP = 'Alert clinical team for immediate evaluation';
 
 export const MOBILE_MODAL_STYLE = {
   position: 'absolute' as const,
@@ -46,9 +48,11 @@ export const PROVIDER_WIDTH_MIN = '140px';
 export const INTAKE_AND_PROVIDER_WIDTH_MIN = '200px';
 export const VISIT_ICONS_WIDTH_MIN = '160px';
 export const VITALS_ICON_WIDTH_MIN = '90px';
-export const NOTES_WIDTH_MIN = '220px';
+export const NOTES_WIDTH = '220px';
+export const NOTES_WIDTH_MIN = '140px';
 export const CHAT_WIDTH_MIN = '80px';
 export const ACTION_WIDTH_MIN = '170px';
+export const TRACKING_BOARD_TABLE_WIDTH_MIN = '1400px';
 
 // Constants for default page sizes. Could also consider adding constants for the page size options
 export const LOCATION_ROWS_PER_PAGE = 25;

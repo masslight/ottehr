@@ -1,4 +1,4 @@
-import locationsConfig from '../../../config/runtime-seed/locations-and-schedules.json' assert { type: 'json' };
+import locationsConfig from '../../../config/runtime-seed/locations-and-schedules.json';
 
 const VIRTUAL_LOCATION_EXTENSION_URL = 'https://extensions.fhir.zapehr.com/location-form-pre-release';
 

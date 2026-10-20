@@ -12,7 +12,7 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
-import { OystehrSdkError } from '@oystehr/sdk/dist/cjs/errors';
+import type Oystehr from '@oystehr/sdk';
 import { ReactElement } from 'react';
 import { Controller, FormProvider, useForm } from 'react-hook-form';
 import { dataTestIds } from 'src/constants/data-test-ids';
@@ -26,6 +26,8 @@ import {
 } from 'utils/lib/types/data/printing';
 import { APIError } from 'utils/lib/types/errors';
 import { getLabelTypeMetadata } from 'utils/lib/utils/printing';
+
+type OystehrSdkError = Oystehr.OystehrSdkError;
 
 export interface AdminPrintingConfigFormProps {
   defaultValues: LabelPrintingConfig;

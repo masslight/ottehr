@@ -2,7 +2,8 @@ import { Stack, Typography } from '@mui/material';
 import { FC } from 'react';
 import { Loader } from '../../shared/components/Loader';
 import { PageTitle } from '../../shared/components/PageTitle';
-import { useAppointmentData, useChartData } from '../../shared/stores/appointment/appointment.store';
+import { useChartData } from '../../shared/hooks/useChartData';
+import { useAppointmentData } from '../../shared/stores/appointment/appointment.store';
 import { PlanBody } from '../components/plan/PlanBody';
 interface PlanProps {
   appointmentID?: string;

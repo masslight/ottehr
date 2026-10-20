@@ -1,25 +1,35 @@
 import Oystehr from '@oystehr/sdk';
 import { apiErrorToThrow, chooseJson } from 'utils/lib/helpers/oystehrApi';
+import { CREATE_TIMELY_FILING_REPORT_ZAMBDA, RefreshReportKind } from 'utils/lib/types/data/billing/billing.constants';
 import {
+  AddClaimAttachmentInputSchema,
   AddClaimNoteInputSchema,
+  AddEraAttachmentInputSchema,
   BulkAddChargeItemDefinitionProcedureCodesInputSchema,
   CreateBillingClaimInputSchema,
   CreateBillingCoverageInputSchema,
   CreateBillingPatientInputSchema,
   CreateBillingProviderInputSchema,
   CreateChargeItemDefinitionInputSchema,
+  CreateTimelyFilingReportInputSchema,
   DeleteBillingCoverageInputSchema,
   DeleteBillingProviderInputSchema,
   DeleteBillingTagInputSchema,
   DeleteChargeItemDefinitionInputSchema,
+  DeleteClaimAttachmentInputSchema,
+  DeleteEraAttachmentInputSchema,
   DeleteServiceFacilityInputSchema,
+  DownloadClaimAttachmentInputSchema,
+  DownloadEraAttachmentInputSchema,
   ExportBillingClaimsInputSchema,
   ExportClaimX12InputSchema,
   GetBillingClaimsExportStatusInputSchema,
   GetBillingCoverageInputSchema,
   GetBillingPatientBalanceInputSchema,
+  GetBillingPaymentsReportDrilldownInputSchema,
   GetBillingProviderInputSchema,
   GetChargeItemDefinitionInputSchema,
+  GetClaimCms1500InputSchema,
   GetClaimDetailInputSchema,
   GetClaimHistoryInputSchema,
   GetEraDetailInputSchema,
@@ -28,10 +38,17 @@ import {
   GetServiceFacilityInputSchema,
   ImportEraInputSchema,
   MatchClaimResponseToClaimInputSchema,
+  NetCollectionsDrilldownParamsSchema,
+  PatientPaymentsDrilldownParamsSchema,
   RecordBillingManualPaymentInputSchema,
+  RenameClaimAttachmentInputSchema,
+  RenameEraAttachmentInputSchema,
+  ReportDateWindowParams,
   SaveBillingTagInputSchema,
+  SaveManualEraInputSchema,
   SaveServiceFacilityInputSchema,
   SearchBillingClaimsInputSchema,
+  SearchBillingClaimTasksInputSchema,
   SearchBillingLocationsInputSchema,
   SearchBillingPatientARClaimsInputSchema,
   SearchBillingPatientsInputSchema,
@@ -43,6 +60,7 @@ import {
   SearchServiceFacilitiesInputSchema,
   TagBillingClaimInputSchema,
   UnmatchClaimResponseInputSchema,
+  UpdateBillingClaimTaskInputSchema,
   UpdateBillingCoverageInputSchema,
   UpdateBillingPatientInputSchema,
   UpdateBillingProviderInputSchema,
@@ -50,6 +68,8 @@ import {
   UpdateChargeItemDefinitionInputSchema,
 } from 'utils/lib/types/data/billing/billing.schemas';
 import {
+  AddClaimAttachmentResponse,
+  AddEraAttachmentResponse,
   BillingChargeItemDefinition,
   BillingClaimsExportKickOffResponse,
   BillingClaimsExportStatusResponse,
@@ -58,17 +78,33 @@ import {
   ClaimDetailResponse,
   CreatedClaimResponse,
   CreatedResourceResponse,
+  CreateTimelyFilingReportResponse,
   DeletedResponse,
+  DownloadClaimAttachmentResponse,
+  DownloadEraAttachmentResponse,
   EraDetailResponse,
   ExportClaimX12Response,
+  GetBillingCardsOnFileReportResponse,
   GetBillingCoverageResponse,
+  GetBillingInvoiceReportResponse,
+  GetBillingNetCollectionsDrilldownResponse,
+  GetBillingNetCollectionsReportResponse,
   GetBillingPatientBalanceResponse,
+  GetBillingPatientPaymentsDrilldownResponse,
+  GetBillingPatientPaymentsReportResponse,
+  GetBillingPaymentsReportDrilldownResponse,
+  GetBillingPaymentsReportResponse,
+  GetBillingPipelineReportResponse,
+  GetBillingProductivityReportResponse,
+  GetBillingReportHistoryResponse,
   GetPatientCoveragesResponse,
   OkResponse,
   PatientDetailResponse,
   RecordBillingManualPaymentResponse,
   SavedResourceResponse,
+  SaveManualEraResponse,
   SearchBillingClaimsResponse,
+  SearchBillingClaimTasksResponse,
   SearchBillingErasResponse,
   SearchBillingLocationsResponse,
   SearchBillingPatientARClaimsResponse,
@@ -83,6 +119,21 @@ import {
   ServiceFacilityItem,
 } from 'utils/lib/types/data/billing/billing.types';
 import { GetClaimHistoryResponse } from 'utils/lib/types/data/billing/claim-history';
+import { Cms1500FormData } from 'utils/lib/types/data/billing/cms1500.types';
+import {
+  CreateCustomInsuranceOrgInputSchema,
+  DeleteCustomInsuranceOrgInputSchema,
+  SearchCustomInsuranceOrgsInputSchema,
+  UpdateCustomInsuranceOrgInputSchema,
+} from 'utils/lib/types/data/billing/custom-insurance-org.schemas';
+import { SearchCustomInsuranceOrgsResponse } from 'utils/lib/types/data/billing/custom-insurance-org.types';
+import {
+  CreateNonInsuranceOrgInputSchema,
+  DeleteNonInsuranceOrgInputSchema,
+  SearchNonInsuranceOrgsInputSchema,
+  UpdateNonInsuranceOrgInputSchema,
+} from 'utils/lib/types/data/billing/non-insurance-org.schemas';
+import { SearchNonInsuranceOrgsResponse } from 'utils/lib/types/data/billing/non-insurance-org.types';
 import {
   BillingRulesResponse,
   GetBillingRulesInputSchema,
@@ -145,6 +196,23 @@ export const updateBillingPatient = (
 
 // --- Claims ---
 
+export const searchBillingClaimTasks = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof SearchBillingClaimTasksInputSchema>
+): Promise<SearchBillingClaimTasksResponse> => executeBillingZambda(oystehr, 'search-billing-claim-tasks', parameters);
+
+export const retryBillingClaimTask = (
+  oystehr: Oystehr,
+  parameters: Pick<z.input<typeof UpdateBillingClaimTaskInputSchema>, 'taskId'>
+): Promise<{ taskId: string }> =>
+  executeBillingZambda(oystehr, 'update-billing-claim-task', { ...parameters, action: 'retry' });
+
+export const cancelBillingClaimTask = (
+  oystehr: Oystehr,
+  parameters: Pick<z.input<typeof UpdateBillingClaimTaskInputSchema>, 'taskId'>
+): Promise<{ taskId: string }> =>
+  executeBillingZambda(oystehr, 'update-billing-claim-task', { ...parameters, action: 'cancel' });
+
 export const createBillingClaim = (
   oystehr: Oystehr,
   parameters: z.input<typeof CreateBillingClaimInputSchema>
@@ -191,6 +259,11 @@ export const exportClaimX12 = (
   oystehr: Oystehr,
   parameters: z.input<typeof ExportClaimX12InputSchema>
 ): Promise<ExportClaimX12Response> => executeBillingZambda(oystehr, 'export-billing-claim-x12', parameters);
+
+export const getBillingClaimCms1500 = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof GetClaimCms1500InputSchema>
+): Promise<Cms1500FormData> => executeBillingZambda(oystehr, 'get-billing-claim-cms1500', parameters);
 
 export const updateBillingResource = (
   oystehr: Oystehr,
@@ -299,6 +372,52 @@ export const deleteBillingServiceFacility = (
   parameters: z.input<typeof DeleteServiceFacilityInputSchema>
 ): Promise<DeletedResponse> => executeBillingZambda(oystehr, 'delete-billing-service-facility', parameters);
 
+// --- Non-Insurance Organizations ---
+
+export const createBillingNonInsuranceOrg = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof CreateNonInsuranceOrgInputSchema>
+): Promise<CreatedResourceResponse> => executeBillingZambda(oystehr, 'create-billing-non-insurance-org', parameters);
+
+export const updateBillingNonInsuranceOrg = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof UpdateNonInsuranceOrgInputSchema>
+): Promise<SavedResourceResponse> => executeBillingZambda(oystehr, 'update-billing-non-insurance-org', parameters);
+
+export const searchBillingNonInsuranceOrgs = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof SearchNonInsuranceOrgsInputSchema>
+): Promise<SearchNonInsuranceOrgsResponse> =>
+  executeBillingZambda(oystehr, 'search-billing-non-insurance-orgs', parameters);
+
+export const deleteBillingNonInsuranceOrg = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof DeleteNonInsuranceOrgInputSchema>
+): Promise<DeletedResponse> => executeBillingZambda(oystehr, 'delete-billing-non-insurance-org', parameters);
+
+// --- Insurance Organizations (custom) ---
+
+export const createBillingCustomInsuranceOrg = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof CreateCustomInsuranceOrgInputSchema>
+): Promise<CreatedResourceResponse> => executeBillingZambda(oystehr, 'create-billing-custom-insurance-org', parameters);
+
+export const updateBillingCustomInsuranceOrg = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof UpdateCustomInsuranceOrgInputSchema>
+): Promise<SavedResourceResponse> => executeBillingZambda(oystehr, 'update-billing-custom-insurance-org', parameters);
+
+export const searchBillingCustomInsuranceOrgs = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof SearchCustomInsuranceOrgsInputSchema>
+): Promise<SearchCustomInsuranceOrgsResponse> =>
+  executeBillingZambda(oystehr, 'search-billing-custom-insurance-orgs', parameters);
+
+export const deleteBillingCustomInsuranceOrg = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof DeleteCustomInsuranceOrgInputSchema>
+): Promise<DeletedResponse> => executeBillingZambda(oystehr, 'delete-billing-custom-insurance-org', parameters);
+
 // --- Terminology ---
 
 // CPT and HCPCS share the service-line code field, so search both and merge. Called straight from the
@@ -364,6 +483,112 @@ export const lookupProcedureDescriptions = async (
 export const searchBillingTags = (oystehr: Oystehr): Promise<SearchBillingTagsResponse> =>
   executeBillingZambda(oystehr, 'search-billing-tags');
 
+// --- Reports ---
+
+// Unified cached-report endpoint; typed per-kind wrappers below.
+const getBillingReport = <T>(
+  oystehr: Oystehr,
+  kind: RefreshReportKind,
+  params?: Record<string, unknown>,
+  refresh?: boolean,
+  drilldown?: Record<string, unknown>
+): Promise<T> =>
+  executeBillingZambda(oystehr, 'get-billing-report', {
+    kind,
+    ...(params && Object.keys(params).length > 0 ? { params } : {}),
+    ...(refresh ? { refresh: true } : {}),
+    ...(drilldown ? { drilldown } : {}),
+  });
+
+export const getBillingPaymentsReport = (
+  oystehr: Oystehr,
+  params?: ReportDateWindowParams,
+  refresh?: boolean
+): Promise<GetBillingPaymentsReportResponse> =>
+  getBillingReport(oystehr, 'payments', params as Record<string, unknown>, refresh);
+
+export const getBillingPatientPaymentsReport = (
+  oystehr: Oystehr,
+  params?: ReportDateWindowParams,
+  refresh?: boolean
+): Promise<GetBillingPatientPaymentsReportResponse> =>
+  getBillingReport(oystehr, 'patient-payments', params as Record<string, unknown>, refresh);
+
+export const getBillingInvoiceReport = (
+  oystehr: Oystehr,
+  _params?: undefined,
+  refresh?: boolean
+): Promise<GetBillingInvoiceReportResponse> => getBillingReport(oystehr, 'invoice', undefined, refresh);
+
+export const getBillingCardsOnFileReport = (
+  oystehr: Oystehr,
+  _params?: undefined,
+  refresh?: boolean
+): Promise<GetBillingCardsOnFileReportResponse> => getBillingReport(oystehr, 'cards-on-file', undefined, refresh);
+
+export const getBillingPipelineReport = (
+  oystehr: Oystehr,
+  params?: ReportDateWindowParams,
+  refresh?: boolean
+): Promise<GetBillingPipelineReportResponse> =>
+  getBillingReport(oystehr, 'pipeline', params as Record<string, unknown>, refresh);
+
+export const getBillingProductivityReport = (
+  oystehr: Oystehr,
+  params?: ReportDateWindowParams,
+  refresh?: boolean
+): Promise<GetBillingProductivityReportResponse> =>
+  getBillingReport(oystehr, 'productivity', params as Record<string, unknown>, refresh);
+
+export const getBillingNetCollectionsReport = (
+  oystehr: Oystehr,
+  params?: ReportDateWindowParams,
+  refresh?: boolean
+): Promise<GetBillingNetCollectionsReportResponse> =>
+  getBillingReport(oystehr, 'net-collections', params as Record<string, unknown>, refresh);
+
+// this kind's cached runs, newest first
+export const getBillingReportHistory = (
+  oystehr: Oystehr,
+  kind: RefreshReportKind
+): Promise<GetBillingReportHistoryResponse> =>
+  executeBillingZambda(oystehr, 'get-billing-report', { kind, history: true });
+
+// ERA drilldown over the payments report's cached detail
+export const getBillingPaymentsReportDrilldown = (
+  oystehr: Oystehr,
+  drilldown: z.input<typeof GetBillingPaymentsReportDrilldownInputSchema>
+): Promise<GetBillingPaymentsReportDrilldownResponse> =>
+  getBillingReport(oystehr, 'payments', undefined, undefined, drilldown as Record<string, unknown>);
+
+// row-filtered drilldown over the window's cached detail
+export const getBillingPatientPaymentsDrilldown = (
+  oystehr: Oystehr,
+  params: ReportDateWindowParams,
+  drilldown: z.input<typeof PatientPaymentsDrilldownParamsSchema>
+): Promise<GetBillingPatientPaymentsDrilldownResponse> =>
+  getBillingReport(
+    oystehr,
+    'patient-payments',
+    params as Record<string, unknown>,
+    undefined,
+    drilldown as Record<string, unknown>
+  );
+
+// per-payer ERA drilldown over the window's cached net-collections detail
+export const getBillingNetCollectionsDrilldown = (
+  oystehr: Oystehr,
+  params: ReportDateWindowParams,
+  drilldown: z.input<typeof NetCollectionsDrilldownParamsSchema>
+): Promise<GetBillingNetCollectionsDrilldownResponse> =>
+  getBillingReport(
+    oystehr,
+    'net-collections',
+    params as Record<string, unknown>,
+    undefined,
+    drilldown as Record<string, unknown>
+  );
+
 export const saveBillingTag = (
   oystehr: Oystehr,
   parameters: z.input<typeof SaveBillingTagInputSchema>
@@ -388,6 +613,11 @@ export const getBillingEraDetail = (
 
 export const importEra = (oystehr: Oystehr, parameters: z.input<typeof ImportEraInputSchema>): Promise<any> =>
   executeBillingZambda(oystehr, 'import-era', parameters);
+
+export const saveBillingManualEra = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof SaveManualEraInputSchema>
+): Promise<SaveManualEraResponse> => executeBillingZambda(oystehr, 'save-billing-manual-era', parameters);
 
 export const matchClaimResponseToClaim = (
   oystehr: Oystehr,
@@ -440,3 +670,53 @@ export const recordBillingManualPayment = (
   parameters: z.input<typeof RecordBillingManualPaymentInputSchema>
 ): Promise<RecordBillingManualPaymentResponse> =>
   executeBillingZambda(oystehr, 'record-billing-manual-payment', parameters);
+
+// --- Claim Attachments ---
+
+export const addClaimAttachment = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof AddClaimAttachmentInputSchema>
+): Promise<AddClaimAttachmentResponse> => executeBillingZambda(oystehr, 'add-claim-attachment', parameters);
+
+export const renameClaimAttachment = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof RenameClaimAttachmentInputSchema>
+): Promise<void> => executeBillingZambda(oystehr, 'rename-claim-attachment', parameters);
+
+export const deleteClaimAttachment = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof DeleteClaimAttachmentInputSchema>
+): Promise<void> => executeBillingZambda(oystehr, 'delete-claim-attachment', parameters);
+
+export const downloadClaimAttachment = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof DownloadClaimAttachmentInputSchema>
+): Promise<DownloadClaimAttachmentResponse> => executeBillingZambda(oystehr, 'download-claim-attachment', parameters);
+
+export const createTimelyFilingReport = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof CreateTimelyFilingReportInputSchema>
+): Promise<CreateTimelyFilingReportResponse> =>
+  executeBillingZambda(oystehr, CREATE_TIMELY_FILING_REPORT_ZAMBDA, parameters);
+
+// --- ERA Attachments ---
+
+export const addEraAttachment = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof AddEraAttachmentInputSchema>
+): Promise<AddEraAttachmentResponse> => executeBillingZambda(oystehr, 'add-era-attachment', parameters);
+
+export const renameEraAttachment = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof RenameEraAttachmentInputSchema>
+): Promise<OkResponse> => executeBillingZambda(oystehr, 'rename-era-attachment', parameters);
+
+export const deleteEraAttachment = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof DeleteEraAttachmentInputSchema>
+): Promise<DeletedResponse> => executeBillingZambda(oystehr, 'delete-era-attachment', parameters);
+
+export const downloadEraAttachment = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof DownloadEraAttachmentInputSchema>
+): Promise<DownloadEraAttachmentResponse> => executeBillingZambda(oystehr, 'download-era-attachment', parameters);

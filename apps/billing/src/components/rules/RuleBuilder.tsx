@@ -15,14 +15,18 @@ import {
 } from '@mui/material';
 import { ReactElement, ReactNode, Ref } from 'react';
 import { Controller, useFormContext, useWatch } from 'react-hook-form';
+import { otherColors } from 'utils/lib/theme/billing-palette';
 import {
   ADD_SERVICE_LINE_FIELDS,
   addServiceLineFieldProblem,
   DATE_SOURCE_CATALOG,
   DateSourceSelectValue,
   EXACT_DATE_SOURCE,
+  EXACT_POS_SOURCE,
   getRuleFieldDef,
   getServiceLinePropertyDef,
+  POS_SOURCE_CATALOG,
+  PosSourceSelectValue,
   RULE_FIELD_CATALOG,
   RULE_FIELD_GROUP_LABELS,
   RULE_VALUE_FORMATS,
@@ -58,10 +62,13 @@ import {
   SERVICE_LINE_MATCH_TYPE,
   ServiceLineMatch,
   ServiceLineSetOperation,
+  ServiceLineSetValue,
 } from 'utils/lib/types/data/billing/rules-engine.schemas';
 import { HOLD_TAG_NAME } from 'utils/lib/types/data/billing/system-tags';
-import { otherColors } from '../../themes/ottehr/colors';
+import { valueToText } from '../../utils/format';
+import { DateInput } from '../DateInput';
 import { FacilitySelect } from '../FacilitySelect';
+import { NioSelect } from '../NioSelect';
 import { PayerSelect } from '../PayerSelect';
 import { ProcedureCodeAutocomplete } from '../ProcedureCodeAutocomplete';
 import { ProviderSelect } from '../ProviderSelect';
@@ -94,6 +101,25 @@ const LOGIC_LABELS: Record<RuleLogic, string> = {
   or: 'Any (OR)',
 };
 
+// Labels shared by fields in more than one group (e.g. "Member ID" on every coverage, "First name"
+// on the patient and each policy holder). The menu's group subheaders tell them apart, but the
+// closed select shows only the label, so these get their group prepended there.
+const AMBIGUOUS_FIELD_LABELS = (() => {
+  const groupsByLabel = new Map<string, Set<RuleFieldDef['group']>>();
+  for (const field of RULE_FIELD_CATALOG) {
+    groupsByLabel.set(field.label, (groupsByLabel.get(field.label) ?? new Set()).add(field.group));
+  }
+  return new Set([...groupsByLabel].filter(([, groups]) => groups.size > 1).map(([label]) => label));
+})();
+
+// The selected property as shown in the closed select: "Primary insurance - Member ID" rather than
+// "Member ID" when the bare label could mean more than one field.
+const fieldDisplayLabel = (fieldId: string): string => {
+  const def = getRuleFieldDef(fieldId);
+  if (!def) return fieldId;
+  return AMBIGUOUS_FIELD_LABELS.has(def.label) ? `${RULE_FIELD_GROUP_LABELS[def.group]} - ${def.label}` : def.label;
+};
+
 // Property menu items with a subheader per field group. The catalog is authored grouped, so a
 // group's fields are contiguous; a subheader is emitted whenever the group changes.
 function fieldMenuItems(fields: RuleFieldDef[]): ReactElement[] {
@@ -112,9 +138,6 @@ function fieldMenuItems(fields: RuleFieldDef[]): ReactElement[] {
   }
   return items;
 }
-
-const valueToText = (value: string | string[] | null | undefined): string =>
-  Array.isArray(value) ? value.join(', ') : value ?? '';
 
 const textToList = (text: string): string[] =>
   text
@@ -253,7 +276,20 @@ function TypedValueInput({
       </FormControl>
     );
   }
-  if ((valueType === 'date' || valueType === 'number') && !multiple) {
+  if (valueType === 'date' && !multiple) {
+    const definedLabel = label ?? 'Value';
+    return (
+      <DateInput
+        label={required ? `${definedLabel} *` : definedLabel}
+        size="small"
+        value={valueToText(value)}
+        onChange={(value) => onChange(value)}
+        error={error}
+        helperText={helperText}
+      />
+    );
+  }
+  if (valueType === 'number' && !multiple) {
     return (
       <TextField
         size="small"
@@ -327,6 +363,20 @@ function FieldValueInput({
   if (def?.valueType === 'payer') {
     return (
       <PayerSelect
+        multiple={multiple}
+        value={value}
+        onChange={onChange}
+        label={label}
+        required={required}
+        error={error}
+        helperText={helperText}
+        inputRef={inputRef}
+      />
+    );
+  }
+  if (def?.valueType === 'nio') {
+    return (
+      <NioSelect
         multiple={multiple}
         value={value}
         onChange={onChange}
@@ -498,6 +548,7 @@ function DateOrSourceInput({
   label?: string;
 } & ValueInputValidationProps): ReactElement {
   const source: DateSourceSelectValue = value && typeof value === 'object' ? value.source : EXACT_DATE_SOURCE;
+  const definedLabel = label ?? 'Date';
   return (
     <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'flex-start' }}>
       <FormControl size="small" sx={{ minWidth: 220 }}>
@@ -522,18 +573,75 @@ function DateOrSourceInput({
         )}
       </FormControl>
       {source === EXACT_DATE_SOURCE && (
-        <TextField
+        <DateInput
+          label={required ? `${definedLabel} *` : definedLabel}
           size="small"
-          type="date"
-          label={label ?? 'Date'}
           value={typeof value === 'string' ? value : ''}
-          onChange={(e) => onChange(e.target.value)}
-          InputLabelProps={{ shrink: true }}
+          onChange={(value) => onChange(value)}
+          error={error}
+          helperText={helperText}
+        />
+      )}
+    </Box>
+  );
+}
+
+// Place-of-service-or-derived-source input for updateServiceLines' placeOfService property — parallel
+// to DateOrSourceInput above, but for the one non-date property that accepts a derived value. "Exact
+// code" (the default) falls through to the property's usual code dropdown via ServiceLineValueInput.
+function PosOrSourceInput({
+  def,
+  value,
+  onChange,
+  label,
+  required,
+  error,
+  helperText,
+  inputRef,
+}: {
+  def: ServiceLinePropertyDef | undefined;
+  value: ServiceLineSetValue | null | undefined;
+  onChange: (value: ServiceLineSetValue) => void;
+  label?: string;
+} & ValueInputValidationProps): ReactElement {
+  const source: PosSourceSelectValue =
+    value && typeof value === 'object' && value.source === 'facilityPlaceOfService' ? value.source : EXACT_POS_SOURCE;
+  return (
+    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+      <FormControl size="small" sx={{ minWidth: 220 }}>
+        <InputLabel>{label ? `${label} source` : 'Place of service source'}</InputLabel>
+        <Select
+          label={label ? `${label} source` : 'Place of service source'}
+          value={source}
+          inputRef={source !== EXACT_POS_SOURCE ? inputRef : undefined}
+          onChange={(e) => {
+            const next = e.target.value as PosSourceSelectValue;
+            onChange(next === EXACT_POS_SOURCE ? '' : { source: next });
+          }}
+        >
+          {POS_SOURCE_CATALOG.map((option) => (
+            <MenuItem key={option.value} value={option.value}>
+              {option.label}
+            </MenuItem>
+          ))}
+        </Select>
+        {source !== EXACT_POS_SOURCE && helperText != null && (
+          <FormHelperText error={error}>{helperText}</FormHelperText>
+        )}
+      </FormControl>
+      {source === EXACT_POS_SOURCE && (
+        <ServiceLineValueInput
+          def={def}
+          multiple={false}
+          value={typeof value === 'string' ? value : ''}
+          onChange={(v) => onChange(typeof v === 'string' ? v : v[0] ?? '')}
+          label={label}
           required={required}
           error={error}
           helperText={helperText}
           inputRef={inputRef}
-          sx={{ minWidth: 200 }}
+          // The only clearable scalar line property; an explicit empty entry means "clear it".
+          allowEmptyOption
         />
       )}
     </Box>
@@ -586,6 +694,7 @@ function FieldConditionEditor({ name }: { name: string }): ReactElement | null {
         <Select
           label="Property"
           value={value.field}
+          renderValue={fieldDisplayLabel}
           onChange={(e) => {
             const field = e.target.value;
             const nextDef = getRuleFieldDef(field);
@@ -911,7 +1020,11 @@ function AddServiceLineEditor({ name }: { name: string }): ReactElement {
 // properties: replace / add / remove), and the value.
 function ServiceLineSetEditor({ name }: { name: string }): ReactElement | null {
   const { control, clearErrors } = useFormContext();
-  const { value, replace } = useNode<{ property: string; value: DateValue; operation?: ServiceLineSetOperation }>(name);
+  const { value, replace } = useNode<{
+    property: string;
+    value: ServiceLineSetValue;
+    operation?: ServiceLineSetOperation;
+  }>(name);
   if (!value) return null;
   const def = getServiceLinePropertyDef(value.property);
   const isList = def?.valueType === 'list';
@@ -970,12 +1083,23 @@ function ServiceLineSetEditor({ name }: { name: string }): ReactElement | null {
         name={`${name}.value`}
         control={control}
         rules={{
-          validate: (v: DateValue | null | undefined) =>
+          validate: (v: ServiceLineSetValue | null | undefined) =>
             def ? serviceLineSetValueProblem(def, value.operation, v) ?? true : true,
         }}
         render={({ field: { ref, value: fieldValue, onChange }, fieldState: { error } }) =>
           def?.valueType === 'date' ? (
             <DateOrSourceInput
+              value={fieldValue}
+              onChange={onChange}
+              label={valueLabel}
+              required={valueRequired}
+              error={!!error}
+              helperText={error?.message ?? formatHint(def)}
+              inputRef={ref}
+            />
+          ) : def?.id === 'placeOfService' ? (
+            <PosOrSourceInput
+              def={def}
               value={fieldValue}
               onChange={onChange}
               label={valueLabel}
@@ -1059,6 +1183,7 @@ function ActionEditor({ name }: { name: string }): ReactElement | null {
             <Select
               label="Property"
               value={value.field}
+              renderValue={fieldDisplayLabel}
               onChange={(e) => {
                 // Reset the value: it's meaningless across a property change.
                 replace({ ...value, field: e.target.value, value: '' });

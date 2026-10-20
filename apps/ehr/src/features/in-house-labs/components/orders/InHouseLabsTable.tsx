@@ -33,7 +33,7 @@ import {
 } from 'src/features/visits/in-person/routing/helpers';
 import { useGetCreateInHouseLabResources } from 'src/features/visits/shared/stores/appointment/appointment.queries';
 import { InHouseOrderListPageItemDTO, InHouseOrdersSearchBy } from 'utils/lib/types/data/in-house/in-house.types';
-import { LabOrdersSearchBy } from 'utils/lib/types/data/labs';
+import { LabOrdersSearchBy } from 'utils/lib/types/data/labs/labs.types';
 import { InHouseLabsTableRow } from './InHouseLabsTableRow';
 import { useInHouseLabOrders } from './useInHouseLabOrders';
 
@@ -43,6 +43,7 @@ export type InHouseLabsTableColumn =
   | 'orderAdded'
   | 'provider'
   | 'dx'
+  | 'results'
   | 'resultsReceived'
   | 'status'
   | 'actions';
@@ -169,6 +170,8 @@ export const InHouseLabsTable = <SearchBy extends LabOrdersSearchBy>({
         return '8%';
       case 'actions':
         return '5%';
+      case 'results':
+        return '20%';
       default:
         return '10%';
     }
@@ -190,6 +193,8 @@ export const InHouseLabsTable = <SearchBy extends LabOrdersSearchBy>({
         return 'Results received';
       case 'status':
         return 'Status';
+      case 'results':
+        return 'Results';
       default:
         return '';
     }

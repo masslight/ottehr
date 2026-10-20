@@ -25,6 +25,10 @@ export const PrepopulationEntrySchema: z.ZodType<PrepopulationEntry, z.ZodTypeDe
  * Full procedures configuration
  */
 
+const StructuredValueSchema = z.union([z.string(), z.number(), z.boolean()]);
+const StructuredRowSchema = z.record(StructuredValueSchema);
+const StructuredFactsSchema = z.record(z.union([StructuredValueSchema, z.array(StructuredRowSchema)]));
+
 const QuickPickEntry = z.object({
   name: z.string(),
   consentObtained: z.boolean().optional(),
@@ -34,6 +38,8 @@ const QuickPickEntry = z.object({
       z.object({
         code: z.string(),
         display: z.string(),
+        modifier: z.array(z.object({ code: z.string(), display: z.string() })).optional(),
+        billableUnits: z.number().positive().optional(),
       })
     )
     .optional(),
@@ -62,6 +68,11 @@ const QuickPickEntry = z.object({
   otherPostInstructions: z.string().optional(),
   timeSpent: z.string().optional(),
   documentedBy: z.string().optional(),
+  structuredFacts: StructuredFactsSchema.optional(),
+  lengthCm: z.number().optional(),
+  repairDepth: z.string().optional(),
+  infusionStartTime: z.string().optional(),
+  infusionStopTime: z.string().optional(),
 });
 export interface ProceduresConfig {
   prepopulation: Record<string, PrepopulationEntry>;

@@ -116,9 +116,14 @@ export const withFollowUpEncounterId = (
   url: string,
   appointment: Pick<InPersonAppointmentInformation, 'isFollowUp' | 'encounterId'>
 ): string => {
-  if (!appointment.isFollowUp || !appointment.encounterId) return url;
+  if (!appointment.isFollowUp) return url;
+  return withEncounterIdParam(url, appointment.encounterId);
+};
+
+export const withEncounterIdParam = (url: string, encounterId: string | null | undefined): string => {
+  if (!encounterId) return url;
   const separator = url.includes('?') ? '&' : '?';
-  return `${url}${separator}encounterId=${appointment.encounterId}`;
+  return `${url}${separator}encounterId=${encounterId}`;
 };
 
 export type FollowUpAppointmentLookup = Record<string, { parentAppointmentId: string; encounterId: string }>;

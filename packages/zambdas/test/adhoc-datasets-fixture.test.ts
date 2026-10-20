@@ -2,30 +2,51 @@ import Oystehr from '@oystehr/sdk';
 import {
   Appointment,
   Condition,
+  DiagnosticReport,
   Encounter,
   FhirResource,
   Location,
   MedicationAdministration,
+  MedicationStatement,
   Observation,
   Patient,
   PaymentNotice,
   Practitioner,
+  ServiceRequest,
 } from 'fhir/r4b';
-import { FHIR_EXTENSION, PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import { FHIR_EXTENSION, PAYMENT_METHOD_EXTENSION_URL, SCHEDULE_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import { MEDICATION_CPT_CODES_EXTENSION_URL } from 'utils/lib/fhir/medication-administration';
 import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
-import { CODE_SYSTEM_NDC } from 'utils/lib/helpers/rcm/constants';
+import { buildPaymentVoidExtension, upsertPaymentRefundsExtension } from 'utils/lib/fhir/paymentRefunds';
+import {
+  DIAGNOSTIC_REPORT_PRELIMINARY_REVIEW_ON_EXTENSION_URL,
+  SERVICE_REQUEST_PERFORMED_ON_EXTENSION_URL,
+  SERVICE_REQUEST_REQUESTED_TIME_EXTENSION_URL,
+} from 'utils/lib/fhir/radiology';
+import { CODE_SYSTEM_CPT, CODE_SYSTEM_NDC } from 'utils/lib/helpers/rcm/constants';
 import { AdHocBillingOutputSchema } from 'utils/lib/types/adhoc/datasets/billing';
 import { AdHocEncountersOutputSchema } from 'utils/lib/types/adhoc/datasets/encounters';
 import { AdHocPatientsOutputSchema } from 'utils/lib/types/adhoc/datasets/patients';
 import {
+  CVX_CODE_SYSTEM_URL,
   MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE,
+  MEDICATION_ADMINISTRATION_PERFORMER_TYPE_SYSTEM,
   MEDICATION_ADMINISTRATION_ROUTES_CODES_SYSTEM,
   MEDICATION_IDENTIFIER_NAME_SYSTEM,
+  PRACTITIONER_ADMINISTERED_MEDICATION_CODE,
+  PRACTITIONER_ORDERED_BY_MEDICATION_CODE,
+  PRACTITIONER_ORDERED_MEDICATION_CODE,
+  VACCINE_ADMINISTRATION_CODES_EXTENSION_URL,
   VACCINE_ADMINISTRATION_VIS_DATE_EXTENSION_URL,
 } from 'utils/lib/types/api/medication-administration.constants';
 import { CREATED_BY_SYSTEM } from 'utils/lib/types/common';
 import { PRACTITIONER_CODINGS } from 'utils/lib/types/data/appointments/appointments.types';
-import { describe, expect, it } from 'vitest';
+import {
+  PATIENT_BREASTFEEDING_STATUS,
+  SEEN_IN_LAST_THREE_YEARS_FIELD,
+} from 'utils/lib/types/data/screening-questions/constants';
+import { afterAll, describe, expect, it, vi } from 'vitest';
+import { CONTAINED_MEDICATION_ID } from '../src/ehr/immunization/common';
 import { fetchAdHocBillingRows } from '../src/shared/adhoc-datasets/billing';
 import { fetchAdHocEncounterRows } from '../src/shared/adhoc-datasets/encounters';
 import { fetchAdHocPatientRows } from '../src/shared/adhoc-datasets/patients';
@@ -44,6 +65,8 @@ const appointment: Appointment = {
   status: 'fulfilled',
   start: '2026-07-01T14:00:00.000Z', // a Wednesday
   end: '2026-07-01T14:30:00.000Z',
+  description: 'Ear pain',
+  appointmentType: { text: 'walk-in' },
   meta: {
     tag: [{ code: OTTEHR_MODULE.IP }, { system: CREATED_BY_SYSTEM, display: 'Staff admin@clinic.com' }],
   },
@@ -107,7 +130,40 @@ const location: Location = {
   id: 'loc-1',
   name: 'Midtown Clinic',
   address: { state: 'NY' },
-  hoursOfOperation: [{ daysOfWeek: ['wed'], openingTime: '08:00:00', closingTime: '18:00:00' }],
+};
+
+// Operating hours are the Schedule extension of the location's Schedule (the Schedule tab), 08–18 on Wednesday.
+const scheduleDay = (workingDay: boolean, open = 8, close = 18): Record<string, unknown> => ({
+  open,
+  close,
+  openingBuffer: 0,
+  closingBuffer: 0,
+  workingDay,
+  hours: [],
+});
+
+const locationSchedule: FhirResource = {
+  resourceType: 'Schedule',
+  id: 'sched-1',
+  actor: [{ reference: 'Location/loc-1' }],
+  extension: [
+    {
+      url: SCHEDULE_EXTENSION_URL,
+      valueString: JSON.stringify({
+        schedule: {
+          monday: scheduleDay(true),
+          tuesday: scheduleDay(true),
+          wednesday: scheduleDay(true),
+          thursday: scheduleDay(true),
+          friday: scheduleDay(true),
+          saturday: scheduleDay(false),
+          sunday: scheduleDay(false),
+        },
+        scheduleOverrides: {},
+        closures: [],
+      }),
+    },
+  ],
 };
 
 const practitioner: Practitioner = {
@@ -191,13 +247,19 @@ const observations: Observation[] = [
   bpObs('obs-bp-2', '2026-07-01T14:20:00.000Z', 122, undefined, 'LX'),
 ];
 
-// One vaccine with a VIS date and a vial (lot + expiry), one administered without either.
+const performer = (code: string): NonNullable<MedicationAdministration['performer']>[number] => ({
+  actor: { reference: 'Practitioner/prac-1', display: 'Greg House' },
+  function: { coding: [{ system: MEDICATION_ADMINISTRATION_PERFORMER_TYPE_SYSTEM, code }] },
+});
+// One vaccine with a VIS date, a vial (lot + expiry) and the full administration detail (codes,
+// manufacturer, dose, staff), one partially administered without any of it.
 const vaccineAdmin = (
   id: string,
   name: string,
   status: 'completed' | 'on-hold',
   visDate?: string,
-  batch?: { lotNumber: string; expirationDate: string }
+  batch?: { lotNumber: string; expirationDate: string },
+  withDetail = false
 ): MedicationAdministration => ({
   resourceType: 'MedicationAdministration' as const,
   id,
@@ -206,20 +268,48 @@ const vaccineAdmin = (
   context: { reference: 'Encounter/enc-1' },
   subject: { reference: 'Patient/pat-1' },
   effectiveDateTime: '2026-07-01T14:15:00.000Z',
+  ...(withDetail
+    ? {
+        dosage: {
+          dose: { value: 0.5, unit: 'mL', system: 'http://unitsofmeasure.org' },
+          route: { coding: [{ system: MEDICATION_ADMINISTRATION_ROUTES_CODES_SYSTEM, code: 'IM' }] },
+        },
+        performer: [
+          performer(PRACTITIONER_ORDERED_BY_MEDICATION_CODE),
+          performer(PRACTITIONER_ADMINISTERED_MEDICATION_CODE),
+        ],
+      }
+    : {}),
   contained: [
     {
       resourceType: 'Medication' as const,
-      id: `med-${id}`,
+      // The immunization order writes its Medication copy under this contained id.
+      id: CONTAINED_MEDICATION_ID,
       identifier: [{ system: MEDICATION_IDENTIFIER_NAME_SYSTEM, value: name }],
       ...(batch ? { batch } : {}),
-      ...(visDate ? { extension: [{ url: VACCINE_ADMINISTRATION_VIS_DATE_EXTENSION_URL, valueDate: visDate }] } : {}),
+      ...(withDetail ? { manufacturer: { reference: '#manufacturer-org' } } : {}),
+      extension: [
+        ...(visDate ? [{ url: VACCINE_ADMINISTRATION_VIS_DATE_EXTENSION_URL, valueDate: visDate }] : []),
+        ...(withDetail
+          ? [
+              { system: CODE_SYSTEM_NDC, code: '49281-0421-88' },
+              { system: CVX_CODE_SYSTEM_URL, code: '150' },
+              { system: CODE_SYSTEM_CPT, code: '90686' },
+            ].map((coding) => ({
+              url: VACCINE_ADMINISTRATION_CODES_EXTENSION_URL,
+              valueCodeableConcept: { coding: [coding] },
+            }))
+          : []),
+      ],
     },
+    ...(withDetail ? [{ resourceType: 'Organization' as const, id: 'manufacturer-org', name: 'Sanofi Pasteur' }] : []),
   ],
 });
 
 // In-house administration. The recall attributes live on the CONTAINED Medication copy, and an order
 // marked as not administered carries no batch at all — nothing was given, so no vial is tied to the
-// patient. `withVial: false` reproduces that.
+// patient. `withVial: false` reproduces that. MedicationAdministration.effectiveDateTime is the ORDER
+// CREATION time; the instant the drug was given is on the MedicationStatement (partOf → MA) below.
 const inHouseAdmin = (
   id: string,
   name: string,
@@ -234,6 +324,19 @@ const inHouseAdmin = (
   context: { reference: 'Encounter/enc-1' },
   subject: { reference: 'Patient/pat-1' },
   effectiveDateTime,
+  reasonReference: [{ reference: 'Condition/cond-1' }],
+  extension: [
+    {
+      url: MEDICATION_CPT_CODES_EXTENSION_URL,
+      valueString: JSON.stringify([{ code: 'J0696', display: 'Ceftriaxone' }]),
+    },
+  ],
+  // Every in-house order carries the practitioner who created it (create-update-medication-order).
+  performer: [
+    performer(PRACTITIONER_ORDERED_MEDICATION_CODE),
+    performer(PRACTITIONER_ORDERED_BY_MEDICATION_CODE),
+    ...(withVial ? [performer(PRACTITIONER_ADMINISTERED_MEDICATION_CODE)] : []),
+  ],
   dosage: {
     dose: { value: dose, unit: 'mg', system: 'http://unitsofmeasure.org' },
     route: { coding: [{ system: MEDICATION_ADMINISTRATION_ROUTES_CODES_SYSTEM, code: 'IM' }] },
@@ -255,13 +358,89 @@ const inHouseAdmin = (
   ],
 });
 
+const administeredStatement: MedicationStatement = {
+  resourceType: 'MedicationStatement',
+  id: 'ms-3',
+  status: 'active',
+  meta: { tag: [{ code: 'in-house-medication' }] },
+  // No encounter context on the real resource — it is reachable only via partOf → MA.
+  partOf: [{ reference: 'MedicationAdministration/ma-3' }],
+  subject: { reference: 'Patient/pat-1' },
+  effectiveDateTime: '2026-07-01T15:30:00.000Z',
+};
+
+// Radiology: an order with its timeline on extensions, a preliminary read and a final read (linked by
+// basedOn, not by encounter), plus a still-pending order and a cancelled one.
+const radiologyOrder = (
+  id: string,
+  name: string,
+  status: ServiceRequest['status'],
+  performedAt?: string
+): ServiceRequest => ({
+  resourceType: 'ServiceRequest' as const,
+  id,
+  status,
+  intent: 'order',
+  subject: { reference: 'Patient/pat-1' },
+  encounter: { reference: 'Encounter/enc-1' },
+  authoredOn: '2026-07-01T14:12:00.000Z',
+  meta: { tag: [{ code: 'radiology' }] },
+  code: { coding: [{ system: CODE_SYSTEM_CPT, code: '73030', display: name }] },
+  extension: [
+    { url: SERVICE_REQUEST_REQUESTED_TIME_EXTENSION_URL, valueDateTime: '2026-07-01T14:12:00.000Z' },
+    ...(performedAt ? [{ url: SERVICE_REQUEST_PERFORMED_ON_EXTENSION_URL, valueDateTime: performedAt }] : []),
+  ],
+});
+const radiologyRead = (id: string, srId: string, status: DiagnosticReport['status'], at: string): DiagnosticReport => ({
+  resourceType: 'DiagnosticReport' as const,
+  id,
+  status,
+  code: { text: 'XR shoulder' },
+  basedOn: [{ reference: `ServiceRequest/${srId}` }],
+  ...(status === 'preliminary'
+    ? { extension: [{ url: DIAGNOSTIC_REPORT_PRELIMINARY_REVIEW_ON_EXTENSION_URL, valueDateTime: at }] }
+    : { issued: at }),
+});
+const serviceRequests: FhirResource[] = [
+  radiologyOrder('sr-1', 'XR shoulder', 'completed', '2026-07-01T14:30:00.000Z'),
+  radiologyRead('dr-1', 'sr-1', 'preliminary', '2026-07-01T14:45:00.000Z'),
+  radiologyRead('dr-2', 'sr-1', 'final', '2026-07-01T18:00:00.000Z'),
+  radiologyOrder('sr-2', 'XR wrist', 'active'),
+  radiologyOrder('sr-3', 'XR knee', 'revoked'),
+];
+
+// "Ask the patient" screening answers: chart-data Observations keyed by the config field's fhirField,
+// value = the option's fhirValue. Two answers for the same question keep the newest.
+const screeningObs = (id: string, field: string, value: string | boolean, at: string): Observation => ({
+  resourceType: 'Observation' as const,
+  id,
+  status: 'final',
+  code: { text: field },
+  meta: { tag: [{ code: field }] },
+  subject: { reference: 'Patient/pat-1' },
+  encounter: { reference: 'Encounter/enc-1' },
+  effectiveDateTime: at,
+  ...(typeof value === 'boolean' ? { valueBoolean: value } : { valueString: value }),
+});
+const screeningObservations: FhirResource[] = [
+  screeningObs('obs-scr-1', PATIENT_BREASTFEEDING_STATUS, 'not-applicable', '2026-07-01T14:06:00.000Z'),
+  screeningObs('obs-scr-2', SEEN_IN_LAST_THREE_YEARS_FIELD, 'no', '2026-07-01T14:06:00.000Z'),
+  screeningObs('obs-scr-3', SEEN_IN_LAST_THREE_YEARS_FIELD, 'yes', '2026-07-01T14:08:00.000Z'),
+  screeningObs('obs-scr-4', 'covid-symptoms', true, '2026-07-01T14:07:00.000Z'),
+  screeningObs('obs-scr-5', 'tested-positive-covid', false, '2026-07-01T14:05:00.000Z'),
+];
+
 const medicationAdministrations: FhirResource[] = [
-  vaccineAdmin('ma-1', 'Influenza', 'completed', '2026-07-01', {
-    lotNumber: 'FLU-2026-A',
-    expirationDate: '2027-01-31',
-  }),
+  vaccineAdmin(
+    'ma-1',
+    'Influenza',
+    'completed',
+    '2026-07-01',
+    { lotNumber: 'FLU-2026-A', expirationDate: '2027-01-31' },
+    true
+  ),
   vaccineAdmin('ma-2', 'MMR', 'on-hold'),
-  inHouseAdmin('ma-3', 'Ceftriaxone 1 g', 1000, '2026-07-01T15:30:00.000Z', true),
+  inHouseAdmin('ma-3', 'Ceftriaxone 1 g', 1000, '2026-07-01T15:00:00.000Z', true),
   inHouseAdmin('ma-4', 'Ceftriaxone 500 mg', 500, '2026-07-01T16:00:00.000Z', false),
 ];
 
@@ -279,54 +458,86 @@ const paymentNotice = (id: string, amount: number, created: string, method?: str
   ...(method ? { extension: [{ url: PAYMENT_METHOD_EXTENSION_URL, valueString: method }] } : {}),
 });
 
+// pay-3 was partly refunded (one settled refund, one failed); pay-4 was voided (patient-payments/void
+// marks the notice cancelled) — neither the void nor the failed refund changes what was collected.
+const refundedNotice = paymentNotice('pay-3', 10, '2026-07-01T19:00:00.000Z');
+refundedNotice.extension = upsertPaymentRefundsExtension(refundedNotice.extension, [
+  { stripeRefundId: 're_1', amountInCents: 400, dateISO: '2026-07-02T10:00:00.000Z', status: 'succeeded' },
+  { stripeRefundId: 're_2', amountInCents: 600, dateISO: '2026-07-02T11:00:00.000Z', status: 'failed' },
+]);
 const paymentNotices: FhirResource[] = [
   paymentNotice('pay-2', 25.5, '2026-07-01T18:00:00.000Z', 'cash'),
   paymentNotice('pay-1', 40, '2026-07-01T15:00:00.000Z', 'card'),
-  paymentNotice('pay-3', 10, '2026-07-01T19:00:00.000Z'),
+  refundedNotice,
+  { ...paymentNotice('pay-4', 99, '2026-07-01T20:00:00.000Z', 'card'), status: 'cancelled' },
+  // Voided but still active (the billing-side step of the void failed): the void record makes it voided, as the
+  // payments list reads it.
+  {
+    ...paymentNotice('pay-5', 12, '2026-07-01T21:00:00.000Z', 'cash'),
+    extension: [
+      { url: PAYMENT_METHOD_EXTENSION_URL, valueString: 'cash' },
+      buildPaymentVoidExtension({ reason: 'Entered twice', voidedAtISO: '2026-07-01T21:05:00.000Z' }),
+    ],
+  },
+  // A draft notice is not a payment at all.
+  { ...paymentNotice('pay-6', 7, '2026-07-01T22:00:00.000Z', 'cash'), status: 'draft' },
 ];
 
-const rootResources: FhirResource[] = [appointment, encounter, patient, location, practitioner];
+// The attending provider is not an _include on the main search: it is fetched by id afterwards, so
+// the fake serves Practitioner as a scoped type rather than alongside the appointment graph.
+const rootResources: FhirResource[] = [appointment, encounter, patient, location];
 const scopedByType: Record<string, FhirResource[]> = {
+  Practitioner: [practitioner],
+  Schedule: [locationSchedule],
   Condition: [condition],
-  Observation: observations,
-  MedicationAdministration: medicationAdministrations,
+  Observation: [...observations, ...screeningObservations],
+  ServiceRequest: serviceRequests,
+  // The administration statement arrives as a revinclude of the MA search, never by its own context.
+  MedicationAdministration: [...medicationAdministrations, administeredStatement],
   PaymentNotice: paymentNotices,
 };
 const resourcesFor = (resourceType: string): FhirResource[] =>
   resourceType === 'Appointment' ? rootResources : scopedByType[resourceType] ?? [];
 
-// Emulates the async-bundle path the zambdas use: search returns a job handle (jobId encodes the
-// resource type and the requested offset), and waitForAsyncJob returns the completion bundle
-// (batch-response) whose first entry holds the searchset. The fixtures all fit on the first page,
-// so a non-zero offset returns an empty page — matching how searchAllAsync terminates.
+// Emulates the async-bulk path the zambdas use: the job answers with a manifest of file urls, and
+// the zambda downloads each file itself — the NDJSON is served by the stubbed fetch below.
+const ndjsonByUrl = new Map<string, string>();
+
+const manifestFor = (jobId: string): { output: { type: string; url: string }[]; requiresAccessToken: boolean } => {
+  const byType = new Map<string, FhirResource[]>();
+  for (const resource of resourcesFor(jobId)) {
+    byType.set(resource.resourceType, [...(byType.get(resource.resourceType) ?? []), resource]);
+  }
+  const output = Array.from(byType.entries()).map(([type, resources]) => {
+    const url = `https://example.test/${jobId}/${type}.ndjson`;
+    ndjsonByUrl.set(url, resources.map((resource) => JSON.stringify(resource)).join('\n'));
+    return { type, url };
+  });
+  // The manifest asks for a token, which is exactly the case where the SDK's own downloader fails.
+  return { output, requiresAccessToken: true };
+};
+
+// Stubbed rather than assigned, so vitest restores the real fetch even if a test throws — a leaked
+// stub would silently change the behaviour of whatever file runs next in this worker.
+vi.stubGlobal('fetch', (async (input: RequestInfo | URL) => {
+  const url = String(input);
+  const ndjson = ndjsonByUrl.get(url);
+  if (ndjson === undefined) return { ok: false, status: 404, text: async () => 'not found' };
+  return { ok: true, status: 200, text: async () => ndjson };
+}) as unknown as typeof fetch);
+
+afterAll(() => {
+  vi.unstubAllGlobals();
+});
+
 const fakeOystehr = {
   fhir: {
-    search: async ({ resourceType, params }: { resourceType: string; params?: { name: string; value: string }[] }) => ({
-      jobId: `${resourceType}#${params?.find((p) => p.name === '_offset')?.value ?? '0'}`,
+    search: async ({ resourceType }: { resourceType: string }) => ({
+      jobId: resourceType,
       contentLocation: '',
-      mode: 'bundle',
+      mode: 'bulk',
     }),
-    waitForAsyncJob: async (jobId: string) => {
-      const [resourceType, offset] = jobId.split('#');
-      const resources = Number(offset) === 0 ? resourcesFor(resourceType) : [];
-      return {
-        status: 200,
-        mode: 'bundle',
-        bundle: {
-          resourceType: 'Bundle',
-          type: 'batch-response',
-          entry: [
-            {
-              resource: {
-                resourceType: 'Bundle',
-                type: 'searchset',
-                entry: resources.map((resource) => ({ resource })),
-              },
-            },
-          ],
-        },
-      };
-    },
+    waitForAsyncJob: async (jobId: string) => ({ status: 200, mode: 'bulk', manifest: manifestFor(jobId) }),
   },
   user: { list: async () => [] },
 } as unknown as Oystehr;
@@ -364,6 +575,10 @@ describe('ad-hoc dataset zambdas: mapped rows parse against their Zod schema (fi
     expect(row.statusHistory.map((e) => e.status)).toEqual(['arrived', 'intake', 'provider', 'intake', 'completed']);
     expect(row.statusHistory[0].start).toBe('2026-07-01T14:00:00.000Z');
     expect(row.statusHistory.at(-1)?.end).toBeNull();
+    // The current status began when the last history entry started.
+    expect(row.visitStatusSince).toBe('2026-07-01T14:25:00.000Z');
+    // Reason for visit is the booking's free text, never the booking kind (walk-in / pre-book).
+    expect(row.reason).toBe('Ear pain');
   });
 
   it('encounters vitals layer: readings are chronological, °C converted to °F, BP pairs aligned', async () => {
@@ -398,20 +613,116 @@ describe('ad-hoc dataset zambdas: mapped rows parse against their Zod schema (fi
     expect(row.abnormalVitals).toContain('bloodPressure');
   });
 
+  it('encounters imaging layer: one study record per radiology order with its status timeline', async () => {
+    const rows = await fetchAdHocEncounterRows(fakeOystehr, { dateRange, includeImaging: true });
+    const row = rows[0];
+
+    expect(issuesOf(AdHocEncountersOutputSchema.safeParse({ encounters: rows }))).toEqual([]);
+    // The flat list keeps excluding cancelled orders; the records carry every order with a status.
+    expect(row.imagingOrders).toEqual(['XR shoulder', 'XR wrist']);
+    // The coarse fields keep their meaning (saved reports read them); the page's own status is orderStatus.
+    expect(row.imagingStudies).toMatchObject([
+      {
+        name: 'XR shoulder',
+        status: 'final',
+        orderedAt: '2026-07-01T14:12:00.000Z',
+        performedAt: '2026-07-01T14:30:00.000Z',
+        preliminaryAt: '2026-07-01T14:45:00.000Z',
+        finalAt: '2026-07-01T18:00:00.000Z',
+        orderStatus: 'final',
+        reviewedAt: null,
+        cptCode: '73030',
+        laterality: null,
+        stat: false,
+        orderedBy: 'Greg House',
+      },
+      {
+        name: 'XR wrist',
+        status: 'pending',
+        orderStatus: 'pending',
+        orderedAt: '2026-07-01T14:12:00.000Z',
+        performedAt: null,
+        preliminaryAt: null,
+        finalAt: null,
+      },
+      {
+        name: 'XR knee',
+        status: 'cancelled',
+        orderStatus: null,
+        stat: null,
+        orderedAt: '2026-07-01T14:12:00.000Z',
+        performedAt: null,
+        preliminaryAt: null,
+        finalAt: null,
+      },
+    ]);
+  });
+
+  it('encounters intake layer: screening answers resolved to question text and option label, newest wins', async () => {
+    const rows = await fetchAdHocEncounterRows(fakeOystehr, { dateRange, includeIntake: true });
+    const row = rows[0];
+
+    expect(issuesOf(AdHocEncountersOutputSchema.safeParse({ encounters: rows }))).toEqual([]);
+    expect(row.screeningAnswers).toEqual([
+      { question: 'Has the patient been seen in one of our offices / telemed in last 3 years?', answer: 'Yes' },
+      { question: 'Do you have any COVID symptoms?', answer: 'Yes' },
+      { question: 'Are you currently breastfeeding?', answer: 'Not applicable' },
+      { question: 'Have you tested positive for COVID?', answer: 'No' },
+    ]);
+    expect(row.screeningQuestions).toEqual([
+      'Has the patient been seen in one of our offices / telemed in last 3 years?',
+      'Do you have any COVID symptoms?',
+      'Are you currently breastfeeding?',
+      'Have you tested positive for COVID?',
+    ]);
+  });
+
   it('encounters immunizations layer: one vaccine record each, VIS presence carried by the date', async () => {
     const rows = await fetchAdHocEncounterRows(fakeOystehr, { dateRange, includeImmunizations: true });
     const row = rows[0];
 
     expect(issuesOf(AdHocEncountersOutputSchema.safeParse({ encounters: rows }))).toEqual([]);
-    expect(row.vaccines).toEqual([
+    const noDetail = {
+      ndc: null,
+      cvx: null,
+      manufacturer: null,
+      dose: null,
+      units: null,
+      route: null,
+      administeredAt: '2026-07-01T14:15:00.000Z',
+      administeredBy: null,
+      orderedBy: null,
+      cptCodes: [],
+    };
+    // The recall fields keep their values; the order-page extras (mvx, site, …) come on top.
+    expect(row.vaccinesNotGiven).toEqual([]);
+    expect(row.vaccineNames).toEqual(['Influenza', 'MMR']);
+    expect(row.vaccines).toMatchObject([
       {
         name: 'Influenza',
         status: 'administered',
         visDate: '2026-07-01',
         lotNumber: 'FLU-2026-A',
         expirationDate: '2027-01-31',
+        ndc: '49281-0421-88',
+        cvx: '150',
+        manufacturer: 'Sanofi Pasteur',
+        dose: 0.5,
+        units: 'mL',
+        route: 'IM',
+        administeredAt: '2026-07-01T14:15:00.000Z',
+        administeredBy: 'Greg House',
+        orderedBy: 'Greg House',
+        cptCodes: ['90686'],
       },
-      { name: 'MMR', status: 'partially-administered', visDate: null, lotNumber: null, expirationDate: null },
+      {
+        name: 'MMR',
+        status: 'partially-administered',
+        visDate: null,
+        lotNumber: null,
+        expirationDate: null,
+        ...noDetail,
+      },
     ]);
   });
 
@@ -424,9 +735,11 @@ describe('ad-hoc dataset zambdas: mapped rows parse against their Zod schema (fi
     expect(row.drugs?.map((d) => d.name)).toEqual(['Ceftriaxone 1 g', 'Ceftriaxone 500 mg']);
 
     const given = row.drugs?.find((d) => d.name === 'Ceftriaxone 1 g');
-    expect(given).toEqual({
+    // The recall fields keep their values; the medication-orders page extras come on top.
+    expect(given).toMatchObject({
       name: 'Ceftriaxone 1 g',
       source: 'in-house',
+      status: 'administered',
       dose: 1000,
       units: 'mg',
       route: 'IM',
@@ -435,12 +748,25 @@ describe('ad-hoc dataset zambdas: mapped rows parse against their Zod schema (fi
       // Kept as the calendar date that was entered — a zone conversion would report the 30th.
       expirationDate: '2027-03-31',
       manufacturer: 'Acme Pharma',
-      // The time the drug was given, NOT the visit date.
+      // The time the drug was given (MedicationStatement), NOT the order creation time on the MA.
       administeredAt: '2026-07-01T15:30:00.000Z',
+      administeredBy: 'Greg House',
+      orderedBy: 'Greg House',
+      cptCodes: ['J0696'],
+      icdCode: 'H66.90',
+      icdDisplay: 'Otitis media, unspecified',
+      // The order creation time on the MA.
+      orderedAt: '2026-07-01T15:00:00.000Z',
+      notGivenReason: null,
+      drugInteractionSeverities: [],
+      erxStatus: null,
     });
 
     // Marked as not administered: no vial is tied to the patient, so no lot, expiry or manufacturer.
     const notGiven = row.drugs?.find((d) => d.name === 'Ceftriaxone 500 mg');
+    expect(notGiven?.status).toBe('not-administered');
+    expect(notGiven?.administeredAt).toBeNull();
+    expect(notGiven?.administeredBy).toBeNull();
     expect(notGiven?.lotNumber).toBeNull();
     expect(notGiven?.expirationDate).toBeNull();
     expect(notGiven?.manufacturer).toBeNull();
@@ -475,13 +801,18 @@ describe('ad-hoc dataset zambdas: mapped rows parse against their Zod schema (fi
     expect(issuesOf(AdHocBillingOutputSchema.safeParse({ rows }))).toEqual([]);
     // Charted out of order in the fixture; the records come back oldest first.
     expect(row.payments).toEqual([
-      { date: '2026-07-01T15:00:00.000Z', amount: 40, method: 'card' },
-      { date: '2026-07-01T18:00:00.000Z', amount: 25.5, method: 'cash' },
-      { date: '2026-07-01T19:00:00.000Z', amount: 10, method: '' },
+      { date: '2026-07-01T15:00:00.000Z', amount: 40, refundedAmount: 0, method: 'card' },
+      { date: '2026-07-01T18:00:00.000Z', amount: 25.5, refundedAmount: 0, method: 'cash' },
+      // net of its settled refund (the failed one does not count); the voided pay-4 is not money collected
+      { date: '2026-07-01T19:00:00.000Z', amount: 6, refundedAmount: 4, method: '' },
     ]);
     // The aggregates must agree with the records, or a report mixing both contradicts itself.
-    expect(row.paymentsCollected).toBe(75.5);
+    expect(row.paymentsCollected).toBe(71.5);
     expect(row.paymentCount).toBe(3);
+    expect(row.refundedTotal).toBe(4);
+    // The voided payment is listed apart, as the EHR strikes it out rather than hiding it.
+    expect(row.voidedPaymentCount).toBe(2);
+    expect(row.voidedPaymentsTotal).toBe(111);
     expect(row.lastPaymentDate).toBe('2026-07-01T19:00:00.000Z');
     expect(row.payments?.reduce((sum, p) => sum + p.amount, 0)).toBe(row.paymentsCollected);
   });

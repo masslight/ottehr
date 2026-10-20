@@ -105,12 +105,13 @@ export const InboundFaxMatch: React.FC = () => {
           })
         ).unbundle();
 
-        const readyTask = tasks.find((t) => t.status === 'ready');
+        // Assigning a task moves it from ready to in-progress; both are still open for matching.
+        const openTask = tasks.find((t) => t.status === 'ready' || t.status === 'in-progress');
         // Filing completes the task but the Communication + PDF still exist, so a completed fax
         // can be viewed read-only. (Enhancement: the completed Task doesn't record the
         // patient/DocumentReference it was filed to, so we can't deep-link to the filed chart doc.)
         const completedTask = tasks.find((t) => t.status === 'completed');
-        const task = readyTask ?? completedTask;
+        const task = openTask ?? completedTask;
         if (!task?.id) {
           // Deleting cancels the task and removes the Communication + PDF — nothing left to show.
           setError(
@@ -121,7 +122,7 @@ export const InboundFaxMatch: React.FC = () => {
           setIsLoading(false);
           return;
         }
-        if (!readyTask) {
+        if (!openTask) {
           setReadOnly(true);
         }
         setTaskId(task.id);

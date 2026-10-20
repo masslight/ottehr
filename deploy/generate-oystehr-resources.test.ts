@@ -1,13 +1,16 @@
 import fs from 'node:fs/promises';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock fs module before importing the module under test
 vi.mock('node:fs/promises');
 
-vi.mock('utils', () => ({
-  BRANDING_CONFIG: { projectName: 'test-project' },
-  SENDGRID_CONFIG: { templates: {} },
-}));
+// FEATURE_FLAGS_CONFIG is a frozen compile-time constant, so tests toggle it through this
+// hoisted mutable object. Default off: existing tests describe the flag-off deploy path.
+const featureFlags = vi.hoisted(() => ({ customOrganizationsEnabled: false }));
+
+vi.mock('utils/lib/ottehr-config/branding', () => ({ BRANDING_CONFIG: { projectName: 'test-project' } }));
+vi.mock('utils/lib/ottehr-config/sendgrid', () => ({ SENDGRID_CONFIG: { templates: {} } }));
+vi.mock('utils/lib/ottehr-config/feature-flags', () => ({ FEATURE_FLAGS_CONFIG: featureFlags }));
 
 // Import after mocks are set up
 import {
@@ -38,7 +41,7 @@ interface SpecFile {
   roles?: Record<string, unknown>;
 }
 
-type VarsFile = Record<string, string>;
+type VarsFile = Record<string, unknown>;
 
 // Helper to create mock Dirent objects
 const createMockDirent = (
@@ -378,6 +381,10 @@ describe('generate-oystehr-resources', () => {
             name: 'STRIPE_PLATFORM_WEBHOOK_SECRET',
             value: '#{var/STRIPE_PLATFORM_WEBHOOK_SECRET}',
           },
+          STRIPE_CLINICAL_WEBHOOK_SECRET: {
+            name: 'STRIPE_CLINICAL_WEBHOOK_SECRET',
+            value: '#{var/STRIPE_CLINICAL_WEBHOOK_SECRET}',
+          },
         },
       };
       const setupMocks = (vars: VarsFile): void => {
@@ -421,6 +428,13 @@ describe('generate-oystehr-resources', () => {
         expect(billingApp.login_redirect_uri).toBe('https://billing-local.ottehr.com');
         expect(billingApp.allowed_callback_urls).toEqual(['https://billing-local.ottehr.com']);
         expect(billingApp.name).toBe('Ottehr Billing');
+        expect(writtenJson('billing-output/apps.tf.json').locals.oystehr_application_OTTEHR_BILLING_config).toEqual(
+          billingApp
+        );
+        const coreApps = writtenJson('/output/apps.tf.json');
+        expect(coreApps.locals.oystehr_application_OTTEHR_CORE_config).toEqual(
+          coreApps.resource.oystehr_application.OTTEHR_CORE
+        );
         const billingSecret = writtenJson('secrets.tf.json').resource.oystehr_secret.BILLING_INTEGRATION_FEATURE_FLAG;
         expect(billingSecret.value).toBe('');
         const balanceSourceSecret = writtenJson('secrets.tf.json').resource.oystehr_secret.PATIENT_BALANCE_SOURCE;
@@ -430,6 +444,7 @@ describe('generate-oystehr-resources', () => {
         const platformWebhookSecret =
           writtenJson('secrets.tf.json').resource.oystehr_secret.STRIPE_PLATFORM_WEBHOOK_SECRET;
         expect(platformWebhookSecret.value).toBe('');
+        expect(writtenJson('secrets.tf.json').resource.oystehr_secret.STRIPE_CLINICAL_WEBHOOK_SECRET.value).toBe('');
       });
 
       it('prefers configured BILLING_* vars over defaults', async () => {
@@ -439,6 +454,7 @@ describe('generate-oystehr-resources', () => {
           PATIENT_BALANCE_SOURCE: 'ottehr',
           STRIPE_WEBHOOK_SECRET: 'whsec_connected',
           STRIPE_PLATFORM_WEBHOOK_SECRET: 'whsec_platform',
+          STRIPE_CLINICAL_WEBHOOK_SECRET: 'whsec_clinical',
         });
 
         await generateOystehrResources(createTestArgs());
@@ -446,6 +462,13 @@ describe('generate-oystehr-resources', () => {
         const billingApp = writtenJson('billing-output/apps.tf.json').resource.oystehr_application.OTTEHR_BILLING;
         expect(billingApp.login_redirect_uri).toBe('https://billing.example.com/');
         expect(billingApp.name).toBe('Ottehr Billing');
+        expect(writtenJson('billing-output/apps.tf.json').locals.oystehr_application_OTTEHR_BILLING_config).toEqual(
+          billingApp
+        );
+        const coreApps = writtenJson('/output/apps.tf.json');
+        expect(coreApps.locals.oystehr_application_OTTEHR_CORE_config).toEqual(
+          coreApps.resource.oystehr_application.OTTEHR_CORE
+        );
         const billingSecret = writtenJson('secrets.tf.json').resource.oystehr_secret.BILLING_INTEGRATION_FEATURE_FLAG;
         expect(billingSecret.value).toBe('all');
         const balanceSourceSecret = writtenJson('secrets.tf.json').resource.oystehr_secret.PATIENT_BALANCE_SOURCE;
@@ -455,6 +478,90 @@ describe('generate-oystehr-resources', () => {
         const platformWebhookSecret =
           writtenJson('secrets.tf.json').resource.oystehr_secret.STRIPE_PLATFORM_WEBHOOK_SECRET;
         expect(platformWebhookSecret.value).toBe('whsec_platform');
+        expect(writtenJson('secrets.tf.json').resource.oystehr_secret.STRIPE_CLINICAL_WEBHOOK_SECRET.value).toBe(
+          'whsec_clinical'
+        );
+      });
+
+      const webhookSecretKeys = ['STRIPE_WEBHOOK_SECRET', 'STRIPE_CLINICAL_WEBHOOK_SECRET'];
+      it.each(webhookSecretKeys)('rejects invalid %s entries', async (key) => {
+        setupMocks({ [key]: [{ accountId: 'acct_123' }] });
+
+        await expect(generateOystehrResources(createTestArgs())).rejects.toThrow('signingSecret');
+        expect(fs.writeFile).not.toHaveBeenCalled();
+      });
+
+      it.each(webhookSecretKeys)('serializes %s account entries', async (key) => {
+        const entries = [
+          { name: 'Clinic "A"', accountId: 'acct_123', signingSecret: 'whsec_first' },
+          { accountId: 'acct_456', signingSecret: 'whsec_second' },
+          { name: 'Platform', signingSecret: 'whsec_platform' },
+        ];
+        setupMocks({ [key]: entries });
+
+        await generateOystehrResources(createTestArgs());
+
+        const secret = writtenJson('secrets.tf.json').resource.oystehr_secret[key];
+        expect(secret.name).toBe(key);
+        expect(typeof secret.value).toBe('string');
+        expect(JSON.parse(secret.value)).toEqual(entries);
+      });
+    });
+
+    describe('NIO billing integration guard', () => {
+      const minimalSpec = { 'schema-version': '2025-09-25', secrets: {} };
+      const setupMocks = (vars: VarsFile): void => {
+        mockFsForSuccess();
+        vi.mocked(fs.readdir).mockImplementation(async (dirPath) => {
+          if (String(dirPath) === '/config/oystehr') {
+            return [createMockDirent('spec.json', true)] as never;
+          }
+          return [];
+        });
+        vi.mocked(fs.stat).mockRejectedValue(createEnoentError());
+        vi.mocked(fs.readFile).mockImplementation(async (filePath) => {
+          const pathStr = String(filePath);
+          if (pathStr.endsWith('spec.json')) return JSON.stringify(minimalSpec);
+          if (pathStr.includes('.env/')) return JSON.stringify(vars);
+          throw new Error(`Unexpected file: ${pathStr}`);
+        });
+      };
+
+      beforeEach(() => {
+        featureFlags.customOrganizationsEnabled = true;
+      });
+
+      afterEach(() => {
+        featureFlags.customOrganizationsEnabled = false;
+      });
+
+      it.each(['ottehr', 'all'])('accepts BILLING_INTEGRATION=%s when the NIO flag is on', async (value) => {
+        setupMocks({ BILLING_INTEGRATION: value });
+
+        await expect(generateOystehrResources(createTestArgs())).resolves.toBeUndefined();
+      });
+
+      it('rejects candid-only BILLING_INTEGRATION when the NIO flag is on', async () => {
+        setupMocks({ BILLING_INTEGRATION: 'candid' });
+
+        await expect(generateOystehrResources(createTestArgs())).rejects.toThrow(
+          'Non-insurance organizations need Ottehr billing as the system of record'
+        );
+      });
+
+      it('rejects an unset BILLING_INTEGRATION when the NIO flag is on — the runtime default is Candid', async () => {
+        setupMocks({});
+
+        await expect(generateOystehrResources(createTestArgs())).rejects.toThrow(
+          "BILLING_INTEGRATION is '(unset)' for env 'local'"
+        );
+      });
+
+      it('leaves the flag-off world alone — unset BILLING_INTEGRATION still generates', async () => {
+        featureFlags.customOrganizationsEnabled = false;
+        setupMocks({});
+
+        await expect(generateOystehrResources(createTestArgs())).resolves.toBeUndefined();
       });
     });
   });

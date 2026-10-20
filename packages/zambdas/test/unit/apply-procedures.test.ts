@@ -203,7 +203,7 @@ describe('buildLiveProcedureRequest', () => {
     expect(sr.authoredOn).toMatch(/^\d{4}-\d{2}-\d{2}T/);
   });
 
-  test('tags the new resource with chartDataTagSystem("procedure") so it shows up in get-chart-data', () => {
+  test('tags the new resource with chartDataTagSystem("procedure") so it shows up in the chart', () => {
     const request = buildLiveProcedureRequest({
       plan: buildPlan(),
       encounter: buildEncounter(),
@@ -236,6 +236,26 @@ describe('buildLiveProcedureRequest', () => {
     expect(sr.performerType?.coding?.[0]).toEqual({ system: PERFORMER_TYPE_SYSTEM, code: 'provider' });
     expect(sr.bodySite?.[0]?.coding?.[0]).toEqual({ system: BODY_SITE_SYSTEM, code: 'wrist' });
     expect(sr.extension).toEqual(customExtensions);
+  });
+
+  test('carries the structured coding-assist fields (lengthCm, repairDepth, infusion times) onto the live procedure', () => {
+    const structuredExtensions: Extension[] = [
+      {
+        url: FHIR_EXTENSION.ServiceRequest.structuredFacts.url,
+        valueString: JSON.stringify({ wounds: [{ site: 'trunk', length: 3.5 }], futureField: false }),
+      },
+      { url: FHIR_EXTENSION.ServiceRequest.lengthCm.url, valueDecimal: 3.5 },
+      { url: FHIR_EXTENSION.ServiceRequest.repairDepth.url, valueString: 'subcutaneous-layered' },
+      { url: FHIR_EXTENSION.ServiceRequest.infusionStartTime.url, valueString: '10:15' },
+      { url: FHIR_EXTENSION.ServiceRequest.infusionStopTime.url, valueString: '11:00' },
+    ];
+    const request = buildLiveProcedureRequest({
+      plan: buildPlan({ extension: structuredExtensions }),
+      encounter: buildEncounter(),
+      containedIdToNewFullUrl: new Map(),
+    });
+    const sr = request.resource as ServiceRequest;
+    expect(sr.extension).toEqual(structuredExtensions);
   });
 
   test('omits optional fields when the plan does not carry them', () => {

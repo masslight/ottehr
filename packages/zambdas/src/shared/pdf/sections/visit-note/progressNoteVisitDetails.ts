@@ -149,7 +149,7 @@ export const createProgressNoteVisitDetailsSection = <
           drawFieldLine(client, styles, { label: 'Type & Service Category', value: typeAndServiceCategory });
         }
         drawFieldLine(client, styles, { label: 'Date of Service', value: data.dateOfService });
-        drawFieldLine(client, styles, { label: 'Reason for Visit', value: data.reasonForVisit });
+        drawFieldLine(client, styles, { label: "Reason for today's visit", value: data.reasonForVisit });
         drawFieldLine(client, styles, { label: 'Provider', value: data.provider });
         if (data.intakePerson) {
           drawFieldLine(client, styles, { label: 'Intake completed by', value: data.intakePerson });

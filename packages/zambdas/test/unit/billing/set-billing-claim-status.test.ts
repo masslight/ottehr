@@ -30,11 +30,11 @@ const makeOystehr = (
 
 // The status change now commits as a transaction: a JSON-Patch Binary against the claim plus a
 // Provenance. Pull the patched /meta/tag array out of the Binary's base64-encoded operations.
-const patchBinaryRequest = (transaction: ReturnType<typeof vi.fn>): any =>
-  transaction.mock.calls[0][0].requests.find((r: any) => r.resource?.resourceType === 'Binary');
+const patchRequest = (transaction: ReturnType<typeof vi.fn>): any =>
+  transaction.mock.calls[0][0].requests.find((r: any) => r.method === 'PATCH');
 
 const patchedTags = (transaction: ReturnType<typeof vi.fn>): { system: string; code: string }[] => {
-  const ops = JSON.parse(Buffer.from(patchBinaryRequest(transaction).resource.data, 'base64').toString('utf-8'));
+  const ops = patchRequest(transaction).operations;
   return ops[0].value;
 };
 
@@ -101,7 +101,7 @@ describe('set-billing-claim-status performEffect', () => {
   it('passes the optimistic locking version id as an ifMatch header', async () => {
     const { oystehr, transaction } = makeOystehr(makeClaim());
     await performEffect(oystehr, { claimId: 'claim-1', field: 'arStage', value: AR_STAGE.patient, secrets }, agent);
-    expect(patchBinaryRequest(transaction).ifMatch).toEqual('W/"v1"');
+    expect(patchRequest(transaction).ifMatch).toEqual('W/"v1"');
   });
 });
 

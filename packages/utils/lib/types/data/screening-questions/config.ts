@@ -1,12 +1,16 @@
+import { ScreeningQuestionsConfig } from 'config-types/config/screening-questions';
 import {
   HISTORY_OBTAINED_FROM_FIELD,
   HistorySourceKeys,
+  PATIENT_BREASTFEEDING_STATUS,
+  PATIENT_PREGNANCY_STATUS,
   PATIENT_VACCINATION_STATUS,
+  PatientBreastfeedingKeys,
+  PatientPregnancyKeys,
   PatientVaccinationKeys,
   RecentVisitKeys,
   SEEN_IN_LAST_THREE_YEARS_FIELD,
 } from './constants';
-import { ScreeningQuestionsConfig } from './types';
 
 export const baseScreeningQuestionsConfig: ScreeningQuestionsConfig = {
   title: 'ASK THE PATIENT',
@@ -87,6 +91,29 @@ export const baseScreeningQuestionsConfig: ScreeningQuestionsConfig = {
       },
     },
     {
+      id: 'pregnancy_status',
+      type: 'radio',
+      question: 'Is there any chance you could be pregnant?',
+      fhirField: PATIENT_PREGNANCY_STATUS,
+      options: [
+        { value: 'yes', label: 'Yes', fhirValue: PatientPregnancyKeys.Yes },
+        { value: 'no', label: 'No', fhirValue: PatientPregnancyKeys.No },
+        { value: 'not_sure', label: 'Not sure', fhirValue: PatientPregnancyKeys.NotSure },
+        { value: 'not_applicable', label: 'Not applicable', fhirValue: PatientPregnancyKeys.NotApplicable },
+      ],
+    },
+    {
+      id: 'breastfeeding_status',
+      type: 'radio',
+      question: 'Are you currently breastfeeding?',
+      fhirField: PATIENT_BREASTFEEDING_STATUS,
+      options: [
+        { value: 'yes', label: 'Yes', fhirValue: PatientBreastfeedingKeys.Yes },
+        { value: 'no', label: 'No', fhirValue: PatientBreastfeedingKeys.No },
+        { value: 'not_applicable', label: 'Not applicable', fhirValue: PatientBreastfeedingKeys.NotApplicable },
+      ],
+    },
+    {
       id: 'history_source',
       type: 'select',
       question: 'History obtained from',
@@ -96,6 +123,7 @@ export const baseScreeningQuestionsConfig: ScreeningQuestionsConfig = {
         waitForNote: HistorySourceKeys.NotObtainedOther,
       },
       options: [
+        { value: 'patient_self', label: 'Patient self-reported', fhirValue: HistorySourceKeys.PatientSelf },
         { value: 'aunt', label: 'Aunt', fhirValue: HistorySourceKeys.Aunt },
         { value: 'babysitter', label: 'Babysitter', fhirValue: HistorySourceKeys.Babysitter },
         { value: 'brother', label: 'Brother', fhirValue: HistorySourceKeys.Brother },
@@ -117,7 +145,6 @@ export const baseScreeningQuestionsConfig: ScreeningQuestionsConfig = {
         { value: 'mother', label: 'Mother', fhirValue: HistorySourceKeys.Mother },
         { value: 'nanny', label: 'Nanny', fhirValue: HistorySourceKeys.Nanny },
         { value: 'neighbor', label: 'Neighbor', fhirValue: HistorySourceKeys.Neighbor },
-        { value: 'patient_self', label: 'Patient self-reported', fhirValue: HistorySourceKeys.PatientSelf },
         { value: 'police_officer', label: 'Police Officer', fhirValue: HistorySourceKeys.PoliceOfficer },
         { value: 'school_nurse', label: 'School Nurse', fhirValue: HistorySourceKeys.SchoolNurse },
         { value: 'significant_other', label: 'Significant Other', fhirValue: HistorySourceKeys.SignificantOther },

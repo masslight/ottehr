@@ -49,6 +49,15 @@ export default (env: any): Record<string, any> => {
   return mergeConfig(
     config({ mode }),
     defineConfig({
+      // Vite 8 switched to Rolldown, which aligns CJS interop to esbuild's semantics: a default
+      // import of a CJS module now yields the module namespace object rather than its
+      // `exports.default`. This app default-imports CJS modules that ship no `exports` map
+      // (`@mui/icons-material/<Icon>` chief among them), so every such icon would render as an
+      // object and throw React error #130. Restore the pre-Vite-8 behavior until those imports
+      // are migrated.
+      legacy: {
+        inconsistentCjsInterop: true,
+      },
       build: {
         // Only emit sourcemaps when they'll actually be uploaded to Sentry.
         // Generating them for every env (e2e*, local) bloats rollup's
@@ -59,6 +68,9 @@ export default (env: any): Record<string, any> => {
       server: {
         open: !process.env.VITE_NO_OPEN,
         host: '0.0.0.0',
+        watch: {
+          ignored: ['**/.env.local'],
+        },
         https:
           tlsCertExists && tlsKeyExists
             ? {
@@ -78,6 +90,10 @@ export default (env: any): Record<string, any> => {
           {
             find: /^ui-components(\/|$)/,
             replacement: path.resolve(__dirname, '../../packages/ui-components') + '/',
+          },
+          {
+            find: /^config-types(\/|$)/,
+            replacement: path.resolve(__dirname, '../../packages/config-types') + '/',
           },
           { find: '@theme', replacement: path.resolve(__dirname, appEnv.THEME_PATH || '/src/themes/ottehr') },
           { find: '@defaultTheme', replacement: path.resolve(__dirname, '/src/themes/ottehr') },

@@ -28,6 +28,7 @@
             "Zambda:Function:get-appointment-details",
             "Zambda:Function:patch-paperwork",
             "Zambda:Function:submit-paperwork",
+            "Zambda:Function:upload-patient-condition-photo",
             "Zambda:Function:payment-methods-list",
             "Zambda:Function:payment-methods-delete",
             "Zambda:Function:payment-methods-setup",
@@ -214,6 +215,16 @@
         },
         {
           "action": [
+            "Messaging:GetConversationToken"
+          ],
+          "effect": "Allow",
+          "resource": [
+            "Messaging:Conversation",
+            "Messaging:Conversation:*"
+          ]
+        },
+        {
+          "action": [
             "FHIR:Search",
             "FHIR:Read",
             "FHIR:Update",
@@ -276,6 +287,9 @@
           "effect": "Allow",
           "resource": [
             "Zambda:Function:create-billing-claim-from-encounter",
+            "Zambda:Function:create-billing-claim-task",
+            "Zambda:Function:update-billing-claim-task",
+            "Zambda:Function:search-billing-claim-tasks",
             "Zambda:Function:search-billing-providers",
             "Zambda:Function:get-billing-provider",
             "Zambda:Function:get-charge-item-definition",
@@ -289,6 +303,7 @@
             "Zambda:Function:run-billing-rules-engine",
             "Zambda:Function:get-billing-claim-detail",
             "Zambda:Function:get-billing-claim-history",
+            "Zambda:Function:get-billing-claim-cms1500",
             "Zambda:Function:add-billing-claim-note",
             "Zambda:Function:search-billing-service-facilities",
             "Zambda:Function:get-billing-service-facility",
@@ -301,6 +316,7 @@
             "Zambda:Function:update-billing-provider",
             "Zambda:Function:create-billing-claim",
             "Zambda:Function:search-billing-claims",
+            "Zambda:Function:get-billing-report",
             "Zambda:Function:get-patient-coverages",
             "Zambda:Function:search-billing-locations",
             "Zambda:Function:create-billing-patient",
@@ -322,7 +338,27 @@
             "Zambda:Function:record-billing-manual-payment",
             "Zambda:Function:search-billing-patient-ar-claims",
             "Zambda:Function:get-billing-patient-balance",
-            "Zambda:Function:export-billing-claims"
+            "Zambda:Function:export-billing-claims",
+            "Zambda:Function:create-timely-filing-report",
+            "Zambda:Function:create-billing-non-insurance-org",
+            "Zambda:Function:update-billing-non-insurance-org",
+            "Zambda:Function:search-billing-non-insurance-orgs",
+            "Zambda:Function:delete-billing-non-insurance-org",
+            "Zambda:Function:create-billing-custom-insurance-org",
+            "Zambda:Function:update-billing-custom-insurance-org",
+            "Zambda:Function:search-billing-custom-insurance-orgs",
+            "Zambda:Function:delete-billing-custom-insurance-org",
+            "Zambda:Function:match-claim-response",
+            "Zambda:Function:unmatch-claim-response",
+            "Zambda:Function:add-claim-attachment",
+            "Zambda:Function:rename-claim-attachment",
+            "Zambda:Function:delete-claim-attachment",
+            "Zambda:Function:download-claim-attachment",
+            "Zambda:Function:save-billing-manual-era",
+            "Zambda:Function:add-era-attachment",
+            "Zambda:Function:rename-era-attachment",
+            "Zambda:Function:delete-era-attachment",
+            "Zambda:Function:download-era-attachment"
           ]
         }
       ]
@@ -425,6 +461,16 @@
           "effect": "Allow",
           "resource": [
             "Messaging:Messaging:*"
+          ]
+        },
+        {
+          "action": [
+            "Messaging:GetConversationToken"
+          ],
+          "effect": "Allow",
+          "resource": [
+            "Messaging:Conversation",
+            "Messaging:Conversation:*"
           ]
         },
         {
@@ -557,6 +603,16 @@
           "effect": "Allow",
           "resource": [
             "Messaging:Messaging:*"
+          ]
+        },
+        {
+          "action": [
+            "Messaging:GetConversationToken"
+          ],
+          "effect": "Allow",
+          "resource": [
+            "Messaging:Conversation",
+            "Messaging:Conversation:*"
           ]
         },
         {
@@ -759,6 +815,16 @@
         },
         {
           "action": [
+            "Messaging:GetConversationToken"
+          ],
+          "effect": "Allow",
+          "resource": [
+            "Messaging:Conversation",
+            "Messaging:Conversation:*"
+          ]
+        },
+        {
+          "action": [
             "FHIR:Search",
             "FHIR:Read",
             "FHIR:Update",
@@ -930,6 +996,16 @@
         },
         {
           "action": [
+            "Messaging:GetConversationToken"
+          ],
+          "effect": "Allow",
+          "resource": [
+            "Messaging:Conversation",
+            "Messaging:Conversation:*"
+          ]
+        },
+        {
+          "action": [
             "FHIR:History"
           ],
           "effect": "Allow",
@@ -1088,6 +1164,16 @@
           "effect": "Allow",
           "resource": [
             "Messaging:Messaging:*"
+          ]
+        },
+        {
+          "action": [
+            "Messaging:GetConversationToken"
+          ],
+          "effect": "Allow",
+          "resource": [
+            "Messaging:Conversation",
+            "Messaging:Conversation:*"
           ]
         },
         {
@@ -1276,6 +1362,16 @@
         },
         {
           "action": [
+            "Messaging:GetConversationToken"
+          ],
+          "effect": "Allow",
+          "resource": [
+            "Messaging:Conversation",
+            "Messaging:Conversation:*"
+          ]
+        },
+        {
+          "action": [
             "eRx:SearchMedication",
             "eRx:GetMedication"
           ],
@@ -1300,6 +1396,15 @@
           "effect": "Allow",
           "resource": [
             "eRx:Configuration"
+          ]
+        },
+        {
+          "action": [
+            "eRx:GetMedicationHistory"
+          ],
+          "effect": "Allow",
+          "resource": [
+            "eRx:Patient"
           ]
         },
         {

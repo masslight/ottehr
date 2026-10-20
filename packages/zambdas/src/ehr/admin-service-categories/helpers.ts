@@ -6,6 +6,7 @@ import {
   SERVICE_CATEGORY_SYSTEM,
   SERVICE_CATEGORY_TAG,
 } from 'utils/lib/fhir/constants';
+import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import {
   getServiceCategoryCadenceMinutes,
   getServiceCategoryDurationMinutes,
@@ -79,8 +80,7 @@ export async function getClient(input: ZambdaInput): Promise<Oystehr> {
  * code in the FHIR catalog would let two records claim the same service-
  * routing key, with which one wins at lookup time being arbitrary.
  *
- * Mirrors the `_tag` filter used by `admin-list-service-categories` (cheap
- * query, single-digit-count catalogs in practice) then filters in code. The
+ * Mirrors the `_tag` filter used by `admin-list-service-categories` then filters in code. The
  * `type[].coding[]` match is `system|code` so a non-SERVICE_CATEGORY_SYSTEM
  * coding that happens to share the code string can't false-positive.
  */
@@ -88,12 +88,13 @@ export async function findServiceCategoryByCode(
   oystehr: Oystehr,
   code: string
 ): Promise<HealthcareService | undefined> {
-  const results = (
-    await oystehr.fhir.search<HealthcareService>({
+  const results = await getAllFhirSearchPages<HealthcareService>(
+    {
       resourceType: 'HealthcareService',
       params: [{ name: '_tag', value: SERVICE_CATEGORY_TAG.code }],
-    })
-  ).unbundle();
+    },
+    oystehr
+  );
   return results.find(
     (hs) => hs.type?.[0]?.coding?.some((c) => c.system === SERVICE_CATEGORY_SYSTEM && c.code === code)
   );

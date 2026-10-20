@@ -1,7 +1,13 @@
 import { SUBSCRIBER_RELATIONSHIPS } from '../../../fhir/constants';
 import { isCLIAValid, isNPIValidWithChecksum } from '../../../helpers/helpers';
-import { CMS_PLACE_OF_SERVICE_CODE_SET, CMS_PLACE_OF_SERVICE_CODES } from '../../../helpers/rcm/constants';
+import {
+  CLAIM_ACCIDENT_TYPE_DISPLAY_VALUES,
+  CLAIM_ACCIDENT_TYPES,
+  CMS_PLACE_OF_SERVICE_CODE_SET,
+  CMS_PLACE_OF_SERVICE_CODES,
+} from '../../../helpers/rcm/constants';
 import { VALUE_SETS } from '../../../ottehr-config/value-sets';
+import { isValidUUID } from '../../../validation/helper';
 import { isoDateRegex, taxIdRegex, zipRegex } from '../../../validation/regex';
 import { AllStates, stateCodeToFullName } from '../../common';
 import { PERSON_GENDER_OPTIONS } from './billing.constants';
@@ -18,6 +24,8 @@ import {
   operatorIsRegex,
   operatorNeedsValue,
   operatorTakesFragment,
+  POS_SOURCE_KIND,
+  PosSourceKind,
   RuleAction,
   RuleCondition,
   RuleConditional,
@@ -26,6 +34,7 @@ import {
   RuleOutcome,
   ServiceLineMatch,
   ServiceLineSetOperation,
+  ServiceLineSetValue,
 } from './rules-engine.schemas';
 
 // Catalog of the logical claim fields rules can condition on and (where settable) set. This is the
@@ -38,6 +47,7 @@ import {
 
 export type RuleFieldGroup =
   | 'claim'
+  | 'accident'
   | 'status'
   | 'patient'
   | 'insurance'
@@ -56,6 +66,7 @@ export type RuleFieldGroup =
 // Display order of groups in the rule builder's property pickers and in the generated docs.
 export const RULE_FIELD_GROUPS: RuleFieldGroup[] = [
   'claim',
+  'accident',
   'status',
   'patient',
   'insurance',
@@ -74,6 +85,7 @@ export const RULE_FIELD_GROUPS: RuleFieldGroup[] = [
 
 export const RULE_FIELD_GROUP_LABELS: Record<RuleFieldGroup, string> = {
   claim: 'Claim',
+  accident: 'Accident',
   status: 'Claim status',
   patient: 'Patient',
   insurance: 'Primary insurance',
@@ -102,7 +114,17 @@ export const RULE_FIELD_GROUP_LABELS: Record<RuleFieldGroup, string> = {
 //   from the rendering/billing providers list (the def's providerRole picks which)
 // - facility: a service facility reference resource ("Location/<id>") chosen from the service
 //   facilities list
-export type RuleFieldValueType = 'string' | 'number' | 'date' | 'select' | 'list' | 'payer' | 'provider' | 'facility';
+// - nio: a non-insurance organization id chosen from the NIO directory
+export type RuleFieldValueType =
+  | 'string'
+  | 'number'
+  | 'date'
+  | 'select'
+  | 'list'
+  | 'payer'
+  | 'provider'
+  | 'facility'
+  | 'nio';
 
 export interface RuleFieldOption {
   value: string;
@@ -197,10 +219,17 @@ const REF_OPS: RuleOperator[] = ['eq', 'neq', 'in', 'notIn', 'exists', 'notExist
 const DATE_OPS: RuleOperator[] = ['eq', 'neq', 'in', 'notIn', 'gt', 'gte', 'lt', 'lte', 'exists', 'notExists'];
 const NUMBER_OPS: RuleOperator[] = ['eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'exists', 'notExists'];
 const LIST_OPS: RuleOperator[] = ['contains', 'notContains', 'matches', 'notMatches', 'exists', 'notExists'];
+// Yes/no flags always read as 'true' or 'false', so only equality makes sense.
+const BOOLEAN_OPS: RuleOperator[] = ['eq', 'neq'];
 // Counts always exist (an empty claim counts 0), so exists/notExists would be noise.
 const COUNT_OPS: RuleOperator[] = ['eq', 'neq', 'gt', 'gte', 'lt', 'lte'];
 
 const GENDER_OPTIONS: RuleFieldOption[] = PERSON_GENDER_OPTIONS;
+
+const YES_NO_OPTIONS: RuleFieldOption[] = [
+  { value: 'true', label: 'Yes' },
+  { value: 'false', label: 'No' },
+];
 
 const PLAN_TYPE_OPTIONS: RuleFieldOption[] = VALUE_SETS.insuranceTypeOptions.map((option) => ({
   value: option.candidCode,
@@ -253,6 +282,20 @@ const STATUS_FIELDS: RuleFieldDef[] = CLAIM_STATUS_FIELDS.map((field) => ({
   settable: true,
   description: `The claim's ${field.label} indicator. Setting it rewrites the corresponding status tag on the claim (setting AR Stage also initializes that stage's progress status, as the claim screens do).`,
   options: field.options.map((option) => ({ value: option.code, label: option.label })),
+}));
+
+// One yes/no flag per accident type (CMS-1500 box 10a-c) — a claim can carry several at once, the
+// same multi-select the claim editor offers.
+const ACCIDENT_TYPE_FIELDS: RuleFieldDef[] = CLAIM_ACCIDENT_TYPES.map((type) => ({
+  id: `accident.${type}`,
+  label: CLAIM_ACCIDENT_TYPE_DISPLAY_VALUES[type],
+  group: 'accident',
+  valueType: 'select',
+  operators: BOOLEAN_OPS,
+  settable: true,
+  description: `Whether the claim carries the "${CLAIM_ACCIDENT_TYPE_DISPLAY_VALUES[type]}" accident type. Setting "No" removes it.`,
+  requiredOnSet: true,
+  options: YES_NO_OPTIONS,
 }));
 
 // A person-shaped resource (patient or policy holder) contributes the same name / birth date /
@@ -504,6 +547,18 @@ export const RULE_FIELD_CATALOG: RuleFieldDef[] = [
     requiredOnSet: true,
   },
   {
+    id: 'nonInsurancePayerId',
+    label: 'Non-insurance organization',
+    group: 'claim',
+    valueType: 'nio',
+    operators: REF_OPS,
+    settable: true,
+    description:
+      "The claim's non-insurance payer: a non-insurance organization from the Non-Insurance Organizations page " +
+      "(e.g. the visit's occupational-medicine employer). Setting it stamps the payer on the claim (shown on the " +
+      'claim screens, filterable on the claims list); setting an empty value clears it.',
+  },
+  {
     id: 'type',
     label: 'Claim type',
     group: 'claim',
@@ -659,6 +714,33 @@ export const RULE_FIELD_CATALOG: RuleFieldDef[] = [
     description: 'Point of Origin / Admission Source code on the claim',
   },
 
+  // --- Accident ---
+  ...ACCIDENT_TYPE_FIELDS,
+  {
+    id: 'accident.state',
+    label: 'Auto accident state',
+    group: 'accident',
+    valueType: 'select',
+    operators: ENUM_OPS,
+    settable: true,
+    description:
+      'The state the auto accident occurred in (two-letter code, e.g. CA). Required on claims flagged as an auto accident: ' +
+      'checked once all rules have run, so it can be set before or after the flag — a run that leaves it missing holds the claim.',
+    options: STATE_OPTIONS,
+    optionsDocNote: STATE_OPTIONS_DOC_NOTE,
+  },
+  {
+    id: 'accident.date',
+    label: 'Accident date',
+    group: 'accident',
+    valueType: 'date',
+    operators: DATE_OPS,
+    settable: true,
+    description:
+      'The date of the accident (YYYY-MM-DD). Required on claims flagged with any accident type: checked once all rules ' +
+      'have run, so it can be set before or after the flag — a run that leaves it missing holds the claim.',
+  },
+
   // --- Claim status indicators ---
   ...STATUS_FIELDS,
 
@@ -691,6 +773,30 @@ export const RULE_FIELD_CATALOG: RuleFieldDef[] = [
 
   // --- Rendering provider ---
   ...providerFields('renderingProvider', 'rendering provider'),
+  {
+    id: 'renderingProvider.licenseNumber',
+    label: 'License number',
+    group: 'renderingProvider',
+    valueType: 'string',
+    operators: SCALAR_OPS,
+    settable: true,
+    description:
+      "The rendering provider's professional license number (individual providers only; setting it on an organization provider fails the rule). " +
+      'A license number needs a license state: setting a number when the license has no state fails the rule, so set the state first.',
+  },
+  {
+    id: 'renderingProvider.licenseState',
+    label: 'License state',
+    group: 'renderingProvider',
+    valueType: 'select',
+    operators: ENUM_OPS,
+    settable: true,
+    description:
+      "The state that issued the rendering provider's professional license (individual providers only; setting it on an organization provider fails the rule). " +
+      'Clearing it while the license still has a number fails the rule — clear the number first.',
+    options: STATE_OPTIONS,
+    optionsDocNote: STATE_OPTIONS_DOC_NOTE,
+  },
 
   // --- Billing provider ---
   ...providerFields('billingProvider', 'billing provider'),
@@ -1009,11 +1115,36 @@ export const DATE_SOURCE_CATALOG: { value: DateSourceSelectValue; label: string;
 
 // A date-typed rule value's problem when it may be a derived source instead of a literal date. A
 // literal is accepted as-is here (format is checked by each caller, since blank handling differs
-// between addServiceLine and updateServiceLines); a source object must name a known kind.
-export function derivedDateValueProblem(value: DateValue): string | undefined {
+// between addServiceLine and updateServiceLines); a source object must name a known kind. Takes
+// either DateValue (addServiceLine's serviceDate) or ServiceLineSetValue (updateServiceLines' set
+// value, when the target property is serviceDate) — both carry the same DerivedDateSource shape.
+export function derivedDateValueProblem(value: DateValue | ServiceLineSetValue): string | undefined {
   if (typeof value !== 'object') return undefined;
   const known: string[] = Object.values(DATE_SOURCE_KIND);
   return known.includes(value.source) ? undefined : 'Unknown date source';
+}
+
+// The place-of-service source options exposed by "Update service lines" when its target property is
+// placeOfService — parallel to DATE_SOURCE_CATALOG above, but for the one non-date property that
+// accepts a derived value. "exact" (the default) is the literal-code form every existing rule uses.
+export const EXACT_POS_SOURCE = 'exact' as const;
+export type PosSourceSelectValue = PosSourceKind | typeof EXACT_POS_SOURCE;
+
+export const POS_SOURCE_CATALOG: { value: PosSourceSelectValue; label: string; description: string }[] = [
+  { value: 'exact', label: 'Exact code', description: 'A literal CMS place-of-service code entered on the rule.' },
+  {
+    value: 'facilityPlaceOfService',
+    label: "Claim's facility place of service",
+    description: "The CMS place-of-service code configured on the claim's service facility.",
+  },
+];
+
+// A placeOfService rule value's problem when it may be a derived source instead of a literal code —
+// mirrors derivedDateValueProblem above for the one non-date property that accepts a derived value.
+export function derivedPosValueProblem(value: ServiceLineSetValue): string | undefined {
+  if (typeof value !== 'object') return undefined;
+  const known: string[] = Object.values(POS_SOURCE_KIND);
+  return known.includes(value.source) ? undefined : 'Unknown place of service source';
 }
 
 // One add-line field's format problem, or undefined when the value is acceptable. Shared by the rule
@@ -1118,6 +1249,9 @@ const strictValueProblem = (
   if (def.valueType === 'facility' && !FACILITY_REF_REGEX.test(value)) {
     return 'Must be a facility reference (Location/<id>)';
   }
+  if (def.valueType === 'nio' && !isValidUUID(value)) {
+    return 'Must be a non-insurance organization id';
+  }
   if (def.format) return RULE_VALUE_FORMATS[def.format].validate?.(value);
   return undefined;
 };
@@ -1181,16 +1315,18 @@ export function serviceLineMatchValueProblem(
 
 // An updateServiceLines set value's problem — mirrors the line writers exactly: units require a
 // positive number, charges a non-negative number, cptCode/serviceDate a value; placeOfService and
-// modifiers-with-"set" allow empty (clears). A derived date-source object is only valid when the
-// target property is date-typed — there is no blank-fallback on update, unlike addServiceLine.
+// modifiers-with-"set" allow empty (clears). A derived-source object is only valid when the target
+// property is date-typed (firstServiceLineDate) or is placeOfService (facilityPlaceOfService) — there
+// is no blank-fallback on update, unlike addServiceLine.
 export function serviceLineSetValueProblem(
   def: Pick<ServiceLinePropertyDef, 'id' | 'valueType' | 'options' | 'format'>,
   operation: ServiceLineSetOperation | undefined,
-  value: DateValue | null | undefined
+  value: ServiceLineSetValue | null | undefined
 ): string | undefined {
   if (typeof value === 'object' && value != null) {
-    if (def.valueType !== 'date') return 'This property does not accept a derived date value';
-    return derivedDateValueProblem(value);
+    if (def.valueType === 'date') return derivedDateValueProblem(value);
+    if (def.id === 'placeOfService') return derivedPosValueProblem(value);
+    return 'This property does not accept a derived value';
   }
   const trimmed = value?.trim() ?? '';
   if (def.valueType === 'list') {
@@ -1291,6 +1427,35 @@ export function ruleReferencesPatientCoverage(rule: { conditional: RuleCondition
 export interface SetResourceRef {
   field: string;
   ref: string;
+}
+
+export const NON_INSURANCE_PAYER_FIELD_ID = 'nonInsurancePayerId';
+
+// The NIO organization ids a rule's setField actions assign as the claim's non-insurance payer
+// (deduped, in tree order) — save-billing-rules verifies each names a non-insurance organization,
+// and the engine prefetches them so the synchronous writer can stamp the claim with the payer's name.
+export function collectSetNioIds(rule: { conditional: RuleConditional }): string[] {
+  const ids: string[] = [];
+  forEachRuleAction(rule, (action) => {
+    if (action.type !== 'setField' || action.field !== NON_INSURANCE_PAYER_FIELD_ID) return;
+    const id = action.value?.trim();
+    if (id && !ids.includes(id)) ids.push(id);
+  });
+  return ids;
+}
+
+// The payer id values a rule's setField actions assign to a "payer" field (deduped, in tree order) —
+// the engine prefetches any of these that name a custom insurance organization (a plain FHIR
+// Organization, not an RCM payer) so the synchronous payerId writer can tell them apart from an RCM
+// payer id and reference it directly instead of building an RCM payer URL.
+export function collectSetPayerIds(rule: { conditional: RuleConditional }): string[] {
+  const ids: string[] = [];
+  forEachRuleAction(rule, (action) => {
+    if (action.type !== 'setField' || CATALOG_BY_ID.get(action.field)?.valueType !== 'payer') return;
+    const id = action.value?.trim();
+    if (id && !ids.includes(id)) ids.push(id);
+  });
+  return ids;
 }
 
 export function collectSetResourceRefs(rule: { conditional: RuleConditional }): SetResourceRef[] {

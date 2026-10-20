@@ -1,3 +1,4 @@
+import type { StructuredFacts } from '../../procedure-coding/structured-fields';
 // ── Generic CRUD types for all quick pick categories ──
 
 export interface QuickPickCreateInput<T> {
@@ -39,8 +40,10 @@ export interface QuickPickRemoveResponse {
 // ── Procedure Quick Picks ──
 
 export interface ProcedureQuickPickCptCode {
+  modifier?: { code: string; display: string }[];
   code: string;
   display: string;
+  billableUnits?: number;
 }
 
 export interface ProcedureQuickPickData {
@@ -59,6 +62,11 @@ export interface ProcedureQuickPickData {
   suppliesUsed?: (string | undefined)[];
   otherSuppliesUsed?: string;
   procedureDetails?: string;
+  structuredFacts?: StructuredFacts;
+  lengthCm?: number;
+  repairDepth?: string;
+  infusionStartTime?: string;
+  infusionStopTime?: string;
   specimenSent?: boolean;
   complications?: string;
   otherComplications?: string;

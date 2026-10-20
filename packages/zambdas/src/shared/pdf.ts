@@ -335,5 +335,3 @@ export async function createPdfBytes(
   const pdfBytes = await newPdf.save();
   return pdfBytes;
 }
-
-export { createPatientPaymentReceiptPdf } from './pdf/patient-payment-receipt-pdf';

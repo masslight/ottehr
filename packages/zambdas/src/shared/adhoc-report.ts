@@ -1,23 +1,23 @@
 import Oystehr from '@oystehr/sdk';
-import { captureException } from '@sentry/aws-serverless';
+import { captureException } from '@sentry/node-core/light';
 import { randomUUID } from 'crypto';
 import {
   Address,
   Appointment,
-  Bundle,
   Encounter,
   FhirResource,
   Location,
   OperationOutcome,
   Patient,
   Practitioner,
+  RelatedPerson,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { BUCKET_NAMES, SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
-import { getEncounterVisitType } from 'utils/lib/fhir/encounter';
+import { getEncounterVisitType, isScheduledFollowupEncounter } from 'utils/lib/fhir/encounter';
 import { isInPersonAppointment, isTelemedAppointment, OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
-import { getAddressForIndividual } from 'utils/lib/fhir/patient';
-import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
+import { getAddressForIndividual, getFirstName, getLastName, getMiddleName } from 'utils/lib/fhir/patient';
+import { getAdmitterPractitionerId, getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { getInPersonVisitStatus } from 'utils/lib/utils/visitUtils';
 import { createPresignedUrl } from './z3Utils';
@@ -54,6 +54,7 @@ const REPORT_BUDGET_MS = 13 * 60 * 1000;
 const DEFAULT_JOB_TIMEOUT_MS = 10 * 60 * 1000;
 
 let reportDeadlineMs = 0;
+
 export function beginReportBudget(): void {
   reportDeadlineMs = Date.now() + REPORT_BUDGET_MS;
 }
@@ -65,82 +66,131 @@ function jobWait(): { pollIntervalMs: number; timeoutMs: number } {
   return { pollIntervalMs: 2000, timeoutMs: remaining };
 }
 
-const ASYNC_PAGE_SIZE = 1000;
+const FAILURE_BODY_CHARS = 800;
 
-function readSearchsets<T extends FhirResource>(
-  completion: Bundle
-): { resources: T[]; matchedIds: string[]; hasNext: boolean } {
-  const resources: T[] = [];
-  const matchedIds: string[] = [];
-  let hasNext = false;
-  for (const outer of completion.entry ?? []) {
-    // A failed search arrives as an entry with a non-2xx status and NO searchset. Skipping it
-    // silently is how a search answering "400 Internal Error" became a successful empty report.
-    const status = outer.response?.status;
-    if (status && !status.startsWith('2')) {
-      const issues = (outer.response?.outcome as OperationOutcome | undefined)?.issue
-        ?.map((issue) => issue.details?.text || issue.diagnostics || issue.code)
-        .join('; ');
-      throw new Error(`FHIR search failed with ${status}${issues ? `: ${issues}` : ''}`);
+async function logAsyncJobFailure(oystehr: Oystehr, jobId: string, label: string): Promise<void> {
+  if (!jobId) return;
+  try {
+    const status = (await oystehr.fhir.getAsyncJob(jobId)) as {
+      status?: number;
+      mode?: string;
+      outcome?: OperationOutcome;
+      manifest?: { output?: { url?: string }[]; requiresAccessToken?: boolean };
+      bundle?: unknown;
+      body?: unknown;
+    };
+    const parts = [`status=${status.status ?? 'none'}`, `mode=${status.mode ?? 'none'}`];
+    if (status.outcome) parts.push(`outcome=${JSON.stringify(status.outcome).slice(0, FAILURE_BODY_CHARS)}`);
+    if (status.manifest) {
+      parts.push(
+        `manifestFiles=${status.manifest.output?.length ?? 0}`,
+        `requiresAccessToken=${status.manifest.requiresAccessToken ?? 'none'}`
+      );
     }
-    const searchset = outer.resource as Bundle | undefined;
-    if (!searchset || searchset.resourceType !== 'Bundle' || searchset.type !== 'searchset') continue;
-    if (searchset.link?.some((link) => link.relation === 'next')) hasNext = true;
-    for (const entry of searchset.entry ?? []) {
-      const resource = entry.resource;
-      const mode = entry.search?.mode ?? 'match';
-      if (!resource || mode === 'outcome') continue;
-      resources.push(resource as T);
-      // Only matched resources advance the offset; _include ones ride along outside the page count.
-      if (mode === 'match' && resource.id) matchedIds.push(resource.id);
+
+    if (status.body && !status.manifest && !status.bundle) {
+      parts.push(`body=${JSON.stringify(status.body).slice(0, FAILURE_BODY_CHARS)}`);
     }
+
+    console.error(`[adhoc] ${label}: job ${jobId} ${parts.join(' ')}`);
+  } catch (error) {
+    console.error(
+      `[adhoc] ${label}: could not read job ${jobId}: ${error instanceof Error ? error.message : String(error)}`
+    );
   }
-  return { resources, matchedIds, hasNext };
 }
 
-async function searchAllAsync<T extends FhirResource>(
+// The bulk output files are downloaded here rather than through the SDK's waitForAsyncBulkOutput.
+// Measured: the manifest reports requiresAccessToken=true, so the SDK adds an Authorization header,
+// and the storage rejects a pre-signed url that also carries one with "400". The same url fetched
+// with no auth at all returns 200. The SDK offers no way to skip the header — it throws when the
+// manifest asks for a token and none is given.
+async function downloadNdjson<T extends FhirResource>(url: string): Promise<T[]> {
+  // fetch has no timeout of its own, so a stalled download would hang until the lambda itself is
+  // killed, ignoring the report budget. Bound it by whatever is left of that budget — and jobWait
+  // throws first when nothing is left, so an already-doomed download never starts.
+  const { timeoutMs } = jobWait();
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, { method: 'GET', signal: controller.signal });
+    if (!response.ok) {
+      throw new Error(
+        `downloading ${url.split('?')[0]} answered ${response.status}: ${(await response.text()).slice(
+          0,
+          FAILURE_BODY_CHARS
+        )}`
+      );
+    }
+    const ndjson = await response.text();
+    const resources: T[] = [];
+    for (const line of ndjson.split('\n')) {
+      const trimmed = line.trim();
+      if (trimmed) resources.push(JSON.parse(trimmed) as T);
+    }
+    return resources;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function searchAsyncBulk<T extends FhirResource>(
   oystehr: Oystehr,
   resourceType: T['resourceType'],
   params: { name: string; value: string }[]
 ): Promise<T[]> {
-  const out: T[] = [];
-  const seen = new Set<string>();
-  let offset = 0;
-  let progressed = true;
-  while (progressed) {
-    const pageParams = [
-      ...params,
-      { name: '_count', value: String(ASYNC_PAGE_SIZE) },
-      { name: '_offset', value: String(offset) },
-      { name: '_sort', value: '_id' },
-    ];
-    const handle = await oystehr.fhir.search<T>({ resourceType, params: pageParams }, { mode: 'async-bundle' });
-    const status = await oystehr.fhir.waitForAsyncJob<T>(handle.jobId, jobWait());
-    if (status.status !== 200 || !('mode' in status) || status.mode !== 'bundle') {
-      throw new Error(`Async search for ${resourceType} did not complete in bundle mode`);
+  const label = `${resourceType} by ${params.map((p) => p.name).join(',')}`;
+  const startedAt = Date.now();
+  let jobId = '';
+  try {
+    const handle = await oystehr.fhir.search<T>({ resourceType, params }, { mode: 'async-bulk' });
+    jobId = handle.jobId;
+    const status = await oystehr.fhir.waitForAsyncJob<T>(jobId, jobWait());
+    if (status.status !== 200 || !('mode' in status) || status.mode !== 'bulk') {
+      throw new Error(`job answered status ${status.status}, mode ${'mode' in status ? status.mode : 'none'}`);
     }
-    const { resources, matchedIds, hasNext } = readSearchsets<T>(status.bundle as Bundle);
-    out.push(...resources);
-    const newMatched = matchedIds.filter((id) => !seen.has(id));
-    newMatched.forEach((id) => seen.add(id));
-    offset += matchedIds.length;
-    progressed = hasNext && newMatched.length > 0;
+
+    const files = await Promise.all(
+      (status.manifest.output ?? []).map(async (file) => ({
+        type: file.type,
+        resources: await downloadNdjson<T>(file.url),
+      }))
+    );
+    const resources = files.flatMap((file) => file.resources);
+    console.log(
+      `[adhoc] ${label}: job=${jobId} ms=${Date.now() - startedAt} files=${files.length} ` +
+        `resources=${resources.length} ` +
+        `perFile=${JSON.stringify(files.map((file) => ({ type: file.type, count: file.resources.length })))}`
+    );
+    return resources;
+  } catch (error) {
+    console.error(
+      `[adhoc] ${label}: FAILED job=${jobId || 'not started'} ms=${Date.now() - startedAt} ` +
+        `code=${(error as { code?: unknown })?.code ?? 'none'} message=${
+          error instanceof Error ? error.message : String(error)
+        }`
+    );
+
+    await logAsyncJobFailure(oystehr, jobId, label);
+
+    captureException(error, { extra: { resourceType, jobId, params } });
+
+    throw new Error(
+      `Could not load ${resourceType} for the report (job ${jobId || 'not started'}): ${
+        error instanceof Error ? error.message : String(error)
+      }`
+    );
   }
-  return out;
 }
 
 const REPORT_APPOINTMENT_STATUSES = 'proposed,pending,booked,arrived,fulfilled,checked-in,waitlist,cancelled,noshow';
 
 export const REPORT_ATTENDED_APPOINTMENT_STATUSES = 'proposed,pending,booked,arrived,fulfilled,checked-in,waitlist';
 
-// The main search pulls a whole include graph per appointment, so its size follows the requested
-// date range, not a list we control. A five-month range came back empty; a one-month range over the
-// same data returned every row. Raise this only with a measurement to back it up.
-const REPORT_WINDOW_DAYS = 30;
+// currently async bulk removes the limit on how much the server may SEND, not the limit on the query it has to RUN:
+const REPORT_WINDOW_DAYS = 3;
 const REPORT_WINDOW_CONCURRENCY = 4;
 
-// Cuts a range into consecutive windows of at most REPORT_WINDOW_DAYS. A range that already fits,
-// or one whose bounds do not parse, is returned unchanged so the search behaves exactly as before.
 function reportWindows(dateRange: { start: string; end: string }): { start: string; end: string }[] {
   const start = DateTime.fromISO(dateRange.start);
   const end = DateTime.fromISO(dateRange.end);
@@ -151,8 +201,7 @@ function reportWindows(dateRange: { start: string; end: string }): { start: stri
   while (cursor < end) {
     const next = DateTime.min(cursor.plus({ days: REPORT_WINDOW_DAYS }), end);
     windows.push({ start: cursor.toISO()!, end: next.toISO()! });
-    // The next window starts where this one ended; `date=ge`/`le` are inclusive on both sides, so
-    // step off the boundary by a millisecond to keep an appointment out of two windows.
+    // `date=ge`/`le` include both bounds, so step off the boundary by a millisecond to keep an appointment out of two windows.
     cursor = next.plus({ milliseconds: 1 });
   }
   return windows;
@@ -167,7 +216,7 @@ export async function fetchAppointmentReportResources<T extends FhirResource>(
   }
 ): Promise<T[]> {
   const searchWindow = (window: { start: string; end: string }): Promise<T[]> =>
-    searchAllAsync<T>(oystehr, 'Appointment', [
+    searchAsyncBulk<T>(oystehr, 'Appointment', [
       { name: 'date', value: `ge${window.start}` },
       { name: 'date', value: `le${window.end}` },
       { name: 'status', value: opts.statuses ?? REPORT_APPOINTMENT_STATUSES },
@@ -175,15 +224,14 @@ export async function fetchAppointmentReportResources<T extends FhirResource>(
       { name: '_include', value: 'Appointment:patient' },
       { name: '_include', value: 'Appointment:location' },
       { name: '_revinclude', value: 'Encounter:appointment' },
-      { name: '_include:iterate', value: 'Encounter:participant:Practitioner' },
       ...(opts.extraParams ?? []),
     ]);
 
   const windows = reportWindows(opts.dateRange);
-  if (windows.length === 1) return searchWindow(windows[0]);
-
   const out: T[] = [];
   const seen = new Set<string>();
+  const startedAt = Date.now();
+
   for (let i = 0; i < windows.length; i += REPORT_WINDOW_CONCURRENCY) {
     const group = await Promise.all(windows.slice(i, i + REPORT_WINDOW_CONCURRENCY).map(searchWindow));
     for (const resources of group) {
@@ -196,12 +244,39 @@ export async function fetchAppointmentReportResources<T extends FhirResource>(
       }
     }
   }
+
+  out.push(...(await fetchAttendingPractitioners<T>(oystehr, out)));
+  console.log(
+    `[adhoc] Appointment search: windows=${windows.length} resources=${out.length} ms=${Date.now() - startedAt}`
+  );
   return out;
 }
 
-// One search per batch of scoping values. Measured: a comma list of 1249 encounter references
-// (63891 bytes) answers "400 Bad Request / Internal Error", while 100 references answer 200. The
-// limit between the two is not documented, so the batch size stays conservative.
+// (Temporarily, while async-bulk isn't working as expected): the attending providers used to ride along on the main search as _include:iterate through the
+// Encounter, which made every window carry a fourth resource type in full. Only the attending and the
+// intake (admitter) participants are ever read — their name and the provider-type extension — so they
+// are fetched separately: by id, in batches, three fields each — the same shape as every other heavy
+// part of a report.
+async function fetchAttendingPractitioners<T extends FhirResource>(oystehr: Oystehr, resources: T[]): Promise<T[]> {
+  const ids = new Set<string>();
+  for (const resource of resources) {
+    if (resource.resourceType !== 'Encounter') continue;
+
+    for (const id of [
+      getAttendingPractitionerId(resource as Encounter),
+      getAdmitterPractitionerId(resource as Encounter),
+    ]) {
+      if (id) ids.add(id);
+    }
+  }
+
+  if (ids.size === 0) return [];
+
+  return fetchScopedResources<T>(oystehr, 'Practitioner', '_id', Array.from(ids), [
+    { name: '_elements', value: 'id,name,extension' },
+  ]);
+}
+
 const SCOPED_BATCH_SIZE = 100;
 const SCOPED_BATCH_CONCURRENCY = 4;
 
@@ -220,32 +295,21 @@ export async function fetchScopedResources<T extends FhirResource>(
     batches.push(values.slice(i, i + SCOPED_BATCH_SIZE));
   }
 
-  // A failed batch used to return an empty list, so the layer came back partly filled and the
-  // report looked complete. A report on missing data is worse than a report that says it failed.
-  const searchBatch = async (batch: string[]): Promise<T[]> => {
-    try {
-      return await searchAllAsync<T>(oystehr, resourceType, [
-        { name: paramName, value: batch.join(',') },
-        ...extraParams,
-      ]);
-    } catch (error) {
-      captureException(error, { extra: { resourceType, paramName, valueCount: batch.length } });
-      throw new Error(
-        `Could not load ${resourceType} for the report (${batch.length} of ${values.length} by ${paramName}): ` +
-          `${error instanceof Error ? error.message : String(error)}`
-      );
-    }
-  };
+  const searchBatch = (batch: string[]): Promise<T[]> =>
+    searchAsyncBulk<T>(oystehr, resourceType, [{ name: paramName, value: batch.join(',') }, ...extraParams]);
 
+  const startedAt = Date.now();
   const out: T[] = [];
   for (let i = 0; i < batches.length; i += SCOPED_BATCH_CONCURRENCY) {
     const group = await Promise.all(batches.slice(i, i + SCOPED_BATCH_CONCURRENCY).map(searchBatch));
     for (const resources of group) out.push(...resources);
   }
+
   console.log(
     `[adhoc] ${resourceType} by ${paramName}: values=${values.length} batches=${batches.length} ` +
-      `returned=${out.length}`
+      `resources=${out.length} ms=${Date.now() - startedAt}`
   );
+
   return out;
 }
 
@@ -256,9 +320,15 @@ export function resolveEncounterAppointment(
 ): Appointment | undefined {
   const ownRef = encounter.appointment?.[0]?.reference;
   const own = ownRef ? appointmentMap.get(ownRef) : undefined;
+
   if (own) return own;
+
+  // A scheduled follow-up is a visit of its own: not loaded means outside the range, never the parent's visit.
+  if (isScheduledFollowupEncounter(encounter)) return undefined;
+
   const parentId = encounter.partOf?.reference?.replace('Encounter/', '');
   const parentRef = parentId ? encounterById.get(parentId)?.appointment?.[0]?.reference : undefined;
+
   return parentRef ? appointmentMap.get(parentRef) : undefined;
 }
 
@@ -290,7 +360,10 @@ export function buildEncounterRowContext(
   const { encounterById, patientMap, locationMap, practitionerMap } = lookups;
 
   const encounterType = getEncounterVisitType(encounter) ?? 'main';
-  const isFollowUpRow = encounterType === 'follow-up' || encounterType === 'scheduled-follow-up';
+
+  // Only an annotation follow-up is a note on its parent visit (no Appointment of its own, status and lock on the
+  // Encounter). A scheduled follow-up is a visit converted in place — its own Appointment, status and lock.
+  const isFollowUpRow = encounterType === 'follow-up';
 
   const parentEncounter = encounter.partOf?.reference
     ? encounterById.get(encounter.partOf.reference.replace('Encounter/', ''))
@@ -301,10 +374,12 @@ export function buildEncounterRowContext(
 
   const locationRef = appointment.participant?.find((p) => p.actor?.reference?.startsWith('Location/'))?.actor
     ?.reference;
+
   const location = locationRef ? locationMap.get(locationRef) : undefined;
 
   const attendingId = getAttendingPractitionerId(encounter);
   const attendingPractitioner = attendingId ? practitionerMap.get(attendingId) : undefined;
+
   const attendingProvider = attendingPractitioner
     ? `${attendingPractitioner.name?.[0]?.given?.[0] || ''} ${attendingPractitioner.name?.[0]?.family || ''}`.trim()
     : 'Unknown';
@@ -324,6 +399,7 @@ export function buildEncounterRowContext(
   const svcCoding = (appointment.serviceCategory ?? [])
     .flatMap((sc) => sc.coding ?? [])
     .find((c) => c.system === SERVICE_CATEGORY_SYSTEM);
+
   const serviceCategory = svcCoding?.display || svcCoding?.code || '';
 
   const address = patient ? getAddressForIndividual(patient) : undefined;
@@ -344,3 +420,12 @@ export function buildEncounterRowContext(
     start,
   };
 }
+
+export const presentFullName = (individual: Patient | Practitioner | RelatedPerson | undefined): string =>
+  individual?.name?.[0]
+    ? [getFirstName(individual), getMiddleName(individual), getLastName(individual)].filter(Boolean).join(' ')
+    : '';
+
+/** `value` when it is one of `allowed` (a closed vocabulary the schema enumerates), else null. */
+export const knownValueOrNull = <T extends string>(allowed: readonly T[], value: string | undefined): T | null =>
+  value && (allowed as readonly string[]).includes(value) ? (value as T) : null;

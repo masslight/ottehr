@@ -1,4 +1,4 @@
-import { BillingClaimsExportStatusResponse } from 'utils';
+import { BillingClaimsExportStatusResponse } from 'utils/lib/types/data/billing/billing.types';
 
 export const EXPORT_POLL_INTERVAL_MS = 2000;
 

@@ -42,6 +42,9 @@ export const AR_STAGE = {
   nonInsurancePayer: 'non-insurance-payer-ar',
 } as const;
 
+// Sentinel arStage search value meaning "claims with no AR stage tag".
+export const AR_STAGE_NONE = 'none';
+
 export type ArStageCode = (typeof AR_STAGE)[keyof typeof AR_STAGE];
 
 // Conceptual groupings of the status fields. AR Stage stands on its own as the top-level field, so
@@ -251,6 +254,14 @@ export function emptyClaimStatusValues(): ClaimStatusValues {
 
 export function hasReachedPatientAr(claim: Pick<Claim, 'meta'> | undefined): boolean {
   return getClaimStatusValues(claim).arStage === AR_STAGE.patient;
+}
+
+export function hasReachedClaimStatus(fieldKey: ClaimStatusFieldKey, code: string, target: string): boolean {
+  const { options } = CLAIM_STATUS_FIELDS_BY_KEY[fieldKey];
+  const currentIndex = options.findIndex((option) => option.code === code);
+  const targetIndex = options.findIndex((option) => option.code === target);
+  if (currentIndex < 0 || targetIndex < 0) return false;
+  return currentIndex >= targetIndex;
 }
 
 // Human-readable label for a field value code (empty/unknown -> '').

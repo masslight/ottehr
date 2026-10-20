@@ -3,12 +3,14 @@ import { randomUUID } from 'crypto';
 import { DocumentReference, List } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { BUCKET_NAMES } from 'utils/lib/fhir/constants';
+import { uploadObjectToZ3 } from 'utils/lib/helpers/presigned-file-url/helpers';
 import { Secrets } from 'utils/lib/secrets';
 import {
   FAX_PACKET_MAX_BYTES,
   FAX_PACKET_MAX_PAGES,
   FaxPacketSource,
   FaxRecipient,
+  formatFaxRecipientName,
 } from 'utils/lib/types/api/fax.types';
 import { getMimeType } from 'utils/lib/utils/file';
 import { mapWithConcurrency } from '../concurrency';
@@ -23,7 +25,7 @@ import {
 import { PdfInfo } from '../pdf/pdf-utils';
 import { FaxCoverSheetData, FaxCoverSheetSubject } from '../pdf/types';
 import { makeZ3Url } from '../presigned-file-urls/helpers';
-import { createPresignedUrl, uploadObjectToZ3 } from '../z3Utils';
+import { createPresignedUrl } from '../z3Utils';
 import { FaxPacketPart } from './collect-visit-documents';
 
 /**
@@ -75,7 +77,7 @@ export const createFaxPacketByteBudget = (
     consume: (byteCount) => {
       used += byteCount;
       if (used > maxBytes) {
-        throw new FaxPacketError(
+        throw new FaxPacketTooLargeError(
           `Fax packet source documents are over ${(used / (1024 * 1024)).toFixed(1)} MB, which exceeds the ` +
             `${MAX_BYTES_MB} MB limit. ${faxPacketLimitGuidance(sourceType)}`
         );
@@ -149,6 +151,13 @@ class FaxPacketError extends Error {
   }
 }
 
+export class FaxPacketTooLargeError extends FaxPacketError {
+  constructor(message: string) {
+    super(message);
+    this.name = 'FaxPacketTooLargeError';
+  }
+}
+
 /** Collapses sections into the shape the sender works with. */
 export const toFaxPacketBody = (sections: FaxPacketSection[]): FaxPacketBody => ({
   sections,
@@ -180,43 +189,23 @@ export const faxPacketLimitGuidance = (sourceType: FaxPacketSource['type']): str
 };
 
 /**
- * Renders the recipient's cover sheet, merges it in front of the already-built body, enforces the
- * transmission limits and uploads the result, then records it as a DocumentReference.
+ * Renders the recipient's cover sheet, merges it in front of the already-built body and enforces the
+ * transmission limits.
  *
  * Never re-collects or re-merges the body: `body` is passed in precisely so that a multi-recipient
  * send does that work once.
  */
-export async function buildAndUploadPacketForRecipient(args: {
-  oystehr: Oystehr;
-  token: string;
-  secrets: Secrets | null;
+export async function buildPacketForRecipient(args: {
   body: FaxPacketBody;
   recipient: FaxRecipient;
   /** Sender + generatedAt; each section supplies its own subject, and totalPages is filled in here. */
   coverSheet: Omit<FaxCoverSheetData, 'totalPages' | 'recipient' | 'subject'>;
-  patientId: string;
-  /** Absent when the packet does not belong to a single visit. */
-  appointmentId?: string;
-  encounterId?: string;
   sourceType: FaxPacketSource['type'];
-  listResources: List[];
-}): Promise<{ pdfInfo: PdfInfo; documentReference: DocumentReference; pageCount: number }> {
-  const {
-    oystehr,
-    token,
-    secrets,
-    body,
-    recipient,
-    coverSheet,
-    patientId,
-    appointmentId,
-    encounterId,
-    sourceType,
-    listResources,
-  } = args;
+}): Promise<{ bytes: Uint8Array; pageCount: number }> {
+  const { body, recipient, coverSheet, sourceType } = args;
 
   const recipientDetails = {
-    name: recipient.name,
+    name: formatFaxRecipientName(recipient),
     organization: recipient.organization,
     faxNumber: recipient.faxNumber,
     phoneNumber: recipient.phoneNumber,
@@ -253,11 +242,27 @@ export async function buildAndUploadPacketForRecipient(args: {
     );
   }
   if (merged.bytes.length > FAX_PACKET_MAX_BYTES) {
-    throw new Error(
+    throw new FaxPacketTooLargeError(
       `Fax packet is ${(merged.bytes.length / (1024 * 1024)).toFixed(1)} MB, which exceeds the ${MAX_BYTES_MB} MB ` +
         `limit. ${faxPacketLimitGuidance(sourceType)}`
     );
   }
+
+  return { bytes: merged.bytes, pageCount: merged.pageCount };
+}
+
+export async function uploadFaxPacket(args: {
+  oystehr: Oystehr;
+  token: string;
+  secrets: Secrets | null;
+  packet: { bytes: Uint8Array; pageCount: number };
+  patientId: string;
+  /** Absent when the packet does not belong to a single visit. */
+  appointmentId?: string;
+  encounterId?: string;
+  listResources: List[];
+}): Promise<{ pdfInfo: PdfInfo; documentReference: DocumentReference; pageCount: number }> {
+  const { oystehr, token, secrets, packet, patientId, appointmentId, encounterId, listResources } = args;
 
   // A retry must re-send the original bytes, so every packet is its own immutable file: the unique
   // filename doubles as the DocumentReference title, which is what keeps earlier packets from being
@@ -273,7 +278,7 @@ export async function buildAndUploadPacketForRecipient(args: {
 
   const presignedUploadUrl = await createPresignedUrl(token, uploadURL, 'upload');
 
-  await uploadObjectToZ3(merged.bytes, presignedUploadUrl);
+  await uploadObjectToZ3(packet.bytes, presignedUploadUrl);
 
   const pdfInfo: PdfInfo = { title: fileName, uploadURL };
 
@@ -286,5 +291,5 @@ export async function buildAndUploadPacketForRecipient(args: {
     listResources,
   });
 
-  return { pdfInfo, documentReference, pageCount: merged.pageCount };
+  return { pdfInfo, documentReference, pageCount: packet.pageCount };
 }

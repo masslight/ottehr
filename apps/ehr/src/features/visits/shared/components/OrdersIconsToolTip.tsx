@@ -26,7 +26,7 @@ import {
   getRadiologyOrderEditUrl,
   getRadiologyUrl,
 } from 'src/features/visits/in-person/routing/helpers';
-import { sidebarMenuIcons } from 'src/features/visits/shared/components/Sidebar';
+import { sidebarMenuIcons } from 'src/features/visits/shared/components/sidebarMenuIcons';
 import { hasAtLeastOneOrder } from 'src/helpers';
 import { MedicationOrderStatuses } from 'utils/lib/types/api/medication-administration.types';
 import { RadiologyOrderStatus } from 'utils/lib/types/api/radiology';
@@ -110,6 +110,7 @@ export const OrdersIconsToolTip: React.FC<OrdersIconsToolTipProps> = ({ appointm
         statusChip: <InHouseLabsStatusChip status={order.status} />,
         unreadBadge: IN_HOUSE_LAB_ORDERS_PENDING_BADGE_STATUSES.includes(order.status),
       })),
+      includeTableNavButton: true,
     };
     orderConfigs.push(inHouseLabOrderConfig);
   }

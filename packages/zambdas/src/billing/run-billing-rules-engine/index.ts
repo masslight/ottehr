@@ -2,16 +2,21 @@ import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, ProvenanceAgent, Task } from 'fhir/r4b';
 import { InternalError } from 'utils/lib/helpers/oystehrApi';
-import { RulesEngineType } from 'utils/lib/types/data/billing/rules-engine.constants';
-import { RunBillingRulesEngineResponse } from 'utils/lib/types/data/billing/rules-engine.schemas';
+import { RulesEngineSubmissionType, RulesEngineType } from 'utils/lib/types/data/billing/rules-engine.constants';
+import {
+  RunBillingRulesEngineInputSchema,
+  RunBillingRulesEngineResponse,
+} from 'utils/lib/types/data/billing/rules-engine.schemas';
 import { FHIR_RESOURCE_NOT_FOUND_CUSTOM, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { resolveClaimActor } from '../provenance';
 import { buildRulesEngineKickoffTask } from '../rules-engine/serialization';
 import { createBillingClient, determineRulesEngineForClaim } from '../shared';
-import { RunBillingRulesEngineParams, validateRequestParameters } from './validateRequestParameters';
+
+type RunBillingRulesEngineParams = ValidatedZambdaInput<typeof RunBillingRulesEngineInputSchema>;
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'run-billing-rules-engine';
@@ -21,7 +26,7 @@ const ZAMBDA_NAME = 'run-billing-rules-engine';
 // by its AR stage (see determineRulesEngineForClaim); this enqueues the same Tasks claim creation
 // does, and a Subscription then runs sub-rules-engine for each.
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const params = validateRequestParameters(input);
+  const params = validateWithSchema(RunBillingRulesEngineInputSchema, input);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
@@ -36,6 +41,8 @@ export interface RulesEngineKickoff {
   claimId: string;
   engine: RulesEngineType;
   skipRules: boolean;
+  submissionType?: RulesEngineSubmissionType;
+  payerClaimControlNumber?: string;
 }
 
 // Confirm every claim exists (one search ORing the ids) and that an engine applies to each, so the
@@ -62,14 +69,18 @@ export async function complexValidation(
   const noEngine: string[] = [];
   for (const claimId of params.claimIds) {
     const engine = determineRulesEngineForClaim(claimsById.get(claimId)!);
-    if (engine) kickoffs.push({ claimId, engine, skipRules: params.skipRules });
+    if (engine)
+      kickoffs.push({
+        claimId,
+        engine,
+        skipRules: params.skipRules,
+        submissionType: params.submissionType,
+        payerClaimControlNumber: params.payerClaimControlNumber,
+      });
     else noEngine.push(claimId);
   }
   if (noEngine.length > 0) {
-    throw INVALID_INPUT_ERROR(
-      `No rules engine applies to claim(s): ${noEngine.join(', ')}. ` +
-        'Set an AR Stage first — Patient AR claims must also be self-pay (no coverage).'
-    );
+    throw INVALID_INPUT_ERROR(`No rules engine applies to claim(s): ${noEngine.join(', ')}. Set an AR Stage first.`);
   }
   return kickoffs;
 }
@@ -81,11 +92,20 @@ export async function performEffect(
   kickoffs: RulesEngineKickoff[],
   agent: ProvenanceAgent
 ): Promise<RunBillingRulesEngineResponse> {
-  const requests: BatchInputPostRequest<Task>[] = kickoffs.map(({ engine, claimId, skipRules }) => ({
-    method: 'POST',
-    url: '/Task',
-    resource: buildRulesEngineKickoffTask(engine, claimId, skipRules, agent.who),
-  }));
+  const requests: BatchInputPostRequest<Task>[] = kickoffs.map(
+    ({ engine, claimId, skipRules, submissionType, payerClaimControlNumber }) => ({
+      method: 'POST',
+      url: '/Task',
+      resource: buildRulesEngineKickoffTask(
+        engine,
+        claimId,
+        skipRules,
+        agent.who,
+        submissionType,
+        payerClaimControlNumber
+      ),
+    })
+  );
   const result = await oystehr.fhir.transaction<Task>({ requests });
   const taskIds = (result.entry ?? [])
     .map((entry) => entry.resource?.id)

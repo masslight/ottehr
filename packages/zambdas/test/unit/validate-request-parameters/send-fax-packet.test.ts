@@ -30,7 +30,11 @@ describe('send-fax-packet - validateRequestParameters', () => {
   test('accepts every packet source', () => {
     const sources = [
       { type: 'visits', patientId: PATIENT_ID, appointmentIds: [APPOINTMENT_ID] },
-      { type: 'medical-record', patientId: PATIENT_ID },
+      {
+        type: 'medical-record',
+        patientId: PATIENT_ID,
+        dateRange: { from: '2026-01-01T00:00:00.000-05:00', to: '2026-10-12T23:59:59.999-04:00' },
+      },
       { type: 'document', patientId: PATIENT_ID, documentReferenceId: DOCUMENT_ID },
     ];
 
@@ -39,12 +43,28 @@ describe('send-fax-packet - validateRequestParameters', () => {
     });
   });
 
+  test('throws when a medical-record source has no date range', () => {
+    expect(() =>
+      validateRequestParameters(
+        createMockZambdaInput(body({ source: { type: 'medical-record', patientId: PATIENT_ID } }), { secrets })
+      )
+    ).toThrow(/source\.dateRange/);
+  });
+
   test('normalises the legacy appointmentId request shape to a visit source', () => {
     const result = validateRequestParameters(
       createMockZambdaInput({ appointmentId: APPOINTMENT_ID, recipients: [{ faxNumber: '2125551234' }] }, { secrets })
     );
 
     expect(result.source).toEqual(VISIT_SOURCE);
+  });
+
+  test('throws when a recipient has a credential but no name', () => {
+    expect(() =>
+      validateRequestParameters(
+        createMockZambdaInput(body({ recipients: [{ faxNumber: '2125551234', credential: 'MD' }] }), { secrets })
+      )
+    ).toThrow();
   });
 
   test('throws when the source type is unknown', () => {

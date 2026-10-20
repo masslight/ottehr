@@ -3,8 +3,8 @@ import {
   ArrowBack as ArrowBackIcon,
   DeleteOutline as DeleteOutlineIcon,
   Edit as EditIcon,
-  FileDownloadOutlined as FileDownloadIcon,
-  OpenInNew as OpenInNewIcon,
+  ReceiptLongOutlined as ReceiptLongIcon,
+  SendOutlined as SendIcon,
   StickyNote2Outlined as StickyNote2Icon,
 } from '@mui/icons-material';
 import { TabContext, TabList, TabPanel } from '@mui/lab';
@@ -17,9 +17,14 @@ import {
   CardContent,
   Chip,
   CircularProgress,
+  FormControl,
   FormControlLabel,
+  FormLabel,
   IconButton,
+  Link as MuiLink,
   MenuItem,
+  Radio,
+  RadioGroup,
   Select,
   Stack,
   Switch,
@@ -33,15 +38,22 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
+import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom';
+import { CLAIM_ATTACHMENT_REPORT_TYPE_CODES, DEFAULT_CLAIM_ATTACHMENT_REPORT_TYPE_CODE } from 'utils/lib/fhir/billing';
+import { isCustomInsuranceOrgBusinessId } from 'utils/lib/helpers/helpers';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
+import { uploadObjectToZ3 } from 'utils/lib/helpers/presigned-file-url/helpers';
 import {
+  CLAIM_ACCIDENT_TYPE_DISPLAY_VALUES,
   CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES,
   CODE_SYSTEM_SERVICE_CATEGORY_CODE_NAMES,
 } from 'utils/lib/helpers/rcm/constants';
 import { VALUE_SETS } from 'utils/lib/ottehr-config/value-sets';
+import { otherColors } from 'utils/lib/theme/billing-palette';
+import { DrugUnitCode } from 'utils/lib/types/data/billing/billing.constants';
 import {
   CreateBillingProviderInput,
   SaveServiceFacilityInput,
@@ -65,15 +77,24 @@ import {
   formatAntCaseString,
   formatClaimStatusValue,
 } from 'utils/lib/types/data/billing/claim-status';
-import { RULES_ENGINES, RulesEngineDef } from 'utils/lib/types/data/billing/rules-engine.constants';
+import {
+  RULES_ENGINES,
+  RulesEngineDef,
+  RulesEngineSubmissionType,
+} from 'utils/lib/types/data/billing/rules-engine.constants';
 import { formatCurrency } from 'utils/lib/utils/convert';
 import z from 'zod';
 import {
+  addClaimAttachment,
   createBillingCoverage,
   createBillingProvider,
+  createTimelyFilingReport,
+  deleteClaimAttachment,
+  downloadClaimAttachment,
   exportClaimX12,
   getBillingClaimDetail,
   getPatientCoverages,
+  renameClaimAttachment,
   runBillingRulesEngine,
   saveBillingServiceFacility,
   searchBillingTags,
@@ -83,12 +104,22 @@ import {
   updateBillingProvider,
   updateBillingResource,
 } from '../api/api';
+import { AccidentInfoFields } from '../components/AccidentInfoFields';
+import { AttachmentsSection } from '../components/attachments/AttachmentsSection';
+import { ClaimDownloadsMenu } from '../components/claim/ClaimDownloadsMenu';
 import { ClaimHistory } from '../components/claim/ClaimHistory';
 import { ClaimNotesDrawer } from '../components/claim/ClaimNotesDrawer';
 import { ClaimStatusFields } from '../components/claim/ClaimStatusFields';
+import { Cms1500Dialog } from '../components/claim/Cms1500Dialog';
 import { DiagnosesEditor } from '../components/claim/DiagnosesEditor';
 import { EditableSection, EditableSectionSkeleton } from '../components/claim/EditableSection';
+import { EhrLinksButton } from '../components/claim/EhrLinksButton';
+import { MedicationDetailDialog } from '../components/claim/MedicationDetailDialog';
+import { OrderingProviderDialog } from '../components/claim/OrderingProviderDialog';
+import { RemitHighlightProvider } from '../components/claim/RemitHighlight';
+import { InsurancePaymentsSection, RemitsSection } from '../components/claim/RemitSections';
 import { ServiceLineRow, ServiceLinesEditor } from '../components/claim/ServiceLinesEditor';
+import { RemitTotals, ServiceLinesTable } from '../components/claim/ServiceLinesLedger';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { CopyButton } from '../components/CopyButton';
 import { CoverageFields } from '../components/CoverageFields';
@@ -98,11 +129,13 @@ import {
   InstitutionalClaimAdditionalFields,
   InstitutionalClaimAdditionalFieldsData,
 } from '../components/InstitutionalClaimAdditionalFields';
+import { NioOption, NioSelect } from '../components/NioSelect';
 import { ProviderDetailForm } from '../components/ProviderDetailSection';
 import { ReadOnlySection, thSx } from '../components/ReadOnlySection';
 import { Row } from '../components/Row';
 import { ServiceFacilityDetailForm } from '../components/ServiceFacilityDetailSection';
 import { WarningIconWithTooltip } from '../components/WarningIconWithTooltip';
+import { AccidentInfoData } from '../constants/accidentInfo';
 import { claimStatusValueColor, PROVISIONAL_BALANCE_HINT } from '../constants/claimStatus';
 import {
   CoverageForm,
@@ -110,32 +143,35 @@ import {
   coverageToUpdateInput,
   defaultCoverageFormValues,
 } from '../constants/coverage';
-import { ERA_STATUS_LABELS, formatAdjustment } from '../constants/era';
 import { useApiClients } from '../hooks/useAppClients';
 import { useCoverage } from '../hooks/useCoverage';
 import { useFacilityOptionsSearch, useProviderOptionsSearch } from '../hooks/useOptionSearch';
 import { usePatient } from '../hooks/usePatient';
 import { useProvider } from '../hooks/useProvider';
 import { useServiceFacility } from '../hooks/useServiceFacility';
-import { otherColors } from '../themes/ottehr/colors';
-import { formatDate } from '../utils/format';
+import { downloadBase64File } from '../utils/downloadFile';
+import { formatDate, formatDateTime } from '../utils/format';
 import { PatientDemographicsSection } from './PatientDetail';
 
 type UpdateFn = (
   resourceType: string,
   resourceId: string,
-  fields: z.input<typeof UpdateBillingResourceInputSchema>['fields']
+  fields: z.input<typeof UpdateBillingResourceInputSchema>['fields'],
+  refetchClaim?: boolean
 ) => Promise<string | null>;
 
 function applicableRulesEngine(claim: ClaimDetailResponse): RulesEngineDef | undefined {
   const arStage = claim.statuses.arStage;
   if (arStage === AR_STAGE.insurancePayer) return RULES_ENGINES['claim-submission'];
   if (arStage === AR_STAGE.nonInsurancePayer) return RULES_ENGINES['non-insurance-payer-pre-invoice'];
-  if (arStage === AR_STAGE.patient && !claim.coverageFhirId) return RULES_ENGINES['patient-ar-pre-invoice'];
+  if (arStage === AR_STAGE.patient) return RULES_ENGINES['patient-ar-pre-invoice'];
   return undefined;
 }
 
-// EHR app base URL for the "View in EHR" backlink
+// The header's buttons keep their labels on one line, so they're all the same height.
+const NO_WRAP = { whiteSpace: 'nowrap' } as const;
+
+// EHR app base URL for the visit details / progress note backlinks
 const EHR_URL = import.meta.env.VITE_APP_EHR_URL;
 
 export default function ClaimDetail(): ReactElement {
@@ -148,7 +184,9 @@ export default function ClaimDetail(): ReactElement {
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState('1');
   const [exportOpen, setExportOpen] = useState(false);
+  const [cms1500Open, setCms1500Open] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
+  const [buildingReport, setBuildingReport] = useState(false);
   const [historyVersion, setHistoryVersion] = useState(0);
   const [editingHeader, setEditingHeader] = useState(false);
   const [savingHeader, setSavingHeader] = useState(false);
@@ -157,6 +195,7 @@ export default function ClaimDetail(): ReactElement {
   const [claimType, setClaimType] = useState('');
   const [service, setService] = useState('');
   const [skipRules, setSkipRules] = useState(false);
+  const [submissionType, setSubmissionType] = useState<RulesEngineSubmissionType>('new');
   const [showCoverageMap, setShowCoverageMap] = useState<Record<string, boolean>>({
     primary: true,
     secondary: !!claim?.secondaryCoverageFhirId,
@@ -182,6 +221,27 @@ export default function ClaimDetail(): ReactElement {
     void fetchDetail();
   }, [fetchDetail]);
 
+  const onCreateTimelyFilingReport = useCallback(async () => {
+    if (!oystehrZambda || !id) return;
+    setBuildingReport(true);
+    try {
+      const { fileName, pdfBase64 } = await createTimelyFilingReport(oystehrZambda, {
+        claimId: id,
+      });
+      downloadBase64File(fileName, pdfBase64, 'application/pdf');
+    } catch (err) {
+      enqueueSnackbar(
+        getApiError({
+          error: err,
+          defaultError: 'Failed to create the timely filing report',
+        }),
+        { variant: 'error' }
+      );
+    } finally {
+      setBuildingReport(false);
+    }
+  }, [oystehrZambda, id]);
+
   useEffect(() => {
     setShowCoverageMap({
       primary: true,
@@ -195,7 +255,8 @@ export default function ClaimDetail(): ReactElement {
     async (
       resourceType: string,
       resourceId: string,
-      fields: z.input<typeof UpdateBillingResourceInputSchema>['fields']
+      fields: z.input<typeof UpdateBillingResourceInputSchema>['fields'],
+      refetchClaim: boolean = true
     ): Promise<string | null> => {
       if (!oystehrZambda || !id) return 'Client not ready';
       try {
@@ -208,7 +269,9 @@ export default function ClaimDetail(): ReactElement {
       } catch (err) {
         return getApiError({ error: err, defaultError: 'Failed to save changes' });
       }
-      await fetchDetail();
+      if (refetchClaim) {
+        await fetchDetail();
+      }
       return null;
     },
     [oystehrZambda, fetchDetail, id]
@@ -263,7 +326,12 @@ export default function ClaimDetail(): ReactElement {
     }
     setSubmitting(true);
     try {
-      await runBillingRulesEngine(oystehrZambda, { claimIds: [id], skipRules });
+      await runBillingRulesEngine(oystehrZambda, {
+        claimIds: [id],
+        skipRules,
+        submissionType: skipRules ? submissionType : undefined,
+        payerClaimControlNumber: skipRules && submissionType !== 'new' ? claim?.payerClaimControlNumber : undefined,
+      });
       const messageSegment = skipRules
         ? 'Claim submitted.'
         : `${engine.label} started — when every rule passes, ${engine.onPass}; a Hold keeps the claim for review.`;
@@ -281,7 +349,7 @@ export default function ClaimDetail(): ReactElement {
       setConfirmingSubmit(false);
       await fetchDetail();
     }
-  }, [oystehrZambda, id, claim, skipRules, fetchDetail]);
+  }, [oystehrZambda, id, claim, skipRules, submissionType, fetchDetail]);
 
   if (loading && !claim) {
     return (
@@ -436,42 +504,38 @@ export default function ClaimDetail(): ReactElement {
           )}
         </Box>
 
-        {EHR_URL && claim.appointmentId && (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0, mt: 0.25 }}>
+          {EHR_URL && claim.appointmentId && (
+            <EhrLinksButton ehrUrl={EHR_URL} appointmentId={claim.appointmentId} encounterId={claim.encounterId} />
+          )}
           <Button
-            variant="outlined"
             size="small"
-            startIcon={<OpenInNewIcon />}
-            href={`${EHR_URL}/visit/${claim.appointmentId}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            sx={{ mt: 0.5, flexShrink: 0 }}
+            variant="outlined"
+            startIcon={<StickyNote2Icon />}
+            onClick={() => setNotesOpen(true)}
+            sx={NO_WRAP}
           >
-            View in EHR
+            Notes
           </Button>
-        )}
-        <Button
-          size="small"
-          variant="outlined"
-          startIcon={<FileDownloadIcon />}
-          onClick={() => setExportOpen(true)}
-          sx={{ mt: 0.5 }}
-        >
-          Export X12
-        </Button>
-        <Button
-          size="small"
-          variant="outlined"
-          startIcon={<StickyNote2Icon />}
-          onClick={() => setNotesOpen(true)}
-          sx={{ mt: 0.5 }}
-        >
-          Notes
-        </Button>
-        {runEngine && (
-          <Button variant="contained" size="small" onClick={() => setConfirmingSubmit(true)} sx={{ mt: 0.5 }}>
-            {runEngine.runButtonLabel}
-          </Button>
-        )}
+          <ClaimDownloadsMenu
+            claimType={claim.type}
+            onExportX12={() => setExportOpen(true)}
+            onCms1500={() => setCms1500Open(true)}
+            onProofOfTimelyFiling={() => void onCreateTimelyFilingReport()}
+            buildingProof={buildingReport}
+          />
+          {runEngine && (
+            <Button
+              variant="contained"
+              size="small"
+              startIcon={runEngine.type === 'claim-submission' ? <SendIcon /> : <ReceiptLongIcon />}
+              onClick={() => setConfirmingSubmit(true)}
+              sx={NO_WRAP}
+            >
+              {runEngine.runButtonLabel}
+            </Button>
+          )}
+        </Box>
       </Box>
 
       {oystehrZambda && (
@@ -482,6 +546,7 @@ export default function ClaimDetail(): ReactElement {
           x12Provider={() => exportClaimX12(oystehrZambda, { claimId: claim.id }).then((data) => data.x12)}
         />
       )}
+      <Cms1500Dialog open={cms1500Open} onClose={() => setCms1500Open(false)} claimId={claim.id} />
 
       <ClaimNotesDrawer
         key={claim.id}
@@ -522,7 +587,7 @@ export default function ClaimDetail(): ReactElement {
           <Box sx={{ display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'flex-end' }}>
             <Amount label="Billed" value={claim.billed} />
             <Amount label="Allowed" value={claim.allowed} />
-            <Amount label="Payments" sublabel="Primary Ins Paid" value={claim.insurancePaid} />
+            <Amount label="Payments" sublabel="Insurance Paid" value={claim.insurancePaid} />
             <Amount label="Patient Paid" value={claim.patientPaid} />
             <Amount
               label="Balance"
@@ -552,9 +617,10 @@ export default function ClaimDetail(): ReactElement {
           >
             <Tab label="Claim Properties" value="1" />
             <Tab label="Dx, Service Lines & Remits" value="2" />
-            <Tab label="Write offs & Patient payments" value="3" />
-            <Tab label="Other claims" value="4" />
-            <Tab label="History" value="5" />
+            <Tab label="Attachments" value="3" />
+            <Tab label="Write offs & Patient payments" value="4" />
+            <Tab label="Other claims" value="5" />
+            <Tab label="History" value="6" />
           </TabList>
 
           <TabPanel value="1" sx={{ px: 0, pt: 2 }}>
@@ -624,31 +690,39 @@ export default function ClaimDetail(): ReactElement {
             ) : (
               <></>
             )}
-            <RenderingProviderSection claim={claim} updateResource={updateResource} />
-            <FacilitySection claim={claim} updateResource={updateResource} />
-            <BillingProviderSection claim={claim} updateResource={updateResource} />
+            <NonInsurancePayerSection claim={claim} updateResource={updateResource} />
+            <RenderingProviderSection claim={claim} updateResource={updateResource} refetchClaim={fetchDetail} />
+            <FacilitySection claim={claim} updateResource={updateResource} refetchClaim={fetchDetail} />
+            <BillingProviderSection claim={claim} updateResource={updateResource} refetchClaim={fetchDetail} />
+            <AccidentInfoSection claim={claim} updateResource={updateResource} />
             {claim.type === 'institutional' && (
               <InstitutionalClaimAdditionalFieldsSection claim={claim} updateResource={updateResource} />
             )}
           </TabPanel>
 
           <TabPanel value="2" sx={{ px: 0, pt: 2 }}>
-            <DiagnosesSection claim={claim} updateResource={updateResource} />
-            <ServiceLinesSection claim={claim} updateResource={updateResource} />
-            <RemitsSection remits={claim.remits} />
-            <InsurancePaymentsSection payments={claim.insurancePayments} navigate={navigate} />
+            <RemitHighlightProvider>
+              <DiagnosesSection claim={claim} updateResource={updateResource} />
+              <ServiceLinesSection claim={claim} updateResource={updateResource} />
+              <RemitsSection remits={claim.remits} />
+              <InsurancePaymentsSection payments={claim.insurancePayments} />
+            </RemitHighlightProvider>
           </TabPanel>
 
           <TabPanel value="3" sx={{ px: 0, pt: 2 }}>
+            <ClaimAttachmentsSection claim={claim} refetchClaim={fetchDetail} />
+          </TabPanel>
+
+          <TabPanel value="4" sx={{ px: 0, pt: 2 }}>
             <ReadOnlySection title="Write offs">No write offs</ReadOnlySection>
             <PatientPaymentsSection payments={claim.patientPayments} />
           </TabPanel>
 
-          <TabPanel value="4" sx={{ px: 0, pt: 2 }}>
+          <TabPanel value="5" sx={{ px: 0, pt: 2 }}>
             <OtherClaimsSection claims={claim.otherClaims} navigate={navigate} />
           </TabPanel>
 
-          <TabPanel value="5" sx={{ px: 0, pt: 2 }}>
+          <TabPanel value="6" sx={{ px: 0, pt: 2 }}>
             <ClaimHistory key={historyVersion} claimId={claim.id} />
           </TabPanel>
         </TabContext>
@@ -658,28 +732,73 @@ export default function ClaimDetail(): ReactElement {
         <ConfirmDialog
           open={confirmingSubmit}
           title={runEngine.runButtonLabel}
-          confirmLabel={skipRules ? 'Submit claim (without running rules)' : 'Run rules'}
+          confirmLabel={getSubmitClaimLabel(skipRules, submissionType)}
           loading={submitting}
           onConfirm={() => void handleRunRulesEngine()}
           onCancel={() => setConfirmingSubmit(false)}
         >
-          <Typography variant="body2">
-            Run the {runEngine.label} on this claim? They apply the configured rules; when every rule passes,{' '}
-            {runEngine.onPass} — or the claim is held if a rule applies the Hold tag.
-          </Typography>
-          <FormControlLabel
-            control={<Switch checked={skipRules} onChange={(_event, checked) => setSkipRules(checked)} />}
-            label="Skip rules"
-            slotProps={{
-              typography: {
-                variant: 'body2',
-              },
-            }}
-          />
+          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr', gap: 2.25, maxWidth: 680 }}>
+            <Typography variant="body2">
+              Run the {runEngine.label} on this claim? They apply the configured rules; when every rule passes,{' '}
+              {runEngine.onPass} — or the claim is held if a rule applies the Hold tag.
+            </Typography>
+            <FormControlLabel
+              control={<Switch checked={skipRules} onChange={(_event, checked) => setSkipRules(checked)} />}
+              label="Skip rules"
+              slotProps={{
+                typography: {
+                  variant: 'body2',
+                },
+              }}
+            />
+            {skipRules ? (
+              <FormControl>
+                <FormLabel id="submission-type-label">Submission Type</FormLabel>
+                <RadioGroup
+                  aria-labelledby="submission-type-label"
+                  name="submission-type-group"
+                  value={submissionType}
+                  onChange={(event) => setSubmissionType(event.target.value as RulesEngineSubmissionType)}
+                >
+                  <FormControlLabel value="new" control={<Radio />} label="New Submission" />
+                  <FormControlLabel
+                    disabled={!claim.payerClaimControlNumber}
+                    value="correction"
+                    control={<Radio />}
+                    label="Correction"
+                  />
+                  <FormControlLabel
+                    disabled={!claim.payerClaimControlNumber}
+                    value="void"
+                    control={<Radio />}
+                    label="Void Claim"
+                  />
+                </RadioGroup>
+              </FormControl>
+            ) : (
+              <></>
+            )}
+          </Box>
         </ConfirmDialog>
       )}
     </Box>
   );
+}
+
+function getSubmitClaimLabel(skipRules: boolean, submissionType: RulesEngineSubmissionType): string {
+  let action = 'Submit claim';
+  switch (submissionType) {
+    case 'new':
+      action = 'Submit claim';
+      break;
+    case 'correction':
+      action = 'Correct claim';
+      break;
+    case 'void':
+      action = 'Void claim';
+      break;
+  }
+  return skipRules ? `${action} (without running rules)` : 'Run rules';
 }
 
 function PatientSection({ claim }: { claim: ClaimDetailResponse }): ReactElement {
@@ -859,7 +978,25 @@ export function InsuranceSection({
     >
       {coverage ? (
         <>
-          <Row label="Payer" value={coverage.payorName} />
+          <Row
+            label="Payer"
+            value={
+              coverage.payorId && coverage.payorFhirId ? (
+                <MuiLink
+                  component={RouterLink}
+                  to={
+                    isCustomInsuranceOrgBusinessId(coverage.payorId)
+                      ? `/insurance-organizations/${encodeURIComponent(coverage.payorFhirId)}`
+                      : `/insurance-organizations/rcm/${encodeURIComponent(coverage.payorId)}`
+                  }
+                >
+                  {coverage.payorName || coverage.payorId}
+                </MuiLink>
+              ) : (
+                coverage.payorName
+              )
+            }
+          />
           <Row label="Payer ID" value={coverage.payorId} />
           <Row label="Member ID" value={coverage.memberId ?? ''} />
           <Row label="Relationship to insured" value={coverage.relationship ?? ''} />
@@ -926,12 +1063,138 @@ export function InsuranceSection({
   );
 }
 
-function RenderingProviderSection({
+export function NonInsurancePayerSection({
   claim,
   updateResource,
 }: {
   claim: ClaimDetailResponse;
   updateResource: UpdateFn;
+}): ReactElement {
+  const [confirmingRemove, setConfirmingRemove] = useState(false);
+  const [removing, setRemoving] = useState(false);
+  const [removeError, setRemoveError] = useState<string | null>(null);
+
+  const currentPayer = useMemo<NioOption | null>(
+    () =>
+      claim.nonInsurancePayerFhirId
+        ? {
+            id: claim.nonInsurancePayerFhirId,
+            name: claim.nonInsurancePayerName || claim.nonInsurancePayerFhirId,
+          }
+        : null,
+    [claim.nonInsurancePayerFhirId, claim.nonInsurancePayerName]
+  );
+  const [selectedId, setSelectedId] = useState<string>(currentPayer?.id ?? '');
+  useEffect(() => {
+    setSelectedId(currentPayer?.id ?? '');
+  }, [currentPayer]);
+
+  const handleSave = async (): Promise<string | null> => {
+    if (!selectedId) return 'Choose a non-insurance organization';
+    return updateResource('Claim', claim.id, { nonInsurancePayer: { id: selectedId } });
+  };
+
+  const handleRemove = async (): Promise<void> => {
+    setRemoving(true);
+    setRemoveError(null);
+    const err = await updateResource('Claim', claim.id, { nonInsurancePayer: null });
+    setRemoving(false);
+    setConfirmingRemove(false);
+    if (err) setRemoveError(err);
+  };
+
+  const hasPayer = Boolean(claim.nonInsurancePayerFhirId || claim.nonInsurancePayerName);
+
+  return (
+    <EditableSection
+      title="Non-insurance Payer"
+      onSave={handleSave}
+      onCancel={() => setSelectedId(currentPayer?.id ?? '')}
+      editForm={
+        <Box sx={{ maxWidth: 480 }}>
+          <NioSelect
+            multiple={false}
+            activeOnly
+            value={selectedId}
+            onChange={(v) => setSelectedId(typeof v === 'string' ? v : v[0] ?? '')}
+            label={hasPayer ? 'Payer' : 'Choose payer'}
+            initialOptions={currentPayer ? [currentPayer] : []}
+          />
+        </Box>
+      }
+    >
+      {hasPayer ? (
+        <Box sx={{ display: 'flex', py: 0.75 }}>
+          <Typography variant="body2" color="primary.dark" sx={{ width: 180, flexShrink: 0 }}>
+            Payer
+          </Typography>
+          {claim.nonInsurancePayerFhirId ? (
+            <MuiLink
+              component={RouterLink}
+              to={`/non-insurance-organizations/${claim.nonInsurancePayerFhirId}`}
+              variant="body2"
+              sx={{ fontWeight: 500 }}
+            >
+              {claim.nonInsurancePayerName || claim.nonInsurancePayerFhirId}
+            </MuiLink>
+          ) : (
+            <Typography variant="body2">{claim.nonInsurancePayerName}</Typography>
+          )}
+        </Box>
+      ) : (
+        <Typography variant="body2" color="text.secondary" sx={{ py: 0.5 }}>
+          No non-insurance payer specified
+        </Typography>
+      )}
+      {hasPayer && (
+        <Box sx={{ mt: 1.5 }}>
+          {removeError && (
+            <Alert severity="error" sx={{ mb: 1 }}>
+              {removeError}
+            </Alert>
+          )}
+          {confirmingRemove ? (
+            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+              <Typography variant="body2" color="text.secondary">
+                Remove payer?
+              </Typography>
+              <Button size="small" onClick={() => setConfirmingRemove(false)} disabled={removing}>
+                Cancel
+              </Button>
+              <Button
+                size="small"
+                color="error"
+                variant="contained"
+                onClick={() => void handleRemove()}
+                disabled={removing}
+              >
+                {removing ? 'Removing...' : 'Confirm'}
+              </Button>
+            </Box>
+          ) : (
+            <Button
+              size="small"
+              color="error"
+              startIcon={<DeleteOutlineIcon fontSize="small" />}
+              onClick={() => setConfirmingRemove(true)}
+            >
+              Remove payer
+            </Button>
+          )}
+        </Box>
+      )}
+    </EditableSection>
+  );
+}
+
+function RenderingProviderSection({
+  claim,
+  updateResource,
+  refetchClaim,
+}: {
+  claim: ClaimDetailResponse;
+  updateResource: UpdateFn;
+  refetchClaim: () => Promise<void>;
 }): ReactElement {
   const { oystehrZambda } = useApiClients();
 
@@ -970,15 +1233,24 @@ function RenderingProviderSection({
         'providerId' in payload && payload.providerId && !selectedProvider ? payload.providerId : undefined;
       if (!providerId) {
         if (selectedProvider?.id) {
-          const attachError = await updateResource('Claim', claim.id, {
-            renderingProvider: {
-              id: selectedProvider.id,
-              type: selectedProvider.kind === 'organization' ? 'Organization' : 'Practitioner',
+          const attachError = await updateResource(
+            'Claim',
+            claim.id,
+            {
+              renderingProvider: {
+                id: selectedProvider.id,
+                type: selectedProvider.kind === 'organization' ? 'Organization' : 'Practitioner',
+              },
             },
-          });
+            false
+          );
           if (attachError) return attachError;
           const updatedClaim = await getBillingClaimDetail(oystehrZambda, { claimId: claim.id });
           providerId = updatedClaim.renderingProviderId;
+          await updateBillingProvider(oystehrZambda, { ...payload, providerId, claimId: claim.id });
+          await refetchClaim();
+          resetFields();
+          return null;
         } else {
           // No base selected, make a new one and attach it, returning early
           const result = await createBillingProvider(oystehrZambda, payload);
@@ -1002,6 +1274,7 @@ function RenderingProviderSection({
 
   return (
     <ProviderDetailForm
+      title="Rendering Provider"
       provider={selectedProvider ?? claimProvider}
       role="rendering"
       onSave={handleSave}
@@ -1020,9 +1293,11 @@ function RenderingProviderSection({
 function FacilitySection({
   claim,
   updateResource,
+  refetchClaim,
 }: {
   claim: ClaimDetailResponse;
   updateResource: UpdateFn;
+  refetchClaim: () => Promise<void>;
 }): ReactElement {
   const { oystehrZambda } = useApiClients();
 
@@ -1051,12 +1326,21 @@ function FacilitySection({
       let facilityId = payload.facilityId && !selected ? payload.facilityId : undefined;
       if (!facilityId) {
         if (selected?.id) {
-          const attachError = await updateResource('Claim', claim.id, {
-            facilityId: selected.id,
-          });
+          const attachError = await updateResource(
+            'Claim',
+            claim.id,
+            {
+              facilityId: selected.id,
+            },
+            false
+          );
           if (attachError) return attachError;
           const updatedClaim = await getBillingClaimDetail(oystehrZambda, { claimId: claim.id });
           facilityId = updatedClaim.serviceFacilityId;
+          await saveBillingServiceFacility(oystehrZambda, { ...payload, facilityId, claimId: claim.id });
+          await refetchClaim();
+          resetFields();
+          return null;
         } else {
           // No base selected, make a new one and attach it, returning early
           const result = await saveBillingServiceFacility(oystehrZambda, payload);
@@ -1094,9 +1378,11 @@ function FacilitySection({
 function BillingProviderSection({
   claim,
   updateResource,
+  refetchClaim,
 }: {
   claim: ClaimDetailResponse;
   updateResource: UpdateFn;
+  refetchClaim: () => Promise<void>;
 }): ReactElement {
   const { oystehrZambda } = useApiClients();
 
@@ -1144,6 +1430,10 @@ function BillingProviderSection({
           if (attachError) return attachError;
           const updatedClaim = await getBillingClaimDetail(oystehrZambda, { claimId: claim.id });
           providerId = updatedClaim.billingProviderFhirId;
+          await updateBillingProvider(oystehrZambda, { ...payload, providerId, claimId: claim.id });
+          await refetchClaim();
+          resetFields();
+          return null;
         } else {
           // No base selected, make a new one and attach it, returning early
           const result = await createBillingProvider(oystehrZambda, payload);
@@ -1167,6 +1457,7 @@ function BillingProviderSection({
 
   return (
     <ProviderDetailForm
+      title="Billing Provider"
       provider={selectedProvider ?? claimProvider}
       role="billing"
       onSave={handleSave}
@@ -1179,6 +1470,52 @@ function BillingProviderSection({
       }}
       showSourceLink
     />
+  );
+}
+
+function AccidentInfoSection({
+  claim,
+  updateResource,
+}: {
+  claim: ClaimDetailResponse;
+  updateResource: UpdateFn;
+}): ReactElement {
+  const handleSave = async (data: AccidentInfoData): Promise<string | null> => {
+    try {
+      const error = await updateResource('Claim', claim.id, {
+        accidentType: data.accidentType,
+        accidentState: data.accidentState,
+        accidentDate: data.accidentDate,
+      });
+      if (error) return error;
+      return null;
+    } catch (err) {
+      return getApiError({ error: err, defaultError: 'Failed to save changes' });
+    }
+  };
+
+  const defaultValues = useMemo<AccidentInfoData>(() => {
+    return {
+      accidentType: claim.accidentType,
+      accidentState: claim.accidentState,
+      accidentDate: claim.accidentDate,
+    };
+  }, [claim]);
+
+  return (
+    <EditableSection
+      title="Accident Info"
+      defaultValues={defaultValues}
+      onSave={handleSave}
+      editForm={<AccidentInfoFields />}
+    >
+      <Row
+        label="Accident Type"
+        value={claim.accidentType.map((type) => CLAIM_ACCIDENT_TYPE_DISPLAY_VALUES[type]).join(', ')}
+      />
+      {claim.accidentType.includes('auto') ? <Row label="Accident State" value={claim.accidentState} /> : <></>}
+      <Row label="Accident Date" value={claim.accidentDate ? formatDate(claim.accidentDate) : ''} />
+    </EditableSection>
   );
 }
 
@@ -1196,6 +1533,8 @@ function InstitutionalClaimAdditionalFieldsSection({
         patientDischargeStatusCode: data.patientDischargeStatusCode,
         admissionType: data.admissionType,
         admissionSource: data.admissionSource,
+        admissionDate: DateTime.fromISO(data.admissionDate).toLocal().toISO() ?? data.admissionDate,
+        dischargeDate: DateTime.fromISO(data.dischargeDate).toLocal().toISO() ?? data.dischargeDate,
       });
       if (error) return error;
       return null;
@@ -1210,6 +1549,8 @@ function InstitutionalClaimAdditionalFieldsSection({
       patientDischargeStatusCode: claim.patientDischargeStatusCode,
       admissionType: claim.admissionType,
       admissionSource: claim.admissionSource,
+      admissionDate: claim.admissionDate,
+      dischargeDate: claim.dischargeDate,
     };
   }, [claim]);
 
@@ -1224,6 +1565,8 @@ function InstitutionalClaimAdditionalFieldsSection({
       <Row label="Patient Discharge Status Code" value={claim.patientDischargeStatusCode} />
       <Row label="Admission Type" value={claim.admissionType} />
       <Row label="Point of Origin / Admission Source" value={claim.admissionSource} />
+      <Row label="Admission Date" value={claim.admissionDate ? formatDateTime(claim.admissionDate) : ''} />
+      <Row label="Discharge Date" value={claim.dischargeDate ? formatDateTime(claim.dischargeDate) : ''} />
     </EditableSection>
   );
 }
@@ -1301,10 +1644,19 @@ function ServiceLinesSection({
         placeOfService: line.placeOfService,
         diagnosisPointers: line.diagnosisPointers,
         revenueCode: line.revenueCode,
+        drug: line.drug
+          ? { ndc: line.drug.ndc, quantity: String(line.drug.quantity), units: line.drug.units as DrugUnitCode }
+          : null,
+        orderingProvider: line.orderingProvider ?? null,
       })),
     [claim]
   );
+  // memoized so the detail dialogs get a stable value and don't reset their fields on every render
+  const claimRows = useMemo(toRows, [toRows]);
   const [rows, setRows] = useState<ServiceLineRow[]>(toRows);
+  // indexes into claim.serviceLines for the read-only view's "edit one detail only" dialogs
+  const [drugEditIndex, setDrugEditIndex] = useState<number | null>(null);
+  const [providerEditIndex, setProviderEditIndex] = useState<number | null>(null);
 
   const resetFields = useCallback((): void => setRows(toRows()), [toRows]);
 
@@ -1312,18 +1664,20 @@ function ServiceLinesSection({
     resetFields();
   }, [resetFields]);
 
-  const dxCode = (sequence: number): string =>
-    claim.diagnoses.find((dx) => dx.sequence === sequence)?.code ?? String(sequence);
-
   const handleSave = async (): Promise<string | null> => {
     for (const row of rows) {
       if (!row.cptCode.trim()) return 'Each service line needs a CPT code';
       if (!row.serviceDate) return 'Each service line needs a date of service';
+      if (!row.placeOfService.trim()) return 'Each service line needs a place of service';
       if (!(Number(row.units) > 0)) return 'Units must be a positive number';
       if (row.charges.trim() === '' || !Number.isFinite(Number(row.charges))) return 'Charges must be a number';
     }
-    return updateResource('Claim', claim.id, {
-      serviceLines: rows.map((row) => {
+    return saveRows(rows);
+  };
+
+  const saveRows = (nextRows: ServiceLineRow[]): Promise<string | null> =>
+    updateResource('Claim', claim.id, {
+      serviceLines: nextRows.map((row) => {
         const modifiers = row.modifiers
           .split(/[,\s]+/)
           .map((m) => m.trim())
@@ -1333,14 +1687,39 @@ function ServiceLinesSection({
           units: Number(row.units),
           charges: Number(row.charges),
           serviceDate: row.serviceDate,
-          ...(row.placeOfService.trim() ? { placeOfService: row.placeOfService.trim() } : {}),
+          placeOfService: row.placeOfService.trim(),
           ...(modifiers.length ? { modifiers } : {}),
           ...(row.diagnosisPointers.length ? { diagnosisPointers: row.diagnosisPointers } : {}),
           revenueCode: row.revenueCode,
+          ...(row.drug
+            ? { drug: { ndc: row.drug.ndc, quantity: Number(row.drug.quantity), units: row.drug.units } }
+            : {}),
+          ...(row.orderingProvider ? { orderingProvider: row.orderingProvider } : {}),
         };
       }),
     });
+
+  // Saves one line's medication or ordering-provider detail from the read-only view, keeping all lines as-is.
+  // The whole serviceLines array is rewritten from the current claim snapshot, so the dialog stays open (and
+  // modal) until the save and refetch finish; otherwise a second edit could overwrite the first with stale lines.
+  const [savingLineExtras, setSavingLineExtras] = useState(false);
+  const saveLineExtras = async (
+    index: number,
+    patch: Partial<Pick<ServiceLineRow, 'drug' | 'orderingProvider'>>
+  ): Promise<void> => {
+    if (savingLineExtras) return;
+    setSavingLineExtras(true);
+    const error = await saveRows(claimRows.map((row, i) => (i === index ? { ...row, ...patch } : row)));
+    setSavingLineExtras(false);
+    if (error) {
+      enqueueSnackbar(error, { variant: 'error' });
+      return;
+    }
+    setDrugEditIndex(null);
+    setProviderEditIndex(null);
   };
+  const drugEditRow = drugEditIndex !== null ? claimRows[drugEditIndex] : undefined;
+  const providerEditRow = providerEditIndex !== null ? claimRows[providerEditIndex] : undefined;
 
   return (
     <EditableSection
@@ -1358,46 +1737,92 @@ function ServiceLinesSection({
       }
     >
       {claim.serviceLines.length > 0 ? (
-        <TableContainer>
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell sx={thSx}>#</TableCell>
-                <TableCell sx={thSx}>Date of Service</TableCell>
-                <TableCell sx={thSx}>CPT Code</TableCell>
-                <TableCell sx={thSx}>Modifiers</TableCell>
-                <TableCell sx={thSx}>Dx</TableCell>
-                <TableCell sx={thSx}>POS</TableCell>
-                {claim.type === 'institutional' && <TableCell sx={thSx}>Rev Code</TableCell>}
-                <TableCell sx={thSx}>Qty</TableCell>
-                <TableCell sx={thSx} align="right">
-                  Billed
-                </TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {claim.serviceLines.map((line) => (
-                <TableRow key={line.sequence}>
-                  <TableCell>{line.sequence}</TableCell>
-                  <TableCell>{line.serviceDate}</TableCell>
-                  <TableCell>{line.cptCode}</TableCell>
-                  <TableCell>{line.modifiers.join(', ') || '-'}</TableCell>
-                  <TableCell>{line.diagnosisPointers.map(dxCode).join(', ') || '-'}</TableCell>
-                  <TableCell>{line.placeOfService || '-'}</TableCell>
-                  {claim.type === 'institutional' && <TableCell>{line.revenueCode || '-'}</TableCell>}
-                  <TableCell>{line.units} UN</TableCell>
-                  <TableCell align="right">{formatCurrency(line.charges)}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
+        <ServiceLinesTable claim={claim} onDrugClick={setDrugEditIndex} onProviderClick={setProviderEditIndex} />
       ) : (
         <Typography variant="body2" color="text.secondary">
           No service lines
         </Typography>
       )}
+      {claim.remits.length > 0 && <RemitTotals claim={claim} />}
+      {drugEditIndex !== null && (
+        <MedicationDetailDialog
+          open
+          value={drugEditRow?.drug ?? null}
+          onSave={(drug) => void saveLineExtras(drugEditIndex, { drug })}
+          onRemove={drugEditRow?.drug ? () => void saveLineExtras(drugEditIndex, { drug: null }) : undefined}
+          onClose={() => setDrugEditIndex(null)}
+          saving={savingLineExtras}
+        />
+      )}
+      {providerEditIndex !== null && (
+        <OrderingProviderDialog
+          open
+          value={providerEditRow?.orderingProvider ?? null}
+          onSave={(orderingProvider) => void saveLineExtras(providerEditIndex, { orderingProvider })}
+          onRemove={
+            providerEditRow?.orderingProvider
+              ? () => void saveLineExtras(providerEditIndex, { orderingProvider: null })
+              : undefined
+          }
+          onClose={() => setProviderEditIndex(null)}
+          saving={savingLineExtras}
+        />
+      )}
     </EditableSection>
+  );
+}
+
+const CLAIM_ATTACHMENT_ACCEPT = { 'image/*': ['.jpeg', '.jpg', '.png'], 'application/pdf': ['.pdf'] };
+
+// The claim's attachments (sent with the claim as PWK documentation), on the shared attachments card.
+function ClaimAttachmentsSection({
+  claim,
+  refetchClaim,
+}: {
+  claim: ClaimDetailResponse;
+  refetchClaim: () => Promise<void>;
+}): ReactElement {
+  const { oystehrZambda } = useApiClients();
+  if (!oystehrZambda) return <></>;
+  const claimId = claim.id;
+  return (
+    <AttachmentsSection
+      attachments={claim.attachments}
+      reportTypeCodes={CLAIM_ATTACHMENT_REPORT_TYPE_CODES}
+      defaultReportTypeCode={DEFAULT_CLAIM_ATTACHMENT_REPORT_TYPE_CODE}
+      accept={CLAIM_ATTACHMENT_ACCEPT}
+      onUpload={async ({ name, file, reportTypeCode }) => {
+        const { uploadUrl, documentReferenceId } = await addClaimAttachment(oystehrZambda, {
+          claimId,
+          name,
+          fileName: file.name,
+          reportTypeCode,
+          ...(file.type ? { mimeType: file.type } : {}),
+        });
+        try {
+          await uploadObjectToZ3(file, uploadUrl, file.type);
+        } catch (err) {
+          // don't leave an attachment pointing at a file that never arrived
+          if (documentReferenceId) {
+            await deleteClaimAttachment(oystehrZambda, { claimId, documentReferenceId }).catch(() => undefined);
+          }
+          throw err;
+        } finally {
+          await refetchClaim();
+        }
+      }}
+      onRename={async (documentReferenceId, name) => {
+        await renameClaimAttachment(oystehrZambda, { documentReferenceId, name });
+        await refetchClaim();
+      }}
+      onDelete={async (documentReferenceId) => {
+        await deleteClaimAttachment(oystehrZambda, { claimId, documentReferenceId });
+        await refetchClaim();
+      }}
+      getDownloadUrl={async (documentReferenceId) =>
+        (await downloadClaimAttachment(oystehrZambda, { claimId, documentReferenceId })).downloadUrl
+      }
+    />
   );
 }
 
@@ -1462,102 +1887,6 @@ function OtherClaimsSection({
         </Table>
       </TableContainer>
     </Card>
-  );
-}
-
-function RemitsSection({ remits }: { remits: ClaimDetailResponse['remits'] }): ReactElement {
-  return (
-    <ReadOnlySection title="Remits">
-      {remits.length === 0 ? (
-        'No remits yet'
-      ) : (
-        <TableContainer>
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell sx={thSx}>Date</TableCell>
-                <TableCell sx={thSx}>Payer</TableCell>
-                <TableCell sx={thSx}>Status</TableCell>
-                <TableCell sx={thSx}>ERA Status</TableCell>
-                <TableCell sx={thSx}>Adjustments</TableCell>
-                <TableCell sx={thSx} align="right">
-                  Allowed
-                </TableCell>
-                <TableCell sx={thSx} align="right">
-                  Paid
-                </TableCell>
-                <TableCell sx={thSx} align="right">
-                  Patient Resp
-                </TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {remits.map((remit) => (
-                <TableRow key={remit.claimResponseId}>
-                  <TableCell>{formatDate(remit.date) || '-'}</TableCell>
-                  <TableCell>{remit.payerName || '-'}</TableCell>
-                  <TableCell>{remit.status || '-'}</TableCell>
-                  <TableCell>{remit.eraStatusCode ? ERA_STATUS_LABELS[remit.eraStatusCode] : '-'}</TableCell>
-                  <TableCell>{remit.adjustments.map(formatAdjustment).join(', ') || '-'}</TableCell>
-                  <TableCell align="right">{remit.allowed === null ? '-' : formatCurrency(remit.allowed)}</TableCell>
-                  <TableCell align="right">{formatCurrency(remit.paid)}</TableCell>
-                  <TableCell align="right">
-                    {remit.patientResp === null ? '-' : formatCurrency(remit.patientResp)}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      )}
-    </ReadOnlySection>
-  );
-}
-
-function InsurancePaymentsSection({
-  payments,
-  navigate,
-}: {
-  payments: ClaimDetailResponse['insurancePayments'];
-  navigate: (path: string) => void;
-}): ReactElement {
-  return (
-    <ReadOnlySection title="Insurance Payments">
-      {payments.length === 0 ? (
-        'No insurance payments yet'
-      ) : (
-        <TableContainer>
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell sx={thSx}>Date</TableCell>
-                <TableCell sx={thSx}>Payer</TableCell>
-                <TableCell sx={thSx}>Check Number</TableCell>
-                <TableCell sx={thSx}>Status</TableCell>
-                <TableCell sx={thSx} align="right">
-                  Check Amount
-                </TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {payments.map((payment) => (
-                <TableRow
-                  key={payment.paymentReconciliationId}
-                  sx={{ cursor: 'pointer', '&:hover': { bgcolor: otherColors.apptHover } }}
-                  onClick={() => navigate(`/eras/${payment.paymentReconciliationId}`)}
-                >
-                  <TableCell>{formatDate(payment.paymentDate) || '-'}</TableCell>
-                  <TableCell>{payment.payerName || '-'}</TableCell>
-                  <TableCell>{payment.checkNumber || '-'}</TableCell>
-                  <TableCell>{payment.status || '-'}</TableCell>
-                  <TableCell align="right">{formatCurrency(payment.paymentAmount)}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      )}
-    </ReadOnlySection>
   );
 }
 

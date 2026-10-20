@@ -1,4 +1,5 @@
 import { layerOptions } from 'utils/lib/types/adhoc/datasets/dataset';
+import { AdHocRow } from 'utils/lib/types/adhoc/datasets/llm-schema';
 import {
   AdHocPatientRow,
   AdHocPatientsOutput,
@@ -10,7 +11,7 @@ import {
 import { AdHocLayer } from 'utils/lib/types/adhoc/query/layers';
 import { ADHOC_QUERY_STALE_MS, runAdHocReport, toLocalYmd } from '../query/dataset-query';
 import { buildLlmDatasetSchema } from './schema';
-import { AdHocDataset, AdHocRow, FetchContext } from './types';
+import { AdHocDataset, FetchContext } from './types';
 
 export const ADHOC_PATIENTS_OPTIONS: AdHocLayer[] = layerOptions(PATIENT_LAYERS);
 
@@ -45,9 +46,7 @@ async function fetchAdHocPatients({
 export const patientsDataset: AdHocDataset = {
   id: 'patients',
   label: 'Patients',
-  description:
-    'One row per patient seen in the date range, with demographics and a summary of their visits; ' +
-    'optional allergy, problem-list, and current-medication layers.',
+  description: 'One row per patient seen in the date range, with demographics and a summary of their visits.',
   options: ADHOC_PATIENTS_OPTIONS,
   layers: PATIENT_LAYERS,
   baseSchema: PatientBaseRowSchema,

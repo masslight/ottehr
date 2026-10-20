@@ -31,7 +31,6 @@ let m2mToken: string;
 const ZAMBDA_NAME = 'create-in-house-lab-order';
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
-    console.log(`create-in-house-lab-order started, input: ${JSON.stringify(input)}`);
     let secrets = input.secrets;
     let validatedParameters: CreateInHouseLabOrderParameters & { secrets: Secrets | null; userToken: string };
 

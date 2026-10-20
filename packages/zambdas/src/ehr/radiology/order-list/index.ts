@@ -40,6 +40,7 @@ import {
   getOrderingProviderIds,
   getReportAuthor,
   getReportAuthorId,
+  isCurrentRadiologyResultDocRef,
   makeRadiologyDTO,
   resolveOrderingProvider,
   takeMostRecentPreliminaryReport,
@@ -47,7 +48,6 @@ import {
 } from '../../../shared/radiology';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
-import { isCurrentRadiologyResultDocRef } from '../shared/result-doc-refs';
 import { validateInput, validateSecrets } from './validation';
 
 // Types
@@ -64,8 +64,6 @@ let m2mToken: string;
 const ZAMBDA_NAME = 'radiology-order-list';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  console.log('input body, ', JSON.stringify(unsafeInput.body));
-
   const secrets = validateSecrets(unsafeInput.secrets);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
@@ -100,7 +98,7 @@ const performEffect = async (
     serviceRequestId,
     itemsPerPage,
     pageIndex,
-    callerPractitionerId: await resolveCallerPractitionerId(validatedInput.callerAccessToken, secrets),
+    callerPractitionerId: resolveCallerPractitionerId(validatedInput.callerAccessToken, secrets),
   };
 
   return await getRadiologyOrders(oystehr, searchParams);
@@ -137,7 +135,7 @@ export const getRadiologyOrders = async (
     serviceRequestId?: string;
     itemsPerPage?: number;
     pageIndex?: number;
-    callerPractitionerId?: string;
+    callerPractitionerId?: Promise<string | undefined>;
   }
 ): Promise<GetRadiologyOrderListZambdaOutput> => {
   const searchParams = [
@@ -185,6 +183,9 @@ export const getRadiologyOrders = async (
   const { serviceRequests, tasks, diagnosticReports, practitioners, encounters, documentReferences } =
     extractResources(resources);
 
+  // Awaited before the early return as well, so no path leaves this promise unobserved.
+  const resolvedCallerPractitionerId = await callerPractitionerId;
+
   if (!serviceRequests.length) {
     return {
       orders: [],
@@ -200,7 +201,7 @@ export const getRadiologyOrders = async (
       practitioners,
       encounters,
       documentReferences,
-      callerPractitionerId
+      resolvedCallerPractitionerId
     )
   );
 
@@ -210,7 +211,7 @@ export const getRadiologyOrders = async (
   };
 };
 
-const parseResultsToOrder = (
+export const parseResultsToOrder = (
   serviceRequest: ServiceRequest,
   tasks: Task[],
   diagnosticReports: DiagnosticReport[],

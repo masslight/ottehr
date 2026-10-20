@@ -1,9 +1,18 @@
 import Oystehr from '@oystehr/sdk';
-import { Account, Identifier, Patient, RelatedPerson } from 'fhir/r4b';
+import { Account, Identifier, Patient, PaymentNotice, RelatedPerson } from 'fhir/r4b';
 import Stripe from 'stripe';
+import { PAYMENT_VOID_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { getStripeCustomerIdFromAccount } from 'utils/lib/fhir/helpers';
 import { getEmailForIndividual, getFullName } from 'utils/lib/fhir/patient';
+import {
+  buildPaymentVoidExtension,
+  mergeStripeRefundsWithStored,
+  parsePaymentRefundsFromNotice,
+  PaymentVoidInfo,
+  upsertPaymentRefundsExtension,
+} from 'utils/lib/fhir/paymentRefunds';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { PaymentRefundDTO } from 'utils/lib/types/api/patient-payment-types';
 import { makeStripeCustomerId } from '../patient/payment-methods/helpers';
 
 export interface StripeEnvironmentConfig {
@@ -35,11 +44,37 @@ const validateStripeEnvironment = (secrets: Secrets | null): StripeEnvironment =
   };
 };
 
-export function getStripeClient(secrets: Secrets | null): Stripe {
+export function getStripeClient(secrets: Secrets | null, options?: { timeoutMs?: number }): Stripe {
   const env = validateStripeEnvironment(secrets);
   return new Stripe(env.secretKey, {
     // @ts-expect-error default api version older than sdk
     apiVersion: env.apiVersion,
+    // SDK default is 80s per request
+    ...(options?.timeoutMs !== undefined && { timeout: options.timeoutMs }),
+  });
+}
+
+// Spaces out request starts so bulk crawls stay well under Stripe's rate limits
+// (100 req/s live mode, 25 req/s test mode). Shared across all throttled clients in a warm container.
+const STRIPE_MIN_REQUEST_SPACING_MS = 60; // ~16 req/s
+let stripeNextRequestAt = 0;
+const throttledStripeFetch: typeof fetch = async (input, init) => {
+  const now = Date.now();
+  const startAt = Math.max(now, stripeNextRequestAt);
+  stripeNextRequestAt = startAt + STRIPE_MIN_REQUEST_SPACING_MS;
+  if (startAt > now) await new Promise<void>((resolve) => setTimeout(resolve, startAt - now));
+  return fetch(input, init);
+};
+
+// For high-request-volume flows (report crawls): throttles request rate and retries transient
+// failures (including 429s) at the SDK level.
+export function getRateLimitedStripeClient(secrets: Secrets | null): Stripe {
+  const env = validateStripeEnvironment(secrets);
+  return new Stripe(env.secretKey, {
+    // @ts-expect-error default api version older than sdk
+    apiVersion: env.apiVersion,
+    maxNetworkRetries: 2,
+    httpClient: Stripe.createFetchHttpClient(throttledStripeFetch),
   });
 }
 
@@ -71,6 +106,112 @@ export const stripeEncounterMetadata = (params: { encounterId: string; patientId
 export const stripeEncounterMetadataQuery = (encounterId: string): string =>
   `metadata['${STRIPE_METADATA_KEYS.legacyEncounterId}']:"${encounterId}" OR ` +
   `metadata['${STRIPE_METADATA_KEYS.encounterId}']:"${encounterId}"`;
+
+export const stripeRefundToDTO = (refund: Stripe.Refund): PaymentRefundDTO => ({
+  stripeRefundId: refund.id,
+  amountInCents: refund.amount ?? 0,
+  dateISO: new Date(refund.created * 1000).toISOString(),
+  status: refund.status ?? undefined,
+  // refunds issued from the EHR carry the staff-selected reason (and notes) in metadata
+  reason: refund.metadata?.reason ?? refund.reason ?? undefined,
+  notes: refund.metadata?.notes ?? undefined,
+  refundedBy: refund.metadata?.refundedBy ?? undefined,
+  operationKey: refund.metadata?.operationKey ?? undefined,
+});
+
+// Stamps refund state onto the original PaymentNotice so consumers can read it from FHIR without Stripe.
+// Locally recorded (manual/external) refunds already stamped on the notice always survive the re-stamp,
+// since Stripe's refund list never contains them; removeIds drops specific local entries intentionally.
+export const applyRefundsToPaymentNotice = async (
+  oystehr: Oystehr,
+  notice: PaymentNotice,
+  refunds: PaymentRefundDTO[],
+  removeIds?: string[]
+): Promise<void> => {
+  if (!notice.id) return;
+  const existing = parsePaymentRefundsFromNotice(notice);
+  const merged = mergeStripeRefundsWithStored(existing, refunds, removeIds);
+  if (merged.length === 0 && !existing) return;
+  const canonical = (list: PaymentRefundDTO[]): string =>
+    JSON.stringify([...list].sort((a, b) => a.stripeRefundId.localeCompare(b.stripeRefundId)));
+  if (existing && canonical(existing) === canonical(merged)) return;
+
+  const updatedExtensions = upsertPaymentRefundsExtension(notice.extension, merged);
+  await oystehr.fhir.patch<PaymentNotice>({
+    resourceType: 'PaymentNotice',
+    id: notice.id,
+    operations: [
+      // optimistic lock: fail if the notice changed since it was read, so a stale
+      // concurrent write can't silently drop another request's refund entry
+      ...(notice.meta?.versionId
+        ? [{ op: 'test' as const, path: '/meta/versionId', value: notice.meta.versionId }]
+        : []),
+      // FHIR forbids empty arrays, so an emptied extension list must be removed, not replaced
+      updatedExtensions.length === 0
+        ? { op: 'remove' as const, path: '/extension' }
+        : {
+            op: notice.extension !== undefined ? ('replace' as const) : ('add' as const),
+            path: '/extension',
+            value: updatedExtensions,
+          },
+    ],
+  });
+};
+
+// Cancels a PaymentNotice and stamps the void extension; no-op when already cancelled.
+export const voidPaymentNotice = async (
+  oystehr: Oystehr,
+  notice: PaymentNotice,
+  voidInfo: PaymentVoidInfo
+): Promise<void> => {
+  if (!notice.id || notice.status === 'cancelled') return;
+  const extension = [
+    ...(notice.extension ?? []).filter((ext) => ext.url !== PAYMENT_VOID_EXTENSION_URL),
+    buildPaymentVoidExtension(voidInfo),
+  ];
+  await oystehr.fhir.patch<PaymentNotice>({
+    resourceType: 'PaymentNotice',
+    id: notice.id,
+    operations: [
+      // optimistic lock: the extension array is rebuilt from this snapshot, so a concurrent
+      // refund stamp must fail this patch instead of being silently overwritten
+      ...(notice.meta?.versionId
+        ? [{ op: 'test' as const, path: '/meta/versionId', value: notice.meta.versionId }]
+        : []),
+      { op: 'replace', path: '/status', value: 'cancelled' },
+      { op: notice.extension !== undefined ? 'replace' : 'add', path: '/extension', value: extension },
+    ],
+  });
+};
+
+// For reconciliation flows (webhook re-stamps) where losing the write to an unrelated concurrent
+// update is worse than staleness: re-reads the notice and re-merges on version conflict.
+export const applyRefundsToPaymentNoticeWithRetry = async (
+  oystehr: Oystehr,
+  notice: PaymentNotice,
+  refunds: PaymentRefundDTO[],
+  removeIds?: string[],
+  attempts = 3
+): Promise<void> => {
+  let current = notice;
+  let pending = refunds;
+  const removed = new Set(removeIds ?? []);
+  for (let attempt = 1; ; attempt++) {
+    try {
+      await applyRefundsToPaymentNotice(oystehr, current, pending, removeIds);
+      return;
+    } catch (error) {
+      if (attempt >= attempts || !current.id) throw error;
+      current = await oystehr.fhir.get<PaymentNotice>({ resourceType: 'PaymentNotice', id: current.id });
+      // union refunds another writer stamped meanwhile, preferring our fresher Stripe data on id match
+      const pendingIds = new Set(pending.map((refund) => refund.stripeRefundId));
+      const newcomers = (parsePaymentRefundsFromNotice(current) ?? []).filter(
+        (refund) => !pendingIds.has(refund.stripeRefundId) && !removed.has(refund.stripeRefundId)
+      );
+      pending = [...pending, ...newcomers];
+    }
+  }
+};
 
 interface EnsureStripeCustomerIdParams {
   guarantorResource: Patient | RelatedPerson | undefined;

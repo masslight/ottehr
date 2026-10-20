@@ -1,7 +1,6 @@
 import { useExcusePresignedFiles } from 'src/shared/hooks/useExcusePresignedFiles';
 import { NOTHING_TO_EAT_OR_DRINK_FIELD } from 'utils/lib/types/api/chart-data/chart-data.types';
-import { useChartData } from '../stores/appointment/appointment.store';
-import { useChartFields } from './useChartFields';
+import { useVisitNote } from './useVisitNote';
 
 export const usePatientInstructionsVisibility = (): {
   showInstructions: boolean;
@@ -10,13 +9,11 @@ export const usePatientInstructionsVisibility = (): {
   showSchoolWorkExcuse: boolean;
   showPatientInstructions: boolean;
 } => {
-  const { chartData } = useChartData();
-  const { data: chartFields } = useChartFields({
-    requestedFields: { disposition: {} },
-  });
-  const instructions = chartData?.instructions;
-  const disposition = chartFields?.disposition;
-  const schoolWorkExcuses = useExcusePresignedFiles(chartData?.schoolWorkNotes);
+  const { data: note } = useVisitNote();
+  const instructions = note?.plan.instructions;
+  const disposition = note?.plan.disposition;
+  // Entries whose presigning failed come back without a URL and cannot be linked.
+  const schoolWorkExcuses = useExcusePresignedFiles(note?.plan.schoolWorkNotes).filter((excuse) => excuse.presignedUrl);
   const showInstructions = !!(instructions && instructions.length > 0);
 
   const showDischargeInstructions = !!(

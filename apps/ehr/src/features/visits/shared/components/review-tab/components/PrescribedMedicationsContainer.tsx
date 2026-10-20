@@ -7,17 +7,15 @@ import {
 } from 'src/features/visits/shared/components/NoteSectionHeading';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { formatPhoneNumberDisplay, formatZipcodeForDisplay } from 'utils/lib/helpers/helpers';
-import { useChartFields } from '../../../hooks/useChartFields';
+import { useVisitNote } from '../../../hooks/useVisitNote';
 import { PrescribedMedicationReviewItem } from './PrescribedMedicationReviewItem';
 
 export const PrescribedMedicationsContainer: FC = () => {
   const titleInCardHeader = useNoteSectionTitleInCardHeader();
   const { oystehr } = useApiClients();
-  const { data: chartFields } = useChartFields({
-    requestedFields: { prescribedMedications: {} },
-  });
+  const { data: note } = useVisitNote();
 
-  const prescriptions = chartFields?.prescribedMedications;
+  const prescriptions = note?.plan.prescribedMedications;
 
   const uniquePharmacyIds = [
     ...new Set((prescriptions ?? []).map((m) => m.pharmacyId).filter((id): id is string => !!id)),

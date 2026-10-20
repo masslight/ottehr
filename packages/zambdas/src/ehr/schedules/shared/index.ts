@@ -79,7 +79,6 @@ export const validateUpdateScheduleParameters = (input: ZambdaInput): UpdateSche
     throw MISSING_REQUEST_BODY;
   }
 
-  console.log('input', JSON.stringify(input, null, 2));
   const { secrets } = input;
   const { scheduleId, timezone, slug, schedule, scheduleOverrides, closures, ownerId, ownerType } = safeJsonParse(
     input.body

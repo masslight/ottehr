@@ -1,14 +1,16 @@
 import { Autocomplete, AutocompleteInputChangeReason, AutocompleteRenderInputParams, TextField } from '@mui/material';
-import { HTMLAttributes, ReactElement, ReactNode, Ref, SyntheticEvent, useState } from 'react';
+import { HTMLAttributes, ReactElement, ReactNode, Ref, SyntheticEvent, useCallback, useState } from 'react';
 import { BillingPayerOption } from 'utils/lib/types/data/billing/billing.types';
-import { searchBillingPayers } from '../api/api';
+import { searchBillingCustomInsuranceOrgs, searchBillingPayers } from '../api/api';
 import { useApiClients } from '../hooks/useAppClients';
 import { useDebounce } from '../hooks/useDebounce';
 
-// Searchable payer picker backed by the Oystehr payer list (search-billing-payers). It displays the
-// human-friendly payer name + clearinghouse payer id, but stores the RCM payer `id` — the same token
-// coverage.payor / Claim.insurer use (see getPayerUrl/extractPayerIdFromUrl), so it round-trips with
-// the rules engine's payerId reader/writer. Selecting only valid payers (no free text) is the point.
+// Searchable payer picker backed by both the Oystehr RCM payer list (search-billing-payers) and the
+// billing app's own custom insurance organizations (search-billing-custom-insurance-orgs). It displays
+// the human-friendly payer name + id, but stores the payer Organization's id — the same token
+// coverage.payor / Claim.insurer use (see getPayerUrl/extractPayerIdFromUrl/buildPayorReference), so it
+// round-trips with the rules engine's payerId reader/writer. Selecting only valid payers (no free
+// text) is the point.
 
 interface PayerSelectProps {
   multiple: boolean;
@@ -23,13 +25,20 @@ interface PayerSelectProps {
   error?: boolean;
   helperText?: ReactNode;
   inputRef?: Ref<HTMLInputElement>;
+  fullWidth?: boolean;
 }
 
-const optionLabel = (o: BillingPayerOption): string => (o.name ? `${o.name} (${o.payerId})` : o.id);
+// a known payer whose clearinghouse id isn't loaded yet shows by name alone
+const optionLabel = (o: BillingPayerOption): string =>
+  o.name ? (o.payerId ? `${o.name} (${o.payerId})` : o.name) : o.id;
 
-// Debounced server-side search plus a memory of payers we've seen, so a selected payer keeps its
-// label even after the option list changes (or on edit, once it shows up in a search).
-function usePayerSearch(initialOptions?: BillingPayerOption[]): {
+// Debounced server-side search (RCM payers + custom insurance organizations, merged) plus a memory of
+// payers we've seen, so a selected payer keeps its label even after the option list changes (or on
+// edit, once it shows up in a search). Exported so callers with their own payer Autocomplete (e.g. the
+// claims/ERA list filters) can share the same fetch/merge logic instead of duplicating it. `search`'s
+// identity is stable (memoized on `oystehrZambda` only) so callers can safely put it in a `useEffect`
+// dependency array to trigger an initial load.
+export function usePayerSearch(initialOptions?: BillingPayerOption[]): {
   options: BillingPayerOption[];
   known: Record<string, BillingPayerOption>;
   search: (query?: string) => void;
@@ -41,23 +50,36 @@ function usePayerSearch(initialOptions?: BillingPayerOption[]): {
     Object.fromEntries((initialOptions ?? []).filter((o) => o.id).map((o) => [o.id, o]))
   );
 
-  const runSearch = async (query?: string): Promise<void> => {
-    if (!oystehrZambda) return;
-    try {
-      const res = await searchBillingPayers(oystehrZambda, query ? { name: query } : {});
-      const payers = res.payers ?? [];
-      setOptions(payers);
-      setKnown((prev) => {
-        const next = { ...prev };
-        payers.forEach((p) => (next[p.id] = p));
-        return next;
+  const search = useCallback(
+    (query?: string): void => {
+      if (!oystehrZambda) return;
+      debounce(() => {
+        void (async (): Promise<void> => {
+          const [payersRes, customRes] = await Promise.allSettled([
+            searchBillingPayers(oystehrZambda, query ? { name: query } : {}),
+            searchBillingCustomInsuranceOrgs(oystehrZambda, query ? { name: query } : {}),
+          ]);
+          const payers = payersRes.status === 'fulfilled' ? payersRes.value.payers ?? [] : [];
+          const customOrgs = customRes.status === 'fulfilled' ? customRes.value.organizations ?? [] : [];
+          const customOptions: BillingPayerOption[] = customOrgs.map((o) => ({
+            id: o.id,
+            name: o.name,
+            payerId: o.orgId,
+          }));
+          const merged = [...customOptions, ...payers];
+          setOptions(merged);
+          setKnown((prev) => {
+            const next = { ...prev };
+            merged.forEach((p) => (next[p.id] = p));
+            return next;
+          });
+        })();
       });
-    } catch {
-      setOptions([]);
-    }
-  };
+    },
+    [oystehrZambda, debounce]
+  );
 
-  return { options, known, search: (query?: string) => debounce(() => void runSearch(query)) };
+  return { options, known, search };
 }
 
 // Resolve a stored id to a display option, falling back to a synthetic option showing the raw id.
@@ -77,6 +99,7 @@ export function PayerSelect({
   error,
   helperText,
   inputRef,
+  fullWidth,
 }: PayerSelectProps): ReactElement {
   const { options, known, search } = usePayerSearch(initialOptions);
 
@@ -84,6 +107,7 @@ export function PayerSelect({
   // (narrower) signatures so the object is assignable to both Autocomplete generic instantiations.
   const shared = {
     size: 'small' as const,
+    fullWidth,
     filterOptions: (x: BillingPayerOption[]): BillingPayerOption[] => x,
     isOptionEqualToValue: (o: BillingPayerOption, v: BillingPayerOption): boolean => o.id === v.id,
     getOptionLabel: optionLabel,

@@ -1,21 +1,27 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import { E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM } from 'utils/lib/types/constants';
 import {
   cleanAppointmentGraph,
   cleanupE2ELocations,
   cleanupIntegrationTestAppointments,
+  cleanupIntegrationTestDocumentReferences,
   cleanupIntegrationTestHealthcareServices,
   cleanupIntegrationTestLocations,
   cleanupIntegrationTestPatients,
   cleanupIntegrationTestQuestionnaires,
+  cleanupOrphanedInProgressEncounters,
 } from 'utils/lib/utils/e2eCleanup';
 import { getAuth0Token } from '../../shared/getAuth0Token';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 
+const ORPHANED_ENCOUNTER_CLEANUP_BUDGET_MS = 12 * 60 * 1000;
+
 let oystehrToken: string;
 export const index = wrapHandler('test-env-cleanup', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+  const startedAt = Date.now();
   if (!oystehrToken) {
     console.log('getting token');
     oystehrToken = await getAuth0Token(input.secrets);
@@ -34,6 +40,15 @@ export const index = wrapHandler('test-env-cleanup', async (input: ZambdaInput):
   await cleanupIntegrationTestLocations(oystehr);
   await cleanupIntegrationTestHealthcareServices(oystehr);
   await cleanupIntegrationTestQuestionnaires(oystehr);
+  // Tag-anchored rather than reachable from an appointment: a form template belongs to the project, not
+  // to a patient, so no graph sweep leads to one.
+  await cleanupIntegrationTestDocumentReferences(
+    oystehr,
+    oystehrToken,
+    `${getSecret(SecretsKeys.PROJECT_API, input.secrets)}/z3/${getSecret(SecretsKeys.PROJECT_ID, input.secrets)}-`
+  );
+
+  await cleanupOrphanedInProgressEncounters(oystehr, startedAt + ORPHANED_ENCOUNTER_CLEANUP_BUDGET_MS);
 
   return {
     statusCode: 200,

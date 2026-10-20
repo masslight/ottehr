@@ -18,7 +18,7 @@ import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { isValidSlug, SLUG_VALIDATION_MESSAGE } from 'utils/lib/fhir/constants';
-import { useSuccessQuery } from 'utils/lib/frontend';
+import { useSuccessQuery } from 'utils/lib/frontend/hooks/useSuccessQuery';
 import { UpdateScheduleParams } from 'utils/lib/types/api/schedules';
 import { TIMEZONES } from 'utils/lib/types/constants';
 import { APIError, isApiError } from 'utils/lib/types/errors';

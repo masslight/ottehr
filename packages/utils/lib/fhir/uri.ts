@@ -123,3 +123,22 @@ export function addSearchParams(url: string, searchParams?: SearchParams): strin
 
   return url;
 }
+
+/**
+ * Turns an absolute FHIR URL, such as a searchset's `next` link, into the relative form a batch entry needs.
+ * Strips the known FHIR base URL when one is given; otherwise drops any path prefix ahead of the resource type
+ * segment, so `https://host/r4/Observation?x` becomes `Observation?x`. Input that is not a URL is returned as is.
+ */
+export function toRelativeFhirUrl(absoluteUrl: string, fhirApiUrl?: string): string {
+  const base = fhirApiUrl?.replace(/\/+$/, '');
+  if (base && absoluteUrl.startsWith(base)) {
+    return absoluteUrl.slice(base.length).replace(/^\/+/, '');
+  }
+  try {
+    const parsed = new URL(absoluteUrl);
+    const path = parsed.pathname.replace(/^.*\/(?=[A-Z][A-Za-z]*$)/, '');
+    return `${path}${parsed.search}`;
+  } catch {
+    return absoluteUrl;
+  }
+}

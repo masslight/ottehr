@@ -5,6 +5,8 @@ import { FormProvider, useForm, useWatch } from 'react-hook-form';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { getPatientName } from 'src/shared/utils/getPatientName';
 import { getAllPractitionerCredentials } from 'utils/lib/fhir/helpers';
+import { getFullestAvailableName } from 'utils/lib/fhir/patient';
+import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
 import { getQuestionnaireResponseByLinkId } from 'utils/lib/helpers/paperwork/paperwork-response';
 import {
   buildHeaderNote,
@@ -14,7 +16,8 @@ import {
   mapExcuseTypeToFields,
   mapValuesToExcuse,
 } from '../../../../telemed/utils/school-work-excuse.helper';
-import { useAppointmentData, useChartData, useSaveChartData } from '../../../stores/appointment/appointment.store';
+import { useChartData } from '../../../hooks/useChartData';
+import { useAppointmentData, useSaveChartData } from '../../../stores/appointment/appointment.store';
 import { ControlledExcuseCheckbox } from './ControlledExcuseCheckbox';
 import { ControlledExcuseDatePicker } from './ControlledExcuseDatePicker';
 import { ControlledExcuseDropdown } from './ControlledExcuseDropdown';
@@ -34,9 +37,16 @@ export const GenerateExcuseDialog: FC<GenerateExcuseDialogExtendedProps> = (prop
   const fields = mapExcuseTypeToFields[type];
   const isSchool = ['schoolTemplate', 'schoolFree'].includes(type);
   const isTemplate = ['schoolTemplate', 'workTemplate'].includes(type);
-  const { patient, questionnaireResponse } = useAppointmentData();
+  const { patient, questionnaireResponse, encounter, practitioners } = useAppointmentData();
   const { setPartialChartData, chartData } = useChartData();
   const user = useEvolveUser();
+
+  const assignedProviderId = encounter ? getAttendingPractitionerId(encounter) : undefined;
+  const assignedProvider = assignedProviderId
+    ? practitioners?.find((practitioner) => practitioner.id === assignedProviderId)
+    : undefined;
+  const signingProvider = assignedProvider ?? user?.profileResource;
+  const signingProviderName = (signingProvider && getFullestAvailableName(signingProvider)) || user?.userName;
 
   const responsibleParty = {
     firstName: getQuestionnaireResponseByLinkId('responsible-party-first-name', questionnaireResponse)?.answer?.[0]
@@ -59,7 +69,7 @@ export const GenerateExcuseDialog: FC<GenerateExcuseDialogExtendedProps> = (prop
       isTemplate,
       patientName,
       parentName: fullParentName,
-      providerName: user?.userName,
+      providerName: signingProviderName,
       phoneNumber: supportPhoneNumber,
       patientOrRelatedPerson: 'patient',
     }),
@@ -92,8 +102,8 @@ export const GenerateExcuseDialog: FC<GenerateExcuseDialogExtendedProps> = (prop
       isSchool,
       isTemplate,
       patientName: getPatientName(patient?.name).firstLastName,
-      providerName: user?.userName,
-      suffix: user?.profileResource ? getAllPractitionerCredentials(user?.profileResource).join(' ') : undefined,
+      providerName: signingProviderName,
+      suffix: signingProvider ? getAllPractitionerCredentials(signingProvider).join(' ') : undefined,
     });
     generate(
       { newSchoolWorkNote: excuse },

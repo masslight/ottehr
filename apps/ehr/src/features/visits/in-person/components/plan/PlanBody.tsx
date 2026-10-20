@@ -1,6 +1,5 @@
 import { Stack } from '@mui/material';
 import { FC } from 'react';
-import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import { DispositionCard } from '../../../shared/components/DispositionCard';
 import { FormsCard } from '../../../shared/components/FormsCard';
 import { PatientEducationCard } from '../../../shared/components/plan-tab/PatientEducationCard';
@@ -21,7 +20,7 @@ export const PlanBody: FC = () => {
       {!isFollowUp && <DispositionCard />}
       {!isFollowUp && <PatientEducationCard />}
       <SchoolWorkExcuseCard locationName={locationName} />
-      {!isFollowUp && FEATURE_FLAGS.FORMS_ENABLED && <FormsCard />}
+      {!isFollowUp && <FormsCard />}
     </Stack>
   );
 };

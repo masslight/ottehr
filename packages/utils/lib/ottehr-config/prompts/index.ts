@@ -1,4 +1,4 @@
-import type { PromptsConfig } from 'config-types';
+import type { PromptsConfig } from 'config-types/config/prompts';
 
 const PROMPTS_DATA: PromptsConfig = {
   HPI_SUGGESTION: `For each of these clinic data points gathered in HPI for an urgent care visit:

@@ -1,18 +1,16 @@
 import { HealthcareService, Questionnaire, QuestionnaireItem } from 'fhir/r4b';
 import {
-  CanonicalUrl,
-  INTEGRATION_TEST_TAG_SYSTEM,
   PAPERWORK_FLOW_INPERSON_EXTENSION_URL,
   PAPERWORK_FLOW_MODE_EXTENSION_URL,
   PAPERWORK_FLOW_TAG,
-  resolveEffectiveQuestionnaire,
   SERVICE_CATEGORY_CONFIG_EXTENSION_URL,
   SERVICE_CATEGORY_SYSTEM,
   SERVICE_CATEGORY_TAG,
-  serviceCategoryCharacteristics,
-  ServiceMode,
-  ServiceVisitType,
-} from 'utils';
+} from 'utils/lib/fhir/constants';
+import { serviceCategoryCharacteristics } from 'utils/lib/fhir/healthcareService';
+import { resolveEffectiveQuestionnaire } from 'utils/lib/fhir/questionnaires';
+import { CanonicalUrl, ServiceMode, ServiceVisitType } from 'utils/lib/types/common';
+import { INTEGRATION_TEST_TAG_SYSTEM } from 'utils/lib/utils/e2eCleanup';
 import { ResourceHandler } from '../resource-handler';
 
 /** A single test-managed custom form that a flow is assembled from. */

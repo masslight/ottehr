@@ -5,6 +5,7 @@ import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { SearchBillingPatientsInput } from 'utils/lib/types/data/billing/billing.schemas';
+import { isValidUUID } from 'utils/lib/validation/helper';
 import { searchBillingPatients } from '../api/api';
 import { AddPatientDialog } from '../components/AddPatientDialog';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
@@ -69,7 +70,12 @@ export default function PatientsList(): ReactElement {
         if (filters.name) params.name = filters.name;
         if (filters.dob) params.dob = filters.dob;
         if (filters.identifier) params.identifier = filters.identifier;
-        if (filters.uuid) params.uuid = filters.uuid;
+        if (filters.uuid) {
+          if (!isValidUUID(filters.uuid)) {
+            throw new Error('Validation error: Patient MRN must be a valid UUID');
+          }
+          params.uuid = filters.uuid;
+        }
         const data = await searchBillingPatients(oystehrZambda, params);
         setPatients((data.patients ?? []).filter((p): p is typeof p & { id: string } => Boolean(p.id)));
         setTotal(data.total ?? 0);
@@ -177,7 +183,7 @@ export default function PatientsList(): ReactElement {
           label="Patient MRN"
           placeholder="Patient MRN..."
           value={searchUuid}
-          onChange={(e) => handleUuidChange(e.target.value)}
+          onChange={(e) => handleUuidChange(e.target.value.trim())}
           sx={{ minWidth: 300 }}
         />
 

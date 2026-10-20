@@ -12,9 +12,16 @@ import {
   ProvenanceAgent,
   RelatedPerson,
 } from 'fhir/r4b';
+import { applyClaimNonInsurancePayerTag, claimNonInsurancePayerExtension } from 'utils/lib/fhir/billing';
 import { codeableConcept, setNpi } from 'utils/lib/fhir/helpers';
-import { getPayerUrl } from 'utils/lib/helpers/helpers';
 import {
+  CLAIM_ACCIDENT_STATE_EXTENSION_URL,
+  CLAIM_ACCIDENT_TYPE,
+  CLAIM_ACCIDENT_TYPE_EXTENSION_URLS,
+  CLAIM_ACCIDENT_TYPES,
+  CODE_SYSTEM_CLAIM_ACCIDENT_DATE,
+  CODE_SYSTEM_CLAIM_ACCIDENT_DATE_CODE,
+  CODE_SYSTEM_CLAIM_INFORMATION_CATEGORY,
   CODE_SYSTEM_CLAIM_TYPE,
   CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
   CODE_SYSTEM_HL7_HCPCS,
@@ -22,18 +29,29 @@ import {
   CODE_SYSTEM_OYSTEHR_CLAIM_PROCEDURE_MODIFIER,
   CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
 } from 'utils/lib/helpers/rcm/constants';
-import { BillingPolicyHolderInput, BillingSubscriberRelationship } from 'utils/lib/types/data/billing/billing.schemas';
-import { FHIR_RESOURCE_NOT_FOUND } from 'utils/lib/types/errors';
+import {
+  BillingPolicyHolderInput,
+  BillingSubscriberRelationship,
+  UpdateBillingResourceInputSchema,
+} from 'utils/lib/types/data/billing/billing.schemas';
+import { CLAIM_NON_INSURANCE_PAYER_EXTENSION_URL } from 'utils/lib/types/data/billing/non-insurance-org.types';
+import { FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { removeExtension, updateExtension } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
+import { resolvePayerOrganization } from '../custom-insurance-org.helpers';
+import { isNonInsuranceOrganization } from '../non-insurance-org.helpers';
 import { commitClaimResourceChange, diffResources, resolveClaimActor } from '../provenance';
 import {
+  assertOrderingProvidersExist,
   attachCoverageToClaim,
   buildAddress,
   buildClaimCoverageCopies,
+  buildClaimItemDrugDetail,
   buildDiagnosisSequence,
+  buildPayorReference,
   buildSubscriberRelatedPerson,
   claimHasRealCoverage,
   CODE_SYSTEM_NUBC_REVENUE,
@@ -48,21 +66,25 @@ import {
   getClaimTypeCoding,
   payerDisplay,
   prepareWorkingCopy,
+  removeClaimSupportingInfo,
   resolvePayersByRef,
   resourceDisplayName,
+  setClaimItemOrderingProviders,
   setClaimRenderingProviderCareTeam,
   setClia,
   setCoverageRelationship,
   setTaxId,
   setTaxonomy,
+  updateClaimSupportingInfo,
 } from '../shared';
-import { UpdateBillingClaimParams, validateRequestParameters } from './validateRequestParameters';
+
+type UpdateBillingClaimParams = ValidatedZambdaInput<typeof UpdateBillingResourceInputSchema>;
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'update-billing-claim';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const params = validateRequestParameters(input);
+  const params = validateWithSchema(UpdateBillingResourceInputSchema, input);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
   const agent = await resolveClaimActor('caller', oystehr, input.headers?.Authorization, params.secrets);
@@ -334,7 +356,11 @@ async function attachClaimResources(
       net: { value: line.charges, currency: 'USD' },
       quantity: { value: line.units, unit: 'UN' },
       revenue: line.revenueCode ? codeableConcept(line.revenueCode, CODE_SYSTEM_NUBC_REVENUE) : undefined,
+      detail: buildClaimItemDrugDetail(line.drug),
     }));
+    const orderingProviders = fields.serviceLines.map((line) => line.orderingProvider);
+    await assertOrderingProvidersExist(oystehr, orderingProviders);
+    setClaimItemOrderingProviders(claim, orderingProviders);
     claim.total = { value: fields.serviceLines.reduce((sum, l) => sum + l.charges, 0), currency: 'USD' };
   } else if (fields.diagnoses) {
     // Diagnoses changed without lines: re-point items whose pointers no longer exist.
@@ -358,10 +384,28 @@ async function attachClaimResources(
   claim.insurance = ensureClaimInsurance(claim.insurance);
 
   if (fields.payerId || fields.planType) {
-    const payerUrl = fields.payerId ? getPayerUrl(fields.payerId) : undefined;
-    const display = fields.payerId ? payerDisplay(await oystehr.rcm.getPayer({ id: fields.payerId })) : undefined;
+    const payerOrg = fields.payerId ? await resolvePayerOrganization(oystehr, fields.payerId) : undefined;
+    const payerReference = payerOrg ? buildPayorReference(payerOrg) : undefined;
+    const display = payerOrg ? payerDisplay(payerOrg) : undefined;
     // A payer is only meaningful with a real coverage; a stub-only claim stays uninsured.
-    if (payerUrl && claimHasRealCoverage(claim.insurance)) claim.insurer = { reference: payerUrl, display };
+    if (payerReference && claimHasRealCoverage(claim.insurance)) claim.insurer = { reference: payerReference, display };
+  }
+
+  if (fields.nonInsurancePayer !== undefined) {
+    if (fields.nonInsurancePayer) {
+      const org = await fetchById<Organization>(oystehr, 'Organization', fields.nonInsurancePayer.id);
+      if (!isNonInsuranceOrganization(org)) {
+        throw INVALID_INPUT_ERROR('nonInsurancePayer must reference a non-insurance organization');
+      }
+      updateExtension(
+        claim,
+        claimNonInsurancePayerExtension({ reference: `Organization/${org.id}`, display: org.name })
+      );
+      applyClaimNonInsurancePayerTag(claim, fields.nonInsurancePayer.id);
+    } else {
+      removeExtension(claim, CLAIM_NON_INSURANCE_PAYER_EXTENSION_URL);
+      applyClaimNonInsurancePayerTag(claim, null);
+    }
   }
 
   if (fields.billType != null) {
@@ -409,6 +453,54 @@ async function attachClaimResources(
       });
     } else {
       removeExtension(claim, EXTENSION_CLAIM_PATIENT_DISCHARGE_STATUS);
+    }
+  }
+
+  if (fields.admissionDate && fields.dischargeDate) {
+    claim.billablePeriod = { start: fields.admissionDate, end: fields.dischargeDate };
+  }
+
+  // Accident Info
+  if (fields.accidentType != null) {
+    CLAIM_ACCIDENT_TYPES.forEach((type) => {
+      if (fields.accidentType?.includes(type)) {
+        updateExtension(claim, {
+          url: CLAIM_ACCIDENT_TYPE_EXTENSION_URLS[type as CLAIM_ACCIDENT_TYPE],
+          valueBoolean: true,
+        });
+      } else {
+        removeExtension(claim, CLAIM_ACCIDENT_TYPE_EXTENSION_URLS[type as CLAIM_ACCIDENT_TYPE]);
+      }
+    });
+  }
+  if (fields.accidentState != null) {
+    if (fields.accidentState) {
+      updateExtension(claim, {
+        url: CLAIM_ACCIDENT_STATE_EXTENSION_URL,
+        valueString: fields.accidentState,
+      });
+    } else {
+      removeExtension(claim, CLAIM_ACCIDENT_STATE_EXTENSION_URL);
+    }
+  }
+  if (fields.accidentDate != null) {
+    if (fields.accidentDate) {
+      updateClaimSupportingInfo(
+        claim,
+        CODE_SYSTEM_CLAIM_INFORMATION_CATEGORY,
+        'info',
+        CODE_SYSTEM_CLAIM_ACCIDENT_DATE,
+        CODE_SYSTEM_CLAIM_ACCIDENT_DATE_CODE,
+        { timingDate: fields.accidentDate }
+      );
+    } else {
+      removeClaimSupportingInfo(
+        claim,
+        CODE_SYSTEM_CLAIM_INFORMATION_CATEGORY,
+        'info',
+        CODE_SYSTEM_CLAIM_ACCIDENT_DATE,
+        CODE_SYSTEM_CLAIM_ACCIDENT_DATE_CODE
+      );
     }
   }
 

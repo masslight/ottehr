@@ -40,8 +40,11 @@ vi.mock('../../src/features/visits/shared/hooks/useGetAppointmentAccessibility',
 
 vi.mock('../../src/features/visits/shared/stores/appointment/appointment.store', () => ({
   useAppointmentData: () => ({ encounter: { id: 'encounter-1' } }),
-  useChartData: () => ({ chartData: {}, setPartialChartData: vi.fn() }),
   useSaveChartData: () => ({ mutate: vi.fn() }),
+}));
+
+vi.mock('../../src/features/visits/shared/hooks/useChartData', () => ({
+  useChartData: () => ({ chartData: {}, setPartialChartData: vi.fn() }),
 }));
 
 vi.mock('../../src/features/visits/shared/stores/appointment/appointment.queries', () => ({

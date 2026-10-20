@@ -34,3 +34,15 @@ module "app_upload" {
   # TODO: Remove when upgraded to TF 1.14
   aws_profile = var.aws_profile
 }
+
+locals {
+  billing_cdn_domain = one(module.infra[*].billing_cdn_domain)
+}
+
+resource "oystehr_application" "OTTEHR_BILLING" {
+  login_redirect_uri        = local.billing_login_redirect_uri
+  allowed_callback_urls     = local.billing_allowed_urls.allowed_callback_urls
+  allowed_logout_urls       = local.billing_allowed_urls.allowed_logout_urls
+  allowed_web_origins_urls  = local.billing_allowed_urls.allowed_web_origins_urls
+  allowed_cors_origins_urls = local.billing_allowed_urls.allowed_cors_origins_urls
+}

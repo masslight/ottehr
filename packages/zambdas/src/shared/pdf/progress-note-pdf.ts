@@ -53,7 +53,7 @@ import { composeVitals, createVitalsSection } from './sections/visit-note/vitals
 import { fetchServiceCategoryCatalog } from './service-category-catalog';
 import { AssetPaths, PdfResult, ProgressNoteData, ProgressNoteInput } from './types';
 
-const composeProgressNoteData: DataComposer<ProgressNoteInput, ProgressNoteData> = (input) => {
+export const composeProgressNoteData: DataComposer<ProgressNoteInput, ProgressNoteData> = (input) => {
   const { patient, encounter, questionnaireResponse, allChartData, appointmentPackage, upcomingFollowUps } = input;
 
   const visit = composeProgressNoteVisitDetails({

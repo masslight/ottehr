@@ -1,0 +1,288 @@
+import Oystehr from '@oystehr/sdk';
+import { apiErrorToThrow, chooseJson } from 'utils/lib/helpers/oystehrApi';
+import {
+  AnalyzeFormTemplateInput,
+  AnalyzeFormTemplateOutput,
+  CreateCompletedFormUploadUrlInput,
+  CreateCompletedFormUploadUrlOutput,
+  CreateFormTemplateUploadUrlInput,
+  CreateFormTemplateUploadUrlOutput,
+  DeleteFormTemplateInput,
+  DeleteFormTemplateOutput,
+  FillFormTemplateInput,
+  FillFormTemplateOutput,
+  GetFormTemplateDetailInput,
+  GetFormTemplateDetailOutput,
+  ListFormTemplatesInput,
+  ListFormTemplatesOutput,
+  NewFormTemplateUpload,
+  ReplaceFormTemplatePdfInput,
+  ReplaceFormTemplatePdfOutput,
+  SaveCompletedFormInput,
+  SaveCompletedFormOutput,
+  SaveFormTemplateMappingInput,
+  SaveFormTemplateMappingOutput,
+  UpdateFormTemplateInput,
+  UpdateFormTemplateOutput,
+} from 'utils/lib/types/api/form-template.types';
+
+export const listFormTemplates = async (
+  oystehr: Oystehr,
+  parameters: ListFormTemplatesInput = {}
+): Promise<ListFormTemplatesOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({ id: 'list-form-templates', ...parameters });
+    return chooseJson(response) as ListFormTemplatesOutput;
+  } catch (error: unknown) {
+    console.error(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+/** Builds a copy of a template prefilled from one encounter, and returns a URL to open it. */
+export const fillFormTemplate = async (
+  oystehr: Oystehr,
+  parameters: FillFormTemplateInput
+): Promise<FillFormTemplateOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({ id: 'fill-form-template', ...parameters });
+    return chooseJson(response) as FillFormTemplateOutput;
+  } catch (error: unknown) {
+    console.error(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+const createCompletedFormUploadUrl = async (
+  oystehr: Oystehr,
+  parameters: CreateCompletedFormUploadUrlInput
+): Promise<CreateCompletedFormUploadUrlOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({ id: 'create-completed-form-upload-url', ...parameters });
+    return chooseJson(response) as CreateCompletedFormUploadUrlOutput;
+  } catch (error: unknown) {
+    console.error(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+const saveCompletedForm = async (
+  oystehr: Oystehr,
+  parameters: SaveCompletedFormInput
+): Promise<SaveCompletedFormOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({ id: 'save-completed-form', ...parameters });
+    return chooseJson(response) as SaveCompletedFormOutput;
+  } catch (error: unknown) {
+    console.error(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+/**
+ * Turns a failed upload into an error worth reading.
+ *
+ * These PUTs go straight to storage rather than through a zambda, so there is no typed API error to
+ * unwrap the way `apiErrorToThrow` does elsewhere in this file — the cause is in the response body, and
+ * discarding it leaves "403 Forbidden", which does not distinguish an expired link from a refused one.
+ * The whole body is logged; only its error code is put in front of anyone, with the status as a fallback
+ * for a body that is empty or in some other shape.
+ */
+const uploadFailure = async (response: Response, subject: string): Promise<Error> => {
+  const body = (await response.text().catch(() => '')).trim();
+  if (body) console.error(`Upload of the ${subject} failed with ${response.status}:`, body);
+
+  const code = /<Code>([^<]+)<\/Code>/.exec(body)?.[1];
+  return new Error(`Failed to upload the ${subject} (${code ?? `${response.status} ${response.statusText}`})`);
+};
+
+/**
+ * Puts a completed form back on the chart.
+ *
+ * Three steps in a deliberate order: ask where to put it, put it there, then ask for it to be filed. The
+ * chart record is created only by the third call, so abandoning the upload — or uploading a form belonging
+ * to another patient — leaves nothing behind to tidy up.
+ */
+export const returnCompletedForm = async (
+  oystehr: Oystehr,
+  parameters: { appointmentId: string; file: File }
+): Promise<{ result: SaveCompletedFormOutput; objectName: string }> => {
+  const { appointmentId, file } = parameters;
+
+  const { objectName, presignedUploadUrl } = await createCompletedFormUploadUrl(oystehr, {
+    appointmentId,
+    fileName: file.name,
+  });
+
+  const uploadResponse = await fetch(presignedUploadUrl, {
+    method: 'PUT',
+    headers: { 'Content-Type': file.type || 'application/pdf' },
+    body: file,
+  });
+  if (!uploadResponse.ok) {
+    throw await uploadFailure(uploadResponse, 'form');
+  }
+
+  // The object's name comes back too: an upload that could not be identified is answered with
+  // `needsSource`, and finishing it means calling again for the same bytes rather than uploading twice.
+  return { result: await saveCompletedForm(oystehr, { appointmentId, objectName }), objectName };
+};
+
+/** Completes an upload that came back `needsSource`, once the caller knows what it is. */
+export const fileReturnedForm = async (
+  oystehr: Oystehr,
+  parameters: { appointmentId: string; objectName: string; templateId?: string; discard?: boolean }
+): Promise<SaveCompletedFormOutput> => saveCompletedForm(oystehr, parameters);
+
+export const createFormTemplateUploadUrl = async (
+  oystehr: Oystehr,
+  parameters: CreateFormTemplateUploadUrlInput
+): Promise<CreateFormTemplateUploadUrlOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({ id: 'create-form-template-upload-url', ...parameters });
+    return chooseJson(response) as CreateFormTemplateUploadUrlOutput;
+  } catch (error: unknown) {
+    console.error(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const updateFormTemplate = async (
+  oystehr: Oystehr,
+  parameters: UpdateFormTemplateInput
+): Promise<UpdateFormTemplateOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({ id: 'update-form-template', ...parameters });
+    return chooseJson(response) as UpdateFormTemplateOutput;
+  } catch (error: unknown) {
+    console.error(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const deleteFormTemplate = async (
+  oystehr: Oystehr,
+  parameters: DeleteFormTemplateInput
+): Promise<DeleteFormTemplateOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({ id: 'delete-form-template', ...parameters });
+    return chooseJson(response) as DeleteFormTemplateOutput;
+  } catch (error: unknown) {
+    console.error(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const getFormTemplateDetail = async (
+  oystehr: Oystehr,
+  parameters: GetFormTemplateDetailInput
+): Promise<GetFormTemplateDetailOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({ id: 'get-form-template-detail', ...parameters });
+    return chooseJson(response) as GetFormTemplateDetailOutput;
+  } catch (error: unknown) {
+    console.error(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const saveFormTemplateMapping = async (
+  oystehr: Oystehr,
+  parameters: SaveFormTemplateMappingInput
+): Promise<SaveFormTemplateMappingOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({ id: 'save-form-template-mapping', ...parameters });
+    return chooseJson(response) as SaveFormTemplateMappingOutput;
+  } catch (error: unknown) {
+    console.error(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const analyzeFormTemplate = async (
+  oystehr: Oystehr,
+  parameters: AnalyzeFormTemplateInput
+): Promise<AnalyzeFormTemplateOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({ id: 'analyze-form-template', ...parameters });
+    return chooseJson(response) as AnalyzeFormTemplateOutput;
+  } catch (error: unknown) {
+    console.error(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+const replaceFormTemplatePdf = async (
+  oystehr: Oystehr,
+  parameters: ReplaceFormTemplatePdfInput
+): Promise<ReplaceFormTemplatePdfOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({ id: 'replace-form-template-pdf', ...parameters });
+    return chooseJson(response) as ReplaceFormTemplatePdfOutput;
+  } catch (error: unknown) {
+    console.error(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+/**
+ * Swaps an existing template's PDF and reconciles its mapping against the new field inventory.
+ *
+ * The upload goes to a candidate location and the template is only repointed once the replacement has
+ * been fetched and analysed, so a rejected or failed replacement leaves the existing template and its
+ * mapping untouched.
+ */
+export const replaceFormTemplateWithPdf = async (
+  oystehr: Oystehr,
+  parameters: { documentReferenceId: string; file: File }
+): Promise<ReplaceFormTemplatePdfOutput> => {
+  const { documentReferenceId, file } = parameters;
+
+  const candidate = await createFormTemplateUploadUrl(oystehr, { documentReferenceId, fileName: file.name });
+
+  const uploadResponse = await fetch(candidate.presignedUploadUrl, {
+    method: 'PUT',
+    headers: { 'Content-Type': file.type || 'application/pdf' },
+    body: file,
+  });
+  if (!uploadResponse.ok) {
+    throw await uploadFailure(uploadResponse, 'PDF');
+  }
+
+  // An unusable replacement comes back as a typed API error explaining why, and the template is left
+  // untouched — so there is nothing to check here beyond letting that error through.
+  return replaceFormTemplatePdf(oystehr, { documentReferenceId, objectName: candidate.objectName });
+};
+
+/**
+ * Creates the template record, uploads its PDF, then analyzes it.
+ *
+ * The record is created before the browser PUTs the file, so the three steps are not atomic. Analysis is
+ * what closes that gap: it is the first thing to actually read the stored bytes, and it deletes the
+ * record outright if the upload turns out to be unusable — so a failed upload leaves nothing behind
+ * rather than a draft pointing at a file nobody can read.
+ */
+export const createFormTemplateWithPdf = async (
+  oystehr: Oystehr,
+  parameters: NewFormTemplateUpload & { file: File }
+): Promise<{ created: CreateFormTemplateUploadUrlOutput; analysis: AnalyzeFormTemplateOutput }> => {
+  const { file, ...createParams } = parameters;
+
+  const created = await createFormTemplateUploadUrl(oystehr, createParams);
+
+  const uploadResponse = await fetch(created.presignedUploadUrl, {
+    method: 'PUT',
+    headers: { 'Content-Type': file.type || 'application/pdf' },
+    body: file,
+  });
+
+  if (!uploadResponse.ok) {
+    throw await uploadFailure(uploadResponse, 'PDF');
+  }
+
+  // Analysis deletes the record and throws a typed API error if the PDF cannot be used, so reaching the
+  // line below means the template exists and is usable.
+  const analysis = await analyzeFormTemplate(oystehr, { documentReferenceId: created.documentReferenceId });
+
+  return { created, analysis };
+};

@@ -1,5 +1,5 @@
 import { BatchInputGetRequest } from '@oystehr/sdk';
-import { captureException } from '@sentry/aws-serverless';
+import { captureException } from '@sentry/node-core/light';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Bundle, Communication, Group, Location, Practitioner } from 'fhir/r4b';
 import { DateTime } from 'luxon';
@@ -25,7 +25,6 @@ export interface CommunicationSubscriptionInput {
 let oystehrToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  console.log(`Input: ${JSON.stringify(input)}`);
   console.group('validateRequestParameters');
   const validatedParameters = validateRequestParameters(input);
   const { communication, secrets } = validatedParameters;

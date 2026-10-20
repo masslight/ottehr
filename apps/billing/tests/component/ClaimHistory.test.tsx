@@ -47,6 +47,36 @@ const changeEntry: ClaimHistoryEntry = {
   ],
 };
 
+const acknowledgmentEntry: ClaimHistoryEntry = {
+  id: 'prov-ack',
+  recorded: '2026-08-06T12:47:00.000Z',
+  activity: 'Acknowledgment',
+  actor: {
+    display: 'Ottehr System',
+    type: 'system',
+  },
+  changes: [
+    {
+      field: 'acknowledgment.account:id:9001',
+      label: 'CIGNA',
+      previousValue: null,
+      newValue: "Code 21 - Forwarded to entity's internal adjudication system.",
+    },
+  ],
+  acknowledgment: {
+    source: 'claimmd',
+    entityName: 'CIGNA',
+    entityKind: 'payer',
+    message: "Code 21 - Forwarded to entity's internal adjudication system.",
+    messageId: 'ACK',
+    responseId: 'id:9001',
+    batchId: '20260805123456789',
+    clearinghouseClaimId: '48213765',
+    payerClaimControlNumber: '762839104822',
+    eventTime: '2026-08-06T12:47:00.000Z',
+  },
+};
+
 function renderHistory(): void {
   render(
     <MemoryRouter>
@@ -146,6 +176,42 @@ describe('ClaimHistory', () => {
 
     const row = (await screen.findByText('Update Coverage')).closest('tr')!;
     expect(within(row).getByText('-')).toBeInTheDocument();
+  });
+
+  it('renders an acknowledgment with its entity, message and reference numbers', async () => {
+    getBillingClaimHistoryMock.mockResolvedValue({ entries: [acknowledgmentEntry] });
+    renderHistory();
+
+    const row = (await screen.findByText('Acknowledgment')).closest('tr')!;
+    expect(within(row).getByText('CIGNA')).toBeInTheDocument();
+    expect(within(row).getByText('Payer')).toBeInTheDocument();
+    expect(within(row).getByText(acknowledgmentEntry.acknowledgment!.message)).toBeInTheDocument();
+    expect(within(row).getByText(/Batch ID: 20260805123456789/)).toBeInTheDocument();
+    expect(within(row).getByText(/Payer Claim Control #: 762839104822/)).toBeInTheDocument();
+  });
+
+  it('labels a clearinghouse acknowledgment as such and omits absent reference numbers', async () => {
+    getBillingClaimHistoryMock.mockResolvedValue({
+      entries: [
+        {
+          ...acknowledgmentEntry,
+          acknowledgment: {
+            source: 'claimmd',
+            entityName: 'CLAIM.MD',
+            entityKind: 'clearinghouse',
+            message: 'Code 19 - Entity acknowledges receipt of claim/encounter.',
+            responseId: 'id:9002',
+            eventTime: '2026-08-05T13:14:00.000Z',
+          },
+        },
+      ],
+    });
+    renderHistory();
+
+    const row = (await screen.findByText('Acknowledgment')).closest('tr')!;
+    expect(within(row).getByText('Clearinghouse')).toBeInTheDocument();
+    expect(within(row).queryByText(/Batch ID/)).not.toBeInTheDocument();
+    expect(within(row).queryByText(/Payer Claim Control #/)).not.toBeInTheDocument();
   });
 
   it('surfaces the error returned by the history fetch', async () => {

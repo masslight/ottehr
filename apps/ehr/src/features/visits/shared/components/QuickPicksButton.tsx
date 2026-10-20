@@ -1,7 +1,7 @@
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import BookmarkBorderOutlinedIcon from '@mui/icons-material/BookmarkBorderOutlined';
 import SearchIcon from '@mui/icons-material/Search';
-import { Button, Divider, InputAdornment, Menu, MenuItem, Stack, TextField } from '@mui/material';
+import { Divider, InputAdornment, Menu, MenuItem, Stack, TextField } from '@mui/material';
 import React, { useRef, useState } from 'react';
 
 interface QuickPicksButtonProps<T> {
@@ -39,7 +39,8 @@ export const QuickPicksButton = <T,>({
     return null;
   }
 
-  const handleClick = (event: React.MouseEvent<HTMLButtonElement>): void => {
+  const handleClick = (event: React.SyntheticEvent<HTMLElement>): void => {
+    if (disabled) return;
     setAnchorEl(event.currentTarget);
     setSearchText('');
     setHighlightedIndex(-1);
@@ -77,28 +78,47 @@ export const QuickPicksButton = <T,>({
 
   return (
     <Stack alignItems="flex-start" sx={{ mb: 0.5 }}>
-      <Button
+      <TextField
         size="small"
-        onClick={handleClick}
+        fullWidth
+        label={label}
+        placeholder="Choose a quick pick…"
         disabled={disabled}
-        startIcon={<BookmarkBorderOutlinedIcon />}
-        endIcon={<ArrowDropDownIcon />}
-        sx={{
-          textTransform: 'none',
-          mb: 0.5,
+        onClick={handleClick}
+        onKeyDown={(e) => {
+          if (['Enter', 'ArrowDown'].includes(e.key)) {
+            e.preventDefault();
+            handleClick(e);
+          }
         }}
-      >
-        {label}
-      </Button>
+        InputLabelProps={{ shrink: true, sx: { color: 'primary.main' } }}
+        InputProps={{
+          readOnly: true,
+          startAdornment: (
+            <InputAdornment position="start">
+              <BookmarkBorderOutlinedIcon color={disabled ? 'disabled' : 'primary'} />
+            </InputAdornment>
+          ),
+          endAdornment: <ArrowDropDownIcon color="action" />,
+          sx: {
+            '&:not(.Mui-disabled), &:not(.Mui-disabled) input': { cursor: 'pointer' },
+            '&:not(.Mui-disabled) .MuiOutlinedInput-notchedOutline': { borderColor: 'primary.main' },
+          },
+        }}
+      />
       <Menu
         anchorEl={anchorEl}
         open={open}
         onClose={handleClose}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'center' }}
+        slotProps={{
+          paper: { style: { minWidth: anchorEl?.clientWidth }, sx: searchable ? { maxHeight: 400 } : undefined },
+        }}
         {...(searchable
           ? {
               autoFocus: false,
               disableAutoFocusItem: true,
-              slotProps: { paper: { sx: { maxHeight: 400 } } },
               TransitionProps: {
                 onEntered: () => {
                   searchInputRef.current?.focus();

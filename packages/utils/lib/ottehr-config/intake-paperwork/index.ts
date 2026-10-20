@@ -1,12 +1,9 @@
-import {
-  type PaperworkConfig,
-  PaperworkConfigSchema,
-  PaperworkFormFields,
-  type QuestionnaireBase,
-  type QuestionnaireConfigType,
-  type ResolvedConsentFormConfig,
-  type ValueSetsConfig,
-} from 'config-types';
+import type { ResolvedConsentFormConfig } from 'config-types/config/consent-forms';
+import type { QuestionnaireConfigType } from 'config-types/config/form-fields';
+import type { PaperworkConfig } from 'config-types/config/intake-paperwork';
+import { PaperworkConfigSchema, PaperworkFormFields } from 'config-types/config/intake-paperwork';
+import type { QuestionnaireBase } from 'config-types/config/questionnaire';
+import type { ValueSetsConfig } from 'config-types/config/value-sets';
 import { Questionnaire } from 'fhir/r4b';
 import { mergeAndFreezeConfigObjects } from '../../config-helpers/helpers';
 import { buildConsentFormCheckboxItems } from '../../config-helpers/intake-paperwork';
@@ -30,7 +27,7 @@ import {
 // bare-specifier subpaths, so the only reliably-importable surface is utils's
 // main barrel — which already loads this module.
 export const IN_PERSON_INTAKE_PAPERWORK_URL = 'https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson';
-export const IN_PERSON_INTAKE_PAPERWORK_VERSION = '1.2.8';
+export const IN_PERSON_INTAKE_PAPERWORK_VERSION = '1.2.9';
 export const IN_PERSON_INTAKE_PAPERWORK_CANONICAL = {
   url: IN_PERSON_INTAKE_PAPERWORK_URL,
   version: IN_PERSON_INTAKE_PAPERWORK_VERSION,

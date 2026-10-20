@@ -85,12 +85,13 @@ export const index = wrapHandler('get-lab-orders', async (input: ZambdaInput): P
     };
   }
 
-  const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
-  const labOrders = mapResourcesToLabOrderDTOs(
-    { searchBy },
+  const labOrders = mapResourcesToLabOrderDTOs({
+    searchBy: {
+      searchBy,
+    },
     serviceRequests,
     tasks,
-    diagnosticReports,
+    results: diagnosticReports,
     practitioners,
     encounters,
     locations,
@@ -103,8 +104,8 @@ export const index = wrapHandler('get-lab-orders', async (input: ZambdaInput): P
     appointmentScheduleMap,
     communications,
     coverages,
-    ENVIRONMENT
-  );
+    environment: getSecret(SecretsKeys.ENVIRONMENT, secrets),
+  });
 
   if (diagnosticReportDrivenResultResources) {
     drDrivenResults = await mapResourcesToDrLabDTO(diagnosticReportDrivenResultResources, m2mToken);

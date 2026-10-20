@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { MedicalRecordDateRangeSchema } from '../data/get-patient-medical-record.types';
 
 /**
  * Outbound fax packet contract.
@@ -54,17 +55,31 @@ export const HIPAA_FAX_CONFIDENTIALITY_STATEMENT =
   'received this in error, please notify us immediately at the phone number provided and destroy all copies. ' +
   'Unauthorized use, disclosure, or copying is strictly prohibited.';
 
-export const FaxRecipientSchema = z.object({
-  name: z.string().trim().min(1).optional(),
-  // Practice or facility the recipient belongs to. Maps to the PCP's `practice-name` extension.
-  organization: z.string().trim().min(1).optional(),
-  faxNumber: z.string().min(1),
-  phoneNumber: z.string().optional(),
-  // Persist this recipient as the patient's primary care physician. At most one recipient may set it.
-  saveAsPcp: z.boolean().optional(),
-});
+export const FAX_RECIPIENT_CREDENTIAL_NEEDS_NAME_MESSAGE = 'A credential needs a recipient name';
+
+export const FaxRecipientSchema = z
+  .object({
+    name: z.string().trim().min(1).optional(),
+    // Professional credential shown after the name ("MD", "DO").
+    credential: z.string().trim().min(1).optional(),
+    // Practice or facility the recipient belongs to. Maps to the PCP's `practice-name` extension.
+    organization: z.string().trim().min(1).optional(),
+    faxNumber: z.string().min(1),
+    phoneNumber: z.string().optional(),
+    // Persist this recipient as the patient's primary care physician. At most one recipient may set it.
+    saveAsPcp: z.boolean().optional(),
+  })
+  // The credential is shown after the name ("Jane Doe, MD"); without a name it would be dropped silently.
+  .refine((recipient) => !recipient.credential || !!recipient.name, {
+    message: FAX_RECIPIENT_CREDENTIAL_NEEDS_NAME_MESSAGE,
+    path: ['credential'],
+  });
 
 export type FaxRecipient = z.infer<typeof FaxRecipientSchema>;
+
+/** How a recipient is addressed on the cover sheet and in the logs: "Jane Doe, MD", or the name alone. */
+export const formatFaxRecipientName = (recipient: Pick<FaxRecipient, 'name' | 'credential'>): string | undefined =>
+  recipient.name && recipient.credential ? `${recipient.name}, ${recipient.credential}` : recipient.name;
 
 /**
  * What the packet is built from. Each variant is one entry point in the EHR:
@@ -86,7 +101,11 @@ export const FaxPacketSourceSchema = z.discriminatedUnion('type', [
         message: 'Each visit can only be selected once',
       }),
   }),
-  z.object({ type: z.literal('medical-record'), patientId: z.string().uuid() }),
+  z.object({
+    type: z.literal('medical-record'),
+    patientId: z.string().uuid(),
+    dateRange: MedicalRecordDateRangeSchema,
+  }),
   z.object({ type: z.literal('document'), patientId: z.string().uuid(), documentReferenceId: z.string().uuid() }),
 ]);
 export type FaxPacketSource = z.infer<typeof FaxPacketSourceSchema>;
@@ -134,6 +153,8 @@ export interface FaxRecipientResult {
 
 export type FaxJobStatus = 'pending' | 'completed' | 'failed';
 
+export type FaxJobFailureReason = 'too-large';
+
 export const GetFaxPacketStatusInputSchema = z.object({
   taskId: z.string().uuid(),
 });
@@ -145,6 +166,7 @@ export interface GetFaxPacketStatusOutput {
   jobStatus: FaxJobStatus;
   /** Per-recipient outcomes once the job has run. Empty while pending or on a hard failure. */
   recipients: FaxRecipientResult[];
+  failureReason?: FaxJobFailureReason;
 }
 
 export const GetFaxPacketPreviewInputSchema = z.object({
@@ -154,6 +176,7 @@ export const GetFaxPacketPreviewInputSchema = z.object({
    * preview that are not visit-specific, i.e. the sender's fax number.
    */
   appointmentId: z.string().uuid().optional(),
+  medicalRecord: z.object({ patientId: z.string().uuid(), dateRange: MedicalRecordDateRangeSchema }).optional(),
 });
 
 export type GetFaxPacketPreviewInput = z.infer<typeof GetFaxPacketPreviewInputSchema>;
@@ -177,6 +200,7 @@ export interface GetFaxPacketPreviewOutput {
   /** The number the packet is transmitted from, i.e. the sending organization's fax telecom. Shown to the
    * user so they know which number the recipient will call back. Absent when none is configured. */
   senderFaxNumber?: string;
+  documentCount?: number;
 }
 
 export const FAX_DOCUMENT_UNAVAILABLE_REASONS: Record<FaxDocumentKind, string> = {
@@ -212,4 +236,9 @@ export const FAX_PACKET_REQUEST_TASK_INPUT = {
 export const FAX_PACKET_RESULTS_TASK_OUTPUT = {
   system: 'https://fhir.ottehr.com/CodeSystem/fax-packet-task-output',
   code: 'results',
+} as const;
+
+export const FAX_PACKET_FAILURE_TASK_OUTPUT = {
+  system: 'https://fhir.ottehr.com/CodeSystem/fax-packet-task-output',
+  code: 'failure-reason',
 } as const;

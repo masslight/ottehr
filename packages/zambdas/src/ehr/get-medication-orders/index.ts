@@ -29,6 +29,7 @@ import { MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE } from 'utils/lib/typ
 import {
   ExtendedMedicationDataForResponse,
   GetMedicationOrdersInput,
+  GetMedicationOrdersInputSchema,
   GetMedicationOrdersResponse,
   OrderPackage,
 } from 'utils/lib/types/api/medication-administration.types';
@@ -36,13 +37,13 @@ import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
-import { validateRequestParameters } from './validateRequestParameters';
+import { validateWithSchema } from '../../shared/validation';
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'get-medication-orders';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const validatedParameters = validateRequestParameters(input);
+  const validatedParameters = validateWithSchema(GetMedicationOrdersInputSchema, input);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, validatedParameters.secrets);
@@ -71,7 +72,7 @@ export async function getMedicationOrders(
   };
 }
 
-function mapMedicalAdministrationToDTO(orderPackage: OrderPackage): ExtendedMedicationDataForResponse {
+export function mapMedicalAdministrationToDTO(orderPackage: OrderPackage): ExtendedMedicationDataForResponse {
   const {
     medicationAdministration,
     providerCreatedOrder,
@@ -203,42 +204,52 @@ async function getOrderPackages(
       .join(',\n')}`
   );
 
-  const resultPackages: OrderPackage[] = [];
-  medicationAdministrations.forEach((ma) => {
-    const patient = resources.find((res) => res.id === ma.subject.reference?.replace('Patient/', '')) as Patient;
-    if (!patient) throw new Error(`No patient was found for order: ${ma.id}`);
+  return medicationAdministrations.map((ma) => buildOrderPackage(ma, resources, medicationStatements));
+}
 
-    const idOfProviderCreatedOrder = getPractitionerIdThatOrderedMedication(ma);
-    const providerCreatedOrder = resources.find((res) => res.id === idOfProviderCreatedOrder) as Practitioner;
-    if (!providerCreatedOrder) throw new Error(`No practitioner was found for order: ${ma.id}`);
+/**
+ * Assembles one MedicationAdministration with the related resources its DTO mapper reads. Throws when the
+ * patient or the ordering practitioner is missing, as the search-based path always has; callers that pool
+ * many encounters (the tracking board) catch per order so one bad order does not drop the rest.
+ */
+export function buildOrderPackage(
+  ma: MedicationAdministration,
+  resources: FhirResource[],
+  medicationStatements: MedicationStatement[] = resources.filter(
+    (res): res is MedicationStatement => res.resourceType === 'MedicationStatement'
+  )
+): OrderPackage {
+  const patient = resources.find((res) => res.id === ma.subject.reference?.replace('Patient/', '')) as Patient;
+  if (!patient) throw new Error(`No patient was found for order: ${ma.id}`);
 
-    const idOfProviderAdministeredOrder = getProviderIdAndDateMedicationWasAdministered(ma)?.administeredProviderId;
-    const providerAdministeredOrder = resources.find((res) => res.id === idOfProviderAdministeredOrder) as Practitioner;
+  const idOfProviderCreatedOrder = getPractitionerIdThatOrderedMedication(ma);
+  const providerCreatedOrder = resources.find((res) => res.id === idOfProviderCreatedOrder) as Practitioner;
+  if (!providerCreatedOrder) throw new Error(`No practitioner was found for order: ${ma.id}`);
 
-    const idOfProviderOrderedBy = getCurrentOrderedByProviderId(ma);
-    const providerOrderedBy = idOfProviderOrderedBy
-      ? (resources.find((res) => res.id === idOfProviderOrderedBy) as Practitioner)
-      : undefined;
+  const idOfProviderAdministeredOrder = getProviderIdAndDateMedicationWasAdministered(ma)?.administeredProviderId;
+  const providerAdministeredOrder = resources.find((res) => res.id === idOfProviderAdministeredOrder) as Practitioner;
 
-    const medicationRequestId = ma.request?.reference?.split('/')[1];
-    const medicationRequest = resources.find(
-      (resource) => resource.resourceType === 'MedicationRequest' && resource.id === medicationRequestId
-    ) as MedicationRequest;
+  const idOfProviderOrderedBy = getCurrentOrderedByProviderId(ma);
+  const providerOrderedBy = idOfProviderOrderedBy
+    ? (resources.find((res) => res.id === idOfProviderOrderedBy) as Practitioner)
+    : undefined;
 
-    const relatedMedicationStatement = medicationStatements.find(
-      (ms) => ms.partOf?.some((partOf: Reference) => partOf.reference === `MedicationAdministration/${ma.id}`)
-    );
+  const medicationRequestId = ma.request?.reference?.split('/')[1];
+  const medicationRequest = resources.find(
+    (resource) => resource.resourceType === 'MedicationRequest' && resource.id === medicationRequestId
+  ) as MedicationRequest;
 
-    resultPackages.push({
-      medicationAdministration: ma,
-      patient,
-      providerCreatedOrder,
-      providerAdministeredOrder,
-      providerOrderedBy,
-      medicationRequest,
-      medicationStatement: relatedMedicationStatement,
-    });
-  });
+  const relatedMedicationStatement = medicationStatements.find(
+    (ms) => ms.partOf?.some((partOf: Reference) => partOf.reference === `MedicationAdministration/${ma.id}`)
+  );
 
-  return resultPackages;
+  return {
+    medicationAdministration: ma,
+    patient,
+    providerCreatedOrder,
+    providerAdministeredOrder,
+    providerOrderedBy,
+    medicationRequest,
+    medicationStatement: relatedMedicationStatement,
+  };
 }

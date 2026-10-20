@@ -1,4 +1,4 @@
-import type { PrepopulationEntry, ProceduresConfig } from 'config-types';
+import type { PrepopulationEntry, ProceduresConfig } from 'config-types/config/procedures';
 
 const PROCEDURES_DATA: ProceduresConfig = {
   prepopulation: {} as Record<string, PrepopulationEntry>,

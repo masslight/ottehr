@@ -16,12 +16,14 @@ import MailedStatements from 'src/pages/reports/MailedStatements';
 import PracticeKpis from 'src/pages/reports/PracticeKpis';
 import RecentPatients from 'src/pages/reports/RecentPatients';
 import VisitsOverview from 'src/pages/reports/VisitsOverview';
-import { setupSentry } from 'utils/lib/frontend';
+import { setupSentry } from 'utils/lib/frontend/configurations/sentry';
 import { parseCommaSeparatedTags } from 'utils/lib/helpers/parseCommaSeparatedTags';
 import { GLOBAL_ACTION_LOG_VIEWER_ROLES } from 'utils/lib/types/api/action-logs.types';
 import { RoleType } from 'utils/lib/types/api/user.types';
 import Banner from './components/Banner';
 import { CommandPalette } from './components/CommandPalette';
+import { CommandPaletteCreateTask } from './components/CommandPaletteCreateTask';
+import { CommandPalettePhraseDialog } from './components/CommandPalettePhraseDialog';
 import { CommandPaletteRegistrations } from './components/CommandPaletteRegistrations';
 import LogoutWarning from './components/dialogs/LogoutWarning';
 import { LoadingScreen } from './components/LoadingScreen';
@@ -40,11 +42,16 @@ import {
   OUTREACH_URL,
 } from './features/admin/adminRoutes';
 import { AdminLayout } from './features/admin/AdminSidebar';
+import { EmployeeChatDrawer } from './features/employee-chat/EmployeeChatDrawer';
+import { EmployeeChatManager } from './features/employee-chat/EmployeeChatManager';
 import { UnsolicitedResultsInbox } from './features/external-labs/pages/UnsolicitedResultsInbox';
 import { UnsolicitedResultsMatch } from './features/external-labs/pages/UnsolicitedResultsMatch';
 import { UnsolicitedResultsReview } from './features/external-labs/pages/UnsolicitedResultsReview';
+import { FormTemplateDetailPage } from './features/form-templates/FormTemplateDetailPage';
 import { InboundFaxMatch } from './features/inbound-fax/pages/InboundFaxMatch';
 import LocationConfigPage from './features/locations/LocationConfigPage';
+import { MedicalRecordExportSnackbar } from './features/medical-record-export/components/MedicalRecordExportSnackbar';
+import { MedicalRecordExportWatcher } from './features/medical-record-export/components/MedicalRecordExportWatcher';
 import { Tasks } from './features/tasks/pages/Tasks';
 import AddPatientFollowup from './features/visits/shared/components/patient/AddPatientFollowup';
 import PatientFollowup from './features/visits/shared/components/patient/PatientFollowup';
@@ -63,6 +70,7 @@ import { QuestionnaireNew } from './features/visits/telemed/components/admin/que
 import RadiologyQuickPickDetailPage from './features/visits/telemed/components/admin/RadiologyQuickPickDetailPage';
 import { useApiClients } from './hooks/useAppClients';
 import useEvolveUser from './hooks/useEvolveUser';
+import { PRIMARY_EHR_STAFF_ROLES } from './hooks/useNavigationQuickPicks';
 import AddEmployeePage from './pages/AddEmployeePage';
 import AddPatient from './pages/AddPatient';
 import { AdminPage } from './pages/AdminPage';
@@ -97,15 +105,6 @@ setupSentry({
 });
 
 const InPersonRoutingLazy = lazy(() => import('./features/visits/in-person/routing/InPersonRouting'));
-
-const PRIMARY_EHR_STAFF_ROLES = [
-  RoleType.Administrator,
-  RoleType.Staff,
-  RoleType.Manager,
-  RoleType.Provider,
-  RoleType.Clinician,
-  RoleType.CustomerSupport,
-];
 
 const MUI_X_LICENSE_KEY = import.meta.env.VITE_APP_MUI_X_LICENSE_KEY;
 if (MUI_X_LICENSE_KEY != null) {
@@ -245,6 +244,7 @@ function App(): ReactElement {
                 <Route path="/visit/:id" element={<VisitDetailsPage />} />
                 <Route path="/profile" element={<EmployeeProfilePage />} />
                 <Route path="/patients" element={<PatientsPage />} />
+                <Route path="/patients/add" element={<AddPatient key="patient-only" patientOnly />} />
                 <Route path="/patient/:id" element={<PatientPage />} />
                 <Route path="/patient/:id/info" element={<PatientInformationPage />} />
                 <Route path="/patient/:id/docs" element={<PatientDocumentsExplorerPage />} />
@@ -262,6 +262,7 @@ function App(): ReactElement {
                   <Route path={`${OUTREACH_URL}/:outreachSubTab/:outreachDetailTab`} element={<AdminPage />} />
                   <Route path="/admin/:adminTab" element={<AdminPage />} />
                   <Route path="/admin/:adminTab/:subTab" element={<AdminPage />} />
+                  <Route path="/admin/form-templates/:templateId" element={<FormTemplateDetailPage />} />
                   <Route path="/admin/quick-picks/procedure/:quickPickId" element={<ProcedureQuickPickDetailPage />} />
                   <Route path="/admin/quick-picks/radiology/:quickPickId" element={<RadiologyQuickPickDetailPage />} />
                   <Route
@@ -321,6 +322,7 @@ function App(): ReactElement {
                   <Route path="/patient/:id/followup/:encounterId" element={<PatientFollowup />} />
                 )}
                 <Route path="/patients" element={<PatientsPage />} />
+                <Route path="/patients/add" element={<AddPatient key="patient-only" patientOnly />} />
 
                 {currentUser.hasRole(GLOBAL_ACTION_LOG_VIEWER_ROLES) && (
                   <Route element={<AdminLayout />}>
@@ -345,7 +347,20 @@ function App(): ReactElement {
         </Routes>
         <CommandPaletteRegistrations />
         <CommandPalette />
-        <SnackbarProvider maxSnack={5} autoHideDuration={6000} />
+        <CommandPaletteCreateTask />
+        <CommandPalettePhraseDialog />
+        <SnackbarProvider
+          maxSnack={5}
+          autoHideDuration={6000}
+          Components={{ medicalRecordExport: MedicalRecordExportSnackbar }}
+        />
+        {!roleUnknown && <MedicalRecordExportWatcher />}
+        {FEATURE_FLAGS.EMPLOYEE_CHAT_ENABLED && (
+          <>
+            <EmployeeChatManager />
+            <EmployeeChatDrawer />
+          </>
+        )}
       </BrowserRouter>
     </CustomThemeProvider>
   );

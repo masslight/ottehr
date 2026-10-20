@@ -1,6 +1,6 @@
 import { Browser, BrowserContext, Page, test } from '@playwright/test';
 import { DateTime } from 'luxon';
-import { waitForSaveChartDataResponse } from 'test-utils';
+import { waitForSaveChartDataResponse } from 'test-utils/lib/e2e/response-utils';
 import {
   expectEditVaccineOrderPage,
   openCreateVaccineOrderPage,
@@ -18,7 +18,7 @@ import {
   medicationApplianceLocations,
   medicationApplianceRoutes,
 } from 'utils/lib/types/api/medication-administration.types';
-import vaccines from '../../../../../../config/oystehr/vaccines.json' assert { type: 'json' };
+import vaccines from '../../../../../../config/oystehr/vaccines.json';
 
 interface VaccineInfo {
   vaccine: string;

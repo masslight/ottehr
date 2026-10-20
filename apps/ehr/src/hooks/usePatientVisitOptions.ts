@@ -11,6 +11,11 @@ export type UsePatientVisitOptionsReturn = {
   isLoading: boolean;
   visitOptions: PatientVisitOption[];
   visitsByEncounterId: Map<string, PatientVisitOption>;
+  /**
+   * Needed alongside the encounter lookup because several intake documents link to the Appointment
+   * rather than the Encounter, so a document may only know its appointment id.
+   */
+  visitsByAppointmentId: Map<string, PatientVisitOption>;
 };
 
 /**
@@ -50,5 +55,15 @@ export const usePatientVisitOptions = (patientId: string | undefined): UsePatien
     [visitOptions]
   );
 
-  return { isLoading, visitOptions, visitsByEncounterId };
+  const visitsByAppointmentId = useMemo(
+    () =>
+      new Map(
+        visitOptions
+          .filter((option): option is PatientVisitOption & { appointmentId: string } => !!option.appointmentId)
+          .map((option) => [option.appointmentId, option])
+      ),
+    [visitOptions]
+  );
+
+  return { isLoading, visitOptions, visitsByEncounterId, visitsByAppointmentId };
 };

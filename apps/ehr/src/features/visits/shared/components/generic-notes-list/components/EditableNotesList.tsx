@@ -76,6 +76,7 @@ export const EditableNotesList: React.FC<EditableNotesListProps> = ({
           <Box sx={{ flex: 1 }}>
             <TextFieldStyled
               data-testid={dataTestIds.screeningPage.screeningNoteField}
+              multiline
               onKeyDown={(event: React.KeyboardEvent) => {
                 if (event.key === 'Enter' && !event.shiftKey) {
                   event.preventDefault();

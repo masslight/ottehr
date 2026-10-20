@@ -1,5 +1,6 @@
 import { DateTime } from 'luxon';
 import { VisitStatusLabel } from '../types/api/appointment.types';
+import { OrdersForTrackingBoardTable } from '../types/data/orders/types';
 
 const IN_PERSON_VISIT_TYPES = ['in-person-walk-in', 'in-person-pre-booked', 'in-person-post-telemed'].join(',');
 
@@ -49,3 +50,15 @@ export const buildTrackingBoardPath = ({
 
   return `/visits?${searchParams.toString()}`;
 };
+
+/** An order table with nothing on the board; the shape `AppointmentTable` reads, with every map empty. */
+export const emptyOrdersForTrackingBoardTable = (): OrdersForTrackingBoardTable => ({
+  inHouseLabOrdersByAppointmentId: {},
+  externalLabOrdersByAppointmentId: {},
+  nursingOrdersByAppointmentId: {},
+  inHouseMedicationsByEncounterId: {},
+  radiologyOrdersByAppointmentId: {},
+  erxOrdersByEncounterId: {},
+  proceduresByEncounterId: {},
+  immunizationOrdersByEncounterId: {},
+});

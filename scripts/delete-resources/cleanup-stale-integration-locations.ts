@@ -1,8 +1,8 @@
 import { input } from '@inquirer/prompts';
 import { BatchInputDeleteRequest } from '@oystehr/sdk';
 import { Location, Schedule } from 'fhir/r4b';
+import { createOystehrClient } from 'utils/lib/helpers/helpers';
 import { getAllFhirSearchPages } from '../../packages/utils/lib/fhir/getAllFhirSearchPages';
-import { createOystehrClient } from '../../packages/utils/lib/main';
 
 /*
  Counts (and optionally deletes) Location resources tagged with

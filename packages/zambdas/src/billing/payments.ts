@@ -25,6 +25,73 @@ const RecordablePaymentSchema = z.object({
   paymentMethod: z.enum(BILLING_RECORDABLE_PAYMENT_METHODS),
 });
 
+// dedup identifier for manual (non-processor) refunds recorded from the EHR
+export const MANUAL_REFUND_ID_SYSTEM = ottehrIdentifierSystem('manual-refund-id');
+
+// Mirrors the stripe webhook's negative refund notice so patient AR stays a plain sum over a
+// claim's notices; used for cash/check/external-reader refunds, which have no processor events.
+export const recordBillingManualRefund = async (
+  oystehr: Oystehr,
+  input: {
+    encounterId: string;
+    refundId: string;
+    amountInCents: number;
+    paymentMethod: string;
+    createdISO: string;
+    reason: string;
+    secrets: Secrets | null;
+  }
+): Promise<void> => {
+  const { encounterId, refundId, amountInCents, paymentMethod, createdISO, reason, secrets } = input;
+
+  const claim = await findBillingClaimForEncounter(oystehr, encounterId);
+  const payeeRef: Reference = claim?.provider ?? {
+    reference: getSecret(SecretsKeys.DEFAULT_BILLING_RESOURCE, secrets),
+  };
+
+  const amount: Money = { value: -(amountInCents / 100), currency: 'USD' };
+  const reconciliation: PaymentReconciliation = {
+    resourceType: 'PaymentReconciliation',
+    id: 'contained-reconciliation',
+    status: 'active',
+    created: createdISO,
+    disposition: `Manual ${paymentMethod} refund (${reason})`,
+    outcome: 'complete',
+    paymentDate: createdISO.slice(0, 10),
+    paymentAmount: amount,
+  };
+
+  const desiredNotice: PaymentNotice = {
+    resourceType: 'PaymentNotice',
+    status: 'active',
+    request: claimRequestFor(claim, encounterId),
+    created: createdISO,
+    paymentDate: createdISO.slice(0, 10),
+    amount,
+    identifier: [{ system: MANUAL_REFUND_ID_SYSTEM, value: refundId }],
+    extension: [{ url: PAYMENT_METHOD_EXTENSION_URL, valueString: paymentMethod }],
+    contained: [reconciliation],
+    payment: { reference: `#${reconciliation.id}` },
+    payee: payeeRef,
+    recipient: payeeRef,
+  };
+
+  await oystehr.fhir.create<PaymentNotice>(desiredNotice, {
+    ifNoneExist: [
+      { name: 'identifier', value: `${MANUAL_REFUND_ID_SYSTEM}|${refundId}` },
+      { name: '_tag', value: `${BILLING_RESOURCE_TAG.system}|${BILLING_RESOURCE_TAG.code}` },
+    ],
+  });
+
+  if (!claim) {
+    // the claim may have appeared while the notice was being stored; reconcile only adds request.reference
+    const lateClaim = await findBillingClaimForEncounter(oystehr, encounterId);
+    if (lateClaim) {
+      await reconcilePaymentNoticesForClaim(oystehr, lateClaim);
+    }
+  }
+};
+
 export const findBillingClaimForEncounter = async (
   oystehr: Oystehr,
   encounterId: string

@@ -14,7 +14,6 @@ let m2mToken: string;
 const ZAMBDA_NAME = 'admin-get-in-house-lab-config';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  console.log(`admin-get-in-house-lab-config started, input: ${JSON.stringify(input)}`);
   try {
     const validatedParameters: AdminGetInHouseLabConfigInput & { secrets: Secrets | null; userToken: string } =
       validateRequestParameters(input);

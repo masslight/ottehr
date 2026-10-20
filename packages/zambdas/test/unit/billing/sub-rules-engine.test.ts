@@ -1,21 +1,26 @@
 import Oystehr from '@oystehr/sdk';
 import {
   Account,
+  Bundle,
   ChargeItemDefinition,
   Claim,
   Coverage,
   Organization,
   Patient,
+  Provenance,
   ProvenanceAgent,
   RelatedPerson,
+  Resource,
 } from 'fhir/r4b';
-import { ACCOUNT_TYPE_CODE_SYSTEM, CPT_CODE_SYSTEM } from 'utils/lib/fhir/constants';
+import { ACCOUNT_TYPE_CODE_SYSTEM, CPT_CODE_SYSTEM, RAW_RESPONSE_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { getPayerUrl } from 'utils/lib/helpers/helpers';
 import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
 import { BillingInsuranceType } from 'utils/lib/types/data/billing/billing.schemas';
 import {
+  CLAIM_PROVENANCE_ACTIVITY_CODES,
   CLAIM_PROVENANCE_CHANGE_REF_URL,
   CLAIM_PROVENANCE_DIFF_EXTENSION_URL,
+  CLAIM_PROVENANCE_TRANSMIT_EXTENSION_URL,
   ClaimFieldChange,
   ClaimHistoryRuleRef,
 } from 'utils/lib/types/data/billing/claim-history';
@@ -24,6 +29,8 @@ import {
   claimStatusValuesToTags,
   withArStageInitialization,
 } from 'utils/lib/types/data/billing/claim-status';
+import { CUSTOM_INSURANCE_ORG_KIND_CODE } from 'utils/lib/types/data/billing/custom-insurance-org.types';
+import { NIO_KIND_CODE, NIO_ORGANIZATION_KIND_SYSTEM } from 'utils/lib/types/data/billing/non-insurance-org.types';
 import { BillingRule } from 'utils/lib/types/data/billing/rules-engine.schemas';
 import { HOLD_TAG_NAME } from 'utils/lib/types/data/billing/system-tags';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -39,11 +46,13 @@ import {
 import {
   complexValidation,
   ensureClaimHeld,
+  loadCustomInsuranceOrganizations,
   performEffect,
   persistModel,
   RuleFailureError,
   snapshotModel,
 } from '../../../src/subscriptions/task/sub-rules-engine';
+import { ClaimSubmissionRejectedError } from '../../../src/subscriptions/task/sub-rules-engine/submit-claim';
 
 const AGENT: ProvenanceAgent = { who: { reference: 'Device/rules-engine-device' } };
 
@@ -53,13 +62,30 @@ function makeOystehrMock(): {
   oystehr: Oystehr;
   search: ReturnType<typeof vi.fn>;
   transaction: ReturnType<typeof vi.fn>;
+  create: ReturnType<typeof vi.fn>;
   submitClaimRcm: ReturnType<typeof vi.fn>;
 } {
   const search = vi.fn().mockResolvedValue({ unbundle: () => [] });
   const transaction = vi.fn().mockResolvedValue({ entry: [] });
+  const create = vi.fn().mockResolvedValue({});
   const submitClaimRcm = vi.fn().mockResolvedValue({});
-  const oystehr = { fhir: { search, transaction }, rcm: { submitClaim: submitClaimRcm } } as unknown as Oystehr;
-  return { oystehr, search, transaction, submitClaimRcm };
+  const oystehr = {
+    fhir: {
+      search,
+      transaction,
+      create,
+    },
+    rcm: {
+      submitClaim: submitClaimRcm,
+    },
+  } as unknown as Oystehr;
+  return {
+    oystehr,
+    search,
+    transaction,
+    create,
+    submitClaimRcm,
+  };
 }
 
 function makeModel(arStage: string = AR_STAGE.insurancePayer): RulesEngineClaimModel {
@@ -129,6 +155,9 @@ const patchedTags = (transaction: ReturnType<typeof vi.fn>): { system: string; c
         const ops = JSON.parse(Buffer.from(request.resource.data, 'base64').toString());
         return ops.find((op: { path: string }) => op.path === '/meta/tag')?.value ?? [];
       }
+      if (request.method === 'PATCH' && request.operations?.length) {
+        return request.operations.find((op: { path: string }) => op.path === '/meta/tag')?.value ?? [];
+      }
     }
   }
   return [];
@@ -145,7 +174,15 @@ describe('sub-rules-engine performEffect', () => {
 
     const result = await performEffect(
       oystehr,
-      { engine: 'claim-submission', claimId: 'claim-1', rules: [], model, skipRules: false },
+      {
+        engine: 'claim-submission',
+        claimId: 'claim-1',
+        rules: [],
+        model,
+        skipRules: false,
+        submissionType: null,
+        payerClaimControlNumber: null,
+      },
       [AGENT]
     );
 
@@ -156,7 +193,7 @@ describe('sub-rules-engine performEffect', () => {
     expect(transaction).toHaveBeenCalled();
   });
 
-  it('submits the claim when skipping rules and it is in Insurance Payer AR', async () => {
+  it('submits the claim when skip rules is true', async () => {
     const { oystehr, search, transaction, submitClaimRcm } = makeOystehrMock();
     const model = makeModel(AR_STAGE.insurancePayer);
     // submitClaim re-fetches the claim to lock the status patch against the latest version.
@@ -164,7 +201,15 @@ describe('sub-rules-engine performEffect', () => {
 
     const result = await performEffect(
       oystehr,
-      { engine: 'claim-submission', claimId: 'claim-1', rules: [], model, skipRules: true },
+      {
+        engine: 'claim-submission',
+        claimId: 'claim-1',
+        rules: [],
+        model,
+        skipRules: true,
+        submissionType: null,
+        payerClaimControlNumber: null,
+      },
       [AGENT]
     );
 
@@ -173,6 +218,260 @@ describe('sub-rules-engine performEffect', () => {
     expect(result.statusReason).toContain('submitted');
     // Status change (insuranceArStatus -> submitted) commits with its Provenance.
     expect(transaction).toHaveBeenCalled();
+  });
+
+  it('submits the claim as a correction', async () => {
+    const { oystehr, search, transaction, submitClaimRcm } = makeOystehrMock();
+    const model = makeModel(AR_STAGE.insurancePayer);
+    // submitClaim re-fetches the claim to lock the status patch against the latest version.
+    search.mockResolvedValue({ unbundle: () => [model.claim] });
+
+    const result = await performEffect(
+      oystehr,
+      {
+        engine: 'claim-submission',
+        claimId: 'claim-1',
+        rules: [],
+        model,
+        skipRules: true,
+        submissionType: 'correction',
+        payerClaimControlNumber: 'PCCN-12345',
+      },
+      [AGENT]
+    );
+
+    expect(submitClaimRcm).toHaveBeenCalledWith({
+      claimId: 'claim-1',
+      action: 'correction',
+      payerClaimControlNumber: 'PCCN-12345',
+    });
+    expect(result.taskStatus).toBe('completed');
+    expect(result.statusReason).toContain('submitted');
+    // Status change (insuranceArStatus -> submitted) commits with its Provenance.
+    expect(transaction).toHaveBeenCalled();
+  });
+
+  it('submits the claim as a void', async () => {
+    const { oystehr, search, transaction, submitClaimRcm } = makeOystehrMock();
+    const model = makeModel(AR_STAGE.insurancePayer);
+    // submitClaim re-fetches the claim to lock the status patch against the latest version.
+    search.mockResolvedValue({ unbundle: () => [model.claim] });
+
+    const result = await performEffect(
+      oystehr,
+      {
+        engine: 'claim-submission',
+        claimId: 'claim-1',
+        rules: [],
+        model,
+        skipRules: true,
+        submissionType: 'void',
+        payerClaimControlNumber: 'PCCN-12345',
+      },
+      [AGENT]
+    );
+
+    expect(submitClaimRcm).toHaveBeenCalledWith({
+      claimId: 'claim-1',
+      action: 'void',
+      payerClaimControlNumber: 'PCCN-12345',
+    });
+    expect(result.taskStatus).toBe('completed');
+    expect(result.statusReason).toContain('submitted');
+    // Status change (insuranceArStatus -> submitted) commits with its Provenance.
+    expect(transaction).toHaveBeenCalled();
+  });
+
+  it('records the transmit provenance from the submission ClaimResponse', async () => {
+    const { oystehr, search, create, submitClaimRcm } = makeOystehrMock();
+    const model = makeModel(AR_STAGE.insurancePayer);
+    search.mockResolvedValue({ unbundle: () => [model.claim] });
+    submitClaimRcm.mockResolvedValue({
+      resourceType: 'ClaimResponse',
+      id: 'cr-1',
+      created: '2026-08-06T12:00:00.000Z',
+      extension: [
+        {
+          url: RAW_RESPONSE_EXTENSION_URL,
+          valueString: JSON.stringify({
+            response_time: '2026-08-06 09:30:00am',
+            batchid: '55512',
+            claimmd_id: '987654',
+          }),
+        },
+      ],
+    });
+
+    await performEffect(
+      oystehr,
+      {
+        engine: 'claim-submission',
+        claimId: 'claim-1',
+        rules: [],
+        model,
+        skipRules: false,
+        submissionType: null,
+        payerClaimControlNumber: null,
+      },
+      [AGENT]
+    );
+
+    const provenance = create.mock.calls[0][0] as Provenance;
+    expect(provenance.activity?.coding?.[0].code).toBe(CLAIM_PROVENANCE_ACTIVITY_CODES.submit);
+    expect(provenance.target).toContainEqual({ reference: 'Claim/claim-1' });
+    const transmit = provenance.extension?.find((e) => e.url === CLAIM_PROVENANCE_TRANSMIT_EXTENSION_URL);
+    expect(JSON.parse(transmit?.valueString ?? '')).toEqual({
+      // Claim.MD reports a naive local time, read as ET.
+      transmittedAt: '2026-08-06T13:30:00.000Z',
+      batchId: '55512',
+      clearinghouseClaimId: '987654',
+    });
+  });
+
+  it('falls back to the ClaimResponse created time when the raw response is unreadable', async () => {
+    const { oystehr, search, create, submitClaimRcm } = makeOystehrMock();
+    const model = makeModel(AR_STAGE.insurancePayer);
+    search.mockResolvedValue({ unbundle: () => [model.claim] });
+    submitClaimRcm.mockResolvedValue({
+      resourceType: 'ClaimResponse',
+      id: 'cr-1',
+      created: '2026-08-06T12:00:00.000Z',
+    });
+
+    await performEffect(
+      oystehr,
+      {
+        engine: 'claim-submission',
+        claimId: 'claim-1',
+        rules: [],
+        model,
+        skipRules: false,
+        submissionType: null,
+        payerClaimControlNumber: null,
+      },
+      [AGENT]
+    );
+
+    const provenance = create.mock.calls[0][0] as Provenance;
+    const transmit = provenance.extension?.find((e) => e.url === CLAIM_PROVENANCE_TRANSMIT_EXTENSION_URL);
+    expect(JSON.parse(transmit?.valueString ?? '')).toEqual({ transmittedAt: '2026-08-06T12:00:00.000Z' });
+  });
+
+  it('submits the claim when skipping rules and it is in Insurance Payer AR', async () => {
+    const { oystehr, search, transaction, submitClaimRcm } = makeOystehrMock();
+    const model = makeModel(AR_STAGE.insurancePayer);
+    // submitClaim re-fetches the claim to lock the status patch against the latest version.
+    search.mockResolvedValue({ unbundle: () => [model.claim] });
+
+    const result = await performEffect(
+      oystehr,
+      {
+        engine: 'claim-submission',
+        claimId: 'claim-1',
+        rules: [],
+        model,
+        skipRules: true,
+        submissionType: null,
+        payerClaimControlNumber: null,
+      },
+      [AGENT]
+    );
+
+    expect(submitClaimRcm).toHaveBeenCalledWith({ claimId: 'claim-1' });
+    expect(result.taskStatus).toBe('completed');
+    expect(result.statusReason).toContain('submitted');
+    // Status change (insuranceArStatus -> submitted) commits with its Provenance.
+    expect(transaction).toHaveBeenCalled();
+  });
+
+  it('throws a ClaimSubmissionRejectedError, not the raw SDK error, when Oystehr rejects the submission with an HTTP 400 (e.g. a duplicate diagnosis code)', async () => {
+    const { oystehr, submitClaimRcm } = makeOystehrMock();
+    const model = makeModel(AR_STAGE.insurancePayer);
+    submitClaimRcm.mockRejectedValue({ message: 'Duplicate diagnosis code on claim', code: 400 });
+
+    let thrown: unknown;
+    try {
+      await performEffect(
+        oystehr,
+        {
+          engine: 'claim-submission',
+          claimId: 'claim-1',
+          rules: [],
+          model,
+          skipRules: false,
+          submissionType: null,
+          payerClaimControlNumber: null,
+        },
+        [AGENT]
+      );
+    } catch (error) {
+      thrown = error;
+    }
+
+    expect(thrown).toBeInstanceOf(ClaimSubmissionRejectedError);
+    expect((thrown as Error).message).toBe('Duplicate diagnosis code on claim');
+  });
+
+  it.each([401, 403, 404, 500])(
+    'rethrows the original error unchanged when Oystehr submit-claim fails with a %i (not a 400)',
+    async (code) => {
+      const { oystehr, submitClaimRcm } = makeOystehrMock();
+      const model = makeModel(AR_STAGE.insurancePayer);
+      submitClaimRcm.mockRejectedValue({ message: 'some other failure', code });
+
+      let thrown: unknown;
+      try {
+        await performEffect(
+          oystehr,
+          {
+            engine: 'claim-submission',
+            claimId: 'claim-1',
+            rules: [],
+            model,
+            skipRules: false,
+            submissionType: null,
+            payerClaimControlNumber: null,
+          },
+          [AGENT]
+        );
+      } catch (error) {
+        thrown = error;
+      }
+
+      expect(thrown).not.toBeInstanceOf(ClaimSubmissionRejectedError);
+      expect(thrown).toEqual({ message: 'some other failure', code });
+    }
+  );
+
+  it('throws a ClaimSubmissionRejectedError when Oystehr returns a 200 with outcome: "error"', async () => {
+    const { oystehr, submitClaimRcm } = makeOystehrMock();
+    const model = makeModel(AR_STAGE.insurancePayer);
+    submitClaimRcm.mockResolvedValue({
+      outcome: 'error',
+      error: [{ code: { text: 'Duplicate diagnosis code on claim' } }],
+    });
+
+    let thrown: unknown;
+    try {
+      await performEffect(
+        oystehr,
+        {
+          engine: 'claim-submission',
+          claimId: 'claim-1',
+          rules: [],
+          model,
+          skipRules: false,
+          submissionType: null,
+          payerClaimControlNumber: null,
+        },
+        [AGENT]
+      );
+    } catch (error) {
+      thrown = error;
+    }
+
+    expect(thrown).toBeInstanceOf(ClaimSubmissionRejectedError);
+    expect((thrown as Error).message).toBe('Duplicate diagnosis code on claim');
   });
 
   it('fails and holds the claim instead of submitting when rules changed a shared (non-working-copy) resource', async () => {
@@ -189,7 +488,15 @@ describe('sub-rules-engine performEffect', () => {
 
     const result = await performEffect(
       oystehr,
-      { engine: 'claim-submission', claimId: 'claim-1', rules, model, skipRules: false },
+      {
+        engine: 'claim-submission',
+        claimId: 'claim-1',
+        rules,
+        model,
+        skipRules: false,
+        submissionType: null,
+        payerClaimControlNumber: null,
+      },
       [AGENT]
     );
 
@@ -215,7 +522,15 @@ describe('sub-rules-engine performEffect', () => {
 
     const result = await performEffect(
       oystehr,
-      { engine: 'claim-submission', claimId: 'claim-1', rules: [], model, skipRules: false },
+      {
+        engine: 'claim-submission',
+        claimId: 'claim-1',
+        rules: [],
+        model,
+        skipRules: false,
+        submissionType: null,
+        payerClaimControlNumber: null,
+      },
       [AGENT]
     );
 
@@ -234,7 +549,15 @@ describe('sub-rules-engine performEffect', () => {
 
     const result = await performEffect(
       oystehr,
-      { engine: 'claim-submission', claimId: 'claim-1', rules: [], model, skipRules: false },
+      {
+        engine: 'claim-submission',
+        claimId: 'claim-1',
+        rules: [],
+        model,
+        skipRules: false,
+        submissionType: null,
+        payerClaimControlNumber: null,
+      },
       [AGENT]
     );
 
@@ -250,7 +573,15 @@ describe('sub-rules-engine performEffect', () => {
 
     const result = await performEffect(
       oystehr,
-      { engine: 'claim-submission', claimId: 'claim-1', rules: [rule], model, skipRules: false },
+      {
+        engine: 'claim-submission',
+        claimId: 'claim-1',
+        rules: [rule],
+        model,
+        skipRules: false,
+        submissionType: null,
+        payerClaimControlNumber: null,
+      },
       [AGENT]
     );
 
@@ -288,7 +619,15 @@ describe('sub-rules-engine performEffect', () => {
 
     const result = await performEffect(
       oystehr,
-      { engine: 'claim-submission', claimId: 'claim-1', rules, model, skipRules: false },
+      {
+        engine: 'claim-submission',
+        claimId: 'claim-1',
+        rules,
+        model,
+        skipRules: false,
+        submissionType: null,
+        payerClaimControlNumber: null,
+      },
       [AGENT]
     );
 
@@ -317,7 +656,15 @@ describe('sub-rules-engine performEffect', () => {
       async () =>
         await performEffect(
           oystehr,
-          { engine: 'claim-submission', claimId: 'claim-1', rules: [rule], model, skipRules: false },
+          {
+            engine: 'claim-submission',
+            claimId: 'claim-1',
+            rules: [rule],
+            model,
+            skipRules: false,
+            submissionType: null,
+            payerClaimControlNumber: null,
+          },
           [AGENT]
         )
     ).rejects.toMatchInlineSnapshot(
@@ -344,7 +691,15 @@ describe('sub-rules-engine performEffect', () => {
     try {
       await performEffect(
         oystehr,
-        { engine: 'claim-submission', claimId: 'claim-1', rules: [rule], model, skipRules: false },
+        {
+          engine: 'claim-submission',
+          claimId: 'claim-1',
+          rules: [rule],
+          model,
+          skipRules: false,
+          submissionType: null,
+          payerClaimControlNumber: null,
+        },
         [AGENT]
       );
     } catch (error) {
@@ -357,6 +712,116 @@ describe('sub-rules-engine performEffect', () => {
     expect((thrown as RuleFailureError).rule).toEqual(expectedRule);
     // The persisted Hold's history record names the failing rule.
     expect(provenanceChanges(transaction, 'Claim/claim-1').find((c) => c.field === 'tags')?.rule).toEqual(expectedRule);
+  });
+
+  describe('accident details check', () => {
+    const run = (
+      oystehr: Oystehr,
+      model: RulesEngineClaimModel,
+      rules: BillingRule[]
+    ): ReturnType<typeof performEffect> =>
+      performEffect(
+        oystehr,
+        {
+          engine: 'claim-submission',
+          claimId: 'claim-1',
+          rules,
+          model,
+          skipRules: false,
+          submissionType: null,
+          payerClaimControlNumber: null,
+        },
+        [AGENT]
+      );
+    const setRule = (id: string, field: string, value: string): BillingRule =>
+      alwaysRule(id, { type: 'actions', actions: [{ type: 'setField', field, value }] });
+
+    it('holds the claim instead of submitting when rules flag an accident without its date and state', async () => {
+      const { oystehr, transaction, submitClaimRcm } = makeOystehrMock();
+      const model = makeModel(AR_STAGE.insurancePayer);
+
+      const result = await run(oystehr, model, [setRule('flag', 'accident.auto', 'true')]);
+
+      expect(result.taskStatus).toBe('failed');
+      expect(result.statusReason).toContain('Accident state is required for auto accidents');
+      expect(result.statusReason).toContain('Accident date is required');
+      expect(submitClaimRcm).not.toHaveBeenCalled();
+      const requests = transaction.mock.calls.flatMap((call) => call[0].requests);
+      const claimPut = requests.find(
+        (r: { method: string; url: string }) => r.method === 'PUT' && r.url === 'Claim/claim-1'
+      );
+      expect(claimPut.resource.meta.tag).toContainEqual(HOLD_TAG);
+      // The Hold is the engine's own, not the flagging rule's.
+      expect(provenanceChanges(transaction, 'Claim/claim-1').find((c) => c.field === 'tags')?.rule).toBeUndefined();
+    });
+
+    it('accepts the dependent fields set by later rules, in any order', async () => {
+      const { oystehr, search, submitClaimRcm } = makeOystehrMock();
+      const model = makeModel(AR_STAGE.insurancePayer);
+      search.mockResolvedValue({ unbundle: () => [model.claim] });
+
+      const result = await run(oystehr, model, [
+        setRule('date', 'accident.date', '2025-12-30'),
+        setRule('flag', 'accident.auto', 'true'),
+        setRule('state', 'accident.state', 'TX'),
+      ]);
+
+      expect(result.taskStatus).toBe('completed');
+      expect(submitClaimRcm).toHaveBeenCalledWith({ claimId: 'claim-1' });
+    });
+
+    it('holds the claim when a rule clears the date of a flagged accident', async () => {
+      const { oystehr, submitClaimRcm } = makeOystehrMock();
+      const model = makeModel(AR_STAGE.insurancePayer);
+      writeField(model, 'accident.other', 'true');
+      writeField(model, 'accident.date', '2025-12-30');
+
+      const result = await run(oystehr, model, [setRule('clear', 'accident.date', '')]);
+
+      expect(result.taskStatus).toBe('failed');
+      expect(result.statusReason).toContain('Accident date is required');
+      expect(submitClaimRcm).not.toHaveBeenCalled();
+    });
+
+    it('holds a claim that arrived with incomplete accident details, even when no rule touched them', async () => {
+      const { oystehr, submitClaimRcm } = makeOystehrMock();
+      const model = makeModel(AR_STAGE.insurancePayer);
+      writeField(model, 'accident.auto', 'true'); // already incomplete before the run
+      writeField(model, 'accident.date', '2025-12-30');
+
+      const result = await run(oystehr, model, [
+        alwaysRule('tag', { type: 'actions', actions: [{ type: 'applyTag', tag: 'VIP' }] }),
+      ]);
+
+      expect(result.taskStatus).toBe('failed');
+      expect(result.statusReason).toContain('Accident state is required for auto accidents');
+      expect(result.statusReason).not.toContain('Accident date is required');
+      expect(submitClaimRcm).not.toHaveBeenCalled();
+    });
+
+    it('holds an incomplete claim when rules are skipped', async () => {
+      const { oystehr, submitClaimRcm } = makeOystehrMock();
+      const model = makeModel(AR_STAGE.insurancePayer);
+      writeField(model, 'accident.employment', 'true');
+
+      const result = await performEffect(
+        oystehr,
+        {
+          engine: 'claim-submission',
+          claimId: 'claim-1',
+          rules: [],
+          model,
+          skipRules: true,
+          submissionType: null,
+          payerClaimControlNumber: null,
+        },
+        [AGENT]
+      );
+
+      expect(result.taskStatus).toBe('failed');
+      expect(result.statusReason).toContain('Accident date is required');
+      expect(submitClaimRcm).not.toHaveBeenCalled();
+    });
   });
 
   it("does not blame a rule for the engine's own unwritable-changes Hold", async () => {
@@ -373,7 +838,15 @@ describe('sub-rules-engine performEffect', () => {
 
     const result = await performEffect(
       oystehr,
-      { engine: 'claim-submission', claimId: 'claim-1', rules, model, skipRules: false },
+      {
+        engine: 'claim-submission',
+        claimId: 'claim-1',
+        rules,
+        model,
+        skipRules: false,
+        submissionType: null,
+        payerClaimControlNumber: null,
+      },
       [AGENT]
     );
 
@@ -398,7 +871,15 @@ describe('pre-invoice engines performEffect', () => {
 
     const result = await performEffect(
       oystehr,
-      { engine: 'non-insurance-payer-pre-invoice', claimId: 'claim-1', rules: [], model, skipRules: false },
+      {
+        engine: 'non-insurance-payer-pre-invoice',
+        claimId: 'claim-1',
+        rules: [],
+        model,
+        skipRules: false,
+        submissionType: null,
+        payerClaimControlNumber: null,
+      },
       [AGENT]
     );
 
@@ -418,7 +899,15 @@ describe('pre-invoice engines performEffect', () => {
 
     const result = await performEffect(
       oystehr,
-      { engine: 'non-insurance-payer-pre-invoice', claimId: 'claim-1', rules: [], model, skipRules: false },
+      {
+        engine: 'non-insurance-payer-pre-invoice',
+        claimId: 'claim-1',
+        rules: [],
+        model,
+        skipRules: false,
+        submissionType: null,
+        payerClaimControlNumber: null,
+      },
       [AGENT]
     );
 
@@ -436,7 +925,15 @@ describe('pre-invoice engines performEffect', () => {
 
     const result = await performEffect(
       oystehr,
-      { engine: 'non-insurance-payer-pre-invoice', claimId: 'claim-1', rules: [], model, skipRules: false },
+      {
+        engine: 'non-insurance-payer-pre-invoice',
+        claimId: 'claim-1',
+        rules: [],
+        model,
+        skipRules: false,
+        submissionType: null,
+        payerClaimControlNumber: null,
+      },
       [AGENT]
     );
 
@@ -453,7 +950,15 @@ describe('pre-invoice engines performEffect', () => {
 
     const result = await performEffect(
       oystehr,
-      { engine: 'patient-ar-pre-invoice', claimId: 'claim-1', rules: [], model, skipRules: false },
+      {
+        engine: 'patient-ar-pre-invoice',
+        claimId: 'claim-1',
+        rules: [],
+        model,
+        skipRules: false,
+        submissionType: null,
+        payerClaimControlNumber: null,
+      },
       [AGENT]
     );
 
@@ -465,19 +970,53 @@ describe('pre-invoice engines performEffect', () => {
     );
   });
 
-  it('completes without a status change when the Patient AR claim carries insurance coverage', async () => {
-    const { oystehr, transaction } = makeOystehrMock();
+  it('moves the Patient AR Status to ready-to-invoice for a claim carrying insurance coverage', async () => {
+    const { oystehr, search, transaction } = makeOystehrMock();
     const model = makeModel(AR_STAGE.patient);
     model.claim.insurance = [{ sequence: 1, focal: true, coverage: { reference: 'Coverage/coverage-1' } }];
+    search.mockResolvedValue({ unbundle: () => [model.claim] });
 
     const result = await performEffect(
       oystehr,
-      { engine: 'patient-ar-pre-invoice', claimId: 'claim-1', rules: [], model, skipRules: false },
+      {
+        engine: 'patient-ar-pre-invoice',
+        claimId: 'claim-1',
+        rules: [],
+        model,
+        skipRules: false,
+        submissionType: null,
+        payerClaimControlNumber: null,
+      },
       [AGENT]
     );
 
     expect(result.taskStatus).toBe('completed');
-    expect(result.statusReason).toContain('not self-pay');
+    expect(result.statusReason).toContain('Ready to invoice');
+    expect(patchedTags(transaction)).toContainEqual(
+      expect.objectContaining({ system: expect.stringContaining('patient-ar-status'), code: 'ready-to-invoice' })
+    );
+  });
+
+  it('completes without a status change when the claim is no longer in Patient AR', async () => {
+    const { oystehr, transaction } = makeOystehrMock();
+    const model = makeModel(AR_STAGE.insurancePayer);
+
+    const result = await performEffect(
+      oystehr,
+      {
+        engine: 'patient-ar-pre-invoice',
+        claimId: 'claim-1',
+        rules: [],
+        model,
+        skipRules: false,
+        submissionType: null,
+        payerClaimControlNumber: null,
+      },
+      [AGENT]
+    );
+
+    expect(result.taskStatus).toBe('completed');
+    expect(result.statusReason).toContain('not marked ready to invoice');
     expect(transaction).not.toHaveBeenCalled();
   });
 
@@ -489,7 +1028,15 @@ describe('pre-invoice engines performEffect', () => {
 
     const result = await performEffect(
       oystehr,
-      { engine: 'non-insurance-payer-pre-invoice', claimId: 'claim-1', rules: [rule], model, skipRules: false },
+      {
+        engine: 'non-insurance-payer-pre-invoice',
+        claimId: 'claim-1',
+        rules: [rule],
+        model,
+        skipRules: false,
+        submissionType: null,
+        payerClaimControlNumber: null,
+      },
       [AGENT]
     );
 
@@ -557,7 +1104,7 @@ describe('sub-rules-engine charge master pricing', () => {
     const { oystehr, search } = makeOystehrMock();
     dispatchSearch(search, { rules: [priceRule], claim: makeModel().claim, chargeMasters: [selfPayChargeMaster] });
 
-    const validated = await complexValidation(oystehr, 'claim-submission', 'claim-1', 'test', null);
+    const validated = await complexValidation(oystehr, 'claim-submission', 'claim-1', 'test', null, null, null);
 
     expect(validated.model.chargeMasters).toEqual([selfPayChargeMaster]);
     const calls = chargeMasterSearchCalls(search);
@@ -585,7 +1132,7 @@ describe('sub-rules-engine charge master pricing', () => {
       chargeMasters: [selfPayChargeMaster],
     });
 
-    const validated = await complexValidation(oystehr, 'claim-submission', 'claim-1', 'test', null);
+    const validated = await complexValidation(oystehr, 'claim-submission', 'claim-1', 'test', null, null, null);
 
     expect(validated.model.chargeMasters).toBeUndefined();
     expect(chargeMasterSearchCalls(search)).toHaveLength(0);
@@ -608,7 +1155,15 @@ describe('sub-rules-engine charge master pricing', () => {
 
     const result = await performEffect(
       oystehr,
-      { engine: 'claim-submission', claimId: 'claim-1', rules: [priceRule], model, skipRules: false },
+      {
+        engine: 'claim-submission',
+        claimId: 'claim-1',
+        rules: [priceRule],
+        model,
+        skipRules: false,
+        submissionType: null,
+        payerClaimControlNumber: null,
+      },
       [AGENT]
     );
 
@@ -640,7 +1195,15 @@ describe('sub-rules-engine charge master pricing', () => {
 
     const result = await performEffect(
       oystehr,
-      { engine: 'claim-submission', claimId: 'claim-1', rules: [priceRule], model, skipRules: false },
+      {
+        engine: 'claim-submission',
+        claimId: 'claim-1',
+        rules: [priceRule],
+        model,
+        skipRules: false,
+        submissionType: null,
+        payerClaimControlNumber: null,
+      },
       [AGENT]
     );
 
@@ -769,7 +1332,7 @@ describe('sub-rules-engine patient coverage context', () => {
     const { oystehr, search } = makeOystehrMock();
     dispatchContextSearch(search, { rules: [coverageRule], claim: makeModel().claim, patient: workingPatient(true) });
 
-    const validated = await complexValidation(oystehr, 'claim-submission', 'claim-1', 'test', false);
+    const validated = await complexValidation(oystehr, 'claim-submission', 'claim-1', 'test', false, null, null);
 
     const context = validated.model.patientCoverageContext!;
     expect(context.byType.primary?.coverage.id).toBe('cov-src-primary');
@@ -811,7 +1374,7 @@ describe('sub-rules-engine patient coverage context', () => {
     };
     dispatchContextSearch(search, { rules: [conditionRule], claim: makeModel().claim, patient: workingPatient(true) });
 
-    const validated = await complexValidation(oystehr, 'claim-submission', 'claim-1', 'test', false);
+    const validated = await complexValidation(oystehr, 'claim-submission', 'claim-1', 'test', false, null, null);
 
     expect(validated.model.patientCoverageContext).toBeDefined();
     expect(searchedTypes(search)).toContain('Coverage');
@@ -827,7 +1390,7 @@ describe('sub-rules-engine patient coverage context', () => {
       patient: workingPatient(true),
     });
 
-    let validated = await complexValidation(oystehr, 'claim-submission', 'claim-1', 'test', false);
+    let validated = await complexValidation(oystehr, 'claim-submission', 'claim-1', 'test', false, null, null);
     expect(validated.model.patientCoverageContext).toBeUndefined();
     expect(searchedTypes(search)).not.toContain('Coverage');
     expect(searchedTypes(search)).not.toContain('Account');
@@ -840,7 +1403,7 @@ describe('sub-rules-engine patient coverage context', () => {
       claim: makeModel().claim,
       patient: workingPatient(false),
     });
-    validated = await complexValidation(second.oystehr, 'claim-submission', 'claim-1', 'test', false);
+    validated = await complexValidation(second.oystehr, 'claim-submission', 'claim-1', 'test', false, null, null);
     expect(validated.model.patientCoverageContext).toBeUndefined();
     expect(searchedTypes(second.search)).not.toContain('Coverage');
   });
@@ -856,7 +1419,15 @@ describe('sub-rules-engine patient coverage context', () => {
 
     const result = await performEffect(
       oystehr,
-      { engine: 'claim-submission', claimId: 'claim-1', rules: [coverageRule], model, skipRules: false },
+      {
+        engine: 'claim-submission',
+        claimId: 'claim-1',
+        rules: [coverageRule],
+        model,
+        skipRules: false,
+        submissionType: null,
+        payerClaimControlNumber: null,
+      },
       [AGENT]
     );
 
@@ -940,7 +1511,15 @@ describe('sub-rules-engine patient coverage context', () => {
       async () =>
         await performEffect(
           oystehr,
-          { engine: 'claim-submission', claimId: 'claim-1', rules: [coverageRule], model, skipRules: false },
+          {
+            engine: 'claim-submission',
+            claimId: 'claim-1',
+            rules: [coverageRule],
+            model,
+            skipRules: false,
+            submissionType: null,
+            payerClaimControlNumber: null,
+          },
           [AGENT]
         )
     ).rejects.toThrow('Rule "Rule cov" failed');
@@ -1110,5 +1689,66 @@ describe('sub-rules-engine ensureClaimHeld', () => {
     await ensureClaimHeld(oystehr, claim, [AGENT]);
 
     expect(transaction).not.toHaveBeenCalled();
+  });
+});
+
+describe('sub-rules-engine loadCustomInsuranceOrganizations', () => {
+  const ACTIVE_ID = '7c9e6679-7425-40de-944b-e07fc1f90ae7';
+  const DELETED_ID = '0f8fad5b-d9cb-469f-a165-70867728950e';
+  const NIO_ID = '3b241101-e2bb-4255-8caf-4136c566a962';
+
+  const org = (id: string, code: string, active = true): Organization => ({
+    resourceType: 'Organization',
+    id,
+    active,
+    type: [{ coding: [{ system: NIO_ORGANIZATION_KIND_SYSTEM, code }] }],
+  });
+
+  // The shape getResourcesFromBatchInlineRequests parses: a batch-response of searchset bundles.
+  const batchResponse = (resources: Resource[]): Bundle => ({
+    resourceType: 'Bundle',
+    type: 'batch-response',
+    entry: resources.map((resource) => ({
+      response: { status: '200', outcome: { resourceType: 'OperationOutcome' as const, id: 'ok', issue: [] } },
+      resource: { resourceType: 'Bundle', type: 'searchset', entry: [{ resource }] } as Bundle,
+    })),
+  });
+
+  const setPayer = (id: string, value: string, enabled = true): BillingRule => ({
+    ...alwaysRule(id, { type: 'actions', actions: [{ type: 'setField', field: 'payerId', value }] }),
+    enabled,
+  });
+
+  it('keeps deleted (inactive) custom insurance organizations so the writer can fail on them', async () => {
+    const batch = vi
+      .fn()
+      .mockResolvedValue(
+        batchResponse([
+          org(ACTIVE_ID, CUSTOM_INSURANCE_ORG_KIND_CODE),
+          org(DELETED_ID, CUSTOM_INSURANCE_ORG_KIND_CODE, false),
+          org(NIO_ID, NIO_KIND_CODE),
+        ])
+      );
+    const oystehr = { fhir: { batch } } as unknown as Oystehr;
+
+    const map = await loadCustomInsuranceOrganizations(oystehr, [
+      setPayer('r1', ACTIVE_ID),
+      setPayer('r2', DELETED_ID),
+      setPayer('r3', NIO_ID),
+      setPayer('r4', '123456'),
+    ]);
+
+    expect([...(map?.keys() ?? [])].sort()).toEqual([ACTIVE_ID, DELETED_ID].sort());
+    expect(map?.get(DELETED_ID)?.active).toBe(false);
+    expect(batch).toHaveBeenCalledTimes(1);
+  });
+
+  it('skips the lookup when no enabled rule sets a UUID payer', async () => {
+    const batch = vi.fn();
+    const oystehr = { fhir: { batch } } as unknown as Oystehr;
+    await expect(
+      loadCustomInsuranceOrganizations(oystehr, [setPayer('r1', '123456'), setPayer('r2', ACTIVE_ID, false)])
+    ).resolves.toBeUndefined();
+    expect(batch).not.toHaveBeenCalled();
   });
 });

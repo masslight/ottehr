@@ -30,12 +30,15 @@ let mockChartData: {
 } = {};
 
 vi.mock('../../src/features/visits/shared/stores/appointment/appointment.store', () => ({
+  useSaveChartData: vi.fn(),
+  useDeleteChartData: vi.fn(),
+}));
+
+vi.mock('../../src/features/visits/shared/hooks/useChartData', () => ({
   useChartData: () => ({
     chartData: mockChartData,
     setPartialChartData: mockSetPartialChartData,
   }),
-  useSaveChartData: vi.fn(),
-  useDeleteChartData: vi.fn(),
 }));
 
 vi.mock('../../src/features/visits/shared/hooks/useGetAppointmentAccessibility', () => ({

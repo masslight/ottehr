@@ -2,6 +2,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import { IconButton, Tooltip } from '@mui/material';
 import { SxProps, Theme } from '@mui/material/styles';
 import { FC } from 'react';
+import { shortcutLabel } from 'src/helpers/keyboardShortcut';
 import { useCommandPaletteStore } from 'src/state/command-palette.store';
 
 interface CommandPaletteSearchButtonProps {
@@ -17,7 +18,7 @@ interface CommandPaletteSearchButtonProps {
  */
 export const CommandPaletteSearchButton: FC<CommandPaletteSearchButtonProps> = ({ sx }) => {
   const openCommandPalette = useCommandPaletteStore((s) => s.open);
-  const shortcutHint = typeof navigator !== 'undefined' && navigator.platform?.includes('Mac') ? '⌘K' : 'Ctrl+K';
+  const shortcutHint = shortcutLabel('K');
 
   return (
     <Tooltip title={`Search (${shortcutHint})`}>

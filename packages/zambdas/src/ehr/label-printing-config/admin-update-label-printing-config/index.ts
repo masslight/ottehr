@@ -20,8 +20,6 @@ let m2mToken: string;
 const ZAMBDA_NAME = 'admin-update-label-printing-config';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  console.log(`${ZAMBDA_NAME} started, input: ${JSON.stringify(input)}`);
-
   const validatedParameters: AdminUpdatePrintingConfigInput & { secrets: Secrets | null; userToken: string } =
     validateRequestParameters(input);
 

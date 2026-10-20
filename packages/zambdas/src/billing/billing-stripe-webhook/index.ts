@@ -3,19 +3,24 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, Identifier, Money, Organization, PaymentNotice, PaymentReconciliation, Reference } from 'fhir/r4b';
 import Stripe from 'stripe';
 import { BILLING_RESOURCE_TAG, PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import { parsePaymentRefundsFromNotice, staleReservationIds } from 'utils/lib/fhir/paymentRefunds';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
+import { PaymentRefundDTO } from 'utils/lib/types/api/patient-payment-types';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { shouldUseOttehrBilling } from '../../shared/candid';
 import { wrapHandler } from '../../shared/sentry';
 import {
+  applyRefundsToPaymentNoticeWithRetry,
   encounterIdFromStripeMetadata,
   getStripeClient,
   STRIPE_PAYMENT_ID_SYSTEM,
+  stripeRefundToDTO,
 } from '../../shared/stripeIntegration';
+import { StripeWebhookParams } from '../../shared/stripeWebhook';
 import { ZambdaInput } from '../../shared/types/common';
 import { claimRequestFor, findBillingClaimForEncounter } from '../payments';
 import { createBillingClient, reconcilePaymentNoticesForClaim, STRIPE_ACCOUNT_IDENTIFIER_SYSTEM } from '../shared';
-import { BillingStripeWebhookParams, validateRequestParameters } from './validateRequestParameters';
+import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'billing-stripe-webhook';
 
@@ -23,10 +28,9 @@ let m2mToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const params = validateRequestParameters(input);
-  const { event } = params;
-  console.log('Verified Stripe event:', event.id, event.type, 'connected account:', event.account ?? 'none');
+  const { event, stripeAccount } = params;
+  console.log('Verified Stripe event:', event.id, event.type, 'connected account:', stripeAccount ?? 'none');
 
-  // Acknowledge with 200 so Stripe doesn't retry or disable the endpoint.
   if (!shouldUseOttehrBilling(params.secrets)) {
     console.log('BILLING_INTEGRATION does not include ottehr; acknowledging event without processing');
     return {
@@ -46,14 +50,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   };
 });
 
-export const performEffect = async (oystehr: Oystehr, params: BillingStripeWebhookParams): Promise<void> => {
-  const { event, secrets } = params;
+export const performEffect = async (oystehr: Oystehr, params: StripeWebhookParams): Promise<void> => {
+  const { event, secrets, stripeAccount = event.account } = params;
   switch (event.type) {
     case 'charge.succeeded':
     case 'charge.updated': {
       const charge = event.data.object as Stripe.Charge;
       console.log(`Charge event for ${charge.id}, invoice: ${chargeInvoiceId(charge) ?? 'none'}`);
-      await upsertPaymentNoticeOnBillingClaimForCharge(oystehr, charge, event.account, secrets);
+      await upsertPaymentNoticeOnBillingClaimForCharge(oystehr, charge, stripeAccount, secrets);
       break;
     }
     case 'charge.refunded': {
@@ -67,13 +71,13 @@ export const performEffect = async (oystehr: Oystehr, params: BillingStripeWebho
     case 'refund.failed': {
       const refund = event.data.object as Stripe.Refund;
       console.log(`Refund event for ${refund.id}, charge: ${refund.charge}, status: ${refund.status}`);
-      await upsertPaymentNoticeForRefund(oystehr, refund, event.account, secrets);
+      await upsertPaymentNoticeForRefund(oystehr, refund, stripeAccount, secrets);
       break;
     }
     case 'invoice.paid': {
       const invoice = event.data.object as Stripe.Invoice;
       console.log(`Invoice paid event for ${invoice.id}, charge: ${invoice.charge ?? 'none'}`);
-      await upsertPaymentNoticeForChargelessInvoice(oystehr, invoice, event.account, secrets);
+      await upsertPaymentNoticeForChargelessInvoice(oystehr, invoice, stripeAccount, secrets);
       break;
     }
     default:
@@ -325,6 +329,58 @@ const upsertPaymentNoticeForRefund = async (
   });
 
   await persistPaymentNoticeUpsert(oystehr, desiredNotice, refund.id, claim, encounterId);
+
+  await markBillingNoticesForRefundedCharge(oystehr, charge, stripeAccount, secrets);
+};
+
+const markBillingNoticesForRefundedCharge = async (
+  oystehr: Oystehr,
+  charge: Stripe.Charge,
+  stripeAccount: string | undefined,
+  secrets: ZambdaInput['secrets']
+): Promise<void> => {
+  let refunds: PaymentRefundDTO[];
+  try {
+    const refundList = await getStripeClient(secrets).refunds.list(
+      { charge: charge.id, limit: 100 },
+      { stripeAccount }
+    );
+    refunds = refundList.data.map(stripeRefundToDTO);
+  } catch (error) {
+    console.error(`Error listing refunds for charge ${charge.id}`, error);
+    return;
+  }
+
+  const paymentIntentId = typeof charge.payment_intent === 'string' ? charge.payment_intent : charge.payment_intent?.id;
+
+  const identifierValues = [charge.id, paymentIntentId]
+    .filter((id): id is string => Boolean(id))
+    .map((id) => `${STRIPE_PAYMENT_ID_SYSTEM}|${id}`)
+    .join(',');
+
+  let notices: PaymentNotice[];
+  try {
+    notices = (
+      await oystehr.fhir.search<PaymentNotice>({
+        resourceType: 'PaymentNotice',
+        params: [{ name: 'identifier', value: identifierValues }],
+      })
+    ).unbundle();
+  } catch (error) {
+    console.error(`Error searching source PaymentNotices for charge ${charge.id}`, error);
+    return;
+  }
+
+  for (const notice of notices) {
+    try {
+      // retry variant: a version conflict from an unrelated concurrent update must not
+      // discard the webhook's only stamping attempt; stale reservations are cleaned here too
+      const staleIds = staleReservationIds([...(parsePaymentRefundsFromNotice(notice) ?? []), ...refunds]);
+      await applyRefundsToPaymentNoticeWithRetry(oystehr, notice, refunds, staleIds);
+    } catch (error) {
+      console.error(`Error stamping refunds on PaymentNotice/${notice.id}`, error);
+    }
+  }
 };
 
 const upsertPaymentNoticeForChargelessInvoice = async (

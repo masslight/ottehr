@@ -20,7 +20,6 @@ interface Input extends PersistConsentInput {
 }
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  console.log(`Input: ${JSON.stringify(input)}`);
   const { appointmentId, secrets } = validateInput(input);
   const oystehr = await createOystehr(secrets);
   const consent = await oystehr.fhir.create<Consent>({

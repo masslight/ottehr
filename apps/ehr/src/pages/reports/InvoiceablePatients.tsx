@@ -91,6 +91,14 @@ const SP = {
   hideZeroBalance: 'hideZeroBalance',
 } as const;
 
+const STRIPE_INVOICE_STATUS_COLORS: Record<string, { background: string; color: string }> = {
+  open: { background: '#E3F2FD', color: '#0D47A1' },
+  paid: { background: '#C8E6C9', color: '#1B5E20' },
+  void: { background: '#EEEEEE', color: '#616161' },
+  uncollectible: { background: '#FFCCBC', color: '#BF360C' },
+  draft: { background: '#F5F5F5', color: '#9E9E9E' },
+};
+
 const INVOICEABLE_TASK_STATUS_COLORS_MAP: {
   [status in InvoiceTaskDisplayStatus]: {
     background: {
@@ -603,6 +611,11 @@ export default function InvoiceablePatients({ source }: InvoiceablePatientsProps
                   Invoice Status
                 </Typography>
               </TableCell>
+              <TableCell>
+                <Typography fontWeight="500" fontSize="14px">
+                  Payment Status
+                </Typography>
+              </TableCell>
               <TableCell align="right">
                 <Typography fontWeight="500" fontSize="14px">
                   Actions
@@ -613,14 +626,14 @@ export default function InvoiceablePatients({ source }: InvoiceablePatientsProps
           <TableBody>
             {isInvoiceablePatientsLoading ? (
               <TableRow>
-                <TableCell colSpan={6} align="center">
+                <TableCell colSpan={7} align="center">
                   <CircularProgress />
                 </TableCell>
               </TableRow>
             ) : null}
             {!isInvoiceablePatientsLoading && (invoiceablePatients?.reports ?? []).length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} align="center">
+                <TableCell colSpan={7} align="center">
                   <Typography variant="body2">No reports</Typography>
                 </TableCell>
               </TableRow>
@@ -634,7 +647,7 @@ export default function InvoiceablePatients({ source }: InvoiceablePatientsProps
                   : isSending
                   ? 'sending'
                   : mapInvoiceTaskStatusToDisplay(report.task.status);
-                const { invoiceId, error } = getInvoiceTaskOutputs(report.task);
+                const { invoiceId, error, stripeInvoiceStatus } = getInvoiceTaskOutputs(report.task);
                 const maskedClaimId =
                   report.claimId.length > 12
                     ? `${report.claimId.slice(0, 6)}...${report.claimId.slice(-4)}`
@@ -757,6 +770,21 @@ export default function InvoiceablePatients({ source }: InvoiceablePatientsProps
                         </GenericToolTip>
                       ) : (
                         <MappedStatusChip status={displayStatus} mapper={INVOICEABLE_TASK_STATUS_COLORS_MAP} />
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {stripeInvoiceStatus && (
+                        <Chip
+                          label={stripeInvoiceStatus}
+                          size="small"
+                          sx={{
+                            backgroundColor: (
+                              STRIPE_INVOICE_STATUS_COLORS[stripeInvoiceStatus] ?? { background: '#EEE' }
+                            ).background,
+                            color: (STRIPE_INVOICE_STATUS_COLORS[stripeInvoiceStatus] ?? { color: '#333' }).color,
+                            textTransform: 'capitalize',
+                          }}
+                        />
                       )}
                     </TableCell>
                     <TableCell sx={{ whiteSpace: 'nowrap', textAlign: 'right' }}>

@@ -7,7 +7,7 @@ import { generatePath, useNavigate, useSearchParams } from 'react-router-dom';
 import { PageContainer } from 'src/components/CustomContainer';
 import { useGetTelemedLocations } from 'src/telemed/features/appointments/appointment.queries';
 import { useOystehrAPIClient } from 'src/telemed/utils/getOystehrAPI';
-import { BoldPurpleInputLabel } from 'ui-components/lib/components/paperwork/form-components';
+import { BoldPurpleInputLabel } from 'ui-components/lib/components/paperwork/form-components/BoldPurpleInputLabel';
 import { getHoursOfOperationForToday } from 'utils/lib/fhir/location';
 import { getClosingTime, getOpeningTime } from 'utils/lib/helpers/check-office-open';
 import { BOOKING_CONFIG } from 'utils/lib/ottehr-config/booking';

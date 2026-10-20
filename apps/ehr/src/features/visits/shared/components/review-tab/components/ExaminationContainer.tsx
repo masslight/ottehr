@@ -1,5 +1,5 @@
 import { Box, Typography } from '@mui/material';
-import type { ExamItemConfig } from 'config-types';
+import type { ExamItemConfig } from 'config-types/config/examination';
 import { FC } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import {

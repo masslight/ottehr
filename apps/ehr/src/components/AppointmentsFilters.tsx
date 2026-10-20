@@ -1,6 +1,6 @@
 import AddIcon from '@mui/icons-material/Add';
 import { Box, Button, Paper, Stack, Typography } from '@mui/material';
-import { VisitType } from 'config-types';
+import { VisitType } from 'config-types/config/booking';
 import { DateTime } from 'luxon';
 import { ReactElement, useEffect, useMemo } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
@@ -17,19 +17,21 @@ import { LocationSelectInput } from './input/LocationSelectInput';
 import { SelectInput } from './input/SelectInput';
 
 // keys are the appointment-type strings get-appointments uses:
-// `${'in-person' | 'virtual'}-${AppointmentType}`
+// `${'in-person' | 'virtual'}-${AppointmentType}` for standard visit types,
+// plus 'in-person-scheduled-follow-up' for scheduled follow-up appointments.
 const ALL_VISIT_TYPE_LABELS = {
   'in-person-walk-in': 'Walk-in In Person Visit',
   'in-person-pre-booked': 'Pre-booked In Person Visit',
   'in-person-post-telemed': 'Post Telemed Lab Only',
+  'in-person-scheduled-follow-up': 'Scheduled follow-up',
   'virtual-walk-in': 'On-demand Telemed',
   'virtual-pre-booked': 'Pre-booked Telemed',
-} as const satisfies Partial<Record<`${'in-person' | 'virtual'}-${AppointmentType}`, string>>;
+} as const satisfies Partial<Record<`${'in-person' | 'virtual'}-${AppointmentType | 'scheduled-follow-up'}`, string>>;
 type VisitTypeFilterKey = keyof typeof ALL_VISIT_TYPE_LABELS;
 
 // this map bridges visit and appointment types so we can filter only the options configured for the
-// project
-const FILTER_KEY_TO_BOOKING_OPTION_ID: Record<VisitTypeFilterKey, VisitType> = {
+// project. Keys without an entry here are always shown regardless of booking config.
+const FILTER_KEY_TO_BOOKING_OPTION_ID: Partial<Record<VisitTypeFilterKey, VisitType>> = {
   'in-person-walk-in': VisitType.InPersonWalkIn,
   'in-person-pre-booked': VisitType.InPersonPreBook,
   'in-person-post-telemed': VisitType.InPersonPostTelemed,
@@ -40,9 +42,10 @@ const FILTER_KEY_TO_BOOKING_OPTION_ID: Record<VisitTypeFilterKey, VisitType> = {
 const getVisitTypeToLabel = (): Partial<typeof ALL_VISIT_TYPE_LABELS> => {
   const enabledBookingOptionIds = new Set(BOOKING_CONFIG.ehrBookingOptions.map((opt) => opt.id));
   return Object.fromEntries(
-    (Object.entries(ALL_VISIT_TYPE_LABELS) as [VisitTypeFilterKey, string][]).filter(([key]) =>
-      enabledBookingOptionIds.has(FILTER_KEY_TO_BOOKING_OPTION_ID[key])
-    )
+    (Object.entries(ALL_VISIT_TYPE_LABELS) as [VisitTypeFilterKey, string][]).filter(([key]) => {
+      const bookingOptionId = FILTER_KEY_TO_BOOKING_OPTION_ID[key];
+      return !bookingOptionId || enabledBookingOptionIds.has(bookingOptionId);
+    })
   );
 };
 
@@ -238,7 +241,9 @@ export default function AppointmentsFilters(): ReactElement {
     <FormProvider {...methods}>
       <Paper sx={{ padding: 2 }}>
         <Stack spacing={2}>
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems="flex-start">
+          {/* useFlexGap: the Link below is `display: contents`, so the margin Stack uses for `spacing`
+              by default would be dropped, leaving the button flush against the Visit Type filter. */}
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems="flex-start" useFlexGap>
             <Box sx={{ flex: 1, width: '100%' }}>
               <SelectInput
                 name="visitType"

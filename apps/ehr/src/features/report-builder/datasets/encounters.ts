@@ -7,12 +7,13 @@ import {
   ENCOUNTER_LAYERS,
   EncounterBaseRowSchema,
 } from 'utils/lib/types/adhoc/datasets/encounters';
+import { AdHocRow } from 'utils/lib/types/adhoc/datasets/llm-schema';
 import { AdHocLayer } from 'utils/lib/types/adhoc/query/layers';
 import { VisitStatusLabel } from 'utils/lib/types/api/appointment.types';
 import { buildTrackingBoardPath } from '../../../pages/reports/trackingBoardLink';
 import { ADHOC_QUERY_STALE_MS, runAdHocReport, toLocalYmd } from '../query/dataset-query';
 import { buildLlmDatasetSchema } from './schema';
-import { AdHocDataset, AdHocRow, FetchContext } from './types';
+import { AdHocDataset, FetchContext } from './types';
 
 export const ADHOC_ENCOUNTERS_OPTIONS: AdHocLayer[] = layerOptions(ENCOUNTER_LAYERS);
 
@@ -58,9 +59,7 @@ async function fetchAdHocEncounters({
 export const adhocEncountersDataset: AdHocDataset = {
   id: 'encounters-comprehensive',
   label: 'Encounters',
-  description:
-    'One row per encounter with visit, patient, contact, and location/provider detail; optional ' +
-    'clinical codes, KPI timing, and AI-assistance layers.',
+  description: 'One row per encounter with visit, patient, contact, and location/provider detail.',
   options: ADHOC_ENCOUNTERS_OPTIONS,
   layers: ENCOUNTER_LAYERS,
   baseSchema: EncounterBaseRowSchema,

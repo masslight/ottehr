@@ -16,7 +16,11 @@ vi.mock('../../src/shared/chart-data', () => ({
 
 // ── Imports ────────────────────────────────────────────────────────────────────
 
-import { performCandidPreEncounterSync } from '../../src/shared/candid';
+import { getNioReferenceUrl } from 'utils/lib/helpers/helpers';
+import {
+  CANDID_NON_INSURANCE_PAYER_ID_IDENTIFIER_SYSTEM,
+  performCandidPreEncounterSync,
+} from '../../src/shared/candid';
 
 // ── Mock helpers ───────────────────────────────────────────────────────────────
 
@@ -72,6 +76,12 @@ function makeMockOystehr(options?: { paymentVariant?: PaymentVariant; serviceCat
         ],
       }),
       patch: vi.fn(),
+      get: vi.fn().mockResolvedValue({
+        resourceType: 'Organization',
+        id: 'legacy-employer-1',
+        name: 'Legacy Employer',
+        identifier: [{ system: CANDID_NON_INSURANCE_PAYER_ID_IDENTIFIER_SYSTEM, value: 'candid-nip-1' }],
+      }),
     },
   };
 }
@@ -315,5 +325,58 @@ describe('performCandidPreEncounterSync – amountCents guard (real implementati
         insurancePlan: expect.objectContaining({ payerName: 'Workers Comp Insurer' }),
       })
     );
+  });
+});
+
+// ── Occ-med employer resolution (NIO vs legacy) ────────────────────────────────
+
+describe('performCandidPreEncounterSync – occ-med employer resolution', () => {
+  let mockOystehr: ReturnType<typeof makeMockOystehr>;
+  let mockCandidApiClient: ReturnType<typeof makeMockCandidApiClient>;
+
+  const occMedAccount = (ownerReference: string): any => ({
+    resourceType: 'Account',
+    id: 'occ-med-account-1',
+    status: 'active',
+    owner: { reference: ownerReference },
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockOystehr = makeMockOystehr();
+    mockCandidApiClient = makeMockCandidApiClient();
+  });
+
+  it('never FHIR-reads a billing-app NIO employer — the Candid claim goes out without a non-insurance payer', async () => {
+    mockGetAccountAndCoverageResourcesForPatient.mockResolvedValue({
+      coverages: {},
+      insuranceOrgs: [],
+      occupationalMedicineAccount: occMedAccount(getNioReferenceUrl('11111111-1111-4111-8111-111111111111')),
+    });
+
+    await performCandidPreEncounterSync({
+      encounterId: ENCOUNTER_ID,
+      oystehr: mockOystehr,
+      candidApiClient: mockCandidApiClient,
+    });
+
+    expect(mockOystehr.fhir.get).not.toHaveBeenCalled();
+    expect(mockCandidApiClient.preEncounter.appointments.v1.create).toHaveBeenCalled();
+  });
+
+  it('still resolves a legacy employer Organization for the Candid non-insurance payer', async () => {
+    mockGetAccountAndCoverageResourcesForPatient.mockResolvedValue({
+      coverages: {},
+      insuranceOrgs: [],
+      occupationalMedicineAccount: occMedAccount('Organization/legacy-employer-1'),
+    });
+
+    await performCandidPreEncounterSync({
+      encounterId: ENCOUNTER_ID,
+      oystehr: mockOystehr,
+      candidApiClient: mockCandidApiClient,
+    });
+
+    expect(mockOystehr.fhir.get).toHaveBeenCalledWith({ resourceType: 'Organization', id: 'legacy-employer-1' });
   });
 });

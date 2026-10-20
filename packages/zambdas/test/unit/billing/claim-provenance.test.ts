@@ -509,7 +509,7 @@ describe('commitClaimMetaTagsWithProvenance patient-AR date extensions', () => {
     );
     const requests = transaction.mock.calls[0][0].requests;
     const patch = requests.find((r: { method: string }) => r.method === 'PATCH');
-    return JSON.parse(Buffer.from(patch.resource.data, 'base64').toString());
+    return patch.operations;
   };
 
   it('adds an /extension patch recording the entered-patient-AR date on entering patient AR', async () => {

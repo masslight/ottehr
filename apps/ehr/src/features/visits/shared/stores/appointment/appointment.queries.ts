@@ -13,11 +13,12 @@ import { useCallback, useEffect, useRef } from 'react';
 import { getPatientInstructionQuickPicks } from 'src/api/api';
 import { QUERY_STALE_TIME } from 'src/constants';
 import { FEATURE_FLAGS } from 'src/constants/feature-flags';
+import { isErxPermissionDeniedError } from 'src/features/visits/shared/utils/erxErrors';
 import { useGetErxConfigQuery } from 'src/features/visits/telemed/hooks/useGetErxConfig';
-import { isPermissionDeniedError } from 'src/helpers/apiErrors';
 import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser from 'src/hooks/useEvolveUser';
-import { useErrorQuery, useSuccessQuery } from 'utils/lib/frontend';
+import { useErrorQuery } from 'utils/lib/frontend/hooks/useErrorQuery';
+import { useSuccessQuery } from 'utils/lib/frontend/hooks/useSuccessQuery';
 import { CODE_SYSTEM_NDC } from 'utils/lib/helpers/rcm/constants';
 import { AISuggestionNotesInput } from 'utils/lib/types/api/ai-suggestions-notes';
 import { BillingSuggestionInput, CommunicationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
@@ -33,7 +34,6 @@ import {
   UpdateMedicationOrderInput,
 } from 'utils/lib/types/api/medication-administration.types';
 import { InstructionType } from 'utils/lib/types/api/patient-instructions/patient-instructions.types';
-import { ProcedureDetail } from 'utils/lib/types/api/procedures.types';
 import { PromiseReturnType } from 'utils/lib/types/common';
 import { MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM } from 'utils/lib/types/constants';
 import {
@@ -172,13 +172,13 @@ export const useGetMedicationsSearch = (
     placeholderData: keepPreviousData,
     staleTime: QUERY_STALE_TIME,
     // A role without eRx access will be denied every time — retrying just multiplies the 403s.
-    retry: (failureCount, error) => !isPermissionDeniedError(error) && failureCount < 3,
+    retry: (failureCount, error) => !isErxPermissionDeniedError(error) && failureCount < 3,
   });
 
   useEffect(() => {
     if (queryResult.error) {
       enqueueSnackbar(
-        isPermissionDeniedError(queryResult.error)
+        isErxPermissionDeniedError(queryResult.error)
           ? MEDICATION_DATABASE_FORBIDDEN_MESSAGE
           : 'An error occurred during the search. Please try again in a moment',
         {
@@ -208,13 +208,13 @@ export const useGetMedicationDetails = (medicationId: number): UseQueryResult<Er
     placeholderData: keepPreviousData,
     staleTime: QUERY_STALE_TIME,
     // A role without eRx access will be denied every time — retrying just multiplies the 403s.
-    retry: (failureCount, error) => !isPermissionDeniedError(error) && failureCount < 3,
+    retry: (failureCount, error) => !isErxPermissionDeniedError(error) && failureCount < 3,
   });
 
   useEffect(() => {
     if (queryResult.error) {
       enqueueSnackbar(
-        isPermissionDeniedError(queryResult.error)
+        isErxPermissionDeniedError(queryResult.error)
           ? MEDICATION_DATABASE_FORBIDDEN_MESSAGE
           : `An error occurred during looking up medication details: ${queryResult.error.message}`,
         {
@@ -585,20 +585,6 @@ export const useRecommendBillingSuggestions = () => {
       return apiClient.recommendBillingSuggestions(props);
     },
     retry: 0,
-  });
-};
-
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export const useRecommendBillingCodes = () => {
-  const apiClient = useOystehrAPIClient();
-  return useMutation({
-    mutationFn: (props: ProcedureDetail) => {
-      if (!apiClient) {
-        throw new Error('api client is not defined');
-      }
-      return apiClient.recommendBillingCodes(props);
-    },
-    retry: 2,
   });
 };
 

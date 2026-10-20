@@ -1,7 +1,7 @@
 import { SxProps, TableCell, TableRow, Theme, Typography } from '@mui/material';
 import { useEffect, useState } from 'react';
 import { Controller, ControllerRenderProps, FieldValues, useFormContext } from 'react-hook-form';
-import { quantityRangeFormat } from 'utils/lib/helpers/in-house-labs';
+import { categoricalRangeFormat, quantityRangeFormat } from 'utils/lib/helpers/in-house-labs';
 import { OBSERVATION_CODES } from 'utils/lib/types/data/in-house/in-house.constants';
 import { DataEntryComponent } from 'utils/lib/types/data/in-house/in-house.types';
 import { NullOptionCheckbox } from './NullOptionCheckbox';
@@ -50,12 +50,7 @@ export const ResultEntryTableRow: React.FC<ResultEntryTableRowProps> = ({
     }
     if (component.dataType === 'CodeableConcept') {
       units = component.unit ?? '';
-      referenceRange =
-        component.referenceRangeValues
-          ?.map((refRange) => {
-            return refRange.display.charAt(0).toUpperCase() + refRange.display.slice(1);
-          })
-          .join(', ') ?? '';
+      referenceRange = categoricalRangeFormat(component.referenceRangeValues);
     }
     if (component.displayType === 'Numeric') {
       valueElement = (

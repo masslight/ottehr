@@ -8,11 +8,10 @@ import {
   buildEmployerType,
   EMPLOYER_ORG_TYPE_CODE,
   EMPLOYER_ORG_TYPE_SYSTEM,
-  normalizeAddress,
   normalizeEmployerNotesExtension,
-  normalizeTelecom,
   setOrUpdateCandidIdentifier,
 } from '../rcm/employers/helpers';
+import { normalizeAddress, normalizeTelecom } from '../shared/organization';
 import { createOystehrClientFromConfig } from './helpers';
 
 // ─── CSV row shape ──────────────────────────────────────────────────────────────

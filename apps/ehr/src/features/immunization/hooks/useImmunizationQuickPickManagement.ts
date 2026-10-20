@@ -4,7 +4,7 @@ import { UseFormReturn } from 'react-hook-form';
 import { createImmunizationQuickPick, getImmunizationQuickPicks, updateImmunizationQuickPick } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { sortQuickPicks, useMergedImmunizationQuickPicks } from 'src/hooks/useMergedQuickPicks';
-import { ROUTE_OPTIONS } from 'src/shared/utils/options';
+import { BASE_ROUTE_OPTIONS } from 'src/shared/utils/options';
 import { ImmunizationQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 
 interface UseImmunizationQuickPickManagementProps {
@@ -88,7 +88,7 @@ export const useImmunizationQuickPickManagement = ({
     if (values.details?.dose) parts.push(values.details.dose);
     if (values.details?.units) parts.push(values.details.units);
     if (values.details?.route) {
-      const routeName = ROUTE_OPTIONS.find((opt) => opt.code === values.details.route)?.name;
+      const routeName = BASE_ROUTE_OPTIONS.find((opt) => opt.code === values.details.route)?.name;
       parts.push(routeName ?? values.details.route);
     }
     if (values.details?.location?.name) parts.push(values.details.location.name);

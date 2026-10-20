@@ -1,14 +1,22 @@
 import { Box, CircularProgress, IconButton, useTheme } from '@mui/material';
 import { ReactElement, ReactNode } from 'react';
+import { Link as RouterLink } from 'react-router-dom';
 
-interface Props {
+interface BaseProps {
   text: string;
-  onClick: (event: React.MouseEvent<HTMLElement>) => void;
   loading?: boolean;
   children: ReactNode | ReactNode[];
   dataTestId?: string;
   backgroundColor?: string;
 }
+
+/**
+ * Buttons that only navigate pass `to`, which renders them as an anchor so the browser's native
+ * link behavior (context menu, middle-click, cmd/ctrl-click) keeps working. Buttons that do
+ * anything else pass `onClick`.
+ */
+type Props = BaseProps &
+  ({ to: string; onClick?: never } | { to?: never; onClick: (event: React.MouseEvent<HTMLElement>) => void });
 
 export default function GoToButton(props: Props): ReactElement {
   const theme = useTheme();
@@ -51,6 +59,7 @@ export default function GoToButton(props: Props): ReactElement {
         },
       }}
       onClick={props.onClick}
+      {...(props.to ? { component: RouterLink, to: props.to } : {})}
     >
       {props.children}
       {props.text}

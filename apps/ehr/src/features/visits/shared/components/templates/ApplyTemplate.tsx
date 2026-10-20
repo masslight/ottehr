@@ -19,7 +19,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { applyTemplate, createTemplate, deleteTemplate } from 'src/api/api';
-import { CHART_DATA_QUERY_KEY, CHART_FIELDS_QUERY_KEY } from 'src/constants';
+import { invalidateChart } from 'src/features/visits/shared/hooks/chartSectionCache';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { useCommandPaletteSource } from 'src/hooks/useCommandPaletteSource';
 import useEvolveUser from 'src/hooks/useEvolveUser';
@@ -139,8 +139,7 @@ export const ApplyTemplate: React.FC = () => {
 
         // TODO: use window.location.reload() if there are issues with queryClient.invalidateQueries
         await Promise.all([
-          queryClient.invalidateQueries({ queryKey: [CHART_DATA_QUERY_KEY, encounter.id] }),
-          queryClient.invalidateQueries({ queryKey: [CHART_FIELDS_QUERY_KEY, encounter.id] }),
+          invalidateChart(queryClient, encounter.id),
           queryClient.invalidateQueries({ queryKey: [GET_MEDICATION_ORDERS_QUERY_KEY] }),
         ]);
 

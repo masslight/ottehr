@@ -1,4 +1,4 @@
-import { captureException } from '@sentry/aws-serverless';
+import { captureException } from '@sentry/node-core/light';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
 import { Communication, Device, Task } from 'fhir/r4b';
@@ -83,8 +83,6 @@ export function isOutboundFax(communication: Communication): boolean {
 }
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  console.log(`[${ZAMBDA_NAME}] handler start, body length: ${input.body?.length ?? 0}`);
-
   try {
     const { communication, secrets } = validateRequestParameters(input);
 

@@ -1,4 +1,5 @@
-import { createSimpleHash, validateExamConfig } from '../../config-helpers/examination';
+import { validateExaminationConfig as validateExamConfig } from 'config-types/config/examination';
+import { createSimpleHash } from '../../config-helpers/examination';
 import { DefaultExamComponentsConfig, NORMAL_LABELS } from './default-components.config';
 
 export const ExamConfig = {

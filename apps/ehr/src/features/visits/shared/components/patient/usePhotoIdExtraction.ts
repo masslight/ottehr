@@ -1,8 +1,10 @@
+import Oystehr from '@oystehr/sdk';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { DocumentReference } from 'fhir/r4b';
+import { DocumentReference, QuestionnaireResponse } from 'fhir/r4b';
 import { useEffect, useRef } from 'react';
 import { extractPhotoId } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
+import { INTAKE_PAPERWORK_QR_TAG } from 'utils/lib/fhir/constants';
 import { LOINC_SYSTEM } from 'utils/lib/fhir/vitals';
 import {
   DocumentType,
@@ -11,6 +13,7 @@ import {
   PhotoIdExtractionFields,
 } from 'utils/lib/types/data/documents';
 import { PHOTO_ID_CARD_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
+import { findQuestionnaireResponseItemLinkId } from 'utils/lib/types/data/paperwork/paperwork.types';
 import { CardFieldSuggestion, normalizeForComparison, readStoredExtension } from './useInsuranceCardExtraction';
 
 export interface UsePhotoIdExtractionResult {
@@ -38,6 +41,70 @@ export const readNewestFrontExtractionFields = (
   const extraction = readStoredExtraction(front);
   if (!extraction || extraction.notAPhotoId || !extraction.fields) return null;
   return extraction.fields;
+};
+
+const CONSENT_SIGNER_RELATIONSHIP_LINK_ID = 'consent-form-signer-relationship';
+const SELF_RELATIONSHIP = 'self';
+const CONSENT_SIGNER_PAPERWORK_PAGE_SIZE = 5;
+
+/**
+ * The most recently recorded answer to "Relationship to the patient" across the patient's
+ * paperwork, or undefined when none of these responses answered it. Input is expected newest-first.
+ * Only intake paperwork carries this linkId, so non-paperwork responses are skipped without having
+ * to identify them. Exported for tests.
+ */
+export const readConsentSignerRelationship = (
+  questionnaireResponsesNewestFirst: QuestionnaireResponse[]
+): string | undefined => {
+  for (const questionnaireResponse of questionnaireResponsesNewestFirst) {
+    const answer = findQuestionnaireResponseItemLinkId(
+      CONSENT_SIGNER_RELATIONSHIP_LINK_ID,
+      questionnaireResponse.item ?? []
+    )?.answer?.[0]?.valueString?.trim();
+    if (answer) return answer;
+  }
+  return undefined;
+};
+
+export const photoIdBelongsToPatient = (relationship: string | undefined): boolean =>
+  !relationship || normalizeForComparison(relationship) === SELF_RELATIONSHIP;
+
+const IDENTITY_FIELDS = ['firstName', 'middleName', 'lastName', 'suffix', 'dateOfBirth', 'sex'] as const;
+
+export const withoutPhotoIdIdentity = (fields: PhotoIdExtractionFields | null): PhotoIdExtractionFields | null =>
+  fields ? { ...fields, ...Object.fromEntries(IDENTITY_FIELDS.map((field) => [field, null])) } : null;
+
+const hasIdentity = (fields: PhotoIdExtractionFields | null): boolean =>
+  Boolean(fields && IDENTITY_FIELDS.some((field) => fields[field]));
+
+const searchNewestResponses = async (
+  oystehr: Oystehr,
+  patientId: string,
+  intakePaperworkOnly: boolean
+): Promise<QuestionnaireResponse[]> => {
+  const bundle = await oystehr.fhir.search<QuestionnaireResponse>({
+    resourceType: 'QuestionnaireResponse',
+    params: [
+      { name: 'subject', value: `Patient/${patientId}` },
+      ...(intakePaperworkOnly
+        ? [{ name: '_tag', value: `${INTAKE_PAPERWORK_QR_TAG.system}|${INTAKE_PAPERWORK_QR_TAG.code}` }]
+        : []),
+      { name: '_sort', value: '-_lastUpdated' },
+      { name: '_count', value: `${CONSENT_SIGNER_PAPERWORK_PAGE_SIZE}` },
+    ],
+  });
+  return bundle.unbundle();
+};
+
+const resolvePhotoIdBelongsToPatient = async (oystehr: Oystehr, patientId: string): Promise<boolean> => {
+  try {
+    const tagged = await searchNewestResponses(oystehr, patientId, true);
+    const responses = tagged.length ? tagged : await searchNewestResponses(oystehr, patientId, false);
+    return photoIdBelongsToPatient(readConsentSignerRelationship(responses));
+  } catch (error) {
+    console.error(`Failed to read the consent signer relationship for Patient/${patientId}:`, error);
+    return false;
+  }
 };
 
 /**
@@ -68,7 +135,11 @@ export const usePhotoIdExtraction = (patientId: string | undefined): UsePhotoIdE
       const front = docRefsNewestFirst.find(
         (docRef) => docRef.content?.[0]?.attachment?.title === DocumentType.PhotoIdFront
       );
-      return { front, fields: readNewestFrontExtractionFields(docRefsNewestFirst) };
+      const fields = readNewestFrontExtractionFields(docRefsNewestFirst);
+      if (!hasIdentity(fields) || (await resolvePhotoIdBelongsToPatient(oystehr!, patientId!))) {
+        return { front, fields };
+      }
+      return { front, fields: withoutPhotoIdIdentity(fields) };
     },
     enabled,
   });

@@ -1,17 +1,30 @@
+import DownloadIcon from '@mui/icons-material/Download';
 import ScannerIcon from '@mui/icons-material/Scanner';
 import SearchOutlinedIcon from '@mui/icons-material/SearchOutlined';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import { Box, debounce, Grid, IconButton, Stack, styled, TextField, Typography, useTheme } from '@mui/material';
+import { GridRowSelectionModel } from '@mui/x-data-grid-pro';
+import { Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { ChangeEvent, FC, useCallback, useEffect, useMemo, useState } from 'react';
 import DateSearch, { CustomFormEventHandler } from 'src/components/DateSearch';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { ScannerModal } from 'src/components/ScannerModal';
-import { SendFaxDialog, useSendFax } from 'src/features/fax';
-import { PatientDocumentsFilters, PatientDocumentsFolder, useGetPatientDocs } from 'src/hooks/useGetPatientDocs';
+import { dataTestIds } from 'src/constants/data-test-ids';
+import { useSendFax } from 'src/features/fax/hooks/useSendFax';
+import { SendFaxDialog } from 'src/features/fax/ui/SendFaxDialog';
+import { useDownloadDocumentsZip } from 'src/hooks/useDownloadDocumentsZip';
+import {
+  DocumentVisitRef,
+  hasVisitRef,
+  PatientDocumentsFilters,
+  PatientDocumentsFolder,
+  useGetPatientDocs,
+} from 'src/hooks/useGetPatientDocs';
 import { PatientVisitOption, usePatientVisitOptions } from 'src/hooks/usePatientVisitOptions';
 import { isSyntheticFolderId } from 'utils/lib/types/data/custom-folder.types';
+import { describeIncompleteArchive, isSingleFileDownload, makeDocumentsZipFileName } from './documentsZip';
 import { PatientDocumentFoldersColumn, PatientDocumentFoldersColumnSkeleton } from './PatientDocumentFoldersColumn';
 import {
   DocumentTableActions,
@@ -34,14 +47,31 @@ const FileAttachmentHiddenInput = styled('input')({
 
 const VALID_FILE_NAME_PATTERN = /^[a-zA-Z0-9+!\-_'()\\.@$ ]+$/;
 
+const DOWNLOAD_ERROR_MESSAGES = {
+  file: {
+    tooLarge: 'The file is too large to download.',
+    noneDownloaded: 'The file could not be downloaded. Please try again.',
+    failed: 'The file could not be downloaded. Please try again.',
+  },
+  archive: {
+    tooLarge: 'The archive is too large. Please select fewer documents and try again.',
+    noneDownloaded: 'None of the selected documents could be downloaded. Please try again.',
+    failed: 'Failed to download the selected documents. Please try again.',
+  },
+};
+
 export type PatientDocumentsExplorerProps = {
   patientId: string;
+  patient?: Patient;
   /**
    * Scopes the explorer to a single visit: documents and folder counters are filtered to it, uploads
    * and scans are filed against it, and the visit filter is hidden (the visit is already fixed).
+   *
+   * Both ids are needed: EHR uploads link a document by encounter, while several intake documents
+   * link by appointment, so a visit's documents are only complete when both are matched.
    * Omit for the patient-level Docs view.
    */
-  encounterId?: string;
+  visit?: DocumentVisitRef;
   /** Preselect this folder once folders have loaded, matched case-insensitively on display name. */
   initialFolderName?: string;
   /**
@@ -58,12 +88,13 @@ export type PatientDocumentsExplorerProps = {
  */
 export const PatientDocumentsExplorer: FC<PatientDocumentsExplorerProps> = ({
   patientId,
-  encounterId,
+  patient,
+  visit,
   initialFolderName,
   readOnly = false,
 }) => {
   const theme = useTheme();
-  const isVisitScoped = !!encounterId;
+  const isVisitScoped = hasVisitRef(visit);
 
   const {
     documents,
@@ -74,7 +105,7 @@ export const PatientDocumentsExplorer: FC<PatientDocumentsExplorerProps> = ({
     downloadDocument,
     renameDocument,
     documentActions,
-  } = useGetPatientDocs(patientId, undefined, { uploadEncounterId: encounterId });
+  } = useGetPatientDocs(patientId, undefined, { uploadEncounterId: visit?.encounterId });
 
   const { visitOptions, isLoading: isLoadingVisits } = usePatientVisitOptions(isVisitScoped ? undefined : patientId);
 
@@ -86,6 +117,9 @@ export const PatientDocumentsExplorer: FC<PatientDocumentsExplorerProps> = ({
   const [isScanModalOpen, setIsScanModalOpen] = useState<boolean>(false);
   const [pendingSelectInternalName, setPendingSelectInternalName] = useState<string | null>(null);
   const [documentIdToFax, setDocumentIdToFax] = useState<string | null>(null);
+  const [selectedDocumentIds, setSelectedDocumentIds] = useState<GridRowSelectionModel>([]);
+
+  const { downloadDocumentsZip, isDownloading: isDownloadingDocuments } = useDownloadDocumentsZip();
 
   const faxSource = useMemo(
     () =>
@@ -128,19 +162,26 @@ export const PatientDocumentsExplorer: FC<PatientDocumentsExplorerProps> = ({
   const shouldShowClearFilters =
     searchDocNameFieldValue.trim().length > 0 || !!searchDocAddedDate || !!selectedFolder || !!selectedVisit;
 
-  // When the explorer is visit-scoped the encounter comes from the host page, not the filter row.
-  const activeEncounterId = encounterId ?? selectedVisit?.encounterId;
+  // When the explorer is visit-scoped the visit comes from the host page, not the filter row.
+  const activeVisit: DocumentVisitRef | undefined = useMemo(
+    () =>
+      visit ??
+      (selectedVisit
+        ? { encounterId: selectedVisit.encounterId, appointmentId: selectedVisit.appointmentId }
+        : undefined),
+    [visit, selectedVisit]
+  );
 
   useEffect(() => {
     const filters: PatientDocumentsFilters = {
       documentName: docNameTextDebounced,
       documentsFolder: selectedFolder,
       dateAdded: searchDocAddedDate ?? undefined,
-      encounterId: activeEncounterId,
+      visit: activeVisit,
     };
 
     searchDocuments(filters);
-  }, [docNameTextDebounced, searchDocAddedDate, selectedFolder, activeEncounterId, searchDocuments]);
+  }, [docNameTextDebounced, searchDocAddedDate, selectedFolder, activeVisit, searchDocuments]);
 
   const debounceTextInput = useMemo(
     () =>
@@ -290,6 +331,37 @@ export const PatientDocumentsExplorer: FC<PatientDocumentsExplorerProps> = ({
     [documentActions, reselectFolderIfSynthetic, selectedFolder?.id, selectedFolder?.internalName]
   );
 
+  const handleDownloadSelectedDocuments = useCallback(async (): Promise<void> => {
+    const selectedDocuments = (documents ?? []).filter((document) => selectedDocumentIds.includes(document.id));
+    if (selectedDocuments.length === 0) {
+      enqueueSnackbar('Please select the documents you want to download.');
+      return;
+    }
+
+    const messages = DOWNLOAD_ERROR_MESSAGES[isSingleFileDownload(selectedDocuments) ? 'file' : 'archive'];
+    try {
+      const result = await downloadDocumentsZip(selectedDocuments, makeDocumentsZipFileName(patient));
+      switch (result.status) {
+        case 'saved':
+          if (result.affectedDocumentNames.length > 0) {
+            enqueueSnackbar(describeIncompleteArchive(result.affectedDocumentNames), { variant: 'warning' });
+          }
+          break;
+        case 'too-large':
+          enqueueSnackbar(messages.tooLarge, { variant: 'error' });
+          break;
+        case 'none-downloaded':
+          enqueueSnackbar(messages.noneDownloaded, { variant: 'error' });
+          break;
+        case 'cancelled':
+          break;
+      }
+    } catch (error) {
+      console.error('Failed to download the selected documents', error);
+      enqueueSnackbar(messages.failed, { variant: 'error' });
+    }
+  }, [documents, downloadDocumentsZip, patient, selectedDocumentIds]);
+
   const documentTableActions: DocumentTableActions = useMemo(() => {
     return {
       // Reading a document is always allowed; only the mutating actions respect read-only.
@@ -428,6 +500,17 @@ export const PatientDocumentsExplorer: FC<PatientDocumentsExplorerProps> = ({
                 </RoundedButton>
               </>
             )}
+
+            <RoundedButton
+              disabled={isDownloadingDocuments}
+              loading={isDownloadingDocuments}
+              variant="outlined"
+              startIcon={<DownloadIcon fontSize="small" />}
+              onClick={() => void handleDownloadSelectedDocuments()}
+              data-testid={dataTestIds.patientDocsPage.downloadSelectedDocumentsButton}
+            >
+              Download
+            </RoundedButton>
           </Box>
 
           <PatientDocumentsExplorerTable
@@ -435,6 +518,8 @@ export const PatientDocumentsExplorer: FC<PatientDocumentsExplorerProps> = ({
             documents={documents}
             documentTableActions={documentTableActions}
             patientId={patientId}
+            selectedDocumentIds={selectedDocumentIds}
+            onSelectedDocumentIdsChange={setSelectedDocumentIds}
           />
         </Grid>
       </Grid>

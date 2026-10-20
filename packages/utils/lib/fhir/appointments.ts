@@ -9,10 +9,74 @@ import {
   FHIR_APPOINTMENT_TYPE_MAP,
   FHIR_ZAPEHR_URL,
   PUBLIC_EXTENSION_BASE_URL,
+  ROOM_EXTENSION_URL,
   SERVICE_CATEGORY_SYSTEM,
 } from './constants';
 import { getCoding } from './helpers';
 import { OTTEHR_MODULE } from './moduleIdentification';
+
+export function getAppointmentRoom(appointment: Appointment): string | undefined {
+  return appointment.extension?.find((ext) => ext.url === ROOM_EXTENSION_URL)?.valueString;
+}
+
+export async function updateAppointmentRoom(
+  appointment: Appointment,
+  room: string | undefined,
+  oystehr: Oystehr
+): Promise<Appointment> {
+  if (!appointment.id) {
+    throw new Error('Appointment resource missing id');
+  }
+
+  const existingExtension = appointment.extension ?? [];
+
+  if (!room) {
+    const updatedExtension = existingExtension.filter((ext) => ext.url !== ROOM_EXTENSION_URL);
+    if (updatedExtension.length === existingExtension.length) {
+      return appointment;
+    }
+    if (updatedExtension.length === 0) {
+      return oystehr.fhir.patch<Appointment>({
+        resourceType: 'Appointment',
+        id: appointment.id,
+        operations: [{ op: 'remove', path: '/extension' }],
+      });
+    }
+    return oystehr.fhir.patch<Appointment>({
+      resourceType: 'Appointment',
+      id: appointment.id,
+      operations: [{ op: 'replace', path: '/extension', value: updatedExtension }],
+    });
+  }
+
+  const roomExtensionIndex = existingExtension.findIndex((ext) => ext.url === ROOM_EXTENSION_URL);
+
+  if (roomExtensionIndex !== -1) {
+    const updatedExtension = [...existingExtension];
+    updatedExtension[roomExtensionIndex] = { url: ROOM_EXTENSION_URL, valueString: room };
+    return oystehr.fhir.patch<Appointment>({
+      resourceType: 'Appointment',
+      id: appointment.id,
+      operations: [{ op: 'replace', path: '/extension', value: updatedExtension }],
+    });
+  }
+
+  if (existingExtension.length === 0) {
+    return oystehr.fhir.patch<Appointment>({
+      resourceType: 'Appointment',
+      id: appointment.id,
+      operations: [{ op: 'add', path: '/extension', value: [{ url: ROOM_EXTENSION_URL, valueString: room }] }],
+    });
+  }
+
+  const updatedExtension = [...existingExtension];
+  updatedExtension.push({ url: ROOM_EXTENSION_URL, valueString: room });
+  return oystehr.fhir.patch<Appointment>({
+    resourceType: 'Appointment',
+    id: appointment.id,
+    operations: [{ op: 'replace', path: '/extension', value: updatedExtension }],
+  });
+}
 
 export async function cancelAppointmentResource(
   appointment: Appointment,
@@ -197,30 +261,25 @@ export const getReasonForVisitAndAdditionalDetailsFromAppointment = (
   };
 };
 
-export const isAppointmentWorkersComp = (appointment: Appointment): boolean => {
-  const serviceCategory = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code;
-  return serviceCategory === CODE_SYSTEM_SERVICE_CATEGORY_CODES['workers-comp'];
-};
+/** Code of the appointment's service category under SERVICE_CATEGORY_SYSTEM, if it carries one. */
+export const getServiceCategoryCodeFromAppointment = (appointment?: Appointment): string | undefined =>
+  getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code;
 
-export const isAppointmentOccupationalMedicine = (appointment: Appointment): boolean => {
-  const serviceCategory = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code;
-  return serviceCategory === CODE_SYSTEM_SERVICE_CATEGORY_CODES['occupational-medicine'];
-};
+export const isAppointmentWorkersComp = (appointment: Appointment): boolean =>
+  getServiceCategoryCodeFromAppointment(appointment) === CODE_SYSTEM_SERVICE_CATEGORY_CODES['workers-comp'];
 
-export const isAppointmentPreOp = (appointment: Appointment): boolean => {
-  const serviceCategory = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code;
-  return serviceCategory === CODE_SYSTEM_SERVICE_CATEGORY_CODES['pre-op'];
-};
+export const isAppointmentOccupationalMedicine = (appointment: Appointment): boolean =>
+  getServiceCategoryCodeFromAppointment(appointment) === CODE_SYSTEM_SERVICE_CATEGORY_CODES['occupational-medicine'];
 
-export const isAppointmentUrgentCare = (appointment: Appointment): boolean => {
-  const serviceCategory = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code;
-  return serviceCategory === CODE_SYSTEM_SERVICE_CATEGORY_CODES['urgent-care'];
-};
+export const isAppointmentPreOp = (appointment: Appointment): boolean =>
+  getServiceCategoryCodeFromAppointment(appointment) === CODE_SYSTEM_SERVICE_CATEGORY_CODES['pre-op'];
+
+export const isAppointmentUrgentCare = (appointment: Appointment): boolean =>
+  getServiceCategoryCodeFromAppointment(appointment) === CODE_SYSTEM_SERVICE_CATEGORY_CODES['urgent-care'];
 
 export const isAppointmentAutoAccident = (appointment: Appointment): boolean => {
-  const serviceCategory = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code;
   const { reasonForVisit } = getReasonForVisitAndAdditionalDetailsFromAppointment(appointment);
-  return serviceCategory === CODE_SYSTEM_SERVICE_CATEGORY_CODES['urgent-care'] && reasonForVisit === 'Auto accident';
+  return isAppointmentUrgentCare(appointment) && reasonForVisit === 'Auto accident';
 };
 
 export const getCancellationReasonDisplay = (appointment?: Appointment): string | undefined => {

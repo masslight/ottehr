@@ -4,19 +4,24 @@ import { Encounter, Practitioner, Schedule } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { GetUserResponse } from 'utils/lib/types/api/get-user.types';
 import { PractitionerLicense } from 'utils/lib/types/api/practitioner.types';
+import { z } from 'zod';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { isFhirNotFoundError } from '../../shared/errors';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
-import { validateRequestParameters } from './validateRequestParameters';
+import { validateWithSchema } from '../../shared/validation';
+
+export const GetUserBodySchema = z.object({
+  userId: z.string().uuid(),
+});
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mToken: string;
 const ZAMBDA_NAME = 'get-user';
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.group('validateRequestParameters');
-  const validatedParameters = validateRequestParameters(input);
+  const validatedParameters = validateWithSchema(GetUserBodySchema, input);
   const { secrets, userId } = validatedParameters;
   console.groupEnd();
   console.debug('validateRequestParameters success');

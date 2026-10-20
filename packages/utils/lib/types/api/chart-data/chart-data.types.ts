@@ -16,6 +16,7 @@ import {
   Task,
 } from 'fhir/r4b';
 import z from 'zod';
+import type { StructuredFacts } from '../../../procedure-coding/structured-fields';
 import { ObservationDTO } from '../../data/screening-questions/types';
 import { EncounterExternalLabResult, EncounterInHouseLabResult } from '../lab';
 import { RadiologyDTO } from '../radiology';
@@ -102,7 +103,8 @@ export type RequestedFields =
   | 'reasonForVisit'
   | 'accident'
   | 'patientHasPreviousVisits'
-  | 'radiologyOrders';
+  | 'radiologyOrders'
+  | 'aiChat';
 
 export type AllChartValuesKeys = keyof AllChartValues;
 
@@ -439,6 +441,8 @@ export interface DiagnosisDTO extends SaveableDTO {
   display: string;
   isPrimary: boolean;
   addedViaLabOrder?: boolean;
+  /** Recorded only for diagnoses first created through procedure documentation. */
+  addedViaProcedure?: boolean;
 }
 
 export interface BirthHistoryDTO extends SaveableDTO {
@@ -591,6 +595,11 @@ export interface ProcedureDTO extends SaveableDTO {
   technique?: string[];
   suppliesUsed?: string;
   procedureDetails?: string;
+  structuredFacts?: StructuredFacts;
+  lengthCm?: number;
+  repairDepth?: string;
+  infusionStartTime?: string;
+  infusionStopTime?: string;
   specimenSent?: boolean;
   complications?: string;
   patientResponse?: string;
@@ -605,6 +614,13 @@ export interface AccidentDTO extends SaveableDTO {
   date?: string;
   state?: string;
 }
+
+// Matches the checkbox labels on the HPI screen's "Patient's condition related to" card.
+export const ACCIDENT_TYPE_LABELS: Record<string, string> = {
+  AA: 'Auto Accident',
+  EM: 'Employment',
+  OA: 'Other Accident',
+};
 
 export interface MigrateExamDataInput {
   encounterId: string;

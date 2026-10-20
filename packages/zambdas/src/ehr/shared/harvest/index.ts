@@ -54,6 +54,7 @@ import {
   PREFERRED_PHARMACY_PLACES_ID_URL,
   PRIVATE_EXTENSION_BASE_URL,
   SUBSCRIBER_RELATIONSHIP_CODE_MAP,
+  SubscriberRelationship,
   WORKERS_COMP_ACCOUNT_TYPE,
 } from 'utils/lib/fhir/constants';
 import { deduplicateUnbundledResources } from 'utils/lib/fhir/deduplicateUnbundledResources';
@@ -106,8 +107,12 @@ import {
 import {
   findOrgMatchingReference,
   formatPhoneNumber,
+  getCustomInsuranceOrgBusinessId,
+  getCustomInsuranceOrgReferenceUrl,
   getPayerId,
   getPayerUrl,
+  isCustomInsuranceOrgReferenceUrl,
+  isNioReferenceUrl,
   isPayerUrl,
 } from 'utils/lib/helpers/helpers';
 import { filterHiddenRemovableFields, isFieldExplicitlyCleared } from 'utils/lib/helpers/paperwork/paperwork';
@@ -153,6 +158,7 @@ import { uploadPDF } from 'utils/lib/utils/pdf';
 import { isValidUUID } from 'utils/lib/validation/helper';
 import { createOrUpdateFlags } from '../../../patient/paperwork/sharedHelpers';
 import { getInsuranceOverrideList, ListName } from '../../../rcm/get-insurance-override-list/handler';
+import { resolveCustomInsuranceOrgReference } from '../../../shared/custom-insurance-org-directory';
 import { createPdfBytes } from '../../../shared/pdf';
 
 export const PATIENT_CONTAINED_PHARMACY_ID = 'pharmacy';
@@ -225,7 +231,7 @@ interface PolicyHolder {
   middleName: string;
   lastName: string;
   memberId: string;
-  relationship: 'Self' | 'Child' | 'Parent' | 'Spouse' | 'Common Law Spouse' | 'Injured Party' | 'Other';
+  relationship: SubscriberRelationship;
 
   number?: string;
   email?: string;
@@ -1590,7 +1596,7 @@ function extractValueFromItem(item: QuestionnaireResponseItem): string | boolean
 
   // Handle regular answers
   if (!answer) return undefined;
-  if ('valueString' in answer) return answer.valueString;
+  if ('valueString' in answer) return answer.valueString?.trim();
   if ('valueBoolean' in answer) return answer.valueBoolean;
   if ('valueDateTime' in answer) return answer.valueDateTime;
   if ('valueReference' in answer) return answer.valueReference;
@@ -1818,6 +1824,9 @@ export async function searchInsuranceInformation(
         }
         return oystehr.rcm.getPayerByUrl({ url: ref });
       }
+      if (isCustomInsuranceOrgReferenceUrl(ref)) {
+        return resolveCustomInsuranceOrgReference(oystehr, ref);
+      }
       const orgFromFhir = findOrgMatchingReference(ref, resources);
       if (orgFromFhir) {
         return orgFromFhir;
@@ -1956,12 +1965,7 @@ const extractPolicyHolder = (
     number: findAnswer(`policy-holder-number${suffix}`),
     email: findAnswer(`policy-holder-email${suffix}`),
     memberId: findAnswer(`insurance-member-id${suffix}`) ?? '',
-    relationship: findAnswer(`patient-relationship-to-insured${suffix}`) as
-      | 'Self'
-      | 'Spouse'
-      | 'Parent'
-      | 'Legal Guardian'
-      | 'Other',
+    relationship: findAnswer(`patient-relationship-to-insured${suffix}`) as SubscriberRelationship,
   };
 
   const sameAsPatient = findBooleanAnswer(`policy-holder-address-as-patient${suffix}`) === true;
@@ -2201,7 +2205,8 @@ const mergeGuarantors = (guarantors: Account['guarantor'], organizationReference
     {
       party: {
         reference: organizationReference,
-        type: 'Organization',
+        // An NIO reference token is not a FHIR Organization reference, so it carries no type hint.
+        ...(isNioReferenceUrl(organizationReference) ? {} : { type: 'Organization' }),
       },
     },
   ];
@@ -2279,16 +2284,19 @@ interface BuildEmployerAccountResourceParams {
   patientId: string;
   existingAccount?: Account;
   organizationReference: string;
+  // Persisted on Account.owner so NIO reference tokens render a name without any FHIR read.
+  organizationDisplay?: string;
   accountTypeCoding?: CodeableConcept;
   employerInformation?: EmployerInformation;
   coverageReference?: string;
 }
 
-const buildEmployerAccountResource = (params: BuildEmployerAccountResourceParams): Account => {
+export const buildEmployerAccountResource = (params: BuildEmployerAccountResourceParams): Account => {
   const {
     patientId,
     existingAccount,
     organizationReference,
+    organizationDisplay,
     accountTypeCoding,
     employerInformation,
     coverageReference,
@@ -2312,7 +2320,7 @@ const buildEmployerAccountResource = (params: BuildEmployerAccountResourceParams
     },
     name: employerInformation?.employerName,
     subject,
-    owner: { reference: organizationReference },
+    owner: { reference: organizationReference, ...(organizationDisplay ? { display: organizationDisplay } : {}) },
     guarantor,
     contained: organizationIdFromReference
       ? baseAccount.contained?.filter(
@@ -2540,10 +2548,26 @@ const createCoverageResource = (input: CreateCoverageResourceInput): Coverage =>
   const { org, policyHolder, additionalInformation, typeCode } = insurance;
   const memberId = policyHolder.memberId;
 
-  const payerId = getPayerId(org);
+  // A custom insurance organization carries no RCM payer identifier; its business id ("OTR-...")
+  // takes its place as the coverage class value, matching how billing's own Coverage builder
+  // resolves the same organization (see resolvedPayerId in packages/zambdas/src/billing/shared.ts).
+  const customOrgBusinessId = getCustomInsuranceOrgBusinessId(org);
+  const payerId = getPayerId(org) ?? customOrgBusinessId;
   if (!payerId) {
     throw new Error('payerId unexpectedly missing from insuranceOrg');
   }
+
+  // A custom insurance organization is a billing-app-owned resource: it's referenced by token, never
+  // directly, the same way an NIO reference works (see getNioReferenceUrl).
+  const payorReference = customOrgBusinessId
+    ? getCustomInsuranceOrgReferenceUrl(org.id ?? '')
+    : isValidUUID(org.id ?? '')
+    ? `Organization/${org.id}`
+    : getPayerUrl(payerId);
+  // The member id's assigner mirrors the payor: readers (paperwork prefill, the insurance PDF) find the
+  // member id by matching the two, and a custom org has no clinical Organization to reference directly.
+  const memberIdentifier = createCoverageMemberIdentifier(memberId, org);
+  memberIdentifier.assigner = { ...memberIdentifier.assigner, reference: payorReference };
 
   const policyHolderId = 'coverageSubscriber';
   const relationshipCode = SUBSCRIBER_RELATIONSHIP_CODE_MAP[policyHolder.relationship] || 'other';
@@ -2567,7 +2591,7 @@ const createCoverageResource = (input: CreateCoverageResourceInput): Coverage =>
   const coverage: Coverage = {
     contained,
     id: `urn:uuid:${randomUUID()}`,
-    identifier: [createCoverageMemberIdentifier(memberId, org)],
+    identifier: [memberIdentifier],
     resourceType: 'Coverage',
     status: 'active',
     subscriber: {
@@ -2578,11 +2602,7 @@ const createCoverageResource = (input: CreateCoverageResourceInput): Coverage =>
       reference: `Patient/${patientId}`,
     },
     type: typeCode !== undefined ? { coding: [{ system: CANDID_PLAN_TYPE_SYSTEM, code: typeCode }] } : undefined,
-    payor: [
-      {
-        reference: isValidUUID(org.id ?? '') ? `Organization/${org.id}` : getPayerUrl(payerId),
-      },
-    ],
+    payor: [{ reference: payorReference }],
     subscriberId: policyHolder.memberId,
     relationship: getSubscriberRelationshipCodeableConcept(policyHolder.relationship),
     class: [
@@ -3173,6 +3193,7 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
       patientId: patient.id!,
       existingAccount: existingOccupationalMedicineAccount,
       organizationReference: occupationalMedicineEmployerReference.reference,
+      organizationDisplay: occupationalMedicineEmployerReference.display,
       accountTypeCoding: OCCUPATIONAL_MEDICINE_ACCOUNT_TYPE,
       employerInformation,
     });
@@ -4099,6 +4120,44 @@ enum InsuranceCarrierKeys {
   workersComp = 'workers-comp-insurance-name',
 }
 
+export const PATIENT_ACCOUNT_AND_COVERAGE_SEARCH_INCLUDES: { name: string; value: string }[] = [
+  { name: '_revinclude', value: 'Account:patient' },
+  { name: '_include:iterate', value: 'Account:owner' },
+  { name: '_revinclude', value: 'RelatedPerson:patient' },
+  { name: '_revinclude', value: 'Coverage:patient' },
+  { name: '_include:iterate', value: 'Coverage:subscriber' },
+  { name: '_include:iterate', value: 'Coverage:payor' },
+];
+
+const isInsuranceOrganization = (resource: FhirResource): resource is Organization =>
+  resource.resourceType === 'Organization' &&
+  organizationMatchesType(resource, codeableConcept('pay', FHIR_EXTENSION.Organization.organizationType.url));
+
+export const getCoveragePayorReferences = (resources: FhirResource[]): string[] =>
+  resources
+    .filter((res): res is Coverage => res.resourceType === 'Coverage')
+    .flatMap<string | undefined>((cov) => cov.payor.map((ref) => ref.reference))
+    .filter<string>((ref): ref is string => !!ref);
+
+export const assemblePatientAccountAndCoverageResources = (
+  patient: Patient,
+  searchResults: FhirResource[],
+  insuranceOrgs: Organization[]
+): PatientAccountAndCoverageResources => {
+  const resources = searchResults.filter((resource) => {
+    if (resource.resourceType === 'Account') {
+      return resource.status === 'active';
+    }
+
+    return !isInsuranceOrganization(resource);
+  }) as UnbundledAccountResources;
+
+  return getCoverageUpdateResourcesFromUnbundled({
+    patient,
+    resources: [...resources, ...insuranceOrgs],
+  });
+};
+
 export const getAccountAndCoverageResourcesForPatient = async (
   patientId: string,
   oystehr: Oystehr
@@ -4112,30 +4171,7 @@ export const getAccountAndCoverageResourcesForPatient = async (
           name: '_id',
           value: patientId,
         },
-        {
-          name: '_revinclude',
-          value: 'Account:patient',
-        },
-        {
-          name: '_include:iterate',
-          value: 'Account:owner',
-        },
-        {
-          name: '_revinclude',
-          value: 'RelatedPerson:patient',
-        },
-        {
-          name: '_revinclude',
-          value: 'Coverage:patient',
-        },
-        {
-          name: '_include:iterate',
-          value: 'Coverage:subscriber',
-        },
-        {
-          name: '_include:iterate',
-          value: 'Coverage:payor',
-        },
+        ...PATIENT_ACCOUNT_AND_COVERAGE_SEARCH_INCLUDES,
       ],
     })
   ).unbundle();
@@ -4147,36 +4183,15 @@ export const getAccountAndCoverageResourcesForPatient = async (
     (r) => r.resourceType === 'Patient' && r.id === patientId
   ) as Patient;
 
-  const resources = accountAndCoverageResources.filter((resource) => {
-    if (resource.resourceType === 'Account') {
-      return resource.status === 'active';
-    }
-    return true;
-  });
-
   if (!patientResource) {
     throw PATIENT_NOT_FOUND_ERROR;
   }
 
-  const coverageResources = resources.filter((res): res is Coverage => res.resourceType === 'Coverage');
-  const insuranceOrgsFromFhir = resources.filter(
-    (res): res is Organization =>
-      res.resourceType === 'Organization' &&
-      organizationMatchesType(res, codeableConcept('pay', FHIR_EXTENSION.Organization.organizationType.url))
-  );
-  const resourcesWithoutInsuranceOrgsFromFhir = resources.filter(
-    (res) =>
-      res.resourceType !== 'Organization' ||
-      !organizationMatchesType(res, codeableConcept('pay', FHIR_EXTENSION.Organization.organizationType.url))
-  );
-
   // Get payer info for coverages
   const insuranceOrgs = await searchInsuranceInformation(
     oystehr,
-    coverageResources
-      .flatMap<string | undefined>((cov) => cov.payor.map((ref) => ref.reference))
-      .filter<string>((ref): ref is string => !!ref),
-    insuranceOrgsFromFhir
+    getCoveragePayorReferences(accountAndCoverageResources),
+    accountAndCoverageResources.filter(isInsuranceOrganization)
   );
 
   // Get EHR-facing payer notes
@@ -4189,10 +4204,7 @@ export const getAccountAndCoverageResourcesForPatient = async (
     }
   }
 
-  return getCoverageUpdateResourcesFromUnbundled({
-    patient: patientResource,
-    resources: [...resourcesWithoutInsuranceOrgsFromFhir, ...insuranceOrgs],
-  });
+  return assemblePatientAccountAndCoverageResources(patientResource, accountAndCoverageResources, insuranceOrgs);
 };
 
 export interface UpdatePatientAccountInput {

@@ -39,6 +39,36 @@ module.exports = {
         groups: [['^\\u0000', '^node:', '^@?\\w', '^', '^\\.']],
       },
     ],
+    // No barrel files: import every symbol from the module that declares it.
+    //  1. vitest does not bundle, so importing through a re-export makes a test file load the whole
+    //     tree behind it. Removing the barrels made unit tests 2-2.6x faster.
+    //  2. Barrels are how most of our import cycles formed: A imports the barrel to reach B, the
+    //     barrel re-exports C, and C imports A.
+    // `npx tsx scripts/debarrel.ts --apply` rewrites importers to the declaring module, and
+    // `npm run lint:barrels` also catches the `import { x } from './x'; export { x }` form.
+    'no-restricted-syntax': [
+      'error',
+      {
+        selector: 'ExportAllDeclaration',
+        message:
+          'Do not re-export (`export * from`): import from the declaring module instead. See scripts/debarrel.ts.',
+      },
+      {
+        selector: 'ExportNamedDeclaration[source]',
+        message:
+          'Do not re-export (`export { … } from`): import from the declaring module instead. See scripts/debarrel.ts.',
+      },
+    ],
+    // The workspace packages have no entry module; import the file that declares the symbol.
+    'no-restricted-imports': [
+      'error',
+      {
+        paths: ['utils', 'ui-components', 'test-utils', 'config-types'].map((name) => ({
+          name,
+          message: `'${name}' has no entry module: import from the file that declares the symbol, e.g. 'utils/lib/types/errors'. See scripts/debarrel.ts.`,
+        })),
+      },
+    ],
   },
   overrides: [
     {
