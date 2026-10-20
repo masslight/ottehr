@@ -12,8 +12,8 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
-import { ReactElement, useCallback, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { ReactElement, ReactNode, useCallback, useEffect, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { otherColors } from 'utils/lib/theme/billing-palette';
 import { WorkQueueSummary } from 'utils/lib/types/data/billing/work-queue.schemas';
@@ -39,6 +39,42 @@ function QueueFigure({ value, incomplete }: { value: string | null; incomplete: 
     <Tooltip title={INCOMPLETE_HINT}>
       <span>{value}+</span>
     </Tooltip>
+  );
+}
+
+// A table row can't be a link, so each cell holds a link to the queue that fills the whole cell:
+// clicking anywhere on the row opens the queue, and the browser's open-in-new-tab works too. Only
+// the queue name's link is a tab stop, so keyboard users meet one link per row.
+function QueueLinkCell({
+  queueId,
+  align,
+  primary,
+  children,
+}: {
+  queueId: string;
+  align?: 'right';
+  primary?: boolean;
+  children: ReactNode;
+}): ReactElement {
+  return (
+    // height: 1px lets the link's height: 100% fill the cell, however tall the row grows.
+    <TableCell align={align} sx={{ p: 0, height: '1px' }}>
+      <Link
+        to={`/work-queues/${queueId}`}
+        tabIndex={primary ? undefined : -1}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: align === 'right' ? 'flex-end' : 'flex-start',
+          height: '100%',
+          padding: '16px',
+          color: 'inherit',
+          textDecoration: 'none',
+        }}
+      >
+        {children}
+      </Link>
+    </TableCell>
   );
 }
 
@@ -129,33 +165,30 @@ export default function WorkQueues(): ReactElement {
             </TableHead>
             <TableBody>
               {queues.map((queue) => (
-                <TableRow
-                  key={queue.id}
-                  hover
-                  onClick={() => navigate(`/work-queues/${queue.id}`)}
-                  sx={{ cursor: 'pointer', '&:last-child td': { borderBottom: 0 } }}
-                >
-                  <TableCell>
-                    <Typography fontWeight={500}>{queue.name}</Typography>
-                    {queue.description && (
-                      <Typography variant="body2" color="text.secondary">
-                        {queue.description}
-                      </Typography>
-                    )}
-                  </TableCell>
-                  <TableCell align="right">
+                <TableRow key={queue.id} hover sx={{ '&:last-child td': { borderBottom: 0 } }}>
+                  <QueueLinkCell queueId={queue.id} primary>
+                    <Box>
+                      <Typography fontWeight={500}>{queue.name}</Typography>
+                      {queue.description && (
+                        <Typography variant="body2" color="text.secondary">
+                          {queue.description}
+                        </Typography>
+                      )}
+                    </Box>
+                  </QueueLinkCell>
+                  <QueueLinkCell queueId={queue.id} align="right">
                     <QueueFigure
                       value={queue.claimCount === null ? null : queue.claimCount.toLocaleString()}
                       incomplete={queue.incomplete}
                     />
-                  </TableCell>
-                  <TableCell align="right">
+                  </QueueLinkCell>
+                  <QueueLinkCell queueId={queue.id} align="right">
                     <QueueFigure
                       value={queue.charged === null ? null : formatCurrency(queue.charged)}
                       incomplete={queue.incomplete}
                     />
-                  </TableCell>
-                  <TableCell>{queue.owner?.name ?? ''}</TableCell>
+                  </QueueLinkCell>
+                  <QueueLinkCell queueId={queue.id}>{queue.owner?.name ?? ''}</QueueLinkCell>
                 </TableRow>
               ))}
             </TableBody>

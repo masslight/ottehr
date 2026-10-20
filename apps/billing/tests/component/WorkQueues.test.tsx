@@ -134,6 +134,27 @@ describe('WorkQueues', () => {
     expect(screen.queryByText('Expected')).not.toBeInTheDocument();
   });
 
+  it('links every cell of a row to its queue, so it can be opened in a new tab', async () => {
+    getBillingWorkQueuesMock.mockResolvedValue({ queues: [summary({})] });
+    getBillingWorkQueueMock.mockResolvedValue({ queue: savedQueue });
+
+    renderAt('/work-queues');
+
+    const row = (await screen.findByText('Medicaid Claims')).closest('tr') as HTMLElement;
+    const links = row.querySelectorAll('a');
+    expect(links).toHaveLength(4);
+    links.forEach((link) => expect(link).toHaveAttribute('href', '/work-queues/q-1'));
+    // One tab stop per row: the queue name's link.
+    expect(
+      within(row)
+        .getAllByRole('link')
+        .filter((link) => link.tabIndex !== -1)
+    ).toHaveLength(1);
+
+    fireEvent.click(within(row).getByText('$38,120.50'));
+    await waitFor(() => expect(getBillingWorkQueueMock).toHaveBeenCalledWith(mockOystehrZambda, { queueId: 'q-1' }));
+  });
+
   it('marks figures that are lower bounds, and ones that could not be worked out', async () => {
     getBillingWorkQueuesMock.mockResolvedValue({
       queues: [
