@@ -13,7 +13,11 @@ import {
 import { X12_ADJUSTMENT_GROUP_SYSTEM } from '../../../src/billing/claim-amounts';
 import { buildClaimLookups, mapClaimToItem } from '../../../src/billing/claim-search';
 import { CLINICAL_PAYMENT_NOTICE_ID_SYSTEM } from '../../../src/billing/payments';
-import { ERA_STATUS_CODE_EXTENSION } from '../../../src/billing/shared';
+import {
+  BILLING_WORKING_COPY_TAG,
+  ERA_STATUS_CODE_EXTENSION,
+  SOURCE_IDENTIFIER_SYSTEM,
+} from '../../../src/billing/shared';
 import { WRITE_OFF_PARTY_EXT_URL, WRITE_OFF_REASON_EXT_URL, WRITE_OFF_SYSTEM } from '../../../src/billing/write-offs';
 
 const ENCOUNTER_ID_SYSTEM = ottehrIdentifierSystem('claim-encounter-id');
@@ -27,6 +31,13 @@ const patient: Patient = {
   name: [{ given: ['Ann'], family: 'Lee' }],
   birthDate: '1990-02-03',
 };
+// Each claim points at its own working copy of the patient; both copies carry the same clinical id.
+const patientCopy = (id: string): Patient => ({
+  ...patient,
+  id,
+  meta: { tag: [BILLING_WORKING_COPY_TAG] },
+  identifier: [{ system: SOURCE_IDENTIFIER_SYSTEM, value: 'clinical-1' }],
+});
 const facility: Location = { resourceType: 'Location', id: 'loc-1', name: 'Midtown' };
 const provider: Practitioner = { resourceType: 'Practitioner', id: 'pr-1', name: [{ given: ['Bo'], family: 'Kim' }] };
 const coverage: Coverage = {
@@ -75,6 +86,7 @@ const claim = (id: string, serviceDate: string, overrides: Partial<Claim> = {}):
 });
 
 const insuredClaim = claim('claim-1', '2026-10-05', {
+  patient: { reference: 'Patient/pt-copy-1' },
   insurer: { reference: PAYER_A },
   insurance: [{ sequence: 1, focal: true, coverage: { reference: 'Coverage/cov-1' } }],
   meta: {
@@ -94,7 +106,7 @@ const insuredClaim = claim('claim-1', '2026-10-05', {
   ],
 });
 
-const selfPayClaim = claim('claim-2', '2026-10-10');
+const selfPayClaim = claim('claim-2', '2026-10-10', { patient: { reference: 'Patient/pt-copy-2' } });
 const outOfRangeClaim = claim('claim-3', '2026-09-15', { insurer: { reference: PAYER_B } });
 
 const fillerClaims = Array.from({ length: 230 }, (_unused, index) =>
@@ -168,6 +180,8 @@ const claims = [insuredClaim, selfPayClaim, outOfRangeClaim, ...fillerClaims];
 const store: FhirResource[] = [
   ...claims,
   patient,
+  patientCopy('pt-copy-1'),
+  patientCopy('pt-copy-2'),
   facility,
   provider,
   coverage,
@@ -301,7 +315,7 @@ describe('fetchAdHocClaimRows (billing-claims dataset)', () => {
     const insured = rows.find((r) => r.claimId === 'claim-1')!;
     expect(insured).toMatchObject({
       encounterId: 'enc-claim-1',
-      patientId: 'pt-1',
+      patientId: 'clinical-1',
       patientName: 'Lee, Ann',
       patientDob: '1990-02-03',
       serviceDate: '2026-10-05',
@@ -451,5 +465,38 @@ describe('fetchAdHocClaimRows (billing-claims dataset)', () => {
       .map(([message]) => String(message))
       .filter((m) => m.includes('could not be resolved'));
     expect(unresolved).toEqual([expect.stringContaining('1 payer reference(s)')]);
+  });
+
+  it('gives every claim of one patient the same patientId, though each claim has its own patient copy', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    const { oystehr } = stubBillingClient();
+    const rows = await fetchAdHocClaimRows(oystehr, { dateRange: DATE_RANGE });
+
+    expect(rows.find((r) => r.claimId === 'claim-1')?.patientId).toBe('clinical-1');
+    expect(rows.find((r) => r.claimId === 'claim-2')?.patientId).toBe('clinical-1');
+
+    // A claim on a main billing patient with no clinical link keeps that patient's id.
+    expect(rows.find((r) => r.claimId === 'claim-f000')?.patientId).toBe('pt-1');
+  });
+
+  it('stops a scan that runs out of time instead of scanning again', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    let now = 1_000_000;
+    vi.spyOn(Date, 'now').mockImplementation(() => now);
+    let scans = 0;
+    // The first scan comes up short and uses up the budget on its first page.
+    const { oystehr } = stubBillingClient({
+      shortScans: 1,
+      onScan: () => {
+        scans += 1;
+        now += ADHOC_CLAIMS_BUILD_BUDGET_MS + 1;
+      },
+    });
+
+    await expect(fetchAdHocClaimRows(oystehr, { dateRange: DATE_RANGE })).rejects.toThrow(
+      ADHOC_CLAIMS_OVER_BUDGET_MESSAGE
+    );
+    expect(scans).toBe(1);
   });
 });

@@ -34,7 +34,12 @@ export const BillingClaimsBaseRowSchema = z.object({
   renderingProvider: z.string().describe('Rendering provider name. "" when none.'),
   tags: z.array(z.string()).describe('User-defined claim tags. Empty when none.'),
   // --- Patient ---
-  patientId: z.string().describe('Billing patient id (internal — count UNIQUE patientId for a patient count).'),
+  patientId: z
+    .string()
+    .describe(
+      'Patient id, the same for every claim of one patient (the EHR patient id when the patient came from the ' +
+        'EHR). Count UNIQUE patientId for a patient count.'
+    ),
   patientName: z.string().describe('Patient name as the billing app lists it ("Last, First").'),
   patientDob: z.string().nullable().describe('Patient date of birth (yyyy-MM-dd). Null when unknown.'),
   // --- Payer ---

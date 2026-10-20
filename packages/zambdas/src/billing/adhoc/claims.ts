@@ -1,5 +1,5 @@
 import Oystehr from '@oystehr/sdk';
-import { Claim, ClaimResponse, Organization, PaymentNotice } from 'fhir/r4b';
+import { Claim, ClaimResponse, Organization, Patient, PaymentNotice } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { isPayerUrl } from 'utils/lib/helpers/helpers';
@@ -16,12 +16,18 @@ import {
   mapClaimToItem,
   scanClaimIds,
 } from '../claim-search';
-import { resolvePayersByRef } from '../shared';
+import { copySourceId, findRef, isWorkingCopy, resolvePayersByRef, SOURCE_IDENTIFIER_SYSTEM } from '../shared';
 import { writeOffFromPaymentNotice } from '../write-offs';
 
 const PAGE_SIZE = 100;
 const PAGE_CONCURRENCY = 3;
-const EXTRA_CLAIM_ELEMENTS = ['Claim.diagnosis', 'Claim.extension'];
+const EXTRA_CLAIM_ELEMENTS = [
+  'Claim.diagnosis',
+  'Claim.extension',
+  'Patient.meta',
+  'Patient.identifier',
+  'Patient.extension',
+];
 const CLAIM_ENCOUNTER_ID_SYSTEM = ottehrIdentifierSystem('claim-encounter-id');
 export const ADHOC_CLAIMS_BUILD_BUDGET_MS = 12 * 60 * 1000;
 export const ADHOC_CLAIMS_OVER_BUDGET_MESSAGE = 'Too many claims for one run — narrow the date range';
@@ -46,7 +52,12 @@ export async function fetchAdHocClaimRows(
 
   const startedAt = Date.now();
   const deadline = startedAt + ADHOC_CLAIMS_BUILD_BUDGET_MS;
-  const scan = await scanAllClaims(oystehr);
+
+  const assertWithinBudget = (): void => {
+    if (Date.now() > deadline) throw new Error(ADHOC_CLAIMS_OVER_BUDGET_MESSAGE);
+  };
+
+  const scan = await scanAllClaims(oystehr, assertWithinBudget);
 
   const claimIds = scan.claims
     .filter((claim) => claimMatchesServiceDateRange(claim, input.dateRange.start, input.dateRange.end))
@@ -64,7 +75,7 @@ export async function fetchAdHocClaimRows(
   const rows: AdHocBillingClaimsRow[] = [];
 
   for (let i = 0; i < pages.length; i += PAGE_CONCURRENCY) {
-    if (Date.now() > deadline) throw new Error(ADHOC_CLAIMS_OVER_BUDGET_MESSAGE);
+    assertWithinBudget();
     const group = await Promise.all(
       pages.slice(i, i + PAGE_CONCURRENCY).map(async (ids) => {
         const page = await fetchClaimsPageByIds({ oystehr, claimIds: ids, extraElements: EXTRA_CLAIM_ELEMENTS });
@@ -106,13 +117,17 @@ export async function fetchAdHocClaimRows(
   return rows;
 }
 
-async function scanAllClaims(oystehr: Oystehr): Promise<Awaited<ReturnType<typeof scanClaimIds>>> {
+async function scanAllClaims(
+  oystehr: Oystehr,
+  beforePage: () => void
+): Promise<Awaited<ReturnType<typeof scanClaimIds>>> {
   const scanOnce = (): ReturnType<typeof scanClaimIds> =>
     scanClaimIds({
       oystehr,
       params: [{ name: '_sort', value: '_id' }],
       maxMatches: Number.MAX_SAFE_INTEGER,
       withServiceDate: true,
+      beforePage,
     });
 
   const first = await scanOnce();
@@ -177,6 +192,21 @@ const toYmd = (value: string | undefined): string | null => {
   return date.isValid ? date.toISODate() : null;
 };
 
+// A claim points at its own working copy of the patient; the clinical patient id is shared by every copy.
+function stablePatientId(claim: Claim, patients: Patient[]): string {
+  const ref = claim.patient?.reference;
+  const patient = findRef<Patient>(patients, ref);
+  const ownId = ref?.replace('Patient/', '') ?? '';
+
+  if (!patient) return ownId;
+
+  if (!isWorkingCopy(patient)) return copySourceId(patient) ?? ownId;
+
+  const clinicalId = patient.identifier?.find((identifier) => identifier.system === SOURCE_IDENTIFIER_SYSTEM)?.value;
+
+  return clinicalId ?? copySourceId(patient) ?? ownId;
+}
+
 export function mapClaimToAdHocRow(claim: Claim, lookups: ClaimLookups, flags: LayerFlags): AdHocBillingClaimsRow {
   const item = mapClaimToItem(claim, lookups);
   const { statuses } = item;
@@ -190,7 +220,7 @@ export function mapClaimToAdHocRow(claim: Claim, lookups: ClaimLookups, flags: L
     facility: item.facility,
     renderingProvider: item.renderingProvider,
     tags: item.tags,
-    patientId: claim.patient?.reference?.replace('Patient/', '') ?? '',
+    patientId: stablePatientId(claim, lookups.patients),
     patientName: item.patientName,
     patientDob: toYmd(item.patientDob),
     payerName: item.payerName,

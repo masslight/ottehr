@@ -368,11 +368,14 @@ export async function scanClaimIds({
   params,
   maxMatches,
   withServiceDate,
+  beforePage,
 }: {
   oystehr: Oystehr;
   params: ClaimSearchParam[];
   maxMatches: number;
   withServiceDate: boolean;
+  // Runs before each page is requested; a caller with a time budget throws from it to stop the scan.
+  beforePage?: () => void;
 }): Promise<{ claims: FhirResourceReturnValue<Claim>[]; incomplete: boolean }> {
   const searchParams = {
     resourceType: 'Claim' as const,
@@ -385,6 +388,7 @@ export async function scanClaimIds({
   let serverTotal: number | undefined;
 
   while (scanned.size < maxMatches) {
+    beforePage?.();
     const requested = Math.min(pageSize, maxMatches - scanned.size);
     const page = await searchPageWithSizeRetry<Claim>(oystehr, searchParams, {
       offset: claims.length,
