@@ -17,15 +17,25 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import { DataGridPro, GridColDef, GridPaginationModel, GridRowSelectionModel } from '@mui/x-data-grid-pro';
+import {
+  DataGridPro,
+  GridColDef,
+  GridPaginationModel,
+  GridRowSelectionModel,
+  GridSortModel,
+  useGridApiRef,
+} from '@mui/x-data-grid-pro';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
-import { ReactElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ReactElement, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { CODE_SYSTEM_CLAIM_TYPE_CODES } from 'utils/lib/helpers/rcm/constants';
 import { EXPORT_CLAIMS_MATCH_LIMIT } from 'utils/lib/types/data/billing/billing.constants';
 import {
+  CLAIM_SORT_FIELDS,
+  ClaimSort,
+  ClaimSortField,
   ExportBillingClaimsInput,
   SearchBillingClaimsInput,
   UpdateBillingResourceInput,
@@ -50,6 +60,12 @@ import {
   formatAntCaseString,
   formatClaimStatusValue,
 } from 'utils/lib/types/data/billing/claim-status';
+import {
+  ClaimsListFilters,
+  ClaimsListLayout,
+  ClaimsListViewConfig,
+  normalizeClaimsListFilters,
+} from 'utils/lib/types/data/billing/claims-list-view.schemas';
 import { NonInsuranceOrganizationItem } from 'utils/lib/types/data/billing/non-insurance-org.types';
 import { MAX_RUN_RULES_ENGINE_CLAIMS } from 'utils/lib/types/data/billing/rules-engine.schemas';
 import { formatCurrency } from 'utils/lib/utils/convert';
@@ -158,6 +174,7 @@ interface StoredClaimsListFilters {
   typeFilter: ClaimTypeCode[];
   selectedServices: BillingService[];
   paginationModel: GridPaginationModel;
+  layout?: ClaimsListLayout;
 }
 
 const STORED_LIST_FILTER_KEYS: (keyof StoredClaimsListFilters)[] = [
@@ -181,6 +198,43 @@ function loadStoredClaimsListFilters(): StoredClaimsListFilters | null {
   } catch {
     return null;
   }
+}
+
+function storedToFilters(stored: StoredClaimsListFilters): ClaimsListFilters {
+  return normalizeClaimsListFilters({
+    searchText: stored.searchText,
+    arStage: stored.arStageFilter,
+    status: stored.statusFilter,
+    tag: stored.tagFilter,
+    type: stored.typeFilter,
+    service: stored.selectedServices.map((sv) => sv.name),
+    createdFrom: stored.createdFrom,
+    createdTo: stored.createdTo,
+    serviceDateFrom: stored.serviceDateFrom,
+    serviceDateTo: stored.serviceDateTo,
+    payers: stored.selectedPayers.map((p) => ({ id: p.id, name: p.name, payerId: p.payerId })),
+    patients: stored.selectedPatients.filter((p) => p.id).map((p) => ({ id: p.id as string, name: p.name })),
+  });
+}
+
+// The non-insurance organization filter isn't kept across visits.
+function stateToStored({ filters, layout, paginationModel }: ClaimsListViewState): StoredClaimsListFilters {
+  return {
+    searchText: filters.searchText ?? '',
+    arStageFilter: filters.arStage ?? [],
+    statusFilter: filters.status ?? [],
+    tagFilter: filters.tag ?? [],
+    createdFrom: filters.createdFrom ?? '',
+    createdTo: filters.createdTo ?? '',
+    serviceDateFrom: filters.serviceDateFrom ?? '',
+    serviceDateTo: filters.serviceDateTo ?? '',
+    selectedPayers: filters.payers ?? [],
+    selectedPatients: filters.patients ?? [],
+    typeFilter: filters.type ?? [],
+    selectedServices: (filters.service ?? []).map((name) => ({ name })),
+    paginationModel,
+    layout,
+  };
 }
 
 function toBillingPatientOption(stored: StoredPatientOption): BillingPatientOption {
@@ -236,6 +290,16 @@ function MultiSelectFilter<T extends string>({
   );
 }
 
+// Just enough of an organization to show and match it in the filter before the options load.
+const toNioOption = ({ id, name }: { id: string; name: string }): NonInsuranceOrganizationItem => ({
+  id,
+  name,
+  employer: false,
+  active: true,
+  contacts: [],
+  covers: [],
+});
+
 const patientIds = (patients: BillingPatientOption[]): string[] =>
   patients.map((p) => p.id).filter((id): id is string => !!id);
 
@@ -269,9 +333,16 @@ const statusColumns: GridColDef[] = CLAIM_STATUS_FIELDS.map((field) => ({
   },
 }));
 
-const columns: GridColDef[] = [
+const allColumns: GridColDef[] = [
   { field: 'patientName', headerName: 'Patient Name', flex: 1, minWidth: 150 },
   { field: 'serviceDate', headerName: 'Service Date', width: 120 },
+  {
+    field: 'created',
+    headerName: 'Created',
+    width: 120,
+    valueFormatter: (params: { value: string }) =>
+      params.value ? DateTime.fromISO(params.value).toISODate() ?? params.value : '',
+  },
   { field: 'payerName', headerName: 'Payer Name', flex: 1, minWidth: 160 },
   { field: 'payerId', headerName: 'Payer ID', width: 100 },
   { field: 'nonInsurancePayerName', headerName: 'Non-insurance Organization', width: 200 },
@@ -307,11 +378,89 @@ const columns: GridColDef[] = [
   { field: 'responsibleParty', headerName: 'Responsible Party', width: 140 },
 ];
 
+// Only the columns the claim search can sort by are sortable.
+const columns = allColumns.map(
+  (col): GridColDef =>
+    ({ ...col, sortable: (CLAIM_SORT_FIELDS as readonly string[]).includes(col.field) }) as GridColDef
+);
+
+// The columns in a saved order. Columns the order doesn't mention (e.g. added since it was saved)
+// keep their default place after the ordered ones.
+function orderColumns(order: string[] | undefined): GridColDef[] {
+  if (!order?.length) return columns;
+  const rank = new Map(order.map((field, index) => [field, index]));
+  return [...columns].sort((a, b) => (rank.get(a.field) ?? Infinity) - (rank.get(b.field) ?? Infinity));
+}
+
+const toSortModel = (sort: ClaimSort | undefined): GridSortModel =>
+  sort ? [{ field: sort.field, sort: sort.direction }] : [];
+
+const fromSortModel = (model: GridSortModel): ClaimSort | undefined => {
+  const [item] = model;
+  if (!item?.sort || !(CLAIM_SORT_FIELDS as readonly string[]).includes(item.field)) return undefined;
+  return { field: item.field as ClaimSortField, direction: item.sort };
+};
+
+// The checkbox column belongs to the grid, not to the layout.
+const GRID_CHECKBOX_FIELD = '__check__';
+
 export default function ClaimsList(): ReactElement {
+  const [storedFilters] = useState(() => loadStoredClaimsListFilters());
+  const [state, setState] = useState<ClaimsListViewState | null>(null);
+
+  useEffect(() => {
+    if (!state) return;
+    const timeout = window.setTimeout(() => {
+      try {
+        sessionStorage.setItem(CLAIMS_LIST_FILTERS_STORAGE_KEY, JSON.stringify(stateToStored(state)));
+      } catch {
+        // ignore storage errors (e.g. private browsing / quota exceeded)
+      }
+    }, 200);
+
+    return () => window.clearTimeout(timeout);
+  }, [state]);
+
+  return (
+    <ClaimsListView
+      initialFilters={storedFilters ? storedToFilters(storedFilters) : undefined}
+      initialLayout={storedFilters?.layout}
+      initialPaginationModel={storedFilters?.paginationModel}
+      onStateChange={setState}
+    />
+  );
+}
+
+export interface ClaimsListViewState extends ClaimsListViewConfig {
+  paginationModel: GridPaginationModel;
+}
+
+interface ClaimsListViewProps {
+  // Replaces the "Claims" heading.
+  title?: ReactNode;
+  // Extra header buttons, shown before Add Claim.
+  actions?: ReactNode;
+  // Where the list starts; read once, on mount.
+  initialFilters?: ClaimsListFilters;
+  initialLayout?: ClaimsListLayout;
+  initialPaginationModel?: GridPaginationModel;
+  // Called with the filters, layout, and page whenever any of them changes.
+  onStateChange?: (state: ClaimsListViewState) => void;
+}
+
+// The claims list: filters, a sortable grid with movable columns, and the bulk claim actions. It
+// starts from the filters and layout it's given and reports changes to them, so a page can keep them.
+export function ClaimsListView({
+  title,
+  actions,
+  initialFilters,
+  initialLayout,
+  initialPaginationModel,
+  onStateChange,
+}: ClaimsListViewProps): ReactElement {
   const navigate = useNavigate();
   const { oystehrZambda } = useApiClients();
-
-  const [storedFilters] = useState(() => loadStoredClaimsListFilters());
+  const apiRef = useGridApiRef();
 
   const [claims, setClaims] = useState<BillingClaimItem[]>([]);
   const [totalRows, setTotalRows] = useState(0);
@@ -319,8 +468,13 @@ export default function ClaimsList(): ReactElement {
   const [error, setError] = useState<string | null>(null);
   const [incomplete, setIncomplete] = useState(false);
   const [paginationModel, setPaginationModel] = useState<GridPaginationModel>(
-    storedFilters?.paginationModel ?? { page: 0, pageSize: 25 }
+    initialPaginationModel ?? { page: 0, pageSize: 25 }
   );
+  const [gridColumns] = useState(() => orderColumns(initialLayout?.columnOrder));
+  const [columnOrder, setColumnOrder] = useState<string[] | undefined>(initialLayout?.columnOrder);
+  const [sort, setSort] = useState<ClaimSort | undefined>(initialLayout?.sort);
+  // fetchClaims reads the sort from here, so a sort change can search before its state settles.
+  const sortRef = useRef(sort);
   const [serviceOptions, setServiceOptions] = useState<BillingService[]>([]);
 
   const [selected, setSelected] = useState<GridRowSelectionModel>([]);
@@ -340,22 +494,28 @@ export default function ClaimsList(): ReactElement {
   const [nioOptions, setNioOptions] = useState<NonInsuranceOrganizationItem[]>([]);
   const [patientOptions, setPatientOptions] = useState<BillingPatientOption[]>([]);
 
-  const [searchText, setSearchText] = useState(storedFilters?.searchText ?? '');
-  const [arStageFilter, setArStageFilter] = useState<string[]>(storedFilters?.arStageFilter ?? []);
-  const [statusFilter, setStatusFilter] = useState<string[]>(storedFilters?.statusFilter ?? []);
-  const [tagFilter, setTagFilter] = useState<string[]>(storedFilters?.tagFilter ?? []);
+  const [searchText, setSearchText] = useState(initialFilters?.searchText ?? '');
+  const [arStageFilter, setArStageFilter] = useState<string[]>(initialFilters?.arStage ?? []);
+  const [statusFilter, setStatusFilter] = useState<string[]>(initialFilters?.status ?? []);
+  const [tagFilter, setTagFilter] = useState<string[]>(initialFilters?.tag ?? []);
   const [tagOptions, setTagOptions] = useState<{ id: string; name: string }[]>([]);
-  const [createdFrom, setCreatedFrom] = useState(storedFilters?.createdFrom ?? '');
-  const [createdTo, setCreatedTo] = useState(storedFilters?.createdTo ?? '');
-  const [serviceDateFrom, setServiceDateFrom] = useState(storedFilters?.serviceDateFrom ?? '');
-  const [serviceDateTo, setServiceDateTo] = useState(storedFilters?.serviceDateTo ?? '');
-  const [selectedPayers, setSelectedPayers] = useState<BillingPayerOption[]>(storedFilters?.selectedPayers ?? []);
-  const [selectedNios, setSelectedNios] = useState<NonInsuranceOrganizationItem[]>([]);
-  const [selectedPatients, setSelectedPatients] = useState<BillingPatientOption[]>(
-    (storedFilters?.selectedPatients ?? []).filter((p) => p.id).map(toBillingPatientOption)
+  const [createdFrom, setCreatedFrom] = useState(initialFilters?.createdFrom ?? '');
+  const [createdTo, setCreatedTo] = useState(initialFilters?.createdTo ?? '');
+  const [serviceDateFrom, setServiceDateFrom] = useState(initialFilters?.serviceDateFrom ?? '');
+  const [serviceDateTo, setServiceDateTo] = useState(initialFilters?.serviceDateTo ?? '');
+  const [selectedPayers, setSelectedPayers] = useState<BillingPayerOption[]>(
+    (initialFilters?.payers ?? []).map((p) => ({ id: p.id, name: p.name, payerId: p.payerId }))
   );
-  const [typeFilter, setTypeFilter] = useState<ClaimTypeCode[]>(storedFilters?.typeFilter ?? []);
-  const [selectedServices, setSelectedServices] = useState<BillingService[]>(storedFilters?.selectedServices ?? []);
+  const [selectedNios, setSelectedNios] = useState<NonInsuranceOrganizationItem[]>(
+    (initialFilters?.nonInsuranceOrgs ?? []).map(toNioOption)
+  );
+  const [selectedPatients, setSelectedPatients] = useState<BillingPatientOption[]>(
+    (initialFilters?.patients ?? []).map(toBillingPatientOption)
+  );
+  const [typeFilter, setTypeFilter] = useState<ClaimTypeCode[]>(initialFilters?.type ?? []);
+  const [selectedServices, setSelectedServices] = useState<BillingService[]>(
+    (initialFilters?.service ?? []).map((name) => ({ name }))
+  );
 
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const serviceDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -382,6 +542,7 @@ export default function ClaimsList(): ReactElement {
       try {
         const params: SearchBillingClaimsInput = {
           ...toSearchParams(filters),
+          ...(sortRef.current ? { sort: sortRef.current } : {}),
           pageSize: pagination.pageSize,
           offset: pagination.page * pagination.pageSize,
         };
@@ -492,47 +653,62 @@ export default function ClaimsList(): ReactElement {
     void loadTags();
   }, [oystehrZambda, fetchClaims, currentFilters, paginationModel]);
 
-  useEffect(() => {
-    const toStore: StoredClaimsListFilters = {
+  const viewFilters = useMemo(
+    (): ClaimsListFilters =>
+      normalizeClaimsListFilters({
+        searchText,
+        arStage: arStageFilter,
+        status: statusFilter,
+        tag: tagFilter,
+        type: typeFilter,
+        service: selectedServices.map((sv) => sv.name),
+        createdFrom,
+        createdTo,
+        serviceDateFrom,
+        serviceDateTo,
+        payers: selectedPayers.map((p) => ({ id: p.id, name: p.name, payerId: p.payerId })),
+        nonInsuranceOrgs: selectedNios.map((n) => ({ id: n.id, name: n.name })),
+        // Only id/name — never the rest of BillingPatientOption (dob, address, clinical IDs, ...).
+        patients: selectedPatients.filter((p) => p.id).map((p) => ({ id: p.id as string, name: p.name })),
+      }),
+    [
       searchText,
       arStageFilter,
       statusFilter,
       tagFilter,
+      typeFilter,
+      selectedServices,
       createdFrom,
       createdTo,
       serviceDateFrom,
       serviceDateTo,
       selectedPayers,
-      selectedPatients: selectedPatients.filter((p) => p.id).map((p) => ({ id: p.id, name: p.name })),
-      typeFilter,
-      selectedServices,
+      selectedNios,
+      selectedPatients,
+    ]
+  );
+
+  const onStateChangeRef = useRef(onStateChange);
+  onStateChangeRef.current = onStateChange;
+  useEffect(() => {
+    onStateChangeRef.current?.({
+      filters: viewFilters,
+      layout: { ...(columnOrder ? { columnOrder } : {}), ...(sort ? { sort } : {}) },
       paginationModel,
-    };
+    });
+  }, [viewFilters, columnOrder, sort, paginationModel]);
 
-    const timeout = window.setTimeout(() => {
-      try {
-        sessionStorage.setItem(CLAIMS_LIST_FILTERS_STORAGE_KEY, JSON.stringify(toStore));
-      } catch {
-        // ignore storage errors (e.g. private browsing / quota exceeded)
-      }
-    }, 200);
+  const handleSortModelChange = (model: GridSortModel): void => {
+    const next = fromSortModel(model);
+    sortRef.current = next;
+    setSort(next);
+    applyFilters();
+  };
 
-    return () => window.clearTimeout(timeout);
-  }, [
-    searchText,
-    arStageFilter,
-    statusFilter,
-    tagFilter,
-    createdFrom,
-    createdTo,
-    serviceDateFrom,
-    serviceDateTo,
-    selectedPayers,
-    selectedPatients,
-    typeFilter,
-    selectedServices,
-    paginationModel,
-  ]);
+  const handleColumnOrderChange = (): void => {
+    const fields = apiRef.current?.getAllColumns?.().map((col) => col.field);
+    if (fields) setColumnOrder(fields.filter((field) => field !== GRID_CHECKBOX_FIELD));
+  };
 
   const applyFilters = useCallback(
     (overrides?: Filters): void => {
@@ -661,10 +837,12 @@ export default function ClaimsList(): ReactElement {
   return (
     <Box sx={{ p: 0 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
-        <Typography variant="h4" color="primary.dark" fontWeight={600}>
-          Claims
-        </Typography>
-        <Box sx={{ display: 'flex', gap: 1 }}>
+        {title ?? (
+          <Typography variant="h4" color="primary.dark" fontWeight={600}>
+            Claims
+          </Typography>
+        )}
+        <Box sx={{ display: 'flex', gap: 1, flexShrink: 0 }}>
           {selected.length > 0 && (
             <>
               <Button
@@ -748,6 +926,7 @@ export default function ClaimsList(): ReactElement {
               </Button>
             </>
           )}
+          {actions}
           <Button variant="contained" startIcon={<AddIcon />} onClick={() => navigate('/claims/new')}>
             Add Claim
           </Button>
@@ -967,8 +1146,13 @@ export default function ClaimsList(): ReactElement {
       )}
 
       <DataGridPro
+        apiRef={apiRef}
         rows={claims}
-        columns={columns}
+        columns={gridColumns}
+        sortingMode="server"
+        sortModel={toSortModel(sort)}
+        onSortModelChange={handleSortModelChange}
+        onColumnOrderChange={handleColumnOrderChange}
         loading={loading}
         rowCount={totalRows}
         paginationMode="server"

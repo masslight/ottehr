@@ -166,6 +166,14 @@ export const GetBillingProviderInputSchema = z.object({
   providerId: nonEmptyString,
 });
 
+// The claim list columns a search can sort by. `created` sorts on the server; the others have no
+// Claim search parameter, so the search scans the matching claims and sorts them in memory.
+export const CLAIM_SORT_FIELDS = ['created', 'serviceDate', 'billed'] as const;
+export const ClaimSortSchema = z.object({
+  field: z.enum(CLAIM_SORT_FIELDS),
+  direction: z.enum(['asc', 'desc']),
+});
+
 export const SearchBillingClaimsInputSchema = z.object({
   searchText: nonEmptyString.optional(),
   // Limit search to patient names and claim IDs.
@@ -188,12 +196,15 @@ export const SearchBillingClaimsInputSchema = z.object({
   nonInsurancePayerId: oneOrMany(nonEmptyString.uuid()).optional(),
   service: oneOrMany(nonEmptyString).optional(),
   patientId: oneOrMany(nonEmptyString).optional(),
+  // Unset keeps the default order: most recently updated first.
+  sort: ClaimSortSchema.optional(),
   offset: nonNegativeInt.optional(),
   pageSize: nonNegativeInt.optional(),
 });
 
 export const ExportBillingClaimsInputSchema = SearchBillingClaimsInputSchema.omit({
   patientNameOnly: true,
+  sort: true,
   offset: true,
   pageSize: true,
 });
@@ -1093,6 +1104,8 @@ export type GetPatientDetailInput = z.output<typeof GetPatientDetailInputSchema>
 export type GetPatientCoveragesInput = z.output<typeof GetPatientCoveragesInputSchema>;
 export type GetBillingBillingProviderInput = z.output<typeof GetBillingProviderInputSchema>;
 export type SearchBillingClaimsInput = z.output<typeof SearchBillingClaimsInputSchema>;
+export type ClaimSort = z.output<typeof ClaimSortSchema>;
+export type ClaimSortField = ClaimSort['field'];
 export type GetBillingReportInput = z.output<typeof GetBillingReportInputSchema>;
 export type ReportDateWindowParams = z.output<typeof ReportDateWindowParamsSchema>;
 export type GetBillingPaymentsReportDrilldownInput = z.output<typeof GetBillingPaymentsReportDrilldownInputSchema>;

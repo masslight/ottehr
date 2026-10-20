@@ -2,7 +2,6 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, Resource } from 'fhir/r4b';
 import { isResponseSizeExceededError } from 'utils/lib/fhir/responseSize';
-import { CLAIM_SCAN_MATCH_LIMIT } from 'utils/lib/types/data/billing/billing.constants';
 import { SearchBillingClaimsResponse } from 'utils/lib/types/data/billing/billing.types';
 import { CLAIM_SEARCH_TOO_BROAD_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
@@ -11,11 +10,11 @@ import { ZambdaInput } from '../../shared/types/common';
 import {
   buildClaimFilterParams,
   CLAIM_LIST_PARAMS,
-  claimMatchesServiceDateRange,
+  claimSortSearchParam,
   enrichAndMapClaims,
   fetchClaimsPageByIds,
-  scanClaimIds,
-  searchClaimsBySearchText,
+  scanMatchingClaims,
+  sortScannedClaims,
 } from '../claim-search';
 import { ClaimSearchParam, createBillingClient } from '../shared';
 import { SearchBillingClaimsParams, validateRequestParameters } from './validateRequestParameters';
@@ -39,6 +38,7 @@ async function performEffect(
   const filterParams = await buildClaimFilterParams({
     oystehr,
     params,
+    sort: claimSortSearchParam(params.sort),
   });
 
   try {
@@ -69,6 +69,7 @@ async function searchClaims({
   const offset = params.offset ?? 0;
 
   const filteringByServiceDate = Boolean(params.serviceDateFrom || params.serviceDateTo);
+  const sortsInMemory = Boolean(params.sort) && !claimSortSearchParam(params.sort);
 
   let pageClaims: Claim[];
   let includedResources: Resource[];
@@ -78,27 +79,21 @@ async function searchClaims({
   // Neither a search text nor a service date can be paginated by the server: FHIR ANDs separate
   // search parameters and only ORs within one, so searching several fields at once means several
   // searches whose union only exists here (_filter would express it as one paginated search, but
-  // Oystehr discards _filter), and Claim has no service-date search parameter at all. Both
-  // therefore scan for matching ids, page in memory, and hydrate only the page they settle on.
-  if (params.searchText || filteringByServiceDate) {
-    const matched = params.searchText
-      ? await searchClaimsBySearchText({
-          oystehr,
-          searchText: params.searchText,
-          filterParams,
-          withServiceDateElements: filteringByServiceDate,
-          patientNameOnly: params.patientNameOnly,
-        })
-      : await scanClaimIds({
-          oystehr,
-          params: filterParams,
-          maxMatches: CLAIM_SCAN_MATCH_LIMIT,
-          withServiceDate: true,
-        });
+  // Oystehr discards _filter), and Claim has no service-date search parameter at all. Sorting by a
+  // field without a search parameter (service date, billed) has the same problem. All of these
+  // scan for matching ids, sort and page in memory, and hydrate only the page they settle on.
+  if (params.searchText || filteringByServiceDate || sortsInMemory) {
+    const matched = await scanMatchingClaims({
+      oystehr,
+      params,
+      filterParams,
+      // A sort reads the dates or the total; the service date filter asks for the dates itself.
+      withServiceDate: params.sort?.field === 'created' || params.sort?.field === 'serviceDate',
+      withTotal: params.sort?.field === 'billed',
+    });
     incomplete = matched.incomplete;
-    const matching = filteringByServiceDate
-      ? matched.claims.filter((c) => claimMatchesServiceDateRange(c, params.serviceDateFrom, params.serviceDateTo))
-      : matched.claims;
+    // A search text's union comes back newest first whatever the requested order, so re-sort it.
+    const matching = params.sort ? sortScannedClaims(matched.claims, params.sort) : matched.claims;
     total = matching.length;
     const page = await fetchClaimsPageByIds({
       oystehr,

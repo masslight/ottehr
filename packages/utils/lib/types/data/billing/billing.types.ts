@@ -338,6 +338,8 @@ export interface BillingClaimItem {
   memberId: string;
   service: string | undefined;
   serviceDate: string;
+  // Claim.created — when the claim was created.
+  created: string;
   facility: string;
   renderingProvider: string;
   billed: number;
