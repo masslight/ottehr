@@ -6,10 +6,7 @@ import { useApiClients } from '../../../hooks/useAppClients';
 const PAGE_SIZE = 20;
 
 /** Whose notes: a patient's, or a task's. */
-export interface NoteTarget {
-  patientId?: string;
-  taskId?: string;
-}
+export type NoteTarget = { patientId: string; taskId?: never } | { taskId: string; patientId?: never };
 
 export const noteKind = (target: NoteTarget): 'task' | 'patient' => (target.taskId ? 'task' : 'patient');
 

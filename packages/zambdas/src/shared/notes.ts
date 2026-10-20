@@ -1,4 +1,4 @@
-import { Communication, Extension, Practitioner } from 'fhir/r4b';
+import { Communication, Practitioner } from 'fhir/r4b';
 import { PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
 import { isNoteEdited } from 'utils/lib/helpers/visit-note/note-edit-detection.helper';
 import { PatientNoteDTO } from 'utils/lib/types/api/patient-notes/patient-notes.types';
@@ -23,25 +23,19 @@ export const isPatientOrTaskNote = (resource: Communication): boolean =>
 export const getNoteTaskId = (resource: Communication): string | undefined =>
   resource.basedOn?.find((reference) => reference.reference?.startsWith('Task/'))?.reference?.split('/')[1];
 
+/** A task note this practitioner has yet to read: someone else wrote it and they haven't opened it since. */
+export const isTaskNoteUnreadBy = (resource: Communication, practitionerId: string): boolean =>
+  isTaskNote(resource) &&
+  resource.sender?.reference !== `Practitioner/${practitionerId}` &&
+  !resource.meta?.tag?.some((tag) => tag.system === TASK_NOTE_READ_BY_TAG_SYSTEM && tag.code === practitionerId);
+
 /** "Given Family", skipping missing parts (getFullName prints "undefined" for them). */
 export const getPractitionerName = (practitioner: Practitioner): string =>
   [practitioner.name?.[0]?.given?.join(' '), practitioner.name?.[0]?.family].filter(Boolean).join(' ');
 
-export const withEditor = (resource: Communication, editorId: string, editorName: string): Extension[] => {
-  const extensions = resource.extension ?? [];
-  const reference = `Practitioner/${editorId}`;
-  if (extensions.some((ext) => ext.url === NOTE_EDITOR_EXTENSION_URL && ext.valueReference?.reference === reference))
-    return extensions;
-  return [...extensions, { url: NOTE_EDITOR_EXTENSION_URL, valueReference: { reference, display: editorName } }];
-};
-
 export const toNoteDto = (resource: Communication, callerId?: string): PatientNoteDTO => {
   const authorId = resource.sender?.reference?.split('/')[1] ?? '';
   const editors = (resource.extension ?? []).filter((ext) => ext.url === NOTE_EDITOR_EXTENSION_URL);
-  const taskNote = isTaskNote(resource);
-  const readByCaller = resource.meta?.tag?.some(
-    (tag) => tag.system === TASK_NOTE_READ_BY_TAG_SYSTEM && tag.code === callerId
-  );
   return {
     resourceId: resource.id,
     patientId: resource.subject?.reference?.split('/')[1] ?? '',
@@ -53,10 +47,10 @@ export const toNoteDto = (resource: Communication, callerId?: string): PatientNo
     lastUpdated: resource.meta?.lastUpdated ?? '',
     // Read tags bump lastUpdated, so task notes go by the editor list only. Patient notes edited before editors
     // were recorded still show "(edited)" from the lastUpdated drift.
-    edited: editors.length > 0 || (!taskNote && isNoteEdited(resource.sent, resource.meta?.lastUpdated)),
+    edited: editors.length > 0 || (!isTaskNote(resource) && isNoteEdited(resource.sent, resource.meta?.lastUpdated)),
     editorNames: editors
       .filter((ext) => ext.valueReference?.reference !== `Practitioner/${authorId}`)
       .map((ext) => ext.valueReference?.display ?? ''),
-    isUnread: taskNote && !!callerId && authorId !== callerId && !readByCaller,
+    isUnread: !!callerId && isTaskNoteUnreadBy(resource, callerId),
   };
 };

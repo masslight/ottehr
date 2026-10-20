@@ -40,11 +40,12 @@ export const TaskTitle: React.FC<TaskTitleProps> = ({ task, notes, currentUserId
       {involved && notes.some((note) => note.isUnread) && (
         <Box
           component="span"
+          role="img"
           aria-label="Unread notes"
           sx={{ display: 'inline-block', width: 10, height: 10, borderRadius: '50%', bgcolor: 'warning.main', mr: 1 }}
         />
       )}
-      <GenericToolTip title={preview} customWidth={400} placement="bottom-start">
+      <GenericToolTip title={preview} customWidth={400} placement="bottom-start" describeChild>
         <Link
           component="button"
           underline="hover"

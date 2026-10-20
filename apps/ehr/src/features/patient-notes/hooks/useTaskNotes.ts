@@ -9,7 +9,10 @@ export const useTaskNotes = (taskIds: string[]): UseQueryResult<PatientNoteDTO[]
   const { oystehrZambda } = useApiClients();
   return useQuery({
     queryKey: ['patient-notes', 'tasks', taskIds],
-    queryFn: async () => (await getPatientNotes(oystehrZambda!, { taskIds })).notes,
+    queryFn: async () => {
+      if (!oystehrZambda) throw new Error('API client not available');
+      return (await getPatientNotes(oystehrZambda, { taskIds })).notes;
+    },
     enabled: taskIds.length > 0 && Boolean(oystehrZambda),
     refetchInterval: 30000,
   });
@@ -19,7 +22,10 @@ export const useMarkTaskNotesRead = (): UseMutationResult<void, Error, string> =
   const { oystehrZambda } = useApiClients();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (taskId: string) => markTaskNotesRead(oystehrZambda!, { taskId }),
+    mutationFn: async (taskId: string) => {
+      if (!oystehrZambda) throw new Error('API client not available');
+      await markTaskNotesRead(oystehrZambda, { taskId });
+    },
     onSuccess: () => invalidateNotes(queryClient),
   });
 };

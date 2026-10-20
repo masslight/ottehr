@@ -64,7 +64,7 @@ import { ERX_TASK, FAX_TASK, getTaskInputValue } from 'utils/lib/types/data/task
 import { getInPersonVisitStatus } from 'utils/lib/utils/visitUtils';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
-import { getNoteTaskId, isTaskNote, TASK_NOTE_TAG } from '../../shared/notes';
+import { getNoteTaskId, isTaskNote, isTaskNoteUnreadBy, TASK_NOTE_TAG } from '../../shared/notes';
 import { wrapHandler } from '../../shared/sentry';
 import { getTaskLocation } from '../../shared/tasks';
 import { ZambdaInput } from '../../shared/types/common';
@@ -517,12 +517,13 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
           const recipient = activeStaffMap[recipientId];
           const key = categoryNotifiedKey(task.id!, recipientId);
           if (!recipient || notifiedThisRun.has(key)) continue;
-          const delivery = resolveTaskNoteDelivery(
-            recipient,
-            getPrefsCached(recipient),
+          const delivery = resolveTaskNoteDelivery({
+            hasExplicitPrefs: hasExplicitProviderNotificationPreferencesV2(recipient),
+            prefs: getPrefsCached(recipient),
+            legacySettings: getProviderNotificationSettingsForPractitioner(recipient),
+            taskLocationId: getTaskLocation(task)?.id,
             uiCategory,
-            getTaskLocation(task)?.id
-          );
+          });
           if (!delivery.notify) continue;
           notifiedThisRun.add(key);
           const status = communicationStatusForMethod(delivery.method);
@@ -871,28 +872,30 @@ export async function getRecentTaskNotes(
   return { newNotes, notesByTaskId, tasksById };
 }
 
-/** Who hears about a new task note: the task's assignee, its creator and every note author, minus the note's author. */
+/**
+ * Who hears about a new task note: the task's assignee, its creator and every note author, except the note's
+ * author and anyone who has already read it.
+ */
 export function resolveTaskNoteRecipientIds(task: Task, notesOnTask: Communication[], note: Communication): string[] {
-  const practitionerId = (reference?: string): string | undefined => removePrefix('Practitioner/', reference ?? '');
   const involved = [task.owner, task.requester, ...notesOnTask.map((other) => other.sender)].map((reference) =>
-    practitionerId(reference?.reference)
+    removePrefix('Practitioner/', reference?.reference ?? '')
   );
-  const authorId = practitionerId(note.sender?.reference);
-  return [...new Set(involved)].filter((id): id is string => !!id && id !== authorId);
+  return [...new Set(involved)].filter((id): id is string => !!id && isTaskNoteUnreadBy(note, id));
 }
 
 /** Being involved in the task counts as "assigned to me", so only the category row's on/off and locations apply. */
 export function resolveTaskNoteDelivery(
-  recipient: Practitioner,
-  prefs: ProviderNotificationPreferencesV2 | undefined,
-  uiCategory: UiTaskCategoryId | undefined,
-  locationId: string | undefined
-): { notify: false } | { notify: true; method: ProviderNotificationMethod | undefined } {
-  if (uiCategory && hasExplicitProviderNotificationPreferencesV2(recipient)) {
-    const row = prefs?.taskCategories[uiCategory];
-    return row && rowMatchesFilters(row, locationId, true) ? { notify: true, method: row.method } : { notify: false };
+  input: Pick<AssignmentDeliveryInput, 'hasExplicitPrefs' | 'prefs' | 'legacySettings' | 'taskLocationId'> & {
+    uiCategory: UiTaskCategoryId | undefined;
   }
-  const legacySettings = getProviderNotificationSettingsForPractitioner(recipient);
+): { notify: false } | { notify: true; method: ProviderNotificationMethod | undefined } {
+  const { hasExplicitPrefs, prefs, legacySettings, taskLocationId, uiCategory } = input;
+  if (hasExplicitPrefs && uiCategory) {
+    const row = prefs?.taskCategories[uiCategory];
+    return row && rowMatchesFilters(row, taskLocationId, true)
+      ? { notify: true, method: row.method }
+      : { notify: false };
+  }
   return legacySettings?.taskNotificationsEnabled ? { notify: true, method: legacySettings.method } : { notify: false };
 }
 

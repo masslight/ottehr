@@ -3,7 +3,7 @@ import { Communication } from 'fhir/r4b';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { GetPatientNotesOutput } from 'utils/lib/types/api/patient-notes/patient-notes.types';
 import { z } from 'zod';
-import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { checkOrCreateM2MClientToken, getUserToken } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { PATIENT_NOTE_TAG, TASK_NOTE_TAG, toNoteDto } from '../../../shared/notes';
 import { getMyPractitionerId } from '../../../shared/practitioners';
@@ -32,7 +32,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   if (taskIds) {
     // All notes on the Tasks board's tasks at once; whether a note is unread depends on who asks.
-    const callerId = await getMyPractitionerId(input.headers?.Authorization?.replace('Bearer ', '') ?? '', secrets);
+    const callerId = await getMyPractitionerId(getUserToken(input), secrets);
     const resources = await getAllFhirSearchPages<Communication>(
       {
         resourceType: 'Communication',

@@ -14,7 +14,7 @@ import {
 } from '@mui/material';
 import { Stack } from '@mui/system';
 import { enqueueSnackbar } from 'notistack';
-import React, { ReactElement, useEffect, useState } from 'react';
+import React, { ReactElement, useEffect, useMemo, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { GenericToolTip } from 'src/components/GenericToolTip';
@@ -37,6 +37,7 @@ import {
 import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import PageContainer from 'src/layout/PageContainer';
+import { PatientNoteDTO } from 'utils/lib/types/api/patient-notes/patient-notes.types';
 import { Task, TaskAlertCode, TaskAlertDisplay } from 'utils/lib/types/data/tasks/types';
 import { TASK_CATEGORY_LABEL } from '../common';
 import { CategoryChip } from '../components/CategoryChip';
@@ -47,6 +48,7 @@ import { TaskTitle } from '../components/TaskTitle';
 const LOCAL_STORAGE_FILTERS_KEY = 'tasks.filters';
 const UNKNOWN = 'Unknown';
 const COMPLETED = 'completed';
+const NOTE_CREATED_PREVIEW_LENGTH = 80;
 const TASK_STATUS_LABEL: Record<string, string> = {
   ready: 'pending',
   'in-progress': 'in progress',
@@ -210,7 +212,17 @@ export const Tasks: React.FC = () => {
     }
   );
 
-  const { data: taskNotes = [] } = useTaskNotes((tasksData?.tasks ?? []).map((task) => task.id));
+  const { data: taskNotes } = useTaskNotes((tasksData?.tasks ?? []).map((task) => task.id));
+  const notesByTaskId = useMemo(() => {
+    const grouped = new Map<string, PatientNoteDTO[]>();
+    for (const note of taskNotes ?? []) {
+      if (!note.taskId) continue;
+      const notes = grouped.get(note.taskId);
+      if (notes) notes.push(note);
+      else grouped.set(note.taskId, [note]);
+    }
+    return grouped;
+  }, [taskNotes]);
   const { mutate: markTaskNotesRead } = useMarkTaskNotesRead();
   const [notesTaskId, setNotesTaskId] = useState<string | undefined>();
 
@@ -318,6 +330,7 @@ export const Tasks: React.FC = () => {
                 ) : null}
                 {!isTasksLoading &&
                   (tasksData?.tasks ?? []).map((task) => {
+                    const notes = notesByTaskId.get(task.id) ?? [];
                     return (
                       <TableRow>
                         <TableCell>
@@ -334,11 +347,11 @@ export const Tasks: React.FC = () => {
                           <Box>
                             <TaskTitle
                               task={task}
-                              notes={taskNotes.filter((note) => note.taskId === task.id)}
+                              notes={notes}
                               currentUserId={currentUserProviderId}
                               onOpenNotes={() => {
                                 setNotesTaskId(task.id);
-                                markTaskNotesRead(task.id);
+                                if (notes.some((note) => note.isUnread)) markTaskNotesRead(task.id);
                               }}
                             />
                             {task.alert ? renderAlertIcon(task.alert) : null}
@@ -404,10 +417,10 @@ export const Tasks: React.FC = () => {
             open
             onClose={() => setNotesTaskId(undefined)}
             onNoteCreated={(text) => {
-              setNotesTaskId(undefined);
-              enqueueSnackbar(`Note created: ${text.length > 80 ? `${text.slice(0, 80)}…` : text}`, {
-                variant: 'success',
-              });
+              setNotesTaskId((current) => (current === notesTaskId ? undefined : current));
+              const preview =
+                text.length > NOTE_CREATED_PREVIEW_LENGTH ? `${text.slice(0, NOTE_CREATED_PREVIEW_LENGTH)}…` : text;
+              enqueueSnackbar(`Note created: ${preview}`, { variant: 'success' });
             }}
           />
         ) : null}

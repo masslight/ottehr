@@ -72,7 +72,7 @@ export const EditPatientNoteModal: React.FC<EditPatientNoteModalProps> = ({ note
           Leave
         </RoundedButton>
         <RoundedButton
-          disabled={!text.trim() || isPending}
+          disabled={!text.trim() || text.trim() === note.text || isPending}
           onClick={handleSave}
           variant="contained"
           startIcon={isPending ? <CircularProgress size={20} color="inherit" /> : null}

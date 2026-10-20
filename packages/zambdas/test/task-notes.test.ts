@@ -1,16 +1,17 @@
 import type { APIGatewayProxyResult } from 'aws-lambda';
-import type { Communication, Practitioner, Task } from 'fhir/r4b';
+import type { Communication, Practitioner } from 'fhir/r4b';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
-import {
-  PROVIDER_NOTIFICATION_PREFERENCES_V2_URL,
-  PROVIDER_NOTIFICATIONS_SETTINGS_EXTENSION_URL,
-} from 'utils/lib/types/api/practitioner.types';
-import type { ProviderNotificationPreferencesV2 } from 'utils/lib/types/api/provider-notifications';
+import { NOT_AUTHORIZED } from 'utils/lib/types/errors';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { resolveTaskNoteDelivery, resolveTaskNoteRecipientIds } from '../src/cron/notifications-updater/index';
 import { validateRequestParameters as validateCreate } from '../src/ehr/patient-notes/create/validateRequestParameters';
 import { GetPatientNotesSchema } from '../src/ehr/patient-notes/get/index';
-import { NOTE_EDITOR_EXTENSION_URL, TASK_NOTE_READ_BY_TAG_SYSTEM, TASK_NOTE_TAG, toNoteDto } from '../src/shared/notes';
+import {
+  NOTE_EDITOR_EXTENSION_URL,
+  PATIENT_NOTE_TAG,
+  TASK_NOTE_READ_BY_TAG_SYSTEM,
+  TASK_NOTE_TAG,
+  toNoteDto,
+} from '../src/shared/notes';
 import { getMyPractitionerId } from '../src/shared/practitioners';
 import type { ZambdaInput } from '../src/shared/types/common';
 import { validateWithSchema } from '../src/shared/validation';
@@ -41,7 +42,7 @@ vi.mock('utils/lib/fhir/getAllFhirSearchPages', async (importOriginal) => {
 });
 
 const mockFhirClient = {
-  fhir: { get: vi.fn(), search: vi.fn(), create: vi.fn(), patch: vi.fn(), transaction: vi.fn() },
+  fhir: { get: vi.fn(), search: vi.fn(), create: vi.fn(), update: vi.fn(), patch: vi.fn(), transaction: vi.fn() },
 };
 
 type Handler = (input: ZambdaInput) => Promise<APIGatewayProxyResult>;
@@ -53,6 +54,9 @@ const { index: updateHandler } = (await import('../src/ehr/patient-notes/update/
   index: Handler;
 };
 const { index: markReadHandler } = (await import('../src/ehr/patient-notes/mark-read/index')) as unknown as {
+  index: Handler;
+};
+const { index: deleteHandler } = (await import('../src/ehr/patient-notes/delete/index')) as unknown as {
   index: Handler;
 };
 
@@ -141,6 +145,12 @@ describe('toNoteDto', () => {
     expect(toNoteDto(taskNote(readBy(ME)), ME).isUnread).toBe(false);
     expect(toNoteDto(taskNote({ sender: { reference: `Practitioner/${ME}` } }), ME).isUnread).toBe(false);
   });
+
+  it('stays unread for the caller when only someone else has read it, and patient notes are never unread', () => {
+    expect(toNoteDto(taskNote(readBy('practitioner-third')), ME).isUnread).toBe(true);
+    const [system, code] = PATIENT_NOTE_TAG.split('|');
+    expect(toNoteDto(taskNote({ meta: { tag: [{ system, code }] } }), ME).isUnread).toBe(false);
+  });
 });
 
 describe('task notes handlers', () => {
@@ -162,19 +172,27 @@ describe('task notes handlers', () => {
     expect(body.notes.map((note: { isUnread: boolean }) => note.isUnread)).toEqual([true, false]);
   });
 
-  it('create: files a task note under its task', async () => {
+  it('get: needs a signed-in caller to work out what is unread', async () => {
+    await expect(getHandler({ ...makeInput({ taskIds: [TASK_ID] }), headers: {} })).rejects.toBe(NOT_AUTHORIZED);
+    expect(getAllFhirSearchPages).not.toHaveBeenCalled();
+  });
+
+  it('create: files a task note under its task and on no patient record', async () => {
     mockFhirClient.fhir.get.mockResolvedValue(me);
     mockFhirClient.fhir.create.mockImplementation((resource: Communication) => ({ ...resource, id: NOTE_ID }));
 
-    await createHandler(makeInput({ note: { taskId: TASK_ID, text: 'Left a voicemail' } }));
+    const result = await createHandler(makeInput({ note: { taskId: TASK_ID, text: 'Left a voicemail' } }));
 
-    expect(mockFhirClient.fhir.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        basedOn: [{ reference: `Task/${TASK_ID}` }],
-        meta: { tag: [{ system: TASK_NOTE_SYSTEM, code: TASK_NOTE_CODE }] },
-        sender: { reference: `Practitioner/${ME}`, display: 'Jane Smith' },
-      })
-    );
+    const created: Communication = mockFhirClient.fhir.create.mock.calls[0][0];
+    expect(created).toMatchObject({
+      status: 'completed',
+      basedOn: [{ reference: `Task/${TASK_ID}` }],
+      meta: { tag: [{ system: TASK_NOTE_SYSTEM, code: TASK_NOTE_CODE }] },
+      sender: { reference: `Practitioner/${ME}`, display: 'Jane Smith' },
+      payload: [{ contentString: 'Left a voicemail' }],
+    });
+    expect(created.subject).toBeUndefined();
+    expect(JSON.parse(result.body).note).toMatchObject({ taskId: TASK_ID, authorId: ME, isUnread: false });
   });
 
   it('update: patches only the text and editor list, so the author and tags stay', async () => {
@@ -201,7 +219,7 @@ describe('task notes handlers', () => {
     ]);
   });
 
-  it('update: rejects a task note sent with another task id', async () => {
+  it('update: rejects a task note sent with another task id, or as a patient note', async () => {
     mockFhirClient.fhir.get.mockResolvedValue(taskNote());
 
     await expect(
@@ -209,9 +227,23 @@ describe('task notes handlers', () => {
         makeInput({ note: { resourceId: NOTE_ID, taskId: '880e8400-e29b-41d4-a716-446655440003', text: 'x' } })
       )
     ).rejects.toMatchObject({ code: 4103 });
+    await expect(
+      updateHandler(makeInput({ note: { resourceId: NOTE_ID, patientId: PATIENT_ID, text: 'x' } }))
+    ).rejects.toMatchObject({ code: 4103 });
+    expect(mockFhirClient.fhir.patch).not.toHaveBeenCalled();
   });
 
-  it("mark-read: tags only the notes the caller hadn't read", async () => {
+  it('delete: removes a task note by marking it entered-in-error', async () => {
+    mockFhirClient.fhir.get.mockResolvedValue(taskNote());
+
+    await deleteHandler(makeInput({ resourceId: NOTE_ID }));
+
+    expect(mockFhirClient.fhir.update).toHaveBeenCalledWith(
+      expect.objectContaining({ id: NOTE_ID, status: 'entered-in-error' })
+    );
+  });
+
+  it("mark-read: appends the caller's read tag to only the notes they hadn't read", async () => {
     vi.mocked(getAllFhirSearchPages).mockResolvedValue([
       taskNote({ id: 'unread' }),
       taskNote({ ...readBy(ME), id: 'read' }),
@@ -220,52 +252,29 @@ describe('task notes handlers', () => {
 
     const result = await markReadHandler(makeInput({ taskId: TASK_ID }));
 
+    expect(vi.mocked(getAllFhirSearchPages).mock.calls[0][0].params).toEqual(
+      expect.arrayContaining([
+        { name: 'based-on', value: `Task/${TASK_ID}` },
+        { name: '_tag', value: TASK_NOTE_TAG },
+        { name: 'status', value: 'completed' },
+      ])
+    );
     expect(JSON.parse(result.body).marked).toBe(1);
     const { requests } = mockFhirClient.fhir.transaction.mock.calls[0][0];
-    expect(requests.map((request: { url: string }) => request.url)).toEqual(['/Communication/unread']);
+    expect(requests).toHaveLength(1);
+    expect(requests[0].url).toBe('/Communication/unread');
+    // Appended, never a replace of /meta/tag, so other readers' tags written meanwhile survive.
+    expect(JSON.parse(atob(requests[0].resource.data))).toEqual([
+      { op: 'add', path: '/meta/tag/-', value: { system: TASK_NOTE_READ_BY_TAG_SYSTEM, code: ME } },
+    ]);
   });
-});
 
-describe('resolveTaskNoteDelivery', () => {
-  const row = { enabled: true, method: undefined, locationIds: ['loc-1'], allLocations: false, assignedTo: 'me' };
-  const withPrefs: Practitioner = {
-    resourceType: 'Practitioner',
-    extension: [
-      {
-        url: PROVIDER_NOTIFICATIONS_SETTINGS_EXTENSION_URL,
-        extension: [{ url: PROVIDER_NOTIFICATION_PREFERENCES_V2_URL, valueString: '{}' }],
-      },
-    ],
-  };
+  it('mark-read: writes nothing when the caller has already read every note', async () => {
+    vi.mocked(getAllFhirSearchPages).mockResolvedValue([taskNote(readBy(ME))]);
 
-  it("follows the category row's on/off and locations, even on an unassigned task", () => {
-    const prefs = { taskCategories: { patientFollowUp: row } } as unknown as ProviderNotificationPreferencesV2;
-    expect(resolveTaskNoteDelivery(withPrefs, prefs, 'patientFollowUp', 'loc-1').notify).toBe(true);
-    expect(resolveTaskNoteDelivery(withPrefs, prefs, 'patientFollowUp', 'loc-2').notify).toBe(false);
-    const off = { taskCategories: { patientFollowUp: { ...row, enabled: false } } };
-    expect(
-      resolveTaskNoteDelivery(
-        withPrefs,
-        off as unknown as ProviderNotificationPreferencesV2,
-        'patientFollowUp',
-        'loc-1'
-      ).notify
-    ).toBe(false);
-  });
-});
+    const result = await markReadHandler(makeInput({ taskId: TASK_ID }));
 
-describe('resolveTaskNoteRecipientIds', () => {
-  it("notifies the assignee, creator and note authors, but not the new note's author", () => {
-    const task: Task = {
-      resourceType: 'Task',
-      status: 'ready',
-      intent: 'order',
-      owner: { reference: 'Practitioner/assignee' },
-      requester: { reference: 'Practitioner/creator' },
-    };
-    const note = taskNote({ sender: { reference: 'Practitioner/writer' } });
-    const earlier = taskNote({ sender: { reference: 'Practitioner/earlier' } });
-
-    expect(resolveTaskNoteRecipientIds(task, [earlier, note], note).sort()).toEqual(['assignee', 'creator', 'earlier']);
+    expect(JSON.parse(result.body).marked).toBe(0);
+    expect(mockFhirClient.fhir.transaction).not.toHaveBeenCalled();
   });
 });
