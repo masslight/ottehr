@@ -35,7 +35,7 @@ import {
   repeatTestErrorMessage,
 } from 'utils/lib/helpers/in-house-labs';
 import { detectProcedureFamily } from 'utils/lib/procedure-coding/evaluate';
-import { formatProcedureCptCode, performerTypeDisplayLabel } from 'utils/lib/procedure-coding/format';
+import { formatProcedureCptCode } from 'utils/lib/procedure-coding/format';
 import { CPTCodeDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { REPEAT_TEST_CPT_CODE_MODIFIER } from 'utils/lib/types/data/in-house/in-house.constants';
 import { DataEntryTestItem } from 'utils/lib/types/data/in-house/in-house.types';
@@ -1141,6 +1141,9 @@ async function verifyProcedureRow(procedureInfo: ProcedureInfo, procedureRow: Pr
   await procedureRow.verifyProcedureDocumentedBy(procedureInfo.documentedBy);
 }
 
+// Spelled out here rather than taken from the app's formatter, so a wrong label fails the test.
+const PROGRESS_NOTE_PERFORMER: Record<string, string> = { Both: 'Provider and healthcare staff' };
+
 function progressNoteProcedureDetails(procedureInfo: ProcedureInfo): string[] {
   const cptInfo: string[] = [];
   for (const cpt of procedureInfo.cptInfo) {
@@ -1152,7 +1155,7 @@ function progressNoteProcedureDetails(procedureInfo: ProcedureInfo): string[] {
   return [
     'CPT:' + cptInfo.join('; '),
     'Dx: ' + procedureInfo.diagnosisCode + ' ' + procedureInfo.diagnosisName,
-    'Performed by: ' + performerTypeDisplayLabel(procedureInfo.performedBy),
+    'Performed by: ' + (PROGRESS_NOTE_PERFORMER[procedureInfo.performedBy] ?? procedureInfo.performedBy),
     'Anaesthesia / medication used: ' + procedureInfo.anaesthesia,
     'Site/location: ' + procedureInfo.bodySite,
     'Side of body: ' + procedureInfo.bodySide,

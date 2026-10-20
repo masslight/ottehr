@@ -56,6 +56,11 @@ describe('composeProcedures — structured fields', () => {
     expect(composed.procedures?.[0].performerType).toBe('Provider and healthcare staff');
   });
 
+  it('writes an afternoon procedure time on the 12-hour clock', () => {
+    const composed = composeFor({ procedureDateTime: '2026-10-20T18:05:00.000Z' });
+    expect(composed.procedures?.[0].procedureDateTime).toBe('10/20/2026, 02:05 PM');
+  });
+
   it('applies the cross-midnight rule to the infusion duration', () => {
     const composed = composeFor({ infusionStartTime: '23:50', infusionStopTime: '00:20' });
     expect(composed.procedures?.[0].infusionTime).toBe('23:50–00:20 (30 min)');

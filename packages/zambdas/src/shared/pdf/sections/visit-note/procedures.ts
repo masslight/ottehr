@@ -22,7 +22,7 @@ export const composeProcedures: DataComposer<ProgressNoteVisitDataInput, Procedu
     diagnoses: procedure?.diagnoses?.map((diagnosis) => diagnosis.code + ' ' + diagnosis.display),
     procedureDateTime:
       procedure.procedureDateTime != null
-        ? DateTime.fromISO(procedure.procedureDateTime).setZone(timezone).toFormat('MM/dd/yyyy, HH:mm a')
+        ? DateTime.fromISO(procedure.procedureDateTime).setZone(timezone).toFormat('MM/dd/yyyy, hh:mm a')
         : undefined,
     performerType: procedure.performerType != null ? performerTypeDisplayLabel(procedure.performerType) : undefined,
     medicationUsed: procedure.medicationUsed,

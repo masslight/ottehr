@@ -56,7 +56,7 @@ export const ProceduresContainer: FC = () => {
             {renderProperty(
               'Date and time of the procedure',
               procedure.procedureDateTime != null
-                ? DateTime.fromISO(procedure.procedureDateTime).toFormat('MM/dd/yyyy, HH:mm a')
+                ? DateTime.fromISO(procedure.procedureDateTime).toFormat('MM/dd/yyyy, hh:mm a')
                 : undefined
             )}
             {renderProperty(
