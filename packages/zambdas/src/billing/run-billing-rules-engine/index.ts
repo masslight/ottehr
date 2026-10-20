@@ -45,8 +45,8 @@ export interface RulesEngineKickoff {
   claimId: string;
   engine: RulesEngineType;
   skipRules: boolean;
-  submissionType: RulesEngineSubmissionType;
-  submissionInsurance: RulesEngineSubmissionInsurance;
+  submissionType?: RulesEngineSubmissionType;
+  submissionInsurance?: RulesEngineSubmissionInsurance;
   payerClaimControlNumber?: string;
 }
 
@@ -79,9 +79,9 @@ export async function complexValidation(
         claimId,
         engine,
         skipRules: params.skipRules,
-        submissionType: params.submissionType,
-        submissionInsurance: params.submissionInsurance,
-        payerClaimControlNumber: params.payerClaimControlNumber,
+        submissionType: 'submissionType' in params ? params.submissionType : undefined,
+        submissionInsurance: 'submissionInsurance' in params ? params.submissionInsurance : undefined,
+        payerClaimControlNumber: 'payerClaimControlNumber' in params ? params.payerClaimControlNumber : undefined,
       });
     else noEngine.push(claimId);
   }

@@ -47,26 +47,26 @@ export const RULES_ENGINES: Record<RulesEngineType, RulesEngineDef> = {
     label: 'Claim Submission Rules',
     runsWhen: 'when an Insurance Payer AR claim is submitted',
     onPass: 'the claim is submitted to the payer',
-    runButtonLabel: 'Submit claim',
+    runButtonLabel: 'Submit Claim',
   },
   'non-insurance-payer-pre-invoice': {
     type: 'non-insurance-payer-pre-invoice',
     label: 'Non-Insurance Payer Pre-Invoice Rules',
     runsWhen: 'when a claim is created in Non-insurance Payer AR',
     onPass: 'the Non-insurance AR Status moves to Ready to invoice',
-    runButtonLabel: 'Prepare for invoice',
+    runButtonLabel: 'Prepare for Invoice',
   },
   'patient-ar-pre-invoice': {
     type: 'patient-ar-pre-invoice',
     label: 'Patient AR Pre-Invoice Rules',
     runsWhen: 'when a claim is created in Patient AR',
     onPass: 'the Patient AR Status moves to Ready to invoice',
-    runButtonLabel: 'Prepare for invoice',
+    runButtonLabel: 'Prepare for Invoice',
   },
 };
 
 export const RULES_ENGINE_SUBMISSION_TYPES = ['new', 'correction', 'void'] as const;
 export type RulesEngineSubmissionType = (typeof RULES_ENGINE_SUBMISSION_TYPES)[number];
 
-export const RULES_ENGINE_SUBMISSION_INSURANCES = ['primary', 'seconndary', 'tertiary', 'quaternary'] as const;
+export const RULES_ENGINE_SUBMISSION_INSURANCES = ['primary', 'secondary', 'tertiary', 'quaternary'] as const;
 export type RulesEngineSubmissionInsurance = (typeof RULES_ENGINE_SUBMISSION_INSURANCES)[number];

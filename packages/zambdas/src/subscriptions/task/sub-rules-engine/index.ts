@@ -183,8 +183,8 @@ export interface ValidatedRulesRun {
   rules: BillingRule[];
   model: RulesEngineClaimModel;
   skipRules: boolean;
-  submissionType: RulesEngineSubmissionType;
-  submissionInsurance: RulesEngineSubmissionInsurance;
+  submissionType: RulesEngineSubmissionType | null;
+  submissionInsurance: RulesEngineSubmissionInsurance | null;
   payerClaimControlNumber: string | null;
 }
 
@@ -198,11 +198,11 @@ export async function complexValidation(
   submissionInsurance: string | null,
   payerClaimControlNumber: string | null
 ): Promise<ValidatedRulesRun> {
-  if (!submissionType) {
+  if (engine === 'claim-submission' && !submissionType) {
     console.error(`[rules-engine] "submissionType" is required`);
     throw new Error('"submissionType" is required');
   }
-  if (!submissionInsurance) {
+  if (engine === 'claim-submission' && !submissionInsurance) {
     console.error(`[rules-engine] "submissionInsurance" is required`);
     throw new Error('"submissionInsurance" is required');
   }
@@ -242,8 +242,8 @@ export async function complexValidation(
     rules,
     model,
     skipRules: skipRules ?? false,
-    submissionType: submissionType as RulesEngineSubmissionType,
-    submissionInsurance: submissionInsurance as RulesEngineSubmissionInsurance,
+    submissionType: submissionType as RulesEngineSubmissionType | null,
+    submissionInsurance: submissionInsurance as RulesEngineSubmissionInsurance | null,
     payerClaimControlNumber,
   };
 }

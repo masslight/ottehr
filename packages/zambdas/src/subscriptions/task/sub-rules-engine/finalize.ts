@@ -26,8 +26,8 @@ export interface FinalizeRunInput {
   oystehr: Oystehr;
   model: RulesEngineClaimModel;
   agent: ProvenanceAgent[];
-  submissionType: RulesEngineSubmissionType;
-  submissionInsurance: RulesEngineSubmissionInsurance;
+  submissionType: RulesEngineSubmissionType | null;
+  submissionInsurance: RulesEngineSubmissionInsurance | null;
   payerClaimControlNumber: string | null;
 }
 

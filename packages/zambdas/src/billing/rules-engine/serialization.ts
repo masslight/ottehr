@@ -145,14 +145,24 @@ export function buildRulesEngineKickoffTask(
             },
           ]
         : []),
-      {
-        type: { coding: [{ system: RULES_ENGINE_INPUT_SYSTEM, code: RULES_ENGINE_INPUT_SUBMISSION_TYPE_CODE }] },
-        valueString: submissionType,
-      },
-      {
-        type: { coding: [{ system: RULES_ENGINE_INPUT_SYSTEM, code: RULES_ENGINE_INPUT_SUBMISSION_TYPE_CODE }] },
-        valueString: submissionInsurance,
-      },
+      ...(submissionType
+        ? [
+            {
+              type: { coding: [{ system: RULES_ENGINE_INPUT_SYSTEM, code: RULES_ENGINE_INPUT_SUBMISSION_TYPE_CODE }] },
+              valueString: submissionType,
+            },
+          ]
+        : []),
+      ...(submissionInsurance
+        ? [
+            {
+              type: {
+                coding: [{ system: RULES_ENGINE_INPUT_SYSTEM, code: RULES_ENGINE_INPUT_SUBMISSION_INSURANCE_CODE }],
+              },
+              valueString: submissionInsurance,
+            },
+          ]
+        : []),
       ...(payerClaimControlNumber
         ? [
             {

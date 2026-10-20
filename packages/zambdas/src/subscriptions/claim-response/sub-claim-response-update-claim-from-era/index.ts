@@ -1,6 +1,6 @@
 import Oystehr, { BatchInputPatchRequest, FhirResourceReturnValue } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Claim, ClaimResponse, Provenance, ProvenanceAgent } from 'fhir/r4b';
+import { Claim, ClaimResponse, Coverage, Provenance, ProvenanceAgent, Reference } from 'fhir/r4b';
 import { BILLING_RESOURCE_TAG } from 'utils/lib/fhir/constants';
 import { getExtensionValue, reducePatchOperations, withVersionConflictRetries } from 'utils/lib/fhir/helpers';
 import { Secrets } from 'utils/lib/secrets';
@@ -15,6 +15,7 @@ import { claimMetaTagsWithProvenanceRequests, resolveClaimActor } from '../../..
 import {
   buildUpdatedClaimStatusTags,
   CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM,
+  CLAIM_PAYER_CLAIM_CONTROL_NUMBER_INSURANCE_ORD_SYSTEM,
   createBillingClient,
   ERA_CLAIM_RESPONSE_TYPE_TAG,
   ERA_ICN_EXTENSION,
@@ -183,6 +184,7 @@ export async function performEffect(oystehr: Oystehr, validated: ComplexValidati
       console.log(`Claim/${current.id} no longer needs this adjustment after the conflict, skipping`);
     }
     const claimResponseIcn = getExtensionValue(claimResponse, ERA_ICN_EXTENSION, 'valueString');
+    const insuranceOrdinal = await getInsuranceOrdinal(oystehr, claim, claimResponse.insurer);
     const requests = reducePatchOperations<Claim | Provenance>([
       ...(updatedTags.length
         ? claimMetaTagsWithProvenanceRequests(claim, updatedTags, 'statusChange', validated.agent)
@@ -203,6 +205,20 @@ export async function performEffect(oystehr: Oystehr, validated: ComplexValidati
                     {
                       system: CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM,
                       value: claimResponseIcn,
+                      ...(insuranceOrdinal
+                        ? [
+                            {
+                              type: {
+                                coding: [
+                                  {
+                                    system: CLAIM_PAYER_CLAIM_CONTROL_NUMBER_INSURANCE_ORD_SYSTEM,
+                                    coe: insuranceOrdinal,
+                                  },
+                                ],
+                              },
+                            },
+                          ]
+                        : []),
                     },
                   ],
                 },
@@ -251,4 +267,28 @@ export function claimWasForwarded(claimResponse: ClaimResponse): boolean {
     return true;
   }
   return false;
+}
+
+async function getInsuranceOrdinal(
+  oystehr: Oystehr,
+  claim: FhirResourceReturnValue<Claim>,
+  insurer: Reference
+): Promise<string | undefined> {
+  const coverages = (
+    await oystehr.fhir.search<Coverage>({
+      resourceType: 'Coverage',
+      params: [
+        {
+          name: '_id',
+          value: claim.insurance.map((ins) => ins.coverage.reference?.replace('Coverage/', '')).join(','),
+        },
+      ],
+    })
+  ).unbundle();
+  const targetCoverage = coverages.find((cov) => cov.payor[0].reference === insurer.reference);
+  if (!targetCoverage) return;
+  const sequence = claim.insurance.find((ins) => ins.coverage.reference?.replace('Coverage/', '') === targetCoverage.id)
+    ?.sequence;
+  if (!sequence) return;
+  return sequence === 1 ? 'primary' : sequence === 2 ? 'secondary' : sequence === 3 ? 'tertiary' : 'quaternary';
 }
