@@ -11,7 +11,12 @@ import {
   parseConfiguredAt,
   parsePlanDefinitionToActions,
 } from '../../../scheduled-outreach-config/helpers';
-import { calculateDueDateTime, OUTREACH_TASK_TAG_SYSTEM, produceOutreachTasks } from './produce-outreach-tasks';
+import {
+  calculateDueDateTime,
+  OUTREACH_PLATFORM_STRIPE_ACCOUNT,
+  OUTREACH_TASK_TAG_SYSTEM,
+  produceOutreachTasks,
+} from './produce-outreach-tasks';
 
 export interface ProduceInvoiceDueOutreachResult {
   invoicesEvaluated: number;
@@ -122,7 +127,9 @@ export async function produceInvoiceDueOutreach(
         appointment: appointmentRef ? { reference: appointmentRef } : undefined,
         eventTimestamp: dueDate,
         oystehr,
-        stripeAccount,
+        // Ownership is known here, so platform is recorded explicitly — an absent stamp
+        // means "unknown" and would fall back to the Location's current (mutable) account.
+        stripeAccount: stripeAccount ?? OUTREACH_PLATFORM_STRIPE_ACCOUNT,
         actionFilter: (action) => applicableActionIds.has(action.id),
       });
 

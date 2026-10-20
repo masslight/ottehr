@@ -128,7 +128,8 @@ describe('produceInvoiceDueOutreach Stripe account fan-out', () => {
     expect(mockInvoicesList.mock.calls[0][1]).toEqual({ stripeAccount: undefined });
     expect(result.invoicesEvaluated).toBe(1);
     expect(mockProduceOutreachTasks).toHaveBeenCalledWith(
-      expect.objectContaining({ focus: { reference: 'Encounter/enc-p' }, stripeAccount: undefined })
+      // Platform ownership is recorded explicitly, not left blank
+      expect.objectContaining({ focus: { reference: 'Encounter/enc-p' }, stripeAccount: 'platform' })
     );
   });
 

@@ -171,10 +171,8 @@ async function main(): Promise<void> {
   const accountIds: (string | undefined)[] = [undefined, ...(connected?.data.map((a) => a.id) ?? [])];
   if (accountIds.length > 1)
     console.log(
-      `NOTE: ${
-        accountIds.length - 1
-      } connected account(s) found. The producer/executor query only the platform account, ` +
-        'so invoices on connected accounts are never picked up.'
+      `NOTE: ${accountIds.length - 1} connected account(s) found; open invoices are listed per account below. ` +
+        'Producers/executors without multi-account support only see the platform account.'
     );
 
   const now = DateTime.utc();

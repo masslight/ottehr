@@ -6,6 +6,7 @@ import {
   buildTaskInput,
   createOutreachTaskIdempotent,
   produceOutreachTasks,
+  reconcileDraftTasksWithConfig,
   resolveOutreachTaskStripeAccount,
 } from '../../../src/rcm/scheduled-outreach/producers/shared/produce-outreach-tasks';
 import type { OutreachAction } from '../../../src/rcm/scheduled-outreach-config/helpers';
@@ -281,6 +282,16 @@ describe('produce-outreach-tasks', () => {
       expect(mockGetStripeAccountForAppointmentOrEncounter).not.toHaveBeenCalled();
     });
 
+    it('decodes the platform sentinel to undefined without falling back to the Location', async () => {
+      const task = {
+        ...baseTask,
+        input: [{ type: { text: 'stripe-account' }, valueString: 'platform' }],
+      };
+
+      await expect(resolveOutreachTaskStripeAccount(task as any, mockOystehrClient as any)).resolves.toBeUndefined();
+      expect(mockGetStripeAccountForAppointmentOrEncounter).not.toHaveBeenCalled();
+    });
+
     it('falls back to the encounter Location resolution for unstamped tasks', async () => {
       mockGetStripeAccountForAppointmentOrEncounter.mockResolvedValue('acct_from_location');
 
@@ -303,6 +314,43 @@ describe('produce-outreach-tasks', () => {
       await expect(
         resolveOutreachTaskStripeAccount(patientFocusTask as any, mockOystehrClient as any)
       ).resolves.toBeUndefined();
+    });
+  });
+
+  describe('reconcileDraftTasksWithConfig', () => {
+    it('preserves the stripe-account input when rebuilding task input for a changed action', async () => {
+      const oldAction = makeAction();
+      const newAction = makeAction({
+        sendNotificationConfig: { mediums: ['sms'], smsTemplate: 'Pay NOW!', emailTemplate: '' },
+      });
+      const draftTask = {
+        resourceType: 'Task',
+        id: 'task-1',
+        status: 'draft',
+        meta: {
+          tag: [
+            { system: 'https://fhir.zapehr.com/r4/StructureDefinitions/outreach-task/action-id', code: 'action-1' },
+          ],
+        },
+        input: [...buildTaskInput(oldAction, 'acct_stamped')!],
+      };
+      mockSearch.mockResolvedValueOnce(mockBundle([draftTask]));
+
+      const { requests, updated } = await reconcileDraftTasksWithConfig(
+        mockOystehrClient as any,
+        [oldAction],
+        [newAction]
+      );
+
+      expect(updated).toBe(1);
+      const patchOps = JSON.parse((requests[0].resource as any).data);
+      const inputOp = patchOps.find((op: any) => op.path === '/input');
+      expect(inputOp.value).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ type: { text: 'stripe-account' }, valueString: 'acct_stamped' }),
+          expect.objectContaining({ type: { text: 'sms-template' }, valueString: 'Pay NOW!' }),
+        ])
+      );
     });
   });
 
