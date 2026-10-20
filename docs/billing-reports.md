@@ -149,3 +149,43 @@ All definitions live in `packages/zambdas/src/billing/reports/definitions/`.
 All cached as gzipped JSON objects in the billing-app Z3 bucket under `billing-reports/`;
 a `cacheVersion` bump abandons old objects in place. The pipeline history is the one
 FHIR-resident piece, a `DocumentReference` under `ottehrIdentifierSystem('billing-report')`.
+
+---
+
+## Ad-hoc datasets (billing data for ad-hoc reporting)
+
+Ad-hoc reporting (the EHR report builder) reads billing-app data only through a billing-owned
+zambda, so clinical code never reads billing FHIR. Unlike the reports above there is no cache:
+each run builds the rows fresh.
+
+- **`adhoc-billing-dataset`** (http_auth, billing config): the same start/poll contract as the
+  EHR `adhoc-report` — `{ datasetId, dateRange, options }` → `{ taskId }`; `{ taskId }` →
+  `{ status, downloadUrl?, error? }`. Gated by `AD_HOC_REPORT_VIEW_ROLES`; rejects a `datasetId`
+  it does not serve; a poll answers only Tasks of its own code.
+- **`sub-adhoc-billing-dataset`** (subscription on
+  `Task?code=…/adhoc-report-task|adhoc-billing-dataset&status=requested`): builds the rows with
+  the billing client, uploads JSON to `${PROJECT_ID}-billing-claim-exports/adhoc-billing-dataset-<taskId>.json`
+  and records the url on `Task.output` (`adhoc-report-output-url`).
+- **Cleanup**: `cleanup-billing-claim-exports` deletes the JSON 60 min after its Task finished.
+
+### billing-claims — Claims (billing app)
+
+One row per Claim whose service date (first line) falls in the range, scanned with
+`scanClaimIds` and filtered by `claimMatchesServiceDateRange`, then hydrated 100 at a time like
+the claims list. Base columns and amounts come from `mapClaimToItem`, so they match the claims
+list. A scan that ends short (a claim created mid-scan shifts the offsets) is retried once, then
+fails the Task. Payers are resolved once per run. The build stops at 12 min with "Too many claims
+for one run — narrow the date range", so the Task fails instead of the lambda being killed with the
+Task left in-progress. Layers (no extra queries): `codes` (lines + ICD-10, reads
+`Claim.diagnosis`), `writeOffs`, `remits` (matched ERA ClaimResponses, CARC codes), `timeline`
+(status date extensions, reads `Claim.extension`). Event dates are sent as recorded; the EHR
+converts them to the viewer's calendar day.
+
+### Adding the next billing dataset
+
+1. Row schema + layers in `packages/utils/lib/types/adhoc/datasets/<name>.ts`.
+2. Row builder in `packages/zambdas/src/billing/adhoc/<name>.ts` (billing client only).
+3. Its id in `BILLING_ADHOC_DATASET_IDS` (`adhoc-billing-dataset/validateRequestParameters.ts`) and
+   a `case` in `sub-adhoc-billing-dataset`.
+4. An EHR registry entry (`apps/ehr/src/features/report-builder/datasets/`) calling
+   `runAdHocReport(…, ADHOC_BILLING_DATASET_ZAMBDA_ID)`.

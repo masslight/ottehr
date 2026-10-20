@@ -11,6 +11,7 @@ import {
   Patient,
   Practitioner,
   RelatedPerson,
+  Task,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { BUCKET_NAMES, SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
@@ -19,8 +20,100 @@ import { isInPersonAppointment, isTelemedAppointment, OTTEHR_MODULE } from 'util
 import { getAddressForIndividual, getFirstName, getLastName, getMiddleName } from 'utils/lib/fhir/patient';
 import { getAdmitterPractitionerId, getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import {
+  ADHOC_REPORT_OUTPUT_URL_CODE,
+  ADHOC_REPORT_PARAMS_CODE,
+  ADHOC_REPORT_TASK_SYSTEM,
+  AdHocReportStatus,
+  GetAdHocReportStatusInput,
+  GetAdHocReportStatusInputSchema,
+  StartAdHocReportInput,
+  StartAdHocReportInputSchema,
+} from 'utils/lib/types/adhoc/generation/report-task';
+import { FHIR_RESOURCE_NOT_FOUND_CUSTOM, MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils/lib/types/errors';
 import { getInPersonVisitStatus } from 'utils/lib/utils/visitUtils';
+import { ZambdaInput } from './types/common';
+import { safeJsonParse, safeValidate } from './validation';
 import { createPresignedUrl } from './z3Utils';
+
+export type AdHocReportRequest =
+  | (StartAdHocReportInput & { secrets: Secrets })
+  | (GetAdHocReportStatusInput & { secrets: Secrets });
+
+export function validateAdHocReportRequest(input: ZambdaInput): AdHocReportRequest {
+  if (!input.body) throw MISSING_REQUEST_BODY;
+  if (!input.secrets) throw MISSING_REQUEST_SECRETS;
+
+  const parsedJSON = safeJsonParse(input.body) as Record<string, unknown>;
+
+  if ('taskId' in parsedJSON && parsedJSON.taskId) {
+    const parsed = safeValidate(GetAdHocReportStatusInputSchema, parsedJSON);
+    return { ...parsed, secrets: input.secrets };
+  }
+
+  const parsed = safeValidate(StartAdHocReportInputSchema, parsedJSON);
+
+  return { ...parsed, secrets: input.secrets };
+}
+
+export async function createAdHocReportTask(
+  oystehr: Oystehr,
+  code: string,
+  params: StartAdHocReportInput
+): Promise<Task> {
+  const task = await oystehr.fhir.create<Task>({
+    resourceType: 'Task',
+    status: 'requested',
+    intent: 'order',
+    code: { coding: [{ system: ADHOC_REPORT_TASK_SYSTEM, code }] },
+    input: [
+      {
+        type: { coding: [{ system: ADHOC_REPORT_TASK_SYSTEM, code: ADHOC_REPORT_PARAMS_CODE }] },
+        valueString: JSON.stringify({
+          datasetId: params.datasetId,
+          dateRange: params.dateRange,
+          options: params.options ?? {},
+        }),
+      },
+    ],
+  });
+
+  if (!task.id) throw new Error('Ad-hoc report Task was created without an id');
+
+  return task;
+}
+
+export async function adHocReportTaskStatus(
+  task: Task,
+  expectedCode: string,
+  token: string
+): Promise<AdHocReportStatus> {
+  const isExpectedTask =
+    task.code?.coding?.some((c) => c.system === ADHOC_REPORT_TASK_SYSTEM && c.code === expectedCode) ?? false;
+
+  if (!isExpectedTask) throw FHIR_RESOURCE_NOT_FOUND_CUSTOM(`Task/${task.id} is not an ad-hoc report`);
+
+  if (task.status === 'completed') {
+    const outputUrl = task.output?.find((o) => o.type?.coding?.some((c) => c.code === ADHOC_REPORT_OUTPUT_URL_CODE))
+      ?.valueString;
+
+    if (!outputUrl) return { status: 'failed', error: 'Report completed but produced no data file' };
+
+    const downloadUrl = await createPresignedUrl(token, outputUrl, 'download');
+
+    return { status: 'completed', downloadUrl };
+  }
+
+  const failed = ['failed', 'cancelled', 'rejected', 'entered-in-error'];
+  if (failed.includes(task.status)) {
+    return {
+      status: 'failed',
+      error: task.statusReason?.text || task.statusReason?.coding?.[0]?.code || 'Report failed',
+    };
+  }
+
+  return { status: task.status === 'in-progress' ? 'in-progress' : 'requested' };
+}
 
 export async function uploadAdHocReportJsonToZ3(
   oystehr: Oystehr,
@@ -31,11 +124,13 @@ export async function uploadAdHocReportJsonToZ3(
   const projectApi = getSecret(SecretsKeys.PROJECT_API, secrets);
   const bucketName = `${projectId}-${BUCKET_NAMES.REPORTS}`;
   const objectPath = `adhoc-report-${randomUUID()}.json`;
+
   await oystehr.z3.uploadFile({
     bucketName,
     'objectPath+': objectPath,
     file: new Blob([json], { type: 'application/json' }),
   });
+
   return `${projectApi}/z3/${bucketName}/${objectPath}`;
 }
 

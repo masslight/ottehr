@@ -489,9 +489,12 @@ export async function searchClaimsBySearchText({
 export async function fetchClaimsPageByIds({
   oystehr,
   claimIds,
+  extraElements = [],
 }: {
   oystehr: Oystehr;
   claimIds: string[];
+  // Claim fields a caller reads beyond what the claims list renders (CLAIM_LIST_ELEMENTS).
+  extraElements?: string[];
 }): Promise<{ claims: FhirResourceReturnValue<Claim>[]; includedResources: Resource[] }> {
   if (claimIds.length === 0) {
     return {
@@ -507,7 +510,15 @@ export async function fetchClaimsPageByIds({
         name: '_id',
         value: claimIds.join(','),
       },
-      ...CLAIM_LIST_PARAMS,
+      ...(extraElements.length > 0
+        ? [
+            ...CLAIM_LIST_INCLUDE_PARAMS,
+            {
+              name: '_elements',
+              value: [CLAIM_LIST_ELEMENTS, ...extraElements].join(','),
+            },
+          ]
+        : CLAIM_LIST_PARAMS),
       {
         name: '_count',
         value: String(claimIds.length),
@@ -542,8 +553,28 @@ export async function enrichAndMapClaims({
   claims: Claim[];
   includedResources: Resource[];
 }): Promise<BillingClaimItem[]> {
+  const lookups = await buildClaimLookups({
+    oystehr,
+    claims,
+    includedResources,
+  });
+  return claims.map((claim) => mapClaimToItem(claim, lookups));
+}
+
+export async function buildClaimLookups({
+  oystehr,
+  claims,
+  includedResources,
+  payersByRef,
+}: {
+  oystehr: Oystehr;
+  claims: Claim[];
+  includedResources: Resource[];
+  payersByRef?: Map<string, Organization>;
+}): Promise<ClaimLookups> {
   const patients = includedResources.filter((r): r is Patient => r.resourceType === 'Patient');
   const locations = includedResources.filter((r): r is Location => r.resourceType === 'Location');
+
   const providers = includedResources.filter(
     (r): r is Practitioner | Organization => r.resourceType === 'Practitioner' || r.resourceType === 'Organization'
   );
@@ -551,9 +582,11 @@ export async function enrichAndMapClaims({
   const coverageIds = claims
     .map((c) => sortClaimInsurance(c)[0]?.coverage?.reference?.replace('Coverage/', ''))
     .filter(Boolean) as string[];
+
   const uniqueCoverageIds = [...new Set(coverageIds)];
 
   let coverages: Coverage[] = [];
+
   if (uniqueCoverageIds.length > 0) {
     coverages = await getAllFhirSearchPages<Coverage>(
       {
@@ -574,11 +607,12 @@ export async function enrichAndMapClaims({
     );
   }
 
-  const [payersByRef, claimResponsesByClaimId, patientPaidByClaimId, writeOffs] = await Promise.all([
-    resolvePayersByRef(
-      oystehr,
-      claims.map((c) => c.insurer?.reference)
-    ),
+  const [resolvedPayersByRef, claimResponsesByClaimId, patientPaidByClaimId, writeOffs] = await Promise.all([
+    payersByRef ??
+      resolvePayersByRef(
+        oystehr,
+        claims.map((c) => c.insurer?.reference)
+      ),
     fetchClaimResponsesByClaimIds(oystehr, claims.map((c) => c.id).filter(Boolean) as string[]),
     fetchPatientPaidByClaimId({
       oystehr,
@@ -587,9 +621,9 @@ export async function enrichAndMapClaims({
     fetchWriteOffsByClaimIds(oystehr, claims.map((c) => c.id).filter(Boolean) as string[]),
   ]);
 
-  const lookups: ClaimLookups = {
+  return {
     patients,
-    payersByRef,
+    payersByRef: resolvedPayersByRef,
     locations,
     providers,
     coverages,
@@ -597,7 +631,6 @@ export async function enrichAndMapClaims({
     patientPaidByClaimId,
     writeOffs,
   };
-  return claims.map((claim) => mapClaimToItem(claim, lookups));
 }
 
 export interface ClaimLookups {
@@ -618,14 +651,13 @@ export function mapClaimToItem(claim: Claim, lookups: ClaimLookups): BillingClai
   const sortedInsurance = sortClaimInsurance(claim);
   const coverage = findRef<Coverage>(lookups.coverages, sortedInsurance[0]?.coverage?.reference);
   const billed = claim.total?.value ?? 0;
-
   const renderingRef = claim.careTeam?.[0]?.provider?.reference;
   const renderingProvider = findRef<Practitioner | Organization>(lookups.providers, renderingRef);
   const patientName = fhirName(patient);
-
   const serviceDate = getClaimServiceDate(claim);
   const patientPaid = lookups.patientPaidByClaimId.get(claim.id ?? '') ?? 0;
   const writeOffsTotal = sumWriteOffs(lookups.writeOffs.get(claim.id ?? '') ?? []);
+
   const payments = summarizeClaimPayments(
     lookups.claimResponsesByClaimId.get(claim.id ?? '') ?? [],
     billed,
