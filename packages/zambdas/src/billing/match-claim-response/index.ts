@@ -2,6 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import { Claim, ClaimResponse } from 'fhir/r4b';
+import { makeOptimisticLockIfMatchHeader } from 'utils/lib/fhir/helpers';
 import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
 import {
   MatchClaimResponseToClaimInput,
@@ -13,7 +14,8 @@ import { validateJsonBody } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { safeValidate } from '../../shared/validation';
-import { createBillingClient } from '../shared';
+import { assertClaimResponseEraNotVoided } from '../era-write';
+import { createBillingClient, createEraReadClient } from '../shared';
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'match-claim-response';
@@ -23,7 +25,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
 
-  const response = await performEffect(oystehr, params);
+  const eraReadClient = createEraReadClient(m2mToken, params.secrets);
+  const response = await performEffect(oystehr, eraReadClient, params);
 
   return {
     statusCode: 200,
@@ -31,7 +34,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   };
 });
 
-async function performEffect(oystehr: Oystehr, params: Params): Promise<ClaimResponse> {
+export async function performEffect(oystehr: Oystehr, eraReadClient: Oystehr, params: Params): Promise<ClaimResponse> {
   const claim = await oystehr.fhir.get<Claim>({
     resourceType: 'Claim',
     id: params.claimId,
@@ -43,11 +46,14 @@ async function performEffect(oystehr: Oystehr, params: Params): Promise<ClaimRes
     resourceType: 'ClaimResponse',
     id: params.claimResponseId,
   });
+  await assertClaimResponseEraNotVoided(eraReadClient, claimResponse);
   const bundle = await oystehr.fhir.transaction({
     requests: [
       getPatchBinary({
         resourceType: 'ClaimResponse',
         resourceId: claimResponse.id!,
+        // Fails if a void cancelled the response after the check above.
+        ifMatch: makeOptimisticLockIfMatchHeader(claimResponse),
         patchOperations: [
           {
             op: 'replace',

@@ -1,7 +1,8 @@
 import Oystehr from '@oystehr/sdk';
 import { PaymentReconciliation } from 'fhir/r4b';
+import { SearchErasInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { beforeEach, describe, expect, it, Mock, vi } from 'vitest';
-import { fetchClaimResponsesByPaymentReconciliations } from '../../../src/billing/claim-amounts';
+import { fetchClaimEraLinks, fetchClaimResponsesByPaymentReconciliations } from '../../../src/billing/claim-amounts';
 import { performEffect } from '../../../src/billing/search-billing-eras';
 import { SearchErasParams } from '../../../src/billing/search-billing-eras/validateRequestParameters';
 import { ERA_CHECK_SYSTEM, ERA_SOURCE_EXTENSION, resolvePayersByRef } from '../../../src/billing/shared';
@@ -9,6 +10,7 @@ import { ERA_CHECK_SYSTEM, ERA_SOURCE_EXTENSION, resolvePayersByRef } from '../.
 vi.mock('../../../src/billing/claim-amounts', async (importOriginal) => ({
   ...(await importOriginal<object>()),
   fetchClaimResponsesByPaymentReconciliations: vi.fn(),
+  fetchClaimEraLinks: vi.fn(),
 }));
 
 vi.mock('../../../src/billing/shared', async (importOriginal) => ({
@@ -91,17 +93,20 @@ const makeOystehr = (
 } => {
   let scanCall = 0;
   const search = vi.fn().mockImplementation((call: SearchCall) => {
+    const matchesStatus = (era: PaymentReconciliation): boolean =>
+      (!paramValue(call, 'status') || era.status === paramValue(call, 'status')) &&
+      (!paramValue(call, 'status:not') || era.status !== paramValue(call, 'status:not'));
     if (isPageFetch(call)) {
       const ids = new Set(paramValue(call, '_id')!.split(','));
-      return Promise.resolve(bundle(eras.filter((era) => ids.has(era.id!))));
+      return Promise.resolve(bundle(eras.filter((era) => ids.has(era.id!) && matchesStatus(era))));
     }
     if (isScan(call)) {
-      if (!scanPages) return Promise.resolve(bundle(projected(eras)));
+      if (!scanPages) return Promise.resolve(bundle(projected(eras.filter(matchesStatus))));
       const page = scanPages[scanCall];
       scanCall++;
-      return Promise.resolve(bundle(projected(page), scanCall < scanPages.length));
+      return Promise.resolve(bundle(projected(page.filter(matchesStatus)), scanCall < scanPages.length));
     }
-    return Promise.resolve(bundle(eras));
+    return Promise.resolve(bundle(eras.filter(matchesStatus)));
   });
   return {
     oystehr: {
@@ -117,7 +122,7 @@ const makeOystehr = (
 };
 
 const searchParams = (overrides: Partial<SearchErasParams> = {}): SearchErasParams => ({
-  secrets: {} as any,
+  secrets: {},
   ...overrides,
 });
 
@@ -125,6 +130,62 @@ describe('search-billing-eras performEffect', () => {
   beforeEach(() => {
     (fetchClaimResponsesByPaymentReconciliations as Mock).mockResolvedValue(new Map());
     (resolvePayersByRef as Mock).mockResolvedValue(new Map());
+  });
+
+  it.each([undefined, 'active', 'voided'] as const)(
+    'filters ERA status %s with and without a check number',
+    async (status) => {
+      const active = importedEra('active', 'CHK-100');
+      const voided: PaymentReconciliation = { ...claimMdEra('voided', 'CHK-100'), status: 'cancelled' };
+      for (const checkNumber of [undefined, 'CHK-100']) {
+        const { oystehr, search } = makeOystehr([active, voided]);
+        const result = await performEffect(oystehr, oystehr, searchParams({ status, checkNumber }));
+        expect(result.eras.map((era) => era.id)).toEqual([status === 'voided' ? 'voided' : 'active']);
+        expect(result.total).toBe(1);
+        for (const [call] of search.mock.calls.filter(([call]) => !isPageFetch(call))) {
+          expect(paramValue(call, status === 'voided' ? 'status' : 'status:not')).toBe('cancelled');
+        }
+      }
+    }
+  );
+
+  it('counts and pages only voided check-number matches across scan pages', async () => {
+    const active = importedEra('active', 'CHK-100');
+    const first: PaymentReconciliation = { ...importedEra('void-1', 'CHK-100'), status: 'cancelled' };
+    const second: PaymentReconciliation = { ...importedEra('void-2', 'CHK-100'), status: 'cancelled' };
+    const { oystehr, search } = makeOystehr([active, first, second], [[active, first], [second]]);
+    const result = await performEffect(
+      oystehr,
+      oystehr,
+      searchParams({ status: 'voided', checkNumber: 'CHK-100', offset: 1, pageSize: 1 })
+    );
+    expect(result).toMatchObject({ total: 2, offset: 1, pageSize: 1 });
+    expect(result.eras.map((era) => era.id)).toEqual(['void-2']);
+    expect(search.mock.calls.filter(([call]) => isScan(call))).toHaveLength(2);
+    for (const [call] of search.mock.calls.filter(([call]) => isScan(call))) {
+      expect(paramValue(call, 'status')).toBe('cancelled');
+    }
+  });
+
+  it('keeps the status filter when finding ERAs through matched claims', async () => {
+    const active = importedEra('active', 'CHK-100');
+    const voided: PaymentReconciliation = { ...importedEra('voided', 'CHK-100'), status: 'cancelled' };
+    const { oystehr, search } = makeOystehr([active, voided]);
+    search.mockResolvedValueOnce({ unbundle: () => [{ resourceType: 'Claim', id: 'claim-1' }] });
+    search.mockResolvedValueOnce({ unbundle: () => [{ resourceType: 'ClaimResponse', id: 'cr-1' }] });
+    vi.mocked(fetchClaimEraLinks).mockResolvedValueOnce({
+      paymentReconciliations: [active, voided],
+      paymentReconciliationIdByClaimResponseId: new Map(),
+    });
+    const result = await performEffect(oystehr, oystehr, searchParams({ status: 'voided', patientId: 'patient-1' }));
+    expect(result.eras.map((era) => era.id)).toEqual(['voided']);
+    expect(paramValue(search.mock.calls[2][0], '_id')).toBe('active,voided');
+    expect(paramValue(search.mock.calls[2][0], 'status')).toBe('cancelled');
+  });
+
+  it('rejects unsupported ERA status values', () => {
+    expect(SearchErasInputSchema.safeParse({ status: 'cancelled' }).success).toBe(false);
+    expect(SearchErasInputSchema.safeParse({ status: 'all' }).success).toBe(false);
   });
 
   it('labels each ERA with its source and the billing provider it pays', async () => {

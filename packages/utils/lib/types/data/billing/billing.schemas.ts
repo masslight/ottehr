@@ -16,6 +16,7 @@ import {
   DRUG_UNIT_CODE_VALUES,
   ERA_CLAIM_STATUS_CODES,
   ERA_PAYMENT_METHOD_CODES,
+  ERA_STATUSES,
   MANUAL_ERA_LIMITS,
   NDC_REGEX,
   REFRESH_REPORT_KINDS,
@@ -79,8 +80,13 @@ export const GetEraDetailInputSchema = z.object({
   eraId: nonEmptyString,
 });
 
+export const VoidEraInputSchema = z.object({
+  eraId: nonEmptyString,
+});
+
 export const SearchErasInputSchema = z.object({
   // ERA-level filters (work for matched + unmatched)
+  status: z.enum(ERA_STATUSES).optional(),
   checkNumber: nonEmptyString.optional(),
   eraDateFrom: nonEmptyString.optional(),
   eraDateTo: nonEmptyString.optional(),
@@ -1084,6 +1090,7 @@ export type AddClaimNoteInput = z.output<typeof AddClaimNoteInputSchema>;
 export type ExportClaimX12Input = z.output<typeof ExportClaimX12InputSchema>;
 export type GetClaimCms1500Input = z.output<typeof GetClaimCms1500InputSchema>;
 export type GetEraDetailInput = z.output<typeof GetEraDetailInputSchema>;
+export type VoidEraInput = z.output<typeof VoidEraInputSchema>;
 export type SearchErasInput = z.output<typeof SearchErasInputSchema>;
 export type SaveBillingTagInput = z.output<typeof SaveBillingTagInputSchema>;
 export type DeleteBillingTagInput = z.output<typeof DeleteBillingTagInputSchema>;
