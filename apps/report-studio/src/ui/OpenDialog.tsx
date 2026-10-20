@@ -22,6 +22,14 @@ import { sendMessage } from '../llm/chat';
 import { emptyReport, StudioReport } from '../report/types';
 import { useStudio } from '../state/store';
 
+/** Makes `report` the open one (a file, or a new empty report) and closes the dialog. */
+export function loadReport(report: StudioReport, fileName?: string): void {
+  const { replaceReport, addEvent, setOpenDialog } = useStudio.getState();
+  replaceReport(report, { fileName, dirty: false });
+  addEvent('file', `Opened ${fileName ?? report.name}`);
+  setOpenDialog(false);
+}
+
 /** Open: a report file from the folder (or any file), a new report, or a legacy saved report from the instance as a starting point. */
 export function OpenDialog(): React.ReactElement {
   const open = useStudio((s) => s.openDialog);
@@ -75,11 +83,7 @@ export function OpenDialog(): React.ReactElement {
       }
     });
 
-  const load = (report: StudioReport, fileName?: string): void => {
-    replaceReport(report, { fileName, dirty: false });
-    addEvent('file', `Opened ${fileName ?? report.name}`);
-    setOpen(false);
-  };
+  const load = loadReport;
 
   const openFile = (name: string): Promise<void> => guard(async () => load(await fileStore.readReport(name), name));
 

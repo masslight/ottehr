@@ -5,6 +5,7 @@ import {
   DIRECT_FETCH_MAX_SECONDS,
   isDirectTimeout,
   measuredFetch,
+  measurementsApply,
   rangeDays,
   stepDensity,
 } from './fetchMode';
@@ -137,5 +138,24 @@ describe('stepDensity', () => {
   it('treats a range under a day as one day', () => {
     const stats = [stat({ id: 'visits', resourceType: 'Appointment', byType: { Appointment: 40 } })];
     expect(stepDensity(plan, stats, days(1))).toEqual({ visits: { recordsPerDay: 40, rowsPerRecord: 1 } });
+  });
+});
+
+describe('measurementsApply', () => {
+  const synth = { name: 'synth', zambdaBaseUrl: 'http://localhost:3005/local', accessToken: 'a', production: false };
+  const other = { ...synth, name: 'other' };
+  const production = { ...synth, name: 'prod', production: true };
+
+  it('applies on the environment the report was measured on, or on any while it has none yet', () => {
+    expect(measurementsApply({ measuredOn: 'synth' }, synth)).toBe(true);
+    expect(measurementsApply({}, synth)).toBe(true);
+    expect(measurementsApply({}, other)).toBe(true);
+  });
+
+  it('never applies on another environment, on production, or with no environment', () => {
+    expect(measurementsApply({ measuredOn: 'synth' }, other)).toBe(false);
+    expect(measurementsApply({ measuredOn: 'prod' }, production)).toBe(false);
+    expect(measurementsApply({}, production)).toBe(false);
+    expect(measurementsApply({ measuredOn: 'synth' }, undefined)).toBe(false);
   });
 });

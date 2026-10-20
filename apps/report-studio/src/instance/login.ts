@@ -13,8 +13,17 @@ const TOKEN_KEY = (env: string): string => `reportStudio.token.${env}`;
 // Treat a token as expired a minute early, so a run never starts on one about to lapse.
 const EXPIRY_MARGIN_MS = 60_000;
 
+/** File menu commands of the desktop app (desktop/main.cjs); the page runs the same actions as its own buttons. */
+export type MenuAction = 'new' | 'open' | 'save' | 'saveAs';
+
 interface DesktopBridge {
   relayUrl: string;
+  /** Subscribes to the File menu; returns the unsubscribe. */
+  onMenu?(handler: (action: MenuAction) => void): () => void;
+  /** Tells the app's tab strip what this tab holds. */
+  setTabState?(state: { title: string; running: boolean; dirty: boolean; empty: boolean }): void;
+  /** Answers a save the app asked for (closing a tab with unsaved changes): saved, or cancelled / failed. */
+  saveResult?(ok: boolean): void;
   signIn(params: {
     domain: string;
     clientId: string;

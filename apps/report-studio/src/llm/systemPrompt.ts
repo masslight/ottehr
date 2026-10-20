@@ -73,7 +73,8 @@ REPORT CODE CONTRACT (the "code" field): a JavaScript/JSX FUNCTION BODY. In scop
 - resources — { [stepId]: FhirResource[] } exactly as fetched (raw FHIR R4B JSON).
 - helpers — the data map's computed fields and lookups (HELPERS below).
 - params — { dateRange: { start, end } (ISO instants of the run), timeZone (the viewer's IANA zone),
-  patientId (the run's patient parameter, when one is set), totals: { [stepId]: number } for count-only steps }.
+  patientId (the run's patient parameter, when one is set), inputs: { [name]: value } (the report's declared inputs,
+  see INPUTS), totals: { [stepId]: number } for count-only steps }.
 Rules:
 - Define a root component and END with:  return ReportRoot;   The runtime renders <ReportRoot /> with NO props —
   read resources/helpers/params from the enclosing scope. Prepare data at the top level with plain JS (no hooks
@@ -122,6 +123,18 @@ HELPERS (helpers.*):
 - paymentNetAmount(paymentNotice) → USD after settled refunds.
 - qrAnswers(questionnaireResponse) → { linkId: value | [values] }.
 - groupBy(items, keyFn) → { key: items[] }; countBy(items, keyFn) → { key: n }; sum, avg, median, round(value, digits).
+`;
+
+const INPUTS = `
+INPUTS: a report declares what it takes with update_report "inputs": [{ name, kind, required, description?, default? }],
+kind one of id | text | number | date | dateRange | list | table | object. The code reads params.inputs.<name>. A
+dateRange input IS the report's date range: at most one, it must have a default ({ "preset": "last-30-days" } — the
+EHR picker's presets today, yesterday, last-7-days, last-30-days, last-90-days, last-365-days, this-month,
+last-month, this-year, last-year — or { "preset": "customRange", "start", "end" } in yyyy-MM-dd), and it fills the
+plan's {{start}} / {{end}} / {{startDate}} / {{endDate}}; without one a run covers the last 30 days. An input named
+patientId (kind id) fills the plan's {{patientId}} and params.patientId. Declare the inputs the plan or code needs;
+the user gives them values in named test cases, and every run (yours too) uses the active test case over the
+defaults — get_report_state shows it and which required inputs still have no value.
 `;
 
 const WORKFLOW = `
@@ -177,6 +190,7 @@ export function buildSystemPrompt(): string {
   if (cached) return cached;
   cached = [
     WORKFLOW.trim(),
+    INPUTS.trim(),
     '',
     PLAN_FORMAT.trim(),
     '',

@@ -24,12 +24,16 @@ const KIND_HELP: Record<InspectorKind, string> = {
   file: 'Opening, saving or testing a report file',
 };
 
-/** The strip under the live panel: what is happening behind the scenes (fetch timings, renders, warnings, tools). */
-export function Inspector(): React.ReactElement {
+/**
+ * What is happening behind the scenes (fetch timings, renders, warnings, tools): a strip with the log folded
+ * away, or with `expanded` the log always shown, filling the height (the main window's Under-the-hood drawer).
+ */
+export function Inspector({ expanded = false }: { expanded?: boolean } = {}): React.ReactElement {
   const events = useStudio((s) => s.events);
   const run = useStudio((s) => s.run);
   const clearEvents = useStudio((s) => s.clearEvents);
-  const [open, setOpen] = useState(false);
+  const [toggled, setToggled] = useState(false);
+  const open = expanded || toggled;
   const listRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -43,7 +47,14 @@ export function Inspector(): React.ReactElement {
   const warnings = events.filter((e) => e.kind === 'warn').length;
 
   return (
-    <Box sx={{ borderTop: 1, borderColor: 'divider', bgcolor: '#fbfcfe' }}>
+    <Box
+      sx={{
+        borderTop: expanded ? 0 : 1,
+        borderColor: 'divider',
+        bgcolor: '#fbfcfe',
+        ...(expanded && { height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }),
+      }}
+    >
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1.5, py: 0.4 }}>
         <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary' }}>
           Inspector
@@ -94,15 +105,17 @@ export function Inspector(): React.ReactElement {
             <Typography variant="caption">clear</Typography>
           </IconButton>
         </Tooltip>
-        <IconButton size="small" onClick={() => setOpen((o) => !o)} title={open ? 'Hide the log' : 'Show the log'}>
-          {open ? <ExpandMoreIcon fontSize="small" /> : <ExpandLessIcon fontSize="small" />}
-        </IconButton>
+        {!expanded && (
+          <IconButton size="small" onClick={() => setToggled((o) => !o)} title={open ? 'Hide the log' : 'Show the log'}>
+            {open ? <ExpandMoreIcon fontSize="small" /> : <ExpandLessIcon fontSize="small" />}
+          </IconButton>
+        )}
       </Box>
       {open && (
         <Box
           ref={listRef}
           sx={{
-            maxHeight: 150,
+            ...(expanded ? { flex: 1, minHeight: 0 } : { maxHeight: 150 }),
             overflow: 'auto',
             px: 1.5,
             pb: 0.75,

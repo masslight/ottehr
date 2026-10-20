@@ -1,4 +1,5 @@
 import AttachFileOutlinedIcon from '@mui/icons-material/AttachFileOutlined';
+import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import SendRoundedIcon from '@mui/icons-material/SendRounded';
 import UndoRoundedIcon from '@mui/icons-material/UndoRounded';
@@ -68,9 +69,11 @@ async function toAttachment(file: File): Promise<Attachment> {
   };
 }
 
-export function Chat(): React.ReactElement {
+/** The conversation with Claude; `onCollapse` adds the button that hides this panel. */
+export function Chat({ onCollapse }: { onCollapse?: () => void } = {}): React.ReactElement {
   const chat = useStudio((s) => s.chat);
   const busy = useStudio((s) => s.busy);
+  const production = useStudio((s) => s.environment?.production === true);
   const [draft, setDraft] = useState('');
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [attachError, setAttachError] = useState<string | null>(null);
@@ -125,6 +128,13 @@ export function Chat(): React.ReactElement {
           <Button size="small" onClick={resetConversation} disabled={busy}>
             New conversation
           </Button>
+        )}
+        {onCollapse && (
+          <Tooltip title="Hide the conversation">
+            <IconButton size="small" aria-label="Hide the conversation" onClick={onCollapse} sx={{ ml: 0.5 }}>
+              <ChevronLeftIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
         )}
       </Box>
 
@@ -221,6 +231,11 @@ export function Chat(): React.ReactElement {
             {busy ? <CircularProgress size={20} /> : <SendRoundedIcon />}
           </IconButton>
         </Box>
+        {production && (
+          <Typography variant="caption" color="error" sx={{ display: 'block', mt: 0.75 }}>
+            Production: Claude sees counts and errors only.
+          </Typography>
+        )}
       </Box>
     </Box>
   );

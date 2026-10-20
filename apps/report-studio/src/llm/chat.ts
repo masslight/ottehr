@@ -448,7 +448,7 @@ function diffSnapshots(
   text('name', before.name, after.name);
   text('title', before.title, after.title);
   text('description', before.description, after.description);
-  text('dateRange', JSON.stringify(before.dateRange), JSON.stringify(after.dateRange));
+  text('inputs', JSON.stringify(before.inputs, null, 2), JSON.stringify(after.inputs, null, 2));
   text('plan', JSON.stringify(before.plan, null, 2), JSON.stringify(after.plan, null, 2));
   text('code', before.code, after.code);
   return { summary, diffs };
@@ -458,7 +458,7 @@ function diffSnapshots(
 export function undoTurn(before: ReportSnapshot): void {
   useStudio.getState().restoreSnapshot(before);
   noteForClaude(
-    '[The user pressed Undo: the report (plan, code, title, date range) is back to how it was before your last turn.]'
+    '[The user pressed Undo: the report (plan, code, title, inputs) is back to how it was before your last turn.]'
   );
   useStudio.getState().addEvent('info', 'Undid the last Claude turn');
 }

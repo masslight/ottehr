@@ -1,8 +1,8 @@
 import { Alert, Box, CircularProgress, Typography } from '@mui/material';
 import React, { useEffect, useRef, useState } from 'react';
 import { sandbox } from '../../sandbox/controller';
+import { hasReport } from '../../report/types';
 import { useStudio } from '../../state/store';
-import { isTestWindow } from '../TestWindow';
 
 const MIN_HEIGHT = 240;
 
@@ -36,19 +36,21 @@ export function ReportPanel(): React.ReactElement {
   }, [addEvent]);
 
   const busy = run.status === 'fetching' || run.status === 'rendering';
+  const empty = !hasReport(report);
 
   return (
     <Box sx={{ p: 2 }}>
+      {empty && (
+        <Typography color="text.secondary">No report yet — ask Claude on the left or open a saved report.</Typography>
+      )}
       {report.title && (
         <Typography variant="h6" sx={{ fontWeight: 600, mb: 1 }}>
           {report.title}
         </Typography>
       )}
-      {run.status === 'idle' && (
+      {run.status === 'idle' && !empty && (
         <Alert severity="info" sx={{ mb: 1.5 }}>
-          {isTestWindow()
-            ? 'Press Run to fetch the plan from the chosen environment and render this report.'
-            : 'Press Run (or ask Claude) to fetch the plan and render this report.'}
+          Press Run (or ask Claude) to fetch the plan and render this report.
         </Alert>
       )}
       {run.status === 'error' && run.error && (
@@ -64,7 +66,8 @@ export function ReportPanel(): React.ReactElement {
             .join(' · ')}
         </Alert>
       )}
-      <Box sx={{ position: 'relative' }}>
+      {/* The frame stays mounted (the sandbox is attached to it) and is only hidden while there is no report. */}
+      <Box sx={{ position: 'relative', display: empty ? 'none' : 'block' }}>
         <iframe
           ref={frameRef}
           title="Report"

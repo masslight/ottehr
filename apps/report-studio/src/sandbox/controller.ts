@@ -29,6 +29,8 @@ export interface RenderRequest {
     dateRange?: { start: string; end: string };
     timeZone: string;
     patientId?: string;
+    /** The report's declared inputs, by name (the active test case's values over the defaults). */
+    inputs?: Record<string, unknown>;
     /** Per count-only step (`_summary=count`), the server's total: such a step returns no resources. */
     totals?: Record<string, number>;
   };

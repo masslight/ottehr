@@ -3,6 +3,7 @@
 // server fetch time measured when it was built, and only for a date range no wider than that one.
 import { FetchStepDensity, FetchStepStats, stepIsDateBounded } from 'utils/lib/types/adhoc/plan/fetch-plan';
 import type { DateRange } from 'utils/lib/types/adhoc/query/date-range';
+import type { Environment } from '../state/store';
 import type { StudioReport } from './types';
 
 export type FetchMode = 'direct' | 'task';
@@ -20,6 +21,18 @@ export function chooseFetchMode(report: MeasuredFetch, dateRange: DateRange): Fe
   if (report.fetchMode !== 'direct' || report.measuredRangeDays === undefined) return 'task';
   return rangeDays(dateRange) > report.measuredRangeDays ? 'task' : 'direct';
 }
+
+/**
+ * Whether a run on `environment` uses and refreshes the report's measurements: never on production, and only on
+ * the environment they came from — or any environment while the report has none yet, which then records it.
+ */
+export const measurementsApply = (
+  report: Pick<StudioReport, 'measuredOn'>,
+  environment: Environment | undefined
+): boolean =>
+  !!environment &&
+  !environment.production &&
+  (report.measuredOn === undefined || report.measuredOn === environment.name);
 
 /** What a run teaches the report; `fellBack` (direct timed out, Task finished it) pins the Task path. */
 export function measuredFetch(totalMs: number, dateRange: DateRange, fellBack = false): MeasuredFetch {

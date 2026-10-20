@@ -6,6 +6,7 @@ import type { DateRange } from 'utils/lib/types/adhoc/query/date-range';
 import { create } from 'zustand';
 import type { RenderProfile } from '../../runtime/profiler';
 import { DEFAULT_MODEL, Effort, ModelId } from '../llm/models';
+import { convertLegacyReport, ensureTestCase } from '../report/inputs';
 import { emptyReport, ReportSnapshot, StudioReport } from '../report/types';
 
 export interface Settings {
@@ -18,24 +19,24 @@ export interface Settings {
    */
   connection: 'relay' | 'direct' | 'login';
   relayUrl: string;
-  /** e.g. http://localhost:3005/local — zambdas are called at {base}/zambda/{name}/execute. */
-  zambdaBaseUrl: string;
-  /** Bearer token for the zambdas (an EHR session's access token or an M2M token). */
-  accessToken: string;
   muiLicenseKey: string;
   /** Send unredacted sample resources to Claude (synthetic data only). */
   allowUnredactedSamples: boolean;
-  /** Other instances the Test report window can run against (each a local zambda server for that project). */
+  /** The instances the header's Environment menu lists (each a local zambda server for that project). */
   environments: Environment[];
+  /** The environment chosen in the header, remembered; the first in the list when unset or gone. */
+  environmentName?: string;
 }
 
 export interface Environment {
   name: string;
+  /** e.g. http://localhost:3005/local — zambdas are called at {base}/zambda/{name}/execute. */
   zambdaBaseUrl: string;
+  /** Bearer token for the zambdas (an EHR session's access token or an M2M token). */
   accessToken: string;
-  /** Real patient data: the Test report window says so. */
+  /** Real patient data: the header says so, and Claude's tools return counts and errors only. */
   production: boolean;
-  /** Client id of the project's "Report Studio" app: set, the Test report window signs in instead of using accessToken. */
+  /** Client id of the project's "Report Studio" app: set, the studio signs in instead of using accessToken. */
   loginClientId?: string;
   /** Login domain and audience; empty = Oystehr's defaults (instance/login.ts). */
   loginDomain?: string;
@@ -58,19 +59,52 @@ export const DEFAULT_SETTINGS: Settings = {
   effort: 'high',
   connection: 'relay',
   relayUrl: desktopRelay ?? 'http://127.0.0.1:8787',
-  zambdaBaseUrl: 'http://localhost:3005/local',
-  accessToken: '',
   muiLicenseKey: '',
   allowUnredactedSamples: false,
   environments: [],
 };
 
+/** Settings as saved before the environments list was the only place: a top-level instance. */
+type SavedSettings = Partial<Settings> & { zambdaBaseUrl?: string; accessToken?: string };
+
+/**
+ * Saved settings → today's: the old top-level instance becomes an environment named by its host (unless an
+ * environment already has its address), and the old fields are dropped.
+ */
+export function migrateSettings(saved: SavedSettings): Settings {
+  const { zambdaBaseUrl, accessToken, ...rest } = saved;
+  const settings: Settings = { ...DEFAULT_SETTINGS, ...rest };
+  if (zambdaBaseUrl && !settings.environments.some((env) => env.zambdaBaseUrl === zambdaBaseUrl)) {
+    const name = zambdaBaseUrl.replace(/^https?:\/\//, '').replace(/\/local\/?$/, '');
+    settings.environments = [
+      ...settings.environments,
+      { name, zambdaBaseUrl, accessToken: accessToken ?? '', production: false },
+    ];
+  }
+  return settings;
+}
+
+export const selectedEnvironment = (settings: Settings): Environment | undefined =>
+  settings.environments.find((env) => env.name === settings.environmentName) ?? settings.environments[0];
+
 function loadSettings(): Settings {
   try {
     const raw = localStorage.getItem(SETTINGS_KEY);
-    return raw ? { ...DEFAULT_SETTINGS, ...(JSON.parse(raw) as Partial<Settings>) } : DEFAULT_SETTINGS;
+    if (!raw) return DEFAULT_SETTINGS;
+    const saved = JSON.parse(raw) as SavedSettings;
+    const settings = migrateSettings(saved);
+    if ('zambdaBaseUrl' in saved || 'accessToken' in saved) persistSettings(settings);
+    return settings;
   } catch {
     return DEFAULT_SETTINGS;
+  }
+}
+
+function persistSettings(settings: Settings): void {
+  try {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+  } catch (error) {
+    console.error('could not persist settings', error);
   }
 }
 
@@ -153,14 +187,28 @@ export interface FileState {
   dirty: boolean;
 }
 
-export type RightTab = 'report' | 'plan' | 'code' | 'data';
+/** The main window: which Under-the-hood drawer is open ('report' = none); the Test window: its tabs. */
+export type RightTab = 'report' | 'inputs' | 'plan' | 'code' | 'data' | 'inspector';
+
+/** How the main window frames the report: as the EHR's Reports page, inside a visit, or narrow with no frame. */
+export type ShowAs = 'reports' | 'visit' | 'narrow';
+const SHOW_AS_KEY = 'reportStudio.showAs';
+
+function loadShowAs(): ShowAs {
+  try {
+    const raw = sessionStorage.getItem(SHOW_AS_KEY);
+    return raw === 'visit' || raw === 'narrow' ? raw : 'reports';
+  } catch {
+    return 'reports';
+  }
+}
 
 interface StudioState {
   settings: Settings;
   setSettings: (patch: Partial<Settings>) => void;
-  /** Test report window only, never persisted: the instance zambdas go to instead of settings'. */
-  testTarget?: Environment;
-  setTestTarget: (target: Environment | undefined) => void;
+  /** The environment chosen in the header (its name is remembered in settings): where the zambda calls go. */
+  environment?: Environment;
+  setEnvironment: (environment: Environment | undefined) => void;
 
   report: StudioReport;
   setReport: (patch: Partial<StudioReport>, opts?: { dirty?: boolean }) => void;
@@ -189,50 +237,75 @@ interface StudioState {
 
   tab: RightTab;
   setTab: (tab: RightTab) => void;
+  /** The test case whose input values Run uses (name); the first one after a report opens. */
+  testCase?: string;
+  setTestCase: (name: string | undefined) => void;
+  showAs: ShowAs;
+  setShowAs: (showAs: ShowAs) => void;
   settingsOpen: boolean;
   setSettingsOpen: (open: boolean) => void;
   openDialog: boolean;
   setOpenDialog: (open: boolean) => void;
 }
 
+/** The report with a test case whenever it has inputs, and the active case: the current one if it still exists, else the first. */
+function withTestCase(next: StudioReport, current: string | undefined): { report: StudioReport; testCase?: string } {
+  const report = ensureTestCase(next);
+  const testCase = report.testCases?.some((t) => t.name === current) ? current : report.testCases?.[0]?.name;
+  return { report, testCase };
+}
+
 let eventSeq = 0;
 const MAX_EVENTS = 400;
 
+const initialSettings = loadSettings();
+
 export const useStudio = create<StudioState>((set) => ({
-  settings: loadSettings(),
+  settings: initialSettings,
   setSettings: (patch) =>
     set((state) => {
       const settings = { ...state.settings, ...patch };
-      try {
-        localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
-      } catch (error) {
-        console.error('could not persist settings', error);
-      }
-      return { settings };
+      persistSettings(settings);
+      // The chosen environment follows its (possibly edited) entry; a token signed in this session stays with it.
+      const next = selectedEnvironment(settings);
+      const environment =
+        next && state.environment?.name === next.name && !next.accessToken
+          ? { ...next, accessToken: state.environment.accessToken }
+          : next;
+      return { settings, environment };
     }),
-  setTestTarget: (testTarget) => set({ testTarget }),
+  environment: selectedEnvironment(initialSettings),
+  setEnvironment: (environment) =>
+    set((state) => {
+      const settings = { ...state.settings, environmentName: environment?.name };
+      persistSettings(settings);
+      return { settings, environment };
+    }),
 
   report: emptyReport(),
   setReport: (patch, opts) =>
     set((state) => ({
-      report: { ...state.report, ...patch },
+      ...withTestCase({ ...state.report, ...patch }, state.testCase),
       file: { ...state.file, dirty: opts?.dirty ?? true },
     })),
-  replaceReport: (report, opts) =>
-    set((state) => ({
-      report,
-      run: { status: 'idle' },
-      file: {
-        ...state.file,
-        // the report's own file; none for a new report, so its Save never writes over the previous report's file
-        fileName: opts ? opts.fileName : state.file.fileName,
-        dirty: opts?.dirty ?? false,
-        changedOnDisk: false,
-      },
-    })),
+  replaceReport: (legacy, opts) =>
+    set((state) => {
+      const report = convertLegacyReport(legacy);
+      return {
+        ...withTestCase(report, report.testCases?.[0]?.name),
+        run: { status: 'idle' },
+        file: {
+          ...state.file,
+          // the report's own file; none for a new report, so its Save never writes over the previous report's file
+          fileName: opts ? opts.fileName : state.file.fileName,
+          dirty: opts?.dirty ?? false,
+          changedOnDisk: false,
+        },
+      };
+    }),
   restoreSnapshot: (snapshot) =>
     set((state) => ({
-      report: { ...state.report, ...structuredClone(snapshot) },
+      ...withTestCase({ ...state.report, ...structuredClone(snapshot) }, state.testCase),
       file: { ...state.file, dirty: true },
     })),
 
@@ -262,6 +335,16 @@ export const useStudio = create<StudioState>((set) => ({
 
   tab: 'report',
   setTab: (tab) => set({ tab }),
+  setTestCase: (testCase) => set({ testCase }),
+  showAs: loadShowAs(),
+  setShowAs: (showAs) => {
+    try {
+      sessionStorage.setItem(SHOW_AS_KEY, showAs);
+    } catch {
+      // Only a convenience: the next session starts on the Reports page.
+    }
+    set({ showAs });
+  },
   settingsOpen: false,
   setSettingsOpen: (settingsOpen) => set({ settingsOpen }),
   openDialog: false,

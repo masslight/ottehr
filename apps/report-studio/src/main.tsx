@@ -4,7 +4,6 @@ import { createRoot } from 'react-dom/client';
 import { handleLoginCallback } from './instance/login';
 import { useStudio } from './state/store';
 import { App } from './ui/App';
-import { isTestWindow, TestApp } from './ui/TestWindow';
 
 // For scripted checks (scripts/e2e.mjs): the store is reachable from the page.
 (window as unknown as { __studio: typeof useStudio }).__studio = useStudio;
@@ -38,7 +37,7 @@ if (!handleLoginCallback())
     <React.StrictMode>
       <ThemeProvider theme={theme}>
         <CssBaseline />
-        {isTestWindow() ? <TestApp /> : <App />}
+        <App />
       </ThemeProvider>
     </React.StrictMode>
   );

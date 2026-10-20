@@ -151,6 +151,7 @@ export class FileStore {
   async pickFile(): Promise<{ fileName: string; report: StudioReport }> {
     if (window.showOpenFilePicker) {
       const [handle] = await window.showOpenFilePicker({
+        id: 'report-studio',
         types: [{ description: 'Report Studio report', accept: { 'application/json': ['.json'] } }],
       });
       this.fileHandle = handle;
@@ -195,6 +196,7 @@ export class FileStore {
     const startIn = this.folder ?? this.fileHandle;
     try {
       this.fileHandle = await window.showSaveFilePicker({
+        id: 'report-studio',
         suggestedName: fileName,
         ...(startIn ? { startIn } : {}),
         types: [{ description: 'Report Studio report', accept: { 'application/json': ['.json'] } }],

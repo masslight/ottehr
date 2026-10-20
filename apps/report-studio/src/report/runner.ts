@@ -16,10 +16,10 @@ import { sandbox } from '../sandbox/controller';
 import { RenderResult, useStudio } from '../state/store';
 import { bareTagHints } from './codeCheck';
 import { dependencyChainLength, elementsIgnoredFor } from './comparePlans';
-import { chooseFetchMode, isDirectTimeout, measuredFetch, stepDensity } from './fetchMode';
+import { chooseFetchMode, isDirectTimeout, measuredFetch, measurementsApply, stepDensity } from './fetchMode';
+import { resolveInputs, runParameters } from './inputs';
 import { dateFieldWarnings, heavySearchWarnings, idListWarnings, requestBudgetWarnings } from './planWarnings';
 import { suggestElements } from './trim';
-import { resolveDateRange } from './types';
 
 export interface RunSummary {
   ok: boolean;
@@ -46,12 +46,23 @@ export function validatePlan(plan: unknown): { ok: true; plan: FetchPlanInput } 
   return { ok: false, errors: parsed.error.issues.map((i) => `${i.path.join('.') || 'plan'}: ${i.message}`) };
 }
 
-/** The patient box in the top bar, when a plan asks for {{patientId}}; an error message otherwise. */
-function patientParameters(plan: FetchPlanInput): FetchPlanParameters | string {
-  const patientId = useStudio.getState().report.parameters?.patientId?.trim();
+/**
+ * The active test case's input values (over the defaults) as a run needs them: the date range, the plan's patient
+ * parameter and params.inputs; or the message saying which input is missing.
+ */
+function runInputs(
+  plan: FetchPlanInput
+): { dateRange: DateRange; parameters: FetchPlanParameters; inputs: Record<string, unknown> } | string {
+  const { report, testCase } = useStudio.getState();
+  const { values, missing } = resolveInputs(report, testCase);
+  if (missing.length)
+    return `Input${missing.length > 1 ? 's' : ''} ${missing.join(', ')} required — set ${
+      missing.length > 1 ? 'them' : 'it'
+    } in the test case (Under the hood → Inputs).`;
+  const { dateRange, patientId, inputs } = runParameters(report, values);
   if (planNeedsPatient(plan) && !patientId)
-    return 'This plan uses {{patientId}} but no patient id is set — enter one in the Patient box of the top bar (or update_report patientId).';
-  return patientId ? { patientId } : {};
+    return 'This plan uses {{patientId}} but the report declares no patientId input with a value — add one (Under the hood → Inputs, or update_report inputs).';
+  return { dateRange, parameters: patientId ? { patientId } : {}, inputs };
 }
 
 /** Fetch only (used by the exploratory run_fetch / compare_plans tools); does not touch the open report's run state. */
@@ -61,11 +72,11 @@ export async function fetchOnly(
 ): Promise<RunFetchPlanOutput & { resources: Record<string, FhirResource[]> }> {
   const { addEvent } = useStudio.getState();
   const started = Date.now();
-  const parameters = patientParameters(plan);
-  if (typeof parameters === 'string') throw new Error(parameters);
+  const resolved = runInputs(plan);
+  if (typeof resolved === 'string') throw new Error(resolved);
   addEvent('fetch', `Exploratory fetch: ${plan.steps.length} step(s)…`);
   try {
-    const output = await runFetchPlan(plan, dateRange, parameters);
+    const output = await runFetchPlan(plan, dateRange, resolved.parameters);
     addEvent(
       'fetch',
       `Exploratory fetch done in ${output.totalMs} ms, ${fmtBytes(output.totalBytes)}`,
@@ -102,18 +113,22 @@ const stepLines = (stats: FetchStepStats[]): string =>
 export async function runReport(opts: { dateRange?: DateRange; reuseData?: boolean } = {}): Promise<RunSummary> {
   const state = useStudio.getState();
   const { report, settings, addEvent, setRun, setReport } = state;
-  const dateRange = opts.dateRange ?? resolveDateRange(report.dateRange);
   const warnings: string[] = [];
   const startedAt = Date.now();
 
   const validated = validatePlan(report.plan);
-  const parameters = validated.ok ? patientParameters(report.plan) : {};
-  if (!validated.ok || typeof parameters === 'string') {
-    const message = validated.ok ? (parameters as string) : `The plan is invalid: ${validated.errors.join('; ')}`;
+  const resolved = validated.ok
+    ? runInputs(report.plan)
+    : { dateRange: runParameters(report, {}).dateRange, parameters: {}, inputs: {} };
+  const dateRange =
+    opts.dateRange ?? (typeof resolved === 'string' ? runParameters(report, {}).dateRange : resolved.dateRange);
+  if (!validated.ok || typeof resolved === 'string') {
+    const message = validated.ok ? (resolved as string) : `The plan is invalid: ${validated.errors.join('; ')}`;
     setRun({ status: 'error', error: message, startedAt, dateRange });
     addEvent('error', message);
     return { ok: false, dateRange, fetchError: message, warnings };
   }
+  const { parameters, inputs } = resolved;
 
   let resources = state.run.resources;
   let fetchOutput = state.run.fetch;
@@ -125,10 +140,11 @@ export async function runReport(opts: { dateRange?: DateRange; reuseData?: boole
     state.run.dateRange?.end === dateRange.end &&
     state.run.patientId === parameters.patientId;
 
-  // Densities belong to the instance they were measured on: a report built on synth and tested on a practice ~12×
+  // Densities belong to the environment they were measured on: a report built on synth and tested on a practice ~12×
   // busier was slower with synth's (uc20 on practice B: 19.5 s vs 12.8 s without), so another environment gets none
   // (the runner counts each step first instead) and its measurements are not saved into the report.
-  const densities = state.testTarget ? undefined : report.stepDensity;
+  const ownMeasurements = measurementsApply(report, state.environment);
+  const densities = ownMeasurements ? report.stepDensity : undefined;
   if (!canReuse) {
     for (const warning of [
       ...heavySearchWarnings(report.plan),
@@ -155,14 +171,14 @@ export async function runReport(opts: { dateRange?: DateRange; reuseData?: boole
     );
     // Another environment may run the old executor on its own subscription, which would take the Task; a local
     // zambda server has no time ceiling, so direct is safe there.
-    const mode = state.testTarget ? 'direct' : chooseFetchMode(report, dateRange);
+    const mode = ownMeasurements ? chooseFetchMode(report, dateRange) : 'direct';
     let fellBack = false;
     try {
       let output: Awaited<ReturnType<typeof runFetchPlan>>;
       try {
         output = await runFetchPlan(report.plan, dateRange, parameters, mode, densities);
       } catch (error) {
-        if (mode !== 'direct' || state.testTarget || !isDirectTimeout(error, Date.now() - startedAt)) throw error;
+        if (mode !== 'direct' || !ownMeasurements || !isDirectTimeout(error, Date.now() - startedAt)) throw error;
         fellBack = true;
         addEvent(
           'warn',
@@ -176,10 +192,11 @@ export async function runReport(opts: { dateRange?: DateRange; reuseData?: boole
       setRun({ fetch: rest, resources: fetched });
       // The measurements are metadata, not an edit — unless the fallback pinned the Task path, which a save should keep.
       // A step's density is replaced by what this run measured; steps that measured nothing (failed, skipped) keep their last one.
-      if (!state.testTarget) {
+      if (ownMeasurements && state.environment) {
         setReport(
           {
             ...measuredFetch(rest.totalMs, dateRange, fellBack),
+            measuredOn: state.environment.name,
             stepDensity: { ...report.stepDensity, ...stepDensity(report.plan, rest.stats, dateRange) },
           },
           { dirty: fellBack || useStudio.getState().file.dirty }
@@ -219,6 +236,7 @@ export async function runReport(opts: { dateRange?: DateRange; reuseData?: boole
       dateRange,
       timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       patientId: parameters.patientId,
+      inputs,
       totals: Object.fromEntries(
         (fetchOutput?.stats ?? []).flatMap((s) => (s.total === undefined ? [] : [[s.id, s.total]]))
       ),

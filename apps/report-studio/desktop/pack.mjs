@@ -13,6 +13,8 @@ const stage = mkdtempSync(path.join(tmpdir(), 'report-studio-desktop-'));
 try {
   cpSync(path.join(here, 'main.cjs'), path.join(stage, 'main.cjs'));
   cpSync(path.join(here, 'preload.cjs'), path.join(stage, 'preload.cjs'));
+  cpSync(path.join(here, 'tabs.html'), path.join(stage, 'tabs.html'));
+  cpSync(path.join(here, 'tabs-preload.cjs'), path.join(stage, 'tabs-preload.cjs'));
   cpSync(path.join(here, '..', 'dist', 'index.html'), path.join(stage, 'studio.html'));
   const { devDependencies, scripts, ...app } = pkg;
   writeFileSync(path.join(stage, 'package.json'), JSON.stringify(app, null, 2));

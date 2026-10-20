@@ -1,6 +1,6 @@
-// How the studio reaches an Ottehr instance: zambdas only, never FHIR directly. Settings hold a
-// zambda base url (the local zambda server, e.g. http://localhost:3005/local) and a bearer token the
-// user pastes. The local server wraps a zambda's response as { status, output }, as Oystehr does.
+// How the studio reaches an Ottehr instance: zambdas only, never FHIR directly. The chosen environment
+// holds a zambda base url (the local zambda server, e.g. http://localhost:3005/local) and a bearer token
+// the user pastes or signs in for. The local server wraps a zambda's response as { status, output }, as Oystehr does.
 import type { FhirResource } from 'fhir/r4b';
 import type { AdHocReportStatus, StartAdHocReportResponse } from 'utils/lib/types/adhoc/generation/report-task';
 import type {
@@ -29,20 +29,20 @@ export class ZambdaError extends Error {
 export const zambdaUrl = (base: string, name: string): string => `${base.replace(/\/+$/, '')}/zambda/${name}/execute`;
 
 export async function executeZambda<T>(name: string, body: unknown): Promise<T> {
-  const { settings, testTarget } = useStudio.getState();
-  const { zambdaBaseUrl } = testTarget ?? settings;
-  const accessToken =
-    testTarget && canSignIn(testTarget)
-      ? storedToken(testTarget) ?? testTarget.accessToken
-      : (testTarget ?? settings).accessToken;
-  if (!zambdaBaseUrl) throw new ZambdaError(name, 0, 'No zambda base URL is set (Settings → Instance).');
+  const { environment } = useStudio.getState();
+  if (!environment?.zambdaBaseUrl)
+    throw new ZambdaError(name, 0, 'No environment is set up (Settings → Environments).');
+  const { zambdaBaseUrl } = environment;
+  const accessToken = canSignIn(environment)
+    ? storedToken(environment) ?? environment.accessToken
+    : environment.accessToken;
   if (!accessToken)
     throw new ZambdaError(
       name,
       0,
-      testTarget && canSignIn(testTarget)
-        ? `Not signed in to ${testTarget.name}, or the sign-in expired: press Sign in.`
-        : 'No access token is set (Settings → Instance).'
+      canSignIn(environment)
+        ? `Not signed in to ${environment.name}, or the sign-in expired: press Sign in.`
+        : `No access token for ${environment.name} (Settings → Environments).`
     );
 
   let response: Response;

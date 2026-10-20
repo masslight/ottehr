@@ -8,7 +8,16 @@ import { listSavedReports } from '../instance/zambdaClient';
 import { comparePlanRuns } from '../report/comparePlans';
 import { dateFieldWarnings, heavySearchWarnings, requestBudgetWarnings } from '../report/planWarnings';
 import { fetchOnly, runReport, validatePlan } from '../report/runner';
-import { DATE_RANGE_PRESETS, DateRangeSpec, describeDateRange, resolveDateRange } from '../report/types';
+import {
+  dateRangeInput,
+  describeDateRangeValue,
+  INPUT_KINDS,
+  resolveInputs,
+  runParameters,
+  validateInputs,
+} from '../report/inputs';
+import type { DateRangeValue } from '../report/inputs';
+import { resolveDateRange } from '../report/types';
 import { useStudio } from '../state/store';
 
 type BetaTool = Anthropic.Beta.BetaTool;
@@ -40,18 +49,22 @@ export const TOOLS: BetaTool[] = [
         description: { type: 'string' },
         plan: { type: 'object', description: 'The full fetch plan (see FETCH PLAN FORMAT).' },
         code: { type: 'string', description: 'The full report code (function body ending with `return ReportRoot;`).' },
-        patientId: {
-          type: 'string',
-          description: 'The patient id a {{patientId}} plan runs for (the Patient box in the top bar); "" clears it.',
-        },
-        dateRange: {
-          type: 'object',
-          properties: {
-            preset: { type: 'string', enum: [...DATE_RANGE_PRESETS] },
-            start: { type: 'string', description: 'yyyy-MM-dd, custom only' },
-            end: { type: 'string', description: 'yyyy-MM-dd, custom only' },
+        inputs: {
+          type: 'array',
+          description:
+            'The full list of inputs the report takes (see INPUTS): the dateRange one is its date range (at most one, ' +
+            'needs a default), patientId fills {{patientId}}; the code reads params.inputs.<name>.',
+          items: {
+            type: 'object',
+            properties: {
+              name: { type: 'string', description: 'identifier' },
+              kind: { type: 'string', enum: [...INPUT_KINDS] },
+              required: { type: 'boolean' },
+              description: { type: 'string' },
+              default: { description: 'a value of the kind; for dateRange e.g. { "preset": "last-30-days" }' },
+            },
+            required: ['name', 'kind', 'required'],
           },
-          required: ['preset'],
         },
       },
     },
@@ -149,6 +162,50 @@ const MAX_TEXT_IN_RESULT = 4000;
 const clip = (text: string): string =>
   text.length > MAX_RESULT_CHARS ? `${text.slice(0, MAX_RESULT_CHARS)}\n…[truncated]` : text;
 
+const PRODUCTION_NOTE = 'production: record contents withheld (counts, timings and errors only)';
+
+/** A production environment is selected: Claude gets counts, timings and errors, never record contents. */
+const productionSelected = (): boolean => useStudio.getState().environment?.production === true;
+
+type Tally = ReturnType<typeof tally>;
+const countsOnly = ({ distinct, blank }: Tally): Pick<Tally, 'distinct' | 'blank'> => ({ distinct, blank });
+
+/**
+ * The tool result as Claude may see it on a production environment: rendered text, samples and field values are
+ * removed; step counts, timings, bytes, errors, warnings and field-presence counts stay. Enforced here, not by prompt.
+ */
+export function withoutRecordContents(name: string, result: unknown): unknown {
+  if (!result || typeof result !== 'object') return result;
+  const out: Record<string, unknown> = { ...(result as Record<string, unknown>), production: PRODUCTION_NOTE };
+  switch (name) {
+    case 'run_report': {
+      const render = out.render as { text?: string } | undefined;
+      if (render) out.render = { ...render, text: undefined };
+      return out;
+    }
+    case 'run_fetch':
+      return {
+        ...out,
+        samples: undefined,
+        summaries: Object.fromEntries(
+          Object.entries(out.summaries as Record<string, Tally>).map(([k, t]) => [k, countsOnly(t)])
+        ),
+      };
+    case 'inspect_data':
+      return {
+        ...out,
+        values: out.values ? countsOnly(out.values as Tally) : undefined,
+        sample: undefined,
+      };
+    default:
+      return out;
+  }
+}
+
+/** JSON for Claude: the full result, or on production only what withoutRecordContents keeps. */
+const forClaude = (name: string, result: unknown): string =>
+  clip(JSON.stringify(productionSelected() ? withoutRecordContents(name, result) : result, null, 1));
+
 export async function executeTool(name: string, rawInput: unknown): Promise<string> {
   const input = (rawInput ?? {}) as Record<string, unknown>;
   switch (name) {
@@ -164,14 +221,14 @@ export async function executeTool(name: string, rawInput: unknown): Promise<stri
       if (summary.render?.text && summary.render.text.length > MAX_TEXT_IN_RESULT) {
         summary.render.text = `${summary.render.text.slice(0, MAX_TEXT_IN_RESULT)}\n…[truncated]`;
       }
-      return clip(JSON.stringify(summary, null, 1));
+      return forClaude(name, summary);
     }
     case 'run_fetch':
-      return clip(await runFetchTool(input));
+      return forClaude(name, await runFetchTool(input));
     case 'compare_plans':
-      return clip(await comparePlansTool(input));
+      return forClaude(name, await comparePlansTool(input));
     case 'inspect_data':
-      return clip(inspectData(input));
+      return forClaude(name, inspectData(input));
     case 'list_saved_reports': {
       const { reports } = await listSavedReports();
       return clip(
@@ -205,18 +262,27 @@ function parseDateRange(value: unknown): DateRange | undefined {
 }
 
 function reportState(): unknown {
-  const { report, run } = useStudio.getState();
+  const { report, run, testCase } = useStudio.getState();
+  const { values, missing } = resolveInputs(report, testCase);
+  const range = dateRangeInput(report);
+  const rangeValue = range ? (values[range.name] as DateRangeValue | undefined) : undefined;
   return {
     name: report.name,
     title: report.title,
     description: report.description,
     prompt: report.prompt,
-    dateRange: {
-      ...report.dateRange,
-      label: describeDateRange(report.dateRange),
-      resolved: resolveDateRange(report.dateRange),
+    inputs: report.inputs ?? [],
+    // Runs use the active test case; on production its values stay with the user.
+    activeTestCase: {
+      name: testCase,
+      inputs: Object.keys(values),
+      ...(productionSelected() ? {} : { values }),
+      missing,
     },
-    patientId: report.parameters?.patientId || undefined,
+    dateRange: {
+      label: rangeValue ? describeDateRangeValue(rangeValue) : 'last 30 days (no dateRange input)',
+      resolved: runParameters(report, values).dateRange,
+    },
     plan: report.plan,
     code: report.code,
     lastRun:
@@ -271,7 +337,11 @@ function updateReport(input: Record<string, unknown>): {
       warnings.push(
         ...heavySearchWarnings(validated.plan),
         ...dateFieldWarnings(validated.plan),
-        ...requestBudgetWarnings(validated.plan, report.stepDensity, resolveDateRange(report.dateRange))
+        ...requestBudgetWarnings(
+          validated.plan,
+          report.stepDensity,
+          runParameters(report, resolveInputs(report, useStudio.getState().testCase).values).dateRange
+        )
       );
     } else errors.push(...validated.errors.map((e) => `plan ${e}`));
   }
@@ -282,18 +352,12 @@ function updateReport(input: Record<string, unknown>): {
       changed.push('code');
     }
   }
-  if (typeof input.patientId === 'string') {
-    patch.parameters = { ...report.parameters, patientId: input.patientId.trim() || undefined };
-    changed.push('patientId');
-  }
-  if (input.dateRange && typeof input.dateRange === 'object') {
-    const spec = input.dateRange as DateRangeSpec;
-    if (!DATE_RANGE_PRESETS.includes(spec.preset))
-      errors.push(`dateRange.preset must be one of ${DATE_RANGE_PRESETS.join(', ')}`);
-    else {
-      patch.dateRange = { preset: spec.preset, start: spec.start, end: spec.end };
-      changed.push('dateRange');
-    }
+  if (input.inputs !== undefined) {
+    const validated = validateInputs(input.inputs);
+    if (validated.ok) {
+      patch.inputs = validated.inputs;
+      changed.push('inputs');
+    } else errors.push(...validated.errors);
   }
 
   if (changed.length) {
@@ -307,11 +371,12 @@ function updateReport(input: Record<string, unknown>): {
   };
 }
 
-async function runFetchTool(input: Record<string, unknown>): Promise<string> {
+async function runFetchTool(input: Record<string, unknown>): Promise<unknown> {
   const validated = validatePlan(input.plan);
-  if (!validated.ok) return JSON.stringify({ ok: false, errors: validated.errors });
-  const { report, settings } = useStudio.getState();
-  const dateRange = parseDateRange(input.dateRange) ?? resolveDateRange(report.dateRange);
+  if (!validated.ok) return { ok: false, errors: validated.errors };
+  const { report, settings, testCase } = useStudio.getState();
+  const dateRange =
+    parseDateRange(input.dateRange) ?? runParameters(report, resolveInputs(report, testCase).values).dateRange;
   const output = await fetchOnly(validated.plan, dateRange);
   const sampleCount = Math.min(Math.max(Number(input.sample) || 1, 1), 3);
   const samples: Record<string, unknown[]> = {};
@@ -326,34 +391,31 @@ async function runFetchTool(input: Record<string, unknown>): Promise<string> {
   for (const item of (input.summarize as { step: string; path: string }[] | undefined) ?? []) {
     summaries[`${item.step}.${item.path}`] = tally(output.resources[item.step] ?? [], item.path);
   }
-  return JSON.stringify(
-    {
-      dateRange,
-      totalMs: output.totalMs,
-      totalBytes: output.totalBytes,
-      steps: output.stats.map(({ params, ...s }) => ({
-        ...s,
-        params: params.map((p) => `${p.name}=${p.value}`).join('&'),
-      })),
-      samples,
-      summaries,
-    },
-    null,
-    1
-  );
+  return {
+    dateRange,
+    totalMs: output.totalMs,
+    totalBytes: output.totalBytes,
+    steps: output.stats.map(({ params, ...s }) => ({
+      ...s,
+      params: params.map((p) => `${p.name}=${p.value}`).join('&'),
+    })),
+    samples,
+    summaries,
+  };
 }
 
-async function comparePlansTool(input: Record<string, unknown>): Promise<string> {
+async function comparePlansTool(input: Record<string, unknown>): Promise<unknown> {
   const a = validatePlan(input.a);
   const b = validatePlan(input.b);
   if (!a.ok || !b.ok) {
-    return JSON.stringify({
+    return {
       ok: false,
       errors: [...(a.ok ? [] : a.errors.map((e) => `a ${e}`)), ...(b.ok ? [] : b.errors.map((e) => `b ${e}`))],
-    });
+    };
   }
-  const { report, run, addEvent } = useStudio.getState();
-  const dateRange = parseDateRange(input.dateRange) ?? resolveDateRange(report.dateRange);
+  const { report, run, addEvent, testCase } = useStudio.getState();
+  const dateRange =
+    parseDateRange(input.dateRange) ?? runParameters(report, resolveInputs(report, testCase).values).dateRange;
   // Back to back, never in parallel: the two must not compete for the server.
   const outputA = await fetchOnly(a.plan, dateRange);
   const outputB = await fetchOnly(b.plan, dateRange);
@@ -368,10 +430,10 @@ async function comparePlansTool(input: Record<string, unknown>): Promise<string>
     }`,
     comparison.differences.join('\n') || undefined
   );
-  return JSON.stringify({ dateRange, fieldsCompared: Boolean(fieldsRead), ...comparison }, null, 1);
+  return { dateRange, fieldsCompared: Boolean(fieldsRead), ...comparison };
 }
 
-function inspectData(input: Record<string, unknown>): string {
+function inspectData(input: Record<string, unknown>): unknown {
   const { run, settings } = useStudio.getState();
   const step = String(input.step ?? '');
   const list = run.resources?.[step];
@@ -397,7 +459,7 @@ function inspectData(input: Record<string, unknown>): string {
       .slice(0, Math.min(Number(input.sample) || 1, 3))
       .map((r) => redact(r, settings.allowUnredactedSamples));
   }
-  return JSON.stringify(result, null, 1);
+  return result;
 }
 
 /** Distinct values at a dot path with counts (arrays flattened), plus how many resources had none. */

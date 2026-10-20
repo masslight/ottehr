@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Report Studio tabs</title>
+    <style>
+      /* The tab strip above the studio tabs (main.cjs lays it out); the studio header's blue continues below it. */
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        overflow: hidden;
+        background: #0a2456;
+        font: 13px Rubik, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        color: #fff;
+        -webkit-user-select: none;
+        user-select: none;
+      }
+      /* The strip is the window's top row: its empty area drags the window; tabs and buttons do not. */
+      #tabs {
+        display: flex;
+        align-items: flex-end;
+        height: 100%;
+        padding: 6px 8px 0;
+        gap: 4px;
+        overflow-x: auto;
+        -webkit-app-region: drag;
+      }
+      /* macOS: start to the right of the window buttons. */
+      body.darwin #tabs {
+        padding-left: 80px;
+      }
+      .tab,
+      .add {
+        -webkit-app-region: no-drag;
+      }
+      .tab {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        max-width: 240px;
+        min-width: 0;
+        padding: 0 4px 0 12px;
+        height: 30px;
+        border: 0;
+        border-radius: 8px 8px 0 0;
+        background: rgba(255, 255, 255, 0.12);
+        color: #fff;
+        font: inherit;
+        cursor: default;
+      }
+      .tab[aria-selected='true'] {
+        background: #0f347c;
+      }
+      .tab:hover:not([aria-selected='true']) {
+        background: rgba(255, 255, 255, 0.2);
+      }
+      .title {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #2169f5;
+        flex: none;
+        animation: pulse 1s ease-in-out infinite alternate;
+      }
+      @keyframes pulse {
+        from {
+          opacity: 0.4;
+        }
+        to {
+          opacity: 1;
+        }
+      }
+      .dirty {
+        color: #ffd666;
+        flex: none;
+      }
+      .close,
+      .add {
+        border: 0;
+        background: transparent;
+        color: rgba(255, 255, 255, 0.75);
+        font: inherit;
+        font-size: 15px;
+        line-height: 1;
+        width: 22px;
+        height: 22px;
+        border-radius: 4px;
+        cursor: default;
+      }
+      .close:hover,
+      .add:hover {
+        background: rgba(255, 255, 255, 0.2);
+        color: #fff;
+      }
+      .add {
+        margin-bottom: 4px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="tabs" role="tablist" aria-label="Open reports"></div>
+    <script>
+      const list = document.getElementById('tabs');
+      document.body.classList.add(window.tabsHost.platform);
+      const el = (tag, props, ...children) => {
+        const node = Object.assign(document.createElement(tag), props);
+        for (const [key, value] of Object.entries(props.attrs ?? {})) node.setAttribute(key, value);
+        node.append(...children);
+        return node;
+      };
+      window.tabsHost.onState(({ tabs, activeId }) => {
+        list.replaceChildren(
+          ...tabs.map((tab) =>
+            el(
+              'button',
+              {
+                className: 'tab',
+                attrs: { role: 'tab', 'aria-selected': String(tab.id === activeId), 'data-tab': tab.id },
+                title: tab.title,
+                onclick: () => window.tabsHost.activate(tab.id),
+              },
+              ...(tab.running ? [el('span', { className: 'dot', attrs: { role: 'img', 'aria-label': 'Running' } })] : []),
+              el('span', { className: 'title', textContent: tab.title }),
+              ...(tab.dirty
+                ? [el('span', { className: 'dirty', textContent: '•', attrs: { role: 'img', 'aria-label': 'Unsaved changes' } })]
+                : []),
+              el('button', {
+                className: 'close',
+                textContent: '×',
+                attrs: { 'aria-label': `Close ${tab.title}` },
+                onclick: (e) => {
+                  e.stopPropagation();
+                  window.tabsHost.close(tab.id);
+                },
+              })
+            )
+          ),
+          el('button', { className: 'add', textContent: '+', attrs: { 'aria-label': 'New tab' }, onclick: () => window.tabsHost.add() })
+        );
+      });
+    </script>
+  </body>
+</html>

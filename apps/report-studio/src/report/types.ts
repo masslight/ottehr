@@ -4,6 +4,7 @@
 import { DateTime } from 'luxon';
 import type { FetchPlanInput, FetchPlanParameters, FetchStepDensity } from 'utils/lib/types/adhoc/plan/fetch-plan';
 import type { DateRange } from 'utils/lib/types/adhoc/query/date-range';
+import type { ReportInput, TestCase } from './inputs';
 
 export const STUDIO_REPORT_FORMAT = 'ottehr-report-studio/1';
 export const STUDIO_RUNTIME_VERSION = 1;
@@ -52,9 +53,13 @@ export interface StudioReport {
   prompt: string;
   /** The heading the model gave the report. */
   title?: string;
-  dateRange: DateRangeSpec;
-  /** Run parameters the plan may template ({{patientId}}); the patient box in the top bar. */
+  /** Before inputs: the report's date range and patient parameter (converted on open, see inputs.ts). */
+  dateRange?: DateRangeSpec;
   parameters?: FetchPlanParameters;
+  /** What the report takes (`params.inputs`; the dateRange one is its date range, patientId fills {{patientId}}). */
+  inputs?: ReportInput[];
+  /** Named sets of input values Run uses in the studio. */
+  testCases?: TestCase[];
   plan: FetchPlanInput;
   /** JSX function body over (React, MUI, Report, resources, helpers, params) ending with `return ReportRoot;`. */
   code: string;
@@ -67,75 +72,30 @@ export interface StudioReport {
   measuredRangeDays?: number;
   /** Per step id, the density the last run measured (see fetchMode.ts); the next run pre-sizes its date windows and batches from it. */
   stepDensity?: Record<string, FetchStepDensity>;
+  /** The environment the measurements above came from; a run elsewhere neither uses nor overwrites them. */
+  measuredOn?: string;
 }
 
 /** The part of a report a Claude turn can change — one undo step. */
 export type ReportSnapshot = Pick<
   StudioReport,
-  'name' | 'description' | 'prompt' | 'title' | 'dateRange' | 'parameters' | 'plan' | 'code'
+  'name' | 'description' | 'prompt' | 'title' | 'inputs' | 'plan' | 'code'
 >;
 
-export const DEFAULT_PLAN: FetchPlanInput = {
-  version: 1,
-  steps: [
-    {
-      id: 'visits',
-      resourceType: 'Appointment',
-      description: 'Visits in the date range with their encounters, patients and locations',
-      params: [
-        { name: 'date', value: 'ge{{start}}' },
-        { name: 'date', value: 'le{{end}}' },
-        { name: '_tag', value: 'OTTEHR-IP,OTTEHR-TM' },
-        { name: '_include', value: 'Appointment:patient' },
-        { name: '_include', value: 'Appointment:location' },
-        { name: '_revinclude', value: 'Encounter:appointment' },
-      ],
-    },
-  ],
-};
-
-export const DEFAULT_CODE = `// Report code runs in a sandbox on the fetched FHIR resources.
-// In scope: React, MUI, Report, resources (step id -> resources), helpers, params.
-const idx = helpers.index(resources.visits);
-const appointments = idx.byType.Appointment || [];
-const encounters = idx.byType.Encounter || [];
-const encounterByAppt = {};
-for (const e of encounters) {
-  const ref = e.appointment && e.appointment[0] && e.appointment[0].reference;
-  if (ref && !encounterByAppt[ref]) encounterByAppt[ref] = e;
-}
-const byStatus = helpers.countBy(appointments, (a) => helpers.visitStatus(a, encounterByAppt[helpers.ref(a)]));
-const rows = Object.entries(byStatus).map(([status, count]) => ({ status, count })).sort((a, b) => b.count - a.count);
-
-function ReportRoot() {
-  return (
-    <Report.Section title="Visits by status">
-      <MUI.Stack direction="row" spacing={2} flexWrap="wrap">
-        <Report.Kpi label="Visits" value={appointments.length} format="integer" />
-        <Report.Kpi label="Statuses" value={rows.length} format="integer" />
-      </MUI.Stack>
-      {rows.length === 0 ? (
-        <Report.Note tone="info">No visits in the selected range.</Report.Note>
-      ) : (
-        <Report.Table rows={rows} columns={[{ field: 'status', label: 'Status' }, { field: 'count', label: 'Visits', format: 'integer' }]} />
-      )}
-    </Report.Section>
-  );
-}
-return ReportRoot;
-`;
-
+/** No report yet: nothing to run until Claude writes a plan and code or a saved report is opened. */
 export function emptyReport(): StudioReport {
   return {
     format: STUDIO_REPORT_FORMAT,
     name: 'Untitled report',
     prompt: '',
-    dateRange: { preset: 'last30days' },
-    plan: DEFAULT_PLAN,
-    code: DEFAULT_CODE,
+    inputs: [],
+    plan: { version: 1, steps: [] },
+    code: '',
     runtimeVersion: STUDIO_RUNTIME_VERSION,
   };
 }
+
+export const hasReport = (report: StudioReport): boolean => report.plan.steps.length > 0 || report.code.trim() !== '';
 
 export function snapshotOf(report: StudioReport): ReportSnapshot {
   const { name, description, prompt, title, dateRange, parameters, plan, code } = report;

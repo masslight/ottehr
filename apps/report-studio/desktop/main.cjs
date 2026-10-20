@@ -5,7 +5,7 @@
 //    so no project needs a new sign-in app or a localhost return address;
 //  - call Claude with the user's API key from this process (claude-relay://), which an org that refuses browser calls
 //    still accepts — the studio's "Through local relay" connection, pointed at it.
-const { app, BrowserWindow, ipcMain, net, protocol, session, shell } = require('electron');
+const { app, BaseWindow, BrowserWindow, dialog, ipcMain, Menu, net, protocol, session, shell, WebContentsView } = require('electron');
 const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -135,29 +135,149 @@ async function signIn(parent, { domain, clientId, audience, connection, redirect
   return { accessToken: body.access_token, expiresIn: body.expires_in };
 }
 
+// Tabs: one WebContentsView per open report, each the whole studio page (its own store, conversation, run, test
+// case and environment; settings are shared through the one session's localStorage), under a small tab strip
+// (tabs.html) that main lays out above them. The page tells its tab's title / running / dirty / empty state.
+const STRIP_HEIGHT = 38;
+const PRELOAD = path.join(__dirname, 'preload.cjs');
+let win;
+let strip;
+const tabs = [];
+let activeId;
+let nextTabId = 1;
+
+const activeTab = () => tabs.find((t) => t.id === activeId);
+const tabOf = (webContents) => tabs.find((t) => t.view.webContents === webContents);
+
+const openHandler = ({ url }) => {
+  // Links in reports and docs open in the browser; nothing opens a second studio window.
+  if (/^https?:/.test(url)) void shell.openExternal(url);
+  return { action: 'deny' };
+};
+
+function layout() {
+  const [width, height] = win.getContentSize();
+  strip.setBounds({ x: 0, y: 0, width, height: STRIP_HEIGHT });
+  for (const tab of tabs) tab.view.setBounds({ x: 0, y: STRIP_HEIGHT, width, height: height - STRIP_HEIGHT });
+}
+
+function publishTabs() {
+  strip.webContents.send('tabs:state', {
+    tabs: tabs.map(({ id, title, running, dirty }) => ({ id, title, running, dirty })),
+    activeId,
+  });
+}
+
+function activate(id) {
+  activeId = id;
+  for (const tab of tabs) tab.view.setVisible(tab.id === id);
+  activeTab()?.view.webContents.focus();
+  publishTabs();
+}
+
+/** A new tab with an empty report; `onReady` runs once its page has reported its state (it listens to the menu by then). */
+function addTab(onReady) {
+  const view = new WebContentsView({ webPreferences: { preload: PRELOAD, sandbox: true } });
+  const tab = { id: nextTabId++, view, title: 'New report', running: false, dirty: false, empty: true, ready: false, onReady };
+  tabs.push(tab);
+  win.contentView.addChildView(view);
+  view.webContents.setWindowOpenHandler(openHandler);
+  void view.webContents.loadURL(`${STUDIO_ORIGIN}/`);
+  layout();
+  activate(tab.id);
+  return tab;
+}
+
+/** Asks the tab's page to save (its own Save) and resolves with whether it did. */
+const askSave = (tab) =>
+  new Promise((resolve) => {
+    tab.saveResolve = resolve;
+    tab.view.webContents.send('studio:menu', 'save');
+  });
+
+async function closeTab(id) {
+  const tab = tabs.find((t) => t.id === id);
+  if (!tab) return;
+  if (tab.dirty) {
+    activate(tab.id);
+    const { response } = await dialog.showMessageBox(win, {
+      type: 'question',
+      message: `Save the changes to "${tab.title}"?`,
+      detail: 'The report has unsaved changes.',
+      buttons: ['Save', "Don't save", 'Cancel'],
+      defaultId: 0,
+      cancelId: 2,
+    });
+    if (response === 2) return;
+    if (response === 0 && !(await askSave(tab))) return;
+  }
+  const index = tabs.indexOf(tab);
+  if (index < 0) return; // closed meanwhile
+  tabs.splice(index, 1);
+  win.contentView.removeChildView(tab.view);
+  tab.view.webContents.close();
+  if (tabs.length === 0) addTab();
+  else if (activeId === tab.id) activate(tabs[Math.min(index, tabs.length - 1)].id);
+  else publishTabs();
+}
+
+// The standard menus plus File, whose items tell the active tab's page to run its own New / Open / Save / Save as.
+function setMenu() {
+  const send = (action) => activeTab()?.view.webContents.send('studio:menu', action);
+  // Open… and New Report use the active tab when it is empty, else a new tab (which starts empty).
+  const open = () => {
+    const tab = activeTab();
+    if (!tab || tab.empty) send('open');
+    else addTab((fresh) => fresh.view.webContents.send('studio:menu', 'open'));
+  };
+  const newReport = () => {
+    const tab = activeTab();
+    if (!tab || tab.empty) send('new');
+    else addTab();
+  };
+  const item = (label, accelerator, click) => ({ label, accelerator, click });
+  Menu.setApplicationMenu(
+    Menu.buildFromTemplate([
+      ...(process.platform === 'darwin' ? [{ role: 'appMenu' }] : []),
+      {
+        label: 'File',
+        submenu: [
+          item('New Tab', 'CmdOrCtrl+T', () => addTab()),
+          item('New Report', 'CmdOrCtrl+N', newReport),
+          item('Open…', 'CmdOrCtrl+O', open),
+          { type: 'separator' },
+          item('Save', 'CmdOrCtrl+S', () => send('save')),
+          item('Save As…', 'CmdOrCtrl+Shift+S', () => send('saveAs')),
+          { type: 'separator' },
+          item('Close Tab', 'CmdOrCtrl+W', () => void closeTab(activeId)),
+          ...(process.platform === 'darwin' ? [] : [{ role: 'quit' }]),
+        ],
+      },
+      { role: 'editMenu' },
+      { role: 'viewMenu' },
+      { role: 'windowMenu' },
+    ])
+  );
+}
+
 function createWindow() {
-  const win = new BrowserWindow({
+  win = new BaseWindow({
     width: 1500,
     height: 950,
     title: 'Report Studio',
-    webPreferences: { preload: path.join(__dirname, 'preload.cjs'), sandbox: true },
+    // macOS: no title bar — the tab strip is the top row, to the right of the window buttons (tabs.html drags).
+    ...(process.platform === 'darwin' ? { titleBarStyle: 'hiddenInset', trafficLightPosition: { x: 12, y: 12 } } : {}),
   });
-  win.webContents.setWindowOpenHandler(({ url }) => {
-    // The Test report window is the studio itself; anything else (links in reports, docs) opens in the browser.
-    if (url.startsWith(STUDIO_ORIGIN)) {
-      return {
-        action: 'allow',
-        overrideBrowserWindowOptions: {
-          width: 1280,
-          height: 900,
-          webPreferences: { preload: path.join(__dirname, 'preload.cjs'), sandbox: true },
-        },
-      };
-    }
-    if (/^https?:/.test(url)) void shell.openExternal(url);
-    return { action: 'deny' };
+  strip = new WebContentsView({ webPreferences: { preload: path.join(__dirname, 'tabs-preload.cjs'), sandbox: true } });
+  win.contentView.addChildView(strip);
+  strip.webContents.on('did-finish-load', publishTabs);
+  void strip.webContents.loadFile(path.join(__dirname, 'tabs.html'));
+  win.on('resize', layout);
+  win.on('closed', () => {
+    win = undefined;
+    tabs.length = 0;
   });
-  void win.loadURL(`${STUDIO_ORIGIN}/`);
+  addTab();
 }
 
 app.whenReady().then(() => {
@@ -167,10 +287,30 @@ app.whenReady().then(() => {
   session.defaultSession.setPermissionRequestHandler((_wc, permission, callback) =>
     callback(permission === 'fileSystem' || permission === 'clipboard-sanitized-write')
   );
-  ipcMain.handle('studio:sign-in', (event, params) => signIn(BrowserWindow.fromWebContents(event.sender), params));
+  ipcMain.handle('studio:sign-in', (_event, params) => signIn(win, params));
+  ipcMain.on('studio:tab-state', (event, state) => {
+    const tab = tabOf(event.sender);
+    if (!tab) return;
+    Object.assign(tab, state);
+    if (!tab.ready) {
+      tab.ready = true;
+      tab.onReady?.(tab);
+      tab.onReady = undefined;
+    }
+    publishTabs();
+  });
+  ipcMain.on('studio:save-result', (event, ok) => {
+    const tab = tabOf(event.sender);
+    tab?.saveResolve?.(ok);
+    if (tab) tab.saveResolve = undefined;
+  });
+  ipcMain.on('tabs:activate', (_event, id) => activate(id));
+  ipcMain.on('tabs:close', (_event, id) => void closeTab(id));
+  ipcMain.on('tabs:add', () => addTab());
+  setMenu();
   createWindow();
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+    if (!win) createWindow();
   });
 });
 

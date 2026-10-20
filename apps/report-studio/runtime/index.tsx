@@ -21,7 +21,12 @@ interface RenderMessage {
   type: 'render';
   code: string;
   resources: Record<string, FhirResource[]>;
-  params: { dateRange?: { start: string; end: string }; timeZone: string; patientId?: string };
+  params: {
+    dateRange?: { start: string; end: string };
+    timeZone: string;
+    patientId?: string;
+    inputs?: Record<string, unknown>;
+  };
   profile?: boolean;
   muiLicenseKey?: string;
 }

@@ -68,11 +68,11 @@ function EnvironmentsSection(): React.ReactElement {
   return (
     <Box>
       <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 0.5 }}>
-        Test environments
+        Environments
       </Typography>
       <Typography variant="caption" color="text.secondary" component="div" sx={{ mb: 1 }}>
-        Instances the Test report window can run against; the builder and Claude always use the instance above. Each is
-        a local zambda server from this worktree started for that project:{' '}
+        The instances the Environment menu in the header lists; runs and Claude's tools go to the chosen one. Each is a
+        local zambda server from this worktree started for that project (synth: http://localhost:3005/local):{' '}
         <code>
           sh ~/development/documents/report-studio/start-env-server.sh &lt;project&gt; &lt;env&gt; &lt;port&gt;
         </code>
@@ -221,7 +221,6 @@ export function SettingsDialog(): React.ReactElement {
   const settings = useStudio((s) => s.settings);
   const setSettings = useStudio((s) => s.setSettings);
   const [relayStatus, setRelayStatus] = useState<string | null>(null);
-  const [instanceStatus, setInstanceStatus] = useState<string | null>(null);
 
   const testRelay = async (): Promise<void> => {
     setRelayStatus('checking…');
@@ -255,45 +254,11 @@ export function SettingsDialog(): React.ReactElement {
     }
   };
 
-  const testInstance = async (): Promise<void> => {
-    setInstanceStatus('checking…');
-    setInstanceStatus(await checkInstance(settings.zambdaBaseUrl, settings.accessToken));
-  };
-
   return (
     <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth>
       <DialogTitle>Settings</DialogTitle>
       <DialogContent dividers>
         <Stack spacing={3}>
-          <Box>
-            <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
-              Instance
-            </Typography>
-            <Stack spacing={1.5}>
-              <TextField
-                label="Zambda base URL"
-                value={settings.zambdaBaseUrl}
-                onChange={(e) => setSettings({ zambdaBaseUrl: e.target.value })}
-                helperText="Zambdas are called at {base}/zambda/{name}/execute. Local synth server: http://localhost:3005/local"
-                fullWidth
-              />
-              <TextField
-                label="Access token"
-                type="password"
-                value={settings.accessToken}
-                onChange={(e) => setSettings({ accessToken: e.target.value })}
-                helperText="A bearer token with the Administrator role: copy one from an EHR session (DevTools → Network → any zambda call → Authorization), or an M2M token. Stored in this browser only."
-                fullWidth
-              />
-              <Stack direction="row" spacing={1} alignItems="center">
-                <Button variant="outlined" onClick={() => void testInstance()}>
-                  Test instance
-                </Button>
-                {instanceStatus && <Typography variant="caption">{instanceStatus}</Typography>}
-              </Stack>
-            </Stack>
-          </Box>
-
           <EnvironmentsSection />
 
           <Box>
