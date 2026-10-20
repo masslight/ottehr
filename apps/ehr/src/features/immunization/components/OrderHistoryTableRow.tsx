@@ -180,7 +180,7 @@ function formatDateTime(dateTime: string | undefined): string | undefined {
   if (!dateTime) {
     return undefined;
   }
-  return DateTime.fromISO(dateTime)?.toFormat('MM/dd/yyyy HH:mm a');
+  return DateTime.fromISO(dateTime)?.toFormat('MM/dd/yyyy hh:mm a');
 }
 
 function grayText(text: string | undefined): ReactElement {

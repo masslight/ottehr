@@ -19,6 +19,16 @@ export function repairDepthDisplayLabel(value: string): string {
   return REPAIR_DEPTH_OPTIONS.find((option) => option.value === value)?.label ?? value;
 }
 
+export const PERFORMER_TYPE_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: 'Healthcare staff', label: 'Healthcare staff' },
+  { value: 'Provider', label: 'Provider' },
+  { value: 'Both', label: 'Provider and healthcare staff' },
+];
+
+export function performerTypeDisplayLabel(value: string): string {
+  return PERFORMER_TYPE_OPTIONS.find((option) => option.value === value)?.label ?? value;
+}
+
 const CLOCK_TIME_PATTERN = /^\s*(\d{1,2}):(\d{2})\s*$/;
 const MINUTES_PER_DAY = 24 * 60;
 
