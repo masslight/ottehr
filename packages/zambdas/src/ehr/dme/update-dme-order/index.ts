@@ -11,6 +11,7 @@ import { wrapHandler } from '../../../shared/sentry';
 import { createOwnerReference } from '../../../shared/tasks';
 import { ZambdaInput } from '../../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../../shared/validation';
+import { assertVisitIsEditable } from '../../easy-chart-shared/visit-lock';
 import {
   fetchDmeBillingProcedures,
   fetchDmeEncounterContext,
@@ -66,11 +67,12 @@ const fetchDmeOrderResources = async (deviceRequestId: string, oystehr: Oystehr)
   if (!deviceRequest) throw { ...FHIR_RESOURCE_NOT_FOUND('DeviceRequest'), statusCode: 404 };
   if (isDmeOrderDeleted(deviceRequest)) throw INVALID_INPUT_ERROR('This DME order has been deleted');
 
-  return {
-    deviceRequest,
-    procedures: await fetchDmeBillingProcedures(deviceRequest, oystehr),
-    tasks: resources.filter((r): r is Task => r.resourceType === 'Task'),
-  };
+  // Every action, dispense included, changes what the signed note shows, so a locked visit refuses them all.
+  const [procedures] = await Promise.all([
+    fetchDmeBillingProcedures(deviceRequest, oystehr),
+    assertVisitIsEditable(oystehr, getDeviceRequestEncounterId(deviceRequest), ZAMBDA_NAME),
+  ]);
+  return { deviceRequest, procedures, tasks: resources.filter((r): r is Task => r.resourceType === 'Task') };
 };
 
 const resolveDispenser = async (

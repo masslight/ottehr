@@ -1,5 +1,6 @@
-import { ReactElement } from 'react';
+import { ReactElement, useState } from 'react';
 import { InPersonModal } from 'src/features/visits/in-person/components/InPersonModal';
+import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { DmeOrderDTO } from 'utils/lib/types/api/dme.types';
 import { useUpdateDmeOrder } from '../dme.queries';
 
@@ -40,10 +41,22 @@ export const DmeOrderActionDialog = ({
 }: DmeOrderActionDialogProps): ReactElement => {
   const { mutateAsync: updateOrder, isPending } = useUpdateDmeOrder(order.encounterId);
   const copy = ACTION_COPY[action];
+  const [serverError, setServerError] = useState<string | undefined>();
 
   const handleConfirm = async (): Promise<void> => {
-    await updateOrder({ action, deviceRequestId: order.id });
+    setServerError(undefined);
+    try {
+      await updateOrder({ action, deviceRequestId: order.id });
+    } catch (error) {
+      setServerError(getApiError({ error, defaultError: copy.errorMessage }));
+      throw error;
+    }
     onDone?.();
+  };
+
+  const handleClose = (): void => {
+    setServerError(undefined);
+    onClose();
   };
 
   return (
@@ -55,8 +68,9 @@ export const DmeOrderActionDialog = ({
       closeButtonText="Cancel"
       color={action === 'delete' ? 'error.main' : 'primary.main'}
       handleConfirm={handleConfirm}
-      handleClose={onClose}
+      handleClose={handleClose}
       errorMessage={copy.errorMessage}
+      error={serverError}
       disabled={isPending}
     />
   );

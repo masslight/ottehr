@@ -12,6 +12,7 @@ import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../../shared/validation';
+import { assertVisitIsEditable } from '../../easy-chart-shared/visit-lock';
 import {
   fetchDmeEncounterContext,
   fetchOrderingPractitioner,
@@ -31,7 +32,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, params.secrets);
 
-  const callerPractitionerId = await resolveCallerPractitionerId(userToken, params.secrets);
+  const [callerPractitionerId] = await Promise.all([
+    resolveCallerPractitionerId(userToken, params.secrets),
+    assertVisitIsEditable(oystehr, params.encounterId, ZAMBDA_NAME),
+  ]);
   const response = await createDmeOrder(params, callerPractitionerId, oystehr);
   return {
     statusCode: 200,
