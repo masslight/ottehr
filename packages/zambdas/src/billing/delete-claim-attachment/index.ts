@@ -1,6 +1,6 @@
 import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Claim, DocumentReference } from 'fhir/r4b';
+import { Claim, DocumentReference, FhirResource, ProvenanceAgent } from 'fhir/r4b';
 import { DeleteClaimAttachmentInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
@@ -8,9 +8,12 @@ import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { claimAttachmentOwner, deleteAttachmentObject, ownedAttachmentLocation } from '../attachments';
-import { BillingFhirResource, createBillingClient, fetchById } from '../shared';
+import { claimEventProvenanceRequest, resolveClaimActor } from '../provenance';
+import { createBillingClient, fetchById } from '../shared';
 
-type DeleteClaimAttachmentParams = ValidatedZambdaInput<typeof DeleteClaimAttachmentInputSchema>;
+type DeleteClaimAttachmentParams = ValidatedZambdaInput<typeof DeleteClaimAttachmentInputSchema> & {
+  agent: ProvenanceAgent;
+};
 
 let m2mToken: string;
 
@@ -20,8 +23,12 @@ export const index = wrapHandler(
     const params = validateWithSchema(DeleteClaimAttachmentInputSchema, input);
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
     const oystehr = createBillingClient(m2mToken, params.secrets);
+    const agent = await resolveClaimActor('caller', oystehr, input.headers?.Authorization, params.secrets);
 
-    await performEffect(oystehr, params);
+    await performEffect(oystehr, {
+      ...params,
+      agent,
+    });
     return { statusCode: 200, body: JSON.stringify({ deleted: true }) };
   }
 );
@@ -50,15 +57,24 @@ export async function performEffect(oystehr: Oystehr, params: DeleteClaimAttachm
     sequence: index + 1,
   }));
 
-  const requests: BatchInputRequest<BillingFhirResource>[] = [
+  const provenance = claimEventProvenanceRequest({
+    targetReference: `DocumentReference/${documentReference.id}`,
+    claimId: claim.id,
+    before: documentReference,
+    agent: params.agent,
+    activity: 'delete',
+  });
+
+  const requests: BatchInputRequest<FhirResource>[] = [
     {
       method: 'PATCH',
       url: `/Claim/${claim.id}`,
       operations: [{ op: 'replace', path: `/supportingInfo`, value: newSupportingInfo }],
     },
     { method: 'DELETE', url: `/DocumentReference/${documentReference.id}` },
+    ...(provenance ? [provenance] : []),
   ];
 
-  await oystehr.fhir.transaction<BillingFhirResource>({ requests });
+  await oystehr.fhir.transaction<FhirResource>({ requests });
   await deleteAttachmentObject(oystehr, location);
 }

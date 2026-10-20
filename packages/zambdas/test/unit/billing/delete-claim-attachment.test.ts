@@ -1,8 +1,10 @@
 import Oystehr from '@oystehr/sdk';
 import { DateTime } from 'luxon';
+import { CLAIM_PROVENANCE_ACTIVITY } from 'utils/lib/types/data/billing/claim-history';
 import { Mock, vi } from 'vitest';
 import { performEffect } from '../../../src/billing/delete-claim-attachment';
 import { fetchById } from '../../../src/billing/shared';
+import { claimHistoryRequest, historyChanges, TEST_AGENT } from './claim-history-fixtures';
 
 vi.mock('../../../src/billing/shared', async (importOriginal) => ({
   ...(await importOriginal<object>()),
@@ -49,7 +51,12 @@ describe('delete-claim-attachment', () => {
       });
     const oystehr = makeClient();
     await expect(() =>
-      performEffect(oystehr, { claimId: 'claim-id', documentReferenceId: 'document-reference-id', secrets: SECRETS })
+      performEffect(oystehr, {
+        claimId: 'claim-id',
+        documentReferenceId: 'document-reference-id',
+        secrets: SECRETS,
+        agent: TEST_AGENT,
+      })
     ).rejects.toThrowErrorMatchingInlineSnapshot(`
       {
         "code": 4340,
@@ -87,7 +94,12 @@ describe('delete-claim-attachment', () => {
       });
     const oystehr = makeClient();
     await expect(
-      performEffect(oystehr, { claimId: 'claim-id', documentReferenceId: 'document-reference-id', secrets: SECRETS })
+      performEffect(oystehr, {
+        claimId: 'claim-id',
+        documentReferenceId: 'document-reference-id',
+        secrets: SECRETS,
+        agent: TEST_AGENT,
+      })
     ).rejects.toThrowErrorMatchingInlineSnapshot(`
       {
         "code": 4340,
@@ -126,7 +138,12 @@ describe('delete-claim-attachment', () => {
       });
     const oystehr = makeClient();
     await expect(
-      performEffect(oystehr, { claimId: 'claim-id', documentReferenceId: 'document-reference-id', secrets: SECRETS })
+      performEffect(oystehr, {
+        claimId: 'claim-id',
+        documentReferenceId: 'document-reference-id',
+        secrets: SECRETS,
+        agent: TEST_AGENT,
+      })
     ).rejects.toThrowErrorMatchingInlineSnapshot(`
       {
         "code": 4340,
@@ -165,7 +182,12 @@ describe('delete-claim-attachment', () => {
       });
     const oystehr = makeClient();
     await expect(
-      performEffect(oystehr, { claimId: 'claim-id', documentReferenceId: 'document-reference-id', secrets: SECRETS })
+      performEffect(oystehr, {
+        claimId: 'claim-id',
+        documentReferenceId: 'document-reference-id',
+        secrets: SECRETS,
+        agent: TEST_AGENT,
+      })
     ).rejects.toThrowErrorMatchingInlineSnapshot(`
       {
         "code": 4340,
@@ -217,6 +239,7 @@ describe('delete-claim-attachment', () => {
         claimId: 'claim-id',
         documentReferenceId: 'document-reference-id',
         secrets: SECRETS,
+        agent: TEST_AGENT,
       })
     ).resolves.toBeUndefined();
     expect(oystehr.z3.deleteObject).toBeCalledTimes(1);
@@ -242,8 +265,22 @@ describe('delete-claim-attachment', () => {
           method: 'DELETE',
           url: '/DocumentReference/document-reference-id',
         },
+        claimHistoryRequest({
+          target: 'DocumentReference/document-reference-id',
+          claimId: 'claim-id',
+          activity: CLAIM_PROVENANCE_ACTIVITY.delete,
+        }),
       ],
     });
+    const [{ requests }] = (oystehr.fhir.transaction as Mock).mock.calls[0];
+    expect(historyChanges(requests)).toEqual([
+      {
+        field: 'name',
+        label: 'Name',
+        previousValue: 'File.pdf',
+        newValue: null,
+      },
+    ]);
     // the file goes only once nothing points at it
     expect((oystehr.fhir.transaction as Mock).mock.invocationCallOrder[0]).toBeLessThan(
       (oystehr.z3.deleteObject as Mock).mock.invocationCallOrder[0]
@@ -282,7 +319,12 @@ describe('delete-claim-attachment', () => {
     const oystehr = makeClient();
     (oystehr.fhir.transaction as Mock).mockRejectedValueOnce(new Error('precondition failed'));
     await expect(
-      performEffect(oystehr, { claimId: 'claim-id', documentReferenceId: 'document-reference-id', secrets: SECRETS })
+      performEffect(oystehr, {
+        claimId: 'claim-id',
+        documentReferenceId: 'document-reference-id',
+        secrets: SECRETS,
+        agent: TEST_AGENT,
+      })
     ).rejects.toThrow('precondition failed');
     expect(oystehr.z3.deleteObject).not.toHaveBeenCalled();
   });
@@ -351,6 +393,7 @@ describe('delete-claim-attachment', () => {
         claimId: 'claim-id',
         documentReferenceId: 'document-reference-id-2',
         secrets: SECRETS,
+        agent: TEST_AGENT,
       })
     ).resolves.toBeUndefined();
     expect(oystehr.z3.deleteObject).toBeCalledTimes(1);
@@ -398,6 +441,11 @@ describe('delete-claim-attachment', () => {
           method: 'DELETE',
           url: '/DocumentReference/document-reference-id-2',
         },
+        claimHistoryRequest({
+          target: 'DocumentReference/document-reference-id-2',
+          claimId: 'claim-id',
+          activity: CLAIM_PROVENANCE_ACTIVITY.delete,
+        }),
       ],
     });
   });
