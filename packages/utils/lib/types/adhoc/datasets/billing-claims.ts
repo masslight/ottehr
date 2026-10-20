@@ -1,7 +1,6 @@
 import { z } from 'zod';
 import { CODE_SYSTEM_CLAIM_TYPE_CODES } from '../../../helpers/rcm/constants';
 import { CLAIM_STATUS_FIELDS, ClaimStatusFieldKey } from '../../data/billing/claim-status';
-import { NonPatientWriteOffReasons, PatientWriteOffReasons } from '../../data/billing/write-off-reasons';
 import { AdHocLayerMap, DatasetInput, datasetInputSchema, datasetRowSchema, LayerRowFields } from './dataset';
 
 export const BILLING_CLAIMS_DATASET_ID = 'billing-claims';
@@ -18,16 +17,6 @@ const statusField = (key: ClaimStatusFieldKey, meaning: string): z.ZodString => 
   const codes = (field?.options ?? []).map((o) => `"${o.code}" (${o.label})`).join(', ');
   return z.string().describe(`${field?.label ?? key}: ${meaning} Codes: ${codes}. "" = not set.`);
 };
-
-const codeList = (labels: Record<string, string>): string =>
-  Object.entries(labels)
-    .map(([code, label]) => `"${code}" (${label})`)
-    .join(', ');
-
-// The reason is stored as a code; the model gets each code with the label the billing app shows.
-const WRITE_OFF_REASON_CODES =
-  `Patient write-off codes: ${codeList(PatientWriteOffReasons)}. ` +
-  `Insurance / non-insurance write-off codes: ${codeList(NonPatientWriteOffReasons)}.`;
 
 export const BillingClaimsBaseRowSchema = z.object({
   // --- Claim ---
@@ -136,7 +125,7 @@ export const BILLING_CLAIMS_LAYERS = {
       writeOffCount: z.number().describe('Number of active (not voided) write-offs.'),
       writeOffReasons: z
         .array(z.string())
-        .describe(`Distinct reason codes of the active write-offs. ${WRITE_OFF_REASON_CODES}`),
+        .describe('Distinct reasons of the active write-offs, as the billing app shows them (e.g. "Small Balance").'),
       writeOffs: z
         .array(
           z.object({
@@ -146,7 +135,12 @@ export const BILLING_CLAIMS_LAYERS = {
               .string()
               .describe('Whose balance was written off: "insurance", "patient" or "nio" (non-insurance).'),
             payer: z.string().describe('Payer written off, for an insurance write-off. "" otherwise.'),
-            reason: z.string().describe(`Reason code of this write-off. ${WRITE_OFF_REASON_CODES}`),
+            reason: z
+              .string()
+              .describe(
+                'Reason for this write-off, as the billing app shows it (e.g. "Small Balance", "Charity or ' +
+                  'Financial Assistance"). Show it as is.'
+              ),
             voided: z.boolean().describe('True when the write-off was voided (it no longer counts in writeOffsTotal).'),
           })
         )
@@ -171,6 +165,12 @@ export const BILLING_CLAIMS_LAYERS = {
         .array(
           z.object({
             date: z.string().nullable().describe('Remit date (yyyy-MM-dd).'),
+            payerName: z
+              .string()
+              .describe(
+                "Payer that sent this remit — for a secondary remit not the claim's primary payerName. Use it to " +
+                  'break remits down by payer. "" when the payer could not be resolved.'
+              ),
             allowed: z.number().nullable().describe('Amount allowed by this remit, USD. Null when not reported.'),
             paid: z.number().describe('Amount paid by this remit, USD (negative for a reversal).'),
             patientResp: z
@@ -185,6 +185,12 @@ export const BILLING_CLAIMS_LAYERS = {
         .array(
           z.object({
             remitDate: z.string().nullable().describe('Date of the remit that applied it (yyyy-MM-dd).'),
+            payerName: z
+              .string()
+              .describe(
+                'Payer that sent the remit that applied it. Use it to break adjustments down by payer. "" when ' +
+                  'the payer could not be resolved.'
+              ),
             group: z
               .string()
               .describe(
@@ -204,11 +210,19 @@ export const BILLING_CLAIMS_LAYERS = {
       insuranceFinalizedDate: z
         .string()
         .nullable()
-        .describe('Date the insurance receivable was last set to finalized (yyyy-MM-dd). Null when never.'),
+        .describe(
+          'Date the insurance receivable was last set to finalized in the billing app (yyyy-MM-dd). Recorded only ' +
+            'on a status change, so null for a claim never finalized or created already finalized — to count ' +
+            'claims that are finalized now, use insuranceArStatus.'
+        ),
       enteredPatientArDate: z
         .string()
         .nullable()
-        .describe('Date the claim last moved to patient AR (yyyy-MM-dd). Null when never.'),
+        .describe(
+          'Date the claim last moved to patient AR in the billing app (yyyy-MM-dd). Recorded only on a status ' +
+            'change, so null for a claim never moved or created already in patient AR — to count claims in patient ' +
+            'AR now, use arStage = "patient-ar".'
+        ),
     }),
   },
 } as const satisfies AdHocLayerMap;

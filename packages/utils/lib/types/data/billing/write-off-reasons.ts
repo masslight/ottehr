@@ -34,3 +34,14 @@ export const PatientWriteOffReasons: Record<string, string> = {
   uncollectible: 'Uncollectible or Non Billable',
   other: 'Other',
 };
+
+export function writeOffReasonLabel(party: string, reason: string): string {
+  const [own, other] =
+    party === 'patient'
+      ? [PatientWriteOffReasons, NonPatientWriteOffReasons]
+      : [NonPatientWriteOffReasons, PatientWriteOffReasons];
+
+  if (Object.prototype.hasOwnProperty.call(own, reason)) return own[reason];
+  if (Object.prototype.hasOwnProperty.call(other, reason)) return other[reason];
+  return reason;
+}

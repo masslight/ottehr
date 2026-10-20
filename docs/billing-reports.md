@@ -176,8 +176,9 @@ the claims list. Base columns and amounts come from `mapClaimToItem`, so they ma
 list. A scan that ends short (a claim created mid-scan shifts the offsets) is retried once, then
 fails the Task. Payers are resolved once per run. The build stops at 12 min with "Too many claims
 for one run — narrow the date range", so the Task fails instead of the lambda being killed with the
-Task left in-progress. Layers (no extra queries): `codes` (lines + ICD-10, reads
-`Claim.diagnosis`), `writeOffs`, `remits` (matched ERA ClaimResponses, CARC codes), `timeline`
+Task left in-progress. Layers (no extra FHIR queries): `codes` (lines + ICD-10, reads
+`Claim.diagnosis`), `writeOffs` (reasons as the app labels them), `remits` (matched ERA ClaimResponses,
+CARC codes, each remit with its own payer), `timeline`
 (status date extensions, reads `Claim.extension`). Event dates are sent as recorded; the EHR
 converts them to the viewer's calendar day.
 

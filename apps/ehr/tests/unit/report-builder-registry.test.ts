@@ -66,3 +66,26 @@ describe('billing-claims dataset fetch', () => {
     expect(rows[0]).not.toHaveProperty('insuranceFinalizedDate');
   });
 });
+
+describe('report builder custom date range', () => {
+  it('reads picked days as New York days whatever the browser zone', async () => {
+    const { Settings } = await import('luxon');
+    const { rangeFromControls } = await import('../../src/features/report-builder/page/useReportBuilder');
+    const zone = Settings.defaultZone;
+    try {
+      for (const browserZone of ['Europe/Kyiv', 'America/Los_Angeles', 'Asia/Tokyo']) {
+        Settings.defaultZone = browserZone;
+        expect(rangeFromControls('customRange', '', '2026-07-01', '2026-10-20')).toEqual({
+          start: '2026-07-01T00:00:00.000-04:00',
+          end: '2026-10-20T23:59:59.999-04:00',
+        });
+        expect(rangeFromControls('custom', '2026-07-01', '', '')).toEqual({
+          start: '2026-07-01T00:00:00.000-04:00',
+          end: '2026-07-01T23:59:59.999-04:00',
+        });
+      }
+    } finally {
+      Settings.defaultZone = zone;
+    }
+  });
+});

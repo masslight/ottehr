@@ -14,7 +14,7 @@ import { X12_ADJUSTMENT_GROUP_SYSTEM } from '../../../src/billing/claim-amounts'
 import { buildClaimLookups, mapClaimToItem } from '../../../src/billing/claim-search';
 import { CLINICAL_PAYMENT_NOTICE_ID_SYSTEM } from '../../../src/billing/payments';
 import { ERA_STATUS_CODE_EXTENSION } from '../../../src/billing/shared';
-import { WRITE_OFF_REASON_EXT_URL, WRITE_OFF_SYSTEM } from '../../../src/billing/write-offs';
+import { WRITE_OFF_PARTY_EXT_URL, WRITE_OFF_REASON_EXT_URL, WRITE_OFF_SYSTEM } from '../../../src/billing/write-offs';
 
 const ENCOUNTER_ID_SYSTEM = ottehrIdentifierSystem('claim-encounter-id');
 const PAYER_A = 'https://rcm-api.zapehr.com/v1/payer/payer-a';
@@ -110,7 +110,7 @@ const remit: ClaimResponse = {
   created: '2026-10-11T12:00:00Z',
   type: { coding: [{ code: 'professional' }] },
   patient: { reference: 'Patient/pt-1' },
-  insurer: { reference: PAYER_A },
+  insurer: { reference: PAYER_B },
   request: { reference: 'Claim/claim-1' },
   extension: [{ url: ERA_STATUS_CODE_EXTENSION, valueString: '1' }],
   total: [{ category: { coding: [{ code: 'paid' }] }, amount: { value: 120, currency: 'USD' } }],
@@ -135,7 +135,7 @@ const remit: ClaimResponse = {
   ],
 };
 
-const writeOff = (id: string, status: PaymentNotice['status'], reason: string): PaymentNotice => ({
+const writeOff = (id: string, status: PaymentNotice['status'], party: string, reason: string): PaymentNotice => ({
   resourceType: 'PaymentNotice',
   id,
   status,
@@ -146,7 +146,10 @@ const writeOff = (id: string, status: PaymentNotice['status'], reason: string): 
   payment: { display: 'write-off' },
   recipient: { display: 'n/a' },
   amount: { value: 10, currency: 'USD' },
-  extension: [{ url: WRITE_OFF_REASON_EXT_URL, valueString: reason }],
+  extension: [
+    { url: WRITE_OFF_PARTY_EXT_URL, valueString: party },
+    { url: WRITE_OFF_REASON_EXT_URL, valueString: reason },
+  ],
 });
 
 const patientPayment: PaymentNotice = {
@@ -169,8 +172,8 @@ const store: FhirResource[] = [
   provider,
   coverage,
   remit,
-  writeOff('wo-1', 'active', 'small'),
-  writeOff('wo-2', 'cancelled', 'other'),
+  writeOff('wo-1', 'active', 'patient', 'charity'),
+  writeOff('wo-2', 'cancelled', 'insurance', 'interest'),
   patientPayment,
 ];
 
@@ -328,21 +331,28 @@ describe('fetchAdHocClaimRows (billing-claims dataset)', () => {
       ],
       icdCodes: ['J02.9', 'R05.9'],
       writeOffCount: 1,
-      writeOffReasons: ['small'],
+      writeOffReasons: ['Charity or Financial Assistance'],
       remitCount: 1,
       lastRemitDate: '2026-10-11T12:00:00Z',
       adjustmentReasonCodes: ['45', '3'],
-      remits: [{ date: '2026-10-11T12:00:00Z', allowed: 150, paid: 120, patientResp: 30 }],
+      remits: [{ date: '2026-10-11T12:00:00Z', payerName: 'Payer B', allowed: 150, paid: 120, patientResp: 30 }],
       remitAdjustments: [
-        { remitDate: '2026-10-11T12:00:00Z', group: 'CO', code: '45', amount: 50 },
-        { remitDate: '2026-10-11T12:00:00Z', group: 'PR', code: '3', amount: 30 },
+        { remitDate: '2026-10-11T12:00:00Z', payerName: 'Payer B', group: 'CO', code: '45', amount: 50 },
+        { remitDate: '2026-10-11T12:00:00Z', payerName: 'Payer B', group: 'PR', code: '3', amount: 30 },
       ],
       insuranceFinalizedDate: '2026-10-12T14:00:00Z',
       enteredPatientArDate: '2026-10-12T14:00:00Z',
     });
     expect(insured.writeOffs).toEqual([
-      { date: '2026-10-13', amount: 10, party: '', payer: '', reason: 'small', voided: false },
-      { date: '2026-10-13', amount: 10, party: '', payer: '', reason: 'other', voided: true },
+      {
+        date: '2026-10-13',
+        amount: 10,
+        party: 'patient',
+        payer: '',
+        reason: 'Charity or Financial Assistance',
+        voided: false,
+      },
+      { date: '2026-10-13', amount: 10, party: 'insurance', payer: '', reason: 'Interest', voided: true },
     ]);
   });
 

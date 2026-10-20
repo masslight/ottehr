@@ -5,6 +5,7 @@ import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { isPayerUrl } from 'utils/lib/helpers/helpers';
 import { AdHocBillingClaimsInput, AdHocBillingClaimsRow } from 'utils/lib/types/adhoc/datasets/billing-claims';
 import { CLAIM_STATUS_DATE_EXTENSION_URLS } from 'utils/lib/types/data/billing/claim-status';
+import { writeOffReasonLabel } from 'utils/lib/types/data/billing/write-off-reasons';
 import { extractClaimResponseAmounts, extractRemitAdjustments, sortClaimResponsesByRecency } from '../claim-amounts';
 import {
   buildClaimLookups,
@@ -74,6 +75,15 @@ export async function fetchAdHocClaimRows(
           includedResources: page.includedResources,
           payersByRef: await payers.resolve(page.claims.map((claim) => claim.insurer?.reference)),
         });
+
+        if (flags.remits) {
+          const remitPayers = await payers.resolve(
+            [...lookups.claimResponsesByClaimId.values()]
+              .flat()
+              .map((claimResponse) => claimResponse.insurer?.reference)
+          );
+          remitPayers.forEach((payer, ref) => lookups.payersByRef.set(ref, payer));
+        }
 
         return page.claims.map((claim) => mapClaimToAdHocRow(claim, lookups, flags));
       })
@@ -207,7 +217,11 @@ export function mapClaimToAdHocRow(claim: Claim, lookups: ClaimLookups, flags: L
 
   if (flags.codes) Object.assign(row, codesLayer(claim));
   if (flags.writeOffs) Object.assign(row, writeOffsLayer(lookups.writeOffs.get(claim.id ?? '') ?? []));
-  if (flags.remits) Object.assign(row, remitsLayer(lookups.claimResponsesByClaimId.get(claim.id ?? '') ?? []));
+
+  if (flags.remits) {
+    Object.assign(row, remitsLayer(lookups.claimResponsesByClaimId.get(claim.id ?? '') ?? [], lookups.payersByRef));
+  }
+
   if (flags.timeline) Object.assign(row, timelineLayer(claim));
 
   return row;
@@ -246,7 +260,7 @@ function writeOffsLayer(
       amount: writeOff.amount,
       party: writeOff.party,
       payer: writeOff.payer ?? '',
-      reason: writeOff.reason,
+      reason: writeOffReasonLabel(writeOff.party, writeOff.reason),
       // sumWriteOffs counts only active notices; anything else no longer counts in writeOffsTotal.
       voided: writeOff.status !== 'active',
     }));
@@ -261,7 +275,8 @@ function writeOffsLayer(
 }
 
 function remitsLayer(
-  claimResponses: ClaimResponse[]
+  claimResponses: ClaimResponse[],
+  payersByRef: Map<string, Organization>
 ): Pick<
   AdHocBillingClaimsRow,
   'remitCount' | 'lastRemitDate' | 'adjustmentReasonCodes' | 'remits' | 'remitAdjustments'
@@ -272,6 +287,7 @@ function remitsLayer(
     const amounts = extractClaimResponseAmounts(claimResponse);
     return {
       date: claimResponse.created || null,
+      payerName: remitPayerName(claimResponse, payersByRef),
       allowed: amounts.allowed ?? null,
       paid: amounts.paid,
       patientResp: amounts.patientResp ?? null,
@@ -281,6 +297,7 @@ function remitsLayer(
   const remitAdjustments = sorted.flatMap((claimResponse) =>
     extractRemitAdjustments(claimResponse).map((adjustment) => ({
       remitDate: claimResponse.created || null,
+      payerName: remitPayerName(claimResponse, payersByRef),
       group: adjustment.groupCode,
       code: adjustment.reasonCode,
       amount: adjustment.amount,
@@ -295,6 +312,11 @@ function remitsLayer(
     remitAdjustments,
   };
 }
+
+const remitPayerName = (claimResponse: ClaimResponse, payersByRef: Map<string, Organization>): string => {
+  const ref = claimResponse.insurer?.reference;
+  return (ref && payersByRef.get(ref)?.name) || '';
+};
 
 function timelineLayer(claim: Claim): Pick<AdHocBillingClaimsRow, 'insuranceFinalizedDate' | 'enteredPatientArDate'> {
   const dateOf = (url: string): string | null => claim.extension?.find((ext) => ext.url === url)?.valueDateTime || null;
