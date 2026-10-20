@@ -526,13 +526,6 @@ export async function scanMatchingClaims({
   };
 }
 
-// The FHIR _sort for a claims list sort the server can do, or undefined when it has to be done in
-// memory (see sortScannedClaims).
-export function claimSortSearchParam(sort: ClaimSort | undefined): string | undefined {
-  if (sort?.field !== 'created') return undefined;
-  return sort.direction === 'asc' ? 'created' : '-created';
-}
-
 const timestamp = (value: string | undefined): number => {
   const parsed = value ? Date.parse(value) : NaN;
   return Number.isNaN(parsed) ? Number.NEGATIVE_INFINITY : parsed;
@@ -542,8 +535,6 @@ const claimSortKey = (claim: Claim, field: ClaimSortField): number => {
   switch (field) {
     case 'billed':
       return claim.total?.value ?? 0;
-    case 'created':
-      return timestamp(claim.created);
     case 'serviceDate':
       return timestamp(getClaimServiceDate(claim));
   }
@@ -717,7 +708,6 @@ export function mapClaimToItem(claim: Claim, lookups: ClaimLookups): BillingClai
     memberId: coverage?.subscriberId ?? '',
     service: getClaimService(claim),
     serviceDate,
-    created: claim.created ?? '',
     facility: facility?.name ?? '',
     renderingProvider: resourceDisplayName(renderingProvider) ?? '',
     billed,

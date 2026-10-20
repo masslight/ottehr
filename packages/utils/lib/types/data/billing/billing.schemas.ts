@@ -166,9 +166,9 @@ export const GetBillingProviderInputSchema = z.object({
   providerId: nonEmptyString,
 });
 
-// The claim list columns a search can sort by. `created` sorts on the server; the others have no
-// Claim search parameter, so the search scans the matching claims and sorts them in memory.
-export const CLAIM_SORT_FIELDS = ['created', 'serviceDate', 'billed'] as const;
+// The claim list columns a search can sort by. Neither has a Claim search parameter, so the search
+// scans the matching claims and sorts them in memory.
+export const CLAIM_SORT_FIELDS = ['serviceDate', 'billed'] as const;
 export const ClaimSortSchema = z.object({
   field: z.enum(CLAIM_SORT_FIELDS),
   direction: z.enum(['asc', 'desc']),

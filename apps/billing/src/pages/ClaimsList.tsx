@@ -336,13 +336,6 @@ const statusColumns: GridColDef[] = CLAIM_STATUS_FIELDS.map((field) => ({
 const allColumns: GridColDef[] = [
   { field: 'patientName', headerName: 'Patient Name', flex: 1, minWidth: 150 },
   { field: 'serviceDate', headerName: 'Service Date', width: 120 },
-  {
-    field: 'created',
-    headerName: 'Created',
-    width: 120,
-    valueFormatter: (params: { value: string }) =>
-      params.value ? DateTime.fromISO(params.value).toISODate() ?? params.value : '',
-  },
   { field: 'payerName', headerName: 'Payer Name', flex: 1, minWidth: 160 },
   { field: 'payerId', headerName: 'Payer ID', width: 100 },
   { field: 'nonInsurancePayerName', headerName: 'Non-insurance Organization', width: 200 },

@@ -157,7 +157,6 @@ const makeRow = (
   memberId: '',
   service: undefined,
   serviceDate: '2026-01-02',
-  created: '2026-01-03T00:00:00Z',
   facility: '',
   renderingProvider: '',
   billed: 0,

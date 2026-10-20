@@ -210,7 +210,7 @@ describe('WorkQueueDetail', () => {
 
   it("opens the claims list on the queue's saved filters and layout", async () => {
     getBillingWorkQueueMock.mockResolvedValue({
-      queue: { ...savedQueue, layout: { columnOrder: ['billed'], sort: { field: 'created', direction: 'asc' } } },
+      queue: { ...savedQueue, layout: { columnOrder: ['billed'], sort: { field: 'serviceDate', direction: 'asc' } } },
     });
 
     renderAt('/work-queues/q-1');
@@ -219,7 +219,7 @@ describe('WorkQueueDetail', () => {
     expect(claimsListViewMock).toHaveBeenLastCalledWith(
       expect.objectContaining({
         initialFilters: { arStage: ['insurance-payer'] },
-        initialLayout: { columnOrder: ['billed'], sort: { field: 'created', direction: 'asc' } },
+        initialLayout: { columnOrder: ['billed'], sort: { field: 'serviceDate', direction: 'asc' } },
       })
     );
     expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();

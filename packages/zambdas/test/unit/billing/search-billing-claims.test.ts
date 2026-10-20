@@ -274,17 +274,6 @@ describe('search-billing-claims sort', () => {
     expect(paramNamed(claimSearches()[0].params, '_sort')?.value).toBe('-_lastUpdated');
   });
 
-  it('sorts by creation date on the server, still paging there', async () => {
-    stubSearches([servicedClaim('claim-1', '2026-01-10')]);
-
-    await search({ sort: { field: 'created', direction: 'asc' }, pageSize: 25 });
-
-    expect(claimSearches()).toHaveLength(1);
-    const [{ params }] = claimSearches();
-    expect(paramNamed(params, '_sort')?.value).toBe('created');
-    expect(paramNamed(params, '_include')).toBeDefined();
-  });
-
   it('sorts by billed amount in memory, reading the totals in the scan', async () => {
     stubSearches([billedClaim('small', 50), billedClaim('large', 300), billedClaim('medium', 120)]);
 

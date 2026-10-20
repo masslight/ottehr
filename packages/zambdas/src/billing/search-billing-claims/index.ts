@@ -10,7 +10,6 @@ import { ZambdaInput } from '../../shared/types/common';
 import {
   buildClaimFilterParams,
   CLAIM_LIST_PARAMS,
-  claimSortSearchParam,
   enrichAndMapClaims,
   fetchClaimsPageByIds,
   scanMatchingClaims,
@@ -38,7 +37,6 @@ async function performEffect(
   const filterParams = await buildClaimFilterParams({
     oystehr,
     params,
-    sort: claimSortSearchParam(params.sort),
   });
 
   try {
@@ -69,7 +67,6 @@ async function searchClaims({
   const offset = params.offset ?? 0;
 
   const filteringByServiceDate = Boolean(params.serviceDateFrom || params.serviceDateTo);
-  const sortsInMemory = Boolean(params.sort) && !claimSortSearchParam(params.sort);
 
   let pageClaims: Claim[];
   let includedResources: Resource[];
@@ -79,16 +76,16 @@ async function searchClaims({
   // Neither a search text nor a service date can be paginated by the server: FHIR ANDs separate
   // search parameters and only ORs within one, so searching several fields at once means several
   // searches whose union only exists here (_filter would express it as one paginated search, but
-  // Oystehr discards _filter), and Claim has no service-date search parameter at all. Sorting by a
-  // field without a search parameter (service date, billed) has the same problem. All of these
+  // Oystehr discards _filter), and Claim has no service-date search parameter at all. Neither sort
+  // field (service date, billed) has one either. All of these
   // scan for matching ids, sort and page in memory, and hydrate only the page they settle on.
-  if (params.searchText || filteringByServiceDate || sortsInMemory) {
+  if (params.searchText || filteringByServiceDate || params.sort) {
     const matched = await scanMatchingClaims({
       oystehr,
       params,
       filterParams,
       // A sort reads the dates or the total; the service date filter asks for the dates itself.
-      withServiceDate: params.sort?.field === 'created' || params.sort?.field === 'serviceDate',
+      withServiceDate: params.sort?.field === 'serviceDate',
       withTotal: params.sort?.field === 'billed',
     });
     incomplete = matched.incomplete;
