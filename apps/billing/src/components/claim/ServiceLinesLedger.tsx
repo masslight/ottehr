@@ -696,7 +696,7 @@ function RemitLineCard({
   return (
     <Stack spacing={1.25} divider={<Divider flexItem />}>
       <Box sx={{ pr: 4 }}>
-        <Typography variant="subtitle1" fontWeight={700} lineHeight={1.3}>
+        <Typography variant="subtitle1" color="primary.dark" fontWeight={700} lineHeight={1.3}>
           {remit.payerName || 'Unknown payer'}
         </Typography>
         {label !== 'Other' && (
