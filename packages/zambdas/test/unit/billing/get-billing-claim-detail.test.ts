@@ -20,6 +20,7 @@ import { performEffect } from '../../../src/billing/get-billing-claim-detail';
 import {
   CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM,
   ERA_CHECK_SYSTEM,
+  ERA_ICN_EXTENSION,
   fetchClaimGraph,
   resolvePayersByRef,
 } from '../../../src/billing/shared';
@@ -323,6 +324,12 @@ describe('get-billing-claim-detail performEffect: remits and insurance payments'
       {
         productOrService: { coding: [{ code: 'unknown' }] },
         adjudication: [casAdjustment('OA', 5, '23')],
+      },
+    ],
+    extension: [
+      {
+        url: ERA_ICN_EXTENSION,
+        valueString: 'PCCN-12345',
       },
     ],
   });

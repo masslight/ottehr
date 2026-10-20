@@ -218,7 +218,12 @@ describe('ClaimsList — submit claims', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Run Rules (2)' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Run Rules' }));
 
-    await waitFor(() => expect(runBillingRulesEngineMock).toHaveBeenCalledWith({}, { claimIds: ['c-ins', 'c-self'] }));
+    await waitFor(() =>
+      expect(runBillingRulesEngineMock).toHaveBeenCalledWith(
+        {},
+        { claimIds: ['c-ins', 'c-self'], submissionType: 'new', submissionInsurance: 'primary' }
+      )
+    );
     expect(enqueueSnackbarMock).toHaveBeenCalledWith(
       'Rules started for 2 claim(s) — each claim will be submitted, made ready to invoice, or held shortly. ' +
         'Refresh to see the results.',
