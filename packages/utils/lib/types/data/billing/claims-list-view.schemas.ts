@@ -74,7 +74,7 @@ export function normalizeClaimsListFilters(filters: ClaimsListFilters): ClaimsLi
   const keys = Object.keys(ClaimsListFiltersSchema.shape) as (keyof ClaimsListFilters)[];
   const normalized: Record<string, unknown> = {};
   for (const key of keys) {
-    const value = filters[key];
+    const value = key === 'searchText' ? filters.searchText?.trim() : filters[key];
     if (value === undefined || value === '' || (Array.isArray(value) && value.length === 0)) continue;
     normalized[key] = value;
   }
