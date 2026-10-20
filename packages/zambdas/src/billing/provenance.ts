@@ -6,11 +6,13 @@ import {
   Coding,
   Coverage,
   Device,
+  DocumentReference,
   Extension,
   FhirResource,
   Location,
   Organization,
   Patient,
+  PaymentNotice,
   Practitioner,
   Provenance,
   ProvenanceAgent,
@@ -23,6 +25,11 @@ import { userMe } from 'utils/lib/auth/user-me.helper';
 import { formatBillingProviderLicense, getClaimNonInsurancePayer } from 'utils/lib/fhir/billing';
 import { convertFhirNameToDisplayName } from 'utils/lib/fhir/convertFhirNameToDisplayName';
 import { getNPI, getTaxID, makeOptimisticLockIfMatchHeader } from 'utils/lib/fhir/helpers';
+import {
+  parsePaymentRefundsFromNotice,
+  parsePaymentVoidFromNotice,
+  settledRefundTotalInCents,
+} from 'utils/lib/fhir/paymentRefunds';
 import { getCandidPlanTypeCodeFromCoverage } from 'utils/lib/helpers/helpers';
 import { Secrets } from 'utils/lib/secrets';
 import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
@@ -52,13 +59,26 @@ import {
   getClaimStatusValues,
 } from 'utils/lib/types/data/billing/claim-status';
 import { HOLD_TAG_NAME } from 'utils/lib/types/data/billing/system-tags';
+import { formatCurrency, formatCurrencyFromCents } from 'utils/lib/utils/convert';
+import {
+  extractClaimResponseAmounts,
+  extractLineAmounts,
+  extractReportedCharge,
+  isMatchedToClaim,
+  toClaimPatientPayment,
+} from './claim-amounts';
 import { transmitEventFromClaimResponse } from './claim-status-responses';
 import { getCLIA, getPlaceOfServiceCode } from './service-facility.helpers';
 import {
   buildUpdatedClaimStatusTags,
+  ERA_ICN_EXTENSION,
+  ERA_ITEM_PROCEDURE_CODE_EXTENSION,
+  ERA_ITEM_REMARK_CODE_EXTENSION,
+  ERA_STATUS_CODE_EXTENSION,
   fhirName,
   formatAddress,
   getClaimType,
+  getEraExtensionString,
   getProviderLicense,
   getTaxonomy,
   sortClaimInsurance,
@@ -230,6 +250,142 @@ function projectRelatedPerson(r: RelatedPerson): FieldProjection[] {
   ];
 }
 
+function projectPaymentNotice(notice: PaymentNotice): FieldProjection[] {
+  const payment = toClaimPatientPayment(notice);
+  const refundedCents = settledRefundTotalInCents(parsePaymentRefundsFromNotice(notice));
+  return [
+    {
+      field: 'amount',
+      label: 'Amount',
+      value: formatCurrency(payment.amount),
+    },
+    {
+      field: 'method',
+      label: 'Payment Method',
+      value: payment.method,
+    },
+    {
+      field: 'paymentDate',
+      label: 'Payment Date',
+      value: payment.paymentDate,
+    },
+    {
+      field: 'checkNumber',
+      label: 'Check Number',
+      value: payment.checkNumber ?? '',
+    },
+    {
+      field: 'description',
+      label: 'Description',
+      value: payment.description,
+    },
+    {
+      field: 'status',
+      label: 'Status',
+      value: payment.status,
+    },
+    {
+      // filters out refund reservations
+      field: 'refunded',
+      label: 'Refunded',
+      value: refundedCents > 0 ? formatCurrencyFromCents(refundedCents) : '',
+    },
+    {
+      field: 'voidReason',
+      label: 'Void Reason',
+      value: parsePaymentVoidFromNotice(notice)?.reason ?? '',
+    },
+  ];
+}
+
+function projectDocumentReference(documentReference: DocumentReference): FieldProjection[] {
+  return [
+    {
+      field: 'name',
+      label: 'Name',
+      value: documentReference.content[0]?.attachment.title ?? '',
+    },
+  ];
+}
+
+function formatOptionalCurrency(dollars: number | undefined): string {
+  return dollars === undefined ? '' : formatCurrency(dollars);
+}
+
+function joinRemitLines(claimResponse: ClaimResponse): string {
+  return (claimResponse.item ?? [])
+    .map((item) => {
+      const { billed, paid, adjustments } = extractLineAmounts(item.adjudication);
+      const remarkCodes = (item.extension ?? [])
+        .filter((extension) => extension.url === ERA_ITEM_REMARK_CODE_EXTENSION)
+        .map((extension) => extension.valueString);
+      return [
+        getEraExtensionString(item, ERA_ITEM_PROCEDURE_CODE_EXTENSION),
+        billed === undefined ? '' : `billed ${formatCurrency(billed)}`,
+        `paid ${formatCurrency(paid)}`,
+        ...adjustments.map(
+          (adjustment) => `${adjustment.groupCode}-${adjustment.reasonCode} ${formatCurrency(adjustment.amount)}`
+        ),
+        ...remarkCodes,
+      ]
+        .filter(Boolean)
+        .join(' ');
+    })
+    .join('; ');
+}
+
+function projectClaimResponse(claimResponse: ClaimResponse): FieldProjection[] {
+  const { paid, allowed, patientResp } = extractClaimResponseAmounts(claimResponse);
+  return [
+    {
+      field: 'match',
+      label: 'Match',
+      value: isMatchedToClaim(claimResponse) ? 'Matched' : 'Unmatched',
+    },
+    {
+      field: 'payer',
+      label: 'Payer',
+      value: refValue(claimResponse.insurer),
+      ref: claimResponse.insurer?.reference,
+    },
+    {
+      field: 'statusCode',
+      label: 'Claim Status Code',
+      value: getEraExtensionString(claimResponse, ERA_STATUS_CODE_EXTENSION) ?? '',
+    },
+    {
+      field: 'payerClaimControlNumber',
+      label: 'Payer Claim Control Number',
+      value: getEraExtensionString(claimResponse, ERA_ICN_EXTENSION) ?? '',
+    },
+    {
+      field: 'charge',
+      label: 'Charge',
+      value: formatOptionalCurrency(extractReportedCharge(claimResponse)),
+    },
+    {
+      field: 'allowed',
+      label: 'Allowed',
+      value: formatOptionalCurrency(allowed),
+    },
+    {
+      field: 'paid',
+      label: 'Paid',
+      value: formatCurrency(paid),
+    },
+    {
+      field: 'patientResponsibility',
+      label: 'Patient Responsibility',
+      value: formatOptionalCurrency(patientResp),
+    },
+    {
+      field: 'serviceLines',
+      label: 'Service Lines',
+      value: joinRemitLines(claimResponse),
+    },
+  ];
+}
+
 function projectResource(resource: Resource): FieldProjection[] {
   switch (resource.resourceType) {
     case 'Claim':
@@ -246,6 +402,12 @@ function projectResource(resource: Resource): FieldProjection[] {
       return projectLocation(resource as Location);
     case 'RelatedPerson':
       return projectRelatedPerson(resource as RelatedPerson);
+    case 'PaymentNotice':
+      return projectPaymentNotice(resource as PaymentNotice);
+    case 'DocumentReference':
+      return projectDocumentReference(resource as DocumentReference);
+    case 'ClaimResponse':
+      return projectClaimResponse(resource as ClaimResponse);
     default:
       return [];
   }
@@ -629,6 +791,20 @@ export function claimResourceChangeRequests(change: ClaimResourceChange): BatchI
     { method: 'PUT', url: `${resource.resourceType}/${resource.id}`, resource, ...(ifMatch ? { ifMatch } : {}) },
     ...(provenance ? [provenance as BatchInputRequest<FhirResource>] : []),
   ];
+}
+
+export function claimEventProvenanceRequest({
+  claimId,
+  ...args
+}: Omit<ClaimProvenanceArgs, 'claimReference' | 'recorded' | 'priorVersionReference'> & {
+  claimId: string;
+}): BatchInputPostRequest<Provenance> | null {
+  return claimProvenanceRequest({
+    ...args,
+    claimReference: `Claim/${claimId}`,
+    recorded: recordedNow(),
+    priorVersionReference: versionedReference(args.before),
+  });
 }
 
 /**

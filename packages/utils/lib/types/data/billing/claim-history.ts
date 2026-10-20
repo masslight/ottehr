@@ -175,4 +175,7 @@ export const CLAIM_HISTORY_RESOURCE_LABELS: Record<string, string> = {
   Practitioner: 'Provider',
   Organization: 'Provider',
   Location: 'Service Facility',
+  PaymentNotice: 'Payment',
+  DocumentReference: 'Attachment',
+  Task: 'Invoice',
 };
