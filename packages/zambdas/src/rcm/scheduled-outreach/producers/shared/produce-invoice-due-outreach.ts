@@ -53,8 +53,11 @@ export async function produceInvoiceDueOutreach(
 
   const pastDueInvoices = (
     await Promise.all(
-      stripeAccounts.map((stripeAccount) =>
-        findPastDueStripeInvoices(stripe, todayUnix, earliestDueDateUnix, stripeAccount)
+      stripeAccounts.map(async (stripeAccount) =>
+        (await findPastDueStripeInvoices(stripe, todayUnix, earliestDueDateUnix, stripeAccount)).map((invoice) => ({
+          invoice,
+          stripeAccount,
+        }))
       )
     )
   ).flat();
@@ -78,7 +81,7 @@ export async function produceInvoiceDueOutreach(
   let tasksSkipped = 0;
   let errors = 0;
 
-  for (const invoice of pastDueInvoices) {
+  for (const { invoice, stripeAccount } of pastDueInvoices) {
     const patientId = invoice.metadata?.[STRIPE_METADATA_KEYS.patientId];
     const encounterId = invoice.metadata?.[STRIPE_METADATA_KEYS.encounterId];
 
@@ -119,6 +122,7 @@ export async function produceInvoiceDueOutreach(
         appointment: appointmentRef ? { reference: appointmentRef } : undefined,
         eventTimestamp: dueDate,
         oystehr,
+        stripeAccount,
         actionFilter: (action) => applicableActionIds.has(action.id),
       });
 

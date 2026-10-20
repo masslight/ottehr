@@ -106,8 +106,16 @@ describe('produceInvoiceDueOutreach Stripe account fan-out', () => {
     expect(queriedAccounts).toEqual(expect.arrayContaining([undefined, 'acct_A', 'acct_B']));
     expect(result.invoicesEvaluated).toBe(2);
 
-    const taskFoci = mockProduceOutreachTasks.mock.calls.map(([params]) => params.focus.reference);
-    expect(taskFoci).toEqual(expect.arrayContaining(['Encounter/enc-a', 'Encounter/enc-b']));
+    const taskParams = mockProduceOutreachTasks.mock.calls.map(([params]) => ({
+      focus: params.focus.reference,
+      stripeAccount: params.stripeAccount,
+    }));
+    expect(taskParams).toEqual(
+      expect.arrayContaining([
+        { focus: 'Encounter/enc-a', stripeAccount: 'acct_A' },
+        { focus: 'Encounter/enc-b', stripeAccount: 'acct_B' },
+      ])
+    );
   });
 
   it('works on a single-account project (platform only)', async () => {
@@ -120,7 +128,7 @@ describe('produceInvoiceDueOutreach Stripe account fan-out', () => {
     expect(mockInvoicesList.mock.calls[0][1]).toEqual({ stripeAccount: undefined });
     expect(result.invoicesEvaluated).toBe(1);
     expect(mockProduceOutreachTasks).toHaveBeenCalledWith(
-      expect.objectContaining({ focus: { reference: 'Encounter/enc-p' } })
+      expect.objectContaining({ focus: { reference: 'Encounter/enc-p' }, stripeAccount: undefined })
     );
   });
 

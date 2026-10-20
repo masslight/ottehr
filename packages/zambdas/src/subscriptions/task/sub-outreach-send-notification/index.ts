@@ -15,6 +15,7 @@ import {
 import { FEATURE_FLAGS_CONFIG } from 'utils/lib/ottehr-config/feature-flags';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { TaskIndicator } from 'utils/lib/types/common';
+import { resolveOutreachTaskStripeAccount } from '../../../rcm/scheduled-outreach/producers/shared/produce-outreach-tasks';
 import { NotificationMedium } from '../../../rcm/scheduled-outreach-config/helpers';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createOutreachEmailCommunication, getEmailClient, sendSmsForPatient } from '../../../shared/communication';
@@ -301,6 +302,7 @@ async function sendOutreachSms(
   const placeholderInput = await resolveTemplatePlaceholders({
     patient,
     encounterRef: task.focus?.reference,
+    stripeAccount: await resolveOutreachTaskStripeAccount(task, oystehr),
     oystehr,
     secrets,
   });
@@ -334,6 +336,7 @@ async function sendOutreachEmail(
   const placeholderInput = await resolveTemplatePlaceholders({
     patient,
     encounterRef: task.focus?.reference,
+    stripeAccount: await resolveOutreachTaskStripeAccount(task, oystehr),
     oystehr,
     secrets,
   });

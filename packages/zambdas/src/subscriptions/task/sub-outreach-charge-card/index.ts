@@ -5,11 +5,11 @@ import { DateTime } from 'luxon';
 import { phone } from 'phone';
 import { getStripeCustomerIdFromAccount, getTaskResource } from 'utils/lib/fhir/helpers';
 import { getFullestAvailableName, getPatientContactEmail, getPhoneNumberForIndividual } from 'utils/lib/fhir/patient';
-import { getStripeAccountForAppointmentOrEncounter } from 'utils/lib/fhir/payments';
 import { convertOutreachTextToHtml, isEmailValid, maskEmail, maskPhoneNumber } from 'utils/lib/helpers/helpers';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { TaskIndicator } from 'utils/lib/types/common';
 import { getAccountAndCoverageResourcesForPatient } from '../../../ehr/shared/harvest';
+import { resolveOutreachTaskStripeAccount } from '../../../rcm/scheduled-outreach/producers/shared/produce-outreach-tasks';
 import {
   ChargeCardConfig,
   NotificationConfig,
@@ -100,7 +100,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const currentAttempt = getAttemptCount(task) + 1;
 
     // Attempt to charge the card
-    const chargeResult = await chargeCard(patientRef!, focusRef!, oystehr, input.secrets);
+    const chargeResult = await chargeCard(task, oystehr, input.secrets);
 
     if (chargeResult.success) {
       // ── Success path: send success notifications and complete ──
@@ -338,12 +338,9 @@ interface ChargeResult {
  * 3. Resolve the focus reference (Encounter) to find the open Stripe invoice
  * 4. Call stripe.invoices.pay() to charge the default payment method
  */
-async function chargeCard(
-  patientRef: string,
-  focusRef: string,
-  oystehr: Oystehr,
-  secrets: Secrets | null
-): Promise<ChargeResult> {
+async function chargeCard(task: Task, oystehr: Oystehr, secrets: Secrets | null): Promise<ChargeResult> {
+  const patientRef = task.for?.reference ?? '';
+  const focusRef = task.focus?.reference ?? '';
   const patientId = patientRef.replace('Patient/', '');
   const stripe = getStripeClient(secrets);
 
@@ -352,19 +349,13 @@ async function chargeCard(
     return { success: false, error: `Unsupported focus reference format: ${focusRef}. Expected Encounter/<id>` };
   }
 
-  // The invoice was created on the clinic Location's connected Stripe account (when configured),
-  // so every Stripe call below must target the same account. Falls back to the platform account.
-  let stripeAccount: string | undefined;
-  try {
-    stripeAccount = await getStripeAccountForAppointmentOrEncounter({ encounterId }, oystehr);
-  } catch (err) {
-    console.warn(`Could not resolve Stripe account for encounter ${encounterId}, using platform account:`, err);
-  }
+  // Every Stripe call below must target the account the invoice was created on.
+  const stripeAccount = await resolveOutreachTaskStripeAccount(task, oystehr);
 
   // 1. Find the patient's billing account and Stripe customer
   const { account } = await getAccountAndCoverageResourcesForPatient(patientId, oystehr);
   if (!account) {
-    return { success: false, error: `No billing account found for patient ${patientId}` };
+    return { success: false, error: `No billing account found for patient ${patientId}`, stripeAccount };
   }
 
   const stripeCustomerId = getStripeCustomerIdFromAccount(account, stripeAccount);
@@ -374,6 +365,7 @@ async function chargeCard(
       error: `No Stripe customer ID on billing account for patient ${patientId} (Stripe account: ${
         stripeAccount ?? 'platform'
       })`,
+      stripeAccount,
     };
   }
 

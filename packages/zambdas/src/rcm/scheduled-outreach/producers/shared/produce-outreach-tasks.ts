@@ -5,6 +5,7 @@ import { DateTime } from 'luxon';
 import { phone } from 'phone';
 import { PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
 import { getPatientContactEmail, getPhoneNumberForIndividual } from 'utils/lib/fhir/patient';
+import { getStripeAccountForAppointmentOrEncounter } from 'utils/lib/fhir/payments';
 import { isEmailValid } from 'utils/lib/helpers/helpers';
 import { FEATURE_FLAGS_CONFIG } from 'utils/lib/ottehr-config/feature-flags';
 import { getPatchBinary } from '../../../../shared/helpers';
@@ -20,6 +21,9 @@ const RCM_TAG_SYSTEM = `${PRIVATE_EXTENSION_BASE_URL}/rcm`;
 export const OUTREACH_TASK_TAG_SYSTEM = `${PRIVATE_EXTENSION_BASE_URL}/outreach-task`;
 export const OUTREACH_ACTION_ID_TAG_SYSTEM = `${OUTREACH_TASK_TAG_SYSTEM}/action-id`;
 const OUTREACH_ACTION_TYPE_SYSTEM = 'https://ottehr.com/CodeSystem/outreach-action-type';
+// Task.input slot recording the connected Stripe account that owned the triggering invoice
+// at task-creation time; absent means the platform account.
+export const OUTREACH_STRIPE_ACCOUNT_INPUT = 'stripe-account';
 // Year scoping for patient-birthday tasks so the idempotency check distinguishes
 // one calendar year's birthday outreach from the next. Without this, a completed
 // prior-year task permanently blocks creation of the current year's task.
@@ -35,6 +39,8 @@ export interface ProduceOutreachTasksParams {
   appointment?: Reference; // Appointment linked to the triggering event
   eventTimestamp: string; // ISO datetime the event occurred/is scheduled
   oystehr: Oystehr;
+  /** Connected Stripe account owning the triggering invoice; undefined = platform account. */
+  stripeAccount?: string;
   /** Optional filter to only produce tasks for specific actions. If omitted, all matching actions are produced. */
   actionFilter?: (action: OutreachAction) => boolean;
 }
@@ -50,7 +56,7 @@ export interface OutreachTaskResult {
  * matching action with executionPeriod.start calculated from event time + offset.
  */
 export async function produceOutreachTasks(params: ProduceOutreachTasksParams): Promise<OutreachTaskResult> {
-  const { triggerEvent, patient, focus, appointment, eventTimestamp, oystehr, actionFilter } = params;
+  const { triggerEvent, patient, focus, appointment, eventTimestamp, oystehr, stripeAccount, actionFilter } = params;
 
   if (!FEATURE_FLAGS_CONFIG.automatedPatientOutreachEnabled) {
     console.log('produceOutreachTasks: automatedPatientOutreachEnabled is disabled, skipping');
@@ -164,7 +170,8 @@ export async function produceOutreachTasks(params: ProduceOutreachTasksParams): 
             focus,
             dueDateTime,
             appointment,
-            birthdayYear
+            birthdayYear,
+            stripeAccount
           );
           const cancelledTask = {
             ...taskDraft,
@@ -179,7 +186,16 @@ export async function produceOutreachTasks(params: ProduceOutreachTasksParams): 
     }
 
     const dueDateTime = calculateDueDateTime(eventTimestamp, action);
-    const task = buildOutreachTask(action, planDefinition, patient, focus, dueDateTime, appointment, birthdayYear);
+    const task = buildOutreachTask(
+      action,
+      planDefinition,
+      patient,
+      focus,
+      dueDateTime,
+      appointment,
+      birthdayYear,
+      stripeAccount
+    );
     // Atomic backstop for the duplicate-creation race (two trigger paths producing the
     // same task concurrently): a FHIR conditional create (POST + If-None-Exist). If a
     // matching live task already exists the server returns it instead of creating a second.
@@ -312,6 +328,26 @@ export function buildOutreachTaskIdentityQuery(
   return parts.join('&');
 }
 
+/**
+ * The Stripe account an outreach task's invoice lives on. Prefers the account stamped on the
+ * task at creation time (immune to later Location config edits); tasks created before stamping
+ * existed fall back to resolving the focus Encounter's clinic Location. Undefined = platform.
+ */
+export async function resolveOutreachTaskStripeAccount(task: Task, oystehr: Oystehr): Promise<string | undefined> {
+  const stamped = task.input?.find((i) => i.type?.text === OUTREACH_STRIPE_ACCOUNT_INPUT)?.valueString;
+  if (stamped) return stamped;
+
+  const focusRef = task.focus?.reference;
+  if (!focusRef?.startsWith('Encounter/')) return undefined;
+  const encounterId = focusRef.replace('Encounter/', '');
+  try {
+    return await getStripeAccountForAppointmentOrEncounter({ encounterId }, oystehr);
+  } catch (err) {
+    console.warn(`Could not resolve Stripe account for encounter ${encounterId}, using platform account:`, err);
+    return undefined;
+  }
+}
+
 interface RawFhirConnection {
   baseUrl: string;
   accessToken: string;
@@ -430,7 +466,8 @@ function buildOutreachTask(
   focus: Reference,
   dueDateTime: string,
   appointment?: Reference,
-  birthdayYear?: number
+  birthdayYear?: number,
+  stripeAccount?: string
 ): Omit<Task, 'id'> {
   const basedOn: Reference[] = [{ reference: `PlanDefinition/${planDefinition.id}` }];
   if (appointment?.reference) {
@@ -470,7 +507,7 @@ function buildOutreachTask(
     meta: {
       tag: tags,
     },
-    input: buildTaskInput(action),
+    input: buildTaskInput(action, stripeAccount),
   } as unknown as Task;
 }
 
@@ -478,7 +515,7 @@ function buildOutreachTask(
  * Encode the action details into Task.input so the executor has everything
  * it needs without re-reading the PlanDefinition.
  */
-export function buildTaskInput(action: OutreachAction): Task['input'] {
+export function buildTaskInput(action: OutreachAction, stripeAccount?: string): Task['input'] {
   const inputs: Task['input'] = [
     {
       type: { text: 'action-id' },
@@ -493,6 +530,13 @@ export function buildTaskInput(action: OutreachAction): Task['input'] {
       valueString: action.actionType,
     },
   ];
+
+  if (stripeAccount) {
+    inputs.push({
+      type: { text: OUTREACH_STRIPE_ACCOUNT_INPUT },
+      valueString: stripeAccount,
+    });
+  }
 
   if (action.actionType === 'send-notification' && action.sendNotificationConfig) {
     const cfg = action.sendNotificationConfig;
