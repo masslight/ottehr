@@ -1,9 +1,13 @@
 import Oystehr from '@oystehr/sdk';
-import { ClaimResponse, PaymentReconciliation } from 'fhir/r4b';
+import { ClaimResponse, PaymentReconciliation, Provenance } from 'fhir/r4b';
 import { ERA_SOURCE } from 'utils/lib/types/data/billing/billing.constants';
 import { VoidEraInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
+import { ERA_VOID_CONFLICT_ERROR, ERA_VOID_INCOMPLETE_ERROR } from 'utils/lib/types/errors';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { fetchClaimResponsesByPaymentReconciliations } from '../../../src/billing/claim-amounts';
+import {
+  fetchClaimResponsesFromEraProvenances,
+  fetchEraProcessingProvenances,
+} from '../../../src/billing/claim-amounts';
 import {
   ERA_SOURCE_EXTENSION,
   ERA_VOID_ACTIVITY_CODE,
@@ -19,7 +23,8 @@ vi.mock('../../../src/billing/shared', async (importOriginal) => ({
 
 vi.mock('../../../src/billing/claim-amounts', async (importOriginal) => ({
   ...(await importOriginal<object>()),
-  fetchClaimResponsesByPaymentReconciliations: vi.fn(),
+  fetchClaimResponsesFromEraProvenances: vi.fn(),
+  fetchEraProcessingProvenances: vi.fn(),
 }));
 
 const actor = { reference: 'Practitioner/biller-1', display: 'biller@example.com' };
@@ -45,6 +50,14 @@ const remit = (id: string): ClaimResponse => ({
   created: '2026-09-01',
   outcome: 'complete',
 });
+const provenance: Provenance = {
+  resourceType: 'Provenance',
+  recorded: now,
+  agent: [],
+  target: ['PaymentReconciliation/era-1', 'ClaimResponse/cr-1', 'ClaimResponse/cr-2'].map((reference) => ({
+    reference,
+  })),
+};
 const cancelPatch = {
   resourceType: 'Binary',
   contentType: 'application/json-patch+json',
@@ -59,7 +72,8 @@ const voidEra = (): ReturnType<typeof performEffect> => performEffect(oystehr, e
 beforeEach(() => {
   vi.resetAllMocks();
   vi.mocked(fetchById).mockResolvedValue(era);
-  vi.mocked(fetchClaimResponsesByPaymentReconciliations).mockResolvedValue(
+  vi.mocked(fetchEraProcessingProvenances).mockResolvedValue([provenance]);
+  vi.mocked(fetchClaimResponsesFromEraProvenances).mockResolvedValue(
     new Map([['era-1', [remit('cr-1'), remit('cr-2')]]])
   );
 });
@@ -74,9 +88,7 @@ describe('void-billing-era', () => {
       });
       await expect(voidEra()).resolves.toEqual({ ok: true });
       expect(fetchById).toHaveBeenCalledWith(eraReadClient, 'PaymentReconciliation', 'era-1');
-      expect(fetchClaimResponsesByPaymentReconciliations).toHaveBeenCalledWith(eraReadClient, [
-        expect.objectContaining({ id: 'era-1' }),
-      ]);
+      expect(fetchClaimResponsesFromEraProvenances).toHaveBeenCalledWith(eraReadClient, [provenance]);
       // No Claim, invoice or patient-payment writes.
       expect(transaction).toHaveBeenCalledExactlyOnceWith({
         requests: [
@@ -104,13 +116,26 @@ describe('void-billing-era', () => {
   );
 
   it('voids an ERA without claim responses', async () => {
-    vi.mocked(fetchClaimResponsesByPaymentReconciliations).mockResolvedValue(new Map());
+    vi.mocked(fetchEraProcessingProvenances).mockResolvedValue([
+      { ...provenance, target: [{ reference: 'PaymentReconciliation/era-1' }] },
+    ]);
+    vi.mocked(fetchClaimResponsesFromEraProvenances).mockResolvedValue(new Map());
     await expect(voidEra()).resolves.toEqual({ ok: true });
     const { requests } = transaction.mock.calls[0][0];
     expect(requests.map((request: { url: string }) => request.url)).toEqual([
       '/PaymentReconciliation/era-1',
       '/Provenance',
     ]);
+  });
+
+  // OTR-3330: missing linkage must not leave active responses behind a voided parent.
+  it.each(['provenance', 'one response', 'all responses'])('rejects void when missing %s', async (missing) => {
+    if (missing === 'provenance') vi.mocked(fetchEraProcessingProvenances).mockResolvedValue([]);
+    vi.mocked(fetchClaimResponsesFromEraProvenances).mockResolvedValue(
+      new Map([['era-1', missing === 'one response' ? [remit('cr-1')] : []]])
+    );
+    await expect(voidEra()).rejects.toBe(ERA_VOID_INCOMPLETE_ERROR);
+    expect(transaction).not.toHaveBeenCalled();
   });
 
   it('preserves the version condition in the SDK-serialized FHIR transaction', async () => {
@@ -133,7 +158,8 @@ describe('void-billing-era', () => {
   it('does not write a second audit record when the ERA is already voided', async () => {
     vi.mocked(fetchById).mockResolvedValue({ ...era, status: 'cancelled', meta: { versionId: '4' } });
     await expect(voidEra()).resolves.toEqual({ ok: true });
-    expect(fetchClaimResponsesByPaymentReconciliations).not.toHaveBeenCalled();
+    expect(fetchEraProcessingProvenances).not.toHaveBeenCalled();
+    expect(fetchClaimResponsesFromEraProvenances).not.toHaveBeenCalled();
     expect(transaction).not.toHaveBeenCalled();
   });
 
@@ -142,7 +168,7 @@ describe('void-billing-era', () => {
     vi.mocked(fetchById)
       .mockResolvedValueOnce(era)
       .mockResolvedValueOnce({ ...era, meta: { versionId: '4' } });
-    await expect(voidEra()).rejects.toMatchObject({ statusCode: 409, message: expect.stringContaining('Reload') });
+    await expect(voidEra()).rejects.toBe(ERA_VOID_CONFLICT_ERROR);
     expect(transaction).toHaveBeenCalledTimes(1);
   });
 

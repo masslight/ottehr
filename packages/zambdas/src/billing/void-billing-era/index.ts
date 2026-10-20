@@ -7,13 +7,16 @@ import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
 import { ERA_VOID_STATUS } from 'utils/lib/types/data/billing/billing.constants';
 import { VoidEraInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { OkResponse } from 'utils/lib/types/data/billing/billing.types';
-import { CONCURRENT_UPDATE_WITH_MESSAGE } from 'utils/lib/types/errors';
+import { ERA_VOID_CONFLICT_ERROR, ERA_VOID_INCOMPLETE_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken, getUserToken } from '../../shared/auth';
-import { assertDefined } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
-import { fetchClaimResponsesByPaymentReconciliations } from '../claim-amounts';
+import {
+  eraProvenanceTargetIds,
+  fetchClaimResponsesFromEraProvenances,
+  fetchEraProcessingProvenances,
+} from '../claim-amounts';
 import { getEraActor } from '../era-write';
 import {
   createBillingClient,
@@ -24,11 +27,6 @@ import {
 } from '../shared';
 
 type VoidEraParams = ValidatedZambdaInput<typeof VoidEraInputSchema>;
-
-const ERA_CHANGED_ERROR = {
-  ...CONCURRENT_UPDATE_WITH_MESSAGE('This ERA has changed. Reload the page before voiding it.'),
-  statusCode: 409,
-};
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'void-billing-era';
@@ -54,9 +52,11 @@ export async function performEffect(
 ): Promise<OkResponse> {
   const era = await fetchById<PaymentReconciliation>(eraReadClient, 'PaymentReconciliation', params.eraId);
   if (era.status === ERA_VOID_STATUS) return { ok: true };
-  const claimResponseIds = (
-    (await fetchClaimResponsesByPaymentReconciliations(eraReadClient, [era])).get(params.eraId) ?? []
-  ).map((claimResponse) => assertDefined(claimResponse.id, 'ClaimResponse id'));
+  const provenances = await fetchEraProcessingProvenances(eraReadClient, [`PaymentReconciliation/${params.eraId}`]);
+  const claimResponseIds = [...new Set(provenances.flatMap((p) => eraProvenanceTargetIds(p, 'ClaimResponse')))];
+  const responses = (await fetchClaimResponsesFromEraProvenances(eraReadClient, provenances)).get(params.eraId) ?? [];
+  const foundIds = new Set(responses.map((response) => response.id));
+  if (provenances.length === 0 || claimResponseIds.some((id) => !foundIds.has(id))) throw ERA_VOID_INCOMPLETE_ERROR;
 
   try {
     await oystehr.fhir.transaction<PaymentReconciliation | ClaimResponse | Provenance>({
@@ -94,7 +94,7 @@ export async function performEffect(
   } catch (error) {
     if (!isVersionConflictError(error)) throw error;
     const current = await fetchById<PaymentReconciliation>(eraReadClient, 'PaymentReconciliation', params.eraId);
-    if (current.status !== ERA_VOID_STATUS) throw ERA_CHANGED_ERROR;
+    if (current.status !== ERA_VOID_STATUS) throw ERA_VOID_CONFLICT_ERROR;
   }
   return { ok: true };
 }
