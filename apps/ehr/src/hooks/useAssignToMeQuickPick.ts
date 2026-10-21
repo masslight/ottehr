@@ -59,7 +59,11 @@ export function useAssignToMeQuickPick(): void {
           void handleUpdatePractitioner(currentPractitionerId)
             .then(async () => {
               // The visit note carries the encounter's practitioners; re-read it where it is shown.
-              await invalidateChart(queryClient, encounterId);
+              await Promise.all([
+                invalidateChart(queryClient, encounterId),
+                queryClient.invalidateQueries({ queryKey: ['telemed-appointment', visitId] }),
+                queryClient.invalidateQueries({ queryKey: ['get-visit-details', visitId] }),
+              ]);
               enqueueSnackbar('You are now the provider for this chart.', { variant: 'success' });
             })
             .catch((error: unknown) => {
