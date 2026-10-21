@@ -2,6 +2,7 @@ import { ActivityDefinition } from 'fhir/r4b';
 import { describe, expect, test } from 'vitest';
 import {
   ALLERGY_QUICK_PICK_CATEGORY,
+  DME_QUICK_PICK_CATEGORY,
   IMMUNIZATION_QUICK_PICK_CATEGORY,
   INSURANCE_QUICK_PICK_CATEGORY,
   MEDICAL_CONDITION_QUICK_PICK_CATEGORY,
@@ -177,6 +178,36 @@ describe('activityDefinitionToQuickPick', () => {
 
       const result = activityDefinitionToQuickPick(ad, PROCEDURE_QUICK_PICK_CATEGORY);
       expect(result.name).toBe('Some Procedure');
+    });
+  });
+
+  describe('DME', () => {
+    test('should parse with all fields populated', () => {
+      const config = {
+        menuItemId: 'menu-item-1',
+        itemName: 'Walking boot',
+        quantity: 1,
+        billingCodes: [{ code: 'L4361', display: 'Walking boot, pneumatic' }],
+        laterality: 'LT',
+        modifier: 'NU',
+        duration: { value: 2, unit: 'weeks' },
+        instructions: 'Wear when walking',
+        external: true,
+        thirdParty: { name: 'Acme DME', fax: '555-0100' },
+      };
+      const ad = createMockActivityDefinition('dme-quick-pick', 'Walking boot - Left', config);
+
+      const result = activityDefinitionToQuickPick(ad, DME_QUICK_PICK_CATEGORY);
+
+      expect(result).toEqual({ id: 'test-id-123', name: 'Walking boot - Left', ...config });
+    });
+
+    test('should parse with minimal fields (just name)', () => {
+      const ad = createMockActivityDefinition('dme-quick-pick', 'Crutches', {});
+
+      const result = activityDefinitionToQuickPick(ad, DME_QUICK_PICK_CATEGORY);
+
+      expect(result).toEqual({ id: 'test-id-123', name: 'Crutches' });
     });
   });
 
@@ -507,6 +538,32 @@ describe('round-trip conversion', () => {
     expect(restored.cptCodes).toEqual([{ code: '12001', display: 'Simple repair' }]);
     expect(restored.bodySite).toBe('Left arm');
     expect(restored.consentObtained).toBe(true);
+  });
+
+  test('should preserve DME data through round-trip', () => {
+    const original = {
+      name: 'Walking boot - Left',
+      menuItemId: 'menu-item-1',
+      itemName: 'Walking boot',
+      quantity: 2,
+      billingCodes: [{ code: 'L4361', display: 'Walking boot, pneumatic' }],
+      laterality: 'LT' as const,
+      modifier: 'RR' as const,
+      duration: { value: 10, unit: 'days' as const },
+      instructions: 'Wear when walking',
+      external: false,
+      thirdParty: { name: 'Acme DME', address: '1 Main St', phone: '555-0101', fax: '555-0100' },
+    };
+    const ad = quickPickToActivityDefinition(original, DME_QUICK_PICK_CATEGORY, 'dme-id');
+    const restored = activityDefinitionToQuickPick(ad, DME_QUICK_PICK_CATEGORY);
+
+    expect(ad.title).toBe('Walking boot - Left');
+    expect(ad.meta?.tag).toEqual([{ system: QUICK_PICK_TAG_SYSTEM, code: 'dme-quick-pick' }]);
+    const storedConfig = JSON.parse(
+      ad.extension?.find((ext) => ext.url === QUICK_PICK_CONFIG_EXTENSION_URL)?.valueString ?? '{}'
+    );
+    expect(storedConfig.name).toBeUndefined();
+    expect(restored).toEqual({ id: 'dme-id', ...original });
   });
 
   test('should preserve immunization data through round-trip', () => {

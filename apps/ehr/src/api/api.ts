@@ -177,6 +177,8 @@ import {
   AllergyQuickPickData,
   CreateAllergyQuickPickInput,
   CreateAllergyQuickPickResponse,
+  CreateDmeQuickPickInput,
+  CreateDmeQuickPickResponse,
   CreateImmunizationQuickPickInput,
   CreateImmunizationQuickPickResponse,
   CreateInHouseMedicationQuickPickInput,
@@ -195,7 +197,9 @@ import {
   CreateQuickTextQuickPickResponse,
   CreateRadiologyQuickPickInput,
   CreateRadiologyQuickPickResponse,
+  DmeQuickPickData,
   GetAllergyQuickPicksResponse,
+  GetDmeQuickPicksResponse,
   GetImmunizationQuickPicksResponse,
   GetInHouseMedicationQuickPicksResponse,
   GetInsuranceQuickPicksResponse,
@@ -216,6 +220,7 @@ import {
   QuickTextQuickPickData,
   RadiologyQuickPickData,
   UpdateAllergyQuickPickResponse,
+  UpdateDmeQuickPickResponse,
   UpdateImmunizationQuickPickResponse,
   UpdateInHouseMedicationQuickPickResponse,
   UpdateInsuranceQuickPickResponse,
@@ -3062,6 +3067,52 @@ export const createTemplate = async (
   } catch (error: unknown) {
     console.log(error);
     throw apiErrorToThrow(error);
+  }
+};
+
+export const getDmeQuickPicks = async (oystehr: Oystehr): Promise<GetDmeQuickPicksResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({ id: ADMIN_GET_QUICK_PICKS_ZAMBDA_ID, category: 'dme-quick-pick' });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const createDmeQuickPick = async (
+  oystehr: Oystehr,
+  parameters: CreateDmeQuickPickInput
+): Promise<CreateDmeQuickPickResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: ADMIN_CREATE_QUICK_PICK_ZAMBDA_ID,
+      category: 'dme-quick-pick',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const updateDmeQuickPick = async (
+  oystehr: Oystehr,
+  quickPickId: string,
+  quickPick: Omit<DmeQuickPickData, 'id'>
+): Promise<UpdateDmeQuickPickResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: ADMIN_UPDATE_QUICK_PICK_ZAMBDA_ID,
+      category: 'dme-quick-pick',
+      quickPickId,
+      quickPick,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
   }
 };
 
