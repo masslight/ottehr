@@ -17,6 +17,7 @@ import {
   Provenance,
   ProvenanceAgent,
   ProvenanceEntity,
+  Reference,
   RelatedPerson,
   Resource,
 } from 'fhir/r4b';
@@ -64,13 +65,14 @@ import {
   extractClaimResponseAmounts,
   extractLineAmounts,
   extractReportedCharge,
-  isMatchedToClaim,
+  matchedClaimId,
   toClaimPatientPayment,
 } from './claim-amounts';
 import { transmitEventFromClaimResponse } from './claim-status-responses';
 import { getCLIA, getPlaceOfServiceCode } from './service-facility.helpers';
 import {
   buildUpdatedClaimStatusTags,
+  CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM,
   ERA_ICN_EXTENSION,
   ERA_ITEM_PROCEDURE_CODE_EXTENSION,
   ERA_ITEM_REMARK_CODE_EXTENSION,
@@ -180,6 +182,13 @@ function projectClaim(claim: Claim): FieldProjection[] {
         .map((t) => t.code)
         .filter(Boolean)
         .join(', '),
+    },
+    {
+      field: 'payerClaimControlNumber',
+      label: 'Payer Claim Control Number',
+      value:
+        claim.identifier?.find((identifier) => identifier.system === CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM)
+          ?.value ?? '',
     }
   );
   return out;
@@ -338,9 +347,9 @@ function projectClaimResponse(claimResponse: ClaimResponse): FieldProjection[] {
   const { paid, allowed, patientResp } = extractClaimResponseAmounts(claimResponse);
   return [
     {
-      field: 'match',
-      label: 'Match',
-      value: isMatchedToClaim(claimResponse) ? 'Matched' : 'Unmatched',
+      field: 'matchedClaim',
+      label: 'Matched Claim',
+      value: matchedClaimId(claimResponse) ?? '',
     },
     {
       field: 'payer',
@@ -554,10 +563,9 @@ export async function resolveClaimActor(
       if (!token) throw new Error('Missing token for caller actor');
       const user = await userMe(token, secrets);
       if (!user.profile?.includes('Practitioner/')) throw new Error('Caller is not a Practitioner for caller actor');
-      return {
-        type: { coding: [CLAIM_PROVENANCE_AGENT_TYPE.human] },
-        who: { reference: user.profile },
-      };
+      return humanClaimActor({
+        reference: user.profile,
+      });
     }
     case 'system': {
       const deviceId = await ensureSystemDevice(oystehr);
@@ -574,6 +582,16 @@ export async function resolveClaimActor(
       };
     }
   }
+}
+
+// For a zambda that has already looked up the calling Practitioner.
+export function humanClaimActor(who: Reference): ProvenanceAgent {
+  return {
+    type: {
+      coding: [CLAIM_PROVENANCE_AGENT_TYPE.human],
+    },
+    who,
+  };
 }
 
 // --- Provenance request building --------------------------------------------
@@ -805,6 +823,29 @@ export function claimEventProvenanceRequest({
     recorded: recordedNow(),
     priorVersionReference: versionedReference(args.before),
   });
+}
+
+export async function claimHistoryHasEntryFor({
+  oystehr,
+  claimId,
+  targetReference,
+}: {
+  oystehr: Oystehr;
+  claimId: string;
+  targetReference: string;
+}): Promise<boolean> {
+  const provenances = (
+    await oystehr.fhir.search<Provenance>({
+      resourceType: 'Provenance',
+      params: [
+        {
+          name: 'target',
+          value: targetReference,
+        },
+      ],
+    })
+  ).unbundle();
+  return provenances.some((provenance) => provenance.target?.some((target) => target.reference === `Claim/${claimId}`));
 }
 
 /**

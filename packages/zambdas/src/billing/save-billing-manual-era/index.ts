@@ -25,6 +25,7 @@ import {
   fetchClaimResponsesFromEraProvenances,
   fetchEraProcessingProvenances,
   isMatchedToClaim,
+  matchedClaimId,
 } from '../claim-amounts';
 import { isCustomInsuranceOrganization, resolvePayerOrganization } from '../custom-insurance-org.helpers';
 import {
@@ -37,6 +38,7 @@ import {
   manualEraHeaderFromFhir,
   ManualEraPayer,
 } from '../manual-era';
+import { claimEventProvenanceRequest, humanClaimActor } from '../provenance';
 import {
   createBillingClient,
   fetchById,
@@ -178,6 +180,24 @@ export async function performEffect(
       header.remitDate !== storedHeader.remitDate);
   const claimReferences: string[] = [];
   const savedClaims: { clientKey?: string; claimResponseId?: string; requestIndex?: number }[] = [];
+  // deleted claims are always unmatched, so they have no claim history to record in
+  const claimHistory: BatchInputRequest<FhirResource>[] = [];
+  const agent = humanClaimActor(actor);
+  const recordInMatchedClaimHistory = (change: {
+    targetReference: string;
+    before?: ClaimResponse;
+    after: ClaimResponse;
+    activity: 'create' | 'update';
+  }): void => {
+    const claimId = matchedClaimId(change.after);
+    if (!claimId) return;
+    const provenance = claimEventProvenanceRequest({
+      ...change,
+      claimId,
+      agent,
+    });
+    if (provenance) claimHistory.push(provenance);
+  };
   for (const claimResponse of storedClaimResponses) {
     if (deleted.has(claimResponse.id ?? '')) continue;
     claimReferences.push(`ClaimResponse/${claimResponse.id}`);
@@ -185,25 +205,48 @@ export async function performEffect(
     if (upsert) savedClaims.push({ clientKey: upsert.clientKey, claimResponseId: claimResponse.id });
     if (!upsert && !copiedHeaderChanged) continue;
     const input: ManualEraClaim = upsert ?? entryClaimToInput(manualEraClaimFromFhir(claimResponse));
+    const rebuilt = buildManualClaimResponse({
+      claim: input,
+      header,
+      billingProviderAndPayer,
+      existing: claimResponse,
+    });
     requests.push({
       method: 'PUT',
       url: `/ClaimResponse/${claimResponse.id}`,
-      resource: buildManualClaimResponse({ claim: input, header, billingProviderAndPayer, existing: claimResponse }),
+      resource: rebuilt,
       // the rewrite keeps the match state loaded above, so a match or unmatch since then must fail the save
       ifMatch: makeOptimisticLockIfMatchHeader(claimResponse),
+    });
+    recordInMatchedClaimHistory({
+      targetReference: `ClaimResponse/${claimResponse.id}`,
+      before: claimResponse,
+      after: rebuilt,
+      activity: 'update',
     });
   }
   for (const claim of added) {
     const fullUrl = `urn:uuid:${randomUUID()}`;
     claimReferences.push(fullUrl);
     const matchedClaim = claim.matchedClaimId ? matchedClaims.get(claim.matchedClaimId) : undefined;
+    const built = buildManualClaimResponse({
+      claim,
+      header,
+      billingProviderAndPayer,
+      matchedClaim,
+    });
     requests.push({
       method: 'POST',
       url: '/ClaimResponse',
-      resource: buildManualClaimResponse({ claim, header, billingProviderAndPayer, matchedClaim }),
+      resource: built,
       fullUrl,
     });
     savedClaims.push({ clientKey: claim.clientKey, requestIndex: requests.length - 1 });
+    recordInMatchedClaimHistory({
+      targetReference: fullUrl,
+      after: built,
+      activity: 'create',
+    });
   }
 
   for (const id of deleted) requests.push({ method: 'DELETE', url: `/ClaimResponse/${id}` });
@@ -221,6 +264,7 @@ export async function performEffect(
       operations: [{ op: 'replace', path: '/target', value: targets.map((reference) => ({ reference })) }],
     });
   }
+  requests.push(...claimHistory);
 
   let bundle;
   try {

@@ -36,9 +36,26 @@ export const claimHistoryRequest = ({
   }),
 });
 
-export function historyChanges(requests: { url: string; resource?: Provenance }[]): ClaimFieldChange[] {
-  const provenance = requests.find((request) => request.url === '/Provenance')?.resource;
-  const diff = provenance?.extension?.find((extension) => extension.url === CLAIM_PROVENANCE_DIFF_EXTENSION_URL);
-  if (!diff?.valueString) throw new Error('The transaction writes no claim history entry');
-  return JSON.parse(diff.valueString);
+const isClaimHistoryEntry = (resource: Provenance | undefined): resource is Provenance =>
+  !!resource?.extension?.some((extension) => extension.url === CLAIM_PROVENANCE_DIFF_EXTENSION_URL);
+
+// Other Provenances can ride in the same transaction, like a manual remit's era-processing record.
+export function claimHistoryEntries(requests: { method: string; url: string; resource?: unknown }[]): Provenance[] {
+  return requests.flatMap((request) => {
+    const resource = request.resource as Provenance | undefined;
+    return request.method === 'POST' && request.url === '/Provenance' && isClaimHistoryEntry(resource)
+      ? [resource]
+      : [];
+  });
+}
+
+export function provenanceChanges(provenance: Provenance): ClaimFieldChange[] {
+  const diff = provenance.extension?.find((extension) => extension.url === CLAIM_PROVENANCE_DIFF_EXTENSION_URL);
+  return JSON.parse(diff?.valueString ?? '[]');
+}
+
+export function historyChanges(requests: { method: string; url: string; resource?: unknown }[]): ClaimFieldChange[] {
+  const [entry] = claimHistoryEntries(requests);
+  if (!entry) throw new Error('The transaction writes no claim history entry');
+  return provenanceChanges(entry);
 }

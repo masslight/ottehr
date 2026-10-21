@@ -279,7 +279,7 @@ describe('diffResources payer responses', () => {
       ...overrides,
     });
 
-  it('records an unmatch as a match change only', () => {
+  it('records an unmatch as a matched claim change only', () => {
     const unmatched = remit({
       request: {
         reference: '#request',
@@ -287,10 +287,26 @@ describe('diffResources payer responses', () => {
     });
     expect(diffResources(remit(), unmatched)).toEqual([
       {
-        field: 'match',
-        label: 'Match',
-        previousValue: 'Matched',
-        newValue: 'Unmatched',
+        field: 'matchedClaim',
+        label: 'Matched Claim',
+        previousValue: 'c1',
+        newValue: null,
+      },
+    ]);
+  });
+
+  it('records a move to another claim', () => {
+    const moved = remit({
+      request: {
+        reference: 'Claim/c2',
+      },
+    });
+    expect(diffResources(remit(), moved)).toEqual([
+      {
+        field: 'matchedClaim',
+        label: 'Matched Claim',
+        previousValue: 'c1',
+        newValue: 'c2',
       },
     ]);
   });
