@@ -269,6 +269,7 @@ async function getCandidStatementLines(
         charged: formatCurrencyFromCents(chargeAfterAdjustments),
         insurancePaid: formatCurrencyFromCents(insurancePaid),
         patientPaid: formatCurrencyFromCents(patientPaid),
+        writeOffs: formatCurrencyFromCents(0),
         patientOwes: formatCurrencyFromCents(patientOwes),
       };
     })
@@ -300,6 +301,7 @@ async function getCandidStatementLines(
       charged: formatCurrencyFromCents(totalsCents.charged),
       insurancePaid: formatCurrencyFromCents(totalsCents.insurancePaid),
       patientPaid: formatCurrencyFromCents(totalsCents.patientPaid),
+      writeOffs: formatCurrencyFromCents(0),
       deductible: formatCurrencyFromCents(totalsCents.deductible),
       balanceDue: formatCurrencyFromCents(totalsCents.balanceDue),
     },

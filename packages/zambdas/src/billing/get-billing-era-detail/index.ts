@@ -186,6 +186,7 @@ export async function performEffect(oystehr: Oystehr, params: GetEraDetailParams
     // so fall back to the charge the payer reported (CLP03 / line charges) on the latest remit
     const billed =
       claim.total?.value ?? orderedResponses.map(extractReportedCharge).findLast((charge) => charge != null) ?? 0;
+    // This calculation does not include patient payments or write offs since it only pertains to the data on the ERA
     const payments = summarizeClaimPayments(claimResponses, billed);
 
     const coverageId = coverageIdByClaimId.get(claim.id ?? '');

@@ -1951,7 +1951,7 @@ const extractPolicyHolder = (
   keySuffix?: string
 ): PolicyHolder | undefined => {
   const findAnswer = (linkId: string): string | undefined =>
-    items.find((item) => item.linkId === linkId)?.answer?.[0]?.valueString;
+    items.find((item) => item.linkId === linkId)?.answer?.[0]?.valueString?.trim();
   const findBooleanAnswer = (linkId: string): boolean | undefined =>
     items.find((item) => item.linkId === linkId)?.answer?.[0]?.valueBoolean;
 
@@ -2007,7 +2007,7 @@ export function extractAccountGuarantor(
   patient: Patient
 ): ResponsiblePartyContact | undefined {
   const findAnswer = (linkId: string): string | undefined =>
-    items.find((item) => item.linkId === linkId)?.answer?.[0]?.valueString;
+    items.find((item) => item.linkId === linkId)?.answer?.[0]?.valueString?.trim();
   const findBooleanAnswer = (linkId: string): boolean | undefined =>
     items.find((item) => item.linkId === linkId)?.answer?.[0]?.valueBoolean;
 
@@ -2059,7 +2059,7 @@ export function extractAccountGuarantor(
 
 export function extractEmergencyContact(items: QuestionnaireResponseItem[]): EmergencyContact | undefined {
   const findAnswer = (linkId: string): string | undefined =>
-    items.find((item) => item.linkId === linkId)?.answer?.[0]?.valueString;
+    items.find((item) => item.linkId === linkId)?.answer?.[0]?.valueString?.trim();
   const findBooleanAnswer = (linkId: string): boolean | undefined =>
     items.find((item) => item.linkId === linkId)?.answer?.[0]?.valueBoolean;
 
