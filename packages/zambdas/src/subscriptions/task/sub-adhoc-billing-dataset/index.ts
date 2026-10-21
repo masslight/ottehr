@@ -15,11 +15,20 @@ import {
   ADHOC_REPORT_TASK_SYSTEM,
 } from 'utils/lib/types/adhoc/generation/report-task';
 import { fetchAdHocClaimRows } from '../../../billing/adhoc/claims';
-import { createBillingClient } from '../../../billing/shared';
+import { createBillingClient, createEraReadClient } from '../../../billing/shared';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { validateOutputWithSchema } from '../../../shared/validate-zod';
 import { wrapTaskHandler } from '../helpers';
 
 const ZAMBDA_NAME = 'sub-adhoc-billing-dataset';
+
+let m2mToken: string;
+
+// ERA resources carry no billing tag; the insurancePayments layer reads them with the untagged client.
+async function eraReadClientFor(secrets: Secrets): Promise<Oystehr> {
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  return createEraReadClient(m2mToken, secrets);
+}
 
 interface ReportParams {
   datasetId: string;
@@ -35,7 +44,11 @@ function readParams(task: Task): ReportParams {
   return JSON.parse(raw) as ReportParams;
 }
 
-async function buildOutputJson(oystehr: Oystehr, params: ReportParams): Promise<{ json: string; rowCount: number }> {
+async function buildOutputJson(
+  oystehr: Oystehr,
+  eraReadClient: Oystehr,
+  params: ReportParams
+): Promise<{ json: string; rowCount: number }> {
   const { datasetId, dateRange, options } = params;
 
   switch (datasetId) {
@@ -45,7 +58,7 @@ async function buildOutputJson(oystehr: Oystehr, params: ReportParams): Promise<
         ...layerIncludeFlags(BILLING_CLAIMS_LAYERS, options),
       });
 
-      const rows = await fetchAdHocClaimRows(oystehr, input);
+      const rows = await fetchAdHocClaimRows(oystehr, input, { eraReadClient });
       const json = JSON.stringify(validateOutputWithSchema(AdHocBillingClaimsOutputSchema, { rows }, ZAMBDA_NAME));
 
       return { json, rowCount: rows.length };
@@ -100,7 +113,9 @@ export const index = wrapTaskHandler(
         `layers=${JSON.stringify(Object.keys(params.options ?? {}).filter((id) => params.options[id]))}`
     );
 
-    const { json, rowCount } = await stage('build data', taskId, startedAt, () => buildOutputJson(oystehr, params));
+    const { json, rowCount } = await stage('build data', taskId, startedAt, async () =>
+      buildOutputJson(oystehr, await eraReadClientFor(secrets), params)
+    );
 
     console.log(
       `[adhoc-billing] data ready task=${taskId} ms=${Date.now() - startedAt} rows=${rowCount} bytes=${json.length}`

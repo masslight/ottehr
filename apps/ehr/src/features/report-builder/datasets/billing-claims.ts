@@ -22,8 +22,10 @@ const LABEL = 'Claims (billing app)';
 const DESCRIPTION =
   'One row per billing-app claim, by date of service — claim status and AR stage, payer, billed / allowed / ' +
   'insurance paid / patient responsibility / patient paid / write-offs / balance, and optionally the claim codes, ' +
-  'write-offs, ERA remittances (adjustment / denial codes) and AR milestone dates. Patient payments taken at the ' +
-  'visit, eligibility and fee-schedule pricing are in "Visit payments & charges (EHR)".';
+  'write-offs, every patient payment and refund (including those recorded in the billing app), ERA remittances ' +
+  '(adjustment / denial codes), insurance checks, the insurances on the claim, provider / facility / institutional ' +
+  'details, and the claim history (status changes, submissions, acknowledgments). Eligibility and fee-schedule ' +
+  'pricing are in "Visit payments & charges (EHR)".';
 
 function toLocalDates(row: AdHocBillingClaimsRow): AdHocBillingClaimsRow {
   const out: AdHocBillingClaimsRow = { ...row };
@@ -39,8 +41,44 @@ function toLocalDates(row: AdHocBillingClaimsRow): AdHocBillingClaimsRow {
     }));
   }
 
+  if (row.lastPatientPaymentDate !== undefined) out.lastPatientPaymentDate = toLocalYmd(row.lastPatientPaymentDate);
+
+  if (row.patientPayments) {
+    out.patientPayments = row.patientPayments.map((payment) => ({ ...payment, date: toLocalYmd(payment.date) }));
+  }
+
   if (row.writeOffs)
     out.writeOffs = row.writeOffs.map((writeOff) => ({ ...writeOff, date: toLocalYmd(writeOff.date) }));
+
+  for (const field of [
+    'admissionDate',
+    'dischargeDate',
+    'accidentDate',
+    'lastCheckDate',
+    'firstSubmittedDate',
+    'lastSubmittedDate',
+    'firstAcknowledgedDate',
+    'lastNoteDate',
+    'lastActivityDate',
+  ] as const) {
+    if (row[field] !== undefined) out[field] = toLocalYmd(row[field]);
+  }
+
+  if (row.insurancePayments) {
+    out.insurancePayments = row.insurancePayments.map((payment) => ({
+      ...payment,
+      checkDate: toLocalYmd(payment.checkDate),
+      remitDate: toLocalYmd(payment.remitDate),
+    }));
+  }
+
+  if (row.statusChanges) {
+    out.statusChanges = row.statusChanges.map((change) => ({ ...change, date: toLocalYmd(change.date) }));
+  }
+
+  if (row.acknowledgments) {
+    out.acknowledgments = row.acknowledgments.map((ack) => ({ ...ack, date: toLocalYmd(ack.date) }));
+  }
 
   return out;
 }

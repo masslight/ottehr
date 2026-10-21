@@ -177,9 +177,14 @@ list. A scan that ends short (a claim created mid-scan shifts the offsets) is re
 fails the Task. Payers are resolved once per run. The build stops at 12 min with "Too many claims
 for one run — narrow the date range", so the Task fails instead of the lambda being killed with the
 Task left in-progress. Layers (no extra FHIR queries): `codes` (lines + ICD-10, reads
-`Claim.diagnosis`), `writeOffs` (reasons as the app labels them), `remits` (matched ERA ClaimResponses,
+`Claim.diagnosis`), `writeOffs` (reasons as the app labels them), `patientPayments` (every payment and refund
+the claim's `patientPaid` sums — EHR-mirrored, manual, card), `remits` (matched ERA ClaimResponses,
 CARC codes, each remit with its own payer), `timeline`
-(status date extensions, reads `Claim.extension`). Event dates are sent as recorded; the EHR
+(status date extensions, reads `Claim.extension`), `claimDetails` (provider / facility NPIs, POS, PCN /
+ICN, institutional and accident fields, attachments, patient sex / state / ZIP), `coverage` (all insurances
+on the claim; one Coverage read per page), `insurancePayments` (ERA checks; reads the untagged
+PaymentReconciliations and era-processing Provenances), `history` (claim-history Provenances: status
+changes, submissions, acknowledgments, notes; one Provenance search per page). Event dates are sent as recorded; the EHR
 converts them to the viewer's calendar day.
 
 ### Adding the next billing dataset

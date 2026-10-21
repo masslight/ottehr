@@ -47,8 +47,9 @@ const LABEL = 'Visit payments & charges (EHR)';
 
 const DESCRIPTION =
   'One row per encounter — the EHR-side view of visit finance: patient payments collected at the visit, insurance ' +
-  'coverage and eligibility, and the charted codes priced by the fee schedule. Claim status, AR, ERA remits and ' +
-  'write-offs are NOT here — they are in "Claims (billing app)".';
+  'coverage and eligibility, and the charted codes priced by the fee schedule. Claim status, AR, ERA remits, ' +
+  'write-offs and payments recorded later in the billing app (manual payments, card charges, refunds) are NOT ' +
+  'here — they are in "Claims (billing app)".';
 
 export const billingDataset: AdHocDataset = {
   id: 'billing',

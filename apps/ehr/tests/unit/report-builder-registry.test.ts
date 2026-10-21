@@ -21,7 +21,17 @@ describe('ad-hoc dataset registry', () => {
     expect(catalog.find((dataset) => dataset.id === 'billing')?.label).toBe('Visit payments & charges (EHR)');
     const claims = catalog.find((dataset) => dataset.id === 'billing-claims');
     expect(claims?.label).toBe('Claims (billing app)');
-    expect(claims?.layers.map((layer) => layer.id)).toEqual(['codes', 'writeOffs', 'remits', 'timeline']);
+    expect(claims?.layers.map((layer) => layer.id)).toEqual([
+      'codes',
+      'claimDetails',
+      'coverage',
+      'writeOffs',
+      'patientPayments',
+      'remits',
+      'timeline',
+      'insurancePayments',
+      'history',
+    ]);
     // Internal ids never reach the model.
     expect(claims?.fields.map((field) => field.name)).not.toContain('encounterId');
   });

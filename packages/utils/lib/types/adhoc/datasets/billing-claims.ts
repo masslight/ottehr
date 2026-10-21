@@ -1,6 +1,11 @@
 import { z } from 'zod';
-import { CODE_SYSTEM_CLAIM_TYPE_CODES } from '../../../helpers/rcm/constants';
-import { CLAIM_STATUS_FIELDS, ClaimStatusFieldKey } from '../../data/billing/claim-status';
+import {
+  CLAIM_ACCIDENT_TYPE,
+  CLAIM_ACCIDENT_TYPES,
+  CODE_SYSTEM_CLAIM_TYPE_CODES,
+} from '../../../helpers/rcm/constants';
+import { ERA_CLAIM_STATUS_CODE } from '../../data/billing/billing.constants';
+import { CLAIM_STATUS_FIELD_KEYS, CLAIM_STATUS_FIELDS, ClaimStatusFieldKey } from '../../data/billing/claim-status';
 import { AdHocLayerMap, DatasetInput, datasetInputSchema, datasetRowSchema, LayerRowFields } from './dataset';
 
 export const BILLING_CLAIMS_DATASET_ID = 'billing-claims';
@@ -17,6 +22,13 @@ const statusField = (key: ClaimStatusFieldKey, meaning: string): z.ZodString => 
   const codes = (field?.options ?? []).map((o) => `"${o.code}" (${o.label})`).join(', ');
   return z.string().describe(`${field?.label ?? key}: ${meaning} Codes: ${codes}. "" = not set.`);
 };
+
+const ERA_STATUS_CODE_DESCRIPTION =
+  'CLP02 claim status the payer reported on this remit: ' +
+  Object.entries(ERA_CLAIM_STATUS_CODE)
+    .map(([meaning, code]) => `"${code}" (${meaning})`)
+    .join(', ') +
+  '. "4" = denied, "22" = reversal of an earlier payment. "" when not reported.';
 
 export const BillingClaimsBaseRowSchema = z.object({
   // --- Claim ---
@@ -98,6 +110,13 @@ export const BILLING_CLAIMS_DOMAIN_FIELDS: readonly (keyof AdHocBillingClaimsRow
   'icdCodes',
   'adjustmentReasonCodes',
   'writeOffReasons',
+  'placeOfService',
+  'billType',
+  'accidentTypes',
+  'patientState',
+  'primaryPlanType',
+  'primarySubscriberRelationship',
+  'secondaryPayerName',
 ];
 
 export const BILLING_CLAIMS_LAYERS = {
@@ -114,6 +133,12 @@ export const BILLING_CLAIMS_LAYERS = {
             modifiers: z.array(z.string()).describe('Modifiers on this line (e.g. "25"). Empty when none.'),
             units: z.number().describe('Billed units on this line.'),
             charge: z.number().describe('Charge billed for this line, USD.'),
+            serviceDate: z.string().nullable().describe('Date of service of this line (yyyy-MM-dd).'),
+            placeOfService: z
+              .string()
+              .describe('CMS place-of-service code of this line (e.g. "11", "20"). "" when none.'),
+            revenueCode: z.string().describe('NUBC revenue code (institutional claims). "" when none.'),
+            ndc: z.string().describe('NDC of the drug billed on this line. "" when none.'),
           })
         )
         .describe(
@@ -121,6 +146,58 @@ export const BILLING_CLAIMS_LAYERS = {
             'modifiers, units and per-line charges; count codes with cptCodes.'
         ),
       icdCodes: z.array(z.string()).describe('ICD-10 diagnosis codes, primary first. HIERARCHICAL — prefix-match.'),
+    }),
+  },
+  claimDetails: {
+    label: 'Claim details (providers, facility, identifiers)',
+    description:
+      'Billing and rendering provider NPIs, service facility and place of service, claim control numbers, ' +
+      'institutional and accident details, attachments, and patient sex / state / ZIP.',
+    schema: z.object({
+      billingProvider: z.string().describe('Billing provider name. "" when none.'),
+      billingProviderNpi: z.string().describe('Billing provider NPI. "" when none.'),
+      renderingProviderNpi: z.string().describe('Rendering provider NPI. "" when none.'),
+      facilityNpi: z.string().describe('Service facility NPI. "" when none.'),
+      placeOfService: z.string().describe('CMS place-of-service code of the first service line. "" when none.'),
+      patientControlNumber: z.string().describe('Patient control number sent to the payer (PCN). "" when none.'),
+      payerClaimControlNumber: z.string().describe('Payer\'s claim control number (ICN) from the remit. "" when none.'),
+      billType: z.string().describe('UB-04 bill type (institutional claims, e.g. "0131"). "" when none.'),
+      admissionDate: z.string().nullable().describe('Admission date (institutional claims, yyyy-MM-dd).'),
+      dischargeDate: z.string().nullable().describe('Discharge date (institutional claims, yyyy-MM-dd).'),
+      admissionType: z.string().describe('Admission type code (institutional claims). "" when none.'),
+      admissionSource: z.string().describe('Point of origin code (institutional claims). "" when none.'),
+      dischargeStatus: z.string().describe('Patient discharge status code (institutional claims). "" when none.'),
+      accidentTypes: z
+        .array(z.enum(CLAIM_ACCIDENT_TYPES as [CLAIM_ACCIDENT_TYPE, ...CLAIM_ACCIDENT_TYPE[]]))
+        .describe('Accident the services relate to. Empty when not accident related.'),
+      accidentState: z.string().describe('State of an auto accident. "" when none.'),
+      accidentDate: z.string().nullable().describe('Accident date (yyyy-MM-dd). Null when none.'),
+      attachmentCount: z.number().describe('Number of documents attached to the claim.'),
+      patientSex: z
+        .string()
+        .describe('Patient sex as on the claim ("male", "female", "other", "unknown"). "" when none.'),
+      patientState: z.string().describe('Patient state. "" when none.'),
+      patientZip: z.string().describe('Patient ZIP code. "" when none.'),
+    }),
+  },
+  coverage: {
+    label: 'Insurance coverage',
+    description:
+      'The insurances on the claim: primary plan type and subscriber relationship, and the secondary / tertiary ' +
+      'payers and member ids.',
+    schema: z.object({
+      coverageCount: z.number().describe('Number of insurances on the claim (0 for self-pay).'),
+      primaryPlanType: z
+        .string()
+        .describe('Plan type code of the primary insurance (e.g. "MB", "MC", "CI"). "" when none.'),
+      primarySubscriberRelationship: z
+        .string()
+        .describe('Patient relationship to the primary subscriber (e.g. "Self", "Spouse", "Child"). "" when none.'),
+      primaryCoverageStatus: z.string().describe('Status of the primary coverage (e.g. "active"). "" when none.'),
+      secondaryPayerName: z.string().describe('Secondary insurance payer. "" when none.'),
+      secondaryMemberId: z.string().describe('Member id on the secondary insurance. "" when none.'),
+      tertiaryPayerName: z.string().describe('Tertiary insurance payer. "" when none.'),
+      tertiaryMemberId: z.string().describe('Member id on the tertiary insurance. "" when none.'),
     }),
   },
   writeOffs: {
@@ -152,6 +229,40 @@ export const BILLING_CLAIMS_LAYERS = {
         .describe('One record per write-off, voided ones included, oldest first. Empty when none.'),
     }),
   },
+  patientPayments: {
+    label: 'Patient payments',
+    description:
+      'Every patient payment and refund on the claim as the billing app records it — payments taken at the visit ' +
+      '(mirrored from the EHR) and payments, card charges and refunds recorded in the billing app.',
+    schema: z.object({
+      patientPaymentCount: z.number().describe('Number of payments (not refunds), voided ones excluded.'),
+      patientRefundedTotal: z.number().describe('Total refunded to the patient, USD (positive). 0 when none.'),
+      lastPatientPaymentDate: z
+        .string()
+        .nullable()
+        .describe('Date of the most recent payment (yyyy-MM-dd), voided ones excluded. Null when none.'),
+      patientPayments: z
+        .array(
+          z.object({
+            date: z.string().nullable().describe('Payment or refund date (yyyy-MM-dd).'),
+            amount: z.number().describe('Amount, USD; negative for a refund.'),
+            kind: z.enum(['payment', 'refund']).describe('A payment from the patient or a refund to them.'),
+            method: z.string().describe('How it was paid (e.g. "card", "cash", "check"). "" when not recorded.'),
+            source: z
+              .enum(['ehr', 'card', 'manual', 'other'])
+              .describe(
+                'Where it was recorded: "ehr" = taken at the visit in the EHR, "card" = card charge in the billing ' +
+                  'app, "manual" = entered by hand in the billing app.'
+              ),
+            voided: z.boolean().describe('True when voided; a voided payment does not count in patientPaid.'),
+          })
+        )
+        .describe(
+          'One record per payment or refund, oldest first. patientPaid is the sum of the ones not voided. ' +
+            'Empty when none.'
+        ),
+    }),
+  },
   remits: {
     label: 'Remittances (ERA)',
     description:
@@ -176,6 +287,7 @@ export const BILLING_CLAIMS_LAYERS = {
                 "Payer that sent this remit — for a secondary remit not the claim's primary payerName. Use it to " +
                   'break remits down by payer. "" when the payer could not be resolved.'
               ),
+            eraStatusCode: z.string().describe(ERA_STATUS_CODE_DESCRIPTION),
             allowed: z.number().nullable().describe('Amount allowed by this remit, USD. Null when not reported.'),
             paid: z.number().describe('Amount paid by this remit, USD (negative for a reversal).'),
             patientResp: z
@@ -228,6 +340,82 @@ export const BILLING_CLAIMS_LAYERS = {
             'change, so null for a claim never moved or created already in patient AR — to count claims in patient ' +
             'AR now, use arStage = "patient-ar".'
         ),
+    }),
+  },
+  insurancePayments: {
+    label: 'Insurance payments (ERA checks)',
+    description: 'The insurance checks / EFTs (ERAs) that paid the claim: check number, check date, amount and payer.',
+    schema: z.object({
+      checkNumbers: z.array(z.string()).describe('Distinct check / EFT numbers that paid the claim.'),
+      lastCheckDate: z.string().nullable().describe('Date of the most recent check (yyyy-MM-dd). Null when none.'),
+      insurancePayments: z
+        .array(
+          z.object({
+            checkNumber: z.string().describe('Check / EFT trace number. "" when the ERA carries none.'),
+            checkDate: z.string().nullable().describe('Check / EFT date (yyyy-MM-dd). Null when the ERA carries none.'),
+            remitDate: z.string().nullable().describe('Date the ERA was received (yyyy-MM-dd).'),
+            checkAmount: z
+              .number()
+              .describe("Amount of the whole check, USD — NOT this claim's share (that is remits[].paid)."),
+            payerName: z.string().describe('Payer that issued the check. "" when it could not be resolved.'),
+          })
+        )
+        .describe(
+          'One record per ERA that paid the claim, oldest first. One check can pay several claims, so the same ' +
+            'check appears on each of them — dedupe by checkNumber when listing or summing checks. Empty when none.'
+        ),
+    }),
+  },
+  history: {
+    label: 'Claim history',
+    description:
+      "The claim's change history in the billing app: every status change, submissions to the clearinghouse, " +
+      'clearinghouse / payer acknowledgments, notes, and user vs automated activity.',
+    schema: z.object({
+      statusChanges: z
+        .array(
+          z.object({
+            date: z.string().nullable().describe('When the status changed (yyyy-MM-dd).'),
+            field: z
+              .enum(CLAIM_STATUS_FIELD_KEYS)
+              .describe('Which status changed — the same names as the status columns (arStage, adjudicationStatus…).'),
+            from: z.string().describe('Status code before the change; "" = not set (e.g. at creation).'),
+            to: z.string().describe('Status code after the change; "" = cleared.'),
+            by: z.enum(['user', 'system']).describe('A billing user, or automation (rules engine, ERA posting).'),
+          })
+        )
+        .describe(
+          'One record per status change, oldest first, including the statuses the claim was created with. Use it ' +
+            'for time spent in a stage, or how often a claim was denied / resubmitted.'
+        ),
+      firstSubmittedDate: z
+        .string()
+        .nullable()
+        .describe('When the claim was first sent to the clearinghouse (yyyy-MM-dd). Null when never.'),
+      lastSubmittedDate: z.string().nullable().describe('When the claim was last sent (yyyy-MM-dd). Null when never.'),
+      submissionCount: z.number().describe('Number of times the claim was sent to the clearinghouse.'),
+      firstAcknowledgedDate: z
+        .string()
+        .nullable()
+        .describe('First clearinghouse / payer acknowledgment (yyyy-MM-dd). Null when none.'),
+      acknowledgments: z
+        .array(
+          z.object({
+            date: z.string().nullable().describe('When it was acknowledged (yyyy-MM-dd).'),
+            entityKind: z.enum(['clearinghouse', 'payer']).describe('Who acknowledged the claim.'),
+            entityName: z.string().describe('Name of the clearinghouse or payer.'),
+            message: z.string().describe('Acknowledgment message as reported.'),
+          })
+        )
+        .describe('One record per acknowledgment, oldest first. Empty when none.'),
+      noteCount: z.number().describe('Number of notes billers added to the claim.'),
+      lastNoteDate: z.string().nullable().describe('Date of the most recent note (yyyy-MM-dd). Null when none.'),
+      lastActivityDate: z
+        .string()
+        .nullable()
+        .describe('Date of the most recent change of any kind (yyyy-MM-dd). Null when no history is recorded.'),
+      userActionCount: z.number().describe('Number of history entries made by billing users.'),
+      systemActionCount: z.number().describe('Number of history entries made by automation.'),
     }),
   },
 } as const satisfies AdHocLayerMap;

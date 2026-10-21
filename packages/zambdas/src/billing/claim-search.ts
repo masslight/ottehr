@@ -28,7 +28,12 @@ import {
 import { CLAIM_NON_INSURANCE_PAYER_TAG_SYSTEM } from 'utils/lib/types/data/billing/non-insurance-org.types';
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { isValidUUID } from 'utils/lib/validation/helper';
-import { fetchClaimResponsesByClaimIds, fetchPatientPaidByClaimId, summarizeClaimPayments } from './claim-amounts';
+import {
+  fetchClaimResponsesByClaimIds,
+  fetchPatientPaymentsByClaimId,
+  summarizeClaimPayments,
+  sumPatientPaymentsByClaimId,
+} from './claim-amounts';
 import { resolvePayerIssuerFilter } from './custom-insurance-org.helpers';
 import {
   CLAIM_PCN_IDENTIFIER_SYSTEM,
@@ -611,14 +616,14 @@ export async function buildClaimLookups({
     );
   }
 
-  const [resolvedPayersByRef, claimResponsesByClaimId, patientPaidByClaimId, writeOffs] = await Promise.all([
+  const [resolvedPayersByRef, claimResponsesByClaimId, patientPaymentsByClaimId, writeOffs] = await Promise.all([
     payersByRef ??
       resolvePayersByRef(
         oystehr,
         claims.map((c) => c.insurer?.reference)
       ),
     fetchClaimResponsesByClaimIds(oystehr, claims.map((c) => c.id).filter(Boolean) as string[]),
-    fetchPatientPaidByClaimId({
+    fetchPatientPaymentsByClaimId({
       oystehr,
       claims,
     }),
@@ -632,7 +637,8 @@ export async function buildClaimLookups({
     providers,
     coverages,
     claimResponsesByClaimId,
-    patientPaidByClaimId,
+    patientPaidByClaimId: sumPatientPaymentsByClaimId(patientPaymentsByClaimId),
+    patientPaymentsByClaimId,
     writeOffs,
   };
 }
@@ -645,6 +651,8 @@ export interface ClaimLookups {
   coverages: Coverage[];
   claimResponsesByClaimId: Map<string, ClaimResponse[]>;
   patientPaidByClaimId: Map<string, number>;
+  // The notices patientPaidByClaimId sums; set by buildClaimLookups.
+  patientPaymentsByClaimId?: Map<string, PaymentNotice[]>;
   writeOffs: Map<string, PaymentNotice[]>;
 }
 
