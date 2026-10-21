@@ -80,6 +80,34 @@ describe('Invoice template suggestions', () => {
     expect(input().selectionStart).toBe('Hello {{amount}}'.length);
   });
 
+  it.each([8, 10, 14])('replaces an existing placeholder when completing at cursor position %s', async (cursor) => {
+    const user = userEvent.setup();
+    render(<Editor initialValue="Hello {{clinic}}. Thanks." />);
+    await user.click(input());
+    input().setSelectionRange(cursor, cursor);
+    fireEvent.select(input());
+    await user.click(screen.getByRole('option', { name: '{{clinic}}' }));
+    expect(input()).toHaveValue('Hello {{clinic}}. Thanks.');
+    expect(input()).toHaveFocus();
+    expect(input().selectionStart).toBe('Hello {{clinic}}'.length);
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+    await user.keyboard('!');
+    expect(input()).toHaveValue('Hello {{clinic}}!. Thanks.');
+  });
+
+  it('completes a partially typed placeholder when its chip is clicked', async () => {
+    const user = userEvent.setup();
+    render(<Editor initialValue="Hello . Thanks." />);
+    await user.click(input());
+    input().setSelectionRange(6, 6);
+    await user.paste('{{cl');
+    await user.click(screen.getByRole('button', { name: '{{clinic}}' }));
+    expect(input()).toHaveValue('Hello {{clinic}}. Thanks.');
+    expect(input()).toHaveFocus();
+    expect(input().selectionStart).toBe('Hello {{clinic}}'.length);
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+  });
+
   it('dismisses suggestions with Escape and lets Enter insert a newline', async () => {
     const user = userEvent.setup();
     render(<Editor />);

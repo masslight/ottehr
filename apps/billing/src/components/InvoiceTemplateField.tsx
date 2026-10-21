@@ -38,6 +38,18 @@ interface InvoiceTemplateFieldProps {
   isSms?: boolean;
 }
 
+function findPlaceholder(
+  text: string,
+  start: number,
+  end: number
+): { start: number; end: number; query: string; text: string } | null {
+  if (start !== end) return null;
+  const prefix = text.slice(0, start).match(/\{\{([a-z-]*)$/i);
+  if (!prefix) return null;
+  const suffix = text.slice(end).match(/^[a-z-]*\}\}/i)?.[0] ?? '';
+  return { start: start - prefix[0].length, end: end + suffix.length, query: prefix[1], text };
+}
+
 export function InvoiceTemplateField({
   label,
   value,
@@ -50,9 +62,7 @@ export function InvoiceTemplateField({
 }: InvoiceTemplateFieldProps): ReactElement {
   const [tab, setTab] = useState('write');
   const [cursor, setCursor] = useState<number | null>(null);
-  const [suggestion, setSuggestion] = useState<{ start: number; end: number; query: string; text: string } | null>(
-    null
-  );
+  const [suggestion, setSuggestion] = useState<ReturnType<typeof findPlaceholder>>(null);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const helperId = useId();
   const listId = `${helperId}-suggestions`;
@@ -83,25 +93,16 @@ export function InvoiceTemplateField({
     )
       return;
     lastSelection.current = { text: input.value, start: input.selectionStart, end: input.selectionEnd };
-    const match = input.value.slice(0, input.selectionStart).match(/\{\{([a-z-]*)$/i);
-    setSuggestion(
-      match && input.selectionStart === input.selectionEnd
-        ? {
-            start: input.selectionStart - match[0].length,
-            end: input.selectionEnd,
-            query: match[1],
-            text: input.value,
-          }
-        : null
-    );
+    setSuggestion(findPlaceholder(input.value, input.selectionStart, input.selectionEnd));
     setSelectedIndex(0);
   };
 
   const insertToken = (id: string): void => {
     if (!textarea.current || disabled) return;
     const { selectionStart, selectionEnd } = textarea.current;
-    const start = activeSuggestion?.start ?? selectionStart;
-    const end = activeSuggestion?.end ?? selectionEnd;
+    const placeholder = activeSuggestion ?? findPlaceholder(value, selectionStart, selectionEnd);
+    const start = placeholder?.start ?? selectionStart;
+    const end = placeholder?.end ?? selectionEnd;
     const token = `{{${id}}}`;
     onChange(value.slice(0, start) + token + value.slice(end));
     setCursor(start + token.length);
