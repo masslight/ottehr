@@ -104,6 +104,22 @@ const claimColumns: GridColDef[] = [
     headerAlign: 'right',
     valueFormatter: (params: { value: number }) => formatCurrency(params.value),
   },
+  {
+    field: 'writeOffsTotal',
+    headerName: 'Write-offs',
+    width: 110,
+    align: 'right',
+    headerAlign: 'right',
+    valueFormatter: (params: { value: number }) => formatCurrency(params.value),
+  },
+  {
+    field: 'claimBalance',
+    headerName: 'Balance',
+    width: 110,
+    align: 'right',
+    headerAlign: 'right',
+    valueFormatter: (params: { value: number }) => formatCurrency(params.value),
+  },
 ];
 
 export default function PatientDetail(): ReactElement {

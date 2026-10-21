@@ -52,7 +52,7 @@ function CurrentMedicationItem({ value }: { value: MedicationDTO }): JSX.Element
   const lastIntakeDate = value.intakeInfo.date && DateTime.fromISO(value.intakeInfo.date);
   let lastIntakeDateDisplay = '';
   if (lastIntakeDate instanceof DateTime) {
-    lastIntakeDateDisplay = `${lastIntakeDate.toFormat(DATE_FORMAT)} at ${lastIntakeDate.toFormat('HH:mm a')}`;
+    lastIntakeDateDisplay = `${lastIntakeDate.toFormat(DATE_FORMAT)} at ${lastIntakeDate.toFormat('hh:mm a')}`;
   }
   const additionalInfo = [
     value.intakeInfo?.dose,

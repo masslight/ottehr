@@ -4,6 +4,7 @@ import { CREATE_TIMELY_FILING_REPORT_ZAMBDA, RefreshReportKind } from 'utils/lib
 import {
   AddClaimAttachmentInputSchema,
   AddClaimNoteInputSchema,
+  AddClaimWriteOffInputSchema,
   AddEraAttachmentInputSchema,
   BulkAddChargeItemDefinitionProcedureCodesInputSchema,
   CreateBillingClaimInputSchema,
@@ -66,6 +67,7 @@ import {
   UpdateBillingProviderInputSchema,
   UpdateBillingResourceInputSchema,
   UpdateChargeItemDefinitionInputSchema,
+  VoidClaimWriteOffInputSchema,
   VoidEraInputSchema,
 } from 'utils/lib/types/data/billing/billing.schemas';
 import {
@@ -674,6 +676,18 @@ export const recordBillingManualPayment = (
   parameters: z.input<typeof RecordBillingManualPaymentInputSchema>
 ): Promise<RecordBillingManualPaymentResponse> =>
   executeBillingZambda(oystehr, 'record-billing-manual-payment', parameters);
+
+// --- Claim Write-offs ---
+
+export const addClaimWriteOff = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof AddClaimWriteOffInputSchema>
+): Promise<void> => executeBillingZambda(oystehr, 'add-claim-write-off', parameters);
+
+export const voidClaimWriteOff = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof VoidClaimWriteOffInputSchema>
+): Promise<void> => executeBillingZambda(oystehr, 'void-claim-write-off', parameters);
 
 // --- Claim Attachments ---
 

@@ -851,31 +851,30 @@ export default function ProceduresNew({
                   <>
                     <SectionLabel>Site</SectionLabel>
                     <Sentence>
+                      Site:{' '}
                       {!codingFamily?.capturesSite && (
-                        <>
-                          Site:{' '}
-                          <SelectBlank
-                            label="site/location"
-                            title="Site/location"
-                            options={selectOptions?.bodySites}
-                            value={state.bodySite}
-                            otherValue={state.otherBodySite}
-                            onOtherChange={(value) => updateState((state) => (state.otherBodySite = value))}
-                            onChange={(value) =>
-                              updateState((state) => {
-                                state.bodySite = value;
-                                state.otherBodySite = undefined;
-                              })
-                            }
-                            readOnly={isReadOnly}
-                            clearable
-                            dataTestId={dataTestIds.documentProcedurePage.site}
-                          />
-                        </>
+                        <SelectBlank
+                          label="site/location"
+                          title="Site/location"
+                          options={selectOptions?.bodySites}
+                          value={state.bodySite}
+                          otherValue={state.otherBodySite}
+                          onOtherChange={(value) => updateState((state) => (state.otherBodySite = value))}
+                          onChange={(value) =>
+                            updateState((state) => {
+                              state.bodySite = value;
+                              state.otherBodySite = undefined;
+                            })
+                          }
+                          readOnly={isReadOnly}
+                          clearable
+                          dataTestId={dataTestIds.documentProcedurePage.site}
+                        />
                       )}
-                      {!codingFamily?.capturesSite && !codingFamily?.capturesSide && ', '}
+                      {!codingFamily?.capturesSite && !codingFamily?.capturesSide && ' '}
                       {!codingFamily?.capturesSide && (
                         <>
+                          (
                           <SelectBlank
                             label="side"
                             title="Side of body"
@@ -885,8 +884,8 @@ export default function ProceduresNew({
                             readOnly={isReadOnly}
                             clearable
                             dataTestId={dataTestIds.documentProcedurePage.sideOfBody}
-                          />{' '}
-                          side
+                          />
+                          )
                         </>
                       )}
                       .
