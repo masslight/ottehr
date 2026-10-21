@@ -191,7 +191,7 @@ describe('get-billing-claim-history performEffect', () => {
   it.each([
     ['PaymentNotice/pn1', CLAIM_PROVENANCE_ACTIVITY.create, 'Create Payment'],
     ['DocumentReference/d1', CLAIM_PROVENANCE_ACTIVITY.delete, 'Delete Attachment'],
-    ['Task/t1', CLAIM_PROVENANCE_ACTIVITY.update, 'Update Invoice'],
+    ['Task/t1', CLAIM_PROVENANCE_ACTIVITY.update, 'Update Billing Task'],
   ])('labels a change to %s', async (targetReference, activity, expected) => {
     const provenance: Provenance = {
       ...provenanceBase('prov1', '2026-06-01T10:00:00Z'),
@@ -218,6 +218,32 @@ describe('get-billing-claim-history performEffect', () => {
     });
 
     expect(entries[0].activity).toBe(expected);
+  });
+
+  it("labels a change by its target's display when it has one", async () => {
+    const provenance: Provenance = {
+      ...provenanceBase('prov1', '2026-06-01T10:00:00Z'),
+      target: [
+        {
+          reference: 'Task/t1',
+          display: 'Card Charge',
+        },
+        {
+          reference: 'Claim/c1',
+        },
+      ],
+      extension: [diffExtension([])],
+    };
+    const oystehr = makeOystehr({
+      Provenance: () => pagedBundle([provenance], [practitionerU1]),
+    });
+
+    const { entries } = await performEffect(oystehr, {
+      claimId: 'c1',
+      secrets: {},
+    });
+
+    expect(entries[0].activity).toBe('Update Card Charge');
   });
 
   it('links provider references to their master screens and keeps write-time display values', async () => {

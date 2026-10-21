@@ -20,10 +20,13 @@ import {
   Reference,
   RelatedPerson,
   Resource,
+  Task,
+  TaskOutput,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { userMe } from 'utils/lib/auth/user-me.helper';
 import { formatBillingProviderLicense, getClaimNonInsurancePayer } from 'utils/lib/fhir/billing';
+import { RcmTaskCode } from 'utils/lib/fhir/constants';
 import { convertFhirNameToDisplayName } from 'utils/lib/fhir/convertFhirNameToDisplayName';
 import { getNPI, getTaxID, makeOptimisticLockIfMatchHeader } from 'utils/lib/fhir/helpers';
 import {
@@ -395,6 +398,45 @@ function projectClaimResponse(claimResponse: ClaimResponse): FieldProjection[] {
   ];
 }
 
+const taskOutputString = (task: Task, code: string): string =>
+  task.output?.find((output) => output.type.coding?.some((coding) => coding.code === code))?.valueString ?? '';
+
+// Outreach executors record each attempt in its own outputs, typed by text.
+const outreachOutput = (task: Task, text: string): TaskOutput | undefined =>
+  task.output?.find((output) => output.type.text === text);
+
+// The amount is left out: invoice refreshes rewrite it as the balance moves, which isn't a step.
+function projectTask(task: Task): FieldProjection[] {
+  const attempts = outreachOutput(task, 'attempt-count')?.valueInteger;
+  return [
+    {
+      field: 'status',
+      label: 'Status',
+      value: task.status,
+    },
+    {
+      field: 'invoiceStatus',
+      label: 'Invoice Status',
+      value: taskOutputString(task, RcmTaskCode.stripeInvoiceStatus),
+    },
+    {
+      field: 'error',
+      label: 'Error',
+      value: taskOutputString(task, RcmTaskCode.sendInvoiceOutputError),
+    },
+    {
+      field: 'attempts',
+      label: 'Attempts',
+      value: attempts === undefined ? '' : String(attempts),
+    },
+    {
+      field: 'result',
+      label: 'Result',
+      value: attempts === undefined ? '' : outreachOutput(task, `attempt-${attempts}-result`)?.valueString ?? '',
+    },
+  ];
+}
+
 function projectResource(resource: Resource): FieldProjection[] {
   switch (resource.resourceType) {
     case 'Claim':
@@ -417,6 +459,8 @@ function projectResource(resource: Resource): FieldProjection[] {
       return projectDocumentReference(resource as DocumentReference);
     case 'ClaimResponse':
       return projectClaimResponse(resource as ClaimResponse);
+    case 'Task':
+      return projectTask(resource as Task);
     default:
       return [];
   }
@@ -600,6 +644,8 @@ export interface ClaimProvenanceArgs {
   // Reference to the changed resource. During a creating transaction this may be a urn:uuid fullUrl,
   // which the server resolves to a literal reference.
   targetReference: string;
+  // Names the changed resource in the history view when its type alone doesn't (a billing Task's step).
+  targetDisplay?: string;
   // Reference to the claim this change belongs to (may equal targetReference). Absent for a payment
   // taken before its claim exists; claimHistoryLinkRequests adds it once the claim does.
   claimReference?: string;
@@ -690,7 +736,12 @@ export function claimProvenanceRequest(args: ClaimProvenanceArgs): BatchInputPos
   )
     return null;
 
-  const target = [{ reference: args.targetReference }];
+  const target: Reference[] = [
+    {
+      reference: args.targetReference,
+      ...(args.targetDisplay ? { display: args.targetDisplay } : {}),
+    },
+  ];
   if (args.claimReference && args.claimReference !== args.targetReference) {
     target.push({
       reference: args.claimReference,
@@ -884,14 +935,17 @@ export async function claimHistoryLinkRequests({
   };
 }
 
+// With a sourceReference, only an entry recorded from that source counts (e.g. one Task version).
 export async function claimHistoryHasEntryFor({
   oystehr,
   claimId,
   targetReference,
+  sourceReference,
 }: {
   oystehr: Oystehr;
   claimId: string;
   targetReference: string;
+  sourceReference?: string;
 }): Promise<boolean> {
   const provenances = (
     await oystehr.fhir.search<Provenance>({
@@ -904,7 +958,11 @@ export async function claimHistoryHasEntryFor({
       ],
     })
   ).unbundle();
-  return provenances.some((provenance) => provenance.target?.some((target) => target.reference === `Claim/${claimId}`));
+  return provenances.some(
+    (provenance) =>
+      provenance.target?.some((target) => target.reference === `Claim/${claimId}`) &&
+      (!sourceReference || provenance.entity?.some((entity) => entity.what.reference === sourceReference))
+  );
 }
 
 /**

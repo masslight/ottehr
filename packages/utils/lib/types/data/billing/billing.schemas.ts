@@ -1,3 +1,4 @@
+import { Task } from 'fhir/r4b';
 import { z } from 'zod';
 import { SUBSCRIBER_RELATIONSHIPS } from '../../../fhir/constants';
 import { INSURANCE_CANDID_PLAN_TYPE_CODES } from '../../../fhir/insurance';
@@ -896,6 +897,22 @@ export const RecordBillingVoidInputSchema = z.object({
   clinicalPaymentNoticeId: nonEmptyString.uuid(),
 });
 
+// a version of a Task as the clinical subscription read it
+const taskVersionSchema = z.custom<Task>(
+  (value) => {
+    const task = value as Partial<Task> | undefined;
+    return task?.resourceType === 'Task' && !!task.id && !!task.meta?.versionId;
+  },
+  {
+    message: 'Expected a Task with an id and a version',
+  }
+);
+
+export const RecordBillingTaskHistoryInputSchema = z.object({
+  task: taskVersionSchema,
+  previousTask: taskVersionSchema.optional(),
+});
+
 export const AddClaimAttachmentInputSchema = z.object({
   claimId: nonEmptyString,
   name: nonEmptyString,
@@ -1126,6 +1143,7 @@ export type CreateBillingClaimFromEncounterInput = z.output<typeof CreateBilling
 export type CreateBillingClaimTaskInput = z.output<typeof CreateBillingClaimTaskInputSchema>;
 export type RecordBillingRefundInput = z.output<typeof RecordBillingRefundInputSchema>;
 export type RecordBillingVoidInput = z.output<typeof RecordBillingVoidInputSchema>;
+export type RecordBillingTaskHistoryInput = z.output<typeof RecordBillingTaskHistoryInputSchema>;
 export type UpdateBillingClaimTaskInput = z.output<typeof UpdateBillingClaimTaskInputSchema>;
 export type SearchBillingClaimTasksInput = z.output<typeof SearchBillingClaimTasksInputSchema>;
 export type UpdateBillingResourceInput = z.output<typeof UpdateBillingResourceInputSchema>;

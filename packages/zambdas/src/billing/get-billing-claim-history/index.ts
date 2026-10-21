@@ -204,7 +204,10 @@ function toHistoryEntry(
   return {
     id: provenance.id ?? '',
     recorded: provenance.recorded ?? '',
-    activity: activityDisplay(activityCode ?? '', resourceType),
+    activity: activityDisplay(
+      activityCode ?? '',
+      provenance.target?.[0]?.display ?? CLAIM_HISTORY_RESOURCE_LABELS[resourceType] ?? resourceType
+    ),
     actor: {
       display: actorDisplay(agentsByRef.get(agentRef ?? ''), agentRef ?? ''),
       type: agentTypeCode === 'system' ? 'system' : 'user',
@@ -295,8 +298,7 @@ async function attachLinksAndFallbackNames(oystehr: Oystehr, entries: ClaimHisto
   }
 }
 
-function activityDisplay(code: string, resourceType: string): string {
-  const label = CLAIM_HISTORY_RESOURCE_LABELS[resourceType] ?? resourceType ?? 'Resource';
+function activityDisplay(code: string, label: string): string {
   switch (code) {
     case CLAIM_PROVENANCE_ACTIVITY_CODES.create:
       return `Create ${label}`;

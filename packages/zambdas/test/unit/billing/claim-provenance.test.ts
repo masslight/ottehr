@@ -9,8 +9,9 @@ import {
   PaymentNotice,
   Provenance,
   ProvenanceAgent,
+  Task,
 } from 'fhir/r4b';
-import { PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import { PAYMENT_METHOD_EXTENSION_URL, RcmTaskCodings } from 'utils/lib/fhir/constants';
 import {
   buildPaymentRefundsExtension,
   buildPaymentVoidExtension,
@@ -343,7 +344,131 @@ describe('diffResources payer responses', () => {
   });
 });
 
+describe('diffResources billing tasks', () => {
+  const task = (overrides: Partial<Task> = {}): Task => ({
+    resourceType: 'Task',
+    id: 't1',
+    status: 'requested',
+    intent: 'order',
+    ...overrides,
+  });
+
+  it('records each status change', () => {
+    expect(diffResources(task(), task({ status: 'in-progress' }))).toEqual([
+      {
+        field: 'status',
+        label: 'Status',
+        previousValue: 'requested',
+        newValue: 'in-progress',
+      },
+    ]);
+  });
+
+  it('records nothing for a balance refresh, which only moves the amount', () => {
+    const withAmount = (amountCents: string): Task =>
+      task({
+        input: [
+          {
+            type: {
+              text: 'amountCents',
+            },
+            valueString: amountCents,
+          },
+        ],
+      });
+    expect(diffResources(withAmount('5000'), withAmount('3000'))).toEqual([]);
+  });
+
+  it('records the error a failed invoice send left', () => {
+    const failed = task({
+      status: 'failed',
+      output: [
+        {
+          type: RcmTaskCodings.sendInvoiceOutputError,
+          valueString: 'Patient has no email',
+        },
+      ],
+    });
+    expect(diffResources(task(), failed)).toContainEqual({
+      field: 'error',
+      label: 'Error',
+      previousValue: null,
+      newValue: 'Patient has no email',
+    });
+  });
+
+  it("records an outreach task's latest attempt", () => {
+    const attempted = task({
+      status: 'failed',
+      output: [
+        {
+          type: {
+            text: 'attempt-count',
+          },
+          valueInteger: 2,
+        },
+        {
+          type: {
+            text: 'attempt-2-result',
+          },
+          valueString: 'Card declined',
+        },
+        {
+          type: {
+            text: 'attempt-1-result',
+          },
+          valueString: 'success',
+        },
+      ],
+    });
+    expect(diffResources(task(), attempted)).toEqual([
+      {
+        field: 'status',
+        label: 'Status',
+        previousValue: 'requested',
+        newValue: 'failed',
+      },
+      {
+        field: 'attempts',
+        label: 'Attempts',
+        previousValue: null,
+        newValue: '2',
+      },
+      {
+        field: 'result',
+        label: 'Result',
+        previousValue: null,
+        newValue: 'Card declined',
+      },
+    ]);
+  });
+});
+
 describe('claimEventProvenanceRequest', () => {
+  it('names the changed resource with its display when given one', () => {
+    const request = claimEventProvenanceRequest({
+      targetReference: 'Task/t1',
+      targetDisplay: 'Card Charge',
+      claimId: 'c1',
+      after: {
+        resourceType: 'Task',
+        status: 'draft',
+        intent: 'order',
+      } as Task,
+      agent,
+      activity: 'create',
+    });
+    expect(request!.resource.target).toEqual([
+      {
+        reference: 'Task/t1',
+        display: 'Card Charge',
+      },
+      {
+        reference: CLAIM_REF,
+      },
+    ]);
+  });
+
   it('targets the changed resource and the claim, and stamps the prior version', () => {
     const before = documentReference('a.pdf', {
       meta: {

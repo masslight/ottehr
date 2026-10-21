@@ -177,5 +177,17 @@ export const CLAIM_HISTORY_RESOURCE_LABELS: Record<string, string> = {
   Location: 'Service Facility',
   PaymentNotice: 'Payment',
   DocumentReference: 'Attachment',
-  Task: 'Invoice',
+  Task: 'Billing Task',
+};
+
+// The billing Tasks recorded in claim history, by Task.code, labelled for the history view; written
+// as the Provenance target's display so an entry names its step (e.g. 'Update Card Charge').
+export const CLAIM_HISTORY_TASK_LABELS: Record<string, string> = {
+  'send-invoice-to-patient': 'Invoice',
+  'generate-statement': 'Statement',
+  'send-patient-statement-by-mail': 'Mailed Statement',
+  'send-notification': 'Patient Notification',
+  'charge-card': 'Card Charge',
+  'refer-to-collections': 'Collections Referral',
+  log: 'Outreach Log',
 };
