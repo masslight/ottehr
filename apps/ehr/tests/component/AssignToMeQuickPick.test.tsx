@@ -2,11 +2,12 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { Encounter } from 'fhir/r4b';
 import { ReactNode } from 'react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, useNavigate } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 let roles: string[] = [];
 let encounter: Encounter | undefined;
+let followUpOriginEncounter: Encounter | undefined;
 const handleUpdatePractitioner = vi.fn(async (_practitionerId: string) => {});
 const enqueueSnackbar = vi.fn();
 
@@ -15,11 +16,16 @@ vi.mock('../../src/hooks/useEvolveUser', () => ({
 }));
 
 vi.mock('../../src/features/visits/shared/stores/appointment/appointment.store', () => ({
-  useAppointmentData: () => ({ encounter }),
+  useAppointmentData: () => ({ encounter, followUpOriginEncounter }),
+}));
+
+const usePractitionerActions = vi.fn((_encounter?: Encounter) => ({
+  isEncounterUpdatePending: false,
+  handleUpdatePractitioner,
 }));
 
 vi.mock('../../src/features/visits/shared/hooks/usePractitioner', () => ({
-  usePractitionerActions: () => ({ isEncounterUpdatePending: false, handleUpdatePractitioner }),
+  usePractitionerActions: (encounterToUpdate?: Encounter) => usePractitionerActions(encounterToUpdate),
 }));
 
 vi.mock('../../src/features/visits/shared/hooks/chartSectionCache', () => ({
@@ -31,9 +37,9 @@ vi.mock('notistack', () => ({ enqueueSnackbar: (...args: unknown[]) => enqueueSn
 import { useAssignToMeQuickPick } from '../../src/hooks/useAssignToMeQuickPick';
 import { useCommandPaletteStore } from '../../src/state/command-palette.store';
 
-const encounterWithProvider = (practitionerId?: string): Encounter => ({
+const encounterWithProvider = (practitionerId?: string, id = 'enc-1'): Encounter => ({
   resourceType: 'Encounter',
-  id: 'enc-1',
+  id,
   status: 'in-progress',
   class: { code: 'AMB' },
   participant: practitionerId
@@ -46,16 +52,26 @@ const encounterWithProvider = (practitionerId?: string): Encounter => ({
     : undefined,
 });
 
-const renderAt = (pathname: string): void => {
+/** Renders the hook at `pathname`; the returned function navigates the same router elsewhere. */
+const renderAt = (pathname: string): ((to: string) => void) => {
   const queryClient = new QueryClient();
-  renderHook(() => useAssignToMeQuickPick(), {
-    wrapper: ({ children }: { children: ReactNode }) => (
-      <QueryClientProvider client={queryClient}>
-        <MemoryRouter initialEntries={[pathname]}>{children}</MemoryRouter>
-      </QueryClientProvider>
-    ),
-  });
+  const { result } = renderHook(
+    () => {
+      useAssignToMeQuickPick();
+      return useNavigate();
+    },
+    {
+      wrapper: ({ children }: { children: ReactNode }) => (
+        <QueryClientProvider client={queryClient}>
+          <MemoryRouter initialEntries={[pathname]}>{children}</MemoryRouter>
+        </QueryClientProvider>
+      ),
+    }
+  );
+  return (to) => act(() => void result.current(to));
 };
+
+const lastBoundEncounterId = (): string | undefined => usePractitionerActions.mock.calls.at(-1)?.[0]?.id;
 
 const assignItem = (): { onSelect: () => void } | undefined =>
   useCommandPaletteStore.getState().sources['assign-chart-to-me']?.items[0];
@@ -66,6 +82,7 @@ describe('useAssignToMeQuickPick', () => {
     useCommandPaletteStore.setState({ sources: {} });
     roles = ['Provider'];
     encounter = encounterWithProvider('someone-else');
+    followUpOriginEncounter = encounter;
   });
 
   it('takes over a chart assigned to another provider', async () => {
@@ -118,6 +135,30 @@ describe('useAssignToMeQuickPick', () => {
     renderAt('/visit/appt-1');
 
     expect(assignItem()).toBeDefined();
+  });
+
+  it('assigns the selected annotation follow-up on the chart', () => {
+    followUpOriginEncounter = encounterWithProvider('someone-else', 'origin-enc');
+    encounter = encounterWithProvider('someone-else', 'followup-enc');
+
+    renderAt('/in-person/appt-1/progress-note');
+
+    expect(assignItem()).toBeDefined();
+    expect(lastBoundEncounterId()).toBe('followup-enc');
+  });
+
+  it("switches to the visit's own encounter when moving from a selected annotation follow-up to visit details", () => {
+    followUpOriginEncounter = encounterWithProvider('someone-else', 'origin-enc');
+    // The follow-up is already the user's, so going by it would hide the command on visit details.
+    encounter = encounterWithProvider('me', 'followup-enc');
+
+    const navigate = renderAt('/in-person/appt-1/progress-note');
+    expect(assignItem()).toBeUndefined();
+
+    navigate('/visit/appt-1');
+
+    expect(assignItem()).toBeDefined();
+    expect(lastBoundEncounterId()).toBe('origin-enc');
   });
 
   it('reports a failed assignment', async () => {

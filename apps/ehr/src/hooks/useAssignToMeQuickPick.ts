@@ -1,6 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
 import { useMemo } from 'react';
+import { matchPath, useLocation } from 'react-router-dom';
 import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
 import { canBeAssignedAsProvider } from 'utils/lib/types/api/get-employees/get-employees.types';
 import { PRACTITIONER_CODINGS } from 'utils/lib/types/data/appointments/appointments.types';
@@ -21,8 +22,12 @@ import useEvolveUser from './useEvolveUser';
 export function useAssignToMeQuickPick(): void {
   const currentUser = useEvolveUser();
   const queryClient = useQueryClient();
+  const { pathname } = useLocation();
   const { visitId } = useCommandPaletteRouteContext();
-  const { encounter } = useAppointmentData(visitId);
+  const { encounter: selectedEncounter, followUpOriginEncounter } = useAppointmentData(visitId);
+  // The chart may have an annotation follow-up selected, and that selection outlives the chart. Visit
+  // details shows only the appointment's own encounter, so act on that one there.
+  const encounter = matchPath('/visit/:id', pathname) ? followUpOriginEncounter : selectedEncounter;
   const { isEncounterUpdatePending, handleUpdatePractitioner } = usePractitionerActions(
     encounter,
     'start',
