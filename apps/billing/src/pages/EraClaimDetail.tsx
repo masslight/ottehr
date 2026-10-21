@@ -38,6 +38,7 @@ import { carcDescription } from 'utils/lib/types/data/billing/carc';
 import { formatCurrency, roundNumberToDecimalPlaces } from 'utils/lib/utils/convert';
 import { getAgeInYears } from 'utils/lib/validation/helper';
 import { getBillingEraDetail, lookupProcedureDescriptions } from '../api/api';
+import { useRarcDescription } from '../components/era/RemitCodeAutocomplete';
 import { AdjustmentChip, AmountChip, EraStatusChip } from '../components/EraChips';
 import { ReadOnlySection, thSx } from '../components/ReadOnlySection';
 import { adjustmentDescription, isAdverseRemitStatus } from '../constants/era';
@@ -90,7 +91,9 @@ function ServiceLineRow({
   descriptions: Record<string, string>;
 }): ReactElement {
   const [expanded, setExpanded] = useState(true);
+  const rarcDescription = useRarcDescription();
   const patientResp = sumPatientResp(line.adjustments);
+  const hasDetail = line.adjustments.length > 0 || line.remarkCodes.length > 0;
   const hasPrBuckets = line.adjustments.some(
     (adjustment) => adjustment.groupCode === X12_ADJUSTMENT_GROUP_CODE.patientResponsibility
   );
@@ -113,9 +116,9 @@ function ServiceLineRow({
 
   return (
     <>
-      <TableRow sx={{ '& > td': { borderBottom: line.adjustments.length > 0 ? 'none' : undefined } }}>
+      <TableRow sx={{ '& > td': { borderBottom: hasDetail ? 'none' : undefined } }}>
         <TableCell sx={{ width: 40, py: 0.5 }}>
-          {line.adjustments.length > 0 && (
+          {hasDetail && (
             <IconButton size="small" onClick={() => setExpanded((prev) => !prev)} aria-label="Toggle adjustments">
               {expanded ? <KeyboardArrowDownIcon fontSize="small" /> : <KeyboardArrowRightIcon fontSize="small" />}
             </IconButton>
@@ -135,39 +138,56 @@ function ServiceLineRow({
           <AmountChip label={formatCurrency(patientResp)} color={patientResp > 0 ? 'warning' : 'default'} />
         </TableCell>
       </TableRow>
-      {line.adjustments.length > 0 && (
+      {hasDetail && (
         <TableRow>
           <TableCell colSpan={8} sx={{ py: 0 }}>
             <Collapse in={expanded} timeout="auto" unmountOnExit>
               <Box sx={{ py: 1, pl: 5 }}>
-                <Table size="small">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell sx={{ ...thSx, width: 80, borderBottom: 'none' }}>Group</TableCell>
-                      <TableCell sx={{ ...thSx, width: 80, borderBottom: 'none' }}>CARC</TableCell>
-                      <TableCell sx={{ ...thSx, borderBottom: 'none' }}>Description</TableCell>
-                      <TableCell sx={{ ...thSx, borderBottom: 'none' }} align="right">
-                        Amount
-                      </TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {line.adjustments.map((adjustment, idx) => (
-                      <TableRow key={idx} sx={{ '& > td': { borderBottom: 'none', py: 0.5 } }}>
-                        <TableCell>
-                          <AdjustmentChip groupCode={adjustment.groupCode} label={adjustment.groupCode} />
-                        </TableCell>
-                        <TableCell>{adjustment.reasonCode || '-'}</TableCell>
-                        <TableCell>{adjustmentDescription(adjustment)}</TableCell>
-                        <TableCell align="right">
-                          <Typography variant="body2" fontWeight={700} component="span">
-                            {formatCurrency(adjustment.amount)}
-                          </Typography>
+                {line.adjustments.length > 0 && (
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell sx={{ ...thSx, width: 80, borderBottom: 'none' }}>Group</TableCell>
+                        <TableCell sx={{ ...thSx, width: 80, borderBottom: 'none' }}>CARC</TableCell>
+                        <TableCell sx={{ ...thSx, borderBottom: 'none' }}>Description</TableCell>
+                        <TableCell sx={{ ...thSx, borderBottom: 'none' }} align="right">
+                          Amount
                         </TableCell>
                       </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {line.adjustments.map((adjustment, idx) => (
+                        <TableRow key={idx} sx={{ '& > td': { borderBottom: 'none', py: 0.5 } }}>
+                          <TableCell>
+                            <AdjustmentChip groupCode={adjustment.groupCode} label={adjustment.groupCode} />
+                          </TableCell>
+                          <TableCell>{adjustment.reasonCode || '-'}</TableCell>
+                          <TableCell>{adjustmentDescription(adjustment)}</TableCell>
+                          <TableCell align="right">
+                            <Typography variant="body2" fontWeight={700} component="span">
+                              {formatCurrency(adjustment.amount)}
+                            </Typography>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+                {line.remarkCodes.length > 0 && (
+                  <Box sx={{ pl: 2, pt: 1 }}>
+                    <Typography variant="caption" color="text.secondary">
+                      Remark codes
+                    </Typography>
+                    {line.remarkCodes.map((code) => (
+                      <Typography key={code} variant="body2">
+                        <Box component="span" sx={{ fontWeight: 700 }}>
+                          {code}
+                        </Box>
+                        {rarcDescription(code) ? ` — ${rarcDescription(code)}` : ''}
+                      </Typography>
                     ))}
-                  </TableBody>
-                </Table>
+                  </Box>
+                )}
                 {hasPrBuckets && (
                   <Stack direction="row" spacing={4} sx={{ pl: 2, pt: 1 }}>
                     <InlinePair label="Deductible" value={formatCurrency(line.deductible)} />
@@ -216,7 +236,7 @@ function RemitSection({
         <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 1.5 }}>
           {remit.eraStatusCode && <EraStatusChip statusCode={remit.eraStatusCode} />}
           <Typography variant="body2" color="text.secondary">
-            {[remit.outcome, formatDate(remit.created), remit.disposition].filter(Boolean).join(' · ')}
+            {[formatDate(remit.created), remit.disposition].filter(Boolean).join(' · ')}
           </Typography>
         </Stack>
       )}

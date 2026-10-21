@@ -63,6 +63,33 @@ export class ReviewOfSystemsPage {
       await expect(checkbox, `Reports checkbox for "${findingLabel}" should be unchecked`).not.toBeChecked();
     }
   }
+
+  #getCommentTextarea(systemKey: string): Locator {
+    return this.#page
+      .getByTestId(dataTestIds.reviewOfSystemsPage.rosCommentField(systemKey))
+      .locator('textarea')
+      .locator('visible=true');
+  }
+
+  async fillComment(systemKey: string, comment: string): Promise<void> {
+    // The comment is saved by a debounced onChange, so wait for the save carrying this text
+    const savePromise = this.#page.waitForResponse(
+      (response) =>
+        response.url().includes('/save-chart-data') &&
+        response.status() === 200 &&
+        (response.request().postData() ?? '').includes(comment),
+      { timeout: 30_000 }
+    );
+    await this.#getCommentTextarea(systemKey).fill(comment);
+    await savePromise;
+  }
+
+  async assertCommentValue(systemKey: string, expectedComment: string): Promise<void> {
+    await expect(
+      this.#getCommentTextarea(systemKey),
+      `Comment for "${systemKey}" should be "${expectedComment}"`
+    ).toHaveValue(expectedComment);
+  }
 }
 
 export async function expectReviewOfSystemsPage(page: Page): Promise<ReviewOfSystemsPage> {

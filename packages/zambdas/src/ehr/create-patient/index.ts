@@ -1,5 +1,5 @@
 import Oystehr, { BatchInputDeleteRequest } from '@oystehr/sdk';
-import { captureException } from '@sentry/aws-serverless';
+import { captureException } from '@sentry/node-core/light';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Account, List, Patient, RelatedPerson } from 'fhir/r4b';
 import { formatPhoneNumber } from 'utils/lib/helpers/helpers';

@@ -1,4 +1,9 @@
-import { Add as AddIcon, Clear as ClearIcon, Search as SearchIcon } from '@mui/icons-material';
+import {
+  Add as AddIcon,
+  Clear as ClearIcon,
+  KeyboardArrowDown as KeyboardArrowDownIcon,
+  Search as SearchIcon,
+} from '@mui/icons-material';
 import {
   Alert,
   Autocomplete,
@@ -6,9 +11,10 @@ import {
   Button,
   Chip,
   InputAdornment,
+  Menu,
+  MenuItem,
   Stack,
   TextField,
-  Tooltip,
   Typography,
 } from '@mui/material';
 import { DataGridPro, GridColDef, GridPaginationModel, GridRowSelectionModel } from '@mui/x-data-grid-pro';
@@ -19,12 +25,18 @@ import { useNavigate } from 'react-router-dom';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { CODE_SYSTEM_CLAIM_TYPE_CODES } from 'utils/lib/helpers/rcm/constants';
 import { EXPORT_CLAIMS_MATCH_LIMIT } from 'utils/lib/types/data/billing/billing.constants';
-import { ExportBillingClaimsInput, SearchBillingClaimsInput } from 'utils/lib/types/data/billing/billing.schemas';
+import {
+  ExportBillingClaimsInput,
+  SearchBillingClaimsInput,
+  UpdateBillingResourceInput,
+} from 'utils/lib/types/data/billing/billing.schemas';
 import {
   BillingClaimItem,
   BillingPatientOption,
   BillingPayerOption,
+  BillingProviderOption,
   BillingService,
+  ServiceFacilityItem,
 } from 'utils/lib/types/data/billing/billing.types';
 import {
   ALL_CLAIM_STATUS_OPTIONS_2,
@@ -32,7 +44,9 @@ import {
   CLAIM_STATUS_FIELDS,
   CLAIM_STATUS_FIELDS_BY_KEY,
   CLAIM_STATUS_GROUPS,
+  ClaimStatusFieldKey,
   ClaimStatusOption,
+  ClaimStatusValues,
   formatAntCaseString,
   formatClaimStatusValue,
 } from 'utils/lib/types/data/billing/claim-status';
@@ -48,15 +62,21 @@ import {
   searchBillingPatients,
   searchBillingServices,
   searchBillingTags,
+  tagBillingClaim,
+  updateBillingResource,
 } from '../api/api';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
+import { ClaimStatusFields } from '../components/claim/ClaimStatusFields';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { DateRangeInput } from '../components/DateInput';
 import { usePayerSearch } from '../components/PayerSelect';
+import { TagSelect } from '../components/TagSelect';
 import { WarningIconWithTooltip } from '../components/WarningIconWithTooltip';
 import { claimStatusValueColor, PROVISIONAL_BALANCE_HINT } from '../constants/claimStatus';
 import { useApiClients } from '../hooks/useAppClients';
+import { useFacilityOptionsSearch, useProviderOptionsSearch } from '../hooks/useOptionSearch';
 import { downloadTextFile } from '../utils/downloadFile';
+import { formatFacilityAddress, valueToText } from '../utils/format';
 import { pollExportTask } from '../utils/pollExportTask';
 
 type ClaimTypeCode = keyof typeof CODE_SYSTEM_CLAIM_TYPE_CODES;
@@ -304,9 +324,17 @@ export default function ClaimsList(): ReactElement {
   const [serviceOptions, setServiceOptions] = useState<BillingService[]>([]);
 
   const [selected, setSelected] = useState<GridRowSelectionModel>([]);
-  const [confirmingSubmit, setConfirmingSubmit] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
+  const [runRulesModalOpen, setRunRulesModalOpen] = useState(false);
+  const [submittingRunRules, setSubmittingRunRules] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [claimActionMenuAnchorEl, setClaimActionMenuAnchorEl] = useState<HTMLElement | null>(null);
+  const [claimActionMenuOpen, setClaimActionMenuOpen] = useState(false);
+  const [bulkAddTagModalOpen, setBulkAddTagModalOpen] = useState(false);
+  const [bulkRemoveTagModalOpen, setBulkRemoveTagModalOpen] = useState(false);
+  const [bulkUpdateStatusModalOpen, setBulkUpdateStatusModalOpen] = useState(false);
+  const [bulkSetRPModalOpen, setBulkSetRPModalOpen] = useState(false);
+  const [bulkSetBPModalOpen, setBulkSetBPModalOpen] = useState(false);
+  const [bulkSetSFModalOpen, setBulkSetSFModalOpen] = useState(false);
 
   const { options: payerOptions, search: searchPayers } = usePayerSearch();
   const [nioOptions, setNioOptions] = useState<NonInsuranceOrganizationItem[]>([]);
@@ -544,6 +572,10 @@ export default function ClaimsList(): ReactElement {
     void fetchClaims({}, resetPage);
   };
 
+  const fetchClaimsWithCurrentFilters = useCallback(async () => {
+    return fetchClaims(currentFilters(), paginationModel);
+  }, [currentFilters, fetchClaims, paginationModel]);
+
   const hasFilters =
     searchText ||
     arStageFilter.length ||
@@ -563,9 +595,9 @@ export default function ClaimsList(): ReactElement {
   // each claim's engine from its AR stage: one engine run is kicked off per claim, and each run
   // applies the configured rules, then performs its engine's success effect — submit to the payer
   // or make ready to invoice — or holds its claim, in the background.
-  const handleSubmit = useCallback(async (): Promise<void> => {
+  const handleRunRulesSubmit = useCallback(async (): Promise<void> => {
     if (!oystehrZambda || selected.length === 0) return;
-    setSubmitting(true);
+    setSubmittingRunRules(true);
     try {
       await runBillingRulesEngine(oystehrZambda, { claimIds: selected.map(String) });
       enqueueSnackbar(
@@ -583,8 +615,8 @@ export default function ClaimsList(): ReactElement {
         { variant: 'error' }
       );
     } finally {
-      setSubmitting(false);
-      setConfirmingSubmit(false);
+      setSubmittingRunRules(false);
+      setRunRulesModalOpen(false);
       void fetchClaims(currentFilters(), paginationModel);
     }
   }, [oystehrZambda, selected, fetchClaims, currentFilters, paginationModel]);
@@ -634,24 +666,87 @@ export default function ClaimsList(): ReactElement {
         </Typography>
         <Box sx={{ display: 'flex', gap: 1 }}>
           {selected.length > 0 && (
-            <Tooltip
-              title={
-                selected.length > MAX_RUN_RULES_ENGINE_CLAIMS
-                  ? `Select up to ${MAX_RUN_RULES_ENGINE_CLAIMS} claims to run rules on at once`
-                  : ''
-              }
-            >
-              <span>
-                <Button
-                  variant="outlined"
-                  size="small"
-                  disabled={selected.length > MAX_RUN_RULES_ENGINE_CLAIMS}
-                  onClick={() => setConfirmingSubmit(true)}
+            <>
+              <Button
+                variant="outlined"
+                disabled={selected.length > MAX_RUN_RULES_ENGINE_CLAIMS}
+                onClick={(event) => {
+                  setClaimActionMenuAnchorEl(event.currentTarget);
+                  setClaimActionMenuOpen(true);
+                }}
+                endIcon={<KeyboardArrowDownIcon />}
+              >
+                Actions
+              </Button>
+              <Menu
+                id="claim-actions-menu"
+                anchorEl={claimActionMenuAnchorEl}
+                open={claimActionMenuOpen}
+                onClose={() => setClaimActionMenuOpen(false)}
+              >
+                <MenuItem
+                  onClick={() => {
+                    setBulkAddTagModalOpen(true);
+                    setClaimActionMenuOpen(false);
+                  }}
+                  disableRipple
                 >
-                  Run rules ({selected.length})
-                </Button>
-              </span>
-            </Tooltip>
+                  Add tag
+                </MenuItem>
+                <MenuItem
+                  onClick={() => {
+                    setBulkRemoveTagModalOpen(true);
+                    setClaimActionMenuOpen(false);
+                  }}
+                  disableRipple
+                >
+                  Remove tag
+                </MenuItem>
+                <MenuItem
+                  onClick={() => {
+                    setBulkUpdateStatusModalOpen(true);
+                    setClaimActionMenuOpen(false);
+                  }}
+                  disableRipple
+                >
+                  Update Status
+                </MenuItem>
+                <MenuItem
+                  onClick={() => {
+                    setBulkSetRPModalOpen(true);
+                    setClaimActionMenuOpen(false);
+                  }}
+                  disableRipple
+                >
+                  Set Rendering Provider
+                </MenuItem>
+                <MenuItem
+                  onClick={() => {
+                    setBulkSetBPModalOpen(true);
+                    setClaimActionMenuOpen(false);
+                  }}
+                  disableRipple
+                >
+                  Set Billing Provider
+                </MenuItem>
+                <MenuItem
+                  onClick={() => {
+                    setBulkSetSFModalOpen(true);
+                    setClaimActionMenuOpen(false);
+                  }}
+                  disableRipple
+                >
+                  Set Service Facility
+                </MenuItem>
+              </Menu>
+              <Button
+                variant="outlined"
+                disabled={selected.length > MAX_RUN_RULES_ENGINE_CLAIMS}
+                onClick={() => setRunRulesModalOpen(true)}
+              >
+                Run Rules ({selected.length})
+              </Button>
+            </>
           )}
           <Button variant="contained" startIcon={<AddIcon />} onClick={() => navigate('/claims/new')}>
             Add Claim
@@ -842,10 +937,12 @@ export default function ClaimsList(): ReactElement {
           }}
         />
 
-        {hasFilters && (
+        {hasFilters ? (
           <Button variant="text" size="small" startIcon={<ClearIcon />} onClick={clearFilters}>
             Clear filters
           </Button>
+        ) : (
+          <></>
         )}
       </Box>
 
@@ -882,6 +979,7 @@ export default function ClaimsList(): ReactElement {
         disableRowSelectionOnClick
         disableColumnMenu
         checkboxSelection
+        checkboxSelectionVisibleOnly
         isRowSelectable={(params) => !!(params.row as BillingClaimItem).rulesEngine}
         rowSelectionModel={selected}
         onRowSelectionModelChange={setSelected}
@@ -893,18 +991,566 @@ export default function ClaimsList(): ReactElement {
         sx={{ ...dataGridSx, height: 'calc(100vh - 310px)' }}
       />
 
+      {/* Run Rules Modal */}
       <ConfirmDialog
-        open={confirmingSubmit}
+        open={runRulesModalOpen}
         title="Run claim rules"
-        confirmLabel="Run rules"
-        loading={submitting}
-        onConfirm={() => void handleSubmit()}
-        onCancel={() => setConfirmingSubmit(false)}
+        confirmLabel="Run Rules"
+        loading={submittingRunRules}
+        onConfirm={() => void handleRunRulesSubmit()}
+        onCancel={() => setRunRulesModalOpen(false)}
       >
         Run rules for {selected.length} claim(s)? Each claim runs its AR stage's rules engine — when every rule passes,
         Insurance Payer AR claims are submitted to the payer and pre-invoice claims are made ready to invoice; a Hold
         keeps a claim for review.
       </ConfirmDialog>
+
+      <BulkAddTagModal
+        open={bulkAddTagModalOpen}
+        setOpen={setBulkAddTagModalOpen}
+        selected={selected}
+        refetch={fetchClaimsWithCurrentFilters}
+      />
+      <BulkRemoveTagModal
+        open={bulkRemoveTagModalOpen}
+        setOpen={setBulkRemoveTagModalOpen}
+        selected={selected}
+        refetch={fetchClaimsWithCurrentFilters}
+      />
+      <BulkUpdateStatusModal
+        open={bulkUpdateStatusModalOpen}
+        setOpen={setBulkUpdateStatusModalOpen}
+        selected={selected}
+        refetch={fetchClaimsWithCurrentFilters}
+      />
+      <BulkSetRPModal
+        open={bulkSetRPModalOpen}
+        setOpen={setBulkSetRPModalOpen}
+        selected={selected}
+        refetch={fetchClaimsWithCurrentFilters}
+      />
+      <BulkSetBPModal
+        open={bulkSetBPModalOpen}
+        setOpen={setBulkSetBPModalOpen}
+        selected={selected}
+        refetch={fetchClaimsWithCurrentFilters}
+      />
+      <BulkSetSFModal
+        open={bulkSetSFModalOpen}
+        setOpen={setBulkSetSFModalOpen}
+        selected={selected}
+        refetch={fetchClaimsWithCurrentFilters}
+      />
     </Box>
+  );
+}
+
+function BulkAddTagModal({
+  open,
+  setOpen,
+  selected,
+  refetch,
+}: {
+  open: boolean;
+  setOpen: (open: boolean) => void;
+  selected: GridRowSelectionModel;
+  refetch: () => Promise<void>;
+}): ReactElement {
+  const { oystehrZambda } = useApiClients();
+  const [value, setValue] = useState('');
+  const [error, setError] = useState<string | undefined>();
+  const [submitting, setSubmitting] = useState(false);
+  useEffect(() => {
+    setValue('');
+  }, [open]);
+  const handleSubmit = useCallback(async (): Promise<void> => {
+    if (!oystehrZambda || selected.length === 0) return;
+    setSubmitting(true);
+    try {
+      await Promise.all(
+        selected.map((selectedClaimId) => {
+          return tagBillingClaim(oystehrZambda, {
+            claimId: String(selectedClaimId),
+            action: 'add',
+            tagName: value as string,
+          });
+        })
+      );
+      void refetch();
+      enqueueSnackbar(`Tag ${value} added to selected claims.`, { variant: 'success' });
+      setOpen(false);
+    } catch (err) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError(JSON.stringify(err));
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  }, [oystehrZambda, selected, refetch, value, setOpen]);
+  return (
+    <ConfirmDialog
+      open={open}
+      title="Add tag to claims"
+      confirmLabel="Add tag"
+      loading={submitting}
+      onConfirm={() => void handleSubmit()}
+      onCancel={() => setOpen(false)}
+    >
+      <Box sx={{ display: 'grid', gridTemplateColumns: '1fr', gap: 2.25, maxWidth: 680 }}>
+        Pick a tag to add to {selected.length} selected claims.
+        <TagSelect
+          value={valueToText(value)}
+          onChange={(tag) => {
+            setValue(tag);
+          }}
+          label={'Tag'}
+          required={true}
+          error={!!error}
+          helperText={error}
+        />
+      </Box>
+    </ConfirmDialog>
+  );
+}
+
+function BulkRemoveTagModal({
+  open,
+  setOpen,
+  selected,
+  refetch,
+}: {
+  open: boolean;
+  setOpen: (open: boolean) => void;
+  selected: GridRowSelectionModel;
+  refetch: () => Promise<void>;
+}): ReactElement {
+  const { oystehrZambda } = useApiClients();
+  const [value, setValue] = useState('');
+  const [error, setError] = useState<string | undefined>();
+  const [submitting, setSubmitting] = useState(false);
+  useEffect(() => {
+    setValue('');
+  }, [open]);
+  const handleSubmit = useCallback(async (): Promise<void> => {
+    if (!oystehrZambda || selected.length === 0) return;
+    setSubmitting(true);
+    try {
+      await Promise.all(
+        selected.map((selectedClaimId) => {
+          return tagBillingClaim(oystehrZambda, {
+            claimId: String(selectedClaimId),
+            action: 'remove',
+            tagName: value as string,
+          });
+        })
+      );
+      void refetch();
+      enqueueSnackbar(`Tag ${value} removed from selected claims.`, { variant: 'success' });
+      setOpen(false);
+    } catch (err) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError(JSON.stringify(err));
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  }, [oystehrZambda, selected, refetch, value, setOpen]);
+  return (
+    <ConfirmDialog
+      open={open}
+      title="Remove tag from claims"
+      confirmLabel="Remove tag"
+      loading={submitting}
+      onConfirm={() => void handleSubmit()}
+      onCancel={() => setOpen(false)}
+    >
+      <Box sx={{ display: 'grid', gridTemplateColumns: '1fr', gap: 2.25, maxWidth: 680 }}>
+        Pick a tag to remove from {selected.length} selected claims.
+        <TagSelect
+          value={valueToText(value)}
+          onChange={(tag) => {
+            setValue(tag);
+          }}
+          label={'Tag'}
+          required={true}
+          error={!!error}
+          helperText={error}
+        />
+      </Box>
+    </ConfirmDialog>
+  );
+}
+
+const defaultClaimStatusValues = {
+  arStage: '',
+  adjudicationStatus: '',
+  insuranceArStatus: '',
+  insurancePaidStatus: '',
+  patientArStatus: '',
+  patientPaidStatus: '',
+  nonInsuranceArStatus: '',
+  nonInsurancePaidStatus: '',
+};
+
+function BulkUpdateStatusModal({
+  open,
+  setOpen,
+  selected,
+  refetch,
+}: {
+  open: boolean;
+  setOpen: (open: boolean) => void;
+  selected: GridRowSelectionModel;
+  refetch: () => Promise<void>;
+}): ReactElement {
+  const { oystehrZambda } = useApiClients();
+  const [value, setValue] = useState<ClaimStatusValues>(defaultClaimStatusValues);
+  const [submitting, setSubmitting] = useState(false);
+  useEffect(() => {
+    setValue(defaultClaimStatusValues);
+  }, [open]);
+  const onChange = useCallback(
+    (changedField: ClaimStatusFieldKey, changedValue: string) => {
+      console.log(changedField, changedValue);
+      setValue({ ...value, [changedField]: changedValue });
+    },
+    [value]
+  );
+  const handleSubmit = useCallback(async (): Promise<void> => {
+    if (!oystehrZambda || selected.length === 0) return;
+    setSubmitting(true);
+    try {
+      await Promise.all(
+        selected.map(async (selectedClaimId) => {
+          for (const [field, fieldValue] of Object.entries(value)) {
+            if (fieldValue) {
+              await oystehrZambda.zambda.execute({
+                id: 'set-billing-claim-status',
+                claimId: String(selectedClaimId),
+                field,
+                value: fieldValue || null,
+              });
+            }
+          }
+        })
+      );
+      void refetch();
+      enqueueSnackbar(`Status updated for selected claims.`, { variant: 'success' });
+      setOpen(false);
+    } catch (err) {
+      if (err instanceof Error) {
+        enqueueSnackbar(`Failed to update status for selected claims: ${err.message}.`, { variant: 'error' });
+      } else {
+        enqueueSnackbar(`Failed to update status for selected claims: ${JSON.stringify(err)}.`, { variant: 'error' });
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  }, [oystehrZambda, selected, refetch, setOpen, value]);
+  return (
+    <ConfirmDialog
+      open={open}
+      title="Update status for claims"
+      confirmLabel="Update status"
+      loading={submitting}
+      onConfirm={() => void handleSubmit()}
+      onCancel={() => setOpen(false)}
+    >
+      <Box sx={{ display: 'grid', gridTemplateColumns: '1fr', gap: 2.25, maxWidth: 680 }}>
+        <ClaimStatusFields values={value} onChange={onChange} title="Claim Status" />
+      </Box>
+    </ConfirmDialog>
+  );
+}
+
+function BulkSetRPModal({
+  open,
+  setOpen,
+  selected,
+  refetch,
+}: {
+  open: boolean;
+  setOpen: (open: boolean) => void;
+  selected: GridRowSelectionModel;
+  refetch: () => Promise<void>;
+}): ReactElement {
+  const { oystehrZambda } = useApiClients();
+  const [value, setValue] = useState<BillingProviderOption | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  useEffect(() => {
+    setValue(null);
+  }, [open]);
+  const { options, search: searchProviders } = useProviderOptionsSearch('rendering');
+  const handleSubmit = useCallback(async (): Promise<void> => {
+    if (!oystehrZambda || selected.length === 0 || !value) return;
+    setSubmitting(true);
+    try {
+      await Promise.all(
+        selected.map((selectedClaimId) => {
+          return updateBillingResource(oystehrZambda, {
+            resourceType: 'Claim',
+            resourceId: String(selectedClaimId),
+            claimId: String(selectedClaimId),
+            fields: {
+              renderingProvider: {
+                id: value.id,
+                type: value.kind === 'organization' ? 'Organization' : 'Practitioner',
+              },
+            },
+          } as UpdateBillingResourceInput);
+        })
+      );
+      void refetch();
+      enqueueSnackbar(`Rendering provider set to ${value.name} for selected claims.`, { variant: 'success' });
+      setOpen(false);
+    } catch (err) {
+      if (err instanceof Error) {
+        enqueueSnackbar(`Failed to update rendering provider for selected claims: ${err.message}.`, {
+          variant: 'error',
+        });
+      } else {
+        enqueueSnackbar(`Failed to update rendering provider for selected claims: ${JSON.stringify(err)}.`, {
+          variant: 'error',
+        });
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  }, [oystehrZambda, selected, value, refetch, setOpen]);
+  return (
+    <ConfirmDialog
+      open={open}
+      title="Set rendering provider for claims"
+      confirmLabel="Set rendering provider"
+      loading={submitting}
+      onConfirm={() => void handleSubmit()}
+      onCancel={() => setOpen(false)}
+    >
+      <Box sx={{ display: 'grid', gridTemplateColumns: '1fr', gap: 2.25, maxWidth: 680 }}>
+        Select a rendering provider for {selected.length} selected claims.
+        <Autocomplete
+          size="small"
+          options={options}
+          value={value}
+          onChange={(_, v) => setValue(v)}
+          onInputChange={(_, val, reason) => {
+            if (reason === 'input') searchProviders(val || undefined);
+          }}
+          onOpen={() => searchProviders()}
+          filterOptions={(x) => x}
+          getOptionLabel={(o) => o.name}
+          renderOption={(props, o) => (
+            <Box component="li" {...props} key={o.id}>
+              <Box>
+                <Typography variant="body2" fontWeight={500}>
+                  {o.name}
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  NPI: {o.npi} | TIN: {o.taxId}
+                </Typography>
+              </Box>
+            </Box>
+          )}
+          renderInput={(p) => <TextField {...p} size="small" label={'Choose rendering provider'} />}
+          isOptionEqualToValue={(o, v) => o.id === v.id}
+          sx={{ maxWidth: 480 }}
+        />
+      </Box>
+    </ConfirmDialog>
+  );
+}
+
+function BulkSetBPModal({
+  open,
+  setOpen,
+  selected,
+  refetch,
+}: {
+  open: boolean;
+  setOpen: (open: boolean) => void;
+  selected: GridRowSelectionModel;
+  refetch: () => Promise<void>;
+}): ReactElement {
+  const { oystehrZambda } = useApiClients();
+  const [value, setValue] = useState<BillingProviderOption | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  useEffect(() => {
+    setValue(null);
+  }, [open]);
+  const { options, search: searchProviders } = useProviderOptionsSearch('billing');
+  const handleSubmit = useCallback(async (): Promise<void> => {
+    if (!oystehrZambda || selected.length === 0 || !value) return;
+    setSubmitting(true);
+    try {
+      await Promise.all(
+        selected.map((selectedClaimId) => {
+          return updateBillingResource(oystehrZambda, {
+            resourceType: 'Claim',
+            resourceId: String(selectedClaimId),
+            claimId: String(selectedClaimId),
+            fields: {
+              billingProvider: {
+                id: value.id,
+                type: value.kind === 'organization' ? 'Organization' : 'Practitioner',
+              },
+            },
+          } as UpdateBillingResourceInput);
+        })
+      );
+      void refetch();
+      enqueueSnackbar(`Billing provider set to ${value.name} for selected claims.`, { variant: 'success' });
+      setOpen(false);
+    } catch (err) {
+      if (err instanceof Error) {
+        enqueueSnackbar(`Failed to update billing provider for selected claims: ${err.message}.`, {
+          variant: 'error',
+        });
+      } else {
+        enqueueSnackbar(`Failed to update billing provider for selected claims: ${JSON.stringify(err)}.`, {
+          variant: 'error',
+        });
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  }, [oystehrZambda, selected, value, refetch, setOpen]);
+  return (
+    <ConfirmDialog
+      open={open}
+      title="Set billing provider for claims"
+      confirmLabel="Set billing provider"
+      loading={submitting}
+      onConfirm={() => void handleSubmit()}
+      onCancel={() => setOpen(false)}
+    >
+      <Box sx={{ display: 'grid', gridTemplateColumns: '1fr', gap: 2.25, maxWidth: 680 }}>
+        Select a billing provider for {selected.length} selected claims.
+        <Autocomplete
+          size="small"
+          options={options}
+          value={value}
+          onChange={(_, v) => setValue(v)}
+          onInputChange={(_, val, reason) => {
+            if (reason === 'input') searchProviders(val || undefined);
+          }}
+          onOpen={() => searchProviders()}
+          filterOptions={(x) => x}
+          getOptionLabel={(o) => o.name}
+          renderOption={(props, o) => (
+            <Box component="li" {...props} key={o.id}>
+              <Box>
+                <Typography variant="body2" fontWeight={500}>
+                  {o.name}
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  NPI: {o.npi} | TIN: {o.taxId}
+                </Typography>
+              </Box>
+            </Box>
+          )}
+          renderInput={(p) => <TextField {...p} size="small" label={'Choose billing provider'} />}
+          isOptionEqualToValue={(o, v) => o.id === v.id}
+          sx={{ maxWidth: 480 }}
+        />
+      </Box>
+    </ConfirmDialog>
+  );
+}
+
+function BulkSetSFModal({
+  open,
+  setOpen,
+  selected,
+  refetch,
+}: {
+  open: boolean;
+  setOpen: (open: boolean) => void;
+  selected: GridRowSelectionModel;
+  refetch: () => Promise<void>;
+}): ReactElement {
+  const { oystehrZambda } = useApiClients();
+  const [value, setValue] = useState<ServiceFacilityItem | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  useEffect(() => {
+    setValue(null);
+  }, [open]);
+  const { options, search: searchServiceFacilities } = useFacilityOptionsSearch();
+  const handleSubmit = useCallback(async (): Promise<void> => {
+    if (!oystehrZambda || selected.length === 0 || !value) return;
+    setSubmitting(true);
+    try {
+      await Promise.all(
+        selected.map((selectedClaimId) => {
+          return updateBillingResource(oystehrZambda, {
+            resourceType: 'Claim',
+            resourceId: String(selectedClaimId),
+            claimId: String(selectedClaimId),
+            fields: {
+              facilityId: value.id,
+            },
+          } as UpdateBillingResourceInput);
+        })
+      );
+      void refetch();
+      enqueueSnackbar(`Service facility set to ${value.name} for selected claims.`, { variant: 'success' });
+      setOpen(false);
+    } catch (err) {
+      if (err instanceof Error) {
+        enqueueSnackbar(`Failed to update service facility for selected claims: ${err.message}.`, {
+          variant: 'error',
+        });
+      } else {
+        enqueueSnackbar(`Failed to update service facility for selected claims: ${JSON.stringify(err)}.`, {
+          variant: 'error',
+        });
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  }, [oystehrZambda, selected, value, refetch, setOpen]);
+  return (
+    <ConfirmDialog
+      open={open}
+      title="Set service facility for claims"
+      confirmLabel="Set service facility"
+      loading={submitting}
+      onConfirm={() => void handleSubmit()}
+      onCancel={() => setOpen(false)}
+    >
+      <Box sx={{ display: 'grid', gridTemplateColumns: '1fr', gap: 2.25, maxWidth: 680 }}>
+        Select a service facility for {selected.length} selected claims.
+        <Autocomplete
+          size="small"
+          options={options}
+          value={value}
+          onChange={(_, v) => setValue(v)}
+          onInputChange={(_, val, reason) => {
+            if (reason === 'input') searchServiceFacilities(val || undefined);
+          }}
+          onOpen={() => searchServiceFacilities()}
+          filterOptions={(x) => x}
+          getOptionLabel={(o) => o.name}
+          renderOption={(props, o) => (
+            <Box component="li" {...props} key={o.id}>
+              <Box>
+                <Typography variant="body2" fontWeight={500}>
+                  {o.name}
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  NPI: {o.npi} | {formatFacilityAddress(o)}
+                </Typography>
+              </Box>
+            </Box>
+          )}
+          renderInput={(p) => <TextField {...p} size="small" label={'Choose facility'} />}
+          isOptionEqualToValue={(o, v) => o.id === v.id}
+          sx={{ maxWidth: 480 }}
+        />
+      </Box>
+    </ConfirmDialog>
   );
 }

@@ -1,7 +1,10 @@
 import { randomUUID } from 'crypto';
-import { MAX_RUN_RULES_ENGINE_CLAIMS } from 'utils/lib/types/data/billing/rules-engine.schemas';
+import {
+  MAX_RUN_RULES_ENGINE_CLAIMS,
+  RunBillingRulesEngineInputSchema,
+} from 'utils/lib/types/data/billing/rules-engine.schemas';
 import { describe, expect, test } from 'vitest';
-import { validateRequestParameters } from '../../../src/billing/run-billing-rules-engine/validateRequestParameters';
+import { validateWithSchema } from '../../../src/shared/validation';
 import { createMockSecrets, createMockZambdaInput } from './helpers';
 
 describe('run-billing-rules-engine - validateRequestParameters', () => {
@@ -10,7 +13,7 @@ describe('run-billing-rules-engine - validateRequestParameters', () => {
 
   test('returns validated params for a list of claim ids', () => {
     const input = createMockZambdaInput({ claimIds }, { secrets });
-    expect(validateRequestParameters(input)).toEqual({
+    expect(validateWithSchema(RunBillingRulesEngineInputSchema, input)).toEqual({
       claimIds,
       secrets,
       skipRules: false,
@@ -24,7 +27,7 @@ describe('run-billing-rules-engine - validateRequestParameters', () => {
       },
       { secrets }
     );
-    expect(() => validateRequestParameters(input)).toThrow();
+    expect(() => validateWithSchema(RunBillingRulesEngineInputSchema, input)).toThrow();
   });
 
   test('throws when claimIds is empty', () => {
@@ -34,12 +37,12 @@ describe('run-billing-rules-engine - validateRequestParameters', () => {
       },
       { secrets }
     );
-    expect(() => validateRequestParameters(input)).toThrow();
+    expect(() => validateWithSchema(RunBillingRulesEngineInputSchema, input)).toThrow();
   });
 
   test('throws when claimIds is missing', () => {
     const input = createMockZambdaInput({}, { secrets });
-    expect(() => validateRequestParameters(input)).toThrow();
+    expect(() => validateWithSchema(RunBillingRulesEngineInputSchema, input)).toThrow();
   });
 
   test('throws when more than the maximum number of claim ids is provided', () => {
@@ -49,17 +52,18 @@ describe('run-billing-rules-engine - validateRequestParameters', () => {
       },
       { secrets }
     );
-    expect(() => validateRequestParameters(input)).toThrow();
+    expect(() => validateWithSchema(RunBillingRulesEngineInputSchema, input)).toThrow();
   });
 
   test('throws when the body is missing', () => {
     const input = createMockZambdaInput(null, { secrets });
-    expect(() => validateRequestParameters(input)).toThrow();
+    expect(() => validateWithSchema(RunBillingRulesEngineInputSchema, input)).toThrow();
   });
 
   test('returns validated params for valid submission type params', () => {
     expect(
-      validateRequestParameters(
+      validateWithSchema(
+        RunBillingRulesEngineInputSchema,
         createMockZambdaInput({ claimIds, skipRules: true, submissionType: 'new' }, { secrets })
       )
     ).toEqual({
@@ -69,7 +73,8 @@ describe('run-billing-rules-engine - validateRequestParameters', () => {
       submissionType: 'new',
     });
     expect(
-      validateRequestParameters(
+      validateWithSchema(
+        RunBillingRulesEngineInputSchema,
         createMockZambdaInput({ claimIds, skipRules: false, submissionType: 'new' }, { secrets })
       )
     ).toEqual({
@@ -79,7 +84,8 @@ describe('run-billing-rules-engine - validateRequestParameters', () => {
       submissionType: 'new',
     });
     expect(
-      validateRequestParameters(
+      validateWithSchema(
+        RunBillingRulesEngineInputSchema,
         createMockZambdaInput(
           { claimIds, skipRules: true, submissionType: 'correction', payerClaimControlNumber: 'PCCN-12345' },
           { secrets }
@@ -93,7 +99,8 @@ describe('run-billing-rules-engine - validateRequestParameters', () => {
       payerClaimControlNumber: 'PCCN-12345',
     });
     expect(
-      validateRequestParameters(
+      validateWithSchema(
+        RunBillingRulesEngineInputSchema,
         createMockZambdaInput(
           { claimIds, skipRules: true, submissionType: 'void', payerClaimControlNumber: 'PCCN-12345' },
           { secrets }
@@ -111,7 +118,8 @@ describe('run-billing-rules-engine - validateRequestParameters', () => {
   test('throws for invalid submission type params', () => {
     // New submissions should not have PCCN
     expect(() =>
-      validateRequestParameters(
+      validateWithSchema(
+        RunBillingRulesEngineInputSchema,
         createMockZambdaInput(
           { claimIds, skipRules: true, submissionType: 'new', payerClaimControlNumber: 'PCCN-12345' },
           { secrets }
@@ -120,7 +128,8 @@ describe('run-billing-rules-engine - validateRequestParameters', () => {
     ).toThrow();
     // Corrections and voids require PCCN
     expect(() =>
-      validateRequestParameters(
+      validateWithSchema(
+        RunBillingRulesEngineInputSchema,
         createMockZambdaInput(
           { claimIds, skipRules: true, submissionType: 'correction', payerClaimControlNumber: undefined },
           { secrets }
@@ -128,7 +137,8 @@ describe('run-billing-rules-engine - validateRequestParameters', () => {
       )
     ).toThrow();
     expect(() =>
-      validateRequestParameters(
+      validateWithSchema(
+        RunBillingRulesEngineInputSchema,
         createMockZambdaInput(
           { claimIds, skipRules: true, submissionType: 'void', payerClaimControlNumber: undefined },
           { secrets }
@@ -137,7 +147,8 @@ describe('run-billing-rules-engine - validateRequestParameters', () => {
     ).toThrow();
     // Only "new" can be used when skipRules is false
     expect(() =>
-      validateRequestParameters(
+      validateWithSchema(
+        RunBillingRulesEngineInputSchema,
         createMockZambdaInput(
           { claimIds, skipRules: false, submissionType: 'correction', payerClaimControlNumber: undefined },
           { secrets }
@@ -145,7 +156,8 @@ describe('run-billing-rules-engine - validateRequestParameters', () => {
       )
     ).toThrow();
     expect(() =>
-      validateRequestParameters(
+      validateWithSchema(
+        RunBillingRulesEngineInputSchema,
         createMockZambdaInput(
           { claimIds, skipRules: false, submissionType: 'correction', payerClaimControlNumber: undefined },
           { secrets }

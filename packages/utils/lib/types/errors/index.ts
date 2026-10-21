@@ -58,6 +58,7 @@ export enum APIErrorCode {
   PRACTITIONER_SCHEDULE_CONFLICT = 4342,
   APPOINTMENT_SEARCH_TOO_BROAD = 4343,
   CLAIM_SEARCH_TOO_BROAD = 4344,
+  VERSION_HISTORY_UNAVAILABLE = 4345,
   // 44xx
   EXTERNAL_LAB_GENERAL = 4400,
   MISSING_NLM_API_KEY_ERROR = 4401,
@@ -85,6 +86,7 @@ export enum APIErrorCode {
   ERA_IMPORT_FAILED = 4502,
   MANUAL_PAYMENT_CONFLICT = 4503,
   STATEMENT_BILLING_CLAIM_NOT_FOUND = 4504,
+  MANUAL_ERA_VERSION_CONFLICT = 4505,
 
   // 50xx
   MISCONFIGURED_ENVIRONMENT = 5000,
@@ -353,6 +355,12 @@ export const CLAIM_SEARCH_TOO_BROAD_ERROR: APIError = {
     'This search returned too much data to load. Please lower the rows per page, or narrow the date range or other filters, and try again.',
 };
 
+export const VERSION_HISTORY_UNAVAILABLE_ERROR: APIError = {
+  code: APIErrorCode.VERSION_HISTORY_UNAVAILABLE,
+  statusCode: 503,
+  message: 'The version history is temporarily unavailable. Please try again in a few seconds.',
+};
+
 export const APPOINTMENT_CANT_BE_IN_PAST_ERROR = {
   code: APIErrorCode.APPOINTMENT_CANT_BE_IN_PAST,
   message: "An appointment can't be scheduled for a date in the past",
@@ -487,6 +495,12 @@ export const MANUAL_PAYMENT_CONFLICT_ERROR = (idempotencyKey: string): APIError 
   statusCode: 409,
   message: `A different payment was already recorded with idempotency key "${idempotencyKey}". Use a new key to record a new payment.`,
 });
+// Raised when a manual ERA is saved from a stale copy (someone else saved it in the meantime).
+export const MANUAL_ERA_VERSION_CONFLICT_ERROR: APIError = {
+  code: APIErrorCode.MANUAL_ERA_VERSION_CONFLICT,
+  statusCode: 409,
+  message: 'This remit was changed by someone else since you opened it. Reload the page to see the latest version.',
+};
 // Raised when a statement is requested for a visit that was never billed through Ottehr billing.
 export const STATEMENT_BILLING_CLAIM_NOT_FOUND_ERROR = (encounterId: string): APIError => ({
   code: APIErrorCode.STATEMENT_BILLING_CLAIM_NOT_FOUND,

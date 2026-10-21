@@ -148,12 +148,14 @@ const makeClaim = (arStage: string): ClaimDetailResponse => ({
   insurancePaid: 0,
   patientResp: 0,
   patientPaid: 0,
+  writeOffsTotal: 0,
   balance: 0,
   adjudicated: false,
   firstSubmittedDate: '',
   remits: [],
   insurancePayments: [],
   patientPayments: [],
+  writeOffs: [],
   otherClaims: [],
   tags: [],
   pcn: '',
@@ -173,7 +175,6 @@ const makeRemit = (overrides: Partial<ClaimRemit>): ClaimRemit => ({
   claimResponseId: 'cr-1',
   date: '2026-07-08T18:20:39.029Z',
   payerName: 'Test Payer',
-  status: 'complete',
   eraStatusCode: '1',
   allowed: 80,
   paid: 60,
@@ -201,6 +202,7 @@ const makeRemitLine = (overrides: Partial<EraRemitServiceLine>): EraRemitService
   coinsurance: 0,
   copay: 0,
   adjustments: [],
+  remarkCodes: [],
   ...overrides,
 });
 
@@ -211,7 +213,7 @@ const makePayment = (overrides: Partial<ClaimInsurancePayment>): ClaimInsuranceP
   checkDate: '2026-07-08',
   paymentAmount: 350,
   payerName: 'CIGNA',
-  status: 'active',
+  payerClaimControlNumber: '',
   ...overrides,
 });
 
@@ -427,7 +429,7 @@ describe('ClaimDetail — insurance payments', () => {
     const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
     getBillingClaimDetailMock.mockResolvedValue({
       ...makeClaim(AR_STAGE.insurancePayer),
-      insurancePayments: [makePayment({})],
+      insurancePayments: [makePayment({ payerClaimControlNumber: 'ICN0012345' })],
     });
     renderDetail();
 
@@ -439,7 +441,7 @@ describe('ClaimDetail — insurance payments', () => {
     expect(checkLink).toHaveAttribute('target', '_blank');
 
     const row = checkLink.closest('tr');
-    expect(cellTexts(row)).toEqual(['07/07/2026', '07/08/2026', 'CIGNA', 'ERA0000000001', '$350.00']);
+    expect(cellTexts(row)).toEqual(['07/07/2026', '07/08/2026', 'CIGNA', 'ERA0000000001', 'ICN0012345', '$350.00']);
 
     fireEvent.click(row as HTMLElement);
     expect(openSpy).toHaveBeenCalledWith('/eras/payment-reconciliation-1', '_blank', 'noopener');
@@ -576,11 +578,30 @@ describe('ClaimDetail — service line remit details', () => {
       within(line1)
         .getAllByRole('columnheader')
         .map((header) => header.textContent)
-    ).toEqual(['Date', 'Type', 'Billed', 'Allowed', 'Ins adj', 'Ins paid', 'Deductible', 'Co-ins', 'Copay', 'Patient']);
-    expect(cellTexts(within(line1).getByText('Charge').closest('tr'))).toEqual(['08/15/2026', 'Charge', '$201.04', '']);
+    ).toEqual([
+      '',
+      'Date',
+      'Type',
+      'Billed',
+      'Allowed',
+      'Ins adj',
+      'Ins paid',
+      'Deductible',
+      'Co-ins',
+      'Copay',
+      'Patient',
+    ]);
+    expect(cellTexts(within(line1).getByText('Charge').closest('tr'))).toEqual([
+      '',
+      '08/15/2026',
+      'Charge',
+      '$201.04',
+      '',
+    ]);
     // Patient is the line's patient responsibility: here all of it is the copay
     const payerRow = within(line1).getByText('Employers Mutual').closest('tr') as HTMLElement;
     expect(cellTexts(payerRow)).toEqual([
+      '',
       '08/18/2026',
       'Employers Mutual',
       '$201.04',
@@ -597,43 +618,17 @@ describe('ClaimDetail — service line remit details', () => {
       '$25.00',
       '$25.00',
     ]);
-    expect(cellTexts(within(line1).getByText('CO-45').closest('tr'))).toEqual([
-      '08/18/2026',
-      'CO-45',
-      '',
-      '',
-      '$40.21',
-      '',
-      '',
-      '',
-      '',
-      '',
-    ]);
-    expect(cellTexts(within(line1).getByText('PR-3').closest('tr'))).toEqual([
-      '08/18/2026',
-      'PR-3',
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      '$25.00',
-      '',
-    ]);
+    // the default CARCs (CO-45, PR-1/2/3) live in the columns; they get no rows of their own
+    expect(within(line1).queryByText('CO-45')).not.toBeInTheDocument();
+    expect(within(line1).queryByText('PR-3')).not.toBeInTheDocument();
 
     const line2 = screen.getByRole('table', { name: 'Remit details for line 2' });
-    expect(cellTexts(within(line2).getByText('PR-1').closest('tr'))).toEqual([
-      '08/18/2026',
-      'PR-1',
-      '',
-      '',
-      '',
-      '',
+    expect(within(line2).queryByText('PR-1')).not.toBeInTheDocument();
+    expect(cellTexts(within(line2).getByText('Employers Mutual').closest('tr')).slice(7)).toEqual([
       '$15.00',
-      '',
-      '',
-      '',
+      '$0.00',
+      '$0.00',
+      '$15.00',
     ]);
   });
 
@@ -667,9 +662,10 @@ describe('ClaimDetail — service line remit details', () => {
 
     const line1 = await screen.findByRole('table', { name: 'Remit details for line 1' });
     const cells = cellTexts(within(line1).getByText('Employers Mutual').closest('tr'));
-    expect(cells.slice(6)).toEqual(['$10.00', '$0.00', '$0.00', '$17.00']);
-    expect(cellTexts(within(line1).getByText('PR-1').closest('tr')).slice(6)).toEqual(['$10.00', '', '', '']);
-    expect(cellTexts(within(line1).getByText('PR-96').closest('tr')).slice(6)).toEqual(['', '', '', '$7.00']);
+    expect(cells.slice(7)).toEqual(['$10.00', '$0.00', '$0.00', '$17.00']);
+    // PR-1 is a column, so no row; PR-96 has no column of its own and keeps one
+    expect(within(line1).queryByText('PR-1')).not.toBeInTheDocument();
+    expect(cellTexts(within(line1).getByText('PR-96').closest('tr')).slice(7)).toEqual(['', '', '', '$7.00']);
   });
 
   it('dates the charge by when the claim was created when it was never submitted', async () => {
@@ -678,13 +674,13 @@ describe('ClaimDetail — service line remit details', () => {
     await openRemitsTab();
 
     const line1 = await screen.findByRole('table', { name: 'Remit details for line 1' });
-    expect(cellTexts(within(line1).getByText('Charge').closest('tr'))[0]).toBe('08/14/2026');
+    expect(cellTexts(within(line1).getByText('Charge').closest('tr'))[1]).toBe('08/14/2026');
   });
 
   it("sizes every line's ledger columns alike, to fit the claim's longest amount", async () => {
     const columnWidths = (table: HTMLElement): string[] =>
       Array.from(table.querySelectorAll('col'), (col) => col.style.width);
-    const amountColumnCh = (widths: string[]): number => Number(/calc\(([\d.]+)ch/.exec(widths[2])?.[1]);
+    const amountColumnCh = (widths: string[]): number => Number(/calc\(([\d.]+)ch/.exec(widths[3])?.[1]);
 
     getBillingClaimDetailMock.mockResolvedValue(claimWithRemits());
     renderDetail();
@@ -692,8 +688,8 @@ describe('ClaimDetail — service line remit details', () => {
     const line1 = columnWidths(await screen.findByRole('table', { name: 'Remit details for line 1' }));
     expect(columnWidths(screen.getByRole('table', { name: 'Remit details for line 2' }))).toEqual(line1);
     // the type column takes whatever the others leave
-    expect(line1[1]).toBe('');
-    expect(new Set(line1.slice(2)).size).toBe(1);
+    expect(line1[2]).toBe('');
+    expect(new Set(line1.slice(3)).size).toBe(1);
     cleanup();
 
     getBillingClaimDetailMock.mockResolvedValue(
@@ -759,7 +755,10 @@ describe('ClaimDetail — service line remit details', () => {
     renderDetail();
     await openRemitsTab();
 
-    expect(await screen.findByText('Claim-level & unmatched remit lines')).toBeInTheDocument();
+    // each unmatched group is labeled by a chip, not a prose header
+    expect(await screen.findByText('Remit Lines Not On Claim')).toBeInTheDocument();
+    expect(screen.getByText('Claim Level Remit Lines')).toBeInTheDocument();
+    expect(screen.queryByText('Claim-level & unmatched remit lines')).not.toBeInTheDocument();
 
     const codedRow = screen
       .getByRole('button', { name: 'Toggle remit details for 99214 (not on claim)' })
@@ -767,20 +766,22 @@ describe('ClaimDetail — service line remit details', () => {
     expect(cellTexts(codedRow)).toEqual(['', '', 'ERA', '2026-08-14', '99214', '-', '-', '-', '1 UN', '$150.00']);
     const codedLedger = screen.getByRole('table', { name: 'Remit details for 99214 (not on claim)' });
     expect(within(codedLedger).queryByText('Charge')).not.toBeInTheDocument();
-    expect(cellTexts(within(codedLedger).getByText('CO-45').closest('tr'))[4]).toBe('$60.00');
+    // its CO-45 shows under Ins adj on the remit's row rather than a row of its own
+    expect(within(codedLedger).queryByText('CO-45')).not.toBeInTheDocument();
+    expect(cellTexts(within(codedLedger).getByText('Employers Mutual').closest('tr'))[5]).toBe('$60.00');
 
     const claimLevelRow = screen
       .getByRole('button', { name: 'Toggle remit details for claim-level adjustments' })
       .closest('tr') as HTMLElement;
     expect(cellTexts(claimLevelRow)).toEqual(['', '', 'ERA', '-', 'Claim-level', '-', '-', '-', '-', '-']);
     const claimLevelLedger = screen.getByRole('table', { name: 'Remit details for claim-level adjustments' });
-    expect(cellTexts(within(claimLevelLedger).getByText('OA-23').closest('tr'))[4]).toBe('$2.00');
+    expect(cellTexts(within(claimLevelLedger).getByText('OA-23').closest('tr'))[5]).toBe('$2.00');
 
     // the claim-level adjustments come after the lines the payer adjudicated
     expect(codedRow?.compareDocumentPosition(claimLevelRow) ?? 0).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
   });
 
-  it('highlights a remit line with its remit and check on hover, and opens its card only from a CARC label', async () => {
+  it('highlights a remit line with its remit and check on hover, and opens its card from the info icon', async () => {
     const user = userEvent.setup();
     getBillingClaimDetailMock.mockResolvedValue(claimWithRemits());
     renderDetail();
@@ -794,53 +795,77 @@ describe('ClaimDetail — service line remit details', () => {
     const checkRow = within(payments).getByRole('link', { name: 'CHK00012347' }).closest('tr');
     const otherCheckRow = within(payments).getByRole('link', { name: 'CHK00012345' }).closest('tr');
 
-    // anywhere on the remit's rows lights up its remit and check, but opens no card, even past the
-    // card's enter delay
-    await user.hover(within(line1).getByText('Employers Mutual'));
+    // hovering lights up its remit and check, but opens no card
+    await user.hover(within(line1).getByText('$40.21'));
     expect(remitRow).toHaveClass('Mui-selected');
     expect(checkRow).toHaveClass('Mui-selected');
     expect(otherCheckRow).not.toHaveClass('Mui-selected');
-    await act(() => new Promise((resolve) => setTimeout(resolve, 300)));
-    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
+    expect(screen.queryByRole('dialog', { name: 'Remit line details' })).not.toBeInTheDocument();
 
-    const co45 = within(line1).getByText('CO-45');
-    await user.hover(co45);
-
-    const card = await screen.findByRole('tooltip');
+    // the card spells out every adjustment, the columned defaults included
+    await user.click(within(line1).getByRole('button', { name: 'Show remit details' }));
+    const card = await screen.findByRole('dialog', { name: 'Remit line details' });
     expect(within(card).getByText('Employers Mutual')).toBeInTheDocument();
     expect(within(card).getByText('Primary')).toBeInTheDocument();
-    expect(
-      within(card).getByText('Charge exceeds fee schedule/maximum allowable or contracted/legislated fee arrangement.')
-    ).toBeInTheDocument();
-    expect(within(card).getByText('Co-payment amount.')).toBeInTheDocument();
+    expect(within(card).getByText("Paid less: billed amount is above the payer's allowed rate")).toBeInTheDocument();
+    expect(within(card).getByText("Patient's copay for the visit")).toBeInTheDocument();
     expect(within(card).getByText('$40.21')).toBeInTheDocument();
     expect(within(card).getByText('CHK00012347')).toBeInTheDocument();
+    expect(within(card).getByRole('button', { name: 'Copy check number' })).toBeInTheDocument();
     expect(within(card).getByText('08/22/2026')).toBeInTheDocument();
     expect(within(card).getByText('Adjudicated as A7020')).toBeInTheDocument();
+
+    // it stays open after the mouse leaves, and clicks inside it keep it open
+    await user.unhover(within(line1).getByText('$40.21'));
+    await user.click(within(card).getByText('Adjudicated as A7020'));
+    expect(screen.getByRole('dialog', { name: 'Remit line details' })).toBeInTheDocument();
     expect(remitRow).toHaveClass('Mui-selected');
-    expect(checkRow).toHaveClass('Mui-selected');
-    expect(otherCheckRow).not.toHaveClass('Mui-selected');
 
-    // moving to the line's other CARC label keeps its card and highlight up
-    const copayLabel = within(line1).getByText('PR-3');
-    await user.hover(copayLabel);
-    // the previous label's card finishes closing while this one opens
-    await waitFor(() => {
-      expect(screen.getAllByRole('tooltip')).toHaveLength(1);
-      expect(remitRow).toHaveClass('Mui-selected');
-    });
-    expect(within(screen.getByRole('tooltip')).getByText('Co-payment amount.')).toBeInTheDocument();
-    expect(checkRow).toHaveClass('Mui-selected');
+    // opening another line's card replaces it
+    const line2 = screen.getByRole('table', { name: 'Remit details for line 2' });
+    await user.click(within(line2).getByRole('button', { name: 'Show remit details' }));
+    await waitFor(() => expect(screen.getAllByRole('dialog', { name: 'Remit line details' })).toHaveLength(1));
+    expect(
+      within(screen.getByRole('dialog', { name: 'Remit line details' })).getByText(
+        "Counted toward the patient's deductible"
+      )
+    ).toBeInTheDocument();
 
-    // leaving the remit's rows clears both
-    await user.unhover(copayLabel);
+    // the close button closes it
+    await user.click(screen.getByRole('button', { name: 'Close remit details' }));
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Remit line details' })).not.toBeInTheDocument());
 
-    await waitFor(() => expect(screen.queryByRole('tooltip')).not.toBeInTheDocument());
+    // so does a click outside it, which also clears the highlight
+    await user.click(within(line1).getByRole('button', { name: 'Show remit details' }));
+    await screen.findByRole('dialog', { name: 'Remit line details' });
+    await user.click(document.body);
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Remit line details' })).not.toBeInTheDocument());
     expect(remitRow).not.toHaveClass('Mui-selected');
     expect(checkRow).not.toHaveClass('Mui-selected');
   });
 
-  it('highlights a remit line with its remit and check while one of its CARC labels has focus', async () => {
+  it('opens a remit card from the keyboard, focuses into it, and returns focus on Escape', async () => {
+    const user = userEvent.setup();
+    getBillingClaimDetailMock.mockResolvedValue(claimWithRemits());
+    renderDetail();
+    await openRemitsTab();
+
+    const line1 = await screen.findByRole('table', { name: 'Remit details for line 1' });
+    const trigger = within(line1).getByRole('button', { name: 'Show remit details' });
+    act(() => trigger.focus());
+    await user.keyboard('{Enter}');
+
+    const card = await screen.findByRole('dialog', { name: 'Remit line details' });
+    await waitFor(() => expect(within(card).getByRole('button', { name: 'Close remit details' })).toHaveFocus());
+    await user.tab();
+    expect(within(card).getByRole('button', { name: 'Copy check number' })).toHaveFocus();
+
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Remit line details' })).not.toBeInTheDocument());
+    expect(trigger).toHaveFocus();
+  });
+
+  it('highlights a remit line with its remit and check while it has focus', async () => {
     getBillingClaimDetailMock.mockResolvedValue(claimWithRemits());
     renderDetail();
     await openRemitsTab();
@@ -849,7 +874,7 @@ describe('ClaimDetail — service line remit details', () => {
     const remitRow = within(screen.getByRole('table', { name: 'Remits' }))
       .getByRole('link', { name: 'CHK00012347' })
       .closest('tr');
-    const label = within(line1).getByText('CO-45').closest('[tabindex="0"]') as HTMLElement;
+    const label = within(line1).getByText('Employers Mutual').closest('[tabindex="0"]') as HTMLElement;
 
     act(() => label.focus());
     expect(remitRow).toHaveClass('Mui-selected');
@@ -1023,7 +1048,7 @@ describe('ClaimDetail — patient payments', () => {
     });
     renderDetail();
 
-    const paymentsTab = await screen.findByRole('tab', { name: 'Write offs & Patient payments' });
+    const paymentsTab = await screen.findByRole('tab', { name: 'Patient Payments & Write-offs' });
     fireEvent.click(paymentsTab);
 
     const paymentRow = (await screen.findByText('check collected at front desk')).closest('tr');
@@ -1044,7 +1069,7 @@ describe('ClaimDetail — patient payments', () => {
     getBillingClaimDetailMock.mockResolvedValue(makeClaim(AR_STAGE.patient));
     renderDetail();
 
-    const paymentsTab = await screen.findByRole('tab', { name: 'Write offs & Patient payments' });
+    const paymentsTab = await screen.findByRole('tab', { name: 'Patient Payments & Write-offs' });
     fireEvent.click(paymentsTab);
 
     expect(await screen.findByText('No patient payments yet')).toBeInTheDocument();
@@ -1178,7 +1203,7 @@ describe('ClaimDetail: notes drawer', () => {
     fireEvent.change(draft, { target: { value: 'draft for the first claim' } });
     await user.click(screen.getByRole('button', { name: 'Close' }));
 
-    await user.click(screen.getByRole('tab', { name: 'Other claims' }));
+    await user.click(screen.getByRole('tab', { name: 'Other Claims' }));
     await user.click(await screen.findByText('claim-2'));
 
     await user.click(await screen.findByRole('button', { name: 'Notes' }));

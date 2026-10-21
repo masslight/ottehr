@@ -3,20 +3,28 @@ import { Appointment, Communication, Encounter, Patient } from 'fhir/r4b';
 import { getPatientFirstName, getPatientLastName } from 'utils/lib/fhir/patient';
 import { Secrets } from 'utils/lib/secrets';
 import { MailedStatementItem } from 'utils/lib/types/api/mailed-statements-report.types';
+import { z } from 'zod';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { getMailedStatementSyncState } from '../../shared/mailed-statement-sync-state';
 import { MAIL_VENDOR_EXTENSION_URL } from '../../shared/postgrid';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
-import { validateRequestParameters } from './validateRequestParameters';
+import { validateWithSchema } from '../../shared/validation';
+
+export const dateRangeSchema = z.object({
+  dateRange: z.object({
+    start: z.string().refine((val) => !isNaN(Date.parse(val)), { message: 'start must be a valid ISO date string' }),
+    end: z.string().refine((val) => !isNaN(Date.parse(val)), { message: 'end must be a valid ISO date string' }),
+  }),
+});
 
 let m2mToken: string;
 
 const ZAMBDA_NAME = 'mailed-statements-report';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const validatedParameters = validateRequestParameters(input);
+  const validatedParameters = validateWithSchema(dateRangeSchema, input);
   const { dateRange, secrets }: { dateRange: { start: string; end: string }; secrets: Secrets } = validatedParameters;
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);

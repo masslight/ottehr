@@ -3,13 +3,13 @@ import { Basic } from 'fhir/r4b';
 import { SYSTEM_MANAGED_TAGS } from 'utils/lib/types/data/billing/system-tags';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { complexValidation } from '../../../src/billing/tag-billing-claim';
-import { TagBillingClaimParams } from '../../../src/billing/tag-billing-claim/validateRequestParameters';
+import { TagBillingClaimParams } from '../../../src/billing/tag-billing-claim/index';
 
 const search = vi.fn();
 const oystehr = { fhir: { search } } as unknown as Oystehr;
 
 const params = (action: 'add' | 'remove', tagName: string): TagBillingClaimParams =>
-  ({ claimId: 'claim-1', action, tagName, secrets: null }) as TagBillingClaimParams;
+  ({ claimId: 'claim-1', action, tagName, secrets: {} }) as TagBillingClaimParams;
 
 const tagBasic = (name: string): Basic => ({
   resourceType: 'Basic',

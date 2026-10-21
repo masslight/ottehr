@@ -4,8 +4,9 @@ import {
   FHIR_IDENTIFIER_NPI,
   FHIR_IDENTIFIER_SYSTEM,
 } from 'utils/lib/fhir/constants';
+import { EraRemitServiceLine } from 'utils/lib/types/data/billing/billing.types';
 import { describe, expect, it } from 'vitest';
-import { ADJUDICATION_CODES } from '../../../src/billing/claim-amounts';
+import { ADJUDICATION_CODES, X12_ADJUSTMENT_GROUP_SYSTEM } from '../../../src/billing/claim-amounts';
 import {
   buildEraClaimRemit,
   buildEraRemitServiceLines,
@@ -13,10 +14,12 @@ import {
   eraPatientAccountNumber,
   resolveEraPayee,
 } from '../../../src/billing/era-remits';
+import { buildManualClaimResponse, MatchedClaimFields } from '../../../src/billing/manual-era';
 import {
   CLAIM_PCN_IDENTIFIER_SYSTEM,
   ERA_ICN_EXTENSION,
   ERA_ITEM_PROCEDURE_CODE_EXTENSION,
+  ERA_ITEM_REMARK_CODE_EXTENSION,
   ERA_PCN_EXTENSION,
   ERA_STATUS_CODE_EXTENSION,
 } from '../../../src/billing/shared';
@@ -115,7 +118,23 @@ describe('buildEraRemitServiceLines', () => {
       coinsurance: 0,
       copay: 0,
       adjustments: [{ groupCode: 'CO', reasonCode: '45', amount: 48.68 }],
+      remarkCodes: [],
     });
+  });
+
+  it('reads the LQ remark codes stamped on each line', () => {
+    const item = eraItem({
+      sequence: 1,
+      procedureCode: '99213',
+      adjudication: [adjudication(ADJUDICATION_CODES.PAID, 0)],
+    });
+    item.extension = [
+      ...(item.extension ?? []),
+      { url: ERA_ITEM_REMARK_CODE_EXTENSION, valueString: 'N130' },
+      { url: ERA_ITEM_REMARK_CODE_EXTENSION, valueString: 'M15' },
+    ];
+    const [line] = buildEraRemitServiceLines(claimResponse({ item: [item], contained: [containedClaim()] }), undefined);
+    expect(line.remarkCodes).toEqual(['N130', 'M15']);
   });
 
   it('treats converter-stamped zero units as not reported', () => {
@@ -155,6 +174,56 @@ describe('buildEraRemitServiceLines', () => {
       serviceDate: '2026-07-09',
       billed: 100,
     });
+  });
+
+  it("dates a keyed-in remit's lines as the remit has them, ahead of the matched claim's dates", () => {
+    // what manual entry writes for a claim whose two lines were on different days
+    const keyed = (matchedClaim?: MatchedClaimFields): ClaimResponse =>
+      buildManualClaimResponse({
+        claim: {
+          statusCode: '1',
+          patientName: 'Joe Schmoe',
+          serviceLines: [
+            {
+              serviceDate: '2026-07-08',
+              procedureCode: '99213',
+              billedCents: 10_000,
+              allowedCents: 8_000,
+              paidCents: 6_000,
+              adjustments: [],
+              remarkCodes: [],
+            },
+            {
+              serviceDate: '2026-07-11',
+              procedureCode: '87880',
+              billedCents: 5_000,
+              allowedCents: 5_000,
+              paidCents: 5_000,
+              adjustments: [],
+              remarkCodes: [],
+            },
+          ],
+        },
+        header: {
+          payerId: 'payer-uhc',
+          billingProviderRef: 'Organization/prov-1',
+          checkNumber: '557801',
+          checkAmountCents: 11_000,
+          remitDate: '2026-07-20',
+          checkDate: '2026-07-20',
+        },
+        billingProviderAndPayer: {
+          payer: { reference: 'Organization/payer-1', display: 'Test Payer' },
+          billingProvider: { reference: 'Organization/prov-1', name: 'Test Provider' },
+        },
+        matchedClaim,
+      });
+    const dates = (lines: EraRemitServiceLine[]): string[] => lines.map((line) => line.serviceDate);
+
+    expect(dates(buildEraRemitServiceLines(keyed(), undefined))).toEqual(['2026-07-08', '2026-07-11']);
+    // the submitted claim has both lines on 2026-07-09
+    const matched = keyed({ id: 'c1', patient: { reference: 'Patient/p1' }, type: { coding: [] } });
+    expect(dates(buildEraRemitServiceLines(matched, submittedClaim()))).toEqual(['2026-07-08', '2026-07-11']);
   });
 
   it('trusts the sequence join for repeated codes when the REF*6R round-trip preserved our line numbers', () => {
@@ -345,6 +414,54 @@ describe('buildEraRemitServiceLines', () => {
     });
   });
 
+  it('collapses group-coded claim-level buckets into a single claim-level line carrying the unassigned paid', () => {
+    // the process-era converter writes one addItem per CAS group, coded with the group itself
+    const cr = claimResponse({
+      total: [
+        {
+          category: {
+            coding: [{ system: 'https://terminology.fhir.oystehr.com/CodeSystem/adjudication', code: 'paid' }],
+          },
+          amount: { value: 110 },
+        },
+      ],
+      item: [
+        eraItem({
+          sequence: 2,
+          procedureCode: '87880',
+          adjudication: [adjudication(ADJUDICATION_CODES.PAID, 10), casAdjustment('CO', 50, '45')],
+        }),
+      ],
+      addItem: [
+        {
+          productOrService: { coding: [{ code: 'OA', system: X12_ADJUSTMENT_GROUP_SYSTEM }] },
+          adjudication: [casAdjustment('OA', 333, '23')],
+        },
+        {
+          productOrService: { coding: [{ code: 'PR', system: X12_ADJUSTMENT_GROUP_SYSTEM }] },
+          adjudication: [casAdjustment('PR', 60, '3')],
+        },
+      ],
+    });
+
+    const lines = buildEraRemitServiceLines(cr, submittedClaim());
+
+    expect(lines).toHaveLength(2);
+    expect(lines[1]).toMatchObject({
+      itemSequence: null,
+      claimItemSequence: null,
+      isClaimLevel: true,
+      cptCode: '',
+      copay: 60,
+      // CLP04 paid the lines don't account for lands on the claim-level adjudication
+      paid: 100,
+      adjustments: [
+        { groupCode: 'OA', reasonCode: '23', amount: 333 },
+        { groupCode: 'PR', reasonCode: '3', amount: 60 },
+      ],
+    });
+  });
+
   it('resolves a payer-added addItem line only when it carries the procedure code extension', () => {
     const withoutExtension = claimResponse({
       addItem: [
@@ -466,7 +583,6 @@ describe('buildEraClaimRemit', () => {
     expect(remit).toMatchObject({
       claimResponseId: 'cr-1',
       created: '2026-07-15',
-      outcome: 'complete',
       eraStatusCode: '1',
       payerClaimControlNumber: 'BTCN7WB7FC00',
       allowed: 55.32,

@@ -1,11 +1,13 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Organization, Practitioner } from 'fhir/r4b';
+import { SearchBillingProvidersInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { BillingProviderOption } from 'utils/lib/types/data/billing/billing.types';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { fetchAllPages } from '../../shared/fhir';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import {
   createBillingClient,
   EXCLUDE_WORKING_COPIES_PARAMS,
@@ -14,13 +16,14 @@ import {
   PROVIDER_ROLE_RENDERING,
   PROVIDER_ROLE_TAG,
 } from '../shared';
-import { SearchBillingProvidersParams, validateRequestParameters } from './validateRequestParameters';
+
+type SearchBillingProvidersParams = ValidatedZambdaInput<typeof SearchBillingProvidersInputSchema>;
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'search-billing-providers';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const params = validateRequestParameters(input);
+  const params = validateWithSchema(SearchBillingProvidersInputSchema, input);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
 

@@ -3,14 +3,21 @@ import { getAppointmentResourceById } from 'utils/lib/fhir/appointments';
 import { BUCKET_NAMES } from 'utils/lib/fhir/constants';
 import { GetPhotoIdSuggestionsResponse } from 'utils/lib/types/api/get-photo-id-suggestions.types';
 import { APPOINTMENT_NOT_FOUND_ERROR } from 'utils/lib/types/errors';
+import { z } from 'zod';
 import { downloadOcrSourceImage } from '../../ehr/card-extraction-shared/extraction-helpers';
 import { extractPhotoIdFieldsFromImage } from '../../ehr/extract-photo-id/helpers';
 import { getAuth0Token } from '../../shared/getAuth0Token';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { validateWithSchema } from '../../shared/validation';
 import { assertOwnedZ3Url } from '../card-suggestions-shared/assert-owned-z3-url';
-import { validateRequestParameters } from './validateRequestParameters';
+
+const bodySchema = z.object({
+  appointmentID: z.string().uuid(),
+  fileURL: z.string().url(),
+  fileContentType: z.string().optional(),
+});
 
 const ZAMBDA_NAME = 'get-photo-id-suggestions';
 
@@ -22,7 +29,7 @@ let oystehrToken: string;
 // suggested fields — nothing is persisted here. The durable DocumentReference + extraction record
 // are created later, independently, by paperwork harvest / EHR staff viewing the card.
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const { appointmentID, fileURL, fileContentType, secrets } = validateRequestParameters(input);
+  const { appointmentID, fileURL, fileContentType, secrets } = validateWithSchema(bodySchema, input);
 
   if (!oystehrToken) {
     oystehrToken = await getAuth0Token(secrets);

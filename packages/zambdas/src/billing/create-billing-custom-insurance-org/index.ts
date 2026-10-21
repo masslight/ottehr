@@ -2,21 +2,24 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { InternalError } from 'utils/lib/helpers/oystehrApi';
 import { CreatedResourceResponse } from 'utils/lib/types/data/billing/billing.types';
+import { CreateCustomInsuranceOrgInputSchema } from 'utils/lib/types/data/billing/custom-insurance-org.schemas';
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { truncateForLog } from '../../shared/logging';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { buildCustomInsuranceOrganization, findCustomInsuranceOrgByBusinessId } from '../custom-insurance-org.helpers';
 import { createBillingClient } from '../shared';
-import { CreateInsuranceOrgParams, validateRequestParameters } from './validateRequestParameters';
+
+type CreateInsuranceOrgParams = ValidatedZambdaInput<typeof CreateCustomInsuranceOrgInputSchema>;
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'create-billing-custom-insurance-org';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.group('validateRequestParameters');
-  const params = validateRequestParameters(input);
+  const params = validateWithSchema(CreateCustomInsuranceOrgInputSchema, input);
   const { secrets } = params;
   console.groupEnd();
 

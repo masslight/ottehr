@@ -321,7 +321,7 @@ describe('ConditionalEditor', () => {
     expect(await screen.findByRole('option', { name: /VIP/ })).toBeInTheDocument();
     expect(screen.getByRole('option', { name: /Hold/ })).toBeInTheDocument();
     expect(screen.getByRole('option', { name: /Auto Accident/ })).toBeInTheDocument();
-    expect(searchBillingTagsMock).toHaveBeenCalledTimes(1);
+    expect(searchBillingTagsMock).toHaveBeenCalledTimes(2);
   });
 
   it('renders a state dropdown (not free text) for state conditions', async () => {

@@ -52,7 +52,12 @@ import {
   EXTENSION_CLAIM_INSURANCE_TYPE,
   EXTENSION_URL_CPT_MODIFIER,
 } from 'utils/lib/helpers/rcm/constants';
+import {
+  MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE,
+  MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_SYSTEM,
+} from 'utils/lib/types/api/medication-administration.constants';
 import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
+import { CreateBillingClaimFromEncounterInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { AR_STAGE, CLAIM_STATUS_TAG_SYSTEMS } from 'utils/lib/types/data/billing/claim-status';
 import {
   CLAIM_NON_INSURANCE_PAYER_EXTENSION_URL,
@@ -79,7 +84,6 @@ import {
   performEffect,
   resolveNonInsurancePayer,
 } from '../../../src/billing/create-billing-claim-from-encounter/handler';
-import { validateRequestParameters } from '../../../src/billing/create-billing-claim-from-encounter/validateRequestParameters';
 import {
   BILLING_WORKING_COPY_TAG,
   buildClaimItemDrugDetail,
@@ -93,6 +97,7 @@ import {
   SOURCE_IDENTIFIER_SYSTEM,
 } from '../../../src/billing/shared';
 import { createAccidentCondition } from '../../../src/shared/chart-data';
+import { validateWithSchema } from '../../../src/shared/validation';
 
 // Local const so that DEPRECATED system doesn't get imported from utils
 const CODE_SYSTEM_HCPCS = 'http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets'; // formerly used by Ottehr clinical in-house meds
@@ -420,27 +425,31 @@ const emptyAccount = { ...structuredClone(clinicalResources.account), coverage: 
 describe('create-billing-claim-from-encounter', () => {
   describe('validation', () => {
     it('throws validation error on empty body', async () => {
-      expect(() => validateRequestParameters({ headers: null, body: null, secrets: null })).toThrow(
-        expect.objectContaining(MISSING_REQUEST_BODY)
-      );
+      expect(() =>
+        validateWithSchema(CreateBillingClaimFromEncounterInputSchema, { headers: null, body: null, secrets: null })
+      ).toThrow(expect.objectContaining(MISSING_REQUEST_BODY));
     });
     it('throws validation error on empty secrets', async () => {
-      expect(() => validateRequestParameters({ headers: null, body: '{}', secrets: null })).toThrow(
-        expect.objectContaining(MISSING_REQUEST_SECRETS)
-      );
+      expect(() =>
+        validateWithSchema(CreateBillingClaimFromEncounterInputSchema, { headers: null, body: '{}', secrets: null })
+      ).toThrow(expect.objectContaining(MISSING_REQUEST_SECRETS));
     });
     it('throws validation error on non-json body', async () => {
-      expect(() => validateRequestParameters({ headers: null, body: 'some text', secrets: {} })).toThrow(
-        expect.objectContaining(INVALID_INPUT_ERROR('Invalid JSON in request body'))
-      );
+      expect(() =>
+        validateWithSchema(CreateBillingClaimFromEncounterInputSchema, {
+          headers: null,
+          body: 'some text',
+          secrets: {},
+        })
+      ).toThrow(expect.objectContaining(INVALID_INPUT_ERROR('Invalid JSON in request body')));
     });
     it('throws validation error on missing encounter id', async () => {
-      expect(() => validateRequestParameters({ headers: null, body: '{}', secrets: {} })).toThrow(
-        expect.objectContaining(INVALID_INPUT_ERROR('Validation error: Required at "encounterId"'))
-      );
+      expect(() =>
+        validateWithSchema(CreateBillingClaimFromEncounterInputSchema, { headers: null, body: '{}', secrets: {} })
+      ).toThrow(expect.objectContaining(INVALID_INPUT_ERROR('Validation error: Required at "encounterId"')));
     });
     it('succeeds', async () => {
-      const input = validateRequestParameters({
+      const input = validateWithSchema(CreateBillingClaimFromEncounterInputSchema, {
         headers: null,
         body: '{"encounterId":"77e32d5e-bb84-4604-beb8-d755869f9715"}',
         secrets: {},
@@ -3680,6 +3689,14 @@ describe('create-billing-claim-from-encounter', () => {
             {
               resourceType: 'MedicationAdministration',
               id: 'ma-1',
+              meta: {
+                tag: [
+                  {
+                    system: MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_SYSTEM,
+                    code: MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE,
+                  },
+                ],
+              },
               status: 'completed',
               subject: { reference: 'Patient/patient-123' },
               effectiveDateTime: '2026-10-01T10:00:00Z',

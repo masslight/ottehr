@@ -1,17 +1,18 @@
 import { randomUUID } from 'node:crypto';
 import Oystehr from '@oystehr/sdk';
 import type { APIGatewayProxyResult } from 'aws-lambda';
+import { ExportClaimX12InputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { APIErrorCode, MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils/lib/types/errors';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { validateRequestParameters } from '../../src/billing/export-billing-claim-x12/validateRequestParameters';
 import type { ZambdaInput } from '../../src/shared/types/common';
+import { validateWithSchema } from '../../src/shared/validation';
 
 const PROJECT_API = 'https://project-api.zapehr.com/v1';
 const CLAIM_ID = randomUUID();
 
 describe('export-billing-claim-x12 validateRequestParameters', () => {
   it('returns validated params for valid input', () => {
-    const result = validateRequestParameters({
+    const result = validateWithSchema(ExportClaimX12InputSchema, {
       headers: null,
       body: JSON.stringify({
         claimId: CLAIM_ID,
@@ -25,7 +26,7 @@ describe('export-billing-claim-x12 validateRequestParameters', () => {
 
   it('throws when body is missing', () => {
     expect(() =>
-      validateRequestParameters({
+      validateWithSchema(ExportClaimX12InputSchema, {
         headers: null,
         body: null,
         secrets: {
@@ -37,7 +38,7 @@ describe('export-billing-claim-x12 validateRequestParameters', () => {
 
   it('throws when secrets are missing', () => {
     expect(() =>
-      validateRequestParameters({
+      validateWithSchema(ExportClaimX12InputSchema, {
         headers: null,
         body: JSON.stringify({
           claimId: CLAIM_ID,
@@ -49,7 +50,7 @@ describe('export-billing-claim-x12 validateRequestParameters', () => {
 
   it('throws when claimId is missing', () => {
     expect(() =>
-      validateRequestParameters({
+      validateWithSchema(ExportClaimX12InputSchema, {
         headers: null,
         body: JSON.stringify({}),
         secrets: {
@@ -61,7 +62,7 @@ describe('export-billing-claim-x12 validateRequestParameters', () => {
 
   it('throws when claimId is not a uuid', () => {
     expect(() =>
-      validateRequestParameters({
+      validateWithSchema(ExportClaimX12InputSchema, {
         headers: null,
         body: JSON.stringify({
           claimId: 'not-a-uuid',

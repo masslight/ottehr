@@ -1,5 +1,5 @@
 import Oystehr, { BatchInputPostRequest, BatchInputRequest } from '@oystehr/sdk';
-import { captureException } from '@sentry/aws-serverless';
+import { captureException } from '@sentry/node-core/light';
 import { Operation } from 'fast-json-patch';
 import { Account, Appointment, Encounter, List, Patient, Person, RelatedPerson } from 'fhir/r4b';
 import { DateTime } from 'luxon';

@@ -1,5 +1,5 @@
 import { Autocomplete, AutocompleteRenderInputParams, Box, TextField, Typography } from '@mui/material';
-import { HTMLAttributes, ReactElement, ReactNode, Ref, useState } from 'react';
+import { HTMLAttributes, ReactElement, ReactNode, Ref, useCallback, useEffect, useState } from 'react';
 import { SYSTEM_MANAGED_TAGS } from 'utils/lib/types/data/billing/system-tags';
 import { searchBillingTags } from '../api/api';
 import { useApiClients } from '../hooks/useAppClients';
@@ -44,7 +44,7 @@ export function TagSelect({
   const { oystehrZambda } = useApiClients();
   const [fetched, setFetched] = useState<TagOption[] | undefined>(undefined);
 
-  const load = async (): Promise<void> => {
+  const load = useCallback(async (): Promise<void> => {
     if (fetched || !oystehrZambda) return;
     try {
       const res = await searchBillingTags(oystehrZambda);
@@ -52,7 +52,12 @@ export function TagSelect({
     } catch {
       setFetched([]);
     }
-  };
+  }, [fetched, oystehrZambda]);
+
+  // Load once on component mount
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   // Fetched tags win the dedupe (a stored system tag carries its stored description); the stored
   // value is appended last so it renders even when its definition has been deleted.

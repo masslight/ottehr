@@ -13,6 +13,7 @@ import { invalidateChart } from '../../hooks/chartSectionCache';
 import { GET_MEDICATION_ORDERS_QUERY_KEY } from '../../stores/appointment/appointment.queries';
 import { useAppointmentData } from '../../stores/appointment/appointment.store';
 import { resetExamObservationsStore } from '../../stores/appointment/reset-exam-observations';
+import { resetRosObservationsStore } from '../../stores/appointment/reset-ros-observations';
 import { useListTemplates } from '../templates/useListTemplates';
 import { appendToNoteField, toPlannedAction } from './analysis';
 import {
@@ -70,6 +71,7 @@ export const useApplyRecommendations = (): {
       // Exam observations live in Zustand rather than React Query, so they need a reset before the
       // refetch below can repopulate them (same as ApplyTemplate does).
       resetExamObservationsStore();
+      resetRosObservationsStore();
       await Promise.all([
         // Re-reads the visit note and marks the other chart entries stale (same as ApplyTemplate).
         invalidateChart(queryClient, encounterId),

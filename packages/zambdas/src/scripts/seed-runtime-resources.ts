@@ -19,14 +19,17 @@ import { createOystehrClientFromConfig, performEffectWithEnvFile } from './helpe
  * It reads whatever the active instance ships in config/runtime-seed/, so it is one
  * script for every instance — the per-instance data lives in the config, not here.
  *
- * "Faithful": each file's resources are POSTed as authored, with two rewrites —
+ * "Faithful": each file's resources are POSTed as authored, with three rewrites —
  *   1. intra-file `#{ref/fhirResources/KEY/...}` placeholders resolve to the
- *      target's `urn:uuid` fullUrl inside the transaction, and
- *   2. placeholders that only Terraform can resolve (`#{var/...}` and cross-file
- *      `#{ref/...}` to resources not in the seed set, e.g. a lab Organization) are
- *      dropped along with the field/element that carries them. Those are all
- *      optional integration fields (stripe/advapacs/lab identifiers) that an admin
- *      now configures self-service — never booking-gating fields.
+ *      target's `urn:uuid` fullUrl inside the transaction,
+ *   2. `#{var/NAME}` placeholders resolve to NAME's value in the env's
+ *      config/.env/<env>.json, as Terraform resolved them (e.g. the AdvaPACS
+ *      location id or a Stripe account), and
+ *   3. placeholders still unresolved after that (a `#{var/...}` the env doesn't
+ *      define, cross-file `#{ref/...}` to resources not in the seed set, e.g. a lab
+ *      Organization) are dropped along with the field/element that carries them.
+ *      Those are all optional integration fields (stripe/advapacs/lab identifiers)
+ *      that an admin can configure self-service — never booking-gating fields.
  */
 const RUNTIME_SEED_DIR = path.resolve(__dirname, '../../../../config/runtime-seed');
 
@@ -50,6 +53,19 @@ const readSeedFiles = (): SeedFile[] => {
     const parsed = JSON.parse(fs.readFileSync(path.join(RUNTIME_SEED_DIR, name), 'utf-8'));
     return { name, resources: parsed.fhirResources ?? {} };
   });
+};
+
+/**
+ * Resolves `#{var/NAME}` to the env config's NAME when it holds a non-empty string.
+ * Anything else is left in place for stripUnresolvablePlaceholders to drop.
+ */
+const resolveEnvVars = (resource: any, config: Record<string, unknown>): any => {
+  const serialized = JSON.stringify(resource).replace(/#\{var\/([A-Za-z0-9_-]+)\}/g, (match, name: string) => {
+    const value = config[name];
+    // Re-encode so a value with quotes or backslashes can't break the surrounding JSON string.
+    return typeof value === 'string' && value !== '' ? JSON.stringify(value).slice(1, -1) : match;
+  });
+  return JSON.parse(serialized);
 };
 
 const containsPlaceholder = (node: unknown): boolean => JSON.stringify(node ?? null).includes('#{');
@@ -132,7 +148,7 @@ const alreadySeeded = async (oystehr: Oystehr, resources: SeedFile['resources'])
   return false;
 };
 
-const seedFile = async (oystehr: Oystehr, file: SeedFile): Promise<void> => {
+const seedFile = async (oystehr: Oystehr, file: SeedFile, config: Record<string, unknown>): Promise<void> => {
   const entries = Object.entries(file.resources);
   if (entries.length === 0) {
     return;
@@ -146,7 +162,7 @@ const seedFile = async (oystehr: Oystehr, file: SeedFile): Promise<void> => {
   const typeByKey = Object.fromEntries(entries.map(([key, wrapper]) => [key, wrapper.resource.resourceType]));
 
   const requests: BatchInputPostRequest<FhirResource>[] = entries.map(([key, wrapper]) => {
-    const resolved = resolveIntraFileRefs(wrapper.resource, uuidByKey, typeByKey);
+    const resolved = resolveEnvVars(resolveIntraFileRefs(wrapper.resource, uuidByKey, typeByKey), config);
     const resource = stripUnresolvablePlaceholders(resolved) as FhirResource;
     return {
       method: 'POST',
@@ -165,7 +181,7 @@ const main = async (): Promise<void> => {
   await performEffectWithEnvFile(async (config) => {
     const oystehr = await createOystehrClientFromConfig(config);
     for (const file of readSeedFiles()) {
-      await seedFile(oystehr, file);
+      await seedFile(oystehr, file, config);
     }
   });
 };

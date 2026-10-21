@@ -15,6 +15,7 @@ import {
 } from '../../billing/claim-amounts';
 import { buildEraRemitServiceLines } from '../../billing/era-remits';
 import { findBillingClaimForEncounter } from '../../billing/payments';
+import { fetchWriteOffsByClaimIds, sumWriteOffs } from '../../billing/write-offs';
 import { getProcedureCodeTitle } from './get-procedure-code-title';
 import { applyPaymentToLines, shareByCharge } from './statement-line-amounts';
 
@@ -28,6 +29,7 @@ export interface BillingStatementAmounts {
     chargedCents: number;
     insurancePaidCents: number;
     patientPaidCents: number;
+    writeOffsCents: number;
     patientOwesCents: number;
   }[];
   totals: {
@@ -35,6 +37,7 @@ export interface BillingStatementAmounts {
     insurancePaidCents: number;
     patientPaidCents: number;
     balanceDueCents: number;
+    writeOffsCents: number;
     deductibleCents: number;
   };
 }
@@ -81,21 +84,25 @@ export function computeBillingStatementAmounts(params: {
   claim: Claim;
   claimResponses: ClaimResponse[];
   patientPaid: number;
+  writeOffsTotal: number;
 }): BillingStatementAmounts {
-  const { claim, claimResponses, patientPaid } = params;
+  const { claim, claimResponses, patientPaid, writeOffsTotal } = params;
   const items = claimItems(claim);
   const remitLines = sortClaimResponsesByRecency(claimResponses).map((remit) =>
     buildEraRemitServiceLines(remit, claim)
   );
   const latestRemitLines = remitLines[remitLines.length - 1] ?? [];
 
-  const payments = summarizeClaimPayments(claimResponses, claim.total?.value ?? 0, patientPaid);
+  const payments = summarizeClaimPayments(claimResponses, claim.total?.value ?? 0, patientPaid, writeOffsTotal);
 
   const insurancePaidCents = Math.max(toCents(payments.insurancePaid), 0);
   const unadjudicatedRespCents = hasReachedPatientAr(claim) ? toCents(claim.total?.value) : 0;
   const patientRespCents = Math.max(payments.adjudicated ? toCents(payments.patientResp) : unadjudicatedRespCents, 0);
   const chargedCents = insurancePaidCents + patientRespCents;
   const patientPaidCents = toCents(payments.patientPaid);
+  const writeOffsCents = toCents(payments.writeOffsTotal);
+  const balanceCents =
+    hasReachedPatientAr(claim) || payments.adjudicated ? toCents(payments.balance) : unadjudicatedRespCents;
   const deductibleSumCents = latestRemitLines.reduce(
     (total, line) => total + toCents(patientRespBuckets(line.adjustments).deductible),
     0
@@ -106,7 +113,8 @@ export function computeBillingStatementAmounts(params: {
     chargedCents,
     insurancePaidCents,
     patientPaidCents,
-    balanceDueCents: patientRespCents - patientPaidCents,
+    writeOffsCents,
+    balanceDueCents: balanceCents,
     deductibleCents,
   };
 
@@ -132,13 +140,16 @@ export function computeBillingStatementAmounts(params: {
     grossCents
   );
   const patientPaidByLine = applyPaymentToLines(patientPaidCents, owedByLine);
+  const writeOffsByLine = applyPaymentToLines(writeOffsCents, owedByLine);
+  console.log('colin', writeOffsByLine);
 
   return {
     lines: items.map((_, index) => ({
       chargedCents: insurancePaidByLine[index] + owedByLine[index],
       insurancePaidCents: insurancePaidByLine[index],
       patientPaidCents: patientPaidByLine[index],
-      patientOwesCents: owedByLine[index] - patientPaidByLine[index],
+      writeOffsCents: writeOffsByLine[index],
+      patientOwesCents: owedByLine[index] - patientPaidByLine[index] - writeOffsByLine[index],
     })),
     totals,
   };
@@ -150,15 +161,18 @@ export async function getBillingStatementLines(input: BillingStatementLinesInput
   const claim = await findBillingClaimForEncounter(billingOystehr, encounterId);
   if (!claim?.id) throw STATEMENT_BILLING_CLAIM_NOT_FOUND_ERROR(encounterId);
 
-  const [claimResponsesByClaimId, paymentsByEncounterId] = await Promise.all([
+  const [claimResponsesByClaimId, paymentsByEncounterId, writeOffs] = await Promise.all([
     fetchClaimResponsesByClaimIds(eraReadOystehr, [claim.id]),
     fetchPatientPaymentsByEncounterIds(billingOystehr, [encounterId]),
+    fetchWriteOffsByClaimIds(billingOystehr, [claim.id]),
   ]);
+  const writeOffsTotal = sumWriteOffs(writeOffs.get(claim.id ?? '') ?? []);
 
   const amounts = computeBillingStatementAmounts({
     claim,
     claimResponses: claimResponsesByClaimId.get(claim.id) ?? [],
     patientPaid: sumPatientPayments(paymentsByEncounterId.get(encounterId) ?? []),
+    writeOffsTotal,
   });
 
   const serviceLines = await Promise.all(
@@ -176,6 +190,7 @@ export async function getBillingStatementLines(input: BillingStatementLinesInput
         charged: formatCurrencyFromCents(line.chargedCents),
         insurancePaid: formatCurrencyFromCents(line.insurancePaidCents),
         patientPaid: formatCurrencyFromCents(line.patientPaidCents),
+        writeOffs: formatCurrencyFromCents(line.writeOffsCents),
         patientOwes: formatCurrencyFromCents(line.patientOwesCents),
       };
     })
@@ -187,6 +202,7 @@ export async function getBillingStatementLines(input: BillingStatementLinesInput
       charged: formatCurrencyFromCents(amounts.totals.chargedCents),
       insurancePaid: formatCurrencyFromCents(amounts.totals.insurancePaidCents),
       patientPaid: formatCurrencyFromCents(amounts.totals.patientPaidCents),
+      writeOffs: formatCurrencyFromCents(amounts.totals.writeOffsCents),
       deductible: formatCurrencyFromCents(amounts.totals.deductibleCents),
       balanceDue: formatCurrencyFromCents(amounts.totals.balanceDueCents),
     },

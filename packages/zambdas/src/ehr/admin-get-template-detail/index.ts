@@ -11,6 +11,11 @@ import {
   ServiceRequest,
 } from 'fhir/r4b';
 import { collectKnownExamFields } from 'utils/lib/config-helpers/exam-observations';
+import {
+  collectKnownRosFieldsWithComments,
+  getRosSystemKeyForCommentField,
+  ROS_COMMENT_FIELD_KEYS,
+} from 'utils/lib/config-helpers/review-of-systems';
 import { extractCptCodeModifiersFromCoding, getCptBillableUnitsFromCoding } from 'utils/lib/fhir/billing';
 import {
   ACCIDENT_STATE_EXTENSION,
@@ -26,7 +31,8 @@ import {
 } from 'utils/lib/fhir/medication-administration';
 import { CODE_SYSTEM_ICD_10 } from 'utils/lib/helpers/rcm/constants';
 import { examConfig } from 'utils/lib/ottehr-config/examination';
-import { collectKnownRosFields, getRosFindingStateFromKey } from 'utils/lib/ottehr-config/review-of-systems';
+import { getRosFindingStateFromKey } from 'utils/lib/ottehr-config/review-of-systems';
+import { InPersonRosConfig } from 'utils/lib/ottehr-config/review-of-systems/in-person.config';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import { inHouseMedicationsMedicationApplianceRoutes } from 'utils/lib/types/api/medication-administration.types';
 import {
@@ -40,15 +46,18 @@ import {
   TemplateInHouseLabPlanDetail,
   TemplateInHouseMedicationDetail,
   TemplateProcedurePlan,
+  TemplateRosComment,
   TemplateRosFinding,
 } from 'utils/lib/types/data/admin-template.types';
 import { IN_HOUSE_TEST_CODE_SYSTEM } from 'utils/lib/types/data/in-house/in-house.constants';
+import { z } from 'zod';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { readProcedureFormFieldsFromServiceRequest } from '../../shared/chart-data';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { topLevelCatch } from '../../shared/lambda';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { validateWithSchema } from '../../shared/validation';
 import {
   fetchPlanItemsByLabGuid,
   findExternalLabPlans,
@@ -67,7 +76,10 @@ import {
 } from '../apply-template/apply-in-house-medications';
 import { findProcedurePlans } from '../apply-template/apply-procedures';
 import { analyzeTemplateVersionData, isDiagnosisCondition, verifyIsTemplate } from '../shared/template-helpers';
-import { validateRequestParameters } from './validateRequestParameters';
+
+const AdminGetTemplateDetailSchema = z.object({
+  templateId: z.string().uuid(),
+});
 
 // Local const so that DEPRECATED system doesn't get imported from utils
 const ICD_10_CODE_SYSTEM = 'http://hl7.org/fhir/sid/icd-10';
@@ -79,7 +91,7 @@ export const index = wrapHandler(
   'admin-get-template-detail',
   async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
     try {
-      const validatedInput = validateRequestParameters(input);
+      const validatedInput = validateWithSchema(AdminGetTemplateDetailSchema, input);
 
       const { secrets } = validatedInput;
       m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
@@ -208,7 +220,7 @@ const performEffect = async (
   const legacyRosTagSystem = chartDataTagSystem('ros');
 
   const knownExamFields = collectKnownExamFields(examConfig.default.components);
-  const knownRosFields = collectKnownRosFields();
+  const knownRosFields = collectKnownRosFieldsWithComments();
 
   const { isCurrentVersion, unmatchedRosFields, examObservations, rosObservations, rosNote } =
     analyzeTemplateVersionData({
@@ -223,12 +235,21 @@ const performEffect = async (
   const unmatchedRosFieldSet: Set<string> = new Set(unmatchedRosFields);
 
   // Config exam and row into template DTOs
-  const rosFindings: TemplateRosFinding[] = rosObservations.map((obs) => {
+  const rosFindings: TemplateRosFinding[] = [];
+  const rosComments: TemplateRosComment[] = [];
+  rosObservations.forEach((obs) => {
     const fieldCode = getTag(obs, rosTagSystem)?.code ?? 'unknown';
+    const commentSystemKey = getRosSystemKeyForCommentField(fieldCode);
+    if (commentSystemKey) {
+      const note = obs.note?.[0]?.text?.trim();
+      if (note)
+        rosComments.push({ fieldName: fieldCode, systemLabel: InPersonRosConfig[commentSystemKey].label, note });
+      return;
+    }
     const findingState = getRosFindingStateFromKey(fieldCode);
     const label = obs.code.text ?? 'unknown';
     const stale = unmatchedRosFieldSet.has(fieldCode);
-    return { fieldName: fieldCode, label, findingState, stale };
+    rosFindings.push({ fieldName: fieldCode, label, findingState, stale });
   });
 
   const abnormalFieldCodes = buildAbnormalFieldCodes(examConfig.default.components);
@@ -614,6 +635,9 @@ const performEffect = async (
       moiNote,
       rosNote,
       rosFindings,
+      rosComments: rosComments.sort(
+        (a, b) => ROS_COMMENT_FIELD_KEYS.indexOf(a.fieldName) - ROS_COMMENT_FIELD_KEYS.indexOf(b.fieldName)
+      ),
       examFindings,
       mdm,
       diagnoses,

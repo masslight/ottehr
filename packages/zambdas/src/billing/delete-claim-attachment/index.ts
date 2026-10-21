@@ -1,24 +1,23 @@
 import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, DocumentReference } from 'fhir/r4b';
+import { DeleteClaimAttachmentInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
-import {
-  BillingFhirResource,
-  createBillingClient,
-  fetchById,
-  getClaimAttachmentBucketAndPathFromZ3Url,
-} from '../shared';
-import { DeleteClaimAttachmentParams, validateRequestParameters } from './validateRequestParameters';
+import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
+import { claimAttachmentOwner, deleteAttachmentObject, ownedAttachmentLocation } from '../attachments';
+import { BillingFhirResource, createBillingClient, fetchById } from '../shared';
+
+type DeleteClaimAttachmentParams = ValidatedZambdaInput<typeof DeleteClaimAttachmentInputSchema>;
 
 let m2mToken: string;
 
 export const index = wrapHandler(
   'delete-claim-attachment',
   async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-    const params = validateRequestParameters(input);
+    const params = validateWithSchema(DeleteClaimAttachmentInputSchema, input);
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
     const oystehr = createBillingClient(m2mToken, params.secrets);
 
@@ -34,14 +33,7 @@ export async function performEffect(oystehr: Oystehr, params: DeleteClaimAttachm
     'DocumentReference',
     params.documentReferenceId
   );
-  const z3Url = documentReference.content[0]?.attachment.url;
-  if (!z3Url) {
-    throw INVALID_INPUT_ERROR(`Missing z3 URL in DocumentReference ${documentReference.id}`);
-  }
-  const [bucketName, path] = getClaimAttachmentBucketAndPathFromZ3Url(params.secrets['PROJECT_API'], z3Url);
-  if (!bucketName || !path) {
-    throw INVALID_INPUT_ERROR(`Invalid Z3 URL in DocumentReference ${documentReference.id}`);
-  }
+  const location = ownedAttachmentLocation(documentReference, claimAttachmentOwner(claim.id, params.secrets));
   const supportingInfo = claim.supportingInfo ?? [];
   const supportingInfoIndex = supportingInfo.findIndex(
     (supportingInfo) =>
@@ -58,13 +50,6 @@ export async function performEffect(oystehr: Oystehr, params: DeleteClaimAttachm
     sequence: index + 1,
   }));
 
-  try {
-    await oystehr.z3.deleteObject({ bucketName, 'objectPath+': path });
-  } catch (err) {
-    // Because upload occurs on the client side, it's possible the file never made it to Z3
-    console.error(`Could not delete ${path} from z3`, err);
-  }
-
   const requests: BatchInputRequest<BillingFhirResource>[] = [
     {
       method: 'PATCH',
@@ -75,4 +60,5 @@ export async function performEffect(oystehr: Oystehr, params: DeleteClaimAttachm
   ];
 
   await oystehr.fhir.transaction<BillingFhirResource>({ requests });
+  await deleteAttachmentObject(oystehr, location);
 }

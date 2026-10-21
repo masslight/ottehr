@@ -5,3 +5,4 @@ export const DATETIME_FULL_NO_YEAR = 'MMMM d, h:mm a ZZZZ';
 export const DATE_FULL_NO_YEAR = 'EEEE, MMMM d';
 export const DATE_ERROR_MESSAGE = 'Please enter a valid date';
 export const REQUIRED_FIELD_ERROR_MESSAGE = 'This field is required';
+export const AMOUNT_TOO_SMALL_MESSAGE = 'Amount must be at least $0.50';

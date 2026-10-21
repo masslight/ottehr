@@ -1,4 +1,4 @@
-import { captureException } from '@sentry/aws-serverless';
+import { captureException } from '@sentry/node-core/light';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Encounter } from 'fhir/r4b';
 import { isAnnotationFollowupEncounter, isFollowupEncounter } from 'utils/lib/fhir/encounter';
@@ -6,11 +6,16 @@ import { createOystehrClient } from 'utils/lib/helpers/helpers';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import { FileURLInfo } from 'utils/lib/types/common';
 import { GetVisitDetailsResponse } from 'utils/lib/types/data/telemed/appointments/appointments.types';
+import { z } from 'zod';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
+import { validateWithSchema } from '../../../shared/validation';
 import { getMedications, getPatientPortalPresignedURLs } from './helpers';
-import { validateRequestParameters } from './validateRequestParameters';
+
+export const GetVisitDetailsBodySchema = z.object({
+  appointmentId: z.string().uuid(),
+});
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let oystehrToken: string;
@@ -19,7 +24,7 @@ const ZAMBDA_NAME = 'get-visit-details';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.group('validateRequestParameters');
-  const validatedParameters = validateRequestParameters(input);
+  const validatedParameters = validateWithSchema(GetVisitDetailsBodySchema, input);
   const { appointmentId, secrets } = validatedParameters;
   console.groupEnd();
   console.debug('validateRequestParameters success');

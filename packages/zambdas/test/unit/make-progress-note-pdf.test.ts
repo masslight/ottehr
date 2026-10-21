@@ -33,7 +33,7 @@ vi.mock('../../src/shared/auth', async (importOriginal) => ({
   callerHasRole: mockCallerHasRole,
 }));
 
-vi.mock('@sentry/aws-serverless', async (importOriginal) => ({
+vi.mock('@sentry/node-core/light', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   init: vi.fn(),
   isInitialized: vi.fn(() => true),
@@ -41,7 +41,6 @@ vi.mock('@sentry/aws-serverless', async (importOriginal) => ({
   setTags: vi.fn(),
   captureException: vi.fn(),
   captureMessage: vi.fn(),
-  wrapHandler: (fn: (...args: unknown[]) => unknown) => fn,
 }));
 
 vi.mock('../../src/shared/pdf/visit-details-pdf/get-video-resources', () => ({

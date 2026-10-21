@@ -1,5 +1,5 @@
 import Oystehr, { BatchInputPostRequest, BatchInputPutRequest } from '@oystehr/sdk';
-import { captureException } from '@sentry/aws-serverless';
+import { captureException } from '@sentry/node-core/light';
 import { randomUUID } from 'crypto';
 import { Operation } from 'fast-json-patch';
 import {
@@ -109,6 +109,7 @@ import { createCodeableConcept } from 'utils/lib/types/api/chart-data/exam-field
 import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
 import { SNOMEDCodeConceptInterface } from 'utils/lib/types/api/chart-data/save-chart-data.types';
 import { MEDICATION_DISPENSABLE_DRUG_ID } from 'utils/lib/types/api/medication-administration.constants';
+import { ADDED_VIA_PROCEDURE_EXTENSION } from 'utils/lib/types/api/procedures.constants';
 import { TaskCoding } from 'utils/lib/types/common';
 import { ADDED_VIA_LAB_ORDER_SYSTEM } from 'utils/lib/types/data/labs/labs.constants';
 import { SCHOOL_WORK_NOTE, SCHOOL_WORK_NOTE_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
@@ -662,6 +663,7 @@ export function makeRosObservationResource(
     encounter: { reference: `Encounter/${encounterId}` },
     status: 'final',
     valueBoolean: typeof data.value === 'boolean' ? Boolean(data.value) : undefined,
+    note: data.note ? [{ text: data.note }] : undefined,
     code: { text: data.label || data.field },
     meta: fillMeta(data.field, ROS_OBSERVATION_META_SYSTEM),
   };
@@ -1145,15 +1147,15 @@ export function updateEncounterReasonForVisit(encounter: Encounter, data: FreeTe
   return resultOperations;
 }
 
-export function deleteEncounterDiagnosis(encounter: Encounter, conditionId: string): Operation[] {
-  const resultOperations: Operation[] = [];
-  if (encounter.diagnosis) {
-    encounter.diagnosis.find((diagnosis, index) => {
-      if (diagnosis.condition.reference === `Condition/${conditionId}`)
-        resultOperations.push(removeOperation(`/diagnosis/${index}`));
-    });
-  }
-  return resultOperations;
+export function deleteEncounterDiagnoses(encounter: Encounter, conditionIds: readonly string[]): Operation[] {
+  const references = new Set(conditionIds.map((id) => `Condition/${id}`));
+  return (encounter.diagnosis ?? [])
+    .flatMap((diagnosis, index) =>
+      diagnosis.condition.reference && references.has(diagnosis.condition.reference)
+        ? [removeOperation(`/diagnosis/${index}`)]
+        : []
+    )
+    .reverse();
 }
 
 export function deleteEncounterAddendumNote(encounter: Encounter): Operation[] {
@@ -1195,6 +1197,15 @@ export function makeDiagnosisConditionResource(
       },
     ];
   }
+  if (data.addedViaProcedure === true) {
+    conditionConfig.extension = [
+      ...(conditionConfig.extension ?? []),
+      {
+        url: ADDED_VIA_PROCEDURE_EXTENSION,
+        valueBoolean: true,
+      },
+    ];
+  }
   return conditionConfig;
 }
 
@@ -1207,6 +1218,11 @@ export function makeDiagnosisDTO(resource: Condition, isPrimary: boolean): Diagn
     display: resource.code?.coding?.[0].display || '',
     isPrimary: isPrimary,
     addedViaLabOrder,
+    ...(resource.extension?.some(
+      (extension) => extension.url === ADDED_VIA_PROCEDURE_EXTENSION && extension.valueBoolean === true
+    )
+      ? { addedViaProcedure: true }
+      : {}),
   };
 }
 

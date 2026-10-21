@@ -6,6 +6,7 @@ import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
 import { DYMO_30334_LABEL_CONFIG } from 'utils/lib/types/data/labs/labs.constants';
 import { MIME_TYPES } from 'utils/lib/utils/file';
 import { getTimezone } from 'utils/lib/utils/scheduleUtils';
+import { z } from 'zod';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import {
@@ -15,7 +16,11 @@ import {
 } from '../../shared/pdf/visit-label-pdf';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
-import { validateRequestParameters } from './validateRequestParameters';
+import { validateWithSchema } from '../../shared/validation';
+
+export const GetVisitLabelBodySchema = z.object({
+  encounterId: z.string().uuid(),
+});
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mToken: string;
@@ -24,7 +29,7 @@ const ZAMBDA_NAME = 'get-or-create-visit-label-pdf';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log('Validating input');
-  const { encounterId, secrets } = validateRequestParameters(input);
+  const { encounterId, secrets } = validateWithSchema(GetVisitLabelBodySchema, input);
 
   console.log('Getting token');
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);

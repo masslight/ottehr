@@ -1,8 +1,8 @@
 import { otherColors } from '@ehrTheme/colors';
-import { Box, Modal, Typography } from '@mui/material';
+import { Box, Modal, Stack, Typography } from '@mui/material';
 import { ReactElement, useEffect, useMemo, useRef, useState } from 'react';
 import { REASON_FOR_VISIT_SEPARATOR } from 'utils/lib/types/constants';
-import { FLAGGED_REASONS_FOR_VISIT, MOBILE_MODAL_STYLE } from '../constants';
+import { FLAGGED_REASON_FOR_VISIT_TOOLTIP, FLAGGED_REASONS_FOR_VISIT, MOBILE_MODAL_STYLE } from '../constants';
 import { ApptTab } from './AppointmentTabs';
 import { GenericToolTip } from './GenericToolTip';
 
@@ -50,7 +50,7 @@ const ReasonsForVisit = ({
   }, [reasonsForVisit]);
 
   const toolTipTitle = useMemo(() => {
-    let title = flagReason ? 'Alert clinical team for immediate evaluation' : undefined;
+    let title = flagReason ? FLAGGED_REASON_FOR_VISIT_TOOLTIP : undefined;
     if (reasonIsOverflowing) {
       title = title ? `${title}\n${reasonsForVisit}` : reasonsForVisit;
     }
@@ -59,21 +59,23 @@ const ReasonsForVisit = ({
 
   const reasonForVisitReactElement = useMemo(
     () => (
-      <Typography
-        ref={reasonRef}
-        sx={truncatedTextStyles}
-        onClick={() => {
-          if (isMobile && toolTipTitle) {
-            setMobileModalOpen(true);
-          }
-        }}
-      >
+      <Stack direction="row" alignItems="center">
         {flagReason && formattedPriorityHighIcon}
-        <span style={{ color: flagReason ? otherColors.priorityHighText : undefined, display: 'inline' }}>
-          {reason}
-        </span>
-        {reasonAdditional && `${REASON_FOR_VISIT_SEPARATOR}${reasonAdditional}`}
-      </Typography>
+        <Typography
+          ref={reasonRef}
+          sx={truncatedTextStyles}
+          onClick={() => {
+            if (isMobile && toolTipTitle) {
+              setMobileModalOpen(true);
+            }
+          }}
+        >
+          <span style={{ color: flagReason ? otherColors.priorityHighText : undefined, display: 'inline' }}>
+            {reason}
+          </span>
+          {reasonAdditional && `${REASON_FOR_VISIT_SEPARATOR}${reasonAdditional}`}
+        </Typography>
+      </Stack>
     ),
     [flagReason, formattedPriorityHighIcon, isMobile, reason, reasonAdditional, toolTipTitle, truncatedTextStyles]
   );

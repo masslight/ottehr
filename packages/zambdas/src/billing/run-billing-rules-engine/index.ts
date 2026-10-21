@@ -3,15 +3,20 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, ProvenanceAgent, Task } from 'fhir/r4b';
 import { InternalError } from 'utils/lib/helpers/oystehrApi';
 import { RulesEngineSubmissionType, RulesEngineType } from 'utils/lib/types/data/billing/rules-engine.constants';
-import { RunBillingRulesEngineResponse } from 'utils/lib/types/data/billing/rules-engine.schemas';
+import {
+  RunBillingRulesEngineInputSchema,
+  RunBillingRulesEngineResponse,
+} from 'utils/lib/types/data/billing/rules-engine.schemas';
 import { FHIR_RESOURCE_NOT_FOUND_CUSTOM, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { resolveClaimActor } from '../provenance';
 import { buildRulesEngineKickoffTask } from '../rules-engine/serialization';
 import { createBillingClient, determineRulesEngineForClaim } from '../shared';
-import { RunBillingRulesEngineParams, validateRequestParameters } from './validateRequestParameters';
+
+type RunBillingRulesEngineParams = ValidatedZambdaInput<typeof RunBillingRulesEngineInputSchema>;
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'run-billing-rules-engine';
@@ -21,7 +26,7 @@ const ZAMBDA_NAME = 'run-billing-rules-engine';
 // by its AR stage (see determineRulesEngineForClaim); this enqueues the same Tasks claim creation
 // does, and a Subscription then runs sub-rules-engine for each.
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const params = validateRequestParameters(input);
+  const params = validateWithSchema(RunBillingRulesEngineInputSchema, input);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
