@@ -7,7 +7,7 @@ import {
   fetchClaimResponsesFromEraProvenances,
   fetchEraProcessingProvenances,
 } from '../../../billing/claim-amounts';
-import { createEraReadClient, fetchById, tagEraResources } from '../../../billing/shared';
+import { createUnscopedClient, fetchById, tagEraResources } from '../../../billing/shared';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { truncateForLog } from '../../../shared/logging';
 import { wrapHandler } from '../../../shared/sentry';
@@ -28,7 +28,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.groupEnd();
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createEraReadClient(m2mToken, secrets);
+  const oystehr = createUnscopedClient(m2mToken, secrets);
 
   console.group('complexValidation');
   const validated = await complexValidation(oystehr, params.paymentReconciliationId);

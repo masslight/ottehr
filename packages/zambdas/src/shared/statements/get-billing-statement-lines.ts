@@ -42,7 +42,6 @@ export interface BillingStatementAmounts {
 export interface BillingStatementLinesInput {
   encounterId: string;
   billingOystehr: Oystehr;
-  eraReadOystehr: Oystehr;
   clinicalOystehr: Oystehr;
 }
 
@@ -145,13 +144,13 @@ export function computeBillingStatementAmounts(params: {
 }
 
 export async function getBillingStatementLines(input: BillingStatementLinesInput): Promise<StatementLineDetails> {
-  const { encounterId, billingOystehr, eraReadOystehr, clinicalOystehr } = input;
+  const { encounterId, billingOystehr, clinicalOystehr } = input;
 
   const claim = await findBillingClaimForEncounter(billingOystehr, encounterId);
   if (!claim?.id) throw STATEMENT_BILLING_CLAIM_NOT_FOUND_ERROR(encounterId);
 
   const [claimResponsesByClaimId, paymentsByEncounterId] = await Promise.all([
-    fetchClaimResponsesByClaimIds(eraReadOystehr, [claim.id]),
+    fetchClaimResponsesByClaimIds(billingOystehr, [claim.id]),
     fetchPatientPaymentsByEncounterIds(billingOystehr, [encounterId]),
   ]);
 

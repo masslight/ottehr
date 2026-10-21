@@ -10,7 +10,7 @@ import {
   loadReportCache,
   saveReportCache,
 } from '../../../billing/reports/framework/report-cache';
-import { createBillingClient, createEraReadClient } from '../../../billing/shared';
+import { createBillingClient, createUnscopedClient } from '../../../billing/shared';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { safeValidate } from '../../../shared/validation';
 import { wrapTaskHandler } from '../helpers';
@@ -32,7 +32,7 @@ export const index = wrapTaskHandler(ZAMBDA_NAME, async (input, _oystehr) => {
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createBillingClient(m2mToken, secrets);
   // patients/appointments/encounters are clinical (untagged) resources in the same store
-  const untaggedClient = createEraReadClient(m2mToken, secrets);
+  const untaggedClient = createUnscopedClient(m2mToken, secrets);
   const onProgress = (message: string): Promise<void> => updateRefreshTaskProgress(oystehr, taskId, message);
 
   const previous = definition.usesPrevious

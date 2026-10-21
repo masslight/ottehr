@@ -215,11 +215,11 @@ export function claimResponseServiceDay(
   return (matched ? claimServiceDay(matched) : null) ?? containedClaimServiceDay(claimResponse);
 }
 
-export async function fetchAllEras(eraReadClient: Oystehr): Promise<PaymentReconciliation[]> {
+export async function fetchAllEras(oystehr: Oystehr): Promise<PaymentReconciliation[]> {
   const eras: PaymentReconciliation[] = [];
   await fetchAllPages(
     async (offset, count) => {
-      const bundle = await eraReadClient.fhir.search<PaymentReconciliation>({
+      const bundle = await oystehr.fhir.search<PaymentReconciliation>({
         resourceType: 'PaymentReconciliation',
         params: [
           { name: 'status:not', value: ERA_VOID_STATUS },
