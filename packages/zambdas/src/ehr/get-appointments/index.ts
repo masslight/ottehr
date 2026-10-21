@@ -1,6 +1,6 @@
 import Oystehr, { Bundle } from '@oystehr/sdk';
 import { captureException } from '@sentry/node-core/light';
-import { APIGatewayProxyResult } from 'aws-lambda';
+import { Context } from 'aws-lambda';
 import {
   Appointment,
   Communication,
@@ -122,6 +122,9 @@ const isUserRelatedPerson = (rp: RelatedPerson): boolean =>
 // issues searches as POST bodies.
 const PROVENANCE_SEARCH_CHUNK_SIZE = 100;
 
+// Kept back from the Lambda's limit for Step C, the response and the Sentry flush; Step B is cut short before it.
+const TRACKING_BOARD_RESPONSE_RESERVE_MS = 5_000;
+
 /** Visit type and service category are appointment-level filters, so they need nothing beyond the Appointment itself. */
 const filterAppointmentsForBoard = (
   appointments: Appointment[],
@@ -150,7 +153,10 @@ const filterAppointmentsForBoard = (
 
 let m2mToken: string;
 
-export const index = wrapHandler('get-appointments', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler('get-appointments', async (input: ZambdaInput, context?: Context) => {
+  const trackingBoardDeadline = context
+    ? Date.now() + context.getRemainingTimeInMillis() - TRACKING_BOARD_RESPONSE_RESERVE_MS
+    : undefined;
   console.group('validateRequestParameters');
   const validatedParameters = validateRequestParameters(input);
 
@@ -420,6 +426,7 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
     encounterIds: trackingBoardEncounterIds,
     // Optional: it only shortens `next` links, and a missing secret must not fail the page (see the catch below).
     fhirApiUrl: getOptionalSecret(SecretsKeys.FHIR_API, secrets),
+    deadline: trackingBoardDeadline,
   }).catch((error) => {
     // The board can render without its icons; log and fall back to empty maps rather than fail the page.
     console.error('tracking board orders/vitals fetch failed', error);
