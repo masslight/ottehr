@@ -6,8 +6,8 @@ import { deduplicateUnbundledResources } from 'utils/lib/fhir/deduplicateUnbundl
 import { getAllFhirSearchPages, searchPageWithSizeRetry } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { getPayerId, getPayerUrl } from 'utils/lib/helpers/helpers';
 import { CODE_SYSTEM_CLAIM_TYPE, CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM } from 'utils/lib/helpers/rcm/constants';
-import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
-import { SearchBillingClaimsInput } from 'utils/lib/types/data/billing/billing.schemas';
+import { CLAIM_SCAN_MATCH_LIMIT, CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
+import { ClaimSort, ClaimSortField, SearchBillingClaimsInput } from 'utils/lib/types/data/billing/billing.schemas';
 import { BillingClaimItem } from 'utils/lib/types/data/billing/billing.types';
 import {
   AR_STAGE,
@@ -253,9 +253,9 @@ export const claimMatchesServiceDateRange = (claim: Claim, from?: string, to?: s
 export const CLAIM_SEARCH_TEXT_MATCH_LIMIT = 1000;
 export const CLAIM_SEARCH_TEXT_CONCURRENCY = 4;
 
-export const claimScanElements = (withServiceDate: boolean): ClaimSearchParam => ({
+export const claimScanElements = (withServiceDate: boolean, withTotal = false): ClaimSearchParam => ({
   name: '_elements',
-  value: withServiceDate ? 'id,meta,created,item' : 'id,meta',
+  value: ['id', 'meta', ...(withServiceDate ? ['created', 'item'] : []), ...(withTotal ? ['total'] : [])].join(','),
 });
 
 export function buildClaimSearchTextQueries({
@@ -357,15 +357,18 @@ export async function scanClaimIds({
   params,
   maxMatches,
   withServiceDate,
+  withTotal,
 }: {
   oystehr: Oystehr;
   params: ClaimSearchParam[];
   maxMatches: number;
   withServiceDate: boolean;
+  // Also read Claim.total, for sorting or summing by billed amount.
+  withTotal?: boolean;
 }): Promise<{ claims: FhirResourceReturnValue<Claim>[]; incomplete: boolean }> {
   const searchParams = {
     resourceType: 'Claim' as const,
-    params: [...params, claimScanElements(withServiceDate)],
+    params: [...params, claimScanElements(withServiceDate, withTotal)],
   };
 
   const claims: FhirResourceReturnValue<Claim>[] = [];
@@ -416,12 +419,14 @@ export async function searchClaimsBySearchText({
   searchText,
   filterParams,
   withServiceDateElements,
+  withTotalElements,
   patientNameOnly,
 }: {
   oystehr: Oystehr;
   searchText: string;
   filterParams: ClaimSearchParam[];
   withServiceDateElements: boolean;
+  withTotalElements?: boolean;
   patientNameOnly?: boolean;
 }): Promise<{ claims: FhirResourceReturnValue<Claim>[]; incomplete: boolean }> {
   const clauses = buildClaimSearchTextQueries({ searchText, patientNameOnly });
@@ -440,6 +445,7 @@ export async function searchClaimsBySearchText({
             params: [...filterParams, ...clause],
             maxMatches: CLAIM_SEARCH_TEXT_MATCH_LIMIT,
             withServiceDate: withServiceDateElements,
+            withTotal: withTotalElements,
           });
         } catch (error) {
           // One clause the server won't accept shouldn't empty the search, but it must be loud.
@@ -473,6 +479,77 @@ export async function searchClaimsBySearchText({
     claims: unionClaimsNewestFirst(claims),
     incomplete: truncatedClauses.length > 0 || failures > 0,
   };
+}
+
+/**
+ * Every claim a claims list search matches, as the scan fields only (id, meta, plus dates and total
+ * when asked for) — for when the matches can't be paged by the server: a search text, a service
+ * date range, a sort with no search parameter, or a sum across all matches. Bounded by the scan
+ * limits, so `incomplete` reports whether claims were left out.
+ */
+export async function scanMatchingClaims({
+  oystehr,
+  params,
+  filterParams,
+  withServiceDate,
+  withTotal,
+}: {
+  oystehr: Oystehr;
+  params: Pick<SearchBillingClaimsInput, 'searchText' | 'patientNameOnly' | 'serviceDateFrom' | 'serviceDateTo'>;
+  filterParams: ClaimSearchParam[];
+  withServiceDate?: boolean;
+  withTotal?: boolean;
+}): Promise<{ claims: FhirResourceReturnValue<Claim>[]; incomplete: boolean }> {
+  const filteringByServiceDate = Boolean(params.serviceDateFrom || params.serviceDateTo);
+  const withDates = Boolean(withServiceDate) || filteringByServiceDate;
+  const matched = params.searchText
+    ? await searchClaimsBySearchText({
+        oystehr,
+        searchText: params.searchText,
+        filterParams,
+        withServiceDateElements: withDates,
+        withTotalElements: withTotal,
+        patientNameOnly: params.patientNameOnly,
+      })
+    : await scanClaimIds({
+        oystehr,
+        params: filterParams,
+        maxMatches: CLAIM_SCAN_MATCH_LIMIT,
+        withServiceDate: withDates,
+        withTotal,
+      });
+  return {
+    claims: filteringByServiceDate
+      ? matched.claims.filter((c) => claimMatchesServiceDateRange(c, params.serviceDateFrom, params.serviceDateTo))
+      : matched.claims,
+    incomplete: matched.incomplete,
+  };
+}
+
+const timestamp = (value: string | undefined): number => {
+  const parsed = value ? Date.parse(value) : NaN;
+  return Number.isNaN(parsed) ? Number.NEGATIVE_INFINITY : parsed;
+};
+
+const claimSortKey = (claim: Claim, field: ClaimSortField): number => {
+  switch (field) {
+    case 'billed':
+      return claim.total?.value ?? 0;
+    case 'serviceDate':
+      return timestamp(getClaimServiceDate(claim));
+  }
+};
+
+// Sorts scanned claims (which must carry the sorted field's elements). The sort is stable, so ties
+// keep the order the scan returned them in.
+export function sortScannedClaims<T extends Claim>(claims: T[], sort: ClaimSort): T[] {
+  const sign = sort.direction === 'asc' ? 1 : -1;
+  return [...claims].sort((a, b) => {
+    const left = claimSortKey(a, sort.field);
+    const right = claimSortKey(b, sort.field);
+    if (left === right) return 0;
+    return left < right ? -sign : sign;
+  });
 }
 
 export async function fetchClaimsPageByIds({

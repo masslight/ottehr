@@ -142,6 +142,13 @@ import {
   RunBillingRulesEngineResponse,
   SaveBillingRulesInputSchema,
 } from 'utils/lib/types/data/billing/rules-engine.schemas';
+import {
+  BillingWorkQueueResponse,
+  GetBillingWorkQueueInputSchema,
+  GetBillingWorkQueuesResponse,
+  SaveBillingWorkQueueInputSchema,
+  SearchBillingWorkQueueOwnersResponse,
+} from 'utils/lib/types/data/billing/work-queue.schemas';
 import z from 'zod';
 
 async function executeBillingZambda<T>(oystehr: Oystehr, id: string, parameters?: Record<string, unknown>): Promise<T> {
@@ -483,6 +490,24 @@ export const lookupProcedureDescriptions = async (
 
 export const searchBillingTags = (oystehr: Oystehr): Promise<SearchBillingTagsResponse> =>
   executeBillingZambda(oystehr, 'search-billing-tags');
+
+// --- Work queues ---
+
+export const getBillingWorkQueues = (oystehr: Oystehr): Promise<GetBillingWorkQueuesResponse> =>
+  executeBillingZambda(oystehr, 'get-billing-work-queues');
+
+export const getBillingWorkQueue = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof GetBillingWorkQueueInputSchema>
+): Promise<BillingWorkQueueResponse> => executeBillingZambda(oystehr, 'get-billing-work-queue', parameters);
+
+export const saveBillingWorkQueue = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof SaveBillingWorkQueueInputSchema>
+): Promise<BillingWorkQueueResponse> => executeBillingZambda(oystehr, 'save-billing-work-queue', parameters);
+
+export const searchBillingWorkQueueOwners = (oystehr: Oystehr): Promise<SearchBillingWorkQueueOwnersResponse> =>
+  executeBillingZambda(oystehr, 'search-billing-work-queue-owners');
 
 // --- Reports ---
 

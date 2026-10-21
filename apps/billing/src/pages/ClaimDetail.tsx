@@ -407,7 +407,7 @@ export default function ClaimDetail(): ReactElement {
   return (
     <Box sx={{ p: 0 }}>
       <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, mb: 1 }}>
-        <IconButton onClick={() => navigate('/claims')} size="small" sx={{ mt: 0.5 }}>
+        <IconButton onClick={() => navigate(-1)} size="small" sx={{ mt: 0.5 }}>
           <ArrowBackIcon />
         </IconButton>
         <Box sx={{ flexGrow: 1 }}>
