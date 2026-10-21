@@ -105,10 +105,17 @@ export function withWorkQueue(list: List | undefined, queue: WorkQueue): List {
   };
 }
 
-export async function findWorkQueuesList(oystehr: Oystehr): Promise<List | undefined> {
+export async function findWorkQueuesLists(oystehr: Oystehr): Promise<List[]> {
   const result = await oystehr.fhir.search<List>({
     resourceType: 'List',
-    params: [{ name: '_tag', value: `${WORK_QUEUE_TAG_SYSTEM}|${WORK_QUEUES_LIST_CODE}` }],
+    params: [
+      { name: '_tag', value: `${WORK_QUEUE_TAG_SYSTEM}|${WORK_QUEUES_LIST_CODE}` },
+      { name: '_sort', value: '_id' },
+    ],
   });
-  return result.unbundle()[0];
+  return result.unbundle();
+}
+
+export async function findWorkQueuesList(oystehr: Oystehr): Promise<List | undefined> {
+  return (await findWorkQueuesLists(oystehr))[0];
 }

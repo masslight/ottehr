@@ -82,7 +82,8 @@ describe('save-billing-work-queue', () => {
   const search = vi.fn();
   const create = vi.fn();
   const update = vi.fn();
-  const oystehr = { fhir: { search, create, update } } as unknown as Oystehr;
+  const batch = vi.fn();
+  const oystehr = { fhir: { search, create, update, batch } } as unknown as Oystehr;
 
   const params = (overrides: Partial<SaveBillingWorkQueueParams> = {}): SaveBillingWorkQueueParams =>
     ({
@@ -128,6 +129,22 @@ describe('save-billing-work-queue', () => {
       name: 'Medicaid Claims',
       filters: { arStage: ['insurance-payer'] },
       layout: {},
+    });
+  });
+
+  it('saves into the List with the smallest id and deletes the duplicates', async () => {
+    const list = (id: string): List => ({ ...withWorkQueue(undefined, queue('q-1')), id, meta: { versionId: '1' } });
+    search.mockResolvedValue(bundle([list('list-a'), list('list-b'), list('list-c')]));
+
+    await saveWorkQueue(oystehr, params({ queueId: 'q-1' }));
+
+    expect(search.mock.calls[0][0].params).toContainEqual({ name: '_sort', value: '_id' });
+    expect(update.mock.calls[0][0].id).toBe('list-a');
+    expect(batch).toHaveBeenCalledWith({
+      requests: [
+        { method: 'DELETE', url: '/List/list-b' },
+        { method: 'DELETE', url: '/List/list-c' },
+      ],
     });
   });
 

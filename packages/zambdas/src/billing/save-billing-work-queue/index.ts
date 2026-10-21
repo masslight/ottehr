@@ -1,4 +1,4 @@
-import Oystehr from '@oystehr/sdk';
+import Oystehr, { BatchInputDeleteRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
 import { List } from 'fhir/r4b';
@@ -14,7 +14,7 @@ import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { createBillingClient, createEraReadClient } from '../shared';
 import { listWorkQueueOwners } from '../work-queues/owners';
-import { findWorkQueuesList, listToWorkQueues, withWorkQueue } from '../work-queues/serialization';
+import { findWorkQueuesLists, listToWorkQueues, withWorkQueue } from '../work-queues/serialization';
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'save-billing-work-queue';
@@ -62,7 +62,8 @@ export async function performEffect(
   };
 
   for (let attempt = 1; ; attempt++) {
-    const existing = await findWorkQueuesList(oystehr);
+    const [existing, ...duplicates] = await findWorkQueuesLists(oystehr);
+    await deleteDuplicateLists(oystehr, duplicates);
     if (params.queueId && !listToWorkQueues(existing).some((q) => q.id === params.queueId)) {
       throw FHIR_RESOURCE_NOT_FOUND('Basic');
     }
@@ -80,5 +81,19 @@ export async function performEffect(
         throw PRECONDITION_FAILED('The work queues were changed by someone else. Please try again.');
       }
     }
+  }
+}
+
+// Lists left behind by racing first-ever saves (see findWorkQueuesLists). Cleanup is best effort — a
+// concurrent save may be deleting the same List — so a failure is logged rather than failing the save.
+async function deleteDuplicateLists(oystehr: Oystehr, duplicates: List[]): Promise<void> {
+  const requests: BatchInputDeleteRequest[] = duplicates
+    .filter((list) => list.id)
+    .map((list) => ({ method: 'DELETE', url: `/List/${list.id}` }));
+  if (!requests.length) return;
+  try {
+    await oystehr.fhir.batch({ requests });
+  } catch (error) {
+    console.error(`[work-queues] failed to delete duplicate Lists ${requests.map((r) => r.url).join(', ')}:`, error);
   }
 }
