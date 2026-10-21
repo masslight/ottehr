@@ -52,6 +52,50 @@ vi.mock('../src/shared/pdf', async (importOriginal) => {
   return { ...original, createPdfBytes: vi.fn() };
 });
 
+// Stable 2-form config mirroring the core defaults. Mocked so the test is
+// independent of any project overlay that replaces consent-forms/index.ts.
+vi.mock('utils/lib/ottehr-config/consent-forms', () => {
+  const defaultCttAssetPath = './assets/CTT.and.Guarantee.of.Payment.and.Credit.Card.Agreement-S.pdf';
+  const ilCttAssetPath = './assets/CTT.and.Guarantee.of.Payment.and.Credit.Card.Agreement.Illinois-S.pdf';
+  const hipaaForm = {
+    id: 'hipaa-acknowledgement',
+    formTitle: 'HIPAA Acknowledgement',
+    resourceTitle: 'HIPAA forms',
+    assetPath: './assets/HIPAA.Acknowledgement-S.pdf',
+    publicUrl: '/hipaa_notice_template.pdf',
+    type: {
+      coding: [{ system: 'http://loinc.org', code: '64292-6', display: 'Privacy Policy' }],
+      text: 'HIPAA Acknowledgement forms',
+    },
+    createsConsentResource: false,
+  };
+  const cttForm = {
+    id: 'consent-to-treat',
+    formTitle: 'Consent to Treat, Guarantee of Payment & Card on File Agreement',
+    resourceTitle: 'Consent forms',
+    assetPath: defaultCttAssetPath,
+    publicUrl: '/consent_to_treat_template.pdf',
+    type: {
+      coding: [
+        { system: 'http://loinc.org', code: '59284-0', display: 'Consent Documents' },
+        {
+          system: 'https://fhir.ottehr.com/CodeSystem/consent-source',
+          code: 'patient-registration',
+          display: 'Patient Registration Consent',
+        },
+      ],
+      text: 'Consent forms',
+    },
+    createsConsentResource: true,
+  };
+  return {
+    getConsentFormsForLocation: (state?: string) => [
+      hipaaForm,
+      { ...cttForm, assetPath: state === 'IL' ? ilCttAssetPath : defaultCttAssetPath },
+    ],
+  };
+});
+
 const mockCreateFilesDocumentReferences = vi.mocked(createFilesDocumentReferences);
 const mockCreateConsentResource = vi.mocked(createConsentResource);
 const mockGetConsentAndDocRefs = vi.mocked(getConsentAndRelatedDocRefsForAppointment);
