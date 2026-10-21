@@ -75,9 +75,7 @@ export default function InvoicingConfiguration(): ReactElement {
           sx={{ bgcolor: 'background.paper', p: 3, borderRadius: 2 }}
         >
           <Stack component="fieldset" disabled={isSubmitting} spacing={3} sx={{ border: 0, p: 0, m: 0, minWidth: 0 }}>
-            {saveError && (
-              <Alert severity="error">Failed to save invoicing settings. Your changes are still here; try again.</Alert>
-            )}
+            {saveError && <Alert severity="error">Failed to save invoicing settings. Try again.</Alert>}
             <TextField
               {...dueDaysField}
               inputRef={dueDaysRef}
@@ -113,6 +111,7 @@ export default function InvoicingConfiguration(): ReactElement {
                     inputRef={field.ref}
                     error={!!fieldState.error}
                     disabled={isSubmitting}
+                    isSms={name === 'defaultSmsTemplate'}
                   />
                 )}
               />

@@ -3,6 +3,7 @@ import { Box, Chip, FormHelperText, Stack, Tab, TextField, Typography } from '@m
 import { ReactElement, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { replaceTemplateVariablesHandlebars } from 'utils/lib/helpers/helpers';
 import { buildInvoicePlaceholders } from 'utils/lib/helpers/rcm/invoice-config';
+import { InvoiceSmsCounter } from './InvoiceSmsCounter';
 
 const PREVIEW_VALUES = buildInvoicePlaceholders({
   patientFullName: 'Jane Smith',
@@ -23,6 +24,7 @@ interface InvoiceTemplateFieldProps {
   inputRef: (element: HTMLTextAreaElement | null) => void;
   error: boolean;
   disabled: boolean;
+  isSms?: boolean;
 }
 
 export function InvoiceTemplateField({
@@ -33,6 +35,7 @@ export function InvoiceTemplateField({
   inputRef,
   error,
   disabled,
+  isSms = false,
 }: InvoiceTemplateFieldProps): ReactElement {
   const [tab, setTab] = useState('write');
   const [cursor, setCursor] = useState<number | null>(null);
@@ -108,6 +111,7 @@ export function InvoiceTemplateField({
                 />
               ))}
             </Stack>
+            {isSms && <InvoiceSmsCounter value={value} sampleValues={PREVIEW_VALUES} />}
           </TabPanel>
           <TabPanel value="preview" sx={{ p: 2 }}>
             <Typography variant="caption" color="text.secondary">

@@ -299,4 +299,54 @@ describe('Invoicing Configuration', () => {
     await act(async () => save.resolve(config()));
     expect(token).not.toBeDisabled();
   });
+
+  it('estimates the resolved SMS only and updates the counter on edit and Reset', async () => {
+    const user = userEvent.setup();
+    render(<InvoicingConfiguration />);
+    await screen.findByRole('button', { name: 'Save changes' });
+    const counter = screen.getByRole('group', { name: 'SMS length estimate' });
+    const expected = 'Hello Jane Smith.\nPlease pay $125.00.'.length;
+    expect(counter).toHaveTextContent(`${expected} chars · 1 segment`);
+    const memoGroup = within(screen.getByRole('group', { name: 'Default Invoice Memo Template' }));
+    expect(memoGroup.queryByRole('group', { name: 'SMS length estimate' })).not.toBeInTheDocument();
+    await user.clear(sms());
+    await user.paste('a'.repeat(161));
+    expect(counter).toHaveTextContent('161 chars · 2 segments');
+    expect(counter).toHaveTextContent('Longer SMS messages may cost more.');
+    await user.click(screen.getByRole('button', { name: 'Reset' }));
+    expect(counter).toHaveTextContent(`${expected} chars · 1 segment`);
+    expect(counter).not.toHaveTextContent('Longer SMS messages may cost more.');
+    expect(mocks.save).not.toHaveBeenCalled();
+  });
+
+  it('uses a realistic invoice link length in the SMS estimate', async () => {
+    mocks.get.mockResolvedValueOnce(config({ ...saved, defaultSmsTemplate: '{{invoice-link}}' }));
+    render(<InvoicingConfiguration />);
+    await screen.findByRole('button', { name: 'Save changes' });
+    const counter = screen.getByRole('group', { name: 'SMS length estimate' });
+    const count = Number(counter.textContent?.match(/^(\d+) chars/)?.[1]);
+    expect(count).toBeGreaterThan(140);
+    expect(counter).toHaveTextContent('Estimate based on example values.');
+    expect(sms()).toHaveValue('{{invoice-link}}');
+    expect(saveButton()).toBeDisabled();
+  });
+
+  it('shows a Unicode estimate without changing a saved template or blocking configuration edits', async () => {
+    const user = userEvent.setup();
+    const unicodeTemplate = '💳 {{amount}}';
+    mocks.get.mockResolvedValueOnce(config({ ...saved, defaultSmsTemplate: unicodeTemplate }));
+    render(<InvoicingConfiguration />);
+    await screen.findByRole('button', { name: 'Save changes' });
+    expect(sms()).toHaveValue(unicodeTemplate);
+    expect(saveButton()).toBeDisabled();
+    expect(screen.getByRole('group', { name: 'SMS length estimate' })).toHaveTextContent(
+      'Unicode characters may require more SMS segments.'
+    );
+    await user.type(sms(), ' Thank you.');
+    await user.click(saveButton());
+    expect(mocks.save).toHaveBeenCalledWith(mocks.client, {
+      ...saved,
+      defaultSmsTemplate: unicodeTemplate + ' Thank you.',
+    });
+  });
 });
