@@ -1,5 +1,16 @@
 import { TabContext, TabList, TabPanel } from '@mui/lab';
-import { Box, Chip, FormHelperText, Stack, Tab, TextField, Typography } from '@mui/material';
+import {
+  Box,
+  Chip,
+  FormHelperText,
+  List,
+  ListItemButton,
+  Paper,
+  Stack,
+  Tab,
+  TextField,
+  Typography,
+} from '@mui/material';
 import { ReactElement, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { replaceTemplateVariablesHandlebars } from 'utils/lib/helpers/helpers';
 import { buildInvoicePlaceholders } from 'utils/lib/helpers/rcm/invoice-config';
@@ -39,8 +50,18 @@ export function InvoiceTemplateField({
 }: InvoiceTemplateFieldProps): ReactElement {
   const [tab, setTab] = useState('write');
   const [cursor, setCursor] = useState<number | null>(null);
+  const [suggestion, setSuggestion] = useState<{ start: number; end: number; query: string; text: string } | null>(
+    null
+  );
+  const [selectedIndex, setSelectedIndex] = useState(0);
   const helperId = useId();
+  const listId = `${helperId}-suggestions`;
   const textarea = useRef<HTMLTextAreaElement | null>(null);
+  const lastSelection = useRef<{ text: string; start: number; end: number } | null>(null);
+  const activeSuggestion = !disabled && suggestion?.text === value ? suggestion : null;
+  const matches = activeSuggestion
+    ? Object.keys(PREVIEW_VALUES).filter((id) => id.includes(activeSuggestion.query.toLowerCase()))
+    : [];
   useEffect(() => {
     if (error) setTab('write');
   }, [error]);
@@ -51,12 +72,40 @@ export function InvoiceTemplateField({
     setCursor(null);
   }, [cursor, value]);
 
+  const updateSuggestions = (): void => {
+    const input = textarea.current;
+    if (!input || document.activeElement !== input) return;
+    const previous = lastSelection.current;
+    if (
+      previous?.text === input.value &&
+      previous.start === input.selectionStart &&
+      previous.end === input.selectionEnd
+    )
+      return;
+    lastSelection.current = { text: input.value, start: input.selectionStart, end: input.selectionEnd };
+    const match = input.value.slice(0, input.selectionStart).match(/\{\{([a-z-]*)$/i);
+    setSuggestion(
+      match && input.selectionStart === input.selectionEnd
+        ? {
+            start: input.selectionStart - match[0].length,
+            end: input.selectionEnd,
+            query: match[1],
+            text: input.value,
+          }
+        : null
+    );
+    setSelectedIndex(0);
+  };
+
   const insertToken = (id: string): void => {
     if (!textarea.current || disabled) return;
     const { selectionStart, selectionEnd } = textarea.current;
+    const start = activeSuggestion?.start ?? selectionStart;
+    const end = activeSuggestion?.end ?? selectionEnd;
     const token = `{{${id}}}`;
-    onChange(value.slice(0, selectionStart) + token + value.slice(selectionEnd));
-    setCursor(selectionStart + token.length);
+    onChange(value.slice(0, start) + token + value.slice(end));
+    setCursor(start + token.length);
+    setSuggestion(null);
   };
 
   return (
@@ -78,23 +127,84 @@ export function InvoiceTemplateField({
             <Tab label="Preview" value="preview" disabled={disabled} />
           </TabList>
           <TabPanel value="write" sx={{ p: 2 }}>
-            <TextField
-              value={value}
-              onChange={(event) => onChange(event.target.value)}
-              onBlur={onBlur}
-              inputRef={(element: HTMLTextAreaElement | null) => {
-                textarea.current = element;
-                inputRef(element);
-              }}
-              inputProps={{ 'aria-label': label, 'aria-describedby': error ? helperId : undefined }}
-              multiline
-              minRows={4}
-              fullWidth
-              disabled={disabled}
-              error={error}
-            />
+            <Box sx={{ position: 'relative' }}>
+              <TextField
+                value={value}
+                onChange={(event) => {
+                  onChange(event.target.value);
+                  updateSuggestions();
+                }}
+                onBlur={() => {
+                  setSuggestion(null);
+                  lastSelection.current = null;
+                  onBlur();
+                }}
+                inputRef={(element: HTMLTextAreaElement | null) => {
+                  textarea.current = element;
+                  inputRef(element);
+                }}
+                inputProps={{
+                  'aria-label': label,
+                  'aria-describedby': error ? helperId : undefined,
+                  'aria-autocomplete': 'list',
+                  'aria-controls': matches.length ? listId : undefined,
+                  'aria-activedescendant': matches.length ? `${listId}-${selectedIndex}` : undefined,
+                  onSelect: updateSuggestions,
+                }}
+                onKeyDown={(event) => {
+                  if (
+                    event.nativeEvent.isComposing ||
+                    event.shiftKey ||
+                    event.ctrlKey ||
+                    event.altKey ||
+                    event.metaKey ||
+                    !matches.length
+                  )
+                    return;
+                  if (event.key === 'Escape') {
+                    event.preventDefault();
+                    setSuggestion(null);
+                  }
+                  if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+                    event.preventDefault();
+                    setSelectedIndex(
+                      (index) => (index + (event.key === 'ArrowDown' ? 1 : matches.length - 1)) % matches.length
+                    );
+                  }
+                  if (event.key === 'Enter' || event.key === 'Tab') {
+                    event.preventDefault();
+                    insertToken(matches[selectedIndex]);
+                  }
+                }}
+                multiline
+                minRows={4}
+                fullWidth
+                disabled={disabled}
+                error={error}
+              />
+              {matches.length > 0 && (
+                <Paper sx={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 1 }} elevation={4}>
+                  <List id={listId} role="listbox" aria-label={`${label} placeholders`} dense disablePadding>
+                    {matches.map((id, index) => (
+                      <ListItemButton
+                        key={id}
+                        id={`${listId}-${index}`}
+                        role="option"
+                        tabIndex={-1}
+                        selected={index === selectedIndex}
+                        aria-selected={index === selectedIndex}
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={() => insertToken(id)}
+                      >
+                        {`{{${id}}}`}
+                      </ListItemButton>
+                    ))}
+                  </List>
+                </Paper>
+              )}
+            </Box>
             <Typography variant="caption" color="text.secondary">
-              Insert a placeholder:
+              Type {'{{'} to insert a placeholder, or click one below
             </Typography>
             <Stack direction="row" flexWrap="wrap" gap={0.5}>
               {Object.keys(PREVIEW_VALUES).map((id) => (
