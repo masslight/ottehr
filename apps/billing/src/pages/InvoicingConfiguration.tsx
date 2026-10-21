@@ -1,10 +1,11 @@
 import { Alert, Box, Button, CircularProgress, Stack, TextField, Typography } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useEffect, useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { Controller, useForm } from 'react-hook-form';
 import { parseInvoiceConfigFromQR } from 'utils/lib/helpers/rcm/invoice-config';
 import { SaveInvoiceConfigBodySchema, SaveInvoiceConfigInput } from 'utils/lib/types/api/invoice-config.types';
 import { getInvoiceConfig, saveInvoiceConfig } from '../api/api';
+import { InvoiceTemplateField } from '../components/InvoiceTemplateField';
 import { useApiClients } from '../hooks/useAppClients';
 
 export default function InvoicingConfiguration(): ReactElement {
@@ -14,6 +15,7 @@ export default function InvoicingConfiguration(): ReactElement {
   const [loadAttempt, setLoadAttempt] = useState(0);
   const [saveError, setSaveError] = useState(false);
   const {
+    control,
     register,
     handleSubmit,
     reset,
@@ -96,25 +98,25 @@ export default function InvoicingConfiguration(): ReactElement {
                 ['defaultSmsTemplate', 'Default SMS Message Template'],
                 ['defaultInvoiceMemo', 'Default Invoice Memo Template'],
               ] as const
-            ).map(([name, label]) => {
-              const { ref, ...field } = register(name, {
-                validate: (value) => SaveInvoiceConfigBodySchema.shape[name].safeParse(value).success,
-              });
-              return (
-                <TextField
-                  key={name}
-                  {...field}
-                  inputRef={ref}
-                  label={label}
-                  multiline
-                  minRows={4}
-                  fullWidth
-                  error={!!errors[name]}
-                  helperText={errors[name] ? `${label} is required` : undefined}
-                  InputLabelProps={{ shrink: true }}
-                />
-              );
-            })}
+            ).map(([name, label]) => (
+              <Controller
+                key={name}
+                name={name}
+                control={control}
+                rules={{ validate: (value) => SaveInvoiceConfigBodySchema.shape[name].safeParse(value).success }}
+                render={({ field, fieldState }) => (
+                  <InvoiceTemplateField
+                    label={label}
+                    value={field.value}
+                    onChange={field.onChange}
+                    onBlur={field.onBlur}
+                    inputRef={field.ref}
+                    error={!!fieldState.error}
+                    disabled={isSubmitting}
+                  />
+                )}
+              />
+            ))}
             <Stack direction="row" spacing={1}>
               <Button type="submit" variant="contained" disabled={!isDirty || isSubmitting}>
                 {isSubmitting ? 'Saving...' : 'Save changes'}
