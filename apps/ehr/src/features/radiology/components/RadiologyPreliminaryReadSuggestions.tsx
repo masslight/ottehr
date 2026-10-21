@@ -192,7 +192,7 @@ const SuggestionsBox: React.FC<RadiologyPreliminaryReadSuggestionsProps> = ({
                 selected={current}
                 aria-selected={current}
                 disabled={Boolean(clash)}
-                sx={{ borderRadius: 1, mx: 1 }}
+                sx={{ borderRadius: 1, mx: 1, whiteSpace: 'normal' }}
                 onClick={() => pick(option)}
               >
                 {option || PRELIMINARY_READ_NONE_LABEL}

@@ -810,7 +810,6 @@ export const Header = (): JSX.Element => {
                         data-testid={dataTestIds.inPersonHeader.allergies}
                         sx={{
                           fontWeight: chartData?.allergies?.length ? 700 : 400,
-                          maxWidth: '60%',
                           // On small screens allergies drop to their own line below the patient name
                           [SMALL_SCREEN_MEDIA_QUERY]: { flexBasis: '100%', maxWidth: '100%' },
                         }}

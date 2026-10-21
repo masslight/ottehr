@@ -427,9 +427,10 @@ interface MultiBlankProps {
   onChange: (values: string[]) => void;
   readOnly: boolean;
   dataTestId?: string;
+  ghost?: boolean;
 }
 
-/** Checkbox list with Done; the blank reads "a, b and c" or, when nothing is chosen, "+ label". */
+/** Checkbox list with Done; the blank reads "a, b and c" or, when nothing is chosen, its label. */
 export const MultiBlank: FC<MultiBlankProps> = ({
   label,
   title,
@@ -440,6 +441,7 @@ export const MultiBlank: FC<MultiBlankProps> = ({
   dataTestId,
   otherValue,
   onOtherChange,
+  ghost,
 }) => {
   const all = withSavedValues(options, values);
   const display = formatList(
@@ -452,10 +454,10 @@ export const MultiBlank: FC<MultiBlankProps> = ({
   if (readOnly) return <ReadOnlyBlank label={label} value={display || undefined} />;
   return (
     <PopoverBlank
-      label={`+ ${label}`}
+      label={ghost ? `+ ${label}` : label}
       title={title ?? label}
       value={display || undefined}
-      ghost
+      ghost={ghost}
       readOnly={readOnly}
       dataTestId={dataTestId}
     >
@@ -582,10 +584,15 @@ export const TextBlank: FC<TextBlankProps> = ({
         return {
           ...inline,
           // One input style for every kind; the number tweaks are merged in, not swapped in.
-          '& input': { ...(inline['& input'] as Record<string, unknown>), ...(kind === 'number' ? numberInputSx : {}) },
+          '& input': {
+            ...(inline['& input'] as Record<string, unknown>),
+            ...(text ? { ...filledSx(theme), padding: '1px 2px' } : {}),
+            ...(kind === 'number' ? numberInputSx : {}),
+          },
           maxWidth: '100%',
           // The box hugs its content: the placeholder at first, then whatever is typed.
-          width: kind === 'time' ? 'auto' : width ?? `calc(${Math.max(placeholder.length, text.length) + 1}ch + 8px)`,
+          width: kind === 'time' ? 'auto' : width ?? `calc(${(text || placeholder).length + 1}ch + 8px)`,
+          '@supports (field-sizing: content)': { width: width ?? 'auto', '& input': { fieldSizing: 'content' } },
         };
       }}
     />
