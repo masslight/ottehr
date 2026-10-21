@@ -3,6 +3,7 @@ import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
 import {
   Box,
   Button,
+  Chip,
   CircularProgress,
   IconButton,
   Link,
@@ -122,20 +123,31 @@ export const DmeOrdersTable = ({
     switch (column) {
       case 'item':
         return (
-          <Link
-            component="button"
-            type="button"
-            variant="body2"
-            color="inherit"
-            underline="hover"
-            sx={{ textAlign: 'left' }}
-            onClick={(event) => {
-              event.stopPropagation();
-              openOrder(order);
-            }}
-          >
-            {order.itemName}
-          </Link>
+          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 0.5 }}>
+            <Link
+              component="button"
+              type="button"
+              variant="body2"
+              color="inherit"
+              underline="hover"
+              sx={{ textAlign: 'left' }}
+              onClick={(event) => {
+                event.stopPropagation();
+                openOrder(order);
+              }}
+            >
+              {order.itemName}
+            </Link>
+            {order.external && (
+              <Chip
+                label="EXTERNAL"
+                size="small"
+                color="info"
+                sx={{ height: 20, borderRadius: '4px', fontWeight: 600 }}
+                data-testid={dataTestIds.dmeOrders.externalBadge}
+              />
+            )}
+          </Box>
         );
       case 'dx':
         return order.diagnoses.map((dx) => (

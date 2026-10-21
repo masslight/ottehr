@@ -77,7 +77,7 @@ describe('visit note DME section', () => {
 
   it('names the third party of an external order', () => {
     const composed = composeDmeOrders({ dmeOrders: [parseDmeOrder(makeDeviceRequest(externalFields), {})] });
-    expect(composed.dmeOrders[0].lines).toEqual(['Status: Print only', 'Qty: 1', 'Third party: Acme Medical Supply']);
+    expect(composed.dmeOrders[0].lines).toEqual(['Status: Ordered', 'Qty: 1', 'Third party: Acme Medical Supply']);
   });
 
   it('renders each order and is omitted when there are none', () => {

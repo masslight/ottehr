@@ -89,6 +89,8 @@ import {
   GetDmeOrdersInput,
   GetDmeOrdersResponse,
   SaveDmeMenuItemResponse,
+  SendDmeOrderFaxInput,
+  SendDmeOrderFaxResponse,
   UpdateDmeMenuItemInput,
   UpdateDmeOrderInput,
   UpdateDmeOrderResponse,
@@ -525,6 +527,7 @@ const CREATE_DME_ORDER_ZAMBDA_ID = 'create-dme-order';
 const GET_DME_ORDERS_ZAMBDA_ID = 'get-dme-orders';
 const UPDATE_DME_ORDER_ZAMBDA_ID = 'update-dme-order';
 const GET_DME_ORDER_PDF_ZAMBDA_ID = 'get-dme-order-pdf';
+const SEND_DME_ORDER_FAX_ZAMBDA_ID = 'send-dme-order-fax';
 const UPLOAD_AUDIO_RECORDING_ZAMBDA_ID = 'upload-audio-recording';
 const CREATE_RESOURCES_FROM_AUDIO_RECORDING_ZAMBDA_ID = 'create-resources-from-audio-recording';
 const GET_OR_CREATE_VISIT_LABEL_PDF_ZAMBDA_ID = 'get-or-create-visit-label-pdf';
@@ -2138,6 +2141,9 @@ export const updateDmeOrder = (oystehr: Oystehr, parameters: UpdateDmeOrderInput
 
 export const getDmeOrderPdf = (oystehr: Oystehr, parameters: GetDmeOrderPdfInput): Promise<GetDmeOrderPdfResponse> =>
   executeDmeZambda(oystehr, GET_DME_ORDER_PDF_ZAMBDA_ID, parameters);
+
+export const sendDmeOrderFax = (oystehr: Oystehr, parameters: SendDmeOrderFaxInput): Promise<SendDmeOrderFaxResponse> =>
+  executeDmeZambda(oystehr, SEND_DME_ORDER_FAX_ZAMBDA_ID, parameters);
 
 export const createDischargeSummary = async (
   oystehr: Oystehr,

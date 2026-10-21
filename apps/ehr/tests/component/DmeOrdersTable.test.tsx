@@ -84,6 +84,18 @@ describe('DmeOrdersTable', () => {
     );
   });
 
+  it('marks only external orders with the EXTERNAL badge', () => {
+    state.orders = [
+      order,
+      { ...order, id: 'order-2', itemName: 'Wheelchair', external: true, status: DmeOrderStatus.ordered },
+    ];
+    renderTable('/in-person/appt1/dme');
+
+    const badges = screen.getAllByTestId(dataTestIds.dmeOrders.externalBadge);
+    expect(badges).toHaveLength(1);
+    expect(screen.getByTestId(dataTestIds.dmeOrders.orderRow('order-2'))).toContainElement(badges[0]);
+  });
+
   it('adds no encounter param when the chart was opened without one', async () => {
     renderTable('/in-person/appt1/dme');
 

@@ -61,7 +61,7 @@ export enum DmeOrderStatus {
 export const DME_ORDER_STATUS_LABELS: Record<DmeOrderStatus, string> = {
   [DmeOrderStatus.pending]: 'Pending',
   [DmeOrderStatus.dispensed]: 'Dispensed',
-  [DmeOrderStatus.ordered]: 'Print only',
+  [DmeOrderStatus.ordered]: 'Ordered',
 };
 
 const uuid = (field: string): z.ZodEffects<z.ZodString> =>
@@ -204,6 +204,17 @@ export type GetDmeOrderPdfInput = z.infer<typeof GetDmeOrderPdfInputSchema>;
 
 export interface GetDmeOrderPdfResponse {
   presignedURL: string;
+}
+
+export const SendDmeOrderFaxInputSchema = z.object({
+  deviceRequestId: uuid('deviceRequestId'),
+  /** 10-digit US fax number; the zambda normalizes it to E.164 */
+  faxNumber: z.string().trim().min(1, 'faxNumber is required').max(30),
+});
+export type SendDmeOrderFaxInput = z.infer<typeof SendDmeOrderFaxInputSchema>;
+
+export interface SendDmeOrderFaxResponse {
+  outboundAttemptId: string;
 }
 
 export interface DmeOrderDTO {

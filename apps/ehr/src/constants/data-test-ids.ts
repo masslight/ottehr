@@ -757,6 +757,8 @@ export const dataTestIds = {
   },
   dmeOrders: {
     reviewContainer: 'dme-orders-review-container',
+    externalBadge: 'dme-order-external-badge',
+    historySection: 'dme-order-history-section',
     reviewItem: (orderId: string) => `dme-orders-review-item-${orderId}`,
     title: 'dme-orders-title',
     newOrderButton: 'dme-orders-new-order-button',

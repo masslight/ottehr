@@ -36,6 +36,7 @@ vi.mock('../../src/features/dme/dme.queries', () => ({
   useDmeOrder: () => ({ data: order, isLoading: false, error: null }),
   useDmeOrderPdf: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useUpdateDmeOrder: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useSendDmeOrderFax: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
 
 vi.mock('../../src/features/visits/shared/hooks/useGetAppointmentAccessibility', () => ({

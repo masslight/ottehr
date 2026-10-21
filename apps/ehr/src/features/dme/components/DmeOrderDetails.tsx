@@ -2,12 +2,15 @@ import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import PrintOutlinedIcon from '@mui/icons-material/PrintOutlined';
 import { LoadingButton } from '@mui/lab';
-import { Alert, Box, Button, Paper, Stack, Typography, useTheme } from '@mui/material';
+import { Alert, Box, Button, Grid, Paper, Stack, Typography, useTheme } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import React, { ReactNode, useState } from 'react';
+import { AccordionCard } from 'src/components/AccordionCard';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import { FormsCard } from 'src/features/visits/shared/components/FormsCard';
+import { SendFaxButton } from 'src/features/visits/shared/components/review-tab/SendFaxButton';
+import { toTenDigitPhoneNumber } from 'utils/lib/helpers/helpers';
 import {
   DME_LATERALITY_LABELS,
   DME_MODIFIER_LABELS,
@@ -17,7 +20,7 @@ import {
   formatDmeDuration,
 } from 'utils/lib/types/api/dme.types';
 import { formatDate } from 'utils/lib/utils/date';
-import { useDmeOrderPdf } from '../dme.queries';
+import { useDmeOrderPdf, useSendDmeOrderFax } from '../dme.queries';
 import { DmeOrderAction, DmeOrderActionDialog } from './DmeOrderActionDialog';
 import { DmeStatusChip } from './DmeStatusChip';
 
@@ -59,6 +62,7 @@ interface DmeOrderDetailsProps {
 export const DmeOrderDetails: React.FC<DmeOrderDetailsProps> = ({ order, readOnly, onEdit, onDeleted }) => {
   const theme = useTheme();
   const { mutateAsync: getPdf, isPending: isPrinting } = useDmeOrderPdf();
+  const { mutateAsync: sendFax } = useSendDmeOrderFax();
   const [pendingAction, setPendingAction] = useState<DmeOrderAction | undefined>();
   const ids = dataTestIds.dmeOrders.details;
   // with DME disabled, existing orders can still be dispensed but not changed
@@ -97,7 +101,7 @@ export const DmeOrderDetails: React.FC<DmeOrderDetailsProps> = ({ order, readOnl
 
       {order.external && (
         <Alert severity="info" data-testid={ids.externalHint}>
-          Fulfilled by an external site / third party. This order is print only, so no dispensing task is created.
+          Fulfilled by an external site / third party: print or fax the order to them. No dispensing task is created.
         </Alert>
       )}
 
@@ -151,6 +155,14 @@ export const DmeOrderDetails: React.FC<DmeOrderDetailsProps> = ({ order, readOnl
           >
             Print
           </LoadingButton>
+          {order.external && (
+            <SendFaxButton
+              onSend={async (faxNumber) => {
+                await sendFax({ deviceRequestId: order.id, faxNumber });
+              }}
+              initialFaxNumber={toTenDigitPhoneNumber(order.thirdParty?.fax)}
+            />
+          )}
           {canModify && (
             <Button
               variant="outlined"
@@ -178,6 +190,8 @@ export const DmeOrderDetails: React.FC<DmeOrderDetailsProps> = ({ order, readOnl
 
       {!order.external && <FormsCard />}
 
+      <DmeOrderHistory order={order} />
+
       {pendingAction && (
         <DmeOrderActionDialog
           order={order}
@@ -188,5 +202,39 @@ export const DmeOrderDetails: React.FC<DmeOrderDetailsProps> = ({ order, readOnl
         />
       )}
     </Stack>
+  );
+};
+
+const DmeOrderHistory: React.FC<{ order: DmeOrderDTO }> = ({ order }) => {
+  const [collapsed, setCollapsed] = useState(false);
+  const rows = [
+    {
+      status: order.external ? DmeOrderStatus.ordered : DmeOrderStatus.pending,
+      by: order.orderedBy.name,
+      at: order.orderedAt,
+    },
+    ...(order.dispensed
+      ? [{ status: DmeOrderStatus.dispensed, by: order.dispensed.name, at: order.dispensed.at }]
+      : []),
+  ];
+
+  return (
+    <AccordionCard label="Order History" collapsed={collapsed} onSwitch={() => setCollapsed((prev) => !prev)}>
+      <Box data-testid={dataTestIds.dmeOrders.historySection}>
+        {rows.map((row) => (
+          <Grid container key={row.status} sx={{ px: 2, py: 1.5 }} alignItems="center">
+            <Grid item xs={3}>
+              <DmeStatusChip status={row.status} />
+            </Grid>
+            <Grid item xs={4}>
+              <Typography variant="body2">{row.by ?? ''}</Typography>
+            </Grid>
+            <Grid item xs={5}>
+              <Typography variant="body2">{formatDate(row.at, "MM/dd/yyyy 'at' h:mm a")}</Typography>
+            </Grid>
+          </Grid>
+        ))}
+      </Box>
+    </AccordionCard>
   );
 };

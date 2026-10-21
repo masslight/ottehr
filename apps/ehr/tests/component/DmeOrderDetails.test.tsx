@@ -1,17 +1,18 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { enqueueSnackbar } from 'notistack';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { DmeOrderDTO, DmeOrderStatus } from 'utils/lib/types/api/dme.types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const state = vi.hoisted(() => ({ getPdf: vi.fn() }));
+const state = vi.hoisted(() => ({ getPdf: vi.fn(), sendFax: vi.fn() }));
 
 vi.mock('notistack', () => ({ enqueueSnackbar: vi.fn() }));
 
 vi.mock('../../src/features/dme/dme.queries', () => ({
   useDmeOrderPdf: () => ({ mutateAsync: state.getPdf, isPending: false }),
   useUpdateDmeOrder: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useSendDmeOrderFax: () => ({ mutateAsync: state.sendFax, isPending: false }),
 }));
 
 vi.mock('../../src/features/visits/shared/components/FormsCard', () => ({ FormsCard: () => null }));
@@ -87,5 +88,65 @@ describe('DmeOrderDetails print', () => {
     await userEvent.click(screen.getByTestId(dataTestIds.dmeOrders.details.printButton));
 
     await waitFor(() => expect(window.open).toHaveBeenCalledWith('https://example.test/dme.pdf', '_blank'));
+  });
+});
+
+describe('DmeOrderDetails fax', () => {
+  beforeEach(() => {
+    state.sendFax.mockReset();
+    vi.mocked(enqueueSnackbar).mockClear();
+  });
+
+  it('faxes an external order to the third party fax number', async () => {
+    state.sendFax.mockResolvedValue({ outboundAttemptId: 'task-1' });
+    render(
+      <DmeOrderDetails
+        order={{ ...order, status: DmeOrderStatus.ordered, thirdParty: { name: 'Acme', fax: '(212) 555-0199' } }}
+      />
+    );
+
+    await userEvent.click(screen.getByTestId(dataTestIds.progressNotePage.sendFaxButton));
+    expect(screen.getByLabelText(/Fax number/)).toHaveValue('(212) 555-0199');
+    await userEvent.click(screen.getByTestId(dataTestIds.dialog.proceedButton));
+
+    await waitFor(() =>
+      expect(state.sendFax).toHaveBeenCalledWith({ deviceRequestId: 'order-1', faxNumber: '2125550199' })
+    );
+    expect(enqueueSnackbar).toHaveBeenCalledWith('Fax sent.', { variant: 'success' });
+  });
+
+  it('offers no fax for an in-house order', () => {
+    render(<DmeOrderDetails order={{ ...order, external: false }} />);
+
+    expect(screen.queryByTestId(dataTestIds.progressNotePage.sendFaxButton)).not.toBeInTheDocument();
+  });
+});
+
+describe('DmeOrderDetails history', () => {
+  it('lists the order and dispense events of an in-house order', () => {
+    render(
+      <DmeOrderDetails
+        order={{
+          ...order,
+          external: false,
+          status: DmeOrderStatus.dispensed,
+          dispensed: { practitionerId: 'p2', name: 'Nurse Dispenser', at: '2026-10-16T11:00:00.000Z' },
+        }}
+      />
+    );
+
+    const history = within(screen.getByTestId(dataTestIds.dmeOrders.historySection));
+    expect(history.getByText('PENDING')).toBeInTheDocument();
+    expect(history.getByText('Dr. Ordering')).toBeInTheDocument();
+    expect(history.getByText('DISPENSED')).toBeInTheDocument();
+    expect(history.getByText('Nurse Dispenser')).toBeInTheDocument();
+  });
+
+  it('shows an external order as ordered', () => {
+    render(<DmeOrderDetails order={{ ...order, status: DmeOrderStatus.ordered }} />);
+
+    const history = within(screen.getByTestId(dataTestIds.dmeOrders.historySection));
+    expect(history.getByText('ORDERED')).toBeInTheDocument();
+    expect(history.queryByText('DISPENSED')).not.toBeInTheDocument();
   });
 });

@@ -6,6 +6,7 @@ import {
   getDmeMenuItems,
   getDmeOrderPdf,
   getDmeOrders,
+  sendDmeOrderFax,
   updateDmeMenuItem,
   updateDmeOrder,
 } from 'src/api/api';
@@ -19,6 +20,8 @@ import {
   GetDmeMenuItemsResponse,
   GetDmeOrderPdfResponse,
   SaveDmeMenuItemResponse,
+  SendDmeOrderFaxInput,
+  SendDmeOrderFaxResponse,
   UpdateDmeMenuItemInput,
   UpdateDmeOrderInput,
   UpdateDmeOrderResponse,
@@ -121,5 +124,12 @@ export const useDmeOrderPdf = (): UseMutationResult<GetDmeOrderPdfResponse, Erro
   const { oystehrZambda } = useApiClients();
   return useMutation({
     mutationFn: (deviceRequestId) => getDmeOrderPdf(oystehrZambda!, { deviceRequestId }),
+  });
+};
+
+export const useSendDmeOrderFax = (): UseMutationResult<SendDmeOrderFaxResponse, Error, SendDmeOrderFaxInput> => {
+  const { oystehrZambda } = useApiClients();
+  return useMutation({
+    mutationFn: (input) => sendDmeOrderFax(oystehrZambda!, input),
   });
 };

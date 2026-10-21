@@ -142,7 +142,7 @@ describe('DmeOrdersReviewContainer', () => {
     const external = within(screen.getByTestId(dataTestIds.dmeOrders.reviewItem('external')));
     expect(external.getByText('Qty 1')).toBeInTheDocument();
     expect(external.getByText('Third party: Acme Medical Supply')).toBeInTheDocument();
-    expect(external.getByText('PRINT ONLY')).toBeInTheDocument();
+    expect(external.getByText('ORDERED')).toBeInTheDocument();
   });
 
   it('shows pending orders that have not been dispensed yet', () => {
