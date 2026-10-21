@@ -1,5 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { apiErrorToThrow, chooseJson } from 'utils/lib/helpers/oystehrApi';
+import { InvoiceConfigResponse, SaveInvoiceConfigInput } from 'utils/lib/types/api/invoice-config.types';
 import { CREATE_TIMELY_FILING_REPORT_ZAMBDA, RefreshReportKind } from 'utils/lib/types/data/billing/billing.constants';
 import {
   AddClaimAttachmentInputSchema,
@@ -155,6 +156,16 @@ async function executeBillingZambda<T>(oystehr: Oystehr, id: string, parameters?
     throw apiErrorToThrow(error);
   }
 }
+
+// --- Invoice configuration ---
+
+export const getInvoiceConfig = (oystehr: Oystehr): Promise<InvoiceConfigResponse> =>
+  executeBillingZambda(oystehr, 'get-invoice-config', {});
+
+export const saveInvoiceConfig = (
+  oystehr: Oystehr,
+  parameters: SaveInvoiceConfigInput
+): Promise<InvoiceConfigResponse> => executeBillingZambda(oystehr, 'save-invoice-config', parameters);
 
 // --- Rules engines ---
 
