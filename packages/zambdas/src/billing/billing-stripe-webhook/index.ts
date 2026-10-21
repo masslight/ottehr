@@ -1,8 +1,17 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Claim, Identifier, Money, Organization, PaymentNotice, PaymentReconciliation, Reference } from 'fhir/r4b';
+import {
+  Claim,
+  FhirResource,
+  Identifier,
+  Money,
+  Organization,
+  PaymentNotice,
+  PaymentReconciliation,
+  Reference,
+} from 'fhir/r4b';
 import Stripe from 'stripe';
-import { BILLING_RESOURCE_TAG, PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import { PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { parsePaymentRefundsFromNotice, staleReservationIds } from 'utils/lib/fhir/paymentRefunds';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import { PaymentRefundDTO } from 'utils/lib/types/api/patient-payment-types';
@@ -18,8 +27,17 @@ import {
 } from '../../shared/stripeIntegration';
 import { StripeWebhookParams } from '../../shared/stripeWebhook';
 import { ZambdaInput } from '../../shared/types/common';
-import { claimRequestFor, findBillingClaimForEncounter } from '../payments';
-import { createBillingClient, reconcilePaymentNoticesForClaim, STRIPE_ACCOUNT_IDENTIFIER_SYSTEM } from '../shared';
+import {
+  claimRequestFor,
+  createPaymentNotice,
+  findBillingClaimForEncounter,
+  findPaymentNotice,
+  paymentNoticeHistoryRequest,
+  reconcilePaymentNoticesForClaim,
+  recordPaymentNoticeChange,
+} from '../payments';
+import { resolveClaimActor } from '../provenance';
+import { createBillingClient, STRIPE_ACCOUNT_IDENTIFIER_SYSTEM } from '../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'billing-stripe-webhook';
@@ -251,21 +269,53 @@ const persistPaymentNoticeUpsert = async (
   claim: Claim | undefined,
   encounterId: string
 ): Promise<void> => {
-  // tag scoped because clinical PaymentNotices use the same identifier system
-  const returned = await oystehr.fhir.create<PaymentNotice>(desiredNotice, {
-    ifNoneExist: [
-      { name: 'identifier', value: `${STRIPE_PAYMENT_ID_SYSTEM}|${dedupStripeId}` },
-      { name: '_tag', value: `${BILLING_RESOURCE_TAG.system}|${BILLING_RESOURCE_TAG.code}` },
-    ],
-  });
-
-  // refresh the notice but keep an existing link if the claim search missed
-  const reference = claim?.id ? `Claim/${claim.id}` : returned.request?.reference;
-  await oystehr.fhir.update<PaymentNotice>({
-    ...desiredNotice,
-    id: returned.id,
-    request: { ...desiredNotice.request, ...(reference ? { reference } : {}) },
-  });
+  const dedupIdentifier = {
+    system: STRIPE_PAYMENT_ID_SYSTEM,
+    value: dedupStripeId,
+  };
+  const agent = await resolveClaimActor('system', oystehr, undefined, null);
+  const existing = await findPaymentNotice(oystehr, dedupIdentifier);
+  if (!existing) {
+    await createPaymentNotice({
+      oystehr,
+      notice: desiredNotice,
+      dedupIdentifier,
+      agent,
+    });
+  } else {
+    // refresh the notice but keep an existing link if the claim search missed, and the refund and
+    // void stamps other writers keep on it
+    const reference = claim?.id ? `Claim/${claim.id}` : existing.request?.reference;
+    const ownExtensionUrls = new Set((desiredNotice.extension ?? []).map((extension) => extension.url));
+    const refreshed: PaymentNotice = {
+      ...desiredNotice,
+      id: existing.id,
+      request: {
+        ...desiredNotice.request,
+        ...(reference ? { reference } : {}),
+      },
+      extension: [
+        ...(desiredNotice.extension ?? []),
+        ...(existing.extension ?? []).filter((extension) => !ownExtensionUrls.has(extension.url)),
+      ],
+    };
+    const history = paymentNoticeHistoryRequest({
+      targetReference: `PaymentNotice/${existing.id}`,
+      before: existing,
+      after: refreshed,
+      agent,
+    });
+    await oystehr.fhir.transaction<FhirResource>({
+      requests: [
+        {
+          method: 'PUT',
+          url: `/PaymentNotice/${existing.id}`,
+          resource: refreshed,
+        },
+        ...(history ? [history] : []),
+      ],
+    });
+  }
 
   if (!claim) {
     // the claim may have appeared while the notice was being stored
@@ -371,12 +421,13 @@ const markBillingNoticesForRefundedCharge = async (
     return;
   }
 
+  const agent = await resolveClaimActor('system', oystehr, undefined, null);
   for (const notice of notices) {
     try {
       // retry variant: a version conflict from an unrelated concurrent update must not
       // discard the webhook's only stamping attempt; stale reservations are cleaned here too
       const staleIds = staleReservationIds([...(parsePaymentRefundsFromNotice(notice) ?? []), ...refunds]);
-      await applyRefundsToPaymentNoticeWithRetry(oystehr, notice, refunds, staleIds);
+      await applyRefundsToPaymentNoticeWithRetry(oystehr, notice, refunds, staleIds, recordPaymentNoticeChange(agent));
     } catch (error) {
       console.error(`Error stamping refunds on PaymentNotice/${notice.id}`, error);
     }

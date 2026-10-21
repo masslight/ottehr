@@ -18,7 +18,8 @@ import { wrapHandler } from '../../shared/sentry';
 import { applyRefundsToPaymentNotice, STRIPE_PAYMENT_ID_SYSTEM } from '../../shared/stripeIntegration';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
-import { CLINICAL_PAYMENT_NOTICE_ID_SYSTEM, recordBillingManualRefund } from '../payments';
+import { CLINICAL_PAYMENT_NOTICE_ID_SYSTEM, recordBillingManualRefund, recordPaymentNoticeChange } from '../payments';
+import { resolveClaimActor } from '../provenance';
 import { createBillingClient } from '../shared';
 
 type RecordBillingRefundParams = ValidatedZambdaInput<typeof RecordBillingRefundInputSchema>;
@@ -72,6 +73,8 @@ async function performEffect(
     })
   ).unbundle();
 
+  // called on the EHR's machine token, so there is no user to attribute the refund to
+  const agent = await resolveClaimActor('system', oystehr, undefined, secrets);
   for (const billingNotice of billingNotices) {
     // union with the copy's own stamped refunds: the webhook may have stamped a newer Stripe
     // refund here that the clinical notice doesn't carry yet
@@ -79,7 +82,13 @@ async function performEffect(
     const knownIds = new Set(refunds.map((refund) => refund.stripeRefundId));
     const copyOnly = copyRefunds.filter((refund) => !knownIds.has(refund.stripeRefundId));
     const merged = [...refunds, ...copyOnly];
-    await applyRefundsToPaymentNotice(oystehr, billingNotice, merged, staleReservationIds(merged));
+    await applyRefundsToPaymentNotice(
+      oystehr,
+      billingNotice,
+      merged,
+      staleReservationIds(merged),
+      recordPaymentNoticeChange(agent)
+    );
   }
 
   // Negative AR offsets for FHIR-only refunds (processor refunds arrive via the stripe webhook).

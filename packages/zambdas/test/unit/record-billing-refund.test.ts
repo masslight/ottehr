@@ -27,6 +27,14 @@ vi.mock('../../src/shared/stripeIntegration', async (importOriginal) => ({
   ...(await importOriginal<object>()),
   applyRefundsToPaymentNotice: vi.fn(),
 }));
+vi.mock('../../src/billing/provenance', async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  resolveClaimActor: vi.fn(async () => ({
+    who: {
+      reference: 'Device/system',
+    },
+  })),
+}));
 vi.mock('utils/lib/helpers/candidApi', () => ({ getOrCreateCandidApiClient: vi.fn() }));
 // transitive imports of shared/candid that pull heavy modules
 vi.mock('../../src/ehr/shared/harvest', () => ({ getAccountAndCoverageResourcesForPatient: vi.fn() }));
@@ -180,6 +188,49 @@ describe('record-billing-refund candid sync', () => {
     expect(applyRefundsToPaymentNotice).toHaveBeenCalledOnce();
     expect(vi.mocked(applyRefundsToPaymentNotice).mock.calls[0][1]).toBe(billingCopy);
     expect(JSON.parse(result.body)).toEqual({ billingNoticesStamped: 1, candidRefundsRecorded: 2 });
+  });
+
+  it("records the billing copy's refund in its claim history, attributed to the system", async () => {
+    const billingCopy = {
+      resourceType: 'PaymentNotice',
+      id: 'pn-billing-1',
+      status: 'active',
+      request: {
+        reference: 'Claim/claim-1',
+      },
+    } as PaymentNotice;
+    billingSearch.mockResolvedValue({
+      unbundle: () => [billingCopy],
+    });
+
+    await invoke('ottehr');
+
+    const recordChange = vi.mocked(applyRefundsToPaymentNotice).mock.calls[0][4];
+    const stamped = {
+      ...billingCopy,
+      extension: [buildPaymentRefundsExtension([stripeRefund])],
+    };
+    expect(recordChange?.(billingCopy, stamped)).toMatchObject({
+      method: 'POST',
+      url: '/Provenance',
+      resource: {
+        target: [
+          {
+            reference: 'PaymentNotice/pn-billing-1',
+          },
+          {
+            reference: 'Claim/claim-1',
+          },
+        ],
+        agent: [
+          {
+            who: {
+              reference: 'Device/system',
+            },
+          },
+        ],
+      },
+    });
   });
 
   it('fails the request when the Candid create fails so the EHR retry can heal it', async () => {

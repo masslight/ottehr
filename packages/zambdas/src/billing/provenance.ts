@@ -600,8 +600,9 @@ export interface ClaimProvenanceArgs {
   // Reference to the changed resource. During a creating transaction this may be a urn:uuid fullUrl,
   // which the server resolves to a literal reference.
   targetReference: string;
-  // Reference to the claim this change belongs to (may equal targetReference).
-  claimReference: string;
+  // Reference to the claim this change belongs to (may equal targetReference). Absent for a payment
+  // taken before its claim exists; claimHistoryLinkRequests adds it once the claim does.
+  claimReference?: string;
   before?: Resource;
   after?: Resource;
   agent: ProvenanceAgent | ProvenanceAgent[];
@@ -690,7 +691,11 @@ export function claimProvenanceRequest(args: ClaimProvenanceArgs): BatchInputPos
     return null;
 
   const target = [{ reference: args.targetReference }];
-  if (args.claimReference !== args.targetReference) target.push({ reference: args.claimReference });
+  if (args.claimReference && args.claimReference !== args.targetReference) {
+    target.push({
+      reference: args.claimReference,
+    });
+  }
 
   const entity: ProvenanceEntity[] = [
     ...(args.sourceReference
@@ -815,14 +820,68 @@ export function claimEventProvenanceRequest({
   claimId,
   ...args
 }: Omit<ClaimProvenanceArgs, 'claimReference' | 'recorded' | 'priorVersionReference'> & {
-  claimId: string;
+  claimId: string | undefined;
 }): BatchInputPostRequest<Provenance> | null {
   return claimProvenanceRequest({
     ...args,
-    claimReference: `Claim/${claimId}`,
+    claimReference: claimId ? `Claim/${claimId}` : undefined,
     recorded: recordedNow(),
     priorVersionReference: versionedReference(args.before),
   });
+}
+
+// Adds the claim to history entries written before it existed. A target without any entry, like a
+// payment recorded before claim history did, comes back in `unrecordedTargets`.
+export async function claimHistoryLinkRequests({
+  oystehr,
+  claimId,
+  targetReferences,
+}: {
+  oystehr: Oystehr;
+  claimId: string;
+  targetReferences: string[];
+}): Promise<{ requests: BatchInputPatchRequest<Provenance>[]; unrecordedTargets: string[] }> {
+  if (targetReferences.length === 0) {
+    return {
+      requests: [],
+      unrecordedTargets: [],
+    };
+  }
+  const claimReference = `Claim/${claimId}`;
+  const entries = (
+    await oystehr.fhir.search<Provenance>({
+      resourceType: 'Provenance',
+      params: [
+        {
+          name: 'target',
+          value: targetReferences.join(','),
+        },
+      ],
+    })
+  )
+    .unbundle()
+    .filter(
+      (provenance) => provenance.extension?.some((extension) => extension.url === CLAIM_PROVENANCE_DIFF_EXTENSION_URL)
+    );
+  const recordedTargets = new Set(entries.flatMap((entry) => (entry.target ?? []).map((target) => target.reference)));
+  return {
+    requests: entries
+      .filter((entry) => entry.id && !entry.target?.some((target) => target.reference === claimReference))
+      .map((entry) => ({
+        method: 'PATCH',
+        url: `/Provenance/${entry.id}`,
+        operations: [
+          {
+            op: 'add',
+            path: '/target/-',
+            value: {
+              reference: claimReference,
+            },
+          },
+        ],
+      })),
+    unrecordedTargets: targetReferences.filter((reference) => !recordedTargets.has(reference)),
+  };
 }
 
 export async function claimHistoryHasEntryFor({

@@ -1,12 +1,22 @@
-import Oystehr from '@oystehr/sdk';
+import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Claim, Organization, PaymentNotice } from 'fhir/r4b';
+import { Claim, FhirResource, Organization, PaymentNotice } from 'fhir/r4b';
 import Stripe from 'stripe';
 import { BILLING_RESOURCE_TAG } from 'utils/lib/fhir/constants';
+import { buildPaymentRefundsExtension } from 'utils/lib/fhir/paymentRefunds';
+import { getContainedReconciliation } from 'utils/lib/fhir/payments';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { CLAIM_PROVENANCE_ACTIVITY } from 'utils/lib/types/data/billing/claim-history';
 import { INVALID_INPUT_ERROR, MISCONFIGURED_ENVIRONMENT_ERROR } from 'utils/lib/types/errors';
 import { afterEach, describe, expect, it, Mock, vi } from 'vitest';
+import { claimHistoryEntries, provenanceChanges } from './claim-history-fixtures';
+
+const SYSTEM_AGENT = {
+  who: {
+    reference: 'Device/system',
+  },
+};
 
 vi.mock('../../../src/shared/sentry', async (importOriginal) => ({
   ...(await importOriginal<object>()),
@@ -31,6 +41,11 @@ vi.mock('../../../src/billing/shared', async (importOriginal) => ({
 vi.mock('../../../src/shared/helpers', async (importOriginal) => ({
   ...(await importOriginal<object>()),
   createClinicalOystehrClient: vi.fn(),
+}));
+
+vi.mock('../../../src/billing/provenance', async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  resolveClaimActor: vi.fn(async () => SYSTEM_AGENT),
 }));
 
 import { index, performEffect } from '../../../src/billing/billing-stripe-webhook';
@@ -102,33 +117,88 @@ const claim = {
   identifier: [{ system: CLAIM_ENC_SYSTEM, value: 'enc-1' }],
 } as Claim;
 
+// PaymentNotices live in an in-memory store: searched by identifier, written by transactions.
 const makeOystehr = (
   claimResults: Claim[][],
   orgResults: Organization[][] = [],
-  noticeResults: PaymentNotice[][] = []
-): { oystehr: Oystehr; create: Mock; update: Mock; patch: Mock } => {
+  storedNotices: PaymentNotice[] = []
+): { oystehr: Oystehr; transaction: Mock; patch: Mock } => {
   const claimQueue = [...claimResults];
   const orgQueue = [...orgResults];
-  const noticeQueue = [...noticeResults];
-  const search = vi.fn().mockImplementation(({ resourceType }: { resourceType: string }) => {
-    const results =
-      resourceType === 'Claim'
-        ? claimQueue.shift() ?? []
-        : resourceType === 'Organization'
-        ? orgQueue.shift() ?? []
-        : resourceType === 'PaymentNotice'
-        ? noticeQueue.shift() ?? []
-        : [];
-    return Promise.resolve({ unbundle: () => results });
-  });
-  const create = vi
+  const notices = [...storedNotices];
+  const search = vi
     .fn()
-    .mockImplementation((resource: PaymentNotice) => Promise.resolve({ ...resource, id: 'pn-new' }));
-  const update = vi.fn().mockResolvedValue({});
+    .mockImplementation(
+      ({ resourceType, params }: { resourceType: string; params: { name: string; value: string }[] }) => {
+        const identifiers = params.find((param) => param.name === 'identifier')?.value.split(',') ?? [];
+        const results =
+          resourceType === 'Claim'
+            ? claimQueue.shift() ?? []
+            : resourceType === 'Organization'
+            ? orgQueue.shift() ?? []
+            : resourceType === 'PaymentNotice'
+            ? notices.filter(
+                (notice) =>
+                  notice.identifier?.some((identifier) =>
+                    identifiers.includes(`${identifier.system}|${identifier.value}`)
+                  )
+              )
+            : [];
+        return Promise.resolve({ unbundle: () => results });
+      }
+    );
+  let createdCount = 0;
+  const transaction = vi.fn().mockImplementation(({ requests }: { requests: BatchInputRequest<FhirResource>[] }) => {
+    const resources = requests.map((request) => {
+      const { resource } = request as { resource?: FhirResource };
+      if (request.method === 'POST' && request.url === '/PaymentNotice') {
+        const created = {
+          ...(resource as PaymentNotice),
+          id: `pn-new-${++createdCount}`,
+        };
+        notices.push(created);
+        return created;
+      }
+      if (request.method === 'PUT') {
+        const index = notices.findIndex((notice) => request.url === `/PaymentNotice/${notice.id}`);
+        notices[index] = resource as PaymentNotice;
+      }
+      return resource;
+    });
+    return Promise.resolve({ unbundle: () => resources.filter(Boolean) });
+  });
   const patch = vi.fn().mockResolvedValue({});
   const batch = vi.fn().mockResolvedValue({ entry: [] });
-  return { oystehr: { fhir: { search, create, update, patch, batch } } as unknown as Oystehr, create, update, patch };
+  return {
+    oystehr: {
+      fhir: {
+        search,
+        transaction,
+        patch,
+        batch,
+      },
+    } as unknown as Oystehr,
+    transaction,
+    patch,
+  };
 };
+
+const writes = (transaction: Mock): BatchInputRequest<FhirResource>[] =>
+  transaction.mock.calls.flatMap(([{ requests }]) => requests);
+
+const noticeCreates = (transaction: Mock): { resource: PaymentNotice; ifNoneExist: unknown }[] =>
+  writes(transaction).filter((request) => request.method === 'POST' && request.url === '/PaymentNotice') as {
+    resource: PaymentNotice;
+    ifNoneExist: unknown;
+  }[];
+
+const createdNotices = (transaction: Mock): PaymentNotice[] =>
+  noticeCreates(transaction).map((request) => request.resource);
+
+const refreshedNotices = (transaction: Mock): PaymentNotice[] =>
+  writes(transaction).flatMap((request) =>
+    request.method === 'PUT' ? [(request as { resource: PaymentNotice }).resource] : []
+  );
 
 const signedInput = (event: Stripe.Event, webhookSecret = WEBHOOK_SECRET, overrides?: Secrets): ZambdaInput => {
   const payload = JSON.stringify(event);
@@ -171,7 +241,7 @@ describe('billing-stripe-webhook signing secrets', () => {
     const retrieve = vi.fn().mockResolvedValue(makeInvoice());
     (getStripeClient as Mock).mockReturnValue({ invoices: { retrieve } });
     const bp = { resourceType: 'Organization', id: 'bp-12' } as Organization;
-    const { oystehr, create } = makeOystehr([[claim]], [[bp]]);
+    const { oystehr, transaction } = makeOystehr([[claim]], [[bp]]);
 
     await performEffect(oystehr, params);
 
@@ -181,7 +251,7 @@ describe('billing-stripe-webhook signing secrets', () => {
       resourceType: 'Organization',
       params: [{ name: 'identifier', value: `${STRIPE_ACCOUNT_IDENTIFIER_SYSTEM}|acct_12` }],
     });
-    expect(create.mock.calls[0][0].payee).toEqual({ reference: 'Organization/bp-12' });
+    expect(createdNotices(transaction)[0].payee).toEqual({ reference: 'Organization/bp-12' });
   });
 
   it('rejects an event from a different account', () => {
@@ -287,7 +357,7 @@ describe('billing-stripe-webhook', () => {
 
   it('acks without processing when BILLING_INTEGRATION does not include ottehr', async () => {
     (getStripeClient as Mock).mockReturnValue(stripe);
-    const { oystehr, create } = makeOystehr([]);
+    const { oystehr, transaction } = makeOystehr([]);
     (createBillingClient as Mock).mockReturnValue(oystehr);
     const input = {
       ...signedInput(makeEvent('invoice.paid', makeInvoice())),
@@ -299,16 +369,16 @@ describe('billing-stripe-webhook', () => {
     expect(result.statusCode).toBe(200);
     expect(checkOrCreateM2MClientToken).not.toHaveBeenCalled();
     expect(createClinicalOystehrClient).not.toHaveBeenCalled();
-    expect(create).not.toHaveBeenCalled();
+    expect(transaction).not.toHaveBeenCalled();
   });
 
   it('conditionally creates a linked notice for a charge when the claim exists', async () => {
-    const { oystehr, create, update } = makeOystehr([[claim]]);
+    const { oystehr, transaction } = makeOystehr([[claim]]);
 
     await performEffect(oystehr, { event: makeEvent('charge.succeeded', makeCharge()), secrets });
 
-    const [resource, options] = create.mock.calls[0];
-    expect(options.ifNoneExist).toEqual([
+    const [{ resource, ifNoneExist }] = noticeCreates(transaction);
+    expect(ifNoneExist).toEqual([
       { name: 'identifier', value: `${STRIPE_PAYMENT_ID_SYSTEM}|ch_1` },
       { name: '_tag', value: `${BILLING_RESOURCE_TAG.system}|${BILLING_RESOURCE_TAG.code}` },
     ]);
@@ -322,51 +392,122 @@ describe('billing-stripe-webhook', () => {
       { system: STRIPE_PAYMENT_ID_SYSTEM, value: 'pi_1' },
     ]);
     expect(resource.amount).toEqual({ value: 10, currency: 'USD' });
-    expect(update.mock.calls[0][0].request.reference).toBe('Claim/claim-1');
+    expect(refreshedNotices(transaction)).toEqual([]);
   });
 
-  it('stores the notice with a logical reference when the claim does not exist yet', async () => {
-    const { oystehr, create, update } = makeOystehr([[], []]);
+  it('records a new charge in the claim history as a system payment', async () => {
+    const { oystehr, transaction } = makeOystehr([[claim]]);
 
     await performEffect(oystehr, { event: makeEvent('charge.succeeded', makeCharge()), secrets });
 
-    expect(create.mock.calls[0][0].request).toEqual({
-      type: 'Claim',
-      identifier: { system: CLAIM_ENC_SYSTEM, value: 'enc-1' },
-    });
-    expect(update.mock.calls[0][0].request.reference).toBeUndefined();
+    expect(claimHistoryEntries(writes(transaction))).toMatchObject([
+      {
+        target: [
+          {
+            reference: expect.stringMatching(/^urn:uuid:/),
+          },
+          {
+            reference: 'Claim/claim-1',
+          },
+        ],
+        activity: {
+          coding: [CLAIM_PROVENANCE_ACTIVITY.create],
+        },
+        agent: [SYSTEM_AGENT],
+      },
+    ]);
   });
 
-  it('keeps the existing link when the claim search misses on an update', async () => {
-    const { oystehr, create, update } = makeOystehr([[], []]);
-    create.mockResolvedValueOnce({
-      resourceType: 'PaymentNotice',
-      id: 'pn-1',
-      request: { type: 'Claim', reference: 'Claim/previously-linked' },
-    });
+  it('records nothing new when a redelivered charge changes nothing', async () => {
+    const { oystehr, transaction } = makeOystehr([[claim], [claim]]);
+    const event = makeEvent('charge.updated', makeCharge());
+
+    await performEffect(oystehr, { event, secrets });
+    await performEffect(oystehr, { event, secrets });
+
+    expect(createdNotices(transaction)).toHaveLength(1);
+    expect(refreshedNotices(transaction)).toHaveLength(1);
+    expect(claimHistoryEntries(transaction.mock.calls[1][0].requests)).toEqual([]);
+  });
+
+  // Regression: the refresh rebuilt the notice from the charge alone, dropping the refund stamps
+  // until the next refund event put them back.
+  it('keeps the refund stamps on a charge notice it refreshes', async () => {
+    const first = makeOystehr([[claim]]);
+    await performEffect(first.oystehr, { event: makeEvent('charge.succeeded', makeCharge()), secrets });
+    const refundStamp = buildPaymentRefundsExtension([
+      {
+        stripeRefundId: 're_1',
+        amountInCents: 400,
+        dateISO: '2026-07-08T12:00:00.000Z',
+        status: 'succeeded',
+      },
+    ]);
+    const [stored] = createdNotices(first.transaction);
+    const stamped: PaymentNotice = {
+      ...stored,
+      id: 'pn-stamped',
+      extension: [...(stored.extension ?? []), refundStamp],
+    };
+    const { oystehr, transaction } = makeOystehr([[claim]], [], [stamped]);
 
     await performEffect(oystehr, { event: makeEvent('charge.updated', makeCharge()), secrets });
 
-    expect(update.mock.calls[0][0].id).toBe('pn-1');
-    expect(update.mock.calls[0][0].request.reference).toBe('Claim/previously-linked');
+    expect(refreshedNotices(transaction)[0].extension).toContainEqual(refundStamp);
+    expect(claimHistoryEntries(writes(transaction))).toEqual([]);
+  });
+
+  it('stores the notice with a logical reference when the claim does not exist yet', async () => {
+    const { oystehr, transaction } = makeOystehr([[], []]);
+
+    await performEffect(oystehr, { event: makeEvent('charge.succeeded', makeCharge()), secrets });
+
+    expect(createdNotices(transaction)[0].request).toEqual({
+      type: 'Claim',
+      identifier: { system: CLAIM_ENC_SYSTEM, value: 'enc-1' },
+    });
+    expect(refreshedNotices(transaction)).toEqual([]);
+  });
+
+  it('keeps the existing link when the claim search misses on an update', async () => {
+    const linked = {
+      resourceType: 'PaymentNotice',
+      id: 'pn-1',
+      identifier: [
+        {
+          system: STRIPE_PAYMENT_ID_SYSTEM,
+          value: 'ch_1',
+        },
+      ],
+      request: {
+        type: 'Claim',
+        reference: 'Claim/previously-linked',
+      },
+    } as PaymentNotice;
+    const { oystehr, transaction } = makeOystehr([[], []], [], [linked]);
+
+    await performEffect(oystehr, { event: makeEvent('charge.updated', makeCharge()), secrets });
+
+    expect(refreshedNotices(transaction)[0].id).toBe('pn-1');
+    expect(refreshedNotices(transaction)[0].request?.reference).toBe('Claim/previously-linked');
   });
 
   it('puts the resolved billing provider in payee and recipient', async () => {
     const bp = { resourceType: 'Organization', id: 'bp-1' } as Organization;
-    const { oystehr, create } = makeOystehr([[claim]], [[bp]]);
+    const { oystehr, transaction } = makeOystehr([[claim]], [[bp]]);
 
     await performEffect(oystehr, { event: makeEvent('charge.succeeded', makeCharge(), 'acct_1'), secrets });
 
-    expect(create.mock.calls[0][0].payee).toEqual({ reference: 'Organization/bp-1' });
-    expect(create.mock.calls[0][0].recipient).toEqual({ reference: 'Organization/bp-1' });
+    expect(createdNotices(transaction)[0].payee).toEqual({ reference: 'Organization/bp-1' });
+    expect(createdNotices(transaction)[0].recipient).toEqual({ reference: 'Organization/bp-1' });
   });
 
   it('falls back to the default org when no provider carries the account', async () => {
-    const { oystehr, create } = makeOystehr([[claim]]);
+    const { oystehr, transaction } = makeOystehr([[claim]]);
 
     await performEffect(oystehr, { event: makeEvent('charge.succeeded', makeCharge(), 'acct_1'), secrets });
 
-    expect(create.mock.calls[0][0].payee).toEqual({ reference: 'Organization/org-1' });
+    expect(createdNotices(transaction)[0].payee).toEqual({ reference: 'Organization/org-1' });
   });
 
   it('picks the first provider when several share the account', async () => {
@@ -374,26 +515,26 @@ describe('billing-stripe-webhook', () => {
       { resourceType: 'Organization', id: 'bp-1' },
       { resourceType: 'Organization', id: 'bp-2' },
     ] as Organization[];
-    const { oystehr, create } = makeOystehr([[claim]], [bps]);
+    const { oystehr, transaction } = makeOystehr([[claim]], [bps]);
 
     await performEffect(oystehr, { event: makeEvent('charge.succeeded', makeCharge(), 'acct_1'), secrets });
 
-    expect(create.mock.calls[0][0].payee).toEqual({ reference: 'Organization/bp-1' });
+    expect(createdNotices(transaction)[0].payee).toEqual({ reference: 'Organization/bp-1' });
   });
 
   it('throws when multiple claims carry the encounter identifier', async () => {
-    const { oystehr, create } = makeOystehr([[claim, { ...claim, id: 'claim-2' }]]);
+    const { oystehr, transaction } = makeOystehr([[claim, { ...claim, id: 'claim-2' }]]);
 
     await expect(
       performEffect(oystehr, { event: makeEvent('charge.succeeded', makeCharge()), secrets })
     ).rejects.toThrow('cannot pick one safely');
-    expect(create).not.toHaveBeenCalled();
+    expect(transaction).not.toHaveBeenCalled();
   });
 
   it('records a refund as its own negative notice after upserting the charge notice', async () => {
     const retrieve = vi.fn().mockResolvedValue(makeCharge());
     (getStripeClient as Mock).mockReturnValue({ charges: { retrieve } } as unknown as Stripe);
-    const { oystehr, create } = makeOystehr([[claim], [claim]]);
+    const { oystehr, transaction } = makeOystehr([[claim], [claim]]);
     const refund = {
       id: 're_1',
       charge: 'ch_1',
@@ -406,26 +547,29 @@ describe('billing-stripe-webhook', () => {
     await performEffect(oystehr, { event: makeEvent('refund.created', refund, 'acct_1'), secrets });
 
     expect(retrieve).toHaveBeenCalledWith('ch_1', { expand: ['invoice'] }, { stripeAccount: 'acct_1' });
-    expect(create.mock.calls[0][0].identifier).toContainEqual({ system: STRIPE_PAYMENT_ID_SYSTEM, value: 'ch_1' });
-    const notice = create.mock.calls[1][0];
+    expect(createdNotices(transaction)[0].identifier).toContainEqual({
+      system: STRIPE_PAYMENT_ID_SYSTEM,
+      value: 'ch_1',
+    });
+    const notice = createdNotices(transaction)[1];
     expect(notice.identifier).toEqual([{ system: STRIPE_PAYMENT_ID_SYSTEM, value: 're_1' }]);
     expect(notice.amount).toEqual({ value: -4, currency: 'USD' });
     expect(notice.status).toBe('active');
-    expect(notice.request.reference).toBe('Claim/claim-1');
+    expect(notice.request?.reference).toBe('Claim/claim-1');
   });
 
   it('cancels the notice for a failed refund', async () => {
     (getStripeClient as Mock).mockReturnValue({
       charges: { retrieve: vi.fn().mockResolvedValue(makeCharge()) },
     } as unknown as Stripe);
-    const { oystehr, create } = makeOystehr([[claim], [claim]]);
+    const { oystehr, transaction } = makeOystehr([[claim], [claim]]);
     const refund = { id: 're_1', charge: 'ch_1', amount: 400, currency: 'usd', created: 1751990000, status: 'failed' };
 
     await performEffect(oystehr, { event: makeEvent('refund.failed', refund), secrets });
 
-    const notice = create.mock.calls[1][0];
+    const notice = createdNotices(transaction)[1];
     expect(notice.status).toBe('cancelled');
-    expect(notice.contained[0].outcome).toBe('error');
+    expect(getContainedReconciliation(notice)?.outcome).toBe('error');
   });
 
   it('updates refund state only on billing payment notices', async () => {
@@ -443,7 +587,7 @@ describe('billing-stripe-webhook', () => {
       status: 'active',
       identifier: [{ system: STRIPE_PAYMENT_ID_SYSTEM, value: 'ch_1' }],
     } as PaymentNotice;
-    const { oystehr, patch } = makeOystehr([[claim], [claim]], [], [[billingNotice]]);
+    const { oystehr, transaction, patch } = makeOystehr([[claim], [claim]], [], [billingNotice]);
     const refund = {
       id: 're_1',
       charge: 'ch_1',
@@ -456,18 +600,82 @@ describe('billing-stripe-webhook', () => {
     await performEffect(oystehr, { event: makeEvent('refund.created', refund), secrets });
 
     expect(refundsList).toHaveBeenCalledWith({ charge: 'ch_1', limit: 100 }, { stripeAccount: undefined });
-    expect(patch).toHaveBeenCalledTimes(1);
-    expect(patch.mock.calls[0][0].id).toBe('pn-billing');
+    const stamps = writes(transaction).filter((request) => request.method === 'PATCH') as {
+      url: string;
+      operations: { value: { url: string; extension: unknown[] }[] }[];
+    }[];
+    expect(stamps.map((request) => request.url)).toEqual(['/PaymentNotice/pn-billing']);
+    expect(patch).not.toHaveBeenCalled();
     expect(createClinicalOystehrClient).not.toHaveBeenCalled();
     expect(oystehr.fhir.search).toHaveBeenCalledWith({
       resourceType: 'PaymentNotice',
       params: [{ name: 'identifier', value: `${STRIPE_PAYMENT_ID_SYSTEM}|ch_1,${STRIPE_PAYMENT_ID_SYSTEM}|pi_1` }],
     });
-    const extension = patch.mock.calls[0][0].operations[0].value.find((ext: { url: string }) =>
-      ext.url.endsWith('/payment-refunds')
+    const extension = stamps[0].operations[0].value.find((ext) => ext.url.endsWith('/payment-refunds'));
+    expect(extension?.extension[0]).toMatchObject({
+      extension: expect.arrayContaining([
+        {
+          url: 'refundId',
+          valueString: 're_1',
+        },
+        {
+          url: 'amountInCents',
+          valueInteger: 400,
+        },
+      ]),
+    });
+  });
+
+  it("records the refund on the charge's notice in the claim history", async () => {
+    (getStripeClient as Mock).mockReturnValue({
+      charges: {
+        retrieve: vi.fn().mockResolvedValue(makeCharge()),
+      },
+      refunds: {
+        list: vi.fn().mockResolvedValue({
+          data: [
+            {
+              id: 're_1',
+              amount: 400,
+              currency: 'usd',
+              created: 1751990000,
+              status: 'succeeded',
+            },
+          ],
+        }),
+      },
+    } as unknown as Stripe);
+    const { oystehr, transaction } = makeOystehr([[claim], [claim]]);
+    const refund = {
+      id: 're_1',
+      charge: 'ch_1',
+      amount: 400,
+      currency: 'usd',
+      created: 1751990000,
+      status: 'succeeded',
+    };
+
+    await performEffect(oystehr, { event: makeEvent('refund.created', refund), secrets });
+
+    const refundStamp = claimHistoryEntries(writes(transaction)).find(
+      (entry) => entry.activity?.coding?.[0]?.code === CLAIM_PROVENANCE_ACTIVITY.update.code
     );
-    expect(extension.extension[0].extension).toContainEqual({ url: 'refundId', valueString: 're_1' });
-    expect(extension.extension[0].extension).toContainEqual({ url: 'amountInCents', valueInteger: 400 });
+    expect(refundStamp?.target).toEqual([
+      {
+        reference: 'PaymentNotice/pn-new-1',
+      },
+      {
+        reference: 'Claim/claim-1',
+      },
+    ]);
+    expect(provenanceChanges(refundStamp!)).toEqual([
+      {
+        field: 'refunded',
+        label: 'Refunded',
+        previousValue: null,
+        newValue: '$4.00',
+      },
+    ]);
   });
 });
 
@@ -479,7 +687,7 @@ describe('billing-stripe-webhook invoice-originated charges', () => {
         retrieve,
       },
     } as unknown as Stripe);
-    const { oystehr, create } = makeOystehr([[claim]]);
+    const { oystehr, transaction } = makeOystehr([[claim]]);
     const charge = makeCharge({
       metadata: {},
       invoice: 'in_1',
@@ -491,17 +699,17 @@ describe('billing-stripe-webhook invoice-originated charges', () => {
     });
 
     expect(retrieve).toHaveBeenCalledWith('in_1', undefined, { stripeAccount: 'acct_1' });
-    const notice = create.mock.calls[0][0];
-    expect(notice.request.identifier).toEqual({
+    const notice = createdNotices(transaction)[0];
+    expect(notice.request?.identifier).toEqual({
       system: CLAIM_ENC_SYSTEM,
       value: 'enc-1',
     });
-    expect(notice.request.reference).toBe('Claim/claim-1');
+    expect(notice.request?.reference).toBe('Claim/claim-1');
     expect(notice.identifier).toContainEqual({
       system: STRIPE_PAYMENT_ID_SYSTEM,
       value: 'ch_1',
     });
-    expect(notice.contained[0].disposition).toContain('for invoice in_1');
+    expect(getContainedReconciliation(notice)?.disposition).toContain('for invoice in_1');
   });
 
   it('prefers the charge metadata and skips the invoice lookup entirely', async () => {
@@ -511,13 +719,13 @@ describe('billing-stripe-webhook invoice-originated charges', () => {
         retrieve,
       },
     } as unknown as Stripe);
-    const { oystehr, create } = makeOystehr([[claim]]);
+    const { oystehr, transaction } = makeOystehr([[claim]]);
     const charge = makeCharge({ invoice: 'in_1' });
 
     await performEffect(oystehr, { event: makeEvent('charge.succeeded', charge), secrets });
 
     expect(retrieve).not.toHaveBeenCalled();
-    expect(create.mock.calls[0][0].request.identifier.value).toBe('enc-1');
+    expect(createdNotices(transaction)[0].request?.identifier?.value).toBe('enc-1');
   });
 
   it('reads an already expanded invoice without re-fetching it', async () => {
@@ -527,7 +735,7 @@ describe('billing-stripe-webhook invoice-originated charges', () => {
         retrieve,
       },
     } as unknown as Stripe);
-    const { oystehr, create } = makeOystehr([[claim]]);
+    const { oystehr, transaction } = makeOystehr([[claim]]);
     const charge = makeCharge({
       metadata: {},
       invoice: makeInvoice(),
@@ -539,7 +747,7 @@ describe('billing-stripe-webhook invoice-originated charges', () => {
     });
 
     expect(retrieve).not.toHaveBeenCalled();
-    expect(create.mock.calls[0][0].request.identifier.value).toBe('enc-1');
+    expect(createdNotices(transaction)[0].request?.identifier?.value).toBe('enc-1');
   });
 
   it('skips the upsert when the invoice carries no encounter metadata either', async () => {
@@ -549,7 +757,7 @@ describe('billing-stripe-webhook invoice-originated charges', () => {
         retrieve,
       },
     } as unknown as Stripe);
-    const { oystehr, create } = makeOystehr([[claim]]);
+    const { oystehr, transaction } = makeOystehr([[claim]]);
     const charge = makeCharge({
       metadata: {},
       invoice: 'in_1',
@@ -557,7 +765,7 @@ describe('billing-stripe-webhook invoice-originated charges', () => {
 
     await performEffect(oystehr, { event: makeEvent('charge.succeeded', charge), secrets });
 
-    expect(create).not.toHaveBeenCalled();
+    expect(transaction).not.toHaveBeenCalled();
   });
 
   it('skips the upsert when the invoice no longer exists', async () => {
@@ -567,7 +775,7 @@ describe('billing-stripe-webhook invoice-originated charges', () => {
         retrieve,
       },
     } as unknown as Stripe);
-    const { oystehr, create } = makeOystehr([[claim]]);
+    const { oystehr, transaction } = makeOystehr([[claim]]);
     const charge = makeCharge({
       metadata: {},
       invoice: 'in_1',
@@ -575,7 +783,7 @@ describe('billing-stripe-webhook invoice-originated charges', () => {
 
     await performEffect(oystehr, { event: makeEvent('charge.succeeded', charge), secrets });
 
-    expect(create).not.toHaveBeenCalled();
+    expect(transaction).not.toHaveBeenCalled();
   });
 
   it('rethrows a transient stripe failure so stripe redelivers the event', async () => {
@@ -585,7 +793,7 @@ describe('billing-stripe-webhook invoice-originated charges', () => {
         retrieve,
       },
     } as unknown as Stripe);
-    const { oystehr, create } = makeOystehr([[claim]]);
+    const { oystehr, transaction } = makeOystehr([[claim]]);
     const charge = makeCharge({
       metadata: {},
       invoice: 'in_1',
@@ -594,7 +802,7 @@ describe('billing-stripe-webhook invoice-originated charges', () => {
     await expect(performEffect(oystehr, { event: makeEvent('charge.succeeded', charge), secrets })).rejects.toThrow(
       'stripe'
     );
-    expect(create).not.toHaveBeenCalled();
+    expect(transaction).not.toHaveBeenCalled();
   });
 
   it('skips a charge with neither metadata nor an invoice without calling stripe', async () => {
@@ -604,7 +812,7 @@ describe('billing-stripe-webhook invoice-originated charges', () => {
         retrieve,
       },
     } as unknown as Stripe);
-    const { oystehr, create } = makeOystehr([[claim]]);
+    const { oystehr, transaction } = makeOystehr([[claim]]);
     const charge = makeCharge({
       metadata: {},
       invoice: null,
@@ -613,7 +821,7 @@ describe('billing-stripe-webhook invoice-originated charges', () => {
     await performEffect(oystehr, { event: makeEvent('charge.succeeded', charge), secrets });
 
     expect(retrieve).not.toHaveBeenCalled();
-    expect(create).not.toHaveBeenCalled();
+    expect(transaction).not.toHaveBeenCalled();
   });
 
   it('resolves a refund through the invoice expanded on its charge', async () => {
@@ -632,7 +840,7 @@ describe('billing-stripe-webhook invoice-originated charges', () => {
         retrieve: invoiceRetrieve,
       },
     } as unknown as Stripe);
-    const { oystehr, create } = makeOystehr([[claim], [claim]]);
+    const { oystehr, transaction } = makeOystehr([[claim], [claim]]);
     const refund = {
       id: 're_1',
       charge: 'ch_1',
@@ -645,15 +853,15 @@ describe('billing-stripe-webhook invoice-originated charges', () => {
     await performEffect(oystehr, { event: makeEvent('refund.created', refund), secrets });
 
     expect(invoiceRetrieve).not.toHaveBeenCalled();
-    expect(create.mock.calls[0][0].request.identifier.value).toBe('enc-1');
-    expect(create.mock.calls[1][0].request.identifier.value).toBe('enc-1');
+    expect(createdNotices(transaction)[0].request?.identifier?.value).toBe('enc-1');
+    expect(createdNotices(transaction)[1].request?.identifier?.value).toBe('enc-1');
   });
 });
 
 // An invoice can settle with no charge: marked paid out of band, or covered by customer credit.
 describe('billing-stripe-webhook chargeless invoices', () => {
   it('records a notice for an invoice marked paid out of band', async () => {
-    const { oystehr, create } = makeOystehr([[claim]]);
+    const { oystehr, transaction } = makeOystehr([[claim]]);
     const invoice = makeInvoice({ paid_out_of_band: true });
 
     await performEffect(oystehr, {
@@ -661,8 +869,8 @@ describe('billing-stripe-webhook chargeless invoices', () => {
       secrets,
     });
 
-    const [resource, options] = create.mock.calls[0];
-    expect(options.ifNoneExist).toContainEqual({
+    const [{ resource, ifNoneExist }] = noticeCreates(transaction);
+    expect(ifNoneExist).toContainEqual({
       name: 'identifier',
       value: `${STRIPE_PAYMENT_ID_SYSTEM}|in_1`,
     });
@@ -677,26 +885,28 @@ describe('billing-stripe-webhook chargeless invoices', () => {
       currency: 'USD',
     });
     expect(resource.status).toBe('active');
-    expect(resource.request.reference).toBe('Claim/claim-1');
-    expect(resource.extension[0].valueString).toBe('other');
-    expect(resource.contained[0].disposition).toContain('marked paid out of band');
+    expect(resource.request?.reference).toBe('Claim/claim-1');
+    expect(resource.extension?.[0]?.valueString).toBe('other');
+    expect(getContainedReconciliation(resource)?.disposition).toContain('marked paid out of band');
     // paid_at, not the invoice creation time
     expect(resource.created).toBe(new Date(1751900500 * 1000).toISOString());
   });
 
   it('records a credit balance settlement when the invoice was not paid out of band', async () => {
-    const { oystehr, create } = makeOystehr([[claim]]);
+    const { oystehr, transaction } = makeOystehr([[claim]]);
 
     await performEffect(oystehr, {
       event: makeEvent('invoice.paid', makeInvoice()),
       secrets,
     });
 
-    expect(create.mock.calls[0][0].contained[0].disposition).toContain('paid from credit balance');
+    expect(getContainedReconciliation(createdNotices(transaction)[0])?.disposition).toContain(
+      'paid from credit balance'
+    );
   });
 
   it('ignores an invoice that a charge settled, since the charge event records it', async () => {
-    const { oystehr, create } = makeOystehr([[claim]]);
+    const { oystehr, transaction } = makeOystehr([[claim]]);
     const invoice = makeInvoice({ charge: 'ch_1' });
 
     await performEffect(oystehr, {
@@ -704,11 +914,11 @@ describe('billing-stripe-webhook chargeless invoices', () => {
       secrets,
     });
 
-    expect(create).not.toHaveBeenCalled();
+    expect(transaction).not.toHaveBeenCalled();
   });
 
   it('ignores an invoice with no encounter metadata', async () => {
-    const { oystehr, create } = makeOystehr([[claim]]);
+    const { oystehr, transaction } = makeOystehr([[claim]]);
     const invoice = makeInvoice({ metadata: {} });
 
     await performEffect(oystehr, {
@@ -716,11 +926,11 @@ describe('billing-stripe-webhook chargeless invoices', () => {
       secrets,
     });
 
-    expect(create).not.toHaveBeenCalled();
+    expect(transaction).not.toHaveBeenCalled();
   });
 
   it('ignores an invoice that settled for nothing', async () => {
-    const { oystehr, create } = makeOystehr([[claim]]);
+    const { oystehr, transaction } = makeOystehr([[claim]]);
     const invoice = makeInvoice({ amount_paid: 0 });
 
     await performEffect(oystehr, {
@@ -728,6 +938,6 @@ describe('billing-stripe-webhook chargeless invoices', () => {
       secrets,
     });
 
-    expect(create).not.toHaveBeenCalled();
+    expect(transaction).not.toHaveBeenCalled();
   });
 });

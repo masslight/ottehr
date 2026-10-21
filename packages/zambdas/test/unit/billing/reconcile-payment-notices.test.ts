@@ -1,8 +1,21 @@
 import Oystehr from '@oystehr/sdk';
-import { Claim, PaymentNotice } from 'fhir/r4b';
+import { Claim, PaymentNotice, Provenance } from 'fhir/r4b';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
+import {
+  CLAIM_PROVENANCE_ACTIVITY,
+  CLAIM_PROVENANCE_DIFF_EXTENSION_URL,
+} from 'utils/lib/types/data/billing/claim-history';
 import { describe, expect, it, vi } from 'vitest';
-import { reconcilePaymentNoticesForClaim } from '../../../src/billing/shared';
+import { reconcilePaymentNoticesForClaim } from '../../../src/billing/payments';
+
+vi.mock('../../../src/billing/provenance', async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  resolveClaimActor: vi.fn(async () => ({
+    who: {
+      reference: 'Device/system',
+    },
+  })),
+}));
 
 const ENCOUNTER_ID_SYSTEM = ottehrIdentifierSystem('claim-encounter-id');
 
@@ -38,6 +51,24 @@ const makeNotice = (id: string, requestReference?: string): PaymentNotice =>
     },
   }) as PaymentNotice;
 
+// a history entry written when the payment was taken, before its claim existed
+const paymentEntry = (noticeId: string): Provenance =>
+  ({
+    resourceType: 'Provenance',
+    id: `prov-${noticeId}`,
+    target: [
+      {
+        reference: `PaymentNotice/${noticeId}`,
+      },
+    ],
+    extension: [
+      {
+        url: CLAIM_PROVENANCE_DIFF_EXTENSION_URL,
+        valueString: '[]',
+      },
+    ],
+  }) as Provenance;
+
 interface FakeOystehr {
   fhir: {
     search: ReturnType<typeof vi.fn>;
@@ -45,9 +76,11 @@ interface FakeOystehr {
   };
 }
 
-const makeOystehr = (notices: PaymentNotice[]): FakeOystehr => ({
+const makeOystehr = (notices: PaymentNotice[], provenances: Provenance[] = []): FakeOystehr => ({
   fhir: {
-    search: vi.fn().mockResolvedValue({ unbundle: () => notices }),
+    search: vi.fn(async ({ resourceType }: { resourceType: string }) => ({
+      unbundle: () => (resourceType === 'Provenance' ? provenances : notices),
+    })),
     batch: vi.fn().mockResolvedValue({
       entry: [
         {
@@ -69,6 +102,9 @@ const decodePatchOps = (request: {
   };
 }): unknown => JSON.parse(Buffer.from(request.resource.data, 'base64').toString('utf8'));
 
+const batchRequests = (oystehr: FakeOystehr): { method: string; url: string; resource?: unknown }[] =>
+  oystehr.fhir.batch.mock.calls[0][0].requests;
+
 describe('reconcilePaymentNoticesForClaim', () => {
   it('searches request:identifier with the system|value form', async () => {
     const oystehr = makeOystehr([]);
@@ -87,20 +123,86 @@ describe('reconcilePaymentNoticesForClaim', () => {
   });
 
   it('patches only unlinked notices to Claim/{id}', async () => {
-    const oystehr = makeOystehr([makeNotice('pn-unlinked'), makeNotice('pn-linked', 'Claim/claim-1')]);
+    const oystehr = makeOystehr(
+      [makeNotice('pn-unlinked'), makeNotice('pn-linked', 'Claim/claim-1')],
+      [paymentEntry('pn-unlinked')]
+    );
 
     await reconcilePaymentNoticesForClaim(oystehr as unknown as Oystehr, makeClaim());
 
     expect(oystehr.fhir.batch).toHaveBeenCalledTimes(1);
-    const requests = oystehr.fhir.batch.mock.calls[0][0].requests;
-    expect(requests).toHaveLength(1);
-    expect(requests[0].method).toBe('PATCH');
-    expect(requests[0].url).toBe('/PaymentNotice/pn-unlinked');
-    expect(decodePatchOps(requests[0])).toEqual([
+    const noticePatches = batchRequests(oystehr).filter((request) => request.url.startsWith('/PaymentNotice/'));
+    expect(noticePatches).toHaveLength(1);
+    expect(noticePatches[0].method).toBe('PATCH');
+    expect(noticePatches[0].url).toBe('/PaymentNotice/pn-unlinked');
+    expect(decodePatchOps(noticePatches[0] as { resource: { data: string } })).toEqual([
       {
         op: 'add',
         path: '/request/reference',
         value: 'Claim/claim-1',
+      },
+    ]);
+  });
+
+  it('adds the claim to the history entry written when the payment was taken', async () => {
+    const oystehr = makeOystehr([makeNotice('pn-unlinked')], [paymentEntry('pn-unlinked')]);
+
+    await reconcilePaymentNoticesForClaim(oystehr as unknown as Oystehr, makeClaim());
+
+    expect(oystehr.fhir.search).toHaveBeenCalledWith({
+      resourceType: 'Provenance',
+      params: [
+        {
+          name: 'target',
+          value: 'PaymentNotice/pn-unlinked',
+        },
+      ],
+    });
+    expect(batchRequests(oystehr)).toContainEqual({
+      method: 'PATCH',
+      url: '/Provenance/prov-pn-unlinked',
+      operations: [
+        {
+          op: 'add',
+          path: '/target/-',
+          value: {
+            reference: 'Claim/claim-1',
+          },
+        },
+      ],
+    });
+    expect(batchRequests(oystehr).filter((request) => request.method === 'POST')).toEqual([]);
+  });
+
+  it('records a notice stored before claim history was kept, attributed to the system', async () => {
+    const oystehr = makeOystehr([makeNotice('pn-unlinked')]);
+
+    await reconcilePaymentNoticesForClaim(oystehr as unknown as Oystehr, makeClaim());
+
+    const entries = batchRequests(oystehr).filter((request) => request.url === '/Provenance');
+    expect(entries).toMatchObject([
+      {
+        method: 'POST',
+        resource: {
+          target: [
+            {
+              reference: 'PaymentNotice/pn-unlinked',
+            },
+            {
+              reference: 'Claim/claim-1',
+            },
+          ],
+          activity: {
+            coding: [CLAIM_PROVENANCE_ACTIVITY.create],
+          },
+          agent: [
+            {
+              who: {
+                reference: 'Device/system',
+              },
+            },
+          ],
+        },
       },
     ]);
   });
