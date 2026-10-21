@@ -916,4 +916,26 @@ describe('fetchAdHocClaimRows (billing-claims dataset)', () => {
     );
     expect(coverageReads).toHaveLength(0);
   });
+
+  it('fails a page that hangs past the budget instead of waiting for the worker timeout', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
+    try {
+      const { oystehr, search } = stubBillingClient();
+      const answer = search.getMockImplementation()!;
+      // Claim hydration never answers.
+      search.mockImplementation(async (args: { resourceType: string; params: Param[] }) =>
+        args.resourceType === 'Claim' && args.params.some((p) => p.name === '_id')
+          ? new Promise(() => undefined)
+          : answer(args)
+      );
+
+      const run = fetchAdHocClaimRows(oystehr, { dateRange: DATE_RANGE });
+      const outcome = expect(run).rejects.toThrow(ADHOC_CLAIMS_OVER_BUDGET_MESSAGE);
+      await vi.advanceTimersByTimeAsync(ADHOC_CLAIMS_BUILD_BUDGET_MS + 1);
+      await outcome;
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

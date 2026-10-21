@@ -114,7 +114,21 @@ export async function fetchAdHocClaimRows(
     if (Date.now() > deadline) throw new Error(ADHOC_CLAIMS_OVER_BUDGET_MESSAGE);
   };
 
-  const scan = await scanAllClaims(oystehr, assertWithinBudget);
+  // Bounds one awaited step by what is left of the budget, so a slow request cannot run the worker
+  // into its timeout; work still in flight is abandoned and the Task is marked failed.
+  const withinBudget = async <T>(work: Promise<T>): Promise<T> => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const expired = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new Error(ADHOC_CLAIMS_OVER_BUDGET_MESSAGE)), Math.max(0, deadline - Date.now()));
+    });
+    try {
+      return await Promise.race([work, expired]);
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+
+  const scan = await withinBudget(scanAllClaims(oystehr, assertWithinBudget));
 
   const claimIds = scan.claims
     .filter((claim) => claimMatchesServiceDateRange(claim, input.dateRange.start, input.dateRange.end))
@@ -134,47 +148,49 @@ export async function fetchAdHocClaimRows(
 
   for (let i = 0; i < pages.length; i += PAGE_CONCURRENCY) {
     assertWithinBudget();
-    const group = await Promise.all(
-      pages.slice(i, i + PAGE_CONCURRENCY).map(async (ids) => {
-        const page = await fetchClaimsPageByIds({ oystehr, claimIds: ids, extraElements });
+    const group = await withinBudget(
+      Promise.all(
+        pages.slice(i, i + PAGE_CONCURRENCY).map(async (ids) => {
+          const page = await fetchClaimsPageByIds({ oystehr, claimIds: ids, extraElements });
 
-        const lookups = await buildClaimLookups({
-          oystehr,
-          claims: page.claims,
-          includedResources: page.includedResources,
-          payersByRef: await payers.resolve(page.claims.map((claim) => claim.insurer?.reference)),
-        });
+          const lookups = await buildClaimLookups({
+            oystehr,
+            claims: page.claims,
+            includedResources: page.includedResources,
+            payersByRef: await payers.resolve(page.claims.map((claim) => claim.insurer?.reference)),
+          });
 
-        const extras = emptyClaimExtras();
-        const [coveragesById, eraLinks, historyByClaimId, patientKeys] = await Promise.all([
-          flags.coverage ? fetchClaimCoverages(oystehr, page.claims) : extras.coveragesById,
-          flags.insurancePayments && eraReadClient ? fetchEraLinksForClaims(eraReadClient, lookups) : extras.eraLinks,
-          flags.history
-            ? fetchClaimHistories(
-                oystehr,
-                page.claims.map((claim) => claim.id)
-              )
-            : extras.historyByClaimId,
-          patientKeyResolver.keysFor(lookups.patients),
-        ]);
+          const extras = emptyClaimExtras();
+          const [coveragesById, eraLinks, historyByClaimId, patientKeys] = await Promise.all([
+            flags.coverage ? fetchClaimCoverages(oystehr, page.claims) : extras.coveragesById,
+            flags.insurancePayments && eraReadClient ? fetchEraLinksForClaims(eraReadClient, lookups) : extras.eraLinks,
+            flags.history
+              ? fetchClaimHistories(
+                  oystehr,
+                  page.claims.map((claim) => claim.id)
+                )
+              : extras.historyByClaimId,
+            patientKeyResolver.keysFor(lookups.patients),
+          ]);
 
-        const morePayerRefs = [
-          ...(flags.remits || flags.insurancePayments
-            ? [...lookups.claimResponsesByClaimId.values()]
-                .flat()
-                .map((claimResponse) => claimResponse.insurer?.reference)
-            : []),
-          ...coveragePayorRefs(coveragesById),
-          ...paymentIssuerRefs(eraLinks),
-        ];
-        if (morePayerRefs.length > 0) {
-          (await payers.resolve(morePayerRefs)).forEach((payer, ref) => lookups.payersByRef.set(ref, payer));
-        }
+          const morePayerRefs = [
+            ...(flags.remits || flags.insurancePayments
+              ? [...lookups.claimResponsesByClaimId.values()]
+                  .flat()
+                  .map((claimResponse) => claimResponse.insurer?.reference)
+              : []),
+            ...coveragePayorRefs(coveragesById),
+            ...paymentIssuerRefs(eraLinks),
+          ];
+          if (morePayerRefs.length > 0) {
+            (await payers.resolve(morePayerRefs)).forEach((payer, ref) => lookups.payersByRef.set(ref, payer));
+          }
 
-        return page.claims.map((claim) =>
-          mapClaimToAdHocRow(claim, lookups, flags, patientKeys, { coveragesById, eraLinks, historyByClaimId })
-        );
-      })
+          return page.claims.map((claim) =>
+            mapClaimToAdHocRow(claim, lookups, flags, patientKeys, { coveragesById, eraLinks, historyByClaimId })
+          );
+        })
+      )
     );
 
     group.forEach((pageRows) => rows.push(...pageRows));
