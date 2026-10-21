@@ -146,6 +146,12 @@ export const BILLING_CLAIMS_LAYERS = {
             'modifiers, units and per-line charges; count codes with cptCodes.'
         ),
       icdCodes: z.array(z.string()).describe('ICD-10 diagnosis codes, primary first. HIERARCHICAL — prefix-match.'),
+      emCode: z
+        .string()
+        .describe(
+          'E&M (evaluation & management) code billed on the claim (e.g. "99213"), as the EHR\'s E&M code list ' +
+            'defines them. "" when none.'
+        ),
     }),
   },
   claimDetails: {
@@ -358,6 +364,17 @@ export const BILLING_CLAIMS_LAYERS = {
               .number()
               .describe("Amount of the whole check, USD — NOT this claim's share (that is remits[].paid)."),
             payerName: z.string().describe('Payer that issued the check. "" when it could not be resolved.'),
+            eraSource: z
+              .enum(['manual', 'x12-import', 'clearing-house'])
+              .describe(
+                'How the ERA got into the billing app: "manual" = keyed in by a biller, "x12-import" = an 835 file ' +
+                  'uploaded by a biller, "clearing-house" = received electronically.'
+              ),
+            enteredBy: z
+              .string()
+              .describe(
+                'Name of the biller who keyed in or imported the ERA. "" for clearing-house ERAs or when unknown.'
+              ),
           })
         )
         .describe(
@@ -382,6 +399,7 @@ export const BILLING_CLAIMS_LAYERS = {
             from: z.string().describe('Status code before the change; "" = not set (e.g. at creation).'),
             to: z.string().describe('Status code after the change; "" = cleared.'),
             by: z.enum(['user', 'system']).describe('A billing user, or automation (rules engine, ERA posting).'),
+            byName: z.string().describe('Name of the user (or automation) who changed it. "" when unknown.'),
           })
         )
         .describe(
@@ -394,6 +412,15 @@ export const BILLING_CLAIMS_LAYERS = {
         .describe('When the claim was first sent to the clearinghouse (yyyy-MM-dd). Null when never.'),
       lastSubmittedDate: z.string().nullable().describe('When the claim was last sent (yyyy-MM-dd). Null when never.'),
       submissionCount: z.number().describe('Number of times the claim was sent to the clearinghouse.'),
+      submissions: z
+        .array(
+          z.object({
+            date: z.string().nullable().describe('When the claim was sent (yyyy-MM-dd).'),
+            by: z.enum(['user', 'system']).describe('Submitted by a billing user, or by automation (rules engine).'),
+            byName: z.string().describe('Name of the user (or automation) who submitted it. "" when unknown.'),
+          })
+        )
+        .describe('One record per submission to the clearinghouse, oldest first. Empty when never submitted.'),
       firstAcknowledgedDate: z
         .string()
         .nullable()

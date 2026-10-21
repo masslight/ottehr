@@ -1,9 +1,10 @@
 import { BILLING_CLAIMS_DATASET_ID } from 'utils/lib/types/adhoc/datasets/billing-claims';
+import { BILLING_RULES_DATASET_ID } from 'utils/lib/types/adhoc/datasets/billing-rules';
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { AdHocReportRequest, validateAdHocReportRequest } from '../../shared/adhoc-report';
 import { ZambdaInput } from '../../shared/types/common';
 
-export const BILLING_ADHOC_DATASET_IDS: readonly string[] = [BILLING_CLAIMS_DATASET_ID];
+export const BILLING_ADHOC_DATASET_IDS: readonly string[] = [BILLING_CLAIMS_DATASET_ID, BILLING_RULES_DATASET_ID];
 
 export function validateRequestParameters(input: ZambdaInput): AdHocReportRequest {
   const params = validateAdHocReportRequest(input);

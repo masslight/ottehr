@@ -2,12 +2,15 @@ import Oystehr from '@oystehr/sdk';
 import { Claim, ClaimResponse, Organization, Patient, PaymentNotice } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
+import { getEmCodes } from 'utils/lib/helpers/em-codes';
 import { isPayerUrl } from 'utils/lib/helpers/helpers';
 import { AdHocBillingClaimsInput, AdHocBillingClaimsRow } from 'utils/lib/types/adhoc/datasets/billing-claims';
 import { CLAIM_STATUS_DATE_EXTENSION_URLS } from 'utils/lib/types/data/billing/claim-status';
 import { writeOffReasonLabel } from 'utils/lib/types/data/billing/write-off-reasons';
+import { FHIR_RESOURCE_NOT_FOUND } from 'utils/lib/types/errors';
 import { STRIPE_PAYMENT_ID_SYSTEM } from '../../shared/stripeIntegration';
 import {
+  ClaimEraLinks,
   extractClaimResponseAmounts,
   extractRemitAdjustments,
   sortClaimResponsesByRecency,
@@ -27,6 +30,7 @@ import {
   MANUAL_PAYMENT_IDEMPOTENCY_KEY_SYSTEM,
   MANUAL_REFUND_ID_SYSTEM,
 } from '../payments';
+import { resolveActorNames } from '../reports/shared';
 import {
   copySourceId,
   ERA_STATUS_CODE_EXTENSION,
@@ -37,12 +41,14 @@ import {
 } from '../shared';
 import { writeOffFromPaymentNotice } from '../write-offs';
 import {
+  actorRefs,
   BASE_EXTRA_ELEMENTS,
   CLAIM_DETAILS_EXTRA_ELEMENTS,
   claimDetailsLayer,
   ClaimExtras,
   claimLineExtras,
   CODES_EXTRA_ELEMENTS,
+  compareInstants,
   coverageLayer,
   coveragePayorRefs,
   emptyClaimExtras,
@@ -102,11 +108,12 @@ export async function fetchAdHocClaimRows(
     insurancePayments: !!input.includeInsurancePayments,
     history: !!input.includeHistory,
   };
-  if (flags.insurancePayments && !eraReadClient) {
-    throw new Error('The insurancePayments layer needs the untagged ERA read client');
-  }
-  const extraElements = extraElementsFor(flags);
 
+  if ((flags.insurancePayments || flags.remits) && !eraReadClient) {
+    throw new Error('The remits and insurancePayments layers need the untagged ERA read client');
+  }
+
+  const extraElements = extraElementsFor(flags);
   const startedAt = Date.now();
   const deadline = startedAt + ADHOC_CLAIMS_BUILD_BUDGET_MS;
 
@@ -128,6 +135,8 @@ export async function fetchAdHocClaimRows(
     }
   };
 
+  const emCodes = flags.codes && eraReadClient ? await loadEmCodes(eraReadClient) : new Set<string>();
+
   const scan = await withinBudget(scanAllClaims(oystehr, assertWithinBudget));
 
   const claimIds = scan.claims
@@ -140,6 +149,7 @@ export async function fetchAdHocClaimRows(
 
   const payers = createPayerResolver(oystehr);
   const patientKeyResolver = createPatientKeyResolver(oystehr);
+  const actorNameResolver = createActorNameResolver();
   const pages: string[][] = [];
 
   for (let i = 0; i < claimIds.length; i += PAGE_SIZE) pages.push(claimIds.slice(i, i + PAGE_SIZE));
@@ -163,7 +173,9 @@ export async function fetchAdHocClaimRows(
           const extras = emptyClaimExtras();
           const [coveragesById, eraLinks, historyByClaimId, patientKeys] = await Promise.all([
             flags.coverage ? fetchClaimCoverages(oystehr, page.claims) : extras.coveragesById,
-            flags.insurancePayments && eraReadClient ? fetchEraLinksForClaims(eraReadClient, lookups) : extras.eraLinks,
+            (flags.remits || flags.insurancePayments) && eraReadClient
+              ? fetchEraLinksForClaims(eraReadClient, lookups)
+              : extras.eraLinks,
             flags.history
               ? fetchClaimHistories(
                   oystehr,
@@ -172,6 +184,11 @@ export async function fetchAdHocClaimRows(
               : extras.historyByClaimId,
             patientKeyResolver.keysFor(lookups.patients),
           ]);
+
+          const actorNames =
+            eraReadClient && (flags.history || flags.insurancePayments)
+              ? await actorNameResolver.namesFor(eraReadClient, actorRefs({ eraLinks, historyByClaimId }))
+              : new Map<string, string>();
 
           const morePayerRefs = [
             ...(flags.remits || flags.insurancePayments
@@ -187,7 +204,13 @@ export async function fetchAdHocClaimRows(
           }
 
           return page.claims.map((claim) =>
-            mapClaimToAdHocRow(claim, lookups, flags, patientKeys, { coveragesById, eraLinks, historyByClaimId })
+            mapClaimToAdHocRow(claim, lookups, flags, patientKeys, {
+              coveragesById,
+              eraLinks,
+              historyByClaimId,
+              actorNames,
+              emCodes,
+            })
           );
         })
       )
@@ -208,6 +231,16 @@ export async function fetchAdHocClaimRows(
   }
 
   return rows;
+}
+
+async function loadEmCodes(eraReadClient: Oystehr): Promise<ReadonlySet<string>> {
+  try {
+    return new Set((await getEmCodes(eraReadClient)).map((option) => option.code));
+  } catch (error) {
+    if (error !== FHIR_RESOURCE_NOT_FOUND) throw error;
+    console.warn('[adhoc-billing] the E&M code list is not configured; emCode is ""');
+    return new Set();
+  }
 }
 
 async function scanAllClaims(
@@ -256,7 +289,13 @@ function createPayerResolver(oystehr: Oystehr): {
           ref,
           resolvePayersByRef(oystehr, [ref]).then((byRef) => {
             const payer = byRef.get(ref);
-            if (!payer) failed.add(ref);
+            // resolvePayersByRef swallows errors: a failed lookup is retried on a later page rather
+            // than blanking the payer for the whole run.
+            if (payer) failed.delete(ref);
+            else {
+              failed.add(ref);
+              cache.delete(ref);
+            }
             return payer;
           })
         );
@@ -284,6 +323,29 @@ const toYmd = (value: string | undefined): string | null => {
   const date = DateTime.fromISO(value, { setZone: true });
   return date.isValid ? date.toISODate() : null;
 };
+
+function createActorNameResolver(): {
+  namesFor: (untaggedClient: Oystehr, refs: string[]) => Promise<Map<string, string>>;
+} {
+  const cache = new Map<string, Promise<string>>();
+  return {
+    async namesFor(untaggedClient, refs) {
+      const missing = refs.filter((ref) => !cache.has(ref));
+      if (missing.length > 0) {
+        const fetched = resolveActorNames(untaggedClient, missing);
+        missing.forEach((ref) =>
+          cache.set(
+            ref,
+            fetched.then((names) => names.get(ref) ?? '')
+          )
+        );
+      }
+      const names = new Map<string, string>();
+      await Promise.all(refs.map(async (ref) => names.set(ref, await cache.get(ref)!)));
+      return names;
+    },
+  };
+}
 
 const PATIENT_FETCH_BATCH = 100;
 
@@ -401,7 +463,7 @@ export function mapClaimToAdHocRow(
 
   const claimResponses = lookups.claimResponsesByClaimId.get(claim.id ?? '') ?? [];
 
-  if (flags.codes) Object.assign(row, codesLayer(claim));
+  if (flags.codes) Object.assign(row, codesLayer(claim, extras.emCodes));
   if (flags.claimDetails) Object.assign(row, claimDetailsLayer(claim, lookups));
   if (flags.coverage) Object.assign(row, coverageLayer(claim, extras.coveragesById, lookups.payersByRef));
   if (flags.writeOffs) Object.assign(row, writeOffsLayer(lookups.writeOffs.get(claim.id ?? '') ?? []));
@@ -409,12 +471,13 @@ export function mapClaimToAdHocRow(
     Object.assign(row, patientPaymentsLayer(lookups.patientPaymentsByClaimId?.get(claim.id ?? '') ?? []));
   }
 
-  if (flags.remits) Object.assign(row, remitsLayer(claimResponses, lookups.payersByRef));
+  if (flags.remits) Object.assign(row, remitsLayer(claimResponses, lookups.payersByRef, extras.eraLinks));
   if (flags.timeline) Object.assign(row, timelineLayer(claim));
   if (flags.insurancePayments) {
-    Object.assign(row, insurancePaymentsLayer(claimResponses, extras.eraLinks, lookups.payersByRef));
+    Object.assign(row, insurancePaymentsLayer(claimResponses, extras.eraLinks, lookups.payersByRef, extras.actorNames));
   }
-  if (flags.history) Object.assign(row, historyLayer(extras.historyByClaimId.get(claim.id ?? '') ?? []));
+  if (flags.history)
+    Object.assign(row, historyLayer(extras.historyByClaimId.get(claim.id ?? '') ?? [], extras.actorNames));
 
   return row;
 }
@@ -424,7 +487,10 @@ const lineExtras = (claim: Claim, line: NonNullable<Claim['item']>[number]): Ret
   return { ...extras, serviceDate: toYmd(extras.serviceDate ?? undefined) };
 };
 
-function codesLayer(claim: Claim): Pick<AdHocBillingClaimsRow, 'cptCodes' | 'cptLines' | 'icdCodes'> {
+function codesLayer(
+  claim: Claim,
+  emCodes: ReadonlySet<string>
+): Pick<AdHocBillingClaimsRow, 'cptCodes' | 'cptLines' | 'icdCodes' | 'emCode'> {
   const cptLines = (claim.item ?? [])
     .map((line) => ({
       code: line.productOrService?.coding?.[0]?.code ?? '',
@@ -443,6 +509,7 @@ function codesLayer(claim: Claim): Pick<AdHocBillingClaimsRow, 'cptCodes' | 'cpt
   return {
     cptCodes: [...new Set(cptLines.map((line) => line.code))],
     cptLines,
+    emCode: cptLines.find((line) => emCodes.has(line.code))?.code ?? '',
     icdCodes: [...new Set(icdCodes)],
   };
 }
@@ -452,7 +519,7 @@ function writeOffsLayer(
 ): Pick<AdHocBillingClaimsRow, 'writeOffCount' | 'writeOffReasons' | 'writeOffs'> {
   const writeOffs = notices
     .map(writeOffFromPaymentNotice)
-    .sort((a, b) => (a.date ?? '').localeCompare(b.date ?? ''))
+    .sort((a, b) => compareInstants(a.date, b.date))
     .map((writeOff) => ({
       date: writeOff.date || null,
       amount: writeOff.amount,
@@ -500,7 +567,7 @@ function patientPaymentsLayer(
         voided: notice.status !== 'active',
       };
     })
-    .sort((a, b) => (a.date ?? '').localeCompare(b.date ?? ''));
+    .sort((a, b) => compareInstants(a.date, b.date));
   const counted = patientPayments.filter((payment) => !payment.voided);
   const payments = counted.filter((payment) => payment.kind === 'payment');
 
@@ -516,7 +583,8 @@ function patientPaymentsLayer(
 
 function remitsLayer(
   claimResponses: ClaimResponse[],
-  payersByRef: Map<string, Organization>
+  payersByRef: Map<string, Organization>,
+  eraLinks: ClaimEraLinks
 ): Pick<
   AdHocBillingClaimsRow,
   'remitCount' | 'lastRemitDate' | 'adjustmentReasonCodes' | 'remits' | 'remitAdjustments'
@@ -527,7 +595,7 @@ function remitsLayer(
     const amounts = extractClaimResponseAmounts(claimResponse);
     return {
       date: claimResponse.created || null,
-      payerName: remitPayerName(claimResponse, payersByRef),
+      payerName: remitPayerName(claimResponse, payersByRef, eraLinks),
       eraStatusCode:
         claimResponse.extension?.find((extension) => extension.url === ERA_STATUS_CODE_EXTENSION)?.valueString ?? '',
       allowed: amounts.allowed ?? null,
@@ -539,7 +607,7 @@ function remitsLayer(
   const remitAdjustments = sorted.flatMap((claimResponse) =>
     extractRemitAdjustments(claimResponse).map((adjustment) => ({
       remitDate: claimResponse.created || null,
-      payerName: remitPayerName(claimResponse, payersByRef),
+      payerName: remitPayerName(claimResponse, payersByRef, eraLinks),
       group: adjustment.groupCode,
       code: adjustment.reasonCode,
       amount: adjustment.amount,
@@ -555,9 +623,17 @@ function remitsLayer(
   };
 }
 
-const remitPayerName = (claimResponse: ClaimResponse, payersByRef: Map<string, Organization>): string => {
-  const ref = claimResponse.insurer?.reference;
-  return (ref && payersByRef.get(ref)?.name) || '';
+const remitPayerName = (
+  claimResponse: ClaimResponse,
+  payersByRef: Map<string, Organization>,
+  eraLinks: ClaimEraLinks
+): string => {
+  const eraId = eraLinks.paymentReconciliationIdByClaimResponseId.get(claimResponse.id ?? '');
+  const issuerRef = eraLinks.paymentReconciliations.find((era) => era.id === eraId)?.paymentIssuer?.reference;
+  const insurerRef = claimResponse.insurer?.reference;
+  const payer =
+    (issuerRef ? payersByRef.get(issuerRef) : undefined) ?? (insurerRef ? payersByRef.get(insurerRef) : undefined);
+  return payer?.name || '';
 };
 
 function timelineLayer(claim: Claim): Pick<AdHocBillingClaimsRow, 'insuranceFinalizedDate' | 'enteredPatientArDate'> {

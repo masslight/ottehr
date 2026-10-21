@@ -179,13 +179,21 @@ for one run — narrow the date range", so the Task fails instead of the lambda 
 Task left in-progress. Layers (no extra FHIR queries): `codes` (lines + ICD-10, reads
 `Claim.diagnosis`), `writeOffs` (reasons as the app labels them), `patientPayments` (every payment and refund
 the claim's `patientPaid` sums — EHR-mirrored, manual, card), `remits` (matched ERA ClaimResponses,
-CARC codes, each remit with its own payer), `timeline`
+CARC codes, each remit attributed to the payer that issued its ERA, as the claim detail does; reads the
+untagged ERA links), `timeline`
 (status date extensions, reads `Claim.extension`), `claimDetails` (provider / facility NPIs, POS, PCN /
 ICN, institutional and accident fields, attachments, patient sex / state / ZIP), `coverage` (all insurances
 on the claim; one Coverage read per page), `insurancePayments` (ERA checks; reads the untagged
 PaymentReconciliations and era-processing Provenances), `history` (claim-history Provenances: status
 changes, submissions, acknowledgments, notes; one Provenance search per page). Event dates are sent as recorded; the EHR
 converts them to the viewer's calendar day.
+
+### billing-rules — Billing rules (billing app)
+
+One row per rule of every rules engine, as configured now (the report date range does not apply):
+engine, order, enabled, condition fields (and which read service lines), service-line match
+properties, action types. The billing app does not record who created or changed a rule, so the
+dataset has no authorship.
 
 ### Adding the next billing dataset
 

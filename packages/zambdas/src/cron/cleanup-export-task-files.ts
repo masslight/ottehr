@@ -49,6 +49,7 @@ export async function cleanupExportTaskFiles({
     oystehr
   );
 
+  // An export the caller may still be downloading is left alone until its window has passed.
   const cutoff = DateTime.now().minus({ minutes: ageMinutes });
   const uncleaned = tasks.filter((task) => !isCleaned(task));
 

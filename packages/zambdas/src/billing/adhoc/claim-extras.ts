@@ -10,6 +10,7 @@ import {
   Practitioner,
   Provenance,
 } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import { getCoveragePlanType } from 'utils/lib/fhir/billing';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { getCoding, getExtension, getNPI } from 'utils/lib/fhir/helpers';
@@ -23,6 +24,7 @@ import {
   CODE_SYSTEM_CLAIM_TYPE_CODES,
 } from 'utils/lib/helpers/rcm/constants';
 import { AdHocBillingClaimsRow } from 'utils/lib/types/adhoc/datasets/billing-claims';
+import { ERA_SOURCE } from 'utils/lib/types/data/billing/billing.constants';
 import {
   CLAIM_PROVENANCE_ACTIVITY_CODES,
   CLAIM_PROVENANCE_AGENT_TYPE,
@@ -50,11 +52,11 @@ import {
   getClaimSupportingInfo,
   getClaimType,
   getEraCheckNumber,
+  getEraSource,
   readClaimItemDrug,
   sortClaimInsurance,
 } from '../shared';
 
-// Claim fields each layer reads beyond the claims list; the base row needs the patient's copy chain.
 export const BASE_EXTRA_ELEMENTS = ['Patient.meta', 'Patient.identifier', 'Patient.extension'];
 export const CODES_EXTRA_ELEMENTS = ['Claim.diagnosis'];
 export const TIMELINE_EXTRA_ELEMENTS = ['Claim.extension'];
@@ -75,13 +77,42 @@ export interface ClaimExtras {
   coveragesById: Map<string, Coverage>;
   eraLinks: ClaimEraLinks;
   historyByClaimId: Map<string, Provenance[]>;
+  actorNames: Map<string, string>;
+  emCodes: ReadonlySet<string>;
 }
 
 export const emptyClaimExtras = (): ClaimExtras => ({
   coveragesById: new Map(),
   eraLinks: { paymentReconciliations: [], paymentReconciliationIdByClaimResponseId: new Map() },
   historyByClaimId: new Map(),
+  actorNames: new Map(),
+  emCodes: new Set(),
 });
+
+const instantMillis = (value: string | null | undefined): number => {
+  const millis = value ? DateTime.fromISO(value).toMillis() : NaN;
+  return Number.isNaN(millis) ? Number.NEGATIVE_INFINITY : millis;
+};
+
+export const compareInstants = (a: string | null | undefined, b: string | null | undefined): number => {
+  const [left, right] = [instantMillis(a), instantMillis(b)];
+  return left === right ? 0 : left < right ? -1 : 1;
+};
+
+const isHumanAgent = (agent: NonNullable<Provenance['agent']>[number]): boolean =>
+  agent.type?.coding?.some((coding) => coding.code === CLAIM_PROVENANCE_AGENT_TYPE.human.code) ?? false;
+
+const agentRef = (provenance: Provenance): string | undefined =>
+  (provenance.agent?.find(isHumanAgent) ?? provenance.agent?.[0])?.who?.reference;
+
+export const actorRefs = (extras: Pick<ClaimExtras, 'eraLinks' | 'historyByClaimId'>): string[] => [
+  ...new Set(
+    [
+      ...[...extras.historyByClaimId.values()].flat().map(agentRef),
+      ...(extras.eraLinks.agentRefByPaymentReconciliationId?.values() ?? []),
+    ].filter((ref): ref is string => !!ref)
+  ),
+];
 
 const coverageRefs = (claim: Claim): string[] =>
   sortClaimInsurance(claim)
@@ -91,8 +122,10 @@ const coverageRefs = (claim: Claim): string[] =>
 export async function fetchClaimCoverages(oystehr: Oystehr, claims: Claim[]): Promise<Map<string, Coverage>> {
   const ids = [...new Set(claims.flatMap(coverageRefs).map((ref) => ref.replace('Coverage/', '')))];
   const coverages = new Map<string, Coverage>();
+
   for (let i = 0; i < ids.length; i += COVERAGE_FETCH_BATCH) {
     const batch = ids.slice(i, i + COVERAGE_FETCH_BATCH);
+
     const found = await getAllFhirSearchPages<Coverage>(
       {
         resourceType: 'Coverage',
@@ -104,15 +137,16 @@ export async function fetchClaimCoverages(oystehr: Oystehr, claims: Claim[]): Pr
       oystehr,
       batch.length
     );
+
     found.forEach((coverage) => coverage.id && coverages.set(coverage.id, coverage));
   }
+
   return coverages;
 }
 
 export const coveragePayorRefs = (coverages: Map<string, Coverage>): (string | undefined)[] =>
   [...coverages.values()].map((coverage) => coverage.payor?.[0]?.reference);
 
-// ERA resources are untagged, so `eraReadClient` must be the untagged client.
 export async function fetchEraLinksForClaims(eraReadClient: Oystehr, lookups: ClaimLookups): Promise<ClaimEraLinks> {
   const claimResponses = [...lookups.claimResponsesByClaimId.values()].flat();
   if (claimResponses.length === 0) return emptyClaimExtras().eraLinks;
@@ -122,11 +156,11 @@ export async function fetchEraLinksForClaims(eraReadClient: Oystehr, lookups: Cl
 export const paymentIssuerRefs = (eraLinks: ClaimEraLinks): (string | undefined)[] =>
   eraLinks.paymentReconciliations.map((paymentReconciliation) => paymentReconciliation.paymentIssuer?.reference);
 
-// Every claim-history Provenance targets its claim, so one search per page returns the history of
-// every claim on it.
 export async function fetchClaimHistories(oystehr: Oystehr, claimIds: string[]): Promise<Map<string, Provenance[]>> {
   const byClaimId = new Map<string, Provenance[]>();
+
   if (claimIds.length === 0) return byClaimId;
+
   const provenances = await getAllFhirSearchPages<Provenance>(
     {
       resourceType: 'Provenance',
@@ -137,7 +171,9 @@ export async function fetchClaimHistories(oystehr: Oystehr, claimIds: string[]):
     },
     oystehr
   );
+
   const wanted = new Set(claimIds);
+
   for (const provenance of provenances) {
     for (const target of provenance.target ?? []) {
       const claimId = target.reference?.match(/^Claim\/(.+)$/)?.[1];
@@ -145,6 +181,7 @@ export async function fetchClaimHistories(oystehr: Oystehr, claimIds: string[]):
       byClaimId.set(claimId, [...(byClaimId.get(claimId) ?? []), provenance]);
     }
   }
+
   return byClaimId;
 }
 
@@ -175,10 +212,12 @@ export function claimDetailsLayer(
   | 'patientZip'
 > {
   const billingProvider = findRef<Practitioner | Organization>(lookups.providers, claim.provider?.reference);
+
   const renderingProvider = findRef<Practitioner | Organization>(
     lookups.providers,
     claim.careTeam?.[0]?.provider?.reference
   );
+
   const facility = findRef<Location>(lookups.locations, claim.facility?.reference);
   const patient = findRef<Patient>(lookups.patients, claim.patient?.reference);
   const extensionString = (url: string): string => getExtension(claim, url)?.valueString ?? '';
@@ -258,10 +297,12 @@ export function coverageLayer(
 > {
   const coverages = coverageRefs(claim).map((ref) => coveragesById.get(ref.replace('Coverage/', '')));
   const [primary, secondary, tertiary] = coverages;
+
   const payerName = (coverage?: Coverage): string => {
     const ref = coverage?.payor?.[0]?.reference;
     return (ref && payersByRef.get(ref)?.name) || coverage?.payor?.[0]?.display || '';
   };
+
   return {
     coverageCount: coverages.length,
     primaryPlanType: getCoveragePlanType(primary) ?? '',
@@ -278,13 +319,16 @@ export function coverageLayer(
 export function insurancePaymentsLayer(
   claimResponses: ClaimResponse[],
   eraLinks: ClaimEraLinks,
-  payersByRef: Map<string, Organization>
+  payersByRef: Map<string, Organization>,
+  actorNames: Map<string, string>
 ): Pick<AdHocBillingClaimsRow, 'checkNumbers' | 'lastCheckDate' | 'insurancePayments'> {
   const byId = new Map(eraLinks.paymentReconciliations.map((era) => [era.id ?? '', era]));
   const eras = new Map<string, { era: PaymentReconciliation; claimResponse: ClaimResponse }>();
+
   for (const claimResponse of claimResponses) {
     const eraId = eraLinks.paymentReconciliationIdByClaimResponseId.get(claimResponse.id ?? '');
     const era = eraId ? byId.get(eraId) : undefined;
+
     if (era?.id && !eras.has(era.id)) eras.set(era.id, { era, claimResponse });
   }
 
@@ -293,15 +337,21 @@ export function insurancePaymentsLayer(
       const issuerRef = era.paymentIssuer?.reference;
       const remitPayerRef = claimResponse.insurer?.reference;
       const payer = (issuerRef && payersByRef.get(issuerRef)) || (remitPayerRef && payersByRef.get(remitPayerRef));
+      const eraSource = getEraSource(era);
+      const enteredByRef = eraLinks.agentRefByPaymentReconciliationId?.get(era.id ?? '');
       return {
         checkNumber: getEraCheckNumber(era) ?? '',
         checkDate: era.paymentDate || null,
         remitDate: era.created || null,
         checkAmount: era.paymentAmount?.value ?? 0,
         payerName: (payer && payer.name) || era.paymentIssuer?.display || '',
+        eraSource,
+        // A clearing-house ERA is written by Oystehr, not entered by anyone.
+        enteredBy: eraSource !== ERA_SOURCE.clearingHouse && enteredByRef ? actorNames.get(enteredByRef) ?? '' : '',
       };
     })
-    .sort((a, b) => (a.checkDate ?? a.remitDate ?? '').localeCompare(b.checkDate ?? b.remitDate ?? ''));
+    .sort((a, b) => compareInstants(a.checkDate ?? a.remitDate, b.checkDate ?? b.remitDate));
+
   const checkDates = insurancePayments.map((payment) => payment.checkDate).filter((date): date is string => !!date);
 
   return {
@@ -311,10 +361,10 @@ export function insurancePaymentsLayer(
   };
 }
 
-// History values are the labels shown at write time ("Patient AR"); the dataset speaks status codes.
 const STATUS_CODE_BY_LABEL = new Map(
   CLAIM_STATUS_FIELDS.map((field) => [field.key, new Map(field.options.map((option) => [option.label, option.code]))])
 );
+
 const statusCode = (key: ClaimStatusFieldKey, value: unknown): string =>
   typeof value === 'string' && value ? STATUS_CODE_BY_LABEL.get(key)?.get(value) ?? value : '';
 
@@ -324,10 +374,7 @@ const hasActivity = (provenance: Provenance, code: string): boolean =>
 const isClaimHistoryEntry = (provenance: Provenance): boolean =>
   Object.values(CLAIM_PROVENANCE_ACTIVITY_CODES).some((code) => hasActivity(provenance, code));
 
-const byUser = (provenance: Provenance): boolean =>
-  provenance.agent?.some(
-    (agent) => agent.type?.coding?.some((coding) => coding.code === CLAIM_PROVENANCE_AGENT_TYPE.human.code)
-  ) ?? false;
+const byUser = (provenance: Provenance): boolean => provenance.agent?.some(isHumanAgent) ?? false;
 
 const parseChanges = (provenance: Provenance): { field?: unknown; previousValue?: unknown; newValue?: unknown }[] => {
   const stored = provenance.extension?.find((extension) => extension.url === CLAIM_PROVENANCE_DIFF_EXTENSION_URL)
@@ -342,13 +389,15 @@ const parseChanges = (provenance: Provenance): { field?: unknown; previousValue?
 };
 
 export function historyLayer(
-  provenances: Provenance[]
+  provenances: Provenance[],
+  actorNames: Map<string, string>
 ): Pick<
   AdHocBillingClaimsRow,
   | 'statusChanges'
   | 'firstSubmittedDate'
   | 'lastSubmittedDate'
   | 'submissionCount'
+  | 'submissions'
   | 'firstAcknowledgedDate'
   | 'acknowledgments'
   | 'noteCount'
@@ -357,9 +406,11 @@ export function historyLayer(
   | 'userActionCount'
   | 'systemActionCount'
 > {
-  const entries = provenances
-    .filter(isClaimHistoryEntry)
-    .sort((a, b) => (a.recorded ?? '').localeCompare(b.recorded ?? ''));
+  const nameOf = (provenance: Provenance): string => {
+    const ref = agentRef(provenance);
+    return (ref && actorNames.get(ref)) || '';
+  };
+  const entries = provenances.filter(isClaimHistoryEntry).sort((a, b) => compareInstants(a.recorded, b.recorded));
 
   const statusChanges = entries.flatMap((provenance) =>
     parseChanges(provenance).flatMap((change) => {
@@ -373,6 +424,7 @@ export function historyLayer(
           from: statusCode(field, change.previousValue),
           to: statusCode(field, change.newValue),
           by: byUser(provenance) ? ('user' as const) : ('system' as const),
+          byName: nameOf(provenance),
         },
       ];
     })
@@ -380,12 +432,16 @@ export function historyLayer(
 
   const submissions = entries
     .filter((provenance) => hasActivity(provenance, CLAIM_PROVENANCE_ACTIVITY_CODES.submit))
-    .map((provenance) => {
+    .flatMap((provenance) => {
       const stored = parseStoredTransmit(provenance);
-      return (stored.kind === 'parsed' ? stored.event.transmittedAt : provenance.recorded) || '';
+      if (stored.kind === 'absent') return [];
+      return {
+        date: (stored.kind === 'parsed' ? stored.event.transmittedAt : provenance.recorded) || null,
+        by: byUser(provenance) ? ('user' as const) : ('system' as const),
+        byName: nameOf(provenance),
+      };
     })
-    .filter(Boolean)
-    .sort();
+    .sort((a, b) => compareInstants(a.date, b.date));
 
   const acknowledgments = entries
     .flatMap((provenance) => {
@@ -398,16 +454,17 @@ export function historyLayer(
       entityName: event.entityName,
       message: event.message,
     }))
-    .sort((a, b) => (a.date ?? '').localeCompare(b.date ?? ''));
+    .sort((a, b) => compareInstants(a.date, b.date));
 
   const notes = entries.filter((provenance) => hasActivity(provenance, CLAIM_PROVENANCE_ACTIVITY_CODES.note));
   const userActionCount = entries.filter(byUser).length;
 
   return {
     statusChanges,
-    firstSubmittedDate: submissions[0] ?? null,
-    lastSubmittedDate: submissions[submissions.length - 1] ?? null,
+    firstSubmittedDate: submissions[0]?.date ?? null,
+    lastSubmittedDate: submissions[submissions.length - 1]?.date ?? null,
     submissionCount: submissions.length,
+    submissions,
     firstAcknowledgedDate: acknowledgments[0]?.date ?? null,
     acknowledgments,
     noteCount: notes.length,

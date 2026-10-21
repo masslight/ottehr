@@ -76,6 +76,10 @@ function toLocalDates(row: AdHocBillingClaimsRow): AdHocBillingClaimsRow {
     out.statusChanges = row.statusChanges.map((change) => ({ ...change, date: toLocalYmd(change.date) }));
   }
 
+  if (row.submissions) {
+    out.submissions = row.submissions.map((submission) => ({ ...submission, date: toLocalYmd(submission.date) }));
+  }
+
   if (row.acknowledgments) {
     out.acknowledgments = row.acknowledgments.map((ack) => ({ ...ack, date: toLocalYmd(ack.date) }));
   }

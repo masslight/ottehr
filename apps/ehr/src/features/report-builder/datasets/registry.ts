@@ -3,6 +3,7 @@ import { llmFieldsFromZodObject } from 'utils/lib/types/adhoc/datasets/llm-schem
 import { CatalogDataset } from 'utils/lib/types/adhoc/generation/infer.types';
 import { billingDataset } from './billing';
 import { billingClaimsDataset } from './billing-claims';
+import { billingRulesDataset } from './billing-rules';
 import { adhocEncountersDataset } from './encounters';
 import { patientsDataset } from './patients';
 import { AdHocDataset } from './types';
@@ -12,6 +13,7 @@ export const AD_HOC_DATASETS: AdHocDataset[] = [
   patientsDataset,
   billingDataset,
   billingClaimsDataset,
+  billingRulesDataset,
 ];
 
 export function getDataset(id: string): AdHocDataset | undefined {

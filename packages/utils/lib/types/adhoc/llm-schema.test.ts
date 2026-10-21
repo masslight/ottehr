@@ -12,6 +12,12 @@ import {
   BILLING_CLAIMS_LAYERS,
   BillingClaimsBaseRowSchema,
 } from './datasets/billing-claims';
+import {
+  BILLING_RULES_DOMAIN_FIELDS,
+  BILLING_RULES_INTERNAL_FIELDS,
+  BILLING_RULES_LAYERS,
+  BillingRulesBaseRowSchema,
+} from './datasets/billing-rules';
 import { AdHocLayerMap, layerIncludeFlags, layerOptions, layerSchemas, unloadedLayers } from './datasets/dataset';
 import {
   AdHocEncountersInputSchema,
@@ -330,6 +336,13 @@ describe('data leak boundary — only whitelisted domain fields emit sampled val
       layers: BILLING_CLAIMS_LAYERS,
       internal: BILLING_CLAIMS_INTERNAL_FIELDS,
       domain: BILLING_CLAIMS_DOMAIN_FIELDS,
+    },
+    {
+      name: 'billing-rules',
+      base: BillingRulesBaseRowSchema,
+      layers: BILLING_RULES_LAYERS,
+      internal: BILLING_RULES_INTERNAL_FIELDS,
+      domain: BILLING_RULES_DOMAIN_FIELDS,
     },
     {
       name: 'patients',

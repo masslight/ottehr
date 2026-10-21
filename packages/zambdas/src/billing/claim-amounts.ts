@@ -435,6 +435,8 @@ export async function fetchPatientPaidByClaimId({
   return sumPatientPaymentsByClaimId(await fetchPatientPaymentsByClaimId({ oystehr, claims }));
 }
 
+// Fetch the era-processing Provenances (one per ERA, targeting its PaymentReconciliation +
+// ClaimResponses) that point at any of the given resource references, deduped by id.
 export async function fetchEraProcessingProvenances(oystehr: Oystehr, targetRefs: string[]): Promise<Provenance[]> {
   const byId = new Map<string, Provenance>();
   const uniqueRefs = [...new Set(targetRefs)];
@@ -574,7 +576,12 @@ export async function fetchClaimResponsesFromEraProvenances(
 
 export interface ClaimEraLinks {
   paymentReconciliations: PaymentReconciliation[];
+  // the ERA each of the given ClaimResponses arrived on; one ERA can carry several of them (e.g. a
+  // reversal and its correction)
   paymentReconciliationIdByClaimResponseId: Map<string, string>;
+  // Who the ERA's era-processing Provenance names (the biller who keyed or imported it); optional so
+  // callers that build ClaimEraLinks themselves need not supply it.
+  agentRefByPaymentReconciliationId?: Map<string, string>;
 }
 
 export async function fetchClaimEraLinks(oystehr: Oystehr, claimResponses: ClaimResponse[]): Promise<ClaimEraLinks> {
@@ -587,10 +594,13 @@ export async function fetchClaimEraLinks(oystehr: Oystehr, claimResponses: Claim
 
   const paymentReconciliationIds = new Set<string>();
   const paymentReconciliationIdByClaimResponseId = new Map<string, string>();
+  const agentRefByPaymentReconciliationId = new Map<string, string>();
 
   for (const provenance of provenances) {
     const eraPaymentReconciliationIds = eraProvenanceTargetIds(provenance, 'PaymentReconciliation');
     eraPaymentReconciliationIds.forEach((id) => paymentReconciliationIds.add(id));
+    const agentRef = provenance.agent?.[0]?.who?.reference;
+    if (agentRef) eraPaymentReconciliationIds.forEach((id) => agentRefByPaymentReconciliationId.set(id, agentRef));
 
     if (eraPaymentReconciliationIds.length === 0) continue;
 
@@ -609,9 +619,13 @@ export async function fetchClaimEraLinks(oystehr: Oystehr, claimResponses: Claim
   return {
     paymentReconciliations,
     paymentReconciliationIdByClaimResponseId,
+    agentRefByPaymentReconciliationId,
   };
 }
 
+// Oystehr records each submission of a claim to the payer as a ClaimResponse with outcome 'queued'.
+// 277 claim-status responses (their event identifier) and ERA remits (the CLP02 stamp, adjudicated
+// lines) are not submissions even when they share that outcome.
 function isClaimSubmissionResponse(claimResponse: ClaimResponse): boolean {
   if (claimResponse.outcome !== 'queued') return false;
 
@@ -638,6 +652,7 @@ export function firstSubmittedDate(claimResponses: ClaimResponse[]): string {
   return submissions[0]?.created ?? '';
 }
 
+// Submission responses are untagged, so this needs the ERA read client.
 export async function fetchClaimFirstSubmittedDate(oystehr: Oystehr, claimId: string): Promise<string> {
   const claimResponsesByClaimId = await fetchResourcesGrouped<ClaimResponse>({
     oystehr,

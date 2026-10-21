@@ -3,6 +3,7 @@ import {
   Claim,
   ClaimResponse,
   Coverage,
+  Device,
   FhirResource,
   Location,
   Patient,
@@ -19,6 +20,7 @@ import {
   CODE_SYSTEM_CLAIM_TYPE,
 } from 'utils/lib/helpers/rcm/constants';
 import { AdHocBillingClaimsOutputSchema } from 'utils/lib/types/adhoc/datasets/billing-claims';
+import { EM_CODES_VALUE_SET_URL } from 'utils/lib/types/api/em-codes.constants';
 import {
   CLAIM_PROVENANCE_ACKNOWLEDGMENT_EXTENSION_URL,
   CLAIM_PROVENANCE_ACTIVITY,
@@ -29,6 +31,7 @@ import {
 } from 'utils/lib/types/data/billing/claim-history';
 import { CLAIM_STATUS_DATE_EXTENSION_URLS, CLAIM_STATUS_TAG_SYSTEMS } from 'utils/lib/types/data/billing/claim-status';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { historyLayer } from '../../../src/billing/adhoc/claim-extras';
 import {
   ADHOC_CLAIMS_BUILD_BUDGET_MS,
   ADHOC_CLAIMS_OVER_BUDGET_MESSAGE,
@@ -45,6 +48,7 @@ import {
   CLAIM_PCN_IDENTIFIER_SYSTEM,
   ERA_CHECK_SYSTEM,
   ERA_PROCESSING_ACTIVITY_CODE,
+  ERA_SOURCE_EXTENSION,
   ERA_STATUS_CODE_EXTENSION,
   SOURCE_IDENTIFIER_SYSTEM,
 } from '../../../src/billing/shared';
@@ -323,7 +327,12 @@ const historyEntry = (
   id,
   recorded,
   activity: { coding: [CLAIM_PROVENANCE_ACTIVITY[activity]] },
-  agent: [{ type: { coding: [CLAIM_PROVENANCE_AGENT_TYPE[by]] }, who: { reference: 'Device/d-1' } }],
+  agent: [
+    {
+      type: { coding: [CLAIM_PROVENANCE_AGENT_TYPE[by]] },
+      who: { reference: by === 'human' ? 'Practitioner/pr-manish' : 'Device/d-1' },
+    },
+  ],
   target: [{ reference: 'Claim/claim-1' }],
   extension,
 });
@@ -379,7 +388,6 @@ const claimHistory: Provenance[] = [
   ]),
 ];
 
-// The ERA that carried cr-1, linked through its era-processing Provenance (untagged resources).
 const era: PaymentReconciliation = {
   resourceType: 'PaymentReconciliation',
   id: 'era-1',
@@ -388,20 +396,31 @@ const era: PaymentReconciliation = {
   paymentDate: '2026-10-10',
   paymentAmount: { value: 500, currency: 'USD' },
   identifier: [{ system: ERA_CHECK_SYSTEM, value: 'CHK-9' }],
+  extension: [{ url: ERA_SOURCE_EXTENSION, valueCode: 'manual' }],
   paymentIssuer: { reference: PAYER_B },
 };
+
 const eraProvenance: Provenance = {
   resourceType: 'Provenance',
   id: 'era-prov-1',
   recorded: '2026-10-11T10:00:00Z',
   activity: { coding: [{ code: ERA_PROCESSING_ACTIVITY_CODE }] },
-  agent: [{ who: { display: 'Oystehr' } }],
+  agent: [{ who: { reference: 'Practitioner/pr-manish' } }],
   target: [{ reference: 'PaymentReconciliation/era-1' }, { reference: 'ClaimResponse/cr-1' }],
 };
 
 const claims = [insuredClaim, selfPayClaim, outOfRangeClaim, ...chainClaims, ...fillerClaims];
 
+const emCodeList = {
+  resourceType: 'ValueSet',
+  id: 'vs-em',
+  status: 'active',
+  url: EM_CODES_VALUE_SET_URL,
+  expansion: { timestamp: '2026-01-01T00:00:00Z', contains: [{ code: '99213', display: 'Office visit, est.' }] },
+} as FhirResource;
+
 const store: FhirResource[] = [
+  emCodeList,
   ...claims,
   patient,
   patientCopy('pt-copy-1'),
@@ -471,9 +490,15 @@ function stubBillingClient({ shortScans = 0, onScan }: { shortScans?: number; on
     }
 
     const targets = listOf('target');
+
     if (targets) {
       matches = matches.filter((r) => (r as Provenance).target?.some((t) => targets.includes(t.reference ?? '')));
     }
+
+    const urls = listOf('url');
+
+    if (urls) matches = matches.filter((r) => urls.includes((r as { url?: string }).url ?? ''));
+
     const identifiers = listOf('identifier');
 
     if (identifiers) matches = matches.filter((r) => tokenMatches(identifiers, (r as { identifier?: [] }).identifier));
@@ -515,7 +540,34 @@ function stubBillingClient({ shortScans = 0, onScan }: { shortScans?: number; on
     name: url === PAYER_A ? 'Payer A' : 'Payer B',
   }));
 
-  const oystehr = { fhir: { search }, rcm: { getPayerByUrl } } as unknown as Oystehr;
+  const actors: Record<string, Practitioner | Device> = {
+    'Practitioner/pr-manish': {
+      resourceType: 'Practitioner',
+      id: 'pr-manish',
+      name: [{ given: ['Manish'], family: 'Biller' }],
+    },
+    'Device/d-1': {
+      resourceType: 'Device',
+      id: 'd-1',
+      deviceName: [{ name: 'Ottehr Rules Engine', type: 'user-friendly-name' }],
+    },
+  };
+
+  const batch = vi.fn(async ({ requests }: { requests: { url: string }[] }) => ({
+    entry: requests.map(({ url }) => {
+      const [type, query] = url.replace(/^\//, '').split('?_id=');
+      return {
+        resource: {
+          entry: query
+            .split(',')
+            .map((id) => actors[`${type}/${id}`])
+            .filter(Boolean)
+            .map((resource) => ({ resource })),
+        },
+      };
+    }),
+  }));
+  const oystehr = { fhir: { search, batch }, rcm: { getPayerByUrl } } as unknown as Oystehr;
 
   return { oystehr, search, getPayerByUrl };
 }
@@ -855,16 +907,27 @@ describe('fetchAdHocClaimRows (billing-claims dataset)', () => {
           remitDate: '2026-10-11T10:00:00Z',
           checkAmount: 500,
           payerName: 'Payer B',
+          eraSource: 'manual',
+          enteredBy: 'Biller, Manish',
         },
       ],
       statusChanges: [
         { date: '2026-10-05T14:00:00Z', field: 'arStage', from: '', to: 'insurance-payer-ar', by: 'system' },
-        { date: '2026-10-12T14:00:00Z', field: 'arStage', from: 'insurance-payer-ar', to: 'patient-ar', by: 'user' },
+        {
+          date: '2026-10-12T14:00:00Z',
+          field: 'arStage',
+          from: 'insurance-payer-ar',
+          to: 'patient-ar',
+          by: 'user',
+          byName: 'Biller, Manish',
+        },
         { date: '2026-10-12T14:00:00Z', field: 'insuranceArStatus', from: 'adjudicated', to: 'finalized', by: 'user' },
       ],
       firstSubmittedDate: '2026-10-06T13:59:00Z',
       lastSubmittedDate: '2026-10-06T13:59:00Z',
       submissionCount: 1,
+      submissions: [{ date: '2026-10-06T13:59:00Z', by: 'system', byName: 'Ottehr Rules Engine' }],
+      emCode: '99213',
       firstAcknowledgedDate: '2026-10-07T13:00:00Z',
       acknowledgments: [
         { date: '2026-10-07T13:00:00Z', entityKind: 'payer', entityName: 'Payer A', message: 'Accepted' },
@@ -903,10 +966,17 @@ describe('fetchAdHocClaimRows (billing-claims dataset)', () => {
     ).rejects.toThrow('untagged ERA read client');
   });
 
+  it('refuses the remits layer without the untagged ERA client', async () => {
+    const { oystehr } = stubBillingClient();
+    await expect(fetchAdHocClaimRows(oystehr, { dateRange: DATE_RANGE, includeRemits: true })).rejects.toThrow(
+      'untagged ERA read client'
+    );
+  });
+
   it('reads no history, coverage or ERA links when those layers are off', async () => {
     vi.spyOn(console, 'log').mockImplementation(() => undefined);
     const { oystehr, search } = stubBillingClient();
-    await fetchAdHocClaimRows(oystehr, { dateRange: DATE_RANGE, includeRemits: true });
+    await fetchAdHocClaimRows(oystehr, { dateRange: DATE_RANGE, includeCodes: true });
 
     const searched = new Set(search.mock.calls.map(([arg]) => arg.resourceType));
     expect(searched.has('Provenance')).toBe(false);
@@ -922,7 +992,7 @@ describe('fetchAdHocClaimRows (billing-claims dataset)', () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
     try {
       const { oystehr, search } = stubBillingClient();
-      const answer = search.getMockImplementation()!;
+      const answer = search.getMockImplementation() as (args: unknown) => Promise<unknown>;
       // Claim hydration never answers.
       search.mockImplementation(async (args: { resourceType: string; params: Param[] }) =>
         args.resourceType === 'Claim' && args.params.some((p) => p.name === '_id')
@@ -936,6 +1006,71 @@ describe('fetchAdHocClaimRows (billing-claims dataset)', () => {
       await outcome;
     } finally {
       vi.useRealTimers();
+    }
+  });
+});
+
+describe('billing-claims review fixes', () => {
+  it('counts a failed submit attempt as no submission, and orders instants by time, not text', () => {
+    const failedAttempt = historyEntry('h-failed', '2026-10-06T10:00:00Z', 'submit', 'human', [
+      diff([{ field: 'error', label: 'Error', previousValue: null, newValue: 'Rejected' }]),
+    ]);
+    // 10:00Z: after the fixture's 13:59Z transmit as text, before it in time.
+    const earlierTransmit = historyEntry('h-early', '2026-10-06T10:01:00Z', 'submit', 'system', [
+      diff([]),
+      {
+        url: CLAIM_PROVENANCE_TRANSMIT_EXTENSION_URL,
+        valueString: JSON.stringify({ transmittedAt: '2026-10-06T15:00:00+05:00' }),
+      },
+    ]);
+    const layer = historyLayer([...claimHistory, earlierTransmit, failedAttempt], new Map());
+
+    expect(layer.submissionCount).toBe(2);
+    expect(layer.firstSubmittedDate).toBe('2026-10-06T15:00:00+05:00');
+    expect(layer.lastSubmittedDate).toBe('2026-10-06T13:59:00Z');
+  });
+
+  it('takes emCode from the EHR E&M list only, and leaves it empty when the list is not configured', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const withList = stubBillingClient();
+    const rows = await fetchAdHocClaimRows(
+      withList.oystehr,
+      { dateRange: DATE_RANGE, includeCodes: true },
+      { eraReadClient: withList.oystehr }
+    );
+    expect(rows.find((r) => r.claimId === 'claim-1')?.emCode).toBe('99213');
+
+    store.splice(store.indexOf(emCodeList), 1);
+    try {
+      const withoutList = stubBillingClient();
+      const bare = await fetchAdHocClaimRows(
+        withoutList.oystehr,
+        { dateRange: DATE_RANGE, includeCodes: true },
+        { eraReadClient: withoutList.oystehr }
+      );
+      expect(bare.find((r) => r.claimId === 'claim-1')?.emCode).toBe('');
+    } finally {
+      store.unshift(emCodeList);
+    }
+  });
+
+  it("attributes a remit to its ERA's issuer, not a ClaimResponse.insurer a manual match overwrote", async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    const insurer = remit.insurer;
+    remit.insurer = { reference: PAYER_A };
+    try {
+      const { oystehr } = stubBillingClient();
+      const rows = await fetchAdHocClaimRows(
+        oystehr,
+        { dateRange: DATE_RANGE, includeRemits: true },
+        { eraReadClient: oystehr }
+      );
+      const row = rows.find((r) => r.claimId === 'claim-1')!;
+      expect(row.remits?.map((r) => r.payerName)).toEqual(['Payer B']);
+      expect(new Set(row.remitAdjustments?.map((a) => a.payerName))).toEqual(new Set(['Payer B']));
+    } finally {
+      remit.insurer = insurer;
     }
   });
 });

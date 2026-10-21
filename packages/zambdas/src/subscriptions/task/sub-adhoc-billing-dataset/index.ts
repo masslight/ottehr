@@ -8,6 +8,7 @@ import {
   BILLING_CLAIMS_DATASET_ID,
   BILLING_CLAIMS_LAYERS,
 } from 'utils/lib/types/adhoc/datasets/billing-claims';
+import { AdHocBillingRulesOutputSchema, BILLING_RULES_DATASET_ID } from 'utils/lib/types/adhoc/datasets/billing-rules';
 import { layerIncludeFlags } from 'utils/lib/types/adhoc/datasets/dataset';
 import {
   ADHOC_REPORT_OUTPUT_URL_CODE,
@@ -15,6 +16,7 @@ import {
   ADHOC_REPORT_TASK_SYSTEM,
 } from 'utils/lib/types/adhoc/generation/report-task';
 import { fetchAdHocClaimRows } from '../../../billing/adhoc/claims';
+import { fetchAdHocRuleRows } from '../../../billing/adhoc/rules';
 import { createBillingClient, createEraReadClient } from '../../../billing/shared';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { validateOutputWithSchema } from '../../../shared/validate-zod';
@@ -24,7 +26,6 @@ const ZAMBDA_NAME = 'sub-adhoc-billing-dataset';
 
 let m2mToken: string;
 
-// ERA resources carry no billing tag; the insurancePayments layer reads them with the untagged client.
 async function eraReadClientFor(secrets: Secrets): Promise<Oystehr> {
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   return createEraReadClient(m2mToken, secrets);
@@ -64,12 +65,17 @@ async function buildOutputJson(
       return { json, rowCount: rows.length };
     }
 
+    case BILLING_RULES_DATASET_ID: {
+      const rows = await fetchAdHocRuleRows(oystehr);
+      const json = JSON.stringify(validateOutputWithSchema(AdHocBillingRulesOutputSchema, { rows }, ZAMBDA_NAME));
+      return { json, rowCount: rows.length };
+    }
+
     default:
       throw new Error(`Unknown billing ad-hoc dataset "${datasetId}"`);
   }
 }
 
-// The file goes to the claim-exports bucket, whose cleanup cron deletes it once the Task is old.
 async function uploadJson(oystehr: Oystehr, secrets: Secrets, taskId: string, json: string): Promise<string> {
   const projectId = getSecret(SecretsKeys.PROJECT_ID, secrets);
   const projectApi = getSecret(SecretsKeys.PROJECT_API, secrets);
@@ -146,6 +152,5 @@ export const index = wrapTaskHandler(
 
     return { taskStatus: 'completed' as const, statusReason: `Ad-hoc billing dataset built (${rowCount} rows)` };
   },
-  // The Task is billing-tagged; status patches through the clinical client (ignoreTags) would be refused.
   { createClient: createBillingClient }
 );

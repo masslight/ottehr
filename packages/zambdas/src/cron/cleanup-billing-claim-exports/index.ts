@@ -52,24 +52,31 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 async function performEffect(oystehr: Oystehr, secrets: Secrets): Promise<CleanupExportTaskFilesResult> {
   const bucketName = `${getSecret(SecretsKeys.PROJECT_ID, secrets)}-${BUCKET_NAMES.BILLING_CLAIM_EXPORTS}`;
 
-  const claimExports = await cleanupExportTaskFiles({
-    oystehr,
-    taskSystem: EXPORT_TASK_SYSTEM,
-    taskCode: EXPORT_CLAIMS_CSV_TASK_CODE,
-    bucketName,
-    ageMinutes: CLEANUP_AGE_MINUTES,
-  });
+  const results = await Promise.allSettled([
+    cleanupExportTaskFiles({
+      oystehr,
+      taskSystem: EXPORT_TASK_SYSTEM,
+      taskCode: EXPORT_CLAIMS_CSV_TASK_CODE,
+      bucketName,
+      ageMinutes: CLEANUP_AGE_MINUTES,
+    }),
+    cleanupExportTaskFiles({
+      oystehr,
+      taskSystem: ADHOC_REPORT_TASK_SYSTEM,
+      taskCode: ADHOC_BILLING_DATASET_TASK_CODE,
+      outputCode: ADHOC_REPORT_OUTPUT_URL_CODE,
+      bucketName,
+      ageMinutes: ADHOC_CLEANUP_AGE_MINUTES,
+    }),
+  ]);
 
-  const adHocDatasets = await cleanupExportTaskFiles({
-    oystehr,
-    taskSystem: ADHOC_REPORT_TASK_SYSTEM,
-    taskCode: ADHOC_BILLING_DATASET_TASK_CODE,
-    outputCode: ADHOC_REPORT_OUTPUT_URL_CODE,
-    bucketName,
-    ageMinutes: ADHOC_CLEANUP_AGE_MINUTES,
-  });
+  const failure = results.find((result): result is PromiseRejectedResult => result.status === 'rejected');
+  if (failure) throw failure.reason;
 
-  const deletedFiles = claimExports.deletedFiles + adHocDatasets.deletedFiles;
+  const deletedFiles = results.reduce(
+    (sum, result) => sum + (result.status === 'fulfilled' ? result.value.deletedFiles : 0),
+    0
+  );
 
   return {
     message: `Cleanup complete: deleted ${deletedFiles} Z3 file(s)`,

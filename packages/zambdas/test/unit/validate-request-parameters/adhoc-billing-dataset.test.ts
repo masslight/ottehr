@@ -27,6 +27,12 @@ describe('adhoc-billing-dataset validateRequestParameters', () => {
     ).toMatchObject({ datasetId: 'billing-claims', dateRange: DATE_RANGE, options: { remits: true } });
   });
 
+  it('reads a start request for the billing rules dataset', () => {
+    expect(validateRequestParameters(makeInput({ datasetId: 'billing-rules', dateRange: DATE_RANGE }))).toMatchObject({
+      datasetId: 'billing-rules',
+    });
+  });
+
   it('reads a poll request', () => {
     expect(validateRequestParameters(makeInput({ taskId: 'task-1' }))).toMatchObject({ taskId: 'task-1' });
   });
