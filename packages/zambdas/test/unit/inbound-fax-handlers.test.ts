@@ -307,6 +307,16 @@ describe('file-inbound-fax handler', () => {
     expect(mockOystehr.fhir.transaction).not.toHaveBeenCalled();
   });
 
+  it('refuses a fax that a delete has reserved, so its (possibly removed) PDF is never filed', async () => {
+    mockHappyPathReads(makeFaxTask({ businessStatus: { coding: [{ system: 'inbound-fax-task', code: 'deleting' }] } }));
+
+    const result = await fileInboundFax(makeInput(fileBody));
+
+    expect(result.statusCode).toBe(400);
+    expect(JSON.parse(result.body).code).toBe(APIErrorCode.PRECONDITION_FAILED);
+    expect(mockOystehr.fhir.transaction).not.toHaveBeenCalled();
+  });
+
   it('returns 404 when the task does not exist', async () => {
     mockOystehr.fhir.get.mockRejectedValue(new Error('not found'));
 
@@ -495,7 +505,57 @@ describe('delete-inbound-fax handler', () => {
     expect(mockOystehr.fhir.transaction).not.toHaveBeenCalled();
   });
 
-  it('fails the operation (without touching FHIR) when the Z3 delete fails, and reports it', async () => {
+  it('reserves the deletion with a version-checked Task update before removing the PDF', async () => {
+    mockTaskRead(makeFaxTask({ meta: { versionId: '5' } }));
+    mockDeleteZ3Object.mockResolvedValue(undefined);
+
+    const result = await deleteInboundFax(makeInput(deleteBody));
+
+    expect(result.statusCode).toBe(200);
+    expect(mockOystehr.fhir.patch).toHaveBeenCalledWith(
+      {
+        resourceType: 'Task',
+        id: 'task-123',
+        operations: [
+          {
+            op: 'add',
+            path: '/businessStatus',
+            value: { coding: [{ system: 'inbound-fax-task', code: 'deleting' }], text: 'Deleting' },
+          },
+        ],
+      },
+      { optimisticLockingVersionId: '5' }
+    );
+    expect(mockOystehr.fhir.patch.mock.invocationCallOrder[0]).toBeLessThan(
+      mockDeleteZ3Object.mock.invocationCallOrder[0]
+    );
+  });
+
+  it('deletes nothing when a filing committed after the Task was read (reservation lock fails)', async () => {
+    mockTaskRead(makeFaxTask({ meta: { versionId: '5' } }));
+    mockOystehr.fhir.patch.mockRejectedValueOnce(
+      new Oystehr.OystehrFHIRError({ code: 412, error: { resourceType: 'OperationOutcome', issue: [] } })
+    );
+
+    const result = await deleteInboundFax(makeInput(deleteBody));
+
+    expect(result.statusCode).toBe(400);
+    expect(JSON.parse(result.body).code).toBe(APIErrorCode.PRECONDITION_FAILED);
+    expect(mockDeleteZ3Object).not.toHaveBeenCalled();
+    expect(mockOystehr.fhir.transaction).not.toHaveBeenCalled();
+  });
+
+  it('retries a delete that was reserved earlier but did not finish', async () => {
+    mockTaskRead(makeFaxTask({ businessStatus: { coding: [{ system: 'inbound-fax-task', code: 'deleting' }] } }));
+    mockDeleteZ3Object.mockRejectedValue(new Z3Error('not found', 404));
+
+    const result = await deleteInboundFax(makeInput(deleteBody));
+
+    expect(result.statusCode).toBe(200);
+    expect(mockOystehr.fhir.transaction).toHaveBeenCalledTimes(1);
+  });
+
+  it('fails the operation (without deleting the Communication) when the Z3 delete fails, and reports it', async () => {
     mockTaskRead();
     mockDeleteZ3Object.mockRejectedValue(new Z3Error('delete failed', 500));
 

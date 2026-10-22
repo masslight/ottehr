@@ -7,7 +7,7 @@ import { makeOptimisticLockIfMatchHeader } from 'utils/lib/fhir/helpers';
 import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
 import { createOystehrClient } from 'utils/lib/helpers/helpers';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
-import { FAX_TASK, getTaskInputValue, isInboundFaxFiled } from 'utils/lib/types/data/tasks/types';
+import { FAX_TASK, getTaskInputValue, isInboundFaxDeleting, isInboundFaxFiled } from 'utils/lib/types/data/tasks/types';
 import {
   FHIR_RESOURCE_NOT_FOUND_CUSTOM,
   INVALID_INPUT_ERROR,
@@ -63,6 +63,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     // the Task open (staff complete it by hand), so a filed fax is recognized by its businessStatus.
     if (isInboundFaxFiled(task)) {
       throw PRECONDITION_FAILED(`Task/${taskId} has already been filed`);
+    }
+    if (isInboundFaxDeleting(task)) {
+      throw PRECONDITION_FAILED(`Task/${taskId} is being deleted`);
     }
     if (task.status === 'completed' || task.status === 'cancelled') {
       throw PRECONDITION_FAILED(

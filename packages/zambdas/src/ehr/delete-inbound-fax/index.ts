@@ -1,4 +1,4 @@
-import { BatchInputDeleteRequest, BatchInputRequest } from '@oystehr/sdk';
+import Oystehr, { BatchInputDeleteRequest, BatchInputRequest } from '@oystehr/sdk';
 import { captureException } from '@sentry/node-core/light';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { FhirResource, Task } from 'fhir/r4b';
@@ -71,8 +71,35 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     // arbitrary Z3 object (e.g. another patient's document).
     const pdfUrl = getTaskInputValue(task, FAX_TASK.input.pdfUrl);
 
-    // Delete the Z3 PDF object first. If this fails (other than the object already being
-    // gone), fail the whole operation BEFORE touching the FHIR resources — otherwise the
+    // Reserve the deletion before the PDF goes: a filing that already committed fails this lock, and a
+    // later one sees the marker and refuses. The marker keeps the Task open, so a failed delete is retryable.
+    try {
+      await oystehr.fhir.patch<Task>(
+        {
+          resourceType: 'Task',
+          id: taskId,
+          operations: [
+            {
+              op: 'add',
+              path: '/businessStatus',
+              value: {
+                coding: [{ system: FAX_TASK.system, code: FAX_TASK.businessStatus.deleting }],
+                text: 'Deleting',
+              },
+            },
+          ],
+        },
+        { optimisticLockingVersionId: task.meta?.versionId }
+      );
+    } catch (error) {
+      if (error instanceof Oystehr.OystehrFHIRError && error.code === 412) {
+        throw PRECONDITION_FAILED(`Task/${taskId} changed while deleting`);
+      }
+      throw error;
+    }
+
+    // Delete the Z3 PDF object next. If this fails (other than the object already being
+    // gone), fail the whole operation BEFORE touching the Communication — otherwise the
     // Communication/Task would be gone while the PHI PDF lives on in Z3 with no way to
     // find it again. The operation is retryable as nothing has been deleted yet.
     if (pdfUrl) {

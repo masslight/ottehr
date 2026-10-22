@@ -625,7 +625,11 @@ describe('InboundFaxMatch page', () => {
     expect(mockFhirCreate).not.toHaveBeenCalled();
   });
 
-  it('refreshes into the read-only view when someone else filed the fax first', async () => {
+  const staleError = { code: APIErrorCode.PRECONDITION_FAILED, message: 'Task/task-abc has already been filed' };
+  it.each([
+    ['a top-level', staleError],
+    ['a nested output', { output: staleError }],
+  ])('refreshes into the read-only view when someone else filed the fax first (%s error code)', async (_, apiError) => {
     let filedElsewhere = false;
     mockFhirSearch.mockImplementation(({ resourceType }: { resourceType: string }) => {
       if (resourceType !== 'Task') return Promise.resolve({ unbundle: () => [] });
@@ -636,7 +640,7 @@ describe('InboundFaxMatch page', () => {
     });
     mockFileInboundFax.mockImplementation(async () => {
       filedElsewhere = true;
-      throw { code: APIErrorCode.PRECONDITION_FAILED, message: 'Task/task-abc has already been filed' };
+      throw apiError;
     });
     const user = userEvent.setup();
     const Wrapper = createWrapper();
@@ -661,6 +665,31 @@ describe('InboundFaxMatch page', () => {
     });
     expect(enqueueSnackbar).not.toHaveBeenCalledWith(expect.stringContaining('Please try again'), expect.anything());
     expect(screen.queryByTestId('tasks-page')).toBeNull();
+  });
+
+  it('offers only Delete for a fax whose earlier delete did not finish', async () => {
+    mockFhirSearch.mockImplementation(({ resourceType }: { resourceType: string }) => {
+      if (resourceType !== 'Task') return Promise.resolve({ unbundle: () => [] });
+      return Promise.resolve({
+        unbundle: () => [
+          { ...makeFaxTask('ready'), businessStatus: { coding: [{ system: 'inbound-fax-task', code: 'deleting' }] } },
+        ],
+      });
+    });
+    const user = userEvent.setup();
+    const Wrapper = createWrapper();
+    render(
+      <Wrapper>
+        <InboundFaxMatch />
+      </Wrapper>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(/previous attempt to delete this fax did not finish/)).toBeDefined();
+    });
+    await selectPatientAndFolder(user);
+    expect(screen.getByText('Save').closest('button')?.disabled).toBe(true);
+    expect(screen.getByText('Delete').closest('button')?.disabled).toBe(false);
   });
 
   describe('delete confirmation dialog', () => {

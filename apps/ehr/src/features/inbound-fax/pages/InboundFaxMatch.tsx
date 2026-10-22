@@ -39,13 +39,16 @@ import {
 } from 'src/hooks/useGetPatientDocs';
 import PageContainer from 'src/layout/PageContainer';
 import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
-import { FAX_TASK, isInboundFaxFiled } from 'utils/lib/types/data/tasks/types';
+import { FAX_TASK, isInboundFaxDeleting, isInboundFaxFiled } from 'utils/lib/types/data/tasks/types';
 import { APIErrorCode } from 'utils/lib/types/errors';
 import { UnsolicitedPatientMatchSearchCard } from '../../external-labs/components/unsolicited-results/UnsolicitedPatientMatchSearchCard';
 
 // Someone else filed, completed or deleted the fax (or changed its folder) after this page loaded.
-const isStaleFaxError = (e: unknown): boolean =>
-  (e as { code?: number } | undefined)?.code === APIErrorCode.PRECONDITION_FAILED;
+// The API error may carry its code directly or nested under `output`.
+const isStaleFaxError = (e: unknown): boolean => {
+  const error = e as { code?: number; output?: { code?: number } } | undefined;
+  return (error?.code ?? error?.output?.code) === APIErrorCode.PRECONDITION_FAILED;
+};
 const STALE_FAX_MESSAGE = 'This fax was changed by someone else. The page has been refreshed.';
 
 export const InboundFaxMatch: React.FC = () => {
@@ -64,6 +67,8 @@ export const InboundFaxMatch: React.FC = () => {
   const [readOnlyNotice, setReadOnlyNotice] = useState<string>();
   const readOnly = !!readOnlyNotice;
   const [reloadCount, setReloadCount] = useState(0);
+  // A previous delete reserved the fax but did not finish: it can only be deleted again, not filed.
+  const [deletionPending, setDeletionPending] = useState(false);
 
   const [taskId, setTaskId] = useState<string>();
   const [pdfUrl, setPdfUrl] = useState<string>();
@@ -145,6 +150,7 @@ export const InboundFaxMatch: React.FC = () => {
           );
         }
         setTaskId(task.id);
+        setDeletionPending(!!openTask && isInboundFaxDeleting(openTask));
 
         // Extract task input values
         const getInputValue = (code: string): string | undefined => {
@@ -269,7 +275,8 @@ export const InboundFaxMatch: React.FC = () => {
     !!pdfUrl &&
     !!taskId &&
     // Staff must be able to see the document before filing it against a patient chart.
-    !!presignedPdfUrl;
+    !!presignedPdfUrl &&
+    !deletionPending;
 
   if (error) {
     return (
@@ -369,6 +376,12 @@ export const InboundFaxMatch: React.FC = () => {
               ) : (
                 <Paper sx={{ p: 3 }}>
                   <Stack spacing={3}>
+                    {deletionPending && (
+                      <Alert severity="warning">
+                        A previous attempt to delete this fax did not finish. It can no longer be filed; delete it
+                        again.
+                      </Alert>
+                    )}
                     {/* Patient search */}
                     <Stack spacing={1}>
                       <Typography variant="body1" sx={{ fontWeight: 500, color: 'primary.dark' }}>

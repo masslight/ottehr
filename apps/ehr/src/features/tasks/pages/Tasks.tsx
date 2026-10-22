@@ -109,6 +109,7 @@ export const Tasks: React.FC = () => {
       if (task.category === FAX_TASK.category && task.action?.name !== VIEW_FAX) {
         return (
           <ConfirmationDialog
+            key={task.id}
             title="Complete without filing?"
             description="This fax hasn't been filed to a patient's chart. Once the task is completed, the fax can no longer be filed or deleted."
             response={complete}
@@ -330,7 +331,7 @@ export const Tasks: React.FC = () => {
                 {!isTasksLoading &&
                   (tasksData?.tasks ?? []).map((task) => {
                     return (
-                      <TableRow>
+                      <TableRow key={task.id}>
                         <TableCell>
                           <CategoryChip category={task.category} />
                           <Typography
