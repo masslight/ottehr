@@ -12,7 +12,7 @@ import { toRelativeFhirUrl } from 'utils/lib/fhir/uri';
 export const MAX_ENTRIES_PER_BATCH = 20;
 
 /** How many rounds of `next` links a batch search follows before giving up (each round is one more hop). */
-const MAX_NEXT_PAGE_ROUNDS = 3;
+export const MAX_NEXT_PAGE_ROUNDS = 3;
 
 /** Builds the relative search URL for one batch entry. */
 export const buildSearchUrl = (resourceType: string, params: SearchParam[]): string =>
@@ -126,7 +126,9 @@ export const executeBatchSearches = async (
         } smaller batches`,
         resourceTypesOf(batch)
       );
-      await Promise.all(smaller.map((part) => runBatch(part, round)));
+      // A search split by encounter starts again from its first page.
+      const partRound = batch.length > 1 ? round : 0;
+      await Promise.all(smaller.map((part) => runBatch(part, partRound)));
       return;
     }
 

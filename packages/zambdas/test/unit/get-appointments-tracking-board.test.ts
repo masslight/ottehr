@@ -28,6 +28,7 @@ import {
   buildSearchUrl,
   executeBatchSearches,
   MAX_ENTRIES_PER_BATCH,
+  MAX_NEXT_PAGE_ROUNDS,
   nextPageUrl,
 } from '../../src/ehr/get-appointments/batch-search';
 import {
@@ -47,6 +48,8 @@ import {
 import { SortedAppointmentQueues } from '../../src/shared/queueingUtils';
 
 const encounterIds = (count: number): string[] => Array.from({ length: count }, (_, index) => `enc-${index}`);
+
+const sizeCapError = (): Error => new Error('Response payload size exceeds the maximum allowed size (6,291,456 bytes)');
 
 const serviceRequest = (id: string, overrides: Partial<ServiceRequest> = {}): ServiceRequest => ({
   resourceType: 'ServiceRequest',
@@ -148,6 +151,44 @@ describe('batch-search', () => {
     expect(result.failedUrls).toEqual(['Task?fail=1']);
     // 23 plain + two paged searches with two pages each
     expect(result.resources).toHaveLength(27);
+  });
+
+  test('a later page split by encounter gets the full page budget, since its narrower searches restart at page one', async () => {
+    // The parent's last page within the round cap is too large, and each half needs two pages of its own. Halves
+    // that inherited the parent's round would stop after their first page and drop the rest without a failed URL.
+    const pageOf = (url: string): number => Number(/_offset=(\d+)/.exec(url)?.[1] ?? 0);
+    const isParent = (url: string): boolean => url.startsWith('Task?group=ab&');
+    const batch = vi.fn(async ({ requests }: { requests: { url: string }[] }): Promise<Bundle<FhirResource>> => {
+      if (requests.some(({ url }) => isParent(url) && pageOf(url) === MAX_NEXT_PAGE_ROUNDS)) throw sizeCapError();
+      return {
+        resourceType: 'Bundle',
+        type: 'batch-response',
+        entry: requests.map(({ url }) => ({
+          response: { status: '200 OK' },
+          resource: {
+            resourceType: 'Bundle',
+            type: 'searchset',
+            entry: [{ resource: { resourceType: 'Task', id: url, status: 'requested', intent: 'order' } }],
+            ...(pageOf(url) < (isParent(url) ? MAX_NEXT_PAGE_ROUNDS : 1)
+              ? { link: [{ relation: 'next', url: 'unused' }] }
+              : {}),
+          },
+        })),
+      };
+    });
+    const oystehr = { fhir: { batch } } as unknown as Oystehr;
+
+    const result = await executeBatchSearches(oystehr, [
+      {
+        url: 'Task?group=ab&_count=1',
+        split: () => [{ url: 'Task?group=a&_count=1' }, { url: 'Task?group=b&_count=1' }],
+      },
+    ]);
+
+    expect(result.failedUrls).toEqual([]);
+    expect(result.resources.map((resource) => resource.id)).toEqual(
+      expect.arrayContaining(['Task?group=a&_count=1&_offset=1', 'Task?group=b&_count=1&_offset=1'])
+    );
   });
 });
 
@@ -495,8 +536,6 @@ describe('fetchTrackingBoardResources', () => {
     vi.mocked(captureMessage).mockClear();
   });
 
-  const sizeCapError = (): Error =>
-    new Error('Response payload size exceeds the maximum allowed size (6,291,456 bytes)');
   const searchsetOf = (resources: FhirResource[]): Bundle<FhirResource> => ({
     resourceType: 'Bundle',
     type: 'searchset',
@@ -703,5 +742,37 @@ describe('fetchTrackingBoardResources', () => {
         params: [{ name: 'based-on', value: 'DiagnosticReport/dr-ext' }],
       })
     );
+  });
+
+  test('past the deadline the direct Task search is not started, and the result is marked incomplete', async () => {
+    // The batch lands just as the deadline passes. settleByDeadline stops waiting but cancels nothing, so a search
+    // started now would run unawaited through the window reserved for the response.
+    vi.useFakeTimers();
+    try {
+      const deadline = Date.now() + 1_000;
+      const externalLabOrder = serviceRequest('sr-ext', {
+        code: { coding: [{ system: OYSTEHR_LAB_OI_CODE_SYSTEM, code: '1' }] },
+      });
+      const report: DiagnosticReport = {
+        resourceType: 'DiagnosticReport',
+        id: 'dr-ext',
+        status: 'final',
+        code: {},
+        basedOn: [{ reference: 'ServiceRequest/sr-ext' }],
+      };
+      const batch = vi.fn(async (): Promise<Bundle<FhirResource>> => {
+        vi.setSystemTime(deadline);
+        return batchResponse([searchsetOf([externalLabOrder, report])]);
+      });
+      const search = vi.fn(async () => ({ unbundle: () => [] }));
+      const oystehr = { fhir: { batch, search } } as unknown as Oystehr;
+
+      const result = await fetchTrackingBoardResources({ oystehr, encounterIds: encounterIds(1), deadline });
+
+      expect(search).not.toHaveBeenCalled();
+      expect(result.failedUrls).toEqual(['Task?based-on=<external lab DiagnosticReports>']);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

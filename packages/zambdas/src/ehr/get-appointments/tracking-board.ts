@@ -232,15 +232,19 @@ const withLabResultTasks = async (
   );
   if (hasReportTasks) return fetched;
 
+  const withoutTasks = {
+    ...fetched,
+    failedUrls: [...fetched.failedUrls, 'Task?based-on=<external lab DiagnosticReports>'],
+  };
+  if (deadline !== undefined && Date.now() >= deadline) return withoutTasks;
+
   console.log('no result-review Tasks came back with the external lab DiagnosticReports; fetching them directly');
   const tasks = await settleByDeadline<Task[] | undefined>(
     fetchFinalAndPrelimAndCorrectedTasks(oystehr, externalLabReports),
     deadline,
     () => undefined
   );
-  if (!tasks) {
-    return { ...fetched, failedUrls: [...fetched.failedUrls, 'Task?based-on=<external lab DiagnosticReports>'] };
-  }
+  if (!tasks) return withoutTasks;
   return { ...fetched, resources: [...fetched.resources, ...tasks] };
 };
 
