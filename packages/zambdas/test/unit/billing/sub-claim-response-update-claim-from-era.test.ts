@@ -301,12 +301,12 @@ describe('sub-claim-response-update-claim-from-era performEffect', () => {
 
     expect(search).toHaveBeenCalledWith({
       resourceType: 'Provenance',
-      params: [
+      params: expect.arrayContaining([
         {
           name: 'target',
           value: 'ClaimResponse/response-1',
         },
-      ],
+      ]),
     });
     expect(historyEntries().filter((entry) => entry.target?.[0]?.reference === 'ClaimResponse/response-1')).toEqual([]);
   });

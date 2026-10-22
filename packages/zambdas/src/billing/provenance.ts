@@ -28,6 +28,7 @@ import { userMe } from 'utils/lib/auth/user-me.helper';
 import { formatBillingProviderLicense, getClaimNonInsurancePayer } from 'utils/lib/fhir/billing';
 import { RcmTaskCode } from 'utils/lib/fhir/constants';
 import { convertFhirNameToDisplayName } from 'utils/lib/fhir/convertFhirNameToDisplayName';
+import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { getNPI, getTaxID, makeOptimisticLockIfMatchHeader } from 'utils/lib/fhir/helpers';
 import {
   parsePaymentRefundsFromNotice,
@@ -896,20 +897,21 @@ export async function claimHistoryLinkRequests({
   if (targetReferences.length === 0) return linkRequests;
   const claimReference = `Claim/${claimId}`;
   const entries = (
-    await oystehr.fhir.search<Provenance>({
-      resourceType: 'Provenance',
-      params: [
-        {
-          name: 'target',
-          value: targetReferences.join(','),
-        },
-      ],
-    })
-  )
-    .unbundle()
-    .filter(
-      (provenance) => provenance.extension?.some((extension) => extension.url === CLAIM_PROVENANCE_DIFF_EXTENSION_URL)
-    );
+    await getAllFhirSearchPages<Provenance>(
+      {
+        resourceType: 'Provenance',
+        params: [
+          {
+            name: 'target',
+            value: targetReferences.join(','),
+          },
+        ],
+      },
+      oystehr
+    )
+  ).filter(
+    (provenance) => provenance.extension?.some((extension) => extension.url === CLAIM_PROVENANCE_DIFF_EXTENSION_URL)
+  );
   for (const targetReference of targetReferences) {
     const recorded = entries.filter((entry) => entry.target?.some((target) => target.reference === targetReference));
     if (recorded.length === 0) continue;
@@ -947,8 +949,8 @@ export async function claimHistoryHasEntryFor({
   targetReference: string;
   sourceReference?: string;
 }): Promise<boolean> {
-  const provenances = (
-    await oystehr.fhir.search<Provenance>({
+  const provenances = await getAllFhirSearchPages<Provenance>(
+    {
       resourceType: 'Provenance',
       params: [
         {
@@ -956,8 +958,9 @@ export async function claimHistoryHasEntryFor({
           value: targetReference,
         },
       ],
-    })
-  ).unbundle();
+    },
+    oystehr
+  );
   return provenances.some(
     (provenance) =>
       provenance.target?.some((target) => target.reference === `Claim/${claimId}`) &&

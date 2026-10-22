@@ -155,12 +155,12 @@ describe('reconcilePaymentNoticesForClaim', () => {
 
     expect(oystehr.fhir.search).toHaveBeenCalledWith({
       resourceType: 'Provenance',
-      params: [
+      params: expect.arrayContaining([
         {
           name: 'target',
           value: 'PaymentNotice/pn-unlinked',
         },
-      ],
+      ]),
     });
     expect(transactionRequests(oystehr)).toContainEqual(historyLink('prov-pn-unlinked'));
     expect(transactionRequests(oystehr).filter((request) => request.method === 'POST')).toEqual([]);

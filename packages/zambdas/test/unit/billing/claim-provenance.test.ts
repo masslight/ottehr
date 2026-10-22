@@ -36,6 +36,8 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   addErrorProvenanceForClaimSubmission,
   claimEventProvenanceRequest,
+  claimHistoryHasEntryFor,
+  claimHistoryLinkRequests,
   claimProvenanceRequest,
   claimResourceChangeRequests,
   commitClaimMetaTagsWithProvenance,
@@ -527,6 +529,89 @@ describe('claimEventProvenanceRequest', () => {
       activity: 'update',
     });
     expect(request).toBeNull();
+  });
+});
+
+describe('claim history lookups', () => {
+  const historyEntry = (id: string, targets: string[]): Provenance => ({
+    resourceType: 'Provenance',
+    id,
+    recorded: '2026-10-01T00:00:00Z',
+    agent: [agent],
+    target: targets.map((reference) => ({
+      reference,
+    })),
+    extension: [
+      {
+        url: CLAIM_PROVENANCE_DIFF_EXTENSION_URL,
+        valueString: '[]',
+      },
+    ],
+  });
+
+  // a server that returns one entry per page, whatever _count asks for
+  const onePerPage = (provenances: Provenance[]): Oystehr =>
+    ({
+      fhir: {
+        search: vi.fn(async ({ params }: { params: { name: string; value: string }[] }) => {
+          const offset = Number(params.find((param) => param.name === '_offset')?.value ?? 0);
+          const page = provenances.slice(offset, offset + 1);
+          return {
+            total: provenances.length,
+            entry: page.map((resource) => ({
+              resource,
+              search: {
+                mode: 'match',
+              },
+            })),
+            unbundle: () => page,
+          };
+        }),
+      },
+    }) as unknown as Oystehr;
+
+  it('links a history entry from a later page of results', async () => {
+    const oystehr = onePerPage([
+      historyEntry('prov-a', ['PaymentNotice/pn-a']),
+      historyEntry('prov-b', ['PaymentNotice/pn-b']),
+    ]);
+
+    const linkRequests = await claimHistoryLinkRequests({
+      oystehr,
+      claimId: 'c1',
+      targetReferences: ['PaymentNotice/pn-a', 'PaymentNotice/pn-b'],
+    });
+
+    expect(linkRequests.get('PaymentNotice/pn-b')).toEqual([
+      {
+        method: 'PATCH',
+        url: '/Provenance/prov-b',
+        operations: [
+          {
+            op: 'add',
+            path: '/target/-',
+            value: {
+              reference: CLAIM_REF,
+            },
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('finds a claim history entry from a later page of results', async () => {
+    const oystehr = onePerPage([
+      historyEntry('prov-other-claim', ['ClaimResponse/cr1', 'Claim/c2']),
+      historyEntry('prov-this-claim', ['ClaimResponse/cr1', CLAIM_REF]),
+    ]);
+
+    await expect(
+      claimHistoryHasEntryFor({
+        oystehr,
+        claimId: 'c1',
+        targetReference: 'ClaimResponse/cr1',
+      })
+    ).resolves.toBe(true);
   });
 });
 
