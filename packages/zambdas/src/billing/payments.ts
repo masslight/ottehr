@@ -420,55 +420,59 @@ export async function reconcilePaymentNoticesForClaim(oystehr: Oystehr, claim: C
   if (unlinked.length === 0) return;
 
   const claimReference = `Claim/${claim.id}`;
-  const history = await claimHistoryLinkRequests({
+  const linkRequests = await claimHistoryLinkRequests({
     oystehr,
     claimId: claim.id,
     targetReferences: unlinked.map((notice) => `PaymentNotice/${notice.id}`),
   });
-  // notices stored before claim history was kept have no entry to link, so they get one now
-  const unrecorded = unlinked.filter((notice) => history.unrecordedTargets.includes(`PaymentNotice/${notice.id}`));
-  const systemActor = unrecorded.length > 0 ? await resolveClaimActor('system', oystehr, undefined, null) : undefined;
-  const newEntries = systemActor
-    ? unrecorded.flatMap((notice) => {
-        const entry = paymentNoticeHistoryRequest({
-          targetReference: `PaymentNotice/${notice.id}`,
-          after: {
-            ...notice,
-            request: {
-              ...notice.request,
-              reference: claimReference,
-            },
+  const systemActor = unlinked.some((notice) => !linkRequests.has(`PaymentNotice/${notice.id}`))
+    ? await resolveClaimActor('system', oystehr, undefined, null)
+    : undefined;
+  const historyRequests = (notice: PaymentNotice): BatchInputRequest<FhirResource>[] => {
+    const targetReference = `PaymentNotice/${notice.id}`;
+    const links = linkRequests.get(targetReference);
+    if (links) return links;
+    // notices stored before claim history was kept have no entry to link, so they get one now
+    const entry =
+      systemActor &&
+      paymentNoticeHistoryRequest({
+        targetReference,
+        after: {
+          ...notice,
+          request: {
+            ...notice.request,
+            reference: claimReference,
           },
-          agent: systemActor,
-        });
-        return entry ? [entry] : [];
-      })
-    : [];
+        },
+        agent: systemActor,
+      });
+    return entry ? [entry] : [];
+  };
 
-  const requests: BatchInputRequest<FhirResource>[] = [
-    ...unlinked.map((n) =>
-      getPatchBinary({
-        resourceType: 'PaymentNotice',
-        resourceId: n.id!,
-        patchOperations: [
-          {
-            op: 'add',
-            path: '/request/reference',
-            value: claimReference,
-          },
+  // each notice commits with its history, so one that fails is left whole for the next reconcile
+  const results = await Promise.allSettled(
+    unlinked.map((notice) =>
+      oystehr.fhir.transaction<FhirResource>({
+        requests: [
+          getPatchBinary({
+            resourceType: 'PaymentNotice',
+            resourceId: notice.id!,
+            patchOperations: [
+              {
+                op: 'add',
+                path: '/request/reference',
+                value: claimReference,
+              },
+            ],
+          }),
+          ...historyRequests(notice),
         ],
       })
-    ),
-    ...history.requests,
-    ...newEntries,
-  ];
-  const result = await oystehr.fhir.batch({ requests });
-  const succeeded = (result.entry ?? []).map((e) => e.response?.outcome?.id === 'ok');
-  const failedCount = succeeded.filter((ok) => !ok).length;
+    )
+  );
+  const failedCount = results.filter((result) => result.status === 'rejected').length;
   if (failedCount > 0) {
-    console.warn(`reconcilePaymentNoticesForClaim: ${failedCount} of ${requests.length} writes failed`);
+    console.warn(`reconcilePaymentNoticesForClaim: ${failedCount} of ${unlinked.length} notices failed to link`);
   }
-  // the notice patches come first in the batch
-  const linkedCount = succeeded.slice(0, unlinked.length).filter(Boolean).length;
-  console.log(`Linked ${linkedCount} PaymentNotice(s) to Claim/${claim.id}`);
+  console.log(`Linked ${unlinked.length - failedCount} PaymentNotice(s) to Claim/${claim.id}`);
 }

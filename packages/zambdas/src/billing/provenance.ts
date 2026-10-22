@@ -881,8 +881,8 @@ export function claimEventProvenanceRequest({
   });
 }
 
-// Adds the claim to history entries written before it existed. A target without any entry, like a
-// payment recorded before claim history did, comes back in `unrecordedTargets`.
+// Adds the claim to history entries written before it existed, keyed by the target they record. A
+// target without any entry, like a payment recorded before claim history did, has no key.
 export async function claimHistoryLinkRequests({
   oystehr,
   claimId,
@@ -891,13 +891,9 @@ export async function claimHistoryLinkRequests({
   oystehr: Oystehr;
   claimId: string;
   targetReferences: string[];
-}): Promise<{ requests: BatchInputPatchRequest<Provenance>[]; unrecordedTargets: string[] }> {
-  if (targetReferences.length === 0) {
-    return {
-      requests: [],
-      unrecordedTargets: [],
-    };
-  }
+}): Promise<Map<string, BatchInputPatchRequest<Provenance>[]>> {
+  const linkRequests = new Map<string, BatchInputPatchRequest<Provenance>[]>();
+  if (targetReferences.length === 0) return linkRequests;
   const claimReference = `Claim/${claimId}`;
   const entries = (
     await oystehr.fhir.search<Provenance>({
@@ -914,25 +910,29 @@ export async function claimHistoryLinkRequests({
     .filter(
       (provenance) => provenance.extension?.some((extension) => extension.url === CLAIM_PROVENANCE_DIFF_EXTENSION_URL)
     );
-  const recordedTargets = new Set(entries.flatMap((entry) => (entry.target ?? []).map((target) => target.reference)));
-  return {
-    requests: entries
-      .filter((entry) => entry.id && !entry.target?.some((target) => target.reference === claimReference))
-      .map((entry) => ({
-        method: 'PATCH',
-        url: `/Provenance/${entry.id}`,
-        operations: [
-          {
-            op: 'add',
-            path: '/target/-',
-            value: {
-              reference: claimReference,
+  for (const targetReference of targetReferences) {
+    const recorded = entries.filter((entry) => entry.target?.some((target) => target.reference === targetReference));
+    if (recorded.length === 0) continue;
+    linkRequests.set(
+      targetReference,
+      recorded
+        .filter((entry) => entry.id && !entry.target?.some((target) => target.reference === claimReference))
+        .map((entry) => ({
+          method: 'PATCH',
+          url: `/Provenance/${entry.id}`,
+          operations: [
+            {
+              op: 'add',
+              path: '/target/-',
+              value: {
+                reference: claimReference,
+              },
             },
-          },
-        ],
-      })),
-    unrecordedTargets: targetReferences.filter((reference) => !recordedTargets.has(reference)),
-  };
+          ],
+        }))
+    );
+  }
+  return linkRequests;
 }
 
 // With a sourceReference, only an entry recorded from that source counts (e.g. one Task version).
