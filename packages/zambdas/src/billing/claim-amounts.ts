@@ -579,8 +579,8 @@ export interface ClaimEraLinks {
   // the ERA each of the given ClaimResponses arrived on; one ERA can carry several of them (e.g. a
   // reversal and its correction)
   paymentReconciliationIdByClaimResponseId: Map<string, string>;
-  // Who the ERA's era-processing Provenance names (the biller who keyed or imported it); optional so
-  // callers that build ClaimEraLinks themselves need not supply it.
+  // Who the ERA's era-processing Provenance names (for a manual ERA, the biller who keyed it in); optional
+  // so callers that build ClaimEraLinks themselves need not supply it.
   agentRefByPaymentReconciliationId?: Map<string, string>;
 }
 

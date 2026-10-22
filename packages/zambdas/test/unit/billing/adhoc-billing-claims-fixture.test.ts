@@ -1166,4 +1166,26 @@ describe('billing-claims review fixes', () => {
     expect(toReportDay('2026-10-11T23:30:00')).toBe('2026-10-11');
     expect(toReportDay('')).toBeNull();
   });
+
+  it('names who entered a manual ERA only; an imported one records no importer', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    const run = async (): Promise<string | undefined> => {
+      const { oystehr } = stubBillingClient();
+      const rows = await fetchAdHocClaimRows(
+        oystehr,
+        { dateRange: DATE_RANGE, includeInsurancePayments: true },
+        { eraReadClient: oystehr }
+      );
+      return rows.find((r) => r.claimId === 'claim-1')?.insurancePayments?.[0]?.enteredBy;
+    };
+
+    expect(await run()).toBe('Biller, Manish');
+    const extension = era.extension;
+    era.extension = [{ url: ERA_SOURCE_EXTENSION, valueCode: 'x12-import' }];
+    try {
+      expect(await run()).toBe('');
+    } finally {
+      era.extension = extension;
+    }
+  });
 });

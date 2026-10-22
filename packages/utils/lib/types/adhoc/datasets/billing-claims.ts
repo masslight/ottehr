@@ -373,7 +373,8 @@ export const BILLING_CLAIMS_LAYERS = {
             enteredBy: z
               .string()
               .describe(
-                'Name of the biller who keyed in or imported the ERA. "" for clearing-house ERAs or when unknown.'
+                'Name of the biller who keyed in a manual ERA. "" for x12-import and clearing-house ERAs (the ' +
+                  'billing app does not record who imported a file) or when unknown.'
               ),
           })
         )

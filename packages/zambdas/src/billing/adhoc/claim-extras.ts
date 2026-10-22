@@ -346,8 +346,9 @@ export function insurancePaymentsLayer(
         checkAmount: era.paymentAmount?.value ?? 0,
         payerName: (payer && payer.name) || era.paymentIssuer?.display || '',
         eraSource,
-        // A clearing-house ERA is written by Oystehr, not entered by anyone.
-        enteredBy: eraSource !== ERA_SOURCE.clearingHouse && enteredByRef ? actorNames.get(enteredByRef) ?? '' : '',
+        // Only a manual ERA's Provenance names the biller (save-billing-manual-era); an imported or
+        // clearing-house one is written by Oystehr, and the app records no importer.
+        enteredBy: eraSource === ERA_SOURCE.manual && enteredByRef ? actorNames.get(enteredByRef) ?? '' : '',
       };
     })
     .sort((a, b) => compareInstants(a.checkDate ?? a.remitDate, b.checkDate ?? b.remitDate));
