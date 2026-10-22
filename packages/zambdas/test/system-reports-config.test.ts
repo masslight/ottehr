@@ -1,12 +1,15 @@
 import type { Basic } from 'fhir/r4b';
 import { readFileSync } from 'fs';
+import { SystemReportDefinition } from 'utils/lib/types/adhoc/system/system-report';
+import { RoleType } from 'utils/lib/types/api/user.types';
 import { describe, expect, it } from 'vitest';
 import {
+  assertNoDeployPlaceholders,
   buildSystemReportsConfig,
   SHIPPED_SYSTEM_REPORTS,
   SYSTEM_REPORTS_CONFIG_FILE,
 } from '../src/scripts/build-system-reports-config';
-import { parseSystemReportBasic } from '../src/shared/system-report';
+import { makeSystemReportBasic, parseSystemReportBasic } from '../src/shared/system-report';
 
 // The system reports Ottehr ships as config FHIR resources (config/oystehr/system-reports.json).
 describe('shipped system reports config', () => {
@@ -23,5 +26,20 @@ describe('shipped system reports config', () => {
       expect(report).not.toBeNull();
       expect(report?.roles).toEqual(roles);
     }
+  });
+
+  it('refuses a report whose text contains "#{", which the deploy would rewrite as a config placeholder', () => {
+    const definition: SystemReportDefinition = {
+      name: 'payer-mix',
+      parameters: [],
+      code: 'function ReportRoot() { return null; }\nreturn ReportRoot;',
+      runtimeVersion: 1,
+      roles: [RoleType.Administrator],
+    };
+    expect(() => assertNoDeployPlaceholders('payer-mix', makeSystemReportBasic(definition))).not.toThrow();
+    const withPlaceholder = { ...definition, code: 'const label = `#{var/PROJECT_ID}`;\n' + definition.code };
+    expect(() => assertNoDeployPlaceholders('payer-mix', makeSystemReportBasic(withPlaceholder))).toThrow(
+      /^payer-mix contains "#\{"/
+    );
   });
 });
