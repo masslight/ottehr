@@ -71,7 +71,7 @@ export const paymentsReport: ReportDefinition<
   emptyPayload: () => ({ rows: [], totals: totalsOf([]), waterfall: [], generatedAt: '' }),
   compute: async (ctx, params, onProgress) => {
     await onProgress('aggregating posted ERAs…');
-    const { rows, waterfall, detail } = await computeInsurancePayments(ctx.oystehr, ctx.untaggedClient, params);
+    const { rows, waterfall, detail } = await computeInsurancePayments(ctx.oystehr, params);
     return {
       payload: { rows, totals: totalsOf(rows), waterfall, generatedAt: DateTime.now().toUTC().toISO() },
       detail,
@@ -114,13 +114,12 @@ export const paymentsReport: ReportDefinition<
 // window; the waterfall matrix (DOS month × check month) and the drilldown detail span all ERAs.
 async function computeInsurancePayments(
   oystehr: Oystehr,
-  eraReadClient: Oystehr,
   params: ReportDateWindowParams
 ): Promise<{ rows: PaymentsReportPayerRow[]; waterfall: PaymentsReportWaterfallCell[]; detail: PaymentsReportDetail }> {
-  const allEras = await fetchAllEras(eraReadClient);
+  const allEras = await fetchAllEras(oystehr);
   if (allEras.length === 0) return { rows: [], waterfall: [], detail: { eras: [] } };
 
-  const claimResponsesByPrId = await fetchClaimResponsesByPaymentReconciliations(eraReadClient, allEras);
+  const claimResponsesByPrId = await fetchClaimResponsesByPaymentReconciliations(oystehr, allEras);
   const allClaimResponses = [...claimResponsesByPrId.values()].flat();
   const harvestedNamesByRef = payerNamesByRef(allClaimResponses);
   // process-era PaymentReconciliations carry no paymentIssuer; fall back to the ClaimResponses' payer

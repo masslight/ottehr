@@ -39,7 +39,7 @@ describe('resolveStatementAmountsSource', () => {
     expect(getOrCreateCandidApiClient).not.toHaveBeenCalled();
   });
 
-  it('builds a billing client and an untagged era client, since ERA resources carry no tag', async () => {
+  it('builds a billing client', async () => {
     const amountsSource = await resolveStatementAmountsSource({
       secrets: secretsWith('ottehr'),
       oystehr,
@@ -48,7 +48,6 @@ describe('resolveStatementAmountsSource', () => {
 
     if (amountsSource.source !== 'ottehr-billing') throw new Error('expected the ottehr billing source');
     expect(amountsSource.billingOystehr.config.workspaceTag).toEqual(BILLING_RESOURCE_TAG);
-    expect(amountsSource.eraReadOystehr.config.workspaceTag).toBeUndefined();
   });
 
   it.each([['candid'], [undefined], ['#{var/PATIENT_BALANCE_SOURCE}']])(

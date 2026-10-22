@@ -911,8 +911,10 @@ export function createBillingClient(
   });
 }
 
-// ERA resources are untagged by Oystehr
-export function createEraReadClient(token: string, secrets: Secrets | null): Oystehr {
+// Sees billing and clinical resources alike. Only for resources Oystehr writes without the billing tag
+// (ERAs, claim status and submission ClaimResponses) before they get it, and for reads spanning both
+// scopes. Everything else billing reads, ERAs included, goes through createBillingClient.
+export function createUnscopedClient(token: string, secrets: Secrets | null): Oystehr {
   return new Oystehr({
     accessToken: token,
     services: {

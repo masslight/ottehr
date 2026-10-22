@@ -9,7 +9,7 @@ import { validateJsonBody } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { safeValidate } from '../../shared/validation';
-import { createBillingClient, createEraReadClient, ERA_SOURCE_EXTENSION } from '../shared';
+import { createBillingClient, createUnscopedClient, ERA_SOURCE_EXTENSION } from '../shared';
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'import-era';
@@ -18,9 +18,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const params = validateRequestParameters(input);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
-  const eraReadClient = createEraReadClient(m2mToken, params.secrets);
+  const unscopedClient = createUnscopedClient(m2mToken, params.secrets);
 
-  const response = await performEffect(oystehr, eraReadClient, params);
+  const response = await performEffect(oystehr, unscopedClient, params);
 
   return {
     statusCode: 200,
@@ -28,7 +28,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   };
 });
 
-async function performEffect(oystehr: Oystehr, eraReadClient: Oystehr, params: ImportEraParams): Promise<Bundle> {
+async function performEffect(oystehr: Oystehr, unscopedClient: Oystehr, params: ImportEraParams): Promise<Bundle> {
   let bundle: Bundle;
   try {
     bundle = await oystehr.rcm.processEra({ edi835: params.era });
@@ -40,7 +40,7 @@ async function performEffect(oystehr: Oystehr, eraReadClient: Oystehr, params: I
     throw ERA_IMPORT_FAILED_ERROR(sdkError.message ?? 'Failed to process ERA', statusCode);
   }
 
-  await markImportedEra(eraReadClient, bundle);
+  await markImportedEra(unscopedClient, bundle);
   return bundle;
 }
 
@@ -49,7 +49,7 @@ async function performEffect(oystehr: Oystehr, eraReadClient: Oystehr, params: I
 // Oystehr writes the ERA, before sub-tag-era-resources has given it the billing tag, so unlike other ERA
 // reads it can't use the billing client (whose reads only see tagged resources). The extension is
 // appended, never replaced, so the raw 835 extension stays put.
-export async function markImportedEra(eraReadClient: Oystehr, bundle: Bundle): Promise<void> {
+export async function markImportedEra(unscopedClient: Oystehr, bundle: Bundle): Promise<void> {
   try {
     const entry = bundle.entry?.find(
       (candidate) =>
@@ -61,10 +61,10 @@ export async function markImportedEra(eraReadClient: Oystehr, bundle: Bundle): P
       console.warn('import-era: the processed bundle has no PaymentReconciliation to mark');
       return;
     }
-    const pr = await eraReadClient.fhir.get<PaymentReconciliation>({ resourceType: 'PaymentReconciliation', id });
+    const pr = await unscopedClient.fhir.get<PaymentReconciliation>({ resourceType: 'PaymentReconciliation', id });
     if (pr.extension?.some((ext) => ext.url === ERA_SOURCE_EXTENSION)) return;
     const marker = { url: ERA_SOURCE_EXTENSION, valueCode: ERA_SOURCE.x12Import };
-    await eraReadClient.fhir.patch<PaymentReconciliation>({
+    await unscopedClient.fhir.patch<PaymentReconciliation>({
       resourceType: 'PaymentReconciliation',
       id,
       operations: [

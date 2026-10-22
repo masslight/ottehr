@@ -41,7 +41,7 @@ import {
 import {
   buildUpdatedClaimStatusTags,
   createBillingClient,
-  createEraReadClient,
+  createUnscopedClient,
   fetchById,
   findById,
   hasTag,
@@ -67,7 +67,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const billingClient = createBillingClient(m2mToken, secrets);
-  const projectClient = createEraReadClient(m2mToken, secrets);
+  const projectClient = createUnscopedClient(m2mToken, secrets);
   try {
     await withVersionConflictRetries(
       async () => {
