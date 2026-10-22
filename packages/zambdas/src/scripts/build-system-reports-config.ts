@@ -15,7 +15,9 @@ const CONFIG_DIR = path.resolve(__dirname, '../../../../config/oystehr');
 export const SYSTEM_REPORTS_CONFIG_FILE = path.join(CONFIG_DIR, 'system-reports.json');
 
 /** The shipped reports: the terraform resource key and the Report Studio file. */
-export const SHIPPED_SYSTEM_REPORTS: { key: string; file: string }[] = [];
+export const SHIPPED_SYSTEM_REPORTS: { key: string; file: string }[] = [
+  { key: 'SYSTEM_REPORT_GROWTH_CHARTS', file: 'growth-charts.report.json' },
+];
 
 /** The deploy (deploy/generate-oystehr-resources.ts) rewrites `#{var/…}` and `#{ref/…}` inside every config string,
  *  so a report whose code or text contains `#{` would reach the practice corrupted. */

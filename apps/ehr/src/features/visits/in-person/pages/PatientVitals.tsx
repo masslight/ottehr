@@ -1,6 +1,7 @@
 import { Stack, Typography } from '@mui/material';
 import React from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
+import { SystemReportsPlace } from 'src/features/system-reports/SystemReportsPlace';
 import { PageTitle } from 'src/features/visits/shared/components/PageTitle';
 import { Loader } from '../../shared/components/Loader';
 import { useChartData } from '../../shared/hooks/useChartData';
@@ -14,7 +15,7 @@ interface PatientVitalsProps {
 
 export const PatientVitals: React.FC<PatientVitalsProps> = () => {
   const {
-    resources: { appointment },
+    resources: { appointment, patient, encounter },
     isAppointmentLoading,
     appointmentError,
   } = useAppointmentData();
@@ -36,7 +37,14 @@ export const PatientVitals: React.FC<PatientVitalsProps> = () => {
         showIntakeNotesButton={interactionMode === 'main'}
         dataTestId={dataTestIds.vitalsPage.title}
       />
-      <PatientVitalsBody />
+      <SystemReportsPlace
+        place="visit.vitals"
+        pageTab="Enter vitals"
+        inputs={{ patientId: patient?.id, encounterId: encounter?.id, visitDate: appointment.start }}
+        patient={{ birthDate: patient?.birthDate }}
+      >
+        <PatientVitalsBody />
+      </SystemReportsPlace>
     </Stack>
   );
 };

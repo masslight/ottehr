@@ -16,13 +16,18 @@ vi.mock('react-router-dom', async () => {
   return { ...actual, useParams: () => ({ id: 'appointment-1' }) };
 });
 
+// Stable client objects, as the real hook returns: new ones per render would refetch the system reports in a loop.
+const clients = vi.hoisted(() => ({ oystehrZambda: {}, oystehr: {} }));
 vi.mock('src/hooks/useAppClients', () => ({
-  useApiClients: () => ({ oystehrZambda: {}, oystehr: {} }),
+  useApiClients: () => clients,
 }));
 
 vi.mock('notistack', () => ({ enqueueSnackbar: vi.fn() }));
 
-vi.mock('src/api/api', () => ({ uploadDotVisionDocument: vi.fn() }));
+vi.mock('src/api/api', () => ({
+  uploadDotVisionDocument: vi.fn(),
+  listSystemReports: vi.fn().mockResolvedValue({ reports: [] }),
+}));
 
 vi.mock('src/features/visits/shared/components/vitals/hooks/useGetVitals', () => ({
   useGetVitals: () => ({ data: undefined, isLoading: false, refetch: vi.fn().mockResolvedValue({}) }),
