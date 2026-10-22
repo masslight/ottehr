@@ -155,6 +155,45 @@ describe('produceInvoiceDueOutreach Stripe account fan-out', () => {
     expect(mockFhirPatch.mock.calls[0][0]).toMatchObject({ resourceType: 'Task', id: 'task-stale' });
   });
 
+  it('does not cancel tasks stamped with an account that was not scanned this run', async () => {
+    mockListStripeAccounts.mockResolvedValue([undefined, 'acct_B']);
+    mockInvoicesList.mockResolvedValue(emptyInvoicePage());
+    const stamp = (account: string): unknown[] => [{ type: { text: 'stripe-account' }, valueString: account }];
+    mockFhirSearch.mockResolvedValue({
+      unbundle: () => [
+        {
+          resourceType: 'Task',
+          id: 'task-unscanned',
+          status: 'draft',
+          focus: { reference: 'Encounter/enc-1' },
+          input: stamp('acct_A'),
+        },
+        {
+          resourceType: 'Task',
+          id: 'task-scanned',
+          status: 'draft',
+          focus: { reference: 'Encounter/enc-2' },
+          input: stamp('acct_B'),
+        },
+        {
+          resourceType: 'Task',
+          id: 'task-platform',
+          status: 'draft',
+          focus: { reference: 'Encounter/enc-3' },
+          input: stamp('platform'),
+        },
+        { resourceType: 'Task', id: 'task-legacy', status: 'draft', focus: { reference: 'Encounter/enc-4' } },
+      ],
+    });
+
+    const result = await produceInvoiceDueOutreach(mockOystehr, secrets);
+
+    const cancelledIds = mockFhirPatch.mock.calls.map(([params]) => params.id);
+    expect(cancelledIds).toEqual(expect.arrayContaining(['task-scanned', 'task-platform', 'task-legacy']));
+    expect(cancelledIds).not.toContain('task-unscanned');
+    expect(result.tasksCancelled).toBe(3);
+  });
+
   it('skips invoices missing oystehr metadata without failing the run', async () => {
     mockListStripeAccounts.mockResolvedValue([undefined]);
     mockInvoicesList.mockResolvedValue({

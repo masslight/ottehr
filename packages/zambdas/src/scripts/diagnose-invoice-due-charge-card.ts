@@ -167,8 +167,12 @@ async function main(): Promise<void> {
   }
   const stripe = new Stripe(stripeKey, { apiVersion: '2024-04-10' as Stripe.LatestApiVersion });
 
-  const connected = await stripe.accounts.list({ limit: 10 }).catch(() => undefined);
-  const accountIds: (string | undefined)[] = [undefined, ...(connected?.data.map((a) => a.id) ?? [])];
+  const accountIds: (string | undefined)[] = [undefined];
+  try {
+    for await (const account of stripe.accounts.list({ limit: 100 })) accountIds.push(account.id);
+  } catch (err) {
+    console.log(`WARNING: could not list connected accounts, scanning the platform account only: ${err}`);
+  }
   if (accountIds.length > 1)
     console.log(
       `NOTE: ${accountIds.length - 1} connected account(s) found; open invoices are listed per account below. ` +

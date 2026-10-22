@@ -14,6 +14,7 @@ import {
 import {
   calculateDueDateTime,
   OUTREACH_PLATFORM_STRIPE_ACCOUNT,
+  OUTREACH_STRIPE_ACCOUNT_INPUT,
   OUTREACH_TASK_TAG_SYSTEM,
   produceOutreachTasks,
 } from './produce-outreach-tasks';
@@ -146,7 +147,7 @@ export async function produceInvoiceDueOutreach(
   );
 
   // Cancel any pending invoice-due tasks for encounters whose invoices have been paid
-  const tasksCancelled = await cancelTasksForPaidInvoices(oystehr, openEncounterIds);
+  const tasksCancelled = await cancelTasksForPaidInvoices(oystehr, openEncounterIds, stripeAccounts);
 
   console.log(`produceInvoiceDueOutreach: Cancelled ${tasksCancelled} stale tasks for paid invoices`);
 
@@ -290,7 +291,11 @@ async function findPastDueStripeInvoices(
  * encounter is no longer associated with an open Stripe invoice (i.e. the
  * invoice has been paid since the task was created).
  */
-async function cancelTasksForPaidInvoices(oystehr: Oystehr, openEncounterIds: Set<string>): Promise<number> {
+async function cancelTasksForPaidInvoices(
+  oystehr: Oystehr,
+  openEncounterIds: Set<string>,
+  scannedStripeAccounts: (string | undefined)[]
+): Promise<number> {
   const pendingTasks = await oystehr.fhir.search<Task>({
     resourceType: 'Task',
     params: [
@@ -306,6 +311,16 @@ async function cancelTasksForPaidInvoices(oystehr: Oystehr, openEncounterIds: Se
   for (const task of tasks) {
     const encounterId = task.focus?.reference?.replace('Encounter/', '');
     if (!encounterId) continue;
+
+    // Absence from this run's scan only proves the invoice closed if its owning account was scanned.
+    const stampedAccount = task.input?.find((i) => i.type?.text === OUTREACH_STRIPE_ACCOUNT_INPUT)?.valueString;
+    if (
+      stampedAccount &&
+      stampedAccount !== OUTREACH_PLATFORM_STRIPE_ACCOUNT &&
+      !scannedStripeAccounts.includes(stampedAccount)
+    ) {
+      continue;
+    }
 
     if (!openEncounterIds.has(encounterId)) {
       console.log(
