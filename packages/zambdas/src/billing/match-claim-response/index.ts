@@ -1,13 +1,12 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Operation } from 'fast-json-patch';
 import { Claim, ClaimResponse } from 'fhir/r4b';
 import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
 import {
   MatchClaimResponseToClaimInput,
   MatchClaimResponseToClaimInputSchema,
 } from 'utils/lib/types/data/billing/billing.schemas';
-import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils/lib/types/errors';
+import { MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { validateJsonBody } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
@@ -36,9 +35,6 @@ async function performEffect(oystehr: Oystehr, params: Params): Promise<ClaimRes
     resourceType: 'Claim',
     id: params.claimId,
   });
-  if (!claim.insurer) {
-    throw INVALID_INPUT_ERROR('Claim has no insurer');
-  }
   const claimResponse = await oystehr.fhir.get<ClaimResponse>({
     resourceType: 'ClaimResponse',
     id: params.claimResponseId,
@@ -56,15 +52,7 @@ async function performEffect(oystehr: Oystehr, params: Params): Promise<ClaimRes
               reference: 'Claim/' + claim.id,
             },
           },
-          ...(!claimResponse.insurer?.reference
-            ? [
-                {
-                  op: 'replace',
-                  path: '/insurer',
-                  value: claim.insurer,
-                } as Operation,
-              ]
-            : []),
+          // insurer stays as the ERA reported it — the claim's payer may differ
           {
             op: 'replace',
             path: '/patient',

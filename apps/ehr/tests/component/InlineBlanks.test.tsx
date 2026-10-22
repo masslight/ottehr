@@ -258,6 +258,15 @@ describe('inline blanks', () => {
     expect(screen.getByTestId('other-supplies')).toHaveTextContent('gauze and Custom dressing');
   });
 
+  it('shows an empty multi-select as a plain blank, and as an add action only when ghost', () => {
+    const { rerender } = render(
+      <MultiBlank label="technique" options={[]} values={[]} onChange={vi.fn()} readOnly={false} />
+    );
+    expect(screen.getByRole('button', { name: 'technique (empty)' })).toHaveTextContent(/^technique$/);
+    rerender(<MultiBlank label="details" options={[]} values={[]} onChange={vi.fn()} readOnly={false} ghost />);
+    expect(screen.getByRole('button', { name: '+ details (empty)' })).toHaveTextContent(/^\+ details$/);
+  });
+
   it('uses field names rather than add labels for empty read-only values', () => {
     render(<MultiBlank label="technique" options={[]} values={[]} onChange={vi.fn()} readOnly />);
     expect(screen.getByText('[technique]')).toBeInTheDocument();
@@ -372,6 +381,8 @@ describe('inline blanks', () => {
     await user.type(input, '3.5');
     expect(onChange).toHaveBeenLastCalledWith('3.5');
     expect(input).not.toHaveStyle({ borderStyle: 'dashed' });
+    expect(input).toHaveStyle({ padding: '1px 2px' });
+    expect(input.parentElement).toHaveStyle({ width: 'calc(4ch + 8px)' });
   });
 });
 

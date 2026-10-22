@@ -729,13 +729,14 @@ export function getEraCheckNumber(
   return pr.identifier?.find((id) => id.system === ERA_CHECK_SYSTEM)?.value ?? pr.paymentIdentifier?.value;
 }
 
-// Where an ERA came from. Manual and (since the marker was added) imported ERAs carry the
-// era-source extension. Unmarked ones are clearing-house deliveries, except legacy X12 imports:
-// Claim.MD stamps the check number as a searchable identifier and process-era never does.
-export function getEraSource(pr: Pick<PaymentReconciliation, 'extension' | 'identifier'>): EraSource {
+// Where an ERA came from. Manual and imported ERAs carry the era-source extension; unmarked ones
+// are clearing-house deliveries. Nothing on the resource tells the two Oystehr-written kinds apart
+// (neither carries the era-check-number identifier), so X12 imports from before the marker read as
+// clearing house.
+export function getEraSource(pr: Pick<PaymentReconciliation, 'extension'>): EraSource {
   const marked = pr.extension?.find((ext) => ext.url === ERA_SOURCE_EXTENSION)?.valueCode;
   if (marked === ERA_SOURCE.manual || marked === ERA_SOURCE.x12Import) return marked;
-  return pr.identifier?.some((id) => id.system === ERA_CHECK_SYSTEM) ? ERA_SOURCE.clearingHouse : ERA_SOURCE.x12Import;
+  return ERA_SOURCE.clearingHouse;
 }
 
 export function eraCheckNumberMatches(
