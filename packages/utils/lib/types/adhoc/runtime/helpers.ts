@@ -1,6 +1,6 @@
 // The data map's computed fields and link lookups, handed to the report code as `helpers`. Thin
 // wrappers over the utils helpers the EHR itself uses (getInPersonVisitStatus etc.), plus a few pure
-// conveniences for working on raw FHIR resources. Lives in utils so the Studio iframe runtime and the EHR's
+// conveniences for working on raw FHIR resources. Lives in utils so the report builder's iframe runtime and the EHR's
 // system-report viewer hand the report code the same helpers.
 import type {
   Appointment,

@@ -1,7 +1,7 @@
 // Which way a report fetches: one http_auth call (fast, but cut at 27 s when deployed) or the
 // background Task (no ceiling, ~2 s of create + poll overhead). Chosen per report from the server
 // fetch time measured on an earlier run, and only for a date range no wider than that one. Shared by
-// Report Studio (measured while building) and the EHR's system reports (measured on the practice).
+// the report builder (measured on the run that built the report) and the EHR's system reports (measured on the practice).
 import type { DateRange } from '../query/date-range';
 
 export type FetchMode = 'direct' | 'task';

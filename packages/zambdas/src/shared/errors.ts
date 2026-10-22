@@ -73,7 +73,7 @@ export const isFhirNotFoundError = (error: unknown): boolean => {
 
 // FHIR statuses whose OperationOutcome describes a problem with the submitted resources, which the
 // user can fix. Anything else (auth, not found, server failures) stays an internal error.
-const FHIR_VALIDATION_STATUS_CODES = [400, 422];
+export const FHIR_VALIDATION_STATUS_CODES = [400, 422];
 
 /**
  * Turns a FHIR validation failure into an APIError carrying the OperationOutcome's issues, so the

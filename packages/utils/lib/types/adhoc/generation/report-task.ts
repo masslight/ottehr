@@ -21,7 +21,7 @@ export const StartAdHocDatasetReportInputSchema = z.object({
 });
 export type StartAdHocDatasetReportInput = z.infer<typeof StartAdHocDatasetReportInputSchema>;
 
-/** A dataset report (EHR builder) or a fetch plan (Report Studio); both run in the background Task. */
+/** A dataset report or a fetch plan (a plan report); both run in the background Task. */
 export const StartAdHocReportInputSchema = z.union([StartAdHocDatasetReportInputSchema, RunFetchPlanInputSchema]);
 export type StartAdHocReportInput = z.infer<typeof StartAdHocReportInputSchema>;
 

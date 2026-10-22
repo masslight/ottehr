@@ -14,15 +14,15 @@ export const FETCH_PLAN_LIMITS = {
   maxTotalBytes: 60 * 1024 * 1024,
   // The paged / bulk boundary of an `auto` step: a date-bounded step whose density hint expects more primary resources
   // than this runs as bulk jobs from the start; a paged window that passes it (no hint, or the density drifted) is
-  // redone as bulk. Measured 2026-10-14: a page costs 0.1–1 s on synth and 1–8 s on a busy practice, a bulk job
-  // ~2.7 s fixed plus the download — so bulk pays off from a handful of pages up.
+  // redone as bulk. Measured 2026-10-14: a page costs 0.1–1 s on synth and several times that on a busy practice, a bulk
+  // job ~2.7 s fixed plus the download — so bulk pays off from a handful of pages up.
   autoBulkThreshold: 5_000,
   pageSize: 1_000,
   // Ids per scoped batch (paged or bulk) without a density hint — the search is a POST, so no url limit. Measured on
   // synth 2026-10-14: 2,697 Encounters by appointment id in batches of 100 / 250 / 500 / 1,000 took 5.2 / 3.3 / 2.4 /
-  // 1.7 s, all complete; 1,000 Patients by _id likewise. But on a busy production practice (2026-10-14, read-only) an
+  // 1.7 s, all complete; 1,000 Patients by _id likewise. But on a busy practice (2026-10-14, read-only) an
   // Observation search for 1,000 encounter ids hit Oystehr's 14 s request timeout (504) on its first page, while 250
-  // and 500 ids answered each page in under 2 s; 250 leaves headroom for busier practices.
+  // and 500 ids answered each page comfortably; 250 leaves headroom for busier practices.
   scopedBatchSize: 250,
   // Searches in flight at once across a whole plan run — its steps, date windows and scoped batches together.
   maxConcurrentRequests: 8,
@@ -32,11 +32,11 @@ export const FETCH_PLAN_LIMITS = {
 
 /**
  * Primary resources a pre-sized bulk job aims for. Jobs run side by side (up to maxConcurrentRequests), so smaller
- * windows finish sooner: on a busy practice (2026-10-14, read-only) 67,000 Conditions took 36 s as one job, 19 s in
- * 4 windows and 10 s in 8; 33,000 QuestionnaireResponses (176 MB) 88 s in 2 windows, 47 s in 6, 16 s in 12. A year
- * there is also skewed — one half-year window held 394 records and the other 30,000 — so a window a third of the
- * 30,000 cap also keeps most windows under it. 10,000 keeps the standard visit plan at the busiest practice (32,000
- * visits, 52,000 encounters, 20,000 patients) at 13 jobs, inside REQUEST_BUDGET; smaller is faster still.
+ * windows finish sooner: on a busy practice (2026-10-14, read-only) a year of Conditions ran twice as fast in 4 windows
+ * as in one job and nearly four times as fast in 8; a year of QuestionnaireResponses (hundreds of MB) about five times
+ * as fast in 12 windows as in 2. A year there is also skewed — one half-year window held almost nothing and the other
+ * filled the cap — so a window a third of the 30,000 cap also keeps most windows under it. 10,000 keeps the standard
+ * visit plan at a busy practice at about a dozen jobs, inside REQUEST_BUDGET; smaller is faster still.
  */
 export const ASYNC_BULK_TARGET = 10_000;
 
@@ -61,9 +61,9 @@ const windowCount = (recordsPerDay: number | undefined, days: number, target: nu
  * Rows (the step's own resources plus what its _include / _revinclude bring) one date-window bulk job aims for. A job
  * costs ~2.7 s fixed plus its rows, and up to 8 run side by side, so windows that are too short pay the fixed cost
  * over and over and windows that are too long run slow single jobs toward Oystehr's 30 s query limit. Measured on
- * practice B (production) 2026-10-16, a year of visits: trimmed Appointments (32,285 rows) 18.1 s in weekly windows,
- * 6.6 s monthly, 4.2 s quarterly (~5,400 rows a job); with patient + encounters (105,276 rows) 22.7 s weekly, 15.9 s
- * in 14-day windows (~3,800 a job), 21–24 s in 30–91-day windows (one job 23 s).
+ * a year of a busy practice's visits: trimmed Appointments ran four times as fast in quarterly windows (~5,000 rows a
+ * job) as in weekly ones; with patient + encounters (over three rows a visit) 14-day windows (~4,000 rows a job) beat
+ * both weekly and 30–91-day windows by about a third.
  */
 export const BULK_JOB_ROWS = 5_000;
 
@@ -108,9 +108,9 @@ export const stepRunsBulk = (mode: 'auto' | 'normal' | 'bulk', expected: number 
   mode === 'bulk' || (mode === 'auto' && expected !== undefined && expected > FETCH_PLAN_LIMITS.autoBulkThreshold);
 
 /**
- * HTTP round trips a report should stay under. A year of visits at a busy practice (32,000 Appointments, 52,000
- * Encounters) by date is 53 weekly bulk jobs (BULK_WINDOW_MAX_DAYS), 8 at a time, while the same records by lists of
- * ids were 168–198 jobs a step.
+ * HTTP round trips a report should stay under. A year of visits at a busy practice by date is 53 weekly bulk jobs
+ * (BULK_WINDOW_MAX_DAYS), 8 at a time, while the same records by lists of ids were three to four times as many jobs
+ * a step.
  */
 export const REQUEST_BUDGET = 60;
 
@@ -122,7 +122,7 @@ export interface StepRequestEstimate {
   records?: number;
   /** How the number came about, or why there is none. */
   how: string;
-  /** Paged batches of a scoped id list: many round trips but cheap ones (~0.3 s each, 8 at a time on practice B). */
+  /** Paged batches of a scoped id list: many round trips but cheap ones (a fraction of a second each, 8 at a time). */
   scopedPaged?: boolean;
 }
 
@@ -292,7 +292,7 @@ export const RunFetchPlanInputSchema = z.object({
   inline: z.boolean().optional(),
   /** Gzip the Z3 file; the client decompresses it (DecompressionStream in the browser). */
   gzip: z.boolean().optional(),
-  /** Step id → density an earlier run measured, to pre-size that step's windows and batches (Report Studio saves it). */
+  /** Step id → density an earlier run measured, to pre-size that step's windows and batches. */
   hints: z.record(FetchStepDensitySchema).optional(),
 });
 export type RunFetchPlanInput = z.infer<typeof RunFetchPlanInputSchema>;
@@ -316,8 +316,22 @@ export const FetchStepStatsSchema = z.object({
   /** The search parameters as actually sent (templates resolved), for the Plan tab. */
   params: z.array(FetchStepParamSchema),
   error: z.string().optional(),
+  /** The server refused the search as written (400 / 422: an unknown parameter, an invalid _include, an untyped chain) — the plan's fault, not the volume's. */
+  rejected: z.boolean().optional(),
 });
 export type FetchStepStats = z.infer<typeof FetchStepStatsSchema>;
+
+const REJECTED_SEARCH_PREFIX = 'The server rejected the search of ';
+
+/** The error a run with rejected searches hands the model as its previous attempt, so it fixes the plan; undefined when none was rejected. */
+export const rejectedStepsError = (stats: FetchStepStats[]): string | undefined => {
+  const rejected = stats.filter((s) => s.rejected && s.error);
+  if (!rejected.length) return undefined;
+  return REJECTED_SEARCH_PREFIX + rejected.map((s) => `step "${s.id}" (${s.resourceType}): ${s.error}`).join('; ');
+};
+
+/** Whether a previous attempt's error is one rejectedStepsError wrote (the plan failed, not the code). */
+export const isRejectedStepsError = (error: string): boolean => error.startsWith(REJECTED_SEARCH_PREFIX);
 
 export const RunFetchPlanOutputSchema = z.object({
   /** Step id → resources. Present when inline. */
@@ -332,7 +346,7 @@ export const RunFetchPlanOutputSchema = z.object({
 export type RunFetchPlanOutput = z.infer<typeof RunFetchPlanOutputSchema>;
 
 // ---------------------------------------------------------------------------------------------
-// Pure helpers shared by the zambda (executing) and the studio (previewing / validating).
+// Pure helpers shared by the zambda (executing) and the report builder (previewing / validating).
 // ---------------------------------------------------------------------------------------------
 
 const PATIENT_ID_TEMPLATE = /\{\{\s*patientId\s*\}\}/;

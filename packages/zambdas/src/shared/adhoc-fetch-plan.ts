@@ -33,6 +33,7 @@ import {
   dedupeResources,
   halveList,
   halveWindow,
+  isSearchRejectedError,
   isSearchTooHeavyError,
   searchAsyncBulk,
   searchSplittingOnCap,
@@ -179,7 +180,7 @@ async function runStep(
     return limit(() => searchAsyncBulk(oystehr, step.resourceType as FhirResource['resourceType'], jobParams));
   };
   // A step with no date range of its own (all patients, all coverages…) is one job that cannot be halved, so past the
-  // 30,000 a job returns it failed (37,507 Patients on practice B (production)). In bulk it is cut by _lastUpdated
+  // 30,000 a job returns it failed (every patient of a busy practice). In bulk it is cut by _lastUpdated
   // instead: every resource has exactly one, so the windows partition the set, and a window that fills the cap is
   // halved like a date window. The floor predates any Oystehr project.
   const unbounded = !dated && !step.from && !params.some((p) => p.name === '_lastUpdated');
@@ -202,7 +203,7 @@ async function runStep(
     const updated = { start: LAST_UPDATED_FLOOR, end: new Date().toISOString() };
     const span = Date.parse(updated.end) - Date.parse(updated.start);
     // Many starting windows: the count fitting below skips the empty years and halves the busy months in fewer rounds
-    // (on practice B most of 37,507 Patients sit in a few recent months).
+    // (at a busy practice most patients sit in a few recent months).
     const windows = dateWindows(
       updated,
       Math.ceil(span / Math.max(UNBOUNDED_START_WINDOWS, Math.ceil((total ?? 0) / ASYNC_BULK_TARGET)))
@@ -293,18 +294,17 @@ async function runStep(
       });
     }
 
-    // "auto", date-bounded, no hint: count the matches first (1–2 s for 60 days of a busy practice's visits or vitals)
-    // and size the step from that, instead of reading a first page to find out (8 s for visits with their includes).
-    // A count the server refuses leaves the step to the first page as before.
-    // Not for a short range: there the count cost more than it saved (practice B, a day of visits 0.2–0.3 s by page vs
-    // 0.5–0.7 s count first; 7 days 0.3–0.5 s vs 1.0–1.2 s) — the first page tells enough.
-    // nor for one patient's records (flowsheets): small, and the count added ~0.3 s to each step (a patient's vitals
-    // 0.7 s → 1.0 s on practice B)
+    // "auto", date-bounded, no hint: count the matches first (cheap even for 60 days of a busy practice's visits or
+    // vitals) and size the step from that, instead of reading a first page to find out (several times the count for
+    // visits with their includes). A count the server refuses leaves the step to the first page as before.
+    // Not for a short range: there the count cost more than it saved (a day or a week of visits at a busy practice ran
+    // two to three times slower count-first) — the first page tells enough.
+    // nor for one patient's records (flowsheets): small, and the count added about a third to each step
     const forOnePatient = step.params.some((p) => /\{\{\s*patientId\s*\}\}/.test(p.value));
     const worthCounting =
       (unbounded && !forOnePatient) || (dated && !forOnePatient && rangeMs > COUNT_MIN_RANGE_DAYS * DAY_MS);
     if (step.mode === 'auto' && worthCounting && expected === undefined) {
-      // A cold count can be slow (Task by authored-on 37 s, Communication by sent 33 s on practice B, then under 3 s
+      // A cold count can be slow (a year of Tasks or Communications at a busy practice ran ten times longer cold than
       // once cached), so sizing waits SIZING_COUNT_WAIT_MS at most and otherwise goes on unsized (weekly windows).
       pendingCount = countMatches(oystehr, limit, step.resourceType, params).catch(() => undefined);
       const total = await Promise.race([pendingCount, waitMs(SIZING_COUNT_WAIT_MS)]);
@@ -325,10 +325,10 @@ async function runStep(
     // The cap is per window. "normal" pages to the step maximum and fails past it. "auto" with a hint pages windows
     // sized to a few pages each and goes bulk only when one passes the threshold (the density drifted). "auto" with no
     // hint reads ONE page: a next link means the volume is unknown, and finishing in bulk costs less than paging on
-    // (a page is 1–8 s on a busy practice, a bulk job ~2.7 s fixed) — the old cap of autoBulkThreshold paged five
-    // times before giving up on a year of production visits.
+    // (a page at a busy practice can cost more than a bulk job's fixed overhead) — the old cap of autoBulkThreshold
+    // paged five times before giving up on a year of a busy practice's visits.
     // One patient's records are paged on to the bulk threshold before going bulk: they are rarely past it, and a
-    // patient's 1,457 documents took 1.5 s paged against 6.4 s as bulk jobs after one page (practice B).
+    // patient with over a thousand documents fetched four times faster paged than as bulk jobs after one page.
     const cap =
       step.mode === 'normal'
         ? FETCH_PLAN_LIMITS.maxResourcesPerStep
@@ -353,7 +353,8 @@ async function runStep(
         );
       }
       // A count that missed its wait has had the first page's time since: size the bulk jobs from it if it is in now
-      // (a cold year of diagnoses ran 54 weekly jobs in 66.7 s, the same search sized from a count 30 jobs in 15.9 s).
+      // (a cold year of diagnoses at a busy practice ran four times as long in weekly jobs as the same search sized
+      // from a count).
       if (pendingCount) {
         const late = await Promise.race([pendingCount, waitMs(SIZING_COUNT_WAIT_MS)]);
         if (late !== undefined) {
@@ -369,7 +370,14 @@ async function runStep(
     captureException(error, { extra: { stepId: step.id, resourceType: step.resourceType, params } });
     const message = error instanceof Error ? error.message : String(error);
     console.error(`[adhoc-fetch-plan] step ${step.id} FAILED ms=${Date.now() - startedAt} message=${message}`);
-    return finish([], { mode: step.mode === 'bulk' ? 'bulk' : 'normal', requests: 0, error: message });
+    // A search the server refused as written is flagged so the planner can be asked to fix the plan; a search
+    // it could not finish (split to the floor, the bulk cap, a timeout) is not the plan's fault and is not.
+    return finish([], {
+      mode: step.mode === 'bulk' ? 'bulk' : 'normal',
+      requests: 0,
+      error: message,
+      ...(isSearchRejectedError(error) ? { rejected: true } : {}),
+    });
   }
 }
 
@@ -458,8 +466,8 @@ async function searchPaged(
 // Batches of ids, paged (mode auto / normal) or as bulk jobs (mode bulk), searched side by side under the run's limit;
 // a batch that fills the bulk cap or that the server cannot finish is halved (halveList) and retried, so `requests`
 // counts what actually ran. A long id list is never bulk on its own: 27 batches of 100 took 3.5–4.6 s paged against
-// 18.7 s as jobs on synth, and a year of production visits by id was 168–198 jobs — such a step should be fetched by
-// date instead (the studio warns), not fanned out faster.
+// 18.7 s as jobs on synth, and a year of a busy practice's visits by id was a couple of hundred jobs — such a step
+// should be fetched by date instead, not fanned out faster.
 async function runScoped(
   oystehr: Oystehr,
   limit: Limiter,

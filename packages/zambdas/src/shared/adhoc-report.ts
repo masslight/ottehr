@@ -24,6 +24,7 @@ import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { DateRange } from 'utils/lib/types/adhoc/query/date-range';
 import { getInPersonVisitStatus } from 'utils/lib/utils/visitUtils';
 import { gzipSync } from 'zlib';
+import { FHIR_VALIDATION_STATUS_CODES } from './errors';
 import { createPresignedUrl } from './z3Utils';
 
 export async function uploadAdHocReportJsonToZ3(
@@ -226,6 +227,10 @@ export const isSearchTooHeavyError = (error: unknown): boolean => {
   const code = Number((error as { code?: unknown })?.code);
   return code === 504 || code === 413 || isResponseSizeExceededError(error);
 };
+
+/** A search the server refused as written (HTTP 400 / 422): an unknown parameter, an invalid _include, a chain without a type. */
+export const isSearchRejectedError = (error: unknown): boolean =>
+  FHIR_VALIDATION_STATUS_CODES.includes(Number((error as { code?: unknown })?.code));
 
 /** The most times a unit is halved after a too-heavy failure (the bulk cap keeps its own floor: one day, one id). */
 export const MAX_ERROR_SPLITS = 3;

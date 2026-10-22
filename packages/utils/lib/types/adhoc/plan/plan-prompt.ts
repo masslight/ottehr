@@ -1,6 +1,6 @@
 // The planner / report-writer prompt sections that describe the fetch plan format, the scope a plan
 // report's code runs in and the helpers it gets — rendered from the same constants the runner and the
-// iframe runtime use, so the three never drift. Ported from Report Studio's system prompt.
+// iframe runtime use, so the three never drift.
 import { FETCH_PLAN_LIMITS } from './fetch-plan';
 import { PLAN_REPORT_SCOPE_PARAMS } from './report-scope';
 
@@ -47,13 +47,13 @@ FETCH PLAN FORMAT (JSON; the "plan" field of your answer):
 - COUNT-ONLY steps: a step whose params include { "name": "_summary", "value": "count" } fetches no records and gives
   the server's exact total in params.totals[stepId]. When the report shows only counts (visits per month, per
   location, per status), use one count step per bucket — each with its own literal date or filter params, up to
-  ${FETCH_PLAN_LIMITS.maxSteps} steps a plan — instead of fetching the records: a year of monthly visit counts took 5.7 s
-  on a busy practice against 23.6 s to fetch its 32,285 visits. Not for QuestionnaireResponse (the server fails the count).
+  ${FETCH_PLAN_LIMITS.maxSteps} steps a plan — instead of fetching the records: a year of monthly visit counts at a busy
+  practice took about a quarter of the time of fetching its visits. Not for QuestionnaireResponse (the server fails the count).
 - Clinical records of visits — Condition, MedicationRequest, Procedure, QuestionnaireResponse — have no reliable date of
-  their own in Ottehr data (recorded-date / authoredon / authored were empty or partial on a busy practice: 0, 0 and
-  2,922 of 9,316 found by date). Fetch them through the visits' encounters, as the data map says, never by their own date.
+  their own in Ottehr data (recorded-date / authoredon / authored were empty or partial on a busy practice: none, none
+  and under a third found by date). Fetch them through the visits' encounters, as the data map says, never by their own date.
 - A date search on a Period that has no end (follow-up encounters, active coverages) matches everything started before
-  the range end: date=ge{{start}}&date=le{{end}} found 20,358 follow-ups for 60 days where 4,150 started in it. For
+  the range end: date=ge{{start}}&date=le{{end}} found about five times the follow-ups that started in a 60-day range. For
   "started in the range" use date=sa{{start}}&date=le{{end}} (sa = starts after).
 - {{patientId}} in a param value is the run's patient parameter (the screen that runs the report supplies it) — for
   per-patient reports such as one patient's history, e.g. { "name": "patient", "value": "Patient/{{patientId}}" }.

@@ -1,4 +1,5 @@
 import { GenerateAdHocReportInputSchema } from 'utils/lib/types/adhoc/generation/generate.types';
+import { rejectedStepsError } from 'utils/lib/types/adhoc/plan/fetch-plan';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { mockInvokeVertex } = vi.hoisted(() => ({ mockInvokeVertex: vi.fn() }));
@@ -90,5 +91,37 @@ describe('fetch-plan generation', () => {
     expect(prompt()).toContain('YOUR PREVIOUS ATTEMPT');
     expect(prompt()).toContain('The previous plan was:');
     expect(prompt()).toContain('OUTSIDE a component');
+    expect(prompt()).not.toContain('REJECTED a search');
+  });
+
+  it('asks for a corrected plan, not corrected code, when the server rejected a search of the plan', async () => {
+    const rejected = rejectedStepsError([
+      {
+        id: 'visits',
+        resourceType: 'Appointment',
+        ms: 12,
+        count: 0,
+        byType: {},
+        bytes: 2,
+        mode: 'normal',
+        requests: 0,
+        params: [],
+        error: 'Unknown search parameter "foo"',
+        rejected: true,
+      },
+    ]);
+    const input = GenerateAdHocReportInputSchema.parse({
+      request: 'visits per day',
+      previousAttempt: { code: CODE, error: rejected, plan: visitsPlan },
+    });
+    mockInvokeVertex.mockResolvedValue(JSON.stringify({ plan: visitsPlan, code: CODE }));
+
+    await generateAdHocReportCode(input, 'defaultVertexModel', {});
+
+    expect(prompt()).toContain('the server REJECTED a search of your plan');
+    expect(prompt()).toContain('step "visits" (Appointment): Unknown search parameter "foo"');
+    expect(prompt()).toContain('The previous plan was:');
+    expect(prompt()).toContain('Return a CORRECTED plan');
+    expect(prompt()).not.toContain('CRASHED when it ran');
   });
 });

@@ -15,7 +15,14 @@ import {
 } from 'utils/lib/types/adhoc/generation/generate.types';
 import { InferDatasetFeedback } from 'utils/lib/types/adhoc/generation/infer.types';
 import { chooseFetchMode, MeasuredFetch, measuredFetch } from 'utils/lib/types/adhoc/plan/fetch-mode';
-import { FetchPlan, FetchStepStats, planNeedsPatient, planUsesDateRange } from 'utils/lib/types/adhoc/plan/fetch-plan';
+import {
+  FetchPlan,
+  FetchStepStats,
+  isRejectedStepsError,
+  planNeedsPatient,
+  planUsesDateRange,
+  rejectedStepsError,
+} from 'utils/lib/types/adhoc/plan/fetch-plan';
 import { PlanReportParams } from 'utils/lib/types/adhoc/plan/report-scope';
 import { AdHocDateRangeFilter, DateRange } from 'utils/lib/types/adhoc/query/date-range';
 import { ADHOC_RUNTIME_VERSION, SavedAdHocReportDefinition } from 'utils/lib/types/adhoc/saved/saved.types';
@@ -35,8 +42,8 @@ import { runAdHocReportGeneration } from '../query/generation-query';
 import { controlsFromInputs, DateRangeControls, inputsForPlan } from '../query/plan-inputs';
 import { FetchedPlanData, fetchPlanData } from '../query/plan-query';
 
-// How many times to transparently regenerate after a runtime error before surfacing it to the user.
-// 1 initial generation + up to 2 repairs.
+// How many times to transparently regenerate after a runtime error, or after the server rejected a search of
+// the plan, before surfacing it to the user. 1 initial generation + up to 2 repairs.
 const MAX_AUTO_RETRIES = 2;
 
 type PreviousAttempt = NonNullable<GenerateAdHocReportInput['previousAttempt']>;
@@ -554,10 +561,24 @@ export function useReportBuilder(): UseReportBuilder {
           steps: result.plan.steps.map((s) => `${s.id}: ${s.resourceType}`),
           codeLength: result.code.length,
         });
-        // A repair that kept the plan renders on the data already fetched; a new plan has no timing yet.
-        if (!(resources && samePlan(plan, result.plan))) {
+        // A repair that kept the plan renders on the data already fetched; a new plan has no timing yet, and a
+        // plan the server rejected a search of runs again even unchanged (its data is the failed run's).
+        const rejectedPlan =
+          previousAttempt && isRejectedStepsError(previousAttempt.error) ? previousAttempt.plan ?? null : null;
+        if (!(resources && samePlan(plan, result.plan)) || samePlan(rejectedPlan, result.plan)) {
           const fetched = await runPlan(result.plan, {});
           if (!fetched) return;
+          // A search the server rejected is the plan's fault: the model gets the server's answer and fixes the
+          // plan, within the same budget as a runtime repair; past it the run's error stays on screen.
+          const rejection = rejectedStepsError(fetched.stats);
+          if (rejection && autoRetryRef.current < MAX_AUTO_RETRIES) {
+            autoRetryRef.current += 1;
+            showAdHocDebugLog('autofix', `re-planning after a rejected search (attempt ${autoRetryRef.current})`, {
+              rejection,
+            });
+            await orchestratePlanRef.current?.(message, { code: result.code, error: rejection, plan: result.plan });
+            return;
+          }
         }
         setDatasetId(null);
         setRows(null);

@@ -16,7 +16,7 @@ import {
 } from 'utils/lib/types/adhoc/generation/runtime-scope';
 import { REPORT_FACTORY_NAME, REPORT_ROOT_NAME } from 'utils/lib/types/adhoc/generation/runtime-scope.catalog';
 import { renderDataMapPrompt } from 'utils/lib/types/adhoc/plan/data-map';
-import { FetchPlanSchema } from 'utils/lib/types/adhoc/plan/fetch-plan';
+import { FetchPlanSchema, isRejectedStepsError } from 'utils/lib/types/adhoc/plan/fetch-plan';
 import {
   renderFetchPlanFormatPrompt,
   renderPlanReportCodeContractPrompt,
@@ -373,17 +373,28 @@ export const parseNeedsDataset = (
 // plan (what to fetch) and the code (what to show) together; the plan is checked against the data map here
 // and the code where it runs (the sandboxed iframe), as for dataset reports.
 const buildPlanPrompt = (request: string, previousAttempt?: GenerateAdHocReportInput['previousAttempt']): string => {
-  const repairBlock = previousAttempt
-    ? `\nYOUR PREVIOUS ATTEMPT at this request CRASHED when it ran. The error comes from EXECUTING your\n` +
+  const previous = previousAttempt
+    ? (previousAttempt.plan ? `The previous plan was:\n"""\n${JSON.stringify(previousAttempt.plan)}\n"""\n` : '') +
+      `The previous code was:\n"""\n${previousAttempt.code}\n"""\n`
+    : '';
+  // Two kinds of failed attempt: the server rejected a search of the plan (the code never ran), or the code crashed.
+  const repairBlock = !previousAttempt
+    ? ''
+    : isRejectedStepsError(previousAttempt.error)
+    ? `\nYOUR PREVIOUS ATTEMPT at this request FAILED: the server REJECTED a search of your plan, so that step\n` +
+      `returned nothing and the code did not run. The server's answer, per step:\n` +
+      `"""\n${previousAttempt.error}\n"""\n` +
+      previous +
+      `Return a CORRECTED plan whose searches use only the parameters, includes and chains the data map lists for ` +
+      `that resource type (and the standard FHIR ones), and the code over it — otherwise fulfil the same request.\n`
+    : `\nYOUR PREVIOUS ATTEMPT at this request CRASHED when it ran. The error comes from EXECUTING your\n` +
       `code (your JSX is compiled to JS and run); any "around line N" refers to line N of the code you\n` +
       `wrote below:\n` +
       `"""\n${explainRuntimeError(previousAttempt.error)}\n"""\n` +
-      (previousAttempt.plan ? `The previous plan was:\n"""\n${JSON.stringify(previousAttempt.plan)}\n"""\n` : '') +
-      `The previous code was:\n"""\n${previousAttempt.code}\n"""\n` +
+      previous +
       `Return CORRECTED code that fixes the error — pay special attention to null/undefined guards ` +
       `(any FHIR field may be missing) — and otherwise fulfils the same request. Keep the same plan unless ` +
-      `the error came from what it fetched.\n`
-    : '';
+      `the error came from what it fetched.\n`;
 
   return `
 You are a report generator for a clinical EHR whose data is FHIR R4B. You are given a DATA MAP (what the

@@ -4,11 +4,14 @@ import {
   bulkWindowCount,
   estimatePlanRequests,
   FETCH_PLAN_LIMITS,
+  FetchStepStats,
   includeRowsEstimate,
+  isRejectedStepsError,
   PAGED_WINDOW_TARGET,
   pagedWindowCount,
   planNeedsPatient,
   planUsesDateRange,
+  rejectedStepsError,
   REQUEST_BUDGET,
   resolveParamTemplates,
   RunFetchPlanInputSchema,
@@ -170,9 +173,9 @@ describe('bulk job sizing', () => {
     // 2,500 records a day for 30 days: 75,000 rows → 15 jobs of 5,000.
     expect(bulkWindowCount(2500, 30)).toBe(Math.ceil((2500 * 30) / BULK_JOB_ROWS));
     expect(bulkWindowCount(2500, 30)).toBe(15);
-    // a year of practice B visits trimmed (88/day, 32,285): 7 jobs; with patient + encounters (3.26 rows each): 22
-    expect(bulkWindowCount(88.45, 365)).toBe(7);
-    expect(bulkWindowCount(88.45, 365, 3.26)).toBe(22);
+    // a year at a busy practice (90/day): 7 jobs; with patient + encounters (3.26 rows each): 22
+    expect(bulkWindowCount(90, 365)).toBe(7);
+    expect(bulkWindowCount(90, 365, 3.26)).toBe(22);
     // nothing measured: a job a week
     expect(bulkWindowCount(undefined, 365)).toBe(53);
     expect(bulkWindowCount(undefined, 60)).toBe(9);
@@ -256,24 +259,24 @@ describe('estimatePlanRequests', () => {
     Object.fromEntries(estimates.map((e) => [e.id, e]));
 
   it('sizes a year at a busy practice as the runner would: bulk jobs for the visits, a paged batch per 250 ids after', () => {
-    // 32,279 visits a year: four bulk jobs. One Encounter per visit; a patient every 1.33 visits; ten locations in all.
+    // 32,100 visits a year: seven bulk jobs. One Encounter per visit; a patient every 1.33 visits; ten locations in all.
     const estimates = byId(
       estimatePlanRequests(
         visitReport,
         {
-          visits: { recordsPerDay: 32_279 / 365 },
+          visits: { recordsPerDay: 32_100 / 365 },
           encounters: { recordsPerId: 1, idsPerSourceRecord: 1 },
           patients: { recordsPerId: 1, idsPerSourceRecord: 0.75 },
-          locations: { recordsPerId: 1, idsPerSourceRecord: 10 / 32_279 },
+          locations: { recordsPerId: 1, idsPerSourceRecord: 10 / 32_100 },
         },
         365
       )
     );
-    // jobs of ~BULK_JOB_ROWS rows: 32,279 / 5,000 → 7
+    // jobs of ~BULK_JOB_ROWS rows: 32,100 / 5,000 → 7
     expect(estimates.visits.requests).toBe(8);
-    expect(estimates.visits.records).toBeCloseTo(32_279);
-    expect(estimates.visits.how).toBe('32,279 records in 7 bulk job(s)');
-    expect(estimates.encounters).toMatchObject({ requests: 130, how: '32,279 ids in 130 paged batch(es) of 250' });
+    expect(estimates.visits.records).toBeCloseTo(32_100);
+    expect(estimates.visits.how).toBe('32,100 records in 7 bulk job(s)');
+    expect(estimates.encounters).toMatchObject({ requests: 129, how: '32,100 ids in 129 paged batch(es) of 250' });
     expect(estimates.patients.requests).toBe(97);
     expect(estimates.locations.requests).toBe(1);
     expect(Object.values(estimates).reduce((sum, e) => sum + (e.requests ?? 0), 0)).toBeGreaterThan(REQUEST_BUDGET);
@@ -330,9 +333,9 @@ describe('estimatePlanRequests', () => {
     expect(unsized.encounters).toEqual({ id: 'encounters', how: 'fed by "visits", whose size is unknown' });
 
     const sized = byId(
-      estimatePlanRequests(plan, { visits: { recordsPerDay: 32_279 / 365 }, encounters: { recordsPerId: 1 } }, 365)
+      estimatePlanRequests(plan, { visits: { recordsPerDay: 32_100 / 365 }, encounters: { recordsPerId: 1 } }, 365)
     );
-    expect(sized.encounters).toMatchObject({ requests: 34, how: '32,279 ids in 33 bulk job(s)' });
+    expect(sized.encounters).toMatchObject({ requests: 34, how: '32,100 ids in 33 bulk job(s)' });
   });
 
   it('estimates nothing without a measurement, and says why', () => {
@@ -345,5 +348,40 @@ describe('estimatePlanRequests', () => {
 
     const tasks = { steps: [{ id: 'tasks', resourceType: 'Task', params: [{ name: 'status', value: 'requested' }] }] };
     expect(estimatePlanRequests(tasks, {}, 365)[0].how).toBe('not bounded by the date range, size unknown');
+  });
+});
+
+describe('rejectedStepsError', () => {
+  const stat = (id: string, resourceType: string, extra: Partial<FetchStepStats>): FetchStepStats => ({
+    id,
+    resourceType,
+    ms: 1,
+    count: 0,
+    byType: {},
+    bytes: 2,
+    mode: 'normal',
+    requests: 0,
+    params: [],
+    ...extra,
+  });
+
+  it('words only the steps the server rejected, and is recognised as a plan failure', () => {
+    const error = rejectedStepsError([
+      stat('visits', 'Appointment', { error: 'Unknown search parameter "foo"', rejected: true }),
+      stat('conditions', 'Condition', { error: 'a single day of Condition still fails (Gateway timeout)' }),
+      stat('patients', 'Patient', { mode: 'skipped', error: 'source step "visits" failed' }),
+      stat('accounts', 'Account', { error: 'set type explicitly', rejected: true }),
+    ]);
+    expect(error).toBe(
+      'The server rejected the search of step "visits" (Appointment): Unknown search parameter "foo"; ' +
+        'step "accounts" (Account): set type explicitly'
+    );
+    expect(isRejectedStepsError(error!)).toBe(true);
+  });
+
+  it('is nothing when no step was rejected, and a runtime error is not mistaken for it', () => {
+    expect(rejectedStepsError([stat('visits', 'Appointment', { error: 'still fails' })])).toBeUndefined();
+    expect(rejectedStepsError([stat('visits', 'Appointment', { count: 3 })])).toBeUndefined();
+    expect(isRejectedStepsError("Cannot read properties of null (reading 'useMemo')")).toBe(false);
   });
 });
