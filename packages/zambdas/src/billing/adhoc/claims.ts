@@ -72,7 +72,6 @@ import { dayFieldsOf, withReportDays } from './report-dates';
 const DAY_FIELDS = dayFieldsOf(datasetRowSchema(BillingClaimsBaseRowSchema, BILLING_CLAIMS_LAYERS));
 
 const PAGE_SIZE = 100;
-// How many pages may ask for a payer or user name that has not resolved yet.
 const MAX_LOOKUP_ATTEMPTS = 3;
 const PAGE_CONCURRENCY = 3;
 const CLAIM_ENCOUNTER_ID_SYSTEM = ottehrIdentifierSystem('claim-encounter-id');
@@ -147,7 +146,7 @@ export async function fetchAdHocClaimRows(
     }
   };
 
-  const emCodes = flags.codes && eraReadClient ? await loadEmCodes(eraReadClient) : new Set<string>();
+  const emCodes = flags.codes && eraReadClient ? await withinBudget(loadEmCodes(eraReadClient)) : new Set<string>();
 
   const scanned = await withinBudget(scanAllClaims(oystehr, assertWithinBudget));
 
@@ -283,32 +282,25 @@ function createPayerResolver(oystehr: Oystehr): {
   unresolvedCount: () => number;
 } {
   const cache = new Map<string, Promise<Organization | undefined>>();
-  const attempts = new Map<string, number>();
   const unresolved = new Set<string>();
+
+  const lookUp = async (ref: string): Promise<Organization | undefined> => {
+    for (let attempt = 1; attempt <= MAX_LOOKUP_ATTEMPTS; attempt += 1) {
+      const payer = (await resolvePayersByRef(oystehr, [ref])).get(ref);
+      if (payer) return payer;
+    }
+
+    unresolved.add(ref);
+
+    return undefined;
+  };
 
   return {
     async resolve(refs) {
       const unique = [...new Set(refs.filter((ref): ref is string => !!ref && isResolvablePayerRef(ref)))];
 
       for (const ref of unique) {
-        if (cache.has(ref)) continue;
-
-        const attempt = (attempts.get(ref) ?? 0) + 1;
-        attempts.set(ref, attempt);
-
-        cache.set(
-          ref,
-          resolvePayersByRef(oystehr, [ref]).then((byRef) => {
-            const payer = byRef.get(ref);
-            if (payer) {
-              unresolved.delete(ref);
-            } else {
-              unresolved.add(ref);
-              if (attempt < MAX_LOOKUP_ATTEMPTS) cache.delete(ref);
-            }
-            return payer;
-          })
-        );
+        if (!cache.has(ref)) cache.set(ref, lookUp(ref));
       }
 
       const byRef = new Map<string, Organization>();
@@ -337,22 +329,23 @@ const toYmd = (value: string | undefined): string | null => {
 function createActorNameResolver(): {
   namesFor: (untaggedClient: Oystehr, refs: string[]) => Promise<Map<string, string>>;
 } {
-  const names = new Map<string, string>();
-  const attempts = new Map<string, number>();
+  const cache = new Map<string, Promise<string>>();
 
   return {
     async namesFor(untaggedClient, refs) {
-      const missing = [...new Set(refs)].filter(
-        (ref) => !names.has(ref) && (attempts.get(ref) ?? 0) < MAX_LOOKUP_ATTEMPTS
-      );
+      const missing = [...new Set(refs)].filter((ref) => !cache.has(ref));
 
       if (missing.length > 0) {
-        missing.forEach((ref) => attempts.set(ref, (attempts.get(ref) ?? 0) + 1));
-        const fetched = await resolveActorNames(untaggedClient, missing, { throwOnError: true });
-        fetched.forEach((name, ref) => names.set(ref, name));
+        const fetched = resolveActorNames(untaggedClient, missing, { throwOnError: true });
+        missing.forEach((ref) =>
+          cache.set(
+            ref,
+            fetched.then((names) => names.get(ref) ?? '')
+          )
+        );
       }
 
-      return new Map(refs.map((ref) => [ref, names.get(ref) ?? '']));
+      return new Map(await Promise.all(refs.map(async (ref) => [ref, await cache.get(ref)!] as const)));
     },
   };
 }

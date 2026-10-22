@@ -57,7 +57,7 @@ import {
   sortClaimInsurance,
 } from '../shared';
 
-export const BASE_EXTRA_ELEMENTS = ['Patient.meta', 'Patient.identifier', 'Patient.extension'];
+export const BASE_EXTRA_ELEMENTS = ['Claim.extension', 'Patient.meta', 'Patient.identifier', 'Patient.extension'];
 export const CODES_EXTRA_ELEMENTS = ['Claim.diagnosis'];
 export const TIMELINE_EXTRA_ELEMENTS = ['Claim.extension'];
 export const CLAIM_DETAILS_EXTRA_ELEMENTS = [
@@ -340,6 +340,7 @@ export function insurancePaymentsLayer(
       const eraSource = getEraSource(era);
       const enteredByRef = eraLinks.agentRefByPaymentReconciliationId?.get(era.id ?? '');
       return {
+        eraId: era.id ?? '',
         checkNumber: getEraCheckNumber(era) ?? '',
         checkDate: era.paymentDate || null,
         remitDate: era.created || null,

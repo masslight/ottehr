@@ -357,6 +357,12 @@ export const BILLING_CLAIMS_LAYERS = {
       insurancePayments: z
         .array(
           z.object({
+            eraId: z
+              .string()
+              .describe(
+                'ERA id — the key of one check. Two checks can share a checkNumber (different payers, a resent ' +
+                  'file) or have none.'
+              ),
             checkNumber: z.string().describe('Check / EFT trace number. "" when the ERA carries none.'),
             checkDate: z.string().nullable().describe('Check / EFT date (yyyy-MM-dd). Null when the ERA carries none.'),
             remitDate: z.string().nullable().describe('Date the ERA was received (yyyy-MM-dd).'),
@@ -380,7 +386,8 @@ export const BILLING_CLAIMS_LAYERS = {
         )
         .describe(
           'One record per ERA that paid the claim, oldest first. One check can pay several claims, so the same ' +
-            'check appears on each of them — dedupe by checkNumber when listing or summing checks. Empty when none.'
+            'check appears on each of them — dedupe by eraId (not checkNumber) when listing or summing checks. Empty ' +
+            'when none.'
         ),
     }),
   },

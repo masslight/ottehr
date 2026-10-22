@@ -178,9 +178,9 @@ list.
 - **Scan**: the claim count is read before the scan. Claims are never deleted, so a scan that returns
   fewer claims than that count fails the Task; a claim created mid-scan behind the offset only grows
   the running total and is not an error.
-- **Lookups**: payers and user names are resolved once per run. One that has not resolved is asked
-  again on later pages, up to 3 times. A failed user-name lookup fails the Task rather than leaving
-  names empty.
+- **Lookups**: payers and user names are resolved once per run, and the outcome holds for every row. A
+  payer lookup is retried up to 3 times on the spot before the payer counts as unresolved; a failed
+  user-name lookup fails the Task rather than leaving names empty.
 - **Budget**: the build stops at 12 min with "Too many claims for one run — narrow the date range", so
   the Task fails instead of the lambda being killed with the Task left in-progress.
 - **Dates**: every field the schema describes as `yyyy-MM-dd` is sent as a day (`report-dates.ts`):

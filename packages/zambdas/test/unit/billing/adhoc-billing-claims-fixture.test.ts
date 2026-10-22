@@ -35,6 +35,7 @@ import {
   CLAIM_PROVENANCE_TRANSMIT_EXTENSION_URL,
 } from 'utils/lib/types/data/billing/claim-history';
 import { CLAIM_STATUS_DATE_EXTENSION_URLS, CLAIM_STATUS_TAG_SYSTEMS } from 'utils/lib/types/data/billing/claim-status';
+import { CLAIM_NON_INSURANCE_PAYER_EXTENSION_URL } from 'utils/lib/types/data/billing/non-insurance-org.types';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { historyLayer } from '../../../src/billing/adhoc/claim-extras';
 import {
@@ -786,7 +787,7 @@ describe('fetchAdHocClaimRows (billing-claims dataset)', () => {
     expect(hydrations).toHaveLength(0);
   });
 
-  it('asks again on a later page for a payer whose lookup failed, and counts only real payer refs', async () => {
+  it('retries a failed payer lookup on the spot, so early and late claims get the payer, and counts only real payer refs', async () => {
     vi.spyOn(console, 'log').mockImplementation(() => undefined);
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
@@ -807,9 +808,10 @@ describe('fetchAdHocClaimRows (billing-claims dataset)', () => {
       store.splice(store.length - moreClaims.length, moreClaims.length);
     }
 
-    // The first group of pages shares the failed lookup; the next group asks again.
+    // The failed lookup is retried at once, so no row is mapped before the payer resolves.
     expect(getPayerByUrl).toHaveBeenCalledTimes(2);
     expect(rows.find((r) => r.claimId === 'claim-g299')?.payerName).toBe('Payer A');
+    expect(rows.find((r) => r.claimId === 'claim-f000')?.payerName).toBe('Payer A');
     expect(
       warn.mock.calls.map(([message]) => String(message)).filter((m) => m.includes('could not be resolved'))
     ).toEqual([]);
@@ -1187,5 +1189,37 @@ describe('billing-claims review fixes', () => {
     } finally {
       era.extension = extension;
     }
+  });
+
+  it('shows the non-insurance payer with no layer selected', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    selfPayClaim.extension = [
+      {
+        url: CLAIM_NON_INSURANCE_PAYER_EXTENSION_URL,
+        valueReference: { reference: 'Organization/nio-1', display: 'Acme Employer' },
+      },
+    ];
+    try {
+      const { oystehr, search } = stubBillingClient();
+      const rows = await fetchAdHocClaimRows(oystehr, { dateRange: DATE_RANGE });
+      expect(rows.find((r) => r.claimId === 'claim-2')?.nonInsurancePayerName).toBe('Acme Employer');
+      const hydration = search.mock.calls
+        .map(([arg]) => arg as { resourceType: string; params: Param[] })
+        .find((arg) => arg.resourceType === 'Claim' && arg.params.some((p) => p.name === '_id'));
+      expect(hydration?.params.find((p) => p.name === '_elements')?.value).toContain('Claim.extension');
+    } finally {
+      delete selfPayClaim.extension;
+    }
+  });
+
+  it('keys each insurance payment by its ERA id', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    const { oystehr } = stubBillingClient();
+    const rows = await fetchAdHocClaimRows(
+      oystehr,
+      { dateRange: DATE_RANGE, includeInsurancePayments: true },
+      { eraReadClient: oystehr }
+    );
+    expect(rows.find((r) => r.claimId === 'claim-1')?.insurancePayments?.[0]?.eraId).toBe('era-1');
   });
 });
