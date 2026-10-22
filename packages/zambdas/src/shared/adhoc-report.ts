@@ -321,6 +321,13 @@ export function halveWindow(window: { start: string; end: string }): [DateRange,
 export const halveList = <V>(list: V[]): [V[], V[]] | undefined =>
   list.length > 1 ? [list.slice(0, Math.ceil(list.length / 2)), list.slice(Math.ceil(list.length / 2))] : undefined;
 
+/** Besides the bulk cap, halve a window (or an id batch) the server could not finish, a few times; see SplitRetryOptions. */
+const splitTooHeavy = (label: string, floor: string): SplitRetryOptions => ({
+  splitOn: isSearchTooHeavyError,
+  label,
+  floor,
+});
+
 export function dedupeResources<T extends FhirResource>(resources: T[]): T[] {
   const seen = new Set<string>();
   const out: T[] = [];
@@ -338,11 +345,10 @@ const REPORT_APPOINTMENT_STATUSES = 'proposed,pending,booked,arrived,fulfilled,c
 export const REPORT_ATTENDED_APPOINTMENT_STATUSES = 'proposed,pending,booked,arrived,fulfilled,checked-in,waitlist';
 
 // currently async bulk removes the limit on how much the server may SEND, not the limit on the query it has to RUN
-// (Oystehr cuts any query off at 30 s). Measured on practice B (production) 2026-10-16, 60 days (5,449 visits with their
-// patients, locations and 9,501 encounters; then 213,592 Observations of those encounters), runs alternated so cache
-// warmth favours neither: 3-day windows / 4 at a time / batches of 100 took 17.2–17.5 s + 78.7–80.9 s; 15-day windows /
-// 8 at a time / batches of 250 took 7.4–9.6 s + 24.6–27.3 s — the same records. A 15-day window of that visit search is
-// ~5,000 rows, a job well inside the limit.
+// (Oystehr cuts any query off at 30 s). Measured over 60 days at a busy practice (visits with their patients, locations
+// and encounters, then those encounters' Observations), runs alternated so cache warmth favours neither: 15-day windows /
+// 8 at a time / batches of 250 fetched the same records about 2.9× faster than 3-day windows / 4 at a time / batches of
+// 100. A 15-day window of that visit search is a few thousand rows, a job well inside the limit.
 const REPORT_WINDOW_DAYS = 15;
 const REPORT_WINDOW_CONCURRENCY = 8;
 
@@ -394,7 +400,9 @@ export async function fetchAppointmentReportResources<T extends FhirResource>(
     const group = await Promise.all(
       windows
         .slice(i, i + REPORT_WINDOW_CONCURRENCY)
-        .map((window) => searchSplittingOnCap(window, searchWindow, halveWindow))
+        .map((window) =>
+          searchSplittingOnCap(window, searchWindow, halveWindow, splitTooHeavy('Appointment', 'a single day'))
+        )
     );
     for (const resources of group) {
       for (const resource of resources) {
@@ -444,7 +452,9 @@ export async function fetchOrdersByAuthoredDate<T extends FhirResource>(
     const group = await Promise.all(
       windows
         .slice(i, i + REPORT_WINDOW_CONCURRENCY)
-        .map((window) => searchSplittingOnCap(window, searchWindow, halveWindow))
+        .map((window) =>
+          searchSplittingOnCap(window, searchWindow, halveWindow, splitTooHeavy('ServiceRequest', 'a single day'))
+        )
     );
     for (const resource of group.flat()) {
       const key = `${resource.resourceType}/${resource.id}`;
@@ -485,7 +495,7 @@ async function fetchAttendingPractitioners<T extends FhirResource>(oystehr: Oyst
   ]);
 }
 
-// See REPORT_WINDOW_DAYS: 250 encounters' Observations is ~5,500 per job on a busy practice.
+// See REPORT_WINDOW_DAYS: 250 encounters' Observations is a job well inside the limit on a busy practice.
 const SCOPED_BATCH_SIZE = 250;
 const SCOPED_BATCH_CONCURRENCY = 8;
 
@@ -512,7 +522,9 @@ export async function fetchScopedResources<T extends FhirResource>(
   const out: T[] = [];
   for (let i = 0; i < batches.length; i += SCOPED_BATCH_CONCURRENCY) {
     const group = await Promise.all(
-      batches.slice(i, i + SCOPED_BATCH_CONCURRENCY).map((batch) => searchSplittingOnCap(batch, searchBatch, halveList))
+      batches
+        .slice(i, i + SCOPED_BATCH_CONCURRENCY)
+        .map((batch) => searchSplittingOnCap(batch, searchBatch, halveList, splitTooHeavy(resourceType, 'a single id')))
     );
     for (const resources of group) out.push(...resources);
   }

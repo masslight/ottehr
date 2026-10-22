@@ -1,12 +1,13 @@
 import Oystehr from '@oystehr/sdk';
 import { Appointment, FhirResource, Observation, Patient } from 'fhir/r4b';
-import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   ASYNC_BULK_MAX,
   fetchAppointmentReportResources,
   fetchScopedResources,
   halveList,
   halveWindow,
+  MAX_ERROR_SPLITS,
   searchAsyncBulk,
 } from '../src/shared/adhoc-report';
 
@@ -47,6 +48,14 @@ const sharedPatient: Patient = { resourceType: 'Patient', id: 'pat-shared' };
 let data: FhirResource[] = [];
 const jobs = new Map<string, Params>();
 const searchCalls: Params[] = [];
+// Oystehr cuts a query off at 30 s and the job then answers status 400: the fake does that to any window wider than this.
+let jobFailsOverDays = Infinity;
+
+const windowDays = (params: Params): number => {
+  const ge = params.find((p) => p.name === 'date' && p.value.startsWith('ge'))?.value.slice(2);
+  const le = params.find((p) => p.name === 'date' && p.value.startsWith('le'))?.value.slice(2);
+  return ge && le ? (Date.parse(le) - Date.parse(ge)) / DAY_MS : 0;
+};
 
 const matches = (params: Params): FhirResource[] => {
   const count = Number(params.find((p) => p.name === '_count')?.value ?? ASYNC_BULK_MAX);
@@ -92,11 +101,15 @@ const fakeOystehr = {
       searchCalls.push(params ?? []);
       return { jobId, contentLocation: '', mode: 'bulk' };
     },
-    waitForAsyncJob: async (jobId: string) => ({
-      status: 200,
-      mode: 'bulk',
-      manifest: { requiresAccessToken: true, output: [{ type: 'mixed', url: `https://example.test/${jobId}` }] },
-    }),
+    waitForAsyncJob: async (jobId: string) =>
+      windowDays(jobs.get(jobId) ?? []) > jobFailsOverDays
+        ? { status: 400 }
+        : {
+            status: 200,
+            mode: 'bulk',
+            manifest: { requiresAccessToken: true, output: [{ type: 'mixed', url: `https://example.test/${jobId}` }] },
+          },
+    getAsyncJob: async () => ({ status: 400 }),
   },
 } as unknown as Oystehr;
 
@@ -207,5 +220,43 @@ describe('id-scoped searches split on the cap', () => {
   it('halveList splits in two and stops at one', () => {
     expect(halveList([1, 2, 3])).toEqual([[1, 2], [3]]);
     expect(halveList([1])).toBeUndefined();
+  });
+});
+
+describe('date-windowed searches split on a job the server cut off', () => {
+  beforeEach(() => {
+    jobs.clear();
+    searchCalls.length = 0;
+  });
+
+  afterEach(() => {
+    jobFailsOverDays = Infinity;
+  });
+
+  it(`halves a window whose job failed and retries, giving up after ${MAX_ERROR_SPLITS} splits`, async () => {
+    // Two a day over fifteen days (one REPORT_WINDOW_DAYS window), well under the cap: the job itself fails.
+    data = appointments(15, 2);
+    const dateRange = {
+      start: new Date(RANGE_START).toISOString(),
+      end: new Date(RANGE_START + 15 * DAY_MS - 1).toISOString(),
+    };
+
+    jobFailsOverDays = 10;
+    const resources = await fetchAppointmentReportResources<FhirResource>(fakeOystehr, { dateRange });
+    const appts = resources.filter((r) => r.resourceType === 'Appointment');
+    expect(appts).toHaveLength(30);
+    expect(new Set(appts.map((a) => a.id)).size).toBe(30);
+    expect(resources.filter((r) => r.resourceType === 'Patient')).toHaveLength(1);
+    // The 15-day window failed, its two 7.5-day halves fit.
+    expect(searchCalls).toHaveLength(3);
+
+    jobs.clear();
+    searchCalls.length = 0;
+    jobFailsOverDays = 0;
+    await expect(fetchAppointmentReportResources<FhirResource>(fakeOystehr, { dateRange })).rejects.toThrow(
+      `Appointment still fails after splitting ${MAX_ERROR_SPLITS} times`
+    );
+    // 15 days, 7.5, 3.75, 1.875: 1 + 2 + 4 + 8 jobs, then no fourth split.
+    expect(searchCalls).toHaveLength(15);
   });
 });
