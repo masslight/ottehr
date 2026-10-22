@@ -5,7 +5,10 @@ import { RcmTaskCode } from 'utils/lib/fhir/constants';
 import { removePrefix } from 'utils/lib/helpers/helpers';
 import { getInvoiceTaskClaimId, getInvoiceTaskSource } from 'utils/lib/helpers/tasks/invoices-tasks';
 import { RecordBillingTaskHistoryResponse } from 'utils/lib/types/data/billing/billing.types';
-import { CLAIM_HISTORY_TASK_LABELS } from 'utils/lib/types/data/billing/claim-history';
+import {
+  CLAIM_HISTORY_TASK_LABELS,
+  CLAIM_PROVENANCE_SOURCE_TAG_SYSTEM,
+} from 'utils/lib/types/data/billing/claim-history';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
@@ -104,6 +107,11 @@ export async function performEffect(
     before: previousTask,
     after: task,
     sourceReference: taskVersion,
+    // a concurrent redelivery can pass the check above too
+    dedupTag: {
+      system: CLAIM_PROVENANCE_SOURCE_TAG_SYSTEM,
+      code: taskVersion,
+    },
     agent: await resolveClaimActor('system', oystehr, undefined, secrets),
     activity: previousTask ? 'update' : 'create',
   });
@@ -112,7 +120,9 @@ export async function performEffect(
       recorded: false,
     };
   }
-  await oystehr.fhir.create(provenance.resource);
+  await oystehr.fhir.create(provenance.resource, {
+    ifNoneExist: provenance.ifNoneExist,
+  });
   return {
     recorded: true,
   };

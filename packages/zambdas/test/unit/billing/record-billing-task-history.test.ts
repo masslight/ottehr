@@ -6,7 +6,10 @@ import {
   INVOICE_TASK_CLAIM_ID_IDENTIFIER_SYSTEM,
   INVOICE_TASK_SOURCE_SYSTEM,
 } from 'utils/lib/types/api/invoicing.types';
-import { CLAIM_PROVENANCE_ACTIVITY } from 'utils/lib/types/data/billing/claim-history';
+import {
+  CLAIM_PROVENANCE_ACTIVITY,
+  CLAIM_PROVENANCE_SOURCE_TAG_SYSTEM,
+} from 'utils/lib/types/data/billing/claim-history';
 import { NOT_AUTHORIZED } from 'utils/lib/types/errors';
 import { beforeEach, describe, expect, it, Mock, vi } from 'vitest';
 import { complexValidation, performEffect } from '../../../src/billing/record-billing-task-history';
@@ -250,6 +253,36 @@ describe('record-billing-task-history performEffect', () => {
         newValue: 'requested',
       },
     ]);
+  });
+
+  it('creates the entry only while no entry carries its Task version', async () => {
+    const { oystehr, create } = makeOystehr();
+
+    await performEffect(oystehr, {
+      task: invoiceTask(),
+      previousTask: invoiceTask({
+        meta: {
+          versionId: '1',
+        },
+        status: 'ready',
+      }),
+      claimId: 'claim-1',
+      secrets: {},
+    });
+
+    const [provenance, options] = create.mock.calls[0];
+    expect(provenance.meta.tag).toContainEqual({
+      system: CLAIM_PROVENANCE_SOURCE_TAG_SYSTEM,
+      code: 'Task/t1/_history/2',
+    });
+    expect(options).toEqual({
+      ifNoneExist: [
+        {
+          name: '_tag',
+          value: `${CLAIM_PROVENANCE_SOURCE_TAG_SYSTEM}|Task/t1/_history/2`,
+        },
+      ],
+    });
   });
 
   it('records a new task as created', async () => {

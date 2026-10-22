@@ -61,6 +61,9 @@ export const CLAIM_PROVENANCE_TRANSMIT_EXTENSION_URL = ottehrExtensionUrl('claim
 // JSON — see changeRefEntities in packages/zambdas/src/billing/provenance.ts.
 export const CLAIM_PROVENANCE_CHANGE_REF_URL = ottehrExtensionUrl('claim-history-change-ref');
 
+// Tag on a Provenance naming the resource version it was recorded from (e.g. Task/abc/_history/3).
+export const CLAIM_PROVENANCE_SOURCE_TAG_SYSTEM = ottehrCodeSystemUrl('claim-history-source');
+
 // Singleton Device representing the automated billing rules engine. The actor abstraction
 // resolves (and lazily provisions) this Device so automated changes can be attributed to it;
 // the rules engine itself is wired up separately.

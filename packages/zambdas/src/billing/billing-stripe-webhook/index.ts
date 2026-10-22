@@ -284,15 +284,21 @@ const persistPaymentNoticeUpsert = async (
       : undefined,
     null
   );
-  const existing = await findPaymentNotice(oystehr, dedupIdentifier);
-  if (!existing) {
-    await createPaymentNotice({
-      oystehr,
-      notice: desiredNotice,
-      dedupIdentifier,
-      agent,
-    });
-  } else {
+  const found = await findPaymentNotice(oystehr, dedupIdentifier);
+  const stored = found
+    ? {
+        notice: found,
+        created: false,
+      }
+    : await createPaymentNotice({
+        oystehr,
+        notice: desiredNotice,
+        dedupIdentifier,
+        agent,
+      });
+  // a notice a concurrent delivery stored after the lookup is refreshed like one the lookup found
+  if (!stored.created) {
+    const existing = stored.notice;
     // refresh the notice but keep an existing link if the claim search missed, and the refund and
     // void stamps other writers keep on it
     const reference = claim?.id ? `Claim/${claim.id}` : existing.request?.reference;

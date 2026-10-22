@@ -1,6 +1,15 @@
 import { randomUUID } from 'node:crypto';
 import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
-import { Claim, FhirResource, Money, PaymentNotice, PaymentReconciliation, ProvenanceAgent, Reference } from 'fhir/r4b';
+import {
+  Claim,
+  Coding,
+  FhirResource,
+  Money,
+  PaymentNotice,
+  PaymentReconciliation,
+  ProvenanceAgent,
+  Reference,
+} from 'fhir/r4b';
 import { BILLING_RESOURCE_TAG, PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { parsePaymentRefundsFromNotice, parsePaymentVoidFromNotice } from 'utils/lib/fhir/paymentRefunds';
 import { getContainedReconciliation } from 'utils/lib/fhir/payments';
@@ -52,11 +61,13 @@ export function paymentNoticeHistoryRequest({
   before,
   after,
   agent,
+  dedupTag,
 }: {
   targetReference: string;
   before?: PaymentNotice;
   after: PaymentNotice;
   agent: ProvenanceAgent;
+  dedupTag?: Coding;
 }): BatchInputRequest<FhirResource> | null {
   return claimEventProvenanceRequest({
     targetReference,
@@ -65,6 +76,7 @@ export function paymentNoticeHistoryRequest({
     after,
     agent,
     activity: before ? 'update' : 'create',
+    dedupTag,
   }) as BatchInputRequest<FhirResource> | null;
 }
 
@@ -114,7 +126,8 @@ export async function findPaymentNotice(
   return notice;
 }
 
-// The conditional create still guards against a concurrent writer that got past the caller's lookup
+// The conditional create still guards against a concurrent writer that got past the caller's
+// lookup; `created` is false when that writer stored the notice first.
 export async function createPaymentNotice({
   oystehr,
   notice,
@@ -125,12 +138,17 @@ export async function createPaymentNotice({
   notice: PaymentNotice;
   dedupIdentifier: PaymentNoticeIdentifier;
   agent: ProvenanceAgent;
-}): Promise<PaymentNotice> {
+}): Promise<{ notice: PaymentNotice; created: boolean }> {
   const fullUrl = `urn:uuid:${randomUUID()}`;
   const history = paymentNoticeHistoryRequest({
     targetReference: fullUrl,
     after: notice,
     agent,
+    // keyed like the notice, so the writer that stored the notice first is the one that records it
+    dedupTag: {
+      system: dedupIdentifier.system,
+      code: dedupIdentifier.value,
+    },
   });
   const bundle = await oystehr.fhir.transaction<FhirResource>({
     requests: [
@@ -154,11 +172,16 @@ export async function createPaymentNotice({
       ...(history ? [history] : []),
     ],
   });
-  const created = bundle
+  const stored = bundle
     .unbundle()
     .find((resource): resource is PaymentNotice => resource.resourceType === 'PaymentNotice');
-  if (!created) throw new Error('The PaymentNotice was saved without being returned');
-  return created;
+  if (!stored) throw new Error('The PaymentNotice was saved without being returned');
+  // a conditional create that matched an existing notice answers 200 rather than 201
+  const status = bundle.entry?.find((entry) => entry.resource?.resourceType === 'PaymentNotice')?.response?.status;
+  return {
+    notice: stored,
+    created: !status?.startsWith('200'),
+  };
 }
 
 // Attributed to whoever took the payment or issued the refund, else to the system.
@@ -374,12 +397,14 @@ export const recordBillingPatientPayment = async (
 
   const returned =
     (await findPaymentNotice(oystehr, dedupIdentifier)) ??
-    (await createPaymentNotice({
-      oystehr,
-      notice: desiredNotice,
-      dedupIdentifier,
-      agent: await paymentActor(oystehr, submitterRef, secrets),
-    }));
+    (
+      await createPaymentNotice({
+        oystehr,
+        notice: desiredNotice,
+        dedupIdentifier,
+        agent: await paymentActor(oystehr, submitterRef, secrets),
+      })
+    ).notice;
 
   if (paymentFingerprint(returned) !== paymentFingerprint(desiredNotice)) {
     throw MANUAL_PAYMENT_CONFLICT_ERROR(dedupIdentifier.value);

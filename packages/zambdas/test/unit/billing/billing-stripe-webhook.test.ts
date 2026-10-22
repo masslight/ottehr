@@ -430,6 +430,47 @@ describe('billing-stripe-webhook', () => {
     expect(claimHistoryEntries(transaction.mock.calls[1][0].requests)).toEqual([]);
   });
 
+  it('refreshes a notice a concurrent delivery stored first, recording its creation once', async () => {
+    const { oystehr, transaction } = makeOystehr([[claim]]);
+    const winner = {
+      resourceType: 'PaymentNotice',
+      id: 'pn-winner',
+      identifier: [
+        {
+          system: STRIPE_PAYMENT_ID_SYSTEM,
+          value: 'ch_1',
+        },
+      ],
+    } as PaymentNotice;
+    transaction.mockResolvedValueOnce({
+      entry: [
+        {
+          resource: winner,
+          response: {
+            status: '200 OK',
+          },
+        },
+      ],
+      unbundle: () => [winner],
+    });
+
+    await performEffect(oystehr, {
+      event: makeEvent('charge.succeeded', makeCharge()),
+      secrets,
+    });
+
+    const creationEntry = transaction.mock.calls[0][0].requests.find(
+      (request: BatchInputRequest<FhirResource>) => request.url === '/Provenance'
+    );
+    expect(creationEntry.ifNoneExist).toEqual([
+      {
+        name: '_tag',
+        value: `${STRIPE_PAYMENT_ID_SYSTEM}|ch_1`,
+      },
+    ]);
+    expect(refreshedNotices(transaction).map((notice) => notice.id)).toEqual(['pn-winner']);
+  });
+
   // Regression: the refresh rebuilt the notice from the charge alone, dropping the refund stamps
   // until the next refund event put them back.
   it('keeps the refund stamps on a charge notice it refreshes', async () => {

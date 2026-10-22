@@ -668,6 +668,9 @@ export interface ClaimProvenanceArgs {
   acknowledgment?: ClaimAcknowledgmentEvent;
   // The transmit facts captured when the claim was submitted, stored for the same reason.
   transmit?: ClaimTransmitEvent;
+  // A tag no other entry carries: the entry is created only while none has it, so a retried or
+  // concurrent write records its change once.
+  dedupTag?: Coding;
 }
 
 // Multi-reference fields (the claim's coverage field) join their references with ', '.
@@ -792,6 +795,13 @@ export function claimProvenanceRequest(args: ClaimProvenanceArgs): BatchInputPos
 
   const provenance: Provenance = {
     resourceType: 'Provenance',
+    ...(args.dedupTag
+      ? {
+          meta: {
+            tag: [args.dedupTag],
+          },
+        }
+      : {}),
     target,
     recorded: args.recorded,
     activity: {
@@ -805,6 +815,16 @@ export function claimProvenanceRequest(args: ClaimProvenanceArgs): BatchInputPos
     method: 'POST',
     url: '/Provenance',
     resource: provenance,
+    ...(args.dedupTag
+      ? {
+          ifNoneExist: [
+            {
+              name: '_tag',
+              value: `${args.dedupTag.system}|${args.dedupTag.code}`,
+            },
+          ],
+        }
+      : {}),
   };
 }
 
