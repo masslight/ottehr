@@ -1,4 +1,5 @@
 import Oystehr from '@oystehr/sdk';
+import { captureException, captureMessage } from '@sentry/node-core/light';
 import {
   Appointment,
   Bundle,
@@ -22,7 +23,7 @@ import { VitalsAlertConfig } from 'utils/lib/types/api/vitals-alert-config/vital
 import { IN_HOUSE_TEST_CODE_SYSTEM } from 'utils/lib/types/data/in-house/in-house.constants';
 import { OYSTEHR_LAB_OI_CODE_SYSTEM } from 'utils/lib/types/data/labs/labs.constants';
 import { DEFAULT_VITALS_ALERT_CONFIG, vitalsAlertConfigToVitalsDef } from 'utils/lib/utils/vitals-alert-config';
-import { describe, expect, test, vi } from 'vitest';
+import { beforeEach, describe, expect, test, vi } from 'vitest';
 import {
   buildSearchUrl,
   executeBatchSearches,
@@ -489,6 +490,11 @@ describe('selectVitalsPatientsByEncounterId', () => {
 });
 
 describe('fetchTrackingBoardResources', () => {
+  beforeEach(() => {
+    vi.mocked(captureException).mockClear();
+    vi.mocked(captureMessage).mockClear();
+  });
+
   const sizeCapError = (): Error =>
     new Error('Response payload size exceeds the maximum allowed size (6,291,456 bytes)');
   const searchsetOf = (resources: FhirResource[]): Bundle<FhirResource> => ({
@@ -528,7 +534,7 @@ describe('fetchTrackingBoardResources', () => {
       .slice(TRACKING_BOARD_ENTRIES_PER_BATCH)
       .map((search) => search.url);
 
-  test('an oversized batch is retried as smaller ones, and the batches that fit are not sent again', async () => {
+  test('an oversized batch is retried one search per batch, and the batches that fit are not sent again', async () => {
     // Stand-in for the byte cap: a ServiceRequest search over more than 20 encounters is "too large".
     const sentBatches: string[][] = [];
     const batch = vi.fn(async (request: BatchRequest): Promise<Bundle<FhirResource>> => {
@@ -552,6 +558,12 @@ describe('fetchTrackingBoardResources', () => {
     // The old retry re-sent every search, the ones that had fit included, as more and larger-fanout batches.
     const sent = sentBatches.flat();
     vitalsBatchUrls().forEach((url) => expect(sent.filter((sentUrl) => sentUrl === url)).toHaveLength(1));
+    // Each failed attempt costs a full server-side build of the oversized response, so an oversized batch goes
+    // straight to one search per batch: halving it instead would re-send the searches that fit and add a serial
+    // failure per level before the too-large search could split its encounters.
+    buildTrackingBoardSearches(encounterIds(100)).forEach((search) =>
+      expect(sent.filter((sentUrl) => sentUrl === search.url).length).toBeLessThanOrEqual(2)
+    );
   });
 
   test('a search that cannot shrink below one encounter is reported failed, not retried forever', async () => {
@@ -568,8 +580,9 @@ describe('fetchTrackingBoardResources', () => {
   });
 
   test('a batch that fails for another reason is not retried, and the other batches still count', async () => {
+    const boom = new Error('boom');
     const batch = vi.fn(async (request: BatchRequest): Promise<Bundle<FhirResource>> => {
-      if (hasUrl('Observation?')(request)) throw new Error('boom');
+      if (hasUrl('Observation?')(request)) throw boom;
       return answer(request);
     });
     const oystehr = { fhir: { batch, search: vi.fn() } } as unknown as Oystehr;
@@ -579,6 +592,32 @@ describe('fetchTrackingBoardResources', () => {
     expect(batch).toHaveBeenCalledTimes(2);
     expect(result.failedUrls).toEqual(vitalsBatchUrls());
     expect(serviceRequestIds(result.resources)).toHaveLength(100);
+    // The failure no longer reaches index.ts's catch, so Sentry would never hear of it otherwise.
+    expect(captureException).toHaveBeenCalledWith(boom);
+  });
+
+  test('a next page that exceeds the size cap is split by encounter, like a first page', async () => {
+    // The two-encounter ServiceRequest search has a second page that is too large; each encounter alone fits. The
+    // split re-runs the search per encounter from the first page, and the pools dedupe what page one already held.
+    const batch = vi.fn(async ({ requests }: BatchRequest): Promise<Bundle<FhirResource>> => {
+      if (requests.some(({ url }) => url.includes('_offset='))) throw sizeCapError();
+      return batchResponse(
+        requests.map(({ url }) => {
+          if (!url.startsWith('ServiceRequest?')) return searchsetOf([]);
+          const ids = encountersIn(url);
+          const orders = ids.map((id) => serviceRequest(`sr-${id}`, { encounter: { reference: `Encounter/${id}` } }));
+          return ids.length > 1
+            ? { ...searchsetOf(orders.slice(0, 1)), link: [{ relation: 'next', url: 'unused' }] }
+            : searchsetOf(orders);
+        })
+      );
+    });
+    const oystehr = { fhir: { batch, search: vi.fn() } } as unknown as Oystehr;
+
+    const result = await fetchTrackingBoardResources({ oystehr, encounterIds: encounterIds(2) });
+
+    expect(result.failedUrls).toEqual([]);
+    expect(new Set(serviceRequestIds(result.resources))).toEqual(new Set(['sr-enc-0', 'sr-enc-1']));
   });
 
   test('at the deadline it settles with what arrived and counts the searches still in flight as failed', async () => {
@@ -596,6 +635,8 @@ describe('fetchTrackingBoardResources', () => {
 
     expect(result.failedUrls).toEqual(vitalsBatchUrls());
     expect(serviceRequestIds(result.resources)).toHaveLength(100);
+    // Settling early keeps the Lambda from timing out, which also keeps Sentry's timeout warning from firing.
+    expect(captureMessage).toHaveBeenCalledWith(expect.stringContaining('deadline'), 'warning');
   });
 
   test('past the deadline an oversized batch is not split into new requests', async () => {

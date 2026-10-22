@@ -1,4 +1,5 @@
 import Oystehr, { BatchInputGetRequest, SearchParam } from '@oystehr/sdk';
+import { captureException, captureMessage } from '@sentry/node-core/light';
 import { Bundle, FhirResource } from 'fhir/r4b';
 import { chunkThings } from 'utils/lib/fhir/chat';
 import { isResponseSizeExceededError } from 'utils/lib/fhir/responseSize';
@@ -68,10 +69,8 @@ export const settleByDeadline = <T>(
   return Promise.race([work, expired]).finally(() => clearTimeout(timer));
 };
 
-const halve = <T>(items: T[]): T[][] => chunkThings(items, Math.ceil(items.length / 2));
-
 const splitOversizedBatch = (batch: BatchSearch[]): BatchSearch[][] | undefined => {
-  if (batch.length > 1) return halve(batch);
+  if (batch.length > 1) return batch.map((search) => [search]);
   const narrower = batch[0]?.split?.() ?? [];
   return narrower.length > 1 ? narrower.map((search) => [search]) : undefined;
 };
@@ -118,6 +117,7 @@ export const executeBatchSearches = async (
       if (!smaller) {
         failedUrls.push(...urlsOf(batch));
         console.error(`batch search failed after ${Date.now() - startedAt} ms`, urlsOf(batch), outcome.error);
+        captureException(outcome.error);
         return;
       }
       console.warn(
@@ -146,7 +146,7 @@ export const executeBatchSearches = async (
       const next = searchset.link?.find((link) => link.relation === 'next')?.url;
       if (next) {
         const followUp = nextPageUrl(requestUrl, next, fhirApiUrl);
-        if (followUp) nextPages.push({ url: followUp });
+        if (followUp) nextPages.push({ url: followUp, split: batch[entryIndex]?.split });
       }
     });
 
@@ -167,7 +167,9 @@ export const executeBatchSearches = async (
     deadline,
     () => {
       const outstanding = [...inFlight].flatMap(urlsOf);
-      console.warn(`batch search reached its deadline with ${outstanding.length} entries in flight`);
+      const message = `batch search reached its deadline with ${outstanding.length} entries in flight`;
+      console.warn(message);
+      captureMessage(message, 'warning');
       return { resources: [...resources], failedUrls: [...failedUrls, ...outstanding] };
     }
   );
