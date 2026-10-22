@@ -11,7 +11,11 @@ import {
 } from 'fhir/r4b';
 import { CPT_CODE_SYSTEM, FHIR_IDENTIFIER_NPI } from 'utils/lib/fhir/constants';
 import { getPayerUrl } from 'utils/lib/helpers/helpers';
-import { CODE_SYSTEM_CMS_PLACE_OF_SERVICE, EXTENSION_URL_CPT_MODIFIER } from 'utils/lib/helpers/rcm/constants';
+import {
+  CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
+  CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
+  EXTENSION_URL_CPT_MODIFIER,
+} from 'utils/lib/helpers/rcm/constants';
 import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
 import { BillingInsuranceType } from 'utils/lib/types/data/billing/billing.schemas';
 import { ChargeItemDefinitionDefault } from 'utils/lib/types/data/billing/billing.types';
@@ -27,7 +31,7 @@ import {
   RULE_FIELD_CATALOG,
   SERVICE_LINE_PROPERTY_CATALOG,
 } from 'utils/lib/types/data/billing/rules-engine.field-catalog';
-import { BillingRule } from 'utils/lib/types/data/billing/rules-engine.schemas';
+import { BillingRule, RuleConditionValue, RuleOperator } from 'utils/lib/types/data/billing/rules-engine.schemas';
 import { HOLD_TAG_NAME } from 'utils/lib/types/data/billing/system-tags';
 import { describe, expect, it } from 'vitest';
 import {
@@ -365,6 +369,43 @@ describe('rules-engine evaluator', () => {
     );
   });
 
+  it('compares the service by the name the claims list shows, however the rule spells it', () => {
+    const m = makeModel();
+    m.claim.meta = { tag: [{ system: CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM, code: 'workers-comp' }] };
+    const service = (operator: RuleOperator, value?: RuleConditionValue): boolean =>
+      evaluateCondition({ type: 'field', field: 'service', operator, value }, m);
+
+    expect(readField(m, 'service')).toBe('Workers Comp');
+    // The name as shown, the code (how rules named it before), and other spellings of the name.
+    expect(service('eq', 'Workers Comp')).toBe(true);
+    expect(service('eq', 'workers-comp')).toBe(true);
+    expect(service('eq', ' workers  comp ')).toBe(true);
+    expect(service('eq', 'Urgent Care')).toBe(false);
+    expect(service('neq', 'Workers Comp')).toBe(false);
+    expect(service('in', ['Urgent Care', 'Workers Comp'])).toBe(true);
+    expect(service('notIn', ['Urgent Care', 'Occupational Medicine'])).toBe(true);
+    expect(service('contains', 'comp')).toBe(true);
+    expect(service('notContains', 'Urgent')).toBe(true);
+    expect(service('startsWith', 'Workers C')).toBe(true);
+    expect(service('notStartsWith', 'Workers')).toBe(false);
+    // A pattern matches either the name as shown or the code.
+    expect(service('matches', '^Workers Comp$')).toBe(true);
+    expect(service('matches', '^workers-comp$')).toBe(true);
+    expect(service('notMatches', '^Urgent')).toBe(true);
+    expect(service('exists')).toBe(true);
+
+    // Other text fields still compare exactly.
+    expect(evaluateCondition({ type: 'field', field: 'insurance.memberId', operator: 'eq', value: 'mem-123' }, m)).toBe(
+      false
+    );
+
+    // A claim without a service matches nothing but the negations.
+    m.claim.meta = { tag: [] };
+    expect(service('eq', 'Workers Comp')).toBe(false);
+    expect(service('neq', 'Workers Comp')).toBe(true);
+    expect(service('notExists')).toBe(true);
+  });
+
   it('reads logical fields that span resources', () => {
     const m = makeModel();
     expect(readField(m, 'payerId')).toBe('123456');
@@ -424,8 +465,19 @@ describe('rules-engine evaluator', () => {
     expect(readField(m, 'type')).toBe('institutional');
     expect(writeField(m, 'type', 'dental')).toBe(false);
 
+    // Rules name the service as the claims list shows it; the claim's tag stores the code. A code
+    // (how rules named it before names were supported) is stored as-is.
+    const serviceCodes = (): (string | undefined)[] =>
+      (m.claim.meta?.tag ?? []).filter((t) => t.system === CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM).map((t) => t.code);
+    expect(writeField(m, 'service', 'Workers Comp')).toBe(true);
+    expect(serviceCodes()).toEqual(['workers-comp']);
+    expect(readField(m, 'service')).toBe('Workers Comp');
     expect(writeField(m, 'service', 'urgent-care')).toBe(true);
-    expect(readField(m, 'service')).toBe('urgent-care');
+    expect(serviceCodes()).toEqual(['urgent-care']);
+    expect(readField(m, 'service')).toBe('Urgent Care');
+    expect(writeField(m, 'service', null)).toBe(true);
+    expect(serviceCodes()).toEqual([]);
+    expect(readField(m, 'service')).toBeUndefined();
 
     expect(writeField(m, 'serviceDate', '2026-02-02')).toBe(true);
     expect(readField(m, 'serviceDate')).toBe('2026-02-02');

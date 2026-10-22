@@ -45,8 +45,10 @@ import {
   CLAIM_STATUS_FIELD_KEYS,
   CLAIM_STATUS_FIELDS_BY_KEY,
   ClaimStatusFieldKey,
+  formatAntCaseString,
   getClaimStatusFieldValue,
   isValidClaimStatusValue,
+  parseAntCaseString,
 } from 'utils/lib/types/data/billing/claim-status';
 import { CLAIM_NON_INSURANCE_PAYER_EXTENSION_URL } from 'utils/lib/types/data/billing/non-insurance-org.types';
 import { getServiceLinePropertyDef } from 'utils/lib/types/data/billing/rules-engine.field-catalog';
@@ -435,7 +437,12 @@ const READERS: Record<string, FieldReader> = {
   payerId: (m) => extractPayerIdFromCoverageRef(primaryCoverage(m)?.payor?.[0]?.reference),
   nonInsurancePayerId: (m) => getClaimNonInsurancePayer(m.claim)?.reference?.replace('Organization/', ''),
   type: (m) => getClaimType(m.claim),
-  service: (m) => getClaimService(m.claim),
+  // The name the claim screens show (workers-comp reads as "Workers Comp"). Conditions compare through
+  // the service format's normalize, so rules that name the code still match.
+  service: (m) => {
+    const code = getClaimService(m.claim);
+    return code ? formatAntCaseString(code) : undefined;
+  },
   serviceDate: (m) => m.claim.item?.[0]?.servicedPeriod?.start ?? m.claim.item?.[0]?.servicedDate,
   created: (m) => m.claim.created,
   billingType: (m) => (claimHasRealCoverage(m.claim.insurance) ? 'Insurance Pay' : 'Self Pay'),
@@ -743,10 +750,13 @@ const setClaimType = (claim: Claim, value: string | null): boolean => {
   return true;
 };
 
+// Rules name the service the way the claim screens show it ("Workers Comp"); the claim's tag carries
+// its code (workers-comp). A value already in code form passes through unchanged.
 const setClaimService = (claim: Claim, value: string | null): boolean => {
+  const code = parseAntCaseString(value ?? undefined);
   claim.meta = claim.meta ?? {};
   const rest = (claim.meta.tag ?? []).filter((t) => t.system !== CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM);
-  claim.meta.tag = value ? [...rest, { system: CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM, code: value }] : rest;
+  claim.meta.tag = code ? [...rest, { system: CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM, code }] : rest;
   return true;
 };
 

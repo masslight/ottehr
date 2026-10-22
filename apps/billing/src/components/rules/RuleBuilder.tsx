@@ -72,6 +72,7 @@ import { NioSelect } from '../NioSelect';
 import { PayerSelect } from '../PayerSelect';
 import { ProcedureCodeAutocomplete } from '../ProcedureCodeAutocomplete';
 import { ProviderSelect } from '../ProviderSelect';
+import { ServiceSelect } from '../ServiceSelect';
 import { TagSelect } from '../TagSelect';
 
 // ---------------------------------------------------------------------------
@@ -322,7 +323,7 @@ function TypedValueInput({
 }
 
 // Field-aware value input, dispatched on the catalog's valueType/format so new typed fields
-// (dropdowns with options, date pickers, numbers, tag/CPT/payer pickers) only need a catalog entry —
+// (dropdowns with options, date pickers, numbers, tag/CPT/payer/service pickers) only need a catalog entry —
 // and, for a genuinely new type, a branch here or in TypedValueInput.
 function FieldValueInput({
   fieldId,
@@ -410,6 +411,20 @@ function FieldValueInput({
         value={value}
         onChange={onChange}
         label={label ?? 'Facility'}
+        required={required}
+        error={error}
+        helperText={helperText}
+        inputRef={inputRef}
+      />
+    );
+  }
+  if (def?.format === 'service') {
+    return (
+      <ServiceSelect
+        multiple={multiple}
+        value={value}
+        onChange={onChange}
+        label={label}
         required={required}
         error={error}
         helperText={helperText}

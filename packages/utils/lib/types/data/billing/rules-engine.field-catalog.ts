@@ -7,7 +7,7 @@ import { isoDateRegex, taxIdRegex, zipRegex } from '../../../validation/regex';
 import { AllStates, stateCodeToFullName } from '../../common';
 import { PERSON_GENDER_OPTIONS } from './billing.constants';
 import { BILLING_INSURANCE_TYPE_OPTIONS } from './billing.types';
-import { CLAIM_STATUS_FIELDS } from './claim-status';
+import { CLAIM_STATUS_FIELDS, parseAntCaseString } from './claim-status';
 import {
   AddServiceLineInput,
   DATE_SOURCE_KIND,
@@ -125,16 +125,20 @@ export interface RuleFieldOption {
 
 // Value formats a text-typed field can declare. Formats with a `validate` are enforced on
 // exact-match condition values and written values (fragment operators like contains/startsWith
-// legitimately take partial values and skip them); `tag` and `cpt` carry no sync validator — they
-// pick the rule builder's input component (tag dropdown / CPT terminology autocomplete), and tag
-// existence is checked server-side at save time.
-export type RuleValueFormat = 'npi' | 'clia' | 'zip' | 'taxId' | 'taxonomy' | 'tag' | 'cpt';
+// legitimately take partial values and skip them); `tag`, `cpt` and `service` carry no sync
+// validator — they pick the rule builder's input component (tag dropdown / CPT terminology
+// autocomplete / service picker), and tag existence is checked server-side at save time.
+export type RuleValueFormat = 'npi' | 'clia' | 'zip' | 'taxId' | 'taxonomy' | 'tag' | 'cpt' | 'service';
 
 export interface RuleValueFormatDef {
-  // Sync per-value check; absent for formats that only drive input dispatch (tag, cpt).
+  // Sync per-value check; absent for formats that only drive input dispatch (tag, cpt, service).
   validate?: (value: string) => string | undefined;
   // One-line format hint for the generated docs and UI helper text.
   hint: string;
+  // For values with more than one spelling, the canonical form the engine compares: both sides of a
+  // condition are reduced to it, so a service's displayed name ("Workers Comp") and its code
+  // (workers-comp) are the same value.
+  normalize?: (value: string) => string;
 }
 
 // Messages mirror the billing app's form validation (billing.schemas.ts / the provider and
@@ -163,6 +167,7 @@ export const RULE_VALUE_FORMATS: Record<RuleValueFormat, RuleValueFormatDef> = {
   },
   tag: { hint: 'a tag defined on the Tags page' },
   cpt: { hint: 'a CPT/HCPCS code' },
+  service: { hint: 'a service name as the claims list shows it, e.g. Workers Comp', normalize: parseAntCaseString },
 };
 
 export interface RuleFieldDef {
@@ -551,7 +556,10 @@ export const RULE_FIELD_CATALOG: RuleFieldDef[] = [
     operators: SCALAR_OPS,
     settable: true,
     description:
-      'The service category code on the claim (e.g. urgent-care, workers-comp). Categories are configurable, so the value is free text.',
+      'The service category, by the name the claims list shows (e.g. Workers Comp). Pick a service seen on a claim so far, or type the name of one no claim has used yet. ' +
+      'Comparisons ignore case and treat hyphens as spaces, so the underlying code (workers-comp) matches too, and a pattern matches either form. ' +
+      'Setting it stores the code for the name (lowercased, words joined by hyphens).',
+    format: 'service',
   },
   {
     id: 'serviceDate',

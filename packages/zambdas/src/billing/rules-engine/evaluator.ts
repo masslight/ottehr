@@ -1,6 +1,10 @@
 import { resourceHasTag } from 'utils/lib/fhir/helpers';
 import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
-import { getRuleFieldDef, getServiceLinePropertyDef } from 'utils/lib/types/data/billing/rules-engine.field-catalog';
+import {
+  getRuleFieldDef,
+  getServiceLinePropertyDef,
+  RULE_VALUE_FORMATS,
+} from 'utils/lib/types/data/billing/rules-engine.field-catalog';
 import {
   BillingRule,
   DiagnosisPointerMode,
@@ -63,12 +67,16 @@ export const evaluateOperator = (
   // numeric: eq/neq/in/notIn compare numerically when both sides parse ('100' matches '100.00' —
   // readers normalize amounts but rule values keep the author's formatting). Only number-typed
   // properties opt in: ids like member IDs must stay distinct strings ('00123' ≠ '123').
-  opts?: { numeric?: boolean }
+  // normalize: the canonical form of a value with more than one spelling (a service's name and its
+  // code). Equality, membership, contains and starts-with compare both sides' canonical forms; a
+  // pattern matches when it matches the value as read or its canonical form.
+  opts?: { numeric?: boolean; normalize?: (value: string) => string }
 ): boolean => {
   const expectedScalar = Array.isArray(expected) ? expected[0] : expected;
+  const normalize = opts?.normalize ?? ((value: string): string => value);
 
   const scalarsEqual = (a: string, e: string): boolean => {
-    if (a === e) return true;
+    if (normalize(a) === normalize(e)) return true;
     if (!opts?.numeric) return false;
     const aNum = asFiniteNumber(a);
     const eNum = asFiniteNumber(e);
@@ -84,12 +92,13 @@ export const evaluateOperator = (
   };
   const contains = (): boolean => {
     if (expectedScalar == null) return false;
-    if (Array.isArray(actual)) return actual.includes(expectedScalar);
-    return typeof actual === 'string' && actual.includes(expectedScalar);
+    const e = normalize(expectedScalar);
+    if (Array.isArray(actual)) return actual.some((entry) => normalize(entry) === e);
+    return typeof actual === 'string' && normalize(actual).includes(e);
   };
   const startsWith = (): boolean => {
     if (expectedScalar == null) return false;
-    return typeof actual === 'string' && actual.startsWith(expectedScalar);
+    return typeof actual === 'string' && normalize(actual).startsWith(normalize(expectedScalar));
   };
   // Standard (unanchored) regex semantics: the pattern can match anywhere in the value; authors
   // anchor with ^/$ for a whole-value match. A list actual matches when any entry does. Save-time
@@ -103,8 +112,10 @@ export const evaluateOperator = (
     } catch {
       return false;
     }
-    if (Array.isArray(actual)) return actual.some((entry) => pattern.test(entry));
-    return typeof actual === 'string' && pattern.test(actual);
+    const test = (value: string): boolean =>
+      pattern.test(value) || (opts?.normalize != null && pattern.test(opts.normalize(value)));
+    if (Array.isArray(actual)) return actual.some(test);
+    return typeof actual === 'string' && test(actual);
   };
   // Ordering for gt/gte/lt/lte: numeric when both sides parse as numbers (amounts), otherwise
   // lexicographic — which is chronological for ISO dates (YYYY-MM-DD). Returns undefined (condition
@@ -172,10 +183,13 @@ export function evaluateCondition(condition: RuleCondition, model: RulesEngineCl
       const results = condition.conditions.map((c) => evaluateCondition(c, model));
       return condition.logic === 'and' ? results.every(Boolean) : results.some(Boolean);
     }
-    case RULE_CONDITION_TYPE.field:
+    case RULE_CONDITION_TYPE.field: {
+      const def = getRuleFieldDef(condition.field);
       return evaluateOperator(condition.operator, readField(model, condition.field), condition.value, {
-        numeric: getRuleFieldDef(condition.field)?.valueType === 'number',
+        numeric: def?.valueType === 'number',
+        normalize: def?.format ? RULE_VALUE_FORMATS[def.format].normalize : undefined,
       });
+    }
     default:
       return false;
   }
