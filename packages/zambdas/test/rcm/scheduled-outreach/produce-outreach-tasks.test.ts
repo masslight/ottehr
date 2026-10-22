@@ -343,7 +343,7 @@ describe('produce-outreach-tasks', () => {
       );
 
       expect(updated).toBe(1);
-      const patchOps = JSON.parse((requests[0].resource as any).data);
+      const patchOps = JSON.parse(((requests[0] as any).resource as any).data);
       const inputOp = patchOps.find((op: any) => op.path === '/input');
       expect(inputOp.value).toEqual(
         expect.arrayContaining([
