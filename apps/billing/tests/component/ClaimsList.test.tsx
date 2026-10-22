@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { BillingClaimItem } from 'utils/lib/types/data/billing/billing.types';
@@ -15,6 +16,7 @@ const {
   pollExportTaskMock,
   downloadTextFileMock,
   searchBillingPatientsMock,
+  searchBillingServicesMock,
   mockOystehrZambda,
 } = vi.hoisted(() => ({
   searchBillingClaimsMock: vi.fn(),
@@ -25,6 +27,7 @@ const {
   pollExportTaskMock: vi.fn(),
   downloadTextFileMock: vi.fn(),
   searchBillingPatientsMock: vi.fn().mockResolvedValue({ patients: [] }),
+  searchBillingServicesMock: vi.fn().mockResolvedValue({ services: [] }),
   mockOystehrZambda: {},
 }));
 
@@ -37,9 +40,8 @@ vi.mock('../../src/api/api', () => ({
   searchBillingPatients: searchBillingPatientsMock,
   searchBillingPayers: vi.fn().mockResolvedValue({ payers: [] }),
   searchBillingCustomInsuranceOrgs: vi.fn().mockResolvedValue({ organizations: [] }),
-  // Preloaded on mount behind a debounce timer — without this export the timer explodes on slow
-  // (CI) runners after the test body has already finished.
-  searchBillingServices: vi.fn().mockResolvedValue({ services: [] }),
+  // Preloaded on mount — without this export the load explodes after the test body has finished.
+  searchBillingServices: searchBillingServicesMock,
   searchBillingTags: vi.fn().mockResolvedValue({ tags: [] }),
 }));
 
@@ -621,6 +623,41 @@ describe('ClaimsList — persisted filters', () => {
       // Only id/name round-trip through sessionStorage — dob, address, gender, and clinical IDs
       // from the selected option never get written.
       expect(stored.selectedPatients).toEqual([{ id: 'patient-1', name: 'Jones, Alex' }]);
+    });
+  });
+});
+
+describe('ClaimsList — service filter', () => {
+  beforeEach(() => {
+    searchBillingClaimsMock.mockReset();
+    searchBillingClaimsMock.mockResolvedValue({ claims: [], total: 0 });
+    // Like search-billing-services: the whole registry with no name, else an exact code match only.
+    const services = [{ name: 'urgent-care' }, { name: 'workers-comp' }];
+    searchBillingServicesMock.mockReset();
+    searchBillingServicesMock.mockImplementation((_client: unknown, params: { name?: string }) =>
+      Promise.resolve({ services: params.name ? services.filter((s) => s.name === params.name) : services })
+    );
+  });
+
+  it('finds a service by typing part of its name, and filters claims by its code', async () => {
+    const user = userEvent.setup();
+    renderList();
+    const input = await screen.findByRole('combobox', { name: 'Service' });
+
+    await user.type(input, 'work');
+    const option = await screen.findByRole('option', { name: 'Workers Comp' }, { timeout: 5000 });
+    expect(screen.queryByRole('option', { name: 'Urgent Care' })).not.toBeInTheDocument();
+    await user.click(option);
+
+    await waitFor(() =>
+      expect(searchBillingClaimsMock).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ service: ['workers-comp'] })
+      )
+    );
+    await waitFor(() => {
+      const stored = JSON.parse(sessionStorage.getItem(FILTERS_STORAGE_KEY) ?? '{}');
+      expect(stored.selectedServices).toEqual([{ name: 'workers-comp' }]);
     });
   });
 });

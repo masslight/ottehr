@@ -1,17 +1,14 @@
 import { Autocomplete, AutocompleteRenderInputParams, TextField } from '@mui/material';
-import { ReactElement, ReactNode, Ref, useEffect, useState } from 'react';
-import { BillingService } from 'utils/lib/types/data/billing/billing.types';
-import { formatAntCaseString, parseAntCaseString } from 'utils/lib/types/data/billing/claim-status';
-import { searchBillingServices } from '../api/api';
-import { useApiClients } from '../hooks/useAppClients';
+import { ReactElement, ReactNode, Ref, useMemo, useState } from 'react';
+import { parseAntCaseString } from 'utils/lib/types/data/billing/claim-status';
+import { BillingServiceOption, useBillingServices } from '../hooks/useBillingServices';
 import { valueToText } from '../utils/format';
 
-// Service picker for the rules builder. It offers every service seen on a claim so far (the registry
-// behind the claims list's Service filter) by the name the claim screens show ("Workers Comp", not
-// its workers-comp code), and stores that name: the engine compares services by name, ignoring case
-// and hyphens, so a name and its code are the same service. Free text is allowed so a rule can name a
-// service no claim has used yet. The registry is small and loads once, filtered client-side (the
-// TagSelect precedent).
+// Service picker for the rules builder. It offers every service seen on a claim so far (the same list
+// and names as the claims list's Service filter) by the name the claim screens show ("Workers Comp",
+// not its workers-comp code), and stores that name: the engine compares services by name, ignoring
+// case and hyphens, so a name and its code are the same service. Free text is allowed so a rule can
+// name a service no claim has used yet.
 
 interface ServiceSelectProps {
   multiple: boolean;
@@ -25,11 +22,11 @@ interface ServiceSelectProps {
   inputRef?: Ref<HTMLInputElement>;
 }
 
-// The registry's codes as display names, one per service.
-const serviceNames = (services: BillingService[]): string[] => {
+// One name per service: codes that differ only in case or separators read as the same name.
+const uniqueNames = (services: BillingServiceOption[]): string[] => {
   const seen = new Set<string>();
   return services
-    .map((service) => formatAntCaseString(service.name))
+    .map((service) => service.name)
     .filter((name) => {
       const key = parseAntCaseString(name);
       if (!key || seen.has(key)) return false;
@@ -55,23 +52,10 @@ export function ServiceSelect({
   helperText,
   inputRef,
 }: ServiceSelectProps): ReactElement {
-  const { oystehrZambda } = useApiClients();
-  const [names, setNames] = useState<string[]>([]);
+  const services = useBillingServices();
+  const names = useMemo(() => uniqueNames(services), [services]);
   // Multiple only: text typed but not yet added as a chip.
   const [pending, setPending] = useState('');
-
-  useEffect(() => {
-    if (!oystehrZambda) return;
-    let active = true;
-    searchBillingServices(oystehrZambda, {})
-      .then((res) => {
-        if (active) setNames(serviceNames(res.services ?? []));
-      })
-      .catch(() => undefined);
-    return () => {
-      active = false;
-    };
-  }, [oystehrZambda]);
 
   const renderInput = (params: AutocompleteRenderInputParams): ReactElement => (
     <TextField

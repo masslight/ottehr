@@ -60,7 +60,6 @@ import {
   searchBillingClaims,
   searchBillingNonInsuranceOrgs,
   searchBillingPatients,
-  searchBillingServices,
   searchBillingTags,
   tagBillingClaim,
   updateBillingResource,
@@ -74,6 +73,7 @@ import { TagSelect } from '../components/TagSelect';
 import { WarningIconWithTooltip } from '../components/WarningIconWithTooltip';
 import { claimStatusValueColor, PROVISIONAL_BALANCE_HINT } from '../constants/claimStatus';
 import { useApiClients } from '../hooks/useAppClients';
+import { billingServiceOption, useBillingServices } from '../hooks/useBillingServices';
 import { useFacilityOptionsSearch, useProviderOptionsSearch } from '../hooks/useOptionSearch';
 import { downloadTextFile } from '../utils/downloadFile';
 import { formatFacilityAddress, valueToText } from '../utils/format';
@@ -321,7 +321,6 @@ export default function ClaimsList(): ReactElement {
   const [paginationModel, setPaginationModel] = useState<GridPaginationModel>(
     storedFilters?.paginationModel ?? { page: 0, pageSize: 25 }
   );
-  const [serviceOptions, setServiceOptions] = useState<BillingService[]>([]);
 
   const [selected, setSelected] = useState<GridRowSelectionModel>([]);
   const [runRulesModalOpen, setRunRulesModalOpen] = useState(false);
@@ -337,6 +336,7 @@ export default function ClaimsList(): ReactElement {
   const [bulkSetSFModalOpen, setBulkSetSFModalOpen] = useState(false);
 
   const { options: payerOptions, search: searchPayers } = usePayerSearch();
+  const services = useBillingServices();
   const [nioOptions, setNioOptions] = useState<NonInsuranceOrganizationItem[]>([]);
   const [patientOptions, setPatientOptions] = useState<BillingPatientOption[]>([]);
 
@@ -356,9 +356,14 @@ export default function ClaimsList(): ReactElement {
   );
   const [typeFilter, setTypeFilter] = useState<ClaimTypeCode[]>(storedFilters?.typeFilter ?? []);
   const [selectedServices, setSelectedServices] = useState<BillingService[]>(storedFilters?.selectedServices ?? []);
+  // The filter keeps (and saves) service codes; its picker works with the code and name options the
+  // service list offers. Memoized so a re-render mid-typing doesn't reset the picker's input.
+  const selectedServiceOptions = useMemo(
+    () => selectedServices.map((sv) => billingServiceOption(sv.name)),
+    [selectedServices]
+  );
 
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const serviceDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const nioDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const patientDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -367,7 +372,6 @@ export default function ClaimsList(): ReactElement {
   useEffect(() => {
     return (): void => {
       if (debounceTimer.current) clearTimeout(debounceTimer.current);
-      if (serviceDebounce.current) clearTimeout(serviceDebounce.current);
       if (patientDebounce.current) clearTimeout(patientDebounce.current);
     };
   }, []);
@@ -400,19 +404,6 @@ export default function ClaimsList(): ReactElement {
     },
     [oystehrZambda]
   );
-
-  const searchServices = useCallback(
-    (query: string): void => {
-      if (!oystehrZambda) return;
-      if (serviceDebounce.current) clearTimeout(serviceDebounce.current);
-      serviceDebounce.current = setTimeout(async () => {
-        const res = await searchBillingServices(oystehrZambda, query ? { name: query } : {});
-        setServiceOptions(res.services ?? []);
-      }, 300);
-    },
-    [oystehrZambda]
-  );
-  useEffect(() => searchServices(''), [searchServices]);
 
   useEffect(() => searchPayers(''), [searchPayers]);
 
@@ -814,20 +805,15 @@ export default function ClaimsList(): ReactElement {
           disableCloseOnSelect
           limitTags={1}
           size="small"
-          options={serviceOptions}
-          getOptionLabel={(o) => `${formatAntCaseString(o.name)}`}
-          onInputChange={(_, value, reason) => {
-            if (reason === 'input') searchServices(value);
-          }}
-          onOpen={() => searchServices('')}
-          filterOptions={(x) => x}
-          value={selectedServices}
+          options={services}
+          getOptionLabel={(o) => o.name}
+          value={selectedServiceOptions}
           onChange={(_, v) => {
-            setSelectedServices(v);
-            applyFilters({ service: v.map((sv) => sv.name) });
+            setSelectedServices(v.map((o) => ({ name: o.code })));
+            applyFilters({ service: v.map((o) => o.code) });
           }}
           renderInput={(params) => <TextField {...params} label="Service" />}
-          isOptionEqualToValue={(o, v) => o.name === v.name}
+          isOptionEqualToValue={(o, v) => o.code === v.code}
           sx={{ minWidth: 180, maxWidth: 300 }}
         />
 
