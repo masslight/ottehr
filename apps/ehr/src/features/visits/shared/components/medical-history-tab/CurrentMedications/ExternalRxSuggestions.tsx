@@ -34,6 +34,8 @@ export interface ExternalMedicationSelection {
   type?: MedicationDTO['type'];
   date?: string;
   patientCouldNotConfirmDosage?: boolean;
+  lastFilledDate?: string;
+  refills?: number;
 }
 
 interface ExternalRxSuggestionsProps {
@@ -90,10 +92,13 @@ export const ExternalRxSuggestions: FC<ExternalRxSuggestionsProps> = ({ chartedM
     (med: ExternalMedication) => {
       const matched = med.matchedMedication;
       if (matched && onSelectMedication) {
+        const refills = Number.parseInt(med.refills, 10);
         onSelectMedication({
           medication: matched,
           dose: med.strength,
           directions: med.directions,
+          lastFilledDate: med.lastFillDate ?? undefined,
+          refills: Number.isNaN(refills) ? undefined : refills,
         });
         setAddedIds((prev) => new Set(prev).add(matched.id));
       }

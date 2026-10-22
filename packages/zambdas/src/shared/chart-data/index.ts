@@ -292,6 +292,16 @@ export function makeMedicationResource(
   fieldName: ProviderChartDataFieldsNames
 ): MedicationStatement {
   const dose = data.intakeInfo.dose?.trim();
+  const { lastFilledDate, refills } = data.intakeInfo;
+  const extension: Extension[] = [
+    ...(data.isRenewal !== undefined
+      ? [{ url: FHIR_EXTENSION.MedicationRequest.isRenewal.url, valueBoolean: data.isRenewal }]
+      : []),
+    ...(lastFilledDate
+      ? [{ url: FHIR_EXTENSION.MedicationStatement.lastFilledDate.url, valueDateTime: lastFilledDate }]
+      : []),
+    ...(refills !== undefined ? [{ url: FHIR_EXTENSION.MedicationStatement.refills.url, valueInteger: refills }] : []),
+  ];
   return {
     id: data.resourceId,
     identifier: [{ value: data.id }],
@@ -316,14 +326,7 @@ export function makeMedicationResource(
         },
       ],
     },
-    ...(data.isRenewal !== undefined && {
-      extension: [
-        {
-          url: FHIR_EXTENSION.MedicationRequest.isRenewal.url,
-          valueBoolean: data.isRenewal,
-        },
-      ],
-    }),
+    ...(extension.length > 0 && { extension }),
   };
 }
 
@@ -342,6 +345,11 @@ export function makeMedicationDTO(medication: MedicationStatement): MedicationDT
       dose: getMedicationDosage(medication, medication.meta?.tag?.[0].code || ''),
       date: medication.effectiveDateTime,
       patientCouldNotConfirmDosage: medication.note?.[0]?.text === PATIENT_COULD_NOT_CONFIRM_DOSAGE_NOTE || undefined,
+      lastFilledDate: medication.extension?.find(
+        (ext) => ext.url === FHIR_EXTENSION.MedicationStatement.lastFilledDate.url
+      )?.valueDateTime,
+      refills: medication.extension?.find((ext) => ext.url === FHIR_EXTENSION.MedicationStatement.refills.url)
+        ?.valueInteger,
     },
     status: ['active', 'completed'].includes(medication.status)
       ? (medication.status as 'active' | 'completed')
