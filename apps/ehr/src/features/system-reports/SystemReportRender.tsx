@@ -1,6 +1,6 @@
 // Renders a system report's code IN THE PAGE: transpiled with the shared transpiler and evaluated over the
 // same scope the iframe runtime injects for a plan report (React, MUI, Report, resources, helpers, params),
-// no iframe. Only code loaded from a system-report Basic (list-system-reports) is ever handed to this
+// no iframe. Only code loaded from a system-report Basic (get-system-report) is ever handed to this
 // component — the builder's generated and saved reports keep the sandbox.
 import type { FhirResource } from 'fhir/r4b';
 import React, { useEffect, useMemo } from 'react';

@@ -2,11 +2,10 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { SystemReport } from 'src/features/system-reports/SystemReport';
 import type { SystemReport as SystemReportDefinition } from 'utils/lib/types/adhoc/system/system-report';
-import { RoleType } from 'utils/lib/types/api/user.types';
 import { describe, expect, it, vi } from 'vitest';
 
 const runSystemReport = vi.hoisted(() => vi.fn());
-vi.mock('src/api/api', () => ({ runSystemReport, getAdHocReportStatus: vi.fn(), listSystemReports: vi.fn() }));
+vi.mock('src/api/api', () => ({ runSystemReport, getAdHocReportStatus: vi.fn(), getSystemReport: vi.fn() }));
 // One stable client object, as the real hook returns: a new object per render would refetch in a loop.
 const oystehrZambda = vi.hoisted(() => ({}));
 vi.mock('src/hooks/useAppClients', () => ({ useApiClients: () => ({ oystehrZambda }) }));
@@ -17,7 +16,6 @@ const report: SystemReportDefinition = {
   name: 'greeting',
   title: 'Greeting',
   parameters: [],
-  roles: [RoleType.Provider],
   inputs: [
     { name: 'patientId', kind: 'id', required: true },
     { name: 'visits', kind: 'number', required: false },
@@ -46,29 +44,30 @@ return ReportRoot;`,
 
 const renderReport = (
   inputs: Record<string, unknown>,
-  opts: { inPlace?: boolean; report?: SystemReportDefinition } = {}
+  opts: { report?: SystemReportDefinition } = {}
 ): ReturnType<typeof render> =>
   render(
     <MemoryRouter>
-      <SystemReport report={opts.report ?? report} inputs={inputs} inPlace={opts.inPlace} />
+      <SystemReport report={opts.report ?? report} inputs={inputs} />
     </MemoryRouter>
   );
 
 describe('SystemReport', () => {
-  it('renders a report without a plan from its inputs, without calling the run zambda', async () => {
+  it('renders a report without a plan from its inputs as soon as it opens, without calling the run zambda', async () => {
     renderReport({ patientId: 'p1', visits: 3 });
     await waitFor(() => expect(screen.getByTestId('patient')).toHaveTextContent('p1'));
     expect(screen.getByTestId('steps')).toHaveTextContent('0');
-    expect(screen.getByRole('button', { name: 'Run' })).toBeInTheDocument();
-    // no dateRange input declared: no picker
+    // no dateRange input declared: no picker and no Run button
     expect(screen.queryByLabelText('Date Range')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Run' })).toBeNull();
     expect(runSystemReport).not.toHaveBeenCalled();
   });
 
-  it('shows the date picker on its default for a declared dateRange input, and fills params.dateRange from it', async () => {
+  it('shows the date picker on its default with a Run button for a declared dateRange input, and fills params.dateRange from it', async () => {
     renderReport({ patientId: 'p1' }, { report: withRange });
     await waitFor(() => expect(screen.getByTestId('range')).toHaveTextContent('same'));
     expect(screen.getByLabelText('Date Range')).toHaveTextContent('Last 7 Days');
+    expect(screen.getByRole('button', { name: 'Run' })).toBeInTheDocument();
   });
 
   it('shows no picker when the host passes the dateRange input', async () => {
@@ -78,12 +77,6 @@ describe('SystemReport', () => {
     );
     await waitFor(() => expect(screen.getByTestId('range')).toHaveTextContent('same'));
     expect(screen.queryByLabelText('Date Range')).toBeNull();
-  });
-
-  it('in a place, runs with the Run button and description hidden', async () => {
-    renderReport({ patientId: 'p2' }, { inPlace: true });
-    await waitFor(() => expect(screen.getByTestId('patient')).toHaveTextContent('p2'));
-    expect(screen.queryByRole('button', { name: 'Run' })).toBeNull();
   });
 
   it('shows an error instead of running when a required input is missing or of the wrong kind', async () => {

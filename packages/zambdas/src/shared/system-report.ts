@@ -62,6 +62,12 @@ export async function findSystemReportBasic(oystehr: Oystehr, reportId: string):
   return bundle.unbundle()[0];
 }
 
+/** The Basic of the report published under `name`; the name sits inside the definition blob, so every system
+ *  report is listed and read (there are a handful per practice). */
+export async function findSystemReportBasicByName(oystehr: Oystehr, name: string): Promise<Basic | undefined> {
+  return (await listSystemReportBasics(oystehr)).find((basic) => systemReportBasicName(basic) === name);
+}
+
 export async function listSystemReportBasics(oystehr: Oystehr): Promise<Basic[]> {
   const pageSize = 200;
   const basics: Basic[] = [];

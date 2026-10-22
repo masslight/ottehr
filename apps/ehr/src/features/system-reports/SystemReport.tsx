@@ -1,8 +1,8 @@
-// One system report: its inputs (the host's, or the declared defaults; a dateRange input from the shared
-// picker when the host passes none) → run through `run-system-report` (skipped when the report has no plan)
-// → the report's code rendered in the page over the fetched resources and the inputs. Links in the report
-// navigate the EHR; its CSV exports download, as from the sandbox.
-import { Alert, Box, Button, CircularProgress, Typography } from '@mui/material';
+// One system report in a host screen: its inputs (the host's, or the declared defaults; a dateRange input from
+// the shared picker when the host passes none) → run through `run-system-report` as soon as it opens (skipped
+// when the report has no plan) → the report's code rendered in the page over the fetched resources and the
+// inputs. Links in the report navigate the EHR; its CSV exports download, as from the sandbox.
+import { Alert, Box, Button, CircularProgress } from '@mui/material';
 import { captureException } from '@sentry/react';
 import type { FhirResource } from 'fhir/r4b';
 import React, { useCallback, useEffect, useState } from 'react';
@@ -35,11 +35,9 @@ interface SystemReportProps {
   report: SystemReportDefinition;
   /** What the host screen knows (patient, encounter, …), checked against the report's declared inputs. */
   inputs?: Record<string, unknown>;
-  /** In a place (a host screen) the report just runs: no Run button, no description. */
-  inPlace?: boolean;
 }
 
-export function SystemReport({ report, inputs = {}, inPlace = false }: SystemReportProps): React.ReactElement {
+export function SystemReport({ report, inputs = {} }: SystemReportProps): React.ReactElement {
   const navigate = useNavigate();
   const { oystehrZambda } = useApiClients();
 
@@ -128,33 +126,24 @@ export function SystemReport({ report, inputs = {}, inPlace = false }: SystemRep
 
   return (
     <Box>
-      {report.description && !inPlace && (
-        <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
-          {report.description}
-        </Typography>
-      )}
-      {(showPicker || !inPlace) && (
+      {showPicker && (
         <Box sx={{ mb: 3, display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
-          {showPicker && (
-            <AdHocDateRangePicker
-              dateRange={dateRange}
-              customDate={customDate}
-              customStartDate={customStartDate}
-              customEndDate={customEndDate}
-              setDateRange={setDateRange}
-              setCustomDate={setCustomDate}
-              setCustomStartDate={setCustomStartDate}
-              setCustomEndDate={setCustomEndDate}
-            />
-          )}
-          {!inPlace && (
-            <Button variant="contained" onClick={() => void runReport()} disabled={loading}>
-              {loading ? <CircularProgress size={20} /> : 'Run'}
-            </Button>
-          )}
+          <AdHocDateRangePicker
+            dateRange={dateRange}
+            customDate={customDate}
+            customStartDate={customStartDate}
+            customEndDate={customEndDate}
+            setDateRange={setDateRange}
+            setCustomDate={setCustomDate}
+            setCustomStartDate={setCustomStartDate}
+            setCustomEndDate={setCustomEndDate}
+          />
+          <Button variant="contained" onClick={() => void runReport()} disabled={loading}>
+            {loading ? <CircularProgress size={20} /> : 'Run'}
+          </Button>
         </Box>
       )}
-      {loading && inPlace && (
+      {loading && (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
           <CircularProgress size={28} />
         </Box>

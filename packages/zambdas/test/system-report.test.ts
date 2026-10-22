@@ -1,7 +1,7 @@
 import type { APIGatewayProxyResult } from 'aws-lambda';
 import type { Basic, Bundle, FhirResource } from 'fhir/r4b';
 import { SYSTEM_REPORT_CODE, SystemReportDefinition } from 'utils/lib/types/adhoc/system/system-report';
-import { RoleType } from 'utils/lib/types/api/user.types';
+import { ALL_EHR_STAFF_ROLES, RoleType } from 'utils/lib/types/api/user.types';
 import { APIErrorCode, NOT_AUTHORIZED } from 'utils/lib/types/errors';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -13,8 +13,8 @@ import { makeSystemReportBasic, parseSystemReportBasic } from '../src/shared/sys
 import type { ZambdaInput } from '../src/shared/types/common';
 
 // ---------------------------------------------------------------------------
-// Shared mocks: a caller with the report roles, and a tiny FHIR store of Basics that honours the `code`
-// and `_id` search parameters the saved-report and system-report helpers search by.
+// Shared mocks: a caller with EHR roles, and a tiny FHIR store of Basics that honours the `code` and `_id`
+// search parameters the saved-report and system-report helpers search by.
 // ---------------------------------------------------------------------------
 
 // The caller's roles; the auth fakes answer the way getUser / requireUserWithRole do for a user holding them.
@@ -85,7 +85,7 @@ const { index: saveSavedHandler } = (await import('../src/ehr/save-adhoc-report/
 const { index: deleteSavedHandler } = (await import('../src/ehr/delete-adhoc-report/index')) as unknown as {
   index: (input: ZambdaInput) => Promise<APIGatewayProxyResult>;
 };
-const { index: listSystemHandler } = (await import('../src/ehr/list-system-reports/index')) as unknown as {
+const { index: getSystemHandler } = (await import('../src/ehr/get-system-report/index')) as unknown as {
   index: (input: ZambdaInput) => Promise<APIGatewayProxyResult>;
 };
 const { index: runSystemHandler } = (await import('../src/ehr/run-system-report/index')) as unknown as {
@@ -124,7 +124,6 @@ const systemDefinition: SystemReportDefinition = {
   },
   code: 'function ReportRoot() { return null; }\nreturn ReportRoot;',
   runtimeVersion: 1,
-  roles: [RoleType.Administrator],
 };
 
 const savedDefinition = {
@@ -172,11 +171,15 @@ describe('system report Basic', () => {
 });
 
 describe('saved-report zambdas never see a system report', () => {
-  it('list-adhoc-reports lists the saved report only; list-system-reports the system report only', async () => {
+  it('list-adhoc-reports lists the saved report only; get-system-report finds a system report by name only', async () => {
     const saved = JSON.parse((await listSavedHandler(input({}))).body);
     expect(saved.reports.map((r: { id: string }) => r.id)).toEqual([SAVED_ID]);
-    const system = JSON.parse((await listSystemHandler(input({}))).body);
-    expect(system.reports.map((r: { id: string }) => r.id)).toEqual([SYSTEM_ID]);
+    const system = JSON.parse((await getSystemHandler(input({ name: 'payer-mix' }))).body);
+    expect(system.report).toEqual({ ...systemDefinition, id: SYSTEM_ID });
+    await expect(getSystemHandler(input({ name: savedDefinition.name }))).rejects.toMatchObject({
+      code: APIErrorCode.FHIR_RESOURCE_NOT_FOUND,
+    });
+    await expect(getSystemHandler(input({}))).rejects.toMatchObject({ code: APIErrorCode.INVALID_INPUT });
   });
 
   it('save-adhoc-report refuses to overwrite a system report by id', async () => {
@@ -194,22 +197,15 @@ describe('saved-report zambdas never see a system report', () => {
   });
 });
 
-describe('per-report roles', () => {
-  it('list-system-reports shows a report only to a caller holding one of its roles', async () => {
-    store.set('basic-system-2', {
-      ...makeSystemReportBasic({ ...systemDefinition, name: 'for-providers', roles: [RoleType.Provider] }),
-      id: 'basic-system-2',
-    });
-    callerRoles = [RoleType.Provider];
-    const asProvider = JSON.parse((await listSystemHandler(input({}))).body);
-    expect(asProvider.reports.map((r: { id: string }) => r.id)).toEqual(['basic-system-2']);
-    callerRoles = [RoleType.Staff];
-    const asStaff = JSON.parse((await listSystemHandler(input({}))).body);
-    expect(asStaff.reports).toEqual([]);
-  });
-
-  it("run-system-report refuses a caller without one of the report's roles", async () => {
-    callerRoles = [RoleType.Provider];
+describe('any signed-in EHR staff user, no per-report roles', () => {
+  it('get-system-report and run-system-report serve every EHR staff role and refuse a user without one', async () => {
+    for (const role of ALL_EHR_STAFF_ROLES) {
+      callerRoles = [role];
+      const system = JSON.parse((await getSystemHandler(input({ name: 'payer-mix' }))).body);
+      expect(system.report.id).toBe(SYSTEM_ID);
+    }
+    callerRoles = [RoleType.Inactive];
+    await expect(getSystemHandler(input({ name: 'payer-mix' }))).rejects.toMatchObject({ code: NOT_AUTHORIZED.code });
     await expect(runSystemHandler(input({ reportId: SYSTEM_ID, dateRange }))).rejects.toMatchObject({
       code: NOT_AUTHORIZED.code,
     });

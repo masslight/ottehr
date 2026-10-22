@@ -1,16 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { RoleType } from '../../api/user.types';
 import {
   checkSystemReportInputs,
   STUDIO_REPORT_FORMAT,
-  systemReportAppliesTo,
   systemReportFetchMode,
   systemReportFromStudioFile,
 } from './system-report';
 
 const rangeInput = { name: 'range', kind: 'dateRange' as const, required: false, default: { preset: 'last-30-days' } };
-
-const admin = { roles: [RoleType.Administrator] };
 
 /** A Report Studio file as the studio saves it after a run: measurements, densities, a test patient. */
 const studioFile = {
@@ -43,7 +39,7 @@ const studioFile = {
 
 describe('systemReportFromStudioFile', () => {
   it('keeps the report and the parameter names, and drops measurements, densities, prompt, test values and cases', () => {
-    const result = systemReportFromStudioFile(studioFile, admin);
+    const result = systemReportFromStudioFile(studioFile);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.definition).toEqual({
@@ -64,7 +60,6 @@ describe('systemReportFromStudioFile', () => {
       },
       code: studioFile.code,
       runtimeVersion: 1,
-      roles: [RoleType.Administrator],
     });
     for (const dropped of [
       'fetchMode',
@@ -82,48 +77,44 @@ describe('systemReportFromStudioFile', () => {
 
   it('has no parameters for a practice-wide plan', () => {
     const plan = { version: 1, steps: [{ id: 'visits', resourceType: 'Appointment', params: [] }] };
-    const result = systemReportFromStudioFile({ ...studioFile, plan, parameters: undefined }, admin);
+    const result = systemReportFromStudioFile({ ...studioFile, plan, parameters: undefined });
     expect(result).toMatchObject({ ok: true, definition: { parameters: [] } });
   });
 
   it('rejects a file that is not a Report Studio report', () => {
-    const result = systemReportFromStudioFile({ ...studioFile, format: 'something-else' }, admin);
+    const result = systemReportFromStudioFile({ ...studioFile, format: 'something-else' });
     expect(result).toMatchObject({ ok: false });
     expect(!result.ok && result.errors.join(' ')).toContain('format');
   });
 
   it('rejects a plan the plan schema rejects', () => {
     const plan = { version: 1, steps: [{ id: 'x', resourceType: 'NotInTheDataMap', params: [] }] };
-    const result = systemReportFromStudioFile({ ...studioFile, plan }, admin);
+    const result = systemReportFromStudioFile({ ...studioFile, plan });
     expect(result).toMatchObject({ ok: false });
     expect(!result.ok && result.errors.join(' ')).toContain('plan.steps.0.resourceType');
   });
 
   it('rejects missing code or name', () => {
-    expect(systemReportFromStudioFile({ ...studioFile, code: '' }, admin)).toMatchObject({ ok: false });
-    expect(systemReportFromStudioFile({ ...studioFile, name: undefined }, admin)).toMatchObject({ ok: false });
+    expect(systemReportFromStudioFile({ ...studioFile, code: '' })).toMatchObject({ ok: false });
+    expect(systemReportFromStudioFile({ ...studioFile, name: undefined })).toMatchObject({ ok: false });
   });
 
-  it('keeps declared inputs and places, and rejects malformed ones', () => {
+  it('keeps declared inputs and rejects malformed ones', () => {
     const inputs = [{ name: 'patientId', kind: 'id', required: true, description: 'The patient' }];
-    const ok = systemReportFromStudioFile({ ...studioFile, inputs, places: ['visit.vitals'] }, admin);
-    expect(ok).toMatchObject({ ok: true, definition: { inputs, places: ['visit.vitals'] } });
+    const ok = systemReportFromStudioFile({ ...studioFile, inputs });
+    expect(ok).toMatchObject({ ok: true, definition: { inputs } });
     expect(
-      systemReportFromStudioFile({ ...studioFile, inputs: [{ name: 'x', kind: 'blob', required: true }] }, admin)
+      systemReportFromStudioFile({ ...studioFile, inputs: [{ name: 'x', kind: 'blob', required: true }] })
     ).toMatchObject({ ok: false });
-    expect(systemReportFromStudioFile({ ...studioFile, inputs: [{ name: 'x', kind: 'id' }] }, admin)).toMatchObject({
+    expect(systemReportFromStudioFile({ ...studioFile, inputs: [{ name: 'x', kind: 'id' }] })).toMatchObject({
       ok: false,
     });
-    expect(systemReportFromStudioFile({ ...studioFile, places: ['nowhere'] }, admin)).toMatchObject({ ok: false });
   });
 
-  it('stores the roles given and allows a report with no plan', () => {
+  it('allows a report with no plan', () => {
     const { plan: _plan, ...noPlan } = studioFile;
-    const result = systemReportFromStudioFile(noPlan, { roles: [RoleType.Provider, RoleType.Administrator] });
-    expect(result).toMatchObject({
-      ok: true,
-      definition: { parameters: [], roles: [RoleType.Provider, RoleType.Administrator] },
-    });
+    const result = systemReportFromStudioFile(noPlan);
+    expect(result).toMatchObject({ ok: true, definition: { parameters: [] } });
     expect(result.ok && result.definition).not.toHaveProperty('plan');
   });
 });
@@ -135,12 +126,13 @@ describe('date range input', () => {
   };
 
   it("converts the studio's date range into a `range` input when the plan uses the date templates", () => {
-    const result = systemReportFromStudioFile({ ...studioFile, plan: datedPlan }, admin);
+    const result = systemReportFromStudioFile({ ...studioFile, plan: datedPlan });
     expect(result).toMatchObject({ ok: true, definition: { inputs: [rangeInput] } });
-    const custom = systemReportFromStudioFile(
-      { ...studioFile, plan: datedPlan, dateRange: { preset: 'custom', start: '2026-01-01', end: '2026-01-31' } },
-      admin
-    );
+    const custom = systemReportFromStudioFile({
+      ...studioFile,
+      plan: datedPlan,
+      dateRange: { preset: 'custom', start: '2026-01-01', end: '2026-01-31' },
+    });
     expect(custom).toMatchObject({
       ok: true,
       definition: { inputs: [{ ...rangeInput, default: { start: '2026-01-01', end: '2026-01-31' } }] },
@@ -149,18 +141,16 @@ describe('date range input', () => {
 
   it('keeps a declared dateRange input over the studio range, and drops the range when the plan has no date templates', () => {
     const declared = { ...rangeInput, name: 'period', default: { preset: 'last-7-days' } };
-    const result = systemReportFromStudioFile({ ...studioFile, plan: datedPlan, inputs: [declared] }, admin);
+    const result = systemReportFromStudioFile({ ...studioFile, plan: datedPlan, inputs: [declared] });
     expect(result).toMatchObject({ ok: true, definition: { inputs: [declared] } });
-    expect(
-      systemReportFromStudioFile(studioFile, admin).ok && systemReportFromStudioFile(studioFile, admin)
-    ).toMatchObject({
+    expect(systemReportFromStudioFile(studioFile).ok && systemReportFromStudioFile(studioFile)).toMatchObject({
       definition: expect.not.objectContaining({ inputs: expect.anything() }),
     });
   });
 
   it('rejects a dateRange input without a default, two of them, and a templated plan without one', () => {
     const errorsOf = (file: unknown): string => {
-      const result = systemReportFromStudioFile(file, admin);
+      const result = systemReportFromStudioFile(file);
       return result.ok ? '' : result.errors.join(' | ');
     };
     expect(errorsOf({ ...studioFile, inputs: [{ name: 'range', kind: 'dateRange', required: false }] })).toContain(
@@ -173,31 +163,6 @@ describe('date range input', () => {
     expect(
       errorsOf({ ...studioFile, inputs: [{ name: 'n', kind: 'number', required: false, default: 'x' }] })
     ).toContain('default must be a number');
-  });
-});
-
-describe('appliesTo', () => {
-  it('is kept when valid and rejected when not', () => {
-    expect(systemReportFromStudioFile({ ...studioFile, appliesTo: { maxAgeYears: 20 } }, admin)).toMatchObject({
-      ok: true,
-      definition: { appliesTo: { maxAgeYears: 20 } },
-    });
-    expect(systemReportFromStudioFile({ ...studioFile, appliesTo: { maxAgeYears: 0 } }, admin)).toMatchObject({
-      ok: false,
-    });
-    expect(systemReportFromStudioFile({ ...studioFile, appliesTo: { maxAgeYears: 'x' } }, admin)).toMatchObject({
-      ok: false,
-    });
-  });
-
-  it('offers an age-limited report only to a patient under the limit, with a birth date', () => {
-    const now = new Date('2026-10-18T12:00:00Z');
-    const report = { appliesTo: { maxAgeYears: 20 } };
-    expect(systemReportAppliesTo(report, { birthDate: '2007-03-31' }, now)).toBe(true);
-    expect(systemReportAppliesTo(report, { birthDate: '2006-10-18' }, now)).toBe(false);
-    expect(systemReportAppliesTo(report, { birthDate: '2006-10-19' }, now)).toBe(true);
-    expect(systemReportAppliesTo(report, {}, now)).toBe(false);
-    expect(systemReportAppliesTo({}, {}, now)).toBe(true);
   });
 });
 

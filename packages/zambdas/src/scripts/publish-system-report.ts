@@ -1,18 +1,17 @@
 // Publishes a vetted Report Studio report as a system report of a practice: one FHIR Basic under the
-// system-report code (shared/system-report.ts) that the EHR lists next to the saved ad-hoc reports and
-// renders without the sandbox. Run by staff with the practice's service credentials, read from
-// packages/zambdas/.env/<env>.json (never printed). A report with the same name is updated in place.
+// system-report code (shared/system-report.ts) that an EHR screen loads by name and renders without the
+// sandbox. Run by staff with the practice's service credentials, read from packages/zambdas/.env/<env>.json
+// (never printed). A report with the same name is updated in place.
 //
-//   npm run publish-system-report -- <file.report.json> --env <env> [--roles Administrator,Provider]
+//   npm run publish-system-report -- <file.report.json> --env <env>
 //   npm run publish-system-report -- --remove <report name> --env <env>
 import Oystehr from '@oystehr/sdk';
 import { Basic } from 'fhir/r4b';
 import { readFileSync } from 'fs';
 import path from 'path';
 import { systemReportFromStudioFile } from 'utils/lib/types/adhoc/system/system-report';
-import { RoleType } from 'utils/lib/types/api/user.types';
 import { getAuth0Token } from '../shared/getAuth0Token';
-import { listSystemReportBasics, makeSystemReportBasic, systemReportBasicName } from '../shared/system-report';
+import { findSystemReportBasicByName, makeSystemReportBasic } from '../shared/system-report';
 
 const argValue = (name: string): string | undefined => {
   const i = process.argv.indexOf(name);
@@ -24,15 +23,7 @@ async function main(): Promise<void> {
   const remove = argValue('--remove');
   const file = process.argv.slice(2).find((a, i, all) => !a.startsWith('--') && !all[i - 1]?.startsWith('--'));
   if (!env || (!file && !remove)) {
-    throw new Error(
-      'Usage: publish-system-report <file.report.json> --env <env> [--roles A,B] | --remove <name> --env <env>'
-    );
-  }
-  // Who may list and run the report; Administrator alone when not given.
-  const roles = (argValue('--roles') ?? RoleType.Administrator).split(',').map((r) => r.trim()) as RoleType[];
-  const unknownRoles = roles.filter((r) => !Object.values(RoleType).includes(r));
-  if (unknownRoles.length) {
-    throw new Error(`Unknown role(s) ${unknownRoles.join(', ')}; valid: ${Object.values(RoleType).join(', ')}`);
+    throw new Error('Usage: publish-system-report <file.report.json> --env <env> | --remove <name> --env <env>');
   }
 
   const envFile = path.resolve(__dirname, '../../.env', `${env}.json`);
@@ -44,34 +35,28 @@ async function main(): Promise<void> {
     services: { projectApiUrl: secrets.PROJECT_API },
   });
 
-  const existing = (await listSystemReportBasics(oystehr)).map((basic) => ({
-    basic,
-    name: systemReportBasicName(basic),
-  }));
-
   if (remove) {
-    const match = existing.find(({ name }) => name === remove);
-    if (!match?.basic.id) throw new Error(`No system report named "${remove}" on ${env}`);
-    await oystehr.fhir.delete({ resourceType: 'Basic', id: match.basic.id });
-    console.log(`Removed system report "${remove}" (Basic/${match.basic.id}) from ${env}`);
+    const match = await findSystemReportBasicByName(oystehr, remove);
+    if (!match?.id) throw new Error(`No system report named "${remove}" on ${env}`);
+    await oystehr.fhir.delete({ resourceType: 'Basic', id: match.id });
+    console.log(`Removed system report "${remove}" (Basic/${match.id}) from ${env}`);
     return;
   }
 
-  const converted = systemReportFromStudioFile(JSON.parse(readFileSync(file!, 'utf-8')), { roles });
+  const converted = systemReportFromStudioFile(JSON.parse(readFileSync(file!, 'utf-8')));
   if (!converted.ok) {
     throw new Error(`${file} is not a publishable Report Studio report:\n  ${converted.errors.join('\n  ')}`);
   }
   const { definition } = converted;
   const resource = makeSystemReportBasic(definition);
-  const match = existing.find(({ name }) => name === definition.name);
-  const saved = match?.basic.id
-    ? await oystehr.fhir.update<Basic>({ ...resource, id: match.basic.id })
+  const match = await findSystemReportBasicByName(oystehr, definition.name);
+  const saved = match?.id
+    ? await oystehr.fhir.update<Basic>({ ...resource, id: match.id })
     : await oystehr.fhir.create<Basic>(resource);
   console.log(
     `${match ? 'Updated' : 'Published'} system report "${definition.name}" (Basic/${saved.id}) on ${env}` +
-      ` — ${definition.plan?.steps.length ?? 0} plan step(s), roles: ${definition.roles.join(', ')}` +
-      (definition.parameters.length ? `, parameters: ${definition.parameters.join(', ')}` : '') +
-      (definition.places?.length ? `, places: ${definition.places.join(', ')}` : '')
+      ` — ${definition.plan?.steps.length ?? 0} plan step(s)` +
+      (definition.parameters.length ? `, parameters: ${definition.parameters.join(', ')}` : '')
   );
 }
 

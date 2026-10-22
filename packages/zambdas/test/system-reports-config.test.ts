@@ -1,7 +1,6 @@
 import type { Basic } from 'fhir/r4b';
 import { readFileSync } from 'fs';
 import { SystemReportDefinition } from 'utils/lib/types/adhoc/system/system-report';
-import { RoleType } from 'utils/lib/types/api/user.types';
 import { describe, expect, it } from 'vitest';
 import {
   assertNoDeployPlaceholders,
@@ -19,12 +18,11 @@ describe('shipped system reports config', () => {
     expect(JSON.parse(buildSystemReportsConfig())).toEqual(config);
   });
 
-  it('holds one system report Basic per shipped report, with the roles it names', () => {
+  it('holds one system report Basic per shipped report', () => {
     expect(Object.keys(config.fhirResources)).toEqual(SHIPPED_SYSTEM_REPORTS.map((r) => r.key));
-    for (const { key, roles } of SHIPPED_SYSTEM_REPORTS) {
+    for (const { key } of SHIPPED_SYSTEM_REPORTS) {
       const report = parseSystemReportBasic({ ...(config.fhirResources[key].resource as Basic), id: key });
       expect(report).not.toBeNull();
-      expect(report?.roles).toEqual(roles);
     }
   });
 
@@ -34,7 +32,6 @@ describe('shipped system reports config', () => {
       parameters: [],
       code: 'function ReportRoot() { return null; }\nreturn ReportRoot;',
       runtimeVersion: 1,
-      roles: [RoleType.Administrator],
     };
     expect(() => assertNoDeployPlaceholders('payer-mix', makeSystemReportBasic(definition))).not.toThrow();
     const withPlaceholder = { ...definition, code: 'const label = `#{var/PROJECT_ID}`;\n' + definition.code };

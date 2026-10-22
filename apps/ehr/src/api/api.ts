@@ -18,7 +18,8 @@ import {
   SaveAdHocReportOutput,
 } from 'utils/lib/types/adhoc/saved/saved.types';
 import {
-  ListSystemReportsOutput,
+  GetSystemReportInput,
+  GetSystemReportOutput,
   RunSystemReportInput,
   RunSystemReportOutput,
 } from 'utils/lib/types/adhoc/system/system-report';
@@ -441,7 +442,7 @@ const ADHOC_FETCH_PLAN_ZAMBDA_ID = 'adhoc-fetch-plan';
 const SAVE_ADHOC_REPORT_ZAMBDA_ID = 'save-adhoc-report';
 const LIST_ADHOC_REPORTS_ZAMBDA_ID = 'list-adhoc-reports';
 const DELETE_ADHOC_REPORT_ZAMBDA_ID = 'delete-adhoc-report';
-const LIST_SYSTEM_REPORTS_ZAMBDA_ID = 'list-system-reports';
+const GET_SYSTEM_REPORT_ZAMBDA_ID = 'get-system-report';
 const RUN_SYSTEM_REPORT_ZAMBDA_ID = 'run-system-report';
 const MAILED_STATEMENTS_REPORT_ZAMBDA_ID = 'mailed-statements-report';
 const SYNC_MAILED_STATEMENT_STATUSES_ZAMBDA_ID = 'sync-mailed-statement-statuses';
@@ -807,9 +808,12 @@ export const deleteAdHocReport = async (
   }
 };
 
-export const listSystemReports = async (oystehr: Oystehr): Promise<ListSystemReportsOutput> => {
+export const getSystemReport = async (
+  oystehr: Oystehr,
+  parameters: GetSystemReportInput
+): Promise<GetSystemReportOutput> => {
   try {
-    const response = await oystehr.zambda.execute({ id: LIST_SYSTEM_REPORTS_ZAMBDA_ID });
+    const response = await oystehr.zambda.execute({ id: GET_SYSTEM_REPORT_ZAMBDA_ID, ...parameters });
     return chooseJson(response);
   } catch (error: unknown) {
     console.log(error);

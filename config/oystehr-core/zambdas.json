@@ -1381,12 +1381,12 @@
       "src": "src/ehr/delete-adhoc-report/index",
       "zip": ".dist/zips/delete-adhoc-report.zip"
     },
-    "LIST-SYSTEM-REPORTS": {
-      "name": "list-system-reports",
+    "GET-SYSTEM-REPORT": {
+      "name": "get-system-report",
       "type": "http_auth",
       "runtime": "nodejs22.x",
-      "src": "src/ehr/list-system-reports/index",
-      "zip": ".dist/zips/list-system-reports.zip"
+      "src": "src/ehr/get-system-report/index",
+      "zip": ".dist/zips/get-system-report.zip"
     },
     "RUN-SYSTEM-REPORT": {
       "name": "run-system-report",

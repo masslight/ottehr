@@ -1,7 +1,8 @@
 // Runs a system report for the EHR viewer. The browser names the report; the plan is loaded from the
 // system-report Basic here and run with the shared runner — directly when the report's last run on this
 // practice was fast enough for the http_auth ceiling (fetch-mode.ts), else through the background Task
-// path (`sub-adhoc-report`), the way Report Studio decides. Nothing a viewer sends is ever executed.
+// path (`sub-adhoc-report`), the way Report Studio decides. Nothing a viewer sends is ever executed. Any
+// signed-in EHR staff user may run a report: which screen shows it, to whom, is the screen's decision.
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Task } from 'fhir/r4b';
 import {
@@ -15,6 +16,7 @@ import {
   RunSystemReportOutputSchema,
   systemReportFetchMode,
 } from 'utils/lib/types/adhoc/system/system-report';
+import { ALL_EHR_STAFF_ROLES } from 'utils/lib/types/api/user.types';
 import { FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { INLINE_RESPONSE_LIMIT_BYTES, runFetchPlan } from '../../shared/adhoc-fetch-plan';
 import { uploadAdHocReportDataToZ3 } from '../../shared/adhoc-report';
@@ -37,6 +39,8 @@ let m2mToken: string;
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const { reportId, dateRange, parameters, secrets } = validateRequestParameters(input);
 
+  await requireUserWithRole(getUserToken(input), secrets, ALL_EHR_STAFF_ROLES);
+
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
@@ -44,8 +48,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const basic = await findSystemReportBasic(oystehr, reportId);
   const report = basic && parseSystemReportBasic(basic);
   if (!report) throw FHIR_RESOURCE_NOT_FOUND('Basic');
-  // Each report names the roles that may run it.
-  await requireUserWithRole(getUserToken(input), secrets, report.roles);
   if (!report.plan) throw INVALID_INPUT_ERROR('This report has no plan to run');
   if (planNeedsPatient(report.plan) && !parameters?.patientId) {
     throw INVALID_INPUT_ERROR('This report runs for one patient: parameters.patientId is required');

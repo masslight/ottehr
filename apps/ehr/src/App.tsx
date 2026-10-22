@@ -6,7 +6,6 @@ import { lazy, ReactElement, Suspense, useState } from 'react';
 import { useIdleTimer } from 'react-idle-timer';
 import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router-dom';
 import AdHocReport from 'src/features/report-builder/page/ReportBuilderPage';
-import SystemReportPage from 'src/features/system-reports/SystemReportPage';
 import AiAssistedEncounters from 'src/pages/reports/AiAssistedEncounters';
 import CompleteEncounters from 'src/pages/reports/CompleteEncounters';
 import DailyPayments from 'src/pages/reports/DailyPayments';
@@ -212,8 +211,6 @@ function App(): ReactElement {
                 <Route path="/reports/daily-payments" element={<DailyPayments />} />
                 <Route path="/reports/visits-overview" element={<VisitsOverview />} />
                 <Route path="/reports/recent-patients" element={<RecentPatients />} />
-                {/* Which system reports a user may open is decided per report, by its roles, on the server. */}
-                <Route path="/reports/system/:reportId" element={<SystemReportPage />} />
               </>
             )}
             {currentUser?.hasRole([RoleType.Administrator, RoleType.CustomerSupport]) && (

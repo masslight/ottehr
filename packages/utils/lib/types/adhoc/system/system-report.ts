@@ -1,11 +1,11 @@
 // System reports: vetted Report Studio reports published for a practice, either shipped with Ottehr
 // (config/oystehr/system-reports.json) or by staff with the practice's service credentials
-// (packages/zambdas/src/scripts/publish-system-report.ts). The EHR lists them apart from the saved ad-hoc
-// reports and renders them in the page, without the sandbox — so only a report loaded under the system-report
-// code ever runs that way, and the browser never sends a plan or code: the `run-system-report` zambda loads
-// both from the Basic and runs the plan with the shared runner.
+// (packages/zambdas/src/scripts/publish-system-report.ts). A report knows only what to fetch and how to draw:
+// the EHR screen that shows one names it (`get-system-report`), passes its inputs and decides who sees it and
+// for which patients. It renders in the page, without the sandbox — so only a report loaded under the
+// system-report code ever runs that way, and the browser never sends a plan or code: the `run-system-report`
+// zambda loads both from the Basic and runs the plan with the shared runner.
 import { z } from 'zod';
-import { RoleType } from '../../api/user.types';
 import { StartAdHocReportResponseSchema } from '../generation/report-task';
 import { chooseFetchMode, FetchMode, MeasuredFetch } from '../plan/fetch-mode';
 import {
@@ -55,33 +55,6 @@ export const SystemReportInputSchema = SavedAdHocReportInputSchema.extend({
   description: z.string().optional(),
 });
 export type SystemReportInput = z.infer<typeof SystemReportInputSchema>;
-
-/** Who a report is for; a place offers it only to patients that fit. */
-export const SystemReportAppliesToSchema = z.object({
-  /** Offered while the patient is younger than this (needs a birth date). */
-  maxAgeYears: z.number().positive().optional(),
-});
-export type SystemReportAppliesTo = z.infer<typeof SystemReportAppliesToSchema>;
-
-/** Whether a report applies to a patient; one with an age limit needs the birth date (yyyy-MM-dd). */
-export function systemReportAppliesTo(
-  report: { appliesTo?: SystemReportAppliesTo },
-  patient: { birthDate?: string },
-  now: Date = new Date()
-): boolean {
-  const maxAgeYears = report.appliesTo?.maxAgeYears;
-  if (maxAgeYears === undefined) return true;
-  if (!patient.birthDate) return false;
-  const birth = new Date(patient.birthDate);
-  if (Number.isNaN(birth.getTime())) return false;
-  const limit = new Date(birth);
-  limit.setFullYear(birth.getFullYear() + maxAgeYears);
-  return now < limit;
-}
-
-/** The EHR spots that show the system reports declaring them. */
-export const SYSTEM_REPORT_PLACES = ['visit.vitals'] as const;
-export type SystemReportPlace = (typeof SYSTEM_REPORT_PLACES)[number];
 
 /** The one dateRange input of a report, whose value fills the plan's date templates. */
 export const dateRangeInputOf = (inputs: SystemReportInput[] | undefined): SystemReportInput | undefined =>
@@ -151,14 +124,10 @@ export const StudioReportFileSchema = z.object({
   code: z.string().min(1),
   runtimeVersion: z.number(),
   inputs: z.array(SystemReportInputSchema).optional(),
-  places: z.array(z.enum(SYSTEM_REPORT_PLACES)).optional(),
-  appliesTo: SystemReportAppliesToSchema.optional(),
 });
 
 const SystemReportDefinitionObject = StudioReportFileSchema.omit({ format: true, dateRange: true }).extend({
   parameters: z.array(z.enum(SYSTEM_REPORT_PARAMETER_NAMES)),
-  /** Who may list and run it (publish script `--roles`). */
-  roles: z.array(z.nativeEnum(RoleType)).min(1),
   // Measured on THIS practice by the runs (fetch-mode.ts); the file's own measurements are never kept,
   // because they were made on another instance.
   fetchMode: z.enum(['direct', 'task']).optional(),
@@ -174,10 +143,16 @@ export const SystemReportSchema = SystemReportDefinitionObject.extend({
 }).superRefine(checkInputsAndPlan);
 export type SystemReport = z.infer<typeof SystemReportSchema>;
 
-export const ListSystemReportsOutputSchema = z.object({
-  reports: z.array(SystemReportSchema),
+/** One system report by its published name — what a screen that shows it asks for. */
+export const GetSystemReportInputSchema = z.object({
+  name: z.string().min(1),
 });
-export type ListSystemReportsOutput = z.infer<typeof ListSystemReportsOutputSchema>;
+export type GetSystemReportInput = z.infer<typeof GetSystemReportInputSchema>;
+
+export const GetSystemReportOutputSchema = z.object({
+  report: SystemReportSchema,
+});
+export type GetSystemReportOutput = z.infer<typeof GetSystemReportOutputSchema>;
 
 export const RunSystemReportInputSchema = z.object({
   reportId: z.string().min(1),
@@ -219,8 +194,7 @@ const dateRangeInputDefault = (spec: DateRangeSpec): DateRangeInputDefault =>
  * `range` when the plan uses the date templates and no input declares one; otherwise it is dropped.
  */
 export function systemReportFromStudioFile(
-  file: unknown,
-  { roles }: { roles: RoleType[] }
+  file: unknown
 ): { ok: true; definition: SystemReportDefinition } | { ok: false; errors: string[] } {
   const issues = (error: z.ZodError): string[] =>
     error.issues.map((i) => `${i.path.join('.') || 'file'}: ${i.message}`);
@@ -238,7 +212,6 @@ export function systemReportFromStudioFile(
     ...report,
     ...(inputs ? { inputs } : {}),
     parameters: report.plan && planNeedsPatient(report.plan) ? ['patientId'] : [],
-    roles,
   });
   return definition.success
     ? { ok: true, definition: definition.data }
