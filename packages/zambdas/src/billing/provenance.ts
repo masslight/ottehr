@@ -21,7 +21,6 @@ import {
   RelatedPerson,
   Resource,
   Task,
-  TaskOutput,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { userMe } from 'utils/lib/auth/user-me.helper';
@@ -65,6 +64,7 @@ import {
 } from 'utils/lib/types/data/billing/claim-status';
 import { HOLD_TAG_NAME } from 'utils/lib/types/data/billing/system-tags';
 import { formatCurrency, formatCurrencyFromCents } from 'utils/lib/utils/convert';
+import { outreachErrorMessage, outreachTaskOutput } from '../rcm/scheduled-outreach/outreach-task-outputs';
 import {
   extractClaimResponseAmounts,
   extractLineAmounts,
@@ -402,13 +402,9 @@ function projectClaimResponse(claimResponse: ClaimResponse): FieldProjection[] {
 const taskOutputString = (task: Task, code: string): string =>
   task.output?.find((output) => output.type.coding?.some((coding) => coding.code === code))?.valueString ?? '';
 
-// Outreach executors record each attempt in its own outputs, typed by text.
-const outreachOutput = (task: Task, text: string): TaskOutput | undefined =>
-  task.output?.find((output) => output.type.text === text);
-
 // The amount is left out: invoice refreshes rewrite it as the balance moves, which isn't a step.
 function projectTask(task: Task): FieldProjection[] {
-  const attempts = outreachOutput(task, 'attempt-count')?.valueInteger;
+  const attempts = outreachTaskOutput(task, 'attempt-count')?.valueInteger;
   return [
     {
       field: 'status',
@@ -423,7 +419,13 @@ function projectTask(task: Task): FieldProjection[] {
     {
       field: 'error',
       label: 'Error',
-      value: taskOutputString(task, RcmTaskCode.sendInvoiceOutputError),
+      value: taskOutputString(task, RcmTaskCode.sendInvoiceOutputError) || (outreachErrorMessage(task) ?? ''),
+    },
+    {
+      field: 'statusReason',
+      label: 'Status Reason',
+      // mailed statements code their failure reason instead of writing it out
+      value: task.statusReason?.text ?? task.statusReason?.coding?.[0]?.code ?? '',
     },
     {
       field: 'attempts',
@@ -433,7 +435,7 @@ function projectTask(task: Task): FieldProjection[] {
     {
       field: 'result',
       label: 'Result',
-      value: attempts === undefined ? '' : outreachOutput(task, `attempt-${attempts}-result`)?.valueString ?? '',
+      value: attempts === undefined ? '' : outreachTaskOutput(task, `attempt-${attempts}-result`)?.valueString ?? '',
     },
   ];
 }

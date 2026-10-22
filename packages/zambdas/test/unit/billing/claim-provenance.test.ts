@@ -444,6 +444,82 @@ describe('diffResources billing tasks', () => {
       },
     ]);
   });
+
+  it.each([
+    {
+      left: 'an outreach executor failure',
+      output: {
+        type: {
+          text: 'error',
+        },
+        valueString: 'Collections referral integration is not yet implemented.',
+      },
+      error: 'Collections referral integration is not yet implemented.',
+    },
+    {
+      left: "a notification's failed mediums",
+      output: {
+        type: {
+          text: 'execution-result',
+        },
+        valueString: JSON.stringify([
+          {
+            medium: 'sms',
+            success: false,
+            error: 'Invalid number',
+          },
+          {
+            medium: 'email',
+            success: true,
+          },
+        ]),
+      },
+      error: 'sms: Invalid number',
+    },
+  ])('records the error $left left', ({ output, error }) => {
+    const failed = task({
+      status: 'failed',
+      output: [output],
+    });
+    expect(diffResources(task(), failed)).toContainEqual({
+      field: 'error',
+      label: 'Error',
+      previousValue: null,
+      newValue: error,
+    });
+  });
+
+  it.each([
+    {
+      on: 'a notification cancelled for want of contacts',
+      statusReason: {
+        text: 'No valid contact methods: sms: no phone number',
+      },
+      reason: 'No valid contact methods: sms: no phone number',
+    },
+    {
+      on: 'a mailed statement, which codes its failure',
+      statusReason: {
+        coding: [
+          {
+            code: 'Paper-mail-statements-feature-is-disabled',
+          },
+        ],
+      },
+      reason: 'Paper-mail-statements-feature-is-disabled',
+    },
+  ])('records the status reason on $on', ({ statusReason, reason }) => {
+    const failed = task({
+      status: 'failed',
+      statusReason,
+    });
+    expect(diffResources(task(), failed)).toContainEqual({
+      field: 'statusReason',
+      label: 'Status Reason',
+      previousValue: null,
+      newValue: reason,
+    });
+  });
 });
 
 describe('claimEventProvenanceRequest', () => {
