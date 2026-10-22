@@ -306,7 +306,11 @@ export async function fetchPartialClaimsById(oystehr: Oystehr, claimIds: string[
 
 const ACTOR_NAME_BATCH_SIZE = 100;
 
-export async function resolveActorNames(untaggedClient: Oystehr, actorRefs: string[]): Promise<Map<string, string>> {
+export async function resolveActorNames(
+  untaggedClient: Oystehr,
+  actorRefs: string[],
+  { throwOnError = false }: { throwOnError?: boolean } = {}
+): Promise<Map<string, string>> {
   const idsByType = new Map<'Practitioner' | 'Device', string[]>();
   for (const ref of actorRefs) {
     const [type, id] = ref.split('/');
@@ -328,15 +332,24 @@ export async function resolveActorNames(untaggedClient: Oystehr, actorRefs: stri
   try {
     const result = await untaggedClient.fhir.batch<Bundle<Practitioner | Device>>({ requests });
     for (const entry of result.entry ?? []) {
+      const status = entry.response?.status ?? '';
+
+      if (throwOnError && status && !status.startsWith('2')) {
+        throw new Error(`Actor name lookup failed with status ${status}`);
+      }
+
       for (const inner of entry.resource?.entry ?? []) {
         const resource = inner.resource;
+
         if (!resource?.id || (resource.resourceType !== 'Practitioner' && resource.resourceType !== 'Device')) continue;
+
         const name =
           resource.resourceType === 'Practitioner' ? fhirName(resource) : resource.deviceName?.[0]?.name ?? 'System';
         nameByRef.set(`${resource.resourceType}/${resource.id}`, name);
       }
     }
   } catch (err) {
+    if (throwOnError) throw err;
     // unresolved names fall back to the raw refs in the report rows
     console.warn('Failed to resolve actor names:', (err as Error)?.message);
   }

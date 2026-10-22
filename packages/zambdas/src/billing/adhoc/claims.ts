@@ -4,7 +4,13 @@ import { DateTime } from 'luxon';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { getEmCodes } from 'utils/lib/helpers/em-codes';
 import { isPayerUrl } from 'utils/lib/helpers/helpers';
-import { AdHocBillingClaimsInput, AdHocBillingClaimsRow } from 'utils/lib/types/adhoc/datasets/billing-claims';
+import {
+  AdHocBillingClaimsInput,
+  AdHocBillingClaimsRow,
+  BILLING_CLAIMS_LAYERS,
+  BillingClaimsBaseRowSchema,
+} from 'utils/lib/types/adhoc/datasets/billing-claims';
+import { datasetRowSchema } from 'utils/lib/types/adhoc/datasets/dataset';
 import { CLAIM_STATUS_DATE_EXTENSION_URLS } from 'utils/lib/types/data/billing/claim-status';
 import { writeOffReasonLabel } from 'utils/lib/types/data/billing/write-off-reasons';
 import { FHIR_RESOURCE_NOT_FOUND } from 'utils/lib/types/errors';
@@ -60,8 +66,14 @@ import {
   paymentIssuerRefs,
   TIMELINE_EXTRA_ELEMENTS,
 } from './claim-extras';
+import { dayFieldsOf, withReportDays } from './report-dates';
+
+// Every yyyy-MM-dd field of the row, converted from the stored instants in one place (report-dates).
+const DAY_FIELDS = dayFieldsOf(datasetRowSchema(BillingClaimsBaseRowSchema, BILLING_CLAIMS_LAYERS));
 
 const PAGE_SIZE = 100;
+// How many pages may ask for a payer or user name that has not resolved yet.
+const MAX_LOOKUP_ATTEMPTS = 3;
 const PAGE_CONCURRENCY = 3;
 const CLAIM_ENCOUNTER_ID_SYSTEM = ottehrIdentifierSystem('claim-encounter-id');
 export const ADHOC_CLAIMS_BUILD_BUDGET_MS = 12 * 60 * 1000;
@@ -137,14 +149,14 @@ export async function fetchAdHocClaimRows(
 
   const emCodes = flags.codes && eraReadClient ? await loadEmCodes(eraReadClient) : new Set<string>();
 
-  const scan = await withinBudget(scanAllClaims(oystehr, assertWithinBudget));
+  const scanned = await withinBudget(scanAllClaims(oystehr, assertWithinBudget));
 
-  const claimIds = scan.claims
+  const claimIds = scanned
     .filter((claim) => claimMatchesServiceDateRange(claim, input.dateRange.start, input.dateRange.end))
     .map((claim) => claim.id);
 
   console.log(
-    `[adhoc-billing] claims scanned=${scan.claims.length} inRange=${claimIds.length} ms=${Date.now() - startedAt}`
+    `[adhoc-billing] claims scanned=${scanned.length} inRange=${claimIds.length} ms=${Date.now() - startedAt}`
   );
 
   const payers = createPayerResolver(oystehr);
@@ -246,29 +258,24 @@ async function loadEmCodes(eraReadClient: Oystehr): Promise<ReadonlySet<string>>
 async function scanAllClaims(
   oystehr: Oystehr,
   beforePage: () => void
-): Promise<Awaited<ReturnType<typeof scanClaimIds>>> {
-  const scanOnce = (): ReturnType<typeof scanClaimIds> =>
-    scanClaimIds({
-      oystehr,
-      params: [{ name: '_sort', value: '_id' }],
-      maxMatches: Number.MAX_SAFE_INTEGER,
-      withServiceDate: true,
-      beforePage,
-    });
+): Promise<Awaited<ReturnType<typeof scanClaimIds>>['claims']> {
+  const existing =
+    (await oystehr.fhir.search<Claim>({ resourceType: 'Claim', params: [{ name: '_summary', value: 'count' }] }))
+      .total ?? 0;
 
-  const first = await scanOnce();
+  const { claims } = await scanClaimIds({
+    oystehr,
+    params: [{ name: '_sort', value: '_id' }],
+    maxMatches: Number.MAX_SAFE_INTEGER,
+    withServiceDate: true,
+    beforePage,
+  });
 
-  if (!first.incomplete) return first;
-
-  console.warn(`[adhoc-billing] claim scan ended short after ${first.claims.length} claims; scanning again`);
-
-  const second = await scanOnce();
-
-  if (second.incomplete) {
-    throw new Error(`Claim scan stopped after ${second.claims.length} claims, short of the total, twice`);
+  if (claims.length < existing) {
+    throw new Error(`Claim scan returned ${claims.length} of the ${existing} claims that existed when it began`);
   }
 
-  return second;
+  return claims;
 }
 
 function createPayerResolver(oystehr: Oystehr): {
@@ -276,7 +283,8 @@ function createPayerResolver(oystehr: Oystehr): {
   unresolvedCount: () => number;
 } {
   const cache = new Map<string, Promise<Organization | undefined>>();
-  const failed = new Set<string>();
+  const attempts = new Map<string, number>();
+  const unresolved = new Set<string>();
 
   return {
     async resolve(refs) {
@@ -285,16 +293,18 @@ function createPayerResolver(oystehr: Oystehr): {
       for (const ref of unique) {
         if (cache.has(ref)) continue;
 
+        const attempt = (attempts.get(ref) ?? 0) + 1;
+        attempts.set(ref, attempt);
+
         cache.set(
           ref,
           resolvePayersByRef(oystehr, [ref]).then((byRef) => {
             const payer = byRef.get(ref);
-            // resolvePayersByRef swallows errors: a failed lookup is retried on a later page rather
-            // than blanking the payer for the whole run.
-            if (payer) failed.delete(ref);
-            else {
-              failed.add(ref);
-              cache.delete(ref);
+            if (payer) {
+              unresolved.delete(ref);
+            } else {
+              unresolved.add(ref);
+              if (attempt < MAX_LOOKUP_ATTEMPTS) cache.delete(ref);
             }
             return payer;
           })
@@ -312,7 +322,7 @@ function createPayerResolver(oystehr: Oystehr): {
 
       return byRef;
     },
-    unresolvedCount: () => failed.size,
+    unresolvedCount: () => unresolved.size,
   };
 }
 
@@ -327,22 +337,22 @@ const toYmd = (value: string | undefined): string | null => {
 function createActorNameResolver(): {
   namesFor: (untaggedClient: Oystehr, refs: string[]) => Promise<Map<string, string>>;
 } {
-  const cache = new Map<string, Promise<string>>();
+  const names = new Map<string, string>();
+  const attempts = new Map<string, number>();
+
   return {
     async namesFor(untaggedClient, refs) {
-      const missing = refs.filter((ref) => !cache.has(ref));
+      const missing = [...new Set(refs)].filter(
+        (ref) => !names.has(ref) && (attempts.get(ref) ?? 0) < MAX_LOOKUP_ATTEMPTS
+      );
+
       if (missing.length > 0) {
-        const fetched = resolveActorNames(untaggedClient, missing);
-        missing.forEach((ref) =>
-          cache.set(
-            ref,
-            fetched.then((names) => names.get(ref) ?? '')
-          )
-        );
+        missing.forEach((ref) => attempts.set(ref, (attempts.get(ref) ?? 0) + 1));
+        const fetched = await resolveActorNames(untaggedClient, missing, { throwOnError: true });
+        fetched.forEach((name, ref) => names.set(ref, name));
       }
-      const names = new Map<string, string>();
-      await Promise.all(refs.map(async (ref) => names.set(ref, await cache.get(ref)!)));
-      return names;
+
+      return new Map(refs.map((ref) => [ref, names.get(ref) ?? '']));
     },
   };
 }
@@ -479,7 +489,7 @@ export function mapClaimToAdHocRow(
   if (flags.history)
     Object.assign(row, historyLayer(extras.historyByClaimId.get(claim.id ?? '') ?? [], extras.actorNames));
 
-  return row;
+  return withReportDays(row, DAY_FIELDS);
 }
 
 const lineExtras = (claim: Claim, line: NonNullable<Claim['item']>[number]): ReturnType<typeof claimLineExtras> => {

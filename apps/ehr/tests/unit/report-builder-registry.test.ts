@@ -40,7 +40,7 @@ describe('ad-hoc dataset registry', () => {
 describe('billing-claims dataset fetch', () => {
   afterEach(() => vi.unstubAllGlobals());
 
-  it('builds through the billing app zambda and turns event dates into calendar days', async () => {
+  it('builds through the billing app zambda and passes the rows (already in days) through', async () => {
     const execute = vi.fn(async ({ id, taskId }: { id: string; taskId?: string }) => ({
       output: taskId ? { status: 'completed', downloadUrl: 'https://signed.example/rows.json' } : { taskId: 'task-1' },
       id,
@@ -48,8 +48,8 @@ describe('billing-claims dataset fetch', () => {
     const row = {
       claimId: 'claim-1',
       serviceDate: '2026-10-05',
-      lastRemitDate: '2026-10-11T12:00:00Z',
-      remits: [{ date: '2026-10-11T12:00:00Z', allowed: 150, paid: 120, patientResp: 30 }],
+      lastRemitDate: '2026-10-11',
+      remits: [{ date: '2026-10-11', allowed: 150, paid: 120, patientResp: 30 }],
       writeOffs: [{ date: '2026-10-13', amount: 10, party: '', payer: '', reason: 'x', voided: false }],
     };
     vi.stubGlobal(
@@ -66,12 +66,7 @@ describe('billing-claims dataset fetch', () => {
 
     expect(execute.mock.calls.map(([args]) => args.id)).toEqual(['adhoc-billing-dataset', 'adhoc-billing-dataset']);
     expect(execute.mock.calls[0][0]).toMatchObject({ datasetId: 'billing-claims', options: { remits: true } });
-    expect(rows[0]).toMatchObject({
-      serviceDate: '2026-10-05',
-      lastRemitDate: '2026-10-11',
-      remits: [{ date: '2026-10-11' }],
-      writeOffs: [{ date: '2026-10-13' }],
-    });
+    expect(rows[0]).toEqual(row);
     // A layer that was not loaded stays absent rather than turning into a null column.
     expect(rows[0]).not.toHaveProperty('insuranceFinalizedDate');
   });

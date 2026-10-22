@@ -1,6 +1,5 @@
 import {
   AdHocBillingClaimsOutput,
-  AdHocBillingClaimsRow,
   BILLING_CLAIMS_DATASET_ID,
   BILLING_CLAIMS_DOMAIN_FIELDS,
   BILLING_CLAIMS_INTERNAL_FIELDS,
@@ -11,7 +10,7 @@ import { layerOptions } from 'utils/lib/types/adhoc/datasets/dataset';
 import { AdHocRow } from 'utils/lib/types/adhoc/datasets/llm-schema';
 import { AdHocLayer } from 'utils/lib/types/adhoc/query/layers';
 import { ADHOC_BILLING_DATASET_ZAMBDA_ID } from '../../../api/api';
-import { ADHOC_QUERY_STALE_MS, runAdHocReport, toLocalYmd } from '../query/dataset-query';
+import { ADHOC_QUERY_STALE_MS, runAdHocReport } from '../query/dataset-query';
 import { buildLlmDatasetSchema } from './schema';
 import { AdHocDataset, FetchContext } from './types';
 
@@ -26,66 +25,6 @@ const DESCRIPTION =
   '(adjustment / denial codes), insurance checks, the insurances on the claim, provider / facility / institutional ' +
   'details, and the claim history (status changes, submissions, acknowledgments). Eligibility and fee-schedule ' +
   'pricing are in "Visit payments & charges (EHR)".';
-
-function toLocalDates(row: AdHocBillingClaimsRow): AdHocBillingClaimsRow {
-  const out: AdHocBillingClaimsRow = { ...row };
-  if (row.lastRemitDate !== undefined) out.lastRemitDate = toLocalYmd(row.lastRemitDate);
-  if (row.insuranceFinalizedDate !== undefined) out.insuranceFinalizedDate = toLocalYmd(row.insuranceFinalizedDate);
-  if (row.enteredPatientArDate !== undefined) out.enteredPatientArDate = toLocalYmd(row.enteredPatientArDate);
-  if (row.remits) out.remits = row.remits.map((remit) => ({ ...remit, date: toLocalYmd(remit.date) }));
-
-  if (row.remitAdjustments) {
-    out.remitAdjustments = row.remitAdjustments.map((adjustment) => ({
-      ...adjustment,
-      remitDate: toLocalYmd(adjustment.remitDate),
-    }));
-  }
-
-  if (row.lastPatientPaymentDate !== undefined) out.lastPatientPaymentDate = toLocalYmd(row.lastPatientPaymentDate);
-
-  if (row.patientPayments) {
-    out.patientPayments = row.patientPayments.map((payment) => ({ ...payment, date: toLocalYmd(payment.date) }));
-  }
-
-  if (row.writeOffs)
-    out.writeOffs = row.writeOffs.map((writeOff) => ({ ...writeOff, date: toLocalYmd(writeOff.date) }));
-
-  for (const field of [
-    'admissionDate',
-    'dischargeDate',
-    'accidentDate',
-    'lastCheckDate',
-    'firstSubmittedDate',
-    'lastSubmittedDate',
-    'firstAcknowledgedDate',
-    'lastNoteDate',
-    'lastActivityDate',
-  ] as const) {
-    if (row[field] !== undefined) out[field] = toLocalYmd(row[field]);
-  }
-
-  if (row.insurancePayments) {
-    out.insurancePayments = row.insurancePayments.map((payment) => ({
-      ...payment,
-      checkDate: toLocalYmd(payment.checkDate),
-      remitDate: toLocalYmd(payment.remitDate),
-    }));
-  }
-
-  if (row.statusChanges) {
-    out.statusChanges = row.statusChanges.map((change) => ({ ...change, date: toLocalYmd(change.date) }));
-  }
-
-  if (row.submissions) {
-    out.submissions = row.submissions.map((submission) => ({ ...submission, date: toLocalYmd(submission.date) }));
-  }
-
-  if (row.acknowledgments) {
-    out.acknowledgments = row.acknowledgments.map((ack) => ({ ...ack, date: toLocalYmd(ack.date) }));
-  }
-
-  return out;
-}
 
 async function fetchAdHocBillingClaims({
   oystehrZambda,
@@ -106,7 +45,8 @@ async function fetchAdHocBillingClaims({
     staleTime: ADHOC_QUERY_STALE_MS,
   });
 
-  return result.rows.map(toLocalDates);
+  // Dates arrive as yyyy-MM-dd days, already in the zone the report range is drawn in.
+  return result.rows;
 }
 
 export const billingClaimsDataset: AdHocDataset = {

@@ -19,7 +19,12 @@ import {
   CLAIM_ACCIDENT_TYPE_EXTENSION_URLS,
   CODE_SYSTEM_CLAIM_TYPE,
 } from 'utils/lib/helpers/rcm/constants';
-import { AdHocBillingClaimsOutputSchema } from 'utils/lib/types/adhoc/datasets/billing-claims';
+import {
+  AdHocBillingClaimsOutputSchema,
+  BILLING_CLAIMS_LAYERS,
+  BillingClaimsBaseRowSchema,
+} from 'utils/lib/types/adhoc/datasets/billing-claims';
+import { datasetRowSchema } from 'utils/lib/types/adhoc/datasets/dataset';
 import { EM_CODES_VALUE_SET_URL } from 'utils/lib/types/api/em-codes.constants';
 import {
   CLAIM_PROVENANCE_ACKNOWLEDGMENT_EXTENSION_URL,
@@ -37,6 +42,7 @@ import {
   ADHOC_CLAIMS_OVER_BUDGET_MESSAGE,
   fetchAdHocClaimRows,
 } from '../../../src/billing/adhoc/claims';
+import { dayFieldsOf, toReportDay } from '../../../src/billing/adhoc/report-dates';
 import { X12_ADJUSTMENT_GROUP_SYSTEM } from '../../../src/billing/claim-amounts';
 import { buildClaimLookups, mapClaimToItem } from '../../../src/billing/claim-search';
 import {
@@ -443,7 +449,11 @@ const store: FhirResource[] = [
 
 type Param = { name: string; value: string };
 
-function stubBillingClient({ shortScans = 0, onScan }: { shortScans?: number; onScan?: () => void } = {}): {
+function stubBillingClient({
+  shortScans = 0,
+  countPhantom = 0,
+  onScan,
+}: { shortScans?: number; countPhantom?: number; onScan?: () => void } = {}): {
   oystehr: Oystehr;
   search: ReturnType<typeof vi.fn>;
   getPayerByUrl: ReturnType<typeof vi.fn>;
@@ -468,6 +478,10 @@ function stubBillingClient({ shortScans = 0, onScan }: { shortScans?: number; on
       });
 
     let matches = store.filter((r) => r.resourceType === resourceType);
+
+    if (all('_summary')[0] === 'count') {
+      return { resourceType: 'Bundle', type: 'searchset', total: matches.length + countPhantom, unbundle: () => [] };
+    }
 
     const ids = listOf('_id');
 
@@ -670,15 +684,15 @@ describe('fetchAdHocClaimRows (billing-claims dataset)', () => {
       writeOffCount: 1,
       writeOffReasons: ['Charity or Financial Assistance'],
       remitCount: 1,
-      lastRemitDate: '2026-10-11T12:00:00Z',
+      lastRemitDate: '2026-10-11',
       adjustmentReasonCodes: ['45', '3'],
-      remits: [{ date: '2026-10-11T12:00:00Z', payerName: 'Payer B', allowed: 150, paid: 120, patientResp: 30 }],
+      remits: [{ date: '2026-10-11', payerName: 'Payer B', allowed: 150, paid: 120, patientResp: 30 }],
       remitAdjustments: [
-        { remitDate: '2026-10-11T12:00:00Z', payerName: 'Payer B', group: 'CO', code: '45', amount: 50 },
-        { remitDate: '2026-10-11T12:00:00Z', payerName: 'Payer B', group: 'PR', code: '3', amount: 30 },
+        { remitDate: '2026-10-11', payerName: 'Payer B', group: 'CO', code: '45', amount: 50 },
+        { remitDate: '2026-10-11', payerName: 'Payer B', group: 'PR', code: '3', amount: 30 },
       ],
-      insuranceFinalizedDate: '2026-10-12T14:00:00Z',
-      enteredPatientArDate: '2026-10-12T14:00:00Z',
+      insuranceFinalizedDate: '2026-10-12',
+      enteredPatientArDate: '2026-10-12',
     });
     expect(insured.writeOffs).toEqual([
       {
@@ -731,22 +745,24 @@ describe('fetchAdHocClaimRows (billing-claims dataset)', () => {
     expect(getPayerByUrl).toHaveBeenCalledWith({ url: PAYER_A });
   });
 
-  it('scans again when a claim created mid-scan left the first scan short', async () => {
+  it('finishes a scan whose running total grew with a claim created mid-scan, without scanning again', async () => {
     vi.spyOn(console, 'log').mockImplementation(() => undefined);
-    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-    const { oystehr } = stubBillingClient({ shortScans: 1 });
+    let scans = 0;
+    const { oystehr } = stubBillingClient({ shortScans: 1, onScan: () => (scans += 1) });
 
     const rows = await fetchAdHocClaimRows(oystehr, { dateRange: DATE_RANGE });
 
     expect(rows).toHaveLength(claims.length - 1);
+    expect(scans).toBe(1);
   });
 
-  it('fails rather than leaving claims out when the scan comes up short twice', async () => {
+  it('fails rather than leaving claims out when the scan returns fewer claims than existed', async () => {
     vi.spyOn(console, 'log').mockImplementation(() => undefined);
-    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-    const { oystehr } = stubBillingClient({ shortScans: 2 });
+    const { oystehr } = stubBillingClient({ countPhantom: 1 });
 
-    await expect(fetchAdHocClaimRows(oystehr, { dateRange: DATE_RANGE })).rejects.toThrow('short of the total, twice');
+    await expect(fetchAdHocClaimRows(oystehr, { dateRange: DATE_RANGE })).rejects.toThrow(
+      `Claim scan returned ${claims.length} of the ${claims.length + 1} claims that existed when it began`
+    );
   });
 
   it('stops with a narrow-the-range message before the worker would be killed', async () => {
@@ -770,7 +786,7 @@ describe('fetchAdHocClaimRows (billing-claims dataset)', () => {
     expect(hydrations).toHaveLength(0);
   });
 
-  it('counts as unresolved only payer references it actually looked up', async () => {
+  it('asks again on a later page for a payer whose lookup failed, and counts only real payer refs', async () => {
     vi.spyOn(console, 'log').mockImplementation(() => undefined);
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
@@ -778,16 +794,62 @@ describe('fetchAdHocClaimRows (billing-claims dataset)', () => {
     // claim-2 points at something that is no payer reference at all: skipped, not "unresolved".
     selfPayClaim.insurer = { reference: 'Patient/pt-1' };
     getPayerByUrl.mockRejectedValueOnce(new Error('rcm down'));
+    // Enough Payer A claims for a second group of pages after the one whose lookup failed.
+    const moreClaims = Array.from({ length: 300 }, (_unused, index) =>
+      claim(`claim-g${String(index).padStart(3, '0')}`, '2026-10-15', { insurer: { reference: PAYER_A } })
+    );
+    store.push(...moreClaims);
+    let rows;
     try {
-      await fetchAdHocClaimRows(oystehr, { dateRange: DATE_RANGE });
+      rows = await fetchAdHocClaimRows(oystehr, { dateRange: DATE_RANGE });
     } finally {
       delete selfPayClaim.insurer;
+      store.splice(store.length - moreClaims.length, moreClaims.length);
     }
 
-    const unresolved = warn.mock.calls
-      .map(([message]) => String(message))
-      .filter((m) => m.includes('could not be resolved'));
-    expect(unresolved).toEqual([expect.stringContaining('1 payer reference(s)')]);
+    // The first group of pages shares the failed lookup; the next group asks again.
+    expect(getPayerByUrl).toHaveBeenCalledTimes(2);
+    expect(rows.find((r) => r.claimId === 'claim-g299')?.payerName).toBe('Payer A');
+    expect(
+      warn.mock.calls.map(([message]) => String(message)).filter((m) => m.includes('could not be resolved'))
+    ).toEqual([]);
+  });
+
+  it('stops asking for a payer that is not found after a few pages', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const { oystehr, getPayerByUrl } = stubBillingClient();
+    getPayerByUrl.mockRejectedValue(new Error('not found'));
+
+    await fetchAdHocClaimRows(oystehr, { dateRange: DATE_RANGE });
+
+    expect(getPayerByUrl.mock.calls.length).toBeLessThanOrEqual(3);
+    expect(warn.mock.calls.map(([message]) => String(message))).toContainEqual(
+      expect.stringContaining('1 payer reference(s)')
+    );
+  });
+
+  it('fails the run when user names cannot be looked up, rather than leaving byName empty', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    const { oystehr } = stubBillingClient();
+    (oystehr.fhir.batch as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('batch down'));
+
+    await expect(
+      fetchAdHocClaimRows(oystehr, { dateRange: DATE_RANGE, includeHistory: true }, { eraReadClient: oystehr })
+    ).rejects.toThrow('batch down');
+  });
+
+  it('fails the run when one lookup inside the name batch fails', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    const { oystehr } = stubBillingClient();
+    (oystehr.fhir.batch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      entry: [{ response: { status: '500 Internal Server Error' } }],
+    });
+
+    await expect(
+      fetchAdHocClaimRows(oystehr, { dateRange: DATE_RANGE, includeHistory: true }, { eraReadClient: oystehr })
+    ).rejects.toThrow('Actor name lookup failed with status 500');
   });
 
   it('gives every claim of one patient the same patientId, though each claim has its own patient copy', async () => {
@@ -802,7 +864,7 @@ describe('fetchAdHocClaimRows (billing-claims dataset)', () => {
     expect(rows.find((r) => r.claimId === 'claim-f000')?.patientId).toBe('pt-1');
   });
 
-  it('stops a scan that runs out of time instead of scanning again', async () => {
+  it('stops a scan that runs out of time', async () => {
     vi.spyOn(console, 'log').mockImplementation(() => undefined);
     vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     let now = 1_000_000;
@@ -849,14 +911,14 @@ describe('fetchAdHocClaimRows (billing-claims dataset)', () => {
     const selfPay = rows.find((r) => r.claimId === 'claim-2')!;
 
     expect(selfPay.patientPayments).toEqual([
-      { date: '2026-10-10T12:00:00Z', amount: 75, kind: 'payment', method: 'cash', source: 'ehr', voided: false },
+      { date: '2026-10-10', amount: 75, kind: 'payment', method: 'cash', source: 'ehr', voided: false },
       { date: '2026-10-12', amount: 25, kind: 'payment', method: 'card', source: 'manual', voided: true },
       { date: '2026-10-14', amount: -5, kind: 'refund', method: 'card', source: 'card', voided: false },
     ]);
     expect(selfPay).toMatchObject({
       patientPaymentCount: 1,
       patientRefundedTotal: 5,
-      lastPatientPaymentDate: '2026-10-10T12:00:00Z',
+      lastPatientPaymentDate: '2026-10-10',
     });
     const counted = selfPay.patientPayments!.filter((p) => !p.voided).reduce((sum, p) => sum + p.amount, 0);
     expect(counted).toBe(selfPay.patientPaid);
@@ -904,7 +966,7 @@ describe('fetchAdHocClaimRows (billing-claims dataset)', () => {
         {
           checkNumber: 'CHK-9',
           checkDate: '2026-10-10',
-          remitDate: '2026-10-11T10:00:00Z',
+          remitDate: '2026-10-11',
           checkAmount: 500,
           payerName: 'Payer B',
           eraSource: 'manual',
@@ -912,29 +974,27 @@ describe('fetchAdHocClaimRows (billing-claims dataset)', () => {
         },
       ],
       statusChanges: [
-        { date: '2026-10-05T14:00:00Z', field: 'arStage', from: '', to: 'insurance-payer-ar', by: 'system' },
+        { date: '2026-10-05', field: 'arStage', from: '', to: 'insurance-payer-ar', by: 'system' },
         {
-          date: '2026-10-12T14:00:00Z',
+          date: '2026-10-12',
           field: 'arStage',
           from: 'insurance-payer-ar',
           to: 'patient-ar',
           by: 'user',
           byName: 'Biller, Manish',
         },
-        { date: '2026-10-12T14:00:00Z', field: 'insuranceArStatus', from: 'adjudicated', to: 'finalized', by: 'user' },
+        { date: '2026-10-12', field: 'insuranceArStatus', from: 'adjudicated', to: 'finalized', by: 'user' },
       ],
-      firstSubmittedDate: '2026-10-06T13:59:00Z',
-      lastSubmittedDate: '2026-10-06T13:59:00Z',
+      firstSubmittedDate: '2026-10-06',
+      lastSubmittedDate: '2026-10-06',
       submissionCount: 1,
-      submissions: [{ date: '2026-10-06T13:59:00Z', by: 'system', byName: 'Ottehr Rules Engine' }],
+      submissions: [{ date: '2026-10-06', by: 'system', byName: 'Ottehr Rules Engine' }],
       emCode: '99213',
-      firstAcknowledgedDate: '2026-10-07T13:00:00Z',
-      acknowledgments: [
-        { date: '2026-10-07T13:00:00Z', entityKind: 'payer', entityName: 'Payer A', message: 'Accepted' },
-      ],
+      firstAcknowledgedDate: '2026-10-07',
+      acknowledgments: [{ date: '2026-10-07', entityKind: 'payer', entityName: 'Payer A', message: 'Accepted' }],
       noteCount: 1,
-      lastNoteDate: '2026-10-13T14:00:00Z',
-      lastActivityDate: '2026-10-14T14:00:00Z',
+      lastNoteDate: '2026-10-13',
+      lastActivityDate: '2026-10-14',
       userActionCount: 3,
       systemActionCount: 3,
     });
@@ -1072,5 +1132,38 @@ describe('billing-claims review fixes', () => {
     } finally {
       remit.insurer = insurer;
     }
+  });
+
+  it('sends every field the schema calls a yyyy-MM-dd date as a day, with every layer on', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    const { oystehr } = stubBillingClient();
+    const rows = await fetchAdHocClaimRows(
+      oystehr,
+      { dateRange: DATE_RANGE, ...allLayers },
+      { eraReadClient: oystehr }
+    );
+    const { fields, nested } = dayFieldsOf(datasetRowSchema(BillingClaimsBaseRowSchema, BILLING_CLAIMS_LAYERS));
+
+    // The schema walk finds top-level and nested dates alike.
+    expect(fields).toEqual(expect.arrayContaining(['serviceDate', 'patientDob', 'lastActivityDate', 'lastCheckDate']));
+    expect(nested).toMatchObject({ submissions: ['date'], insurancePayments: ['checkDate', 'remitDate'] });
+
+    const isDay = (value: unknown): boolean => value === null || /^\d{4}-\d{2}-\d{2}$/.test(String(value));
+    for (const row of rows as unknown as Record<string, unknown>[]) {
+      for (const field of fields) if (field in row) expect(isDay(row[field]), `${row.claimId}.${field}`).toBe(true);
+      for (const [field, days] of Object.entries(nested)) {
+        for (const item of (row[field] as Record<string, unknown>[] | undefined) ?? []) {
+          for (const day of days) expect(isDay(item[day]), `${row.claimId}.${field}[].${day}`).toBe(true);
+        }
+      }
+    }
+  });
+
+  it('puts an instant on its New York day, whatever zone it was stored in', () => {
+    expect(toReportDay('2026-10-12T02:30:00Z')).toBe('2026-10-11');
+    expect(toReportDay('2026-10-11T22:30:00-04:00')).toBe('2026-10-11');
+    expect(toReportDay('2026-10-11')).toBe('2026-10-11');
+    expect(toReportDay('2026-10-11T23:30:00')).toBe('2026-10-11');
+    expect(toReportDay('')).toBeNull();
   });
 });

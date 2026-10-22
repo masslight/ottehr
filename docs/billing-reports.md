@@ -173,20 +173,32 @@ each run builds the rows fresh.
 One row per Claim whose service date (first line) falls in the range, scanned with
 `scanClaimIds` and filtered by `claimMatchesServiceDateRange`, then hydrated 100 at a time like
 the claims list. Base columns and amounts come from `mapClaimToItem`, so they match the claims
-list. A scan that ends short (a claim created mid-scan shifts the offsets) is retried once, then
-fails the Task. Payers are resolved once per run. The build stops at 12 min with "Too many claims
-for one run — narrow the date range", so the Task fails instead of the lambda being killed with the
-Task left in-progress. Layers (no extra FHIR queries): `codes` (lines + ICD-10, reads
-`Claim.diagnosis`), `writeOffs` (reasons as the app labels them), `patientPayments` (every payment and refund
-the claim's `patientPaid` sums — EHR-mirrored, manual, card), `remits` (matched ERA ClaimResponses,
-CARC codes, each remit attributed to the payer that issued its ERA, as the claim detail does; reads the
-untagged ERA links), `timeline`
-(status date extensions, reads `Claim.extension`), `claimDetails` (provider / facility NPIs, POS, PCN /
-ICN, institutional and accident fields, attachments, patient sex / state / ZIP), `coverage` (all insurances
-on the claim; one Coverage read per page), `insurancePayments` (ERA checks; reads the untagged
-PaymentReconciliations and era-processing Provenances), `history` (claim-history Provenances: status
-changes, submissions, acknowledgments, notes; one Provenance search per page). Event dates are sent as recorded; the EHR
-converts them to the viewer's calendar day.
+list.
+
+- **Scan**: the claim count is read before the scan. Claims are never deleted, so a scan that returns
+  fewer claims than that count fails the Task; a claim created mid-scan behind the offset only grows
+  the running total and is not an error.
+- **Lookups**: payers and user names are resolved once per run. One that has not resolved is asked
+  again on later pages, up to 3 times. A failed user-name lookup fails the Task rather than leaving
+  names empty.
+- **Budget**: the build stops at 12 min with "Too many claims for one run — narrow the date range", so
+  the Task fails instead of the lambda being killed with the Task left in-progress.
+- **Dates**: every field the schema describes as `yyyy-MM-dd` is sent as a day (`report-dates.ts`):
+  instants on their America/New_York day, the zone the report range is drawn in; the service date in its
+  own zone, as the range filter reads it.
+
+Layers:
+
+- No extra queries: `codes` (lines + ICD-10, reads `Claim.diagnosis`; `emCode` from the EHR E&M code
+  list, one ValueSet read per run), `writeOffs` (reasons as the app labels them), `patientPayments`
+  (every payment and refund the claim's `patientPaid` sums — EHR-mirrored, manual, card), `timeline`
+  (status date extensions, reads `Claim.extension`), `claimDetails` (provider / facility NPIs, POS,
+  PCN / ICN, institutional and accident fields, attachments, patient sex / state / ZIP).
+- Extra queries per page: `remits` (matched ERA ClaimResponses, CARC codes, each remit attributed to
+  the payer that issued its ERA, as the claim detail does; reads the untagged ERA links), `coverage`
+  (all insurances on the claim; one Coverage read), `insurancePayments` (ERA checks; reads the
+  untagged PaymentReconciliations and era-processing Provenances), `history` (claim-history
+  Provenances: status changes, submissions, acknowledgments, notes; one Provenance search).
 
 ### billing-rules — Billing rules (billing app)
 
