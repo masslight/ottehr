@@ -16,17 +16,15 @@ vi.mock('react-router-dom', async () => {
   return { ...actual, useParams: () => ({ id: 'appointment-1' }) };
 });
 
-// Stable client objects, as the real hook returns: new ones per render would refetch the system reports in a loop.
-const clients = vi.hoisted(() => ({ oystehrZambda: {}, oystehr: {} }));
 vi.mock('src/hooks/useAppClients', () => ({
-  useApiClients: () => clients,
+  useApiClients: () => ({ oystehrZambda: {}, oystehr: {} }),
 }));
 
 vi.mock('notistack', () => ({ enqueueSnackbar: vi.fn() }));
 
 vi.mock('src/api/api', () => ({
   uploadDotVisionDocument: vi.fn(),
-  listSystemReports: vi.fn().mockResolvedValue({ reports: [] }),
+  getSystemReport: vi.fn(),
 }));
 
 vi.mock('src/features/visits/shared/components/vitals/hooks/useGetVitals', () => ({
@@ -46,9 +44,22 @@ vi.mock('src/features/visits/shared/components/vitals/hooks/useDeleteVitals', ()
   useDeleteVitals: () => vi.fn().mockResolvedValue(undefined),
 }));
 
+// The visit (and its patient) each test renders; the growth-charts tab depends on the patient's age at the visit.
+const visit = vi.hoisted(() => ({
+  resources: {} as {
+    appointment: { id: string; start?: string };
+    encounter: { id: string };
+    patient?: { id: string; birthDate?: string };
+  },
+}));
+// A visit in the past: what counts is the patient's age at the visit, not today.
+const VISIT_START = '2024-06-01T14:00:00.000Z';
+const setVisit = (patient?: { id: string; birthDate?: string }): void => {
+  visit.resources = { appointment: { id: 'appt-1', start: VISIT_START }, encounter: { id: 'enc-pv-test' }, patient };
+};
 vi.mock('src/features/visits/shared/stores/appointment/appointment.store', () => ({
   useAppointmentData: () => ({
-    resources: { appointment: { id: 'appt-1' }, encounter: { id: 'enc-pv-test' } },
+    resources: visit.resources,
     isAppointmentLoading: false,
     appointmentError: null,
   }),
@@ -152,7 +163,40 @@ const temperatureDraft: VitalsTemperatureObservationDTO = {
 describe('PatientVitals', () => {
   beforeEach(() => {
     useVitalsDraftStore.setState({ draftsByEncounterId: {} });
+    setVisit({ id: 'patient-1' });
     vi.clearAllMocks();
+  });
+
+  // The page decides who gets the growth charts: patients under 20 at this visit, with a full birth date.
+  describe('Growth charts tab', () => {
+    it('appears next to the vitals when the patient was under 20 at this visit, even if 20 or older today', () => {
+      setVisit({ id: 'patient-1', birthDate: '2005-01-01' });
+
+      render(<PatientVitals />, { wrapper });
+
+      expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['Enter vitals', 'Growth charts']);
+      expect(screen.getByTestId('temperature-card')).toBeVisible();
+    });
+
+    it('does not appear when the patient was 20 or older at this visit', () => {
+      setVisit({ id: 'patient-1', birthDate: '2004-05-01' });
+
+      render(<PatientVitals />, { wrapper });
+
+      expect(screen.queryByRole('tab')).not.toBeInTheDocument();
+      expect(screen.getByTestId('temperature-card')).toBeVisible();
+    });
+
+    it('does not appear without a full birth date', () => {
+      setVisit({ id: 'patient-1', birthDate: '2010' });
+      const { unmount } = render(<PatientVitals />, { wrapper });
+      expect(screen.queryByRole('tab')).not.toBeInTheDocument();
+      unmount();
+
+      setVisit({ id: 'patient-1' });
+      render(<PatientVitals />, { wrapper });
+      expect(screen.queryByRole('tab')).not.toBeInTheDocument();
+    });
   });
 
   describe('UnsavedDraftWarning banner', () => {

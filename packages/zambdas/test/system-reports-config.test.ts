@@ -26,17 +26,14 @@ describe('shipped system reports config', () => {
     }
   });
 
-  it('ships the growth charts on the Vitals page for every active role, to patients under 20, over the whole history', () => {
+  it('ships the growth charts as a per-patient report over the whole history (the Vitals page decides who sees it)', () => {
     const growth = parseSystemReportBasic({ ...config.fhirResources.SYSTEM_REPORT_GROWTH_CHARTS.resource, id: 'g' });
     expect(growth).toMatchObject({
       name: 'growth-charts',
       title: 'Growth charts',
-      places: ['visit.vitals'],
-      appliesTo: { maxAgeYears: 20 },
       parameters: ['patientId'],
       inputs: expect.arrayContaining([expect.objectContaining({ name: 'patientId', kind: 'id', required: true })]),
     });
-    expect(growth?.roles).toEqual(Object.values(RoleType).filter((role) => role !== RoleType.Inactive));
     expect(growth?.inputs?.some((input) => input.kind === 'dateRange')).toBe(false);
   });
 
