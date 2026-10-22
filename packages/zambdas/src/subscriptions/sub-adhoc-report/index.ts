@@ -28,13 +28,16 @@ import { fetchAdHocEncounterRows } from '../../shared/adhoc-datasets/encounters'
 import { fetchAdHocPatientRows } from '../../shared/adhoc-datasets/patients';
 import { runFetchPlan } from '../../shared/adhoc-fetch-plan';
 import { runWithReportBudget, uploadAdHocReportJsonToZ3 } from '../../shared/adhoc-report';
+import { recordSystemReportMeasurement } from '../../shared/system-report';
 import { validateOutputWithSchema } from '../../shared/validate-zod';
 import { wrapTaskHandler } from '../task/helpers';
 
 const ZAMBDA_NAME = 'sub-adhoc-report';
 
-// The same shape `adhoc-report` validated and wrote on the Task: a dataset report or a fetch plan.
-type ReportParams = StartAdHocReportInput;
+// The same shape `adhoc-report` validated and wrote on the Task: a dataset report or a fetch plan — the latter
+// with the system report's id when `run-system-report` created the Task (its input schema strips the field
+// from anything a browser sends `adhoc-report`).
+type ReportParams = StartAdHocReportInput & { systemReportId?: string };
 
 function readParams(task: Task): ReportParams {
   const raw = task.input?.find((i) => i.type?.coding?.some((c) => c.code === ADHOC_REPORT_PARAMS_CODE))?.valueString;
@@ -55,6 +58,9 @@ async function buildOutputJson(
       params.parameters,
       params.hints
     );
+    if (params.systemReportId) {
+      await recordSystemReportMeasurement(oystehr, params.systemReportId, totalMs, params.dateRange);
+    }
     // One file holds the stats and the resources (RunFetchPlanOutput); the 17–30 MB of resources are
     // serialized once, and the stats head is spliced in front of them.
     const resourcesJson = JSON.stringify(resources);

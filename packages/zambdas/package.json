@@ -16,6 +16,8 @@
     "recreate-in-house-labs": "NODE_OPTIONS='--preserve-symlinks' tsx src/scripts/recreate-in-house-labs.ts",
     "recreate-quick-texts": "NODE_OPTIONS='--preserve-symlinks' tsx src/scripts/recreate-quick-texts.ts",
     "recreate-em-codes": "NODE_OPTIONS='--preserve-symlinks' tsx src/scripts/recreate-em-codes.ts",
+    "publish-system-report": "NODE_OPTIONS='--preserve-symlinks' tsx src/scripts/publish-system-report.ts",
+    "build-system-reports-config": "NODE_OPTIONS='--preserve-symlinks' tsx src/scripts/build-system-reports-config.ts",
     "cancel-telemed-appointments": "NODE_OPTIONS='--preserve-symlinks' tsx src/scripts/cancel-telemed-appointments.ts",
     "charge-due-and-past-due-invoices": "NODE_OPTIONS='--preserve-symlinks' tsx src/scripts/charge-due-and-past-due-invoices.ts",
     "report-daily-payments": "NODE_OPTIONS='--preserve-symlinks' tsx src/scripts/report-daily-payments.ts",

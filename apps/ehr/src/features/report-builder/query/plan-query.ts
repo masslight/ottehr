@@ -31,8 +31,8 @@ export async function fetchPlanData(
   return { data: await runAdHocReport<FetchedPlanData>(oystehr, input), fellBack: mode === 'direct' };
 }
 
-// A direct answer carries the resources inline, or as a Z3 url when they were too large for one response.
-async function withResources(output: RunFetchPlanOutput): Promise<FetchedPlanData> {
+/** A direct answer carries the resources inline, or as a Z3 url when they were too large for one response. */
+export async function withResources(output: RunFetchPlanOutput): Promise<FetchedPlanData> {
   if (output.resources) return output as FetchedPlanData;
   if (!output.downloadUrl) throw new Error('The report returned neither data nor a download url');
   return { ...output, resources: await downloadReportData<Record<string, FhirResource[]>>(output.downloadUrl) };

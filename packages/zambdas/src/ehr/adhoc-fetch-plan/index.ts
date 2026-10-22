@@ -5,7 +5,7 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { RunFetchPlanOutput, RunFetchPlanOutputSchema } from 'utils/lib/types/adhoc/plan/fetch-plan';
 import { AD_HOC_REPORT_VIEW_ROLES } from 'utils/lib/types/api/adhoc-report-access';
-import { runFetchPlan } from '../../shared/adhoc-fetch-plan';
+import { INLINE_RESPONSE_LIMIT_BYTES, runFetchPlan } from '../../shared/adhoc-fetch-plan';
 import { uploadAdHocReportDataToZ3 } from '../../shared/adhoc-report';
 import { checkOrCreateM2MClientToken, getUserToken, requireUserWithRole } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
@@ -15,9 +15,6 @@ import { validateOutputWithSchema } from '../../shared/validate-zod';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'adhoc-fetch-plan';
-
-// Lambda responses are capped at 6 MB; anything bigger goes through a Z3 file like today's reports.
-const INLINE_RESPONSE_LIMIT_BYTES = 5 * 1024 * 1024;
 
 let m2mToken: string;
 

@@ -33,10 +33,10 @@ import {
   AD_HOC_REPORT_MODELS,
   AdHocReportModel,
 } from 'utils/lib/types/adhoc/generation/generate.types';
-import { AdHocDateRangeFilter } from 'utils/lib/types/adhoc/query/date-range';
 import { getLlmModelVariantLabel } from 'utils/lib/types/api/ai-models.constants';
 import PageContainer from '../../../layout/PageContainer';
 import { ReportFrame } from '../sandbox/ReportFrame';
+import { AdHocDateRangePicker } from './AdHocDateRangePicker';
 import { AllDatasetsInfo, DatasetLayersInfo } from './DatasetLayersInfo';
 import { RawDataGrid } from './RawDataGrid';
 import { useReportBuilder } from './useReportBuilder';
@@ -91,58 +91,16 @@ export default function ReportBuilderPage(): React.ReactElement {
           <Box sx={{ mb: 3, display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
             {/* A report without a date range (one patient's history) does not ask for one. */}
             {rb.needsDateRange && (
-              <FormControl size="small" sx={{ minWidth: 200 }}>
-                <InputLabel id="adhoc-date-range-label">Date Range</InputLabel>
-                <Select
-                  labelId="adhoc-date-range-label"
-                  id="adhoc-date-range"
-                  value={rb.dateRange}
-                  label="Date Range"
-                  onChange={(e: SelectChangeEvent<AdHocDateRangeFilter>) =>
-                    rb.setDateRange(e.target.value as AdHocDateRangeFilter)
-                  }
-                >
-                  <MenuItem value="today">Today</MenuItem>
-                  <MenuItem value="yesterday">Yesterday</MenuItem>
-                  <MenuItem value="last-7-days">Last 7 Days</MenuItem>
-                  <MenuItem value="last-30-days">Last 30 Days</MenuItem>
-                  <MenuItem value="custom">Custom Date</MenuItem>
-                  <MenuItem value="customRange">Custom Date Range</MenuItem>
-                </Select>
-              </FormControl>
-            )}
-
-            {rb.needsDateRange && rb.dateRange === 'custom' && (
-              <TextField
-                type="date"
-                size="small"
-                value={rb.customDate}
-                onChange={(e) => rb.setCustomDate(e.target.value)}
-                sx={{ minWidth: 160 }}
-                InputLabelProps={{ shrink: true }}
+              <AdHocDateRangePicker
+                dateRange={rb.dateRange}
+                customDate={rb.customDate}
+                customStartDate={rb.customStartDate}
+                customEndDate={rb.customEndDate}
+                setDateRange={rb.setDateRange}
+                setCustomDate={rb.setCustomDate}
+                setCustomStartDate={rb.setCustomStartDate}
+                setCustomEndDate={rb.setCustomEndDate}
               />
-            )}
-            {rb.needsDateRange && rb.dateRange === 'customRange' && (
-              <>
-                <TextField
-                  type="date"
-                  size="small"
-                  label="Start"
-                  value={rb.customStartDate}
-                  onChange={(e) => rb.setCustomStartDate(e.target.value)}
-                  sx={{ minWidth: 160 }}
-                  InputLabelProps={{ shrink: true }}
-                />
-                <TextField
-                  type="date"
-                  size="small"
-                  label="End"
-                  value={rb.customEndDate}
-                  onChange={(e) => rb.setCustomEndDate(e.target.value)}
-                  sx={{ minWidth: 160 }}
-                  InputLabelProps={{ shrink: true }}
-                />
-              </>
             )}
 
             {/* A per-patient plan takes the patient from the screen that opened the builder, or from here. */}

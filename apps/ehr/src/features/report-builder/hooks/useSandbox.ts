@@ -9,6 +9,7 @@ import { AdHocRow, LlmDatasetSchema } from 'utils/lib/types/adhoc/datasets/llm-s
 import { PlanReportParams, PlanReportResources } from 'utils/lib/types/adhoc/plan/report-scope';
 import { AdHocFrameEventSchema } from 'utils/lib/types/adhoc/sandbox/events';
 import { showAdHocDebugLog } from '../debug';
+import { downloadCsv } from './frame-events';
 import { hrefForOpenLink } from './links';
 
 const CSP = [
@@ -152,15 +153,7 @@ export function useSandbox({
       if (href) window.open(`${window.location.origin}${href}`, '_blank', 'noopener');
       else showAdHocDebugLog('sandbox', 'openLink rejected by the SPA whitelist', event.options);
     } else if (event.event === 'exportData') {
-      const url = URL.createObjectURL(new Blob([event.csv], { type: 'text/csv;charset=utf-8;' }));
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = event.filename;
-      a.rel = 'noopener';
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 0);
+      downloadCsv(event.filename, event.csv);
     }
   }, []);
 

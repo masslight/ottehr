@@ -42,6 +42,9 @@ import {
 } from './adhoc-report';
 import { fetchAllPages } from './fhir';
 
+// Lambda responses are capped at 6 MB; anything bigger goes through a Z3 file like today's reports.
+export const INLINE_RESPONSE_LIMIT_BYTES = 5 * 1024 * 1024;
+
 export interface FetchPlanResult {
   resources: Record<string, FhirResource[]>;
   stats: FetchStepStats[];

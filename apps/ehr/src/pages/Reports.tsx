@@ -32,10 +32,12 @@ import { captureException } from '@sentry/react';
 import { enqueueSnackbar } from 'notistack';
 import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { planNeedsPatient } from 'utils/lib/types/adhoc/plan/fetch-plan';
 import { SavedAdHocReport } from 'utils/lib/types/adhoc/saved/saved.types';
+import { SystemReport } from 'utils/lib/types/adhoc/system/system-report';
 import { AD_HOC_REPORT_EDIT_ROLES, AD_HOC_REPORT_VIEW_ROLES } from 'utils/lib/types/api/adhoc-report-access';
 import { RoleType } from 'utils/lib/types/api/user.types';
-import { deleteAdHocReport, listAdHocReports, saveAdHocReport } from '../api/api';
+import { deleteAdHocReport, listAdHocReports, listSystemReports, saveAdHocReport } from '../api/api';
 import { useApiClients } from '../hooks/useAppClients';
 import useEvolveUser from '../hooks/useEvolveUser';
 import PageContainer from '../layout/PageContainer';
@@ -113,18 +115,24 @@ function ReportTile({ title, description, icon, onClick }: ReportTileProps): Rea
   );
 }
 
+// A saved ad-hoc report's tile, or a system report's (no edit / delete).
 function SavedReportTile({
-  report,
+  name,
+  description,
+  summary,
   canManage,
   onOpen,
   onRename,
   onDelete,
 }: {
-  report: SavedAdHocReport;
+  name: string;
+  description?: string;
+  /** Shown in place of a missing description. */
+  summary: string;
   canManage: boolean;
   onOpen: () => void;
-  onRename: () => void;
-  onDelete: () => void;
+  onRename?: () => void;
+  onDelete?: () => void;
 }): React.ReactElement {
   const theme = useTheme();
   return (
@@ -146,7 +154,7 @@ function SavedReportTile({
               size="small"
               onClick={(e) => {
                 e.stopPropagation();
-                onRename();
+                onRename?.();
               }}
             >
               <EditIcon fontSize="small" />
@@ -157,7 +165,7 @@ function SavedReportTile({
               size="small"
               onClick={(e) => {
                 e.stopPropagation();
-                onDelete();
+                onDelete?.();
               }}
             >
               <DeleteOutlineIcon fontSize="small" />
@@ -189,13 +197,13 @@ function SavedReportTile({
         >
           {/* `pr` clears the edit/delete icon buttons pinned to the top-right corner. */}
           <Typography variant="h6" component="h2" fontWeight={600} color="primary.dark" sx={{ pr: 6, lineHeight: 1.3 }}>
-            {report.name}
+            {name}
           </Typography>
-          {report.description ? (
+          {description ? (
             <Typography
               variant="body1"
               color="text.secondary"
-              title={report.description}
+              title={description}
               sx={{
                 lineHeight: 1.5,
                 display: '-webkit-box',
@@ -205,11 +213,11 @@ function SavedReportTile({
                 textOverflow: 'ellipsis',
               }}
             >
-              {report.description}
+              {description}
             </Typography>
           ) : (
             <Typography variant="body1" color="text.secondary" sx={{ lineHeight: 1.5, fontStyle: 'italic' }}>
-              {[report.title ?? report.datasetId ?? 'Report', report.criteria?.dateRange].filter(Boolean).join(' · ')}
+              {summary}
             </Typography>
           )}
         </CardContent>
@@ -299,6 +307,8 @@ export default function Reports(): React.ReactElement {
   const [savedReports, setSavedReports] = useState<SavedAdHocReport[]>([]);
   const [loadingSaved, setLoadingSaved] = useState(false);
   const [savedError, setSavedError] = useState(false);
+  const [systemReports, setSystemReports] = useState<SystemReport[]>([]);
+  const [systemError, setSystemError] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<SavedAdHocReport | null>(null);
   const [renameTarget, setRenameTarget] = useState<SavedAdHocReport | null>(null);
   const [renameValue, setRenameValue] = useState('');
@@ -324,6 +334,33 @@ export default function Reports(): React.ReactElement {
   useEffect(() => {
     void refreshSaved();
   }, [refreshSaved]);
+
+  // The server lists only the system reports whose roles the user holds.
+  useEffect(() => {
+    if (!oystehrZambda) return;
+    let cancelled = false;
+    listSystemReports(oystehrZambda)
+      .then(({ reports }) => {
+        // Reports that need a patient or other inputs run from their in-chart place, not from here.
+        if (!cancelled) {
+          setSystemReports(
+            reports.filter(
+              (report) =>
+                !(report.plan && planNeedsPatient(report.plan)) && !report.inputs?.some((input) => input.required)
+            )
+          );
+        }
+      })
+      .catch((e) => {
+        if (cancelled) return;
+        console.error('Failed to load system reports', e);
+        captureException(e);
+        setSystemError(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [oystehrZambda]);
 
   const handleTileClick = (path: string): void => {
     navigate(path);
@@ -413,7 +450,11 @@ export default function Reports(): React.ReactElement {
                   {savedReports.map((report) => (
                     <Grid item xs={12} sm={6} md={4} lg={3} key={report.id}>
                       <SavedReportTile
-                        report={report}
+                        name={report.name}
+                        description={report.description}
+                        summary={[report.title ?? report.datasetId ?? 'Report', report.criteria?.dateRange]
+                          .filter(Boolean)
+                          .join(' · ')}
                         canManage={canEditAdHoc}
                         onOpen={() => navigate(`/reports/ad-hoc?saved=${encodeURIComponent(report.id)}`)}
                         onRename={() => {
@@ -427,6 +468,35 @@ export default function Reports(): React.ReactElement {
                   ))}
                 </Grid>
               )}
+            </Box>
+          )}
+
+          {(systemReports.length > 0 || systemError) && (
+            <Box sx={{ mt: 5 }}>
+              <Typography variant="h5" component="h2" gutterBottom color="primary.dark" fontWeight={600}>
+                System reports
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                Reports published for this practice. Each fetches fresh data when you open it.
+              </Typography>
+              {systemError && (
+                <Typography variant="body2" color="error" sx={{ mb: 2 }}>
+                  System reports could not be loaded. Refresh the page to try again.
+                </Typography>
+              )}
+              <Grid container spacing={3}>
+                {systemReports.map((report) => (
+                  <Grid item xs={12} sm={6} md={4} lg={3} key={report.id}>
+                    <SavedReportTile
+                      name={report.title ?? report.name}
+                      description={report.description}
+                      summary={report.name}
+                      canManage={false}
+                      onOpen={() => navigate(`/reports/system/${encodeURIComponent(report.id)}`)}
+                    />
+                  </Grid>
+                ))}
+              </Grid>
             </Box>
           )}
         </Box>

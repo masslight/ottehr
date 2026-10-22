@@ -28,6 +28,10 @@ export interface TableColumn {
   format?: ValueFormat | CellValue;
   /** Computes the cell from the whole row, for a column that is not a plain row field. */
   value?: CellValue;
+  /** Fixed width in px (the column no longer flexes). */
+  width?: number;
+  /** Minimum width in px when the column flexes (default 130). */
+  minWidth?: number;
 }
 
 type CellValue = (row: Record<string, unknown>) => unknown;
@@ -65,6 +69,12 @@ export interface TableProps {
   pageSize?: number;
   /** Called with the clicked row (e.g. to drive a drill-down). */
   onRowClick?: (row: Record<string, unknown>) => void;
+  /** Fields pinned to the left while the rest scroll (a flowsheet's measure column). */
+  pinned?: string[];
+  /** false hides the columns / filter / density / export toolbar. */
+  toolbar?: boolean;
+  /** false shows every row with no footer. */
+  pagination?: boolean;
 }
 
 // Reserved grid-row key; the underscored name keeps collisions with report fields implausible.
@@ -82,7 +92,17 @@ interface GridRow extends Record<string, unknown> {
 // sandboxed frame — the SPA never sees the table's DOM. Numeric columns are detected from the row
 // values (rows are already typed; no string re-parsing). A `links` entry turns a column's cells
 // into whitelisted navigation events via <Link>.
-export function Table({ rows, columns, links, title, pageSize = 25, onRowClick }: TableProps): React.ReactElement {
+export function Table({
+  rows,
+  columns,
+  links,
+  title,
+  pageSize = 25,
+  onRowClick,
+  pinned,
+  toolbar = true,
+  pagination = true,
+}: TableProps): React.ReactElement {
   const apiRef = useGridApiRef();
   const [exportTooLarge, setExportTooLarge] = useState(false);
   const linkByField = useMemo(() => {
@@ -122,8 +142,7 @@ export function Table({ rows, columns, links, title, pageSize = 25, onRowClick }
       return {
         field,
         headerName: cfg?.label ?? field,
-        flex: 1,
-        minWidth: 130,
+        ...(cfg?.width ? { width: cfg.width } : { flex: 1, minWidth: cfg?.minWidth ?? 130 }),
         sortable: true,
         type: numeric ? 'number' : 'string',
         ...(numeric ? { headerAlign: 'right' as const, align: 'right' as const } : {}),
@@ -132,9 +151,15 @@ export function Table({ rows, columns, links, title, pageSize = 25, onRowClick }
               valueGetter: (params: GridValueGetterParams) => cellValue(field, params.row),
               valueFormatter: ({ value }: GridValueFormatterParams) => exactNumberText(value),
             }
-          : { valueGetter: (params: GridValueGetterParams) => cellText(cellValue(field, params.row)) }),
+          : {
+              valueGetter: (params: GridValueGetterParams) => {
+                const value = cellValue(field, params.row);
+                return React.isValidElement(value) ? '' : cellText(value);
+              },
+            }),
         renderCell: (params: GridRenderCellParams) => {
           const raw = cellValue(field, params.row);
+          // A cell built as an element (a coloured flag, a hover title) renders as it is.
           if (React.isValidElement(raw)) return raw;
           const display = namedFormat ? formatValue(raw, namedFormat) : cellText(raw);
           if (link) {
@@ -225,10 +250,14 @@ export function Table({ rows, columns, links, title, pageSize = 25, onRowClick }
           getRowId={(r) => (r as GridRow)[ROW_ID_KEY]}
           columns={gridColumns}
           rows={gridRows}
-          initialState={{ pagination: { paginationModel: { pageSize } } }}
-          pagination
+          initialState={{
+            pagination: { paginationModel: { pageSize } },
+            ...(pinned ? { pinnedColumns: { left: pinned } } : {}),
+          }}
+          pagination={pagination}
+          hideFooter={!pagination}
           pageSizeOptions={[10, 25, 50, 100]}
-          slots={{ toolbar: Toolbar }}
+          slots={toolbar ? { toolbar: Toolbar } : {}}
           disableRowSelectionOnClick
           onRowClick={onRowClick ? (params) => onRowClick(params.row as Record<string, unknown>) : undefined}
           sx={{

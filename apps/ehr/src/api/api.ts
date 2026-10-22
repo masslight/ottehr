@@ -18,6 +18,11 @@ import {
   SaveAdHocReportOutput,
 } from 'utils/lib/types/adhoc/saved/saved.types';
 import {
+  ListSystemReportsOutput,
+  RunSystemReportInput,
+  RunSystemReportOutput,
+} from 'utils/lib/types/adhoc/system/system-report';
+import {
   GetActionLogsInput,
   GetActionLogsOutput,
   RetryActionLogInput,
@@ -436,6 +441,8 @@ const ADHOC_FETCH_PLAN_ZAMBDA_ID = 'adhoc-fetch-plan';
 const SAVE_ADHOC_REPORT_ZAMBDA_ID = 'save-adhoc-report';
 const LIST_ADHOC_REPORTS_ZAMBDA_ID = 'list-adhoc-reports';
 const DELETE_ADHOC_REPORT_ZAMBDA_ID = 'delete-adhoc-report';
+const LIST_SYSTEM_REPORTS_ZAMBDA_ID = 'list-system-reports';
+const RUN_SYSTEM_REPORT_ZAMBDA_ID = 'run-system-report';
 const MAILED_STATEMENTS_REPORT_ZAMBDA_ID = 'mailed-statements-report';
 const SYNC_MAILED_STATEMENT_STATUSES_ZAMBDA_ID = 'sync-mailed-statement-statuses';
 const AI_ASSISTED_ENCOUNTERS_REPORT_ZAMBDA_ID = 'ai-assisted-encounters-report';
@@ -791,6 +798,32 @@ export const deleteAdHocReport = async (
   try {
     const response = await oystehr.zambda.execute({
       id: DELETE_ADHOC_REPORT_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const listSystemReports = async (oystehr: Oystehr): Promise<ListSystemReportsOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({ id: LIST_SYSTEM_REPORTS_ZAMBDA_ID });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const runSystemReport = async (
+  oystehr: Oystehr,
+  parameters: RunSystemReportInput
+): Promise<RunSystemReportOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: RUN_SYSTEM_REPORT_ZAMBDA_ID,
       ...parameters,
     });
     return chooseJson(response);

@@ -119,7 +119,7 @@ export const REPORT_COMPONENTS = {
   Section: {
     props: 'title="Heading"',
     children: '…',
-    summary: 'a titled block; structure the report with these.',
+    summary: 'a titled, collapsible card (open by default); structure the report with these.',
   },
   Kpi: {
     props: 'label="Total visits" value={n} format="integer"',
@@ -155,8 +155,9 @@ export const REPORT_COMPONENTS = {
   },
   Table: {
     props:
-      'rows={rowsArray} columns={[{ field, label?, format?, value? }]} links={[{ field, route, idField? }]} ' +
-      'title="…" pageSize={25} onRowClick={fn?}',
+      'rows={rowsArray} columns={[{ field, label?, format?, value?, width?, minWidth? }]} ' +
+      'links={[{ field, route, idField? }]} title="…" pageSize={25} onRowClick={fn?} pinned={["field"]} ' +
+      'toolbar={false} pagination={false}',
     summary:
       'a FULL interactive data grid (sorting, filtering, a column picker, pagination) rendered inside the frame.',
     rules: [
@@ -167,6 +168,8 @@ export const REPORT_COMPONENTS = {
       'A cell value that is an array or an object is rendered readably (joined, "key: value"), so a nested ' +
         'record does not have to be flattened first.',
       'NEVER render a raw HTML <table>; always use Report.Table.',
+      'pinned keeps those columns fixed on the left while the rest scroll (a flowsheet: pin the row-label column and ' +
+        'give it width / minWidth); toolbar={false} and pagination={false} make a plain full table.',
       'onRowClick gives the clicked row (for drill-down — see PATTERNS).',
       {
         text: 'LINKS make records navigable; the app owns the URL — you only name a route + id:',

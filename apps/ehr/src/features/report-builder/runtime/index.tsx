@@ -12,7 +12,6 @@ import { createRoot, Root } from 'react-dom/client';
 import type { AdHocRow, LlmDatasetSchema } from 'utils/lib/types/adhoc/datasets/llm-schema';
 // Deep imports: keep the whole utils barrel (and zod) out of the iframe bundle.
 import {
-  noComponentReturnedError,
   RUNTIME_SCOPE_PARAM_NAMES,
   RuntimeScopeParamName,
 } from 'utils/lib/types/adhoc/generation/runtime-scope.catalog';
@@ -23,6 +22,7 @@ import {
   PlanReportResources,
 } from 'utils/lib/types/adhoc/plan/report-scope';
 import { helpers } from 'utils/lib/types/adhoc/runtime/helpers';
+import { describeReportError, renderReportCode } from './compile';
 import { ErrorBoundary } from './ErrorBoundary';
 import { measureHeight, sendLifecycle } from './messaging';
 import { MUI, Report } from './scope';
@@ -43,37 +43,6 @@ const theme = createTheme({
   palette: { primary: { main: '#0f347c' } },
   typography: { fontFamily: 'Roboto, -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif' },
 });
-
-// The generated body must `return` a component (preferred) or an element. The injected scope is ALSO
-// handed to the root as props: the contract is that it reads `data`/`schema` from the enclosing
-// scope, but a model that slips and writes `function ReportRoot({ data })` would otherwise render a
-// silently EMPTY report instead of a working one.
-function toElement(returned: unknown, scope: Record<string, unknown>, code: string): React.ReactElement {
-  if (typeof returned === 'function') {
-    return React.createElement(returned as React.ComponentType<Record<string, unknown>>, { ...scope });
-  }
-  if (React.isValidElement(returned)) return returned;
-  throw new Error(noComponentReturnedError(code));
-}
-
-// Run the body via indirect eval named "report-code.js" so a thrown error's stack points into the
-// report code. sucrase (the bundled transpiler) preserves line numbers, so stack line − offset maps
-// back to the model's own JSX for the repair prompt — no source-map lib needed.
-const REPORT_CODE_URL = 'report-code.js';
-const REPORT_BODY_LINE_OFFSET = 1; // line 1 is the wrapper `(function (…) {`; the body starts at line 2
-const MAX_ERROR_LENGTH = 600;
-
-type ReportFactory = (...args: unknown[]) => unknown;
-
-function compileReport(body: string, paramNames: readonly string[]): ReportFactory {
-  // The wrapper names exactly the scope's parameters (transpileReportJsx slices its own wrapper back
-  // off), so only those names are in scope for the generated code. Indirect eval runs in global
-  // scope (no app closures leak in), same isolation as new Function; the trailing sourceURL names
-  // the script for stack traces.
-  const wrapped = `(function (${paramNames.join(', ')}) {\n${body}\n})\n//# sourceURL=${REPORT_CODE_URL}`;
-
-  return (0, eval)(wrapped) as ReportFactory;
-}
 
 // The values behind the injected parameter names. Exhaustive by type: a parameter added to the
 // catalog fails to compile here until the runtime supplies it, and the ORDER is the catalog's.
@@ -97,17 +66,6 @@ function planScopeValues(
     helpers,
     params: params ?? { timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone, totals: {} },
   };
-}
-
-// Turn a thrown value into a compact, model-actionable string: "Name: message (around line N of
-// your code)". Only the derived location is kept — never the raw multi-frame stack (noise, huge).
-function describeReportError(e: unknown): string {
-  if (!(e instanceof Error)) return String(e).slice(0, MAX_ERROR_LENGTH);
-  const match = typeof e.stack === 'string' ? e.stack.match(/report-code\.js:(\d+):\d+/) : null;
-  const line = match ? Number(match[1]) - REPORT_BODY_LINE_OFFSET : null;
-  const base = e.message ? `${e.name}: ${e.message}` : e.name;
-  const located = line && line >= 1 ? `${base} (around line ${line} of your code)` : base;
-  return located.slice(0, MAX_ERROR_LENGTH);
 }
 
 // Runs the post-commit check after React commits the report tree (children's effects — chart inits
@@ -186,9 +144,7 @@ function start(): void {
       const scope: Record<string, unknown> = msg.resources
         ? planScopeValues(msg.resources, msg.params)
         : scopeValues(msg.data, msg.schema);
-      const factory = compileReport(transpiled.code, paramNames);
-      const returned: unknown = factory(...paramNames.map((name) => scope[name]));
-      const element = toElement(returned, scope, msg.code);
+      const element = renderReportCode(transpiled.code, paramNames, scope);
 
       renderSeq += 1;
       hasRendered = false;

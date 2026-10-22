@@ -39,9 +39,9 @@ export function inputsForPlan(plan: FetchPlan, controls: DateRangeControls): Sav
   return inputs;
 }
 
-/** The picker setting a saved report's dateRange input starts on; undefined when it declares none it can read. */
-export function controlsFromInputs(
-  inputs: SavedAdHocReportInput[] | undefined
+/** The picker setting a report's dateRange input starts on; undefined when it declares none it can read. */
+export function controlsFromInputs<T extends { kind: string; default?: unknown }>(
+  inputs: T[] | undefined
 ): Partial<DateRangeControls> | undefined {
   const input = inputs?.find((i) => i.kind === 'dateRange');
   const parsed = input ? DateRangeInputDefaultSchema.safeParse(input.default) : undefined;

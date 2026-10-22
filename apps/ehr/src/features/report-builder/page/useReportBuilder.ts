@@ -41,6 +41,7 @@ import { toLocalYmd } from '../query/dataset-query';
 import { runAdHocReportGeneration } from '../query/generation-query';
 import { controlsFromInputs, DateRangeControls, inputsForPlan } from '../query/plan-inputs';
 import { FetchedPlanData, fetchPlanData } from '../query/plan-query';
+import { rangeFromControls } from './AdHocDateRangePicker';
 
 // How many times to transparently regenerate after a runtime error, or after the server rejected a search of
 // the plan, before surfacing it to the user. 1 initial generation + up to 2 repairs.
@@ -63,38 +64,6 @@ export interface UnavailableRequest {
 export interface MultiDatasetRequest {
   datasets: string[];
   hint?: string;
-}
-
-function rangeFromControls(
-  filter: AdHocDateRangeFilter,
-  customDate: string,
-  customStartDate: string,
-  customEndDate: string
-): { start: string; end: string } {
-  const today = DateTime.now().setZone('America/New_York').startOf('day');
-  switch (filter) {
-    case 'today':
-      return { start: today.toISO() ?? '', end: today.endOf('day').toISO() ?? '' };
-    case 'yesterday': {
-      const y = today.minus({ days: 1 });
-      return { start: y.toISO() ?? '', end: y.endOf('day').toISO() ?? '' };
-    }
-    case 'last-7-days':
-      return { start: today.minus({ days: 6 }).toISO() ?? '', end: today.endOf('day').toISO() ?? '' };
-    case 'last-30-days':
-      return { start: today.minus({ days: 29 }).toISO() ?? '', end: today.endOf('day').toISO() ?? '' };
-    case 'custom': {
-      const d = DateTime.fromISO(customDate).setZone('America/New_York');
-      return { start: d.startOf('day').toISO() ?? '', end: d.endOf('day').toISO() ?? '' };
-    }
-    case 'customRange': {
-      const s = DateTime.fromISO(customStartDate).setZone('America/New_York');
-      const e = DateTime.fromISO(customEndDate).setZone('America/New_York');
-      return { start: s.startOf('day').toISO() ?? '', end: e.endOf('day').toISO() ?? '' };
-    }
-    default:
-      return { start: today.toISO() ?? '', end: today.endOf('day').toISO() ?? '' };
-  }
 }
 
 function schemaDateRange(range: { start: string; end: string }): LlmDatasetSchema['dateRange'] {
