@@ -1,12 +1,15 @@
 import Oystehr from '@oystehr/sdk';
 import { Task } from 'fhir/r4b';
 import { RcmTaskCodings } from 'utils/lib/fhir/constants';
+import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { describe, expect, it, vi } from 'vitest';
 import {
   OUTREACH_ACTION_TYPE_SYSTEM,
   OUTREACH_TASK_TAG_SYSTEM,
 } from '../../src/rcm/scheduled-outreach/producers/shared/produce-outreach-tasks';
+import { ZambdaInput } from '../../src/shared/types/common';
 import { isBillingTask, performEffect } from '../../src/subscriptions/task/sub-billing-task-history';
+import { validateRequestParameters } from '../../src/subscriptions/task/sub-billing-task-history/validateRequestParameters';
 
 const outreachTask = (action: string, triggerEvent: string): Task => ({
   resourceType: 'Task',
@@ -62,6 +65,30 @@ const makeOystehr = (history: Task[]): { oystehr: Oystehr; execute: ReturnType<t
     execute,
   };
 };
+
+describe('sub-billing-task-history validateRequestParameters', () => {
+  const input = (body: object): ZambdaInput =>
+    ({
+      body: JSON.stringify(body),
+      secrets: {},
+    }) as unknown as ZambdaInput;
+
+  it('takes the Task version the subscription delivered', () => {
+    const task = version('2', '2026-10-02T00:00:00Z', 'in-progress');
+
+    expect(validateRequestParameters(input(task)).task).toEqual(task);
+  });
+
+  it('refuses a Task without a version, which the billing app could not record once', () => {
+    const { meta: _meta, ...unversioned } = version('2', '2026-10-02T00:00:00Z', 'in-progress');
+
+    expect(() => validateRequestParameters(input(unversioned))).toThrow(
+      expect.objectContaining({
+        code: INVALID_INPUT_ERROR('').code,
+      })
+    );
+  });
+});
 
 describe('sub-billing-task-history isBillingTask', () => {
   it.each([

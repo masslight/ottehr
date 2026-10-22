@@ -898,7 +898,7 @@ export const RecordBillingVoidInputSchema = z.object({
 });
 
 // a version of a Task as the clinical subscription read it
-const taskVersionSchema = z.custom<Task>(
+export const TaskVersionSchema = z.custom<Task>(
   (value) => {
     const task = value as Partial<Task> | undefined;
     return task?.resourceType === 'Task' && !!task.id && !!task.meta?.versionId;
@@ -909,8 +909,8 @@ const taskVersionSchema = z.custom<Task>(
 );
 
 export const RecordBillingTaskHistoryInputSchema = z.object({
-  task: taskVersionSchema,
-  previousTask: taskVersionSchema.optional(),
+  task: TaskVersionSchema,
+  previousTask: TaskVersionSchema.optional(),
 });
 
 export const AddClaimAttachmentInputSchema = z.object({

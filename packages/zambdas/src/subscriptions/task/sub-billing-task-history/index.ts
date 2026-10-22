@@ -5,7 +5,7 @@ import {
   OUTREACH_ACTION_TYPE_SYSTEM,
   OUTREACH_TASK_TAG_SYSTEM,
 } from '../../../rcm/scheduled-outreach/producers/shared/produce-outreach-tasks';
-import { TriggerEvent } from '../../../rcm/scheduled-outreach-config/helpers';
+import { ActionType, TriggerEvent } from '../../../rcm/scheduled-outreach-config/helpers';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { shouldUseOttehrBilling } from '../../../shared/candid';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
@@ -48,7 +48,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 });
 
 // Outreach also sends birthday greetings and visit follow-ups, which are not part of a claim.
-const BILLING_OUTREACH_ACTIONS = ['charge-card', 'refer-to-collections'];
+const BILLING_OUTREACH_ACTIONS: ActionType[] = ['charge-card', 'refer-to-collections'];
 const BILLING_OUTREACH_TRIGGERS: TriggerEvent[] = ['invoice-issued', 'invoice-due'];
 
 export function isBillingTask(task: Task): boolean {
@@ -56,7 +56,7 @@ export function isBillingTask(task: Task): boolean {
   if (!outreachAction) return true;
   const trigger = task.meta?.tag?.find((tag) => tag.system === OUTREACH_TASK_TAG_SYSTEM)?.code;
   return (
-    BILLING_OUTREACH_ACTIONS.includes(outreachAction) ||
+    BILLING_OUTREACH_ACTIONS.some((action) => action === outreachAction) ||
     BILLING_OUTREACH_TRIGGERS.some((triggerEvent) => triggerEvent === trigger)
   );
 }
