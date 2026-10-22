@@ -477,7 +477,7 @@ const InHouseLabPlansList: React.FC<{ plans: TemplateInHouseLabPlanDetail[] }> =
 );
 
 // Each external lab plan renders the test + lab combo with the saved ordering
-// details (Dx chips, PSC chip, clinical info note) underneath. Plans whose
+// details (Dx chips, PSC and stat chips, clinical info note) underneath. Plans whose
 // test no longer resolves in the lab's compendium render muted so the
 // provider knows they'll be skipped at apply-time. The ordering office and
 // the (required) payment method selector live in the card's expanded
@@ -499,6 +499,7 @@ const ExternalLabPlansList: React.FC<{
         </Typography>
         <Stack direction="row" flexWrap="wrap" gap={0.5} sx={{ mt: 0.5 }}>
           {plan.psc ? <Chip size="small" color="primary" variant="outlined" label="PSC Hold" /> : null}
+          {plan.isStat ? <Chip size="small" color="primary" variant="outlined" label="Stat" /> : null}
           {plan.diagnoses.map((d, idx) => (
             <Chip
               key={`${plan.planId}-dx-${idx}`}

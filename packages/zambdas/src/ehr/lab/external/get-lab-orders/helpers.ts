@@ -261,6 +261,7 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
     orderStatus: orderStatus,
     visitDate: parseVisitDate(appointment),
     isPSC: parseIsPSC(serviceRequest),
+    isStat: serviceRequest.priority === 'stat',
     diagnosesDTO: parseDiagnoses(serviceRequest),
     orderingPhysician: parsePractitionerNameFromServiceRequest(serviceRequest, practitioners),
     diagnoses: parseDx(serviceRequest),
