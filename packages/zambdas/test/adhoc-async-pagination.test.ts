@@ -75,7 +75,7 @@ describe('async-bulk search (via fetchAppointmentReportResources)', () => {
   it('splits a long range into windows and returns each resource once', async () => {
     // Bulk lifts the limit on how much the server may send, not on the query it has to run: a
     // six-month range failed the job itself, so the range is searched window by window.
-    const dateRange = { start: '2026-01-01T00:00:00.000Z', end: '2026-01-10T00:00:00.000Z' };
+    const dateRange = { start: '2026-01-01T00:00:00.000Z', end: '2026-02-15T00:00:00.000Z' };
     const resources = await fetchAppointmentReportResources<FhirResource>(fakeOystehr, { dateRange });
 
     const bounds = Array.from(
@@ -85,11 +85,11 @@ describe('async-bulk search (via fetchAppointmentReportResources)', () => {
           .map((p) => p.value)
       )
     ).sort();
-    // Nine days in windows of three.
+    // Forty-five days in windows of fifteen (REPORT_WINDOW_DAYS).
     expect(bounds).toHaveLength(3);
     // Windows start where the previous one ended, and the last one stops at the requested end.
     expect(bounds[0]).toContain('2026-01-01');
-    expect(bounds.some((b) => b.includes('2026-01-10'))).toBe(false);
+    expect(bounds.some((b) => b.includes('2026-02-15'))).toBe(false);
 
     // The fake serves the same ids for every window; a resource must not be reported twice.
     const appointments = resources.filter((r) => r.resourceType === 'Appointment');

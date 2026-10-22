@@ -162,6 +162,12 @@ function assertBulkJobUnderCap(label: string, resourceType: string, primary: num
   }
 }
 
+// TEMPORARY WORKAROUND: Oystehr cuts every database query off at 30 s (postgres role zapehr_api, statement_timeout) and
+// a bulk job whose query runs over answers only "status 400, Internal Error", indistinguishable from a bad search. Bad
+// searches are caught before the job by the one-row probe (probeSearch), so a failed job is taken as too heavy and
+// halved like a 504. Remove when Oystehr reports the timeout as a timeout and allows longer async queries (OYST-3513).
+class AsyncBulkJobFailedError extends Error {}
+
 export async function searchAsyncBulk<T extends FhirResource>(
   oystehr: Oystehr,
   resourceType: T['resourceType'],
@@ -177,7 +183,9 @@ export async function searchAsyncBulk<T extends FhirResource>(
     jobId = handle.jobId;
     const status = await oystehr.fhir.waitForAsyncJob<T>(jobId, jobWait());
     if (status.status !== 200 || !('mode' in status) || status.mode !== 'bulk') {
-      throw new Error(`job answered status ${status.status}, mode ${'mode' in status ? status.mode : 'none'}`);
+      throw new AsyncBulkJobFailedError(
+        `job answered status ${status.status}, mode ${'mode' in status ? status.mode : 'none'}`
+      );
     }
 
     const files = await Promise.all(
@@ -214,18 +222,24 @@ export async function searchAsyncBulk<T extends FhirResource>(
           error instanceof Error ? error.message : String(error)
         }`
       ),
-      { code: (error as { code?: unknown })?.code }
+      { code: (error as { code?: unknown })?.code, jobFailed: error instanceof AsyncBulkJobFailedError }
     );
   }
 }
 
 /**
- * A search the server could not finish: cut off at 14 s (HTTP 504) or answering more than 6 MiB (HTTP 413, code
- * 4130). The SDK puts the body's code, else the HTTP status, on the error's `code`.
+ * A search the server could not finish: cut off at 14 s (HTTP 504), answering more than 6 MiB (HTTP 413, code
+ * 4130), or a bulk job that failed (see AsyncBulkJobFailedError). The SDK puts the body's code, else the HTTP status,
+ * on the error's `code`.
  */
 export const isSearchTooHeavyError = (error: unknown): boolean => {
   const code = Number((error as { code?: unknown })?.code);
-  return code === 504 || code === 413 || isResponseSizeExceededError(error);
+  return (
+    code === 504 ||
+    code === 413 ||
+    isResponseSizeExceededError(error) ||
+    !!(error as { jobFailed?: boolean })?.jobFailed
+  );
 };
 
 /** A search the server refused as written (HTTP 400 / 422): an unknown parameter, an invalid _include, a chain without a type. */
@@ -248,6 +262,9 @@ export interface SplitRetryOptions {
  * dropped matches, so its result is discarded and both halves are searched instead — down to a unit `split`
  * cannot halve (one day, one id), which fails rather than hand back a partial result. A failure `splitOn`
  * accepts is halved the same way, a bounded number of times.
+ *
+ * TEMPORARY WORKAROUND: the `splitOn` halve-and-retry stands in for a server timeout Oystehr does not report as one and
+ * goes away when it allows longer async queries (OYST-3513); the cap split goes with the next link (OYST-3505).
  */
 export async function searchSplittingOnCap<U, T extends FhirResource>(
   unit: U,
@@ -320,9 +337,14 @@ const REPORT_APPOINTMENT_STATUSES = 'proposed,pending,booked,arrived,fulfilled,c
 
 export const REPORT_ATTENDED_APPOINTMENT_STATUSES = 'proposed,pending,booked,arrived,fulfilled,checked-in,waitlist';
 
-// currently async bulk removes the limit on how much the server may SEND, not the limit on the query it has to RUN:
-const REPORT_WINDOW_DAYS = 3;
-const REPORT_WINDOW_CONCURRENCY = 4;
+// currently async bulk removes the limit on how much the server may SEND, not the limit on the query it has to RUN
+// (Oystehr cuts any query off at 30 s). Measured on practice B (production) 2026-10-16, 60 days (5,449 visits with their
+// patients, locations and 9,501 encounters; then 213,592 Observations of those encounters), runs alternated so cache
+// warmth favours neither: 3-day windows / 4 at a time / batches of 100 took 17.2–17.5 s + 78.7–80.9 s; 15-day windows /
+// 8 at a time / batches of 250 took 7.4–9.6 s + 24.6–27.3 s — the same records. A 15-day window of that visit search is
+// ~5,000 rows, a job well inside the limit.
+const REPORT_WINDOW_DAYS = 15;
+const REPORT_WINDOW_CONCURRENCY = 8;
 
 /** The range cut into windows of `windowMs` (the last one shorter), keeping the caller's own strings at its two ends; the range itself when it needs no cut. */
 export function dateWindows(dateRange: DateRange, windowMs = REPORT_WINDOW_DAYS * DAY_MS): DateRange[] {
@@ -369,7 +391,11 @@ export async function fetchAppointmentReportResources<T extends FhirResource>(
   const startedAt = Date.now();
 
   for (let i = 0; i < windows.length; i += REPORT_WINDOW_CONCURRENCY) {
-    const group = await Promise.all(windows.slice(i, i + REPORT_WINDOW_CONCURRENCY).map(searchWindow));
+    const group = await Promise.all(
+      windows
+        .slice(i, i + REPORT_WINDOW_CONCURRENCY)
+        .map((window) => searchSplittingOnCap(window, searchWindow, halveWindow))
+    );
     for (const resources of group) {
       for (const resource of resources) {
         // An included Patient or Location is shared between appointments in different windows.
@@ -415,7 +441,11 @@ export async function fetchOrdersByAuthoredDate<T extends FhirResource>(
   const startedAt = Date.now();
 
   for (let i = 0; i < windows.length; i += REPORT_WINDOW_CONCURRENCY) {
-    const group = await Promise.all(windows.slice(i, i + REPORT_WINDOW_CONCURRENCY).map(searchWindow));
+    const group = await Promise.all(
+      windows
+        .slice(i, i + REPORT_WINDOW_CONCURRENCY)
+        .map((window) => searchSplittingOnCap(window, searchWindow, halveWindow))
+    );
     for (const resource of group.flat()) {
       const key = `${resource.resourceType}/${resource.id}`;
       if (resource.id && seen.has(key)) continue;
@@ -455,22 +485,24 @@ async function fetchAttendingPractitioners<T extends FhirResource>(oystehr: Oyst
   ]);
 }
 
-const SCOPED_BATCH_SIZE = 100;
-const SCOPED_BATCH_CONCURRENCY = 4;
+// See REPORT_WINDOW_DAYS: 250 encounters' Observations is ~5,500 per job on a busy practice.
+const SCOPED_BATCH_SIZE = 250;
+const SCOPED_BATCH_CONCURRENCY = 8;
 
 export async function fetchScopedResources<T extends FhirResource>(
   oystehr: Oystehr,
   resourceType: T['resourceType'],
   paramName: string,
   values: string[],
-  extraParams: { name: string; value: string }[] = []
+  extraParams: { name: string; value: string }[] = [],
+  batchSize = SCOPED_BATCH_SIZE
 ): Promise<T[]> {
   if (values.length === 0) return [];
 
   const batches: string[][] = [];
 
-  for (let i = 0; i < values.length; i += SCOPED_BATCH_SIZE) {
-    batches.push(values.slice(i, i + SCOPED_BATCH_SIZE));
+  for (let i = 0; i < values.length; i += batchSize) {
+    batches.push(values.slice(i, i + batchSize));
   }
 
   const searchBatch = (batch: string[]): Promise<T[]> =>
@@ -479,7 +511,9 @@ export async function fetchScopedResources<T extends FhirResource>(
   const startedAt = Date.now();
   const out: T[] = [];
   for (let i = 0; i < batches.length; i += SCOPED_BATCH_CONCURRENCY) {
-    const group = await Promise.all(batches.slice(i, i + SCOPED_BATCH_CONCURRENCY).map(searchBatch));
+    const group = await Promise.all(
+      batches.slice(i, i + SCOPED_BATCH_CONCURRENCY).map((batch) => searchSplittingOnCap(batch, searchBatch, halveList))
+    );
     for (const resources of group) out.push(...resources);
   }
 
