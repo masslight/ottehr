@@ -306,8 +306,22 @@ const main = async (): Promise<void> => {
     console.log(`Metrics server listening on port ${METRICS_PORT}`);
   });
 
-  await pollOnce();
-  const interval = setInterval(pollOnce, POLL_INTERVAL_MS);
+  let polling = false;
+  const guardedPoll = async (): Promise<void> => {
+    if (polling) {
+      console.log('Previous poll cycle still running, skipping this tick');
+      return;
+    }
+    polling = true;
+    try {
+      await pollOnce();
+    } finally {
+      polling = false;
+    }
+  };
+
+  await guardedPoll();
+  const interval = setInterval(guardedPoll, POLL_INTERVAL_MS);
 
   const shutdown = (): void => {
     console.log('Shutting down...');
