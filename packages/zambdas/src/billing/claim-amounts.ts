@@ -13,7 +13,11 @@ import { CLAIM_STATUS_RESPONSE_EVENT_SYSTEM, PAYMENT_METHOD_EXTENSION_URL } from
 import { getContainedReconciliation } from 'utils/lib/fhir/payments';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { extractPayerIdFromUrl } from 'utils/lib/helpers/helpers';
-import { X12_ADJUSTMENT_GROUP_CODE, X12AdjustmentGroupCode } from 'utils/lib/types/data/billing/billing.constants';
+import {
+  ERA_VOID_STATUS,
+  X12_ADJUSTMENT_GROUP_CODE,
+  X12AdjustmentGroupCode,
+} from 'utils/lib/types/data/billing/billing.constants';
 import { ClaimPatientPayment, ClaimRemitAdjustment } from 'utils/lib/types/data/billing/billing.types';
 import { roundNumberToDecimalPlaces } from 'utils/lib/utils/convert';
 import { fetchAllPages } from '../shared/fhir';
@@ -341,7 +345,7 @@ function hasEraStatusCode(claimResponse: ClaimResponse): boolean {
 
 // Fetch every matched ClaimResponse for the given claims, grouped by claim id. Unmatched ERA
 // ClaimResponses never carry a Claim/{id} request reference, so this returns matched ones only.
-// Filters out non-ERA ClaimResponses created by claim submission.
+// Filters out non-ERA ClaimResponses created by claim submission, and the ones of voided ERAs.
 export async function fetchClaimResponsesByClaimIds(
   oystehr: Oystehr,
   claimIds: string[]
@@ -359,6 +363,10 @@ export async function fetchClaimResponsesByClaimIds(
       {
         name: 'outcome:not',
         value: 'error',
+      },
+      {
+        name: 'status:not',
+        value: ERA_VOID_STATUS,
       },
     ],
     groupKeyOf: (claimResponse) => claimResponse.request?.reference?.replace('Claim/', ''),

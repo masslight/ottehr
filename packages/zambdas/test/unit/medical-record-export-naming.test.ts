@@ -1,13 +1,8 @@
 import { Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { deriveFileName, resolveFileName, sanitizeArchiveEntryName } from 'utils/lib/utils/archive-entry-names';
 import { describe, expect, it } from 'vitest';
-import {
-  deriveFileName,
-  makeArchiveFileName,
-  nameAttachments,
-  resolveFileName,
-  sanitizeArchiveEntryName,
-} from '../../src/shared/medical-record-export/naming';
+import { makeArchiveFileName, nameAttachments } from '../../src/shared/medical-record-export/naming';
 import { PatientRecordAttachment } from '../../src/shared/patient-documents';
 
 describe('medical record archive entry names', () => {

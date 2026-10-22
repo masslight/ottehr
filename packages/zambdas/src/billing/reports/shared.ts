@@ -3,6 +3,7 @@ import { Claim, ClaimResponse, Location, Organization, PaymentReconciliation } f
 import { DateTime } from 'luxon';
 import Stripe from 'stripe';
 import { SCHEDULE_OWNER_STRIPE_ACCOUNT_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import { ERA_VOID_STATUS } from 'utils/lib/types/data/billing/billing.constants';
 import { isValidUUID } from 'utils/lib/validation/helper';
 import { stripeAccountIdRegex } from 'utils/lib/validation/regex';
 import { fetchAllPages } from '../../shared/fhir';
@@ -221,6 +222,7 @@ export async function fetchAllEras(eraReadClient: Oystehr): Promise<PaymentRecon
       const bundle = await eraReadClient.fhir.search<PaymentReconciliation>({
         resourceType: 'PaymentReconciliation',
         params: [
+          { name: 'status:not', value: ERA_VOID_STATUS },
           { name: '_count', value: String(count) },
           { name: '_offset', value: String(offset) },
         ],

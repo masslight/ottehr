@@ -152,6 +152,7 @@ const CodingFieldSentences: FC<Props> = ({
             <MultiBlank
               label="details"
               title="Details (optional)"
+              ghost
               options={checkboxes.map((field) => ({ value: field.key, label: field.label }))}
               values={chosen}
               onChange={(keys) =>

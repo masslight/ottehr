@@ -243,7 +243,6 @@ export const parseResultsToOrder = (
   let status: RadiologyOrderStatus | undefined;
 
   const finalReviewTask = findRadiologyFinalReviewTask(tasks, serviceRequest.id);
-  console.log('finalReviewTask found: ', finalReviewTask?.id);
   let formattedFinalReviewTask: OttehrTask | undefined;
 
   // Get all diagnostic reports related to this service request

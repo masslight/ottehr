@@ -148,6 +148,14 @@ export const dataTestIds = {
     sendButton: 'fax-dialog-send-button',
     cancelButton: 'fax-dialog-cancel-button',
   },
+  medicalRecordDateRangeDialog: {
+    root: 'medical-record-date-range-dialog',
+    fromInput: 'medical-record-date-range-from',
+    toInput: 'medical-record-date-range-to',
+    message: 'medical-record-date-range-message',
+    loadError: 'medical-record-date-range-load-error',
+    confirmButton: 'medical-record-date-range-confirm',
+  },
   faxResultDialog: {
     root: 'fax-result-dialog',
     failedRecipient: 'fax-result-failed-recipient',
@@ -617,6 +625,7 @@ export const dataTestIds = {
   },
   patientDocsPage: {
     faxDocumentButton: (documentId: string) => `fax-document-button-${documentId}`,
+    downloadSelectedDocumentsButton: 'download-selected-documents-button',
   },
   addInsuranceDialog: {
     id: 'add-insurance-dialog',

@@ -244,12 +244,6 @@ const withLabResultTasks = async (
   return { ...fetched, resources: [...fetched.resources, ...tasks] };
 };
 
-const countByResourceType = (resources: FhirResource[]): Record<string, number> =>
-  resources.reduce<Record<string, number>>((counts, resource) => {
-    counts[resource.resourceType] = (counts[resource.resourceType] ?? 0) + 1;
-    return counts;
-  }, {});
-
 /** Runs Step B. Whatever is still outstanding at `deadline` comes back in `failedUrls`. */
 export const fetchTrackingBoardResources = async ({
   oystehr,
@@ -266,19 +260,11 @@ export const fetchTrackingBoardResources = async ({
     return { resources: [], failedUrls: [] };
   }
 
-  const searches = buildTrackingBoardSearches(encounterIds);
-  const startedAt = Date.now();
-  const fetched = await executeBatchSearches(oystehr, searches, {
+  const fetched = await executeBatchSearches(oystehr, buildTrackingBoardSearches(encounterIds), {
     fhirApiUrl,
     maxEntriesPerBatch: TRACKING_BOARD_ENTRIES_PER_BATCH,
     deadline,
   });
-  console.log(
-    `tracking board batch: ${searches.length} entries for ${encounterIds.length} encounters in ${
-      Date.now() - startedAt
-    } ms`,
-    { failedEntries: fetched.failedUrls.length, resources: countByResourceType(fetched.resources) }
-  );
   return withLabResultTasks(oystehr, fetched, deadline);
 };
 

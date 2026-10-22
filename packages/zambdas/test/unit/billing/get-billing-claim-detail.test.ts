@@ -456,6 +456,26 @@ describe('get-billing-claim-detail performEffect: remits and insurance payments'
     expect(response.insurancePayments[0].payerName).toBe('Acme Health');
   });
 
+  it("names a remit's payer from its ERA's paymentIssuer over the ClaimResponse insurer a match stamped", async () => {
+    const CIGNA_REF = 'https://rcm-api.zapehr.com/v1/payer/cigna';
+    (resolvePayersByRef as Mock<typeof resolvePayersByRef>).mockResolvedValue(
+      new Map([
+        [PAYER_REF, { resourceType: 'Organization', id: 'org-acme', name: 'Acme Health' } as Organization],
+        [CIGNA_REF, { resourceType: 'Organization', id: 'org-cigna', name: 'Cigna' } as Organization],
+      ])
+    );
+    (fetchClaimEraLinks as Mock<typeof fetchClaimEraLinks>).mockResolvedValue({
+      paymentReconciliations: [{ ...era, paymentIssuer: { reference: CIGNA_REF } }],
+      paymentReconciliationIdByClaimResponseId: new Map([['cr-linked', 'payment-reconciliation-1']]),
+    });
+
+    const response = await run();
+
+    // cr-linked still carries the primary payer stamped by match-claim-response
+    expect(response.remits[1].payerName).toBe('Cigna');
+    expect(response.insurancePayments[0].payerName).toBe('Cigna');
+  });
+
   it("prefers the linked remit's insurer display over the EDI sender's when neither payer resolves", async () => {
     (resolvePayersByRef as Mock<typeof resolvePayersByRef>).mockResolvedValue(new Map());
     (fetchClaimResponsesByClaimIds as Mock<typeof fetchClaimResponsesByClaimIds>).mockResolvedValue(

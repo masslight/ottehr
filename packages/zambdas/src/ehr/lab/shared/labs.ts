@@ -1166,7 +1166,6 @@ export const parseAppointmentIdForServiceRequest = (
   serviceRequest: ServiceRequest,
   encounters: Encounter[]
 ): string | undefined => {
-  console.log('getting appointment id for service request', serviceRequest.id);
   const encounterId = serviceRequest.encounter?.reference?.split('/').pop();
   const NOT_FOUND = undefined;
 

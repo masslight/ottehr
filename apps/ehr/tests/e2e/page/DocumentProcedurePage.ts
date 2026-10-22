@@ -245,7 +245,7 @@ export class DocumentProcedurePage {
   async #verifyMultiselect(testId: string, expectedValues: string[]): Promise<void> {
     const blank = this.#page.getByTestId(testId);
     if (expectedValues.length === 0) {
-      await expect(blank).toHaveText(/^\+ /);
+      await expect(blank).toHaveAttribute('aria-label', /\(empty\)$/);
       return;
     }
     const values = expectedValues.map(expectedSentenceValue);
